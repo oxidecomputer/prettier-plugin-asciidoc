@@ -99,6 +99,139 @@ const adocLine = fc.oneof(
     fc.constant("<.> item"),
   ),
 
+  // IncludeDirective: `include::path[opts]`
+  fc
+    .tuple(
+      fc.stringMatching(/[A-Za-z][\w/.-]{0,20}/),
+      fc.string({ maxLength: 15 }),
+    )
+    .map(([path, opts]) => `include::${path}[${opts}]`),
+
+  // BlockMacro: `name::target[attrlist]`
+  fc
+    .tuple(
+      fc.constantFrom("image", "video", "audio", "toc", "plantuml"),
+      fc.stringMatching(/[A-Za-z][\w/.-]{0,20}/),
+      fc.string({ maxLength: 15 }),
+    )
+    .map(([name, target, attrs]) => `${name}::${target}[${attrs}]`),
+
+  // ConditionalDirective: `ifdef::name[]`, `endif::[]`
+  fc.oneof(
+    fc
+      .tuple(
+        fc.constantFrom("ifdef", "ifndef", "ifeval"),
+        fc.stringMatching(/[A-Za-z_][\w-]{0,9}/),
+      )
+      .map(([dir, name]) => `${dir}::${name}[]`),
+    fc.constant("endif::[]"),
+  ),
+
+  // FencedCodeOpen: ``` or ```lang
+  fc.oneof(
+    fc.constant("```"),
+    fc
+      .constantFrom("rust", "ruby", "python", "java", "js", "ts")
+      .map((lang) => `\`\`\`${lang}`),
+  ),
+
+  // ── Inline formatting embedded in paragraph text ──────────
+  // BoldMark: `*word*` or `**word**`
+  fc
+    .string({ minLength: 1, maxLength: 20 })
+    .map((s) => `some *${s.trim() || "x"}* text`),
+  fc
+    .string({ minLength: 1, maxLength: 20 })
+    .map((s) => `some **${s.trim() || "x"}** text`),
+
+  // ItalicMark: `_word_` or `__word__`
+  fc
+    .string({ minLength: 1, maxLength: 20 })
+    .map((s) => `some _${s.trim() || "x"}_ text`),
+  fc
+    .string({ minLength: 1, maxLength: 20 })
+    .map((s) => `some __${s.trim() || "x"}__ text`),
+
+  // MonoMark: `` `word` `` or ``` ``word`` ```
+  fc
+    .string({ minLength: 1, maxLength: 20 })
+    .map((s) => `some \`${s.trim() || "x"}\` text`),
+  fc
+    .string({ minLength: 1, maxLength: 20 })
+    .map((s) => `some \`\`${s.trim() || "x"}\`\` text`),
+
+  // HighlightMark: `#word#` or `##word##`
+  fc
+    .string({ minLength: 1, maxLength: 20 })
+    .map((s) => `some #${s.trim() || "x"}# text`),
+  fc
+    .string({ minLength: 1, maxLength: 20 })
+    .map((s) => `some ##${s.trim() || "x"}## text`),
+
+  // AttributeReference: `{name}`
+  fc
+    .stringMatching(/[A-Za-z_][\w.-]{0,14}/)
+    .map((s) => `text {${s}} here`),
+
+  // BackslashEscape: `\*`, `\_`, `` \` ``, `\#`
+  fc.constantFrom("a \\* b", "a \\_ b", "a \\` b", "a \\# b"),
+
+  // InlineUrl: `https://example.com` or `https://example.com[text]`
+  fc.oneof(
+    fc
+      .stringMatching(/[a-z][\w.-]{0,15}/)
+      .map((s) => `see https://${s}.example.com for info`),
+    fc
+      .tuple(
+        fc.stringMatching(/[a-z][\w.-]{0,15}/),
+        fc.string({ maxLength: 15 }),
+      )
+      .map(([s, text]) => `see https://${s}.example.com[${text}] here`),
+  ),
+
+  // LinkMacro: `link:url[text]`
+  fc
+    .tuple(
+      fc.stringMatching(/[a-z][\w/.-]{0,15}/),
+      fc.string({ maxLength: 15 }),
+    )
+    .map(([url, text]) => `click link:${url}[${text}]`),
+
+  // MailtoLink: `mailto:addr[text]`
+  fc
+    .tuple(
+      fc.stringMatching(/[a-z][\w.-]{0,15}/),
+      fc.string({ maxLength: 15 }),
+    )
+    .map(([addr, text]) => `email mailto:${addr}@example.com[${text}]`),
+
+  // XrefMacro: `xref:target[text]`
+  fc
+    .tuple(
+      fc.stringMatching(/[a-z][\w-]{0,15}/),
+      fc.string({ maxLength: 15 }),
+    )
+    .map(([target, text]) => `see xref:${target}[${text}]`),
+
+  // XrefShorthand: `<<target>>` or `<<target,text>>`
+  fc.oneof(
+    fc.stringMatching(/[a-z][\w-]{0,15}/).map((s) => `see <<${s}>>`),
+    fc
+      .tuple(
+        fc.stringMatching(/[a-z][\w-]{0,15}/),
+        fc.string({ minLength: 1, maxLength: 15 }),
+      )
+      .map(([target, text]) => `see <<${target},${text}>>`),
+  ),
+
+  // RoleAttribute + HighlightMark: `[.role]#text#`
+  fc
+    .tuple(
+      fc.stringMatching(/[a-z][\w-]{0,9}/),
+      fc.string({ minLength: 1, maxLength: 15 }),
+    )
+    .map(([role, text]) => `[.${role}]#${text.trim() || "x"}#`),
+
   // IndentedLine: leading spaces + content
   fc
     .tuple(

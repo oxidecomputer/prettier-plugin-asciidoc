@@ -2,10 +2,10 @@
 
 ## Development
 
-- `npm run build` — build with tsup (ESM + DTS to dist/)
-- `npm run check` — TypeScript type checking (tsc --noEmit)
-- `npm run lint` — ESLint with zero warnings policy
-- `npm test` — run Vitest tests
+- `bun run build` — build (ESM to dist/)
+- `bun run check` — TypeScript type checking (tsc --noEmit)
+- `bun run lint` — ESLint with zero warnings policy
+- `bun test` — run Vitest tests
 
 ## Version Control
 
@@ -17,8 +17,8 @@ This project uses **jj (Jujutsu)**, not git:
 - `jj new` — create a new empty change
 - `jj log` — show commit history
 
-## System (macOS / Darwin)
+**IMPORTANT: jj squash pitfalls:**
+- `jj squash --from X --into Y` opens an interactive editor — DO NOT USE from non-interactive shells
+- Instead, use: `jj squash --from X --into Y -m "message"` (pass `-m` to avoid the editor)
+- Or rebase children onto the target and squash without `--from`/`--into`
 
-- `ls`, `cd`, `grep`, `find` — standard unix commands
-- Homebrew for package management
-- Shell: nu (nushell)

@@ -41,6 +41,12 @@ export interface BlockCstChildren {
   ThematicBreak?: IToken[];
   /** Page break (`<<<`). */
   PageBreak?: IToken[];
+  /** Block macro (`image::target[attrlist]`). */
+  BlockMacro?: IToken[];
+  /** Include directive (`include::path[opts]`). */
+  IncludeDirective?: IToken[];
+  /** Conditional directive (`ifdef`, `ifndef`, etc.). */
+  ConditionalDirective?: IToken[];
   /** Block comment sub-rule (`////...////`). */
   blockComment?: CstNode[];
   /** Attribute entry sub-rule (`:name: value`). */

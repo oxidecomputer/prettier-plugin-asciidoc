@@ -413,6 +413,9 @@ function convertBlock(node: BlockNode): AsgBlock {
     // runtime. The empty-paragraph sentinel satisfies TypeScript's
     // exhaustive switch requirement without adding a throw that
     // would require a non-null assertion at every call site.
+    case "conditionalDirective":
+    case "includeDirective":
+    case "blockMacro":
     case "comment":
     case "attributeEntry":
     case "blockAttributeList":

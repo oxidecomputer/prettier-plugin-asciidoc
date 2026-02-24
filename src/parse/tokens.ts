@@ -421,6 +421,44 @@ export const BlockTitle = createToken({
  * distinguish admonition paragraphs from regular paragraphs.
  * Must precede InlineModeStart so the lexer prefers it.
  */
+
+/**
+ * Conditional preprocessor directive on its own line.
+ * Matches `ifdef::attr[]`, `ifndef::attr[]`,
+ * `ifeval::[expr]`, and `endif::[]`. Must precede both
+ * IncludeDirective and BlockMacro so these specific
+ * keywords are not consumed as generic macros.
+ */
+export const ConditionalDirective = createToken({
+  name: "ConditionalDirective",
+  pattern: /(?:ifdef|ifndef|ifeval|endif)::[^[\n]*\[[^\]\n]*\](?![^\n])/,
+});
+
+/**
+ * Include directive: `include::path[opts]` on its own line.
+ * A preprocessor directive that inserts content from another
+ * file. Must precede BlockMacro in token priority so
+ * `include::` is not consumed as a generic block macro.
+ */
+export const IncludeDirective = createToken({
+  name: "IncludeDirective",
+  pattern: /include::[^[\n]*\[[^\]\n]*\](?![^\n])/,
+});
+
+/**
+ * Block macro: `name::target[attrlist]` on its own line.
+ * Covers image::, video::, audio::, toc::, and any other
+ * block macro. The name is one or more word characters,
+ * the target is everything between `::` and `[`, and the
+ * attrlist is everything inside `[…]`. Must precede
+ * InlineModeStart so the lexer doesn't treat the line as
+ * paragraph text.
+ */
+export const BlockMacro = createToken({
+  name: "BlockMacro",
+  pattern: /[a-zA-Z]\w*::[^[\n]*\[[^\]\n]*\](?![^\n])/,
+});
+
 export const AdmonitionMarker = createToken({
   name: "AdmonitionMarker",
   pattern: /(?:NOTE|TIP|IMPORTANT|CAUTION|WARNING): /,
@@ -703,6 +741,9 @@ const multiModeDefinition = {
       AttributeEntry,
       BlockAttributeList,
       BlockTitle,
+      ConditionalDirective,
+      IncludeDirective,
+      BlockMacro,
       AdmonitionMarker,
       UnorderedListMarker,
       OrderedListMarker,
@@ -795,6 +836,9 @@ export const allTokens = [
   AttributeEntry,
   BlockAttributeList,
   BlockTitle,
+  ConditionalDirective,
+  IncludeDirective,
+  BlockMacro,
   AdmonitionMarker,
   UnorderedListMarker,
   OrderedListMarker,

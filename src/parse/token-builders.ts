@@ -15,6 +15,9 @@ import type {
   BlockTitleNode,
   ThematicBreakNode,
   PageBreakNode,
+  BlockMacroNode,
+  IncludeDirectiveNode,
+  ConditionalDirectiveNode,
   BlockNode,
 } from "../ast.js";
 import { FIRST, MARKER_OFFSET } from "../constants.js";
@@ -225,6 +228,137 @@ function buildPageBreak(token: IToken): PageBreakNode {
   };
 }
 
+// Regex to decompose a block macro token into its three
+// parts: name, target, and attribute list.
+const BLOCK_MACRO_RE = /^(?<name>[a-zA-Z]\w*)::(?<target>[^\[]*)\[(?<attrlist>[^\]]*)\]/v;
+
+/**
+ * Builds a BlockMacroNode from a block macro token.
+ *
+ * Block macros follow the `name::target[attrlist]` pattern.
+ * The regex splits the token image into the three components
+ * so the AST preserves them as structured fields rather than
+ * a raw string.
+ * @param token - A BlockMacro token
+ *   (e.g. `image::sunset.jpg[Alt]`).
+ * @returns A block macro node with name, target, and
+ *   attrlist.
+ */
+function buildBlockMacro(token: IToken): BlockMacroNode {
+  const match = BLOCK_MACRO_RE.exec(token.image);
+  const groups =
+    match?.groups ?? unreachable(`Invalid block macro: ${token.image}`);
+  return {
+    type: "blockMacro",
+    name: groups.name,
+    target: groups.target,
+    attrlist: groups.attrlist,
+    position: {
+      start: tokenStartLocation(token),
+      end: tokenEndLocation(token),
+    },
+  };
+}
+
+// Narrows a regex capture group to the ConditionalDirective
+// keyword union. The regex guarantees only valid keywords
+// match, but TypeScript needs an explicit check to narrow
+// from `string`. A switch provides narrowing without `as`.
+/**
+ * Validates and narrows a regex-captured directive keyword.
+ *
+ * The lexer regex only matches the four valid keywords, so
+ * the default branch is unreachable at runtime. The switch
+ * lets TypeScript narrow the type without an unsafe cast.
+ * @param value - The raw string from the regex capture.
+ * @returns The validated conditional keyword.
+ */
+function validateDirective(
+  value: string,
+): ConditionalDirectiveNode["directive"] {
+  switch (value) {
+    case "ifdef":
+    case "ifndef":
+    case "ifeval":
+    case "endif": {
+      return value;
+    }
+    default: {
+      return unreachable(`Unknown conditional: ${value}`);
+    }
+  }
+}
+
+// Regex to decompose a conditional directive token into its
+// three parts: directive keyword, target, and attribute list.
+const CONDITIONAL_DIRECTIVE_RE =
+  /^(?<directive>ifdef|ifndef|ifeval|endif)::(?<target>[^\[]*)\[(?<attrlist>[^\]]*)\]/v;
+
+/**
+ * Builds a ConditionalDirectiveNode from a conditional
+ * directive token.
+ *
+ * Conditional directives (`ifdef`, `ifndef`, `ifeval`,
+ * `endif`) are preprocessor instructions preserved verbatim
+ * by the formatter. The regex splits the token image into
+ * directive keyword, target, and attrlist.
+ * @param token - A ConditionalDirective token
+ *   (e.g. `ifdef::backend[]`).
+ * @returns A conditional directive node with directive,
+ *   target, and attrlist.
+ */
+function buildConditionalDirective(
+  token: IToken,
+): ConditionalDirectiveNode {
+  const match = CONDITIONAL_DIRECTIVE_RE.exec(token.image);
+  const groups =
+    match?.groups ??
+    unreachable(
+      `Invalid conditional directive: ${token.image}`,
+    );
+  return {
+    type: "conditionalDirective",
+    directive: validateDirective(groups.directive),
+    target: groups.target,
+    attrlist: groups.attrlist,
+    position: {
+      start: tokenStartLocation(token),
+      end: tokenEndLocation(token),
+    },
+  };
+}
+
+// Regex to decompose an include directive token into its two
+// parts: target (file path) and attribute list.
+const INCLUDE_DIRECTIVE_RE = /^include::(?<target>[^\[]*)\[(?<attrlist>[^\]]*)\]/v;
+
+/**
+ * Builds an IncludeDirectiveNode from an include directive
+ * token.
+ *
+ * Include directives follow the `include::path[opts]` pattern.
+ * The regex splits the token image into target and attrlist so
+ * the AST preserves them as structured fields rather than a
+ * raw string.
+ * @param token - An IncludeDirective token
+ *   (e.g. `include::chapter.adoc[leveloffset=+1]`).
+ * @returns An include directive node with target and attrlist.
+ */
+function buildIncludeDirective(token: IToken): IncludeDirectiveNode {
+  const match = INCLUDE_DIRECTIVE_RE.exec(token.image);
+  const groups =
+    match?.groups ?? unreachable(`Invalid include directive: ${token.image}`);
+  return {
+    type: "includeDirective",
+    target: groups.target,
+    attrlist: groups.attrlist,
+    position: {
+      start: tokenStartLocation(token),
+      end: tokenEndLocation(token),
+    },
+  };
+}
+
 /**
  * Extracts the first token from a CST token array and
  * converts it to an AST node using the given builder.
@@ -280,6 +414,12 @@ export function buildTokenBlock(
     tryBuild(context.BlockAttributeList, buildBlockAttributeList) ??
     tryBuild(context.BlockTitle, buildBlockTitle) ??
     tryBuild(context.ThematicBreak, buildThematicBreak) ??
-    tryBuild(context.PageBreak, buildPageBreak)
+    tryBuild(context.PageBreak, buildPageBreak) ??
+    tryBuild(
+      context.ConditionalDirective,
+      buildConditionalDirective,
+    ) ??
+    tryBuild(context.IncludeDirective, buildIncludeDirective) ??
+    tryBuild(context.BlockMacro, buildBlockMacro)
   );
 }

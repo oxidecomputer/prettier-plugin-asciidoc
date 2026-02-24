@@ -560,6 +560,64 @@ export interface ThematicBreakNode extends Node {
   type: "thematicBreak";
 }
 
+/**
+ * A block macro like `image::target[attrlist]`. Block macros
+ * appear on their own line and are preserved verbatim — the
+ * formatter does not interpret their attributes or resolve
+ * targets.
+ */
+export interface BlockMacroNode extends Node {
+  /** Node discriminant. */
+  type: "blockMacro";
+  /** Macro name (e.g. `"image"`, `"video"`, `"toc"`). */
+  name: string;
+  /** Target between `::` and `[` (empty for `toc::[]`). */
+  target: string;
+  /** Raw attribute list content inside `[…]`. */
+  attrlist: string;
+}
+
+/**
+ * An include preprocessor directive (`include::path[opts]`).
+ *
+ * Unlike block macros, includes are preprocessor directives
+ * that tell the AsciiDoc processor to insert content from
+ * another file. The formatter preserves them literally — it
+ * does not resolve them.
+ */
+export interface IncludeDirectiveNode extends Node {
+  /** Node discriminant. */
+  type: "includeDirective";
+  /** File path between `::` and `[`. */
+  target: string;
+  /** Raw attribute list content inside `[…]`. */
+  attrlist: string;
+}
+
+/**
+ * Conditional preprocessor directive preserved verbatim.
+ *
+ * Covers `ifdef`, `ifndef`, `ifeval`, and `endif` directives.
+ * The formatter does not evaluate these — it preserves them
+ * literally so the document's conditional logic is unchanged.
+ */
+export interface ConditionalDirectiveNode extends Node {
+  /** Node discriminant. */
+  type: "conditionalDirective";
+  /** Which conditional keyword was used. */
+  directive: "ifdef" | "ifndef" | "ifeval" | "endif";
+  /**
+   * Attribute name(s) between `::` and `[` (empty for
+   * `ifeval` and bare `endif`).
+   */
+  target: string;
+  /**
+   * Raw content inside `[…]` (expression for `ifeval`,
+   * inline content for single-line form, empty otherwise).
+   */
+  attrlist: string;
+}
+
 /** A page break: `<<<` (three or more less-than signs). */
 export interface PageBreakNode extends Node {
   /** Node discriminant. */
@@ -653,5 +711,8 @@ export type BlockNode =
   | AdmonitionNode
   | ThematicBreakNode
   | PageBreakNode
+  | BlockMacroNode
+  | IncludeDirectiveNode
+  | ConditionalDirectiveNode
   | BlockAttributeListNode
   | BlockTitleNode;

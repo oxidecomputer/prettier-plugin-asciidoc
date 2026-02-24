@@ -107,6 +107,18 @@ const printer: Printer<AnyNode> = {
       case "pageBreak": {
         return "<<<";
       }
+      case "blockMacro": {
+        const { name, target, attrlist } = node;
+        return [name, "::", target, "[", attrlist, "]"];
+      }
+      case "includeDirective": {
+        const { target, attrlist } = node;
+        return ["include::", target, "[", attrlist, "]"];
+      }
+      case "conditionalDirective": {
+        const { directive, target, attrlist } = node;
+        return [directive, "::", target, "[", attrlist, "]"];
+      }
       case "paragraph": {
         // Reflow paragraph text to printWidth using fill. The text
         // children produce word/line pairs; fill packs as many words
