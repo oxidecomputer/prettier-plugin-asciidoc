@@ -86,9 +86,9 @@ that feedback so it's not forgotten.
 - [x] Task 14b: Inline parser hardening — test gaps, architectural improvements, token dispatch cleanup
 - [x] Task 15: Inline parser — links and cross-references
 - [x] Task 16: Inline parser — macros, passthroughs, line breaks
-- [ ] Task 19: Parse block macros
-- [ ] Task 20: Parse include directives
-- [ ] Task 21: Parse conditional directives
+- [x] Task 19: Parse block macros
+- [x] Task 20: Parse include directives
+- [x] Task 21: Parse conditional directives
 - [ ] Task 27: Plugin options
 - [ ] Task 29: Parse explicit ordered list markers
 - [ ] Task 26: End-to-end integration tests
@@ -167,72 +167,6 @@ Tables are `|===` delimited with `|` cell separators.
 
 ```
 jj describe -m "feat: parse and format tables"
-jj new
-```
-
----
-
-## Task 19: Parse block macros (image, video, audio, toc)
-
-Block macros: `image::path[alt]`, `video::path[]`, `audio::path[]`, `toc::[]`.
-
-**Files:**
-
-- Modify: `src/ast.ts`
-- Modify: `src/parse/tokens.ts` — add `BlockMacro` token
-- Modify: `src/parse/grammar.ts`
-- Modify: `src/parse/ast-builder.ts`
-- Modify: `src/printer.ts`
-- Create: `tests/parser/block-macro.test.ts`
-
-**Commit:**
-
-```
-jj describe -m "feat: parse and format block macros"
-jj new
-```
-
----
-
-## Task 20: Parse include directives
-
-`include::path[opts]` — preserved literally (not resolved).
-
-**Files:**
-
-- Modify: `src/ast.ts` — add `IncludeDirectiveNode`
-- Modify: `src/parse/tokens.ts` — add `IncludeDirective` token
-- Modify: `src/parse/grammar.ts`
-- Modify: `src/parse/ast-builder.ts`
-- Modify: `src/printer.ts`
-- Create: `tests/parser/include.test.ts`
-
-**Commit:**
-
-```
-jj describe -m "feat: parse and format include directives"
-jj new
-```
-
----
-
-## Task 21: Parse conditional directives
-
-`ifdef::attr[]`, `ifndef::attr[]`, `ifeval::[expr]`, `endif::[]` — preserved literally.
-
-**Files:**
-
-- Modify: `src/ast.ts` — add `ConditionalDirectiveNode`
-- Modify: `src/parse/tokens.ts` — add `ConditionalDirective` tokens (`ifdef`, `ifndef`, `ifeval`, `endif`)
-- Modify: `src/parse/grammar.ts`
-- Modify: `src/parse/ast-builder.ts`
-- Modify: `src/printer.ts`
-- Create: `tests/parser/conditional.test.ts`
-
-**Commit:**
-
-```
-jj describe -m "feat: parse and format conditional directives"
 jj new
 ```
 

@@ -165,10 +165,7 @@ function shouldStack(blocks: BlockNode[], index: number): boolean {
  * @param current - The current block node.
  * @returns Whether the two blocks should stack as metadata.
  */
-function shouldStackMetadata(
-  previous: BlockNode,
-  current: BlockNode,
-): boolean {
+function shouldStackMetadata(previous: BlockNode, current: BlockNode): boolean {
   // Block metadata (attribute lists, anchors, titles) stacks
   // with each other and with the block that follows them.
   // Exceptions:

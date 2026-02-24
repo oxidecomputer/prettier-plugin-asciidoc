@@ -11,6 +11,7 @@
  * See docs/plans/2026-02-22-parser-fuzzing-design.md for rationale.
  */
 import fc from "fast-check";
+import type { Arbitrary } from "fast-check";
 
 // Trim whitespace, falling back to "x" if the result is empty.
 // Extracted to satisfy strict-boolean-expressions (no truthy
@@ -30,14 +31,19 @@ export const randomInput = fc.string({
   maxLength: 10_000,
 });
 
-/**
- * Tier 2: AsciiDoc-flavored line soup. Each line is drawn
- * from a vocabulary that covers every token type defined in
- * src/parse/tokens.ts. Lines are shuffled randomly with no
- * nesting awareness — the point is to produce unexpected
- * token sequences that stress recovery paths.
- */
-const adocLine = fc.oneof(
+// ── Tier 2: AsciiDoc-flavored line soup ─────────────────────
+// Each line is drawn from a vocabulary that covers every token
+// type defined in src/parse/tokens.ts. Lines are shuffled
+// randomly with no nesting awareness — the point is to produce
+// unexpected token sequences that stress recovery paths.
+//
+// Split into two arrays so callers can opt out of include
+// directives (which can't be resolved in synthetic input and
+// cause Asciidoctor to produce different HTML from the
+// formatter's block-level treatment).
+
+// Lines that every fuzz arbitrary should include.
+const commonLines: Array<Arbitrary<string>> = [
   // DocumentTitle: `= Title`
   fc.string({ minLength: 1, maxLength: 40 }).map((s) => `= ${s}`),
 
@@ -106,14 +112,6 @@ const adocLine = fc.oneof(
     fc.integer({ min: 1, max: 99 }).map((n) => `<${String(n)}> item`),
     fc.constant("<.> item"),
   ),
-
-  // IncludeDirective: `include::path[opts]`
-  fc
-    .tuple(
-      fc.stringMatching(/[A-Za-z][\w/.-]{0,20}/),
-      fc.string({ maxLength: 15 }),
-    )
-    .map(([path, options]) => `include::${path}[${options}]`),
 
   // BlockMacro: `name::target[attrlist]`
   fc
@@ -248,12 +246,44 @@ const adocLine = fc.oneof(
 
   // Random text (garbage / paragraph content)
   fc.string({ unit: "grapheme-composite", maxLength: 100 }),
-);
+];
+
+// Include directives can't be resolved in synthetic fuzz input
+// (the referenced files don't exist). When an include fails,
+// Asciidoctor inlines the error as paragraph text, while the
+// formatter preserves the directive as a separate block element.
+// Both are correct — the mismatch is an artifact of testing
+// without real include targets. The semantic preservation test
+// uses adocDocumentNoIncludes to avoid this false failure.
+const includeLines: Array<Arbitrary<string>> = [
+  // IncludeDirective: `include::path[opts]`
+  fc
+    .tuple(
+      fc.stringMatching(/[A-Za-z][\w/.-]{0,20}/),
+      fc.string({ maxLength: 15 }),
+    )
+    .map(([path, options]) => `include::${path}[${options}]`),
+];
+
+// Full vocabulary including includes (crash/idempotency tests).
+const adocLine = fc.oneof(...commonLines, ...includeLines);
+
+// Vocabulary without includes (semantic preservation tests).
+const adocLineNoIncludes = fc.oneof(...commonLines);
 
 /**
- * Tier 2 document: random lines from the AsciiDoc token
+ * Tier 2 document: random lines from the full AsciiDoc token
  * vocabulary, assembled into a single string.
  */
 export const adocDocument = fc
   .array(adocLine, { minLength: 1, maxLength: 50 })
+  .map((lines) => lines.join("\n"));
+
+/**
+ * Tier 2 document without include directives. Used by the
+ * semantic preservation test where Asciidoctor's error recovery
+ * for missing includes would produce false failures.
+ */
+export const adocDocumentNoIncludes = fc
+  .array(adocLineNoIncludes, { minLength: 1, maxLength: 50 })
   .map((lines) => lines.join("\n"));
