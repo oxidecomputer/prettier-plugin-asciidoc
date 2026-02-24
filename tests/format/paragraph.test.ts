@@ -2,7 +2,7 @@ import { describe, test, expect } from "vitest";
 import { formatAdoc } from "../helpers.js";
 
 describe("paragraph formatting", () => {
-  // Idempotency baseline: well-formed input should not be changed.
+  // Round-trip baseline: well-formed input should not be changed.
   test("single paragraph preserved", async () => {
     expect(await formatAdoc("Hello world.\n")).toBe("Hello world.\n");
   });

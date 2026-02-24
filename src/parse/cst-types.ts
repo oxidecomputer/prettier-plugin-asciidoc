@@ -43,6 +43,8 @@ export interface BlockCstChildren {
   PageBreak?: IToken[];
   /** Block macro (`image::target[attrlist]`). */
   BlockMacro?: IToken[];
+  /** Block-level anchor (`[[id]]` on its own line). */
+  BlockAnchor?: IToken[];
   /** Include directive (`include::path[opts]`). */
   IncludeDirective?: IToken[];
   /** Conditional directive (`ifdef`, `ifndef`, etc.). */
@@ -103,14 +105,10 @@ export interface InlineTokenCstChildren {
   AttributeReference?: IToken[];
   /** Backslash escape sequence (`\*`, etc.). */
   BackslashEscape?: IToken[];
+  /** Unified inline macro (`name:target[attrlist]`). */
+  InlineMacro?: IToken[];
   /** Bare inline URL (auto-linked). */
   InlineUrl?: IToken[];
-  /** `link:` macro (`link:url[text]`). */
-  LinkMacro?: IToken[];
-  /** `mailto:` link. */
-  MailtoLink?: IToken[];
-  /** `xref:` macro (`xref:target[text]`). */
-  XrefMacro?: IToken[];
   /** Shorthand cross-reference (`<<target>>`). */
   XrefShorthand?: IToken[];
   /** Inline anchor (`[[id]]` or `[#id]`). */

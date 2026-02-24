@@ -16,9 +16,7 @@ describe("conditional directive parsing", () => {
 
   // Single-line form with content inside brackets.
   test("ifdef with content inside brackets", () => {
-    const { children } = parse(
-      "ifdef::backend[Content here]\n",
-    );
+    const { children } = parse("ifdef::backend[Content here]\n");
     expect(children).toHaveLength(1);
     const [node] = children;
     narrow(node, "conditionalDirective");
@@ -40,9 +38,7 @@ describe("conditional directive parsing", () => {
 
   // ifeval with expression inside brackets.
   test("ifeval with expression", () => {
-    const { children } = parse(
-      'ifeval::[{version} > 1]\n',
-    );
+    const { children } = parse("ifeval::[{version} > 1]\n");
     expect(children).toHaveLength(1);
     const [node] = children;
     narrow(node, "conditionalDirective");
@@ -87,9 +83,7 @@ describe("conditional directive parsing", () => {
 
   // Between paragraphs.
   test("between paragraphs", () => {
-    const { children } = parse(
-      "Before.\n\nifdef::backend[]\n\nAfter.\n",
-    );
+    const { children } = parse("Before.\n\nifdef::backend[]\n\nAfter.\n");
     expect(children).toHaveLength(3);
     expect(children[0].type).toBe("paragraph");
     expect(children[1].type).toBe("conditionalDirective");
@@ -110,9 +104,7 @@ describe("conditional directive parsing", () => {
   // The (?![^\n]) lookahead ensures the token only matches
   // when it occupies the entire line.
   test("trailing text prevents match", () => {
-    const { children } = parse(
-      "ifdef::backend[] extra\n",
-    );
+    const { children } = parse("ifdef::backend[] extra\n");
     expect(children).toHaveLength(1);
     expect(children[0].type).toBe("paragraph");
   });

@@ -10,7 +10,7 @@ import { describe, test, expect } from "vitest";
 import { formatAdoc } from "../helpers.js";
 
 describe("discrete heading formatting", () => {
-  // Idempotency: canonical discrete heading passes through unchanged.
+  // Canonical discrete heading passes through unchanged.
   test("discrete heading preserved as-is", async () => {
     const input = "[discrete]\n== Heading\n";
     expect(await formatAdoc(input)).toBe(input);

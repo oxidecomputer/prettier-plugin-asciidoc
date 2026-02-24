@@ -14,7 +14,7 @@ import { describe, test, expect } from "vitest";
 import { formatAdoc } from "../helpers.js";
 
 describe("attribute entry formatting", () => {
-  // Idempotency: a canonical attribute entry with value must pass
+  // A canonical attribute entry with value must pass
   // through unchanged. This is the baseline — if this fails, the
   // printer is mangling attribute entries.
   test("attribute entry with value preserved as-is", async () => {

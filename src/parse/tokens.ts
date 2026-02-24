@@ -29,26 +29,12 @@ import {
 } from "./delimiter-patterns.js";
 import { makeInlineMarkPattern } from "./inline-mark-pattern.js";
 import {
+  InlineUrl,
+  InlineMacro,
+  XrefShorthand,
+  InlineAnchor,
   HardLineBreak,
-  InlineImage,
-  KbdMacro,
-  ButtonMacro,
-  MenuMacro,
-  FootnoteMacro,
-  FootnoteReferenceMacro,
-  PassMacro,
-} from "./inline-macro-tokens.js";
-// Re-export inline macro tokens (defined in a separate file to stay within the max-lines limit).
-export {
-  HardLineBreak,
-  InlineImage,
-  KbdMacro,
-  ButtonMacro,
-  MenuMacro,
-  FootnoteMacro,
-  FootnoteReferenceMacro,
-  PassMacro,
-} from "./inline-macro-tokens.js";
+} from "./inline-link-tokens.js";
 
 /**
  * One or more empty/whitespace-only lines. Matches a newline
@@ -459,6 +445,20 @@ export const BlockMacro = createToken({
   pattern: /[a-zA-Z]\w*::[^[\n]*\[[^\]\n]*\](?![^\n])/,
 });
 
+/**
+ * Block-level anchor: `[[id]]` or `[[id, reftext]]` on its own
+ * line. Must precede `InlineModeStart` in default_mode so the
+ * lexer recognizes it as a block token before falling through
+ * to inline mode. The negative lookahead ensures the anchor
+ * occupies the entire line — `[[id]] text` falls through to
+ * inline mode where `InlineAnchor` handles it.
+ */
+export const BlockAnchor = createToken({
+  name: "BlockAnchor",
+  pattern: /\[\[[^\]\n]+\]\](?![^\n])/,
+  start_chars_hint: ["["],
+});
+
 export const AdmonitionMarker = createToken({
   name: "AdmonitionMarker",
   pattern: /(?:NOTE|TIP|IMPORTANT|CAUTION|WARNING): /,
@@ -595,45 +595,15 @@ export const RoleAttribute = createToken({
   pattern: /\[[^\]]+\](?=#)/,
 });
 
-// ── Inline link / xref / anchor tokens ──────────────────────
-// Must appear before InlineText in the inline mode array.
-
-/** Inline URL: `https://url` or `https://url[text]`. */
-export const InlineUrl = createToken({
-  name: "InlineUrl",
-  pattern: /https?:\/\/[^\s[\]]+(?:\[[^\]]*\])?/,
-  start_chars_hint: ["h"],
-});
-/** Link macro: `link:target[text]`. */
-export const LinkMacro = createToken({
-  name: "LinkMacro",
-  pattern: /link:[^\s[]+\[[^\]]*\]/,
-  start_chars_hint: ["l"],
-});
-/** Mailto link: `mailto:addr[text]`. */
-export const MailtoLink = createToken({
-  name: "MailtoLink",
-  pattern: /mailto:[^\s[]+\[[^\]]*\]/,
-  start_chars_hint: ["m"],
-});
-/** Xref macro: `xref:target[text]`. */
-export const XrefMacro = createToken({
-  name: "XrefMacro",
-  pattern: /xref:[^\s[]+\[[^\]]*\]/,
-  start_chars_hint: ["x"],
-});
-/** Xref shorthand: `<<target>>` or `<<target,text>>`. */
-export const XrefShorthand = createToken({
-  name: "XrefShorthand",
-  pattern: /<<[^>\n]+(?:,[^>\n]+)?>>/,
-  start_chars_hint: ["<"],
-});
-/** Inline anchor: `[[id]]` or `[[id, reftext]]`. */
-export const InlineAnchor = createToken({
-  name: "InlineAnchor",
-  pattern: /\[\[[^\]\n]+\]\]/,
-  start_chars_hint: ["["],
-});
+// Re-export inline tokens (defined in a separate file to
+// stay within the max-lines limit).
+export {
+  InlineUrl,
+  InlineMacro,
+  XrefShorthand,
+  InlineAnchor,
+  HardLineBreak,
+} from "./inline-link-tokens.js";
 
 /** Bold formatting mark — `*` (constrained) or `**` (unconstrained). */
 export const BoldMark = createToken({
@@ -744,6 +714,7 @@ const multiModeDefinition = {
       ConditionalDirective,
       IncludeDirective,
       BlockMacro,
+      BlockAnchor,
       AdmonitionMarker,
       UnorderedListMarker,
       OrderedListMarker,
@@ -755,21 +726,15 @@ const multiModeDefinition = {
       BackslashEscape,
       AttributeReference,
       RoleAttribute,
-      // Link/xref/anchor tokens before formatting marks.
+      // Inline macro token before link/xref/anchor tokens
+      // and formatting marks — covers link:, mailto:, xref:,
+      // image:, kbd:, btn:, menu:, footnote:, footnoteref:,
+      // pass: macros in one token.
+      InlineMacro,
+      // Non-macro inline tokens with their own syntax.
       InlineUrl,
-      LinkMacro,
-      MailtoLink,
-      XrefMacro,
       XrefShorthand,
       InlineAnchor,
-      // Inline macro tokens before formatting marks.
-      InlineImage,
-      KbdMacro,
-      ButtonMacro,
-      MenuMacro,
-      FootnoteReferenceMacro,
-      FootnoteMacro, // ref before base (longer prefix)
-      PassMacro,
       BoldMark,
       ItalicMark,
       MonoMark,
@@ -839,6 +804,7 @@ export const allTokens = [
   ConditionalDirective,
   IncludeDirective,
   BlockMacro,
+  BlockAnchor,
   AdmonitionMarker,
   UnorderedListMarker,
   OrderedListMarker,
@@ -850,19 +816,10 @@ export const allTokens = [
   BackslashEscape,
   AttributeReference,
   RoleAttribute,
+  InlineMacro,
   InlineUrl,
-  LinkMacro,
-  MailtoLink,
-  XrefMacro,
   XrefShorthand,
   InlineAnchor,
-  InlineImage,
-  KbdMacro,
-  ButtonMacro,
-  MenuMacro,
-  FootnoteReferenceMacro,
-  FootnoteMacro,
-  PassMacro,
   BoldMark,
   ItalicMark,
   MonoMark,

@@ -13,7 +13,7 @@ import { describe, test, expect } from "vitest";
 import { formatAdoc } from "../helpers.js";
 
 describe("block attribute list formatting", () => {
-  // Idempotency: a canonical attribute list must pass through
+  // A canonical attribute list must pass through
   // unchanged.
   test("attribute list preserved as-is", async () => {
     const input = "[source,ruby]\n";
@@ -63,17 +63,18 @@ describe("block attribute list formatting", () => {
 });
 
 describe("standalone anchor formatting", () => {
-  // Idempotency: anchor passes through unchanged.
+  // Anchor passes through unchanged.
   test("standalone anchor preserved as-is", async () => {
     const input = "[[anchor-id]]\n";
     expect(await formatAdoc(input)).toBe(input);
   });
 
-  // Anchor on same line as text (no blank line separator)
-  // forms a single paragraph — reflow merges them.
-  test("anchor before text without blank line merges", async () => {
+  // Anchor on its own line before text is a block-level anchor.
+  // The `splitBlockAnchors` pass splits it, so the output has
+  // a blank line between the anchor and the paragraph.
+  test("anchor before text splits with blank line", async () => {
     const input = "[[my-anchor]]\nSome text.\n";
-    expect(await formatAdoc(input)).toBe("[[my-anchor]] Some text.\n");
+    expect(await formatAdoc(input)).toBe("[[my-anchor]]\n\nSome text.\n");
   });
 
   // Anchor followed by a blank line stays separate — the blank
@@ -98,8 +99,23 @@ describe("standalone anchor formatting", () => {
   });
 });
 
+describe("block anchors with include", () => {
+  test("two anchors then include", async () => {
+    const input = "[[A]]\n\n[[a]]\ninclude::A[]\n";
+    expect(await formatAdoc(input)).toBe("[[A]]\n\n[[a]]\ninclude::A[]\n");
+  });
+
+  // Stacked block anchors must stay on separate lines —
+  // collapsing onto one line turns block anchors into inline
+  // anchors, which Asciidoctor renders differently.
+  test("stacked anchors stay on separate lines", async () => {
+    const input = "[[A]]\n[[a]]\nsome text\n";
+    expect(await formatAdoc(input)).toBe("[[A]]\n\n[[a]]\n\nsome text\n");
+  });
+});
+
 describe("block title formatting", () => {
-  // Idempotency: title passes through unchanged.
+  // Title passes through unchanged.
   test("block title preserved as-is", async () => {
     const input = ".My Title\n";
     expect(await formatAdoc(input)).toBe(input);

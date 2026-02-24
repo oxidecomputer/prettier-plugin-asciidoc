@@ -174,19 +174,21 @@ describe("anchor parsing", () => {
     expect(anchor0.reftext).toBe("My Reference Text");
   });
 
-  // Anchor before a paragraph on the next line — they merge
-  // into a single paragraph since there's no blank line. The
-  // anchor becomes the first child and the text tokens follow.
-  test("anchor before text forms one paragraph", () => {
+  // Anchor on its own line before a paragraph is a block-level
+  // anchor. The `splitBlockAnchors` pass in ast-builder.ts
+  // splits it into a separate anchor paragraph so the printer
+  // can handle spacing correctly.
+  test("anchor before text splits into two blocks", () => {
     const document = parse("[[my-anchor]]\nSome text.\n");
-    expect(document.children).toHaveLength(1);
+    expect(document.children).toHaveLength(2);
     const {
-      children: [child0],
+      children: [anchor, para],
     } = document;
-    narrow(child0, "paragraph");
-    // Anchor is first child; text node(s) follow in the same paragraph.
-    expect(child0.children[0].type).toBe("inlineAnchor");
-    expect(child0.children.length).toBeGreaterThan(1);
+    narrow(anchor, "paragraph");
+    expect(anchor.children).toHaveLength(1);
+    expect(anchor.children[0].type).toBe("inlineAnchor");
+    narrow(para, "paragraph");
+    expect(para.children[0].type).toBe("text");
   });
 
   // Anchor position tracking — positions come from the

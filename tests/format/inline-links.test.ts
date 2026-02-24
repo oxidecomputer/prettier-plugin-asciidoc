@@ -126,11 +126,9 @@ describe("inline links — mixed formatting round-trips", () => {
     );
   });
 
-  test("formatting is idempotent", async () => {
+  test("formatting round-trips", async () => {
     const input = "See https://example.com[here] and <<ref,text>>.\n";
-    const first = await formatAdoc(input);
-    const second = await formatAdoc(first);
-    expect(second).toBe(first);
+    expect(await formatAdoc(input)).toBe(input);
   });
 });
 
@@ -148,5 +146,21 @@ describe("inline links — reflow", () => {
     const input = "Some text before <<section-id,display text>> and after.\n";
     const result = await formatAdoc(input, { printWidth: 30 });
     expect(result).toContain("<<section-id,display text>>");
+  });
+});
+
+describe("inline links — edge cases", () => {
+  test("triple angle bracket xref", async () => {
+    const input = "see <<a, >>\nsee <<<a,>>\n";
+    const first = await formatAdoc(input);
+    const second = await formatAdoc(first);
+    expect(second).toBe(first);
+  });
+
+  test("inline url with special chars", async () => {
+    const input = "see https://a.example.com for info\nsee xref:a[text]\n";
+    const first = await formatAdoc(input);
+    const second = await formatAdoc(first);
+    expect(second).toBe(first);
   });
 });

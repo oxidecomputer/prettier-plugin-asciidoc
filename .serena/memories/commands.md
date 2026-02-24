@@ -25,6 +25,7 @@ If a `.jj` directory is present, use **jj (Jujutsu)** instead of git:
 - `jj log` — show commit history
 
 **jj squash pitfalls:**
+
 - `jj squash --from X --into Y` opens an interactive editor —
   DO NOT USE from non-interactive shells
 - Instead, use: `jj squash --from X --into Y -m "message"`

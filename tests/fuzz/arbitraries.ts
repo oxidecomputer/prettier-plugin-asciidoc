@@ -12,6 +12,14 @@
  */
 import fc from "fast-check";
 
+// Trim whitespace, falling back to "x" if the result is empty.
+// Extracted to satisfy strict-boolean-expressions (no truthy
+// checks on strings).
+const trimOrFallback = (s: string): string => {
+  const trimmed = s.trim();
+  return trimmed === "" ? "x" : trimmed;
+};
+
 /**
  * Tier 1: purely random Unicode input. Catches crashes on
  * null bytes, emoji, BOM, control characters, multi-byte
@@ -105,7 +113,7 @@ const adocLine = fc.oneof(
       fc.stringMatching(/[A-Za-z][\w/.-]{0,20}/),
       fc.string({ maxLength: 15 }),
     )
-    .map(([path, opts]) => `include::${path}[${opts}]`),
+    .map(([path, options]) => `include::${path}[${options}]`),
 
   // BlockMacro: `name::target[attrlist]`
   fc
@@ -114,7 +122,7 @@ const adocLine = fc.oneof(
       fc.stringMatching(/[A-Za-z][\w/.-]{0,20}/),
       fc.string({ maxLength: 15 }),
     )
-    .map(([name, target, attrs]) => `${name}::${target}[${attrs}]`),
+    .map(([name, target, attributes]) => `${name}::${target}[${attributes}]`),
 
   // ConditionalDirective: `ifdef::name[]`, `endif::[]`
   fc.oneof(
@@ -123,7 +131,7 @@ const adocLine = fc.oneof(
         fc.constantFrom("ifdef", "ifndef", "ifeval"),
         fc.stringMatching(/[A-Za-z_][\w-]{0,9}/),
       )
-      .map(([dir, name]) => `${dir}::${name}[]`),
+      .map(([directive, name]) => `${directive}::${name}[]`),
     fc.constant("endif::[]"),
   ),
 
@@ -139,42 +147,45 @@ const adocLine = fc.oneof(
   // BoldMark: `*word*` or `**word**`
   fc
     .string({ minLength: 1, maxLength: 20 })
-    .map((s) => `some *${s.trim() || "x"}* text`),
+    .map((s) => `some *${trimOrFallback(s)}* text`),
   fc
     .string({ minLength: 1, maxLength: 20 })
-    .map((s) => `some **${s.trim() || "x"}** text`),
+    .map((s) => `some **${trimOrFallback(s)}** text`),
 
   // ItalicMark: `_word_` or `__word__`
   fc
     .string({ minLength: 1, maxLength: 20 })
-    .map((s) => `some _${s.trim() || "x"}_ text`),
+    .map((s) => `some _${trimOrFallback(s)}_ text`),
   fc
     .string({ minLength: 1, maxLength: 20 })
-    .map((s) => `some __${s.trim() || "x"}__ text`),
+    .map((s) => `some __${trimOrFallback(s)}__ text`),
 
   // MonoMark: `` `word` `` or ``` ``word`` ```
   fc
     .string({ minLength: 1, maxLength: 20 })
-    .map((s) => `some \`${s.trim() || "x"}\` text`),
+    .map((s) => `some \`${trimOrFallback(s)}\` text`),
   fc
     .string({ minLength: 1, maxLength: 20 })
-    .map((s) => `some \`\`${s.trim() || "x"}\`\` text`),
+    .map((s) => `some \`\`${trimOrFallback(s)}\`\` text`),
 
   // HighlightMark: `#word#` or `##word##`
   fc
     .string({ minLength: 1, maxLength: 20 })
-    .map((s) => `some #${s.trim() || "x"}# text`),
+    .map((s) => `some #${trimOrFallback(s)}# text`),
   fc
     .string({ minLength: 1, maxLength: 20 })
-    .map((s) => `some ##${s.trim() || "x"}## text`),
+    .map((s) => `some ##${trimOrFallback(s)}## text`),
 
   // AttributeReference: `{name}`
-  fc
-    .stringMatching(/[A-Za-z_][\w.-]{0,14}/)
-    .map((s) => `text {${s}} here`),
+  fc.stringMatching(/[A-Za-z_][\w.-]{0,14}/).map((s) => `text {${s}} here`),
 
   // BackslashEscape: `\*`, `\_`, `` \` ``, `\#`
-  fc.constantFrom("a \\* b", "a \\_ b", "a \\` b", "a \\# b"),
+  fc.constantFrom(
+    String.raw`a \* b`,
+    String.raw`a \_ b`,
+    "a \\` b",
+    String.raw`a \# b`,
+  ),
 
   // InlineUrl: `https://example.com` or `https://example.com[text]`
   fc.oneof(
@@ -189,7 +200,7 @@ const adocLine = fc.oneof(
       .map(([s, text]) => `see https://${s}.example.com[${text}] here`),
   ),
 
-  // LinkMacro: `link:url[text]`
+  // InlineMacro: `name:target[attrlist]` (link, mailto, xref variants)
   fc
     .tuple(
       fc.stringMatching(/[a-z][\w/.-]{0,15}/),
@@ -197,20 +208,12 @@ const adocLine = fc.oneof(
     )
     .map(([url, text]) => `click link:${url}[${text}]`),
 
-  // MailtoLink: `mailto:addr[text]`
   fc
-    .tuple(
-      fc.stringMatching(/[a-z][\w.-]{0,15}/),
-      fc.string({ maxLength: 15 }),
-    )
+    .tuple(fc.stringMatching(/[a-z][\w.-]{0,15}/), fc.string({ maxLength: 15 }))
     .map(([addr, text]) => `email mailto:${addr}@example.com[${text}]`),
 
-  // XrefMacro: `xref:target[text]`
   fc
-    .tuple(
-      fc.stringMatching(/[a-z][\w-]{0,15}/),
-      fc.string({ maxLength: 15 }),
-    )
+    .tuple(fc.stringMatching(/[a-z][\w-]{0,15}/), fc.string({ maxLength: 15 }))
     .map(([target, text]) => `see xref:${target}[${text}]`),
 
   // XrefShorthand: `<<target>>` or `<<target,text>>`
@@ -230,7 +233,7 @@ const adocLine = fc.oneof(
       fc.stringMatching(/[a-z][\w-]{0,9}/),
       fc.string({ minLength: 1, maxLength: 15 }),
     )
-    .map(([role, text]) => `[.${role}]#${text.trim() || "x"}#`),
+    .map(([role, text]) => `[.${role}]#${trimOrFallback(text)}#`),
 
   // IndentedLine: leading spaces + content
   fc

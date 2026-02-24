@@ -94,9 +94,7 @@ describe("block macro parsing", () => {
 
   // Block macro with path containing directories.
   test("block macro with path target", () => {
-    const { children } = parse(
-      "image::images/photos/sunset.jpg[Sunset]\n",
-    );
+    const { children } = parse("image::images/photos/sunset.jpg[Sunset]\n");
     expect(children).toHaveLength(1);
     const [node] = children;
     narrow(node, "blockMacro");

@@ -7,7 +7,7 @@
  * which tests AST shape only. Tests here cover:
  *
  *   - Round-trip preservation: the printer emits valid AsciiDoc
- *     that re-parses to an equivalent AST (idempotency).
+ *     that re-parses to an equivalent AST.
  *   - Reflow: the printer respects `printWidth` by breaking
  *     paragraph text with Prettier's fill() builder, including
  *     inside inline formatting spans.
@@ -105,15 +105,13 @@ describe("inline formatting — format output", () => {
     expect(await formatAdoc(input)).toBe("{counter:name}\n");
   });
 
-  // Idempotency is a core Prettier contract: formatting an already-
-  // formatted file must produce the same output. Without this check,
-  // a printer bug might produce output that triggers a different
-  // reflow on the second pass, causing an infinite diff loop.
-  test("formatting is idempotent", async () => {
+  // Round-trip: formatting already-formatted input must produce
+  // the same output — a core Prettier contract. Without this,
+  // a printer bug might trigger a different reflow on the second
+  // pass, causing an infinite diff loop.
+  test("formatting round-trips", async () => {
     const input = "This is *bold* and _italic_ with `mono` and {attr}.\n";
-    const first = await formatAdoc(input);
-    const second = await formatAdoc(first);
-    expect(second).toBe(first);
+    expect(await formatAdoc(input)).toBe(input);
   });
 });
 
@@ -209,6 +207,44 @@ describe("inline formatting — edge case round-trips", () => {
   test("stray { in text round-trips", async () => {
     const input = "text { more text\n";
     expect(await formatAdoc(input)).toBe("text { more text\n");
+  });
+});
+
+// Runs of consecutive mark characters that don't pair cleanly.
+// The lexer tokenizes greedily (`__` before `_`), which can
+// create empty formatting nodes. The formatter preserves the
+// source text unchanged.
+describe("inline formatting — odd-count marks", () => {
+  test("five underscores in paragraph", async () => {
+    const input = "some _____ text\n";
+    expect(await formatAdoc(input)).toBe("some _____ text\n");
+  });
+
+  test("five hashes in paragraph", async () => {
+    const input = "some ##### text\n";
+    expect(await formatAdoc(input)).toBe("some ##### text\n");
+  });
+
+  test("five backticks in paragraph", async () => {
+    const input = "some ````` text\n";
+    expect(await formatAdoc(input)).toBe("some ````` text\n");
+  });
+
+  test("five stars in paragraph", async () => {
+    const input = "some ***** text\n";
+    expect(await formatAdoc(input)).toBe("some ***** text\n");
+  });
+
+  test("four underscores in paragraph", async () => {
+    const input = "some ____ text\n";
+    expect(await formatAdoc(input)).toBe("some ____ text\n");
+  });
+
+  // `_# #_` is italic wrapping highlight with space content.
+  // The formatter must preserve the space between marks.
+  test("nested marks with space content", async () => {
+    const input = "some _# #_ text\n";
+    expect(await formatAdoc(input)).toBe("some _# #_ text\n");
   });
 });
 

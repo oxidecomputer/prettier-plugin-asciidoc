@@ -139,15 +139,10 @@ const printer: Printer<AnyNode> = {
       case "monospace":
       case "highlight":
       case "attributeReference":
+      case "inlineMacro":
       case "link":
       case "xref":
       case "inlineAnchor":
-      case "inlineImage":
-      case "kbd":
-      case "btn":
-      case "menu":
-      case "footnote":
-      case "passthrough":
       case "hardLineBreak": {
         return printInlineNode(node, path, print);
       }

@@ -28,16 +28,7 @@ describe("include directive formatting", () => {
 
   // Include between paragraphs has blank line separation.
   test("include between paragraphs", async () => {
-    const input =
-      "Before.\n\ninclude::chapter.adoc[]\n\nAfter.\n";
+    const input = "Before.\n\ninclude::chapter.adoc[]\n\nAfter.\n";
     expect(await formatAdoc(input)).toBe(input);
-  });
-
-  // Formatting is idempotent.
-  test("idempotent formatting", async () => {
-    const input = "include::path/to/file.adoc[]\n";
-    const first = await formatAdoc(input);
-    const second = await formatAdoc(first);
-    expect(second).toBe(first);
   });
 });

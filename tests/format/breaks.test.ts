@@ -63,12 +63,4 @@ describe("hard line break formatting", () => {
     const input = "Line one +\nline two +\nline three.\n";
     expect(await formatAdoc(input)).toBe(input);
   });
-
-  // Formatting a hard line break must be idempotent.
-  test("hard line break formatting is idempotent", async () => {
-    const input = "First line +\nsecond line.\n";
-    const first = await formatAdoc(input);
-    const second = await formatAdoc(first);
-    expect(second).toBe(first);
-  });
 });

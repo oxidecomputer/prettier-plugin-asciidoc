@@ -18,11 +18,13 @@ import type {
   BlockMacroNode,
   IncludeDirectiveNode,
   ConditionalDirectiveNode,
+  ParagraphNode,
   BlockNode,
 } from "../ast.js";
 import { FIRST, MARKER_OFFSET } from "../constants.js";
 import { unreachable } from "../unreachable.js";
 import type { BlockCstChildren } from "./cst-types.js";
+import { makeInlineAnchor } from "./inline-link-builder.js";
 import { tokenStartLocation, tokenEndLocation } from "./positions.js";
 
 const SECTION_MARKER_RE = /^(?<markers>={2,6})\s+(?<title>.*)/v;
@@ -230,7 +232,8 @@ function buildPageBreak(token: IToken): PageBreakNode {
 
 // Regex to decompose a block macro token into its three
 // parts: name, target, and attribute list.
-const BLOCK_MACRO_RE = /^(?<name>[a-zA-Z]\w*)::(?<target>[^\[]*)\[(?<attrlist>[^\]]*)\]/v;
+const BLOCK_MACRO_RE =
+  /^(?<name>[a-zA-Z]\w*)::(?<target>[^\[]*)\[(?<attrlist>[^\]]*)\]/v;
 
 /**
  * Builds a BlockMacroNode from a block macro token.
@@ -257,6 +260,25 @@ function buildBlockMacro(token: IToken): BlockMacroNode {
       start: tokenStartLocation(token),
       end: tokenEndLocation(token),
     },
+  };
+}
+
+/**
+ * Build a single-anchor paragraph from a `BlockAnchor` token.
+ *
+ * Reuses `makeInlineAnchor` for parsing the token content and
+ * the printer's `isAnchorParagraph` / `shouldStack` logic for
+ * correct block-level anchor formatting.
+ * @param token - A `BlockAnchor` token (`[[id]]` on its own
+ *   line).
+ * @returns A paragraph containing a single `InlineAnchorNode`.
+ */
+function buildBlockAnchor(token: IToken): ParagraphNode {
+  const anchor = makeInlineAnchor(token);
+  return {
+    type: "paragraph",
+    children: [anchor],
+    position: anchor.position,
   };
 }
 
@@ -307,15 +329,11 @@ const CONDITIONAL_DIRECTIVE_RE =
  * @returns A conditional directive node with directive,
  *   target, and attrlist.
  */
-function buildConditionalDirective(
-  token: IToken,
-): ConditionalDirectiveNode {
+function buildConditionalDirective(token: IToken): ConditionalDirectiveNode {
   const match = CONDITIONAL_DIRECTIVE_RE.exec(token.image);
   const groups =
     match?.groups ??
-    unreachable(
-      `Invalid conditional directive: ${token.image}`,
-    );
+    unreachable(`Invalid conditional directive: ${token.image}`);
   return {
     type: "conditionalDirective",
     directive: validateDirective(groups.directive),
@@ -330,7 +348,8 @@ function buildConditionalDirective(
 
 // Regex to decompose an include directive token into its two
 // parts: target (file path) and attribute list.
-const INCLUDE_DIRECTIVE_RE = /^include::(?<target>[^\[]*)\[(?<attrlist>[^\]]*)\]/v;
+const INCLUDE_DIRECTIVE_RE =
+  /^include::(?<target>[^\[]*)\[(?<attrlist>[^\]]*)\]/v;
 
 /**
  * Builds an IncludeDirectiveNode from an include directive
@@ -404,6 +423,7 @@ function tryBuild(
  * @returns The AST node for a single-token block, or
  *   undefined if the block requires visitor traversal.
  */
+// eslint-disable-next-line complexity -- linear dispatch, not branching logic
 export function buildTokenBlock(
   context: BlockCstChildren,
 ): BlockNode | undefined {
@@ -415,11 +435,9 @@ export function buildTokenBlock(
     tryBuild(context.BlockTitle, buildBlockTitle) ??
     tryBuild(context.ThematicBreak, buildThematicBreak) ??
     tryBuild(context.PageBreak, buildPageBreak) ??
-    tryBuild(
-      context.ConditionalDirective,
-      buildConditionalDirective,
-    ) ??
+    tryBuild(context.ConditionalDirective, buildConditionalDirective) ??
     tryBuild(context.IncludeDirective, buildIncludeDirective) ??
-    tryBuild(context.BlockMacro, buildBlockMacro)
+    tryBuild(context.BlockMacro, buildBlockMacro) ??
+    tryBuild(context.BlockAnchor, buildBlockAnchor)
   );
 }

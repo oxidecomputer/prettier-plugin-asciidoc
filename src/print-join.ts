@@ -154,13 +154,35 @@ function shouldStack(blocks: BlockNode[], index: number): boolean {
     (isLineComment(previous) && isLineComment(current)) ||
     (isAttributeEntry(previous) && isAttributeEntry(current)) ||
     (isDocumentTitle(previous) && isAttributeEntry(current)) ||
-    // Block metadata (attribute lists, anchors, titles) stacks
-    // with each other and with the block that follows them.
-    // Exception: anchor paragraphs must NOT stack with plain
-    // paragraphs — on re-parse the anchor would merge into the
-    // paragraph text, breaking idempotency.
-    (isBlockMetadata(previous) &&
-      (!isAnchorParagraph(previous) || !wouldMergeWithAnchor(current)))
+    shouldStackMetadata(previous, current)
+  );
+}
+
+/**
+ * Block metadata stacks with the following block, with exceptions
+ * for anchor paragraphs that would merge on re-parse.
+ * @param previous - The preceding block node.
+ * @param current - The current block node.
+ * @returns Whether the two blocks should stack as metadata.
+ */
+function shouldStackMetadata(
+  previous: BlockNode,
+  current: BlockNode,
+): boolean {
+  // Block metadata (attribute lists, anchors, titles) stacks
+  // with each other and with the block that follows them.
+  // Exceptions:
+  // 1. Anchor paragraphs must NOT stack with plain paragraphs —
+  //    on re-parse the anchor would merge into the paragraph
+  //    text, breaking idempotency.
+  // 2. Consecutive anchor paragraphs must NOT stack — stacking
+  //    removes the blank line, causing re-parse to merge them
+  //    into a single paragraph with inline anchors (different
+  //    semantics from block anchors).
+  return (
+    isBlockMetadata(previous) &&
+    !(isAnchorParagraph(previous) && isAnchorParagraph(current)) &&
+    (!isAnchorParagraph(previous) || !wouldMergeWithAnchor(current))
   );
 }
 

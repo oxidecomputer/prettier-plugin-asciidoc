@@ -10,7 +10,7 @@ import { describe, test, expect } from "vitest";
 import { formatAdoc } from "../helpers.js";
 
 describe("document title formatting", () => {
-  // Idempotency: a canonical document title should pass through unchanged.
+  // A canonical document title should pass through unchanged.
   test("document title preserved as-is", async () => {
     const input = "= My Document\n";
     expect(await formatAdoc(input)).toBe(input);

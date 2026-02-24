@@ -46,8 +46,8 @@ describe("fenced code block formatting", () => {
     expect(await formatAdoc(input)).toBe(expected);
   });
 
-  // Idempotency: normalized output reformats to itself.
-  test("normalized output is idempotent", async () => {
+  // Normalized output reformats to itself.
+  test("normalized output round-trips", async () => {
     const normalized = "[source,rust]\n----\nfn main() {}\n----\n";
     expect(await formatAdoc(normalized)).toBe(normalized);
   });

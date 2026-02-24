@@ -16,15 +16,10 @@ import type {
   ListItemNode,
 } from "./ast.js";
 import {
+  inlineMacroToSource,
   linkToSource,
   xrefToSource,
   anchorToSource,
-  inlineImageToSource,
-  kbdToSource,
-  buttonToSource,
-  menuToSource,
-  footnoteToSource,
-  passthroughToSource,
 } from "./serialize-inline.js";
 import { EMPTY, FIRST, LAST_ELEMENT } from "./constants.js";
 import { flattenForFill, wordsToFillParts } from "./reflow.js";
@@ -89,11 +84,14 @@ export function printInlineNode(
         .split(/\s+/v)
         .filter((word) => word.length > EMPTY);
       // All-whitespace text nodes (e.g. " " between adjacent
-      // formatting marks) produce no visible output — skip them
-      // to avoid doubled line separators from the leading/trailing
-      // space logic below.
+      // formatting marks, or " " as sole content of a
+      // formatting span like `_# #_`). Emit a single line
+      // separator so the whitespace participates in fill()
+      // as a break point — rather than being dropped entirely,
+      // which would fuse adjacent siblings or collapse content
+      // whitespace inside formatting marks.
       if (words.length === EMPTY) {
-        return [];
+        return [line];
       }
       const parts = wordsToFillParts(words);
       const hasLeadingSpace = /^\s/v.test(node.value);
@@ -128,6 +126,13 @@ export function printInlineNode(
       // constrained formatting) and fill() accounts for
       // their width when deciding where to break.
       const parts = flattenForFill(path.map(print, "children"));
+      // Children that are all whitespace flatten to an empty
+      // array (e.g. `_# #_` where highlight contains only a
+      // space). Emit the bare marks to avoid crashing on
+      // undefined array access during fusing.
+      if (parts.length === EMPTY) {
+        return [`${mark}${mark}`];
+      }
       const lastIndex = parts.length + LAST_ELEMENT;
       parts[FIRST] = [mark, parts[FIRST]];
       parts[lastIndex] = [parts[lastIndex], mark];
@@ -144,6 +149,9 @@ export function printInlineNode(
       // Same flattening + fusing as bold/italic/monospace
       // above — see comment there for rationale.
       const parts = flattenForFill(path.map(print, "children"));
+      if (parts.length === EMPTY) {
+        return [`${rolePrefix}${mark}${mark}`];
+      }
       const lastIndex = parts.length + LAST_ELEMENT;
       parts[FIRST] = [rolePrefix, mark, parts[FIRST]];
       parts[lastIndex] = [parts[lastIndex], mark];
@@ -158,6 +166,9 @@ export function printInlineNode(
     case "attributeReference": {
       return `{${node.name}}`;
     }
+    case "inlineMacro": {
+      return inlineMacroToSource(node);
+    }
     case "link": {
       return linkToSource(node);
     }
@@ -166,24 +177,6 @@ export function printInlineNode(
     }
     case "inlineAnchor": {
       return anchorToSource(node);
-    }
-    case "inlineImage": {
-      return inlineImageToSource(node);
-    }
-    case "kbd": {
-      return kbdToSource(node);
-    }
-    case "btn": {
-      return buttonToSource(node);
-    }
-    case "menu": {
-      return menuToSource(node);
-    }
-    case "footnote": {
-      return footnoteToSource(node);
-    }
-    case "passthrough": {
-      return passthroughToSource(node);
     }
     case "hardLineBreak": {
       // ` +` followed by a forced line break in the output.

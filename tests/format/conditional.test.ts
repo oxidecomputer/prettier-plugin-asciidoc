@@ -40,16 +40,7 @@ describe("conditional directive formatting", () => {
 
   // Between paragraphs with blank line separation.
   test("between paragraphs", async () => {
-    const input =
-      "Before.\n\nifdef::backend[]\n\nAfter.\n";
+    const input = "Before.\n\nifdef::backend[]\n\nAfter.\n";
     expect(await formatAdoc(input)).toBe(input);
-  });
-
-  // Idempotent formatting.
-  test("idempotent formatting", async () => {
-    const input = "ifdef::backend[]\n";
-    const first = await formatAdoc(input);
-    const second = await formatAdoc(first);
-    expect(second).toBe(first);
   });
 });

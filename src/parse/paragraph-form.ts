@@ -32,15 +32,10 @@ import type {
   ParagraphNode,
 } from "../ast.js";
 import {
+  inlineMacroToSource,
   linkToSource,
   xrefToSource,
   anchorToSource,
-  inlineImageToSource,
-  kbdToSource,
-  buttonToSource,
-  menuToSource,
-  footnoteToSource,
-  passthroughToSource,
 } from "../serialize-inline.js";
 import { FIRST, NEWLINE_LENGTH, NEXT, PAIR_LENGTH } from "../constants.js";
 
@@ -313,6 +308,9 @@ function inlineToText(node: InlineNode): string {
       const inner = node.children.map((child) => inlineToText(child)).join("");
       return `${rolePrefix}${mark}${inner}${mark}`;
     }
+    case "inlineMacro": {
+      return inlineMacroToSource(node);
+    }
     case "link": {
       return linkToSource(node);
     }
@@ -321,24 +319,6 @@ function inlineToText(node: InlineNode): string {
     }
     case "inlineAnchor": {
       return anchorToSource(node);
-    }
-    case "inlineImage": {
-      return inlineImageToSource(node);
-    }
-    case "kbd": {
-      return kbdToSource(node);
-    }
-    case "btn": {
-      return buttonToSource(node);
-    }
-    case "menu": {
-      return menuToSource(node);
-    }
-    case "footnote": {
-      return footnoteToSource(node);
-    }
-    case "passthrough": {
-      return passthroughToSource(node);
     }
     case "hardLineBreak": {
       return " +\n";

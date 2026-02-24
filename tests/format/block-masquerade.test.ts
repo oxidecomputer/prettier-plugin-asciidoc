@@ -111,22 +111,6 @@ describe("non-masquerade blocks unchanged", () => {
   });
 });
 
-describe("masquerade idempotency", () => {
-  test("verse block formatting is idempotent", async () => {
-    const input = "[verse]\n____\nRoses are red,\nViolets are blue.\n____\n";
-    const first = await formatAdoc(input);
-    const second = await formatAdoc(first);
-    expect(second).toBe(first);
-  });
-
-  test("source open block formatting is idempotent", async () => {
-    const input = "[source]\n--\nputs 'hello'\n--\n";
-    const first = await formatAdoc(input);
-    const second = await formatAdoc(first);
-    expect(second).toBe(first);
-  });
-});
-
 describe("masquerade in context", () => {
   test("verse block between paragraphs", async () => {
     const input = "Before.\n\n[verse]\n____\nRoses are red.\n____\n\nAfter.\n";

@@ -13,15 +13,10 @@
 
 import type { InlineNode, Location, Node } from "../../src/ast.js";
 import {
+  inlineMacroToSource,
   linkToSource,
   xrefToSource,
   anchorToSource,
-  inlineImageToSource,
-  kbdToSource,
-  buttonToSource,
-  menuToSource,
-  footnoteToSource,
-  passthroughToSource,
 } from "../../src/serialize-inline.js";
 import type { AsgInline, AsgLocation } from "./asg-types.js";
 
@@ -113,6 +108,9 @@ function inlineNodeToText(node: InlineNode): string {
     // serialisers in serialize-inline.ts. Those functions
     // reconstruct the full macro syntax (target, attrlist,
     // etc.) and are shared with the printer round-trip.
+    case "inlineMacro": {
+      return inlineMacroToSource(node);
+    }
     case "link": {
       return linkToSource(node);
     }
@@ -121,24 +119,6 @@ function inlineNodeToText(node: InlineNode): string {
     }
     case "inlineAnchor": {
       return anchorToSource(node);
-    }
-    case "inlineImage": {
-      return inlineImageToSource(node);
-    }
-    case "kbd": {
-      return kbdToSource(node);
-    }
-    case "btn": {
-      return buttonToSource(node);
-    }
-    case "menu": {
-      return menuToSource(node);
-    }
-    case "footnote": {
-      return footnoteToSource(node);
-    }
-    case "passthrough": {
-      return passthroughToSource(node);
     }
     case "hardLineBreak": {
       // AsciiDoc hard line break: a space followed by a literal

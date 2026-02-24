@@ -85,13 +85,14 @@ describe("inline links — URLs with display text", () => {
 });
 
 describe("inline links — link macro", () => {
-  test("link:path[text] → link node", () => {
+  test("link:path[text] → inlineMacro node", () => {
     const nodes = inlineNodes("link:path/to/file.html[Link Text]\n");
     expect(nodes).toHaveLength(1);
     const [node0] = nodes;
-    narrow(node0, "link");
+    narrow(node0, "inlineMacro");
+    expect(node0.name).toBe("link");
     expect(node0.target).toBe("path/to/file.html");
-    expect(node0.text).toBe("Link Text");
+    expect(node0.attrlist).toBe("Link Text");
   });
 
   test("link macro in text", () => {
@@ -99,45 +100,43 @@ describe("inline links — link macro", () => {
     expect(nodes).toHaveLength(3);
     expect(nodes[0].type).toBe("text");
     const [, node1] = nodes;
-    narrow(node1, "link");
+    narrow(node1, "inlineMacro");
     expect(nodes[2].type).toBe("text");
+    expect(node1.name).toBe("link");
     expect(node1.target).toBe("docs/guide.html");
-    expect(node1.text).toBe("the guide");
+    expect(node1.attrlist).toBe("the guide");
   });
 
-  test("link:path[] (empty brackets) → link with no text", () => {
+  test("link:path[] (empty brackets) → inlineMacro with empty attrlist", () => {
     const nodes = inlineNodes("link:path/to/file.html[]\n");
     expect(nodes).toHaveLength(1);
     const [node0] = nodes;
-    narrow(node0, "link");
+    narrow(node0, "inlineMacro");
+    expect(node0.name).toBe("link");
     expect(node0.target).toBe("path/to/file.html");
-    expect(node0.text).toBeUndefined();
-    expect(node0.form).toBe("macro");
+    expect(node0.attrlist).toBe("");
   });
 });
 
 describe("inline links — mailto", () => {
-  // `mailto:` is a macro form (`form === "macro"`). The full
-  // `mailto:addr` string is preserved verbatim as `target`,
-  // matching the general macro convention where the scheme is
-  // part of the target rather than being stripped.
-  test("mailto:user@example.com[Email] → link node", () => {
+  test("mailto:user@example.com[Email] → inlineMacro node", () => {
     const nodes = inlineNodes("mailto:user@example.com[Email]\n");
     expect(nodes).toHaveLength(1);
     const [node0] = nodes;
-    narrow(node0, "link");
-    expect(node0.target).toBe("mailto:user@example.com");
-    expect(node0.text).toBe("Email");
+    narrow(node0, "inlineMacro");
+    expect(node0.name).toBe("mailto");
+    expect(node0.target).toBe("user@example.com");
+    expect(node0.attrlist).toBe("Email");
   });
 
-  test("mailto:addr[] (empty brackets) → link with no text", () => {
+  test("mailto:addr[] (empty brackets) → inlineMacro with empty attrlist", () => {
     const nodes = inlineNodes("mailto:user@example.com[]\n");
     expect(nodes).toHaveLength(1);
     const [node0] = nodes;
-    narrow(node0, "link");
-    expect(node0.target).toBe("mailto:user@example.com");
-    expect(node0.text).toBeUndefined();
-    expect(node0.form).toBe("macro");
+    narrow(node0, "inlineMacro");
+    expect(node0.name).toBe("mailto");
+    expect(node0.target).toBe("user@example.com");
+    expect(node0.attrlist).toBe("");
   });
 });
 
@@ -170,13 +169,14 @@ describe("inline cross-references", () => {
     expect(node1.target).toBe("section-id");
   });
 
-  test("xref:doc#anchor[Text] → xref node", () => {
+  test("xref:doc#anchor[Text] → inlineMacro node", () => {
     const nodes = inlineNodes("xref:other-doc.adoc#anchor[Text]\n");
     expect(nodes).toHaveLength(1);
     const [node0] = nodes;
-    narrow(node0, "xref");
+    narrow(node0, "inlineMacro");
+    expect(node0.name).toBe("xref");
     expect(node0.target).toBe("other-doc.adoc#anchor");
-    expect(node0.text).toBe("Text");
+    expect(node0.attrlist).toBe("Text");
   });
 
   test("xref macro in text", () => {
@@ -186,20 +186,21 @@ describe("inline cross-references", () => {
     expect(nodes).toHaveLength(3);
     expect(nodes[0].type).toBe("text");
     const [, node1] = nodes;
-    narrow(node1, "xref");
+    narrow(node1, "inlineMacro");
     expect(nodes[2].type).toBe("text");
+    expect(node1.name).toBe("xref");
     expect(node1.target).toBe("guide.adoc#setup");
-    expect(node1.text).toBe("the setup guide");
+    expect(node1.attrlist).toBe("the setup guide");
   });
 
-  test("xref:target[] (empty brackets) → xref with no text", () => {
+  test("xref:target[] (empty brackets) → inlineMacro with empty attrlist", () => {
     const nodes = inlineNodes("xref:guide.adoc#setup[]\n");
     expect(nodes).toHaveLength(1);
     const [node0] = nodes;
-    narrow(node0, "xref");
+    narrow(node0, "inlineMacro");
+    expect(node0.name).toBe("xref");
     expect(node0.target).toBe("guide.adoc#setup");
-    expect(node0.text).toBeUndefined();
-    expect(node0.form).toBe("macro");
+    expect(node0.attrlist).toBe("");
   });
 
   test("<<id,text with commas>> → first comma splits", () => {

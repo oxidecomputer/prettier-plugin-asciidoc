@@ -9,7 +9,7 @@ import { describe, test, expect } from "vitest";
 import { formatAdoc } from "../helpers.js";
 
 describe("line comment formatting", () => {
-  // Idempotency: a canonical line comment must pass through unchanged.
+  // A canonical line comment must pass through unchanged.
   // This is the baseline — if this fails, the printer is mangling
   // comments rather than preserving them.
   test("line comment preserved as-is", async () => {
@@ -59,7 +59,7 @@ describe("line comment formatting", () => {
 });
 
 describe("block comment formatting", () => {
-  // Idempotency baseline for block comments: `////` delimiters and
+  // Round-trip baseline for block comments: `////` delimiters and
   // content pass through the printer unchanged. Content is verbatim
   // and must never be reflowed or trimmed.
   test("block comment preserved as-is", async () => {

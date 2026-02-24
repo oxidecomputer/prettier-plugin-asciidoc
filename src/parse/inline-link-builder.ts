@@ -10,7 +10,12 @@
  * group indices).
  */
 import type { IToken } from "chevrotain";
-import type { LinkNode, XrefNode, InlineAnchorNode } from "../ast.js";
+import type {
+  LinkNode,
+  XrefNode,
+  InlineAnchorNode,
+  HardLineBreakNode,
+} from "../ast.js";
 import { EMPTY, FIRST, NEXT, NOT_FOUND } from "../constants.js";
 import { tokenStartLocation, tokenEndLocation } from "./positions.js";
 
@@ -30,7 +35,7 @@ const BRACKET_PAIR_LEN = 2;
  * is present — the trailing `]` is consumed by the slice.
  *
  * Precondition: `image` ends with `]` (guaranteed by the
- * grammar's LinkMacro / ImageMacro token pattern).
+ * grammar's InlineMacro token pattern).
  * @param image - String to split; either a full token image
  *   or the portion after a macro prefix has been removed
  * @returns Tuple of [beforeBracket, insideBracket].
@@ -90,40 +95,6 @@ export function makeLinkFromUrl(token: IToken): LinkNode {
 }
 
 /**
- * Build a LinkNode from a `link:` or `mailto:` macro token.
- *
- * Strips the macro prefix to extract the target, then
- * splits at `[` for optional display text. For `mailto:`
- * tokens the scheme is stripped during parsing and
- * reconstructed before storing the target, so the printer
- * can reproduce the original `mailto:addr` form.
- * @param token - LinkMacro or MailtoLink token from the
- *   lexer (image starts with `link:` or `mailto:`)
- * @returns LinkNode with form `"macro"`
- */
-export function makeLinkFromMacro(token: IToken): LinkNode {
-  // Strip the prefix (`link:` or `mailto:`).
-  const isMailto = token.image.startsWith("mailto:");
-  const afterPrefix = isMailto
-    ? token.image.slice("mailto:".length)
-    : token.image.slice("link:".length);
-  // afterPrefix still contains the `[text]` bracket portion,
-  // so it cannot be used directly as the target. splitAtBracket
-  // isolates rawTarget (the address only). For mailto we then
-  // re-attach the scheme so the target stays `mailto:addr`,
-  // which the printer needs to reproduce the original form.
-  const [rawTarget, text] = splitAtBracket(afterPrefix);
-  const target = isMailto ? `mailto:${rawTarget}` : rawTarget;
-  return {
-    type: "link",
-    form: "macro",
-    target,
-    text: text === undefined || text.length === EMPTY ? undefined : text,
-    position: positionOf(token),
-  };
-}
-
-/**
  * Build an XrefNode from the `<<target>>` shorthand.
  *
  * Strips the `<<`/`>>` delimiters, then splits at the
@@ -157,28 +128,6 @@ export function makeXrefFromShorthand(token: IToken): XrefNode {
 }
 
 /**
- * Build an XrefNode from the `xref:target[text]` macro.
- *
- * Strips the `xref:` prefix and splits at `[` for the
- * optional display text. The form is `"macro"` so the
- * printer reproduces the macro syntax rather than the
- * `<<>>` shorthand.
- * @param token - XrefMacro token from the lexer
- * @returns XrefNode with form `"macro"`
- */
-export function makeXrefFromMacro(token: IToken): XrefNode {
-  const afterPrefix = token.image.slice("xref:".length);
-  const [target, text] = splitAtBracket(afterPrefix);
-  return {
-    type: "xref",
-    form: "macro",
-    target,
-    text: text === undefined || text.length === EMPTY ? undefined : text,
-    position: positionOf(token),
-  };
-}
-
-/**
  * Build an InlineAnchorNode from a `[[id]]` token.
  *
  * Strips the `[[`/`]]` delimiters and splits at the
@@ -207,6 +156,23 @@ export function makeInlineAnchor(token: IToken): InlineAnchorNode {
     type: "inlineAnchor",
     id: inner.slice(FIRST, commaIndex),
     reftext: reftext.length > EMPTY ? reftext : undefined,
+    position: positionOf(token),
+  };
+}
+
+/**
+ * Build a HardLineBreakNode from a ` +` line-ending token.
+ *
+ * Hard line breaks force a line break in output. They
+ * are represented as standalone AST nodes (rather than
+ * embedded in text) so the printer can emit the correct
+ * Prettier Doc IR for line-break semantics.
+ * @param token - HardLineBreak token from the lexer
+ * @returns HardLineBreakNode with source position only
+ */
+export function makeHardLineBreak(token: IToken): HardLineBreakNode {
+  return {
+    type: "hardLineBreak",
     position: positionOf(token),
   };
 }

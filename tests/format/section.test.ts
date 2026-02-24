@@ -2,7 +2,7 @@ import { describe, test, expect } from "vitest";
 import { formatAdoc } from "../helpers.js";
 
 describe("section formatting", () => {
-  // Idempotency: a canonical heading should pass through unchanged.
+  // A canonical heading should pass through unchanged.
   test("heading preserved as-is", async () => {
     const input = "== Title\n";
     expect(await formatAdoc(input)).toBe(input);

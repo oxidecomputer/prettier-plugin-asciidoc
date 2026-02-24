@@ -9,6 +9,7 @@
 import type { CstNode, IToken, TokenType } from "chevrotain";
 import type {
   InlineNode,
+  InlineMacroNode,
   TextNode,
   BoldNode,
   ItalicNode,
@@ -22,43 +23,23 @@ import { unreachable } from "../unreachable.js";
 import {
   AttributeReference,
   BoldMark,
-  ButtonMacro,
-  FootnoteMacro,
-  FootnoteReferenceMacro,
   HardLineBreak,
   HighlightMark,
   InlineAnchor,
-  InlineImage,
+  InlineMacro,
   InlineNewline,
   InlineUrl,
   ItalicMark,
-  KbdMacro,
-  LinkMacro,
-  MailtoLink,
-  MenuMacro,
   MonoMark,
-  PassMacro,
   RoleAttribute,
-  XrefMacro,
   XrefShorthand,
 } from "./tokens.js";
 import {
   makeLinkFromUrl,
-  makeLinkFromMacro,
   makeXrefFromShorthand,
-  makeXrefFromMacro,
   makeInlineAnchor,
-} from "./inline-link-builder.js";
-import {
-  makeInlineImage,
-  makeKbd,
-  makeButton,
-  makeMenu,
-  makeFootnote,
-  makeFootnoteReference,
-  makePassMacro,
   makeHardLineBreak,
-} from "./inline-macro-builder.js";
+} from "./inline-link-builder.js";
 import { flattenInlineTokens, unwrapInlineLines } from "./inline-tokens.js";
 
 // Map from mark token type to AST node type. Uses token type
@@ -306,7 +287,19 @@ function handleFormattingMark(
   index: number,
   token: IToken,
 ): { node: InlineNode; nextIndex: number } | undefined {
-  const closeIndex = findCloseMark(tokens, index);
+  // Find a close mark that is not immediately adjacent to the
+  // open mark. An adjacent close would create an empty
+  // formatting span (e.g. `____` tokenized as `__` + `__`)
+  // which has no content and crashes the printer. Skipping
+  // adjacent matches lets the tokens between them become
+  // content, matching Asciidoctor's behavior where `_____`
+  // is italic wrapping a literal `_`.
+  let closeIndex = findCloseMark(tokens, index);
+  while (closeIndex !== NOT_FOUND) {
+    const innerTokens = tokens.slice(index + NEXT, closeIndex);
+    if (innerTokens.length > EMPTY) break;
+    closeIndex = findCloseMark(tokens, closeIndex);
+  }
   if (closeIndex === NOT_FOUND) return undefined;
 
   const innerTokens = tokens.slice(index + NEXT, closeIndex);
@@ -355,25 +348,41 @@ function dispatchPairedToken(
   return undefined;
 }
 
+/**
+ * Build an InlineMacroNode from a unified `InlineMacro` token.
+ *
+ * Splits the token image at the first `:` (name) and first `[`
+ * (target vs attrlist boundary). All `name:target[attrlist]`
+ * inline macros share this same structure, so one builder
+ * replaces the previous ten per-macro factories.
+ * @param token - The InlineMacro token from the lexer.
+ * @returns An InlineMacroNode with name, target, and attrlist.
+ */
+function makeInlineMacro(token: IToken): InlineMacroNode {
+  const colonIndex = token.image.indexOf(":");
+  const bracketIndex = token.image.indexOf("[");
+  return {
+    type: "inlineMacro",
+    name: token.image.slice(EMPTY, colonIndex),
+    target: token.image.slice(colonIndex + NEXT, bracketIndex),
+    attrlist: token.image.slice(bracketIndex + NEXT, -NEXT),
+    position: {
+      start: tokenStartLocation(token),
+      end: tokenEndLocation(token),
+    },
+  };
+}
+
 // Map from token type to factory function for atomic
 // (single-token) inline nodes. Uses token type identity
 // for type-safe dispatch, avoiding a long if/else chain.
 type AtomicFactory = (token: IToken) => InlineNode;
 const ATOMIC_DISPATCH = new Map<TokenType, AtomicFactory>([
   [AttributeReference, makeAttributeReference],
+  [InlineMacro, makeInlineMacro],
   [InlineUrl, makeLinkFromUrl],
-  [LinkMacro, makeLinkFromMacro],
-  [MailtoLink, makeLinkFromMacro],
   [XrefShorthand, makeXrefFromShorthand],
-  [XrefMacro, makeXrefFromMacro],
   [InlineAnchor, makeInlineAnchor],
-  [InlineImage, makeInlineImage],
-  [KbdMacro, makeKbd],
-  [ButtonMacro, makeButton],
-  [MenuMacro, makeMenu],
-  [FootnoteMacro, makeFootnote],
-  [FootnoteReferenceMacro, makeFootnoteReference],
-  [PassMacro, makePassMacro],
   [HardLineBreak, makeHardLineBreak],
 ]);
 

@@ -144,22 +144,18 @@ export interface AttributeReferenceNode extends Node {
 }
 
 /**
- * Inline link: a URL (`https://example.com`), a URL with
- * display text (`https://example.com[text]`), a link macro
- * (`link:path[text]`), or a mailto link (`mailto:addr[text]`).
- * Preserved verbatim — no URL normalization.
+ * Inline link via bare URL: `https://example.com` or
+ * `https://example.com[text]`. Kept separate from
+ * InlineMacroNode because it has different syntax
+ * (no `name:` prefix) and needs form tracking for
+ * round-trip fidelity.
  */
 export interface LinkNode extends Node {
   /** Node discriminant. */
   type: "link";
-  /**
-   * `"url"` for bare URLs (`https://`, `http://`);
-   * `"macro"` for the `link:` and `mailto:` macros.
-   * Preserves the author's original syntax during
-   * round-trip.
-   */
-  form: "url" | "macro";
-  /** The link destination URL or path. */
+  /** Always `"url"` — macro-form links use InlineMacroNode. */
+  form: "url";
+  /** The link destination URL. */
   target: string;
   /**
    * Display text from the attribute list (e.g. the
@@ -170,19 +166,16 @@ export interface LinkNode extends Node {
 }
 
 /**
- * Cross-reference: `<<target>>`, `<<target,text>>`, or the
- * xref macro `xref:target[text]`. Target may include a
- * document path and fragment (`doc.adoc#anchor`).
+ * Cross-reference via shorthand syntax: `<<target>>` or
+ * `<<target,text>>`. Kept separate from InlineMacroNode
+ * because the `<<>>` syntax is not `name:target[attrlist]`.
+ * The macro form (`xref:target[text]`) uses InlineMacroNode.
  */
 export interface XrefNode extends Node {
   /** Node discriminant. */
   type: "xref";
-  /**
-   * `"shorthand"` for `<<target>>` syntax; `"macro"`
-   * for `xref:target[]`. Preserves the author's original
-   * syntax during round-trip.
-   */
-  form: "shorthand" | "macro";
+  /** Always `"shorthand"` — macro-form xrefs use InlineMacroNode. */
+  form: "shorthand";
   /** Cross-reference target ID or `doc.adoc#anchor`. */
   target: string;
   /**
@@ -211,77 +204,26 @@ export interface InlineAnchorNode extends Node {
 }
 
 /**
- * Inline image macro: `image:target[alt]`. Preserved verbatim
- * during round-trip — no image resolution or path normalization.
+ * Unified inline macro: `name:target[attrlist]`. Covers all
+ * inline macros that follow the standard AsciiDoc syntax:
+ * link, mailto, xref, image, kbd, btn, menu, footnote,
+ * footnoteref, and pass. Each is distinguished by `name`.
+ *
+ * Tokens with different syntax (bare URLs, `<<>>` xrefs,
+ * `[[]]` anchors, ` +\n` hard breaks) keep their own types.
  */
-export interface InlineImageNode extends Node {
+export interface InlineMacroNode extends Node {
   /** Node discriminant. */
-  type: "inlineImage";
-  /** Image file path or URL. */
+  type: "inlineMacro";
+  /** Macro name (e.g. `"link"`, `"image"`, `"kbd"`). */
+  name: string;
+  /**
+   * Content between `:` and `[` (may be empty for macros
+   * like `kbd`, `btn`, `footnote` that have no target).
+   */
   target: string;
-  /** Alt text from the attribute list. Undefined if omitted. */
-  alt: string | undefined;
-}
-
-/**
- * Keyboard shortcut macro: `kbd:[keys]`. Renders as a
- * keyboard input indicator in the output.
- */
-export interface KbdNode extends Node {
-  /** Node discriminant. */
-  type: "kbd";
-  /** Key combination text (e.g. `Ctrl+C`). */
-  keys: string;
-}
-
-/**
- * Button macro: `btn:[label]`. Renders as a UI button
- * indicator in the output.
- */
-export interface ButtonNode extends Node {
-  /** Node discriminant. */
-  type: "btn";
-  /** Button label text. */
-  label: string;
-}
-
-/**
- * Menu selection macro: `menu:path[item]`. Represents a
- * UI menu navigation sequence (e.g. File > Save).
- */
-export interface MenuNode extends Node {
-  /** Node discriminant. */
-  type: "menu";
-  /** Menu path prefix (e.g. `File` in `menu:File[Save]`). */
-  path: string;
-  /** Final menu item (e.g. `Save` in `menu:File[Save]`). */
-  item: string;
-}
-
-/**
- * Footnote or footnote reference. Three forms:
- * - `footnote:[text]` — anonymous footnote
- * - `footnoteref:[id,text]` — named footnote definition
- * - `footnoteref:[id]` — reference to a named footnote
- */
-export interface FootnoteNode extends Node {
-  /** Node discriminant. */
-  type: "footnote";
-  /** Footnote body text or reference ID text. */
-  text: string;
-  /** Name for footnoteref; undefined for anonymous footnotes. */
-  id: string | undefined;
-}
-
-/**
- * Passthrough macro: `pass:[content]`. Content is excluded
- * from normal inline substitutions and preserved verbatim.
- */
-export interface PassthroughNode extends Node {
-  /** Node discriminant. */
-  type: "passthrough";
-  /** Raw passthrough content, excluded from substitutions. */
-  content: string;
+  /** Raw content between `[` and `]`. */
+  attrlist: string;
 }
 
 /**
@@ -303,15 +245,10 @@ export type InlineNode =
   | MonospaceNode
   | HighlightNode
   | AttributeReferenceNode
+  | InlineMacroNode
   | LinkNode
   | XrefNode
   | InlineAnchorNode
-  | InlineImageNode
-  | KbdNode
-  | ButtonNode
-  | MenuNode
-  | FootnoteNode
-  | PassthroughNode
   | HardLineBreakNode;
 
 /**
