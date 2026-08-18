@@ -187,6 +187,8 @@ footnoteref:[name]                      ← footnote reference
 +literal passthrough+                   ← inline literal (no substitutions)
 pass:[<raw>]                            ← passthrough macro
 [[inline-anchor]]                       ← inline anchor (mid-paragraph)
+[[[biblio-id]]]                         ← bibliography anchor (in list items)
+[[[biblio-id, reftext]]]                ← bibliography anchor with display text
 ```
 
 ### Index terms
@@ -993,6 +995,25 @@ Certain attribute lists change section semantics without affecting formatting:
 ```
 
 A formatter preserves these as-is.
+
+### Bibliography anchors
+
+Inside a `[bibliography]` section, list items can define bibliography anchors using triple brackets:
+
+```
+[bibliography]
+== References
+
+- [[[prag]]] Andy Hunt & Dave Thomas. The Pragmatic Programmer:
+  From Journeyman to Master. Addison-Wesley, 1999.
+- [[[gof,1]]] Erich Gamma et al. Design Patterns. Addison-Wesley, 1994.
+```
+
+The syntax `[[[id]]]` defines a referenceable anchor that renders as `[id]` in output. The two-argument form `[[[id, reftext]]]` renders as `[reftext]` instead — e.g., `[[[gof,1]]]` renders as `[1]`. These are referenced elsewhere with standard xref syntax: `<<prag>>` or `<<gof>>`.
+
+Structurally, bibliography anchors are inline elements that appear at the start of unordered list items. They function like `[[id]]` block anchors but use triple brackets and are scoped to bibliography entries.
+
+A formatter preserves these verbatim.
 
 ## ASG node types (from the official schema)
 

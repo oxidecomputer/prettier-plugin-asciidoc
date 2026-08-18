@@ -1,3 +1,6 @@
 node_modules/
 dist/
 .claude/
+# Local copy of the AsciiDoc pre-spec PDF (3.2 MB binary; see
+# docs/gap-analysis.md "Source" for the download URL).
+docs/asciidoc-pre-spec.pdf

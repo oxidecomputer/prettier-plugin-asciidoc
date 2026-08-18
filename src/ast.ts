@@ -345,9 +345,12 @@ export interface AttributeEntryNode extends Node {
  * section headings which use `==` through `======`. There can be at
  * most one document title per document, and it must appear before any
  * section headings. It's a standalone block (not a container like
- * SectionNode) because the header grouping of title + author +
- * revision + attributes is handled by join logic in the printer,
- * not by AST nesting.
+ * SectionNode) because header grouping is handled by join logic in
+ * the printer, not by AST nesting. Note: that join logic currently
+ * only keeps attribute entries contiguous with the title — implicit
+ * author and revision lines are NOT yet recognized and parse as body
+ * paragraphs, which detaches them from the header (see the gap
+ * analysis, Tier 1, and Task 30 in the plan).
  */
 export interface DocumentTitleNode extends Node {
   /** Node discriminant. */
