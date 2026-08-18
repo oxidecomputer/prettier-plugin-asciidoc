@@ -24,6 +24,9 @@ export const MARKER_OFFSET = 1;
 // Last element: array.at(LAST_ELEMENT)
 export const LAST_ELEMENT = -1;
 
+// Exactly one element: `items.length === SINGLE`.
+export const SINGLE = 1;
+
 // Offset to the next element in a sequential scan.
 // Also used as `length - NEXT` to get the last-element index
 // when `.at(LAST_ELEMENT)` can't be used (e.g. ESLint

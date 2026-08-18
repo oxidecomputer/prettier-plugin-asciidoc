@@ -598,6 +598,29 @@ export interface ListItemNode extends Node {
    * plus any nested `ListNode` children for sub-lists.
    */
   children: Array<InlineNode | ListNode>;
+  /**
+   * Blocks attached to this item with `+` list continuation
+   * lines, in source order. Paragraphs, or literal blocks
+   * (form "indented") when the content after `+` is indented.
+   * A `+` line followed by a DELIMITED block (e.g. `----`)
+   * ends the item at the grammar level before continuation
+   * handling can see the block, so that block detaches into a
+   * sibling — the printed blank line between the dangling `+`
+   * and the block still renders correctly because Asciidoctor
+   * attaches continuation content across a blank line (full
+   * structural support is Task 23 in the plan).
+   */
+  attachedBlocks: BlockNode[];
+  /**
+   * True when the item ends with a `+` continuation line that
+   * has nothing following it inside the item to attach. The
+   * printer re-emits the bare `+` line verbatim so the
+   * document's rendering is preserved (Asciidoctor attaches
+   * whatever block follows, even across one blank line;
+   * folding the `+` into the item text — the pre-fix
+   * behavior — changed the rendered output).
+   */
+  danglingContinuation: boolean;
 }
 
 /**

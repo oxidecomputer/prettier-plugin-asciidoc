@@ -21,7 +21,7 @@ import {
   xrefToSource,
   anchorToSource,
 } from "./serialize-inline.js";
-import { EMPTY, FIRST, LAST_ELEMENT } from "./constants.js";
+import { EMPTY, FIRST, LAST_ELEMENT, NEXT } from "./constants.js";
 import { flattenForFill, wordsToFillParts } from "./reflow.js";
 
 const {
@@ -62,6 +62,94 @@ function collapseSourceNewlines(source: string): string {
     return source;
   }
   return source.replaceAll(/[^\S\n]*\n\s*/gv, " ");
+}
+
+/**
+ * Check whether the node at `path` is a direct child of a
+ * formatting span (bold, italic, monospace, highlight). Used
+ * by the text case to decide whether a trailing `+` needs
+ * escaping: inside a span the closing mark follows the text
+ * in the output, so a `+` can never sit bare at end of line —
+ * and escaping it would corrupt the span's content.
+ * @param path - Prettier's AstPath at the current text node.
+ * @returns True when the immediate parent is a formatting
+ *   span.
+ */
+function isInsideFormattingSpan(path: PrintPath): boolean {
+  const parent = path.getParentNode();
+  return (
+    parent !== null &&
+    (parent.type === "bold" ||
+      parent.type === "italic" ||
+      parent.type === "monospace" ||
+      parent.type === "highlight")
+  );
+}
+
+/**
+ * Check whether the node at `path` is followed by a sibling
+ * that participates in the same enclosing fill(). Nested
+ * lists inside a list item do NOT count: they print on their
+ * own lines outside the fill, so a word at the end of the
+ * text before them still ends an output line.
+ * @param path - Prettier's AstPath at the current text node.
+ * @returns True when an inline sibling directly follows.
+ */
+function hasFollowingInlineSibling(path: PrintPath): boolean {
+  const parent = path.getParentNode();
+  const { index } = path;
+  if (parent === null || index === null || !("children" in parent)) {
+    return false;
+  }
+  const next = parent.children.at(index + NEXT);
+  return next !== undefined && next.type !== "list";
+}
+
+/**
+ * Append a text node's trailing-whitespace boundary to its fill
+ * parts. Normally the boundary is a breakable `line`; but when
+ * the node's last word is a bare `+` and an inline sibling
+ * follows, an explicit space is fused onto the `+` instead so
+ * flattenForFill joins it with the sibling's first content —
+ * fill() can then only break BEFORE the `+`, never after it
+ * (where ` +` at end of line would become a hard line break).
+ * @param parts - Fill parts for the text node (mutated).
+ * @param words - The node's whitespace-split words.
+ * @param glueToSibling - True when an inline sibling follows in
+ *   the same fill and the trailing word needs forward gluing.
+ */
+function pushTrailingBoundary(
+  parts: Doc[],
+  words: string[],
+  glueToSibling: boolean,
+): void {
+  if (glueToSibling && words.at(LAST_ELEMENT) === "+") {
+    const lastPart = parts.pop() ?? "";
+    parts.push([lastPart, " "]);
+  } else {
+    parts.push(line);
+  }
+}
+
+/**
+ * Decide how a text node's trailing `+` word must be protected
+ * from landing bare at the end of an output line (where ` +`
+ * becomes a hard line break). See the text case in
+ * printInlineNode for the three-way rationale.
+ * @param path - Prettier's AstPath at the current text node.
+ * @returns Whether to rewrite an unglued trailing `+` to
+ *   `{plus}`, and whether to glue it forward to a following
+ *   inline sibling instead.
+ */
+function trailingPlusPolicy(path: PrintPath): {
+  escapeTrailingPlus: boolean;
+  glueToSibling: boolean;
+} {
+  const followedInFill = hasFollowingInlineSibling(path);
+  return {
+    escapeTrailingPlus: !followedInFill && !isInsideFormattingSpan(path),
+    glueToSibling: followedInFill,
+  };
 }
 
 /**
@@ -120,14 +208,30 @@ export function printInlineNode(
       if (words.length === EMPTY) {
         return [line];
       }
-      const parts = wordsToFillParts(words);
+      // A trailing `+` word needs care because ` +` at end of
+      // an output line is a hard line break. Three cases:
+      // - An inline sibling follows in the same fill(): glue
+      //   the `+` forward to that sibling (below) so no break
+      //   can land after it. No escape — escaping would put a
+      //   literal `{plus}` mid-line.
+      // - No sibling follows but this text is inside a
+      //   formatting span: the closing mark lands directly
+      //   after the `+` in the output, so it can never end a
+      //   line bare. No escape — escaping would corrupt the
+      //   span's content (issue #2's `` `+` `` case).
+      // - Otherwise (block-level last child, or only a nested
+      //   list follows — which prints outside the fill): the
+      //   `+` truly ends an output line, so it must be
+      //   escaped.
+      const { escapeTrailingPlus, glueToSibling } = trailingPlusPolicy(path);
+      const parts = wordsToFillParts(words, { escapeTrailingPlus });
       const hasLeadingSpace = /^\s/v.test(node.value);
       const hasTrailingSpace = /\s$/v.test(node.value);
       if (hasLeadingSpace) {
         parts.unshift(line);
       }
       if (hasTrailingSpace) {
-        parts.push(line);
+        pushTrailingBoundary(parts, words, glueToSibling);
       }
       return parts;
     }

@@ -374,6 +374,8 @@ export function buildRecoveredListItem(textTokens: IToken[]): FlatListItem {
     return {
       depth: RECOVERY_DEPTH,
       inlineChildren: [],
+      attachedBlocks: [],
+      danglingContinuation: false,
       checkbox: undefined,
       calloutNumber: undefined,
       start: fallback,
@@ -398,6 +400,8 @@ export function buildRecoveredListItem(textTokens: IToken[]): FlatListItem {
   return {
     depth: RECOVERY_DEPTH,
     inlineChildren: [textNode],
+    attachedBlocks: [],
+    danglingContinuation: false,
     checkbox: undefined,
     calloutNumber: undefined,
     start,

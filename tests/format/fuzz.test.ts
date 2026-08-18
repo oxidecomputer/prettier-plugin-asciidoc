@@ -1,64 +1,11 @@
 import { describe, test, expect } from "vitest";
 import fc from "fast-check";
-import Asciidoctor from "@asciidoctor/core";
-import { formatAdoc } from "../helpers.js";
+import { formatAdoc, renderedHtml } from "../helpers.js";
 import { adocDocument, adocDocumentNoIncludes } from "../fuzz/arbitraries.js";
 import { fuzzParameters } from "../fuzz/config.js";
 
-// Single shared instance — Asciidoctor's convert() is stateless
-// so one instance is safe across all property runs. The null
-// logger suppresses warnings/errors on stderr from random input.
-const asciidoctor = Asciidoctor();
-const nullLogger = asciidoctor.NullLogger.create();
-
-/**
- * Converts AsciiDoc input to HTML via Asciidoctor in safe mode
- * with logging suppressed.
- *
- * Asciidoctor.convert() returns string when not writing to a
- * file, but the type signature is `string | Document`. This
- * helper avoids unsafe `as string` casts.
- * @param input - AsciiDoc source text
- * @returns HTML string produced by Asciidoctor
- */
-function convertToHtml(input: string): string {
-  const result = asciidoctor.convert(input, {
-    safe: "safe",
-    logger: nullLogger,
-  });
-  if (typeof result !== "string") {
-    throw new TypeError("expected convert() to return a string");
-  }
-  return result;
-}
-
-/**
- * Normalizes HTML for comparison by collapsing newlines to spaces
- * outside of `<pre>` blocks. Asciidoctor preserves source newlines
- * in paragraph text (`<p>word1\nword2</p>`), but the formatter
- * reflows lines — this whitespace difference is visually identical
- * and not a semantic change.
- * @param html - HTML string from Asciidoctor
- * @returns HTML with text-node newlines replaced by spaces
- */
-function normalizeHtml(html: string): string {
-  // Split around <pre>...</pre> blocks, normalize newlines only
-  // in the non-pre segments. Asciidoctor never nests <pre> tags.
-  const preBlocks: string[] = [];
-  const withPlaceholders = html.replaceAll(
-    /<pre[^>]*>[\s\S]*?<\/pre>/gv,
-    (match) => {
-      preBlocks.push(match);
-      return `\0PRE${String(preBlocks.length - 1)}\0`;
-    },
-  );
-  return withPlaceholders
-    .replaceAll("\n", " ")
-    .replaceAll(
-      /\0PRE(?<index>\d+)\0/gv,
-      (_, _1, _2, groups: { index: string }) => preBlocks[Number(groups.index)],
-    );
-}
+// HTML conversion and normalization live in ../helpers.ts
+// (renderedHtml) so other semantic-fidelity tests share them.
 
 describe("formatter fuzz", () => {
   // Property-based fuzz test for the formatter. Verifies that
@@ -91,9 +38,9 @@ describe("formatter fuzz", () => {
   test.fails("formatting preserves Asciidoctor HTML output", async () => {
     await fc.assert(
       fc.asyncProperty(adocDocumentNoIncludes, async (input) => {
-        const htmlBefore = normalizeHtml(convertToHtml(input));
+        const htmlBefore = renderedHtml(input);
         const formatted = await formatAdoc(input);
-        const htmlAfter = normalizeHtml(convertToHtml(formatted));
+        const htmlAfter = renderedHtml(formatted);
         expect(htmlAfter).toBe(htmlBefore);
       }),
       fuzzParameters({ numRuns: 100 }),

@@ -209,23 +209,37 @@ jj new
 ## Task 23: List continuation and complex list items
 
 List items can contain multiple blocks via the `+` continuation marker.
+Partially implemented (issue #2): `+` followed by a paragraph or
+indented-literal content attaches to the item, dangling markers are preserved,
+and trailing marker-only lines collapse into one dangling marker. This task
+covers the remaining depth (see the gap analysis, "List continuation" and
+"Paragraph-interrupting `+` line" rows):
+
+- A `+` before a DELIMITED block (listing, example, open, …) ends the item at
+  the grammar level — the block detaches into a sibling (rendering survives:
+  Asciidoctor re-attaches across the printed blank line)
+- Attaching blocks to ancestor lists, not just the immediate item
+- Open blocks as compound wrappers (several blocks attached as one unit)
+- Dropping principal text from list items
+- A lone `+` line interrupting a plain (non-list) paragraph — Asciidoctor makes
+  two paragraphs; we reflow them into one with a mid-text `+`
 
 **Files:**
 
-- Modify: `src/parse/tokens.ts` — add `ListContinuation` token (`+` on its own
-  line)
-- Modify: `src/parse/grammar.ts` — extend list item rules to accept
-  continuation + nested blocks
+- Modify: `src/parse/grammar.ts` — accept delimited blocks after a `+`
+  continuation line
+- Modify: `src/parse/continuation-builder.ts` — extend the marker split to
+  delimited-block segments
 - Modify: `src/parse/ast-builder.ts`
 - Modify: `src/printer.ts`
-- Create: `tests/parser/list-continuation.test.ts`
-- Create: `tests/format/list-continuation.test.ts`
+- Extend: `tests/parser/list-continuation.test.ts`
+- Extend: `tests/format/list-continuation.test.ts`
 
 **Key test cases:**
 
-- List item with `+` followed by a paragraph
 - List item with `+` followed by a listing block
-- Nested list with continuation
+- `+` after a nested list attaching a block to the ancestor item
+- Paragraph interrupted by a lone `+` line splits into two paragraphs
 
 **Commit:**
 

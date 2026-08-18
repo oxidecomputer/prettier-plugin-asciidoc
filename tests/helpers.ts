@@ -11,6 +11,7 @@
  * identity.test.ts to use this shared helper — that would defeat its purpose.
  */
 import { format } from "prettier";
+import Asciidoctor from "@asciidoctor/core";
 import type {
   BlockNode,
   DelimitedBlockNode,
@@ -86,4 +87,57 @@ export function firstDelimitedBlock(
   const [block] = children;
   narrow(block, "delimitedBlock");
   return block;
+}
+
+// Single shared Asciidoctor instance for semantic-fidelity
+// assertions — convert() is stateless, so one instance is safe
+// across all tests. The null logger suppresses stderr noise
+// from intentionally odd inputs.
+const asciidoctor = Asciidoctor();
+const nullLogger = asciidoctor.NullLogger.create();
+
+/**
+ * Renders AsciiDoc to normalized HTML via Asciidoctor for
+ * semantic-fidelity comparisons: asserting that formatting did
+ * not change what a document MEANS, not just that it round-trips
+ * textually. Newlines outside `<pre>` blocks are collapsed to
+ * spaces because Asciidoctor preserves source newlines in
+ * paragraph text while the formatter reflows lines — a
+ * whitespace difference that is visually identical and not a
+ * semantic change.
+ * @param input - AsciiDoc source text.
+ * @returns Normalized HTML string produced by Asciidoctor in
+ *   safe mode with logging suppressed.
+ */
+export function renderedHtml(input: string): string {
+  const result = asciidoctor.convert(input, {
+    safe: "safe",
+    logger: nullLogger,
+  });
+  if (typeof result !== "string") {
+    throw new TypeError("expected convert() to return a string");
+  }
+  // Split around <pre>...</pre> blocks, normalize newlines only
+  // in the non-pre segments. Asciidoctor never nests <pre> tags.
+  const preBlocks: string[] = [];
+  const withPlaceholders = result.replaceAll(
+    /<pre[^>]*>[\s\S]*?<\/pre>/gv,
+    (match) => {
+      preBlocks.push(match);
+      return `\0PRE${String(preBlocks.length - 1)}\0`;
+    },
+  );
+  return (
+    withPlaceholders
+      .replaceAll("\n", " ")
+      // The second callback argument is the first capture — being
+      // named does not change its position. (The `groups` object
+      // is the LAST argument, after offset and source; reading it
+      // positionally is how a previous version of this helper
+      // silently replaced every <pre> block with "undefined".)
+      .replaceAll(
+        /\0PRE(?<index>\d+)\0/gv,
+        (_, index: string) => preBlocks[Number(index)],
+      )
+  );
 }

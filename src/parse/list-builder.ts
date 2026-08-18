@@ -11,7 +11,13 @@
  * depth changes.
  */
 import type { CstNode, IToken } from "chevrotain";
-import type { ListNode, ListItemNode, InlineNode, Location } from "../ast.js";
+import type {
+  BlockNode,
+  ListNode,
+  ListItemNode,
+  InlineNode,
+  Location,
+} from "../ast.js";
 import { EMPTY, FIRST, LAST_ELEMENT } from "../constants.js";
 import { buildInlineNodesWithContinuation } from "./continuation-builder.js";
 import { flattenInlineTokens, unwrapInlineLines } from "./inline-tokens.js";
@@ -32,6 +38,10 @@ export interface FlatListItem {
   depth: number;
   /** Inline AST children for the item's text content. */
   inlineChildren: InlineNode[];
+  /** Blocks attached via `+` list continuation lines. */
+  attachedBlocks: BlockNode[];
+  /** True when the item ends with a dangling `+` line. */
+  danglingContinuation: boolean;
   /** Checkbox state for checklist items (`undefined` = none). */
   checkbox: "checked" | "unchecked" | undefined;
   /** Callout number (`undefined` = not a callout item, 0 = auto). */
@@ -75,6 +85,8 @@ function buildListItemNode(item: FlatListItem): ListItemNode {
     // parent.children, so a shared reference would
     // corrupt the original inlineChildren array.
     children: [...item.inlineChildren],
+    attachedBlocks: [...item.attachedBlocks],
+    danglingContinuation: item.danglingContinuation,
     position: { start: item.start, end: item.end },
   };
 }
@@ -285,24 +297,31 @@ function laterToken(
  * @param markerToken - The item's leading marker token,
  *   used as a fallback end position when the item has no
  *   inline content.
- * @returns The inline children and the last content token
- *   (for computing the item's end position).
+ * @returns The inline children, blocks attached via `+`
+ *   continuations, and the last content token (for
+ *   computing the item's end position).
  */
 export function buildListItemInlineChildren(
   context: ListItemInlineContext,
   markerToken: IToken,
-): { inlineChildren: InlineNode[]; lastToken: IToken } {
+): {
+  inlineChildren: InlineNode[];
+  attachedBlocks: BlockNode[];
+  danglingContinuation: boolean;
+  lastToken: IToken;
+} {
   const inlineLines = context.inlineLine ?? [];
   const inlineNewlines = context.InlineNewline ?? [];
   const indentedTokens = context.IndentedLine ?? [];
   const newlines = context.Newline ?? [];
 
-  const inlineChildren = buildInlineNodesWithContinuation(
-    inlineLines,
-    inlineNewlines,
-    indentedTokens,
-    newlines,
-  );
+  const { inlineChildren, attachedBlocks, danglingContinuation } =
+    buildInlineNodesWithContinuation(
+      inlineLines,
+      inlineNewlines,
+      indentedTokens,
+      newlines,
+    );
 
   // The last content token determines the item's end
   // position. It's either the last inline content token
@@ -316,6 +335,8 @@ export function buildListItemInlineChildren(
 
   return {
     inlineChildren,
+    attachedBlocks,
+    danglingContinuation,
     lastToken: lastContent ?? markerToken,
   };
 }

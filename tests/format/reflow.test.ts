@@ -186,12 +186,16 @@ describe("paragraph reflow", () => {
     }
   });
 
-  // Fuzz counterexample: the `+` on the continuation line is
-  // absorbed into the list item text, and the backslash-escaped
-  // `\+` in the output prevents an accidental hard line break.
+  // Fuzz counterexample: the INDENTED ` +` continuation line is
+  // absorbed into the list item text (an indented `+` is not a
+  // continuation marker), and the trailing `+` is rewritten to
+  // `{plus}` so reflow cannot create an accidental hard line
+  // break. `{plus}` (not `\+`) because backslash is not a
+  // recognized escape for `+` in Asciidoctor — `\+` rendered a
+  // literal backslash, while `{plus}` renders `+`.
   test("reflow escapes + continuation that would create hard break", async () => {
     const input = ". item\n +\n// c\n";
-    expect(await formatAdoc(input)).toBe(". item \\+\n\n// c\n");
+    expect(await formatAdoc(input)).toBe(". item {plus}\n\n// c\n");
   });
 });
 

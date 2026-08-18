@@ -672,5 +672,24 @@ export function printListItem(
     align(markerWidth + checkboxWidth, fill(inlineParts)),
   ]);
 
-  return [item, ...nestedListParts];
+  // Blocks attached with `+` list continuations: each prints
+  // as a `+` alone on its line followed by the block flush
+  // left. These hardlines are outside the align() above, so
+  // both the `+` and the block start at column 0 — the
+  // continuation syntax requires the `+` unindented, and the
+  // attached block is its own block, not part of the item's
+  // reflowed principal text.
+  const continuationParts: Doc[] = [];
+  for (const printedBlock of path.map(print, "attachedBlocks")) {
+    continuationParts.push(hardline, "+", hardline, printedBlock);
+  }
+  // A dangling `+` line (nothing after it inside the item to
+  // attach) is re-emitted verbatim: Asciidoctor attaches the
+  // next block to the item even across a blank line, so
+  // preserving the bare `+` preserves the rendered output.
+  if (node.danglingContinuation) {
+    continuationParts.push(hardline, "+");
+  }
+
+  return [item, ...continuationParts, ...nestedListParts];
 }

@@ -329,10 +329,8 @@ export class AstBuilder extends BaseCstVisitor {
 
     const depth = markerToken.image.length - TRAILING_SPACE_LEN;
 
-    const { inlineChildren, lastToken } = buildListItemInlineChildren(
-      context,
-      markerToken,
-    );
+    const { inlineChildren, attachedBlocks, danglingContinuation, lastToken } =
+      buildListItemInlineChildren(context, markerToken);
 
     // Checkbox detection only inspects the first few characters,
     // so we just look at the first TextNode's value rather than
@@ -351,6 +349,8 @@ export class AstBuilder extends BaseCstVisitor {
     return {
       depth,
       inlineChildren,
+      attachedBlocks,
+      danglingContinuation,
       checkbox,
       calloutNumber: undefined,
       start: tokenStartLocation(markerToken),
@@ -399,14 +399,14 @@ export class AstBuilder extends BaseCstVisitor {
     }
 
     const depth = markerToken.image.length - TRAILING_SPACE_LEN;
-    const { inlineChildren, lastToken } = buildListItemInlineChildren(
-      context,
-      markerToken,
-    );
+    const { inlineChildren, attachedBlocks, danglingContinuation, lastToken } =
+      buildListItemInlineChildren(context, markerToken);
 
     return {
       depth,
       inlineChildren,
+      attachedBlocks,
+      danglingContinuation,
       checkbox: undefined,
       calloutNumber: undefined,
       start: tokenStartLocation(markerToken),
@@ -462,14 +462,14 @@ export class AstBuilder extends BaseCstVisitor {
     const calloutNumber =
       inner === "." ? AUTO_CALLOUT_NUMBER : Number.parseInt(inner, 10);
 
-    const { inlineChildren, lastToken } = buildListItemInlineChildren(
-      context,
-      markerToken,
-    );
+    const { inlineChildren, attachedBlocks, danglingContinuation, lastToken } =
+      buildListItemInlineChildren(context, markerToken);
 
     return {
       depth: CALLOUT_DEPTH,
       inlineChildren,
+      attachedBlocks,
+      danglingContinuation,
       checkbox: undefined,
       calloutNumber,
       start: tokenStartLocation(markerToken),

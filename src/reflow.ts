@@ -146,6 +146,46 @@ function isDangerousAtLineEnd(word: string): boolean {
 // ── Public API ─────────────────────────────────────────────
 
 /**
+ * Append a content group to a fill parts array, preceded by a
+ * `line` separator unless it is the first group. Maintains the
+ * content/separator alternation that fill() requires.
+ * @param parts - The fill parts array being built (mutated).
+ * @param content - The content group to append.
+ */
+function pushGroup(parts: Doc[], content: Doc): void {
+  if (parts.length > EMPTY) {
+    parts.push(line);
+  }
+  parts.push(content);
+}
+
+/**
+ * Escape a dangling `+` pending group. A `+` that ends the
+ * word list has no successor to glue to, so it will always
+ * appear at end of an output line, where AsciiDoc would
+ * re-parse ` +\n` as a hard line break (or a lone `+` line as
+ * a list continuation). The replacement is the `{plus}`
+ * built-in attribute reference, which renders as `+` —
+ * backslash is NOT a recognized escape for `+` in Asciidoctor
+ * (` \+` renders a literal backslash), so the previously used
+ * `\+` changed the rendered text.
+ * @param pending - The final pending content group (may be
+ *   undefined when the word list was empty).
+ * @param escape - Whether escaping is enabled for this text
+ *   (disabled when a sibling follows in the same fill, or
+ *   inside a formatting span whose closing mark follows the
+ *   word in the output).
+ * @returns The pending group, with a bare trailing `+`
+ *   rewritten to `{plus}` when escaping applies.
+ */
+function escapeDanglingPlus(
+  pending: Doc | undefined,
+  escape: boolean,
+): Doc | undefined {
+  return escape && pending === "+" ? "{plus}" : pending;
+}
+
+/**
  * Convert a word list into a Doc array for fill().
  * Words are interleaved with `line` so fill() can break
  * between them. Two safety mechanisms prevent reflow
@@ -158,9 +198,24 @@ function isDangerousAtLineEnd(word: string): boolean {
  *   split from the paragraph text. Each element is non-empty
  *   and contains no whitespace. The array itself may be empty,
  *   in which case an empty Doc array is returned.
+ * @param options - Reflow safety switches.
+ * @param options.escapeTrailingPlus - Whether a `+` with no
+ *   successor word should be rewritten to `{plus}`. True for
+ *   text that truly ends its enclosing fill(), where the word
+ *   could land at the end of an output line and be re-parsed
+ *   as a hard line break or list continuation. False when an
+ *   inline sibling follows (the printer glues the `+` forward
+ *   instead) or inside a formatting span (`` `+` ``): the
+ *   closing mark follows the word in the output, so it can
+ *   never end a line bare — and rewriting it would corrupt
+ *   the span's content.
  * @returns Doc array suitable for Prettier's fill()
  */
-export function wordsToFillParts(words: string[]): Doc[] {
+export function wordsToFillParts(
+  words: string[],
+  options?: { escapeTrailingPlus: boolean },
+): Doc[] {
+  const escapeTrailingPlus = options?.escapeTrailingPlus ?? true;
   const parts: Doc[] = [];
   // Pending content group: accumulates words that must stay
   // on the same line. Flushed when the next word is safe.
@@ -180,10 +235,7 @@ export function wordsToFillParts(words: string[]): Doc[] {
       glueNext = false;
     } else {
       // Safe word: flush the pending group and start new.
-      if (parts.length > EMPTY) {
-        parts.push(line);
-      }
-      parts.push(pending);
+      pushGroup(parts, pending);
       pending = word;
     }
     // If this word is dangerous at line end, the *next*
@@ -193,18 +245,11 @@ export function wordsToFillParts(words: string[]): Doc[] {
     }
   }
   // If the last word was dangerous at line end and had no
-  // successor to glue to, it will always appear at end of
-  // line (the paragraph's last line). Escape it so AsciiDoc
-  // doesn't re-parse ` +\n` as a hard line break.
-  if (pending === "+") {
-    pending = String.raw`\+`;
-  }
+  // successor to glue to, escape it (see escapeDanglingPlus).
+  pending = escapeDanglingPlus(pending, escapeTrailingPlus);
   // Flush the last pending group.
   if (pending !== undefined) {
-    if (parts.length > EMPTY) {
-      parts.push(line);
-    }
-    parts.push(pending);
+    pushGroup(parts, pending);
   }
 
   return parts;
