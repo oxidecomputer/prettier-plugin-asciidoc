@@ -181,3 +181,38 @@ describe("section nesting", () => {
     expect(sectionC.heading).toBe("C");
   });
 });
+
+// Issue #3: block metadata directly above a section heading
+// (anchors like `[[id]]`, attribute lists) labels that section,
+// so nesting must keep it the section node's immediate preceding
+// sibling — not the last child of the previous section.
+describe("section metadata placement", () => {
+  test("anchor before sibling section stays beside the section", () => {
+    const { children } = parse(
+      "== First\n\nBody one.\n\n[[second]]\n== Second\n\nBody two.\n",
+    );
+    // Root order: section First, anchor paragraph, section Second.
+    expect(children.map((c) => c.type)).toEqual([
+      "section",
+      "paragraph",
+      "section",
+    ]);
+    // The anchor paragraph is NOT inside section First.
+    const [first] = children;
+    narrow(first, "section");
+    expect(first.children.map((c) => c.type)).toEqual(["paragraph"]);
+  });
+
+  test("anchor before nested section stays beside it in the parent", () => {
+    const { children } = parse(
+      "== Outer\n\nBody.\n\n[[sub]]\n=== Sub\n\nSub body.\n",
+    );
+    const [outer] = children;
+    narrow(outer, "section");
+    expect(outer.children.map((c) => c.type)).toEqual([
+      "paragraph",
+      "paragraph",
+      "section",
+    ]);
+  });
+});

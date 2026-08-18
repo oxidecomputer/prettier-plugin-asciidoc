@@ -50,3 +50,106 @@ describe("section formatting", () => {
     expect(await formatAdoc(input)).toBe(input);
   });
 });
+
+// Issue #3: a block anchor (`[[id]]`) directly above a section
+// heading labels that section — the printer must keep it glued
+// to the heading, with the inter-section blank line ABOVE the
+// anchor. The bug hit sections that follow the end of a
+// preceding section at the same or deeper level: the anchor was
+// nested as the last child of the PREVIOUS section, so the
+// between-sections blank line landed between the anchor and its
+// heading, detaching the anchor (xrefs stop resolving).
+describe("block anchors on section headings", () => {
+  test("issue #3 repro: anchors stay attached in all positions", async () => {
+    const input =
+      "= Doc Title\n" +
+      "\n" +
+      "A preamble paragraph.\n" +
+      "\n" +
+      "[[first]]\n" +
+      "== First\n" +
+      "\n" +
+      "Body text one.\n" +
+      "\n" +
+      "[[second]]\n" +
+      "== Second\n" +
+      "\n" +
+      "Body text two.\n" +
+      "\n" +
+      "[[third]]\n" +
+      "=== Third\n" +
+      "\n" +
+      "Body text three.\n";
+    expect(await formatAdoc(input)).toBe(input);
+  });
+
+  // Asciidoctor attaches a block anchor to the following section
+  // even across a blank line, so the formatter normalizes the
+  // detached form back to the attached one (healing documents
+  // damaged by the original bug).
+  test("blank line between anchor and heading is removed", async () => {
+    const input =
+      "== First\n\nBody one.\n\n[[second]]\n\n== Second\n\nBody two.\n";
+    const expected =
+      "== First\n\nBody one.\n\n[[second]]\n== Second\n\nBody two.\n";
+    const first = await formatAdoc(input);
+    expect(first).toBe(expected);
+    expect(await formatAdoc(first)).toBe(first);
+  });
+
+  test("block attribute list stays attached to sibling section", async () => {
+    const input =
+      "== First\n\nBody one.\n\n[appendix]\n== Second\n\nBody two.\n";
+    expect(await formatAdoc(input)).toBe(input);
+  });
+
+  test("anchor stays attached to deeper sibling section", async () => {
+    const input = "== First\n\nBody one.\n\n[[sub]]\n=== Sub\n\nBody sub.\n";
+    expect(await formatAdoc(input)).toBe(input);
+  });
+
+  // An anchor not followed by a section stays where it is — it
+  // is not section metadata.
+  test("dangling anchor at section end is preserved", async () => {
+    const input = "== First\n\nBody one.\n\n[[dangling]]\n";
+    expect(await formatAdoc(input)).toBe(input);
+  });
+});
+
+// Chains of metadata leading to a heading move as a unit — the
+// scan in isSectionMetadata walks through consecutive metadata
+// blocks, so every element of the chain must stay beside the
+// section it labels.
+describe("section metadata chains", () => {
+  test("anchor + attribute list chain stays attached", async () => {
+    const input =
+      "== First\n\nBody one.\n\n[[second]]\n[appendix]\n== Second\n\nBody two.\n";
+    expect(await formatAdoc(input)).toBe(input);
+  });
+
+  test("anchor + block title + attribute chain stays attached", async () => {
+    const input =
+      "== First\n\nBody one.\n\n[[second]]\n.A title\n[appendix]\n== Second\n\nBody two.\n";
+    const first = await formatAdoc(input);
+    expect(first).toBe(input);
+    expect(await formatAdoc(first)).toBe(first);
+  });
+
+  // KNOWN LIMITATION, pinned so nobody re-investigates: a
+  // comment inside a metadata run stops the isSectionMetadata
+  // scan, so the anchor+comment pair stays in the previous
+  // section and the inter-section blank line lands between the
+  // comment and the heading — visually detaching them. Cosmetic
+  // only: Asciidoctor skips comment lines when attaching
+  // metadata, so <<c>> still resolves to the section in both
+  // layouts.
+  test("comment-interleaved metadata detaches visually (known gap)", async () => {
+    const input =
+      "== First\n\nBody one.\n\n[[c]]\n// note\n== Second\n\nBody two.\n";
+    const first = await formatAdoc(input);
+    expect(first).toBe(
+      "== First\n\nBody one.\n\n[[c]]\n// note\n\n== Second\n\nBody two.\n",
+    );
+    expect(await formatAdoc(first)).toBe(first);
+  });
+});

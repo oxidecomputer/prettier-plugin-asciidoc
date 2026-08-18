@@ -10,7 +10,8 @@
  */
 import { doc, type Doc } from "prettier";
 import type { BlockNode } from "./ast.js";
-import { EMPTY, FIRST, NEXT } from "./constants.js";
+import { isAnchorParagraph, isBlockMetadata } from "./block-metadata.js";
+import { EMPTY } from "./constants.js";
 
 const {
   builders: { hardline },
@@ -62,26 +63,6 @@ function isDocumentTitle(block: BlockNode): boolean {
 }
 
 /**
- * Tests whether a block is a paragraph whose only child
- * is an inline anchor (`[[id]]`).
- *
- * These act as block metadata when they appear on a
- * standalone line, but unlike true metadata tokens they
- * would merge with a following paragraph on re-parse
- * (breaking idempotency), so stacking needs special
- * treatment.
- * @param block - The block node to test.
- * @returns Whether the block is an anchor-only paragraph.
- */
-function isAnchorParagraph(block: BlockNode): boolean {
-  return (
-    block.type === "paragraph" &&
-    block.children.length === NEXT &&
-    block.children[FIRST].type === "inlineAnchor"
-  );
-}
-
-/**
  * Tests whether a block's content would merge with a
  * preceding anchor paragraph if no blank line separated
  * them.
@@ -99,25 +80,6 @@ function wouldMergeWithAnchor(block: BlockNode): boolean {
   return (
     (block.type === "paragraph" && !isAnchorParagraph(block)) ||
     (block.type === "admonition" && block.form === "paragraph")
-  );
-}
-
-/**
- * Tests whether a block is block metadata (attribute
- * list, block title, or anchor paragraph).
- *
- * Block metadata stacks with the following block — no
- * blank line between them. This matches idiomatic
- * AsciiDoc where `[source,ruby]` sits directly above
- * `----` with no intervening blank line.
- * @param block - The block node to test.
- * @returns Whether the block is block metadata.
- */
-function isBlockMetadata(block: BlockNode): boolean {
-  return (
-    block.type === "blockAttributeList" ||
-    block.type === "blockTitle" ||
-    isAnchorParagraph(block)
   );
 }
 
