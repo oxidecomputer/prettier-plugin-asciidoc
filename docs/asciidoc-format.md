@@ -1,10 +1,16 @@
 # AsciiDoc Format Reference
 
-Reference for implementing the parser. Derived from the [AsciiDoc language project](https://gitlab.eclipse.org/eclipse/asciidoc-lang/asciidoc-lang), the [syntax quick reference](https://docs.asciidoctor.org/asciidoc/latest/syntax-quick-reference/), and the [ASG schema](https://gitlab.eclipse.org/eclipse/asciidoc-lang/asciidoc-lang/-/tree/main/asg).
+Reference for implementing the parser. Derived from the
+[AsciiDoc language project](https://gitlab.eclipse.org/eclipse/asciidoc-lang/asciidoc-lang),
+the
+[syntax quick reference](https://docs.asciidoctor.org/asciidoc/latest/syntax-quick-reference/),
+and the
+[ASG schema](https://gitlab.eclipse.org/eclipse/asciidoc-lang/asciidoc-lang/-/tree/main/asg).
 
 ## Encoding
 
-AsciiDoc files are UTF-8. A UTF-8 BOM (byte order mark) at the start of the file should be handled gracefully — parsed correctly and stripped in output.
+AsciiDoc files are UTF-8. A UTF-8 BOM (byte order mark) at the start of the file
+should be handled gracefully — parsed correctly and stripped in output.
 
 ## Document structure
 
@@ -20,7 +26,9 @@ v1.0, 2024-01-15        ← optional revision line
 Body starts here after the first blank line.
 ```
 
-The header is everything from the document title through the last attribute entry before the first blank line. All header lines must be contiguous — no blank lines allowed within the header.
+The header is everything from the document title through the last attribute
+entry before the first blank line. All header lines must be contiguous — no
+blank lines allowed within the header.
 
 The author line can be an attribute reference instead of a literal name:
 
@@ -31,9 +39,9 @@ The author line can be an attribute reference instead of a literal name:
 {authors}
 ```
 
-This is standard attribute substitution — `{authors}` is an inline
-attribute reference that happens to be the only content on the line.
-The header parser must handle this without error.
+This is standard attribute substitution — `{authors}` is an inline attribute
+reference that happens to be the only content on the line. The header parser
+must handle this without error.
 
 ## Sections
 
@@ -48,7 +56,8 @@ Sections use `=` markers. The number of `=` signs determines the level.
 ====== Level 5
 ```
 
-There must be a space between the `=` markers and the title text. Sections are hierarchical — a level-2 section is a child of the preceding level-1 section.
+There must be a space between the `=` markers and the title text. Sections are
+hierarchical — a level-2 section is a child of the preceding level-1 section.
 
 ### Underline-style (two-line) headings
 
@@ -71,7 +80,9 @@ Level 4 Title
 +++++++++++++
 ```
 
-Underline characters: `=` (level 0), `-` (level 1), `~` (level 2), `^` (level 3), `+` (level 4). The underline must be within ±2 characters of the title length. Our formatter normalizes these to ATX-style.
+Underline characters: `=` (level 0), `-` (level 1), `~` (level 2), `^` (level
+3), `+` (level 4). The underline must be within ±2 characters of the title
+length. Our formatter normalizes these to ATX-style.
 
 A **discrete heading** is a heading that doesn't create a section (no nesting):
 
@@ -82,7 +93,8 @@ A **discrete heading** is a heading that doesn't create a section (no nesting):
 
 ## Paragraphs
 
-One or more consecutive non-blank lines. Paragraphs are separated by blank lines.
+One or more consecutive non-blank lines. Paragraphs are separated by blank
+lines.
 
 ```
 First paragraph.
@@ -91,7 +103,8 @@ Still the first paragraph.
 Second paragraph.
 ```
 
-A line indented by one or more spaces is a **literal paragraph** (monospace, preserved formatting) — unless it's inside a list item:
+A line indented by one or more spaces is a **literal paragraph** (monospace,
+preserved formatting) — unless it's inside a list item:
 
 ```
 This is a normal paragraph.
@@ -122,9 +135,12 @@ This is a normal paragraph.
 | ` `` mono `` `  | code     |
 | `##highlight##` | mark     |
 
-Constrained forms require the mark to be at a word boundary (preceded/followed by whitespace, punctuation, or start/end of line). Unconstrained forms use doubled marks and can appear anywhere.
+Constrained forms require the mark to be at a word boundary (preceded/followed
+by whitespace, punctuation, or start/end of line). Unconstrained forms use
+doubled marks and can appear anywhere.
 
-The ASG represents these as `span` nodes with `variant` (strong/emphasis/code/mark) and `form` (constrained/unconstrained).
+The ASG represents these as `span` nodes with `variant`
+(strong/emphasis/code/mark) and `form` (constrained/unconstrained).
 
 ### Backslash escapes
 
@@ -138,11 +154,13 @@ A backslash before an inline formatting character prevents interpretation:
 \[[not-an-anchor]]
 ```
 
-The parser must recognize escaped syntax and the printer must preserve the escapes.
+The parser must recognize escaped syntax and the printer must preserve the
+escapes.
 
 ### Role/style attributes on inline formatting
 
-Inline formatting marks can be preceded by an attribute list specifying roles or styles:
+Inline formatting marks can be preceded by an attribute list specifying roles or
+styles:
 
 ```
 [red]#styled text#
@@ -151,14 +169,17 @@ Inline formatting marks can be preceded by an attribute list specifying roles or
 [line-through]#strikethrough#
 ```
 
-The `[.role]#text#` form with the dot prefix is the most common way to apply CSS classes to arbitrary inline text:
+The `[.role]#text#` form with the dot prefix is the most common way to apply CSS
+classes to arbitrary inline text:
 
 ```
 [.line-through]#struck through text#
 [.summary]#This text has the "summary" role.#
 ```
 
-The `#text#` (mark/highlight) syntax is the primary carrier for arbitrary roles/styles because it has no default visual styling of its own beyond highlighting.
+The `#text#` (mark/highlight) syntax is the primary carrier for arbitrary
+roles/styles because it has no default visual styling of its own beyond
+highlighting.
 
 ### Links and references
 
@@ -200,7 +221,8 @@ indexterm:[primary,secondary]           ← macro form
 indexterm2:[visible term]               ← macro form
 ```
 
-The parser must recognize these to avoid misinterpreting the parentheses as regular text.
+The parser must recognize these to avoid misinterpreting the parentheses as
+regular text.
 
 ### Hard line break
 
@@ -271,7 +293,8 @@ Another Term::
   Definition on next line
 ```
 
-Nested description lists use increasing numbers of colons: `::` (level 1), `:::` (level 2), `::::` (level 3):
+Nested description lists use increasing numbers of colons: `::` (level 1), `:::`
+(level 2), `::::` (level 3):
 
 ```
 Operating Systems::
@@ -311,7 +334,8 @@ Code block also attached.
 ----
 ```
 
-An open block (`--`) can wrap multiple elements to attach them all to a list item without needing `+` between each:
+An open block (`--`) can wrap multiple elements to attach them all to a list
+item without needing `+` between each:
 
 ```
 * First item
@@ -346,9 +370,12 @@ puts "world" # <2>
 
 ## Delimited blocks
 
-Blocks are enclosed by matching delimiter lines. The delimiter must be at least 4 characters (except open blocks which use `--`). Opening and closing delimiters must use the same character and the same length.
+Blocks are enclosed by matching delimiter lines. The delimiter must be at least
+4 characters (except open blocks which use `--`). Opening and closing delimiters
+must use the same character and the same length.
 
-Delimiters can be longer than the minimum for visual clarity, especially when nesting:
+Delimiters can be longer than the minimum for visual clarity, especially when
+nesting:
 
 ```
 ----
@@ -394,7 +421,8 @@ This text is rendered exactly as written.
 ++++
 ```
 
-Listing blocks are commonly used with `[source,language]` for syntax-highlighted code:
+Listing blocks are commonly used with `[source,language]` for syntax-highlighted
+code:
 
 ```
 [source,python]
@@ -406,7 +434,9 @@ def greet(name):
 
 ### Backtick-fenced code blocks
 
-Asciidoctor supports Markdown-style triple-backtick fenced code blocks as an alternative to `----` listing blocks. An optional language hint follows the opening fence:
+Asciidoctor supports Markdown-style triple-backtick fenced code blocks as an
+alternative to `----` listing blocks. An optional language hint follows the
+opening fence:
 
 ````
 ```rust
@@ -416,9 +446,13 @@ fn main() {
 ```
 ````
 
-These are equivalent to `[source,lang]` + `----` blocks. The parser must recognize the opening ` ``` ` (with optional language) and closing ` ``` ` as leaf block delimiters. The formatter normalizes these to AsciiDoc-native `[source,lang]` + `----` blocks.
+These are equivalent to `[source,lang]` + `----` blocks. The parser must
+recognize the opening ` ``` ` (with optional language) and closing ` ``` ` as
+leaf block delimiters. The formatter normalizes these to AsciiDoc-native
+`[source,lang]` + `----` blocks.
 
-Verse (`____`) is a leaf block when preceded by `[verse]` — line breaks are preserved but inline markup is still processed:
+Verse (`____`) is a leaf block when preceded by `[verse]` — line breaks are
+preserved but inline markup is still processed:
 
 ```
 [verse, William Blake, Auguries of Innocence]
@@ -430,7 +464,8 @@ And eternity in an hour.
 ____
 ```
 
-Stem (`____` with `[stem]`) is for math notation — content is passed through without AsciiDoc processing:
+Stem (`____` with `[stem]`) is for math notation — content is passed through
+without AsciiDoc processing:
 
 ```
 [stem]
@@ -439,7 +474,8 @@ sqrt(4) = 2
 ____
 ```
 
-Comment blocks (`////`) are also delimited blocks — their content is discarded in output but must be preserved by a formatter:
+Comment blocks (`////`) are also delimited blocks — their content is discarded
+in output but must be preserved by a formatter:
 
 ```
 ////
@@ -490,7 +526,8 @@ no visual styling — it just acts as a container.
 
 ### Nesting parent blocks
 
-Parent blocks can nest. Use longer delimiters on the outer block so the parser can distinguish them:
+Parent blocks can nest. Use longer delimiters on the outer block so the parser
+can distinguish them:
 
 ```
 ========
@@ -518,9 +555,12 @@ Sidebar content nested inside the example.
 
 ### Block masquerading
 
-A style attribute on a delimited block can change the block's effective context and content model. This is called "masquerading." The most common case is open blocks, but other block types support it too.
+A style attribute on a delimited block can change the block's effective context
+and content model. This is called "masquerading." The most common case is open
+blocks, but other block types support it too.
 
-Open blocks adopt the behavior of other block types via a preceding attribute list:
+Open blocks adopt the behavior of other block types via a preceding attribute
+list:
 
 ```
 [source,python]
@@ -530,7 +570,9 @@ def hello():
 --
 ```
 
-When `[source]` or `[listing]` is applied, the open block behaves like a leaf block (verbatim content). When `[verse]` or `[quote]` is applied, it gains attribution syntax.
+When `[source]` or `[listing]` is applied, the open block behaves like a leaf
+block (verbatim content). When `[verse]` or `[quote]` is applied, it gains
+attribution syntax.
 
 Open blocks can also masquerade as admonitions:
 
@@ -556,11 +598,19 @@ The full masquerade table from the Asciidoctor converter:
 | `____` (quote)   | quote           | verse                                                                                                    |
 | `++++` (pass)    | pass            | stem, latexmath, asciimath                                                                               |
 
-**Impact on content model:** Masquerading changes how the block's content is parsed. A `____` block is normally a compound quote (content parsed as AsciiDoc), but with `[verse]` it becomes verbatim (line breaks preserved, no reflow). A `++++` block is normally raw passthrough, but with `[stem]` it's math notation. An `====` block with `[NOTE]` becomes an admonition container. A formatter must check the style attribute to determine the correct content model — otherwise it risks reflowing verbatim content or failing to parse compound content.
+**Impact on content model:** Masquerading changes how the block's content is
+parsed. A `____` block is normally a compound quote (content parsed as
+AsciiDoc), but with `[verse]` it becomes verbatim (line breaks preserved, no
+reflow). A `++++` block is normally raw passthrough, but with `[stem]` it's math
+notation. An `====` block with `[NOTE]` becomes an admonition container. A
+formatter must check the style attribute to determine the correct content model
+— otherwise it risks reflowing verbatim content or failing to parse compound
+content.
 
 ### Quote/verse attribution
 
-The second and third positional attributes on quote and verse blocks provide attribution:
+The second and third positional attributes on quote and verse blocks provide
+attribution:
 
 ```
 [quote, Albert Einstein, Relativity]
@@ -575,7 +625,8 @@ on little cat feet.
 ____
 ```
 
-Attribution also works on paragraph-form quotes/verses and open-block masquerading:
+Attribution also works on paragraph-form quotes/verses and open-block
+masquerading:
 
 ```
 [quote, Marcus Aurelius]
@@ -593,7 +644,8 @@ The ASG schema distinguishes three forms:
 - **indented**: a literal paragraph (indented by space)
 - **paragraph**: paragraph-form (e.g., `NOTE: text` for an admonition)
 
-Paragraph-form blocks use a preceding attribute list to change how a plain paragraph is interpreted:
+Paragraph-form blocks use a preceding attribute list to change how a plain
+paragraph is interpreted:
 
 ```
 [verse, Author, Source]
@@ -617,7 +669,8 @@ puts "hello"
 ----
 ```
 
-The `.Title` line and `[attributes]` line must be immediately above the block with no blank lines.
+The `.Title` line and `[attributes]` line must be immediately above the block
+with no blank lines.
 
 ## Admonitions
 
@@ -631,7 +684,8 @@ CAUTION: Use caution.
 WARNING: This is a warning.
 ```
 
-Block form — any of the five types can use an example block delimiter for multi-paragraph content:
+Block form — any of the five types can use an example block delimiter for
+multi-paragraph content:
 
 ```
 [NOTE]
@@ -660,7 +714,8 @@ code example inside the warning
 
 ### Custom block styles
 
-Asciidoctor is not limited to the five standard admonition types. Arbitrary uppercase names are valid as block styles:
+Asciidoctor is not limited to the five standard admonition types. Arbitrary
+uppercase names are valid as block styles:
 
 ```
 [EXERCISE]
@@ -669,7 +724,10 @@ Design a circuit that...
 ====
 ```
 
-Asciidoctor treats unknown uppercase names as custom admonitions (or styled blocks). The parser should preserve these as opaque attributed blocks rather than rejecting them — the same structure as standard admonitions, just with a non-standard label.
+Asciidoctor treats unknown uppercase names as custom admonitions (or styled
+blocks). The parser should preserve these as opaque attributed blocks rather
+than rejecting them — the same structure as standard admonitions, just with a
+non-standard label.
 
 ## Tables
 
@@ -713,7 +771,9 @@ Equivalent explicit header: `[%header]` or `[options="header"]`.
 - Numbers are proportional widths (`1,3,1` = 20%, 60%, 20%)
 - Alignment prefixes: `<` left (default), `^` center, `>` right
 - Vertical alignment: `.<` top (default), `.^` middle, `.>` bottom
-- Content style `a` marks a column as AsciiDoc content (cells are parsed recursively). Other styles (`m`, `s`, `e`, `l`, `v`, `h`) are rendering hints the formatter preserves as-is.
+- Content style `a` marks a column as AsciiDoc content (cells are parsed
+  recursively). Other styles (`m`, `s`, `e`, `l`, `v`, `h`) are rendering hints
+  the formatter preserves as-is.
 
 ### Header and footer rows
 
@@ -777,11 +837,13 @@ Combined — `C.R+|` spans C columns and R rows:
 |===
 ```
 
-Cell-level alignment overrides column defaults: `^|` (center), `>|` (right), `.^|` (vertical middle).
+Cell-level alignment overrides column defaults: `^|` (center), `>|` (right),
+`.^|` (vertical middle).
 
 ### Full cell prefix grammar
 
-All cell prefix components can be combined on a single cell. The full grammar in order is:
+All cell prefix components can be combined on a single cell. The full grammar in
+order is:
 
 ```
 [col-span][.row-span+][h-align][.v-align][content-style]|
@@ -793,7 +855,8 @@ Where:
 - **Row span**: `.N+` (merge N rows)
 - **Horizontal alignment**: `<` (left), `^` (center), `>` (right)
 - **Vertical alignment**: `.<` (top), `.^` (middle), `.>` (bottom)
-- **Content style**: `a` (AsciiDoc), `h` (header), `m` (monospace), `s` (strong), `e` (emphasis), `l` (literal), `v` (verse)
+- **Content style**: `a` (AsciiDoc), `h` (header), `m` (monospace), `s`
+  (strong), `e` (emphasis), `l` (literal), `v` (verse)
 
 Real-world examples of combined prefixes:
 
@@ -804,7 +867,8 @@ Real-world examples of combined prefixes:
 .3+^.^a|                        ← row-span 3, center, v-middle, asciidoc
 ```
 
-The table parser must handle the full combinatorial prefix, not just individual features in isolation.
+The table parser must handle the full combinatorial prefix, not just individual
+features in isolation.
 
 ### CSV and DSV tables
 
@@ -830,7 +894,8 @@ The `[format="csv"]` attribute can also be applied to a standard `|===` table.
 
 ### Nested tables
 
-Inside an `a` (AsciiDoc) style cell, inner tables use `!` as the cell separator and `!===` as delimiters:
+Inside an `a` (AsciiDoc) style cell, inner tables use `!` as the cell separator
+and `!===` as delimiters:
 
 ```
 [cols="1,2a"]
@@ -907,16 +972,15 @@ Attribute references substitute the value of a document attribute inline:
 Welcome to {project} version {version}.
 ```
 
-The syntax is `{attribute-name}`. References can appear anywhere inline
-content is allowed — paragraphs, headings, list items, block titles,
-attribute values, and even the author line position in a document
-header.
+The syntax is `{attribute-name}`. References can appear anywhere inline content
+is allowed — paragraphs, headings, list items, block titles, attribute values,
+and even the author line position in a document header.
 
 Counter attributes auto-increment: `{counter:name}` (display value),
 `{counter2:name}` (increment without display).
 
-A formatter preserves attribute references verbatim — it does not
-resolve them to their values.
+A formatter preserves attribute references verbatim — it does not resolve them
+to their values.
 
 ## Comments
 
@@ -935,7 +999,8 @@ block comment.
 ////
 ```
 
-Line comments can appear between block metadata lines without breaking the attachment:
+Line comments can appear between block metadata lines without breaking the
+attachment:
 
 ```
 // TODO: improve this example
@@ -945,7 +1010,8 @@ content
 ----
 ```
 
-Comments are discarded by Asciidoctor during parsing. A formatter must preserve them.
+Comments are discarded by Asciidoctor during parsing. A formatter must preserve
+them.
 
 ## Breaks
 
@@ -966,11 +1032,17 @@ Blocks can be preceded by metadata lines (no blank lines between them):
 .Block Title                    ← block title
 ```
 
-The two-argument form `[[id, reftext]]` sets both the anchor ID and the default cross-reference display text — so `<<id>>` renders as "reftext" without needing `<<id,reftext>>` at every call site.
+The two-argument form `[[id, reftext]]` sets both the anchor ID and the default
+cross-reference display text — so `<<id>>` renders as "reftext" without needing
+`<<id,reftext>>` at every call site.
 
-`[[id]]` and `[#id]` both set the block's ID. The shorthand form `[#id]` can be combined with other attributes: `[#myid.summary%collapsible]` sets the id to `myid`, adds the role `summary`, and enables the option `collapsible`. These can also be combined with positional attributes: `[source,ruby,#code-example]`.
+`[[id]]` and `[#id]` both set the block's ID. The shorthand form `[#id]` can be
+combined with other attributes: `[#myid.summary%collapsible]` sets the id to
+`myid`, adds the role `summary`, and enables the option `collapsible`. These can
+also be combined with positional attributes: `[source,ruby,#code-example]`.
 
-These must appear in order: anchor, attribute list, title — all immediately before the block. Here is a complete example:
+These must appear in order: anchor, attribute list, title — all immediately
+before the block. Here is a complete example:
 
 ```
 [[api-example]]
@@ -998,7 +1070,8 @@ A formatter preserves these as-is.
 
 ### Bibliography anchors
 
-Inside a `[bibliography]` section, list items can define bibliography anchors using triple brackets:
+Inside a `[bibliography]` section, list items can define bibliography anchors
+using triple brackets:
 
 ```
 [bibliography]
@@ -1009,23 +1082,31 @@ Inside a `[bibliography]` section, list items can define bibliography anchors us
 - [[[gof,1]]] Erich Gamma et al. Design Patterns. Addison-Wesley, 1994.
 ```
 
-The syntax `[[[id]]]` defines a referenceable anchor that renders as `[id]` in output. The two-argument form `[[[id, reftext]]]` renders as `[reftext]` instead — e.g., `[[[gof,1]]]` renders as `[1]`. These are referenced elsewhere with standard xref syntax: `<<prag>>` or `<<gof>>`.
+The syntax `[[[id]]]` defines a referenceable anchor that renders as `[id]` in
+output. The two-argument form `[[[id, reftext]]]` renders as `[reftext]` instead
+— e.g., `[[[gof,1]]]` renders as `[1]`. These are referenced elsewhere with
+standard xref syntax: `<<prag>>` or `<<gof>>`.
 
-Structurally, bibliography anchors are inline elements that appear at the start of unordered list items. They function like `[[id]]` block anchors but use triple brackets and are scoped to bibliography entries.
+Structurally, bibliography anchors are inline elements that appear at the start
+of unordered list items. They function like `[[id]]` block anchors but use
+triple brackets and are scoped to bibliography entries.
 
 A formatter preserves these verbatim.
 
 ## ASG node types (from the official schema)
 
-The ASG represents parsed documents as a tree of typed nodes. Each node has `name`, `type`, and `location`.
+The ASG represents parsed documents as a tree of typed nodes. Each node has
+`name`, `type`, and `location`.
 
 **Block nodes** (`type: "block"`):
 
 - `document` — root
 - `section` — with `level` and `title` (array of inline nodes)
 - `paragraph` — with `inlines`
-- `listing`, `literal`, `pass`, `stem`, `verse` — leaf blocks with `form` and optional `delimiter`
-- `admonition`, `example`, `sidebar`, `open`, `quote` — parent blocks with `blocks`
+- `listing`, `literal`, `pass`, `stem`, `verse` — leaf blocks with `form` and
+  optional `delimiter`
+- `admonition`, `example`, `sidebar`, `open`, `quote` — parent blocks with
+  `blocks`
 - `list` (ordered/unordered/callout) — with `items`
 - `dlist` — description list with `items` containing `terms`
 - `discreteHeading` — non-section heading
@@ -1034,7 +1115,8 @@ The ASG represents parsed documents as a tree of typed nodes. Each node has `nam
 
 **Inline nodes** (`type: "inline"`):
 
-- `span` — with `variant` (strong/emphasis/code/mark) and `form` (constrained/unconstrained)
+- `span` — with `variant` (strong/emphasis/code/mark) and `form`
+  (constrained/unconstrained)
 - `ref` — with `variant` (link/xref) and `target`
 - `text` — plain text literal (`type: "string"`)
 - `charref` — character reference (`type: "string"`)
@@ -1049,7 +1131,8 @@ The ASG represents parsed documents as a tree of typed nodes. Each node has `nam
 ]
 ```
 
-Line numbers are 1-based. Column numbers are 0-based in the schema (though TCK examples show 1-based — verify when implementing).
+Line numbers are 1-based. Column numbers are 0-based in the schema (though TCK
+examples show 1-based — verify when implementing).
 
 ## What the ASG does NOT represent
 
@@ -1063,4 +1146,5 @@ The ASG is semantic — it intentionally omits:
 - Block metadata lines (anchors, attribute lists — merged into block attributes)
 - Delimiter syntax details beyond the `delimiter` field on leaf blocks
 
-Our parser AST must represent all of these because the formatter needs to preserve and normalize them.
+Our parser AST must represent all of these because the formatter needs to
+preserve and normalize them.

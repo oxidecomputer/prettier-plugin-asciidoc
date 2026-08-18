@@ -26,9 +26,8 @@ If a `.jj` directory is present, use **jj (Jujutsu)** instead of git:
 
 **jj squash pitfalls:**
 
-- `jj squash --from X --into Y` opens an interactive editor —
-  DO NOT USE from non-interactive shells
-- Instead, use: `jj squash --from X --into Y -m "message"`
-  (pass `-m` to avoid the editor)
-- Or rebase children onto the target and squash without
-  `--from`/`--into`
+- `jj squash --from X --into Y` opens an interactive editor — DO NOT USE from
+  non-interactive shells
+- Instead, use: `jj squash --from X --into Y -m "message"` (pass `-m` to avoid
+  the editor)
+- Or rebase children onto the target and squash without `--from`/`--into`
