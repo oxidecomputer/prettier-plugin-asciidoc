@@ -164,3 +164,45 @@ describe("inline links — edge cases", () => {
     expect(second).toBe(first);
   });
 });
+
+// Issue #1: bracketed inline constructs can span source lines —
+// the InlineUrl and InlineMacro token patterns match `[...]` text
+// across newlines. The printer must not re-emit the raw newline:
+// a multi-line token makes the output layout depend on the input
+// layout, breaking idempotency, and the embedded newline corrupts
+// fill() width accounting.
+describe("inline links — source newlines normalized on output", () => {
+  test("link text spanning source lines is joined", async () => {
+    const input = "See https://example.com[some link\ntext] end.\n";
+    const result = await formatAdoc(input);
+    expect(result).toContain("https://example.com[some link text]");
+  });
+
+  // Characterization, not a bug pin: the XrefShorthand and
+  // InlineAnchor token patterns exclude `\n`, so their text can
+  // never span lines — a multi-line "xref" parses as plain text
+  // and is joined by ordinary reflow. The printer-side newline
+  // collapse for xrefs/anchors is defense-in-depth only.
+  test("xref text spanning source lines is joined", async () => {
+    const input = "See <<section-id,some xref\ntext>> end.\n";
+    const result = await formatAdoc(input);
+    expect(result).toContain("<<section-id,some xref text>>");
+  });
+
+  // Exception to the joining rule: a line ending in ` +` inside
+  // the bracketed text is an AsciiDoc hard line break. Joining
+  // it would turn the break into a literal mid-text `+`
+  // (dropping the <br>), so such links keep their source layout.
+  test("hard line break inside link text is preserved", async () => {
+    const input = "See https://example.com[text +\nmore] end.\n";
+    const first = await formatAdoc(input);
+    expect(first).toBe(input);
+    expect(await formatAdoc(first)).toBe(first);
+  });
+
+  test("macro attrlist spanning source lines is joined", async () => {
+    const input = "See link:file.html[some link\ntext] end.\n";
+    const result = await formatAdoc(input);
+    expect(result).toContain("link:file.html[some link text]");
+  });
+});

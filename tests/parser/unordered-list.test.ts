@@ -245,3 +245,32 @@ describe("unordered list parsing", () => {
     expect(textNode.value).toBe("Child first line\nchild continuation");
   });
 });
+
+// The continuation sub-lexer re-maps token positions from
+// fragment coordinates back to document coordinates. Format
+// tests cannot see position corruption (the printer does not
+// read inline end positions), so pin both ends here: slicing
+// the source with the node's own offsets must reproduce the
+// construct exactly.
+describe("continuation line inline node positions", () => {
+  test("link on continuation line has document-absolute offsets", () => {
+    const input = "* item\n  https://example.com[x] tail\n";
+    const { children } = parse(input);
+    const {
+      children: [item],
+    } = firstList(children);
+    const link = item.children.find((c) => c.type === "link");
+    narrow(link, "link");
+    const {
+      position: { start, end },
+    } = link;
+    expect(input.slice(start.offset, end.offset)).toBe(
+      "https://example.com[x]",
+    );
+    expect(start.line).toBe(2);
+    expect(end.line).toBe(2);
+    // Columns are 1-based; the link starts after the 2-space
+    // continuation indent.
+    expect(start.column).toBe(3);
+  });
+});

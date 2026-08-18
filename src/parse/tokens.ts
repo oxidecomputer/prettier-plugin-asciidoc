@@ -675,6 +675,35 @@ export const InlineChar = createToken({
  * Token order within each mode determines match priority
  * (first match wins for same-length matches).
  */
+/**
+ * Token order for the inline lexer mode, exported so the
+ * inline-fragment sub-lexer (used for list-item continuation
+ * lines) can tokenize fragments with exactly the same
+ * priority order as the main lexer's inline mode.
+ */
+export const inlineModeTokens = [
+  BackslashEscape,
+  AttributeReference,
+  RoleAttribute,
+  // Inline macro token before link/xref/anchor tokens
+  // and formatting marks — covers link:, mailto:, xref:,
+  // image:, kbd:, btn:, menu:, footnote:, footnoteref:,
+  // pass: macros in one token.
+  InlineMacro,
+  // Non-macro inline tokens with their own syntax.
+  InlineUrl,
+  XrefShorthand,
+  InlineAnchor,
+  BoldMark,
+  ItalicMark,
+  MonoMark,
+  HighlightMark,
+  HardLineBreak, // before InlineNewline (` +\n` before `\n`)
+  InlineNewline,
+  InlineText,
+  InlineChar, // single-char fallback, must be last
+];
+
 const multiModeDefinition = {
   modes: {
     default_mode: [
@@ -722,28 +751,7 @@ const multiModeDefinition = {
       IndentedLine,
       InlineModeStart,
     ],
-    inline: [
-      BackslashEscape,
-      AttributeReference,
-      RoleAttribute,
-      // Inline macro token before link/xref/anchor tokens
-      // and formatting marks — covers link:, mailto:, xref:,
-      // image:, kbd:, btn:, menu:, footnote:, footnoteref:,
-      // pass: macros in one token.
-      InlineMacro,
-      // Non-macro inline tokens with their own syntax.
-      InlineUrl,
-      XrefShorthand,
-      InlineAnchor,
-      BoldMark,
-      ItalicMark,
-      MonoMark,
-      HighlightMark,
-      HardLineBreak, // before InlineNewline (` +\n` before `\n`)
-      InlineNewline,
-      InlineText,
-      InlineChar, // single-char fallback, must be last
-    ],
+    inline: inlineModeTokens,
     block_comment: [
       // BlankLine before Newline (same reason as default mode).
       BlankLine,

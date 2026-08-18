@@ -17,7 +17,10 @@ source text → Lexer → Parser → CST → AST Builder → AST → Printer →
 - **Parser** (`src/parser.ts`, `src/parse/`): Built with Chevrotain. Three
   phases: lexer (tokens), parser (CST), AST builder (visitor). NOT
   Asciidoctor.js — see "Why not Asciidoctor.js?" and "Why Chevrotain?" in
-  `docs/design.md`.
+  `docs/design.md`. List-item continuation lines (lexed as raw IndentedLine
+  tokens in default mode) are re-lexed by a dedicated inline sub-lexer
+  (`src/parse/inline-fragment-lexer.ts`) so inline constructs parse the same on
+  any line of an item.
 - **AST** (`src/ast.ts`): Designed for Prettier, not the AsciiDoc ASG. Preserves
   comments, directives, attribute entries, and other constructs the ASG
   intentionally discards.

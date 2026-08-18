@@ -38,6 +38,33 @@ type PrintPath = AstPath<AnyNode>;
 type PrintFunction = (path: PrintPath) => Doc;
 
 /**
+ * Collapse source line breaks inside a serialized inline
+ * construct to single spaces. Bracketed text (`url[text]`,
+ * `xref:t[text]`, `<<t,text>>`) may span source lines — the
+ * lexer matches it across `\n`. Re-emitting the raw newline
+ * would make the output layout depend on the input layout
+ * (breaking idempotency, issue #1) and would corrupt fill()
+ * width measurement, which assumes Doc strings are single-line.
+ * AsciiDoc renders the line break as a space, so this rewrite
+ * is semantics-preserving; intra-line spacing is left alone.
+ * Exception: a line ending in ` +` is a hard line break —
+ * joining it would drop the break and expose a literal `+`, so
+ * sources containing one are returned unchanged (their layout
+ * stays source-dependent, matching pre-issue-#1 behavior).
+ * @param source - Serialized AsciiDoc source for an atomic
+ *   inline construct (link, macro, xref, anchor).
+ * @returns The source with each newline run (including any
+ *   surrounding indentation whitespace) replaced by one space,
+ *   or unchanged when a hard line break is present.
+ */
+function collapseSourceNewlines(source: string): string {
+  if (source.includes(" +\n")) {
+    return source;
+  }
+  return source.replaceAll(/[^\S\n]*\n\s*/gv, " ");
+}
+
+/**
  * Convert an inline AST node to Prettier Doc IR.
  * Dispatches on node type to produce the correct markup
  * (text reflow, formatting marks, attribute references,
@@ -167,16 +194,22 @@ export function printInlineNode(
       return `{${node.name}}`;
     }
     case "inlineMacro": {
-      return inlineMacroToSource(node);
+      return collapseSourceNewlines(inlineMacroToSource(node));
     }
     case "link": {
-      return linkToSource(node);
+      return collapseSourceNewlines(linkToSource(node));
     }
     case "xref": {
-      return xrefToSource(node);
+      // Defense-in-depth: the XrefShorthand and InlineAnchor
+      // token patterns exclude `\n`, so today these nodes can
+      // never contain a newline — only InlineUrl and InlineMacro
+      // match across lines. The collapse is kept so a future
+      // pattern change cannot silently reintroduce multi-line
+      // output.
+      return collapseSourceNewlines(xrefToSource(node));
     }
     case "inlineAnchor": {
-      return anchorToSource(node);
+      return collapseSourceNewlines(anchorToSource(node));
     }
     case "hardLineBreak": {
       // ` +` followed by a forced line break in the output.

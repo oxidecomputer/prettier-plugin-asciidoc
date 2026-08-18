@@ -189,3 +189,66 @@ describe("unordered list formatting", () => {
     }
   });
 });
+
+// Issue #1: formatting must be a fixed point regardless of where
+// the source happened to break lines inside a list item. The
+// continuation lines of an item are indented, and the lexer
+// tokenizes indented lines in default mode (as IndentedLine), so
+// without inline re-lexing the SAME content parses differently
+// depending on which line it sits on — and the output oscillates
+// between the two layouts on every format pass.
+describe("list item continuation lines parse like first-line content", () => {
+  // The exact repro from issue #1: inline anchor + a link too
+  // long to share the marker line.
+  const joined =
+    "* [[[rfd603, RFD 603]]] https://603.rfd.oxide.computer/[RFD 603 Fault Management\n" +
+    "  Situation Reports]\n";
+  const split =
+    "* [[[rfd603, RFD 603]]]\n" +
+    "  https://603.rfd.oxide.computer/[RFD 603 Fault Management\n" +
+    "  Situation Reports]\n";
+
+  test("anchor + long link formats idempotently (joined input)", async () => {
+    const first = await formatAdoc(joined);
+    const second = await formatAdoc(first);
+    expect(second).toBe(first);
+  });
+
+  test("anchor + long link formats idempotently (split input)", async () => {
+    const first = await formatAdoc(split);
+    const second = await formatAdoc(first);
+    expect(second).toBe(first);
+  });
+
+  test("joined and split inputs converge to the same output", async () => {
+    expect(await formatAdoc(split)).toBe(await formatAdoc(joined));
+  });
+
+  // A link sitting on an indented continuation line must become
+  // a link node (atomic in reflow), exactly as it would on the
+  // marker line.
+  test("link on continuation line stays atomic in reflow", async () => {
+    const input = "* item text\n  https://example.com[link text] tail\n";
+    const result = await formatAdoc(input, { printWidth: 30 });
+    expect(result).toContain("https://example.com[link text]");
+  });
+});
+
+// A trailing ` +` hard break must parse the same whether it sits
+// on the marker line or on an indented continuation line. The
+// continuation sub-lexer appends a sentinel newline so the
+// HardLineBreak token (` +` followed by `\n`) can match at the end
+// of a run, exactly as the main lexer sees it on the marker line.
+describe("trailing hard break is layout independent", () => {
+  test("hard break on marker line is preserved", async () => {
+    const input = "* b +\nmore\n\npara\n";
+    expect(await formatAdoc(input)).toBe("* b +\nmore\n\npara\n");
+  });
+
+  test("hard break on continuation line is preserved", async () => {
+    const input = "* a\n  b +\n  more\n\npara\n";
+    const first = await formatAdoc(input);
+    expect(first).toBe("* a b +\nmore\n\npara\n");
+    expect(await formatAdoc(first)).toBe(first);
+  });
+});
