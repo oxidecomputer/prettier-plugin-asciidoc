@@ -1,5 +1,5 @@
 /**
- * Parser tests for `+` list continuations (issue #2).
+ * Parser tests for `+` list continuations (issues #2 and #6).
  *
  * A line containing only `+` directly after a list item's text
  * attaches the following paragraph to the item as a separate
@@ -167,6 +167,161 @@ describe("list continuation parsing", () => {
       variant: "literal",
       form: "indented",
       content: "  literal line",
+    });
+  });
+});
+
+// Issue #6: a `+` directly before a delimited block attaches the
+// block to the item, and a `+` directly after the block's close
+// delimiter attaches the following paragraph. The grammar cannot
+// consume delimiter lines inside a list item, so the attachment
+// happens in a post-parse pass over sibling blocks.
+describe("continuations around delimited blocks (issue #6)", () => {
+  test("+ attaches a following delimited block to the item", () => {
+    const { children } = parse("* item text:\n+\n....\nliteral\n....\n");
+    expect(children).toHaveLength(1);
+    const {
+      children: [item],
+    } = firstList(children);
+    expect(item.danglingContinuation).toBe(false);
+    expect(item.attachedBlocks).toHaveLength(1);
+    expect(item.attachedBlocks[0]).toMatchObject({
+      type: "delimitedBlock",
+      variant: "literal",
+      form: "delimited",
+      content: "literal",
+    });
+  });
+
+  test("issue #6 repro: block plus trailing paragraph both attach", () => {
+    const { children } = parse(
+      "* item one with some text:\n" +
+        "+\n" +
+        "....\n" +
+        "literal block content\n" +
+        "....\n" +
+        "+\n" +
+        "continuation paragraph after the block.\n" +
+        "\n" +
+        "* item two.\n",
+    );
+    // The literal block and trailing paragraph are absorbed into
+    // item one; item two remains a separate sibling list.
+    expect(children).toHaveLength(2);
+    const {
+      children: [item],
+    } = firstList(children);
+    expect(item.danglingContinuation).toBe(false);
+    expect(item.attachedBlocks).toHaveLength(2);
+    expect(item.attachedBlocks[0]).toMatchObject({
+      type: "delimitedBlock",
+      variant: "literal",
+      content: "literal block content",
+    });
+    const attached = asParagraph(item.attachedBlocks[1]);
+    expect(attached.children[0]).toMatchObject({
+      type: "text",
+      value: "continuation paragraph after the block.",
+    });
+  });
+
+  test("+ attaches a parent block to the item", () => {
+    const { children } = parse("* item:\n+\n====\nexample text\n====\n");
+    expect(children).toHaveLength(1);
+    const {
+      children: [item],
+    } = firstList(children);
+    expect(item.attachedBlocks).toHaveLength(1);
+    expect(item.attachedBlocks[0]).toMatchObject({
+      type: "parentBlock",
+      variant: "example",
+    });
+  });
+
+  test("marker lines split the trailing paragraph into blocks", () => {
+    const { children } = parse(
+      "* item:\n+\n----\ncode\n----\n+\npara one\n+\npara two\n",
+    );
+    expect(children).toHaveLength(1);
+    const {
+      children: [item],
+    } = firstList(children);
+    expect(item.attachedBlocks).toHaveLength(3);
+    expect(asParagraph(item.attachedBlocks[1]).children[0]).toMatchObject({
+      type: "text",
+      value: "para one",
+    });
+    expect(asParagraph(item.attachedBlocks[2]).children[0]).toMatchObject({
+      type: "text",
+      value: "para two",
+    });
+  });
+
+  test("trailing + after an attached block re-arms attachment", () => {
+    const { children } = parse(
+      "* item:\n+\n----\none\n----\n+\npara\n+\n----\ntwo\n----\n",
+    );
+    expect(children).toHaveLength(1);
+    const {
+      children: [item],
+    } = firstList(children);
+    expect(item.attachedBlocks).toHaveLength(3);
+    expect(item.attachedBlocks[0]).toMatchObject({
+      type: "delimitedBlock",
+      content: "one",
+    });
+    expect(item.attachedBlocks[2]).toMatchObject({
+      type: "delimitedBlock",
+      content: "two",
+    });
+  });
+
+  // A blank line between the dangling `+` and the next block
+  // breaks direct adjacency: the `+` stays dangling (re-emitted
+  // verbatim) and the block stays a sibling — the existing
+  // conservative behavior.
+  test("blank line after dangling + leaves the block unattached", () => {
+    const { children } = parse("* item\n+\n\n....\nliteral\n....\n");
+    expect(children).toHaveLength(2);
+    const {
+      children: [item],
+    } = firstList(children);
+    expect(item.danglingContinuation).toBe(true);
+    expect(item.attachedBlocks).toHaveLength(0);
+  });
+
+  // A paragraph after an attached block only chains when it
+  // begins with its own `+` marker line; otherwise it stays a
+  // sibling. KNOWN FIDELITY GAP (pre-existing, not introduced
+  // by the absorber): Asciidoctor keeps a directly adjacent
+  // plain paragraph INSIDE the list item, so the blank line
+  // the formatter prints detaches it and changes rendering.
+  // Recorded in the gap analysis (List continuation, Task 23).
+  test("paragraph without leading + does not chain", () => {
+    const { children } = parse("* item:\n+\n....\nliteral\n....\nplain para\n");
+    expect(children).toHaveLength(2);
+    const {
+      children: [item],
+    } = firstList(children);
+    expect(item.attachedBlocks).toHaveLength(1);
+    expect(children[1]).toMatchObject({ type: "paragraph" });
+  });
+
+  test("continuation block attaches to the deepest nested item", () => {
+    const { children } = parse("* parent\n** nested\n+\n....\nlit\n....\n");
+    const {
+      children: [parentItem],
+    } = firstList(children);
+    expect(parentItem.attachedBlocks).toHaveLength(0);
+    const nestedList = parentItem.children.find((c) => c.type === "list");
+    narrow(nestedList, "list");
+    const {
+      children: [nestedItem],
+    } = nestedList;
+    expect(nestedItem.attachedBlocks).toHaveLength(1);
+    expect(nestedItem.attachedBlocks[0]).toMatchObject({
+      type: "delimitedBlock",
+      content: "lit",
     });
   });
 });

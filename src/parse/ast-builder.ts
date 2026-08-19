@@ -49,6 +49,7 @@ import {
 import { nestSections } from "./section-builder.js";
 import { convertParagraphFormBlocks } from "./paragraph-form.js";
 import { convertDiscreteHeadings } from "./discrete-heading.js";
+import { absorbListContinuations } from "./continuation-absorber.js";
 
 import { buildInlineNodesFromLines } from "./inline-node-builder.js";
 import {
@@ -191,7 +192,12 @@ export class AstBuilder extends BaseCstVisitor {
     // Convert [discrete] + section pairs to DiscreteHeadingNode
     // before nesting, so they aren't used as nesting targets.
     const withDiscreteHeadings = convertDiscreteHeadings(withParagraphForms);
-    const children = nestSections(withDiscreteHeadings);
+
+    // Attach sibling blocks announced by `+` continuation
+    // markers to their list items (issue #6). Runs on the flat
+    // array so lists inside not-yet-nested sections are seen.
+    const withContinuations = absorbListContinuations(withDiscreteHeadings);
+    const children = nestSections(withContinuations);
 
     return {
       type: "document",
@@ -539,10 +545,14 @@ export class AstBuilder extends BaseCstVisitor {
    * @returns Parent block node with visited children.
    */
   private visitParentBlock(options: VisitParentBlockOptions): ParentBlockNode {
-    const children = (options.blocks ?? []).map(
+    const visited = (options.blocks ?? []).map(
       // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Chevrotain visitor returns unknown
       (cst) => this.visit(cst, options.sourceText) as BlockNode,
     );
+    // Lists inside parent blocks hit the same grammar limit as
+    // top-level ones: a `+` before a delimited block leaves the
+    // block a sibling. Absorb here too (issue #6).
+    const children = absorbListContinuations(visited);
     return buildParentBlock(
       options.openTokens,
       options.closeTokens,

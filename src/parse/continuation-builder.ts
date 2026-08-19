@@ -31,6 +31,10 @@ import {
   SINGLE,
 } from "../constants.js";
 import { IndentedLine, InlineNewline } from "./tokens.js";
+import {
+  collapseTrailingMarkerOnly,
+  isMarkerLineText,
+} from "./continuation-markers.js";
 import { buildFromTokens } from "./inline-node-builder.js";
 import { lexContinuationRun } from "./inline-fragment-lexer.js";
 import { tokenStartLocation, tokenEndLocation } from "./positions.js";
@@ -84,7 +88,7 @@ const MARKER_TOKEN_SPAN = 2;
 function isMarkerLine(tokens: IToken[], index: number): boolean {
   const { [index]: token } = tokens;
   if (
-    token.image.trimEnd() !== "+" ||
+    !isMarkerLineText(token.image) ||
     token.startColumn !== FIRST_COLUMN ||
     token.tokenType === IndentedLine
   ) {
@@ -191,32 +195,9 @@ function splitAtContinuationMarkers(tokens: IToken[]): MarkerSplit {
     index += NEXT;
   }
   danglingContinuation =
-    collapseTrailingMarkerOnlySegments(segments) || danglingContinuation;
+    collapseTrailingMarkerOnly(segments, isMarkerOnlySegment) ||
+    danglingContinuation;
   return { segments, danglingContinuation };
-}
-
-/**
- * Drop trailing marker-only segments (`+` after `+` at the end
- * of the item). They attach nothing and render nothing in
- * Asciidoctor; emitting the lone `+` as content would render a
- * paragraph the input does not have. The caller folds the
- * removal into the dangling-continuation flag so the printer
- * emits one dangling marker, which renders identically.
- * @param segments - The split segments; trailing marker-only
- *   entries are removed in place (the principal segment always
- *   stays).
- * @returns True when at least one segment was removed.
- */
-function collapseTrailingMarkerOnlySegments(segments: IToken[][]): boolean {
-  let collapsed = false;
-  while (
-    segments.length > SINGLE &&
-    isMarkerOnlySegment(segments.at(LAST_ELEMENT))
-  ) {
-    segments.pop();
-    collapsed = true;
-  }
-  return collapsed;
 }
 
 /**
@@ -233,7 +214,7 @@ function isMarkerOnlySegment(segment: IToken[] | undefined): boolean {
   }
   const content = segment.filter((t) => t.tokenType !== InlineNewline);
   const [only] = content;
-  return content.length === SINGLE && only.image.trimEnd() === "+";
+  return content.length === SINGLE && isMarkerLineText(only.image);
 }
 
 /**

@@ -215,9 +215,20 @@ and trailing marker-only lines collapse into one dangling marker. This task
 covers the remaining depth (see the gap analysis, "List continuation" and
 "Paragraph-interrupting `+` line" rows):
 
-- A `+` before a DELIMITED block (listing, example, open, …) ends the item at
-  the grammar level — the block detaches into a sibling (rendering survives:
-  Asciidoctor re-attaches across the printed blank line)
+- ~~A `+` before a DELIMITED block (listing, example, open, …) ends the item at
+  the grammar level~~ — fixed (issue #6) by a post-parse sibling-absorption pass
+  (`src/parse/continuation-absorber.ts`) rather than in the grammar:
+  Chevrotain's LL(k) lookahead cannot gate a delimiter alternative on "the
+  previous line was `+`" without fragile mutable parser state. Remaining in this
+  area (all recorded in the gap analysis, List continuation row): `+` followed
+  by block metadata (`[source]` etc.) before the block still takes the
+  dangling-`+` path — attaching it needs the printer to emit one `+` for a
+  metadata+block group; a plain (markerless) paragraph directly adjacent after
+  an attached block stays inside the item in Asciidoctor but is detached by the
+  printed blank line; and 3+ consecutive `+` marker lines render differently
+  after formatting (the shared quirk model in
+  `src/parse/continuation-markers.ts` diverges from Asciidoctor identically in
+  both splitters — fix it there so they stay in lockstep)
 - Attaching blocks to ancestor lists, not just the immediate item
 - Open blocks as compound wrappers (several blocks attached as one unit)
 - Dropping principal text from list items

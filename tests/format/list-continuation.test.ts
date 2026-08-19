@@ -1,5 +1,5 @@
 /**
- * Format tests for `+` list continuations (issue #2).
+ * Format tests for `+` list continuations (issues #2 and #6).
  *
  * A line containing only `+` directly after a list item's text
  * attaches the following paragraph to the item as a separate
@@ -194,6 +194,60 @@ describe("list continuation formatting", () => {
   });
 });
 
+// Issue #6: `+` continuations around delimited blocks. The `+`
+// lines must stay immediately adjacent to what they attach — no
+// inserted blank lines, and never merged into paragraph text.
+describe("continuations around delimited blocks (issue #6)", () => {
+  test("issue #6 repro round-trips and is idempotent", async () => {
+    const input =
+      "* item one with some text:\n" +
+      "+\n" +
+      "....\n" +
+      "literal block content\n" +
+      "....\n" +
+      "+\n" +
+      "continuation paragraph after the block.\n" +
+      "\n" +
+      "* item two.\n";
+    const first = await formatAdoc(input);
+    expect(first).toBe(input);
+    expect(await formatAdoc(first)).toBe(first);
+  });
+
+  test("+ before a listing block stays attached", async () => {
+    const input = "* item:\n+\n----\ncode here\n----\n";
+    expect(await formatAdoc(input)).toBe(input);
+  });
+
+  test("+ before a parent block stays attached", async () => {
+    const input = "* item:\n+\n====\nexample text\n====\n";
+    expect(await formatAdoc(input)).toBe(input);
+  });
+
+  test("marker lines after the block are never merged into text", async () => {
+    const input = "* item:\n+\n----\ncode\n----\n+\npara one\n+\npara two\n";
+    const first = await formatAdoc(input);
+    expect(first).toBe(input);
+    expect(await formatAdoc(first)).toBe(first);
+  });
+
+  test("chain of block, paragraph, block round-trips", async () => {
+    const input = "* item:\n+\n----\none\n----\n+\npara\n+\n----\ntwo\n----\n";
+    expect(await formatAdoc(input)).toBe(input);
+  });
+
+  // Blank line between the `+` and the block: the dangling `+`
+  // is preserved verbatim and the block stays separate (existing
+  // behavior — Asciidoctor still attaches across the blank line,
+  // so the bytes must survive).
+  test("blank line after dangling + is preserved verbatim", async () => {
+    const input = "* item\n+\n\n....\nliteral\n....\n";
+    const first = await formatAdoc(input);
+    expect(first).toBe(input);
+    expect(await formatAdoc(first)).toBe(first);
+  });
+});
+
 // Semantic fidelity: byte-level round-trips can still lie about
 // meaning (a `+` folded into text may LOOK harmless), so assert
 // that Asciidoctor renders the formatted output to the same HTML
@@ -220,6 +274,16 @@ describe("list continuation formatting preserves rendered HTML", () => {
     "nested item continuation":
       "* parent\n** nested item.\n+\nAttached to nested.\n",
     "code span with plus": "* item with a `+` code span.\n",
+    "attached literal block":
+      "* item:\n+\n....\nliteral block content\n....\n+\nafter the block.\n\n* item two.\n",
+    "attached listing block": "* item:\n+\n----\ncode here\n----\n",
+    "attached parent block": "* item:\n+\n====\nexample text\n====\n",
+    "block then split paragraphs":
+      "* item:\n+\n----\ncode\n----\n+\npara one\n+\npara two\n",
+    "block paragraph block chain":
+      "* item:\n+\n----\none\n----\n+\npara\n+\n----\ntwo\n----\n",
+    "dangling + before block across blank line":
+      "* item\n+\n\n....\nliteral\n....\n",
   };
 
   for (const [name, input] of Object.entries(corpus)) {
