@@ -108,7 +108,7 @@ describe("list continuation formatting", () => {
   // plain (non-list) paragraph terminates the paragraph there
   // (two paragraphs, the second starting with `+`); we merge
   // everything into one paragraph with a mid-text `+`. Tracked
-  // in the gap analysis (Tier 2, Task 23) — this test pins the
+  // in issue #17 — this test pins the
   // current behavior so a future fix updates it consciously,
   // not silently.
   test("plus line between plain paragraphs is merged (known gap)", async () => {

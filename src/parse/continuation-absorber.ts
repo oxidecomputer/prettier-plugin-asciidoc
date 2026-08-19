@@ -70,7 +70,7 @@ import {
  * `+` per attached block — attaching would tear the metadata
  * from its block on re-parse. Extending this (and the
  * printer's continuation loop) to metadata+block groups is
- * remaining Task 23 depth.
+ * tracked in issue #17.
  * @param block - The sibling block after a dangling `+`.
  * @returns True when the block may be absorbed.
  */

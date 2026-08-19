@@ -296,7 +296,7 @@ describe("continuations around delimited blocks (issue #6)", () => {
   // by the absorber): Asciidoctor keeps a directly adjacent
   // plain paragraph INSIDE the list item, so the blank line
   // the formatter prints detaches it and changes rendering.
-  // Recorded in the gap analysis (List continuation, Task 23).
+  // Tracked in issue #17.
   test("paragraph without leading + does not chain", () => {
     const { children } = parse("* item:\n+\n....\nliteral\n....\nplain para\n");
     expect(children).toHaveLength(2);

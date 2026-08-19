@@ -6,8 +6,7 @@ import { fuzzParameters } from "../fuzz/config.js";
 
 // Property-based fuzz tests for the parser. These complement
 // the hand-written error recovery tests in error-recovery.test.ts
-// by exploring the input space randomly. See
-// docs/plans/2026-02-22-parser-fuzzing-design.md for design.
+// by exploring the input space randomly.
 
 describe("parser fuzz", () => {
   test("tier 1: random input never throws", () => {

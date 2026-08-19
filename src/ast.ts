@@ -349,8 +349,7 @@ export interface AttributeEntryNode extends Node {
  * the printer, not by AST nesting. Note: that join logic currently
  * only keeps attribute entries contiguous with the title — implicit
  * author and revision lines are NOT yet recognized and parse as body
- * paragraphs, which detaches them from the header (see the gap
- * analysis, Tier 1, and Task 30 in the plan).
+ * paragraphs, which detaches them from the header (issue #18).
  */
 export interface DocumentTitleNode extends Node {
   /** Node discriminant. */
@@ -604,11 +603,14 @@ export interface ListItemNode extends Node {
    * (form "indented") when the content after `+` is indented.
    * A `+` line followed by a DELIMITED block (e.g. `----`)
    * ends the item at the grammar level before continuation
-   * handling can see the block, so that block detaches into a
-   * sibling — the printed blank line between the dangling `+`
-   * and the block still renders correctly because Asciidoctor
-   * attaches continuation content across a blank line (full
-   * structural support is Task 23 in the plan).
+   * handling can see the block, so the block first parses as a
+   * sibling; the post-parse absorption pass (issue #6,
+   * src/parse/continuation-absorber.ts) then moves a directly
+   * adjacent block back into this array. Only when a blank
+   * line separates the `+` from the block does it stay a
+   * sibling — which still renders correctly because
+   * Asciidoctor attaches continuation content across a blank
+   * line (remaining structural depth is issue #17).
    */
   attachedBlocks: BlockNode[];
   /**

@@ -33,7 +33,9 @@ source text → Lexer → Parser → CST → AST Builder → AST → Printer →
 ## Key References
 
 - Design doc: `docs/design.md`
-- Implementation plan: `docs/plans/`
+- Roadmap: GitHub issues (tier-1/tier-2 severity labels) and the org project
+  board https://github.com/orgs/oxidecomputer/projects/228 — there is no in-repo
+  plan document
 - AsciiDoc syntax reference: `docs/asciidoc-format.md` — covers all constructs
   the parser handles, ASG node types, and what the ASG does NOT represent (which
   our AST must).

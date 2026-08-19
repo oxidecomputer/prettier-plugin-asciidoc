@@ -11,8 +11,7 @@ describe("formatter fuzz", () => {
   // Property-based fuzz test for the formatter. Verifies that
   // formatting is idempotent: format(format(x)) === format(x).
   // Uses the AsciiDoc line-soup generator (tier 2) because
-  // purely random strings rarely exercise the printer. See
-  // docs/plans/2026-02-22-parser-fuzzing-design.md for design.
+  // purely random strings rarely exercise the printer.
   // TODO: When removing test.fails, also review numRuns — 10k iterations
   // means 20k format calls (~40s), which is close to the vitest timeout.
   // Consider reducing to 1_000 for CI and using the FUZZ env var for

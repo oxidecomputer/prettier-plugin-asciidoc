@@ -7,8 +7,6 @@
  * - Tier 1: random Unicode strings (baseline crash testing)
  * - Tier 2: AsciiDoc "line soup" — random lines drawn from a
  *   vocabulary covering every token type in src/parse/tokens.ts
- *
- * See docs/plans/2026-02-22-parser-fuzzing-design.md for rationale.
  */
 import fc from "fast-check";
 import type { Arbitrary } from "fast-check";
