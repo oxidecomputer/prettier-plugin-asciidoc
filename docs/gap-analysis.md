@@ -26,6 +26,11 @@ rolling snapshot, so page numbers can drift as the upstream docs change.
 
 Last updated: 2026-08-18
 
+**Note:** this analysis is a hand-audit against the pre-spec PDF. Task 31
+([#7](https://github.com/oxidecomputer/prettier-plugin-asciidoc/issues/7))
+proposes deriving a differential conformance suite from the Asciidoctor test
+corpus so rows here are backed by (and discovered from) executable cases.
+
 ---
 
 ## Tier 1: Would corrupt or mangle output

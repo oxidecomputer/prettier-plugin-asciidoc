@@ -124,6 +124,8 @@ that feedback so it's not forgotten.
 - [ ] Task 28: Parse underline-style section titles
 - [ ] Task 23: List continuation and complex list items
 - [ ] Task 30: Preserve document header author and revision lines
+- [ ] Task 31: Differential conformance suite from the Asciidoctor corpus
+      ([#7](https://github.com/oxidecomputer/prettier-plugin-asciidoc/issues/7))
 
 Details of completed tasks have been removed from this plan.
 
@@ -667,3 +669,17 @@ but with distinct syntax.
 jj describe -m "feat: parse and format bibliography anchors"
 jj new
 ```
+
+---
+
+## Task 31: Differential conformance suite from the Asciidoctor corpus
+
+Stop finding conformance gaps in real documents; find them up front by running a
+vendored corpus of adversarial AsciiDoc inputs — extracted from Asciidoctor's
+own test suite and docs — through three mechanical properties: no crash,
+idempotency, and rendered-HTML fidelity against `@asciidoctor/core` (the
+existing `renderedHtml` oracle). Known-failing cases live in a checked-in
+quarantine manifest tagged by gap-analysis row, so the failure list shrinks
+monotonically as tasks land and fixed gaps stay pinned. Full design, corpora,
+property tiers (including optional block-structure comparison), and caveats:
+[#7](https://github.com/oxidecomputer/prettier-plugin-asciidoc/issues/7).
