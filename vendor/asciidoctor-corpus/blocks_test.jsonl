@@ -1,0 +1,234 @@
+{"id":"blocks_test.rb#horizontal rule with role#0","input":"[.fancy]\n'''\n"}
+{"id":"blocks_test.rb#line comment between paragraphs offset by blank lines#0","input":"first paragraph\n\n// line comment\n\nsecond paragraph\n"}
+{"id":"blocks_test.rb#adjacent line comment between paragraphs#0","input":"first line\n// line comment\nsecond line\n"}
+{"id":"blocks_test.rb#comment block between paragraphs offset by blank lines#0","input":"first paragraph\n\n////\nblock comment\n////\n\nsecond paragraph\n"}
+{"id":"blocks_test.rb#comment block between paragraphs offset by blank lines inside delimited block#0","input":"====\nfirst paragraph\n\n////\nblock comment\n////\n\nsecond paragraph\n====\n"}
+{"id":"blocks_test.rb#adjacent comment block between paragraphs#0","input":"first paragraph\n////\nblock comment\n////\nsecond paragraph\n"}
+{"id":"blocks_test.rb#can convert with block comment at end of document with trailing newlines#0","input":"paragraph\n\n////\nblock comment\n////\n\n\n"}
+{"id":"blocks_test.rb#trailing newlines after block comment at end of document does not create paragraph#0","input":"paragraph\n\n////\nblock comment\n////\n\n\n"}
+{"id":"blocks_test.rb#preprocessor directives should not be processed within comment block within block metadata#0","input":".sample title\n////\nifdef::asciidoctor[////]\n////\nline should be shown\n"}
+{"id":"blocks_test.rb#preprocessor directives should not be processed within comment block#0","input":"dummy line\n\n////\nifdef::asciidoctor[////]\n////\n\nline should be shown\n"}
+{"id":"blocks_test.rb#should warn if unterminated comment block is detected in body#0","input":"before comment block\n\n////\ncontent that has been disabled\n\nsupposed to be after comment block, except it got swallowed by block comment\n"}
+{"id":"blocks_test.rb#should warn if unterminated comment block is detected inside another block#0","input":"before sidebar block\n\n****\n////\ncontent that has been disabled\n****\n\nsupposed to be after sidebar block, except it got swallowed by block comment\n"}
+{"id":"blocks_test.rb#preprocessor directives should not be processed within comment open block#0","input":"[comment]\n--\nfirst line of comment\nifdef::asciidoctor[--]\nline should not be shown\n--\n\n"}
+{"id":"blocks_test.rb#preprocessor directives should not be processed on subsequent lines of a comment paragraph#0","input":"[comment]\nfirst line of content\nifdef::asciidoctor[////]\n\nthis line should be shown\n"}
+{"id":"blocks_test.rb#comment style on open block should only skip block#0","input":"[comment]\n--\nskip\n\nthis block\n--\n\nnot this text\n"}
+{"id":"blocks_test.rb#comment style on paragraph should only skip paragraph#0","input":"[comment]\nskip\nthis paragraph\n\nnot this text\n"}
+{"id":"blocks_test.rb#comment style on paragraph should not cause adjacent block to be skipped#0","input":"[comment]\nskip\nthis paragraph\n[example]\nnot this text\n"}
+{"id":"blocks_test.rb#should not drop content that follows skipped content inside a delimited block#0","input":"====\nparagraph\n\n[comment#idname]\nskip\n\nparagraph\n====\n"}
+{"id":"blocks_test.rb#should parse sidebar block#0","input":"== Section\n\n.Sidebar\n****\nContent goes here\n****\n"}
+{"id":"blocks_test.rb#quote block with no attribution#0","input":"____\nA famous quote.\n____\n"}
+{"id":"blocks_test.rb#quote block with attribution#0","input":"[quote, Famous Person, Famous Book (1999)]\n____\nA famous quote.\n____\n"}
+{"id":"blocks_test.rb#quote block with attribute and id and role shorthand#0","input":"[quote#justice-to-all.solidarity, Martin Luther King, Jr.]\n____\nInjustice anywhere is a threat to justice everywhere.\n____\n"}
+{"id":"blocks_test.rb#setting ID using style shorthand should not reset block style#0","input":"[quote]\n[#justice-to-all.solidarity, Martin Luther King, Jr.]\n____\nInjustice anywhere is a threat to justice everywhere.\n____\n"}
+{"id":"blocks_test.rb#quote block with complex content#0","input":"____\nA famous quote.\n\nNOTE: _That_ was inspiring.\n____\n"}
+{"id":"blocks_test.rb#quote block with attribution converted to DocBook#0","input":"[quote, Famous Person, Famous Book (1999)]\n____\nA famous quote.\n____\n"}
+{"id":"blocks_test.rb#epigraph quote block with attribution converted to DocBook#0","input":"[.epigraph, Famous Person, Famous Book (1999)]\n____\nA famous quote.\n____\n"}
+{"id":"blocks_test.rb#markdown-style quote block with single paragraph and no attribution#0","input":"> A famous quote.\n> Some more inspiring words.\n"}
+{"id":"blocks_test.rb#lazy markdown-style quote block with single paragraph and no attribution#0","input":"> A famous quote.\nSome more inspiring words.\n"}
+{"id":"blocks_test.rb#markdown-style quote block with multiple paragraphs and no attribution#0","input":"> A famous quote.\n>\n> Some more inspiring words.\n"}
+{"id":"blocks_test.rb#markdown-style quote block with multiple blocks and no attribution#0","input":"> A famous quote.\n>\n> NOTE: Some more inspiring words.\n"}
+{"id":"blocks_test.rb#markdown-style quote block with single paragraph and attribution#0","input":"> A famous quote.\n> Some more inspiring words.\n> -- Famous Person, Famous Source, Volume 1 (1999)\n"}
+{"id":"blocks_test.rb#should parse credit line in markdown-style quote block like positional block attributes#0","input":"> I hold it that a little rebellion now and then is a good thing,\n> and as necessary in the political world as storms in the physical.\n-- Thomas Jefferson, https://jeffersonpapers.princeton.edu/selected-documents/james-madison-1[The Papers of Thomas Jefferson, Volume 11]\n"}
+{"id":"blocks_test.rb#quoted paragraph-style quote block with attribution#0","input":"\"A famous quote.\nSome more inspiring words.\"\n-- Famous Person, Famous Source, Volume 1 (1999)\n"}
+{"id":"blocks_test.rb#should parse credit line in quoted paragraph-style quote block like positional block attributes#0","input":"\"I hold it that a little rebellion now and then is a good thing,\nand as necessary in the political world as storms in the physical.\"\n-- Thomas Jefferson, https://jeffersonpapers.princeton.edu/selected-documents/james-madison-1[The Papers of Thomas Jefferson, Volume 11]\n"}
+{"id":"blocks_test.rb#single-line verse block without attribution#0","input":"[verse]\n____\nA famous verse.\n____\n"}
+{"id":"blocks_test.rb#single-line verse block with attribution#0","input":"[verse, Famous Poet, Famous Poem]\n____\nA famous verse.\n____\n"}
+{"id":"blocks_test.rb#single-line verse block with attribution converted to DocBook#0","input":"[verse, Famous Poet, Famous Poem]\n____\nA famous verse.\n____\n"}
+{"id":"blocks_test.rb#single-line epigraph verse block with attribution converted to DocBook#0","input":"[verse.epigraph, Famous Poet, Famous Poem]\n____\nA famous verse.\n____\n"}
+{"id":"blocks_test.rb#multi-stanza verse block#0","input":"[verse]\n____\nA famous verse.\n\nStanza two.\n____\n"}
+{"id":"blocks_test.rb#verse block does not contain block elements#0","input":"[verse]\n____\nA famous verse.\n\n....\nnot a literal\n....\n____\n"}
+{"id":"blocks_test.rb#verse should have normal subs#0","input":"[verse]\n____\nA famous verse\n____\n"}
+{"id":"blocks_test.rb#should not recognize callouts in a verse#0","input":"[verse]\n____\nLa la la <1>\n____\n<1> Not pointing to a callout\n"}
+{"id":"blocks_test.rb#should perform normal subs on a verse block#0","input":"[verse]\n____\n_GET /groups/link:#group-id[\\{group-id\\}]_\n____\n"}
+{"id":"blocks_test.rb#can convert example block#0","input":"====\nThis is an example of an example block.\n\nHow crazy is that?\n====\n"}
+{"id":"blocks_test.rb#assigns sequential numbered caption to example block with title#0","input":".Writing Docs with AsciiDoc\n====\nHere's how you write AsciiDoc.\n\nYou just write.\n====\n\n.Writing Docs with DocBook\n====\nHere's how you write DocBook.\n\nYou futz with XML.\n====\n"}
+{"id":"blocks_test.rb#assigns sequential character caption to example block with title#0","input":":example-number: @\n\n.Writing Docs with AsciiDoc\n====\nHere's how you write AsciiDoc.\n\nYou just write.\n====\n\n.Writing Docs with DocBook\n====\nHere's how you write DocBook.\n\nYou futz with XML.\n====\n"}
+{"id":"blocks_test.rb#should increment counter for example even when example-number is locked by the API#0","input":".Writing Docs with AsciiDoc\n====\nHere's how you write AsciiDoc.\n\nYou just write.\n====\n\n.Writing Docs with DocBook\n====\nHere's how you write DocBook.\n\nYou futz with XML.\n====\n"}
+{"id":"blocks_test.rb#should use explicit caption if specified#0","input":"[caption=\"Look! \"]\n.Writing Docs with AsciiDoc\n====\nHere's how you write AsciiDoc.\n\nYou just write.\n====\n"}
+{"id":"blocks_test.rb#automatic caption can be turned off and on and modified#0","input":".first example\n====\nan example\n====\n\n:caption:\n\n.second example\n====\nanother example\n====\n\n:caption!:\n:example-caption: Exhibit\n\n.third example\n====\nyet another example\n====\n"}
+{"id":"blocks_test.rb#should use explicit caption if specified even if block-specific global caption is disabled#0","input":":!example-caption:\n\n[caption=\"Look! \"]\n.Writing Docs with AsciiDoc\n====\nHere's how you write AsciiDoc.\n\nYou just write.\n====\n"}
+{"id":"blocks_test.rb#should use global caption if specified even if block-specific global caption is disabled#0","input":":!example-caption:\n:caption: Look!{sp}\n\n.Writing Docs with AsciiDoc\n====\nHere's how you write AsciiDoc.\n\nYou just write.\n====\n"}
+{"id":"blocks_test.rb#should not process caption attribute on block that does not support a caption#0","input":"[caption=\"Look! \"]\n.No caption here\n--\ncontent\n--\n"}
+{"id":"blocks_test.rb#should create details/summary set if collapsible option is set#0","input":".Toggle Me\n[%collapsible]\n====\nThis content is revealed when the user clicks the words \"Toggle Me\".\n====\n"}
+{"id":"blocks_test.rb#should open details/summary set if collapsible and open options are set#0","input":".Toggle Me\n[%collapsible%open]\n====\nThis content is revealed when the user clicks the words \"Toggle Me\".\n====\n"}
+{"id":"blocks_test.rb#should add default summary element if collapsible option is set and title is not specifed#0","input":"[%collapsible]\n====\nThis content is revealed when the user clicks the words \"Details\".\n====\n"}
+{"id":"blocks_test.rb#should not allow collapsible block to increment example number#0","input":".Before\n====\nbefore\n====\n\n.Show Me The Goods\n[%collapsible]\n====\nThis content is revealed when the user clicks the words \"Show Me The Goods\".\n====\n\n.After\n====\nafter\n====\n"}
+{"id":"blocks_test.rb#should warn if example block is not terminated#0","input":"outside\n\n====\ninside\n\nstill inside\n\neof\n"}
+{"id":"blocks_test.rb#caption block-level attribute should be used as caption#0","input":":tip-caption: Pro Tip\n\n[caption=\"Pro Tip\"]\nTIP: Override the caption of an admonition block using an attribute entry\n"}
+{"id":"blocks_test.rb#can override caption of admonition block using document attribute#0","input":":tip-caption: Pro Tip\n\nTIP: Override the caption of an admonition block using an attribute entry\n"}
+{"id":"blocks_test.rb#blank caption document attribute should not blank admonition block caption#0","input":":caption:\n\nTIP: Override the caption of an admonition block using an attribute entry\n"}
+{"id":"blocks_test.rb#should generate appropriate tag based on admonition type in DocBook output#0","input":"NOTE: Remember the oat milk.\n\nIMPORTANT: Don't forget the children!\n\n[caption=Pro Tip]\nTIP: Look for the warp under the bridge.\n\nCAUTION: Slippery when wet.\n\nWARNING: The software you're about to use has *not* been tested.\n"}
+{"id":"blocks_test.rb#should separate adjacent paragraphs and listing into blocks#0","input":"paragraph 1\n----\nlisting content\n----\nparagraph 2\n"}
+{"id":"blocks_test.rb#should warn if listing block is not terminated#0","input":"outside\n\n----\ninside\n\nstill inside\n\neof\n"}
+{"id":"blocks_test.rb#should preserve newlines in literal block#0","input":"....\nline one\n\nline two\n\nline three\n....\n"}
+{"id":"blocks_test.rb#should preserve newlines in listing block#0","input":"----\nline one\n\nline two\n\nline three\n----\n"}
+{"id":"blocks_test.rb#should preserve newlines in verse block#0","input":"--\n[verse]\n____\nline one\n\nline two\n\nline three\n____\n--\n"}
+{"id":"blocks_test.rb#should strip leading and trailing blank lines when converting verbatim block#0","input":"[subs=attributes+]\n....\n\n\n  first line\n\nlast line\n\n{empty}\n\n....\n"}
+{"id":"blocks_test.rb#should remove block indent if indent attribute is 0#0","input":"[indent=\"0\"]\n----\n    def names\n\n      @names.split\n\n    end\n----\n"}
+{"id":"blocks_test.rb#should remove block indent if indent attribute is 0#1","input":"def names\n\n  @names.split\n\nend\n"}
+{"id":"blocks_test.rb#should not remove block indent if indent attribute is -1#0","input":"[indent=\"-1\"]\n----\n    def names\n\n      @names.split\n\n    end\n----\n"}
+{"id":"blocks_test.rb#should set block indent to value specified by indent attribute#0","input":"[indent=\"1\"]\n----\n    def names\n\n      @names.split\n\n    end\n----\n"}
+{"id":"blocks_test.rb#should set block indent to value specified by indent document attribute#0","input":":source-indent: 1\n\n[source,ruby]\n----\n    def names\n\n      @names.split\n\n    end\n----\n"}
+{"id":"blocks_test.rb#should expand tabs if tabsize attribute is positive#0","input":"def names\n\n    @names.split\n\nend\n"}
+{"id":"blocks_test.rb#literal block should honor nowrap option#0","input":"[options=\"nowrap\"]\n----\nDo not wrap me if I get too long.\n----\n"}
+{"id":"blocks_test.rb#literal block should set nowrap class if prewrap document attribute is disabled#0","input":":prewrap!:\n\n----\nDo not wrap me if I get too long.\n----\n"}
+{"id":"blocks_test.rb#should preserve guard in front of callout if icons are not enabled#0","input":"----\nputs 'Hello, World!' # <1>\nputs 'Goodbye, World ;(' # <2>\n----\n"}
+{"id":"blocks_test.rb#should preserve guard around callout if icons are not enabled#0","input":"----\n<parent> <!--1-->\n  <child/> <!--2-->\n</parent>\n----\n"}
+{"id":"blocks_test.rb#literal block should honor explicit subs list#0","input":"[subs=\"verbatim,quotes\"]\n----\nMap<String, String> *attributes*; //<1>\n----\n"}
+{"id":"blocks_test.rb#should be able to disable callouts for literal block#0","input":"[subs=\"specialcharacters\"]\n----\nNo callout here <1>\n----\n"}
+{"id":"blocks_test.rb#listing block should honor explicit subs list#0","input":"[subs=\"specialcharacters,quotes\"]\n----\n$ *python functional_tests.py*\nTraceback (most recent call last):\n  File \"functional_tests.py\", line 4, in <module>\n    assert 'Django' in browser.title\nAssertionError\n----\n"}
+{"id":"blocks_test.rb#listing block should honor explicit subs list#1","input":"[subs=\"specialcharacters,macros\"]\n----\n$ pass:quotes[*python functional_tests.py*]\nTraceback (most recent call last):\n  File \"functional_tests.py\", line 4, in <module>\n    assert pass:quotes['Django'] in browser.title\nAssertionError\n----\n"}
+{"id":"blocks_test.rb#should not mangle array that contains formatted text with role in listing block with quotes sub enabled#0","input":"[,ruby,subs=+quotes]\n----\nnums = [1, 2, 3, [.added]#4#]\n----\n"}
+{"id":"blocks_test.rb#first character of block title may be a period if not followed by space#0","input":"..gitignore\n----\n/.bundle/\n/build/\n/Gemfile.lock\n----\n"}
+{"id":"blocks_test.rb#listing block without title should generate screen element in docbook#0","input":"----\nlisting block\n----\n"}
+{"id":"blocks_test.rb#listing block with title should generate screen element inside formalpara element in docbook#0","input":".title\n----\nlisting block\n----\n"}
+{"id":"blocks_test.rb#should not prepend caption to title of listing block with title if listing-caption attribute is not set#0","input":".title\n----\nlisting block content\n----\n"}
+{"id":"blocks_test.rb#should prepend caption specified by listing-caption attribute and number to title of listing block with title#0","input":":listing-caption: Listing\n\n.title\n----\nlisting block content\n----\n"}
+{"id":"blocks_test.rb#should prepend caption specified by caption attribute on listing block even if listing-caption attribute is not set#0","input":"[caption=\"Listing {counter:listing-number}. \"]\n.Behold!\n----\nlisting block content\n----\n"}
+{"id":"blocks_test.rb#listing block without an explicit style and with a second positional argument should be promoted to a source block#0","input":"[,ruby]\n----\nputs 'Hello, Ruby!'\n----\n"}
+{"id":"blocks_test.rb#listing block without an explicit style should be promoted to a source block if source-language is set#0","input":":source-language: ruby\n\n----\nputs 'Hello, Ruby!'\n----\n"}
+{"id":"blocks_test.rb#listing block with an explicit style and a second positional argument should not be promoted to a source block#0","input":"[listing,ruby]\n----\nputs 'Hello, Ruby!'\n----\n"}
+{"id":"blocks_test.rb#listing block with an explicit style should not be promoted to a source block if source-language is set#0","input":":source-language: ruby\n\n[listing]\n----\nputs 'Hello, Ruby!'\n----\n"}
+{"id":"blocks_test.rb#source block with no title or language should generate screen element in docbook#0","input":"[source]\n----\nsource block\n----\n"}
+{"id":"blocks_test.rb#source block with title and no language should generate screen element inside formalpara element for docbook#0","input":"[source]\n.title\n----\nsource block\n----\n"}
+{"id":"blocks_test.rb#can convert open block#0","input":"--\nThis is an open block.\n\nIt can span multiple lines.\n--\n"}
+{"id":"blocks_test.rb#open block can contain another block#0","input":"--\nThis is an open block.\n\nIt can span multiple lines.\n\n____\nIt can hold great quotes like this one.\n____\n--\n"}
+{"id":"blocks_test.rb#should transfer id and reftext on open block to DocBook output#0","input":"Check out that <<open>>!\n\n[[open,Open Block]]\n--\nThis is an open block.\n\nTIP: An open block can have other blocks inside of it.\n--\n\nBack to our regularly scheduled programming.\n"}
+{"id":"blocks_test.rb#should transfer id and reftext on open paragraph to DocBook output#0","input":"[open#openpara,reftext=\"Open Paragraph\"]\nThis is an open paragraph.\n"}
+{"id":"blocks_test.rb#should transfer title on open block to DocBook output#0","input":".Behold the open\n--\nThis is an open block with a title.\n--\n"}
+{"id":"blocks_test.rb#should transfer title on open paragraph to DocBook output#0","input":".Behold the open\nThis is an open paragraph with a title.\n"}
+{"id":"blocks_test.rb#should transfer role on open block to DocBook output#0","input":"[.container]\n--\nThis is an open block.\nIt holds stuff.\n--\n"}
+{"id":"blocks_test.rb#should transfer role on open paragraph to DocBook output#0","input":"[.container]\nThis is an open block.\nIt holds stuff.\n"}
+{"id":"blocks_test.rb#can parse a passthrough block#0","input":"++++\nThis is a passthrough block.\n++++\n"}
+{"id":"blocks_test.rb#does not perform subs on a passthrough block by default#0","input":":type: passthrough\n\n++++\nThis is a '{type}' block.\nhttp://asciidoc.org\nimage:tiger.png[]\n++++\n"}
+{"id":"blocks_test.rb#does not perform subs on a passthrough block with pass style by default#0","input":":type: passthrough\n\n[pass]\n++++\nThis is a '{type}' block.\nhttp://asciidoc.org\nimage:tiger.png[]\n++++\n"}
+{"id":"blocks_test.rb#passthrough block honors explicit subs list#0","input":":type: passthrough\n\n[subs=\"attributes,quotes,macros\"]\n++++\nThis is a _{type}_ block.\nhttp://asciidoc.org\n++++\n"}
+{"id":"blocks_test.rb#should strip leading and trailing blank lines when converting raw block#0","input":"++++\nline above\n++++\n\n++++\n\n\n  first line\n\nlast line\n\n\n++++\n\n++++\nline below\n++++\n"}
+{"id":"blocks_test.rb#should not crash when converting stem block that has no lines#0","input":"[stem]\n++++\n++++\n"}
+{"id":"blocks_test.rb#should add LaTeX math delimiters around latexmath block content#0","input":"[latexmath]\n++++\n\\sqrt{3x-1}+(1+x)^2 < y\n++++\n"}
+{"id":"blocks_test.rb#should not add LaTeX math delimiters around latexmath block content if already present#0","input":"[latexmath]\n++++\n\\[\\sqrt{3x-1}+(1+x)^2 < y\\]\n++++\n"}
+{"id":"blocks_test.rb#should display latexmath block in alt of equation in DocBook backend#0","input":"[latexmath]\n++++\n\\sqrt{3x-1}+(1+x)^2 < y\n++++\n"}
+{"id":"blocks_test.rb#should display latexmath block in alt of equation in DocBook backend#1","input":"<informalequation>\n<alt><![CDATA[\\sqrt{3x-1}+(1+x)^2 < y]]></alt>\n<mathphrase><![CDATA[\\sqrt{3x-1}+(1+x)^2 < y]]></mathphrase>\n</informalequation>\n"}
+{"id":"blocks_test.rb#should set autoNumber option for latexmath to none by default#0","input":":stem: latexmath\n\n[stem]\n++++\ny = x^2\n++++\n"}
+{"id":"blocks_test.rb#should set autoNumber option for latexmath to none if eqnums is set to none#0","input":":stem: latexmath\n:eqnums: none\n\n[stem]\n++++\ny = x^2\n++++\n"}
+{"id":"blocks_test.rb#should set autoNumber option for latexmath to AMS if eqnums is set#0","input":":stem: latexmath\n:eqnums:\n\n[stem]\n++++\n\\begin{equation}\ny = x^2\n\\end{equation}\n++++\n"}
+{"id":"blocks_test.rb#should set autoNumber option for latexmath to all if eqnums is set to all#0","input":":stem: latexmath\n:eqnums: all\n\n[stem]\n++++\ny = x^2\n++++\n"}
+{"id":"blocks_test.rb#should not split equation in AsciiMath block at single newline#0","input":"[asciimath]\n++++\nf: bbb\"N\" -> bbb\"N\"\nf: x |-> x + 1\n++++\n"}
+{"id":"blocks_test.rb#should not split equation in AsciiMath block at single newline#1","input":"\\$f: bbb\"N\" -&gt; bbb\"N\"\nf: x |-&gt; x + 1\\$\n"}
+{"id":"blocks_test.rb#should split equation in AsciiMath block at escaped newline#0","input":"[asciimath]\n++++\nf: bbb\"N\" -> bbb\"N\" \\\nf: x |-> x + 1\n++++\n"}
+{"id":"blocks_test.rb#should split equation in AsciiMath block at escaped newline#1","input":"\\$f: bbb\"N\" -&gt; bbb\"N\"\\$\n\\$f: x |-&gt; x + 1\\$\n"}
+{"id":"blocks_test.rb#should split equation in AsciiMath block at sequence of escaped newlines#0","input":"[asciimath]\n++++\nf: bbb\"N\" -> bbb\"N\" \\\n\\\nf: x |-> x + 1\n++++\n"}
+{"id":"blocks_test.rb#should split equation in AsciiMath block at sequence of escaped newlines#1","input":"\\$f: bbb\"N\" -&gt; bbb\"N\"\\$\n<br>\n\\$f: x |-&gt; x + 1\\$\n"}
+{"id":"blocks_test.rb#should split equation in AsciiMath block at newline sequence and preserve breaks#0","input":"[asciimath]\n++++\nf: bbb\"N\" -> bbb\"N\"\n\n\nf: x |-> x + 1\n++++\n"}
+{"id":"blocks_test.rb#should split equation in AsciiMath block at newline sequence and preserve breaks#1","input":"\\$f: bbb\"N\" -&gt; bbb\"N\"\\$\n<br>\n<br>\n\\$f: x |-&gt; x + 1\\$\n"}
+{"id":"blocks_test.rb#should add AsciiMath delimiters around asciimath block content#0","input":"[asciimath]\n++++\nsqrt(3x-1)+(1+x)^2 < y\n++++\n"}
+{"id":"blocks_test.rb#should not add AsciiMath delimiters around asciimath block content if already present#0","input":"[asciimath]\n++++\n\\$sqrt(3x-1)+(1+x)^2 < y\\$\n++++\n"}
+{"id":"blocks_test.rb#should convert contents of asciimath block to MathML in DocBook output if asciimath gem is available#0","input":"[asciimath]\n++++\nx+b/(2a)<+-sqrt((b^2)/(4a^2)-c/a)\n++++\n\n[asciimath]\n++++\n++++\n"}
+{"id":"blocks_test.rb#should convert contents of asciimath block to MathML in DocBook output if asciimath gem is available#1","input":"<informalequation>\n<mml:math xmlns:mml=\"http://www.w3.org/1998/Math/MathML\"><mml:mi>x</mml:mi><mml:mo>+</mml:mo><mml:mfrac><mml:mi>b</mml:mi><mml:mrow><mml:mn>2</mml:mn><mml:mi>a</mml:mi></mml:mrow></mml:mfrac><mml:mo>&lt;</mml:mo><mml:mo>&#xB1;</mml:mo><mml:msqrt><mml:mrow><mml:mfrac><mml:msup><mml:mi>b</mml:mi><mml:mn>2</mml:mn></mml:msup><mml:mrow><mml:mn>4</mml:mn><mml:msup><mml:mi>a</mml:mi><mml:mn>2</mml:mn></mml:msup></mml:mrow></mml:mfrac><mml:mo>&#x2212;</mml:mo><mml:mfrac><mml:mi>c</mml:mi><mml:mi>a</mml:mi></mml:mfrac></mml:mrow></mml:msqrt></mml:math>\n</informalequation>\n<informalequation>\n<mml:math xmlns:mml=\"http://www.w3.org/1998/Math/MathML\"></mml:math>\n</informalequation>\n"}
+{"id":"blocks_test.rb#should output title for latexmath block if defined#0","input":".The Lorenz Equations\n[latexmath]\n++++\n\\begin{aligned}\n\\dot{x} & = \\sigma(y-x) \\\\\n\\dot{y} & = \\rho x - y - xz \\\\\n\\dot{z} & = -\\beta z + xy\n\\end{aligned}\n++++\n"}
+{"id":"blocks_test.rb#should output title for asciimath block if defined#0","input":".Simple fraction\n[asciimath]\n++++\na//b\n++++\n"}
+{"id":"blocks_test.rb#should add AsciiMath delimiters around stem block content if stem attribute is asciimath, empty, or not set#0","input":"[stem]\n++++\nsqrt(3x-1)+(1+x)^2 < y\n++++\n"}
+{"id":"blocks_test.rb#should add LaTeX math delimiters around stem block content if stem attribute is latexmath, latex, or tex#0","input":"[stem]\n++++\n\\sqrt{3x-1}+(1+x)^2 < y\n++++\n"}
+{"id":"blocks_test.rb#should allow stem style to be set using second positional argument of block attributes#0","input":":stem: latexmath\n\n[stem,asciimath]\n++++\nsqrt(3x-1)+(1+x)^2 < y\n++++\n"}
+{"id":"blocks_test.rb#should not warn if block style is unknown#0","input":"[foo]\n--\nbar\n--\n"}
+{"id":"blocks_test.rb#should log debug message if block style is unknown and debug level is enabled#0","input":"[foo]\n--\nbar\n--\n"}
+{"id":"blocks_test.rb#block title above section gets carried over to first block in section#0","input":".Title\n== Section\n\nparagraph\n"}
+{"id":"blocks_test.rb#block title above document title demotes document title to a section title#0","input":".Block title\n= Section Title\n\nsection paragraph\n"}
+{"id":"blocks_test.rb#block title above document title gets carried over to first block in first section if no preamble#0","input":":doctype: book\n.Block title\n= Document Title\n\n== First Section\n\nparagraph\n"}
+{"id":"blocks_test.rb#should apply substitutions to a block title in normal order#0","input":".{link-url}[{link-text}]{tm}\nThe one and only!\n"}
+{"id":"blocks_test.rb#empty attribute list should not appear in output#0","input":"[]\n--\nBlock content\n--\n"}
+{"id":"blocks_test.rb#empty block anchor should not appear in output#0","input":"[[]]\n--\nBlock content\n--\n"}
+{"id":"blocks_test.rb#converts interactive SVG image with alt text using object element#0","input":":imagesdir: images\n\n[%interactive]\nimage::tiger.svg[Tiger,100]\n"}
+{"id":"blocks_test.rb#converts SVG image with alt text using img element when safe mode is secure#0","input":"[%interactive]\nimage::images/tiger.svg[Tiger,100]\n"}
+{"id":"blocks_test.rb#inserts fallback image for SVG inside object element using same dimensions#0","input":":imagesdir: images\n\n[%interactive]\nimage::tiger.svg[Tiger,100,fallback=tiger.png]\n"}
+{"id":"blocks_test.rb#detects SVG image URI that contains a query string#0","input":":imagesdir: images\n\n[%interactive]\nimage::http://example.org/tiger.svg?foo=bar[Tiger,100]\n"}
+{"id":"blocks_test.rb#detects SVG image when format attribute is svg#0","input":":imagesdir: images\n\n[%interactive]\nimage::http://example.org/tiger-svg[Tiger,100,format=svg]\n"}
+{"id":"blocks_test.rb#converts to inline SVG image when inline option is set on block#0","input":":imagesdir: fixtures\n\n[%inline]\nimage::circle.svg[Tiger,100]\n"}
+{"id":"blocks_test.rb#should ignore link attribute if value is self and image target is inline SVG#0","input":":imagesdir: fixtures\n\n[%inline]\nimage::circle.svg[Tiger,100,link=self]\n"}
+{"id":"blocks_test.rb#should honor percentage width for SVG image with inline option#0","input":":imagesdir: fixtures\n\nimage::circle.svg[Circle,50%,opts=inline]\n"}
+{"id":"blocks_test.rb#should not crash if explicit width on SVG image block is an integer#0","input":":imagesdir: fixtures\n\nimage::circle.svg[Circle,opts=inline]\n"}
+{"id":"blocks_test.rb#converts to inline SVG image when inline option is set on block and data-uri is set on document#0","input":":imagesdir: fixtures\n:data-uri:\n\n[%inline]\nimage::circle.svg[Tiger,100]\n"}
+{"id":"blocks_test.rb#converts to alt text for SVG with inline option set if SVG cannot be read#0","input":"[%inline]\nimage::no-such-image.svg[Alt Text]\n"}
+{"id":"blocks_test.rb#can convert block image with alt text defined in block attribute above macro#0","input":"[Tiger]\nimage::images/tiger.png[]\n"}
+{"id":"blocks_test.rb#alt text in macro overrides alt text above macro#0","input":"[Alt Text]\nimage::images/tiger.png[Tiger]\n"}
+{"id":"blocks_test.rb#should substitute attribute references in alt text defined in image block macro#0","input":":alt-text: Tiger\n\nimage::images/tiger.png[{alt-text}]\n"}
+{"id":"blocks_test.rb#should set direction CSS class on image if float attribute is set#0","input":"[float=left]\nimage::images/tiger.png[Tiger]\n"}
+{"id":"blocks_test.rb#should set text alignment CSS class on image if align attribute is set#0","input":"[align=center]\nimage::images/tiger.png[Tiger]\n"}
+{"id":"blocks_test.rb#style attribute is dropped from image macro#0","input":"[style=value]\nimage::images/tiger.png[Tiger]\n"}
+{"id":"blocks_test.rb#can convert block image with link#0","input":"image::images/tiger.png[Tiger, link='http://en.wikipedia.org/wiki/Tiger']\n"}
+{"id":"blocks_test.rb#can convert block image with link to self#0","input":":imagesdir: img\n\nimage::tiger.png[Tiger, link=self]\n"}
+{"id":"blocks_test.rb#can convert block image with caption#0","input":".The AsciiDoc Tiger\nimage::images/tiger.png[Tiger]\n"}
+{"id":"blocks_test.rb#can convert block image with explicit caption#0","input":"[caption=\"Voila! \"]\n.The AsciiDoc Tiger\nimage::images/tiger.png[Tiger]\n"}
+{"id":"blocks_test.rb#keeps attribute reference unprocessed if image target is missing attribute reference and attribute-missing is skip#0","input":":attribute-missing: skip\n\nimage::{bogus}[]\n"}
+{"id":"blocks_test.rb#should not drop line if image target is missing attribute reference and attribute-missing is drop#0","input":":attribute-missing: drop\n\nimage::{bogus}/photo.jpg[]\n"}
+{"id":"blocks_test.rb#drops line if image target is missing attribute reference and attribute-missing is drop-line#0","input":":attribute-missing: drop-line\n\nimage::{bogus}[]\n"}
+{"id":"blocks_test.rb#should not drop line if image target resolves to blank and attribute-missing is drop-line#0","input":":attribute-missing: drop-line\n\nimage::{blank}[]\n"}
+{"id":"blocks_test.rb#dropped image does not break processing of following section and attribute-missing is drop-line#0","input":":attribute-missing: drop-line\n\nimage::{bogus}[]\n\n== Section Title\n"}
+{"id":"blocks_test.rb#should pass through image that references uri#0","input":":imagesdir: images\n\nimage::http://asciidoc.org/images/tiger.png[Tiger]\n"}
+{"id":"blocks_test.rb#can resolve image relative to imagesdir#0","input":":imagesdir: images\n\nimage::tiger.png[Tiger]\n"}
+{"id":"blocks_test.rb#embeds base64-encoded data uri for image when data-uri attribute is set#0","input":":data-uri:\n:imagesdir: fixtures\n\nimage::dot.gif[Dot]\n"}
+{"id":"blocks_test.rb#embeds base64-encoded data uri for image when data-uri attribute is set#1","input":":data-uri:\n:imagesdir: uri:classloader:/images-in-jar\n\nimage::dot.gif[Dot]\n"}
+{"id":"blocks_test.rb#embeds SVG image with image/svg+xml mimetype when file extension is .svg#0","input":":imagesdir: fixtures\n:data-uri:\n\nimage::circle.svg[Tiger,100]\n"}
+{"id":"blocks_test.rb#should link to data URI if value of link attribute is self and image is embedded#0","input":":imagesdir: fixtures\n:data-uri:\n\nimage::circle.svg[Tiger,100,link=self]\n"}
+{"id":"blocks_test.rb#embeds empty base64-encoded data uri for unreadable image when data-uri attribute is set#0","input":":data-uri:\n:imagesdir: fixtures\n\nimage::unreadable.gif[Dot]\n"}
+{"id":"blocks_test.rb#embeds base64-encoded data uri with application/octet-stream mimetype when file extension is missing#0","input":":data-uri:\n:imagesdir: fixtures\n\nimage::dot[Dot]\n"}
+{"id":"blocks_test.rb#can handle embedded data uri images when data-uri attribute is set#0","input":":data-uri:\n\nimage::data:image/gif;base64,R0lGODlhAQABAIAAAAUEBAAAACwAAAAAAQABAAACAkQBADs=[Dot]\n"}
+{"id":"blocks_test.rb#cleans reference to ancestor directories in imagesdir before reading image if safe mode level is at least SAFE#0","input":":data-uri:\n:imagesdir: ../..//fixtures/./../../fixtures\n\nimage::dot.gif[Dot]\n"}
+{"id":"blocks_test.rb#cleans reference to ancestor directories in target before reading image if safe mode level is at least SAFE#0","input":":data-uri:\n:imagesdir: ./\n\nimage::../..//fixtures/./../../fixtures/dot.gif[Dot]\n"}
+{"id":"blocks_test.rb#should use the imagesdir attribute defined on image macro when resolving image path#0","input":":imagesdir: images\n\nimage::rainbow.png[imagesdir=chapter-1/images]\n'''\n"}
+{"id":"blocks_test.rb#video macro should use imagesdir attribute to resolve target and poster#0","input":":imagesdir: assets\n\nvideo::cats-vs-dogs.avi[cats-and-dogs.png, 200, 300]\n"}
+{"id":"blocks_test.rb#video macro should not use imagesdir attribute to resolve target if target is a URL#0","input":":imagesdir: assets\n\nvideo::http://example.org/videos/cats-vs-dogs.avi[]\n"}
+{"id":"blocks_test.rb#audio macro should use imagesdir attribute to resolve target#0","input":":imagesdir: assets\n\naudio::podcast.mp3[]\n"}
+{"id":"blocks_test.rb#audio macro should not use imagesdir attribute to resolve target if target is a URL#0","input":":imagesdir: assets\n\nvideo::http://example.org/podcast.mp3[]\n"}
+{"id":"blocks_test.rb#should use the imagesdir attribute defined on video macro when resolving image path#0","input":":imagesdir: images\n\nvideo::promo.mp4[imagesdir=chapter-1/videos]\n'''\n"}
+{"id":"blocks_test.rb#can resolve icon relative to default iconsdir#0","input":":icons:\n\n[TIP]\nYou can use icons for admonitions by setting the 'icons' attribute.\n"}
+{"id":"blocks_test.rb#can resolve icon relative to custom iconsdir#0","input":":icons:\n:iconsdir: icons\n\n[TIP]\nYou can use icons for admonitions by setting the 'icons' attribute.\n"}
+{"id":"blocks_test.rb#should use iconsdir attribute set on admonition block in document to resolve icon path#0","input":":icons:\n\n[TIP,iconsdir=icons]\nYou can use icons for admonitions by setting the 'icons' attribute.\n"}
+{"id":"blocks_test.rb#should add file extension to custom icon if not specified#0","input":":icons: font\n:iconsdir: images/icons\n\n[TIP,icon=a]\nOverride the icon of an admonition block using an attribute\n"}
+{"id":"blocks_test.rb#should allow icontype to be specified when using custom admonition icon#0","input":"[TIP,icon=hint]\nSet the icontype using either the icontype attribute on the icons attribute.\n"}
+{"id":"blocks_test.rb#embeds base64-encoded data uri of icon when data-uri attribute is set and safe mode level is less than SECURE#0","input":":icons:\n:iconsdir: fixtures\n:icontype: gif\n:data-uri:\n\n[TIP]\nYou can use icons for admonitions by setting the 'icons' attribute.\n"}
+{"id":"blocks_test.rb#should embed base64-encoded data uri of custom icon when data-uri attribute is set#0","input":":icons:\n:iconsdir: fixtures\n:icontype: gif\n:data-uri:\n\n[TIP,icon=tip]\nYou can set a custom icon using the icon attribute on the block.\n"}
+{"id":"blocks_test.rb#does not embed base64-encoded data uri of icon when safe mode level is SECURE or greater#0","input":":icons:\n:iconsdir: fixtures\n:icontype: gif\n:data-uri:\n\n[TIP]\nYou can use icons for admonitions by setting the 'icons' attribute.\n"}
+{"id":"blocks_test.rb#cleans reference to ancestor directories before reading icon if safe mode level is at least SAFE#0","input":":icons:\n:iconsdir: ../fixtures\n:icontype: gif\n:data-uri:\n\n[TIP]\nYou can use icons for admonitions by setting the 'icons' attribute.\n"}
+{"id":"blocks_test.rb#should import Font Awesome and use font-based icons when value of icons attribute is font#0","input":":icons: font\n\n[TIP]\nYou can use icons for admonitions by setting the 'icons' attribute.\n"}
+{"id":"blocks_test.rb#font-based icon should not override icon specified on admonition#0","input":":icons: font\n:iconsdir: images/icons\n\n[TIP,icon=a.png]\nOverride the icon of an admonition block using an attribute\n"}
+{"id":"blocks_test.rb#should use http uri scheme for assets when asset-uri-scheme is http#0","input":":asset-uri-scheme: http\n:icons: font\n:source-highlighter: highlightjs\n\nTIP: You can control the URI scheme used for assets with the asset-uri-scheme attribute\n\n[source,ruby]\nputs \"AsciiDoc, FTW!\"\n"}
+{"id":"blocks_test.rb#should use no uri scheme for assets when asset-uri-scheme is blank#0","input":":asset-uri-scheme:\n:icons: font\n:source-highlighter: highlightjs\n\nTIP: You can control the URI scheme used for assets with the asset-uri-scheme attribute\n\n[source,ruby]\nputs \"AsciiDoc, FTW!\"\n"}
+{"id":"blocks_test.rb#should support fenced code block using backticks#0","input":"```\nputs \"Hello, World!\"\n```\n"}
+{"id":"blocks_test.rb#should not recognize fenced code blocks with more than three delimiters#0","input":"````ruby\nputs \"Hello, World!\"\n````\n\n~~~~ javascript\nalert(\"Hello, World!\")\n~~~~\n"}
+{"id":"blocks_test.rb#should support fenced code blocks with languages#0","input":"```ruby\nputs \"Hello, World!\"\n```\n\n``` javascript\nalert(\"Hello, World!\")\n```\n"}
+{"id":"blocks_test.rb#should support fenced code blocks with languages and numbering#0","input":"```ruby,numbered\nputs \"Hello, World!\"\n```\n\n``` javascript, numbered\nalert(\"Hello, World!\")\n```\n"}
+{"id":"blocks_test.rb#should allow source style to be specified on literal block#0","input":"[source]\n....\nconsole.log('Hello, World!')\n....\n"}
+{"id":"blocks_test.rb#should allow source style and language to be specified on literal block#0","input":"[source,js]\n....\nconsole.log('Hello, World!')\n....\n"}
+{"id":"blocks_test.rb#should make abstract on open block without title a quote block for article#0","input":"= Article\n\n[abstract]\n--\nThis article is about stuff.\n\nAnd other stuff.\n--\n\n== Section One\n\ncontent\n"}
+{"id":"blocks_test.rb#should make abstract on open block with title a quote block with title for article#0","input":"= Article\n\n.My abstract\n[abstract]\n--\nThis article is about stuff.\n--\n\n== Section One\n\ncontent\n"}
+{"id":"blocks_test.rb#should allow abstract in document with title if doctype is book#0","input":"= Book\n:doctype: book\n\n[abstract]\nAbstract for book with title is valid\n"}
+{"id":"blocks_test.rb#should not allow abstract as direct child of document if doctype is book#0","input":":doctype: book\n\n[abstract]\nAbstract for book without title is invalid.\n"}
+{"id":"blocks_test.rb#should make abstract on open block without title converted to DocBook#0","input":"= Article\n\n[abstract]\n--\nThis article is about stuff.\n\nAnd other stuff.\n--\n"}
+{"id":"blocks_test.rb#should make abstract on open block with title converted to DocBook#0","input":"= Article\n\n.My abstract\n[abstract]\n--\nThis article is about stuff.\n--\n"}
+{"id":"blocks_test.rb#should allow abstract in document with title if doctype is book converted to DocBook#0","input":"= Book\n:doctype: book\n\n[abstract]\nAbstract for book with title is valid\n"}
+{"id":"blocks_test.rb#should not allow abstract as direct child of document if doctype is book converted to DocBook#0","input":":doctype: book\n\n[abstract]\nAbstract for book is invalid.\n"}
+{"id":"blocks_test.rb#should accept partintro on open block without title#0","input":"= Book\n:doctype: book\n\n= Part 1\n\n[partintro]\n--\nThis is a part intro.\n\nIt can have multiple paragraphs.\n--\n\n== Chapter 1\n\ncontent\n"}
+{"id":"blocks_test.rb#should accept partintro on open block with title#0","input":"= Book\n:doctype: book\n\n= Part 1\n\n.Intro title\n[partintro]\n--\nThis is a part intro with a title.\n--\n\n== Chapter 1\n\ncontent\n"}
+{"id":"blocks_test.rb#should exclude partintro if not a child of part#0","input":"= Book\n:doctype: book\n\n[partintro]\npart intro paragraph\n"}
+{"id":"blocks_test.rb#should not allow partintro unless doctype is book#0","input":"[partintro]\npart intro paragraph\n"}
+{"id":"blocks_test.rb#should accept partintro on open block without title converted to DocBook#0","input":"= Book\n:doctype: book\n\n= Part 1\n\n[partintro]\n--\nThis is a part intro.\n\nIt can have multiple paragraphs.\n--\n\n== Chapter 1\n\ncontent\n"}
+{"id":"blocks_test.rb#should accept partintro on open block with title converted to DocBook#0","input":"= Book\n:doctype: book\n\n= Part 1\n\n.Intro title\n[partintro]\n--\nThis is a part intro with a title.\n--\n\n== Chapter 1\n\ncontent\n"}
+{"id":"blocks_test.rb#should exclude partintro if not a child of part converted to DocBook#0","input":"= Book\n:doctype: book\n\n[partintro]\npart intro paragraph\n"}
+{"id":"blocks_test.rb#should not allow partintro unless doctype is book converted to DocBook#0","input":"[partintro]\npart intro paragraph\n"}
+{"id":"blocks_test.rb#processor should not crash if subs are empty#0","input":"[subs=\",\"]\n....\ncontent\n....\n"}
+{"id":"blocks_test.rb#should be able to append subs to default block substitution list#0","input":":application: Asciidoctor\n\n[subs=\"+attributes,+macros\"]\n....\n{application}\n....\n"}
+{"id":"blocks_test.rb#should be able to prepend subs to default block substitution list#0","input":":application: Asciidoctor\n\n[subs=\"attributes+\"]\n....\n{application}\n....\n"}
+{"id":"blocks_test.rb#should be able to remove subs to default block substitution list#0","input":"[subs=\"-quotes,-replacements\"]\ncontent\n"}
+{"id":"blocks_test.rb#should be able to prepend, append and remove subs from default block substitution list#0","input":":application: asciidoctor\n\n[subs=\"attributes+,-verbatim,+specialcharacters,+macros\"]\n....\nhttps://{application}.org[{gt}{gt}] <1>\n....\n"}
+{"id":"blocks_test.rb#should be able to set subs then modify them#0","input":"[subs=\"verbatim,-callouts\"]\n_hey now_ <1>\n"}
+{"id":"blocks_test.rb#should not recognize block anchor with illegal id characters#0","input":"[[illegal$id,Reference Text]]\n----\ncontent\n----\n"}
+{"id":"blocks_test.rb#should not recognize block anchor that starts with digit#0","input":"[[3-blind-mice]]\n--\nsee how they run\n--\n"}
+{"id":"blocks_test.rb#should recognize block anchor that starts with colon#0","input":"[[:idname]]\n--\ncontent\n--\n"}
+{"id":"blocks_test.rb#should use specified id and reftext when registering block reference#0","input":"[[debian,Debian Install]]\n.Installation on Debian\n----\n$ apt-get install asciidoctor\n----\n"}
+{"id":"blocks_test.rb#should allow square brackets in block reference text#0","input":"[[debian,[Debian] Install]]\n.Installation on Debian\n----\n$ apt-get install asciidoctor\n----\n"}
+{"id":"blocks_test.rb#should allow comma in block reference text#0","input":"[[debian, Debian, Ubuntu]]\n.Installation on Debian\n----\n$ apt-get install asciidoctor\n----\n"}
+{"id":"blocks_test.rb#should resolve attribute reference in title using attribute defined at location of block#0","input":"= Document Title\n:foo: baz\n\nintro paragraph. see <<free-standing>>.\n\n:foo: bar\n\n.foo is {foo}\n[#formal-para]\nparagraph with title\n\n[discrete#free-standing]\n== foo is still {foo}\n"}
+{"id":"blocks_test.rb#should substitute attribute references in reftext when registering block reference#0","input":":label-tiger: Tiger\n\n[[tiger-evolution,Evolution of the {label-tiger}]]\n****\nInformation about the evolution of the tiger.\n****\n"}
+{"id":"blocks_test.rb#should use specified reftext when registering block reference#0","input":"[[debian]]\n[reftext=\"Debian Install\"]\n.Installation on Debian\n----\n$ apt-get install asciidoctor\n----\n"}

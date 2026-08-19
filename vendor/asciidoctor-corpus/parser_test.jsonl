@@ -1,0 +1,23 @@
+{"id":"parser_test.rb#use explicit authorinitials if set after implicit author line#0","input":"Jean-Claude Van Damme\n:authorinitials: JCVD\n"}
+{"id":"parser_test.rb#use explicit authorinitials if set after author attribute#0","input":":author: Jean-Claude Van Damme\n:authorinitials: JCVD\n"}
+{"id":"parser_test.rb#use implicit authors if value of authors attribute matches computed value#0","input":"Doc Writer; Junior Writer\n:authors: Doc Writer, Junior Writer\n"}
+{"id":"parser_test.rb#replace implicit authors if value of authors attribute does not match computed value#0","input":"Doc Writer; Junior Writer\n:authors: Stuart Rackham; Dan Allen; Sarah White\n"}
+{"id":"parser_test.rb#allows authors to be overridden using explicit author attributes#0","input":"Kismet Chameleon; Johnny Bravo; Lazarus het_Draeke\n:author_2: Danger Mouse\n"}
+{"id":"parser_test.rb#parse rev number date remark#0","input":"Ryan Waldron\nv0.0.7, 2013-12-18: The first release you can stand on\n"}
+{"id":"parser_test.rb#parse rev number, data, and remark as attribute references#0","input":"Author Name\nv{project-version}, {release-date}: {release-summary}\n"}
+{"id":"parser_test.rb#should resolve attribute references in rev number, data, and remark#0","input":"= Document Title\nAuthor Name\n{project-version}, {release-date}: {release-summary}\n"}
+{"id":"parser_test.rb#parse rev date#0","input":"Ryan Waldron\n2013-12-18\n"}
+{"id":"parser_test.rb#parse rev number with trailing comma#0","input":"Stuart Rackham\nv8.6.8,\n"}
+{"id":"parser_test.rb#parse rev number#0","input":"Stuart Rackham\nv8.6.8\n"}
+{"id":"parser_test.rb#treats arbitrary text on rev line as revdate#0","input":"Ryan Waldron\nfoobar\n"}
+{"id":"parser_test.rb#parse rev date remark#0","input":"Ryan Waldron\n2013-12-18:  The first release you can stand on\n"}
+{"id":"parser_test.rb#should not mistake attribute entry as rev remark#0","input":"Joe Cool\n:page-layout: post\n"}
+{"id":"parser_test.rb#parse rev remark only#0","input":"Joe Cool\n :Must start revremark-only line with space\n"}
+{"id":"parser_test.rb#skip line comments before author#0","input":"// Asciidoctor\n// release artist\nRyan Waldron\n"}
+{"id":"parser_test.rb#skip block comment before author#0","input":"////\nAsciidoctor\nrelease artist\n////\nRyan Waldron\n"}
+{"id":"parser_test.rb#skip block comment before rev#0","input":"Ryan Waldron\n////\nAsciidoctor\nrelease info\n////\nv0.0.7, 2013-12-18\n"}
+{"id":"parser_test.rb#break header at line with three forward slashes#0","input":"Joe Cool\nv1.0\n///\nstuff\n"}
+{"id":"parser_test.rb#adjust indentation to 0#0","input":"def names\n\n  @name.split\n\nend\n"}
+{"id":"parser_test.rb#expands tabs to spaces#0","input":"Filesystem\t\t\t\tSize\tUsed\tAvail\tUse%\tMounted on\nFilesystem              Size    Used    Avail   Use%    Mounted on\ndevtmpfs\t\t\t\t3.9G\t   0\t 3.9G\t  0%\t/dev\n/dev/mapper/fedora-root\t 48G\t 18G\t  29G\t 39%\t/\n"}
+{"id":"parser_test.rb#expands tabs to spaces#1","input":"Filesystem              Size    Used    Avail   Use%    Mounted on\nFilesystem              Size    Used    Avail   Use%    Mounted on\ndevtmpfs                3.9G       0     3.9G     0%    /dev\n/dev/mapper/fedora-root  48G     18G      29G    39%    /\n"}
+{"id":"parser_test.rb#should warn if inline anchor is already in use#0","input":"[#in-use]\nA paragraph with an id.\n\nAnother paragraph\n[[in-use]]that uses an id\nwhich is already in use.\n"}

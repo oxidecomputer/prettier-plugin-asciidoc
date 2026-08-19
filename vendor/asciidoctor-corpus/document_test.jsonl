@@ -1,0 +1,84 @@
+{"id":"document_test.rb#should be able to disable toc and sectnums in document header in DocBook backend#0","input":"= Document Title\n:toc!:\n:sectnums!:\n"}
+{"id":"document_test.rb#noheader attribute should suppress info element when converting to DocBook#0","input":"= Document Title\n:noheader:\n\ncontent\n"}
+{"id":"document_test.rb#should be able to disable section numbering using numbered attribute in document header in DocBook backend#0","input":"= Document Title\n:numbered!:\n"}
+{"id":"document_test.rb#should enable compat mode for document with legacy doctitle#0","input":"Document Title\n==============\n\n+content+\n"}
+{"id":"document_test.rb#should not enable compat mode for document with legacy doctitle if compat mode disable by header#0","input":"Document Title\n==============\n:compat-mode!:\n\n+content+\n"}
+{"id":"document_test.rb#should not enable compat mode for document with legacy doctitle if compat mode is locked by API#0","input":"Document Title\n==============\n\n+content+\n"}
+{"id":"document_test.rb#should apply max-width to each top-level container#0","input":"= Document Title\n\ncontentfootnote:[placeholder]\n"}
+{"id":"document_test.rb#document with subtitle#0","input":"= Main Title: *Subtitle*\nAuthor Name\n\ncontent\n"}
+{"id":"document_test.rb#document with subtitle and custom separator#0","input":"[separator=::]\n= Main Title:: *Subtitle*\nAuthor Name\n\ncontent\n"}
+{"id":"document_test.rb#should not honor custom separator for doctitle if attribute is locked by API#0","input":"[separator=::]\n= Main Title - *Subtitle*\nAuthor Name\n\ncontent\n"}
+{"id":"document_test.rb#document with doctitle defined as attribute entry#0","input":":doctitle: Document Title\n\npreamble\n\n== First Section\n"}
+{"id":"document_test.rb#document with doctitle defined as attribute entry followed by block with title#0","input":":doctitle: Document Title\n\n.Block title\nBlock content\n"}
+{"id":"document_test.rb#document with title attribute entry overrides doctitle#0","input":"= Document Title\n:title: Override\n\n{doctitle}\n\n== First Section\n"}
+{"id":"document_test.rb#document with blank title attribute entry overrides doctitle#0","input":"= Document Title\n:title:\n\n{doctitle}\n\n== First Section\n"}
+{"id":"document_test.rb#document header can reference intrinsic doctitle attribute#0","input":"= ACME Documentation\n:intro: Welcome to the {doctitle}!\n\n{intro}\n"}
+{"id":"document_test.rb#document with title attribute entry overrides doctitle attribute entry#0","input":"= Document Title\n:snapshot: {doctitle}\n:doctitle: doctitle\n:title: Override\n\n{snapshot}, {doctitle}\n\n== First Section\n"}
+{"id":"document_test.rb#document with doctitle attribute entry overrides implicit doctitle#0","input":"= Document Title\n:snapshot: {doctitle}\n:doctitle: Override\n\n{snapshot}, {doctitle}\n\n== First Section\n"}
+{"id":"document_test.rb#doctitle attribute entry above header overrides implicit doctitle#0","input":":doctitle: Override\n= Document Title\n\n{doctitle}\n\n== First Section\n"}
+{"id":"document_test.rb#should apply header substitutions to value of the doctitle attribute assigned from implicit doctitle#0","input":"= <Foo> {plus} <Bar>\n\nThe name of the game is {doctitle}.\n"}
+{"id":"document_test.rb#should substitute attribute reference in implicit document title for attribute defined earlier in header#0","input":":project-name: ACME\n= {project-name} Docs\n\n{doctitle}\n"}
+{"id":"document_test.rb#should not warn if implicit document title contains attribute reference for attribute defined later in header#0","input":"= {project-name} Docs\n:project-name: ACME\n\n{doctitle}\n"}
+{"id":"document_test.rb#should recognize document title when preceded by blank lines#0","input":"\n= Title\n\npreamble\n\n== Section 1\n\ntext\n"}
+{"id":"document_test.rb#should recognize document title when preceded by blank lines introduced by a preprocessor conditional#0","input":"ifdef::sectids[]\n\n:foo: bar\nendif::[]\n= Title\n\npreamble\n\n== Section 1\n\ntext\n"}
+{"id":"document_test.rb#should recognize document title when preceded by blank lines after an attribute entry#0","input":":doctype: book\n\n= Title\n\npreamble\n\n== Section 1\n\ntext\n"}
+{"id":"document_test.rb#should recognize document title in include file when preceded by blank lines#0","input":"include::fixtures/include-with-leading-blank-line.adoc[]\n"}
+{"id":"document_test.rb#should include specified lines even when leading lines are skipped#0","input":"include::fixtures/include-with-leading-blank-line.adoc[lines=6]\n"}
+{"id":"document_test.rb#should sanitize contents of HTML title element#0","input":"= *Document* image:logo.png[] _Title_ image:another-logo.png[another logo]\n\ncontent\n"}
+{"id":"document_test.rb#with metadata#0","input":"= AsciiDoc\nStuart Rackham <founder@asciidoc.org>\nv8.6.8, 2012-07-12: See changelog.\n:description: AsciiDoc user guide\n:keywords: asciidoc,documentation\n:copyright: Stuart Rackham\n\n== Version 8.6.8\n\nmore info...\n"}
+{"id":"document_test.rb#should parse revision line if date is empty#0","input":"= Document Title\nAuthor Name\nv1.0.0,:remark\n\ncontent\n"}
+{"id":"document_test.rb#should include revision history in DocBook output if revdate and revnumber is set#0","input":"= Document Title\nAuthor Name\n:revdate: 2011-11-11\n:revnumber: 1.0\n\ncontent\n"}
+{"id":"document_test.rb#should include revision history in DocBook output if revdate and revremark is set#0","input":"= Document Title\nAuthor Name\n:revdate: 2011-11-11\n:revremark: features!\n\ncontent\n"}
+{"id":"document_test.rb#should not include revision history in DocBook output if revdate is not set#0","input":"= Document Title\nAuthor Name\n:revnumber: 1.0\n\ncontent\n"}
+{"id":"document_test.rb#with metadata to DocBook 5#0","input":"= AsciiDoc\nStuart Rackham <founder@asciidoc.org>\n\n== Version 8.6.8\n\nmore info...\n"}
+{"id":"document_test.rb#with document ID to Docbook 5#0","input":"[[document-id]]\n= Document Title\n\nmore info...\n"}
+{"id":"document_test.rb#with author defined using attribute entry to DocBook#0","input":"= Document Title\n:author: Doc Writer\n:email: thedoctor@asciidoc.org\n\ncontent\n"}
+{"id":"document_test.rb#should substitute replacements in author names in HTML output#0","input":"= Document Title\nStephen O'Grady <founder@redmonk.com>\n\ncontent\n"}
+{"id":"document_test.rb#should substitute replacements in author names in DocBook output#0","input":"= Document Title\nStephen O'Grady <founder@redmonk.com>\n\ncontent\n"}
+{"id":"document_test.rb#should sanitize content of HTML meta authors tag#0","input":"= Document Title\n:author: pass:n[http://example.org/community/team.html[Ze *Product* team]]\n\ncontent\n"}
+{"id":"document_test.rb#should not double escape ampersand in author attribute#0","input":"= Document Title\nR&D Lab\n\n{author}\n"}
+{"id":"document_test.rb#should include multiple authors in HTML output#0","input":"= Document Title\nDoc Writer <thedoctor@asciidoc.org>; Junior Writer <junior@asciidoctor.org>\n\ncontent\n"}
+{"id":"document_test.rb#should create authorgroup in DocBook when multiple authors#0","input":"= Document Title\nDoc Writer <thedoctor@asciidoc.org>; Junior Writer <junior@asciidoctor.org>\n\ncontent\n"}
+{"id":"document_test.rb#should process author defined by attribute when implicit doctitle is absent#0","input":":author: Doc Writer\n\n{lastname}, {firstname} ({authorinitials})\n"}
+{"id":"document_test.rb#should process author and authorinitials defined by attribute when implicit doctitle is absent#0","input":":authorinitials: DOC\n:author: Doc Writer\n\n{lastname}, {firstname} ({authorinitials})\n"}
+{"id":"document_test.rb#should process authors defined by attribute when implicit doctitle is absent#0","input":":authors: Doc Writer; Other Author\n\n{lastname}, {firstname} ({authorinitials})\n"}
+{"id":"document_test.rb#should process authors and authorinitials defined by attribute when implicit doctitle is absent#0","input":":authorinitials: DOC\n:authors: Doc Writer; Other Author\n\n{lastname}, {firstname} ({authorinitials})\n"}
+{"id":"document_test.rb#should set authorcount to 0 if author not set by attribute and implicit doctitle is missing#0","input":":idprefix:\n\n== Section Title\n\ncontent\n"}
+{"id":"document_test.rb#should set authorcount to 0 if author not set by attribute and document starts with level-0 section with style#0","input":":doctype: book\n\n[preface]\n= Preface\n\ncontent\n\n= Part\n\n== Chapter\n\ncontent\n"}
+{"id":"document_test.rb#with author defined by indexed attribute name#0","input":"= Document Title\n:author_1: Doc Writer\n\n{author}\n"}
+{"id":"document_test.rb#with authors defined using attribute entry to DocBook#0","input":"= Document Title\n:authors: Doc Writer; Junior Writer\n:email_1: thedoctor@asciidoc.org\n:email_2: junior@asciidoc.org\n\ncontent\n"}
+{"id":"document_test.rb#should populate copyright element in DocBook output if copyright attribute is defined#0","input":"= Jet Bike\n:copyright: ACME, Inc.\n\nEssential for catching road runners.\n"}
+{"id":"document_test.rb#should populate copyright element in DocBook output if copyright attribute is defined with year#0","input":"= Jet Bike\n:copyright: ACME, Inc. 1956\n\nEssential for catching road runners.\n"}
+{"id":"document_test.rb#should populate copyright element in DocBook output if copyright attribute is defined with year range#0","input":"= Jet Bike\n:copyright: ACME, Inc. 1956-2018\n\nEssential for catching road runners.\n"}
+{"id":"document_test.rb#does not output footer if nofooter is set#0","input":":nofooter:\n\ncontent\n"}
+{"id":"document_test.rb#enable title in embedded document by unassigning notitle attribute#0","input":"= Document Title\n\ncontent\n"}
+{"id":"document_test.rb#parse header only#0","input":"= Document Title\nAuthor Name\n:foo: bar\n\npreamble\n"}
+{"id":"document_test.rb#should parse header only when docytpe is manpage#0","input":"= cmd(1)\nAuthor Name\n:doctype: manpage\n\n== Name\n\ncmd - does stuff\n"}
+{"id":"document_test.rb#should not warn when parsing header only when docytpe is manpage and body is empty#0","input":"= cmd(1)\nAuthor Name\n:doctype: manpage\n"}
+{"id":"document_test.rb#outputs footnotes in footer#0","input":"A footnote footnote:[An example footnote.];\na second footnote with a reference ID footnote:note2[Second footnote.];\nand finally a reference to the second footnote footnote:note2[].\n"}
+{"id":"document_test.rb#should alias document catalog as document references#0","input":"= Document Title\n\n== Section A\n\nContent\n\n== Section B\n\nContent.footnote:[commentary]\n"}
+{"id":"document_test.rb#should catalog assets inside nested document#0","input":"image::outer.png[]\n\n|===\na|\nimage::inner.png[]\n|===\n"}
+{"id":"document_test.rb#honor htmlsyntax attribute in document header if followed by backend attribute#0","input":":htmlsyntax: xml\n:backend: html5\n\n---\n"}
+{"id":"document_test.rb#does not honor htmlsyntax attribute in document header if not followed by backend attribute#0","input":":backend: html5\n:htmlsyntax: xml\n\n---\n"}
+{"id":"document_test.rb#should close all short tags when htmlsyntax is xml#0","input":"= Document Title\nAuthor Name\nv1.0, 2001-01-01\n:icons:\n:favicon:\n\nimage:tiger.png[]\n\nimage::tiger.png[]\n\n* [x] one\n* [ ] two\n\n|===\n|A |B\n|===\n\n[horizontal, labelwidth=\"25%\", itemwidth=\"75%\"]\nterm:: description\n\nNOTE: note\n\n[quote,Author,Source]\n____\nQuote me.\n____\n\n[verse,Author,Source]\n____\nA tall tale.\n____\n\n[options=\"autoplay,loop\"]\nvideo::screencast.ogg[]\n\nvideo::12345[vimeo]\n\n[options=\"autoplay,loop\"]\naudio::podcast.ogg[]\n\none +\ntwo\n\n'''\n"}
+{"id":"document_test.rb#should parse out subtitle when backend is DocBook#0","input":"= Document Title: Subtitle\n:doctype: book\n\ntext\n"}
+{"id":"document_test.rb#should be able to set doctype to article when converting to DocBook#0","input":"= Title\nAuthor Name\n\npreamble\n\n== First Section\n\nsection body\n"}
+{"id":"document_test.rb#should be able to convert DocBook manpage output when backend is DocBook and doctype is manpage#0","input":"= asciidoctor(1)\n:mansource: Asciidoctor\n:manmanual: Asciidoctor Manual\n\n== NAME\n\nasciidoctor - Process text\n\n== SYNOPSIS\n\nsome text\n\n== First Section\n\nsection body\n"}
+{"id":"document_test.rb#should output non-breaking space for source and manual in docbook manpage output if absent from source#0","input":"= asciidoctor(1)\n\n== NAME\n\nasciidoctor - Process text\n\n== SYNOPSIS\n\nsome text\n"}
+{"id":"document_test.rb#should apply replacements substitution to value of mantitle attribute used in DocBook output#0","input":"= foo\\--bar(1)\nAuthor Name\n:doctype: manpage\n:man manual: Foo Bar Manual\n:man source: Foo Bar 1.0\n\n== NAME\n\nfoo--bar - puts the foo in your bar\n"}
+{"id":"document_test.rb#should be able to set doctype to book when converting to DocBook#0","input":"= Title\nAuthor Name\n\npreamble\n\n== First Chapter\n\nchapter body\n"}
+{"id":"document_test.rb#adds refname to DocBook output for each name defined in NAME section of manpage#0","input":"= eve(1)\nAndrew Stanton\nv1.0.0\n:doctype: manpage\n:manmanual: EVE\n:mansource: EVE\n\n== NAME\n\neve, islifeform - analyzes an image to determine if it's a picture of a life form\n\n== SYNOPSIS\n\n*eve* ['OPTION']... 'FILE'...\n"}
+{"id":"document_test.rb#adds a front and back cover image to DocBook 5 when doctype is book#0","input":"= Title\n:doctype: book\n:imagesdir: images\n:front-cover-image: image:front-cover.jpg[scaledwidth=210mm]\n:back-cover-image: image:back-cover.jpg[]\n\npreamble\n\n== First Chapter\n\nchapter body\n"}
+{"id":"document_test.rb#do not override explicit author initials#0","input":"= AsciiDoc\nStuart Rackham <founder@asciidoc.org>\n:Author Initials: SJR\n\nmore info...\n"}
+{"id":"document_test.rb#attribute entry can appear immediately after document title#0","input":"Reference Guide\n===============\n:toc:\n\npreamble\n"}
+{"id":"document_test.rb#attribute entry can appear before author line under document title#0","input":"Reference Guide\n===============\n:toc:\nDan Allen\n\npreamble\n"}
+{"id":"document_test.rb#should parse mantitle and manvolnum from document title for manpage doctype#0","input":"= asciidoctor ( 1 )\n:doctype: manpage\n\n== NAME\n\nasciidoctor - converts AsciiDoc source files to HTML, DocBook and other formats\n"}
+{"id":"document_test.rb#should perform attribute substitution on mantitle in manpage doctype#0","input":"= {app}(1)\n:doctype: manpage\n:app: Asciidoctor\n\n== NAME\n\nasciidoctor - converts AsciiDoc source files to HTML, DocBook and other formats\n"}
+{"id":"document_test.rb#should consume name section as manname and manpurpose for manpage doctype#0","input":"= asciidoctor(1)\n:doctype: manpage\n\n== NAME\n\nasciidoctor - converts AsciiDoc source files to HTML, DocBook and other formats\n"}
+{"id":"document_test.rb#should set docname and outfilesuffix from manname and manvolnum for manpage backend and doctype#0","input":"= asciidoctor(1)\n:doctype: manpage\n\n== NAME\n\nasciidoctor - converts AsciiDoc source files to HTML, DocBook and other formats\n"}
+{"id":"document_test.rb#should mark synopsis as special section in manpage doctype#0","input":"= asciidoctor(1)\n:doctype: manpage\n\n== NAME\n\nasciidoctor - converts AsciiDoc source files to HTML, DocBook and other formats\n\n== SYNOPSIS\n\n*asciidoctor* ['OPTION']... 'FILE'..\n"}
+{"id":"document_test.rb#should output special header block in HTML for manpage doctype#0","input":"= asciidoctor(1)\n:doctype: manpage\n\n== NAME\n\nasciidoctor - converts AsciiDoc source files to HTML, DocBook and other formats\n\n== SYNOPSIS\n\n*asciidoctor* ['OPTION']... 'FILE'..\n"}
+{"id":"document_test.rb#should output special header block in embeddable HTML for manpage doctype#0","input":"= asciidoctor(1)\n:doctype: manpage\n:showtitle:\n\n== NAME\n\nasciidoctor - converts AsciiDoc source files to HTML, DocBook and other formats\n\n== SYNOPSIS\n\n*asciidoctor* ['OPTION']... 'FILE'..\n"}
+{"id":"document_test.rb#should output all mannames in name section in man page output#0","input":"= eve(1)\n:doctype: manpage\n\n== NAME\n\neve, probe - analyzes an image to determine if it is a picture of a life form\n\n== SYNOPSIS\n\n*eve* [OPTION]... FILE...\n"}
+{"id":"document_test.rb#should raise an exception when a converter cannot be resolved before conversion#0","input":"= Document Title\n\ntext\n"}
+{"id":"document_test.rb#should raise an exception when a converter cannot be resolved while parsing#0","input":"= Document Title\n\n== A _Big_ Section\n\ntext\n"}

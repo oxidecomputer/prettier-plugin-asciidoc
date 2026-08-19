@@ -5,14 +5,20 @@
 ```bash
 bun run check          # TypeScript type checking (tsc --noEmit)
 bun run lint           # ESLint, zero warnings policy (--max-warnings=0)
-bun test               # Vitest
+bun run test           # Vitest
 bun run build          # bun build → dist/ (ESM)
-bun run vendor         # Re-fetch ASG schema + TCK fixtures into vendor/
+bun run vendor         # Re-fetch ASG schema + TCK fixtures, and re-extract the
+                        # Asciidoctor conformance corpus, into vendor/
+bun run triage         # Diff conformance-suite results against the quarantine
+                        # manifest; --write updates the manifest
 bun run fmt            # Format with Prettier
 bun run fmt:check      # Check formatting (no writes)
 bun run fuzz           # Run the fuzzer
 bun vitest run tests/parser/reader.test.ts   # Run a single test file
 ```
+
+**Note:** Bare `bun test` invokes Bun's built-in test runner, which fails on
+Vitest-only constructs like `test.fails`; always use `bun run test` instead.
 
 ## Version Control
 

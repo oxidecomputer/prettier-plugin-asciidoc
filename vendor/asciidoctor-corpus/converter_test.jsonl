@@ -1,0 +1,8 @@
+{"id":"converter_test.rb#should use Haml templates in place of built-in templates#0","input":"= Document Title\nAuthor Name\n\n== Section One\n\nSample paragraph\n\n.Related\n****\nSidebar content\n****\n"}
+{"id":"converter_test.rb#should load ERB templates using ERBTemplate if eruby is not set#0","input":"<div class=\"openblock wrapper\">\n<div class=\"content\">\n<div class=\"paragraph\">\n<p>foobar</p>\n</div>\n</div>\n</div>\n"}
+{"id":"converter_test.rb#should use Slim templates in place of built-in templates#0","input":"= Document Title\nAuthor Name\n\n== Section One\n\nSample paragraph\n\n.Related\n****\nSidebar content\n****\n"}
+{"id":"converter_test.rb#should be able to override the outline using a custom template#0","input":":toc:\n= Document Title\n\n== Section One\n\n== Section Two\n\n== Section Three\n"}
+{"id":"converter_test.rb#should be able to override the outline using a custom template#1","input":"* foo\n* bar\n* baz\n"}
+{"id":"converter_test.rb#should use specified converter for current backend#0","input":"= Document Title\n\npreamble\n\n== Section\n\ncontent\n"}
+{"id":"converter_test.rb#should use specified converter for specified backend#0","input":"= Document Title\n\npreamble\n\n== Section\n\ncontent\n"}
+{"id":"converter_test.rb#should get converter from specified converter factory#0","input":"= Document Title\n\npreamble\n\n== Section\n\ncontent\n"}

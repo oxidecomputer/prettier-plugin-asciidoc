@@ -20,7 +20,8 @@
     "vendor": "bun scripts/vendor.ts",
     "fmt": "prettier --write .",
     "fmt:check": "prettier --check .",
-    "fuzz": "bun scripts/fuzz.ts"
+    "fuzz": "bun scripts/fuzz.ts",
+    "triage": "bun scripts/conformance-triage.ts"
   },
   "peerDependencies": {
     "prettier": "^3.0.0"

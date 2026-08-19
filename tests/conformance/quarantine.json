@@ -1,0 +1,2048 @@
+{
+  "api_test.rb#find_by should accept node but reject its children if block returns :prune#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "api_test.rb#find_by should discover blocks inside AsciiDoc table cells if traverse_documents selector option is true#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "api_test.rb#find_by should match table cells#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "api_test.rb#find_by should reject node and its children if block returns :reject#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "api_test.rb#find_by should return Array of blocks anywhere in document tree that match criteria#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "api_test.rb#find_by should return inner document of AsciiDoc table cell if traverse_documents selector option is true#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "api_test.rb#next_adjacent_block should return next item in dlist if called on last block of list item#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "api_test.rb#should assign correct source location to blocks that follow a detached list continuation#0": {
+    "fails": ["fidelity"],
+    "issue": "#29"
+  },
+  "api_test.rb#should load input IO#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "api_test.rb#should load input string array#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "api_test.rb#should load input string#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "api_test.rb#should not crash if nil cell text is passed to Cell constructor#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "api_test.rb#should only return matched node when return value of block argument is :prune#0": {
+    "fails": ["fidelity"],
+    "issue": "#29"
+  },
+  "api_test.rb#table cell should be a block#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "api_test.rb#table column should not be a block or inline#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "api_test.rb#with one author#0": { "fails": ["fidelity"], "issue": "#18" },
+  "api_test.rb#with two authors#0": { "fails": ["fidelity"], "issue": "#18" },
+  "attributes_test.rb#assigns multi-line attribute to empty string if substitution fails to resolve attribute#0": {
+    "fails": ["fidelity"],
+    "issue": "#24"
+  },
+  "attributes_test.rb#attribute entries can resolve previously defined attributes#0": {
+    "fails": ["fidelity"],
+    "issue": "#18"
+  },
+  "attributes_test.rb#backend and doctype attributes are set by default in custom configuration#0": {
+    "fails": ["fidelity"],
+    "issue": "#18"
+  },
+  "attributes_test.rb#backend and doctype attributes are set by default in default configuration#0": {
+    "fails": ["fidelity"],
+    "issue": "#18"
+  },
+  "attributes_test.rb#collapses spaces in attribute names#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "attributes_test.rb#creates an attribute by fusing a legacy multi-line value#0": {
+    "fails": ["fidelity"],
+    "issue": "#24"
+  },
+  "attributes_test.rb#creates an attribute by fusing a multi-line value#0": {
+    "fails": ["fidelity"],
+    "issue": "#24"
+  },
+  "attributes_test.rb#honors line break characters in multi-line values#0": {
+    "fails": ["fidelity"],
+    "issue": "#24"
+  },
+  "attributes_test.rb#ignores lines with bad attributes if attribute-missing is drop-line#0": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "attributes_test.rb#interpolates attribute defined in header inside attribute entry in header#0": {
+    "fails": ["fidelity"],
+    "issue": "#18"
+  },
+  "attributes_test.rb#interpolates author attribute inside attribute entry in header#0": {
+    "fails": ["fidelity"],
+    "issue": "#18"
+  },
+  "attributes_test.rb#interpolates revinfo attribute inside attribute entry in header#0": {
+    "fails": ["fidelity"],
+    "issue": "#18"
+  },
+  "attributes_test.rb#nested document should use counter from parent document#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "attributes_test.rb#should allow pass macro to surround a multi-line value that contains line breaks#0": {
+    "fails": ["fidelity"],
+    "issue": "#24"
+  },
+  "attributes_test.rb#should drop line that only contains attribute assignment#0": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "attributes_test.rb#should drop line with attribute unassignment by default#0": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "attributes_test.rb#should drop line with reference to missing attribute if attribute-missing attribute is drop-line#0": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "attributes_test.rb#verify toc attribute matrix#0": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "blocks_test.rb#adjacent line comment between paragraphs#0": {
+    "fails": ["fidelity"],
+    "issue": "#26"
+  },
+  "blocks_test.rb#markdown-style quote block with multiple blocks and no attribution#0": {
+    "fails": ["fidelity"],
+    "issue": "#22"
+  },
+  "blocks_test.rb#markdown-style quote block with multiple paragraphs and no attribution#0": {
+    "fails": ["fidelity"],
+    "issue": "#22"
+  },
+  "blocks_test.rb#markdown-style quote block with single paragraph and attribution#0": {
+    "fails": ["fidelity"],
+    "issue": "#22"
+  },
+  "blocks_test.rb#markdown-style quote block with single paragraph and no attribution#0": {
+    "fails": ["fidelity"],
+    "issue": "#22"
+  },
+  "blocks_test.rb#preprocessor directives should not be processed on subsequent lines of a comment paragraph#0": {
+    "fails": ["fidelity"],
+    "issue": "#28"
+  },
+  "blocks_test.rb#quoted paragraph-style quote block with attribution#0": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "blocks_test.rb#should not recognize block anchor with illegal id characters#0": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "blocks_test.rb#should not recognize fenced code blocks with more than three delimiters#0": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "blocks_test.rb#should parse credit line in markdown-style quote block like positional block attributes#0": {
+    "fails": ["fidelity"],
+    "issue": "#22"
+  },
+  "blocks_test.rb#should parse credit line in quoted paragraph-style quote block like positional block attributes#0": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "blocks_test.rb#should support fenced code block using backticks#0": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "converter_test.rb#should use Haml templates in place of built-in templates#0": {
+    "fails": ["fidelity"],
+    "issue": "#18"
+  },
+  "converter_test.rb#should use Slim templates in place of built-in templates#0": {
+    "fails": ["fidelity"],
+    "issue": "#18"
+  },
+  "docs/modules/ROOT/pages/errors-and-warnings.adoc": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "docs/modules/ROOT/pages/features.adoc": {
+    "fails": ["fidelity"],
+    "issue": "#26"
+  },
+  "docs/modules/ROOT/pages/index.adoc": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "docs/modules/ROOT/pages/localization-support.adoc": {
+    "fails": ["idempotency", "fidelity"],
+    "issue": "#10"
+  },
+  "docs/modules/ROOT/pages/safe-modes.adoc": {
+    "fails": ["idempotency"],
+    "issue": "#4"
+  },
+  "docs/modules/ROOT/pages/whats-new.adoc": {
+    "fails": ["idempotency"],
+    "issue": "#4"
+  },
+  "docs/modules/api/pages/catalog-assets.adoc": {
+    "fails": ["fidelity"],
+    "issue": "#27"
+  },
+  "docs/modules/api/pages/convert-strings.adoc": {
+    "fails": ["idempotency"],
+    "issue": "#4"
+  },
+  "docs/modules/api/pages/find-blocks.adoc": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "docs/modules/api/pages/generate-html-toc.adoc": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "docs/modules/api/pages/index.adoc": {
+    "fails": ["fidelity"],
+    "issue": "#27"
+  },
+  "docs/modules/api/pages/options.adoc": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "docs/modules/api/pages/sourcemap.adoc": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "docs/modules/cli/pages/output-file.adoc": {
+    "fails": ["idempotency"],
+    "issue": "#4"
+  },
+  "docs/modules/cli/partials/man-asciidoctor.adoc": {
+    "fails": ["fidelity"],
+    "issue": "#18"
+  },
+  "docs/modules/convert/pages/contexts-ref.adoc": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "docs/modules/convert/pages/custom.adoc": {
+    "fails": ["idempotency"],
+    "issue": "#4"
+  },
+  "docs/modules/convert/pages/templates.adoc": {
+    "fails": ["idempotency", "fidelity"],
+    "issue": "#10"
+  },
+  "docs/modules/docbook-backend/pages/index.adoc": {
+    "fails": ["idempotency", "fidelity"],
+    "issue": "#9"
+  },
+  "docs/modules/html-backend/pages/custom-stylesheet.adoc": {
+    "fails": ["idempotency"],
+    "issue": "#4"
+  },
+  "docs/modules/html-backend/pages/default-stylesheet.adoc": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "docs/modules/html-backend/pages/index.adoc": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "docs/modules/html-backend/pages/stylesheet-modes.adoc": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "docs/modules/install/pages/supported-platforms.adoc": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "docs/modules/manpage-backend/examples/manpage.adoc": {
+    "fails": ["fidelity"],
+    "issue": "#18"
+  },
+  "docs/modules/manpage-backend/pages/index.adoc": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "docs/modules/migrate/pages/asciidoc-py.adoc": {
+    "fails": ["idempotency", "fidelity"],
+    "issue": "#10"
+  },
+  "docs/modules/migrate/pages/confluence-xhtml.adoc": {
+    "fails": ["idempotency"],
+    "issue": "#4"
+  },
+  "docs/modules/migrate/pages/ms-word.adoc": {
+    "fails": ["idempotency", "fidelity"],
+    "issue": "#10"
+  },
+  "docs/modules/migrate/pages/upgrade.adoc": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "docs/modules/stem/pages/index.adoc": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "docs/modules/stem/pages/mathematical.adoc": {
+    "fails": ["fidelity"],
+    "issue": "#26"
+  },
+  "docs/modules/syntax-highlighting/pages/coderay.adoc": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "docs/modules/syntax-highlighting/pages/highlightjs.adoc": {
+    "fails": ["idempotency"],
+    "issue": "#4"
+  },
+  "docs/modules/syntax-highlighting/pages/index.adoc": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "docs/modules/syntax-highlighting/pages/pygments.adoc": {
+    "fails": ["idempotency"],
+    "issue": "#4"
+  },
+  "docs/modules/syntax-highlighting/pages/rouge.adoc": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "docs/modules/tooling/pages/index.adoc": {
+    "fails": ["idempotency", "fidelity"],
+    "issue": "#9"
+  },
+  "document_test.rb#adds refname to DocBook output for each name defined in NAME section of manpage#0": {
+    "fails": ["fidelity"],
+    "issue": "#18"
+  },
+  "document_test.rb#attribute entry can appear before author line under document title#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "document_test.rb#attribute entry can appear immediately after document title#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "document_test.rb#do not override explicit author initials#0": {
+    "fails": ["fidelity"],
+    "issue": "#18"
+  },
+  "document_test.rb#document with subtitle and custom separator#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "document_test.rb#document with subtitle#0": {
+    "fails": ["fidelity"],
+    "issue": "#18"
+  },
+  "document_test.rb#parse header only#0": {
+    "fails": ["fidelity"],
+    "issue": "#18"
+  },
+  "document_test.rb#should apply replacements substitution to value of mantitle attribute used in DocBook output#0": {
+    "fails": ["fidelity"],
+    "issue": "#18"
+  },
+  "document_test.rb#should be able to set doctype to article when converting to DocBook#0": {
+    "fails": ["fidelity"],
+    "issue": "#18"
+  },
+  "document_test.rb#should be able to set doctype to book when converting to DocBook#0": {
+    "fails": ["fidelity"],
+    "issue": "#18"
+  },
+  "document_test.rb#should catalog assets inside nested document#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "document_test.rb#should close all short tags when htmlsyntax is xml#0": {
+    "fails": ["fidelity"],
+    "issue": "#18"
+  },
+  "document_test.rb#should create authorgroup in DocBook when multiple authors#0": {
+    "fails": ["fidelity"],
+    "issue": "#18"
+  },
+  "document_test.rb#should enable compat mode for document with legacy doctitle#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "document_test.rb#should include multiple authors in HTML output#0": {
+    "fails": ["fidelity"],
+    "issue": "#18"
+  },
+  "document_test.rb#should include revision history in DocBook output if revdate and revnumber is set#0": {
+    "fails": ["fidelity"],
+    "issue": "#18"
+  },
+  "document_test.rb#should include revision history in DocBook output if revdate and revremark is set#0": {
+    "fails": ["fidelity"],
+    "issue": "#18"
+  },
+  "document_test.rb#should not double escape ampersand in author attribute#0": {
+    "fails": ["fidelity"],
+    "issue": "#18"
+  },
+  "document_test.rb#should not enable compat mode for document with legacy doctitle if compat mode disable by header#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "document_test.rb#should not enable compat mode for document with legacy doctitle if compat mode is locked by API#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "document_test.rb#should not honor custom separator for doctitle if attribute is locked by API#0": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "document_test.rb#should not include revision history in DocBook output if revdate is not set#0": {
+    "fails": ["fidelity"],
+    "issue": "#18"
+  },
+  "document_test.rb#should not warn when parsing header only when docytpe is manpage and body is empty#0": {
+    "fails": ["fidelity"],
+    "issue": "#18"
+  },
+  "document_test.rb#should parse header only when docytpe is manpage#0": {
+    "fails": ["fidelity"],
+    "issue": "#18"
+  },
+  "document_test.rb#should parse revision line if date is empty#0": {
+    "fails": ["fidelity"],
+    "issue": "#18"
+  },
+  "document_test.rb#should substitute replacements in author names in DocBook output#0": {
+    "fails": ["fidelity"],
+    "issue": "#18"
+  },
+  "document_test.rb#should substitute replacements in author names in HTML output#0": {
+    "fails": ["fidelity"],
+    "issue": "#18"
+  },
+  "document_test.rb#with metadata to DocBook 5#0": {
+    "fails": ["fidelity"],
+    "issue": "#18"
+  },
+  "document_test.rb#with metadata#0": { "fails": ["fidelity"], "issue": "#18" },
+  "extensions_test.rb#should allow tree processor to replace tree#0": {
+    "fails": ["fidelity"],
+    "issue": "#18"
+  },
+  "extensions_test.rb#should invoke include processor if it requests to handle include directive#0": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "extensions_test.rb#should invoke processor for custom block in an AsciiDoc table cell#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "extensions_test.rb#should invoke processor for custom block macro in an AsciiDoc table cell#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "extensions_test.rb#should invoke tree processors after parsing document#0": {
+    "fails": ["fidelity"],
+    "issue": "#18"
+  },
+  "invoker_test.rb#should print warnings to stderr by default#0": {
+    "fails": ["fidelity"],
+    "issue": "#12"
+  },
+  "invoker_test.rb#should return non-zero exit code if failure level is reached#0": {
+    "fails": ["fidelity"],
+    "issue": "#12"
+  },
+  "invoker_test.rb#should silence warnings if -q flag is specified#0": {
+    "fails": ["fidelity"],
+    "issue": "#12"
+  },
+  "invoker_test.rb#should write page for each alternate manname#0": {
+    "fails": ["fidelity"],
+    "issue": "#18"
+  },
+  "links_test.rb#should use doctitle of root document as fallback link text for inter-document xref in AsciiDoc table cell that resolves to current doc#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "lists_test.rb#a list item for a different list terminates indented paragraph for text of list item#0": {
+    "fails": ["fidelity"],
+    "issue": "#27"
+  },
+  "lists_test.rb#a list item for a different list terminates non-indented paragraph for text of list item#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#a list item with a nested marker terminates indented paragraph for text of list item#0": {
+    "fails": ["fidelity"],
+    "issue": "#27"
+  },
+  "lists_test.rb#a list item with a nested marker terminates non-indented paragraph for text of list item#0": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "lists_test.rb#a literal paragraph offset by a blank line in list content followed by line with continuation is appended as two blocks#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "lists_test.rb#a literal paragraph offset by blank lines in list content is appended as a literal block#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "lists_test.rb#a literal paragraph with a line that appears as a list item that is followed by a continuation should create two blocks#0": {
+    "fails": ["fidelity"],
+    "issue": "#17"
+  },
+  "lists_test.rb#a literal paragraph without a trailing blank line consumes following list items#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "lists_test.rb#a non-indented wrapped line is folded into text of list item#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "lists_test.rb#a non-indented wrapped line that resembles a block title is folded into text of list item#0": {
+    "fails": ["fidelity"],
+    "issue": "#26"
+  },
+  "lists_test.rb#a non-indented wrapped line that resembles an attribute entry is folded into text of list item#0": {
+    "fails": ["fidelity"],
+    "issue": "#26"
+  },
+  "lists_test.rb#adjacent list continuation line attaches following block with block attributes#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "lists_test.rb#adjacent list continuation line attaches following block#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "lists_test.rb#adjacent list continuation line attaches following paragraph#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "lists_test.rb#an indented wrapped line is unindented and folded into text of list item#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "lists_test.rb#appends block attached by continuation but not subsequent block not attached by continuation#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#appends indented list to first term that is attached by a continuation and adjacent to second term#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#appends line after continuation as block and literal line offset by blank line as block if item has inline description#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#appends line as paragraph if attached by continuation following blank line and line comment when term has no inline description#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#appends line as paragraph if attached by continuation following line comment#0": {
+    "fails": ["fidelity"],
+    "issue": "#26"
+  },
+  "lists_test.rb#appends line attached by continuation as block if item has no inline description followed by block#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#appends line attached by continuation as block if item has no inline description followed by ruler#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#appends list and paragraph block when line following list attached by continuation#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#appends list to first term when followed immediately by second term#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#appends literal line attached by continuation as block if item has inline description followed by ruler#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#appends literal line attached by continuation as block if item has no inline description followed by ruler#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#appends literal line attached by continuation as block if item has no inline description#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#appends literal line offset by blank line as block and appends line after continuation as block if item has inline description#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#asterisk element mixed with dash elements should be nested#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "lists_test.rb#asterisk elements separated by a block title offset by a blank line should not merge lists#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "lists_test.rb#asterisk elements separated by a line comment offset by blank lines should not merge lists#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "lists_test.rb#asterisk elements separated by blank lines should merge lists#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "lists_test.rb#asterisk elements with interspersed line comments should be skipped and not break list#0": {
+    "fails": ["fidelity"],
+    "issue": "#26"
+  },
+  "lists_test.rb#asterisk elements with no blank lines#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "lists_test.rb#attached paragraph does not break on adjacent nested description list term#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#attached paragraph is terminated by adjacent sibling description list term#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#attached styled paragraph does not break on adjacent nested description list term#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#attribute substitutions#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "lists_test.rb#block attribute lines above nested list with style does not break list#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#consecutive blocks in list continuation attach to list item#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "lists_test.rb#consecutive glossary terms should share same glossentry element in docbook#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#consecutive list continuation lines are folded#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "lists_test.rb#consecutive literal paragraph offset by blank lines in list content are appended as a literal blocks#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "lists_test.rb#consecutive questions should share same question element in docbook#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#consecutive terms in horizontal list should share same cell#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#consecutive terms in horizontal list should share same entry in docbook#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#consecutive terms share same varlistentry in docbook#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#dash element mixed with asterisks elements should be nested#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "lists_test.rb#dash elements separated by a block title offset by a blank line should not merge lists#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "lists_test.rb#dash elements separated by a line comment offset by blank lines should not merge lists#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "lists_test.rb#dash elements separated by blank lines should merge lists#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "lists_test.rb#dash elements with interspersed line comments should be skipped and not break list#0": {
+    "fails": ["fidelity"],
+    "issue": "#26"
+  },
+  "lists_test.rb#dash elements with no blank lines#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "lists_test.rb#dot elements separated by a block title offset by a blank line should not merge lists#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "lists_test.rb#dot elements separated by blank lines should merge lists#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "lists_test.rb#dot elements separated by line comment offset by blank lines should not merge lists#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "lists_test.rb#dot elements with interspersed line comments should be skipped and not break list#0": {
+    "fails": ["fidelity"],
+    "issue": "#26"
+  },
+  "lists_test.rb#dot elements with no blank lines#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "lists_test.rb#first continued line associated with nested list item and second continued line associated with term#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#folds text from first line after blank line and immediately preceding next item#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#folds text from first line after comment line#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#folds text from inline description and line following comment line#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#folds text from inline description and subsequent indented line#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#folds text from line following comment line offset by blank line#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#folds text that looks like ruler and the line following it offset by blank line#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#folds text that looks like ruler offset by blank line and line comment#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#folds text that looks like title offset by blank line and line comment#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#id and role assigned to ulist item in model are transmitted to output#0": {
+    "fails": ["fidelity"],
+    "issue": "#29"
+  },
+  "lists_test.rb#indented description list item inside outline list item offset by a blank line should be recognized as a nested list#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#indented outline list item with different marker offset by a blank line should be recognized as a nested list#0": {
+    "fails": ["fidelity"],
+    "issue": "#17"
+  },
+  "lists_test.rb#leading dot is treated as text not block title#0": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "lists_test.rb#level of ordered list should match section level#0": {
+    "fails": ["fidelity"],
+    "issue": "#29"
+  },
+  "lists_test.rb#level of unordered list should match section level#0": {
+    "fails": ["fidelity"],
+    "issue": "#29"
+  },
+  "lists_test.rb#line attached by continuation is appended as paragraph if term has inline description followed by detached block#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#line attached by continuation is appended as paragraph if term has inline description followed by detached paragraph#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#line attached by continuation is appended as paragraph if term has no inline description#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#line attached by continuation offset by blank line is appended as paragraph if term has inline description#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#line attached by continuation offset by blank line is appended as paragraph if term has no inline description#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#line attached by continuation offset by line comment is appended as paragraph if term has inline description#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#lines prefixed with alternating list markers separated by blank lines should be nested#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "lists_test.rb#lines with alternating markers of bulleted and description list types separated by blank lines should be nested#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "lists_test.rb#lines with alternating markers of unordered and ordered list types separated by blank lines should be nested#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "lists_test.rb#list inside a description list#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#list item with literal content should not consume nested list of different type#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "lists_test.rb#list should terminate before next lower section heading with implicit id#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "lists_test.rb#list should terminate before next lower section heading#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "lists_test.rb#literal block inside description list with trailing line continuation#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#literal block inside description list#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#literal line attached by continuation swallows adjacent line that looks like term#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#mixed single and multi-line adjacent elements#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#multi-line adjacent nested elements#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#multi-line element with multiple terms#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#multi-line elements with blank line before paragraph content#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#multi-line elements with first paragraph folded to text with adjacent nested element#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#multi-line elements with indented paragraph content that includes comment lines#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#multi-line elements with paragraph content#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#multi-line nested elements separated by blank line at nested level repeated#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#multiple listing blocks inside description list#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#nested dlist attached by list continuation should not consume detached paragraph#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#nested dlist with attached block offset by empty line#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#nested elements (2) with asterisks#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "lists_test.rb#nested elements (3) with asterisks#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "lists_test.rb#nested elements (4) with asterisks#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "lists_test.rb#nested elements (5) with asterisks#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "lists_test.rb#nested list item does not eat the title of the following detached block#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "lists_test.rb#nested ordered elements (2)#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "lists_test.rb#nested ordered elements (3)#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "lists_test.rb#nested ordered inside unordered elements#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "lists_test.rb#nested ordered with attribute inside unordered elements#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "lists_test.rb#nested term with description does not consume following heading#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#nested unordered inside ordered elements#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "lists_test.rb#open block inside description list#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#paragraph attached by a list continuation on either side in a description list#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#paragraph attached by a list continuation on either side to a multi-line element in a description list#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#paragraph-like blocks attached to an ancestor list item by a list continuation should produce blocks#0": {
+    "fails": ["fidelity"],
+    "issue": "#29"
+  },
+  "lists_test.rb#quoted text#0": { "fails": ["fidelity"], "issue": "#16" },
+  "lists_test.rb#repeated list continuations attached directly to list item should attach to list items at respective levels#0": {
+    "fails": ["fidelity"],
+    "issue": "#17"
+  },
+  "lists_test.rb#repeated list continuations should attach to list items at respective levels ignoring blank lines#0": {
+    "fails": ["fidelity"],
+    "issue": "#17"
+  },
+  "lists_test.rb#repeated list continuations should attach to list items at respective levels#0": {
+    "fails": ["fidelity"],
+    "issue": "#17"
+  },
+  "lists_test.rb#should allow list style to be specified explicitly when using markers with implicit style#0": {
+    "fails": ["fidelity"],
+    "issue": "#12"
+  },
+  "lists_test.rb#should continue to parse blocks attached by a list continuation after block is dropped#0": {
+    "fails": ["fidelity"],
+    "issue": "#17"
+  },
+  "lists_test.rb#should continue to parse subsequent blocks attached to list item after first block is dropped#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#should convert glossary list with proper semantics#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#should convert horizontal list in docbook with proper markup#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#should convert horizontal list with proper markup#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#should convert qanda list in DocBook with proper semantics#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#should convert qanda list in HTML with proper semantics#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#should discover anchor at start of description term text and register it as a reference#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#should discover anchor at start of unordered list item text and register it as a reference#0": {
+    "fails": ["idempotency", "fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "lists_test.rb#should implicitly set start on ordered list if explicit arabic numbering does not start at 1#0": {
+    "fails": ["fidelity"],
+    "issue": "#12"
+  },
+  "lists_test.rb#should implicitly set start on ordered list if explicit roman numbering does not start at 1#0": {
+    "fails": ["fidelity"],
+    "issue": "#12"
+  },
+  "lists_test.rb#should not find section title immediately below last list item#0": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "lists_test.rb#should not hang on description list item in list that begins with ///#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#should not hang on sibling description list item that begins with ///#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#should not inherit block attributes from previous block when block is attached using a list continuation#0": {
+    "fails": ["fidelity"],
+    "issue": "#17"
+  },
+  "lists_test.rb#should not match comment line that looks like sibling description list term#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#should not parse a nested indented dlist delimiter without a term as a dlist#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#should not strip comment line in literal paragraph block attached to list item#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#should not warn if explicit numbering starts at value of start attribute#0": {
+    "fails": ["fidelity"],
+    "issue": "#12"
+  },
+  "lists_test.rb#should parse sibling items using same rules#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#should recognize auto-numberd callout list inside list#0": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "lists_test.rb#should skip dlist term that begins with // unless it begins with ///#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#should warn if a bibliography ID is already in use#0": {
+    "fails": ["idempotency"],
+    "issue": "#4"
+  },
+  "lists_test.rb#should warn if explicit lowercase roman numerals in list are out of sequence#0": {
+    "fails": ["fidelity"],
+    "issue": "#12"
+  },
+  "lists_test.rb#should warn if explicit uppercase roman numerals in list are out of sequence#0": {
+    "fails": ["fidelity"],
+    "issue": "#12"
+  },
+  "lists_test.rb#should warn if item with explicit numbering in ordered list is out of sequence#0": {
+    "fails": ["fidelity"],
+    "issue": "#12"
+  },
+  "lists_test.rb#should warn if unterminated block is detected in list item#0": {
+    "fails": ["fidelity"],
+    "issue": "#17"
+  },
+  "lists_test.rb#simple? should return true for list item with nested outline list#0": {
+    "fails": ["fidelity"],
+    "issue": "#29"
+  },
+  "lists_test.rb#single-line adjacent elements#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#single-line adjacent maximum nested elements#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#single-line adjacent nested elements with alternate delimiters#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#single-line adjacent nested elements#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#single-line nested elements separated by blank line at nested level#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#text method of dd node should return nil if dd node only contains blocks#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#trailing block attribute line attached by continuation should not create block#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "lists_test.rb#trailing block title line attached by continuation should not create block#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "lists_test.rb#trailing list continuations should attach to list items at respective levels#0": {
+    "fails": ["fidelity"],
+    "issue": "#17"
+  },
+  "lists_test.rb#trailing list continuations should attach to list items of different types at respective levels#0": {
+    "fails": ["fidelity"],
+    "issue": "#17"
+  },
+  "lists_test.rb#trailing list continuations should ignore preceding blank lines#0": {
+    "fails": ["fidelity"],
+    "issue": "#17"
+  },
+  "lists_test.rb#verse paragraph inside a description list#0": {
+    "fails": ["fidelity"],
+    "issue": "#9"
+  },
+  "lists_test.rb#word ending sentence on continuing line not treated as a list item#0": {
+    "fails": ["fidelity"],
+    "issue": "#12"
+  },
+  "lists_test.rb#wrapped list item with hanging indent followed by non-indented line#0": {
+    "fails": ["fidelity"],
+    "issue": "#27"
+  },
+  "manpage_test.rb#(outside test)#0": { "fails": ["fidelity"], "issue": "#18" },
+  "manpage_test.rb#should be able to use monospaced text inside a link#0": {
+    "fails": ["fidelity"],
+    "issue": "#26"
+  },
+  "manpage_test.rb#should convert inline email macro into MTO macro#0": {
+    "fails": ["fidelity"],
+    "issue": "#26"
+  },
+  "manpage_test.rb#should create header, body, and footer rows in correct order#0": {
+    "fails": ["fidelity"],
+    "issue": "#26"
+  },
+  "manpage_test.rb#should drop principal text of list item in olist if empty#0": {
+    "fails": ["fidelity"],
+    "issue": "#26"
+  },
+  "manpage_test.rb#should drop principal text of list item in ulist if empty#0": {
+    "fails": ["fidelity"],
+    "issue": "#26"
+  },
+  "manpage_test.rb#should escape repeated spaces in literal content#0": {
+    "fails": ["fidelity"],
+    "issue": "#27"
+  },
+  "manpage_test.rb#should format footnote with URL macro#0": {
+    "fails": ["fidelity"],
+    "issue": "#26"
+  },
+  "manpage_test.rb#should format footnote with text before bare URL#0": {
+    "fails": ["fidelity"],
+    "issue": "#26"
+  },
+  "manpage_test.rb#should generate callout list using proper formatting commands#0": {
+    "fails": ["fidelity"],
+    "issue": "#26"
+  },
+  "manpage_test.rb#should generate list of footnotes using numbered list with numbers enclosed in brackets#0": {
+    "fails": ["fidelity"],
+    "issue": "#26"
+  },
+  "manpage_test.rb#should indent quote block#0": {
+    "fails": ["fidelity"],
+    "issue": "#26"
+  },
+  "manpage_test.rb#should insert page break at location of page break macro#0": {
+    "fails": ["fidelity"],
+    "issue": "#26"
+  },
+  "manpage_test.rb#should manify and preserve whitespace in literal table cell#0": {
+    "fails": ["fidelity"],
+    "issue": "#26"
+  },
+  "manpage_test.rb#should manify table title#0": {
+    "fails": ["fidelity"],
+    "issue": "#26"
+  },
+  "manpage_test.rb#should normalize whitespace and skip line comments before and inside NAME section#0": {
+    "fails": ["fidelity"],
+    "issue": "#18"
+  },
+  "manpage_test.rb#should not add extra space before block content if dlist item has no text#0": {
+    "fails": ["fidelity"],
+    "issue": "#26"
+  },
+  "manpage_test.rb#should not insert space between link and non-whitespace characters surrounding it#0": {
+    "fails": ["fidelity"],
+    "issue": "#26"
+  },
+  "manpage_test.rb#should not leave blank line before URL macro#0": {
+    "fails": ["fidelity"],
+    "issue": "#26"
+  },
+  "manpage_test.rb#should not leave blank lines between URLs on contiguous lines of input#0": {
+    "fails": ["fidelity"],
+    "issue": "#26"
+  },
+  "manpage_test.rb#should not leave blank lines between URLs on same line of input#0": {
+    "fails": ["fidelity"],
+    "issue": "#26"
+  },
+  "manpage_test.rb#should not parse NAME section if manname and manpurpose attributes are set#0": {
+    "fails": ["fidelity"],
+    "issue": "#18"
+  },
+  "manpage_test.rb#should number footnotes according to footnote index#0": {
+    "fails": ["fidelity"],
+    "issue": "#26"
+  },
+  "manpage_test.rb#should pass adjacent character as final argument of URL macro and move trailing content to next line#0": {
+    "fails": ["fidelity"],
+    "issue": "#26"
+  },
+  "manpage_test.rb#should pass adjacent character as final argument of URL macro#0": {
+    "fails": ["fidelity"],
+    "issue": "#26"
+  },
+  "manpage_test.rb#should preserve break between paragraphs in normal table cell#0": {
+    "fails": ["fidelity"],
+    "issue": "#26"
+  },
+  "manpage_test.rb#should preserve hard line breaks in verse block#1": {
+    "fails": ["fidelity"],
+    "issue": "#26"
+  },
+  "manpage_test.rb#should preserve inline breaks#0": {
+    "fails": ["fidelity"],
+    "issue": "#26"
+  },
+  "manpage_test.rb#should replace invalid characters in mantitle in info comment#0": {
+    "fails": ["fidelity"],
+    "issue": "#18"
+  },
+  "manpage_test.rb#should set text of MTO macro to blank for implicit email#0": {
+    "fails": ["fidelity"],
+    "issue": "#26"
+  },
+  "manpage_test.rb#should substitute attributes in manname and manpurpose in NAME section#0": {
+    "fails": ["fidelity"],
+    "issue": "#18"
+  },
+  "paragraphs_test.rb#does not treat wrapped line as a block title#0": {
+    "fails": ["fidelity"],
+    "issue": "#26"
+  },
+  "paragraphs_test.rb#does not treat wrapped line as a list item#0": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "paragraphs_test.rb#literal paragraph terminates at list continuation#0": {
+    "fails": ["fidelity"],
+    "issue": "#17"
+  },
+  "paragraphs_test.rb#normal paragraph terminates at list continuation#0": {
+    "fails": ["fidelity"],
+    "issue": "#17"
+  },
+  "paragraphs_test.rb#should add a hardbreak at end of each line when hardbreaks option is set#0": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "paragraphs_test.rb#should be able to toggle hardbreaks by setting hardbreaks-option on document#0": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "paragraphs_test.rb#should process preprocessor conditional in paragraph content#0": {
+    "fails": ["fidelity"],
+    "issue": "#28"
+  },
+  "parser_test.rb#allows authors to be overridden using explicit author attributes#0": {
+    "fails": ["fidelity"],
+    "issue": "#26"
+  },
+  "parser_test.rb#expands tabs to spaces#0": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "parser_test.rb#expands tabs to spaces#1": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "parser_test.rb#parse rev date remark#0": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "parser_test.rb#parse rev remark only#0": {
+    "fails": ["fidelity"],
+    "issue": "#27"
+  },
+  "parser_test.rb#replace implicit authors if value of authors attribute does not match computed value#0": {
+    "fails": ["fidelity"],
+    "issue": "#26"
+  },
+  "parser_test.rb#should not mistake attribute entry as rev remark#0": {
+    "fails": ["fidelity"],
+    "issue": "#26"
+  },
+  "parser_test.rb#should resolve attribute references in rev number, data, and remark#0": {
+    "fails": ["fidelity"],
+    "issue": "#18"
+  },
+  "parser_test.rb#use explicit authorinitials if set after implicit author line#0": {
+    "fails": ["fidelity"],
+    "issue": "#26"
+  },
+  "parser_test.rb#use implicit authors if value of authors attribute matches computed value#0": {
+    "fails": ["fidelity"],
+    "issue": "#26"
+  },
+  "reader_test.rb#escaped ifdef is unescaped and ignored#0": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "reader_test.rb#escaped include directive is left unprocessed#0": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "reader_test.rb#exclude with matching nested exclude#0": {
+    "fails": ["fidelity"],
+    "issue": "#28"
+  },
+  "reader_test.rb#exclude with nested include using shorthand end#0": {
+    "fails": ["fidelity"],
+    "issue": "#28"
+  },
+  "reader_test.rb#ifdef with defined attribute includes text in brackets#0": {
+    "fails": ["fidelity"],
+    "issue": "#28"
+  },
+  "reader_test.rb#ifndef with defined attribute does not include text in brackets#0": {
+    "fails": ["fidelity"],
+    "issue": "#28"
+  },
+  "reader_test.rb#include directive includes regions outside tags and inside specified tags when value begins with negated wildcard#1": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "reader_test.rb#include directive selects all lines except for lines containing tag directive if value is double asterisk followed by nested tag names#1": {
+    "fails": ["fidelity"],
+    "issue": "#27"
+  },
+  "reader_test.rb#include directive selects all lines except for lines containing tag directive when value is double asterisk followed by outer tag name#1": {
+    "fails": ["fidelity"],
+    "issue": "#27"
+  },
+  "reader_test.rb#include directive selects all lines except lines inside tag which is negated when value starts with double asterisk#1": {
+    "fails": ["fidelity"],
+    "issue": "#27"
+  },
+  "reader_test.rb#include directive selects all lines except tag which is negated when value only contains negated tag#1": {
+    "fails": ["fidelity"],
+    "issue": "#27"
+  },
+  "reader_test.rb#include directive selects all lines without a tag directive when value is double asterisk#1": {
+    "fails": ["fidelity"],
+    "issue": "#27"
+  },
+  "reader_test.rb#include directive selects all lines, including lines inside nested tags, except lines inside tag which is negated when value starts with double asterisk#1": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "reader_test.rb#include directive selects lines inside all tags except tag which is negated when value of tags attribute is wildcard followed by negated tag#1": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "reader_test.rb#include directive selects lines inside specified tag and ignores lines inside a negated tag#1": {
+    "fails": ["fidelity"],
+    "issue": "#27"
+  },
+  "reader_test.rb#include directive selects lines inside tags when value of tags attribute is wildcard and tag surrounds content#1": {
+    "fails": ["fidelity"],
+    "issue": "#27"
+  },
+  "reader_test.rb#include directive should not attempt to resolve target as remote if allow-uri-read is set and URL is not on first line#0": {
+    "fails": ["fidelity"],
+    "issue": "#24"
+  },
+  "reader_test.rb#include directive skips all tagged regions except ones re-enabled when value of tags attribute is negated wildcard followed by tag name#0": {
+    "fails": ["fidelity"],
+    "issue": "#27"
+  },
+  "reader_test.rb#include directive skips lines inside tag which is negated#1": {
+    "fails": ["fidelity"],
+    "issue": "#27"
+  },
+  "reader_test.rb#line following dropped include is not dropped#0": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "reader_test.rb#peek_line does not advance cursor when on a regular content line#0": {
+    "fails": ["fidelity"],
+    "issue": "#28"
+  },
+  "reader_test.rb#peek_lines should not preprocess lines if direct is true#0": {
+    "fails": ["fidelity"],
+    "issue": "#28"
+  },
+  "reader_test.rb#peek_lines should not prevent subsequent preprocessing of peeked lines#0": {
+    "fails": ["fidelity"],
+    "issue": "#28"
+  },
+  "reader_test.rb#peek_lines should preprocess lines if direct is false#0": {
+    "fails": ["fidelity"],
+    "issue": "#28"
+  },
+  "reader_test.rb#process_line returns line if cursor not advanced#0": {
+    "fails": ["fidelity"],
+    "issue": "#28"
+  },
+  "reader_test.rb#should not skip front matter by default#0": {
+    "fails": ["fidelity"],
+    "issue": "#21"
+  },
+  "reader_test.rb#should not skip front matter if ending delimiter is not found#0": {
+    "fails": ["fidelity"],
+    "issue": "#21"
+  },
+  "reader_test.rb#should recognize tag wildcard if not at start of tags list#1": {
+    "fails": ["fidelity"],
+    "issue": "#27"
+  },
+  "reader_test.rb#should support tag filtering for remote includes#0": {
+    "fails": ["fidelity"],
+    "issue": "#27"
+  },
+  "sections_test.rb#document title with level 0 headings#0": {
+    "fails": ["fidelity"],
+    "issue": "#18"
+  },
+  "sections_test.rb#document title with multiline syntax and unicode characters#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "sections_test.rb#explicit id can be defined using an embedded anchor when using setext section titles#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "sections_test.rb#level 0 special sections in multipart book should be coerced to level 1#0": {
+    "fails": ["fidelity"],
+    "issue": "#18"
+  },
+  "sections_test.rb#level offset should be added to discrete heading#0": {
+    "fails": ["fidelity"],
+    "issue": "#18"
+  },
+  "sections_test.rb#multiline syntax with only multibyte characters#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "sections_test.rb#should add level offset to section level#0": {
+    "fails": ["fidelity"],
+    "issue": "#18"
+  },
+  "sections_test.rb#should add relative offset value to current leveloffset#0": {
+    "fails": ["fidelity"],
+    "issue": "#18"
+  },
+  "sections_test.rb#should be able to reset level offset#0": {
+    "fails": ["fidelity"],
+    "issue": "#18"
+  },
+  "sections_test.rb#should create only sections in docbook backend#0": {
+    "fails": ["fidelity"],
+    "issue": "#18"
+  },
+  "sections_test.rb#should create parts and chapters in docbook backend#0": {
+    "fails": ["fidelity"],
+    "issue": "#18"
+  },
+  "sections_test.rb#should not interpret a listing block as a heading#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "sections_test.rb#should not interpret an attribute list as a heading#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "sections_test.rb#should not interpret an open block as a heading#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "sections_test.rb#should not match a heading in a bulleted list#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "sections_test.rb#should not match a heading in a description list#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
+  "sections_test.rb#should not recognize underline containing a mix of characters as setext section title#0": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "sections_test.rb#should preprocess second line of setext discrete heading#0": {
+    "fails": ["fidelity"],
+    "issue": "#28"
+  },
+  "sections_test.rb#should preprocess second line of setext section title#0": {
+    "fails": ["fidelity"],
+    "issue": "#28"
+  },
+  "sections_test.rb#should print error if standalone document is included without level offset#0": {
+    "fails": ["fidelity"],
+    "issue": "#18"
+  },
+  "sections_test.rb#subsections in preface and appendix should start at level 2#0": {
+    "fails": ["fidelity"],
+    "issue": "#18"
+  },
+  "sections_test.rb#table with asciidoc content should not disable numbering of subsequent sections#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "substitutions_test.rb#should use the imagesdir attribute defined on image macro when resolving image path#0": {
+    "fails": ["fidelity"],
+    "issue": "#23"
+  },
+  "syntax_highlighter_test.rb#should highlight source inside AsciiDoc table cell if source-highlighter attribute is set#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#AsciiDoc content#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#AsciiDoc table cell should be wrapped in div with class \"content\"#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#AsciiDoc table cell should inherit to_dir option from parent document#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#AsciiDoc table cell should not inherit toc setting from parent document#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#assigns unique column names for table with implicit column count and colspans in first row#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#basic AsciiDoc cell#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#blank cols attribute should be ignored#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#calculates colnames correctly when using implicit column count and cells with mixed colspans#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#calculates colnames correctly when using implicit column count and single cell with colspan#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#callout numbers should be globally unique, including AsciiDoc table cells#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#can assign autowidth to all columns even when table has a width#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#can set format of nested table to psv#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#cell background color#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#cell formatted with AsciiDoc style#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#cols attribute may include spaces#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#cols may be separated by semi-colon instead of comma#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#colspec attribute using asterisk syntax sets number of columns#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#columns are added for empty records in colspec attribute#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#compat mode can be activated in AsciiDoc table cell#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#compat mode in AsciiDoc table cell can be unset if set in parent document#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#compat mode in AsciiDoc table cell inherits from parent document#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#converts simple dsv table#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#converts simple psv table#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#cross reference link in an AsciiDoc table cell should resolve to reference in main document#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#csv format shorthand#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#custom csv separator#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#custom separator for an AsciiDoc table cell#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#disables caption on table when table-caption document attribute is unset#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#disables caption when caption attribute on table is empty string#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#disables caption when caption attribute on table is empty#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#doctype can be set in AsciiDoc table cell#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#document in an AsciiDoc table cell should not see doctitle of parent#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#does not assign column width for autowidth columns in HTML output#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#dsv format shorthand#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#empty cols attribute should be ignored#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#equally distributes remaining column width to autowidth columns in DocBook output#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#error about unresolved preprocessor directive on first line of an AsciiDoc table cell should have correct cursor#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#explicit table width is used even when autowidth option is specified#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#first row sets number of columns when not specified#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#footnotes should not be shared between an AsciiDoc table cell and the main document#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#ignores escaped separators#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#mixed unquoted records and quoted records with escaped quotes, commas, and wrapped lines#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#nested table#0": { "fails": ["fidelity"], "issue": "#10" },
+  "tables_test.rb#no implicit header row if AsciiDoc cell in first line spans multiple lines#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#no implicit header row if cell in first line is quoted and spans multiple lines#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#no implicit header row if cell in first line spans multiple lines#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#no implicit header row if noheader option is specified#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#no implicit header row if second line not blank#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#only increments table counter for tables that have a title#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#outputs a caption on simple psv table#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#percentages as column widths#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#performs normal substitutions on cell content#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#preprocessor directive on first line of an AsciiDoc table cell should be processed#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#preserves escaped delimiters at the end of the line#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#sets up columns correctly if first row has cell that spans columns#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should add direction CSS class if float attribute is set on table#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should allow attribute unset in parent document to be set in AsciiDoc table cell#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should allow quotes around a CSV value to be on their own lines#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should apply cell style for column to repeated content#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should apply style and text formatting to cells in first row if no implicit header#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should apply text formatting to cells in implicit header row when column has a style#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should auto recover with warning if missing leading separator on first cell#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should be able to enable toc in an AsciiDoc table cell even if hard unset by API#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should be able to enable toc in an AsciiDoc table cell#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should be able to enable toc in both outer document and in an AsciiDoc table cell#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should catalog anchor at start of cell in explicit header row when column has a style#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should catalog anchor at start of cell in first row#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should catalog anchor at start of cell in implicit header row when column has a style#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should compute column widths based on pagewidth when width is set on table in DocBook output#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should convert frame value ends to topbot when converting to DocBook#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should discover anchor at start of cell and register it as a reference#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should drop incomplete row at end of table and log an error#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should drop last row if last cell in table has colspan that exceeds implicit number of columns#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should drop last row if last cell in table has colspan that exceeds specified number of columns#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should drop row but preserve remaining rows after cell with colspan exceeds number of columns#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should format first cell as AsciiDoc if there is no implicit header row and cell has a style#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should format first cell as AsciiDoc if there is no implicit header row and column has a style#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should format first cell as literal if there is no implicit header row and column has l style#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should ignore v table cell style#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should interpret leading indent if first cell is AsciiDoc and there is no implicit header row#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should keep attribute unset in AsciiDoc table cell if unset in parent document#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should log error but not crash if cell data has unclosed quote#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should normalize frame value topbot as ends when converting to HTML#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should not allow AsciiDoc table cell to set a document attribute that was hard set by the API#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should not allow AsciiDoc table cell to set a document attribute that was hard unset by the API#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should not allow locked attribute unset in parent document to be set in AsciiDoc table cell#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should not split paragraph at line containing only {blank} that is directly adjacent to non-blank lines#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should only substitute specialchars for literal table cells#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should preserve frame value ends when converting to HTML#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should preserve frame value topbot when converting to DocBook#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should preserve leading indentation in contents of AsciiDoc table cell if contents starts with newline#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should preserve newlines in quoted CSV values#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should preserving leading spaces but not leading newlines or trailing spaces in literal table cells#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should reset doctype to default in AsciiDoc table cell#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should set horizontal and vertical alignment when converting to DocBook#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should set stripes class if stripes option is set#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should show correct line number in warning about unterminated block inside AsciiDoc table cell#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should strip trailing newlines when splitting paragraphs#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should strip whitespace around contents of AsciiDoc cell#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should take colspan into account when taking cells for row#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should treat trailing colon as an empty cell#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should treat trailing comma as an empty cell#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should treat trailing pipe as an empty cell#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should update doctype-related attributes in AsciiDoc table cell when doctype is set#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#should warn if table block is not terminated#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#single cell in CSV table should only produce single row#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#single cell in DSV table should only produce single row#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#spans, alignments and styles#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#styles not applied to header cells#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#supports horizontal and vertical source data with blank lines and table header#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#supports repeating cells#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#table and column width not assigned when autowidth option is specified#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#table with breakable option docbook 5#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#table with explicit column count can have multiple rows on a single line#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#table with explicit deprecated colspec syntax can have multiple rows on a single line#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#table with header and footer docbook#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#table with header and footer#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#table with implicit header row only#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#table with implicit header row when other options set#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#table with implicit header row#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#table with unbreakable option docbook 5#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "tables_test.rb#uses explicit caption in front of title in place of default caption and number#0": {
+    "fails": ["fidelity"],
+    "issue": "#10"
+  },
+  "test/fixtures/basic.adoc": { "fails": ["fidelity"], "issue": "#18" },
+  "test/fixtures/encoding.adoc": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "test/fixtures/lists.adoc": {
+    "fails": ["idempotency", "fidelity"],
+    "issue": "#18"
+  },
+  "test/fixtures/mismatched-end-tag.adoc": {
+    "fails": ["fidelity"],
+    "issue": "#26"
+  },
+  "test/fixtures/sample.adoc": { "fails": ["fidelity"], "issue": "#16" },
+  "test/fixtures/subs.adoc": { "fails": ["fidelity"], "issue": "#18" },
+  "test/fixtures/unclosed-tag.adoc": { "fails": ["fidelity"], "issue": "#26" },
+  "test/fixtures/with-front-matter.adoc": {
+    "fails": ["fidelity"],
+    "issue": "#21"
+  }
+}

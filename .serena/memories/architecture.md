@@ -29,6 +29,20 @@ source text → Lexer → Parser → CST → AST Builder → AST → Printer →
   format for test-time conformance checks. Dev-only, not shipped.
 - **Vendored deps** (`vendor/`): ASG schema and TCK test fixtures from the
   asciidoc-lang project. Updated via `bun run vendor`.
+- **Conformance suite** (`tests/conformance/`): differential testing against
+  Asciidoctor's own test corpus (see #7). `vendor/asciidoctor-corpus/` holds
+  1,614 cases as JSONL, pinned to an Asciidoctor commit — Ruby test-suite
+  heredocs, Asciidoctor's own docs pages, and test fixtures. The 13 TCK inputs
+  live in `vendor/asciidoc-tck/` and join at load time for 1,627 total.
+  `properties.ts`'s `assessCase` runs three properties per case (no crash,
+  idempotency, `renderedHtml(format(x)) === renderedHtml(x)` fidelity via the
+  `@asciidoctor/core` oracle). Known-failing cases are pinned in
+  `quarantine.json`, tagged by gap issue; `scripts/conformance-triage.ts`
+  (`bun run triage`) diffs a run against that manifest, and `--write` updates
+  it. Runs as part of the default `bun run test`. Workflow: a new failure gets
+  mapped to an issue (or a new one filed) and pinned with
+  `bun run triage --write`; a fixed gap has its now-passing entries removed the
+  same way, so the quarantine list shrinks monotonically.
 
 ## Key References
 

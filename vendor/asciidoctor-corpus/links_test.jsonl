@@ -1,0 +1,45 @@
+{"id":"links_test.rb#should remove trailing space on reftext of inline anchor shorthand#0","input":"see <<foo>>\n\n[[foo,[FOO] ]]foo\n"}
+{"id":"links_test.rb#should remove trailing space on reftext of inline anchor shorthand when converting to DocBook#0","input":"see <<foo>>\n\n[[foo,[FOO] ]]foo\n"}
+{"id":"links_test.rb#unescapes square bracket in reftext of anchor macro#0","input":"see <<foo>>\n\nanchor:foo[b[a\\]r]tex\n"}
+{"id":"links_test.rb#xref using angled bracket syntax with label#0","input":"<<tigers,About Tigers>>\n\n[#tigers]\n== Tigers\n"}
+{"id":"links_test.rb#xref should use title of target as link text when no explicit reftext is specified#0","input":"<<tigers>>\n\n[#tigers]\n== Tigers\n"}
+{"id":"links_test.rb#xref should use title of target as link text when explicit link text is empty#0","input":"<<tigers,>>\n\n[#tigers]\n== Tigers\n"}
+{"id":"links_test.rb#xref using angled bracket syntax with quoted label#0","input":"<<tigers,\"About Tigers\">>\n\n[#tigers]\n== Tigers\n"}
+{"id":"links_test.rb#xref using angled bracket syntax inline with text#0","input":"Want to learn <<tigers,about tigers>>?\n\n[#tigers]\n== Tigers\n"}
+{"id":"links_test.rb#xref using angled bracket syntax with multi-line label inline with text#0","input":"Want to learn <<tigers,about\ntigers>>?\n\n[#tigers]\n== Tigers\n"}
+{"id":"links_test.rb#xref with escaped text#0","input":"See the <<tigers, `+[tigers]+`>> section for details about tigers.\n\n[#tigers]\n== Tigers\n"}
+{"id":"links_test.rb#multiple xref macros with implicit text in single line#0","input":"This document has two sections, xref:sect-a[] and xref:sect-b[].\n\n[#sect-a]\n== Section A\n\n[#sect-b]\n== Section B\n"}
+{"id":"links_test.rb#xref using macro syntax with label#0","input":"xref:tigers[About Tigers]\n\n[#tigers]\n== Tigers\n"}
+{"id":"links_test.rb#xref using macro syntax inline with text#0","input":"Want to learn xref:tigers[about tigers]?\n\n[#tigers]\n== Tigers\n"}
+{"id":"links_test.rb#xref using macro syntax with multi-line label inline with text#0","input":"Want to learn xref:tigers[about\ntigers]?\n\n[#tigers]\n== Tigers\n"}
+{"id":"links_test.rb#xref using macro syntax with text that ends with an escaped closing bracket#0","input":"xref:tigers[[tigers\\]]\n\n[#tigers]\n== Tigers\n"}
+{"id":"links_test.rb#xref using macro syntax with text that contains an escaped closing bracket#0","input":"xref:tigers[[tigers\\] are cats]\n\n[#tigers]\n== Tigers\n"}
+{"id":"links_test.rb#unescapes square bracket in reftext used by xref#0","input":"anchor:foo[b[a\\]r]about\n\nsee <<foo>>\n"}
+{"id":"links_test.rb#should warn and create link if verbose flag is set and reference is not found#0","input":"[#foobar]\n== Foobar\n\n== Section B\n\nSee <<foobaz>>.\n"}
+{"id":"links_test.rb#should not warn if verbose flag is set and reference is found in compat mode#0","input":"[[foobar]]\n== Foobar\n\n== Section B\n\nSee <<foobar>>.\n"}
+{"id":"links_test.rb#should warn and create link if verbose flag is set and reference using # notation is not found#0","input":"[#foobar]\n== Foobar\n\n== Section B\n\nSee <<#foobaz>>.\n"}
+{"id":"links_test.rb#should produce an internal anchor from an inter-document xref to file included into current file#0","input":"= Book Title\n:doctype: book\n\n[#ch1]\n== Chapter 1\n\nSo it begins.\n\nRead <<other-chapters.adoc#ch2>> to find out what happens next!\n\ninclude::other-chapters.adoc[]\n"}
+{"id":"links_test.rb#should produce an internal anchor from an inter-document xref to file included entirely into current file using tags#0","input":"= Book Title\n:doctype: book\n\n[#ch1]\n== Chapter 1\n\nSo it begins.\n\nRead <<other-chapters.adoc#ch2>> to find out what happens next!\n\ninclude::other-chapters.adoc[tags=**]\n"}
+{"id":"links_test.rb#should not produce an internal anchor for inter-document xref to file partially included into current file#0","input":"= Book Title\n:doctype: book\n\n[#ch1]\n== Chapter 1\n\nSo it begins.\n\nRead <<other-chapters.adoc#ch2,the next chapter>> to find out what happens next!\n\ninclude::other-chapters.adoc[tags=ch2]\n"}
+{"id":"links_test.rb#should produce an internal anchor for inter-document xref to file included fully and partially#0","input":"= Book Title\n:doctype: book\n\n[#ch1]\n== Chapter 1\n\nSo it begins.\n\nRead <<other-chapters.adoc#ch2,the next chapter>> to find out what happens next!\n\ninclude::other-chapters.adoc[]\n\ninclude::other-chapters.adoc[tag=ch2-noid]\n"}
+{"id":"links_test.rb#should warn and create link if debug mode is enabled, inter-document xref points to current doc, and reference not found#0","input":"[#foobar]\n== Foobar\n\n== Section B\n\nSee <<test.adoc#foobaz>>.\n"}
+{"id":"links_test.rb#should use doctitle as fallback link text if inter-document xref points to current doc and no link text is provided#0","input":"= Links & Stuff at https://example.org\n\nSee xref:test.adoc[]\n"}
+{"id":"links_test.rb#should use doctitle of root document as fallback link text for inter-document xref in AsciiDoc table cell that resolves to current doc#0","input":"= Document Title\n\n|===\na|See xref:test.adoc[]\n|===\n"}
+{"id":"links_test.rb#should use reftext on document as fallback link text if inter-document xref points to current doc and no link text is provided#0","input":"[reftext=\"Links and Stuff\"]\n= Links & Stuff\n\nSee xref:test.adoc[]\n"}
+{"id":"links_test.rb#should use reftext on document as fallback link text if xref points to empty fragment and no link text is provided#0","input":"[reftext=\"Links and Stuff\"]\n= Links & Stuff\n\nSee xref:#[]\n"}
+{"id":"links_test.rb#should use fallback link text if inter-document xref points to current doc without header and no link text is provided#0","input":"See xref:test.adoc[]\n"}
+{"id":"links_test.rb#should use fallback link text if fragment of internal xref is empty and no link text is provided#0","input":"See xref:#[]\n"}
+{"id":"links_test.rb#should use document id as linkend for self xref in DocBook backend#0","input":"[#docid]\n= Document Title\n\nSee xref:test.adoc[]\n"}
+{"id":"links_test.rb#should auto-generate document id to use as linkend for self xref in DocBook backend#0","input":"= Document Title\n\nSee xref:test.adoc[]\n"}
+{"id":"links_test.rb#should produce an internal anchor for inter-document xref to file outside of base directory#0","input":"= Document Title\n\nSee <<../section-a.adoc#section-a>>.\n\ninclude::../section-a.adoc[]\n"}
+{"id":"links_test.rb#xref uses title of target as label for forward and backward references in html output#0","input":"== Section A\n\n<<_section_b>>\n\n== Section B\n\n<<_section_a>>\n"}
+{"id":"links_test.rb#should not fail to resolve broken xref in title of block with ID#0","input":"[#p1]\n.<<DNE>>\nparagraph text\n"}
+{"id":"links_test.rb#should resolve forward xref in title of block with ID#0","input":"[#p1]\n.<<conclusion>>\nparagraph text\n\n[#conclusion]\n== Conclusion\n"}
+{"id":"links_test.rb#should not fail to resolve broken xref in section title#0","input":"[#s1]\n== <<DNE>>\n\n== <<s1>>\n"}
+{"id":"links_test.rb#should break circular xref reference in section title#0","input":"[#a]\n== A <<b>>\n\n[#b]\n== B <<a>>\n"}
+{"id":"links_test.rb#should drop nested anchor in xreftext#0","input":"[#a]\n== See <<b>>\n\n[#b]\n== Consult https://google.com[Google]\n"}
+{"id":"links_test.rb#should not resolve forward xref evaluated during parsing#0","input":"[#s1]\n== <<forward>>\n\n== <<s1>>\n\n[#forward]\n== Forward\n"}
+{"id":"links_test.rb#should not resolve forward natural xref evaluated during parsing#0","input":":idprefix:\n\n[#s1]\n== <<Forward>>\n\n== <<s1>>\n\n== Forward\n"}
+{"id":"links_test.rb#should resolve first matching natural xref#0","input":"see <<Section Title>>\n\n[#s1]\n== Section Title\n\n[#s2]\n== Section Title\n"}
+{"id":"links_test.rb#should not match numeric character references while searching for fragment in xref target#0","input":"see <<Cub => Tiger>>\n\n== Cub => Tiger\n"}
+{"id":"links_test.rb#should not match numeric character references in path of interdocument xref#0","input":"see xref:{cpp}[{cpp}].\n"}

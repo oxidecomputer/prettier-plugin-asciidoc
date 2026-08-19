@@ -1,0 +1,137 @@
+{"id":"reader_test.rb#Read lines until until end#0","input":"This is one paragraph.\n\nThis is another paragraph.\n"}
+{"id":"reader_test.rb#Read lines until until blank line#0","input":"This is one paragraph.\n\nThis is another paragraph.\n"}
+{"id":"reader_test.rb#Read lines until until blank line preserving last line#0","input":"This is one paragraph.\n\nThis is another paragraph.\n"}
+{"id":"reader_test.rb#Read lines until until condition is true#0","input":"--\nThis is one paragraph inside the block.\n\nThis is another paragraph inside the block.\n--\n\nThis is a paragraph outside the block.\n"}
+{"id":"reader_test.rb#Read lines until until condition is true, taking last line#0","input":"--\nThis is one paragraph inside the block.\n\nThis is another paragraph inside the block.\n--\n\nThis is a paragraph outside the block.\n"}
+{"id":"reader_test.rb#Read lines until until condition is true, taking and preserving last line#0","input":"--\nThis is one paragraph inside the block.\n\nThis is another paragraph inside the block.\n--\n\nThis is a paragraph outside the block.\n"}
+{"id":"reader_test.rb#read lines until terminator#0","input":"****\ncaptured\n\nalso captured\n****\n\nnot captured\n"}
+{"id":"reader_test.rb#should flag reader as unterminated if reader reaches end of source without finding terminator#0","input":"****\ncaptured\n\nalso captured\n\ncaptured yet again\n"}
+{"id":"reader_test.rb#should not skip front matter by default#0","input":"---\nlayout: post\ntitle: Document Title\nauthor: username\ntags: [ first, second ]\n---\n= Document Title\nAuthor Name\n\npreamble\n"}
+{"id":"reader_test.rb#should not skip front matter if ending delimiter is not found#0","input":"---\ntitle: Document Title\ntags: [ first, second ]\n= Document Title\nAuthor Name\n\npreamble\n"}
+{"id":"reader_test.rb#should skip front matter if specified by skip-front-matter attribute#0","input":"layout: post\ntitle: Document Title\nauthor: username\ntags: [ first, second ]\n"}
+{"id":"reader_test.rb#should skip TOML front matter if specified by skip-front-matter attribute#0","input":"layout = 'post'\ntitle = 'Document Title'\nauthor = 'username'\ntags = ['first', 'second']\n"}
+{"id":"reader_test.rb#should not skip front matter in include file if skip-front-matter attribute is set#0","input":"....\ninclude::fixtures/with-front-matter.adoc[]\n....\n"}
+{"id":"reader_test.rb#should skip front matter in include file if skip-front-matter option is set on include directiv#0","input":"....\ninclude::fixtures/with-front-matter.adoc[opts=skip-front-matter]\n....\n"}
+{"id":"reader_test.rb#should not track include in catalog for non-AsciiDoc include files#0","input":"----\ninclude::fixtures/circle.svg[]\n----\n"}
+{"id":"reader_test.rb#include directive should not attempt to resolve target as remote if allow-uri-read is set and URL is not on first line#0","input":":target: not-a-file.adoc + \\\nhttp://example.org/team.adoc\n\ninclude::{target}[]\n"}
+{"id":"reader_test.rb#should only strip trailing newlines, not trailing whitespace, if include file is not AsciiDoc#0","input":"....\ninclude::fixtures/data.tsv[]\n....\n"}
+{"id":"reader_test.rb#should fail to read include file if not UTF-8 encoded and encoding is not specified#0","input":"....\ninclude::fixtures/iso-8859-1.txt[]\n....\n"}
+{"id":"reader_test.rb#should ignore encoding attribute if value is not a valid encoding#0","input":"....\ninclude::fixtures/encoding.adoc[tag=rom\u00e9,encoding=iso-1000-1]\n....\n"}
+{"id":"reader_test.rb#should use encoding specified by encoding attribute when reading include file#0","input":"....\ninclude::fixtures/iso-8859-1.txt[encoding=iso-8859-1]\n....\n"}
+{"id":"reader_test.rb#unresolved target referenced by include directive is skipped when optional option is set#0","input":"include::fixtures/{no-such-file}[opts=optional]\n\ntrailing content\n"}
+{"id":"reader_test.rb#should skip include directive that references missing file if optional option is set#0","input":"include::fixtures/no-such-file.adoc[opts=optional]\n\ntrailing content\n"}
+{"id":"reader_test.rb#should replace include directive that references missing file with message#0","input":"include::fixtures/no-such-file.adoc[]\n\ntrailing content\n"}
+{"id":"reader_test.rb#should replace include directive that references missing file with message#1","input":"include::fixtures/chapter-a.adoc[]\n\ntrailing content\n"}
+{"id":"reader_test.rb#nested include directives are resolved relative to current file#0","input":"....\ninclude::fixtures/outer-include.adoc[]\n....\n"}
+{"id":"reader_test.rb#nested include directives are resolved relative to current file#1","input":"first line of outer\n\nfirst line of middle\n\nfirst line of inner\n\nlast line of inner\n\nlast line of middle\n\nlast line of outer\n"}
+{"id":"reader_test.rb#nested remote include directive is resolved relative to uri of current file#0","input":"first line of outer\n\nfirst line of middle\n\nfirst line of inner\n\nlast line of inner\n\nlast line of middle\n\nlast line of outer\n"}
+{"id":"reader_test.rb#should support tag filtering for remote includes#0","input":"<code class=\"language-ruby\" data-lang=\"ruby\">def initialize breed\n  @breed = breed\nend</code>\n"}
+{"id":"reader_test.rb#include directive ignores lines attribute if empty#0","input":"++++\ninclude::fixtures/include-file.adoc[lines=]\n++++\n"}
+{"id":"reader_test.rb#include directive ignores lines attribute with invalid range#0","input":"++++\ninclude::fixtures/include-file.adoc[lines=10..5]\n++++\n"}
+{"id":"reader_test.rb#include directive does not select lines containing tag directives within selected tag region#0","input":"++++\ninclude::fixtures/include-file.adoc[tags=snippet]\n++++\n"}
+{"id":"reader_test.rb#include directive does not select lines containing tag directives within selected tag region#1","input":"snippetA content\n\nnon-tagged content\n\nsnippetB content\n"}
+{"id":"reader_test.rb#include directive skips lines inside tag which is negated#0","input":"----\ninclude::fixtures/tagged-class-enclosed.rb[tags=all;!bark]\n----\n"}
+{"id":"reader_test.rb#include directive skips lines inside tag which is negated#1","input":"class Dog\n  def initialize breed\n    @breed = breed\n  end\nend\n"}
+{"id":"reader_test.rb#include directive selects all lines without a tag directive when value is double asterisk#0","input":"----\ninclude::fixtures/tagged-class.rb[tags=**]\n----\n"}
+{"id":"reader_test.rb#include directive selects all lines without a tag directive when value is double asterisk#1","input":"class Dog\n  def initialize breed\n    @breed = breed\n  end\n\n  def bark\n    if @breed == 'beagle'\n      'woof woof woof woof woof'\n    else\n      'woof woof'\n    end\n  end\nend\n"}
+{"id":"reader_test.rb#include directive selects all lines except lines inside tag which is negated when value starts with double asterisk#0","input":"----\ninclude::fixtures/tagged-class.rb[tags=**;!bark]\n----\n"}
+{"id":"reader_test.rb#include directive selects all lines except lines inside tag which is negated when value starts with double asterisk#1","input":"class Dog\n  def initialize breed\n    @breed = breed\n  end\nend\n"}
+{"id":"reader_test.rb#include directive selects all lines, including lines inside nested tags, except lines inside tag which is negated when value starts with double asterisk#0","input":"----\ninclude::fixtures/tagged-class.rb[tags=**;!init]\n----\n"}
+{"id":"reader_test.rb#include directive selects all lines, including lines inside nested tags, except lines inside tag which is negated when value starts with double asterisk#1","input":"class Dog\n\n  def bark\n    if @breed == 'beagle'\n      'woof woof woof woof woof'\n    else\n      'woof woof'\n    end\n  end\nend\n"}
+{"id":"reader_test.rb#include directive selects all lines outside of tags when value is double asterisk followed by negated wildcard#0","input":"----\ninclude::fixtures/tagged-class.rb[tags=**;!*]\n----\n"}
+{"id":"reader_test.rb#include directive selects all lines outside of tags when value is double asterisk followed by negated wildcard#1","input":"class Dog\nend\n"}
+{"id":"reader_test.rb#include directive skips all tagged regions when value of tags attribute is negated wildcard#0","input":"----\ninclude::fixtures/tagged-class.rb[tags=!*]\n----\n"}
+{"id":"reader_test.rb#include directive selects all lines except for lines containing tag directive if value is double asterisk followed by nested tag names#0","input":"----\ninclude::fixtures/tagged-class.rb[tags=**;bark-beagle;bark-all]\n----\n"}
+{"id":"reader_test.rb#include directive selects all lines except for lines containing tag directive if value is double asterisk followed by nested tag names#1","input":"class Dog\n  def initialize breed\n    @breed = breed\n  end\n\n  def bark\n    if @breed == 'beagle'\n      'woof woof woof woof woof'\n    else\n      'woof woof'\n    end\n  end\nend\n"}
+{"id":"reader_test.rb#include directive selects all lines except for lines containing tag directive when value is double asterisk followed by outer tag name#0","input":"----\ninclude::fixtures/tagged-class.rb[tags=**;bark]\n----\n"}
+{"id":"reader_test.rb#include directive selects all lines except for lines containing tag directive when value is double asterisk followed by outer tag name#1","input":"class Dog\n  def initialize breed\n    @breed = breed\n  end\n\n  def bark\n    if @breed == 'beagle'\n      'woof woof woof woof woof'\n    else\n      'woof woof'\n    end\n  end\nend\n"}
+{"id":"reader_test.rb#include directive selects all lines inside unspecified tags when value is negated double asterisk followed by negated tags#0","input":"----\ninclude::fixtures/tagged-class.rb[tags=!**;!init]\n----\n"}
+{"id":"reader_test.rb#include directive selects all lines except tag which is negated when value only contains negated tag#0","input":"----\ninclude::fixtures/tagged-class.rb[tag=!bark]\n----\n"}
+{"id":"reader_test.rb#include directive selects all lines except tag which is negated when value only contains negated tag#1","input":"class Dog\n  def initialize breed\n    @breed = breed\n  end\nend\n"}
+{"id":"reader_test.rb#include directive selects all lines except tags which are negated when value only contains negated tags#0","input":"----\ninclude::fixtures/tagged-class.rb[tags=!bark;!init]\n----\n"}
+{"id":"reader_test.rb#include directive selects all lines except tags which are negated when value only contains negated tags#1","input":"class Dog\nend\n"}
+{"id":"reader_test.rb#should recognize tag wildcard if not at start of tags list#0","input":"----\ninclude::fixtures/tagged-class.rb[tags=init;**;*;!bark-other]\n----\n"}
+{"id":"reader_test.rb#should recognize tag wildcard if not at start of tags list#1","input":"class Dog\n  def initialize breed\n    @breed = breed\n  end\n\n  def bark\n    if @breed == 'beagle'\n      'woof woof woof woof woof'\n    end\n  end\nend\n"}
+{"id":"reader_test.rb#include directive selects lines between tags when value of tags attribute is wildcard#0","input":"----\ninclude::fixtures/tagged-class.rb[tags=*]\n----\n"}
+{"id":"reader_test.rb#include directive selects lines inside tags when value of tags attribute is wildcard and tag surrounds content#0","input":"----\ninclude::fixtures/tagged-class-enclosed.rb[tags=*]\n----\n"}
+{"id":"reader_test.rb#include directive selects lines inside tags when value of tags attribute is wildcard and tag surrounds content#1","input":"class Dog\n  def initialize breed\n    @breed = breed\n  end\n\n  def bark\n    if @breed == 'beagle'\n      'woof woof woof woof woof'\n    else\n      'woof woof'\n    end\n  end\nend\n"}
+{"id":"reader_test.rb#include directive selects lines inside all tags except tag which is negated when value of tags attribute is wildcard followed by negated tag#0","input":"----\ninclude::fixtures/tagged-class-enclosed.rb[tags=*;!init]\n----\n"}
+{"id":"reader_test.rb#include directive selects lines inside all tags except tag which is negated when value of tags attribute is wildcard followed by negated tag#1","input":"class Dog\n\n  def bark\n    if @breed == 'beagle'\n      'woof woof woof woof woof'\n    else\n      'woof woof'\n    end\n  end\nend\n"}
+{"id":"reader_test.rb#include directive skips all tagged regions except ones re-enabled when value of tags attribute is negated wildcard followed by tag name#0","input":"class Dog\n  def initialize breed\n    @breed = breed\n  end\nend\n"}
+{"id":"reader_test.rb#include directive includes regions outside tags and inside specified tags when value begins with negated wildcard#0","input":"----\ninclude::fixtures/tagged-class.rb[tags=!*;bark]\n----\n"}
+{"id":"reader_test.rb#include directive includes regions outside tags and inside specified tags when value begins with negated wildcard#1","input":"class Dog\n\n  def bark\n  end\nend\n"}
+{"id":"reader_test.rb#include directive selects lines inside tag except for lines inside nested tags when tag is preceded by negated double asterisk and negated wildcard#0","input":"----\ninclude::fixtures/tagged-class.rb[tags=!**;!*;bark]\n----\n"}
+{"id":"reader_test.rb#include directive does not select lines inside tag that has been included then excluded#0","input":"----\ninclude::fixtures/tagged-class.rb[tags=!*;init;!init]\n----\n"}
+{"id":"reader_test.rb#include directive does not select lines inside tag that has been included then excluded#1","input":"class Dog\nend\n"}
+{"id":"reader_test.rb#include directive selects lines inside specified tag and ignores lines inside a negated tag#0","input":"[indent=0]\n----\ninclude::fixtures/tagged-class.rb[tags=bark;!bark-other]\n----\n"}
+{"id":"reader_test.rb#include directive selects lines inside specified tag and ignores lines inside a negated tag#1","input":"def bark\n  if @breed == 'beagle'\n    'woof woof woof woof woof'\n  end\nend\n"}
+{"id":"reader_test.rb#should not warn if specified negated tag is not found in include file#0","input":"----\ninclude::fixtures/tagged-class-enclosed.rb[tag=!no-such-tag]\n----\n"}
+{"id":"reader_test.rb#should warn if specified tags are not found in include file#0","input":"++++\ninclude::fixtures/include-file.adoc[tags=no-such-tag-b;no-such-tag-a]\n++++\n"}
+{"id":"reader_test.rb#should not warn if specified negated tags are not found in include file#0","input":"----\ninclude::fixtures/tagged-class-enclosed.rb[tags=all;!no-such-tag;!unknown-tag]\n----\n"}
+{"id":"reader_test.rb#should warn if specified tag in include file is not closed#0","input":"++++\ninclude::fixtures/unclosed-tag.adoc[tag=a]\n++++\n"}
+{"id":"reader_test.rb#should warn if end tag in included file is mismatched#0","input":"++++\ninclude::fixtures/mismatched-end-tag.adoc[tags=a;b]\n++++\n"}
+{"id":"reader_test.rb#should warn if unexpected end tag is found in included file#0","input":"++++\ninclude::fixtures/unexpected-end-tag.adoc[tags=a]\n++++\n"}
+{"id":"reader_test.rb#indent of included file can be reset to size of indent attribute#0","input":"[source, xml]\n----\ninclude::fixtures/basic-docinfo.xml[lines=2..3, indent=0]\n----\n"}
+{"id":"reader_test.rb#should substitute attribute references in attrlist#0","input":":name-of-tag: snippetA\ninclude::fixtures/include-file.adoc[tag={name-of-tag}]\n"}
+{"id":"reader_test.rb#leveloffset attribute entries should be added to content if leveloffset attribute is specified#0","input":"= Main Document\n\npreamble\n\n:leveloffset: +1\n\n= Chapter A\n\ncontent\n\n:leveloffset!:\n"}
+{"id":"reader_test.rb#attributes are substituted in target of include directive#0","input":":fixturesdir: fixtures\n:ext: adoc\n\ninclude::{fixturesdir}/include-file.{ext}[]\n"}
+{"id":"reader_test.rb#line following dropped include is not dropped#0","input":"include::{foodir}/include-file.adoc[]\nyo\n"}
+{"id":"reader_test.rb#escaped include directive is left unprocessed#0","input":"\\include::fixtures/include-file.adoc[]\n\\escape preserved here\n"}
+{"id":"reader_test.rb#max-include-depth cannot be set by document#0","input":":max-include-depth: 1\n\ninclude::include-file.adoc[]\n"}
+{"id":"reader_test.rb#read_lines_until should not process lines if process option is false#0","input":"////\ninclude::fixtures/no-such-file.adoc[]\n////\n"}
+{"id":"reader_test.rb#skip_comment_lines should not process lines read#0","input":"////\ninclude::fixtures/no-such-file.adoc[]\n////\n"}
+{"id":"reader_test.rb#process_line returns nil if cursor advanced#0","input":"ifdef::asciidoctor[]\nAsciidoctor!\nendif::asciidoctor[]\n"}
+{"id":"reader_test.rb#peek_line advances cursor to next conditional line of content#0","input":"ifdef::asciidoctor[]\nAsciidoctor!\nendif::asciidoctor[]\n"}
+{"id":"reader_test.rb#peek_lines should preprocess lines if direct is false#0","input":"The Asciidoctor\nifdef::asciidoctor[is in.]\n"}
+{"id":"reader_test.rb#peek_lines should not preprocess lines if direct is true#0","input":"The Asciidoctor\nifdef::asciidoctor[is in.]\n"}
+{"id":"reader_test.rb#peek_lines should not prevent subsequent preprocessing of peeked lines#0","input":"The Asciidoctor\nifdef::asciidoctor[is in.]\n"}
+{"id":"reader_test.rb#process_line returns line if cursor not advanced#0","input":"content\nifdef::asciidoctor[]\nAsciidoctor!\nendif::asciidoctor[]\n"}
+{"id":"reader_test.rb#peek_line does not advance cursor when on a regular content line#0","input":"content\nifdef::asciidoctor[]\nAsciidoctor!\nendif::asciidoctor[]\n"}
+{"id":"reader_test.rb#peek_line returns nil if cursor advances past end of source#0","input":"ifdef::foobar[]\nswallowed content\nendif::foobar[]\n"}
+{"id":"reader_test.rb#peek_line returns nil if contents of skipped conditional is empty line#0","input":"ifdef::foobar[]\n\nendif::foobar[]\n"}
+{"id":"reader_test.rb#ifdef with defined attribute includes content#0","input":"ifdef::holygrail[]\nThere is a holy grail!\nendif::holygrail[]\n"}
+{"id":"reader_test.rb#ifdef with defined attribute includes text in brackets#0","input":"On our quest we go...\nifdef::holygrail[There is a holy grail!]\nThere was much rejoicing.\n"}
+{"id":"reader_test.rb#ifdef attribute name is not case sensitive#0","input":"ifdef::showScript[]\nThe script is shown!\nendif::showScript[]\n"}
+{"id":"reader_test.rb#ifndef with defined attribute does not include text in brackets#0","input":"On our quest we go...\nifndef::hardships[There is a holy grail!]\nThere was no rejoicing.\n"}
+{"id":"reader_test.rb#include with non-matching nested exclude#0","input":"ifdef::grail[]\nholy\nifdef::swallow[]\nswallow\nendif::swallow[]\ngrail\nendif::grail[]\n"}
+{"id":"reader_test.rb#nested excludes with same condition#0","input":"ifndef::grail[]\nifndef::grail[]\nnot here\nendif::grail[]\nendif::grail[]\n"}
+{"id":"reader_test.rb#include with nested exclude of inverted condition#0","input":"ifdef::grail[]\nholy\nifndef::grail[]\nnot here\nendif::grail[]\ngrail\nendif::grail[]\n"}
+{"id":"reader_test.rb#exclude with matching nested exclude#0","input":"poof\nifdef::swallow[]\nno\nifdef::swallow[]\nswallow\nendif::swallow[]\nhere\nendif::swallow[]\ngone\n"}
+{"id":"reader_test.rb#exclude with nested include using shorthand end#0","input":"poof\nifndef::grail[]\nno grail\nifndef::swallow[]\nor swallow\nendif::[]\nin here\nendif::[]\ngone\n"}
+{"id":"reader_test.rb#ifdef with one alternative attribute set includes content#0","input":"ifdef::holygrail,swallow[]\nOur quest is complete!\nendif::holygrail,swallow[]\n"}
+{"id":"reader_test.rb#ifdef with no alternative attributes set does not include content#0","input":"ifdef::holygrail,swallow[]\nOur quest is complete!\nendif::holygrail,swallow[]\n"}
+{"id":"reader_test.rb#ifdef with all required attributes set includes content#0","input":"ifdef::holygrail+swallow[]\nOur quest is complete!\nendif::holygrail+swallow[]\n"}
+{"id":"reader_test.rb#ifdef with missing required attributes does not include content#0","input":"ifdef::holygrail+swallow[]\nOur quest is complete!\nendif::holygrail+swallow[]\n"}
+{"id":"reader_test.rb#ifndef with undefined attribute includes block#0","input":"ifndef::holygrail[]\nOur quest continues to find the holy grail!\nendif::holygrail[]\n"}
+{"id":"reader_test.rb#ifndef with one alternative attribute set does not include content#0","input":"ifndef::holygrail,swallow[]\nOur quest is complete!\nendif::holygrail,swallow[]\n"}
+{"id":"reader_test.rb#ifndef with both alternative attributes set does not include content#0","input":"ifndef::holygrail,swallow[]\nOur quest is complete!\nendif::holygrail,swallow[]\n"}
+{"id":"reader_test.rb#ifndef with no alternative attributes set includes content#0","input":"ifndef::holygrail,swallow[]\nOur quest is complete!\nendif::holygrail,swallow[]\n"}
+{"id":"reader_test.rb#ifndef with no required attributes set includes content#0","input":"ifndef::holygrail+swallow[]\nOur quest is complete!\nendif::holygrail+swallow[]\n"}
+{"id":"reader_test.rb#ifndef with all required attributes set does not include content#0","input":"ifndef::holygrail+swallow[]\nOur quest is complete!\nendif::holygrail+swallow[]\n"}
+{"id":"reader_test.rb#ifndef with at least one required attributes set does not include content#0","input":"ifndef::holygrail+swallow[]\nOur quest is complete!\nendif::holygrail+swallow[]\n"}
+{"id":"reader_test.rb#ifdef around empty line does not introduce extra line#0","input":"before\nifdef::no-such-attribute[]\n\nendif::[]\nafter\n"}
+{"id":"reader_test.rb#should log warning if endif is unmatched#0","input":"Our quest is complete!\nendif::on-quest[]\n"}
+{"id":"reader_test.rb#should log warning if endif is mismatched#0","input":"ifdef::on-quest[]\nOur quest is complete!\nendif::on-journey[]\n"}
+{"id":"reader_test.rb#should log warning if endif contains text#0","input":"ifdef::on-quest[]\nOur quest is complete!\nendif::on-quest[complete!]\nfin\n"}
+{"id":"reader_test.rb#escaped ifdef is unescaped and ignored#0","input":"\\ifdef::holygrail[]\ncontent\n\\endif::holygrail[]\n"}
+{"id":"reader_test.rb#ifeval comparing missing attribute to nil includes content#0","input":"ifeval::['{foo}' == '']\nNo foo for you!\nendif::[]\n"}
+{"id":"reader_test.rb#ifeval comparing missing attribute to 0 drops content#0","input":"ifeval::[{leveloffset} == 0]\nI didn't make the cut!\nendif::[]\n"}
+{"id":"reader_test.rb#ifeval running unsupported operation on missing attribute drops content#0","input":"ifeval::[{leveloffset} >= 3]\nI didn't make the cut!\nendif::[]\n"}
+{"id":"reader_test.rb#ifeval running invalid operation drops content#0","input":"ifeval::[{asciidoctor-version} > true]\nI didn't make the cut!\nendif::[]\n"}
+{"id":"reader_test.rb#ifeval comparing double-quoted attribute to matching string includes content#0","input":"ifeval::[\"{gem}\" == \"asciidoctor\"]\nAsciidoctor it is!\nendif::[]\n"}
+{"id":"reader_test.rb#ifeval comparing single-quoted attribute to matching string includes content#0","input":"ifeval::['{gem}' == 'asciidoctor']\nAsciidoctor it is!\nendif::[]\n"}
+{"id":"reader_test.rb#ifeval comparing quoted attribute to non-matching string drops content#0","input":"ifeval::['{gem}' == 'asciidoctor']\nAsciidoctor it is!\nendif::[]\n"}
+{"id":"reader_test.rb#ifeval comparing attribute to lower version number includes content#0","input":"ifeval::['{asciidoctor-version}' >= '0.1.0']\nThat version will do!\nendif::[]\n"}
+{"id":"reader_test.rb#ifeval comparing attribute to self includes content#0","input":"ifeval::['{asciidoctor-version}' == '{asciidoctor-version}']\nOf course it's the same!\nendif::[]\n"}
+{"id":"reader_test.rb#ifeval arguments can be transposed#0","input":"ifeval::['0.1.0' <= '{asciidoctor-version}']\nThat version will do!\nendif::[]\n"}
+{"id":"reader_test.rb#ifeval matching numeric equality includes content#0","input":"ifeval::[{rings} == 1]\nOne ring to rule them all!\nendif::[]\n"}
+{"id":"reader_test.rb#ifeval matching numeric inequality includes content#0","input":"ifeval::[{rings} != 0]\nOne ring to rule them all!\nendif::[]\n"}
+{"id":"reader_test.rb#should log error if ifeval has target#0","input":"ifeval::target[1 == 1]\ncontent\n"}
+{"id":"reader_test.rb#should log error if ifeval has invalid expression#0","input":"ifeval::[1 | 2]\ncontent\n"}
+{"id":"reader_test.rb#should log error if ifeval is missing expression#0","input":"ifeval::[]\ncontent\n"}
+{"id":"reader_test.rb#ifdef with no target is ignored#0","input":"ifdef::[]\ncontent\n"}
+{"id":"reader_test.rb#should not warn about invalid ifdef preprocessor directive if already skipping#0","input":"ifdef::attribute-not-set[]\nfoo\nifdef::[]\nbar\nendif::[]\nbaz\n"}
+{"id":"reader_test.rb#should not warn about invalid ifeval preprocessor directive if already skipping#0","input":"ifdef::attribute-not-set[]\nfoo\nifeval::[]\nbar\nendif::[]\nbaz\n"}
+{"id":"reader_test.rb#should log error with end position if preprocessor conditional directive is unterminated#0","input":"before\nifdef::not-set[]\nskip\nthese\nlines\nfin\n"}
+{"id":"reader_test.rb#should log error with start location if preprocessor conditional directive is unterminated and sourcemap is set#0","input":"before\nifdef::not-set[]\nskip\nthese\nlines\nfin\n"}
+{"id":"reader_test.rb#should log error if multiple preprocessor conditional directives are unterminated#0","input":"before\nifdef::not-set[]\nskip\nthese\nlines\nifeval::[1 == 2]\n{asciidoctor-version}\nfin\n"}

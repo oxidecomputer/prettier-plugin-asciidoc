@@ -1,0 +1,8 @@
+{"id":"invoker_test.rb#should print warnings to stderr by default#0","input":"1. first\n3. third\n"}
+{"id":"invoker_test.rb#should change level on logger when --log-level is specified#0","input":"skip to <<install>>\n\n. download\n. install[[install]]\n. run\n"}
+{"id":"invoker_test.rb#should not log when --log-level and -q are both specified#0","input":"skip to <<install>>\n\n. download\n. install[[install]]\n. run\n"}
+{"id":"invoker_test.rb#should use specified log level when --log-level and -v are both specified#0","input":"skip to <<install>>\n\n. download\n. install[[install]]\n. run\n"}
+{"id":"invoker_test.rb#should silence warnings if -q flag is specified#0","input":"2. second\n3. third\n"}
+{"id":"invoker_test.rb#should not fail to check log level when -q flag is specified#0","input":"skip to <<install>>\n\n. download\n. install[[install]]\n. run\n"}
+{"id":"invoker_test.rb#should return non-zero exit code if failure level is reached#0","input":"1. first\n3. third\n"}
+{"id":"invoker_test.rb#should write page for each alternate manname#0","input":"= eve(1)\nAndrew Stanton\nv1.0.0\n:doctype: manpage\n:manmanual: EVE\n:mansource: EVE\n\n== NAME\n\neve, islifeform - analyzes an image to determine if it's a picture of a life form\n\n== SYNOPSIS\n\n*eve* ['OPTION']... 'FILE'...\n"}

@@ -1,0 +1,38 @@
+{"id":"paragraphs_test.rb#should treat plain text separated by blank lines as paragraphs#0","input":"Plain text for the win!\n\nYep. Text. Plain and simple.\n"}
+{"id":"paragraphs_test.rb#should associate block title with paragraph#0","input":".Titled\nParagraph.\n\nWinning.\n"}
+{"id":"paragraphs_test.rb#no duplicate block before next section#0","input":"= Title\n\nPreamble\n\n== First Section\n\nParagraph 1\n\nParagraph 2\n\n== Second Section\n\nLast words\n"}
+{"id":"paragraphs_test.rb#does not treat wrapped line as a list item#0","input":"paragraph\n. wrapped line\n"}
+{"id":"paragraphs_test.rb#does not treat wrapped line as a block title#0","input":"paragraph\n.wrapped line\n"}
+{"id":"paragraphs_test.rb#interprets normal paragraph style as normal paragraph#0","input":"[normal]\nNormal paragraph.\nNothing special.\n"}
+{"id":"paragraphs_test.rb#removes indentation from literal paragraph marked as normal#0","input":"[normal]\n  Normal paragraph.\n    Nothing special.\n  Last line.\n"}
+{"id":"paragraphs_test.rb#normal paragraph terminates at block attribute list#0","input":"normal text\n[literal]\nliteral text\n"}
+{"id":"paragraphs_test.rb#normal paragraph terminates at block delimiter#0","input":"normal text\n--\ntext in open block\n--\n"}
+{"id":"paragraphs_test.rb#normal paragraph terminates at list continuation#0","input":"normal text\n+\n"}
+{"id":"paragraphs_test.rb#normal style turns literal paragraph into normal paragraph#0","input":"[normal]\n normal paragraph,\n despite the leading indent\n"}
+{"id":"paragraphs_test.rb#automatically promotes index terms in DocBook output if indexterm-promotion-option is set#0","input":"Here is an index entry for ((tigers)).\nindexterm:[Big cats,Tigers,Siberian Tiger]\nHere is an index entry for indexterm2:[Linux].\n(((Operating Systems,Linux)))\nNote that multi-entry terms generate separate index entries.\n"}
+{"id":"paragraphs_test.rb#does not automatically promote index terms in DocBook output if indexterm-promotion-option is not set#0","input":"The Siberian Tiger is one of the biggest living cats.\nindexterm:[Big cats,Tigers,Siberian Tiger]\nNote that multi-entry terms generate separate index entries.\n(((Operating Systems,Linux)))\n"}
+{"id":"paragraphs_test.rb#normal paragraph should honor explicit subs list#0","input":"[subs=\"specialcharacters\"]\n*<Hey Jude>*\n"}
+{"id":"paragraphs_test.rb#normal paragraph should honor specialchars shorthand#0","input":"[subs=\"specialchars\"]\n*<Hey Jude>*\n"}
+{"id":"paragraphs_test.rb#should add a hardbreak at end of each line when hardbreaks option is set#0","input":"[%hardbreaks]\nread\nmy\nlips\n"}
+{"id":"paragraphs_test.rb#should be able to toggle hardbreaks by setting hardbreaks-option on document#0","input":":hardbreaks-option:\n\nmake\nit\nso\n\n:!hardbreaks:\n\nroll it back\n"}
+{"id":"paragraphs_test.rb#single-line literal paragraphs#0","input":"you know what?\n\n LITERALS\n\n ARE LITERALLY\n\n AWESOME!\n"}
+{"id":"paragraphs_test.rb#multi-line literal paragraph#0","input":"Install instructions:\n\n yum install ruby rubygems\n gem install asciidoctor\n\nYou're good to go!\n"}
+{"id":"paragraphs_test.rb#literal paragraph#0","input":"[literal]\nthis text is literally literal\n"}
+{"id":"paragraphs_test.rb#should read content below literal style verbatim#0","input":"[literal]\nimage::not-an-image-block[]\n"}
+{"id":"paragraphs_test.rb#listing paragraph#0","input":"[listing]\nthis text is a listing\n"}
+{"id":"paragraphs_test.rb#source paragraph#0","input":"[source]\nuse the source, luke!\n"}
+{"id":"paragraphs_test.rb#source code paragraph with language#0","input":"[source, perl]\ndie 'zomg perl is tough';\n"}
+{"id":"paragraphs_test.rb#literal paragraph terminates at block attribute list#0","input":" literal text\n[normal]\nnormal text\n"}
+{"id":"paragraphs_test.rb#literal paragraph terminates at block delimiter#0","input":" literal text\n--\nnormal text\n--\n"}
+{"id":"paragraphs_test.rb#literal paragraph terminates at list continuation#0","input":" literal text\n+\n"}
+{"id":"paragraphs_test.rb#single-line quote paragraph#0","input":"[quote]\nFamous quote.\n"}
+{"id":"paragraphs_test.rb#quote paragraph terminates at list continuation#0","input":"[quote]\nA famouse quote.\n+\n"}
+{"id":"paragraphs_test.rb#should perform normal subs on a verse paragraph#0","input":"[verse]\n_GET /groups/link:#group-id[\\{group-id\\}]_\n"}
+{"id":"paragraphs_test.rb#quote paragraph should honor explicit subs list#0","input":"[subs=\"specialcharacters\"]\n[quote]\n*Hey Jude*\n"}
+{"id":"paragraphs_test.rb#should process preprocessor conditional in paragraph content#0","input":"ifdef::asciidoctor-version[]\n[sidebar]\nFirst line of sidebar.\nifdef::backend[The backend is {backend}.]\nLast line of sidebar.\nendif::[]\n"}
+{"id":"paragraphs_test.rb#should process preprocessor conditional in paragraph content#1","input":"<div class=\"sidebarblock\">\n<div class=\"content\">\nFirst line of sidebar.\nThe backend is html5.\nLast line of sidebar.\n</div>\n</div>\n"}
+{"id":"paragraphs_test.rb#should wrap text in simpara for styled paragraphs when converted to DocBook#0","input":"= Book\n:doctype: book\n\n[preface]\n= About this book\n\n[abstract]\nAn abstract for the book.\n\n= Part 1\n\n[partintro]\nAn intro to this part.\n\n== Chapter 1\n\n[sidebar]\nJust a side note.\n\n[example]\nAs you can see here.\n\n[quote]\nWise words from a wise person.\n\n[open]\nMake it what you want.\n"}
+{"id":"paragraphs_test.rb#should convert open paragraph to open block#0","input":"[open]\nMake it what you want.\n"}
+{"id":"paragraphs_test.rb#should wrap text in simpara for styled paragraphs with title when converted to DocBook#0","input":"= Book\n:doctype: book\n\n[preface]\n= About this book\n\n[abstract]\n.Abstract title\nAn abstract for the book.\n\n= Part 1\n\n[partintro]\n.Part intro title\nAn intro to this part.\n\n== Chapter 1\n\n[sidebar]\n.Sidebar title\nJust a side note.\n\n[example]\n.Example title\nAs you can see here.\n\n[quote]\n.Quote title\nWise words from a wise person.\n"}
+{"id":"paragraphs_test.rb#should not warn if paragraph style is unregisted#0","input":"[foo]\nbar\n"}
+{"id":"paragraphs_test.rb#should log debug message if paragraph style is unknown and debug level is enabled#0","input":"[foo]\nbar\n"}

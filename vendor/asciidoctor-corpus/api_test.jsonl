@@ -1,0 +1,66 @@
+{"id":"api_test.rb#should load input IO#0","input":"Document Title\n==============\n\npreamble\n"}
+{"id":"api_test.rb#should load input string#0","input":"Document Title\n==============\n\npreamble\n"}
+{"id":"api_test.rb#should load input string array#0","input":"Document Title\n==============\n\npreamble\n"}
+{"id":"api_test.rb#converts block to output format when convert is called#0","input":"<div class=\"paragraph\">\n<p>paragraph text</p>\n</div>\n"}
+{"id":"api_test.rb#render method on node is aliased to convert method#0","input":"paragraph text\n\n* list item\n"}
+{"id":"api_test.rb#should be able to restore header attributes after call to convert#0","input":"= Document Title\n:foo: bar\n\ncontent\n\n:foo: baz\n\ncontent\n"}
+{"id":"api_test.rb#should assign incorrect lineno for paragraph inside a conditional preprocessor directive#0","input":":conditional-attribute:\n\nbefore\n\nifdef::conditional-attribute[]\nsubject\nendif::[]\n\nafter\n"}
+{"id":"api_test.rb#should assign correct lineno for paragraph inside a conditional preprocessor directive when underline style off#0","input":":conditional-attribute:\n\nbefore\n\nifdef::conditional-attribute[]\nsubject\nendif::[]\n\nafter\n"}
+{"id":"api_test.rb#should assign correct lineno for multi-line paragraph inside a conditional preprocessor directive#0","input":":conditional-attribute:\n\nbefore\n\nifdef::conditional-attribute[]\nsubject\nsubject\nendif::[]\n\nafter\n"}
+{"id":"api_test.rb#should assign correct source location to blocks that follow a detached list continuation#0","input":"* parent\n ** child\n\n+\nparagraph attached to parent\n\n****\nsidebar outside list\n****\n"}
+{"id":"api_test.rb#should assign correct source location if section occurs on last line of input#0","input":"= Document Title\n\n== Section A\n\ncontent\n\n== Section B\n"}
+{"id":"api_test.rb#find_by should return Array of blocks anywhere in document tree that match criteria#0","input":"= Document Title\n\npreamble\n\n== Section A\n\nparagraph\n\n--\nExhibit A::\n+\n[#tiger.animal]\nimage::tiger.png[Tiger]\n--\n\nimage::shoe.png[Shoe]\n\n== Section B\n\nparagraph\n"}
+{"id":"api_test.rb#should only return matched node when return value of block argument is :prune#0","input":"* foo\n ** yin\n  *** zen\n ** yang\n* bar\n* baz\n"}
+{"id":"api_test.rb#find_by should discover blocks inside AsciiDoc table cells if traverse_documents selector option is true#0","input":"paragraph in parent document (before)\n\n[%footer,cols=2*]\n|===\na|\nparagraph in nested document (body)\n|normal table cell\n\na|\nparagraph in nested document (foot)\n|normal table cell\n|===\n\nparagraph in parent document (after)\n"}
+{"id":"api_test.rb#find_by should return inner document of AsciiDoc table cell if traverse_documents selector option is true#0","input":"|===\na|paragraph in nested document\n|===\n"}
+{"id":"api_test.rb#find_by should match table cells#0","input":"|===\n|a |b |c\n\n|1\none\na|NOTE: 2, as it goes.\nl|\n3\n you\n  me\n|===\n"}
+{"id":"api_test.rb#find_by should return Array of blocks that match style criteria#0","input":"[square]\n* one\n* two\n* three\n\n---\n\n* apples\n* bananas\n* pears\n"}
+{"id":"api_test.rb#find_by should return Array of blocks that match role criteria#0","input":"[#tiger.animal]\nimage::tiger.png[Tiger]\n\nimage::shoe.png[Shoe]\n"}
+{"id":"api_test.rb#find_by should return the document title section if context selector is :section#0","input":"= Document Title\n\npreamble\n\n== Section One\n\ncontent\n"}
+{"id":"api_test.rb#find_by should only return results for which the block argument yields true#0","input":"== Section\n\ncontent\n\n=== Subsection\n\ncontent\n"}
+{"id":"api_test.rb#find_by should reject node and its children if block returns :reject#0","input":"paragraph 1\n\n====\nparagraph 2\n\nterm::\n+\nparagraph 3\n====\n\nparagraph 4\n"}
+{"id":"api_test.rb#find_by should reject node matched by ID selector if block returns :reject#0","input":"[.rolename]\nparagraph 1\n\n[.rolename#idname]\nparagraph 2\n"}
+{"id":"api_test.rb#find_by should accept node matched by ID selector if block returns :prune#0","input":"[.rolename]\nparagraph 1\n\n[.rolename#idname]\n====\nparagraph 2\n====\n"}
+{"id":"api_test.rb#find_by should accept node but reject its children if block returns :prune#0","input":"====\nparagraph 2\n\nterm::\n+\nparagraph 3\n====\n"}
+{"id":"api_test.rb#find_by should stop looking for blocks when StopIteration is raised#0","input":"paragraph 1\n\n====\nparagraph 2\n\n****\nparagraph 3\n****\n====\n\nparagraph 4\n\n* item\n+\nparagraph 5\n"}
+{"id":"api_test.rb#find_by should stop looking for blocks when filter block returns :stop directive#0","input":"paragraph 1\n\n====\nparagraph 2\n\n****\nparagraph 3\n****\n====\n\nparagraph 4\n\n* item\n+\nparagraph 5\n"}
+{"id":"api_test.rb#find_by should only return one result when matching by id#0","input":"== Section\n\ncontent\n\n[#subsection]\n=== Subsection\n\ncontent\n"}
+{"id":"api_test.rb#find_by should stop seeking once match is found#0","input":"== Section\n\ncontent\n\n[#subsection]\n=== Subsection\n\n[#last]\ncontent\n"}
+{"id":"api_test.rb#find_by should return an empty Array if the id criteria matches but the block argument yields false#0","input":"== Section\n\ncontent\n\n[#subsection]\n=== Subsection\n\ncontent\n"}
+{"id":"api_test.rb#can substitute a custom syntax highlighter factory instance using the :syntax_highlighter_factory option#0","input":"[source,ruby]\n----\nputs 'Hello, World!'\n----\n"}
+{"id":"api_test.rb#can substitute an extended syntax highlighter factory implementation using the :syntax_highlighters option#0","input":"[source,ruby]\n----\nputs 'Hello, World!'\n----\n"}
+{"id":"api_test.rb#should embed default stylesheet by default if SafeMode is less than SECURE#0","input":"= Document Title\n\ntext\n"}
+{"id":"api_test.rb#should embed remote stylesheet by default if SafeMode is less than SECURE and allow-uri-read is set#0","input":"= Document Title\n\ntext\n"}
+{"id":"api_test.rb#should not allow linkcss be unset from document if SafeMode is SECURE or greater#0","input":"= Document Title\n:linkcss!:\n\ntext\n"}
+{"id":"api_test.rb#should embed default stylesheet if linkcss is unset from API and SafeMode is SECURE or greater#0","input":"= Document Title\n\ntext\n"}
+{"id":"api_test.rb#should not link to stylesheet if stylesheet is unset#0","input":"= Document Title\n\ntext\n"}
+{"id":"api_test.rb#should link to custom stylesheet if specified in stylesheet attribute#0","input":"= Document Title\n\ntext\n"}
+{"id":"api_test.rb#should resolve custom stylesheet relative to stylesdir#0","input":"= Document Title\n\ntext\n"}
+{"id":"api_test.rb#should embed custom remote stylesheet if SafeMode is less than SECURE and allow-uri-read is set#0","input":"= Document Title\n\ntext\n"}
+{"id":"api_test.rb#should embed custom remote stylesheet if SafeMode is less than SECURE and allow-uri-read is set#1","input":"= Document Title\n\ntext\n"}
+{"id":"api_test.rb#should embed custom stylesheet in remote stylesdir if SafeMode is less than SECURE and allow-uri-read is set#0","input":"= Document Title\n\ntext\n"}
+{"id":"api_test.rb#can override syntax highlighter using syntax_highlighters option#0","input":"[source,ruby]\n----\nputs 'Hello, World!'\n----\n"}
+{"id":"api_test.rb#with no author#0","input":"= Getting Real: The Smarter, Faster, Easier Way to Build a Successful Web Application\n\nGetting Real details the business, design, programming, and marketing principles of 37signals.\n"}
+{"id":"api_test.rb#with one author#0","input":"= Getting Real: The Smarter, Faster, Easier Way to Build a Successful Web Application\nDavid Heinemeier Hansson <david@37signals.com>\n\nGetting Real details the business, design, programming, and marketing principles of 37signals.\n"}
+{"id":"api_test.rb#with two authors#0","input":"= Getting Real: The Smarter, Faster, Easier Way to Build a Successful Web Application\nDavid Heinemeier Hansson <david@37signals.com>; Jason Fried <jason@37signals.com>\n\nGetting Real details the business, design, programming, and marketing principles of 37signals.\n"}
+{"id":"api_test.rb#with authors as attributes#0","input":"= Getting Real: The Smarter, Faster, Easier Way to Build a Successful Web Application\n:author_1: David Heinemeier Hansson\n:email_1: david@37signals.com\n:author_2: Jason Fried\n:email_2: jason@37signals.com\n\nGetting Real details the business, design, programming, and marketing principles of 37signals.\n"}
+{"id":"api_test.rb#should not crash if nil cell text is passed to Cell constructor#0","input":"|===\n|a\n|===\n"}
+{"id":"api_test.rb#should set option on node when set_option is called#0","input":". three\n. two\n. one\n"}
+{"id":"api_test.rb#enabled_options should return all options which are set#0","input":"[%interactive]\n* [x] code\n* [ ] test\n* [ ] profit\n"}
+{"id":"api_test.rb#should append option to existing options#0","input":"[%fancy]\n. three\n. two\n. one\n"}
+{"id":"api_test.rb#should not append option if option is already set#0","input":"[%reversed]\n. three\n. two\n. one\n"}
+{"id":"api_test.rb#should return set of option names#0","input":"[%compact%reversed]\n. three\n. two\n. one\n"}
+{"id":"api_test.rb#should set linenums option if linenums enabled on source block#0","input":"[,ruby,linenums]\n----\nputs \"Hello, World!\"\n----\n"}
+{"id":"api_test.rb#should set linenums option if linenums enabled on fenced code block#0","input":"```ruby,linenums\nputs \"Hello, World!\"\n```\n"}
+{"id":"api_test.rb#should not set linenums attribute if linenums option is enabled on source block#0","input":"[%linenums,ruby]\n----\nputs \"Hello, World!\"\n----\n"}
+{"id":"api_test.rb#should not set linenums attribute if linenums option is enabled on fenced code block#0","input":":source-linenums-option:\n\n```ruby\nputs \"Hello, World!\"\n```\n"}
+{"id":"api_test.rb#table column should not be a block or inline#0","input":"|===\n|a\n|===\n"}
+{"id":"api_test.rb#table cell should be a block#0","input":"|===\n|a\n|===\n"}
+{"id":"api_test.rb#next_adjacent_block should return next block#0","input":"first\n\nsecond\n"}
+{"id":"api_test.rb#next_adjacent_block should return next sibling of parent if called on last sibling#0","input":"--\nfirst\n--\n\nsecond\n"}
+{"id":"api_test.rb#next_adjacent_block should return next sibling of list if called on last item#0","input":"* first\n\nsecond\n"}
+{"id":"api_test.rb#next_adjacent_block should return next item in dlist if called on last block of list item#0","input":"first::\ndesc\n+\nmore desc\n\nsecond::\ndesc\n"}
+{"id":"api_test.rb#should return true when sections? is called on a document or section that has sections#0","input":"= Document Title\n\n== First Section\n\n=== First subsection\n\ncontent\n"}
+{"id":"api_test.rb#should return false when sections? is called on a document with no sections#0","input":"= Document Title\n\ncontent\n"}
+{"id":"api_test.rb#should return false when sections? is called on a section with no sections#0","input":"= Document Title\n\n== First Section\n"}
+{"id":"api_test.rb#should return false when sections? is called on anything that is not a section#0","input":".Title\n====\nI'm not section!\n====\n\n[NOTE]\nI'm not a section either!\n"}

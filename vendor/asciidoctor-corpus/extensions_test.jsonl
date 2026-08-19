@@ -1,0 +1,32 @@
+{"id":"extensions_test.rb#should invoke preprocessors before parsing document#0","input":"junk line\n\n= Document Title\n\nsample content\n"}
+{"id":"extensions_test.rb#should invoke include processor to process include directive#0","input":"before\n\ninclude::lorem-ipsum.txt[]\n\nafter\n"}
+{"id":"extensions_test.rb#should invoke include processor if it requests to handle include directive#0","input":"include::skip-me.adoc[]\nline after skip\n\ninclude::include-file.adoc[]\n\ninclude::fixtures/grandchild-include.adoc[]\n\nlast line\n"}
+{"id":"extensions_test.rb#should invoke tree processors after parsing document#0","input":"= Document Title\nDoc Writer\n\ncontent\n"}
+{"id":"extensions_test.rb#should allow tree processor to replace tree#0","input":"= Original Document\nDoc Writer\n\ncontent\n"}
+{"id":"extensions_test.rb#should honor block title assigned in tree processor#0","input":"= Document Title\n:!example-caption:\n\n.Old block title\n====\nexample block content\n====\n"}
+{"id":"extensions_test.rb#should invoke postprocessors after converting document#0","input":"* one\n* two\n* three\n"}
+{"id":"extensions_test.rb#should yield to document processor block if block has non-zero arity#0","input":"hi!\n"}
+{"id":"extensions_test.rb#should invoke processor for custom block#0","input":"[yell]\nHi there!\n\n[yell,chars=aeiou]\nHi there!\n"}
+{"id":"extensions_test.rb#should invoke processor for custom block in an AsciiDoc table cell#0","input":"|===\na|\n[yell]\nHi there!\n|===\n"}
+{"id":"extensions_test.rb#should yield to syntax processor block if block has non-zero arity#0","input":"[eval]\n....\n'yolo' * 5\n....\n"}
+{"id":"extensions_test.rb#should pass cloaked context in attributes passed to process method of custom block#0","input":"[custom]\n****\nsidebar\n****\n"}
+{"id":"extensions_test.rb#should allow extension to promote paragraph to compound block#0","input":"[ex]\nexample\n"}
+{"id":"extensions_test.rb#should drop block macro line if target references missing attribute and attribute-missing is drop-line#0","input":"[.rolename]\nsnippet::{gist-ns}12345[mode=edit]\n\nfollowing paragraph\n"}
+{"id":"extensions_test.rb#should invoke processor for custom block macro in an AsciiDoc table cell#0","input":"|===\na|message::hi[]\n|===\n"}
+{"id":"extensions_test.rb#should be able to set header attribute in block macro processor#0","input":"attribute::yin[yang]\n\nheader_attribute::foo[bar]\n"}
+{"id":"extensions_test.rb#should assign captures correctly for inline macros#0","input":"[subs=normal]\n++++\nshort_attributes:[]\nshort_attributes:[value,key=val]\nshort_text:[]\nshort_text:[[text\\]]\nfull-attributes:target[]\nfull-attributes:target[value,key=val]\nfull-text:target[]\nfull-text:target[[text\\]]\n@target\n++++\n"}
+{"id":"extensions_test.rb#should assign captures correctly for inline macros#1","input":"target=\"\",attributes={}\ntarget=\"value,key=val\",attributes={1=>\"value\",\"key\"=>\"val\",\"name\"=>\"value\"}\ntarget=\"\",attributes={\"text\"=>\"\"}\ntarget=\"[text]\",attributes={\"text\"=>\"[text]\"}\ntarget=\"target\",attributes={}\ntarget=\"target\",attributes={1=>\"value\",\"key\"=>\"val\",\"name\"=>\"value\"}\ntarget=\"target\",attributes={\"text\"=>\"\"}\ntarget=\"target\",attributes={\"text\"=>\"[text]\"}\ntarget=\"target\",attributes={}\n"}
+{"id":"extensions_test.rb#should not carry over attributes if block processor returns nil#0","input":".unused title\n[skip-me]\nnot shown\n\n--\nshown\n--\n"}
+{"id":"extensions_test.rb#should not invoke process method or carry over attributes if block processor declares skip content model#0","input":".unused title\n[ignore]\nnot shown\n\n--\nshown\n--\n"}
+{"id":"extensions_test.rb#should pass attributes by value to block processor#0","input":".title\n[foo]\ncontent\n"}
+{"id":"extensions_test.rb#should allow extension to replace custom block with a list#0","input":"before\n\n[lst]\na\nb\nc\n\nafter\n"}
+{"id":"extensions_test.rb#should allow extension to replace custom block with a section#0","input":".Section Title\n[sect]\n--\na\n\nb\n--\n"}
+{"id":"extensions_test.rb#can use parse_content to append blocks to current parent#0","input":"before\n\n[csv]\n....\na,b,c\n....\n\nafter\n"}
+{"id":"extensions_test.rb#should ignore return value of custom block if value is parent#0","input":"[unwrap]\n--\na\n\nb\n\nc\n--\n"}
+{"id":"extensions_test.rb#should ignore return value of custom block macro if value is parent#0","input":"para::text[]\n"}
+{"id":"extensions_test.rb#parse_content should not share attributes between parsed blocks#0","input":"[wrap]\n--\n[foo=bar]\n====\ncontent\n====\n\n[baz=qux]\n====\ncontent\n====\n--\n"}
+{"id":"extensions_test.rb#can use parse_attributes to parse attrlist#0","input":":foo: bar\n\n[attrs]\n--\na,b,c,key=val\n--\n"}
+{"id":"extensions_test.rb#create_section should set up all section properties#0","input":"= Document Title\n:doctype: book\n:sectnums:\n\nsect::[%s]\n"}
+{"id":"extensions_test.rb#should add docinfo to document#0","input":"= Document Title\n\nsample content\n"}
+{"id":"extensions_test.rb#should add multiple docinfo to document#0","input":"= Document Title\n\nsample content\n"}
+{"id":"extensions_test.rb#should assign caption on image block if title is set on custom block macro#0","input":".Cat in Sink?\ncat_in_sink::30[]\n"}

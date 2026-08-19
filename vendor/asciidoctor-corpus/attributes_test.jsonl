@@ -1,0 +1,95 @@
+{"id":"attributes_test.rb#creates an attribute by fusing a legacy multi-line value#0","input":":description: This is the first      +\n              Ruby implementation of +\n              AsciiDoc.\n"}
+{"id":"attributes_test.rb#creates an attribute by fusing a multi-line value#0","input":":description: This is the first \\\n              Ruby implementation of \\\n              AsciiDoc.\n"}
+{"id":"attributes_test.rb#honors line break characters in multi-line values#0","input":":signature: Linus Torvalds + \\\nLinux Hacker + \\\nlinus.torvalds@example.com\n"}
+{"id":"attributes_test.rb#should allow pass macro to surround a multi-line value that contains line breaks#0","input":":signature: pass:a[{author} + \\\n{title} + \\\n{email}]\n"}
+{"id":"attributes_test.rb#assigns multi-line attribute to empty string if substitution fails to resolve attribute#0","input":":release: Asciidoctor +\n          {version}\n"}
+{"id":"attributes_test.rb#resolves attributes inside attribute value within header#0","input":"= Document Title\n:big: big\n:bigfoot: {big}foot\n\n{bigfoot}\n"}
+{"id":"attributes_test.rb#resolves attributes and pass macro inside attribute value outside header#0","input":"= Document Title\n\ncontent\n\n:big: pass:a,q[_big_]\n:bigfoot: {big}foot\n{bigfoot}\n"}
+{"id":"attributes_test.rb#should handle multibyte characters when limiting attribute value size#0","input":":name: \u65e5\u672c\u8a9e\n\n{name}\n"}
+{"id":"attributes_test.rb#should not mangle multibyte characters when limiting attribute value size#0","input":":name: \u65e5\u672c\u8a9e\n\n{name}\n"}
+{"id":"attributes_test.rb#resolves user-home attribute if safe mode is less than SERVER#0","input":":imagesdir: {user-home}/etc/images\n\n{imagesdir}\n"}
+{"id":"attributes_test.rb#user-home attribute resolves to . if safe mode is SERVER or greater#0","input":":imagesdir: {user-home}/etc/images\n\n{imagesdir}\n"}
+{"id":"attributes_test.rb#user-home attribute can be overridden by API if safe mode is less than SERVER#0","input":"Go {user-home}!\n"}
+{"id":"attributes_test.rb#user-home attribute can be overridden by API if safe mode is SERVER or greater#0","input":"Go {user-home}!\n"}
+{"id":"attributes_test.rb#attribute is treated as defined until it is unset#0","input":":holygrail:\nifdef::holygrail[]\nThe holy grail has been found!\nendif::holygrail[]\n\n:holygrail!:\nifndef::holygrail[]\nBuggers! What happened to the grail?\nendif::holygrail[]\n"}
+{"id":"attributes_test.rb#backend and doctype attributes are set by default in default configuration#0","input":"= Document Title\nAuthor Name\n\ncontent\n"}
+{"id":"attributes_test.rb#backend and doctype attributes are set by default in custom configuration#0","input":"= Document Title\nAuthor Name\n\ncontent\n"}
+{"id":"attributes_test.rb#backend attributes are updated if backend attribute is defined in document and safe mode is less than SERVER#0","input":"= Document Title\nAuthor Name\n:backend: docbook\n:doctype: book\n\ncontent\n"}
+{"id":"attributes_test.rb#set_attr should set header attribute in loaded document#0","input":":uri: http://example.org\n\n{uri}\n"}
+{"id":"attributes_test.rb#verify toc attribute matrix#0","input":"#attributes                               |toc|toc-position|toc-placement|toc-class\ntoc                                       |   |nil         |auto         |nil\ntoc=header                                |   |nil         |auto         |nil\ntoc=beeboo                                |   |nil         |auto         |nil\ntoc=left                                  |   |left        |auto         |toc2\ntoc2                                      |   |left        |auto         |toc2\ntoc=right                                 |   |right       |auto         |toc2\ntoc=preamble                              |   |content     |preamble     |nil\ntoc=macro                                 |   |content     |macro        |nil\ntoc toc-placement=macro toc-position=left |   |content     |macro        |nil\ntoc toc-placement!                        |   |content     |macro        |nil\n"}
+{"id":"attributes_test.rb#attribute lookup is not case sensitive#0","input":":He-Man: The most powerful man in the universe\n\nHe-Man: {He-Man}\n\nShe-Ra: {She-Ra}\n"}
+{"id":"attributes_test.rb#collapses spaces in attribute names#0","input":"Main Header\n===========\n:My frog: Tanglefoot\n\nYo, {myfrog}!\n"}
+{"id":"attributes_test.rb#ignores lines with bad attributes if attribute-missing is drop-line#0","input":":attribute-missing: drop-line\n\nThis is\nblah blah {foobarbaz}\nall there is.\n"}
+{"id":"attributes_test.rb#should drop line with reference to missing attribute if attribute-missing attribute is drop-line#0","input":":attribute-missing: drop-line\n\nLine 1: This line should appear in the output.\nLine 2: Oh no, a {bogus-attribute}! This line should not appear in the output.\n"}
+{"id":"attributes_test.rb#should not drop line with reference to missing attribute by default#0","input":"Line 1: This line should appear in the output.\nLine 2: A {bogus-attribute}! This time, this line should appear in the output.\n"}
+{"id":"attributes_test.rb#should drop line with attribute unassignment by default#0","input":":a:\n\nLine 1: This line should appear in the output.\nLine 2: {set:a!}This line should not appear in the output.\n"}
+{"id":"attributes_test.rb#should not drop line with attribute unassignment if attribute-undefined is drop#0","input":":attribute-undefined: drop\n:a:\n\nLine 1: This line should appear in the output.\nLine 2: {set:a!}This line should appear in the output.\n"}
+{"id":"attributes_test.rb#should drop line that only contains attribute assignment#0","input":"Line 1\n{set:a}\nLine 2\n"}
+{"id":"attributes_test.rb#should drop line that only contains unresolved attribute when attribute-missing is drop#0","input":"Line 1\n{unresolved}\nLine 2\n"}
+{"id":"attributes_test.rb#interpolates attribute defined in header inside attribute entry in header#0","input":"= Title\nAuthor Name\n:attribute-a: value\n:attribute-b: {attribute-a}\n\npreamble\n"}
+{"id":"attributes_test.rb#interpolates author attribute inside attribute entry in header#0","input":"= Title\nAuthor Name\n:name: {author}\n\npreamble\n"}
+{"id":"attributes_test.rb#interpolates revinfo attribute inside attribute entry in header#0","input":"= Title\nAuthor Name\n2013-01-01\n:date: {revdate}\n\npreamble\n"}
+{"id":"attributes_test.rb#attribute entries can resolve previously defined attributes#0","input":"= Title\nAuthor Name\nv1.0, 2010-01-01: First release!\n:a: value\n:a2: {a}\n:revdate2: {revdate}\n\n{a} == {a2}\n\n{revdate} == {revdate2}\n"}
+{"id":"attributes_test.rb#should warn if unterminated block comment is detected in document header#0","input":"= Document Title\n:foo: bar\n////\n:hey: there\n\ncontent\n"}
+{"id":"attributes_test.rb#substitutes inside block title#0","input":":gem_name: asciidoctor\n\n.Require the +{gem_name}+ gem\nTo use {gem_name}, the first thing to do is to import it in your Ruby source file.\n"}
+{"id":"attributes_test.rb#substitutes inside block title#1","input":":gem_name: asciidoctor\n\n.Require the `{gem_name}` gem\nTo use {gem_name}, the first thing to do is to import it in your Ruby source file.\n"}
+{"id":"attributes_test.rb#sets attribute until it is deleted#0","input":":foo: bar\n\nCrossing the {foo}.\n\n:foo!:\n\nBelly up to the {foo}.\n"}
+{"id":"attributes_test.rb#should allow compat-mode to be set and unset in middle of document#0","input":":foo: bar\n\n[[paragraph-a]]\n`{foo}`\n\n:compat-mode!:\n\n[[paragraph-b]]\n`{foo}`\n\n:compat-mode:\n\n[[paragraph-c]]\n`{foo}`\n"}
+{"id":"attributes_test.rb#does not substitute attributes inside listing blocks#0","input":":forecast: snow\n\n----\nputs 'The forecast for today is {forecast}'\n----\n"}
+{"id":"attributes_test.rb#does not substitute attributes inside literal blocks#0","input":":foo: bar\n\n....\nYou insert the text {foo} to expand the value\nof the attribute named foo in your document.\n....\n"}
+{"id":"attributes_test.rb#does not show docdir and shows relative docfile if safe mode is SERVER or greater#0","input":"* docdir: {docdir}\n* docfile: {docfile}\n"}
+{"id":"attributes_test.rb#shows absolute docdir and docfile paths if safe mode is less than SERVER#0","input":"* docdir: {docdir}\n* docfile: {docfile}\n"}
+{"id":"attributes_test.rb#unassigns attribute defined in attribute reference with set prefix#0","input":":attribute-missing: drop-line\n:foo:\n\n{set:foo!}\n{foo}yes\n"}
+{"id":"attributes_test.rb#can seed counter to start at 1#0","input":":mycounter: 0\n\n{counter:mycounter}\n"}
+{"id":"attributes_test.rb#can seed counter to start at A#0","input":":mycounter: @\n\n{counter:mycounter}\n"}
+{"id":"attributes_test.rb#increments counter with positive numeric value#0","input":"[subs=attributes]\n++++\n{counter:mycounter:1}\n{counter:mycounter}\n{counter:mycounter}\n{mycounter}\n++++\n"}
+{"id":"attributes_test.rb#increments counter with negative numeric value#0","input":"[subs=attributes]\n++++\n{counter:mycounter:-2}\n{counter:mycounter}\n{counter:mycounter}\n{mycounter}\n++++\n"}
+{"id":"attributes_test.rb#increments counter with ASCII character value#0","input":"[subs=attributes]\n++++\n{counter:mycounter:A}\n{counter:mycounter}\n{counter:mycounter}\n{mycounter}\n++++\n"}
+{"id":"attributes_test.rb#increments counter with non-ASCII character value#0","input":"[subs=attributes]\n++++\n{counter:mycounter:\u00e9}\n{counter:mycounter}\n{counter:mycounter}\n{mycounter}\n++++\n"}
+{"id":"attributes_test.rb#increments counter with emoji character value#0","input":"[subs=attributes]\n++++\n{counter:smiley:\ud83d\ude0b}\n{counter:smiley}\n{counter:smiley}\n{smiley}\n++++\n"}
+{"id":"attributes_test.rb#increments counter with multi-character value#0","input":"[subs=attributes]\n++++\n{counter:math:1x}\n{counter:math}\n{counter:math}\n{math}\n++++\n"}
+{"id":"attributes_test.rb#counter uses 0 as seed value if seed attribute is nil#0","input":":mycounter:\n\n{counter:mycounter}\n\n{mycounter}\n"}
+{"id":"attributes_test.rb#counter value can be reset by attribute entry#0","input":":mycounter:\n\nbefore: {counter:mycounter} {counter:mycounter} {counter:mycounter}\n\n:mycounter!:\n\nafter: {counter:mycounter}\n"}
+{"id":"attributes_test.rb#counter value can be advanced by attribute entry#0","input":"before: {counter:mycounter}\n\n:mycounter: 10\n\nafter: {counter:mycounter}\n"}
+{"id":"attributes_test.rb#nested document should use counter from parent document#0","input":".Title for Foo\nimage::foo.jpg[]\n\n[cols=\"2*a\"]\n|===\n|\n.Title for Bar\nimage::bar.jpg[]\n\n|\n.Title for Baz\nimage::baz.jpg[]\n|===\n\n.Title for Qux\nimage::qux.jpg[]\n"}
+{"id":"attributes_test.rb#should not allow counter to modify locked attribute#0","input":"{counter:foo:ignored} is not {foo}\n"}
+{"id":"attributes_test.rb#should not allow counter2 to modify locked attribute#0","input":"{counter2:foo:ignored}{foo}\n"}
+{"id":"attributes_test.rb#should not allow counter to modify built-in locked attribute#0","input":"{counter:max-include-depth:128} is one more than {max-include-depth}\n"}
+{"id":"attributes_test.rb#should not allow counter2 to modify built-in locked attribute#0","input":"{counter2:max-include-depth:128}{max-include-depth}\n"}
+{"id":"attributes_test.rb#parses named attribute with valid name#0","input":"[normal,foo=\"bar\",_foo=\"_bar\",foo1=\"bar1\",foo-foo=\"bar-bar\",foo.foo=\"bar.bar\"]\ncontent\n"}
+{"id":"attributes_test.rb#does not parse named attribute if name is invalid#0","input":"[normal,foo.foo=\"bar.bar\",-foo-foo=\"-bar-bar\"]\ncontent\n"}
+{"id":"attributes_test.rb#positional attributes assigned to block#0","input":"[quote, author, source]\n____\nA famous quote.\n____\n"}
+{"id":"attributes_test.rb#normal substitutions are performed on single-quoted positional attribute#0","input":"[quote, author, 'http://wikipedia.org[source]']\n____\nA famous quote.\n____\n"}
+{"id":"attributes_test.rb#normal substitutions are performed on single-quoted named attribute#0","input":"[quote, author, citetitle='http://wikipedia.org[source]']\n____\nA famous quote.\n____\n"}
+{"id":"attributes_test.rb#normal substitutions are performed once on single-quoted named title attribute#0","input":"[title='*title*']\ncontent\n"}
+{"id":"attributes_test.rb#attribute list may not begin with space#0","input":"[ quote]\n____\nA famous quote.\n____\n"}
+{"id":"attributes_test.rb#attribute list may begin with comma#0","input":"[, author, source]\n____\nA famous quote.\n____\n"}
+{"id":"attributes_test.rb#first attribute in list may be double quoted#0","input":"[\"quote\", \"author\", \"source\", role=\"famous\"]\n____\nA famous quote.\n____\n"}
+{"id":"attributes_test.rb#first attribute in list may be single quoted#0","input":"['quote', 'author', 'source', role='famous']\n____\nA famous quote.\n____\n"}
+{"id":"attributes_test.rb#attribute with value None without quotes is ignored#0","input":"[id=None]\nparagraph\n"}
+{"id":"attributes_test.rb#role? returns true if role is assigned#0","input":"[role=\"lead\"]\nA paragraph\n"}
+{"id":"attributes_test.rb#role? does not return true if role attribute is set on document#0","input":":role: lead\n\nA paragraph\n"}
+{"id":"attributes_test.rb#role? can check for exact role name match#0","input":"[role=\"lead\"]\nA paragraph\n"}
+{"id":"attributes_test.rb#has_role? can check for presence of role name#0","input":"[role=\"lead abstract\"]\nA paragraph\n"}
+{"id":"attributes_test.rb#has_role? does not look for role defined as document attribute#0","input":":role: lead abstract\n\nA paragraph\n"}
+{"id":"attributes_test.rb#roles returns array of role names#0","input":"[role=\"story lead\"]\nA paragraph\n"}
+{"id":"attributes_test.rb#roles does not return value of roles document attribute#0","input":":role: story lead\n\nA paragraph\n"}
+{"id":"attributes_test.rb#Attribute substitutions are performed on attribute list before parsing attributes#0","input":":lead: role=\"lead\"\n\n[{lead}]\nA paragraph\n"}
+{"id":"attributes_test.rb#id, role and options attributes can be specified on block style using shorthand syntax#0","input":"[literal#first.lead%step]\nA literal paragraph.\n"}
+{"id":"attributes_test.rb#id, role and options attributes can be specified using shorthand syntax on block style using multiple block attribute lines#0","input":"[literal]\n[#first]\n[.lead]\n[%step]\nA literal paragraph.\n"}
+{"id":"attributes_test.rb#multiple roles and options can be specified in block style using shorthand syntax#0","input":"[.role1%option1.role2%option2]\nText\n"}
+{"id":"attributes_test.rb#options specified using shorthand syntax on block style across multiple lines should be additive#0","input":"[%option1]\n[%option2]\nText\n"}
+{"id":"attributes_test.rb#roles specified using shorthand syntax on block style across multiple lines should be additive#0","input":"[.role1]\n[.role2.role3]\nText\n"}
+{"id":"attributes_test.rb#setting a role using the role attribute replaces any existing roles#0","input":"[.role1]\n[role=role2]\n[.role3]\nText\n"}
+{"id":"attributes_test.rb#setting a role using the shorthand syntax on block style should not clear the ID#0","input":"[#id]\n[.role]\nText\n"}
+{"id":"attributes_test.rb#a role can be added using add_role when the node already has a role#0","input":"[.role1]\nA normal paragraph\n"}
+{"id":"attributes_test.rb#a role is not added using add_role if the node already has that role#0","input":"[.role1]\nA normal paragraph\n"}
+{"id":"attributes_test.rb#an existing role can be removed using remove_role#0","input":"[.role1.role2]\nA normal paragraph\n"}
+{"id":"attributes_test.rb#roles are removed when last role is removed using remove_role#0","input":"[.role1]\nA normal paragraph\n"}
+{"id":"attributes_test.rb#roles are not changed when a non-existent role is removed using remove_role#0","input":"[.role1]\nA normal paragraph\n"}
+{"id":"attributes_test.rb#option can be specified in first position of block style using shorthand syntax#0","input":"[%interactive]\n- [x] checked\n"}
+{"id":"attributes_test.rb#id and role attributes can be specified on section style using shorthand syntax#0","input":"[dedication#dedication.small]\n== Section\nContent.\n"}
+{"id":"attributes_test.rb#id attribute specified using shorthand syntax should not create a special section#0","input":"[#idname]\n== Section\n\ncontent\n"}
+{"id":"attributes_test.rb#Block attributes are additive#0","input":"[id='foo']\n[role='lead']\nA paragraph.\n"}
+{"id":"attributes_test.rb#Last wins for id attribute#0","input":"[[bar]]\n[[foo]]\n== Section\n\nparagraph\n\n[[baz]]\n[id='coolio']\n=== Section\n"}
+{"id":"attributes_test.rb#trailing block attributes transfer to the following section#0","input":"[[one]]\n\n== Section One\n\nparagraph\n\n[[sub]]\n// try to mess this up!\n\n=== Sub-section\n\nparagraph\n\n[role='classy']\n\n////\nblock comment\n////\n\n== Section Two\n\ncontent\n"}

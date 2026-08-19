@@ -1,0 +1,1 @@
+{"id":"logger_test.rb#writes message prefixed with program name and source location to stderr#0","input":"[#first]\nfirst paragraph\n\n[#first]\nanother first paragraph\n"}

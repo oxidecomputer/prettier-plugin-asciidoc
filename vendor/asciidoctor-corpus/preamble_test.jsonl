@@ -1,0 +1,12 @@
+{"id":"preamble_test.rb#title and single paragraph preamble before section#0","input":"= Title\n\nPreamble paragraph 1.\n\n== First Section\n\nSection paragraph 1.\n"}
+{"id":"preamble_test.rb#title of preface is blank by default in DocBook output#0","input":"= Document Title\n:doctype: book\n\nPreface content.\n\n== First Section\n\nSection content.\n"}
+{"id":"preamble_test.rb#preface-title attribute is assigned as title of preface in DocBook output#0","input":"= Document Title\n:doctype: book\n:preface-title: Preface\n\nPreface content.\n\n== First Section\n\nSection content.\n"}
+{"id":"preamble_test.rb#title and multi-paragraph preamble before section#0","input":"= Title\n\nPreamble paragraph 1.\n\nPreamble paragraph 2.\n\n== First Section\n\nSection paragraph 1.\n"}
+{"id":"preamble_test.rb#should not wrap content in preamble if document has title but no sections#0","input":"= Title\n\nparagraph\n"}
+{"id":"preamble_test.rb#title and section without preamble#0","input":"= Title\n\n== First Section\n\nSection paragraph 1.\n"}
+{"id":"preamble_test.rb#no title with preamble and section#0","input":"Preamble paragraph 1.\n\n== First Section\n\nSection paragraph 1.\n"}
+{"id":"preamble_test.rb#preamble in book doctype#0","input":"= Book\n:doctype: book\n\nBack then...\n\n= Chapter One\n\n[partintro]\nIt was a dark and stormy night...\n\n== Scene One\n\nSomeone's gonna get axed.\n\n= Chapter Two\n\n[partintro]\nThey couldn't believe their eyes when...\n\n== Scene One\n\nThe axe came swinging.\n"}
+{"id":"preamble_test.rb#should output table of contents in preamble if toc-placement attribute value is preamble#0","input":"= Article\n:toc:\n:toc-placement: preamble\n\nOnce upon a time...\n\n== Section One\n\nIt was a dark and stormy night...\n\n== Section Two\n\nThey couldn't believe their eyes when...\n"}
+{"id":"preamble_test.rb#should move abstract in implicit preface to info tag when converting to DocBook#0","input":"= Document Title\n\n[abstract]\nThis is the abstract.\n\n== Fin\n"}
+{"id":"preamble_test.rb#should move abstract as first section to info tag when converting to DocBook#0","input":"= Document Title\n\n[abstract]\n== Abstract\n\nThis is the abstract.\n\n== Fin\n"}
+{"id":"preamble_test.rb#should move abstract in preface section to info tag when converting to DocBook#0","input":"= Document Title\n:doctype: book\n\n[preface]\n== Preface\n\n[abstract]\nThis is the abstract.\n\n== Fin\n"}
