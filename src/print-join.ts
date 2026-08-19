@@ -10,7 +10,11 @@
  */
 import { doc, type Doc } from "prettier";
 import type { BlockNode } from "./ast.js";
-import { isAnchorParagraph, isBlockMetadata } from "./block-metadata.js";
+import {
+  isAnchorParagraph,
+  isBlockMetadata,
+  wouldMergeWithAnchor,
+} from "./block-metadata.js";
 import { EMPTY } from "./constants.js";
 
 const {
@@ -60,27 +64,6 @@ function isAttributeEntry(block: BlockNode): boolean {
  */
 function isDocumentTitle(block: BlockNode): boolean {
   return block.type === "documentTitle";
-}
-
-/**
- * Tests whether a block's content would merge with a
- * preceding anchor paragraph if no blank line separated
- * them.
- *
- * Plain paragraphs and paragraph-form admonitions both
- * start with ordinary text that the parser would absorb
- * into the anchor's paragraph on re-parse, breaking
- * idempotency. A blank line must be preserved before
- * these blocks when they follow an anchor paragraph.
- * @param block - The block node to test.
- * @returns Whether this block would merge with a
- *   preceding anchor paragraph.
- */
-function wouldMergeWithAnchor(block: BlockNode): boolean {
-  return (
-    (block.type === "paragraph" && !isAnchorParagraph(block)) ||
-    (block.type === "admonition" && block.form === "paragraph")
-  );
 }
 
 /**

@@ -21,11 +21,13 @@ import type {
 } from "./ast.js";
 import {
   EMPTY,
+  FIRST,
   MARKER_OFFSET,
   MIN_DELIMITER_LENGTH,
   NEXT,
   SAFE_DELIMITER_PAD,
 } from "./constants.js";
+import { isBlockMetadata } from "./block-metadata.js";
 import { CHECKBOX_PREFIX_LEN } from "./parse/block-helpers.js";
 import { flattenForFill, wordsToFillParts } from "./reflow.js";
 import { joinBlocks } from "./print-join.js";
@@ -680,8 +682,19 @@ export function printListItem(
   // attached block is its own block, not part of the item's
   // reflowed principal text.
   const continuationParts: Doc[] = [];
-  for (const printedBlock of path.map(print, "attachedBlocks")) {
-    continuationParts.push(hardline, "+", hardline, printedBlock);
+  for (const [index, printedBlock] of path
+    .map(print, "attachedBlocks")
+    .entries()) {
+    const previousAttached =
+      index > FIRST ? node.attachedBlocks[index - NEXT] : undefined;
+    if (previousAttached !== undefined && isBlockMetadata(previousAttached)) {
+      // Block metadata stacks directly above the block it
+      // annotates — the whole metadata+block group hangs off
+      // the single `+` emitted before its first piece.
+      continuationParts.push(hardline, printedBlock);
+    } else {
+      continuationParts.push(hardline, "+", hardline, printedBlock);
+    }
   }
   // A dangling `+` line (nothing after it inside the item to
   // attach) is re-emitted verbatim: Asciidoctor attaches the

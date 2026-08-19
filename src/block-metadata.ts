@@ -53,3 +53,26 @@ export function isBlockMetadata(block: BlockNode): boolean {
     isAnchorParagraph(block)
   );
 }
+
+/**
+ * Tests whether a block's content would merge with a preceding
+ * anchor paragraph if no blank line separated them.
+ *
+ * Plain paragraphs and paragraph-form admonitions both start
+ * with ordinary text that the parser would absorb into the
+ * anchor's paragraph on re-parse, breaking idempotency. Both
+ * sides of the pipeline consult this: the printer preserves a
+ * blank line before such blocks (print-join.ts), and the
+ * continuation absorber refuses to build an attached
+ * metadata+block group that stacking would corrupt
+ * (continuation-absorber.ts).
+ * @param block - The block node to test.
+ * @returns Whether this block would merge with a preceding
+ *   anchor paragraph.
+ */
+export function wouldMergeWithAnchor(block: BlockNode): boolean {
+  return (
+    (block.type === "paragraph" && !isAnchorParagraph(block)) ||
+    (block.type === "admonition" && block.form === "paragraph")
+  );
+}

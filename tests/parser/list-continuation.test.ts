@@ -307,6 +307,112 @@ describe("continuations around delimited blocks (issue #6)", () => {
     expect(children[1]).toMatchObject({ type: "paragraph" });
   });
 
+  // A `+` attaches the NEXT LOGICAL BLOCK: any metadata lines
+  // (attribute list, block title, anchor paragraph) group with
+  // the block they annotate and attach together under the one
+  // marker. The anchor may be any block type except those that
+  // terminate the list context (sections, lists, document
+  // title) or are context-transparent (comments, attribute
+  // entries).
+  test("+ attaches [NOTE] metadata together with its block", () => {
+    const { children } = parse("* i:\n+\n[NOTE]\n====\nx\n====\n");
+    expect(children).toHaveLength(1);
+    const {
+      children: [item],
+    } = firstList(children);
+    expect(item.danglingContinuation).toBe(false);
+    expect(item.attachedBlocks).toHaveLength(2);
+    expect(item.attachedBlocks[0]).toMatchObject({
+      type: "blockAttributeList",
+      value: "NOTE",
+    });
+    expect(item.attachedBlocks[1]).toMatchObject({
+      type: "admonition",
+      variant: "note",
+    });
+  });
+
+  test("+ attaches [source] metadata with its listing block", () => {
+    const { children } = parse("* i:\n+\n[source,ruby]\n----\nc\n----\n");
+    expect(children).toHaveLength(1);
+    const {
+      children: [item],
+    } = firstList(children);
+    expect(item.attachedBlocks).toHaveLength(2);
+    expect(item.attachedBlocks[0]).toMatchObject({
+      type: "blockAttributeList",
+    });
+    expect(item.attachedBlocks[1]).toMatchObject({
+      type: "delimitedBlock",
+      variant: "listing",
+    });
+  });
+
+  test("+ attaches a block title with its block", () => {
+    const { children } = parse("* i:\n+\n.Title\n----\nc\n----\n");
+    expect(children).toHaveLength(1);
+    const {
+      children: [item],
+    } = firstList(children);
+    expect(item.attachedBlocks).toHaveLength(2);
+    expect(item.attachedBlocks[0]).toMatchObject({ type: "blockTitle" });
+  });
+
+  test("+ attaches an anchor paragraph with its block", () => {
+    const { children } = parse("* i:\n+\n[[id]]\n----\nc\n----\n");
+    expect(children).toHaveLength(1);
+    const {
+      children: [item],
+    } = firstList(children);
+    expect(item.attachedBlocks).toHaveLength(2);
+    expect(item.attachedBlocks[0]).toMatchObject({ type: "paragraph" });
+    expect(item.attachedBlocks[1]).toMatchObject({ type: "delimitedBlock" });
+  });
+
+  test("+ attaches metadata with a plain paragraph anchor", () => {
+    const { children } = parse("* i:\n+\n[NOTE]\nnote para\n");
+    expect(children).toHaveLength(1);
+    const {
+      children: [item],
+    } = firstList(children);
+    expect(item.attachedBlocks).toHaveLength(2);
+    expect(item.attachedBlocks[1]).toMatchObject({ type: "paragraph" });
+  });
+
+  test("+ attaches a block macro", () => {
+    const { children } = parse("* i:\n+\nimage::foo.png[]\n");
+    expect(children).toHaveLength(1);
+    const {
+      children: [item],
+    } = firstList(children);
+    expect(item.attachedBlocks).toHaveLength(1);
+    expect(item.attachedBlocks[0]).toMatchObject({ type: "blockMacro" });
+  });
+
+  // A section heading can never be list-item content — it
+  // terminates the list in Asciidoctor too. The `+` stays a
+  // dangling marker, preserved verbatim.
+  test("+ before a section heading does not attach", () => {
+    const { children } = parse("* i:\n+\n== Heading\n");
+    const {
+      children: [item],
+    } = firstList(children);
+    expect(item.attachedBlocks).toHaveLength(0);
+    expect(item.danglingContinuation).toBe(true);
+  });
+
+  // Metadata only commits together with its anchor block; a
+  // blank line between them abandons the whole group (the
+  // metadata stays a sibling and the `+` stays dangling).
+  test("metadata without an adjacent anchor is not attached", () => {
+    const { children } = parse("* i:\n+\n[NOTE]\n\n====\nx\n====\n");
+    const {
+      children: [item],
+    } = firstList(children);
+    expect(item.attachedBlocks).toHaveLength(0);
+    expect(item.danglingContinuation).toBe(true);
+  });
+
   test("continuation block attaches to the deepest nested item", () => {
     const { children } = parse("* parent\n** nested\n+\n....\nlit\n....\n");
     const {

@@ -23,6 +23,15 @@
  * moves into the item's `attachedBlocks`, and the paragraph is
  * split at its marker lines with each piece attached too.
  *
+ * The model mirrors Asciidoctor's: a `+` attaches the NEXT
+ * LOGICAL BLOCK, whatever it is — a run of block-metadata
+ * siblings (attribute list, block title, anchor paragraph)
+ * grouped with the anchor block they annotate, attached
+ * together under the one marker. Anchor eligibility is defined
+ * by exclusion (see isAttachableAnchor), not by whitelist, so
+ * new block kinds attach by default rather than silently
+ * falling through.
+ *
  * Attachment is strictly ADJACENT: each absorbed sibling must
  * start on the line directly after the `+` that announces it.
  * A blank line breaks the chain — Asciidoctor still attaches
@@ -59,23 +68,46 @@ import {
   collapseTrailingMarkerOnly,
   isMarkerLineText,
 } from "./continuation-markers.js";
+import {
+  isAnchorParagraph,
+  isBlockMetadata,
+  wouldMergeWithAnchor,
+} from "../block-metadata.js";
 
 /**
- * Check whether a sibling block can be attached to a list item
- * under a single `+` marker.
+ * Check whether a sibling block can serve as the ANCHOR of an
+ * attached group — the block a `+` continuation actually
+ * hands to the list item.
  *
- * Deliberately narrow: block metadata (attribute lists,
- * anchors, titles) must NOT attach, because metadata stacks
- * with the block that follows it while the printer emits one
- * `+` per attached block — attaching would tear the metadata
- * from its block on re-parse. Extending this (and the
- * printer's continuation loop) to metadata+block groups is
- * tracked in issue #17.
- * @param block - The sibling block after a dangling `+`.
- * @returns True when the block may be absorbed.
+ * Asciidoctor's rule is that a `+` attaches the next block,
+ * whatever it is, so this is formulated by EXCLUSION rather
+ * than a whitelist: the only blocks that cannot attach are
+ * those that terminate the list context in Asciidoctor too
+ * (section headings, the document title, a sibling list) or
+ * are context-transparent (comments, attribute entries) —
+ * for those the dangling `+` is preserved verbatim instead,
+ * which keeps the rendered output identical. Block metadata
+ * is excluded here because it PREFIXES an anchor (see
+ * absorbChain's group handling), never stands alone.
+ * @param block - The candidate sibling block.
+ * @returns True when the block may anchor an attached group.
  */
-function isAttachableBlock(block: BlockNode): boolean {
-  return block.type === "delimitedBlock" || block.type === "parentBlock";
+function isAttachableAnchor(block: BlockNode): boolean {
+  if (isBlockMetadata(block)) {
+    return false;
+  }
+  switch (block.type) {
+    case "section":
+    case "documentTitle":
+    case "list":
+    case "comment":
+    case "attributeEntry": {
+      return false;
+    }
+    default: {
+      return true;
+    }
+  }
 }
 
 /**
@@ -191,10 +223,24 @@ function splitMarkerParagraph(
   if (!isMarkerLineText(firstLine)) {
     return undefined;
   }
+  return splitParagraphAtMarkers(paragraph);
+}
 
-  // Segments of inline nodes between marker lines. The first
-  // segment stays empty (the paragraph starts with a marker)
-  // and is dropped below.
+/**
+ * Split a paragraph at its `+` marker lines unconditionally —
+ * the core shared by splitMarkerParagraph (which additionally
+ * demands a leading marker before a sibling may join the
+ * chain) and by anchor paragraphs attached via metadata,
+ * whose first line is ordinary content but whose interior or
+ * trailing `+` lines still separate continuation blocks.
+ * @param paragraph - The paragraph to split.
+ * @returns The split content paragraphs plus whether a
+ *   trailing marker was consumed.
+ */
+function splitParagraphAtMarkers(paragraph: ParagraphNode): ParagraphSplit {
+  // Segments of inline nodes between marker lines. When the
+  // paragraph starts with a marker, the first segment stays
+  // empty and is dropped below.
   const segments: InlineNode[][] = [[]];
   // A `+` line DIRECTLY after a marker is content of the
   // attached paragraph, not a second marker (`+\n+\nAttached`
@@ -234,9 +280,13 @@ function splitMarkerParagraph(
     isMarkerOnlySegment,
   );
 
-  const [, ...attachedSegments] = segments;
+  // Empty segments carry nothing to attach: the leading
+  // segment when the paragraph opens with a marker, never a
+  // middle one (the after-marker exemption guarantees content
+  // between two markers, and trailing empties were collapsed
+  // above).
   return {
-    paragraphs: attachedSegments
+    paragraphs: segments
       .filter((segment) => segment.length > EMPTY)
       .map((segment) => buildParagraph(segment)),
     trailingMarker,
@@ -378,6 +428,72 @@ function buildParagraph(children: InlineNode[]): ParagraphNode {
   };
 }
 
+/** The next logical block after a `+`: metadata run + anchor. */
+interface AttachedGroup {
+  /** Metadata pieces preceding the anchor (possibly empty). */
+  pieces: BlockNode[];
+  /** The block the group is anchored on. */
+  anchor: BlockNode;
+  /** Index of the first sibling after the group. */
+  nextIndex: number;
+}
+
+/**
+ * Gather the next LOGICAL block starting at `index`: a run of
+ * metadata siblings (each starting on the line directly after
+ * the previous piece) followed by an anchor block. The group
+ * exists only when the anchor is present and adjacent —
+ * metadata with nothing attachable after it stays a sibling
+ * and the `+` stays dangling, so no half-group is ever torn
+ * out of the document.
+ * @param blocks - The flat sibling array being scanned.
+ * @param index - Index of the candidate first group piece.
+ * @param startLine - Line the group must start on (directly
+ *   after the `+` or the previously absorbed content).
+ * @returns The group, or undefined when no complete adjacent
+ *   group begins at `index`.
+ */
+function gatherAttachedGroup(
+  blocks: BlockNode[],
+  index: number,
+  startLine: number,
+): AttachedGroup | undefined {
+  const pieces: BlockNode[] = [];
+  let look = index;
+  let expectedLine = startLine;
+  while (
+    look < blocks.length &&
+    blocks[look].position.start.line === expectedLine &&
+    isBlockMetadata(blocks[look])
+  ) {
+    pieces.push(blocks[look]);
+    expectedLine = blocks[look].position.end.line + NEXT;
+    look += NEXT;
+  }
+  if (
+    look >= blocks.length ||
+    blocks[look].position.start.line !== expectedLine ||
+    !isAttachableAnchor(blocks[look])
+  ) {
+    return undefined;
+  }
+  const { [look]: anchor } = blocks;
+  // The printer stacks metadata directly above its anchor (no
+  // blank line). An anchor paragraph followed by a block that
+  // starts with plain text would merge with it on re-parse, so
+  // such a group cannot round-trip — refuse it and keep the
+  // dangling `+` instead.
+  const lastMetadata = pieces.at(LAST_ELEMENT);
+  if (
+    lastMetadata !== undefined &&
+    isAnchorParagraph(lastMetadata) &&
+    wouldMergeWithAnchor(anchor)
+  ) {
+    return undefined;
+  }
+  return { pieces, anchor, nextIndex: look + NEXT };
+}
+
 /**
  * Absorb the sibling blocks following `list` into its dangling
  * deepest last item, consuming from `blocks` at `index`.
@@ -409,37 +525,57 @@ function absorbChain(
 
   let scan = index;
   while (scan < blocks.length) {
-    const { [scan]: sibling } = blocks;
-    if (sibling.position.start.line !== previous.position.end.line + NEXT) {
-      break;
-    }
-    if (expectingBlock && isAttachableBlock(sibling)) {
-      item.attachedBlocks.push(sibling);
-      item.danglingContinuation = false;
-      expectingBlock = false;
-      previous = sibling;
-      extendListEnd(list, sibling.position.end);
-      scan += NEXT;
-      continue;
-    }
-    if (!expectingBlock && sibling.type === "paragraph") {
-      const split = splitMarkerParagraph(sibling);
-      if (split === undefined) {
+    if (expectingBlock) {
+      const found = gatherAttachedGroup(
+        blocks,
+        scan,
+        previous.position.end.line + NEXT,
+      );
+      if (found === undefined) {
         break;
       }
-      const { paragraphs, trailingMarker } = split;
-      item.attachedBlocks.push(...paragraphs);
-      // A trailing marker re-arms block attachment; if no
-      // adjacent block follows, the flag makes the printer
-      // re-emit the bare `+` verbatim.
-      item.danglingContinuation = trailingMarker;
-      expectingBlock = trailingMarker;
-      previous = sibling;
-      extendListEnd(list, sibling.position.end);
-      scan += NEXT;
+      const { pieces, anchor, nextIndex } = found;
+      if (anchor.type === "paragraph") {
+        // A paragraph anchor may itself carry interior or
+        // trailing `+` marker lines (the grammar folded them
+        // into its text) — split them out so each piece is a
+        // separate attached block and a trailing marker
+        // re-arms block attachment.
+        const { paragraphs, trailingMarker } = splitParagraphAtMarkers(anchor);
+        item.attachedBlocks.push(...pieces, ...paragraphs);
+        item.danglingContinuation = trailingMarker;
+        expectingBlock = trailingMarker;
+      } else {
+        item.attachedBlocks.push(...pieces, anchor);
+        item.danglingContinuation = false;
+        expectingBlock = false;
+      }
+      previous = anchor;
+      extendListEnd(list, anchor.position.end);
+      scan = nextIndex;
       continue;
     }
-    break;
+    const { [scan]: sibling } = blocks;
+    if (
+      sibling.position.start.line !== previous.position.end.line + NEXT ||
+      sibling.type !== "paragraph"
+    ) {
+      break;
+    }
+    const split = splitMarkerParagraph(sibling);
+    if (split === undefined) {
+      break;
+    }
+    const { paragraphs, trailingMarker } = split;
+    item.attachedBlocks.push(...paragraphs);
+    // A trailing marker re-arms block attachment; if no
+    // adjacent block follows, the flag makes the printer
+    // re-emit the bare `+` verbatim.
+    item.danglingContinuation = trailingMarker;
+    expectingBlock = trailingMarker;
+    previous = sibling;
+    extendListEnd(list, sibling.position.end);
+    scan += NEXT;
   }
   return scan;
 }

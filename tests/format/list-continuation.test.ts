@@ -236,6 +236,78 @@ describe("continuations around delimited blocks (issue #6)", () => {
     expect(await formatAdoc(input)).toBe(input);
   });
 
+  // Metadata lines group with the block they annotate and
+  // attach together under one `+` — no blank line inserted, no
+  // second marker.
+  test("+ before [NOTE] admonition block round-trips", async () => {
+    const input =
+      "** {empty}\n+\n[NOTE]\n====\nAre these examples sufficient?\n====\n";
+    const first = await formatAdoc(input);
+    expect(first).toBe(input);
+    expect(await formatAdoc(first)).toBe(first);
+  });
+
+  test("+ before [source] listing round-trips", async () => {
+    const input = "* item:\n+\n[source,ruby]\n----\ncode\n----\n";
+    expect(await formatAdoc(input)).toBe(input);
+  });
+
+  test("+ before titled block round-trips", async () => {
+    const input = "* item:\n+\n.Title\n----\ncode\n----\n";
+    expect(await formatAdoc(input)).toBe(input);
+  });
+
+  test("+ before anchored block round-trips", async () => {
+    const input = "* item:\n+\n[[id]]\n----\ncode\n----\n";
+    expect(await formatAdoc(input)).toBe(input);
+  });
+
+  test("+ before [NOTE] paragraph round-trips", async () => {
+    const input = "* item:\n+\n[NOTE]\nnote paragraph\n";
+    expect(await formatAdoc(input)).toBe(input);
+  });
+
+  test("+ before a block macro round-trips", async () => {
+    const input = "* item:\n+\nimage::diagram.png[]\n";
+    expect(await formatAdoc(input)).toBe(input);
+  });
+
+  test("+ before a thematic break round-trips", async () => {
+    const input = "* item:\n+\n'''\n";
+    expect(await formatAdoc(input)).toBe(input);
+  });
+
+  test("metadata block chain continues with + paragraphs", async () => {
+    const input = "* i:\n+\n[source]\n----\na\n----\n+\nafter para\n";
+    expect(await formatAdoc(input)).toBe(input);
+  });
+
+  // An attached [NOTE] paragraph can itself carry `+` marker
+  // lines; they split into further attached blocks instead of
+  // reflowing into the paragraph text (where a trailing `+`
+  // would even turn into a hard line break).
+  test("markers inside a metadata-anchored paragraph split off", async () => {
+    const input = "* i\n+\n[NOTE]\npara one\n+\npara two\n";
+    const first = await formatAdoc(input);
+    expect(first).toBe(input);
+    expect(await formatAdoc(first)).toBe(first);
+  });
+
+  test("trailing marker after [NOTE] paragraph re-arms attachment", async () => {
+    const input = "* i\n+\n[NOTE]\npara\n+\n----\nc\n----\n";
+    expect(await formatAdoc(input)).toBe(input);
+  });
+
+  // A section heading cannot attach; the dangling `+` survives
+  // and the heading gets the usual blank-line separation. Pins
+  // current behavior (rendering is unchanged either way).
+  test("+ before a section heading stays dangling", async () => {
+    const input = "* i:\n+\n== Heading\n";
+    const first = await formatAdoc(input);
+    expect(first).toBe("* i:\n+\n\n== Heading\n");
+    expect(await formatAdoc(first)).toBe(first);
+  });
+
   // Blank line between the `+` and the block: the dangling `+`
   // is preserved verbatim and the block stays separate (existing
   // behavior — Asciidoctor still attaches across the blank line,
@@ -284,6 +356,23 @@ describe("list continuation formatting preserves rendered HTML", () => {
       "* item:\n+\n----\none\n----\n+\npara\n+\n----\ntwo\n----\n",
     "dangling + before block across blank line":
       "* item\n+\n\n....\nliteral\n....\n",
+    "attached [NOTE] admonition block":
+      "** {empty}\n+\n[NOTE]\n====\nAre these examples sufficient?\n====\n",
+    "attached [source] listing":
+      "* item:\n+\n[source,ruby]\n----\ncode\n----\n",
+    "attached titled block": "* item:\n+\n.Title\n----\ncode\n----\n",
+    "attached anchored block": "* item:\n+\n[[id]]\n----\ncode\n----\n",
+    "attached [NOTE] paragraph": "* item:\n+\n[NOTE]\nnote paragraph\n",
+    "attached block macro": "* item:\n+\nimage::diagram.png[]\n",
+    "attached thematic break": "* item:\n+\n'''\n",
+    "metadata block then + paragraph":
+      "* i:\n+\n[source]\n----\na\n----\n+\nafter para\n",
+    "+ before section heading": "* i:\n+\n== Heading\n",
+    "metadata without adjacent anchor": "* i:\n+\n[NOTE]\n\n====\nx\n====\n",
+    "markers inside metadata-anchored paragraph":
+      "* i\n+\n[NOTE]\npara one\n+\npara two\n",
+    "trailing marker after [NOTE] paragraph":
+      "* i\n+\n[NOTE]\npara\n+\n----\nc\n----\n",
   };
 
   for (const [name, input] of Object.entries(corpus)) {
