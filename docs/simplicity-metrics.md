@@ -143,7 +143,107 @@ gamed, and the pairs print on the same table so a reviewer sees both at once.
 | Cycles             | Break a cycle by moving shared state into a third "utils" module both mutate          | Exported-symbol count and the new module's fan-in — a `utils.ts` with rising fan-in is the tell |
 | Escape hatches     | Move the cast behind a helper; widen a type instead of casting                        | Type-kind counts; the `as` count is a floor, not a ceiling                                      |
 | knip / jscpd       | Re-export dead code from an index to make it "used"; parameterise a clone             | Exported-symbol count rises; jscpd at a lower `--min-tokens`                                    |
-| Test-to-code ratio | Add assertion-free tests                                                              | The conformance/oracle suite's pass count                                                       |
+| Test-to-code ratio | Add assertion-free tests                                                              | The conformance/oracle suite's pass count; mutation score (see below)                           |
+
+## Is this test load-bearing? (mutation testing)
+
+Every row above measures `src`. None of them can tell a test that would fail if
+the code broke from one that would not — and the test suite is most of what we
+add. StrykerJS answers exactly that question, and Ruling 38 makes it part of the
+discipline rather than an occasional curiosity.
+
+**What it does.** Stryker takes the shipped code, introduces one small defect at
+a time — a `<` flipped to `<=`, a `&&` to `||`, a returned string literal
+emptied, the body of an `if` removed, a `.slice(1)` deleted — and re-runs the
+suite against each mutated copy. A mutant that makes some test fail is KILLED. A
+mutant that leaves the whole suite green SURVIVED: the behaviour it broke is
+behaviour nothing asserts. The mutation score is killed ÷ (killed + survived),
+ignoring mutants no test even reaches (those are reported separately as
+`NoCoverage`, which is a coverage hole, not a weak assertion).
+
+```bash
+bun run mutate          # incremental: only mutants in files that changed
+bun run mutate:full     # every mutant, rebuilding the incremental cache
+bun run mutate -- -c 6  # fewer workers, to leave the machine usable
+bunx stryker run --mutate 'src/parse/lines/split.ts'   # one file
+```
+
+Configuration lives in `stryker.config.json`; it points the vitest runner at
+`vitest.stryker.config.ts`, which is this repository's own `vitest.config.ts`
+plus `fileParallelism: false`, so Stryker discovers exactly the tests
+`bun run test` does. Output goes to `reports/` (gitignored, including the
+incremental cache — it is a machine-local record of the last run, not a fact
+about the code).
+
+**Concurrency: under Stryker, vitest runs single-process per worker, so `-c N`
+means N processes.** That is what the separate config buys. Stryker's `-c N`
+forks N test runners, and vitest in turn sizes its OWN worker pool from the CPU
+count, so the stock config multiplies out to N × cores processes — measured on a
+14-core machine at `-c 8`, a load average of 200 and thermal throttling that
+made the run slower than a smaller `-c` would have been. Pick `-c` for the
+machine, not for the core count: 6 on a 14-core laptop you are still using.
+
+**Two settings that look like oversights and are not.**
+
+- `vitest.related: false` turns OFF Stryker's "run only the tests related to the
+  mutated file" optimisation. Vitest's related-test detection reads this
+  repository's import graph badly: on one run it selected 64 of 7,429 tests for
+  a mutant in `src/parse`, and on another it failed outright.
+  `coverageAnalysis: "perTest"` already gives Stryker a per-mutant test filter
+  that is derived from a real coverage run, so the vitest-side optimisation buys
+  nothing and costs correctness.
+- There is no `buildCommand`, and the `mutate` scripts prefix `bun run build`
+  instead. `tests/format/identity.test.ts` is the one suite that loads the
+  plugin from `dist/`, so it runs against the LAST build no matter what the
+  sandbox contains and can never kill a mutant. Building once before the run
+  keeps that suite meaningful for the unmutated code; a `buildCommand` would
+  rebuild inside every sandbox and still not make those tests mutation-aware.
+
+**How to read the report.** The `clear-text` reporter prints the score and every
+survivor to the terminal as the run finishes — enough for a task report. For
+anything more, open `reports/mutation/html/index.html` and sort by survivors,
+not by score. Three readings, in order of what they are worth:
+
+- **A surviving mutant is a sentence of the code that no test constrains.**
+  Either write the test or delete the code — a survivor in a branch that cannot
+  actually be reached is a branch to remove, not a mutant to ignore.
+- **A mutant killed only by one hand-written test is that test earning its
+  keep.** With `coverageAnalysis: "perTest"` the json report records `killedBy`
+  — the test ids that killed each mutant. A test that appears as the sole
+  `killedBy` for some mutant is load-bearing by construction. A test that never
+  appears there kills nothing the rest of the suite did not already kill.
+- **Score is the least interesting number on the page.** It moves when the code
+  moves, and it is the number a reviewer is tempted to target. Thresholds here
+  are report-only (`"break": null`): the run never fails a build. Same rule as
+  the ratchets above — a number that moves the wrong way is a question to answer
+  in the task report, not a target.
+
+**Static mutants are NOT ignored** (`ignoreStatic: false`), which is a
+deliberate cost. `src/parse/line-shapes.ts` is a registry of module-level
+regular expressions pinned against Asciidoctor's `rx.rb`; every mutant in it
+executes at import time and is therefore "static". Turning on `ignoreStatic`
+would buy a much faster run by silently excusing the single most important file
+in the parser from the question this whole section asks.
+
+**Cadence.** Run `bun run mutate` at the end of every task — incremental, so it
+re-tests only the mutants in files the task touched. Run `bun run mutate:full`
+at plan boundaries, and whenever tests are added or deleted: the incremental
+cache is keyed on source files, so a change confined to `tests/` can leave it
+reporting yesterday's answer. A full run is minutes, not seconds — the
+conformance suite is the slow part, which is why `timeoutMS` is 60s and the
+dry-run timeout is generous.
+
+**The rule for a new test (Ruling 38).** A new test must do one of three things:
+
+1. kill at least one mutant the suite did not already kill,
+2. be a unit test at a module interface (a named export, called the way its
+   callers call it — these document the contract even when a broader test
+   happens to cover the same mutants), or
+3. pin a formatting fixture (input → expected output, the thing users actually
+   observe).
+
+A test that does none of the three is a test that costs maintenance and buys
+nothing; say so and drop it.
 
 ## Method notes
 

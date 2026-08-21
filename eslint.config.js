@@ -13,9 +13,19 @@ import vitest from "@vitest/eslint-plugin";
 const EXPECT_MAX_ARGS = 2;
 
 export default defineConfig(
-  // Global ignores.
+  // Global ignores. `.stryker-tmp/` is Stryker's sandbox: a full copy
+  // of the project, tsconfig included, which otherwise makes
+  // typescript-eslint see two candidate tsconfig roots and refuse to
+  // parse anything. It survives a crashed mutation run, so ignoring it
+  // is not optional.
   {
-    ignores: ["node_modules/**", "dist/**", "build.ts"],
+    ignores: [
+      "node_modules/**",
+      "dist/**",
+      "build.ts",
+      ".stryker-tmp/**",
+      "reports/**",
+    ],
   },
 
   // Base JS recommended rules.

@@ -110,7 +110,11 @@ function isDocumentTitle(block: BlockNode): boolean {
  *   a blank-line separator.
  */
 function shouldStack(blocks: BlockNode[], index: number): boolean {
-  const { [index - SECOND_CHILD]: previous, [index]: current } = blocks;
+  // Hoisted out of the computed key: StrykerJS cannot place a mutant
+  // inside a destructuring PATTERN and wraps the whole declaration in an
+  // if/else, which would scope both bindings out of the return below.
+  const previousIndex = index - SECOND_CHILD;
+  const { [previousIndex]: previous, [index]: current } = blocks;
   return (
     (isLineComment(previous) && isLineComment(current)) ||
     stacksWithReaderEatenLine(previous, current) ||

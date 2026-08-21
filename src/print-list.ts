@@ -57,8 +57,12 @@ export function printList(
       // `read_lines_until(break_on_blank_lines, break_on_list_continuation)`
       // and no sibling check — so a sibling marker directly under one
       // would be swallowed into it. The blank line keeps the item.
+      // Hoisted out of the computed key: StrykerJS cannot place a mutant
+      // inside a destructuring PATTERN and wraps the whole declaration in
+      // an if/else, which would scope `previous` out of the push below.
+      const previousIndex = index + LAST_ELEMENT;
       const {
-        children: { [index + LAST_ELEMENT]: previous },
+        children: { [previousIndex]: previous },
       } = node;
       parts.push(
         endsWithLiteralParagraph(previous) ? [hardline, hardline] : hardline,

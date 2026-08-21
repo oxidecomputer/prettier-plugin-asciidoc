@@ -241,7 +241,12 @@ export function hasPrecedingLanguageAttribute(
   if (siblings === undefined) return false;
   const index = siblings.indexOf(node);
   if (index < NEXT) return false;
-  const { [index - NEXT]: previous } = siblings;
+  // The offset is hoisted out of the computed key on purpose: a mutation
+  // testing run instruments `index - NEXT`, and StrykerJS cannot place a
+  // mutant inside a destructuring PATTERN — it wraps the whole declaration
+  // in an if/else instead, which scopes `previous` out of the lines below.
+  const previousIndex = index - NEXT;
+  const { [previousIndex]: previous } = siblings;
   if (previous.type !== "blockAttributeList") return false;
   const expectedValue =
     node.language === undefined ? "source" : `source,${node.language}`;
