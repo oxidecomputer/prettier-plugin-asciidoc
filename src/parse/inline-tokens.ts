@@ -17,6 +17,7 @@
 import type { CstNode, IToken } from "chevrotain";
 import type { InlineTokenCstChildren } from "./cst-types.js";
 import { EMPTY, NEXT } from "../constants.js";
+import { InlineNewline } from "./tokens.js";
 
 // The known property names on InlineTokenCstChildren, used
 // to extract ITokens from each inlineToken CstNode without
@@ -39,16 +40,66 @@ const INLINE_TOKEN_KEYS: ReadonlyArray<keyof InlineTokenCstChildren> = [
 ];
 
 /**
+ * The line-structure tokens a paragraph-mode block captures OUTSIDE
+ * its `inlineLine` wrappers. Named separately from the CST children
+ * interfaces so the paragraph, list-item and admonition rules can
+ * all be read the same way.
+ */
+export interface ParagraphStructureCst {
+  /** Newlines that ended a text line (popping inline mode). */
+  InlineNewline?: IToken[];
+  /** Newlines that ended a raw line (lexed in paragraph mode). */
+  ParagraphNewline?: IToken[];
+  /** Comment/directive lines kept verbatim inside the block. */
+  ParagraphRawLine?: IToken[];
+}
+
+/**
+ * Merge a block's structural tokens into one offset-sorted stream
+ * for {@link flattenInlineTokens}. Both spellings of "line ended
+ * here" become InlineNewline so downstream code has one case, and
+ * raw lines ride along in source order.
+ * @param children - the block's CST children
+ * @returns the merged, offset-sorted token stream
+ */
+export function structuralTokens(children: ParagraphStructureCst): IToken[] {
+  return mergeSortedTokens(
+    mergeSortedTokens(
+      children.InlineNewline ?? [],
+      asInlineNewlines(children.ParagraphNewline ?? []),
+    ),
+    children.ParagraphRawLine ?? [],
+  );
+}
+
+/**
+ * Re-type paragraph-mode newline tokens as `InlineNewline`.
+ *
+ * `ParagraphNewline` ends a raw line, which never entered inline
+ * mode; `InlineNewline` ends a text line. They are different tokens
+ * only because they fire in different lexer modes — as line
+ * boundaries they are the same thing, and every consumer downstream
+ * dispatches on token type, so re-typing here saves each of them a
+ * second case that means exactly the first.
+ * @param tokens - ParagraphNewline tokens from a CST node
+ * @returns Shallow copies typed as InlineNewline (Chevrotain tokens
+ *   are value objects, so copying is safe), in the same order
+ */
+function asInlineNewlines(tokens: IToken[]): IToken[] {
+  return tokens.map((token) => ({ ...token, tokenType: InlineNewline }));
+}
+
+/**
  * Extract inlineToken CstNodes from inlineLine subrule nodes.
  * The grammar uses a dedicated `inlineLine` rule (rather than
  * inlining `inlineToken*` directly) because each line starts
- * with `InlineModeStart`, a zero-length token that pushes the
+ * with `ParagraphLineStart`, a zero-length token that pushes the
  * lexer into inline mode. That structural wrapper must be
  * stripped here so downstream code can iterate tokens without
  * knowing about the per-line grammar nesting.
  * @param inlineLineNodes - CstNodes produced by the
  *   `inlineLine` parser subrule, each wrapping one
- *   `InlineModeStart` token followed by zero or more
+ *   `ParagraphLineStart` token followed by zero or more
  *   `inlineToken` children.
  * @returns Flat array of `inlineToken` CstNodes extracted
  *   from all line wrappers, preserving parse order.

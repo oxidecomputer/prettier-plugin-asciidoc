@@ -493,8 +493,9 @@ const COLON_SPACE_LEN = 2;
  * @param markerToken - The admonition label token (e.g.
  *   "NOTE: ", "WARNING: "), or undefined when Chevrotain's
  *   error recovery entered the rule without matching a marker.
- * @param textTokens - Inline text tokens forming the
- *   admonition body content. May be empty.
+ * @param textTokens - The body's lines in source order: inline text
+ *   tokens with any comment/preprocessor lines merged back in by
+ *   the caller. May be empty.
  * @returns An AdmonitionNode in paragraph form with variant
  *   derived from the marker label (lowercased, colon-space
  *   suffix stripped). Falls back to "note" when the marker

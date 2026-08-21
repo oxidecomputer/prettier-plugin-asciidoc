@@ -23,7 +23,7 @@
 import { doc, type Printer, type Doc } from "prettier";
 import { EMPTY, MARKER_OFFSET } from "./constants.js";
 import { printInlineNode } from "./print-inline.js";
-import { flattenForFill } from "./reflow.js";
+import { flattenForFill, stripLeadingHazardBreak } from "./reflow.js";
 import { joinBlocks } from "./print-join.js";
 import {
   type AnyNode,
@@ -125,7 +125,9 @@ const printer: Printer<AnyNode> = {
         // as possible onto each line before wrapping.
         // flattenForFill (not .flat()) ensures proper fill()
         // alignment when inline formatting is mixed with text.
-        return fill(flattenForFill(path.map(print, "children")));
+        return fill(
+          stripLeadingHazardBreak(flattenForFill(path.map(print, "children"))),
+        );
       }
       case "list": {
         return printList(path, print);
@@ -143,6 +145,7 @@ const printer: Printer<AnyNode> = {
       case "link":
       case "xref":
       case "inlineAnchor":
+      case "rawLine":
       case "hardLineBreak": {
         return printInlineNode(node, path, print);
       }

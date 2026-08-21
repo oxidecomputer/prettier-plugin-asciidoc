@@ -412,11 +412,12 @@ function buildAttachedParagraph(segment: IToken[]): ParagraphNode | undefined {
  *   inline-mode grammar rule, one per continuation line
  *   lexed in inline mode. Each node wraps the sequence of
  *   inline tokens for that line.
- * @param inlineModeNewlineTokens - InlineNewline tokens
- *   emitted by the lexer's pop-mode rule at the end of
- *   each inline-mode line. These terminate inline mode;
- *   they are separate from defaultModeNewlineTokens
- *   because the two modes capture newlines independently.
+ * @param lineStructureTokens - Tokens the lexer captured
+ *   OUTSIDE the inlineLine CstNodes: InlineNewline
+ *   separators (already re-typed to cover paragraph-mode
+ *   newlines) plus any whole-line ParagraphRawLine tokens.
+ *   They are separate from defaultModeNewlineTokens because
+ *   the two modes capture newlines independently.
  * @param indentedLineTokens - Whole-line tokens produced
  *   in default mode for plain continuation lines. Each
  *   token's image includes its leading whitespace, which
@@ -424,7 +425,7 @@ function buildAttachedParagraph(segment: IToken[]): ParagraphNode | undefined {
  *   inline sub-lexing for paragraph content.
  * @param defaultModeNewlineTokens - Newline tokens
  *   captured in the default-mode MANY3 continuation
- *   loop. Kept separate from inlineModeNewlineTokens because
+ *   loop. Kept separate from lineStructureTokens because
  *   the two lexer modes accumulate them independently;
  *   they are re-typed to InlineNewline before merging so
  *   buildFromTokens handles them uniformly.
@@ -435,7 +436,7 @@ function buildAttachedParagraph(segment: IToken[]): ParagraphNode | undefined {
  */
 export function buildInlineNodesWithContinuation(
   inlineLineNodes: CstNode[],
-  inlineModeNewlineTokens: IToken[],
+  lineStructureTokens: IToken[],
   indentedLineTokens: IToken[],
   defaultModeNewlineTokens: IToken[],
 ): ListItemContent {
@@ -452,10 +453,7 @@ export function buildInlineNodesWithContinuation(
     ...t,
     tokenType: InlineNewline,
   }));
-  const allNewlines = mergeSortedTokens(
-    inlineModeNewlineTokens,
-    convertedNewlines,
-  );
+  const allNewlines = mergeSortedTokens(lineStructureTokens, convertedNewlines);
 
   // Phase 1: build the inline-mode portion of the stream.
   // unwrapInlineLines extracts the per-token CstNodes from

@@ -237,6 +237,20 @@ export interface HardLineBreakNode extends Node {
   type: "hardLineBreak";
 }
 
+/**
+ * A comment or preprocessor line that sits INSIDE a paragraph.
+ * Asciidoctor drops/consumes it while reading, so it is not text —
+ * but the formatter must keep it verbatim, on its own line, in
+ * place. Reflowing it into the surrounding text would make a
+ * comment visible or a directive inert.
+ */
+export interface RawLineNode extends Node {
+  /** Node discriminant. */
+  type: "rawLine";
+  /** The whole source line, verbatim. */
+  value: string;
+}
+
 /** Content that appears within a paragraph (text, emphasis, links, etc.). */
 export type InlineNode =
   | TextNode
@@ -249,6 +263,7 @@ export type InlineNode =
   | LinkNode
   | XrefNode
   | InlineAnchorNode
+  | RawLineNode
   | HardLineBreakNode;
 
 /**
@@ -435,6 +450,13 @@ export interface DelimitedBlockNode extends Node {
    * were not masqueraded.
    */
   sourceDelimiter?: ParentBlockNode["variant"];
+  /**
+   * True when the block came from a Markdown-style ``` fence. Fences
+   * imply the `source` style even without a language, so the printer
+   * must emit `[source]` (or `[source,lang]`) when normalizing to
+   * `----` — otherwise Asciidoctor renders it as a plain listing.
+   */
+  fenced?: true;
 }
 
 /** A parent block contains structured child blocks (parsed recursively). */
@@ -485,8 +507,12 @@ export interface AdmonitionNode extends Node {
    */
   delimiter: ParentBlockNode["variant"] | undefined;
   /**
-   * Reflowable text for paragraph-form admonitions.
-   * Undefined for delimited-form (use `children`).
+   * Body text for paragraph-form admonitions, source lines
+   * joined with `\n`. Undefined for delimited-form (use
+   * `children`). Mostly reflowable, but a line matching
+   * `isRawParagraphLine` (a comment or preprocessor directive)
+   * is kept verbatim in place; the printer splits the string
+   * at those lines rather than reflowing across them.
    */
   content: string | undefined;
   /** Nested blocks for delimited-form admonitions. */

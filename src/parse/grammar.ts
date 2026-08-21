@@ -8,36 +8,41 @@
  * nesting at parse time. The AST builder handles grouping child blocks under
  * their heading after the CST is built.
  *
- * ## Inline mode design
+ * ## Paragraph and inline mode design
  *
- * The lexer uses a multi-mode architecture to handle inline formatting:
+ * The lexer uses a multi-mode architecture with THREE modes per block:
  *
  * - `default_mode` contains block-level tokens (section markers, list markers,
- *   delimiters, etc.). At the END of default_mode, `InlineModeStart` is a
- *   zero-length custom pattern that pushes to `inline` mode when no block
- *   token matches. This is the catch-all for text content.
+ *   delimiters, etc.). They apply to a block's FIRST line only. At the END of
+ *   default_mode, `InlineModeStart` is a zero-length custom pattern that opens
+ *   a paragraph — pushing to `paragraph` mode — when no block token matches.
+ *
+ * - `paragraph` mode is the "a paragraph is open" state. `ParagraphEnd` (also
+ *   zero-length, and skipped) pops it when the coming line ends the paragraph;
+ *   `ParagraphRawLine` takes a comment/directive line whole; otherwise
+ *   `ParagraphLineStart` pushes `inline` mode for one line of text. This is
+ *   what makes a mid-paragraph `.Title` or `* item` line plain TEXT, the way
+ *   Asciidoctor reads it (issues #26, #27, #29).
  *
  * - `inline` mode contains formatting marks (`*`, `_`, `` ` ``, `#`),
  *   attribute references, backslash escapes, and plain text tokens.
- *   `InlineNewline` (`\n`) pops back to `default_mode` so the next line
- *   gets block-level token checks.
+ *   `InlineNewline` (`\n`) pops back to `paragraph` mode, where the next line
+ *   is classified.
  *
- * This creates a per-line cycle: default_mode tries block tokens → none match
- * → InlineModeStart pushes to inline → inline tokens consumed → InlineNewline
- * pops to default_mode → next line.
- *
- * The grammar expresses this cycle through `inlineLine` (one line of inline
- * content) and `InlineNewline` (line separator that transitions modes).
+ * The grammar expresses this as `paragraph := InlineModeStart inlineLine (sep
+ * (inlineLine | ParagraphRawLine)?)*`, where `inlineLine` is one line of
+ * inline content opening with `ParagraphLineStart`.
  *
  * ## Newline token distinction
  *
- * There are TWO newline tokens with different roles:
+ * There are THREE newline tokens with different roles:
  * - `Newline` — in `default_mode`, a structural line separator
- * - `InlineNewline` — in `inline` mode, pops back to default_mode
+ * - `InlineNewline` — in `inline` mode, pops back to `paragraph` mode
+ * - `ParagraphNewline` — in `paragraph` mode, ends a raw line (which never
+ *   entered inline mode, so there is nothing to pop)
  *
- * This distinction matters in list items where IndentedLine (matched in
- * default_mode) uses `Newline` as its line separator, while inline content
- * uses `InlineNewline`. See `listItemRule` for the full explanation.
+ * A paragraph's line separator is therefore `InlineNewline | ParagraphNewline`
+ * wherever the grammar loops over lines.
  *
  * `performSelfAnalysis()` runs once per class instantiation to build lookahead
  * tables. We create a single parser instance and reuse it by setting `.input`
@@ -82,6 +87,9 @@ import {
   InlineModeStart,
   InlineNewline,
   InlineText,
+  ParagraphLineStart,
+  ParagraphNewline,
+  ParagraphRawLine,
   ItalicMark,
   MonoMark,
   RoleAttribute,
@@ -363,27 +371,32 @@ export class AsciidocParser extends CstParser {
   // content with optional continuation lines.
   //
   // The grammar handles two distinct continuation patterns
-  // because of how the lexer's inline mode interacts with
-  // line boundaries:
+  // because of how the lexer's modes interact with line
+  // boundaries:
   //
-  // Pattern 1 (MANY2): InlineNewline-separated lines
-  //   When the first line's content is inline-tokenized,
-  //   the lexer is in `inline` mode. InlineNewline (`\n`)
-  //   pops back to `default_mode`. If the next line starts
-  //   with non-indented text, InlineModeStart fires (the
-  //   catch-all at the end of default_mode) and pushes
-  //   back to inline. This loop handles that cycle:
-  //   InlineNewline → inlineLine | IndentedLine.
+  // Pattern 1 (MANY2): newline-separated inline lines
+  //   The item's text opens a paragraph (InlineModeStart),
+  //   and each of its lines is bracketed by
+  //   ParagraphLineStart … InlineNewline. This loop walks
+  //   that cycle. Two lines in it do NOT start with
+  //   ParagraphLineStart:
+  //   - a raw line (ParagraphRawLine + ParagraphNewline),
+  //     lexed whole in paragraph mode, and
+  //   - the first line after a `+` continuation, which the
+  //     lexer hands back to default_mode (that is how the
+  //     block a `+` attaches gets classified). When it is
+  //     plain text it re-enters through InlineModeStart, and
+  //     the OPTION3 inside this loop keeps it in the ITEM —
+  //     see the comment there.
   //
   // Pattern 2 (MANY3): Newline-separated lines after indent
-  //   When an IndentedLine matches (a line starting with
-  //   whitespace), it consumes the ENTIRE line as a single
-  //   token in `default_mode` — no push to inline mode.
-  //   The next line boundary is therefore a Newline token
-  //   (in default_mode), not an InlineNewline (which only
-  //   exists in inline mode). MANY3 handles continuation
-  //   lines that follow an IndentedLine, using Newline
-  //   as the separator.
+  //   An IndentedLine consumes the ENTIRE line as a single
+  //   token in `default_mode`. It only reaches an item after
+  //   a `+` (a paragraph swallows indented lines as text),
+  //   where it makes the attached block a literal one. The
+  //   next line boundary is then a Newline token (in
+  //   default_mode), not an InlineNewline, which is what
+  //   MANY3 exists for.
   //
   //   MANY3 requires a GATE because Newline is also used
   //   for blank lines (paragraph boundaries). Without the
@@ -395,28 +408,27 @@ export class AsciidocParser extends CstParser {
   //   continue if it's IndentedLine or InlineModeStart
   //   (legitimate continuation content).
   //
-  // Example token sequences:
+  // Example token sequences (PLS = ParagraphLineStart):
   //
-  //   "* text\n  indented\n  more\n"
-  //   ULM InMS InTx InNL IndL NL IndL NL
-  //        ^MANY2 loop^  ^MANY3 loop^
+  //   "* text\n  more\n"
+  //   ULM InMS PLS InTx InNL PLS InTx InNL
+  //             ^first line^  ^MANY2 loop^
+  //   The indented line is ordinary paragraph text now, so
+  //   it never becomes an IndentedLine token.
   //
-  //   "* text\n  indented\nflush\n"
-  //   ULM InMS InTx InNL IndL NL InMS InTx InNL
-  //        ^MANY2 loop^  ^MANY3^
+  //   "* text\n+\n  indented\n"
+  //   ULM InMS PLS InTx InNL InMS PLS InTx InNL IndL NL
+  //             ^first^  ^MANY2: the `+` line^  ^MANY2^
   //
   //   "* text\n\nparagraph\n"
-  //   ULM InMS InTx InNL NL InMS InTx InNL
-  //        ^MANY2^
-  //   MANY3 never runs here — it's nested inside the
-  //   IndentedLine branch of MANY2's OR. Since MANY2
-  //   consumed InNL and found Newline (not IndentedLine
-  //   or InlineModeStart), OPTION2 produces nothing.
-  //   MANY2 then tries another iteration but LA(1) is
-  //   Newline (not InlineNewline), so the loop exits.
-  //   The parser returns to the document level, where
-  //   Newline is consumed as a blank line separator and
-  //   "paragraph" becomes a separate paragraph block.
+  //   ULM InMS PLS InTx InNL NL InMS PLS InTx InNL
+  //             ^first line^
+  //   MANY2 consumed InNL and found Newline, so OPTION2
+  //   produces nothing; the loop then exits because LA(1) is
+  //   Newline, not a line separator. The parser returns to
+  //   the document level, where Newline is consumed as a
+  //   blank line separator and "paragraph" becomes a
+  //   separate paragraph block.
   private listItemRule(
     name: string,
     markerToken: TokenType,
@@ -426,19 +438,42 @@ export class AsciidocParser extends CstParser {
       // First line of the list item. After the marker token
       // is consumed in default_mode, InlineModeStart (the
       // catch-all at the end of default_mode) fires and
-      // pushes to inline mode for the remaining text.
+      // opens a paragraph for the item's text; each of its
+      // lines then opens with ParagraphLineStart.
+      this.CONSUME(InlineModeStart);
       this.SUBRULE(this.inlineLine);
       // Continuation lines (Pattern 1): each iteration
-      // starts with InlineNewline popping back to
-      // default_mode, then optionally consumes the next
-      // line as either inline text or an indented line.
+      // starts with the newline that ended the previous
+      // line, then optionally consumes the next line as
+      // inline text, a verbatim raw line, or (Task 6 will
+      // remove this now-unreachable branch) an indented line.
       this.MANY2(() => {
-        this.CONSUME(InlineNewline);
+        this.OR3([
+          { ALT: () => this.CONSUME(InlineNewline) },
+          { ALT: () => this.CONSUME(ParagraphNewline) },
+        ]);
         this.OPTION2(() => {
           this.OR([
             {
               ALT: () => {
+                // A `+` continuation line ends the item's paragraph
+                // in the LEXER, so the lines it attaches re-enter
+                // through InlineModeStart. Consuming that here keeps
+                // them inside the ITEM, which is what makes
+                // `* a` / `+` / `para` / `* b` one list rather than
+                // two with a paragraph wedged between them (and, for
+                // an ordered list, one numbering rather than two).
+                // continuation-builder.ts then splits the item's
+                // stream at the `+`.
+                this.OPTION3(() => {
+                  this.CONSUME2(InlineModeStart);
+                });
                 this.SUBRULE2(this.inlineLine);
+              },
+            },
+            {
+              ALT: () => {
+                this.CONSUME(ParagraphRawLine);
               },
             },
             {
@@ -478,6 +513,12 @@ export class AsciidocParser extends CstParser {
                       },
                       {
                         ALT: () => {
+                          // A flush line after an indented one now
+                          // re-enters through InlineModeStart, same
+                          // as in the loop above.
+                          this.OPTION4(() => {
+                            this.CONSUME3(InlineModeStart);
+                          });
                           this.SUBRULE3(this.inlineLine);
                         },
                       },
@@ -568,15 +609,15 @@ export class AsciidocParser extends CstParser {
     ]);
   });
 
-  // A single line of inline content. InlineModeStart pushes
-  // from default_mode to inline mode (zero-length match),
+  // A single line of inline content. ParagraphLineStart pushes
+  // from paragraph mode to inline mode (zero-length match),
   // then MANY consumes inline tokens until InlineNewline or
   // EOF. Extracted as a subrule to keep callback nesting
   // within the max-nested-callbacks lint limit, and to give
   // the CST a clear per-line grouping that the AST builder
   // can unwrap.
   inlineLine = this.RULE("inlineLine", () => {
-    this.CONSUME(InlineModeStart);
+    this.CONSUME(ParagraphLineStart);
     this.MANY(() => {
       this.SUBRULE(this.inlineToken);
     });
@@ -597,12 +638,19 @@ export class AsciidocParser extends CstParser {
   admonitionParagraph = this.RULE("admonitionParagraph", () => {
     this.CONSUME(AdmonitionMarker);
     this.OPTION(() => {
+      this.CONSUME(InlineModeStart);
       this.SUBRULE(this.inlineLine);
     });
     this.MANY2(() => {
-      this.CONSUME(InlineNewline);
+      this.OR([
+        { ALT: () => this.CONSUME(InlineNewline) },
+        { ALT: () => this.CONSUME(ParagraphNewline) },
+      ]);
       this.OPTION2(() => {
-        this.SUBRULE2(this.inlineLine);
+        this.OR2([
+          { ALT: () => this.SUBRULE2(this.inlineLine) },
+          { ALT: () => this.CONSUME(ParagraphRawLine) },
+        ]);
       });
     });
   });
@@ -628,11 +676,25 @@ export class AsciidocParser extends CstParser {
   // the grammar returns to the document rule instead of
   // continuing the MANY2 loop.
   paragraph = this.RULE("paragraph", () => {
+    // InlineModeStart opens the paragraph (default -> paragraph
+    // mode); every LINE of it then opens with ParagraphLineStart
+    // inside inlineLine.
+    this.CONSUME(InlineModeStart);
     this.SUBRULE(this.inlineLine);
     this.MANY2(() => {
-      this.CONSUME(InlineNewline);
+      // A text line ends with InlineNewline (popping inline mode
+      // back to paragraph mode); a raw line ends with
+      // ParagraphNewline, lexed in paragraph mode because a raw
+      // line never enters inline mode at all.
+      this.OR([
+        { ALT: () => this.CONSUME(InlineNewline) },
+        { ALT: () => this.CONSUME(ParagraphNewline) },
+      ]);
       this.OPTION(() => {
-        this.SUBRULE2(this.inlineLine);
+        this.OR2([
+          { ALT: () => this.SUBRULE2(this.inlineLine) },
+          { ALT: () => this.CONSUME(ParagraphRawLine) },
+        ]);
       });
     });
   });

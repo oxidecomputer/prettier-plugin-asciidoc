@@ -14,6 +14,7 @@ import type {
   DocumentNode,
   InlineNode,
   ListItemNode,
+  TextNode,
 } from "./ast.js";
 import {
   inlineMacroToSource,
@@ -21,12 +22,83 @@ import {
   xrefToSource,
   anchorToSource,
 } from "./serialize-inline.js";
-import { EMPTY, FIRST, LAST_ELEMENT, NEXT } from "./constants.js";
-import { flattenForFill, wordsToFillParts } from "./reflow.js";
+import {
+  EMPTY,
+  FIRST,
+  LAST_ELEMENT,
+  NEXT,
+  NOT_FOUND,
+  SINGLE,
+} from "./constants.js";
+import {
+  DLIST_HAZARD_BREAK,
+  flattenForFill,
+  isBlockSyntaxAtLineStart,
+  splitWords,
+  wordsToFillParts,
+} from "./reflow.js";
 
 const {
   builders: { line, literalline },
 } = doc;
+
+// The two characters a hard line break prints: the space is part of
+// the syntax (`LineBreakRx` requires it), not a separator.
+const HARD_BREAK_IMAGE = " +";
+
+// A hard line break OWNS its line when nothing but whitespace
+// precedes it there — which, in AST terms, means the text node in
+// front of it ends with the newline that opened the line (plus any
+// further indentation the token did not take).
+const LINE_START_BEFORE_BREAK = /\n[ \t]*$/v;
+
+/**
+ * Whether the source gave the hard line break at `path` a line of
+ * its own.
+ *
+ * A break that opens the block's inline content is NOT counted:
+ * there is nothing in front of it to break away from, and emitting
+ * a leading separator would open the block with a blank line.
+ * @param path - Prettier's AstPath at the hard line break.
+ * @returns True when only whitespace precedes it on its line.
+ */
+function ownsItsLine(path: PrintPath): boolean {
+  const parent = path.getParentNode();
+  const { index } = path;
+  if (parent === null || index === null || !("children" in parent)) {
+    return false;
+  }
+  if (index <= FIRST) {
+    return false;
+  }
+  const previous = parent.children.at(index + LAST_ELEMENT);
+  return (
+    previous?.type === "text" && LINE_START_BEFORE_BREAK.test(previous.value)
+  );
+}
+
+/**
+ * Print a hard line break (` +` at end of a line).
+ *
+ * Uses literalline (not hardline) so the break resets to column 0
+ * regardless of any enclosing align() context — e.g. inside list
+ * items, where align() supplies the soft-wrap indentation.
+ *
+ * A ` +` the source put alone on its line keeps that line.
+ * Asciidoctor's `LineBreakRx` captures everything before the space
+ * (`^(.*)[ \t]\+$`), so ` +` alone renders `<br>` with the
+ * preceding line's text AND its newline intact, while `text +`
+ * renders `text<br>` — joining the two lines would drop a space from
+ * the rendered output. The leading break is a separator;
+ * flattenForFill collapses it against the preceding text node's own
+ * boundary.
+ * @param path - Prettier's AstPath at the hard line break.
+ * @returns Fill parts for the break.
+ */
+function printHardLineBreak(path: PrintPath): Doc[] {
+  const printed: Doc[] = [HARD_BREAK_IMAGE, literalline];
+  return ownsItsLine(path) ? [literalline, ...printed] : printed;
+}
 
 // Must match the AnyNode union in the main printer exactly.
 // Prettier's AstPath<T> is invariant: path.map() and
@@ -86,12 +158,16 @@ function isInsideFormattingSpan(path: PrintPath): boolean {
   );
 }
 
+// Siblings that do NOT share the enclosing fill(): a nested list
+// prints on its own lines outside it, and a raw line forces a break
+// on both sides. Either way the node before one still ENDS an output
+// line, so a trailing `+` there is a hard line break and must be
+// escaped, and a word after one starts a line rather than fusing.
+const OWN_LINE_SIBLINGS = new Set(["list", "rawLine"]);
+
 /**
  * Check whether the node at `path` is followed by a sibling
- * that participates in the same enclosing fill(). Nested
- * lists inside a list item do NOT count: they print on their
- * own lines outside the fill, so a word at the end of the
- * text before them still ends an output line.
+ * that participates in the same enclosing fill().
  * @param path - Prettier's AstPath at the current text node.
  * @returns True when an inline sibling directly follows.
  */
@@ -102,7 +178,71 @@ function hasFollowingInlineSibling(path: PrintPath): boolean {
     return false;
   }
   const next = parent.children.at(index + NEXT);
-  return next !== undefined && next.type !== "list";
+  return next !== undefined && !OWN_LINE_SIBLINGS.has(next.type);
+}
+
+/**
+ * Check whether the node at `path` is preceded by a sibling that
+ * participates in the same enclosing fill(). Mirrors
+ * hasFollowingInlineSibling — see OWN_LINE_SIBLINGS for what does
+ * not count.
+ * @param path - Prettier's AstPath at the current text node.
+ * @returns True when an inline sibling directly precedes.
+ */
+function hasPrecedingInlineSibling(path: PrintPath): boolean {
+  const parent = path.getParentNode();
+  const { index } = path;
+  if (parent === null || index === null || !("children" in parent)) {
+    return false;
+  }
+  if (index <= FIRST) {
+    return false;
+  }
+  const previous = parent.children.at(index + LAST_ELEMENT);
+  return previous !== undefined && !OWN_LINE_SIBLINGS.has(previous.type);
+}
+
+/**
+ * Prepend a text node's leading-whitespace boundary to its fill
+ * parts.
+ *
+ * Normally the boundary is a breakable `line`. But when the node's
+ * FIRST word would become block syntax at column 0 (a fenced-code
+ * prefix, `----`, `.Title`) and an inline sibling precedes it, a break there
+ * is unsafe: wordsToFillParts glues such a word to its predecessor
+ * WITHIN a node, and the same must hold ACROSS the node boundary.
+ * An explicit `" "` (content, not a separator) is emitted instead,
+ * so flattenForFill fuses the word onto the sibling and neither
+ * fill() nor the dlist guard can start a line with it. The space
+ * goes after any leading hazard marker so the marker keeps leading
+ * the node's parts — resolveHazardBreak then puts the break in
+ * front of the whole fused run, which is the point.
+ * @param parts - Fill parts for the text node (mutated).
+ * @param path - Prettier's AstPath at the current text node.
+ * @param value - The node's raw value, inspected for leading
+ *   whitespace that must survive as a break opportunity.
+ * @param words - The node's whitespace-split words.
+ */
+function unshiftLeadingBoundary(
+  parts: Doc[],
+  path: PrintPath,
+  value: string,
+  words: string[],
+): void {
+  if (!/^\s/v.test(value)) {
+    return;
+  }
+  if (
+    isBlockSyntaxAtLineStart(words[FIRST]) &&
+    hasPrecedingInlineSibling(path)
+  ) {
+    const index = parts[FIRST] === DLIST_HAZARD_BREAK ? NEXT : FIRST;
+    // splice rather than index assignment: no-param-reassign forbids
+    // writing through a parameter.
+    parts.splice(index, SINGLE, [" ", parts[index]]);
+    return;
+  }
+  parts.unshift(line);
 }
 
 /**
@@ -131,25 +271,127 @@ function pushTrailingBoundary(
   }
 }
 
+// Inline nodes that CONTAIN other inline nodes. Walking past them
+// is how a text node finds the block it ultimately belongs to.
+const FORMATTING_SPANS = new Set(["bold", "italic", "monospace", "highlight"]);
+
+/**
+ * First source line of the block (paragraph or list item) that
+ * ultimately contains this node. Walks out through any formatting
+ * spans: a hazard word nested in `*…*` belongs to the paragraph's
+ * line numbering, not the span's, and stopping at the span would
+ * silently disable the guard for `a line\n*term:: x*`.
+ *
+ * Uses source positions rather than scanning earlier siblings at
+ * every level: `Node.position` is required on every AST node (see
+ * src/ast.ts) and is accurate inside nested spans, so one line
+ * comparison replaces a recursive sibling walk that would also have
+ * to reason about each ancestor's own newlines.
+ * @param path - Prettier's AstPath at the current text node.
+ * @returns The 1-based line the enclosing block starts on, or
+ *   undefined when no ancestor block was found.
+ */
+function enclosingBlockStartLine(path: PrintPath): number | undefined {
+  for (let depth = FIRST; ; depth += NEXT) {
+    const ancestor: AnyNode | null = path.getParentNode(depth);
+    if (ancestor === null) {
+      return undefined;
+    }
+    if (!FORMATTING_SPANS.has(ancestor.type)) {
+      return ancestor.position.start.line;
+    }
+  }
+}
+
+/**
+ * How many leading words of this text node sit on the enclosing
+ * BLOCK's first source line. Feeds wordsToFillParts' dlist guard: a
+ * `term::` word from a later source line is plain text where it
+ * stands, but would become a description-list term if reflow packed
+ * it onto the block's first output line.
+ * @param node - The text node being printed.
+ * @param path - Prettier's AstPath at that node, used to locate the
+ *   enclosing block.
+ * @param words - The node's whitespace-split words, so the "no line
+ *   break anywhere" answer costs no second split.
+ * @returns The count of leading words still on the block's first
+ *   source line; `words.length` when the whole node is on it.
+ */
+function firstSourceLineWordCount(
+  node: TextNode,
+  path: PrintPath,
+  words: string[],
+): number {
+  if (node.position.start.line !== enclosingBlockStartLine(path)) {
+    // The node itself begins on a later source line (or the block
+    // could not be located, in which case guarding is the safe
+    // answer): none of its words are on the block's first line.
+    return EMPTY;
+  }
+  const firstNewline = node.value.indexOf("\n");
+  if (firstNewline === NOT_FOUND) {
+    return words.length;
+  }
+  return splitWords(node.value.slice(FIRST, firstNewline)).length;
+}
+
 /**
  * Decide how a text node's trailing `+` word must be protected
  * from landing bare at the end of an output line (where ` +`
  * becomes a hard line break). See the text case in
  * printInlineNode for the three-way rationale.
  * @param path - Prettier's AstPath at the current text node.
+ * @param words - The node's whitespace-split words: a `+` that is
+ *   the node's ONLY word, with nothing before it in the fill, is
+ *   alone on its output line, and `+` at column 0 is not a break.
  * @returns Whether to rewrite an unglued trailing `+` to
  *   `{plus}`, and whether to glue it forward to a following
  *   inline sibling instead.
  */
-function trailingPlusPolicy(path: PrintPath): {
+function trailingPlusPolicy(
+  path: PrintPath,
+  words: string[],
+): {
   escapeTrailingPlus: boolean;
   glueToSibling: boolean;
 } {
   const followedInFill = hasFollowingInlineSibling(path);
+  const startsItsOwnLine =
+    words.length === SINGLE && !hasPrecedingInlineSibling(path);
   return {
-    escapeTrailingPlus: !followedInFill && !isInsideFormattingSpan(path),
+    escapeTrailingPlus:
+      !followedInFill && !isInsideFormattingSpan(path) && !startsItsOwnLine,
     glueToSibling: followedInFill,
   };
+}
+
+/**
+ * Fuse a formatting span's marks onto its flattened children and
+ * hoist any hazard marker out of the span.
+ *
+ * The marks must fuse onto real content: fusing the opening mark
+ * onto a leading DLIST_HAZARD_BREAK would hide the marker from the
+ * enclosing flatten AND put a break inside `*…*`. Re-emitting the
+ * marker ahead of the span instead lets the ENCLOSING fill resolve
+ * it against the separator before the span, treating the whole span
+ * as the fused run the break must not enter.
+ * @param parts - The span's flattened fill parts (mutated).
+ * @param openMark - Text opening the span, e.g. `*` or `[.red]#`.
+ * @param closeMark - Text closing the span, e.g. `*` or `#`.
+ * @returns Fill parts for the span, preceded by a hoisted marker
+ *   when its content began with one.
+ */
+function spanParts(parts: Doc[], openMark: string, closeMark: string): Doc[] {
+  const hoisted = parts[FIRST] === DLIST_HAZARD_BREAK;
+  if (hoisted) {
+    parts.shift();
+  }
+  const lastIndex = parts.length + LAST_ELEMENT;
+  // splice rather than index assignment: `parts` is a caller's
+  // parameter, which no-param-reassign forbids writing through.
+  parts.splice(FIRST, SINGLE, [openMark, parts[FIRST]]);
+  parts.splice(lastIndex, SINGLE, [parts[lastIndex], closeMark]);
+  return hoisted ? [DLIST_HAZARD_BREAK, ...parts] : parts;
 }
 
 /**
@@ -195,9 +437,7 @@ export function printInlineNode(
       // (from inline formatting context, e.g. "This is "
       // before *bold*), we emit `line` at the boundary so
       // adjacent inline marks get proper spacing in fill().
-      const words = node.value
-        .split(/\s+/v)
-        .filter((word) => word.length > EMPTY);
+      const words = splitWords(node.value);
       // All-whitespace text nodes (e.g. " " between adjacent
       // formatting marks, or " " as sole content of a
       // formatting span like `_# #_`). Emit a single line
@@ -223,14 +463,16 @@ export function printInlineNode(
       //   list follows — which prints outside the fill): the
       //   `+` truly ends an output line, so it must be
       //   escaped.
-      const { escapeTrailingPlus, glueToSibling } = trailingPlusPolicy(path);
-      const parts = wordsToFillParts(words, { escapeTrailingPlus });
-      const hasLeadingSpace = /^\s/v.test(node.value);
-      const hasTrailingSpace = /\s$/v.test(node.value);
-      if (hasLeadingSpace) {
-        parts.unshift(line);
-      }
-      if (hasTrailingSpace) {
+      const { escapeTrailingPlus, glueToSibling } = trailingPlusPolicy(
+        path,
+        words,
+      );
+      const parts = wordsToFillParts(words, {
+        escapeTrailingPlus,
+        firstLineWordCount: firstSourceLineWordCount(node, path, words),
+      });
+      unshiftLeadingBoundary(parts, path, node.value, words);
+      if (/\s$/v.test(node.value)) {
         pushTrailingBoundary(parts, words, glueToSibling);
       }
       return parts;
@@ -264,10 +506,7 @@ export function printInlineNode(
       if (parts.length === EMPTY) {
         return [`${mark}${mark}`];
       }
-      const lastIndex = parts.length + LAST_ELEMENT;
-      parts[FIRST] = [mark, parts[FIRST]];
-      parts[lastIndex] = [parts[lastIndex], mark];
-      return parts;
+      return spanParts(parts, mark, mark);
     }
     case "highlight": {
       // A role attribute gives the span semantic meaning used
@@ -283,10 +522,7 @@ export function printInlineNode(
       if (parts.length === EMPTY) {
         return [`${rolePrefix}${mark}${mark}`];
       }
-      const lastIndex = parts.length + LAST_ELEMENT;
-      parts[FIRST] = [rolePrefix, mark, parts[FIRST]];
-      parts[lastIndex] = [parts[lastIndex], mark];
-      return parts;
+      return spanParts(parts, `${rolePrefix}${mark}`, mark);
     }
     // Source-preserved constructs: these nodes are emitted
     // verbatim from the AST without reformatting. Prettier
@@ -315,13 +551,24 @@ export function printInlineNode(
     case "inlineAnchor": {
       return collapseSourceNewlines(anchorToSource(node));
     }
+    case "rawLine": {
+      // A comment or preprocessor line must start at column 0 to be
+      // one, so the breaks around it are literalline (not hardline):
+      // literal breaks reset to column 0 regardless of any enclosing
+      // align(), which list items use for soft-wrap indentation.
+      //
+      // Both breaks sit in fill() SEPARATOR slots. flattenForFill
+      // collapses one against a neighbour's break, so only the
+      // TRAILING one needs suppressing here: with nothing after it
+      // in this fill there is no neighbour to collapse against, and
+      // the block joiner already supplies the break — emitting it
+      // would open the next block with a blank line.
+      return hasFollowingInlineSibling(path)
+        ? [literalline, node.value, literalline]
+        : [literalline, node.value];
+    }
     case "hardLineBreak": {
-      // ` +` followed by a forced line break in the output.
-      // Use literalline (not hardline) so the break resets
-      // to column 0 regardless of any enclosing align()
-      // context — e.g. inside list items where align() is
-      // used for soft-wrap continuation indentation.
-      return [" +", literalline];
+      return printHardLineBreak(path);
     }
   }
 }

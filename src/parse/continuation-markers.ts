@@ -14,6 +14,18 @@
 import { LAST_ELEMENT, SINGLE } from "../constants.js";
 
 /**
+ * How many blank lines a `+` continuation survives.
+ *
+ * `read_lines_for_list_item` keeps reading across ONE blank line
+ * (the detached-continuation form, where the `+` still attaches the
+ * block below it) and gives up on the second, which ends the list.
+ * Confirmed against the oracle both ways: `* a` / `+` / `` / `para`
+ * renders `para` inside the item, and a second blank line makes it a
+ * top-level sibling.
+ */
+export const MAX_DETACHED_BLANK_LINES = 1;
+
+/**
  * Check whether a line's text is a `+` continuation marker: a
  * lone `+`, with trailing whitespace allowed — Asciidoctor
  * right-trims lines before matching, so `+ ` with an invisible

@@ -6,7 +6,17 @@
  * will be added when those features land (Tasks 14-16).
  */
 import { describe, test, expect } from "vitest";
-import { formatAdoc } from "../helpers.js";
+import { formatAdoc, renderedHtml } from "../helpers.js";
+
+/**
+ * Decode the numeric entity Asciidoctor emits for `{plus}` so it can
+ * be compared with a literal `+` from the same source character.
+ * @param html - rendered HTML from the oracle
+ * @returns the HTML with `&#43;` decoded
+ */
+function decodePlusEntity(html: string): string {
+  return html.replaceAll("&#43;", "+");
+}
 
 describe("paragraph reflow", () => {
   // A short paragraph that fits within printWidth should remain
@@ -107,29 +117,28 @@ describe("paragraph reflow", () => {
   });
 
   // Paragraph reflow must not place words at the start of a line
-  // where they would be re-parsed as AsciiDoc block syntax. A word
-  // starting with "." at the beginning of a line is a block title
-  // (.Title), which changes the AST on re-parse.
-  test("reflow does not create block title from .word at line start", async () => {
-    // With printWidth=10, fill() currently wraps this as:
-    //   "aaa bbb\n.title\n"
-    // But ".title" at line start is block title syntax in
-    // AsciiDoc, changing the AST on re-parse. The reflow
-    // must keep ".title" off the start of a line — either
-    // by repacking or by overflowing the printWidth.
+  // where they would be re-parsed as AsciiDoc block syntax — but the
+  // set of such words is exactly the line-shape registry's, and no
+  // wider. A `.word` is a block TITLE only on the first line of a block.
+  // Mid-paragraph Asciidoctor reads it as text — and so does the
+  // lexer's paragraph mode — so fill() may break in front of it and
+  // reflow must not waste a line preventing that.
+  test("lets a .word start a later line of a paragraph", async () => {
     const input = "aaa bbb .title\n";
-    const result = await formatAdoc(input, { printWidth: 10 });
-    expect(result).toBe("aaa\nbbb .title\n");
+    const options = { printWidth: 10 };
+    const out = await formatAdoc(input, options);
+    expect(out).toBe("aaa bbb\n.title\n");
+    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await formatAdoc(out, options)).toBe(out);
   });
 
-  // Consecutive dangerous words should all be glued to their
-  // predecessor, forming one indivisible group.
-  test("consecutive .words are glued together", async () => {
+  test("lets consecutive .words wrap freely", async () => {
     const input = "aaa .foo .bar\n";
-    const result = await formatAdoc(input, { printWidth: 10 });
-    for (const line of result.split("\n")) {
-      expect(line).not.toMatch(/^\.[A-Za-z]/v);
-    }
+    const options = { printWidth: 10 };
+    const out = await formatAdoc(input, options);
+    expect(out).toBe("aaa .foo\n.bar\n");
+    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await formatAdoc(out, options)).toBe(out);
   });
 
   // Delimiter-char words like `*` and `-` are dangerous at line
@@ -144,14 +153,17 @@ describe("paragraph reflow", () => {
     }
   });
 
-  // Attribute entry pattern `:name:` at line start would be
-  // re-parsed as a document attribute.
-  test("reflow prevents attribute entry at line start", async () => {
+  // An attribute entry is block metadata only where a block can
+  // start; mid-paragraph `:toc:` is text to Asciidoctor, and it is
+  // absent from every interrupting set in the registry, so reflow
+  // leaves it alone.
+  test("lets an attribute-entry-shaped word start a later line", async () => {
     const input = "use the :toc: attribute\n";
-    const result = await formatAdoc(input, { printWidth: 10 });
-    for (const line of result.split("\n")) {
-      expect(line).not.toMatch(/^:[A-Za-z]/v);
-    }
+    const options = { printWidth: 10 };
+    const out = await formatAdoc(input, options);
+    expect(out).toBe("use the\n:toc:\nattribute\n");
+    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await formatAdoc(out, options)).toBe(out);
   });
 
   // Fenced code prefix ``` at line start would open a code block.
@@ -195,7 +207,17 @@ describe("paragraph reflow", () => {
   // literal backslash, while `{plus}` renders `+`.
   test("reflow escapes + continuation that would create hard break", async () => {
     const input = ". item\n +\n// c\n";
-    expect(await formatAdoc(input)).toBe(". item {plus}\n\n// c\n");
+    const out = await formatAdoc(input);
+    expect(out).toBe(". item {plus}\n// c\n");
+    // The oracle makes a literal `+` of a whitespace-only ` +` line
+    // (NOT a hard line break — Asciidoctor strips the item's indent
+    // first, leaving a bare `+`). `{plus}` is the formatter's escape
+    // for that character and Asciidoctor renders it as the numeric
+    // entity for the very same one, so the comparison decodes it.
+    expect(decodePlusEntity(renderedHtml(out))).toBe(
+      decodePlusEntity(renderedHtml(input)),
+    );
+    expect(await formatAdoc(out)).toBe(out);
   });
 });
 
@@ -399,5 +421,312 @@ describe("list item reflow idempotency", () => {
     const first = await formatAdoc(input);
     const second = await formatAdoc(first);
     expect(second).toBe(first);
+  });
+});
+
+describe("dlist separator join hazard", () => {
+  // `first line\nterm:: definition` is ONE paragraph to Asciidoctor (a
+  // dlist cannot interrupt a paragraph). Joining the lines would put
+  // `term::` on the block's first line, which IS a dlist. The reflow
+  // must keep a break before the separator word.
+  test("keeps the break before a `::` word that was not on line 1", async () => {
+    const input = "first line\nterm:: definition\nlast line\n";
+    const out = await formatAdoc(input);
+    expect(out).toBe("first line\nterm:: definition last line\n");
+    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+
+  test("hazard word inside a later inline sibling is still guarded", async () => {
+    const input = "a line\n*bold* term:: x\n";
+    const out = await formatAdoc(input);
+    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+
+  test("a `::` word already on line 1 is left alone", async () => {
+    // Not a dlist only because the word is mid-line; reflow may join
+    // freely and the rendering must stay identical.
+    const input = "see foo:: here\nand more\n";
+    const out = await formatAdoc(input);
+    expect(renderedHtml(out)).toBe(renderedHtml(input));
+  });
+
+  // A hazard word can be GLUED to the preceding inline sibling —
+  // here `)::` has no whitespace before it, so it belongs to the
+  // link's fused run. The break has to land in front of the whole
+  // run; breaking between the link and `)::` would insert a space
+  // the source never had and change the rendered text.
+  test("breaks before a run the hazard word is glued to", async () => {
+    const input = "first line\nsee https://example.com[x]):: def\n";
+    const out = await formatAdoc(input);
+    expect(out).toBe("first line see\nhttps://example.com[x]):: def\n");
+    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+
+  // A hard line break already forces a break before the hazard
+  // word, so the guard must harden nothing and add nothing — a
+  // second separator here would emit a blank line and split the
+  // paragraph in two.
+  test("adds no blank line after a hard line break", async () => {
+    const input = "a +\nterm:: x\n";
+    const out = await formatAdoc(input);
+    expect(out).toBe(input);
+    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+
+  // Rule 3 must not override the bare-`+` rule: breaking right
+  // after `+` would put ` +` at end of line, which Asciidoctor
+  // re-parses as a hard line break. The break has to go in front of
+  // the whole `+ c::` run instead.
+  test("does not break between a bare `+` and a hazard word", async () => {
+    const input = "a line\nb + c:: d\n";
+    const out = await formatAdoc(input);
+    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+
+  // Same rule where the paragraph is long enough that fill() would
+  // otherwise pack the `+` onto the first output line.
+  test("keeps a bare `+` off a line end when a hazard follows", async () => {
+    const input = `${"word ".repeat(14)}\nalpha + bravo:: charlie\n`;
+    const out = await formatAdoc(input);
+    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+
+  // A hazard word inside a formatting span belongs to the
+  // PARAGRAPH's line numbering, not the span's. Stopping the lookup
+  // at the span would disable the guard and turn the paragraph into
+  // a description list.
+  test.each([
+    ["bold", "a line\n*term:: x*\n"],
+    ["italic", "a line\n_term:: x_\n"],
+    ["a nested span", "a line\n*_term:: x_*\n"],
+    ["a span carrying the newline", "*a\nterm:: x*\n"],
+  ])("guards a hazard word inside %s", async (_name, input) => {
+    const out = await formatAdoc(input);
+    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+
+  // A hazard word that is ALSO block syntax at column 0. Breaking
+  // in front of it would trade a description list for a listing
+  // block, so it has to fuse to the preceding inline sibling and
+  // the break goes in front of the whole run.
+  test.each([
+    ["a fenced-code prefix", "a line\n*b* ```js:: x\n"],
+    ["a listing delimiter", "a line\n*b* ----:: x\n"],
+    ["a block title", "a line\n*b* .Title:: x\n"],
+  ])("fuses %s to the preceding sibling", async (_name, input) => {
+    const out = await formatAdoc(input);
+    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+
+  // The same boundary for a RAW word: a comment marker that opens a
+  // text node must fuse onto the preceding inline sibling, or fill()
+  // could start a line with `//` and comment out everything it
+  // packed after it.
+  test("never starts a line with a comment from a following sibling", async () => {
+    const input = "aaaa *b* // comment cc dd\n";
+    const options = { printWidth: 12 };
+    const out = await formatAdoc(input, options);
+    expect(out.split("\n").some((l) => l.startsWith("//"))).toBe(false);
+    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await formatAdoc(out, options)).toBe(out);
+  });
+
+  // Same fusing without any hazard word: a narrow printWidth would
+  // otherwise let fill() break right before the fence word.
+  test("never starts a line with a word from a following sibling", async () => {
+    const input = "aaaa *b* ```js cc\n";
+    const options = { printWidth: 12 };
+    const out = await formatAdoc(input, options);
+    expect(out.split("\n").some((l) => l.startsWith("```"))).toBe(false);
+    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await formatAdoc(out, options)).toBe(out);
+  });
+
+  // Ruby's DescriptionListRx anchors its term group to the LINE, not
+  // to a word, so a separator that stands alone still opens a dlist
+  // once anything precedes it on the line (`<dt>bar </dt>`). Joining
+  // such a line onto the block's first output line would invent one.
+  test.each([
+    ["a bare separator word", "foo\nbar :: baz\n"],
+    ["a separator glued to an inline span", "foo\nbar `code`:: baz\n"],
+  ])("guards %s on a later line", async (_name, input) => {
+    const out = await formatAdoc(input);
+    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+
+  // The other three separator spellings and a multi-word term are
+  // separate code paths through DLIST_SEPARATOR_WORD's alternation,
+  // so each gets its own oracle check rather than trusting `::`.
+  test.each([
+    ["`:::`", "first line\nfoo::: x\n"],
+    ["`::::`", "first line\nfoo:::: x\n"],
+    ["`;;`", "first line\nfoo;; x\n"],
+    ["a multi-word term", "first line\nmulti word term:: def\n"],
+  ])("guards %s on a later line", async (_name, input) => {
+    const out = await formatAdoc(input);
+    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+});
+
+describe("reflow safety is driven by the line-shape registry", () => {
+  test("a block-title-shaped word may land at column 0 mid-paragraph", async () => {
+    // After Task 3 a `.gitignore`-shaped word at the start of line 2 is
+    // paragraph text to both Asciidoctor and us, so reflow no longer
+    // needs to glue it. Width 20 forces a wrap right before it.
+    const input = "aaaa bbbb cccc dddd .gitignore eeee\n";
+    const out = await formatAdoc(input, { printWidth: 20 });
+    expect(out).toBe("aaaa bbbb cccc dddd\n.gitignore eeee\n");
+    expect(renderedHtml(out)).toBe(renderedHtml(input));
+  });
+
+  test("an interrupting shape is still glued away from column 0", async () => {
+    const input = "aaaa bbbb cccc dddd [x] eeee\n";
+    const out = await formatAdoc(input, { printWidth: 20 });
+    expect(out.split("\n").some((l) => l.startsWith("[x]"))).toBe(false);
+    expect(renderedHtml(out)).toBe(renderedHtml(input));
+  });
+
+  // A bare list-marker word carries no trailing text, so the registry's
+  // marker patterns (`^\* `, `^\. `, `^<1> `) do not match it on its
+  // own. Reflow must still keep it off column 0 inside a list item,
+  // where the very next word would supply that trailing text and split
+  // the item into two. Hence the word-plus-text probe in
+  // isBlockSyntaxAtLineStart.
+  test.each([
+    ["an unordered marker", "*"],
+    ["a dash marker", "-"],
+    ["an ordered marker", "."],
+    ["a callout marker", "<1>"],
+  ])("never starts a list-item line with %s", async (_name, hazard) => {
+    const input = `* aaaa bbbb cccc dddd ${hazard} eeee ffff\n`;
+    const options = { printWidth: 20 };
+    const out = await formatAdoc(input, options);
+    // Continuation lines are indented, and AnyListRx allows leading
+    // whitespace, so the marker is just as dangerous at column 2.
+    const [, ...rest] = out.split("\n");
+    expect(rest.some((l) => l.trimStart().startsWith(hazard))).toBe(false);
+    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await formatAdoc(out, options)).toBe(out);
+  });
+
+  // A raw line is not an interrupter — the reader consumes a comment
+  // or preprocessor directive before block structure exists — but it
+  // is every bit as destructive at column 0, where it swallows the
+  // words fill() packed after it. Reflow therefore asks the registry
+  // for these shapes too (see isBlockSyntaxAtLineStart).
+  test.each([
+    ["a bare comment marker", "//"],
+    ["a comment", "//foo"],
+    ["a conditional directive", "ifdef::x[]"],
+  ])("never starts a line with %s", async (_name, hazard) => {
+    const input = `aaaa bbbb cccc dddd ${hazard} eeee ffff\n`;
+    const options = { printWidth: 20 };
+    const out = await formatAdoc(input, options);
+    expect(out.split("\n").some((l) => l.startsWith(hazard))).toBe(false);
+    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await formatAdoc(out, options)).toBe(out);
+  });
+
+  // A `term::` word is NOT part of this rule, and the omission is
+  // deliberate: it interrupts from ANY column of a list-item line, so
+  // keeping it off column 0 would buy nothing, and adding it here
+  // would fight the DLIST_HAZARD_BREAK guard (fusing the hazard word
+  // backwards puts the whole run on the very line that guard exists
+  // to keep it off — it turned `*a\nterm:: x*` into a description
+  // list). That guard covers only one case: a hazard word reaching a
+  // PARAGRAPH's first output line. In a list item nothing guards it,
+  // and on a paragraph's first SOURCE line nothing guards the reverse
+  // direction either. Both are recorded below.
+
+  // KNOWN GAP (dlist support, tracked with #9 / follow-up issue TBD).
+  // `read_lines_for_list_item` matches DescriptionListRx against the
+  // whole line, so any continuation line of a list item that carries
+  // a `::` word opens a nested description list, wherever the word
+  // sits. Wrapping an item whose text contains one therefore changes
+  // the rendering, and no line-START rule can prevent it: the fix is
+  // to keep such a word on the item's first output line (or to parse
+  // and print the dlist properly). Predates this task.
+  test.fails(
+    "wrapping a list item never invents a description list",
+    async () => {
+      const input = "* aa bb cc dd ee ff term:: gg\n";
+      const options = { printWidth: 20 };
+      const out = await formatAdoc(input, options);
+      expect(renderedHtml(out)).toBe(renderedHtml(input));
+    },
+  );
+
+  // KNOWN GAP (dlist support, tracked with #9 / follow-up issue TBD).
+  // The same rule seen from the LINE the term sits on: in a list
+  // item Asciidoctor matches DescriptionListRx against the whole
+  // source line, so `cccc term:: dddd` is one dlist item whose term
+  // is "cccc term". Wrapping between `cccc` and `term::` re-parses
+  // the term as just "term". The guard would have to keep a
+  // list-item source line carrying a `::` word unbroken; today only
+  // the first-output-line hazard is guarded.
+  test.fails("wrapping keeps a list item's whole dlist term", async () => {
+    const input = "* aaaa bbbb\ncccc term:: dddd\n";
+    const options = { printWidth: 14 };
+    const out = await formatAdoc(input, options);
+    expect(renderedHtml(out)).toBe(renderedHtml(input));
+  });
+
+  // KNOWN GAP (dlist support, tracked with #9 / follow-up issue TBD).
+  // The mirror case: a `::` word on a paragraph's FIRST source line
+  // makes the block a description list to Asciidoctor. We parse it as
+  // a paragraph instead, so fill() is free to wrap in front of the
+  // word — and the dlist the source described disappears. The guard
+  // above only pushes hazard words OFF the first line; nothing keeps
+  // one that started there in place. Predates this task.
+  test.fails("wrapping never dissolves a description list", async () => {
+    const input = "aaaa bbbb cccc dddd term:: eeee ffff\n";
+    const options = { printWidth: 20 };
+    const out = await formatAdoc(input, options);
+    expect(renderedHtml(out)).toBe(renderedHtml(input));
+  });
+
+  // The mirror image: shapes that only classify as block syntax on a
+  // block's FIRST line are plain text on line 2 of a paragraph, so
+  // whether reflow glues them or not the rendering must not move.
+  test.each([
+    ["a block title", ".gitignore"],
+    ["an admonition label", "NOTE:"],
+    ["a section marker", "=="],
+    ["a block macro", "image::x[]"],
+  ])("leaves the rendering untouched for %s", async (_name, shape) => {
+    const input = `aaaa bbbb cccc dddd ${shape} eeee ffff\n`;
+    const options = { printWidth: 20 };
+    const out = await formatAdoc(input, options);
+    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await formatAdoc(out, options)).toBe(out);
+  });
+});
+
+// A `term::` line inside a list item is the one interrupting shape
+// the lexer deliberately ignores (issue #9 — see
+// InterruptionOptions.ignoreDescriptionListTerms). Ending the item's
+// paragraph there sent the line back through default_mode, where its
+// indentation picked the branch: flush left it came back as inline
+// text, indented (which is how the printer had just emitted it) it
+// became an attached block. Two passes, two answers.
+describe("a description-list term inside a list item", () => {
+  test.each([
+    ["a sibling item follows", "* a\nterm:: def\n* b\n"],
+    ["the printer's own output", "* a\n  term:: def\n* b\n"],
+    ["nothing follows", "* a\nterm:: def\n"],
+  ])("converges when %s", async (_name, input) => {
+    const out = await formatAdoc(input);
+    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
   });
 });

@@ -20,7 +20,12 @@ import type {
 } from "../ast.js";
 import { EMPTY, FIRST, LAST_ELEMENT } from "../constants.js";
 import { buildInlineNodesWithContinuation } from "./continuation-builder.js";
-import { flattenInlineTokens, unwrapInlineLines } from "./inline-tokens.js";
+import {
+  flattenInlineTokens,
+  mergeSortedTokens,
+  structuralTokens,
+  unwrapInlineLines,
+} from "./inline-tokens.js";
 // When draining the nesting stack, stop when only the root level
 // remains (stack has one entry).
 const MIN_STACK_DEPTH = 1;
@@ -256,6 +261,10 @@ export interface ListItemInlineContext {
    * within the same list item.
    */
   InlineNewline?: IToken[];
+  /** Comment/directive lines kept verbatim inside the item. */
+  ParagraphRawLine?: IToken[];
+  /** Newline tokens that terminate a ParagraphRawLine. */
+  ParagraphNewline?: IToken[];
   /**
    * Continuation lines indented under the list item
    * (e.g. a paragraph attached via `+`).
@@ -311,14 +320,15 @@ export function buildListItemInlineChildren(
   lastToken: IToken;
 } {
   const inlineLines = context.inlineLine ?? [];
-  const inlineNewlines = context.InlineNewline ?? [];
+  const rawLines = context.ParagraphRawLine ?? [];
+  const structural = structuralTokens(context);
   const indentedTokens = context.IndentedLine ?? [];
   const newlines = context.Newline ?? [];
 
   const { inlineChildren, attachedBlocks, danglingContinuation } =
     buildInlineNodesWithContinuation(
       inlineLines,
-      inlineNewlines,
+      structural,
       indentedTokens,
       newlines,
     );
@@ -326,7 +336,10 @@ export function buildListItemInlineChildren(
   // The last content token determines the item's end
   // position. It's either the last inline content token
   // or the last IndentedLine token, whichever comes later.
-  const contentTokens = flattenInlineTokens(unwrapInlineLines(inlineLines), []);
+  const contentTokens = mergeSortedTokens(
+    flattenInlineTokens(unwrapInlineLines(inlineLines), []),
+    rawLines,
+  );
   const lastInline = contentTokens.at(LAST_ELEMENT);
   const lastIndented = indentedTokens.at(LAST_ELEMENT);
   // Determine which content token comes last by offset.

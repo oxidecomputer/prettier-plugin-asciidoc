@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { formatAdoc } from "../helpers.js";
+import { formatAdoc, renderedHtml } from "../helpers.js";
 
 describe("fenced code block formatting", () => {
   // Fenced block with language normalizes to [source,lang] + ----
@@ -9,11 +9,14 @@ describe("fenced code block formatting", () => {
     expect(await formatAdoc(input)).toBe(expected);
   });
 
-  // Fenced block without language normalizes to bare ----
-  test("normalizes fenced block without language to bare listing", async () => {
-    const input = "```\nhello world\n```\n";
-    const expected = "----\nhello world\n----\n";
-    expect(await formatAdoc(input)).toBe(expected);
+  // A fence carries implicit `source` style even without a language
+  // hint — Asciidoctor renders it as `<pre class="highlight"><code>`,
+  // not a plain listing. Normalizing to bare `----` would lose that.
+  test("a fence without a language normalizes to [source] + listing", async () => {
+    const input = "first line\n\n```\ncode\n```\n";
+    const out = await formatAdoc(input);
+    expect(out).toBe("first line\n\n[source]\n----\ncode\n----\n");
+    expect(renderedHtml(out)).toBe(renderedHtml(input));
   });
 
   // Multi-line content is preserved verbatim.
@@ -24,10 +27,11 @@ describe("fenced code block formatting", () => {
     expect(await formatAdoc(input)).toBe(expected);
   });
 
-  // Empty fenced code block normalizes to empty listing block.
+  // Empty fenced code block still carries implicit source style,
+  // even with no content and no language hint.
   test("empty fenced code block", async () => {
     const input = "```\n```\n";
-    const expected = "----\n----\n";
+    const expected = "[source]\n----\n----\n";
     expect(await formatAdoc(input)).toBe(expected);
   });
 
@@ -42,7 +46,7 @@ describe("fenced code block formatting", () => {
   // Content with ---- inside gets smart delimiter minimization.
   test("content with dashes gets smart delimiters", async () => {
     const input = "```\n----\ncode\n----\n```\n";
-    const expected = "-----\n----\ncode\n----\n-----\n";
+    const expected = "[source]\n-----\n----\ncode\n----\n-----\n";
     expect(await formatAdoc(input)).toBe(expected);
   });
 
@@ -59,5 +63,43 @@ describe("fenced code block formatting", () => {
     const result = await formatAdoc(input);
     // The [source,python] attribute list should appear exactly once.
     expect(result).toBe("[source,python]\n----\nprint('hello')\n----\n");
+  });
+
+  // A fence WITH a language still gets its [source,lang] attribute
+  // (not merely [source]) and round-trips both textually and
+  // semantically — the language-specific prefix logic must not
+  // regress when the fenced-implies-source behavior is added.
+  test("a fence with a language still emits [source,lang] + listing", async () => {
+    const input = "```rust\nfn main() {}\n```\n";
+    const out = await formatAdoc(input);
+    expect(out).toBe("[source,rust]\n----\nfn main() {}\n----\n");
+    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+
+  // Metadata ORDER: a block title belongs above the attribute list
+  // the normalization inserts, not between it and the delimiter.
+  // `.T` / `[source]` / `----` is the only stacking Asciidoctor
+  // reads back as a titled source block.
+  test.each([
+    ["without a language", ".T\n```\ncode\n```\n", ".T\n[source]\n"],
+    ["with a language", ".T\n```js\ncode\n```\n", ".T\n[source,js]\n"],
+  ])("a titled fence %s keeps the title first", async (_name, input, head) => {
+    const out = await formatAdoc(input);
+    expect(out).toBe(`${head}----\ncode\n----\n`);
+    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+
+  // A fence without a language, preceded by an explicit bare
+  // [source] attribute list, must not duplicate that attribute —
+  // the sibling check has to recognize a bare [source], not just
+  // [source,lang].
+  test("a fence preceded by an explicit [source] line does not duplicate the attribute", async () => {
+    const input = "[source]\n```\ncode\n```\n";
+    const out = await formatAdoc(input);
+    expect(out).toBe("[source]\n----\ncode\n----\n");
+    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
   });
 });

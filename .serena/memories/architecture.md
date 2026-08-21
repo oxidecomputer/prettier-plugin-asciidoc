@@ -20,7 +20,15 @@ source text → Lexer → Parser → CST → AST Builder → AST → Printer →
   `docs/design.md`. List-item continuation lines (lexed as raw IndentedLine
   tokens in default mode) are re-lexed by a dedicated inline sub-lexer
   (`src/parse/inline-fragment-lexer.ts`) so inline constructs parse the same on
-  any line of an item.
+  any line of an item. Once a paragraph/item/description opens, the lexer's
+  `paragraph` mode (`src/parse/paragraph-tokens.ts`) decides where it ends by
+  consulting `src/parse/line-shapes.ts` — a single registry of interrupting line
+  shapes, oracle-pinned by `tests/conformance/interruption.test.ts` and cited to
+  the Asciidoctor Ruby source, keyed by four `ParagraphContext`s (`paragraph`,
+  `listItem`, `listContinuation`, `dlistItem`). Reflow safety (`src/reflow.ts`)
+  consumes the same registry so the lexer and the formatter's word-wrapping can
+  never disagree about what would re-parse as block syntax. See "Line
+  classification is contextual" in `docs/design.md`.
 - **AST** (`src/ast.ts`): Designed for Prettier, not the AsciiDoc ASG. Preserves
   comments, directives, attribute entries, and other constructs the ASG
   intentionally discards.

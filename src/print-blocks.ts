@@ -25,15 +25,22 @@ import {
   MARKER_OFFSET,
   MIN_DELIMITER_LENGTH,
   NEXT,
+  NOT_FOUND,
   SAFE_DELIMITER_PAD,
 } from "./constants.js";
-import { isBlockMetadata } from "./block-metadata.js";
+import { isContinuationPassThrough } from "./block-metadata.js";
 import { CHECKBOX_PREFIX_LEN } from "./parse/block-helpers.js";
-import { flattenForFill, wordsToFillParts } from "./reflow.js";
+import {
+  flattenForFill,
+  splitWords,
+  stripLeadingHazardBreak,
+  wordsToFillParts,
+} from "./reflow.js";
 import { joinBlocks } from "./print-join.js";
+import { isRawParagraphLine } from "./parse/line-shapes.js";
 
 const {
-  builders: { align, fill, hardline, join },
+  builders: { align, fill, hardline, join, literalline },
 } = doc;
 
 /**
@@ -215,20 +222,23 @@ function computeMasqueradeDelimiter(node: DelimitedBlockNode): string {
 }
 
 /**
- * Check whether the preceding sibling is a `[source,lang]`
- * attribute list that matches this block's language hint.
- * When true, the printer should skip emitting its own
- * `[source,lang]` prefix to avoid duplication.
+ * Check whether the preceding sibling is a `[source]` or
+ * `[source,lang]` attribute list that already covers this
+ * block's implicit source style. When true, the printer
+ * should skip emitting its own `[source]`/`[source,lang]`
+ * prefix to avoid duplication. A fence with no language
+ * hint still implies `source`, so a bare preceding
+ * `[source]` counts as already-present too.
  * @param node - The delimited block to check.
  * @param path - Prettier's AST path for sibling access.
  * @returns True when the preceding sibling already covers
- *   the language attribute.
+ *   the source attribute.
  */
 export function hasPrecedingLanguageAttribute(
   node: DelimitedBlockNode,
   path: PrintPath,
 ): boolean {
-  if (node.language === undefined) return false;
+  if (node.fenced !== true && node.language === undefined) return false;
   // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Prettier path traversal returns generic node
   const parent = path.getParentNode() as { children: BlockNode[] } | undefined;
   const siblings = parent?.children;
@@ -236,10 +246,10 @@ export function hasPrecedingLanguageAttribute(
   const index = siblings.indexOf(node);
   if (index < NEXT) return false;
   const { [index - NEXT]: previous } = siblings;
-  return (
-    previous.type === "blockAttributeList" &&
-    previous.value === `source,${node.language}`
-  );
+  if (previous.type !== "blockAttributeList") return false;
+  const expectedValue =
+    node.language === undefined ? "source" : `source,${node.language}`;
+  return previous.value === expectedValue;
 }
 
 /**
@@ -253,15 +263,17 @@ export function hasPrecedingLanguageAttribute(
  * and paragraph-form blocks are printed verbatim without
  * delimiters.
  * @param node - The delimited block AST node.
- * @param skipLanguagePrefix - When true, suppress the
- *   `[source,lang]` prefix normally emitted for fenced
- *   code blocks. Set when the preceding sibling already
- *   has a matching attribute list.
+ * @param skipSourcePrefix - When true, suppress the
+ *   `[source]`/`[source,lang]` prefix normally emitted for
+ *   fenced code blocks. Set when the preceding sibling
+ *   already has a matching attribute list — which for a bare
+ *   fence is the bare `[source]` the printer would otherwise
+ *   add a second time.
  * @returns Doc IR for the formatted block.
  */
 export function printDelimitedBlock(
   node: DelimitedBlockNode,
-  skipLanguagePrefix: boolean,
+  skipSourcePrefix: boolean,
 ): Doc {
   // Indented literal paragraphs and paragraph-form blocks: print
   // content verbatim without delimiters. The preceding attribute
@@ -278,15 +290,21 @@ export function printDelimitedBlock(
   // delimiter to use instead of the variant's default.
   const delimiter = computeMasqueradeDelimiter(node);
 
-  // When a fenced code block had a language hint, emit a
-  // [source,lang] attribute list before the delimiter to
-  // normalize to AsciiDoc-native syntax. Skip when the
-  // preceding sibling already has a matching attribute list
-  // to avoid emitting [source,lang] twice.
-  const prefix: Doc[] =
-    node.language === undefined || skipLanguagePrefix
-      ? []
-      : ["[source,", node.language, "]", hardline];
+  // A fenced code block implies the `source` style even without a
+  // language hint — Asciidoctor renders it as `<pre class="highlight">`,
+  // not a plain listing. Emit [source] (or [source,lang] when a
+  // language hint is present) before the delimiter to preserve that
+  // semantics when normalizing to AsciiDoc-native `----` syntax. Skip
+  // when the preceding sibling already has a matching attribute list
+  // to avoid emitting it twice.
+  const wantsSource = node.fenced === true || node.language !== undefined;
+  let prefix: Doc[] = [];
+  if (wantsSource && !skipSourcePrefix) {
+    prefix =
+      node.language === undefined
+        ? ["[source]", hardline]
+        : ["[source,", node.language, "]", hardline];
+  }
 
   // Use trim() to detect whitespace-only content: Prettier strips
   // trailing whitespace per line, so all-whitespace content would
@@ -433,6 +451,89 @@ export function printParentBlock(
 }
 
 /**
+ * Reflow one run of admonition body lines into a fill().
+ *
+ * wordsToFillParts handles block-syntax-at-line-start prevention
+ * (see its doc comment). No align() here: leading spaces in AsciiDoc
+ * denote an indented literal block, so continuation lines must start
+ * at column 0 to preserve document semantics. flattenForFill
+ * resolves any hazard marker the guard emitted (there are no inline
+ * siblings here, so every marker sits in a real separator slot);
+ * stripLeadingHazardBreak covers the block-level case for the same
+ * reason as the paragraph printer.
+ * @param text - The run's source lines joined with `\n`.
+ * @param isFirstRun - Whether this run opens the admonition. Only
+ *   then can a word sit on the BLOCK's first source line, which is
+ *   what the dlist guard asks about; a later run always starts on a
+ *   line of its own, so none of its words qualify.
+ * @returns A fill() for the run, or undefined when it has no words.
+ */
+function admonitionRun(text: string, isFirstRun: boolean): Doc | undefined {
+  const words = splitWords(text);
+  if (words.length === EMPTY) {
+    return undefined;
+  }
+  // An admonition keeps its content raw, newlines and all, so the
+  // dlist guard's "which words were on the block's first source
+  // line" is just the word count before the first newline. Without
+  // it, `NOTE: a line\nterm:: x` reflows to one line and re-parses
+  // as a description list instead of an admonition.
+  const firstNewline = text.indexOf("\n");
+  const firstLineWordCount =
+    firstNewline === NOT_FOUND
+      ? words.length
+      : splitWords(text.slice(FIRST, firstNewline)).length;
+  const parts = wordsToFillParts(words, {
+    firstLineWordCount: isFirstRun ? firstLineWordCount : EMPTY,
+  });
+  return fill(stripLeadingHazardBreak(flattenForFill([parts])));
+}
+
+/**
+ * Split an admonition body into the pieces that get their own output
+ * line: reflowable runs of text, and the verbatim comment or
+ * preprocessor lines between them.
+ *
+ * The split uses the same registry predicate the lexer classified
+ * those lines with, so parse and print cannot disagree about which
+ * line is which. Reflowing across one would make a comment visible
+ * or render `ifdef`-guarded text unconditionally.
+ * @param content - The admonition's body, source lines joined by
+ *   `\n`.
+ * @returns Segments in source order, to be joined with a forced
+ *   break.
+ */
+function admonitionBodySegments(content: string): Doc[] {
+  const segments: Doc[] = [];
+  let run: string[] = [];
+  let isFirstRun = true;
+  const flushRun = (): void => {
+    // isFirstRun clears even when the run is empty: whatever follows
+    // is no longer the block's first source line, which is the only
+    // thing the flag is asked about.
+    const rendered =
+      run.length === EMPTY
+        ? undefined
+        : admonitionRun(run.join("\n"), isFirstRun);
+    if (rendered !== undefined) {
+      segments.push(rendered);
+    }
+    run = [];
+    isFirstRun = false;
+  };
+  for (const line of content.split("\n")) {
+    if (isRawParagraphLine(line)) {
+      flushRun();
+      segments.push(line);
+    } else {
+      run.push(line);
+    }
+  }
+  flushRun();
+  return segments;
+}
+
+/**
  * Prints an admonition node to Doc IR.
  *
  * Paragraph-form admonitions (`NOTE: text`) produce a
@@ -460,18 +561,7 @@ export function printAdmonition(
     if (node.content === undefined) {
       return label.trimEnd();
     }
-    // Reflow the content into fill() the same way paragraphs
-    // do. Split on whitespace, interleave with line breaks.
-    // wordsToFillParts handles block-syntax-at-line-start
-    // prevention (see its doc comment).
-    const words = node.content
-      .split(/\s+/v)
-      .filter((word) => word.length > EMPTY);
-    const parts = wordsToFillParts(words);
-    // No align() here: leading spaces in AsciiDoc denote an
-    // indented literal block, so continuation lines must start
-    // at column 0 to preserve document semantics.
-    return [label, fill(parts)];
+    return [label, join(literalline, admonitionBodySegments(node.content))];
   }
 
   // Delimited form: use the stored delimiter variant to
@@ -663,7 +753,7 @@ export function printListItem(
     }
   }
 
-  const inlineParts = flattenForFill(inlineChildren);
+  const inlineParts = stripLeadingHazardBreak(flattenForFill(inlineChildren));
 
   // Build the output: marker + space + checkbox + aligned
   // fill of inline content, followed by any nested lists.
@@ -687,10 +777,14 @@ export function printListItem(
     .entries()) {
     const previousAttached =
       index > FIRST ? node.attachedBlocks[index - NEXT] : undefined;
-    if (previousAttached !== undefined && isBlockMetadata(previousAttached)) {
-      // Block metadata stacks directly above the block it
-      // annotates — the whole metadata+block group hangs off
-      // the single `+` emitted before its first piece.
+    if (
+      previousAttached !== undefined &&
+      isContinuationPassThrough(previousAttached)
+    ) {
+      // Block metadata (and the comment lines the reader eats)
+      // stack directly above the block they precede — the whole
+      // group hangs off the single `+` emitted before its first
+      // piece.
       continuationParts.push(hardline, printedBlock);
     } else {
       continuationParts.push(hardline, "+", hardline, printedBlock);

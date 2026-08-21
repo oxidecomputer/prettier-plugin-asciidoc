@@ -19,6 +19,12 @@
  * lexer pushes into `block_comment` mode where everything is captured verbatim
  * until the closing `////` delimiter. This prevents block comment content from
  * being parsed as headings, paragraphs, or other AsciiDoc constructs.
+ *
+ * The block-level tokens in default_mode apply to a block's FIRST line only.
+ * Once InlineModeStart opens a paragraph, the lexer runs in `paragraph` mode
+ * (src/parse/paragraph-tokens.ts), where a line is classified by the registry
+ * in src/parse/line-shapes.ts instead — which is how a mid-paragraph `.Title`
+ * or `* item` line stays plain text, the way Asciidoctor reads it.
  */
 import { createToken, Lexer } from "chevrotain";
 import type { CustomPatternMatcherReturn } from "chevrotain";
@@ -29,12 +35,25 @@ import {
 } from "./delimiter-patterns.js";
 import { makeInlineMarkPattern } from "./inline-mark-pattern.js";
 import {
+  BLOCK_ANCHOR_SOURCE,
+  BLOCK_ATTRIBUTE_LINE_SOURCE,
+  DELIMITER_SOURCES,
+  LINE_COMMENT_SOURCE,
+} from "./line-shapes.js";
+import {
   InlineUrl,
   InlineMacro,
   XrefShorthand,
   InlineAnchor,
   HardLineBreak,
 } from "./inline-link-tokens.js";
+import {
+  ParagraphEnd,
+  ParagraphLineStart,
+  ParagraphNewline,
+  ParagraphRawLine,
+  paragraphModeTokens,
+} from "./paragraph-tokens.js";
 
 /**
  * One or more empty/whitespace-only lines. Matches a newline
@@ -55,14 +74,45 @@ export const Newline = createToken({
   line_breaks: true,
 });
 
+// A shape that must OWN its line: the lookahead allows only the
+// newline (or end of input) after it. Every block-level token below
+// that stands alone on a line is anchored with it.
+const END_OF_LINE = String.raw`(?![^\n])`;
+
+// The trailing spaces or tabs Asciidoctor's reader strips off every
+// line before the parser sees it, so a delimiter followed by blanks
+// is still a delimiter.
+const TRAILING_BLANKS = String.raw`[ \t]*`;
+
+/**
+ * Build an open-delimiter token pattern from a registry source.
+ *
+ * The registry (src/parse/line-shapes.ts) owns the delimiter shapes;
+ * the lexer differs from it only in what surrounds one, so the two
+ * are built from a single string rather than written twice. What the
+ * lexer adds is the trailing whitespace Asciidoctor's reader would
+ * have rstripped (`Helpers.prepare_source_string`): consuming those
+ * spaces, rather than looking past them, keeps them out of the
+ * block's verbatim content.
+ * @param source - the delimiter's pattern source from DELIMITER_SOURCES
+ * @returns a flagless RegExp anchored to the end of its line
+ */
+function delimiterLine(source: string): RegExp {
+  return new RegExp(`${source}${TRAILING_BLANKS}${END_OF_LINE}`);
+}
+
 /**
  * A heading line starting with 2-6 equals signs followed by
- * space and title text. Must be defined before InlineModeStart
- * so the lexer prefers it for heading lines.
+ * whitespace and title text. Mirrors `AtxSectionTitleRx`
+ * (`/^(=={0,5})[ \t]+(.+?)(?:[ \t]+\1)?$/`), which is matched
+ * against the RSTRIPPED line — hence the `\S`: `==␠␠` has no title
+ * and is not a heading (the oracle renders it as a paragraph, and
+ * `====␠␠` as an example block). Must be defined before
+ * InlineModeStart so the lexer prefers it for heading lines.
  */
 export const SectionMarker = createToken({
   name: "SectionMarker",
-  pattern: /={2,6} [^\n]+/,
+  pattern: /={2,6}[ \t]+\S[^\n]*/,
 });
 
 /**
@@ -76,7 +126,9 @@ export const SectionMarker = createToken({
  */
 export const DocumentTitle = createToken({
   name: "DocumentTitle",
-  pattern: /= (?!=)[^\n]+/,
+  // Same shape as SectionMarker (one `=`, then a non-empty title);
+  // `(?!=)` after the first `=` is what limits it to level 0.
+  pattern: /=(?!=)[ \t]+\S[^\n]*/,
 });
 
 /**
@@ -88,7 +140,14 @@ export const DocumentTitle = createToken({
  */
 export const ListingBlockOpen = createToken({
   name: "ListingBlockOpen",
-  pattern: /-{4,}/,
+  // A delimiter OWNS its line: Asciidoctor's `is_delimited_block?`
+  // requires the whole line to be a uniform run of the delimiter
+  // char, so `----:: x` is a description-list term, not a listing
+  // block. Every delimiter token below is anchored the same way, and
+  // all of them take their shape from the registry (see
+  // delimiterLine); the printer re-emits the delimiter trimmed,
+  // which is what Asciidoctor read in the first place.
+  pattern: delimiterLine(DELIMITER_SOURCES.listing),
   push_mode: "listing_verbatim",
 });
 
@@ -99,11 +158,10 @@ export const ListingBlockOpen = createToken({
  */
 export const LiteralBlockOpen = createToken({
   name: "LiteralBlockOpen",
-  // Negative lookahead prevents matching when the dots are
-  // followed by more dots or a space — those are ordered list
-  // markers (e.g. `.... text` at depth 4 or `..... text` at
-  // depth 5). Delimiters occupy a line by themselves.
-  pattern: /\.{4,}(?![. ])/,
+  // Anchored to end of line (see ListingBlockOpen): `.... text`
+  // is an ordered list marker at depth 4, and `....x` is a
+  // paragraph, not a literal block.
+  pattern: delimiterLine(DELIMITER_SOURCES.literal),
   push_mode: "literal_verbatim",
 });
 
@@ -113,7 +171,7 @@ export const LiteralBlockOpen = createToken({
  */
 export const PassBlockOpen = createToken({
   name: "PassBlockOpen",
-  pattern: /\+{4,}/,
+  pattern: delimiterLine(DELIMITER_SOURCES.pass),
   push_mode: "pass_verbatim",
 });
 
@@ -126,7 +184,11 @@ export const PassBlockOpen = createToken({
  */
 export const FencedCodeOpen = createToken({
   name: "FencedCodeOpen",
-  pattern: /```[^\n]*/,
+  // The one delimiter that may carry a suffix: `is_delimited_block?`
+  // chops the 4th character off a fence and requires the remainder
+  // to be exactly ``` — so ```` ```ruby ```` opens a fence but
+  // ```` ```` ```` (four backticks) does not.
+  pattern: new RegExp(DELIMITER_SOURCES.fencedCode),
   push_mode: "fenced_code_verbatim",
 });
 
@@ -137,14 +199,13 @@ export const FencedCodeOpen = createToken({
  * grammar rules. The matching ExampleBlockClose token enforces
  * that the close delimiter has the same length as this open.
  *
- * Negative lookahead prevents matching when followed by a space
- * or more equals signs — those are section headings handled by
- * SectionMarker (`={2,6} text`). A bare `====` (no space, no
- * trailing text) is the example block open delimiter.
+ * Anchored to end of line (see ListingBlockOpen), which also keeps
+ * it off section headings (`={2,6} text`, handled by SectionMarker)
+ * and off `====text`, which is a paragraph.
  */
 export const ExampleBlockOpen = createToken({
   name: "ExampleBlockOpen",
-  pattern: /={4,}(?![= ])/,
+  pattern: delimiterLine(DELIMITER_SOURCES.example),
 });
 
 /**
@@ -156,12 +217,9 @@ export const ExampleBlockOpen = createToken({
  */
 export const SidebarBlockOpen = createToken({
   name: "SidebarBlockOpen",
-  // Negative lookahead prevents matching when followed by a
-  // space — `**** text` is an unordered list marker at depth 4,
-  // not a sidebar delimiter. Also rejects more asterisks after
-  // the 5th (though `*{4,}` already won't match `*{6+}`
-  // because the list marker only goes to 5).
-  pattern: /\*{4,}(?![ *])/,
+  // Anchored to end of line (see ListingBlockOpen): `**** text`
+  // is an unordered list marker at depth 4, not a sidebar.
+  pattern: delimiterLine(DELIMITER_SOURCES.sidebar),
 });
 
 /**
@@ -177,7 +235,7 @@ export const OpenBlockDelimiter = createToken({
   // to appear on its own line as a block delimiter. Without
   // the negative lookahead, `-- text` would be consumed as
   // an open block delimiter + indented line instead of text.
-  pattern: /--(?![^\n])/,
+  pattern: delimiterLine(DELIMITER_SOURCES.openBlock),
 });
 
 /**
@@ -188,7 +246,7 @@ export const OpenBlockDelimiter = createToken({
  */
 export const QuoteBlockOpen = createToken({
   name: "QuoteBlockOpen",
-  pattern: /_{4,}(?![^\n])/,
+  pattern: delimiterLine(DELIMITER_SOURCES.quote),
 });
 
 // -- Parent block close tokens --
@@ -228,7 +286,7 @@ export const QuoteBlockClose = createToken({
  */
 export const BlockCommentDelimiter = createToken({
   name: "BlockCommentDelimiter",
-  pattern: /\/{4,}/,
+  pattern: delimiterLine(DELIMITER_SOURCES.commentBlock),
   push_mode: "block_comment",
 });
 
@@ -240,20 +298,25 @@ export const BlockCommentDelimiter = createToken({
  */
 export const BlockCommentEnd = createToken({
   name: "BlockCommentEnd",
-  pattern: /\/{4,}/,
+  // Anchored like the open (see ListingBlockOpen): `////x` is
+  // comment CONTENT, not a terminator.
+  pattern: /\/{4,}[ \t]*(?![^\n])/,
   pop_mode: true,
 });
 
 /**
- * Line comment: `//` followed by a space (then optional text)
- * or end of line. `//path` (no space) is NOT a comment.
- * The negative lookahead `(?!\S)` rejects `//` followed by
- * a non-whitespace char.
+ * Line comment: `//` not followed by another `/`. Mirrors
+ * Asciidoctor's CommentLineRx, so `//path` IS a comment (the oracle
+ * drops it) while `///text` is ordinary text. `////` is claimed
+ * first by BlockCommentDelimiter, which precedes this token.
  * Must precede InlineModeStart so the lexer prefers it.
  */
 export const LineComment = createToken({
   name: "LineComment",
-  pattern: /\/\/(?!\S)[^\n]*/,
+  // Source shared with PARAGRAPH_RAW_LINES so the block-level token
+  // and the in-paragraph registry cannot drift apart. Chevrotain's
+  // regexp dialect has no `v` flag, hence the raw RegExp build.
+  pattern: new RegExp(`${LINE_COMMENT_SOURCE}${String.raw`[^\n]*`}`),
 });
 
 // Thematic break: three or more single quotes on their own line.
@@ -327,7 +390,7 @@ export const PassBlockClose = createToken({
 // the entire line content (followed by newline or EOF).
 export const FencedCodeClose = createToken({
   name: "FencedCodeClose",
-  pattern: /```(?![^\n])/,
+  pattern: /```[ \t]*(?![^\n])/,
   pop_mode: true,
   line_breaks: false,
   start_chars_hint: ["`"],
@@ -374,16 +437,16 @@ export const AttributeEntry = createToken({
  * Must precede InlineModeStart so attribute lists aren't consumed
  * as plain text.
  *
- * The negative lookahead `(?!\[)` after the opening bracket
- * avoids consuming `[[anchor]]` as an attribute list. The
- * trailing `(?![^\n])` ensures the closing `]` is at end of
- * line — this prevents matching checklist markers (`[x]`,
- * `[ ]`) and other bracketed content that appears mid-line
- * inside list items or paragraphs.
+ * The shape comes from the registry (BLOCK_ATTRIBUTE_LINE_SOURCE,
+ * mirroring `BlockAttributeLineRx`), whose first-character class
+ * already excludes `[` — so `[[anchor]]` falls through to
+ * BlockAnchor without a lookahead of its own. What the token adds is
+ * the end-of-line anchor, which keeps checklist markers (`[x]`,
+ * `[ ]`) and other mid-line bracketed content out.
  */
 export const BlockAttributeList = createToken({
   name: "BlockAttributeList",
-  pattern: /\[(?!\[)[^\]\n]*\](?![^\n])/,
+  pattern: new RegExp(`${BLOCK_ATTRIBUTE_LINE_SOURCE}${END_OF_LINE}`),
 });
 
 /**
@@ -455,7 +518,11 @@ export const BlockMacro = createToken({
  */
 export const BlockAnchor = createToken({
   name: "BlockAnchor",
-  pattern: /\[\[[^\]\n]+\]\](?![^\n])/,
+  // Source shared with the registry's BLOCK_ANCHOR (mirrors
+  // BlockAnchorRx) so the two cannot drift. The id restriction is
+  // what keeps `[[a]] and [[b]]` out — that line is inline anchors
+  // in a paragraph, not a block anchor.
+  pattern: new RegExp(`${BLOCK_ANCHOR_SOURCE}${String.raw`(?![^\n])`}`),
   start_chars_hint: ["["],
 });
 
@@ -522,17 +589,26 @@ export const IndentedLine = createToken({
 // ── Inline lexer mode tokens ────────────────────────────────
 //
 // When no block-level token matches in default_mode,
-// InlineModeStart fires (zero-length match) and pushes the
-// lexer into inline mode. There, formatting marks, attribute
-// references, and runs of plain text are tokenized until a
-// newline pops back to default_mode.
+// InlineModeStart fires (zero-length match) and opens a
+// paragraph. Paragraph mode then pushes into inline mode once
+// per line (ParagraphLineStart). There, formatting marks,
+// attribute references, and runs of plain text are tokenized
+// until a newline pops back to paragraph mode.
 
 /**
- * Zero-length custom pattern that pushes the lexer into inline
- * mode. Placed last in default_mode so all block-level tokens
- * get priority. The custom pattern function (not a RegExp)
- * bypasses Chevrotain's empty-match validation. Only fires when
- * a non-newline character exists at the current offset.
+ * Zero-length custom pattern that OPENS A PARAGRAPH: it pushes the
+ * lexer into `paragraph` mode, which then decides per line whether
+ * the paragraph continues (see paragraph-tokens.ts). Placed last in
+ * default_mode so all block-level tokens get priority — that
+ * priority now applies only to a block's FIRST line, which is the
+ * point. The custom pattern function (not a RegExp) bypasses
+ * Chevrotain's empty-match validation. Only fires when a non-newline
+ * character exists at the current offset.
+ *
+ * It stays EMITTED rather than skipped: the grammar consumes it as
+ * the paragraph-start token, and ParagraphEnd's context lookback
+ * finds it in the token history (skipped tokens never reach a custom
+ * pattern's `tokens` argument).
  */
 export const InlineModeStart = createToken({
   name: "InlineModeStart",
@@ -557,13 +633,14 @@ export const InlineModeStart = createToken({
       return null;
     },
   },
-  push_mode: "inline",
+  push_mode: "paragraph",
   line_breaks: false,
 });
 
 /**
- * Newline inside inline mode — pops back to default_mode
- * so the next line gets block-level token checks.
+ * Newline inside inline mode — pops back to `paragraph`
+ * mode, where ParagraphEnd decides whether the next line
+ * continues the paragraph or ends it.
  *
  * Not to be confused with `Newline`, which fires in
  * default mode (between block elements) and stays in
@@ -595,8 +672,8 @@ export const RoleAttribute = createToken({
   pattern: /\[[^\]]+\](?=#)/,
 });
 
-// Re-export inline tokens (defined in a separate file to
-// stay within the max-lines limit).
+// Re-export inline and paragraph-mode tokens (defined in
+// separate files to stay within the max-lines limit).
 export {
   InlineUrl,
   InlineMacro,
@@ -604,6 +681,12 @@ export {
   InlineAnchor,
   HardLineBreak,
 } from "./inline-link-tokens.js";
+export {
+  ParagraphEnd,
+  ParagraphLineStart,
+  ParagraphNewline,
+  ParagraphRawLine,
+} from "./paragraph-tokens.js";
 
 /** Bold formatting mark — `*` (constrained) or `**` (unconstrained). */
 export const BoldMark = createToken({
@@ -751,6 +834,7 @@ const multiModeDefinition = {
       IndentedLine,
       InlineModeStart,
     ],
+    paragraph: paragraphModeTokens,
     inline: inlineModeTokens,
     block_comment: [
       // BlankLine before Newline (same reason as default mode).
@@ -819,6 +903,10 @@ export const allTokens = [
   CalloutListMarker,
   IndentedLine,
   InlineModeStart,
+  ParagraphEnd,
+  ParagraphRawLine,
+  ParagraphNewline,
+  ParagraphLineStart,
   HardLineBreak,
   InlineNewline,
   BackslashEscape,

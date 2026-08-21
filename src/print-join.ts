@@ -24,6 +24,8 @@ const {
 // zero). Also serves as the loop increment in joinBlocks
 // (advance by one). Both uses share the numeric value 1.
 const SECOND_CHILD = 1;
+// Offset from one line to the next when comparing block positions.
+const NEXT_LINE = 1;
 
 /**
  * Tests whether a block is a line comment.
@@ -97,10 +99,36 @@ function shouldStack(blocks: BlockNode[], index: number): boolean {
   const { [index - SECOND_CHILD]: previous, [index]: current } = blocks;
   return (
     (isLineComment(previous) && isLineComment(current)) ||
+    (isReaderConsumed(previous) && startsOnTheNextLine(previous, current)) ||
     (isAttributeEntry(previous) && isAttributeEntry(current)) ||
     (isDocumentTitle(previous) && isAttributeEntry(current)) ||
     shouldStackMetadata(previous, current)
   );
+}
+
+/**
+ * Whether a block is one Asciidoctor's READER consumes before block
+ * structure exists: a line comment or a conditional directive. A
+ * blank line inserted after one is not cosmetic — it lands inside
+ * the run of lines the parser is still reading, and can end a list
+ * item that the source kept going (`+` / blank / `// c` / `para`
+ * attaches, `+` / `// c` / blank / `para` does not).
+ * @param block - The block node to test.
+ * @returns Whether the reader eats this block's line.
+ */
+function isReaderConsumed(block: BlockNode): boolean {
+  return isLineComment(block) || block.type === "conditionalDirective";
+}
+
+/**
+ * Whether `current` began on the line directly after `previous`
+ * ended, i.e. the source had no blank line between them.
+ * @param previous - The preceding block node.
+ * @param current - The current block node.
+ * @returns Whether the two were adjacent in the source.
+ */
+function startsOnTheNextLine(previous: BlockNode, current: BlockNode): boolean {
+  return current.position.start.line === previous.position.end.line + NEXT_LINE;
 }
 
 /**

@@ -304,6 +304,60 @@ because they are substantial. The inline grammar rules live in
 same parser class. "Separate files" is about code organization, not separate
 parser instances.
 
+## Line classification is contextual
+
+Asciidoctor's paragraphs (and list items, and dlist descriptions) are greedy:
+once open, they swallow every following line until a blank line or a tiny
+interrupting set. Five rules keep our lexer and reflow honest about that:
+
+1. Paragraph extent is decided by the contextual classifier against
+   `src/parse/line-shapes.ts` — today the `paragraph` lexer mode
+   (`ParagraphEnd`, see `src/parse/paragraph-tokens.ts`) — never by re-running
+   the top-level line classifier.
+2. The registry is oracle-pinned: `tests/conformance/interruption.test.ts`
+   checks every pattern against Asciidoctor for each of four `ParagraphContext`s
+   _and_ in both line positions (directly after the block started, where
+   `next_block` still gets to choose a block context, and on a later line, where
+   it does not), and each row cites the Ruby it mirrors. Read the Ruby and add a
+   row before adding a pattern; the oracle wins if they disagree. The four
+   contexts, one sentence each: `paragraph` (a plain paragraph, ended only by a
+   delimited block, a block attribute line — the `[[anchor]]` form included — or
+   a lone `+`), `listItem` (a list item's text, additionally ended by a
+   sibling/nested marker or a dlist term), `listContinuation` (a `+`-attached
+   paragraph, which takes the plain set plus only the open list's own marker
+   style), and `dlistItem` (a dlist description, the widest set, ended by
+   anything that would become a non-paragraph block).
+3. Reflow safety consumes the same registry: `isBlockSyntaxAtLineStart`
+   (`src/reflow.ts`) asks it about a word alone on a line and a word starting
+   one, unioned over every context, so fill() never places a word where it would
+   be re-parsed as block syntax. The first-line dlist hazard (`term::`-shaped
+   words) is a separate, word-based guard — `DLIST_HAZARD_BREAK`, resolved in
+   `flattenForFill` so the break always lands on the separator before a fused
+   inline run, never inside it.
+4. Normalizations ship with a render-equivalence test
+   (`renderedHtml(out) === renderedHtml(input)`) and an idempotency test, not
+   just a snapshot.
+5. Every line-shape regex is a single source. The registry exports pattern
+   _sources_ (`BLOCK_ANCHOR_SOURCE`, `LINE_COMMENT_SOURCE`,
+   `BLOCK_ATTRIBUTE_LINE_SOURCE`, `DELIMITER_SOURCES`) that
+   `src/parse/tokens.ts` builds its flagless Chevrotain regexes from — adding
+   only what surrounds a shape there (an end-of-line anchor, the trailing
+   whitespace the reader rstrips) — so the lexer and the registry can never
+   diverge on the same construct. The reader also rstrips every line before
+   classification (`Helpers.prepare_source_string`), which the registry mirrors
+   (see `line-shapes.ts`'s `rstrip`).
+
+**Why.** The lexer used to re-classify every line as if it stood at the top of a
+block, so a `.Title`-shaped or `* item`-shaped line mid-paragraph became a block
+title or a list, and `InlineNewline` simply popped back to `default_mode` to do
+it again on the next line. That inversion is the root of gap issues #26, #27,
+and #29 (line comments, block-title-looking lines, and indented continuations
+each splitting one paragraph or list into several). The differential conformance
+suite (#7) is the evidence: the contextual-line-classification commit shrank the
+quarantine manifest from 519 to 387 cases, with #26 dropping from 42 to 1 (the
+remaining case is an unrelated whitespace-collapse defect) and #27 and #28
+dropping by roughly two-thirds.
+
 ## Why Chevrotain?
 
 AsciiDoc is context-sensitive: the same character sequence means different

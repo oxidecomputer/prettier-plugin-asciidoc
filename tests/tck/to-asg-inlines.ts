@@ -120,6 +120,12 @@ function inlineNodeToText(node: InlineNode): string {
     case "inlineAnchor": {
       return anchorToSource(node);
     }
+    case "rawLine": {
+      // Comments and preprocessor directives are dropped while
+      // READING in Asciidoctor, so the ASG has no node for them and
+      // they contribute no text.
+      return "";
+    }
     case "hardLineBreak": {
       // AsciiDoc hard line break: a space followed by a literal
       // plus sign at end of line, then a newline character.

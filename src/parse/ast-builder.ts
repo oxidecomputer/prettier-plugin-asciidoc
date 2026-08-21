@@ -55,6 +55,8 @@ import { buildInlineNodesFromLines } from "./inline-node-builder.js";
 import {
   flattenInlineTokens,
   inlineLinesToTextTokens,
+  mergeSortedTokens,
+  structuralTokens,
   unwrapInlineLines,
 } from "./inline-tokens.js";
 import {
@@ -264,18 +266,19 @@ export class AstBuilder extends BaseCstVisitor {
    */
   paragraph(context: ParagraphCstChildren): ParagraphNode {
     const inlineLines = context.inlineLine ?? [];
-    const inlineNewlines = context.InlineNewline ?? [];
-    const children = buildInlineNodesFromLines(inlineLines, inlineNewlines);
-
-    // Position excludes trailing newlines — they are
-    // structural separators, not paragraph content. Use
-    // only inline content tokens (not InlineNewline) for
-    // position tracking.
-    const contentTokens = flattenInlineTokens(
-      unwrapInlineLines(inlineLines),
-      [],
+    const children = buildInlineNodesFromLines(
+      inlineLines,
+      structuralTokens(context),
     );
-
+    // Position excludes trailing newlines — they are
+    // structural separators, not paragraph content. A raw
+    // line IS content for this purpose: it occupies a source
+    // line of the paragraph, and the continuation absorber
+    // compares paragraph end lines to find adjacency.
+    const contentTokens = mergeSortedTokens(
+      flattenInlineTokens(unwrapInlineLines(inlineLines), []),
+      context.ParagraphRawLine ?? [],
+    );
     const start =
       contentTokens.length > EMPTY
         ? tokenStartLocation(contentTokens[FIRST])
@@ -585,6 +588,9 @@ export class AstBuilder extends BaseCstVisitor {
       "listing",
       sourceText,
     );
+    // Fences imply the `source` style even without a language hint;
+    // the printer uses this to decide whether to emit `[source]`.
+    node.fenced = true;
 
     // Extract language from the open fence: "```rust" → "rust".
     // The token image is the full matched text including the
@@ -592,9 +598,7 @@ export class AstBuilder extends BaseCstVisitor {
     const BACKTICK_COUNT = 3;
     const openImage = context.FencedCodeOpen?.[FIRST]?.image ?? "";
     const lang = openImage.slice(BACKTICK_COUNT).trim();
-    if (lang.length > EMPTY) {
-      node.language = lang;
-    }
+    if (lang.length > EMPTY) node.language = lang;
 
     return node;
   }
@@ -786,11 +790,17 @@ export class AstBuilder extends BaseCstVisitor {
    *   marker and inline text content for the body.
    */
   admonitionParagraph(context: AdmonitionParagraphCstChildren): AdmonitionNode {
+    // Raw lines are merged back in source order so they survive
+    // into `content` as their own lines (see the ParagraphRawLine
+    // note in cst-types.ts); the printer re-emits them verbatim.
     return buildAdmonitionParagraph(
       context.AdmonitionMarker?.[FIRST],
-      inlineLinesToTextTokens(
-        context.inlineLine ?? [],
-        context.InlineNewline ?? [],
+      mergeSortedTokens(
+        inlineLinesToTextTokens(
+          context.inlineLine ?? [],
+          context.InlineNewline ?? [],
+        ),
+        context.ParagraphRawLine ?? [],
       ),
     );
   }

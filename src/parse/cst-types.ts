@@ -83,10 +83,20 @@ export interface BlockCstChildren {
 
 /** Children of the `paragraph` rule. */
 export interface ParagraphCstChildren {
+  /**
+   * Zero-length token marking where the paragraph opened
+   * (default -> paragraph mode). Present in the CST so
+   * visitors can read its `startOffset`.
+   */
+  InlineModeStart?: IToken[];
   /** Lines of inline content within the paragraph. */
   inlineLine?: CstNode[];
   /** Newlines separating inline lines (pops inline mode). */
   InlineNewline?: IToken[];
+  /** Comment/directive lines kept verbatim inside the paragraph. */
+  ParagraphRawLine?: IToken[];
+  /** Newlines that terminate a ParagraphRawLine. */
+  ParagraphNewline?: IToken[];
 }
 
 /** Children of the `inlineToken` rule (one inline element). */
@@ -124,11 +134,12 @@ export interface InlineTokenCstChildren {
 /** Children of the `inlineLine` rule (one line of inline content). */
 export interface InlineLineCstChildren {
   /**
-   * Zero-length token that pushes the lexer into inline mode.
-   * Present in the CST so visitors can read its `startOffset`
-   * as the start position of the line's inline content.
+   * Zero-length token that pushes the lexer into inline mode
+   * for this one line. Present in the CST so visitors can read
+   * its `startOffset` as the start position of the line's
+   * inline content.
    */
-  InlineModeStart?: IToken[];
+  ParagraphLineStart?: IToken[];
   /** Sequence of inline tokens on this line. */
   inlineToken?: CstNode[];
 }
@@ -143,10 +154,19 @@ export interface UnorderedListCstChildren {
 export interface ListItemCstChildren {
   /** Unordered list marker (`*`, `**`, etc.). */
   UnorderedListMarker?: IToken[];
+  /**
+   * Zero-length token marking where the item's text opened
+   * (default -> paragraph mode).
+   */
+  InlineModeStart?: IToken[];
   /** Lines of inline content in this item. */
   inlineLine?: CstNode[];
   /** Newlines between inline lines (pops inline mode). */
   InlineNewline?: IToken[];
+  /** Comment/directive lines kept verbatim inside the item. */
+  ParagraphRawLine?: IToken[];
+  /** Newlines that terminate a ParagraphRawLine. */
+  ParagraphNewline?: IToken[];
   /**
    * Structural newlines that delimit list-item boundaries
    * (as opposed to InlineNewline tokens within the item's
@@ -167,10 +187,19 @@ export interface OrderedListCstChildren {
 export interface OrderedListItemCstChildren {
   /** Ordered list marker (`.`, `..`, etc.). */
   OrderedListMarker?: IToken[];
+  /**
+   * Zero-length token marking where the item's text opened
+   * (default -> paragraph mode).
+   */
+  InlineModeStart?: IToken[];
   /** Lines of inline content in this item. */
   inlineLine?: CstNode[];
   /** Newlines between inline lines (pops inline mode). */
   InlineNewline?: IToken[];
+  /** Comment/directive lines kept verbatim inside the item. */
+  ParagraphRawLine?: IToken[];
+  /** Newlines that terminate a ParagraphRawLine. */
+  ParagraphNewline?: IToken[];
   /**
    * Structural newlines that delimit list-item boundaries
    * (as opposed to InlineNewline tokens within the item's
@@ -191,10 +220,19 @@ export interface CalloutListCstChildren {
 export interface CalloutListItemCstChildren {
   /** Callout list marker (`<1>`, `<2>`, etc.). */
   CalloutListMarker?: IToken[];
+  /**
+   * Zero-length token marking where the item's text opened
+   * (default -> paragraph mode).
+   */
+  InlineModeStart?: IToken[];
   /** Lines of inline content in this item. */
   inlineLine?: CstNode[];
   /** Newlines between inline lines (pops inline mode). */
   InlineNewline?: IToken[];
+  /** Comment/directive lines kept verbatim inside the item. */
+  ParagraphRawLine?: IToken[];
+  /** Newlines that terminate a ParagraphRawLine. */
+  ParagraphNewline?: IToken[];
   /**
    * Structural newlines that delimit list-item boundaries
    * (as opposed to InlineNewline tokens within the item's
@@ -359,10 +397,26 @@ export interface LiteralParagraphCstChildren {
 export interface AdmonitionParagraphCstChildren {
   /** Admonition label prefix (`NOTE: `, `TIP: `, etc.). */
   AdmonitionMarker?: IToken[];
+  /**
+   * Zero-length token marking where the body's paragraph
+   * opened (default -> paragraph mode).
+   */
+  InlineModeStart?: IToken[];
   /** Lines of inline content after the label. */
   inlineLine?: CstNode[];
   /** Newlines between inline lines (pops inline mode). */
   InlineNewline?: IToken[];
+  /**
+   * Comment/directive lines inside the admonition body. Merged
+   * into `content` in source order and re-emitted verbatim by
+   * the printer: Asciidoctor drops a comment but CONSUMES a
+   * conditional directive, so deleting them would both lose the
+   * author's bytes and render `ifdef`-guarded text
+   * unconditionally.
+   */
+  ParagraphRawLine?: IToken[];
+  /** Newlines that terminate a ParagraphRawLine. */
+  ParagraphNewline?: IToken[];
 }
 
 /** Children of the `attributeEntry` rule. */

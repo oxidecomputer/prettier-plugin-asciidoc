@@ -320,6 +320,13 @@ function inlineToText(node: InlineNode): string {
     case "inlineAnchor": {
       return anchorToSource(node);
     }
+    case "rawLine": {
+      // The line stands alone in the source, and the newlines that
+      // bounded it are not in the neighbouring text nodes (the AST
+      // builder drops them as structural), so they are re-emitted
+      // here to keep the reconstructed source line-accurate.
+      return `\n${node.value}\n`;
+    }
     case "hardLineBreak": {
       return " +\n";
     }

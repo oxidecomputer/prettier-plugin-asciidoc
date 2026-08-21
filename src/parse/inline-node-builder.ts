@@ -10,6 +10,7 @@ import type { CstNode, IToken, TokenType } from "chevrotain";
 import type {
   InlineNode,
   InlineMacroNode,
+  RawLineNode,
   TextNode,
   BoldNode,
   ItalicNode,
@@ -18,7 +19,14 @@ import type {
   AttributeReferenceNode,
 } from "../ast.js";
 import { tokenStartLocation, tokenEndLocation } from "./positions.js";
-import { DELIM_WIDTH, EMPTY, FIRST, NEXT, NOT_FOUND } from "../constants.js";
+import {
+  DELIM_WIDTH,
+  EMPTY,
+  FIRST,
+  LAST_ELEMENT,
+  NEXT,
+  NOT_FOUND,
+} from "../constants.js";
 import { unreachable } from "../unreachable.js";
 import {
   AttributeReference,
@@ -31,6 +39,7 @@ import {
   InlineUrl,
   ItalicMark,
   MonoMark,
+  ParagraphRawLine,
   RoleAttribute,
   XrefShorthand,
 } from "./tokens.js";
@@ -405,6 +414,50 @@ function handleAtomicToken(token: IToken): InlineNode | undefined {
 }
 
 /**
+ * Build a RawLineNode from a whole-line ParagraphRawLine token.
+ *
+ * The node exists so the printer can re-emit the line verbatim on a
+ * line of its own; it is deliberately NOT a TextNode, which would be
+ * reflowed into the surrounding words and turn a comment into visible
+ * prose.
+ * @param token - The ParagraphRawLine token (image is the whole line).
+ * @returns A RawLineNode spanning exactly that line.
+ */
+function makeRawLineNode(token: IToken): RawLineNode {
+  return {
+    type: "rawLine",
+    value: token.image,
+    position: {
+      start: tokenStartLocation(token),
+      end: tokenEndLocation(token),
+    },
+  };
+}
+
+/**
+ * Drop a trailing newline from a pending text run.
+ * @param pending - Text accumulated so far.
+ * @returns The text without its final `\n`, unchanged when there
+ *   is none.
+ */
+function withoutTrailingNewline(pending: string): string {
+  return pending.endsWith("\n") ? pending.slice(FIRST, LAST_ELEMENT) : pending;
+}
+
+/**
+ * Skip a newline token sitting at `index` — the one that terminates
+ * a raw line, which the RawLineNode's own output break replaces.
+ * @param tokens - The token stream being processed.
+ * @param index - Position just after the raw line.
+ * @returns The index to resume from.
+ */
+function skipStructuralNewline(tokens: IToken[], index: number): number {
+  return index < tokens.length && tokens[index].tokenType === InlineNewline
+    ? index + NEXT
+    : index;
+}
+
+/**
  * After a hard line break (`+`), skip the structural
  * InlineNewline that follows.
  *
@@ -498,6 +551,20 @@ export function buildFromTokens(allTokens: IToken[]): InlineNode[] {
     // eslint-disable-next-line @typescript-eslint/prefer-destructuring -- indexed array access
     const token = tokens[index];
     const { tokenType } = token;
+
+    // A raw line owns its output line, so the newlines that bound
+    // it are structural: the one that ended the previous line was
+    // accumulated into the pending text and is trimmed off here,
+    // and the one that ends the raw line is skipped below. Leaving
+    // them in would put stray "\n" into text runs and break the
+    // content/separator alternation the printer's fill() needs.
+    if (tokenType === ParagraphRawLine) {
+      pendingText = withoutTrailingNewline(pendingText);
+      flushText();
+      nodes.push(makeRawLineNode(token));
+      index = skipStructuralNewline(tokens, index + NEXT);
+      continue;
+    }
 
     // Dispatch to category-specific handlers.
     if (tokenType === RoleAttribute) {

@@ -10,6 +10,16 @@
 
 import type { Parameters } from "fast-check";
 
+// CI runs are SEEDED. The fuzz properties are `test.fails` markers
+// for known gaps, so a run that happens to find no counterexample
+// turns green into a spurious failure — the gate has to be
+// deterministic. Continuous fuzzing (FUZZ set) drops the seed so
+// each run explores fresh inputs. Verified: with this seed both
+// properties find a counterexample on every run; if a fix ever
+// closes one of them, flip its `test.fails` to `test` rather than
+// hunting for a new seed.
+const CI_SEED = 1;
+
 // Check for presence, not value — `FUZZ=0` still enables fuzzing.
 const FUZZING = process.env.FUZZ !== undefined;
 
@@ -17,21 +27,23 @@ const FUZZING = process.env.FUZZ !== undefined;
  * Adjusts fast-check parameters for the active run mode.
  *
  * In fuzzing mode (FUZZ env var set): overrides numRuns to
- * infinity and sets endOnFailure, skipping shrinking so the
- * run stops immediately on the first failure.
+ * infinity, drops the seed, and sets endOnFailure, skipping
+ * shrinking so the run stops immediately on the first failure.
  *
- * In CI mode: preserves the caller's numRuns and clears
- * endOnFailure so fast-check can shrink counterexamples to
+ * In CI mode: preserves the caller's numRuns, pins the seed, and
+ * clears endOnFailure so fast-check can shrink counterexamples to
  * their minimal form.
  * @param parameters - fast-check parameters supplied by the
- *   caller; numRuns is used as the CI run count
- * @returns parameters with numRuns and endOnFailure set for
+ *   caller; numRuns is used as the CI run count, and an explicit
+ *   seed overrides the pinned one
+ * @returns parameters with numRuns, seed and endOnFailure set for
  *   the active mode
  */
 export function fuzzParameters<T>(parameters: Parameters<T>): Parameters<T> {
   return {
     ...parameters,
     numRuns: FUZZING ? Number.POSITIVE_INFINITY : parameters.numRuns,
+    seed: FUZZING ? undefined : (parameters.seed ?? CI_SEED),
     endOnFailure: FUZZING,
   };
 }

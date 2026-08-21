@@ -67,10 +67,12 @@ import {
 import {
   collapseTrailingMarkerOnly,
   isMarkerLineText,
+  MAX_DETACHED_BLANK_LINES,
 } from "./continuation-markers.js";
 import {
   isAnchorParagraph,
   isBlockMetadata,
+  isContinuationPassThrough,
   wouldMergeWithAnchor,
 } from "../block-metadata.js";
 
@@ -440,12 +442,12 @@ interface AttachedGroup {
 
 /**
  * Gather the next LOGICAL block starting at `index`: a run of
- * metadata siblings (each starting on the line directly after
- * the previous piece) followed by an anchor block. The group
- * exists only when the anchor is present and adjacent —
- * metadata with nothing attachable after it stays a sibling
- * and the `+` stays dangling, so no half-group is ever torn
- * out of the document.
+ * metadata siblings and line comments (each starting on the line
+ * directly after the previous piece, see isContinuationPassThrough)
+ * followed by an anchor block. The group exists only when the anchor
+ * is present and adjacent — metadata with nothing attachable after
+ * it stays a sibling and the `+` stays dangling, so no half-group is
+ * ever torn out of the document.
  * @param blocks - The flat sibling array being scanned.
  * @param index - Index of the candidate first group piece.
  * @param startLine - Line the group must start on (directly
@@ -464,7 +466,7 @@ function gatherAttachedGroup(
   while (
     look < blocks.length &&
     blocks[look].position.start.line === expectedLine &&
-    isBlockMetadata(blocks[look])
+    isContinuationPassThrough(blocks[look])
   ) {
     pieces.push(blocks[look]);
     expectedLine = blocks[look].position.end.line + NEXT;
@@ -555,29 +557,84 @@ function absorbChain(
       scan = nextIndex;
       continue;
     }
-    const { [scan]: sibling } = blocks;
-    if (
-      sibling.position.start.line !== previous.position.end.line + NEXT ||
-      sibling.type !== "paragraph"
-    ) {
+    const chained = chainedMarkerParagraph(blocks[scan], previous);
+    if (chained === undefined) {
       break;
     }
-    const split = splitMarkerParagraph(sibling);
-    if (split === undefined) {
-      break;
-    }
-    const { paragraphs, trailingMarker } = split;
+    const {
+      paragraph,
+      split: { paragraphs, trailingMarker },
+    } = chained;
     item.attachedBlocks.push(...paragraphs);
     // A trailing marker re-arms block attachment; if no
     // adjacent block follows, the flag makes the printer
     // re-emit the bare `+` verbatim.
     item.danglingContinuation = trailingMarker;
     expectingBlock = trailingMarker;
-    previous = sibling;
-    extendListEnd(list, sibling.position.end);
+    previous = paragraph;
+    extendListEnd(list, paragraph.position.end);
     scan += NEXT;
   }
+  if (isAbandonedMarker(item, blocks[scan], previous)) {
+    item.danglingContinuation = false;
+  }
   return scan;
+}
+
+/**
+ * Continue the chain past an already-attached block: the next
+ * sibling qualifies only when it is an ADJACENT paragraph that opens
+ * with its own `+` marker line.
+ * @param sibling - The next unabsorbed sibling, if any.
+ * @param previous - The node whose last line the chain reached.
+ * @returns The paragraph and its marker split, or undefined when the
+ *   chain ends here.
+ */
+function chainedMarkerParagraph(
+  sibling: BlockNode | undefined,
+  previous: ListItemNode | BlockNode,
+):
+  | {
+      paragraph: ParagraphNode;
+      split: ParagraphSplit;
+    }
+  | undefined {
+  if (
+    sibling?.type !== "paragraph" ||
+    sibling.position.start.line !== previous.position.end.line + NEXT
+  ) {
+    return undefined;
+  }
+  const split = splitMarkerParagraph(sibling);
+  return split === undefined ? undefined : { paragraph: sibling, split };
+}
+
+/**
+ * Whether a dangling `+` is one Asciidoctor itself attaches nothing
+ * to, and so must not be re-emitted.
+ *
+ * The printer normalizes any run of blank lines to ONE, so
+ * re-emitting a marker the reader had already abandoned would turn
+ * it into a detached continuation that DOES attach — changing the
+ * rendering. `read_lines_for_list_item` gives up on the second blank
+ * line, so that is the boundary; a marker with nothing after it at
+ * all is left alone, since there is no block for it to swallow.
+ * @param item - The item that may hold a dangling marker.
+ * @param next - The first sibling block not absorbed, if any.
+ * @param previous - The node whose last line the marker sits on.
+ * @returns True when the marker attaches nothing.
+ */
+function isAbandonedMarker(
+  item: ListItemNode,
+  next: BlockNode | undefined,
+  previous: ListItemNode | BlockNode,
+): boolean {
+  if (!item.danglingContinuation || next === undefined) {
+    return false;
+  }
+  const blankLines =
+    next.position.start.line - previous.position.end.line - NEXT;
+  return blankLines > MAX_DETACHED_BLANK_LINES;
 }
 
 /**

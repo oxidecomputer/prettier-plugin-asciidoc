@@ -41,9 +41,12 @@ export function makeClosePattern(
   // must be the entire line content (followed by newline or
   // EOF). Without this, `....x` inside a `....`-delimited
   // literal block would match `....` as a close delimiter,
-  // leaving `x` as stray text — breaking idempotency.
+  // leaving `x` as stray text — breaking idempotency. Trailing
+  // spaces are consumed because the reader rstrips every line
+  // before the parser sees it (see ListingBlockOpen); the length
+  // comparison below trims them back off.
   const regex = new RegExp(
-    `\\${delimiterChar}{${MIN_DELIMITER_LENGTH},}(?![^\\n])`,
+    `\\${delimiterChar}{${MIN_DELIMITER_LENGTH},}[ \\t]*(?![^\\n])`,
   );
 
   return {
@@ -66,11 +69,11 @@ export function makeClosePattern(
       const openToken = tokens.findLast(
         (token) => token.tokenType.name === openTokenName,
       );
-      const openLength = openToken?.image.length ?? EMPTY;
+      const openLength = openToken?.image.trimEnd().length ?? EMPTY;
 
       const [matched] = match;
       // eslint-disable-next-line unicorn/no-null -- Chevrotain requires null for no-match
-      if (matched.length !== openLength) return null;
+      if (matched.trimEnd().length !== openLength) return null;
 
       const result: CustomPatternMatcherReturn = [matched];
       return result;
@@ -104,8 +107,10 @@ export function makeParentClosePattern(
   openTokenName: string,
   closeTokenName: string,
 ): { exec: CustomPatternMatcherFunc } {
+  // Trailing spaces are consumed and trimmed back off for the
+  // length comparison — see makeClosePattern.
   const regex = new RegExp(
-    `\\${delimiterChar}{${MIN_DELIMITER_LENGTH},}(?![^\\n])`,
+    `\\${delimiterChar}{${MIN_DELIMITER_LENGTH},}[ \\t]*(?![^\\n])`,
   );
 
   return {
@@ -135,7 +140,7 @@ export function makeParentClosePattern(
         } else if (tokenName === openTokenName) {
           if (depth === EMPTY) {
             // This open has no matching close -- it's ours.
-            ({ length: openLength } = image);
+            ({ length: openLength } = image.trimEnd());
             break;
           }
           depth -= NEXT;
@@ -144,7 +149,7 @@ export function makeParentClosePattern(
 
       const [matched] = match;
       // eslint-disable-next-line unicorn/no-null -- Chevrotain requires null for no-match
-      if (matched.length !== openLength) return null;
+      if (matched.trimEnd().length !== openLength) return null;
 
       const result: CustomPatternMatcherReturn = [matched];
       return result;

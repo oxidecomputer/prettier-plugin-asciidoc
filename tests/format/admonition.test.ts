@@ -7,9 +7,20 @@
  * Block-form admonitions preserve their delimiter structure.
  */
 import { describe, test, expect } from "vitest";
-import { formatAdoc } from "../helpers.js";
+import { formatAdoc, renderedHtml } from "../helpers.js";
 
 describe("paragraph-form admonition formatting", () => {
+  // An admonition's content is reflowed like a paragraph, so it
+  // needs the same dlist guard: joining these two lines would put
+  // `term::` on the block's first line and Asciidoctor would render
+  // a description list instead of the admonition.
+  test("keeps a `::` word off the first line", async () => {
+    const input = "NOTE: a line\nterm:: x\n";
+    const out = await formatAdoc(input);
+    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+
   test("NOTE: text round-trips", async () => {
     const input = "NOTE: This is a note.\n";
     expect(await formatAdoc(input)).toBe(input);
@@ -62,14 +73,18 @@ describe("paragraph-form admonition formatting", () => {
     expect(await formatAdoc(input)).toBe(expected);
   });
 
-  // Paragraph-form admonition reflow must not place a .word at
-  // line start where it would become a block title.
-  test("admonition reflow does not create block title", async () => {
+  // An admonition's content is read by read_paragraph_lines like any
+  // paragraph, so a `.word` on a later line is TEXT there too — the
+  // block-title shape only means anything on a block's first line.
+  // Reflow may therefore wrap in front of it, and the rendering must
+  // not move when it does.
+  test("admonition reflow may wrap before a .word", async () => {
     const input = "NOTE: aaa bbb .title\n";
-    const result = await formatAdoc(input, { printWidth: 16 });
-    for (const line of result.split("\n")) {
-      expect(line).not.toMatch(/^\.[A-Za-z]/v);
-    }
+    const options = { printWidth: 16 };
+    const out = await formatAdoc(input, options);
+    expect(out).toBe("NOTE: aaa bbb\n.title\n");
+    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await formatAdoc(out, options)).toBe(out);
   });
 });
 
@@ -172,5 +187,44 @@ describe("admonition formatting in context", () => {
     expect(await formatAdoc(input)).toBe(
       "[M]\n*****\n****\n////\n////\n\n////\n////\n****\n*****\n",
     );
+  });
+});
+
+// An admonition body is one reflowable string, but a comment or
+// preprocessor line inside it is not text: Asciidoctor drops a
+// comment and CONSUMES a directive while reading. Deleting them
+// (which the first version of the paragraph lexer mode did) loses
+// the author's bytes and — for a conditional — renders guarded text
+// unconditionally. The printer keeps each on its own line at column
+// 0 and reflows the runs around it.
+describe("raw lines inside a paragraph-form admonition", () => {
+  const cases: Array<[string, string]> = [
+    ["a comment line", "NOTE: a\n// c\nb\n"],
+    [
+      "a conditional directive",
+      "NOTE: a\nifdef::flag[]\nhidden\nendif::[]\nb\n",
+    ],
+    ["an include directive", "NOTE: a\ninclude::nope.adoc[]\nb\n"],
+  ];
+  for (const [name, input] of cases) {
+    test(`${name} survives verbatim`, async () => {
+      const out = await formatAdoc(input);
+      expect(out).toBe(input);
+      expect(renderedHtml(out)).toBe(renderedHtml(input));
+      expect(await formatAdoc(out)).toBe(out);
+    });
+  }
+
+  test("text on both sides of a raw line still reflows", async () => {
+    const words = "word ".repeat(20);
+    const input = `NOTE: ${words}\n// c\n${words}\n`;
+    const out = await formatAdoc(input);
+    // The comment owns a line of its own, at column 0, with
+    // reflowed text above and below it.
+    const lines = out.split("\n");
+    expect(lines).toContain("// c");
+    expect(lines.filter((l) => l.length > 0).length).toBeGreaterThan(3);
+    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
   });
 });

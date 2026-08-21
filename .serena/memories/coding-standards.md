@@ -51,6 +51,19 @@ AI agents) can tell the difference.
 **Line width:** Keep comments within 80 columns. Prettier doesn't reflow
 comments, so wrap them manually.
 
+## Line-Shaped Constructs
+
+A new construct that can appear as a whole line (a delimiter, a marker, a
+block-attribute-looking line, …) always goes through `src/parse/line-shapes.ts`
+first: read the Ruby it corresponds to (`lib/asciidoctor/parser.rb`, `rx.rb`,
+`reader.rb` in Asciidoctor 2.0.20), add a registry row citing it, then pin it
+against the `@asciidoctor/core` oracle in
+`tests/conformance/interruption.test.ts` (the oracle wins if it disagrees with
+the Ruby reading). Only then consume the pattern from `src/parse/tokens.ts` or
+`src/reflow.ts`. Never write a regex in either of those files for a line shape
+the registry doesn't already export — see "Line classification is contextual" in
+`docs/design.md`.
+
 ## Writing Style
 
 - Never use the phrase "key insight"

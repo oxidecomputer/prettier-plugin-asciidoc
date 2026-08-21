@@ -168,11 +168,11 @@ describe("ordered list parsing", () => {
   });
 
   // A line with leading whitespace that immediately follows a list
-  // item is lexed as an IndentedLine token (not a new paragraph).
-  // The lexer strips that leading whitespace before building the
-  // text node, so the value contains clean content. This covers
-  // the real-world style of aligning wrapped text under a marker,
-  // e.g. ". First line\n  continuation line".
+  // item continues the item's text rather than starting a literal
+  // paragraph. The indentation stays in the text node's value (the
+  // printer splits on whitespace, so it never reaches the output).
+  // This covers the real-world style of aligning wrapped text under
+  // a marker, e.g. ". First line\n  continuation line".
   test("indented continuation lines in ordered list", () => {
     const input = ". First line\n  continuation line\n";
     const { children } = parse(input);
@@ -184,6 +184,6 @@ describe("ordered list parsing", () => {
     } = list;
     const textNode = item.children.find((c) => c.type === "text");
     narrow(textNode, "text");
-    expect(textNode.value).toBe("First line\ncontinuation line");
+    expect(textNode.value).toBe("First line\n  continuation line");
   });
 });

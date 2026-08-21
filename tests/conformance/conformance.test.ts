@@ -42,22 +42,22 @@ function conformanceHint(
 
 for (const group of groups) {
   describe(`conformance: ${group.name}`, () => {
-    for (const { id, input } of group.cases) {
-      // Test titles are corpus case IDs; this suite is fully
-      // data-driven over ~1,600 generated cases and cannot use
-      // string literals.
-      // eslint-disable-next-line vitest/valid-title -- see above
-      test(id, async () => {
-        const expected = quarantine.get(id)?.fails ?? [];
-        const { failures, detail } = await assessCase(input);
-        const hint = conformanceHint(failures, expected, detail);
-        // vitest's expect() accepts an optional message as its
-        // second argument; the rule's default (max 1 arg) assumes
-        // the jest signature.
-        // eslint-disable-next-line vitest/valid-expect -- see above
-        expect(failures, hint).toEqual(expected);
-      });
-    }
+    // Titles are corpus case IDs — this suite is fully data-driven
+    // over ~1,600 generated cases. Rows are [id, input] tuples so
+    // `%s` prints the ID plain (interpolating a string PROPERTY
+    // would quote it).
+    const rows = group.cases.map(({ id, input }): [string, string] => [
+      id,
+      input,
+    ]);
+    test.each(rows)("%s", async (id, input) => {
+      const expected = quarantine.get(id)?.fails ?? [];
+      const { failures, detail } = await assessCase(input);
+      const hint = conformanceHint(failures, expected, detail);
+      // vitest's expect() accepts an optional message as its second
+      // argument (see vitest/valid-expect in eslint.config.js).
+      expect(failures, hint).toEqual(expected);
+    });
   });
 }
 

@@ -55,6 +55,29 @@ export function isBlockMetadata(block: BlockNode): boolean {
 }
 
 /**
+ * Tests whether a block is one a `+` list continuation reads PAST
+ * on its way to the block it attaches.
+ *
+ * Block metadata qualifies because it annotates the block after it.
+ * A line comment qualifies for a different reason: Asciidoctor's
+ * reader eats comment lines before block structure exists
+ * (`read_lines_until`'s `skip_line_comments`), so a comment between
+ * a `+` and its block does not break the attachment — the same rule
+ * the paragraph classifier applies when it walks back to find the
+ * marker (src/parse/paragraph-tokens.ts). Both the absorber and the
+ * printer consult this so the group they build and the group they
+ * stack are the same one.
+ * @param block - The block node to test.
+ * @returns Whether a `+` continuation reads past this block.
+ */
+export function isContinuationPassThrough(block: BlockNode): boolean {
+  return (
+    isBlockMetadata(block) ||
+    (block.type === "comment" && block.commentType === "line")
+  );
+}
+
+/**
  * Tests whether a block's content would merge with a preceding
  * anchor paragraph if no blank line separated them.
  *

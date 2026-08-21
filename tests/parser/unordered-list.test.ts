@@ -185,8 +185,10 @@ describe("unordered list parsing", () => {
 
   // Indented lines are normally literal paragraphs in AsciiDoc.
   // Inside a list item they are absorbed as continuation content
-  // instead. This exercises the IndentedLine token path (Pattern 2
-  // in the grammar) rather than the InlineModeStart path.
+  // instead. Since the paragraph lexer mode landed they are
+  // ordinary inline text lines, indentation included in the text
+  // node's value — the printer splits on whitespace, so the
+  // indentation never reaches the output.
   test("indented continuation lines are part of list item", () => {
     const input = "* First line\n  continuation line\n  another continuation\n";
     const { children } = parse(input);
@@ -199,15 +201,13 @@ describe("unordered list parsing", () => {
     const textNode = item.children.find((c) => c.type === "text");
     narrow(textNode, "text");
     expect(textNode.value).toBe(
-      "First line\ncontinuation line\nanother continuation",
+      "First line\n  continuation line\n  another continuation",
     );
   });
 
-  // Mixed indented and flush continuation lines are both absorbed.
-  // The flush line re-enters inline mode via InlineModeStart
-  // (Pattern 1); the indented line uses the IndentedLine token
-  // path (Pattern 2). Both mechanisms must cooperate to produce
-  // a single, ordered inline stream for the item.
+  // Mixed indented and flush continuation lines are both absorbed
+  // into one ordered inline stream: inside an open paragraph, an
+  // indented line is text like any other.
   test("mixed indented and non-indented continuation", () => {
     const input = "* First line\n  indented continuation\nflush continuation\n";
     const { children } = parse(input);
@@ -220,7 +220,7 @@ describe("unordered list parsing", () => {
     const textNode = item.children.find((c) => c.type === "text");
     narrow(textNode, "text");
     expect(textNode.value).toBe(
-      "First line\nindented continuation\nflush continuation",
+      "First line\n  indented continuation\nflush continuation",
     );
   });
 
@@ -242,7 +242,7 @@ describe("unordered list parsing", () => {
     } = nestedList;
     const textNode = childItem.children.find((c) => c.type === "text");
     narrow(textNode, "text");
-    expect(textNode.value).toBe("Child first line\nchild continuation");
+    expect(textNode.value).toBe("Child first line\n   child continuation");
   });
 });
 

@@ -5,9 +5,9 @@
  * reference toolchain. But a formatter must preserve them, so our AST
  * includes CommentNode for both line and block comments.
  *
- * Line comment: `// text` (two slashes then space or EOL).
- * `//` alone on a line is an empty comment.
- * `//path` is NOT a comment -- there must be a space after //.
+ * Line comment: `//` not followed by another slash — Asciidoctor's
+ * CommentLineRx. `//` alone on a line is an empty comment, `//path`
+ * is a comment too, and `///text` is ordinary text.
  *
  * Block comment: delimited by `////` (4+ slashes) on its own line.
  * Content inside is verbatim and not parsed further.
@@ -43,23 +43,31 @@ describe("line comment parsing", () => {
     expect(child0.value).toBe("");
   });
 
-  // `//path` (no space after slashes) is valid text in AsciiDoc, not a
-  // comment. The lexer's `(?!\S)` lookahead rejects `//` followed by a
-  // non-whitespace character. Without this distinction, file paths and
-  // URLs containing `//` would be swallowed as comments.
-  test("//path (no space) is NOT a comment", () => {
+  // `//path` IS a comment: Asciidoctor's rule is `//` not followed by
+  // another `/`, and the oracle drops the line. (A `//` inside a URL
+  // is never at the start of a line, which is the only place this
+  // token fires.) `///text` keeps three slashes out of it and stays
+  // ordinary text.
+  test("//path (no space) is a comment", () => {
     const document = parse("//path\n");
+    expect(document.children).toHaveLength(1);
+    const {
+      children: [child0],
+    } = document;
+    narrow(child0, "comment");
+    expect(child0.value).toBe("path");
+  });
+
+  test("///text (three slashes) is NOT a comment", () => {
+    const document = parse("///text\n");
     expect(document.children).toHaveLength(1);
     expect(document.children[0].type).toBe("paragraph");
   });
 
-  // The `(?!\S)` lookahead accepts any whitespace after `//`, not
-  // just space. A tab character is whitespace, so `//\t` followed
-  // by text is a valid line comment. `buildLineComment` strips only
+  // A tab after `//` is a valid line comment.
+  // `buildLineComment` strips only
   // a leading space from the raw image (`raw.startsWith(" ")`), so
-  // a tab-prefixed comment has the tab preserved in `value`. Guards
-  // against regressions where the lookahead is
-  // tightened to require a literal space character.
+  // a tab-prefixed comment has the tab preserved in `value`.
   test("//[tab] (tab after slashes) is a valid line comment", () => {
     const tab = "\t";
     const document = parse(`//${tab}indented remark\n`);

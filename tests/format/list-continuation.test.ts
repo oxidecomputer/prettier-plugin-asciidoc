@@ -104,17 +104,16 @@ describe("list continuation formatting", () => {
     expect(await formatAdoc(first)).toBe(first);
   });
 
-  // KNOWN DIVERGENCE from Asciidoctor: a lone `+` line inside a
-  // plain (non-list) paragraph terminates the paragraph there
-  // (two paragraphs, the second starting with `+`); we merge
-  // everything into one paragraph with a mid-text `+`. Tracked
-  // in issue #17 — this test pins the
-  // current behavior so a future fix updates it consciously,
-  // not silently.
-  test("plus line between plain paragraphs is merged (known gap)", async () => {
+  // A lone `+` line inside a plain (non-list) paragraph terminates
+  // the paragraph there: the oracle renders two paragraphs, the
+  // second reading "+ para two" (the `+` is text, not consumed).
+  // This used to be merged into one paragraph — issue #17, fixed by
+  // the paragraph lexer mode.
+  test("plus line between plain paragraphs splits the paragraph", async () => {
     const input = "para one\n+\npara two\n";
     const first = await formatAdoc(input);
-    expect(first).toBe("para one + para two\n");
+    expect(first).toBe("para one\n\n+ para two\n");
+    expect(renderedHtml(first)).toBe(renderedHtml(input));
     expect(await formatAdoc(first)).toBe(first);
   });
 
@@ -379,6 +378,221 @@ describe("list continuation formatting preserves rendered HTML", () => {
     test(`renders identically: ${name}`, async () => {
       const formatted = await formatAdoc(input);
       expect(renderedHtml(formatted)).toBe(renderedHtml(input));
+    });
+  }
+});
+
+// Whether a list is still OPEN at a `+` line decides whether that
+// `+` attaches a block to an item or is just the first word of an
+// ordinary paragraph. Asciidoctor's rule
+// (`read_lines_for_list_item`): after a blank line an item keeps
+// reading only for a `+`, a nested marker, or a literal paragraph —
+// anything else ends the list.
+describe("whether a list is still open at a + line", () => {
+  const cases: Array<[string, string]> = [
+    // The blank line is followed by ordinary text, so the list is
+    // closed by the time the `+` appears: two paragraphs, the second
+    // reading "+ second".
+    [
+      "a + in a paragraph after a closed list",
+      "* item\n\nfirst para\n+\nsecond\n",
+    ],
+    // A blank line BETWEEN items does not close the list.
+    ["a blank line between items", "* one\n\n* two\n+\npara\n* three\n"],
+    // A `+` chain that resumes after a delimited block: the scan has
+    // to step over the block, whose content may contain blank lines.
+    [
+      "a + chain after a delimited block",
+      "* item\n+\n----\ncode\n\nmore code\n----\n+\nattached\n* next\n",
+    ],
+    // A detached continuation: the `+` directly after the blank line
+    // keeps the list open.
+    ["a detached continuation", "* item\n\n+\npara\n* next\n"],
+  ];
+  for (const [name, input] of cases) {
+    test(`${name} round-trips`, async () => {
+      const out = await formatAdoc(input);
+      expect(renderedHtml(out)).toBe(renderedHtml(input));
+      expect(await formatAdoc(out)).toBe(out);
+    });
+  }
+});
+
+// The ancestry scan steps over a delimited block in one move, which
+// means finding the block's OPENER from its closing line. A Markdown
+// fence breaks string equality — ```` ```ruby ```` is closed by
+// ```` ``` ```` — and losing the opener lost the whole ancestry, so
+// the sibling marker after the block stopped ending the item.
+/**
+ * Count the list items in rendered HTML — the structure the
+ * ancestry scan exists to preserve.
+ * @param html - rendered HTML from the oracle
+ * @returns the number of `<li>` elements
+ */
+function listItemCount(html: string): number {
+  return (html.match(/<li>/gv) ?? []).length;
+}
+
+describe("a + chain resumes after any delimited block", () => {
+  const blocks: Array<[string, string]> = [
+    ["fence with a language hint", "```ruby\ncode\n```"],
+    ["listing", "----\ncode\n----"],
+    ["open block", "--\nob\n--"],
+    ["example", "====\nex\n===="],
+    ["comment block", "////\nc\n////"],
+  ];
+  for (const [name, block] of blocks) {
+    test(`${name} keeps the list ancestry`, async () => {
+      const input = `* item\n+\n${block}\n+\npara\n* next\n`;
+      const out = await formatAdoc(input);
+      expect(renderedHtml(out)).toBe(renderedHtml(input));
+      expect(await formatAdoc(out)).toBe(out);
+    });
+  }
+
+  // A fence with NO language hint still implies the `source` style,
+  // so normalizing it to `----` has to carry a bare `[source]` with
+  // it or Asciidoctor renders a plain `<pre>` instead of
+  // `<pre class="highlight"><code>`. Full rendering equality, not
+  // just the item count, is what pins that.
+  test("a fence with no language hint keeps the list structure", async () => {
+    const input = "* item\n+\n```\ncode\n```\n+\npara\n* next\n";
+    const out = await formatAdoc(input);
+    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(listItemCount(renderedHtml(out))).toBe(
+      listItemCount(renderedHtml(input)),
+    );
+    expect(await formatAdoc(out)).toBe(out);
+  });
+});
+
+// Asciidoctor's reader rstrips every line before the parser sees it
+// (`Helpers.prepare_source_string`), so a delimiter with trailing
+// spaces is still a delimiter. The formatter emits it trimmed: the
+// spaces were never part of the document Asciidoctor read.
+describe("delimiters with trailing whitespace", () => {
+  const cases: Array<[string, string]> = [
+    ["listing", "----  \ncode\n----\n"],
+    ["example", "====  \nex\n====\n"],
+    ["comment block", "////  \nc\n////\n"],
+    ["open block", "--  \nob\n--\n"],
+    ["listing after a list item", "* item\n----  \ncode\n----\n"],
+  ];
+  for (const [name, input] of cases) {
+    test(`${name} is still a delimiter`, async () => {
+      const out = await formatAdoc(input);
+      expect(renderedHtml(out)).toBe(renderedHtml(input));
+      expect(await formatAdoc(out)).toBe(out);
+      expect(out.includes("  \n")).toBe(false);
+    });
+  }
+});
+
+// A `+` does not have to touch the block it attaches. Asciidoctor's
+// `read_lines_for_list_item` lets block metadata (a block title, an
+// attribute list, an anchor, an attribute entry), the lines the
+// reader eats (comments, directives), and ONE blank line play out
+// between the marker and the block's first content line. Every one
+// of those lines used to hide the `+` from the paragraph classifier,
+// which then read the paragraph with the plain-paragraph rule set
+// and swallowed the next sibling item.
+describe("a + continuation reaches across block metadata", () => {
+  const cases: Array<[string, string]> = [
+    ["a block title", "* a\n+\n.Title\npara\n* b\n"],
+    ["an admonition attribute list", "* a\n+\n[NOTE]\nnote text\n* b\n"],
+    ["a role attribute list", "* a\n+\n[.role]\npara\n* b\n"],
+    ["a block anchor", "* a\n+\n[[x]]\npara\n* b\n"],
+    ["an attribute entry", "* a\n+\n:x: y\npara\n* b\n"],
+    ["two metadata lines", "* a\n+\n[.lead]\n.Title\npara\n* b\n"],
+    ["a line comment", "* a\n+\n// c\npara\n* b\n"],
+    ["one blank line", "* a\n+\n\npara\n* b\n"],
+    ["an ordered list's numbering", ". a\n+\n.Title\npara\n. b\n. c\n"],
+  ];
+  for (const [name, input] of cases) {
+    test(`${name} keeps the sibling item`, async () => {
+      const out = await formatAdoc(input);
+      expect(renderedHtml(out)).toBe(renderedHtml(input));
+      expect(await formatAdoc(out)).toBe(out);
+    });
+  }
+
+  // Comment lines and blank lines are NOT interchangeable, and the
+  // order decides. `read_lines_for_list_item` reads comment lines
+  // like any other content (it calls `reader.read_line`, with no
+  // comment skipping of its own), so a comment resets `continuation`
+  // from `:active` to `:inactive`; a blank line does not. Once
+  // inactive, the next blank line makes the following content line
+  // hit the `prev_line.empty?` branch, which breaks. Conditional
+  // directives stay transparent — `PreprocessorReader` eats them
+  // before the parser sees a line at all.
+  const orders: Array<[string, string]> = [
+    ["blank then content", "* a\n+\n\npara\n* b\n"],
+    ["comment then content", "* a\n+\n// c\npara\n* b\n"],
+    ["comment then blank", "* a\n+\n// c\n\npara\n* b\n"],
+    ["blank then comment", "* a\n+\n\n// c\npara\n* b\n"],
+    ["blank, metadata, blank", "* a\n+\n\n.T\n\npara\n* b\n"],
+    ["metadata then blank", "* a\n+\n.T\n\npara\n* b\n"],
+    ["two blanks then metadata", "* a\n+\n\n\n.T\npara\n* b\n"],
+  ];
+  for (const [name, input] of orders) {
+    test(`${name} matches the oracle`, async () => {
+      const out = await formatAdoc(input);
+      expect(renderedHtml(out)).toBe(renderedHtml(input));
+      expect(await formatAdoc(out)).toBe(out);
+    });
+  }
+
+  // KNOWN GAP (predates this work — the base commit is wrong here
+  // too). A conditional directive between the `+` and its block is
+  // transparent to the PARSER, so the classifier gets it right, but
+  // the printer splits the `ifdef`/`endif` pair across the list
+  // boundary (the `ifdef` ends up inside the item, the `endif`
+  // after it) and a blank line lands between the `endif` and the
+  // paragraph, which abandons the continuation.
+  test.fails("a conditional then blank keeps the item", async () => {
+    const input = "* a\n+\nifdef::x[]\nendif::[]\n\npara\n* b\n";
+    const out = await formatAdoc(input);
+    expect(renderedHtml(out)).toBe(renderedHtml(input));
+  });
+
+  // TWO blank lines DO end the list: `read_lines_for_list_item`
+  // stops at the second one, so the paragraph is a top-level
+  // sibling and `* b` starts a brand new list.
+  test("two blank lines end the list", async () => {
+    const input = "* a\n+\n\n\npara\n* b\n";
+    const out = await formatAdoc(input);
+    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+});
+
+// A marker-shaped line inside a `+`-attached paragraph is plain
+// TEXT — the oracle renders `more ** b` as one paragraph — but its
+// POSITION is load-bearing: `read_lines_for_list_item` flips
+// `within_nested_list` on any line matching a nestable list marker,
+// and that flag decides whether the NEXT `+` line is erased (a real
+// continuation) or kept as text. Reflowing the marker off column 0
+// turned the following `+` from literal text into a continuation.
+describe("a foreign list marker keeps its own line", () => {
+  const cases: Array<[string, string]> = [
+    ["a nested marker before a second +", "* a\n+\nmore\n** b\n+\npara\n* c\n"],
+    ["an ordered marker in a * list", "* a\n+\nmore\n. b\nlast\n"],
+    [
+      "a dlist term before a second +",
+      "* a\n+\nmore\nterm:: def\n+\npara\n* c\n",
+    ],
+    // A TOP-LEVEL `+` has no list around it, so `within_nested_list`
+    // — a local of `read_lines_for_list_item` — never exists and the
+    // rule must not fire: the marker-shaped line is ordinary text
+    // that reflow may join like any other.
+    ["no list is open at all", "+\npara\n* item\nmore\n"],
+    ["a top-level + after a paragraph", "first\n\n+\npara\n* b\nmore\n"],
+  ];
+  for (const [name, input] of cases) {
+    test(`${name} round-trips`, async () => {
+      const out = await formatAdoc(input);
+      expect(renderedHtml(out)).toBe(renderedHtml(input));
+      expect(await formatAdoc(out)).toBe(out);
     });
   }
 });

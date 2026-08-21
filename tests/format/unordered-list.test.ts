@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { formatAdoc } from "../helpers.js";
+import { formatAdoc, renderedHtml } from "../helpers.js";
 
 describe("unordered list formatting", () => {
   // Canonical single-item list passes through unchanged.
@@ -250,5 +250,45 @@ describe("trailing hard break is layout independent", () => {
     const first = await formatAdoc(input);
     expect(first).toBe("* a b +\nmore\n\npara\n");
     expect(await formatAdoc(first)).toBe(first);
+  });
+});
+
+// A list item's text is greedy in the same way a paragraph's is: only a
+// sibling/nested marker, a `+` continuation, a delimiter or a dlist term
+// ends it (src/parse/line-shapes.ts). Everything else — including lines
+// that would be block syntax at the start of a block — is item text.
+describe("list item continuation (contextual classification)", () => {
+  test("indented continuation lines are item text", async () => {
+    const input = "* item\n  continued here\n* next\n";
+    const out = await formatAdoc(input);
+    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+  test("a block-title-shaped line inside an item is item text", async () => {
+    const input = "* item\n.not a title\n* next\n";
+    const out = await formatAdoc(input);
+    expect(renderedHtml(out)).toBe(renderedHtml(input));
+  });
+  test("a sibling marker still starts a new item", async () => {
+    const input = "* one\n* two\n";
+    const out = await formatAdoc(input);
+    expect(out).toBe("* one\n* two\n");
+  });
+});
+
+// A whole-line `[[anchor]]` inside a list item is block metadata for
+// a block that never materializes, so Asciidoctor DISCARDS it. The
+// formatter must keep it on its own line: reflowing it into the item
+// text would turn it into an inline anchor and emit an `<a id>` the
+// oracle does not have.
+describe("block anchor inside a list item", () => {
+  test("stays verbatim on its own line", async () => {
+    const input = "* item\n[[anchor]]\npara\n* next\n";
+    const out = await formatAdoc(input);
+    expect(out).toBe(input);
+    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+    // The oracle drops it, so it must not appear in the rendering.
+    expect(renderedHtml(out).includes('id="anchor"')).toBe(false);
   });
 });

@@ -7,6 +7,11 @@ import jsdoc from "eslint-plugin-jsdoc";
 import prettier from "eslint-config-prettier";
 import vitest from "@vitest/eslint-plugin";
 
+// Vitest's expect() takes an optional message as its second argument
+// (`expect(value, "why")`). The rule's default of 1 assumes the Jest
+// signature.
+const EXPECT_MAX_ARGS = 2;
+
 export default defineConfig(
   // Global ignores.
   {
@@ -100,6 +105,10 @@ export default defineConfig(
         "error",
         { assertFunctionNames: ["expect", "expectTCK", "expectTCKInlines"] },
       ],
+
+      // The data-driven suites use expect()'s message argument to
+      // name the row that failed. See EXPECT_MAX_ARGS.
+      "vitest/valid-expect": ["error", { maxArgs: EXPECT_MAX_ARGS }],
 
       // Magic numbers are unavoidable in test assertions (counts,
       // indices, expected values). null appears in fixture data and

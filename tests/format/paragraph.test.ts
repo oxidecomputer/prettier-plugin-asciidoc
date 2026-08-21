@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { formatAdoc } from "../helpers.js";
+import { formatAdoc, renderedHtml } from "../helpers.js";
 
 describe("paragraph formatting", () => {
   // Round-trip baseline: well-formed input should not be changed.
@@ -70,5 +70,97 @@ describe("paragraph formatting", () => {
   test("whitespace-only line before list item is dropped", async () => {
     const input = " \n. item";
     expect(await formatAdoc(input)).toBe(". item\n");
+  });
+});
+
+// Asciidoctor's paragraphs are greedy: once a paragraph is open, every
+// following line is its text until a blank line or one of a tiny
+// interrupting set (src/parse/line-shapes.ts). These cases pin the
+// contextual classification — each construct is block syntax at the
+// START of a block but plain text in the middle of one.
+describe("paragraph continuation (contextual classification)", () => {
+  const cases: Array<[string, string]> = [
+    ["block title line", "first line\n.A title\nlast line\n"],
+    ["list marker line", "first line\n* item\nlast line\n"],
+    ["attribute entry line", "first line\n:name: value\nlast line\n"],
+    ["admonition label line", "first line\nNOTE: note text\nlast line\n"],
+    ["indented line", "first line\n  wrapped continuation\nlast line\n"],
+    ["section marker line", "first line\n== Section\nlast line\n"],
+    ["block macro line", "first line\nimage::a.png[]\nlast line\n"],
+    ["thematic break line", "first line\n'''\nlast line\n"],
+    // A delimiter-shaped PREFIX is not a delimiter: the default-mode
+    // patterns match `----` and `.Title` anywhere on a line, so these
+    // two used to open a listing block / block title mid-paragraph.
+    ["delimiter-prefixed dlist term", "a line\n----:: x\n"],
+    ["block-title-prefixed dlist term", "a line\n.Title:: x\n"],
+  ];
+  for (const [name, input] of cases) {
+    test(`${name} is paragraph text, not a split`, async () => {
+      const out = await formatAdoc(input);
+      // vitest's expect() takes an optional message as its second
+      // argument; the rule's default assumes the jest signature.
+      expect(out.includes("\n\n"), "must not split into two blocks").toBe(
+        false,
+      );
+      expect(renderedHtml(out)).toBe(renderedHtml(input));
+      expect(await formatAdoc(out)).toBe(out);
+    });
+  }
+
+  test("a comment line inside a paragraph stays verbatim on its own line", async () => {
+    const input = "first line\n// a comment\nlast line\n";
+    const out = await formatAdoc(input);
+    expect(out).toBe("first line\n// a comment\nlast line\n");
+    expect(renderedHtml(out)).toBe(renderedHtml(input));
+  });
+
+  test("a conditional directive inside a paragraph stays verbatim", async () => {
+    const input =
+      "first line\nifdef::flag[]\nconditional text\nendif::[]\nlast line\n";
+    const out = await formatAdoc(input);
+    expect(out).toBe(input);
+    expect(renderedHtml(out)).toBe(renderedHtml(input));
+  });
+
+  test.each([
+    ["an attribute list", "first line\n[source]\n----\ncode\n----\n"],
+    ["a block anchor", "first line\n[[anchor]]\nlast line\n"],
+    ["an example delimiter", "first line\n====\nex\n====\n"],
+  ])("%s still interrupts", async (_name, input) => {
+    const out = await formatAdoc(input);
+    expect(renderedHtml(out)).toBe(renderedHtml(input));
+  });
+});
+
+// A delimiter OWNS its line: Asciidoctor's `is_delimited_block?`
+// requires the whole line to be a uniform run of the delimiter
+// character. The lexer's open tokens used to PREFIX-match, so
+// `----:: x` opened a listing block and swallowed the rest of the
+// document.
+describe("delimiter lines are whole lines", () => {
+  test("a delimiter-prefixed line does not open a block", async () => {
+    const out = await formatAdoc("====text\n");
+    expect(out).toBe("====text\n");
+    expect(renderedHtml(out)).toBe(renderedHtml("====text\n"));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+
+  test("a real delimiter still opens a block", async () => {
+    const input = "----\ncode\n----\n";
+    const out = await formatAdoc(input);
+    expect(out).toBe(input);
+    expect(renderedHtml(out)).toBe(renderedHtml(input));
+  });
+
+  test("a delimiter-prefixed dlist term in a list item is not a block", async () => {
+    const input = "* item\n----:: x\n";
+    const out = await formatAdoc(input);
+    // The corruption this used to produce (`----` on its own line
+    // opening a listing block, with `: x` stranded inside it) is
+    // gone. Full fidelity still waits on description-list support
+    // (#9) and on the reflow guard narrowing (#4): the term word is
+    // currently glued to the item text instead of keeping its line.
+    expect(out.includes("\n----\n")).toBe(false);
+    expect(await formatAdoc(out)).toBe(out);
   });
 });

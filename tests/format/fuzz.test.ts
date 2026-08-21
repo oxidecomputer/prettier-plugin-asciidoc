@@ -12,6 +12,9 @@ describe("formatter fuzz", () => {
   // formatting is idempotent: format(format(x)) === format(x).
   // Uses the AsciiDoc line-soup generator (tier 2) because
   // purely random strings rarely exercise the printer.
+  // The run is SEEDED (see tests/fuzz/config.ts): `test.fails`
+  // inverts the result, so an unseeded search that found nothing
+  // would fail the suite by accident.
   // TODO: When removing test.fails, also review numRuns — 10k iterations
   // means 20k format calls (~40s), which is close to the vitest timeout.
   // Consider reducing to 1_000 for CI and using the FUZZ env var for
@@ -32,7 +35,8 @@ describe("formatter fuzz", () => {
   // produces from the formatted output. Any difference means
   // the formatter changed the document's meaning. Uses the
   // no-includes arbitrary because include directives can't be
-  // resolved in synthetic input (see arbitraries.ts).
+  // resolved in synthetic input (see arbitraries.ts). Seeded for the
+  // same reason as the idempotency property above.
   // TODO: When removing test.fails, review numRuns for CI timing.
   test.fails("formatting preserves Asciidoctor HTML output", async () => {
     await fc.assert(

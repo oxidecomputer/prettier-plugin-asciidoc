@@ -107,9 +107,9 @@ describe("document title parsing", () => {
 
   // A document title at EOF without a trailing newline exercises the
   // lexer's tolerance for missing trailing whitespace. The DocumentTitle
-  // token pattern `/= (?!=)[^\n]+/` matches to end of input when there
-  // is no `\n`, so the lexer still emits the token and the parser
-  // produces a complete document title node.
+  // token pattern matches to end of input when there is no `\n`, so
+  // the lexer still emits the token and the parser produces a
+  // complete document title node.
   test("document title at EOF without trailing newline", () => {
     const document = parse("= Title");
     expect(document.children).toHaveLength(1);
@@ -120,17 +120,17 @@ describe("document title parsing", () => {
     expect(child0.title).toBe("Title");
   });
 
-  // The token pattern `/= (?!=)[^\n]+/` matches `= ` followed by any
-  // non-newline characters — including spaces. When the title is
-  // only whitespace, `slice(2).trim()` produces an empty string.
-  // This documents the parser's behavior for this degenerate input.
-  test("= followed by only whitespace produces empty title", () => {
+  // `AtxSectionTitleRx` is matched against the RSTRIPPED line and
+  // requires a non-empty title, so `=` followed by nothing but
+  // whitespace is not a title at all — the oracle renders `=  ` as a
+  // paragraph containing `=`. (This used to produce a documentTitle
+  // with an empty string.)
+  test("= followed by only whitespace is a paragraph, not a title", () => {
     const document = parse("=  \n");
     expect(document.children).toHaveLength(1);
     const {
       children: [child0],
     } = document;
-    narrow(child0, "documentTitle");
-    expect(child0.title).toBe("");
+    expect(child0.type).toBe("paragraph");
   });
 });

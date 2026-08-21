@@ -100,11 +100,19 @@ const nullLogger = asciidoctor.NullLogger.create();
  * Renders AsciiDoc to normalized HTML via Asciidoctor for
  * semantic-fidelity comparisons: asserting that formatting did
  * not change what a document MEANS, not just that it round-trips
- * textually. Newlines outside `<pre>` blocks are collapsed to
- * spaces because Asciidoctor preserves source newlines in
- * paragraph text while the formatter reflows lines — a
- * whitespace difference that is visually identical and not a
- * semantic change.
+ * textually. Each source LINE BREAK outside `<pre>` blocks — with
+ * the indentation that surrounds it — collapses to a single space,
+ * because Asciidoctor copies a line break and the indentation
+ * after it straight into paragraph text (`a\n  b` renders as `a`,
+ * newline, two spaces, `b`) while the formatter reflows lines. That
+ * difference is invisible in rendered HTML and not a semantic
+ * change.
+ *
+ * Deliberately NARROW: whitespace runs WITHIN a line are left
+ * alone, so a formatter that collapses a double space inside
+ * `` `code` `` or a `+++passthrough+++` still fails the
+ * comparison. Inside `<pre>`, where a line break is meaningful,
+ * nothing is touched at all.
  * @param input - AsciiDoc source text.
  * @returns Normalized HTML string produced by Asciidoctor in
  *   safe mode with logging suppressed.
@@ -129,7 +137,7 @@ export function renderedHtml(input: string): string {
   );
   return (
     withPlaceholders
-      .replaceAll("\n", " ")
+      .replaceAll(/[ \t]*\n[ \t]*/gv, " ")
       // The second callback argument is the first capture — being
       // named does not change its position. (The `groups` object
       // is the LAST argument, after offset and source; reading it
