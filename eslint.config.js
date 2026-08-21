@@ -119,6 +119,7 @@ export default defineConfig(
             "expectTCK",
             "expectTCKInlines",
             "expectStreamInvariants",
+            "expectAstInvariants",
           ],
         },
       ],
