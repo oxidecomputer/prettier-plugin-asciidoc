@@ -7,8 +7,8 @@ bun run check          # TypeScript type checking (tsc --noEmit)
 bun run lint           # ESLint, zero warnings policy (--max-warnings=0)
 bun run test           # Vitest
 bun run build          # bun build → dist/ (ESM)
-bun run vendor         # Re-fetch ASG schema + TCK fixtures, and re-extract the
-                        # Asciidoctor conformance corpus, into vendor/
+bun run vendor         # Re-extract the Asciidoctor conformance corpus into
+                        # vendor/
 bun run triage         # Diff conformance-suite results against the quarantine
                         # manifest; --write updates the manifest
 bun run fmt            # Format with Prettier

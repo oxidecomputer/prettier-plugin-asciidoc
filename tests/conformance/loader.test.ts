@@ -21,7 +21,6 @@ describe("loadCorpus", () => {
     expect(names).toContain("blocks_test");
     expect(names).toContain("docs");
     expect(names).toContain("fixtures");
-    expect(names).toContain("tck");
     expect(names).toContain("local");
   });
 
@@ -39,14 +38,6 @@ describe("loadCorpus", () => {
         expect(c.input.length).toBeGreaterThan(0);
       }
     }
-  });
-
-  test("tck cases use repo-relative paths as ids", () => {
-    const tck = groups.find((g) => g.name === "tck");
-    expect(tck).toBeDefined();
-    expect(
-      tck?.cases.every((c) => c.id.startsWith("vendor/asciidoc-tck/tests/")),
-    ).toBe(true);
   });
 });
 

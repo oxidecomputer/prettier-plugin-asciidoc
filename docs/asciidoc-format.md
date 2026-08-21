@@ -1131,8 +1131,8 @@ The ASG represents parsed documents as a tree of typed nodes. Each node has
 ]
 ```
 
-Line numbers are 1-based. Column numbers are 0-based in the schema (though TCK
-examples show 1-based — verify when implementing).
+Line numbers are 1-based. Column numbers are 0-based in the schema (though the
+spec's own examples show 1-based — verify when implementing).
 
 ## What the ASG does NOT represent
 

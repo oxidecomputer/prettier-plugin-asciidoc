@@ -1,7 +1,7 @@
 /**
- * Loads the differential-conformance corpus (issue #7) from its three
- * sources: the vendored Asciidoctor extraction, the vendored TCK
- * input documents, and a local drop directory for real documents.
+ * Loads the differential-conformance corpus (issue #7) from its two
+ * sources: the vendored Asciidoctor extraction and a local drop
+ * directory for real documents.
  * Synchronous on purpose — it runs once at test-collection time.
  */
 import { readdirSync, readFileSync } from "node:fs";
@@ -14,7 +14,7 @@ export type { CorpusCase } from "../../scripts/heredoc-extractor.js";
 
 /** A named slice of the corpus, used as a vitest describe block. */
 export interface CorpusGroup {
-  /** JSONL basename (e.g. `lists_test`), or `tck` / `local`. */
+  /** JSONL basename (e.g. `lists_test`), or `local`. */
   name: string;
   /** Cases sorted by ID for deterministic test ordering. */
   cases: CorpusCase[];
@@ -23,7 +23,6 @@ export interface CorpusGroup {
 // Paths are relative to the repo root; vitest runs with the repo root
 // as cwd, matching how tests/helpers.ts resolves things.
 const CORPUS_DIR = "vendor/asciidoctor-corpus";
-const TCK_DIR = "vendor/asciidoc-tck/tests";
 const LOCAL_DIR = "tests/conformance/corpus";
 
 /**
@@ -128,9 +127,8 @@ function fileCases(filePaths: string[]): CorpusCase[] {
 
 /**
  * Loads the full conformance corpus. Every `.jsonl` in the vendored
- * corpus becomes a group; TCK `*-input.adoc` documents and any
- * `.adoc` dropped into `tests/conformance/corpus/` join as the `tck`
- * and `local` groups.
+ * corpus becomes a group; any `.adoc` dropped into
+ * `tests/conformance/corpus/` joins as the `local` group.
  * @returns groups sorted by name, each with cases sorted by ID
  */
 export function loadCorpus(): CorpusGroup[] {
@@ -141,10 +139,6 @@ export function loadCorpus(): CorpusGroup[] {
 
   return [
     ...jsonlGroups,
-    {
-      name: "tck",
-      cases: fileCases(collectFiles(TCK_DIR, "-input.adoc")),
-    },
     {
       name: "local",
       cases: fileCases(collectFiles(LOCAL_DIR, ".adoc")),

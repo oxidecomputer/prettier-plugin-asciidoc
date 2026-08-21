@@ -36,12 +36,14 @@ const ZERO = 0;
 const ONE = 1;
 
 /**
- * The floor below which a "pass" is meaningless. 1,627 corpus cases +
- * 6 identity fixtures at `8c42f624`. A wrong cwd, a `vendor/` change
- * or a loader regression makes both sides return zero rows, and
- * without this the plan's central gate passes silently on nothing.
+ * The floor below which a "pass" is meaningless. 1,614 corpus cases +
+ * 6 identity fixtures. (It was 1,633 while the vendored TCK's 13
+ * `*-input.adoc` documents were a corpus group; Ruling 43 deleted
+ * them.) A wrong cwd, a `vendor/` change or a loader regression makes
+ * both sides return zero rows, and without this the plan's central
+ * gate passes silently on nothing.
  */
-const MINIMUM_CASES = 1633;
+const MINIMUM_CASES = 1620;
 
 // The dumper is written into BOTH checkouts, so it can only use what
 // the baseline already has: the corpus loader, the format fixtures,

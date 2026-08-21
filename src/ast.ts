@@ -27,8 +27,11 @@ export interface Location {
  * Every AST node carries a position with start (inclusive) and end (exclusive).
  * Prettier uses locStart/locEnd for cursor tracking and range formatting;
  * having positions on every node ensures those features work correctly.
+ *
+ * Not exported: it is the base every node interface below extends, and
+ * nothing outside this module names it.
  */
-export interface Node {
+interface Node {
   /** Discriminant tag identifying the concrete node kind. */
   type: string;
   /**

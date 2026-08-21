@@ -8,8 +8,6 @@ spacing, and produces clean diffs.
 
 ```
 source → splitLines → BlockReader(classifyLine) → IToken[] → CstParser → CST → AST Builder → AST → Printer
-                                                                                              ↓
-                                                                          toASG() → TCK validation (test-time only)
 ```
 
 ### Parser
@@ -57,25 +55,11 @@ Parsing happens in four phases:
 Walks the AST and produces Prettier Doc IR using `group`, `indent`, `line`,
 `hardline`, `softline`, `fill`, `join`, etc.
 
-### TCK validation (test-time only)
-
-A `toASG()` function converts our AST to the official AsciiDoc ASG format. This
-is a lossy projection — it strips comments, blank lines, attribute entries,
-directives, and other formatter-specific nodes. The result is validated against
-the ASG schema and compared to TCK expected outputs.
-
-This validates that our parser interprets AsciiDoc structure correctly (section
-nesting, list hierarchy, inline formatting, etc.) without constraining our AST
-design.
-
-`toASG()` and any TCK dependencies are dev-only — they don't ship with the
-plugin.
-
-## Three levels of tree representation
+## Two levels of tree representation
 
 ```
-Chevrotain CST → AST (ours) → ASG (spec's)
-   all syntax      source-preserving    semantic-only
+Chevrotain CST → AST (ours)
+   all syntax      source-preserving
 ```
 
 **Chevrotain's CST** is produced automatically by the parser. Nodes correspond
@@ -87,23 +71,17 @@ original text from it, but the uniform structure (`children.InlineText[0]`,
 `level` property, `ParagraphNode` with inline children, etc. The AST Builder
 visitor transforms the CST into this shape. This is what we hand to Prettier.
 
-**The ASG** is the official AsciiDoc Abstract Semantic Graph. It's a lossy
-projection of our AST — comments, directives, attribute entries, and block
-metadata are stripped. We produce it at test time via `toASG()` for TCK
-conformance validation.
-
 Prettier's plugin API is AST-agnostic: it calls `parse()` to get a tree,
 `locStart(node)`/`locEnd(node)` to get character offsets, and `print(path)` to
 walk the tree and emit Doc IR. It doesn't inspect node types or tree structure.
 We could skip the AST Builder and write the printer against the raw CST, but the
-typed AST is much cleaner to work with and lets us share the tree with
-`toASG()`.
+typed AST is much cleaner to work with.
 
 ## AST
 
-Our AST is designed for Prettier, not for the AsciiDoc ASG spec. It preserves
-everything a formatter needs, including constructs the ASG intentionally
-discards.
+Our AST is designed for Prettier, not for the AsciiDoc language spec's semantic
+model. It preserves everything a formatter needs, including constructs a
+semantic model intentionally discards.
 
 **Block nodes:**
 
@@ -125,7 +103,7 @@ discards.
 - `table` — rows, cells, column specs
 - `thematicBreak`, `pageBreak`
 
-**Formatter-specific nodes (not in ASG):**
+**Formatter-specific nodes (no semantic-model equivalent):**
 
 - `comment` — line (`//`) and block (`////`)
 - `preprocessorDirective` — one verbatim line the reader eats:
@@ -163,14 +141,6 @@ Two separate layers with different purposes:
 AST and formatted output directly. These provide real coverage — every
 construct, edge cases, position tracking, formatting normalization. Fixtures
 live alongside the tests in `tests/format/fixtures/`.
-
-**TCK conformance** (`tests/tck/`): Runs `toASG()` against the vendored AsciiDoc
-TCK fixtures (`vendor/asciidoc-tck/tests/`). The TCK has roughly a dozen
-input/output pairs covering basic paragraphs, one section, one list, one listing
-block, one sidebar, one header, and two inline cases. It's a conformance smoke
-test — validates that our ASG output matches the spec's expected shape — but far
-too thin for unit test coverage. We don't depend on it growing; our own tests
-are the source of truth.
 
 ## Formatting opinions
 
@@ -429,9 +399,8 @@ Chevrotain is what we build the tree-assembly layer on:
 - **Native TypeScript**: The grammar IS TypeScript code — full IDE support, type
   checking, refactoring.
 - **CST + visitor pattern**: Clean separation between parsing and AST
-  construction. One CST, one visitor — the AST builder. `toASG()` never sees the
-  CST: it is a projection of our AST, one level further down (see "Three levels
-  of tree representation").
+  construction. One CST, one visitor — the AST builder. Nothing downstream of
+  the builder sees the CST (see "Two levels of tree representation").
 
 Chevrotain also offers lexer modes, gates on parser alternatives, and custom
 patterns that receive the token history. We deliberately use NONE of the three:
@@ -499,9 +468,10 @@ fighting it for the rest.
 ### Our approach instead
 
 A custom source-preserving parser that directly produces the AST Prettier needs.
-We validate correctness against the official AsciiDoc TCK, which provides
-input/output test pairs in ASG format. The ASG is a lossy semantic
-representation — our AST is a superset of it, and `toASG()` projects down.
+Correctness is checked differentially against Asciidoctor itself, over the
+vendored corpus in `tests/conformance/` — Asciidoctor is the de facto reference
+implementation, and the corpus is thousands of real documents rather than a
+handful of hand-written pairs.
 
 ## References
 
@@ -509,9 +479,6 @@ representation — our AST is a superset of it, and `toASG()` projects down.
   prints, what each row means, and how each one is gamed
 - [Prettier plugin API](https://prettier.io/docs/plugins#developing-plugins)
 - [AsciiDoc syntax](https://docs.asciidoctor.org/asciidoc/latest/syntax-quick-reference/)
-- [ASG schema](https://gitlab.eclipse.org/eclipse/asciidoc-lang/asciidoc-lang/-/tree/main/asg)
-- [ASG spec discussion](https://gitlab.eclipse.org/eclipse/asciidoc-lang/asciidoc-lang/-/issues/7)
-- [TCK repo](https://gitlab.eclipse.org/eclipse/asciidoc-lang/asciidoc-tck)
 - [Prettier issue #5506 (AsciiDoc support)](https://github.com/prettier/prettier/issues/5506)
 - [Chevrotain](https://chevrotain.io/) — parser toolkit used for our grammar and
   inline lexer

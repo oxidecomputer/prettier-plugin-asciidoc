@@ -8,8 +8,6 @@ converts it to Prettier Doc IR.
 
 ```
 source → splitLines → BlockReader(classifyLine) → IToken[] → CstParser → CST → AST Builder → AST → Printer
-                                                                                              ↓
-                                                                          toASG() → TCK validation (test-time only)
 ```
 
 ## Components
@@ -53,19 +51,17 @@ source → splitLines → BlockReader(classifyLine) → IToken[] → CstParser �
   "Line classification is contextual" in `docs/design.md`, and
   `docs/simplicity-metrics.md` for how the change was measured.
 
-- **AST** (`src/ast.ts`): Designed for Prettier, not the AsciiDoc ASG. Preserves
-  comments, directives, attribute entries, and other constructs the ASG
-  intentionally discards.
+- **AST** (`src/ast.ts`): Designed for Prettier, not the AsciiDoc language
+  spec's semantic model. Preserves comments, directives, attribute entries, and
+  other constructs a semantic model intentionally discards.
 - **Printer** (`src/printer.ts`): Walks AST, produces Prettier Doc IR.
-- **TCK validation** (`tests/tck/`): `toASG()` converts our AST to official ASG
-  format for test-time conformance checks. Dev-only, not shipped.
-- **Vendored deps** (`vendor/`): ASG schema and TCK test fixtures from the
-  asciidoc-lang project. Updated via `bun run vendor`.
+- **Vendored deps** (`vendor/`): the Asciidoctor conformance corpus. Updated via
+  `bun run vendor`.
 - **Conformance suite** (`tests/conformance/`): differential testing against
   Asciidoctor's own test corpus (see #7). `vendor/asciidoctor-corpus/` holds
   1,614 cases as JSONL, pinned to an Asciidoctor commit — Ruby test-suite
-  heredocs, Asciidoctor's own docs pages, and test fixtures. The 13 TCK inputs
-  live in `vendor/asciidoc-tck/` and join at load time for 1,627 total.
+  heredocs, Asciidoctor's own docs pages, and test fixtures. Any `.adoc` dropped
+  into `tests/conformance/corpus/` joins at load time as the `local` group.
   `properties.ts`'s `assessCase` runs three properties per case (no crash,
   idempotency, `renderedHtml(format(x)) === renderedHtml(x)` fidelity via the
   `@asciidoctor/core` oracle). Known-failing cases are pinned in
@@ -87,11 +83,10 @@ source → splitLines → BlockReader(classifyLine) → IToken[] → CstParser �
   board https://github.com/orgs/oxidecomputer/projects/228 — there is no in-repo
   plan document
 - AsciiDoc syntax reference: `docs/asciidoc-format.md` — covers all constructs
-  the parser handles, ASG node types, and what the ASG does NOT represent (which
-  our AST must).
-- ASG schema:
-  https://gitlab.eclipse.org/eclipse/asciidoc-lang/asciidoc-lang/-/tree/main/asg
-- TCK tests: https://gitlab.eclipse.org/eclipse/asciidoc-lang/asciidoc-tck
+  the parser handles, the language spec's node types, and what that semantic
+  model does NOT represent (which our AST must).
+- AsciiDoc language project:
+  https://gitlab.eclipse.org/eclipse/asciidoc-lang/asciidoc-lang
 - Prettier plugin API: https://prettier.io/docs/plugins#developing-plugins
 
 ## Tech Stack

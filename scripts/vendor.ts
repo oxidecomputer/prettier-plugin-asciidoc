@@ -2,10 +2,8 @@
 /* eslint-disable no-console -- runner script */
 
 /**
- * Fetches vendored dependencies from the AsciiDoc project:
- * - ASG schema from asciidoc-lang
- * - TCK test fixtures from asciidoc-tck
- * - Asciidoctor conformance corpus (heredoc test inputs, docs, fixtures)
+ * Fetches the vendored Asciidoctor conformance corpus (heredoc test
+ * inputs, documentation pages, and test fixtures).
  *
  * Usage: bun scripts/vendor.ts
  */
@@ -26,23 +24,6 @@ const ZERO = 0;
 const tempdir = await mkdtemp(path.join(tmpdir(), "asciidoc-vendor-"));
 
 try {
-  console.log("Cloning asciidoc-lang...");
-  await $`git clone --depth 1 https://gitlab.eclipse.org/eclipse/asciidoc-lang/asciidoc-lang.git ${tempdir}/asciidoc-lang`;
-
-  console.log("Cloning asciidoc-tck...");
-  await $`git clone --depth 1 https://gitlab.eclipse.org/eclipse/asciidoc-lang/asciidoc-tck.git ${tempdir}/asciidoc-tck`;
-
-  console.log("Copying ASG schema...");
-  await rm("vendor/asciidoc-asg", { recursive: true, force: true });
-  await $`mkdir -p vendor/asciidoc-asg`;
-  await $`cp ${tempdir}/asciidoc-lang/asg/schema.json vendor/asciidoc-asg/`;
-  await $`cp ${tempdir}/asciidoc-lang/asg/schema.js vendor/asciidoc-asg/`;
-
-  console.log("Copying TCK test fixtures...");
-  await rm("vendor/asciidoc-tck", { recursive: true, force: true });
-  await $`mkdir -p vendor/asciidoc-tck`;
-  await $`cp -r ${tempdir}/asciidoc-tck/tests vendor/asciidoc-tck/`;
-
   // --- Asciidoctor conformance corpus (issue #7) ---
   // Pinned to an exact commit so extracted case IDs stay stable:
   // the quarantine manifest keys on them. Bump deliberately, then

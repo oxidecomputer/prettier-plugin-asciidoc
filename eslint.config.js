@@ -109,15 +109,13 @@ export default defineConfig(
       // tests awaiting a bug fix (body preserves the impl).
       "vitest/no-disabled-tests": "off",
 
-      // Tests delegate to helpers like expectTCK() that
+      // Tests delegate to helpers like expectAstInvariants() that
       // contain the actual assertions.
       "vitest/expect-expect": [
         "error",
         {
           assertFunctionNames: [
             "expect",
-            "expectTCK",
-            "expectTCKInlines",
             "expectStreamInvariants",
             "expectAstInvariants",
           ],

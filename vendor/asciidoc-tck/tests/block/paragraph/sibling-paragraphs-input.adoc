@@ -1,3 +1,0 @@
-This document has multiple paragraphs.
-
-Paragraphs are separated by one or more empty lines.

@@ -2,7 +2,7 @@
  * Serializes inline AST nodes back to their AsciiDoc source
  * representation. Covers the unified InlineMacroNode, bare-URL
  * links, xref shorthands, and inline anchors. Shared by the
- * printer, paragraph-form transformer, and TCK converter.
+ * printer and the paragraph-form transformer.
  */
 import type {
   InlineAnchorNode,
