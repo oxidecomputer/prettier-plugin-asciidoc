@@ -23,7 +23,6 @@
  * section nesting, so blocks inside sections are handled correctly.
  */
 import type {
-  AdmonitionNode,
   BlockNode,
   BlockAttributeListNode,
   DelimitedBlockNode,
@@ -37,12 +36,17 @@ import {
   xrefToSource,
   anchorToSource,
 } from "../serialize-inline.js";
-import { FIRST, NEWLINE_LENGTH, NEXT, PAIR_LENGTH } from "../constants.js";
+import { isReaderConsumedLine } from "../block-metadata.js";
+import { FIRST, NEWLINE_LENGTH, NEXT } from "../constants.js";
 
 // Matches any single word composed entirely of uppercase ASCII letters.
 // Used by getAdmonitionVariant to recognise NOTE, TIP, IMPORTANT, etc.
 // Module-level so the regex is compiled once, not on every call.
 const UPPERCASE_WORD = /^[A-Z]+$/v;
+
+// Strips the newline a boundary child contributed at either end of a
+// reconstructed paragraph-form content string (see paragraphToContent).
+const BOUNDARY_NEWLINES = /^\n?(?<content>.*?)\n?$/sv;
 
 // Maps recognized first positional attribute values to the
 // `DelimitedBlockNode.variant` they produce. AsciiDoc `source`
@@ -264,7 +268,13 @@ function extractParentBlockContent(
  *   children.
  */
 function paragraphToContent(paragraph: ParagraphNode): string {
-  return paragraph.children.map((child) => inlineToText(child)).join("");
+  const text = paragraph.children.map((child) => inlineToText(child)).join("");
+  // `content` holds the block's lines joined by `\n`, with no
+  // terminating newline. Two children carry their own line boundary
+  // (a raw line's `\n…\n`, a hard break's ` +\n`); at the paragraph's
+  // edge that boundary has no line to separate, and printing it added
+  // a blank line that grew the block on every pass.
+  return text.replace(BOUNDARY_NEWLINES, "$<content>");
 }
 
 /**
@@ -334,24 +344,106 @@ function inlineToText(node: InlineNode): string {
 }
 
 /**
- * Scans the flat block array for style-driven transformations:
+ * Index of the block a metadata node annotates, looking PAST the
+ * lines Asciidoctor's reader eats.
  *
- * 1. **Paragraph-form blocks:** `BlockAttributeListNode` +
- *    `ParagraphNode` pairs where the attribute list declares a
- *    paragraph-form style → convert to `DelimitedBlockNode`.
+ * `parse_block_metadata_lines` runs on a PreprocessorReader, so a
+ * comment or a preprocessor directive between `[listing]` and its
+ * text is gone by the time the style is applied — the style still
+ * reaches the block. Without this, `[listing]` / `ifdef::backend[]` /
+ * text left the text an ordinary paragraph and the formatter reflowed
+ * content that must stay verbatim.
+ * @param blocks - The flat block array.
+ * @param metadataIndex - Index of the metadata node.
+ * @returns Index of the annotated block, or the array length when the
+ *   metadata is trailed only by reader-eaten lines.
+ */
+function annotatedBlockIndex(
+  blocks: BlockNode[],
+  metadataIndex: number,
+): number {
+  let index = metadataIndex + NEXT;
+  while (index < blocks.length && isReaderConsumedLine(blocks[index])) {
+    index += NEXT;
+  }
+  return index;
+}
+
+/**
+ * Applies the style on a metadata node to the block it annotates.
  *
- * 2. **Block masquerading:** `BlockAttributeListNode` +
- *    `ParentBlockNode` where the style changes the content
- *    model from compound to verbatim → convert to
+ * Three conversions, in this order (masquerades before admonitions,
+ * because styles like `verse` and `source` are valid masquerade
+ * styles even though they match the uppercase-word pattern):
+ *
+ * 1. **Paragraph-form blocks:** a paragraph-form style on a
+ *    `ParagraphNode` → `DelimitedBlockNode` with `form: "paragraph"`.
+ * 2. **Block masquerading:** a style on a `ParentBlockNode` that
+ *    changes the content model from compound to verbatim →
  *    `DelimitedBlockNode` with raw content.
- *
- * 3. **Admonitions:** `BlockAttributeListNode` +
- *    `ParentBlockNode` where the style is an admonition type
- *    → convert to `AdmonitionNode`.
- *
- * Masquerade checks run BEFORE admonition checks because
- * styles like `verse` and `source` are not admonitions, even
- * though they match the uppercase-word pattern.
+ * 3. **Admonitions:** an admonition style on a `ParentBlockNode` →
+ *    `AdmonitionNode` with `form: "delimited"`.
+ * @param metadata - The block attribute list carrying the style.
+ * @param next - The block it annotates, or undefined at end of input.
+ * @param sourceText - The full original source text, needed for
+ *   extracting raw content when masquerading parent blocks.
+ * @returns The converted block, or undefined when the style drives no
+ *   conversion (the block is then kept as it is).
+ */
+function styledConversion(
+  metadata: BlockAttributeListNode,
+  next: BlockNode | undefined,
+  sourceText: string,
+): BlockNode | undefined {
+  if (next === undefined) {
+    return undefined;
+  }
+  if (next.type === "paragraph") {
+    const variant = getParagraphFormVariant(metadata);
+    return variant === undefined
+      ? undefined
+      : {
+          type: "delimitedBlock",
+          variant,
+          form: "paragraph",
+          content: paragraphToContent(next),
+          position: next.position,
+        };
+  }
+  if (next.type !== "parentBlock") {
+    return undefined;
+  }
+  const masqueradeVariant = getVerbatimMasquerade(metadata, next.variant);
+  if (masqueradeVariant !== undefined) {
+    return {
+      type: "delimitedBlock",
+      variant: masqueradeVariant,
+      form: "delimited",
+      content: extractParentBlockContent(next, sourceText),
+      sourceDelimiter: next.variant,
+      position: next.position,
+    };
+  }
+  const admonitionVariant = getAdmonitionVariant(metadata);
+  return admonitionVariant === undefined
+    ? undefined
+    : {
+        type: "admonition",
+        variant: admonitionVariant,
+        form: "delimited",
+        delimiter: next.variant,
+        // `content` is undefined for admonitions — their text is in
+        // `children` (inline nodes), not raw string content.
+        content: undefined,
+        children: next.children,
+        position: next.position,
+      };
+}
+
+/**
+ * Scans the flat block array for the style-driven transformations
+ * {@link styledConversion} performs, rewriting each converted pair in
+ * place and leaving everything else untouched.
  * @param blocks - Flat array of block-level AST nodes
  *   produced by the CST visitor, before section nesting.
  * @param sourceText - The full original source text,
@@ -370,91 +462,24 @@ export function convertParagraphFormBlocks(
 
   while (index < blocks.length) {
     const { [index]: current } = blocks;
-
-    // When a block attribute list with a recognized style
-    // (source, listing, etc.) is followed by a paragraph,
-    // convert the paragraph to a paragraph-form block.
-    if (current.type === "blockAttributeList" && index + NEXT < blocks.length) {
-      const { [index + NEXT]: next } = blocks;
-      if (next.type === "paragraph") {
-        const variant = getParagraphFormVariant(current);
-        if (variant !== undefined) {
-          // Keep the attribute list node as metadata.
-          result.push(current);
-
-          // Convert the paragraph to a paragraph-form block.
-          const content = paragraphToContent(next);
-          const delimitedBlock: DelimitedBlockNode = {
-            type: "delimitedBlock",
-            variant,
-            form: "paragraph",
-            content,
-            position: next.position,
-          };
-          result.push(delimitedBlock);
-
-          // Skip past both the attribute list and paragraph.
-          index += PAIR_LENGTH;
-          continue;
-        }
-      }
-
-      // Block masquerading: a style attribute on a parent
-      // block changes its content model from compound
-      // (parsed children) to verbatim (raw string). Check
-      // masquerades BEFORE admonitions because styles like
-      // `verse` and `source` are valid masquerade styles,
-      // not admonitions.
-      if (next.type === "parentBlock") {
-        const masqueradeVariant = getVerbatimMasquerade(current, next.variant);
-        if (masqueradeVariant !== undefined) {
-          result.push(current);
-
-          const content = extractParentBlockContent(next, sourceText);
-          const masqueradedBlock: DelimitedBlockNode = {
-            type: "delimitedBlock",
-            variant: masqueradeVariant,
-            form: "delimited",
-            content,
-            sourceDelimiter: next.variant,
-            position: next.position,
-          };
-          result.push(masqueradedBlock);
-
-          index += PAIR_LENGTH;
-          continue;
-        }
-      }
-
-      // Block-form admonitions: an attribute list with an
-      // admonition type (NOTE, TIP, etc.) followed by a parent
-      // block (example `====` or open `--`) becomes an
-      // AdmonitionNode with form "delimited".
-      if (next.type === "parentBlock") {
-        const admonitionVariant = getAdmonitionVariant(current);
-        if (admonitionVariant !== undefined) {
-          // Keep the attribute list node as metadata for
-          // the printer to output `[NOTE]` etc.
-          result.push(current);
-
-          const admonition: AdmonitionNode = {
-            type: "admonition",
-            variant: admonitionVariant,
-            form: "delimited",
-            delimiter: next.variant,
-            // `content` is undefined for admonitions — their
-            // text is in `children` (inline nodes), not raw
-            // string content.
-            content: undefined,
-            children: next.children,
-            position: next.position,
-          };
-          result.push(admonition);
-
-          // Skip past both the attribute list and parent block.
-          index += PAIR_LENGTH;
-          continue;
-        }
+    if (current.type === "blockAttributeList") {
+      const nextIndex = annotatedBlockIndex(blocks, index);
+      const converted = styledConversion(
+        current,
+        blocks.at(nextIndex),
+        sourceText,
+      );
+      if (converted !== undefined) {
+        // The metadata, then the reader-eaten lines it reached
+        // across, then the converted block: every line keeps its
+        // place, and the loop resumes after the block.
+        result.push(
+          current,
+          ...blocks.slice(index + NEXT, nextIndex),
+          converted,
+        );
+        index = nextIndex + NEXT;
+        continue;
       }
     }
 

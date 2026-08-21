@@ -13,6 +13,10 @@ import { describe, test, expect } from "vitest";
 import { formatAdoc, renderedHtml } from "../helpers.js";
 
 describe("list continuation formatting", () => {
+  // The blank line before the second item is dropped: a blank line
+  // between two items of one list separates nothing (Asciidoctor's
+  // `parse_list` skips it before reading the next item), so the list
+  // prints as one run of items. Rendering is unchanged.
   test("continuation paragraphs survive round-trip", async () => {
     const input =
       "* first item text.\n" +
@@ -22,7 +26,10 @@ describe("list continuation formatting", () => {
       "Second continuation paragraph.\n" +
       "\n" +
       "* second item.\n";
-    expect(await formatAdoc(input)).toBe(input);
+    const first = await formatAdoc(input);
+    expect(first).toBe(input.replace("\n\n* second", "\n* second"));
+    expect(renderedHtml(first)).toBe(renderedHtml(input));
+    expect(await formatAdoc(first)).toBe(first);
   });
 
   test("issue #2 repro is preserved and idempotent", async () => {
@@ -38,8 +45,10 @@ describe("list continuation formatting", () => {
       "* second item, unrelated.\n";
     const first = await formatAdoc(input);
     // The `+` lines survive as continuations: alone on their
-    // lines, with the attached paragraphs flush left.
-    expect(first).toBe(input);
+    // lines, with the attached paragraphs flush left. The blank
+    // line before the second item goes (same list, see above).
+    expect(first).toBe(input.replace("\n\n* second", "\n* second"));
+    expect(renderedHtml(first)).toBe(renderedHtml(input));
     expect(await formatAdoc(first)).toBe(first);
   });
 
@@ -86,21 +95,29 @@ describe("list continuation formatting", () => {
   // attaches whatever block comes NEXT — even across a blank
   // line. The bare `+` line is therefore re-emitted verbatim so
   // the rendered document is unchanged.
-  test("dangling trailing + is preserved verbatim", async () => {
+  test("a + reaches across one blank line and attaches the paragraph", async () => {
     const input = "* item text\n+\n\nA separate paragraph.\n";
     const first = await formatAdoc(input);
-    expect(first).toBe(input);
+    // `read_lines_for_list_item` buffers ONE blank line after a `+`
+    // as content, so the paragraph attaches (the oracle puts it
+    // inside the item); the printer writes the attachment in its
+    // canonical adjacent form. Two blank lines would end the list.
+    expect(first).toBe("* item text\n+\nA separate paragraph.\n");
+    expect(renderedHtml(first)).toBe(renderedHtml(input));
     expect(await formatAdoc(first)).toBe(first);
   });
 
   // Asciidoctor renders `+` after `+` at the end of an item as
-  // nothing at all — the second `+` is not content. Emitting it
-  // as a `{plus}` paragraph would render new text, so trailing
-  // marker-only lines collapse into one dangling marker.
-  test("trailing consecutive + markers collapse to one dangling +", async () => {
+  // nothing at all — the second `+` is content Ruby buffers, and the
+  // trailing continuation is dropped. The reader keeps the second
+  // `+` as a verbatim line (a formatter may not delete a line the
+  // author wrote), so both bytes come back exactly as written and the
+  // rendering — nothing — is unchanged.
+  test("trailing consecutive + markers are kept verbatim", async () => {
     const input = "* item\n+\n+\n";
     const first = await formatAdoc(input);
-    expect(first).toBe("* item\n+\n");
+    expect(first).toBe(input);
+    expect(renderedHtml(first)).toBe(renderedHtml(input));
     expect(await formatAdoc(first)).toBe(first);
   });
 
@@ -133,7 +150,13 @@ describe("list continuation formatting", () => {
   test("consecutive + lines do not delete content", async () => {
     const input = "* item\n+\n+\nAttached\n";
     const first = await formatAdoc(input);
-    expect(first).toBe("* item\n+\n+ Attached\n");
+    // The second `+` is content (Asciidoctor renders `+ Attached`);
+    // it is kept on its own line rather than folded into the
+    // paragraph text, because a `+` that lands at the end of an
+    // output line would become a hard break and one folded into a
+    // `{plus}` would render new text.
+    expect(first).toBe(input);
+    expect(renderedHtml(first)).toBe(renderedHtml(input));
     expect(await formatAdoc(first)).toBe(first);
   });
 
@@ -209,7 +232,10 @@ describe("continuations around delimited blocks (issue #6)", () => {
       "\n" +
       "* item two.\n";
     const first = await formatAdoc(input);
-    expect(first).toBe(input);
+    // Item two is the second item of the same list, so the blank line
+    // before it goes (see "continuation paragraphs survive round-trip").
+    expect(first).toBe(input.replace("\n\n* item two", "\n* item two"));
+    expect(renderedHtml(first)).toBe(renderedHtml(input));
     expect(await formatAdoc(first)).toBe(first);
   });
 
@@ -297,24 +323,27 @@ describe("continuations around delimited blocks (issue #6)", () => {
     expect(await formatAdoc(input)).toBe(input);
   });
 
-  // A section heading cannot attach; the dangling `+` survives
-  // and the heading gets the usual blank-line separation. Pins
-  // current behavior (rendering is unchanged either way).
-  test("+ before a section heading stays dangling", async () => {
+  // A heading line after a `+` is attached paragraph TEXT (the
+  // `continuation == :active` branch buffers it, and the confined
+  // list reader never makes sections), so it stays adjacent to its
+  // `+`. ORACLE: `<p>== Heading</p>` inside the item.
+  test("+ before a section heading attaches it as text", async () => {
     const input = "* i:\n+\n== Heading\n";
+    expect(renderedHtml(input)).toContain("<p>== Heading</p>");
     const first = await formatAdoc(input);
-    expect(first).toBe("* i:\n+\n\n== Heading\n");
+    expect(first).toBe(input);
     expect(await formatAdoc(first)).toBe(first);
   });
 
-  // Blank line between the `+` and the block: the dangling `+`
-  // is preserved verbatim and the block stays separate (existing
-  // behavior — Asciidoctor still attaches across the blank line,
-  // so the bytes must survive).
-  test("blank line after dangling + is preserved verbatim", async () => {
+  // One blank line between the `+` and the block: the block still
+  // attaches (Asciidoctor buffers the first blank after a `+` as
+  // content), and the printer writes the attachment in its canonical
+  // adjacent form. Rendering is unchanged.
+  test("a + reaches across one blank line and attaches the block", async () => {
     const input = "* item\n+\n\n....\nliteral\n....\n";
     const first = await formatAdoc(input);
-    expect(first).toBe(input);
+    expect(first).toBe("* item\n+\n....\nliteral\n....\n");
+    expect(renderedHtml(first)).toBe(renderedHtml(input));
     expect(await formatAdoc(first)).toBe(first);
   });
 });

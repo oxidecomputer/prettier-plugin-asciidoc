@@ -96,11 +96,10 @@ describe("section parsing", () => {
     expect(child0.heading).toBe("Extra Spaces");
   });
 
-  // 7+ equals signs exceed the SectionMarker range ({2,6}). DocumentTitle
-  // also won't match: its pattern requires exactly one `=` followed
-  // immediately by a space, but here the second character is `=`, not a
-  // space. The line falls through to InlineModeStart and becomes a
-  // paragraph.
+  // 7+ equals signs exceed SECTION_TITLE's marker range ({1,6}), and a
+  // document title needs exactly one `=` followed by a space, whereas
+  // here the second character is `=`. The line reaches the reader's
+  // fall-through arm and becomes a paragraph.
   test("seven equals signs parsed as paragraph, not heading", () => {
     const document = parse("======= Not a heading\n");
     expect(document.children).toHaveLength(1);

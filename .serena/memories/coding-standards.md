@@ -54,15 +54,31 @@ comments, so wrap them manually.
 ## Line-Shaped Constructs
 
 A new construct that can appear as a whole line (a delimiter, a marker, a
-block-attribute-looking line, …) always goes through `src/parse/line-shapes.ts`
-first: read the Ruby it corresponds to (`lib/asciidoctor/parser.rb`, `rx.rb`,
-`reader.rb` in Asciidoctor 2.0.20), add a registry row citing it, then pin it
-against the `@asciidoctor/core` oracle in
-`tests/conformance/interruption.test.ts` (the oracle wins if it disagrees with
-the Ruby reading). Only then consume the pattern from `src/parse/tokens.ts` or
-`src/reflow.ts`. Never write a regex in either of those files for a line shape
-the registry doesn't already export — see "Line classification is contextual" in
-`docs/design.md`.
+block-attribute-looking line, …) is added in three steps, in this order:
+
+1. **A registry row in `src/parse/line-shapes.ts`**, citing the Ruby it mirrors
+   (`lib/asciidoctor/parser.rb`, `rx.rb`, `reader.rb` in Asciidoctor 2.0.20).
+   The regex lives here and nowhere else.
+2. **A table entry in `src/parse/lines/classify.ts`**, so the BlockReader learns
+   the new `LineKind`. The classifier is a pure function over the registry; it
+   is the only thing that turns a line into a kind.
+3. **An oracle row in `tests/conformance/interruption.test.ts`**, pinning the
+   shape against `@asciidoctor/core` in every `ParagraphContext`. The oracle
+   wins if it disagrees with your reading of the Ruby.
+
+**Never a Chevrotain token pattern.** Block-level context comes from the
+BlockReader's frame stack and from nowhere else, and
+`tests/parser/architecture.test.ts` is the mechanical guard: it reads the source
+of every file under `src/parse` and fails on a custom token pattern that takes
+the token history, a lexer-mode switch, a parser-state gate, `BACKTRACK`, a raw
+`LA` lookahead, a backwards search over a token array, an import cycle, or a
+lint suppression beyond the current ceiling. The rules are textual and blunt and
+they read comments too: if one fires on a comment, reword the comment — do not
+weaken the rule or exempt a file.
+
+Reflow safety (`src/reflow.ts`) consumes the same registry, so the parser and
+the formatter's word-wrapping can never disagree about what would re-parse as
+block syntax. See "Line classification is contextual" in `docs/design.md`.
 
 ## Writing Style
 

@@ -1,23 +1,23 @@
 /**
  * CST → flat token stream conversion for inline content.
  *
- * This module provides two export paths:
+ * Two export paths:
  *
- * 1. Rich inline tree: `flattenInlineTokens` (+ helpers) produces
- *    a merged, sorted IToken stream consumed by inline-node-builder
- *    to build an InlineNode[] tree. The split exists because newline
- *    tokens are captured outside CstNodes by the lexer's multi-mode
- *    design; they must be merged back in before node construction.
+ * 1. Rich inline tree: {@link flattenInlineTokens} produces the
+ *    offset-sorted IToken stream of a `paragraphBody` CST node (the
+ *    `paragraphBody` visitor calls it), which inline-node-builder turns
+ *    into an InlineNode[] tree.
  *
- * 2. Flat text: `inlineLinesToTextTokens`
- *    produces one synthetic IToken per source line whose `image` is
- *    the joined text. Used by callers (admonitions, list items) that
- *    only need raw text rather than a structured inline tree.
+ * 2. Flat text: {@link textLines} produces one synthetic IToken per
+ *    source line whose `image` is the joined text. Used by callers
+ *    (admonitions) that store their body as a plain string rather than
+ *    an InlineNode[] tree.
  */
 import type { CstNode, IToken } from "chevrotain";
 import type { InlineTokenCstChildren } from "./cst-types.js";
 import { EMPTY, NEXT } from "../constants.js";
 import { InlineNewline } from "./tokens.js";
+import { RawLine } from "./lines/tokens.js";
 
 // The known property names on InlineTokenCstChildren, used
 // to extract ITokens from each inlineToken CstNode without
@@ -40,100 +40,19 @@ const INLINE_TOKEN_KEYS: ReadonlyArray<keyof InlineTokenCstChildren> = [
 ];
 
 /**
- * The line-structure tokens a paragraph-mode block captures OUTSIDE
- * its `inlineLine` wrappers. Named separately from the CST children
- * interfaces so the paragraph, list-item and admonition rules can
- * all be read the same way.
- */
-export interface ParagraphStructureCst {
-  /** Newlines that ended a text line (popping inline mode). */
-  InlineNewline?: IToken[];
-  /** Newlines that ended a raw line (lexed in paragraph mode). */
-  ParagraphNewline?: IToken[];
-  /** Comment/directive lines kept verbatim inside the block. */
-  ParagraphRawLine?: IToken[];
-}
-
-/**
- * Merge a block's structural tokens into one offset-sorted stream
- * for {@link flattenInlineTokens}. Both spellings of "line ended
- * here" become InlineNewline so downstream code has one case, and
- * raw lines ride along in source order.
- * @param children - the block's CST children
- * @returns the merged, offset-sorted token stream
- */
-export function structuralTokens(children: ParagraphStructureCst): IToken[] {
-  return mergeSortedTokens(
-    mergeSortedTokens(
-      children.InlineNewline ?? [],
-      asInlineNewlines(children.ParagraphNewline ?? []),
-    ),
-    children.ParagraphRawLine ?? [],
-  );
-}
-
-/**
- * Re-type paragraph-mode newline tokens as `InlineNewline`.
- *
- * `ParagraphNewline` ends a raw line, which never entered inline
- * mode; `InlineNewline` ends a text line. They are different tokens
- * only because they fire in different lexer modes — as line
- * boundaries they are the same thing, and every consumer downstream
- * dispatches on token type, so re-typing here saves each of them a
- * second case that means exactly the first.
- * @param tokens - ParagraphNewline tokens from a CST node
- * @returns Shallow copies typed as InlineNewline (Chevrotain tokens
- *   are value objects, so copying is safe), in the same order
- */
-function asInlineNewlines(tokens: IToken[]): IToken[] {
-  return tokens.map((token) => ({ ...token, tokenType: InlineNewline }));
-}
-
-/**
- * Extract inlineToken CstNodes from inlineLine subrule nodes.
- * The grammar uses a dedicated `inlineLine` rule (rather than
- * inlining `inlineToken*` directly) because each line starts
- * with `ParagraphLineStart`, a zero-length token that pushes the
- * lexer into inline mode. That structural wrapper must be
- * stripped here so downstream code can iterate tokens without
- * knowing about the per-line grammar nesting.
- * @param inlineLineNodes - CstNodes produced by the
- *   `inlineLine` parser subrule, each wrapping one
- *   `ParagraphLineStart` token followed by zero or more
- *   `inlineToken` children.
- * @returns Flat array of `inlineToken` CstNodes extracted
- *   from all line wrappers, preserving parse order.
- */
-export function unwrapInlineLines(inlineLineNodes: CstNode[]): CstNode[] {
-  const inlineTokenNodes: CstNode[] = [];
-  for (const lineNode of inlineLineNodes) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Chevrotain CstNode children are untyped
-    const children = lineNode.children as Record<string, CstNode[] | undefined>;
-    const { inlineToken: tokenNodes } = children;
-    if (tokenNodes !== undefined) {
-      for (const tok of tokenNodes) {
-        inlineTokenNodes.push(tok);
-      }
-    }
-  }
-  return inlineTokenNodes;
-}
-
-/**
  * Extract all ITokens from inlineToken CstNode children,
- * merge with InlineNewline tokens, and return them sorted
+ * merge with the structural tokens, and return them sorted
  * by source offset. This produces the single interleaved
  * token stream that downstream inline processing expects.
  * @param inlineTokenNodes - CstNodes from the `inlineToken`
  *   grammar rule (each node wraps one matched alternative).
- * @param inlineModeNewlineTokens - Newline tokens captured
- *   separately by the lexer (not inside CstNodes) that must
- *   be merged back into the stream.
+ * @param structural - the body's newline and raw-line tokens,
+ *   already offset-sorted, captured outside the inlineToken nodes.
  * @returns Merged token array sorted by `startOffset`.
  */
 export function flattenInlineTokens(
   inlineTokenNodes: CstNode[],
-  inlineModeNewlineTokens: IToken[],
+  structural: IToken[],
 ): IToken[] {
   // Collect inline tokens — already in source order because
   // CstNodes appear in parse order and each node contains
@@ -157,7 +76,7 @@ export function flattenInlineTokens(
 
   // Both arrays are sorted by startOffset. Merge them in
   // O(n) instead of the previous O(n log n) sort.
-  return mergeSortedTokens(inlineTokens, inlineModeNewlineTokens);
+  return mergeSortedTokens(inlineTokens, structural);
 }
 
 /**
@@ -171,8 +90,7 @@ export function flattenInlineTokens(
  * @param left - First sorted token array (inline content
  *   tokens extracted from CstNodes).
  * @param right - Second sorted token array (newline or
- *   indented-line tokens captured outside CstNodes by the
- *   lexer's multi-mode design).
+ *   raw-line tokens captured outside CstNodes).
  * @returns Single array containing all tokens from both
  *   inputs, sorted by `startOffset`.
  */
@@ -211,65 +129,52 @@ export function mergeSortedTokens(left: IToken[], right: IToken[]): IToken[] {
 }
 
 /**
- * Convert `inlineLine` CST nodes to synthetic text-content
- * tokens (one per line). Unwraps line nodes, flattens their
- * inline tokens, then groups by line boundaries to produce
- * one synthetic IToken per source line. Used by list items
- * and admonitions that store their body as a plain string
- * rather than an InlineNode[] tree.
- * @param inlineLineNodes - CstNodes from the `inlineLine`
- *   subrule, each wrapping `inlineToken` children.
- * @param inlineModeNewlineTokens - Newline tokens for detecting
- *   line boundaries during grouping.
- * @returns One synthetic IToken per non-empty source line,
- *   with concatenated text in `image` and position spans
- *   preserved from first-to-last token on that line.
+ * Join one source line's tokens into a synthetic token whose image is
+ * the line's text and whose span runs from the first to the last.
+ * @param lineTokens - the tokens of one non-empty line, in order
+ * @returns the synthetic line token
  */
-export function inlineLinesToTextTokens(
-  inlineLineNodes: CstNode[],
-  inlineModeNewlineTokens: IToken[],
-): IToken[] {
-  const inlineTokenNodes = unwrapInlineLines(inlineLineNodes);
-  if (inlineTokenNodes.length === EMPTY) return [];
+function joinLine(lineTokens: IToken[]): IToken {
+  const [first] = lineTokens;
+  // eslint-disable-next-line @typescript-eslint/prefer-destructuring -- dynamic last-element access
+  const last = lineTokens[lineTokens.length - NEXT];
+  return {
+    ...first,
+    image: lineTokens.map((t) => t.image).join(""),
+    endOffset: last.endOffset,
+    endLine: last.endLine,
+    endColumn: last.endColumn,
+  };
+}
 
-  const allTokens = flattenInlineTokens(
-    inlineTokenNodes,
-    inlineModeNewlineTokens,
-  );
-
-  // Group tokens by line (split at InlineNewline boundaries).
-  // Callers like admonition detection and checkbox parsing
-  // work line-by-line, so each synthetic output token must
-  // correspond to exactly one source line.
-  const lines: IToken[][] = [[]];
-  for (const token of allTokens) {
-    const {
-      tokenType: { name },
-    } = token;
-    if (name === "InlineNewline") {
-      lines.push([]);
+/**
+ * One synthetic token per source line of a paragraph body, with the
+ * line's text joined into `image`. A RawLine token is a line of its
+ * own already and passes through as it is; inline tokens are grouped
+ * at InlineNewline boundaries. Used by callers (admonitions) that
+ * store their body as a plain string and re-emit it line by line.
+ * @param tokens - a body's offset-sorted token stream
+ * @returns one token per non-empty source line, in source order
+ */
+export function textLines(tokens: IToken[]): IToken[] {
+  const lines: IToken[] = [];
+  let current: IToken[] = [];
+  const flush = (): void => {
+    if (current.length > EMPTY) {
+      lines.push(joinLine(current));
+      current = [];
+    }
+  };
+  for (const token of tokens) {
+    if (token.tokenType === InlineNewline) {
+      flush();
+    } else if (token.tokenType === RawLine) {
+      flush();
+      lines.push(token);
     } else {
-      // eslint-disable-next-line @typescript-eslint/prefer-destructuring -- dynamic last-element access
-      const currentLine = lines[lines.length - NEXT];
-      currentLine.push(token);
+      current.push(token);
     }
   }
-
-  // Create one synthetic token per line with the joined text.
-  return lines
-    .filter((line) => line.length > EMPTY)
-    .map((lineTokens) => {
-      const [first] = lineTokens;
-      // eslint-disable-next-line @typescript-eslint/prefer-destructuring -- dynamic last-element access
-      const last = lineTokens[lineTokens.length - NEXT];
-      return {
-        ...first,
-        image: lineTokens.map((t) => t.image).join(""),
-        // Keep start position from first token on the line.
-        // Adjust end position based on the last token.
-        endOffset: last.endOffset,
-        endLine: last.endLine,
-        endColumn: last.endColumn,
-      };
-    });
+  flush();
+  return lines;
 }

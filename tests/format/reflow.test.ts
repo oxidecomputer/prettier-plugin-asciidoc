@@ -188,8 +188,9 @@ describe("paragraph reflow", () => {
   // A list item with an indented continuation line containing
   // just `+` must not produce ` +\n` at end of line after
   // reflow — that would be re-parsed as a hard line break.
-  // The `+` enters the text value via IndentedLine (not inline
-  // mode), so HardLineBreak doesn't consume it during lexing.
+  // Asciidoctor's `adjust_indentation!` strips the item's common
+  // indent first, so the ` +` is a literal plus, not a break; the
+  // reader re-types that one HardLineBreak (see retypeLiteralPlus).
   test("reflow does not place + at end of line in list item", async () => {
     const input = ". item\n +\n";
     const result = await formatAdoc(input);
@@ -580,9 +581,11 @@ describe("dlist separator join hazard", () => {
 
 describe("reflow safety is driven by the line-shape registry", () => {
   test("a block-title-shaped word may land at column 0 mid-paragraph", async () => {
-    // After Task 3 a `.gitignore`-shaped word at the start of line 2 is
-    // paragraph text to both Asciidoctor and us, so reflow no longer
-    // needs to glue it. Width 20 forces a wrap right before it.
+    // Inside a paragraph a `.gitignore`-shaped line is TEXT, to
+    // Asciidoctor and to us: the reader classifies every line in the
+    // context it arrives in, and a block title cannot start on a
+    // paragraph's continuation line. So reflow may wrap right before
+    // the word and needs no glue for it. Width 20 forces that wrap.
     const input = "aaaa bbbb cccc dddd .gitignore eeee\n";
     const out = await formatAdoc(input, { printWidth: 20 });
     expect(out).toBe("aaaa bbbb cccc dddd\n.gitignore eeee\n");
@@ -666,15 +669,14 @@ describe("reflow safety is driven by the line-shape registry", () => {
     },
   );
 
-  // KNOWN GAP (dlist support, tracked with #9 / follow-up issue TBD).
   // The same rule seen from the LINE the term sits on: in a list
   // item Asciidoctor matches DescriptionListRx against the whole
   // source line, so `cccc term:: dddd` is one dlist item whose term
-  // is "cccc term". Wrapping between `cccc` and `term::` re-parses
-  // the term as just "term". The guard would have to keep a
-  // list-item source line carrying a `::` word unbroken; today only
-  // the first-output-line hazard is guarded.
-  test.fails("wrapping keeps a list item's whole dlist term", async () => {
+  // is "cccc term". The BlockReader reads that line as a dlist item
+  // of its own (the `dlistTerm` kind ends the item's text), so it is
+  // printed as a line of its own and never wrapped — which is what
+  // keeps the whole term.
+  test("wrapping keeps a list item's whole dlist term", async () => {
     const input = "* aaaa bbbb\ncccc term:: dddd\n";
     const options = { printWidth: 14 };
     const out = await formatAdoc(input, options);
@@ -712,13 +714,14 @@ describe("reflow safety is driven by the line-shape registry", () => {
   });
 });
 
-// A `term::` line inside a list item is the one interrupting shape
-// the lexer deliberately ignores (issue #9 — see
-// InterruptionOptions.ignoreDescriptionListTerms). Ending the item's
-// paragraph there sent the line back through default_mode, where its
-// indentation picked the branch: flush left it came back as inline
-// text, indented (which is how the printer had just emitted it) it
-// became an attached block. Two passes, two answers.
+// A `term::` line ends a list item's text (the oracle nests a dlist in
+// the `<li>`), but dlists are not modelled as nodes yet (issue #9), so
+// the reader reads the description as an ordinary paragraph attached to
+// the item. It reads the SAME way whether the term line is flush left
+// or indented, which is what makes these converge: the old block lexer
+// let the line's indentation pick the branch — flush left it came back
+// as inline text, indented (which is how the printer had just emitted
+// it) it became an attached block. Two passes, two answers.
 describe("a description-list term inside a list item", () => {
   test.each([
     ["a sibling item follows", "* a\nterm:: def\n* b\n"],

@@ -6,11 +6,9 @@
  * (`[source,ruby]`), block titles (`.Title`), and anchor-only
  * paragraphs (`[[id]]`). Both sides of the pipeline need the
  * SAME definition — the printer stacks metadata directly above
- * the block it annotates (print-join.ts), and the parser's
- * section-nesting pass moves metadata into the container of the
- * section heading it labels (section-builder.ts). A neutral
- * module keeps the two from diverging without making the parse
- * layer depend on the print layer.
+ * the block it annotates (print-join.ts). A neutral module keeps
+ * the two from diverging without making the parse layer depend on
+ * the print layer.
  */
 import type { BlockNode } from "./ast.js";
 import { FIRST, SINGLE } from "./constants.js";
@@ -36,6 +34,31 @@ export function isAnchorParagraph(block: BlockNode): boolean {
 }
 
 /**
+ * Tests whether a block is a line Asciidoctor's READER consumes
+ * before block structure exists: a line comment
+ * (`Reader#skip_line_comments`) or a preprocessor directive
+ * (`PreprocessorReader#process_line`, reader.rb:819).
+ *
+ * Such a line is TRANSPARENT: the parser never sees it, so metadata
+ * on one side still annotates the block on the other, and a blank
+ * line inserted next to one is not cosmetic — it lands inside the run
+ * of lines the parser is still reading, and can end a list item that
+ * the source kept going (`+` / blank / `// c` / `para` attaches,
+ * `+` / `// c` / blank / `para` does not). Both sides of the pipeline
+ * consult this: the parse layer looks past such lines when pairing
+ * metadata with its block (paragraph-form.ts), the printer stacks
+ * them with their neighbours (print-join.ts).
+ * @param block - The block node to test.
+ * @returns Whether the reader eats this block's line.
+ */
+export function isReaderConsumedLine(block: BlockNode): boolean {
+  return (
+    (block.type === "comment" && block.commentType === "line") ||
+    block.type === "preprocessorDirective"
+  );
+}
+
+/**
  * Tests whether a block is block metadata (attribute
  * list, block title, or anchor paragraph).
  *
@@ -55,29 +78,6 @@ export function isBlockMetadata(block: BlockNode): boolean {
 }
 
 /**
- * Tests whether a block is one a `+` list continuation reads PAST
- * on its way to the block it attaches.
- *
- * Block metadata qualifies because it annotates the block after it.
- * A line comment qualifies for a different reason: Asciidoctor's
- * reader eats comment lines before block structure exists
- * (`read_lines_until`'s `skip_line_comments`), so a comment between
- * a `+` and its block does not break the attachment — the same rule
- * the paragraph classifier applies when it walks back to find the
- * marker (src/parse/paragraph-tokens.ts). Both the absorber and the
- * printer consult this so the group they build and the group they
- * stack are the same one.
- * @param block - The block node to test.
- * @returns Whether a `+` continuation reads past this block.
- */
-export function isContinuationPassThrough(block: BlockNode): boolean {
-  return (
-    isBlockMetadata(block) ||
-    (block.type === "comment" && block.commentType === "line")
-  );
-}
-
-/**
  * Tests whether a block's content would merge with a preceding
  * anchor paragraph if no blank line separated them.
  *
@@ -85,10 +85,7 @@ export function isContinuationPassThrough(block: BlockNode): boolean {
  * with ordinary text that the parser would absorb into the
  * anchor's paragraph on re-parse, breaking idempotency. Both
  * sides of the pipeline consult this: the printer preserves a
- * blank line before such blocks (print-join.ts), and the
- * continuation absorber refuses to build an attached
- * metadata+block group that stacking would corrupt
- * (continuation-absorber.ts).
+ * blank line before such blocks (print-join.ts).
  * @param block - The block node to test.
  * @returns Whether this block would merge with a preceding
  *   anchor paragraph.

@@ -6,9 +6,9 @@ describe("parser error recovery", () => {
   // Even if the grammar doesn't recognize some constructs,
   // the parser should produce a partial AST rather than crash.
 
-  // Plain prose with no AsciiDoc constructs should parse as
-  // a simple paragraph — the grammar's InlineModeStart catch-all
-  // handles this. This is the baseline "no crash" case.
+  // Plain prose with no AsciiDoc constructs should parse as a simple
+  // paragraph — the reader's fall-through arm opens one for any line
+  // no other rule claims. This is the baseline "no crash" case.
   test("plain prose parses without throwing", () => {
     const document = parse("Just some regular text.\n");
     expect(document.type).toBe("document");

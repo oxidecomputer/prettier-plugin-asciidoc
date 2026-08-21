@@ -6,7 +6,7 @@
  * preserves them without adding delimiters.
  */
 import { describe, test, expect } from "vitest";
-import { formatAdoc } from "../helpers.js";
+import { formatAdoc, renderedHtml } from "../helpers.js";
 
 describe("paragraph-form source block formatting", () => {
   // Canonical form: [source] + content preserved as-is.
@@ -127,6 +127,51 @@ describe("paragraph-form block context formatting", () => {
   // Non-style attribute lists still stack normally.
   test("[#myid] before paragraph remains separate", async () => {
     const input = "[#myid]\nSome text.\n";
+    expect(await formatAdoc(input)).toBe(input);
+  });
+});
+
+// `parse_block_metadata_lines` runs on a PreprocessorReader, so a
+// comment or a preprocessor directive between the style and its text
+// is gone by the time the style is applied — the style still reaches
+// the block. When the pairing missed that, the text stayed an ordinary
+// paragraph and the formatter reflowed content that must be verbatim.
+describe("a reader-eaten line between the style and its content", () => {
+  const long =
+    "aaa bbb ccc ddd eee fff ggg hhh iii jjj kkk lll mmm nnn ooo ppp qqq rrr sss ttt uuu vvv www xxx";
+  test.each([
+    ["a directive", `[listing]\nifdef::backend[]\n${long}\nendif::[]\n`],
+    ["a comment", `[listing]\n// why\n${long}\n`],
+    [
+      "two of them",
+      `[listing]\n// why\nifdef::backend[]\n${long}\nendif::[]\n`,
+    ],
+    [
+      "a masquerade",
+      "[verse]\nifdef::backend[]\n____\na\n  b\n____\nendif::[]\n",
+    ],
+    [
+      "an admonition",
+      "[NOTE]\nifdef::backend[]\n====\ntext\n====\nendif::[]\n",
+    ],
+  ])("%s keeps the block verbatim", async (_what, input) => {
+    expect(await formatAdoc(input)).toBe(input);
+    expect(renderedHtml(await formatAdoc(input))).toBe(renderedHtml(input));
+  });
+});
+
+// The reconstructed `content` string holds the block's lines joined by
+// `\n` with NO terminating newline. A raw line (`\n…\n`) or a hard line
+// break (` +\n`) at the paragraph's edge used to leave one there, and
+// the printer turned it into a blank line that grew on every pass.
+describe("a boundary line in paragraph-form content", () => {
+  test.each([
+    "[sidebar]\nFirst.\nendif::[]\n",
+    "[sidebar]\nFirst.\n// c\n",
+    "[sidebar]\nFirst. +\n",
+    "[sidebar]\nFirst.\ninclude::x.adoc[]\n",
+    "[sidebar]\nFirst.\nendif::[]\n\npara\n",
+  ])("%j round-trips byte for byte", async (input) => {
     expect(await formatAdoc(input)).toBe(input);
   });
 });

@@ -103,7 +103,14 @@ export default defineConfig(
       // contain the actual assertions.
       "vitest/expect-expect": [
         "error",
-        { assertFunctionNames: ["expect", "expectTCK", "expectTCKInlines"] },
+        {
+          assertFunctionNames: [
+            "expect",
+            "expectTCK",
+            "expectTCKInlines",
+            "expectStreamInvariants",
+          ],
+        },
       ],
 
       // The data-driven suites use expect()'s message argument to

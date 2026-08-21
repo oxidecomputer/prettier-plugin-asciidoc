@@ -15,6 +15,7 @@ import type {
   InlineNode,
   ListItemNode,
   TextNode,
+  RawLineNode,
 } from "./ast.js";
 import {
   inlineMacroToSource,
@@ -91,12 +92,19 @@ function ownsItsLine(path: PrintPath): boolean {
  * renders `text<br>` — joining the two lines would drop a space from
  * the rendered output. The leading break is a separator;
  * flattenForFill collapses it against the preceding text node's own
- * boundary.
+ * boundary. The trailing break is emitted only when an inline sibling
+ * follows in the same fill — see the body.
  * @param path - Prettier's AstPath at the hard line break.
  * @returns Fill parts for the break.
  */
 function printHardLineBreak(path: PrintPath): Doc[] {
-  const printed: Doc[] = [HARD_BREAK_IMAGE, literalline];
+  // The trailing break ends the line only when something follows in
+  // this fill; with nothing after it, the block joiner (or the item's
+  // next block) supplies the break, and emitting one here would open
+  // what follows with a blank line — one more on every pass.
+  const printed: Doc[] = hasFollowingInlineSibling(path)
+    ? [HARD_BREAK_IMAGE, literalline]
+    : [HARD_BREAK_IMAGE];
   return ownsItsLine(path) ? [literalline, ...printed] : printed;
 }
 
@@ -164,6 +172,35 @@ function isInsideFormattingSpan(path: PrintPath): boolean {
 // line, so a trailing `+` there is a hard line break and must be
 // escaped, and a word after one starts a line rather than fusing.
 const OWN_LINE_SIBLINGS = new Set(["list", "rawLine"]);
+
+/**
+ * Print a raw line — a comment, preprocessor or otherwise verbatim line
+ * kept inside a paragraph.
+ *
+ * Such a line must start at column 0 to be one, so the breaks around
+ * it are literalline (not hardline): literal breaks reset to column 0
+ * regardless of any enclosing align(), which list items use for
+ * soft-wrap indentation.
+ *
+ * Both breaks sit in fill() SEPARATOR slots. flattenForFill collapses
+ * one against a neighbour's break, so a break is only emitted where a
+ * neighbour exists to collapse it against: the TRAILING one is dropped
+ * when nothing follows in this fill (the block joiner already supplies
+ * that break — emitting it would open the next block with a blank
+ * line), and the LEADING one when the raw line is the paragraph's first
+ * node (a paragraph that is one verbatim line — the second of two
+ * adjacent `+` lines in a list item — would otherwise open with a
+ * blank).
+ * @param node - The raw line node.
+ * @param path - Prettier's AstPath at the node.
+ * @returns Doc IR for the line and its breaks.
+ */
+function printRawLine(node: RawLineNode, path: PrintPath): Doc {
+  const leading = path.index === FIRST ? [] : [literalline];
+  return hasFollowingInlineSibling(path)
+    ? [...leading, node.value, literalline]
+    : [...leading, node.value];
+}
 
 /**
  * Check whether the node at `path` is followed by a sibling
@@ -552,20 +589,7 @@ export function printInlineNode(
       return collapseSourceNewlines(anchorToSource(node));
     }
     case "rawLine": {
-      // A comment or preprocessor line must start at column 0 to be
-      // one, so the breaks around it are literalline (not hardline):
-      // literal breaks reset to column 0 regardless of any enclosing
-      // align(), which list items use for soft-wrap indentation.
-      //
-      // Both breaks sit in fill() SEPARATOR slots. flattenForFill
-      // collapses one against a neighbour's break, so only the
-      // TRAILING one needs suppressing here: with nothing after it
-      // in this fill there is no neighbour to collapse against, and
-      // the block joiner already supplies the break — emitting it
-      // would open the next block with a blank line.
-      return hasFollowingInlineSibling(path)
-        ? [literalline, node.value, literalline]
-        : [literalline, node.value];
+      return printRawLine(node, path);
     }
     case "hardLineBreak": {
       return printHardLineBreak(path);

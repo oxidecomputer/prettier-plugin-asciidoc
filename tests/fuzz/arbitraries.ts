@@ -120,7 +120,7 @@ const commonLines: Array<Arbitrary<string>> = [
     )
     .map(([name, target, attributes]) => `${name}::${target}[${attributes}]`),
 
-  // ConditionalDirective: `ifdef::name[]`, `endif::[]`
+  // Conditional preprocessor line: `ifdef::name[]`, `endif::[]`
   fc.oneof(
     fc
       .tuple(
@@ -231,7 +231,7 @@ const commonLines: Array<Arbitrary<string>> = [
     )
     .map(([role, text]) => `[.${role}]#${trimOrFallback(text)}#`),
 
-  // IndentedLine: leading spaces + content
+  // An indented line: leading spaces + content
   fc
     .tuple(
       fc.integer({ min: 1, max: 8 }),
@@ -254,7 +254,7 @@ const commonLines: Array<Arbitrary<string>> = [
 // without real include targets. The semantic preservation test
 // uses adocDocumentNoIncludes to avoid this false failure.
 const includeLines: Array<Arbitrary<string>> = [
-  // IncludeDirective: `include::path[opts]`
+  // Include preprocessor line: `include::path[opts]`
   fc
     .tuple(
       fc.stringMatching(/[A-Za-z][\w/.-]{0,20}/),
@@ -285,3 +285,66 @@ export const adocDocument = fc
 export const adocDocumentNoIncludes = fc
   .array(adocLineNoIncludes, { minLength: 1, maxLength: 50 })
   .map((lines) => lines.join("\n"));
+
+// ── Tier 3: BlockReader line soup ───────────────────────────
+// The vocabulary the BlockReader's own state machine branches
+// on, at the density that makes the branches collide: list
+// markers of every style, continuation markers, blank lines,
+// block metadata, indented lines and delimiters. Tier 2 covers
+// each of these too, but spread across so many other shapes
+// that the list reader's `+` / blank-line / metadata
+// interactions almost never line up in one document.
+//
+// This one found two real ordering bugs while the list reader
+// was being written (a held metadata run released after the
+// token that followed it), so it earns its place next to the
+// tier-2 soup rather than replacing it.
+const readerLine = fc.constantFrom(
+  "* a",
+  "** b",
+  "  ** b",
+  "- c",
+  ". d",
+  ".. e",
+  "<1> f",
+  "<.> g",
+  "*\tt",
+  "+",
+  "+ ",
+  "",
+  "  lit",
+  "flush",
+  "----",
+  "====",
+  "--",
+  "////",
+  "```",
+  "[source]",
+  "[[x]]",
+  ".T",
+  ":a: b",
+  "term:: def",
+  "NOTE: x",
+  "== H",
+  "// c",
+  "ifdef::x[]",
+  "endif::[]",
+  "image::a[]",
+  "'''",
+  "<<<",
+);
+
+/**
+ * Tier 3 document: dense BlockReader line soup, always OPENING
+ * with a list marker so that the list reader — the half of the
+ * reader with the state machine in it — is live for every
+ * generated line. Short by design: the interesting collisions
+ * need three or four lines, and short cases shrink to readable
+ * counterexamples.
+ */
+export const readerDocument = fc
+  .tuple(
+    fc.constantFrom("* a", "** a", ". a", "- a", "<1> a"),
+    fc.array(readerLine, { minLength: 1, maxLength: 10 }),
+  )
+  .map(([marker, lines]) => [marker, ...lines].join("\n"));

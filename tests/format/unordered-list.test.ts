@@ -96,11 +96,17 @@ describe("unordered list formatting", () => {
     expect(await formatAdoc(input)).toBe(expected);
   });
 
-  // An unordered list followed by an ordered list are two separate
-  // blocks with a blank line between them.
+  // An ordered item after an unordered item — even across a blank
+  // line — is a list NESTED in that item, never a second list: after a
+  // blank line `read_lines_for_list_item` keeps the item open for any
+  // NESTABLE_LIST_CONTEXTS marker. The printer writes the nesting in
+  // its adjacent form. ORACLE: the `<ol>` is inside the `<li>`.
   test("unordered list followed by ordered list", async () => {
     const input = "* Unordered\n\n. Ordered\n";
-    expect(await formatAdoc(input)).toBe(input);
+    expect(renderedHtml(input)).toMatch(/<li>.*<ol.*<\/li>/v);
+    const out = await formatAdoc(input);
+    expect(out).toBe("* Unordered\n. Ordered\n");
+    expect(renderedHtml(out)).toBe(renderedHtml(input));
   });
 
   // A list immediately after a section heading gets a blank-line
@@ -192,11 +198,12 @@ describe("unordered list formatting", () => {
 
 // Issue #1: formatting must be a fixed point regardless of where
 // the source happened to break lines inside a list item. The
-// continuation lines of an item are indented, and the lexer
-// tokenizes indented lines in default mode (as IndentedLine), so
-// without inline re-lexing the SAME content parses differently
-// depending on which line it sits on — and the output oscillates
-// between the two layouts on every format pass.
+// continuation lines of an item are indented, and the block layer used
+// to classify an indented line by its shape alone, so the SAME content
+// parsed differently depending on which line it sat on — and the output
+// oscillated between the two layouts on every format pass. The reader
+// reads the item's whole text as one run, so indentation inside it is
+// just indentation.
 describe("list item continuation lines parse like first-line content", () => {
   // The exact repro from issue #1: inline anchor + a link too
   // long to share the marker line.

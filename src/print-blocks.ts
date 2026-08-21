@@ -16,20 +16,16 @@ import type {
   DocumentNode,
   InlineNode,
   ListItemNode,
-  ListNode,
   ParentBlockNode,
 } from "./ast.js";
 import {
   EMPTY,
   FIRST,
-  MARKER_OFFSET,
   MIN_DELIMITER_LENGTH,
   NEXT,
   NOT_FOUND,
   SAFE_DELIMITER_PAD,
 } from "./constants.js";
-import { isContinuationPassThrough } from "./block-metadata.js";
-import { CHECKBOX_PREFIX_LEN } from "./parse/block-helpers.js";
 import {
   flattenForFill,
   splitWords,
@@ -40,7 +36,7 @@ import { joinBlocks } from "./print-join.js";
 import { isRawParagraphLine } from "./parse/line-shapes.js";
 
 const {
-  builders: { align, fill, hardline, join, literalline },
+  builders: { fill, hardline, join, literalline },
 } = doc;
 
 /**
@@ -494,7 +490,7 @@ function admonitionRun(text: string, isFirstRun: boolean): Doc | undefined {
  * line: reflowable runs of text, and the verbatim comment or
  * preprocessor lines between them.
  *
- * The split uses the same registry predicate the lexer classified
+ * The split uses the same registry predicate the reader classified
  * those lines with, so parse and print cannot disagree about which
  * line is which. Reflowing across one would make a comment visible
  * or render `ifdef`-guarded text unconditionally.
@@ -626,177 +622,4 @@ export function printAttributeEntry(node: {
     return [":", bangPrefix, node.name, bangSuffix, ": ", node.value];
   }
   return [":", bangPrefix, node.name, bangSuffix, ":"];
-}
-
-/**
- * Prints a list node: items separated by hard line
- * breaks.
- *
- * Items at different depths are handled by the nested
- * ListNode structure — each ListItemNode prints its own
- * nested children recursively.
- * @param path - Prettier's AST path, used to recurse
- *   into list items via `path.map(print, "children")`.
- * @param print - Prettier's recursive print callback.
- * @returns Doc IR for the formatted list.
- */
-export function printList(path: PrintPath, print: PrintFunction): Doc {
-  const items = path.map(print, "children");
-  return join(hardline, items);
-}
-
-/**
- * Builds the marker string for a list item based on the
- * parent list's variant.
- *
- * Callout lists use `<N>` or `<.>` markers; ordered
- * lists use dots; unordered lists use asterisks. The
- * marker depth (number of repeated characters) encodes
- * the nesting level.
- * @param node - The list item whose marker to build.
- * @param parentList - The parent list node, used to
- *   determine the variant (ordered, unordered, callout).
- * @returns The marker string (e.g. `**`, `...`, `<1>`).
- */
-function buildMarker(
-  node: ListItemNode,
-  parentList: ListNode | undefined,
-): string {
-  if (parentList?.variant === "callout") {
-    // Auto-numbered callouts store 0 as calloutNumber.
-    const calloutLabel =
-      node.calloutNumber === EMPTY ? "." : String(node.calloutNumber);
-    return `<${calloutLabel}>`;
-  }
-  const markerChar = parentList?.variant === "ordered" ? "." : "*";
-  return markerChar.repeat(node.depth);
-}
-
-/**
- * Formats a checklist checkbox into its canonical string
- * representation.
- *
- * Normalizes `[*]` to `[x]` (the canonical checked
- * form). Returns an empty string for non-checklist items
- * so the caller can unconditionally prepend the result.
- * @param checkbox - The checkbox state: "checked",
- *   "unchecked", or undefined for non-checklist items.
- * @returns The checkbox prefix string, or empty string
- *   if the item has no checkbox.
- */
-function formatCheckbox(checkbox: ListItemNode["checkbox"]): string {
-  if (checkbox === "checked") {
-    return "[x] ";
-  }
-  if (checkbox === "unchecked") {
-    return "[ ] ";
-  }
-  return "";
-}
-
-/**
- * Prints a single list item to Doc IR.
- *
- * Produces marker + space + text content, with text
- * reflowed via fill(). Continuation lines are aligned
- * to the text start (past the marker). Nested lists
- * appear on the next line after the item text, outside
- * the fill.
- * @param node - The list item AST node.
- * @param path - Prettier's AST path, used to recurse
- *   into children and access the parent list node.
- * @param print - Prettier's recursive print callback.
- * @returns Doc IR for the formatted list item.
- */
-export function printListItem(
-  node: ListItemNode,
-  path: PrintPath,
-  print: PrintFunction,
-): Doc {
-  // Determine the marker character from the parent list's variant.
-  // The parent is always a ListNode (items live inside lists).
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Prettier path traversal returns generic node
-  const parentList = path.getParentNode() as ListNode | undefined;
-  // Build the list marker string. Callout lists use `<N>` or
-  // `<.>` markers; ordered use dots; unordered use asterisks.
-  const marker = buildMarker(node, parentList);
-
-  // For checklist items, insert the checkbox marker between the
-  // list marker and the text. Normalize [*] to [x] (canonical).
-  const checkboxPrefix = formatCheckbox(node.checkbox);
-
-  // Continuation lines should align with the text start, which
-  // is marker width + 1 space after the marker character(s),
-  // plus the checkbox prefix width for checklist items.
-  const markerWidth = marker.length + MARKER_OFFSET;
-  const checkboxWidth =
-    node.checkbox === undefined ? EMPTY : CHECKBOX_PREFIX_LEN;
-
-  const printed = path.map(print, "children");
-
-  // Separate inline children (text, bold, hardLineBreak, etc.)
-  // from nested lists. Inline children are reflowed inside a
-  // fill(); nested lists follow on their own lines.
-  const inlineChildren: Doc[] = [];
-  const nestedListParts: Doc[] = [];
-
-  for (const [index, child] of node.children.entries()) {
-    const { [index]: printedChild } = printed;
-    if (child.type === "list") {
-      // Nested list: appears on the next line after a
-      // hardline break, outside the fill.
-      nestedListParts.push(hardline, printedChild);
-    } else {
-      // Inline node: collect for fill(). flattenForFill
-      // handles alignment when formatting mixes with text.
-      inlineChildren.push(printedChild);
-    }
-  }
-
-  const inlineParts = stripLeadingHazardBreak(flattenForFill(inlineChildren));
-
-  // Build the output: marker + space + checkbox + aligned
-  // fill of inline content, followed by any nested lists.
-  const item = fill([
-    marker,
-    " ",
-    checkboxPrefix,
-    align(markerWidth + checkboxWidth, fill(inlineParts)),
-  ]);
-
-  // Blocks attached with `+` list continuations: each prints
-  // as a `+` alone on its line followed by the block flush
-  // left. These hardlines are outside the align() above, so
-  // both the `+` and the block start at column 0 — the
-  // continuation syntax requires the `+` unindented, and the
-  // attached block is its own block, not part of the item's
-  // reflowed principal text.
-  const continuationParts: Doc[] = [];
-  for (const [index, printedBlock] of path
-    .map(print, "attachedBlocks")
-    .entries()) {
-    const previousAttached =
-      index > FIRST ? node.attachedBlocks[index - NEXT] : undefined;
-    if (
-      previousAttached !== undefined &&
-      isContinuationPassThrough(previousAttached)
-    ) {
-      // Block metadata (and the comment lines the reader eats)
-      // stack directly above the block they precede — the whole
-      // group hangs off the single `+` emitted before its first
-      // piece.
-      continuationParts.push(hardline, printedBlock);
-    } else {
-      continuationParts.push(hardline, "+", hardline, printedBlock);
-    }
-  }
-  // A dangling `+` line (nothing after it inside the item to
-  // attach) is re-emitted verbatim: Asciidoctor attaches the
-  // next block to the item even across a blank line, so
-  // preserving the bare `+` preserves the rendered output.
-  if (node.danglingContinuation) {
-    continuationParts.push(hardline, "+");
-  }
-
-  return [item, ...continuationParts, ...nestedListParts];
 }

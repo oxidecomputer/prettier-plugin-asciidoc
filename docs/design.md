@@ -7,9 +7,9 @@ spacing, and produces clean diffs.
 ## Architecture
 
 ```
-source text → Lexer → Parser → CST → AST Builder → AST → Printer → formatted output
-                                                           ↓
-                                                      toASG() → TCK validation (test-time only)
+source → splitLines → BlockReader(classifyLine) → IToken[] → CstParser → CST → AST Builder → AST → Printer
+                                                                                              ↓
+                                                                          toASG() → TCK validation (test-time only)
 ```
 
 ### Parser
@@ -19,18 +19,35 @@ A custom, source-preserving parser built with
 [Why Chevrotain?](#why-chevrotain) and
 [Why not Asciidoctor.js?](#why-not-asciidoctorjs) below.
 
-Parsing happens in three phases:
+Parsing happens in four phases:
 
-1. **Lexer** (`src/parse/tokens.ts`): Tokenizes source text. Uses lexer modes
-   for context-sensitive tokenization (e.g., verbatim block content vs. normal
-   text) and custom token patterns for ambiguous characters (e.g., `*` as bold
-   marker vs. list marker).
+1. **Line splitting** (`src/parse/lines/split.ts`): Cuts the source into lines,
+   rstripping each one exactly as `Helpers.prepare_source_string` does while
+   keeping the author's bytes and the document offsets alongside.
 
-2. **Parser** (`src/parse/grammar.ts`): A `CstParser` subclass that defines
-   grammar rules over the token stream. Uses gates for context-sensitive parsing
-   decisions. Produces a Concrete Syntax Tree (CST).
+2. **BlockReader** (`src/parse/lines/reader.ts`): Walks those lines ONCE with an
+   explicit frame stack that mirrors Asciidoctor's reader (`Parser.next_block`,
+   `read_paragraph_lines`, `read_lines_for_list_item`, `read_lines_until`),
+   classifying each line against the registry in `src/parse/line-shapes.ts` with
+   the open context in hand. It emits one pre-classified token per line, plus
+   zero-length boundary tokens (`ParagraphStart`/`ParagraphEnd`, `ItemEnd`,
+   `ListEnd`, `SectionEnd`, `UnclosedEnd`) that spell out every nesting
+   decision. Paragraph text is the one thing still lexed: the reader runs the
+   single-mode inline lexer (`src/parse/tokens.ts`) over each run of paragraph
+   lines and splices the rebased inline tokens between the paragraph's
+   boundaries. Lists are read by `src/parse/lines/list-reader.ts` and
+   `list-frames.ts`, over per-item state (`Item`) from `list-item.ts`.
+   `src/parse/lines/frames.ts` holds the frame and reader types they share with
+   `reader.ts`, plus the held-metadata predicate both the reader and the list
+   layer consult, so those three modules stay a DAG rather than an import cycle.
 
-3. **AST Builder** (`src/parse/ast-builder.ts`): A CST visitor that constructs
+3. **Parser** (`src/parse/grammar.ts`): A `CstParser` subclass whose input is
+   that token array rather than a lexer's output. Because the reader has already
+   decided where everything ends, each rule is LL(1) on a distinct first token:
+   no gates, no re-absorbing options, nothing that derives block context.
+   `tests/parser/architecture.test.ts` is the mechanical guard on that.
+
+4. **AST Builder** (`src/parse/ast-builder.ts`): A CST visitor that constructs
    our Prettier-friendly AST. Every node carries character offsets
    (`locStart`/`locEnd`), comments and directives are first-class nodes, and the
    tree is faithful to the source syntax.
@@ -111,8 +128,8 @@ discards.
 **Formatter-specific nodes (not in ASG):**
 
 - `comment` — line (`//`) and block (`////`)
-- `includeDirective` — `include::path[]`
-- `conditionalDirective` — `ifdef`, `ifndef`, `ifeval`, `endif`
+- `preprocessorDirective` — one verbatim line the reader eats:
+  `include::path[]`, `ifdef`, `ifndef`, `ifeval`, `endif`
 - `blockAttributeList` — `[source,ruby]`, `[#id.role%option]`
 
 **Inline nodes:**
@@ -189,11 +206,15 @@ through verbatim rather than crashing the formatter.
 
 This means:
 
-- **Lexer failures** produce unrecognized text spans that flow through as
-  verbatim content, not exceptions.
+- **Classification failures** produce unrecognized text spans that flow through
+  as verbatim content, not exceptions: the reader's fall-through arm opens a
+  paragraph for any line no rule claims.
 - **Parser failures** use Chevrotain's built-in error recovery (token insertion,
-  deletion, repetition re-sync, general re-sync) to produce a partial CST. The
-  AST builder preserves recovered regions as raw text.
+  deletion, repetition re-sync, general re-sync) to produce a partial CST. Where
+  recovery leaves an empty block node behind, the AST builder emits an empty
+  placeholder paragraph whose position spans the whole document
+  (`src/parse/ast-builder.ts`) — the parse finishes instead of crashing, but the
+  text of that region is not preserved.
 - **AST builder assertions** for "impossible" states (e.g., a grammar rule
   matched but its expected token is missing) are genuine bugs in our parser —
   these can throw, since they indicate a logic error we need to fix, not bad
@@ -226,10 +247,12 @@ are present on a recovered node.
 
 ## Inline parser architecture
 
-The block-level parser is line-oriented: tokens are identified by start-of-line
-patterns (`^== `, `^* `, `^----$`, etc.) and the grammar describes how blocks
-nest. Inline content — bold, italic, links, macros — lives _within_ paragraph
-text and is character-oriented.
+The block layer is line-oriented: the BlockReader classifies each line by its
+start-of-line shape (`^== `, `^* `, `^----$`, etc.) in the context its frame
+stack is in, and decides there where every block begins and ends, emitting
+zero-length boundary tokens to say so. The grammar is mechanical — it consumes
+those boundaries, it does not decide nesting. Inline content — bold, italic,
+links, macros — lives _within_ paragraph text and is character-oriented.
 
 ### Why not a separate parser?
 
@@ -248,38 +271,38 @@ independently. This works but has real downsides:
   content once at the block level, then re-tokenize it from scratch for inline
   markup.
 
-### Chosen approach: unified grammar with Chevrotain lexer modes
+### Chosen approach: one grammar, one coordinate space
 
-We already use Chevrotain's `MultiModeLexer` with modes for verbatim content
-(`listing_verbatim`, `literal_verbatim`, `pass_verbatim`, `block_comment`). The
-inline parser extends this pattern by adding an `inline` lexer mode.
+The inline layer is lexed, the block layer is not. The BlockReader hands the
+parser a token array in which every block-level line is already classified, and
+for each run of paragraph text it runs the single-mode inline lexer
+(`inlineLexer` in `src/parse/tokens.ts`) over that run alone and rebases the
+resulting tokens to document coordinates before splicing them in. So there is
+one vocabulary, one coordinate space and one CST, and the inline tokens live
+between the paragraph's `ParagraphStart`/`ParagraphEnd` boundaries.
 
-The mode transitions:
+This replaced a `MultiModeLexer` whose `default_mode` classified block lines and
+whose `inline` mode was entered by an `InlineModeStart` token. Two modes meant
+two classification systems that had to be kept in agreement, and the block half
+kept having to reconstruct context it could not see — see "Line classification
+is contextual" below.
 
-- **`default_mode` → `inline`**: When the lexer encounters the start of
-  paragraph text, a list item's text content, a block title, or any other
-  context where inline markup is valid, it pushes into `inline` mode via
-  `InlineModeStart`. In this mode, `*` produces a `BoldMark` token, plain text
-  becomes `InlineText` tokens, and block-level tokens like `ListingBlockOpen`
-  don't exist.
-- **`inline` → `default_mode`**: When the lexer hits a blank line or structural
-  boundary (block delimiter, heading marker, list marker at the start of a new
-  item), it pops back to `default_mode`.
-- **`inline` → verbatim modes**: Inline passthrough (`+text+`, `pass:[...]`)
-  suppresses further inline tokenization within its content. This may use a
-  dedicated mode or be handled by the custom token matchers.
-
-The grammar is unified: block-level rules call inline rules naturally.
+The grammar does not describe inline structure at all. There are no span rules:
+one flat `inlineToken` rule (`src/parse/grammar.ts`) matches any single token of
+the inline vocabulary, and the paragraph rules repeat it.
 
 ```
-paragraph()    → MANY(inlineContent)
-inlineContent() → boldSpan | italicSpan | monoSpan | link | text | ...
-boldSpan()     → BoldOpen, MANY(inlineContent), BoldClose
+paragraph()     → ParagraphStart, paragraphBody, ParagraphEnd
+paragraphBody() → MANY(inlineToken | InlineNewline | RawLine)
+inlineToken()   → BoldMark | ItalicMark | MonoMark | InlineMacro | InlineText | ...
 ```
 
-This preserves position tracking (one lexer, one coordinate space), produces a
-single CST, and lets the AST builder visitor handle both block and inline nodes
-in one pass.
+Marks are paired into nested spans afterwards, by `inline-node-builder.ts`,
+which walks the flat token run the AST builder hands it. Keeping the pairing out
+of the grammar is what lets a mark that never closes stay literal text without a
+parse error. What the single grammar buys is position tracking (one coordinate
+space, into which the inline tokens are rebased) and a single CST that the AST
+builder visitor walks in one pass.
 
 ### Custom token patterns for context-sensitive marks
 
@@ -291,8 +314,10 @@ text and current offset, allowing it to inspect surrounding characters.
 
 These matchers are substantial enough to warrant their own file
 (`src/parse/inline-mark-pattern.ts`) but they register as token definitions in
-the `inline` lexer mode — they're not a separate lexer. The AST building logic
-that pairs formatting marks into nested spans lives in
+the inline vocabulary — they're not a separate lexer. They read the surrounding
+CHARACTERS, which is inline context; reading the token history would be block
+context, and `tests/parser/architecture.test.ts` forbids it. The AST building
+logic that pairs formatting marks into nested spans lives in
 `src/parse/inline-node-builder.ts`.
 
 ### What stays in separate files
@@ -308,11 +333,12 @@ parser instances.
 
 Asciidoctor's paragraphs (and list items, and dlist descriptions) are greedy:
 once open, they swallow every following line until a blank line or a tiny
-interrupting set. Five rules keep our lexer and reflow honest about that:
+interrupting set. Five rules keep the reader and reflow honest about that:
 
-1. Paragraph extent is decided by the contextual classifier against
-   `src/parse/line-shapes.ts` — today the `paragraph` lexer mode
-   (`ParagraphEnd`, see `src/parse/paragraph-tokens.ts`) — never by re-running
+1. Paragraph extent is decided by the BlockReader
+   (`src/parse/lines/paragraph-reader.ts`), which asks
+   `src/parse/line-shapes.ts` about each line WITH the open context in hand and
+   closes the paragraph with an explicit `ParagraphEnd` — never by re-running
    the top-level line classifier.
 2. The registry is oracle-pinned: `tests/conformance/interruption.test.ts`
    checks every pattern against Asciidoctor for each of four `ParagraphContext`s
@@ -337,26 +363,30 @@ interrupting set. Five rules keep our lexer and reflow honest about that:
 4. Normalizations ship with a render-equivalence test
    (`renderedHtml(out) === renderedHtml(input)`) and an idempotency test, not
    just a snapshot.
-5. Every line-shape regex is a single source. The registry exports pattern
-   _sources_ (`BLOCK_ANCHOR_SOURCE`, `LINE_COMMENT_SOURCE`,
-   `BLOCK_ATTRIBUTE_LINE_SOURCE`, `DELIMITER_SOURCES`) that
-   `src/parse/tokens.ts` builds its flagless Chevrotain regexes from — adding
-   only what surrounds a shape there (an end-of-line anchor, the trailing
-   whitespace the reader rstrips) — so the lexer and the registry can never
-   diverge on the same construct. The reader also rstrips every line before
+5. Every line-shape regex is a single source. There is no second dialect to keep
+   in step any more: the registry's patterns are plain `v`-flag regexes, the
+   BlockReader is their only consumer on the parse side, and reflow is their
+   only consumer on the print side. The reader also rstrips every line before
    classification (`Helpers.prepare_source_string`), which the registry mirrors
    (see `line-shapes.ts`'s `rstrip`).
 
 **Why.** The lexer used to re-classify every line as if it stood at the top of a
 block, so a `.Title`-shaped or `* item`-shaped line mid-paragraph became a block
-title or a list, and `InlineNewline` simply popped back to `default_mode` to do
+title or a list, and `InlineNewline` simply popped back to the block mode to do
 it again on the next line. That inversion is the root of gap issues #26, #27,
 and #29 (line comments, block-title-looking lines, and indented continuations
 each splitting one paragraph or list into several). The differential conformance
-suite (#7) is the evidence: the contextual-line-classification commit shrank the
-quarantine manifest from 519 to 387 cases, with #26 dropping from 42 to 1 (the
-remaining case is an unrelated whitespace-collapse defect) and #27 and #28
-dropping by roughly two-thirds.
+suite (#7) is the evidence: the quarantine manifest went from 519 cases on the
+release before this work, to 383 after the paragraph-mode fix, to **354** once
+the BlockReader owned every block-level decision — with #26 42 → 1, #27 18 → 1,
+#28 13 → 0, #29 7 → 0 and #4 10 → 0, and not one new case id in the manifest.
+The whole move is measured in `docs/simplicity-metrics.md`, with
+`bun run metrics -- --base 0298a2ba` — the commit this work started from. Two
+rows, each with its scope, because the scorecard reports per layer and the two
+are not the same layer: **`src/parse`'s peak cognitive complexity** fell 25 → 14
+(and 25 is also what it measures at `main`, so the whole fall is this work's);
+**`eslint-disable` comments over all of `src`** fell 47 → 25, of which
+`src/parse` is 43 → 21.
 
 ## Why Chevrotain?
 
@@ -384,15 +414,14 @@ been in progress for years, covers roughly half the language, and remains
 
 ### Chevrotain (parser toolkit) — chosen
 
-Chevrotain provides purpose-built machinery for context-sensitive parsing:
+Chevrotain is what we build the tree-assembly layer on:
 
-- **Custom token patterns**: Matcher functions that receive all previously
-  matched tokens, enabling context-aware tokenization (e.g., distinguishing
-  constrained vs. unconstrained bold based on the preceding token).
-- **Lexer modes**: A mode stack for switching tokenization rules when
-  entering/leaving verbatim blocks, passthroughs, etc.
-- **Gates**: Predicate functions on parser alternatives that can check any
-  parser state before attempting a branch.
+- **A parser you can feed directly**: `CstParser` takes an `IToken[]` — it does
+  not insist on being driven by its own lexer — which is what lets the
+  BlockReader own every block-level decision and leaves the grammar mechanical.
+- **Custom token patterns**: Matcher functions that receive the text and the
+  current offset, enough to distinguish constrained from unconstrained bold by
+  the surrounding characters.
 - **Built-in error recovery**: Four strategies (token insertion, deletion,
   repetition re-sync, general re-sync) that produce partial CSTs with
   `recoveredNode` flags. Critical for a formatter that must handle malformed
@@ -400,8 +429,15 @@ Chevrotain provides purpose-built machinery for context-sensitive parsing:
 - **Native TypeScript**: The grammar IS TypeScript code — full IDE support, type
   checking, refactoring.
 - **CST + visitor pattern**: Clean separation between parsing and AST
-  construction. We use one CST with two visitors: the AST builder (for Prettier)
-  and `toASG()` (for TCK validation).
+  construction. One CST, one visitor — the AST builder. `toASG()` never sees the
+  CST: it is a projection of our AST, one level further down (see "Three levels
+  of tree representation").
+
+Chevrotain also offers lexer modes, gates on parser alternatives, and custom
+patterns that receive the token history. We deliberately use NONE of the three:
+each is a way to rebuild block context that the BlockReader already has, and
+having them in four places at once is the mess the reader replaced. See
+`tests/parser/architecture.test.ts`.
 
 The trade-off is bundle size (~160 KB runtime dependency), which is irrelevant
 for a Node.js Prettier plugin.
@@ -469,13 +505,15 @@ representation — our AST is a superset of it, and `toASG()` projects down.
 
 ## References
 
+- [Simplicity metrics](simplicity-metrics.md) — the scorecard `bun run metrics`
+  prints, what each row means, and how each one is gamed
 - [Prettier plugin API](https://prettier.io/docs/plugins#developing-plugins)
 - [AsciiDoc syntax](https://docs.asciidoctor.org/asciidoc/latest/syntax-quick-reference/)
 - [ASG schema](https://gitlab.eclipse.org/eclipse/asciidoc-lang/asciidoc-lang/-/tree/main/asg)
 - [ASG spec discussion](https://gitlab.eclipse.org/eclipse/asciidoc-lang/asciidoc-lang/-/issues/7)
 - [TCK repo](https://gitlab.eclipse.org/eclipse/asciidoc-lang/asciidoc-tck)
 - [Prettier issue #5506 (AsciiDoc support)](https://github.com/prettier/prettier/issues/5506)
-- [Chevrotain](https://chevrotain.io/) — parser toolkit used for our lexer and
-  grammar
+- [Chevrotain](https://chevrotain.io/) — parser toolkit used for our grammar and
+  inline lexer
 - [AsciiDoc parsing lab](https://github.com/opendevise/asciidoc-parsing-lab) —
   official PEG grammar research (informed our parser approach decision)

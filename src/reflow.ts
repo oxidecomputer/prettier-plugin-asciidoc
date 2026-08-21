@@ -14,8 +14,8 @@
  *    separator). This file
  *    owns no patterns of its own: every shape it asks about
  *    comes from the registry in src/parse/line-shapes.ts, the
- *    same one the lexer's paragraph mode reads, so the two can
- *    never disagree about what ends a paragraph.
+ *    same one the BlockReader classifies lines with, so the
+ *    two can never disagree about what ends a paragraph.
  *
  * 2. **Fill alignment** (`flattenForFill`): when inline
  *    formatting nodes (italic, bold, xref, ...) are embedded
@@ -120,8 +120,8 @@ const PROBE_SUFFIX = "x";
  *   `NOTE: ` all require that trailing text to match, and fill()
  *   would supply it with the very next word).
  *
- * Both the interrupting shapes and the RAW ones count, and that
- * difference from the lexer is the point: the lexer asks "does this
+ * Both the interrupting shapes and the RAW ones count, and the
+ * difference in the QUESTION is the point. The reader asks "does this
  * line end the block", to which a comment or preprocessor directive
  * answers no (the reader consumes it before block structure exists).
  * Reflow asks "may this word begin a line", and there the same
@@ -568,4 +568,47 @@ export function flattenForFill(children: Doc[]): Doc[] {
  */
 export function stripLeadingHazardBreak(parts: Doc[]): Doc[] {
   return parts[FIRST] === DLIST_HAZARD_BREAK ? parts.slice(NEXT) : parts;
+}
+
+/**
+ * Make a block's inline content print on at least two lines: the last
+ * soft separator of its flattened fill parts that has CONTENT after it
+ * becomes a hard break.
+ *
+ * A list item whose text is followed by a trailing titled metadata run
+ * (`ListItemNode.keepTextBreak`, Ruling 28/29) needs this: reflowed onto
+ * one line, the run's first line would be the first line after the
+ * marker line, where Asciidoctor folds it and reads the title as text.
+ * ANY break in the text suffices — the run folds only on the first rest
+ * line — so the decision is made here at paragraph level, after the
+ * parts are flattened, and is robust to spans, macros, glue and hazard
+ * resolution by construction: no word index, no position. A last
+ * separator that is already hard (a raw line's, a hard line break's, or
+ * a hazard break) needs nothing; parts with no separator at all — one
+ * unbreakable unit — are left alone.
+ *
+ * Ruling 30: separators in the FINAL slots are skipped. Text whose last
+ * source line ends in whitespace gets a trailing `line` appended
+ * (`pushTrailingBoundary`) so the whitespace can still break between
+ * this block and whatever follows; hardening THAT separator would print
+ * a blank line after the item text and detach the very run this break
+ * exists to keep attached. Only a separator with content after it puts
+ * a break INSIDE the text.
+ * @param parts - Flattened fill parts for the block's inline content.
+ * @returns The same parts, with that separator hardened.
+ */
+export function keepLastBreak(parts: Doc[]): Doc[] {
+  const lastContent = parts.findLastIndex(
+    (element) => !isFillSeparator(element),
+  );
+  if (lastContent === NOT_FOUND) {
+    return parts;
+  }
+  const last = parts
+    .slice(FIRST, lastContent)
+    .findLastIndex((element) => isFillSeparator(element));
+  if (last === NOT_FOUND || parts[last] !== line) {
+    return parts;
+  }
+  return parts.with(last, hardline);
 }

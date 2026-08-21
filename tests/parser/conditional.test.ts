@@ -1,122 +1,79 @@
+/**
+ * Conditional preprocessor directives (`ifdef`, `ifndef`, `ifeval`,
+ * `endif`). Asciidoctor's `PreprocessorReader#process_line`
+ * (reader.rb:819) matches `ConditionalDirectiveRx` and `shift`s the
+ * line off the stream BEFORE `Parser.next_block` ever sees it, so a
+ * directive is never a block of its own. The formatter cannot resolve
+ * the condition (it has no attribute values), so it keeps the line
+ * verbatim, in place, as a `preprocessorDirective` — the AST node
+ * that says "a line the reader would have eaten".
+ */
 import { describe, test, expect } from "vitest";
 import { parse } from "../../src/parser.js";
+import { asParagraph } from "../helpers.js";
 import { narrow } from "../../src/unreachable.js";
 
-describe("conditional directive parsing", () => {
-  // Basic ifdef with empty content brackets.
-  test("ifdef with empty brackets", () => {
-    const { children } = parse("ifdef::backend[]\n");
+describe("conditional directive lines at block level", () => {
+  test.each([
+    "ifdef::backend[]",
+    "ifdef::backend[Content here]",
+    "ifndef::attr[]",
+    "ifeval::[{version} > 1]",
+    "endif::[]",
+    "endif::backend[]",
+    "ifdef::attr1,attr2[]",
+    "ifdef::attr1+attr2[]",
+  ])("%s is a verbatim preprocessorDirective", (line) => {
+    const { children } = parse(`${line}\n`);
     expect(children).toHaveLength(1);
     const [node] = children;
-    narrow(node, "conditionalDirective");
-    expect(node.directive).toBe("ifdef");
-    expect(node.target).toBe("backend");
-    expect(node.attrlist).toBe("");
+    narrow(node, "preprocessorDirective");
+    expect(node.value).toBe(line);
+    expect(node.position.start).toEqual({ offset: 0, line: 1, column: 1 });
   });
 
-  // Single-line form with content inside brackets.
-  test("ifdef with content inside brackets", () => {
-    const { children } = parse("ifdef::backend[Content here]\n");
-    expect(children).toHaveLength(1);
-    const [node] = children;
-    narrow(node, "conditionalDirective");
-    expect(node.directive).toBe("ifdef");
-    expect(node.target).toBe("backend");
-    expect(node.attrlist).toBe("Content here");
-  });
-
-  // ifndef directive.
-  test("ifndef directive", () => {
-    const { children } = parse("ifndef::attr[]\n");
-    expect(children).toHaveLength(1);
-    const [node] = children;
-    narrow(node, "conditionalDirective");
-    expect(node.directive).toBe("ifndef");
-    expect(node.target).toBe("attr");
-    expect(node.attrlist).toBe("");
-  });
-
-  // ifeval with expression inside brackets.
-  test("ifeval with expression", () => {
-    const { children } = parse("ifeval::[{version} > 1]\n");
-    expect(children).toHaveLength(1);
-    const [node] = children;
-    narrow(node, "conditionalDirective");
-    expect(node.directive).toBe("ifeval");
-    expect(node.target).toBe("");
-    expect(node.attrlist).toBe("{version} > 1");
-  });
-
-  // endif directive.
-  test("endif directive", () => {
-    const { children } = parse("endif::[]\n");
-    expect(children).toHaveLength(1);
-    const [node] = children;
-    narrow(node, "conditionalDirective");
-    expect(node.directive).toBe("endif");
-    expect(node.target).toBe("");
-    expect(node.attrlist).toBe("");
-  });
-
-  // Comma-separated attribute names.
-  test("ifdef with comma-separated attributes", () => {
-    const { children } = parse("ifdef::attr1,attr2[]\n");
-    expect(children).toHaveLength(1);
-    const [node] = children;
-    narrow(node, "conditionalDirective");
-    expect(node.directive).toBe("ifdef");
-    expect(node.target).toBe("attr1,attr2");
-    expect(node.attrlist).toBe("");
-  });
-
-  // Plus-separated attributes mean "all of" in AsciiDoc.
-  // The parser treats the target as opaque text, so plus
-  // works the same as comma — verify it round-trips.
-  test("plus-separated attributes", () => {
-    const { children } = parse("ifdef::attr1+attr2[]\n");
-    expect(children).toHaveLength(1);
-    const [node] = children;
-    narrow(node, "conditionalDirective");
-    expect(node.directive).toBe("ifdef");
-    expect(node.target).toBe("attr1+attr2");
-  });
-
-  // Between paragraphs.
+  // Between paragraphs the directive is its own child, still verbatim.
   test("between paragraphs", () => {
     const { children } = parse("Before.\n\nifdef::backend[]\n\nAfter.\n");
     expect(children).toHaveLength(3);
     expect(children[0].type).toBe("paragraph");
-    expect(children[1].type).toBe("conditionalDirective");
+    narrow(children[1], "preprocessorDirective");
+    expect(children[1].value).toBe("ifdef::backend[]");
     expect(children[2].type).toBe("paragraph");
   });
 
-  // Position tracking.
-  test("position tracking", () => {
-    const { children } = parse("ifdef::backend[]\n");
-    const [node] = children;
-    expect(node.type).toBe("conditionalDirective");
-    expect(node.position.start.line).toBe(1);
-    expect(node.position.start.column).toBe(1);
-    expect(node.position.start.offset).toBe(0);
-  });
-
-  // Trailing text after closing bracket rejects the match.
-  // The (?![^\n]) lookahead ensures the token only matches
-  // when it occupies the entire line.
+  // `ConditionalDirectiveRx` anchors at end of line, so anything after
+  // the closing bracket makes the line ordinary paragraph text.
   test("trailing text prevents match", () => {
     const { children } = parse("ifdef::backend[] extra\n");
     expect(children).toHaveLength(1);
     expect(children[0].type).toBe("paragraph");
   });
 
-  // endif with attribute name (valid but unusual).
-  test("endif with attribute name", () => {
-    const { children } = parse("endif::backend[]\n");
+  // Every line is rstripped before any rule runs
+  // (`Helpers.prepare_source_string`), so trailing whitespace cannot
+  // stop a directive from being one — and the node carries the
+  // rstripped line, because that is the line Asciidoctor read.
+  test.each([
+    ["ifdef::backend[]  ", "ifdef::backend[]"],
+    ["endif::[] ", "endif::[]"],
+    ["ifeval::[{v} > 1]\t", "ifeval::[{v} > 1]"],
+  ])("%j is a directive whose value is the rstripped %j", (line, value) => {
+    const { children } = parse(`${line}\n`);
     expect(children).toHaveLength(1);
     const [node] = children;
-    narrow(node, "conditionalDirective");
-    expect(node.directive).toBe("endif");
-    expect(node.target).toBe("backend");
-    expect(node.attrlist).toBe("");
+    narrow(node, "preprocessorDirective");
+    expect(node.value).toBe(value);
+  });
+
+  // Inside an open paragraph the same line is a RawLineNode: the
+  // reader eats it without ending the paragraph, so the text before
+  // and after it stay one block.
+  test("a directive line after a paragraph line is a rawLine INSIDE it", () => {
+    const { children } = parse("text\nendif::[]\n");
+    expect(children).toHaveLength(1);
+    expect(
+      asParagraph(children[0]).children.some((c) => c.type === "rawLine"),
+    ).toBe(true);
   });
 });

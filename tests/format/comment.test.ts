@@ -6,7 +6,7 @@
  * with how the formatter treats other block elements.
  */
 import { describe, test, expect } from "vitest";
-import { formatAdoc } from "../helpers.js";
+import { formatAdoc, renderedHtml } from "../helpers.js";
 
 describe("line comment formatting", () => {
   // A canonical line comment must pass through unchanged.
@@ -122,5 +122,34 @@ describe("block comment formatting", () => {
     expect(await formatAdoc(input)).toBe(
       "____\n****\n////\n////\n****\n____\n",
     );
+  });
+});
+
+// An unterminated comment block runs to end of input; the closer the
+// printer synthesises sits directly under the last content line, not
+// under an extra blank one (the source's final newline is a line
+// terminator, not content).
+test("an unterminated comment block closes directly after its content", async () => {
+  const input = "////\ncontent\n//////\n";
+  const out = await formatAdoc(input);
+  expect(out).toBe("////\ncontent\n//////\n////\n");
+  expect(renderedHtml(out)).toBe(renderedHtml(input));
+  expect(await formatAdoc(out)).toBe(out);
+});
+
+// A reader-eaten line directly after a block keeps its place: the
+// reader removes it before block parsing, so a blank line inserted
+// between them lands inside the run of lines the parser is still
+// reading. Pinned for both kinds of reader-eaten line.
+describe("a reader-eaten line directly after a block", () => {
+  test.each([
+    "----\nx\n----\n// c\n",
+    "----\nx\n----\nendif::[]\n",
+    "____\na\n____\n// c\n",
+    "[verse]\n____\na\n____\nendif::[]\n",
+    "[NOTE]\n====\ntext\n====\n// c\n",
+    "* a\n* b\n// c\n",
+  ])("%j round-trips byte for byte", async (input) => {
+    expect(await formatAdoc(input)).toBe(input);
   });
 });

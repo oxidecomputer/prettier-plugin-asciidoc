@@ -1,6 +1,6 @@
 import { describe, test, expect } from "vitest";
 import { parse } from "../../src/parser.js";
-import { firstList } from "../helpers.js";
+import { firstList, renderedHtml } from "../helpers.js";
 import { narrow } from "../../src/unreachable.js";
 
 describe("callout list parsing", () => {
@@ -55,13 +55,15 @@ describe("callout list parsing", () => {
     }
   });
 
-  // Two callout lists separated by a blank line are distinct
-  // blocks.
-  test("two callout lists separated by blank line", () => {
-    const { children } = parse("<1> List A\n\n<1> List B\n");
-    expect(children).toHaveLength(2);
-    expect(children[0].type).toBe("list");
-    expect(children[1].type).toBe("list");
+  // A blank line between two callout items does NOT split the list
+  // (`parse_list` skips blank lines before `next_list` looks for the
+  // next sibling, for every list kind). ORACLE: one `colist`.
+  test("two callout items separated by a blank line are one list", () => {
+    const input = "<1> List A\n\n<1> List B\n";
+    expect(renderedHtml(input).match(/class="colist/gv)).toHaveLength(1);
+    const { children } = parse(input);
+    expect(children).toHaveLength(1);
+    expect(firstList(children).children).toHaveLength(2);
   });
 
   // Position tracking: the list starts at the `<` of the

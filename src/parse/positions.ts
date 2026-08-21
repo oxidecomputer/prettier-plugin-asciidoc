@@ -36,9 +36,12 @@ export function makeLocation(
  * Build a Location for the start of a Chevrotain token.
  * Chevrotain makes startLine and startColumn nullable to support
  * error-recovery scenarios where a synthetic token may have no
- * valid position. We disable error recovery, so every real token
- * is fully positioned and the fallback defaults (line 1, column 1)
- * are unreachable in practice.
+ * valid position. Recovery is enabled (see grammar.ts), but every
+ * token the parser sees is cut from real source by the BlockReader
+ * or the inline lexer and is fully positioned, and the corpus gate
+ * in tests/parser/reader.test.ts asserts zero parser errors — so the
+ * fallback defaults (line 1, column 1) are reachable only if the
+ * reader ever emitted a stream the grammar could not parse.
  * @param token - Any token produced by our lexer.
  * @returns Location at the token's first character, using
  *   document-absolute coordinates.
@@ -74,8 +77,8 @@ export function tokenEndLocation(token: IToken): Location {
 
 /**
  * Compute the document's end position from source text.
- * Can't use the last token because trailing whitespace
- * and newlines are consumed by the lexer but not emitted.
+ * Can't use the last token because trailing whitespace and the final
+ * newline are consumed while reading but never emitted as a token.
  * @param text - The complete document source (not a substring).
  * @returns Location at the exclusive end of the source:
  *   offset = text.length, line = number of lines,

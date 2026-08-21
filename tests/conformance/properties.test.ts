@@ -13,8 +13,9 @@ describe("assessCase", () => {
 
   // The properties are differential, so the only way to unit-test the
   // failure paths without depending on a live formatter gap (which
-  // would break these tests the day the gap is fixed) is shape-level:
-  // the corpus itself exercises real failures in Task 6.
+  // would break these tests the day the gap is fixed) is shape-level.
+  // Real failures are exercised by the differential run over the
+  // Asciidoctor corpus, not here.
   test("failures are reported in fixed property order", async () => {
     const result = await assessCase("= Title\n");
     // Whatever the outcome, ordering must be a subsequence of the
@@ -27,8 +28,8 @@ describe("assessCase", () => {
 
 describe("loadQuarantine", () => {
   test("loads the checked-in manifest", () => {
-    // Starts empty; after Task 6 this asserts the manifest stays
-    // parseable and well-formed.
+    // Asserts only that the checked-in manifest stays parseable and
+    // well-formed, whatever is in it — an empty manifest passes.
     const quarantine = loadQuarantine();
     for (const [id, entry] of quarantine) {
       expect(id.length).toBeGreaterThan(0);

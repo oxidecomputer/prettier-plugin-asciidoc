@@ -3,9 +3,15 @@ import { formatAdoc, renderedHtml } from "../helpers.js";
 import {
   interruptsByLineShape,
   interruptsParagraph,
+  isDelimiterLine,
   isRawParagraphLine,
   type ParagraphContext,
 } from "../../src/parse/line-shapes.js";
+import {
+  classifyLine,
+  type LineKind,
+  type ReaderContext,
+} from "../../src/parse/lines/classify.js";
 
 // The registry in src/parse/line-shapes.ts is our MODEL of Asciidoctor's
 // paragraph-interruption rules. This test pins the model to the oracle:
@@ -86,11 +92,14 @@ function blockCount(html: string): number {
 // interruption shows up as a block-count growth the same way it does
 // in the other contexts; after a BARE `term::` there is no open
 // paragraph for the count to grow out of.
+// `literalParagraph`'s prefix is an indented line, which is the only
+// way to open one (`next_block`'s `indented && !style` branch).
 const CONTEXT_PREFIX: Record<ParagraphContext, string> = {
   paragraph: "first line",
   listItem: "* item",
   listContinuation: "* item\n+\npara line",
   dlistItem: "term1:: desc",
+  literalParagraph: "  indented first",
 };
 
 // The enclosing list ancestry of each prefix, in the marker-style
@@ -102,6 +111,7 @@ const CONTEXT_LIST_STYLES: Record<ParagraphContext, readonly string[]> = {
   listItem: [],
   listContinuation: ["*"],
   dlistItem: [],
+  literalParagraph: [],
 };
 
 // WHERE the construct sits inside the open block. Several shapes
@@ -149,7 +159,13 @@ const ALL_CONTEXTS: ParagraphContext[] = [
   "listItem",
   "listContinuation",
   "dlistItem",
+  "literalParagraph",
 ];
+
+// The contexts the FORMATTER is round-tripped in at the bottom of this
+// file — every one the classifier knows, now that the BlockReader
+// groups literal paragraphs itself.
+const FORMATTED_CONTEXTS: ParagraphContext[] = ALL_CONTEXTS;
 
 // Every context crossed with every position, flattened into one list
 // so the suite below nests one describe deep instead of two.
@@ -179,6 +195,45 @@ describe("line-shape registry matches the Asciidoctor oracle", () => {
         }),
         `registry disagrees with oracle for ${JSON.stringify(line)}`,
       ).toBe(oracleInterrupts(construct, context, filler));
+    });
+  });
+});
+
+/**
+ * Whether a line kind lets the open paragraph keep going. Text does,
+ * and so does a raw line — the reader consumes comments, preprocessor
+ * directives and the folded-away block anchor without ever ending a
+ * block. Every other kind is something the reader has to act on, which
+ * means the paragraph stopped.
+ * @param kind - the classifier's verdict for one line
+ * @returns true when the paragraph continues through the line
+ */
+function continuesParagraph(kind: LineKind): boolean {
+  return kind.kind === "text" || kind.kind === "raw";
+}
+
+// The suite above pins `interruptsParagraph`, one predicate in the
+// registry. This one pins the function the READER will call, which
+// consults that registry but also orders every other line shape around
+// it — so an ordering mistake in classifyLine shows up here even when
+// the registry row it consults is right. Both line positions are
+// probed for the same reason the registry suite probes both: several
+// shapes only mean anything on a block's first line.
+describe("classifyLine matches the Asciidoctor oracle", () => {
+  describe.each(PROBES)("%s, %s", (context, _position, filler, firstLine) => {
+    test.each(CONSTRUCTS)("%s", (_name, construct) => {
+      const [line] = construct.split("\n");
+      const reader: ReaderContext = {
+        openParagraph: context,
+        openListStyles: CONTEXT_LIST_STYLES[context],
+        openTerminators: [],
+        inVerbatim: undefined,
+        firstLineAfterStart: firstLine,
+      };
+      expect(
+        continuesParagraph(classifyLine(line, reader)),
+        `classifier disagrees with oracle for ${JSON.stringify(line)} in ${context}`,
+      ).toBe(!oracleInterrupts(construct, context, filler));
     });
   });
 });
@@ -257,6 +312,31 @@ describe("the block attribute line's exact shape", () => {
   });
 });
 
+// Every rule in the registry matches an already-rstripped line, so
+// which characters rstrip removes is part of the registry's contract.
+// ORACLE SURPRISE: the oracle is Asciidoctor Ruby transpiled by Opal,
+// and Opal implements String#rstrip as a JavaScript
+// `self.replace(/[\s\u0000]*$/, '')`. That is NOT MRI's rstrip: it
+// also strips every character JavaScript's `\s` covers (a no-break
+// space among them), which MRI leaves in place. The oracle is the
+// arbiter, so src/parse/line-shapes.ts#rstrip mirrors Opal, and these
+// rows are the pin — a trailing NUL or no-break space must leave the
+// delimiter a delimiter.
+describe("rstrip runs before every line rule", () => {
+  test.each([
+    ["a space", "---- "],
+    ["a tab", "----\t"],
+    ["a carriage return (CRLF input)", "----\r"],
+    ["a NUL", "----\u0000"],
+    ["a no-break space (Opal, not MRI)", "----\u00A0"],
+  ])("%s after a delimiter still delimits", (_name, delimiter) => {
+    expect(isDelimiterLine(delimiter), JSON.stringify(delimiter)).toBe(true);
+    expect(renderedHtml(`${delimiter}\ncode\n----\n`)).toBe(
+      renderedHtml("----\ncode\n----\n"),
+    );
+  });
+});
+
 describe("raw (non-text, non-interrupting) paragraph lines", () => {
   // These lines vanish from rendered output — Asciidoctor drops comments
   // and consumes preprocessor directives while reading — so the formatter
@@ -313,38 +393,6 @@ describe("raw (non-text, non-interrupting) paragraph lines", () => {
 // issue is fixed the entry must be deleted, and the test below fails
 // loudly if a listed row starts passing.
 const KNOWN_GAPS = new Map<string, string>([
-  // A block that ends a list item's text still belongs INSIDE the
-  // item; we emit it as a sibling because only a `+` attaches blocks
-  // today. The classification is right, the nesting is not.
-  [
-    "listItem/callout list marker",
-    "#17 — nested block emitted as a list sibling",
-  ],
-  [
-    "listItem/block attribute list",
-    "#17 — nested block emitted as a list sibling",
-  ],
-  [
-    "listContinuation/block attribute list",
-    "#17 — nested block emitted as a list sibling",
-  ],
-  [
-    "listContinuation/block anchor",
-    "#17 — nested block emitted as a list sibling",
-  ],
-  // The dlist TERM is the whole source line, but the only guard we
-  // have is word-based: it keeps the separator word off the first
-  // output line and lets the words before it join the item's text,
-  // so a term of more than one word loses its leading words. Same
-  // gap the `test.fails` rows in tests/format/reflow.test.ts record.
-  [
-    "listItem/dlist term (bare ::)",
-    "#9 — a multi-word dlist term is not kept whole",
-  ],
-  [
-    "listItem/dlist term (multi-word)",
-    "#9 — a multi-word dlist term is not kept whole",
-  ],
   // Description lists are not parsed yet, so everything a `term::`
   // line owns is emitted at the top level (or reflowed into the
   // term's text).
@@ -374,7 +422,7 @@ function gapKey(context: ParagraphContext, name: string): string {
 // without this the registry could drift into being right on paper
 // only.
 describe("the formatter round-trips every construct in every context", () => {
-  describe.each(ALL_CONTEXTS)("%s", (context) => {
+  describe.each(FORMATTED_CONTEXTS)("%s", (context) => {
     // The title carries the gap text so a listed gap is visible in
     // the run, and is precomputed into its own column because a
     // `test.each` title is a format string, not an expression.

@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { formatAdoc } from "../helpers.js";
+import { formatAdoc, renderedHtml } from "../helpers.js";
 
 describe("listing block formatting", () => {
   // Canonical listing block passes through unchanged.
@@ -95,7 +95,12 @@ describe("literal block formatting", () => {
   // literal block should stay as content, not split the block.
   test("close delimiter requires full line match", async () => {
     const input = ".....\n....x\n";
-    expect(await formatAdoc(input)).toBe("....\n....x\n\n....\n");
+    // `....x` is content, not the terminator, so the block runs to end of
+    // input and the printer closes it directly under its last line.
+    const out = await formatAdoc(input);
+    expect(out).toBe("....\n....x\n....\n");
+    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
   });
 });
 

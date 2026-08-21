@@ -135,21 +135,17 @@ describe("section metadata chains", () => {
     expect(await formatAdoc(first)).toBe(first);
   });
 
-  // KNOWN LIMITATION, pinned so nobody re-investigates: a
-  // comment inside a metadata run stops the isSectionMetadata
-  // scan, so the anchor+comment pair stays in the previous
-  // section and the inter-section blank line lands between the
-  // comment and the heading — visually detaching them. Cosmetic
-  // only: Asciidoctor skips comment lines when attaching
-  // metadata, so <<c>> still resolves to the section in both
-  // layouts.
-  test("comment-interleaved metadata detaches visually (known gap)", async () => {
+  // A comment inside a metadata run travels WITH the metadata to the
+  // heading it labels: `parse_block_metadata_lines` consumes comment
+  // lines in the same scan as the anchor, before `next_section` asks
+  // whether the next line is a title. So the anchor+comment pair is the
+  // new section's, and stays stacked directly above its heading. (This
+  // used to be a pinned cosmetic gap of the old section-nesting pass.)
+  test("comment-interleaved metadata stays with its heading", async () => {
     const input =
       "== First\n\nBody one.\n\n[[c]]\n// note\n== Second\n\nBody two.\n";
     const first = await formatAdoc(input);
-    expect(first).toBe(
-      "== First\n\nBody one.\n\n[[c]]\n// note\n\n== Second\n\nBody two.\n",
-    );
+    expect(first).toBe(input);
     expect(await formatAdoc(first)).toBe(first);
   });
 });

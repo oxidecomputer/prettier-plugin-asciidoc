@@ -23,10 +23,6 @@
     "fails": ["fidelity"],
     "issue": "#9"
   },
-  "api_test.rb#should assign correct source location to blocks that follow a detached list continuation#0": {
-    "fails": ["fidelity"],
-    "issue": "#29"
-  },
   "api_test.rb#should load input IO#0": {
     "fails": ["fidelity"],
     "issue": "#16"
@@ -42,10 +38,6 @@
   "api_test.rb#should not crash if nil cell text is passed to Cell constructor#0": {
     "fails": ["fidelity"],
     "issue": "#10"
-  },
-  "api_test.rb#should only return matched node when return value of block argument is :prune#0": {
-    "fails": ["fidelity"],
-    "issue": "#29"
   },
   "api_test.rb#table cell should be a block#0": {
     "fails": ["fidelity"],
@@ -184,10 +176,6 @@
   "docs/modules/ROOT/pages/localization-support.adoc": {
     "fails": ["fidelity"],
     "issue": "#10"
-  },
-  "docs/modules/api/pages/find-blocks.adoc": {
-    "fails": ["fidelity"],
-    "issue": "#9"
   },
   "docs/modules/api/pages/options.adoc": {
     "fails": ["fidelity"],
@@ -362,10 +350,6 @@
     "fails": ["fidelity"],
     "issue": "#18"
   },
-  "extensions_test.rb#should invoke include processor if it requests to handle include directive#0": {
-    "fails": ["fidelity"],
-    "issue": "UNTRIAGED"
-  },
   "extensions_test.rb#should invoke processor for custom block in an AsciiDoc table cell#0": {
     "fails": ["fidelity"],
     "issue": "#10"
@@ -413,10 +397,6 @@
   "lists_test.rb#a literal paragraph offset by blank lines in list content is appended as a literal block#0": {
     "fails": ["fidelity"],
     "issue": "#16"
-  },
-  "lists_test.rb#a literal paragraph with a line that appears as a list item that is followed by a continuation should create two blocks#0": {
-    "fails": ["fidelity"],
-    "issue": "#17"
   },
   "lists_test.rb#a literal paragraph without a trailing blank line consumes following list items#0": {
     "fails": ["fidelity"],
@@ -510,10 +490,6 @@
     "fails": ["fidelity"],
     "issue": "#16"
   },
-  "lists_test.rb#block attribute lines above nested list with style does not break list#0": {
-    "fails": ["fidelity"],
-    "issue": "#9"
-  },
   "lists_test.rb#consecutive blocks in list continuation attach to list item#0": {
     "fails": ["fidelity"],
     "issue": "#16"
@@ -569,30 +545,6 @@
   "lists_test.rb#folds text that looks like ruler and the line following it offset by blank line#0": {
     "fails": ["fidelity"],
     "issue": "#9"
-  },
-  "lists_test.rb#id and role assigned to ulist item in model are transmitted to output#0": {
-    "fails": ["fidelity"],
-    "issue": "#29"
-  },
-  "lists_test.rb#indented description list item inside outline list item offset by a blank line should be recognized as a nested list#0": {
-    "fails": ["fidelity"],
-    "issue": "#9"
-  },
-  "lists_test.rb#indented outline list item with different marker offset by a blank line should be recognized as a nested list#0": {
-    "fails": ["fidelity"],
-    "issue": "#17"
-  },
-  "lists_test.rb#leading dot is treated as text not block title#0": {
-    "fails": ["fidelity"],
-    "issue": "UNTRIAGED"
-  },
-  "lists_test.rb#level of ordered list should match section level#0": {
-    "fails": ["fidelity"],
-    "issue": "#29"
-  },
-  "lists_test.rb#level of unordered list should match section level#0": {
-    "fails": ["fidelity"],
-    "issue": "#29"
   },
   "lists_test.rb#line attached by continuation is appended as paragraph if term has inline description followed by detached block#0": {
     "fails": ["fidelity"],
@@ -710,22 +662,10 @@
     "fails": ["fidelity"],
     "issue": "#9"
   },
-  "lists_test.rb#paragraph-like blocks attached to an ancestor list item by a list continuation should produce blocks#0": {
-    "fails": ["fidelity"],
-    "issue": "#29"
-  },
   "lists_test.rb#quoted text#0": { "fails": ["fidelity"], "issue": "#16" },
-  "lists_test.rb#repeated list continuations should attach to list items at respective levels ignoring blank lines#0": {
-    "fails": ["fidelity"],
-    "issue": "#17"
-  },
   "lists_test.rb#should allow list style to be specified explicitly when using markers with implicit style#0": {
     "fails": ["fidelity"],
     "issue": "#12"
-  },
-  "lists_test.rb#should continue to parse blocks attached by a list continuation after block is dropped#0": {
-    "fails": ["fidelity"],
-    "issue": "#17"
   },
   "lists_test.rb#should continue to parse subsequent blocks attached to list item after first block is dropped#0": {
     "fails": ["fidelity"],
@@ -747,10 +687,6 @@
     "fails": ["fidelity"],
     "issue": "#9"
   },
-  "lists_test.rb#should discover anchor at start of unordered list item text and register it as a reference#0": {
-    "fails": ["idempotency", "fidelity"],
-    "issue": "UNTRIAGED"
-  },
   "lists_test.rb#should implicitly set start on ordered list if explicit arabic numbering does not start at 1#0": {
     "fails": ["fidelity"],
     "issue": "#12"
@@ -771,10 +707,6 @@
     "fails": ["fidelity"],
     "issue": "#12"
   },
-  "lists_test.rb#should recognize auto-numberd callout list inside list#0": {
-    "fails": ["fidelity"],
-    "issue": "UNTRIAGED"
-  },
   "lists_test.rb#should warn if explicit lowercase roman numerals in list are out of sequence#0": {
     "fails": ["fidelity"],
     "issue": "#12"
@@ -786,10 +718,6 @@
   "lists_test.rb#should warn if item with explicit numbering in ordered list is out of sequence#0": {
     "fails": ["fidelity"],
     "issue": "#12"
-  },
-  "lists_test.rb#simple? should return true for list item with nested outline list#0": {
-    "fails": ["fidelity"],
-    "issue": "#29"
   },
   "lists_test.rb#text method of dd node should return nil if dd node only contains blocks#0": {
     "fails": ["fidelity"],
@@ -803,19 +731,11 @@
     "fails": ["fidelity"],
     "issue": "#16"
   },
-  "lists_test.rb#trailing list continuations should ignore preceding blank lines#0": {
-    "fails": ["fidelity"],
-    "issue": "#17"
-  },
   "lists_test.rb#word ending sentence on continuing line not treated as a list item#0": {
     "fails": ["fidelity"],
     "issue": "#12"
   },
   "manpage_test.rb#(outside test)#0": { "fails": ["fidelity"], "issue": "#18" },
-  "manpage_test.rb#should escape repeated spaces in literal content#0": {
-    "fails": ["fidelity"],
-    "issue": "#27"
-  },
   "manpage_test.rb#should manify and preserve whitespace in literal table cell#0": {
     "fails": ["fidelity"],
     "issue": "#26"
@@ -868,41 +788,9 @@
     "fails": ["fidelity"],
     "issue": "UNTRIAGED"
   },
-  "reader_test.rb#include directive includes regions outside tags and inside specified tags when value begins with negated wildcard#1": {
-    "fails": ["fidelity"],
-    "issue": "UNTRIAGED"
-  },
-  "reader_test.rb#include directive selects all lines except for lines containing tag directive if value is double asterisk followed by nested tag names#1": {
-    "fails": ["fidelity"],
-    "issue": "#27"
-  },
-  "reader_test.rb#include directive selects all lines except for lines containing tag directive when value is double asterisk followed by outer tag name#1": {
-    "fails": ["fidelity"],
-    "issue": "#27"
-  },
-  "reader_test.rb#include directive selects all lines without a tag directive when value is double asterisk#1": {
-    "fails": ["fidelity"],
-    "issue": "#27"
-  },
-  "reader_test.rb#include directive selects all lines, including lines inside nested tags, except lines inside tag which is negated when value starts with double asterisk#1": {
-    "fails": ["fidelity"],
-    "issue": "UNTRIAGED"
-  },
-  "reader_test.rb#include directive selects lines inside all tags except tag which is negated when value of tags attribute is wildcard followed by negated tag#1": {
-    "fails": ["fidelity"],
-    "issue": "UNTRIAGED"
-  },
-  "reader_test.rb#include directive selects lines inside tags when value of tags attribute is wildcard and tag surrounds content#1": {
-    "fails": ["fidelity"],
-    "issue": "#27"
-  },
   "reader_test.rb#include directive should not attempt to resolve target as remote if allow-uri-read is set and URL is not on first line#0": {
     "fails": ["fidelity"],
     "issue": "#24"
-  },
-  "reader_test.rb#line following dropped include is not dropped#0": {
-    "fails": ["fidelity"],
-    "issue": "UNTRIAGED"
   },
   "reader_test.rb#should not skip front matter by default#0": {
     "fails": ["fidelity"],
@@ -911,10 +799,6 @@
   "reader_test.rb#should not skip front matter if ending delimiter is not found#0": {
     "fails": ["fidelity"],
     "issue": "#21"
-  },
-  "reader_test.rb#should recognize tag wildcard if not at start of tags list#1": {
-    "fails": ["fidelity"],
-    "issue": "#27"
   },
   "sections_test.rb#document title with level 0 headings#0": {
     "fails": ["fidelity"],
@@ -982,11 +866,11 @@
   },
   "sections_test.rb#should preprocess second line of setext discrete heading#0": {
     "fails": ["fidelity"],
-    "issue": "#28"
+    "issue": "#16"
   },
   "sections_test.rb#should preprocess second line of setext section title#0": {
     "fails": ["fidelity"],
-    "issue": "#28"
+    "issue": "#16"
   },
   "sections_test.rb#should print error if standalone document is included without level offset#0": {
     "fails": ["fidelity"],
@@ -1494,10 +1378,7 @@
     "fails": ["fidelity"],
     "issue": "UNTRIAGED"
   },
-  "test/fixtures/lists.adoc": {
-    "fails": ["idempotency", "fidelity"],
-    "issue": "#18"
-  },
+  "test/fixtures/lists.adoc": { "fails": ["fidelity"], "issue": "#18" },
   "test/fixtures/sample.adoc": { "fails": ["fidelity"], "issue": "#16" },
   "test/fixtures/subs.adoc": { "fails": ["fidelity"], "issue": "#18" },
   "test/fixtures/with-front-matter.adoc": {

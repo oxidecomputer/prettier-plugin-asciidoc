@@ -93,8 +93,10 @@ function listMarker(variant: ListNode["variant"], depth: number): string {
 
 /**
  * Determines whether a block node is visible in the ASG.
- * The ASG omits comments, attribute entries, block
- * attribute lists, and block titles.
+ * The ASG omits comments, attribute entries, block attribute
+ * lists, block titles, and preprocessor directives — the last
+ * because a directive is a preprocessor line that Asciidoctor
+ * resolves before the parser runs, so it has no ASG node at all.
  * @param node - block node to test for ASG visibility
  * @returns true if the node appears in ASG output
  */
@@ -103,7 +105,8 @@ function isAsgVisible(node: BlockNode): boolean {
     node.type !== "comment" &&
     node.type !== "attributeEntry" &&
     node.type !== "blockAttributeList" &&
-    node.type !== "blockTitle"
+    node.type !== "blockTitle" &&
+    node.type !== "preprocessorDirective"
   );
 }
 
@@ -408,13 +411,18 @@ function convertBlock(node: BlockNode): AsgBlock {
     case "pageBreak": {
       return convertBreak(node);
     }
-    // These types are always stripped by filterVisible() before
-    // convertBlock() is called, so this branch is unreachable at
-    // runtime. The empty-paragraph sentinel satisfies TypeScript's
-    // exhaustive switch requirement without adding a throw that
-    // would require a non-null assertion at every call site.
-    case "conditionalDirective":
-    case "includeDirective":
+    // What is left has no ASG block of its own. isAsgVisible()
+    // strips comments, attribute entries, block attribute lists,
+    // block titles and preprocessor directives before convertBlock()
+    // sees them, and extractHeader() consumes a documentTitle that
+    // is the document's FIRST child. Two cases still arrive here: a
+    // blockMacro, which we do not project yet, and a documentTitle
+    // that is not first (`para` then `= Title`), which is not a
+    // header. The empty-paragraph sentinel satisfies TypeScript's
+    // exhaustive switch without a throw that would require a
+    // non-null assertion at every call site, and keeps such a
+    // document comparable rather than crashing the TCK run.
+    case "preprocessorDirective":
     case "blockMacro":
     case "comment":
     case "attributeEntry":

@@ -32,10 +32,9 @@ import {
   printAttributeEntry,
   printComment,
   printDelimitedBlock,
-  printList,
-  printListItem,
   printParentBlock,
 } from "./print-blocks.js";
+import { printList, printListItem } from "./print-list.js";
 
 const {
   builders: { fill, hardline },
@@ -111,13 +110,11 @@ const printer: Printer<AnyNode> = {
         const { name, target, attrlist } = node;
         return [name, "::", target, "[", attrlist, "]"];
       }
-      case "includeDirective": {
-        const { target, attrlist } = node;
-        return ["include::", target, "[", attrlist, "]"];
-      }
-      case "conditionalDirective": {
-        const { directive, target, attrlist } = node;
-        return [directive, "::", target, "[", attrlist, "]"];
+      // A line Asciidoctor's reader eats before block parsing
+      // (`PreprocessorReader#process_line`): kept exactly as written,
+      // because the formatter cannot resolve it.
+      case "preprocessorDirective": {
+        return node.value;
       }
       case "paragraph": {
         // Reflow paragraph text to printWidth using fill. The text
@@ -130,7 +127,7 @@ const printer: Printer<AnyNode> = {
         );
       }
       case "list": {
-        return printList(path, print);
+        return printList(node, path, print);
       }
       case "listItem": {
         return printListItem(node, path, print);

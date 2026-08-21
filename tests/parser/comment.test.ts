@@ -14,6 +14,7 @@
  */
 import { describe, test, expect } from "vitest";
 import { parse } from "../../src/parser.js";
+import { renderedHtml } from "../helpers.js";
 import { narrow } from "../../src/unreachable.js";
 
 describe("line comment parsing", () => {
@@ -151,9 +152,9 @@ describe("block comment parsing", () => {
     expect(child0.value).toBe("block content");
   });
 
-  // Empty block comments (`////\n////`) are valid and must not confuse
-  // the lexer mode — it should pop back to default even with no content
-  // tokens between the delimiters.
+  // Empty block comments (`////\n////`) are valid: the reader opens a
+  // verbatim frame on the first line and the second closes it with no
+  // content lines in between.
   test("empty block comment", () => {
     const document = parse("////\n////\n");
     expect(document.children).toHaveLength(1);
@@ -245,18 +246,21 @@ describe("block comment parsing", () => {
     expect(child0.value).toBe("content");
   });
 
-  // AsciiDoc allows mismatched delimiter lengths: a 4-slash open
-  // and a 6-slash close are both valid `/{4,}` patterns. The lexer
-  // should accept this without error. Guards against regressions
-  // where the parser tries to match open/close delimiter lengths.
-  test("mismatched delimiter lengths (4-open, 6-close)", () => {
-    const document = parse("////\ncontent\n//////\n");
+  // Mismatched delimiter lengths do NOT close a block: `read_lines_until
+  // terminator:` compares whole lines against the opening delimiter, so
+  // a 6-slash line inside a 4-slash comment block is content and the
+  // block runs on to end of input (Asciidoctor warns "unterminated
+  // comment block"). ORACLE: nothing of it renders either way.
+  test("mismatched delimiter lengths (4-open, 6-close) leave the block unclosed", () => {
+    const input = "////\ncontent\n//////\n";
+    expect(renderedHtml(input)).not.toContain("content");
+    const document = parse(input);
     expect(document.children).toHaveLength(1);
     const {
       children: [child0],
     } = document;
     narrow(child0, "comment");
     expect(child0.commentType).toBe("block");
-    expect(child0.value).toBe("content");
+    expect(child0.value).toBe("content\n//////");
   });
 });

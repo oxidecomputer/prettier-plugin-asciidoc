@@ -1,6 +1,6 @@
 import { describe, test, expect } from "vitest";
 import { parse } from "../../src/parser.js";
-import { firstList } from "../helpers.js";
+import { firstList, renderedHtml } from "../helpers.js";
 import { narrow } from "../../src/unreachable.js";
 
 describe("ordered list parsing", () => {
@@ -65,12 +65,14 @@ describe("ordered list parsing", () => {
     expect(textNode.value).toContain("second line");
   });
 
-  // Two lists separated by a blank line are distinct blocks.
-  test("two separate ordered lists separated by blank line", () => {
-    const { children } = parse(". List A\n\n. List B\n");
-    expect(children).toHaveLength(2);
-    expect(children[0].type).toBe("list");
-    expect(children[1].type).toBe("list");
+  // A blank line between two items does NOT split the list (see the
+  // unordered-list suite for the Ruby). ORACLE: one `<ol>`.
+  test("two ordered items separated by a blank line are one list", () => {
+    const input = ". List A\n\n. List B\n";
+    expect(renderedHtml(input).match(/<ol/gv)).toHaveLength(1);
+    const { children } = parse(input);
+    expect(children).toHaveLength(1);
+    expect(firstList(children).children).toHaveLength(2);
   });
 
   // Position tracking: the list starts at the first `.` marker.
@@ -94,10 +96,9 @@ describe("ordered list parsing", () => {
     expect(textNode.value).toBe("Hello world");
   });
 
-  // Three levels exercises the stack more than two: the
-  // nestListItems loop must push twice and then drain twice
-  // when the list ends, checking that collapseLevel wires
-  // each nested list onto the right parent item.
+  // Three levels exercises the reader's frame stack more than two: it
+  // must push a list frame twice and drain both when the list ends,
+  // emitting each nested list INSIDE the item that owns it.
   test("three levels of nesting", () => {
     const input = ". Level 1\n.. Level 2\n... Level 3\n";
     const { children } = parse(input);

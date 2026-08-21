@@ -106,10 +106,9 @@ describe("document title parsing", () => {
   });
 
   // A document title at EOF without a trailing newline exercises the
-  // lexer's tolerance for missing trailing whitespace. The DocumentTitle
-  // token pattern matches to end of input when there is no `\n`, so
-  // the lexer still emits the token and the parser produces a
-  // complete document title node.
+  // line splitter's tolerance for a missing final newline: the last
+  // line is still a line, so the reader classifies it and emits a
+  // DocumentTitleLine like any other.
   test("document title at EOF without trailing newline", () => {
     const document = parse("= Title");
     expect(document.children).toHaveLength(1);

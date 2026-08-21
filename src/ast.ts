@@ -543,44 +543,24 @@ export interface BlockMacroNode extends Node {
 }
 
 /**
- * An include preprocessor directive (`include::path[opts]`).
+ * A preprocessor directive line (`include::`, `ifdef::`, `ifndef::`,
+ * `ifeval::`, `endif::`) that sits BETWEEN blocks.
  *
- * Unlike block macros, includes are preprocessor directives
- * that tell the AsciiDoc processor to insert content from
- * another file. The formatter preserves them literally — it
- * does not resolve them.
+ * Asciidoctor's `PreprocessorReader#process_line` (reader.rb:819)
+ * matches the line and `shift`s it off the stream before
+ * `Parser.next_block` is ever called, so a directive is not a block of
+ * its own: it is a line the reader eats. The formatter cannot resolve
+ * it (it has no attribute values and does not read included files), so
+ * it keeps the line verbatim, in place, and treats it as transparent
+ * for attachment — block metadata, a list continuation `+` and a
+ * section's metadata all reach across it. Inside a paragraph the same
+ * line is a {@link RawLineNode}.
  */
-export interface IncludeDirectiveNode extends Node {
+export interface PreprocessorDirectiveNode extends Node {
   /** Node discriminant. */
-  type: "includeDirective";
-  /** File path between `::` and `[`. */
-  target: string;
-  /** Raw attribute list content inside `[…]`. */
-  attrlist: string;
-}
-
-/**
- * Conditional preprocessor directive preserved verbatim.
- *
- * Covers `ifdef`, `ifndef`, `ifeval`, and `endif` directives.
- * The formatter does not evaluate these — it preserves them
- * literally so the document's conditional logic is unchanged.
- */
-export interface ConditionalDirectiveNode extends Node {
-  /** Node discriminant. */
-  type: "conditionalDirective";
-  /** Which conditional keyword was used. */
-  directive: "ifdef" | "ifndef" | "ifeval" | "endif";
-  /**
-   * Attribute name(s) between `::` and `[` (empty for
-   * `ifeval` and bare `endif`).
-   */
-  target: string;
-  /**
-   * Raw content inside `[…]` (expression for `ifeval`,
-   * inline content for single-line form, empty otherwise).
-   */
-  attrlist: string;
+  type: "preprocessorDirective";
+  /** The whole source line, verbatim. */
+  value: string;
 }
 
 /** A page break: `<<<` (three or more less-than signs). */
@@ -624,21 +604,27 @@ export interface ListItemNode extends Node {
    */
   children: Array<InlineNode | ListNode>;
   /**
-   * Blocks attached to this item with `+` list continuation
-   * lines, in source order. Paragraphs, or literal blocks
-   * (form "indented") when the content after `+` is indented.
-   * A `+` line followed by a DELIMITED block (e.g. `----`)
-   * ends the item at the grammar level before continuation
-   * handling can see the block, so the block first parses as a
-   * sibling; the post-parse absorption pass (issue #6,
-   * src/parse/continuation-absorber.ts) then moves a directly
-   * adjacent block back into this array. Only when a blank
-   * line separates the `+` from the block does it stay a
-   * sibling — which still renders correctly because
-   * Asciidoctor attaches continuation content across a blank
-   * line (remaining structural depth is issue #17).
+   * Every non-list block inside this item, in source order, each with
+   * how it got there: the blocks a `+` list continuation attached, and
+   * the blocks Asciidoctor keeps in the item without one (a literal
+   * paragraph after a blank line, a paragraph adjacent to an attached
+   * block, block metadata, an admonition …) — Asciidoctor's
+   * `list_item.blocks`. The printer writes each back in the source's
+   * own spelling (see {@link AttachedBlock}).
    */
-  attachedBlocks: BlockNode[];
+  attachedBlocks: AttachedBlock[];
+  /**
+   * True when the item's principal text must keep the line break
+   * before its last source line: a TRAILING metadata run (no block of
+   * the item after it) ended text of more than one line and carries a
+   * block title. Reflowed onto the first line after the marker line the
+   * run's first line would fold into the text and the title become
+   * text, and a `+` there would re-parent whatever block follows the
+   * list; the kept break keeps the run where it was (Ruling 28). It
+   * means exactly "the text prints on at least two lines": the printer
+   * hardens the last soft separator of the flattened text (Ruling 29).
+   */
+  keepTextBreak: boolean;
   /**
    * True when the item ends with a `+` continuation line that
    * has nothing following it inside the item to attach. The
@@ -649,6 +635,47 @@ export interface ListItemNode extends Node {
    * behavior — changed the rendered output).
    */
   danglingContinuation: boolean;
+}
+
+/**
+ * How a block inside a list item was introduced — the spelling the
+ * printer writes back, because Asciidoctor reads them differently:
+ *
+ * - `"plus"` — a `+` list continuation directly above the block (or
+ *   above the metadata group the block ends);
+ * - `"detached"` — a blank line, then a `+`. Inside nested lists
+ *   `read_lines_for_list_item` deletes only the LAST detached `+` from
+ *   the outer item's buffer, so which item an earlier one's block lands
+ *   in depends on what follows; only the source's spelling round-trips;
+ * - `"none"` — no `+`, the block follows directly (a dlist term under
+ *   the item text, a paragraph under an attached delimited block);
+ * - `"blank"` — no `+`, a blank line then the block (a literal
+ *   paragraph or dlist term the after-blank rule keeps).
+ *
+ * The reader decides the spelling (Ruling 27), and one of them is not
+ * the source's: block metadata directly under item text of more than
+ * one line with no `+` is `"plus"` — that reading is line-count
+ * dependent (on the first line after the marker line the same metadata
+ * folds the block after it into the text, and reflow puts it there), so
+ * an explicit `+` keeps it off that line (Ruling 26). Otherwise a `+`
+ * the author never wrote is never invented (Ruling 24).
+ */
+export type ItemContinuation = "plus" | "detached" | "none" | "blank";
+
+/** One block inside a list item, with how it was introduced. */
+export interface AttachedBlock {
+  /** The block. */
+  block: BlockNode;
+  /** How it was introduced — see {@link ItemContinuation}. */
+  continuation: ItemContinuation;
+  /**
+   * How many `+` lines introduced it: 1 for `"plus"`, 0 for `"none"`
+   * and `"blank"`, and 1 or more for `"detached"` — inside a nested
+   * list, detached `+` lines stack (blank, `+`, blank, `+`, block):
+   * the outer item erases only the last, the inner item takes the block
+   * with the first, and only the full stack reads back the same way.
+   */
+  pluses: number;
 }
 
 /**
@@ -703,7 +730,6 @@ export type BlockNode =
   | ThematicBreakNode
   | PageBreakNode
   | BlockMacroNode
-  | IncludeDirectiveNode
-  | ConditionalDirectiveNode
+  | PreprocessorDirectiveNode
   | BlockAttributeListNode
   | BlockTitleNode;

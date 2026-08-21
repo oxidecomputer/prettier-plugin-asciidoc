@@ -10,14 +10,16 @@
 
 import type { Parameters } from "fast-check";
 
-// CI runs are SEEDED. The fuzz properties are `test.fails` markers
-// for known gaps, so a run that happens to find no counterexample
-// turns green into a spurious failure — the gate has to be
-// deterministic. Continuous fuzzing (FUZZ set) drops the seed so
-// each run explores fresh inputs. Verified: with this seed both
-// properties find a counterexample on every run; if a fix ever
-// closes one of them, flip its `test.fails` to `test` rather than
-// hunting for a new seed.
+// CI runs are SEEDED so the gate is reproducible for BOTH kinds of
+// property. The formatter properties are `test.fails` markers for
+// known gaps, where a run that happens to find no counterexample
+// would turn green into a spurious failure; the reader properties
+// (tests/parser/reader-lists.test.ts) are ordinary passing
+// properties, where a seed makes a failure replayable. Continuous
+// fuzzing (FUZZ set) drops the seed so each run explores fresh
+// inputs. Verified: with this seed both `test.fails` properties find
+// a counterexample on every run; if a fix ever closes one of them,
+// flip its `test.fails` to `test` rather than hunting for a new seed.
 const CI_SEED = 1;
 
 // Check for presence, not value — `FUZZ=0` still enables fuzzing.

@@ -8,7 +8,7 @@
  */
 import { describe, test, expect } from "vitest";
 import { parse } from "../../src/parser.js";
-import { asParagraph, firstList } from "../helpers.js";
+import { asParagraph, firstList, renderedHtml } from "../helpers.js";
 import { narrow } from "../../src/unreachable.js";
 
 describe("list continuation parsing", () => {
@@ -27,7 +27,7 @@ describe("list continuation parsing", () => {
     });
     // The attached paragraph lands in blocks.
     expect(item.attachedBlocks).toHaveLength(1);
-    const attached = asParagraph(item.attachedBlocks[0]);
+    const attached = asParagraph(item.attachedBlocks[0].block);
     expect(attached.children[0]).toMatchObject({
       type: "text",
       value: "Attached paragraph.",
@@ -42,14 +42,18 @@ describe("list continuation parsing", () => {
       children: [item],
     } = firstList(children);
     expect(item.attachedBlocks).toHaveLength(2);
-    expect(asParagraph(item.attachedBlocks[0]).children[0]).toMatchObject({
-      type: "text",
-      value: "First attached.",
-    });
-    expect(asParagraph(item.attachedBlocks[1]).children[0]).toMatchObject({
-      type: "text",
-      value: "Second attached.",
-    });
+    expect(asParagraph(item.attachedBlocks[0].block).children[0]).toMatchObject(
+      {
+        type: "text",
+        value: "First attached.",
+      },
+    );
+    expect(asParagraph(item.attachedBlocks[1].block).children[0]).toMatchObject(
+      {
+        type: "text",
+        value: "Second attached.",
+      },
+    );
   });
 
   test("multi-line attached paragraph stays one block", () => {
@@ -60,10 +64,12 @@ describe("list continuation parsing", () => {
       children: [item],
     } = firstList(children);
     expect(item.attachedBlocks).toHaveLength(1);
-    expect(asParagraph(item.attachedBlocks[0]).children[0]).toMatchObject({
-      type: "text",
-      value: "Attached line one\nattached line two.",
-    });
+    expect(asParagraph(item.attachedBlocks[0].block).children[0]).toMatchObject(
+      {
+        type: "text",
+        value: "Attached line one\nattached line two.",
+      },
+    );
   });
 
   test("continuation attaches to the nested item it follows", () => {
@@ -139,18 +145,27 @@ describe("list continuation parsing", () => {
   // A `+` line DIRECTLY after a marker is content of the
   // attached paragraph, not a second marker — treating it as a
   // marker would silently delete the `+` from the rendered
-  // document (Asciidoctor renders `+ Attached` here).
+  // document (Asciidoctor renders `+ Attached` here). The reader
+  // keeps that `+` as a verbatim line of its own (a one-line raw
+  // paragraph) ahead of the attached paragraph, so the byte is
+  // printed back exactly where it was written.
   test("+ line directly after a marker is content", () => {
-    const { children } = parse("* item\n+\n+\nAttached\n");
+    const input = "* item\n+\n+\nAttached\n";
+    expect(renderedHtml(input)).toContain("<p>+ Attached</p>");
+    const { children } = parse(input);
     const {
       children: [item],
     } = firstList(children);
-    expect(item.attachedBlocks).toHaveLength(1);
-    const attached = asParagraph(item.attachedBlocks[0]);
-    expect(attached.children[0]).toMatchObject({
-      type: "text",
-      value: "+\nAttached",
-    });
+    expect(item.attachedBlocks).toHaveLength(2);
+    expect(asParagraph(item.attachedBlocks[0].block).children).toEqual([
+      expect.objectContaining({ type: "rawLine", value: "+" }),
+    ]);
+    expect(asParagraph(item.attachedBlocks[1].block).children[0]).toMatchObject(
+      {
+        type: "text",
+        value: "Attached",
+      },
+    );
   });
 
   // Indented content after `+` is a literal block in
@@ -162,7 +177,7 @@ describe("list continuation parsing", () => {
       children: [item],
     } = firstList(children);
     expect(item.attachedBlocks).toHaveLength(1);
-    expect(item.attachedBlocks[0]).toMatchObject({
+    expect(item.attachedBlocks[0].block).toMatchObject({
       type: "delimitedBlock",
       variant: "literal",
       form: "indented",
@@ -185,7 +200,7 @@ describe("continuations around delimited blocks (issue #6)", () => {
     } = firstList(children);
     expect(item.danglingContinuation).toBe(false);
     expect(item.attachedBlocks).toHaveLength(1);
-    expect(item.attachedBlocks[0]).toMatchObject({
+    expect(item.attachedBlocks[0].block).toMatchObject({
       type: "delimitedBlock",
       variant: "literal",
       form: "delimited",
@@ -206,19 +221,20 @@ describe("continuations around delimited blocks (issue #6)", () => {
         "* item two.\n",
     );
     // The literal block and trailing paragraph are absorbed into
-    // item one; item two remains a separate sibling list.
-    expect(children).toHaveLength(2);
-    const {
-      children: [item],
-    } = firstList(children);
+    // item one; item two is the second item of the SAME list (a
+    // blank line between items does not split a list).
+    expect(children).toHaveLength(1);
+    const { children: items } = firstList(children);
+    expect(items).toHaveLength(2);
+    const [item] = items;
     expect(item.danglingContinuation).toBe(false);
     expect(item.attachedBlocks).toHaveLength(2);
-    expect(item.attachedBlocks[0]).toMatchObject({
+    expect(item.attachedBlocks[0].block).toMatchObject({
       type: "delimitedBlock",
       variant: "literal",
       content: "literal block content",
     });
-    const attached = asParagraph(item.attachedBlocks[1]);
+    const attached = asParagraph(item.attachedBlocks[1].block);
     expect(attached.children[0]).toMatchObject({
       type: "text",
       value: "continuation paragraph after the block.",
@@ -232,7 +248,7 @@ describe("continuations around delimited blocks (issue #6)", () => {
       children: [item],
     } = firstList(children);
     expect(item.attachedBlocks).toHaveLength(1);
-    expect(item.attachedBlocks[0]).toMatchObject({
+    expect(item.attachedBlocks[0].block).toMatchObject({
       type: "parentBlock",
       variant: "example",
     });
@@ -247,14 +263,18 @@ describe("continuations around delimited blocks (issue #6)", () => {
       children: [item],
     } = firstList(children);
     expect(item.attachedBlocks).toHaveLength(3);
-    expect(asParagraph(item.attachedBlocks[1]).children[0]).toMatchObject({
-      type: "text",
-      value: "para one",
-    });
-    expect(asParagraph(item.attachedBlocks[2]).children[0]).toMatchObject({
-      type: "text",
-      value: "para two",
-    });
+    expect(asParagraph(item.attachedBlocks[1].block).children[0]).toMatchObject(
+      {
+        type: "text",
+        value: "para one",
+      },
+    );
+    expect(asParagraph(item.attachedBlocks[2].block).children[0]).toMatchObject(
+      {
+        type: "text",
+        value: "para two",
+      },
+    );
   });
 
   test("trailing + after an attached block re-arms attachment", () => {
@@ -266,45 +286,54 @@ describe("continuations around delimited blocks (issue #6)", () => {
       children: [item],
     } = firstList(children);
     expect(item.attachedBlocks).toHaveLength(3);
-    expect(item.attachedBlocks[0]).toMatchObject({
+    expect(item.attachedBlocks[0].block).toMatchObject({
       type: "delimitedBlock",
       content: "one",
     });
-    expect(item.attachedBlocks[2]).toMatchObject({
+    expect(item.attachedBlocks[2].block).toMatchObject({
       type: "delimitedBlock",
       content: "two",
     });
   });
 
-  // A blank line between the dangling `+` and the next block
-  // breaks direct adjacency: the `+` stays dangling (re-emitted
-  // verbatim) and the block stays a sibling — the existing
-  // conservative behavior.
-  test("blank line after dangling + leaves the block unattached", () => {
-    const { children } = parse("* item\n+\n\n....\nliteral\n....\n");
-    expect(children).toHaveLength(2);
+  // ONE blank line between the `+` and the next block still attaches
+  // it: `read_lines_for_list_item` buffers the first blank after a
+  // `+` as content, so the block that follows reaches the
+  // `continuation == :active` branch. ORACLE: the literal block is
+  // inside the item. (Two blanks would end the list instead.)
+  test("one blank line after + still attaches the block", () => {
+    const input = "* item\n+\n\n....\nliteral\n....\n";
+    expect(renderedHtml(input)).toMatch(/<li>.*<pre>literal<\/pre>.*<\/li>/v);
+    const { children } = parse(input);
+    expect(children).toHaveLength(1);
     const {
       children: [item],
     } = firstList(children);
-    expect(item.danglingContinuation).toBe(true);
-    expect(item.attachedBlocks).toHaveLength(0);
+    expect(item.danglingContinuation).toBe(false);
+    expect(item.attachedBlocks).toHaveLength(1);
+    expect(item.attachedBlocks[0].block).toMatchObject({
+      type: "delimitedBlock",
+      variant: "literal",
+    });
   });
 
-  // A paragraph after an attached block only chains when it
-  // begins with its own `+` marker line; otherwise it stays a
-  // sibling. KNOWN FIDELITY GAP (pre-existing, not introduced
-  // by the absorber): Asciidoctor keeps a directly adjacent
-  // plain paragraph INSIDE the list item, so the blank line
-  // the formatter prints detaches it and changes rendering.
-  // Tracked in issue #17.
-  test("paragraph without leading + does not chain", () => {
-    const { children } = parse("* item:\n+\n....\nliteral\n....\nplain para\n");
-    expect(children).toHaveLength(2);
+  // A plain paragraph directly after an attached block is INSIDE the
+  // item: `read_lines_for_list_item` keeps reading adjacent lines as
+  // item content (no blank line has ended it), so no `+` is needed.
+  // This closes the #17 gap the old absorber recorded here. ORACLE:
+  // one `<li>` holding the literal block and the paragraph.
+  test("a paragraph adjacent to an attached block stays in the item", () => {
+    const input = "* item:\n+\n....\nliteral\n....\nplain para\n";
+    expect(renderedHtml(input)).toMatch(
+      /<li>.*<pre>literal<\/pre>.*<p>plain para<\/p>.*<\/li>/v,
+    );
+    const { children } = parse(input);
+    expect(children).toHaveLength(1);
     const {
       children: [item],
     } = firstList(children);
-    expect(item.attachedBlocks).toHaveLength(1);
-    expect(children[1]).toMatchObject({ type: "paragraph" });
+    expect(item.attachedBlocks).toHaveLength(2);
+    expect(item.attachedBlocks[1].block).toMatchObject({ type: "paragraph" });
   });
 
   // A `+` attaches the NEXT LOGICAL BLOCK: any metadata lines
@@ -322,11 +351,11 @@ describe("continuations around delimited blocks (issue #6)", () => {
     } = firstList(children);
     expect(item.danglingContinuation).toBe(false);
     expect(item.attachedBlocks).toHaveLength(2);
-    expect(item.attachedBlocks[0]).toMatchObject({
+    expect(item.attachedBlocks[0].block).toMatchObject({
       type: "blockAttributeList",
       value: "NOTE",
     });
-    expect(item.attachedBlocks[1]).toMatchObject({
+    expect(item.attachedBlocks[1].block).toMatchObject({
       type: "admonition",
       variant: "note",
     });
@@ -339,10 +368,10 @@ describe("continuations around delimited blocks (issue #6)", () => {
       children: [item],
     } = firstList(children);
     expect(item.attachedBlocks).toHaveLength(2);
-    expect(item.attachedBlocks[0]).toMatchObject({
+    expect(item.attachedBlocks[0].block).toMatchObject({
       type: "blockAttributeList",
     });
-    expect(item.attachedBlocks[1]).toMatchObject({
+    expect(item.attachedBlocks[1].block).toMatchObject({
       type: "delimitedBlock",
       variant: "listing",
     });
@@ -355,7 +384,7 @@ describe("continuations around delimited blocks (issue #6)", () => {
       children: [item],
     } = firstList(children);
     expect(item.attachedBlocks).toHaveLength(2);
-    expect(item.attachedBlocks[0]).toMatchObject({ type: "blockTitle" });
+    expect(item.attachedBlocks[0].block).toMatchObject({ type: "blockTitle" });
   });
 
   test("+ attaches an anchor paragraph with its block", () => {
@@ -365,8 +394,10 @@ describe("continuations around delimited blocks (issue #6)", () => {
       children: [item],
     } = firstList(children);
     expect(item.attachedBlocks).toHaveLength(2);
-    expect(item.attachedBlocks[0]).toMatchObject({ type: "paragraph" });
-    expect(item.attachedBlocks[1]).toMatchObject({ type: "delimitedBlock" });
+    expect(item.attachedBlocks[0].block).toMatchObject({ type: "paragraph" });
+    expect(item.attachedBlocks[1].block).toMatchObject({
+      type: "delimitedBlock",
+    });
   });
 
   test("+ attaches metadata with a plain paragraph anchor", () => {
@@ -376,7 +407,7 @@ describe("continuations around delimited blocks (issue #6)", () => {
       children: [item],
     } = firstList(children);
     expect(item.attachedBlocks).toHaveLength(2);
-    expect(item.attachedBlocks[1]).toMatchObject({ type: "paragraph" });
+    expect(item.attachedBlocks[1].block).toMatchObject({ type: "paragraph" });
   });
 
   test("+ attaches a block macro", () => {
@@ -386,31 +417,52 @@ describe("continuations around delimited blocks (issue #6)", () => {
       children: [item],
     } = firstList(children);
     expect(item.attachedBlocks).toHaveLength(1);
-    expect(item.attachedBlocks[0]).toMatchObject({ type: "blockMacro" });
+    expect(item.attachedBlocks[0].block).toMatchObject({ type: "blockMacro" });
   });
 
-  // A section heading can never be list-item content — it
-  // terminates the list in Asciidoctor too. The `+` stays a
-  // dangling marker, preserved verbatim.
-  test("+ before a section heading does not attach", () => {
-    const { children } = parse("* i:\n+\n== Heading\n");
+  // A heading line after a `+` is attached PARAGRAPH TEXT: the
+  // `continuation == :active` branch of `read_lines_for_list_item`
+  // buffers it, and the confined list-item reader never calls
+  // `next_section`. ORACLE: `<p>== Heading</p>` inside the item, no
+  // `<h2>`.
+  test("+ before a section heading attaches it as paragraph text", () => {
+    const input = "* i:\n+\n== Heading\n";
+    const html = renderedHtml(input);
+    expect(html).toContain("<p>== Heading</p>");
+    expect(html).not.toContain("<h2");
+    const { children } = parse(input);
     const {
       children: [item],
     } = firstList(children);
-    expect(item.attachedBlocks).toHaveLength(0);
-    expect(item.danglingContinuation).toBe(true);
+    expect(item.attachedBlocks).toHaveLength(1);
+    expect(asParagraph(item.attachedBlocks[0].block).children[0]).toMatchObject(
+      {
+        type: "text",
+        value: "== Heading",
+      },
+    );
+    expect(item.danglingContinuation).toBe(false);
   });
 
-  // Metadata only commits together with its anchor block; a
-  // blank line between them abandons the whole group (the
-  // metadata stays a sibling and the `+` stays dangling).
-  test("metadata without an adjacent anchor is not attached", () => {
-    const { children } = parse("* i:\n+\n[NOTE]\n\n====\nx\n====\n");
+  // Block metadata after a `+` "plays out until we find the block"
+  // without consuming the continuation, and a blank line after it is
+  // buffered as content (the blank budget is one), so the block two
+  // lines down still attaches — together with its metadata. ORACLE:
+  // the admonition is inside the item.
+  test("metadata separated from its block by one blank line still attaches", () => {
+    const input = "* i:\n+\n[NOTE]\n\n====\nx\n====\n";
+    expect(renderedHtml(input)).toMatch(/<li>.*admonitionblock.*<\/li>/v);
+    const { children } = parse(input);
     const {
       children: [item],
     } = firstList(children);
-    expect(item.attachedBlocks).toHaveLength(0);
-    expect(item.danglingContinuation).toBe(true);
+    expect(item.attachedBlocks).toHaveLength(2);
+    expect(item.attachedBlocks[0].block).toMatchObject({
+      type: "blockAttributeList",
+      value: "NOTE",
+    });
+    expect(item.attachedBlocks[1].block).toMatchObject({ type: "admonition" });
+    expect(item.danglingContinuation).toBe(false);
   });
 
   test("continuation block attaches to the deepest nested item", () => {
@@ -425,7 +477,7 @@ describe("continuations around delimited blocks (issue #6)", () => {
       children: [nestedItem],
     } = nestedList;
     expect(nestedItem.attachedBlocks).toHaveLength(1);
-    expect(nestedItem.attachedBlocks[0]).toMatchObject({
+    expect(nestedItem.attachedBlocks[0].block).toMatchObject({
       type: "delimitedBlock",
       content: "lit",
     });

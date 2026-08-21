@@ -184,9 +184,15 @@ describe("admonition formatting in context", () => {
   // the nesting on re-parse.
   test("admonition delimiter longer than nested same-variant block", async () => {
     const input = "[M]\n\n******\n****\n//////\n///////\n//////";
-    expect(await formatAdoc(input)).toBe(
-      "[M]\n*****\n****\n////\n////\n\n////\n////\n****\n*****\n",
-    );
+    // The 7-slash line is CONTENT of the 6-slash comment block, not a
+    // delimiter: `read_lines_until terminator:` matches whole lines
+    // against the opening delimiter, so only `//////` closes it. The
+    // comment block normalises to `////`, which its content cannot
+    // close either.
+    const out = await formatAdoc(input);
+    expect(out).toBe("[M]\n*****\n****\n////\n///////\n////\n****\n*****\n");
+    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
   });
 });
 

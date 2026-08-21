@@ -13,9 +13,10 @@ import type { BlockNode } from "./ast.js";
 import {
   isAnchorParagraph,
   isBlockMetadata,
+  isReaderConsumedLine,
   wouldMergeWithAnchor,
 } from "./block-metadata.js";
-import { EMPTY } from "./constants.js";
+import { EMPTY, LAST_ELEMENT } from "./constants.js";
 
 const {
   builders: { hardline },
@@ -34,7 +35,14 @@ const NEXT_LINE = 1;
  * for block separation: consecutive elements of either
  * type should appear on adjacent lines, not separated by
  * a blank line like other block elements. This matches
- * idiomatic AsciiDoc style.
+ * idiomatic AsciiDoc style. A line comment renders
+ * nothing, so closing the gap between two of them cannot
+ * change the output — unlike a preprocessor directive,
+ * whose blank-line gap the reader can still make visible
+ * (two blank-separated unresolved includes render as two
+ * paragraphs, adjacent ones as a single paragraph), so
+ * directives stack only when the source had them
+ * adjacent.
  * @param block - The block node to test.
  * @returns Whether the block is a line comment.
  */
@@ -45,9 +53,9 @@ function isLineComment(block: BlockNode): boolean {
 /**
  * Tests whether a block is an attribute entry.
  *
- * Used alongside {@link isLineComment} to determine
- * stacking: consecutive attribute entries appear on
- * adjacent lines without a blank-line separator.
+ * Used alongside {@link isReaderConsumedLine} to
+ * determine stacking: consecutive attribute entries appear
+ * on adjacent lines without a blank-line separator.
  * @param block - The block node to test.
  * @returns Whether the block is an attribute entry.
  */
@@ -75,6 +83,12 @@ function isDocumentTitle(block: BlockNode): boolean {
  *
  * Stacking applies to:
  * - Consecutive line comments (idiomatic stacking)
+ * - A reader-eaten line (line comment, preprocessor
+ *   directive) and the block on either side of it, when
+ *   the source had no blank line between them: the reader
+ *   removes the line before block parsing, so a blank line
+ *   the formatter inserted next to it would land inside
+ *   the run of lines the parser is still reading
  * - Consecutive attribute entries (idiomatic stacking)
  * - Document title followed by attribute entry (the
  *   contiguous header pattern: `= Title` then
@@ -99,7 +113,7 @@ function shouldStack(blocks: BlockNode[], index: number): boolean {
   const { [index - SECOND_CHILD]: previous, [index]: current } = blocks;
   return (
     (isLineComment(previous) && isLineComment(current)) ||
-    (isReaderConsumed(previous) && startsOnTheNextLine(previous, current)) ||
+    stacksWithReaderEatenLine(previous, current) ||
     (isAttributeEntry(previous) && isAttributeEntry(current)) ||
     (isDocumentTitle(previous) && isAttributeEntry(current)) ||
     shouldStackMetadata(previous, current)
@@ -107,17 +121,58 @@ function shouldStack(blocks: BlockNode[], index: number): boolean {
 }
 
 /**
- * Whether a block is one Asciidoctor's READER consumes before block
- * structure exists: a line comment or a conditional directive. A
- * blank line inserted after one is not cosmetic — it lands inside
- * the run of lines the parser is still reading, and can end a list
- * item that the source kept going (`+` / blank / `// c` / `para`
- * attaches, `+` / `// c` / blank / `para` does not).
- * @param block - The block node to test.
- * @returns Whether the reader eats this block's line.
+ * Whether the pair stacks because one of the two is a line the
+ * reader eats.
+ *
+ * A line comment or a preprocessor directive is removed before block
+ * parsing, so a blank line the formatter inserts beside it is not
+ * cosmetic — it lands inside the run of lines the parser is still
+ * reading (`+` / blank / `// c` / `para` attaches, `+` / `// c` /
+ * blank / `para` does not) and can be visible in the output (two
+ * blank-separated unresolved includes render as two paragraphs,
+ * adjacent ones as one). Adjacency in the SOURCE is therefore the
+ * condition on both sides.
+ * @param previous - The preceding block node.
+ * @param current - The current block node.
+ * @returns Whether the pair must stay on adjacent lines.
  */
-function isReaderConsumed(block: BlockNode): boolean {
-  return isLineComment(block) || block.type === "conditionalDirective";
+function stacksWithReaderEatenLine(
+  previous: BlockNode,
+  current: BlockNode,
+): boolean {
+  return (
+    (endsWithReaderEatenLine(previous) || isReaderConsumedLine(current)) &&
+    startsOnTheNextLine(previous, current)
+  );
+}
+
+/**
+ * Whether the LAST line a block occupies is one the reader eats.
+ *
+ * A list is the one container whose last line is its last CHILD's
+ * line — every other container closes with a delimiter of its own, and
+ * a section owns whatever follows it. So a directive or comment that
+ * ends a list item is the line directly above the next top-level
+ * block, and the stacking must reach it (`* a` / `+` /
+ * `ifdef::backend[]` / `----` puts the listing INSIDE the item for
+ * Asciidoctor, because the reader never sees the directive). The item
+ * can end with the line either as an attached block or as a
+ * `rawLine` in its own text, so both are checked.
+ * @param block - The preceding block node.
+ * @returns Whether its last printed line is reader-eaten.
+ */
+function endsWithReaderEatenLine(block: BlockNode): boolean {
+  if (block.type !== "list") {
+    return isReaderConsumedLine(block);
+  }
+  const item = block.children.at(LAST_ELEMENT);
+  const attached = item?.attachedBlocks.at(LAST_ELEMENT);
+  if (attached !== undefined) {
+    return endsWithReaderEatenLine(attached.block);
+  }
+  // An inline rawLine is a comment or a preprocessor directive by
+  // construction (`isRawParagraphLine` admits nothing else).
+  return item?.children.at(LAST_ELEMENT)?.type === "rawLine";
 }
 
 /**

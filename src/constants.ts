@@ -24,6 +24,10 @@ export const MARKER_OFFSET = 1;
 // Last element: array.at(LAST_ELEMENT)
 export const LAST_ELEMENT = -1;
 
+// Nesting depth of the outermost list level. Markers that cannot
+// repeat (`-`, `<1>`) always sit at this depth; `**` is one deeper.
+export const OUTERMOST_DEPTH = 1;
+
 // Exactly one element: `items.length === SINGLE`.
 export const SINGLE = 1;
 
@@ -37,21 +41,9 @@ export const NEXT = 1;
 // slice(DELIM_WIDTH, -DELIM_WIDTH), e.g. `{attr}` or `[role]`.
 export const DELIM_WIDTH = 1;
 
-// Two adjacent nodes that form a logical pair (e.g. an attribute
-// list followed by the block it annotates).
-export const PAIR_LENGTH = 2;
-
 // AsciiDoc delimited blocks require at least 4 delimiter characters
 // (e.g. `----`, `....`, `++++`).
 export const MIN_DELIMITER_LENGTH = 4;
-
-// Chevrotain's LA(k) uses 1-based lookahead: LA(1) is the
-// next token. Used in GATE functions to check what comes next.
-export const LOOKAHEAD = 1;
-
-// Two-token lookahead for GATEs that need to peek past the
-// current token (e.g. checking what follows a Newline).
-export const LOOKAHEAD_2 = 2;
 
 // When a delimited block's content contains a line that looks
 // like a delimiter, the output delimiter must be this many

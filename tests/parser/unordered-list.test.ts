@@ -1,6 +1,6 @@
 import { describe, test, expect } from "vitest";
 import { parse } from "../../src/parser.js";
-import { firstList } from "../helpers.js";
+import { firstList, renderedHtml } from "../helpers.js";
 import { narrow } from "../../src/unreachable.js";
 
 describe("unordered list parsing", () => {
@@ -62,12 +62,16 @@ describe("unordered list parsing", () => {
     expect(textNode.value).toContain("second line");
   });
 
-  // Two lists separated by a blank line are distinct blocks.
-  test("two separate lists separated by blank line", () => {
-    const { children } = parse("* List A\n\n* List B\n");
-    expect(children).toHaveLength(2);
-    expect(children[0].type).toBe("list");
-    expect(children[1].type).toBe("list");
+  // A blank line between two items does NOT split the list: Ruby's
+  // `parse_list` skips blank lines before asking whether the next line
+  // is a sibling item (`next_list`), and `read_lines_for_list_item`
+  // breaks at the sibling marker either way. ORACLE: one `<ul>`.
+  test("two items separated by a blank line are one list", () => {
+    const input = "* List A\n\n* List B\n";
+    expect(renderedHtml(input).match(/<ul>/gv)).toHaveLength(1);
+    const { children } = parse(input);
+    expect(children).toHaveLength(1);
+    expect(firstList(children).children).toHaveLength(2);
   });
 
   // Position tracking: the list starts at the first `*` marker.

@@ -7,28 +7,52 @@ converts it to Prettier Doc IR.
 ## Pipeline
 
 ```
-source text → Lexer → Parser → CST → AST Builder → AST → Printer → formatted output
-                                                           ↓
-                                                      toASG() → TCK validation (test-time only)
+source → splitLines → BlockReader(classifyLine) → IToken[] → CstParser → CST → AST Builder → AST → Printer
+                                                                                              ↓
+                                                                          toASG() → TCK validation (test-time only)
 ```
 
 ## Components
 
-- **Parser** (`src/parser.ts`, `src/parse/`): Built with Chevrotain. Three
-  phases: lexer (tokens), parser (CST), AST builder (visitor). NOT
-  Asciidoctor.js — see "Why not Asciidoctor.js?" and "Why Chevrotain?" in
-  `docs/design.md`. List-item continuation lines (lexed as raw IndentedLine
-  tokens in default mode) are re-lexed by a dedicated inline sub-lexer
-  (`src/parse/inline-fragment-lexer.ts`) so inline constructs parse the same on
-  any line of an item. Once a paragraph/item/description opens, the lexer's
-  `paragraph` mode (`src/parse/paragraph-tokens.ts`) decides where it ends by
-  consulting `src/parse/line-shapes.ts` — a single registry of interrupting line
-  shapes, oracle-pinned by `tests/conformance/interruption.test.ts` and cited to
-  the Asciidoctor Ruby source, keyed by four `ParagraphContext`s (`paragraph`,
-  `listItem`, `listContinuation`, `dlistItem`). Reflow safety (`src/reflow.ts`)
-  consumes the same registry so the lexer and the formatter's word-wrapping can
-  never disagree about what would re-parse as block syntax. See "Line
-  classification is contextual" in `docs/design.md`.
+- **Parser** (`src/parser.ts`, `src/parse/`): four phases — line splitting
+  (`src/parse/lines/split.ts`, rstripping each line as
+  `Helpers.prepare_source_string` does), the **BlockReader**
+  (`src/parse/lines/reader.ts`), a mechanical Chevrotain `CstParser`
+  (`src/parse/grammar.ts`), and the AST-builder visitor
+  (`src/parse/ast-builder.ts`). NOT Asciidoctor.js — see "Why not
+  Asciidoctor.js?" and "Why Chevrotain?" in `docs/design.md`.
+
+  **The rule: block-level context comes from the reader's frame stack and from
+  nowhere else, and `tests/parser/architecture.test.ts` enforces it.** The
+  BlockReader walks the lines ONCE with an explicit stack that mirrors
+  Asciidoctor's reader (`Parser.next_section`, `next_block`,
+  `read_paragraph_lines`, `read_lines_for_list_item`, `Reader.read_lines_until`)
+  and emits one pre-classified token per line plus zero-length boundary tokens
+  (`ParagraphStart`/`ParagraphEnd`, `ItemEnd`, `ListEnd`, `SectionEnd`,
+  `UnclosedEnd`) that spell out every nesting decision. So the grammar is LL(1)
+  on distinct first tokens: no parser-state gates, no backtracking, no custom
+  token pattern reading the token history, no lexer modes, and no post-hoc AST
+  repair pass — the guard test asserts all of that textually over every file in
+  `src/parse`, plus zero import cycles (from `dependency-cruiser`, through the
+  same `cruiseImports` helper `bun run metrics` gates on) and a ceiling on lint
+  suppressions.
+
+  Line SHAPES live in one registry, `src/parse/line-shapes.ts`, oracle-pinned by
+  `tests/conformance/interruption.test.ts` and cited to the Asciidoctor Ruby
+  source, keyed by four `ParagraphContext`s (`paragraph`, `listItem`,
+  `listContinuation`, `dlistItem`). `src/parse/lines/classify.ts` is the pure
+  function over that registry; the reader is its only parse-side consumer, and
+  reflow safety (`src/reflow.ts`) is its only print-side consumer, so the parser
+  and the formatter's word-wrapping can never disagree about what would re-parse
+  as block syntax. Lists are `read_lines_for_list_item` in
+  `src/parse/lines/list-reader.ts` with `list-frames.ts`/`list-item.ts`;
+  `frames.ts` holds the types those share with `reader.ts` so the three stay a
+  DAG. Paragraph text is the one thing still lexed: the reader runs the
+  single-mode inline lexer (`src/parse/tokens.ts`) over each run of paragraph
+  lines and splices the rebased tokens between the paragraph's boundaries. See
+  "Line classification is contextual" in `docs/design.md`, and
+  `docs/simplicity-metrics.md` for how the change was measured.
+
 - **AST** (`src/ast.ts`): Designed for Prettier, not the AsciiDoc ASG. Preserves
   comments, directives, attribute entries, and other constructs the ASG
   intentionally discards.
@@ -55,6 +79,10 @@ source text → Lexer → Parser → CST → AST Builder → AST → Printer →
 ## Key References
 
 - Design doc: `docs/design.md`
+- Simplicity metrics: `docs/simplicity-metrics.md` — the scorecard
+  `bun run metrics` prints (code/comment LoC, cyclomatic and cognitive
+  complexity, coupling and cycles, escape hatches, dead code), and the rule that
+  metrics are instrumentation, not the objective
 - Roadmap: GitHub issues (tier-1/tier-2 severity labels) and the org project
   board https://github.com/orgs/oxidecomputer/projects/228 — there is no in-repo
   plan document
@@ -68,10 +96,14 @@ source text → Lexer → Parser → CST → AST Builder → AST → Printer →
 
 ## Tech Stack
 
-- Chevrotain (parser toolkit — lexer + LL(k) parser + CST)
+- Chevrotain, for the tree-assembly layer only: a `CstParser` fed the
+  BlockReader's `IToken[]` directly, the CST + visitor, and the single-mode
+  inline lexer. Its lexer modes, parser-state gates and token-history custom
+  patterns are deliberately unused — the reader owns block context
 - TypeScript (strict, ES2024 target)
 - ESM modules (`"type": "module"`)
-- tsup (esbuild-based build, outputs ESM + DTS)
+- `Bun.build` via `scripts/build.ts` (ESM into `dist/`, external prettier and
+  chevrotain)
 - Vitest for testing
 - ESLint 10 with typescript-eslint strict, eslint-config-love,
   eslint-config-prettier, eslint-plugin-jsdoc, eslint-plugin-unicorn,

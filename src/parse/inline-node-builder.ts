@@ -6,7 +6,7 @@
  * atomic tokens (links, macros) through a map-based dispatch
  * table.
  */
-import type { CstNode, IToken, TokenType } from "chevrotain";
+import type { IToken, TokenType } from "chevrotain";
 import type {
   InlineNode,
   InlineMacroNode,
@@ -39,17 +39,16 @@ import {
   InlineUrl,
   ItalicMark,
   MonoMark,
-  ParagraphRawLine,
   RoleAttribute,
   XrefShorthand,
 } from "./tokens.js";
+import { RawLine } from "./lines/tokens.js";
 import {
   makeLinkFromUrl,
   makeXrefFromShorthand,
   makeInlineAnchor,
   makeHardLineBreak,
 } from "./inline-link-builder.js";
-import { flattenInlineTokens, unwrapInlineLines } from "./inline-tokens.js";
 
 // Map from mark token type to AST node type. Uses token type
 // identity (not string name) for type-safe dispatch.
@@ -414,13 +413,13 @@ function handleAtomicToken(token: IToken): InlineNode | undefined {
 }
 
 /**
- * Build a RawLineNode from a whole-line ParagraphRawLine token.
+ * Build a RawLineNode from a whole-line RawLine token.
  *
  * The node exists so the printer can re-emit the line verbatim on a
  * line of its own; it is deliberately NOT a TextNode, which would be
  * reflowed into the surrounding words and turn a comment into visible
  * prose.
- * @param token - The ParagraphRawLine token (image is the whole line).
+ * @param token - The RawLine token (image is the whole line).
  * @returns A RawLineNode spanning exactly that line.
  */
 function makeRawLineNode(token: IToken): RawLineNode {
@@ -558,7 +557,7 @@ export function buildFromTokens(allTokens: IToken[]): InlineNode[] {
     // and the one that ends the raw line is skipped below. Leaving
     // them in would put stray "\n" into text runs and break the
     // content/separator alternation the printer's fill() needs.
-    if (tokenType === ParagraphRawLine) {
+    if (tokenType === RawLine) {
       pendingText = withoutTrailingNewline(pendingText);
       flushText();
       nodes.push(makeRawLineNode(token));
@@ -613,52 +612,4 @@ export function buildFromTokens(allTokens: IToken[]): InlineNode[] {
 
   flushText();
   return nodes;
-}
-
-/**
- * Build InlineNode[] from the inlineToken CST nodes
- * produced by the Chevrotain parser's inline mode.
- *
- * This is the primary entry point for inline content that
- * comes directly from the parser (e.g. paragraph bodies).
- * It flattens and sorts the CST tokens before delegating
- * to the core builder.
- * @param inlineTokenNodes - CST nodes from the parser's
- *   `inlineToken` rule, each wrapping one or more tokens.
- * @param inlineModeNewlineTokens - InlineNewline tokens
- *   captured separately by the parser, merged in to
- *   preserve line break positions.
- * @returns The built array of InlineNode AST nodes.
- */
-export function buildInlineNodes(
-  inlineTokenNodes: CstNode[],
-  inlineModeNewlineTokens: IToken[],
-): InlineNode[] {
-  const tokens = flattenInlineTokens(inlineTokenNodes, inlineModeNewlineTokens);
-  return buildFromTokens(tokens);
-}
-
-/**
- * Build InlineNode[] from `inlineLine` CST subrule nodes.
- *
- * Each inlineLine CstNode wraps InlineModeStart +
- * inlineToken children into a single node. This unwraps
- * them before delegating to buildInlineNodes. Used by
- * block-level constructs (section titles, list items)
- * where the parser groups inline content per source line.
- * @param inlineLineNodes - CST nodes from the parser's
- *   `inlineLine` subrule, one per source line.
- * @param inlineModeNewlineTokens - InlineNewline tokens
- *   captured separately, merged in to preserve line
- *   break positions.
- * @returns The built array of InlineNode AST nodes.
- */
-export function buildInlineNodesFromLines(
-  inlineLineNodes: CstNode[],
-  inlineModeNewlineTokens: IToken[],
-): InlineNode[] {
-  return buildInlineNodes(
-    unwrapInlineLines(inlineLineNodes),
-    inlineModeNewlineTokens,
-  );
 }

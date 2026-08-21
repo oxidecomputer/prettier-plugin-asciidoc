@@ -63,10 +63,10 @@ describe("paragraph formatting", () => {
     expect(await formatAdoc("")).toBe("");
   });
 
-  // Regression: a whitespace-only first line was tokenized as
-  // InlineModeStart and became a paragraph. The printer rendered it
-  // as empty content plus a blank-line separator, producing
-  // spurious leading newlines. Now it is dropped.
+  // Regression: a whitespace-only first line opened a paragraph of its
+  // own. The printer rendered it as empty content plus a blank-line
+  // separator, producing spurious leading newlines. The reader rstrips
+  // every line, so it is a blank line now and is dropped.
   test("whitespace-only line before list item is dropped", async () => {
     const input = " \n. item";
     expect(await formatAdoc(input)).toBe(". item\n");

@@ -44,10 +44,10 @@ describe("paragraph parsing", () => {
     expect(document.children).toHaveLength(2);
   });
 
-  // Verify the text content survives the tokenization round-trip.
-  // Each line gets its own inlineLine CST node (InlineModeStart pushes the
-  // lexer into inline mode; InlineNewline pops it back). The AST builder
-  // unwraps those CST nodes and joins the lines with "\\n" in the text value.
+  // Verify the text content survives the tokenization round-trip. The
+  // reader lexes a paragraph's lines as one inline fragment, so they
+  // arrive separated by InlineNewline tokens and the AST builder joins
+  // them with "\\n" in the text value.
   test("paragraph text content is correct", () => {
     const document = parse("First para.\n\nSecond para.\n");
     expect(paragraphText(asParagraph(document.children[0]))).toBe(
@@ -58,12 +58,11 @@ describe("paragraph parsing", () => {
     );
   });
 
-  // Consecutive non-blank lines form a single paragraph. The grammar's
-  // paragraph rule matches one inlineLine then loops over
-  // (InlineNewline inlineLine?)*. Each InlineNewline pops the lexer back
-  // to default_mode; InlineModeStart then pushes it into inline mode
-  // for the next line. Lines are joined with "\\n" in the text node value
-  // to preserve the original line structure for the printer.
+  // Consecutive non-blank lines form a single paragraph: the reader
+  // keeps reading until a line interrupts, and `paragraphBody` loops
+  // over the inline tokens between ParagraphStart and ParagraphEnd.
+  // Lines are joined with "\\n" in the text node value to preserve the
+  // original line structure for the printer.
   test("multi-line paragraph has lines joined by newline", () => {
     const document = parse("Line one.\nLine two.\nLine three.\n");
     expect(document.children).toHaveLength(1);
