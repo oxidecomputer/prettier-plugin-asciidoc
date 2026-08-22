@@ -23,13 +23,6 @@
  */
 import type { BlockNode, DocumentNode, ParentBlockNode } from "../../ast.js";
 import {
-  EMPTY,
-  FIRST,
-  LAST_ELEMENT,
-  NEXT,
-  NOT_FOUND,
-} from "../../constants.js";
-import {
   buildParentBlock,
   buildVerbatimBlock,
   type BlockExtent,
@@ -117,7 +110,7 @@ class BlockReader implements ListHost {
   /** The open frames, outermost first; the ONLY block-context store. */
   readonly stack: Frame[] = [this.root];
   /** Index of the next unread line. */
-  index = FIRST;
+  index = 0;
   /**
    * Blank lines seen since the last line the reader CONSUMED — Ruby's
    * `skipped` count in `next_block` (l.499): a confined reader picks
@@ -125,7 +118,7 @@ class BlockReader implements ListHost {
    * {@link BlockReader.bodyContext}). An erased `+` in an item's
    * buffer reads as a blank here, exactly as it does to Ruby.
    */
-  blanks = EMPTY;
+  blanks = 0;
 
   // Metadata NODES held back until we know what they annotate.
   // Comment and preprocessor lines ride along so their SOURCE ORDER
@@ -222,7 +215,7 @@ class BlockReader implements ListHost {
     // At most one verbatim frame can ever be open — inside one, every
     // line is content or its terminator — but taking the innermost
     // keeps that an observation rather than an assumption.
-    const close = verbatimTerminators.at(LAST_ELEMENT);
+    const close = verbatimTerminators.at(-1);
     return {
       openParagraph,
       openListStyles,
@@ -269,7 +262,7 @@ class BlockReader implements ListHost {
     // Total fallback: the root frame is pushed at construction and
     // never popped, so the stack is never empty — `at` types the miss
     // whether or not it can happen.
-    return this.stack.at(LAST_ELEMENT) ?? this.root;
+    return this.stack.at(-1) ?? this.root;
   }
 
   /**
@@ -336,7 +329,7 @@ class BlockReader implements ListHost {
     const tokens = readParagraph(this, context, line, labelEnd);
     this.push(
       buildAdmonitionParagraph(
-        fragmentOfLine(line, FIRST, labelEnd),
+        fragmentOfLine(line, 0, labelEnd),
         textLines(tokens),
         this.at,
       ),
@@ -371,8 +364,8 @@ class BlockReader implements ListHost {
       }
       const kind = classifyLine(line.text, this.context());
       if (kind.kind === "blank") {
-        this.blanks += NEXT;
-        this.index += NEXT;
+        this.blanks += 1;
+        this.index += 1;
         continue;
       }
       if (kind.kind === "delimiterClose") {
@@ -382,7 +375,7 @@ class BlockReader implements ListHost {
       if (kind.kind === "verbatim") {
         // Content of the open verbatim block: sliced from the source
         // when the block closes, so the line needs no node of its own.
-        this.index += NEXT;
+        this.index += 1;
         continue;
       }
       this.blockLine(line, kind);
@@ -432,7 +425,7 @@ class BlockReader implements ListHost {
    * @returns true in a confined reader with no open frame
    */
   private directlyInItem(): boolean {
-    return this.confined && this.stack.length === NEXT;
+    return this.confined && this.stack.length === 1;
   }
 
   /**
@@ -446,7 +439,7 @@ class BlockReader implements ListHost {
    */
   private bodyContext(): ParagraphContext {
     if (!this.directlyInItem()) return "paragraph";
-    return this.blanks > EMPTY ? "listContinuation" : "listItem";
+    return this.blanks > 0 ? "listContinuation" : "listItem";
   }
 
   // ── block level: next_section / parse_block_metadata_line / next_block
@@ -495,7 +488,7 @@ class BlockReader implements ListHost {
         // extent scan bounds every item, a confined reader parses it,
         // and this loop resumes past the whole list.
         this.index = readList(this, this.index, kind);
-        this.blanks = EMPTY;
+        this.blanks = 0;
         return;
       }
       case "continuation": {
@@ -516,19 +509,19 @@ class BlockReader implements ListHost {
         // At block level a lone `+` opens a plain paragraph:
         // read_lines_until breaks on a `+` only once a line has been
         // read (`line_read`).
-        this.paragraph("paragraph", line, FIRST);
+        this.paragraph("paragraph", line, 0);
         return;
       }
       default: {
-        this.paragraph(this.bodyContext(), line, FIRST);
+        this.paragraph(this.bodyContext(), line, 0);
       }
     }
   }
 
   /** Consume the current line and forget the blank run before it. */
   advance(): void {
-    this.index += NEXT;
-    this.blanks = EMPTY;
+    this.index += 1;
+    this.blanks = 0;
   }
 
   /**
@@ -550,7 +543,7 @@ class BlockReader implements ListHost {
       this.pendingStyle = firstPositional(line.text);
     }
     this.pending.push(node);
-    this.index += NEXT;
+    this.index += 1;
     // The blank run is deliberately NOT reset: Ruby counts `skipped`
     // BEFORE parse_block_metadata_lines consumes these lines (next_block
     // l.499), so held metadata is transparent to the in-item paragraph
@@ -585,21 +578,21 @@ class BlockReader implements ListHost {
     if (this.confined) {
       // "reader is confined to boundaries of list, which means only
       // blocks will be found (no sections)" — parse_list_item l.1364.
-      this.paragraph(this.bodyContext(), line, FIRST);
+      this.paragraph(this.bodyContext(), line, 0);
       return;
     }
     const enclosing = this.topFrame();
     if (enclosing.kind !== "document" && enclosing.kind !== "section") {
       // Inside a compound block the confined reader never calls
       // next_section: a heading is paragraph text.
-      this.paragraph("paragraph", line, FIRST);
+      this.paragraph("paragraph", line, 0);
       return;
     }
     if (this.pendingStyle === DISCRETE_STYLE) {
       this.leaf(buildDiscreteHeading(fragmentOfLine(line), this.at));
       return;
     }
-    if (level === EMPTY) {
+    if (level === 0) {
       this.leaf(buildDocumentTitle(fragmentOfLine(line), this.at));
       return;
     }
@@ -658,18 +651,18 @@ class BlockReader implements ListHost {
         (frame.kind === "compound" || frame.kind === "verbatim") &&
         frame.terminator === line.text,
     );
-    if (target === NOT_FOUND) {
+    if (target === -1) {
       // Total fallback: classifyLine reports delimiterClose only for a
       // terminator this stack holds. Reading the line as a paragraph
       // instead keeps block level unable to fail, which is the
       // reader's contract.
-      this.paragraph("paragraph", line, FIRST);
+      this.paragraph("paragraph", line, 0);
       return;
     }
     // Metadata held back inside the block belongs to the block: release
     // it before the block ends, or it would surface after the close.
     this.flushMetadata();
-    this.closeDownTo(target + NEXT, line);
+    this.closeDownTo(target + 1, line);
     // Total fallback: closeDownTo left the target frame on top of the
     // stack, so this pop cannot miss.
     const frame = this.stack.pop() ?? this.root;
@@ -709,7 +702,7 @@ class BlockReader implements ListHost {
    * @returns the offset a zero-length EOF close falls at
    */
   private endOffset(): number {
-    const last = this.lines.at(LAST_ELEMENT);
+    const last = this.lines.at(-1);
     return this.confined && last !== undefined
       ? last.offset + last.raw.length
       : this.source.length;
@@ -785,7 +778,7 @@ class BlockReader implements ListHost {
   /** End of input: release held-back nodes, then close every frame. */
   closeAll(): void {
     this.flushMetadata();
-    this.closeDownTo(NEXT);
+    this.closeDownTo(1);
   }
 }
 
@@ -796,7 +789,7 @@ class BlockReader implements ListHost {
  * @returns the first positional attribute, trimmed
  */
 function firstPositional(line: string): string {
-  return line.slice(NEXT, LAST_ELEMENT).split(",")[FIRST].trim();
+  return line.slice(1, -1).split(",")[0].trim();
 }
 
 /**
@@ -823,7 +816,7 @@ export function readDocument(source: string): DocumentNode {
     type: "document",
     children: convertParagraphFormBlocks(children, source),
     position: {
-      start: at.at(FIRST),
+      start: at.at(0),
       end: at.at(source.length),
     },
   };

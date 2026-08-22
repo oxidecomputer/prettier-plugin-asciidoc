@@ -15,7 +15,6 @@
  * deliberately narrower or wider than Ruby's, the comment says so:
  * the formatter only has to recognise the construct, not resolve it.
  */
-import { EMPTY, NEXT } from "../../constants.js";
 import type { InlineKind } from "./tokens.js";
 
 /** One entry of the ordered table. */
@@ -70,7 +69,7 @@ const WHITESPACE = /\s/v;
  * @returns whether that position is a formatting boundary
  */
 function isBoundary(text: string, index: number): boolean {
-  if (index < EMPTY || index >= text.length) return true;
+  if (index < 0 || index >= text.length) return true;
   const character = text.at(index) ?? "";
   return WHITESPACE.test(character) || BOUNDARY_PUNCTUATION.has(character);
 }
@@ -88,11 +87,9 @@ function isBoundary(text: string, index: number): boolean {
  */
 function markMatcher(character: string): InlineRule["match"] {
   return (text: string, index: number): number => {
-    if (text.at(index) !== character) return EMPTY;
-    if (text.at(index + NEXT) === character) return NEXT + NEXT;
-    return isBoundary(text, index - NEXT) || isBoundary(text, index + NEXT)
-      ? NEXT
-      : EMPTY;
+    if (text.at(index) !== character) return 0;
+    if (text.at(index + 1) === character) return 1 + 1;
+    return isBoundary(text, index - 1) || isBoundary(text, index + 1) ? 1 : 0;
   };
 }
 
@@ -112,7 +109,7 @@ function pattern(regex: RegExp): InlineRule["match"] {
   return (text: string, index: number): number => {
     sticky.lastIndex = index;
     const match = sticky.exec(text);
-    return match === null ? EMPTY : match[EMPTY].length;
+    return match === null ? 0 : match[0].length;
   };
 }
 

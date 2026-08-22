@@ -14,7 +14,6 @@
  * Every decision here comes from the context the host hands over.
  * Nothing scans backwards or inspects a token history.
  */
-import { NEXT } from "../../constants.js";
 import { tokenizeInline } from "../inline/tokenize.js";
 import type { InlineToken } from "../inline/tokens.js";
 import type { ParagraphContext } from "../line-shapes.js";
@@ -102,7 +101,7 @@ class Paragraph {
   private runEnd: number;
   // How many lines have been read; `firstLineAfterStart` is a rule of
   // its own in the registry (a block anchor, for one, only counts there).
-  private linesRead = NEXT;
+  private linesRead = 1;
   // The literal-plus rule's state: the candidate ` +` line (the first
   // line after an item's marker line, when it is indentation and a `+`
   // and nothing else) and the smallest indent of any content line
@@ -151,7 +150,7 @@ class Paragraph {
       }
       const kind = classifyLine(
         next.text,
-        this.host.context(this.context, this.linesRead === NEXT),
+        this.host.context(this.context, this.linesRead === 1),
       );
       if (kind.kind !== "text" && kind.kind !== "raw") {
         return;
@@ -266,7 +265,7 @@ class Paragraph {
       this.closeRun();
       this.pieces.push({ kind: "raw", line });
     }
-    this.linesRead += NEXT;
+    this.linesRead += 1;
     this.host.advance();
   }
 
@@ -291,7 +290,7 @@ class Paragraph {
         indentOf(line.text),
       );
     } else if (
-      this.linesRead === NEXT &&
+      this.linesRead === 1 &&
       ITEM_TEXT_CONTEXTS.has(this.context) &&
       INDENTED_PLUS.test(line.text)
     ) {

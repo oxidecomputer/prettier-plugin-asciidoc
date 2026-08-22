@@ -43,7 +43,7 @@ import {
   type DelimiterKind,
   type ParagraphContext,
 } from "../line-shapes.js";
-import { EMPTY, MARKER_OFFSET, OUTERMOST_DEPTH } from "../../constants.js";
+import { MARKER_OFFSET, OUTERMOST_DEPTH } from "../../constants.js";
 
 export type { DelimiterKind } from "../line-shapes.js";
 
@@ -232,7 +232,7 @@ export function parseListMarker(line: string):
       // `<1>` list.
       style: CALLOUT_STYLE,
       depth: OUTERMOST_DEPTH,
-      indent: EMPTY,
+      indent: 0,
       markerEnd: callout.marker.length + callout.gap.length,
     };
   }
@@ -471,7 +471,7 @@ export function classifyLine(rawLine: string, reader: ReaderContext): LineKind {
   if (reader.inVerbatim !== undefined) {
     return { kind: "verbatim" };
   }
-  if (line.length === EMPTY) {
+  if (line.length === 0) {
     return { kind: "blank" };
   }
   // 2. Preprocessor lines and comments are consumed while READING

@@ -24,9 +24,7 @@
  * BlockAttributeLineRx look-ahead l.1452-71) are out of scope (#9);
  * they are left as cited comments where they would go.
  */
-import { lineOf } from "../../ast.js";
 import type { BlockNode, GapLine, ListItemNode } from "../../ast.js";
-import { EMPTY, LAST_ELEMENT, NEXT } from "../../constants.js";
 import { buildList, buildListItem } from "../build/list.js";
 import type { InlineToken } from "../inline/tokens.js";
 import {
@@ -114,8 +112,8 @@ function readListItem(
   kind: MarkerKind,
 ): { item: ListItemNode; end: number } {
   const { lines } = host;
-  const { [markerIndex]: markerLine } = lines;
-  const extent = itemExtent(host.lines, markerIndex + NEXT, kind.style, {
+  const markerLine = lines[markerIndex];
+  const extent = itemExtent(host.lines, markerIndex + 1, kind.style, {
     openTerminators: host.openTerminators,
     tailSafe: host.tailSafe,
   });
@@ -162,11 +160,11 @@ function textEndLine(
   text: readonly InlineToken[],
   markerLine: SourceLine,
 ): number {
-  const last = text.at(LAST_ELEMENT);
+  const last = text.at(-1);
   if (last === undefined) return markerLine.line;
   // One BEFORE the exclusive end: a token ending at a newline must
   // report the line it ends ON, not the next one.
-  const end = last.offset + Math.max(last.image.length, NEXT) + LAST_ELEMENT;
+  const end = last.offset + Math.max(last.image.length, 1) - 1;
   return host.at.at(end).line;
 }
 
@@ -199,9 +197,9 @@ export function gapsOf(
     // block's start line" is exactly this slice.
     const between = documentLines.slice(
       previousEnd,
-      block.position.start.line + LAST_ELEMENT,
+      block.position.start.line - 1,
     );
-    previousEnd = lineOf(block.position.end);
+    previousEnd = block.position.end.line;
     return between.map((line) => {
       if (line.text !== "" && line.text !== "+") {
         return unreachable(
@@ -390,18 +388,14 @@ export function delimitedEnd(
   kind: DelimiterKind,
   openTerminators: readonly string[],
 ): number {
-  // Written as one expression because `prefer-destructuring` (love's
-  // config turns on `enforceForRenamedProperties`) rejects binding a
-  // member expression to a name — the same reason the scan reads its
-  // lines through `lineAt` below.
   const terminator = kind === "fencedCode" ? FENCE_TIP : lines[openIndex].text;
-  for (let index = openIndex + NEXT; index < lines.length; index += NEXT) {
+  for (let index = openIndex + 1; index < lines.length; index += 1) {
     // The enclosing terminator is tested FIRST: the outer block's
     // extent was (conceptually) read before this one, so on a
     // collision the outer one wins — the same outermost-wins rule
     // reader.ts's closeDelimited applies.
     if (openTerminators.includes(lines[index].text)) return index;
-    if (lines[index].text === terminator) return index + NEXT;
+    if (lines[index].text === terminator) return index + 1;
   }
   return lines.length;
 }
@@ -448,8 +442,8 @@ class ExtentScan {
    */
   run(): ItemExtent {
     while (this.index < this.lines.length) {
-      const line = this.lineAt(this.index);
-      this.index += NEXT;
+      const line = this.lines[this.index];
+      this.index += 1;
       if (this.step(line) === "stop") break;
     }
     return this.finish();
@@ -471,13 +465,13 @@ class ExtentScan {
     // is where the lines Ruby's item reader was given run out. Asked
     // of every line first.
     if (this.endsTheItem(line.text)) {
-      this.index -= NEXT;
+      this.index -= 1;
       return "stop";
     }
     // prev_line is read from the MUTATED buffer (l.1423): an erased
     // `+` reads as a blank here, which is what makes the flat
     // `+`/blank/`+`/para shape take the detached arm.
-    const previous = this.buffer.at(LAST_ELEMENT)?.text;
+    const previous = this.buffer.at(-1)?.text;
     if (previousIsContinuation(previous) && this.afterContinuation(line)) {
       return "go";
     }
@@ -513,19 +507,6 @@ class ExtentScan {
   }
 
   /**
-   * The line at an already bounds-checked position. A method rather
-   * than an index expression because `prefer-destructuring` rejects
-   * binding a member expression to a name, and the scan needs the
-   * whole line (text AND raw/offset) at five call sites in four
-   * methods (`run`, `skipBlanks`, `slurpDelimited`, `slurpLiteral`).
-   * @param at - an in-range index into the scanned lines
-   * @returns the line at that index
-   */
-  private lineAt(at: number): SourceLine {
-    return this.lines[at];
-  }
-
-  /**
    * The delimited-block arm: "a delimited block immediately breaks the
    * list unless preceded by a list continuation (they are harsh like
    * that)" — l.1445-46.
@@ -534,7 +515,7 @@ class ExtentScan {
    */
   private delimitedArm(kind: DelimiterKind): "stop" | "go" {
     if (this.continuation !== "active") {
-      this.index -= NEXT;
+      this.index -= 1;
       return "stop";
     }
     this.slurpDelimited(kind);
@@ -556,7 +537,7 @@ class ExtentScan {
       // "if we are within a nested list, we don't throw away the list
       // continuation marks because they will be processed when
       // grabbing the lines for those nested lists" — l.1404-06, 1429.
-      if (!this.withinNestedList) this.erase(this.buffer.length - NEXT);
+      if (!this.withinNestedList) this.erase(this.buffer.length - 1);
     }
     if (!isContinuationLine(line.text)) return false;
     // Adjacent continuations, "really a syntax error" — l.1433-35.
@@ -584,7 +565,7 @@ class ExtentScan {
       // looks like a list item will throw off the exit from it" —
       // l.1477-84 (l.1484 is the non-dlist read; the dlist one at
       // l.1482 is out of scope).
-      this.index -= NEXT;
+      this.index -= 1;
       this.slurpLiteral();
       this.continuation = "inactive";
       return;
@@ -617,7 +598,7 @@ class ExtentScan {
       // erased after the loop. `push` returns the new length, so the
       // pushed line's index is one less — Ruby's
       // `detached_continuation = buffer.size` then `buffer << line`.
-      this.detachedContinuation = this.buffer.push(line) - NEXT;
+      this.detachedContinuation = this.buffer.push(line) - 1;
       return "go";
     }
     // l.1508 and l.1517-18 are one test here, not two: Ruby asks
@@ -627,7 +608,7 @@ class ExtentScan {
     // marker nor an enclosing terminator (every terminator is at least
     // two characters), so testing it first changes nothing.
     if (this.endsTheItem(line.text)) {
-      this.index -= NEXT;
+      this.index -= 1;
       return "stop";
     }
     if (isNestable(line.text)) {
@@ -638,11 +619,11 @@ class ExtentScan {
     if (LITERAL_LINE.test(line.text)) {
       // "slurp up any literal paragraph offset by blank lines" —
       // l.1528-34.
-      this.index -= NEXT;
+      this.index -= 1;
       this.slurpLiteral();
       return "go";
     }
-    this.index -= NEXT; // break — l.1538; this_line unshifted at l.1560
+    this.index -= 1; // break — l.1538; this_line unshifted at l.1560
     return "stop";
   }
 
@@ -655,13 +636,13 @@ class ExtentScan {
   private skipBlanks(): SourceLine | undefined {
     while (
       this.index < this.lines.length &&
-      this.lineAt(this.index).text === ""
+      this.lines[this.index].text === ""
     ) {
-      this.index += NEXT;
+      this.index += 1;
     }
     if (this.index >= this.lines.length) return undefined; // EOF, l.1506
-    const line = this.lineAt(this.index);
-    this.index += NEXT;
+    const line = this.lines[this.index];
+    this.index += 1;
     return line;
   }
 
@@ -685,15 +666,15 @@ class ExtentScan {
    * @param kind - which delimited block the current line opens
    */
   private slurpDelimited(kind: DelimiterKind): void {
-    const openIndex = this.index - NEXT;
+    const openIndex = this.index - 1;
     const end = delimitedEnd(
       this.lines,
       openIndex,
       kind,
       this.bounds.openTerminators,
     );
-    for (let at = openIndex; at < end; at += NEXT) {
-      this.buffer.push(this.lineAt(at));
+    for (let at = openIndex; at < end; at += 1) {
+      this.buffer.push(this.lines[at]);
     }
     this.index = end;
     this.continuation = "inactive"; // l.1451
@@ -709,11 +690,11 @@ class ExtentScan {
    */
   private slurpLiteral(): void {
     while (this.index < this.lines.length) {
-      const line = this.lineAt(this.index);
+      const line = this.lines[this.index];
       if (line.text === "" || isContinuationLine(line.text)) return;
       if (this.bounds.openTerminators.includes(line.text)) return;
       this.buffer.push(line);
-      this.index += NEXT;
+      this.index += 1;
     }
   }
 
@@ -765,8 +746,8 @@ class ExtentScan {
     }
     const tailSafe = this.boundarySafe();
     let trailing = false;
-    while (this.buffer.length > EMPTY) {
-      const last = this.buffer.at(LAST_ELEMENT);
+    while (this.buffer.length > 0) {
+      const last = this.buffer.at(-1);
       if (last?.text === "") {
         this.buffer.pop(); // strip trailing blank lines, l.1567-69
         continue;
@@ -818,7 +799,7 @@ class ExtentScan {
    */
   private frozenRunKept(): boolean {
     if (this.withinNestedList) return false;
-    const last = this.buffer.at(LAST_ELEMENT);
+    const last = this.buffer.at(-1);
     return last !== undefined && isContinuationLine(last.text);
   }
 }

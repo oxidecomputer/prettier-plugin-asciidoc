@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-/* eslint-disable @typescript-eslint/no-magic-numbers, no-console -- runner script, not library code */
+/* eslint-disable no-console -- runner script, not library code */
 
 /**
  * Continuous fuzz-test runner. Discovers all fuzz tests via

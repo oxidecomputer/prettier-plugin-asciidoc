@@ -38,14 +38,6 @@
  */
 import { doc, type Doc } from "prettier";
 import {
-  EMPTY,
-  FIRST,
-  LAST_ELEMENT,
-  NEXT,
-  NOT_FOUND,
-  SINGLE,
-} from "./constants.js";
-import {
   DLIST_SEPARATOR_WORD,
   interruptsByLineShape,
   isRawParagraphLine,
@@ -87,7 +79,7 @@ export const DLIST_HAZARD_BREAK: Doc = [hardline];
  * @returns The non-empty whitespace-delimited words, in order.
  */
 export function splitWords(value: string): string[] {
-  return value.split(/\s+/v).filter((word) => word.length > EMPTY);
+  return value.split(/\s+/v).filter((word) => word.length > 0);
 }
 
 // ── Detection ──────────────────────────────────────────────
@@ -185,7 +177,7 @@ function pushGroup(parts: Doc[], content: Doc): void {
   // the last element may already BE the separator; adding another
   // would put two separators in a row and desynchronize fill()'s
   // content/separator alternation for the rest of the paragraph.
-  if (parts.length > EMPTY && !isFillSeparator(parts.at(LAST_ELEMENT))) {
+  if (parts.length > 0 && !isFillSeparator(parts.at(-1))) {
     parts.push(line);
   }
   parts.push(content);
@@ -396,9 +388,7 @@ function isFillSeparator(element: Doc | undefined): boolean {
  */
 function hardenSeparator(result: Doc[], index: number): void {
   if (result[index] === line) {
-    // splice rather than index assignment: the array is a caller's
-    // parameter, which no-param-reassign forbids writing through.
-    result.splice(index, SINGLE, hardline);
+    result[index] = hardline;
   }
 }
 
@@ -415,16 +405,16 @@ function hardenSeparator(result: Doc[], index: number): void {
  *   node precedes it, in which case the marker IS the separator.
  */
 function resolveHazardBreak(result: Doc[], glued: boolean): void {
-  const lastElement = result.at(LAST_ELEMENT);
+  const lastElement = result.at(-1);
   if (isFillSeparator(lastElement)) {
     // The marker already sits in a separator slot (a sibling's
     // trailing boundary, or a hard line break). Harden that one
     // instead of adding a second separator, which would emit two
     // newlines and desynchronize the alternation.
-    hardenSeparator(result, result.length + LAST_ELEMENT);
+    hardenSeparator(result, result.length - 1);
     return;
   }
-  if (!glued && result.length > EMPTY) {
+  if (!glued && result.length > 0) {
     // Whitespace separates the hazard word from the preceding word
     // of its own text node, so the marker is the separator.
     result.push(hardline);
@@ -438,7 +428,7 @@ function resolveHazardBreak(result: Doc[], glued: boolean): void {
   const separatorIndex = result.findLastIndex((element) =>
     isFillSeparator(element),
   );
-  if (separatorIndex !== NOT_FOUND) {
+  if (separatorIndex !== -1) {
     hardenSeparator(result, separatorIndex);
     return;
   }
@@ -512,14 +502,14 @@ export function flattenForFill(children: Doc[]): Doc[] {
         // A marker that opened this child's parts (index 0) means no
         // leading whitespace, so its hazard word will fuse onto the
         // preceding content — the "glued" case.
-        resolveHazardBreak(result, elementIndex === FIRST);
+        resolveHazardBreak(result, elementIndex === 0);
         continue;
       }
-      const lastElement = result.at(LAST_ELEMENT);
+      const lastElement = result.at(-1);
       if (isAdjacentContent(lastElement, element)) {
         // Fuse into one content unit so fill() keeps the pieces
         // together and measures their combined width correctly.
-        const lastIndex = result.length + LAST_ELEMENT;
+        const lastIndex = result.length - 1;
         result[lastIndex] = [result[lastIndex], element];
       } else if (isFillSeparator(lastElement) && isFillSeparator(element)) {
         // Two separators in a row is the mirror image of the fusing
@@ -534,7 +524,7 @@ export function flattenForFill(children: Doc[]): Doc[] {
         // Keep the stronger of the two: a forced break outranks a
         // soft `line`, never the reverse.
         if (lastElement === line) {
-          result.splice(result.length + LAST_ELEMENT, SINGLE, element);
+          result.splice(-1, 1, element);
         }
       } else {
         result.push(element);
@@ -569,7 +559,7 @@ export function flattenForFill(children: Doc[]): Doc[] {
  * @returns The same parts, without a leading hazard marker.
  */
 export function stripLeadingHazardBreak(parts: Doc[]): Doc[] {
-  return parts[FIRST] === DLIST_HAZARD_BREAK ? parts.slice(NEXT) : parts;
+  return parts[0] === DLIST_HAZARD_BREAK ? parts.slice(1) : parts;
 }
 
 /**
@@ -603,13 +593,13 @@ export function keepLastBreak(parts: Doc[]): Doc[] {
   const lastContent = parts.findLastIndex(
     (element) => !isFillSeparator(element),
   );
-  if (lastContent === NOT_FOUND) {
+  if (lastContent === -1) {
     return parts;
   }
   const last = parts
-    .slice(FIRST, lastContent)
+    .slice(0, lastContent)
     .findLastIndex((element) => isFillSeparator(element));
-  if (last === NOT_FOUND || parts[last] !== line) {
+  if (last === -1 || parts[last] !== line) {
     return parts;
   }
   return parts.with(last, hardline);

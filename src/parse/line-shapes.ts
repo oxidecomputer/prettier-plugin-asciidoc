@@ -28,8 +28,6 @@
  * Ruby, the probe wins and the row is marked.
  */
 
-import { EMPTY, FIRST, LAST_ELEMENT } from "../constants.js";
-
 /**
  * Which kind of paragraph is open. Each value names the Ruby path
  * that reads those lines:
@@ -110,7 +108,7 @@ export function rstrip(line: string): string {
   // Loop, not a single slice: `a\u{0}\u{0}` and `a \u{0} ` must lose
   // every trailing character, whichever half claims it.
   while (stripped.endsWith(NUL)) {
-    stripped = stripped.slice(FIRST, LAST_ELEMENT).trimEnd();
+    stripped = stripped.slice(0, -1).trimEnd();
   }
   return stripped;
 }
@@ -699,11 +697,11 @@ function matchesInterrupter(
   context: ParagraphContext,
   firstLineAfterBlockStart: boolean,
 ): boolean {
-  const { [context]: always } = INTERRUPTERS_BY_CONTEXT;
+  const always = INTERRUPTERS_BY_CONTEXT[context];
   const byPosition = firstLineAfterBlockStart
     ? FIRST_LINE_INTERRUPTERS
     : LATER_LINE_INTERRUPTERS;
-  const { [context]: positional } = byPosition;
+  const positional = byPosition[context];
   const test = (pattern: RegExp): boolean => pattern.test(line);
   return always.some(test) || positional.some(test);
 }
@@ -891,7 +889,7 @@ function isForeignMarkerLine(
   options: InterruptionOptions,
 ): boolean {
   const styles = options.enclosingListStyles ?? [];
-  if (styles.length === EMPTY) {
+  if (styles.length === 0) {
     return false;
   }
   const style = listMarkerStyle(line);

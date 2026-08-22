@@ -16,7 +16,6 @@ import type {
   HardLineBreakNode,
   Location,
 } from "../../ast.js";
-import { EMPTY, FIRST, NEXT, NOT_FOUND } from "../../constants.js";
 import type { Fragment, LocationIndex } from "../positions.js";
 
 // Number of characters in `<<`, `>>`, `[[`, or `]]`.
@@ -44,12 +43,12 @@ const BRACKET_PAIR_LEN = 2;
  */
 function splitAtBracket(image: string): [string, string | undefined] {
   const bracketIndex = image.indexOf("[");
-  if (bracketIndex === NOT_FOUND) {
+  if (bracketIndex === -1) {
     return [image, undefined];
   }
-  const before = image.slice(FIRST, bracketIndex);
+  const before = image.slice(0, bracketIndex);
   // Slice between `[` and the final `]`.
-  const inside = image.slice(bracketIndex + NEXT, -NEXT);
+  const inside = image.slice(bracketIndex + 1, -1);
   return [before, inside];
 }
 
@@ -88,7 +87,7 @@ export function makeLinkFromUrl(
     type: "link",
     form: "url",
     target,
-    text: text === undefined || text.length === EMPTY ? undefined : text,
+    text: text === undefined || text.length === 0 ? undefined : text,
     position: positionOf(fragment, at),
   };
 }
@@ -112,7 +111,7 @@ export function makeXrefFromShorthand(
   // Strip the `<<` prefix and `>>` suffix.
   const inner = fragment.image.slice(BRACKET_PAIR_LEN, -BRACKET_PAIR_LEN);
   const commaIndex = inner.indexOf(",");
-  if (commaIndex === NOT_FOUND) {
+  if (commaIndex === -1) {
     return {
       type: "xref",
       form: "shorthand",
@@ -124,8 +123,8 @@ export function makeXrefFromShorthand(
   return {
     type: "xref",
     form: "shorthand",
-    target: inner.slice(FIRST, commaIndex),
-    text: inner.slice(commaIndex + NEXT),
+    target: inner.slice(0, commaIndex),
+    text: inner.slice(commaIndex + 1),
     position: positionOf(fragment, at),
   };
 }
@@ -150,7 +149,7 @@ export function makeInlineAnchor(
   // Strip the `[[` prefix and `]]` suffix.
   const inner = fragment.image.slice(BRACKET_PAIR_LEN, -BRACKET_PAIR_LEN);
   const commaIndex = inner.indexOf(",");
-  if (commaIndex === NOT_FOUND) {
+  if (commaIndex === -1) {
     return {
       type: "inlineAnchor",
       id: inner,
@@ -158,11 +157,11 @@ export function makeInlineAnchor(
       position: positionOf(fragment, at),
     };
   }
-  const reftext = inner.slice(commaIndex + NEXT).trimStart();
+  const reftext = inner.slice(commaIndex + 1).trimStart();
   return {
     type: "inlineAnchor",
-    id: inner.slice(FIRST, commaIndex),
-    reftext: reftext.length > EMPTY ? reftext : undefined,
+    id: inner.slice(0, commaIndex),
+    reftext: reftext.length > 0 ? reftext : undefined,
     position: positionOf(fragment, at),
   };
 }

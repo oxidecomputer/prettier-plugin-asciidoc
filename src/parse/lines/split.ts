@@ -15,7 +15,7 @@
  * src/parse/line-shapes.ts is written against the registry's set. One
  * spelling, one dialect.
  */
-import { FIRST, FIRST_LINE, NEXT, NOT_FOUND } from "../../constants.js";
+import { FIRST_LINE } from "../../constants.js";
 import { rstrip } from "../line-shapes.js";
 
 /** One source line with both spellings and its position. */
@@ -39,15 +39,15 @@ export interface SourceLine {
  */
 export function splitLines(source: string): SourceLine[] {
   const lines: SourceLine[] = [];
-  let offset = FIRST;
+  let offset = 0;
   let line = FIRST_LINE;
   while (offset < source.length) {
     const end = source.indexOf("\n", offset);
-    const stop = end === NOT_FOUND ? source.length : end;
+    const stop = end === -1 ? source.length : end;
     const raw = source.slice(offset, stop);
     lines.push({ text: rstrip(raw), raw, offset, line });
-    offset = stop + NEXT;
-    line += NEXT;
+    offset = stop + 1;
+    line += 1;
   }
   return lines;
 }

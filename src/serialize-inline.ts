@@ -10,7 +10,6 @@ import type {
   LinkNode,
   XrefNode,
 } from "./ast.js";
-import { EMPTY } from "./constants.js";
 
 /**
  * Serialize a unified inline macro node back to AsciiDoc
@@ -22,7 +21,7 @@ import { EMPTY } from "./constants.js";
  * @returns AsciiDoc source string for the macro.
  */
 export function inlineMacroToSource(node: InlineMacroNode): string {
-  return node.target.length === EMPTY
+  return node.target.length === 0
     ? `${node.name}:[${node.attrlist}]`
     : `${node.name}:${node.target}[${node.attrlist}]`;
 }

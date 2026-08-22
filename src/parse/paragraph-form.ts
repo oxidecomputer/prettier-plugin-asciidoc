@@ -38,7 +38,7 @@ import {
   anchorToSource,
 } from "../serialize-inline.js";
 import { isReaderConsumedLine } from "../block-metadata.js";
-import { FIRST, NEWLINE_LENGTH, NEXT } from "../constants.js";
+import { NEWLINE_LENGTH } from "../constants.js";
 
 // Matches any single word composed entirely of uppercase ASCII letters.
 // Used by getAdmonitionVariant to recognise NOTE, TIP, IMPORTANT, etc.
@@ -234,7 +234,7 @@ function extractParentBlockContent(
   // the document's last line, so the block has no content at all:
   // `"[source]\n--"` reaches here. Ordinary input — nothing about it
   // is malformed, and nothing is unreachable.
-  if (openEnd < FIRST) {
+  if (openEnd === -1) {
     return "";
   }
   const contentStart = openEnd + NEWLINE_LENGTH;
@@ -364,9 +364,9 @@ function annotatedBlockIndex(
   blocks: BlockNode[],
   metadataIndex: number,
 ): number {
-  let index = metadataIndex + NEXT;
+  let index = metadataIndex + 1;
   while (index < blocks.length && isReaderConsumedLine(blocks[index])) {
-    index += NEXT;
+    index += 1;
   }
   return index;
 }
@@ -460,10 +460,10 @@ export function convertParagraphFormBlocks(
   sourceText: string,
 ): BlockNode[] {
   const result: BlockNode[] = [];
-  let index = FIRST;
+  let index = 0;
 
   while (index < blocks.length) {
-    const { [index]: current } = blocks;
+    const current = blocks[index];
     if (current.type === "blockAttributeList") {
       const nextIndex = annotatedBlockIndex(blocks, index);
       const converted = styledConversion(
@@ -475,18 +475,14 @@ export function convertParagraphFormBlocks(
         // The metadata, then the reader-eaten lines it reached
         // across, then the converted block: every line keeps its
         // place, and the loop resumes after the block.
-        result.push(
-          current,
-          ...blocks.slice(index + NEXT, nextIndex),
-          converted,
-        );
-        index = nextIndex + NEXT;
+        result.push(current, ...blocks.slice(index + 1, nextIndex), converted);
+        index = nextIndex + 1;
         continue;
       }
     }
 
     result.push(current);
-    index += NEXT;
+    index += 1;
   }
 
   return result;

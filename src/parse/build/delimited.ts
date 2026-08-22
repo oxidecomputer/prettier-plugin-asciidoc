@@ -16,7 +16,7 @@ import type {
   Location,
   ParentBlockNode,
 } from "../../ast.js";
-import { EMPTY, NEWLINE_LENGTH } from "../../constants.js";
+import { NEWLINE_LENGTH } from "../../constants.js";
 import { unreachable } from "../../unreachable.js";
 import { rstrip } from "../line-shapes.js";
 import { delimiterKind, type DelimiterKind } from "../lines/classify.js";
@@ -206,7 +206,7 @@ export function buildVerbatimBlock(
     // the printer uses this to decide whether to emit `[source]`.
     node.fenced = true;
     const language = open.image.slice(BACKTICK_COUNT).trim();
-    if (language.length > EMPTY) node.language = language;
+    if (language.length > 0) node.language = language;
   }
   return node;
 }

@@ -12,6 +12,13 @@ import vitest from "@vitest/eslint-plugin";
 // signature.
 const EXPECT_MAX_ARGS = 2;
 
+// -1/0/1/2 as index arithmetic (the last element, an empty check,
+// the next slot) is clearer written inline than behind a named
+// constant (readability judgment, agreed 2026-08-22). See the
+// `@typescript-eslint/no-magic-numbers` override below.
+// eslint-disable-next-line @typescript-eslint/no-magic-numbers -- these ARE the ignored numbers
+const INDEX_ARITHMETIC = [-1, 0, 1, 2];
+
 export default defineConfig(
   // Global ignores. `.stryker-tmp/` is Stryker's sandbox: a full copy
   // of the project, tsconfig included, which otherwise makes
@@ -59,6 +66,44 @@ export default defineConfig(
       "@typescript-eslint/no-unnecessary-condition": "error",
       "@typescript-eslint/strict-boolean-expressions": "error",
       "unicorn/no-null": "error",
+
+      // See INDEX_ARITHMETIC above. love's other options are
+      // preserved unchanged.
+      "@typescript-eslint/no-magic-numbers": [
+        "error",
+        {
+          ignore: INDEX_ARITHMETIC,
+          ignoreArrayIndexes: false,
+          ignoreDefaultValues: false,
+          ignoreClassFieldInitialValues: false,
+          enforceConst: false,
+          detectObjects: true,
+          ignoreEnums: true,
+          ignoreNumericLiteralTypes: false,
+          ignoreReadonlyClassProperties: true,
+          ignoreTypeIndexes: false,
+        },
+      ],
+
+      // Computed-key destructuring (`const { [i]: x } = xs;`) is
+      // strictly less readable than `xs[i]` (readability judgment,
+      // agreed 2026-08-22). love's array/object destructuring
+      // preference and its other option are preserved unchanged.
+      "@typescript-eslint/prefer-destructuring": [
+        "error",
+        { array: true, object: true },
+        {
+          enforceForRenamedProperties: false,
+          enforceForDeclarationWithTypeAnnotation: false,
+        },
+      ],
+
+      // Reassigning a parameter's OWN binding stays an error; writing
+      // through its properties (`node.value = x`, `arr[i] = x`) is an
+      // ordinary way to mutate a caller-owned object in place, not a
+      // hazard worth a lint error (readability judgment, agreed
+      // 2026-08-22).
+      "no-param-reassign": ["error", { props: false }],
 
       // These rules do pure syntactic matching on method names
       // (any .map() call, any .flatMap() call) with no type

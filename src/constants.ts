@@ -1,18 +1,17 @@
 /**
  * Shared numeric constants used across the parser and printer.
  *
- * These replace magic numbers (0, 1) with named values that convey
- * intent. Each constant has one semantic meaning even when the
- * underlying value is the same — e.g. EMPTY and FIRST are both 0,
- * but separating them clarifies whether code is checking emptiness
- * or accessing an index.
+ * A constant earns a place here when its value doesn't carry its own
+ * meaning — a delimiter width, a nesting depth, a 1-based origin.
+ * Plain index/offset arithmetic (the first element, the next slot,
+ * the last one) is inlined at call sites instead: `array[0]`,
+ * `index + 1`, `array.at(-1)` read as clearly as a named constant
+ * ever did, without a name to look up — eslint.config.js's
+ * `no-magic-numbers` override (`ignore: [-1, 0, 1, 2]`, readability
+ * judgment, agreed 2026-08-22) is what makes that legible again.
+ * EMPTY, FIRST, NEXT and LAST_ELEMENT once lived here for exactly
+ * that arithmetic and were retired with it.
  */
-
-// Length/emptiness check: `array.length > EMPTY`, `string.length > EMPTY`.
-export const EMPTY = 0;
-
-// First element of an array: `tokens[FIRST]`.
-export const FIRST = 0;
 
 // AsciiDoc section levels start at 1, but marker strings start
 // at 2 characters ("==" for level 1). MARKER_OFFSET bridges
@@ -21,21 +20,9 @@ export const FIRST = 0;
 // - printing: marker = "=".repeat(level + MARKER_OFFSET)
 export const MARKER_OFFSET = 1;
 
-// Last element: array.at(LAST_ELEMENT)
-export const LAST_ELEMENT = -1;
-
 // Nesting depth of the outermost list level. Markers that cannot
 // repeat (`-`, `<1>`) always sit at this depth; `**` is one deeper.
 export const OUTERMOST_DEPTH = 1;
-
-// Exactly one element: `items.length === SINGLE`.
-export const SINGLE = 1;
-
-// Offset to the next element in a sequential scan.
-// Also used as `length - NEXT` to get the last-element index
-// when `.at(LAST_ELEMENT)` can't be used (e.g. ESLint
-// `prefer-destructuring` contexts). See inline/inline-node-builder.ts.
-export const NEXT = 1;
 
 // Width of single-character delimiters stripped via
 // slice(DELIM_WIDTH, -DELIM_WIDTH), e.g. `{attr}` or `[role]`.
@@ -61,13 +48,6 @@ export const FIRST_COLUMN = 1;
 // delimiter and before the close delimiter is not part of the content.
 export const NEWLINE_LENGTH = 1;
 
-// Sentinel returned by indexOf/findIndex when no match exists.
-export const NOT_FOUND = -1;
-
 // Sentinel for auto-numbered callout markers (`<.>`). The
 // value 0 is distinct from any explicit callout number (1+).
 export const AUTO_CALLOUT_NUMBER = 0;
-
-// Midpoint divisor for a binary search: `(low + high) / HALF`.
-// Named because `no-magic-numbers` is on outside tests.
-export const HALF = 2;

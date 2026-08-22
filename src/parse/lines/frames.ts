@@ -13,7 +13,6 @@
  * {@link ListHost} seam below.
  */
 import type { BlockNode, ParentBlockNode } from "../../ast.js";
-import { FIRST } from "../../constants.js";
 import {
   buildAttributeEntry,
   buildBlockAnchor,
@@ -154,7 +153,7 @@ export interface ListHost {
  */
 export function fragmentOfLine(
   line: SourceLine,
-  from = FIRST,
+  from = 0,
   to = line.raw.length,
 ): Fragment {
   return { image: line.raw.slice(from, to), offset: line.offset + from };

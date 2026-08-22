@@ -24,14 +24,6 @@ import {
   anchorToSource,
 } from "./serialize-inline.js";
 import {
-  EMPTY,
-  FIRST,
-  LAST_ELEMENT,
-  NEXT,
-  NOT_FOUND,
-  SINGLE,
-} from "./constants.js";
-import {
   DLIST_HAZARD_BREAK,
   flattenForFill,
   isBlockSyntaxAtLineStart,
@@ -70,10 +62,10 @@ function ownsItsLine(path: PrintPath): boolean {
   if (siblings === undefined || index === null) {
     return false;
   }
-  if (index <= FIRST) {
+  if (index <= 0) {
     return false;
   }
-  const previous = siblings.at(index + LAST_ELEMENT);
+  const previous = siblings.at(index - 1);
   return (
     previous?.type === "text" && LINE_START_BEFORE_BREAK.test(previous.value)
   );
@@ -214,7 +206,7 @@ const OWN_LINE_SIBLINGS = new Set(["list", "rawLine"]);
  * @returns Doc IR for the line and its breaks.
  */
 function printRawLine(node: RawLineNode, path: PrintPath): Doc {
-  const leading = path.index === FIRST ? [] : [literalline];
+  const leading = path.index === 0 ? [] : [literalline];
   return hasFollowingInlineSibling(path)
     ? [...leading, node.value, literalline]
     : [...leading, node.value];
@@ -233,7 +225,7 @@ function hasFollowingInlineSibling(path: PrintPath): boolean {
   if (siblings === undefined || index === null) {
     return false;
   }
-  const next = siblings.at(index + NEXT);
+  const next = siblings.at(index + 1);
   return next !== undefined && !OWN_LINE_SIBLINGS.has(next.type);
 }
 
@@ -252,10 +244,10 @@ function hasPrecedingInlineSibling(path: PrintPath): boolean {
   if (siblings === undefined || index === null) {
     return false;
   }
-  if (index <= FIRST) {
+  if (index <= 0) {
     return false;
   }
-  const previous = siblings.at(index + LAST_ELEMENT);
+  const previous = siblings.at(index - 1);
   return previous !== undefined && !OWN_LINE_SIBLINGS.has(previous.type);
 }
 
@@ -289,14 +281,9 @@ function unshiftLeadingBoundary(
   if (!/^\s/v.test(value)) {
     return;
   }
-  if (
-    isBlockSyntaxAtLineStart(words[FIRST]) &&
-    hasPrecedingInlineSibling(path)
-  ) {
-    const index = parts[FIRST] === DLIST_HAZARD_BREAK ? NEXT : FIRST;
-    // splice rather than index assignment: no-param-reassign forbids
-    // writing through a parameter.
-    parts.splice(index, SINGLE, [" ", parts[index]]);
+  if (isBlockSyntaxAtLineStart(words[0]) && hasPrecedingInlineSibling(path)) {
+    const index = parts[0] === DLIST_HAZARD_BREAK ? 1 : 0;
+    parts[index] = [" ", parts[index]];
     return;
   }
   parts.unshift(line);
@@ -320,7 +307,7 @@ function pushTrailingBoundary(
   words: string[],
   glueToSibling: boolean,
 ): void {
-  if (glueToSibling && words.at(LAST_ELEMENT) === "+") {
+  if (glueToSibling && words.at(-1) === "+") {
     const lastPart = parts.pop() ?? "";
     parts.push([lastPart, " "]);
   } else {
@@ -349,7 +336,7 @@ const FORMATTING_SPANS = new Set(["bold", "italic", "monospace", "highlight"]);
  *   undefined when no ancestor block was found.
  */
 function enclosingBlockStartLine(path: PrintPath): number | undefined {
-  for (let depth = FIRST; ; depth += NEXT) {
+  for (let depth = 0; ; depth += 1) {
     const ancestor: AnyNode | null = path.getParentNode(depth);
     if (ancestor === null) {
       return undefined;
@@ -383,13 +370,13 @@ function firstSourceLineWordCount(
     // The node itself begins on a later source line (or the block
     // could not be located, in which case guarding is the safe
     // answer): none of its words are on the block's first line.
-    return EMPTY;
+    return 0;
   }
   const firstNewline = node.value.indexOf("\n");
-  if (firstNewline === NOT_FOUND) {
+  if (firstNewline === -1) {
     return words.length;
   }
-  return splitWords(node.value.slice(FIRST, firstNewline)).length;
+  return splitWords(node.value.slice(0, firstNewline)).length;
 }
 
 /**
@@ -414,7 +401,7 @@ function trailingPlusPolicy(
 } {
   const followedInFill = hasFollowingInlineSibling(path);
   const startsItsOwnLine =
-    words.length === SINGLE && !hasPrecedingInlineSibling(path);
+    words.length === 1 && !hasPrecedingInlineSibling(path);
   return {
     escapeTrailingPlus:
       !followedInFill && !isInsideFormattingSpan(path) && !startsItsOwnLine,
@@ -439,15 +426,13 @@ function trailingPlusPolicy(
  *   when its content began with one.
  */
 function spanParts(parts: Doc[], openMark: string, closeMark: string): Doc[] {
-  const hoisted = parts[FIRST] === DLIST_HAZARD_BREAK;
+  const hoisted = parts[0] === DLIST_HAZARD_BREAK;
   if (hoisted) {
     parts.shift();
   }
-  const lastIndex = parts.length + LAST_ELEMENT;
-  // splice rather than index assignment: `parts` is a caller's
-  // parameter, which no-param-reassign forbids writing through.
-  parts.splice(FIRST, SINGLE, [openMark, parts[FIRST]]);
-  parts.splice(lastIndex, SINGLE, [parts[lastIndex], closeMark]);
+  const lastIndex = parts.length - 1;
+  parts[0] = [openMark, parts[0]];
+  parts[lastIndex] = [parts[lastIndex], closeMark];
   return hoisted ? [DLIST_HAZARD_BREAK, ...parts] : parts;
 }
 
@@ -502,7 +487,7 @@ export function printInlineNode(
       // as a break point — rather than being dropped entirely,
       // which would fuse adjacent siblings or collapse content
       // whitespace inside formatting marks.
-      if (words.length === EMPTY) {
+      if (words.length === 0) {
         return [line];
       }
       // A trailing `+` word needs care because ` +` at end of
@@ -541,10 +526,10 @@ export function printInlineNode(
       // unconstrained (`**bold**`) work anywhere, including
       // mid-word. The AST preserves which form was used so
       // we round-trip it faithfully instead of normalizing.
-      // Computed destructuring picks the single-char mark for
-      // the current node type without a separate if/switch.
+      // A lookup table picks the single-char mark for the
+      // current node type without a separate if/switch.
       const markMap = { bold: "*", italic: "_", monospace: "`" };
-      const { [node.type]: singleMark } = markMap;
+      const singleMark = markMap[node.type];
       const mark = node.constrained ? singleMark : `${singleMark}${singleMark}`;
       // Flatten children so their fill-compatible parts
       // (word, line, word, ...) participate directly in the
@@ -560,7 +545,7 @@ export function printInlineNode(
       // array (e.g. `_# #_` where highlight contains only a
       // space). Emit the bare marks to avoid crashing on
       // undefined array access during fusing.
-      if (parts.length === EMPTY) {
+      if (parts.length === 0) {
         return [`${mark}${mark}`];
       }
       return spanParts(parts, mark, mark);
@@ -576,7 +561,7 @@ export function printInlineNode(
       // Same flattening + fusing as bold/italic/monospace
       // above — see comment there for rationale.
       const parts = flattenForFill(path.map(print, "children"));
-      if (parts.length === EMPTY) {
+      if (parts.length === 0) {
         return [`${rolePrefix}${mark}${mark}`];
       }
       return spanParts(parts, `${rolePrefix}${mark}`, mark);

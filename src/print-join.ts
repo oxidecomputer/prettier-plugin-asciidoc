@@ -16,17 +16,10 @@ import {
   isReaderConsumedLine,
   wouldMergeWithAnchor,
 } from "./block-metadata.js";
-import { EMPTY, LAST_ELEMENT } from "./constants.js";
 
 const {
   builders: { hardline },
 } = doc;
-// Index of the second child in a block array (offset 1 from
-// zero). Also serves as the loop increment in joinBlocks
-// (advance by one). Both uses share the numeric value 1.
-const SECOND_CHILD = 1;
-// Offset from one line to the next when comparing block positions.
-const NEXT_LINE = 1;
 
 /**
  * Tests whether a block is a line comment.
@@ -110,11 +103,8 @@ function isDocumentTitle(block: BlockNode): boolean {
  *   a blank-line separator.
  */
 function shouldStack(blocks: BlockNode[], index: number): boolean {
-  // Hoisted out of the computed key: StrykerJS cannot place a mutant
-  // inside a destructuring PATTERN and wraps the whole declaration in an
-  // if/else, which would scope both bindings out of the return below.
-  const previousIndex = index - SECOND_CHILD;
-  const { [previousIndex]: previous, [index]: current } = blocks;
+  const previous = blocks[index - 1];
+  const current = blocks[index];
   return (
     (isLineComment(previous) && isLineComment(current)) ||
     stacksWithReaderEatenLine(previous, current) ||
@@ -169,15 +159,15 @@ function endsWithReaderEatenLine(block: BlockNode): boolean {
   if (block.type !== "list") {
     return isReaderConsumedLine(block);
   }
-  const item = block.children.at(LAST_ELEMENT);
-  const last = item?.blocks.at(LAST_ELEMENT)?.block;
+  const item = block.children.at(-1);
+  const last = item?.blocks.at(-1)?.block;
   if (last !== undefined) {
     // A trailing nested list recurses through the same test.
     return endsWithReaderEatenLine(last);
   }
   // An inline rawLine is a comment or a preprocessor directive by
   // construction (`isRawParagraphLine` admits nothing else).
-  return item?.text.at(LAST_ELEMENT)?.type === "rawLine";
+  return item?.text.at(-1)?.type === "rawLine";
 }
 
 /**
@@ -188,7 +178,7 @@ function endsWithReaderEatenLine(block: BlockNode): boolean {
  * @returns Whether the two were adjacent in the source.
  */
 function startsOnTheNextLine(previous: BlockNode, current: BlockNode): boolean {
-  return current.position.start.line === previous.position.end.line + NEXT_LINE;
+  return current.position.start.line === previous.position.end.line + 1;
 }
 
 /**
@@ -234,12 +224,8 @@ function shouldStackMetadata(previous: BlockNode, current: BlockNode): boolean {
  *   correct number of newlines.
  */
 export function joinBlocks(blocks: BlockNode[], printed: Doc[]): Doc {
-  const result: Doc[] = [printed[EMPTY]];
-  for (
-    let index = SECOND_CHILD;
-    index < printed.length;
-    index += SECOND_CHILD
-  ) {
+  const result: Doc[] = [printed[0]];
+  for (let index = 1; index < printed.length; index += 1) {
     // Stacked blocks (consecutive comments, consecutive attribute
     // entries, or document title + attribute entry in a header)
     // use a single newline. All other pairs get a blank line.

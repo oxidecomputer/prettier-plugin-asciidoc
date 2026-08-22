@@ -7,17 +7,7 @@
 // inline layer and the block builders can consume it without either
 // depending on the other.
 import type { Location } from "../ast.js";
-import {
-  EMPTY,
-  FIRST,
-  FIRST_COLUMN,
-  FIRST_LINE,
-  HALF,
-  LAST_ELEMENT,
-  NEXT,
-  NOT_FOUND,
-  SINGLE,
-} from "../constants.js";
+import { FIRST_COLUMN, FIRST_LINE } from "../constants.js";
 
 /**
  * Assemble a Location from raw coordinates. Centralising
@@ -88,13 +78,13 @@ export function makeLocationIndex(source: string): LocationIndex {
   // the loop free of a `offset < source.length` bound, whose `<=`
   // mutant reads one past the end and is undetectable: `undefined`
   // is not "\n", so the extra turn pushes nothing.
-  const starts = [FIRST];
+  const starts = [0];
   for (
     let breakAt = source.indexOf("\n");
-    breakAt !== NOT_FOUND;
-    breakAt = source.indexOf("\n", breakAt + NEXT)
+    breakAt !== -1;
+    breakAt = source.indexOf("\n", breakAt + 1)
   ) {
-    starts.push(breakAt + NEXT);
+    starts.push(breakAt + 1);
   }
   const at = (offset: number): Location => {
     // Half-open: `low` is the greatest line start at or before
@@ -103,12 +93,10 @@ export function makeLocationIndex(source: string): LocationIndex {
     // this way because the closed form needs a `starts.length - 1`
     // whose off-by-one mutant is invisible — indexing one past the
     // array yields `undefined`, which loses every comparison.
-    let low = FIRST;
-    // Destructured because `prefer-destructuring` is on: this is
-    // `high = starts.length`, the exclusive bound.
-    let { length: high } = starts;
-    while (high - low > SINGLE) {
-      const middle = Math.floor((low + high) / HALF);
+    let low = 0;
+    let high = starts.length;
+    while (high - low > 1) {
+      const middle = Math.floor((low + high) / 2);
       if (starts[middle] <= offset) low = middle;
       else high = middle;
     }
@@ -122,12 +110,12 @@ export function makeLocationIndex(source: string): LocationIndex {
     at,
     start: (fragment) => at(fragment.offset),
     end: (fragment) => {
-      if (fragment.image.length === EMPTY) return at(fragment.offset);
-      const last = at(fragment.offset + fragment.image.length + LAST_ELEMENT);
+      if (fragment.image.length === 0) return at(fragment.offset);
+      const last = at(fragment.offset + fragment.image.length - 1);
       return makeLocation(
         fragment.offset + fragment.image.length,
         last.line,
-        last.column + NEXT,
+        last.column + 1,
       );
     },
   };

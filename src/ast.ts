@@ -24,24 +24,6 @@ export interface Location {
 }
 
 /**
- * The 1-based line of one source point.
- *
- * A helper rather than `…position.start.line` (or `.end.line`) at each
- * use site: `@typescript-eslint/prefer-destructuring` (with
- * `enforceForRenamedProperties`) reads a member chain on an
- * assignment's right side as a destructuring it wants spelled out, so
- * it is spelled out once here rather than once per call site.
- * Consolidated from three identical copies (list-reader.ts,
- * print-list-hazard.ts, tests/parser/ast-invariants.ts).
- * @param point - a node's `position.start` or `position.end`
- * @returns its line
- */
-export function lineOf(point: Location): number {
-  const { line } = point;
-  return line;
-}
-
-/**
  * Every AST node carries a position with start (inclusive) and end (exclusive).
  * Prettier uses locStart/locEnd for cursor tracking and range formatting;
  * having positions on every node ensures those features work correctly.

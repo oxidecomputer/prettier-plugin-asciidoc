@@ -11,7 +11,6 @@
  * the print layer.
  */
 import type { BlockNode } from "./ast.js";
-import { FIRST, SINGLE } from "./constants.js";
 
 /**
  * Tests whether a block is a paragraph whose only child
@@ -28,8 +27,8 @@ import { FIRST, SINGLE } from "./constants.js";
 export function isAnchorParagraph(block: BlockNode): boolean {
   return (
     block.type === "paragraph" &&
-    block.children.length === SINGLE &&
-    block.children[FIRST].type === "inlineAnchor"
+    block.children.length === 1 &&
+    block.children[0].type === "inlineAnchor"
   );
 }
 

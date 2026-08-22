@@ -24,9 +24,7 @@
  * behind its verbatim gap — "directly under" is a literal empty gap,
  * and an author's `+` is a literal `["+"]`.
  */
-import { lineOf } from "./ast.js";
 import type { BlockNode, ListItemNode } from "./ast.js";
-import { EMPTY, FIRST, SINGLE } from "./constants.js";
 
 /** How the printer must guard the item's text against reflow. */
 export type Hazard = "none" | "plus" | "keepBreak";
@@ -66,8 +64,8 @@ function isRunMetadata(block: BlockNode): boolean {
   }
   return (
     block.type === "paragraph" &&
-    block.children.length === SINGLE &&
-    block.children[FIRST].type === "inlineAnchor"
+    block.children.length === 1 &&
+    block.children[0].type === "inlineAnchor"
   );
 }
 
@@ -95,8 +93,8 @@ interface HeldBlock {
 function heldBlocks(item: ListItemNode): HeldBlock[] {
   return item.blocks.map(({ gap, block }) => ({
     block,
-    adjacent: gap.length === EMPTY,
-    authorPlus: gap.length === SINGLE && gap[FIRST] === "+",
+    adjacent: gap.length === 0,
+    authorPlus: gap.length === 1 && gap[0] === "+",
   }));
 }
 
@@ -129,14 +127,14 @@ function leadingMetadataRun(blocks: readonly HeldBlock[]): {
   spanned: number;
 } {
   const run: BlockNode[] = [];
-  let spanned = EMPTY;
+  let spanned = 0;
   for (const held of blocks) {
     const transparent = isLineComment(held.block);
     if (!transparent && !isRunMetadata(held.block)) break;
-    const started = spanned > EMPTY;
+    const started = spanned > 0;
     if (!held.adjacent && !(held.authorPlus && started)) break;
     if (!transparent) run.push(held.block);
-    spanned += SINGLE;
+    spanned += 1;
   }
   return { run, spanned };
 }
@@ -153,14 +151,14 @@ function leadingMetadataRun(blocks: readonly HeldBlock[]): {
  * @returns true when reflow would reach the first rest line
  */
 function reflowReachesFirstRestLine(item: ListItemNode): boolean {
-  const markerLine = lineOf(item.position.start);
+  const markerLine = item.position.start.line;
   let sawReflowable = false;
   for (const child of item.text) {
     if (child.type === "rawLine") {
       if (child.value.startsWith(COMMENT_HEAD)) continue;
       return false; // keeps its own line — reflow never reaches
     }
-    if (lineOf(child.position.end) > markerLine) sawReflowable = true;
+    if (child.position.end.line > markerLine) sawReflowable = true;
   }
   return sawReflowable;
 }
@@ -174,7 +172,7 @@ function reflowReachesFirstRestLine(item: ListItemNode): boolean {
 export function hazard(item: ListItemNode): Hazard {
   const blocks = heldBlocks(item);
   const { run, spanned } = leadingMetadataRun(blocks);
-  if (run.length === EMPTY || !reflowReachesFirstRestLine(item)) {
+  if (run.length === 0 || !reflowReachesFirstRestLine(item)) {
     return "none";
   }
   // "A block of the item follows the run" counts only blocks the run

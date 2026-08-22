@@ -6,7 +6,7 @@
  */
 import { doc, type Doc } from "prettier";
 import type { GapLine, ItemBlock, ListItemNode, ListNode } from "./ast.js";
-import { EMPTY, FIRST, LAST_ELEMENT, MARKER_OFFSET } from "./constants.js";
+import { MARKER_OFFSET } from "./constants.js";
 import { CHECKBOX_PREFIX_LEN } from "./parse/build/list.js";
 import { hazard, type Hazard } from "./print-list-hazard.js";
 import {
@@ -45,19 +45,13 @@ export function printList(
   const items = path.map(print, "children");
   const parts: Doc[] = [];
   for (const [index, item] of items.entries()) {
-    if (index > FIRST) {
+    if (index > 0) {
       // A literal paragraph attached with `+` reads on to the next
       // BLANK line — `read_lines_for_list_item` takes it with
       // `read_lines_until(break_on_blank_lines, break_on_list_continuation)`
       // and no sibling check — so a sibling marker directly under one
       // would be swallowed into it. The blank line keeps the item.
-      // Hoisted out of the computed key: StrykerJS cannot place a mutant
-      // inside a destructuring PATTERN and wraps the whole declaration in
-      // an if/else, which would scope `previous` out of the push below.
-      const previousIndex = index + LAST_ELEMENT;
-      const {
-        children: { [previousIndex]: previous },
-      } = node;
+      const previous = node.children[index - 1];
       parts.push(
         endsWithLiteralParagraph(previous) ? [hardline, hardline] : hardline,
       );
@@ -77,9 +71,9 @@ export function printList(
  */
 function endsWithLiteralParagraph(item: ListItemNode): boolean {
   if (item.trailingContinuation) return false;
-  const last = item.blocks.at(LAST_ELEMENT)?.block;
+  const last = item.blocks.at(-1)?.block;
   if (last?.type === "list") {
-    const lastItem = last.children.at(LAST_ELEMENT);
+    const lastItem = last.children.at(-1);
     return lastItem !== undefined && endsWithLiteralParagraph(lastItem);
   }
   return last?.type === "delimitedBlock" && last.form === "indented";
@@ -105,7 +99,7 @@ function buildMarker(
   if (parentList?.variant === "callout") {
     // Auto-numbered callouts store 0 as calloutNumber.
     const calloutLabel =
-      node.calloutNumber === EMPTY ? "." : String(node.calloutNumber);
+      node.calloutNumber === 0 ? "." : String(node.calloutNumber);
     return `<${calloutLabel}>`;
   }
   const markerChar = parentList?.variant === "ordered" ? "." : "*";
@@ -159,8 +153,7 @@ export function printListItem(
   const marker = buildMarker(node, parentList);
   const checkboxPrefix = formatCheckbox(node.checkbox);
   const markerWidth = marker.length + MARKER_OFFSET;
-  const checkboxWidth =
-    node.checkbox === undefined ? EMPTY : CHECKBOX_PREFIX_LEN;
+  const checkboxWidth = node.checkbox === undefined ? 0 : CHECKBOX_PREFIX_LEN;
 
   const flattened = stripLeadingHazardBreak(
     flattenForFill(path.map(print, "text")),
@@ -184,7 +177,7 @@ export function printListItem(
   );
   const parts: Doc[] = [item];
   for (const index of node.blocks.keys()) {
-    if (index === FIRST && guard === "plus") {
+    if (index === 0 && guard === "plus") {
       // The explicit `+` Ruling 26 puts above a leading metadata run a
       // block of the item follows (the run's own gap is empty by the
       // hazard's definition, so nothing else prints between).
@@ -261,10 +254,9 @@ function printedGap(
   guard: Hazard,
 ): readonly GapLine[] {
   const { blocks } = node;
-  const { [index]: entry } = blocks;
-  const { gap, block } = entry;
+  const { gap, block } = blocks[index];
   if (block.type !== "list") return gap;
-  const nestedFirst = block.children.at(FIRST);
+  const nestedFirst = block.children.at(0);
   if (
     nestedFirst !== undefined &&
     buildMarker(nestedFirst, block) === buildMarker(node, parentList)
@@ -272,8 +264,8 @@ function printedGap(
     return gap.includes("+") ? gap : [];
   }
   if (
-    index > FIRST &&
-    gap.length === EMPTY &&
+    index > 0 &&
+    gap.length === 0 &&
     (guard === "plus" || slurpReaches(node.blocks, index))
   ) {
     return BLANK_GAP;
@@ -293,14 +285,14 @@ function printedGap(
  * @returns true when a literal's slurp would swallow it on re-read
  */
 function slurpReaches(blocks: readonly ItemBlock[], index: number): boolean {
-  for (const previous of blocks.slice(FIRST, index).toReversed()) {
+  for (const previous of blocks.slice(0, index).toReversed()) {
     if (
       previous.block.type === "delimitedBlock" &&
       previous.block.form === "indented"
     ) {
       return true;
     }
-    if (previous.gap.length > EMPTY) return false;
+    if (previous.gap.length > 0) return false;
   }
   return false;
 }

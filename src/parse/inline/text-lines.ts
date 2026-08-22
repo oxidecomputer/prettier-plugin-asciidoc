@@ -12,7 +12,6 @@
  * it is the other consumer of the same token stream and has none of
  * that file's pairing machinery.
  */
-import { EMPTY } from "../../constants.js";
 import type { InlineToken } from "./tokens.js";
 
 /**
@@ -38,7 +37,7 @@ export function textLines(tokens: readonly InlineToken[]): InlineToken[] {
   const lines: InlineToken[] = [];
   let current: InlineToken[] = [];
   const flush = (): void => {
-    if (current.length > EMPTY) {
+    if (current.length > 0) {
       lines.push(joinLine(current));
       current = [];
     }

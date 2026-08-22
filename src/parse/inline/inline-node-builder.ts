@@ -22,14 +22,7 @@ import type {
   AttributeReferenceNode,
 } from "../../ast.js";
 import type { Fragment, LocationIndex } from "../positions.js";
-import {
-  DELIM_WIDTH,
-  EMPTY,
-  FIRST,
-  LAST_ELEMENT,
-  NEXT,
-  NOT_FOUND,
-} from "../../constants.js";
+import { DELIM_WIDTH } from "../../constants.js";
 import { unreachable } from "../../unreachable.js";
 import type { InlineToken, InlineTokenType } from "./tokens.js";
 import {
@@ -63,14 +56,13 @@ const MARK_TOKEN_TYPES = new Set(MARK_TO_TYPE.keys());
  * the builder to extract the inner content for recursion.
  * @param tokens - The flat token stream being processed.
  * @param openIndex - Position of the open mark to match.
- * @returns Index of the matching close mark, or NOT_FOUND
- *   (-1) if none is found.
+ * @returns Index of the matching close mark, or -1 if none
+ *   is found.
  */
 function findCloseMark(
   tokens: readonly InlineToken[],
   openIndex: number,
 ): number {
-  // eslint-disable-next-line @typescript-eslint/prefer-destructuring -- indexed array access
   const openToken = tokens[openIndex];
   const {
     type: openType,
@@ -78,18 +70,17 @@ function findCloseMark(
   } = openToken;
 
   for (
-    let scanIndex = openIndex + NEXT;
+    let scanIndex = openIndex + 1;
     scanIndex < tokens.length;
-    scanIndex += NEXT
+    scanIndex += 1
   ) {
-    // eslint-disable-next-line @typescript-eslint/prefer-destructuring -- indexed array access
     const candidate = tokens[scanIndex];
     // Same kind and same image length (single vs double mark).
     if (candidate.type === openType && candidate.image.length === markLength) {
       return scanIndex;
     }
   }
-  return NOT_FOUND;
+  return -1;
 }
 
 /**
@@ -234,17 +225,15 @@ function handleRoleAttribute(context: RoleAttributeContext): number {
   const { tokens, index, token, flushText, accumulate, nodes, at } = context;
   const { image: roleImage } = token;
   const roleText = roleImage.slice(DELIM_WIDTH, -DELIM_WIDTH);
-  const nextIndex = index + NEXT;
+  const nextIndex = index + 1;
 
   if (nextIndex < tokens.length && tokens[nextIndex].type === "HighlightMark") {
     const closeIndex = findCloseMark(tokens, nextIndex);
-    if (closeIndex !== NOT_FOUND) {
+    if (closeIndex !== -1) {
       flushText();
-      // eslint-disable-next-line @typescript-eslint/prefer-destructuring -- indexed array access
       const openMark = tokens[nextIndex];
-      // eslint-disable-next-line @typescript-eslint/prefer-destructuring -- indexed array access
       const closeMark = tokens[closeIndex];
-      const innerTokens = tokens.slice(nextIndex + NEXT, closeIndex);
+      const innerTokens = tokens.slice(nextIndex + 1, closeIndex);
       const children = buildFromTokens(innerTokens, at);
       const constrained = openMark.image.length === DELIM_WIDTH;
       const highlightNode: HighlightNode = {
@@ -255,13 +244,13 @@ function handleRoleAttribute(context: RoleAttributeContext): number {
         position: { start: at.start(token), end: at.end(closeMark) },
       };
       nodes.push(highlightNode);
-      return closeIndex + NEXT;
+      return closeIndex + 1;
     }
   }
 
   // No matching highlight — treat as text.
   accumulate(token, token.image);
-  return index + NEXT;
+  return index + 1;
 }
 
 /**
@@ -293,17 +282,16 @@ function handleFormattingMark(
   // content, matching Asciidoctor's behavior where `_____`
   // is italic wrapping a literal `_`.
   let closeIndex = findCloseMark(tokens, index);
-  while (closeIndex !== NOT_FOUND) {
-    const innerTokens = tokens.slice(index + NEXT, closeIndex);
-    if (innerTokens.length > EMPTY) break;
+  while (closeIndex !== -1) {
+    const innerTokens = tokens.slice(index + 1, closeIndex);
+    if (innerTokens.length > 0) break;
     closeIndex = findCloseMark(tokens, closeIndex);
   }
-  if (closeIndex === NOT_FOUND) return undefined;
+  if (closeIndex === -1) return undefined;
 
-  const innerTokens = tokens.slice(index + NEXT, closeIndex);
+  const innerTokens = tokens.slice(index + 1, closeIndex);
   const children = buildFromTokens(innerTokens, at);
   const constrained = token.image.length === DELIM_WIDTH;
-  // eslint-disable-next-line @typescript-eslint/prefer-destructuring -- indexed array access
   const closeMark = tokens[closeIndex];
   return {
     node: makeFormattingNode({
@@ -314,7 +302,7 @@ function handleFormattingMark(
       closeMark,
       at,
     }),
-    nextIndex: closeIndex + NEXT,
+    nextIndex: closeIndex + 1,
   };
 }
 
@@ -367,9 +355,9 @@ function makeInlineMacro(
   const bracketIndex = fragment.image.indexOf("[");
   return {
     type: "inlineMacro",
-    name: fragment.image.slice(EMPTY, colonIndex),
-    target: fragment.image.slice(colonIndex + NEXT, bracketIndex),
-    attrlist: fragment.image.slice(bracketIndex + NEXT, -NEXT),
+    name: fragment.image.slice(0, colonIndex),
+    target: fragment.image.slice(colonIndex + 1, bracketIndex),
+    attrlist: fragment.image.slice(bracketIndex + 1, -1),
     position: { start: at.start(fragment), end: at.end(fragment) },
   };
 }
@@ -434,7 +422,7 @@ function makeRawLineNode(fragment: Fragment, at: LocationIndex): RawLineNode {
  *   is none.
  */
 function withoutTrailingNewline(pending: string): string {
-  return pending.endsWith("\n") ? pending.slice(FIRST, LAST_ELEMENT) : pending;
+  return pending.endsWith("\n") ? pending.slice(0, -1) : pending;
 }
 
 /**
@@ -449,7 +437,7 @@ function skipStructuralNewline(
   index: number,
 ): number {
   return index < tokens.length && tokens[index].type === "InlineNewline"
-    ? index + NEXT
+    ? index + 1
     : index;
 }
 
@@ -477,7 +465,7 @@ function skipNewlineAfterHardBreak(
     node.type === "hardLineBreak" &&
     index < tokens.length &&
     tokens[index].type === "InlineNewline";
-  return isHardBreakFollowedByNewline ? index + NEXT : index;
+  return isHardBreakFollowedByNewline ? index + 1 : index;
 }
 
 /**
@@ -507,21 +495,21 @@ export function buildFromTokens(
   // Only between-line newlines should become \n text.
   const { length: tokenCount } = allTokens;
   let end = tokenCount;
-  while (end > EMPTY && allTokens[end - NEXT].type === "InlineNewline") {
-    end -= NEXT;
+  while (end > 0 && allTokens[end - 1].type === "InlineNewline") {
+    end -= 1;
   }
-  const tokens = end < tokenCount ? allTokens.slice(FIRST, end) : allTokens;
+  const tokens = end < tokenCount ? allTokens.slice(0, end) : allTokens;
 
   const nodes: InlineNode[] = [];
   let pendingText = "";
   let pendingStart: InlineToken | undefined = undefined;
   let pendingEnd: InlineToken | undefined = undefined;
-  let index = EMPTY;
+  let index = 0;
 
   /** Flush accumulated plain text into a TextNode. */
   function flushText(): void {
     if (
-      pendingText.length > EMPTY &&
+      pendingText.length > 0 &&
       pendingStart !== undefined &&
       pendingEnd !== undefined
     ) {
@@ -548,7 +536,6 @@ export function buildFromTokens(
   }
 
   while (index < tokens.length) {
-    // eslint-disable-next-line @typescript-eslint/prefer-destructuring -- indexed array access
     const token = tokens[index];
     const { type } = token;
 
@@ -562,7 +549,7 @@ export function buildFromTokens(
       pendingText = withoutTrailingNewline(pendingText);
       flushText();
       nodes.push(makeRawLineNode(token, at));
-      index = skipStructuralNewline(tokens, index + NEXT);
+      index = skipStructuralNewline(tokens, index + 1);
       continue;
     }
 
@@ -599,7 +586,7 @@ export function buildFromTokens(
     if (atomicNode !== undefined) {
       flushText();
       nodes.push(atomicNode);
-      index += NEXT;
+      index += 1;
       // After a hard line break, skip the structural
       // InlineNewline that follows — the HardLineBreakNode
       // already represents the line break.
@@ -609,7 +596,7 @@ export function buildFromTokens(
 
     // InlineNewline → \n, everything else → literal image.
     accumulate(token, type === "InlineNewline" ? "\n" : token.image);
-    index += NEXT;
+    index += 1;
   }
 
   flushText();

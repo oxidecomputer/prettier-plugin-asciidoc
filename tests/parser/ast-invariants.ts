@@ -12,7 +12,6 @@
  * `position`, which is every AST node and nothing else.
  */
 import { expect } from "vitest";
-import { lineOf } from "../../src/ast.js";
 import type { Location } from "../../src/ast.js";
 import { rstrip } from "../../src/parse/line-shapes.js";
 import { parse } from "../../src/parser.js";
@@ -631,7 +630,7 @@ function expectItemGaps(
         "a gap covers a line an item already prints as its trailing +",
       ).toBe(false);
     }
-    previousEnd = lineOf(block.position.end);
+    previousEnd = block.position.end.line;
   }
 }
 

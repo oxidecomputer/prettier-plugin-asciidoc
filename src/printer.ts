@@ -21,7 +21,7 @@
  * AST nodes.
  */
 import { doc, type Printer, type Doc } from "prettier";
-import { EMPTY, MARKER_OFFSET } from "./constants.js";
+import { MARKER_OFFSET } from "./constants.js";
 import { printInlineNode } from "./print-inline.js";
 import { flattenForFill, stripLeadingHazardBreak } from "./reflow.js";
 import { joinBlocks } from "./print-join.js";
@@ -47,7 +47,7 @@ const printer: Printer<AnyNode> = {
     switch (node.type) {
       case "document": {
         const children = path.map(print, "children");
-        if (node.children.length > EMPTY) {
+        if (node.children.length > 0) {
           return [joinBlocks(node.children, children), hardline];
         }
         return "";
@@ -58,7 +58,7 @@ const printer: Printer<AnyNode> = {
       case "section": {
         const marker = "=".repeat(node.level + MARKER_OFFSET);
         const headingContent: Doc = [marker, " ", node.heading];
-        if (node.children.length > EMPTY) {
+        if (node.children.length > 0) {
           const sectionChildren = path.map(print, "children");
           return [
             headingContent,

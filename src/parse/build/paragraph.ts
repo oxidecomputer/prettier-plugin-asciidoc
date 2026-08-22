@@ -15,13 +15,7 @@ import type {
   Location,
   ParagraphNode,
 } from "../../ast.js";
-import {
-  EMPTY,
-  FIRST,
-  FIRST_COLUMN,
-  FIRST_LINE,
-  LAST_ELEMENT,
-} from "../../constants.js";
+import { FIRST_COLUMN, FIRST_LINE } from "../../constants.js";
 import { buildFromTokens } from "../inline/inline-node-builder.js";
 import type { InlineToken } from "../inline/tokens.js";
 import {
@@ -46,10 +40,10 @@ export function bodyExtent(
 ): { start: Location; end: Location } {
   const content = tokens.filter((t) => t.type !== "InlineNewline");
   const start =
-    content.length > EMPTY
-      ? at.start(content[FIRST])
-      : makeLocation(FIRST, FIRST_LINE, FIRST_COLUMN);
-  const last = content.at(LAST_ELEMENT);
+    content.length > 0
+      ? at.start(content[0])
+      : makeLocation(0, FIRST_LINE, FIRST_COLUMN);
+  const last = content.at(-1);
   return { start, end: last === undefined ? start : at.end(last) };
 }
 
@@ -93,9 +87,9 @@ export function buildAdmonitionParagraph(
   at: LocationIndex,
 ): AdmonitionNode {
   const content =
-    tokens.length > EMPTY ? tokens.map((t) => t.image).join("\n") : undefined;
-  const lastTextToken = tokens.at(LAST_ELEMENT);
-  const variant = label.image.slice(EMPTY, -COLON_SPACE_LEN).toLowerCase();
+    tokens.length > 0 ? tokens.map((t) => t.image).join("\n") : undefined;
+  const lastTextToken = tokens.at(-1);
+  const variant = label.image.slice(0, -COLON_SPACE_LEN).toLowerCase();
   return {
     type: "admonition",
     variant,
@@ -123,7 +117,7 @@ export function buildLiteralParagraph(
   at: LocationIndex,
 ): DelimitedBlockNode {
   const [first] = lines;
-  const last = lines.at(LAST_ELEMENT) ?? first;
+  const last = lines.at(-1) ?? first;
   return {
     type: "delimitedBlock",
     variant: "literal",

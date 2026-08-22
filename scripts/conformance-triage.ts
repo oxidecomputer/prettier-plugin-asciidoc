@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-/* eslint-disable @typescript-eslint/no-magic-numbers, no-console -- runner script, not library code */
+/* eslint-disable no-console -- runner script, not library code */
 
 /**
  * Conformance triage runner (issue #7). Assesses every corpus case

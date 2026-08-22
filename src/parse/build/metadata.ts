@@ -22,7 +22,6 @@ import type {
   PreprocessorDirectiveNode,
   ThematicBreakNode,
 } from "../../ast.js";
-import { EMPTY } from "../../constants.js";
 import { unreachable } from "../../unreachable.js";
 import { makeInlineAnchor } from "../inline/inline-link-builder.js";
 import { rstrip } from "../line-shapes.js";
@@ -355,8 +354,7 @@ export function buildAttributeEntry(
   return {
     type: "attributeEntry",
     name,
-    value:
-      trimmed === undefined || trimmed.length === EMPTY ? undefined : trimmed,
+    value: trimmed === undefined || trimmed.length === 0 ? undefined : trimmed,
     unset: parseUnsetForm(prefixBang, suffixBang),
     position: {
       start: at.start(line),

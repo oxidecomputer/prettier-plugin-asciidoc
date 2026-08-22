@@ -13,12 +13,7 @@ import type {
   ListItemNode,
   ListNode,
 } from "../../ast.js";
-import {
-  AUTO_CALLOUT_NUMBER,
-  EMPTY,
-  LAST_ELEMENT,
-  OUTERMOST_DEPTH,
-} from "../../constants.js";
+import { AUTO_CALLOUT_NUMBER, OUTERMOST_DEPTH } from "../../constants.js";
 import { buildFromTokens } from "../inline/inline-node-builder.js";
 import type { InlineToken } from "../inline/tokens.js";
 import { listMarkerStyle } from "../line-shapes.js";
@@ -74,7 +69,7 @@ function parseCheckbox(rawValue: string): {
   if (match?.groups === undefined) {
     return {
       checkbox: undefined,
-      prefixLength: EMPTY,
+      prefixLength: 0,
     };
   }
   const {
@@ -105,7 +100,7 @@ function trimCheckboxPrefix(
   children: InlineNode[],
   prefixLength: number,
 ): void {
-  if (children.length === EMPTY) return;
+  if (children.length === 0) return;
   const [first] = children;
   if (first.type === "text") {
     first.value = first.value.slice(prefixLength);
@@ -120,7 +115,7 @@ function trimCheckboxPrefix(
  */
 function firstTextValue(children: InlineNode[]): string {
   const [first] = children;
-  return children.length > EMPTY && first.type === "text" ? first.value : "";
+  return children.length > 0 && first.type === "text" ? first.value : "";
 }
 
 /**
@@ -142,7 +137,7 @@ function takeCheckbox(
   const { checkbox, prefixLength } = parseCheckbox(
     firstTextValue(inlineChildren),
   );
-  if (prefixLength > EMPTY) {
+  if (prefixLength > 0) {
     trimCheckboxPrefix(inlineChildren, prefixLength);
   }
   return checkbox;
@@ -213,8 +208,8 @@ export function buildListItem(
     position: {
       start: at.start(input.marker),
       end:
-        input.blocks.at(LAST_ELEMENT)?.block.position.end ??
-        (input.text.length > EMPTY
+        input.blocks.at(-1)?.block.position.end ??
+        (input.text.length > 0
           ? bodyExtent(input.text, at).end
           : at.end(input.marker)),
     },
@@ -236,7 +231,7 @@ export function buildList(
   items: readonly ListItemNode[],
 ): ListNode {
   const [first] = items;
-  const last = items.at(LAST_ELEMENT) ?? first;
+  const last = items.at(-1) ?? first;
   return {
     type: "list",
     variant,

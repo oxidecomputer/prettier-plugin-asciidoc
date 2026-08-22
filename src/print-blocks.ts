@@ -18,14 +18,7 @@ import type {
   ListItemNode,
   ParentBlockNode,
 } from "./ast.js";
-import {
-  EMPTY,
-  FIRST,
-  MIN_DELIMITER_LENGTH,
-  NEXT,
-  NOT_FOUND,
-  SAFE_DELIMITER_PAD,
-} from "./constants.js";
+import { MIN_DELIMITER_LENGTH, SAFE_DELIMITER_PAD } from "./constants.js";
 import {
   flattenForFill,
   splitWords,
@@ -82,7 +75,7 @@ export function printComment(node: {
   value: string;
 }): Doc {
   if (node.commentType === "line") {
-    if (node.value.length > EMPTY) {
+    if (node.value.length > 0) {
       return ["// ", node.value];
     }
     return "//";
@@ -91,7 +84,7 @@ export function printComment(node: {
   // Use trim() to detect whitespace-only content: Prettier strips
   // trailing whitespace per line, so "     " would become a blank
   // line that re-parses as an empty comment, breaking idempotency.
-  if (node.value.trim().length > EMPTY) {
+  if (node.value.trim().length > 0) {
     const contentLines = node.value.split("\n");
     return ["////", hardline, join(hardline, contentLines), hardline, "////"];
   }
@@ -162,8 +155,8 @@ const OPEN_BLOCK_DELIMITER_LENGTH = 2;
  *   length.
  */
 function computeDelimiter(content: string, delimChar: string): string {
-  let maxConflict = EMPTY;
-  if (content.length > EMPTY) {
+  let maxConflict = 0;
+  if (content.length > 0) {
     // Escape the delimiter char for use in a regex.
     // `.` and `+` are regex metacharacters; `-` is safe
     // outside character classes and must NOT be escaped
@@ -202,19 +195,19 @@ function computeDelimiter(content: string, delimChar: string): string {
  */
 function computeMasqueradeDelimiter(node: DelimitedBlockNode): string {
   if (node.sourceDelimiter !== undefined) {
-    const { [node.sourceDelimiter]: parentChar } = PARENT_DELIMITER_CHARS;
+    const parentChar = PARENT_DELIMITER_CHARS[node.sourceDelimiter];
     return node.sourceDelimiter === "open"
       ? parentChar.repeat(OPEN_BLOCK_DELIMITER_LENGTH)
       : computeDelimiter(node.content, parentChar);
   }
   if (node.variant in DELIMITER_CHARS) {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- checked by `in` guard
-    const { [node.variant as LeafBlockVariant]: leafChar } = DELIMITER_CHARS;
+    const leafChar = DELIMITER_CHARS[node.variant as LeafBlockVariant];
     return computeDelimiter(node.content, leafChar);
   }
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- remaining variants are masqueraded
-  const { [node.variant as MasqueradedVariant]: masqChar } =
-    MASQUERADE_DELIMITER_CHARS;
+  const masqChar =
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- remaining variants are masqueraded
+    MASQUERADE_DELIMITER_CHARS[node.variant as MasqueradedVariant];
   return computeDelimiter(node.content, masqChar);
 }
 
@@ -241,13 +234,8 @@ export function hasPrecedingLanguageAttribute(
   const siblings = parent?.children;
   if (siblings === undefined) return false;
   const index = siblings.indexOf(node);
-  if (index < NEXT) return false;
-  // The offset is hoisted out of the computed key on purpose: a mutation
-  // testing run instruments `index - NEXT`, and StrykerJS cannot place a
-  // mutant inside a destructuring PATTERN — it wraps the whole declaration
-  // in an if/else instead, which scopes `previous` out of the lines below.
-  const previousIndex = index - NEXT;
-  const { [previousIndex]: previous } = siblings;
+  if (index < 1) return false;
+  const previous = siblings[index - 1];
   if (previous.type !== "blockAttributeList") return false;
   const expectedValue =
     node.language === undefined ? "source" : `source,${node.language}`;
@@ -312,7 +300,7 @@ export function printDelimitedBlock(
   // trailing whitespace per line, so all-whitespace content would
   // become blank lines that re-parse as an empty block, breaking
   // idempotency.
-  if (node.content.trim().length > EMPTY) {
+  if (node.content.trim().length > 0) {
     const contentLines = node.content.split("\n");
     return [
       ...prefix,
@@ -347,7 +335,7 @@ function maxDescendantDelimiter(
   variant: ParentBlockNode["variant"],
   children: readonly BlockNode[],
 ): number {
-  let max = EMPTY;
+  let max = 0;
   for (const child of children) {
     if (child.type === "parentBlock") {
       // Recurse into all parent block children regardless of
@@ -408,13 +396,13 @@ export function printParentBlock(
   path: PrintPath,
   print: PrintFunction,
 ): Doc {
-  const { [node.variant]: delimChar } = PARENT_DELIMITER_CHARS;
+  const delimChar = PARENT_DELIMITER_CHARS[node.variant];
 
   // Open blocks are always exactly 2 dashes — no nesting
   // concerns because there's only one possible length.
   if (node.variant === "open") {
     const delimiter = delimChar.repeat(OPEN_BLOCK_DELIMITER_LENGTH);
-    if (node.children.length > EMPTY) {
+    if (node.children.length > 0) {
       const children = path.map(print, "children");
       return [
         delimiter,
@@ -439,7 +427,7 @@ export function printParentBlock(
   );
   const delimiter = delimChar.repeat(delimLength);
 
-  if (node.children.length > EMPTY) {
+  if (node.children.length > 0) {
     const children = path.map(print, "children");
     return [
       delimiter,
@@ -472,7 +460,7 @@ export function printParentBlock(
  */
 function admonitionRun(text: string, isFirstRun: boolean): Doc | undefined {
   const words = splitWords(text);
-  if (words.length === EMPTY) {
+  if (words.length === 0) {
     return undefined;
   }
   // An admonition keeps its content raw, newlines and all, so the
@@ -482,11 +470,11 @@ function admonitionRun(text: string, isFirstRun: boolean): Doc | undefined {
   // as a description list instead of an admonition.
   const firstNewline = text.indexOf("\n");
   const firstLineWordCount =
-    firstNewline === NOT_FOUND
+    firstNewline === -1
       ? words.length
-      : splitWords(text.slice(FIRST, firstNewline)).length;
+      : splitWords(text.slice(0, firstNewline)).length;
   const parts = wordsToFillParts(words, {
-    firstLineWordCount: isFirstRun ? firstLineWordCount : EMPTY,
+    firstLineWordCount: isFirstRun ? firstLineWordCount : 0,
   });
   return fill(stripLeadingHazardBreak(flattenForFill([parts])));
 }
@@ -514,9 +502,7 @@ function admonitionBodySegments(content: string): Doc[] {
     // is no longer the block's first source line, which is the only
     // thing the flag is asked about.
     const rendered =
-      run.length === EMPTY
-        ? undefined
-        : admonitionRun(run.join("\n"), isFirstRun);
+      run.length === 0 ? undefined : admonitionRun(run.join("\n"), isFirstRun);
     if (rendered !== undefined) {
       segments.push(rendered);
     }
@@ -578,7 +564,7 @@ export function printAdmonition(
   // out would make this comment one, and the count would
   // report a defended field that does not exist.)
   const delimVariant = node.delimiter ?? "example";
-  const { [delimVariant]: delimChar } = PARENT_DELIMITER_CHARS;
+  const delimChar = PARENT_DELIMITER_CHARS[delimVariant];
   // For non-open delimiters, ensure the admonition's delimiter is
   // longer than any same-variant nested block — same logic as
   // printParentBlock. Without this, a delimited admonition
@@ -594,7 +580,7 @@ export function printAdmonition(
         );
   const delimiter = delimChar.repeat(delimLength);
 
-  if (node.children.length > EMPTY) {
+  if (node.children.length > 0) {
     const children = path.map(print, "children");
     return [
       delimiter,

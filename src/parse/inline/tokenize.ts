@@ -8,7 +8,6 @@
  * lexer-toolkit bookkeeping, an optimisation or unused, and are retired
  * with it.
  */
-import { EMPTY, NEXT } from "../../constants.js";
 import { INLINE_RULES } from "./rules.js";
 import type { InlineKind, InlineToken } from "./tokens.js";
 
@@ -33,12 +32,12 @@ export function tokenizeInline(
   baseOffset: number,
 ): Array<InlineToken<InlineKind>> {
   const tokens: Array<InlineToken<InlineKind>> = [];
-  let index = EMPTY;
+  let index = 0;
   while (index < text.length) {
-    let length = EMPTY;
+    let length = 0;
     for (const rule of INLINE_RULES) {
       length = rule.match(text, index);
-      if (length > EMPTY) {
+      if (length > 0) {
         tokens.push({
           type: rule.type,
           image: text.slice(index, index + length),
@@ -52,13 +51,13 @@ export function tokenizeInline(
     // matched by InlineNewline. Kept as a one-character step rather
     // than a throw so the tokenizer stays total whatever the table
     // says.
-    if (length === EMPTY) {
+    if (length === 0) {
       tokens.push({
         type: "InlineChar",
-        image: text.slice(index, index + NEXT),
+        image: text.slice(index, index + 1),
         offset: baseOffset + index,
       });
-      length = NEXT;
+      length = 1;
     }
     index += length;
   }
