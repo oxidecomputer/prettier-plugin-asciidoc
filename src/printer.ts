@@ -35,6 +35,7 @@ import {
   printParentBlock,
 } from "./print-blocks.js";
 import { printList, printListItem } from "./print-list.js";
+import { printFrontMatter } from "./print-front-matter.js";
 
 const {
   builders: { fill, hardline },
@@ -105,6 +106,11 @@ const printer: Printer<AnyNode> = {
       }
       case "pageBreak": {
         return "<<<";
+      }
+      // Not AsciiDoc, so there is no formatting opinion to apply: the
+      // bytes between the fences go back out as they came in.
+      case "frontMatter": {
+        return printFrontMatter(node);
       }
       case "blockMacro": {
         const { name, target, attrlist } = node;

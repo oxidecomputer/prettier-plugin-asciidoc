@@ -530,6 +530,33 @@ export interface ThematicBreakNode extends Node {
 }
 
 /**
+ * YAML front matter: a `---`-fenced block at the very top of the
+ * document, which Asciidoctor's preprocessor lifts out before the
+ * parser sees a block (`parser.rb`, `skip_front_matter!`).
+ *
+ * Its own type rather than a `delimitedBlock` variant, because a
+ * delimited block negotiates its delimiter — the printer computes the
+ * shortest safe fence and may normalize `--` to `----`. Front matter
+ * has exactly one legal fence, `---`, and its content is not AsciiDoc
+ * at all, so there is nothing to negotiate and nothing to reflow:
+ * every byte between the fences is re-emitted as written.
+ *
+ * A node of this type is always closed. `skip_front_matter!` puts the
+ * lines back when it reaches EOF without a terminator, so a `---` with
+ * no closing fence never becomes front matter in the first place.
+ */
+export interface FrontMatterNode extends Node {
+  /** Node discriminant. */
+  type: "frontMatter";
+  /**
+   * The lines between the fences, verbatim and without the fences
+   * themselves. Empty for `---\n---`. Sliced from the source rather
+   * than rebuilt, so interior blank lines survive.
+   */
+  content: string;
+}
+
+/**
  * A block macro like `image::target[attrlist]`. Block macros
  * appear on their own line and are preserved verbatim — the
  * formatter does not interpret their attributes or resolve
@@ -732,6 +759,7 @@ export type BlockNode =
   | ParentBlockNode
   | AdmonitionNode
   | ThematicBreakNode
+  | FrontMatterNode
   | PageBreakNode
   | BlockMacroNode
   | PreprocessorDirectiveNode

@@ -442,6 +442,21 @@ export const THEMATIC_BREAK = /^'{3,}$/v;
 export const PAGE_BREAK = /^<{3,}$/v;
 
 /**
+ * The `---` fence around YAML front matter. Mirrors
+ * `parser.rb`'s `skip_front_matter!`, whose guard is exactly
+ * `lines[0] == '---'` — a bare three-dash line, no more and no
+ * fewer dashes, and only at the very top of the document.
+ *
+ * Deliberately NOT part of the interrupting set and NOT reachable
+ * from `classify.ts`: front matter is a document-start shape, not a
+ * line shape that can appear mid-paragraph. Asciidoctor reads it in
+ * the preprocessor before the parser sees a single block, and a
+ * `---` anywhere else is an open-block delimiter or plain text. The
+ * reader's document-start branch is the only consumer.
+ */
+export const FRONT_MATTER_DELIMITER = /^---$/v;
+
+/**
  * An indented line, which `next_block` reads as the start of a
  * literal paragraph (`indented = this_line.start_with? ' ', TAB`, and
  * `LiteralParagraphRx` = `/^([ \t]+CC_ANY*)$/`). A line of nothing

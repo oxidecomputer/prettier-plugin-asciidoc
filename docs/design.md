@@ -323,6 +323,30 @@ interrupting set. Five rules keep the reader and reflow honest about that:
    classification (`Helpers.prepare_source_string`), which the registry mirrors
    (see `line-shapes.ts`'s `rstrip`).
 
+**The one shape that is not a line kind.** `FRONT_MATTER_DELIMITER` lives in the
+registry with everything else, but it has no `classify.ts` entry and no
+`interruption.test.ts` row, and that is deliberate rather than an omission. Front
+matter is a DOCUMENT-START shape: Asciidoctor recognizes it in the preprocessor,
+before the parser reads a block, under the guard "line 1 is `---`"
+(`skip_front_matter!`). Giving it a `LineKind` would make `---` mean front matter
+wherever it appeared, which is the "every line classified as if it stood at the
+top" inversion this whole section exists to prevent — and it is not even
+Asciidoctor's rule, since a `---` in the body is a thematic break or plain text.
+So the BlockReader runs `frontMatter()` once before its main loop and nowhere
+else, and the interruption oracle has nothing to say because the shape can never
+interrupt anything.
+
+The same guard has a second half that is easy to drop: `skip_front_matter!` scans
+for the closing `---` and, reaching EOF without one, **unshifts every line it
+took back** and returns nil. An unterminated `---` is therefore not front matter,
+and the reader looks for the terminator before it consumes anything. A reader
+that consumed to EOF instead would swallow the whole document into one verbatim
+node — and because nothing verbatim is reflowed, the output would be unchanged
+and the suite's round-trip and idempotency properties would both still hold. The
+only visible symptom is a formatter that quietly stops formatting below a stray
+`---`, which is why `tests/format/front-matter.test.ts` pins the body BELOW an
+unterminated fence, not just the fence.
+
 **Why (history).** Until the line-classifier work landed, a lexer re-classified
 every line as if it stood at the top of a block, so a `.Title`-shaped or
 `* item`-shaped line mid-paragraph became a block title or a list, and an

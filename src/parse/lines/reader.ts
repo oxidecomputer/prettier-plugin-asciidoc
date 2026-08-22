@@ -31,6 +31,7 @@ import {
   buildVerbatimBlock,
   type BlockExtent,
 } from "../build/delimited.js";
+import { buildFrontMatter } from "../build/front-matter.js";
 import {
   buildAdmonitionParagraph,
   buildLiteralParagraph,
@@ -42,7 +43,10 @@ import {
   buildSection,
 } from "../build/section.js";
 import { textLines } from "../inline/text-lines.js";
-import type { ParagraphContext } from "../line-shapes.js";
+import {
+  FRONT_MATTER_DELIMITER,
+  type ParagraphContext,
+} from "../line-shapes.js";
 import { convertParagraphFormBlocks } from "../paragraph-form.js";
 import { makeLocationIndex, type LocationIndex } from "../positions.js";
 import {
@@ -336,6 +340,86 @@ class BlockReader implements ListHost {
     );
   }
 
+  // ── document start ─────────────────────────────────────────────────
+
+  /**
+   * `skip_front_matter!`: take a `---`-fenced block off the top of the
+   * document, wholesale.
+   *
+   * Runs ONCE, before the main loop, and only when the very first line
+   * is `---` — which is Asciidoctor's own guard, and the reason this is
+   * not a line shape `classify.ts` can reach. A `---` anywhere else is
+   * an open-block delimiter or plain text, and reclassifying it at
+   * document start is exactly the "every line re-classified as if at
+   * the top" inversion line-shapes.ts exists to prevent.
+   *
+   * Content is not read line by line: the builder slices it out of the
+   * source, so interior blank lines and trailing whitespace survive
+   * byte for byte.
+   *
+   * AN UNTERMINATED BLOCK IS NOT FRONT MATTER. `skip_front_matter!`
+   * scans for the closing `---`, and on reaching EOF without one it
+   * unshifts every line it took back onto the reader and returns nil —
+   * the document is then parsed as if the guard had never matched, so
+   * a lone `---` is the thematic break it looks like. This scans for
+   * the terminator BEFORE consuming anything for the same reason: the
+   * alternative swallows the whole document into one verbatim node,
+   * which round-trips (nothing is reflowed, so nothing visibly
+   * changes) while silently turning the formatter off for every block
+   * below a stray `---`.
+   */
+  private frontMatter(): void {
+    const open = this.peek();
+    if (
+      this.index !== FIRST ||
+      open === undefined ||
+      !FRONT_MATTER_DELIMITER.test(open.text)
+    ) {
+      return;
+    }
+    const close = this.findFrontMatterClose();
+    if (close === undefined) {
+      return;
+    }
+    this.index = close.index + NEXT;
+    this.push(
+      buildFrontMatter(
+        {
+          open: fragmentOfLine(open),
+          close: fragmentOfLine(close.line),
+          source: this.source,
+        },
+        this.at,
+      ),
+    );
+    this.blanks = EMPTY;
+  }
+
+  /**
+   * Finds the `---` that closes front matter, without consuming it.
+   *
+   * Separate from {@link frontMatter} because the search must not move
+   * the reader: if there is no terminator the document is not front
+   * matter at all and every line has to still be there for the main
+   * loop.
+   * @returns the closing line and its index, or undefined when the
+   *   document ends without one
+   */
+  private findFrontMatterClose():
+    | { line: SourceLine; index: number }
+    | undefined {
+    const from = this.index + NEXT;
+    const found = this.lines
+      .slice(from)
+      .findIndex((line) => FRONT_MATTER_DELIMITER.test(line.text));
+    if (found === NOT_FOUND) {
+      return undefined;
+    }
+    const index = from + found;
+    const line = this.lines.at(index);
+    return line === undefined ? undefined : { line, index };
+  }
+
   // ── main loop ──────────────────────────────────────────────────────
 
   /**
@@ -343,6 +427,7 @@ class BlockReader implements ListHost {
    * @returns the document's blocks, nested as the frames nested
    */
   run(): BlockNode[] {
+    this.frontMatter();
     for (;;) {
       const line = this.peek();
       if (line === undefined) {
