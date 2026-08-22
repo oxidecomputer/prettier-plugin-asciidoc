@@ -12,7 +12,9 @@
  * `position`, which is every AST node and nothing else.
  */
 import { expect } from "vitest";
+import { lineOf } from "../../src/ast.js";
 import type { Location } from "../../src/ast.js";
+import { rstrip } from "../../src/parse/line-shapes.js";
 import { parse } from "../../src/parser.js";
 
 /**
@@ -81,50 +83,11 @@ function isNode(value: unknown): value is AnyNode {
 }
 
 /**
- * The start offset of a node, or of the node a wrapper holds — an
- * `attachedBlocks` entry is `{block, continuation, pluses}`, not a
- * node.
- * @param value - a node or a wrapper around one
- * @returns its start offset, or 0 when there is no node in it
- */
-function startOffsetOf(value: unknown): number {
-  if (isNode(value)) return value.position.start.offset;
-  if (isRecord(value)) {
-    for (const inner of Object.values(value)) {
-      if (isNode(inner)) return inner.position.start.offset;
-    }
-  }
-  return 0;
-}
-
-/**
- * A list item's children in SOURCE order.
- *
- * A list item is the one node whose properties are NOT in source
- * order: `children` holds its inline nodes and its NESTED LISTS, while
- * `attachedBlocks` holds everything else, and a nested list can start
- * after an attached block (`* a` / `+` / `para` / `** b`). That split
- * is the printer's, not the source's — the AST is Asciidoctor's
- * `list_item.blocks` cut in two — so this merges the two arrays by
- * start offset. Verified against the corpus at `8c42f624`: without the
- * merge, 5 of 1,614 documents fail the ordering invariant below for
- * exactly this reason (`lists_test.rb#list item paragraph in list item
- * and nested list item#0` is the smallest).
- * @param item - a `listItem` node
- * @returns its children and attached blocks, earliest first
- */
-function itemChildren(item: AnyNode): readonly unknown[] {
-  // No cast: the index signature makes both reads `unknown`, so the
-  // guards below are real checks, not a lie dressed as a type.
-  const { children, attachedBlocks } = item;
-  return [
-    ...(isArray(children) ? children : []),
-    ...(isArray(attachedBlocks) ? attachedBlocks : []),
-  ].toSorted((left, right) => startOffsetOf(left) - startOffsetOf(right));
-}
-
-/**
  * Every node in DOCUMENT ORDER (pre-order), parents before children.
+ *
+ * A generic `Object.entries` walk suffices for every node: a list
+ * item's field order (`text` before `blocks`, spec D1) makes even the
+ * one node with two child arrays document-ordered by construction.
  *
  * Exported for `itemCount` in reader-helpers.ts, which counts
  * `listItem` nodes anywhere in the tree: one walker, not two, so the
@@ -141,12 +104,9 @@ export function preorder(root: unknown): AnyNode[] {
     }
     if (!isRecord(value)) return;
     if (isNode(value)) nodes.push(value);
-    const children =
-      isNode(value) && value.type === "listItem"
-        ? itemChildren(value)
-        : Object.entries(value)
-            .filter(([key]) => key !== "position")
-            .map(([, child]) => child);
+    const children = Object.entries(value)
+      .filter(([key]) => key !== "position")
+      .map(([, child]) => child);
     for (const child of children) visit(child);
   };
   visit(root);
@@ -155,8 +115,8 @@ export function preorder(root: unknown): AnyNode[] {
 
 /**
  * The nodes one array element contributes to its sibling group. An
- * `attachedBlocks` entry is `{block, continuation, pluses}` rather
- * than a node, so it contributes the nodes DIRECTLY on it.
+ * `ItemBlock` entry is `{gap, block}` rather than a node, so it
+ * contributes the nodes DIRECTLY on it.
  * @param element - one element of an array in the tree
  * @returns the nodes it holds
  */
@@ -445,10 +405,12 @@ function expectValuesReconstruct(source: string, nodes: AnyNode[]): void {
   }
 }
 
-// A list continuation is the one non-blank line the AST records as a
-// COUNT rather than a span: `AttachedBlock.pluses` and
-// `ListItemNode.danglingContinuation` say how the author spelled it,
-// and the block it introduces starts on the next line.
+// A list continuation is the one non-blank line the AST records
+// without a span of its own: `ItemBlock.gap` spells it verbatim and
+// `ListItemNode.trailingContinuation` flags the item-final one, and
+// the block a gap introduces starts on the next line. This literal-`+`
+// exemption in expectLineCoverage is load-bearing for exactly those
+// lines — the gap invariant (vii) below is what checks them instead.
 const CONTINUATION = "+";
 
 /**
@@ -585,6 +547,95 @@ function expectListsNonEmpty(nodes: AnyNode[]): void {
 }
 
 /**
+ * (vii) Gaps are verbatim: the lines strictly between an item's pieces
+ * are exactly the recorded gap, and nothing but blank lines and `+`
+ * lines ever sits in one (spec D1's invariant). Carries a second
+ * assertion, (vii-b) NO DOUBLE PRINT: a `+` line one item keeps as its
+ * `trailingContinuation` may not ALSO fall inside any other item's gap
+ * range — the printer would emit that physical line twice, and only
+ * idempotence would notice. No reachable input is known to trip it
+ * (every construction tried either erases the `+` or hands the
+ * following block to the inner item) — the assertion exists so the
+ * corpus and fuzz runs would SAY so if one exists (plan-review m5).
+ * @param source - the whole document
+ * @param nodes - every node, in document order
+ */
+function expectGapsVerbatim(source: string, nodes: AnyNode[]): void {
+  const lines = source.split("\n").map((line) => rstrip(line));
+  const trailingPlusLines = collectTrailingPlusLines(lines, nodes);
+  for (const node of nodes) {
+    if (node.type === "listItem") {
+      expectItemGaps(lines, node, trailingPlusLines);
+    }
+  }
+}
+
+/**
+ * (vii-b) first pass: every trailingContinuation's physical `+` line,
+ * so the gap walk can refuse to cover one twice. The trailing `+` has
+ * no span of its own, but it is derivable: the first non-blank source
+ * line after the item's end — asserted to really be a `+`.
+ * @param lines - the source's rstripped lines
+ * @param nodes - every node, in document order
+ * @returns the 1-based line numbers items keep as trailing `+`
+ */
+function collectTrailingPlusLines(
+  lines: readonly string[],
+  nodes: AnyNode[],
+): Set<number> {
+  const trailingPlusLines = new Set<number>();
+  for (const node of nodes) {
+    if (node.type !== "listItem") continue;
+    if (node.trailingContinuation !== true) continue;
+    let line = node.position.end.line + 1;
+    while (line <= lines.length && lines[line - 1] === "") line += 1;
+    expect(
+      lines[line - 1],
+      `trailingContinuation with no + line after item at line ${String(node.position.end.line)}`,
+    ).toBe("+");
+    trailingPlusLines.add(line);
+  }
+  return trailingPlusLines;
+}
+
+/**
+ * One item's gap walk — see {@link expectGapsVerbatim}.
+ * @param lines - the source's rstripped lines
+ * @param node - a `listItem` node
+ * @param trailingPlusLines - the lines items print as trailing `+`
+ */
+function expectItemGaps(
+  lines: readonly string[],
+  node: AnyNode,
+  trailingPlusLines: ReadonlySet<number>,
+): void {
+  const { text, blocks } = node;
+  const inline = isArray(text) ? text : [];
+  const lastText = inline.at(-1);
+  let previousEnd = isNode(lastText)
+    ? lastText.position.end.line
+    : node.position.start.line;
+  for (const entry of isArray(blocks) ? blocks : []) {
+    if (!isRecord(entry)) continue;
+    const { block, gap } = entry;
+    if (!isNode(block)) continue;
+    const between = lines.slice(previousEnd, block.position.start.line - 1);
+    expect(
+      between.every((line) => line === "" || line === "+"),
+      `gap holds a content line: ${JSON.stringify(between)}`,
+    ).toBe(true);
+    expect(gap).toEqual(between.map((line) => (line === "+" ? "+" : "")));
+    for (let row = previousEnd + 1; row < block.position.start.line; row += 1) {
+      expect(
+        trailingPlusLines.has(row),
+        "a gap covers a line an item already prints as its trailing +",
+      ).toBe(false);
+    }
+    previousEnd = lineOf(block.position.end);
+  }
+}
+
+/**
  * Assert every AST invariant for one document.
  *
  * The five invariants `expectStreamInvariants` asserted of the token
@@ -608,4 +659,5 @@ export function expectAstInvariants(source: string): void {
   expectLineCoverage(source, nodes);
   expectContainment(document);
   expectListsNonEmpty(nodes);
+  expectGapsVerbatim(source, nodes);
 }

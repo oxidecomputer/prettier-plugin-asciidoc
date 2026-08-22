@@ -7,10 +7,9 @@
  * contracts.
  */
 import type {
-  AttachedBlock,
   BlockNode,
+  GapLine,
   InlineNode,
-  ItemContinuation,
   ListItemNode,
   ListNode,
 } from "../../src/ast.js";
@@ -35,19 +34,20 @@ import { preorder } from "./ast-invariants.js";
  *   literal-indented[n] an indented literal paragraph
  *   commentBlock[n] comment directive attrs title attr macro
  *   doctitle heading thematic pagebreak admonition(variant)
- *   + ~+ ~++ - ~        how an attached block was introduced: a `+`
- *                       directly above it; a blank line then N detached
- *                       `+`; no `+` directly under the line before it;
- *                       no `+` after a blank line
- *   !break !dangling    the item's kept text break / trailing `+`
+ *   + ~+ ~++ - ~        an in-item block's glyph, a pure function of
+ *                       its recorded gap ({@link gapGlyph}): a live `+`
+ *                       directly above it; a blank line then N `+`
+ *                       lines; an empty gap; blanks only (or a `+` the
+ *                       blank budget erased)
+ *   !dangling           the item's trailing `+` (trailingContinuation)
+ *
+ * An item's blocks — nested lists and attached blocks alike — render
+ * in SOURCE order.
  *
  * What it deliberately does NOT show, because the AST does not carry
  * it: whether a delimited block met its own terminator or was forced
- * shut, and the source order BETWEEN an item's nested lists and its
- * attached blocks (the AST splits those into `children` and
- * `attachedBlocks`; document order across the split is asserted by
- * tests/parser/ast-invariants.ts). A row that pinned either of those
- * carries an extra targeted assertion instead.
+ * shut. A row that pinned that carries an extra targeted assertion
+ * instead.
  * @param source - the document to parse
  * @returns the structure string
  */
@@ -66,17 +66,6 @@ const LEAF_NAMES: Record<string, string> = {
   blockMacro: "macro",
   thematicBreak: "thematic",
   pageBreak: "pagebreak",
-};
-
-// How an attached block was introduced: a `+` directly above it, no
-// `+` directly under the line before it, or a blank line (`~`) with
-// nothing after it. A DETACHED continuation is a blank line and then
-// the `+` lines, so it reads `~` followed by one `+` per plus.
-const CONTINUATION_MARKS: Record<ItemContinuation, string> = {
-  plus: "+",
-  detached: "~",
-  none: "-",
-  blank: "~",
 };
 
 // A list renders under its own variant, so a row named for an ordered
@@ -98,12 +87,12 @@ function lineCount(content: string): number {
 
 /**
  * Render one inline run: every node is `t`, a line break inside a text
- * node is `/`, a raw line is `raw`, and a nested list recurses. Runs
- * of `t` collapse, so a shape reads as structure rather than length.
- * @param children - a paragraph's or item's inline children
+ * node is `/`, and a raw line is `raw`. Runs of `t` collapse, so a
+ * shape reads as structure rather than length.
+ * @param children - a paragraph's or item's inline nodes
  * @returns the rendered run
  */
-function inlineShape(children: ReadonlyArray<InlineNode | ListNode>): string {
+function inlineShape(children: readonly InlineNode[]): string {
   const parts = children.map((child) => {
     if (child.type === "rawLine") return "raw";
     if (child.type === "text") {
@@ -113,7 +102,6 @@ function inlineShape(children: ReadonlyArray<InlineNode | ListNode>): string {
         .flatMap(() => ["/", "t"]);
       return ["t", ...breaks].join(" ");
     }
-    if (child.type === "list") return blockShape(child);
     return "t";
   });
   // The word boundary is load-bearing: "p(t t" ends in `t t` and would
@@ -122,32 +110,48 @@ function inlineShape(children: ReadonlyArray<InlineNode | ListNode>): string {
 }
 
 /**
- * Render one attached block behind the mark that introduced it.
- * @param attached - the block and how the source spelled it
- * @returns the mark followed by the block's shape
+ * One gap's glyph. Empty → `-` (directly under). No `+` → `~` (blank
+ * separated). Two or more trailing blanks after the last `+` → `~`
+ * too: Ruby's budget erased that `+`, so it attached nothing. A lone
+ * leading `+` (at most one trailing blank) → `+`. Anything else —
+ * a detached or stacked-detached spelling — → `~` plus one `+` per
+ * continuation line.
+ * Exported for its table test (tests/parser/list-reader.test.ts).
+ * @param gap - the recorded separator lines
+ * @returns the glyph prefix for the block's shape
  */
-function attachedShape(attached: AttachedBlock): string {
-  const { [attached.continuation]: mark } = CONTINUATION_MARKS;
-  const pluses =
-    attached.continuation === "detached"
-      ? "+".repeat(Math.max(1, attached.pluses))
-      : "";
-  return `${mark}${pluses}${blockShape(attached.block)}`;
+export function gapGlyph(gap: readonly GapLine[]): string {
+  if (gap.length === 0) return "-";
+  let trailingBlanks = 0;
+  while (gap.at(-1 - trailingBlanks) === "") trailingBlanks += 1;
+  const core = gap.slice(0, gap.length - trailingBlanks);
+  if (core.length === 0 || trailingBlanks >= 2) return "~";
+  const { length: pluses } = core.filter((line) => line === "+");
+  return core[0] === "+" && pluses === 1 ? "+" : `~${"+".repeat(pluses)}`;
 }
 
 /**
- * Render one list item: its text, its nested lists, its attached
- * blocks, and the two flags the printer reads.
+ * Render one list item: its principal text, then every block it holds
+ * — nested lists and blocks alike, already in SOURCE order — plus the
+ * trailing-`+` flag the printer reads. Each non-list block's glyph is
+ * a pure function of its recorded gap ({@link gapGlyph}), chosen to
+ * reproduce every spelling the old marks pinned.
  * @param item - the item node
  * @returns the rendered item
  */
 function itemShape(item: ListItemNode): string {
-  const parts = [inlineShape(item.children)];
-  for (const attached of item.attachedBlocks) {
-    parts.push(attachedShape(attached));
+  const parts = [inlineShape(item.text)];
+  for (const { gap, block } of item.blocks) {
+    // A nested list never carried a mark in the old shapes and keeps
+    // that spelling (byte-identity across the cut-over); its gap is
+    // pinned by the invariants and the format suites instead.
+    parts.push(
+      block.type === "list"
+        ? blockShape(block)
+        : `${gapGlyph(gap)}${blockShape(block)}`,
+    );
   }
-  if (item.keepTextBreak) parts.push("!break");
-  if (item.danglingContinuation) parts.push("!dangling");
+  if (item.trailingContinuation) parts.push("!dangling");
   return `item(${parts.filter((part) => part !== "").join(" ")})`;
 }
 

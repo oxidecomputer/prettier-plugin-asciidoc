@@ -283,11 +283,18 @@ describe("reader: list oracle surprises", () => {
     // Shape only: the second row's `ifdef::` is one the preprocessor
     // eats (with everything after it, there being no `endif`), so the
     // oracle sees a different document than the reader does.
+    // `-attrs`, not the old `+attrs`: the source has no `+` line (the
+    // gap is empty), and the old glyph spelled the READER's Ruling-26
+    // decision to introduce one. Under spec D1 that decision is the
+    // printer's (`hazard()` answers "plus" for this node), the AST
+    // records the verbatim gap, and the FORMATTED bytes are unchanged:
+    // "** b lit\n+\n[source]\nNOTE: x\n" before and after the
+    // cut-over.
     expect(astShape("** b\n  lit\n[source]\nNOTE: x\n")).toBe(
-      "list(item(t / t +attrs -admonition(note)))",
+      "list(item(t / t -attrs -admonition(note)))",
     );
     expect(astShape("** b\nifdef::x[]\n// c\n[[x]]\n+\n+\n* a\n")).toBe(
-      "list(item(t raw raw list(item(t)) -p(t) +p(raw)))",
+      "list(item(t raw raw -p(t) +p(raw) list(item(t))))",
     );
     // The invariant they were FOUND by, not just the shape they settled
     // on: document order, values reconstruct, containment.

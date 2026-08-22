@@ -51,14 +51,30 @@ source → splitLines → BlockReader(classifyLine) → AST → Printer
   function over that registry; the reader is its only parse-side consumer, and
   reflow safety (`src/reflow.ts`) is its only print-side consumer, so the parser
   and the formatter's word-wrapping can never disagree about what would re-parse
-  as block syntax. Lists are `read_lines_for_list_item` in
-  `src/parse/lines/list-reader.ts` with `list-frames.ts`/`list-item.ts`;
-  `frames.ts` holds the types those share with `reader.ts` so the three stay a
-  DAG. Paragraph text is tokenized by the hand-rolled tokenizer
-  (`src/parse/inline/tokenize.ts`) over each run of paragraph lines, and the
-  paragraph node is built from those tokens (`src/parse/build/paragraph.ts`).
-  See "Line classification is contextual" in `docs/design.md`, and
-  `docs/simplicity-metrics.md` for how the change was measured.
+  as block syntax. Lists are read EXTENT-FIRST in
+  `src/parse/lines/list-reader.ts` — `parse_list`/`parse_list_item`/
+  `read_lines_for_list_item` ported as `readList`/`readListItem`/`itemExtent`:
+  the extent scan collects one item's lines into Ruby's buffer, then a confined
+  `BlockReader` re-parses that buffer, so nesting composes with no list frame,
+  no per-item object and no cross-item state (only `itemExtent`'s five mutable
+  members — Ruby's four locals plus the buffer). `frames.ts` holds the types the
+  list layer shares with `reader.ts` so the two stay a DAG. Each block an item
+  holds carries its verbatim `gap` (the `""`/`"+"` lines before it), and
+  replaying that gap line for line is `src/print-list.ts`'s DEFAULT — which is
+  what makes list formatting idempotent. On top of it the printer has four named
+  separator decisions, no more: `hazard(item)` (`src/print-list-hazard.ts`,
+  Rulings 26–30 — a pure predicate over the node), `printedGap`'s
+  collided-marker arm (drop a blank-only gap when marker normalization made
+  parent and child markers identical, #16), `printedGap`'s slurp arm (invent a
+  blank that is in no gap, where a literal's re-read slurp would swallow the
+  next marker), and `printList`'s two-hardline sibling separator after an item
+  ending on an indented literal. Each adjustment exists because verbatim replay
+  would not re-parse to the same tree there. Paragraph text is tokenized by the
+  hand-rolled tokenizer (`src/parse/inline/tokenize.ts`) over each run of
+  paragraph lines, and the paragraph node is built from those tokens
+  (`src/parse/build/paragraph.ts`). See "Line classification is contextual" in
+  `docs/design.md`, and `docs/simplicity-metrics.md` for how the change was
+  measured.
 
 - **AST** (`src/ast.ts`): Designed for Prettier, not the AsciiDoc language
   spec's semantic model. Preserves comments, directives, attribute entries, and

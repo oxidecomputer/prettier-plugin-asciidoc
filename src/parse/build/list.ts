@@ -8,8 +8,8 @@
  * apart.
  */
 import type {
-  AttachedBlock,
   InlineNode,
+  ItemBlock,
   ListItemNode,
   ListNode,
 } from "../../ast.js";
@@ -48,13 +48,11 @@ export interface ListItemInput {
   /** Which list kind the marker opened. */
   readonly variant: ListVariant;
   /** The item's principal text, already tokenized. */
-  readonly body: readonly InlineToken[];
-  /** Every block the item took, in source order, with its spelling. */
-  readonly blocks: readonly AttachedBlock[];
-  /** Whether the principal text must keep its last source-line break. */
-  readonly keepTextBreak: boolean;
-  /** Whether the item ends on a `+` that attached nothing. */
-  readonly danglingContinuation: boolean;
+  readonly text: readonly InlineToken[];
+  /** Everything the item holds after its text, gaps attached. */
+  readonly blocks: readonly ItemBlock[];
+  /** Whether the item ends on an unerased `+` that attached nothing. */
+  readonly trailingContinuation: boolean;
 }
 
 /**
@@ -175,18 +173,13 @@ function calloutNumberOf(marker: Fragment): number {
 
 /**
  * One list item: its principal text, and every block the reader put
- * inside it in source order.
+ * inside it in source order, each behind its verbatim gap. The blocks
+ * arrive already style-converted (`convertParagraphFormBlocks` is the
+ * caller's), and already in source order — the confined reader pushed
+ * them as it met them, so there is nothing to merge.
  *
- * Nested lists go to `children` after the inline nodes; everything
- * else — `+`-attached and in-item blocks alike — goes to
- * `attachedBlocks`, which is the AST's spelling of Asciidoctor's
- * `list_item.blocks`, each with the note of how the source spelled it
- * (`AttachedBlock.continuation` / `pluses`). Asciidoctor makes the
- * same non-distinction; the split exists because the printer prints
- * the two differently.
- *
- * The blocks arrive already style-converted: `convertParagraphFormBlocks`
- * is a post-parse transform the caller applies, not construction.
+ * Field order in the literal is load-bearing: `text` before `blocks`
+ * keeps the generic pre-order walk in document order.
  * @param input - the item's parts (see {@link ListItemInput})
  * @param at - the document's location index
  * @returns the item node
@@ -195,30 +188,23 @@ export function buildListItem(
   input: ListItemInput,
   at: LocationIndex,
 ): ListItemNode {
-  const children = buildFromTokens(input.body, at);
-  const checkbox = takeCheckbox(input.variant, children);
-  const nested = input.blocks
-    .map(({ block }) => block)
-    .filter((block): block is ListNode => block.type === "list");
-  const attachedBlocks = input.blocks.filter(
-    ({ block }) => block.type !== "list",
-  );
+  const text = buildFromTokens(input.text, at);
+  const checkbox = takeCheckbox(input.variant, text);
   const isCallout = input.variant === "callout";
   return {
     type: "listItem",
     depth: isCallout ? CALLOUT_DEPTH : markerDepth(input.marker),
     checkbox,
     calloutNumber: isCallout ? calloutNumberOf(input.marker) : undefined,
-    children: [...children, ...nested],
-    attachedBlocks: [...attachedBlocks],
-    keepTextBreak: input.keepTextBreak,
-    danglingContinuation: input.danglingContinuation,
+    text,
+    blocks: [...input.blocks],
+    trailingContinuation: input.trailingContinuation,
     position: {
       start: at.start(input.marker),
       end:
         input.blocks.at(LAST_ELEMENT)?.block.position.end ??
-        (input.body.length > EMPTY
-          ? bodyExtent(input.body, at).end
+        (input.text.length > EMPTY
+          ? bodyExtent(input.text, at).end
           : at.end(input.marker)),
     },
   };

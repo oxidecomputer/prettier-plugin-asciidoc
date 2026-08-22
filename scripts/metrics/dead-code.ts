@@ -70,7 +70,12 @@ function runKnip(directory: string): string | undefined {
       maxBuffer: CHILD_MAX_BUFFER,
       // Its stderr is not ours to print: knip complains about a
       // missing `vitest/config` in a base copy that has no
-      // `node_modules`, and still produces the report we want.
+      // `node_modules`, and still produces the report we want. That
+      // missing `node_modules` also means the base column can
+      // OVERSTATE the branch's improvement (e.g. reporting 7 → 0 when
+      // the true baseline, run with node_modules present, is already
+      // 0): the head column is the gate; the base column is advisory
+      // only, not evidence of a fix.
       stdio: ["ignore", "pipe", "ignore"],
     });
   } catch (error) {

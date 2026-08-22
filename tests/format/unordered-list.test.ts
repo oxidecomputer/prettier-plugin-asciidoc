@@ -99,13 +99,14 @@ describe("unordered list formatting", () => {
   // An ordered item after an unordered item — even across a blank
   // line — is a list NESTED in that item, never a second list: after a
   // blank line `read_lines_for_list_item` keeps the item open for any
-  // NESTABLE_LIST_CONTEXTS marker. The printer writes the nesting in
-  // its adjacent form. ORACLE: the `<ol>` is inside the `<li>`.
+  // NESTABLE_LIST_CONTEXTS marker. The printer replays the blank the
+  // author wrote (spec D2: the gap is verbatim), so the input
+  // round-trips byte for byte. ORACLE: the `<ol>` is inside the `<li>`.
   test("unordered list followed by ordered list", async () => {
     const input = "* Unordered\n\n. Ordered\n";
     expect(renderedHtml(input)).toMatch(/<li>.*<ol.*<\/li>/v);
     const out = await formatAdoc(input);
-    expect(out).toBe("* Unordered\n. Ordered\n");
+    expect(out).toBe(input);
     expect(renderedHtml(out)).toBe(renderedHtml(input));
   });
 

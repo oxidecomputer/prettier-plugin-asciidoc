@@ -157,7 +157,7 @@ describe("hard line break formatting", () => {
       children: [item],
     } = firstList(children);
     const {
-      children: [text],
+      text: [text],
     } = item;
     expect(text).toMatchObject({ type: "text", value: "item\n +" });
   });
@@ -177,7 +177,7 @@ describe("hard line break formatting", () => {
     const {
       children: [item],
     } = firstList(children);
-    expect(item.children.map(({ type }) => type)).toEqual([
+    expect(item.text.map(({ type }) => type)).toEqual([
       "text",
       "hardLineBreak",
     ]);

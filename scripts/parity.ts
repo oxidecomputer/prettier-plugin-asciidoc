@@ -52,6 +52,15 @@ const ONE = 1;
 const MINIMUM_CASES = 1620;
 
 /**
+ * The options that take no value. Kept as a Set so `parseArguments`
+ * spends one branch on all of them (see the comment at its use site).
+ */
+const BOOLEAN_FLAGS = new Set([
+  "--allow-parent-block-end",
+  "--formatted-ledger",
+]);
+
+/**
  * Narrow an unknown value to a plain object with string keys.
  *
  * `instanceof Object` rather than `!== null`: `unicorn/no-null` bans
@@ -104,13 +113,14 @@ function startOffset(value: unknown): number {
  * The node a list item's or a list's end was COPIED from.
  *
  * `src/parse/build/list.ts` gives a list its last item's end, and an
- * item the end of the last of `blocks` — the run BEFORE the builder
- * splits it into `attachedBlocks` (everything but nested lists) and
- * `children` (the nested lists). The AST only has the two halves, so
- * the last of `blocks` is whichever half's last member starts LATER
- * in the source. Mirroring that, rather than taking either half that
- * happens to be blanked, is what keeps this from blanking an end that
- * never moved.
+ * item the end of the last of `blocks` — the run BEFORE the BASE
+ * generation's builder splits it into `attachedBlocks` (everything but
+ * nested lists) and `children` (the nested lists).
+ * {@link normalizeOneItem} puts that run back together, and this
+ * reviver runs on the ALREADY-folded item (same
+ * `JSON.parse` call, folded first), so the item's last canonical block
+ * IS the node its end came from — no merge-by-offset reconstruction
+ * here.
  * @param value - a revived `list` or `listItem` node
  * @returns the node its end came from, or undefined when it holds
  *   nothing
@@ -120,19 +130,12 @@ function endSource(value: Record<string, unknown>): unknown {
   // into the dumper, where nothing outside the embedded functions
   // exists.
   const LAST = -1;
-  const { children } = value;
-  const held = isUnknownArray(children) ? children : [];
   if (value.type === "list") {
-    return held.at(LAST);
+    const { children } = value;
+    return (isUnknownArray(children) ? children : []).at(LAST);
   }
-  const { attachedBlocks } = value;
-  const entries = isUnknownArray(attachedBlocks) ? attachedBlocks : [];
-  const lastEntry = entries.at(LAST);
-  const attached = isRecordLike(lastEntry) ? lastEntry.block : undefined;
-  const nested = held.findLast(
-    (child) => isRecordLike(child) && child.type === "list",
-  );
-  return startOffset(attached) >= startOffset(nested) ? attached : nested;
+  const { blocks } = value;
+  return (isUnknownArray(blocks) ? blocks : []).at(LAST);
 }
 
 /**
@@ -190,14 +193,67 @@ function blankOneEnd(_key: string, value: unknown): unknown {
 }
 
 /**
- * A copy of an AST with the allowlisted `position.end`s blanked.
+ * One list item, folded to the canonical form BOTH AST generations
+ * spell identically: inline text, then every block the item holds in
+ * source order, with the printer-spelling fields dropped — old
+ * `continuation`/`pluses`/`keepTextBreak`/`danglingContinuation`, new
+ * `gap`/`trailingContinuation`. The spelling is deliberately NOT
+ * compared here (`pluses` is not a pure function of `gap`); the
+ * render-equality and idempotence nets compare it where it is
+ * observable — in the formatted bytes.
  *
- * The allowlist is the ONE enumerated AST difference (Ruling 39) — a
- * forced-closed parentBlock's end position — AND its propagation into
- * list-item and list ends, which are DEFINED as their last block's end
- * rather than read off the source, so they move with it (Ruling 54).
+ * A JSON.parse reviver body, bottom-up: nested items are already
+ * canonical when their container is visited. Key order is fixed by
+ * the object literal, so both sides stringify identically.
+ * @param _key - the property name, unused
+ * @param value - the revived value
+ * @returns the value, or the canonical item that replaces it
+ */
+function normalizeOneItem(_key: string, value: unknown): unknown {
+  if (!isRecordLike(value) || value.type !== "listItem") return value;
+  const children = isUnknownArray(value.children) ? value.children : [];
+  const inline = isUnknownArray(value.text)
+    ? value.text
+    : children.filter(
+        (child) => !(isRecordLike(child) && child.type === "list"),
+      );
+  const nested = children.filter(
+    (child) => isRecordLike(child) && child.type === "list",
+  );
+  const attached = (
+    isUnknownArray(value.attachedBlocks) ? value.attachedBlocks : []
+  ).map((entry) => (isRecordLike(entry) ? entry.block : entry));
+  const wrapped = (isUnknownArray(value.blocks) ? value.blocks : []).map(
+    (entry) => (isRecordLike(entry) ? entry.block : entry),
+  );
+  const blocks = [...nested, ...attached, ...wrapped].toSorted(
+    (left, right) => startOffset(left) - startOffset(right),
+  );
+  return {
+    type: value.type,
+    depth: value.depth,
+    checkbox: value.checkbox,
+    calloutNumber: value.calloutNumber,
+    inline,
+    blocks,
+    position: value.position,
+  };
+}
+
+/**
+ * The one normaliser both dumper sides run before hashing: fold every
+ * list item to the canonical form, and (behind the existing flag)
+ * blank the allowlisted parentBlock ends. Composing the two in ONE
+ * reviver keeps the walk bottom-up for both. Replaces
+ * `blankParentBlockEnds` as the exported surface.
  *
- * The predicate is deliberately WIDER than that sentence: it blanks
+ * The parentBlock allowlist is the ONE enumerated AST difference
+ * (Ruling 39) — a forced-closed parentBlock's end position — AND its
+ * propagation into list-item and list ends, which are DEFINED as their
+ * last block's end rather than read off the source, so they move with
+ * it (Ruling 54).
+ *
+ * That predicate is deliberately WIDER than that sentence: it blanks
  * EVERY `parentBlock` end, terminated ones included. It has to be — the
  * dumper sees only the AST, and a parentBlock's node does not record
  * whether it met its own terminator, so "forced-closed" is not a
@@ -220,24 +276,32 @@ function blankOneEnd(_key: string, value: unknown): unknown {
  * detected: a child is already `"<allowed>"` when its container is
  * visited.
  *
- * This function, `blankOneEnd`, `derivedEnd`, `endSource`,
- * `startOffset`, `isUnknownArray` and `isRecordLike` are
+ * This function, `normalizeOneItem`, `blankOneEnd`, `derivedEnd`,
+ * `endSource`, `startOffset`, `isUnknownArray` and `isRecordLike` are
  * SELF-CONTAINED on purpose: their source is embedded into the dumper
  * below with `Function.prototype.toString()`, so the comparison and
  * its test share one implementation instead of two copies that can
- * drift. A reference to anything outside these six bodies would
+ * drift. A reference to anything outside these eight bodies would
  * compile here and crash inside the baseline checkout.
  * @param tree - a parsed AST
- * @returns a COPY, with the allowlisted ends replaced
+ * @param allowParentBlockEnd - whether to blank forced-closed
+ *   parentBlock ends (Ruling 39/54)
+ * @returns a COPY, canonicalized
  */
-export function blankParentBlockEnds(tree: unknown): unknown {
-  const blanked: unknown = JSON.parse(JSON.stringify(tree), blankOneEnd);
-  return blanked;
+export function normalizeTree(
+  tree: unknown,
+  allowParentBlockEnd: boolean,
+): unknown {
+  const normalized: unknown = JSON.parse(JSON.stringify(tree), (key, value) => {
+    const folded = normalizeOneItem(key, value);
+    return allowParentBlockEnd ? blankOneEnd(key, folded) : folded;
+  });
+  return normalized;
 }
 
 // The dumper is written into BOTH checkouts, so it can only use what
 // the baseline already has: the corpus loader, the format fixtures,
-// `formatAdoc` and `parse`, plus the six functions embedded
+// `formatAdoc` and `parse`, plus the eight functions embedded
 // verbatim below. It prints one JSON line per case, then one timing
 // line.
 const DUMPER = String.raw`
@@ -255,7 +319,8 @@ ${startOffset.toString()}
 ${endSource.toString()}
 ${derivedEnd.toString()}
 ${blankOneEnd.toString()}
-${blankParentBlockEnds.toString()}
+${normalizeOneItem.toString()}
+${normalizeTree.toString()}
 const cases = loadCorpus().flatMap((group) => group.cases);
 const FIXTURES = "tests/format/fixtures/identity";
 for (const name of readdirSync(FIXTURES).toSorted()) {
@@ -285,9 +350,7 @@ for (const one of cases) {
   formatMs += performance.now() - started;
   try {
     const tree = parse(one.input);
-    ast = JSON.stringify(
-      allowParentBlockEnd ? blankParentBlockEnds(tree) : tree,
-    );
+    ast = JSON.stringify(normalizeTree(tree, allowParentBlockEnd));
   } catch (error) {
     ast = "<<THREW>> " + String(error);
   }
@@ -483,7 +546,9 @@ export function describeDifference(
 /**
  * Parse the command line. Exported for tests/scripts/parity.test.ts.
  * @param argv - the arguments after the script name
- * @returns the base revision, the report limit and the allowlist flag
+ * @returns the base revision, the report limit, the allowlist flag and
+ *   whether formatted-only differences are a ledger listing rather
+ *   than a failure
  * @throws {Error} when an argument is unrecognised or `--base` is
  *   missing — a silently dropped `--base` would compare a checkout
  *   with itself
@@ -492,11 +557,12 @@ export function parseArguments(argv: readonly string[]): {
   revision: string;
   limit: number;
   allowParentBlockEnd: boolean;
+  formattedLedger: boolean;
 } {
   let revision: string | undefined = undefined;
   let limit = DEFAULT_LIMIT;
-  let allowParentBlockEnd = false;
-  // A queue rather than an index, because two of the four options
+  const flags = new Set<string>();
+  // A queue rather than an index, because two of the five options
   // consume the argument after them.
   const rest = [...argv];
   while (rest.length > ZERO) {
@@ -522,49 +588,64 @@ export function parseArguments(argv: readonly string[]): {
       }
       continue;
     }
-    if (argument === "--allow-parent-block-end") {
-      allowParentBlockEnd = true;
+    // The two value-less options share one arm: a branch each puts this
+    // function over the complexity ceiling, and a Set of accepted
+    // spellings is where the third flag will go too.
+    if (BOOLEAN_FLAGS.has(argument)) {
+      flags.add(argument);
       continue;
     }
     throw new Error(`parity: unrecognised argument ${argument}`);
   }
   if (revision === undefined)
     throw new Error("parity: --base <rev> is required");
-  return { revision, limit, allowParentBlockEnd };
+  return {
+    revision,
+    limit,
+    allowParentBlockEnd: flags.has("--allow-parent-block-end"),
+    formattedLedger: flags.has("--formatted-ledger"),
+  };
 }
 
 /**
- * The case ids where the two checkouts disagree, in head order with
- * the base-only ids appended. Exported for
- * tests/scripts/parity.test.ts: this is the function that decides the
- * plan's central gate, and every way it could wrongly return an empty
- * list is a silent pass.
+ * The case ids where the two checkouts disagree, split into the two
+ * streams the gate treats differently: `ast` is always a failure,
+ * `formatted` is a failure unless `--formatted-ledger` asked for a
+ * listing. An id present on only ONE side goes in `ast` — that is a
+ * structural failure, never ledger material — and so does an id whose
+ * AST differs, whatever its formatted output did.
+ *
+ * `ast` is in head order with the base-only ids appended; `formatted`
+ * is in head order and never receives a base-only id.
+ * Exported for tests/scripts/parity.test.ts: this is the function that
+ * decides the plan's central gate, and every way it could wrongly
+ * return empty lists is a silent pass.
  * @param base - the baseline's rows
  * @param head - this checkout's rows
- * @returns the differing ids
+ * @returns the ids differing in the AST and the ids differing only in
+ *   the formatted output
  */
 export function differingCases(
   base: Map<string, Row>,
   head: Map<string, Row>,
-): string[] {
-  const differing: string[] = [];
+): { ast: string[]; formatted: string[] } {
+  const ast: string[] = [];
+  const formatted: string[] = [];
   for (const [id, headRow] of head) {
     const baseRow = base.get(id);
-    if (baseRow === undefined) {
-      differing.push(id);
-      continue;
-    }
-    if (
-      baseRow.formatted !== headRow.formatted ||
-      baseRow.ast !== headRow.ast
-    ) {
-      differing.push(id);
+    // `baseRow?.ast` rather than an explicit undefined check: an id the
+    // base does not have compares undefined against a string and lands
+    // in `ast`, which is exactly where a missing case belongs.
+    if (baseRow?.ast !== headRow.ast) {
+      ast.push(id);
+    } else if (baseRow.formatted !== headRow.formatted) {
+      formatted.push(id);
     }
   }
   for (const id of base.keys()) {
-    if (!head.has(id)) differing.push(id);
+    if (!head.has(id)) ast.push(id);
   }
-  return differing;
+  return { ast, formatted };
 }
 
 /**
@@ -583,6 +664,37 @@ export function floorComplaint(
 ): string | undefined {
   if (headSize >= MINIMUM_CASES && baseSize >= MINIMUM_CASES) return undefined;
   return `parity: only ${String(headSize)} head / ${String(baseSize)} base cases loaded, expected at least ${String(MINIMUM_CASES)} — the corpus did not load\n`;
+}
+
+/**
+ * The gate's verdict: which differing cases FAIL the run.
+ *
+ * An AST difference always fails — the harness exists to catch one. A
+ * formatted-only difference normally fails too, because a refactor that
+ * changes the bytes is not a refactor. `--formatted-ledger` is the one
+ * way to accept them: it says "I expect these bytes to move, list them
+ * for the expected-diff ledger", and the run then stands or falls on
+ * the AST alone. An empty result means the run passes.
+ *
+ * Exported for tests/scripts/parity.test.ts. {@link differingCases}
+ * splits the two streams; this is the decision made FROM them, and a
+ * mutation of it — returning `ast` unconditionally — would silently
+ * stop the default gate failing on changed output.
+ * @param streams - the two differing-id lists
+ * @param streams.ast - ids whose AST differs, or that only one side has
+ * @param streams.formatted - ids whose AST matched and whose formatted
+ *   output did not
+ * @param formattedLedger - whether formatted-only differences are a
+ *   listing rather than a failure
+ * @returns the ids that fail, AST differences first (see the `--limit`
+ *   note at the call site)
+ */
+export function verdict(
+  streams: { ast: string[]; formatted: string[] },
+  formattedLedger: boolean,
+): string[] {
+  const { ast, formatted } = streams;
+  return formattedLedger ? [...ast] : [...ast, ...formatted];
 }
 
 /**
@@ -616,6 +728,8 @@ function reportCase(id: string, baseRoot: string, allow: boolean): void {
  * @param options.limit - how many differing cases to detail
  * @param options.allowParentBlockEnd - whether forced-closed
  *   parentBlock ends were blanked on both sides
+ * @param options.formattedLedger - whether formatted-only differences
+ *   are listed as expected-diff ledger candidates instead of failing
  */
 function report(options: {
   base: Dump;
@@ -624,6 +738,7 @@ function report(options: {
   revision: string;
   limit: number;
   allowParentBlockEnd: boolean;
+  formattedLedger: boolean;
 }): void {
   const {
     base: { rows: base, formatMs: baseMs },
@@ -632,6 +747,7 @@ function report(options: {
     revision,
     limit,
     allowParentBlockEnd,
+    formattedLedger,
   } = options;
   // Report-only (Ruling 44). Printed on every run, pass or fail, so a
   // slowdown is visible in the same output the gate is read from.
@@ -646,17 +762,34 @@ function report(options: {
     process.stdout.write(complaint);
     process.exitCode = FAILURE;
   }
-  const differing = differingCases(base, head);
-  if (differing.length === ZERO) {
+  const { ast, formatted } = differingCases(base, head);
+  // The ledger listing is printed whether or not the AST agreed: when
+  // both streams differ the run fails on the AST, and the ledger's
+  // candidate list is still the thing the reader came for.
+  if (formattedLedger && formatted.length > ZERO) {
     process.stdout.write(
-      `parity: ${String(head.size)} cases identical to ${revision}${allowParentBlockEnd ? " (parentBlock end allowlisted)" : ""}\n`,
+      `parity: ledger: ${String(formatted.length)} cases differ in formatted output only\n`,
     );
+    for (const id of formatted) process.stdout.write(`  ${id}\n`);
+  }
+  // The detailed subset under `--limit` is now AST differences first
+  // (base-only ids among them), then formatted-only ones — deliberate:
+  // when there are more differences than `limit`, a structural failure
+  // is the one worth reading. Before this task it was one head-order
+  // list with the base-only ids last.
+  const failing = verdict({ ast, formatted }, formattedLedger);
+  if (failing.length === ZERO) {
+    if (formatted.length === ZERO) {
+      process.stdout.write(
+        `parity: ${String(head.size)} cases identical to ${revision}${allowParentBlockEnd ? " (parentBlock end allowlisted)" : ""}\n`,
+      );
+    }
     return;
   }
   process.stdout.write(
-    `parity: ${String(differing.length)} of ${String(head.size)} cases differ from ${revision}\n`,
+    `parity: ${String(failing.length)} of ${String(head.size)} cases differ from ${revision}\n`,
   );
-  for (const id of differing.slice(ZERO, limit)) {
+  for (const id of failing.slice(ZERO, limit)) {
     reportCase(id, baseRoot, allowParentBlockEnd);
   }
   process.exitCode = FAILURE;
@@ -668,7 +801,8 @@ function report(options: {
  * @param argv - the arguments after the script name
  */
 function main(argv: readonly string[]): void {
-  const { revision, limit, allowParentBlockEnd } = parseArguments(argv);
+  const { revision, limit, allowParentBlockEnd, formattedLedger } =
+    parseArguments(argv);
   const baseRoot = materialize(revision);
   try {
     report({
@@ -678,6 +812,7 @@ function main(argv: readonly string[]): void {
       revision,
       limit,
       allowParentBlockEnd,
+      formattedLedger,
     });
   } finally {
     // `process.exitCode` and a normal return, never `process.exit()`:

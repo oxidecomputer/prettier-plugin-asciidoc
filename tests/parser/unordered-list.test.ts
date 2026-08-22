@@ -36,7 +36,9 @@ describe("unordered list parsing", () => {
       children: [parent],
     } = list;
     // Parent item has text + nested list
-    const nestedList = parent.children.find((c) => c.type === "list");
+    const nestedList = parent.blocks.find(
+      ({ block }) => block.type === "list",
+    )?.block;
     narrow(nestedList, "list");
     expect(nestedList.variant).toBe("unordered");
     expect(nestedList.children).toHaveLength(1);
@@ -56,7 +58,7 @@ describe("unordered list parsing", () => {
     const {
       children: [item],
     } = list;
-    const textNode = item.children.find((c) => c.type === "text");
+    const textNode = item.text.find((c) => c.type === "text");
     narrow(textNode, "text");
     expect(textNode.value).toContain("First line");
     expect(textNode.value).toContain("second line");
@@ -89,7 +91,7 @@ describe("unordered list parsing", () => {
     const {
       children: [item],
     } = list;
-    const textNode = item.children.find((c) => c.type === "text");
+    const textNode = item.text.find((c) => c.type === "text");
     narrow(textNode, "text");
     expect(textNode.value).toBe("Hello world");
   });
@@ -105,13 +107,17 @@ describe("unordered list parsing", () => {
     const {
       children: [l1Item],
     } = list;
-    const l2List = l1Item.children.find((c) => c.type === "list");
+    const l2List = l1Item.blocks.find(
+      ({ block }) => block.type === "list",
+    )?.block;
     narrow(l2List, "list");
     expect(l2List.children).toHaveLength(1);
     const {
       children: [l2Item],
     } = l2List;
-    const l3List = l2Item.children.find((c) => c.type === "list");
+    const l3List = l2Item.blocks.find(
+      ({ block }) => block.type === "list",
+    )?.block;
     narrow(l3List, "list");
     expect(l3List.children).toHaveLength(1);
     // Depth is derived from the marker length: `***` → length
@@ -130,9 +136,9 @@ describe("unordered list parsing", () => {
       expect(current.children).toHaveLength(1);
       expect(current.children[0].depth).toBe(depth);
       if (depth < 5) {
-        const nested = current.children[0].children.find(
-          (c) => c.type === "list",
-        );
+        const nested = current.children[0].blocks.find(
+          ({ block }) => block.type === "list",
+        )?.block;
         narrow(nested, "list");
         current = nested;
       }
@@ -147,7 +153,9 @@ describe("unordered list parsing", () => {
     const {
       children: [parentItem],
     } = list;
-    const nestedList = parentItem.children.find((c) => c.type === "list");
+    const nestedList = parentItem.blocks.find(
+      ({ block }) => block.type === "list",
+    )?.block;
     narrow(nestedList, "list");
     expect(nestedList.children).toHaveLength(2);
   });
@@ -164,10 +172,14 @@ describe("unordered list parsing", () => {
     expect(list.children[0].depth).toBe(1);
     expect(list.children[1].depth).toBe(1);
     // Nested and Deep are inside First.
-    const nested = list.children[0].children.find((c) => c.type === "list");
+    const nested = list.children[0].blocks.find(
+      ({ block }) => block.type === "list",
+    )?.block;
     narrow(nested, "list");
     expect(nested.children).toHaveLength(1);
-    const deep = nested.children[0].children.find((c) => c.type === "list");
+    const deep = nested.children[0].blocks.find(
+      ({ block }) => block.type === "list",
+    )?.block;
     narrow(deep, "list");
     expect(deep.children).toHaveLength(1);
     expect(deep.children[0].depth).toBe(3);
@@ -182,7 +194,7 @@ describe("unordered list parsing", () => {
     expect(list.variant).toBe("unordered");
     expect(list.children).toHaveLength(1);
     expect(list.children[0].depth).toBe(1);
-    const textNode = list.children[0].children.find((c) => c.type === "text");
+    const textNode = list.children[0].text.find((c) => c.type === "text");
     narrow(textNode, "text");
     expect(textNode.value).toBe("Item");
   });
@@ -202,7 +214,7 @@ describe("unordered list parsing", () => {
     const {
       children: [item],
     } = list;
-    const textNode = item.children.find((c) => c.type === "text");
+    const textNode = item.text.find((c) => c.type === "text");
     narrow(textNode, "text");
     expect(textNode.value).toBe(
       "First line\n  continuation line\n  another continuation",
@@ -221,7 +233,7 @@ describe("unordered list parsing", () => {
     const {
       children: [item],
     } = list;
-    const textNode = item.children.find((c) => c.type === "text");
+    const textNode = item.text.find((c) => c.type === "text");
     narrow(textNode, "text");
     expect(textNode.value).toBe(
       "First line\n  indented continuation\nflush continuation",
@@ -239,12 +251,14 @@ describe("unordered list parsing", () => {
     const {
       children: [parentItem],
     } = list;
-    const nestedList = parentItem.children.find((c) => c.type === "list");
+    const nestedList = parentItem.blocks.find(
+      ({ block }) => block.type === "list",
+    )?.block;
     narrow(nestedList, "list");
     const {
       children: [childItem],
     } = nestedList;
-    const textNode = childItem.children.find((c) => c.type === "text");
+    const textNode = childItem.text.find((c) => c.type === "text");
     narrow(textNode, "text");
     expect(textNode.value).toBe("Child first line\n   child continuation");
   });
@@ -264,7 +278,7 @@ describe("continuation line inline node positions", () => {
     const {
       children: [item],
     } = firstList(children);
-    const link = item.children.find((c) => c.type === "link");
+    const link = item.text.find((c) => c.type === "link");
     narrow(link, "link");
     const {
       position: { start, end },

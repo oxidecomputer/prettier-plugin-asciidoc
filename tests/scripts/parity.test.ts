@@ -10,15 +10,17 @@
 import { describe, expect, test } from "vitest";
 import { createHash } from "node:crypto";
 import { readdirSync } from "node:fs";
+import type { ListNode, Location, ParagraphNode } from "../../src/ast.js";
 import type { Row } from "../../scripts/parity.js";
 import {
-  blankParentBlockEnds,
   describeDifference,
   differingCases,
   floorComplaint,
   isRow,
   isTiming,
+  normalizeTree,
   parseArguments,
+  verdict,
 } from "../../scripts/parity.js";
 import { loadCorpus } from "../conformance/loader.js";
 import { formatAdoc } from "../helpers.js";
@@ -58,18 +60,70 @@ function dumpOf(rows: Row[]): Map<string, Row> {
   return new Map(rows.map((row) => [row.id, row]));
 }
 
+// One row per accepted spelling. The whole parsed result travels as
+// the expectation rather than four positional columns: five parameters
+// trips @typescript-eslint/max-params, and a row that names its fields
+// is the one a new flag gets added to without renumbering.
+const PARSED_ARGUMENTS_ROWS = [
+  [
+    ["--base", "abc123"],
+    {
+      revision: "abc123",
+      limit: 20,
+      allowParentBlockEnd: false,
+      formattedLedger: false,
+    },
+  ],
+  [
+    ["--base=abc123"],
+    {
+      revision: "abc123",
+      limit: 20,
+      allowParentBlockEnd: false,
+      formattedLedger: false,
+    },
+  ],
+  [
+    ["--base", "abc123", "--limit", "3"],
+    {
+      revision: "abc123",
+      limit: 3,
+      allowParentBlockEnd: false,
+      formattedLedger: false,
+    },
+  ],
+  [
+    ["--base", "abc123", "--allow-parent-block-end"],
+    {
+      revision: "abc123",
+      limit: 20,
+      allowParentBlockEnd: true,
+      formattedLedger: false,
+    },
+  ],
+  [
+    ["--base", "x", "--formatted-ledger"],
+    {
+      revision: "x",
+      limit: 20,
+      allowParentBlockEnd: false,
+      formattedLedger: true,
+    },
+  ],
+  [
+    ["--base", "x", "--formatted-ledger", "--allow-parent-block-end"],
+    {
+      revision: "x",
+      limit: 20,
+      allowParentBlockEnd: true,
+      formattedLedger: true,
+    },
+  ],
+] as const;
+
 describe("parseArguments", () => {
-  test.each([
-    [["--base", "abc123"], "abc123", 20, false],
-    [["--base=abc123"], "abc123", 20, false],
-    [["--base", "abc123", "--limit", "3"], "abc123", 3, false],
-    [["--base", "abc123", "--allow-parent-block-end"], "abc123", 20, true],
-  ])("%j", (argv, revision, limit, allow) => {
-    expect(parseArguments(argv)).toEqual({
-      revision,
-      limit,
-      allowParentBlockEnd: allow,
-    });
+  test.each(PARSED_ARGUMENTS_ROWS)("%j", (argv, expected) => {
+    expect(parseArguments(argv)).toEqual(expected);
   });
 
   test("a missing --base is an error, never a self-comparison", () => {
@@ -140,38 +194,215 @@ async function load(): Promise<{
 describe("differingCases", () => {
   test("identical dumps report nothing", async () => {
     const { plain } = await load();
-    expect(differingCases(dumpOf([plain]), dumpOf([plain]))).toEqual([]);
+    expect(differingCases(dumpOf([plain]), dumpOf([plain]))).toEqual({
+      ast: [],
+      formatted: [],
+    });
   });
 
-  test("a formatted difference is reported", async () => {
+  test("a formatted-only difference lands in the ledger stream", async () => {
     const { plain, other } = await load();
     const head = { ...plain, formatted: other.formatted };
-    expect(differingCases(dumpOf([plain]), dumpOf([head]))).toEqual(["case"]);
+    expect(differingCases(dumpOf([plain]), dumpOf([head]))).toEqual({
+      ast: [],
+      formatted: ["case"],
+    });
   });
 
   test("an ast difference is reported even when the output matches", async () => {
     const { plain, sameOutput } = await load();
     expect(plain.formatted).toBe(sameOutput.formatted);
     expect(plain.ast).not.toBe(sameOutput.ast);
-    expect(differingCases(dumpOf([plain]), dumpOf([sameOutput]))).toEqual([
-      "case",
-    ]);
+    expect(differingCases(dumpOf([plain]), dumpOf([sameOutput]))).toEqual({
+      ast: ["case"],
+      formatted: [],
+    });
   });
 
-  test("a case only the base has is reported", async () => {
+  test("a case differing in BOTH streams is an ast case, never a ledger one", async () => {
+    const { plain, other } = await load();
+    expect(plain.formatted).not.toBe(other.formatted);
+    expect(plain.ast).not.toBe(other.ast);
+    expect(differingCases(dumpOf([plain]), dumpOf([other]))).toEqual({
+      ast: ["case"],
+      formatted: [],
+    });
+  });
+
+  test("the two streams are kept apart in one comparison", async () => {
+    const { plain, other, sameOutput } = await load();
+    const base = dumpOf([
+      { ...plain, id: "same" },
+      { ...plain, id: "ledger" },
+      { ...plain, id: "structural" },
+    ]);
+    const head = dumpOf([
+      { ...plain, id: "same" },
+      { ...plain, id: "ledger", formatted: other.formatted },
+      { ...plain, id: "structural", ast: sameOutput.ast },
+    ]);
+    expect(differingCases(base, head)).toEqual({
+      ast: ["structural"],
+      formatted: ["ledger"],
+    });
+  });
+
+  test("a case only the base has is an ast case, never ledger material", async () => {
     const { plain } = await load();
     const gone = await realRow("dropped", "para\n");
-    expect(differingCases(dumpOf([plain, gone]), dumpOf([plain]))).toEqual([
-      "dropped",
+    expect(differingCases(dumpOf([plain, gone]), dumpOf([plain]))).toEqual({
+      ast: ["dropped"],
+      formatted: [],
+    });
+  });
+
+  test("a case only the head has is an ast case, never ledger material", async () => {
+    const { plain } = await load();
+    const added = await realRow("added", "para\n");
+    expect(differingCases(dumpOf([plain]), dumpOf([plain, added]))).toEqual({
+      ast: ["added"],
+      formatted: [],
+    });
+  });
+});
+
+describe("verdict — which differing cases fail the gate", () => {
+  test("without the flag, a formatted-only difference FAILS the run", () => {
+    // The mutation this row exists to kill: returning `ast`
+    // unconditionally would make the plan's central gate stop failing
+    // on changed formatter output.
+    expect(verdict({ ast: [], formatted: ["ledger"] }, false)).toEqual([
+      "ledger",
     ]);
   });
 
-  test("a case only the head has is reported", async () => {
-    const { plain } = await load();
-    const added = await realRow("added", "para\n");
-    expect(differingCases(dumpOf([plain]), dumpOf([plain, added]))).toEqual([
-      "added",
-    ]);
+  test("with the flag, a formatted-only difference is a listing, not a failure", () => {
+    expect(verdict({ ast: [], formatted: ["ledger"] }, true)).toEqual([]);
+  });
+
+  test("with the flag, an AST difference still fails and the formatted ids stand aside", () => {
+    expect(
+      verdict({ ast: ["structural"], formatted: ["ledger"] }, true),
+    ).toEqual(["structural"]);
+  });
+
+  test("no differences at all is a pass either way", () => {
+    expect(verdict({ ast: [], formatted: [] }, false)).toEqual([]);
+    expect(verdict({ ast: [], formatted: [] }, true)).toEqual([]);
+  });
+
+  test("without the flag both streams fail, AST ids first", () => {
+    expect(
+      verdict({ ast: ["structural"], formatted: ["ledger"] }, false),
+    ).toEqual(["structural", "ledger"]);
+  });
+});
+
+// Position helpers for hand-built nodes. Annotated with the real AST
+// types, so a row that stops being a node the parser could produce
+// fails to compile rather than being silently normalized as junk.
+const at = (offset: number): Location => ({
+  offset,
+  line: 1,
+  column: offset + 1,
+});
+const span = (
+  from: number,
+  to: number,
+): { start: Location; end: Location } => ({ start: at(from), end: at(to) });
+const para = (from: number): ParagraphNode => ({
+  type: "paragraph",
+  children: [],
+  position: span(from, from + 1),
+});
+const nestedList = (from: number): ListNode => ({
+  type: "list",
+  variant: "unordered",
+  children: [],
+  position: span(from, from + 1),
+});
+
+describe("normalizeTree folds both list-item shapes into one canonical form", () => {
+  const textNode = {
+    type: "text",
+    value: "a",
+    position: span(2, 3),
+  };
+  // TODAY's shape: nested lists inside `children`, blocks in
+  // `attachedBlocks` with their spelling, two printer flags.
+  const oldItem = {
+    type: "listItem",
+    depth: 1,
+    checkbox: undefined,
+    calloutNumber: undefined,
+    children: [textNode, nestedList(30)],
+    attachedBlocks: [{ block: para(10), continuation: "plus", pluses: 1 }],
+    keepTextBreak: false,
+    danglingContinuation: true,
+    position: span(0, 31),
+  };
+  // The D1 shape the cut-over produces for the same document.
+  const newItem = {
+    type: "listItem",
+    depth: 1,
+    checkbox: undefined,
+    calloutNumber: undefined,
+    text: [textNode],
+    blocks: [
+      { gap: ["+"], block: para(10) },
+      { gap: [""], block: nestedList(30) },
+    ],
+    trailingContinuation: true,
+    position: span(0, 31),
+  };
+
+  test("old and new spell out to the SAME canonical bytes", () => {
+    expect(JSON.stringify(normalizeTree({ children: [oldItem] }, false))).toBe(
+      JSON.stringify(normalizeTree({ children: [newItem] }, false)),
+    );
+  });
+
+  test("the canonical item is source-ordered and spelling-free", () => {
+    const canonical: unknown = normalizeTree({ children: [oldItem] }, false);
+    const rendered = JSON.stringify(canonical);
+    expect(rendered).not.toContain("attachedBlocks");
+    expect(rendered).not.toContain("continuation");
+    expect(rendered).not.toContain("keepTextBreak");
+    expect(rendered).not.toContain("gap");
+    // blocks merged by offset: the +-attached paragraph (10) before
+    // the nested list (30).
+    expect(rendered.indexOf('"offset":10')).toBeLessThan(
+      rendered.indexOf('"offset":30'),
+    );
+  });
+
+  test("the NEW shape's canonical form is a literal, not just equal to the old one", () => {
+    // Both other rows compare newItem only RELATIVELY (against oldItem
+    // or via oldItem's offsets), so a normaliser that dropped the
+    // `blocks` field entirely would still pass them. This pins the
+    // absolute answer: `blocks` unwrapped, source-ordered, gap gone.
+    expect(normalizeTree({ children: [newItem] }, false)).toEqual({
+      children: [
+        {
+          type: "listItem",
+          depth: 1,
+          inline: [textNode],
+          blocks: [para(10), nestedList(30)],
+          position: span(0, 31),
+        },
+      ],
+    });
+  });
+
+  test("a structural difference is NOT masked: a block moved between items still differs", () => {
+    const moved = {
+      ...oldItem,
+      attachedBlocks: [],
+      children: [textNode, nestedList(30)],
+    };
+    expect(
+      JSON.stringify(normalizeTree({ children: [moved] }, false)),
+    ).not.toBe(JSON.stringify(normalizeTree({ children: [oldItem] }, false)));
   });
 });
 
@@ -182,7 +413,7 @@ describe("differingCases", () => {
  */
 function allowedEnds(source: string): number {
   return (
-    JSON.stringify(blankParentBlockEnds(parse(source))).split('"<allowed>"')
+    JSON.stringify(normalizeTree(parse(source), true)).split('"<allowed>"')
       .length - 1
   );
 }
@@ -215,24 +446,28 @@ describe("the allowlisted parentBlock end", () => {
     const rowOf = (tree: unknown): Row => ({
       id: "parent-block",
       formatted,
-      ast: digest(JSON.stringify(blankParentBlockEnds(tree))),
+      ast: digest(JSON.stringify(normalizeTree(tree, true))),
     });
     const base = dumpOf([rowOf(buggy())]);
     const head = dumpOf([rowOf(fixed())]);
-    expect(differingCases(base, head)).toEqual([]);
+    expect(differingCases(base, head)).toEqual({ ast: [], formatted: [] });
   });
 
   test("blanking leaves a document without a parentBlock alone", () => {
+    // Against the canonicalizing normaliser, "alone" is the flag
+    // making no difference: the list item is folded either way, and
+    // nothing here has an end to blank.
     const document = parse("para\n\n* item\n");
-    expect(JSON.stringify(blankParentBlockEnds(document))).toBe(
-      JSON.stringify(document),
+    expect(JSON.stringify(normalizeTree(document, true))).toBe(
+      JSON.stringify(normalizeTree(document, false)),
     );
+    expect(allowedEnds("para\n\n* item\n")).toBe(0);
   });
 
   test("blanking does not mutate the tree it is given", () => {
     const document = buggy();
     const before = JSON.stringify(document);
-    blankParentBlockEnds(document);
+    normalizeTree(document, true);
     expect(JSON.stringify(document)).toBe(before);
   });
 
@@ -264,7 +499,7 @@ describe("the allowlisted parentBlock end", () => {
     // start at offset 0, so a positional assertion could not tell two
     // blanked ends at 0 from one.
     expect(
-      blankParentBlockEnds(parse("* item\n+\n====\nexample\n")),
+      normalizeTree(parse("* item\n+\n====\nexample\n"), true),
     ).toMatchObject({
       type: "document",
       children: [
@@ -275,12 +510,12 @@ describe("the allowlisted parentBlock end", () => {
             {
               type: "listItem",
               position: { end: "<allowed>" },
-              attachedBlocks: [
+              // Canonical: the item's blocks, unwrapped and
+              // source-ordered.
+              blocks: [
                 {
-                  block: {
-                    type: "parentBlock",
-                    position: { end: "<allowed>" },
-                  },
+                  type: "parentBlock",
+                  position: { end: "<allowed>" },
                 },
               ],
             },

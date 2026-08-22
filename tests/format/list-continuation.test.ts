@@ -100,23 +100,26 @@ describe("list continuation formatting", () => {
     const first = await formatAdoc(input);
     // `read_lines_for_list_item` buffers ONE blank line after a `+`
     // as content, so the paragraph attaches (the oracle puts it
-    // inside the item); the printer writes the attachment in its
-    // canonical adjacent form. Two blank lines would end the list.
-    expect(first).toBe("* item text\n+\nA separate paragraph.\n");
+    // inside the item); the printer replays the recorded gap
+    // VERBATIM (spec D2) — collapsing the blank could change what a
+    // later `+` means, and the byte round-trip is idempotent by
+    // construction. Two blank lines would end the list.
+    expect(first).toBe(input);
     expect(renderedHtml(first)).toBe(renderedHtml(input));
     expect(await formatAdoc(first)).toBe(first);
   });
 
   // Asciidoctor renders `+` after `+` at the end of an item as
-  // nothing at all — the second `+` is content Ruby buffers, and the
-  // trailing continuation is dropped. The reader keeps the second
-  // `+` as a verbatim line (a formatter may not delete a line the
-  // author wrote), so both bytes come back exactly as written and the
-  // rendering — nothing — is unchanged.
-  test("trailing consecutive + markers are kept verbatim", async () => {
+  // nothing at all: the FIRST `+` is erased the moment the second
+  // line arrives (`buffer[-1] = ''`, parser.rb l.1429) and the second
+  // is popped as the optional trailing continuation (l.1571). The
+  // erased one is a blank to Ruby — dropping it is render-equal and
+  // idempotent (Ruling 23's carve-out) — so the doubled trailing `+`
+  // collapses to ONE `+` line, which then round-trips.
+  test("trailing consecutive + markers collapse to one", async () => {
     const input = "* item\n+\n+\n";
     const first = await formatAdoc(input);
-    expect(first).toBe(input);
+    expect(first).toBe("* item\n+\n");
     expect(renderedHtml(first)).toBe(renderedHtml(input));
     expect(await formatAdoc(first)).toBe(first);
   });
@@ -337,12 +340,13 @@ describe("continuations around delimited blocks (issue #6)", () => {
 
   // One blank line between the `+` and the block: the block still
   // attaches (Asciidoctor buffers the first blank after a `+` as
-  // content), and the printer writes the attachment in its canonical
-  // adjacent form. Rendering is unchanged.
+  // content), and the printer replays the gap VERBATIM (spec D2) —
+  // the byte round-trip is idempotent by construction. Rendering is
+  // unchanged.
   test("a + reaches across one blank line and attaches the block", async () => {
     const input = "* item\n+\n\n....\nliteral\n....\n";
     const first = await formatAdoc(input);
-    expect(first).toBe("* item\n+\n....\nliteral\n....\n");
+    expect(first).toBe(input);
     expect(renderedHtml(first)).toBe(renderedHtml(input));
     expect(await formatAdoc(first)).toBe(first);
   });
@@ -596,17 +600,20 @@ describe("a + continuation reaches across block metadata", () => {
 
   // …and when what follows the two blanks is a NESTED MARKER, the
   // item keeps the nested list but the `+` is ERASED. The formatted
-  // bytes are the only witness: Asciidoctor renders `* a` / `+` /
+  // bytes are the loudest witness: Asciidoctor renders `* a` / `+` /
   // `** b` and `* a` / `** b` identically, so an oracle comparison
-  // cannot see a `+` written back, and the AST cannot either — a
-  // nested list lives in `ListItemNode.children`, which carries no
-  // `ItemContinuation`. This is the assertion the reader row
-  // "+ then TWO blanks then a nested marker" can no longer make
-  // (tests/parser/reader-lists.test.ts).
-  test("two blanks then a nested marker drops the +", async () => {
+  // cannot see a `+` written back. This is the assertion the reader
+  // row "+ then TWO blanks then a nested marker" cannot make on its
+  // own (tests/parser/reader-lists.test.ts).
+  test("two blanks then a nested marker keeps the dead + verbatim", async () => {
     const input = "* a\n+\n\n\n** b\n* c\n";
     const out = await formatAdoc(input);
-    expect(out).toBe("* a\n** b\n* c\n");
+    // The `+` is dead to Ruby (two blanks erased it) and the old
+    // printer dropped the whole run; the gap is now replayed VERBATIM
+    // (spec D2, Ruling 23: the bytes are the author's), and the byte
+    // round-trip is idempotent by construction. Rendering unchanged
+    // either way.
+    expect(out).toBe(input);
     expect(renderedHtml(out)).toBe(renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });

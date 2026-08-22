@@ -66,16 +66,33 @@ const LINE_START_BEFORE_BREAK = /\n[ \t]*$/v;
 function ownsItsLine(path: PrintPath): boolean {
   const parent = path.getParentNode();
   const { index } = path;
-  if (parent === null || index === null || !("children" in parent)) {
+  const siblings = parent === null ? undefined : inlineSiblingsOf(parent);
+  if (siblings === undefined || index === null) {
     return false;
   }
   if (index <= FIRST) {
     return false;
   }
-  const previous = parent.children.at(index + LAST_ELEMENT);
+  const previous = siblings.at(index + LAST_ELEMENT);
   return (
     previous?.type === "text" && LINE_START_BEFORE_BREAK.test(previous.value)
   );
+}
+
+/**
+ * The inline siblings a node sits among, whatever its parent calls
+ * them: a list item keeps its inline nodes in `text` (its `blocks`
+ * hold whole blocks, never inline siblings); every other inline
+ * container spells them `children`. A helper because
+ * `"children" in parent` is a NARROWING over the node union — after
+ * the D1 rename a `listItem` parent would silently drop out of it,
+ * with no compile error to say so (plan-review M1).
+ * @param parent - the node the printer is inside
+ * @returns the sibling array, or undefined when the parent has none
+ */
+function inlineSiblingsOf(parent: AnyNode): readonly AnyNode[] | undefined {
+  if (parent.type === "listItem") return parent.text;
+  return "children" in parent ? parent.children : undefined;
 }
 
 /**
@@ -212,10 +229,11 @@ function printRawLine(node: RawLineNode, path: PrintPath): Doc {
 function hasFollowingInlineSibling(path: PrintPath): boolean {
   const parent = path.getParentNode();
   const { index } = path;
-  if (parent === null || index === null || !("children" in parent)) {
+  const siblings = parent === null ? undefined : inlineSiblingsOf(parent);
+  if (siblings === undefined || index === null) {
     return false;
   }
-  const next = parent.children.at(index + NEXT);
+  const next = siblings.at(index + NEXT);
   return next !== undefined && !OWN_LINE_SIBLINGS.has(next.type);
 }
 
@@ -230,13 +248,14 @@ function hasFollowingInlineSibling(path: PrintPath): boolean {
 function hasPrecedingInlineSibling(path: PrintPath): boolean {
   const parent = path.getParentNode();
   const { index } = path;
-  if (parent === null || index === null || !("children" in parent)) {
+  const siblings = parent === null ? undefined : inlineSiblingsOf(parent);
+  if (siblings === undefined || index === null) {
     return false;
   }
   if (index <= FIRST) {
     return false;
   }
-  const previous = parent.children.at(index + LAST_ELEMENT);
+  const previous = siblings.at(index + LAST_ELEMENT);
   return previous !== undefined && !OWN_LINE_SIBLINGS.has(previous.type);
 }
 

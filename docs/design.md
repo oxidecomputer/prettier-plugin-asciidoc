@@ -31,16 +31,22 @@ Parsing happens in three phases:
    under construction, and closing a frame builds its node with the pure
    `(lines, index) → Node` constructors in `src/parse/build/` and pushes it onto
    the parent frame's children. There is no separate tree-building pass — no
-   grammar, no CST, no visitor. Lists are read by
-   `src/parse/lines/list-reader.ts` and `list-frames.ts`, over per-item state
-   (`Item`) from `list-item.ts`. `src/parse/lines/frames.ts` holds the frame and
-   reader types they share with `reader.ts`, plus the held-metadata table both
-   the reader and the list layer consult, so those modules stay a DAG rather
-   than an import cycle. Every node carries character offsets
-   (`locStart`/`locEnd`), comments and directives are first-class nodes, and the
-   tree is faithful to the source syntax. `tests/parser/architecture.test.ts` is
-   the mechanical guard that block context is decided in the reader and nowhere
-   else.
+   grammar, no CST, no visitor. Lists are read EXTENT-FIRST in
+   `src/parse/lines/list-reader.ts`, a port of Asciidoctor's own structure:
+   `parse_list` → `parse_list_item` → `read_lines_for_list_item` becomes
+   `readList` → `readListItem` → `itemExtent`. `itemExtent` collects one item's
+   lines into Ruby's buffer; `readListItem` then re-parses that buffer with a
+   confined `BlockReader` (Ruby's `Reader.new buffer`), so nesting composes
+   because an inner item's scan runs over the outer item's buffer. There is no
+   list frame and no per-item object: the only mutable per-item state is
+   `itemExtent`'s five members (Ruby's four locals plus the buffer being built),
+   and nothing points across an item boundary. `src/parse/lines/frames.ts` holds
+   the frame and reader types the list layer shares with `reader.ts`, plus the
+   held-metadata table both consult, so those modules stay a DAG rather than an
+   import cycle. Every node carries character offsets (`locStart`/`locEnd`),
+   comments and directives are first-class nodes, and the tree is faithful to
+   the source syntax. `tests/parser/architecture.test.ts` is the mechanical
+   guard that block context is decided in the reader and nowhere else.
 
 3. **Inline tokenizer** (`src/parse/inline/`): the paragraph reader
    (`src/parse/lines/paragraph-reader.ts`) hands each run of paragraph text to
@@ -55,6 +61,37 @@ Parsing happens in three phases:
 
 Walks the AST and produces Prettier Doc IR using `group`, `indent`, `line`,
 `hardline`, `softline`, `fill`, `join`, etc.
+
+Inside a list, the separators are the AST's, not the printer's invention:
+`src/print-list.ts`'s DEFAULT is to replay each `ItemBlock.gap` — the verbatim
+`""`/`"+"` lines the author wrote between an item's pieces — line for line,
+which is what makes list formatting idempotent by construction. The printer then
+has exactly four separator decisions of its own, and they are enumerable because
+each one is a named arm rather than a judgement:
+
+1. `hazard(item)` (`src/print-list-hazard.ts`) — a pure predicate over the
+   finished node returning `"none" | "plus" | "keepBreak"`: whether reflowing
+   the item's text would push leading metadata onto the first line after the
+   marker and so change the reading, and what to print against that (Rulings
+   26–30).
+2. `printedGap`'s collided-marker arm — marker normalization can make a nested
+   list's marker identical to its parent item's, and then a blank-only gap would
+   read back as a SIBLING boundary; the pair prints adjacent instead, so the
+   flattening at least stays idempotent (issue #16).
+3. `printedGap`'s slurp arm — a blank line that is in no gap, invented where an
+   indented literal's re-read slurp (or the hazard's introduced `+`) would
+   otherwise swallow the nested marker that follows it.
+4. `printList`'s sibling separator — two hardlines instead of one when the
+   previous item ends on an indented literal paragraph, which reads on to the
+   next blank line and would otherwise eat the sibling's marker.
+
+Each of the three ADJUSTMENTS (2–4) exists for the same reason: verbatim replay
+would NOT re-parse to the same tree there. The code's comments — the
+`printedGap`, `slurpReaches`, and `printList` function comments in
+`print-list.ts` — carry the reasoning and the Ruby citation for each, and each
+is pinned by a byte test in `tests/format/list-item-blocks.test.ts` — the plan's
+mutation pass found all three under-tested, which is exactly what an
+undocumented decision looks like from the outside.
 
 ## One tree
 
@@ -91,7 +128,9 @@ issues, not as node names here.
 - `attributeEntry` — `:key: value` lines
 - `paragraph` — text content containing inline nodes
 - `list` — `variant: "unordered" | "ordered" | "callout"`
-- `listItem` — marker + text + nested lists + attached blocks
+- `listItem` — marker + `text` + `blocks` (each block behind the verbatim `gap`
+  lines that led into it, in source order — a nested list is a block like any
+  other) + `trailingContinuation`
 - `delimitedBlock` — every leaf block, under one node with two axes:
   `variant: "listing" | "literal" | "pass" | "verse" | "example" | "sidebar" | "quote"`
   and `form: "delimited" | "indented" | "paragraph"`. Backtick-fenced code

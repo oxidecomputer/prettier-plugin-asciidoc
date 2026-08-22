@@ -170,13 +170,14 @@ function endsWithReaderEatenLine(block: BlockNode): boolean {
     return isReaderConsumedLine(block);
   }
   const item = block.children.at(LAST_ELEMENT);
-  const attached = item?.attachedBlocks.at(LAST_ELEMENT);
-  if (attached !== undefined) {
-    return endsWithReaderEatenLine(attached.block);
+  const last = item?.blocks.at(LAST_ELEMENT)?.block;
+  if (last !== undefined) {
+    // A trailing nested list recurses through the same test.
+    return endsWithReaderEatenLine(last);
   }
   // An inline rawLine is a comment or a preprocessor directive by
   // construction (`isRawParagraphLine` admits nothing else).
-  return item?.children.at(LAST_ELEMENT)?.type === "rawLine";
+  return item?.text.at(LAST_ELEMENT)?.type === "rawLine";
 }
 
 /**

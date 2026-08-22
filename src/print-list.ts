@@ -5,20 +5,10 @@
  * same way. Split out of print-blocks.ts by responsibility.
  */
 import { doc, type Doc } from "prettier";
-import type {
-  BlockNode,
-  ItemContinuation,
-  ListItemNode,
-  ListNode,
-} from "./ast.js";
-import {
-  EMPTY,
-  FIRST,
-  LAST_ELEMENT,
-  MARKER_OFFSET,
-  NEXT,
-} from "./constants.js";
+import type { GapLine, ItemBlock, ListItemNode, ListNode } from "./ast.js";
+import { EMPTY, FIRST, LAST_ELEMENT, MARKER_OFFSET } from "./constants.js";
 import { CHECKBOX_PREFIX_LEN } from "./parse/build/list.js";
+import { hazard, type Hazard } from "./print-list-hazard.js";
 import {
   flattenForFill,
   keepLastBreak,
@@ -29,6 +19,10 @@ import type { PrintFunction, PrintPath } from "./print-blocks.js";
 const {
   builders: { align, fill, hardline },
 } = doc;
+
+// One blank line, as a gap: what an introduced `+` forces in front of
+// an otherwise-adjacent nested list (see printListItem).
+const BLANK_GAP: readonly GapLine[] = [""];
 
 /**
  * Prints a list node: items separated by hard line
@@ -76,38 +70,19 @@ export function printList(
 /**
  * Whether an item's last block, in source order, is an indented literal
  * paragraph — looking into a trailing nested list, whose own last item
- * may end on one.
+ * may end on one. `blocks` is already source-ordered, so the last
+ * entry IS the last thing printed.
  * @param item - the list item
  * @returns true when a literal paragraph is the last thing printed
  */
 function endsWithLiteralParagraph(item: ListItemNode): boolean {
-  if (item.danglingContinuation) {
-    return false;
-  }
-  const last = lastBlockOf(item);
+  if (item.trailingContinuation) return false;
+  const last = item.blocks.at(LAST_ELEMENT)?.block;
   if (last?.type === "list") {
     const lastItem = last.children.at(LAST_ELEMENT);
     return lastItem !== undefined && endsWithLiteralParagraph(lastItem);
   }
   return last?.type === "delimitedBlock" && last.form === "indented";
-}
-
-/**
- * An item's last block in source order: its trailing nested list or
- * its last attached block, whichever starts later.
- * @param item - the list item
- * @returns the block, or undefined for an item of text only
- */
-function lastBlockOf(item: ListItemNode): BlockNode | undefined {
-  const nested = item.children.at(LAST_ELEMENT);
-  const attached = item.attachedBlocks.at(LAST_ELEMENT)?.block;
-  if (nested?.type !== "list") {
-    return attached;
-  }
-  return attached === undefined ||
-    nested.position.start.offset > attached.position.start.offset
-    ? nested
-    : attached;
 }
 
 /**
@@ -162,14 +137,15 @@ function formatCheckbox(checkbox: ListItemNode["checkbox"]): string {
 /**
  * Prints a single list item to Doc IR.
  *
- * Produces marker + space + text content, with text
- * reflowed via fill(). Continuation lines are aligned
- * to the text start (past the marker). Nested lists
- * appear on the next line after the item text, outside
- * the fill.
+ * Produces marker + space + text content, with text reflowed via
+ * fill(). Continuation lines are aligned to the text start (past the
+ * marker). The item's blocks — nested lists and `+`-attached blocks
+ * alike — follow in source order, each behind its gap replayed
+ * VERBATIM ({@link gapParts}); the only spelling the printer decides
+ * itself is the hazard's (Rulings 26-30, `hazard()`).
  * @param node - The list item AST node.
  * @param path - Prettier's AST path, used to recurse
- *   into children and access the parent list node.
+ *   into the text and blocks and access the parent list node.
  * @param print - Prettier's recursive print callback.
  * @returns Doc IR for the formatted list item.
  */
@@ -178,59 +154,23 @@ export function printListItem(
   path: PrintPath,
   print: PrintFunction,
 ): Doc {
-  // Determine the marker character from the parent list's variant.
-  // The parent is always a ListNode (items live inside lists).
   // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Prettier path traversal returns generic node
   const parentList = path.getParentNode() as ListNode | undefined;
-  // Build the list marker string. Callout lists use `<N>` or
-  // `<.>` markers; ordered use dots; unordered use asterisks.
   const marker = buildMarker(node, parentList);
-
-  // For checklist items, insert the checkbox marker between the
-  // list marker and the text. Normalize [*] to [x] (canonical).
   const checkboxPrefix = formatCheckbox(node.checkbox);
-
-  // Continuation lines should align with the text start, which
-  // is marker width + 1 space after the marker character(s),
-  // plus the checkbox prefix width for checklist items.
   const markerWidth = marker.length + MARKER_OFFSET;
   const checkboxWidth =
     node.checkbox === undefined ? EMPTY : CHECKBOX_PREFIX_LEN;
 
-  const printed = path.map(print, "children");
+  const flattened = stripLeadingHazardBreak(
+    flattenForFill(path.map(print, "text")),
+  );
+  // Rulings 26-30 as a pure predicate over the finished node: reflow
+  // may not push leading metadata onto the first rest line.
+  const guard = hazard(node);
+  const inlineParts =
+    guard === "keepBreak" ? keepLastBreak(flattened) : flattened;
 
-  // Separate inline children (text, bold, hardLineBreak, etc.)
-  // from nested lists. Inline children are reflowed inside a
-  // fill(); nested lists follow on their own lines.
-  const inlineChildren: Doc[] = [];
-  const nestedListParts: ItemBlock[] = [];
-
-  for (const [index, child] of node.children.entries()) {
-    const { [index]: printedChild } = printed;
-    if (child.type === "list") {
-      // Nested list: printed on its own lines, outside the fill, in
-      // source order with the attached blocks (see printItemBlocks).
-      nestedListParts.push({
-        block: child,
-        doc: printedChild,
-        isList: true,
-        continuation: "none",
-        pluses: EMPTY,
-      });
-    } else {
-      // Inline node: collect for fill(). flattenForFill
-      // handles alignment when formatting mixes with text.
-      inlineChildren.push(printedChild);
-    }
-  }
-
-  const flattened = stripLeadingHazardBreak(flattenForFill(inlineChildren));
-  // The text prints on at least two lines when a trailing titled
-  // metadata run follows it (see keepLastBreak).
-  const inlineParts = node.keepTextBreak ? keepLastBreak(flattened) : flattened;
-
-  // Build the output: marker + space + checkbox + aligned
-  // fill of inline content, followed by the item's blocks.
   const item = fill([
     marker,
     " ",
@@ -238,169 +178,148 @@ export function printListItem(
     align(markerWidth + checkboxWidth, fill(inlineParts)),
   ]);
 
-  // Every block inside the item — nested lists (kept in `children`)
-  // and attached blocks — in SOURCE order, which is the order the
-  // reader put them in the item. The two arrays are each in source
-  // order already, so one merge by start offset restores it.
-  const printedAttached = path.map(
-    (attachedPath) => attachedPath.call(print, "block"),
-    "attachedBlocks",
+  const printedBlocks = path.map(
+    (blockPath) => blockPath.call(print, "block"),
+    "blocks",
   );
-  const blocks = mergeItemBlocks(
-    node.attachedBlocks.map(
-      ({ block, continuation, pluses }, index): ItemBlock => {
-        const { [index]: printedBlock } = printedAttached;
-        return {
-          block,
-          doc: printedBlock,
-          isList: false,
-          continuation,
-          pluses,
-        };
-      },
-    ),
-    nestedListParts,
-  );
-  return [item, ...printItemBlocks(blocks, node.danglingContinuation)];
-}
-
-/** One block inside a list item, with its printed form. */
-interface ItemBlock {
-  /** The block node (a nested ListNode or an attached block). */
-  block: BlockNode;
-  /** Its Doc. */
-  doc: Doc;
-  /** Whether it is a nested list (printed on its own lines). */
-  isList: boolean;
-  /** How the source introduced it (ignored for a nested list). */
-  continuation: ItemContinuation;
-  /** How many `+` lines introduced it (see `AttachedBlock.pluses`). */
-  pluses: number;
-}
-
-/**
- * Merge an item's attached blocks and nested lists into source order.
- * Both inputs are already sorted by start offset.
- * @param attached - the attached blocks, in source order
- * @param nested - the nested lists, in source order
- * @returns one list in source order
- */
-function mergeItemBlocks(
-  attached: ItemBlock[],
-  nested: ItemBlock[],
-): ItemBlock[] {
-  const merged: ItemBlock[] = [];
-  let a = FIRST;
-  let n = FIRST;
-  while (a < attached.length && n < nested.length) {
-    if (
-      attached[a].block.position.start.offset <
-      nested[n].block.position.start.offset
-    ) {
-      merged.push(attached[a]);
-      a += NEXT;
-    } else {
-      merged.push(nested[n]);
-      n += NEXT;
+  const parts: Doc[] = [item];
+  for (const index of node.blocks.keys()) {
+    if (index === FIRST && guard === "plus") {
+      // The explicit `+` Ruling 26 puts above a leading metadata run a
+      // block of the item follows (the run's own gap is empty by the
+      // hazard's definition, so nothing else prints between).
+      parts.push(hardline, "+");
     }
+    const adjusted = printedGap(node, parentList, index, guard);
+    parts.push(...gapParts(adjusted), printedBlocks[index]);
   }
-  return [...merged, ...attached.slice(a), ...nested.slice(n)];
-}
-
-/**
- * Print the blocks inside a list item after its principal text.
- *
- * A nested list appears on the next line — after a BLANK line when an
- * attached block precedes it, because directly under an attached
- * paragraph a marker of a list that is not open is that paragraph's
- * text (`read_paragraph_lines` breaks only at the open lists' own
- * markers) and directly under an attached literal paragraph it is
- * literal content; after a blank line `read_lines_for_list_item`
- * keeps the item open for any nestable marker.
- *
- * A block attached with a `+` list continuation prints as a `+` alone
- * on its line followed by the block flush left: these hardlines are
- * outside the item's align(), so both the `+` and the block start at
- * column 0 — the continuation syntax requires the `+` unindented, and
- * the attached block is its own block, not part of the item's reflowed
- * principal text. Block metadata (and comment lines) stack directly
- * above the block they precede — the whole group hangs off the single
- * `+` emitted before its first piece.
- *
- * Every block is written back the way the source introduced it
- * (`AttachedBlock.continuation`): a `+` directly above it; a DETACHED
- * `+` — blank line, `+`, block — which Asciidoctor reads differently
- * inside nested lists (`* a` / `** b` / `+` / `para` puts `para` in b;
- * with a blank line before the `+` it is a's, and with TWO detached
- * continuations in a row the first goes one level in and the last to
- * the outer item — `read_lines_for_list_item` deletes only the last
- * detached `+` from the outer buffer); or NO `+` at all, directly under
- * the line before it or after a blank line — a dlist term, a literal
- * paragraph the after-blank rule kept, a paragraph adjacent to an
- * attached delimited block. A `+` the author never wrote is never
- * invented (Ruling 24). A block that follows a nested list is always
- * detached here: that is the only way the reader puts one after a
- * nested list in the same item.
- *
- * A dangling `+` (one that attached nothing) is re-emitted verbatim:
- * the reader keeps it only where it was the item's last line, so
- * printing it back changes nothing (Ruling 23 — a `+` that Ruby
- * erased, one followed by a blank line, produces no token, and that
- * line is dropped: rendering-neutral and idempotent). After a nested
- * list it too is written in the detached form.
- * @param blocks - the item's blocks in source order
- * @param dangling - whether the item ended on a `+` that attached nothing
- * @returns the Doc parts to append after the item's text
- */
-function printItemBlocks(blocks: ItemBlock[], dangling: boolean): Doc[] {
-  const parts: Doc[] = [];
-  let previous: ItemBlock | undefined = undefined;
-  for (const entry of blocks) {
-    parts.push(...introduce(entry, previous), entry.doc);
-    previous = entry;
-  }
-  if (dangling) {
-    parts.push(...(previous?.isList === true ? [hardline] : []), hardline, "+");
+  if (node.trailingContinuation) {
+    // ONE hardline, unconditionally — including after a nested list.
+    // Under the extent-first reader the trailing `+` of
+    // `* a\n** b\n+\n` belongs to the OUTER item (a's scan buffers it
+    // via the final else and pops it in finish(); b's buffer ends
+    // before it), and printing it back directly under the nested list
+    // re-parses to the SAME node. Today's printer inserted a blank
+    // line here — right for the old reader, but under the new one a
+    // blank would turn the `+` DETACHED on re-parse, l.1562 would
+    // erase it, and the second format would drop it: the extra
+    // hardline is exactly what would break idempotence now
+    // (plan-review M5).
+    parts.push(hardline, "+");
   }
   return parts;
 }
 
 /**
- * The line breaks (and `+`) that introduce one block of an item, given
- * what printed before it — see {@link printItemBlocks} for each rule.
- * @param entry - the block about to print
- * @param previous - the block printed before it, if any
+ * The gap one block prints behind — the recorded one, adjusted in the
+ * cases where verbatim replay would not read back as the same
+ * structure, all involving a nested list:
+ *
+ * - marker NORMALIZATION can collide a nested list's marker with its
+ *   parent item's (`- Foo` holding `* Boo` both print `* `), and then
+ *   any blank-only gap reads back as a SIBLING boundary — worse, the
+ *   sibling probe eats the blank, so a second pass prints different
+ *   bytes. Printing the collided pair ADJACENT (the baseline's
+ *   spelling) reads back flat the same way on every pass. The nesting
+ *   the input expressed through the marker style is lost either way —
+ *   that fidelity gap is marker normalization's, tracked as issue
+ *   #16; this arm only keeps the loss IDEMPOTENT. A gap carrying a
+ *   `+` is left alone: the `+` is live and must survive. Checked
+ *   FIRST: a blank invented in front of a collided marker would end
+ *   the item at a sibling boundary instead.
+ * - an empty gap gets a blank line invented in front of the list when
+ *   the marker would otherwise be SWALLOWED on re-read (the blank is
+ *   safe — after one, `read_lines_for_list_item` keeps every nestable
+ *   marker in the item — and the next pass re-parses it AS [""],
+ *   which the replay reproduces: idempotent). Two readings need it,
+ *   each tested precisely ({@link slurpReaches}):
+ *   (1) after the hazard's INTRODUCED `+` (Rulings 26/27) the block
+ *   following the metadata run reads back with the PLAIN interrupting
+ *   set (the erased `+` makes `skipped` ≥ 1), and a nested marker
+ *   directly under that block folds into it as text;
+ *   (2) an indented literal earlier in the item re-reads with a slurp
+ *   (`read_lines_until break_on_blank_lines`) that runs THROUGH
+ *   adjacent metadata and marker lines, so a marker connected to the
+ *   literal by empty gaps would be swallowed into it — and, past the
+ *   item's end, so would the next item's marker (review B3,
+ *   `* a\n\n  lit\n[role]\n** b\n\n* a\n`).
+ *   The arm deliberately does NOT fire elsewhere: under a frozen `+`
+ *   raw line the adjacency is load-bearing the other way (a blank
+ *   would erase the `+` chain on re-read — the family the cut-over
+ *   fixed), and plain verbatim replay is already a fixed point.
+ * @param node - the item being printed
+ * @param parentList - its list, for the marker spelling
+ * @param index - which of the item's blocks is being placed (the
+ *   first keeps its adjacency to the text)
+ * @param guard - the item's hazard answer, for reading (1)
+ * @returns the gap to print
+ */
+function printedGap(
+  node: ListItemNode,
+  parentList: ListNode | undefined,
+  index: number,
+  guard: Hazard,
+): readonly GapLine[] {
+  const { blocks } = node;
+  const { [index]: entry } = blocks;
+  const { gap, block } = entry;
+  if (block.type !== "list") return gap;
+  const nestedFirst = block.children.at(FIRST);
+  if (
+    nestedFirst !== undefined &&
+    buildMarker(nestedFirst, block) === buildMarker(node, parentList)
+  ) {
+    return gap.includes("+") ? gap : [];
+  }
+  if (
+    index > FIRST &&
+    gap.length === EMPTY &&
+    (guard === "plus" || slurpReaches(node.blocks, index))
+  ) {
+    return BLANK_GAP;
+  }
+  return gap;
+}
+
+/**
+ * Whether the re-read literal slurp reaches the block at `index`: an
+ * indented literal stands earlier in the item, connected to it by
+ * EMPTY gaps only. The slurp (`read_lines_until break_on_blank_lines,
+ * break_on_list_continuation`) consumes every adjacent line whatever
+ * its shape, and stops only at a blank or a `+` — which is exactly a
+ * non-empty gap.
+ * @param blocks - the item's blocks, in source order
+ * @param index - the block being placed
+ * @returns true when a literal's slurp would swallow it on re-read
+ */
+function slurpReaches(blocks: readonly ItemBlock[], index: number): boolean {
+  for (const previous of blocks.slice(FIRST, index).toReversed()) {
+    if (
+      previous.block.type === "delimitedBlock" &&
+      previous.block.form === "indented"
+    ) {
+      return true;
+    }
+    if (previous.gap.length > EMPTY) return false;
+  }
+  return false;
+}
+
+/**
+ * The line breaks that replay one gap verbatim: a hardline ends the
+ * previous line, then each `""` is one more hardline (a blank line)
+ * and each `"+"` is a `+` on a line of its own. No normalisation —
+ * collapsing a blank run after a `+` can resurrect a dead continuation
+ * and change the rendering (spec D2), and in-item gaps are already
+ * within Asciidoctor's blank budgets.
+ * @param gap - the recorded separator lines
  * @returns the Doc parts to put in front of the block
  */
-function introduce(entry: ItemBlock, previous: ItemBlock | undefined): Doc[] {
-  if (entry.isList) {
-    const afterBlock = previous !== undefined && !previous.isList;
-    return afterBlock ? [hardline, hardline] : [hardline];
+function gapParts(gap: readonly GapLine[]): Doc[] {
+  const parts: Doc[] = [hardline];
+  for (const line of gap) {
+    if (line === "+") parts.push("+");
+    parts.push(hardline);
   }
-  if (entry.continuation === "detached" || previous?.isList === true) {
-    // Blank line and `+`, once per stacked `+` (at least one).
-    const parts: Doc[] = [];
-    for (
-      let index = FIRST;
-      index < Math.max(entry.pluses, NEXT);
-      index += NEXT
-    ) {
-      parts.push(hardline, hardline, "+");
-    }
-    return [...parts, hardline];
-  }
-  switch (entry.continuation) {
-    // Directly under the line before it: the metadata group it ends
-    // (stacked, no `+` of its own), an attached delimited block, or the
-    // item text it follows with no `+` in the source.
-    case "none": {
-      return [hardline];
-    }
-    case "blank": {
-      return [hardline, hardline];
-    }
-    default: {
-      return [hardline, "+", hardline];
-    }
-  }
+  return parts;
 }

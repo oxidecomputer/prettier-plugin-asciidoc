@@ -242,6 +242,13 @@ describe("parse-layer architecture", () => {
     "lines/tokens.ts",
     "lines/token-factory.ts",
     "inline-bridge.ts",
+    // The frame-based list layer, replaced by extent-first reading
+    // (list-reader.ts's readList over the itemExtent port): the
+    // per-item state machine, the list frame helpers, and the
+    // standalone extent module (folded into list-reader.ts).
+    "lines/list-item.ts",
+    "lines/list-frames.ts",
+    "lines/item-extent.ts",
   ])("%s stays deleted", (name) => {
     expect(existsSync(path.posix.join(PARSE_DIR, name))).toBe(false);
   });

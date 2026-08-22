@@ -9,7 +9,7 @@ describe("checklist parsing", () => {
     const { children } = parse("* [x] Done\n");
     const list = firstList(children);
     expect(list.children[0].checkbox).toBe("checked");
-    const textNode = list.children[0].children.find((c) => c.type === "text");
+    const textNode = list.children[0].text.find((c) => c.type === "text");
     narrow(textNode, "text");
     expect(textNode.value).toBe("Done");
   });
@@ -49,7 +49,7 @@ describe("checklist parsing", () => {
   test("checkbox text excludes marker", () => {
     const { children } = parse("* [x] Task text here\n");
     const list = firstList(children);
-    const textNode = list.children[0].children.find((c) => c.type === "text");
+    const textNode = list.children[0].text.find((c) => c.type === "text");
     narrow(textNode, "text");
     expect(textNode.value).toBe("Task text here");
   });
@@ -59,7 +59,9 @@ describe("checklist parsing", () => {
     const { children } = parse("* [x] Parent\n** [ ] Child\n");
     const list = firstList(children);
     expect(list.children[0].checkbox).toBe("checked");
-    const nested = list.children[0].children.find((c) => c.type === "list");
+    const nested = list.children[0].blocks.find(
+      ({ block }) => block.type === "list",
+    )?.block;
     narrow(nested, "list");
     expect(nested.children[0].checkbox).toBe("unchecked");
   });

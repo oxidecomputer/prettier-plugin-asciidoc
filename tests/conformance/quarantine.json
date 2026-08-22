@@ -695,10 +695,6 @@
     "fails": ["fidelity"],
     "issue": "#12"
   },
-  "lists_test.rb#should not inherit block attributes from previous block when block is attached using a list continuation#0": {
-    "fails": ["fidelity"],
-    "issue": "#17"
-  },
   "lists_test.rb#should not strip comment line in literal paragraph block attached to list item#0": {
     "fails": ["fidelity"],
     "issue": "#9"
@@ -738,7 +734,7 @@
   "manpage_test.rb#(outside test)#0": { "fails": ["fidelity"], "issue": "#18" },
   "manpage_test.rb#should manify and preserve whitespace in literal table cell#0": {
     "fails": ["fidelity"],
-    "issue": "#26"
+    "issue": "#32"
   },
   "manpage_test.rb#should normalize whitespace and skip line comments before and inside NAME section#0": {
     "fails": ["fidelity"],

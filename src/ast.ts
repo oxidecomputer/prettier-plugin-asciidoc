@@ -24,6 +24,24 @@ export interface Location {
 }
 
 /**
+ * The 1-based line of one source point.
+ *
+ * A helper rather than `…position.start.line` (or `.end.line`) at each
+ * use site: `@typescript-eslint/prefer-destructuring` (with
+ * `enforceForRenamedProperties`) reads a member chain on an
+ * assignment's right side as a destructuring it wants spelled out, so
+ * it is spelled out once here rather than once per call site.
+ * Consolidated from three identical copies (list-reader.ts,
+ * print-list-hazard.ts, tests/parser/ast-invariants.ts).
+ * @param point - a node's `position.start` or `position.end`
+ * @returns its line
+ */
+export function lineOf(point: Location): number {
+  const { line } = point;
+  return line;
+}
+
+/**
  * Every AST node carries a position with start (inclusive) and end (exclusive).
  * Prettier uses locStart/locEnd for cursor tracking and range formatting;
  * having positions on every node ensures those features work correctly.
@@ -576,111 +594,81 @@ export interface PageBreakNode extends Node {
 /**
  * A single item within a list.
  *
- * A list item contains inline content (its principal text) and
- * optionally nested child lists. The `depth` field records the
- * original marker depth (number of `*` or `.` characters) for
- * the printer to reproduce.
+ * An item is its marker, its principal text, and then everything it
+ * holds — nested lists and blocks alike — in source order, each behind
+ * the verbatim separator lines the author wrote before it. The
+ * printer replays those separators byte for byte, which is what makes
+ * list formatting idempotent by construction.
  */
 export interface ListItemNode extends Node {
   /** Node discriminant. */
   type: "listItem";
   /**
-   * Marker nesting depth: number of `*` or `.` characters
-   * in the original marker. The printer uses this to
-   * reproduce the correct indentation level.
+   * Marker nesting depth: number of `*` or `.` characters in the
+   * original marker. The printer uses this to reproduce the level.
    */
   depth: number;
   /**
-   * Checkbox state for checklist items. `undefined` for normal
-   * list items, `"checked"` for `[x]` or `[*]`, `"unchecked"`
-   * for `[ ]`. Only meaningful on unordered list items.
+   * Checkbox state for checklist items. `undefined` for normal items,
+   * `"checked"` for `[x]` or `[*]`, `"unchecked"` for `[ ]`. Only
+   * meaningful on unordered list items.
    */
   checkbox: "checked" | "unchecked" | undefined;
   /**
-   * The callout number for callout list items (e.g. 1 for
-   * `<1>`). `undefined` for non-callout items. Use 0 for
-   * auto-numbered (`<.>`) callouts.
+   * The callout number for callout list items (e.g. 1 for `<1>`).
+   * `undefined` for non-callout items; 0 for auto-numbered (`<.>`).
    */
   calloutNumber: number | undefined;
   /**
-   * Item content: inline nodes for the principal text,
-   * plus any nested `ListNode` children for sub-lists.
+   * The principal text — inline nodes only. (Was `children`, which
+   * also interleaved nested lists; the better name is worth the
+   * mechanical churn — owner, spec D1.)
    */
-  children: Array<InlineNode | ListNode>;
+  text: InlineNode[];
   /**
-   * Every non-list block inside this item, in source order, each with
-   * how it got there: the blocks a `+` list continuation attached, and
-   * the blocks Asciidoctor keeps in the item without one (a literal
-   * paragraph after a blank line, a paragraph adjacent to an attached
-   * block, block metadata, an admonition …) — Asciidoctor's
-   * `list_item.blocks`. The printer writes each back in the source's
-   * own spelling (see {@link AttachedBlock}).
+   * Everything the item holds after its text, in source order: nested
+   * lists and blocks alike, each behind the separator lines the
+   * source wrote before it.
    */
-  attachedBlocks: AttachedBlock[];
+  blocks: ItemBlock[];
   /**
-   * True when the item's principal text must keep the line break
-   * before its last source line: a TRAILING metadata run (no block of
-   * the item after it) ended text of more than one line and carries a
-   * block title. Reflowed onto the first line after the marker line the
-   * run's first line would fold into the text and the title become
-   * text, and a `+` there would re-parent whatever block follows the
-   * list; the kept break keeps the run where it was (Ruling 28). It
-   * means exactly "the text prints on at least two lines": the printer
-   * hardens the last soft separator of the flattened text (Ruling 29).
+   * The item's last non-blank line is a `+` that attached nothing —
+   * the line Ruby pops (`buffer.pop if last_line ==
+   * LIST_CONTINUATION`, parser.rb l.1571). `true` only when that `+`
+   * is a FIXED POINT of reprint (Ruling 68): printing it back must
+   * re-read as the same trailing, unerased `+`. An unerased `+` run
+   * whose spelling has no fixed point (e.g. the author's doubled `+`,
+   * which would reprint as one and then re-read as zero) is reported
+   * `false` and the extra byte(s) collapse; an ERASED `+` (one a blank
+   * run killed) or a `+` left detached at EOF is also `false` and
+   * drops. All three cases are render-equal to the source and
+   * idempotent under reprint, which is the property this field
+   * guarantees rather than verbatim preservation of every `+` byte the
+   * author typed.
    */
-  keepTextBreak: boolean;
-  /**
-   * True when the item ends with a `+` continuation line that
-   * has nothing following it inside the item to attach. The
-   * printer re-emits the bare `+` line verbatim so the
-   * document's rendering is preserved (Asciidoctor attaches
-   * whatever block follows, even across one blank line;
-   * folding the `+` into the item text — the pre-fix
-   * behavior — changed the rendered output).
-   */
-  danglingContinuation: boolean;
+  trailingContinuation: boolean;
 }
 
-/**
- * How a block inside a list item was introduced — the spelling the
- * printer writes back, because Asciidoctor reads them differently:
- *
- * - `"plus"` — a `+` list continuation directly above the block (or
- *   above the metadata group the block ends);
- * - `"detached"` — a blank line, then a `+`. Inside nested lists
- *   `read_lines_for_list_item` deletes only the LAST detached `+` from
- *   the outer item's buffer, so which item an earlier one's block lands
- *   in depends on what follows; only the source's spelling round-trips;
- * - `"none"` — no `+`, the block follows directly (a dlist term under
- *   the item text, a paragraph under an attached delimited block);
- * - `"blank"` — no `+`, a blank line then the block (a literal
- *   paragraph or dlist term the after-blank rule keeps).
- *
- * The reader decides the spelling (Ruling 27), and one of them is not
- * the source's: block metadata directly under item text of more than
- * one line with no `+` is `"plus"` — that reading is line-count
- * dependent (on the first line after the marker line the same metadata
- * folds the block after it into the text, and reflow puts it there), so
- * an explicit `+` keeps it off that line (Ruling 26). Otherwise a `+`
- * the author never wrote is never invented (Ruling 24).
- */
-export type ItemContinuation = "plus" | "detached" | "none" | "blank";
-
-/** One block inside a list item, with how it was introduced. */
-export interface AttachedBlock {
-  /** The block. */
+/** One thing an item holds after its text, with how the source led into it. */
+export interface ItemBlock {
+  /**
+   * The lines strictly between the previous piece of the item and this
+   * block, verbatim: `""` for a blank line, `"+"` for a continuation
+   * line. Shapes that occur: `[]` (directly under), `["+"]`,
+   * `["", "+"]` (detached), `["", "+", "", "+"]` (stacked detached),
+   * `[""]`, `["", ""]` (blanks before a nested marker or literal
+   * paragraph), `["+", ""]`, `["+", "", "+"]`, `["+", "", ""]` (a `+`
+   * that attached nothing, then a block the item keeps for another
+   * reason). Invariant (checked by tests/parser/ast-invariants.ts):
+   * nothing else is ever in a gap.
+   */
+  gap: readonly GapLine[];
+  /** The block behind the gap — a nested list is a block like any other. */
   block: BlockNode;
-  /** How it was introduced — see {@link ItemContinuation}. */
-  continuation: ItemContinuation;
-  /**
-   * How many `+` lines introduced it: 1 for `"plus"`, 0 for `"none"`
-   * and `"blank"`, and 1 or more for `"detached"` — inside a nested
-   * list, detached `+` lines stack (blank, `+`, blank, `+`, block):
-   * the outer item erases only the last, the inner item takes the block
-   * with the first, and only the full stack reads back the same way.
-   */
-  pluses: number;
 }
+
+/** One separator line inside a list item's gap. */
+export type GapLine = "" | "+";
 
 /**
  * A block attribute list: `[source,ruby]`, `[#myid]`, `[.role]`, etc.

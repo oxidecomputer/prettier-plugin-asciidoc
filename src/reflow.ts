@@ -576,7 +576,7 @@ export function stripLeadingHazardBreak(parts: Doc[]): Doc[] {
  * becomes a hard break.
  *
  * A list item whose text is followed by a trailing titled metadata run
- * (`ListItemNode.keepTextBreak`, Ruling 28/29) needs this: reflowed onto
+ * (`hazard(item) === "keepBreak"`, Ruling 28/29) needs this: reflowed onto
  * one line, the run's first line would be the first line after the
  * marker line, where Asciidoctor folds it and reads the title as text.
  * ANY break in the text suffices — the run folds only on the first rest

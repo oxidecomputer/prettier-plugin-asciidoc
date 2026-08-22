@@ -20,14 +20,15 @@ describe("list continuation parsing", () => {
       children: [item],
     } = list;
     // Principal text does not swallow the continuation.
-    expect(item.children).toHaveLength(1);
-    expect(item.children[0]).toMatchObject({
+    expect(item.text).toHaveLength(1);
+    expect(item.text[0]).toMatchObject({
       type: "text",
       value: "item text.",
     });
-    // The attached paragraph lands in blocks.
-    expect(item.attachedBlocks).toHaveLength(1);
-    const attached = asParagraph(item.attachedBlocks[0].block);
+    // The attached paragraph lands in blocks, behind its verbatim gap.
+    expect(item.blocks).toHaveLength(1);
+    expect(item.blocks[0].gap).toEqual(["+"]);
+    const attached = asParagraph(item.blocks[0].block);
     expect(attached.children[0]).toMatchObject({
       type: "text",
       value: "Attached paragraph.",
@@ -41,19 +42,15 @@ describe("list continuation parsing", () => {
     const {
       children: [item],
     } = firstList(children);
-    expect(item.attachedBlocks).toHaveLength(2);
-    expect(asParagraph(item.attachedBlocks[0].block).children[0]).toMatchObject(
-      {
-        type: "text",
-        value: "First attached.",
-      },
-    );
-    expect(asParagraph(item.attachedBlocks[1].block).children[0]).toMatchObject(
-      {
-        type: "text",
-        value: "Second attached.",
-      },
-    );
+    expect(item.blocks).toHaveLength(2);
+    expect(asParagraph(item.blocks[0].block).children[0]).toMatchObject({
+      type: "text",
+      value: "First attached.",
+    });
+    expect(asParagraph(item.blocks[1].block).children[0]).toMatchObject({
+      type: "text",
+      value: "Second attached.",
+    });
   });
 
   test("multi-line attached paragraph stays one block", () => {
@@ -63,13 +60,11 @@ describe("list continuation parsing", () => {
     const {
       children: [item],
     } = firstList(children);
-    expect(item.attachedBlocks).toHaveLength(1);
-    expect(asParagraph(item.attachedBlocks[0].block).children[0]).toMatchObject(
-      {
-        type: "text",
-        value: "Attached line one\nattached line two.",
-      },
-    );
+    expect(item.blocks).toHaveLength(1);
+    expect(asParagraph(item.blocks[0].block).children[0]).toMatchObject({
+      type: "text",
+      value: "Attached line one\nattached line two.",
+    });
   });
 
   test("continuation attaches to the nested item it follows", () => {
@@ -77,13 +72,16 @@ describe("list continuation parsing", () => {
     const {
       children: [parentItem],
     } = firstList(children);
-    expect(parentItem.attachedBlocks).toHaveLength(0);
-    const nestedList = parentItem.children.find((c) => c.type === "list");
+    // The parent holds the nested list and nothing else.
+    expect(parentItem.blocks).toHaveLength(1);
+    const {
+      blocks: [{ block: nestedList }],
+    } = parentItem;
     narrow(nestedList, "list");
     const {
       children: [nestedItem],
     } = nestedList;
-    expect(nestedItem.attachedBlocks).toHaveLength(1);
+    expect(nestedItem.blocks).toHaveLength(1);
   });
 
   test("items without continuation have empty blocks", () => {
@@ -91,7 +89,7 @@ describe("list continuation parsing", () => {
     const {
       children: [item],
     } = firstList(children);
-    expect(item.attachedBlocks).toHaveLength(0);
+    expect(item.blocks).toHaveLength(0);
   });
 
   // A `+` word inside the item's text (not alone on a line) is
@@ -101,8 +99,8 @@ describe("list continuation parsing", () => {
     const {
       children: [item],
     } = firstList(children);
-    expect(item.attachedBlocks).toHaveLength(0);
-    expect(item.children[0]).toMatchObject({
+    expect(item.blocks).toHaveLength(0);
+    expect(item.text[0]).toMatchObject({
       type: "text",
       value: "item + more text",
     });
@@ -118,9 +116,9 @@ describe("list continuation parsing", () => {
     const {
       children: [item],
     } = firstList(children);
-    expect(item.attachedBlocks).toHaveLength(0);
-    expect(item.danglingContinuation).toBe(true);
-    expect(item.children[0]).toMatchObject({
+    expect(item.blocks).toHaveLength(0);
+    expect(item.trailingContinuation).toBe(true);
+    expect(item.text[0]).toMatchObject({
       type: "text",
       value: "item text",
     });
@@ -135,8 +133,8 @@ describe("list continuation parsing", () => {
     const {
       children: [item],
     } = firstList(children);
-    expect(item.attachedBlocks).toHaveLength(1);
-    expect(item.children[0]).toMatchObject({
+    expect(item.blocks).toHaveLength(1);
+    expect(item.text[0]).toMatchObject({
       type: "text",
       value: "item text.",
     });
@@ -156,16 +154,14 @@ describe("list continuation parsing", () => {
     const {
       children: [item],
     } = firstList(children);
-    expect(item.attachedBlocks).toHaveLength(2);
-    expect(asParagraph(item.attachedBlocks[0].block).children).toEqual([
+    expect(item.blocks).toHaveLength(2);
+    expect(asParagraph(item.blocks[0].block).children).toEqual([
       expect.objectContaining({ type: "rawLine", value: "+" }),
     ]);
-    expect(asParagraph(item.attachedBlocks[1].block).children[0]).toMatchObject(
-      {
-        type: "text",
-        value: "Attached",
-      },
-    );
+    expect(asParagraph(item.blocks[1].block).children[0]).toMatchObject({
+      type: "text",
+      value: "Attached",
+    });
   });
 
   // Indented content after `+` is a literal block in
@@ -176,8 +172,8 @@ describe("list continuation parsing", () => {
     const {
       children: [item],
     } = firstList(children);
-    expect(item.attachedBlocks).toHaveLength(1);
-    expect(item.attachedBlocks[0].block).toMatchObject({
+    expect(item.blocks).toHaveLength(1);
+    expect(item.blocks[0].block).toMatchObject({
       type: "delimitedBlock",
       variant: "literal",
       form: "indented",
@@ -199,9 +195,9 @@ describe("continuations around delimited blocks (issue #6)", () => {
     const {
       children: [item],
     } = firstList(children);
-    expect(item.danglingContinuation).toBe(false);
-    expect(item.attachedBlocks).toHaveLength(1);
-    expect(item.attachedBlocks[0].block).toMatchObject({
+    expect(item.trailingContinuation).toBe(false);
+    expect(item.blocks).toHaveLength(1);
+    expect(item.blocks[0].block).toMatchObject({
       type: "delimitedBlock",
       variant: "literal",
       form: "delimited",
@@ -228,14 +224,14 @@ describe("continuations around delimited blocks (issue #6)", () => {
     const { children: items } = firstList(children);
     expect(items).toHaveLength(2);
     const [item] = items;
-    expect(item.danglingContinuation).toBe(false);
-    expect(item.attachedBlocks).toHaveLength(2);
-    expect(item.attachedBlocks[0].block).toMatchObject({
+    expect(item.trailingContinuation).toBe(false);
+    expect(item.blocks).toHaveLength(2);
+    expect(item.blocks[0].block).toMatchObject({
       type: "delimitedBlock",
       variant: "literal",
       content: "literal block content",
     });
-    const attached = asParagraph(item.attachedBlocks[1].block);
+    const attached = asParagraph(item.blocks[1].block);
     expect(attached.children[0]).toMatchObject({
       type: "text",
       value: "continuation paragraph after the block.",
@@ -248,8 +244,8 @@ describe("continuations around delimited blocks (issue #6)", () => {
     const {
       children: [item],
     } = firstList(children);
-    expect(item.attachedBlocks).toHaveLength(1);
-    expect(item.attachedBlocks[0].block).toMatchObject({
+    expect(item.blocks).toHaveLength(1);
+    expect(item.blocks[0].block).toMatchObject({
       type: "parentBlock",
       variant: "example",
     });
@@ -263,19 +259,15 @@ describe("continuations around delimited blocks (issue #6)", () => {
     const {
       children: [item],
     } = firstList(children);
-    expect(item.attachedBlocks).toHaveLength(3);
-    expect(asParagraph(item.attachedBlocks[1].block).children[0]).toMatchObject(
-      {
-        type: "text",
-        value: "para one",
-      },
-    );
-    expect(asParagraph(item.attachedBlocks[2].block).children[0]).toMatchObject(
-      {
-        type: "text",
-        value: "para two",
-      },
-    );
+    expect(item.blocks).toHaveLength(3);
+    expect(asParagraph(item.blocks[1].block).children[0]).toMatchObject({
+      type: "text",
+      value: "para one",
+    });
+    expect(asParagraph(item.blocks[2].block).children[0]).toMatchObject({
+      type: "text",
+      value: "para two",
+    });
   });
 
   test("trailing + after an attached block re-arms attachment", () => {
@@ -286,12 +278,12 @@ describe("continuations around delimited blocks (issue #6)", () => {
     const {
       children: [item],
     } = firstList(children);
-    expect(item.attachedBlocks).toHaveLength(3);
-    expect(item.attachedBlocks[0].block).toMatchObject({
+    expect(item.blocks).toHaveLength(3);
+    expect(item.blocks[0].block).toMatchObject({
       type: "delimitedBlock",
       content: "one",
     });
-    expect(item.attachedBlocks[2].block).toMatchObject({
+    expect(item.blocks[2].block).toMatchObject({
       type: "delimitedBlock",
       content: "two",
     });
@@ -310,9 +302,11 @@ describe("continuations around delimited blocks (issue #6)", () => {
     const {
       children: [item],
     } = firstList(children);
-    expect(item.danglingContinuation).toBe(false);
-    expect(item.attachedBlocks).toHaveLength(1);
-    expect(item.attachedBlocks[0].block).toMatchObject({
+    expect(item.trailingContinuation).toBe(false);
+    expect(item.blocks).toHaveLength(1);
+    // The one buffered blank rides in the gap, verbatim.
+    expect(item.blocks[0].gap).toEqual(["+", ""]);
+    expect(item.blocks[0].block).toMatchObject({
       type: "delimitedBlock",
       variant: "literal",
     });
@@ -333,8 +327,8 @@ describe("continuations around delimited blocks (issue #6)", () => {
     const {
       children: [item],
     } = firstList(children);
-    expect(item.attachedBlocks).toHaveLength(2);
-    expect(item.attachedBlocks[1].block).toMatchObject({ type: "paragraph" });
+    expect(item.blocks).toHaveLength(2);
+    expect(item.blocks[1].block).toMatchObject({ type: "paragraph" });
   });
 
   // A `+` attaches the NEXT LOGICAL BLOCK: any metadata lines
@@ -350,13 +344,13 @@ describe("continuations around delimited blocks (issue #6)", () => {
     const {
       children: [item],
     } = firstList(children);
-    expect(item.danglingContinuation).toBe(false);
-    expect(item.attachedBlocks).toHaveLength(2);
-    expect(item.attachedBlocks[0].block).toMatchObject({
+    expect(item.trailingContinuation).toBe(false);
+    expect(item.blocks).toHaveLength(2);
+    expect(item.blocks[0].block).toMatchObject({
       type: "blockAttributeList",
       value: "NOTE",
     });
-    expect(item.attachedBlocks[1].block).toMatchObject({
+    expect(item.blocks[1].block).toMatchObject({
       type: "admonition",
       variant: "note",
     });
@@ -368,11 +362,11 @@ describe("continuations around delimited blocks (issue #6)", () => {
     const {
       children: [item],
     } = firstList(children);
-    expect(item.attachedBlocks).toHaveLength(2);
-    expect(item.attachedBlocks[0].block).toMatchObject({
+    expect(item.blocks).toHaveLength(2);
+    expect(item.blocks[0].block).toMatchObject({
       type: "blockAttributeList",
     });
-    expect(item.attachedBlocks[1].block).toMatchObject({
+    expect(item.blocks[1].block).toMatchObject({
       type: "delimitedBlock",
       variant: "listing",
     });
@@ -384,8 +378,8 @@ describe("continuations around delimited blocks (issue #6)", () => {
     const {
       children: [item],
     } = firstList(children);
-    expect(item.attachedBlocks).toHaveLength(2);
-    expect(item.attachedBlocks[0].block).toMatchObject({ type: "blockTitle" });
+    expect(item.blocks).toHaveLength(2);
+    expect(item.blocks[0].block).toMatchObject({ type: "blockTitle" });
   });
 
   test("+ attaches an anchor paragraph with its block", () => {
@@ -394,9 +388,9 @@ describe("continuations around delimited blocks (issue #6)", () => {
     const {
       children: [item],
     } = firstList(children);
-    expect(item.attachedBlocks).toHaveLength(2);
-    expect(item.attachedBlocks[0].block).toMatchObject({ type: "paragraph" });
-    expect(item.attachedBlocks[1].block).toMatchObject({
+    expect(item.blocks).toHaveLength(2);
+    expect(item.blocks[0].block).toMatchObject({ type: "paragraph" });
+    expect(item.blocks[1].block).toMatchObject({
       type: "delimitedBlock",
     });
   });
@@ -407,8 +401,8 @@ describe("continuations around delimited blocks (issue #6)", () => {
     const {
       children: [item],
     } = firstList(children);
-    expect(item.attachedBlocks).toHaveLength(2);
-    expect(item.attachedBlocks[1].block).toMatchObject({ type: "paragraph" });
+    expect(item.blocks).toHaveLength(2);
+    expect(item.blocks[1].block).toMatchObject({ type: "paragraph" });
   });
 
   test("+ attaches a block macro", () => {
@@ -417,8 +411,8 @@ describe("continuations around delimited blocks (issue #6)", () => {
     const {
       children: [item],
     } = firstList(children);
-    expect(item.attachedBlocks).toHaveLength(1);
-    expect(item.attachedBlocks[0].block).toMatchObject({ type: "blockMacro" });
+    expect(item.blocks).toHaveLength(1);
+    expect(item.blocks[0].block).toMatchObject({ type: "blockMacro" });
   });
 
   // A heading line after a `+` is attached PARAGRAPH TEXT: the
@@ -435,14 +429,12 @@ describe("continuations around delimited blocks (issue #6)", () => {
     const {
       children: [item],
     } = firstList(children);
-    expect(item.attachedBlocks).toHaveLength(1);
-    expect(asParagraph(item.attachedBlocks[0].block).children[0]).toMatchObject(
-      {
-        type: "text",
-        value: "== Heading",
-      },
-    );
-    expect(item.danglingContinuation).toBe(false);
+    expect(item.blocks).toHaveLength(1);
+    expect(asParagraph(item.blocks[0].block).children[0]).toMatchObject({
+      type: "text",
+      value: "== Heading",
+    });
+    expect(item.trailingContinuation).toBe(false);
   });
 
   // Block metadata after a `+` "plays out until we find the block"
@@ -457,13 +449,13 @@ describe("continuations around delimited blocks (issue #6)", () => {
     const {
       children: [item],
     } = firstList(children);
-    expect(item.attachedBlocks).toHaveLength(2);
-    expect(item.attachedBlocks[0].block).toMatchObject({
+    expect(item.blocks).toHaveLength(2);
+    expect(item.blocks[0].block).toMatchObject({
       type: "blockAttributeList",
       value: "NOTE",
     });
-    expect(item.attachedBlocks[1].block).toMatchObject({ type: "admonition" });
-    expect(item.danglingContinuation).toBe(false);
+    expect(item.blocks[1].block).toMatchObject({ type: "admonition" });
+    expect(item.trailingContinuation).toBe(false);
   });
 
   test("continuation block attaches to the deepest nested item", () => {
@@ -471,14 +463,17 @@ describe("continuations around delimited blocks (issue #6)", () => {
     const {
       children: [parentItem],
     } = firstList(children);
-    expect(parentItem.attachedBlocks).toHaveLength(0);
-    const nestedList = parentItem.children.find((c) => c.type === "list");
+    // The parent holds the nested list and nothing else.
+    expect(parentItem.blocks).toHaveLength(1);
+    const {
+      blocks: [{ block: nestedList }],
+    } = parentItem;
     narrow(nestedList, "list");
     const {
       children: [nestedItem],
     } = nestedList;
-    expect(nestedItem.attachedBlocks).toHaveLength(1);
-    expect(nestedItem.attachedBlocks[0].block).toMatchObject({
+    expect(nestedItem.blocks).toHaveLength(1);
+    expect(nestedItem.blocks[0].block).toMatchObject({
       type: "delimitedBlock",
       content: "lit",
     });

@@ -1,22 +1,18 @@
 /**
- * The types reader.ts, list-reader.ts and list-frames.ts all need, with
- * NOTHING imported back from any of them — the module that lets those
- * three form a DAG instead of a cycle. A cyclic module group has no
+ * The types reader.ts and list-reader.ts both need, with NOTHING
+ * imported back from either of them — the module that lets the two
+ * form a DAG instead of a cycle. A cyclic module group has no
  * reading order, so the import graph must stay acyclic; the `import
  * graph` describe block in `tests/parser/architecture.test.ts` gates
  * that at zero cycles (Ruling 31).
  *
  * A frame IS the node under construction: every container frame owns
  * the `children` its blocks are pushed into, and closing the frame
- * builds its node and gives it to the parent. `Frame`'s list branch
- * needs `Item` — list-reader.ts's per-item state machine — but `Item`
- * touches nothing reader-related itself, so it lives in its own leaf
- * module, list-item.ts, and this file imports it as a type. That is
- * what keeps `Frame` here concrete rather than generic: list-frames.ts's
- * `ListFrame` is `Frame`'s "list" branch under its own name (see that
- * file), not a second, hand-restated copy of the same fields.
+ * builds its node and gives it to the parent. Lists have no frame:
+ * they are read recursively (list-reader.ts's `readList`), through the
+ * {@link ListHost} seam below.
  */
-import type { BlockNode, ListItemNode, ParentBlockNode } from "../../ast.js";
+import type { BlockNode, ParentBlockNode } from "../../ast.js";
 import { FIRST } from "../../constants.js";
 import {
   buildAttributeEntry,
@@ -28,11 +24,9 @@ import {
   buildRawBlockLine,
   buildThematicBreak,
 } from "../build/metadata.js";
-import type { ParagraphContext } from "../line-shapes.js";
+import type { InlineToken } from "../inline/tokens.js";
 import type { Fragment, LocationIndex } from "../positions.js";
-import type { DelimiterKind, LineKind, ListVariant } from "./classify.js";
-import type { Item, PendingMark } from "./list-item.js";
-import type { ParagraphHost } from "./paragraph-reader.js";
+import type { LineKind } from "./classify.js";
 import type { SourceLine } from "./split.js";
 
 /** One open block-context frame, outermost first on the reader's stack. */
@@ -72,98 +66,80 @@ export type Frame =
       readonly terminator: string;
       /** The opening delimiter line; the content is sliced at close. */
       readonly open: SourceLine;
-    }
-  | {
-      /** Frame discriminant: an open list. */
-      readonly kind: "list";
-      /** Which list kind the marker opened. */
-      readonly variant: ListVariant;
-      /** The marker style `is_sibling_list_item?` compares. */
-      readonly style: string;
-      /** State of the item currently being read; replaced per item. */
-      item: Item;
-      /** The items finished so far, in source order. */
-      readonly items: ListItemNode[];
     };
 
 /**
- * The reader surface the list layer (list-reader.ts, list-frames.ts)
- * consumes — narrower than the full `BlockReader` class in reader.ts,
- * which also owns section titles, delimited blocks and the main loop.
- * Named by analogy with `ParagraphHost` (paragraph-reader.ts), which it
- * extends because the list layer also reads an item's principal text
- * through that seam, passing this same reader on. Both are structural
- * views a class implements rather than base classes it extends.
+ * The seam the list reader (list-reader.ts) consumes — everything
+ * extent-first reading needs from a BlockReader, and nothing else.
+ * A confined reader implements it too, which is what lets readList
+ * recurse: an inner list is read from an outer item's buffer with the
+ * SAME functions.
  */
-export interface ListHost extends ParagraphHost {
-  /** The open frames, outermost first; the reader's only context store. */
-  readonly stack: Frame[];
-  /** Blank lines seen since the last line the reader consumed. */
-  readonly blanks: number;
-  /** How many lines are held back right now. */
-  readonly heldLines: number;
+export interface ListHost {
+  /** The lines this host reads — the document's, or an item's buffer. */
+  readonly lines: readonly SourceLine[];
+  /**
+   * EVERY line of the document, unerased — gap spellings are read from
+   * here by 1-based line number, because a buffer omits lines the
+   * extent scan consumed (skipped blanks) and blanks the ones Ruby
+   * erased.
+   */
+  readonly documentLines: readonly SourceLine[];
   /** The document's offset→Location index, for the builders. */
   readonly at: LocationIndex;
-  /** The innermost open frame. */
-  readonly topFrame: () => Frame;
+  /** The whole document — verbatim content is sliced from it. */
+  readonly source: string;
+  /**
+   * Terminators of every open delimited block on THIS host's stack —
+   * the confinement Ruby gets for free (a list inside an example block
+   * is parsed from a reader that physically ends at the block's
+   * terminator; ours sees the whole line array, so itemExtent takes
+   * these as unconditional stop lines).
+   */
+  readonly openTerminators: readonly string[];
+  /**
+   * Whether a `+` printed at the very end of this host's lines
+   * re-reads inert — true for the document reader (EOF), the
+   * enclosing item's own tail-safety for a confined one. The extent
+   * scan inherits it as its stream-end boundary fact (see
+   * `ExtentBounds.tailSafe` in list-reader.ts).
+   */
+  readonly tailSafe: boolean;
   /** Put a finished block where the innermost frame wants it. */
   readonly push: (node: BlockNode) => void;
-  /** Push a one-line block, releasing any metadata it annotates first. */
-  readonly leaf: (node: BlockNode) => void;
-  /** Read a paragraph from `line`, text starting at `from`, and push it. */
-  readonly paragraph: (
-    context: ParagraphContext,
-    line: SourceLine,
-    from: number,
-  ) => void;
-  /** Read a paragraph-form admonition whose label ends at `labelEnd`. */
-  readonly admonition: (
-    context: ParagraphContext,
-    line: SourceLine,
-    labelEnd: number,
-  ) => void;
-  /** Read an indented literal paragraph from `line` and push it. */
-  readonly literalParagraph: (line: SourceLine) => void;
+  /** Release the metadata nodes held back for the block that follows. */
+  readonly flushMetadata: () => void;
   /**
-   * Hold a metadata line back until it's known what block it
-   * annotates, with the mark it is introduced under inside a list item
-   * — undefined for the first line of a run, whose mark the run's
-   * {@link HeldLead} decides at release.
+   * Read one item's interior: the principal text (the `listItem`-set
+   * paragraph from the marker line, text starting at the marker's
+   * `markerEnd`) and then every block, via a fresh confined
+   * BlockReader over `[markerLine, ...buffer]` whose root collects the
+   * item's blocks and whose context stack is its own.
+   *
+   * DEVIATION from the spec's §3 seam sketch, called out on purpose:
+   * the sketch lists `readItemText` and `confine` as two members;
+   * here the text is read INSIDE confine, because the text's
+   * continuation lines must be consumed from the confined reader's
+   * own stream (`readParagraph` advances its host), and one entry
+   * point means one stream authority — no index handshake between
+   * two readers.
    */
-  readonly holdMetadata: (
-    line: SourceLine,
-    kind: LineKind,
-    mark?: PendingMark,
-  ) => boolean;
-  /** Decide how the held-back run will be introduced when released. */
-  readonly holdLead: (lead: HeldLead) => void;
-  /**
-   * Release every held-back node behind the run's decided lead —
-   * overrides `ParagraphHost.flushMetadata` to add the list layer's
-   * "a block of the item follows" flag, which only it needs to pass.
-   */
-  readonly flushMetadata: (blockFollows?: boolean) => void;
-  /** Open a delimited block. */
-  readonly openDelimited: (line: SourceLine, block: DelimiterKind) => void;
-  /** Pop frames until the stack is `depth` deep, closing each one. */
-  readonly closeDownTo: (depth: number, line?: SourceLine) => void;
-  /** The lines strictly between two line numbers. */
-  readonly linesBetween: (from: number, to: number) => readonly SourceLine[];
-  /** The 1-based line number of the last line the reader consumed. */
-  readonly lastConsumedLine: () => number | undefined;
-}
-
-/**
- * How a list item's held-back metadata run is introduced when it is
- * released. The list reader decides both outcomes at hold time (Ruling
- * 27: the explicit-`+` decision is the reader's); which one applies
- * depends only on whether a block of the item follows the run.
- */
-export interface HeldLead {
-  /** The mark when a block of the item follows the run. */
-  readonly block: PendingMark;
-  /** The mark when the run turns out to be trailing. */
-  readonly trailing: PendingMark;
+  readonly confine: (
+    markerLine: SourceLine,
+    marker: {
+      /** The marker style, for the confined reader's ancestry. */
+      readonly style: string;
+      /** Raw column where the item's text starts. */
+      readonly markerEnd: number;
+    },
+    buffer: readonly SourceLine[],
+    tailSafe: boolean,
+  ) => {
+    /** The principal text's tokens. */
+    text: InlineToken[];
+    /** The item's blocks, in source order. */
+    blocks: BlockNode[];
+  };
 }
 
 /**

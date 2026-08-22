@@ -1,11 +1,11 @@
 /**
- * `build/list.ts` — list markers, item bodies and item blocks to nodes.
+ * `build/list.ts` — list markers, item texts and item blocks to nodes.
  *
  * Table-driven because the module is `(input, index) → node` with no
  * context: the rows are the specification. They pin the marker
  * arithmetic (`**` is depth 2, `-` and `<1>` are always depth 1), the
- * checklist prefix that only an UNORDERED item may carry, the
- * nested-list / attached-block split, and the three-way fallback for
+ * checklist prefix that only an UNORDERED item may carry, the blocks
+ * carried through gaps attached, and the three-way fallback for
  * where an item ends.
  */
 import { describe, expect, test } from "vitest";
@@ -18,8 +18,9 @@ import {
 import type { InlineToken } from "../../../src/parse/inline/tokens.js";
 import { makeLocationIndex } from "../../../src/parse/positions.js";
 import type {
-  AttachedBlock,
   BlockNode,
+  GapLine,
+  ItemBlock,
   ListItemNode,
 } from "../../../src/ast.js";
 
@@ -34,10 +35,9 @@ function itemInput(overrides: Partial<ListItemInput>): ListItemInput {
   return {
     marker: { image: "* ", offset: 0 },
     variant: "unordered",
-    body: [],
+    text: [],
     blocks: [],
-    keepTextBreak: false,
-    danglingContinuation: false,
+    trailingContinuation: false,
     ...overrides,
   };
 }
@@ -69,22 +69,17 @@ function blockAt(type: "paragraph" | "list", end: number): BlockNode {
 }
 
 /**
- * One attached block with its spelling.
+ * One item block behind its recorded gap.
+ * @param gap - the separator lines the source wrote before it
  * @param block - the block itself
- * @param continuation - how the source introduced it
- * @param pluses - how many `+` lines introduced it
- * @returns the attached block
+ * @returns the item block
  */
-function attached(
-  block: BlockNode,
-  continuation: AttachedBlock["continuation"],
-  pluses: number,
-): AttachedBlock {
-  return { block, continuation, pluses };
+function entry(gap: readonly GapLine[], block: BlockNode): ItemBlock {
+  return { gap, block };
 }
 
 /**
- * One item whose marker and body put it where the caller says.
+ * One item whose marker and text put it where the caller says.
  * @param start - the item's start offset
  * @param end - the item's end offset
  * @returns the item node
@@ -93,7 +88,7 @@ function item(start: number, end: number): ListItemNode {
   return buildListItem(
     itemInput({
       marker: { image: "* ", offset: start },
-      body: [text("x", end - 1)],
+      text: [text("x", end - 1)],
     }),
     at,
   );
@@ -140,9 +135,9 @@ describe("checklist prefix", () => {
     ["[*] done", "checked"],
     ["[ ] done", "unchecked"],
   ])("%j on an unordered item sets %j and is stripped", (body, checkbox) => {
-    const node = buildListItem(itemInput({ body: [text(body, 2)] }), at);
+    const node = buildListItem(itemInput({ text: [text(body, 2)] }), at);
     expect(node.checkbox).toBe(checkbox);
-    expect(node.children).toEqual([
+    expect(node.text).toEqual([
       expect.objectContaining({
         type: "text",
         value: body.slice(CHECKBOX_PREFIX_LEN),
@@ -155,12 +150,12 @@ describe("checklist prefix", () => {
       itemInput({
         marker: { image: ". ", offset: 0 },
         variant: "ordered",
-        body: [text("[x] done", 2)],
+        text: [text("[x] done", 2)],
       }),
       at,
     );
     expect(node.checkbox).toBeUndefined();
-    expect(node.children).toEqual([
+    expect(node.text).toEqual([
       expect.objectContaining({ type: "text", value: "[x] done" }),
     ]);
   });
@@ -169,62 +164,57 @@ describe("checklist prefix", () => {
   // only a checkbox where the item's text begins, never mid-text.
   test("the same prefix later in the text is not a checklist", () => {
     const node = buildListItem(
-      itemInput({ body: [text("do [x] later", 2)] }),
+      itemInput({ text: [text("do [x] later", 2)] }),
       at,
     );
     expect(node.checkbox).toBeUndefined();
-    expect(node.children).toEqual([
+    expect(node.text).toEqual([
       expect.objectContaining({ type: "text", value: "do [x] later" }),
     ]);
   });
 
   test("an unordered item without a prefix has no checkbox", () => {
-    const node = buildListItem(itemInput({ body: [text("done", 2)] }), at);
+    const node = buildListItem(itemInput({ text: [text("done", 2)] }), at);
     expect(node.checkbox).toBeUndefined();
-    expect(node.children).toEqual([
+    expect(node.text).toEqual([
       expect.objectContaining({ type: "text", value: "done" }),
     ]);
   });
 });
 
 describe("the blocks an item took", () => {
-  test("a nested list goes to children, everything else to attachedBlocks", () => {
+  test("blocks stay in source order, nested lists among them", () => {
     const nested = blockAt("list", 9);
     const paragraph = blockAt("paragraph", 5);
     const node = buildListItem(
       itemInput({
-        body: [text("one", 2)],
-        blocks: [attached(paragraph, "plus", 1), attached(nested, "none", 0)],
+        text: [text("one", 2)],
+        blocks: [entry(["+"], paragraph), entry([""], nested)],
       }),
       at,
     );
-    expect(node.children).toEqual([
+    expect(node.text).toEqual([
       expect.objectContaining({ type: "text", value: "one" }),
-      nested,
     ]);
-    expect(node.attachedBlocks).toEqual([
-      { block: paragraph, continuation: "plus", pluses: 1 },
+    expect(node.blocks).toEqual([
+      { gap: ["+"], block: paragraph },
+      { gap: [""], block: nested },
     ]);
   });
 
-  test("each attached block keeps its continuation and pluses", () => {
+  test("each block keeps its gap verbatim", () => {
     const node = buildListItem(
       itemInput({
         blocks: [
-          attached(blockAt("paragraph", 5), "detached", 2),
-          attached(blockAt("paragraph", 7), "blank", 0),
+          entry(["", "+", "", "+"], blockAt("paragraph", 5)),
+          entry([""], blockAt("paragraph", 7)),
         ],
       }),
       at,
     );
-    expect(
-      node.attachedBlocks.map(({ continuation, pluses }) => [
-        continuation,
-        pluses,
-      ]),
-    ).toEqual([
-      ["detached", 2],
-      ["blank", 0],
+    expect(node.blocks.map(({ gap }) => gap)).toEqual([
+      ["", "+", "", "+"],
+      [""],
     ]);
   });
 });
@@ -233,10 +223,10 @@ describe("where an item ends", () => {
   test("on the last block, when it took one", () => {
     const node = buildListItem(
       itemInput({
-        body: [text("one", 2)],
+        text: [text("one", 2)],
         blocks: [
-          attached(blockAt("paragraph", 5), "plus", 1),
-          attached(blockAt("paragraph", 11), "plus", 1),
+          entry(["+"], blockAt("paragraph", 5)),
+          entry(["+"], blockAt("paragraph", 11)),
         ],
       }),
       at,
@@ -245,7 +235,7 @@ describe("where an item ends", () => {
   });
 
   test("on the body's last content token, when it took no block", () => {
-    const node = buildListItem(itemInput({ body: [text("one", 2)] }), at);
+    const node = buildListItem(itemInput({ text: [text("one", 2)] }), at);
     expect(node.position).toEqual({
       start: { offset: 0, line: 1, column: 1 },
       end: { offset: 5, line: 1, column: 6 },
@@ -260,16 +250,13 @@ describe("where an item ends", () => {
   });
 });
 
-describe("the flags the reader read off the source", () => {
-  test.each([
-    [true, false],
-    [false, true],
-  ])(
-    "keepTextBreak %j and danglingContinuation %j travel through",
-    (keepTextBreak, danglingContinuation) => {
+describe("the flag the reader read off the source", () => {
+  test.each([[true], [false]])(
+    "trailingContinuation %j travels through",
+    (trailingContinuation) => {
       expect(
-        buildListItem(itemInput({ keepTextBreak, danglingContinuation }), at),
-      ).toMatchObject({ keepTextBreak, danglingContinuation });
+        buildListItem(itemInput({ trailingContinuation }), at),
+      ).toMatchObject({ trailingContinuation });
     },
   );
 });
