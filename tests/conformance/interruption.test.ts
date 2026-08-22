@@ -17,8 +17,9 @@ import {
 // paragraph-interruption rules. This test pins the model to the oracle:
 // for every construct, in both contexts, the registry's verdict must equal
 // what Asciidoctor actually does. Add a row whenever a new line-shaped
-// construct is implemented — the lexer's paragraph mode and the reflow
-// guards both consume this registry, so a wrong row is a wrong formatter.
+// construct is implemented — the reader's paragraph loop and the
+// reflow guards both consume this registry, so a wrong row is a wrong
+// formatter.
 
 // [name, construct text (may be multi-line)]
 const CONSTRUCTS: Array<[string, string]> = [
@@ -416,7 +417,7 @@ function gapKey(context: ParagraphContext, name: string): string {
   return `${context}/${name}`;
 }
 
-// The registry test above pins what the LEXER should decide. This
+// The registry test above pins what the READER should decide. This
 // one pins what the FORMATTER actually does with the same documents:
 // a correct verdict that the printer then mangles is still a bug, and
 // without this the registry could drift into being right on paper

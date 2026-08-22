@@ -46,8 +46,9 @@ describe("ordered list parsing", () => {
   // A list item can span multiple lines. A flush (non-indented)
   // continuation line — one that is not a list marker and not
   // blank — is absorbed into the preceding item's text content.
-  // Indented continuation lines follow a different lexer path;
-  // see "indented continuation lines in ordered list".
+  // Indented continuation lines reach the item by a different route
+  // through the reader; see "indented continuation lines in ordered
+  // list".
   test("list item with continuation line", () => {
     const { children } = parse(". First line\nsecond line\n");
     expect(children).toHaveLength(1);

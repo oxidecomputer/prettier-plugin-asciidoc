@@ -97,13 +97,15 @@ includes it), the printer — `src/print*.ts` plus `src/reflow.ts` and
 Two things no tool computes, stated in prose in each task report:
 
 - **Pipeline stage count** — how many representations one line passes through.
-  Today: source text → `SourceLine` → `LineKind` → `IToken` → CST → AST → Doc,
-  which is six. Dropping Chevrotain would take it to four and delete the CST
-  interfaces; if a refactor claims that and the count does not move, the claim
-  is not supported.
-- **Type-kind counts** — 33 block/line token types (`src/parse/lines/tokens.ts`)
-  plus 15 inline ones (`src/parse/tokens.ts`), 13 CST interfaces
-  (`src/parse/cst-types.ts`), 30 AST node types (`src/ast.ts`).
+  Before 2026-08-21: source text → `SourceLine` → `LineKind` → `IToken` → CST →
+  AST → Doc, which is six. Dropping Chevrotain took it to four — source text →
+  `SourceLine` → `LineKind` → AST → Doc — and deleted the CST interfaces; if a
+  refactor claims a stage and the count does not move, the claim is not
+  supported.
+- **Type-kind counts** — before the same change, 33 block/line token types, 15
+  inline ones and 13 CST interfaces; after it, the 16 `InlineTokenType` string
+  kinds (`src/parse/inline/tokens.ts`) and 30 AST node types (`src/ast.ts`), and
+  nothing else.
 
 Diagnostic, not gated: **hotspot = churn × cognitive complexity** per file, from
 `git log --format=%H -N --name-only -- src`. `src/printer.ts` is the standing

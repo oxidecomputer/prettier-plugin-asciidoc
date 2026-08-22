@@ -1,17 +1,24 @@
 /**
  * The state of one list item while its lines stream by —
  * `read_lines_for_list_item`'s per-item bookkeeping (the `+` ladder,
- * held-back metadata, blank-line budgets).
+ * held-back metadata, blank-line budgets) — and the parts of the
+ * item's node it accumulates on the way (marker, text, blocks).
  *
  * Split out of list-frames.ts so frames.ts (the shared-type module
  * that breaks the reader/list-reader/list-frames import cycle — a
  * cyclic module group has no reading order, so the graph is gated at
  * zero cycles, Ruling 31) can import `Item` as a plain type without
- * importing list-frames.ts itself:
- * this file touches nothing but constants.js and split.ts, so it has
- * nowhere a cycle could re-enter through.
+ * importing list-frames.ts itself: this file touches nothing but
+ * constants.js, split.ts and the leaf types it accumulates (ast.js,
+ * positions.ts, inline/tokens.ts), so it has nowhere a cycle could
+ * re-enter through. That is also why {@link PendingMark} is declared
+ * HERE rather than in frames.ts, which imports this file: the item
+ * carries the mark, so the type has to live at or below the item.
  */
+import type { AttachedBlock, ItemContinuation } from "../../ast.js";
 import { EMPTY, NEXT } from "../../constants.js";
+import type { InlineToken } from "../inline/tokens.js";
+import type { Fragment } from "../positions.js";
 import type { SourceLine } from "./split.js";
 
 /**
@@ -30,8 +37,38 @@ import type { SourceLine } from "./split.js";
 export type ContinuationState = "inactive" | "active" | "frozen";
 
 /**
+ * How the next node pushed into a list item was introduced — the
+ * spelling the printer writes back (`AttachedBlock.continuation` and
+ * `.pluses`), decided by the list reader on the block's FIRST line and
+ * consumed when the block's node is pushed, which for a delimited
+ * block or a nested list is only when its frame closes.
+ */
+export interface PendingMark {
+  /** The spelling the printer writes back. */
+  readonly continuation: ItemContinuation;
+  /**
+   * How many `+` lines introduced it: 1 for a plus, N for stacked
+   * detached ones, 0 for none.
+   */
+  readonly pluses: number;
+}
+
+// A `+` directly above its block is exactly one `+` line.
+const SINGLE_PLUS = 1;
+
+/**
+ * The mark of a block a `+` stands directly above — what an unmarked
+ * block inside an item always was.
+ */
+export const PLUS_MARK: PendingMark = {
+  continuation: "plus",
+  pluses: SINGLE_PLUS,
+};
+
+/**
  * The state of one list item while its lines stream by — the whole of
- * what `read_lines_for_list_item` remembers between lines.
+ * what `read_lines_for_list_item` remembers between lines — plus the
+ * node parts the item has accumulated so far.
  */
 export class Item {
   /** Whether a `+` is pending; see {@link ContinuationState}. */
@@ -39,9 +76,9 @@ export class Item {
   /**
    * The `+` line that has not yet attached anything. Ruby drops a
    * trailing continuation (`buffer.pop if last_line == LIST_CONTINUATION`);
-   * we remember the line so the item can end on a
-   * `DanglingContinuation` token instead, because a formatter may not
-   * delete a line the author wrote.
+   * we remember the line so the item can end on
+   * `danglingContinuation` instead, because a formatter may not delete
+   * a line the author wrote.
    */
   pendingPlus: SourceLine | undefined = undefined;
   /**
@@ -63,6 +100,59 @@ export class Item {
    * says now. Consumed by the first line that arrives.
    */
   separatedByBlank = false;
+
+  /** The item's principal text, tokenized. */
+  body: readonly InlineToken[] = [];
+  /** Every block the item took, in source order, with its spelling. */
+  readonly attached: AttachedBlock[] = [];
+  /**
+   * How the NEXT node pushed into this item was introduced — set by
+   * the list reader on the block's first line ({@link Item.markNext}),
+   * consumed when the node arrives ({@link Item.takeMark}).
+   */
+  private pendingMark: PendingMark | undefined = undefined;
+
+  /**
+   * Record how the block about to be pushed into the item got here.
+   * @param mark - its spelling, for the printer
+   */
+  markNext(mark: PendingMark): void {
+    this.pendingMark = mark;
+  }
+
+  /**
+   * The mark for the node being pushed, and forget it. An unmarked
+   * node is one a `+` stood directly above — the reader marks every
+   * block it reads for an item, so the default is the total fallback,
+   * not a path a document reaches.
+   * @returns the mark
+   */
+  takeMark(): PendingMark {
+    const mark = this.pendingMark ?? PLUS_MARK;
+    this.pendingMark = undefined;
+    return mark;
+  }
+
+  /**
+   * 1-based line of the item's marker line. `parse_block_metadata_lines`
+   * runs over an item's buffered lines BEFORE its text is read, so
+   * metadata on the first line after the marker line folds the
+   * paragraph after it into the item text, while metadata on a later
+   * line ends the text and attaches a block. The marker line is what
+   * "first line after" is measured from.
+   */
+  readonly markerLine: number;
+
+  /**
+   * @param line - the item's marker line
+   * @param marker - the marker's span on it, leading indent excluded
+   */
+  constructor(
+    line: SourceLine,
+    readonly marker: Fragment,
+  ) {
+    ({ line: this.markerLine } = line);
+  }
 
   /**
    * Which interrupting set a paragraph inside this item is read with.
@@ -87,14 +177,14 @@ export class Item {
   /**
    * Whether the pending `+` was DETACHED — written after a blank line
    * (`detached_continuation`). The printer reproduces that spelling,
-   * so the reader marks the block it attaches (DetachedContinuation).
+   * so the reader marks the block it attaches (`"detached"`).
    */
   detached = false;
   /**
-   * Whether the pending `+` has already introduced a block in the
-   * stream — metadata, say, or an attribute entry. Later blocks of the
-   * group are spelled by what sits directly above them, not by that
-   * `+` (`* a` / `+` / `:x: y` / `para` has no `+` above `para`).
+   * Whether the pending `+` has already introduced a block — metadata,
+   * say, or an attribute entry. Later blocks of the group are spelled
+   * by what sits directly above them, not by that `+` (`* a` / `+` /
+   * `:x: y` / `para` has no `+` above `para`).
    */
   plusUsed = false;
   /**
@@ -107,31 +197,16 @@ export class Item {
    * Detached `+` lines stacked between this item's own detached `+` and
    * the block it attaches — each one an outer item erased
    * (`read_lines_for_list_item` keeps only the LAST detached `+` out of
-   * its buffer), so the block carries one mark per `+` and the printer
+   * its buffer), so the block's mark counts them all and the printer
    * writes them all back. See {@link Item.stackDetached}.
    */
   extraPluses = EMPTY;
-  /** 1-based line of the item's marker line; see {@link Item.beginAt}. */
-  markerLine = EMPTY;
   /** How many blocks the item has taken so far (metadata lines count). */
-  blocks = EMPTY;
-
-  /**
-   * Note where the item starts: `parse_block_metadata_lines` runs over
-   * an item's buffered lines BEFORE its text is read, so metadata on the
-   * first line after the marker line folds the paragraph after it into
-   * the item text, while metadata on a later line ends the text and
-   * attaches a block. The marker line is what "first line after" is
-   * measured from.
-   * @param line - the marker line
-   */
-  beginAt(line: SourceLine): void {
-    ({ line: this.markerLine } = line);
-  }
+  blockCount = EMPTY;
 
   /** Count one block taken by the item. */
   countBlock(): void {
-    this.blocks += NEXT;
+    this.blockCount += NEXT;
   }
 
   /**
@@ -143,19 +218,21 @@ export class Item {
   /** Whether the run being held carries a block title. */
   heldRunHasTitle = false;
   /**
-   * Whether the item's text must keep its last source-line break should
-   * the run being held turn out to be trailing — see `KeepTextBreak`.
-   * Cleared the moment a block of the item follows the run.
+   * Whether the item's text must keep its last source-line break —
+   * `ListItemNode.keepTextBreak`. Set when the run being held would
+   * need it should it turn out to be trailing; cleared the moment a
+   * block of the item follows the run, so at the item's end it is the
+   * answer.
    */
-  keepTextBreakIfTrailing = false;
+  keepTextBreak = false;
   /** The run being held turned out to need the kept break — see above. */
   keepBreakIfTrailing(): void {
-    this.keepTextBreakIfTrailing = true;
+    this.keepTextBreak = true;
   }
 
   /** A block of the item follows the held run: no kept break needed. */
   blockFollowed(): void {
-    this.keepTextBreakIfTrailing = false;
+    this.keepTextBreak = false;
   }
 
   /**
@@ -255,8 +332,8 @@ export class Item {
    * Take a second, adjacent `+` — Ruby's :frozen state. The first `+`
    * is no longer pending: Ruby erased it the moment this line arrived
    * (`buffer[-1] = ''`), and what it attached is the frozen `+` itself,
-   * which the reader keeps as a RawLine leaf. Were it left pending the
-   * item would end on a DanglingContinuation as well, and the printer
+   * which the reader keeps as a raw-line leaf. Were it left pending the
+   * item would end on a dangling continuation as well, and the printer
    * would write three `+` lines where the source had two.
    * @param line - the adjacent `+` line
    */

@@ -6,25 +6,45 @@
  * `parse_block_metadata_lines`, `next_block` (what a block's first line
  * opens), `is_delimited_block?` / `build_block` (terminators), and
  * `read_paragraph_lines` / `Reader.read_lines_until` (paragraph extent,
- * in paragraph-reader.ts) — then emits the token stream the mechanical
- * grammar will consume.
+ * in paragraph-reader.ts) — and builds the AST as it goes. A frame IS
+ * the node under construction: every container frame owns the blocks
+ * pushed into it, and closing a frame builds its node and gives it to
+ * the parent. There is no event stream between reading and the tree.
  *
  * Nothing downstream ever re-derives block context: this stack is the
  * only place it exists. Lists are the `read_lines_for_list_item` port
  * in list-reader.ts, which reads this class through its public
- * surface and owns nothing itself.
+ * surface and owns nothing itself. What a node is MADE of is the
+ * builders' business (src/parse/build/); this file only decides which
+ * one to call and where its result goes.
  */
-import type { IToken, TokenType } from "chevrotain";
+import type { BlockNode, DocumentNode, ParentBlockNode } from "../../ast.js";
 import {
   EMPTY,
   FIRST,
-  FIRST_COLUMN,
-  FIRST_LINE,
   LAST_ELEMENT,
   NEXT,
   NOT_FOUND,
 } from "../../constants.js";
+import {
+  buildParentBlock,
+  buildVerbatimBlock,
+  type BlockExtent,
+} from "../build/delimited.js";
+import {
+  buildAdmonitionParagraph,
+  buildLiteralParagraph,
+  buildParagraph,
+} from "../build/paragraph.js";
+import {
+  buildDiscreteHeading,
+  buildDocumentTitle,
+  buildSection,
+} from "../build/section.js";
+import { textLines } from "../inline/text-lines.js";
 import type { ParagraphContext } from "../line-shapes.js";
+import { convertParagraphFormBlocks } from "../paragraph-form.js";
+import { makeLocationIndex, type LocationIndex } from "../positions.js";
 import {
   classifyLine,
   type DelimiterKind,
@@ -32,26 +52,30 @@ import {
   type ReaderContext,
 } from "./classify.js";
 import {
-  heldMetadataToken,
+  fragmentOfLine,
+  heldMetadataNode,
+  isLeafKind,
+  leafBuilder,
   type Frame,
   type HeldLead,
   type ListHost,
 } from "./frames.js";
+import { pushIntoItem } from "./list-frames.js";
+import type { PendingMark } from "./list-item.js";
 import { closeList, listLine, openList } from "./list-reader.js";
 import { readLiteralParagraph, readParagraph } from "./paragraph-reader.js";
 import { splitLines, type SourceLine } from "./split.js";
-import { boundaryToken, lineToken } from "./token-factory.js";
-import * as T from "./tokens.js";
 
 // Delimited blocks whose content is parsed as BLOCKS rather than kept
 // verbatim — `DELIMITED_BLOCKS`' content model, minus the masquerades
 // (`[source]` on a `--` block and friends), which stay a post-hoc
-// re-slice in paragraph-form.ts exactly as today.
-const COMPOUND_KINDS = new Set<DelimiterKind>([
-  "example",
-  "sidebar",
-  "openBlock",
-  "quote",
+// re-slice in paragraph-form.ts exactly as today — and the parent-block
+// variant each one opens. Any other delimiter opens a verbatim frame.
+const COMPOUND_VARIANTS = new Map<DelimiterKind, ParentBlockNode["variant"]>([
+  ["example", "example"],
+  ["sidebar", "sidebar"],
+  ["openBlock", "open"],
+  ["quote", "quote"],
 ]);
 
 // A fenced code block's terminator is the bare tip, never the opening
@@ -64,29 +88,37 @@ const FENCE_TIP = "```";
 // heading that follows into a leaf instead of a section frame.
 const DISCRETE_STYLE = "discrete";
 
-// Line kinds that ARE a block, whole and entire: no extent to read, no
-// frame to open.
-const LEAF_TOKENS = new Map<LineKind["kind"], TokenType>([
-  ["attributeEntry", T.AttributeEntryLine],
-  ["blockMacro", T.BlockMacroLine],
-  ["thematicBreak", T.ThematicBreakLine],
-  ["pageBreak", T.PageBreakLine],
-]);
+// How a delimited block ended: on its own terminator (`close`), or
+// forced shut by an outer terminator or EOF (`unclosed`, zero-length,
+// at the start of the terminator line or at the document length).
+type BlockClose = Pick<BlockExtent, "close" | "unclosed">;
 
-// The bottom frame, and the total fallback for a pop that cannot fail.
-const DOCUMENT_FRAME: Frame = { kind: "document" };
+// The bottom frame's shape: the one frame that owns the document's
+// children and never closes on a line.
+type DocumentFrame = Extract<Frame, Record<"kind", "document">>;
+
+// A metadata node held back until the block it annotates is known,
+// with the mark it will be introduced under inside a list item.
+interface HeldNode {
+  /** The node, built when the line was held. */
+  readonly node: BlockNode;
+  /** Its mark; the first node of a run gets its mark at release. */
+  mark: PendingMark | undefined;
+}
 
 /**
- * Reads a document into block tokens. One instance per document; `run`
+ * Reads a document into its blocks. One instance per document; `run`
  * consumes it.
  */
 class BlockReader implements ListHost {
-  /** The token stream under construction, in emission order. */
-  readonly tokens: IToken[] = [];
+  /** The bottom frame, and the total fallback for a pop that cannot fail. */
+  private readonly root: DocumentFrame = { kind: "document", children: [] };
   /** The open frames, outermost first; the ONLY block-context store. */
-  readonly stack: Frame[] = [DOCUMENT_FRAME];
+  readonly stack: Frame[] = [this.root];
   /** Every source line, rstripped, with offsets. */
   readonly lines: SourceLine[];
+  /** The document's offset→Location index, built once. */
+  readonly at: LocationIndex;
   /** Index of the next unread line. */
   index = FIRST;
   /**
@@ -98,18 +130,14 @@ class BlockReader implements ListHost {
    */
   blanks = EMPTY;
 
-  // Metadata line tokens held back until we know what they annotate.
+  // Metadata NODES held back until we know what they annotate, each
+  // with the mark it will be introduced under inside a list item.
   // Comment and preprocessor lines ride along so their SOURCE ORDER
   // relative to the metadata survives a section boundary landing
   // between them (see the `raw` case in blockLine).
-  private pendingMetadata: IToken[] = [];
+  private pending: HeldNode[] = [];
   // First positional attribute of the held-back `[…]` line, if any.
   private pendingStyle: string | undefined = undefined;
-  // Where the held-back run starts. A section that a heading closes
-  // ends HERE, not at the heading: the metadata belongs to the section
-  // the heading opens, so the SectionEnds must precede it — and the
-  // token stream has to stay offset-sorted.
-  private pendingStart: SourceLine | undefined = undefined;
   // How a list item's held-back run is to be introduced when it is
   // released — decided by the list reader at hold time, for both
   // outcomes, and resolved here at release (see HeldLead).
@@ -122,6 +150,7 @@ class BlockReader implements ListHost {
    */
   constructor(readonly source: string) {
     this.lines = splitLines(source);
+    this.at = makeLocationIndex(source);
   }
 
   // ── context ────────────────────────────────────────────────────────
@@ -179,7 +208,7 @@ class BlockReader implements ListHost {
    * @returns the top of the stack
    */
   topFrame(): Frame {
-    return this.stack.at(LAST_ELEMENT) ?? DOCUMENT_FRAME;
+    return this.stack.at(LAST_ELEMENT) ?? this.root;
   }
 
   /**
@@ -188,58 +217,6 @@ class BlockReader implements ListHost {
    */
   peek(): SourceLine | undefined {
     return this.lines.at(this.index);
-  }
-
-  // ── emit helpers ───────────────────────────────────────────────────
-
-  /**
-   * Emit a whole-line token.
-   * @param type - the token type
-   * @param line - the source line
-   * @param from - raw start column index, 0-based
-   * @param to - raw end column index, exclusive
-   */
-  emitLine(
-    type: TokenType,
-    line: SourceLine,
-    from?: number,
-    to?: number,
-  ): void {
-    this.tokens.push(lineToken(type, line, from, to));
-  }
-
-  /**
-   * Emit a zero-length boundary token inside a line.
-   * @param type - the token type
-   * @param line - the source line the boundary falls on
-   * @param column - raw column index, 0-based; the line's end by default
-   */
-  emitBoundaryAt(
-    type: TokenType,
-    line: SourceLine,
-    column = line.raw.length,
-  ): void {
-    this.tokens.push(
-      boundaryToken(
-        type,
-        line.offset + column,
-        line.line,
-        column + FIRST_COLUMN,
-      ),
-    );
-  }
-
-  /**
-   * Hold back a zero-length boundary token ahead of the metadata line
-   * about to be held — it is released with the run, in order.
-   * @param type - the token type
-   * @param line - the metadata line
-   */
-  holdBoundary(type: TokenType, line: SourceLine): void {
-    this.pendingStart ??= line;
-    this.pendingMetadata.push(
-      boundaryToken(type, line.offset, line.line, FIRST_COLUMN),
-    );
   }
 
   /**
@@ -252,32 +229,120 @@ class BlockReader implements ListHost {
   }
 
   /**
-   * Emit a zero-length boundary token at end of input — one past the
-   * document's last character, on the line a further character would
-   * land on.
-   * @param type - the token type
+   * The lines strictly between two line numbers.
+   * @param from - 1-based line number of the earlier line
+   * @param to - 1-based line number of the later line
+   * @returns the lines between them, in order
    */
-  emitBoundaryAtEof(type: TokenType): void {
-    const last = this.lines.at(LAST_ELEMENT);
-    const endsWithNewline = this.source.endsWith("\n");
-    const line =
-      last === undefined
-        ? FIRST_LINE
-        : last.line + (endsWithNewline ? NEXT : EMPTY);
-    const column =
-      last === undefined || endsWithNewline
-        ? FIRST_COLUMN
-        : last.raw.length + FIRST_COLUMN;
-    this.tokens.push(boundaryToken(type, this.source.length, line, column));
+  linesBetween(from: number, to: number): readonly SourceLine[] {
+    return this.lines.slice(from, to + LAST_ELEMENT);
+  }
+
+  // ── where a finished block goes ────────────────────────────────────
+
+  /**
+   * Put a finished block where the innermost frame wants it: into the
+   * open list item, or into the frame's children.
+   * @param node - the block just built
+   */
+  push(node: BlockNode): void {
+    const frame = this.topFrame();
+    switch (frame.kind) {
+      case "list": {
+        pushIntoItem(frame, node);
+        break;
+      }
+      case "verbatim": {
+        // Unreachable: inside a verbatim frame every line is content or
+        // the terminator, and content is sliced from the source at
+        // close. Kept as a total function rather than a throw.
+        break;
+      }
+      default: {
+        frame.children.push(node);
+      }
+    }
+  }
+
+  /**
+   * Push a block behind a mark the list reader decided for it — a
+   * held-back node's, at release.
+   * @param node - the block
+   * @param mark - how it was introduced, when an item is open
+   */
+  private pushMarked(node: BlockNode, mark: PendingMark | undefined): void {
+    const frame = this.topFrame();
+    if (frame.kind === "list" && mark !== undefined) {
+      frame.item.markNext(mark);
+    }
+    this.push(node);
+  }
+
+  /**
+   * Push a one-line block, releasing any metadata it annotates first.
+   * @param node - the block
+   */
+  leaf(node: BlockNode): void {
+    this.flushMetadata();
+    this.push(node);
+    this.advance();
+  }
+
+  /**
+   * Read a plain paragraph and push it.
+   * @param context - which interrupting set applies
+   * @param line - the paragraph's first line
+   * @param from - raw column index where its text starts
+   */
+  paragraph(context: ParagraphContext, line: SourceLine, from: number): void {
+    const tokens = readParagraph(this, context, line, from);
+    this.push(buildParagraph(tokens, this.at));
+  }
+
+  /**
+   * Read a paragraph-form admonition (`NOTE: text`) and push it. The
+   * label is the node's own span; the body is an ordinary paragraph
+   * read from past it (Ruling 21).
+   * @param context - which interrupting set applies
+   * @param line - the label line
+   * @param labelEnd - raw column index where the text starts
+   */
+  admonition(
+    context: ParagraphContext,
+    line: SourceLine,
+    labelEnd: number,
+  ): void {
+    const tokens = readParagraph(this, context, line, labelEnd);
+    this.push(
+      buildAdmonitionParagraph(
+        fragmentOfLine(line, FIRST, labelEnd),
+        textLines(tokens),
+        this.at,
+      ),
+    );
+  }
+
+  /**
+   * Read an indented literal paragraph and push it.
+   * @param line - its first (indented) line
+   */
+  literalParagraph(line: SourceLine): void {
+    const lines = readLiteralParagraph(this, line);
+    this.push(
+      buildLiteralParagraph(
+        lines.map((each) => fragmentOfLine(each)),
+        this.at,
+      ),
+    );
   }
 
   // ── main loop ──────────────────────────────────────────────────────
 
   /**
    * Walk every line once and close whatever is still open at EOF.
-   * @returns the block token stream
+   * @returns the document's blocks, nested as the frames nested
    */
-  run(): IToken[] {
+  run(): BlockNode[] {
     for (;;) {
       const line = this.peek();
       if (line === undefined) {
@@ -294,7 +359,8 @@ class BlockReader implements ListHost {
         continue;
       }
       if (kind.kind === "verbatim") {
-        this.emitLine(T.VerbatimLine, line);
+        // Content of the open verbatim block: sliced from the source
+        // when the block closes, so the line needs no node of its own.
         this.index += NEXT;
         continue;
       }
@@ -307,7 +373,7 @@ class BlockReader implements ListHost {
       }
     }
     this.closeAll();
-    return this.tokens;
+    return this.root.children;
   }
 
   // ── block level: next_section / parse_block_metadata_line / next_block
@@ -321,9 +387,8 @@ class BlockReader implements ListHost {
     if (this.holdMetadata(line, kind)) {
       return;
     }
-    const leafToken = LEAF_TOKENS.get(kind.kind);
-    if (leafToken !== undefined) {
-      this.leaf(leafToken, line);
+    if (isLeafKind(kind.kind)) {
+      this.leaf(leafBuilder(kind.kind)(fragmentOfLine(line), this.at));
       return;
     }
     switch (kind.kind) {
@@ -336,20 +401,18 @@ class BlockReader implements ListHost {
         return;
       }
       case "admonitionLabel": {
-        this.flushMetadata();
-        this.emitLine(T.AdmonitionLabel, line, FIRST, kind.labelEnd);
-        readParagraph(this, "paragraph", line, kind.labelEnd);
+        this.admonition("paragraph", line, kind.labelEnd);
         return;
       }
       case "indented": {
-        readLiteralParagraph(this, line);
+        this.literalParagraph(line);
         return;
       }
       case "dlistTerm": {
         // No dlist node yet (#9), but the EXTENT is right: the term
         // line is the item's first line and `dlistItem` is its
         // interrupting set.
-        readParagraph(this, "dlistItem", line, kind.indent);
+        this.paragraph("dlistItem", line, kind.indent);
         return;
       }
       case "listMarker": {
@@ -361,7 +424,7 @@ class BlockReader implements ListHost {
       // both open a plain paragraph, because read_lines_until breaks on
       // a `+` only once a line has already been read (`line_read`).
       default: {
-        readParagraph(this, "paragraph", line, FIRST);
+        this.paragraph("paragraph", line, FIRST);
       }
     }
   }
@@ -373,53 +436,34 @@ class BlockReader implements ListHost {
   }
 
   /**
-   * Emit a one-line block, releasing any metadata it annotates first.
-   * @param type - the token type
+   * `parse_block_metadata_line`: an anchor, an attribute list or a
+   * block title annotates the block that FOLLOWS, and comment and
+   * preprocessor lines are consumed inside the same scan — all before
+   * `next_section` asks whether the next line is a title. Holding them
+   * back together is what keeps source order when a heading closes
+   * sections between them: the sections close first, then the whole
+   * held-back run lands in the parent in the order it was written.
    * @param line - the source line
+   * @param kind - what the classifier made of it
+   * @param mark - how the line is introduced inside a list item, when
+   *   the list reader already knows (a later line of a held run)
+   * @returns whether the line was held back
    */
-  leaf(type: TokenType, line: SourceLine): void {
-    this.flushMetadata();
-    this.emitLine(type, line);
-    this.advance();
-  }
-
-  /**
-   * Hold a line back until we know what block it belongs to.
-   * @param type - the token type
-   * @param line - the source line
-   */
-  hold(type: TokenType, line: SourceLine): void {
-    this.pendingStart ??= line;
-    this.pendingMetadata.push(lineToken(type, line));
+  holdMetadata(line: SourceLine, kind: LineKind, mark?: PendingMark): boolean {
+    const node = heldMetadataNode(kind, line, this.at);
+    if (node === undefined) {
+      return false;
+    }
+    if (kind.kind === "attributeLine") {
+      this.pendingStyle = firstPositional(line.text);
+    }
+    this.pending.push({ node, mark });
     this.heldLines += NEXT;
     this.index += NEXT;
     // A held line is still a line Asciidoctor BUFFERED: inside a list
     // item it makes Ruby's `prev_line` non-empty, so the run of blanks
     // before it no longer separates anything.
     this.blanks = EMPTY;
-  }
-
-  /**
-   * `parse_block_metadata_line`: an anchor, an attribute list or a
-   * block title annotates the block that FOLLOWS, and comment and
-   * preprocessor lines are consumed inside the same scan — all before
-   * `next_section` asks whether the next line is a title. Holding them
-   * back together is what keeps source order when a heading closes
-   * sections between them: the SectionEnds go first, then the whole
-   * held-back run in the order it was written.
-   * @param line - the source line
-   * @param kind - what the classifier made of it
-   * @returns whether the line was held back
-   */
-  holdMetadata(line: SourceLine, kind: LineKind): boolean {
-    const type = heldMetadataToken(kind);
-    if (type === undefined) {
-      return false;
-    }
-    if (kind.kind === "attributeLine") {
-      this.pendingStyle = firstPositional(line.text);
-    }
-    this.hold(type, line);
     return true;
   }
 
@@ -435,45 +479,33 @@ class BlockReader implements ListHost {
   }
 
   /**
-   * Release every held-back line, in source order, behind the lead the
+   * Release every held-back node, in source order, behind the lead the
    * list reader decided for the run.
    * @param blockFollows - whether a block of the item is about to be
    *   read for the run (true), or the run is trailing — the item, list
    *   or block is closing (false)
    */
   flushMetadata(blockFollows = false): void {
-    const { pendingLead: lead, pendingStart: start } = this;
-    if (lead !== undefined && start !== undefined) {
-      const mark = blockFollows ? lead.block : lead.trailing;
-      if (mark !== undefined) {
-        for (let index = EMPTY; index < lead.repeats; index += NEXT) {
-          this.emitBoundaryAt(mark, start, FIRST);
-        }
-      }
+    const { pendingLead: lead } = this;
+    const first = this.pending.at(FIRST);
+    if (lead !== undefined && first !== undefined) {
+      first.mark = blockFollows ? lead.block : lead.trailing;
     }
-    this.tokens.push(...this.pendingMetadata);
-    this.pendingMetadata = [];
+    for (const held of this.pending) {
+      this.pushMarked(held.node, held.mark);
+    }
+    this.pending = [];
     this.pendingStyle = undefined;
-    this.pendingStart = undefined;
     this.pendingLead = undefined;
     this.heldLines = EMPTY;
-  }
-
-  /**
-   * The lines strictly between two line numbers.
-   * @param from - 1-based line number of the earlier line
-   * @param to - 1-based line number of the later line
-   * @returns the lines between them, in order
-   */
-  linesBetween(from: number, to: number): readonly SourceLine[] {
-    return this.lines.slice(from, to + LAST_ELEMENT);
   }
 
   /**
    * An ATX title: `next_section` closes every open section of level
    * `level` or deeper before opening the new one, and the metadata read
    * ahead of the title belongs to the section the title opens — which
-   * is why the SectionEnds are emitted BEFORE the held-back lines.
+   * is why the enclosing sections close BEFORE the held-back run is
+   * released, so the run lands in the parent.
    * @param line - the title line
    * @param level - the title's level; 0 is the document title
    */
@@ -483,31 +515,31 @@ class BlockReader implements ListHost {
       // Inside a compound block the confined reader never calls
       // next_section: a heading is paragraph text. (A list frame never
       // reaches here — listLine claims the line first.)
-      readParagraph(this, "paragraph", line, FIRST);
+      this.paragraph("paragraph", line, FIRST);
       return;
     }
     if (this.pendingStyle === DISCRETE_STYLE) {
-      this.flushMetadata();
-      this.emitLine(T.DiscreteHeadingLine, line);
-      this.advance();
+      this.leaf(buildDiscreteHeading(fragmentOfLine(line), this.at));
       return;
     }
     if (level === EMPTY) {
-      this.leaf(T.DocumentTitleLine, line);
+      this.leaf(buildDocumentTitle(fragmentOfLine(line), this.at));
       return;
     }
-    const endsAt = this.pendingStart ?? line;
+    // A section closes on its title line; the close is inert for it (a
+    // section is positioned from its own title) and exists only because
+    // closeFrame is one function for every frame kind.
+    const close = this.forcedClose(line);
     for (
       let top = this.topFrame();
       top.kind === "section" && top.level >= level;
       top = this.topFrame()
     ) {
       this.stack.pop();
-      this.emitBoundaryAt(T.SectionEnd, endsAt, FIRST);
+      this.closeFrame(top, close);
     }
     this.flushMetadata();
-    this.emitLine(T.SectionTitleLine, line);
-    this.stack.push({ kind: "section", level });
+    this.stack.push({ kind: "section", level, title: line, children: [] });
     this.advance();
   }
 
@@ -523,13 +555,12 @@ class BlockReader implements ListHost {
     // read_lines_until compares whole rstripped lines against the
     // terminator; for a fence that terminator is the bare tip.
     const terminator = block === "fencedCode" ? FENCE_TIP : line.text;
-    if (COMPOUND_KINDS.has(block)) {
-      this.emitLine(T.CompoundBlockOpen, line);
-      this.stack.push({ kind: "compound", terminator });
-    } else {
-      this.emitLine(T.VerbatimBlockOpen, line);
-      this.stack.push({ kind: "verbatim", terminator });
-    }
+    const variant = COMPOUND_VARIANTS.get(block);
+    this.stack.push(
+      variant === undefined
+        ? { kind: "verbatim", terminator, open: line }
+        : { kind: "compound", terminator, open: line, variant, children: [] },
+    );
     this.advance();
   }
 
@@ -554,67 +585,103 @@ class BlockReader implements ListHost {
       // Unreachable: classifyLine reports delimiterClose only for a
       // terminator this stack holds. The fallback keeps block level
       // unable to fail, which is the reader's contract.
-      readParagraph(this, "paragraph", line, FIRST);
+      this.paragraph("paragraph", line, FIRST);
       return;
     }
     // Metadata held back inside the block belongs to the block: release
     // it before the block ends, or it would surface after the close.
     this.flushMetadata();
     this.closeDownTo(target + NEXT, line);
-    const frame = this.stack.pop();
-    this.emitLine(
-      frame?.kind === "verbatim" ? T.VerbatimBlockClose : T.CompoundBlockClose,
-      line,
-    );
+    const frame = this.stack.pop() ?? this.root;
+    this.closeFrame(frame, {
+      close: fragmentOfLine(line),
+      unclosed: undefined,
+    });
     this.advance();
   }
 
   /**
-   * Pop frames until the stack is `depth` deep, ending each one.
+   * The close of a block that never met its own terminator: an outer
+   * terminator took the line, or EOF came first. Zero-length, at the
+   * start of that line or one past the document's last character.
+   * @param line - the line the close falls on, or undefined at EOF
+   * @returns the close, for the builders
+   */
+  private forcedClose(line: SourceLine | undefined): BlockClose {
+    return {
+      close: undefined,
+      unclosed: { image: "", offset: line?.offset ?? this.source.length },
+    };
+  }
+
+  /**
+   * Pop frames until the stack is `depth` deep, closing each one.
    * @param depth - the stack length to stop at
-   * @param line - the line the ends fall on, or undefined at EOF
+   * @param line - the line the closes fall on, or undefined at EOF
    */
   closeDownTo(depth: number, line?: SourceLine): void {
+    const close = this.forcedClose(line);
     while (this.stack.length > depth) {
-      this.endFrame(this.stack.pop() ?? DOCUMENT_FRAME, line);
+      this.closeFrame(this.stack.pop() ?? this.root, close);
     }
   }
 
   /**
-   * Emit the end token(s) of one forced-closed frame.
+   * Build one closing frame's node and give it to its parent.
+   *
+   * The style-driven conversions run HERE, on the container's own
+   * children: every container — the document (in {@link readDocument}),
+   * a section, a compound block, a list item (`endItem` in
+   * list-reader.ts) — goes through `convertParagraphFormBlocks`, so a
+   * `[source]` paragraph inside an example block is converted as one at
+   * the top level is. It is a post-parse transform over a flat block
+   * array, not part of construction (spec Decision 4); folding it into
+   * frame OPEN is the next plan, not this one.
    * @param frame - the frame being popped
-   * @param line - the line the ends fall on, or undefined at EOF
+   * @param close - how a delimited block ended; sections and lists
+   *   close on their own terms and ignore it
    */
-  endFrame(frame: Frame, line?: SourceLine): void {
-    const emit = (type: TokenType): void => {
-      if (line === undefined) {
-        this.emitBoundaryAtEof(type);
-      } else {
-        this.emitBoundaryAt(type, line, FIRST);
-      }
-    };
+  closeFrame(frame: Frame, close: BlockClose): void {
     switch (frame.kind) {
       case "section": {
-        emit(T.SectionEnd);
+        const node = buildSection(fragmentOfLine(frame.title), this.at);
+        node.children = convertParagraphFormBlocks(frame.children, this.source);
+        this.push(node);
         break;
       }
-      case "compound":
+      case "compound": {
+        this.push(
+          buildParentBlock(
+            { open: fragmentOfLine(frame.open), ...close, source: this.source },
+            frame.variant,
+            convertParagraphFormBlocks(frame.children, this.source),
+            this.at,
+          ),
+        );
+        break;
+      }
       case "verbatim": {
-        emit(T.UnclosedEnd);
+        this.push(
+          buildVerbatimBlock(
+            { open: fragmentOfLine(frame.open), ...close, source: this.source },
+            this.at,
+          ),
+        );
         break;
       }
       case "list": {
-        closeList(this, frame, line);
+        closeList(this, frame);
         break;
       }
       default: {
-        // The document frame ends nothing.
+        // The document frame never closes: readDocument reads it off
+        // the reader once the run is over.
         break;
       }
     }
   }
 
-  /** End of input: release held-back lines, then close every frame. */
+  /** End of input: release held-back nodes, then close every frame. */
   closeAll(): void {
     this.flushMetadata();
     this.closeDownTo(NEXT);
@@ -632,10 +699,29 @@ function firstPositional(line: string): string {
 }
 
 /**
- * Read a whole document into the block token stream.
- * @param source - the document
- * @returns the tokens the mechanical grammar consumes
+ * Read a whole document into its AST.
+ *
+ * The document is the outermost frame and never closes on a line, so
+ * its node is built here rather than in `closeFrame` — including the
+ * style-driven conversion its own children need, which every other
+ * container gets at its close.
+ *
+ * The end position is `at.at(source.length)`: one past the last
+ * character, on the line a further character would land on — the
+ * same answer for `"a\n"`, `"a"` and `""` that the old document-end
+ * helper gave, pinned by tests/parser/positions.test.ts.
+ * @param source - the whole document
+ * @returns the root node
  */
-export function readBlocks(source: string): IToken[] {
-  return new BlockReader(source).run();
+export function readDocument(source: string): DocumentNode {
+  const reader = new BlockReader(source);
+  const children = reader.run();
+  return {
+    type: "document",
+    children: convertParagraphFormBlocks(children, source),
+    position: {
+      start: reader.at.at(FIRST),
+      end: reader.at.at(source.length),
+    },
+  };
 }

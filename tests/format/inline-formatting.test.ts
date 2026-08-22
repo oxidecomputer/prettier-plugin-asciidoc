@@ -211,9 +211,9 @@ describe("inline formatting — edge case round-trips", () => {
 });
 
 // Runs of consecutive mark characters that don't pair cleanly.
-// The lexer tokenizes greedily (`__` before `_`), which can
-// create empty formatting nodes. The formatter preserves the
-// source text unchanged.
+// The tokenizer tries the longer mark first (`__` before `_`, in
+// INLINE_RULES order), which can create empty formatting nodes. The
+// formatter preserves the source text unchanged.
 describe("inline formatting — odd-count marks", () => {
   test("five underscores in paragraph", async () => {
     const input = "some _____ text\n";

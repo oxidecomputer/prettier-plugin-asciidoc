@@ -114,11 +114,7 @@ export default defineConfig(
       "vitest/expect-expect": [
         "error",
         {
-          assertFunctionNames: [
-            "expect",
-            "expectStreamInvariants",
-            "expectAstInvariants",
-          ],
+          assertFunctionNames: ["expect", "expectAstInvariants"],
         },
       ],
 

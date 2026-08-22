@@ -18,7 +18,7 @@ import {
   MARKER_OFFSET,
   NEXT,
 } from "./constants.js";
-import { CHECKBOX_PREFIX_LEN } from "./parse/block-helpers.js";
+import { CHECKBOX_PREFIX_LEN } from "./parse/build/list.js";
 import {
   flattenForFill,
   keepLastBreak,

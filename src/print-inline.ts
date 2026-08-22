@@ -121,9 +121,10 @@ type PrintFunction = (path: PrintPath) => Doc;
  * Collapse source line breaks inside a serialized inline
  * construct to single spaces. Bracketed text (`url[text]`,
  * `xref:t[text]`, `<<t,text>>`) may span source lines — the
- * lexer matches it across `\n`. Re-emitting the raw newline
- * would make the output layout depend on the input layout
- * (breaking idempotency, issue #1) and would corrupt fill()
+ * tokenizer's `InlineMacro`/`InlineUrl` rules
+ * (src/parse/inline/rules.ts) match it across `\n`. Re-emitting the
+ * raw newline would make the output layout depend on the input
+ * layout (breaking idempotency, issue #1) and would corrupt fill()
  * width measurement, which assumes Doc strings are single-line.
  * AsciiDoc renders the line break as a space, so this rewrite
  * is semantics-preserving; intra-line spacing is left alone.

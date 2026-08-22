@@ -7,15 +7,16 @@
  * type is `never` does. Wrapping the throw here gives us
  * that property without extra boilerplate at every site:
  *
- *   const token = ctx.Foo?.[FIRST] ?? unreachable(
- *     "Foo token missing after grammar matched FooRule"
+ *   const groups = RE.exec(line.image)?.groups ?? unreachable(
+ *     `Invalid attribute entry: ${line.image}`
  *   );
  *
- * Used throughout the AST builder and block helpers to
- * guard against "impossible" states: a grammar rule
- * matched but an expected token is absent from the CST.
- * If this fires it indicates a bug in our grammar or AST
- * builder, not bad user input.
+ * Used in `src/parse/build/` and the reader's frame stack to
+ * guard states that are impossible only because two places
+ * agree — a line-shape pattern in the classifier and the
+ * builder's own regex for the same shape, say. If one fires
+ * it means those two drifted apart; it never means bad user
+ * input, which the reader is total over.
  * @param message - A description of the violated
  *   invariant, including enough context (rule name, token
  *   kind, surrounding state) to diagnose the bug without

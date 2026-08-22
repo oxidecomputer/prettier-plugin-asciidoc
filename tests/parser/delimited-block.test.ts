@@ -2,9 +2,9 @@ import { describe, test, expect } from "vitest";
 import { parse } from "../../src/parser.js";
 import { firstDelimitedBlock } from "../helpers.js";
 
-// Listing blocks use verbatim content (no inline parsing),
-// are closed by a same-length delimiter, and trigger a lexer
-// mode switch to capture raw text.
+// Listing blocks use verbatim content (no inline parsing) and are
+// closed by a same-length delimiter; the reader slices their raw text
+// straight out of the source rather than classifying it.
 describe("listing block parsing", () => {
   // The simplest listing block: `----` delimiters around content.
   test("basic listing block", () => {

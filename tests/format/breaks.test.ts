@@ -1,5 +1,11 @@
 import { describe, test, expect } from "vitest";
-import { formatAdoc, renderedHtml } from "../helpers.js";
+import {
+  asParagraph,
+  firstList,
+  formatAdoc,
+  renderedHtml,
+} from "../helpers.js";
+import { parse } from "../../src/parser.js";
 
 /**
  * Decode the numeric entity Asciidoctor emits for `{plus}` so it can
@@ -113,7 +119,7 @@ describe("hard line break formatting", () => {
   // indent of a list item's continuation block BEFORE `LineBreakRx`
   // runs, so a ` +` no less indented than every other line of that
   // block loses its space and becomes a bare `+` — plain text. The
-  // three cases below share one source shape and differ only in what
+  // four cases below share one source shape and differ only in what
   // follows the ` +`, which is what decides the common indent.
   test.each([
     // Nothing follows: the block is the ` +` line, indent 1.
@@ -121,6 +127,10 @@ describe("hard line break formatting", () => {
     // `more` is unindented, so the common indent is 0 and the space
     // survives.
     [". item\n +\nmore\n", false],
+    // ` more` is indented EXACTLY as much as the ` +` line, so the
+    // common indent is 1 and the space goes: the boundary case, and
+    // the one that says the comparison is `>=` and not `>`.
+    [". item\n +\n more\n", true],
     // `  more` is indented further, so the common indent is still 1.
     [". item\n +\n  more\n", true],
   ])("%j reads its ` +` as literal: %s", async (input, literal) => {
@@ -133,5 +143,55 @@ describe("hard line break formatting", () => {
     );
     expect(renderedHtml(out).includes("<br>")).toBe(!literal);
     expect(await formatAdoc(out)).toBe(out);
+  });
+
+  // The reader's literal-plus decision retypes the ` +` token as
+  // text. The newline that ENDS that line must stay a newline: retype
+  // it too and it lands inside the item's text value, where nothing
+  // downstream can tell it from content. Only the AST shows it — the
+  // printer drops a trailing newline, so every rendering check above
+  // passes either way.
+  test("a literal ` +` leaves its newline out of the item's text", () => {
+    const { children } = parse(". item\n +\n");
+    const {
+      children: [item],
+    } = firstList(children);
+    const {
+      children: [text],
+    } = item;
+    expect(text).toMatchObject({ type: "text", value: "item\n +" });
+  });
+
+  // And it belongs to the FIRST line after the marker alone. `next_block`
+  // hands `parse_list_item` the marker line plus the lines adjacent to
+  // it, and `adjust_indentation!` runs over that buffer once; a ` +`
+  // that arrives on a LATER line of the item's text is past the point
+  // where the common indent is taken, so it stays an ordinary hard
+  // break. Asserted on the AST rather than on formatted bytes: the
+  // reflow that joins `a` and `a` moves the ` +` onto the first rest
+  // line, where a second format pass reads it as literal — a
+  // round-trip wobble that predates this suite and is recorded in the
+  // Task 8 report, not pinned here.
+  test("a ` +` on a LATER line of the item's text is still a hard break", () => {
+    const { children } = parse("* a\na\n +\n");
+    const {
+      children: [item],
+    } = firstList(children);
+    expect(item.children.map(({ type }) => type)).toEqual([
+      "text",
+      "hardLineBreak",
+    ]);
+  });
+
+  // The literal reading belongs to ITEM TEXT alone: `adjust_indentation!`
+  // runs on a list item's lines and on nothing else, so the very same
+  // shape — a ` +` line with nothing after it — is an ordinary hard
+  // break in a plain paragraph.
+  test("the same trailing ` +` in a PLAIN paragraph is a hard break", () => {
+    const { children } = parse("a\n +\n");
+    expect(asParagraph(children[0]).children.map(({ type }) => type)).toEqual([
+      "text",
+      "hardLineBreak",
+    ]);
   });
 });

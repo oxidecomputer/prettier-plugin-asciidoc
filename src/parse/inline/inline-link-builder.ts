@@ -1,23 +1,23 @@
 /**
  * Factory functions for building LinkNode, XrefNode, and
- * InlineAnchorNode from their respective lexer tokens.
+ * InlineAnchorNode from their respective tokens.
  *
- * Each public function takes the raw Chevrotain token produced
- * by the inline lexer and returns the corresponding AST node
- * with source positions. String splitting is used throughout
- * instead of regex to stay within the project's lint rules
- * (no named capture groups, no unicode flags, no magic-number
- * group indices).
+ * Each public function takes one token's span — its bytes and its
+ * document offset — plus the document's location index, and returns
+ * the corresponding AST node with source positions. These builders
+ * split strings rather than match regexes because every field they
+ * extract needs its own OFFSET in the document, and computing an
+ * offset from a match index is a step a split gives for free.
  */
-import type { IToken } from "chevrotain";
 import type {
   LinkNode,
   XrefNode,
   InlineAnchorNode,
   HardLineBreakNode,
-} from "../ast.js";
-import { EMPTY, FIRST, NEXT, NOT_FOUND } from "../constants.js";
-import { tokenStartLocation, tokenEndLocation } from "./positions.js";
+  Location,
+} from "../../ast.js";
+import { EMPTY, FIRST, NEXT, NOT_FOUND } from "../../constants.js";
+import type { Fragment, LocationIndex } from "../positions.js";
 
 // Number of characters in `<<`, `>>`, `[[`, or `]]`.
 const BRACKET_PAIR_LEN = 2;
@@ -35,7 +35,7 @@ const BRACKET_PAIR_LEN = 2;
  * is present — the trailing `]` is consumed by the slice.
  *
  * Precondition: `image` ends with `]` (guaranteed by the
- * grammar's InlineMacro token pattern).
+ * tokenizer's InlineMacro rule, src/parse/inline/rules.ts).
  * @param image - String to split; either a full token image
  *   or the portion after a macro prefix has been removed
  * @returns Tuple of [beforeBracket, insideBracket].
@@ -54,21 +54,16 @@ function splitAtBracket(image: string): [string, string | undefined] {
 }
 
 /**
- * Extract start/end source positions from a Chevrotain
- * token for AST location tracking.
- * @param token - Chevrotain token with offset/line/col
- * @returns Object with `start` and `end` pointing to the
- *   first and last characters of the token in the source,
- *   ready to attach to an AST node's `position` field
+ * The position of one token's span.
+ * @param fragment - the token, or any span with an image and offset
+ * @param at - the document's location index
+ * @returns the node position, end exclusive
  */
-function positionOf(token: IToken): {
-  start: ReturnType<typeof tokenStartLocation>;
-  end: ReturnType<typeof tokenEndLocation>;
-} {
-  return {
-    start: tokenStartLocation(token),
-    end: tokenEndLocation(token),
-  };
+function positionOf(
+  fragment: Fragment,
+  at: LocationIndex,
+): { start: Location; end: Location } {
+  return { start: at.start(fragment), end: at.end(fragment) };
 }
 
 // ── Public factory functions ────────────────────────────────
@@ -80,17 +75,21 @@ function positionOf(token: IToken): {
  * and `https://example.com[label]` (with display text).
  * The form is always `"url"` to distinguish from the
  * explicit `link:` macro during round-trip formatting.
- * @param token - InlineUrl token from the lexer
+ * @param fragment - InlineUrl token span
+ * @param at - the document's location index
  * @returns LinkNode with form `"url"`
  */
-export function makeLinkFromUrl(token: IToken): LinkNode {
-  const [target, text] = splitAtBracket(token.image);
+export function makeLinkFromUrl(
+  fragment: Fragment,
+  at: LocationIndex,
+): LinkNode {
+  const [target, text] = splitAtBracket(fragment.image);
   return {
     type: "link",
     form: "url",
     target,
     text: text === undefined || text.length === EMPTY ? undefined : text,
-    position: positionOf(token),
+    position: positionOf(fragment, at),
   };
 }
 
@@ -101,13 +100,17 @@ export function makeLinkFromUrl(token: IToken): LinkNode {
  * first comma to separate target from optional display
  * text. The form is `"shorthand"` so the printer can
  * reproduce the angle-bracket syntax.
- * @param token - XrefShorthand token (image wrapped in
+ * @param fragment - XrefShorthand token span (image wrapped in
  *   `<<` and `>>`)
+ * @param at - the document's location index
  * @returns XrefNode with form `"shorthand"`
  */
-export function makeXrefFromShorthand(token: IToken): XrefNode {
+export function makeXrefFromShorthand(
+  fragment: Fragment,
+  at: LocationIndex,
+): XrefNode {
   // Strip the `<<` prefix and `>>` suffix.
-  const inner = token.image.slice(BRACKET_PAIR_LEN, -BRACKET_PAIR_LEN);
+  const inner = fragment.image.slice(BRACKET_PAIR_LEN, -BRACKET_PAIR_LEN);
   const commaIndex = inner.indexOf(",");
   if (commaIndex === NOT_FOUND) {
     return {
@@ -115,7 +118,7 @@ export function makeXrefFromShorthand(token: IToken): XrefNode {
       form: "shorthand",
       target: inner,
       text: undefined,
-      position: positionOf(token),
+      position: positionOf(fragment, at),
     };
   }
   return {
@@ -123,7 +126,7 @@ export function makeXrefFromShorthand(token: IToken): XrefNode {
     form: "shorthand",
     target: inner.slice(FIRST, commaIndex),
     text: inner.slice(commaIndex + NEXT),
-    position: positionOf(token),
+    position: positionOf(fragment, at),
   };
 }
 
@@ -135,20 +138,24 @@ export function makeXrefFromShorthand(token: IToken): XrefNode {
  * reftext (the default cross-reference display text).
  * Leading whitespace after the comma is trimmed to match
  * the `[[id, reftext]]` convention.
- * @param token - InlineAnchor token (image wrapped in
+ * @param fragment - InlineAnchor token span (image wrapped in
  *   `[[` and `]]`)
+ * @param at - the document's location index
  * @returns InlineAnchorNode with id and optional reftext
  */
-export function makeInlineAnchor(token: IToken): InlineAnchorNode {
+export function makeInlineAnchor(
+  fragment: Fragment,
+  at: LocationIndex,
+): InlineAnchorNode {
   // Strip the `[[` prefix and `]]` suffix.
-  const inner = token.image.slice(BRACKET_PAIR_LEN, -BRACKET_PAIR_LEN);
+  const inner = fragment.image.slice(BRACKET_PAIR_LEN, -BRACKET_PAIR_LEN);
   const commaIndex = inner.indexOf(",");
   if (commaIndex === NOT_FOUND) {
     return {
       type: "inlineAnchor",
       id: inner,
       reftext: undefined,
-      position: positionOf(token),
+      position: positionOf(fragment, at),
     };
   }
   const reftext = inner.slice(commaIndex + NEXT).trimStart();
@@ -156,7 +163,7 @@ export function makeInlineAnchor(token: IToken): InlineAnchorNode {
     type: "inlineAnchor",
     id: inner.slice(FIRST, commaIndex),
     reftext: reftext.length > EMPTY ? reftext : undefined,
-    position: positionOf(token),
+    position: positionOf(fragment, at),
   };
 }
 
@@ -167,12 +174,16 @@ export function makeInlineAnchor(token: IToken): InlineAnchorNode {
  * are represented as standalone AST nodes (rather than
  * embedded in text) so the printer can emit the correct
  * Prettier Doc IR for line-break semantics.
- * @param token - HardLineBreak token from the lexer
+ * @param fragment - HardLineBreak token span
+ * @param at - the document's location index
  * @returns HardLineBreakNode with source position only
  */
-export function makeHardLineBreak(token: IToken): HardLineBreakNode {
+export function makeHardLineBreak(
+  fragment: Fragment,
+  at: LocationIndex,
+): HardLineBreakNode {
   return {
     type: "hardLineBreak",
-    position: positionOf(token),
+    position: positionOf(fragment, at),
   };
 }

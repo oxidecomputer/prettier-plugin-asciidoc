@@ -631,8 +631,8 @@ const DESCRIPTION_LIST_LINE =
 /**
  * Whether Asciidoctor would read a line as a description-list item —
  * which it does whenever the line is the FIRST of a block, and (via
- * `AnyListRx`) whenever it follows a list item's text. The lexer
- * needs this to classify what comes after: a dlist item's
+ * `AnyListRx`) whenever it follows a list item's text. The reader's
+ * classifier needs this to decide what comes after: a dlist item's
  * description is read as block content, not as paragraph text.
  * @param rawLine - one source line, without its trailing newline;
  *   trailing whitespace is trimmed here (see rstrip)

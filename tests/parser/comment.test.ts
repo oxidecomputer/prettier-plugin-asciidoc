@@ -31,8 +31,9 @@ describe("line comment parsing", () => {
     expect(child0.value).toBe("this is a comment");
   });
 
-  // `//` alone is a valid empty comment in AsciiDoc. The lexer's negative
-  // lookahead `(?!\S)` must accept end-of-line, not just space-then-text.
+  // `//` alone is a valid empty comment in AsciiDoc. The classifier's
+  // line-comment shape must accept end-of-line after the slashes, not
+  // just space-then-text.
   test("// alone on a line is an empty comment", () => {
     const document = parse("//\n");
     expect(document.children).toHaveLength(1);
@@ -118,6 +119,57 @@ describe("line comment parsing", () => {
     expect(document.children[0].type).toBe("paragraph");
     expect(document.children[1].type).toBe("comment");
     expect(document.children[2].type).toBe("paragraph");
+  });
+
+  // A comment line INSIDE a paragraph body is a rawLine leaf of the
+  // paragraph. The newline that ended the line above it is structural
+  // — the rawLine owns its own output line — so it is trimmed off the
+  // pending text run, and trimming it must not leave an EMPTY text
+  // node behind: the printer's fill() needs content and separators to
+  // alternate. Compared with positions, which pins the rawLine's span
+  // (exactly its line) at the same time.
+  test("a comment inside a paragraph leaves no empty text run behind", () => {
+    const document = parse("a *b*\n// c\n");
+    const {
+      children: [child0],
+    } = document;
+    narrow(child0, "paragraph");
+    expect(child0.children).toEqual([
+      {
+        type: "text",
+        value: "a ",
+        position: {
+          start: { offset: 0, line: 1, column: 1 },
+          end: { offset: 2, line: 1, column: 3 },
+        },
+      },
+      {
+        type: "bold",
+        constrained: true,
+        children: [
+          {
+            type: "text",
+            value: "b",
+            position: {
+              start: { offset: 3, line: 1, column: 4 },
+              end: { offset: 4, line: 1, column: 5 },
+            },
+          },
+        ],
+        position: {
+          start: { offset: 2, line: 1, column: 3 },
+          end: { offset: 5, line: 1, column: 6 },
+        },
+      },
+      {
+        type: "rawLine",
+        value: "// c",
+        position: {
+          start: { offset: 6, line: 2, column: 1 },
+          end: { offset: 10, line: 2, column: 5 },
+        },
+      },
+    ]);
   });
 
   // The AST builder's section-grouping logic must treat comments as
@@ -218,8 +270,9 @@ describe("block comment parsing", () => {
   });
 
   // AsciiDoc allows delimiters longer than 4 slashes (`//////`).
-  // The lexer pattern `/{4,}` must accept these without creating a
-  // mismatch between open and close delimiter lengths.
+  // The classifier's comment-delimiter shape (`/{4,}`) must accept
+  // these without creating a mismatch between open and close
+  // delimiter lengths.
   test("block comment with extended delimiter (5+ slashes)", () => {
     const document = parse("//////\ncontent\n//////\n");
     expect(document.children).toHaveLength(1);
@@ -232,9 +285,9 @@ describe("block comment parsing", () => {
   });
 
   // A block comment at the very end of the file may have no trailing
-  // newline after the closing delimiter. This exercises the grammar's
-  // `OPTION(() => this.CONSUME2(Newline))` — the optional newline
-  // after the close delimiter must not be required.
+  // newline after the closing delimiter. The reader splits the source
+  // into lines, so the last one is a line whether or not it ends in
+  // `\n` — the close delimiter must still be recognised on it.
   test("block comment at EOF without trailing newline", () => {
     const document = parse("////\ncontent\n////");
     expect(document.children).toHaveLength(1);

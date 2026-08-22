@@ -77,10 +77,10 @@ describe("fenced code block parsing", () => {
   });
 
   // AsciiDoc-style delimiters (e.g. `----`) inside a fenced block
-  // are treated as plain content, not block openers. The lexer
-  // switches to `fenced_code_verbatim` mode on the open fence,
-  // which suppresses all normal block-delimiter tokens until the
-  // close fence is matched. This validates lexer mode isolation.
+  // are treated as plain content, not block openers. A verbatim
+  // block's extent is read by `readVerbatim` in
+  // src/parse/lines/reader.ts, which looks only for its OWN
+  // terminator, so nothing between the fences is classified at all.
   test("asciidoc delimiters inside fenced block are content", () => {
     const { children } = parse("```\n----\ncode\n----\n```\n");
     const block = firstDelimitedBlock(children);

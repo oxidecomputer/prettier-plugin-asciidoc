@@ -60,9 +60,28 @@ describe("inline links — bare URLs", () => {
     expect(node1.text).toBeUndefined();
     expect(node2.value).toBe(" today");
   });
+
+  // `form` is what tells the printer to write the bare URL back rather
+  // than a `link:` macro; only an InlineMacroNode spells the macro.
+  test("a bare URL records the `url` form it was written in", () => {
+    const [node0] = inlineNodes("https://example.com\n");
+    narrow(node0, "link");
+    expect(node0.form).toBe("url");
+  });
 });
 
 describe("inline links — URLs with display text", () => {
+  // Empty brackets are not display text: the node carries no text at
+  // all, which is what makes the printer re-emit the bare URL.
+  test("URL with EMPTY brackets → link node with no text", () => {
+    const nodes = inlineNodes("https://example.com[]\n");
+    expect(nodes).toHaveLength(1);
+    const [node0] = nodes;
+    narrow(node0, "link");
+    expect(node0.target).toBe("https://example.com");
+    expect(node0.text).toBeUndefined();
+  });
+
   test("https URL with text → link node with text", () => {
     const nodes = inlineNodes("https://example.com[Example Site]\n");
     expect(nodes).toHaveLength(1);
@@ -148,6 +167,14 @@ describe("inline cross-references", () => {
     narrow(node0, "xref");
     expect(node0.target).toBe("section-id");
     expect(node0.text).toBeUndefined();
+  });
+
+  // The counterpart of the link `form` row above: `shorthand` is what
+  // tells the printer to write the angle brackets back.
+  test("a `<<…>>` xref records the `shorthand` form it was written in", () => {
+    const [node0] = inlineNodes("<<section-id>>\n");
+    narrow(node0, "xref");
+    expect(node0.form).toBe("shorthand");
   });
 
   test("<<section-id,Custom Text>> → xref with text", () => {
@@ -245,6 +272,18 @@ describe("inline anchors", () => {
     expect(node1.id).toBe("term-id");
     expect(node1.reftext).toBe("Term Display Text");
   });
+
+  // A comma with nothing (or only blanks) after it is not a reftext:
+  // the node carries none, so the printer writes `[[id]]` back.
+  test.each(["[[id,]]", "[[id, ]]"])(
+    "%s → anchor with no reftext",
+    (anchor) => {
+      const [node0] = inlineNodes(`${anchor}\n`);
+      narrow(node0, "inlineAnchor");
+      expect(node0.id).toBe("id");
+      expect(node0.reftext).toBeUndefined();
+    },
+  );
 
   test("inline anchor in text", () => {
     const nodes = inlineNodes("This is [[anchor-here]]some anchored text\n");

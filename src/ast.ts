@@ -7,7 +7,7 @@
  * contains so the printer can reproduce it faithfully.
  *
  * Position information uses exclusive end offsets (one past the last character)
- * to match Prettier's conventions, unlike Chevrotain's inclusive offsets.
+ * to match Prettier's conventions.
  */
 
 /**
@@ -272,8 +272,9 @@ export type InlineNode =
 /**
  * A section heading and its child blocks. Level is
  * `(number of '=' signs) - 1`, so `==` is level 1 and `======` is
- * level 5, matching the ASG convention. The grammar parses sections
- * flat; the AST builder groups subsequent blocks under their heading.
+ * level 5, matching the ASG convention. The reader opens a section
+ * frame on a title line and pushes the blocks that follow into it, so
+ * the nesting is built as the document is read.
  */
 export interface SectionNode extends Node {
   /** Node discriminant. */

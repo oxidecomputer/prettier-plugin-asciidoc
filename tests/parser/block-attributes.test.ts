@@ -175,9 +175,9 @@ describe("anchor parsing", () => {
   });
 
   // Anchor on its own line before a paragraph is a block-level
-  // anchor. The `splitBlockAnchors` pass in ast-builder.ts
-  // splits it into a separate anchor paragraph so the printer
-  // can handle spacing correctly.
+  // anchor: the reader holds it back as metadata and
+  // `buildBlockAnchor` (build/metadata.ts) makes it a separate anchor
+  // paragraph so the printer can handle spacing correctly.
   test("anchor before text splits into two blocks", () => {
     const document = parse("[[my-anchor]]\nSome text.\n");
     expect(document.children).toHaveLength(2);

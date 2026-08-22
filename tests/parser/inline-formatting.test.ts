@@ -153,8 +153,8 @@ describe("inline formatting — mixed", () => {
   });
 });
 
-// Backslash escapes are tokenised by the pattern in
-// inline-mark-pattern.ts and converted to text nodes by
+// Backslash escapes are tokenised by the `BackslashEscape` rule in
+// src/parse/inline/rules.ts and converted to text nodes by
 // inline-node-builder.ts. The backslash is preserved in the
 // value so the printer can round-trip the escape.
 describe("inline formatting — backslash escapes", () => {
@@ -241,6 +241,17 @@ describe("inline formatting — role/style attributes", () => {
     narrow(node0, "highlight");
     expect(node0.role).toBe("underline");
   });
+
+  // The role attribute is part of the span: the node starts at the
+  // `[` and ends past the closing `#`, not at the `#` that opens it.
+  test("the node spans the role attribute AND the marks", () => {
+    const [node0] = inlineNodes("[red]#t#\n");
+    narrow(node0, "highlight");
+    expect(node0.position).toEqual({
+      start: { offset: 0, line: 1, column: 1 },
+      end: { offset: 8, line: 1, column: 9 },
+    });
+  });
 });
 
 describe("inline formatting — attribute references", () => {
@@ -250,6 +261,18 @@ describe("inline formatting — attribute references", () => {
     const [node0] = nodes;
     narrow(node0, "attributeReference");
     expect(node0.name).toBe("name");
+  });
+
+  // The braces are part of the span even though they are not part of
+  // the name: the printer writes them back from the position, not the
+  // name.
+  test("the node spans the braces, not just the name", () => {
+    const [node0] = inlineNodes("{name}\n");
+    narrow(node0, "attributeReference");
+    expect(node0.position).toEqual({
+      start: { offset: 0, line: 1, column: 1 },
+      end: { offset: 6, line: 1, column: 7 },
+    });
   });
 
   test("text + attrRef + text", () => {
@@ -397,10 +420,10 @@ describe("inline formatting — unconstrained role highlight", () => {
 
 describe("inline formatting — cross-line spans", () => {
   test("*bold spanning two lines* merges across InlineNewline", () => {
-    // The inline mode pops at every \n via InlineNewline, so
-    // marks on different lines are in separate inlineLine CST
-    // nodes. buildInlineNodes merges tokens across lines before
-    // pairing, so the bold span should still close correctly.
+    // The tokenizer emits an InlineNewline for every \n rather than
+    // ending the run there, and buildInlineNodes pairs marks across
+    // those newlines, so a bold span opened on one line still closes
+    // on the next.
     const nodes = inlineNodes("*bold\nspanning two lines* here.\n");
     expect(nodes).toHaveLength(2);
     const [node0] = nodes;

@@ -1,5 +1,6 @@
 import { describe, test, expect } from "vitest";
 import { parse } from "../../src/parser.js";
+import { asParagraph } from "../helpers.js";
 
 describe("thematic break parsing", () => {
   // Basic thematic break: exactly three single quotes.
@@ -101,5 +102,60 @@ describe("page break parsing", () => {
     expect(node.position.start.line).toBe(1);
     expect(node.position.start.column).toBe(1);
     expect(node.position.start.offset).toBe(0);
+  });
+});
+
+describe("hard line break parsing", () => {
+  // The HardLineBreakNode IS the break, so the newline that follows
+  // the ` +` is structural and must not survive into the text run
+  // after it: `\nb` there is the same break counted twice, and the
+  // printer would emit a blank output line for it.
+  test("the newline after a hard break stays out of the next text run", () => {
+    const { children } = parse("a +\nb\n");
+    expect(asParagraph(children[0]).children).toEqual([
+      {
+        type: "text",
+        value: "a",
+        position: {
+          start: { offset: 0, line: 1, column: 1 },
+          end: { offset: 1, line: 1, column: 2 },
+        },
+      },
+      {
+        type: "hardLineBreak",
+        position: {
+          start: { offset: 1, line: 1, column: 2 },
+          end: { offset: 3, line: 1, column: 4 },
+        },
+      },
+      {
+        type: "text",
+        value: "b",
+        position: {
+          start: { offset: 4, line: 2, column: 1 },
+          end: { offset: 5, line: 2, column: 2 },
+        },
+      },
+    ]);
+  });
+
+  // `tokenizeRun` appends the document's newline to a run only when
+  // the source really has one there, so that every token's image stays
+  // a verbatim slice of the source. At EOF without a trailing newline
+  // there is nothing to append, and a trailing ` +` therefore has no
+  // newline to break — it stays text. (Asciidoctor renders this `a<br>`
+  // instead; the divergence is pre-existing and filed, not fixed here.)
+  test("a trailing ` +` at EOF with no newline is text, not a hard break", () => {
+    const { children } = parse("a +");
+    expect(asParagraph(children[0]).children).toEqual([
+      {
+        type: "text",
+        value: "a +",
+        position: {
+          start: { offset: 0, line: 1, column: 1 },
+          end: { offset: 3, line: 1, column: 4 },
+        },
+      },
+    ]);
   });
 });

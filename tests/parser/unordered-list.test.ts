@@ -189,8 +189,8 @@ describe("unordered list parsing", () => {
 
   // Indented lines are normally literal paragraphs in AsciiDoc.
   // Inside a list item they are absorbed as continuation content
-  // instead. Since the paragraph lexer mode landed they are
-  // ordinary inline text lines, indentation included in the text
+  // instead, as ordinary inline text lines, indentation included in
+  // the text
   // node's value — the printer splits on whitespace, so the
   // indentation never reaches the output.
   test("indented continuation lines are part of list item", () => {
@@ -250,8 +250,9 @@ describe("unordered list parsing", () => {
   });
 });
 
-// The continuation sub-lexer re-maps token positions from
-// fragment coordinates back to document coordinates. Format
+// A continuation line is tokenized as part of its item's text run,
+// and the tokens carry DOCUMENT offsets rather than fragment ones
+// (`ParagraphReader.tokenizeRun` passes `run.start` as the base). Format
 // tests cannot see position corruption (the printer does not
 // read inline end positions), so pin both ends here: slicing
 // the source with the node's own offsets must reproduce the

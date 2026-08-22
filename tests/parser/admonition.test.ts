@@ -11,7 +11,8 @@
  *   `[NOTE]\n====\nContent.\n====`
  *
  * Paragraph-form admonitions produce `AdmonitionNode` directly
- * from the grammar. Block-form admonitions are recognized by
+ * from the reader (`BlockReader.admonition`). Block-form
+ * admonitions are recognized by
  * the post-parse `convertParagraphFormBlocks` transform, which
  * converts `BlockAttributeList + ParentBlock` pairs to
  * `AdmonitionNode` with `form: "delimited"`. The original

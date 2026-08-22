@@ -33,6 +33,17 @@ describe("inline image", () => {
     expect(node0.attrlist).toBe("Sunset");
   });
 
+  // The whole macro is one span — `name:target[attrlist]` — so the
+  // node ends past the closing bracket, not at the target.
+  test("the node spans the whole macro, brackets included", () => {
+    const [node0] = inlineNodes("image:a.png[x]\n");
+    narrow(node0, "inlineMacro");
+    expect(node0.position).toEqual({
+      start: { offset: 0, line: 1, column: 1 },
+      end: { offset: 14, line: 1, column: 15 },
+    });
+  });
+
   test("image with empty alt text", () => {
     const nodes = inlineNodes("image:logo.png[]\n");
     expect(nodes).toHaveLength(1);

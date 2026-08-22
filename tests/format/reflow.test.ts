@@ -121,8 +121,8 @@ describe("paragraph reflow", () => {
   // set of such words is exactly the line-shape registry's, and no
   // wider. A `.word` is a block TITLE only on the first line of a block.
   // Mid-paragraph Asciidoctor reads it as text — and so does the
-  // lexer's paragraph mode — so fill() may break in front of it and
-  // reflow must not waste a line preventing that.
+  // reader, in its paragraph context — so fill() may break in front
+  // of it and reflow must not waste a line preventing that.
   test("lets a .word start a later line of a paragraph", async () => {
     const input = "aaa bbb .title\n";
     const options = { printWidth: 10 };

@@ -4,9 +4,9 @@ import { parse } from "../../src/parser.js";
 import { randomInput, adocDocument } from "../fuzz/arbitraries.js";
 import { fuzzParameters } from "../fuzz/config.js";
 
-// Property-based fuzz tests for the parser. These complement
-// the hand-written error recovery tests in error-recovery.test.ts
-// by exploring the input space randomly.
+// Property-based fuzz tests for the parser. These complement the
+// hand-written totality tests in error-recovery.test.ts by exploring
+// the input space randomly.
 
 describe("parser fuzz", () => {
   test("tier 1: random input never throws", () => {

@@ -1,8 +1,8 @@
 /**
  * The invariants every AST must satisfy, whatever the input — the
- * replacement for `expectStreamInvariants` in reader-lists.test.ts,
- * which asserted them of a token stream that is about to stop
- * existing (spec Decision 9: the grammar's LL(1) proof and its role
+ * replacement for `expectStreamInvariants` (once in reader-lists.test.ts),
+ * which asserted them of a token stream that no longer exists
+ * (spec Decision 9: the grammar's LL(1) proof and its role
  * as an independent well-formedness check on the reader's emission
  * order are knowingly retired, and these take their place).
  *
@@ -107,7 +107,7 @@ function startOffsetOf(value: unknown): number {
  * is the printer's, not the source's — the AST is Asciidoctor's
  * `list_item.blocks` cut in two — so this merges the two arrays by
  * start offset. Verified against the corpus at `8c42f624`: without the
- * merge, 5 of 1,627 documents fail the ordering invariant below for
+ * merge, 5 of 1,614 documents fail the ordering invariant below for
  * exactly this reason (`lists_test.rb#list item paragraph in list item
  * and nested list item#0` is the smallest).
  * @param item - a `listItem` node
@@ -126,13 +126,13 @@ function itemChildren(item: AnyNode): readonly unknown[] {
 /**
  * Every node in DOCUMENT ORDER (pre-order), parents before children.
  *
- * Module-private: `expectAstInvariants` is this file's whole promised
- * interface (the plan's Interfaces section names only it), and knip
- * reports any other export here as unused.
+ * Exported for `itemCount` in reader-helpers.ts, which counts
+ * `listItem` nodes anywhere in the tree: one walker, not two, so the
+ * two files cannot disagree about what "anywhere in the tree" means.
  * @param root - the document node
  * @returns the nodes, in the order a reader meets them
  */
-function preorder(root: unknown): AnyNode[] {
+export function preorder(root: unknown): AnyNode[] {
   const nodes: AnyNode[] = [];
   const visit = (value: unknown): void => {
     if (isArray(value)) {
@@ -230,18 +230,6 @@ function expectPositionsWellFormed(source: string, nodes: AnyNode[]): void {
     const {
       position: { start, end },
     } = node;
-    // KNOWN BUG, fixed in Task 4 of the drop-chevrotain plan and
-    // deleted from here in the same change: `buildParentBlock` hands
-    // `closeExtent` an EMPTY source string, so every forced-closed
-    // parent block ends at {0, 1, 1} — before its own start whenever
-    // it does not begin at offset 0 — and a list item that ends on
-    // such a block inherits the 0. 64 corpus documents, verified at
-    // `8c42f624`: 62 fail here, 2 more only in `expectContainment`
-    // (`parse("====\ntext\n")` reproduces the end position). Nothing
-    // but that bug can end at offset 0 in a non-empty document, so
-    // the exception needs no node-kind list and cannot hide anything
-    // else.
-    if (end.offset === 0 && source.length > 0) continue;
     expect(start.offset, `${node.type} start in range`).toBeGreaterThanOrEqual(
       0,
     );
@@ -286,7 +274,7 @@ function expectPositionsWellFormed(source: string, nodes: AnyNode[]): void {
  *
  * Found by the reader-soup property (smallest counterexample
  * `* a\nimage::a[]\nendif::[]\n:a: b`), never by the corpus: 0 of
- * 1,627 corpus documents put a raw line inside a text run that
+ * 1,614 corpus documents put a raw line inside a text run that
  * follows an inline construct.
  * @param previous - the node that comes first in the walk
  * @param current - the node after it
@@ -361,14 +349,37 @@ function expectTextValue(slice: string, value: string): void {
 }
 
 /**
+ * Every reading of `content` with exactly ONE doubled break undoubled.
+ *
+ * One, not all of them: the bug below inserts a single break at a
+ * single join, and undoubling every `\n\n` in the content would also
+ * excuse a block that lost a blank line the author wrote — inside a
+ * listing, which is where a blank line matters most.
+ * @param content - a verbatim block's content
+ * @returns one variant per doubled break, in source order
+ */
+function singleUndoublings(content: string): string[] {
+  const variants: string[] = [];
+  for (
+    let index = content.indexOf("\n\n");
+    index !== -1;
+    index = content.indexOf("\n\n", index + 1)
+  ) {
+    variants.push(content.slice(0, index) + content.slice(index + 1));
+  }
+  return variants;
+}
+
+/**
  * A verbatim block's content is inside the span it claims.
  * @param slice - the source the node's position names
  * @param content - the block's verbatim content
  */
 function expectVerbatimContent(slice: string, content: string): void {
   // KNOWN BUG, reported against the baseline rather than fixed here
-  // (this task changes no `src/`, and `paragraph-form.ts` is out of
-  // the drop-chevrotain plan's scope by Decision 4): a
+  // (`paragraph-form.ts` is out of the drop-chevrotain plan's scope by
+  // its spec Decision 4, and this invariant landed in that plan's Task
+  // 1 as a pure test addition): a
   // `[source]`-styled PARAGRAPH whose text run is interrupted by a
   // line the reader re-emits verbatim gets a DOUBLED break where the
   // two pieces are joined, so `content` carries a blank line the
@@ -376,12 +387,12 @@ function expectVerbatimContent(slice: string, content: string): void {
   // running `formatAdoc` over the five lines `* a`, `[source]`,
   // `flush`, `ifdef::x[]`, `ifdef::x[]`: the output gains a blank line
   // before the second `ifdef::x[]`. Found by the reader-soup property,
-  // 0 of 1,627 corpus documents. Tolerated as EXACTLY that shape —
-  // undoubling the content's breaks — so any other content/span
-  // disagreement still fails.
-  const undoubled = content.replaceAll("\n\n", "\n");
+  // 0 of 1,614 corpus documents. Tolerated as EXACTLY that shape — ONE
+  // doubled break undoubled, in one place — so any other content/span
+  // disagreement, including a second inserted break, still fails.
+  const variants = singleUndoublings(content);
   expect(
-    slice.includes(content) || slice.includes(undoubled),
+    slice.includes(content) || variants.some((one) => slice.includes(one)),
     `verbatim content is not inside ${JSON.stringify(slice)}`,
   ).toBe(true);
 }
@@ -486,16 +497,10 @@ const SPANNING_CONTAINERS = new Set([
 
 /**
  * One node lies inside the container it is nested in.
- * @param source - the whole document
  * @param node - the nested node
  * @param container - the nearest enclosing spanning container
  */
-function expectInside(source: string, node: AnyNode, container: AnyNode): void {
-  // The same known bug the well-formedness check exempts: a container
-  // that ends at offset 0 constrains nothing. Deleted in Task 4 with
-  // its cause. It is what puts the last 2 of that bug's 64 corpus
-  // documents on the list — they fail only here.
-  if (source.length > 0 && container.position.end.offset === 0) return;
+function expectInside(node: AnyNode, container: AnyNode): void {
   expect(
     node.position.start.offset,
     `${node.type} starts before its ${container.type}`,
@@ -533,10 +538,9 @@ function containerFor(
  * the same failure (a block that escaped its container) seen from the
  * other side. Verified at `8c42f624`: 0 failures over the corpus and
  * 432 lists.
- * @param source - the whole document
  * @param root - the document node
  */
-function expectContainment(source: string, root: unknown): void {
+function expectContainment(root: unknown): void {
   const visit = (value: unknown, container?: AnyNode): void => {
     if (isArray(value)) {
       for (const element of value) visit(element, container);
@@ -544,7 +548,7 @@ function expectContainment(source: string, root: unknown): void {
     }
     if (!isRecord(value)) return;
     if (isNode(value) && container !== undefined) {
-      expectInside(source, value, container);
+      expectInside(value, container);
     }
     const next = containerFor(value, container);
     for (const [key, child] of Object.entries(value)) {
@@ -602,6 +606,6 @@ export function expectAstInvariants(source: string): void {
   expectDocumentOrder(document, nodes);
   expectValuesReconstruct(source, nodes);
   expectLineCoverage(source, nodes);
-  expectContainment(source, document);
+  expectContainment(document);
   expectListsNonEmpty(nodes);
 }

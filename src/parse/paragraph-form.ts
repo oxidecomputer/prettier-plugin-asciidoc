@@ -19,8 +19,9 @@
  * sibling — the printer's stacking behavior handles placing it on
  * the line before the block content.
  *
- * This runs on the flat block array after CST visiting but before
- * section nesting, so blocks inside sections are handled correctly.
+ * This runs on each container's flat block array as the reader closes
+ * its frame — the document, a section, a compound block, a list item —
+ * so blocks inside sections are handled correctly.
  */
 import type {
   BlockNode,
@@ -444,8 +445,8 @@ function styledConversion(
  * Scans the flat block array for the style-driven transformations
  * {@link styledConversion} performs, rewriting each converted pair in
  * place and leaving everything else untouched.
- * @param blocks - Flat array of block-level AST nodes
- *   produced by the CST visitor, before section nesting.
+ * @param blocks - Flat array of one container's block-level AST
+ *   nodes, as the reader built them.
  * @param sourceText - The full original source text,
  *   needed for extracting raw content when masquerading
  *   parent blocks to verbatim.

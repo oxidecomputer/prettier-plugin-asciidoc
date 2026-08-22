@@ -124,8 +124,8 @@ describe("list continuation formatting", () => {
   // A lone `+` line inside a plain (non-list) paragraph terminates
   // the paragraph there: the oracle renders two paragraphs, the
   // second reading "+ para two" (the `+` is text, not consumed).
-  // This used to be merged into one paragraph — issue #17, fixed by
-  // the paragraph lexer mode.
+  // This used to be merged into one paragraph — issue #17, fixed
+  // when paragraph reading moved into the reader.
   test("plus line between plain paragraphs splits the paragraph", async () => {
     const input = "para one\n+\npara two\n";
     const first = await formatAdoc(input);
@@ -590,6 +590,23 @@ describe("a + continuation reaches across block metadata", () => {
   test("two blank lines end the list", async () => {
     const input = "* a\n+\n\n\npara\n* b\n";
     const out = await formatAdoc(input);
+    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+
+  // …and when what follows the two blanks is a NESTED MARKER, the
+  // item keeps the nested list but the `+` is ERASED. The formatted
+  // bytes are the only witness: Asciidoctor renders `* a` / `+` /
+  // `** b` and `* a` / `** b` identically, so an oracle comparison
+  // cannot see a `+` written back, and the AST cannot either — a
+  // nested list lives in `ListItemNode.children`, which carries no
+  // `ItemContinuation`. This is the assertion the reader row
+  // "+ then TWO blanks then a nested marker" can no longer make
+  // (tests/parser/reader-lists.test.ts).
+  test("two blanks then a nested marker drops the +", async () => {
+    const input = "* a\n+\n\n\n** b\n* c\n";
+    const out = await formatAdoc(input);
+    expect(out).toBe("* a\n** b\n* c\n");
     expect(renderedHtml(out)).toBe(renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });

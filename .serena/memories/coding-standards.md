@@ -8,6 +8,11 @@ ESLint is strict. Rules that affect how you write code:
 - No `null` — use `undefined` (relaxed in test files)
 - `strict-boolean-expressions` — no truthy/falsy checks, be explicit
 - No magic numbers (relaxed in test files)
+- `require-unicode-regexp` — **every** regex in `src` carries the `v` flag, with
+  no exception. The two file-level exemptions that existed
+  (`src/parse/tokens.ts`, `src/parse/inline-link-tokens.ts`) were there only
+  because Chevrotain's `regexp-to-ast` could not compile `v`; both files and the
+  exemption went with the dependency on 2026-08-21
 - No `console.log`
 - Unused vars must be prefixed with `_`
 - Unicorn recommended rules (modern JS conventions)
@@ -31,8 +36,8 @@ AI agents) can tell the difference.
 
 - `/** */` JSDoc — all exported functions, classes, interfaces, and types. VS
   Code shows these on hover.
-- `//` — internal implementation notes (helper functions, grammar rules, token
-  definitions, "why" explanations).
+- `//` — internal implementation notes (helper functions, line-shape and inline
+  rule table rows, "why" explanations).
 
 **JSDoc discipline (enforced by eslint-plugin-jsdoc):**
 
@@ -66,15 +71,23 @@ block-attribute-looking line, …) is added in three steps, in this order:
    shape against `@asciidoctor/core` in every `ParagraphContext`. The oracle
    wins if it disagrees with your reading of the Ruby.
 
-**Never a Chevrotain token pattern.** Block-level context comes from the
-BlockReader's frame stack and from nowhere else, and
-`tests/parser/architecture.test.ts` is the mechanical guard: it reads the source
-of every file under `src/parse` and fails on a custom token pattern that takes
-the token history, a lexer-mode switch, a parser-state gate, `BACKTRACK`, a raw
-`LA` lookahead, a backwards search over a token array, an import cycle, or a
-lint suppression beyond the current ceiling. The rules are textual and blunt and
-they read comments too: if one fires on a comment, reword the comment — do not
-weaken the rule or exempt a file.
+A new INLINE construct is added the same way: a rule in
+`src/parse/inline/rules.ts` citing the Asciidoctor source it mirrors
+(`substitutors.rb`, `rx.rb`), in the right place in the ORDER (first match
+wins), and a row in `tests/parser/inline-tokens.test.ts`. The rule table is the
+single source of truth for inline shapes, as `line-shapes.ts` is for line
+shapes.
+
+**Never a token pattern.** Block-level context comes from the BlockReader's
+frame stack and from nowhere else, and `tests/parser/architecture.test.ts` is
+the mechanical guard: it reads the source of every file under `src/parse` and
+fails on a custom token pattern that takes the token history, a lexer-mode
+switch, a parser-state gate, `BACKTRACK`, a raw `LA` lookahead, a backwards
+search over a token array, an `import … from "chevrotain"` (a literal regex — a
+different parser library would need its own row), an import cycle, or a lint
+suppression beyond the current ceiling. The rules are textual and blunt and they
+read comments too: if one fires on a comment, reword the comment — do not weaken
+the rule or exempt a file.
 
 Reflow safety (`src/reflow.ts`) consumes the same registry, so the parser and
 the formatter's word-wrapping can never disagree about what would re-parse as

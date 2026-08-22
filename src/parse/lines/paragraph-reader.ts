@@ -7,20 +7,19 @@
  *
  * Split out of reader.ts by responsibility: this module decides how far
  * a paragraph-shaped block reaches and turns its lines into inline
- * fragments; reader.ts owns the frame stack and decides what a line
+ * tokens; reader.ts owns the frame stack and decides what a line
  * OPENS. list-reader.ts is the third member and reads the reader
  * through the same {@link ParagraphHost} seam.
  *
  * Every decision here comes from the context the host hands over.
  * Nothing scans backwards or inspects a token history.
  */
-import type { IToken, TokenType } from "chevrotain";
-import { FIRST_COLUMN, NEXT } from "../../constants.js";
+import { NEXT } from "../../constants.js";
+import { tokenizeInline } from "../inline/tokenize.js";
+import type { InlineToken } from "../inline/tokens.js";
 import type { ParagraphContext } from "../line-shapes.js";
 import { classifyLine, type LineKind, type ReaderContext } from "./classify.js";
 import type { SourceLine } from "./split.js";
-import { lexInlineFragment, type InlineFragment } from "./token-factory.js";
-import * as T from "./tokens.js";
 
 // A line that is nothing but indentation and a `+` — the one line shape
 // whose meaning `adjust_indentation!` can change (see Paragraph).
@@ -41,10 +40,8 @@ const ITEM_TEXT_CONTEXTS = new Set<ParagraphContext>(["listItem", "dlistItem"]);
  * ONLY owner of the frame stack and of the read position.
  */
 export interface ParagraphHost {
-  /** The whole document — inline fragments are slices of it. */
+  /** The whole document — inline runs are slices of it. */
   readonly source: string;
-  /** The token stream under construction, in emission order. */
-  readonly tokens: IToken[];
   /** The next unread line, or undefined at end of input. */
   readonly peek: () => SourceLine | undefined;
   /** Consume the line `peek` returned, ending any run of blanks. */
@@ -54,31 +51,29 @@ export interface ParagraphHost {
     openParagraph?: ParagraphContext,
     firstLineAfterStart?: boolean,
   ) => ReaderContext;
-  /** Emit a whole-line token, optionally a slice of the line. */
-  readonly emitLine: (
-    type: TokenType,
-    line: SourceLine,
-    from?: number,
-    to?: number,
-  ) => void;
-  /** Emit a zero-length boundary token at a 0-based column of a line. */
-  readonly emitBoundaryAt: (
-    type: TokenType,
-    line: SourceLine,
-    column?: number,
-  ) => void;
-  /** Release the metadata tokens held back for the block that follows. */
+  /** Release the metadata nodes held back for the block that follows. */
   readonly flushMetadata: () => void;
 }
 
+/** A run of reflowable paragraph text to tokenize as inline content. */
+interface InlineRun {
+  /** Document offset of the run's first character. */
+  readonly start: number;
+  /**
+   * Document offset just past its last character: the offset of the
+   * run's trailing newline, or the document length.
+   */
+  readonly end: number;
+}
+
 // What a paragraph is made of, in source order: runs of reflowable
-// text lines (one inline fragment each) and lines kept verbatim.
+// text lines (tokenized as one) and lines kept verbatim.
 type Piece =
   | {
       /** Piece discriminant: a run of reflowable lines. */
       readonly kind: "run";
       /** Where the run sits in the document. */
-      readonly fragment: InlineFragment;
+      readonly run: InlineRun;
     }
   | {
       /** Piece discriminant: a line kept verbatim. */
@@ -91,24 +86,20 @@ type Piece =
  * One paragraph being read. Owns the run bookkeeping only — the line
  * position and the stack stay the host's.
  *
- * Nothing is lexed until the paragraph is complete: `finish` turns the
- * pieces into tokens in one pass, once every line is in, so a rule
+ * Nothing is tokenized until the paragraph is complete: `finish` turns
+ * the pieces into tokens in one pass, once every line is in, so a rule
  * that needs the whole paragraph (the literal-plus rule, below) is
- * decided BEFORE the inline lexer runs — the reader never rewrites a
- * token it has already emitted.
+ * decided BEFORE the tokenizer runs — the reader never rewrites a
+ * token it has already placed.
  */
 class Paragraph {
   // The pieces read so far, in source order.
   private readonly pieces: Piece[] = [];
-  // The reflowable run in progress, or undefined right after a line the
-  // reader had to keep verbatim.
-  private run: Omit<InlineFragment, "end"> | undefined = undefined;
+  // Where the reflowable run in progress starts, or undefined right
+  // after a line the reader had to keep verbatim.
+  private runStart: number | undefined = undefined;
   // Document offset just past the run's last character.
   private runEnd: number;
-  // The last line the paragraph CONSUMED, raw lines included: it is
-  // where ParagraphEnd goes. A paragraph whose last line is a comment
-  // would otherwise close before that comment's own token.
-  private last: SourceLine;
   // How many lines have been read; `firstLineAfterStart` is a rule of
   // its own in the registry (a block anchor, for one, only counts there).
   private linesRead = NEXT;
@@ -120,7 +111,7 @@ class Paragraph {
   private minIndentAfterPlus = Number.POSITIVE_INFINITY;
 
   /**
-   * @param host - the reader that owns the stack and the token stream
+   * @param host - the reader that owns the stack and the read position
    * @param context - which interrupting set applies
    * @param line - the paragraph's first line
    * @param from - raw column index where the paragraph's text starts
@@ -132,7 +123,6 @@ class Paragraph {
     from: number,
   ) {
     this.runEnd = line.offset + line.raw.length;
-    this.last = line;
     if (context === "dlistItem" && line.text.startsWith(COMMENT_HEAD)) {
       // A dlist term that begins with `//` (`///b::` — not a comment to
       // the classifier, which mirrors LineCommentRx) IS one to
@@ -146,38 +136,33 @@ class Paragraph {
       this.pieces.push({ kind: "raw", line });
       return;
     }
-    this.run = {
-      start: line.offset + from,
-      line: line.line,
-      column: from + FIRST_COLUMN,
-    };
+    this.runStart = line.offset + from;
   }
 
   /**
    * Consume lines until one ends the paragraph. The ending line is left
    * unread — `read_lines_until` with `preserve_last_line: true`.
-   * @returns the kind of the line that ended it, or undefined at EOF
    */
-  read(): LineKind | undefined {
+  read(): void {
     for (;;) {
       const next = this.host.peek();
       if (next === undefined) {
-        return undefined;
+        return;
       }
       const kind = classifyLine(
         next.text,
         this.host.context(this.context, this.linesRead === NEXT),
       );
       if (kind.kind !== "text" && kind.kind !== "raw") {
-        return kind;
+        return;
       }
       this.take(next, kind);
     }
   }
 
   /**
-   * Emit the paragraph's tokens — every run lexed now, every raw line
-   * in its place — and close it.
+   * Tokenize every run and place the raw lines between them, in
+   * source order.
    *
    * THE LITERAL-PLUS RULE. `parse_list_item` re-reads an item's lines
    * through `next_block` with `text_only`, and when the first line
@@ -187,35 +172,78 @@ class Paragraph {
    * common indent of those lines is stripped BEFORE `HardLineBreakRx`
    * (`^(.*) \+$`) ever runs, so a ` +` line no less indented than
    * every content line after it loses its space and is a bare `+` —
-   * plain text, not a break. The inline lexer cannot know this on its
+   * plain text, not a break. The tokenizer cannot know this on its
    * own: the decision needs the whole paragraph and the fact that its
    * first line is an item's marker line, both of which only the reader
-   * has. So the reader decides first and tells the fragment lexer which
-   * line's ` +` is literal. Oracle: `. item` / ` +` / `  more` renders
-   * `item + more`; with `more` flush left it renders `item <br> more`
-   * (the common indent is 0), and `text` / ` +` / `  more` is a break
-   * too (a plain paragraph is never re-indented).
+   * has. So the reader decides first and retypes that line's break
+   * (see {@link Paragraph.tokenizeRun}). Oracle: `. item` / ` +` /
+   * `  more` renders `item + more`; with `more` flush left it renders
+   * `item <br> more` (the common indent is 0), and `text` / ` +` /
+   * `  more` is a break too (a plain paragraph is never re-indented).
+   * @returns the body's tokens
    */
-  finish(): void {
+  finish(): InlineToken[] {
     this.closeRun();
     const { plusLine } = this;
-    const literalPlusLine =
+    const literalPlus =
       plusLine !== undefined &&
       this.minIndentAfterPlus >= indentOf(plusLine.text)
-        ? plusLine.line
+        ? plusLine
         : undefined;
+    const tokens: InlineToken[] = [];
     for (const piece of this.pieces) {
       if (piece.kind === "raw") {
-        this.host.emitLine(T.RawLine, piece.line);
+        tokens.push({
+          type: "RawLine",
+          image: piece.line.raw,
+          offset: piece.line.offset,
+        });
       } else {
-        this.host.tokens.push(
-          ...lexInlineFragment(this.host.source, piece.fragment, {
-            literalPlusLine,
-          }),
-        );
+        tokens.push(...this.tokenizeRun(piece.run, literalPlus));
       }
     }
-    this.host.emitBoundaryAt(T.ParagraphEnd, this.last);
+    return tokens;
+  }
+
+  /**
+   * Tokenize one run of reflowable lines.
+   *
+   * The document's newline AT the run's end is included when it is
+   * really there, so a trailing ` +` tokenizes as a hard break
+   * exactly as it would mid-document and every token's image is still
+   * a verbatim source slice. At EOF without a final newline nothing
+   * is appended: inventing one would give a token an image the source
+   * does not contain.
+   *
+   * The literal-plus rule's other half: a hard break on the line the
+   * reader decided is literal is plain text — the tokenizer's output
+   * is retyped here because only the reader knows which line that is.
+   * @param run - where the run sits in the document
+   * @param literalPlus - the line whose ` +` is literal text, if any
+   * @returns the run's tokens, in document coordinates
+   */
+  private tokenizeRun(
+    run: InlineRun,
+    literalPlus: SourceLine | undefined,
+  ): InlineToken[] {
+    const { host } = this;
+    const newline = host.source[run.end] === "\n" ? "\n" : "";
+    const tokens = tokenizeInline(
+      `${host.source.slice(run.start, run.end)}${newline}`,
+      run.start,
+    );
+    if (literalPlus === undefined) {
+      return tokens;
+    }
+    const { offset: from } = literalPlus;
+    const to = from + literalPlus.raw.length;
+    return tokens.map((token) =>
+      token.type === "HardLineBreak" &&
+      token.offset >= from &&
+      token.offset < to
+        ? { ...token, type: "InlineText" }
+        : token,
+    );
   }
 
   /**
@@ -232,17 +260,12 @@ class Paragraph {
   private take(line: SourceLine, kind: LineKind): void {
     this.trackLiteralPlus(line, kind);
     if (kind.kind === "text" && kind.verbatim !== true) {
-      this.run ??= {
-        start: line.offset,
-        line: line.line,
-        column: FIRST_COLUMN,
-      };
+      this.runStart ??= line.offset;
       this.runEnd = line.offset + line.raw.length;
     } else {
       this.closeRun();
       this.pieces.push({ kind: "raw", line });
     }
-    this.last = line;
     this.linesRead += NEXT;
     this.host.advance();
   }
@@ -278,14 +301,14 @@ class Paragraph {
 
   /** Close the run in progress as one piece. */
   private closeRun(): void {
-    if (this.run === undefined) {
+    if (this.runStart === undefined) {
       return;
     }
     this.pieces.push({
       kind: "run",
-      fragment: { ...this.run, end: this.runEnd },
+      run: { start: this.runStart, end: this.runEnd },
     });
-    this.run = undefined;
+    this.runStart = undefined;
   }
 }
 
@@ -293,29 +316,27 @@ class Paragraph {
  * Read a paragraph-shaped block starting at `line`, whose text begins
  * at column `from` (past an admonition label or a list marker).
  *
- * Emits ParagraphStart, one inline fragment per RUN of reflowable text
- * lines, a RawLine for each line kept verbatim, and ParagraphEnd. The
- * line that ENDED the paragraph is left unconsumed.
- * @param host - the reader that owns the stack and the token stream
+ * Yields the body's tokens — one tokenized run per RUN of reflowable
+ * text lines, a `RawLine` token for each line kept verbatim, in source
+ * order. The line that ENDED the paragraph is left unconsumed; the
+ * caller never classifies it again.
+ * @param host - the reader that owns the stack and the read position
  * @param context - which interrupting set applies (see ParagraphContext)
  * @param line - the paragraph's first line
  * @param from - raw column index where the paragraph's text starts
- * @returns the kind of the line that ended the paragraph, or undefined
- *   at end of input; the caller never classifies it again
+ * @returns the body's tokens
  */
 export function readParagraph(
   host: ParagraphHost,
   context: ParagraphContext,
   line: SourceLine,
   from: number,
-): LineKind | undefined {
+): InlineToken[] {
   host.flushMetadata();
-  host.emitBoundaryAt(T.ParagraphStart, line, from);
   const paragraph = new Paragraph(host, context, line, from);
   host.advance();
-  const stop = paragraph.read();
-  paragraph.finish();
-  return stop;
+  paragraph.read();
+  return paragraph.finish();
 }
 
 /**
@@ -339,17 +360,18 @@ export function readParagraph(
  * conditional's own body is text the author wrote. The oracle's output
  * is a subset of ours, never a reordering of it, so no rendered content
  * moves. Pinned in tests/parser/reader.test.ts.
- * @param host - the reader that owns the stack and the token stream
+ * @param host - the reader that owns the stack and the read position
  * @param line - the paragraph's first (indented) line
+ * @returns the run's lines, in order; a blank line ends the run, so
+ *   two literal paragraphs it separates never share one
  */
 export function readLiteralParagraph(
   host: ParagraphHost,
   line: SourceLine,
-): void {
+): readonly SourceLine[] {
   host.flushMetadata();
-  host.emitLine(T.LiteralLine, line);
+  const lines = [line];
   host.advance();
-  let last = line;
   for (;;) {
     const next = host.peek();
     if (next === undefined) {
@@ -359,13 +381,10 @@ export function readLiteralParagraph(
     if (kind.kind !== "text" && kind.kind !== "raw") {
       break;
     }
-    host.emitLine(T.LiteralLine, next);
+    lines.push(next);
     host.advance();
-    last = next;
   }
-  // The end is a token of its own: a blank line emits nothing, so two
-  // literal paragraphs it separates would otherwise run together.
-  host.emitBoundaryAt(T.LiteralParagraphEnd, last);
+  return lines;
 }
 
 /**

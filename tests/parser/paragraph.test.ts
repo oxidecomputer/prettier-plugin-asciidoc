@@ -59,8 +59,8 @@ describe("paragraph parsing", () => {
   });
 
   // Consecutive non-blank lines form a single paragraph: the reader
-  // keeps reading until a line interrupts, and `paragraphBody` loops
-  // over the inline tokens between ParagraphStart and ParagraphEnd.
+  // keeps reading until a line interrupts, then tokenizes the whole
+  // run at once (`ParagraphReader.tokenizeRun`).
   // Lines are joined with "\\n" in the text node value to preserve the
   // original line structure for the printer.
   test("multi-line paragraph has lines joined by newline", () => {
@@ -137,9 +137,10 @@ describe("paragraph parsing", () => {
     expect(document.children).toHaveLength(1);
   });
 
-  // Real-world files may lack a final newline. The paragraph grammar's
-  // trailing InlineNewline is consumed by an OPTION, so the parser must
-  // not choke when it's absent.
+  // Real-world files may lack a final newline. The reader appends the
+  // document's newline to a text run only when the source has one
+  // there (`ParagraphReader.tokenizeRun`), so its absence must not
+  // change the paragraph.
   test("text without trailing newline still parses", () => {
     const document = parse("No trailing newline");
     expect(document.children).toHaveLength(1);

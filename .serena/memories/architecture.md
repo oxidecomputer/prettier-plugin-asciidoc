@@ -7,33 +7,42 @@ converts it to Prettier Doc IR.
 ## Pipeline
 
 ```
-source → splitLines → BlockReader(classifyLine) → IToken[] → CstParser → CST → AST Builder → AST → Printer
+source → splitLines → BlockReader(classifyLine) → AST → Printer
 ```
 
 ## Components
 
-- **Parser** (`src/parser.ts`, `src/parse/`): four phases — line splitting
+- **Parser** (`src/parser.ts`, `src/parse/`): three phases. (1) line splitting
   (`src/parse/lines/split.ts`, rstripping each line as
-  `Helpers.prepare_source_string` does), the **BlockReader**
-  (`src/parse/lines/reader.ts`), a mechanical Chevrotain `CstParser`
-  (`src/parse/grammar.ts`), and the AST-builder visitor
-  (`src/parse/ast-builder.ts`). NOT Asciidoctor.js — see "Why not
-  Asciidoctor.js?" and "Why Chevrotain?" in `docs/design.md`.
+  `Helpers.prepare_source_string` does); (2) the **BlockReader**
+  (`src/parse/lines/reader.ts`), which builds the AST as it reads — a frame IS
+  the node under construction, and closing it builds the node through the pure
+  `(lines, index) → Node` constructors in `src/parse/build/` and pushes it onto
+  the parent frame's children; (3) the **inline tokenizer**
+  (`src/parse/inline/`) — `tokenize.ts`'s ~40-line first-match-wins loop over
+  the ordered rule table in `rules.ts`, run per paragraph run, with
+  `inline-node-builder.ts` pairing marks into nested nodes and
+  `src/parse/positions.ts`'s one `LocationIndex` answering every offset →
+  line/column. No parser library, no grammar, no CST, no visitor. NOT
+  Asciidoctor.js — see "Why not Asciidoctor.js?" and "Why no parser library" in
+  `docs/design.md`.
 
   **The rule: block-level context comes from the reader's frame stack and from
-  nowhere else, and `tests/parser/architecture.test.ts` enforces it.** The
+  nowhere else, and `tests/parser/architecture.test.ts` enforces it — including
+  a `from "chevrotain"` row, so no module under `src/parse` can import the old
+  parser toolkit back. That row and the custom-pattern / lexer-mode /
+  parser-gate rows are literal Chevrotain spellings; a DIFFERENT parser library
+  would need a new row, so add one rather than assuming it is caught.** The
   BlockReader walks the lines ONCE with an explicit stack that mirrors
   Asciidoctor's reader (`Parser.next_section`, `next_block`,
   `read_paragraph_lines`, `read_lines_for_list_item`, `Reader.read_lines_until`)
-  and emits one pre-classified token per line plus zero-length boundary tokens
-  (`ParagraphStart`/`ParagraphEnd`, `ItemEnd`, `ListEnd`, `SectionEnd`,
-  `UnclosedEnd`) that spell out every nesting decision. So the grammar is LL(1)
-  on distinct first tokens: no parser-state gates, no backtracking, no custom
-  token pattern reading the token history, no lexer modes, and no post-hoc AST
-  repair pass — the guard test asserts all of that textually over every file in
-  `src/parse`, plus zero import cycles (from `dependency-cruiser`, through the
-  same `cruiseImports` helper `bun run metrics` gates on) and a ceiling on lint
-  suppressions.
+  and builds each block's node where Asciidoctor would have closed it, so no
+  later stage re-derives nesting: no parser-state gates, no backtracking, no
+  custom token pattern reading the token history, no lexer modes, and no
+  post-hoc AST repair pass — the guard test asserts all of that textually over
+  every file in `src/parse`, plus zero import cycles (from `dependency-cruiser`,
+  through the same `cruiseImports` helper `bun run metrics` gates on) and a
+  ceiling on lint suppressions.
 
   Line SHAPES live in one registry, `src/parse/line-shapes.ts`, oracle-pinned by
   `tests/conformance/interruption.test.ts` and cited to the Asciidoctor Ruby
@@ -45,10 +54,10 @@ source → splitLines → BlockReader(classifyLine) → IToken[] → CstParser �
   as block syntax. Lists are `read_lines_for_list_item` in
   `src/parse/lines/list-reader.ts` with `list-frames.ts`/`list-item.ts`;
   `frames.ts` holds the types those share with `reader.ts` so the three stay a
-  DAG. Paragraph text is the one thing still lexed: the reader runs the
-  single-mode inline lexer (`src/parse/tokens.ts`) over each run of paragraph
-  lines and splices the rebased tokens between the paragraph's boundaries. See
-  "Line classification is contextual" in `docs/design.md`, and
+  DAG. Paragraph text is tokenized by the hand-rolled tokenizer
+  (`src/parse/inline/tokenize.ts`) over each run of paragraph lines, and the
+  paragraph node is built from those tokens (`src/parse/build/paragraph.ts`).
+  See "Line classification is contextual" in `docs/design.md`, and
   `docs/simplicity-metrics.md` for how the change was measured.
 
 - **AST** (`src/ast.ts`): Designed for Prettier, not the AsciiDoc language
@@ -91,14 +100,14 @@ source → splitLines → BlockReader(classifyLine) → IToken[] → CstParser �
 
 ## Tech Stack
 
-- Chevrotain, for the tree-assembly layer only: a `CstParser` fed the
-  BlockReader's `IToken[]` directly, the CST + visitor, and the single-mode
-  inline lexer. Its lexer modes, parser-state gates and token-history custom
-  patterns are deliberately unused — the reader owns block context
+- **No runtime dependencies.** The parse layer is a line reader plus a 40-line
+  inline tokenizer; `prettier` is a peer dependency. (History: Chevrotain's
+  `CstParser`, visitor and lexer were removed on 2026-08-21 and the dependency
+  with them — see "Why no parser library" in `docs/design.md`.)
 - TypeScript (strict, ES2024 target)
 - ESM modules (`"type": "module"`)
-- `Bun.build` via `scripts/build.ts` (ESM into `dist/`, external prettier and
-  chevrotain)
+- `Bun.build` via `scripts/build.ts` (ESM into `dist/`, external prettier — the
+  only external)
 - Vitest for testing
 - ESLint 10 with typescript-eslint strict, eslint-config-love,
   eslint-config-prettier, eslint-plugin-jsdoc, eslint-plugin-unicorn,

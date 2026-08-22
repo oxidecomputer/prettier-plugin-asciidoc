@@ -5,8 +5,11 @@
  *
  * Two tiers of input generation:
  * - Tier 1: random Unicode strings (baseline crash testing)
- * - Tier 2: AsciiDoc "line soup" — random lines drawn from a
- *   vocabulary covering every token type in src/parse/tokens.ts
+ * - Tier 2: AsciiDoc "line soup" — random lines drawn from a fixed
+ *   vocabulary of AsciiDoc-shaped lines. The vocabulary samples the
+ *   inline kinds of src/parse/inline/tokens.ts and the line kinds of
+ *   src/parse/lines/classify.ts; it does not enumerate either, and the
+ *   coverage across the LineKinds is uneven by construction.
  */
 import fc from "fast-check";
 import type { Arbitrary } from "fast-check";
@@ -22,7 +25,8 @@ const trimOrFallback = (s: string): string => {
 /**
  * Tier 1: purely random Unicode input. Catches crashes on
  * null bytes, emoji, BOM, control characters, multi-byte
- * sequences — anything the lexer doesn't expect at all.
+ * sequences — anything the classifier and the tokenizer have no
+ * rule for.
  */
 export const randomInput = fc.string({
   unit: "grapheme-composite",
@@ -30,10 +34,11 @@ export const randomInput = fc.string({
 });
 
 // ── Tier 2: AsciiDoc-flavored line soup ─────────────────────
-// Each line is drawn from a vocabulary that covers every token
-// type defined in src/parse/tokens.ts. Lines are shuffled
-// randomly with no nesting awareness — the point is to produce
-// unexpected token sequences that stress recovery paths.
+// Each line is drawn from a vocabulary of AsciiDoc-shaped lines
+// sampling the inline kinds of src/parse/inline/tokens.ts. Lines are
+// shuffled randomly with no nesting awareness — the point is to feed
+// the reader line sequences no real document would produce, and check
+// that it still returns a total, well-formed AST.
 //
 // Split into two arrays so callers can opt out of include
 // directives (which can't be resolved in synthetic input and

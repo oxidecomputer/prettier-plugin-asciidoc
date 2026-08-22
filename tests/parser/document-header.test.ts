@@ -86,9 +86,10 @@ describe("document title parsing", () => {
 
   // The document title must not be confused with section headings.
   // `== Title` is a section (level 1), not a document title.
-  // Disambiguation works because the DocumentTitle token (`= `)
-  // has higher priority than SectionMarker (`== `..`======`)
-  // in the Chevrotain lexer, so `= Title` always matches first.
+  // Disambiguation is by heading LEVEL: the classifier counts the
+  // `=` run, and the reader treats level 0 as the document title and
+  // anything deeper as a section (`BlockReader.sectionTitle` in
+  // src/parse/lines/reader.ts).
   test("== is a section, not a document title", () => {
     const document = parse("== Section\n");
     expect(document.children).toHaveLength(1);

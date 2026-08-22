@@ -1,11 +1,13 @@
 import { describe, test, expect } from "vitest";
 import { parse } from "../../src/parser.js";
 
-describe("parser error recovery", () => {
-  // The formatter must never throw on valid-looking input.
-  // Even if the grammar doesn't recognize some constructs,
-  // the parser should produce a partial AST rather than crash.
-
+// TOTALITY. `parse` is a total function: every string is a document.
+// There is no recognition step that can fail and no error-recovery
+// mode to fall into — a line no rule claims becomes paragraph text
+// through the reader's fall-through arm. These rows pin that on the
+// shapes most likely to have been a parse error in a grammar-based
+// parser. (The file keeps its name so its history stays findable.)
+describe("parser totality", () => {
   // Plain prose with no AsciiDoc constructs should parse as a simple
   // paragraph — the reader's fall-through arm opens one for any line
   // no other rule claims. This is the baseline "no crash" case.
@@ -15,9 +17,9 @@ describe("parser error recovery", () => {
     expect(document.children.length).toBeGreaterThan(0);
   });
 
-  // Mixed recognized and unrecognized constructs: the parser
-  // should handle the parts it understands and degrade
-  // gracefully on the rest, never throwing.
+  // Mixed well-formed and malformed constructs: the reader classifies
+  // what it recognises and makes paragraph text of the rest, never
+  // throwing.
   test("mixed recognized and unrecognized constructs", () => {
     const input = [
       "= Title",
@@ -59,9 +61,9 @@ describe("parser error recovery", () => {
     expect(document.type).toBe("document");
   });
 
-  // Malformed attribute entry: missing the closing colon.
-  // The lexer may not even recognize this as an AttributeEntry
-  // token, but either way parsing should not throw.
+  // Malformed attribute entry: missing the closing colon. The
+  // classifier does not recognise it as an attribute entry, so it is
+  // paragraph text — a document either way, never a throw.
   test("malformed attribute entry does not throw", () => {
     const input = ":incomplete-attr\n\nSome text.\n";
     const document = parse(input);

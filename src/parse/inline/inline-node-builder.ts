@@ -1,12 +1,15 @@
 /**
  * Flat token stream → InlineNode[] builder.
  *
- * Takes the merged, sorted token stream from inline-tokens.ts
- * and pairs formatting marks into nested spans. Dispatches
+ * Takes the merged, sorted inline token stream of one paragraph
+ * body and pairs formatting marks into nested spans. Dispatches
  * atomic tokens (links, macros) through a map-based dispatch
  * table.
+ *
+ * A token carries only its bytes and its document offset, so line
+ * and column come from the document's one location index, handed in
+ * as `at`.
  */
-import type { IToken, TokenType } from "chevrotain";
 import type {
   InlineNode,
   InlineMacroNode,
@@ -17,8 +20,8 @@ import type {
   MonospaceNode,
   HighlightNode,
   AttributeReferenceNode,
-} from "../ast.js";
-import { tokenStartLocation, tokenEndLocation } from "./positions.js";
+} from "../../ast.js";
+import type { Fragment, LocationIndex } from "../positions.js";
 import {
   DELIM_WIDTH,
   EMPTY,
@@ -26,23 +29,9 @@ import {
   LAST_ELEMENT,
   NEXT,
   NOT_FOUND,
-} from "../constants.js";
-import { unreachable } from "../unreachable.js";
-import {
-  AttributeReference,
-  BoldMark,
-  HardLineBreak,
-  HighlightMark,
-  InlineAnchor,
-  InlineMacro,
-  InlineNewline,
-  InlineUrl,
-  ItalicMark,
-  MonoMark,
-  RoleAttribute,
-  XrefShorthand,
-} from "./tokens.js";
-import { RawLine } from "./lines/tokens.js";
+} from "../../constants.js";
+import { unreachable } from "../../unreachable.js";
+import type { InlineToken, InlineTokenType } from "./tokens.js";
 import {
   makeLinkFromUrl,
   makeXrefFromShorthand,
@@ -50,19 +39,18 @@ import {
   makeHardLineBreak,
 } from "./inline-link-builder.js";
 
-// Map from mark token type to AST node type. Uses token type
-// identity (not string name) for type-safe dispatch.
+// Map from mark token kind to AST node type.
 const MARK_TO_TYPE = new Map<
-  TokenType,
+  InlineTokenType,
   "bold" | "italic" | "monospace" | "highlight"
 >([
-  [BoldMark, "bold"],
-  [ItalicMark, "italic"],
-  [MonoMark, "monospace"],
-  [HighlightMark, "highlight"],
+  ["BoldMark", "bold"],
+  ["ItalicMark", "italic"],
+  ["MonoMark", "monospace"],
+  ["HighlightMark", "highlight"],
 ]);
 
-// Set of mark token types for fast membership testing.
+// Set of mark token kinds for fast membership testing.
 const MARK_TOKEN_TYPES = new Set(MARK_TO_TYPE.keys());
 
 /**
@@ -78,11 +66,14 @@ const MARK_TOKEN_TYPES = new Set(MARK_TO_TYPE.keys());
  * @returns Index of the matching close mark, or NOT_FOUND
  *   (-1) if none is found.
  */
-function findCloseMark(tokens: IToken[], openIndex: number): number {
+function findCloseMark(
+  tokens: readonly InlineToken[],
+  openIndex: number,
+): number {
   // eslint-disable-next-line @typescript-eslint/prefer-destructuring -- indexed array access
   const openToken = tokens[openIndex];
   const {
-    tokenType: openType,
+    type: openType,
     image: { length: markLength },
   } = openToken;
 
@@ -93,12 +84,8 @@ function findCloseMark(tokens: IToken[], openIndex: number): number {
   ) {
     // eslint-disable-next-line @typescript-eslint/prefer-destructuring -- indexed array access
     const candidate = tokens[scanIndex];
-    // Identity comparison — same token type object and same
-    // image length (single vs double mark).
-    if (
-      candidate.tokenType === openType &&
-      candidate.image.length === markLength
-    ) {
+    // Same kind and same image length (single vs double mark).
+    if (candidate.type === openType && candidate.image.length === markLength) {
       return scanIndex;
     }
   }
@@ -115,27 +102,31 @@ function findCloseMark(tokens: IToken[], openIndex: number): number {
  * @param value - The concatenated text content.
  * @param first - First token that contributed to this text.
  * @param last - Last token that contributed to this text.
+ * @param at - The document's location index.
  * @returns A TextNode with the coalesced value and spanning
  *   position.
  */
-function makeTextNode(value: string, first: IToken, last: IToken): TextNode {
+function makeTextNode(
+  value: string,
+  first: Fragment,
+  last: Fragment,
+  at: LocationIndex,
+): TextNode {
   return {
     type: "text",
     value,
-    position: {
-      start: tokenStartLocation(first),
-      end: tokenEndLocation(last),
-    },
+    position: { start: at.start(first), end: at.end(last) },
   };
 }
 
 // Parameters for makeFormattingNode.
 interface FormattingNodeOptions {
-  markTokenType: TokenType;
+  markType: InlineTokenType;
   constrained: boolean;
   children: InlineNode[];
-  openMark: IToken;
-  closeMark: IToken;
+  openMark: Fragment;
+  closeMark: Fragment;
+  at: LocationIndex;
 }
 
 /**
@@ -153,12 +144,9 @@ interface FormattingNodeOptions {
 function makeFormattingNode(
   options: FormattingNodeOptions,
 ): BoldNode | ItalicNode | MonospaceNode | HighlightNode {
-  const { markTokenType, constrained, children, openMark, closeMark } = options;
-  const type = MARK_TO_TYPE.get(markTokenType);
-  const position = {
-    start: tokenStartLocation(openMark),
-    end: tokenEndLocation(closeMark),
-  };
+  const { markType, constrained, children, openMark, closeMark, at } = options;
+  const type = MARK_TO_TYPE.get(markType);
+  const position = { start: at.start(openMark), end: at.end(closeMark) };
   const base = { constrained, children, position };
   switch (type) {
     case "bold": {
@@ -174,7 +162,10 @@ function makeFormattingNode(
       return { type, role: undefined, ...base };
     }
     case undefined: {
-      return unreachable(`Unknown mark token: ${markTokenType.name}`);
+      // MARK_TO_TYPE above and the tokenizer's mark rules in
+      // `inline/rules.ts` are two lists of the same four kinds. Only
+      // this guard says they have to agree.
+      return unreachable(`Unknown mark token: ${markType}`);
     }
   }
 }
@@ -186,18 +177,19 @@ function makeFormattingNode(
  * Asciidoctor, so the AST preserves them verbatim. The
  * curly braces are stripped to extract just the attribute
  * name for the AST node.
- * @param token - The `{name}` token from the lexer.
+ * @param fragment - The `{name}` token's span.
+ * @param at - The document's location index.
  * @returns An AttributeReferenceNode with the extracted
  *   attribute name and source position.
  */
-function makeAttributeReference(token: IToken): AttributeReferenceNode {
+function makeAttributeReference(
+  fragment: Fragment,
+  at: LocationIndex,
+): AttributeReferenceNode {
   return {
     type: "attributeReference",
-    name: token.image.slice(DELIM_WIDTH, -DELIM_WIDTH),
-    position: {
-      start: tokenStartLocation(token),
-      end: tokenEndLocation(token),
-    },
+    name: fragment.image.slice(DELIM_WIDTH, -DELIM_WIDTH),
+    position: { start: at.start(fragment), end: at.end(fragment) },
   };
 }
 
@@ -210,17 +202,19 @@ function makeAttributeReference(token: IToken): AttributeReferenceNode {
  */
 interface RoleAttributeContext {
   /** The full flat token stream being processed. */
-  tokens: IToken[];
+  tokens: readonly InlineToken[];
   /** Current position in the token stream. */
   index: number;
   /** The RoleAttribute token at the current position. */
-  token: IToken;
+  token: InlineToken;
   /** Flush any accumulated plain text as a TextNode. */
   flushText: () => void;
   /** Append text to the pending plain-text accumulator. */
-  accumulate: (token: IToken, text: string) => void;
+  accumulate: (token: InlineToken, text: string) => void;
   /** Output list of inline nodes built so far. */
   nodes: InlineNode[];
+  /** The document's location index. */
+  at: LocationIndex;
 }
 
 /**
@@ -237,15 +231,12 @@ interface RoleAttributeContext {
  * @returns The next token index to resume processing from.
  */
 function handleRoleAttribute(context: RoleAttributeContext): number {
-  const { tokens, index, token, flushText, accumulate, nodes } = context;
+  const { tokens, index, token, flushText, accumulate, nodes, at } = context;
   const { image: roleImage } = token;
   const roleText = roleImage.slice(DELIM_WIDTH, -DELIM_WIDTH);
   const nextIndex = index + NEXT;
 
-  if (
-    nextIndex < tokens.length &&
-    tokens[nextIndex].tokenType === HighlightMark
-  ) {
+  if (nextIndex < tokens.length && tokens[nextIndex].type === "HighlightMark") {
     const closeIndex = findCloseMark(tokens, nextIndex);
     if (closeIndex !== NOT_FOUND) {
       flushText();
@@ -254,17 +245,14 @@ function handleRoleAttribute(context: RoleAttributeContext): number {
       // eslint-disable-next-line @typescript-eslint/prefer-destructuring -- indexed array access
       const closeMark = tokens[closeIndex];
       const innerTokens = tokens.slice(nextIndex + NEXT, closeIndex);
-      const children = buildFromTokens(innerTokens);
+      const children = buildFromTokens(innerTokens, at);
       const constrained = openMark.image.length === DELIM_WIDTH;
       const highlightNode: HighlightNode = {
         type: "highlight",
         constrained,
         role: roleText,
         children,
-        position: {
-          start: tokenStartLocation(token),
-          end: tokenEndLocation(closeMark),
-        },
+        position: { start: at.start(token), end: at.end(closeMark) },
       };
       nodes.push(highlightNode);
       return closeIndex + NEXT;
@@ -287,13 +275,15 @@ function handleRoleAttribute(context: RoleAttributeContext): number {
  * @param tokens - The flat token stream being processed.
  * @param index - Position of the open formatting mark.
  * @param token - The open mark token itself.
+ * @param at - The document's location index.
  * @returns The built node and next index, or undefined if
  *   no matching close mark was found.
  */
 function handleFormattingMark(
-  tokens: IToken[],
+  tokens: readonly InlineToken[],
   index: number,
-  token: IToken,
+  token: InlineToken,
+  at: LocationIndex,
 ): { node: InlineNode; nextIndex: number } | undefined {
   // Find a close mark that is not immediately adjacent to the
   // open mark. An adjacent close would create an empty
@@ -311,17 +301,18 @@ function handleFormattingMark(
   if (closeIndex === NOT_FOUND) return undefined;
 
   const innerTokens = tokens.slice(index + NEXT, closeIndex);
-  const children = buildFromTokens(innerTokens);
+  const children = buildFromTokens(innerTokens, at);
   const constrained = token.image.length === DELIM_WIDTH;
   // eslint-disable-next-line @typescript-eslint/prefer-destructuring -- indexed array access
   const closeMark = tokens[closeIndex];
   return {
     node: makeFormattingNode({
-      markTokenType: token.tokenType,
+      markType: token.type,
       constrained,
       children,
       openMark: token,
       closeMark,
+      at,
     }),
     nextIndex: closeIndex + NEXT,
   };
@@ -337,21 +328,22 @@ function handleFormattingMark(
  * dispatch category (atomic tokens, then plain text).
  * @param tokens - The flat token stream being processed.
  * @param index - Current position in the token stream.
- * @param token - The token at the current position.
- * @param tokenType - The token's Chevrotain type (passed
- *   separately to avoid redundant property access in the
- *   hot loop).
+ * @param token - The token at the current position; its own `type`
+ *   is the gate. (The kind used to be passed separately, to skip
+ *   the old token's `tokenType` getter in the hot loop; a plain string
+ *   field costs nothing, so the parameter is gone.)
+ * @param at - The document's location index.
  * @returns The built node and next index, or undefined if
  *   the token is not a formatting mark or has no close.
  */
 function dispatchPairedToken(
-  tokens: IToken[],
+  tokens: readonly InlineToken[],
   index: number,
-  token: IToken,
-  tokenType: TokenType,
+  token: InlineToken,
+  at: LocationIndex,
 ): { node: InlineNode; nextIndex: number } | undefined {
-  if (MARK_TOKEN_TYPES.has(tokenType)) {
-    return handleFormattingMark(tokens, index, token);
+  if (MARK_TOKEN_TYPES.has(token.type)) {
+    return handleFormattingMark(tokens, index, token, at);
   }
   return undefined;
 }
@@ -363,35 +355,35 @@ function dispatchPairedToken(
  * (target vs attrlist boundary). All `name:target[attrlist]`
  * inline macros share this same structure, so one builder
  * replaces the previous ten per-macro factories.
- * @param token - The InlineMacro token from the lexer.
+ * @param fragment - The InlineMacro token's span.
+ * @param at - The document's location index.
  * @returns An InlineMacroNode with name, target, and attrlist.
  */
-function makeInlineMacro(token: IToken): InlineMacroNode {
-  const colonIndex = token.image.indexOf(":");
-  const bracketIndex = token.image.indexOf("[");
+function makeInlineMacro(
+  fragment: Fragment,
+  at: LocationIndex,
+): InlineMacroNode {
+  const colonIndex = fragment.image.indexOf(":");
+  const bracketIndex = fragment.image.indexOf("[");
   return {
     type: "inlineMacro",
-    name: token.image.slice(EMPTY, colonIndex),
-    target: token.image.slice(colonIndex + NEXT, bracketIndex),
-    attrlist: token.image.slice(bracketIndex + NEXT, -NEXT),
-    position: {
-      start: tokenStartLocation(token),
-      end: tokenEndLocation(token),
-    },
+    name: fragment.image.slice(EMPTY, colonIndex),
+    target: fragment.image.slice(colonIndex + NEXT, bracketIndex),
+    attrlist: fragment.image.slice(bracketIndex + NEXT, -NEXT),
+    position: { start: at.start(fragment), end: at.end(fragment) },
   };
 }
 
-// Map from token type to factory function for atomic
-// (single-token) inline nodes. Uses token type identity
-// for type-safe dispatch, avoiding a long if/else chain.
-type AtomicFactory = (token: IToken) => InlineNode;
-const ATOMIC_DISPATCH = new Map<TokenType, AtomicFactory>([
-  [AttributeReference, makeAttributeReference],
-  [InlineMacro, makeInlineMacro],
-  [InlineUrl, makeLinkFromUrl],
-  [XrefShorthand, makeXrefFromShorthand],
-  [InlineAnchor, makeInlineAnchor],
-  [HardLineBreak, makeHardLineBreak],
+// Map from token kind to factory function for atomic
+// (single-token) inline nodes, avoiding a long if/else chain.
+type AtomicFactory = (fragment: Fragment, at: LocationIndex) => InlineNode;
+const ATOMIC_DISPATCH = new Map<InlineTokenType, AtomicFactory>([
+  ["AttributeReference", makeAttributeReference],
+  ["InlineMacro", makeInlineMacro],
+  ["InlineUrl", makeLinkFromUrl],
+  ["XrefShorthand", makeXrefFromShorthand],
+  ["InlineAnchor", makeInlineAnchor],
+  ["HardLineBreak", makeHardLineBreak],
 ]);
 
 /**
@@ -404,12 +396,16 @@ const ATOMIC_DISPATCH = new Map<TokenType, AtomicFactory>([
  * for unrecognized token types, signaling the caller to
  * fall through to plain text accumulation.
  * @param token - The token to dispatch.
+ * @param at - The document's location index.
  * @returns The built InlineNode, or undefined if the
  *   token type has no registered factory.
  */
-function handleAtomicToken(token: IToken): InlineNode | undefined {
-  const factory = ATOMIC_DISPATCH.get(token.tokenType);
-  return factory === undefined ? undefined : factory(token);
+function handleAtomicToken(
+  token: InlineToken,
+  at: LocationIndex,
+): InlineNode | undefined {
+  const factory = ATOMIC_DISPATCH.get(token.type);
+  return factory === undefined ? undefined : factory(token, at);
 }
 
 /**
@@ -419,17 +415,15 @@ function handleAtomicToken(token: IToken): InlineNode | undefined {
  * line of its own; it is deliberately NOT a TextNode, which would be
  * reflowed into the surrounding words and turn a comment into visible
  * prose.
- * @param token - The RawLine token (image is the whole line).
+ * @param fragment - The RawLine token's span (the whole line).
+ * @param at - The document's location index.
  * @returns A RawLineNode spanning exactly that line.
  */
-function makeRawLineNode(token: IToken): RawLineNode {
+function makeRawLineNode(fragment: Fragment, at: LocationIndex): RawLineNode {
   return {
     type: "rawLine",
-    value: token.image,
-    position: {
-      start: tokenStartLocation(token),
-      end: tokenEndLocation(token),
-    },
+    value: fragment.image,
+    position: { start: at.start(fragment), end: at.end(fragment) },
   };
 }
 
@@ -450,8 +444,11 @@ function withoutTrailingNewline(pending: string): string {
  * @param index - Position just after the raw line.
  * @returns The index to resume from.
  */
-function skipStructuralNewline(tokens: IToken[], index: number): number {
-  return index < tokens.length && tokens[index].tokenType === InlineNewline
+function skipStructuralNewline(
+  tokens: readonly InlineToken[],
+  index: number,
+): number {
+  return index < tokens.length && tokens[index].type === "InlineNewline"
     ? index + NEXT
     : index;
 }
@@ -473,13 +470,13 @@ function skipStructuralNewline(tokens: IToken[], index: number): number {
  */
 function skipNewlineAfterHardBreak(
   node: InlineNode,
-  tokens: IToken[],
+  tokens: readonly InlineToken[],
   index: number,
 ): number {
   const isHardBreakFollowedByNewline =
     node.type === "hardLineBreak" &&
     index < tokens.length &&
-    tokens[index].tokenType === InlineNewline;
+    tokens[index].type === "InlineNewline";
   return isHardBreakFollowedByNewline ? index + NEXT : index;
 }
 
@@ -497,24 +494,28 @@ function skipNewlineAfterHardBreak(
  * own one token category (role highlights, formatting
  * marks, atomic macros/links, plain text).
  * @param allTokens - Flat, offset-sorted token stream
- *   from the inline lexer.
+ *   from the inline tokenizer.
+ * @param at - The document's location index.
  * @returns The built array of InlineNode AST nodes.
  */
-export function buildFromTokens(allTokens: IToken[]): InlineNode[] {
+export function buildFromTokens(
+  allTokens: readonly InlineToken[],
+  at: LocationIndex,
+): InlineNode[] {
   // Strip trailing InlineNewline — it's a structural
   // separator (paragraph boundary), not inline content.
   // Only between-line newlines should become \n text.
   const { length: tokenCount } = allTokens;
   let end = tokenCount;
-  while (end > EMPTY && allTokens[end - NEXT].tokenType === InlineNewline) {
+  while (end > EMPTY && allTokens[end - NEXT].type === "InlineNewline") {
     end -= NEXT;
   }
   const tokens = end < tokenCount ? allTokens.slice(FIRST, end) : allTokens;
 
   const nodes: InlineNode[] = [];
   let pendingText = "";
-  let pendingStart: IToken | undefined = undefined;
-  let pendingEnd: IToken | undefined = undefined;
+  let pendingStart: InlineToken | undefined = undefined;
+  let pendingEnd: InlineToken | undefined = undefined;
   let index = EMPTY;
 
   /** Flush accumulated plain text into a TextNode. */
@@ -524,7 +525,7 @@ export function buildFromTokens(allTokens: IToken[]): InlineNode[] {
       pendingStart !== undefined &&
       pendingEnd !== undefined
     ) {
-      nodes.push(makeTextNode(pendingText, pendingStart, pendingEnd));
+      nodes.push(makeTextNode(pendingText, pendingStart, pendingEnd, at));
       pendingText = "";
       pendingStart = undefined;
       pendingEnd = undefined;
@@ -540,7 +541,7 @@ export function buildFromTokens(allTokens: IToken[]): InlineNode[] {
    *   tracking).
    * @param text - The text to append.
    */
-  function accumulate(token: IToken, text: string): void {
+  function accumulate(token: InlineToken, text: string): void {
     pendingStart ??= token;
     pendingEnd = token;
     pendingText += text;
@@ -549,7 +550,7 @@ export function buildFromTokens(allTokens: IToken[]): InlineNode[] {
   while (index < tokens.length) {
     // eslint-disable-next-line @typescript-eslint/prefer-destructuring -- indexed array access
     const token = tokens[index];
-    const { tokenType } = token;
+    const { type } = token;
 
     // A raw line owns its output line, so the newlines that bound
     // it are structural: the one that ended the previous line was
@@ -557,16 +558,16 @@ export function buildFromTokens(allTokens: IToken[]): InlineNode[] {
     // and the one that ends the raw line is skipped below. Leaving
     // them in would put stray "\n" into text runs and break the
     // content/separator alternation the printer's fill() needs.
-    if (tokenType === RawLine) {
+    if (type === "RawLine") {
       pendingText = withoutTrailingNewline(pendingText);
       flushText();
-      nodes.push(makeRawLineNode(token));
+      nodes.push(makeRawLineNode(token, at));
       index = skipStructuralNewline(tokens, index + NEXT);
       continue;
     }
 
     // Dispatch to category-specific handlers.
-    if (tokenType === RoleAttribute) {
+    if (type === "RoleAttribute") {
       index = handleRoleAttribute({
         tokens,
         index,
@@ -574,6 +575,7 @@ export function buildFromTokens(allTokens: IToken[]): InlineNode[] {
         flushText,
         accumulate,
         nodes,
+        at,
       });
       continue;
     }
@@ -582,7 +584,7 @@ export function buildFromTokens(allTokens: IToken[]): InlineNode[] {
     // formatting marks (*...*  _..._ `...` #...#). Dispatch
     // to the appropriate handler; fall through as plain text
     // if no matching close mark is found.
-    const pairedResult = dispatchPairedToken(tokens, index, token, tokenType);
+    const pairedResult = dispatchPairedToken(tokens, index, token, at);
     if (pairedResult !== undefined) {
       flushText();
       const { node, nextIndex } = pairedResult;
@@ -593,7 +595,7 @@ export function buildFromTokens(allTokens: IToken[]): InlineNode[] {
 
     // Atomic single-token nodes: attribute references,
     // links, xrefs, inline anchors, macros.
-    const atomicNode = handleAtomicToken(token);
+    const atomicNode = handleAtomicToken(token, at);
     if (atomicNode !== undefined) {
       flushText();
       nodes.push(atomicNode);
@@ -606,7 +608,7 @@ export function buildFromTokens(allTokens: IToken[]): InlineNode[] {
     }
 
     // InlineNewline → \n, everything else → literal image.
-    accumulate(token, tokenType === InlineNewline ? "\n" : token.image);
+    accumulate(token, type === "InlineNewline" ? "\n" : token.image);
     index += NEXT;
   }
 

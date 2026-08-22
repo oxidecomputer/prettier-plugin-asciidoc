@@ -1,11 +1,11 @@
 import { describe, test, expect } from "vitest";
 import { formatAdoc } from "../helpers.js";
 
-describe("format error recovery", () => {
-  // The formatter should never throw on input it doesn't fully
-  // understand. It may not produce perfect output, but it must
-  // produce *something* rather than crashing.
-
+// TOTALITY, at the formatter's edge: `formatAdoc` returns a string
+// for every input. It may not produce the output a human would
+// choose, but it must produce one rather than throwing. (The file
+// keeps its name so its history stays findable.)
+describe("format totality", () => {
   // Plain text with no AsciiDoc constructs should format as-is.
   test("plain prose formats without throwing", async () => {
     const input = "Just some regular text.\n";

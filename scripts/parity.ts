@@ -15,7 +15,8 @@
  * jj-managed and often has a concurrent session, and a worktree
  * mutates `.git`. Unlike `scripts/metrics.ts`, the base copy DOES
  * need `bun install --frozen-lockfile`: it runs the baseline's own
- * parser, which imports chevrotain.
+ * parser, and a baseline may have runtime dependencies this revision
+ * does not (every baseline before plan 3 imports chevrotain).
  *
  * The comparison travels as hashes (a full AST dump of 1,600
  * documents is hundreds of megabytes); a mismatching case is then
@@ -36,19 +37,209 @@ const ZERO = 0;
 const ONE = 1;
 
 /**
- * The floor below which a "pass" is meaningless. 1,614 corpus cases +
- * 6 identity fixtures. (It was 1,633 while the vendored TCK's 13
- * `*-input.adoc` documents were a corpus group; Ruling 43 deleted
- * them.) A wrong cwd, a `vendor/` change or a loader regression makes
- * both sides return zero rows, and without this the plan's central
- * gate passes silently on nothing.
+ * The floor below which a "pass" is meaningless: every corpus case
+ * plus every identity fixture, **1,614 + 6 = 1,620** today. Re-derive
+ * both halves before changing it —
+ * `loadCorpus().flatMap((group) => group.cases).length` and
+ * `ls tests/format/fixtures/identity | wc -l` — and change it only
+ * when one of them really moved; tests/scripts/parity.test.ts fails
+ * when the real corpus no longer clears it. (It was 1,633 while the
+ * vendored TCK's 13 `*-input.adoc` documents were a corpus group;
+ * Ruling 43 deleted them.) A wrong cwd, a `vendor/` change or a loader
+ * regression makes both sides return zero rows, and without this the
+ * plan's central gate passes silently on nothing.
  */
 const MINIMUM_CASES = 1620;
 
+/**
+ * Narrow an unknown value to a plain object with string keys.
+ *
+ * `instanceof Object` rather than `!== null`: `unicorn/no-null` bans
+ * the literal outside tests, and this spelling excludes `null` and
+ * every primitive just the same.
+ * @param value - anything reachable from a parsed AST
+ * @returns whether its properties can be read by name
+ */
+function isRecordLike(value: unknown): value is Record<string, unknown> {
+  return value instanceof Object;
+}
+
+/**
+ * Narrow an unknown value to an array whose elements are unknown.
+ *
+ * A guard rather than a bare `Array.isArray`, which narrows to
+ * `any[]` and trips `no-unsafe-assignment` the moment the result is
+ * stored.
+ * @param value - anything reachable from a parsed AST
+ * @returns whether it can be indexed and iterated
+ */
+function isUnknownArray(value: unknown): value is readonly unknown[] {
+  return Array.isArray(value);
+}
+
+/**
+ * Where a node begins, as an offset, or negative infinity for
+ * anything that is not a positioned node — so an absent candidate
+ * always loses the "which one is later" comparison below.
+ * @param value - a revived node, or anything at all
+ * @returns its `position.start.offset`
+ */
+function startOffset(value: unknown): number {
+  if (!isRecordLike(value)) {
+    return Number.NEGATIVE_INFINITY;
+  }
+  const { position } = value;
+  if (!isRecordLike(position)) {
+    return Number.NEGATIVE_INFINITY;
+  }
+  const { start } = position;
+  if (!isRecordLike(start) || typeof start.offset !== "number") {
+    return Number.NEGATIVE_INFINITY;
+  }
+  const { offset } = start;
+  return offset;
+}
+
+/**
+ * The node a list item's or a list's end was COPIED from.
+ *
+ * `src/parse/build/list.ts` gives a list its last item's end, and an
+ * item the end of the last of `blocks` — the run BEFORE the builder
+ * splits it into `attachedBlocks` (everything but nested lists) and
+ * `children` (the nested lists). The AST only has the two halves, so
+ * the last of `blocks` is whichever half's last member starts LATER
+ * in the source. Mirroring that, rather than taking either half that
+ * happens to be blanked, is what keeps this from blanking an end that
+ * never moved.
+ * @param value - a revived `list` or `listItem` node
+ * @returns the node its end came from, or undefined when it holds
+ *   nothing
+ */
+function endSource(value: Record<string, unknown>): unknown {
+  // A literal rather than an imported constant: this body is embedded
+  // into the dumper, where nothing outside the embedded functions
+  // exists.
+  const LAST = -1;
+  const { children } = value;
+  const held = isUnknownArray(children) ? children : [];
+  if (value.type === "list") {
+    return held.at(LAST);
+  }
+  const { attachedBlocks } = value;
+  const entries = isUnknownArray(attachedBlocks) ? attachedBlocks : [];
+  const lastEntry = entries.at(LAST);
+  const attached = isRecordLike(lastEntry) ? lastEntry.block : undefined;
+  const nested = held.findLast(
+    (child) => isRecordLike(child) && child.type === "list",
+  );
+  return startOffset(attached) >= startOffset(nested) ? attached : nested;
+}
+
+/**
+ * The end a node's own end was DERIVED from, for the two kinds whose
+ * end is not read off the source but copied from a block they hold
+ * (see {@link endSource}). Every other node kind positions itself
+ * from its own line or from the source, so it has none.
+ *
+ * Split out from {@link blankOneEnd} only because
+ * `unicorn/consistent-function-scoping` wants it here; it is embedded
+ * into the dumper with the others.
+ * @param value - a revived node
+ * @returns the end it took as its own, or undefined when its end is
+ *   its own
+ */
+function derivedEnd(value: Record<string, unknown>): unknown {
+  if (value.type !== "list" && value.type !== "listItem") {
+    return undefined;
+  }
+  const source = endSource(value);
+  if (!isRecordLike(source)) {
+    return undefined;
+  }
+  const { position } = source;
+  if (!isRecordLike(position)) {
+    return undefined;
+  }
+  const { end } = position;
+  return end;
+}
+
+/**
+ * The `JSON.parse` reviver that blanks one node's end: a parentBlock's
+ * own end, and the end of a list item or list that INHERITED it. The
+ * revive is bottom-up, so by the time a container is visited the block
+ * its end came from already reads `"<allowed>"` if it was blanked.
+ *
+ * Split out only because `unicorn/consistent-function-scoping` wants
+ * it here; it is embedded into the dumper with the others.
+ * @param _key - the property name, unused
+ * @param value - the revived value
+ * @returns the value, or a copy with a blanked `position.end`
+ */
+function blankOneEnd(_key: string, value: unknown): unknown {
+  if (!isRecordLike(value) || !isRecordLike(value.position)) {
+    return value;
+  }
+  if (value.type !== "parentBlock" && derivedEnd(value) !== "<allowed>") {
+    return value;
+  }
+  return {
+    ...value,
+    position: { start: value.position.start, end: "<allowed>" },
+  };
+}
+
+/**
+ * A copy of an AST with the allowlisted `position.end`s blanked.
+ *
+ * The allowlist is the ONE enumerated AST difference (Ruling 39) — a
+ * forced-closed parentBlock's end position — AND its propagation into
+ * list-item and list ends, which are DEFINED as their last block's end
+ * rather than read off the source, so they move with it (Ruling 54).
+ *
+ * The predicate is deliberately WIDER than that sentence: it blanks
+ * EVERY `parentBlock` end, terminated ones included. It has to be — the
+ * dumper sees only the AST, and a parentBlock's node does not record
+ * whether it met its own terminator, so "forced-closed" is not a
+ * question this walk can ask. Soundness comes from the pair of runs
+ * instead: the no-flag run compares every end and reports an exact
+ * count of 64 differing documents, all of them forced-closed blocks, so
+ * no TERMINATED parentBlock's end moved. The flag only stops those 64
+ * from masking anything else.
+ *
+ * Both checkouts blank the same fields, so those fields stop being
+ * compared and NOTHING else changes: a list item whose last block is
+ * not a blanked parentBlock keeps its end under comparison. Never add
+ * a second entry here without an owner ruling.
+ *
+ * A `JSON.parse` reviver, so the walk is the same one that produced
+ * the string we hash: it visits every value, in any shape, and the
+ * `undefined`s it drops are the ones `JSON.stringify` was going to
+ * drop anyway. The result is a copy — the caller's tree is untouched.
+ * The reviver is bottom-up, which is what lets the propagation be
+ * detected: a child is already `"<allowed>"` when its container is
+ * visited.
+ *
+ * This function, `blankOneEnd`, `derivedEnd`, `endSource`,
+ * `startOffset`, `isUnknownArray` and `isRecordLike` are
+ * SELF-CONTAINED on purpose: their source is embedded into the dumper
+ * below with `Function.prototype.toString()`, so the comparison and
+ * its test share one implementation instead of two copies that can
+ * drift. A reference to anything outside these six bodies would
+ * compile here and crash inside the baseline checkout.
+ * @param tree - a parsed AST
+ * @returns a COPY, with the allowlisted ends replaced
+ */
+export function blankParentBlockEnds(tree: unknown): unknown {
+  const blanked: unknown = JSON.parse(JSON.stringify(tree), blankOneEnd);
+  return blanked;
+}
+
 // The dumper is written into BOTH checkouts, so it can only use what
 // the baseline already has: the corpus loader, the format fixtures,
-// `formatAdoc` and `parse`. It prints one JSON line per case, then one
-// timing line.
+// `formatAdoc` and `parse`, plus the six functions embedded
+// verbatim below. It prints one JSON line per case, then one timing
+// line.
 const DUMPER = String.raw`
 import { readdirSync, readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
@@ -57,22 +248,14 @@ import { formatAdoc } from "./tests/helpers.js";
 import { parse } from "./src/parser.js";
 
 const only = process.argv[2] === "-" ? undefined : process.argv[2];
-// The ONE allowlisted AST difference (Ruling 39): a forced-closed
-// parentBlock's end position. Both checkouts blank the same field, so
-// the field stops being compared and NOTHING else changes. Never add a
-// second entry here without an owner ruling.
 const allowParentBlockEnd = process.argv[3] === "allow-parent-block-end";
-const blankParentBlockEnds = (value) => {
-  if (Array.isArray(value)) {
-    for (const element of value) blankParentBlockEnds(element);
-    return;
-  }
-  if (typeof value !== "object" || value === null) return;
-  if (value.type === "parentBlock" && value.position !== undefined) {
-    value.position = { start: value.position.start, end: "<allowed>" };
-  }
-  for (const child of Object.values(value)) blankParentBlockEnds(child);
-};
+${isRecordLike.toString()}
+${isUnknownArray.toString()}
+${startOffset.toString()}
+${endSource.toString()}
+${derivedEnd.toString()}
+${blankOneEnd.toString()}
+${blankParentBlockEnds.toString()}
 const cases = loadCorpus().flatMap((group) => group.cases);
 const FIXTURES = "tests/format/fixtures/identity";
 for (const name of readdirSync(FIXTURES).toSorted()) {
@@ -102,8 +285,9 @@ for (const one of cases) {
   formatMs += performance.now() - started;
   try {
     const tree = parse(one.input);
-    if (allowParentBlockEnd) blankParentBlockEnds(tree);
-    ast = JSON.stringify(tree);
+    ast = JSON.stringify(
+      allowParentBlockEnd ? blankParentBlockEnds(tree) : tree,
+    );
   } catch (error) {
     ast = "<<THREW>> " + String(error);
   }
@@ -120,8 +304,10 @@ process.stdout.write(
 
 /**
  * One case's two digests (or, in `--only` mode, its two full texts).
+ * Exported for tests/scripts/parity.test.ts, so its rows are the same
+ * shape the dumper really prints rather than a copy of it.
  */
-interface Row {
+export interface Row {
   /** Corpus case id, or `fixture:<name>`. */
   id: string;
   /** The formatted output, hashed (or verbatim in `--only` mode). */
@@ -324,7 +510,16 @@ export function parseArguments(argv: readonly string[]): {
       continue;
     }
     if (argument === "--limit") {
-      limit = Number(rest.shift());
+      // `Number("fast")` is NaN, and `slice(0, NaN)` is empty: the run
+      // would still exit 1 but print not one differing case, which
+      // reads exactly like a harness that found nothing to say.
+      const raw = rest.shift();
+      limit = Number(raw);
+      if (!Number.isInteger(limit) || limit < ZERO) {
+        throw new Error(
+          `parity: --limit needs a non-negative integer, got ${String(raw)}`,
+        );
+      }
       continue;
     }
     if (argument === "--allow-parent-block-end") {
@@ -340,12 +535,15 @@ export function parseArguments(argv: readonly string[]): {
 
 /**
  * The case ids where the two checkouts disagree, in head order with
- * the base-only ids appended.
+ * the base-only ids appended. Exported for
+ * tests/scripts/parity.test.ts: this is the function that decides the
+ * plan's central gate, and every way it could wrongly return an empty
+ * list is a silent pass.
  * @param base - the baseline's rows
  * @param head - this checkout's rows
  * @returns the differing ids
  */
-function differingCases(
+export function differingCases(
   base: Map<string, Row>,
   head: Map<string, Row>,
 ): string[] {
@@ -367,6 +565,24 @@ function differingCases(
     if (!head.has(id)) differing.push(id);
   }
   return differing;
+}
+
+/**
+ * The complaint to print when either checkout produced fewer rows than
+ * the corpus has cases — a gate that passes on nothing is not a gate.
+ * Exported for tests/scripts/parity.test.ts, the other silent-pass
+ * path.
+ * @param headSize - rows this checkout produced
+ * @param baseSize - rows the baseline produced
+ * @returns the message to print, or undefined when both cleared the
+ *   floor
+ */
+export function floorComplaint(
+  headSize: number,
+  baseSize: number,
+): string | undefined {
+  if (headSize >= MINIMUM_CASES && baseSize >= MINIMUM_CASES) return undefined;
+  return `parity: only ${String(headSize)} head / ${String(baseSize)} base cases loaded, expected at least ${String(MINIMUM_CASES)} — the corpus did not load\n`;
 }
 
 /**
@@ -425,11 +641,9 @@ function report(options: {
   process.stdout.write(
     `parity: formatted ${String(head.size)} inputs in ${String(headMs)} ms (head)\n`,
   );
-  // A gate that passes on nothing is not a gate.
-  if (head.size < MINIMUM_CASES || base.size < MINIMUM_CASES) {
-    process.stdout.write(
-      `parity: only ${String(head.size)} head / ${String(base.size)} base cases loaded, expected at least ${String(MINIMUM_CASES)} — the corpus did not load\n`,
-    );
+  const complaint = floorComplaint(head.size, base.size);
+  if (complaint !== undefined) {
+    process.stdout.write(complaint);
     process.exitCode = FAILURE;
   }
   const differing = differingCases(base, head);

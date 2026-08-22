@@ -6,5 +6,5 @@ await Bun.build({
   outdir: "dist",
   format: "esm",
   sourcemap: "external",
-  external: ["prettier", "chevrotain"],
+  external: ["prettier"],
 });

@@ -34,7 +34,7 @@ export const SINGLE = 1;
 // Offset to the next element in a sequential scan.
 // Also used as `length - NEXT` to get the last-element index
 // when `.at(LAST_ELEMENT)` can't be used (e.g. ESLint
-// `prefer-destructuring` contexts). See inline-tokens.ts.
+// `prefer-destructuring` contexts). See inline/inline-node-builder.ts.
 export const NEXT = 1;
 
 // Width of single-character delimiters stripped via
@@ -51,7 +51,7 @@ export const MIN_DELIMITER_LENGTH = 4;
 // ambiguity on re-parse.
 export const SAFE_DELIMITER_PAD = 1;
 
-// Chevrotain uses 1-based lines and columns. These mark the
+// Lines and columns are 1-based, as editors count them. These mark the
 // origin position in a source file.
 export const FIRST_LINE = 1;
 export const FIRST_COLUMN = 1;
@@ -67,3 +67,7 @@ export const NOT_FOUND = -1;
 // Sentinel for auto-numbered callout markers (`<.>`). The
 // value 0 is distinct from any explicit callout number (1+).
 export const AUTO_CALLOUT_NUMBER = 0;
+
+// Midpoint divisor for a binary search: `(low + high) / HALF`.
+// Named because `no-magic-numbers` is on outside tests.
+export const HALF = 2;

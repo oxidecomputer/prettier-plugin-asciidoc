@@ -23,14 +23,16 @@ import { cruiseImports } from "../../scripts/metrics/graph.js";
  * The checks are deliberately textual and blunt, and they read COMMENTS
  * as well as code — there is no parser here. If a rule fires on a
  * comment, reword the comment; do not weaken the rule and do not add an
- * exemption for one file. (That is why the prose in `grammar.ts` and
- * `lines/tokens.ts` says "parser-state gate" rather than spelling the
- * Chevrotain keyword next to a colon.) A false positive costs a
- * rewording; a false negative is the thing we are trying to prevent.
+ * exemption for one file. (That is why prose under `src/parse` says
+ * "parser-state gate" rather than spelling the toolkit keyword next to
+ * a colon, and "parser toolkit" rather than the import specifier.) A
+ * false positive costs a rewording; a false negative is the thing we
+ * are trying to prevent.
  *
  * Nothing here is pinned to a file name except the deletion list: every
- * textual rule runs over EVERY file under `src/parse`, so splitting a
- * module at the line limit cannot move code out from under a rule.
+ * textual rule runs over EVERY file under `src/parse` — and the
+ * parser-toolkit import rule over every file under `src` — so splitting
+ * a module at the line limit cannot move code out from under a rule.
  *
  * The import-graph rules at the bottom are not textual at all: they
  * come from dependency-cruiser, via the same helper the metrics script
@@ -38,14 +40,18 @@ import { cruiseImports } from "../../scripts/metrics/graph.js";
  */
 const PARSE_DIR = "src/parse";
 
+// The whole package: the scope of the parser-toolkit import rule.
+const SRC_DIR = "src";
+
 /**
- * Lint suppressions in `src/parse` after the deletion of the old block
- * path, as a CEILING. Every one of them carries a `--` reason and is
- * either Chevrotain-forced (`require-unicode-regexp` on a file of token
- * patterns, `unicorn/no-null` where a CustomPatternMatcherFunc must
- * return null) or about the visitor's untyped dispatch.
+ * Lint suppressions in `src/parse`, as a CEILING. Nothing the parser
+ * toolkit forced survives: no token pattern needs `null`, no regex is
+ * barred from the `v` flag, and there is no visitor whose dispatch
+ * returns `unknown`. What is left is six `prefer-destructuring` in
+ * inline/inline-node-builder.ts, each an indexed array access in the
+ * pairing loop.
  */
-const SRC_PARSE_ESLINT_DISABLES = 21;
+const SRC_PARSE_ESLINT_DISABLES = 6;
 
 /**
  * Every `.ts` file under a directory, recursively, in posix spelling.
@@ -84,10 +90,10 @@ const FORBIDDEN: Array<[string, RegExp]> = [
   // as a standalone `const m: CustomPatternMatcherFunc = (text, offset,
   // tokens) => …` and assigned to `exec` elsewhere. Keyed on the
   // POSITION (third parameter named `tokens`), not on the type name, so
-  // it fires whether or not the type is spelled out. The inline layer's
-  // legitimate `tokens` parameters (inline-node-builder, ast-builder,
-  // token-builders) are all first or second, so this is precise by
-  // construction rather than by exemption.
+  // it fires whether or not the type is spelled out. Every legitimate
+  // `tokens` parameter in the tree today (inline-node-builder,
+  // text-lines, build/paragraph) is first or second, so this is
+  // precise by construction rather than by exemption.
   [
     "function signature taking the token history as its third parameter",
     /\([^\(\),]*,[^\(\),]*,\s*tokens\b/v,
@@ -116,13 +122,26 @@ const FORBIDDEN: Array<[string, RegExp]> = [
   // single distinct token.) `BACKTRACK` and `LA` are the other two
   // escape hatches out of LL(1) into "decide by looking around".
   //
-  // Run over every file, not just today's `grammar.ts`: this repository
+  // Run over every file, not just the grammar's: this repository
   // splits modules at the line limit, and a rule moved into
   // `grammar-lists.ts` must stay under the same ban.
   ["a parser-state gate", /GATE:/v],
   ["parser backtracking", /BACKTRACK\(/v],
   ["raw parser lookahead", /this\.LA\(/v],
+  // There are no custom token patterns any more: the inline rules are
+  // plain `match(text, index) => length` functions in
+  // src/parse/inline/rules.ts. `exec:` with a paren is the object-literal
+  // pattern form; `regex.exec(text)` in rules.ts has a DOT, not a colon,
+  // so this does not fire on it.
+  ["a custom token pattern", /CustomPatternMatcher|exec:\s*\(/v],
 ];
+
+// The parser toolkit's import specifier. Not in FORBIDDEN because
+// FORBIDDEN runs over `src/parse` only and the plan's Deleted section
+// is about the whole package: this one gets its own walk over `src`
+// (see the test below). It reads comments too — prose under `src`
+// says "parser toolkit", never the specifier.
+const TOOLKIT_IMPORT = /from "chevrotain"/v;
 
 /**
  * Suppression lines in one file that switch a rule off without saying
@@ -163,25 +182,14 @@ describe("parse-layer architecture", () => {
     });
   });
 
-  // A custom token pattern sees `(text, offset)` — the whole document
-  // and where it is. Scanning backwards from `offset` for the previous
-  // newline is how `paragraph-tokens.ts` rebuilt "am I at the start of
-  // a line, and what was the line before?". Files that slice the source
-  // by an AST node's recorded position (paragraph-form.ts) are not
-  // token patterns and are not in this set.
-  //
-  // The filter takes the type name OR the `exec:` shape, so a pattern
-  // written inline as `pattern: { exec: (text, offset) => … }` without
-  // ever naming CustomPatternMatcherFunc is still covered.
-  describe.each(
-    files
-      .filter((file) =>
-        /CustomPatternMatcher|exec:\s*\(/v.test(readFileSync(file, "utf8")),
-      )
-      .map((file) => [file] as const),
-  )("%s defines custom token patterns, so it", (file) => {
-    test("does not scan the source backwards", () => {
-      expect(readFileSync(file, "utf8")).not.toMatch(/lastIndexOf\(/v);
+  // The one rule that is about the whole package rather than the parse
+  // layer. It covers the SOURCE text; the dependency itself is covered
+  // elsewhere and does not need a rule here — package.json no longer
+  // lists chevrotain, knip fails on a dependency nothing imports, and
+  // `bun run check` fails on an import that resolves to nothing.
+  describe.each(walk(SRC_DIR).map((file) => [file] as const))("%s", (file) => {
+    test("does not import the parser toolkit", () => {
+      expect(readFileSync(file, "utf8")).not.toMatch(TOOLKIT_IMPORT);
     });
   });
 
@@ -210,18 +218,40 @@ describe("parse-layer architecture", () => {
     "section-builder.ts",
     "discrete-heading.ts",
     "list-builder.ts",
+    "tokens.ts",
+    "inline-link-tokens.ts",
+    "inline-mark-pattern.ts",
+    // These two still exist, one directory down: the list is keyed on
+    // the OLD path, and "stays deleted" here means `src/parse/<name>`
+    // is gone for good — the inline builders live under `inline/`.
+    "inline-node-builder.ts",
+    "inline-link-builder.ts",
+    // The CST-era node constructors. Their contents live on under
+    // `build/`, one file per node family, as pure `(span, index) ->
+    // node` functions with no CST in the signature.
+    "token-builders.ts",
+    "block-helpers.ts",
+    // The parser toolkit's layer: the grammar, the CST types, the
+    // visitor, the block token vocabulary and factory, and the inline
+    // token bridge. The reader builds the AST itself now; a frame is
+    // the node under construction.
+    "grammar.ts",
+    "cst-types.ts",
+    "ast-builder.ts",
+    "inline-tokens.ts",
+    "lines/tokens.ts",
+    "lines/token-factory.ts",
+    "inline-bridge.ts",
   ])("%s stays deleted", (name) => {
     expect(existsSync(path.posix.join(PARSE_DIR, name))).toBe(false);
   });
 
-  // The plan's constraint: no lint suppressions beyond the ones
-  // Chevrotain forces (`require-unicode-regexp` where a token pattern
-  // cannot use the `v` flag, `unicorn/no-null` where a
-  // CustomPatternMatcherFunc must return null) and the visitor-shape
-  // ones. This is the count after the deletions above; it is a
-  // CEILING, so removing a suppression needs no edit here, and adding
-  // one needs an argument in review. Asserted over the SITES so a
-  // failure prints which suppressions are there, not just how many.
+  // The plan's constraint: no lint suppressions beyond
+  // `prefer-destructuring` on indexed access in the inline layer. This
+  // is the count after the deletions above; it is a CEILING, so removing a
+  // suppression needs no edit here, and adding one needs an argument in
+  // review. Asserted over the SITES so a failure prints which
+  // suppressions are there, not just how many.
   test("adds no eslint-disable to src/parse", () => {
     const sites = files.flatMap(disableSites);
     expect(sites.length, sites.join("\n")).toBeLessThanOrEqual(

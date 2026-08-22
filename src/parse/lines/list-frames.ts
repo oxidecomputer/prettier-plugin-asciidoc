@@ -1,14 +1,16 @@
 /**
- * How the reader's stack is searched for an open list.
+ * How the reader's stack is searched for an open list, and how a
+ * finished block gets into the item the innermost list is reading.
  *
  * Split out of list-reader.ts by responsibility: this module answers the
  * two questions the stack has to answer for `read_lines_for_list_item`
- * (`is_sibling_list_item?` and "how many lists are open at this level").
- * list-reader.ts is the loop that reads them; list-item.ts is the
- * per-item state an open list frame carries (`Item`); frames.ts is where
- * `ListFrame`'s shape actually lives, as the "list" branch of `Frame` —
- * this file derives `ListFrame` from it rather than restating the
- * fields, so the two can never drift apart.
+ * (`is_sibling_list_item?` and "how many lists are open at this level"),
+ * and owns the item's inbox ({@link pushIntoItem}) because it already
+ * knows the frame. list-reader.ts is the loop that reads them;
+ * list-item.ts is the per-item state an open list frame carries
+ * (`Item`); frames.ts is where `ListFrame`'s shape actually lives, as
+ * the "list" branch of `Frame` — this file derives `ListFrame` from it
+ * rather than restating the fields, so the two can never drift apart.
  *
  * A list is identified by its marker STYLE: `is_sibling_list_item?`
  * compares `resolve_list_marker` results, so `-` and `*` are different
@@ -18,7 +20,9 @@
  *
  * Nothing here scans backwards or reads the token history.
  */
+import type { BlockNode } from "../../ast.js";
 import { EMPTY, LAST_ELEMENT, NEXT, NOT_FOUND } from "../../constants.js";
+import { unreachable } from "../../unreachable.js";
 import type { Frame, ListHost } from "./frames.js";
 
 /**
@@ -26,6 +30,18 @@ import type { Frame, ListHost } from "./frames.js";
  * under its own name for list-reader.ts and this file to spell out.
  */
 export type ListFrame = Extract<Frame, Record<"kind", "list">>;
+
+/**
+ * Put a finished block into the open list item, behind the mark the
+ * list reader decided for it on the block's first line (see
+ * `Item.takeMark`).
+ * @param frame - the open list frame
+ * @param node - the block to attach
+ */
+export function pushIntoItem(frame: ListFrame, node: BlockNode): void {
+  const { item } = frame;
+  item.attached.push({ block: node, ...item.takeMark() });
+}
 
 /**
  * Narrow a frame to a list frame.
@@ -46,8 +62,11 @@ function isList(frame: Frame | undefined): frame is ListFrame {
 export function outermostList(reader: ListHost): ListFrame {
   const frame = reader.stack.at(listRunBase(reader));
   if (!isList(frame)) {
-    // Unreachable: every caller runs only while a list is open.
-    throw new Error("list-reader called outside a list frame");
+    // Every caller runs only while a list is open, and `listRunBase`
+    // returns the index of a list frame by construction — but that is
+    // an agreement between two functions, so it is asserted rather
+    // than assumed.
+    return unreachable("outermostList: no list frame at the run base");
   }
   return frame;
 }
@@ -83,8 +102,11 @@ export function innermostActiveList(reader: ListHost): number {
 export function innermostList(reader: ListHost): ListFrame {
   const frame = reader.topFrame();
   if (!isList(frame)) {
-    // Unreachable: every caller runs only while a list is open.
-    throw new Error("list-reader called outside a list frame");
+    // Every caller runs only while a list is open, so the top frame is
+    // a list. The guard is what says so: the reader's push/pop order
+    // and the list reader's entry conditions are two places that have
+    // to agree.
+    return unreachable("innermostList: top frame is not a list");
   }
   return frame;
 }

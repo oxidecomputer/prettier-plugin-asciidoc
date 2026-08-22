@@ -6,7 +6,7 @@
  * formatted, and attribute lists are preserved.
  */
 import { describe, test, expect } from "vitest";
-import { formatAdoc } from "../helpers.js";
+import { formatAdoc, renderedHtml } from "../helpers.js";
 
 describe("[verse] on quote block formatting", () => {
   // Verse content must NOT be reflowed — line breaks are
@@ -44,6 +44,20 @@ describe("[source]/[listing]/[literal] on open block formatting", () => {
   test("[source] + open block round-trips", async () => {
     const input = "[source]\n--\nputs 'hello'\n--\n";
     expect(await formatAdoc(input)).toBe(input);
+  });
+
+  // The one behaviour the parentBlock-end fix changes (Ruling 42).
+  // `extractParentBlockContent` slices the source by the block's end
+  // offset; while every forced-closed parent block ended at offset 0,
+  // that slice came back EMPTY and the formatter dropped the block's
+  // content on the floor. No corpus or fixture case reaches this path
+  // with an unterminated block, so it is pinned here.
+  test("an UNTERMINATED [source] + open block keeps its content", async () => {
+    const input = "[source]\n--\na\n";
+    const output = await formatAdoc(input);
+    expect(output.split("\n")).toContain("a");
+    expect(await formatAdoc(output)).toBe(output);
+    expect(renderedHtml(output)).toBe(renderedHtml(input));
   });
 
   test("[source,ruby] + open block round-trips", async () => {
