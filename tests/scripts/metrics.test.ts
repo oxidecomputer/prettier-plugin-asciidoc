@@ -26,7 +26,7 @@ import {
 import { countKnipExports } from "../../scripts/metrics/dead-code.js";
 import { cruiseImports } from "../../scripts/metrics/graph.js";
 import { gateFailures } from "../../scripts/metrics/gates.js";
-import { perLayer, type Snapshot } from "../../scripts/metrics/model.js";
+import { makeSnapshot } from "./metrics-snapshot.js";
 
 /**
  * Scan a snippet as if it were a source file.
@@ -308,74 +308,6 @@ describe("dependency-cruiser coupling", () => {
     expect(graph.unresolved).toEqual(["src/a.ts -> ./missing.js"]);
   });
 });
-
-/**
- * A snapshot with everything at zero except what a gate test varies.
- * @param options - the fields under test
- * @param options.label - the column label
- * @param options.files - files per layer; 0 means the layer is absent
- * @param options.cognitiveMax - cognitive MAX for every layer
- * @param options.cyclomaticOverCount - functions over the cyclomatic tail
- * @param options.disables - `eslint-disable` count
- * @param options.assertions - `as` assertion count
- * @param options.cycles - import cycles, as printable paths
- * @param options.unusedExports - knip unused exports under `src`
- * @returns a complete Snapshot
- */
-function makeSnapshot(options: {
-  label?: string;
-  files?: number;
-  cognitiveMax?: number;
-  cyclomaticOverCount?: number;
-  disables?: number;
-  assertions?: number;
-  cycles?: string[];
-  unusedExports?: number;
-}): Snapshot {
-  const cycles = options.cycles ?? [];
-  return {
-    label: options.label ?? "sample",
-    layers: perLayer(() => ({
-      files: options.files ?? 1,
-      total: 10,
-      code: 5,
-      comment: 5,
-    })),
-    cyclomatic: perLayer(() => ({
-      functions: 1,
-      sum: 1,
-      max: 1,
-      over: options.cyclomaticOverCount ?? 0,
-    })),
-    cognitive: perLayer(() => ({
-      functions: 1,
-      sum: 1,
-      max: options.cognitiveMax ?? 1,
-      over: 0,
-    })),
-    cyclomaticOver: [],
-    coupling: {
-      importEdges: 1,
-      filesInCycles: new Set(cycles).size,
-      cycles,
-      exportedSymbols: 1,
-      starExports: 0,
-      unresolved: [],
-    },
-    hatches: {
-      eslintDisable: options.disables ?? 0,
-      asAssertions: options.assertions ?? 0,
-      nonNull: 0,
-      anyType: 0,
-    },
-    dead: {
-      unusedExports: options.unusedExports ?? 0,
-      unusedScriptExports: 0,
-      duplicatedPercent: 0,
-    },
-  };
-}
-
 // Ruling 35: the cyclomatic tail is REPORT-ONLY. Cyclomatic complexity
 // cannot tell a flat `switch` over a discriminated union from three
 // nested loops, and in a parser the dispatch is the shape the code is

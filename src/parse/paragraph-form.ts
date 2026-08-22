@@ -230,9 +230,10 @@ function extractParentBlockContent(
   // Find the end of the open delimiter line (first newline
   // after the block's start offset).
   const openEnd = sourceText.indexOf("\n", node.position.start.offset);
-  // Defensive: unreachable for valid parser output (a parent
-  // block always has a close delimiter after the open line),
-  // but guards against malformed input.
+  // No newline after the open delimiter means that delimiter line IS
+  // the document's last line, so the block has no content at all:
+  // `"[source]\n--"` reaches here. Ordinary input — nothing about it
+  // is malformed, and nothing is unreachable.
   if (openEnd < FIRST) {
     return "";
   }

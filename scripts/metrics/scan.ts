@@ -15,7 +15,14 @@
  * Code always wins, so a line carrying both is code.
  */
 import ts from "typescript";
-import { NOT_FOUND, ONE, ZERO } from "./model.js";
+import {
+  DEFENSE_MARKERS,
+  NOT_FOUND,
+  ONE,
+  UNREACHABLE_CALLEE,
+  ZERO,
+  type MarkerKey,
+} from "./model.js";
 
 /** Counts for one source file. */
 export interface SourceCounts {
@@ -39,6 +46,16 @@ export interface SourceCounts {
   exports: number;
   /** `export * from "…"` statements, included in `exports` as one each. */
   starExports: number;
+  /** `unreachable(…)` calls, as AST call expressions. */
+  unreachableCalls: number;
+  /** Defense-marker OCCURRENCES in comment trivia, one per mention. */
+  markers: Record<MarkerKey, number>;
+  /**
+   * Markers that read as a marker only once the comment's line breaks
+   * are collapsed — i.e. wrapped, and therefore uncounted. One
+   * `line: marker` string each. See {@link nearMissesIn}.
+   */
+  markerNearMisses: string[];
 }
 
 /**
@@ -198,6 +215,189 @@ function countDisables(sourceFile: ts.SourceFile): number {
 }
 
 /**
+ * How many times one string occurs in another, non-overlapping.
+ *
+ * OCCURRENCES, not comments-that-mention (which is what
+ * {@link countDisables} counts): two `Valid only when` fields
+ * documented in one JSDoc block are two defended fields, and a
+ * scorecard that reported one would understate the burden by exactly
+ * the amount that grouping the comments saved.
+ * @param text - the text to search
+ * @param marker - the substring to count
+ * @returns how many times it occurs
+ */
+function occurrencesIn(text: string, marker: string): number {
+  let count = ZERO;
+  for (
+    let at = text.indexOf(marker);
+    at !== NOT_FOUND;
+    at = text.indexOf(marker, at + marker.length)
+  ) {
+    count += ONE;
+  }
+  return count;
+}
+
+/**
+ * Count each defense marker across a file's comments.
+ *
+ * Written out one field at a time rather than looped over
+ * `Object.keys`: keys come back as `string`, and narrowing them to
+ * `MarkerKey` would need the `as` assertion this scorecard counts.
+ * @param sourceFile - a parsed source file
+ * @returns occurrences per marker
+ */
+function countMarkers(sourceFile: ts.SourceFile): Record<MarkerKey, number> {
+  const text = sourceFile.getFullText();
+  const comments = commentRanges(sourceFile).map((range) =>
+    text.slice(range.pos, range.end),
+  );
+  const occurrences = (marker: string): number => {
+    let count = ZERO;
+    for (const comment of comments) count += occurrencesIn(comment, marker);
+    return count;
+  };
+  return {
+    callerContract: occurrences(DEFENSE_MARKERS.callerContract),
+    totalFallback: occurrences(DEFENSE_MARKERS.totalFallback),
+    validOnlyWhen: occurrences(DEFENSE_MARKERS.validOnlyWhen),
+  };
+}
+
+// A comment's line break plus whatever the continuation line opens
+// with — leading whitespace and either a JSDoc asterisk or a second
+// `//`. This is what turns one sentence into two lines.
+const COMMENT_WRAP = /\n[ \t]*(?:\*|\/\/)?[ \t]*/gv;
+
+// Nothing but whitespace, with exactly one newline: what sits between
+// two `//` lines of ONE logical comment, and not between two comments
+// a blank line apart.
+const ADJACENT = /^[ \t]*\n[ \t]*$/v;
+
+// `at()`'s last-element index.
+const LAST_RANGE = -1;
+
+/**
+ * Markers that a line wrap has made invisible to {@link countMarkers}.
+ *
+ * The counting hazard this closes is one-directional and therefore
+ * silent: the ratchet fires on RISE, so a marker that STOPS being
+ * counted reads as progress. Prettier does not reflow comments, but a
+ * human rewrapping one at 80 columns can split `Valid only when` across
+ * two lines, and the defense then vanishes from the inventory with a
+ * green build.
+ *
+ * Detection is a comparison, not a second pattern: count the marker in
+ * the comment as written, then again with every line break collapsed to
+ * a single space. A marker that only appears in the collapsed text is
+ * wrapped. On this repository's `src` the two counts agree everywhere,
+ * so the check has no false positives to tolerate — and it needs no
+ * upkeep when a marker is added to {@link DEFENSE_MARKERS}.
+ * @param comment - one logical comment's text, delimiters included
+ * @param marker - the marker to look for
+ * @returns whether the comment holds a wrapped, uncounted marker
+ */
+function hasWrappedMarker(comment: string, marker: string): boolean {
+  const collapsed = comment.replaceAll(COMMENT_WRAP, " ");
+  return occurrencesIn(collapsed, marker) > occurrencesIn(comment, marker);
+}
+
+/**
+ * One logical comment: the line it starts on, and its whole text.
+ *
+ * A run of `//` lines is ONE comment to a reader and N ranges to the
+ * compiler, and a wrap turns `// Total fallback: why` into `// Total`
+ * plus `// fallback: why` — two ranges, neither holding the marker.
+ * Grouping them is not a refinement: without it the detector cannot see
+ * a wrap in a `//` comment at all, which is where 8 of this
+ * repository's 11 `Total fallback:` markers live.
+ */
+interface LogicalComment {
+  /** One-based line the group starts on. */
+  readonly line: number;
+  /** Every range's text, rejoined by the newlines that separated them. */
+  readonly text: string;
+}
+
+/**
+ * Group a file's comment ranges into logical comments: consecutive
+ * single-line comments separated by nothing but one newline become one.
+ * @param sourceFile - a parsed source file
+ * @param starts - line start offsets for that file
+ * @returns one entry per logical comment, in source order
+ */
+function logicalComments(
+  sourceFile: ts.SourceFile,
+  starts: number[],
+): LogicalComment[] {
+  const text = sourceFile.getFullText();
+  const groups: LogicalComment[] = [];
+  let previousEnd = ZERO;
+  let previousWasLine = false;
+  for (const range of commentRanges(sourceFile)) {
+    const body = text.slice(range.pos, range.end);
+    const isLine = range.kind === ts.SyntaxKind.SingleLineCommentTrivia;
+    const last = groups.at(LAST_RANGE);
+    if (
+      isLine &&
+      previousWasLine &&
+      last !== undefined &&
+      ADJACENT.test(text.slice(previousEnd, range.pos))
+    ) {
+      groups[groups.length - ONE] = {
+        line: last.line,
+        text: `${last.text}\n${body}`,
+      };
+    } else {
+      groups.push({ line: lineAt(starts, range.pos) + ONE, text: body });
+    }
+    const { end } = range;
+    previousEnd = end;
+    previousWasLine = isLine;
+  }
+  return groups;
+}
+
+/**
+ * Every wrapped marker in a file, as `line: marker`.
+ *
+ * The line is the logical comment's FIRST line, which is where a reader
+ * has to start looking; the wrap itself is one or two lines below it.
+ * @param sourceFile - a parsed source file
+ * @param starts - line start offsets for that file
+ * @returns one string per wrapped marker, in source order
+ */
+function nearMissesIn(sourceFile: ts.SourceFile, starts: number[]): string[] {
+  const found: string[] = [];
+  for (const { line, text } of logicalComments(sourceFile, starts)) {
+    for (const marker of Object.values(DEFENSE_MARKERS)) {
+      if (hasWrappedMarker(text, marker)) {
+        found.push(`${String(line)}: ${marker}`);
+      }
+    }
+  }
+  return found;
+}
+
+/**
+ * Is this a call to `unreachable`?
+ *
+ * Matched as a CALL EXPRESSION whose callee is that identifier, which
+ * is what separates a thrown guard from the one comment under `src`
+ * that merely names the function while explaining why a nearby site is
+ * a silent strip instead (Ruling 34).
+ * @param node - any node
+ * @returns whether it is such a call
+ */
+function isUnreachableCall(node: ts.Node): boolean {
+  return (
+    ts.isCallExpression(node) &&
+    ts.isIdentifier(node.expression) &&
+    node.expression.text === UNREACHABLE_CALLEE
+  );
+}
+
+/**
  * How many names one exporting statement publishes.
  *
  * `export { a, b, c }` is three names, not one; `export const a = 1, b = 2`
@@ -290,6 +490,7 @@ export function scanSource(fileName: string, text: string): SourceCounts {
   let assertions = ZERO;
   let nonNull = ZERO;
   let anyType = ZERO;
+  let unreachableCalls = ZERO;
   walkNodes(sourceFile, (node) => {
     if (ts.isAsExpression(node) || ts.isTypeAssertionExpression(node)) {
       if (!isConstAssertion(node)) assertions += ONE;
@@ -297,6 +498,8 @@ export function scanSource(fileName: string, text: string): SourceCounts {
       nonNull += ONE;
     } else if (node.kind === ts.SyntaxKind.AnyKeyword) {
       anyType += ONE;
+    } else if (isUnreachableCall(node)) {
+      unreachableCalls += ONE;
     }
   });
   let exports = ZERO;
@@ -318,5 +521,8 @@ export function scanSource(fileName: string, text: string): SourceCounts {
     anyType,
     exports,
     starExports,
+    unreachableCalls,
+    markers: countMarkers(sourceFile),
+    markerNearMisses: nearMissesIn(sourceFile, lineStarts(text)),
   };
 }

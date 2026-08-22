@@ -266,6 +266,9 @@ class BlockReader implements ListHost {
    * @returns the top of the stack
    */
   topFrame(): Frame {
+    // Total fallback: the root frame is pushed at construction and
+    // never popped, so the stack is never empty — `at` types the miss
+    // whether or not it can happen.
     return this.stack.at(LAST_ELEMENT) ?? this.root;
   }
 
@@ -287,9 +290,10 @@ class BlockReader implements ListHost {
   push(node: BlockNode): void {
     const frame = this.topFrame();
     if (frame.kind === "verbatim") {
-      // Unreachable: inside a verbatim frame every line is content or
-      // the terminator, and content is sliced from the source at
-      // close. Kept as a total function rather than a throw.
+      // Total fallback: inside a verbatim frame every line is content
+      // or the terminator, and content is sliced from the source at
+      // close, so nothing is ever pushed here. Returning keeps the
+      // function total rather than throwing.
       return;
     }
     frame.children.push(node);
@@ -655,9 +659,10 @@ class BlockReader implements ListHost {
         frame.terminator === line.text,
     );
     if (target === NOT_FOUND) {
-      // Unreachable: classifyLine reports delimiterClose only for a
-      // terminator this stack holds. The fallback keeps block level
-      // unable to fail, which is the reader's contract.
+      // Total fallback: classifyLine reports delimiterClose only for a
+      // terminator this stack holds. Reading the line as a paragraph
+      // instead keeps block level unable to fail, which is the
+      // reader's contract.
       this.paragraph("paragraph", line, FIRST);
       return;
     }
@@ -665,6 +670,8 @@ class BlockReader implements ListHost {
     // it before the block ends, or it would surface after the close.
     this.flushMetadata();
     this.closeDownTo(target + NEXT, line);
+    // Total fallback: closeDownTo left the target frame on top of the
+    // stack, so this pop cannot miss.
     const frame = this.stack.pop() ?? this.root;
     this.closeFrame(frame, {
       close: fragmentOfLine(line),
@@ -716,6 +723,8 @@ class BlockReader implements ListHost {
   closeDownTo(depth: number, line?: SourceLine): void {
     const close = this.forcedClose(line);
     while (this.stack.length > depth) {
+      // Total fallback: the loop condition is the non-empty proof this
+      // pop needs; `pop` types the miss whether or not it can happen.
       this.closeFrame(this.stack.pop() ?? this.root, close);
     }
   }
@@ -764,8 +773,10 @@ class BlockReader implements ListHost {
         break;
       }
       default: {
-        // The document frame never closes: readDocument reads it off
-        // the reader once the run is over.
+        // Total fallback: the document frame never closes — readDocument
+        // reads it off the reader once the run is over — so this arm is
+        // never taken. Breaking rather than throwing keeps closeFrame
+        // total over the whole Frame union.
         break;
       }
     }

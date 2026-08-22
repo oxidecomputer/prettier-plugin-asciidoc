@@ -37,7 +37,11 @@ export interface BlockExtent {
   readonly open: Fragment;
   /** The block's own closing delimiter, when it had one. */
   readonly close: Fragment | undefined;
-  /** The zero-length forced-close boundary, when it did not. */
+  /**
+   * The zero-length forced-close boundary, when it did not.
+   * Valid only when `close` is undefined: the two spell the same fact
+   * from opposite sides, and the reader always supplies exactly one.
+   */
   readonly unclosed: Fragment | undefined;
   /**
    * The whole document. Verbatim content is sliced out of it rather

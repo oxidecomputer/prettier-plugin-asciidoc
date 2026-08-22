@@ -157,6 +157,13 @@ function takeCheckbox(
  * @returns the depth
  */
 function markerDepth(marker: Fragment): number {
+  // NOT a can't-happen fallback, unlike the marked one in
+  // calloutNumberOf below: this `??` is LIVE and answers WRONG.
+  // Every MARKER_STYLES pattern ends in a `(?= )` lookahead for a
+  // literal space, so a TAB-gapped marker misses and the depth
+  // collapses to 1 — `* a` then `**<tab>b` reprints as two siblings,
+  // flattening a nesting the oracle keeps. Issue #42; do not mark this
+  // as a degrade-instead-of-throw site, it is a bug with a fallback.
   const style = listMarkerStyle(marker.image) ?? "*";
   return style === "-" ? OUTERMOST_DEPTH : style.length;
 }
@@ -167,6 +174,10 @@ function markerDepth(marker: Fragment): number {
  * @returns the number, or the auto sentinel
  */
 function calloutNumberOf(marker: Fragment): number {
+  // Total fallback: only a callout ITEM reaches here, and the reader
+  // opened it because this marker already matched the callout shape,
+  // so the group is always there. Degrading to `.` (auto-numbering)
+  // rather than throwing keeps the builder total.
   const inner = CALLOUT_NUMBER_RE.exec(marker.image)?.groups?.inner ?? ".";
   return inner === "." ? AUTO_CALLOUT_NUMBER : Number.parseInt(inner, 10);
 }

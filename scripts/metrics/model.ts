@@ -41,6 +41,41 @@ export const NOT_FOUND = -1;
 export const CHILD_MAX_BUFFER = 268_435_456;
 
 /**
+ * The comment markers the defense inventory counts, keyed by the
+ * {@link Defense} field each one feeds.
+ *
+ * They live here, in the shared vocabulary, because two modules read
+ * them: `scan.ts` counts them out of each file's comment trivia, and
+ * `gates.ts` names them in a ratchet failure. Each marker must stay on
+ * ONE line where it is written — the count is over comment text, and an
+ * 80-column wrap that splits a marker in two hides the defense from the
+ * inventory. `docs/simplicity-metrics.md` defines what each one means.
+ */
+export const DEFENSE_MARKERS = {
+  callerContract: "Caller contract:",
+  totalFallback: "Total fallback:",
+  validOnlyWhen: "Valid only when",
+} as const;
+
+/** Which {@link Defense} counter one comment marker feeds. */
+export type MarkerKey = keyof typeof DEFENSE_MARKERS;
+
+/**
+ * The function whose call sites count as a thrown can't-happen guard.
+ * Counted as CALL EXPRESSIONS rather than by text (Ruling 34): the one
+ * prose mention of it under `src` — in `reflow.ts`, explaining why a
+ * site is a silent strip instead — must not read as a call.
+ */
+export const UNREACHABLE_CALLEE = "unreachable";
+
+/**
+ * The module that DEFINES `unreachable`, excluded from its own count:
+ * `narrow` calls it there, and counting that would report the
+ * mechanism as one of its own users.
+ */
+export const UNREACHABLE_MODULE = "src/unreachable.ts";
+
+/**
  * The layers the scorecard reports separately. `src/parse` includes
  * `src/parse/lines`, and `src` includes everything, so a file counts
  * in every layer that contains it.
@@ -83,6 +118,12 @@ export interface FileScan {
   exports: number;
   /** `export * from "…"` statements, one each inside `exports`. */
   starExports: number;
+  /** `unreachable(…)` call sites, as AST call expressions. */
+  unreachableCalls: number;
+  /** Defense-marker occurrences in this file's comments. */
+  markers: Record<MarkerKey, number>;
+  /** Markers a line wrap has hidden, as `line: marker`. */
+  markerNearMisses: string[];
 }
 
 /** Size totals for one layer. */
@@ -147,6 +188,84 @@ interface Coupling {
   unresolved: string[];
 }
 
+/**
+ * How wide one NAMED cross-module interface is: the size of the
+ * vocabulary two modules have to share to meet across it.
+ *
+ * Named, not inferred: an interface with a name is a seam somebody
+ * decided to have, and its member count is the denominator in
+ * Ousterhout's "deep module" ratio — the thing a plan can shrink
+ * deliberately.
+ */
+export interface SeamWidth {
+  /** The interface's name, as the registry spells it. */
+  name: string;
+  /** The file it is declared in, relative to the measured root. */
+  file: string;
+  /**
+   * Property and method signatures on the declaration, or undefined
+   * when that file does not declare it at this revision — which is how
+   * a seam that did not yet exist ratchets from absent, and (at HEAD)
+   * what the head-absent gate fires on.
+   */
+  members: number | undefined;
+  /**
+   * Why the seam cannot be measured as declared — it inherits, or it
+   * is split across merged declarations — or undefined when it can. A
+   * named seam must be ONE flat declaration; see `design.ts`.
+   */
+  fault: string | undefined;
+}
+
+// Not exported, for the same reason `Coupling` and `Hatches` below are
+// not: only `Snapshot` names it, and an export nothing imports is
+// exactly what the scorecard's knip row counts.
+/**
+ * The RESIDUAL DEFENSE BURDEN: code that defends against states the
+ * types still permit.
+ *
+ * Type precision — "how much of the invalid space is unrepresentable" —
+ * is the formal notion and is not computable here, so this counts the
+ * defenses that REMAIN instead. Every field is a budget to ratchet
+ * down, and a defense may only be deleted together with its need. See
+ * `docs/simplicity-metrics.md`.
+ */
+interface Defense {
+  /** `unreachable(…)` call sites under `src`, its own module apart. */
+  unreachableCalls: number;
+  /** `Caller contract:` marker occurrences under `src`. */
+  callerContract: number;
+  /** `Total fallback:` marker occurrences under `src`. */
+  totalFallback: number;
+  /** `Valid only when` marker occurrences under `src`. */
+  validOnlyWhen: number;
+  /**
+   * Hand-audited interior-validation sites: the length of
+   * `scripts/metrics/defense-registry.json`, or undefined at a
+   * revision that has no registry to read.
+   */
+  interiorValidation: number | undefined;
+  /**
+   * Registry entries whose site is gone from the code, as
+   * `file: function`. Non-empty means the registry has rotted, which
+   * is a hard gate rather than a row.
+   */
+  staleEntries: string[];
+  /**
+   * Why the registry could not be read as one: missing, unparseable,
+   * or holding a malformed entry. A hard gate at HEAD; at an archived
+   * base nothing reads it, which is what keeps a historical revision
+   * with no registry reporting `n/a` instead of failing.
+   */
+  registryFaults: string[];
+  /**
+   * Markers a line wrap has hidden from the counts, as
+   * `file:line: marker`. A hard gate: the marker counters can only
+   * fail in this direction, and it reads as progress.
+   */
+  markerNearMisses: string[];
+}
+
 /** Places where a human, not the type system, carries an invariant. */
 interface Hatches {
   /** `eslint-disable` comments. */
@@ -163,6 +282,17 @@ interface Hatches {
 export interface Snapshot {
   /** Column label for the table: a revision, or "head". */
   label: string;
+  /**
+   * Whether the measured checkout is THIS repository, and so the one
+   * this repository's hand-maintained registries describe.
+   *
+   * False for an archived `--base` revision and for a `--root <dir>`
+   * checkout. Those are measured — every number on the table is real —
+   * but not JUDGED by the seam list, the interior-validation registry
+   * or the marker convention, none of which is a fact about them. See
+   * `gates.ts`.
+   */
+  repository: boolean;
   /** Size per layer. */
   layers: Record<Layer, LayerTotals>;
   /** eslint `complexity` per layer. */
@@ -179,6 +309,17 @@ export interface Snapshot {
   coupling: Coupling;
   /** Escape-hatch counts. */
   hatches: Hatches;
+  /** Member count per named seam, in the registry's report order. */
+  seams: SeamWidth[];
+  /** The residual defense burden. */
+  defense: Defense;
+  /**
+   * Resident AGREEMENT HARNESSES, by test path — the category
+   * `scripts/metrics/design.ts` defines. The gate is that this stays
+   * empty, so a non-empty list is always a failure to read, never a
+   * number to compare.
+   */
+  harnesses: string[];
   /** Optional tools; `undefined` where they did not run. */
   dead: DeadCode;
 }

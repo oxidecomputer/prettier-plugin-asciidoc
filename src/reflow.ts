@@ -555,14 +555,16 @@ export function flattenForFill(children: Doc[]): Doc[] {
  * a first-source-line term belongs. Emitting the marker there would
  * open the block with a blank line, so it is dropped.
  *
- * This is unreachable today: a marker only leads a fill when the
- * hazard word came from a source line AFTER the block's first, and
- * the block's first child by definition starts on that first line.
- * It is a defensive strip rather than an `unreachable()` assertion
- * because the consequence of being wrong differs by an order of
- * magnitude — a stray marker costs one missed guard on one
- * paragraph, while an assertion would abort formatting the whole
- * file over a corner case in position bookkeeping.
+ * This strip FIRES. Measured: `"+\nterm2:: def2\n"` prints as
+ * `"+ term2:: def2\n"`, and three cases in the conformance corpus
+ * reach it, all description-list (`term::`) syntax. Why a marker
+ * leads the fill there is open — see issue #43.
+ *
+ * A strip rather than an `unreachable()` assertion because the
+ * consequence of being wrong differs by an order of magnitude — a
+ * stray marker costs one missed guard on one paragraph, while an
+ * assertion would abort formatting the whole file over a corner case
+ * in position bookkeeping.
  * @param parts - Flattened fill parts for a block's inline content.
  * @returns The same parts, without a leading hazard marker.
  */

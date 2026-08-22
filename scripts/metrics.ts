@@ -23,9 +23,16 @@
  *
  * Gates (non-zero exit) live in `metrics/gates.ts`, which is where the
  * policy is stated and tested: an import cycle, an unresolved relative
- * import, a knip unused export under `src`, and — with `--base` — a
- * ratchet on cognitive MAX and on the escape hatches. The cyclomatic
+ * import, a knip unused export under `src`, a resident agreement
+ * harness, a stale interior-validation registry entry, and — with
+ * `--base` — a ratchet on cognitive MAX, on the escape hatches, on
+ * each named seam's width and on each defense counter. The cyclomatic
  * tail is REPORT-ONLY (Ruling 35). Everything else is reported.
+ *
+ * The seam, defense and harness rows are BUDGETS WE MAINTAIN, not
+ * numbers a tool discovers: the seam list, the interior-validation
+ * registry and the harness list are written by hand in
+ * `metrics/design.ts` and reviewed. See `docs/simplicity-metrics.md`.
  *
  * This file is the command line only: argument parsing, materializing
  * the base revision, running the measurement, printing. The measuring
@@ -137,6 +144,23 @@ function rowsOf(snapshot: Snapshot): Array<[string, number | undefined]> {
     ["as assertions", snapshot.hatches.asAssertions],
     ["non-null assertions", snapshot.hatches.nonNull],
     ["any in type position", snapshot.hatches.anyType],
+  );
+  // Seam width, one row per named seam: a row printing "n/a" means the
+  // measured revision does not declare that interface, which is what
+  // lets it ratchet from absent.
+  for (const seam of snapshot.seams) {
+    rows.push([`seam ${seam.name}`, seam.members]);
+  }
+  rows.push(
+    ["unreachable() sites", snapshot.defense.unreachableCalls],
+    ["Caller contract: markers", snapshot.defense.callerContract],
+    ["Total fallback: markers", snapshot.defense.totalFallback],
+    ["Valid only when markers", snapshot.defense.validOnlyWhen],
+    ["interior validation sites", snapshot.defense.interiorValidation],
+    // "(declared)" because nothing scans `tests/`: this row is the
+    // length of a hand-written list, and a row that reads as measured
+    // when it is not is the one thing this scorecard must not print.
+    ["agreement harnesses (declared)", snapshot.harnesses.length],
     ["knip unused exports in src", snapshot.dead.unusedExports],
     ["knip unused exports in scripts", snapshot.dead.unusedScriptExports],
     ["jscpd duplicated %", snapshot.dead.duplicatedPercent],
@@ -228,6 +252,12 @@ interface Options {
   duplication: boolean;
   /** The checkout to measure; this repository unless overridden. */
   root: string;
+  /**
+   * Whether `--root` pointed the measurement somewhere else. The
+   * design registries describe THIS repository, so a foreign checkout
+   * is measured and not judged by them (see `Snapshot.repository`).
+   */
+  foreignRoot: boolean;
 }
 
 // The two options that take a value, in either `--flag value` or
@@ -277,10 +307,8 @@ function applyOption(
       return { ...options, base: value };
     }
     case "--root": {
-      return {
-        ...options,
-        root: value === undefined ? options.root : path.resolve(value),
-      };
+      if (value === undefined) return options;
+      return { ...options, root: path.resolve(value), foreignRoot: true };
     }
     case "--json": {
       return { ...options, json: true };
@@ -309,6 +337,7 @@ function parseArguments(argv: string[]): Options {
     json: false,
     duplication: false,
     root: REPO_ROOT,
+    foreignRoot: false,
   };
   const rest = [...argv];
   while (rest.length > ZERO) {
@@ -351,21 +380,31 @@ async function main(): Promise<void> {
   const configPath = writeEslintConfig(workDirectory);
   let baseDirectory: string | undefined = undefined;
   try {
-    const head = await measure(
-      options.root,
-      "head",
+    const head = await measure({
+      directory: options.root,
+      label: "head",
       configPath,
-      options.duplication,
-    );
+      duplication: options.duplication,
+      // `--root` points at somebody else's checkout, which the design
+      // registries do not describe; without `--root` head IS this
+      // repository. Tracked as a flag rather than compared as a path,
+      // because a symlinked root would make the comparison say "not
+      // us" and silently switch three hard gates off.
+      repository: !options.foreignRoot,
+    });
     let base: Snapshot | undefined = undefined;
     if (options.base !== undefined) {
       baseDirectory = materialize(options.base);
-      base = await measure(
-        baseDirectory,
-        options.base,
+      base = await measure({
+        directory: baseDirectory,
+        label: options.base,
         configPath,
-        options.duplication,
-      );
+        duplication: options.duplication,
+        // An archived revision predates whatever the registries say
+        // today; it supplies the ratchets' left-hand column and
+        // nothing else.
+        repository: false,
+      });
     }
     if (options.json) {
       process.stdout.write(

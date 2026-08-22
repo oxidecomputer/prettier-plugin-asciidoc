@@ -119,10 +119,11 @@ const DELIMITER_CHARS: Record<LeafBlockVariant, string> = {
 // example → `=`, sidebar → `*`). Used by
 // computeMasqueradeDelimiter when no explicit sourceDelimiter
 // is present on the node.
-// These entries exist for defensive completeness; in
-// practice all masquerade variants currently carry a
-// sourceDelimiter (case 1) or use paragraph form
-// (caught before this function is called).
+// Total fallback: in practice all masquerade variants
+// carry a sourceDelimiter (case 1) or use paragraph form
+// (caught before that function is called), so this table
+// is never read. It invents a plausible delimiter rather
+// than throwing.
 type MasqueradedVariant = "verse" | "example" | "sidebar" | "quote";
 const MASQUERADE_DELIMITER_CHARS: Record<MasqueradedVariant, string> = {
   verse: "_",
@@ -568,6 +569,14 @@ export function printAdmonition(
   // Delimited form: use the stored delimiter variant to
   // reconstruct the correct delimiters (example `====` or
   // open `--`).
+  // Total fallback: `delimiter` is set whenever `form` is
+  // `"delimited"` — paragraph-form.ts is its single writer
+  // and always passes `next.variant` — so the `example`
+  // default is never read. It is exactly the cost the
+  // validity marker on AdmonitionNode.delimiter names,
+  // which is why it is counted here. (Spelling that marker
+  // out would make this comment one, and the count would
+  // report a defended field that does not exist.)
   const delimVariant = node.delimiter ?? "example";
   const { [delimVariant]: delimChar } = PARENT_DELIMITER_CHARS;
   // For non-open delimiters, ensure the admonition's delimiter is

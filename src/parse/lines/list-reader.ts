@@ -724,6 +724,9 @@ class ExtentScan {
    */
   private erase(at: number): void {
     const target = this.buffer.at(at);
+    // Total fallback: both callers pass an index into a line they just
+    // pushed or read, so the line is there. Doing nothing rather than
+    // throwing keeps the scan total.
     if (target !== undefined) {
       this.buffer[at] = { ...target, text: "" };
     }

@@ -47,10 +47,11 @@ export function tokenizeInline(
         break;
       }
     }
-    // Unreachable while `InlineChar` is last in the table: it matches
-    // any character but a newline, and a newline is matched by
-    // InlineNewline. Kept as a one-character step rather than a throw
-    // so the tokenizer stays total whatever the table says.
+    // Total fallback: unreachable while `InlineChar` is last in the
+    // table — it matches any character but a newline, and a newline is
+    // matched by InlineNewline. Kept as a one-character step rather
+    // than a throw so the tokenizer stays total whatever the table
+    // says.
     if (length === EMPTY) {
       tokens.push({
         type: "InlineChar",

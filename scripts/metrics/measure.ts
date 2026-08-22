@@ -16,11 +16,13 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { measureComplexity } from "./complexity.js";
 import { readDeadCode } from "./dead-code.js";
+import { readDesign } from "./design.js";
 import { cruiseImports } from "./graph.js";
 import {
   layersFor,
   ONE,
   perLayer,
+  UNREACHABLE_MODULE,
   ZERO,
   type FileScan,
   type Layer,
@@ -90,21 +92,67 @@ function total(scans: FileScan[], pick: (scan: FileScan) => number): number {
 }
 
 /**
+ * Total the `unreachable(…)` call sites, its own module apart.
+ *
+ * The exclusion is here rather than in `scan.ts` because this is where
+ * a path is known to be `src/…`: the scanner counts what a file
+ * contains and the aggregate decides which files the policy is about.
+ * @param scans - one entry per measured file
+ * @returns call sites outside `src/unreachable.ts`
+ */
+function unreachableSites(scans: FileScan[]): number {
+  return total(scans, (scan) =>
+    scan.path === UNREACHABLE_MODULE ? ZERO : scan.unreachableCalls,
+  );
+}
+
+/**
+ * Every wrapped, uncounted marker in the tree, placed by file and line.
+ *
+ * Assembled here rather than in `scan.ts` for the same reason the
+ * `unreachable()` exclusion is: the scanner reports what one file
+ * holds, and only the aggregate knows that file's path.
+ * @param scans - one entry per measured file
+ * @returns one `file:line: marker` string per near miss
+ */
+function nearMisses(scans: FileScan[]): string[] {
+  return scans.flatMap((scan) =>
+    scan.markerNearMisses.map((where) => `${scan.path}:${where}`),
+  );
+}
+
+/** What one `measure` call is being asked to do. */
+export interface Measurement {
+  /** Checkout root; must contain `src`. */
+  directory: string;
+  /** Column label for the table: a revision, or "head". */
+  label: string;
+  /** Absolute path of the metrics eslint config. */
+  configPath: string;
+  /** Also run jscpd (report-only). */
+  duplication: boolean;
+  /**
+   * Whether this checkout is THIS repository, and so the one the
+   * hand-maintained design registries describe. See
+   * `Snapshot.repository`.
+   */
+  repository: boolean;
+}
+
+/**
  * Measure one checkout.
- * @param directory - checkout root; must contain `src`
- * @param label - column label for the table
- * @param configPath - absolute path of the metrics eslint config
- * @param duplication - also run jscpd (report-only)
+ *
+ * Takes an options object rather than five positionals: `label` and
+ * `repository` are both "which checkout is this?" and a caller that
+ * transposed them would silently gate a base revision.
+ * @param measurement - which checkout, labelled how, with which tools
  * @returns the snapshot
  */
-export async function measure(
-  directory: string,
-  label: string,
-  configPath: string,
-  duplication: boolean,
-): Promise<Snapshot> {
+export async function measure(measurement: Measurement): Promise<Snapshot> {
+  const { directory, label, configPath, duplication, repository } = measurement;
   const files = walkTypeScript(path.join(directory, "src")).toSorted();
   const scans = files.map((file) => scanFile(directory, file));
+  const design = readDesign(directory);
   const graph = await cruiseImports(directory);
   const { cyclomatic, cognitive, cyclomaticOver } = measureComplexity(
     directory,
@@ -112,6 +160,7 @@ export async function measure(
   );
   return {
     label,
+    repository,
     layers: aggregateLayers(scans),
     cyclomatic,
     cognitive,
@@ -130,6 +179,18 @@ export async function measure(
       nonNull: total(scans, (scan) => scan.nonNull),
       anyType: total(scans, (scan) => scan.anyType),
     },
+    seams: [...design.seams],
+    defense: {
+      unreachableCalls: unreachableSites(scans),
+      callerContract: total(scans, (scan) => scan.markers.callerContract),
+      totalFallback: total(scans, (scan) => scan.markers.totalFallback),
+      validOnlyWhen: total(scans, (scan) => scan.markers.validOnlyWhen),
+      interiorValidation: design.interiorValidation,
+      staleEntries: [...design.staleEntries],
+      registryFaults: [...design.registryFaults],
+      markerNearMisses: nearMisses(scans),
+    },
+    harnesses: [...design.harnesses],
     dead: readDeadCode(directory, duplication),
   };
 }

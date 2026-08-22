@@ -457,10 +457,11 @@ export interface DelimitedBlockNode extends Node {
   content: string;
   /**
    * Source language hint from a Markdown-style fenced code
-   * block (e.g. "rust" from `` ```rust ``). Only present when
-   * the block originated from fenced code syntax with a
-   * language specified. The printer uses this to emit a
-   * `[source,lang]` attribute list during normalization.
+   * block (e.g. "rust" from `` ```rust ``). Valid only when
+   * `fenced` is true: the fence is the only syntax carrying a
+   * language hint, so the parser sets the two together. The
+   * printer uses this to emit a `[source,lang]` attribute list
+   * during normalization.
    */
   language?: string;
   /**
@@ -523,21 +524,27 @@ export interface AdmonitionNode extends Node {
    */
   form: "paragraph" | "delimited";
   /**
-   * For delimited form: which parent block delimiter wraps
-   * the content (`"example"` for `====`, `"open"` for `--`).
-   * Undefined for paragraph form.
+   * Which parent block delimiter wraps the content
+   * (`"example"` for `====`, `"open"` for `--`).
+   * Valid only when `form` is `"delimited"`; undefined for
+   * paragraph form.
    */
   delimiter: ParentBlockNode["variant"] | undefined;
   /**
-   * Body text for paragraph-form admonitions, source lines
-   * joined with `\n`. Undefined for delimited-form (use
-   * `children`). Mostly reflowable, but a line matching
-   * `isRawParagraphLine` (a comment or preprocessor directive)
-   * is kept verbatim in place; the printer splits the string
-   * at those lines rather than reflowing across them.
+   * Body text, source lines joined with `\n`. Valid only when
+   * `form` is `"paragraph"`; delimited form leaves it
+   * undefined and carries the body in `children`. Mostly
+   * reflowable, but a line matching `isRawParagraphLine` (a
+   * comment or preprocessor directive) is kept verbatim in
+   * place; the printer splits the string at those lines
+   * rather than reflowing across them.
    */
   content: string | undefined;
-  /** Nested blocks for delimited-form admonitions. */
+  /**
+   * Nested blocks. Valid only when `form` is `"delimited"`;
+   * paragraph form leaves it empty and carries the body in
+   * `content`.
+   */
   children: BlockNode[];
 }
 

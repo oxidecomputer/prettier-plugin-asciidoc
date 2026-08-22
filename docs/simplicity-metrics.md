@@ -35,15 +35,26 @@ repository is jj-managed and often has a concurrent session, and a worktree
 mutates `.git`. The base copy needs no install, because the eslint binary and
 the metrics eslint config are referenced by absolute path into this checkout.
 
-**Gates (non-zero exit), all in `scripts/metrics/gates.ts`.** Three hold always:
+**Gates (non-zero exit), all in `scripts/metrics/gates.ts`.** Eight hold always:
 an import cycle at head (a cyclic group has no reading order), a relative import
 that resolves to nothing (a hole in that graph, which the cycle detection cannot
-see through), and an unused exported symbol under `src` (the residue of a
-half-finished deletion). Two more are RATCHETS that need a `--base` to compare
-against: cognitive MAX per layer, and each escape-hatch count. Neither may rise.
-A layer that did not exist at the base is skipped, since it cannot have
-regressed. The count of functions over cyclomatic 10 is REPORT-ONLY — see "Why
-cyclomatic is report-only here" below.
+see through), an unused exported symbol under `src` (the residue of a
+half-finished deletion), a resident agreement harness, a stale
+interior-validation registry entry, an interior-validation registry that cannot
+be READ at all, a defense marker split across two comment lines, and a named
+seam that is missing or unmeasurable. Four more are RATCHETS that need a
+`--base` to compare against: cognitive MAX per layer, each escape-hatch count,
+each named seam's width, and each defense counter. None may rise. A layer that
+did not exist at the base is skipped, since it cannot have regressed — and so is
+a seam or a defense marker the base does not carry. The count of functions over
+cyclomatic 10 is REPORT-ONLY — see "Why cyclomatic is report-only here" below.
+The last three families are covered in "Design-quality budgets" below.
+
+The last three of those absolute gates read registries that describe THIS
+repository, so they hold against this repository only: an archived `--base`
+revision and a `--root <dir>` checkout are measured by them and not judged
+(`Snapshot.repository`). Without that, `--root` would fail on every foreign
+checkout — including the throwaway ones that test the CLI's own exit codes.
 
 knip is a devDependency and runs on EVERY invocation, because a hard gate that
 is silent by default is not a gate: if knip cannot run at all, the run FAILS
@@ -110,6 +121,156 @@ Two things no tool computes, stated in prose in each task report:
 Diagnostic, not gated: **hotspot = churn × cognitive complexity** per file, from
 `git log --format=%H -N --name-only -- src`. `src/printer.ts` is the standing
 hotspot — highest churn and the repository's worst cyclomatic function (33).
+
+## Design-quality budgets
+
+Three more families sit on the same table, measured by
+`scripts/metrics/design.ts` and gated in `gates.ts` alongside the rows above.
+They differ from everything else on the scorecard in one important way, and it
+is worth saying before the definitions:
+
+> **These are budgets we maintain, not numbers a tool discovers.** The seam
+> list, the interior-validation registry and the harness list are each written
+> by hand and reviewed. What the tooling does is hold them to a ratchet and
+> refuse to let them rot.
+
+**Two honest caveats apply to all three, verbatim:**
+
+- **Absence is unmeasurable.** We cannot count the defenses a better type would
+  have made unnecessary, because they are not there to count. We count the
+  defenses that remain.
+- **A defense may only be deleted WITH its need.** Deleting a guard without
+  removing the state it guarded against moves the number and makes the code
+  worse. A plan report names which defenses became unnecessary and why.
+
+And one structural consequence that shapes every gate below: **because every
+ratchet in this family fires on RISE, the family can never detect an
+undercount.** A deleted registry, a wrapped marker and a renamed seam all report
+LESS, and less reads as progress. That is why the wrapped-marker detector exists
+rather than being a documented risk, why a missing registry and a missing seam
+are hard failures rather than `n/a`, and why the `Total fallback:` baseline had
+to be completed in the commit that introduced it — an audit left half-done
+freezes a too-low floor, and finishing it later fails the gate.
+
+### Seam width
+
+The member count of each NAMED cross-module interface, ratcheted per seam: a
+seam may not gain members. v1 names four — `ListHost`
+(`src/parse/lines/frames.ts`), `ReaderContext` (`src/parse/lines/classify.ts`),
+`ExtentBounds` (`src/parse/lines/list-reader.ts`) and `ParagraphHost`
+(`src/parse/lines/paragraph-reader.ts`).
+
+Every member is a fact one module had to publish about itself for another to
+work, which is Henry–Kafura information flow measured where the flow was
+declared, and Parnas's leakage counted at the point of the leak. It is also the
+DENOMINATOR in Ousterhout's deep-module ratio: functionality over interface
+size, where a module gets deeper by shrinking the interface, not by growing the
+body. The pattern is `api-extractor`'s — a reviewed, checked-in report of a
+published surface — turned inward, at the seams between our own modules rather
+than at the package boundary.
+
+Counted from the compiler's AST: the declaration's own property and method
+signatures. A nested type literal's fields and the fields of a member's
+parameter object do not count — they are reached through a member that already
+counts — and an index signature is not a named member at all. The list is a
+LOWER BOUND by construction: an unnamed structural type shared between two
+modules is a seam nobody decided to have, and it is not on the list.
+
+**A named seam must be ONE FLAT DECLARATION**, and the scanner refuses to
+measure anything else. Two shapes are refused, both reachable by an ordinary
+refactor and both of which would report FEWER members than a human counting the
+surface:
+
+- `interface S extends B` — factoring nine members into a base and leaving
+  `interface S extends B {}` would take the seam to 0 with a green ratchet.
+  Resolving `extends` properly means resolving imported bases, which is a
+  type-checker's job and not a scanner's;
+- two declarations of one name, which TypeScript MERGES — counting the first
+  silently drops the rest.
+
+That is a real constraint on the code, accepted deliberately: it is the only
+honest way to hold a budget whose single failure direction is invisible.
+
+**Absent at the BASE is tolerated; absent at HEAD is a failure.** A seam the
+base revision does not declare cannot have widened, so the ratchet skips it —
+the same tolerance `dead-code.ts` gives a tool that could not run. A seam
+missing at HEAD is the seam list itself rotting: renaming or deleting a named
+interface would otherwise drop it out of the budget with no ratchet firing.
+`SEAMS` is a hand-maintained list exactly as the interior-validation registry
+is, so it gets the same freshness gate.
+
+### Defense inventory
+
+Counts of code that defends against states the types still permit. Each category
+is a ratchet: it may not rise.
+
+| Category                   | What it counts                                                                            | How                              |
+| -------------------------- | ----------------------------------------------------------------------------------------- | -------------------------------- |
+| `unreachable()` sites      | Throwing can't-happen guards under `src` (its own module apart)                           | AST call expressions             |
+| `Caller contract:` markers | A precondition the caller carries, stated in JSDoc                                        | Occurrences in comment trivia    |
+| `Total fallback:` markers  | A can't-happen branch that silently DEGRADES instead of throwing                          | Occurrences in comment trivia    |
+| `Valid only when` markers  | A field whose validity depends on a SIBLING discriminant, not mere optionality            | Occurrences in comment trivia    |
+| interior validation sites  | A validating conditional whose false branch can't happen, outside the sanctioned boundary | `defense-registry.json`'s length |
+
+This family is the operational shadow of "make invalid states unrepresentable."
+Type precision — how much of the invalid space the types have made
+unrepresentable — is the formal notion, and it is not computable here. So we
+measure the residual defense burden instead: what the types did NOT rule out and
+a human had to write code about. `Caller contract:` is Design by Contract with
+the contract in prose because the type could not carry it. The registry is
+"parse, don't validate" (Alexis King) with the sanctioned boundary named
+explicitly: `src/parse/line-shapes.ts`, `src/parse/lines/classify.ts` and
+`tests/` are where validation BELONGS, and everything else in `src` is interior.
+
+Two rules keep the categories from double-counting each other. The registry is
+DISJOINT from the marker counts: a site that throws is counted as an
+`unreachable()` site, one that degrades behind a `Total fallback:` comment is
+counted there, and the registry is for the ones no marker can catch — a plain
+`if` or `??` that reads as ordinary code and is only recognisable by reading the
+caller. That is why v1 is a list of judgements with a reason per site rather
+than a text search.
+
+The registry has its own hard gate: **every entry must still name a function
+that exists.** A stale entry fails the run, so the registry cannot rot into
+folklore. That check catches the rot that happens — the site deleted, the file
+split, the function renamed — and does not catch a guard removed from inside a
+function that kept its name; the `reason` field is what a re-audit reads.
+
+Two things to know about the marker counts. Each marker must stay on ONE line
+where it is written: the count is over comment text, and an 80-column wrap that
+splits a marker in two hides the defense. And a counter that is ZERO at the base
+revision is skipped, because a zero cannot be told apart from "this marker was
+not a convention yet" and introducing a marker must not read as a regression.
+The cost of that tolerance is real: a category driven all the way to zero loses
+its gate until something re-enters it.
+
+### Agreement harnesses
+
+An **absolute gate: this must be 0.** An agreement harness is a resident test
+whose ASSERTION compares the outputs of two of OUR OWN components against each
+other. It is the shape that makes two implementations of one rule permanently
+affordable — connascence of algorithm (Page-Jones) with a test holding it in
+place, so neither copy can be deleted and the duplication reads as covered
+rather than as debt.
+
+What is NOT a harness, and belongs in the suite: a test against PINNED BYTES; a
+test against the ORACLE (`tests/conformance/` is a differential net against
+`@asciidoctor/core`, an external authority, not against ourselves);
+`scripts/parity.ts`, which compares this checkout against a PRIOR CHECKOUT of
+the same component and is a regression net over time; and a property test
+asserting an invariant of one component's output, which names no second
+component.
+
+The audited value today is 0 — the historical hazard-vs-reader instrument was
+scratchpad-only and never became a resident test. It is implemented as a
+declared list (empty) with the gate that it stays empty, so adding a harness
+means registering it, and registering it fails the build. The fix is never to
+hold the count steady: it is to delete one of the two components and check the
+survivor against bytes or the oracle.
+
+Nothing scans `tests/`, which is why the scorecard row is labelled **agreement
+harnesses (declared)**: it is the length of a hand-written list, and a row that
+reads as measured when it is not is the one thing this table must never print.
 
 ## What disagreement between the rows tells you
 
@@ -314,6 +475,24 @@ nothing; say so and drop it.
 - Buse & Weimer (TSE 2010) and Scalabrino et al. (JSEP 2018) — readability
   models; background for why vocabulary and line length matter, with no
   maintained TypeScript implementation to run.
+- Henry & Kafura (TSE 1981) — information-flow complexity: a module's cost is
+  the fan-in × fan-out of the information passing through it, which is what seam
+  width counts at the point the flow is declared.
+- Parnas, "On the Criteria To Be Used in Decomposing Systems into Modules"
+  (CACM 1972) — a module's interface should reveal as little as possible about
+  its implementation; every seam member is a revealed fact.
+- Ousterhout, _A Philosophy of Software Design_ — deep modules: functionality
+  over interface size, where the interface is the denominator.
+- Alexis King, "Parse, don't validate" (2019) — validate once at the boundary
+  and return a type that makes the property structurally true; anything
+  downstream that re-checks is the boundary's failure showing through:
+  <https://lexi-lambda.github.io/blog/2019/11/05/parse-don-t-validate/>
+- Meyer, _Object-Oriented Software Construction_ — Design by Contract, the
+  source of the `Caller contract:` marker's shape (a precondition stated where
+  the caller can read it, because the type could not carry it).
+- Page-Jones, _Fundamentals of Object-Oriented Design in UML_ — connascence, and
+  connascence of algorithm in particular: two components that must agree on HOW,
+  which is what an agreement harness pins in place.
 
 The honest summary of that literature: cognitive complexity is the best
 available proxy for comprehension effort, and it is a proxy. Size is the
