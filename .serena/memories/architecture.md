@@ -18,14 +18,19 @@ source → splitLines → BlockReader(classifyLine) → AST → Printer
   (`src/parse/lines/reader.ts`), which builds the AST as it reads — a frame IS
   the node under construction, and closing it builds the node through the pure
   `(lines, index) → Node` constructors in `src/parse/build/` and pushes it onto
-  the parent frame's children; (3) the **inline tokenizer**
-  (`src/parse/inline/`) — `tokenize.ts`'s ~40-line first-match-wins loop over
-  the ordered rule table in `rules.ts`, run per paragraph run, with
-  `inline-node-builder.ts` pairing marks into nested nodes and
-  `src/parse/positions.ts`'s one `LocationIndex` answering every offset →
-  line/column. No parser library, no grammar, no CST, no visitor. NOT
-  Asciidoctor.js — see "Why not Asciidoctor.js?" and "Why no parser library" in
-  `docs/design.md`.
+  the parent frame's children. What a held style/attribute line makes of the
+  block that follows (a masquerade, an admonition rename, a verbatim role) is
+  resolved once, at frame OPEN, by `src/parse/lines/open-style.ts`; `closeFrame`
+  builds from that recorded decision and re-derives nothing. The held `[…]` line
+  itself has one parser, `src/parse/attrlist.ts`. There is no separate
+  post-parse conversion pass over the finished tree — that mechanism and its
+  module are deleted; (3) the **inline tokenizer** (`src/parse/inline/`) —
+  `tokenize.ts`'s ~40-line first-match-wins loop over the ordered rule table in
+  `rules.ts`, run per paragraph run, with `inline-node-builder.ts` pairing marks
+  into nested nodes and `src/parse/positions.ts`'s one `LocationIndex` answering
+  every offset → line/column. No parser library, no grammar, no CST, no visitor.
+  NOT Asciidoctor.js — see "Why not Asciidoctor.js?" and "Why no parser library"
+  in `docs/design.md`.
 
   **The rule: block-level context comes from the reader's frame stack and from
   nowhere else, and `tests/parser/architecture.test.ts` enforces it — including
@@ -78,7 +83,11 @@ source → splitLines → BlockReader(classifyLine) → AST → Printer
 
 - **AST** (`src/ast.ts`): Designed for Prettier, not the AsciiDoc language
   spec's semantic model. Preserves comments, directives, attribute entries, and
-  other constructs a semantic model intentionally discards.
+  other constructs a semantic model intentionally discards. A `[[id]]` /
+  `[[id,reftext]]` line alone is a first-class `blockAnchor` node, not folded
+  into a paragraph. Tables (`|===` and friends) pass through as an opaque
+  `delimitedBlock` (`variant: "table"`) — the delimiter lines are content; full
+  modeling (`cols`/cellspec/`a|`) is still open (#10).
 - **Printer** (`src/printer.ts`): Walks AST, produces Prettier Doc IR.
 - **Vendored deps** (`vendor/`): the Asciidoctor conformance corpus. Updated via
   `bun run vendor`.

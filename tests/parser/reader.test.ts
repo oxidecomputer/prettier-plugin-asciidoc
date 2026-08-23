@@ -62,7 +62,7 @@ describe("reader: sections and metadata", () => {
       'id="id">B',
     );
     expect(astShape("== A\np\n[[id]]\n// c\n\n== B\n")).toBe(
-      "section(p(t)) p(t) comment section()",
+      "section(p(t)) anchor comment section()",
     );
   });
   test("a comment before a closing heading migrates into the new section", () => {
@@ -85,7 +85,7 @@ describe("reader: sections and metadata", () => {
     // `[discrete ]` styles the heading exactly as `[discrete]` does —
     // a `<h2 class="discrete">`, never a section. The reader reads the
     // style off the raw attribute LINE, so the trim in
-    // `firstPositional` is what makes the two spellings agree.
+    // `parseAttrlist` is what makes the two spellings agree.
     expect(renderedHtml("[discrete ]\n== H\n")).toContain('class="discrete"');
     expect(astShape("[discrete ]\n== H\n")).toBe("attrs heading");
   });

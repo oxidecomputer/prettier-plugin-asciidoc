@@ -63,13 +63,27 @@
  *   the READER treats the lines differently (verbatim, not reflowed)
  *   and because inside a list item the same branch gets a
  *   `list_type` — the day we model that, only this row changes.
+ * - `verbatimStyled` — a paragraph opened under a held VERBATIM
+ *   style (`[source]`, `[listing]`, `[literal]`, `[verse]` —
+ *   VERBATIM_STYLES, asciidoctor.rb:277; NOT `[pass]`, oracle-pinned).
+ *   Behavior is `read_lines_until break_on_blank_lines: true,
+ *   break_on_list_continuation: true` (parser.rb:1017-1019): blank
+ *   lines are structural to the reader, so the pattern set carries
+ *   only the lone `+`. The `+` sits in the ANY-LINE set because
+ *   Ruby's `line_read` gate (reader.rb:414, :426) is false only for
+ *   the styled block's OPENING line, which Ruby unshifts
+ *   (parser.rb:558) and our reader consumes at open — every position
+ *   this classifier sees corresponds to `line_read === true`. Pinned
+ *   against the oracle, both positions, in
+ *   tests/conformance/interruption.test.ts.
  */
 export type ParagraphContext =
   | "paragraph"
   | "listItem"
   | "listContinuation"
   | "dlistItem"
-  | "literalParagraph";
+  | "literalParagraph"
+  | "verbatimStyled";
 
 // The one character the oracle's rstrip removes that JavaScript's
 // `trimEnd()` does not. Kept as a string rather than folded into a
@@ -169,7 +183,10 @@ const BLOCK_ATTRIBUTE_LINE_SOURCE = String.raw`\[(?:|[\w.#%\{,"'][^\n]*)\]`;
  * back with an assertion is what the lint config forbids).
  *
  * The order is not load-bearing — the patterns are mutually
- * exclusive, since each is a uniform run of a different character.
+ * exclusive: each non-table pattern is a uniform run of a different
+ * character, and the four table rows are a distinct hint character
+ * followed by a run of `=` at least three long, which no other
+ * pattern here (the `={4,}` example row included) can also match.
  */
 export const DELIMITER_KINDS = [
   "listing",
@@ -181,6 +198,10 @@ export const DELIMITER_KINDS = [
   "commentBlock",
   "openBlock",
   "fencedCode",
+  "tablePipe", // |===   (psv; the hint char sets no format, parser.rb:865)
+  "tableComma", // ,===   (csv, parser.rb:867)
+  "tableColon", // :===   (dsv, parser.rb:867)
+  "tableBang", // !===   (psv; used for nested tables)
 ] as const;
 
 /** Which delimited block a delimiter line opens. */
@@ -193,10 +214,13 @@ export type DelimiterKind = (typeof DELIMITER_KINDS)[number];
  *
  * Mirrors `is_delimited_block?`: the line must be the delimiter and
  * NOTHING else — a uniform run of the tip character, at least as long
- * as the tip. `----:: x` is therefore a description-list term, not a
- * listing block. The one exception is the Markdown fence, where the
- * 4th character may not be a backtick but anything after ``` is a
- * language hint.
+ * as the tip; for the four table rows, the format-hint character then
+ * a run of `=` at least three long (parser.rb:967-1001). `----:: x`
+ * is therefore a description-list term, not a listing block, and
+ * `:===` is a table, not an attribute entry (AttributeEntryRx needs a
+ * word character after the colon). The one exception is the Markdown
+ * fence, where the 4th character may not be a backtick but anything
+ * after ``` is a language hint.
  */
 const DELIMITER_SOURCES: Record<DelimiterKind, string> = {
   listing: String.raw`-{4,}`,
@@ -210,6 +234,10 @@ const DELIMITER_SOURCES: Record<DelimiterKind, string> = {
   // Written as a quoted string rather than String.raw because the
   // pattern contains backticks, which no template literal can carry.
   fencedCode: "```(?!`)[^\\n]*",
+  tablePipe: String.raw`\|={3,}`,
+  tableComma: String.raw`,={3,}`,
+  tableColon: String.raw`:={3,}`,
+  tableBang: String.raw`!={3,}`,
 };
 
 // A block anchor (`[[id]]`) alone on a line ends a plain paragraph:
@@ -266,6 +294,10 @@ export const DELIMITED_BLOCK_PATTERNS: Record<DelimiterKind, RegExp> = {
   commentBlock: wholeLine(DELIMITER_SOURCES.commentBlock),
   openBlock: wholeLine(DELIMITER_SOURCES.openBlock),
   fencedCode: wholeLine(DELIMITER_SOURCES.fencedCode),
+  tablePipe: wholeLine(DELIMITER_SOURCES.tablePipe),
+  tableComma: wholeLine(DELIMITER_SOURCES.tableComma),
+  tableColon: wholeLine(DELIMITER_SOURCES.tableColon),
+  tableBang: wholeLine(DELIMITER_SOURCES.tableBang),
 };
 
 /**
@@ -653,6 +685,7 @@ const INTERRUPTERS_BY_CONTEXT: Record<ParagraphContext, readonly RegExp[]> = {
   // `read_paragraph_lines` with a nil `break_at_list` at document
   // level, so its set is the plain-paragraph one exactly.
   literalParagraph: PARAGRAPH_INTERRUPTERS,
+  verbatimStyled: [CONTINUATION_LINE],
 };
 
 // No context-specific patterns for this position.
@@ -666,6 +699,7 @@ const FIRST_LINE_INTERRUPTERS: Record<ParagraphContext, readonly RegExp[]> = {
   listContinuation: NO_PATTERNS,
   dlistItem: DLIST_FIRST_LINE_INTERRUPTERS,
   literalParagraph: NO_PATTERNS,
+  verbatimStyled: NO_PATTERNS,
 };
 
 // Patterns that interrupt ONLY on a LATER line. One entry, and it is
@@ -682,6 +716,7 @@ const LATER_LINE_INTERRUPTERS: Record<ParagraphContext, readonly RegExp[]> = {
   listContinuation: NO_PATTERNS,
   dlistItem: NO_PATTERNS,
   literalParagraph: NO_PATTERNS,
+  verbatimStyled: NO_PATTERNS,
 };
 
 /**

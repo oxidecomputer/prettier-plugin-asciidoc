@@ -290,11 +290,18 @@ describe("reader: list oracle surprises", () => {
     // records the verbatim gap, and the FORMATTED bytes are unchanged:
     // "** b lit\n+\n[source]\nNOTE: x\n" before and after the
     // cut-over.
+    // `-listing[1]`, not the old `-admonition(note)`: with `[source]`
+    // in hand the NOTE: line is the styled paragraph's opening line
+    // (spec D4b, parser.rb:555-560 runs before the admonition arm
+    // :765), which is also what the oracle renders — a listingblock,
+    // never an admonition. The formatted bytes above are still
+    // unchanged; the metadata-release ordering this row exists for
+    // (`-attrs` before the block) is unaffected.
     expect(astShape("** b\n  lit\n[source]\nNOTE: x\n")).toBe(
-      "list(item(t / t -attrs -admonition(note)))",
+      "list(item(t / t -attrs -listing[1]))",
     );
     expect(astShape("** b\nifdef::x[]\n// c\n[[x]]\n+\n+\n* a\n")).toBe(
-      "list(item(t raw raw -p(t) +p(raw) list(item(t))))",
+      "list(item(t raw raw -anchor +p(raw) list(item(t))))",
     );
     // The invariant they were FOUND by, not just the shape they settled
     // on: document order, values reconstruct, containment.

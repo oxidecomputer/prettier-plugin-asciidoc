@@ -70,36 +70,32 @@ export function buildParagraph(
 const COLON_SPACE_LEN = 2;
 
 /**
- * Builds an AdmonitionNode from a paragraph-form admonition.
- * @param label - The admonition label span (e.g. "NOTE: ",
- *   "WARNING: ").
- * @param tokens - The body's lines in source order, one synthetic
- *   token per line (see `textLines` in inline/text-lines.ts); raw
- *   comment/preprocessor lines are lines of their own. May be empty.
+ * Builds an AdmonitionNode from a paragraph-form admonition. The body
+ * keeps the SAME inline children a paragraph has (spec D7) — the
+ * tokens are in hand at the reader's call site; no per-line
+ * flattening remains. Position: start at the label, end at the last
+ * content token (label end when the body is empty) — unchanged.
+ * @param label - The admonition label span (e.g. "NOTE: ").
+ * @param tokens - The body's tokens, in source order. May be empty.
  * @param at - The document's location index.
- * @returns An AdmonitionNode in paragraph form with variant
- *   derived from the label (lowercased, colon-space suffix
- *   stripped).
+ * @returns An AdmonitionNode in paragraph form.
  */
 export function buildAdmonitionParagraph(
   label: Fragment,
   tokens: readonly InlineToken[],
   at: LocationIndex,
 ): AdmonitionNode {
-  const content =
-    tokens.length > 0 ? tokens.map((t) => t.image).join("\n") : undefined;
-  const lastTextToken = tokens.at(-1);
-  const variant = label.image.slice(0, -COLON_SPACE_LEN).toLowerCase();
+  const content = tokens.filter((t) => t.type !== "InlineNewline");
+  const last = content.at(-1);
   return {
     type: "admonition",
-    variant,
+    variant: label.image.slice(0, -COLON_SPACE_LEN).toLowerCase(),
     form: "paragraph",
-    delimiter: undefined,
-    content,
+    text: buildFromTokens(tokens, at),
     children: [],
     position: {
       start: at.start(label),
-      end: lastTextToken === undefined ? at.end(label) : at.end(lastTextToken),
+      end: last === undefined ? at.end(label) : at.end(last),
     },
   };
 }
@@ -124,6 +120,68 @@ export function buildLiteralParagraph(
     form: "indented",
     content: lines.map((line) => line.image).join("\n"),
     position: { start: at.start(first), end: at.end(last) },
+  };
+}
+
+/**
+ * A verbatim-styled paragraph, built at OPEN from the lines the
+ * `verbatimStyled` extent consumed (spec D4c): content is the source
+ * slice from the first content line's start to the last line's raw
+ * end (no trailing newline), so the bytes are the author's. The
+ * extent's non-emptiness lives in the SIGNATURE — the first line is
+ * its own parameter — so no `lines.at(-1) ?? first` interior-
+ * validation site appears here (the registry may not grow, review
+ * M1); `rest.at(-1) ?? first` below is a TOTAL answer, since `rest`
+ * really is empty for a one-line block.
+ * @param variant - the style's target variant (verbatimStyledVariant)
+ * @param first - the extent's first line
+ * @param rest - the extent's remaining lines, in order; empty for a
+ *   one-line block
+ * @param at - the document's location index
+ * @returns a verbatim block in paragraph form
+ */
+export function buildStyledParagraph(
+  variant: DelimitedBlockNode["variant"],
+  first: Fragment,
+  rest: readonly Fragment[],
+  at: LocationIndex,
+): DelimitedBlockNode {
+  const last = rest.at(-1) ?? first;
+  return {
+    type: "delimitedBlock",
+    variant,
+    form: "paragraph",
+    content: [first, ...rest].map((line) => line.image).join("\n"),
+    position: { start: at.start(first), end: at.end(last) },
+  };
+}
+
+/**
+ * A paragraph-form block built where the reader was ABOUT to build a
+ * paragraph and a held non-verbatim paragraph-form style spoke (spec
+ * D4c): same extent the paragraph would have had (the tokens were
+ * read with the paragraph's own context), content by source slice —
+ * byte-identical to the deleted post-pass conversion, minus the
+ * serializer (#40).
+ * @param variant - the style's target (paragraphFormVariant)
+ * @param tokens - the paragraph body's tokens, as read
+ * @param source - the whole document
+ * @param at - the document's location index
+ * @returns a delimited block in paragraph form
+ */
+export function buildParagraphFormBlock(
+  variant: DelimitedBlockNode["variant"],
+  tokens: readonly InlineToken[],
+  source: string,
+  at: LocationIndex,
+): DelimitedBlockNode {
+  const position = bodyExtent(tokens, at);
+  return {
+    type: "delimitedBlock",
+    variant,
+    form: "paragraph",
+    content: source.slice(position.start.offset, position.end.offset),
+    position,
   };
 }
 

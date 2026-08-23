@@ -61,6 +61,7 @@ const LEAF_NAMES: Record<string, string> = {
   discreteHeading: "heading",
   blockAttributeList: "attrs",
   blockTitle: "title",
+  blockAnchor: "anchor",
   attributeEntry: "attr",
   preprocessorDirective: "directive",
   blockMacro: "macro",
@@ -216,4 +217,19 @@ export function oracleItems(input: string): number {
 export function itemCount(source: string): number {
   return preorder(parse(source)).filter((node) => node.type === "listItem")
     .length;
+}
+
+/**
+ * A node's top-level keys in the order `JSON.stringify` emits them —
+ * the string parity digests, undefined-valued fields already dropped.
+ * A JSON round-trip rather than `structuredClone` on purpose: the
+ * JSON text is what the digest is taken over. Shared by the key-order
+ * rows in block-masquerade.test.ts and admonition.test.ts.
+ * @param value - the node to serialize
+ * @returns its serialized own keys, in order
+ */
+export function serializedKeys(value: unknown): string[] {
+  const digested = JSON.stringify(value);
+  const round: unknown = JSON.parse(digested);
+  return typeof round === "object" && round !== null ? Object.keys(round) : [];
 }

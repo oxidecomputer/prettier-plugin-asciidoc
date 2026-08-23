@@ -20,6 +20,8 @@ import { describe, test, expect } from "vitest";
 import { parse } from "../../src/parser.js";
 import type { DelimitedBlockNode, ParentBlockNode } from "../../src/ast.js";
 import { narrow } from "../../src/unreachable.js";
+import { formatAdoc, renderedHtml } from "../helpers.js";
+import { astShape, serializedKeys } from "./reader-helpers.js";
 
 /**
  * Extracts the child at the given index as a
@@ -114,7 +116,7 @@ describe("[source]/[listing]/[literal] on open block (--)", () => {
 
   test("[source,ruby] extra positional attribute still triggers masquerade", () => {
     // The `ruby` language hint is a second positional attribute.
-    // `extractStyle` takes only the first token before the comma,
+    // `parseAttrlist` takes only the first token before the comma,
     // so `[source,ruby]` resolves to style "source" and triggers
     // the same masquerade as plain `[source]`. The `language`
     // field is NOT populated here — that field is only set by
@@ -248,5 +250,86 @@ describe("masquerade with extended delimiters", () => {
     const block = delimitedBlockAt(children, 1);
     expect(block.variant).toBe("verse");
     expect(block.content).toBe("Line one.\nLine two.");
+  });
+});
+
+// Key ORDER is part of the no-change claim: parity digests the JSON
+// STRING (scripts/parity.ts), so a field that MOVES — same value,
+// different position — is an AST difference with no ledger family
+// (review B2: 12 corpus cases carry sourceDelimiter). The key-order
+// rows below hold Task 6's builders to today's serialized orders,
+// measured at the plan parent.
+// Unknown-style downgrade at open (parser.rb:542-543): a style that
+// matches no masquerade for the kind resolves to the delimiter's own
+// model — except that today's uppercase-word rule claims any single
+// alphabetic word as an admonition variant, `source` included. That
+// divergence is recorded (spec §5) and kept byte-round-tripping; these
+// rows pin the TREE and the BYTES so the open-time resolver cannot
+// drift from the close-time pass it replaces.
+describe("held styles on delimiters the style does not re-model", () => {
+  test("[source] on ==== keeps today's tree and bytes", async () => {
+    expect(astShape("[source]\n====\nx\n====\n")).toBe(
+      "attrs admonition(source)",
+    );
+    const input = "[source]\n====\nx\n====\n";
+    expect(await formatAdoc(input)).toBe(input);
+    expect(renderedHtml(await formatAdoc(input))).toBe(renderedHtml(input));
+  });
+
+  test("[source] on **** keeps today's tree and bytes", async () => {
+    expect(astShape("[source]\n****\nx\n****\n")).toBe(
+      "attrs admonition(source)",
+    );
+    const input = "[source]\n****\nx\n****\n";
+    expect(await formatAdoc(input)).toBe(input);
+  });
+
+  test("[#id] on ==== stays a compound example (no style matches)", () => {
+    expect(astShape("[#id]\n====\nx\n====\n")).toBe("attrs example(p(t))");
+  });
+
+  test("a held title after the attribute line disables the masquerade", () => {
+    expect(astShape("[verse]\n.Title\n____\nx\n____\n")).toBe(
+      "attrs title quote(p(t))",
+    );
+  });
+
+  test("a reader-eaten line after the attribute line is transparent", () => {
+    expect(astShape("[verse]\n// c\n____\nx\n____\n")).toBe(
+      "attrs comment verse[1]",
+    );
+  });
+
+  // Re-pinned in Task 9 (D5): the reader now STAMPS its own record of
+  // the annotation it acted on, after the node is built, so
+  // `annotatedBy` trails `position` here. It cannot be an AST
+  // difference — the parity normalizer drops the key before digesting
+  // (scripts/parity.ts, `annotatedBy` → undefined), which is why (xi)
+  // and not parity is its pin. Every other key keeps its baseline
+  // position.
+  test("a masqueraded node's key order is the baseline's", () => {
+    const [, node] = parse("[verse]\n____\nx\n____\n").children;
+    expect(serializedKeys(node)).toEqual([
+      "type",
+      "variant",
+      "form",
+      "content",
+      "sourceDelimiter",
+      "position",
+      "annotatedBy",
+    ]);
+  });
+
+  test("a fence's key order is the baseline's", () => {
+    const [node] = parse("```ruby\nfoo\n```\n").children;
+    expect(serializedKeys(node)).toEqual([
+      "type",
+      "variant",
+      "form",
+      "content",
+      "position",
+      "fenced",
+      "language",
+    ]);
   });
 });

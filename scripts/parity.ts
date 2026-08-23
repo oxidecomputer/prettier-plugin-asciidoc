@@ -26,10 +26,20 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import {
+  loadExpectedDiffs,
+  parseArguments,
+  reportExpectedDiffs,
+  type ExpectedDiff,
+} from "./parity-ledger.js";
+export {
+  expectedDiffFailures,
+  parseArguments,
+  type ExpectedDiff,
+} from "./parity-ledger.js";
 
 const ARGUMENT_START = 2;
 const FAILURE = 1;
-const DEFAULT_LIMIT = 20;
 const MAX_BUFFER = 268_435_456;
 // `no-magic-numbers` is on outside tests; both of these are ordinary
 // array and line-number bookkeeping.
@@ -50,15 +60,6 @@ const ONE = 1;
  * plan's central gate passes silently on nothing.
  */
 const MINIMUM_CASES = 1620;
-
-/**
- * The options that take no value. Kept as a Set so `parseArguments`
- * spends one branch on all of them (see the comment at its use site).
- */
-const BOOLEAN_FLAGS = new Set([
-  "--allow-parent-block-end",
-  "--formatted-ledger",
-]);
 
 /**
  * Narrow an unknown value to a plain object with string keys.
@@ -241,6 +242,55 @@ function normalizeOneItem(_key: string, value: unknown): unknown {
 }
 
 /**
+ * Fold the plan-α shape changes so SHAPE-preserving refactors compare
+ * (spec D9): a `blockAnchor` node folds to the old anchor-paragraph
+ * encoding; an admonition folds `form`/`delimiter` to the old
+ * spelling and blanks the body on BOTH sides (`content` → `""`,
+ * `text` → `[]` — body BYTES stay policed by the formatted
+ * comparison, the fixtures and the render-equality suite); the
+ * `annotatedBy` key is dropped (its pin is invariant (xi), not
+ * parity). Tolerates BOTH tree shapes — old and new — because the
+ * dumper embeds this body into the BASELINE checkout too.
+ *
+ * KEY ORDER IS LOAD-BEARING: parity digests the JSON STRING, so every
+ * arm constructs a fresh object with one explicit key order — never a
+ * spread, which would keep each input shape's own insertion order and
+ * make the two sides hash differently. The synthesized orders match
+ * the old builders' literals (buildBlockAnchor, makeInlineAnchor);
+ * the string-equality rows in tests/scripts/parity.test.ts pin them.
+ * @param key - the reviver key
+ * @param value - the revived value
+ * @returns the folded value
+ */
+function foldPlanAlphaShapes(key: string, value: unknown): unknown {
+  if (key === "annotatedBy") return undefined;
+  if (!isRecordLike(value)) return value;
+  if (value.type === "blockAnchor") {
+    const { id, reftext, position } = value;
+    return {
+      type: "paragraph",
+      children: [{ type: "inlineAnchor", id, reftext, position }],
+      position,
+    };
+  }
+  if (value.type !== "admonition") return value;
+  const { type, variant, form, children, position } = value;
+  const paragraph = form === "paragraph";
+  return {
+    type,
+    variant,
+    form: paragraph ? "paragraph" : "delimited",
+    delimiter: paragraph
+      ? undefined
+      : (value.delimiter ?? (form === "delimited" ? undefined : form)),
+    content: "",
+    children,
+    text: [],
+    position,
+  };
+}
+
+/**
  * The one normaliser both dumper sides run before hashing: fold every
  * list item to the canonical form, and (behind the existing flag)
  * blank the allowlisted parentBlock ends. Composing the two in ONE
@@ -276,13 +326,14 @@ function normalizeOneItem(_key: string, value: unknown): unknown {
  * detected: a child is already `"<allowed>"` when its container is
  * visited.
  *
- * This function, `normalizeOneItem`, `blankOneEnd`, `derivedEnd`,
- * `endSource`, `startOffset`, `isUnknownArray` and `isRecordLike` are
- * SELF-CONTAINED on purpose: their source is embedded into the dumper
- * below with `Function.prototype.toString()`, so the comparison and
- * its test share one implementation instead of two copies that can
- * drift. A reference to anything outside these eight bodies would
- * compile here and crash inside the baseline checkout.
+ * This function, `foldPlanAlphaShapes`, `normalizeOneItem`,
+ * `blankOneEnd`, `derivedEnd`, `endSource`, `startOffset`,
+ * `isUnknownArray` and `isRecordLike` are SELF-CONTAINED on purpose:
+ * their source is embedded into the dumper below with
+ * `Function.prototype.toString()`, so the comparison and its test
+ * share one implementation instead of two copies that can drift. A
+ * reference to anything outside these nine bodies would compile here
+ * and crash inside the baseline checkout.
  * @param tree - a parsed AST
  * @param allowParentBlockEnd - whether to blank forced-closed
  *   parentBlock ends (Ruling 39/54)
@@ -293,7 +344,8 @@ export function normalizeTree(
   allowParentBlockEnd: boolean,
 ): unknown {
   const normalized: unknown = JSON.parse(JSON.stringify(tree), (key, value) => {
-    const folded = normalizeOneItem(key, value);
+    const shaped = foldPlanAlphaShapes(key, value);
+    const folded = normalizeOneItem(key, shaped);
     return allowParentBlockEnd ? blankOneEnd(key, folded) : folded;
   });
   return normalized;
@@ -301,7 +353,7 @@ export function normalizeTree(
 
 // The dumper is written into BOTH checkouts, so it can only use what
 // the baseline already has: the corpus loader, the format fixtures,
-// `formatAdoc` and `parse`, plus the eight functions embedded
+// `formatAdoc` and `parse`, plus the nine functions embedded
 // verbatim below. It prints one JSON line per case, then one timing
 // line.
 const DUMPER = String.raw`
@@ -320,6 +372,7 @@ ${endSource.toString()}
 ${derivedEnd.toString()}
 ${blankOneEnd.toString()}
 ${normalizeOneItem.toString()}
+${foldPlanAlphaShapes.toString()}
 ${normalizeTree.toString()}
 const cases = loadCorpus().flatMap((group) => group.cases);
 const FIXTURES = "tests/format/fixtures/identity";
@@ -544,70 +597,6 @@ export function describeDifference(
 }
 
 /**
- * Parse the command line. Exported for tests/scripts/parity.test.ts.
- * @param argv - the arguments after the script name
- * @returns the base revision, the report limit, the allowlist flag and
- *   whether formatted-only differences are a ledger listing rather
- *   than a failure
- * @throws {Error} when an argument is unrecognised or `--base` is
- *   missing — a silently dropped `--base` would compare a checkout
- *   with itself
- */
-export function parseArguments(argv: readonly string[]): {
-  revision: string;
-  limit: number;
-  allowParentBlockEnd: boolean;
-  formattedLedger: boolean;
-} {
-  let revision: string | undefined = undefined;
-  let limit = DEFAULT_LIMIT;
-  const flags = new Set<string>();
-  // A queue rather than an index, because two of the five options
-  // consume the argument after them.
-  const rest = [...argv];
-  while (rest.length > ZERO) {
-    const argument = rest.shift() ?? "";
-    if (argument.startsWith("--base=")) {
-      revision = argument.slice("--base=".length);
-      continue;
-    }
-    if (argument === "--base") {
-      revision = rest.shift();
-      continue;
-    }
-    if (argument === "--limit") {
-      // `Number("fast")` is NaN, and `slice(0, NaN)` is empty: the run
-      // would still exit 1 but print not one differing case, which
-      // reads exactly like a harness that found nothing to say.
-      const raw = rest.shift();
-      limit = Number(raw);
-      if (!Number.isInteger(limit) || limit < ZERO) {
-        throw new Error(
-          `parity: --limit needs a non-negative integer, got ${String(raw)}`,
-        );
-      }
-      continue;
-    }
-    // The two value-less options share one arm: a branch each puts this
-    // function over the complexity ceiling, and a Set of accepted
-    // spellings is where the third flag will go too.
-    if (BOOLEAN_FLAGS.has(argument)) {
-      flags.add(argument);
-      continue;
-    }
-    throw new Error(`parity: unrecognised argument ${argument}`);
-  }
-  if (revision === undefined)
-    throw new Error("parity: --base <rev> is required");
-  return {
-    revision,
-    limit,
-    allowParentBlockEnd: flags.has("--allow-parent-block-end"),
-    formattedLedger: flags.has("--formatted-ledger"),
-  };
-}
-
-/**
  * The case ids where the two checkouts disagree, split into the two
  * streams the gate treats differently: `ast` is always a failure,
  * `formatted` is a failure unless `--formatted-ledger` asked for a
@@ -730,6 +719,9 @@ function reportCase(id: string, baseRoot: string, allow: boolean): void {
  *   parentBlock ends were blanked on both sides
  * @param options.formattedLedger - whether formatted-only differences
  *   are listed as expected-diff ledger candidates instead of failing
+ * @param options.expectedDiffs - the loaded ledger, when
+ *   `--expected-diffs` was given; drives the ledger gate instead of
+ *   the default verdict
  */
 function report(options: {
   base: Dump;
@@ -739,6 +731,7 @@ function report(options: {
   limit: number;
   allowParentBlockEnd: boolean;
   formattedLedger: boolean;
+  expectedDiffs: readonly ExpectedDiff[] | undefined;
 }): void {
   const {
     base: { rows: base, formatMs: baseMs },
@@ -772,6 +765,21 @@ function report(options: {
     );
     for (const id of formatted) process.stdout.write(`  ${id}\n`);
   }
+  if (options.expectedDiffs !== undefined) {
+    reportExpectedDiffs({
+      expectedDiffs: options.expectedDiffs,
+      ast,
+      formatted,
+      headIds: new Set(head.keys()),
+      headSize: head.size,
+      baseRoot,
+      revision,
+      limit,
+      allowParentBlockEnd,
+      reportCase,
+    });
+    return;
+  }
   // The detailed subset under `--limit` is now AST differences first
   // (base-only ids among them), then formatted-only ones — deliberate:
   // when there are more differences than `limit`, a structural failure
@@ -801,8 +809,15 @@ function report(options: {
  * @param argv - the arguments after the script name
  */
 function main(argv: readonly string[]): void {
-  const { revision, limit, allowParentBlockEnd, formattedLedger } =
-    parseArguments(argv);
+  const {
+    revision,
+    limit,
+    allowParentBlockEnd,
+    formattedLedger,
+    expectedDiffs,
+  } = parseArguments(argv);
+  const expected =
+    expectedDiffs === undefined ? undefined : loadExpectedDiffs(expectedDiffs);
   const baseRoot = materialize(revision);
   try {
     report({
@@ -813,6 +828,7 @@ function main(argv: readonly string[]): void {
       limit,
       allowParentBlockEnd,
       formattedLedger,
+      expectedDiffs: expected,
     });
   } finally {
     // `process.exitCode` and a normal return, never `process.exit()`:

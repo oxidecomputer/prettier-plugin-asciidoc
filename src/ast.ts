@@ -421,6 +421,11 @@ export interface DelimitedBlockNode extends Node {
    * Block kind: `"listing"` (`----`), `"literal"` (`....`),
    * `"pass"` (`++++`), `"verse"`, or a masqueraded parent
    * block variant (`"example"`, `"sidebar"`, `"quote"`).
+   *
+   * `"table"` is the opaque passthrough of `|===` `,===` `:===`
+   * `!===` blocks (spec D1): unlike every other variant the delimiter
+   * lines are part of `content`, and the printer replays the lines
+   * adding no framing of its own.
    */
   variant:
     | "listing"
@@ -429,7 +434,8 @@ export interface DelimitedBlockNode extends Node {
     | "example"
     | "sidebar"
     | "quote"
-    | "verse";
+    | "verse"
+    | "table";
   /**
    * How the block was expressed in source: delimiters,
    * indentation, or paragraph form (attribute list + text).
@@ -437,6 +443,17 @@ export interface DelimitedBlockNode extends Node {
   form: "delimited" | "indented" | "paragraph";
   /** Verbatim block content (no inline parsing). */
   content: string;
+  /**
+   * The bracket interior of the block-attribute line released
+   * DIRECTLY above this block — recorded at open iff the attribute
+   * line is the LAST node of the pending run: a title, comment or
+   * directive held after the attribute line leaves it undefined.
+   * Undefined when nothing annotated the block. The sibling
+   * BlockAttributeListNode still carries the spelling for printing;
+   * this field is the reader's own record, so no consumer re-pairs
+   * siblings to learn it (spec D5a; pinned by invariant (xi)).
+   */
+  annotatedBy?: string;
   /**
    * Source language hint from a Markdown-style fenced code
    * block (e.g. "rust" from `` ```rust ``). Valid only when
@@ -478,55 +495,37 @@ export interface ParentBlockNode extends Node {
 }
 
 /**
- * An admonition block (NOTE, TIP, IMPORTANT, CAUTION, WARNING).
- *
- * Admonitions come in two forms:
- * - **paragraph**: `NOTE: text` — inline label prefix on a
- *   paragraph. Content is stored in `content` (reflowable text).
- * - **delimited**: `[NOTE]` + `====`/`--` — block attribute list
- *   on a parent block. Content is stored in `children`.
- *
- * Paragraph-form admonitions have `content` and empty `children`;
- * block-form have `children` and `undefined` content.
+ * An admonition block (NOTE, TIP, IMPORTANT, CAUTION, WARNING —
+ * custom variants allowed). One prose representation (spec D7): the
+ * paragraph form (`NOTE: text`) carries the SAME inline children a
+ * paragraph does in `text`; the delimited form (`[NOTE]` on a parent
+ * block) carries blocks in `children` and its wrapper delimiter in
+ * `form`. Exactly one of the two bodies is non-empty — checked
+ * structurally by invariant (ix) in tests/parser/ast-invariants.ts.
+ * Behavior is Ruby's: an admonition paragraph's body IS a paragraph
+ * (parser.rb:765-769, content_model :simple), pinned by the
+ * admonition render-equality suites.
  */
 export interface AdmonitionNode extends Node {
   /** Node discriminant. */
   type: "admonition";
-  /**
-   * Admonition label (lowercase). The five standard values
-   * are `"note"`, `"tip"`, `"important"`, `"caution"`, and
-   * `"warning"`, but the AsciiDoc spec allows custom
-   * variants (e.g. `"exercise"`). Typed as `string` for
-   * extensibility.
-   */
+  /** Admonition label, lowercase (`"note"`, `"tip"`, …; custom allowed). */
   variant: string;
   /**
-   * `"paragraph"` for `NOTE: text` inline prefix;
-   * `"delimited"` for `[NOTE]` on a parent block.
+   * How the admonition is spelled: `"paragraph"` for the `NOTE: text`
+   * label form, or the parent-block delimiter variant that wraps a
+   * delimited-form body (`"example"` for `[NOTE]` + `====`, `"open"`
+   * for `[NOTE]` + `--`). One field: the spelling and the wrapper are
+   * one fact.
    */
-  form: "paragraph" | "delimited";
+  form: "paragraph" | ParentBlockNode["variant"];
   /**
-   * Which parent block delimiter wraps the content
-   * (`"example"` for `====`, `"open"` for `--`).
-   * Valid only when `form` is `"delimited"`; undefined for
-   * paragraph form.
+   * Paragraph-form body: the same inline children a paragraph has.
+   * Empty when the body is delimited (see `children`) or absent
+   * (`NOTE:` with no text).
    */
-  delimiter: ParentBlockNode["variant"] | undefined;
-  /**
-   * Body text, source lines joined with `\n`. Valid only when
-   * `form` is `"paragraph"`; delimited form leaves it
-   * undefined and carries the body in `children`. Mostly
-   * reflowable, but a line matching `isRawParagraphLine` (a
-   * comment or preprocessor directive) is kept verbatim in
-   * place; the printer splits the string at those lines
-   * rather than reflowing across them.
-   */
-  content: string | undefined;
-  /**
-   * Nested blocks. Valid only when `form` is `"delimited"`;
-   * paragraph form leaves it empty and carries the body in
-   * `content`.
-   */
+  text: InlineNode[];
+  /** Delimited-form body blocks. Empty for the paragraph form. */
   children: BlockNode[];
 }
 
@@ -696,6 +695,19 @@ export interface BlockTitleNode extends Node {
   title: string;
 }
 
+/**
+ * A block anchor: `[[id]]` or `[[id,reftext]]` alone on a line,
+ * metadata for the block that follows.
+ */
+export interface BlockAnchorNode extends Node {
+  /** Node discriminant. */
+  type: "blockAnchor";
+  /** The anchor id. */
+  id: string;
+  /** The optional reference text after the comma. */
+  reftext: string | undefined;
+}
+
 /** A top-level structural element of a document. */
 export type BlockNode =
   | ParagraphNode
@@ -713,4 +725,5 @@ export type BlockNode =
   | BlockMacroNode
   | PreprocessorDirectiveNode
   | BlockAttributeListNode
-  | BlockTitleNode;
+  | BlockTitleNode
+  | BlockAnchorNode;

@@ -73,17 +73,22 @@ function ownsItsLine(path: PrintPath): boolean {
 
 /**
  * The inline siblings a node sits among, whatever its parent calls
- * them: a list item keeps its inline nodes in `text` (its `blocks`
- * hold whole blocks, never inline siblings); every other inline
- * container spells them `children`. A helper because
- * `"children" in parent` is a NARROWING over the node union — after
- * the D1 rename a `listItem` parent would silently drop out of it,
- * with no compile error to say so (plan-review M1).
+ * them: a list item and a paragraph-form admonition keep their inline
+ * nodes in `text` (a list item's `blocks` and an admonition's
+ * `children` hold whole blocks, never inline siblings — spec D7);
+ * every other inline container spells them `children`. A helper
+ * because `"children" in parent` is a NARROWING over the node union —
+ * after the D1 rename a `listItem` parent would silently drop out of
+ * it, with no compile error to say so (plan-review M1), and the D7
+ * admonition would have answered its empty BLOCK array here for the
+ * same reason.
  * @param parent - the node the printer is inside
  * @returns the sibling array, or undefined when the parent has none
  */
 function inlineSiblingsOf(parent: AnyNode): readonly AnyNode[] | undefined {
-  if (parent.type === "listItem") return parent.text;
+  if (parent.type === "listItem" || parent.type === "admonition") {
+    return parent.text;
+  }
   return "children" in parent ? parent.children : undefined;
 }
 

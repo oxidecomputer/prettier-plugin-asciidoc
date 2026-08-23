@@ -180,9 +180,9 @@ function calloutNumberOf(marker: Fragment): number {
 /**
  * One list item: its principal text, and every block the reader put
  * inside it in source order, each behind its verbatim gap. The blocks
- * arrive already style-converted (`convertParagraphFormBlocks` is the
- * caller's), and already in source order — the confined reader pushed
- * them as it met them, so there is nothing to merge.
+ * arrive already style-converted (style decisions resolve at frame
+ * OPEN, spec D4), and already in source order — the confined reader
+ * pushed them as it met them, so there is nothing to merge.
  *
  * Field order in the literal is load-bearing: `text` before `blocks`
  * keeps the generic pre-order walk in document order.

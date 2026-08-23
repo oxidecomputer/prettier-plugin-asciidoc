@@ -1,8 +1,8 @@
 /**
  * Serializes inline AST nodes back to their AsciiDoc source
  * representation. Covers the unified InlineMacroNode, bare-URL
- * links, xref shorthands, and inline anchors. Shared by the
- * printer and the paragraph-form transformer.
+ * links, xref shorthands, and inline anchors. Consumed by the
+ * printer (print-inline.ts).
  */
 import type {
   InlineAnchorNode,
@@ -59,12 +59,16 @@ export function xrefToSource(node: XrefNode): string {
  * Serialize an inline anchor AST node back to AsciiDoc
  * source. Produces `[[id]]` or `[[id, reftext]]`
  * depending on whether optional reference text is present.
+ * Accepts any id/reftext pair so the block-anchor printer
+ * shares this one spelling.
  * @param node - The parsed anchor with an id and
  *   optional reftext used as the default display text
  *   when another section references this anchor.
  * @returns AsciiDoc source string for the anchor.
  */
-export function anchorToSource(node: InlineAnchorNode): string {
+export function anchorToSource(
+  node: Pick<InlineAnchorNode, "id" | "reftext">,
+): string {
   return node.reftext === undefined
     ? `[[${node.id}]]`
     : `[[${node.id}, ${node.reftext}]]`;

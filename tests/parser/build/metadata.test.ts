@@ -40,28 +40,25 @@ function lineOf(line: string): {
 }
 
 describe("buildBlockAnchor", () => {
-  test("wraps a single inlineAnchor in a paragraph", () => {
+  // Its own node kind since spec D6 — no wrapper paragraph, no
+  // inlineAnchor child to pattern-match.
+  test("builds a blockAnchor over the whole line", () => {
     const { span, at } = lineOf("[[id]]");
     const node = buildBlockAnchor(span, at);
-    expect(node.type).toBe("paragraph");
-    expect(node.children).toEqual([
-      {
-        type: "inlineAnchor",
-        id: "id",
-        reftext: undefined,
-        position: {
-          start: { offset: 0, line: 1, column: 1 },
-          end: { offset: 6, line: 1, column: 7 },
-        },
+    expect(node).toEqual({
+      type: "blockAnchor",
+      id: "id",
+      reftext: undefined,
+      position: {
+        start: { offset: 0, line: 1, column: 1 },
+        end: { offset: 6, line: 1, column: 7 },
       },
-    ]);
-    // The paragraph is the anchor: same span, no padding of its own.
-    expect(node.position).toEqual(node.children[0].position);
+    });
   });
 
   test("keeps the reftext of `[[id,text]]`", () => {
     const { span, at } = lineOf("[[id,text]]");
-    expect(buildBlockAnchor(span, at).children[0]).toMatchObject({
+    expect(buildBlockAnchor(span, at)).toMatchObject({
       id: "id",
       reftext: "text",
     });

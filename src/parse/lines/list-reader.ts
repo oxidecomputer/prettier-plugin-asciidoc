@@ -35,7 +35,6 @@ import {
   isDescriptionListLine,
   LITERAL_LINE,
 } from "../line-shapes.js";
-import { convertParagraphFormBlocks } from "../paragraph-form.js";
 import { unreachable } from "../../unreachable.js";
 import {
   delimiterKind,
@@ -128,17 +127,13 @@ function readListItem(
     textEndLine(host, text, markerLine),
     blocks,
   );
-  // The style-driven conversions replace blocks pairwise, so each
-  // converted block keeps the gap of the one it replaced — the same
-  // index zip the old endItem did.
-  const converted = convertParagraphFormBlocks([...blocks], host.source);
   return {
     item: buildListItem(
       {
         marker: fragmentOfLine(markerLine, kind.indent, kind.markerEnd),
         variant: kind.variant,
         text,
-        blocks: converted.map((block, at) => ({ gap: gaps[at], block })),
+        blocks: blocks.map((block, at) => ({ gap: gaps[at], block })),
         trailingContinuation: extent.trailingContinuation,
       },
       host.at,

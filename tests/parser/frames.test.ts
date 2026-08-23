@@ -50,9 +50,9 @@ describe("heldMetadataNode / isHeldMetadata", () => {
   // One line per kind `parse_block_metadata_line` claims, plus the
   // kinds it does not: an attribute ENTRY is processed where it stands,
   // and text, a marker and a title open blocks of their own. A block
-  // anchor is a paragraph holding the inline anchor (build/metadata.ts).
+  // anchor is its own node kind (spec D6, build/metadata.ts).
   const held: Array<[string, BlockNode["type"]]> = [
-    ["[[id]]", "paragraph"],
+    ["[[id]]", "blockAnchor"],
     ["[source]", "blockAttributeList"],
     [".Title", "blockTitle"],
     ["// comment", "comment"],

@@ -8,6 +8,7 @@
  */
 import { describe, test, expect } from "vitest";
 import { formatAdoc, renderedHtml } from "../helpers.js";
+import { astShape } from "../parser/reader-helpers.js";
 
 describe("paragraph-form admonition formatting", () => {
   // An admonition's content is reflowed like a paragraph, so it
@@ -164,8 +165,9 @@ describe("admonition formatting in context", () => {
     expect(await formatAdoc(input)).toBe(input);
   });
 
-  // Anchor paragraph gets blank-line separation from
-  // paragraph-form admonition.
+  // A block anchor gets blank-line separation from a paragraph-form
+  // admonition: stacked, the label line would be absorbed into the
+  // anchor's paragraph on re-parse (wouldMergeWithAnchor).
   test("anchor + paragraph-form admonition", async () => {
     const input = "[[my-note]]\nNOTE: This is a note.\n";
     const expected = "[[my-note]]\n\nNOTE: This is a note.\n";
@@ -230,6 +232,80 @@ describe("raw lines inside a paragraph-form admonition", () => {
     const lines = out.split("\n");
     expect(lines).toContain("// c");
     expect(lines.filter((l) => l.length > 0).length).toBeGreaterThan(3);
+    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+});
+
+// Pinned BEFORE the D7 printer rewrite (controller order, from Task
+// 7's review finding 7): the plan BASE render-broke both shapes (it
+// invented a blank line and pulled the [NOTE] line out of the
+// listing), while the current tree reads `foo\n[NOTE]\nbar` as ONE
+// three-line listing — byte-faithful, idempotent and oracle-matching.
+// The D7 admonition printer rewrite is adjacent to this territory, so
+// the tree, the bytes, render-equality and idempotence are pinned
+// here first and must stay green through it.
+describe("a [source] paragraph keeps a [NOTE] line as content (T7 fix)", () => {
+  test.each([
+    [
+      "inside an example block",
+      "====\n[source]\nfoo\n[NOTE]\nbar\n====\n",
+      "example(attrs listing[3])",
+    ],
+    [
+      "inside a section",
+      "== S\n\n[source]\nfoo\n[NOTE]\nbar\n",
+      "section(attrs listing[3])",
+    ],
+  ])("%s stays one nested listing", async (_name, input, shape) => {
+    expect(astShape(input)).toBe(shape);
+    const out = await formatAdoc(input);
+    expect(out).toBe(input);
+    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+});
+
+describe("the admonition body rides the paragraph engine (spec D7)", () => {
+  test("a body reflows exactly as a paragraph body does", async () => {
+    const input = `NOTE: ${"word ".repeat(30)}end\n`;
+    const output = await formatAdoc(input);
+    expect(renderedHtml(output)).toBe(renderedHtml(input));
+    expect(await formatAdoc(output)).toBe(output);
+  });
+
+  test("the dlist first-line guard has one home and still holds", async () => {
+    const input = "NOTE: a line\nterm:: x\n";
+    const output = await formatAdoc(input);
+    // The `term::` word must not land at the start of an output line.
+    expect(renderedHtml(output)).toBe(renderedHtml(input));
+    expect(await formatAdoc(output)).toBe(output);
+  });
+
+  test("raw lines keep their own output lines through the shared engine", async () => {
+    const input = "NOTE: alpha\nifdef::x[]\nbeta\n";
+    const output = await formatAdoc(input);
+    expect(output).toBe(input);
+    expect(renderedHtml(output)).toBe(renderedHtml(input));
+    expect(await formatAdoc(output)).toBe(output);
+  });
+});
+
+// The hard-line-break body classes the D7 engine swap repaired: the
+// string engine word-split ` +`, so it joined a label-line break away
+// (`NOTE: alpha + beta`), dropped a mid-body break's `+` to column 0
+// (a list-continuation line), and rewrote a trailing break to
+// `{plus}` — all three render-corrupting at the plan base. The shared
+// inline engine prints the break as the atom it is; these rows turn
+// that accidental repair into a guarded one (review F1).
+describe("hard line breaks in a paragraph-form admonition body", () => {
+  test.each([
+    ["on the label line", "NOTE: alpha +\nbeta\n"],
+    ["mid-body", "NOTE: one two three alpha +\nbeta four five six\n"],
+    ["trailing", "NOTE: alpha beta +\n"],
+  ])("a %s ` +` survives verbatim", async (_name, input) => {
+    const out = await formatAdoc(input);
+    expect(out).toBe(input);
     expect(renderedHtml(out)).toBe(renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });

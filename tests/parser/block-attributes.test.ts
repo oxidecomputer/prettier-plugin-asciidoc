@@ -3,19 +3,17 @@
  *
  * Block attributes are lines that precede a block and modify it:
  * - `[source,ruby]` — block attribute list
- * - `[[anchor-id]]` — inline anchor, parsed as a paragraph
- *   containing an `inlineAnchor` node (not its own block type)
+ * - `[[anchor-id]]` — block anchor, its own node kind (spec D6)
  * - `.Block Title` — block title
  *
- * Attribute lists and block titles are standalone block-level
- * nodes (like line comments and attribute entries). The printer
- * stacks them with the following block (no blank line between).
+ * All three are standalone block-level nodes (like line comments
+ * and attribute entries). The printer stacks them with the
+ * following block (no blank line between).
  *
- * Inline anchors (`[[id]]`) are lexed as inline tokens, so they
- * fall through to inline paragraph parsing. A `[[id]]` on its
- * own line produces a single-child paragraph; when followed by
- * text (no blank line), the anchor and text share one paragraph
- * because paragraph continuation applies normally.
+ * A `[[id]]` alone on a line is a BLOCK anchor: the reader holds
+ * it back as metadata and it becomes a `blockAnchor` node. The
+ * same spelling INSIDE a paragraph's text is an inline anchor
+ * (`inlineAnchor`), tested in inline-links.test.ts.
  */
 import { describe, test, expect } from "vitest";
 import { parse } from "../../src/parser.js";
@@ -135,24 +133,18 @@ describe("block attribute list parsing", () => {
 });
 
 describe("anchor parsing", () => {
-  // `[[anchor-id]]` on its own line is lexed as an InlineAnchor
-  // token inside inline mode. Because there is no dedicated
-  // block-level anchor token, it falls through to paragraph
-  // parsing and becomes a single-child paragraph.
-  test("[[anchor-id]] parses as paragraph with inline anchor", () => {
+  // `[[anchor-id]]` on its own line is a block anchor: the reader
+  // holds the line back as metadata and `buildBlockAnchor`
+  // (build/metadata.ts) makes it a `blockAnchor` node of its own.
+  test("[[anchor-id]] parses as a block anchor", () => {
     const document = parse("[[anchor-id]]\n");
     expect(document.children).toHaveLength(1);
     const {
       children: [child0],
     } = document;
-    narrow(child0, "paragraph");
-    expect(child0.children).toHaveLength(1);
-    const {
-      children: [anchor0],
-    } = child0;
-    narrow(anchor0, "inlineAnchor");
-    expect(anchor0.id).toBe("anchor-id");
-    expect(anchor0.reftext).toBeUndefined();
+    narrow(child0, "blockAnchor");
+    expect(child0.id).toBe("anchor-id");
+    expect(child0.reftext).toBeUndefined();
   });
 
   // Anchor with reftext: [[id,reftext]] — split on the first
@@ -164,47 +156,41 @@ describe("anchor parsing", () => {
     const {
       children: [child0],
     } = document;
-    narrow(child0, "paragraph");
-    expect(child0.children).toHaveLength(1);
-    const {
-      children: [anchor0],
-    } = child0;
-    narrow(anchor0, "inlineAnchor");
-    expect(anchor0.id).toBe("my-id");
-    expect(anchor0.reftext).toBe("My Reference Text");
+    narrow(child0, "blockAnchor");
+    expect(child0.id).toBe("my-id");
+    expect(child0.reftext).toBe("My Reference Text");
   });
 
   // Anchor on its own line before a paragraph is a block-level
   // anchor: the reader holds it back as metadata and
-  // `buildBlockAnchor` (build/metadata.ts) makes it a separate anchor
-  // paragraph so the printer can handle spacing correctly.
+  // `buildBlockAnchor` (build/metadata.ts) makes it a separate
+  // `blockAnchor` node so the printer can handle spacing correctly.
   test("anchor before text splits into two blocks", () => {
     const document = parse("[[my-anchor]]\nSome text.\n");
     expect(document.children).toHaveLength(2);
     const {
       children: [anchor, para],
     } = document;
-    narrow(anchor, "paragraph");
-    expect(anchor.children).toHaveLength(1);
-    expect(anchor.children[0].type).toBe("inlineAnchor");
+    narrow(anchor, "blockAnchor");
+    expect(anchor.id).toBe("my-anchor");
     narrow(para, "paragraph");
     expect(para.children[0].type).toBe("text");
   });
 
-  // Anchor position tracking — positions come from the
-  // InlineAnchor token inside the paragraph.
+  // Anchor position tracking — the node spans the whole anchor
+  // line, no padding of its own.
   test("standalone anchor has correct position", () => {
     const document = parse("[[my-id]]\n");
     const {
       children: [child0],
     } = document;
-    narrow(child0, "paragraph");
-    expect(child0.children[0].position.start.offset).toBe(0);
-    expect(child0.children[0].position.start.line).toBe(1);
-    expect(child0.children[0].position.start.column).toBe(1);
+    narrow(child0, "blockAnchor");
+    expect(child0.position.start.offset).toBe(0);
+    expect(child0.position.start.line).toBe(1);
+    expect(child0.position.start.column).toBe(1);
     // "[[my-id]]" is 9 chars; end offset is exclusive
     const EXPECTED_END_OFFSET = 9;
-    expect(child0.children[0].position.end.offset).toBe(EXPECTED_END_OFFSET);
+    expect(child0.position.end.offset).toBe(EXPECTED_END_OFFSET);
   });
 });
 
@@ -287,8 +273,8 @@ describe("block title parsing", () => {
 });
 
 describe("combined block metadata", () => {
-  // All three types stacked before a block: anchor (as a
-  // paragraph containing an inlineAnchor), title, attribute list.
+  // All three types stacked before a block: anchor, title,
+  // attribute list.
   test("anchor + title + attribute list before a block", () => {
     const document = parse(
       "[[my-id]]\n.My Title\n[source,ruby]\n----\nputs 'hello'\n----\n",
@@ -297,9 +283,8 @@ describe("combined block metadata", () => {
     const {
       children: [child0],
     } = document;
-    narrow(child0, "paragraph");
-    expect(child0.children).toHaveLength(1);
-    expect(child0.children[0].type).toBe("inlineAnchor");
+    narrow(child0, "blockAnchor");
+    expect(child0.id).toBe("my-id");
     expect(document.children[1].type).toBe("blockTitle");
     expect(document.children[2].type).toBe("blockAttributeList");
     expect(document.children[3].type).toBe("delimitedBlock");
@@ -311,5 +296,46 @@ describe("combined block metadata", () => {
     expect(document.children).toHaveLength(2);
     expect(document.children[0].type).toBe("blockAttributeList");
     expect(document.children[1].type).toBe("section");
+  });
+});
+
+describe("blockAnchor is its own node kind (spec D6)", () => {
+  test("a standalone [[id]] line parses to a blockAnchor", () => {
+    const [node] = parse("[[my-id]]\n").children;
+    expect(node.type).toBe("blockAnchor");
+    if (node.type !== "blockAnchor") throw new Error("narrowed above");
+    expect(node.id).toBe("my-id");
+    expect(node.reftext).toBeUndefined();
+  });
+
+  test("[[id,reftext]] carries the reftext", () => {
+    const [node] = parse("[[my-id,Ref Text]]\n").children;
+    if (node.type !== "blockAnchor") throw new Error(`got ${node.type}`);
+    expect(node.reftext).toBe("Ref Text");
+  });
+});
+
+describe("the reader's annotation record (spec D5a)", () => {
+  // The plan's node-value-not-`Attrlist.raw` ruling, pinned on the ONE
+  // shape that distinguishes the two: an attribute line with TRAILING
+  // WHITESPACE. The held node is built from the RAW line
+  // (`fragmentOfLine`), so its `value` is the raw image minus its
+  // first and last character — for `[source,ruby]···` that is
+  // `source,ruby]··`, closing bracket included. `Attrlist.raw` is the
+  // RSTRIPPED interior (`source,ruby`), so a mutant that records THAT
+  // leaves the entire suite green: invariant (xi) only compares the
+  // record against the sibling's value, and neither the corpus nor the
+  // fuzz alphabets ever put a trailing-whitespace attribute line above
+  // a block. Asserting both halves here is the (xi) equality on the
+  // one shape (xi) never sees, and the exact string is reachable only
+  // from the node.
+  test("annotatedBy copies the held NODE's value, not the rstripped attrlist", () => {
+    const [attributes, block] = parse(
+      "[source,ruby]   \n----\nfoo\n----\n",
+    ).children;
+    narrow(attributes, "blockAttributeList");
+    narrow(block, "delimitedBlock");
+    expect(attributes.value).toBe("source,ruby]  ");
+    expect(block.annotatedBy).toBe("source,ruby]  ");
   });
 });

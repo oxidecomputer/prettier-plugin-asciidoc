@@ -19,17 +19,11 @@ import type {
   ParentBlockNode,
 } from "./ast.js";
 import { MIN_DELIMITER_LENGTH, SAFE_DELIMITER_PAD } from "./constants.js";
-import {
-  flattenForFill,
-  splitWords,
-  stripLeadingHazardBreak,
-  wordsToFillParts,
-} from "./reflow.js";
+import { paragraphBody } from "./reflow.js";
 import { joinBlocks } from "./print-join.js";
-import { isRawParagraphLine } from "./parse/line-shapes.js";
 
 const {
-  builders: { fill, hardline, join, literalline },
+  builders: { hardline, join },
 } = doc;
 
 /**
@@ -212,34 +206,24 @@ function computeMasqueradeDelimiter(node: DelimitedBlockNode): string {
 }
 
 /**
- * Check whether the preceding sibling is a `[source]` or
- * `[source,lang]` attribute list that already covers this
- * block's implicit source style. When true, the printer
- * should skip emitting its own `[source]`/`[source,lang]`
- * prefix to avoid duplication. A fence with no language
- * hint still implies `source`, so a bare preceding
- * `[source]` counts as already-present too.
+ * Whether the reader recorded a `[source]`/`[source,lang]` annotation
+ * that already covers this block's implicit source style — a FIELD
+ * READ of the reader's own record (spec D5a), replacing a
+ * getParentNode() cast and sibling scan that structurally could not
+ * see inside list items (the measured duplicated prefix, ledger
+ * family d5-fence-annotation). A fence with no language hint still
+ * implies `source`, so a bare `[source]` annotation counts.
  * @param node - The delimited block to check.
- * @param path - Prettier's AST path for sibling access.
- * @returns True when the preceding sibling already covers
- *   the source attribute.
+ * @returns True when the annotation already covers the source
+ *   attribute this block would otherwise emit.
  */
 export function hasPrecedingLanguageAttribute(
   node: DelimitedBlockNode,
-  path: PrintPath,
 ): boolean {
   if (node.fenced !== true && node.language === undefined) return false;
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Prettier path traversal returns generic node
-  const parent = path.getParentNode() as { children: BlockNode[] } | undefined;
-  const siblings = parent?.children;
-  if (siblings === undefined) return false;
-  const index = siblings.indexOf(node);
-  if (index < 1) return false;
-  const previous = siblings[index - 1];
-  if (previous.type !== "blockAttributeList") return false;
   const expectedValue =
     node.language === undefined ? "source" : `source,${node.language}`;
-  return previous.value === expectedValue;
+  return node.annotatedBy === expectedValue;
 }
 
 /**
@@ -265,6 +249,16 @@ export function printDelimitedBlock(
   node: DelimitedBlockNode,
   skipSourcePrefix: boolean,
 ): Doc {
+  // A table replays its own source lines — the delimiters are part of
+  // `content` (spec D1) and no framing is added. Prettier strips
+  // trailing whitespace per line, which is render-neutral: the
+  // oracle's reader rstrips every line before parsing
+  // (prepare_source_string); the trailing-whitespace rows in
+  // tests/format/table.test.ts pin the output bytes.
+  if (node.variant === "table") {
+    return join(hardline, node.content.split("\n"));
+  }
+
   // Indented literal paragraphs and paragraph-form blocks: print
   // content verbatim without delimiters. The preceding attribute
   // list (for paragraph form) is a separate node handled by the
@@ -358,11 +352,10 @@ function maxDescendantDelimiter(
       // Delimited-form admonitions produce parent block delimiters
       // and must be included in the nesting computation.
       child.type === "admonition" &&
-      child.form === "delimited" &&
-      child.delimiter !== undefined
+      child.form !== "paragraph"
     ) {
       const childInner = maxDescendantDelimiter(variant, child.children);
-      if (child.delimiter === variant) {
+      if (child.form === variant) {
         const childLength = Math.max(
           MIN_DELIMITER_LENGTH,
           childInner + SAFE_DELIMITER_PAD,
@@ -441,101 +434,14 @@ export function printParentBlock(
 }
 
 /**
- * Reflow one run of admonition body lines into a fill().
- *
- * wordsToFillParts handles block-syntax-at-line-start prevention
- * (see its doc comment). No align() here: leading spaces in AsciiDoc
- * denote an indented literal block, so continuation lines must start
- * at column 0 to preserve document semantics. flattenForFill
- * resolves any hazard marker the guard emitted (there are no inline
- * siblings here, so every marker sits in a real separator slot);
- * stripLeadingHazardBreak covers the block-level case for the same
- * reason as the paragraph printer.
- * @param text - The run's source lines joined with `\n`.
- * @param isFirstRun - Whether this run opens the admonition. Only
- *   then can a word sit on the BLOCK's first source line, which is
- *   what the dlist guard asks about; a later run always starts on a
- *   line of its own, so none of its words qualify.
- * @returns A fill() for the run, or undefined when it has no words.
- */
-function admonitionRun(text: string, isFirstRun: boolean): Doc | undefined {
-  const words = splitWords(text);
-  if (words.length === 0) {
-    return undefined;
-  }
-  // An admonition keeps its content raw, newlines and all, so the
-  // dlist guard's "which words were on the block's first source
-  // line" is just the word count before the first newline. Without
-  // it, `NOTE: a line\nterm:: x` reflows to one line and re-parses
-  // as a description list instead of an admonition.
-  const firstNewline = text.indexOf("\n");
-  const firstLineWordCount =
-    firstNewline === -1
-      ? words.length
-      : splitWords(text.slice(0, firstNewline)).length;
-  const parts = wordsToFillParts(words, {
-    firstLineWordCount: isFirstRun ? firstLineWordCount : 0,
-  });
-  return fill(stripLeadingHazardBreak(flattenForFill([parts])));
-}
-
-/**
- * Split an admonition body into the pieces that get their own output
- * line: reflowable runs of text, and the verbatim comment or
- * preprocessor lines between them.
- *
- * The split uses the same registry predicate the reader classified
- * those lines with, so parse and print cannot disagree about which
- * line is which. Reflowing across one would make a comment visible
- * or render `ifdef`-guarded text unconditionally.
- * @param content - The admonition's body, source lines joined by
- *   `\n`.
- * @returns Segments in source order, to be joined with a forced
- *   break.
- */
-function admonitionBodySegments(content: string): Doc[] {
-  const segments: Doc[] = [];
-  let run: string[] = [];
-  let isFirstRun = true;
-  const flushRun = (): void => {
-    // isFirstRun clears even when the run is empty: whatever follows
-    // is no longer the block's first source line, which is the only
-    // thing the flag is asked about.
-    const rendered =
-      run.length === 0 ? undefined : admonitionRun(run.join("\n"), isFirstRun);
-    if (rendered !== undefined) {
-      segments.push(rendered);
-    }
-    run = [];
-    isFirstRun = false;
-  };
-  for (const line of content.split("\n")) {
-    if (isRawParagraphLine(line)) {
-      flushRun();
-      segments.push(line);
-    } else {
-      run.push(line);
-    }
-  }
-  flushRun();
-  return segments;
-}
-
-/**
- * Prints an admonition node to Doc IR.
- *
- * Paragraph-form admonitions (`NOTE: text`) produce a
- * label prefix followed by reflowed text using fill()
- * (same as paragraphs).
- *
- * Delimited-form admonitions are printed as parent block
- * delimiters wrapping the children. The `[NOTE]`
- * attribute list that precedes the block is a separate
- * metadata node handled by the stacking behavior in
- * {@link joinBlocks}.
+ * Prints an admonition node to Doc IR: the paragraph form is the
+ * label plus THE paragraph body engine over its inline children (one
+ * engine by construction — spec D7); a delimited form prints its
+ * wrapper delimiters around the children, the delimiter variant read
+ * off `form` (the old `delimiter ?? "example"` fallback left WITH the
+ * field it defended).
  * @param node - The admonition AST node.
- * @param path - Prettier's AST path, used to recurse
- *   into children for delimited-form admonitions.
+ * @param path - Prettier's AST path, for recursing into the body.
  * @param print - Prettier's recursive print callback.
  * @returns Doc IR for the formatted admonition.
  */
@@ -546,40 +452,20 @@ export function printAdmonition(
 ): Doc {
   if (node.form === "paragraph") {
     const label = `${node.variant.toUpperCase()}: `;
-    if (node.content === undefined) {
+    if (node.text.length === 0) {
       return label.trimEnd();
     }
-    return [label, join(literalline, admonitionBodySegments(node.content))];
+    return [label, paragraphBody(path.map(print, "text"))];
   }
-
-  // Delimited form: use the stored delimiter variant to
-  // reconstruct the correct delimiters (example `====` or
-  // open `--`).
-  // Total fallback: `delimiter` is set whenever `form` is
-  // `"delimited"` — paragraph-form.ts is its single writer
-  // and always passes `next.variant` — so the `example`
-  // default is never read. It is exactly the cost the
-  // validity marker on AdmonitionNode.delimiter names,
-  // which is why it is counted here. (Spelling that marker
-  // out would make this comment one, and the count would
-  // report a defended field that does not exist.)
-  const delimVariant = node.delimiter ?? "example";
-  const delimChar = PARENT_DELIMITER_CHARS[delimVariant];
-  // For non-open delimiters, ensure the admonition's delimiter is
-  // longer than any same-variant nested block — same logic as
-  // printParentBlock. Without this, a delimited admonition
-  // wrapping a same-variant parent block would produce matching
-  // delimiter lengths, collapsing the nesting on re-parse.
+  const delimChar = PARENT_DELIMITER_CHARS[node.form];
   const delimLength =
-    delimVariant === "open"
+    node.form === "open"
       ? OPEN_BLOCK_DELIMITER_LENGTH
       : Math.max(
           MIN_DELIMITER_LENGTH,
-          maxDescendantDelimiter(delimVariant, node.children) +
-            SAFE_DELIMITER_PAD,
+          maxDescendantDelimiter(node.form, node.children) + SAFE_DELIMITER_PAD,
         );
   const delimiter = delimChar.repeat(delimLength);
-
   if (node.children.length > 0) {
     const children = path.map(print, "children");
     return [

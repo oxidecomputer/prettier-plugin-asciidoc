@@ -1,0 +1,630 @@
+[
+  {
+    "id": "api_test.rb#find_by should discover blocks inside AsciiDoc table cells if traverse_documents selector option is true#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "api_test.rb#find_by should match table cells#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "api_test.rb#find_by should return inner document of AsciiDoc table cell if traverse_documents selector option is true#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "api_test.rb#should not crash if nil cell text is passed to Cell constructor#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "api_test.rb#table cell should be a block#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "api_test.rb#table column should not be a block or inline#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "attributes_test.rb#nested document should use counter from parent document#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "docs/modules/ROOT/pages/errors-and-warnings.adoc",
+    "family": "d1-table"
+  },
+  {
+    "id": "docs/modules/ROOT/pages/index.adoc",
+    "family": "d1-table"
+  },
+  {
+    "id": "docs/modules/ROOT/pages/localization-support.adoc",
+    "family": "d1-table"
+  },
+  {
+    "id": "docs/modules/api/pages/options.adoc",
+    "family": "d1-table"
+  },
+  {
+    "id": "docs/modules/convert/pages/contexts-ref.adoc",
+    "family": "d1-table"
+  },
+  {
+    "id": "docs/modules/convert/pages/templates.adoc",
+    "family": "d1-table"
+  },
+  {
+    "id": "docs/modules/install/pages/supported-platforms.adoc",
+    "family": "d1-table"
+  },
+  {
+    "id": "docs/modules/manpage-backend/pages/index.adoc",
+    "family": "d1-table"
+  },
+  {
+    "id": "docs/modules/migrate/pages/asciidoc-py.adoc",
+    "family": "d1-table"
+  },
+  {
+    "id": "docs/modules/migrate/pages/ms-word.adoc",
+    "family": "d1-table"
+  },
+  {
+    "id": "docs/modules/migrate/pages/upgrade.adoc",
+    "family": "d1-table"
+  },
+  {
+    "id": "docs/modules/stem/pages/index.adoc",
+    "family": "d1-table"
+  },
+  {
+    "id": "docs/modules/syntax-highlighting/pages/coderay.adoc",
+    "family": "d1-table"
+  },
+  {
+    "id": "docs/modules/syntax-highlighting/pages/index.adoc",
+    "family": "d1-table"
+  },
+  {
+    "id": "document_test.rb#should catalog assets inside nested document#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "document_test.rb#should close all short tags when htmlsyntax is xml#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "extensions_test.rb#should invoke processor for custom block in an AsciiDoc table cell#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "extensions_test.rb#should invoke processor for custom block macro in an AsciiDoc table cell#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "links_test.rb#should use doctitle of root document as fallback link text for inter-document xref in AsciiDoc table cell that resolves to current doc#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "sections_test.rb#table with asciidoc content should not disable numbering of subsequent sections#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "syntax_highlighter_test.rb#should highlight source inside AsciiDoc table cell if source-highlighter attribute is set#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#AsciiDoc content#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#AsciiDoc table cell should be wrapped in div with class \"content\"#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#AsciiDoc table cell should inherit to_dir option from parent document#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#AsciiDoc table cell should not inherit toc setting from parent document#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#assigns unique column names for table with implicit column count and colspans in first row#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#basic AsciiDoc cell#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#blank cols attribute should be ignored#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#calculates colnames correctly when using implicit column count and cells with mixed colspans#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#calculates colnames correctly when using implicit column count and single cell with colspan#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#callout numbers should be globally unique, including AsciiDoc table cells#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#can assign autowidth to all columns even when table has a width#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#can set format of nested table to psv#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#cell background color#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#cell formatted with AsciiDoc style#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#cols attribute may include spaces#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#cols may be separated by semi-colon instead of comma#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#colspec attribute using asterisk syntax sets number of columns#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#columns are added for empty records in colspec attribute#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#compat mode can be activated in AsciiDoc table cell#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#compat mode in AsciiDoc table cell can be unset if set in parent document#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#compat mode in AsciiDoc table cell inherits from parent document#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#converts simple dsv table#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#converts simple psv table#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#cross reference link in an AsciiDoc table cell should resolve to reference in main document#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#csv format shorthand#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#custom csv separator#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#custom separator for an AsciiDoc table cell#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#disables caption on table when table-caption document attribute is unset#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#disables caption when caption attribute on table is empty string#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#disables caption when caption attribute on table is empty#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#doctype can be set in AsciiDoc table cell#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#document in an AsciiDoc table cell should not see doctitle of parent#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#does not assign column width for autowidth columns in HTML output#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#dsv format shorthand#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#empty cols attribute should be ignored#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#equally distributes remaining column width to autowidth columns in DocBook output#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#error about unresolved preprocessor directive on first line of an AsciiDoc table cell should have correct cursor#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#explicit table width is used even when autowidth option is specified#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#first row sets number of columns when not specified#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#footnotes should not be shared between an AsciiDoc table cell and the main document#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#ignores escaped separators#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#mixed unquoted records and quoted records with escaped quotes, commas, and wrapped lines#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#nested table#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#no implicit header row if AsciiDoc cell in first line spans multiple lines#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#no implicit header row if cell in first line is quoted and spans multiple lines#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#no implicit header row if cell in first line spans multiple lines#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#no implicit header row if first line blank#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#no implicit header row if noheader option is specified#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#no implicit header row if second line not blank#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#only increments table counter for tables that have a title#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#outputs a caption on simple psv table#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#percentages as column widths#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#performs normal substitutions on cell content#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#preprocessor directive on first line of an AsciiDoc table cell should be processed#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#preserves escaped delimiters at the end of the line#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#sets up columns correctly if first row has cell that spans columns#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should add direction CSS class if float attribute is set on table#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should allow attribute unset in parent document to be set in AsciiDoc table cell#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should allow quotes around a CSV value to be on their own lines#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should apply cell style for column to repeated content#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should apply style and text formatting to cells in first row if no implicit header#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should apply text formatting to cells in implicit header row when column has a style#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should auto recover with warning if missing leading separator on first cell#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should be able to enable toc in an AsciiDoc table cell even if hard unset by API#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should be able to enable toc in an AsciiDoc table cell#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should be able to enable toc in both outer document and in an AsciiDoc table cell#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should catalog anchor at start of cell in explicit header row when column has a style#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should catalog anchor at start of cell in first row#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should catalog anchor at start of cell in implicit header row when column has a style#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should compute column widths based on pagewidth when width is set on table in DocBook output#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should convert frame value ends to topbot when converting to DocBook#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should discover anchor at start of cell and register it as a reference#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should drop incomplete row at end of table and log an error#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should drop last row if last cell in table has colspan that exceeds implicit number of columns#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should drop last row if last cell in table has colspan that exceeds specified number of columns#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should drop row but preserve remaining rows after cell with colspan exceeds number of columns#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should format first cell as AsciiDoc if there is no implicit header row and cell has a style#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should format first cell as AsciiDoc if there is no implicit header row and column has a style#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should format first cell as literal if there is no implicit header row and column has l style#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should ignore v table cell style#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should interpret leading indent if first cell is AsciiDoc and there is no implicit header row#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should keep attribute unset in AsciiDoc table cell if unset in parent document#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should log error but not crash if cell data has unclosed quote#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should normalize frame value topbot as ends when converting to HTML#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should not allow AsciiDoc table cell to set a document attribute that was hard set by the API#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should not allow AsciiDoc table cell to set a document attribute that was hard unset by the API#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should not allow locked attribute unset in parent document to be set in AsciiDoc table cell#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should not drop trailing empty cell in TSV data when loaded from an include file#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should not split paragraph at line containing only {blank} that is directly adjacent to non-blank lines#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should only substitute specialchars for literal table cells#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should preserve frame value ends when converting to HTML#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should preserve frame value topbot when converting to DocBook#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should preserve leading indentation in contents of AsciiDoc table cell if contents starts with newline#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should preserve newlines in quoted CSV values#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should preserving leading spaces but not leading newlines or trailing spaces in literal table cells#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should reset doctype to default in AsciiDoc table cell#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should set horizontal and vertical alignment when converting to DocBook#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should set stripes class if stripes option is set#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should show correct line number in warning about unterminated block inside AsciiDoc table cell#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should strip trailing newlines when splitting paragraphs#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should strip whitespace around contents of AsciiDoc cell#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should take colspan into account when taking cells for row#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should treat trailing colon as an empty cell#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should treat trailing comma as an empty cell#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should treat trailing pipe as an empty cell#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should update doctype-related attributes in AsciiDoc table cell when doctype is set#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#should warn if table block is not terminated#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#single cell in CSV table should only produce single row#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#single cell in DSV table should only produce single row#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#spans, alignments and styles#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#styles not applied to header cells#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#supports horizontal and vertical source data with blank lines and table header#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#supports repeating cells#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#table and column width not assigned when autowidth option is specified#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#table with breakable option docbook 5#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#table with explicit column count can have multiple rows on a single line#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#table with explicit deprecated colspec syntax can have multiple rows on a single line#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#table with header and footer docbook#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#table with header and footer#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#table with implicit header row only#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#table with implicit header row when other options set#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#table with implicit header row#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#table with unbreakable option docbook 5#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#uses explicit caption in front of title in place of default caption and number#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "tables_test.rb#vertical table headers use th element instead of header class#0",
+    "family": "d1-table"
+  },
+  {
+    "id": "test/fixtures/sample.adoc",
+    "family": "d1-table"
+  },
+  {
+    "id": "paragraphs_test.rb#should read content below literal style verbatim#0",
+    "family": "d4-41-extent"
+  },
+  {
+    "id": "docs/modules/html-backend/pages/custom-stylesheet.adoc",
+    "family": "d7-admonition-reflow"
+  },
+  {
+    "id": "docs/modules/html-backend/pages/index.adoc",
+    "family": "d7-admonition-reflow"
+  }
+]

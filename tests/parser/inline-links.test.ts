@@ -274,14 +274,19 @@ describe("inline anchors", () => {
   });
 
   // A comma with nothing (or only blanks) after it is not a reftext:
-  // the node carries none, so the printer writes `[[id]]` back.
+  // the node carries none, so the printer writes `[[id]]` back. Both
+  // spellings sit INSIDE text so that one rule covers both: `[[id, ]]`
+  // alone on a line IS a block-anchor line (spec D6) and would reach
+  // the block layer instead, while `[[id,]]` alone stays a paragraph
+  // (the grammar's reftext alternative needs a character after the
+  // comma) — a difference this row is not about.
   test.each(["[[id,]]", "[[id, ]]"])(
     "%s → anchor with no reftext",
     (anchor) => {
-      const [node0] = inlineNodes(`${anchor}\n`);
-      narrow(node0, "inlineAnchor");
-      expect(node0.id).toBe("id");
-      expect(node0.reftext).toBeUndefined();
+      const [, node1] = inlineNodes(`x ${anchor}\n`);
+      narrow(node1, "inlineAnchor");
+      expect(node1.id).toBe("id");
+      expect(node1.reftext).toBeUndefined();
     },
   );
 

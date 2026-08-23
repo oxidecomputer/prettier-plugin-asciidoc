@@ -44,7 +44,7 @@ import {
 } from "./parse/line-shapes.js";
 
 const {
-  builders: { line, literalline, hardline },
+  builders: { fill, line, literalline, hardline },
 } = doc;
 
 /**
@@ -72,9 +72,9 @@ export const DLIST_HAZARD_BREAK: Doc = [hardline];
 /**
  * Split raw block text into the words wordsToFillParts expects:
  * non-empty and whitespace-free. Shared so every caller — the text
- * case, the admonition printer, and the first-source-line counting
- * that feeds the dlist guard — agrees on what a word is; a mismatch
- * would misplace the guard by a word.
+ * case and the first-source-line counting that feeds the dlist
+ * guard — agrees on what a word is; a mismatch would misplace the
+ * guard by a word.
  * @param value - Raw source text, or a prefix of it.
  * @returns The non-empty whitespace-delimited words, in order.
  */
@@ -603,4 +603,19 @@ export function keepLastBreak(parts: Doc[]): Doc[] {
     return parts;
   }
   return parts.with(last, hardline);
+}
+
+// ── The paragraph body ─────────────────────────────────────
+
+/**
+ * THE paragraph-body engine: one fill() pipeline over printed inline
+ * children — extracted so the paragraph printer and the
+ * paragraph-form admonition body are one engine BY CONSTRUCTION, not
+ * by review (spec D7: the deleted string engine had already forked
+ * the dlist first-line guard into a second spelling).
+ * @param children - the printed inline children, in order
+ * @returns the reflowed body
+ */
+export function paragraphBody(children: Doc[]): Doc {
+  return fill(stripLeadingHazardBreak(flattenForFill(children)));
 }

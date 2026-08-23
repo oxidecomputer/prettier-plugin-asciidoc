@@ -113,11 +113,12 @@ Our AST is designed for Prettier, not for the AsciiDoc language spec's semantic
 model. It preserves everything a formatter needs, including constructs a
 semantic model intentionally discards.
 
-The list below is the 30 `type` discriminants declared in `src/ast.ts`, and
-nothing else — a node kind not named here does not exist. Where AsciiDoc has a
-construct we do not model yet (tables, description lists), there is no node for
-it and the source is carried as paragraph text; those gaps are tracked as GitHub
-issues, not as node names here.
+The list below is the 31 `type` discriminants declared in `src/ast.ts`, and
+nothing else — a node kind not named here does not exist. Tables pass through as
+an opaque `delimitedBlock` variant (spec D1) rather than being modeled; where
+AsciiDoc has a construct we do not model at all yet (description lists), there
+is no node for it and the source is carried as paragraph text; those gaps are
+tracked as GitHub issues, not as node names here.
 
 **Block nodes:**
 
@@ -132,15 +133,19 @@ issues, not as node names here.
   lines that led into it, in source order — a nested list is a block like any
   other) + `trailingContinuation`
 - `delimitedBlock` — every leaf block, under one node with two axes:
-  `variant: "listing" | "literal" | "pass" | "verse" | "example" | "sidebar" | "quote"`
+  `variant: "listing" | "literal" | "pass" | "verse" | "example" | "sidebar" | "quote" | "table"`
   and `form: "delimited" | "indented" | "paragraph"`. Backtick-fenced code
   (` ``` `) is a `listing` and is normalized to `----` on output; a masqueraded
   parent block (`[verse]` on `____`) keeps its original delimiter in
-  `sourceDelimiter`.
+  `sourceDelimiter`. `table` is an opaque passthrough; delimiters are content —
+  spec D1.
 - `parentBlock` — `variant: "example" | "sidebar" | "open" | "quote"`; children
   are parsed as AsciiDoc
-- `admonition` — `form: "paragraph" | "delimited"`; `variant` is a `string`, so
-  the 5 standard types and arbitrary custom styles (`[EXERCISE]`) are one node
+- `admonition` — `form: "paragraph" | ParentBlockNode["variant"]`; `variant` is
+  a `string`, so the 5 standard types and arbitrary custom styles (`[EXERCISE]`)
+  are one node. The paragraph form's body is `text` (inline children, like a
+  paragraph); the delimited form's body is `children`, and the wrapper delimiter
+  is `form` — the spelling and the wrapper are one fact (spec D7)
 - `blockMacro` — image, video, audio, toc
 - `thematicBreak`, `pageBreak`
 
@@ -151,6 +156,8 @@ issues, not as node names here.
   `include::path[]`, `ifdef`, `ifndef`, `ifeval`, `endif`
 - `blockAttributeList` — `[source,ruby]`, `[#id.role%option]`
 - `blockTitle` — a `.Title` line
+- `blockAnchor` — a `[[id]]` or `[[id,reftext]]` line alone, metadata for the
+  block that follows
 - `rawLine` — one source line kept verbatim inside a paragraph's inline content,
   so a comment or directive between two text lines survives reflow
 
@@ -170,10 +177,12 @@ issues, not as node names here.
 effective content model. For example, `[verse]` on a `____` block switches it
 from compound (parsed as AsciiDoc) to verbatim (line breaks preserved). `[stem]`
 on `++++` switches from raw passthrough to math notation. `[NOTE]` on `====`
-turns an example block into an admonition container. The parser must check the
-preceding `blockAttributeList` to determine each block's effective content model
-— otherwise it risks reflowing verbatim content or failing to parse compound
-content. See the full masquerade table in `docs/asciidoc-format.md`.
+decides at frame open that the block builds as an admonition rather than an
+example, with the wrapper delimiter recorded as the node's `form` (spec D7). The
+parser must check the preceding `blockAttributeList` before opening a block to
+determine its effective content model — otherwise it risks reflowing verbatim
+content or failing to parse compound content. See the full masquerade table in
+`docs/asciidoc-format.md`.
 
 ## Testing strategy
 

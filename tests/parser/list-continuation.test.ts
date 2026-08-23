@@ -332,9 +332,9 @@ describe("continuations around delimited blocks (issue #6)", () => {
   });
 
   // A `+` attaches the NEXT LOGICAL BLOCK: any metadata lines
-  // (attribute list, block title, anchor paragraph) group with
+  // (attribute list, block title, block anchor) group with
   // the block they annotate and attach together under the one
-  // marker. The anchor may be any block type except those that
+  // marker. The annotated block may be any block type except those that
   // terminate the list context (sections, lists, document
   // title) or are context-transparent (comments, attribute
   // entries).
@@ -382,14 +382,14 @@ describe("continuations around delimited blocks (issue #6)", () => {
     expect(item.blocks[0].block).toMatchObject({ type: "blockTitle" });
   });
 
-  test("+ attaches an anchor paragraph with its block", () => {
+  test("+ attaches a block anchor with its block", () => {
     const { children } = parse("* i:\n+\n[[id]]\n----\nc\n----\n");
     expect(children).toHaveLength(1);
     const {
       children: [item],
     } = firstList(children);
     expect(item.blocks).toHaveLength(2);
-    expect(item.blocks[0].block).toMatchObject({ type: "paragraph" });
+    expect(item.blocks[0].block).toMatchObject({ type: "blockAnchor" });
     expect(item.blocks[1].block).toMatchObject({
       type: "delimitedBlock",
     });

@@ -103,3 +103,26 @@ describe("fenced code block formatting", () => {
     expect(await formatAdoc(out)).toBe(out);
   });
 });
+
+// ONE row, deliberately: the document-level controls this change also
+// needs are already asserted above and a second spelling of them would
+// pin nothing new — "deduplicates [source,lang] when fenced block
+// already has language" is the annotated-at-document-level control,
+// and "empty fenced code block" plus "a fence without a language
+// normalizes to [source] + listing" are the unannotated ones (first in
+// the document and after a sibling respectively, so both sides of the
+// old scan's `index < 1` guard are covered). The class NO existing row
+// reached is the one below: inside a list item the old
+// `path.getParentNode()` cast landed on an `ItemBlock`, which has no
+// `children`, so the sibling scan saw nothing and the printer emitted
+// its implied prefix ON TOP of the author's line.
+describe("fence annotation is the reader's own record (spec D5a)", () => {
+  test("a fence annotated inside a list item emits ONE [source] prefix", async () => {
+    const input = "* item\n+\n[source,ruby]\n```ruby\nfoo\n```\n";
+    const output = await formatAdoc(input);
+    expect(output).toBe("* item\n+\n[source,ruby]\n----\nfoo\n----\n");
+    // The d5-fence-annotation proofs (spec D9.2), re-run at execution:
+    expect(renderedHtml(output)).toBe(renderedHtml(input));
+    expect(await formatAdoc(output)).toBe(output);
+  });
+});

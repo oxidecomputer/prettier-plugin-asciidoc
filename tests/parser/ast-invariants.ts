@@ -308,51 +308,46 @@ function expectTextValue(slice: string, value: string): void {
 }
 
 /**
- * Every reading of `content` with exactly ONE doubled break undoubled.
- *
- * One, not all of them: the bug below inserts a single break at a
- * single join, and undoubling every `\n\n` in the content would also
- * excuse a block that lost a blank line the author wrote — inside a
- * listing, which is where a blank line matters most.
- * @param content - a verbatim block's content
- * @returns one variant per doubled break, in source order
- */
-function singleUndoublings(content: string): string[] {
-  const variants: string[] = [];
-  for (
-    let index = content.indexOf("\n\n");
-    index !== -1;
-    index = content.indexOf("\n\n", index + 1)
-  ) {
-    variants.push(content.slice(0, index) + content.slice(index + 1));
-  }
-  return variants;
-}
-
-/**
- * A verbatim block's content is inside the span it claims.
+ * A verbatim block's content is inside the span it claims — exactly,
+ * with no tolerance: the doubled-break allowance that stood here
+ * masked precisely the #39 bug D2+D4 fixed, and a defense leaves WITH
+ * its need (spec D4d).
  * @param slice - the source the node's position names
  * @param content - the block's verbatim content
  */
 function expectVerbatimContent(slice: string, content: string): void {
-  // KNOWN BUG, reported against the baseline rather than fixed here
-  // (`paragraph-form.ts` is out of the drop-chevrotain plan's scope by
-  // its spec Decision 4, and this invariant landed in that plan's Task
-  // 1 as a pure test addition): a
-  // `[source]`-styled PARAGRAPH whose text run is interrupted by a
-  // line the reader re-emits verbatim gets a DOUBLED break where the
-  // two pieces are joined, so `content` carries a blank line the
-  // source does not have, and the formatter prints it. Reproduce by
-  // running `formatAdoc` over the five lines `* a`, `[source]`,
-  // `flush`, `ifdef::x[]`, `ifdef::x[]`: the output gains a blank line
-  // before the second `ifdef::x[]`. Found by the reader-soup property,
-  // 0 of 1,614 corpus documents. Tolerated as EXACTLY that shape — ONE
-  // doubled break undoubled, in one place — so any other content/span
-  // disagreement, including a second inserted break, still fails.
-  const variants = singleUndoublings(content);
   expect(
-    slice.includes(content) || variants.some((one) => slice.includes(one)),
+    slice.includes(content),
     `verbatim content is not inside ${JSON.stringify(slice)}`,
+  ).toBe(true);
+}
+
+/**
+ * (x) — a table node's content IS the source of its own extent: the
+ * content is a PREFIX of the slice its position names — compared
+ * against the SLICE, which derives from the position alone, so a
+ * future builder that REBUILDS content instead of slicing it fails
+ * here — and the position over-spans the content by at most one
+ * character (zero on a terminator close, the raw end of the close
+ * line; the standing forced-close spelling otherwise, where the
+ * dropped character can itself be a content byte — the BOUND, not
+ * the character's identity, is the invariant). The spec states (x)
+ * in rstripped-line terms because that is the property the PRINTED
+ * side preserves; the builder slices raw, so this raw prefix check
+ * is the same claim held a fortiori — the printed side is pinned by
+ * the format rows in tests/format/table.test.ts, not here.
+ * @param slice - the source the node's position names
+ * @param content - the table's verbatim content
+ */
+function expectTableContent(slice: string, content: string): void {
+  const over = slice.length - content.length;
+  expect(
+    over === 0 || over === 1,
+    `table position spans ${String(over)} characters past its content`,
+  ).toBe(true);
+  expect(
+    slice.startsWith(content),
+    "table content is not the source of its own extent",
   ).toBe(true);
 }
 
@@ -364,6 +359,10 @@ function expectVerbatimContent(slice: string, content: string): void {
 function expectOneValue(node: AnyNode, slice: string): void {
   const { value, content } = node;
   if (node.type === "delimitedBlock" && typeof content === "string") {
+    if (node.variant === "table") {
+      expectTableContent(slice, content);
+      return;
+    }
     expectVerbatimContent(slice, content);
     return;
   }
@@ -445,15 +444,20 @@ function expectLineCoverage(source: string, nodes: AnyNode[]): void {
 }
 
 // The node kinds whose position spans their whole content, so a
-// descendant must lie inside them. A `section`'s position is its
-// heading LINE — its blocks come after it — and the `document`'s span
-// is the whole source, so neither constrains anything; both are
-// deliberately absent.
+// descendant must lie inside them. COMPLETENESS RULE (viii): every
+// child-bearing BLOCK kind is listed here or named as an exception —
+// a `section`'s position is its heading LINE (its blocks come after
+// it) and the `document` spans the whole source, so neither
+// constrains anything; both are deliberately absent, by adjudication.
+// The next container author (dlists, tables) meets this as a rule,
+// not a list; the node-kind census row in architecture.test.ts is the
+// reminder that fires when a kind is added.
 const SPANNING_CONTAINERS = new Set([
   "parentBlock",
   "list",
   "listItem",
   "delimitedBlock",
+  "admonition",
 ]);
 
 /**
@@ -498,10 +502,11 @@ function containerFor(
  * CAN do is put a child outside the parent it is nested in, which is
  * the same failure (a block that escaped its container) seen from the
  * other side. Verified at `8c42f624`: 0 failures over the corpus and
- * 432 lists.
+ * 432 lists. Exported for its (viii) negative row in
+ * tests/parser/ast-invariants.test.ts.
  * @param root - the document node
  */
-function expectContainment(root: unknown): void {
+export function expectContainment(root: unknown): void {
   const visit = (value: unknown, container?: AnyNode): void => {
     if (isArray(value)) {
       for (const element of value) visit(element, container);
@@ -635,6 +640,107 @@ function expectItemGaps(
 }
 
 /**
+ * (viii-b) — sibling monotonicity inside a list item: the item's text
+ * ends at or before its first block starts, and each block ends at or
+ * before the next begins. This is the assumption gapsOf
+ * (src/parse/lines/list-reader.ts) consumes, stated in the direction
+ * it can be violated SILENTLY: an over-spanning end makes
+ * `documentLines.slice(previousEnd, start - 1)` too short and drops a
+ * `+` with no throw — the under-span direction already fails loudly
+ * on gapsOf's unreachable. Exported for its negative row in
+ * tests/parser/ast-invariants.test.ts.
+ * @param nodes - every node, in document order
+ */
+export function expectItemSiblingMonotonicity(nodes: AnyNode[]): void {
+  for (const node of nodes) {
+    if (node.type !== "listItem") continue;
+    const { text, blocks } = node;
+    const inline = isArray(text) ? text : [];
+    const lastText = inline.at(-1);
+    let previous = isNode(lastText)
+      ? lastText.position.end.offset
+      : node.position.start.offset;
+    for (const entry of isArray(blocks) ? blocks : []) {
+      if (!isRecord(entry)) continue;
+      const { block } = entry;
+      if (!isNode(block)) continue;
+      expect(
+        block.position.start.offset,
+        `item block starts before the previous piece ends (line ${String(block.position.start.line)})`,
+      ).toBeGreaterThanOrEqual(previous);
+      previous = block.position.end.offset;
+    }
+  }
+}
+
+/**
+ * (xi) — the reader's recorded annotation pairs with the sibling
+ * (spec D5a): for every DelimitedBlockNode, `annotatedBy` is set iff
+ * the immediately preceding sibling in its own container — ItemBlock
+ * chains included — is a blockAttributeList, and then equals that
+ * sibling's `value`. The parity normalizer blanks the field, which
+ * REMOVES it from that net; this invariant is the pin, over every
+ * corpus and fuzz parse. Walks the sibling arrays itself rather than
+ * riding `siblingGroups`, whose length-greater-than-one filter would
+ * skip a container holding a SINGLE block — a lone delimitedBlock
+ * must still prove its `annotatedBy` is undefined. Exported for its
+ * negative row in tests/parser/ast-invariants.test.ts (the check must
+ * be shown to bite — and that row IS a singleton container).
+ * @param root - the document node
+ */
+export function expectAnnotatedByPairing(root: unknown): void {
+  const visit = (value: unknown): void => {
+    if (isArray(value)) {
+      let previous: AnyNode | undefined = undefined;
+      for (const element of value) {
+        for (const node of siblingsOf(element)) {
+          if (node.type === "delimitedBlock") {
+            const attribute =
+              previous?.type === "blockAttributeList"
+                ? previous.value
+                : undefined;
+            expect(
+              node.annotatedBy,
+              `annotatedBy pairing at offset ${String(node.position.start.offset)}`,
+            ).toBe(attribute);
+          }
+          previous = node;
+        }
+        visit(element);
+      }
+      return;
+    }
+    if (!isRecord(value)) return;
+    for (const [key, child] of Object.entries(value)) {
+      if (key === "position") continue;
+      visit(child);
+    }
+  };
+  visit(root);
+}
+
+/**
+ * (ix) — the D7 exclusivity: an admonition body lives in exactly one
+ * place — `text` for the paragraph form, `children` for a delimited
+ * one. The always-meaningful empty array replaced three
+ * `Valid only when` markers; this row checks structurally what those
+ * asserted in prose.
+ * @param nodes - every node, in document order
+ */
+function expectAdmonitionBodyExclusive(nodes: AnyNode[]): void {
+  for (const node of nodes) {
+    if (node.type !== "admonition") continue;
+    if (node.form === "paragraph") {
+      expect(node.children, "paragraph-form admonition with children").toEqual(
+        [],
+      );
+    } else {
+      expect(node.text, "delimited-form admonition with text").toEqual([]);
+    }
+  }
+}
+
+/**
  * Assert every AST invariant for one document.
  *
  * The five invariants `expectStreamInvariants` asserted of the token
@@ -659,4 +765,7 @@ export function expectAstInvariants(source: string): void {
   expectContainment(document);
   expectListsNonEmpty(nodes);
   expectGapsVerbatim(source, nodes);
+  expectItemSiblingMonotonicity(nodes);
+  expectAnnotatedByPairing(document);
+  expectAdmonitionBodyExclusive(nodes);
 }

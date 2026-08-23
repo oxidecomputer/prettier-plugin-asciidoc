@@ -47,11 +47,13 @@ describe("[source]/[listing]/[literal] on open block formatting", () => {
   });
 
   // The one behaviour the parentBlock-end fix changes (Ruling 42).
-  // `extractParentBlockContent` slices the source by the block's end
-  // offset; while every forced-closed parent block ended at offset 0,
-  // that slice came back EMPTY and the formatter dropped the block's
-  // content on the floor. No corpus or fixture case reaches this path
-  // with an unterminated block, so it is pinned here.
+  // closeExtent derives the content-end offset from the block's real
+  // source; the masqueraded open block below builds as a verbatim
+  // delimitedBlock whose content is sliced up to that offset. Before
+  // the fix, a forced close computed the offset as 0, so the slice
+  // came back EMPTY and the formatter dropped the block's content on
+  // the floor. No corpus or fixture case reaches this path with an
+  // unterminated block, so it is pinned here.
   test("an UNTERMINATED [source] + open block keeps its content", async () => {
     const input = "[source]\n--\na\n";
     const output = await formatAdoc(input);

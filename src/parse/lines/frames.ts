@@ -12,7 +12,11 @@
  * they are read recursively (list-reader.ts's `readList`), through the
  * {@link ListHost} seam below.
  */
-import type { BlockNode, ParentBlockNode } from "../../ast.js";
+import type {
+  BlockNode,
+  DelimitedBlockNode,
+  ParentBlockNode,
+} from "../../ast.js";
 import {
   buildAttributeEntry,
   buildBlockAnchor,
@@ -55,6 +59,12 @@ export type Frame =
       readonly open: SourceLine;
       /** Which parent block the opener opened, decided at open. */
       readonly variant: ParentBlockNode["variant"];
+      /**
+       * Present when a held admonition style renamed the block at open
+       * (parser.rb:537-538): closeFrame builds an AdmonitionNode and
+       * keeps the parsed children (content model stays compound).
+       */
+      readonly admonition?: string;
       /** The blocks read so far, in source order. */
       readonly children: BlockNode[];
     }
@@ -65,6 +75,40 @@ export type Frame =
       readonly terminator: string;
       /** The opening delimiter line; the content is sliced at close. */
       readonly open: SourceLine;
+      /** What closeFrame builds — decided at open, never re-derived. */
+      readonly role: VerbatimRole;
+      /**
+       * The reader's annotation record for the node this frame builds,
+       * captured at open (see BlockReader.annotation).
+       */
+      readonly annotatedBy?: string;
+    };
+
+/**
+ * The node a verbatim frame builds at close — decided at OPEN by
+ * resolveDelimitedOpen (lines/open-style.ts), carried here so
+ * closeFrame re-derives nothing (spec D4a).
+ */
+export type VerbatimRole =
+  | {
+      /** Role discriminant: a verbatim delimited block. */
+      readonly builds: "delimitedBlock";
+      /** Which delimited block it builds. */
+      readonly variant: DelimitedBlockNode["variant"];
+      /** The masqueraded parent's delimiter, when a style re-modeled it. */
+      readonly sourceDelimiter?: ParentBlockNode["variant"];
+      /** Set for a Markdown fence, which implies the `source` style. */
+      readonly fenced?: true;
+      /** The fence's language hint, when its opening line carried one. */
+      readonly language?: string;
+    }
+  | {
+      /** Role discriminant: a comment block, which is a CommentNode. */
+      readonly builds: "comment";
+    }
+  | {
+      /** Role discriminant: a table, an opaque verbatim extent (D1). */
+      readonly builds: "table";
     };
 
 /**

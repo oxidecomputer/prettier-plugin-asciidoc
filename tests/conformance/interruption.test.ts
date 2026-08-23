@@ -49,6 +49,10 @@ const CONSTRUCTS: Array<[string, string]> = [
   ["comment block delimiter", "////\nc\n////"],
   ["open block delimiter", "--\nob\n--"],
   ["fenced code", "```\nc\n```"],
+  ["table delimiter (psv)", "|===\n|a\n|==="],
+  ["table delimiter (csv)", ",===\na,b\n,==="],
+  ["table delimiter (dsv)", ":===\na:b\n:==="],
+  ["table delimiter (nested)", "!===\n!a\n!==="],
   ["indented line", "  wrapped continuation"],
   ["admonition marker", "NOTE: note text"],
   ["conditional directive", "ifdef::flag[]\nx\nendif::[]"],
@@ -82,7 +86,7 @@ function blockCount(html: string): number {
   // `dt`/`dd` are counted because a sibling description-list TERM is
   // the one interruption that adds no other block: `term1::` /
   // `term:: def` renders as two `<dt>` inside the same `<dl>`.
-  return (html.match(/<(?:p|div|ul|ol|dl|dt|dd|pre|h\d|hr|li)\b/gv) ?? [])
+  return (html.match(/<(?:p|div|ul|ol|dl|dt|dd|pre|h\d|hr|li|table)\b/gv) ?? [])
     .length;
 }
 
@@ -101,6 +105,11 @@ const CONTEXT_PREFIX: Record<ParagraphContext, string> = {
   listContinuation: "* item\n+\npara line",
   dlistItem: "term1:: desc",
   literalParagraph: "  indented first",
+  // The prefix must already contain the style line AND one content
+  // line: probing from the style line alone would test the
+  // OPENING-line dispatch (step 7c's territory), where `----`, `====`,
+  // `|===`, `== T` and `:a: b` open something else entirely.
+  verbatimStyled: "[source]\nfirst content line",
 };
 
 // The enclosing list ancestry of each prefix, in the marker-style
@@ -113,6 +122,7 @@ const CONTEXT_LIST_STYLES: Record<ParagraphContext, readonly string[]> = {
   listContinuation: ["*"],
   dlistItem: [],
   literalParagraph: [],
+  verbatimStyled: [],
 };
 
 // WHERE the construct sits inside the open block. Several shapes
@@ -161,6 +171,7 @@ const ALL_CONTEXTS: ParagraphContext[] = [
   "listContinuation",
   "dlistItem",
   "literalParagraph",
+  "verbatimStyled",
 ];
 
 // The contexts the FORMATTER is round-tripped in at the bottom of this

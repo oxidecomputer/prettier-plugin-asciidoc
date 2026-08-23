@@ -21,7 +21,11 @@ ESLint is strict. Rules that affect how you write code:
 - `max-lines: 450` (from eslint-config-love) — blank lines and comments are
   excluded from the count. **Never condense or remove comments to fit the
   limit.** Instead, split the file into smaller modules. Comments are critical
-  for understanding the code.
+  for understanding the code. One ruled, file-scoped exception:
+  `src/parse/lines/reader.ts` is capped at `max-lines: 500` instead
+  (`eslint.config.js`), ruled during plan α because the file had absorbed a
+  whole module's responsibility; plan β retires the override by restructuring
+  the file.
 
 ## Code Comments
 

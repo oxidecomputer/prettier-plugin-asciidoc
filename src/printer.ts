@@ -23,7 +23,7 @@
 import { doc, type Printer, type Doc } from "prettier";
 import { MARKER_OFFSET } from "./constants.js";
 import { printInlineNode } from "./print-inline.js";
-import { flattenForFill, stripLeadingHazardBreak } from "./reflow.js";
+import { paragraphBody } from "./reflow.js";
 import { joinBlocks } from "./print-join.js";
 import {
   type AnyNode,
@@ -35,9 +35,10 @@ import {
   printParentBlock,
 } from "./print-blocks.js";
 import { printList, printListItem } from "./print-list.js";
+import { anchorToSource } from "./serialize-inline.js";
 
 const {
-  builders: { fill, hardline },
+  builders: { hardline },
 } = doc;
 
 const printer: Printer<AnyNode> = {
@@ -86,10 +87,7 @@ const printer: Printer<AnyNode> = {
         return [".", node.title];
       }
       case "delimitedBlock": {
-        return printDelimitedBlock(
-          node,
-          hasPrecedingLanguageAttribute(node, path),
-        );
+        return printDelimitedBlock(node, hasPrecedingLanguageAttribute(node));
       }
       case "parentBlock": {
         return printParentBlock(node, path, print);
@@ -116,15 +114,17 @@ const printer: Printer<AnyNode> = {
       case "preprocessorDirective": {
         return node.value;
       }
+      // A block anchor prints through the same spelling the inline
+      // anchor uses — one serializer, byte-identical to the wrapper
+      // paragraph it replaced (spec D6; parity enforces the bytes).
+      case "blockAnchor": {
+        return anchorToSource(node);
+      }
       case "paragraph": {
-        // Reflow paragraph text to printWidth using fill. The text
-        // children produce word/line pairs; fill packs as many words
-        // as possible onto each line before wrapping.
-        // flattenForFill (not .flat()) ensures proper fill()
-        // alignment when inline formatting is mixed with text.
-        return fill(
-          stripLeadingHazardBreak(flattenForFill(path.map(print, "children"))),
-        );
+        // Reflow paragraph text to printWidth: THE paragraph-body
+        // engine (reflow.ts paragraphBody), shared with the
+        // paragraph-form admonition body (spec D7).
+        return paragraphBody(path.map(print, "children"));
       }
       case "list": {
         return printList(node, path, print);

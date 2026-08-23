@@ -92,8 +92,8 @@ const FORBIDDEN: Array<[string, RegExp]> = [
   // POSITION (third parameter named `tokens`), not on the type name, so
   // it fires whether or not the type is spelled out. Every legitimate
   // `tokens` parameter in the tree today (inline-node-builder,
-  // text-lines, build/paragraph) is first or second, so this is
-  // precise by construction rather than by exemption.
+  // build/paragraph) is first or second, so this is precise by
+  // construction rather than by exemption.
   [
     "function signature taking the token history as its third parameter",
     /\([^\(\),]*,[^\(\),]*,\s*tokens\b/v,
@@ -200,14 +200,14 @@ describe("parse-layer architecture", () => {
   //
   // WHAT IT DOES NOT PROVE: that no post-parse AST repair pass exists.
   // A new one under a new name trips nothing here. There is no precise
-  // textual signature for the category — `paragraph-form.ts` exports
-  // `convertParagraphFormBlocks(blocks: BlockNode[], …): BlockNode[]`,
-  // which has exactly the shape a repair pass would have and is
-  // legitimate (style-driven conversion, not classification repair) —
-  // so banning the signature would fire on correct code. Reviewing a
-  // new `BlockNode[] -> BlockNode[]` export is a human judgement; the
-  // metric "post-hoc repair passes = 0" must be re-established by
-  // reading, not by citing this test.
+  // textual signature for the category — the deleted
+  // `paragraph-form.ts` exported `convertParagraphFormBlocks(blocks:
+  // BlockNode[], …): BlockNode[]`, exactly the shape a repair pass
+  // has, and a legitimate future pass could too — so banning the
+  // signature would fire on correct code. Reviewing a new
+  // `BlockNode[] -> BlockNode[]` export is a human judgement; the
+  // metric "post-hoc repair passes = 0" (true since spec D4) must be
+  // re-established by reading, not by citing this test.
   test.each([
     "paragraph-tokens.ts",
     "delimiter-patterns.ts",
@@ -249,8 +249,28 @@ describe("parse-layer architecture", () => {
     "lines/list-item.ts",
     "lines/list-frames.ts",
     "lines/item-extent.ts",
+    // The style-driven post-parse rewrite: folded into frame open
+    // (spec D4) — masquerades and admonition renames resolve in
+    // lines/open-style.ts, verbatim-styled and paragraph-form blocks
+    // are built by the reader at open.
+    "paragraph-form.ts",
+    // The per-line token flattener that fed the string-body
+    // admonition engine; both died with spec D7 (one prose
+    // representation).
+    "inline/text-lines.ts",
   ])("%s stays deleted", (name) => {
     expect(existsSync(path.posix.join(PARSE_DIR, name))).toBe(false);
+  });
+
+  // The node-kind budget is a GATE, not prose (spec D6, owner): 31,
+  // spent on `blockAnchor` and nothing else in plan α. A 32nd kind
+  // fails this row until it is deliberately updated — which is what a
+  // budget means. Counted off the `type: "…"` discriminant literals
+  // declared in src/ast.ts, one per node kind.
+  test("the node-kind budget is 31", () => {
+    const source = readFileSync("src/ast.ts", "utf8");
+    const kinds = source.match(/^ {2}type: "[a-zA-Z]+";$/gmv) ?? [];
+    expect(kinds).toHaveLength(31);
   });
 
   // The plan's constraint: no lint suppressions beyond

@@ -490,10 +490,11 @@ describe("byte pins for rules only the corpus and the sweep reached", () => {
       "* a\n\n  lit\n+\npara\n[role]\n** b\n",
     ],
     // isRunMetadata takes a paragraph for an ANCHOR only when the
-    // anchor is the whole paragraph: `[[anc]] x` is an anchor plus
-    // text, so it is content, the run ends at `[role]`, and the block
-    // that follows earns the `+`. Mutant without the length test reads
-    // the paragraph as run metadata: "* a b\n[role]\n[[anc]] x para\n".
+    // anchor is its ONE child (isPseudoAnchorLine, block-metadata.ts):
+    // `[[anc]] x` is an anchor child plus a text child, so it is
+    // content, the run ends at `[role]`, and the block that follows
+    // earns the `+`. Mutant without the child-count guard reads the
+    // paragraph as run metadata: "* a b\n[role]\n[[anc]] x para\n".
     [
       "an anchor followed by text is content, not run metadata",
       "* a\nb\n[role]\n[[anc]] x\npara\n",
@@ -543,6 +544,60 @@ describe("byte pins for rules only the corpus and the sweep reached", () => {
     const input = "* a\n\n  lit\n[role]\n** b\n+\npara\n";
     const once = await formatAdoc(input);
     expect(once).toBe("* a\n\n  lit\n[role]\n\n** b\n+\npara\n");
+    expect(await formatAdoc(once)).toBe(once);
+  });
+});
+
+// A `[[…]]` line whose id fails the block-anchor grammar
+// (BLOCK_ANCHOR_SOURCE, parse/line-shapes.ts; behavior is Ruby's
+// `BlockAnchorRx`) is an ordinary PARAGRAPH — but it still prints as
+// `[[…]]` on its own line, so a held-back metadata RUN keeps it
+// (isRunMetadata → isPseudoAnchorLine, block-metadata.ts). Drop that
+// arm and the run stops being all-metadata: the hazard flips to
+// `plus` and the printer INVENTS a `+` the author never wrote.
+//
+// REPRESENTATIVE rows, not the whole class: a 180-row differential (30
+// item shape families × 6 anchor spellings) against the pre-D6 bytes
+// moved on 15 rows over 3 families here, and the reviewer's own matrix
+// on 55 rows over 11 — one mechanism, four spellings of it pinned. The
+// valid-id control (`[[anc]]`) never moved: it is a blockAnchor node
+// and was covered all along.
+describe("a pseudo-anchor line inside an item's metadata run (spec D6)", () => {
+  const cases: Array<[string, string, string]> = [
+    // The repro family. Without the arm: "* a para\n+\n[role]\n[[3-bad]]\n".
+    [
+      "digit-leading id after [role] keeps the run — no invented +",
+      "* a\npara\n[role]\n[[3-bad]]\n",
+      "* a para\n[role]\n[[3-bad]]\n",
+    ],
+    // A title in the run and a hazard that keeps the item's own break:
+    // the arm also decides the item TEXT's shaping. Without it:
+    // "* a b\n+\n[role]\n.T\n[[3-bad]]\n".
+    [
+      "[role] + .T + a pseudo-anchor keeps the run and the item's break",
+      "* a\nb\n[role]\n.T\n[[3-bad]]\n",
+      "* a\n  b\n[role]\n.T\n[[3-bad]]\n",
+    ],
+    // Illegal character rather than a leading digit, in an ORDERED
+    // item: the grammar's other rejection, the other list variant.
+    [
+      "illegal-character id in an ordered item's run",
+      ". o\npara\n[role]\n[[illegal$id]]\n",
+      ". o para\n[role]\n[[illegal$id]]\n",
+    ],
+    // `[[id,]]` is not an anchor line either (the reftext alternative
+    // needs a character after the comma) and it PRINTS as `[[id]]`,
+    // which IS one on re-parse — so the run must keep it or the second
+    // pass would answer the hazard differently.
+    [
+      "an empty-reftext anchor prints as [[id]] and stays in the run",
+      "* a\npara\n[role]\n[[id,]]\n",
+      "* a para\n[role]\n[[id]]\n",
+    ],
+  ];
+  test.each(cases)("%s", async (_name, input, expected) => {
+    const once = await formatAdoc(input);
+    expect(once).toBe(expected);
     expect(await formatAdoc(once)).toBe(once);
   });
 });

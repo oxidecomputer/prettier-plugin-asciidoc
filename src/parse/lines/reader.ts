@@ -21,8 +21,11 @@
  * is the builders' business (src/parse/build/); this file only decides
  * which one to call and where its result goes.
  */
-import type { BlockNode, DocumentNode, ParentBlockNode } from "../../ast.js";
+import type { BlockNode, DocumentNode } from "../../ast.js";
+import { isReaderConsumedLine } from "../../block-metadata.js";
+import { parseAttrlist, type Attrlist } from "../attrlist.js";
 import {
+  buildDelimitedAdmonition,
   buildParentBlock,
   buildVerbatimBlock,
   type BlockExtent,
@@ -32,6 +35,8 @@ import {
   buildAdmonitionParagraph,
   buildLiteralParagraph,
   buildParagraph,
+  buildParagraphFormBlock,
+  buildStyledParagraph,
 } from "../build/paragraph.js";
 import {
   buildDiscreteHeading,
@@ -39,9 +44,7 @@ import {
   buildSection,
 } from "../build/section.js";
 import type { InlineToken } from "../inline/tokens.js";
-import { textLines } from "../inline/text-lines.js";
 import type { ParagraphContext } from "../line-shapes.js";
-import { convertParagraphFormBlocks } from "../paragraph-form.js";
 import { makeLocationIndex, type LocationIndex } from "../positions.js";
 import {
   classifyLine,
@@ -56,26 +59,47 @@ import {
   leafBuilder,
   type Frame,
   type ListHost,
+  type VerbatimRole,
 } from "./frames.js";
 import { FENCE_TIP, readList } from "./list-reader.js";
-import { readLiteralParagraph, readParagraph } from "./paragraph-reader.js";
+import {
+  paragraphFormVariant,
+  resolveDelimitedOpen,
+  verbatimStyledVariant,
+} from "./open-style.js";
+import {
+  readLiteralParagraph,
+  readParagraph,
+  readVerbatimStyledLines,
+} from "./paragraph-reader.js";
 import { splitLines, type SourceLine } from "./split.js";
-
-// Delimited blocks whose content is parsed as BLOCKS rather than kept
-// verbatim — `DELIMITED_BLOCKS`' content model, minus the masquerades
-// (`[source]` on a `--` block and friends), which stay a post-hoc
-// re-slice in paragraph-form.ts exactly as today — and the parent-block
-// variant each one opens. Any other delimiter opens a verbatim frame.
-const COMPOUND_VARIANTS = new Map<DelimiterKind, ParentBlockNode["variant"]>([
-  ["example", "example"],
-  ["sidebar", "sidebar"],
-  ["openBlock", "open"],
-  ["quote", "quote"],
-]);
 
 // The one block-attribute style the reader itself acts on: it turns the
 // heading that follows into a leaf instead of a section frame.
 const DISCRETE_STYLE = "discrete";
+
+// A fenced opener is three backticks then the optional language hint.
+const BACKTICK_COUNT = 3;
+
+/**
+ * Complete a fence's role with the language hint parsed from its
+ * opening line — the resolver is pure over (kind x style) and cannot
+ * see the line (`is_delimited_block?` rewrites a fence line to its
+ * tip and keeps the rest as the hint, parser.rb:983-993).
+ * @param role - the resolved role
+ * @param block - which delimiter opened the frame
+ * @param text - the opening line, rstripped
+ * @returns the role, with `language` set for a hinted fence
+ */
+function withFenceLanguage(
+  role: VerbatimRole,
+  block: DelimiterKind,
+  text: string,
+): VerbatimRole {
+  if (block !== "fencedCode" || role.builds !== "delimitedBlock") return role;
+  const language = text.slice(BACKTICK_COUNT).trim();
+  return language.length === 0 ? role : { ...role, language };
+}
 
 // How a delimited block ended: on its own terminator (`close`), or
 // forced shut by an outer terminator or EOF (`unclosed`, zero-length,
@@ -125,8 +149,11 @@ class BlockReader implements ListHost {
   // relative to the metadata survives a section boundary landing
   // between them (see the `raw` case in blockLine).
   private pending: BlockNode[] = [];
-  // First positional attribute of the held-back `[…]` line, if any.
-  private pendingStyle: string | undefined = undefined;
+  // Parsed view of the held-back `[…]` line, if any — set per
+  // attribute line (the last one wins, as Ruby's drain overwrites
+  // `attributes`), cleared by flushMetadata. Every open decision
+  // reads it; nothing downstream re-derives it (spec D3).
+  private pendingAttrlist: Attrlist | undefined = undefined;
   private readonly scope: ReaderScope;
 
   /**
@@ -309,8 +336,22 @@ class BlockReader implements ListHost {
    * @param from - raw column index where its text starts
    */
   paragraph(context: ParagraphContext, line: SourceLine, from: number): void {
+    // The non-verbatim paragraph-form fold (spec D4c): only a line
+    // that opens a PARAGRAPH converts — today's observed shape,
+    // reproduced exactly. The style is read before readParagraph
+    // flushes the run; the extent is the paragraph's own (unchanged
+    // context threading).
+    const formVariant = paragraphFormVariant(this.actionableStyle());
+    const annotatedBy = this.annotation();
     const tokens = readParagraph(this, context, line, from);
-    this.push(buildParagraph(tokens, this.at));
+    const node =
+      formVariant === undefined
+        ? buildParagraph(tokens, this.at)
+        : buildParagraphFormBlock(formVariant, tokens, this.source, this.at);
+    if (node.type === "delimitedBlock" && annotatedBy !== undefined) {
+      node.annotatedBy = annotatedBy;
+    }
+    this.push(node);
   }
 
   /**
@@ -330,7 +371,7 @@ class BlockReader implements ListHost {
     this.push(
       buildAdmonitionParagraph(
         fragmentOfLine(line, 0, labelEnd),
-        textLines(tokens),
+        tokens,
         this.at,
       ),
     );
@@ -341,13 +382,14 @@ class BlockReader implements ListHost {
    * @param line - its first (indented) line
    */
   literalParagraph(line: SourceLine): void {
+    const annotatedBy = this.annotation();
     const lines = readLiteralParagraph(this, line);
-    this.push(
-      buildLiteralParagraph(
-        lines.map((each) => fragmentOfLine(each)),
-        this.at,
-      ),
+    const node = buildLiteralParagraph(
+      lines.map((each) => fragmentOfLine(each)),
+      this.at,
     );
+    if (annotatedBy !== undefined) node.annotatedBy = annotatedBy;
+    this.push(node);
   }
 
   // ── main loop ──────────────────────────────────────────────────────
@@ -451,6 +493,7 @@ class BlockReader implements ListHost {
    */
   blockLine(line: SourceLine, kind: LineKind): void {
     if (this.holdMetadata(line, kind)) return;
+    if (this.verbatimStyledOpen(line, kind)) return;
     if (isLeafKind(kind.kind)) {
       // A document attribute is processed inside
       // parse_block_metadata_lines (next_block l.512), so it is
@@ -540,7 +583,7 @@ class BlockReader implements ListHost {
     const node = heldMetadataNode(kind, line, this.at);
     if (node === undefined) return false;
     if (kind.kind === "attributeLine") {
-      this.pendingStyle = firstPositional(line.text);
+      this.pendingAttrlist = parseAttrlist(line.text.slice(1, -1));
     }
     this.pending.push(node);
     this.index += 1;
@@ -562,7 +605,50 @@ class BlockReader implements ListHost {
   flushMetadata(): void {
     for (const node of this.pending) this.push(node);
     this.pending = [];
-    this.pendingStyle = undefined;
+    this.pendingAttrlist = undefined;
+  }
+
+  /**
+   * The held style, when the reader may ACT on it: the LAST held
+   * attribute line's first positional, valid only while every held
+   * node after that attribute line is reader-eaten (a raw
+   * comment/directive line) — the transparency the deleted
+   * `annotatedBlockIndex` scan implemented, applied BEFORE the open
+   * instead of after the parse (spec D4c guard, M-ruled: reproduce,
+   * never widen). A held title or anchor after the attribute line
+   * disables the style, pinned by the characterization rows in
+   * tests/parser/block-masquerade.test.ts and
+   * tests/parser/verbatim-styled.test.ts (the recorded §5
+   * divergences). Written as a forward walk — the flag resets at each
+   * attribute line, so it ends true exactly when the run's tail is
+   * transparent — because architecture.test.ts bans findLast outside
+   * the frame stack.
+   * @returns the style, or undefined when none is actionable
+   */
+  private actionableStyle(): string | undefined {
+    if (this.pendingAttrlist === undefined) return undefined;
+    let transparent = true;
+    for (const node of this.pending) {
+      if (node.type === "blockAttributeList") transparent = true;
+      else if (!isReaderConsumedLine(node)) transparent = false;
+    }
+    return transparent ? this.pendingAttrlist.style : undefined;
+  }
+
+  /**
+   * The reader's own record of the annotation it is about to act on
+   * (spec D5a): set iff the held run's LAST node is the attribute
+   * line — stricter than actionableStyle's transparency on purpose,
+   * so the recorded value equals the sibling BlockAttributeListNode's
+   * `value` by construction and invariant (xi) can check the pairing
+   * on every parse. Plan ruling: copied from the held NODE, not from
+   * Attrlist.raw, so the equality holds even on a trailing-whitespace
+   * attribute line, where the rstripped and raw interiors differ.
+   * @returns the sibling-to-be's value, or undefined
+   */
+  private annotation(): string | undefined {
+    const last = this.pending.at(-1);
+    return last?.type === "blockAttributeList" ? last.value : undefined;
   }
 
   /**
@@ -588,7 +674,7 @@ class BlockReader implements ListHost {
       this.paragraph("paragraph", line, 0);
       return;
     }
-    if (this.pendingStyle === DISCRETE_STYLE) {
+    if (this.pendingAttrlist?.style === DISCRETE_STYLE) {
       this.leaf(buildDiscreteHeading(fragmentOfLine(line), this.at));
       return;
     }
@@ -616,22 +702,79 @@ class BlockReader implements ListHost {
   // ── delimited blocks: is_delimited_block? + build_block ────────────
 
   /**
-   * Open a delimited block.
+   * Open a delimited block, resolving at OPEN what the frame will
+   * build (spec D4a): the held style is read before the flush, and
+   * the decision travels on the frame instead of being re-derived at
+   * close. Behavior is parser.rb:527-549; structure is the reader's
+   * own dispatch (declared departure, directive 3).
    * @param line - the opening delimiter line
    * @param block - which delimited block it opens
    */
   openDelimited(line: SourceLine, block: DelimiterKind): void {
+    const annotatedBy = this.annotation();
+    const resolved = resolveDelimitedOpen(block, this.actionableStyle());
     this.flushMetadata();
     // read_lines_until compares whole rstripped lines against the
     // terminator; for a fence that terminator is the bare tip.
     const terminator = block === "fencedCode" ? FENCE_TIP : line.text;
-    const variant = COMPOUND_VARIANTS.get(block);
     this.stack.push(
-      variant === undefined
-        ? { kind: "verbatim", terminator, open: line }
-        : { kind: "compound", terminator, open: line, variant, children: [] },
+      resolved.model === "compound"
+        ? {
+            kind: "compound",
+            terminator,
+            open: line,
+            variant: resolved.variant,
+            admonition: resolved.admonition,
+            children: [],
+          }
+        : {
+            kind: "verbatim",
+            terminator,
+            open: line,
+            role: withFenceLanguage(resolved.role, block, line.text),
+            annotatedBy,
+          },
     );
     this.advance();
+  }
+
+  /**
+   * `next_block`'s verbatim-styled branch (parser.rb:555-560): with a
+   * held VERBATIM_STYLES style actionable (the D4c guard), every line
+   * except a section title, a delimiter and an attribute entry opens
+   * the styled paragraph AT that line — list markers, macros, breaks,
+   * admonition labels, dlist terms, indented lines, a lone `+`, plain
+   * text alike (probed: `"[source]\n* item\n"` is one listing).
+   * Section titles keep their own dispatch (next_section runs outside
+   * next_block); a delimiter goes to openDelimited's masquerade
+   * resolution; an attribute entry stays a leaf whose flush kills the
+   * style (the recorded §5 divergence from Ruby's drain,
+   * parser.rb:2068-2070 — α does not change it).
+   * @param line - the line about to open a block
+   * @param kind - what the classifier made of it
+   * @returns whether a styled paragraph was read
+   */
+  private verbatimStyledOpen(line: SourceLine, kind: LineKind): boolean {
+    if (
+      kind.kind === "sectionTitle" ||
+      kind.kind === "delimiterOpen" ||
+      kind.kind === "attributeEntry"
+    ) {
+      return false;
+    }
+    const variant = verbatimStyledVariant(this.actionableStyle());
+    if (variant === undefined) return false;
+    const annotatedBy = this.annotation();
+    const [firstLine, ...rest] = readVerbatimStyledLines(this, line);
+    const node = buildStyledParagraph(
+      variant,
+      fragmentOfLine(firstLine),
+      rest.map((each) => fragmentOfLine(each)),
+      this.at,
+    );
+    if (annotatedBy !== undefined) node.annotatedBy = annotatedBy;
+    this.push(node);
+    return true;
   }
 
   /**
@@ -723,16 +866,11 @@ class BlockReader implements ListHost {
   }
 
   /**
-   * Build one closing frame's node and give it to its parent.
-   *
-   * The style-driven conversions run HERE, on the container's own
-   * children: every container — the document (in {@link readDocument}),
-   * a section, a compound block, a list item (`readListItem` in
-   * list-reader.ts) — goes through `convertParagraphFormBlocks`, so a
-   * `[source]` paragraph inside an example block is converted as one at
-   * the top level is. It is a post-parse transform over a flat block
-   * array, not part of construction (spec Decision 4); folding it into
-   * frame OPEN is the next plan, not this one.
+   * Build one closing frame's node and give it to its parent. Style
+   * decisions were made at OPEN (openDelimited, verbatimStyledOpen,
+   * paragraph) and travel on the frame — this function re-derives
+   * nothing (spec D4; the post-parse conversion pass this comment
+   * once deferred to is deleted).
    * @param frame - the frame being popped
    * @param close - how a delimited block ended; sections close on
    *   their own terms and ignore it
@@ -741,28 +879,39 @@ class BlockReader implements ListHost {
     switch (frame.kind) {
       case "section": {
         const node = buildSection(fragmentOfLine(frame.title), this.at);
-        node.children = convertParagraphFormBlocks(frame.children, this.source);
+        node.children = frame.children;
         this.push(node);
         break;
       }
       case "compound": {
+        const extent = {
+          open: fragmentOfLine(frame.open),
+          ...close,
+          source: this.source,
+        };
+        const { children } = frame;
         this.push(
-          buildParentBlock(
-            { open: fragmentOfLine(frame.open), ...close, source: this.source },
-            frame.variant,
-            convertParagraphFormBlocks(frame.children, this.source),
-            this.at,
-          ),
+          frame.admonition === undefined
+            ? buildParentBlock(extent, frame.variant, children, this.at)
+            : buildDelimitedAdmonition(
+                extent,
+                { delimiter: frame.variant, variant: frame.admonition },
+                children,
+                this.at,
+              ),
         );
         break;
       }
       case "verbatim": {
-        this.push(
-          buildVerbatimBlock(
-            { open: fragmentOfLine(frame.open), ...close, source: this.source },
-            this.at,
-          ),
+        const node = buildVerbatimBlock(
+          { open: fragmentOfLine(frame.open), ...close, source: this.source },
+          frame.role,
+          this.at,
         );
+        if (node.type === "delimitedBlock" && frame.annotatedBy !== undefined) {
+          node.annotatedBy = frame.annotatedBy;
+        }
+        this.push(node);
         break;
       }
       default: {
@@ -783,22 +932,10 @@ class BlockReader implements ListHost {
 }
 
 /**
- * The first positional attribute of a `[style,…]` line — the value
- * `[discrete]` is recognised by.
- * @param line - one rstripped block-attribute line, brackets included
- * @returns the first positional attribute, trimmed
- */
-function firstPositional(line: string): string {
-  return line.slice(1, -1).split(",")[0].trim();
-}
-
-/**
  * Read a whole document into its AST.
  *
  * The document is the outermost frame and never closes on a line, so
- * its node is built here rather than in `closeFrame` — including the
- * style-driven conversion its own children need, which every other
- * container gets at its close.
+ * its node is built here rather than in `closeFrame`.
  *
  * The end position is `at.at(source.length)`: one past the last
  * character, on the line a further character would land on — the
@@ -814,7 +951,7 @@ export function readDocument(source: string): DocumentNode {
   const children = reader.run();
   return {
     type: "document",
-    children: convertParagraphFormBlocks(children, source),
+    children,
     position: {
       start: at.at(0),
       end: at.at(source.length),

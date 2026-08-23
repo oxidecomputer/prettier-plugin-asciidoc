@@ -25,6 +25,7 @@
  * and an author's `+` is a literal `["+"]`.
  */
 import type { BlockNode, ListItemNode } from "./ast.js";
+import { isPseudoAnchorLine } from "./block-metadata.js";
 
 /** How the printer must guard the item's text against reflow. */
 export type Hazard = "none" | "plus" | "keepBreak";
@@ -53,19 +54,23 @@ function isLineComment(block: BlockNode): boolean {
 
 /**
  * Whether a block is metadata a held-back run is made of: an attribute
- * list, a block title, or a block anchor (which the parser stores as a
- * paragraph holding a single inlineAnchor).
+ * list, a block title, a block anchor — or a pseudo-anchor line, a
+ * paragraph that PRINTS as `[[…]]` because its id failed the
+ * block-anchor grammar (`isPseudoAnchorLine`, block-metadata.ts). The
+ * held run reaches items: `* a` / `para` / `[role]` / `[[3-bad]]`
+ * puts one in an item's run, and dropping it flips the hazard to
+ * `plus` and invents a `+` line the author never wrote. Same arm as
+ * the pairing rule's, for the same reason — the printed LINE is what
+ * the reader will see again.
  * @param block - one block of the item
  * @returns true when the run may include it
  */
 function isRunMetadata(block: BlockNode): boolean {
-  if (block.type === "blockAttributeList" || block.type === "blockTitle") {
-    return true;
-  }
   return (
-    block.type === "paragraph" &&
-    block.children.length === 1 &&
-    block.children[0].type === "inlineAnchor"
+    block.type === "blockAttributeList" ||
+    block.type === "blockTitle" ||
+    block.type === "blockAnchor" ||
+    isPseudoAnchorLine(block)
   );
 }
 

@@ -190,13 +190,13 @@ describe("section metadata placement", () => {
     const { children } = parse(
       "== First\n\nBody one.\n\n[[second]]\n== Second\n\nBody two.\n",
     );
-    // Root order: section First, anchor paragraph, section Second.
+    // Root order: section First, block anchor, section Second.
     expect(children.map((c) => c.type)).toEqual([
       "section",
-      "paragraph",
+      "blockAnchor",
       "section",
     ]);
-    // The anchor paragraph is NOT inside section First.
+    // The anchor is NOT inside section First.
     const [first] = children;
     narrow(first, "section");
     expect(first.children.map((c) => c.type)).toEqual(["paragraph"]);
@@ -210,7 +210,7 @@ describe("section metadata placement", () => {
     narrow(outer, "section");
     expect(outer.children.map((c) => c.type)).toEqual([
       "paragraph",
-      "paragraph",
+      "blockAnchor",
       "section",
     ]);
   });

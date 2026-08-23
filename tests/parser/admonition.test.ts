@@ -12,10 +12,11 @@
  *
  * Paragraph-form admonitions produce `AdmonitionNode` directly
  * from the reader (`BlockReader.admonition`). Block-form
- * admonitions are recognized by
- * the post-parse `convertParagraphFormBlocks` transform, which
- * converts `BlockAttributeList + ParentBlock` pairs to
- * `AdmonitionNode` with `form: "delimited"`. The original
+ * admonitions resolve at frame OPEN (spec D4a): the held style
+ * renames the compound block (`resolveDelimitedOpen` in
+ * lines/open-style.ts) and `closeFrame` builds an
+ * `AdmonitionNode` whose `form` is the wrapper delimiter
+ * variant (spec D7). The original
  * `blockAttributeList` node is retained as a preceding
  * sibling so attribute metadata is not lost.
  */
@@ -23,6 +24,7 @@ import { describe, test, expect } from "vitest";
 import { parse } from "../../src/parser.js";
 import type { AdmonitionNode } from "../../src/ast.js";
 import { narrow } from "../../src/unreachable.js";
+import { serializedKeys } from "./reader-helpers.js";
 
 /**
  * Extracts the child at the given index as an
@@ -48,9 +50,10 @@ describe("paragraph-form admonitions", () => {
     const node = admonitionAt(children, 0);
     expect(node.variant).toBe("note");
     expect(node.form).toBe("paragraph");
-    expect(node.content).toBe("This is a note.");
+    expect(node.text).toMatchObject([
+      { type: "text", value: "This is a note." },
+    ]);
     expect(node.children).toHaveLength(0);
-    expect(node.delimiter).toBeUndefined();
   });
 
   test("TIP: produces admonition with variant tip", () => {
@@ -58,7 +61,9 @@ describe("paragraph-form admonitions", () => {
     const node = admonitionAt(children, 0);
     expect(node.variant).toBe("tip");
     expect(node.form).toBe("paragraph");
-    expect(node.content).toBe("Here is a tip.");
+    expect(node.text).toMatchObject([
+      { type: "text", value: "Here is a tip." },
+    ]);
   });
 
   test("IMPORTANT: produces admonition with variant important", () => {
@@ -66,7 +71,9 @@ describe("paragraph-form admonitions", () => {
     const node = admonitionAt(children, 0);
     expect(node.variant).toBe("important");
     expect(node.form).toBe("paragraph");
-    expect(node.content).toBe("Do not forget.");
+    expect(node.text).toMatchObject([
+      { type: "text", value: "Do not forget." },
+    ]);
   });
 
   test("CAUTION: produces admonition with variant caution", () => {
@@ -74,7 +81,7 @@ describe("paragraph-form admonitions", () => {
     const node = admonitionAt(children, 0);
     expect(node.variant).toBe("caution");
     expect(node.form).toBe("paragraph");
-    expect(node.content).toBe("Watch out.");
+    expect(node.text).toMatchObject([{ type: "text", value: "Watch out." }]);
   });
 
   test("WARNING: produces admonition with variant warning", () => {
@@ -82,18 +89,20 @@ describe("paragraph-form admonitions", () => {
     const node = admonitionAt(children, 0);
     expect(node.variant).toBe("warning");
     expect(node.form).toBe("paragraph");
-    expect(node.content).toBe("Be careful.");
+    expect(node.text).toMatchObject([{ type: "text", value: "Be careful." }]);
   });
 
-  // Continuation lines (no blank line between them) are joined
-  // into a single content string separated by \n — the same
-  // joining rule that applies to regular paragraphs.
+  // Continuation lines (no blank line between them) are one text
+  // child whose value keeps the \n separators — the same inline
+  // children a regular paragraph gets (spec D7).
   test("multi-line paragraph-form admonition", () => {
     const { children } = parse("NOTE: First line\nsecond line\nthird line\n");
     expect(children).toHaveLength(1);
     const node = admonitionAt(children, 0);
     expect(node.variant).toBe("note");
-    expect(node.content).toBe("First line\nsecond line\nthird line");
+    expect(node.text).toMatchObject([
+      { type: "text", value: "First line\nsecond line\nthird line" },
+    ]);
   });
 
   test("position tracking for paragraph-form admonition", () => {
@@ -124,9 +133,8 @@ describe("block-form admonitions (example block)", () => {
     expect(children[0].type).toBe("blockAttributeList");
     const node = admonitionAt(children, 1);
     expect(node.variant).toBe("note");
-    expect(node.form).toBe("delimited");
-    expect(node.delimiter).toBe("example");
-    expect(node.content).toBeUndefined();
+    expect(node.form).toBe("example");
+    expect(node.text).toEqual([]);
     expect(node.children.length).toBeGreaterThan(0);
   });
 
@@ -135,8 +143,7 @@ describe("block-form admonitions (example block)", () => {
     expect(children).toHaveLength(2);
     const node = admonitionAt(children, 1);
     expect(node.variant).toBe("tip");
-    expect(node.form).toBe("delimited");
-    expect(node.delimiter).toBe("example");
+    expect(node.form).toBe("example");
   });
 
   test("[IMPORTANT] + example block", () => {
@@ -177,8 +184,7 @@ describe("block-form admonitions (open block)", () => {
     expect(children[0].type).toBe("blockAttributeList");
     const node = admonitionAt(children, 1);
     expect(node.variant).toBe("caution");
-    expect(node.form).toBe("delimited");
-    expect(node.delimiter).toBe("open");
+    expect(node.form).toBe("open");
   });
 
   test("[NOTE] + open block with multiple paragraphs", () => {
@@ -186,8 +192,29 @@ describe("block-form admonitions (open block)", () => {
     expect(children).toHaveLength(2);
     const node = admonitionAt(children, 1);
     expect(node.variant).toBe("note");
-    expect(node.delimiter).toBe("open");
+    expect(node.form).toBe("open");
     expect(node.children).toHaveLength(2);
+  });
+});
+
+describe("block-form admonitions (sidebar and quote wrappers)", () => {
+  // The widened `form` type says sidebar and quote wrappers exist;
+  // these rows are the reader outputs saying so (review F7 — base
+  // pinned only the example and open spellings).
+  test("[NOTE] + sidebar block carries form sidebar", () => {
+    const { children } = parse("[NOTE]\n****\nContent.\n****\n");
+    const node = admonitionAt(children, 1);
+    expect(node.variant).toBe("note");
+    expect(node.form).toBe("sidebar");
+    expect(node.children).toHaveLength(1);
+  });
+
+  test("[NOTE] + quote block carries form quote", () => {
+    const { children } = parse("[NOTE]\n____\nContent.\n____\n");
+    const node = admonitionAt(children, 1);
+    expect(node.variant).toBe("note");
+    expect(node.form).toBe("quote");
+    expect(node.children).toHaveLength(1);
   });
 });
 
@@ -202,9 +229,9 @@ describe("admonition edge cases", () => {
   });
 
   // Lowercase admonition types in attribute lists should also
-  // be recognized (AsciiDoc typically uses uppercase, but
-  // getAdmonitionVariant normalizes the style to uppercase
-  // before matching, so [note] and [NOTE] are equivalent).
+  // be recognized (AsciiDoc typically uses uppercase, but the
+  // held style is normalized to uppercase before matching, so
+  // [note] and [NOTE] are equivalent).
   test("[note] lowercase in attribute list is recognized", () => {
     const { children } = parse("[note]\n====\nContent.\n====\n");
     expect(children).toHaveLength(2);
@@ -213,9 +240,9 @@ describe("admonition edge cases", () => {
   });
 
   // Any single uppercase alphabetic word in an attribute list
-  // becomes a custom admonition variant. The regex used by
-  // getAdmonitionVariant is /^[A-Z]+$/, so hyphenated names
-  // (e.g. MY-TYPE) do not match. This mirrors AsciiDoc's
+  // becomes a custom admonition variant. The pattern matching the
+  // held style is anchored, uppercase letters only, so hyphenated
+  // names (e.g. MY-TYPE) do not match. This mirrors AsciiDoc's
   // convention for custom admonition types.
   test("[EXERCISE] + example block is a custom admonition", () => {
     const { children } = parse("[EXERCISE]\n====\nContent.\n====\n");
@@ -224,6 +251,46 @@ describe("admonition edge cases", () => {
     const [, child1] = children;
     narrow(child1, "admonition");
     expect(child1.variant).toBe("exercise");
-    expect(child1.form).toBe("delimited");
+    expect(child1.form).toBe("example");
+  });
+});
+
+describe("one prose representation (spec D7)", () => {
+  test("a paragraph-form body is inline children", () => {
+    const [node] = parse("NOTE: alpha beta\n").children;
+    if (node.type !== "admonition") throw new Error(`got ${node.type}`);
+    expect(node.form).toBe("paragraph");
+    expect(node.children).toEqual([]);
+    expect(node.text.length).toBeGreaterThan(0);
+    expect(node.text[0].type).toBe("text");
+  });
+
+  test("a delimited form carries its wrapper in `form`", () => {
+    const [, node] = parse("[NOTE]\n====\nbody\n====\n").children;
+    if (node.type !== "admonition") throw new Error(`got ${node.type}`);
+    expect(node.form).toBe("example");
+    expect(node.text).toEqual([]);
+    expect(node.children).toHaveLength(1);
+  });
+
+  test("a raw line in the body is a rawLine inline child", () => {
+    const [node] = parse("NOTE: alpha\nifdef::x[]\nbeta\n").children;
+    if (node.type !== "admonition") throw new Error(`got ${node.type}`);
+    expect(node.text.some((child) => child.type === "rawLine")).toBe(true);
+  });
+
+  // KEY ORDER is part of the shape contract: Task 2's parity fold
+  // (foldPlanAlphaShapes, scripts/parity.ts) and its string-equality
+  // pins in tests/scripts/parity-ledger.test.ts spell the post-D7
+  // admonition with exactly this serialized order. The fold replaces
+  // every admonition before digesting, so a moved field could not
+  // reach parity — this row keeps the constructed nodes aligned with
+  // the encoding those pins wrote down. Measured, not assumed.
+  test("both forms serialize their keys in the contract order", () => {
+    const [paragraphForm] = parse("NOTE: alpha\n").children;
+    const [, delimitedForm] = parse("[NOTE]\n====\nbody\n====\n").children;
+    const order = ["type", "variant", "form", "text", "children", "position"];
+    expect(serializedKeys(paragraphForm)).toEqual(order);
+    expect(serializedKeys(delimitedForm)).toEqual(order);
   });
 });

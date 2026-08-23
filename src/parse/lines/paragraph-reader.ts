@@ -368,15 +368,34 @@ export function readLiteralParagraph(
   host: ParagraphHost,
   line: SourceLine,
 ): readonly SourceLine[] {
+  return readVerbatimRun(host, line, "literalParagraph");
+}
+
+/**
+ * The shared verbatim-lines loop: flush the held metadata, take the
+ * opening line, then consume every line the CONTEXT keeps — text and
+ * raw alike stay in the run (a `//` line is CONTENT here; Ruby passes
+ * no `skip_line_comments` on these paths) — leaving the ending line
+ * unread.
+ * @param host - the reader that owns the stack and the read position
+ * @param line - the run's first line
+ * @param context - which interrupting set applies
+ * @returns the run's lines, in order
+ */
+function readVerbatimRun(
+  host: ParagraphHost,
+  line: SourceLine,
+  context: ParagraphContext,
+): readonly [SourceLine, ...SourceLine[]] {
   host.flushMetadata();
-  const lines = [line];
+  const lines: [SourceLine, ...SourceLine[]] = [line];
   host.advance();
   for (;;) {
     const next = host.peek();
     if (next === undefined) {
       break;
     }
-    const kind = classifyLine(next.text, host.context("literalParagraph"));
+    const kind = classifyLine(next.text, host.context(context));
     if (kind.kind !== "text" && kind.kind !== "raw") {
       break;
     }
@@ -384,6 +403,25 @@ export function readLiteralParagraph(
     host.advance();
   }
   return lines;
+}
+
+/**
+ * Read a verbatim-STYLED paragraph's lines: `[source]`/`[listing]`/
+ * `[literal]`/`[verse]` in hand, the extent runs to a blank line, a
+ * lone `+`, or an enclosing terminator ONLY (parser.rb:555-560 →
+ * :1017-1019 under default `Compliance.strict_verbatim_paragraphs`,
+ * asciidoctor.rb:132; the registry's `verbatimStyled` row, pinned by
+ * the interruption matrix). Issue #41's fix: the style is in hand
+ * BEFORE any content line is read.
+ * @param host - the reader that owns the stack and the read position
+ * @param line - the block's first content line
+ * @returns the block's lines, in order
+ */
+export function readVerbatimStyledLines(
+  host: ParagraphHost,
+  line: SourceLine,
+): readonly [SourceLine, ...SourceLine[]] {
+  return readVerbatimRun(host, line, "verbatimStyled");
 }
 
 /**

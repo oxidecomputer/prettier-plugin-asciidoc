@@ -19,6 +19,10 @@ const EXPECT_MAX_ARGS = 2;
 // eslint-disable-next-line @typescript-eslint/no-magic-numbers -- these ARE the ignored numbers
 const INDEX_ARITHMETIC = [-1, 0, 1, 2];
 
+// The BlockReader's file-scoped max-lines ceiling — see the override
+// below for why the one file gets more than love's 450.
+const READER_MAX_LINES = 500;
+
 export default defineConfig(
   // Global ignores. `.stryker-tmp/` is Stryker's sandbox: a full copy
   // of the project, tsconfig included, which otherwise makes
@@ -143,6 +147,24 @@ export default defineConfig(
     },
   },
 
+  // The BlockReader crossed love's 450-line ceiling when spec D4
+  // folded the post-parse style pass into the reader's open dispatch
+  // and deleted paragraph-form.ts — the file absorbed a whole
+  // module's responsibility, and its seams (ParagraphHost, ListHost)
+  // are width-ratcheted by scripts/metrics.ts, so the overflow cannot
+  // be exported without widening one. Scoped to the one file;
+  // everything else keeps the 450 default. Plan β owns this file and
+  // retires the override by restructuring it.
+  {
+    files: ["src/parse/lines/reader.ts"],
+    rules: {
+      "max-lines": [
+        "error",
+        { max: READER_MAX_LINES, skipBlankLines: true, skipComments: true },
+      ],
+    },
+  },
+
   // Test files: Vitest rules + relax magic numbers and null.
   {
     files: ["tests/**/*.ts"],
@@ -159,7 +181,12 @@ export default defineConfig(
       "vitest/expect-expect": [
         "error",
         {
-          assertFunctionNames: ["expect", "expectAstInvariants"],
+          assertFunctionNames: [
+            "expect",
+            "expectAstInvariants",
+            "expectByteFaithful",
+            "expectTableFormat",
+          ],
         },
       ],
 

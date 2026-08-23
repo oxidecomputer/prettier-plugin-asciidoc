@@ -157,18 +157,28 @@ describe("buildAdmonitionParagraph", () => {
   const at = makeLocationIndex(source);
   const label = { image: "NOTE: ", offset: 0 };
 
-  test("takes its variant from the label and joins the body's lines", () => {
+  test("takes its variant from the label and keeps the body inline", () => {
     const node = buildAdmonitionParagraph(
       label,
-      [text("one", 6), text("two", 10)],
+      [text("one", 6), newline(9), text("two", 10)],
       at,
     );
     expect(node).toEqual({
       type: "admonition",
       variant: "note",
       form: "paragraph",
-      delimiter: undefined,
-      content: "one\ntwo",
+      // The SAME inline children a paragraph gets (spec D7): one text
+      // node spanning both lines, the newline kept in its value.
+      text: [
+        {
+          type: "text",
+          value: "one\ntwo",
+          position: {
+            start: { offset: 6, line: 1, column: 7 },
+            end: { offset: 13, line: 2, column: 4 },
+          },
+        },
+      ],
       children: [],
       position: {
         start: { offset: 0, line: 1, column: 1 },
@@ -186,9 +196,10 @@ describe("buildAdmonitionParagraph", () => {
     );
   });
 
-  test("an empty body has no content and ends at the label's end", () => {
+  test("an empty body has no inline children and ends at the label's end", () => {
     expect(buildAdmonitionParagraph(label, [], at)).toMatchObject({
-      content: undefined,
+      text: [],
+      children: [],
       position: {
         start: { offset: 0, line: 1, column: 1 },
         end: { offset: 6, line: 1, column: 7 },

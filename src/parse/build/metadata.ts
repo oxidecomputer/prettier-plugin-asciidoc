@@ -12,13 +12,13 @@
  */
 import type {
   AttributeEntryNode,
+  BlockAnchorNode,
   BlockAttributeListNode,
   BlockMacroNode,
   BlockNode,
   BlockTitleNode,
   CommentNode,
   PageBreakNode,
-  ParagraphNode,
   PreprocessorDirectiveNode,
   ThematicBreakNode,
 } from "../../ast.js";
@@ -214,23 +214,26 @@ export function buildBlockMacro(
 }
 
 /**
- * Build a single-anchor paragraph from a block anchor line.
+ * Build a block anchor node from a block anchor line (spec D6: its
+ * own kind — two sites used to recognise "anchor" by pattern-matching
+ * a wrapper paragraph's internals, and a first-class syntactic form
+ * was riding as a degenerate paragraph).
  *
- * Reuses `makeInlineAnchor` for parsing the line's content and the
- * printer's `isAnchorParagraph` / `shouldStack` logic for correct
- * block-level anchor formatting.
+ * Reuses `makeInlineAnchor` for the line's interior, so the id and
+ * reftext split has one spelling.
  * @param line - A block anchor line (`[[id]]` on its own line).
  * @param at - The document's location index.
- * @returns A paragraph containing a single `InlineAnchorNode`.
+ * @returns The block anchor node.
  */
 export function buildBlockAnchor(
   line: Fragment,
   at: LocationIndex,
-): ParagraphNode {
+): BlockAnchorNode {
   const anchor = makeInlineAnchor(line, at);
   return {
-    type: "paragraph",
-    children: [anchor],
+    type: "blockAnchor",
+    id: anchor.id,
+    reftext: anchor.reftext,
     position: anchor.position,
   };
 }

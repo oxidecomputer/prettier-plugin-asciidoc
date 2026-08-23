@@ -109,7 +109,7 @@ describe("paragraph-form block context formatting", () => {
     expect(await formatAdoc(input)).toBe(input);
   });
 
-  // Anchor paragraph stacks with following metadata ([source]
+  // A block anchor stacks with following metadata ([source]
   // attribute list), which stacks with the content.
   test("anchor + [source] + content", async () => {
     const input = "[[my-id]]\n[source]\nsome code\n";
@@ -160,10 +160,13 @@ describe("a reader-eaten line between the style and its content", () => {
   });
 });
 
-// The reconstructed `content` string holds the block's lines joined by
-// `\n` with NO terminating newline. A raw line (`\n…\n`) or a hard line
-// break (` +\n`) at the paragraph's edge used to leave one there, and
-// the printer turned it into a blank line that grew on every pass.
+// `content` holds the block's lines joined by `\n` with NO terminating
+// newline. When it was rebuilt from inline nodes, a raw line (`\n…\n`)
+// or a hard line break (` +\n`) at the paragraph's edge left one there,
+// and the printer turned it into a blank line that grew on every pass.
+// The content is a source slice now (issue #40) and a slice between two
+// content tokens cannot carry an edge newline, but these shapes stay
+// pinned: they are the regression, whatever produces the bytes.
 describe("a boundary line in paragraph-form content", () => {
   test.each([
     "[sidebar]\nFirst.\nendif::[]\n",
@@ -173,5 +176,45 @@ describe("a boundary line in paragraph-form content", () => {
     "[sidebar]\nFirst.\nendif::[]\n\npara\n",
   ])("%j round-trips byte for byte", async (input) => {
     expect(await formatAdoc(input)).toBe(input);
+  });
+});
+
+describe("converted verbatim content is the author's bytes (issue #40)", () => {
+  test("#40: empty attribute brackets survive", async () => {
+    const input = "[source]\nhttps://x[]\n";
+    const output = await formatAdoc(input);
+    expect(output).toBe(input);
+    expect(renderedHtml(output)).toBe(renderedHtml(input));
+    expect(await formatAdoc(output)).toBe(output);
+  });
+
+  test("the [[id,reftext]] spelling survives (review A's cousin)", async () => {
+    const input = "[source]\na [[x,y]] b\n";
+    const output = await formatAdoc(input);
+    expect(output).toBe(input);
+    expect(renderedHtml(output)).toBe(renderedHtml(input));
+  });
+
+  // The conversion runs per container, so the same bytes must survive
+  // through a list item's own frame — the call site the reader reaches
+  // from readListItem, not the document's.
+  test("#40: an attached block inside a list item keeps its bytes", async () => {
+    const input = "* item\n+\n[source]\nhttps://x[]\n";
+    const output = await formatAdoc(input);
+    expect(output).toBe(input);
+    expect(renderedHtml(output)).toBe(renderedHtml(input));
+  });
+
+  // The doubled-break shape (#39): two reader-eaten lines in a row.
+  // Rebuilding content from inline nodes emitted each raw line as
+  // `\n…\n`, so the pair met as `\n\n` and the printer grew a blank
+  // line into the block. A slice cannot: the bytes between the two
+  // lines are the one newline the author wrote.
+  test("#39: two adjacent reader-eaten lines gain no blank line", async () => {
+    const input = "* a\n[source]\nflush\nifdef::x[]\nifdef::x[]\n";
+    const output = await formatAdoc(input);
+    expect(output).toBe(input);
+    expect(renderedHtml(output)).toBe(renderedHtml(input));
+    expect(await formatAdoc(output)).toBe(output);
   });
 });

@@ -1,12 +1,17 @@
 /**
  * `build/delimited.ts` — delimited blocks to nodes.
  *
- * Table-driven because the module is `(extent, index) → node` with no
- * context: the rows are the specification. They pin which delimiter
- * means which variant, the content slice (which stops BEFORE the
+ * Table-driven because the module is `(extent, …, index) → node` with
+ * no context: the rows are the specification. They pin which role
+ * builds which variant, the content slice (which stops BEFORE the
  * newline that precedes the terminator), and the three ways a block
  * can end — on its own terminator, on the outer terminator that took
  * its line, and at the document's end.
+ *
+ * A verbatim block's ROLE is decided at frame open by
+ * `lines/open-style.ts` and travels on the frame (spec D4a), so these
+ * rows hand the builder the role a reader would: the delimiter in the
+ * extent is bytes to slice, not a decision to re-derive.
  */
 import { describe, expect, test } from "vitest";
 import {
@@ -41,14 +46,20 @@ function closedExtent(
   };
 }
 
+// The role a bare `----` opener resolves to — the one every content
+// row below is measured with.
+const LISTING_ROLE = { builds: "delimitedBlock", variant: "listing" } as const;
+
 describe("buildVerbatimBlock variants", () => {
   test.each([
     ["----", "listing"],
     ["....", "literal"],
     ["++++", "pass"],
-  ])("%j opens a %j block", (open, variant) => {
+  ] as const)("%j opens a %j block", (open, variant) => {
     const { extent, at } = closedExtent(open, "code", open);
-    expect(buildVerbatimBlock(extent, at)).toEqual({
+    expect(
+      buildVerbatimBlock(extent, { builds: "delimitedBlock", variant }, at),
+    ).toEqual({
       type: "delimitedBlock",
       variant,
       form: "delimited",
@@ -62,7 +73,8 @@ describe("buildVerbatimBlock variants", () => {
 
   test("a fence with a language hint is a listing block that knows it", () => {
     const { extent, at } = closedExtent("```rust", "code", "```");
-    expect(buildVerbatimBlock(extent, at)).toMatchObject({
+    const role = { ...LISTING_ROLE, fenced: true, language: "rust" } as const;
+    expect(buildVerbatimBlock(extent, role, at)).toMatchObject({
       type: "delimitedBlock",
       variant: "listing",
       content: "code",
@@ -73,14 +85,18 @@ describe("buildVerbatimBlock variants", () => {
 
   test("a bare fence is fenced with no language", () => {
     const { extent, at } = closedExtent("```", "code", "```");
-    const node = buildVerbatimBlock(extent, at);
+    const node = buildVerbatimBlock(
+      extent,
+      { ...LISTING_ROLE, fenced: true },
+      at,
+    );
     expect(node).toMatchObject({ variant: "listing", fenced: true });
     expect("language" in node).toBe(false);
   });
 
   test("`////` is a block comment, not a delimited block", () => {
     const { extent, at } = closedExtent("////", "hidden", "////");
-    expect(buildVerbatimBlock(extent, at)).toEqual({
+    expect(buildVerbatimBlock(extent, { builds: "comment" }, at)).toEqual({
       type: "comment",
       commentType: "block",
       value: "hidden",
@@ -95,7 +111,9 @@ describe("buildVerbatimBlock variants", () => {
 describe("buildVerbatimBlock content", () => {
   test("keeps the blank lines inside, and stops before the terminator", () => {
     const { extent, at } = closedExtent("----", "a\n\nb", "----");
-    expect(buildVerbatimBlock(extent, at)).toMatchObject({ content: "a\n\nb" });
+    expect(buildVerbatimBlock(extent, LISTING_ROLE, at)).toMatchObject({
+      content: "a\n\nb",
+    });
   });
 
   test("an empty block has empty content", () => {
@@ -107,6 +125,7 @@ describe("buildVerbatimBlock content", () => {
         unclosed: undefined,
         source,
       },
+      LISTING_ROLE,
       makeLocationIndex(source),
     );
     expect(node).toMatchObject({ content: "" });
@@ -121,6 +140,7 @@ describe("buildVerbatimBlock content", () => {
         unclosed: { image: "", offset: source.length },
         source,
       },
+      LISTING_ROLE,
       makeLocationIndex(source),
     );
     expect(node).toMatchObject({
@@ -143,6 +163,7 @@ describe("buildVerbatimBlock content", () => {
         unclosed: { image: "", offset: source.length },
         source,
       },
+      LISTING_ROLE,
       makeLocationIndex(source),
     );
     expect(node).toMatchObject({
@@ -165,6 +186,7 @@ describe("buildVerbatimBlock content", () => {
         unclosed: undefined,
         source,
       },
+      LISTING_ROLE,
       makeLocationIndex(source),
     );
     expect(node).toMatchObject({
@@ -185,6 +207,7 @@ describe("buildVerbatimBlock content", () => {
         unclosed: { image: "", offset: 15 },
         source,
       },
+      LISTING_ROLE,
       makeLocationIndex(source),
     );
     expect(node).toMatchObject({
