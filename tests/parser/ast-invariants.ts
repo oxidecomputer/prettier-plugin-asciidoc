@@ -328,12 +328,13 @@ function expectVerbatimContent(slice: string, content: string): void {
  * against the SLICE, which derives from the position alone, so a
  * future builder that REBUILDS content instead of slicing it fails
  * here — and the position over-spans the content by at most one
- * character (zero on a terminator close, the raw end of the close
- * line; the standing forced-close spelling otherwise, where the
- * dropped character can itself be a content byte — the BOUND, not
- * the character's identity, is the invariant). The spec states (x)
- * in rstripped-line terms because that is the property the PRINTED
- * side preserves; the builder slices raw, so this raw prefix check
+ * character (zero on a terminator close and on a CONFINED forced
+ * close — the extent-first slice ends at a line's own raw end, spec
+ * D4/(xii); one on the other forced closes — document-level EOF,
+ * where the overhang is the final newline, and an outer terminator
+ * in the same reader, where it is the newline before that line).
+ * The spec states (x) in rstripped-line terms because that is the
+ * property the PRINTED side preserves; the builder slices raw, so this raw prefix check
  * is the same claim held a fortiori — the printed side is pinned by
  * the format rows in tests/format/table.test.ts, not here.
  * @param slice - the source the node's position names
@@ -352,6 +353,48 @@ function expectTableContent(slice: string, content: string): void {
 }
 
 /**
+ * (xii) — forced-close honesty (spec D4): a source-sliced verbatim
+ * node's extent `source.slice(start, end)` decomposes EXACTLY into
+ * the opener line, the content, and at most one close line, joined
+ * by single newlines — the overhang past the content is a line
+ * terminator, a line terminator plus one newline-free close line, or
+ * nothing. Never a partial content byte: the arithmetic that could
+ * drop one (`boundary - 1` at a confined close, #44) no longer
+ * exists, and this row is what keeps it gone on every corpus, fuzz
+ * and shape-matrix document — including the render-blind comment
+ * blocks. The empty-content forms collapse (a closed empty block is
+ * `opener\ncloseLine`), which the tail derivation below accepts and
+ * nothing else.
+ * @param slice - the source the node's position names
+ * @param content - the node's sliced content (delimiters excluded)
+ */
+function expectExtentDecomposition(slice: string, content: string): void {
+  const newlineAt = slice.indexOf("\n");
+  if (newlineAt === -1) {
+    // The whole extent is the opener line (an empty unterminated
+    // block at a raw EOF).
+    expect(content, "one-line extent with content").toBe("");
+    return;
+  }
+  const body = slice.slice(newlineAt + 1);
+  if (body === content || body === `${content}\n`) return;
+  const tail =
+    content === ""
+      ? body
+      : body.startsWith(`${content}\n`)
+        ? body.slice(content.length + 1)
+        : undefined;
+  expect(
+    tail,
+    `extent does not decompose around ${JSON.stringify(content)}`,
+  ).toBeDefined();
+  expect(
+    tail !== undefined && !tail.includes("\n"),
+    `close tail ${JSON.stringify(tail)} is not one line`,
+  ).toBe(true);
+}
+
+/**
  * Check one node's value against the source it claims.
  * @param node - the node to check
  * @param slice - the source its position names
@@ -360,10 +403,16 @@ function expectOneValue(node: AnyNode, slice: string): void {
   const { value, content } = node;
   if (node.type === "delimitedBlock" && typeof content === "string") {
     if (node.variant === "table") {
+      // A table's content carries its own delimiter lines, so its
+      // (xii) form is prefix + {"" | "\n"} — expectTableContent's
+      // prefix check plus the bound below.
       expectTableContent(slice, content);
+      const over = slice.slice(content.length);
+      expect(over === "" || over === "\n", "table overhang").toBe(true);
       return;
     }
     expectVerbatimContent(slice, content);
+    if (node.form === "delimited") expectExtentDecomposition(slice, content);
     return;
   }
   if (typeof value !== "string") return;
@@ -381,6 +430,9 @@ function expectOneValue(node: AnyNode, slice: string): void {
     case "comment":
     case "preprocessorDirective": {
       expect(slice, `${node.type} value is inside its span`).toContain(value);
+      if (node.type === "comment" && node.commentType === "block") {
+        expectExtentDecomposition(slice, value);
+      }
       break;
     }
     default: {
@@ -444,15 +496,16 @@ function expectLineCoverage(source: string, nodes: AnyNode[]): void {
 }
 
 // The node kinds whose position spans their whole content, so a
-// descendant must lie inside them. COMPLETENESS RULE (viii): every
-// child-bearing BLOCK kind is listed here or named as an exception —
-// a `section`'s position is its heading LINE (its blocks come after
-// it) and the `document` spans the whole source, so neither
-// constrains anything; both are deliberately absent, by adjudication.
-// The next container author (dlists, tables) meets this as a rule,
-// not a list; the node-kind census row in architecture.test.ts is the
-// reminder that fires when a kind is added.
+// descendant must lie inside them. COMPLETENESS RULE (viii),
+// unconditional: every child-bearing kind is in the set. `document`
+// spans the whole source ([at(0), at(source.length)]), so covering it
+// costs nothing — and no "deliberately absent" escape clause remains;
+// sections no longer exist (spec D10). The next container author
+// (dlists, tables) meets this as a rule, not a list; the node-kind
+// census row in architecture.test.ts is the reminder that fires when
+// a kind is added.
 const SPANNING_CONTAINERS = new Set([
+  "document",
   "parentBlock",
   "list",
   "listItem",

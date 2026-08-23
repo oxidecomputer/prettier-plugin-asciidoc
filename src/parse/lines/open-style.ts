@@ -1,8 +1,8 @@
 /**
- * What a held style does at frame OPEN — the style tables that lived
- * in paragraph-form.ts, in their one home (spec D4). Behavior is
- * Ruby's next_block style handling (parser.rb:527-549 for delimited
- * blocks, :716-722 for paragraph-form styles), pinned by
+ * What a held style does at a block's OPENING line — the style tables
+ * that lived in paragraph-form.ts, in their one home (spec D4).
+ * Behavior is Ruby's next_block style handling (parser.rb:527-549 for
+ * delimited blocks, :716-722 for paragraph-form styles), pinned by
  * tests/{parser,format}/block-masquerade.test.ts and the D4 suites;
  * the STRUCTURE — resolving at the reader's dispatch point instead of
  * unshifting the line back through build_block — is a declared
@@ -90,10 +90,10 @@ function admonitionVariant(style: string): string | undefined {
   return UPPERCASE_WORD.test(upper) ? upper.toLowerCase() : undefined;
 }
 
-/** What resolveDelimitedOpen decides: the frame's model and payload. */
+/** What resolveDelimitedOpen decides: the content model and payload. */
 export type DelimitedOpen =
   | {
-      /** Open model: a frame whose content is parsed as blocks. */
+      /** Open model: an interior parsed as blocks. */
       readonly model: "compound";
       /** Which parent block the delimiter opened. */
       readonly variant: ParentBlockNode["variant"];
@@ -101,9 +101,9 @@ export type DelimitedOpen =
       readonly admonition?: string;
     }
   | {
-      /** Open model: a frame whose content is kept verbatim. */
+      /** Open model: an interior kept verbatim. */
       readonly model: "verbatim";
-      /** What the frame will build at close. */
+      /** What the extent will build once it is collected. */
       readonly role: VerbatimRole;
     };
 
@@ -117,7 +117,7 @@ export type DelimitedOpen =
  * single alphabetic word first (today's tables, verbatim).
  * @param kind - which delimiter opened
  * @param style - the held style, if the (c) guard released one
- * @returns what the frame will build
+ * @returns what the opened block will build
  */
 export function resolveDelimitedOpen(
   kind: DelimiterKind,

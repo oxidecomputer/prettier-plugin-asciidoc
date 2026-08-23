@@ -13,13 +13,14 @@ import { narrow } from "../../src/unreachable.js";
 describe("document title parsing", () => {
   // The document title is a level-0 heading using a single `=` marker.
   // It should parse as its own node type, separate from section headings.
-  test("= Title parses as documentTitle", () => {
+  test("= Title parses as a level-0 heading", () => {
     const document = parse("= My Document\n");
     expect(document.children).toHaveLength(1);
     const {
       children: [child0],
     } = document;
-    narrow(child0, "documentTitle");
+    narrow(child0, "heading");
+    expect(child0.level).toBe(0);
     expect(child0.title).toBe("My Document");
   });
 
@@ -31,7 +32,8 @@ describe("document title parsing", () => {
     const {
       children: [child0],
     } = document;
-    narrow(child0, "documentTitle");
+    narrow(child0, "heading");
+    expect(child0.level).toBe(0);
     expect(child0.title).toBe("Extra Spaces");
   });
 
@@ -55,7 +57,7 @@ describe("document title parsing", () => {
     const input = "= My Document\n:toc:\n:source-highlighter: rouge\n";
     const document = parse(input);
     expect(document.children).toHaveLength(3);
-    expect(document.children[0].type).toBe("documentTitle");
+    expect(document.children[0].type).toBe("heading");
     expect(document.children[1].type).toBe("attributeEntry");
     expect(document.children[2].type).toBe("attributeEntry");
   });
@@ -66,7 +68,7 @@ describe("document title parsing", () => {
     const input = "= My Document\n\nBody text.\n";
     const document = parse(input);
     expect(document.children).toHaveLength(2);
-    expect(document.children[0].type).toBe("documentTitle");
+    expect(document.children[0].type).toBe("heading");
     expect(document.children[1].type).toBe("paragraph");
   });
 
@@ -79,31 +81,30 @@ describe("document title parsing", () => {
     const input = "= My Document\n:toc:\n\nBody text.\n";
     const document = parse(input);
     expect(document.children).toHaveLength(3);
-    expect(document.children[0].type).toBe("documentTitle");
+    expect(document.children[0].type).toBe("heading");
     expect(document.children[1].type).toBe("attributeEntry");
     expect(document.children[2].type).toBe("paragraph");
   });
 
-  // The document title must not be confused with section headings.
-  // `== Title` is a section (level 1), not a document title.
-  // Disambiguation is by heading LEVEL: the classifier counts the
-  // `=` run, and the reader treats level 0 as the document title and
-  // anything deeper as a section (`BlockReader.sectionTitle` in
-  // src/parse/lines/reader.ts).
-  test("== is a section, not a document title", () => {
+  // The document title must not be confused with deeper headings:
+  // disambiguation is by LEVEL, a field on the ONE heading kind
+  // (spec D10(a)) — `==` is level 1.
+  test("== is a level-1 heading, not the document title", () => {
     const document = parse("== Section\n");
     expect(document.children).toHaveLength(1);
-    expect(document.children[0].type).toBe("section");
+    const [child0] = document.children;
+    narrow(child0, "heading");
+    expect(child0.level).toBe(1);
   });
 
   // Document title followed by a section heading. The section is not
   // a child of the title — both are top-level blocks.
-  test("document title followed by section", () => {
+  test("document title followed by a section heading", () => {
     const input = "= My Document\n\n== First Section\n";
     const document = parse(input);
     expect(document.children).toHaveLength(2);
-    expect(document.children[0].type).toBe("documentTitle");
-    expect(document.children[1].type).toBe("section");
+    expect(document.children[0].type).toBe("heading");
+    expect(document.children[1].type).toBe("heading");
   });
 
   // A document title at EOF without a trailing newline exercises the
@@ -116,15 +117,16 @@ describe("document title parsing", () => {
     const {
       children: [child0],
     } = document;
-    narrow(child0, "documentTitle");
+    narrow(child0, "heading");
+    expect(child0.level).toBe(0);
     expect(child0.title).toBe("Title");
   });
 
   // `AtxSectionTitleRx` is matched against the RSTRIPPED line and
   // requires a non-empty title, so `=` followed by nothing but
   // whitespace is not a title at all — the oracle renders `=  ` as a
-  // paragraph containing `=`. (This used to produce a documentTitle
-  // with an empty string.)
+  // paragraph containing `=`. (This used to produce a level-0
+  // heading with an empty string.)
   test("= followed by only whitespace is a paragraph, not a title", () => {
     const document = parse("=  \n");
     expect(document.children).toHaveLength(1);

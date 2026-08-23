@@ -10,7 +10,11 @@
  */
 import { doc, type Doc } from "prettier";
 import type { BlockNode } from "./ast.js";
-import { isReaderConsumedLine, stacksAsMetadata } from "./block-metadata.js";
+import {
+  isPseudoAnchorLine,
+  isReaderConsumedLine,
+  stacksAsMetadata,
+} from "./block-metadata.js";
 
 const {
   builders: { hardline },
@@ -52,16 +56,57 @@ function isAttributeEntry(block: BlockNode): boolean {
 }
 
 /**
- * Tests whether a block is a document title.
+ * Tests whether a block is the document-title heading (`=`, level 0).
  *
- * Used in stacking logic: a document title followed
- * by attribute entries forms a contiguous header
- * (`= Title` then `:attr: value` with no blank line).
+ * Used in stacking logic: the document title followed by attribute
+ * entries forms a contiguous header (`= Title` then `:attr: value`
+ * with no blank line). A field read now that headings are one kind
+ * (spec D10(d): level 0 is SEMANTIC — the header run).
  * @param block - The block node to test.
- * @returns Whether the block is a document title.
+ * @returns Whether the block is the level-0 heading.
  */
 function isDocumentTitle(block: BlockNode): boolean {
-  return block.type === "documentTitle";
+  return block.type === "heading" && block.level === 0;
+}
+
+// Why headings split on level here, and why these two suppressions
+// exist (spec D10(d) — the section container left the AST, and these
+// are the two containment facts it used to enforce invisibly):
+//
+// - Level 0 is SEMANTIC. `= Title` opens the document HEADER, a
+//   contiguous run that comment and directive lines may sit inside
+//   and that the first blank line terminates. Preserving the
+//   author's adjacency there is meaning-preserving, not style:
+//   breaking it demotes author/revision/attribute lines to body
+//   content (measured: the author line, `:toc:` and `:doctype:`
+//   renders all change with header adjacency).
+// - Level >= 1 is FROZEN SPELLING. No header exists below a section
+//   heading; blank-vs-adjacent is render-neutral there (measured),
+//   and the incumbent forced blank is preserved because this plan's
+//   covenant is byte identity.
+// - A pseudo-anchor line never stacks under a level >= 1 heading:
+//   the stacked pair re-parses as one joined line and the heading
+//   is destroyed.
+// - Aligning level >= 1 to the header's author-adjacency rule is a
+//   deliberate byte-change candidate for a later plan (γ or later),
+//   not drift.
+//
+// Pinned by tests/format/heading-adjacency.test.ts (the D10(d)
+// characterization fixtures) and the shape-diff heading-adjacency
+// rows.
+
+/**
+ * Tests whether a block is a heading below the document title —
+ * level 1 (`==`) or deeper. The two suppressions in
+ * {@link shouldStack} key on it: the reader-eaten arm on the
+ * PREVIOUS element being one (ONE-SIDED — `// c` directly above
+ * `== B` stacks today and must keep stacking), the metadata arm on
+ * `current` being one with a pseudo-anchor line above.
+ * @param block - The block node to test.
+ * @returns Whether the block is a level >= 1 heading.
+ */
+function isSectionHeading(block: BlockNode): boolean {
+  return block.type === "heading" && block.level >= 1;
 }
 
 /**
@@ -76,14 +121,21 @@ function isDocumentTitle(block: BlockNode): boolean {
  *   the source had no blank line between them: the reader
  *   removes the line before block parsing, so a blank line
  *   the formatter inserted next to it would land inside
- *   the run of lines the parser is still reading
+ *   the run of lines the parser is still reading —
+ *   suppressed when the PREVIOUS element is a level >= 1
+ *   heading: the old section printer forced the
+ *   post-heading blank, and that byte is frozen (see the
+ *   level comment below)
  * - Consecutive attribute entries (idiomatic stacking)
  * - Document title followed by attribute entry (the
  *   contiguous header pattern: `= Title` then
  *   `:attr: value` with no blank line)
  * - Block metadata and the block it annotates, per the one
  *   pairing rule and its anchor exceptions
- *   ({@link stacksAsMetadata}, block-metadata.ts)
+ *   ({@link stacksAsMetadata}, block-metadata.ts) —
+ *   suppressed for a pseudo-anchor line directly above a
+ *   level >= 1 heading: the stacked pair re-parses joined
+ *   and the heading is destroyed (spec D10(d), the A1 row)
  *
  * The reverse (attribute entry before title) is
  * intentionally absent: in AsciiDoc, attributes follow
@@ -105,11 +157,30 @@ function shouldStack(blocks: BlockNode[], index: number): boolean {
   const current = blocks[index];
   return (
     (isLineComment(previous) && isLineComment(current)) ||
-    stacksWithReaderEatenLine(previous, current) ||
+    (stacksWithReaderEatenLine(previous, current) &&
+      !isSectionHeading(previous)) ||
     (isAttributeEntry(previous) && isAttributeEntry(current)) ||
     (isDocumentTitle(previous) && isAttributeEntry(current)) ||
-    stacksAsMetadata(previous, current)
+    (stacksAsMetadata(previous, current) &&
+      !destroysHeadingWhenStacked(previous, current))
   );
+}
+
+/**
+ * Whether stacking the pair would DESTROY a heading: a pseudo-anchor
+ * line directly above a level >= 1 heading re-parses as one joined
+ * line. Named rather than inlined into {@link shouldStack} because
+ * the ceiling counts that function's operators (see the level comment
+ * above); the rule is one clause of the metadata arm's suppression.
+ * @param previous - The preceding block node.
+ * @param current - The current block node.
+ * @returns Whether the stacked spelling would re-parse joined.
+ */
+function destroysHeadingWhenStacked(
+  previous: BlockNode,
+  current: BlockNode,
+): boolean {
+  return isSectionHeading(current) && isPseudoAnchorLine(previous);
 }
 
 /**
@@ -142,8 +213,8 @@ function stacksWithReaderEatenLine(
  * Whether the LAST line a block occupies is one the reader eats.
  *
  * A list is the one container whose last line is its last CHILD's
- * line — every other container closes with a delimiter of its own, and
- * a section owns whatever follows it. So a directive or comment that
+ * line — every other container closes with a delimiter of its own.
+ * So a directive or comment that
  * ends a list item is the line directly above the next top-level
  * block, and the stacking must reach it (`* a` / `+` /
  * `ifdef::backend[]` / `----` puts the listing INSIDE the item for

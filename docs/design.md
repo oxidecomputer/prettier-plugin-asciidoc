@@ -23,30 +23,40 @@ Parsing happens in three phases:
    rstripping each one exactly as `Helpers.prepare_source_string` does while
    keeping the author's bytes and the document offsets alongside.
 
-2. **BlockReader** (`src/parse/lines/reader.ts`): Walks those lines ONCE with an
-   explicit frame stack that mirrors Asciidoctor's reader (`Parser.next_block`,
-   `read_paragraph_lines`, `read_lines_for_list_item`, `read_lines_until`),
+2. **BlockReader** (`src/parse/lines/reader.ts`): Walks those lines ONCE,
    classifying each line against the registry in `src/parse/line-shapes.ts` with
-   the open context in hand. It builds the AST directly: a frame IS the node
-   under construction, and closing a frame builds its node with the pure
-   `(lines, index) → Node` constructors in `src/parse/build/` and pushes it onto
-   the parent frame's children. There is no separate tree-building pass — no
-   grammar, no CST, no visitor. Lists are read EXTENT-FIRST in
-   `src/parse/lines/list-reader.ts`, a port of Asciidoctor's own structure:
-   `parse_list` → `parse_list_item` → `read_lines_for_list_item` becomes
-   `readList` → `readListItem` → `itemExtent`. `itemExtent` collects one item's
-   lines into Ruby's buffer; `readListItem` then re-parses that buffer with a
+   the open context in hand, and builds the AST directly with the pure
+   `(lines, index) → Node` constructors in `src/parse/build/`. There is no
+   separate tree-building pass — no grammar, no CST, no visitor.
+
+   Every composite construct is read EXTENT-FIRST, where Asciidoctor reads it,
+   and what is not a composite is a LEAF. A delimited block's whole extent is
+   collected at its opening line (`delimitedExtent` in
+   `src/parse/lines/delimited-reader.ts`, Ruby's `build_block` shape): a
+   verbatim interior is a slice of the source, a compound interior is a confined
+   child `BlockReader` over the interior's subarray. Lists take the same shape
+   through `src/parse/lines/list-reader.ts`, a port of Asciidoctor's own
+   structure — `parse_list` → `parse_list_item` → `read_lines_for_list_item`
+   becomes `readList` → `readListItem` → `itemExtent`. `itemExtent` collects one
+   item's lines into Ruby's buffer; `readListItem` re-parses that buffer with a
    confined `BlockReader` (Ruby's `Reader.new buffer`), so nesting composes
-   because an inner item's scan runs over the outer item's buffer. There is no
-   list frame and no per-item object: the only mutable per-item state is
+   because an inner item's scan runs over the outer item's buffer. Headings are
+   leaves: sections are not modeled, so the document is a FLAT sequence of
+   blocks the reader appends to, nothing closes on a later unpredictable line,
+   and no frame of any kind remains (spec D10). Confinement is physical
+   everywhere Ruby's is — a confined reader's lines END at its boundary — and
+   structure the printer never consumes is not modeled.
+
+   There is no per-item object either: the only mutable per-item state is
    `itemExtent`'s five members (Ruby's four locals plus the buffer being built),
    and nothing points across an item boundary. `src/parse/lines/frames.ts` holds
-   the frame and reader types the list layer shares with `reader.ts`, plus the
-   held-metadata table both consult, so those modules stay a DAG rather than an
-   import cycle. Every node carries character offsets (`locStart`/`locEnd`),
-   comments and directives are first-class nodes, and the tree is faithful to
-   the source syntax. `tests/parser/architecture.test.ts` is the mechanical
-   guard that block context is decided in the reader and nowhere else.
+   the vocabulary the list layer shares with `reader.ts` — the `ListHost` seam,
+   the verbatim role, the leaf and held-metadata tables — so those modules stay
+   a DAG rather than an import cycle. Every node carries character offsets
+   (`locStart`/`locEnd`), comments and directives are first-class nodes, and the
+   tree is faithful to the source syntax. `tests/parser/architecture.test.ts` is
+   the mechanical guard that block context is decided in the reader and nowhere
+   else.
 
 3. **Inline tokenizer** (`src/parse/inline/`): the paragraph reader
    (`src/parse/lines/paragraph-reader.ts`) hands each run of paragraph text to
@@ -96,7 +106,7 @@ undocumented decision looks like from the outside.
 ## One tree
 
 There is exactly one tree representation: our AST (`src/ast.ts`), built by the
-reader as it reads. It has typed, semantic nodes — `SectionNode` with a `level`
+reader as it reads. It has typed, semantic nodes — `HeadingNode` with a `level`
 property, `ParagraphNode` with inline children, etc. — and it is what we hand to
 Prettier.
 
@@ -113,7 +123,7 @@ Our AST is designed for Prettier, not for the AsciiDoc language spec's semantic
 model. It preserves everything a formatter needs, including constructs a
 semantic model intentionally discards.
 
-The list below is the 31 `type` discriminants declared in `src/ast.ts`, and
+The list below is the 30 `type` discriminants declared in `src/ast.ts`, and
 nothing else — a node kind not named here does not exist. Tables pass through as
 an opaque `delimitedBlock` variant (spec D1) rather than being modeled; where
 AsciiDoc has a construct we do not model at all yet (description lists), there
@@ -123,9 +133,11 @@ tracked as GitHub issues, not as node names here.
 **Block nodes:**
 
 - `document` — root, contains header blocks + body blocks
-- `documentTitle` — the `= Title` line
-- `section` — heading + child blocks
-- `discreteHeading` — a `[discrete]`-styled heading, which opens no section
+- `heading` — one `= Title` / `== Section` line, at every level: a LEAF with
+  `level` and `title`, carrying no children. Sections are not modeled, so a
+  heading's "contents" are simply the blocks that follow it (spec D10)
+- `discreteHeading` — a `[discrete]`-styled heading, which is style rather than
+  structure and is outside the flatten entirely
 - `attributeEntry` — `:key: value` lines
 - `paragraph` — text content containing inline nodes
 - `list` — `variant: "unordered" | "ordered" | "callout"`
@@ -177,10 +189,10 @@ tracked as GitHub issues, not as node names here.
 effective content model. For example, `[verse]` on a `____` block switches it
 from compound (parsed as AsciiDoc) to verbatim (line breaks preserved). `[stem]`
 on `++++` switches from raw passthrough to math notation. `[NOTE]` on `====`
-decides at frame open that the block builds as an admonition rather than an
-example, with the wrapper delimiter recorded as the node's `form` (spec D7). The
-parser must check the preceding `blockAttributeList` before opening a block to
-determine its effective content model — otherwise it risks reflowing verbatim
+decides at the opening line that the block builds as an admonition rather than
+an example, with the wrapper delimiter recorded as the node's `form` (spec D7).
+The parser must check the preceding `blockAttributeList` before opening a block
+to determine its effective content model — otherwise it risks reflowing verbatim
 content or failing to parse compound content. See the full masquerade table in
 `docs/asciidoc-format.md`.
 
@@ -247,8 +259,8 @@ This means:
 - **Internal invariant violations** throw, via `unreachable()` in
   `src/unreachable.ts`. These are not input handling: each one guards a state
   that is impossible only because two places agree — the classifier's line-shape
-  pattern and a builder's own regex for the same shape, or the reader's frame
-  push/pop order and the list layer's entry conditions. If one fires, those two
+  pattern and a builder's own regex for the same shape, or the extent a scan
+  collected and the list layer's entry conditions. If one fires, those two
   drifted apart and there is a bug to fix. Nothing else on the parse path
   throws.
 
@@ -259,11 +271,12 @@ we're called.
 ## Inline parser architecture
 
 The block layer is line-oriented: the BlockReader classifies each line by its
-start-of-line shape (`^== `, `^* `, `^----$`, etc.) in the context its frame
-stack is in, and decides there where every block begins and ends — it opens and
-closes a frame, and the frame becomes the node. Inline content — bold, italic,
-links, macros — lives _within_ paragraph text and is character-oriented, so it
-gets a tokenizer; the block layer never does.
+start-of-line shape (`^== `, `^* `, `^----$`, etc.) in the context it is
+reading, and decides there where every block begins and ends — a composite
+construct's extent is collected at the line that opens it, and that extent
+becomes the node. Inline content — bold, italic, links, macros — lives _within_
+paragraph text and is character-oriented, so it gets a tokenizer; the block
+layer never does.
 
 ### Why not a separate parser?
 
@@ -339,8 +352,17 @@ interrupting set. Five rules keep the reader and reflow honest about that:
    `read()` loop peeks the next line, classifies it in the paragraph's own
    context, and stops at the first line that is neither `text` nor `raw` —
    leaving that line unread, which is `read_lines_until` with
-   `preserve_last_line: true`. The frame closes there. The stop is never decided
-   by re-running the top-level line classifier.
+   `preserve_last_line: true`. The paragraph ends there. The stop is never
+   decided by re-running the top-level line classifier.
+
+   The context the classifier reads is exactly `ReaderContext`
+   (`src/parse/lines/classify.ts`): `openParagraph` (which paragraph shape is
+   open, if any), `openListStyles` (the marker styles of the open lists,
+   innermost first) and `firstLineAfterStart`. There is no terminator vocabulary
+   in it — a delimited block's closing line is matched by `delimitedExtent`
+   while it collects the extent, BEFORE classification ever runs on an interior
+   line, and a verbatim interior line is never classified at all.
+
 2. The registry is oracle-pinned: `tests/conformance/interruption.test.ts`
    checks every pattern against Asciidoctor for each of four `ParagraphContext`s
    _and_ in both line positions (directly after the block started, where
@@ -419,7 +441,7 @@ BlockReader owned every block-level decision (the line-classifier work), none of
 that was load-bearing any more. The grammar had 17 alternatives in its `block`
 rule, each selected by one distinct token, no gates and one token of lookahead —
 a table, spelled as a parser. The visitor copied fields. The CST was a
-representation carrying nothing the frame stack did not already have.
+representation carrying nothing the reader did not already have.
 
 What it cost, concretely: a `null`-returning `CustomPatternMatcherFunc`, a ban
 on the `v` regex flag in any file defining token patterns, an inclusive

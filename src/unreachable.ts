@@ -11,7 +11,7 @@
  *     `Invalid attribute entry: ${line.image}`
  *   );
  *
- * Used in `src/parse/build/` and the reader's frame stack to
+ * Used in `src/parse/build/` and in the reader's extent scans to
  * guard states that are impossible only because two places
  * agree — a line-shape pattern in the classifier and the
  * builder's own regex for the same shape, say. If one fires

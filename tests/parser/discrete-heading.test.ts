@@ -3,11 +3,11 @@ import { parse } from "../../src/parser.js";
 import { narrow } from "../../src/unreachable.js";
 
 describe("discrete heading parsing", () => {
-  // A `[discrete]` attribute list followed by a section heading
-  // produces a DiscreteHeadingNode instead of a SectionNode.
+  // A `[discrete]` attribute list followed by a heading line
+  // produces a DiscreteHeadingNode instead of an ordinary heading.
   // Discrete headings are standalone — they don't create sections.
   // Note: levels are zero-indexed, so `==` is level 1 (not 0 or 2),
-  // matching the SectionNode.level convention.
+  // matching the HeadingNode.level convention.
   test("[discrete] + == Heading produces a discrete heading", () => {
     const { children } = parse("[discrete]\n== Heading\n");
     // The attribute list is kept as a separate block (for stacking),
@@ -17,7 +17,7 @@ describe("discrete heading parsing", () => {
     const [, child1] = children;
     narrow(child1, "discreteHeading");
     expect(child1.level).toBe(1);
-    expect(child1.heading).toBe("Heading");
+    expect(child1.title).toBe("Heading");
   });
 
   // Discrete headings do NOT nest subsequent blocks. A paragraph
@@ -40,7 +40,7 @@ describe("discrete heading parsing", () => {
     const [, child1] = children;
     narrow(child1, "discreteHeading");
     expect(child1.level).toBe(2);
-    expect(child1.heading).toBe("Level 2");
+    expect(child1.title).toBe("Level 2");
   });
 
   // Level 3 (====): one step beyond level 2, still no section nesting.
@@ -50,7 +50,7 @@ describe("discrete heading parsing", () => {
     const [, child1] = children;
     narrow(child1, "discreteHeading");
     expect(child1.level).toBe(3);
-    expect(child1.heading).toBe("Level 3");
+    expect(child1.title).toBe("Level 3");
   });
 
   // Level 5 (======): the deepest valid heading level.
@@ -60,34 +60,44 @@ describe("discrete heading parsing", () => {
     const [, child1] = children;
     narrow(child1, "discreteHeading");
     expect(child1.level).toBe(5);
-    expect(child1.heading).toBe("Level 5");
+    expect(child1.title).toBe("Level 5");
   });
 
-  // A discrete heading inside a section should be a child of that
-  // section, not create a new section level.
-  test("discrete heading inside a section is a child", () => {
+  // Level 0 (`=`) is VALID for a discrete heading: the marker that
+  // would be a document title on an ordinary heading is only a depth
+  // here, because a discrete heading is style, not structure. One
+  // derivation classifies and builds the marker, so the whole
+  // `=`-through-`======` range reaches the node.
+  test("discrete heading at level 0 (=)", () => {
+    const { children } = parse("[discrete]\n= T\n");
+    expect(children).toHaveLength(2);
+    const [, child1] = children;
+    narrow(child1, "discreteHeading");
+    expect(child1.level).toBe(0);
+    expect(child1.title).toBe("T");
+  });
+
+  // [discrete] under a heading: attrs + discrete heading + body are
+  // FLAT siblings after the heading leaf (spec D10).
+  test("discrete heading after a section heading stays a leaf run", () => {
     const { children } = parse(
       "== Section\n\n[discrete]\n=== Discrete\n\nParagraph.\n",
     );
-    expect(children).toHaveLength(1);
-    const [child0] = children;
-    narrow(child0, "section");
-    // The section should contain: blockAttributeList, discreteHeading,
-    // and paragraph as children.
-    expect(child0.children).toHaveLength(3);
-    expect(child0.children[0].type).toBe("blockAttributeList");
-    expect(child0.children[1].type).toBe("discreteHeading");
-    expect(child0.children[2].type).toBe("paragraph");
+    expect(children.map((child) => child.type)).toEqual([
+      "heading",
+      "blockAttributeList",
+      "discreteHeading",
+      "paragraph",
+    ]);
   });
 
-  // A heading without [discrete] should still parse as a section.
-  // Verifies that convertDiscreteHeadings() is a no-op when the
-  // `[discrete]` attribute is absent — normal section parsing is
-  // not disrupted.
-  test("heading without [discrete] is still a section", () => {
+  // A heading without [discrete] is an ordinary heading leaf: the
+  // discrete arm is a no-op when the `[discrete]` attribute is
+  // absent.
+  test("heading without [discrete] is an ordinary heading", () => {
     const document = parse("== Normal Section\n");
     expect(document.children).toHaveLength(1);
-    expect(document.children[0].type).toBe("section");
+    expect(document.children[0].type).toBe("heading");
   });
 
   // When [discrete] is followed by a non-heading line (e.g. a plain
@@ -105,10 +115,10 @@ describe("discrete heading parsing", () => {
   // must not trigger the conversion. `[appendix]` was chosen as a
   // realistic AsciiDoc style (not an invented `[foo]`) to confirm
   // the check is strictly value-equality against "discrete".
-  test("[appendix] + heading is still a section", () => {
+  test("[appendix] + heading is still an ordinary heading", () => {
     const document = parse("[appendix]\n== Appendix\n");
     expect(document.children).toHaveLength(2);
     expect(document.children[0].type).toBe("blockAttributeList");
-    expect(document.children[1].type).toBe("section");
+    expect(document.children[1].type).toBe("heading");
   });
 });

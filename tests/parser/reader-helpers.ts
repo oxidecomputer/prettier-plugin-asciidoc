@@ -26,14 +26,14 @@ import { preorder } from "./ast-invariants.js";
  *   t                   one inline node; a RUN of them collapses to one
  *   /                   a line break INSIDE a text node
  *   raw                 a rawLine node (a comment or directive kept in place)
- *   section(…)          a section and the blocks inside it
+ *   h0 h1 … h5        a heading leaf and its level
  *   list(…) olist(…)    a list and its items — unordered, ordered,
  *   colist(…) item(…)   callout — and one item
  *   example(…) open(…)  a parent block and its children
  *   listing[n]          a verbatim block, n content lines
  *   literal-indented[n] an indented literal paragraph
  *   commentBlock[n] comment directive attrs title attr macro
- *   doctitle heading thematic pagebreak admonition(variant)
+ *   heading thematic pagebreak admonition(variant)
  *   + ~+ ~++ - ~        an in-item block's glyph, a pure function of
  *                       its recorded gap ({@link gapGlyph}): a live `+`
  *                       directly above it; a blank line then N `+`
@@ -57,7 +57,6 @@ export function astShape(source: string): string {
 
 // One-line blocks render as a single word.
 const LEAF_NAMES: Record<string, string> = {
-  documentTitle: "doctitle",
   discreteHeading: "heading",
   blockAttributeList: "attrs",
   blockTitle: "title",
@@ -163,8 +162,8 @@ function itemShape(item: ListItemNode): string {
  */
 function blockShape(node: BlockNode): string {
   switch (node.type) {
-    case "section": {
-      return `section(${node.children.map(blockShape).join(" ")})`;
+    case "heading": {
+      return `h${String(node.level)}`;
     }
     case "paragraph": {
       return `p(${inlineShape(node.children)})`;

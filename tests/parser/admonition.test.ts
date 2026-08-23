@@ -12,13 +12,14 @@
  *
  * Paragraph-form admonitions produce `AdmonitionNode` directly
  * from the reader (`BlockReader.admonition`). Block-form
- * admonitions resolve at frame OPEN (spec D4a): the held style
- * renames the compound block (`resolveDelimitedOpen` in
- * lines/open-style.ts) and `closeFrame` builds an
- * `AdmonitionNode` whose `form` is the wrapper delimiter
- * variant (spec D7). The original
- * `blockAttributeList` node is retained as a preceding
- * sibling so attribute metadata is not lost.
+ * admonitions resolve at OPEN (spec D4a): the held style selects
+ * the admonition variant (`resolveDelimitedOpen` in
+ * lines/open-style.ts) and `openDelimited` builds the whole node
+ * right there, through `buildDelimitedAdmonition`, from the extent
+ * the open collected — no frame carries the decision and nothing
+ * is renamed at close. Its `form` is the wrapper delimiter variant
+ * (spec D7). The original `blockAttributeList` node is retained as
+ * a preceding sibling so attribute metadata is not lost.
  */
 import { describe, test, expect } from "vitest";
 import { parse } from "../../src/parser.js";

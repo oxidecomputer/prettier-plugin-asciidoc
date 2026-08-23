@@ -184,10 +184,10 @@ describe("list continuation parsing", () => {
 
 // Issue #6: a `+` directly before a delimited block attaches the
 // block to the item, and a `+` directly after the block's close
-// delimiter attaches the following paragraph. A list frame does not
-// read a delimited block's extent itself — the reader opens the block
-// as a sibling — so the attachment is decided from the `+` marks the
-// item recorded.
+// delimiter attaches the following paragraph. The list layer does not
+// read a delimited block's extent itself — the confined reader over
+// the item's buffer opens the block like any other — so the
+// attachment is decided from the `+` marks the item recorded.
 describe("continuations around delimited blocks (issue #6)", () => {
   test("+ attaches a following delimited block to the item", () => {
     const { children } = parse("* item text:\n+\n....\nliteral\n....\n");

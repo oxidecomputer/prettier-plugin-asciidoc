@@ -42,10 +42,10 @@ describe("reader: paragraphs", () => {
   });
 });
 
-describe("reader: sections and metadata", () => {
-  test("a heading of level <= open closes the section first", () => {
+describe("reader: headings and metadata", () => {
+  test("headings are leaves at every level; nothing nests", () => {
     expect(astShape("== A\n\np\n\n=== B\n\nq\n\n== C\n")).toBe(
-      "section(p(t) section(p(t))) section()",
+      "h1 p(t) h2 p(t) h1",
     );
   });
   test("a heading does NOT interrupt an open paragraph (StartOfBlockProc has no title rule)", () => {
@@ -62,7 +62,7 @@ describe("reader: sections and metadata", () => {
       'id="id">B',
     );
     expect(astShape("== A\np\n[[id]]\n// c\n\n== B\n")).toBe(
-      "section(p(t)) anchor comment section()",
+      "h1 p(t) anchor comment h1",
     );
   });
   test("a comment before a closing heading migrates into the new section", () => {
@@ -71,13 +71,11 @@ describe("reader: sections and metadata", () => {
     // title opens. This reverses the limitation the old post-hoc
     // section nester documented; the rendering is identical (the oracle
     // emits no node for a comment either way).
-    expect(astShape("== A\n// c\n\n== B\n")).toBe(
-      "section() comment section()",
-    );
+    expect(astShape("== A\n// c\n\n== B\n")).toBe("h1 comment h1");
   });
   test("[discrete] turns the heading into a leaf", () => {
     expect(astShape("== A\n[discrete]\n=== B\np\n")).toBe(
-      "section(attrs heading p(t))",
+      "h1 attrs heading p(t)",
     );
   });
   test("[discrete ] with trailing blanks is still discrete (the style is trimmed)", () => {
@@ -92,8 +90,8 @@ describe("reader: sections and metadata", () => {
   test("headings inside a compound block are paragraph text (next_block never makes sections)", () => {
     expect(astShape("====\n== H\n====\n")).toBe("example(p(t))");
   });
-  test("a level-0 title is a document title, not a section frame", () => {
-    expect(astShape("= Doc\n\np\n")).toBe("doctitle p(t)");
+  test("a level-0 title is a heading leaf like any other", () => {
+    expect(astShape("= Doc\n\np\n")).toBe("h0 p(t)");
   });
 });
 
@@ -142,23 +140,19 @@ describe("reader: delimited blocks", () => {
   test("delimiters with trailing spaces are delimiters (rstrip)", () => {
     expect(astShape("----  \nx\n----\n")).toBe("listing[1]");
   });
-  test("a compound block nests blocks; a section inside it never opens a frame", () => {
+  test("a compound block nests blocks; a heading inside it is a leaf", () => {
     expect(astShape("====\np\n\n----\nx\n----\n====\n")).toBe(
       "example(p(t) listing[1])",
     );
   });
-  test("an unclosed section inside a document ends at EOF", () => {
-    expect(astShape("== A\n\n----\nx\n")).toBe("section(listing[1])");
+  test("an unterminated block after a heading ends at EOF", () => {
+    expect(astShape("== A\n\n----\nx\n")).toBe("h1 listing[1]");
   });
-  test("EOF closes the section around it too", () => {
+  test("EOF forces an unterminated block shut; the heading before it is a sibling leaf", () => {
     const source = "== A\n\n----\nx\n";
     const {
-      children: [section],
+      children: [, block],
     } = parse(source);
-    narrow(section, "section");
-    const {
-      children: [block],
-    } = section;
     narrow(block, "delimitedBlock");
     expect(block.content).toBe("x");
     expect(block.position.end.offset).toBe(source.length);

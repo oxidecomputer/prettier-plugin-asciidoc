@@ -428,9 +428,8 @@ describe("the allowlisted parentBlock end", () => {
   // `====` with no closing delimiter is the shape the allowlist
   // exists for. `fixed` is what HEAD parses it to since Task 4: the
   // block ends where the extent it read ends. `buggy` is the same
-  // real AST with the end the BASELINE gives it — `buildParentBlock`
-  // handed `closeExtent` an empty source there, so the block ended at
-  // offset 0. Constructed rather than parsed because the bug is gone
+  // real AST with the end the BASELINE gives it — its builder was
+  // handed an empty source there, so the block ended at offset 0. Constructed rather than parsed because the bug is gone
   // from this checkout; it is still what the baseline emits, which is
   // what the allowlist has to reconcile.
   const source = "====\ntext\n";

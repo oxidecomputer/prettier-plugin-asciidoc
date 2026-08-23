@@ -8,10 +8,14 @@
  * can end — on its own terminator, on the outer terminator that took
  * its line, and at the document's end.
  *
- * A verbatim block's ROLE is decided at frame open by
- * `lines/open-style.ts` and travels on the frame (spec D4a), so these
- * rows hand the builder the role a reader would: the delimiter in the
- * extent is bytes to slice, not a decision to re-derive.
+ * A verbatim block's ROLE is decided at OPEN by `lines/open-style.ts`
+ * and handed straight to the builder with the extent (spec D4a), so
+ * these rows hand the builder the role a reader would: the delimiter
+ * in the extent is bytes to slice, not a decision to re-derive. The
+ * extent itself states both offsets — `contentEnd`, always a line's
+ * own raw end, and `end`, the node's — so these literals spell what
+ * the reader's one packaging site produces, not a boundary encoding
+ * the builder has to decode.
  */
 import { describe, expect, test } from "vitest";
 import {
@@ -35,11 +39,16 @@ function closedExtent(
   close: string,
 ): { extent: BlockExtent; at: ReturnType<typeof makeLocationIndex> } {
   const source = `${open}\n${content}\n${close}\n`;
+  const closeOffset = open.length + content.length + 2;
   return {
     extent: {
       open: { image: open, offset: 0 },
-      close: { image: close, offset: open.length + content.length + 2 },
-      unclosed: undefined,
+      close: { image: close, offset: closeOffset },
+      // The last interior line's raw end is the character before the
+      // newline that precedes the close line; the node ends past the
+      // close line's raw end.
+      contentEnd: closeOffset - 1,
+      end: closeOffset + close.length,
       source,
     },
     at: makeLocationIndex(source),
@@ -122,7 +131,8 @@ describe("buildVerbatimBlock content", () => {
       {
         open: { image: "----", offset: 0 },
         close: { image: "----", offset: 5 },
-        unclosed: undefined,
+        contentEnd: 4,
+        end: 9,
         source,
       },
       LISTING_ROLE,
@@ -137,7 +147,8 @@ describe("buildVerbatimBlock content", () => {
       {
         open: { image: "----", offset: 0 },
         close: undefined,
-        unclosed: { image: "", offset: source.length },
+        contentEnd: 9,
+        end: source.length,
         source,
       },
       LISTING_ROLE,
@@ -160,7 +171,8 @@ describe("buildVerbatimBlock content", () => {
       {
         open: { image: "----", offset: 0 },
         close: undefined,
-        unclosed: { image: "", offset: source.length },
+        contentEnd: 9,
+        end: source.length,
         source,
       },
       LISTING_ROLE,
@@ -175,36 +187,14 @@ describe("buildVerbatimBlock content", () => {
     });
   });
 
-  // Recovery alone leaves BOTH boundaries undefined; that reads as EOF,
-  // the same as a block whose forced-close boundary sits at the end.
-  test("a block with neither a terminator nor a forced-close boundary ends at EOF", () => {
-    const source = "----\ncode\n";
-    const node = buildVerbatimBlock(
-      {
-        open: { image: "----", offset: 0 },
-        close: undefined,
-        unclosed: undefined,
-        source,
-      },
-      LISTING_ROLE,
-      makeLocationIndex(source),
-    );
-    expect(node).toMatchObject({
-      content: "code",
-      position: {
-        start: { offset: 0, line: 1, column: 1 },
-        end: { offset: 10, line: 3, column: 1 },
-      },
-    });
-  });
-
   test("a block forced shut by an outer terminator ends at that line", () => {
     const source = "====\n----\ncode\n====\n";
     const node = buildVerbatimBlock(
       {
         open: { image: "----", offset: 5 },
         close: undefined,
-        unclosed: { image: "", offset: 15 },
+        contentEnd: 14,
+        end: 15,
         source,
       },
       LISTING_ROLE,
@@ -248,12 +238,7 @@ describe("buildParentBlock end position", () => {
   test("a block that met its terminator ends on it", () => {
     const closed = "====\ntext\n====\n";
     const node = buildParentBlock(
-      {
-        open,
-        close: { image: "====", offset: 10 },
-        unclosed: undefined,
-        source: closed,
-      },
+      { open, end: 14 },
       "example",
       [],
       makeLocationIndex(closed),
@@ -263,12 +248,7 @@ describe("buildParentBlock end position", () => {
 
   test("a block forced shut at EOF ends at the document end", () => {
     const node = buildParentBlock(
-      {
-        open,
-        close: undefined,
-        unclosed: { image: "", offset: source.length },
-        source,
-      },
+      { open, end: source.length },
       "example",
       [],
       at,
@@ -279,12 +259,7 @@ describe("buildParentBlock end position", () => {
   test("a block forced shut by an outer terminator ends at that line", () => {
     const nested = "====\n--\nx\n====\n";
     const node = buildParentBlock(
-      {
-        open: { image: "--", offset: 5 },
-        close: undefined,
-        unclosed: { image: "", offset: 10 },
-        source: nested,
-      },
+      { open: { image: "--", offset: 5 }, end: 10 },
       "open",
       [],
       makeLocationIndex(nested),
@@ -297,12 +272,7 @@ describe("buildParentBlock end position", () => {
   test("no parent block ends before it starts", () => {
     const unclosed = "para\n====\ntext\n";
     const node = buildParentBlock(
-      {
-        open: { image: "====", offset: 5 },
-        close: undefined,
-        unclosed: { image: "", offset: 15 },
-        source: unclosed,
-      },
+      { open: { image: "====", offset: 5 }, end: 15 },
       "example",
       [],
       makeLocationIndex(unclosed),

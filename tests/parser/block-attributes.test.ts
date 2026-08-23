@@ -291,11 +291,11 @@ describe("combined block metadata", () => {
   });
 
   // Style attributes before sections are preserved.
-  test("[appendix] before a section", () => {
+  test("[appendix] before a heading", () => {
     const document = parse("[appendix]\n== Appendix A\n");
     expect(document.children).toHaveLength(2);
     expect(document.children[0].type).toBe("blockAttributeList");
-    expect(document.children[1].type).toBe("section");
+    expect(document.children[1].type).toBe("heading");
   });
 });
 

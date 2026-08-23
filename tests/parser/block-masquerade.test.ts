@@ -332,4 +332,20 @@ describe("held styles on delimiters the style does not re-model", () => {
       "language",
     ]);
   });
+
+  test("a confined-unterminated block's key order is the baseline's", () => {
+    const document = parse("* item\n+\n----\nfoo\n\nafter\n");
+    const [list] = document.children;
+    narrow(list, "list");
+    const [item] = list.children;
+    const block = item.blocks.at(-1)?.block;
+    expect(block?.type).toBe("delimitedBlock");
+    expect(serializedKeys(block)).toEqual([
+      "type",
+      "variant",
+      "form",
+      "content",
+      "position",
+    ]);
+  });
 });

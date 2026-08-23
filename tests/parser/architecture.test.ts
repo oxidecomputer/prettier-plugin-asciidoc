@@ -6,7 +6,8 @@ import { cruiseImports } from "../../scripts/metrics/graph.js";
 /**
  * The architectural rule of the parse layer, enforced by the suite
  * rather than by reviewer memory: block-level context comes from the
- * BlockReader's frame stack and from nowhere else.
+ * BlockReader — its read position and the extents it collects — and
+ * from nowhere else.
  *
  * Before the BlockReader, "where does this block end?" was answered in
  * four different places at once — Chevrotain custom token patterns that
@@ -74,8 +75,8 @@ const files = walk(PARSE_DIR);
 /**
  * Textual signatures of context reconstruction, each with the mechanism
  * it stands for. Applied to every file under `src/parse`, the reader
- * included — the reader reads its OWN frame stack, which is not what
- * any of these match (see the `stack`/`frames` exemption below).
+ * included: the reader is told its context, and reads it forward from
+ * the line it is on, so nothing here needs an exemption.
  */
 const FORBIDDEN: Array<[string, RegExp]> = [
   // Chevrotain hands a CustomPatternMatcherFunc the tokens matched so
@@ -102,13 +103,16 @@ const FORBIDDEN: Array<[string, RegExp]> = [
   ["matchedTokens access", /matchedTokens/v],
   // A backwards search over an emitted token array is the token-history
   // walk `delimiter-patterns.ts` used to find its opening delimiter.
-  // Searching the reader's OWN stack (`this.stack`, a frame array) is
-  // the sanctioned way to answer the same question, so a receiver whose
-  // WHOLE identifier is `stack` or `frames` is exempt — the lookbehind
-  // requires a non-word character (or start of line) in front, so
-  // `tokenStack.findLast(` and `openFrames.findLastIndex(` are not.
+  // The ban is total under `src/parse` today: the reader keeps no
+  // stack to search, so the lookbehind's exemption for a receiver
+  // whose WHOLE identifier is `stack` or `frames` has no users left.
+  // It is kept rather than tightened because tightening it would be a
+  // change of rule, not of fact — and it never exempted a
+  // token-history walk anyway (`tokenStack.findLast(` and
+  // `openFrames.findLastIndex(` do not match the lookbehind, which
+  // requires a non-word character or start of line in front).
   [
-    "backwards search over a token array (the reader's frame stack is exempt)",
+    "backwards search over a token array (no exempt receiver remains)",
     /(?<!(?:^|[^A-Za-z0-9_])(?:stack|frames))\.findLast(?:Index)?\(/v,
   ],
   // Two lexer modes meant two classification systems. There is one
@@ -233,8 +237,8 @@ describe("parse-layer architecture", () => {
     "block-helpers.ts",
     // The parser toolkit's layer: the grammar, the CST types, the
     // visitor, the block token vocabulary and factory, and the inline
-    // token bridge. The reader builds the AST itself now; a frame is
-    // the node under construction.
+    // token bridge. The reader builds the AST itself now, one node
+    // per construct as it reads it.
     "grammar.ts",
     "cst-types.ts",
     "ast-builder.ts",
@@ -249,10 +253,10 @@ describe("parse-layer architecture", () => {
     "lines/list-item.ts",
     "lines/list-frames.ts",
     "lines/item-extent.ts",
-    // The style-driven post-parse rewrite: folded into frame open
-    // (spec D4) — masquerades and admonition renames resolve in
-    // lines/open-style.ts, verbatim-styled and paragraph-form blocks
-    // are built by the reader at open.
+    // The style-driven post-parse rewrite: folded into the reader's
+    // open dispatch (spec D4) — masquerades and admonition renames
+    // resolve in lines/open-style.ts, and verbatim-styled and
+    // paragraph-form blocks are built by the reader at open.
     "paragraph-form.ts",
     // The per-line token flattener that fed the string-body
     // admonition engine; both died with spec D7 (one prose
@@ -262,15 +266,17 @@ describe("parse-layer architecture", () => {
     expect(existsSync(path.posix.join(PARSE_DIR, name))).toBe(false);
   });
 
-  // The node-kind budget is a GATE, not prose (spec D6, owner): 31,
-  // spent on `blockAnchor` and nothing else in plan α. A 32nd kind
-  // fails this row until it is deliberately updated — which is what a
-  // budget means. Counted off the `type: "…"` discriminant literals
-  // declared in src/ast.ts, one per node kind.
-  test("the node-kind budget is 31", () => {
+  // The node-kind budget is a GATE, not prose (spec D6, owner): 30 —
+  // plan β RETURNS the budget to plan-4's number while deleting a
+  // container kind (`section` and `documentTitle` out, `heading` in;
+  // spec D10(a)). A 31st kind fails this row until it is deliberately
+  // updated — which is what a budget means. Counted off the
+  // `type: "…"` discriminant literals declared in src/ast.ts, one per
+  // node kind.
+  test("the node-kind budget is 30", () => {
     const source = readFileSync("src/ast.ts", "utf8");
     const kinds = source.match(/^ {2}type: "[a-zA-Z]+";$/gmv) ?? [];
-    expect(kinds).toHaveLength(31);
+    expect(kinds).toHaveLength(30);
   });
 
   // The plan's constraint: no lint suppressions beyond

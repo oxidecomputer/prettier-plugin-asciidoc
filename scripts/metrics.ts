@@ -56,6 +56,7 @@ import {
   ZERO,
   type Snapshot,
 } from "./metrics/model.js";
+import { shapeCensusFailures } from "./metrics/shape-census.js";
 
 const ARGUMENT_START = 2;
 const JSON_INDENT = 2;
@@ -415,6 +416,11 @@ async function main(): Promise<void> {
       printOffenders(head);
     }
     const failures = gateFailures(head, base);
+    // The shape census reads THIS repository's registry and
+    // line-shapes module (live imports), so a foreign --root checkout
+    // is measured and not judged by it — same stance as the other
+    // hand-maintained registries (metrics/gates.ts).
+    if (!options.foreignRoot) failures.push(...shapeCensusFailures());
     if (failures.length > ZERO) {
       process.stderr.write(`${failures.join("\n")}\n`);
       process.exitCode = FAILURE;

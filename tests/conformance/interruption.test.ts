@@ -238,8 +238,6 @@ describe("classifyLine matches the Asciidoctor oracle", () => {
       const reader: ReaderContext = {
         openParagraph: context,
         openListStyles: CONTEXT_LIST_STYLES[context],
-        openTerminators: [],
-        inVerbatim: undefined,
         firstLineAfterStart: firstLine,
       };
       expect(

@@ -15,13 +15,27 @@ source → splitLines → BlockReader(classifyLine) → AST → Printer
 - **Parser** (`src/parser.ts`, `src/parse/`): three phases. (1) line splitting
   (`src/parse/lines/split.ts`, rstripping each line as
   `Helpers.prepare_source_string` does); (2) the **BlockReader**
-  (`src/parse/lines/reader.ts`), which builds the AST as it reads — a frame IS
-  the node under construction, and closing it builds the node through the pure
-  `(lines, index) → Node` constructors in `src/parse/build/` and pushes it onto
-  the parent frame's children. What a held style/attribute line makes of the
-  block that follows (a masquerade, an admonition rename, a verbatim role) is
-  resolved once, at frame OPEN, by `src/parse/lines/open-style.ts`; `closeFrame`
-  builds from that recorded decision and re-derives nothing. The held `[…]` line
+  (`src/parse/lines/reader.ts`), which builds the AST as it reads — EXTENT-FIRST
+  everywhere, and with NO frame stack. Every composite construct is read where
+  Asciidoctor reads it, at its OPENING line: a delimited block's whole extent is
+  collected there by `src/parse/lines/delimited-reader.ts` (`build_block` →
+  `delimitedExtent`, exact-terminator line match, the bare tip for a fence, the
+  lines' end when it never closes), a verbatim interior becoming a SLICE and a
+  compound interior a fresh CONFINED `BlockReader` over the interior subarray; a
+  list item's buffer gets the same treatment through
+  `src/parse/lines/list-reader.ts`. What is not a composite is a LEAF — headings
+  included: sections are NOT modeled (there is no `section` node), so the
+  document is a flat sequence the reader appends to and nothing closes on a
+  later, unpredictable line. Nodes are built through the pure
+  `(lines, index) → Node` constructors in `src/parse/build/` (headings by
+  `build/heading.ts`, from the CLASSIFIER's level — the one derivation).
+  Confinement — what a scan can SEE — is physical everywhere Ruby's is: a
+  confined reader's lines END at its boundary, and the reader's `Confinement`
+  record carries the two boundary facts (tail safety, the forced-close offset)
+  as DATA rather than as stack state. What a held style/attribute line makes of
+  the block that follows (a masquerade, an admonition rename, a verbatim role)
+  is resolved once, at OPEN, by `src/parse/lines/open-style.ts`; the builders
+  build from that recorded decision and re-derive nothing. The held `[…]` line
   itself has one parser, `src/parse/attrlist.ts`. There is no separate
   post-parse conversion pass over the finished tree — that mechanism and its
   module are deleted; (3) the **inline tokenizer** (`src/parse/inline/`) —
@@ -32,22 +46,22 @@ source → splitLines → BlockReader(classifyLine) → AST → Printer
   NOT Asciidoctor.js — see "Why not Asciidoctor.js?" and "Why no parser library"
   in `docs/design.md`.
 
-  **The rule: block-level context comes from the reader's frame stack and from
-  nowhere else, and `tests/parser/architecture.test.ts` enforces it — including
-  a `from "chevrotain"` row, so no module under `src/parse` can import the old
+  **The rule: block-level context comes from the reader and from nowhere else,
+  and `tests/parser/architecture.test.ts` enforces it — including a
+  `from "chevrotain"` row, so no module under `src/parse` can import the old
   parser toolkit back. That row and the custom-pattern / lexer-mode /
   parser-gate rows are literal Chevrotain spellings; a DIFFERENT parser library
   would need a new row, so add one rather than assuming it is caught.** The
-  BlockReader walks the lines ONCE with an explicit stack that mirrors
-  Asciidoctor's reader (`Parser.next_section`, `next_block`,
-  `read_paragraph_lines`, `read_lines_for_list_item`, `Reader.read_lines_until`)
-  and builds each block's node where Asciidoctor would have closed it, so no
-  later stage re-derives nesting: no parser-state gates, no backtracking, no
-  custom token pattern reading the token history, no lexer modes, and no
-  post-hoc AST repair pass — the guard test asserts all of that textually over
-  every file in `src/parse`, plus zero import cycles (from `dependency-cruiser`,
-  through the same `cruiseImports` helper `bun run metrics` gates on) and a
-  ceiling on lint suppressions.
+  BlockReader walks its lines ONCE, mirroring Asciidoctor's reader
+  (`Parser.next_block`, `build_block`, `read_paragraph_lines`,
+  `read_lines_for_list_item`, `Reader.read_lines_until`) and building each
+  block's node at the line where Asciidoctor decides it, so no later stage
+  re-derives nesting: no parser-state gates, no backtracking, no custom token
+  pattern reading the token history, no lexer modes, and no post-hoc AST repair
+  pass — the guard test asserts all of that textually over every file in
+  `src/parse`, plus zero import cycles (from `dependency-cruiser`, through the
+  same `cruiseImports` helper `bun run metrics` gates on) and a ceiling on lint
+  suppressions.
 
   Line SHAPES live in one registry, `src/parse/line-shapes.ts`, oracle-pinned by
   `tests/conformance/interruption.test.ts` and cited to the Asciidoctor Ruby
@@ -56,14 +70,19 @@ source → splitLines → BlockReader(classifyLine) → AST → Printer
   function over that registry; the reader is its only parse-side consumer, and
   reflow safety (`src/reflow.ts`) is its only print-side consumer, so the parser
   and the formatter's word-wrapping can never disagree about what would re-parse
-  as block syntax. Lists are read EXTENT-FIRST in
+  as block syntax. The classifier's whole context is three fields —
+  `ReaderContext = { openParagraph, openListStyles, firstLineAfterStart }`
+  (`classify.ts`) — because with no frame stack there is nothing else for a line
+  to be classified against. Lists are read EXTENT-FIRST in
   `src/parse/lines/list-reader.ts` — `parse_list`/`parse_list_item`/
   `read_lines_for_list_item` ported as `readList`/`readListItem`/`itemExtent`:
   the extent scan collects one item's lines into Ruby's buffer, then a confined
   `BlockReader` re-parses that buffer, so nesting composes with no list frame,
   no per-item object and no cross-item state (only `itemExtent`'s five mutable
-  members — Ruby's four locals plus the buffer). `frames.ts` holds the types the
-  list layer shares with `reader.ts` so the two stay a DAG. Each block an item
+  members — Ruby's four locals plus the buffer). `frames.ts` keeps its
+  historical name but holds no frame: it is the shared vocabulary the list layer
+  and `reader.ts` both need (`ListHost`, `VerbatimRole`, `fragmentOfLine`, the
+  leaf/held-metadata builder tables) so the two stay a DAG. Each block an item
   holds carries its verbatim `gap` (the `""`/`"+"` lines before it), and
   replaying that gap line for line is `src/print-list.ts`'s DEFAULT — which is
   what makes list formatting idempotent. On top of it the printer has four named
@@ -87,8 +106,21 @@ source → splitLines → BlockReader(classifyLine) → AST → Printer
   `[[id,reftext]]` line alone is a first-class `blockAnchor` node, not folded
   into a paragraph. Tables (`|===` and friends) pass through as an opaque
   `delimitedBlock` (`variant: "table"`) — the delimiter lines are content; full
-  modeling (`cols`/cellspec/`a|`) is still open (#10).
-- **Printer** (`src/printer.ts`): Walks AST, produces Prettier Doc IR.
+  modeling (`cols`/cellspec/`a|`) is still open (#10). There is no `section`
+  node: a heading is a leaf `heading` (level 0–5) or a `discreteHeading`, and
+  the document is flat. The node-kind census is a GATE at **30**
+  (`tests/parser/architecture.test.ts`, counting the `type: "…"` discriminant
+  literals in `src/ast.ts`); a 31st kind fails that row until it is deliberately
+  updated.
+- **Printer** (`src/printer.ts`): Walks AST, produces Prettier Doc IR. The two
+  containment facts the deleted `section` container used to enforce invisibly
+  are now NAMED rules in `src/print-join.ts`, each with its rationale: a level-0
+  (document-title) heading always takes a blank line after it (the byte the old
+  section printer forced, frozen), and a pseudo-anchor line never stacks
+  directly above a level ≥ 1 heading (the stacked pair re-parses as one joined
+  line and the heading is destroyed). Both are pinned by
+  `tests/format/heading-adjacency.test.ts` and by the shape-diff
+  `heading-adjacency` grid.
 - **Vendored deps** (`vendor/`): the Asciidoctor conformance corpus. Updated via
   `bun run vendor`.
 - **Conformance suite** (`tests/conformance/`): differential testing against
@@ -105,6 +137,22 @@ source → splitLines → BlockReader(classifyLine) → AST → Printer
   mapped to an issue (or a new one filed) and pinned with
   `bun run triage --write`; a fixed gap has its now-passing entries removed the
   same way, so the quarantine list shrinks monotonically.
+- **Shape-level standing nets** (`scripts/shape-registry.ts`,
+  `scripts/shape-diff.ts`, `scripts/metrics/shape-census.ts`): the corpus can be
+  BLIND to a construct (β's #44 corruption had zero corpus instances — the
+  quarantine list did not move in either direction), so shapes are also verified
+  directly. `shape-registry.ts` is the shared input vocabulary: containers ×
+  constructs × perturbations, each a named deterministic string generator.
+  `shape-diff.ts` takes a deterministic exhaustive product over a named
+  sub-grid, formats it under a base revision and under this checkout, and
+  reports per-diff proofs (render fidelity, neutrality, idempotence) plus a
+  REQUIRED family annotation from a closed enum — a differing shape with no
+  family FAILS the run, so an unexplained behavior change cannot pass quietly.
+  The completeness gate is `shape-census.ts`, wired into `bun run metrics`:
+  every `DELIMITER_KINDS` entry needs a delimiter dimension and every
+  `line-shapes.ts` runtime export needs a dimension that `covers` it (or a
+  written-down exemption), so a parser that learns a new construct must teach
+  these generators in the same commit.
 
 ## Key References
 

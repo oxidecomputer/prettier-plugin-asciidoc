@@ -63,8 +63,9 @@ describe("listing block parsing", () => {
   });
 
   // Other delimiter types inside a listing block are treated as
-  // content, not as delimiters: the reader's verbatim frame ends only
-  // at its OWN terminator, so nothing else is even classified.
+  // content, not as delimiters: the extent scan collected at the
+  // opening line ends only at its OWN terminator, and an interior line
+  // is never classified at all.
   test("other delimiters inside listing are content", () => {
     const { children } = parse("----\n....\ncontent\n++++\n----\n");
     const block = firstDelimitedBlock(children);

@@ -93,7 +93,7 @@ describe("verbatim-styled paragraph extents (issue #41)", () => {
   });
 
   test("a section title still wins", () => {
-    expect(astShape("[source]\n== Title\n")).toBe("attrs section()");
+    expect(astShape("[source]\n== Title\n")).toBe("attrs h1");
   });
 });
 

@@ -255,7 +255,7 @@ describe("a [source] paragraph keeps a [NOTE] line as content (T7 fix)", () => {
     [
       "inside a section",
       "== S\n\n[source]\nfoo\n[NOTE]\nbar\n",
-      "section(attrs listing[3])",
+      "h1 attrs listing[3]",
     ],
   ])("%s stays one nested listing", async (_name, input, shape) => {
     expect(astShape(input)).toBe(shape);

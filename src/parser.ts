@@ -2,11 +2,15 @@
  * Parser pipeline: source text → BlockReader → AST.
  *
  * There is no lexer and no parser generator. The BlockReader
- * (src/parse/lines/reader.ts) walks the source lines once with an
- * explicit frame stack; a frame IS the node under construction, and
- * closing one attaches its node to its parent. Paragraph text is
- * tokenized by src/parse/inline/tokenize.ts and paired into spans by
- * src/parse/inline/inline-node-builder.ts.
+ * (src/parse/lines/reader.ts) walks the source lines once and reads
+ * every composite construct EXTENT-FIRST: a delimited block's whole
+ * extent is collected at its opening line, a list item's at its
+ * marker line, and a heading is a leaf — so nothing waits on a later
+ * line to be finished and the reader keeps no stack. Interiors are
+ * parsed by confined readers over the lines they own; the document
+ * is the flat sequence of blocks the reader appends to. Paragraph
+ * text is tokenized by src/parse/inline/tokenize.ts and paired into
+ * spans by src/parse/inline/inline-node-builder.ts.
  *
  * The reader is total over any input: nothing here can fail, so there
  * is no recovery concept and no partial tree — malformed constructs

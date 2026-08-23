@@ -4,11 +4,16 @@
  * the staleness/cross-check gate, and the detail-printing it drives.
  *
  * Split out of `scripts/parity.ts` to keep that file under the
- * project's `max-lines` ceiling. Nothing here belongs to the DUMPER's
- * embedded, SELF-CONTAINED function cluster (see `normalizeTree`'s
- * JSDoc in parity.ts) — this module only parses arguments and
- * post-processes the two dumps' digests, so it is free to live on its
- * own. `reportExpectedDiffs` takes `reportCase` as a parameter rather
+ * project's `max-lines` ceiling — which is also why the two SHAPE
+ * FOLDS at the bottom of this file live here (plan ruling PR-6):
+ * `foldPlanAlphaShapes` and `foldPlanBetaShapes` belong to the
+ * DUMPER's embedded, SELF-CONTAINED function cluster (see
+ * `normalizeTree`'s JSDoc in parity.ts) and carry that cluster's
+ * rules with them — no reference to anything outside their own
+ * bodies, because `.toString()` embeds them into a baseline checkout
+ * that has never seen this module. Everything ABOVE them only parses
+ * arguments and post-processes the two dumps' digests.
+ * `reportExpectedDiffs` takes `reportCase` as a parameter rather
  * than importing it, so this module never imports FROM `parity.ts`:
  * `parity.ts` imports from here, never the reverse, which keeps the
  * pair acyclic (the metrics gate holds import cycles at 0).
@@ -47,32 +52,50 @@ function isPlainRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * The plan-α expected-diff families — ONE closed enumeration, shared
- * by every ledger surface (spec D9). The first four may carry AST
- * differences (post-normalizer) and usually formatted ones; the last
- * two are formatted-only: the normalizer folds their tree changes, so
- * an AST difference under them is a bug, never ledger material.
+ * The family sets one plan's ledger gate runs under (spec D7.2): the
+ * closed enumeration, and the subset whose cases may differ in
+ * formatted output only. A PARAMETER of the gate — the production
+ * call site (scripts/parity.ts) passes {@link BETA_FAMILIES}; the
+ * unit tests pass synthetic sets, so a plan's enum swap is a one-line
+ * data change with no test edits.
  */
-const FAMILIES = new Set([
-  "d1-table",
-  "d2-40-bytes",
-  "d4-39-spelling",
-  "d4-41-extent",
-  "d5-fence-annotation",
-  "d7-admonition-reflow",
-]);
+export interface FamilySets {
+  /** Every family a ledger entry may cite. */
+  readonly families: ReadonlySet<string>;
+  /** The subset whose cases may differ in formatted output ONLY. */
+  readonly formattedOnly: ReadonlySet<string>;
+}
 
-/** The families whose cases may differ in formatted output ONLY. */
-const FORMATTED_ONLY_FAMILIES = new Set([
-  "d5-fence-annotation",
-  "d7-admonition-reflow",
-]);
+/**
+ * β's ONE expected-diff family (spec D4): the #44 corruption fix, a
+ * VERBATIM role unterminated and forced shut by a CONFINED stream end.
+ *
+ * Declared here and READ by `scripts/shape-registry.ts`'s `familyOf`
+ * rather than respelled there (review m2): two "closed enums" sharing
+ * a string literal with nothing gating that they agree is a rename
+ * waiting to orphan one of them. One declaration, one import, and a
+ * divergence cannot compile.
+ */
+export const CONFINED_EXTENT_FAMILY = "b44-confined-extent";
+
+/**
+ * Plan β's closed enum (spec D4): ONE family, the #44 corruption fix.
+ * SURFACE HONESTY, not an armed gate: a family id can only legally be
+ * a corpus id or an identity-fixture id, and β's family shapes are
+ * neither — no legal `b44-confined-extent` entry can exist, and β's
+ * standing parity invocation never passes `--expected-diffs` at all.
+ * Formatted-only is empty: the family carries AST differences.
+ */
+export const BETA_FAMILIES: FamilySets = {
+  families: new Set([CONFINED_EXTENT_FAMILY]),
+  formattedOnly: new Set(),
+};
 
 /** One expected-diff ledger entry: a case allowed to differ, and why. */
 export interface ExpectedDiff {
   /** Corpus case id, or `fixture:<name>`. */
   id: string;
-  /** The family that explains the difference (see FAMILIES). */
+  /** The family that explains the difference (see {@link FamilySets}). */
   family: string;
 }
 
@@ -116,17 +139,19 @@ export function loadExpectedDiffs(file: string): ExpectedDiff[] {
  * @param streams.ast - ids whose AST differs (or one side lacks)
  * @param streams.formatted - ids differing in formatted output only
  * @param corpusIds - every id this checkout's dump produced
+ * @param familySets - the plan's closed family enumeration
  * @returns the failure message, or undefined when the entry is clean
  */
 function ledgerEntryFailure(
   entry: ExpectedDiff,
   streams: { ast: ReadonlySet<string>; formatted: ReadonlySet<string> },
   corpusIds: ReadonlySet<string>,
+  familySets: FamilySets,
 ): string | undefined {
   const { id, family } = entry;
   const { ast, formatted } = streams;
-  if (!FAMILIES.has(family)) {
-    return `expected-diffs: unknown family ${JSON.stringify(family)} on ${id} — the enum is ${[...FAMILIES].join(" | ")}`;
+  if (!familySets.families.has(family)) {
+    return `expected-diffs: unknown family ${JSON.stringify(family)} on ${id} — the enum is ${[...familySets.families].join(" | ")}`;
   }
   if (!corpusIds.has(id)) {
     return `expected-diffs: ${id} is not in the corpus (vanished id, stale entry — delete it)`;
@@ -134,7 +159,7 @@ function ledgerEntryFailure(
   if (!ast.has(id) && !formatted.has(id)) {
     return `expected-diffs: ${id} no longer differs from the baseline (stale entry — delete it)`;
   }
-  if (ast.has(id) && FORMATTED_ONLY_FAMILIES.has(family)) {
+  if (ast.has(id) && familySets.formattedOnly.has(family)) {
     return `expected-diffs: ${id} differs in the AST but ${family} is a formatted-only family`;
   }
   return undefined;
@@ -150,19 +175,26 @@ function ledgerEntryFailure(
  * @param streams.ast - ids whose AST differs (or one side lacks)
  * @param streams.formatted - ids differing in formatted output only
  * @param corpusIds - every id this checkout's dump produced
+ * @param familySets - the plan's closed family enumeration
  * @returns one message per failure
  */
 export function expectedDiffFailures(
   entries: readonly ExpectedDiff[],
   streams: { ast: readonly string[]; formatted: readonly string[] },
   corpusIds: ReadonlySet<string>,
+  familySets: FamilySets,
 ): string[] {
   const failures: string[] = [];
   const byId = new Map(entries.map((entry) => [entry.id, entry.family]));
   const ast = new Set(streams.ast);
   const formatted = new Set(streams.formatted);
   for (const entry of entries) {
-    const failure = ledgerEntryFailure(entry, { ast, formatted }, corpusIds);
+    const failure = ledgerEntryFailure(
+      entry,
+      { ast, formatted },
+      corpusIds,
+      familySets,
+    );
     if (failure !== undefined) failures.push(failure);
   }
   for (const id of streams.ast) {
@@ -199,6 +231,7 @@ export function expectedDiffFailures(
  * @param options.limit - how many differing cases to detail
  * @param options.allowParentBlockEnd - whether forced-closed
  *   parentBlock ends were blanked on both sides
+ * @param options.familySets - the plan's closed family enumeration
  * @param options.reportCase - prints one case's per-side difference;
  *   injected rather than imported so this module never imports FROM
  *   parity.ts (see the module-level comment)
@@ -213,6 +246,7 @@ export function reportExpectedDiffs(options: {
   revision: string;
   limit: number;
   allowParentBlockEnd: boolean;
+  familySets: FamilySets;
   reportCase: (id: string, baseRoot: string, allow: boolean) => void;
 }): void {
   const {
@@ -225,12 +259,14 @@ export function reportExpectedDiffs(options: {
     revision,
     limit,
     allowParentBlockEnd,
+    familySets,
     reportCase,
   } = options;
   const failures = expectedDiffFailures(
     expectedDiffs,
     { ast, formatted },
     headIds,
+    familySets,
   );
   for (const line of failures) process.stdout.write(`${line}\n`);
   // Detail exactly the ids whose DIFF a human must read: unlisted
@@ -245,7 +281,7 @@ export function reportExpectedDiffs(options: {
   const needsDetail = (id: string): boolean => {
     const family = families.get(id);
     if (family === undefined) return true;
-    return astIds.has(id) && FORMATTED_ONLY_FAMILIES.has(family);
+    return astIds.has(id) && familySets.formattedOnly.has(family);
   };
   const detailIds = [...new Set([...ast, ...formatted])].filter(needsDetail);
   for (const id of detailIds.slice(ZERO, limit)) {
@@ -346,4 +382,133 @@ export function parseArguments(argv: readonly string[]): {
     formattedLedger: flags.has("--formatted-ledger"),
     expectedDiffs,
   };
+}
+
+// ── the DUMPER's embedded shape folds (plan ruling PR-6) ─────────────
+
+/**
+ * Narrow an unknown value to an object whose properties can be read
+ * by name.
+ *
+ * A local duplicate of the ledger's own {@link isPlainRecord}, under
+ * the name the DUMPER's embedded cluster uses: the two folds below
+ * are embedded into a baseline checkout by `.toString()`, and the
+ * dumper defines `isRecordLike` and `isUnknownArray` for them there.
+ * The names must match, and the bodies must not reach outside
+ * themselves.
+ * @param value - anything at all
+ * @returns whether its properties can be read by name
+ */
+function isRecordLike(value: unknown): value is Record<string, unknown> {
+  return value instanceof Object;
+}
+
+/**
+ * Narrow an unknown value to an array whose elements are unknown.
+ *
+ * The same local duplicate story as {@link isRecordLike}: the name is
+ * the one the DUMPER's embedded copy defines.
+ * @param value - anything at all
+ * @returns whether it is an array
+ */
+function isUnknownArray(value: unknown): value is readonly unknown[] {
+  return Array.isArray(value);
+}
+
+/**
+ * Fold the plan-α shape changes so SHAPE-preserving refactors compare
+ * (spec D9): a `blockAnchor` node folds to the old anchor-paragraph
+ * encoding; an admonition folds `form`/`delimiter` to the old
+ * spelling and blanks the body on BOTH sides (`content` → `""`,
+ * `text` → `[]` — body BYTES stay policed by the formatted
+ * comparison, the fixtures and the render-equality suite); the
+ * `annotatedBy` key is dropped (its pin is invariant (xi), not
+ * parity). Tolerates BOTH tree shapes — old and new — because the
+ * dumper embeds this body into the BASELINE checkout too.
+ *
+ * KEY ORDER IS LOAD-BEARING: parity digests the JSON STRING, so every
+ * arm constructs a fresh object with one explicit key order — never a
+ * spread, which would keep each input shape's own insertion order and
+ * make the two sides hash differently. The synthesized orders match
+ * the old builders' literals (buildBlockAnchor, makeInlineAnchor);
+ * the string-equality rows in tests/scripts/parity.test.ts pin them.
+ * @param key - the reviver key
+ * @param value - the revived value
+ * @returns the folded value
+ */
+export function foldPlanAlphaShapes(key: string, value: unknown): unknown {
+  if (key === "annotatedBy") return undefined;
+  if (!isRecordLike(value)) return value;
+  if (value.type === "blockAnchor") {
+    const { id, reftext, position } = value;
+    return {
+      type: "paragraph",
+      children: [{ type: "inlineAnchor", id, reftext, position }],
+      position,
+    };
+  }
+  if (value.type !== "admonition") return value;
+  const { type, variant, form, children, position } = value;
+  const paragraph = form === "paragraph";
+  return {
+    type,
+    variant,
+    form: paragraph ? "paragraph" : "delimited",
+    delimiter: paragraph
+      ? undefined
+      : (value.delimiter ?? (form === "delimited" ? undefined : form)),
+    content: "",
+    children,
+    text: [],
+    position,
+  };
+}
+
+/**
+ * Fold the plan-β shape change (spec D10(e)): a `section` container
+ * splices to `[heading, ...children]` IN ITS PARENT ARRAY — the
+ * revive is bottom-up, so an inner section is already spliced when
+ * the outer array is visited; `documentTitle` retypes to a level-0
+ * `heading`; `discreteHeading`'s old `heading` key reads as `title`.
+ * ONE canonical key order — `type, level, title, position` — is
+ * emitted for BOTH tree shapes, because parity digests the JSON
+ * STRING (pinned by the string-equality rows in
+ * tests/scripts/parity-ledger.test.ts). AST-only by covenant: the
+ * formatted comparison runs with ZERO allowances through the flatten.
+ * @param key - the reviver key
+ * @param value - the revived value
+ * @returns the folded value
+ */
+export function foldPlanBetaShapes(key: string, value: unknown): unknown {
+  if (isUnknownArray(value)) {
+    // Written as one flatMap rather than a push loop so the splice
+    // arm's branching sits in the callback, where the complexity
+    // ceiling counts it separately — the body must stay ONE function
+    // for `.toString()`, so an extracted helper is not available.
+    return value.flatMap((child) => {
+      if (!isRecordLike(child) || child.type !== "section") return [child];
+      const { level, heading, position, children } = child;
+      const node = { type: "heading", level, title: heading, position };
+      return isUnknownArray(children) ? [node, ...children] : [node];
+    });
+  }
+  if (!isRecordLike(value)) return value;
+  if (value.type === "documentTitle") {
+    const { title, position } = value;
+    return { type: "heading", level: 0, title, position };
+  }
+  if (value.type === "heading") {
+    const { level, title, position } = value;
+    return { type: "heading", level, title, position };
+  }
+  if (value.type === "discreteHeading") {
+    const { level, heading, title, position } = value;
+    return {
+      type: "discreteHeading",
+      level,
+      title: title ?? heading,
+      position,
+    };
+  }
+  return value;
 }

@@ -1,6 +1,6 @@
 /**
- * The frame layer's pure units: `fragmentOfLine` and `heldMetadataNode`
- * in src/parse/lines/frames.ts.
+ * The shared vocabulary's pure units: `fragmentOfLine` and
+ * `heldMetadataNode` in src/parse/lines/frames.ts.
  *
  * Table-driven because each is `(input) → value` with no context: the
  * rows are the specification. The reader's characterization suites

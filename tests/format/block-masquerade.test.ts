@@ -47,8 +47,8 @@ describe("[source]/[listing]/[literal] on open block formatting", () => {
   });
 
   // The one behaviour the parentBlock-end fix changes (Ruling 42).
-  // closeExtent derives the content-end offset from the block's real
-  // source; the masqueraded open block below builds as a verbatim
+  // The extent states `contentEnd` against the block's real source;
+  // the masqueraded open block below builds as a verbatim
   // delimitedBlock whose content is sliced up to that offset. Before
   // the fix, a forced close computed the offset as 0, so the slice
   // came back EMPTY and the formatter dropped the block's content on

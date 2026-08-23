@@ -7,8 +7,8 @@
  * Every function here is `(span, index) → node` and nothing else: no
  * traversal, no context. What a line MEANS was decided by
  * lines/classify.ts against the registry in line-shapes.ts, and which
- * block it belongs to by the reader's frame stack. These only take it
- * apart.
+ * block it belongs to by the extent lines/reader.ts collected for it.
+ * These only take it apart.
  */
 import type {
   AttributeEntryNode,
@@ -103,9 +103,9 @@ export function buildBlockAttributeList(
 // Block title line is `.Title text`. The leading dot is syntactic —
 // we strip it to get the title text. The registry's BLOCK_TITLE
 // pattern guarantees the character immediately after the dot is
-// non-whitespace, so no trim() is needed here (unlike buildSection /
-// buildDocumentTitle, where the spec allows arbitrary whitespace
-// between the marker and the title text).
+// non-whitespace, so no trim() is needed here (unlike the heading
+// builder, where the spec allows arbitrary whitespace between the
+// marker and the title text).
 const BLOCK_TITLE_PREFIX_LEN = 1;
 
 /**

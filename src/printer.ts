@@ -53,26 +53,16 @@ const printer: Printer<AnyNode> = {
         }
         return "";
       }
-      case "documentTitle": {
-        return ["= ", node.title];
-      }
-      case "section": {
-        const marker = "=".repeat(node.level + MARKER_OFFSET);
-        const headingContent: Doc = [marker, " ", node.heading];
-        if (node.children.length > 0) {
-          const sectionChildren = path.map(print, "children");
-          return [
-            headingContent,
-            hardline,
-            hardline,
-            joinBlocks(node.children, sectionChildren),
-          ];
-        }
-        return headingContent;
+      case "heading": {
+        // One arm for every level (spec D10(a)): `=` (level 0)
+        // through `======` (level 5). The level is CARRIED, never
+        // re-derived — pinned by the level-jump row in
+        // tests/format/heading-adjacency.test.ts.
+        return ["=".repeat(node.level + MARKER_OFFSET), " ", node.title];
       }
       case "discreteHeading": {
         const marker = "=".repeat(node.level + MARKER_OFFSET);
-        return [marker, " ", node.heading];
+        return [marker, " ", node.title];
       }
       case "comment": {
         return printComment(node);

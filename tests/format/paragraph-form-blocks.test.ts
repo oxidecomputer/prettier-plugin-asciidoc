@@ -196,8 +196,8 @@ describe("converted verbatim content is the author's bytes (issue #40)", () => {
   });
 
   // The conversion runs per container, so the same bytes must survive
-  // through a list item's own frame — the call site the reader reaches
-  // from readListItem, not the document's.
+  // through the confined reader over a list item's buffer — the call
+  // site readListItem reaches, not the document's.
   test("#40: an attached block inside a list item keeps its bytes", async () => {
     const input = "* item\n+\n[source]\nhttps://x[]\n";
     const output = await formatAdoc(input);

@@ -113,18 +113,15 @@ describe("attribute entry parsing", () => {
     expect(document.children[2].type).toBe("paragraph");
   });
 
-  // The AST builder's section-grouping logic must treat attribute
-  // entries as children of the preceding section, just like
-  // paragraphs and comments.
-  test("attribute entry inside a section", () => {
-    const document = parse("== Title\n\n:key: value\n\nText.\n");
-    const { children } = document;
-    expect(children).toHaveLength(1);
-    const [child0] = children;
-    narrow(child0, "section");
-    expect(child0.children).toHaveLength(2);
-    expect(child0.children[0].type).toBe("attributeEntry");
-    expect(child0.children[1].type).toBe("paragraph");
+  // Flat model (spec D10): the entry and the paragraph are the
+  // heading's siblings.
+  test("attribute entry after a heading is a sibling", () => {
+    const { children } = parse("== Title\n\n:key: value\n\nText.\n");
+    expect(children.map((child) => child.type)).toEqual([
+      "heading",
+      "attributeEntry",
+      "paragraph",
+    ]);
   });
 
   // Attribute names can start with underscores and contain hyphens

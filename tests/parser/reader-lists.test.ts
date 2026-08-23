@@ -3,7 +3,7 @@
  * `read_lines_for_list_item` and its `+` continuation state machine.
  *
  * Split from reader.test.ts, which covers everything the reader does
- * outside a list frame. Both share tests/parser/reader-helpers.ts. The
+ * outside a list. Both share tests/parser/reader-helpers.ts. The
  * invariants every document's AST must satisfy, fuzzed at the same
  * counts these rows were found by, are tests/parser/ast-invariants.test.ts.
  *

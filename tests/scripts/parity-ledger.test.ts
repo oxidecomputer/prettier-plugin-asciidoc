@@ -15,6 +15,7 @@ import path from "node:path";
 import { describe, expect, test } from "vitest";
 import type { ExpectedDiff } from "../../scripts/parity.js";
 import {
+  BETA_FAMILIES,
   expectedDiffFailures,
   normalizeTree,
   parseArguments,
@@ -29,12 +30,20 @@ import { loadExpectedDiffs } from "../../scripts/parity-ledger.js";
  */
 const entry = (id: string, family: string): ExpectedDiff => ({ id, family });
 
+// Synthetic family sets: the gate's arms are exercised with data of
+// this test's own, so a plan's enum swap never edits these rows
+// (spec D7.2, F1).
+const SYNTHETIC = {
+  families: new Set(["fam-ast", "fam-bytes"]),
+  formattedOnly: new Set(["fam-bytes"]),
+};
+
 describe("expected-diff ledger (spec D9)", () => {
   const corpus = new Set(["a", "b", "c", "fixture:x"]);
 
   test("a clean run with an empty ledger has no failures", () => {
     expect(
-      expectedDiffFailures([], { ast: [], formatted: [] }, corpus),
+      expectedDiffFailures([], { ast: [], formatted: [] }, corpus, SYNTHETIC),
     ).toEqual([]);
   });
 
@@ -43,6 +52,7 @@ describe("expected-diff ledger (spec D9)", () => {
       [],
       { ast: ["a"], formatted: [] },
       corpus,
+      SYNTHETIC,
     );
     expect(failures).toHaveLength(1);
     expect(failures[0]).toContain("a");
@@ -54,6 +64,7 @@ describe("expected-diff ledger (spec D9)", () => {
       [],
       { ast: [], formatted: ["b"] },
       corpus,
+      SYNTHETIC,
     );
     expect(failures).toHaveLength(1);
     expect(failures[0]).toContain("b");
@@ -62,9 +73,10 @@ describe("expected-diff ledger (spec D9)", () => {
   test("a listed AST difference in an AST-capable family passes", () => {
     expect(
       expectedDiffFailures(
-        [entry("a", "d1-table")],
+        [entry("a", "fam-ast")],
         { ast: ["a"], formatted: [] },
         corpus,
+        SYNTHETIC,
       ),
     ).toEqual([]);
   });
@@ -72,18 +84,20 @@ describe("expected-diff ledger (spec D9)", () => {
   test("a listed formatted-only difference passes in any family", () => {
     expect(
       expectedDiffFailures(
-        [entry("a", "d1-table"), entry("b", "d7-admonition-reflow")],
+        [entry("a", "fam-ast"), entry("b", "fam-bytes")],
         { ast: [], formatted: ["a", "b"] },
         corpus,
+        SYNTHETIC,
       ),
     ).toEqual([]);
   });
 
   test("(ii) a listed case that does not differ is stale", () => {
     const failures = expectedDiffFailures(
-      [entry("a", "d1-table")],
+      [entry("a", "fam-ast")],
       { ast: [], formatted: [] },
       corpus,
+      SYNTHETIC,
     );
     expect(failures).toHaveLength(1);
     expect(failures[0]).toContain("stale");
@@ -91,9 +105,10 @@ describe("expected-diff ledger (spec D9)", () => {
 
   test("(iii) a listed id missing from the corpus is stale", () => {
     const failures = expectedDiffFailures(
-      [entry("zz", "d1-table")],
+      [entry("zz", "fam-ast")],
       { ast: [], formatted: [] },
       corpus,
+      SYNTHETIC,
     );
     expect(failures).toHaveLength(1);
     expect(failures[0]).toContain("zz");
@@ -104,17 +119,24 @@ describe("expected-diff ledger (spec D9)", () => {
       [entry("a", "d9-typo")],
       { ast: ["a"], formatted: [] },
       corpus,
+      SYNTHETIC,
     );
     expect(failures.some((line) => line.includes("d9-typo"))).toBe(true);
   });
 
   test("a formatted-only family may not carry an AST difference", () => {
     const failures = expectedDiffFailures(
-      [entry("a", "d5-fence-annotation")],
+      [entry("a", "fam-bytes")],
       { ast: ["a"], formatted: [] },
       corpus,
+      SYNTHETIC,
     );
     expect(failures.some((line) => line.includes("formatted-only"))).toBe(true);
+  });
+
+  test("the production enum is β's: b44-confined-extent, no formatted-only", () => {
+    expect([...BETA_FAMILIES.families]).toEqual(["b44-confined-extent"]);
+    expect(BETA_FAMILIES.formattedOnly.size).toBe(0);
   });
 
   test("parseArguments accepts --expected-diffs with a path", () => {
@@ -243,7 +265,7 @@ describe("loadExpectedDiffs (spec D9 ledger strictness)", () => {
 const canonical = (tree: unknown): string =>
   JSON.stringify(normalizeTree(tree, false));
 
-describe("the three shape folds (spec D9 normalizer) — string equality, never toEqual", () => {
+describe("the shape folds (α D9 + β D10(e) normalizers) — string equality, never toEqual", () => {
   // Parity compares digest(JSON.stringify(normalizeTree(...))) — the
   // STRING — so key order is load-bearing, and toEqual (key-order-
   // insensitive) cannot see an order break. Every row below asserts
@@ -332,5 +354,77 @@ describe("the three shape folds (spec D9 normalizer) — string equality, never 
       position,
     };
     expect(canonical(plain)).toBe(JSON.stringify(plain));
+  });
+
+  test("a section flattens to heading + spliced children, one JSON string", () => {
+    const paragraph = { type: "paragraph", children: [], position };
+    const oldShape = {
+      type: "document",
+      children: [
+        {
+          type: "section",
+          level: 1,
+          heading: "T",
+          children: [paragraph],
+          position,
+        },
+      ],
+      position,
+    };
+    const newShape = {
+      type: "document",
+      children: [
+        { type: "heading", level: 1, title: "T", position },
+        paragraph,
+      ],
+      position,
+    };
+    expect(canonical(oldShape)).toBe(canonical(newShape));
+  });
+
+  test("nested sections splice recursively", () => {
+    const inner = {
+      type: "section",
+      level: 2,
+      heading: "B",
+      children: [],
+      position,
+    };
+    const oldShape = {
+      type: "document",
+      children: [
+        {
+          type: "section",
+          level: 1,
+          heading: "A",
+          children: [inner],
+          position,
+        },
+      ],
+      position,
+    };
+    const newShape = {
+      type: "document",
+      children: [
+        { type: "heading", level: 1, title: "A", position },
+        { type: "heading", level: 2, title: "B", position },
+      ],
+      position,
+    };
+    expect(canonical(oldShape)).toBe(canonical(newShape));
+  });
+
+  test("a documentTitle folds to a level-0 heading's exact string", () => {
+    expect(canonical({ type: "documentTitle", title: "T", position })).toBe(
+      canonical({ type: "heading", level: 0, title: "T", position }),
+    );
+  });
+
+  test("old and new discreteHeading spellings fold to one string", () => {
+    expect(
+      canonical({ type: "discreteHeading", level: 2, heading: "T", position }),
+    ).toBe(
+      canonical({ type: "discreteHeading", level: 2, title: "T", position }),
+    );
   });
 });

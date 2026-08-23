@@ -1,16 +1,20 @@
 /**
- * The types reader.ts and list-reader.ts both need, with NOTHING
- * imported back from either of them — the module that lets the two
- * form a DAG instead of a cycle. A cyclic module group has no
- * reading order, so the import graph must stay acyclic; the `import
- * graph` describe block in `tests/parser/architecture.test.ts` gates
- * that at zero cycles (Ruling 31).
+ * The shared vocabulary reader.ts and list-reader.ts both need, with
+ * NOTHING imported back from either of them — the module that lets
+ * the readers form a DAG instead of a cycle (`import graph` in
+ * tests/parser/architecture.test.ts gates cycles at zero, Ruling 31).
  *
- * A frame IS the node under construction: every container frame owns
- * the `children` its blocks are pushed into, and closing the frame
- * builds its node and gives it to the parent. Lists have no frame:
- * they are read recursively (list-reader.ts's `readList`), through the
- * {@link ListHost} seam below.
+ * No frame lives here any more. Every composite construct is read
+ * extent-first — delimited blocks at their opening line, list items
+ * through itemExtent — and headings are leaves (spec D10), so nothing
+ * closes on a later line and the reader keeps no stack. What remains
+ * is the seam and the leaf tables: {@link ListHost} (what
+ * extent-first list reading needs from a reader),
+ * {@link VerbatimRole} (what a resolved verbatim open builds),
+ * {@link fragmentOfLine}, and the leaf/held-metadata builder tables.
+ * The file keeps its historical name because a rename would churn
+ * every import and the metrics SEAMS registry for a word: "hosts"
+ * would describe half of it no better than "frames" does.
  */
 import type {
   BlockNode,
@@ -32,62 +36,11 @@ import type { Fragment, LocationIndex } from "../positions.js";
 import type { LineKind } from "./classify.js";
 import type { SourceLine } from "./split.js";
 
-/** One open block-context frame, outermost first on the reader's stack. */
-export type Frame =
-  | {
-      /** Frame discriminant: the document, which never closes. */
-      readonly kind: "document";
-      /** The blocks read so far, in source order. */
-      readonly children: BlockNode[];
-    }
-  | {
-      /** Frame discriminant: a section opened by an ATX title. */
-      readonly kind: "section";
-      /** The title's level; a title of level <= this one closes it. */
-      readonly level: number;
-      /** The title line, which the section node is built from. */
-      readonly title: SourceLine;
-      /** The blocks read so far, in source order. */
-      readonly children: BlockNode[];
-    }
-  | {
-      /** Frame discriminant: a delimited block parsed as blocks. */
-      readonly kind: "compound";
-      /** The rstripped line that closes it. */
-      readonly terminator: string;
-      /** The opening delimiter line. */
-      readonly open: SourceLine;
-      /** Which parent block the opener opened, decided at open. */
-      readonly variant: ParentBlockNode["variant"];
-      /**
-       * Present when a held admonition style renamed the block at open
-       * (parser.rb:537-538): closeFrame builds an AdmonitionNode and
-       * keeps the parsed children (content model stays compound).
-       */
-      readonly admonition?: string;
-      /** The blocks read so far, in source order. */
-      readonly children: BlockNode[];
-    }
-  | {
-      /** Frame discriminant: a delimited block kept verbatim. */
-      readonly kind: "verbatim";
-      /** The rstripped line that closes it. */
-      readonly terminator: string;
-      /** The opening delimiter line; the content is sliced at close. */
-      readonly open: SourceLine;
-      /** What closeFrame builds — decided at open, never re-derived. */
-      readonly role: VerbatimRole;
-      /**
-       * The reader's annotation record for the node this frame builds,
-       * captured at open (see BlockReader.annotation).
-       */
-      readonly annotatedBy?: string;
-    };
-
 /**
- * The node a verbatim frame builds at close — decided at OPEN by
- * resolveDelimitedOpen (lines/open-style.ts), carried here so
- * closeFrame re-derives nothing (spec D4a).
+ * The node the reader builds at OPEN for a verbatim delimited block —
+ * decided by resolveDelimitedOpen (lines/open-style.ts) and handed
+ * straight to buildVerbatimBlock with the extent, so nothing is ever
+ * re-derived from the opener (spec D4a).
  */
 export type VerbatimRole =
   | {
@@ -133,22 +86,16 @@ export interface ListHost {
   /** The whole document — verbatim content is sliced from it. */
   readonly source: string;
   /**
-   * Terminators of every open delimited block on THIS host's stack —
-   * the confinement Ruby gets for free (a list inside an example block
-   * is parsed from a reader that physically ends at the block's
-   * terminator; ours sees the whole line array, so itemExtent takes
-   * these as unconditional stop lines).
-   */
-  readonly openTerminators: readonly string[];
-  /**
    * Whether a `+` printed at the very end of this host's lines
    * re-reads inert — true for the document reader (EOF), the
-   * enclosing item's own tail-safety for a confined one. The extent
-   * scan inherits it as its stream-end boundary fact (see
-   * `ExtentBounds.tailSafe` in list-reader.ts).
+   * enclosing item's own tail-safety for an item-confined one, and
+   * `closed || enclosing` for a compound interior, decided at the
+   * compound open (spec D2/D3). The extent scan inherits it as its
+   * stream-end boundary fact (see `ExtentBounds.tailSafe` in
+   * list-reader.ts).
    */
   readonly tailSafe: boolean;
-  /** Put a finished block where the innermost frame wants it. */
+  /** Put a finished block into the host's own block sequence. */
   readonly push: (node: BlockNode) => void;
   /** Release the metadata nodes held back for the block that follows. */
   readonly flushMetadata: () => void;
@@ -156,8 +103,9 @@ export interface ListHost {
    * Read one item's interior: the principal text (the `listItem`-set
    * paragraph from the marker line, text starting at the marker's
    * `markerEnd`) and then every block, via a fresh confined
-   * BlockReader over `[markerLine, ...buffer]` whose root collects the
-   * item's blocks and whose context stack is its own.
+   * BlockReader over `[markerLine, ...buffer]`, which collects the
+   * item's blocks into its own flat sequence and answers the
+   * classifier with its own context.
    *
    * DEVIATION from the spec's §3 seam sketch, called out on purpose:
    * the sketch lists `readItemText` and `confine` as two members;
@@ -204,8 +152,8 @@ export function fragmentOfLine(
 }
 
 /**
- * A line kind that IS a block, whole and entire: no extent to read and
- * no frame to open. The union {@link leafBuilder} is total over.
+ * A line kind that IS a block, whole and entire: no extent to read
+ * and nothing to open. The union {@link leafBuilder} is total over.
  */
 export type LeafKind =
   | "attributeEntry"
@@ -254,8 +202,8 @@ export function leafBuilder(
 // becomes: an anchor, an attribute list, a block title, and the
 // comment/preprocessor lines the same scan consumes. An attribute
 // ENTRY is deliberately absent: Ruby processes it as a document
-// attribute where it stands, so it stays a leaf in the section it was
-// written in. This table is the one source of truth for both
+// attribute where it stands, so it stays a leaf where it was
+// written. This table is the one source of truth for both
 // functions below.
 const HELD_BUILDERS = new Map<
   LineKind["kind"],

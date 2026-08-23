@@ -6,90 +6,67 @@
  * Every function here takes the block's `extent` and the document's
  * `LocationIndex` (`at`); most also take what was already decided
  * elsewhere — a variant, a role, a rename, or the parsed children —
- * and return the finished node (`closeExtent`, the shared boundary
- * helper, returns offsets instead of a node). No traversal, no
+ * and return the finished node. The extent states its own offsets —
+ * where content stops and where the node ends — so no builder here
+ * re-derives a boundary from a delimiter (spec D4). No traversal, no
  * context: what a line MEANS was decided by lines/classify.ts against
  * the registry in line-shapes.ts, and which block it belongs to by
- * the reader's frame stack. These only take it apart.
+ * the extent lines/reader.ts collected for it. These only take it
+ * apart.
  */
 import type {
   AdmonitionNode,
   BlockNode,
   CommentNode,
   DelimitedBlockNode,
-  Location,
   ParentBlockNode,
 } from "../../ast.js";
 import { NEWLINE_LENGTH } from "../../constants.js";
 import type { VerbatimRole } from "../lines/frames.js";
 import type { Fragment, LocationIndex } from "../positions.js";
 
-/**
- * The source extent a delimited block read: where it opened, where it
- * closed, and the document both sit in.
- *
- * A block that met its own terminator closes on it; one the reader
- * forced shut (an outer terminator took the line, or EOF came first)
- * closes at the zero-length `unclosed` boundary — at the start of the
- * terminator line that ended it, or at the end of the document.
- * Both undefined reads as EOF; the reader always supplies one.
- */
+/** The source extent an extent-first delimited read produced. */
 export interface BlockExtent {
   /** The opening delimiter line. */
   readonly open: Fragment;
-  /** The block's own closing delimiter, when it had one. */
+  /**
+   * The closing delimiter line, when the block met one. Optional
+   * DATA (the table arm branches on it for its raw end), not half
+   * of an exclusive pair — `contentEnd` and `end` are total either
+   * way, and nothing decodes a two-field encoding of one fact.
+   */
   readonly close: Fragment | undefined;
   /**
-   * The zero-length forced-close boundary, when it did not.
-   * Valid only when `close` is undefined: the two spell the same fact
-   * from opposite sides, and the reader always supplies exactly one.
+   * Exclusive offset where content stops: the raw end of the last
+   * interior line — always a line's OWN end, never a boundary
+   * offset minus one (the arithmetic that dropped a confined
+   * content byte, #44). The open line's raw end when the interior
+   * is empty (which puts it before contentStart, and the slice
+   * guard yields "").
    */
-  readonly unclosed: Fragment | undefined;
+  readonly contentEnd: number;
   /**
-   * The whole document. Verbatim content is sliced out of it rather
-   * than rebuilt line by line, because a rebuild loses the blank
-   * lines inside; and a block forced shut at EOF ends where it ends.
+   * Exclusive offset where the NODE ends — total over both close
+   * kinds: past the close line's raw end when the block closed;
+   * the confinement's forced-close offset (spec D2's convention: an
+   * inner block's forced end is the terminator line's START; the
+   * closed block's OWN end is that line's raw END) when it did not.
    */
+  readonly end: number;
+  /** The whole document; verbatim content is sliced from it. */
   readonly source: string;
 }
 
 /**
- * The content end offset and node end position a block's close implies.
- * @param extent - where the block opened and closed
- * @param at - the document's location index
- * @returns the exclusive offset where content stops (the newline before
- *   a terminator line is not content) and the node's end location
+ * The half of a {@link BlockExtent} a parent-model builder reads: a
+ * compound block's content is its parsed children, never a slice, so
+ * only where it opened and where the node ends travel (the
+ * extent-first packager passes the full BlockExtent here too,
+ * structurally). NOT exported (knip's types bucket gates dead
+ * exported types at 0): callers pass literals or a whole BlockExtent;
+ * the name exists for the two builders' signatures alone.
  */
-function closeExtent(
-  extent: BlockExtent,
-  at: LocationIndex,
-): { contentEnd: number; end: Location } {
-  const { close, unclosed, source } = extent;
-  if (close !== undefined) {
-    return {
-      contentEnd: close.offset - NEWLINE_LENGTH,
-      end: at.end(close),
-    };
-  }
-  // A forced close on a LINE: the outer terminator begins there, so
-  // the content stops before the newline that precedes it. At EOF the
-  // boundary sits one past the last character and everything after the
-  // opener is content — up to the document's final newline, which is a
-  // line terminator, not content (a synthesised closer goes directly
-  // under the last content line).
-  if (unclosed !== undefined && unclosed.offset < source.length) {
-    return {
-      contentEnd: unclosed.offset - NEWLINE_LENGTH,
-      end: at.start(unclosed),
-    };
-  }
-  return {
-    contentEnd: source.endsWith("\n")
-      ? source.length - NEWLINE_LENGTH
-      : source.length,
-    end: at.at(source.length),
-  };
-}
+type ParentExtent = Pick<BlockExtent, "open" | "end">;
 
 /**
  * Builds a DelimitedBlockNode from its extent by extracting content
@@ -118,10 +95,9 @@ function buildDelimitedBlock(
   at: LocationIndex,
   sourceDelimiter?: ParentBlockNode["variant"],
 ): DelimitedBlockNode {
-  const { open, source } = extent;
+  const { open, contentEnd, end, source } = extent;
   // Content starts after the open delimiter + newline.
   const contentStart = open.offset + open.image.length + NEWLINE_LENGTH;
-  const { contentEnd, end } = closeExtent(extent, at);
   const content =
     contentStart <= contentEnd ? source.slice(contentStart, contentEnd) : "";
   return {
@@ -130,7 +106,7 @@ function buildDelimitedBlock(
     form: "delimited",
     content,
     ...(sourceDelimiter === undefined ? {} : { sourceDelimiter }),
-    position: { start: at.start(open), end },
+    position: { start: at.start(open), end: at.at(end) },
   };
 }
 
@@ -148,16 +124,15 @@ function buildBlockComment(
   extent: BlockExtent,
   at: LocationIndex,
 ): CommentNode {
-  const { open, source } = extent;
+  const { open, contentEnd, end, source } = extent;
   const contentStart = open.offset + open.image.length + NEWLINE_LENGTH;
-  const { contentEnd, end } = closeExtent(extent, at);
   const value =
     contentStart <= contentEnd ? source.slice(contentStart, contentEnd) : "";
   return {
     type: "comment",
     commentType: "block",
     value,
-    position: { start: at.start(open), end },
+    position: { start: at.start(open), end: at.at(end) },
   };
 }
 
@@ -167,11 +142,10 @@ function buildBlockComment(
  * scope). Unlike every other delimited block the DELIMITER LINES ARE
  * CONTENT: the slice runs from the start of the opening line through
  * the RAW end of the closing line (trailing whitespace kept, newline
- * excluded), or — forced shut — through the existing `closeExtent`
- * boundary, which is the raw end of the last line this reader can
- * see (behavior is Ruby's: an unterminated table runs to EOF,
- * parser.rb:863; pinned by tests/parser/table.test.ts and
- * tests/format/table.test.ts).
+ * excluded), or — forced shut — through `contentEnd`, the raw end
+ * of the last line this reader can see (behavior is Ruby's: an
+ * unterminated table runs to EOF, parser.rb:863; pinned by
+ * tests/parser/table.test.ts and tests/format/table.test.ts).
  * @param extent - where the block opened and closed
  * @param at - the document's location index
  * @returns the table node
@@ -180,28 +154,31 @@ function buildTableBlock(
   extent: BlockExtent,
   at: LocationIndex,
 ): DelimitedBlockNode {
-  const { open, close, source } = extent;
-  const { contentEnd, end } = closeExtent(extent, at);
-  const rawEnd =
-    close === undefined ? contentEnd : close.offset + close.image.length;
+  const { open, close, contentEnd, end, source } = extent;
+  // The delimiter lines ARE content (spec D1/α-D1): through the close
+  // line's raw end when the table closed, through the last interior
+  // line's raw end when it did not — the same bytes as the old
+  // spelling on closed tables, the fixed bytes on confined-
+  // unterminated ones (#44).
+  const rawEnd = close === undefined ? contentEnd : end;
   return {
     type: "delimitedBlock",
     variant: "table",
     form: "delimited",
     content: source.slice(open.offset, rawEnd),
-    position: { start: at.start(open), end },
+    position: { start: at.start(open), end: at.at(end) },
   };
 }
 
 /**
  * A delimited block kept verbatim — listing, literal, pass, fence,
  * verse — or a comment block (a CommentNode), or a table (spec D1).
- * The ROLE was decided at open (lines/open-style.ts) and travels on
- * the frame: nothing is re-derived from the opener here, which is
- * what deleted the two agreement guards this function and
+ * The ROLE was decided at open (lines/open-style.ts) and travels
+ * with the extent: nothing is re-derived from the opener here, which
+ * is what deleted the two agreement guards this function and
  * verbatimVariant used to carry (spec D4a).
  * @param extent - where the block opened and closed
- * @param role - what the frame decided to build, at open
+ * @param role - what the opening line resolved to build
  * @param at - the document's location index
  * @returns the node the role names
  */
@@ -239,8 +216,9 @@ export function buildVerbatimBlock(
  * (parser.rb:537-538): an AdmonitionNode that KEEPS its parsed
  * children — Ruby keeps the :compound content model (parser.rb:872-875).
  * The wrapper delimiter IS the node's `form` (spec D7: the spelling
- * and the wrapper are one fact). Position is the parent block's own
- * (same extent rule).
+ * and the wrapper are one fact). Position is the parent block's own:
+ * start at the opener, end at the extent's total `end` (one formula
+ * for every close kind, spec D4).
  *
  * The rename travels as ONE parameter because the linter caps a
  * builder at four; the two halves are inseparable anyway — a rename
@@ -254,7 +232,7 @@ export function buildVerbatimBlock(
  * @returns the admonition node
  */
 export function buildDelimitedAdmonition(
-  extent: BlockExtent,
+  extent: ParentExtent,
   rename: {
     /** Which parent-block delimiter wraps the body. */
     readonly delimiter: ParentBlockNode["variant"];
@@ -265,14 +243,13 @@ export function buildDelimitedAdmonition(
   at: LocationIndex,
 ): AdmonitionNode {
   const { delimiter, variant } = rename;
-  const { end } = closeExtent(extent, at);
   return {
     type: "admonition",
     variant,
     form: delimiter,
     text: [],
     children,
-    position: { start: at.start(extent.open), end },
+    position: { start: at.start(extent.open), end: at.at(extent.end) },
   };
 }
 
@@ -284,30 +261,24 @@ export function buildDelimitedAdmonition(
  * on its terminator when it met one, at the start of the outer
  * terminator that took the line when it did not, and at the document
  * end at EOF. That is the same rule the verbatim blocks follow, and
- * the reason this function needs the source: until this change it
- * passed `closeExtent` an empty string, so every forced-closed parent
- * block ended at offset 0 — before its own start unless it happened
- * to begin the document. Fixed here as the one enumerated intended
- * AST difference of the plan that removed the parser toolkit;
- * `scripts/parity.ts --allow-parent-block-end` is what allows it
- * through, and nothing else.
- * @param extent - where the block opened and closed
+ * the extent states it as one offset (`end`) rather than as a pair
+ * of boundaries this builder would have to decode.
+ * @param extent - where the block opened and where the node ends
  * @param variant - which parent block it is
  * @param children - the blocks the reader put inside it
  * @param at - the document's location index
  * @returns the parent block node
  */
 export function buildParentBlock(
-  extent: BlockExtent,
+  extent: ParentExtent,
   variant: ParentBlockNode["variant"],
   children: BlockNode[],
   at: LocationIndex,
 ): ParentBlockNode {
-  const { end } = closeExtent(extent, at);
   return {
     type: "parentBlock",
     variant,
     children,
-    position: { start: at.start(extent.open), end },
+    position: { start: at.start(extent.open), end: at.at(extent.end) },
   };
 }

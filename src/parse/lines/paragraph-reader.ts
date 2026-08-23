@@ -7,7 +7,7 @@
  *
  * Split out of reader.ts by responsibility: this module decides how far
  * a paragraph-shaped block reaches and turns its lines into inline
- * tokens; reader.ts owns the frame stack and decides what a line
+ * tokens; reader.ts owns the read position and decides what a line
  * OPENS. list-reader.ts is the third member and reads the reader
  * through the same {@link ParagraphHost} seam.
  *
@@ -36,7 +36,7 @@ const ITEM_TEXT_CONTEXTS = new Set<ParagraphContext>(["listItem", "dlistItem"]);
 
 /**
  * What paragraph reading needs from the BlockReader, which stays the
- * ONLY owner of the frame stack and of the read position.
+ * ONLY owner of the read position and of the block sequence.
  */
 export interface ParagraphHost {
   /** The whole document — inline runs are slices of it. */
@@ -45,7 +45,7 @@ export interface ParagraphHost {
   readonly peek: () => SourceLine | undefined;
   /** Consume the line `peek` returned, ending any run of blanks. */
   readonly advance: () => void;
-  /** The stack as `classifyLine` consumes it. */
+  /** The reader's state as `classifyLine` consumes it. */
   readonly context: (
     openParagraph?: ParagraphContext,
     firstLineAfterStart?: boolean,
@@ -83,7 +83,7 @@ type Piece =
 
 /**
  * One paragraph being read. Owns the run bookkeeping only — the line
- * position and the stack stay the host's.
+ * position and the context stay the host's.
  *
  * Nothing is tokenized until the paragraph is complete: `finish` turns
  * the pieces into tokens in one pass, once every line is in, so a rule
@@ -110,7 +110,7 @@ class Paragraph {
   private minIndentAfterPlus = Number.POSITIVE_INFINITY;
 
   /**
-   * @param host - the reader that owns the stack and the read position
+   * @param host - the reader that owns the context and the read position
    * @param context - which interrupting set applies
    * @param line - the paragraph's first line
    * @param from - raw column index where the paragraph's text starts
@@ -319,7 +319,7 @@ class Paragraph {
  * text lines, a `RawLine` token for each line kept verbatim, in source
  * order. The line that ENDED the paragraph is left unconsumed; the
  * caller never classifies it again.
- * @param host - the reader that owns the stack and the read position
+ * @param host - the reader that owns the context and the read position
  * @param context - which interrupting set applies (see ParagraphContext)
  * @param line - the paragraph's first line
  * @param from - raw column index where the paragraph's text starts
@@ -359,7 +359,7 @@ export function readParagraph(
  * conditional's own body is text the author wrote. The oracle's output
  * is a subset of ours, never a reordering of it, so no rendered content
  * moves. Pinned in tests/parser/reader.test.ts.
- * @param host - the reader that owns the stack and the read position
+ * @param host - the reader that owns the context and the read position
  * @param line - the paragraph's first (indented) line
  * @returns the run's lines, in order; a blank line ends the run, so
  *   two literal paragraphs it separates never share one
@@ -377,7 +377,7 @@ export function readLiteralParagraph(
  * raw alike stay in the run (a `//` line is CONTENT here; Ruby passes
  * no `skip_line_comments` on these paths) — leaving the ending line
  * unread.
- * @param host - the reader that owns the stack and the read position
+ * @param host - the reader that owns the context and the read position
  * @param line - the run's first line
  * @param context - which interrupting set applies
  * @returns the run's lines, in order
@@ -413,7 +413,7 @@ function readVerbatimRun(
  * asciidoctor.rb:132; the registry's `verbatimStyled` row, pinned by
  * the interruption matrix). Issue #41's fix: the style is in hand
  * BEFORE any content line is read.
- * @param host - the reader that owns the stack and the read position
+ * @param host - the reader that owns the context and the read position
  * @param line - the block's first content line
  * @returns the block's lines, in order
  */

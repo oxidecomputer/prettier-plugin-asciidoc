@@ -43,6 +43,7 @@ import {
   type DelimiterKind,
   type LineKind,
 } from "./classify.js";
+import { delimitedExtent } from "./delimited-reader.js";
 import { fragmentOfLine, type ListHost } from "./frames.js";
 import type { SourceLine } from "./split.js";
 
@@ -113,7 +114,6 @@ function readListItem(
   const { lines } = host;
   const markerLine = lines[markerIndex];
   const extent = itemExtent(host.lines, markerIndex + 1, kind.style, {
-    openTerminators: host.openTerminators,
     tailSafe: host.tailSafe,
   });
   const { text, blocks } = host.confine(
@@ -207,36 +207,18 @@ export function gapsOf(
 }
 
 /**
- * A fenced code block's terminator is the bare tip, never the opening
- * line: `is_delimited_block?` rewrites the line to its tip for the
- * fence case (parser.rb l.972-99), so ```` ```ruby ```` closes on
- * ```` ``` ````. Exported so reader.ts keeps a single spelling.
- */
-export const FENCE_TIP = "```";
-
-/**
- * What bounds one extent scan, beyond the lines themselves: the
- * enclosing confinement, and whether the END of the stream is a safe
- * place to print a `+` back (see {@link ItemExtent.tailSafe}).
+ * What bounds one extent scan beyond the lines themselves: whether
+ * the END of the stream is a safe place to print a `+` back.
  */
 export interface ExtentBounds {
   /**
-   * Terminators of every ENCLOSING open delimited block: in Ruby the
-   * enclosing block's extent was read wholesale before any list
-   * inside it was parsed, so the item reader never sees its
-   * terminator; our delimited blocks stay on the frame stack, so the
-   * confinement is expressed as unconditional stop lines instead.
-   * Caller contract: no entry is ever `"+"` — every delimiter
-   * terminator is at least two characters.
-   */
-  readonly openTerminators: readonly string[];
-  /**
    * Whether a `+` printed at the very end of the STREAM re-reads
-   * inert. `true` for the document reader (the end of `lines` is
-   * EOF); for a confined reader over an item's buffer it is that
-   * item's own {@link ItemExtent.tailSafe} — the end of the buffer is
-   * wherever the enclosing item ends, and only the scan that ended it
-   * knows what follows there.
+   * inert — true for the document reader (EOF), the confined
+   * reader's own boundary fact otherwise (the Confinement record's
+   * tailSafe: an item's own, or a block child's closed-or-enclosing
+   * answer — spec D2/D3). Tail safety is a LIST-NESTING fact (what
+   * follows an ITEM's popped trailing `+`), which is why this seam
+   * survives at exactly one member.
    */
   readonly tailSafe: boolean;
 }
@@ -268,9 +250,12 @@ export interface ItemExtent {
   trailingContinuation: boolean;
   /**
    * Whether a `+` printed at the very end of THIS ITEM re-reads
-   * inert: the scan stopped at a sibling or an enclosing terminator
-   * (which the printer puts on the very next line, where the `+` pops
-   * again), or the stream itself ended at a safe boundary
+   * inert: the scan stopped at a sibling (which the printer puts on
+   * the very next line, where the `+` pops again), or the stream
+   * itself ended at a safe boundary — EOF, or a confined boundary
+   * whose enclosing side is safe (a closed block's printed terminator
+   * follows on the very next output line and pops it; spec D3's
+   * four-class equivalence)
    * ({@link ExtentBounds.tailSafe}). False when arbitrary content
    * follows across blank lines — there the printer separates with a
    * blank, and a `+` above a blank ERASES and arms on re-read. This
@@ -352,47 +337,6 @@ function isBlockMetadataLine(text: string): boolean {
     BLOCK_ANCHOR.test(text) ||
     ATTRIBUTE_ENTRY.test(text)
   );
-}
-
-/**
- * Where a delimited block opened at `openIndex` ends —
- * `read_lines_until terminator:` (l.1450): whole rstripped lines
- * compared against the terminator, the bare tip for a fence, EOF when
- * it never closes. A line matching an ENCLOSING open terminator stops
- * the scan too (exclusive): in Ruby the enclosing block's extent was
- * read wholesale by its own terminator BEFORE any list inside it was
- * parsed (`build_block` → `read_lines_until` → `Reader.new`), so the
- * item reader physically runs out of lines there — expressed here as
- * stop lines, since our delimited blocks stay on the frame stack.
- *
- * DEVIATION from the spec's two-parameter sketch
- * (`delimitedEnd(lines, openIndex)`), declared like the plan's other
- * deviations: the fence tip needs `kind`, and the confinement needs
- * `openTerminators` — four parameters, still within `max-params: 4`.
- * @param lines - the lines the scan runs over
- * @param openIndex - index of the opening delimiter line
- * @param kind - which delimited block it opens
- * @param openTerminators - terminators of every ENCLOSING open
- *   delimited block; reaching one ends the scan unterminated
- * @returns exclusive index after the closing delimiter (or before an
- *   enclosing terminator, or EOF)
- */
-export function delimitedEnd(
-  lines: readonly SourceLine[],
-  openIndex: number,
-  kind: DelimiterKind,
-  openTerminators: readonly string[],
-): number {
-  const terminator = kind === "fencedCode" ? FENCE_TIP : lines[openIndex].text;
-  for (let index = openIndex + 1; index < lines.length; index += 1) {
-    // The enclosing terminator is tested FIRST: the outer block's
-    // extent was (conceptually) read before this one, so on a
-    // collision the outer one wins — the same outermost-wins rule
-    // reader.ts's closeDelimited applies.
-    if (openTerminators.includes(lines[index].text)) return index;
-    if (lines[index].text === terminator) return index + 1;
-  }
-  return lines.length;
 }
 
 // Ruby's three continuation states (l.1401): :frozen marks sequential
@@ -488,17 +432,16 @@ class ExtentScan {
   }
 
   /**
-   * `is_sibling_list_item?` (l.1421) or an enclosing open
-   * terminator — the two shapes that end the item wherever they are
-   * read, before and after a blank run alike (l.1508/1517-18 ask the
-   * same question a second time).
+   * `is_sibling_list_item?` (l.1421) — the one shape that ends the
+   * item wherever it is read, before and after a blank run alike
+   * (l.1508/1517-18 ask the same question a second time). The old
+   * enclosing-terminator disjunct is unrepresentable now: the scan's
+   * lines physically end at every enclosing boundary.
    * @param text - one rstripped source line
    * @returns true when the item ends on this line, unread
    */
   private endsTheItem(text: string): boolean {
-    return (
-      this.bounds.openTerminators.includes(text) || isSibling(text, this.style)
-    );
+    return isSibling(text, this.style);
   }
 
   /**
@@ -599,9 +542,8 @@ class ExtentScan {
     // l.1508 and l.1517-18 are one test here, not two: Ruby asks
     // whether the line it just read is a sibling once for the
     // re-read-past-blanks path and once for the fall-through path, and
-    // both arms unread the line and break. A `+` is neither a sibling
-    // marker nor an enclosing terminator (every terminator is at least
-    // two characters), so testing it first changes nothing.
+    // both arms unread the line and break. A `+` is not a sibling
+    // marker, so testing it first changes nothing.
     if (this.endsTheItem(line.text)) {
       this.index -= 1;
       return "stop";
@@ -662,16 +604,11 @@ class ExtentScan {
    */
   private slurpDelimited(kind: DelimiterKind): void {
     const openIndex = this.index - 1;
-    const end = delimitedEnd(
-      this.lines,
-      openIndex,
-      kind,
-      this.bounds.openTerminators,
-    );
-    for (let at = openIndex; at < end; at += 1) {
+    const { resume } = delimitedExtent(this.lines, openIndex, kind);
+    for (let at = openIndex; at < resume; at += 1) {
       this.buffer.push(this.lines[at]);
     }
-    this.index = end;
+    this.index = resume;
     this.continuation = "inactive"; // l.1451
   }
 
@@ -679,15 +616,12 @@ class ExtentScan {
    * `read_lines_until preserve_last_line: true, break_on_blank_lines:
    * true, break_on_list_continuation: true` (l.1484/1535, the two
    * non-dlist calls): the literal
-   * paragraph runs until a blank line or a `+`, whichever comes first
-   * — or an enclosing open terminator, which in Ruby is simply where
-   * the item reader's lines run out.
+   * paragraph runs until a blank line or a `+`, whichever comes first.
    */
   private slurpLiteral(): void {
     while (this.index < this.lines.length) {
       const line = this.lines[this.index];
       if (line.text === "" || isContinuationLine(line.text)) return;
-      if (this.bounds.openTerminators.includes(line.text)) return;
       this.buffer.push(line);
       this.index += 1;
     }
@@ -764,13 +698,14 @@ class ExtentScan {
   /**
    * Whether a `+` printed at the very end of this ITEM re-reads inert
    * — see {@link ItemExtent.tailSafe}. Every stopping arm unreads its
-   * stop line, so `lines[index]` IS the stopper: a sibling or an
-   * enclosing terminator prints on the very next output line (the
-   * item printer and the block printers keep those adjacent) and pops
-   * the `+` again; any other stopper reaches the output behind a
-   * blank line (joinBlocks), above which a lone `+` erases and ARMS.
-   * At stream end the answer is the bounds' — EOF for the document
-   * reader, the enclosing item's own tail-safety for a confined one.
+   * stop line, so `lines[index]` IS the stopper: a sibling prints on
+   * the very next output line (the item printer and the block
+   * printers keep those adjacent) and pops the `+` again; any other
+   * stopper reaches the output behind a blank line (joinBlocks),
+   * above which a lone `+` erases and ARMS. At stream end the answer
+   * is the bounds' — EOF for the document reader, the enclosing
+   * item's own tail-safety for an item-confined one, and
+   * `closed || enclosing` for a compound interior (spec D2/D3).
    * @returns true when the tail is a safe print boundary
    */
   private boundarySafe(): boolean {
@@ -810,10 +745,7 @@ class ExtentScan {
  *   an enclosing item's buffer — nesting composes by re-scanning)
  * @param from - index of the first line after the item's marker line
  * @param style - the marker style siblings are matched by
- * @param bounds - the enclosing confinement (stop lines — the caller
- *   contract that no entry is ever `"+"` is what lets the after-blank
- *   arm test for a detached `+` before it tests for the end of the
- *   item) and the stream-end print-safety fact ({@link ExtentBounds})
+ * @param bounds - the stream-end print-safety fact ({@link ExtentBounds})
  * @returns the buffer, the end index, the trailing-`+` flag and the
  *   item's own tail-safety
  */

@@ -1,2 +1,4 @@
 vendor/
 tests/parser/fixtures/
+.superpowers/
+docs/superpowers/

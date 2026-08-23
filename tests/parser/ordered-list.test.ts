@@ -99,9 +99,9 @@ describe("ordered list parsing", () => {
     expect(textNode.value).toBe("Hello world");
   });
 
-  // Three levels exercises the reader's frame stack more than two: it
-  // must push a list frame twice and drain both when the list ends,
-  // emitting each nested list INSIDE the item that owns it.
+  // Three levels exercises nesting more than two: the innermost scan
+  // runs over a buffer that is itself a slice of an item's buffer, and
+  // each nested list must land INSIDE the item that owns it.
   test("three levels of nesting", () => {
     const input = ". Level 1\n.. Level 2\n... Level 3\n";
     const { children } = parse(input);

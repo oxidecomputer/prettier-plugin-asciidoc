@@ -164,27 +164,6 @@ describe("classifyLine inside an open paragraph", () => {
   });
 });
 
-describe("classifyLine inside delimited blocks", () => {
-  test("the outermost matching terminator closes (build_block reads the parent extent first)", () => {
-    const reader: ReaderContext = {
-      ...BLOCK_START_CONTEXT,
-      openTerminators: ["====", "--"],
-      inVerbatim: { close: "----" },
-    };
-    expect(classifyLine("====", reader).kind).toBe("delimiterClose");
-    expect(classifyLine("----", reader).kind).toBe("delimiterClose");
-    expect(classifyLine("* not a list here", reader).kind).toBe("verbatim");
-  });
-  test("a fence closes on exactly ``` (terminator.slice 0, 3)", () => {
-    const reader: ReaderContext = {
-      ...BLOCK_START_CONTEXT,
-      inVerbatim: { close: "```" },
-    };
-    expect(classifyLine("```", reader).kind).toBe("delimiterClose");
-    expect(classifyLine("````", reader).kind).toBe("verbatim");
-  });
-});
-
 describe("parseListMarker", () => {
   test.each([
     [

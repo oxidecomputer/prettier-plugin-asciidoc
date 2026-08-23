@@ -27,16 +27,26 @@ import { mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import {
+  BETA_FAMILIES,
+  foldPlanAlphaShapes,
+  foldPlanBetaShapes,
   loadExpectedDiffs,
   parseArguments,
   reportExpectedDiffs,
   type ExpectedDiff,
 } from "./parity-ledger.js";
-export {
-  expectedDiffFailures,
-  parseArguments,
-  type ExpectedDiff,
-} from "./parity-ledger.js";
+// Re-exported for the unit tests, which reach the ledger's surface
+// through this module. Three statements rather than one braced list:
+// `export … from` is required here (unicorn/prefer-export-from) and
+// the one-name-per-line form the braced list wraps to costs four
+// counted lines this file has no room for (max-lines 450). The
+// brief also asked for `type FamilySets` here; nothing imports it
+// from this module, and this is the file with zero headroom, so it
+// is not re-exported (review m5) — `scripts/parity-ledger.js`
+// exports it directly for whoever needs it.
+export { expectedDiffFailures, parseArguments } from "./parity-ledger.js";
+export { BETA_FAMILIES } from "./parity-ledger.js";
+export type { ExpectedDiff } from "./parity-ledger.js";
 
 const ARGUMENT_START = 2;
 const FAILURE = 1;
@@ -242,55 +252,6 @@ function normalizeOneItem(_key: string, value: unknown): unknown {
 }
 
 /**
- * Fold the plan-α shape changes so SHAPE-preserving refactors compare
- * (spec D9): a `blockAnchor` node folds to the old anchor-paragraph
- * encoding; an admonition folds `form`/`delimiter` to the old
- * spelling and blanks the body on BOTH sides (`content` → `""`,
- * `text` → `[]` — body BYTES stay policed by the formatted
- * comparison, the fixtures and the render-equality suite); the
- * `annotatedBy` key is dropped (its pin is invariant (xi), not
- * parity). Tolerates BOTH tree shapes — old and new — because the
- * dumper embeds this body into the BASELINE checkout too.
- *
- * KEY ORDER IS LOAD-BEARING: parity digests the JSON STRING, so every
- * arm constructs a fresh object with one explicit key order — never a
- * spread, which would keep each input shape's own insertion order and
- * make the two sides hash differently. The synthesized orders match
- * the old builders' literals (buildBlockAnchor, makeInlineAnchor);
- * the string-equality rows in tests/scripts/parity.test.ts pin them.
- * @param key - the reviver key
- * @param value - the revived value
- * @returns the folded value
- */
-function foldPlanAlphaShapes(key: string, value: unknown): unknown {
-  if (key === "annotatedBy") return undefined;
-  if (!isRecordLike(value)) return value;
-  if (value.type === "blockAnchor") {
-    const { id, reftext, position } = value;
-    return {
-      type: "paragraph",
-      children: [{ type: "inlineAnchor", id, reftext, position }],
-      position,
-    };
-  }
-  if (value.type !== "admonition") return value;
-  const { type, variant, form, children, position } = value;
-  const paragraph = form === "paragraph";
-  return {
-    type,
-    variant,
-    form: paragraph ? "paragraph" : "delimited",
-    delimiter: paragraph
-      ? undefined
-      : (value.delimiter ?? (form === "delimited" ? undefined : form)),
-    content: "",
-    children,
-    text: [],
-    position,
-  };
-}
-
-/**
  * The one normaliser both dumper sides run before hashing: fold every
  * list item to the canonical form, and (behind the existing flag)
  * blank the allowlisted parentBlock ends. Composing the two in ONE
@@ -326,14 +287,17 @@ function foldPlanAlphaShapes(key: string, value: unknown): unknown {
  * detected: a child is already `"<allowed>"` when its container is
  * visited.
  *
- * This function, `foldPlanAlphaShapes`, `normalizeOneItem`,
- * `blankOneEnd`, `derivedEnd`, `endSource`, `startOffset`,
- * `isUnknownArray` and `isRecordLike` are SELF-CONTAINED on purpose:
- * their source is embedded into the dumper below with
- * `Function.prototype.toString()`, so the comparison and its test
- * share one implementation instead of two copies that can drift. A
- * reference to anything outside these nine bodies would compile here
- * and crash inside the baseline checkout.
+ * This function, `foldPlanAlphaShapes`, `foldPlanBetaShapes`,
+ * `normalizeOneItem`, `blankOneEnd`, `derivedEnd`, `endSource`,
+ * `startOffset`, `isUnknownArray` and `isRecordLike` are
+ * SELF-CONTAINED on purpose: their source is embedded into the dumper
+ * below with `Function.prototype.toString()`, so the comparison and
+ * its test share one implementation instead of two copies that can
+ * drift. A reference to anything outside these ten bodies would
+ * compile here and crash inside the baseline checkout. Both fold
+ * bodies now live in `scripts/parity-ledger.ts` (plan ruling PR-6);
+ * `.toString()` embeds a body regardless of the module that defines
+ * it, so the rule is unchanged.
  * @param tree - a parsed AST
  * @param allowParentBlockEnd - whether to blank forced-closed
  *   parentBlock ends (Ruling 39/54)
@@ -345,7 +309,8 @@ export function normalizeTree(
 ): unknown {
   const normalized: unknown = JSON.parse(JSON.stringify(tree), (key, value) => {
     const shaped = foldPlanAlphaShapes(key, value);
-    const folded = normalizeOneItem(key, shaped);
+    const flattened = foldPlanBetaShapes(key, shaped);
+    const folded = normalizeOneItem(key, flattened);
     return allowParentBlockEnd ? blankOneEnd(key, folded) : folded;
   });
   return normalized;
@@ -353,7 +318,7 @@ export function normalizeTree(
 
 // The dumper is written into BOTH checkouts, so it can only use what
 // the baseline already has: the corpus loader, the format fixtures,
-// `formatAdoc` and `parse`, plus the nine functions embedded
+// `formatAdoc` and `parse`, plus the ten functions embedded
 // verbatim below. It prints one JSON line per case, then one timing
 // line.
 const DUMPER = String.raw`
@@ -373,6 +338,7 @@ ${derivedEnd.toString()}
 ${blankOneEnd.toString()}
 ${normalizeOneItem.toString()}
 ${foldPlanAlphaShapes.toString()}
+${foldPlanBetaShapes.toString()}
 ${normalizeTree.toString()}
 const cases = loadCorpus().flatMap((group) => group.cases);
 const FIXTURES = "tests/format/fixtures/identity";
@@ -776,6 +742,7 @@ function report(options: {
       revision,
       limit,
       allowParentBlockEnd,
+      familySets: BETA_FAMILIES,
       reportCase,
     });
     return;

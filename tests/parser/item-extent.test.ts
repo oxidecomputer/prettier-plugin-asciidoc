@@ -5,12 +5,7 @@
  * and format suites — THIS table is the branch-level specification.
  */
 import { describe, expect, test } from "vitest";
-import type { DelimiterKind } from "../../src/parse/lines/classify.js";
-import {
-  delimitedEnd,
-  FENCE_TIP,
-  itemExtent,
-} from "../../src/parse/lines/list-reader.js";
+import { itemExtent } from "../../src/parse/lines/list-reader.js";
 import { splitLines } from "../../src/parse/lines/split.js";
 
 /**
@@ -20,8 +15,7 @@ import { splitLines } from "../../src/parse/lines/split.js";
  * @param source - the whole document; its first line is the marker
  * @param style - the marker style siblings are matched by
  * @param from - index of the first line after the marker line
- * @param bounds - enclosing terminators and the stream-end safety
- * @param bounds.openTerminators - enclosing delimited blocks' terminators
+ * @param bounds - the stream-end print-safety fact
  * @param bounds.tailSafe - whether the stream end is a safe boundary
  * @returns the buffer's text, the end index and the trailing-`+` flag
  */
@@ -29,11 +23,10 @@ function scan(
   source: string,
   style = "*",
   from = 1,
-  bounds: { openTerminators?: readonly string[]; tailSafe?: boolean } = {},
+  bounds: { tailSafe?: boolean } = {},
 ): { buffer: string[]; end: number; trailing: boolean } {
   const lines = splitLines(source);
   const extent = itemExtent(lines, from, style, {
-    openTerminators: bounds.openTerminators ?? [],
     tailSafe: bounds.tailSafe ?? true,
   });
   return {
@@ -390,92 +383,90 @@ describe("itemExtent: one row per read_lines_for_list_item branch", () => {
 
   test("erasure blanks text only — offsets and raw stay intact", () => {
     const lines = splitLines("* a\n+\npara\n");
-    const { buffer } = itemExtent(lines, 1, "*", {
-      openTerminators: [],
-      tailSafe: true,
-    });
+    const { buffer } = itemExtent(lines, 1, "*", { tailSafe: true });
     expect(buffer[0]).toMatchObject({ text: "", raw: "+", offset: 4, line: 2 });
   });
 });
 
 // Ruby parses a list inside an example/open/quote/sidebar block from a
 // reader CONFINED to that block's lines (build_block →
-// read_lines_until terminator: → Reader.new), so
-// read_lines_for_list_item can never see the closing delimiter. Our
-// delimited blocks stay on the frame stack, so the confinement is the
-// openTerminators stop lines — without them, the `====` below would
-// pass the delimiterKind test as an OPENER and slurp to EOF, or be
-// swallowed by the literal slurp (plan-review B1).
-describe("itemExtent: confinement by an enclosing delimited block", () => {
-  test("an open terminator with an active + is a stop line, never an opener", () => {
-    // from 2: the item's marker is line 2 of `====\n* a\n+\n====\n`.
-    expect(
-      scan("====\n* a\n+\n====\n", "*", 2, { openTerminators: ["===="] }),
-    ).toEqual({
+// read_lines_until terminator: → Reader.new) — and now so do we: the
+// compound open hands the child reader the INTERIOR subarray, so the
+// scan physically runs out of lines at the boundary (spec D1/D3).
+// These rows are the old stop-line rows re-keyed onto interior views:
+// the scan sees `* a\n+\n` where it used to see `====\n* a\n+\n====\n`
+// plus a stop list.
+describe("itemExtent: a confined stream end IS the boundary", () => {
+  test("a trailing + at a CLOSED block's interior end pops and stays printable", () => {
+    // Old row: `====\n* a\n+\n====\n` with `====` as a stop line.
+    // The interior view is `* a\n+\n`; the block closed, so the
+    // stream-end fact is tailSafe: true (spec D2's block flavor).
+    expect(scan("* a\n+\n", "*", 1, { tailSafe: true })).toEqual({
       buffer: [],
-      end: 3,
+      end: 2,
       trailing: true,
     });
   });
-  test("the literal slurp stops at an open terminator", () => {
-    expect(
-      scan("====\n* a\n+\n  lit\n====\n", "*", 2, {
-        openTerminators: ["===="],
-      }),
-    ).toEqual({
+  test("the literal slurp stops at the interior's end", () => {
+    // Old row: `====\n* a\n+\n  lit\n====\n` with stop lines.
+    expect(scan("* a\n+\n  lit\n", "*", 1, { tailSafe: true })).toEqual({
       buffer: ["", "  lit"],
-      end: 4,
+      end: 3,
       trailing: false,
     });
   });
 });
 
-describe("delimitedEnd", () => {
-  const rows: Array<[string, string, number, DelimiterKind, string[], number]> =
+// Spec D3's bounded-tailSafe equivalence: boundarySafe() consumes a
+// PARTITION of `lines.at(index)` after every stopping arm has unread
+// its stopper. One row per class; the delimiter-arm row is NEW (it
+// had no unit row before β).
+describe("itemExtent: the five tailSafe stop classes (spec D3)", () => {
+  // [name, source, from, bounds.tailSafe, expected tailSafe]
+  const rows: Array<[string, string, number, boolean, boolean]> = [
     [
-      ["terminator closes", "----\nx\n----\nafter\n", 0, "listing", [], 3],
-      // The source is built from FENCE_TIP — the module's one spelling
-      // of the bare tip, which reader.ts dedupes against in Task 4 —
-      // so the constant and the terminator test cannot drift apart.
-      [
-        "fence closes on the bare tip",
-        `${FENCE_TIP}ruby\nx\n${FENCE_TIP}\n`,
-        0,
-        "fencedCode",
-        [],
-        3,
-      ],
-      // The row above cannot see the tip rule on its own: its closing
-      // fence is the LAST line, so a terminator that never matches
-      // also stops at 3 (EOF). With a line after it the two answers
-      // part — and the difference is the whole rule, because an
-      // unterminated fence swallows everything after the block into
-      // the item (found by the plan's mutation pass: the mutants that
-      // drop the tip rewrite changed the AST while every test passed).
-      [
-        "fence closes on the bare tip with content after it",
-        `${FENCE_TIP}ruby\nx\n${FENCE_TIP}\nafter\n`,
-        0,
-        "fencedCode",
-        [],
-        3,
-      ],
-      ["unterminated runs to EOF", "----\nx\n", 0, "listing", [], 2],
-      [
-        "an enclosing terminator ends the scan, exclusive (outermost wins)",
-        "----\nx\n====\n----\n",
-        0,
-        "listing",
-        ["===="],
-        2,
-      ],
-    ];
-
+      "(1) sibling marker stop -> true (bounds false proves the stop decides)",
+      "* a\nb\n* c\n",
+      1,
+      false,
+      true,
+    ],
+    [
+      "(2) stream end with a SAFE boundary -> true (the migrated enclosing-terminator class: the block closed)",
+      "* a\nb\n",
+      1,
+      true,
+      true,
+    ],
+    [
+      "(3) stream end with an UNSAFE boundary -> false (unterminated enclosing block, inherited recursively)",
+      "* a\nb\n",
+      1,
+      false,
+      false,
+    ],
+    [
+      "(4) after-blank content stop -> false (ordinary content past a blank)",
+      "* a\nb\n\npara\n",
+      1,
+      true,
+      false,
+    ],
+    [
+      "(5) delimiter-arm inactive stop -> false (the unattached delimiter ends the item)",
+      "* item\n----\nfoo\n----\n",
+      1,
+      true,
+      false,
+    ],
+  ];
+  // A rest parameter, not five named ones: `max-params` is 4.
   test.each(rows)("%s", (...row) => {
-    const [, source, openIndex, kind, terminators, end] = row;
-    expect(delimitedEnd(splitLines(source), openIndex, kind, terminators)).toBe(
-      end,
-    );
+    const [, source, from, boundsSafe, expected] = row;
+    const extent = itemExtent(splitLines(source), from, "*", {
+      tailSafe: boundsSafe,
+    });
+    expect(extent.tailSafe).toBe(expected);
   });
 });
 

@@ -270,42 +270,40 @@ export type InlineNode =
   | HardLineBreakNode;
 
 /**
- * A section heading and its child blocks. Level is
- * `(number of '=' signs) - 1`, so `==` is level 1 and `======` is
- * level 5, matching the ASG convention. The reader opens a section
- * frame on a title line and pushes the blocks that follow into it, so
- * the nesting is built as the document is read.
+ * A heading line: `=` (level 0, the document title spelling) through
+ * `======` (level 5). A LEAF — sections are not modeled: nothing the
+ * printer emits consumes containment (the D10 audit), and the level
+ * is data, not a type distinction. Serialized key order:
+ * `type, level, title, position` (pinned by the serializedKeys row in
+ * tests/parser/heading.test.ts).
  */
-export interface SectionNode extends Node {
+export interface HeadingNode extends Node {
   /** Node discriminant. */
-  type: "section";
-  /**
-   * Heading depth: 1 for `==`, up to 5 for `======`,
-   * matching the ASG convention (level 0 is the
-   * document title `=`).
-   */
+  type: "heading";
+  /** Marker count minus one: `=` is 0, `==` is 1. */
   level: number;
-  /** Heading text without the leading `=` markers. */
-  heading: string;
-  /** Blocks nested under this section heading. */
-  children: BlockNode[];
+  /** The title text, trimmed. */
+  title: string;
 }
 
 /**
  * A discrete heading — a heading preceded by `[discrete]` that does
- * not create a section. Unlike `SectionNode`, it has no `children`
- * array and does not participate in section nesting.
+ * not create a section. Unlike an ordinary `heading`, it is STYLE,
+ * not structure: the oracle renders it as a heading element but it
+ * opens no section, so `[discrete]` is outside the D10 flatten
+ * entirely.
  */
 export interface DiscreteHeadingNode extends Node {
   /** Node discriminant. */
   type: "discreteHeading";
   /**
-   * Heading depth (1-5), same scale as
-   * `SectionNode.level`.
+   * Heading depth (0-5), same scale as `HeadingNode.level`: unlike a
+   * section title, a discrete heading is valid at level 0 (`= T`),
+   * because it is style rather than structure.
    */
   level: number;
   /** Heading text without the leading `=` markers. */
-  heading: string;
+  title: string;
 }
 
 /**
@@ -355,26 +353,6 @@ export interface AttributeEntryNode extends Node {
    * Tracking the form lets the printer reproduce the original syntax.
    */
   unset: false | "prefix" | "suffix";
-}
-
-/**
- * The document title: `= Title` (level 0 heading).
- *
- * In AsciiDoc, the document title uses a single `=` marker, unlike
- * section headings which use `==` through `======`. There can be at
- * most one document title per document, and it must appear before any
- * section headings. It's a standalone block (not a container like
- * SectionNode) because header grouping is handled by join logic in
- * the printer, not by AST nesting. Note: that join logic currently
- * only keeps attribute entries contiguous with the title — implicit
- * author and revision lines are NOT yet recognized and parse as body
- * paragraphs, which detaches them from the header (issue #18).
- */
-export interface DocumentTitleNode extends Node {
-  /** Node discriminant. */
-  type: "documentTitle";
-  /** Title text without the leading `= ` marker. */
-  title: string;
 }
 
 /**
@@ -711,11 +689,10 @@ export interface BlockAnchorNode extends Node {
 /** A top-level structural element of a document. */
 export type BlockNode =
   | ParagraphNode
-  | SectionNode
+  | HeadingNode
   | DiscreteHeadingNode
   | CommentNode
   | AttributeEntryNode
-  | DocumentTitleNode
   | ListNode
   | DelimitedBlockNode
   | ParentBlockNode

@@ -193,10 +193,10 @@ function ownMembers(declaration: ts.InterfaceDeclaration): number {
  * How wide one named interface is, and whether it is measurable.
  *
  * Only the declaration's OWN property and method signatures. A nested
- * type literal's fields (`ReaderContext.inVerbatim.close`) and the
- * fields of a member's parameter object are not vocabulary two modules
- * share by NAME — they are reached through a member that is already
- * counted — and an index signature or a call signature is not a named
+ * type literal's fields and the fields of a member's parameter object
+ * are not vocabulary two modules share by NAME — they are reached
+ * through a member that is already counted — and an index signature
+ * or a call signature is not a named
  * member at all. Only top-level declarations are searched; a seam moved
  * inside a namespace reads as ABSENT, which the head-absent gate turns
  * into a failure rather than into silence.

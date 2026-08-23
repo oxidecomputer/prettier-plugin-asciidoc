@@ -41,6 +41,16 @@ describe("discrete heading formatting", () => {
     expect(await formatAdoc(input)).toBe(input);
   });
 
+  // Level 0 is valid for a discrete heading: `=` is a depth here,
+  // not a document title, because the heading is style rather than
+  // structure. The whole marker range round-trips byte-stably.
+  test("discrete heading at level 0", async () => {
+    const input = "[discrete]\n= T\n";
+    const output = await formatAdoc(input);
+    expect(output).toBe(input);
+    expect(await formatAdoc(output)).toBe(output);
+  });
+
   // Discrete heading inside a section.
   test("discrete heading inside a section", async () => {
     const input = "== Section\n\n[discrete]\n=== Standalone\n\nParagraph.\n";

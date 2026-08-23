@@ -172,19 +172,15 @@ describe("line comment parsing", () => {
     ]);
   });
 
-  // The AST builder's section-grouping logic must treat comments as
-  // children of the preceding section, just like paragraphs. A comment
-  // between a heading and its content shouldn't break the section.
-  test("comment inside a section", () => {
-    const document = parse("== Title\n\n// remark\n\nText.\n");
-    expect(document.children).toHaveLength(1);
-    const {
-      children: [child0],
-    } = document;
-    narrow(child0, "section");
-    expect(child0.children).toHaveLength(2);
-    expect(child0.children[0].type).toBe("comment");
-    expect(child0.children[1].type).toBe("paragraph");
+  // Flat model (spec D10): the comment and the paragraph are the
+  // heading's SIBLINGS; source order is all there is to keep.
+  test("comment after a heading is a sibling", () => {
+    const { children } = parse("== Title\n\n// remark\n\nText.\n");
+    expect(children.map((child) => child.type)).toEqual([
+      "heading",
+      "comment",
+      "paragraph",
+    ]);
   });
 });
 
@@ -204,9 +200,9 @@ describe("block comment parsing", () => {
     expect(child0.value).toBe("block content");
   });
 
-  // Empty block comments (`////\n////`) are valid: the reader opens a
-  // verbatim frame on the first line and the second closes it with no
-  // content lines in between.
+  // Empty block comments (`////\n////`) are valid: the extent scan
+  // starts at the opening line and finds its terminator on the very
+  // next one, with no content lines in between.
   test("empty block comment", () => {
     const document = parse("////\n////\n");
     expect(document.children).toHaveLength(1);

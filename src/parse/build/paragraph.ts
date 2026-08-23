@@ -6,8 +6,8 @@
  * Every function here is `(span, index) → node` and nothing else: no
  * traversal, no context. What a line MEANS was decided by
  * lines/classify.ts against the registry in line-shapes.ts, and which
- * block it belongs to by the reader's frame stack. These only take it
- * apart.
+ * block it belongs to by the extent lines/reader.ts collected for it.
+ * These only take it apart.
  */
 import type {
   AdmonitionNode,

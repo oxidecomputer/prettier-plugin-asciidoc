@@ -3,15 +3,21 @@
  * given the reader's context.
  *
  * It is the table the BlockReader consults. Every regex it uses lives
- * in src/parse/line-shapes.ts (the registry), and the ORDER of the
- * checks mirrors Asciidoctor: the enclosing `read_lines_until
- * terminator:` scan first, then `PreprocessorReader#process_line` and
- * comment skipping, then the open paragraph's interrupting set
+ * in src/parse/line-shapes.ts (the registry).
+ *
+ * The enclosing `read_lines_until terminator:` scan happens BEFORE
+ * classification ever runs: `delimitedExtent`
+ * (lines/delimited-reader.ts) collects a delimited block's whole
+ * extent up front — Ruby's `build_block` — so no terminator
+ * vocabulary reaches this table, and a verbatim interior line is
+ * never classified by anyone. The ORDER of the remaining checks
+ * mirrors Asciidoctor: `PreprocessorReader#process_line` and comment
+ * skipping first, then the open paragraph's interrupting set
  * (`read_paragraph_lines` / `read_lines_for_list_item`), and finally
  * `parse_block_metadata_line` → `next_section` → `next_block` for a
  * block's first line.
  *
- * Context is READ here, never derived: the reader owns the stack.
+ * Context is READ here, never derived: the reader owns the context.
  * That is the whole point of this module (see the spec's Success
  * criterion). Nothing in this file scans backwards, re-reads source,
  * or inspects a token history.
@@ -142,10 +148,6 @@ export type LineKind =
       readonly block: DelimiterKind;
     }
   | {
-      /** A delimiter matching a terminator the reader has open. */
-      readonly kind: "delimiterClose";
-    }
-  | {
       /** An admonition label (`NOTE: text`). */
       readonly kind: "admonitionLabel";
       /** The style name (`NOTE`, `TIP`, …). */
@@ -168,30 +170,19 @@ export type LineKind =
   | {
       /** An indented line — the start or body of a literal paragraph. */
       readonly kind: "indented";
-    }
-  | {
-      /** A line inside a verbatim block: content, whatever its shape. */
-      readonly kind: "verbatim";
     };
 
 /**
- * Read-only view of the reader's stack — exactly the facts the old
- * token patterns reconstructed by scanning backwards.
+ * The classifier's read-only view of the reader's state — exactly the
+ * facts the old token patterns reconstructed by scanning backwards,
+ * handed over instead of derived. Three fields and no more: the
+ * reader keeps no stack for anything else to read.
  */
 export interface ReaderContext {
   /** The paragraph-shaped block being read, or undefined at a block start. */
   readonly openParagraph: ParagraphContext | undefined;
   /** Marker styles of every open list, innermost first (`is_sibling_list_item?`). */
   readonly openListStyles: readonly string[];
-  /** Terminators of open compound blocks, outermost first (`read_lines_until terminator:`). */
-  readonly openTerminators: readonly string[];
-  /** Set while inside a verbatim/comment block; undefined otherwise. */
-  readonly inVerbatim:
-    | {
-        /** The delimiter line that closes the verbatim block. */
-        readonly close: string;
-      }
-    | undefined;
   /** Whether this line is the FIRST one after the open block started. */
   readonly firstLineAfterStart: boolean;
 }
@@ -200,8 +191,6 @@ export interface ReaderContext {
 export const BLOCK_START_CONTEXT: ReaderContext = {
   openParagraph: undefined,
   openListStyles: [],
-  openTerminators: [],
-  inVerbatim: undefined,
   firstLineAfterStart: false,
 };
 
@@ -405,7 +394,7 @@ function classifyBlockBody(line: string): LineKind {
  * `read_lines_for_list_item`); the registry is that table.
  * @param line - one rstripped source line
  * @param context - which kind of paragraph is open
- * @param reader - the reader's stack view
+ * @param reader - the reader's context view
  * @returns the line's kind, or undefined when the line ENDS the
  *   paragraph and the caller must classify it as a block start instead
  */
@@ -443,38 +432,16 @@ function classifyInParagraph(
  * @param rawLine - the source line without its newline; rstripped here,
  *   the way `Helpers.prepare_source_string` rstrips every line before
  *   the parser sees it
- * @param reader - the reader's stack view; never derived, always read
+ * @param reader - the reader's context view; never derived, always read
  * @returns the line's kind; `text` is the total fallback, which is what
  *   makes the block level unable to fail
  */
 export function classifyLine(rawLine: string, reader: ReaderContext): LineKind {
   const line = rstrip(rawLine);
-  // 1. An open block's terminator wins over everything else, and the
-  //    OUTERMOST one wins over an inner block's.
-  //
-  //    The mechanism is NOT that `read_lines_until` scans for several
-  //    terminators — it breaks only on the ONE it was given. It is
-  //    that `build_block` reads a delimited block's whole extent up
-  //    front (`Reader.new reader.read_lines_until(terminator: …)`)
-  //    and parses its children out of that new Reader. The parent's
-  //    delimiter line was already consumed by the parent's read, so a
-  //    child that never closes simply runs out of lines at it. Read
-  //    line by line, as here, that is indistinguishable from the
-  //    outermost terminator claiming the line — which is why the
-  //    reader may keep one flat stack instead of re-reading extents.
-  if (
-    reader.openTerminators.includes(line) ||
-    reader.inVerbatim?.close === line
-  ) {
-    return { kind: "delimiterClose" };
-  }
-  if (reader.inVerbatim !== undefined) {
-    return { kind: "verbatim" };
-  }
   if (line.length === 0) {
     return { kind: "blank" };
   }
-  // 2. Preprocessor lines and comments are consumed while READING
+  // 1. Preprocessor lines and comments are consumed while READING
   //    (`PreprocessorReader#process_line`, `Reader#skip_line_comments`),
   //    before block structure exists, so they are raw everywhere.
   //
@@ -489,8 +456,8 @@ export function classifyLine(rawLine: string, reader: ReaderContext): LineKind {
   if (rawForm !== undefined) {
     return { kind: "raw", form: rawForm };
   }
-  // 3. Inside an open paragraph only the context's interrupting set
-  //    matters; a line that interrupts falls through to 4 so the
+  // 2. Inside an open paragraph only the context's interrupting set
+  //    matters; a line that interrupts falls through to 3 so the
   //    reader learns WHAT ended the paragraph.
   if (reader.openParagraph !== undefined) {
     const inParagraph = classifyInParagraph(line, reader.openParagraph, reader);
@@ -498,6 +465,6 @@ export function classifyLine(rawLine: string, reader: ReaderContext): LineKind {
       return inParagraph;
     }
   }
-  // 4. A block's first line.
+  // 3. A block's first line.
   return classifyBlockStart(line);
 }

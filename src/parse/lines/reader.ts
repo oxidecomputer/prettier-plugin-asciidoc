@@ -1,25 +1,23 @@
 /**
- * The BlockReader: Asciidoctor's line reader as ONE explicit state
- * machine. It walks the lines once with a frame stack and decides where
- * blocks END where Asciidoctor does — `Parser.next_section` (section
- * boundaries and the block-metadata lookahead),
- * `parse_block_metadata_lines`, `next_block` (what a block's first line
- * opens), `is_delimited_block?` / `build_block` (terminators), and
- * `read_paragraph_lines` / `Reader.read_lines_until` (paragraph extent,
- * in paragraph-reader.ts) — and builds the AST as it goes. A frame IS
- * the node under construction: every container frame owns the blocks
- * pushed into it, and closing a frame builds its node and gives it to
- * the parent. There is no event stream between reading and the tree.
+ * The BlockReader: Asciidoctor's line reader as ONE flat walk. Every
+ * composite construct is read EXTENT-FIRST, where Asciidoctor reads
+ * it: a delimited block's whole extent is collected at its opening
+ * line (`build_block` → delimitedExtent) — verbatim interiors become
+ * a slice, compound interiors a fresh CONFINED BlockReader over the
+ * interior subarray — and a list item's buffer gets the same
+ * treatment through list-reader.ts (`read_lines_for_list_item` →
+ * itemExtent → confine). What is not a composite is a LEAF, headings
+ * included (spec D10): sections are not modeled, so the document is a
+ * flat sequence this reader appends to, and nothing closes on a
+ * later, unpredictable line. Confinement — what a scan can SEE — is
+ * physical everywhere Ruby's is: a confined reader's lines END at its
+ * boundary, and the Confinement record carries the two boundary facts
+ * (tail safety, the forced-close offset) as data.
  *
- * Nothing downstream ever re-derives block context: this stack is the
- * only place it exists. Lists are the one construct read RECURSIVELY
- * (spec D3): list-reader.ts's `readList` bounds each item with the
- * `read_lines_for_list_item` port and parses its interior from a fresh
- * CONFINED BlockReader over the item's buffer — Ruby's
- * `next_block(list_item_reader, …, list_type:)` — reached through the
- * {@link ListHost} seam this class implements. What a node is MADE of
- * is the builders' business (src/parse/build/); this file only decides
- * which one to call and where its result goes.
+ * What a node is MADE of is the builders' business (src/parse/build/);
+ * this file only decides which one to call, in Ruby's order:
+ * `parse_block_metadata_lines` (holdMetadata), `next_block`'s ladder
+ * (blockLine), `read_paragraph_lines` (paragraph-reader.ts).
  */
 import type { BlockNode, DocumentNode } from "../../ast.js";
 import { isReaderConsumedLine } from "../../block-metadata.js";
@@ -30,6 +28,7 @@ import {
   buildVerbatimBlock,
   type BlockExtent,
 } from "../build/delimited.js";
+import { buildDiscreteHeading, buildHeading } from "../build/heading.js";
 import { buildRawBlockLine } from "../build/metadata.js";
 import {
   buildAdmonitionParagraph,
@@ -38,11 +37,6 @@ import {
   buildParagraphFormBlock,
   buildStyledParagraph,
 } from "../build/paragraph.js";
-import {
-  buildDiscreteHeading,
-  buildDocumentTitle,
-  buildSection,
-} from "../build/section.js";
 import type { InlineToken } from "../inline/tokens.js";
 import type { ParagraphContext } from "../line-shapes.js";
 import { makeLocationIndex, type LocationIndex } from "../positions.js";
@@ -52,16 +46,16 @@ import {
   type LineKind,
   type ReaderContext,
 } from "./classify.js";
+import { delimitedExtent } from "./delimited-reader.js";
 import {
   fragmentOfLine,
   heldMetadataNode,
   isLeafKind,
   leafBuilder,
-  type Frame,
   type ListHost,
   type VerbatimRole,
 } from "./frames.js";
-import { FENCE_TIP, readList } from "./list-reader.js";
+import { readList } from "./list-reader.js";
 import {
   paragraphFormVariant,
   resolveDelimitedOpen,
@@ -75,7 +69,8 @@ import {
 import { splitLines, type SourceLine } from "./split.js";
 
 // The one block-attribute style the reader itself acts on: it turns the
-// heading that follows into a leaf instead of a section frame.
+// heading that follows into a discreteHeading leaf instead of an
+// ordinary one.
 const DISCRETE_STYLE = "discrete";
 
 // A fenced opener is three backticks then the optional language hint.
@@ -87,7 +82,7 @@ const BACKTICK_COUNT = 3;
  * see the line (`is_delimited_block?` rewrites a fence line to its
  * tip and keeps the rest as the hint, parser.rb:983-993).
  * @param role - the resolved role
- * @param block - which delimiter opened the frame
+ * @param block - which delimiter opened the block
  * @param text - the opening line, rstripped
  * @returns the role, with `language` set for a hinted fence
  */
@@ -101,14 +96,48 @@ function withFenceLanguage(
   return language.length === 0 ? role : { ...role, language };
 }
 
-// How a delimited block ended: on its own terminator (`close`), or
-// forced shut by an outer terminator or EOF (`unclosed`, zero-length,
-// at the start of the terminator line or at the document length).
-type BlockClose = Pick<BlockExtent, "close" | "unclosed">;
-
-// The bottom frame's shape: the one frame that owns the document's
-// children and never closes on a line.
-type DocumentFrame = Extract<Frame, Record<"kind", "document">>;
+/**
+ * How this reader is confined, when it is not the document reader.
+ * Declared here, not exported: every consumer is a BlockReader
+ * member, and knip's types bucket gates dead exported types at 0.
+ */
+type Confinement =
+  | {
+      /** A list item's buffer (Ruby: parse_list_item's Reader, :1350). */
+      readonly kind: "item";
+      /** The item's marker style — the one-style ancestry. */
+      readonly style: string;
+      /** The item's own tail-safety (ItemExtent.tailSafe). */
+      readonly tailSafe: boolean;
+      /**
+       * Where a forced close at this buffer's end falls: the last
+       * buffer line's raw end — the vii-b clamp, computed at the one
+       * place that knows the buffer (confine()) and carried as data.
+       */
+      readonly closeOffset: number;
+    }
+  | {
+      /**
+       * A compound block's interior (Ruby: build_block's Reader,
+       * parser.rb:1037; parse_blocks "does not consider sections",
+       * :1082-1083).
+       */
+      readonly kind: "block";
+      /**
+       * Whether a trailing `+` at this interior's end re-reads
+       * inert — true when the block closed (the printed terminator
+       * follows on the very next line and pops it), the enclosing
+       * reader's own tail-safety when it did not (the interior's
+       * end IS the enclosing end).
+       */
+      readonly tailSafe: boolean;
+      /**
+       * Where a forced close at this interior's end falls: the
+       * terminator line's start when the block closed, the
+       * enclosing reader's own forced-close offset when it did not.
+       */
+      readonly closeOffset: number;
+    };
 
 /** What every reader over this document shares, however confined. */
 interface ReaderScope {
@@ -122,17 +151,23 @@ interface ReaderScope {
 
 /**
  * Reads one line array into blocks. One instance per document — plus
- * one confined instance per list item, over the item's buffer; `run`
- * consumes it.
+ * one confined instance per list item, over the item's buffer, and
+ * one per compound-block interior, over the interior subarray (spec
+ * D1/D2); `run` consumes it.
  */
 class BlockReader implements ListHost {
   readonly source: string;
   readonly at: LocationIndex;
   readonly documentLines: readonly SourceLine[];
-  /** The bottom frame, and the total fallback for a pop that cannot fail. */
-  private readonly root: DocumentFrame = { kind: "document", children: [] };
-  /** The open frames, outermost first; the ONLY block-context store. */
-  readonly stack: Frame[] = [this.root];
+  /**
+   * Every block this reader produces, appended in source order —
+   * the document's blocks for the outermost reader, an interior's
+   * for a confined one. Nothing nests them further: delimited blocks
+   * are read whole at their opening line and headings are leaves
+   * (spec D10), so no construct closes on a later, unpredictable
+   * line and nothing routes a finished node anywhere but here.
+   */
+  private readonly blocks: BlockNode[] = [];
   /** Index of the next unread line. */
   index = 0;
   /**
@@ -146,8 +181,8 @@ class BlockReader implements ListHost {
 
   // Metadata NODES held back until we know what they annotate.
   // Comment and preprocessor lines ride along so their SOURCE ORDER
-  // relative to the metadata survives a section boundary landing
-  // between them (see the `raw` case in blockLine).
+  // relative to the metadata survives whatever lands between them
+  // (see the `raw` case in blockLine).
   private pending: BlockNode[] = [];
   // Parsed view of the held-back `[…]` line, if any — set per
   // attribute line (the last one wins, as Ruby's drain overwrites
@@ -161,11 +196,12 @@ class BlockReader implements ListHost {
    * @param lines - the lines THIS reader walks: the document's, or an
    *   item's buffer (absolute offsets either way)
    * @param confinement - present exactly when this reader parses a
-   *   list item's buffer, absent for the document reader. Being
-   *   confined is Ruby's `next_block(list_item_reader, …,
-   *   list_type:)`: no sections, item-flavored paragraph contexts, a
-   *   lone `+` kept as a raw line. Its `style` (the item's own marker
-   *   style) feeds `context()`'s ancestry: the foreign-marker rule (a
+   *   list item's buffer or a compound block's interior, absent for
+   *   the document reader. Being confined is Ruby's
+   *   `next_block(list_item_reader, …, list_type:)`: no sections,
+   *   item-flavored paragraph contexts, a lone `+` kept as a raw
+   *   line. Its `style` (the item's own marker style) feeds
+   *   `context()`'s ancestry: the foreign-marker rule (a
    *   marker-shaped line inside a `+`-attached paragraph keeps its
    *   own output line, because its column decides
    *   `within_nested_list`) fires only while a list is open, and the
@@ -173,21 +209,19 @@ class BlockReader implements ListHost {
    *   whole ancestry — a marker of any ENCLOSING list's style cannot
    *   survive into the buffer (the enclosing extent scans stopped at
    *   them), so every marker line the buffer holds is foreign. Its
-   *   `tailSafe` is the confined item's own tail-safety, which every
+   *   `tailSafe` is the confined stream's own tail-safety, which every
    *   extent scan run from this reader inherits as its stream-end
-   *   boundary fact (see {@link BlockReader.tailSafe}).
-   * @param confinement.style - the confined item's marker style
-   * @param confinement.tailSafe - the confined item's tail-safety
+   *   boundary fact (see {@link BlockReader.tailSafe}). Its
+   *   `closeOffset` is where a forced close at this reader's stream
+   *   end falls — computed at the ONE place that knows the boundary
+   *   (confine() for an item buffer, the compound open for an
+   *   interior) and consumed as data
+   *   ({@link BlockReader.forcedCloseOffset}).
    */
   constructor(
     scope: ReaderScope,
     readonly lines: readonly SourceLine[],
-    private readonly confinement?: {
-      /** The confined item's marker style. */
-      readonly style: string;
-      /** The confined item's tail-safety (`ItemExtent.tailSafe`). */
-      readonly tailSafe: boolean;
-    },
+    private readonly confinement?: Confinement,
   ) {
     ({
       source: this.source,
@@ -195,26 +229,40 @@ class BlockReader implements ListHost {
       documentLines: this.documentLines,
     } = scope);
     this.scope = scope;
-    this.confined = confinement !== undefined;
   }
-  /** Whether this reader parses a list item's buffer. */
-  private readonly confined: boolean;
 
   /**
    * Whether a `+` printed at the very end of this reader's lines
    * re-reads inert — see ListHost.tailSafe. The document's end is
-   * EOF, always safe; a buffer's end is wherever the enclosing item
-   * ended, so the answer is that item's own.
+   * EOF, always safe; an item buffer's end is wherever the enclosing
+   * item ended, so the answer is that item's own; a block child's is
+   * `closed || enclosing`, decided at the compound open (spec
+   * D2/D3).
    * @returns the boundary fact the extent scans inherit
    */
   get tailSafe(): boolean {
     return this.confinement?.tailSafe ?? true;
   }
 
+  /**
+   * Where a forced close at THIS reader's stream end falls: the
+   * document length for the document reader (one past the final
+   * newline — the spelling every unclosed-at-EOF position has always
+   * had), the confinement's boundary for a confined one. One
+   * derivation for the boundary every forced close shares (spec D2),
+   * pinned by tests/parser/delimited-end-convention.test.ts and the
+   * b44 fixtures' position literals.
+   * @returns the offset a forced close at stream end is stamped with
+   */
+  get forcedCloseOffset(): number {
+    return this.confinement?.closeOffset ?? this.source.length;
+  }
+
   // ── context ────────────────────────────────────────────────────────
 
   /**
-   * The stack as `classifyLine` consumes it — read, never derived.
+   * The reader's state as `classifyLine` consumes it — read, never
+   * derived.
    * @param openParagraph - which paragraph shape is open, if any
    * @param firstLineAfterStart - whether the line being classified is
    *   the first one after the block started
@@ -224,72 +272,25 @@ class BlockReader implements ListHost {
     openParagraph?: ParagraphContext,
     firstLineAfterStart = false,
   ): ReaderContext {
-    // No list frames exist: lists are read recursively (readList), and
-    // a confined reader's buffer is already truncated at every
-    // ancestor list's boundary — the physical confinement the styles
-    // used to approximate online. What remains of the ancestry is the
-    // ONE style the confined reader carries (see the constructor): it
-    // tells the classifier a list is open at all, which is what the
-    // foreign-marker verbatim rule keys on.
-    const openListStyles: string[] =
-      this.confinement === undefined ? [] : [this.confinement.style];
-    const verbatimTerminators: string[] = [];
-    for (const frame of this.stack) {
-      if (frame.kind === "verbatim") {
-        verbatimTerminators.push(frame.terminator);
-      }
-    }
-    // At most one verbatim frame can ever be open — inside one, every
-    // line is content or its terminator — but taking the innermost
-    // keeps that an observation rather than an assumption.
-    const close = verbatimTerminators.at(-1);
+    // Nothing here tracks an enclosing list: lists are read
+    // extent-first (readList), and a confined reader's buffer is
+    // already truncated at every ancestor list's boundary — the
+    // physical confinement the styles used to approximate online.
+    // What remains of the ancestry is the ONE style the confined
+    // reader carries (see the constructor): it tells the classifier a
+    // list is open at all, which is what the foreign-marker verbatim
+    // rule keys on. A block child reports []:
+    // fresh-reader behavior is Ruby's (build_block → Reader.new, no
+    // list_type), and the [] is unobservable — both registry
+    // consumers of enclosingListStyles are gated on the
+    // listContinuation context, which a block child's bodyContext()
+    // never answers (spec D2's flavor table).
     return {
       openParagraph,
-      openListStyles,
-      openTerminators: this.compoundTerminators(),
-      inVerbatim: close === undefined ? undefined : { close },
+      openListStyles:
+        this.confinement?.kind === "item" ? [this.confinement.style] : [],
       firstLineAfterStart,
     };
-  }
-
-  /**
-   * Terminators of every open COMPOUND block on this reader's stack —
-   * what `classifyLine`'s outermost-terminator rule reads.
-   * @returns the terminators, outermost first
-   */
-  private compoundTerminators(): string[] {
-    return this.stack.flatMap((frame) =>
-      frame.kind === "compound" ? [frame.terminator] : [],
-    );
-  }
-
-  /**
-   * Terminators of every open delimited block on this reader's stack —
-   * see ListHost.openTerminators. A confined reader reports its OWN
-   * stack only: the enclosing document reader's delimited frames are
-   * unreachable from a buffer by construction (the enclosing extent
-   * scan already stopped at them). Read off the stack the same way
-   * `context()` reads it, so the two can never disagree about which
-   * blocks are open.
-   * @returns the open terminators, outermost first
-   */
-  get openTerminators(): readonly string[] {
-    return this.stack.flatMap((frame) =>
-      frame.kind === "compound" || frame.kind === "verbatim"
-        ? [frame.terminator]
-        : [],
-    );
-  }
-
-  /**
-   * The innermost open frame.
-   * @returns the top of the stack
-   */
-  topFrame(): Frame {
-    // Total fallback: the root frame is pushed at construction and
-    // never popped, so the stack is never empty — `at` types the miss
-    // whether or not it can happen.
-    return this.stack.at(-1) ?? this.root;
   }
 
   /**
@@ -303,20 +304,11 @@ class BlockReader implements ListHost {
   // ── where a finished block goes ────────────────────────────────────
 
   /**
-   * Put a finished block where the innermost frame wants it: into the
-   * frame's children.
+   * Append a finished block to the document's children.
    * @param node - the block just built
    */
   push(node: BlockNode): void {
-    const frame = this.topFrame();
-    if (frame.kind === "verbatim") {
-      // Total fallback: inside a verbatim frame every line is content
-      // or the terminator, and content is sliced from the source at
-      // close, so nothing is ever pushed here. Returning keeps the
-      // function total rather than throwing.
-      return;
-    }
-    frame.children.push(node);
+    this.blocks.push(node);
   }
 
   /**
@@ -395,8 +387,8 @@ class BlockReader implements ListHost {
   // ── main loop ──────────────────────────────────────────────────────
 
   /**
-   * Walk every line once and close whatever is still open at EOF.
-   * @returns the blocks read, nested as the frames nested
+   * Walk every line once and release whatever is still held at EOF.
+   * @returns the blocks read, in source order
    */
   run(): BlockNode[] {
     for (;;) {
@@ -410,20 +402,10 @@ class BlockReader implements ListHost {
         this.index += 1;
         continue;
       }
-      if (kind.kind === "delimiterClose") {
-        this.closeDelimited(line);
-        continue;
-      }
-      if (kind.kind === "verbatim") {
-        // Content of the open verbatim block: sliced from the source
-        // when the block closes, so the line needs no node of its own.
-        this.index += 1;
-        continue;
-      }
       this.blockLine(line, kind);
     }
     this.closeAll();
-    return this.root.children;
+    return this.blocks;
   }
 
   // ── the ListHost seam ──────────────────────────────────────────────
@@ -434,7 +416,7 @@ class BlockReader implements ListHost {
    * parse_list_item (l.1350-1375). The marker line rides at the front so
    * `readParagraph`'s advance consumes it and the text's continuation
    * lines come from the buffer; the rest of the buffer is then read by
-   * the ordinary block loop, whose root children ARE the item's blocks.
+   * the ordinary block loop, whose blocks ARE the item's blocks.
    * @param markerLine - the item's marker line
    * @param marker - the marker as the classifier parsed it
    * @param marker.style - the item's style, the confined ancestry
@@ -449,25 +431,35 @@ class BlockReader implements ListHost {
     buffer: readonly SourceLine[],
     tailSafe: boolean,
   ): { text: InlineToken[]; blocks: BlockNode[] } {
+    // The buffer's last line — the marker line itself when the buffer
+    // is empty — is where a forced close inside this item falls: its
+    // raw end, the vii-b clamp as DATA (spec D2). The marker line
+    // rides at the front of every buffer, so the `??` arm is total
+    // without a further guard.
+    const last = buffer.at(-1) ?? markerLine;
     const inner = new BlockReader(this.scope, [markerLine, ...buffer], {
+      kind: "item",
       style: marker.style,
       tailSafe,
+      closeOffset: last.offset + last.raw.length,
     });
     const text = readParagraph(inner, "listItem", markerLine, marker.markerEnd);
     return { text, blocks: inner.run() };
   }
 
   /**
-   * Whether the next block belongs to the item's DIRECT interior.
+   * Whether the next block belongs to a list item's DIRECT interior.
    * `options[:list_type]` travels only through parse_list_item's own
    * next_block loop: a delimited block inside the item parses its
    * children from a fresh reader with no list flavor (`build_block` →
-   * `Reader.new`), so once any frame is open the item's contexts no
-   * longer apply.
-   * @returns true in a confined reader with no open frame
+   * `Reader.new`), which is now literally what happens — the block
+   * child carries `kind: "block"`, so the item's contexts stop at it
+   * BY CONSTRUCTION (the flavor bit, spec D2; pinned by the
+   * flavor-bit row in tests/format/confinement.test.ts).
+   * @returns true in an item-confined reader
    */
   private directlyInItem(): boolean {
-    return this.confined && this.stack.length === 1;
+    return this.confinement?.kind === "item";
   }
 
   /**
@@ -572,9 +564,9 @@ class BlockReader implements ListHost {
    * block title annotates the block that FOLLOWS, and comment and
    * preprocessor lines are consumed inside the same scan — all before
    * `next_section` asks whether the next line is a title. Holding them
-   * back together is what keeps source order when a heading closes
-   * sections between them: the sections close first, then the whole
-   * held-back run lands in the parent in the order it was written.
+   * back together is what keeps source order when a heading lands
+   * between them: the run flushes ahead of the heading leaf, in the
+   * order it was written.
    * @param line - the source line
    * @param kind - what the classifier made of it
    * @returns whether the line was held back
@@ -621,8 +613,8 @@ class BlockReader implements ListHost {
    * tests/parser/verbatim-styled.test.ts (the recorded §5
    * divergences). Written as a forward walk — the flag resets at each
    * attribute line, so it ends true exactly when the run's tail is
-   * transparent — because architecture.test.ts bans findLast outside
-   * the frame stack.
+   * transparent — because architecture.test.ts bans `findLast(` and
+   * `findLastIndex(` under src/parse.
    * @returns the style, or undefined when none is actionable
    */
   private actionableStyle(): string | undefined {
@@ -652,61 +644,43 @@ class BlockReader implements ListHost {
   }
 
   /**
-   * An ATX title: `next_section` closes every open section of level
-   * `level` or deeper before opening the new one, and the metadata read
-   * ahead of the title belongs to the section the title opens — which
-   * is why the enclosing sections close BEFORE the held-back run is
-   * released, so the run lands in the parent.
+   * A heading line — a LEAF at every level (spec D10). The section
+   * frame only routed finished nodes into a container, deciding
+   * nothing about any line, which is why it left without a
+   * reader-visible trace; the CONFINEMENT arm below is a different
+   * thing entirely — the physical line boundary of an interior
+   * (parse_list_item l.1364; parse_blocks, parser.rb:1082-1083,
+   * pinned by oracle rows P4/P5).
    * @param line - the title line
-   * @param level - the title's level; 0 is the document title
+   * @param level - the classifier's level; 0 is the document title
    */
   sectionTitle(line: SourceLine, level: number): void {
-    if (this.confined) {
-      // "reader is confined to boundaries of list, which means only
-      // blocks will be found (no sections)" — parse_list_item l.1364.
+    if (this.confinement !== undefined) {
+      // ONE arm for both flavors: bodyContext() already answers
+      // "paragraph" for a block child, because directlyInItem() is
+      // false there.
       this.paragraph(this.bodyContext(), line, 0);
       return;
     }
-    const enclosing = this.topFrame();
-    if (enclosing.kind !== "document" && enclosing.kind !== "section") {
-      // Inside a compound block the confined reader never calls
-      // next_section: a heading is paragraph text.
-      this.paragraph("paragraph", line, 0);
-      return;
-    }
     if (this.pendingAttrlist?.style === DISCRETE_STYLE) {
-      this.leaf(buildDiscreteHeading(fragmentOfLine(line), this.at));
+      this.leaf(buildDiscreteHeading(fragmentOfLine(line), level, this.at));
       return;
     }
-    if (level === 0) {
-      this.leaf(buildDocumentTitle(fragmentOfLine(line), this.at));
-      return;
-    }
-    // A section closes on its title line; the close is inert for it (a
-    // section is positioned from its own title) and exists only because
-    // closeFrame is one function for every frame kind.
-    const close = this.forcedClose(line);
-    for (
-      let top = this.topFrame();
-      top.kind === "section" && top.level >= level;
-      top = this.topFrame()
-    ) {
-      this.stack.pop();
-      this.closeFrame(top, close);
-    }
-    this.flushMetadata();
-    this.stack.push({ kind: "section", level, title: line, children: [] });
-    this.advance();
+    this.leaf(buildHeading(fragmentOfLine(line), level, this.at));
   }
 
   // ── delimited blocks: is_delimited_block? + build_block ────────────
 
   /**
-   * Open a delimited block, resolving at OPEN what the frame will
-   * build (spec D4a): the held style is read before the flush, and
-   * the decision travels on the frame instead of being re-derived at
-   * close. Behavior is parser.rb:527-549; structure is the reader's
-   * own dispatch (declared departure, directive 3).
+   * Open a delimited block — the WHOLE read (spec D1b): capture the
+   * annotation, resolve the style (α D4a), flush, collect the extent
+   * (build_block's read_lines_until, parser.rb:1007-1077), then
+   * either slice (verbatim — the collected lines ARE the content and
+   * no reader ever holds them, :1028-1030) or parse the interior
+   * with a fresh CONFINED child reader (compound, :1037; no sections
+   * inside, :1082-1083), and resume past the extent. Held metadata
+   * order is untouched by construction: the flush still happens
+   * between the style resolution and the first interior line.
    * @param line - the opening delimiter line
    * @param block - which delimited block it opens
    */
@@ -714,28 +688,77 @@ class BlockReader implements ListHost {
     const annotatedBy = this.annotation();
     const resolved = resolveDelimitedOpen(block, this.actionableStyle());
     this.flushMetadata();
-    // read_lines_until compares whole rstripped lines against the
-    // terminator; for a fence that terminator is the bare tip.
-    const terminator = block === "fencedCode" ? FENCE_TIP : line.text;
-    this.stack.push(
-      resolved.model === "compound"
-        ? {
-            kind: "compound",
-            terminator,
-            open: line,
-            variant: resolved.variant,
-            admonition: resolved.admonition,
-            children: [],
-          }
-        : {
-            kind: "verbatim",
-            terminator,
-            open: line,
-            role: withFenceLanguage(resolved.role, block, line.text),
-            annotatedBy,
-          },
-    );
-    this.advance();
+    const extent = delimitedExtent(this.lines, this.index, block);
+    const blockExtent = this.packageExtent(extent);
+    if (resolved.model === "verbatim") {
+      const node = buildVerbatimBlock(
+        blockExtent,
+        withFenceLanguage(resolved.role, block, line.text),
+        this.at,
+      );
+      // annotatedBy stays a POST-construction assignment (spec D7.4).
+      if (node.type === "delimitedBlock" && annotatedBy !== undefined) {
+        node.annotatedBy = annotatedBy;
+      }
+      this.push(node);
+    } else {
+      const child = new BlockReader(this.scope, extent.interior, {
+        kind: "block",
+        tailSafe: extent.close !== undefined || this.tailSafe,
+        closeOffset: extent.close?.offset ?? this.forcedCloseOffset,
+      });
+      const children = child.run();
+      this.push(
+        resolved.admonition === undefined
+          ? buildParentBlock(blockExtent, resolved.variant, children, this.at)
+          : buildDelimitedAdmonition(
+              blockExtent,
+              { delimiter: resolved.variant, variant: resolved.admonition },
+              children,
+              this.at,
+            ),
+      );
+    }
+    this.index = extent.resume;
+    this.blanks = 0; // the reset today's close-then-advance performed
+  }
+
+  /**
+   * The builders' BlockExtent for one extent-first read — the ONE
+   * packaging site (spec D1b), stating the two-offsets convention
+   * (spec D2) in code: `contentEnd` is always a line's OWN raw end
+   * (the last interior line's; the open line's when the interior is
+   * empty, which puts it before contentStart and the slice guard
+   * yields ""); `end` is past the close line's raw end when the
+   * block closed, and this reader's forced-close boundary
+   * ({@link BlockReader.forcedCloseOffset}) when it did not.
+   * @param extent - what the extent scan collected
+   * @param extent.open - the opening delimiter line
+   * @param extent.close - the terminator line, when the block met one
+   * @param extent.interior - the lines between the delimiters
+   * @returns the packaged extent
+   */
+  private packageExtent(extent: {
+    readonly open: SourceLine;
+    readonly close: SourceLine | undefined;
+    readonly interior: readonly SourceLine[];
+  }): BlockExtent {
+    const open = fragmentOfLine(extent.open);
+    const last = extent.interior.at(-1);
+    return {
+      open,
+      close:
+        extent.close === undefined ? undefined : fragmentOfLine(extent.close),
+      contentEnd:
+        last === undefined
+          ? open.offset + open.image.length
+          : last.offset + last.raw.length,
+      end:
+        extent.close === undefined
+          ? this.forcedCloseOffset
+          : extent.close.offset + extent.close.raw.length,
+      source: this.source,
+    };
   }
 
   /**
@@ -778,164 +801,19 @@ class BlockReader implements ListHost {
   }
 
   /**
-   * Close the OUTERMOST open block this line terminates.
-   *
-   * `read_lines_until` breaks only on the ONE terminator it was given;
-   * what makes the outermost one win is that `build_block` read the
-   * parent's whole extent up front, so a child that never closed simply
-   * ran out of lines at the parent's delimiter. Read line by line, as
-   * here, that is indistinguishable from the outermost terminator
-   * claiming the line — which is why one flat stack suffices.
-   * @param line - the delimiter line
+   * End of input: release the held-back nodes — the flat reader has
+   * nothing else to close.
    */
-  closeDelimited(line: SourceLine): void {
-    const target = this.stack.findIndex(
-      (frame) =>
-        (frame.kind === "compound" || frame.kind === "verbatim") &&
-        frame.terminator === line.text,
-    );
-    if (target === -1) {
-      // Total fallback: classifyLine reports delimiterClose only for a
-      // terminator this stack holds. Reading the line as a paragraph
-      // instead keeps block level unable to fail, which is the
-      // reader's contract.
-      this.paragraph("paragraph", line, 0);
-      return;
-    }
-    // Metadata held back inside the block belongs to the block: release
-    // it before the block ends, or it would surface after the close.
-    this.flushMetadata();
-    this.closeDownTo(target + 1, line);
-    // Total fallback: closeDownTo left the target frame on top of the
-    // stack, so this pop cannot miss.
-    const frame = this.stack.pop() ?? this.root;
-    this.closeFrame(frame, {
-      close: fragmentOfLine(line),
-      unclosed: undefined,
-    });
-    this.advance();
-  }
-
-  /**
-   * The close of a block that never met its own terminator: an outer
-   * terminator took the line, or EOF came first. Zero-length, at the
-   * start of that line or one past the last character THIS reader can
-   * see — the document's, or the item buffer's. The clamp matters: a
-   * confined reader's EOF is the end of its buffer, and stamping the
-   * document length instead would let an unclosed block inside an
-   * item span bytes the extent scan never gave it — including a
-   * trailing `+` the scan popped, which the printer would then emit
-   * twice (found by the vii-b invariant on a marker line, a `+`, an
-   * unterminated fence and a second `+`).
-   * @param line - the line the close falls on, or undefined at EOF
-   * @returns the close, for the builders
-   */
-  private forcedClose(line: SourceLine | undefined): BlockClose {
-    return {
-      close: undefined,
-      unclosed: { image: "", offset: line?.offset ?? this.endOffset() },
-    };
-  }
-
-  /**
-   * One past the last character this reader reads: the document
-   * length for the document reader (one past the final newline, the
-   * spelling every unclosed-at-EOF position has always had), the last
-   * buffer line's end for a confined one.
-   * @returns the offset a zero-length EOF close falls at
-   */
-  private endOffset(): number {
-    const last = this.lines.at(-1);
-    return this.confined && last !== undefined
-      ? last.offset + last.raw.length
-      : this.source.length;
-  }
-
-  /**
-   * Pop frames until the stack is `depth` deep, closing each one.
-   * @param depth - the stack length to stop at
-   * @param line - the line the closes fall on, or undefined at EOF
-   */
-  closeDownTo(depth: number, line?: SourceLine): void {
-    const close = this.forcedClose(line);
-    while (this.stack.length > depth) {
-      // Total fallback: the loop condition is the non-empty proof this
-      // pop needs; `pop` types the miss whether or not it can happen.
-      this.closeFrame(this.stack.pop() ?? this.root, close);
-    }
-  }
-
-  /**
-   * Build one closing frame's node and give it to its parent. Style
-   * decisions were made at OPEN (openDelimited, verbatimStyledOpen,
-   * paragraph) and travel on the frame — this function re-derives
-   * nothing (spec D4; the post-parse conversion pass this comment
-   * once deferred to is deleted).
-   * @param frame - the frame being popped
-   * @param close - how a delimited block ended; sections close on
-   *   their own terms and ignore it
-   */
-  closeFrame(frame: Frame, close: BlockClose): void {
-    switch (frame.kind) {
-      case "section": {
-        const node = buildSection(fragmentOfLine(frame.title), this.at);
-        node.children = frame.children;
-        this.push(node);
-        break;
-      }
-      case "compound": {
-        const extent = {
-          open: fragmentOfLine(frame.open),
-          ...close,
-          source: this.source,
-        };
-        const { children } = frame;
-        this.push(
-          frame.admonition === undefined
-            ? buildParentBlock(extent, frame.variant, children, this.at)
-            : buildDelimitedAdmonition(
-                extent,
-                { delimiter: frame.variant, variant: frame.admonition },
-                children,
-                this.at,
-              ),
-        );
-        break;
-      }
-      case "verbatim": {
-        const node = buildVerbatimBlock(
-          { open: fragmentOfLine(frame.open), ...close, source: this.source },
-          frame.role,
-          this.at,
-        );
-        if (node.type === "delimitedBlock" && frame.annotatedBy !== undefined) {
-          node.annotatedBy = frame.annotatedBy;
-        }
-        this.push(node);
-        break;
-      }
-      default: {
-        // Total fallback: the document frame never closes — readDocument
-        // reads it off the reader once the run is over — so this arm is
-        // never taken. Breaking rather than throwing keeps closeFrame
-        // total over the whole Frame union.
-        break;
-      }
-    }
-  }
-
-  /** End of input: release held-back nodes, then close every frame. */
   closeAll(): void {
     this.flushMetadata();
-    this.closeDownTo(1);
   }
 }
 
 /**
  * Read a whole document into its AST.
  *
- * The document is the outermost frame and never closes on a line, so
- * its node is built here rather than in `closeFrame`.
+ * The reader collects a flat block sequence; the document node that
+ * wraps it is built here, where the whole source's extent is known.
  *
  * The end position is `at.at(source.length)`: one past the last
  * character, on the line a further character would land on — the

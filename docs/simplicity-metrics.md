@@ -155,10 +155,17 @@ freezes a too-low floor, and finishing it later fails the gate.
 ### Seam width
 
 The member count of each NAMED cross-module interface, ratcheted per seam: a
-seam may not gain members. v1 names four — `ListHost`
-(`src/parse/lines/frames.ts`), `ReaderContext` (`src/parse/lines/classify.ts`),
-`ExtentBounds` (`src/parse/lines/list-reader.ts`) and `ParagraphHost`
-(`src/parse/lines/paragraph-reader.ts`).
+seam may not gain members. v1 names four, and each one is what one module had to
+publish for another: `ListHost` (`src/parse/lines/frames.ts`) — what
+extent-first list reading needs from a reader; `ReaderContext`
+(`src/parse/lines/classify.ts`) — the whole context the classifier reads, which
+is the open paragraph shape, the open list styles and whether this is the
+block's first line, and no terminator vocabulary at all; `ExtentBounds`
+(`src/parse/lines/list-reader.ts`) — the single stream-end fact one extent scan
+needs from its enclosing one; and `ParagraphHost`
+(`src/parse/lines/paragraph-reader.ts`) — what paragraph reading needs from the
+reader that owns the read position. The row COUNT is what the gate enforces;
+this sentence only says what the rows are.
 
 Every member is a fact one module had to publish about itself for another to
 work, which is Henry–Kafura information flow measured where the flow was
