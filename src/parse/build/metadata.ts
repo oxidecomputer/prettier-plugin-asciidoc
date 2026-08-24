@@ -22,7 +22,6 @@ import type {
   PreprocessorDirectiveNode,
   ThematicBreakNode,
 } from "../../ast.js";
-import { unreachable } from "../../unreachable.js";
 import { makeInlineAnchor } from "../inline/inline-link-builder.js";
 import { rstrip } from "../line-shapes.js";
 import { rawLineForm } from "../lines/classify.js";
@@ -175,37 +174,29 @@ export function buildPageBreak(
   };
 }
 
-// Regex to decompose a block macro line into its three
-// parts: name, target, and attribute list.
-const BLOCK_MACRO_RE =
-  /^(?<name>[a-zA-Z]\w*)::(?<target>[^\[]*)\[(?<attrlist>[^\]]*)\]/v;
-
 /**
- * Builds a BlockMacroNode from a block macro line.
- *
- * Block macros follow the `name::target[attrlist]` pattern. The regex
- * splits the line into the three components so the AST
- * preserves them as structured fields rather than a raw string.
- * @param line - A block macro line (e.g. `image::sunset.jpg[Alt]`).
+ * Builds a BlockMacroNode from the classifier's parsed fields — group
+ * captures taken over the rstripped `text` transfer to the raw
+ * `image` unchanged, because rstrip trims only the end of the line
+ * and every captured span ends at or before the closing bracket.
+ * @param kind - the classifier's parse of the line
+ * @param kind.name - macro name
+ * @param kind.target - target between `::` and `[`
+ * @param kind.attrlist - raw attrlist content
+ * @param line - the block macro line's span
  * @param at - The document's location index.
  * @returns A block macro node with name, target, and attrlist.
  */
 export function buildBlockMacro(
+  kind: { name: string; target: string; attrlist: string },
   line: Fragment,
   at: LocationIndex,
 ): BlockMacroNode {
-  // The classifier's BLOCK_MACRO and this file's BLOCK_MACRO_RE are
-  // two patterns for one shape; the guard is what says they must
-  // agree. It is not defence against user input — a line that is not
-  // a block macro never reaches here.
-  const match = BLOCK_MACRO_RE.exec(line.image);
-  const groups =
-    match?.groups ?? unreachable(`Invalid block macro: ${line.image}`);
   return {
     type: "blockMacro",
-    name: groups.name,
-    target: groups.target,
-    attrlist: groups.attrlist,
+    name: kind.name,
+    target: kind.target,
+    attrlist: kind.attrlist,
     position: {
       start: at.start(line),
       end: at.end(line),
@@ -303,62 +294,32 @@ export function buildRawBlockLine(
   }
 }
 
-// Attribute entry: `:name: value`, `:name:`, `:!name:`, or `:name!:`.
-// The SAME shape as the registry's ATTRIBUTE_ENTRY (`AttributeEntryRx`:
-// `^:(!?\w[^:]*):(?:[ \t]+(.*))?$`) with the unset bang and the value
-// captured: `!` is a `[^:]` character, so every line the classifier
-// accepted matches here too (the lazy name simply stops before a
-// trailing bang), and a miss is unreachable.
-const ATTRIBUTE_ENTRY_RE =
-  /^:(?<prefixBang>!?)(?<name>\w[^:]*?)(?<suffixBang>!?):(?:[ \t]+(?<value>[^\n]*))?$/v;
-
 /**
- * Determines whether an attribute entry uses `!` prefix or
- * suffix unset syntax, or is a normal set. AsciiDoc supports
- * both `:!name:` (prefix) and `:name!:` (suffix) forms to
- * undefine an attribute.
- * @param prefix - The character before the attribute name
- *   (empty string or "!").
- * @param suffix - The character after the attribute name
- *   (empty string or "!").
- * @returns `"prefix"` or `"suffix"` indicating the unset
- *   form, or `false` if the attribute is being set normally.
- */
-function parseUnsetForm(
-  prefix: string,
-  suffix: string,
-): false | "prefix" | "suffix" {
-  if (prefix === "!") return "prefix";
-  if (suffix === "!") return "suffix";
-  return false;
-}
-
-/**
- * Parses an attribute entry line (`:name: value`) into its components.
- * Handles three forms: set (`:name: value`), prefix-unset (`:!name:`),
- * and suffix-unset (`:name!:`).
- * @param line - An attribute-entry line, the full line.
+ * Builds an AttributeEntryNode from the classifier's parsed fields —
+ * the value arrives trimmed and empty-narrowed; nothing is
+ * re-derived.
+ * @param kind - the classifier's parse of the line
+ * @param kind.name - the attribute name
+ * @param kind.value - the trimmed value, or undefined
+ * @param kind.unset - the unset form, or false
+ * @param line - the attribute-entry line's span
  * @param at - The document's location index.
- * @returns Attribute entry node with parsed name, optional trimmed
- *   value, and unset form indicator.
+ * @returns the attribute entry node
  */
 export function buildAttributeEntry(
+  kind: {
+    name: string;
+    value: string | undefined;
+    unset: false | "prefix" | "suffix";
+  },
   line: Fragment,
   at: LocationIndex,
 ): AttributeEntryNode {
-  const groups =
-    ATTRIBUTE_ENTRY_RE.exec(line.image)?.groups ??
-    unreachable(`Invalid attribute entry: ${line.image}`);
-  const { prefixBang, name, suffixBang } = groups;
-  // TypeScript types regex groups as `string`, but unmatched
-  // optional groups are `undefined` at runtime.
-  const rawValue = groups.value as string | undefined;
-  const trimmed = rawValue?.trim();
   return {
     type: "attributeEntry",
-    name,
-    value: trimmed === undefined || trimmed.length === 0 ? undefined : trimmed,
-    unset: parseUnsetForm(prefixBang, suffixBang),
+    name: kind.name,
+    value: kind.value,
+    unset: kind.unset,
     position: {
       start: at.start(line),
       end: at.end(line),

@@ -199,9 +199,12 @@ export interface InlineAnchorNode extends Node {
   /** Anchor identifier (the first argument). */
   id: string;
   /**
-   * Default cross-reference text from the two-argument
-   * form `[[id, reftext]]`. Undefined for single-argument
-   * anchors.
+   * The author's post-comma bytes from the two-argument form
+   * `[[id, reftext]]`, VERBATIM — leading whitespace included — so a
+   * grammar-rejected id can print byte-faithfully. Undefined when the
+   * anchor has no comma, or when the post-comma spelling is empty or
+   * all whitespace (the `[[id,]]`-class narrowing). Ruby's trimmed
+   * view is derived where needed; this value never feeds the oracle.
    */
   reftext: string | undefined;
 }
@@ -373,6 +376,17 @@ export interface ListNode extends Node {
    * markers, `"callout"` for `<N>` / `<.>` markers.
    */
   variant: "unordered" | "ordered" | "callout";
+  /**
+   * The marker spelling shared by this list's items, exactly as the
+   * classifier parsed it (`parseListMarker`'s `style`): `-`, `*`
+   * through `*****`, `.` through `.....`, or the callout sentinel
+   * `<>` (CALLOUT_STYLE) — the same string sibling matching compares,
+   * which is Ruby's resolve_list_marker result (parser.rb:2177,
+   * :2265–2269). The printer replays it; nesting depth is DERIVED
+   * from it where needed (`-` is depth 1; a run's length is its
+   * depth), never stored.
+   */
+  marker: string;
   /** Items in this list, in document order. */
   children: ListItemNode[];
 }
@@ -558,38 +572,17 @@ export interface PageBreakNode extends Node {
 }
 
 /**
- * A single item within a list.
- *
- * An item is its marker, its principal text, and then everything it
- * holds — nested lists and blocks alike — in source order, each behind
- * the verbatim separator lines the author wrote before it. The
- * printer replays those separators byte for byte, which is what makes
- * list formatting idempotent by construction.
+ * The body every list-like item shares: principal inline text, then
+ * blocks behind their recorded gaps. The document-order key contract
+ * (`text` serialized before `blocks`) is owned by the BUILDER
+ * literals — see buildListItem's "field order in the literal is
+ * load-bearing" note (src/parse/build/list.ts); an interface's
+ * declaration order determines nothing. A description-list item (#9)
+ * will extend this shape too, which is why it is one home rather
+ * than a set of members copied between two node kinds.
  */
-export interface ListItemNode extends Node {
-  /** Node discriminant. */
-  type: "listItem";
-  /**
-   * Marker nesting depth: number of `*` or `.` characters in the
-   * original marker. The printer uses this to reproduce the level.
-   */
-  depth: number;
-  /**
-   * Checkbox state for checklist items. `undefined` for normal items,
-   * `"checked"` for `[x]` or `[*]`, `"unchecked"` for `[ ]`. Only
-   * meaningful on unordered list items.
-   */
-  checkbox: "checked" | "unchecked" | undefined;
-  /**
-   * The callout number for callout list items (e.g. 1 for `<1>`).
-   * `undefined` for non-callout items; 0 for auto-numbered (`<.>`).
-   */
-  calloutNumber: number | undefined;
-  /**
-   * The principal text — inline nodes only. (Was `children`, which
-   * also interleaved nested lists; the better name is worth the
-   * mechanical churn — owner, spec D1.)
-   */
+export interface ItemBody {
+  /** The principal text — inline nodes only. */
   text: InlineNode[];
   /**
    * Everything the item holds after its text, in source order: nested
@@ -613,6 +606,33 @@ export interface ListItemNode extends Node {
    * author typed.
    */
   trailingContinuation: boolean;
+}
+
+/**
+ * A single item within a list.
+ *
+ * An item is its marker, its principal text, and then everything it
+ * holds — nested lists and blocks alike — in source order, each behind
+ * the verbatim separator lines the author wrote before it. Field order
+ * in the SERIALIZED node is owned by the builder literal — see
+ * buildListItem's "field order in the literal is load-bearing" note
+ * (src/parse/build/list.ts); an interface's declaration order
+ * determines nothing.
+ */
+export interface ListItemNode extends Node, ItemBody {
+  /** Node discriminant. */
+  type: "listItem";
+  /**
+   * Checkbox state for checklist items. `undefined` for normal items,
+   * `"checked"` for `[x]` or `[*]`, `"unchecked"` for `[ ]`. Only
+   * meaningful on unordered list items.
+   */
+  checkbox: "checked" | "unchecked" | undefined;
+  /**
+   * The callout number for callout list items (e.g. 1 for `<1>`).
+   * `undefined` for non-callout items; 0 for auto-numbered (`<.>`).
+   */
+  calloutNumber: number | undefined;
 }
 
 /** One thing an item holds after its text, with how the source led into it. */

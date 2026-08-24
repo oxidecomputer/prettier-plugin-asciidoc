@@ -5,6 +5,9 @@
  * line-shapes.ts knows, one dimension per rule), perturbations
  * (terminations, codas, garnishes, and for every valid spelling its
  * near-misses) — each entry a named, DETERMINISTIC string generator.
+ * The list-run grid lives in its sibling module,
+ * scripts/shape-registry-list-run.ts, built from this file's Shape
+ * vocabulary.
  *
  * Two consumption modes are designed for; β ships mode (1) only:
  * (1) deterministic exhaustive matrices (`scripts/shape-diff.ts`);
@@ -24,7 +27,6 @@ import {
   DELIMITER_KINDS,
   type DelimiterKind,
 } from "../src/parse/line-shapes.js";
-import { CONFINED_EXTENT_FAMILY } from "./parity-ledger.js";
 
 /** Where a construct sits: wraps a construct's lines into a document. */
 export interface ContainerEntry {
@@ -243,7 +245,7 @@ export const OTHER_CONSTRUCTS: readonly ConstructEntry[] = [
   },
   {
     id: "dlist-term",
-    covers: ["DLIST_SEPARATOR_WORD"],
+    covers: ["DLIST_SEPARATOR_WORD", "parseDescriptionListLine"],
     body: "term:: def",
     nearMisses: ["term: : def"],
   },
@@ -333,6 +335,12 @@ export const CONTAINERS: readonly ContainerEntry[] = [
   { id: "after-h2-adjacent", wrap: (body) => `=== T\n${body}\n` },
   { id: "before-h1-adjacent", wrap: (body) => `${body}\n== B\n` },
   { id: "before-h1-blank", wrap: (body) => `${body}\n\n== B\n` },
+  // A [NOTE] attrlist above the construct: for the compound delimiter
+  // kinds this is the buildDelimitedAdmonition path, which no realized
+  // input reached before (the shape-census GRID_EXEMPT note this row
+  // retires); for verbatim kinds it is the uppercase-word admonition
+  // masquerade, pinned byte-stable by the same rows.
+  { id: "under-note-attrlist", wrap: (body) => `[NOTE]\n${body}\n` },
 ];
 
 /**
@@ -400,10 +408,10 @@ export interface Shape {
   readonly input: string;
   /**
    * The expected-diff family this coordinate belongs to, when it is
-   * allowed to differ base-vs-head at all — β's closed enum has ONE
-   * member, `b44-confined-extent` (spec D4): a VERBATIM role,
-   * unterminated, forced shut by a CONFINED stream end. Undefined
-   * everywhere else, and a differing row with no family fails the run.
+   * allowed to differ base-vs-head at all — the closed enum lives in
+   * scripts/parity-ledger.ts (GAMMA_FAMILIES); only listRunGrid()
+   * coordinates carry one. Undefined everywhere else, and a differing
+   * row with no family fails the run.
    */
   readonly family?: string;
   /**
@@ -416,49 +424,6 @@ export interface Shape {
    * and a diff is a STOP, never a family candidate).
    */
   readonly renderBlind: boolean;
-}
-
-// The b44-confined-extent coordinates (spec D4): verbatim roles only —
-// compound interiors never sliced content and lose nothing, so a
-// compound diff here is UNEXPLAINED, never family.
-const VERBATIM_KINDS = new Set<DelimiterKind>([
-  "listing",
-  "literal",
-  "pass",
-  "fencedCode",
-  "commentBlock",
-  "tablePipe",
-  "tableComma",
-  "tableColon",
-  "tableBang",
-]);
-const CONFINED_CONTAINERS = new Set([
-  "item",
-  "nested-item",
-  "item-unterminated-example",
-]);
-const UNTERMINATED_PERTURBATIONS = new Set([
-  "unterminated",
-  "unterminated-then-blank-text",
-]);
-
-/**
- * The family a grid coordinate belongs to, if any.
- * @param kind - the delimiter kind
- * @param containerId - the container dimension's id
- * @param perturbationId - the perturbation dimension's id
- * @returns the CONFINED_EXTENT_FAMILY id on the family's coordinates
- */
-function familyOf(
-  kind: DelimiterKind,
-  containerId: string,
-  perturbationId: string,
-): string | undefined {
-  return VERBATIM_KINDS.has(kind) &&
-    CONFINED_CONTAINERS.has(containerId) &&
-    UNTERMINATED_PERTURBATIONS.has(perturbationId)
-    ? CONFINED_EXTENT_FAMILY
-    : undefined;
 }
 
 /**
@@ -480,10 +445,13 @@ export function standingGrid(): Shape[] {
           perturbation.document === undefined
             ? wrapped
             : perturbation.document(wrapped);
+        // No family on any standing coordinate: the base revision
+        // contains the #44 fix, so every standing row is expected
+        // byte-identical and a diff here fails the run — there is no
+        // family left to explain one.
         shapes.push({
           id: `${kind}/${container.id}/${perturbation.id}`,
           input,
-          family: familyOf(kind, container.id, perturbation.id),
           renderBlind: kind === "commentBlock",
         });
       }
@@ -574,6 +542,36 @@ export function headingAdjacencyGrid(): Shape[] {
     {
       id: "adjacency/list-reader-eaten/before-h1",
       input: "== A\n* a\n+\nifdef::x[]\n== B\n",
+      renderBlind: false,
+    },
+    // The R2 class (the recorded hoisted-raw-line divergence,
+    // tests/format/heading-adjacency.test.ts): a level >= 1 heading,
+    // held raw line(s), then a same-or-shallower heading. The base
+    // bytes are already the uniform-blank spelling, so these rows are
+    // byte-stable and family-free.
+    {
+      id: "adjacency/r2-comment/same-level",
+      input: "== T\n// c\n== U\n",
+      renderBlind: false,
+    },
+    {
+      id: "adjacency/r2-conditional/same-level",
+      input: "== T\nifdef::x[]\n== U\n",
+      renderBlind: false,
+    },
+    {
+      id: "adjacency/r2-comment/shallower",
+      input: "=== T\n// c\n== U\n",
+      renderBlind: false,
+    },
+    {
+      id: "adjacency/r2-comment/deeper",
+      input: "== T\n// c\n=== V\n",
+      renderBlind: false,
+    },
+    {
+      id: "adjacency/r2-comment/level0",
+      input: "= T\n// c\n= U\n",
       renderBlind: false,
     },
   );

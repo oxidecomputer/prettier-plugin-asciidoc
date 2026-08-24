@@ -302,7 +302,7 @@ describe("the interior-validation registry", () => {
   // definition and pass with no registry at all, which is exactly the
   // hole this replaces: the number has to be changed BY HAND, as part
   // of deciding that a site was added or designed away.
-  const SHIPPED_ENTRIES = 5;
+  const SHIPPED_ENTRIES = 4;
 
   test("the shipped registry reads, holds its audited count, and is current", () => {
     const { entries, faults } = readRegistry(REPO_ROOT);

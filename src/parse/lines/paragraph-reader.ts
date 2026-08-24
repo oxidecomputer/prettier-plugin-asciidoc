@@ -16,17 +16,13 @@
  */
 import { tokenizeInline } from "../inline/tokenize.js";
 import type { InlineToken } from "../inline/tokens.js";
-import type { ParagraphContext } from "../line-shapes.js";
+import { LINE_COMMENT_HEAD, type ParagraphContext } from "../line-shapes.js";
 import { classifyLine, type LineKind, type ReaderContext } from "./classify.js";
 import type { SourceLine } from "./split.js";
 
 // A line that is nothing but indentation and a `+` — the one line shape
 // whose meaning `adjust_indentation!` can change (see Paragraph).
 const INDENTED_PLUS = /^[ \t]+\+$/v;
-
-// What `Reader#skip_line_comments` takes for a comment: any line that
-// starts with two slashes, three-slash lines included.
-const COMMENT_HEAD = "//";
 
 // The two paragraph contexts whose lines Asciidoctor re-reads through
 // `next_block` with `text_only`: a list item's and a dlist item's own
@@ -122,7 +118,7 @@ class Paragraph {
     from: number,
   ) {
     this.runEnd = line.offset + line.raw.length;
-    if (context === "dlistItem" && line.text.startsWith(COMMENT_HEAD)) {
+    if (context === "dlistItem" && line.text.startsWith(LINE_COMMENT_HEAD)) {
       // A dlist term that begins with `//` (`///b::` — not a comment to
       // the classifier, which mirrors LineCommentRx) IS one to
       // `Reader#skip_line_comments`, which tests `start_with? '//'` and

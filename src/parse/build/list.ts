@@ -13,17 +13,12 @@ import type {
   ListItemNode,
   ListNode,
 } from "../../ast.js";
-import { AUTO_CALLOUT_NUMBER, OUTERMOST_DEPTH } from "../../constants.js";
+import { AUTO_CALLOUT_NUMBER } from "../../constants.js";
 import { buildFromTokens } from "../inline/inline-node-builder.js";
 import type { InlineToken } from "../inline/tokens.js";
-import { listMarkerStyle } from "../line-shapes.js";
 import type { ListVariant } from "../lines/classify.js";
 import type { Fragment, LocationIndex } from "../positions.js";
 import { bodyExtent } from "./paragraph.js";
-
-// Callout lists are always flat — they don't support nesting like
-// unordered or ordered lists. Every callout item is at depth 1.
-const CALLOUT_DEPTH = 1;
 
 // Regex extracting the number between angle brackets in a
 // callout marker: `<1> ` → "1", `<.> ` → ".".
@@ -144,26 +139,6 @@ function takeCheckbox(
 }
 
 /**
- * The nesting depth an unordered or ordered marker asks for: a `-`
- * list is always one level deep; repeating markers spell their depth
- * in their length (`**` is level 2). The marker image is `marker +
- * gap`; the style is the marker.
- * @param marker - the marker span
- * @returns the depth
- */
-function markerDepth(marker: Fragment): number {
-  // NOT a can't-happen fallback, unlike the marked one in
-  // calloutNumberOf below: this `??` is LIVE and answers WRONG.
-  // Every MARKER_STYLES pattern ends in a `(?= )` lookahead for a
-  // literal space, so a TAB-gapped marker misses and the depth
-  // collapses to 1 — `* a` then `**<tab>b` reprints as two siblings,
-  // flattening a nesting the oracle keeps. Issue #42; do not mark this
-  // as a degrade-instead-of-throw site, it is a bug with a fallback.
-  const style = listMarkerStyle(marker.image) ?? "*";
-  return style === "-" ? OUTERMOST_DEPTH : style.length;
-}
-
-/**
  * The callout number of a callout marker: `<1> ` → 1, `<.> ` → 0 (auto).
  * @param marker - the callout marker span
  * @returns the number, or the auto sentinel
@@ -173,6 +148,8 @@ function calloutNumberOf(marker: Fragment): number {
   // opened it because this marker already matched the callout shape,
   // so the group is always there. Degrading to `.` (auto-numbering)
   // rather than throwing keeps the builder total.
+  // The blast radius is one marker: a miss would print that item's
+  // callout as auto-numbered and change nothing else.
   const inner = CALLOUT_NUMBER_RE.exec(marker.image)?.groups?.inner ?? ".";
   return inner === "." ? AUTO_CALLOUT_NUMBER : Number.parseInt(inner, 10);
 }
@@ -199,7 +176,6 @@ export function buildListItem(
   const isCallout = input.variant === "callout";
   return {
     type: "listItem",
-    depth: isCallout ? CALLOUT_DEPTH : markerDepth(input.marker),
     checkbox,
     calloutNumber: isCallout ? calloutNumberOf(input.marker) : undefined,
     text,
@@ -217,17 +193,20 @@ export function buildListItem(
 }
 
 /**
- * A list: its items, with the variant the reader read off the first
- * item's marker (every item of one list has the same marker kind —
- * the reader opened the list on that kind and ends it at any other).
- * A list always has an item: the reader opens one on a marker line
- * and builds that item before it closes the list.
+ * A list: its items, with the variant and the marker spelling the
+ * reader read off the first item's marker (every item of one list has
+ * the same marker — the reader opens the list on that style and ends
+ * it at any other, list-reader.ts's style check). A list always
+ * has an item: the reader opens one on a marker line and builds that
+ * item before it closes the list.
  * @param variant - which list kind it is
+ * @param marker - the shared marker spelling (`ListNode.marker`)
  * @param items - the items, in source order; never empty
  * @returns the list node
  */
 export function buildList(
   variant: ListNode["variant"],
+  marker: string,
   items: readonly ListItemNode[],
 ): ListNode {
   const [first] = items;
@@ -235,6 +214,7 @@ export function buildList(
   return {
     type: "list",
     variant,
+    marker,
     children: [...items],
     position: { start: first.position.start, end: last.position.end },
   };

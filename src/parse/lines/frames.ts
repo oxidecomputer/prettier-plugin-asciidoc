@@ -22,10 +22,8 @@ import type {
   ParentBlockNode,
 } from "../../ast.js";
 import {
-  buildAttributeEntry,
   buildBlockAnchor,
   buildBlockAttributeList,
-  buildBlockMacro,
   buildBlockTitle,
   buildPageBreak,
   buildRawBlockLine,
@@ -69,7 +67,9 @@ export type VerbatimRole =
  * extent-first reading needs from a BlockReader, and nothing else.
  * A confined reader implements it too, which is what lets readList
  * recurse: an inner list is read from an outer item's buffer with the
- * SAME functions.
+ * SAME functions. Nothing here writes back into the host: a list
+ * lands where its reader's CALLER puts it — the value returns, and
+ * there is no callback to mis-wire.
  */
 export interface ListHost {
   /** The lines this host reads — the document's, or an item's buffer. */
@@ -95,10 +95,6 @@ export interface ListHost {
    * list-reader.ts).
    */
   readonly tailSafe: boolean;
-  /** Put a finished block into the host's own block sequence. */
-  readonly push: (node: BlockNode) => void;
-  /** Release the metadata nodes held back for the block that follows. */
-  readonly flushMetadata: () => void;
   /**
    * Read one item's interior: the principal text (the `listItem`-set
    * paragraph from the marker line, text starting at the marker's
@@ -155,23 +151,16 @@ export function fragmentOfLine(
  * A line kind that IS a block, whole and entire: no extent to read
  * and nothing to open. The union {@link leafBuilder} is total over.
  */
-export type LeafKind =
-  | "attributeEntry"
-  | "blockMacro"
-  | "thematicBreak"
-  | "pageBreak";
+export type LeafKind = "thematicBreak" | "pageBreak";
 
-// The builder each leaf kind goes to. ONE table for both readers: the
-// document reader (reader.ts) dispatches every kind through it, and
-// the confined list reader (list-reader.ts) reaches three of the four
-// the same way — it handles `attributeEntry` on its own path, because
-// an attribute entry inside an item claims no continuation.
+// The builder each field-free leaf kind goes to. The field-CARRYING
+// leaves (attribute entries, block macros) take the classifier's
+// parse and dispatch in the reader's own switch
+// (BlockReader.parsedLeaf), where the kind's narrowing is free.
 const LEAF_BUILDERS: Record<
   LeafKind,
   (line: Fragment, at: LocationIndex) => BlockNode
 > = {
-  attributeEntry: buildAttributeEntry,
-  blockMacro: buildBlockMacro,
   thematicBreak: buildThematicBreak,
   pageBreak: buildPageBreak,
 };
@@ -203,8 +192,8 @@ export function leafBuilder(
 // comment/preprocessor lines the same scan consumes. An attribute
 // ENTRY is deliberately absent: Ruby processes it as a document
 // attribute where it stands, so it stays a leaf where it was
-// written. This table is the one source of truth for both
-// functions below.
+// written. This table is the one source of truth for which line
+// kinds are held-back metadata.
 const HELD_BUILDERS = new Map<
   LineKind["kind"],
   (line: Fragment, at: LocationIndex) => BlockNode
@@ -231,17 +220,4 @@ export function heldMetadataNode(
   at: LocationIndex,
 ): BlockNode | undefined {
   return HELD_BUILDERS.get(kind.kind)?.(fragmentOfLine(line), at);
-}
-
-/**
- * Whether a line kind is one `parse_block_metadata_line` holds back for
- * the block that follows (see `BlockReader.holdMetadata` in reader.ts).
- * Reads the same table as {@link heldMetadataNode}, so there is exactly
- * one source of truth for which line kinds are held-back metadata.
- * @param kind - what the classifier made of a line
- * @returns true for an anchor, an attribute line, a block title or a
- *   raw line
- */
-export function isHeldMetadata(kind: LineKind): boolean {
-  return HELD_BUILDERS.has(kind.kind);
 }

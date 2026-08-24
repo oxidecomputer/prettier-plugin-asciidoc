@@ -10,6 +10,7 @@ import type {
   LinkNode,
   XrefNode,
 } from "./ast.js";
+import { BLOCK_ANCHOR } from "./parse/line-shapes.js";
 
 /**
  * Serialize a unified inline macro node back to AsciiDoc
@@ -56,20 +57,28 @@ export function xrefToSource(node: XrefNode): string {
 }
 
 /**
- * Serialize an inline anchor AST node back to AsciiDoc
- * source. Produces `[[id]]` or `[[id, reftext]]`
- * depending on whether optional reference text is present.
- * Accepts any id/reftext pair so the block-anchor printer
- * shares this one spelling.
- * @param node - The parsed anchor with an id and
- *   optional reftext used as the default display text
- *   when another section references this anchor.
+ * Serialize an inline anchor AST node back to AsciiDoc source. A
+ * VALID id takes the normalized spelling `[[id, reftext]]` (print-time
+ * trim of the verbatim-captured reftext — byte-identical to the old
+ * always-normalize behavior on valid ids); a grammar-REJECTED id
+ * emits the author's interior verbatim, `[[id,` + reftext + `]]`,
+ * because to the re-reader that line is TEXT and respelling it
+ * changes the rendered characters (the grammar home is the registry's
+ * BLOCK_ANCHOR — behavior is Ruby's BlockAnchorRx, rx.rb:163 — pinned
+ * by tests/format/anchor-spelling.test.ts). Accepts any id/reftext
+ * pair so the block-anchor printer shares this one spelling.
+ * @param node - The parsed anchor with an id and optional verbatim
+ *   reftext.
  * @returns AsciiDoc source string for the anchor.
  */
 export function anchorToSource(
   node: Pick<InlineAnchorNode, "id" | "reftext">,
 ): string {
-  return node.reftext === undefined
-    ? `[[${node.id}]]`
-    : `[[${node.id}, ${node.reftext}]]`;
+  if (node.reftext === undefined) {
+    return `[[${node.id}]]`;
+  }
+  const normalized = `[[${node.id}, ${node.reftext.trimStart()}]]`;
+  return BLOCK_ANCHOR.test(normalized)
+    ? normalized
+    : `[[${node.id},${node.reftext}]]`;
 }

@@ -13,7 +13,7 @@
  */
 import { describe, expect, test } from "vitest";
 import { parse } from "../../src/parser.js";
-import { preorder } from "./ast-invariants.js";
+import { preorder } from "./ast-walk.js";
 
 /**
  * The first source-sliced verbatim node in a parse — a delimited

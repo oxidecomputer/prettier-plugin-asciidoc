@@ -1,11 +1,10 @@
 /**
- * hazard(item) — Rulings 26–30 as a pure predicate over the finished
- * node (spec D2). The printer asks this function; the old reader's
- * streaming machinery (holdMark/startHeldRun/
- * reflowWouldReachFirstRestLine) is gone with the cut-over, and the
- * rows below — written against that reader's measured behaviour —
- * are the contract the predicate carried across it unchanged. They
- * mirror tests/format/list-item-blocks.test.ts and
+ * hazard(item) — a pure predicate over the finished
+ * node, with TWO answers: `"keepBreak"` (hold the text's last source
+ * break so the re-reader meets the metadata where the author put it)
+ * and `"none"` (replay the gap verbatim). There is no third answer,
+ * because the printer never invents a continuation line. The rows
+ * below mirror tests/format/list-item-blocks.test.ts and
  * list-continuation.test.ts, which pin the same facts as bytes.
  */
 import { describe, expect, test } from "vitest";
@@ -35,14 +34,15 @@ describe("hazard", () => {
     // metadata after reflow too — keep the spelling (Ruling 26's
     // "more than one line" clause; pinned: "metadata and its block").
     ["* a\n[role]\npara\n", "none"],
-    // Multi-line text, metadata run, block follows: explicit `+`
-    // (Ruling 26/27; pinned by the list-continuation suite). Today's
-    // measured output for the third row is "* a b\n+\n[role]\n.T\npara\n".
-    ["* a\nb\n[role]\npara\n", "plus"],
-    ["* a\nb\n[[anc]]\npara\n", "plus"],
-    ["* a\nb\n[role]\n.T\npara\n", "plus"],
+    // Multi-line text, metadata run, block follows: hold the text's
+    // last break, so a TEXT line lands on the first rest line and the
+    // re-reader's drain meets the run where the author wrote it
+    // (Rulings 26/27; pinned by the list-continuation suite).
+    ["* a\nb\n[role]\npara\n", "keepBreak"],
+    ["* a\nb\n[[anc]]\npara\n", "keepBreak"],
+    ["* a\nb\n[role]\n.T\npara\n", "keepBreak"],
     // Trailing run with no title: a reflowed [role] on the first rest
-    // line is still read as metadata — no `+`, no kept break.
+    // line is still read as metadata — nothing to compensate for.
     ["* a\nb\n[role]\n", "none"],
     // A bare `.T` under item text is not metadata at all: BLOCK_TITLE
     // is in no interrupting set (Ruby's StartOfBlockProc), so it folds
@@ -56,49 +56,43 @@ describe("hazard", () => {
     ["* a\n  para\n[role]\n.T\n", "keepBreak"],
     // The listing does NOT enter the item (continuation is :inactive
     // at the `----` line, so l.1445-46 breaks the extent): the run is
-    // TRAILING and carries a title → keepBreak, not plus. Measured at
-    // the pre-cut-over baseline:
-    // "* a\n  b\n[role]\n.T\n\n----\nx\n----\n" — the kept break, no `+`.
+    // TRAILING and carries a title → keepBreak.
     ["* a\nb\n[role]\n.T\n----\nx\n----\n", "keepBreak"],
-    // Ruling 66: an AUTHOR-written `+` between two metadata lines does
-    // not end the run — the `+` is replayed verbatim from the gap, so
-    // the attachment needs no help and today's reader introduces
-    // nothing. Measured: rows 1/2/3 print their input back unchanged
-    // except for the text reflow the answer asks for, and rows 2/3 keep
-    // the text break.
-    ["* a\npara\n[role]\n+\n[role]\n", "none"],
+    // An AUTHOR-written `+` ends the run: the run's members must each
+    // be strictly adjacent, and a `+` in the gap means the gap already
+    // speaks. The `+`-separated metadata line is therefore a FOLLOWER
+    // — a block of the item after the run — and the run is held back
+    // with a kept break. The `+` itself replays verbatim from the gap;
+    // the printer adds nothing.
+    ["* a\npara\n[role]\n+\n[role]\n", "keepBreak"],
+    // Same answer as before this rule, new reason: the `.T` behind the
+    // `+` FOLLOWS the run rather than joining it and carrying a title
+    // into it.
     ["* a\npara\n[role]\n+\n.T\n", "keepBreak"],
     ["* a\n.T\n[[anc]]\n+\n.T\n", "keepBreak"],
-    // …but a `+`-separated block that is NOT metadata really does
-    // follow the run, and the reader really does introduce a `+` for it:
-    // measured "* a para\n+\n[role]\n+\npara\n". This is why the rule
-    // lives in the run, not in a "skip +-introduced blocks" filter on
-    // the follows count — such a filter would answer "none" here.
-    ["* a\npara\n[role]\n+\npara\n", "plus"],
-    // Rulings 64 and 66 compose without double-counting: a comment
-    // block behind an author `+` is read through by either clause, and
-    // a comment INSIDE the run does not stop the `+` after it from
-    // carrying the title into the run.
+    // A `+`-separated block that is not metadata follows the run the
+    // same way — one rule, no special case.
+    ["* a\npara\n[role]\n+\npara\n", "keepBreak"],
+    // A `+`-separated line COMMENT is transparent to the follows
+    // count (Ruling 64), so nothing follows the run and the run
+    // carries no title: no compensation.
     ["* a\npara\n[role]\n+\n// c\n", "none"],
-    // …but a `////` comment BLOCK is not transparent: `skip_line_comments`
-    // skips `//` LINES only, so the block is a block of the item that
-    // follows the run and earns the `+` (found by the plan's mutation
-    // pass — the mutants that let a comment block through here changed
-    // real bytes and were killed by no test; also pinned as bytes at
-    // list-item-blocks "a comment BLOCK behind the run").
-    ["* a\npara\n[role]\n+\n////\nc\n////\n", "plus"],
+    // …but a `////` comment BLOCK is not transparent:
+    // `skip_line_comments` skips `//` LINES only, so the block is a
+    // block of the item that follows the run (found by the plan's
+    // mutation pass — the mutants that let a comment block through
+    // here changed real bytes and were killed by no test; also pinned
+    // as bytes at list-item-blocks "a comment BLOCK behind the run").
+    ["* a\npara\n[role]\n+\n////\nc\n////\n", "keepBreak"],
     ["* a\npara\n[role]\n// c\n+\n.T\n", "keepBreak"],
     // Line comments are transparent to the BLOCK side of the decision
-    // too, not only to the first-rest-line count: today's reader reads
+    // too, not only to the first-rest-line count: the run reads
     // straight through a `// c` when it decides whether the run is
-    // trailing, so these four rows pin all three answers across one.
-    // Measured at the pre-cut-over baseline: the break is kept for the
-    // two rows that carry a title; the `plus` row really does print
-    // "* a b\n+\n[role]\n// c\npara\n".
+    // trailing, so these four rows pin both answers across one.
     ["* a\nb\n[role]\n// c\n", "none"],
     ["* a\nb\n[role]\n.T\n// c\n", "keepBreak"],
     ["* a\nb\n[role]\n// c\n.T\n", "keepBreak"],
-    ["* a\nb\n[role]\n// c\npara\n", "plus"],
+    ["* a\nb\n[role]\n// c\npara\n", "keepBreak"],
     // Comment lines are transparent to the first-rest-line count
     // (Reader#skip_line_comments; pinned at list-item-blocks:152-160).
     ["* a\n// c\n[role]\npara\n", "none"],

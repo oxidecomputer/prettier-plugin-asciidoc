@@ -112,17 +112,17 @@ const CONTEXT_PREFIX: Record<ParagraphContext, string> = {
   verbatimStyled: "[source]\nfirst content line",
 };
 
-// The enclosing list ancestry of each prefix, in the marker-style
-// spelling listMarkerStyle() produces. Only a marker belonging to a
-// list that is actually OPEN ends a continuation paragraph, so the
-// registry has to be told which those are.
-const CONTEXT_LIST_STYLES: Record<ParagraphContext, readonly string[]> = {
-  paragraph: [],
-  listItem: [],
-  listContinuation: ["*"],
-  dlistItem: [],
-  literalParagraph: [],
-  verbatimStyled: [],
+// The open list's marker style for each prefix, in the spelling
+// listMarkerStyle() produces. Only a marker belonging to a list that is
+// actually OPEN ends a continuation paragraph, so the registry has to
+// be told which one that is.
+const CONTEXT_LIST_STYLE: Record<ParagraphContext, string | undefined> = {
+  paragraph: undefined,
+  listItem: undefined,
+  listContinuation: "*",
+  dlistItem: undefined,
+  literalParagraph: undefined,
+  verbatimStyled: undefined,
 };
 
 // WHERE the construct sits inside the open block. Several shapes
@@ -202,7 +202,7 @@ describe("line-shape registry matches the Asciidoctor oracle", () => {
       // argument (see vitest/valid-expect in eslint.config.js).
       expect(
         interruptsParagraph(line, context, {
-          enclosingListStyles: CONTEXT_LIST_STYLES[context],
+          enclosingListStyle: CONTEXT_LIST_STYLE[context],
           firstLineAfterBlockStart: firstLine,
         }),
         `registry disagrees with oracle for ${JSON.stringify(line)}`,
@@ -237,7 +237,7 @@ describe("classifyLine matches the Asciidoctor oracle", () => {
       const [line] = construct.split("\n");
       const reader: ReaderContext = {
         openParagraph: context,
-        openListStyles: CONTEXT_LIST_STYLES[context],
+        openListStyle: CONTEXT_LIST_STYLE[context],
         firstLineAfterStart: firstLine,
       };
       expect(

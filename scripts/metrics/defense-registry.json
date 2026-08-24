@@ -18,10 +18,5 @@
     "file": "src/parse/inline/rules.ts",
     "function": "isBoundary",
     "reason": "`text.at(index) ?? \"\"` sits one line after the range guard that returns for every out-of-range index, so the miss cannot happen — and the fallback would answer WRONGLY if it did: `\"\"` is neither whitespace nor boundary punctuation, so it reports \"not a boundary\" where the guard above reports \"boundary\". A silent wrong answer is the cost of validating in the interior instead of taking an in-range index."
-  },
-  {
-    "file": "src/print-inline.ts",
-    "function": "pushTrailingBoundary",
-    "reason": "`parts.pop() ?? \"\"` runs only when the node's last word is a bare `+`, and a last word means wordsToFillParts pushed at least one part (its caller returns early on empty words). The `\"\"` stands in for a part that is always there."
   }
 ]

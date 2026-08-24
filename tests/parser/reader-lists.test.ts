@@ -285,17 +285,18 @@ describe("reader: list oracle surprises", () => {
     // oracle sees a different document than the reader does.
     // `-attrs`, not the old `+attrs`: the source has no `+` line (the
     // gap is empty), and the old glyph spelled the READER's Ruling-26
-    // decision to introduce one. Under spec D1 that decision is the
-    // printer's (`hazard()` answers "plus" for this node), the AST
-    // records the verbatim gap, and the FORMATTED bytes are unchanged:
-    // "** b lit\n+\n[source]\nNOTE: x\n" before and after the
-    // cut-over.
+    // decision to introduce one. Under spec D1 the AST records the
+    // verbatim gap and the printer answers the hazard on the re-read
+    // ("none" | "keepBreak"; here keepBreak — the item text holds its
+    // own break so `[source]` cannot land on the first rest line):
+    // the formatted bytes are "** b\n   lit\n[source]\nNOTE: x\n",
+    // with no invented `+`.
     // `-listing[1]`, not the old `-admonition(note)`: with `[source]`
     // in hand the NOTE: line is the styled paragraph's opening line
     // (spec D4b, parser.rb:555-560 runs before the admonition arm
     // :765), which is also what the oracle renders — a listingblock,
-    // never an admonition. The formatted bytes above are still
-    // unchanged; the metadata-release ordering this row exists for
+    // never an admonition. The formatted bytes above are unchanged
+    // by that arm; the metadata-release ordering this row exists for
     // (`-attrs` before the block) is unaffected.
     expect(astShape("** b\n  lit\n[source]\nNOTE: x\n")).toBe(
       "list(item(t / t -attrs -listing[1]))",

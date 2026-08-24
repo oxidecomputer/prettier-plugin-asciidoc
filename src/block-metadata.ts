@@ -13,18 +13,40 @@
  * THE pairing rule lives here too ({@link stacksAsMetadata}, spec
  * D5b): whether a metadata block stacks directly above the block
  * below it is one decision with one home, and every consumer imports
- * it rather than restating its exceptions. The classifications it is
- * built from ({@link isBlockMetadata}, {@link isAnchorLine},
+ * it rather than restating its exceptions. Two of the classifications
+ * it is built from ({@link isAnchorLine},
  * {@link wouldMergeWithAnchor}) are private to it — the rule is their
  * only consumer, so nothing can pair metadata by half of it.
  *
- * One printer-STYLE qualifier is exported beside them: a `[[…]]` line
+ * One printer-STYLE qualifier is exported beside them: what a block's
+ * PRINTED `[[…]]` line re-reads as ({@link anchorLineShape}). A line
  * whose id fails the block-anchor grammar is not metadata at all, but
- * it prints as though it were, and the rule that GROUPS an item's
- * held metadata lines (print-list-hazard.ts) has to say so as well
- * ({@link isPseudoAnchorLine}).
+ * it prints as though it were, and the rules that GROUP an item's
+ * held metadata lines (print-list-hazard.ts) and that suppress
+ * stacking above a heading (print-join.ts) both have to say so.
  */
 import type { BlockNode } from "./ast.js";
+import { BLOCK_ANCHOR } from "./parse/line-shapes.js";
+import { anchorToSource } from "./serialize-inline.js";
+
+/**
+ * Tests whether a block is a `//` line comment — the ONE node-level
+ * home for the question. `Reader#skip_line_comments` consumes such
+ * lines before anything counts them, which makes them transparent
+ * wherever adjacency or attachment is decided: the printer stacks
+ * consecutive comments without a blank (print-join.ts, where closing
+ * the gap can change nothing — a line comment renders nothing, unlike
+ * a preprocessor directive, whose blank-line gap the reader can still
+ * make visible), and the list hazard reads through them on both sides
+ * of its run (print-list-hazard.ts). A `////`-delimited comment BLOCK
+ * is deliberately NOT one: `skip_line_comments` skips `//` lines only,
+ * and a comment block is a block like any other.
+ * @param block - The block node to test.
+ * @returns Whether the block is a line comment.
+ */
+export function isLineComment(block: BlockNode): boolean {
+  return block.type === "comment" && block.commentType === "line";
+}
 
 /**
  * Tests whether a block is a line Asciidoctor's READER consumes
@@ -46,10 +68,7 @@ import type { BlockNode } from "./ast.js";
  * @returns Whether the reader eats this block's line.
  */
 export function isReaderConsumedLine(block: BlockNode): boolean {
-  return (
-    (block.type === "comment" && block.commentType === "line") ||
-    block.type === "preprocessorDirective"
-  );
+  return isLineComment(block) || block.type === "preprocessorDirective";
 }
 
 /**
@@ -60,11 +79,13 @@ export function isReaderConsumedLine(block: BlockNode): boolean {
  * blank line between them. This matches idiomatic
  * AsciiDoc where `[source,ruby]` sits directly above
  * `----` with no intervening blank line. Consulted through
- * {@link stacksAsMetadata}, which owns the exceptions.
+ * {@link stacksAsMetadata}, which owns the exceptions, and by the
+ * list hazard's run-membership test (print-list-hazard.ts) — the
+ * metadata-KIND classification has this one home.
  * @param block - The block node to test.
  * @returns Whether the block is block metadata.
  */
-function isBlockMetadata(block: BlockNode): boolean {
+export function isBlockMetadata(block: BlockNode): boolean {
   return (
     block.type === "blockAttributeList" ||
     block.type === "blockTitle" ||
@@ -73,25 +94,30 @@ function isBlockMetadata(block: BlockNode): boolean {
 }
 
 /**
- * Tests whether a block PRINTS as a bracket-anchor line without being
- * a `blockAnchor` node: a paragraph whose one and only inline child is
- * an inline anchor.
+ * What this block's printed line re-reads as, when it prints as a
+ * `[[…]]` line — THE printed-anchor record, derived at ask time and
+ * stored nowhere: the fact depends on the PRINTER's spelling of the
+ * node, which the reader cannot know without predicting the printer,
+ * and a stored field would go stale the moment the serializer
+ * changed.
  *
- * The pseudo-anchor case. A `[[…]]` line is a block ANCHOR only when
- * it matches the block-anchor grammar (`BLOCK_ANCHOR_SOURCE`,
- * parse/line-shapes.ts; behavior is Ruby's `BlockAnchorRx`, rx.rb —
- * pinned by the corpus rows named below). When the id fails it
- * (`[[3-blind-mice]]` starts with a digit, `[[illegal$id]]` has an
- * illegal character) or the reftext alternative does not
- * (`[[id,]]` — the alternative needs a character after the comma),
- * Asciidoctor reads the line as an ordinary PARAGRAPH and so does the
- * reader; nothing about it is metadata. It still prints as `[[…]]`
- * alone on a line, so the printer keeps it with the block below: that
- * is the author's byte, and re-parsing our output must not gain a
- * blank line or an invented `+` (`[[id,]]` prints as `[[id]]`, which
- * IS a block anchor on re-parse, so pass 1 would not otherwise be a
- * fixed point). A printer-STYLE fact, not a parse fact — which is why
- * it qualifies the rules instead of being a node kind.
+ * "anchor": the printed spelling satisfies the block-anchor grammar —
+ * a blockAnchor node, or a sole-inlineAnchor paragraph whose printed
+ * line passes (`[[id,]]` prints `[[id]]`, which IS an anchor on
+ * re-read). "lookalike": the printed spelling fails the grammar and
+ * IS the author's own line — for a comma-free spelling by the
+ * sole-child extent argument below, and for a reftext-bearing one by
+ * the serializer's verbatim arm (anchorToSource emits the captured
+ * post-comma bytes when the id fails the grammar) — a TEXT line to
+ * the re-reader. undefined: everything else.
+ *
+ * Grammar: BLOCK_ANCHOR (parse/line-shapes.ts, over
+ * BLOCK_ANCHOR_SOURCE); behavior is Ruby's BlockAnchorRx (rx.rb:163),
+ * pinned by the corpus rows `blocks_test.rb#should not recognize
+ * block anchor that starts with digit#0` / `…illegal id characters#0`
+ * and the pseudo-anchor suites. Spelling: anchorToSource — the
+ * printer's own serializer, so the record judges the line the printer
+ * will actually emit.
  *
  * The single child IS the whole line, and the check does not have to
  * say so: a paragraph is positioned over its content tokens
@@ -100,41 +126,45 @@ function isBlockMetadata(block: BlockNode): boolean {
  * span, so a one-child paragraph was built from one content token and
  * the two extents are the same span by construction. Anything else on
  * the line — trailing text, a trailing space, a hard break — is
- * another content token and therefore another child, which this
- * predicate rejects on the count.
- *
- * Pinned by tests/format/block-attributes.test.ts ("pseudo-anchor
- * lines"), tests/format/list-item-blocks.test.ts (the item-level run
- * rows) and the corpus rows `blocks_test.rb#should not recognize
- * block anchor that starts with digit#0` and `blocks_test.rb#should
- * not recognize block anchor with illegal id characters#0`, which
- * parity holds byte-identical.
+ * another content token and therefore another child, which the count
+ * rejects.
  * @param block - The block node to test.
- * @returns Whether the block prints as a bracket-anchor line without
- *   being one.
+ * @returns What the block's printed line re-reads as, or undefined
+ *   when it does not print as a `[[…]]` line.
  */
-export function isPseudoAnchorLine(block: BlockNode): boolean {
-  if (block.type !== "paragraph" || block.children.length !== 1) return false;
+export function anchorLineShape(
+  block: BlockNode,
+): "anchor" | "lookalike" | undefined {
+  if (block.type === "blockAnchor") {
+    // A blockAnchor node's id passed BLOCK_ANCHOR at classification,
+    // and the serializer's valid-id arm keeps a valid spelling valid.
+    return "anchor";
+  }
+  if (block.type !== "paragraph" || block.children.length !== 1) {
+    return undefined;
+  }
   const [child] = block.children;
-  return child.type === "inlineAnchor";
+  if (child.type !== "inlineAnchor") {
+    return undefined;
+  }
+  return BLOCK_ANCHOR.test(anchorToSource(child)) ? "anchor" : "lookalike";
 }
 
 /**
- * Tests whether a block prints as an anchor line: the first-class
- * `blockAnchor`, or a pseudo-anchor paragraph
- * ({@link isPseudoAnchorLine}). The stacking exceptions key on this,
- * not on the node kind — what breaks idempotency is the printed LINE.
+ * Tests whether a block prints as an anchor line: {@link
+ * anchorLineShape} answered at all. The stacking exceptions key on
+ * this, not on the node kind — what breaks idempotency is the printed
+ * LINE.
  *
  * The ONE spelling of the pseudo-anchor arm inside
  * {@link stacksAsMetadata}: every clause of the rule that asks about
  * an anchor asks it here, so the first-class node and the
- * look-alike line can never take different exceptions. Private for
- * the same reason — the rule is the only place that composes them.
+ * look-alike line can never take different exceptions.
  * @param block - The block node to test.
  * @returns Whether the block prints as an anchor line.
  */
 function isAnchorLine(block: BlockNode): boolean {
-  return block.type === "blockAnchor" || isPseudoAnchorLine(block);
+  return anchorLineShape(block) !== undefined;
 }
 
 /**

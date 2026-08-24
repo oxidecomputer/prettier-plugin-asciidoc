@@ -5,9 +5,10 @@
  * selected registry sub-grids, formatted under a base revision and
  * under this checkout, with per-diff proofs. No randomness anywhere.
  *
- *   bun scripts/shape-diff.ts --base 594dc598 --task task-2b
- *   bun scripts/shape-diff.ts --base 594dc598 --task task-1 --noise
- *   bun scripts/shape-diff.ts --base 594dc598 --task task-4 --grid heading-adjacency
+ *   bun scripts/shape-diff.ts --base 14ea1199 --task task-2b
+ *   bun scripts/shape-diff.ts --base 14ea1199 --task task-1 --noise
+ *   bun scripts/shape-diff.ts --base 14ea1199 --task task-4 --grid heading-adjacency
+ *   bun scripts/shape-diff.ts --base 14ea1199 --task task-2 --grid list-run
  *
  * Per differing shape: render(input) vs render(headOut) (fidelity),
  * render(baseOut) vs render(headOut) (neutrality, REPORTED — a
@@ -30,6 +31,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { formatAdoc, renderedHtml } from "../tests/helpers.js";
+import { listRunGrid } from "./shape-registry-list-run.js";
 import {
   headingAdjacencyGrid,
   standingGrid,
@@ -77,8 +79,10 @@ interface ReportRow {
  * @returns the grid name
  * @throws {Error} when the word names no grid
  */
-function parseGrid(raw: string | undefined): "standing" | "heading-adjacency" {
-  if (raw !== "standing" && raw !== "heading-adjacency") {
+function parseGrid(
+  raw: string | undefined,
+): "standing" | "heading-adjacency" | "list-run" {
+  if (raw !== "standing" && raw !== "heading-adjacency" && raw !== "list-run") {
     throw new Error(`shape-diff: unknown grid ${String(raw)}`);
   }
   return raw;
@@ -94,12 +98,12 @@ function parseGrid(raw: string | undefined): "standing" | "heading-adjacency" {
 function parseArguments(argv: readonly string[]): {
   base: string;
   task: string;
-  grid: "standing" | "heading-adjacency";
+  grid: "standing" | "heading-adjacency" | "list-run";
   noise: boolean;
 } {
   let base: string | undefined = undefined;
   let task: string | undefined = undefined;
-  let grid: "standing" | "heading-adjacency" = "standing";
+  let grid: "standing" | "heading-adjacency" | "list-run" = "standing";
   let noise = false;
   const rest = [...argv];
   while (rest.length > 0) {
@@ -399,7 +403,12 @@ function reportRows(rows: readonly ReportRow[], task: string): void {
  */
 async function main(argv: readonly string[]): Promise<void> {
   const { base, task, grid, noise } = parseArguments(argv);
-  const shapes = grid === "standing" ? standingGrid() : headingAdjacencyGrid();
+  const shapes =
+    grid === "standing"
+      ? standingGrid()
+      : grid === "heading-adjacency"
+        ? headingAdjacencyGrid()
+        : listRunGrid();
   process.stdout.write(
     `shape-diff: ${String(shapes.length)} shapes in the ${grid} grid (task ${task})\n`,
   );

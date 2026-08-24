@@ -157,12 +157,16 @@ freezes a too-low floor, and finishing it later fails the gate.
 The member count of each NAMED cross-module interface, ratcheted per seam: a
 seam may not gain members. v1 names four, and each one is what one module had to
 publish for another: `ListHost` (`src/parse/lines/frames.ts`) — what
-extent-first list reading needs from a reader; `ReaderContext`
-(`src/parse/lines/classify.ts`) — the whole context the classifier reads, which
-is the open paragraph shape, the open list styles and whether this is the
-block's first line, and no terminator vocabulary at all; `ExtentBounds`
-(`src/parse/lines/list-reader.ts`) — the single stream-end fact one extent scan
-needs from its enclosing one; and `ParagraphHost`
+extent-first list reading needs from a reader, and nothing else: the lines it
+reads, the document's unerased lines and its offset index, the source, one
+tail-safety fact, and the one call that reads an item's interior. Nothing in it
+writes BACK into the host — a finished list is RETURNED to whoever asked for it,
+so there is no callback to mis-wire and no push member to sequence against;
+`ReaderContext` (`src/parse/lines/classify.ts`) — the whole context the
+classifier reads, which is the open paragraph shape, the open list styles and
+whether this is the block's first line, and no terminator vocabulary at all;
+`ExtentBounds` (`src/parse/lines/list-reader.ts`) — the single stream-end fact
+one extent scan needs from its enclosing one; and `ParagraphHost`
 (`src/parse/lines/paragraph-reader.ts`) — what paragraph reading needs from the
 reader that owns the read position. The row COUNT is what the gate enforces;
 this sentence only says what the rows are.

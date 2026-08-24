@@ -15,7 +15,7 @@ import type {
 } from "../../src/ast.js";
 import { parse } from "../../src/parser.js";
 import { renderedHtml } from "../helpers.js";
-import { preorder } from "./ast-invariants.js";
+import { preorder } from "./ast-walk.js";
 
 /**
  * Render a parsed document as a readable structure string — the AST

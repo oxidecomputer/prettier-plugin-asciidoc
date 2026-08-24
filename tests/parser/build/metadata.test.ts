@@ -18,10 +18,26 @@ import {
   buildRawBlockLine,
   buildThematicBreak,
 } from "../../../src/parse/build/metadata.js";
+import { rstrip } from "../../../src/parse/line-shapes.js";
+import {
+  parseAttributeEntry,
+  parseBlockMacro,
+} from "../../../src/parse/lines/classify.js";
 import {
   makeLocationIndex,
   type Fragment,
 } from "../../../src/parse/positions.js";
+
+/**
+ * The classifier's parse, narrowed for a row that already asserted it
+ * is there — the builders take fields, never a maybe.
+ * @param kind - a parser's result
+ * @returns the same value, without the undefined arm
+ */
+function required<T>(kind: T | undefined): T {
+  if (kind === undefined) throw new Error("the row's line did not parse");
+  return kind;
+}
 
 /**
  * A whole line at offset 0 of a one-line document, with the index
@@ -97,6 +113,12 @@ describe("buildBlockTitle", () => {
   });
 });
 
+// Both builders below are FIELD READERS: the classifier's parse is
+// the only decomposition, so the rows hand the fields over the way
+// the reader does — `parseAttributeEntry` / `parseBlockMacro` on the
+// rstripped line — and pin that the node carries them unchanged. The
+// decomposition itself is pinned in tests/parser/lines.test.ts.
+
 describe("buildAttributeEntry", () => {
   test.each([
     [":name: value", "name", "value", false],
@@ -106,7 +128,9 @@ describe("buildAttributeEntry", () => {
     [":name!:", "name", undefined, "suffix"],
   ])("%j → %j = %j (unset %j)", (line, name, value, unset) => {
     const { span, at } = lineOf(line);
-    const node = buildAttributeEntry(span, at);
+    const kind = parseAttributeEntry(rstrip(line));
+    expect(kind).toBeDefined();
+    const node = buildAttributeEntry(required(kind), span, at);
     expect(node.type).toBe("attributeEntry");
     expect(node.name).toBe(name);
     expect(node.value).toBe(value);
@@ -120,7 +144,9 @@ describe("buildBlockMacro", () => {
     ["include::a.adoc[]", "include", "a.adoc", ""],
   ])("%j → %j::%j[%j]", (line, name, target, attrlist) => {
     const { span, at } = lineOf(line);
-    const node = buildBlockMacro(span, at);
+    const kind = parseBlockMacro(rstrip(line));
+    expect(kind).toBeDefined();
+    const node = buildBlockMacro(required(kind), span, at);
     expect(node.type).toBe("blockMacro");
     expect(node.name).toBe(name);
     expect(node.target).toBe(target);

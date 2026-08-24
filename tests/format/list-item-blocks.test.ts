@@ -77,16 +77,20 @@ describe("blocks an item keeps without a + keep the source spelling", () => {
 // metadata directly after reflowable item text, with no `+`, is NOT:
 // `* a` / `[role]` / `para` folds `para` into the text, while `* a` /
 // `para` / `[role]` / `para` ends the text and attaches a block — and
-// reflow turns the second shape into the first. So the printer writes an
-// explicit `+` there (plan-1's behaviour).
-describe("metadata directly after reflowable item text gets an explicit +", () => {
+// reflow turns the second shape into the first. So the printer holds
+// the text's last source break: a TEXT line stays on the item's first
+// rest line, the re-reader's metadata drain meets `[role]` where the
+// author put it, and no byte is invented. Counterfactual: these two
+// used to print `* a para\n+\n[role]\npara\n` and
+// `* a para\n+\n[[anc]]\npara\n` — a `+` line no author wrote.
+describe("metadata directly after reflowable item text keeps the break", () => {
   test.each([
     [
       "an attribute line",
       "* a\npara\n[role]\npara\n",
-      "* a para\n+\n[role]\npara\n",
+      "* a\n  para\n[role]\npara\n",
     ],
-    ["an anchor", "* a\npara\n[[anc]]\npara\n", "* a para\n+\n[[anc]]\npara\n"],
+    ["an anchor", "* a\npara\n[[anc]]\npara\n", "* a\n  para\n[[anc]]\npara\n"],
   ])("%s", async (_name, input, expected) => {
     const out = await formatAdoc(input);
     expect(out).toBe(expected);
@@ -144,7 +148,7 @@ describe("stacked detached continuations in a nested list", () => {
   });
 });
 
-// Ruling 27: the reader decides the explicit `+`. `Reader#skip_line_comments`
+// Comment transparency: `Reader#skip_line_comments`
 // removes `//` lines before `parse_block_metadata_lines` counts, so comment
 // lines are transparent to "the first line after the marker line": metadata
 // under them still folds the block after it into the item text, and keeps
@@ -164,15 +168,19 @@ describe("comment lines are transparent to the first-rest-line count", () => {
   });
 });
 
-// A metadata group that ended multi-line item text gets the explicit `+`
-// whatever introduces the block after it — a `+` of its own included —
-// and when it is TRAILING and longer than one line (reflowed onto the
-// first rest line, its first line would fold and the rest become text).
+// A metadata group that ended multi-line item text keeps the text's
+// last break whatever introduces the block after it — a `+` of its own
+// included — and when it is TRAILING and longer than one line
+// (reflowed onto the first rest line, its first line would fold and
+// the rest become text).
 describe("a metadata group that ended multi-line text keeps off the first rest line", () => {
   test("a block with its own + after the group", async () => {
     const input = "* a\npara\n[role]\n+\npara\n";
     const out = await formatAdoc(input);
-    expect(out).toBe("* a para\n+\n[role]\n+\npara\n");
+    // The author's `+` replays verbatim from the gap; the printer adds
+    // nothing above the run. Counterfactual: the old bytes were
+    // "* a para\n+\n[role]\n+\npara\n", with an invented first `+`.
+    expect(out).toBe("* a\n  para\n[role]\n+\npara\n");
     expect(renderedHtml(out)).toBe(renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });
@@ -451,12 +459,14 @@ describe("byte pins for rules only the corpus and the sweep reached", () => {
     // printedGap invents its blank only for an EMPTY gap: here the gap
     // is ["+"] and that `+` is the author's, so it must be replayed.
     // Mutants that drop the gap-emptiness test print the blank
-    // instead: "* a .T\n+\n[role]\n\n** b\n", which re-reads the
-    // nested list as a detached block of no item.
+    // instead: "* a\n  .T\n[role]\n\n** b\n", which re-reads the
+    // nested list as a detached block of no item. Counterfactual: the
+    // old bytes were "* a .T\n+\n[role]\n+\n** b\n", whose first
+    // `+` the printer invented.
     [
-      "a +-gapped nested list keeps its + under the hazard's own +",
+      "a +-gapped nested list keeps its +, and the text keeps its break",
       "* a\n.T\n[role]\n+\n** b\n",
-      "* a .T\n+\n[role]\n+\n** b\n",
+      "* a\n  .T\n[role]\n+\n** b\n",
     ],
     // …and only where a literal's slurp really reaches: a metadata run
     // directly above an ADJACENT nested list gets no blank at all.
@@ -469,15 +479,18 @@ describe("byte pins for rules only the corpus and the sweep reached", () => {
     ],
     // Ruling 64 is about `//` LINES (Reader#skip_line_comments), never
     // a `////` comment BLOCK: the block is a block of the item, so it
-    // follows the leading metadata run and earns the Ruling-26 `+`.
+    // follows the leading metadata run and the hazard keeps the
+    // item's own break.
     // Mutants that make isLineComment admit comment blocks read
-    // through it and drop the `+`:
+    // through it and drop the kept break:
     // "* a para\n[role]\n+\n////\nc\n////\n", where `[role]` on the
     // first rest line folds the comment into the item text.
+    // Counterfactual: the old bytes were
+    // "* a para\n+\n[role]\n+\n////\nc\n////\n".
     [
       "a comment BLOCK behind the run is a block that follows it",
       "* a\npara\n[role]\n+\n////\nc\n////\n",
-      "* a para\n+\n[role]\n+\n////\nc\n////\n",
+      "* a\n  para\n[role]\n+\n////\nc\n////\n",
     ],
     // slurpReaches stops at the first NON-EMPTY gap: the literal is
     // three blocks back but a `+` stands between it and the nested
@@ -490,25 +503,28 @@ describe("byte pins for rules only the corpus and the sweep reached", () => {
       "* a\n\n  lit\n+\npara\n[role]\n** b\n",
     ],
     // isRunMetadata takes a paragraph for an ANCHOR only when the
-    // anchor is its ONE child (isPseudoAnchorLine, block-metadata.ts):
+    // anchor is its ONE child (anchorLineShape, block-metadata.ts):
     // `[[anc]] x` is an anchor child plus a text child, so it is
     // content, the run ends at `[role]`, and the block that follows
-    // earns the `+`. Mutant without the child-count guard reads the
-    // paragraph as run metadata: "* a b\n[role]\n[[anc]] x para\n".
+    // makes the run keep the text's break. Mutant without the
+    // child-count guard reads the paragraph as run metadata:
+    // "* a b\n[role]\n[[anc]] x para\n". Counterfactual: the old
+    // bytes were "* a b\n+\n[role]\n[[anc]] x para\n".
     [
       "an anchor followed by text is content, not run metadata",
       "* a\nb\n[role]\n[[anc]] x\npara\n",
-      "* a b\n+\n[role]\n[[anc]] x para\n",
+      "* a\n  b\n[role]\n[[anc]] x para\n",
     ],
-    // Ruling 66's `+` joins a metadata line to the run only when the
-    // gap is EXACTLY one `+`: here the title's gap is ["+", ""], so the
-    // run ends at `[role]`, the title is a block that follows, and the
-    // answer is `plus` — not the `keepBreak` the run would ask for.
-    // Mutants that loosen `authorPlus` print "* a\n  b\n[role]\n+\n\n.T\n".
+    // A non-empty gap ends the run wherever it stands: the title's gap
+    // is ["+", ""], so the run is just `[role]`, the title is a block
+    // that follows, and the text keeps its break. Every line of the
+    // gap replays verbatim — the `+` and the blank both.
+    // Counterfactual: the old bytes were
+    // "* a b\n+\n[role]\n+\n\n.T\n".
     [
       "a + and a blank is not the run's own +",
       "* a\nb\n[role]\n+\n\n.T\n",
-      "* a b\n+\n[role]\n+\n\n.T\n",
+      "* a\n  b\n[role]\n+\n\n.T\n",
     ],
   ])("%s", async (_name, input, expected) => {
     const once = await formatAdoc(input);
@@ -550,25 +566,32 @@ describe("byte pins for rules only the corpus and the sweep reached", () => {
 
 // A `[[…]]` line whose id fails the block-anchor grammar
 // (BLOCK_ANCHOR_SOURCE, parse/line-shapes.ts; behavior is Ruby's
-// `BlockAnchorRx`) is an ordinary PARAGRAPH — but it still prints as
-// `[[…]]` on its own line, so a held-back metadata RUN keeps it
-// (isRunMetadata → isPseudoAnchorLine, block-metadata.ts). Drop that
-// arm and the run stops being all-metadata: the hazard flips to
-// `plus` and the printer INVENTS a `+` the author never wrote.
+// `BlockAnchorRx`) is an ordinary PARAGRAPH, and the printer emits its
+// bytes back faithfully — so the RE-READER sees a text line there too.
+// The item's held-back metadata run therefore ENDS before it
+// (isRunMetadata → anchorLineShape, block-metadata.ts): the lookalike
+// is a block that follows the run, the hazard answers `keepBreak`, and
+// the item's text holds its last source break. What decides
+// membership is what the PRINTED line re-reads as, which is why
+// `[[id,]]` — printed `[[id]]`, an anchor on re-read — stays in the
+// run while `[[3-bad]]` does not.
 //
 // REPRESENTATIVE rows, not the whole class: a 180-row differential (30
-// item shape families × 6 anchor spellings) against the pre-D6 bytes
-// moved on 15 rows over 3 families here, and the reviewer's own matrix
-// on 55 rows over 11 — one mechanism, four spellings of it pinned. The
-// valid-id control (`[[anc]]`) never moved: it is a blockAnchor node
-// and was covered all along.
-describe("a pseudo-anchor line inside an item's metadata run (spec D6)", () => {
+// item shape families × 6 anchor spellings) against the pre-record
+// bytes moved on 15 rows over 3 families here, and the reviewer's own
+// matrix on 55 rows over 11 — one mechanism, four spellings of it
+// pinned. The valid-id control (`[[anc]]`) never moved: it is a
+// blockAnchor node and was covered all along.
+describe("a pseudo-anchor line ends an item's metadata run", () => {
   const cases: Array<[string, string, string]> = [
-    // The repro family. Without the arm: "* a para\n+\n[role]\n[[3-bad]]\n".
+    // The repro family. Counterfactual: the old bytes folded the
+    // metadata onto the first rest line — "* a para\n[role]\n[[3-bad]]\n"
+    // — and the drain then read the pseudo paragraph into the item
+    // text, which renders unlike the input.
     [
-      "digit-leading id after [role] keeps the run — no invented +",
+      "digit-leading id after [role] holds the text's break",
       "* a\npara\n[role]\n[[3-bad]]\n",
-      "* a para\n[role]\n[[3-bad]]\n",
+      "* a\n  para\n[role]\n[[3-bad]]\n",
     ],
     // A title in the run and a hazard that keeps the item's own break:
     // the arm also decides the item TEXT's shaping. Without it:
@@ -580,10 +603,12 @@ describe("a pseudo-anchor line inside an item's metadata run (spec D6)", () => {
     ],
     // Illegal character rather than a leading digit, in an ORDERED
     // item: the grammar's other rejection, the other list variant.
+    // Counterfactual: the old bytes were
+    // ". o para\n[role]\n[[illegal$id]]\n".
     [
-      "illegal-character id in an ordered item's run",
+      "illegal-character id in an ordered item, the same way",
       ". o\npara\n[role]\n[[illegal$id]]\n",
-      ". o para\n[role]\n[[illegal$id]]\n",
+      ". o\n  para\n[role]\n[[illegal$id]]\n",
     ],
     // `[[id,]]` is not an anchor line either (the reftext alternative
     // needs a character after the comma) and it PRINTS as `[[id]]`,
@@ -600,4 +625,17 @@ describe("a pseudo-anchor line inside an item's metadata run (spec D6)", () => {
     expect(once).toBe(expected);
     expect(await formatAdoc(once)).toBe(once);
   });
+
+  // The lookalike rows are a CORRUPTION fix, so their proof direction
+  // is head against the ORIGINAL INPUT — the old bytes read
+  // differently, and comparing against them would prove nothing. The
+  // `[[id,]]` row is excluded: its printed `[[id]]` is a live anchor
+  // where the author's `[[id,]]` was literal text, a pre-existing
+  // narrowing this suite freezes rather than fixes.
+  test.each(cases.filter(([name]) => !name.includes("empty-reftext")))(
+    "%s renders like its input",
+    async (_name, input) => {
+      expect(renderedHtml(await formatAdoc(input))).toBe(renderedHtml(input));
+    },
+  );
 });

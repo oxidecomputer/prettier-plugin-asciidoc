@@ -259,10 +259,12 @@ describe("inline anchors", () => {
     expect(node1.reftext).toBeUndefined();
   });
 
-  test("[[id, reftext]] → anchor with reftext", () => {
-    // The two-argument form `[[id, reftext]]` captures `reftext`
-    // as the default display text used by cross-references that
-    // target this anchor without specifying their own text.
+  test("[[id, reftext]] → anchor with the VERBATIM post-comma bytes", () => {
+    // The two-argument form `[[id, reftext]]` captures the post-comma
+    // spelling byte-for-byte — the author's separating space
+    // INCLUDED — so a grammar-rejected id can print back faithfully.
+    // The trimmed view is the printer's, taken at serialize time on
+    // the valid-id arm only (anchorToSource, serialize-inline.ts).
     const nodes = inlineNodes("text [[term-id, Term Display Text]] more\n");
     expect(nodes).toHaveLength(3);
     expect(nodes[0].type).toBe("text");
@@ -270,7 +272,13 @@ describe("inline anchors", () => {
     narrow(node1, "inlineAnchor");
     expect(nodes[2].type).toBe("text");
     expect(node1.id).toBe("term-id");
-    expect(node1.reftext).toBe("Term Display Text");
+    expect(node1.reftext).toBe(" Term Display Text");
+  });
+
+  test("no separating space means no captured space", () => {
+    const [, node1] = inlineNodes("x [[term-id,Term]]\n");
+    narrow(node1, "inlineAnchor");
+    expect(node1.reftext).toBe("Term");
   });
 
   // A comma with nothing (or only blanks) after it is not a reftext:

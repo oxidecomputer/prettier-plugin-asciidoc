@@ -1,1 +1,162 @@
-[]
+[
+  {
+    "id": "blocks_test.rb#should not recognize block anchor with illegal id characters#0",
+    "family": "g1-pseudo-run-fold"
+  },
+  {
+    "id": "lists_test.rb#should assign reftext of bibliography anchor to xreflabel in DocBook backend#0",
+    "family": "g1-pseudo-run-fold"
+  },
+  {
+    "id": "lists_test.rb#should use reftext from bibliography anchor at xref and entry#0",
+    "family": "g1-pseudo-run-fold"
+  },
+  {
+    "id": "attributes_test.rb#option can be specified in first position of block style using shorthand syntax#0",
+    "family": "g3-marker-spelling"
+  },
+  {
+    "id": "lists_test.rb#a list item for a different list terminates indented paragraph for text of list item#0",
+    "family": "g3-marker-spelling"
+  },
+  {
+    "id": "lists_test.rb#a list item for a different list terminates non-indented paragraph for text of list item#0",
+    "family": "g3-marker-spelling"
+  },
+  {
+    "id": "lists_test.rb#a list item with a nested marker terminates indented paragraph for text of list item#0",
+    "family": "g3-nesting-fidelity"
+  },
+  {
+    "id": "lists_test.rb#a list item with a nested marker terminates non-indented paragraph for text of list item#0",
+    "family": "g3-nesting-fidelity"
+  },
+  {
+    "id": "lists_test.rb#a literal paragraph offset by a blank line in list content followed by line with continuation is appended as two blocks#0",
+    "family": "g3-marker-spelling"
+  },
+  {
+    "id": "lists_test.rb#a literal paragraph offset by blank lines in list content is appended as a literal block#0",
+    "family": "g3-marker-spelling"
+  },
+  {
+    "id": "lists_test.rb#a literal paragraph without a trailing blank line consumes following list items#0",
+    "family": "g3-marker-spelling"
+  },
+  {
+    "id": "lists_test.rb#a non-indented wrapped line is folded into text of list item#0",
+    "family": "g3-marker-spelling"
+  },
+  {
+    "id": "lists_test.rb#a non-indented wrapped line that resembles a block title is folded into text of list item#0",
+    "family": "g3-marker-spelling"
+  },
+  {
+    "id": "lists_test.rb#a non-indented wrapped line that resembles an attribute entry is folded into text of list item#0",
+    "family": "g3-marker-spelling"
+  },
+  {
+    "id": "lists_test.rb#an admonition paragraph attached by a line continuation to a list item with wrapped text should produce admonition#0",
+    "family": "g3-marker-spelling"
+  },
+  {
+    "id": "lists_test.rb#an indented wrapped line is unindented and folded into text of list item#0",
+    "family": "g3-marker-spelling"
+  },
+  {
+    "id": "lists_test.rb#appends line as paragraph if attached by continuation following line comment#0",
+    "family": "g3-marker-spelling"
+  },
+  {
+    "id": "lists_test.rb#asterisk element mixed with dash elements should be nested#0",
+    "family": "g3-nesting-fidelity"
+  },
+  {
+    "id": "lists_test.rb#attribute substitutions#0",
+    "family": "g3-marker-spelling"
+  },
+  {
+    "id": "lists_test.rb#consecutive literal paragraph offset by blank lines in list content are appended as a literal blocks#0",
+    "family": "g3-marker-spelling"
+  },
+  {
+    "id": "lists_test.rb#dash element mixed with asterisks elements should be nested#0",
+    "family": "g3-nesting-fidelity"
+  },
+  {
+    "id": "lists_test.rb#dash elements separated by a block title offset by a blank line should not merge lists#0",
+    "family": "g3-marker-spelling"
+  },
+  {
+    "id": "lists_test.rb#dash elements separated by a line comment offset by blank lines should not merge lists#0",
+    "family": "g3-marker-spelling"
+  },
+  {
+    "id": "lists_test.rb#dash elements separated by an attribute entry offset by a blank line should not merge lists#0",
+    "family": "g3-marker-spelling"
+  },
+  {
+    "id": "lists_test.rb#dash elements separated by blank lines should merge lists#0",
+    "family": "g3-marker-spelling"
+  },
+  {
+    "id": "lists_test.rb#dash elements with interspersed line comments should be skipped and not break list#0",
+    "family": "g3-marker-spelling"
+  },
+  {
+    "id": "lists_test.rb#dash elements with no blank lines#0",
+    "family": "g3-marker-spelling"
+  },
+  {
+    "id": "lists_test.rb#lines prefixed with alternating list markers separated by blank lines should be nested#0",
+    "family": "g3-nesting-fidelity"
+  },
+  {
+    "id": "lists_test.rb#list item with literal content should not consume nested list of different type#0",
+    "family": "g3-marker-spelling"
+  },
+  {
+    "id": "lists_test.rb#nested list item does not eat the title of the following detached block#0",
+    "family": "g3-nesting-fidelity"
+  },
+  {
+    "id": "lists_test.rb#quoted text#0",
+    "family": "g3-marker-spelling"
+  },
+  {
+    "id": "lists_test.rb#should convert bibliography list with proper semantics to DocBook#0",
+    "family": "g3-marker-spelling"
+  },
+  {
+    "id": "lists_test.rb#should convert bibliography list with proper semantics#0",
+    "family": "g3-marker-spelling"
+  },
+  {
+    "id": "lists_test.rb#should create checklist if at least one item has checkbox syntax#0",
+    "family": "g3-marker-spelling"
+  },
+  {
+    "id": "lists_test.rb#should create checklist with font icons if at least one item has checkbox syntax and icons attribute is font#0",
+    "family": "g3-marker-spelling"
+  },
+  {
+    "id": "lists_test.rb#should create interactive checklist if interactive option is set even with icons attribute is font#0",
+    "family": "g3-marker-spelling"
+  },
+  {
+    "id": "lists_test.rb#should not recognize bibliography anchor that begins with a digit#0",
+    "family": "g3-marker-spelling"
+  },
+  {
+    "id": "lists_test.rb#should recognize bibliography anchor that contains a digit but does not start with one#0",
+    "family": "g3-marker-spelling"
+  },
+  {
+    "id": "lists_test.rb#wrapped list item with hanging indent followed by non-indented line#0",
+    "family": "g3-marker-spelling"
+  },
+  {
+    "id": "test/fixtures/lists.adoc",
+    "family": "g3-marker-spelling"
+  }
+]

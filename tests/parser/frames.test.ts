@@ -16,7 +16,7 @@ import {
 import {
   fragmentOfLine,
   heldMetadataNode,
-  isHeldMetadata,
+  isLeafKind,
 } from "../../src/parse/lines/frames.js";
 import { splitLines, type SourceLine } from "../../src/parse/lines/split.js";
 import { makeLocationIndex } from "../../src/parse/positions.js";
@@ -46,7 +46,7 @@ describe("fragmentOfLine", () => {
   });
 });
 
-describe("heldMetadataNode / isHeldMetadata", () => {
+describe("heldMetadataNode", () => {
   // One line per kind `parse_block_metadata_line` claims, plus the
   // kinds it does not: an attribute ENTRY is processed where it stands,
   // and text, a marker and a title open blocks of their own. A block
@@ -64,8 +64,8 @@ describe("heldMetadataNode / isHeldMetadata", () => {
     const source = `${text}\n`;
     const [line] = splitLines(source);
     const kind = classifyLine(line.text, BLOCK_START_CONTEXT);
-    expect(isHeldMetadata(kind)).toBe(true);
     const node = heldMetadataNode(kind, line, makeLocationIndex(source));
+    expect(node).toBeDefined();
     expect(node?.type).toBe(type);
     // Built from the line's own span: the node starts where the line does.
     expect(node?.position.start).toEqual({ offset: 0, line: 1, column: 1 });
@@ -75,9 +75,28 @@ describe("heldMetadataNode / isHeldMetadata", () => {
     const source = `${text}\n`;
     const [line] = splitLines(source);
     const kind = classifyLine(line.text, BLOCK_START_CONTEXT);
-    expect(isHeldMetadata(kind)).toBe(false);
     expect(heldMetadataNode(kind, line, makeLocationIndex(source))).toBe(
       undefined,
     );
+  });
+});
+
+describe("isLeafKind", () => {
+  // The table holds the FIELD-FREE leaves only. An attribute entry and
+  // a block macro carry their parse on the LineKind, so the reader
+  // builds them in its own switch (BlockReader.parsedLeaf) where the
+  // narrowing hands the builder its fields — the table has no row that
+  // could take them.
+  test.each(["thematicBreak", "pageBreak"] as const)("%j is a leaf", (kind) => {
+    expect(isLeafKind(kind)).toBe(true);
+  });
+  test.each([
+    "attributeEntry",
+    "blockMacro",
+    "text",
+    "anchor",
+    "listMarker",
+  ] as const)("%j is not", (kind) => {
+    expect(isLeafKind(kind)).toBe(false);
   });
 });

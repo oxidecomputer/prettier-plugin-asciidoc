@@ -8,168 +8,22 @@
  *
  * They are deliberately structural: nothing here knows which node
  * kinds exist, so the same file keeps working after the reader builds
- * the AST itself. The walk is over any object carrying `type` and
- * `position`, which is every AST node and nothing else.
+ * the AST itself. The walk itself — the node shape, the narrowings,
+ * document order, sibling grouping — lives in ./ast-walk.ts.
  */
 import { expect } from "vitest";
-import type { Location } from "../../src/ast.js";
 import { rstrip } from "../../src/parse/line-shapes.js";
 import { parse } from "../../src/parser.js";
-
-/**
- * The shape the walk recognises: a node with a source position. The
- * index signature is what keeps the rest of the file cast-free — a
- * node's other fields (`value`, `children`, ...) are read as
- * `unknown` and guarded, never asserted into existence.
- */
-interface AnyNode extends Record<string, unknown> {
-  /** The node's discriminant. */
-  readonly type: string;
-  /** Its source span, end exclusive. */
-  readonly position: { readonly start: Location; readonly end: Location };
-}
-
-/**
- * Narrow an unknown value to a plain object.
- * @param value - anything reachable from the AST
- * @returns whether it is a non-null object
- */
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-/**
- * Narrow an unknown value to an array of unknowns.
- *
- * `Array.isArray` alone narrows `unknown` to `any[]`, which spreads
- * an `any` into every element that follows; this predicate keeps the
- * elements `unknown` so the guards downstream stay real.
- * @param value - anything reachable from the AST
- * @returns whether it is an array
- */
-function isArray(value: unknown): value is readonly unknown[] {
-  return Array.isArray(value);
-}
-
-/**
- * Narrow an unknown value to a Location.
- * @param value - a candidate `position.start` / `position.end`
- * @returns whether it has the three numeric coordinates
- */
-function isLocation(value: unknown): value is Location {
-  return (
-    isRecord(value) &&
-    typeof value.offset === "number" &&
-    typeof value.line === "number" &&
-    typeof value.column === "number"
-  );
-}
-
-/**
- * Narrow an unknown value to a positioned AST node.
- * @param value - anything reachable from the AST
- * @returns whether it is a node with a full position
- */
-function isNode(value: unknown): value is AnyNode {
-  if (!isRecord(value)) return false;
-  const { type, position } = value;
-  return (
-    typeof type === "string" &&
-    isRecord(position) &&
-    isLocation(position.start) &&
-    isLocation(position.end)
-  );
-}
-
-/**
- * Every node in DOCUMENT ORDER (pre-order), parents before children.
- *
- * A generic `Object.entries` walk suffices for every node: a list
- * item's field order (`text` before `blocks`, spec D1) makes even the
- * one node with two child arrays document-ordered by construction.
- *
- * Exported for `itemCount` in reader-helpers.ts, which counts
- * `listItem` nodes anywhere in the tree: one walker, not two, so the
- * two files cannot disagree about what "anywhere in the tree" means.
- * @param root - the document node
- * @returns the nodes, in the order a reader meets them
- */
-export function preorder(root: unknown): AnyNode[] {
-  const nodes: AnyNode[] = [];
-  const visit = (value: unknown): void => {
-    if (isArray(value)) {
-      for (const element of value) visit(element);
-      return;
-    }
-    if (!isRecord(value)) return;
-    if (isNode(value)) nodes.push(value);
-    const children = Object.entries(value)
-      .filter(([key]) => key !== "position")
-      .map(([, child]) => child);
-    for (const child of children) visit(child);
-  };
-  visit(root);
-  return nodes;
-}
-
-/**
- * The nodes one array element contributes to its sibling group. An
- * `ItemBlock` entry is `{gap, block}` rather than a node, so it
- * contributes the nodes DIRECTLY on it.
- * @param element - one element of an array in the tree
- * @returns the nodes it holds
- */
-function siblingsOf(element: unknown): AnyNode[] {
-  if (isNode(element)) return [element];
-  if (!isRecord(element)) return [];
-  return Object.values(element).filter((inner) => isNode(inner));
-}
-
-/**
- * Every array of siblings in the tree, as node arrays.
- * @param root - the document node
- * @returns one entry per sibling array
- */
-function siblingGroups(root: unknown): AnyNode[][] {
-  const groups: AnyNode[][] = [];
-  const visit = (value: unknown): void => {
-    if (isArray(value)) {
-      const group: AnyNode[] = [];
-      for (const element of value) {
-        group.push(...siblingsOf(element));
-        visit(element);
-      }
-      if (group.length > 1) groups.push(group);
-      return;
-    }
-    if (!isRecord(value)) return;
-    for (const [key, child] of Object.entries(value)) {
-      if (key === "position") continue;
-      visit(child);
-    }
-  };
-  visit(root);
-  return groups;
-}
-
-/**
- * The line and column an offset really has, recomputed from the
- * source the same way tests/parser/reader.test.ts recomputed them for
- * tokens.
- * @param source - the whole document
- * @param offset - a zero-based character offset
- * @returns the 1-based line and column
- */
-function locationOf(
-  source: string,
-  offset: number,
-): { line: number; column: number } {
-  const before = source.slice(0, offset);
-  return {
-    line: before.split("\n").length,
-    column: offset - (before.lastIndexOf("\n") + 1) + 1,
-  };
-}
+import {
+  isArray,
+  isNode,
+  isRecord,
+  locationOf,
+  preorder,
+  siblingGroups,
+  siblingsOf,
+  type AnyNode,
+} from "./ast-walk.js";
 
 /**
  * (i) Positions are well formed: inside the source, non-inverted, and
@@ -772,6 +626,36 @@ export function expectAnnotatedByPairing(root: unknown): void {
   visit(root);
 }
 
+// The delimited-block variants that only a masquerading style
+// produces — each rides on a recorded source delimiter.
+const MASQUERADE_VARIANTS = new Set<unknown>([
+  "verse",
+  "example",
+  "sidebar",
+  "quote",
+]);
+
+/**
+ * (xiii) — a masquerade-variant delimited block always carries its
+ * source delimiter: `form: "delimited"` with a variant
+ * that has no leaf delimiter of its own can only arise from a style
+ * re-modeling a parent block, and the open records the delimiter it
+ * re-modeled. The printer's masquerade arm READS the field with no
+ * fallback table; this row is what makes that read total. Exported
+ * for its negative row in tests/parser/ast-invariants.test.ts.
+ * @param nodes - every node, in document order
+ */
+export function expectMasqueradeSourceDelimiter(nodes: AnyNode[]): void {
+  for (const node of nodes) {
+    if (node.type !== "delimitedBlock" || node.form !== "delimited") continue;
+    if (!MASQUERADE_VARIANTS.has(node.variant)) continue;
+    expect(
+      node.sourceDelimiter,
+      `masquerade ${String(node.variant)} block at line ${String(node.position.start.line)} carries no sourceDelimiter`,
+    ).toBeDefined();
+  }
+}
+
 /**
  * (ix) — the D7 exclusivity: an admonition body lives in exactly one
  * place — `text` for the paragraph form, `children` for a delimited
@@ -821,4 +705,5 @@ export function expectAstInvariants(source: string): void {
   expectItemSiblingMonotonicity(nodes);
   expectAnnotatedByPairing(document);
   expectAdmonitionBodyExclusive(nodes);
+  expectMasqueradeSourceDelimiter(nodes);
 }

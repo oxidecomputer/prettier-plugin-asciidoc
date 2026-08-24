@@ -81,19 +81,20 @@ describe("unordered list formatting", () => {
     expect(lines.length).toBeGreaterThan(2); // at least 2 lines + trailing newline
   });
 
-  // The `-` marker is an alternative level-1 unordered list marker.
-  // The formatter normalizes it to `*`.
-  test("hyphen marker normalized to asterisk", async () => {
+  // The `-` marker is an alternative outermost unordered list marker,
+  // and the spelling is DATA: the list carries it and the printer
+  // replays it. Normalizing it to `*` used to flatten a `- Foo` /
+  // `* Boo` nesting into two siblings; the render proofs live in
+  // tests/format/marker-spelling.test.ts.
+  test("hyphen marker replays verbatim", async () => {
     const input = "- Item\n";
-    const expected = "* Item\n";
-    expect(await formatAdoc(input)).toBe(expected);
+    expect(await formatAdoc(input)).toBe(input);
   });
 
-  // Multiple `-` items are normalized to `*`.
-  test("multiple hyphen items normalized", async () => {
+  // Every item of one `-` list shares the list's marker.
+  test("multiple hyphen items keep their marker", async () => {
     const input = "- First\n- Second\n- Third\n";
-    const expected = "* First\n* Second\n* Third\n";
-    expect(await formatAdoc(input)).toBe(expected);
+    expect(await formatAdoc(input)).toBe(input);
   });
 
   // An ordered item after an unordered item — even across a blank

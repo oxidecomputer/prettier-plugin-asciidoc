@@ -38,6 +38,10 @@ export interface SourceLine {
  *   the reason an empty document has no lines at all)
  */
 export function splitLines(source: string): SourceLine[] {
+  // Line numbers here count the SAME \n scan makeLocationIndex counts
+  // (src/parse/positions.ts) — the two authorities cannot disagree
+  // while both split on every newline; the agreement is pinned by
+  // tests/parser/positions.test.ts.
   const lines: SourceLine[] = [];
   let offset = 0;
   let line = FIRST_LINE;

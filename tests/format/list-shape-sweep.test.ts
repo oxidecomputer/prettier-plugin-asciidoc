@@ -126,33 +126,24 @@ function sweepDocuments(): string[] {
 }
 
 // TODAY's failing shapes, MEASURED over the union of the generator's
-// documents and TRACED_SHAPES: 14 of 5,821 after the extent-first
-// cut-over, every one a render-equality failure — no throw and no
-// idempotence failure anywhere in the sweep.
+// documents and TRACED_SHAPES: 5 of 5,821, every one a
+// render-equality failure — no throw and no idempotence failure
+// anywhere in the sweep.
 //
-// The cut-over removed 13 of the baseline's 27: F1 itself
-// ("* a\n** b\n+\n\n+\npara\n" — the tier-1 corruption the plan
-// existed to fix), the whole frozen-+ family (adjacent `+` chains
-// before a nested marker, 8 shapes), and four literal/metadata
-// spellings the verbatim gap replay now reproduces. What remains is
-// the literal-indent family (`  lit` runs the reader re-shapes) and
-// trailing-metadata reflow shapes — pre-existing, tracked by the
-// conformance issues, none introduced here.
+// Nine shapes left this list when the printer stopped inventing
+// continuation lines: the item text now holds its last source break
+// instead, and `keepLastBreak` no longer credits a break carried by a
+// line `Reader#skip_line_comments` deletes. What remains: two
+// literal-indent shapes (`  lit` runs the reader re-shapes), one
+// blank-run spelling, and two where a reflowed paragraph swallows
+// following lines that re-read as list markers — pre-existing,
+// tracked by the conformance issues, none introduced here.
 const FAILING_TODAY: readonly string[] = [
   "* a\n\npara\n* a\n  lit\n* a\n",
   "* a\n\npara\n** b\n* a\n** b\n",
   "* a\n\npara\n** b\n** b\n",
-  "* a\n  lit\n// c\n[[anc]]\n.T\n",
-  "* a\n  lit\n[[anc]]\n  lit\n** b\n",
-  "* a\n  lit\n[role]\n  lit\npara\n** b\n",
   "* a\n+\n[role]\n\n\npara\n",
-  "* a\n.T\n// c\n[[anc]]\n[role]\n.T\n",
-  "* a\n.T\n// c\n[role]\n.T\n",
-  "* a\n.T\n// c\n[role]\n.T\n+\n",
-  "* a\n.T\n[[anc]]\n  lit\npara\n** b\n",
-  "* a\n.T\n[role]\n  lit\n[role]\n* a\n",
   "* a\n[role]\npara\n[[anc]]\n  lit\n[role]\n",
-  "* a\npara\n[role]\n  lit\n** b\n.T\n",
 ];
 
 /**

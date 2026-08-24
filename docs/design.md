@@ -69,28 +69,62 @@ Parsing happens in three phases:
 
 ### Printer
 
-Walks the AST and produces Prettier Doc IR using `group`, `indent`, `line`,
-`hardline`, `softline`, `fill`, `join`, etc.
+Walks the AST and produces Prettier Doc IR. The Doc is mostly literal strings,
+`hardline`s and `join` — line breaking inside a block is decided BEFORE the Doc
+exists, by the atom engine below, so the printer hands Prettier finished lines
+rather than break opportunities.
+
+**Reflow is an atom engine.** A block's inline content becomes a list of `Atom`s
+(`src/reflow.ts`): a newline-free text unit plus the LOCAL break facts about the
+join in front of it — `glueLeft` (fuse, no space), `noBreakBefore`,
+`noBreakAfter`, and a three-valued `breakBefore` (`"none" | "hard" | "literal"`,
+because a literal break opens its line at column 0 while a hard break opens at
+the block's continuation indent). Break decisions therefore live where atoms are
+built, and there is no slot for a break inside a fused run: breaks exist only
+between atoms, and the flags ride the atom. `blockBody(atoms, width, indent)` is
+the ONE packer — the paragraph printer, the paragraph-form admonition body and a
+list item's text go through it, so those three are one engine by construction
+rather than by review. Width and indent are threaded in as numbers and nothing
+downstream re-derives them; `wrap` measures a fused run whole before deciding a
+break (an over-long run overruns on its own line, because no split of it reads
+back as the same construct) and measures in COLUMNS, via Prettier's own
+`getStringWidth`, so a full-width character costs two and a combining mark costs
+none.
 
 Inside a list, the separators are the AST's, not the printer's invention:
 `src/print-list.ts`'s DEFAULT is to replay each `ItemBlock.gap` — the verbatim
 `""`/`"+"` lines the author wrote between an item's pieces — line for line,
-which is what makes list formatting idempotent by construction. The printer then
-has exactly four separator decisions of its own, and they are enumerable because
-each one is a named arm rather than a judgement:
+which is what makes list formatting idempotent by construction. Every
+continuation or hard-break `+` the printer emits is likewise a replay, with
+exactly three emitters (pass-block delimiters compute their own `+` runs):
+`gapParts` replays one recorded gap line, `printListItem`'s trailing arm replays
+the `+` the reader popped off the end of the item (`parser.rb:1571`), and the
+inline hard-break image replays an author's ` +` token. Above that default the
+printer has exactly four separator decisions of its own, enumerable because each
+one is a named arm rather than a judgement:
 
 1. `hazard(item)` (`src/print-list-hazard.ts`) — a pure predicate over the
-   finished node returning `"none" | "plus" | "keepBreak"`: whether reflowing
-   the item's text would push leading metadata onto the first line after the
-   marker and so change the reading, and what to print against that (Rulings
-   26–30).
-2. `printedGap`'s collided-marker arm — marker normalization can make a nested
-   list's marker identical to its parent item's, and then a blank-only gap would
-   read back as a SIBLING boundary; the pair prints adjacent instead, so the
-   flattening at least stays idempotent (issue #16).
+   finished node returning `"none" | "keepBreak"`: whether reflowing the item's
+   text would pull leading metadata onto the first line after the marker and so
+   change the reading, in which case the metadata keeps a break the re-reader
+   still sees. The question is asked about the leading metadata RUN — what the
+   re-reader will see — over one derived record, `anchorLineShape`
+   (`src/block-metadata.ts`): what a node's PRINTED line re-reads as. There is
+   no third answer, because the printer has no `+` of its own to offer.
+2. `printedGap`'s same-marker arm — a nested list may SHARE its parent item's
+   marker, because the author wrote it that way and the printer replays it.
+   `read_lines_for_list_item` (`parser.rb:1395–1577`) runs an item's read
+   through an indented literal and the metadata behind it, so a marker line
+   after them lands INSIDE the item however it is spelled; a blank-only gap in
+   front of such a list would instead read back as a SIBLING boundary, and the
+   sibling probe eats the blank, so a second pass would print different bytes.
+   The nested list prints adjacent. A gap carrying a `+` is left alone: that `+`
+   is live and must survive. The arm compares two RECORDED spellings —
+   `ListNode.marker` is what the classifier read — so it asks the question the
+   re-read will ask, rather than a question about a reconstruction.
 3. `printedGap`'s slurp arm — a blank line that is in no gap, invented where an
-   indented literal's re-read slurp (or the hazard's introduced `+`) would
-   otherwise swallow the nested marker that follows it.
+   indented literal's re-read slurp would otherwise swallow the nested marker
+   that follows it.
 4. `printList`'s sibling separator — two hardlines instead of one when the
    previous item ends on an indented literal paragraph, which reads on to the
    next blank line and would otherwise eat the sibling's marker.
@@ -98,10 +132,27 @@ each one is a named arm rather than a judgement:
 Each of the three ADJUSTMENTS (2–4) exists for the same reason: verbatim replay
 would NOT re-parse to the same tree there. The code's comments — the
 `printedGap`, `slurpReaches`, and `printList` function comments in
-`print-list.ts` — carry the reasoning and the Ruby citation for each, and each
-is pinned by a byte test in `tests/format/list-item-blocks.test.ts` — the plan's
-mutation pass found all three under-tested, which is exactly what an
-undocumented decision looks like from the outside.
+`print-list.ts` — carry the reasoning and the Ruby citation for each. Arms 3 and
+4 are pinned by byte tests in `tests/format/list-item-blocks.test.ts`; arm 2 by
+the same-marker rows in `tests/format/marker-spelling.test.ts` and by the
+list-shape sweep. A mutation pass once found all three under-tested, which is
+exactly what an undocumented decision looks like from the outside.
+
+**Marker spellings are data.** A list carries the marker its author wrote
+(`ListNode.marker`), exactly as the classifier parsed it — `-`, `*` through
+`*****`, `.` through `.....`, or the callout sentinel — and the printer replays
+it. Nesting depth is DERIVED from the spelling wherever something needs it, and
+stored nowhere. That is one application of a rule this codebase holds generally:
+
+> A construct's author-written spelling is data; the printer replays it;
+> normalizing a spelling away is information loss and requires an explicit owner
+> ruling per construct.
+
+Reconstructing a marker from variant × depth was the older design, and it lost
+structure that no later pass could recover: `- Foo` holding `* Boo` came back
+with both printed `*`, and a tab-gapped `**\tb` was flattened out of its nesting
+altogether (issue #42). The spelling comparison is also what arm 2 above needs,
+so replaying the marker and preserving the nesting are the same mechanism.
 
 ## One tree
 
@@ -258,11 +309,17 @@ This means:
   state in which the parser has failed.
 - **Internal invariant violations** throw, via `unreachable()` in
   `src/unreachable.ts`. These are not input handling: each one guards a state
-  that is impossible only because two places agree — the classifier's line-shape
-  pattern and a builder's own regex for the same shape, or the extent a scan
-  collected and the list layer's entry conditions. If one fires, those two
-  drifted apart and there is a bug to fix. Nothing else on the parse path
-  throws.
+  that is impossible only because two places agree — the inline dispatch and the
+  rule table that feeds it, or the extent a scan collected and the list layer's
+  entry conditions. If one fires, those two drifted apart and there is a bug to
+  fix. Nothing else on the parse path throws.
+- **The rule, as policy:** on the parse path, malformed INPUT never throws;
+  two-places-must-agree DRIFT always throws via `unreachable()`; and a
+  deliberate silent degrade must state its BLAST RADIUS in its `Total fallback:`
+  comment — what is lost, bounded how — so a reader can weigh the degrade
+  against the throw it replaces. The rule binds new code; converting a surviving
+  degrade to a throw is a deliberate re-budgeting of the `unreachable()` count,
+  not a cleanup.
 
 The only other legitimate throw is if a file is not AsciiDoc at all (e.g.,
 binary content), and even then Prettier's own infrastructure handles that before
@@ -378,11 +435,11 @@ interrupting set. Five rules keep the reader and reflow honest about that:
    anything that would become a non-paragraph block).
 3. Reflow safety consumes the same registry: `isBlockSyntaxAtLineStart`
    (`src/reflow.ts`) asks it about a word alone on a line and a word starting
-   one, unioned over every context, so fill() never places a word where it would
-   be re-parsed as block syntax. The first-line dlist hazard (`term::`-shaped
-   words) is a separate, word-based guard — `DLIST_HAZARD_BREAK`, resolved in
-   `flattenForFill` so the break always lands on the separator before a fused
-   inline run, never inside it.
+   one, unioned over every context, so the line packer never places a word where
+   it would be re-parsed as block syntax. The first-line dlist hazard
+   (`term::`-shaped words) is a word-based rule applied when atoms are built:
+   the hazard word's atom carries a mandatory break, which always lands in front
+   of the fused inline run the word belongs to, never inside it.
 4. Normalizations ship with a render-equivalence test
    (`renderedHtml(out) === renderedHtml(input)`) and an idempotency test, not
    just a snapshot.
@@ -478,12 +535,17 @@ Two static checks, both real:
 Lexer modes, gates on parser alternatives, and patterns that read token history
 are all ways to rebuild block context the BlockReader already has; having them
 in four places at once is the mess the reader replaced.
-`tests/parser/architecture.test.ts` still forbids each of them, under its
-Chevrotain names — `push_mode`/`pop_mode`, `GATE:`, `BACKTRACK(`, `this.LA(`,
-`CustomPatternMatcher`, `from "chevrotain"`. Two of its rows are
-library-agnostic (a function taking the token history as its third parameter,
-and a backwards search over a token array); the rest would need new rows to
-catch the same shape under a different library's spelling.
+`tests/parser/architecture.test.ts` forbids the two shapes that still have a
+temptation window, and both are library-agnostic: a function signature taking
+the token history as its third parameter, and a backwards search over an emitted
+array (`.findLast`/`.findLastIndex`, banned outright under `src/parse` — the
+exemption for a receiver named `stack`/`frames` retired with the stack itself).
+The rows named after one toolkit's spellings — `push_mode`/`pop_mode`, `GATE:`,
+`BACKTRACK(`, `this.LA(`, `CustomPatternMatcher`, `from "chevrotain"` — are
+gone: their temptation window closed with the dependency, and knip plus
+`bun run check` already fail on a resurrected one. A different library's
+spelling of the same shape would need a new row, so add one rather than assuming
+it is caught.
 
 ## Why not Asciidoctor.js?
 

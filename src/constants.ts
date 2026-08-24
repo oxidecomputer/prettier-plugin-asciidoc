@@ -2,7 +2,7 @@
  * Shared numeric constants used across the parser and printer.
  *
  * A constant earns a place here when its value doesn't carry its own
- * meaning — a delimiter width, a nesting depth, a 1-based origin.
+ * meaning — a delimiter width, a 1-based origin, a sentinel number.
  * Plain index/offset arithmetic (the first element, the next slot,
  * the last one) is inlined at call sites instead: `array[0]`,
  * `index + 1`, `array.at(-1)` read as clearly as a named constant
@@ -19,10 +19,6 @@
 // - parsing:  level = markers.length - MARKER_OFFSET
 // - printing: marker = "=".repeat(level + MARKER_OFFSET)
 export const MARKER_OFFSET = 1;
-
-// Nesting depth of the outermost list level. Markers that cannot
-// repeat (`-`, `<1>`) always sit at this depth; `**` is one deeper.
-export const OUTERMOST_DEPTH = 1;
 
 // Width of single-character delimiters stripped via
 // slice(DELIM_WIDTH, -DELIM_WIDTH), e.g. `{attr}` or `[role]`.

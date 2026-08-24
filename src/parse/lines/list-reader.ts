@@ -24,7 +24,7 @@
  * BlockAttributeLineRx look-ahead l.1452-71) are out of scope (#9);
  * they are left as cited comments where they would go.
  */
-import type { BlockNode, GapLine, ListItemNode } from "../../ast.js";
+import type { BlockNode, GapLine, ListItemNode, ListNode } from "../../ast.js";
 import { buildList, buildListItem } from "../build/list.js";
 import type { InlineToken } from "../inline/tokens.js";
 import {
@@ -42,6 +42,7 @@ import {
   parseListMarker,
   type DelimiterKind,
   type LineKind,
+  type SiblingTrait,
 } from "./classify.js";
 import { delimitedExtent } from "./delimited-reader.js";
 import { fragmentOfLine, type ListHost } from "./frames.js";
@@ -58,18 +59,14 @@ type MarkerKind = Extract<LineKind, Record<"kind", "listMarker">>;
  *   a confined one — nesting recurses through the same seam)
  * @param from - index (into host.lines) of the first marker line
  * @param kind - the first marker, as the classifier parsed it
- * @returns the index the host resumes at — the line after the last
- *   item's extent, which is where the host's own loop reads next
+ * @returns the finished list node, and the index the host resumes at
+ *   — the line after the last item's extent
  */
 export function readList(
   host: ListHost,
   from: number,
   kind: MarkerKind,
-): number {
-  // Metadata read ahead of the first marker annotates the LIST, so it
-  // lands in the enclosing container before any item is built (same
-  // contract the old openList had).
-  host.flushMetadata();
+): { node: ListNode; end: number } {
   const items: ListItemNode[] = [];
   let index = from;
   let marker: MarkerKind = kind;
@@ -95,8 +92,17 @@ export function readList(
     if (parsed.style !== kind.style) break;
     marker = { kind: "listMarker", ...parsed };
   }
-  host.push(buildList(kind.variant, items));
-  return index;
+  return { node: buildList(kind.variant, kind.style, items), end: index };
+}
+
+/**
+ * The sibling trait of a marker-opened list: the marker arm, carrying
+ * the classifier's resolved style.
+ * @param kind - the list's first marker
+ * @returns the trait sibling matching compares
+ */
+function siblingTrait(kind: MarkerKind): SiblingTrait {
+  return { kind: "marker", style: kind.style };
 }
 
 /**
@@ -113,7 +119,7 @@ function readListItem(
 ): { item: ListItemNode; end: number } {
   const { lines } = host;
   const markerLine = lines[markerIndex];
-  const extent = itemExtent(host.lines, markerIndex + 1, kind.style, {
+  const extent = itemExtent(host.lines, markerIndex + 1, siblingTrait(kind), {
     tailSafe: host.tailSafe,
   });
   const { text, blocks } = host.confine(
@@ -266,17 +272,22 @@ export interface ItemExtent {
 }
 
 /**
- * Whether a line is a sibling marker of the list being read —
- * `is_sibling_list_item?` (parser.rb l.2265): same `resolve_list_marker`
- * style. The three variants' style sets are disjoint by construction
- * (`MARKER_STYLES` in line-shapes.ts; every callout marker collapses to
- * the one CALLOUT_STYLE), so style equality alone decides.
+ * Whether a line is a sibling item of the list being read — style
+ * equality on the RESOLVED trait, exactly `is_sibling_list_item?`
+ * (parser.rb l.2265). The three marker variants' style sets are
+ * disjoint by construction (`MARKER_STYLES` in line-shapes.ts; every
+ * callout marker collapses to the one CALLOUT_STYLE), so equality
+ * alone decides. The dlist arm has no producer yet: the conjunction's
+ * first test is where #9's `DescriptionListSiblingRx` matching plugs
+ * in.
  * @param text - one rstripped source line
- * @param style - the marker style of the list being read
+ * @param trait - the open list's sibling trait
  * @returns true when the line starts a sibling item
  */
-function isSibling(text: string, style: string): boolean {
-  return parseListMarker(text)?.style === style;
+function isSibling(text: string, trait: SiblingTrait): boolean {
+  return (
+    trait.kind === "marker" && parseListMarker(text)?.style === trait.style
+  );
 }
 
 /**
@@ -362,14 +373,14 @@ class ExtentScan {
    *   an enclosing item's buffer)
    * @param from - index of the first line AFTER the item's marker line
    *   (parse_list_item shifts the marker before reading, l.1348)
-   * @param style - the marker style siblings are matched by
+   * @param trait - the trait siblings are matched by
    * @param bounds - the enclosing confinement (stop lines) and the
    *   stream-end print-safety fact — see {@link ExtentBounds}
    */
   constructor(
     private readonly lines: readonly SourceLine[],
     from: number,
-    private readonly style: string,
+    private readonly trait: SiblingTrait,
     private readonly bounds: ExtentBounds,
   ) {
     this.index = from;
@@ -441,7 +452,7 @@ class ExtentScan {
    * @returns true when the item ends on this line, unread
    */
   private endsTheItem(text: string): boolean {
-    return isSibling(text, this.style);
+    return isSibling(text, this.trait);
   }
 
   /**
@@ -636,7 +647,9 @@ class ExtentScan {
     const target = this.buffer.at(at);
     // Total fallback: both callers pass an index into a line they just
     // pushed or read, so the line is there. Doing nothing rather than
-    // throwing keeps the scan total.
+    // throwing keeps the scan total. The blast radius is one gap line
+    // left unerased, which the gap invariant (gapsOf) then reports on
+    // the next parse.
     if (target !== undefined) {
       this.buffer[at] = { ...target, text: "" };
     }
@@ -744,7 +757,7 @@ class ExtentScan {
  * @param lines - the lines the item is read from (the document's, or
  *   an enclosing item's buffer — nesting composes by re-scanning)
  * @param from - index of the first line after the item's marker line
- * @param style - the marker style siblings are matched by
+ * @param trait - the trait siblings are matched by
  * @param bounds - the stream-end print-safety fact ({@link ExtentBounds})
  * @returns the buffer, the end index, the trailing-`+` flag and the
  *   item's own tail-safety
@@ -752,8 +765,8 @@ class ExtentScan {
 export function itemExtent(
   lines: readonly SourceLine[],
   from: number,
-  style: string,
+  trait: SiblingTrait,
   bounds: ExtentBounds,
 ): ItemExtent {
-  return new ExtentScan(lines, from, style, bounds).run();
+  return new ExtentScan(lines, from, trait, bounds).run();
 }

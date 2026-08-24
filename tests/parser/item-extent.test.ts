@@ -7,6 +7,11 @@
 import { describe, expect, test } from "vitest";
 import { itemExtent } from "../../src/parse/lines/list-reader.js";
 import { splitLines } from "../../src/parse/lines/split.js";
+import type { SiblingTrait } from "../../src/parse/lines/classify.js";
+
+// The trait the rows that name no style of their own match by: the
+// unordered marker every such document opens with.
+const MARKER_TRAIT: SiblingTrait = { kind: "marker", style: "*" };
 
 /**
  * Run itemExtent over a document, starting after its first line. The
@@ -26,9 +31,12 @@ function scan(
   bounds: { tailSafe?: boolean } = {},
 ): { buffer: string[]; end: number; trailing: boolean } {
   const lines = splitLines(source);
-  const extent = itemExtent(lines, from, style, {
-    tailSafe: bounds.tailSafe ?? true,
-  });
+  const extent = itemExtent(
+    lines,
+    from,
+    { kind: "marker", style },
+    { tailSafe: bounds.tailSafe ?? true },
+  );
   return {
     buffer: extent.buffer.map((line) => line.text),
     end: extent.end,
@@ -383,7 +391,7 @@ describe("itemExtent: one row per read_lines_for_list_item branch", () => {
 
   test("erasure blanks text only — offsets and raw stay intact", () => {
     const lines = splitLines("* a\n+\npara\n");
-    const { buffer } = itemExtent(lines, 1, "*", { tailSafe: true });
+    const { buffer } = itemExtent(lines, 1, MARKER_TRAIT, { tailSafe: true });
     expect(buffer[0]).toMatchObject({ text: "", raw: "+", offset: 4, line: 2 });
   });
 });
@@ -463,7 +471,7 @@ describe("itemExtent: the five tailSafe stop classes (spec D3)", () => {
   // A rest parameter, not five named ones: `max-params` is 4.
   test.each(rows)("%s", (...row) => {
     const [, source, from, boundsSafe, expected] = row;
-    const extent = itemExtent(splitLines(source), from, "*", {
+    const extent = itemExtent(splitLines(source), from, MARKER_TRAIT, {
       tailSafe: boundsSafe,
     });
     expect(extent.tailSafe).toBe(expected);

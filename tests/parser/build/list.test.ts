@@ -2,11 +2,12 @@
  * `build/list.ts` — list markers, item texts and item blocks to nodes.
  *
  * Table-driven because the module is `(input, index) → node` with no
- * context: the rows are the specification. They pin the marker
- * arithmetic (`**` is depth 2, `-` and `<1>` are always depth 1), the
- * checklist prefix that only an UNORDERED item may carry, the blocks
- * carried through gaps attached, and the three-way fallback for
- * where an item ends.
+ * context: the rows are the specification. They pin the callout
+ * number read off `<N>` / `<.>`, the marker spelling a list carries
+ * for its items, the checklist prefix that only an UNORDERED item may
+ * carry, the blocks carried through gaps attached, the three-way
+ * fallback for where an item ends, and the SERIALIZED key order of
+ * both node shapes.
  */
 import { describe, expect, test } from "vitest";
 import {
@@ -15,6 +16,9 @@ import {
   CHECKBOX_PREFIX_LEN,
   type ListItemInput,
 } from "../../../src/parse/build/list.js";
+import { parse } from "../../../src/parser.js";
+import { narrow } from "../../../src/unreachable.js";
+import { serializedKeys } from "../reader-helpers.js";
 import type { InlineToken } from "../../../src/parse/inline/tokens.js";
 import { makeLocationIndex } from "../../../src/parse/positions.js";
 import type {
@@ -64,7 +68,13 @@ function blockAt(type: "paragraph" | "list", end: number): BlockNode {
     end: { offset: end, line: 1, column: end + 1 },
   };
   return type === "list"
-    ? { type: "list", variant: "unordered", children: [], position }
+    ? {
+        type: "list",
+        variant: "unordered",
+        marker: "*",
+        children: [],
+        position,
+      }
     : { type: "paragraph", children: [], position };
 }
 
@@ -94,33 +104,17 @@ function item(start: number, end: number): ListItemNode {
   );
 }
 
-describe("marker depth", () => {
-  test.each([
-    ["* ", 1],
-    ["** ", 2],
-    ["***** ", 5],
-    ["- ", 1],
-    [". ", 1],
-    [".. ", 2],
-  ])("%j is depth %i", (image, depth) => {
-    const variant = image.startsWith(".") ? "ordered" : "unordered";
-    expect(
-      buildListItem(itemInput({ marker: { image, offset: 0 }, variant }), at)
-        .depth,
-    ).toBe(depth);
-  });
-
+describe("callout numbers", () => {
   test.each([
     ["<1> ", 1],
     ["<9> ", 9],
     // `<.>` is auto-numbered; 0 is the sentinel for it.
     ["<.> ", 0],
-  ])("a callout item %j is depth 1 with number %i", (image, number) => {
+  ])("a callout item %j carries number %i", (image, number) => {
     const node = buildListItem(
       itemInput({ marker: { image, offset: 0 }, variant: "callout" }),
       at,
     );
-    expect(node.depth).toBe(1);
     expect(node.calloutNumber).toBe(number);
   });
 
@@ -263,7 +257,7 @@ describe("the flag the reader read off the source", () => {
 
 describe("buildList", () => {
   test("spans its first item's start to its last item's end", () => {
-    const node = buildList("unordered", [item(0, 5), item(6, 11)]);
+    const node = buildList("unordered", "*", [item(0, 5), item(6, 11)]);
     expect(node).toMatchObject({ type: "list", variant: "unordered" });
     expect(node.children).toHaveLength(2);
     expect(node.position).toEqual({
@@ -275,7 +269,79 @@ describe("buildList", () => {
   test.each(["unordered", "ordered", "callout"] as const)(
     "carries the %j variant through",
     (variant) => {
-      expect(buildList(variant, [item(0, 5)]).variant).toBe(variant);
+      expect(buildList(variant, "*", [item(0, 5)]).variant).toBe(variant);
     },
   );
+
+  // The spelling is DATA, not arithmetic: whatever the classifier
+  // read off the first marker travels to the node untouched, tab-gapped
+  // runs included (the depth re-derivation that used to collapse them
+  // is gone).
+  test.each([
+    ["unordered", "*"],
+    ["unordered", "**"],
+    ["unordered", "*****"],
+    ["unordered", "-"],
+    ["ordered", "."],
+    ["ordered", ".."],
+    ["callout", "<>"],
+  ] as const)(
+    "a %s list carries the %j marker spelling through",
+    (variant, marker) => {
+      expect(buildList(variant, marker, [item(0, 5)]).marker).toBe(marker);
+    },
+  );
+});
+
+describe("serialized key order", () => {
+  test("a list serializes type, variant, marker, children, position", () => {
+    const [list] = parse("* a\n").children;
+    expect(serializedKeys(list)).toEqual([
+      "type",
+      "variant",
+      "marker",
+      "children",
+      "position",
+    ]);
+  });
+
+  // JSON.stringify drops undefined-valued keys, so the three item
+  // shapes pin the relative order around the optional pair.
+  test("an item's order is the old one minus depth", () => {
+    const [list] = parse("* a\n").children;
+    narrow(list, "list");
+    expect(serializedKeys(list.children[0])).toEqual([
+      "type",
+      "text",
+      "blocks",
+      "trailingContinuation",
+      "position",
+    ]);
+  });
+
+  test("a checklist item keeps checkbox in slot two", () => {
+    const [list] = parse("* [x] a\n").children;
+    narrow(list, "list");
+    expect(serializedKeys(list.children[0])).toEqual([
+      "type",
+      "checkbox",
+      "text",
+      "blocks",
+      "trailingContinuation",
+      "position",
+    ]);
+  });
+
+  test("a callout item keeps calloutNumber in slot three", () => {
+    const [list] = parse("<1> a\n").children;
+    narrow(list, "list");
+    expect(serializedKeys(list.children[0])).toEqual([
+      "type",
+      "calloutNumber",
+      "text",
+      "blocks",
+      "trailingContinuation",
+      "position",
+    ]);
+  });
 });

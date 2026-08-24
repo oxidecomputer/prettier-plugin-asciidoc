@@ -127,7 +127,10 @@ interface FormattingNodeOptions {
  * A single factory for all four formatting types avoids
  * duplicating the shared position/constrained/children
  * logic. The switch on the resolved type name ensures each
- * variant gets the correct discriminant for the AST union.
+ * variant gets the correct discriminant for the AST union: the
+ * four arms look identical because a spread with a UNION-typed
+ * `type` does not narrow to a union member, so each member needs
+ * its own literal — a TypeScript price, not a drifting spelling.
  * @param options - Mark type, constraint level, children,
  *   and the open/close mark tokens for position tracking.
  * @returns The typed formatting node for the AST.
@@ -211,12 +214,18 @@ interface RoleAttributeContext {
 /**
  * Handle a RoleAttribute token (`[.role]`).
  *
- * In AsciiDoc, a role attribute immediately before a
- * highlight mark (`#...#`) creates a custom-styled span.
- * If the next token is a highlight mark with a matching
- * close, this emits a HighlightNode with the role. If no
- * pairing is found, the role token falls through as plain
- * text — it may be an unresolved or misplaced attribute.
+ * A role attribute immediately before a highlight mark
+ * (`#...#`) creates a custom-styled span. If no pairing is
+ * found, the role token falls through as plain text — it may be
+ * an unresolved or misplaced attribute.
+ *
+ * The HighlightNode is built HERE rather than through
+ * {@link makeFormattingNode} even though the pair-and-recurse
+ * shape matches: this literal spells the keys `type, constrained,
+ * role, children, position`, the factory's highlight arm spells
+ * `type, role, constrained, children, position`, and serialization
+ * order is a contract — unifying them would move keys on every
+ * `[.role]#x#` document.
  * @param context - The current token stream state and
  *   accumulator callbacks.
  * @returns The next token index to resume processing from.
@@ -256,17 +265,20 @@ function handleRoleAttribute(context: RoleAttributeContext): number {
 /**
  * Try to pair a formatting mark with its close.
  *
- * Extracts the tokens between the open and close marks,
- * recursively builds their InlineNode children, and wraps
- * them in the appropriate formatting node. Returns
- * undefined when no matching close mark exists, signaling
- * the caller to fall through to plain text accumulation.
+ * MARK_TOKEN_TYPES is the gate and it lives HERE, with the pairing
+ * it guards: extracts the tokens between the open and close marks,
+ * recursively builds their InlineNode children, and wraps them in
+ * the appropriate formatting node. Returns undefined for a token
+ * that is not a formatting mark at all and for one with no matching
+ * close, both of which send the caller on to plain-text
+ * accumulation.
  * @param tokens - The flat token stream being processed.
  * @param index - Position of the open formatting mark.
- * @param token - The open mark token itself.
+ * @param token - The token at the current position; its own `type`
+ *   is the gate.
  * @param at - The document's location index.
- * @returns The built node and next index, or undefined if
- *   no matching close mark was found.
+ * @returns The built node and next index, or undefined if the token
+ *   is not a formatting mark or has no close.
  */
 function handleFormattingMark(
   tokens: readonly InlineToken[],
@@ -274,6 +286,7 @@ function handleFormattingMark(
   token: InlineToken,
   at: LocationIndex,
 ): { node: InlineNode; nextIndex: number } | undefined {
+  if (!MARK_TOKEN_TYPES.has(token.type)) return undefined;
   // Find a close mark that is not immediately adjacent to the
   // open mark. An adjacent close would create an empty
   // formatting span (e.g. `____` tokenized as `__` + `__`)
@@ -281,6 +294,12 @@ function handleFormattingMark(
   // adjacent matches lets the tokens between them become
   // content, matching Asciidoctor's behavior where `_____`
   // is italic wrapping a literal `_`.
+  //
+  // This is the ZERO-INNER-TOKENS shape only. A span whose children
+  // are all WHITESPACE has tokens, so it is built and reaches the
+  // printer's own empty-span bail (appendSpan, src/print-inline.ts),
+  // which the whitespace-only `_# #_` fires and this loop never
+  // sees. Neither guard subsumes the other; both are live.
   let closeIndex = findCloseMark(tokens, index);
   while (closeIndex !== -1) {
     const innerTokens = tokens.slice(index + 1, closeIndex);
@@ -304,36 +323,6 @@ function handleFormattingMark(
     }),
     nextIndex: closeIndex + 1,
   };
-}
-
-/**
- * Dispatch paired formatting marks (bold, italic, etc.).
- *
- * Acts as a gate: only tokens whose type is in the
- * MARK_TOKEN_TYPES set are forwarded to
- * handleFormattingMark. All other token types pass through
- * as undefined, letting the main loop try the next
- * dispatch category (atomic tokens, then plain text).
- * @param tokens - The flat token stream being processed.
- * @param index - Current position in the token stream.
- * @param token - The token at the current position; its own `type`
- *   is the gate. (The kind used to be passed separately, to skip
- *   the old token's `tokenType` getter in the hot loop; a plain string
- *   field costs nothing, so the parameter is gone.)
- * @param at - The document's location index.
- * @returns The built node and next index, or undefined if
- *   the token is not a formatting mark or has no close.
- */
-function dispatchPairedToken(
-  tokens: readonly InlineToken[],
-  index: number,
-  token: InlineToken,
-  at: LocationIndex,
-): { node: InlineNode; nextIndex: number } | undefined {
-  if (MARK_TOKEN_TYPES.has(token.type)) {
-    return handleFormattingMark(tokens, index, token, at);
-  }
-  return undefined;
 }
 
 /**
@@ -543,8 +532,8 @@ export function buildFromTokens(
     // it are structural: the one that ended the previous line was
     // accumulated into the pending text and is trimmed off here,
     // and the one that ends the raw line is skipped below. Leaving
-    // them in would put stray "\n" into text runs and break the
-    // content/separator alternation the printer's fill() needs.
+    // them in would put stray "\n" into text runs; the printer's
+    // atoms are newline-free by contract (src/reflow.ts, Atom).
     if (type === "RawLine") {
       pendingText = withoutTrailingNewline(pendingText);
       flushText();
@@ -567,11 +556,10 @@ export function buildFromTokens(
       continue;
     }
 
-    // Paired tokens: constrained passthrough (+...+) and
-    // formatting marks (*...*  _..._ `...` #...#). Dispatch
-    // to the appropriate handler; fall through as plain text
-    // if no matching close mark is found.
-    const pairedResult = dispatchPairedToken(tokens, index, token, at);
+    // Paired formatting marks (*...*  _..._ `...` #...#): pair with
+    // the matching close, or fall through as plain text when none
+    // exists.
+    const pairedResult = handleFormattingMark(tokens, index, token, at);
     if (pairedResult !== undefined) {
       flushText();
       const { node, nextIndex } = pairedResult;

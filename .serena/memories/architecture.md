@@ -10,6 +10,16 @@ converts it to Prettier Doc IR.
 source → splitLines → BlockReader(classifyLine) → AST → Printer
 ```
 
+Three properties hold along that pipeline, and each is what the next stage stops
+having to guess. The reader UNDERSTANDS what it holds: a held style line's
+consequences — a masquerade, an admonition rename, a verbatim role — are decided
+once at the block's opening line and recorded, so no later pass re-derives them.
+Every composite construct is read EXTENT-FIRST, at the line Asciidoctor decides
+it, so nesting is never reconstructed after the fact and there is no frame stack
+to keep in step. And the printer REPLAYS recorded facts — the author's own
+bytes, the spellings the AST stores, and one record derived at ask time
+(`anchorLineShape`) — inventing nothing of its own.
+
 ## Components
 
 - **Parser** (`src/parser.ts`, `src/parse/`): three phases. (1) line splitting
@@ -47,21 +57,24 @@ source → splitLines → BlockReader(classifyLine) → AST → Printer
   in `docs/design.md`.
 
   **The rule: block-level context comes from the reader and from nowhere else,
-  and `tests/parser/architecture.test.ts` enforces it — including a
-  `from "chevrotain"` row, so no module under `src/parse` can import the old
-  parser toolkit back. That row and the custom-pattern / lexer-mode /
-  parser-gate rows are literal Chevrotain spellings; a DIFFERENT parser library
-  would need a new row, so add one rather than assuming it is caught.** The
-  BlockReader walks its lines ONCE, mirroring Asciidoctor's reader
-  (`Parser.next_block`, `build_block`, `read_paragraph_lines`,
-  `read_lines_for_list_item`, `Reader.read_lines_until`) and building each
-  block's node at the line where Asciidoctor decides it, so no later stage
-  re-derives nesting: no parser-state gates, no backtracking, no custom token
-  pattern reading the token history, no lexer modes, and no post-hoc AST repair
-  pass — the guard test asserts all of that textually over every file in
-  `src/parse`, plus zero import cycles (from `dependency-cruiser`, through the
-  same `cruiseImports` helper `bun run metrics` gates on) and a ceiling on lint
-  suppressions.
+  and `tests/parser/architecture.test.ts` enforces it.** Its forbidden-pattern
+  list is down to the two shapes that still have a temptation window: a function
+  signature taking the token history as its third parameter, and a backwards
+  search over an emitted array (`.findLast`/`.findLastIndex`, a TOTAL ban under
+  `src/parse` — the old exemption for a receiver named `stack`/`frames` retired
+  with the stack itself). The toolkit-era rows are gone: their window closed
+  with the toolkit, and knip plus `bun run check` already fail on a resurrected
+  dependency. A different parser library would need a NEW row, so add one rather
+  than assuming it is caught. The BlockReader walks its lines ONCE, mirroring
+  Asciidoctor's reader (`Parser.next_block`, `build_block`,
+  `read_paragraph_lines`, `read_lines_for_list_item`, `Reader.read_lines_until`)
+  and building each block's node at the line where Asciidoctor decides it, so no
+  later stage re-derives nesting: no parser-state gates, no backtracking, no
+  custom token pattern reading the token history, no lexer modes, and no
+  post-hoc AST repair pass — the guard test asserts all of that textually over
+  every file in `src/parse`, plus zero import cycles (from `dependency-cruiser`,
+  through the same `cruiseImports` helper `bun run metrics` gates on) and a
+  ceiling on lint suppressions.
 
   Line SHAPES live in one registry, `src/parse/line-shapes.ts`, oracle-pinned by
   `tests/conformance/interruption.test.ts` and cited to the Asciidoctor Ruby
@@ -85,15 +98,20 @@ source → splitLines → BlockReader(classifyLine) → AST → Printer
   leaf/held-metadata builder tables) so the two stay a DAG. Each block an item
   holds carries its verbatim `gap` (the `""`/`"+"` lines before it), and
   replaying that gap line for line is `src/print-list.ts`'s DEFAULT — which is
-  what makes list formatting idempotent. On top of it the printer has four named
-  separator decisions, no more: `hazard(item)` (`src/print-list-hazard.ts`,
-  Rulings 26–30 — a pure predicate over the node), `printedGap`'s
-  collided-marker arm (drop a blank-only gap when marker normalization made
-  parent and child markers identical, #16), `printedGap`'s slurp arm (invent a
-  blank that is in no gap, where a literal's re-read slurp would swallow the
-  next marker), and `printList`'s two-hardline sibling separator after an item
-  ending on an indented literal. Each adjustment exists because verbatim replay
-  would not re-parse to the same tree there. Paragraph text is tokenized by the
+  what makes list formatting idempotent. The list's marker spelling is data too:
+  `ListNode.marker` holds what the classifier parsed and the printer replays it,
+  with nesting depth derived from the spelling and stored nowhere. On top of
+  that default the printer has four named separator decisions, no more:
+  `hazard(item)` (`src/print-list-hazard.ts`) — a pure predicate over the
+  finished node answering `"none" | "keepBreak"`, keyed on the leading metadata
+  run over one derived record (`anchorLineShape`); `printedGap`'s same-marker
+  arm (a nested list that shares its parent item's marker prints ADJACENT — a
+  blank-only gap there would read back as a sibling boundary — unless the gap
+  carries a live `+`); `printedGap`'s slurp arm (invent a blank that is in no
+  gap, where a literal's re-read slurp would swallow the next marker); and
+  `printList`'s two-hardline sibling separator after an item ending on an
+  indented literal. Each adjustment exists because verbatim replay would not
+  re-parse to the same tree there. Paragraph text is tokenized by the
   hand-rolled tokenizer (`src/parse/inline/tokenize.ts`) over each run of
   paragraph lines, and the paragraph node is built from those tokens
   (`src/parse/build/paragraph.ts`). See "Line classification is contextual" in
@@ -112,13 +130,19 @@ source → splitLines → BlockReader(classifyLine) → AST → Printer
   (`tests/parser/architecture.test.ts`, counting the `type: "…"` discriminant
   literals in `src/ast.ts`); a 31st kind fails that row until it is deliberately
   updated.
-- **Printer** (`src/printer.ts`): Walks AST, produces Prettier Doc IR. The two
-  containment facts the deleted `section` container used to enforce invisibly
-  are now NAMED rules in `src/print-join.ts`, each with its rationale: a level-0
-  (document-title) heading always takes a blank line after it (the byte the old
-  section printer forced, frozen), and a pseudo-anchor line never stacks
-  directly above a level ≥ 1 heading (the stacked pair re-parses as one joined
-  line and the heading is destroyed). Both are pinned by
+- **Printer** (`src/printer.ts`): Walks AST, produces Prettier Doc IR. Line
+  breaking inside a block happens BEFORE the Doc exists: `src/reflow.ts` turns a
+  block's inline content into `Atom`s — text plus the local break facts about
+  the join in front of it (`glueLeft`, `noBreakBefore`, `noBreakAfter`, and a
+  three-valued `breakBefore`) — and `blockBody(atoms, width, indent)` is the ONE
+  greedy packer the paragraph printer, the paragraph-form admonition body and a
+  list item's text all go through, so those bodies are one engine by
+  construction. The two containment facts the deleted `section` container used
+  to enforce invisibly are now NAMED rules in `src/print-join.ts`, each with its
+  rationale: a level-0 (document-title) heading always takes a blank line after
+  it (the byte the old section printer forced, frozen), and a pseudo-anchor line
+  never stacks directly above a level ≥ 1 heading (the stacked pair re-parses as
+  one joined line and the heading is destroyed). Both are pinned by
   `tests/format/heading-adjacency.test.ts` and by the shape-diff
   `heading-adjacency` grid.
 - **Vendored deps** (`vendor/`): the Asciidoctor conformance corpus. Updated via
@@ -138,21 +162,28 @@ source → splitLines → BlockReader(classifyLine) → AST → Printer
   `bun run triage --write`; a fixed gap has its now-passing entries removed the
   same way, so the quarantine list shrinks monotonically.
 - **Shape-level standing nets** (`scripts/shape-registry.ts`,
-  `scripts/shape-diff.ts`, `scripts/metrics/shape-census.ts`): the corpus can be
-  BLIND to a construct (β's #44 corruption had zero corpus instances — the
-  quarantine list did not move in either direction), so shapes are also verified
-  directly. `shape-registry.ts` is the shared input vocabulary: containers ×
-  constructs × perturbations, each a named deterministic string generator.
-  `shape-diff.ts` takes a deterministic exhaustive product over a named
-  sub-grid, formats it under a base revision and under this checkout, and
-  reports per-diff proofs (render fidelity, neutrality, idempotence) plus a
-  REQUIRED family annotation from a closed enum — a differing shape with no
-  family FAILS the run, so an unexplained behavior change cannot pass quietly.
-  The completeness gate is `shape-census.ts`, wired into `bun run metrics`:
-  every `DELIMITER_KINDS` entry needs a delimiter dimension and every
-  `line-shapes.ts` runtime export needs a dimension that `covers` it (or a
-  written-down exemption), so a parser that learns a new construct must teach
-  these generators in the same commit.
+  `scripts/shape-registry-list-run.ts`, `scripts/shape-diff.ts`,
+  `scripts/metrics/shape-census.ts`): the corpus can be BLIND to a construct
+  (β's #44 corruption had zero corpus instances — the quarantine list did not
+  move in either direction), so shapes are also verified directly.
+  `shape-registry.ts` is the shared input vocabulary: containers × constructs ×
+  perturbations, each a named deterministic string generator;
+  `shape-registry-list-run.ts` holds the list-run grid in its own module because
+  the registry is at its `max-lines` ceiling, and the dependency runs ONE way
+  (it imports the registry, never the reverse). There are THREE named sub-grids,
+  selected with `--grid`: `standing` (the default, the whole container ×
+  construct product), `heading-adjacency` (the pairs where a line above a
+  heading can destroy it), and `list-run` (a list item's leading metadata run —
+  marker spellings, anchor spellings, gap shapes). `shape-diff.ts` takes a
+  deterministic exhaustive product over a named sub-grid, formats it under a
+  base revision and under this checkout, and reports per-diff proofs (render
+  fidelity, neutrality, idempotence) plus a REQUIRED family annotation from a
+  closed enum — a differing shape with no family FAILS the run, so an
+  unexplained behavior change cannot pass quietly. The completeness gate is
+  `shape-census.ts`, wired into `bun run metrics`: every `DELIMITER_KINDS` entry
+  needs a delimiter dimension and every `line-shapes.ts` runtime export needs a
+  dimension that `covers` it (or a written-down exemption), so a parser that
+  learns a new construct must teach these generators in the same commit.
 
 ## Key References
 

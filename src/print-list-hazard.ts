@@ -1,9 +1,11 @@
 /**
- * The reflow hazard of one list item — Rulings 26–30 as a PURE
- * predicate over the finished node (spec D2), asked by the printer.
+ * The reflow hazard of one list item — a PURE predicate over the
+ * finished node, asked by the printer; two answers, never an invented
+ * continuation line.
  *
  * `parse_block_metadata_lines` runs over an item's buffered lines
- * BEFORE its text is read, and `Reader#skip_line_comments` removes
+ * BEFORE its text is read (parser.rb:1999, inside next_list_item's
+ * confined reader, :1350), and `Reader#skip_line_comments` removes
  * `//` lines before it counts — so block metadata on the FIRST line
  * after the marker line folds the block after it into the item text,
  * while the same metadata on a later line ends the text and annotates
@@ -11,67 +13,57 @@
  * move metadata ONTO that first rest line and change the reading.
  * The hazard says how the printer must compensate:
  *
- * - `"plus"`  — a block of the item follows the leading metadata run:
- *   print an explicit `+` before the run (it re-parents nothing,
- *   because a block of the item follows anyway — Rulings 26/27).
- * - `"keepBreak"` — the run is trailing and carries a block title
- *   (an attribute line or anchor reflowed onto the first rest line is
- *   still read as metadata; a TITLE after one is read as text): keep
- *   the text's last line break instead (Rulings 28/29/30).
+ * - `"keepBreak"` — the run is what the RE-READER will see: metadata
+ *   sits directly under reflowable text, and either a non-transparent
+ *   block follows the run or the run carries a block title. Keeping
+ *   the text's last source break leaves a TEXT line on the item's
+ *   first rest line, so the re-reader's metadata drain meets every
+ *   metadata line exactly where the author placed it — later than the
+ *   first rest line — and reads the item as the input reads. The
+ *   argument covers the FOLD direction; the WRAP direction (a
+ *   width-wrap pushing first-rest-line metadata later) is a recorded
+ *   pre-existing divergence the predicate cannot see
+ *   (`reflowReachesFirstRestLine` needs a text child beyond the
+ *   marker line).
  * - `"none"` — everything else; the gap is replayed verbatim.
  *
- * The predicate reads the D1 shape: `text` + `blocks`, each block
- * behind its verbatim gap — "directly under" is a literal empty gap,
- * and an author's `+` is a literal `["+"]`.
+ * There is no third answer: the printer NEVER invents a continuation
+ * line. Every `+` in its output replays a recorded author fact — the
+ * gap arrays, the popped trailing `+`, the hard-break image (pinned by
+ * tests/format/list-hazard.test.ts and the list-item-blocks rows).
+ *
+ * The predicate reads the item's shape: `text` + `blocks`, each block
+ * behind its verbatim gap — "directly under" is a literal empty gap.
+ * An author's `+` in a gap needs no help from the printer (it replays
+ * verbatim), so a `+`-attached block is simply a FOLLOWER: it ends
+ * the run and counts toward "a block follows".
  */
 import type { BlockNode, ListItemNode } from "./ast.js";
-import { isPseudoAnchorLine } from "./block-metadata.js";
+import {
+  anchorLineShape,
+  isBlockMetadata,
+  isLineComment,
+} from "./block-metadata.js";
+import { LINE_COMMENT_HEAD } from "./parse/line-shapes.js";
 
 /** How the printer must guard the item's text against reflow. */
-export type Hazard = "none" | "plus" | "keepBreak";
-
-// What Reader#skip_line_comments takes for a comment: two slashes.
-const COMMENT_HEAD = "//";
+export type Hazard = "none" | "keepBreak";
 
 /**
- * Whether a block is a `//` line comment — TRANSPARENT to the run,
- * exactly as `Reader#skip_line_comments` makes it transparent to the
- * line counting on the text side (see
- * {@link reflowReachesFirstRestLine}). Today's reader reads a comment
- * between two metadata lines as not interrupting the run, and a comment
- * after the run as not being "a block of the item that follows"; both
- * fall out of one predicate.
- *
- * A `////`-delimited comment BLOCK is deliberately NOT transparent:
- * `skip_line_comments` skips `//` lines only, and a comment block is a
- * block like any other.
- * @param block - one block of the item
- * @returns true when the run reads straight through it
- */
-function isLineComment(block: BlockNode): boolean {
-  return block.type === "comment" && block.commentType === "line";
-}
-
-/**
- * Whether a block is metadata a held-back run is made of: an attribute
- * list, a block title, a block anchor — or a pseudo-anchor line, a
- * paragraph that PRINTS as `[[…]]` because its id failed the
- * block-anchor grammar (`isPseudoAnchorLine`, block-metadata.ts). The
- * held run reaches items: `* a` / `para` / `[role]` / `[[3-bad]]`
- * puts one in an item's run, and dropping it flips the hazard to
- * `plus` and invents a `+` line the author never wrote. Same arm as
- * the pairing rule's, for the same reason — the printed LINE is what
- * the reader will see again.
+ * Whether a block is metadata a held-back run is made of: block
+ * metadata proper, or a block whose PRINTED line re-reads as a valid
+ * block anchor (`anchorLineShape` — `[[id,]]` prints `[[id]]`, an
+ * anchor on re-read, so it stays in the run and the fold bytes stay
+ * fixed points). A LOOKALIKE — a rejected id, printed byte-faithfully
+ * — is a text line to the re-reader: it is NOT run metadata, so the
+ * run ends before it and it sits in the follows slice like any other
+ * block. Same record as the pairing rule's, for the same reason — the
+ * printed LINE is what the reader will see again.
  * @param block - one block of the item
  * @returns true when the run may include it
  */
 function isRunMetadata(block: BlockNode): boolean {
-  return (
-    block.type === "blockAttributeList" ||
-    block.type === "blockTitle" ||
-    block.type === "blockAnchor" ||
-    isPseudoAnchorLine(block)
-  );
+  return isBlockMetadata(block) || anchorLineShape(block) === "anchor";
 }
 
 /** One block the item holds, with what the source put in front of it. */
@@ -80,18 +72,14 @@ interface HeldBlock {
   block: BlockNode;
   /** Whether it starts on the line after the previous piece's end. */
   adjacent: boolean;
-  /** Whether an AUTHOR-written `+` line fills the gap in front of it. */
-  authorPlus: boolean;
 }
 
 /**
- * Every block the item holds, in source order, each with how the source
- * separated it from what precedes it — read straight off the block's
- * recorded gap: an empty gap is adjacency, and a gap of exactly one
- * `+` line is an author-written continuation. (The distinction from a
- * reader-INTRODUCED `+` is now structural: the reader never invents
- * one, so a `+` in a gap is always the author's; the printer's Ruling
- * 26 `+` exists only in the output, never in the node.)
+ * Every block the item holds, in source order, each with whether the
+ * source separated it from what precedes it — read straight off the
+ * block's recorded gap: an empty gap is adjacency. (What fills a
+ * non-empty gap no longer matters here: an author's `+` replays
+ * verbatim and its block is an ordinary follower.)
  * @param item - the item node
  * @returns its blocks, earliest first
  */
@@ -99,33 +87,19 @@ function heldBlocks(item: ListItemNode): HeldBlock[] {
   return item.blocks.map(({ gap, block }) => ({
     block,
     adjacent: gap.length === 0,
-    authorPlus: gap.length === 1 && gap[0] === "+",
   }));
 }
 
 /**
- * The maximal leading run of metadata blocks sitting DIRECTLY under the
- * text — the "gap []" run.
- *
- * Two things are read THROUGH once the run has started:
- *
- * - a line comment (see {@link isLineComment}), which keeps the run
- *   going without being a member of it;
- * - an AUTHOR-written `+` between two metadata lines (Ruling 66). That
- *   `+` is replayed verbatim from the gap, so the attachment needs no
- *   help from the printer, and the run stays TRAILING: for
- *   `"* a\npara\n[role]\n+\n.T\n"` the answer is `keepBreak` rather
- *   than a second `+`. A `+`-separated block that is NOT metadata
- *   still ends the run and still counts as "a block follows" — for
- *   `"* a\npara\n[role]\n+\npara\n"` the printer really does emit a
- *   `+` (measured: `"* a para\n+\n[role]\n+\npara\n"`).
- *
- * The run's FIRST member must be strictly adjacent, though: a `+` above
- * the run means the gap already speaks and there is no hazard at all
- * (`"* a\n+\n[role]\n----\nx\n----\n"` → `"none"`).
+ * The maximal leading run of metadata blocks sitting DIRECTLY under
+ * the text — the "gap []" run. A line comment is read THROUGH once
+ * the run has started, without being a member ({@link isLineComment}).
+ * Every member — the first especially — must be strictly adjacent: a
+ * `+` or a blank above a line means the gap already speaks and the
+ * run ends there (`"* a\n+\n[role]\n----\nx\n----\n"` → `"none"`).
  * @param blocks - the item's blocks in source order
- * @returns the run's metadata members, and how many of `blocks` the run
- *   spans — the two differ by the line comments read through
+ * @returns the run's metadata members, and how many of `blocks` the
+ *   run spans — the two differ by the line comments read through
  */
 function leadingMetadataRun(blocks: readonly HeldBlock[]): {
   run: BlockNode[];
@@ -136,8 +110,7 @@ function leadingMetadataRun(blocks: readonly HeldBlock[]): {
   for (const held of blocks) {
     const transparent = isLineComment(held.block);
     if (!transparent && !isRunMetadata(held.block)) break;
-    const started = spanned > 0;
-    if (!held.adjacent && !(held.authorPlus && started)) break;
+    if (!held.adjacent) break;
     if (!transparent) run.push(held.block);
     spanned += 1;
   }
@@ -146,12 +119,10 @@ function leadingMetadataRun(blocks: readonly HeldBlock[]): {
 
 /**
  * Whether reflow could put the run's first line onto the first line
- * after the marker line — the old reader's
- * `reflowWouldReachFirstRestLine` rule (deleted at the cut-over),
- * read off the text's inline nodes: at least one reflowable
- * non-comment line beyond the marker line, and no line that keeps its
- * own line (a directive or `[[anchor]]` raw line does; a `//` comment
- * is transparent, Reader#skip_line_comments).
+ * after the marker line, read off the text's inline nodes: at least
+ * one reflowable non-comment line beyond the marker line, and no line
+ * that keeps its own line (a directive or `[[anchor]]` raw line does;
+ * a `//` comment is transparent, Reader#skip_line_comments).
  * @param item - the item node
  * @returns true when reflow would reach the first rest line
  */
@@ -160,7 +131,7 @@ function reflowReachesFirstRestLine(item: ListItemNode): boolean {
   let sawReflowable = false;
   for (const child of item.text) {
     if (child.type === "rawLine") {
-      if (child.value.startsWith(COMMENT_HEAD)) continue;
+      if (child.value.startsWith(LINE_COMMENT_HEAD)) continue;
       return false; // keeps its own line — reflow never reaches
     }
     if (child.position.end.line > markerLine) sawReflowable = true;
@@ -169,8 +140,9 @@ function reflowReachesFirstRestLine(item: ListItemNode): boolean {
 }
 
 /**
- * The item's reflow hazard — see the module comment for the three
- * answers and the Rulings behind them.
+ * The item's reflow hazard — see the module comment for the two
+ * answers and the sufficiency argument, stated there once and pinned
+ * by the suite rows, never re-derived here.
  * @param item - the finished item node
  * @returns how the printer must guard the text
  */
@@ -181,17 +153,13 @@ export function hazard(item: ListItemNode): Hazard {
     return "none";
   }
   // "A block of the item follows the run" counts only blocks the run
-  // does not already read through — line comments are transparent here
-  // too (Ruling 64), so a trailing `// c` leaves the run TRAILING
-  // instead of turning it into a `+` the reader never introduces.
-  // An author's `+` is handled by the run itself, not here: a
-  // `+`-separated METADATA line joins the run (Ruling 66), while a
-  // `+`-separated block that is not metadata does follow it and does
-  // earn the `+`.
+  // does not already read through — line comments are transparent
+  // here too (Ruling 64), so a trailing `// c` leaves the run
+  // TRAILING.
   const follows = blocks
     .slice(spanned)
     .some((held) => !isLineComment(held.block));
-  if (follows) return "plus";
+  if (follows) return "keepBreak";
   return run.some((block) => block.type === "blockTitle")
     ? "keepBreak"
     : "none";

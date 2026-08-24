@@ -45,14 +45,15 @@ describe("callout list parsing", () => {
     expect(textNode.value).toBe("Hello world");
   });
 
-  // Callout lists are always flat — no nesting. All items
-  // should have depth 1.
-  test("callout list items are flat (depth 1)", () => {
+  // Callout lists are always flat — no nesting. Every callout
+  // marker resolves to the one sentinel style `<>`, which is what
+  // `is_sibling_list_item?` compares, so `<2>` continues `<1>`'s
+  // list instead of opening a level.
+  test("callout list items are flat (one shared marker)", () => {
     const { children } = parse("<1> A\n<2> B\n");
     const list = firstList(children);
-    for (const item of list.children) {
-      expect(item.depth).toBe(1);
-    }
+    expect(list.marker).toBe("<>");
+    expect(list.children).toHaveLength(2);
   });
 
   // A blank line between two callout items does NOT split the list

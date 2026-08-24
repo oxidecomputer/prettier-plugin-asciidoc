@@ -70,6 +70,12 @@ export interface LocationIndex {
  * plus one. A span that ends at a line break therefore reports the
  * line the break is on. Both spellings name the same OFFSET, which is
  * what Prettier's locEnd, cursor tracking and range formatting read.
+ *
+ * The line numbers this index reports are the SAME ones splitLines
+ * assigns (src/parse/lines/split.ts): both count every `\n` and
+ * nothing else, so a SourceLine's `line` and the index's answer at
+ * that line's offset agree by construction — pinned by
+ * tests/parser/positions.test.ts.
  * @param source - the whole document
  * @returns the index
  */

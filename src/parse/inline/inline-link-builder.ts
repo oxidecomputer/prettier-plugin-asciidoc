@@ -135,8 +135,8 @@ export function makeXrefFromShorthand(
  * Strips the `[[`/`]]` delimiters and splits at the
  * first comma to separate the anchor ID from optional
  * reftext (the default cross-reference display text).
- * Leading whitespace after the comma is trimmed to match
- * the `[[id, reftext]]` convention.
+ * The post-comma bytes are kept verbatim; the printer trims
+ * them only when the id is valid (`anchorToSource`).
  * @param fragment - InlineAnchor token span (image wrapped in
  *   `[[` and `]]`)
  * @param at - the document's location index
@@ -157,11 +157,17 @@ export function makeInlineAnchor(
       position: positionOf(fragment, at),
     };
   }
-  const reftext = inner.slice(commaIndex + 1).trimStart();
+  // The post-comma spelling is captured VERBATIM: the printer prints
+  // it back byte-for-byte when the id fails the block-anchor grammar
+  // (anchorToSource, serialize-inline.ts). EMPTINESS is still judged
+  // on the trimmed view, so an empty-or-whitespace reftext narrows to
+  // undefined exactly as before and `[[id, ]]` keeps printing
+  // `[[id]]` (pinned by tests/format/anchor-spelling.test.ts).
+  const reftext = inner.slice(commaIndex + 1);
   return {
     type: "inlineAnchor",
     id: inner.slice(0, commaIndex),
-    reftext: reftext.length > 0 ? reftext : undefined,
+    reftext: reftext.trimStart().length > 0 ? reftext : undefined,
     position: positionOf(fragment, at),
   };
 }

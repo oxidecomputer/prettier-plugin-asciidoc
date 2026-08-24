@@ -5,8 +5,8 @@
  * Total by construction — every position produces exactly one token —
  * which is why nothing downstream has an error path (spec Decision
  * 6). `start_chars_hint`, `line_breaks` and `Lexer.NA` were
- * lexer-toolkit bookkeeping, an optimisation or unused, and are retired
- * with it.
+ * Chevrotain's lexer bookkeeping, an optimisation or unused, and are
+ * retired with it.
  */
 import { INLINE_RULES } from "./rules.js";
 import type { InlineKind, InlineToken } from "./tokens.js";
@@ -50,7 +50,7 @@ export function tokenizeInline(
     // table — it matches any character but a newline, and a newline is
     // matched by InlineNewline. Kept as a one-character step rather
     // than a throw so the tokenizer stays total whatever the table
-    // says.
+    // says. The blast radius is one character read as plain text.
     if (length === 0) {
       tokens.push({
         type: "InlineChar",

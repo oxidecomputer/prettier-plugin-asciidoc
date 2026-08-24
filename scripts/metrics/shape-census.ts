@@ -11,14 +11,13 @@
  * (v): the realized grids are exactly the sizes every later task
  * cites. A pure set difference over runtime values, never a parse.
  *
- * Rules (iii)–(v) are review M2/m3 (2026-08-23). Rules (i)–(ii) reach
- * only `CONSTRUCTS`, so deleting one container and one perturbation
- * shrank the standing grid 2810 -> 2433 — discarding a
- * `b44-confined-extent` coordinate — with `metrics`, `lint` and `test`
- * all green. The plan's only defence was "the realized grid size
- * prints with every run so a shrink is visible", which is visible only
- * to a human who remembers the number. Five downstream tasks cite
- * 2,810; the number is now pinned where it fails.
+ * Rules (iii)–(v) exist because rules (i)–(ii) reach only
+ * `CONSTRUCTS`: deleting one container and one perturbation once
+ * shrank the standing grid from 2,810 to 2,433 — discarding a
+ * confined-extent coordinate — with `metrics`, `lint` and `test` all
+ * green. A realized size that merely prints with every run is visible
+ * only to a human who remembers the number, so the size is pinned
+ * where the shrink fails.
  *
  * HONEST BOUNDS, all three (spec D7.1): this is NAME coverage, not
  * behavior coverage — a pattern added INSIDE an existing exported
@@ -36,6 +35,7 @@
  */
 import * as lineShapes from "../../src/parse/line-shapes.js";
 import { DELIMITER_KINDS } from "../../src/parse/line-shapes.js";
+import { listRunGrid } from "../shape-registry-list-run.js";
 import {
   CONSTRUCTS,
   CONTAINERS,
@@ -49,6 +49,10 @@ import {
 // never be exempted here; it gets a dimension.
 const EXEMPT = new Map<string, string>([
   ["rstrip", "line-normalization helper, not a line shape"],
+  [
+    "optionalGroup",
+    "named-group reading helper shared by the parse functions, not a line shape",
+  ],
   [
     "isDelimiterLine",
     "pure predicate over DELIMITED_BLOCK_PATTERNS; rule (i) covers the shapes",
@@ -81,6 +85,10 @@ const EXEMPT = new Map<string, string>([
     "DELIMITED_BLOCK_PATTERNS",
     "enumeration source consumed by rule (i), not a rule of its own",
   ],
+  [
+    "LINE_COMMENT_HEAD",
+    "string head shared by skip_line_comments consumers; the line-comment dimension covers the shape",
+  ],
 ]);
 
 // Rule (iii)'s rosters: the container and perturbation dimensions the
@@ -107,6 +115,7 @@ const CONTAINER_IDS: readonly string[] = [
   "after-h2-adjacent",
   "before-h1-adjacent",
   "before-h1-blank",
+  "under-note-attrlist",
 ];
 
 const PERTURBATION_IDS: readonly string[] = [
@@ -137,16 +146,12 @@ const GRID_EXEMPT = new Map<string, string>([
     "the heading-adjacency grid DOES exercise an attribute entry, but spells it `:a: 1` in its own inline list rather than reading this dimension's `:a: v`",
   ],
   [
-    "callout",
-    "callouts are a verbatim-interior concern; the delimited grids vary the block's ENDING, not its interior lines",
-  ],
-  [
     "dlist-term",
     "description lists are neither a delimited block nor a heading neighbour; their own grid is out of β (spec D9)",
   ],
   [
     "admonition-label",
-    "the label form is a paragraph shape; the DELIMITED-admonition path (buildDelimitedAdmonition) is NOT grid-covered — no realized grid input carries a `[NOTE]` attrlist, so no row reaches it; the compound delimiter kinds exercise the delimiter, never the admonition variant",
+    "the label form is a paragraph shape never realized by these grids; the DELIMITED-admonition path (buildDelimitedAdmonition) IS grid-covered — the under-note-attrlist container puts a [NOTE] attrlist over every compound delimiter kind",
   ],
   [
     "block-macro",
@@ -154,10 +159,6 @@ const GRID_EXEMPT = new Map<string, string>([
   ],
   ["thematic-break", "a leaf line, as block-macro"],
   ["page-break", "a leaf line, as block-macro"],
-  [
-    "indented-line",
-    "the literal-indent family is a LIST-item concern tracked by the sweep's FAILING_TODAY allowlist, not by these grids",
-  ],
   [
     "include",
     "preprocessor directive; the conditional dimension carries the adjacency coordinate for that class",
@@ -173,20 +174,18 @@ const GRID_EXEMPT = new Map<string, string>([
 ]);
 
 // Rule (v): the realized grid sizes every later task cites. The
-// standing grid is 13 kinds x 18 containers x 12 perturbations plus
+// standing grid is 13 kinds x 19 containers x 12 perturbations plus
 // the two setext pins; the adjacency grid is 10 constructs x 7
-// positions plus 4 named explicit rows.
-//
-// TASK 4 does NOT add rows: the D10(d) containment coordinates are
-// covered by named fixture expectations in
-// tests/format/heading-adjacency.test.ts, because a row added at HEAD
-// has no counterpart in the differential base dump this plan compares
-// against. If a later task DOES extend headingAdjacencyGrid()'s
-// source list, HEADING_ADJACENCY_GRID_SIZE below moves DELIBERATELY,
-// in the same commit, to the count the new list produces — it is not
-// a number to discover from a red gate and paste back.
-const STANDING_GRID_SIZE = 2810;
-const HEADING_ADJACENCY_GRID_SIZE = 74;
+// positions plus 9 named explicit rows (β's 4 + the 5 R2 rows); the
+// list-run grid is a standing selection (its arithmetic is
+// spelled at listRunGrid()). New rows are realizable against any
+// base — shape-diff hands head-generated inputs to the base dumper —
+// so a grid extension moves its pin DELIBERATELY, in the same commit,
+// to the count the new source list produces; it is not a number to
+// discover from a red gate and paste back.
+const STANDING_GRID_SIZE = 2966;
+const HEADING_ADJACENCY_GRID_SIZE = 79;
+const LIST_RUN_GRID_SIZE = 104;
 
 /**
  * Rule (i): every delimiter kind has a registry dimension.
@@ -315,9 +314,14 @@ function gridCoverageFailures(inputs: readonly string[]): string[] {
  * Rule (v): the realized grids are the sizes every later task cites.
  * @param standing - the standing grid's realized length
  * @param adjacency - the heading-adjacency grid's realized length
+ * @param listRun - the list-run grid's realized length
  * @returns one message per shrunk or grown grid
  */
-function gridSizeFailures(standing: number, adjacency: number): string[] {
+function gridSizeFailures(
+  standing: number,
+  adjacency: number,
+  listRun: number,
+): string[] {
   const failures: string[] = [];
   if (standing !== STANDING_GRID_SIZE) {
     failures.push(
@@ -327,6 +331,11 @@ function gridSizeFailures(standing: number, adjacency: number): string[] {
   if (adjacency !== HEADING_ADJACENCY_GRID_SIZE) {
     failures.push(
       `shape census: headingAdjacencyGrid() realized ${String(adjacency)} shapes, not the pinned ${String(HEADING_ADJACENCY_GRID_SIZE)} (rule (v)) — the realized grid no longer matches the pin, and a shrink narrows the net silently; move the pin in scripts/metrics/shape-census.ts only when the change is deliberate`,
+    );
+  }
+  if (listRun !== LIST_RUN_GRID_SIZE) {
+    failures.push(
+      `shape census: listRunGrid() realized ${String(listRun)} shapes, not the pinned ${String(LIST_RUN_GRID_SIZE)} (rule (v)) — the realized grid no longer matches the pin, and a shrink narrows the net silently; move the pin in scripts/metrics/shape-census.ts only when the change is deliberate`,
     );
   }
   return failures;
@@ -339,7 +348,10 @@ function gridSizeFailures(standing: number, adjacency: number): string[] {
 export function shapeCensusFailures(): string[] {
   const standing = standingGrid();
   const adjacency = headingAdjacencyGrid();
-  const inputs = [...standing, ...adjacency].map((shape) => shape.input);
+  const listRun = listRunGrid();
+  const inputs = [...standing, ...adjacency, ...listRun].map(
+    (shape) => shape.input,
+  );
   return [
     ...delimiterKindFailures(),
     ...exportNameFailures(),
@@ -354,6 +366,6 @@ export function shapeCensusFailures(): string[] {
       PERTURBATION_IDS,
     ),
     ...gridCoverageFailures(inputs),
-    ...gridSizeFailures(standing.length, adjacency.length),
+    ...gridSizeFailures(standing.length, adjacency.length, listRun.length),
   ];
 }

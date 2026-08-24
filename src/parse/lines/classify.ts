@@ -43,18 +43,44 @@ import {
   SECTION_TITLE,
   THEMATIC_BREAK,
   interruptsParagraph,
-  isDescriptionListLine,
   isRawParagraphLine,
+  optionalGroup,
+  parseDescriptionListLine,
   rstrip,
   type DelimiterKind,
   type ParagraphContext,
 } from "../line-shapes.js";
-import { MARKER_OFFSET, OUTERMOST_DEPTH } from "../../constants.js";
+import { MARKER_OFFSET } from "../../constants.js";
 
 export type { DelimiterKind } from "../line-shapes.js";
 
 /** The three list kinds the AST knows (`ListNode.variant`). */
 export type ListVariant = "unordered" | "ordered" | "callout";
+
+/**
+ * What makes a later line a SIBLING item of an open list. Ruby's test
+ * compares RESOLVED marker traits, never raw lines
+ * (`is_sibling_list_item?`, parser.rb:2265-2269, via
+ * `resolve_list_marker` :2177); dlists compare per-delimiter patterns
+ * (`DescriptionListSiblingRx`, rx.rb:339-344; the marker arm is
+ * pinned by tests/parser/item-extent.test.ts). Only the marker arm
+ * has a producer today; the dlist arm exists so #9 adds one and
+ * extends the four dlist-cited insertion points in ExtentScan
+ * (list-reader.ts) — never a parallel matching mechanism.
+ */
+export type SiblingTrait =
+  | {
+      /** A list opened by a marker (`*`, `.`, `<1>`). */
+      readonly kind: "marker";
+      /** The style `resolve_list_marker` resolves the marker to. */
+      readonly style: string;
+    }
+  | {
+      /** A description list, opened by a term line. */
+      readonly kind: "dlist";
+      /** The term delimiter a sibling term must repeat. */
+      readonly delimiter: string;
+    };
 
 /**
  * Why a line is raw — kept verbatim and invisible to block structure.
@@ -107,12 +133,20 @@ export type LineKind =
   | {
       /** An attribute entry (`:name: value`). */
       readonly kind: "attributeEntry";
+      /** The attribute name (without colons or bangs). */
+      readonly name: string;
+      /** The trimmed value, or undefined for no-value and unset forms. */
+      readonly value: string | undefined;
+      /** How the attribute is unset: `:!name:`, `:name!:`, or not. */
+      readonly unset: false | "prefix" | "suffix";
     }
   | {
       /** An ATX section title (`== Section`). */
       readonly kind: "sectionTitle";
       /** Marker count minus one; 0 is the document title. */
       readonly level: number;
+      /** The title text after the markers, trimmed. */
+      readonly title: string;
     }
   | {
       /** The first line of a list item (`* item`, `. item`, `<1> item`). */
@@ -121,8 +155,6 @@ export type LineKind =
       readonly variant: ListVariant;
       /** The marker style `is_sibling_list_item?` compares. */
       readonly style: string;
-      /** Nesting depth the marker asks for (`**` is 2). */
-      readonly depth: number;
       /** Width of the leading whitespace Ruby's `[ \t]*` allows. */
       readonly indent: number;
       /** Offset within the line where the item's text starts. */
@@ -140,6 +172,15 @@ export type LineKind =
        * swallows: the term — and the item's text — starts after it.
        */
       readonly indent: number;
+      /** The term delimiter: `::`, `:::`, `::::` or `;;`. */
+      readonly delimiter: string;
+      /** The term text, exactly as the registry's group captured it. */
+      readonly term: string;
+      /**
+       * Offset (into the rstripped line) where the inline description
+       * starts, or undefined when the term line carries none.
+       */
+      readonly descriptionStart: number | undefined;
     }
   | {
       /** A delimiter that OPENS a block (`----`, `--`, ` ``` `). */
@@ -158,6 +199,12 @@ export type LineKind =
   | {
       /** A block macro (`image::a.png[]`). */
       readonly kind: "blockMacro";
+      /** Macro name (e.g. `"image"`). */
+      readonly name: string;
+      /** Target between `::` and `[` (empty for `toc::[]`). */
+      readonly target: string;
+      /** Raw attribute list content inside `[…]`. */
+      readonly attrlist: string;
     }
   | {
       /** A thematic break (`'''`). */
@@ -181,8 +228,8 @@ export type LineKind =
 export interface ReaderContext {
   /** The paragraph-shaped block being read, or undefined at a block start. */
   readonly openParagraph: ParagraphContext | undefined;
-  /** Marker styles of every open list, innermost first (`is_sibling_list_item?`). */
-  readonly openListStyles: readonly string[];
+  /** Marker style of the open list, if any (`is_sibling_list_item?`). */
+  readonly openListStyle: string | undefined;
   /** Whether this line is the FIRST one after the open block started. */
   readonly firstLineAfterStart: boolean;
 }
@@ -190,7 +237,7 @@ export interface ReaderContext {
 /** The context at a plain block start (document level, nothing open). */
 export const BLOCK_START_CONTEXT: ReaderContext = {
   openParagraph: undefined,
-  openListStyles: [],
+  openListStyle: undefined,
   firstLineAfterStart: false,
 };
 
@@ -200,14 +247,13 @@ export const BLOCK_START_CONTEXT: ReaderContext = {
  * shape that may not be indented, and `next_block` gates them on
  * `!indented` for exactly that reason.
  * @param line - one rstripped source line
- * @returns the marker's style, depth and extent, or undefined when the
- *   line does not begin a list item
+ * @returns the marker's style and extent, or undefined when the line
+ *   does not begin a list item
  */
 export function parseListMarker(line: string):
   | {
       variant: ListVariant;
       style: string;
-      depth: number;
       indent: number;
       markerEnd: number;
     }
@@ -220,7 +266,6 @@ export function parseListMarker(line: string):
       // compares `resolve_list_marker`'s result, so `<2>` continues a
       // `<1>` list.
       style: CALLOUT_STYLE,
-      depth: OUTERMOST_DEPTH,
       indent: 0,
       markerEnd: callout.marker.length + callout.gap.length,
     };
@@ -233,9 +278,6 @@ export function parseListMarker(line: string):
   return {
     variant: marker.startsWith(".") ? "ordered" : "unordered",
     style: marker,
-    // A `-` list is always one level deep; the repeating markers spell
-    // their depth in their length (`**` is level 2).
-    depth: marker === "-" ? OUTERMOST_DEPTH : marker.length,
     indent: indent.length,
     markerEnd: indent.length + marker.length + gap.length,
   };
@@ -244,13 +286,81 @@ export function parseListMarker(line: string):
 /**
  * Parse an ATX section title.
  * @param line - one rstripped source line
- * @returns the section level (0 for the document title), or undefined
+ * @returns the section level (0 for the document title) and its title
+ *   text, or undefined
  */
-export function parseSectionTitle(line: string): { level: number } | undefined {
-  const markers = SECTION_TITLE.exec(line)?.groups?.markers;
-  return markers === undefined
+export function parseSectionTitle(
+  line: string,
+): { level: number; title: string } | undefined {
+  const groups = SECTION_TITLE.exec(line)?.groups;
+  return groups === undefined
     ? undefined
-    : { level: markers.length - MARKER_OFFSET };
+    : { level: groups.markers.length - MARKER_OFFSET, title: groups.title };
+}
+
+/**
+ * Determines whether an attribute entry uses `!` prefix or
+ * suffix unset syntax, or is a normal set. AsciiDoc supports
+ * both `:!name:` (prefix) and `:name!:` (suffix) forms to
+ * undefine an attribute.
+ * @param prefix - The character before the attribute name
+ *   (empty string or "!").
+ * @param suffix - The character after the attribute name
+ *   (empty string or "!").
+ * @returns `"prefix"` or `"suffix"` indicating the unset
+ *   form, or `false` if the attribute is being set normally.
+ */
+function parseUnsetForm(
+  prefix: string,
+  suffix: string,
+): false | "prefix" | "suffix" {
+  if (prefix === "!") return "prefix";
+  if (suffix === "!") return "suffix";
+  return false;
+}
+
+/**
+ * Parse an attribute entry line (`:name: value`, `:!name:`,
+ * `:name!:`) into the fields its node carries — the ONE parse; the
+ * builder reads these fields and re-derives nothing.
+ * @param line - one rstripped source line
+ * @returns the entry's fields, or undefined when the line is none
+ */
+export function parseAttributeEntry(line: string):
+  | {
+      name: string;
+      value: string | undefined;
+      unset: false | "prefix" | "suffix";
+    }
+  | undefined {
+  const groups = ATTRIBUTE_ENTRY.exec(line)?.groups;
+  if (groups === undefined) {
+    return undefined;
+  }
+  // The value group is the one optional branch, so it is the one read
+  // through {@link optionalGroup} — the WIDENING that costs no
+  // assertion.
+  const trimmed = optionalGroup(groups.value)?.trim();
+  return {
+    name: groups.name,
+    value: trimmed === undefined || trimmed.length === 0 ? undefined : trimmed,
+    unset: parseUnsetForm(groups.prefixBang, groups.suffixBang),
+  };
+}
+
+/**
+ * Parse a block macro line (`name::target[attrlist]`) into its three
+ * fields — the ONE parse; the builder re-derives nothing.
+ * @param line - one rstripped source line
+ * @returns the macro's fields, or undefined when the line is none
+ */
+export function parseBlockMacro(
+  line: string,
+): { name: string; target: string; attrlist: string } | undefined {
+  const groups = BLOCK_MACRO.exec(line)?.groups;
+  return groups === undefined
+    ? undefined
+    : { name: groups.name, target: groups.target, attrlist: groups.attrlist };
 }
 
 /**
@@ -331,12 +441,13 @@ function classifyBlockStart(line: string): LineKind {
   if (BLOCK_TITLE.test(line)) {
     return { kind: "blockTitle" };
   }
-  if (ATTRIBUTE_ENTRY.test(line)) {
-    return { kind: "attributeEntry" };
+  const entry = parseAttributeEntry(line);
+  if (entry !== undefined) {
+    return { kind: "attributeEntry", ...entry };
   }
   const section = parseSectionTitle(line);
   if (section !== undefined) {
-    return { kind: "sectionTitle", level: section.level };
+    return { kind: "sectionTitle", ...section };
   }
   // next_block asks `is_delimited_block?` before anything else, which
   // is why `****` is a sidebar and `* x` a list.
@@ -371,15 +482,21 @@ function classifyBlockBody(line: string): LineKind {
   if (PAGE_BREAK.test(line)) {
     return { kind: "pageBreak" };
   }
-  if (BLOCK_MACRO.test(line)) {
-    return { kind: "blockMacro" };
+  const macro = parseBlockMacro(line);
+  if (macro !== undefined) {
+    return { kind: "blockMacro", ...macro };
   }
   const marker = parseListMarker(line);
   if (marker !== undefined) {
     return { kind: "listMarker", ...marker };
   }
-  if (isDescriptionListLine(line)) {
-    return { kind: "dlistTerm", indent: line.length - line.trimStart().length };
+  const term = parseDescriptionListLine(line);
+  if (term !== undefined) {
+    return {
+      kind: "dlistTerm",
+      indent: line.length - line.trimStart().length,
+      ...term,
+    };
   }
   const label = parseAdmonitionLabel(line);
   if (label !== undefined) {
@@ -404,7 +521,7 @@ function classifyInParagraph(
   reader: ReaderContext,
 ): LineKind | undefined {
   const options = {
-    enclosingListStyles: reader.openListStyles,
+    enclosingListStyle: reader.openListStyle,
     firstLineAfterBlockStart: reader.firstLineAfterStart,
   };
   if (interruptsParagraph(line, context, options)) {

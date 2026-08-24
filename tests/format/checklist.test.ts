@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { formatAdoc } from "../helpers.js";
+import { formatAdoc, renderedHtml } from "../helpers.js";
 
 describe("checklist formatting", () => {
   // Canonical checked marker passes through unchanged.
@@ -56,6 +56,30 @@ describe("checklist formatting", () => {
     const input = ". [x] Not a checkbox\n";
     expect(await formatAdoc(input)).toBe(input);
   });
+
+  // ONE printed space after the checkbox, whatever the item's text
+  // opens with. A text that starts with an inline construct rather than
+  // a word gives the item an empty leading text node
+  // (`[text "", inlineAnchor, text " a"]`), and an empty text node is
+  // whitespace the checkbox prefix already carries — it contributes no
+  // second space of its own. A doubled space is NOT read the same:
+  // Asciidoctor keeps it in the rendered HTML, so the single space is
+  // the spelling that renders like the input, and the render assert
+  // below proves it.
+  // The plain-text control rows are at the top of this file.
+  test.each([
+    ["a formatting span", "* [x] *b* c\n"],
+    ["an inline anchor", "* [ ] [[anc]] a\n"],
+    ["an attribute reference", "** [ ] {attr}\n"],
+  ])(
+    "one space after the checkbox when the text opens with %s",
+    async (_name, input) => {
+      const out = await formatAdoc(input);
+      expect(out).toBe(input);
+      expect(renderedHtml(out)).toBe(renderedHtml(input));
+      expect(await formatAdoc(out)).toBe(out);
+    },
+  );
 
   // Continuation lines of a checklist item should align under
   // the text content, not under the checkbox bracket. The full

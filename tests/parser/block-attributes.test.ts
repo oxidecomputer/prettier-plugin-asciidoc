@@ -17,6 +17,7 @@
  */
 import { describe, test, expect } from "vitest";
 import { parse } from "../../src/parser.js";
+import { anchorLineShape } from "../../src/block-metadata.js";
 import { narrow } from "../../src/unreachable.js";
 
 describe("block attribute list parsing", () => {
@@ -337,5 +338,31 @@ describe("the reader's annotation record (spec D5a)", () => {
     narrow(block, "delimitedBlock");
     expect(attributes.value).toBe("source,ruby]  ");
     expect(block.annotatedBy).toBe("source,ruby]  ");
+  });
+});
+
+describe("anchorLineShape: the printed-line record", () => {
+  // One row per anchor spelling: what the PRINTED line re-reads as.
+  // `[[id,]]` prints `[[id]]` — an anchor on re-read;
+  // `[[3-bad,Ref]]` prints byte-faithfully under the serializer's
+  // verbatim arm and stays a text line.
+  test.each([
+    ["[[anc]]", "anchor"],
+    ["[[anc,Ref]]", "anchor"],
+    ["[[id,]]", "anchor"],
+    ["[[id, ]]", "anchor"],
+    ["[[3-bad]]", "lookalike"],
+    ["[[illegal$id]]", "lookalike"],
+    ["[[9]]", "lookalike"],
+    ["[[3-bad,Ref]]", "lookalike"],
+    ["[[3-bad, Ref]]", "lookalike"],
+  ] as const)("%s → %s", (line, expected) => {
+    const [block] = parse(`${line}\n`).children;
+    expect(anchorLineShape(block)).toBe(expected);
+  });
+
+  test("a block that is no [[…]] line answers undefined", () => {
+    const [block] = parse("para\n").children;
+    expect(anchorLineShape(block)).toBeUndefined();
   });
 });

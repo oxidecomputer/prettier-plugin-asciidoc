@@ -14,6 +14,7 @@
  * every such node's position and breaks parity.
  */
 import { describe, expect, test } from "vitest";
+import { splitLines } from "../../src/parse/lines/split.js";
 import { makeLocationIndex } from "../../src/parse/positions.js";
 
 describe("makeLocationIndex", () => {
@@ -97,5 +98,15 @@ describe("makeLocationIndex", () => {
       line: 1,
       column: 1,
     });
+  });
+});
+
+describe("splitLines and LocationIndex share one line numbering", () => {
+  test("every line's number agrees with the index at its offset", () => {
+    const source = "a\n\nbb\n  ccc\nd";
+    const at = makeLocationIndex(source);
+    for (const line of splitLines(source)) {
+      expect(at.at(line.offset).line).toBe(line.line);
+    }
   });
 });

@@ -29,7 +29,11 @@ import {
   type BlockExtent,
 } from "../build/delimited.js";
 import { buildDiscreteHeading, buildHeading } from "../build/heading.js";
-import { buildRawBlockLine } from "../build/metadata.js";
+import {
+  buildAttributeEntry,
+  buildBlockMacro,
+  buildRawBlockLine,
+} from "../build/metadata.js";
 import {
   buildAdmonitionParagraph,
   buildLiteralParagraph,
@@ -272,23 +276,16 @@ class BlockReader implements ListHost {
     openParagraph?: ParagraphContext,
     firstLineAfterStart = false,
   ): ReaderContext {
-    // Nothing here tracks an enclosing list: lists are read
-    // extent-first (readList), and a confined reader's buffer is
-    // already truncated at every ancestor list's boundary — the
-    // physical confinement the styles used to approximate online.
-    // What remains of the ancestry is the ONE style the confined
-    // reader carries (see the constructor): it tells the classifier a
-    // list is open at all, which is what the foreign-marker verbatim
-    // rule keys on. A block child reports []:
-    // fresh-reader behavior is Ruby's (build_block → Reader.new, no
-    // list_type), and the [] is unobservable — both registry
-    // consumers of enclosingListStyles are gated on the
-    // listContinuation context, which a block child's bodyContext()
-    // never answers (spec D2's flavor table).
+    // Lists are read extent-first and a confined buffer is already
+    // truncated at every ancestor list's boundary, so ONE style — the
+    // confined item's own — is the whole ancestry the classifier can
+    // ever need (the foreign-marker verbatim rule keys on it). A
+    // block child reports undefined: fresh-reader behavior is Ruby's
+    // (build_block → Reader.new, no list_type).
     return {
       openParagraph,
-      openListStyles:
-        this.confinement?.kind === "item" ? [this.confinement.style] : [],
+      openListStyle:
+        this.confinement?.kind === "item" ? this.confinement.style : undefined,
       firstLineAfterStart,
     };
   }
@@ -319,6 +316,23 @@ class BlockReader implements ListHost {
     this.flushMetadata();
     this.push(node);
     this.advance();
+  }
+
+  /**
+   * Push a one-line block WITHOUT resetting the blank run — for lines
+   * Ruby's `skipped` count reads through: a document attribute is
+   * processed inside parse_block_metadata_lines (next_block l.512),
+   * and an unerased `+` kept as a raw line reads as a blank to Ruby's
+   * prev_line. The transparency is stated here, where it is decided,
+   * instead of being repaired around leaf() after the fact; pinned by
+   * tests/parser/reader-lists.test.ts's attribute-entry and kept-`+`
+   * rows.
+   * @param node - the block
+   */
+  private transparentLeaf(node: BlockNode): void {
+    const { blanks } = this;
+    this.leaf(node);
+    this.blanks = blanks;
   }
 
   /**
@@ -476,6 +490,28 @@ class BlockReader implements ListHost {
     return this.blanks > 0 ? "listContinuation" : "listItem";
   }
 
+  /**
+   * The two leaf kinds that carry their parse: the builder takes the
+   * classifier's fields, so no second pattern ever re-reads the line.
+   * @param line - the source line
+   * @param kind - what the classifier made of it
+   * @returns whether the line was consumed
+   */
+  private parsedLeaf(line: SourceLine, kind: LineKind): boolean {
+    if (kind.kind === "attributeEntry") {
+      // Transparent to the blank run — see transparentLeaf.
+      this.transparentLeaf(
+        buildAttributeEntry(kind, fragmentOfLine(line), this.at),
+      );
+      return true;
+    }
+    if (kind.kind === "blockMacro") {
+      this.leaf(buildBlockMacro(kind, fragmentOfLine(line), this.at));
+      return true;
+    }
+    return false;
+  }
+
   // ── block level: next_section / parse_block_metadata_line / next_block
 
   /**
@@ -486,20 +522,14 @@ class BlockReader implements ListHost {
   blockLine(line: SourceLine, kind: LineKind): void {
     if (this.holdMetadata(line, kind)) return;
     if (this.verbatimStyledOpen(line, kind)) return;
+    if (this.parsedLeaf(line, kind)) return;
     if (isLeafKind(kind.kind)) {
-      // A document attribute is processed inside
-      // parse_block_metadata_lines (next_block l.512), so it is
-      // transparent to `skipped`: the blank run before it still belongs
-      // to the block that follows. The other leaves are blocks of their
-      // own and reset the run as any block does.
-      const { blanks } = this;
       this.leaf(leafBuilder(kind.kind)(fragmentOfLine(line), this.at));
-      if (kind.kind === "attributeEntry") this.blanks = blanks;
       return;
     }
     switch (kind.kind) {
       case "sectionTitle": {
-        this.sectionTitle(line, kind.level);
+        this.sectionTitle(line, kind);
         return;
       }
       case "delimiterOpen": {
@@ -519,10 +549,17 @@ class BlockReader implements ListHost {
         return;
       }
       case "listMarker": {
-        // Lists are the one construct read recursively (spec D3): the
-        // extent scan bounds every item, a confined reader parses it,
-        // and this loop resumes past the whole list.
-        this.index = readList(this, this.index, kind);
+        // Lists are the one construct read recursively: the extent
+        // scan bounds every item, a confined reader parses it, and
+        // this loop resumes past the whole list. Metadata read ahead
+        // of the first marker annotates the LIST, so it flushes into
+        // this container BEFORE any item is built — the order is
+        // decided here, at the one call site that owns the block
+        // sequence.
+        this.flushMetadata();
+        const { node, end } = readList(this, this.index, kind);
+        this.push(node);
+        this.index = end;
         this.blanks = 0;
         return;
       }
@@ -532,13 +569,13 @@ class BlockReader implements ListHost {
           // adjacent continuation (parser.rb l.1433-38), kept as its own
           // raw line rather than folded into the paragraph — the pinned
           // oracle divergence (D5): same bytes, same rendering, and a
-          // column-0 `+` may not be reflowed into text. The blank run is
-          // NOT reset: the erased `+` above it reads as a blank to Ruby,
-          // so the paragraph after this line keeps the listContinuation
-          // set.
-          const { blanks } = this;
-          this.leaf(buildRawBlockLine(fragmentOfLine(line), this.at));
-          this.blanks = blanks;
+          // column-0 `+` may not be reflowed into text. Transparent to
+          // the blank run — see transparentLeaf: the erased `+` above it
+          // reads as a blank to Ruby, so the paragraph after this line
+          // keeps the listContinuation set.
+          this.transparentLeaf(
+            buildRawBlockLine(fragmentOfLine(line), this.at),
+          );
           return;
         }
         // At block level a lone `+` opens a plain paragraph:
@@ -652,9 +689,11 @@ class BlockReader implements ListHost {
    * (parse_list_item l.1364; parse_blocks, parser.rb:1082-1083,
    * pinned by oracle rows P4/P5).
    * @param line - the title line
-   * @param level - the classifier's level; 0 is the document title
+   * @param kind - the classifier's parse of the title line
+   * @param kind.level - the classifier's level; 0 is the document title
+   * @param kind.title - the title text after the markers
    */
-  sectionTitle(line: SourceLine, level: number): void {
+  sectionTitle(line: SourceLine, kind: { level: number; title: string }): void {
     if (this.confinement !== undefined) {
       // ONE arm for both flavors: bodyContext() already answers
       // "paragraph" for a block child, because directlyInItem() is
@@ -663,10 +702,19 @@ class BlockReader implements ListHost {
       return;
     }
     if (this.pendingAttrlist?.style === DISCRETE_STYLE) {
-      this.leaf(buildDiscreteHeading(fragmentOfLine(line), level, this.at));
+      this.leaf(
+        buildDiscreteHeading(
+          fragmentOfLine(line),
+          kind.level,
+          kind.title,
+          this.at,
+        ),
+      );
       return;
     }
-    this.leaf(buildHeading(fragmentOfLine(line), level, this.at));
+    this.leaf(
+      buildHeading(fragmentOfLine(line), kind.level, kind.title, this.at),
+    );
   }
 
   // ── delimited blocks: is_delimited_block? + build_block ────────────

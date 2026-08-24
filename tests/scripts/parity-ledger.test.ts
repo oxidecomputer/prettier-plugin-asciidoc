@@ -15,12 +15,15 @@ import path from "node:path";
 import { describe, expect, test } from "vitest";
 import type { ExpectedDiff } from "../../scripts/parity.js";
 import {
-  BETA_FAMILIES,
+  GAMMA_FAMILIES,
   expectedDiffFailures,
   normalizeTree,
   parseArguments,
 } from "../../scripts/parity.js";
-import { loadExpectedDiffs } from "../../scripts/parity-ledger.js";
+import {
+  foldPlanGammaShapes,
+  loadExpectedDiffs,
+} from "../../scripts/parity-ledger.js";
 
 /**
  * Build one ledger entry for a test row.
@@ -134,9 +137,17 @@ describe("expected-diff ledger (spec D9)", () => {
     expect(failures.some((line) => line.includes("formatted-only"))).toBe(true);
   });
 
-  test("the production enum is β's: b44-confined-extent, no formatted-only", () => {
-    expect([...BETA_FAMILIES.families]).toEqual(["b44-confined-extent"]);
-    expect(BETA_FAMILIES.formattedOnly.size).toBe(0);
+  test("the production enum: two g1 + two g3, g1 formatted-only", () => {
+    expect([...GAMMA_FAMILIES.families].toSorted()).toEqual([
+      "g1-author-plus",
+      "g1-pseudo-run-fold",
+      "g3-marker-spelling",
+      "g3-nesting-fidelity",
+    ]);
+    expect([...GAMMA_FAMILIES.formattedOnly].toSorted()).toEqual([
+      "g1-author-plus",
+      "g1-pseudo-run-fold",
+    ]);
   });
 
   test("parseArguments accepts --expected-diffs with a path", () => {
@@ -426,5 +437,90 @@ describe("the shape folds (α D9 + β D10(e) normalizers) — string equality, n
     ).toBe(
       canonical({ type: "discreteHeading", level: 2, title: "T", position }),
     );
+  });
+});
+
+describe("foldPlanGammaShapes", () => {
+  const position = {
+    start: { offset: 0, line: 1, column: 1 },
+    end: { offset: 4, line: 1, column: 5 },
+  };
+
+  test("reftext folds to its trimStart on both node kinds, key order fixed", () => {
+    const folded = foldPlanGammaShapes("", {
+      type: "inlineAnchor",
+      id: "3-bad",
+      reftext: " Ref",
+      position,
+    });
+    expect(JSON.stringify(folded)).toBe(
+      JSON.stringify({
+        type: "inlineAnchor",
+        id: "3-bad",
+        reftext: "Ref",
+        position,
+      }),
+    );
+    const block = foldPlanGammaShapes("", {
+      type: "blockAnchor",
+      id: "anc",
+      reftext: undefined,
+      position,
+    });
+    expect(JSON.stringify(block)).toBe(
+      JSON.stringify({ type: "blockAnchor", id: "anc", position }),
+    );
+  });
+
+  test("non-anchor values pass through untouched", () => {
+    expect(foldPlanGammaShapes("", "text")).toBe("text");
+    const paragraph = { type: "paragraph", children: [] };
+    expect(foldPlanGammaShapes("", paragraph)).toBe(paragraph);
+  });
+
+  test("a marker-bearing list folds to the old shape, depth re-derived", () => {
+    const item = {
+      type: "listItem",
+      checkbox: undefined,
+      calloutNumber: undefined,
+      inline: [],
+      blocks: [],
+      position,
+    };
+    const folded = foldPlanGammaShapes("", {
+      type: "list",
+      variant: "unordered",
+      marker: "-",
+      children: [item],
+      position,
+    });
+    // The expected item is spelled LONGHAND in the fold's own key
+    // order — type, depth, checkbox, calloutNumber, inline, blocks,
+    // position — because parity digests the JSON STRING and this row
+    // exists to pin that order (a spread would keep the input's
+    // insertion order and put depth last).
+    expect(JSON.stringify(folded)).toBe(
+      JSON.stringify({
+        type: "list",
+        variant: "unordered",
+        children: [
+          {
+            type: "listItem",
+            depth: 1,
+            checkbox: undefined,
+            calloutNumber: undefined,
+            inline: [],
+            blocks: [],
+            position,
+          },
+        ],
+        position,
+      }),
+    );
+  });
+
+  test("a depth-carrying old-shape list passes through untouched", () => {
+    const oldList = { type: "list", variant: "unordered", children: [] };
+    expect(foldPlanGammaShapes("", oldList)).toBe(oldList);
   });
 });

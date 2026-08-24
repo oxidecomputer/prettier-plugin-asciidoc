@@ -19,7 +19,8 @@ import type {
   ParentBlockNode,
 } from "./ast.js";
 import { MIN_DELIMITER_LENGTH, SAFE_DELIMITER_PAD } from "./constants.js";
-import { paragraphBody } from "./reflow.js";
+import { inlineAtoms } from "./print-inline.js";
+import { atomOf, blockBody, type Atom } from "./reflow.js";
 import { joinBlocks } from "./print-join.js";
 
 const {
@@ -86,10 +87,11 @@ export function printComment(node: {
 }
 
 // Leaf-block variants that use their own delimiter characters
-// (----, ...., ++++). Other variants (example, sidebar, quote,
-// verse) either use parent-block delimiters when masqueraded
-// (case 1 of computeMasqueradeDelimiter) or fall through to
-// MASQUERADE_DELIMITER_CHARS (case 3).
+// (----, ...., ++++). The other variants (example, sidebar, quote,
+// verse) reach a delimited block only by masquerading, and then they
+// print from the source delimiter the open recorded (case 1 of
+// computeMasqueradeDelimiter) — so the leaf table is the whole of
+// what remains past that branch.
 type LeafBlockVariant = "listing" | "literal" | "pass";
 
 // Maps each leaf-block variant to its single delimiter character.
@@ -99,24 +101,6 @@ const DELIMITER_CHARS: Record<LeafBlockVariant, string> = {
   listing: "-",
   literal: ".",
   pass: "+",
-};
-
-// Fallback delimiter chars for variants that are naturally
-// associated with parent-block delimiters (verse/quote → `_`,
-// example → `=`, sidebar → `*`). Used by
-// computeMasqueradeDelimiter when no explicit sourceDelimiter
-// is present on the node.
-// Total fallback: in practice all masquerade variants
-// carry a sourceDelimiter (case 1) or use paragraph form
-// (caught before that function is called), so this table
-// is never read. It invents a plausible delimiter rather
-// than throwing.
-type MasqueradedVariant = "verse" | "example" | "sidebar" | "quote";
-const MASQUERADE_DELIMITER_CHARS: Record<MasqueradedVariant, string> = {
-  verse: "_",
-  quote: "_",
-  example: "=",
-  sidebar: "*",
 };
 
 // Maps each parent block variant to its delimiter character and
@@ -174,15 +158,18 @@ function computeDelimiter(content: string, delimChar: string): string {
  * Resolves the correct delimiter string for a delimited
  * block, accounting for masquerading.
  *
- * Three cases:
- * 1. `sourceDelimiter` is set — use parent block
- *    delimiter chars (the block was masqueraded from a
- *    parent block).
- * 2. Leaf variant (listing/literal/pass) — standard
- *    {@link DELIMITER_CHARS}.
- * 3. Masquerade variant (verse/quote/example/sidebar)
- *    without `sourceDelimiter` — use
- *    {@link MASQUERADE_DELIMITER_CHARS}.
+ * Two cases, and only two:
+ * 1. `sourceDelimiter` is set — the block was masqueraded
+ *    from a parent block, so it prints from the parent
+ *    delimiter chars the open RECORDED.
+ * 2. Otherwise the variant is a leaf's
+ *    (listing/literal/pass) — {@link DELIMITER_CHARS}.
+ *
+ * There is no third case: a masquerade variant always
+ * carries its `sourceDelimiter` (ast-invariants row
+ * (xiii)), so the fallback table that used to invent one
+ * had no reachable caller. (`table` never reaches this
+ * function; `printDelimitedBlock` replays its lines first.)
  * @param node - The delimited block node whose delimiter
  *   to compute.
  * @returns The correctly-sized delimiter string.
@@ -194,15 +181,13 @@ function computeMasqueradeDelimiter(node: DelimitedBlockNode): string {
       ? parentChar.repeat(OPEN_BLOCK_DELIMITER_LENGTH)
       : computeDelimiter(node.content, parentChar);
   }
-  if (node.variant in DELIMITER_CHARS) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- checked by `in` guard
-    const leafChar = DELIMITER_CHARS[node.variant as LeafBlockVariant];
-    return computeDelimiter(node.content, leafChar);
-  }
-  const masqChar =
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- remaining variants are masqueraded
-    MASQUERADE_DELIMITER_CHARS[node.variant as MasqueradedVariant];
-  return computeDelimiter(node.content, masqChar);
+  // Past the sourceDelimiter branch the variant is a leaf's:
+  // a masquerade variant always carries sourceDelimiter — pinned on
+  // every parse by ast-invariants row (xiii) — so nothing else
+  // reaches here.
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- masquerade variants carry sourceDelimiter (invariant xiii); only leaf variants remain
+  const leafChar = DELIMITER_CHARS[node.variant as LeafBlockVariant];
+  return computeDelimiter(node.content, leafChar);
 }
 
 /**
@@ -331,42 +316,81 @@ function maxDescendantDelimiter(
 ): number {
   let max = 0;
   for (const child of children) {
-    if (child.type === "parentBlock") {
-      // Recurse into all parent block children regardless of
-      // variant — same-variant blocks might be nested deeper.
-      const childInner = maxDescendantDelimiter(variant, child.children);
-      if (child.variant === variant) {
-        // This child uses the same delimiter character. Its own
-        // length is at least MIN_DELIMITER_LENGTH plus whatever
-        // its own nesting requires.
-        const childLength = Math.max(
-          MIN_DELIMITER_LENGTH,
-          childInner + SAFE_DELIMITER_PAD,
-        );
-        max = Math.max(max, childLength);
-      } else {
-        // Different variant — propagate inner max unchanged.
-        max = Math.max(max, childInner);
-      }
-    } else if (
-      // Delimited-form admonitions produce parent block delimiters
-      // and must be included in the nesting computation.
-      child.type === "admonition" &&
-      child.form !== "paragraph"
-    ) {
-      const childInner = maxDescendantDelimiter(variant, child.children);
-      if (child.form === variant) {
-        const childLength = Math.max(
-          MIN_DELIMITER_LENGTH,
-          childInner + SAFE_DELIMITER_PAD,
-        );
-        max = Math.max(max, childLength);
-      } else {
-        max = Math.max(max, childInner);
-      }
-    }
+    if (child.type !== "parentBlock" && child.type !== "admonition") continue;
+    const childVariant = delimiterVariantOf(child);
+    if (childVariant === undefined) continue; // paragraph-form admonition
+    // Recurse regardless of variant — same-variant blocks might be
+    // nested deeper; a same-variant child then needs at least the
+    // minimum plus whatever its own nesting requires.
+    const childInner = maxDescendantDelimiter(variant, child.children);
+    max = Math.max(
+      max,
+      childVariant === variant
+        ? Math.max(MIN_DELIMITER_LENGTH, childInner + SAFE_DELIMITER_PAD)
+        : childInner,
+    );
   }
   return max;
+}
+
+/**
+ * The wrapper-delimiter variant one child prints with, when it prints
+ * parent-style delimiters at all: a parentBlock's `variant`, a
+ * delimited-form admonition's `form`. Undefined for everything else —
+ * the one answer maxDescendantDelimiter's two arms used to spell
+ * twice.
+ * @param child - a child block
+ * @returns the delimiter variant it wraps itself in, if any
+ */
+function delimiterVariantOf(
+  child: BlockNode,
+): ParentBlockNode["variant"] | undefined {
+  if (child.type === "parentBlock") return child.variant;
+  if (child.type === "admonition" && child.form !== "paragraph") {
+    return child.form;
+  }
+  return undefined;
+}
+
+/**
+ * THE delimited-parent printer (three near-identical bodies became
+ * this one): computes the wrapper delimiter for a
+ * compound block — a parentBlock or a delimited-form admonition — and
+ * prints delimiter/children/delimiter. Open blocks take the fixed
+ * two-dash spelling; every other variant out-lengths its deepest
+ * same-variant descendant so the nesting re-parses.
+ * @param variant - the wrapper's delimiter variant
+ * @param node - the block being printed
+ * @param path - Prettier's AST path
+ * @param print - Prettier's recursive print callback
+ * @returns Doc IR for the wrapped block
+ */
+function printDelimitedParent(
+  variant: ParentBlockNode["variant"],
+  node: ParentBlockNode | AdmonitionNode,
+  path: PrintPath,
+  print: PrintFunction,
+): Doc {
+  const delimChar = PARENT_DELIMITER_CHARS[variant];
+  const delimLength =
+    variant === "open"
+      ? OPEN_BLOCK_DELIMITER_LENGTH
+      : Math.max(
+          MIN_DELIMITER_LENGTH,
+          maxDescendantDelimiter(variant, node.children) + SAFE_DELIMITER_PAD,
+        );
+  const delimiter = delimChar.repeat(delimLength);
+  if (node.children.length === 0) {
+    return [delimiter, hardline, delimiter];
+  }
+  const children = path.map(print, "children");
+  return [
+    delimiter,
+    hardline,
+    joinBlocks(node.children, children),
+    hardline,
+    delimiter,
+  ];
 }
 
 /**
@@ -374,10 +398,9 @@ function maxDescendantDelimiter(
  *
  * Parent blocks contain other blocks as children and are
  * fenced by delimiter lines (e.g. `====` for example
- * blocks, `--` for open blocks). The delimiter length
- * is computed to be longer than any same-variant nested
- * descendant, preserving the nesting structure on
- * re-parse.
+ * blocks, `--` for open blocks) — one call into
+ * {@link printDelimitedParent}, which is where the
+ * delimiter length and the wrapping live.
  * @param node - The parent block AST node.
  * @param path - Prettier's AST path, used to recurse
  *   into children via `path.map(print, "children")`.
@@ -389,94 +412,52 @@ export function printParentBlock(
   path: PrintPath,
   print: PrintFunction,
 ): Doc {
-  const delimChar = PARENT_DELIMITER_CHARS[node.variant];
-
-  // Open blocks are always exactly 2 dashes — no nesting
-  // concerns because there's only one possible length.
-  if (node.variant === "open") {
-    const delimiter = delimChar.repeat(OPEN_BLOCK_DELIMITER_LENGTH);
-    if (node.children.length > 0) {
-      const children = path.map(print, "children");
-      return [
-        delimiter,
-        hardline,
-        joinBlocks(node.children, children),
-        hardline,
-        delimiter,
-      ];
-    }
-    return [delimiter, hardline, delimiter];
-  }
-
-  // For parent blocks that support variable-length delimiters,
-  // ensure the outer delimiter is longer than any same-type
-  // nested child. Without this, nested same-type blocks would
-  // all normalize to MIN_DELIMITER_LENGTH and lose their
-  // nesting structure on re-parse.
-  const innerMax = maxDescendantDelimiter(node.variant, node.children);
-  const delimLength = Math.max(
-    MIN_DELIMITER_LENGTH,
-    innerMax + SAFE_DELIMITER_PAD,
-  );
-  const delimiter = delimChar.repeat(delimLength);
-
-  if (node.children.length > 0) {
-    const children = path.map(print, "children");
-    return [
-      delimiter,
-      hardline,
-      joinBlocks(node.children, children),
-      hardline,
-      delimiter,
-    ];
-  }
-  return [delimiter, hardline, delimiter];
+  return printDelimitedParent(node.variant, node, path, print);
 }
 
 /**
  * Prints an admonition node to Doc IR: the paragraph form is the
  * label plus THE paragraph body engine over its inline children (one
- * engine by construction — spec D7); a delimited form prints its
- * wrapper delimiters around the children, the delimiter variant read
- * off `form` (the old `delimiter ?? "example"` fallback left WITH the
- * field it defended).
+ * engine by construction — spec D7); a delimited form goes through
+ * {@link printDelimitedParent}, THE wrapper printer, with the
+ * delimiter variant read off `form` (the old `delimiter ?? "example"`
+ * fallback left WITH the field it defended).
  * @param node - The admonition AST node.
  * @param path - Prettier's AST path, for recursing into the body.
  * @param print - Prettier's recursive print callback.
+ * @param printWidth - the column budget for a whole output line.
  * @returns Doc IR for the formatted admonition.
  */
 export function printAdmonition(
   node: AdmonitionNode,
   path: PrintPath,
   print: PrintFunction,
+  printWidth: number,
 ): Doc {
   if (node.form === "paragraph") {
-    const label = `${node.variant.toUpperCase()}: `;
+    const label = `${node.variant.toUpperCase()}:`;
     if (node.text.length === 0) {
-      return label.trimEnd();
+      return label;
     }
-    return [label, paragraphBody(path.map(print, "text"))];
-  }
-  const delimChar = PARENT_DELIMITER_CHARS[node.form];
-  const delimLength =
-    node.form === "open"
-      ? OPEN_BLOCK_DELIMITER_LENGTH
-      : Math.max(
-          MIN_DELIMITER_LENGTH,
-          maxDescendantDelimiter(node.form, node.children) + SAFE_DELIMITER_PAD,
-        );
-  const delimiter = delimChar.repeat(delimLength);
-  if (node.children.length > 0) {
-    const children = path.map(print, "children");
-    return [
-      delimiter,
-      hardline,
-      joinBlocks(node.children, children),
-      hardline,
-      delimiter,
+    // The label is an atom of the body, not a prefix in front of it:
+    // it occupies its columns of the first output line, and the packer
+    // must measure them. The join after it is the syntax's own space,
+    // which may never become a break.
+    const body = inlineAtoms(node.text, node.position.start.line);
+    // Text nodes that are all whitespace produce no atoms, so a text
+    // array with children can still yield none — and then the label is
+    // the whole line, exactly as it is for an admonition with no text.
+    if (body.length === 0) {
+      return label;
+    }
+    const atoms: Atom[] = [
+      atomOf(label),
+      { ...body[0], glueLeft: false, noBreakBefore: true },
+      ...body.slice(1),
     ];
+    return blockBody(atoms, printWidth, 0);
   }
-  return [delimiter, hardline, delimiter];
+  return printDelimitedParent(node.form, node, path, print);
 }
 
 /**

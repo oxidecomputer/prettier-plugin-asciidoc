@@ -113,6 +113,14 @@ function pattern(regex: RegExp): InlineRule["match"] {
   };
 }
 
+// The inline macro names, enumerated ONCE: interpolated into the
+// InlineMacro rule and into InlineText's stop lookahead, so the two
+// spellings cannot drift (they had: `footnoteref|footnote` here,
+// `footnote(?:ref)?` there — same language, two dialects).
+// `footnoteref` precedes `footnote` so the longer name wins.
+const MACRO_NAMES =
+  "link|mailto|xref|image|kbd|btn|menu|footnoteref|footnote|pass";
+
 /**
  * The table, in priority order (see {@link INLINE_KINDS}).
  *
@@ -134,11 +142,11 @@ export const INLINE_RULES: readonly InlineRule[] = [
   // `name:target[attrlist]` — InlineMacroRx family, with the macro
   // names enumerated rather than `[a-z]+`: a generic name matches
   // mid-word (`Textfootnote:`) and collides with `https://url[text]`.
-  // `footnoteref` precedes `footnote` so the longer name wins.
+  // The names and their order come from {@link MACRO_NAMES}.
   {
     type: "InlineMacro",
     match: pattern(
-      /(?:link|mailto|xref|image|kbd|btn|menu|footnoteref|footnote|pass):[^\s\[]*\[[^\]]*\]/v,
+      new RegExp(String.raw`(?:${MACRO_NAMES}):[^\s\[]*\[[^\]]*\]`, "v"),
     ),
   },
   // Bare URL, with or without an attrlist — InlineLinkRx.
@@ -174,7 +182,10 @@ export const INLINE_RULES: readonly InlineRule[] = [
   {
     type: "InlineText",
     match: pattern(
-      /(?:(?!https?:\/\/|link:|mailto:|xref:|image:|kbd:|btn:|menu:|footnote(?:ref)?:|pass:| \+\n)[^\n*_`#\\\{\[<])+/v,
+      new RegExp(
+        `(?:(?!https?://|(?:${MACRO_NAMES}):| \\+\\n)[^\\n*_\`#\\\\\\{\\[<])+`,
+        "v",
+      ),
     ),
   },
   // Single-character fallback. MUST be last: it is what makes the

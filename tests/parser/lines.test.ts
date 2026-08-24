@@ -1,11 +1,14 @@
 import { describe, test, expect } from "vitest";
 import { splitLines } from "../../src/parse/lines/split.js";
+import { parseDescriptionListLine } from "../../src/parse/line-shapes.js";
 import {
   BLOCK_START_CONTEXT,
   classifyLine,
   delimiterKind,
   isContinuationLine,
   parseAdmonitionLabel,
+  parseAttributeEntry,
+  parseBlockMacro,
   parseListMarker,
   parseSectionTitle,
   type ReaderContext,
@@ -96,6 +99,42 @@ describe("classifyLine at a block start", () => {
   });
 });
 
+describe("the kinds that carry their parse", () => {
+  // The classifier reports the FIELDS, not just the verdict: the
+  // builder reads them and re-derives nothing, so there is no second
+  // pattern for any of these three shapes.
+  test.each([
+    [
+      ":!name: value",
+      {
+        kind: "attributeEntry",
+        name: "name",
+        value: "value",
+        unset: "prefix",
+      },
+    ],
+    ["== Section", { kind: "sectionTitle", level: 1, title: "Section" }],
+    // classifyLine rstrips first, so the title capture carries no
+    // trailing whitespace — the same text the deleted slice-and-trim
+    // in build/heading.ts produced.
+    [
+      "== trailing spaces   ",
+      { kind: "sectionTitle", level: 1, title: "trailing spaces" },
+    ],
+    [
+      "image::a.png[Alt]",
+      {
+        kind: "blockMacro",
+        name: "image",
+        target: "a.png",
+        attrlist: "Alt",
+      },
+    ],
+  ])("%j carries its fields", (line, expected) => {
+    expect(classifyLine(line, BLOCK_START_CONTEXT)).toEqual(expected);
+  });
+});
+
 describe("classifyLine inside an open paragraph", () => {
   const inParagraph: ReaderContext = {
     ...BLOCK_START_CONTEXT,
@@ -116,7 +155,7 @@ describe("classifyLine inside an open paragraph", () => {
     const reader: ReaderContext = {
       ...BLOCK_START_CONTEXT,
       openParagraph: "listItem",
-      openListStyles: ["*"],
+      openListStyle: "*",
     };
     expect(classifyLine("* next", reader).kind).toBe("listMarker");
   });
@@ -124,7 +163,7 @@ describe("classifyLine inside an open paragraph", () => {
     const reader: ReaderContext = {
       ...BLOCK_START_CONTEXT,
       openParagraph: "listContinuation",
-      openListStyles: ["*"],
+      openListStyle: "*",
     };
     expect(classifyLine(". next", reader).kind).toBe("text");
     expect(classifyLine("* next", reader).kind).toBe("listMarker");
@@ -133,7 +172,7 @@ describe("classifyLine inside an open paragraph", () => {
     const reader: ReaderContext = {
       ...BLOCK_START_CONTEXT,
       openParagraph: "listContinuation",
-      openListStyles: ["*"],
+      openListStyle: "*",
     };
     // `. next` does not end the paragraph (only the OPEN list's marker
     // does), but its COLUMN is load-bearing: `read_lines_for_list_item`
@@ -166,26 +205,11 @@ describe("classifyLine inside an open paragraph", () => {
 
 describe("parseListMarker", () => {
   test.each([
-    [
-      "* a",
-      { variant: "unordered", style: "*", depth: 1, indent: 0, markerEnd: 2 },
-    ],
-    [
-      "  **  a",
-      { variant: "unordered", style: "**", depth: 2, indent: 2, markerEnd: 6 },
-    ],
-    [
-      "- a",
-      { variant: "unordered", style: "-", depth: 1, indent: 0, markerEnd: 2 },
-    ],
-    [
-      ".. a",
-      { variant: "ordered", style: "..", depth: 2, indent: 0, markerEnd: 3 },
-    ],
-    [
-      "<.> a",
-      { variant: "callout", style: "<>", depth: 1, indent: 0, markerEnd: 4 },
-    ],
+    ["* a", { variant: "unordered", style: "*", indent: 0, markerEnd: 2 }],
+    ["  **  a", { variant: "unordered", style: "**", indent: 2, markerEnd: 6 }],
+    ["- a", { variant: "unordered", style: "-", indent: 0, markerEnd: 2 }],
+    [".. a", { variant: "ordered", style: "..", indent: 0, markerEnd: 3 }],
+    ["<.> a", { variant: "callout", style: "<>", indent: 0, markerEnd: 4 }],
   ])("%j", (line, expected) => {
     expect(parseListMarker(line)).toEqual(expected);
   });
@@ -214,7 +238,7 @@ describe("indented and tab-gapped markers (issue #29, closed)", () => {
   const inItem: ReaderContext = {
     ...BLOCK_START_CONTEXT,
     openParagraph: "listItem",
-    openListStyles: ["*"],
+    openListStyle: "*",
   };
   test.each([
     ["leading whitespace", "  ** item"],
@@ -231,13 +255,20 @@ describe("indented and tab-gapped markers (issue #29, closed)", () => {
 });
 
 describe("parseSectionTitle", () => {
+  // The TITLE is the classifier's too: `SECTION_TITLE`'s `[ \t]+` eats
+  // the whole gap and the line is already rstripped, so the capture is
+  // exactly what the deleted slice-and-trim in build/heading.ts
+  // produced.
   test.each([
-    ["= Doc", 0],
-    ["== Section", 1],
-    ["====== Deepest", 5],
-    ["==  padded", 1],
-  ])("%j → level %i", (line, level) => {
-    expect(parseSectionTitle(line)).toEqual({ level });
+    ["= Doc", 0, "Doc"],
+    ["== Section", 1, "Section"],
+    ["====== Deepest", 5, "Deepest"],
+    ["==  padded", 1, "padded"],
+    ["=   spaced doc", 0, "spaced doc"],
+    ["== T ==", 1, "T =="],
+    ["==\ttabbed", 1, "tabbed"],
+  ])("%j → level %i, title %j", (line, level, title) => {
+    expect(parseSectionTitle(line)).toEqual({ level, title });
   });
   // `AtxSectionTitleRx`'s marker group is `(=={0,5})` — one `=` plus up
   // to five more — and the gap is mandatory.
@@ -245,6 +276,47 @@ describe("parseSectionTitle", () => {
     "%j is not a section title",
     (line) => {
       expect(parseSectionTitle(line)).toBeUndefined();
+    },
+  );
+});
+
+describe("parseAttributeEntry", () => {
+  // The ONE parse: the fields the AttributeEntryNode carries, read off
+  // the registry's own groups. The value arrives trimmed, and an empty
+  // one narrows to undefined so `:name:` and `:name: ` are one node.
+  test.each([
+    [":name: value", { name: "name", value: "value", unset: false }],
+    [":name:", { name: "name", value: undefined, unset: false }],
+    [":name:   ", { name: "name", value: undefined, unset: false }],
+    [":name:\tv  ", { name: "name", value: "v", unset: false }],
+    [":!a: v", { name: "a", value: "v", unset: "prefix" }],
+    [":!a:", { name: "a", value: undefined, unset: "prefix" }],
+    [":a!:", { name: "a", value: undefined, unset: "suffix" }],
+    [":a!: v", { name: "a", value: "v", unset: "suffix" }],
+    [":a b: v", { name: "a b", value: "v", unset: false }],
+  ])("%j", (line, expected) => {
+    expect(parseAttributeEntry(line)).toEqual(expected);
+  });
+  test.each([":name", "name: v", ": v", ":!: v", "text"])(
+    "%j is no attribute entry",
+    (line) => {
+      expect(parseAttributeEntry(line)).toBeUndefined();
+    },
+  );
+});
+
+describe("parseBlockMacro", () => {
+  test.each([
+    ["image::a.png[Alt]", { name: "image", target: "a.png", attrlist: "Alt" }],
+    ["toc::[]", { name: "toc", target: "", attrlist: "" }],
+    ["custom::t[a,b=c]", { name: "custom", target: "t", attrlist: "a,b=c" }],
+  ])("%j", (line, expected) => {
+    expect(parseBlockMacro(line)).toEqual(expected);
+  });
+  test.each(["image::a.png[Alt] x", "image:a.png[]", "1mage::a[]", "text"])(
+    "%j is no block macro",
+    (line) => {
+      expect(parseBlockMacro(line)).toBeUndefined();
     },
   );
 });
@@ -266,6 +338,44 @@ describe("parseAdmonitionLabel", () => {
       expect(parseAdmonitionLabel(line)).toBeUndefined();
     },
   );
+});
+
+describe("parseDescriptionListLine carries Ruby's split", () => {
+  test.each([
+    ["term:: d", "::", "term", 7],
+    ["term::", "::", "term", undefined],
+    ["term::: d", ":::", "term", 8],
+    ["term:::: d", "::::", "term", 9],
+    ["a term;; d", ";;", "a term", 9],
+    ["  in:: d", "::", "in", 7],
+    // Ruby's (?!//[^/]) excludes comments, not every //-headed term.
+    ["///x:: d", "::", "///x", 7],
+    // The separator may end a word once something precedes it: the
+    // term keeps its trailing space (oracle: <dt>foo </dt>).
+    ["foo ::", "::", "foo ", undefined],
+  ])("%j", (line, delimiter, term, descriptionStart) => {
+    expect(parseDescriptionListLine(line)).toEqual({
+      delimiter,
+      term,
+      descriptionStart,
+    });
+  });
+  test.each([["// c:: d"], [";; d"], ["para"]])(
+    "%j is no term line",
+    (line) => {
+      expect(parseDescriptionListLine(line)).toBeUndefined();
+    },
+  );
+  test("the classifier's dlistTerm carries the parse", () => {
+    const kind = classifyLine("  term:: d", BLOCK_START_CONTEXT);
+    expect(kind).toEqual({
+      kind: "dlistTerm",
+      indent: 2,
+      delimiter: "::",
+      term: "term",
+      descriptionStart: 9,
+    });
+  });
 });
 
 describe("delimiterKind", () => {

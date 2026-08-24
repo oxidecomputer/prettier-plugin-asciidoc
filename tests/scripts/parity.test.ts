@@ -324,6 +324,16 @@ const para = (from: number): ParagraphNode => ({
 const nestedList = (from: number): ListNode => ({
   type: "list",
   variant: "unordered",
+  marker: "*",
+  children: [],
+  position: span(from, from + 1),
+});
+// The same list as the gamma fold (foldPlanGammaShapes) leaves it: `marker` dropped, so the two
+// AST generations spell one string. Its items would carry a re-derived
+// `depth`; this one has none to carry.
+const foldedList = (from: number): unknown => ({
+  type: "list",
+  variant: "unordered",
   children: [],
   position: span(from, from + 1),
 });
@@ -393,7 +403,7 @@ describe("normalizeTree folds both list-item shapes into one canonical form", ()
           type: "listItem",
           depth: 1,
           inline: [textNode],
-          blocks: [para(10), nestedList(30)],
+          blocks: [para(10), foldedList(30)],
           position: span(0, 31),
         },
       ],

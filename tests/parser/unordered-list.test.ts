@@ -12,7 +12,7 @@ describe("unordered list parsing", () => {
     expect(list.variant).toBe("unordered");
     expect(list.children).toHaveLength(1);
     expect(list.children[0].type).toBe("listItem");
-    expect(list.children[0].depth).toBe(1);
+    expect(list.marker).toBe("*");
   });
 
   // Multiple `*` lines in succession form a single list, not
@@ -42,7 +42,7 @@ describe("unordered list parsing", () => {
     narrow(nestedList, "list");
     expect(nestedList.variant).toBe("unordered");
     expect(nestedList.children).toHaveLength(1);
-    expect(nestedList.children[0].depth).toBe(2);
+    expect(nestedList.marker).toBe("**");
   });
 
   // A list item can span multiple lines. A plain text line that
@@ -120,9 +120,9 @@ describe("unordered list parsing", () => {
     )?.block;
     narrow(l3List, "list");
     expect(l3List.children).toHaveLength(1);
-    // Depth is derived from the marker length: `***` → length
-    // 3, so depth = marker.length (1-based).
-    expect(l3List.children[0].depth).toBe(3);
+    // The spelling travels verbatim: the third level's list carries
+    // the `***` its items were written with.
+    expect(l3List.marker).toBe("***");
   });
 
   // AsciiDoc supports 5 nesting levels. Verify all depths parse
@@ -134,7 +134,7 @@ describe("unordered list parsing", () => {
     let current = list;
     for (let depth = 1; depth <= 5; depth += 1) {
       expect(current.children).toHaveLength(1);
-      expect(current.children[0].depth).toBe(depth);
+      expect(current.marker).toBe("*".repeat(depth));
       if (depth < 5) {
         const nested = current.children[0].blocks.find(
           ({ block }) => block.type === "list",
@@ -161,16 +161,16 @@ describe("unordered list parsing", () => {
   });
 
   // Multi-level collapse: going from depth 3 back to depth 1
-  // exercises the ascending loop's collapseLevel call twice
-  // in a single pass (popping levels 3 and 2).
+  // must land both "Nested" and "Deep" inside "First" while "First"
+  // and "Second" stay siblings — the extent scan, not a stack,
+  // decides where each item lands.
   test("return to root after deep nesting", () => {
     const input = "* First\n** Nested\n*** Deep\n* Second\n";
     const { children } = parse(input);
     const list = firstList(children);
     // First and Second are siblings at depth 1.
     expect(list.children).toHaveLength(2);
-    expect(list.children[0].depth).toBe(1);
-    expect(list.children[1].depth).toBe(1);
+    expect(list.marker).toBe("*");
     // Nested and Deep are inside First.
     const nested = list.children[0].blocks.find(
       ({ block }) => block.type === "list",
@@ -182,18 +182,18 @@ describe("unordered list parsing", () => {
     )?.block;
     narrow(deep, "list");
     expect(deep.children).toHaveLength(1);
-    expect(deep.children[0].depth).toBe(3);
+    expect(deep.marker).toBe("***");
   });
 
-  // AsciiDoc allows `-` as an alternative level-1 unordered list
-  // marker. The parser treats it like `*` at depth 1.
-  test("hyphen marker parses as depth-1 unordered item", () => {
+  // AsciiDoc allows `-` as an alternative outermost unordered list
+  // marker. It opens an unordered list whose spelling stays `-`.
+  test("hyphen marker parses as an outermost unordered item", () => {
     const { children } = parse("- Item\n");
     expect(children).toHaveLength(1);
     const list = firstList(children);
     expect(list.variant).toBe("unordered");
     expect(list.children).toHaveLength(1);
-    expect(list.children[0].depth).toBe(1);
+    expect(list.marker).toBe("-");
     const textNode = list.children[0].text.find((c) => c.type === "text");
     narrow(textNode, "text");
     expect(textNode.value).toBe("Item");

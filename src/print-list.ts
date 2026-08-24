@@ -5,23 +5,27 @@
  * same way. Split out of print-blocks.ts by responsibility.
  */
 import { doc, type Doc } from "prettier";
-import type { GapLine, ItemBlock, ListItemNode, ListNode } from "./ast.js";
+import type {
+  BlockNode,
+  GapLine,
+  ItemBlock,
+  ItemBody,
+  ListItemNode,
+  ListNode,
+} from "./ast.js";
 import { MARKER_OFFSET } from "./constants.js";
 import { CHECKBOX_PREFIX_LEN } from "./parse/build/list.js";
-import { hazard, type Hazard } from "./print-list-hazard.js";
-import {
-  flattenForFill,
-  keepLastBreak,
-  stripLeadingHazardBreak,
-} from "./reflow.js";
+import { inlineAtoms } from "./print-inline.js";
+import { hazard } from "./print-list-hazard.js";
+import { blockBody, keepLastBreak } from "./reflow.js";
 import type { PrintFunction, PrintPath } from "./print-blocks.js";
 
 const {
-  builders: { align, fill, hardline },
+  builders: { hardline },
 } = doc;
 
-// One blank line, as a gap: what an introduced `+` forces in front of
-// an otherwise-adjacent nested list (see printListItem).
+// One blank line, as a gap: what a re-read literal slurp forces in
+// front of an otherwise-adjacent nested list (see printedGap).
 const BLANK_GAP: readonly GapLine[] = [""];
 
 /**
@@ -62,35 +66,57 @@ export function printList(
 }
 
 /**
+ * Whether a block is an indented literal paragraph — the ONE spelling
+ * of the fact both slurp rules consume: such a block re-reads with
+ * `read_lines_until break_on_blank_lines`, a slurp that runs through
+ * adjacent metadata and marker lines, so both "does the item END on
+ * one" ({@link endsWithLiteralParagraph}, printList's double hardline)
+ * and "does one stand earlier, connected by empty gaps"
+ * ({@link slurpReaches}, printedGap's invented blank) are questions
+ * about this shape; tests/format/list-item-blocks.test.ts's literal
+ * rows pin both. The next slurp rule starts here.
+ * @param block - a block node
+ * @returns true for an indented literal paragraph
+ */
+function isIndentedLiteral(block: BlockNode): boolean {
+  return block.type === "delimitedBlock" && block.form === "indented";
+}
+
+/**
  * Whether an item's last block, in source order, is an indented literal
  * paragraph — looking into a trailing nested list, whose own last item
  * may end on one. `blocks` is already source-ordered, so the last
- * entry IS the last thing printed.
- * @param item - the list item
+ * entry IS the last thing printed. Takes the BODY, not the node: the
+ * question is about what an item HOLDS, so every item-like node
+ * answers it through the one shape rather than a copy.
+ * @param item - the item body
  * @returns true when a literal paragraph is the last thing printed
  */
-function endsWithLiteralParagraph(item: ListItemNode): boolean {
+function endsWithLiteralParagraph(item: ItemBody): boolean {
   if (item.trailingContinuation) return false;
   const last = item.blocks.at(-1)?.block;
   if (last?.type === "list") {
     const lastItem = last.children.at(-1);
     return lastItem !== undefined && endsWithLiteralParagraph(lastItem);
   }
-  return last?.type === "delimitedBlock" && last.form === "indented";
+  return last !== undefined && isIndentedLiteral(last);
 }
 
 /**
- * Builds the marker string for a list item based on the
- * parent list's variant.
- *
- * Callout lists use `<N>` or `<.>` markers; ordered
- * lists use dots; unordered lists use asterisks. The
- * marker depth (number of repeated characters) encodes
- * the nesting level.
+ * The marker string for a list item: callout items print from their
+ * recorded number; every other item replays the list's OWN marker
+ * spelling (`ListNode.marker` — the classifier's parse). Nothing is
+ * reconstructed from a depth, so a spelling the author wrote can no
+ * longer be normalized into a DIFFERENT list's spelling. Two lists
+ * genuinely written with the SAME marker can still nest — the reader
+ * follows the oracle there — and {@link printedGap} is what keeps
+ * that pair printing nested.
  * @param node - The list item whose marker to build.
- * @param parentList - The parent list node, used to
- *   determine the variant (ordered, unordered, callout).
- * @returns The marker string (e.g. `**`, `...`, `<1>`).
+ * @param parentList - The parent list node, for the variant and the
+ *   spelling. Prettier's path typing cannot promise the parent, so
+ *   the undefined arm falls back to `*` rather than asserting; it
+ *   mirrors the variant fallback that preceded it.
+ * @returns The marker string (e.g. `-`, `**`, `...`, `<1>`).
  */
 function buildMarker(
   node: ListItemNode,
@@ -102,8 +128,7 @@ function buildMarker(
       node.calloutNumber === 0 ? "." : String(node.calloutNumber);
     return `<${calloutLabel}>`;
   }
-  const markerChar = parentList?.variant === "ordered" ? "." : "*";
-  return markerChar.repeat(node.depth);
+  return parentList?.marker ?? "*";
 }
 
 /**
@@ -131,22 +156,26 @@ function formatCheckbox(checkbox: ListItemNode["checkbox"]): string {
 /**
  * Prints a single list item to Doc IR.
  *
- * Produces marker + space + text content, with text reflowed via
- * fill(). Continuation lines are aligned to the text start (past the
- * marker). The item's blocks — nested lists and `+`-attached blocks
+ * Produces marker + space + text content, with the text packed by THE
+ * block-body engine. The marker's columns are the item's continuation
+ * indent, so wrapped text lines up under the text start rather than the
+ * marker. The item's blocks — nested lists and `+`-attached blocks
  * alike — follow in source order, each behind its gap replayed
  * VERBATIM ({@link gapParts}); the only spelling the printer decides
- * itself is the hazard's (Rulings 26-30, `hazard()`).
+ * itself is the hazard's kept break (`hazard()`) — it
+ * never invents a `+`.
  * @param node - The list item AST node.
  * @param path - Prettier's AST path, used to recurse
  *   into the text and blocks and access the parent list node.
  * @param print - Prettier's recursive print callback.
+ * @param printWidth - the column budget for a whole output line.
  * @returns Doc IR for the formatted list item.
  */
 export function printListItem(
   node: ListItemNode,
   path: PrintPath,
   print: PrintFunction,
+  printWidth: number,
 ): Doc {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Prettier path traversal returns generic node
   const parentList = path.getParentNode() as ListNode | undefined;
@@ -155,21 +184,20 @@ export function printListItem(
   const markerWidth = marker.length + MARKER_OFFSET;
   const checkboxWidth = node.checkbox === undefined ? 0 : CHECKBOX_PREFIX_LEN;
 
-  const flattened = stripLeadingHazardBreak(
-    flattenForFill(path.map(print, "text")),
-  );
-  // Rulings 26-30 as a pure predicate over the finished node: reflow
+  const atoms = inlineAtoms(node.text, node.position.start.line);
+  // The hazard, as a pure predicate over the finished node: reflow
   // may not push leading metadata onto the first rest line.
   const guard = hazard(node);
-  const inlineParts =
-    guard === "keepBreak" ? keepLastBreak(flattened) : flattened;
-
-  const item = fill([
+  const item: Doc[] = [
     marker,
     " ",
     checkboxPrefix,
-    align(markerWidth + checkboxWidth, fill(inlineParts)),
-  ]);
+    ...blockBody(
+      guard === "keepBreak" ? keepLastBreak(atoms) : atoms,
+      printWidth,
+      markerWidth + checkboxWidth,
+    ),
+  ];
 
   const printedBlocks = path.map(
     (blockPath) => blockPath.call(print, "block"),
@@ -177,13 +205,7 @@ export function printListItem(
   );
   const parts: Doc[] = [item];
   for (const index of node.blocks.keys()) {
-    if (index === 0 && guard === "plus") {
-      // The explicit `+` Ruling 26 puts above a leading metadata run a
-      // block of the item follows (the run's own gap is empty by the
-      // hazard's definition, so nothing else prints between).
-      parts.push(hardline, "+");
-    }
-    const adjusted = printedGap(node, parentList, index, guard);
+    const adjusted = printedGap(node, parentList, index);
     parts.push(...gapParts(adjusted), printedBlocks[index]);
   }
   if (node.trailingContinuation) {
@@ -206,68 +228,60 @@ export function printListItem(
 /**
  * The gap one block prints behind — the recorded one, adjusted in the
  * cases where verbatim replay would not read back as the same
- * structure, all involving a nested list:
+ * structure, both involving a nested list:
  *
- * - marker NORMALIZATION can collide a nested list's marker with its
- *   parent item's (`- Foo` holding `* Boo` both print `* `), and then
- *   any blank-only gap reads back as a SIBLING boundary — worse, the
- *   sibling probe eats the blank, so a second pass prints different
- *   bytes. Printing the collided pair ADJACENT (the baseline's
- *   spelling) reads back flat the same way on every pass. The nesting
- *   the input expressed through the marker style is lost either way —
- *   that fidelity gap is marker normalization's, tracked as issue
- *   #16; this arm only keeps the loss IDEMPOTENT. A gap carrying a
- *   `+` is left alone: the `+` is live and must survive. Checked
- *   FIRST: a blank invented in front of a collided marker would end
- *   the item at a sibling boundary instead.
+ * - a nested list may SHARE its parent item's marker, and then it must
+ *   print ADJACENT. Behavior is Ruby's (`read_lines_for_list_item`,
+ *   parser.rb:1395–1577): the item's read runs THROUGH an indented
+ *   literal and the metadata behind it, so the marker line after them
+ *   lands INSIDE the item however it is spelled — the oracle reads the
+ *   second `* a` of `* a\n\n  lit\n[[anc]]\n* a\n` as a nested list, and
+ *   reads the same document with one blank line more as two siblings.
+ *   So any blank-only gap in front of such a list reads back as a
+ *   SIBLING boundary — worse, the sibling probe eats the blank, so a
+ *   second pass prints different bytes. A gap carrying a `+` is left
+ *   alone: the `+` is live and must survive. Checked FIRST: the blank
+ *   the next arm invents would end the item at a sibling boundary
+ *   instead. Pinned by the same-marker rows in
+ *   tests/format/marker-spelling.test.ts and by the list-shape sweep.
  * - an empty gap gets a blank line invented in front of the list when
  *   the marker would otherwise be SWALLOWED on re-read (the blank is
  *   safe — after one, `read_lines_for_list_item` keeps every nestable
  *   marker in the item — and the next pass re-parses it AS [""],
- *   which the replay reproduces: idempotent). Two readings need it,
- *   each tested precisely ({@link slurpReaches}):
- *   (1) after the hazard's INTRODUCED `+` (Rulings 26/27) the block
- *   following the metadata run reads back with the PLAIN interrupting
- *   set (the erased `+` makes `skipped` ≥ 1), and a nested marker
- *   directly under that block folds into it as text;
- *   (2) an indented literal earlier in the item re-reads with a slurp
- *   (`read_lines_until break_on_blank_lines`) that runs THROUGH
- *   adjacent metadata and marker lines, so a marker connected to the
- *   literal by empty gaps would be swallowed into it — and, past the
- *   item's end, so would the next item's marker (review B3,
+ *   which the replay reproduces: idempotent). One reading needs it,
+ *   tested precisely ({@link slurpReaches}): an indented literal
+ *   earlier in the item re-reads with a slurp (`read_lines_until
+ *   break_on_blank_lines`) that runs THROUGH adjacent metadata and
+ *   marker lines, so a marker connected to the literal by empty gaps
+ *   would be swallowed into it — and, past the item's end, so would
+ *   the next item's marker (review B3,
  *   `* a\n\n  lit\n[role]\n** b\n\n* a\n`).
  *   The arm deliberately does NOT fire elsewhere: under a frozen `+`
  *   raw line the adjacency is load-bearing the other way (a blank
  *   would erase the `+` chain on re-read — the family the cut-over
  *   fixed), and plain verbatim replay is already a fixed point.
+ *
+ * The first arm compares the two RECORDED spellings, not a
+ * reconstruction: `ListNode.marker` is what the classifier read, so
+ * the comparison asks the question the re-read will ask.
  * @param node - the item being printed
  * @param parentList - its list, for the marker spelling
  * @param index - which of the item's blocks is being placed (the
  *   first keeps its adjacency to the text)
- * @param guard - the item's hazard answer, for reading (1)
  * @returns the gap to print
  */
 function printedGap(
   node: ListItemNode,
   parentList: ListNode | undefined,
   index: number,
-  guard: Hazard,
 ): readonly GapLine[] {
   const { blocks } = node;
   const { gap, block } = blocks[index];
   if (block.type !== "list") return gap;
-  const nestedFirst = block.children.at(0);
-  if (
-    nestedFirst !== undefined &&
-    buildMarker(nestedFirst, block) === buildMarker(node, parentList)
-  ) {
+  if (block.marker === parentList?.marker) {
     return gap.includes("+") ? gap : [];
   }
-  if (
-    index > 0 &&
-    gap.length === 0 &&
-    (guard === "plus" || slurpReaches(node.blocks, index))
-  ) {
+  if (index > 0 && gap.length === 0 && slurpReaches(node.blocks, index)) {
     return BLANK_GAP;
   }
   return gap;
@@ -286,12 +300,7 @@ function printedGap(
  */
 function slurpReaches(blocks: readonly ItemBlock[], index: number): boolean {
   for (const previous of blocks.slice(0, index).toReversed()) {
-    if (
-      previous.block.type === "delimitedBlock" &&
-      previous.block.form === "indented"
-    ) {
-      return true;
-    }
+    if (isIndentedLiteral(previous.block)) return true;
     if (previous.gap.length > 0) return false;
   }
   return false;

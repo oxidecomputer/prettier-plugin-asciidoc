@@ -12,7 +12,7 @@ describe("ordered list parsing", () => {
     expect(list.variant).toBe("ordered");
     expect(list.children).toHaveLength(1);
     expect(list.children[0].type).toBe("listItem");
-    expect(list.children[0].depth).toBe(1);
+    expect(list.marker).toBe(".");
   });
 
   // Multiple `.` lines in succession form a single list, not
@@ -42,7 +42,7 @@ describe("ordered list parsing", () => {
     narrow(nestedList, "list");
     expect(nestedList.variant).toBe("ordered");
     expect(nestedList.children).toHaveLength(1);
-    expect(nestedList.children[0].depth).toBe(2);
+    expect(nestedList.marker).toBe("..");
   });
 
   // A list item can span multiple lines. A flush (non-indented)
@@ -123,7 +123,7 @@ describe("ordered list parsing", () => {
     )?.block;
     narrow(l3List, "list");
     expect(l3List.children).toHaveLength(1);
-    expect(l3List.children[0].depth).toBe(3);
+    expect(l3List.marker).toBe("...");
   });
 
   // AsciiDoc supports 5 nesting levels. Verify all depths parse
@@ -135,7 +135,7 @@ describe("ordered list parsing", () => {
     let current = list;
     for (let depth = 1; depth <= 5; depth += 1) {
       expect(current.children).toHaveLength(1);
-      expect(current.children[0].depth).toBe(depth);
+      expect(current.marker).toBe(".".repeat(depth));
       if (depth < 5) {
         const nested = current.children[0].blocks.find(
           ({ block }) => block.type === "list",
@@ -162,9 +162,9 @@ describe("ordered list parsing", () => {
   });
 
   // After nesting three levels deep (. → .. → ...), a subsequent
-  // single-dot item (.) must pop back to the root list. Verifies
-  // that collapseLevel correctly drains the nesting stack all the
-  // way back to depth 1 rather than just one level at a time.
+  // single-dot item must land as a sibling of the first — the
+  // extent-first read keeps the root list's marker, not a nesting
+  // stack, as the sibling test.
   test("return to root after deep nesting", () => {
     const { children } = parse(". L1\n.. L2\n... L3\n. Back to L1\n");
     const list = firstList(children);
@@ -174,7 +174,7 @@ describe("ordered list parsing", () => {
     } = list;
     expect(first.type).toBe("listItem");
     expect(second.type).toBe("listItem");
-    expect(second.depth).toBe(1);
+    expect(list.marker).toBe(".");
   });
 
   // A line with leading whitespace that immediately follows a list

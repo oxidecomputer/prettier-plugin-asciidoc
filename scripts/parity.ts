@@ -27,9 +27,10 @@ import { mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import {
-  BETA_FAMILIES,
+  GAMMA_FAMILIES,
   foldPlanAlphaShapes,
   foldPlanBetaShapes,
+  foldPlanGammaShapes,
   loadExpectedDiffs,
   parseArguments,
   reportExpectedDiffs,
@@ -45,7 +46,7 @@ import {
 // is not re-exported (review m5) — `scripts/parity-ledger.js`
 // exports it directly for whoever needs it.
 export { expectedDiffFailures, parseArguments } from "./parity-ledger.js";
-export { BETA_FAMILIES } from "./parity-ledger.js";
+export { GAMMA_FAMILIES } from "./parity-ledger.js";
 export type { ExpectedDiff } from "./parity-ledger.js";
 
 const ARGUMENT_START = 2;
@@ -288,13 +289,14 @@ function normalizeOneItem(_key: string, value: unknown): unknown {
  * visited.
  *
  * This function, `foldPlanAlphaShapes`, `foldPlanBetaShapes`,
- * `normalizeOneItem`, `blankOneEnd`, `derivedEnd`, `endSource`,
- * `startOffset`, `isUnknownArray` and `isRecordLike` are
+ * `foldPlanGammaShapes`, `normalizeOneItem`, `blankOneEnd`,
+ * `derivedEnd`, `endSource`, `startOffset`, `isUnknownArray` and
+ * `isRecordLike` are
  * SELF-CONTAINED on purpose: their source is embedded into the dumper
  * below with `Function.prototype.toString()`, so the comparison and
  * its test share one implementation instead of two copies that can
- * drift. A reference to anything outside these ten bodies would
- * compile here and crash inside the baseline checkout. Both fold
+ * drift. A reference to anything outside these eleven bodies would
+ * compile here and crash inside the baseline checkout. All three fold
  * bodies now live in `scripts/parity-ledger.ts` (plan ruling PR-6);
  * `.toString()` embeds a body regardless of the module that defines
  * it, so the rule is unchanged.
@@ -308,7 +310,12 @@ export function normalizeTree(
   allowParentBlockEnd: boolean,
 ): unknown {
   const normalized: unknown = JSON.parse(JSON.stringify(tree), (key, value) => {
-    const shaped = foldPlanAlphaShapes(key, value);
+    // The gamma fold runs FIRST: `foldPlanAlphaShapes` rewrites a `blockAnchor`
+    // into a FRESH paragraph/inlineAnchor pair, and a fresh object is
+    // never revisited by the reviver — folding after it would leave
+    // that pair's reftext unfolded and surface as an AST difference.
+    const replayed = foldPlanGammaShapes(key, value);
+    const shaped = foldPlanAlphaShapes(key, replayed);
     const flattened = foldPlanBetaShapes(key, shaped);
     const folded = normalizeOneItem(key, flattened);
     return allowParentBlockEnd ? blankOneEnd(key, folded) : folded;
@@ -318,7 +325,7 @@ export function normalizeTree(
 
 // The dumper is written into BOTH checkouts, so it can only use what
 // the baseline already has: the corpus loader, the format fixtures,
-// `formatAdoc` and `parse`, plus the ten functions embedded
+// `formatAdoc` and `parse`, plus the eleven functions embedded
 // verbatim below. It prints one JSON line per case, then one timing
 // line.
 const DUMPER = String.raw`
@@ -339,6 +346,7 @@ ${blankOneEnd.toString()}
 ${normalizeOneItem.toString()}
 ${foldPlanAlphaShapes.toString()}
 ${foldPlanBetaShapes.toString()}
+${foldPlanGammaShapes.toString()}
 ${normalizeTree.toString()}
 const cases = loadCorpus().flatMap((group) => group.cases);
 const FIXTURES = "tests/format/fixtures/identity";
@@ -742,7 +750,7 @@ function report(options: {
       revision,
       limit,
       allowParentBlockEnd,
-      familySets: BETA_FAMILIES,
+      familySets: GAMMA_FAMILIES,
       reportCase,
     });
     return;

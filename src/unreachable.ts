@@ -7,16 +7,15 @@
  * type is `never` does. Wrapping the throw here gives us
  * that property without extra boilerplate at every site:
  *
- *   const groups = RE.exec(line.image)?.groups ?? unreachable(
- *     `Invalid attribute entry: ${line.image}`
- *   );
+ *   case undefined: {
+ *     return unreachable(`Unknown mark token: ${markType}`);
+ *   }
  *
- * Used in `src/parse/build/` and in the reader's extent scans to
+ * Used in `src/parse/inline/` and in the list reader's gap scan to
  * guard states that are impossible only because two places
- * agree — a line-shape pattern in the classifier and the
- * builder's own regex for the same shape, say. If one fires
- * it means those two drifted apart; it never means bad user
- * input, which the reader is total over.
+ * agree — the inline dispatch and the rule table that feeds
+ * it, say. If one fires it means those two drifted apart; it
+ * never means bad user input, which the reader is total over.
  * @param message - A description of the violated
  *   invariant, including enough context (rule name, token
  *   kind, surrounding state) to diagnose the bug without

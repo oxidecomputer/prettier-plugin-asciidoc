@@ -55,7 +55,7 @@ function isPlainRecord(value: unknown): value is Record<string, unknown> {
  * The family sets one plan's ledger gate runs under (spec D7.2): the
  * closed enumeration, and the subset whose cases may differ in
  * formatted output only. A PARAMETER of the gate — the production
- * call site (scripts/parity.ts) passes {@link BETA_FAMILIES}; the
+ * call site (scripts/parity.ts) passes {@link GAMMA_FAMILIES}; the
  * unit tests pass synthetic sets, so a plan's enum swap is a one-line
  * data change with no test edits.
  */
@@ -67,28 +67,35 @@ export interface FamilySets {
 }
 
 /**
- * β's ONE expected-diff family (spec D4): the #44 corruption fix, a
- * VERBATIM role unterminated and forced shut by a CONFINED stream end.
- *
- * Declared here and READ by `scripts/shape-registry.ts`'s `familyOf`
- * rather than respelled there (review m2): two "closed enums" sharing
- * a string literal with nothing gating that they agree is a rename
- * waiting to orphan one of them. One declaration, one import, and a
- * divergence cannot compile.
+ * The family ids, one declaration each — grid rows in
+ * scripts/shape-registry-list-run.ts and ledger entries in
+ * scripts/parity-expected-diffs.json cite these, so a rename cannot
+ * orphan a spelling. The two g1 ids name the invented-`+` deletion
+ * and the pseudo-run-fold corruption fix; the two g3 ids name the
+ * marker families (spellings replayed, nesting fidelity restored).
  */
-export const CONFINED_EXTENT_FAMILY = "b44-confined-extent";
+export const AUTHOR_PLUS_FAMILY = "g1-author-plus";
+export const PSEUDO_RUN_FOLD_FAMILY = "g1-pseudo-run-fold";
+export const MARKER_SPELLING_FAMILY = "g3-marker-spelling";
+export const NESTING_FIDELITY_FAMILY = "g3-nesting-fidelity";
 
 /**
- * Plan β's closed enum (spec D4): ONE family, the #44 corruption fix.
- * SURFACE HONESTY, not an armed gate: a family id can only legally be
- * a corpus id or an identity-fixture id, and β's family shapes are
- * neither — no legal `b44-confined-extent` entry can exist, and β's
- * standing parity invocation never passes `--expected-diffs` at all.
- * Formatted-only is empty: the family carries AST differences.
+ * The closed family enum. SURFACE HONESTY, not an armed
+ * gate: a family id can only legally be a corpus id or an
+ * identity-fixture id. The formatted-only subset is exactly the two
+ * g1 families — they change BYTES only, while both g3 families ride
+ * the D3 tree fold (`marker` added, `depth` dropped), so a g3 entry
+ * whose AST differs is legal and a g1 entry whose AST differs fails
+ * the cross-check.
  */
-export const BETA_FAMILIES: FamilySets = {
-  families: new Set([CONFINED_EXTENT_FAMILY]),
-  formattedOnly: new Set(),
+export const GAMMA_FAMILIES: FamilySets = {
+  families: new Set([
+    AUTHOR_PLUS_FAMILY,
+    PSEUDO_RUN_FOLD_FAMILY,
+    MARKER_SPELLING_FAMILY,
+    NESTING_FIDELITY_FAMILY,
+  ]),
+  formattedOnly: new Set([AUTHOR_PLUS_FAMILY, PSEUDO_RUN_FOLD_FAMILY]),
 };
 
 /** One expected-diff ledger entry: a case allowed to differ, and why. */
@@ -509,6 +516,59 @@ export function foldPlanBetaShapes(key: string, value: unknown): unknown {
       title: title ?? heading,
       position,
     };
+  }
+  return value;
+}
+
+/**
+ * Fold the landed shape changes, both arms in place: the verbatim
+ * reftext capture is invisible to corpus AST comparison — both sides
+ * fold `reftext` to its trimStart() on inlineAnchor and blockAnchor
+ * nodes — and a marker-bearing list folds back to the old shape,
+ * dropping `marker` and re-deriving each item's `depth` from it. ONE
+ * canonical key order per arm, because parity digests the JSON STRING
+ * (pinned by the string-equality rows in
+ * tests/scripts/parity-ledger.test.ts). Tolerates BOTH tree shapes —
+ * the dumper embeds this body into the baseline checkout too.
+ * @param key - the reviver key
+ * @param value - the revived value
+ * @returns the folded value
+ */
+export function foldPlanGammaShapes(key: string, value: unknown): unknown {
+  if (!isRecordLike(value)) return value;
+  if (value.type === "inlineAnchor" || value.type === "blockAnchor") {
+    const { type, id, reftext, position } = value;
+    return {
+      type,
+      id,
+      reftext: typeof reftext === "string" ? reftext.trimStart() : reftext,
+      position,
+    };
+  }
+  if (value.type === "list" && typeof value.marker === "string") {
+    // Fold BOTH sides to the OLD shape: drop `marker`, re-derive each
+    // item's `depth` from it (`-` and the callout sentinel are depth
+    // 1; a run's length is its depth). Items are already canonical
+    // here — the reviver is bottom-up, so normalizeOneItem rewrote
+    // each item before its list is visited — and the re-spelled
+    // literal repeats that key order exactly.
+    const OUTERMOST = 1;
+    const { type, variant, marker, children, position } = value;
+    const depth = marker === "-" || marker === "<>" ? OUTERMOST : marker.length;
+    const items = (isUnknownArray(children) ? children : []).map((item) =>
+      isRecordLike(item)
+        ? {
+            type: item.type,
+            depth,
+            checkbox: item.checkbox,
+            calloutNumber: item.calloutNumber,
+            inline: item.inline,
+            blocks: item.blocks,
+            position: item.position,
+          }
+        : item,
+    );
+    return { type, variant, children: items, position };
   }
   return value;
 }

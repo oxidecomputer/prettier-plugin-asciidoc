@@ -113,10 +113,6 @@
     "fails": ["fidelity"],
     "issue": "UNTRIAGED"
   },
-  "blocks_test.rb#should not recognize block anchor with illegal id characters#0": {
-    "fails": ["fidelity"],
-    "issue": "UNTRIAGED"
-  },
   "blocks_test.rb#should not recognize fenced code blocks with more than three delimiters#0": {
     "fails": ["fidelity"],
     "issue": "UNTRIAGED"
@@ -285,14 +281,6 @@
   "invoker_test.rb#should write page for each alternate manname#0": {
     "fails": ["fidelity"],
     "issue": "#18"
-  },
-  "lists_test.rb#a list item with a nested marker terminates indented paragraph for text of list item#0": {
-    "fails": ["fidelity"],
-    "issue": "#27"
-  },
-  "lists_test.rb#a list item with a nested marker terminates non-indented paragraph for text of list item#0": {
-    "fails": ["fidelity"],
-    "issue": "UNTRIAGED"
   },
   "lists_test.rb#a literal paragraph offset by a blank line in list content followed by line with continuation is appended as two blocks#0": {
     "fails": ["fidelity"],

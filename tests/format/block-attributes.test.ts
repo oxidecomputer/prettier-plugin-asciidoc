@@ -206,9 +206,8 @@ describe("block anchor spelling and idempotence (spec D6: byte-identical across 
 // reftext alternative does not, Asciidoctor reads the line as an
 // ordinary PARAGRAPH — and so does the reader. It still prints as
 // `[[…]]` alone on a line, so the printer keeps it stacked with the
-// block below (`isPseudoAnchorLine`, src/block-metadata.ts — the
-// shared predicate both printer-side rules consult since spec D6): the
-// author's
+// block below (`anchorLineShape`, src/block-metadata.ts — the shared
+// record both printer-side rules consult): the author's
 // bytes survive and re-parsing our output gains no blank line.
 //
 // The class the suites missed before spec D6: every anchor alphabet in
@@ -234,17 +233,22 @@ describe("pseudo-anchor lines (spec D6: a `[[…]]` line that is not a block anc
     expect(renderedHtml(output)).toBe(renderedHtml(input));
   });
 
-  // The corpus row's own spelling. `, ` normalization inside the
-  // brackets is pre-existing (anchorToSource) and the case is
-  // quarantined for `fidelity`; what this row pins is the LINE
-  // structure — the anchor stays on the delimiter's line.
-  test("the reftext form keeps its stacking (bytes only — fidelity is quarantined)", async () => {
+  // The corpus row's own spelling, and the fidelity fix that freed it
+  // from quarantine. This line is TEXT to the reader — the id fails
+  // the grammar — so respelling its interior changes the rendered
+  // characters. `anchorToSource` therefore prints the author's
+  // post-comma bytes verbatim here. Counterfactual: the output used to
+  // be `[[illegal$id, Reference Text]]\n----\ncontent\n----\n`, whose
+  // paragraph rendered with an injected space; if that spelling comes
+  // back, the always-normalize arm is back with it. The LINE structure
+  // this row has always pinned is unmoved — the anchor stays on the
+  // delimiter's line.
+  test("the reftext form keeps its stacking, and its bytes", async () => {
     const input = "[[illegal$id,Reference Text]]\n----\ncontent\n----\n";
     const output = await formatAdoc(input);
-    expect(output).toBe(
-      "[[illegal$id, Reference Text]]\n----\ncontent\n----\n",
-    );
+    expect(output).toBe(input);
     expect(await formatAdoc(output)).toBe(output);
+    expect(renderedHtml(output)).toBe(renderedHtml(input));
   });
 
   // `[[id,]]` is not a block-anchor line either: the grammar's reftext

@@ -21,7 +21,7 @@ async function expectBytes(input: string, expected: string): Promise<void> {
 
 describe("the confinement flavor bit (spec D2, preservation condition 4)", () => {
   test("a compound interior inside an item is NOT an item interior", async () => {
-    // The one shape where openListStyles would matter if a block
+    // The one shape where openListStyle would matter if a block
     // child ever reported the item's style: inside `====` the
     // paragraph context is "paragraph", where a foreign marker
     // neither interrupts nor keeps its own line — `para . other`

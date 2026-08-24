@@ -25,7 +25,9 @@ import {
   expectAstInvariants,
   expectContainment,
   expectItemSiblingMonotonicity,
+  expectMasqueradeSourceDelimiter,
 } from "./ast-invariants.js";
+import { preorder } from "./ast-walk.js";
 
 describe("AST invariants: corpus", () => {
   const cases = loadCorpus().flatMap((group) => group.cases);
@@ -126,7 +128,6 @@ describe("AST invariants: negative rows", () => {
   test("(viii-b) bites: an over-spanning item block fails", () => {
     const item = {
       type: "listItem",
-      depth: 1,
       checkbox: undefined,
       calloutNumber: undefined,
       text: [
@@ -152,6 +153,25 @@ describe("AST invariants: negative rows", () => {
     };
     expect(() => {
       expectItemSiblingMonotonicity([item]);
+    }).toThrow();
+  });
+
+  test("(xiii) bites: a delimited verse with no sourceDelimiter fails", () => {
+    const bad = {
+      type: "document",
+      children: [
+        {
+          type: "delimitedBlock",
+          variant: "verse",
+          form: "delimited",
+          content: "x",
+          position: { start: at(0, 1), end: at(12, 3) },
+        },
+      ],
+      position: { start: at(0, 1), end: at(12, 3) },
+    };
+    expect(() => {
+      expectMasqueradeSourceDelimiter(preorder(bad));
     }).toThrow();
   });
 });

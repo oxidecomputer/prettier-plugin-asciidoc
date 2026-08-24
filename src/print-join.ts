@@ -11,7 +11,8 @@
 import { doc, type Doc } from "prettier";
 import type { BlockNode } from "./ast.js";
 import {
-  isPseudoAnchorLine,
+  anchorLineShape,
+  isLineComment,
   isReaderConsumedLine,
   stacksAsMetadata,
 } from "./block-metadata.js";
@@ -19,28 +20,6 @@ import {
 const {
   builders: { hardline },
 } = doc;
-
-/**
- * Tests whether a block is a line comment.
- *
- * Line comments and attribute entries are special cases
- * for block separation: consecutive elements of either
- * type should appear on adjacent lines, not separated by
- * a blank line like other block elements. This matches
- * idiomatic AsciiDoc style. A line comment renders
- * nothing, so closing the gap between two of them cannot
- * change the output — unlike a preprocessor directive,
- * whose blank-line gap the reader can still make visible
- * (two blank-separated unresolved includes render as two
- * paragraphs, adjacent ones as a single paragraph), so
- * directives stack only when the source had them
- * adjacent.
- * @param block - The block node to test.
- * @returns Whether the block is a line comment.
- */
-function isLineComment(block: BlockNode): boolean {
-  return block.type === "comment" && block.commentType === "line";
-}
 
 /**
  * Tests whether a block is an attribute entry.
@@ -167,11 +146,18 @@ function shouldStack(blocks: BlockNode[], index: number): boolean {
 }
 
 /**
- * Whether stacking the pair would DESTROY a heading: a pseudo-anchor
- * line directly above a level >= 1 heading re-parses as one joined
- * line. Named rather than inlined into {@link shouldStack} because
- * the ceiling counts that function's operators (see the level comment
- * above); the rule is one clause of the metadata arm's suppression.
+ * Whether stacking the pair would DESTROY a heading: a PARAGRAPH that
+ * prints as a `[[…]]` line, directly above a level >= 1 heading,
+ * re-parses as one joined line (a section title does not interrupt a
+ * paragraph). The first-class `blockAnchor` node is excluded because
+ * its line is metadata on re-read and the heading below it survives —
+ * which is why the test is `anchorLineShape` answered on a paragraph,
+ * not the anchor/lookalike split: a paragraph printing `[[id]]` for
+ * the author's `[[id,]]` keeps its blank line here, exactly as it
+ * always has. Named rather than inlined into {@link shouldStack}
+ * because the ceiling counts that function's operators (see the level
+ * comment above); the rule is one clause of the metadata arm's
+ * suppression.
  * @param previous - The preceding block node.
  * @param current - The current block node.
  * @returns Whether the stacked spelling would re-parse joined.
@@ -180,7 +166,11 @@ function destroysHeadingWhenStacked(
   previous: BlockNode,
   current: BlockNode,
 ): boolean {
-  return isSectionHeading(current) && isPseudoAnchorLine(previous);
+  return (
+    isSectionHeading(current) &&
+    previous.type === "paragraph" &&
+    anchorLineShape(previous) !== undefined
+  );
 }
 
 /**

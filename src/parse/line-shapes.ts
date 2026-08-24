@@ -45,7 +45,7 @@
  *   the plain-paragraph set; the only markers that end it are the
  *   ones `read_lines_for_list_item` already stopped at, i.e. the
  *   OPEN list's own marker style (`is_sibling_list_item?`), which
- *   the caller supplies as `enclosingListStyles`.
+ *   the caller supplies as `enclosingListStyle`.
  * - `dlistItem` — the description of a `term:: desc` item. Widest
  *   set: `parse_list_item` parses the lines after the term with
  *   `text_only: nil` — a full `next_block` — and then `fold_first`
@@ -136,6 +136,21 @@ export function rstrip(line: string): string {
  */
 function wholeLine(source: string): RegExp {
   return new RegExp(`^${source}$`, "v");
+}
+
+/**
+ * The value of a named group whose branch is OPTIONAL. TypeScript
+ * types every group of a match as `string`, but a group that did not
+ * participate is undefined at runtime; the declared return type is
+ * the honest one, and reading through it costs no assertion. Lives
+ * with the patterns rather than with either parser, so both the
+ * registry's own parse functions and the classifier's read their
+ * optional groups through ONE widening.
+ * @param group - a named group of a successful match
+ * @returns the group's value, or undefined when it did not participate
+ */
+export function optionalGroup(group: string): string | undefined {
+  return group;
 }
 
 /**
@@ -272,7 +287,12 @@ export const BLOCK_TITLE = /^\.\.?[^ \t.][^\n]*$/v;
 // `AttributeEntryRx` (`/^:(!?CG_WORD[^:]*):(?:[ \t]+(CC_ANY*))?$/`),
 // with Ruby's unicode word class approximated by `\w` the same way
 // BLOCK_ANCHOR_SOURCE approximates its id class.
-export const ATTRIBUTE_ENTRY = /^:!?\w[^:]*:(?:[ \t]+[^\n]*)?$/v;
+// Named groups carry the parse out through the classifier — the ONE
+// parse; the accepted line set is IDENTICAL to the ungrouped spelling
+// (`!` is a `[^:]` character, so a trailing bang splits off the lazy
+// name exactly where the old builder regex split it).
+export const ATTRIBUTE_ENTRY =
+  /^:(?<prefixBang>!?)(?<name>\w[^:]*?)(?<suffixBang>!?):(?:[ \t]+(?<value>[^\n]*))?$/v;
 
 /**
  * Delimiter lines keyed by kind, one per {@link DELIMITER_SOURCES}
@@ -459,7 +479,8 @@ export const ADMONITION_LABEL =
  * extensions may register any name and the formatter reprints the
  * line either way.
  */
-export const BLOCK_MACRO = /^[A-Za-z]\w*::[^\[\n]*\[[^\]\n]*\]$/v;
+export const BLOCK_MACRO =
+  /^(?<name>[A-Za-z]\w*)::(?<target>[^\[\n]*)\[(?<attrlist>[^\]\n]*)\]$/v;
 
 /**
  * A thematic break (`'''`). Mirrors `next_block`'s
@@ -605,6 +626,30 @@ export const INCLUDE_DIRECTIVE = /^include::[^\[]*\[[^\]]*\]$/v;
  */
 export const LINE_COMMENT = new RegExp(`^${LINE_COMMENT_SOURCE}`, "v");
 
+/**
+ * The two characters `Reader#skip_line_comments` tests a line for
+ * (`start_with? '//'`) — the one spelling of "line comment" on the
+ * SCAN side, where raw LINE text is examined before nodes exist
+ * (paragraph-reader.ts, print-list-hazard.ts, reflow.ts). The EMIT
+ * side spells its own bytes (print-blocks.ts writes the literal
+ * prefix; build/metadata.ts slices its length) and is out of this
+ * constant's scope.
+ *
+ * DELIBERATELY the reader's cruder test, WIDER than
+ * {@link LINE_COMMENT}'s `CommentLineRx`: a prefix test also takes
+ * `///x` and the `////` block delimiter, which the Rx excludes. The
+ * width is load-bearing in paragraph-reader.ts — a `///b::` dlist
+ * term is ordinary text to the Rx and a deleted line to
+ * `skip_line_comments` (pinned by tests/parser/reader-lists.test.ts
+ * and tests/format/list-item-blocks.test.ts's `///b::` rows). In the
+ * other two consumers no reachable wider case is known: the lines
+ * they are asked about are raw lines the BlockReader classified,
+ * pinned by the list-shape sweep. A consumer that must decide
+ * whether a line is a comment TO THE PARSER reaches for
+ * {@link LINE_COMMENT} instead.
+ */
+export const LINE_COMMENT_HEAD = "//";
+
 const PARAGRAPH_RAW_LINES: readonly RegExp[] = [
   LINE_COMMENT,
   CONDITIONAL_DIRECTIVE,
@@ -655,8 +700,14 @@ export const DLIST_SEPARATOR_WORD = /^\S*(?:::|:::|::::|;;)$/v;
 // (`;;`) is ordinary text, while a term of several words
 // (`a multi word term::`) is a dlist. A leading `//` comment is
 // excluded the same way Ruby excludes it.
+//
+// The delimiter is spelled `:{2,4}` — greedy, exactly Ruby's
+// `:::{0,2}` — so the groups below split a line the way Ruby splits
+// it. The named groups are what parseDescriptionListLine hands the
+// classifier; isDescriptionListLine only asks whether there is a
+// match at all.
 const DESCRIPTION_LIST_LINE =
-  /^(?!\/\/[^\/])[ \t]*[^ \t][^\n]*?(?:::|:::|::::|;;)(?:$|[ \t]+[^\n]*)$/v;
+  /^(?!\/\/[^\/])[ \t]*(?<term>[^ \t][^\n]*?)(?<delimiter>;;|:{2,4})(?:$|[ \t]+(?<description>[^\n]*))$/v;
 
 /**
  * Whether Asciidoctor would read a line as a description-list item —
@@ -670,6 +721,42 @@ const DESCRIPTION_LIST_LINE =
  */
 export function isDescriptionListLine(rawLine: string): boolean {
   return DESCRIPTION_LIST_LINE.test(rstrip(rawLine));
+}
+
+/**
+ * Parse a description-list term line into the fields the classifier
+ * carries: the delimiter (`::` | `:::` | `::::` | `;;`), the term
+ * text (Ruby's group — trailing spaces before the delimiter
+ * included: `foo ::` has term `"foo "`), and where the optional
+ * inline description starts, as an offset into the RSTRIPPED line.
+ * Grammar home: DESCRIPTION_LIST_LINE above (Ruby's
+ * `DescriptionListRx`, rx.rb:335, pinned by tests/parser/lines.test.ts's
+ * split rows); the groups ride out so no builder
+ * or reader ever re-parses the line.
+ * @param rawLine - one source line, without its trailing newline;
+ *   trailing whitespace is trimmed here (see rstrip)
+ * @returns the term line's fields, or undefined when the line is no
+ *   description-list item
+ */
+export function parseDescriptionListLine(
+  rawLine: string,
+):
+  | { delimiter: string; term: string; descriptionStart: number | undefined }
+  | undefined {
+  const line = rstrip(rawLine);
+  const groups = DESCRIPTION_LIST_LINE.exec(line)?.groups;
+  if (groups === undefined) {
+    return undefined;
+  }
+  // The description group is the one OPTIONAL branch, so it is the
+  // one read through {@link optionalGroup}.
+  const description = optionalGroup(groups.description);
+  return {
+    delimiter: groups.delimiter,
+    term: groups.term,
+    descriptionStart:
+      description === undefined ? undefined : line.length - description.length,
+  };
 }
 
 // The pattern list each context uses REGARDLESS of where the line
@@ -751,12 +838,14 @@ const ENDED_BY_DLIST_TERM = new Set<ParagraphContext>([
 /** Caller-supplied context {@link interruptsParagraph} cannot infer. */
 export interface InterruptionOptions {
   /**
-   * Marker styles (see {@link listMarkerStyle}) of the list ancestry
-   * open around a `listContinuation` paragraph, innermost first.
-   * Ignored in the other contexts. Empty means no list is open, so no
-   * marker line ends the paragraph.
+   * Marker style (see {@link listMarkerStyle}) of the list open
+   * around a `listContinuation` paragraph. 0-or-1 BY CONSTRUCTION: a
+   * confined reader carries exactly its own item's style, and the
+   * physically-truncated buffer is the rest of the old ancestry
+   * argument. Ignored in the other contexts; undefined means no list
+   * is open, so no marker line ends the paragraph.
    */
-  readonly enclosingListStyles?: readonly string[];
+  readonly enclosingListStyle?: string;
   /**
    * Whether the line being classified is the FIRST one after the
    * block started. Some shapes only mean anything there — see
@@ -805,9 +894,7 @@ export function interruptsParagraph(
     // term never ends one — the asymmetry with `listItem` below is
     // the oracle's, not a modelling shortcut.
     const style = listMarkerStyle(line);
-    return (
-      style !== undefined && (options.enclosingListStyles ?? []).includes(style)
-    );
+    return style !== undefined && style === options.enclosingListStyle;
   }
   // A dlist term interrupts a LIST ITEM's text — the oracle nests a
   // fresh `<div class="dlist">` inside the `<li>` — but is swallowed
@@ -908,25 +995,24 @@ export function isRawParagraphLine(
  * and a later `+` silently changes meaning. Keeping the line
  * verbatim is what preserves it.
  *
- * An EMPTY ancestry means no list is open — a `+` at the top level,
+ * NO open style means no list is open — a `+` at the top level,
  * where `read_lines_for_list_item` never runs and `within_nested_list`
  * does not exist. There the marker-shaped line is ordinary text with
  * nothing riding on its column, so the rule must stay out of the way
  * (holding it back made `+` / `para` / `* item` / `more` reflow
  * differently on each pass).
  * @param line - one rstripped source line
- * @param options - the enclosing list ancestry; a marker belonging
- *   to it interrupts instead and never reaches this rule
+ * @param options - the open list's style; a marker of that style
+ *   interrupts instead and never reaches this rule
  * @returns true when the line must keep its own output line
  */
 function isForeignMarkerLine(
   line: string,
   options: InterruptionOptions,
 ): boolean {
-  const styles = options.enclosingListStyles ?? [];
-  if (styles.length === 0) {
+  if (options.enclosingListStyle === undefined) {
     return false;
   }
   const style = listMarkerStyle(line);
-  return style !== undefined && !styles.includes(style);
+  return style !== undefined && style !== options.enclosingListStyle;
 }
