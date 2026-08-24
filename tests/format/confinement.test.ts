@@ -1,5 +1,5 @@
 /**
- * Confinement characterization rows (spec D2): the flavor bit and the
+ * Confinement characterization rows: the flavor bit and the
  * metadata flush order, byte-pinned. These are TODAY'S bytes — the
  * Confinement record must reproduce them exactly; a change here means
  * a flavor or flush-order regression, never a row to update.
@@ -16,10 +16,10 @@ async function expectBytes(input: string, expected: string): Promise<void> {
   const output = await formatAdoc(input);
   expect(output).toBe(expected);
   expect(await formatAdoc(output)).toBe(output);
-  expect(renderedHtml(output)).toBe(renderedHtml(input));
+  expect(await renderedHtml(output)).toBe(await renderedHtml(input));
 }
 
-describe("the confinement flavor bit (spec D2, preservation condition 4)", () => {
+describe("the confinement flavor bit", () => {
   test("a compound interior inside an item is NOT an item interior", async () => {
     // The one shape where openListStyle would matter if a block
     // child ever reported the item's style: inside `====` the
@@ -34,7 +34,7 @@ describe("the confinement flavor bit (spec D2, preservation condition 4)", () =>
   });
 });
 
-describe("metadata flush order inside interiors (spec D2, condition 3)", () => {
+describe("metadata flush order inside interiors", () => {
   test("held metadata inside an interior lands in the INNERMOST container (P19)", async () => {
     // The title lands inside the EXAMPLE (the child reader's own
     // closeAll releases it into the child's root), and the example's
@@ -49,28 +49,35 @@ describe("metadata flush order inside interiors (spec D2, condition 3)", () => {
   });
 });
 
-describe("the block child's tailSafe disjunct (spec D2/D3)", () => {
-  // `closed || enclosing` at the compound open. The OUTER item's own
-  // tail is UNSAFE — a blank line and a paragraph follow it — so an
-  // interior that inherited only the enclosing half would report
-  // false and the inner item's trailing `+` would be dropped. The
-  // `====` CLOSED, so its printed terminator lands on the very next
-  // output line and pops the `+` there: the left half of the
-  // disjunct is the whole reason these bytes survive. Mutating
-  // `extent.close !== undefined || this.tailSafe` (openDelimited) to
-  // `this.tailSafe` drops the `+` from every row below, and nothing
-  // else in the suite, parity or the standing grid notices.
+describe("a trailing + inside a confined interior", () => {
+  // The `+` at the inner item's end attaches nothing wherever the
+  // item sits: inside an example, inside an open block nested in one,
+  // at any marker depth. It is popped (parser.rb l.1580-81) and never
+  // printed, and the interior's own terminator follows the item the
+  // way it always did. The machinery that used to decide whether such
+  // a `+` could be printed BACK — the confinement's tail-safety bit
+  // and the `closed || enclosing` disjunct at the compound open —
+  // went with the byte: there is nothing left for it to decide.
   test.each([
     [
       "a closed example directly in the item",
       "* outer\n+\n====\n* inner\n+\n====\n\npara\n",
+      "* outer\n+\n====\n* inner\n====\n\npara\n",
     ],
     [
       "a closed open block nested in the example",
       "* outer\n+\n====\n--\n* inner\n+\n--\n====\n\npara\n",
+      "* outer\n+\n====\n--\n* inner\n--\n====\n\npara\n",
     ],
-    ["a deeper inner marker", "* outer\n+\n====\n** inner\n+\n====\n\npara\n"],
-  ])("%s keeps the inner item's trailing +", async (_name, source) => {
-    await expectBytes(source, source);
-  });
+    [
+      "a deeper inner marker",
+      "* outer\n+\n====\n** inner\n+\n====\n\npara\n",
+      "* outer\n+\n====\n** inner\n====\n\npara\n",
+    ],
+  ])(
+    "%s drops the inner item's trailing +",
+    async (_name, source, expected) => {
+      await expectBytes(source, expected);
+    },
+  );
 });

@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "types": ["bun-types"],
+    "types": ["bun"],
     "target": "ES2024",
     "module": "ES2022",
     "moduleResolution": "bundler",
@@ -16,6 +16,7 @@
     "scripts/**/*.ts",
     "vitest.config.ts",
     "vitest.stryker.config.ts",
+    "vitest.sweep.config.ts",
     "eslint.config.js"
   ]
 }

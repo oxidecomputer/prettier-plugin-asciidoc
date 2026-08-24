@@ -9,13 +9,13 @@
  * contain child blocks.
  */
 import { doc, type Doc } from "prettier";
-import type { BlockNode } from "./ast.js";
+import type { BlockNode } from "../ast.js";
 import {
   anchorLineShape,
   isLineComment,
   isReaderConsumedLine,
   stacksAsMetadata,
-} from "./block-metadata.js";
+} from "../block-metadata.js";
 
 const {
   builders: { hardline },
@@ -40,7 +40,7 @@ function isAttributeEntry(block: BlockNode): boolean {
  * Used in stacking logic: the document title followed by attribute
  * entries forms a contiguous header (`= Title` then `:attr: value`
  * with no blank line). A field read now that headings are one kind
- * (spec D10(d): level 0 is SEMANTIC — the header run).
+ * (level 0 is SEMANTIC — it opens the document header run).
  * @param block - The block node to test.
  * @returns Whether the block is the level-0 heading.
  */
@@ -49,8 +49,9 @@ function isDocumentTitle(block: BlockNode): boolean {
 }
 
 // Why headings split on level here, and why these two suppressions
-// exist (spec D10(d) — the section container left the AST, and these
-// are the two containment facts it used to enforce invisibly):
+// exist (no section container is modeled, and these are the two
+// containment facts such a container would otherwise enforce
+// invisibly):
 //
 // - Level 0 is SEMANTIC. `= Title` opens the document HEADER, a
 //   contiguous run that comment and directive lines may sit inside
@@ -61,16 +62,15 @@ function isDocumentTitle(block: BlockNode): boolean {
 //   renders all change with header adjacency).
 // - Level >= 1 is FROZEN SPELLING. No header exists below a section
 //   heading; blank-vs-adjacent is render-neutral there (measured),
-//   and the incumbent forced blank is preserved because this plan's
-//   covenant is byte identity.
+//   and the incumbent forced blank is preserved because the
+//   covenant here is byte identity.
 // - A pseudo-anchor line never stacks under a level >= 1 heading:
 //   the stacked pair re-parses as one joined line and the heading
 //   is destroyed.
 // - Aligning level >= 1 to the header's author-adjacency rule is a
-//   deliberate byte-change candidate for a later plan (γ or later),
-//   not drift.
+//   deliberate byte-change candidate for later work, not drift.
 //
-// Pinned by tests/format/heading-adjacency.test.ts (the D10(d)
+// Pinned by tests/format/heading-adjacency.test.ts (the containment
 // characterization fixtures) and the shape-diff heading-adjacency
 // rows.
 
@@ -114,7 +114,8 @@ function isSectionHeading(block: BlockNode): boolean {
  *   ({@link stacksAsMetadata}, block-metadata.ts) —
  *   suppressed for a pseudo-anchor line directly above a
  *   level >= 1 heading: the stacked pair re-parses joined
- *   and the heading is destroyed (spec D10(d), the A1 row)
+ *   and the heading is destroyed (the A1 row in
+ *   tests/format/heading-adjacency.test.ts)
  *
  * The reverse (attribute entry before title) is
  * intentionally absent: in AsciiDoc, attributes follow

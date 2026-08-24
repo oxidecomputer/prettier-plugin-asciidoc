@@ -106,22 +106,30 @@ describe("list continuation parsing", () => {
     });
   });
 
-  // A trailing `+` with nothing after it cannot attach anything;
-  // it is recorded as a dangling continuation so the printer can
-  // re-emit the bare `+` line verbatim (Asciidoctor attaches the
-  // next block even across a blank line, so the byte must
-  // survive).
-  test("dangling trailing + is recorded, not folded into text", () => {
+  // A trailing `+` with nothing after it cannot attach anything, and
+  // Ruby pops it — at 2.0.26 by IDENTITY and BEFORE the trailing-blank
+  // strip: `if ListContinuationMarker === (last_line = buffer[-1])` /
+  // `buffer.pop` / `break` is the FIRST arm of the until-loop
+  // (parser.rb l.1578-89), ahead of the `elsif last_line.empty?` that
+  // strips blanks. 2.0.20 compared text and ran the pop in the else
+  // arm, after the strip. The difference matters for an ERASED `+`,
+  // which is an empty tagged String: 2.0.26 pops it and breaks where
+  // 2.0.20 stripped it as an ordinary blank. It is neither folded into
+  // the text nor kept anywhere else: the item is exactly what it would
+  // be without the line.
+  test("a trailing + leaves the item as if it were not written", () => {
     const { children } = parse("* item text\n+\n");
     const {
       children: [item],
     } = firstList(children);
     expect(item.blocks).toHaveLength(0);
-    expect(item.trailingContinuation).toBe(true);
     expect(item.text[0]).toMatchObject({
       type: "text",
       value: "item text",
     });
+    expect(item).toEqual(
+      firstList(parse("* item text\n").children).children[0],
+    );
   });
 
   // A `+` line with trailing whitespace is still a marker —
@@ -147,9 +155,9 @@ describe("list continuation parsing", () => {
   // keeps that `+` as a verbatim line of its own (a one-line raw
   // paragraph) ahead of the attached paragraph, so the byte is
   // printed back exactly where it was written.
-  test("+ line directly after a marker is content", () => {
+  test("+ line directly after a marker is content", async () => {
     const input = "* item\n+\n+\nAttached\n";
-    expect(renderedHtml(input)).toContain("<p>+ Attached</p>");
+    expect(await renderedHtml(input)).toContain("<p>+ Attached</p>");
     const { children } = parse(input);
     const {
       children: [item],
@@ -195,7 +203,6 @@ describe("continuations around delimited blocks (issue #6)", () => {
     const {
       children: [item],
     } = firstList(children);
-    expect(item.trailingContinuation).toBe(false);
     expect(item.blocks).toHaveLength(1);
     expect(item.blocks[0].block).toMatchObject({
       type: "delimitedBlock",
@@ -224,7 +231,6 @@ describe("continuations around delimited blocks (issue #6)", () => {
     const { children: items } = firstList(children);
     expect(items).toHaveLength(2);
     const [item] = items;
-    expect(item.trailingContinuation).toBe(false);
     expect(item.blocks).toHaveLength(2);
     expect(item.blocks[0].block).toMatchObject({
       type: "delimitedBlock",
@@ -294,15 +300,16 @@ describe("continuations around delimited blocks (issue #6)", () => {
   // `+` as content, so the block that follows reaches the
   // `continuation == :active` branch. ORACLE: the literal block is
   // inside the item. (Two blanks would end the list instead.)
-  test("one blank line after + still attaches the block", () => {
+  test("one blank line after + still attaches the block", async () => {
     const input = "* item\n+\n\n....\nliteral\n....\n";
-    expect(renderedHtml(input)).toMatch(/<li>.*<pre>literal<\/pre>.*<\/li>/v);
+    expect(await renderedHtml(input)).toMatch(
+      /<li>.*<pre>literal<\/pre>.*<\/li>/v,
+    );
     const { children } = parse(input);
     expect(children).toHaveLength(1);
     const {
       children: [item],
     } = firstList(children);
-    expect(item.trailingContinuation).toBe(false);
     expect(item.blocks).toHaveLength(1);
     // The one buffered blank rides in the gap, verbatim.
     expect(item.blocks[0].gap).toEqual(["+", ""]);
@@ -317,9 +324,9 @@ describe("continuations around delimited blocks (issue #6)", () => {
   // item content (no blank line has ended it), so no `+` is needed.
   // This closes the #17 gap the old absorber recorded here. ORACLE:
   // one `<li>` holding the literal block and the paragraph.
-  test("a paragraph adjacent to an attached block stays in the item", () => {
+  test("a paragraph adjacent to an attached block stays in the item", async () => {
     const input = "* item:\n+\n....\nliteral\n....\nplain para\n";
-    expect(renderedHtml(input)).toMatch(
+    expect(await renderedHtml(input)).toMatch(
       /<li>.*<pre>literal<\/pre>.*<p>plain para<\/p>.*<\/li>/v,
     );
     const { children } = parse(input);
@@ -344,7 +351,6 @@ describe("continuations around delimited blocks (issue #6)", () => {
     const {
       children: [item],
     } = firstList(children);
-    expect(item.trailingContinuation).toBe(false);
     expect(item.blocks).toHaveLength(2);
     expect(item.blocks[0].block).toMatchObject({
       type: "blockAttributeList",
@@ -420,9 +426,9 @@ describe("continuations around delimited blocks (issue #6)", () => {
   // buffers it, and the confined list-item reader never calls
   // `next_section`. ORACLE: `<p>== Heading</p>` inside the item, no
   // `<h2>`.
-  test("+ before a section heading attaches it as paragraph text", () => {
+  test("+ before a section heading attaches it as paragraph text", async () => {
     const input = "* i:\n+\n== Heading\n";
-    const html = renderedHtml(input);
+    const html = await renderedHtml(input);
     expect(html).toContain("<p>== Heading</p>");
     expect(html).not.toContain("<h2");
     const { children } = parse(input);
@@ -434,7 +440,6 @@ describe("continuations around delimited blocks (issue #6)", () => {
       type: "text",
       value: "== Heading",
     });
-    expect(item.trailingContinuation).toBe(false);
   });
 
   // Block metadata after a `+` "plays out until we find the block"
@@ -442,9 +447,9 @@ describe("continuations around delimited blocks (issue #6)", () => {
   // buffered as content (the blank budget is one), so the block two
   // lines down still attaches — together with its metadata. ORACLE:
   // the admonition is inside the item.
-  test("metadata separated from its block by one blank line still attaches", () => {
+  test("metadata separated from its block by one blank line still attaches", async () => {
     const input = "* i:\n+\n[NOTE]\n\n====\nx\n====\n";
-    expect(renderedHtml(input)).toMatch(/<li>.*admonitionblock.*<\/li>/v);
+    expect(await renderedHtml(input)).toMatch(/<li>.*admonitionblock.*<\/li>/v);
     const { children } = parse(input);
     const {
       children: [item],
@@ -455,7 +460,6 @@ describe("continuations around delimited blocks (issue #6)", () => {
       value: "NOTE",
     });
     expect(item.blocks[1].block).toMatchObject({ type: "admonition" });
-    expect(item.trailingContinuation).toBe(false);
   });
 
   test("continuation block attaches to the deepest nested item", () => {

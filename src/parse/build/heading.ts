@@ -2,7 +2,7 @@
  * Heading lines: one leaf `heading` kind for `=` (level 0, the
  * document-title spelling) through `======` (level 5), and the
  * discrete heading that opens no section. Sections are not modeled
- * (spec D10) — a heading is a LEAF and its level is data.
+ * — a heading is a LEAF and its level is data.
  *
  * Every function here takes the CLASSIFIER's parse (the sectionTitle
  * LineKind carries it — SECTION_TITLE in line-shapes.ts, the ONE

@@ -10,12 +10,13 @@
  * gap issues; entries whose cases now pass (or vanished from the
  * corpus) are dropped, which is how fixes get pinned.
  *
- * Usage:
- *   bun scripts/conformance-triage.ts          # report only
- *   bun scripts/conformance-triage.ts --write  # regenerate manifest
+ * Exit codes (`scripts/lib/cli.ts`): 0 the sweep ran, 2 it could not
+ * run. There is no 1: the failing set is the REPORT, not a gate — the
+ * gate over it is the quarantine manifest, which the suite checks.
  */
 import { writeFileSync } from "node:fs";
 import { format } from "prettier";
+import { cannotRun, printUsage, wantsHelp } from "./lib/cli.js";
 import { compareIds, loadCorpus } from "../tests/conformance/loader.js";
 import {
   assessCase,
@@ -27,9 +28,33 @@ import {
   type QuarantineEntry,
 } from "../tests/conformance/quarantine.js";
 
+const USAGE = `usage: bun run triage [--write]
+
+  --write  regenerate tests/conformance/quarantine.json from this sweep
+  --help   this text
+
+exit: 0 the sweep ran, 2 it could not run`;
+
+const ARGUMENT_START = 2;
+if (wantsHelp(process.argv.slice(ARGUMENT_START))) {
+  printUsage(USAGE);
+  process.exit();
+}
+
 const write = process.argv.includes("--write");
 const existing = loadQuarantine();
 const groups = loadCorpus();
+
+// The measured-nothing floor. A corpus that did not load reports zero
+// failures, and with `--write` it would rewrite the quarantine
+// manifest to empty — every pin in the suite deleted by a green run.
+const MINIMUM_GROUPS = 1;
+if (groups.length < MINIMUM_GROUPS) {
+  cannotRun(
+    "conformance-triage: the corpus loaded 0 groups — nothing was assessed",
+  );
+  process.exit(process.exitCode);
+}
 
 const failing = new Map<
   string,

@@ -2,15 +2,37 @@
  * Serializes inline AST nodes back to their AsciiDoc source
  * representation. Covers the unified InlineMacroNode, bare-URL
  * links, xref shorthands, and inline anchors. Consumed by the
- * printer (print-inline.ts).
+ * printer (src/print/inline.ts).
  */
 import type {
   InlineAnchorNode,
   InlineMacroNode,
   LinkNode,
   XrefNode,
-} from "./ast.js";
-import { BLOCK_ANCHOR } from "./parse/line-shapes.js";
+} from "../ast.js";
+import { canonicalAttrlist } from "../parse/attrlist.js";
+import { BLOCK_ANCHOR } from "../parse/line-shapes.js";
+
+/**
+ * The inline macros whose brackets Asciidoctor hands to
+ * `AttributeList` — the only ones the attrlist spacing rule may
+ * touch.
+ *
+ * It is a SHORT list because most inline macros put TEXT between the
+ * brackets, and text is content: `link:u[Read, now]` and
+ * `xref:t[the, text]` render the comma-space into the anchor,
+ * `pass:[a, b]` and `stem:[a, b]` pass it through verbatim,
+ * `kbd:[Ctrl, T]` and `btn:[OK, now]` label with it, and
+ * `footnote:[a, b]` is the footnote's own prose. Each of those was
+ * measured against the oracle and each renders DIFFERENTLY once the
+ * blank goes, which is what keeps them off this list. `image:` is the
+ * one name left — the positional `[alt, width, height]` list — and it
+ * renders identically either way. (`icon:` is the same kind of list
+ * and would join it, but the tokenizer does not know the name:
+ * src/parse/inline/rules.ts's macro alternation is the roster, and
+ * this set is a SUBSET of it by construction.)
+ */
+const ATTRLIST_MACROS = new Set(["image"]);
 
 /**
  * Serialize a unified inline macro node back to AsciiDoc
@@ -22,9 +44,12 @@ import { BLOCK_ANCHOR } from "./parse/line-shapes.js";
  * @returns AsciiDoc source string for the macro.
  */
 export function inlineMacroToSource(node: InlineMacroNode): string {
+  const attrlist = ATTRLIST_MACROS.has(node.name)
+    ? canonicalAttrlist(node.attrlist)
+    : node.attrlist;
   return node.target.length === 0
-    ? `${node.name}:[${node.attrlist}]`
-    : `${node.name}:${node.target}[${node.attrlist}]`;
+    ? `${node.name}:[${attrlist}]`
+    : `${node.name}:${node.target}[${attrlist}]`;
 }
 
 /**
@@ -46,6 +71,13 @@ export function linkToSource(node: LinkNode): string {
  * AsciiDoc source. Emits `<<target>>` or `<<target,text>>`.
  * Only used for the `"shorthand"` form — macro-form xrefs
  * are now InlineMacroNode.
+ *
+ * The text's LEADING whitespace goes, the same trim the anchor
+ * serializer below has always done: the shorthand's post-comma bytes
+ * reach the link as `link_text.lstrip` (substitutors.rb l.746), so
+ * `<<a, b>>` and `<<a,b>>` are one document. TRAILING whitespace
+ * STAYS — nothing strips it, and `<<a,b >>` renders the space inside
+ * the anchor.
  * @param node - The parsed xref with target and optional
  *   display text. Form is always `"shorthand"`.
  * @returns AsciiDoc source string for the xref.
@@ -53,7 +85,7 @@ export function linkToSource(node: LinkNode): string {
 export function xrefToSource(node: XrefNode): string {
   return node.text === undefined
     ? `<<${node.target}>>`
-    : `<<${node.target},${node.text}>>`;
+    : `<<${node.target},${node.text.trimStart()}>>`;
 }
 
 /**
@@ -64,7 +96,7 @@ export function xrefToSource(node: XrefNode): string {
  * emits the author's interior verbatim, `[[id,` + reftext + `]]`,
  * because to the re-reader that line is TEXT and respelling it
  * changes the rendered characters (the grammar home is the registry's
- * BLOCK_ANCHOR — behavior is Ruby's BlockAnchorRx, rx.rb:163 — pinned
+ * BLOCK_ANCHOR — behavior is Ruby's BlockAnchorRx, rx.rb:164 — pinned
  * by tests/format/anchor-spelling.test.ts). Accepts any id/reftext
  * pair so the block-anchor printer shares this one spelling.
  * @param node - The parsed anchor with an id and optional verbatim

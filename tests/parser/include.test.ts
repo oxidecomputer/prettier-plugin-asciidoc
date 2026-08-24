@@ -1,6 +1,6 @@
 /**
  * Include preprocessor directives (`include::target[attrlist]`).
- * `PreprocessorReader#process_line` (reader.rb:819) matches
+ * `PreprocessorReader#process_line` (reader.rb:824) matches
  * `IncludeDirectiveRx` and splices the included file into the line
  * stream, so the directive line never reaches `Parser.next_block`.
  * The formatter does not resolve includes, so it keeps the line

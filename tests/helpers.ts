@@ -11,7 +11,7 @@
  * identity.test.ts to use this shared helper — that would defeat its purpose.
  */
 import { format } from "prettier";
-import Asciidoctor from "@asciidoctor/core";
+import { LoggerManager, NullLogger, convert } from "@asciidoctor/core";
 import type {
   BlockNode,
   DelimitedBlockNode,
@@ -89,12 +89,15 @@ export function firstDelimitedBlock(
   return block;
 }
 
-// Single shared Asciidoctor instance for semantic-fidelity
-// assertions — convert() is stateless, so one instance is safe
-// across all tests. The null logger suppresses stderr noise
-// from intentionally odd inputs.
-const asciidoctor = Asciidoctor();
-const nullLogger = asciidoctor.NullLogger.create();
+// convert() is stateless, so the module-level import is safe across
+// all tests. The null logger suppresses stderr noise from
+// intentionally odd inputs. Asciidoctor.js 4.x routes some diagnostics
+// (a misplaced `partintro`, for one) through the PROCESS-wide logger
+// no matter what a single call passes, so the same logger is installed
+// both ways — the per-call option alone leaves the corpus sweeps
+// printing errors over their own output.
+const nullLogger = NullLogger.create();
+LoggerManager.setLogger(nullLogger);
 
 /**
  * Renders AsciiDoc to normalized HTML via Asciidoctor for
@@ -113,12 +116,16 @@ const nullLogger = asciidoctor.NullLogger.create();
  * `` `code` `` or a `+++passthrough+++` still fails the
  * comparison. Inside `<pre>`, where a line break is meaningful,
  * nothing is touched at all.
+ *
+ * Asciidoctor.js 4.x converts asynchronously — there is no sync
+ * entry point in any of its builds — so this returns a promise and
+ * every caller awaits it.
  * @param input - AsciiDoc source text.
  * @returns Normalized HTML string produced by Asciidoctor in
  *   safe mode with logging suppressed.
  */
-export function renderedHtml(input: string): string {
-  const result = asciidoctor.convert(input, {
+export async function renderedHtml(input: string): Promise<string> {
+  const result = await convert(input, {
     safe: "safe",
     logger: nullLogger,
   });
@@ -145,7 +152,7 @@ export function renderedHtml(input: string): string {
       // silently replaced every <pre> block with "undefined".)
       .replaceAll(
         /\0PRE(?<index>\d+)\0/gv,
-        (_, index: string) => preBlocks[Number(index)],
+        (_match: string, index: string) => preBlocks[Number(index)],
       )
   );
 }

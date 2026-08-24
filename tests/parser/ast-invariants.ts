@@ -2,9 +2,9 @@
  * The invariants every AST must satisfy, whatever the input — the
  * replacement for `expectStreamInvariants` (once in reader-lists.test.ts),
  * which asserted them of a token stream that no longer exists
- * (spec Decision 9: the grammar's LL(1) proof and its role
- * as an independent well-formedness check on the reader's emission
- * order are knowingly retired, and these take their place).
+ * (the grammar's LL(1) proof and its role as an independent
+ * well-formedness check on the reader's emission order were knowingly
+ * retired with Chevrotain, and these take their place).
  *
  * They are deliberately structural: nothing here knows which node
  * kinds exist, so the same file keeps working after the reader builds
@@ -108,9 +108,8 @@ function swallowsPrevious(previous: AnyNode, current: AnyNode): boolean {
  * reader split out of it — see `swallowsPrevious`.
  *
  * This is the AST form of the token stream's "offsets are monotone",
- * the invariant that found both of the reader's ordering bugs while
- * plan 2 was being written (metadata held back and released after the
- * token that followed it).
+ * the invariant that found both of the reader's ordering bugs
+ * (metadata held back and released after the token that followed it).
  * @param root - the document node
  * @param nodes - every node, in document order
  */
@@ -164,8 +163,8 @@ function expectTextValue(slice: string, value: string): void {
 /**
  * A verbatim block's content is inside the span it claims — exactly,
  * with no tolerance: the doubled-break allowance that stood here
- * masked precisely the #39 bug D2+D4 fixed, and a defense leaves WITH
- * its need (spec D4d).
+ * masked precisely the bug issue #39 named, and a defense leaves WITH
+ * its need.
  * @param slice - the source the node's position names
  * @param content - the block's verbatim content
  */
@@ -183,12 +182,12 @@ function expectVerbatimContent(slice: string, content: string): void {
  * future builder that REBUILDS content instead of slicing it fails
  * here — and the position over-spans the content by at most one
  * character (zero on a terminator close and on a CONFINED forced
- * close — the extent-first slice ends at a line's own raw end, spec
- * D4/(xii); one on the other forced closes — document-level EOF,
+ * close — the extent-first slice ends at a line's own raw end, per
+ * invariant (xii); one on the other forced closes — document-level EOF,
  * where the overhang is the final newline, and an outer terminator
  * in the same reader, where it is the newline before that line).
- * The spec states (x) in rstripped-line terms because that is the
- * property the PRINTED side preserves; the builder slices raw, so this raw prefix check
+ * Invariant (x) is stated in rstripped-line terms because that is
+ * the property the PRINTED side preserves; the builder slices raw, so this raw prefix check
  * is the same claim held a fortiori — the printed side is pinned by
  * the format rows in tests/format/table.test.ts, not here.
  * @param slice - the source the node's position names
@@ -207,7 +206,7 @@ function expectTableContent(slice: string, content: string): void {
 }
 
 /**
- * (xii) — forced-close honesty (spec D4): a source-sliced verbatim
+ * (xii) — forced-close honesty: a source-sliced verbatim
  * node's extent `source.slice(start, end)` decomposes EXACTLY into
  * the opener line, the content, and at most one close line, joined
  * by single newlines — the overhang past the content is a line
@@ -310,11 +309,12 @@ function expectValuesReconstruct(source: string, nodes: AnyNode[]): void {
 }
 
 // A list continuation is the one non-blank line the AST records
-// without a span of its own: `ItemBlock.gap` spells it verbatim and
-// `ListItemNode.trailingContinuation` flags the item-final one, and
-// the block a gap introduces starts on the next line. This literal-`+`
-// exemption in expectLineCoverage is load-bearing for exactly those
-// lines — the gap invariant (vii) below is what checks them instead.
+// without a span of its own: `ItemBlock.gap` spells it verbatim, and
+// the block a gap introduces starts on the next line. A `+` at an
+// item's END is recorded nowhere at all — it attaches nothing, Ruby
+// pops it (parser.rb l.1580-81) and the printer never writes it. This
+// literal-`+` exemption in expectLineCoverage is load-bearing for
+// both — the gap invariant (vii) below checks the ones a gap holds.
 const CONTINUATION = "+";
 
 /**
@@ -354,7 +354,7 @@ function expectLineCoverage(source: string, nodes: AnyNode[]): void {
 // unconditional: every child-bearing kind is in the set. `document`
 // spans the whole source ([at(0), at(source.length)]), so covering it
 // costs nothing — and no "deliberately absent" escape clause remains;
-// sections no longer exist (spec D10). The next container author
+// sections are not modeled. The next container author
 // (dlists, tables) meets this as a rule, not a list; the node-kind
 // census row in architecture.test.ts is the reminder that fires when
 // a kind is added.
@@ -439,7 +439,7 @@ export function expectContainment(root: unknown): void {
  * invariant, "one `ItemEnd` per list marker, and `ListEnd` follows
  * `ItemEnd`". The ordering half is structural in a tree and needs no
  * assertion; the counting half is the ORACLE comparison
- * (`itemCount(source) === oracleItems(source)`, spec Testing §3 (iv)),
+ * (`itemCount(source) === oracleItems(source)`),
  * which lives on the characterization rows in reader-lists.test.ts
  * rather than here — the fuzz generators emit `ifdef::` lines that
  * Asciidoctor's preprocessor eats, so the oracle reads a different
@@ -460,66 +460,23 @@ function expectListsNonEmpty(nodes: AnyNode[]): void {
 /**
  * (vii) Gaps are verbatim: the lines strictly between an item's pieces
  * are exactly the recorded gap, and nothing but blank lines and `+`
- * lines ever sits in one (spec D1's invariant). Carries a second
- * assertion, (vii-b) NO DOUBLE PRINT: a `+` line one item keeps as its
- * `trailingContinuation` may not ALSO fall inside any other item's gap
- * range — the printer would emit that physical line twice, and only
- * idempotence would notice. No reachable input is known to trip it
- * (every construction tried either erases the `+` or hands the
- * following block to the inner item) — the assertion exists so the
- * corpus and fuzz runs would SAY so if one exists (plan-review m5).
+ * lines ever sits in one.
  * @param source - the whole document
  * @param nodes - every node, in document order
  */
 function expectGapsVerbatim(source: string, nodes: AnyNode[]): void {
   const lines = source.split("\n").map((line) => rstrip(line));
-  const trailingPlusLines = collectTrailingPlusLines(lines, nodes);
   for (const node of nodes) {
-    if (node.type === "listItem") {
-      expectItemGaps(lines, node, trailingPlusLines);
-    }
+    if (node.type === "listItem") expectItemGaps(lines, node);
   }
-}
-
-/**
- * (vii-b) first pass: every trailingContinuation's physical `+` line,
- * so the gap walk can refuse to cover one twice. The trailing `+` has
- * no span of its own, but it is derivable: the first non-blank source
- * line after the item's end — asserted to really be a `+`.
- * @param lines - the source's rstripped lines
- * @param nodes - every node, in document order
- * @returns the 1-based line numbers items keep as trailing `+`
- */
-function collectTrailingPlusLines(
-  lines: readonly string[],
-  nodes: AnyNode[],
-): Set<number> {
-  const trailingPlusLines = new Set<number>();
-  for (const node of nodes) {
-    if (node.type !== "listItem") continue;
-    if (node.trailingContinuation !== true) continue;
-    let line = node.position.end.line + 1;
-    while (line <= lines.length && lines[line - 1] === "") line += 1;
-    expect(
-      lines[line - 1],
-      `trailingContinuation with no + line after item at line ${String(node.position.end.line)}`,
-    ).toBe("+");
-    trailingPlusLines.add(line);
-  }
-  return trailingPlusLines;
 }
 
 /**
  * One item's gap walk — see {@link expectGapsVerbatim}.
  * @param lines - the source's rstripped lines
  * @param node - a `listItem` node
- * @param trailingPlusLines - the lines items print as trailing `+`
  */
-function expectItemGaps(
-  lines: readonly string[],
-  node: AnyNode,
-  trailingPlusLines: ReadonlySet<number>,
-): void {
+function expectItemGaps(lines: readonly string[], node: AnyNode): void {
   const { text, blocks } = node;
   const inline = isArray(text) ? text : [];
   const lastText = inline.at(-1);
@@ -536,12 +493,6 @@ function expectItemGaps(
       `gap holds a content line: ${JSON.stringify(between)}`,
     ).toBe(true);
     expect(gap).toEqual(between.map((line) => (line === "+" ? "+" : "")));
-    for (let row = previousEnd + 1; row < block.position.start.line; row += 1) {
-      expect(
-        trailingPlusLines.has(row),
-        "a gap covers a line an item already prints as its trailing +",
-      ).toBe(false);
-    }
     previousEnd = block.position.end.line;
   }
 }
@@ -582,7 +533,7 @@ export function expectItemSiblingMonotonicity(nodes: AnyNode[]): void {
 
 /**
  * (xi) — the reader's recorded annotation pairs with the sibling
- * (spec D5a): for every DelimitedBlockNode, `annotatedBy` is set iff
+ * for every DelimitedBlockNode, `annotatedBy` is set iff
  * the immediately preceding sibling in its own container — ItemBlock
  * chains included — is a blockAttributeList, and then equals that
  * sibling's `value`. The parity normalizer blanks the field, which
@@ -657,7 +608,7 @@ export function expectMasqueradeSourceDelimiter(nodes: AnyNode[]): void {
 }
 
 /**
- * (ix) — the D7 exclusivity: an admonition body lives in exactly one
+ * (ix) — body exclusivity: an admonition body lives in exactly one
  * place — `text` for the paragraph form, `children` for a delimited
  * one. The always-meaningful empty array replaced three
  * `Valid only when` markers; this row checks structurally what those
@@ -686,10 +637,10 @@ function expectAdmonitionBodyExclusive(nodes: AnyNode[]): void {
  * 2. image == source slice → (iii) values reconstruct
  * 3. paragraph balance     → (v) containment
  * 4. one ItemEnd per marker → (vi) non-empty lists, plus the oracle
- *    item count on the characterization rows (Testing §3 (iv))
- * 5. the grammar accepts   → RETIRED with the grammar (spec Decision
- *    9). Nothing replaces it, on purpose: there is no second component
- *    left to disagree with the reader.
+ *    item count on the characterization rows
+ * 5. the grammar accepts   → RETIRED with the grammar (c331bfbd
+ *    dropped Chevrotain). Nothing replaces it, on purpose: there is
+ *    no second component left to disagree with the reader.
  * @param source - the AsciiDoc source to parse and check
  */
 export function expectAstInvariants(source: string): void {

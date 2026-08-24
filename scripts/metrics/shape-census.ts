@@ -1,5 +1,5 @@
 /**
- * The shape-registry completeness census (spec D7.1): a `bun run
+ * The shape-registry completeness census: a `bun run
  * metrics` gate in the same idiom as the node-kind census, housed with
  * the design budgets. Rule (i): every `DELIMITER_KINDS` entry has a
  * registry dimension. Rule (ii): every RUNTIME EXPORT NAME of
@@ -8,8 +8,8 @@
  * the container and perturbation dimensions match the rosters below in
  * BOTH directions. Rule (iv): every construct dimension either reaches
  * a realized grid or is named in GRID_EXEMPT with its reason. Rule
- * (v): the realized grids are exactly the sizes every later task
- * cites. A pure set difference over runtime values, never a parse.
+ * (v): the realized grids are exactly the sizes pinned below. A pure
+ * set difference over runtime values, never a parse.
  *
  * Rules (iii)–(v) exist because rules (i)–(ii) reach only
  * `CONSTRUCTS`: deleting one container and one perturbation once
@@ -19,7 +19,7 @@
  * only to a human who remembers the number, so the size is pinned
  * where the shrink fails.
  *
- * HONEST BOUNDS, all three (spec D7.1): this is NAME coverage, not
+ * HONEST BOUNDS, all three: this is NAME coverage, not
  * behavior coverage — a pattern added INSIDE an existing exported
  * rule, or a widening of an existing pattern's alternation, stays
  * invisible; CONSTRUCT coverage, not INTERACTION coverage — a novel
@@ -28,7 +28,7 @@
  * names line-shapes.ts alone, so a new `line-shapes-*.ts` would be
  * invisible to it ("no patterns outside line-shapes.ts" is NOT
  * promotable to a standing gate: six src files define one regex each;
- * the narrower guard that exists is the β diff-grep floor, spec D5).
+ * the narrower guard that exists is the diff-grep floor).
  * Rule (iv) adds a fourth: a dimension "reaches a grid" when its
  * canonical spelling appears in a realized input, which says the net
  * FEEDS the construct to the formatter — not that it varies it.
@@ -49,6 +49,10 @@ import {
 // never be exempted here; it gets a dimension.
 const EXEMPT = new Map<string, string>([
   ["rstrip", "line-normalization helper, not a line shape"],
+  [
+    "BLOCK_START_CONTEXT",
+    "the reader-state value every line rule is asked against at a block start, not a line shape",
+  ],
   [
     "optionalGroup",
     "named-group reading helper shared by the parse functions, not a line shape",
@@ -76,6 +80,10 @@ const EXEMPT = new Map<string, string>([
   [
     "isRawParagraphLine",
     "context dispatcher over the raw-shape rules, not a shape",
+  ],
+  [
+    "rawLineForm",
+    "names which of the three context-free raw patterns matched; each has its own dimension",
   ],
   [
     "DELIMITER_KINDS",
@@ -135,11 +143,11 @@ const PERTURBATION_IDS: readonly string[] = [
 
 // Rule (iv)'s exemptions: construct dimensions whose canonical
 // spelling reaches NO realized grid, each with the reason it is
-// honest to leave outside the differential net. β ships the
-// delimited-block grids only, so a construct that is neither a
+// honest to leave outside the differential net. The grids that exist
+// are the delimited-block ones, so a construct that is neither a
 // delimiter nor a heading-adjacency neighbour is census surface, not
 // grid surface — and saying so here is the point: census-green must
-// not read as grid-coverage (review m3).
+// not read as grid-coverage.
 const GRID_EXEMPT = new Map<string, string>([
   [
     "attribute-entry",
@@ -147,7 +155,7 @@ const GRID_EXEMPT = new Map<string, string>([
   ],
   [
     "dlist-term",
-    "description lists are neither a delimited block nor a heading neighbour; their own grid is out of β (spec D9)",
+    "description lists are neither a delimited block nor a heading neighbour; they have no grid of their own",
   ],
   [
     "admonition-label",
@@ -155,7 +163,7 @@ const GRID_EXEMPT = new Map<string, string>([
   ],
   [
     "block-macro",
-    "a leaf line with no interaction with block ends or headings in β's grids",
+    "a leaf line with no interaction with block ends or headings in these grids",
   ],
   ["thematic-break", "a leaf line, as block-macro"],
   ["page-break", "a leaf line, as block-macro"],
@@ -173,10 +181,11 @@ const GRID_EXEMPT = new Map<string, string>([
   ],
 ]);
 
-// Rule (v): the realized grid sizes every later task cites. The
+// Rule (v): the realized grid sizes, pinned. The
 // standing grid is 13 kinds x 19 containers x 12 perturbations plus
 // the two setext pins; the adjacency grid is 10 constructs x 7
-// positions plus 9 named explicit rows (β's 4 + the 5 R2 rows); the
+// positions plus 9 named explicit rows (the original 4 + the 5 R2
+// rows); the
 // list-run grid is a standing selection (its arithmetic is
 // spelled at listRunGrid()). New rows are realizable against any
 // base — shape-diff hands head-generated inputs to the base dumper —
@@ -311,7 +320,7 @@ function gridCoverageFailures(inputs: readonly string[]): string[] {
 }
 
 /**
- * Rule (v): the realized grids are the sizes every later task cites.
+ * Rule (v): the realized grids are the sizes pinned in this module.
  * @param standing - the standing grid's realized length
  * @param adjacency - the heading-adjacency grid's realized length
  * @param listRun - the list-run grid's realized length
@@ -339,6 +348,60 @@ function gridSizeFailures(
     );
   }
   return failures;
+}
+
+/**
+ * One pinned census: what this checkout realizes, against the number
+ * written down for it.
+ *
+ * Reported, not ratcheted, and the wording of every field here is
+ * deliberate. A census is NOT a minimize-budget — "as simple as
+ * possible, but not simpler"; 33 node kinds instead of 30 is fine, and
+ * a grid of 3,000 shapes is not worse than one of 2,966. It is an
+ * EQUALITY PIN whose contract is "move the pin only when deliberate",
+ * so neither direction is a win and neither is a loss. What the row
+ * buys is that a human SEES the move — the standing grid once shrank
+ * from 2,810 to 2,433 with `metrics`, `lint` and `test` all green,
+ * because the number printed nowhere and nobody remembered it.
+ */
+export interface CensusPin {
+  /** What is being counted, in the reader's words. */
+  readonly what: string;
+  /** What this checkout realizes. */
+  readonly realized: number;
+  /** The number written down for it. */
+  readonly pinned: number;
+}
+
+/**
+ * The pinned censuses, for the scorecard to print.
+ *
+ * The node-kind census is NOT here: it is pinned in
+ * `tests/parser/architecture.test.ts`, which owns both the count and
+ * the pin, and lifting the number into a second file would create the
+ * one thing a pin cannot survive — two spellings that can disagree.
+ * It is directionless for the same reason these are, and says so in
+ * its own words there.
+ * @returns one entry per pinned census, in report order
+ */
+export function censusPins(): CensusPin[] {
+  return [
+    {
+      what: "standing grid",
+      realized: standingGrid().length,
+      pinned: STANDING_GRID_SIZE,
+    },
+    {
+      what: "heading-adjacency grid",
+      realized: headingAdjacencyGrid().length,
+      pinned: HEADING_ADJACENCY_GRID_SIZE,
+    },
+    {
+      what: "list-run grid",
+      realized: listRunGrid().length,
+      pinned: LIST_RUN_GRID_SIZE,
+    },
+  ];
 }
 
 /**

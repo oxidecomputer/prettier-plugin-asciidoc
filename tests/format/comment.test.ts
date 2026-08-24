@@ -133,7 +133,7 @@ test("an unterminated comment block closes directly after its content", async ()
   const input = "////\ncontent\n//////\n";
   const out = await formatAdoc(input);
   expect(out).toBe("////\ncontent\n//////\n////\n");
-  expect(renderedHtml(out)).toBe(renderedHtml(input));
+  expect(await renderedHtml(out)).toBe(await renderedHtml(input));
   expect(await formatAdoc(out)).toBe(out);
 });
 

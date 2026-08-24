@@ -1,5 +1,5 @@
 /**
- * Heading parsing — one LEAF kind at every level (spec D10): `=` is
+ * Heading parsing — one LEAF kind at every level: `=` is
  * level 0 (the document-title spelling; the header rows live in
  * document-header.test.ts), `==` through `======` are levels 1–5,
  * and no section container exists: blocks after a heading are its
@@ -21,8 +21,8 @@ describe("heading parsing", () => {
     expect(child0.title).toBe("Title");
   });
 
-  // Serialized key order is a first-class contract (spec D7.4 /
-  // D10(a)): `type, level, title, position` for BOTH heading kinds —
+  // Serialized key order is a first-class contract:
+  // `type, level, title, position` for BOTH heading kinds —
   // parity's flatten fold emits the same canonical order, so a drift
   // here is a parity break waiting to happen.
   test("a heading's serialized key order is the canonical one", () => {
@@ -35,7 +35,7 @@ describe("heading parsing", () => {
     ]);
   });
 
-  test("a discreteHeading's serialized key order carries the Q2 rename in place", () => {
+  test("a discreteHeading's serialized key order carries the `heading`→`title` rename in place", () => {
     const [, discrete] = parse("[discrete]\n== D\n").children;
     expect(discrete.type).toBe("discreteHeading");
     expect(serializedKeys(discrete)).toEqual([

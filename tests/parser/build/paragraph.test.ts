@@ -120,8 +120,8 @@ describe("buildLiteralParagraph", () => {
   test("joins the run's lines with newlines, indentation kept", () => {
     const source = "  a\n   b\n  c\n";
     const node = buildLiteralParagraph(
+      { image: "  a", offset: 0 },
       [
-        { image: "  a", offset: 0 },
         { image: "   b", offset: 4 },
         { image: "  c", offset: 9 },
       ],
@@ -142,7 +142,8 @@ describe("buildLiteralParagraph", () => {
   test("a single line starts and ends on itself", () => {
     expect(
       buildLiteralParagraph(
-        [{ image: "  a", offset: 0 }],
+        { image: "  a", offset: 0 },
+        [],
         makeLocationIndex("  a\n"),
       ).position,
     ).toEqual({
@@ -167,7 +168,7 @@ describe("buildAdmonitionParagraph", () => {
       type: "admonition",
       variant: "note",
       form: "paragraph",
-      // The SAME inline children a paragraph gets (spec D7): one text
+      // The SAME inline children a paragraph gets: one text
       // node spanning both lines, the newline kept in its value.
       text: [
         {

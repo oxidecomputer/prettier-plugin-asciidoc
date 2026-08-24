@@ -14,6 +14,8 @@ A Prettier plugin for formatting AsciiDoc (.adoc) files.
   control pitfalls
 - [Task completion checklist](.serena/memories/task_completion_checklist.md) —
   verification steps before considering work done
+- [Harnesses](docs/harnesses.md) — what each tool under `scripts/` proves, the
+  exit-code contract, and the CI jobs
 
 ## Roadmap
 

@@ -1,16 +1,42 @@
 /**
- * The inline tokenizer, pinned to the Chevrotain lexer it replaces.
+ * The inline tokenizer's own GOLDEN FILE.
  *
- * The fixture was generated from `inlineLexer` before it was deleted
- * (spec Testing §4): the old lexer is the oracle for the new one, and
- * a difference is a finding — either a Chevrotain artefact we wanted
- * gone (none are expected: the lexer is a plain first-match-wins pass
- * over 15 ordered token types, with no `longer_alt` anywhere) or a
- * bug in the new rule table.
+ * tests/parser/fixtures/inline-tokens.jsonl is 1,747 rows of
+ * `{ text, tokens }`: an input fragment and the exact token stream
+ * `tokenizeInline` (src/parse/inline/) produces for it. The rows are an
+ * EQUALITY pin, not a sample — every one must match to the character,
+ * and the tokens move only when someone deliberately regenerates the
+ * file and reviews the result as a diff. An accidental change to the
+ * token vocabulary shows up here as hundreds of failing rows, which is
+ * the point.
  *
- * Task 2 re-points the SUBJECT of this test from `inlineLexer` to
- * `tokenizeInline` without touching the fixture. That is the whole
- * point: the expectations were written by the code being replaced.
+ * Regenerate, when the vocabulary changes ON PURPOSE, by rewriting each
+ * row's `tokens` from the current tokenizer while keeping its `text`:
+ *
+ * ```
+ * bun -e 'import{readFileSync,writeFileSync}from"node:fs";
+ * import{tokenizeInline}from"./src/parse/inline/tokenize.ts";
+ * const f="tests/parser/fixtures/inline-tokens.jsonl";
+ * writeFileSync(f,readFileSync(f,"utf8").split("\n").filter(Boolean)
+ * .map(l=>{const{text}=JSON.parse(l);return JSON.stringify({text,
+ * tokens:tokenizeInline(text,0).map(({type,image,offset})=>
+ * ({type,image,offset}))})}).join("\n")+"\n")'
+ * ```
+ *
+ * That command is byte-identical to a no-op today, so a non-empty diff
+ * after running it IS the vocabulary change, ready to read.
+ *
+ * There is NO in-tree generator for the row TEXTS, honestly: they were
+ * harvested once from the fragments a since-deleted Chevrotain lexer
+ * saw, and that harvest is not reproducible from this tree. Treat the
+ * text column as a frozen, hand-extendable input set — add a row by
+ * appending one `{ text, tokens }` object and running the command
+ * above. Do not prune rows to make the file smaller; the rarer shapes
+ * are exactly the ones nothing else covers.
+ *
+ * Row names are INDICES (`row 0`, `row 1`, …), so inserting a row
+ * anywhere but the end renumbers every row after it. Append rather
+ * than insert, or expect a diff that reads as if the whole file moved.
  */
 import { describe, expect, test } from "vitest";
 import { readFileSync } from "node:fs";
@@ -18,7 +44,7 @@ import { tokenizeInline } from "../../src/parse/inline/tokenize.js";
 import { INLINE_RULES } from "../../src/parse/inline/rules.js";
 import { INLINE_KINDS } from "../../src/parse/inline/tokens.js";
 
-/** One pinned token: what the lexer made of a stretch of the text. */
+/** One pinned token: what the tokenizer made of a stretch of the text. */
 interface PinnedToken {
   /** The token type's name. */
   type: string;
@@ -28,11 +54,11 @@ interface PinnedToken {
   offset: number;
 }
 
-/** One pinned row: an input and the tokens the old lexer produced. */
+/** One pinned row: an input and the tokens it must produce. */
 interface PinnedRow {
-  /** The exact text handed to the lexer, newline included. */
+  /** The exact text handed to `tokenizeInline`, newline included. */
   text: string;
-  /** The lexer's output: kind, image and fragment-relative offset. */
+  /** The expected output: kind, image and fragment-relative offset. */
   tokens: PinnedToken[];
 }
 
@@ -93,7 +119,7 @@ const rows: PinnedRow[] = readFileSync(
   .filter((line) => line !== "")
   .map((line) => toRow(line));
 
-describe("inline tokenizer matches the pinned Chevrotain lexer", () => {
+describe("inline tokenizer matches its golden file", () => {
   test("the fixture is not empty", () => {
     expect(rows.length).toBeGreaterThan(100);
   });
@@ -121,13 +147,14 @@ describe("inline tokenizer matches the pinned Chevrotain lexer", () => {
 
 /**
  * The rule table, in a form a reader can check without running
- * anything. The fixture above proves agreement with the lexer that is
- * being deleted; this proves the RULES are what we think they are, and
- * it is the table that survives if the fixture is ever regenerated.
+ * anything. The golden file above pins the tokenizer's output in bulk;
+ * this pins the RULES themselves, one legible row per decision, and it
+ * is the table that survives a regeneration of the fixture — which is
+ * why a regenerated golden file is never on its own enough review.
  *
- * Every row's expectation is the VERBATIM output of `inlineLexer` at
- * `8c42f624`, so the table is pinned to today's behaviour rather than
- * to an intention.
+ * Every row's expectation was READ OFF the tokenizer rather than
+ * imagined, so the table states today's behaviour rather than an
+ * intention.
  */
 describe("the rule table, by hand", () => {
   // rules.ts's own interface test: priority is DATA, and the only
@@ -148,7 +175,7 @@ describe("the rule table, by hand", () => {
     // `**` is tried before `*`: unconstrained wins on a double mark.
     ["**b**", ["BoldMark", "InlineText", "BoldMark"]],
     // Constrained at fragment offset 0: index -1 is out of range and
-    // therefore a boundary (spec Decision 8).
+    // therefore a boundary.
     ["*b*", ["BoldMark", "InlineText", "BoldMark"]],
     // Mid-word, no boundary either side: not a mark, one char of text.
     ["a*b", ["InlineText", "InlineChar", "InlineText"]],
@@ -156,16 +183,15 @@ describe("the rule table, by hand", () => {
     ["a +\n", ["InlineText", "HardLineBreak", "InlineNewline"]],
     ["a + b", ["InlineText"]],
     // `\r` is not special: it stays inside the text run, which is why
-    // ` +\r\n` is NOT a hard break (Decision 7 — existing behaviour,
-    // preserved).
+    // ` +\r\n` is NOT a hard break (existing behaviour, preserved).
     ["a +\r\n", ["InlineText", "InlineNewline"]],
     // A NUL is ordinary text — nothing in the table treats it
     // specially, and `InlineText`'s class does not exclude it
-    // (Decision 7's trailing-NUL input must not start being "fixed").
+    // (a trailing-NUL input must not start being "fixed").
     // The single-character fallback is exercised by the `a*b` row
     // above, where a mid-word `*` matches no mark rule.
     ["\u0000", ["InlineText"]],
-    // Out of range IS a boundary, at BOTH ends (spec Decision 8). The
+    // Out of range IS a boundary, at BOTH ends. The
     // fragment's edges are the only place that rule is observable —
     // everywhere else a neighbouring character decides — and a
     // fragment usually ends in a newline, so these two rows are the
@@ -196,8 +222,8 @@ describe("the rule table, by hand", () => {
  * `BOUNDARY_PUNCTUATION` in src/parse/inline/rules.ts is a bare list of
  * characters — the kind of data the corpus pins only where a document
  * happens to use it, which leaves the rarer members (`—`, `–`, `…`, `?`,
- * `<`, `>`, `/`) resting on nothing. Every expectation below was run
- * against `inlineLexer` at `8c42f624`: all 26 boundaries open a
+ * `<`, `>`, `/`) resting on nothing. Every expectation below was read off
+ * the tokenizer rather than imagined: all 26 boundaries open a
  * constrained mark, and the six controls do not.
  */
 /**

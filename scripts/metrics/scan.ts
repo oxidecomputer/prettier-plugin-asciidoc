@@ -2,7 +2,7 @@
  * Line classification and escape-hatch counting, done with the
  * TypeScript compiler's own scanner and AST rather than with regexes.
  *
- * Ruling 34: a metric nobody can trust is worse than no metric. Regex
+ * A metric nobody can trust is worse than no metric. Regex
  * line counting has blind spots by construction — a one-line block
  * comment followed by code, a block comment opened mid-line, `//`
  * inside a string — and a regex `as` count cannot tell `x as Foo` from
@@ -385,7 +385,7 @@ function nearMissesIn(sourceFile: ts.SourceFile, starts: number[]): string[] {
  * Matched as a CALL EXPRESSION whose callee is that identifier, which
  * is what separates a thrown guard from the one comment under `src`
  * that merely names the function while explaining why a nearby site is
- * a silent strip instead (Ruling 34).
+ * a silent strip instead.
  * @param node - any node
  * @returns whether it is such a call
  */
@@ -434,10 +434,10 @@ function exportedNames(node: ts.Node): { names: number; star: boolean } {
 /**
  * Is this `x as const`?
  *
- * Ruling 36: `as const` is not an escape hatch. It NARROWS a literal to
- * its own type and adds `readonly`; it can never widen a value into a
- * lie the way `x as Foo` can. Counting it would punish the safest
- * spelling of a lookup table.
+ * `as const` is not an escape hatch. It NARROWS a literal to its own
+ * type and adds `readonly`; it can never widen a value into a lie the
+ * way `x as Foo` can. Counting it would punish the safest spelling of
+ * a lookup table.
  * @param node - an assertion node
  * @returns whether its asserted type is the `const` keyword
  */

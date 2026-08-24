@@ -430,10 +430,6 @@
     "fails": ["fidelity"],
     "issue": "#16"
   },
-  "lists_test.rb#first continued line associated with nested list item and second continued line associated with term#0": {
-    "fails": ["fidelity"],
-    "issue": "#9"
-  },
   "lists_test.rb#folds text that looks like ruler and the line following it offset by blank line#0": {
     "fails": ["fidelity"],
     "issue": "#9"
@@ -495,10 +491,6 @@
     "issue": "#9"
   },
   "lists_test.rb#nested dlist attached by list continuation should not consume detached paragraph#0": {
-    "fails": ["fidelity"],
-    "issue": "#9"
-  },
-  "lists_test.rb#nested dlist with attached block offset by empty line#0": {
     "fails": ["fidelity"],
     "issue": "#9"
   },

@@ -1,34 +1,46 @@
 /**
  * What makes `bun run metrics` fail.
  *
- * Eight ABSOLUTE gates, checked at HEAD with or without a base: an
+ * Thirteen ABSOLUTE gates, checked at HEAD with or without a base: an
  * import cycle (a cyclic group has no reading order), a relative import
  * that resolves to nothing (a hole in that graph, so the cycle gate
- * cannot see through it), an unused export under `src` (the residue of
+ * cannot see through it), an edge a LAYER RULE forbids (the direction
+ * the stack is supposed to run in), an unused export under `src` OR
+ * `scripts` (the residue of
  * a half-finished deletion), a resident agreement harness (a test that
  * holds two of our own components in permanent agreement), a stale
  * interior-validation registry entry (a registry that has rotted is
  * worse than no registry, because it reads as an audit), a registry
  * that cannot be READ at all, a defense marker split across two
- * comment lines, and a named seam that is missing or unmeasurable.
+ * comment lines, an unregistered or stale cross-directory crossing,
+ * a named seam that is missing or unmeasurable, a `src` export
+ * with no `src` consumer that does not say so with `@internal`, a
+ * quarantine manifest that has left its conformance pin, and a minimums
+ * file that no longer describes the source tree.
  *
- * The last three exist because of one property of this family: every
+ * Separately from all of them, {@link measuredNothing} is the floor:
+ * a `src` too small to be this repository's is not a failing gate, it
+ * is a scorecard that measured nothing, and the caller exits 2 for it.
+ *
+ * The last five exist because of one property of this family: every
  * ratchet in it fires on RISE, so it can never see an UNDERCOUNT. A
- * deleted registry, a wrapped marker and a renamed seam all report
- * LESS, which a rise-only ratchet reads as progress. They are absolute
+ * deleted registry, a wrapped marker, a renamed seam, a shrinking
+ * minimums file and a quarantine manifest that grew all report FEWER
+ * PROBLEMS, which a rise-only ratchet reads as progress. They are absolute
  * gates rather than ratchets for that reason, and they run on the head
  * snapshot only — an archived base with no registry and no marker
  * convention is measured, not judged.
  *
  * Four RATCHETS, checked only against a `--base`: cognitive MAX per
- * layer, the escape hatches, each named seam's width, and each defense
- * counter. None may rise. A layer with no files at the base is
+ * layer, the escape hatches, each named CONTRACT's width, and each
+ * defense counter. None may rise. A layer with no files at the base is
  * skipped, since a layer that did not exist cannot have regressed —
- * and a seam or a defense marker the base does not carry is skipped
- * for the same reason.
+ * and a contract or a defense marker the base does not carry is
+ * skipped for the same reason. A VOCABULARY seam is reported and not
+ * ratcheted: it is judged by precision, not width.
  *
- * Deliberately NOT a gate: the count of functions over cyclomatic 10
- * (Ruling 35). Cyclomatic complexity cannot tell a flat `switch` over a
+ * Deliberately NOT a gate: the count of functions over cyclomatic 10.
+ * Cyclomatic complexity cannot tell a flat `switch` over a
  * discriminated union from three nested loops, and this is a parser —
  * dispatch tables are the shape the code is supposed to have. Gating on
  * it would push the code towards handler tables that score better and
@@ -37,6 +49,23 @@
  * See `docs/simplicity-metrics.md`.
  */
 import { LAYERS, ZERO, type Snapshot } from "./model.js";
+
+/**
+ * The MEASURED-NOTHING floor: how small `src` may be before the
+ * scorecard refuses to report on it at all.
+ *
+ * Every other harness in `scripts/` has one — `parity.ts` has
+ * `MINIMUM_CASES`, `shape-diff.ts` names its missing ids — and the
+ * scorecard was the one that would have printed a full green table
+ * for an empty `src/`: no files means no cycles, no unused exports,
+ * no escape hatches and no layer violations. The numbers are FLOORS,
+ * not ratchets: they say "the tree is there", nothing about its size,
+ * and the tree is 36 files and 214 exported names as this is written.
+ */
+const MINIMUM_SOURCE_FILES = 10;
+
+/** The exported-name floor; see {@link MINIMUM_SOURCE_FILES}. */
+const MINIMUM_EXPORTED_SYMBOLS = 40;
 
 // The escape-hatch rows, with the label each gets in a failure.
 const HATCHES = [
@@ -57,6 +86,39 @@ const DEFENSES = [
 ] as const;
 
 /**
+ * The unused-export gate, over `src` AND `scripts`.
+ *
+ * knip is a devDependency and runs every time, so "it did not run" is
+ * a failure to report rather than a row to skip: a hard gate that goes
+ * quiet when its tool is missing is not a gate.
+ *
+ * `scripts/` joined `src/` here in W8, when the harnesses became code
+ * we maintain rather than scaffolding. It only became gateable once
+ * every entry point was DECLARED in `knip.json` — a script is an
+ * entry point, and until knip was told which ones, its findings there
+ * were all false. The two counts stay separate rows on the table so a
+ * reader can see which tree grew residue.
+ * @param head - the snapshot for this checkout
+ * @returns one message per failure
+ */
+function deadCodeGates(head: Snapshot): string[] {
+  const failures: string[] = [];
+  for (const [count, where] of [
+    [head.dead.unusedExports, "src/"],
+    [head.dead.unusedScriptExports, "scripts/"],
+  ] as const) {
+    if (count === undefined) {
+      failures.push(
+        `knip did not run, so the unused-export gate could not be checked for ${where}`,
+      );
+    } else if (count > ZERO) {
+      failures.push(`knip: ${String(count)} unused export(s) under ${where}`);
+    }
+  }
+  return failures;
+}
+
+/**
  * The gates that hold with or without a base.
  * @param head - the snapshot for this checkout
  * @returns one message per failure
@@ -73,18 +135,15 @@ function absoluteGates(head: Snapshot): string[] {
       `relative import that resolves to nothing (a hole in the import graph):\n  ${head.coupling.unresolved.join("\n  ")}`,
     );
   }
-  // Ruling 36: knip is a devDependency and runs every time, so
-  // "it did not run" is a failure to report rather than a row to skip.
-  // A hard gate that goes quiet when its tool is missing is not a gate.
-  if (head.dead.unusedExports === undefined) {
+  // An aspiration that is not enforced is not a layering; it is a
+  // diagram. Each rule is a DIRECTION, so the fix is always to move the
+  // declaration to the layer that owns it, never to add an exemption.
+  if (head.coupling.layerViolations.length > ZERO) {
     failures.push(
-      "knip did not run, so the unused-export gate could not be checked",
-    );
-  } else if (head.dead.unusedExports > ZERO) {
-    failures.push(
-      `knip: ${String(head.dead.unusedExports)} unused export(s) under src/`,
+      `layer rule violated (see LAYER_RULES in scripts/metrics/graph.ts):\n  ${head.coupling.layerViolations.join("\n  ")}`,
     );
   }
+  failures.push(...deadCodeGates(head));
   // Not a ratchet: an agreement harness is the shape that makes two
   // implementations of one rule permanently affordable, so the budget
   // is zero and the fix is to delete the second component, never to
@@ -107,7 +166,7 @@ function absoluteGates(head: Snapshot): string[] {
 }
 
 /**
- * The three checks that can see an UNDERCOUNT.
+ * The checks that can see an UNDERCOUNT.
  *
  * Every ratchet in the design family fires on RISE, so it is blind in
  * exactly one direction: a deleted registry, a wrapped marker and a
@@ -116,8 +175,9 @@ function absoluteGates(head: Snapshot): string[] {
  * itself being switched off.
  *
  * They run against THIS repository only. All three read hand-maintained
- * registries that describe it — four seam names, five audited sites,
- * three marker spellings — so an archived `--base` revision or a
+ * registries that describe it — the seam names, the audited sites,
+ * the crossings rows, three marker spellings — so an archived
+ * `--base` revision or a
  * `--root <dir>` checkout is measured by them and not judged: neither
  * has our registry, and failing a stranger's tree for not being us
  * would make `--root` useless (it is how this CLI's own exit codes are
@@ -129,7 +189,7 @@ function undercountGates(head: Snapshot): string[] {
   if (!head.repository) return [];
   const failures: string[] = [];
   // "A hard gate that goes quiet when its tool is missing is not a
-  // gate" (Ruling 36) applies to a registry as much as to knip: a
+  // gate" applies to a registry as much as to knip: a
   // deleted or corrupted registry file would otherwise disable the
   // whole interior-validation family with a green build.
   if (head.defense.registryFaults.length > ZERO) {
@@ -142,14 +202,78 @@ function undercountGates(head: Snapshot): string[] {
       `defense marker split across two comment lines, so it is not counted (rejoin it onto one line):\n  ${head.defense.markerNearMisses.join("\n  ")}`,
     );
   }
-  failures.push(...seamFaults(head));
+  failures.push(
+    ...crossingFaults(head),
+    ...seamFaults(head),
+    ...internalSurfaceFaults(head),
+    // The quarantine pin and the minimums file are undercounts of the
+    // same family: the manifest shrinks by convention, the minimums
+    // file goes stale by omission, and both failures read as fewer
+    // problems. See `conformance.ts` and `score-minimums.ts`.
+    ...head.conformance.faults,
+    ...head.minimums.faults,
+  );
+  return failures;
+}
+
+/**
+ * The `@internal` taxonomy, in both directions.
+ *
+ * It belongs with the undercounts for the reason they all do: the
+ * transition it catches is INVISIBLE. An export loses its last `src`
+ * consumer during an ordinary refactor — no line is deleted, no count
+ * moves, knip still sees the test importing it — and the export
+ * quietly becomes surface that exists for a test alone. Nothing else
+ * on this scorecard can see that happen.
+ *
+ * Repository-scoped, like the other conventions here: the tag is ours,
+ * an archived base predates it, and a `--root` checkout never agreed
+ * to it.
+ * @param head - the snapshot for this checkout
+ * @returns one message per untagged export or stale tag
+ */
+function internalSurfaceFaults(head: Snapshot): string[] {
+  return [...head.internal.untagged, ...head.internal.staleTags];
+}
+
+/**
+ * The crossings registry's own freshness, in BOTH directions.
+ *
+ * A crossing no row names is a coupling nobody argued for; a row whose
+ * crossing is gone makes the registry read as an audit of code that no
+ * longer exists. One direction alone would be worthless — and, like
+ * every other registry here, a file that cannot be READ at all must
+ * fail rather than go quiet, because a registry that reads short
+ * reports FEWER unregistered crossings, which is the direction that
+ * looks like progress.
+ * @param head - the snapshot for this checkout
+ * @returns one message per fault, unregistered crossing or stale row
+ */
+function crossingFaults(head: Snapshot): string[] {
+  const { crossings } = head;
+  if (crossings.faults.length > ZERO) {
+    return [
+      `the crossings registry could not be read, so no crossing could be checked:\n  ${crossings.faults.join("\n  ")}`,
+    ];
+  }
+  const failures: string[] = [];
+  if (crossings.unregistered.length > ZERO) {
+    failures.push(
+      `unregistered cross-directory crossing (name it, classify it and say why in scripts/metrics/crossings-registry.json):\n  ${crossings.unregistered.join("\n  ")}`,
+    );
+  }
+  if (crossings.stale.length > ZERO) {
+    failures.push(
+      `stale crossings-registry row (the import is gone — delete the row from scripts/metrics/crossings-registry.json):\n  ${crossings.stale.join("\n  ")}`,
+    );
+  }
   return failures;
 }
 
 /**
  * The seam registry's own freshness.
  *
- * `SEAMS` is a hand-maintained list exactly as
+ * `CONTRACTS` + `VOCABULARY` is a hand-maintained list exactly as
  * `defense-registry.json` is, so it gets the same treatment: a named
  * seam that is not declared where the list says has left the budget,
  * and a rise-only ratchet reads its disappearance as nothing at all.
@@ -164,29 +288,36 @@ function seamFaults(head: Snapshot): string[] {
     if (seam.fault !== undefined) return [`seam ${seam.fault}`];
     if (seam.members !== undefined) return [];
     return [
-      `seam ${seam.name} is not declared in ${seam.file} (a renamed or deleted seam silently leaves the budget — update SEAMS in scripts/metrics/design.ts)`,
+      `${seam.kind} ${seam.name} is not declared in ${seam.file} (a renamed or deleted seam silently leaves the budget — update CONTRACTS/VOCABULARY in scripts/metrics/design.ts)`,
     ];
   });
 }
 
 /**
- * The seam ratchet: a named interface may not gain members.
+ * The contract ratchet: a named CONTRACT may not gain members.
  *
- * A seam the base does not name is skipped — both the case where the
- * interface did not exist yet and the case where this revision's
+ * Vocabulary rows are skipped by construction. A contract is what an
+ * implementer satisfies, so each member is a fact one module had to
+ * publish and the count is a budget; vocabulary is data used in
+ * interface definitions, judged by precision instead — a wide
+ * vocabulary is fine, so a rise in one is not a regression to report.
+ *
+ * A contract the base does not name is skipped — both the case where
+ * the interface did not exist yet and the case where this revision's
  * registry names one the base's file did not declare. Neither can
  * have widened.
  * @param head - the snapshot for this checkout
  * @param base - the base snapshot
- * @returns one message per widened seam
+ * @returns one message per widened contract
  */
 function seamRatchets(head: Snapshot, base: Snapshot): string[] {
   const before = new Map(base.seams.map((seam) => [seam.name, seam.members]));
   return head.seams.flatMap((seam) => {
+    if (seam.kind !== "contract") return [];
     const was = before.get(seam.name);
     if (was === undefined || seam.members === undefined) return [];
     return seam.members > was
-      ? [`seam ${seam.name}: ${String(was)} -> ${String(seam.members)}`]
+      ? [`contract ${seam.name}: ${String(was)} -> ${String(seam.members)}`]
       : [];
   });
 }
@@ -275,4 +406,30 @@ export function gateFailures(head: Snapshot, base?: Snapshot): string[] {
     ...absoluteGates(head),
     ...(base === undefined ? [] : ratchets(head, base)),
   ];
+}
+
+/**
+ * Whether this measurement is too small to be a measurement.
+ *
+ * Not a gate and not a ratchet: a tree this small means the scorecard
+ * was pointed at the wrong directory, or at a checkout that never
+ * materialized. The caller turns it into exit 2 — the harness could
+ * not run — rather than into exit 1, because failing the BUILD for it
+ * would say the code regressed, and nothing here says anything about
+ * the code.
+ *
+ * THIS repository only, like the other checks that read our own
+ * conventions: `--root` is how this CLI's exit codes are tested, and
+ * those planted checkouts are three files by design.
+ * @param head - the snapshot for this checkout
+ * @returns the reason it could not run, or undefined
+ */
+export function measuredNothing(head: Snapshot): string | undefined {
+  if (!head.repository) return undefined;
+  const { files } = head.layers.src;
+  const symbols = head.coupling.exportedSymbols;
+  if (files >= MINIMUM_SOURCE_FILES && symbols >= MINIMUM_EXPORTED_SYMBOLS) {
+    return undefined;
+  }
+  return `the scorecard measured ${String(files)} file(s) and ${String(symbols)} exported name(s) under src/, below the floor of ${String(MINIMUM_SOURCE_FILES)} and ${String(MINIMUM_EXPORTED_SYMBOLS)} — the source tree did not load, so nothing was checked`;
 }

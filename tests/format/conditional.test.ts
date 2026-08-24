@@ -46,7 +46,7 @@ describe("conditional directive formatting", () => {
 });
 
 // A preprocessor line is TRANSPARENT to attachment (#28): Asciidoctor's
-// reader removes it (`PreprocessorReader#process_line`, reader.rb:819)
+// reader removes it (`PreprocessorReader#process_line`, reader.rb:824)
 // before block metadata, a list continuation `+` or a section title is
 // read, so everything on both sides of it belongs together. Both sides
 // of each assertion go through the same oracle, which RESOLVES the
@@ -84,7 +84,7 @@ describe("preprocessor lines are transparent to attachment (#28)", () => {
     ],
   ])("%s round-trips render-equal and idempotent", async (_name, input) => {
     const out = await formatAdoc(input);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });
 
@@ -116,7 +116,7 @@ describe("trailing whitespace on a directive line", () => {
   ])("%j formats to %j", async (input, expected) => {
     const out = await formatAdoc(input);
     expect(out).toBe(expected);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });
 });

@@ -59,9 +59,10 @@ describe("callout list parsing", () => {
   // A blank line between two callout items does NOT split the list
   // (`parse_list` skips blank lines before `next_list` looks for the
   // next sibling, for every list kind). ORACLE: one `colist`.
-  test("two callout items separated by a blank line are one list", () => {
+  test("two callout items separated by a blank line are one list", async () => {
     const input = "<1> List A\n\n<1> List B\n";
-    expect(renderedHtml(input).match(/class="colist/gv)).toHaveLength(1);
+    const html = await renderedHtml(input);
+    expect(html.match(/class="colist/gv)).toHaveLength(1);
     const { children } = parse(input);
     expect(children).toHaveLength(1);
     expect(firstList(children).children).toHaveLength(2);

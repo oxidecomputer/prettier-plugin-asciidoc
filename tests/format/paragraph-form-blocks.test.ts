@@ -57,11 +57,18 @@ describe("paragraph-form verse block formatting", () => {
     expect(await formatAdoc(input)).toBe(input);
   });
 
-  // [verse] with attribution.
-  test("[verse, Author, Source] preserved", async () => {
+  // [verse] with attribution. The blanks AROUND each attribute are
+  // ones `AttributeList` skips (attribute_list.rb l.30-34, l.200-202);
+  // the one INSIDE `Fire and Ice` is data and stays.
+  test("[verse, Author, Source] loses only the blanks the scanner skips", async () => {
     const input =
       "[verse, Robert Frost, Fire and Ice]\nSome say the world will end in fire,\nSome say in ice.\n";
-    expect(await formatAdoc(input)).toBe(input);
+    const out = await formatAdoc(input);
+    expect(out).toBe(
+      "[verse,Robert Frost,Fire and Ice]\nSome say the world will end in fire,\nSome say in ice.\n",
+    );
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
   });
 });
 
@@ -72,10 +79,13 @@ describe("paragraph-form quote block formatting", () => {
     expect(await formatAdoc(input)).toBe(input);
   });
 
-  // [quote] with attribution.
-  test("[quote, Author, Source] preserved", async () => {
+  // [quote] with attribution — same rule as the verse row above.
+  test("[quote, Author, Source] gets the one spacing", async () => {
     const input = "[quote, Shakespeare, Hamlet]\nTo be or not to be.\n";
-    expect(await formatAdoc(input)).toBe(input);
+    const out = await formatAdoc(input);
+    expect(out).toBe("[quote,Shakespeare,Hamlet]\nTo be or not to be.\n");
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
   });
 });
 
@@ -156,7 +166,9 @@ describe("a reader-eaten line between the style and its content", () => {
     ],
   ])("%s keeps the block verbatim", async (_what, input) => {
     expect(await formatAdoc(input)).toBe(input);
-    expect(renderedHtml(await formatAdoc(input))).toBe(renderedHtml(input));
+    expect(await renderedHtml(await formatAdoc(input))).toBe(
+      await renderedHtml(input),
+    );
   });
 });
 
@@ -184,7 +196,7 @@ describe("converted verbatim content is the author's bytes (issue #40)", () => {
     const input = "[source]\nhttps://x[]\n";
     const output = await formatAdoc(input);
     expect(output).toBe(input);
-    expect(renderedHtml(output)).toBe(renderedHtml(input));
+    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
     expect(await formatAdoc(output)).toBe(output);
   });
 
@@ -192,17 +204,17 @@ describe("converted verbatim content is the author's bytes (issue #40)", () => {
     const input = "[source]\na [[x,y]] b\n";
     const output = await formatAdoc(input);
     expect(output).toBe(input);
-    expect(renderedHtml(output)).toBe(renderedHtml(input));
+    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
   });
 
   // The conversion runs per container, so the same bytes must survive
   // through the confined reader over a list item's buffer — the call
-  // site readListItem reaches, not the document's.
+  // site the reader's own listItem() reaches, not the document's.
   test("#40: an attached block inside a list item keeps its bytes", async () => {
     const input = "* item\n+\n[source]\nhttps://x[]\n";
     const output = await formatAdoc(input);
     expect(output).toBe(input);
-    expect(renderedHtml(output)).toBe(renderedHtml(input));
+    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
   });
 
   // The doubled-break shape (#39): two reader-eaten lines in a row.
@@ -214,7 +226,7 @@ describe("converted verbatim content is the author's bytes (issue #40)", () => {
     const input = "* a\n[source]\nflush\nifdef::x[]\nifdef::x[]\n";
     const output = await formatAdoc(input);
     expect(output).toBe(input);
-    expect(renderedHtml(output)).toBe(renderedHtml(input));
+    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
     expect(await formatAdoc(output)).toBe(output);
   });
 });

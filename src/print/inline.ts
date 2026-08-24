@@ -29,7 +29,7 @@ import type {
   ItalicNode,
   MonospaceNode,
   HighlightNode,
-} from "./ast.js";
+} from "../ast.js";
 import {
   inlineMacroToSource,
   linkToSource,
@@ -358,29 +358,232 @@ function appendText(
   return glueToSibling && words.at(-1) === "+" ? "space" : "break";
 }
 
+/** The one mark character each span kind is spelled with. */
+const SPAN_MARKS = { bold: "*", italic: "_", monospace: "`", highlight: "#" };
+
 /**
  * The opening and closing marks of a formatting span.
  *
  * Constrained marks (`*bold*`) require word boundaries; unconstrained
- * (`**bold**`) work anywhere, including mid-word. The AST preserves
- * which form was used so we round-trip it faithfully instead of
- * normalizing. A role attribute gives a highlight span semantic meaning
- * used by CSS, e.g. `[.red]#text#`: it is written as an inline attribute
- * list immediately before the mark, not as a block attribute list, so it
- * is emitted here and not through the block printer.
+ * (`**bold**`) work anywhere, including mid-word — and where BOTH are
+ * legal they render identically, so the printer writes the
+ * constrained one ({@link constrainedIsLegal} decides). A role
+ * attribute gives a highlight span semantic meaning used by CSS, e.g.
+ * `[.red]#text#`: it is written as an inline attribute list
+ * immediately before the mark, not as a block attribute list, so it is
+ * emitted here and not through the block printer.
  * @param node - the span node.
+ * @param constrained - whether to spell it with the single mark.
  * @returns its opening and closing marks.
  */
-function spanMarks(node: SpanNode): { open: string; close: string } {
+function spanMarks(
+  node: SpanNode,
+  constrained: boolean,
+): { open: string; close: string } {
+  const single = SPAN_MARKS[node.type];
+  const mark = constrained ? single : `${single}${single}`;
   if (node.type === "highlight") {
-    const mark = node.constrained ? "#" : "##";
     const rolePrefix = node.role === undefined ? "" : `[${node.role}]`;
     return { open: `${rolePrefix}${mark}`, close: mark };
   }
-  const markMap = { bold: "*", italic: "_", monospace: "`" };
-  const singleMark = markMap[node.type];
-  const mark = node.constrained ? singleMark : `${singleMark}${singleMark}`;
   return { open: mark, close: mark };
+}
+
+/**
+ * Whether an UNCONSTRAINED span may be respelled with the constrained
+ * mark — the same question Ruby's constrained pattern asks, read off
+ * the tree the printer is about to write.
+ *
+ * Ruby's constrained quote regexes (the `QUOTE_SUBS` table,
+ * asciidoctor.rb l.448-464 — NOT rx.rb, which declares no quote
+ * pattern) are
+ * `(^|[^\w;:}])(?:\[…\])?\*(\S|\S.*?\S)\*(?!\w)`: the character in
+ * front may not be a word character, `;`, `:` or `}`; the content may
+ * not begin or end with whitespace; and no word character may follow
+ * the closing mark. Where all three hold, `**b**` and `*b*` render the
+ * same `<strong>b</strong>` — measured for all four span kinds —
+ * so the shorter spelling is the canonical one and the longer one is
+ * residue.
+ *
+ * Deliberately CONSERVATIVE in four places, each costing bytes and no
+ * meaning:
+ *
+ * - a NEIGHBOUR that is not plain text answers no — the character it
+ *   will print is not this function's to predict, and
+ *   `a **b**__c__ d` measures render-UNEQUAL once the bold shortens
+ *   even though `_` is no word character;
+ * - a span NESTED inside another answers no: the character beside it
+ *   is the enclosing mark, and `_` is a word character to Ruby, so
+ *   `__*b*__` would not match;
+ * - CONTENT carrying the mark character answers no — the constrained
+ *   pattern is non-greedy and would end the span early;
+ * - and a stray mark character ANYWHERE ELSE in the paragraph answers
+ *   no ({@link carriesMark}). Shortening a span exposes its marks to
+ *   the constrained pass, which scans the whole line: the corpus's
+ *   `[[[_1984]]] George Orwell. __1984__.` renders differently the
+ *   moment the emphasis shortens, because the `_` inside the
+ *   bibliography anchor becomes an opening mark.
+ * @param node - the unconstrained span
+ * @param cursor - where it sits among its siblings
+ * @param content - the span's own facts: whether its content is flush
+ *   against the marks, and the atom texts it will print
+ * @param content.flush - true when neither edge carries whitespace
+ * @param content.texts - the inner atoms' texts
+ * @returns true when the constrained spelling carries the same meaning
+ */
+function constrainedIsLegal(
+  node: SpanNode,
+  cursor: Cursor,
+  content: { flush: boolean; texts: readonly string[] },
+): boolean {
+  if (cursor.insideSpan || !content.flush) return false;
+  const mark = SPAN_MARKS[node.type];
+  if (content.texts.some((text) => text.includes(mark))) return false;
+  const others = cursor.siblings.filter((_, index) => index !== cursor.index);
+  if (others.some((sibling) => carriesMark(sibling, mark))) return false;
+  return neighboursAllowIt(node, cursor);
+}
+
+/**
+ * The characters `sub_specialchars` replaces before the quote pass
+ * ever runs, and what it replaces them with.
+ */
+const SPECIALCHARS: Record<string, string> = {
+  "<": "&lt;",
+  ">": "&gt;",
+  "&": "&amp;",
+};
+
+/**
+ * One neighbour's text as the QUOTE pass will see it.
+ *
+ * `sub_specialchars` runs first (`apply_subs`'s substitution order),
+ * so a source `<` is already `&lt;` by the time a constrained pattern
+ * is matched — and the character actually in front of the mark is
+ * then `;`, which every one of those patterns EXCLUDES. Testing the
+ * source character says legal where Asciidoctor says no match, and the
+ * span is destroyed: `x <**b c** y` renders
+ * `&lt;<strong>b c</strong>`, while `x <*b c* y` renders `&lt;*b c*`.
+ *
+ * Only the LEFT clause needs this. All three entities BEGIN with `&`,
+ * so a substitution can never put a word character at the head of the
+ * text that FOLLOWS a span — measured for all four marks.
+ * @param text - a neighbouring text node's value
+ * @returns the same text with the three entities substituted
+ */
+function afterSpecialchars(text: string): string {
+  return text.replaceAll(/<|>|&/gv, (character) => SPECIALCHARS[character]);
+}
+
+/**
+ * What may not stand immediately in FRONT of each constrained mark,
+ * and immediately BEHIND it — the two clauses of Asciidoctor's own
+ * constrained quote patterns (`QUOTE_SUBS`, asciidoctor.rb l.448-464),
+ * transcribed one mark at a time rather than generalized:
+ *
+ * ```
+ * strong      (^|[^\p{Word};:}])      \*(\S|\S.*?\S)\*      (?!\p{Word})
+ * emphasis    (^|[^\p{Word};:}])      _(\S|\S.*?\S)_        (?!\p{Word})
+ * monospaced  (^|[^\p{Word};:"'`}])  `(\S|\S.*?\S)`        (?![\p{Word}"'`])
+ * mark        (^|[^\p{Word}&;:}])     #(\S|\S.*?\S)#        (?!\p{Word})
+ * ```
+ *
+ * Monospace's two extra exclusions are the curved-quote marks: `"\``
+ * opens a double curved quote and `` \`' `` closes a single one, so a
+ * backtick beside a straight quote is not a monospace mark at all.
+ * `a "``code``" b` renders `&#8220;<code>code</code>&#8221;`;
+ * `a "`code`" b` renders `&#8220;code&#8221;`, the span gone.
+ *
+ * `\p{Word}` is Ruby's (asciidoctor.rb l.436) and is UNICODE:
+ * `[\p{Alphabetic}\p{M}\p{Nd}\p{Pc}\p{Join_Control}]`. JavaScript's
+ * `\w` is ASCII, and the difference is not academic —
+ * `p **b c**éq` renders differently once the mark shortens.
+ */
+const MARK_BOUNDARY: Record<
+  SpanNode["type"],
+  { readonly front: RegExp; readonly behind: RegExp }
+> = {
+  bold: {
+    front: /[\p{Alphabetic}\p{M}\p{Nd}\p{Pc}\p{Join_Control};:\}]$/v,
+    behind: /^[\p{Alphabetic}\p{M}\p{Nd}\p{Pc}\p{Join_Control}]/v,
+  },
+  italic: {
+    front: /[\p{Alphabetic}\p{M}\p{Nd}\p{Pc}\p{Join_Control};:\}]$/v,
+    behind: /^[\p{Alphabetic}\p{M}\p{Nd}\p{Pc}\p{Join_Control}]/v,
+  },
+  monospace: {
+    front: /[\p{Alphabetic}\p{M}\p{Nd}\p{Pc}\p{Join_Control};:"'`\}]$/v,
+    behind: /^[\p{Alphabetic}\p{M}\p{Nd}\p{Pc}\p{Join_Control}"'`]/v,
+  },
+  highlight: {
+    // Ruby's mark clause also excludes a literal `&` in front. It is
+    // not repeated here because it cannot survive
+    // afterSpecialchars: a trailing `&` becomes `&amp;`, whose `;`
+    // this class already excludes.
+    front: /[\p{Alphabetic}\p{M}\p{Nd}\p{Pc}\p{Join_Control};:\}]$/v,
+    behind: /^[\p{Alphabetic}\p{M}\p{Nd}\p{Pc}\p{Join_Control}]/v,
+  },
+};
+
+/**
+ * The two boundary clauses of the constrained pattern, read off the
+ * span's siblings — the front one after {@link afterSpecialchars}.
+ * Split from {@link constrainedIsLegal} for the complexity ceiling,
+ * which is also where the clause split belongs: the caller asks about
+ * the SPAN, this asks about what stands beside it.
+ * @param node - the span being considered
+ * @param cursor - where the span sits among its siblings
+ * @returns true when both neighbours leave the constrained form legal
+ */
+function neighboursAllowIt(node: SpanNode, cursor: Cursor): boolean {
+  const { front, behind } = MARK_BOUNDARY[node.type];
+  const previous = cursor.siblings.at(cursor.index - 1);
+  const following = cursor.siblings.at(cursor.index + 1);
+  const leftOk =
+    cursor.index === 0 ||
+    (previous?.type === "text" &&
+      !front.test(afterSpecialchars(previous.value)));
+  const rightOk =
+    following === undefined ||
+    (following.type === "text" && !behind.test(following.value));
+  return leftOk && rightOk;
+}
+
+/**
+ * Whether a node beside a span may put the span's mark character on
+ * the line — the question {@link constrainedIsLegal}'s last clause
+ * asks of every other node in the paragraph.
+ *
+ * Text answers by its own bytes, and a macro, link, xref or anchor by
+ * the bytes {@link verbatimText} will actually write. A formatting
+ * span answers for its CONTENT only: its own marks are a balanced
+ * pair, and Ruby's scan consumes them as one, so they cannot pair
+ * with a neighbour's. A raw line or a hard break answers YES without
+ * being asked — a verbatim line is arbitrary bytes, and neither is
+ * worth a case here.
+ * @param node - an inline node beside the span
+ * @param mark - the span's mark character
+ * @returns true when the node may print that character
+ */
+function carriesMark(node: InlineNode, mark: string): boolean {
+  switch (node.type) {
+    case "text": {
+      return node.value.includes(mark);
+    }
+    case "bold":
+    case "italic":
+    case "monospace":
+    case "highlight": {
+      return node.children.some((child) => carriesMark(child, mark));
+    }
+    case "rawLine":
+    case "hardLineBreak": {
+      return true;
+    }
+    default: {
+      return verbatimText(node).includes(mark);
+    }
+  }
 }
 
 /**
@@ -400,7 +603,6 @@ function appendSpan(
   cursor: Cursor,
   node: SpanNode,
 ): Boundary {
-  const { open, close } = spanMarks(node);
   const { atoms: inner, trailing } = collectAtoms(
     node.children,
     cursor.blockStartLine,
@@ -413,6 +615,14 @@ function appendSpan(
   // asked for, and `trailing` is the join the last one left behind.
   const openSpace = inner.length > 0 && inner[0].glueLeft ? "" : " ";
   const closeSpace = trailing === "glue" ? "" : " ";
+  const { open, close } = spanMarks(
+    node,
+    node.constrained ||
+      constrainedIsLegal(node, cursor, {
+        flush: openSpace === "" && closeSpace === "",
+        texts: inner.map((atom) => atom.text),
+      }),
+  );
   // Children that are all whitespace produce no atoms (e.g. `_# #_`
   // where highlight contains only a space). Emit the bare marks around
   // whatever whitespace they stood for. The other empty-span shape —

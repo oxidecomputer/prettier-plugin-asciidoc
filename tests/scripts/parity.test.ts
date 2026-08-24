@@ -1,7 +1,7 @@
 /**
  * The parity harness's own unit tests.
  *
- * `scripts/parity.ts` is the gate the whole drop-chevrotain plan
+ * `scripts/parity.ts` is the gate every no-behavior-change claim
  * leans on, and its two failure modes are silent ones: a dropped
  * `--base` comparing a checkout with itself, and a corpus that did
  * not load reporting "0 cases identical". Both are argument- and
@@ -275,7 +275,7 @@ describe("differingCases", () => {
 describe("verdict — which differing cases fail the gate", () => {
   test("without the flag, a formatted-only difference FAILS the run", () => {
     // The mutation this row exists to kill: returning `ast`
-    // unconditionally would make the plan's central gate stop failing
+    // unconditionally would make the parity gate stop failing
     // on changed formatter output.
     expect(verdict({ ast: [], formatted: ["ledger"] }, false)).toEqual([
       "ledger",
@@ -328,7 +328,7 @@ const nestedList = (from: number): ListNode => ({
   children: [],
   position: span(from, from + 1),
 });
-// The same list as the gamma fold (foldPlanGammaShapes) leaves it: `marker` dropped, so the two
+// The same list as the gamma fold (foldMarkerAndReftextShapes) leaves it: `marker` dropped, so the two
 // AST generations spell one string. Its items would carry a re-derived
 // `depth`; this one has none to carry.
 const foldedList = (from: number): unknown => ({
@@ -357,7 +357,10 @@ describe("normalizeTree folds both list-item shapes into one canonical form", ()
     danglingContinuation: true,
     position: span(0, 31),
   };
-  // The D1 shape the cut-over produces for the same document.
+  // The shape the cut-over produced for the same document. It still
+  // carries `trailingContinuation`, which no reader writes any more:
+  // the fold has to keep dropping the key, because the BASELINE side
+  // of every parity run is a checkout that still had it.
   const newItem = {
     type: "listItem",
     depth: 1,
@@ -436,7 +439,7 @@ function allowedEnds(source: string): number {
 
 describe("the allowlisted parentBlock end", () => {
   // `====` with no closing delimiter is the shape the allowlist
-  // exists for. `fixed` is what HEAD parses it to since Task 4: the
+  // exists for. `fixed` is what HEAD parses it to: the
   // block ends where the extent it read ends. `buggy` is the same
   // real AST with the end the BASELINE gives it — its builder was
   // handed an empty source there, so the block ended at offset 0. Constructed rather than parsed because the bug is gone
@@ -486,7 +489,7 @@ describe("the allowlisted parentBlock end", () => {
     expect(JSON.stringify(document)).toBe(before);
   });
 
-  // Ruling 54: a list item's end is DEFINED as its last block's end
+  // A list item's end is DEFINED as its last block's end
   // and a list's as its last item's, so both inherit the one
   // enumerated difference rather than being a second one. Real
   // `parse()` output, not hand-built trees — the propagation is a
@@ -547,7 +550,7 @@ describe("floorComplaint", () => {
   test("the real corpus and fixtures clear the floor", () => {
     // The floor is a hand-maintained constant. This is what makes a
     // corpus that shrank under it fail loudly instead of turning the
-    // plan's central gate into a formality.
+    // parity gate into a formality.
     const { length: cases } = loadCorpus().flatMap((group) => group.cases);
     const { length: fixtures } = readdirSync("tests/format/fixtures/identity");
     expect(floorComplaint(cases + fixtures, cases + fixtures)).toBeUndefined();

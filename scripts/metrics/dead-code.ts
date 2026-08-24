@@ -1,9 +1,9 @@
 /**
  * Dead code (knip) and duplication (jscpd).
  *
- * Ruling 36: knip is a devDependency and runs on EVERY invocation,
- * because the unused-exports gate is a HARD gate and a gate that is
- * silent by default is not a gate. If knip cannot run at all, that is
+ * knip is a devDependency and runs on EVERY invocation, because the
+ * unused-exports gate is a HARD gate and a gate that is silent by
+ * default is not a gate. If knip cannot run at all, that is
  * a failure to report, not a row to skip.
  *
  * jscpd stays optional and report-only, behind `--duplication`: it is

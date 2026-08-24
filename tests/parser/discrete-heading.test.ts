@@ -78,7 +78,7 @@ describe("discrete heading parsing", () => {
   });
 
   // [discrete] under a heading: attrs + discrete heading + body are
-  // FLAT siblings after the heading leaf (spec D10).
+  // FLAT siblings after the heading leaf — sections are not modeled.
   test("discrete heading after a section heading stays a leaf run", () => {
     const { children } = parse(
       "== Section\n\n[discrete]\n=== Discrete\n\nParagraph.\n",

@@ -1,13 +1,13 @@
 /**
  * delimitedExtent — the pure port of `build_block`'s up-front extent
- * read (parser.rb:1007-1077 → `read_lines_until terminator:`,
+ * read (parser.rb:1016-1086 → `read_lines_until terminator:`,
  * reader.rb:414/433-435). One row per branch of the scan: a
  * terminator match, the fence's bare tip, and the lines' end. There
  * is no enclosing-boundary branch: the lines the scan is given
  * already end at every enclosing boundary, so an outer terminator is
  * never among them. Split
  * out of tests/parser/item-extent.test.ts when delimited-reader.ts
- * became its own module (plan β Task 2a): the extent scan is no
+ * became its own module: the extent scan is no
  * longer the item reader's private helper, and the combined file
  * crossed the 450-line ceiling.
  */
@@ -53,7 +53,7 @@ describe("delimitedExtent", () => {
     // part — and the difference is the whole rule, because an
     // unterminated fence swallows everything after the block into
     // whatever contains it — a list item, for the scan's caller.
-    // Found by the plan-4 mutation pass: the mutants that drop the
+    // Found by a mutation pass: the mutants that drop the
     // tip rewrite changed the AST while every test passed.
     [
       "fence closes on the bare tip with content after it",

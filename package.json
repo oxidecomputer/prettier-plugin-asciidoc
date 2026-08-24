@@ -4,51 +4,69 @@
   "description": "Prettier plugin for formatting AsciiDoc files",
   "type": "module",
   "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     }
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/oxidecomputer/prettier-plugin-asciidoc.git"
+  },
+  "bugs": {
+    "url": "https://github.com/oxidecomputer/prettier-plugin-asciidoc/issues"
+  },
+  "keywords": [
+    "prettier",
+    "prettier-plugin",
+    "asciidoc",
+    "formatter"
+  ],
   "files": [
     "dist"
   ],
   "scripts": {
     "build": "bun scripts/build.ts",
+    "prepublishOnly": "bun run build",
     "lint": "eslint . --max-warnings=0",
     "test": "vitest run",
+    "sweep:deep": "bun scripts/sweep-deep.ts",
     "check": "tsc --noEmit",
     "vendor": "bun scripts/vendor.ts",
     "fmt": "prettier --write .",
     "fmt:check": "prettier --check .",
-    "fuzz": "bun scripts/fuzz.ts",
+    "coverage": "bun scripts/score-minimums.ts --coverage",
     "metrics": "bun scripts/metrics.ts",
-    "mutate": "bun run build && stryker run",
-    "mutate:full": "bun run build && stryker run --force",
+    "parity": "bun scripts/parity.ts",
+    "shape-diff": "bun scripts/shape-diff.ts",
+    "mutate": "bun run sweep:deep && bun run build && stryker run && bun scripts/score-minimums.ts --mutation",
+    "mutate:full": "bun run sweep:deep && bun run build && stryker run --force && bun scripts/score-minimums.ts --mutation",
     "triage": "bun scripts/conformance-triage.ts"
   },
   "peerDependencies": {
     "prettier": "^3.0.0"
   },
   "devDependencies": {
-    "@asciidoctor/core": "^3.0.4",
+    "@asciidoctor/core": "4.0.11",
     "@eslint/js": "^10.0.1",
     "@stryker-mutator/core": "^10.0.0",
     "@stryker-mutator/vitest-runner": "^10.0.0",
     "@types/bun": "^1.3.9",
+    "@vitest/coverage-v8": "4.0.18",
     "@vitest/eslint-plugin": "^1.6.9",
     "dependency-cruiser": "^18.2.0",
     "eslint": "^10.0.1",
     "eslint-config-love": "^151.0.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-jsdoc": "^62.7.0",
-    "eslint-plugin-sonarjs": "^4.2.0",
     "eslint-plugin-unicorn": "^63.0.0",
-    "fast-check": "^4.5.3",
     "knip": "^6.32.2",
     "prettier": "^3.8.1",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.56.0",
     "vitest": "^4.0.18"
   },
-  "license": "MIT"
+  "license": "MPL-2.0"
 }

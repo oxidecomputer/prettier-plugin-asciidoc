@@ -4,8 +4,8 @@
  * continuation line.
  *
  * `parse_block_metadata_lines` runs over an item's buffered lines
- * BEFORE its text is read (parser.rb:1999, inside next_list_item's
- * confined reader, :1350), and `Reader#skip_line_comments` removes
+ * BEFORE its text is read (parser.rb:2014, inside next_list_item's
+ * confined reader, :1359), and `Reader#skip_line_comments` removes
  * `//` lines before it counts — so block metadata on the FIRST line
  * after the marker line folds the block after it into the item text,
  * while the same metadata on a later line ends the text and annotates
@@ -38,16 +38,16 @@
  * verbatim), so a `+`-attached block is simply a FOLLOWER: it ends
  * the run and counts toward "a block follows".
  */
-import type { BlockNode, ListItemNode } from "./ast.js";
+import type { BlockNode, ListItemNode } from "../ast.js";
 import {
   anchorLineShape,
   isBlockMetadata,
   isLineComment,
-} from "./block-metadata.js";
-import { LINE_COMMENT_HEAD } from "./parse/line-shapes.js";
+} from "../block-metadata.js";
+import { LINE_COMMENT_HEAD } from "../parse/line-shapes.js";
 
 /** How the printer must guard the item's text against reflow. */
-export type Hazard = "none" | "keepBreak";
+type Hazard = "none" | "keepBreak";
 
 /**
  * Whether a block is metadata a held-back run is made of: block
@@ -154,8 +154,8 @@ export function hazard(item: ListItemNode): Hazard {
   }
   // "A block of the item follows the run" counts only blocks the run
   // does not already read through — line comments are transparent
-  // here too (Ruling 64), so a trailing `// c` leaves the run
-  // TRAILING.
+  // here too (`Reader#skip_line_comments` removes `//` lines), so a
+  // trailing `// c` leaves the run TRAILING.
   const follows = blocks
     .slice(spanned)
     .some((held) => !isLineComment(held.block));

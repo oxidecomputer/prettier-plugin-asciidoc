@@ -1,6 +1,6 @@
 /**
  * The shape registry: the shared input vocabulary for shape-level
- * verification (spec D7.1, owner addendum). Three dimension classes —
+ * verification. Three dimension classes —
  * containers (where a construct sits), constructs (everything
  * line-shapes.ts knows, one dimension per rule), perturbations
  * (terminations, codas, garnishes, and for every valid spelling its
@@ -9,12 +9,12 @@
  * scripts/shape-registry-list-run.ts, built from this file's Shape
  * vocabulary.
  *
- * Two consumption modes are designed for; β ships mode (1) only:
+ * Two consumption modes are designed for; only mode (1) exists:
  * (1) deterministic exhaustive matrices (`scripts/shape-diff.ts`);
  * (2) weighted sampling for a later fuzzer rewrite — a named follow-on
- * OUT of β (spec D9): the dimension shape is merely built so that
- * consumer can be added without reshaping it. No weights, no sampling
- * machinery here.
+ * that is NOT built: the dimension shape is merely built so
+ * that consumer can be added without reshaping it. No weights, no
+ * sampling machinery here.
  *
  * Completeness is HELD by `scripts/metrics/shape-census.ts` (a
  * `bun run metrics` gate): every `DELIMITER_KINDS` entry needs a
@@ -22,11 +22,16 @@
  * needs a dimension declaring `covers` or an in-gate exemption — a
  * parser that learns a new construct is thereby FORCED to teach these
  * generators (or write the exemption down) in the same commit.
+ *
+ * A LIBRARY module, not a command: `scripts/shape-diff.ts` and
+ * `scripts/metrics/shape-census.ts` import it. It has no argument
+ * parsing and no exit code of its own.
  */
 import {
   DELIMITER_KINDS,
   type DelimiterKind,
 } from "../src/parse/line-shapes.js";
+import { NO_OP_CONTINUATION_FAMILY } from "./parity-ledger.js";
 
 /** Where a construct sits: wraps a construct's lines into a document. */
 export interface ContainerEntry {
@@ -65,10 +70,18 @@ export interface PerturbationEntry {
   readonly block: (parts: DelimiterParts) => string | undefined;
   /** Whole-document rewrite applied after wrapping, if any. */
   readonly document?: (wrapped: string) => string;
+  /**
+   * The family that explains a base-vs-head difference on rows this
+   * perturbation generates, when one is expected at all. Only
+   * `trailing-plus-after-close` carries one: inside an item container
+   * the `+` it writes sits at the item's END, where it attaches
+   * nothing and is no longer printed.
+   */
+  readonly family?: string;
 }
 
 /** The pieces a delimited-block perturbation composes. */
-export interface DelimiterParts {
+interface DelimiterParts {
   /** The opening delimiter line. */
   readonly open: string;
   /** The closing delimiter line (the bare tip for a fence). */
@@ -181,10 +194,10 @@ const DELIMITER_PARTS: Record<DelimiterKind, DelimiterParts> = {
 /**
  * The delimiter dimensions, DERIVED from the imported kind list —
  * never copied — so a new kind reaches the grid the moment the
- * registry compiles (spec D7.1).
+ * registry compiles.
  */
-export const DELIMITER_CONSTRUCTS: readonly ConstructEntry[] =
-  DELIMITER_KINDS.map((kind) => {
+const DELIMITER_CONSTRUCTS: readonly ConstructEntry[] = DELIMITER_KINDS.map(
+  (kind) => {
     const { open, close, content, nearMiss } = DELIMITER_PARTS[kind];
     return {
       id: `delimiter-${kind}`,
@@ -192,7 +205,8 @@ export const DELIMITER_CONSTRUCTS: readonly ConstructEntry[] =
       body: `${open}\n${content}\n${close}`,
       nearMisses: [nearMiss, `${open}x`, ` ${open}`],
     };
-  });
+  },
+);
 
 /**
  * Every non-delimiter construct dimension, each covering the
@@ -200,7 +214,7 @@ export const DELIMITER_CONSTRUCTS: readonly ConstructEntry[] =
  * (ii) reconciles the `covers` names against the module's actual
  * export list — both directions).
  */
-export const OTHER_CONSTRUCTS: readonly ConstructEntry[] = [
+const OTHER_CONSTRUCTS: readonly ConstructEntry[] = [
   {
     id: "block-anchor",
     covers: ["BLOCK_ANCHOR"],
@@ -309,8 +323,8 @@ export const CONSTRUCTS: readonly ConstructEntry[] = [
 ];
 
 /**
- * The container dimensions. The heading-adjacency positions (spec
- * D10) replace the old "inside a section" idea: flat headings make
+ * The container dimensions. The heading-adjacency positions replace
+ * the old "inside a section" idea: flat headings make
  * ADJACENCY, not containment, the coordinate that matters.
  */
 export const CONTAINERS: readonly ContainerEntry[] = [
@@ -345,8 +359,8 @@ export const CONTAINERS: readonly ContainerEntry[] = [
 
 /**
  * The delimited-block perturbations: terminations, codas, garnishes,
- * near-misses (the α lesson: valid-by-construction alphabets miss the
- * almost-valid space).
+ * near-misses (valid-by-construction alphabets miss the almost-valid
+ * space).
  */
 export const PERTURBATIONS: readonly PerturbationEntry[] = [
   {
@@ -369,6 +383,7 @@ export const PERTURBATIONS: readonly PerturbationEntry[] = [
   {
     id: "trailing-plus-after-close",
     block: ({ open, close, content }) => `${open}\n${content}\n${close}\n+`,
+    family: NO_OP_CONTINUATION_FAMILY,
   },
   {
     id: "metadata-above-close",
@@ -409,17 +424,17 @@ export interface Shape {
   /**
    * The expected-diff family this coordinate belongs to, when it is
    * allowed to differ base-vs-head at all — the closed enum lives in
-   * scripts/parity-ledger.ts (GAMMA_FAMILIES); only listRunGrid()
+   * scripts/parity-ledger.ts (LEDGER_FAMILIES); only listRunGrid()
    * coordinates carry one. Undefined everywhere else, and a differing
    * row with no family fails the run.
    */
   readonly family?: string;
   /**
-   * True when render checks are SKIPPED for this row — spec D7.1's
-   * two stated exceptions: a construct that renders nothing (comment
-   * blocks — render equality is vacuous, the taxonomy's third arm;
-   * the fixtures and invariant (xii) carry the proof), and the
-   * setext-pinned spellings (P16/P18 — a PRE-existing oracle
+   * True when render checks are SKIPPED for this row — the two
+   * exceptions the registry allows: a construct that renders nothing
+   * (comment blocks — render equality is vacuous, the taxonomy's
+   * third arm; the fixtures and invariant (xii) carry the proof), and
+   * the setext-pinned spellings (a PRE-existing oracle
    * divergence, where base-vs-head byte equality is the whole pin
    * and a diff is a STOP, never a family candidate).
    */
@@ -427,7 +442,7 @@ export interface Shape {
 }
 
 /**
- * β's standing selection (spec D7.1): the delimited-block constructs ×
+ * The standing selection: the delimited-block constructs ×
  * all containers × the termination/coda/garnish perturbations.
  * Deterministic and exhaustive; no randomness anywhere in this mode.
  * @returns the realized grid, in a stable order
@@ -445,30 +460,32 @@ export function standingGrid(): Shape[] {
           perturbation.document === undefined
             ? wrapped
             : perturbation.document(wrapped);
-        // No family on any standing coordinate: the base revision
-        // contains the #44 fix, so every standing row is expected
-        // byte-identical and a diff here fails the run — there is no
-        // family left to explain one.
+        // One standing coordinate carries a family — the trailing `+`
+        // this perturbation writes, which an ITEM container puts at an
+        // item's end where the byte is retired. Every other standing
+        // row is expected byte-identical (the base revision contains
+        // the #44 fix) and a diff there fails the run.
         shapes.push({
           id: `${kind}/${container.id}/${perturbation.id}`,
           input,
+          family: perturbation.family,
           renderBlind: kind === "commentBlock",
         });
       }
     }
   }
-  // The setext-shaped spellings (P16/P18): our read diverges from the
-  // oracle PRE-β (recorded, out of scope — spec D9/#16/#18), so these
+  // The setext-shaped spellings: our read already diverges from the
+  // oracle (recorded, out of scope — issues #16 and #18), so these
   // rows are pinned by base-vs-head BYTE equality only; a differing
-  // row here has no family and STOPS the run (spec D7.1).
+  // row here has no family and STOPS the run.
   shapes.push(
     {
-      id: "setext/p16/doc",
+      id: "setext/trailing-underline/doc",
       input: "====\nfoo\n====\nbar\n====\n",
       renderBlind: true,
     },
     {
-      id: "setext/p18/doc",
+      id: "setext/nested-listing/doc",
       input: "====\n----\nfoo\n====\nbar\n----\n",
       renderBlind: true,
     },
@@ -477,15 +494,15 @@ export function standingGrid(): Shape[] {
 }
 
 /**
- * The heading-adjacency matrix (spec D10(e)): every construct that can
+ * The heading-adjacency matrix: every construct that can
  * sit beside a heading × the adjacency positions, plus the named
  * explicit rows (the A1 pseudo-anchor pair in its FLATTEN-CREATED
  * spelling, the discrete row, the level-jump row). Pseudo-anchor
  * lines are deliberately EXCLUDED from the blind product: the
- * top-level pseudo-anchor pair is the plan's R1 recorded divergence
- * (its net is the named characterization fixture, not this grid — see
- * the plan's G8(d)); the A1 spelling below is the pair the flatten
- * actually creates.
+ * top-level pseudo-anchor pair is recorded divergence R1, whose net
+ * is the named characterization fixture in
+ * tests/format/heading-adjacency.test.ts rather than this grid; the
+ * A1 spelling below is the pair the flatten actually creates.
  * @returns the realized rows, in a stable order
  */
 export function headingAdjacencyGrid(): Shape[] {

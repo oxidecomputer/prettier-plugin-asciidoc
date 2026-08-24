@@ -3,15 +3,17 @@
  *
  * The formatter preserves attribute entries with normalized spacing:
  * `:name: value` (single space after the closing colon). No-value
- * entries like `:toc:` are left as-is. Unset forms (`:!name:` and
- * `:name!:`) are preserved in their original form.
+ * entries like `:toc:` are left as-is. The two unset spellings
+ * (`:!name:` and `:name!:`) are one fact and print as `:!name:`, and
+ * the NAME prints lowercase — Asciidoctor downcases it on the way in
+ * (`sanitize_attribute_name`, parser.rb l.2770-71).
  *
  * Consecutive attribute entries are joined by single newlines (no
  * blank line between them), matching the idiomatic AsciiDoc style
  * of stacking attributes together.
  */
 import { describe, test, expect } from "vitest";
-import { formatAdoc } from "../helpers.js";
+import { formatAdoc, renderedHtml } from "../helpers.js";
 
 describe("attribute entry formatting", () => {
   // A canonical attribute entry with value must pass
@@ -30,18 +32,23 @@ describe("attribute entry formatting", () => {
     expect(await formatAdoc(input)).toBe(input);
   });
 
-  // Prefix unset form must pass through unchanged.
+  // `:!name:` is the canonical spelling — the form the AsciiDoc
+  // documentation leads with — and it round-trips.
   test("prefix unset preserved", async () => {
     const input = ":!toc:\n";
     expect(await formatAdoc(input)).toBe(input);
   });
 
-  // Suffix unset form must pass through unchanged. Both unset forms
-  // are valid AsciiDoc and the formatter should not convert between
-  // them — that would change the author's style choice.
-  test("suffix unset preserved", async () => {
+  // The suffix form is the same fact under another spelling:
+  // `store_attribute` (parser.rb l.2131-41) chops the `!` off
+  // whichever end carries it and unsets the same attribute, so there
+  // is nothing for the second spelling to mean and it is respelled.
+  test("suffix unset is respelled to the prefix form", async () => {
     const input = ":toc!:\n";
-    expect(await formatAdoc(input)).toBe(input);
+    const out = await formatAdoc(input);
+    expect(out).toBe(":!toc:\n");
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
   });
 
   // Extra whitespace between the colon and value should be normalized
@@ -95,5 +102,68 @@ describe("attribute entry formatting", () => {
   test("line comment followed by attribute entry gets blank line", async () => {
     const input = "// comment\n\n:key: value\n";
     expect(await formatAdoc(input)).toBe(input);
+  });
+});
+
+// `sanitize_attribute_name` is
+// `name.gsub(InvalidAttributeNameCharsRx, '').downcase` (parser.rb
+// l.2770-71), so the case an author typed reaches neither the
+// attribute table nor any reference to it. Each row asserts the
+// bytes, that Asciidoctor renders the output as it renders the
+// input, and that a second pass is a fixed point.
+describe("attribute-entry names print lowercase", () => {
+  test.each([
+    ["a set entry", ":Foo: v\n", ":foo: v\n"],
+    ["a no-value entry", ":Toc:\n", ":toc:\n"],
+    ["an all-caps name", ":AUTHOR: Bob\n", ":author: Bob\n"],
+    ["a prefix unset", ":!Foo:\n", ":!foo:\n"],
+    ["a suffix unset", ":Foo!:\n", ":!foo:\n"],
+    // The character-stripping half of sanitize is NOT copied: `Foo Bar`
+    // and `foo bar` both sanitize to `foobar`, so lowering alone is
+    // render-preserving and leaves the author's spacing alone.
+    ["a name with a space", ":Foo Bar: v\n", ":foo bar: v\n"],
+    // The VALUE is content and keeps its case.
+    ["the value is untouched", ":Foo: Mixed Case\n", ":foo: Mixed Case\n"],
+    // A reference is content too — the oracle downcases at lookup, so
+    // `{Foo}` still resolves against the lowered entry.
+    [
+      "a reference in the body still resolves",
+      ":Foo: v\n\n{Foo} {foo}\n",
+      ":foo: v\n\n{Foo} {foo}\n",
+    ],
+  ])("%s", async (_name, input, expected) => {
+    const out = await formatAdoc(input);
+    expect(out).toBe(expected);
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+});
+
+// The unset spelling, both directions, with the render and
+// fixed-point proofs the byte change needs.
+describe("the unset spelling is one", () => {
+  test.each([
+    [
+      "the canonical form round-trips",
+      ":!foo:\n\n{foo}\n",
+      ":!foo:\n\n{foo}\n",
+    ],
+    ["the suffix form is respelled", ":foo!:\n\n{foo}\n", ":!foo:\n\n{foo}\n"],
+    [
+      "an unset that really unsets",
+      ":foo: v\n:foo!:\n\n{foo}\n",
+      ":foo: v\n:!foo:\n\n{foo}\n",
+    ],
+    ["a suffix unset with a value", ":foo!: v\n", ":!foo: v\n"],
+    [
+      "a document-header unset",
+      "= T\n:sectnums!:\n\n== S\n",
+      "= T\n:!sectnums:\n\n== S\n",
+    ],
+  ])("%s", async (_name, input, expected) => {
+    const out = await formatAdoc(input);
+    expect(out).toBe(expected);
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
   });
 });

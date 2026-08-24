@@ -48,17 +48,17 @@ describe("reader: headings and metadata", () => {
       "h1 p(t) h2 p(t) h1",
     );
   });
-  test("a heading does NOT interrupt an open paragraph (StartOfBlockProc has no title rule)", () => {
+  test("a heading does NOT interrupt an open paragraph (StartOfBlockProc has no title rule)", async () => {
     // ORACLE: `p` and `=== B` render as ONE paragraph — a section title
     // must be preceded by a blank line. read_paragraph_lines breaks at
     // StartOfBlockProc, which tests only BlockAttributeLineRx and
     // is_delimited_block?.
-    expect(renderedHtml("p\n=== B\n")).toContain("p === B");
+    expect(await renderedHtml("p\n=== B\n")).toContain("p === B");
     expect(astShape("p\n=== B\n")).toBe("p(t / t)");
   });
-  test("metadata (and comments) before a closing heading belong to the new section (next_section + parse_block_metadata_lines)", () => {
+  test("metadata (and comments) before a closing heading belong to the new section (next_section + parse_block_metadata_lines)", async () => {
     // ORACLE: the anchor above `== B` becomes B's id, not A's.
-    expect(renderedHtml("== A\np\n[[id]]\n// c\n\n== B\n")).toContain(
+    expect(await renderedHtml("== A\np\n[[id]]\n// c\n\n== B\n")).toContain(
       'id="id">B',
     );
     expect(astShape("== A\np\n[[id]]\n// c\n\n== B\n")).toBe(
@@ -78,13 +78,15 @@ describe("reader: headings and metadata", () => {
       "h1 attrs heading p(t)",
     );
   });
-  test("[discrete ] with trailing blanks is still discrete (the style is trimmed)", () => {
+  test("[discrete ] with trailing blanks is still discrete (the style is trimmed)", async () => {
     // ORACLE: Asciidoctor trims the first positional attribute, so
     // `[discrete ]` styles the heading exactly as `[discrete]` does —
     // a `<h2 class="discrete">`, never a section. The reader reads the
     // style off the raw attribute LINE, so the trim in
     // `parseAttrlist` is what makes the two spellings agree.
-    expect(renderedHtml("[discrete ]\n== H\n")).toContain('class="discrete"');
+    expect(await renderedHtml("[discrete ]\n== H\n")).toContain(
+      'class="discrete"',
+    );
     expect(astShape("[discrete ]\n== H\n")).toBe("attrs heading");
   });
   test("headings inside a compound block are paragraph text (next_block never makes sections)", () => {
@@ -160,22 +162,23 @@ describe("reader: delimited blocks", () => {
 });
 
 describe("reader: literal paragraphs", () => {
-  test("a literal paragraph continues through flush lines until blank/block (read_paragraph_lines)", () => {
+  test("a literal paragraph continues through flush lines until blank/block (read_paragraph_lines)", async () => {
     expect(astShape("  lit\nflush\n\nnext\n")).toBe("literal-indented[2] p(t)");
     // Oracle corroboration: one literal block containing both lines.
-    expect((renderedHtml("  lit\nflush\n").match(/<pre>/gv) ?? []).length).toBe(
-      1,
-    );
+    const html = await renderedHtml("  lit\nflush\n");
+    expect((html.match(/<pre>/gv) ?? []).length).toBe(1);
   });
-  test("a comment inside a document-level literal paragraph stays in place", () => {
+  test("a comment inside a document-level literal paragraph stays in place", async () => {
     // ORACLE SURPRISE recorded in classify.ts: read_paragraph_lines is
     // called with `skip_line_comments: text_only`, so the `//` line is
     // NOT dropped — Asciidoctor renders it as literal content, and the
     // literal paragraph runs on THROUGH it.
-    expect(renderedHtml("  lit\n// c\nmore\n")).toContain("  lit\n// c\nmore");
+    expect(await renderedHtml("  lit\n// c\nmore\n")).toContain(
+      "  lit\n// c\nmore",
+    );
     expect(astShape("  lit\n// c\nmore\n")).toBe("literal-indented[3]");
   });
-  test("a preprocessor directive inside a literal paragraph is kept, though the oracle drops it", () => {
+  test("a preprocessor directive inside a literal paragraph is kept, though the oracle drops it", async () => {
     // ORACLE DISAGREEMENT, kept deliberately: PreprocessorReader eats
     // `ifdef::x[]` before the parser sees it, and with `x` unset it eats
     // everything up to the matching endif too — the oracle renders
@@ -183,7 +186,9 @@ describe("reader: literal paragraphs", () => {
     // source, so the reader keeps all three lines; the rendered text is
     // a subset of ours, never a reordering of it. See the same reasoning
     // at the rule in src/parse/lines/paragraph-reader.ts.
-    expect(renderedHtml("  lit\nifdef::x[]\nmore\n")).not.toContain("more");
+    expect(await renderedHtml("  lit\nifdef::x[]\nmore\n")).not.toContain(
+      "more",
+    );
     expect(astShape("  lit\nifdef::x[]\nmore\n")).toBe("literal-indented[3]");
   });
 });

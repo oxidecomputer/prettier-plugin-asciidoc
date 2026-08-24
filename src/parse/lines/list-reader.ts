@@ -1,32 +1,44 @@
 /**
  * Lists, read extent-first — Asciidoctor's own structure:
- * `parse_list` (parser.rb l.1106) walks sibling markers;
- * `parse_list_item` (l.1288) collects one item's extent
- * (`read_lines_for_list_item`, ported below as {@link itemExtent}) and
- * re-parses the buffer with a confined reader (`Reader.new buffer`,
- * l.1350); nesting composes because an inner item's scan runs over the
- * outer item's buffer. No frame, no per-item object, no cross-item
- * state: the only mutable state is one ExtentScan's five mutable
- * members (Ruby's four locals plus the buffer being built).
+ * `parse_list` (parser.rb l.1115) walks sibling markers, ported below
+ * as {@link listShape}; `parse_list_item` (l.1297) collects one item's
+ * extent (`read_lines_for_list_item`, ported as {@link itemExtent}).
+ *
+ * Everything here is a PURE FUNCTION over lines. The re-parse of an
+ * item's buffer with a confined reader (`Reader.new buffer`, l.1359)
+ * is NOT here: the module that owns the read position owns every
+ * recursion, hands each item's interior back, and
+ * {@link listItemNode} assembles the node from it. Nesting still
+ * composes for Ruby's reason — an inner item's scan runs over the
+ * outer item's buffer — but no reader is passed in to make it happen,
+ * so nothing in this file can advance a stream or place a node.
+ *
+ * No frame, no per-item object, no cross-item state: the only mutable
+ * state is one ExtentScan's five mutable members (Ruby's four locals
+ * plus the buffer being built).
  *
  * The printer's spelling is not decided here at all: each block's GAP
  * — the verbatim ""/"+" lines between the item's pieces — is read off
  * the ORIGINAL document lines at construction ({@link gapsOf}), and
- * print-list.ts replays it.
+ * src/print/list.ts replays it.
  *
  * {@link itemExtent} is the pure port of `read_lines_for_list_item`
- * (parser.rb l.1395–1577, Asciidoctor 2.0.20) for ulist / olist /
+ * (parser.rb l.1404-1592, Asciidoctor core 2.0.26 — the revision
+ * `@asciidoctor/core` 4.0.11 bundles, which is the oracle these tests
+ * run; EVERY Ruby line number in this file is against it) for ulist /
+ * olist /
  * colist, returning Ruby's BUFFER — the item's lines with every line
  * Ruby blanks rewritten to `text: ""`, offsets and raw spelling intact
- * — plus where the item ends and whether it ended on a trailing `+`.
+ * — plus where the item ends.
  * Every branch cites its parser.rb line. Only the `list_type == :dlist`
- * local branches (the greedy no-text arm l.1540-45, the
- * BlockAttributeLineRx look-ahead l.1452-71) are out of scope (#9);
+ * local branches (the greedy no-text arm l.1551-56, the
+ * BlockAttributeLineRx look-ahead l.1462-82) are out of scope (#9);
  * they are left as cited comments where they would go.
  */
-import type { BlockNode, GapLine, ListItemNode, ListNode } from "../../ast.js";
-import { buildList, buildListItem } from "../build/list.js";
+import type { BlockNode, GapLine, ListItemNode } from "../../ast.js";
+import { buildListItem } from "../build/list.js";
 import type { InlineToken } from "../inline/tokens.js";
+import type { LocationIndex } from "../positions.js";
 import {
   ATTRIBUTE_ENTRY,
   BLOCK_ANCHOR,
@@ -41,41 +53,99 @@ import {
   isContinuationLine,
   parseListMarker,
   type DelimiterKind,
-  type LineKind,
+  type MarkerKind,
   type SiblingTrait,
 } from "./classify.js";
 import { delimitedExtent } from "./delimited-reader.js";
-import { fragmentOfLine, type ListHost } from "./frames.js";
+import { fragmentOfLine } from "./frames.js";
 import type { SourceLine } from "./split.js";
 
-/** A list-marker line, as {@link LineKind} spells it. */
-type MarkerKind = Extract<LineKind, Record<"kind", "listMarker">>;
+/**
+ * One item's SHAPE — everything the surface lines decide about it,
+ * and nothing that needs the item parsed. Exported because the caller
+ * that owns the recursion hands one back to {@link listItemNode} once
+ * the interior has been read.
+ */
+export interface ListItemShape {
+  /** The item's marker line. */
+  readonly markerLine: SourceLine;
+  /** The marker, as the classifier parses one. */
+  readonly marker: MarkerKind;
+  /** Ruby's buffer: the item's lines, erasures applied (see {@link ItemExtent}). */
+  readonly buffer: readonly SourceLine[];
+  /** Whether the scan popped a `+` off the item's end (the raw fact). */
+  readonly poppedContinuation: boolean;
+  /** Whether a `+` printed at the very end of THIS ITEM re-reads inert. */
+  readonly tailSafe: boolean;
+}
+
+/** A whole list's shape, and where the list ends. NOT exported. */
+interface ListShape {
+  /**
+   * One shape per sibling item, in source order. The opening item is
+   * scanned BEFORE the sibling loop, which is what makes "a list
+   * always has an item" a fact of this control flow rather than a
+   * sentence buildList re-checks.
+   */
+  readonly items: readonly [ListItemShape, ...ListItemShape[]];
+  /** Index (into `lines`) after the last item's extent. */
+  readonly end: number;
+}
 
 /**
- * Read a whole list starting at the marker line at `from` — the port
- * of `parse_list` (l.1106-1120): one item per sibling marker, anything
- * else ends the list.
- * @param host - the reader the list is read from (the document's, or
- *   a confined one — nesting recurses through the same seam)
- * @param from - index (into host.lines) of the first marker line
- * @param kind - the first marker, as the classifier parsed it
- * @returns the finished list node, and the index the host resumes at
- *   — the line after the last item's extent
+ * Scan a whole list opening at `at` — the port of `parse_list`
+ * (l.1115-1129): one item per sibling marker, anything else ends the
+ * list. Pure over the lines: it decides EXTENTS, and nothing inside
+ * any item is parsed here. The caller reads each item's interior (a
+ * confined reader over `[markerLine, ...buffer]`) and assembles the
+ * nodes; a scan that recursed would need a reader handed back to it,
+ * which is the seam this module no longer has.
+ *
+ * The dlist arm (#9) plugs in at {@link siblingMarker} and at this
+ * function's `opening` parameter, which becomes the union of the
+ * opening parses; nothing else here is marker-specific.
+ * @param lines - the lines the list is read from (the document's, or
+ *   an enclosing item's buffer)
+ * @param at - index of the first marker line
+ * @param opening - the first marker, as the classifier parsed it
+ * @param tailSafe - whether a `+` printed at the very END of `lines`
+ *   re-reads inert; every item extent inherits it (see
+ *   {@link ExtentBounds})
+ * @returns one shape per item, and the index the caller resumes at
  */
-export function readList(
-  host: ListHost,
-  from: number,
-  kind: MarkerKind,
-): { node: ListNode; end: number } {
-  const items: ListItemNode[] = [];
-  let index = from;
-  let marker: MarkerKind = kind;
+export function listShape(
+  lines: readonly SourceLine[],
+  at: number,
+  opening: MarkerKind,
+  tailSafe: boolean,
+): ListShape {
+  const trait = siblingTrait(opening);
+  // One item's shape, as a closure over the three facts every item in
+  // this list shares — which is also why it is not a top-level
+  // function: `lines`, `trait` and `tailSafe` are the LIST's, and
+  // passing them per item was four arguments saying one thing.
+  const itemAt = (
+    index: number,
+    marker: MarkerKind,
+  ): { shape: ListItemShape; end: number } => {
+    const extent = itemExtent(lines, index + 1, trait, { tailSafe });
+    return {
+      shape: {
+        markerLine: lines[index],
+        marker,
+        buffer: extent.buffer,
+        poppedContinuation: extent.poppedContinuation,
+        tailSafe: extent.tailSafe,
+      },
+      end: extent.end,
+    };
+  };
+  const first = itemAt(at, opening);
+  const items: [ListItemShape, ...ListItemShape[]] = [first.shape];
+  let index = first.end;
   for (;;) {
-    const { item, end } = readListItem(host, index, marker);
-    items.push(item);
-    index = end;
-    // `list_rx =~ reader.peek_line` for the next sibling (l.1110).
-    // Ruby's `reader.skip_blank_lines || break` (l.1116) has NO
+    // `list_rx =~ reader.peek_line` for the next sibling (l.1119).
+    // Ruby's `reader.skip_blank_lines || break` (l.1125) has NO
     // counterpart here, and that is a property of this port rather
     // than an omission: Ruby needs it because
     // `read_lines_for_list_item` unshifts its stopper and leaves the
@@ -83,16 +153,124 @@ export function readList(
     // blank runs itself ({@link ExtentScan.skipBlanks}) and every
     // stopping arm unreads a NON-blank stopper — so `lines[extent.end]`
     // is never `""` and a skip loop here would be dead code. It was:
-    // the plan's mutation pass put four mutants on it, two of them
-    // NoCoverage, and an instrumented build executed the loop body
-    // zero times over 26,562 documents.
-    const next = host.lines.at(index);
-    const parsed = next === undefined ? undefined : parseListMarker(next.text);
-    if (parsed === undefined) break;
-    if (parsed.style !== kind.style) break;
-    marker = { kind: "listMarker", ...parsed };
+    // an instrumented build executed the loop body zero times over
+    // 26,562 documents, and a mutation pass put four mutants on it,
+    // two of them NoCoverage.
+    const next = lines.at(index);
+    const marker =
+      next === undefined ? undefined : siblingMarker(next.text, trait);
+    if (marker === undefined) break;
+    const sibling = itemAt(index, marker);
+    items.push(sibling.shape);
+    index = sibling.end;
   }
-  return { node: buildList(kind.variant, kind.style, items), end: index };
+  return { items, end: index };
+}
+
+/** What reading one item's interior produced. NOT exported. */
+interface ItemInterior {
+  /** The principal text's tokens. */
+  readonly text: InlineToken[];
+  /** The item's blocks, in source order. */
+  readonly blocks: BlockNode[];
+}
+
+/**
+ * Assemble one item's node, once its interior has been read: the
+ * marker's own span, the principal text, and each block paired with
+ * the GAP that precedes it. Pure — the recursion that produced the
+ * interior happened in the caller, and nothing here can start another.
+ * @param shape - what the extent scan decided about the item
+ * @param interior - the text and blocks the caller read from the buffer
+ * @param lines - the document's lines and offset index, plus whether
+ *   this item was read from ANOTHER item's buffer
+ * @param lines.documentLines - EVERY document line, unerased, for the gaps
+ * @param lines.at - the document's offset→Location index
+ * @param lines.nested - true when the enclosing reader is confined to
+ *   a list item's buffer
+ * @returns the item node
+ */
+export function listItemNode(
+  shape: ListItemShape,
+  interior: ItemInterior,
+  lines: {
+    documentLines: readonly SourceLine[];
+    at: LocationIndex;
+    nested: boolean;
+  },
+): ListItemNode {
+  const { documentLines, at, nested } = lines;
+  const { markerLine, marker } = shape;
+  const { text, blocks } = interior;
+  const gaps = gapsOf(documentLines, textEndLine(at, text, markerLine), blocks);
+  return buildListItem(
+    {
+      marker: fragmentOfLine(markerLine, marker.indent, marker.markerEnd),
+      variant: marker.variant,
+      // The classifier captured the number when it matched the
+      // marker; only a callout has one.
+      calloutNumber:
+        marker.variant === "callout" ? marker.calloutNumber : undefined,
+      text,
+      blocks: blocks.map((block, index) => ({ gap: gaps[index], block })),
+      trailingContinuation: keptTrailingContinuation(shape, blocks, nested),
+    },
+    at,
+  );
+}
+
+/**
+ * Whether a `+` the scan popped off an item's end must be printed
+ * back — the question {@link ListItemNode.trailingContinuation}
+ * answers.
+ *
+ * The pop is Ruby's and the byte renders nothing WHEN Ruby's own read
+ * of the item ended where ours did. Two tails are where it does not,
+ * and both are measured rather than argued (the list-shape sweep's own
+ * alphabet, exhaustive to depth 5):
+ *
+ * - an INDENTED LITERAL. Its re-read slurp
+ *   (`read_lines_until break_on_blank_lines, break_on_list_continuation`)
+ *   takes the `+` and whatever follows into the `<pre>`, so
+ *   `* a\n** b\n+\n  lit\n+\n** b\n` renders a three-line literal and
+ *   dropping the byte renders a one-line one plus an `<li>` that was
+ *   never written.
+ * - a paragraph carrying a RAW LINE. That is the reader's record of a
+ *   line Ruby folded into prose — a frozen `+`, a marker line a
+ *   paragraph swallowed — and the `+` beside it is prose too:
+ *   `* a\n+\npara\n** b\n+\n+\n` renders `para ** b +`.
+ *
+ * A NESTED item — one read from another item's buffer — keeps the byte
+ * whatever its own blocks look like. There the enclosing scan has
+ * already re-shaped the lines (erasures, slurps, folds) before this
+ * item ever saw them, so "our read ended where Ruby's did" is not a
+ * claim this reader can make: `* a\n+\n+\n** b\n+\n** b\n` is one
+ * paragraph to the oracle and a nested list to us.
+ * @param shape - the extent scan's record for this item
+ * @param blocks - the blocks its interior read
+ * @param nested - whether it was read from another item's buffer
+ * @returns true when the byte must come back
+ */
+function keptTrailingContinuation(
+  shape: ListItemShape,
+  blocks: readonly BlockNode[],
+  nested: boolean,
+): boolean {
+  if (!shape.poppedContinuation || !shape.tailSafe) return false;
+  return nested || blocks.some((block) => readsOnPastTheItem(block));
+}
+
+/**
+ * Whether a block the item ends with re-reads PAST the item — the two
+ * tails {@link keptTrailingContinuation} refuses to drop a `+` behind.
+ * @param block - one of the item's blocks
+ * @returns true when the block's re-read runs on into the lines below
+ */
+function readsOnPastTheItem(block: BlockNode): boolean {
+  if (block.type === "list") return true;
+  if (block.type === "delimitedBlock") return block.form === "indented";
+  if (block.type !== "paragraph") return false;
+  return block.children.some((child) => child.type === "rawLine");
 }
 
 /**
@@ -106,58 +284,15 @@ function siblingTrait(kind: MarkerKind): SiblingTrait {
 }
 
 /**
- * Read one item: extent first, then the interior from the buffer.
- * @param host - the reader the item is read from
- * @param markerIndex - index (into host.lines) of the marker line
- * @param kind - the marker, as the classifier parsed it
- * @returns the item's node, and the index after its extent
- */
-function readListItem(
-  host: ListHost,
-  markerIndex: number,
-  kind: MarkerKind,
-): { item: ListItemNode; end: number } {
-  const { lines } = host;
-  const markerLine = lines[markerIndex];
-  const extent = itemExtent(host.lines, markerIndex + 1, siblingTrait(kind), {
-    tailSafe: host.tailSafe,
-  });
-  const { text, blocks } = host.confine(
-    markerLine,
-    kind,
-    extent.buffer,
-    extent.tailSafe,
-  );
-  const gaps = gapsOf(
-    host.documentLines,
-    textEndLine(host, text, markerLine),
-    blocks,
-  );
-  return {
-    item: buildListItem(
-      {
-        marker: fragmentOfLine(markerLine, kind.indent, kind.markerEnd),
-        variant: kind.variant,
-        text,
-        blocks: blocks.map((block, at) => ({ gap: gaps[at], block })),
-        trailingContinuation: extent.trailingContinuation,
-      },
-      host.at,
-    ),
-    end: extent.end,
-  };
-}
-
-/**
  * The last source line the principal text occupies — where the first
  * block's gap starts counting from.
- * @param host - the reader, for its location index
+ * @param at - the document's offset→Location index
  * @param text - the principal text's tokens
  * @param markerLine - the item's marker line (the answer for empty text)
  * @returns the 1-based line number
  */
 function textEndLine(
-  host: ListHost,
+  at: LocationIndex,
   text: readonly InlineToken[],
   markerLine: SourceLine,
 ): number {
@@ -166,7 +301,7 @@ function textEndLine(
   // One BEFORE the exclusive end: a token ending at a newline must
   // report the line it ends ON, not the next one.
   const end = last.offset + Math.max(last.image.length, 1) - 1;
-  return host.at.at(end).line;
+  return at.at(end).line;
 }
 
 /**
@@ -175,9 +310,9 @@ function textEndLine(
  * lines (never the buffer — the buffer blanks erased `+` lines and
  * omits blanks the extent scan skipped). Anything but a blank or a `+`
  * in a gap is a reader bug, not an input shape: comments, metadata and
- * attribute entries are blocks (spec §1, checked over the corpus and
- * 40,000 random documents), and the AST invariant re-checks it on
- * every parse.
+ * attribute entries are blocks (checked over the corpus and 40,000
+ * random documents), and the AST invariant re-checks it on every
+ * parse.
  * Exported for its table test (tests/parser/list-reader.test.ts): the
  * unreachable arm and the boundary arithmetic deserve direct rows, not
  * just corpus coverage.
@@ -185,6 +320,9 @@ function textEndLine(
  * @param textEnd - the text's last line number
  * @param blocks - the item's blocks, in source order
  * @returns one gap per block
+ * Exported for its unit test (tests/parser/list-reader.test.ts); no
+ * src consumer.
+ * @internal
  */
 export function gapsOf(
   documentLines: readonly SourceLine[],
@@ -213,29 +351,36 @@ export function gapsOf(
 }
 
 /**
- * What bounds one extent scan beyond the lines themselves: whether
- * the END of the stream is a safe place to print a `+` back.
+ * What bounds one extent scan beyond the lines themselves: whether the
+ * END of the stream is a place a printed `+` re-reads inert.
  */
-export interface ExtentBounds {
+interface ExtentBounds {
   /**
    * Whether a `+` printed at the very end of the STREAM re-reads
-   * inert — true for the document reader (EOF), the confined
-   * reader's own boundary fact otherwise (the Confinement record's
-   * tailSafe: an item's own, or a block child's closed-or-enclosing
-   * answer — spec D2/D3). Tail safety is a LIST-NESTING fact (what
-   * follows an ITEM's popped trailing `+`), which is why this seam
-   * survives at exactly one member.
+   * inert — true for the document reader (EOF), the confined reader's
+   * own boundary fact otherwise.
    */
   readonly tailSafe: boolean;
 }
 
-/** What the scan hands the reader: Ruby's buffer, and the boundary. */
-export interface ItemExtent {
+/**
+ * What the scan hands the reader: Ruby's buffer, where it ends, and
+ * the two facts about a `+` that came off the end.
+ */
+interface ItemExtent {
   /**
-   * The item's lines in document order, a COPY: every line Ruby blanks
-   * (`buffer[-1] = ''` l.1429, `buffer[detached_continuation] = ''`
-   * l.1562) has `text: ""` with `raw`, `offset` and `line` intact, so
+   * The item's lines in document order, a COPY: every line Ruby erases
+   * (`buffer[-1] = ListContinuationPlaceholder` l.1439,
+   * `buffer[detached_continuation] = ListContinuationPlaceholder`
+   * l.1576) has `text: ""` with `raw`, `offset` and `line` intact, so
    * positions and gap spellings survive the rewrite.
+   *
+   * The erasure writes a TAGGED empty String at 2.0.26, not the plain
+   * `''` 2.0.20 wrote: `ListContinuationPlaceholder` is
+   * `::String.new.extend ListContinuationMarker` (l.46-50). It is
+   * still empty, so `text: ""` is the same observable — but the tag is
+   * what l.1580's pop tests, which is why that pop runs ahead of the
+   * trailing-blank strip rather than after it.
    */
   buffer: SourceLine[];
   /**
@@ -245,28 +390,19 @@ export interface ItemExtent {
    */
   end: number;
   /**
-   * The item's last non-blank line was an UNERASED `+` that attached
-   * nothing (Ruby pops it, l.1571; we keep the byte — Ruling 23 — as
-   * `ListItemNode.trailingContinuation`), AND printing it back is a
-   * fixed point (see {@link ExtentScan.finish} for the rule). An
-   * erased `+` (one a blank line followed, or a detached `+` at EOF)
-   * is NOT trailing: Ruby turned it into a blank, and dropping it is
-   * render-equal and idempotent.
+   * The scan popped a marked `+` off the buffer's end (l.1580-81's pop).
+   * The RAW fact only — whether the byte comes back is
+   * {@link keptTrailingContinuation}'s question, not this one's.
    */
-  trailingContinuation: boolean;
+  poppedContinuation: boolean;
   /**
-   * Whether a `+` printed at the very end of THIS ITEM re-reads
-   * inert: the scan stopped at a sibling (which the printer puts on
-   * the very next line, where the `+` pops again), or the stream
-   * itself ended at a safe boundary — EOF, or a confined boundary
-   * whose enclosing side is safe (a closed block's printed terminator
-   * follows on the very next output line and pops it; spec D3's
-   * four-class equivalence)
-   * ({@link ExtentBounds.tailSafe}). False when arbitrary content
-   * follows across blank lines — there the printer separates with a
-   * blank, and a `+` above a blank ERASES and arms on re-read. This
-   * is the fact the item's own confined reader inherits as its
-   * bounds.
+   * Whether a `+` printed at the very end of THIS ITEM re-reads inert:
+   * the scan stopped at a sibling (which the printer puts on the very
+   * next line, where the `+` pops again), or the stream itself ended
+   * at a safe boundary ({@link ExtentBounds.tailSafe}). False when
+   * arbitrary content follows across blank lines — there the printer
+   * separates with a blank, and a `+` above a blank ERASES and arms
+   * on re-read, which changes what attaches to the item.
    */
   tailSafe: boolean;
 }
@@ -274,7 +410,7 @@ export interface ItemExtent {
 /**
  * Whether a line is a sibling item of the list being read — style
  * equality on the RESOLVED trait, exactly `is_sibling_list_item?`
- * (parser.rb l.2265). The three marker variants' style sets are
+ * (parser.rb l.2280). The three marker variants' style sets are
  * disjoint by construction (`MARKER_STYLES` in line-shapes.ts; every
  * callout marker collapses to the one CALLOUT_STYLE), so equality
  * alone decides. The dlist arm has no producer yet: the conjunction's
@@ -285,17 +421,35 @@ export interface ItemExtent {
  * @returns true when the line starts a sibling item
  */
 function isSibling(text: string, trait: SiblingTrait): boolean {
-  return (
-    trait.kind === "marker" && parseListMarker(text)?.style === trait.style
-  );
+  return siblingMarker(text, trait) !== undefined;
+}
+
+/**
+ * The same test, answering with the marker itself — what the sibling
+ * LOOP needs, which would otherwise spell the rule a second time to
+ * get the parse it builds the item from. ONE rule, two shapes of
+ * answer: {@link isSibling} is this function asked whether there was
+ * one.
+ * @param text - one rstripped source line
+ * @param trait - the open list's sibling trait
+ * @returns the sibling's marker, or undefined when the line is not one
+ */
+function siblingMarker(
+  text: string,
+  trait: SiblingTrait,
+): MarkerKind | undefined {
+  if (trait.kind !== "marker") return undefined;
+  const parsed = parseListMarker(text);
+  if (parsed?.style !== trait.style) return undefined;
+  return { kind: "listMarker", ...parsed };
 }
 
 /**
  * Whether a line starts a NESTABLE list — `NESTABLE_LIST_CONTEXTS =
- * [:ulist, :olist, :dlist]` (asciidoctor.rb:316, the authority; the
- * three `find` sites are l.1492, l.1519 and l.1548): an unordered or
+ * [:ulist, :olist, :dlist]` (asciidoctor.rb:315, the authority; the
+ * three `find` sites are l.1503, l.1530 and l.1562): an unordered or
  * ordered marker, or a dlist term. A callout marker is deliberately
- * NOT nestable (asciidoctor.rb:316 lists no :colist), which is why a
+ * NOT nestable (asciidoctor.rb:315 lists no :colist), which is why a
  * `<n>` line after a blank ends the item — but Ruby's `find` still
  * tries `DescriptionListRx` on it, so a callout-shaped line that is
  * ALSO a dlist term (`<1> t:: d`) nests; hence the `||`, not an
@@ -317,10 +471,20 @@ function isNestable(text: string): boolean {
 }
 
 /**
- * Ruby's `prev_line == LIST_CONTINUATION` test (l.1425) over a buffer
- * that may still be empty: `prev_line` is nil for the first line of an
- * item, and nil matches neither the `+` arm nor the after-blank arm
- * (l.1502 tests `prev_line &&` for the same reason).
+ * Ruby's "is the buffered previous line a `+`" test (l.1435) over a
+ * buffer that may still be empty: `prev_line` is nil for the first
+ * line of an item, and nil matches neither the `+` arm nor the
+ * after-blank arm (l.1513 tests `prev_line &&` for the same reason).
+ *
+ * A TEXT test here; at 2.0.26 Ruby's is an IDENTITY test —
+ * `ListContinuationMarker === prev_line`, an `is_a?` on the module the
+ * two `+`-carrying Strings are extended with (l.46-50). 2.0.20 spelled
+ * it `prev_line == LIST_CONTINUATION` and this port mirrors THAT. The
+ * two disagree on exactly one value: the erased Placeholder, which is
+ * empty (so the text test says no) and tagged (so the identity test
+ * says yes). Whether that difference is reachable is OPEN — recorded
+ * rather than reworded away, and #56 (`+` runs erased as markers) is
+ * where it would show if it is.
  * @param previous - the last buffered line's text, or undefined when
  *   nothing is buffered yet
  * @returns true when the previous line is a lone `+`
@@ -331,7 +495,7 @@ function previousIsContinuation(previous: string | undefined): boolean {
 
 /**
  * "Let block metadata play out until we find the block" — the three
- * shapes l.1488-90 keeps `:active` across: a block title, a block
+ * shapes l.1499-1501 keeps `:active` across: a block title, a block
  * attribute line, and an attribute entry. Ruby's BlockAttributeLineRx
  * carries the `[[anchor]]` form as one of its alternatives; the
  * registry spells that alternative as its own pattern (BLOCK_ANCHOR),
@@ -350,7 +514,7 @@ function isBlockMetadataLine(text: string): boolean {
   );
 }
 
-// Ruby's three continuation states (l.1401): :frozen marks sequential
+// Ruby's three continuation states (l.1407-09): :frozen marks sequential
 // continuation lines, "really a syntax error".
 type Continuation = "inactive" | "active" | "frozen";
 
@@ -366,16 +530,33 @@ class ExtentScan {
   private continuation: Continuation = "inactive";
   private withinNestedList = false;
   private detachedContinuation: number | undefined = undefined;
+  /**
+   * Buffer index of the last `+` the LOOP itself buffered as a
+   * continuation marker, or -1. The oracle marks those lines by
+   * IDENTITY, not by text: `this_line = ListContinuationString if
+   * this_line == LIST_CONTINUATION` (l.1432) swaps in a String
+   * instance extended with the `ListContinuationMarker` module
+   * (l.46-50), so the post-loop `ListContinuationMarker ===
+   * buffer[-1]` (l.1580) is `is_a?` and recognises only those. The
+   * JavaScript oracle these tests actually run says the same thing in
+   * its own words — `class ListContinuation extends String` and a pop
+   * gated on `isListContinuation(last)`
+   * (node_modules/@asciidoctor/core/src/parser.js). A `+` that reached the buffer INSIDE a slurped delimited
+   * block is an ordinary String and is never popped — it is content
+   * of that block, and `* i\n+\n====\n----\nfoo\n----\n+\n` renders
+   * it as a paragraph inside the example.
+   */
+  private markedContinuation = -1;
   private index: number;
 
   /**
    * @param lines - the lines the item is read from (the document's, or
    *   an enclosing item's buffer)
    * @param from - index of the first line AFTER the item's marker line
-   *   (parse_list_item shifts the marker before reading, l.1348)
+   *   (parse_list_item shifts the marker before reading, l.1357)
    * @param trait - the trait siblings are matched by
-   * @param bounds - the enclosing confinement (stop lines) and the
-   *   stream-end print-safety fact — see {@link ExtentBounds}
+   * @param bounds - the stream-end print-safety fact
+   *   ({@link ExtentBounds})
    */
   constructor(
     private readonly lines: readonly SourceLine[],
@@ -400,7 +581,7 @@ class ExtentScan {
   }
 
   /**
-   * One turn of Ruby's while loop: the arms of l.1421–1556 in Ruby's
+   * One turn of Ruby's while loop: the arms of l.1430-1570 in Ruby's
    * order, each one either finishing the item or moving to the next
    * line. Split from `run` because the loop's arms and the loop's
    * bookkeeping are two things; the `complexity` ceiling made the
@@ -411,14 +592,14 @@ class ExtentScan {
    */
   private step(line: SourceLine): "stop" | "go" {
     // A sibling item — "we've captured the complete list item"
-    // (l.1421) — or an enclosing delimited block's terminator, which
+    // (l.1430) — or an enclosing delimited block's terminator, which
     // is where the lines Ruby's item reader was given run out. Asked
     // of every line first.
     if (this.endsTheItem(line.text)) {
       this.index -= 1;
       return "stop";
     }
-    // prev_line is read from the MUTATED buffer (l.1423): an erased
+    // prev_line is read from the MUTATED buffer (l.1433): an erased
     // `+` reads as a blank here, which is what makes the flat
     // `+`/blank/`+`/para shape take the detached arm.
     const previous = this.buffer.at(-1)?.text;
@@ -428,7 +609,7 @@ class ExtentScan {
     const delimiter = delimiterKind(line.text);
     if (delimiter !== undefined) return this.delimitedArm(delimiter);
     // Ruby's next arm is the dlist-only `BlockAttributeLineRx`
-    // look-ahead (l.1452-71, `elsif dlist && continuation != :active
+    // look-ahead (l.1462-82, `elsif dlist && continuation != :active
     // && ...`): it decides whether a `[...]` run in front of a
     // non-sibling list item joins the item or breaks it. Out of scope
     // with the rest of the dlist branches (#9); it would go exactly
@@ -438,14 +619,14 @@ class ExtentScan {
       return "go";
     }
     if (previous === "") return this.afterBlank(line);
-    this.plainLine(line); // the final else, l.1546-56
+    this.plainLine(line); // the final else, l.1560-70
     return "go";
   }
 
   /**
-   * `is_sibling_list_item?` (l.1421) — the one shape that ends the
+   * `is_sibling_list_item?` (l.1430) — the one shape that ends the
    * item wherever it is read, before and after a blank run alike
-   * (l.1508/1517-18 ask the same question a second time). The old
+   * (l.1519/1528-29 ask the same question a second time). The old
    * enclosing-terminator disjunct is unrepresentable now: the scan's
    * lines physically end at every enclosing boundary.
    * @param text - one rstripped source line
@@ -458,7 +639,7 @@ class ExtentScan {
   /**
    * The delimited-block arm: "a delimited block immediately breaks the
    * list unless preceded by a list continuation (they are harsh like
-   * that)" — l.1445-46.
+   * that)" — l.1453-56.
    * @param kind - which delimited block the current line opens
    * @returns whether the item ends here
    */
@@ -472,9 +653,9 @@ class ExtentScan {
   }
 
   /**
-   * `prev_line == LIST_CONTINUATION` (l.1425-41): activate the pending
-   * `+` — erasing it unless inside a nested list — and freeze on an
-   * adjacent one. `LIST_CONTINUATION` itself (asciidoctor.rb:333) is
+   * The buffered-`+` arm (l.1435-51, `ListContinuationMarker ===
+   * prev_line` at 2.0.26): activate the pending `+` — erasing it
+   * unless inside a nested list — and freeze on an adjacent one. `LIST_CONTINUATION` itself (asciidoctor.rb l.332) is
    * `isContinuationLine`'s pattern, shared with the classifier so the
    * scan and the reader can never disagree about what a `+` line is.
    * @param line - the line after the buffered `+`
@@ -482,28 +663,30 @@ class ExtentScan {
    */
   private afterContinuation(line: SourceLine): boolean {
     if (this.continuation === "inactive") {
-      this.continuation = "active"; // l.1427
+      this.continuation = "active"; // l.1437
       // "if we are within a nested list, we don't throw away the list
       // continuation marks because they will be processed when
-      // grabbing the lines for those nested lists" — l.1404-06, 1429.
+      // grabbing the lines for those nested lists" — l.1412-14, 1439.
       if (!this.withinNestedList) this.erase(this.buffer.length - 1);
     }
     if (!isContinuationLine(line.text)) return false;
-    // Adjacent continuations, "really a syntax error" — l.1433-35.
-    // DEVIATION from l.1434 (`if continuation != :frozen`, the gate
-    // that drops them): Ruby buffers the SECOND `+` and drops
-    // every later one; a formatter may not delete a line the author
-    // wrote (Ruling 23), so every adjacent `+` is buffered and the
-    // confined reader keeps each as a raw-line block — the pinned
-    // oracle divergence (spec D5): bytes and rendering identical,
-    // block structure not.
-    this.continuation = "frozen"; // l.1435
-    this.buffer.push(line);
+    // Adjacent continuations, "really a syntax error" — l.1442-46.
+    // The gate at l.1444 is Ruby's and now ours: the SECOND `+` of a
+    // run is buffered, every later one is read and dropped. The third
+    // `+` renders nothing and reaches no block — `* a\n+\n+\n+\n` and
+    // `* a\n+\n+\n` are one document to the oracle — so buffering it
+    // only to print it back was carrying a byte with no meaning
+    // behind it, and it cost the run its fixed point: the printed run
+    // shrank by one `+` on every pass.
+    if (this.continuation !== "frozen") {
+      this.continuation = "frozen"; // l.1445
+      this.pushMarker(line);
+    }
     return true;
   }
 
   /**
-   * `continuation == :active && !this_line.empty?` (l.1472-99): a
+   * `continuation == :active && !this_line.empty?` (l.1483-1512): a
    * literal paragraph is slurped whole, metadata plays out, anything
    * else is the attached block and consumes the `+`.
    * @param line - the non-blank line under an active continuation
@@ -512,45 +695,46 @@ class ExtentScan {
     if (LITERAL_LINE.test(line.text)) {
       // "if we don't process it as a whole, then a line in it that
       // looks like a list item will throw off the exit from it" —
-      // l.1477-84 (l.1484 is the non-dlist read; the dlist one at
-      // l.1482 is out of scope).
+      // l.1486-95 (l.1495 is the non-dlist read; the dlist one at
+      // l.1493 is out of scope).
       this.index -= 1;
       this.slurpLiteral();
       this.continuation = "inactive";
       return;
     }
     if (isBlockMetadataLine(line.text)) {
-      this.buffer.push(line); // l.1488-90, continuation stays active
+      this.buffer.push(line); // l.1499-1501, continuation stays active
       return;
     }
-    if (isNestable(line.text)) this.withinNestedList = true; // l.1492-93
+    if (isNestable(line.text)) this.withinNestedList = true; // l.1503-04
     this.buffer.push(line);
-    this.continuation = "inactive"; // l.1500
+    this.continuation = "inactive"; // l.1511
   }
 
   /**
-   * `prev_line && prev_line.empty?` (l.1502-38): skip further blanks,
+   * `prev_line && prev_line.empty?` (l.1513-50): skip further blanks,
    * then only a detached `+`, a nestable marker or a literal paragraph
-   * keeps the item. `has_text` is always true outside dlists (l.1514);
-   * the greedy no-text arm (l.1540-45) is dlist-only and out of scope
+   * keeps the item. `has_text` is always true outside dlists (l.1525);
+   * the greedy no-text arm (l.1551-56) is dlist-only and out of scope
    * (#9).
    * @param first - the line that arrived after the blank
    * @returns whether the item ends here
    */
   private afterBlank(first: SourceLine): "stop" | "go" {
     const line = first.text === "" ? this.skipBlanks() : first;
-    if (line === undefined) return "stop"; // EOF, l.1506
+    if (line === undefined) return "stop"; // EOF, l.1517
     if (isContinuationLine(line.text)) {
       // A detached continuation "gets associated with the outermost
-      // block" — l.1408-10, 1511-12. The index is a SCALAR: a later
+      // block" — l.1417-19, 1522-24. The index is a SCALAR: a later
       // detached `+` overwrites it, which is why only the last one is
       // erased after the loop. `push` returns the new length, so the
       // pushed line's index is one less — Ruby's
       // `detached_continuation = buffer.size` then `buffer << line`.
-      this.detachedContinuation = this.buffer.push(line) - 1;
+      this.pushMarker(line);
+      this.detachedContinuation = this.buffer.length - 1;
       return "go";
     }
-    // l.1508 and l.1517-18 are one test here, not two: Ruby asks
+    // l.1519 and l.1528-29 are one test here, not two: Ruby asks
     // whether the line it just read is a sibling once for the
     // re-read-past-blanks path and once for the fall-through path, and
     // both arms unread the line and break. A `+` is not a sibling
@@ -560,24 +744,24 @@ class ExtentScan {
       return "stop";
     }
     if (isNestable(line.text)) {
-      this.buffer.push(line); // l.1519-21
+      this.buffer.push(line); // l.1530-32
       this.withinNestedList = true;
       return "go";
     }
     if (LITERAL_LINE.test(line.text)) {
       // "slurp up any literal paragraph offset by blank lines" —
-      // l.1528-34.
+      // l.1537-46.
       this.index -= 1;
       this.slurpLiteral();
       return "go";
     }
-    this.index -= 1; // break — l.1538; this_line unshifted at l.1560
+    this.index -= 1; // break — l.1549; this_line unshifted at l.1574
     return "stop";
   }
 
   /**
    * "Advance to the next line of content" — `skip_blank_lines` then
-   * `read_line` (l.1504-06). The blanks are consumed, not buffered.
+   * `read_line` (l.1515-17). The blanks are consumed, not buffered.
    * @returns the first non-blank line, read (the position is past it),
    *   or undefined at EOF — where Ruby's `!this_line` breaks
    */
@@ -588,14 +772,14 @@ class ExtentScan {
     ) {
       this.index += 1;
     }
-    if (this.index >= this.lines.length) return undefined; // EOF, l.1506
+    if (this.index >= this.lines.length) return undefined; // EOF, l.1517
     const line = this.lines[this.index];
     this.index += 1;
     return line;
   }
 
   /**
-   * The final else (l.1546-56): buffer the line; a nestable marker
+   * The final else (l.1560-70): buffer the line; a nestable marker
    * flips `within_nested_list`. Deliberately does NOT touch
    * `continuation` — that omission IS the one-blank budget: a blank
    * after a `+` lands here with the continuation still active, so the
@@ -603,13 +787,31 @@ class ExtentScan {
    * @param line - the line to buffer
    */
   private plainLine(line: SourceLine): void {
-    if (isNestable(line.text)) this.withinNestedList = true; // l.1548-49
+    // A `+` reaching the final else is Ruby's own `elsif
+    // ListContinuationMarker === this_line` arm (l.1557-59): the line
+    // was swapped for the marker instance at the top of the loop, so
+    // it goes in marked.
+    if (isContinuationLine(line.text)) {
+      this.pushMarker(line);
+      return;
+    }
+    if (isNestable(line.text)) this.withinNestedList = true; // l.1562-63
     this.buffer.push(line);
   }
 
   /**
+   * Buffer a `+` line AS a continuation marker — Ruby's
+   * `ListContinuationString` swap (l.1432). Only a line pushed here
+   * can be the one l.1580-81 pops; see {@link markedContinuation}.
+   * @param line - the `+` line
+   */
+  private pushMarker(line: SourceLine): void {
+    this.markedContinuation = this.buffer.push(line) - 1;
+  }
+
+  /**
    * `read_lines_until terminator: match.terminator, read_last_line:
-   * true` (l.1450): the whole block, delimiters included, goes into
+   * true` (l.1460): the whole block, delimiters included, goes into
    * the buffer and the continuation is consumed.
    * @param kind - which delimited block the current line opens
    */
@@ -620,12 +822,12 @@ class ExtentScan {
       this.buffer.push(this.lines[at]);
     }
     this.index = resume;
-    this.continuation = "inactive"; // l.1451
+    this.continuation = "inactive"; // l.1461
   }
 
   /**
    * `read_lines_until preserve_last_line: true, break_on_blank_lines:
-   * true, break_on_list_continuation: true` (l.1484/1535, the two
+   * true, break_on_list_continuation: true` (l.1495/1546, the two
    * non-dlist calls): the literal
    * paragraph runs until a blank line or a `+`, whichever comes first.
    */
@@ -656,55 +858,50 @@ class ExtentScan {
   }
 
   /**
-   * The post-loop cleanup (l.1560-77): erase the detached `+`, strip
+   * The post-loop cleanup (l.1574-89): erase the detached `+`, strip
    * trailing blanks, pop ONE trailing `+`.
    *
-   * The pop is reported so the printer can keep the byte (Ruling 23)
-   * — but ONLY where reprinting it is a FIXED POINT, because Ruby pops
-   * it either way (it attached nothing) and a reprinted `+` that
-   * re-reads differently arms or shrinks (review B1/B2). Two prints
-   * are fixed points:
-   *
-   * - the item's tail is a safe boundary ({@link boundarySafe}): the
-   *   printed `+` is followed by EOF, a sibling marker or an enclosing
-   *   terminator on the very next line, all of which pop it again;
-   * - the `+` directly above it also prints ({@link frozenRunKept}):
-   *   the pair re-reads as erase-head + pop-tail (or freeze), never as
-   *   a lone `+` that a following blank would ACTIVATE. This is what
-   *   keeps `* a\n+\n+\n+\n\npara\n` byte-stable while
-   *   `* a\n+\n+\n\npara\n` (whose erased first `+` is invisible — it
-   *   sits in no gap) must collapse to `* a\n\npara\n` in ONE pass.
-   *
-   * Everywhere else the byte must go — render-neutral, since it
-   * rendered nothing.
+   * The popped `+` is not reported anywhere, because nothing downstream
+   * may spend it: it attached nothing, Ruby drops it (l.1580-81) and it
+   * renders not one character. The line leaves the buffer here and the
+   * item's node has no place to put it, so a `+` an author left at an
+   * item's end simply does not come back — render-equal by the
+   * oracle's own arithmetic, and idempotent for free.
    * @returns the finished extent
    */
   private finish(): ItemExtent {
     if (this.detachedContinuation !== undefined) {
-      // Unconditional — no within_nested_list guard here (l.1562),
+      // Unconditional — no within_nested_list guard here (l.1576),
       // which is what hands a nested-list detached `+`'s block to the
       // OUTER item: the inner scan re-reads a blank where the `+` was.
       this.erase(this.detachedContinuation);
     }
-    const tailSafe = this.boundarySafe();
-    let trailing = false;
-    while (this.buffer.length > 0) {
-      const last = this.buffer.at(-1);
-      if (last?.text === "") {
-        this.buffer.pop(); // strip trailing blank lines, l.1567-69
+    let popped = false;
+    // The LINE is the loop's condition, not the buffer's length: an
+    // empty buffer and a missing last line are one fact, so spelling
+    // it once leaves nothing for the body to re-check.
+    for (
+      let last = this.buffer.at(-1);
+      last !== undefined;
+      last = this.buffer.at(-1)
+    ) {
+      if (last.text === "") {
+        this.buffer.pop(); // strip trailing blank lines, l.1583-85
         continue;
       }
-      if (last !== undefined && isContinuationLine(last.text)) {
-        this.buffer.pop(); // l.1571
-        trailing = tailSafe || this.frozenRunKept();
+      // l.1580-81, on the marker INSTANCE: a `+` the loop buffered as a
+      // continuation, never one a slurp carried in as block content.
+      if (this.buffer.length - 1 === this.markedContinuation) {
+        this.buffer.pop();
+        popped = true;
       }
       break;
     }
     return {
       buffer: this.buffer,
       end: this.index,
-      trailingContinuation: trailing,
-      tailSafe,
+      poppedContinuation: popped,
+      tailSafe: this.boundarySafe(),
     };
   }
 
@@ -716,9 +913,7 @@ class ExtentScan {
    * printers keep those adjacent) and pops the `+` again; any other
    * stopper reaches the output behind a blank line (joinBlocks),
    * above which a lone `+` erases and ARMS. At stream end the answer
-   * is the bounds' — EOF for the document reader, the enclosing
-   * item's own tail-safety for an item-confined one, and
-   * `closed || enclosing` for a compound interior (spec D2/D3).
+   * is the bounds'.
    * @returns true when the tail is a safe print boundary
    */
   private boundarySafe(): boolean {
@@ -726,24 +921,6 @@ class ExtentScan {
     return stop === undefined
       ? this.bounds.tailSafe
       : this.endsTheItem(stop.text);
-  }
-
-  /**
-   * Whether the popped `+` prints directly under ANOTHER printed `+`
-   * — the buffer's new last line is a frozen `+` the confined reader
-   * keeps as a raw-line block (D5). The pair re-reads as
-   * erase + freeze/pop, reproducing itself, so reporting the pop is a
-   * fixed point even at an unsafe tail. NOT trusted inside a nested
-   * list: there the buffer's tail is re-read by the INNER item's own
-   * scan, which may pop it in turn (dropping it from the output), and
-   * the reported `+` would print alone and arm.
-   * @returns true when the `+` above the popped one is this item's own
-   *   frozen raw line
-   */
-  private frozenRunKept(): boolean {
-    if (this.withinNestedList) return false;
-    const last = this.buffer.at(-1);
-    return last !== undefined && isContinuationLine(last.text);
   }
 }
 
@@ -759,8 +936,10 @@ class ExtentScan {
  * @param from - index of the first line after the item's marker line
  * @param trait - the trait siblings are matched by
  * @param bounds - the stream-end print-safety fact ({@link ExtentBounds})
- * @returns the buffer, the end index, the trailing-`+` flag and the
- *   item's own tail-safety
+ * @returns the buffer, the end index and the two `+` facts
+ * Exported for its unit test (tests/parser/item-extent.test.ts); no
+ * src consumer.
+ * @internal
  */
 export function itemExtent(
   lines: readonly SourceLine[],

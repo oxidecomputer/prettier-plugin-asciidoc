@@ -55,7 +55,7 @@ export function isArray(value: unknown): value is readonly unknown[] {
  * @param value - a candidate `position.start` / `position.end`
  * @returns whether it has the three numeric coordinates
  */
-export function isLocation(value: unknown): value is Location {
+function isLocation(value: unknown): value is Location {
   return (
     isRecord(value) &&
     typeof value.offset === "number" &&
@@ -84,7 +84,7 @@ export function isNode(value: unknown): value is AnyNode {
  * Every node in DOCUMENT ORDER (pre-order), parents before children.
  *
  * A generic `Object.entries` walk suffices for every node: a list
- * item's field order (`text` before `blocks`, spec D1) makes even the
+ * item's field order (`text` before `blocks`) makes even the
  * one node with two child arrays document-ordered by construction.
  *
  * Exported for `itemCount` in reader-helpers.ts, which counts

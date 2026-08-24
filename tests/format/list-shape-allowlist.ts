@@ -1,0 +1,243 @@
+/**
+ * The list-shape sweep's ALLOWLIST: every document in the sweep's
+ * alphabet that fails render-equality or idempotence TODAY, grouped by
+ * the MECHANISM that fails it and keyed to the tracker issue that owns
+ * the fix.
+ *
+ * The grouping is the point. A flat list of 158 strings is a number a
+ * reviewer can only watch go up or down; grouped, each block is one
+ * bug with one issue, and a shape that moves between blocks is a
+ * mechanism claim somebody has to defend. The equality gates read
+ * {@link FAILING_TODAY}, which is the four blocks concatenated, so the
+ * grouping cannot drift away from what is enforced.
+ *
+ * Every entry was classified by MEASUREMENT, not by shape: each was
+ * formatted twice and rendered on both sides, and the family is the
+ * mechanism that the byte and render deltas show. The families are
+ * four rather than the three the fix report named — the report's
+ * "reflowed paragraphs swallowing marker lines" turned out to be two
+ * unrelated faults (an inline span eating a line break, and a reflow
+ * join changing the block reading downstream of it), and they have
+ * separate issues because they have separate fixes.
+ *
+ * A shape LEAVING this file is progress and must be deliberate: the
+ * commit that fixes one of the four takes its block out and says so.
+ */
+
+/**
+ * **#55 — an inline span swallows the source line break inside its
+ * content.** Asciidoctor renders the break as whitespace; the span's
+ * content reaches our printer with the break already gone, so the
+ * rendered text changes. `"x\n** b\n** c\n"` prints `"x ** b** c\n"`
+ * where the oracle reads `x <strong> b </strong> c`. For the
+ * CONSTRAINED marks the span is spurious as well (the oracle needs a
+ * non-space after the opening mark and matches nothing) — the
+ * parse-side twin of #36.
+ */
+const INLINE_SPAN_SWALLOWS_LINE_BREAK: readonly string[] = [
+  "* a\n\n\npara\n* a\n* a\n",
+  "* a\n\n\npara\n** b\n** b\n",
+  "* a\n\n.T\n+\n* a\n* a\n",
+  "* a\n\n.T\n+\n** b\n** b\n",
+  "* a\n\n.T\npara\n* a\n* a\n",
+  "* a\n\n.T\npara\n** b\n** b\n",
+  "* a\n\n// c\n+\n* a\n* a\n",
+  "* a\n\n// c\n+\n** b\n** b\n",
+  "* a\n\n// c\npara\n* a\n* a\n",
+  "* a\n\n// c\npara\n** b\n** b\n",
+  "* a\n\n[[anc]]\n+\n* a\n* a\n",
+  "* a\n\n[[anc]]\n+\n** b\n** b\n",
+  "* a\n\n[[anc]]\npara\n* a\n* a\n",
+  "* a\n\n[[anc]]\npara\n** b\n** b\n",
+  "* a\n\n[role]\n+\n* a\n* a\n",
+  "* a\n\n[role]\n+\n** b\n** b\n",
+  "* a\n\n[role]\npara\n* a\n* a\n",
+  "* a\n\n[role]\npara\n** b\n** b\n",
+  "* a\n\npara\n  lit\n* a\n* a\n",
+  "* a\n\npara\n  lit\n** b\n** b\n",
+  "* a\n\npara\n* a\n  lit\n* a\n",
+  "* a\n\npara\n* a\n* a\n",
+  "* a\n\npara\n* a\n* a\n\n",
+  "* a\n\npara\n* a\n* a\n  lit\n",
+  "* a\n\npara\n* a\n* a\n* a\n",
+  "* a\n\npara\n* a\n* a\n** b\n",
+  "* a\n\npara\n* a\n* a\n+\n",
+  "* a\n\npara\n* a\n* a\n.T\n",
+  "* a\n\npara\n* a\n* a\n// c\n",
+  "* a\n\npara\n* a\n* a\n[[anc]]\n",
+  "* a\n\npara\n* a\n* a\n[role]\n",
+  "* a\n\npara\n* a\n* a\npara\n",
+  "* a\n\npara\n* a\n** b\n* a\n",
+  "* a\n\npara\n* a\n** b\n** b\n",
+  "* a\n\npara\n* a\n.T\n* a\n",
+  "* a\n\npara\n* a\n// c\n* a\n",
+  "* a\n\npara\n* a\npara\n* a\n",
+  "* a\n\npara\n** b\n  lit\n** b\n",
+  "* a\n\npara\n** b\n* a\n* a\n",
+  "* a\n\npara\n** b\n* a\n** b\n",
+  "* a\n\npara\n** b\n** b\n",
+  "* a\n\npara\n** b\n** b\n\n",
+  "* a\n\npara\n** b\n** b\n  lit\n",
+  "* a\n\npara\n** b\n** b\n* a\n",
+  "* a\n\npara\n** b\n** b\n** b\n",
+  "* a\n\npara\n** b\n** b\n+\n",
+  "* a\n\npara\n** b\n** b\n.T\n",
+  "* a\n\npara\n** b\n** b\n// c\n",
+  "* a\n\npara\n** b\n** b\n[[anc]]\n",
+  "* a\n\npara\n** b\n** b\n[role]\n",
+  "* a\n\npara\n** b\n** b\npara\n",
+  "* a\n\npara\n** b\n.T\n** b\n",
+  "* a\n\npara\n** b\n// c\n** b\n",
+  "* a\n\npara\n** b\npara\n** b\n",
+  "* a\n\npara\n+\n* a\n* a\n",
+  "* a\n\npara\n+\n** b\n** b\n",
+  "* a\n\npara\n.T\n* a\n* a\n",
+  "* a\n\npara\n.T\n** b\n** b\n",
+  "* a\n\npara\n// c\n* a\n* a\n",
+  "* a\n\npara\n// c\n** b\n** b\n",
+  "* a\n\npara\npara\n* a\n* a\n",
+  "* a\n\npara\npara\n** b\n** b\n",
+  "* a\n  lit\n\npara\n* a\n* a\n",
+  "* a\n  lit\n\npara\n** b\n** b\n",
+  "* a\n* a\n\npara\n* a\n* a\n",
+  "* a\n* a\n\npara\n** b\n** b\n",
+  "* a\n** b\n\npara\n* a\n* a\n",
+  "* a\n** b\n\npara\n** b\n** b\n",
+  "* a\n.T\n\npara\n* a\n* a\n",
+  "* a\n.T\n\npara\n** b\n** b\n",
+  "* a\n// c\n\npara\n* a\n* a\n",
+  "* a\n// c\n\npara\n** b\n** b\n",
+  "* a\n[[anc]]\n\npara\n* a\n* a\n",
+  "* a\n[[anc]]\n\npara\n** b\n** b\n",
+  "* a\n[role]\n\npara\n* a\n* a\n",
+  "* a\n[role]\n\npara\n** b\n** b\n",
+  "* a\npara\n\npara\n* a\n* a\n",
+  "* a\npara\n\npara\n** b\n** b\n",
+];
+
+/**
+ * **#56 — a `+` run the oracle folds into a paragraph is erased as
+ * continuation markers.** `read_lines_for_list_item` pops only the
+ * LAST buffered continuation (parser.rb l.1580-81), so a run leaves
+ * prose behind; we erase the whole run and the attached paragraph
+ * goes with it. Not a fixed point either: one `+` per pass. The
+ * blank-run shapes belong here from the other side — a blank RUN
+ * under a `+` erases the continuation, so collapsing the run
+ * re-attaches a paragraph the source left detached.
+ */
+const PLUS_RUN_ERASED: readonly string[] = [
+  "* a\n\n+\n+\n\n+\n",
+  "* a\n  lit\n+\n+\n\n+\n",
+  "* a\n* a\n+\n+\n\n+\n",
+  "* a\n** b\n\n+\n+\n** b\n",
+  "* a\n+\n+\n\n\n+\n",
+  "* a\n+\n+\n\n+\n",
+  "* a\n+\n+\n\n+\n\n",
+  "* a\n+\n+\n\n+\n* a\n",
+  "* a\n+\n+\n\n+\n+\n",
+  "* a\n+\n+\n** b\n\n** b\n",
+  "* a\n+\n+\n+\n\n+\n",
+  "* a\n+\n.T\n\n\npara\n",
+  "* a\n+\n[[anc]]\n\n\npara\n",
+  "* a\n+\n[role]\n\n\npara\n",
+  "* a\n.T\n+\n+\n\n+\n",
+  "* a\n// c\n+\n+\n\n+\n",
+  "* a\n[[anc]]\n+\n+\n\n+\n",
+  "* a\n[role]\n+\n+\n\n+\n",
+  "* a\npara\n+\n+\n\n+\n",
+];
+
+/**
+ * **#54 — the literal slurp's re-shape.** An indented literal tail
+ * and what follows it re-read differently once printed:
+ * `printedGap`'s slurp arm invents a blank that detaches the nested
+ * list behind the tail, or removes the slurp that swallowed the next
+ * marker line. The largest family after #55.
+ */
+const LITERAL_SLURP_RESHAPE: readonly string[] = [
+  "* a\n\n  lit\n[[anc]]\n** b\n* a\n",
+  "* a\n\n  lit\n[role]\n** b\n* a\n",
+  "* a\n  lit\n// c\n\n  lit\n* a\n",
+  "* a\n  lit\n// c\n\n  lit\n** b\n",
+  "* a\n  lit\n// c\n+\n  lit\n* a\n",
+  "* a\n  lit\n// c\n+\n  lit\n** b\n",
+  "* a\n  lit\n// c\n+\n+\n** b\n",
+  "* a\n  lit\n// c\n+\npara\n** b\n",
+  "* a\n  lit\n[[anc]]\npara\n[[anc]]\n  lit\n",
+  "* a\n  lit\n[role]\npara\n[[anc]]\n  lit\n",
+  "* a\n* a\n[role]\npara\n[[anc]]\n  lit\n",
+  "* a\n** b\n\n  lit\n[[anc]]\n* a\n",
+  "* a\n** b\n\n  lit\n[role]\n* a\n",
+  "* a\n** b\n+\n  lit\n[[anc]]\n* a\n",
+  "* a\n** b\n+\n  lit\n[role]\n* a\n",
+  "* a\n** b\n[role]\npara\n[[anc]]\n  lit\n",
+  "* a\n+\n  lit\n[[anc]]\n** b\n* a\n",
+  "* a\n+\n  lit\n[role]\n** b\n* a\n",
+  "* a\n+\n+\n  lit\n+\n** b\n",
+  "* a\n+\n+\n** b\n[[anc]]\n  lit\n",
+  "* a\n.T\n// c\n\n  lit\n* a\n",
+  "* a\n.T\n// c\n\n  lit\n** b\n",
+  "* a\n.T\n// c\n+\n  lit\n* a\n",
+  "* a\n.T\n// c\n+\n  lit\n** b\n",
+  "* a\n.T\n[[anc]]\npara\n[[anc]]\n  lit\n",
+  "* a\n.T\n[role]\npara\n[[anc]]\n  lit\n",
+  "* a\n// c\n[[anc]]\npara\n[[anc]]\n  lit\n",
+  "* a\n// c\n[role]\npara\n[[anc]]\n  lit\n",
+  "* a\n[[anc]]\n[[anc]]\npara\n[[anc]]\n  lit\n",
+  "* a\n[[anc]]\n[role]\npara\n[[anc]]\n  lit\n",
+  "* a\n[role]\n.T\npara\n[[anc]]\n  lit\n",
+  "* a\n[role]\n// c\npara\n[[anc]]\n  lit\n",
+  "* a\n[role]\n[[anc]]\npara\n[[anc]]\n  lit\n",
+  "* a\n[role]\n[role]\npara\n[[anc]]\n  lit\n",
+  "* a\n[role]\npara\n  lit\n[[anc]]\n  lit\n",
+  "* a\n[role]\npara\n.T\n[[anc]]\n  lit\n",
+  "* a\n[role]\npara\n[[anc]]\n  lit\n",
+  "* a\n[role]\npara\n[[anc]]\n  lit\n\n",
+  "* a\n[role]\npara\n[[anc]]\n  lit\n  lit\n",
+  "* a\n[role]\npara\n[[anc]]\n  lit\n* a\n",
+  "* a\n[role]\npara\n[[anc]]\n  lit\n** b\n",
+  "* a\n[role]\npara\n[[anc]]\n  lit\n+\n",
+  "* a\n[role]\npara\n[[anc]]\n  lit\n.T\n",
+  "* a\n[role]\npara\n[[anc]]\n  lit\n// c\n",
+  "* a\n[role]\npara\n[[anc]]\n  lit\n[[anc]]\n",
+  "* a\n[role]\npara\n[[anc]]\n  lit\n[role]\n",
+  "* a\n[role]\npara\n[[anc]]\n  lit\npara\n",
+  "* a\n[role]\npara\n[[anc]]\n.T\n  lit\n",
+  "* a\n[role]\npara\n[[anc]]\n// c\n  lit\n",
+  "* a\n[role]\npara\npara\n[[anc]]\n  lit\n",
+  "* a\npara\n// c\n\n  lit\n* a\n",
+  "* a\npara\n// c\n\n  lit\n** b\n",
+  "* a\npara\n// c\n+\n  lit\n* a\n",
+  "* a\npara\n// c\n+\n  lit\n** b\n",
+  "* a\npara\n[[anc]]\npara\n[[anc]]\n  lit\n",
+  "* a\npara\n[role]\npara\n[[anc]]\n  lit\n",
+];
+
+/**
+ * **#57 — a reflow join changes how the lines AFTER it are read.**
+ * Two faces: the item's principal text joined across its source break
+ * changes the oracle's reading of the `+`-attached block below it,
+ * and a `.T` block-title line reflowed onto the paragraph it titles
+ * destroys that paragraph outright.
+ */
+const REFLOW_JOIN_CHANGES_READING: readonly string[] = [
+  "* a\n.T\n// c\n+\n+\n** b\n",
+  "* a\n.T\n// c\n+\npara\n** b\n",
+  "* a\n[role]\npara\n[[anc]]\n.T\npara\n",
+  "* a\npara\n// c\n+\n+\n** b\n",
+  "* a\npara\n// c\n+\npara\n** b\n",
+];
+
+/**
+ * The four families, flat — what the sweeps assert set-equality
+ * against. The deep entry compares its whole failing set to this;
+ * the default entry compares against this filtered to the documents
+ * its shallower product actually spells (`allowlistFor`, in
+ * `list-shape-sweep.ts`).
+ */
+export const FAILING_TODAY: readonly string[] = [
+  ...INLINE_SPAN_SWALLOWS_LINE_BREAK,
+  ...PLUS_RUN_ERASED,
+  ...LITERAL_SLURP_RESHAPE,
+  ...REFLOW_JOIN_CHANGES_READING,
+];

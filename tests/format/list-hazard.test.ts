@@ -5,11 +5,14 @@
  * and `"none"` (replay the gap verbatim). There is no third answer,
  * because the printer never invents a continuation line. The rows
  * below mirror tests/format/list-item-blocks.test.ts and
- * list-continuation.test.ts, which pin the same facts as bytes.
+ * list-continuation.test.ts, which pin the same facts as bytes. The
+ * sufficiency argument for the two answers is stated once, in
+ * src/print/list-hazard.ts's module comment; it is not re-derived
+ * here or in those suites.
  */
 import { describe, expect, test } from "vitest";
 import type { ListItemNode } from "../../src/ast.js";
-import { hazard } from "../../src/print-list-hazard.js";
+import { hazard } from "../../src/print/list-hazard.js";
 import { parse } from "../../src/parser.js";
 
 /**
@@ -31,13 +34,13 @@ function firstItem(source: string): ListItemNode {
 describe("hazard", () => {
   test.each([
     // Single-line text: metadata on the first rest line reads as
-    // metadata after reflow too — keep the spelling (Ruling 26's
-    // "more than one line" clause; pinned: "metadata and its block").
+    // metadata after reflow too — keep the spelling (the "more than
+    // one line" clause; pinned: "metadata and its block").
     ["* a\n[role]\npara\n", "none"],
     // Multi-line text, metadata run, block follows: hold the text's
     // last break, so a TEXT line lands on the first rest line and the
     // re-reader's drain meets the run where the author wrote it
-    // (Rulings 26/27; pinned by the list-continuation suite).
+    // (pinned by the list-continuation suite).
     ["* a\nb\n[role]\npara\n", "keepBreak"],
     ["* a\nb\n[[anc]]\npara\n", "keepBreak"],
     ["* a\nb\n[role]\n.T\npara\n", "keepBreak"],
@@ -50,12 +53,12 @@ describe("hazard", () => {
     // astShape = item(t / t / t), formatAdoc → "* a b .T\n".
     ["* a\nb\n.T\n", "none"],
     // Trailing run carrying a block title: keep the text's last break
-    // (Rulings 28/29/30; pinned at list-item-blocks "single-line item
+    // (pinned at list-item-blocks "single-line item
     // text is untouched" / the `.T` re-parse rows).
     ["* a\nb\n[role]\n.T\n", "keepBreak"],
     ["* a\n  para\n[role]\n.T\n", "keepBreak"],
     // The listing does NOT enter the item (continuation is :inactive
-    // at the `----` line, so l.1445-46 breaks the extent): the run is
+    // at the `----` line, so l.1455-56 breaks the extent): the run is
     // TRAILING and carries a title → keepBreak.
     ["* a\nb\n[role]\n.T\n----\nx\n----\n", "keepBreak"],
     // An AUTHOR-written `+` ends the run: the run's members must each
@@ -74,13 +77,13 @@ describe("hazard", () => {
     // same way — one rule, no special case.
     ["* a\npara\n[role]\n+\npara\n", "keepBreak"],
     // A `+`-separated line COMMENT is transparent to the follows
-    // count (Ruling 64), so nothing follows the run and the run
+    // count, so nothing follows the run and the run
     // carries no title: no compensation.
     ["* a\npara\n[role]\n+\n// c\n", "none"],
     // …but a `////` comment BLOCK is not transparent:
     // `skip_line_comments` skips `//` LINES only, so the block is a
-    // block of the item that follows the run (found by the plan's
-    // mutation pass — the mutants that let a comment block through
+    // block of the item that follows the run (found by a mutation
+    // pass — the mutants that let a comment block through
     // here changed real bytes and were killed by no test; also pinned
     // as bytes at list-item-blocks "a comment BLOCK behind the run").
     ["* a\npara\n[role]\n+\n////\nc\n////\n", "keepBreak"],

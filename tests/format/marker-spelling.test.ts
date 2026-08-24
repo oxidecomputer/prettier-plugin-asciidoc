@@ -6,12 +6,15 @@
  * author genuinely wrote with the SAME marker can still nest, because
  * an item's read runs through an indented literal and its metadata,
  * and such a pair must print ADJACENT or the re-read turns it into
- * siblings. The gP names in row comments are opaque probe ids.
+ * siblings. The fourth reads that same fact backwards: where the read
+ * runs that far, two SIBLINGS need a blank between them, and the
+ * printer derives it. The gP names in row comments are opaque probe
+ * ids.
  */
 import { describe, expect, test } from "vitest";
 import { formatAdoc, renderedHtml } from "../helpers.js";
 
-describe("g3-nesting-fidelity: the oracle reads the output nested where it read the input nested", () => {
+describe("nesting-fidelity: the oracle reads the output nested where it read the input nested", () => {
   // Corruption fixes — proof: head output vs the ORIGINAL INPUT (the
   // base flattened all four).
   test.each([
@@ -30,12 +33,12 @@ describe("g3-nesting-fidelity: the oracle reads the output nested where it read 
   ])("%s", async (_name, input, expected) => {
     const out = await formatAdoc(input);
     expect(out).toBe(expected);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });
 });
 
-describe("g3-marker-spelling: author spellings replay render-neutrally", () => {
+describe("marker-spelling: author spellings replay render-neutrally", () => {
   test.each([
     ["gP9 dash list", "- a\n- b\n", "- a\n- b\n"],
     ["star list", "* a\n* b\n", "* a\n* b\n"],
@@ -46,7 +49,7 @@ describe("g3-marker-spelling: author spellings replay render-neutrally", () => {
   ])("%s round-trips byte for byte", async (_name, input, expected) => {
     const out = await formatAdoc(input);
     expect(out).toBe(expected);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });
 });
@@ -75,18 +78,137 @@ describe("a nested list that SHARES its parent's marker prints adjacent", () => 
   ])("%s", async (_name, input) => {
     const out = await formatAdoc(input);
     expect(out).toBe(input);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+});
+
+describe("a sibling boundary the re-read would swallow gets its blank", () => {
+  // The mirror image of the describe above, and the same Ruby fact
+  // read the other way (`read_lines_for_list_item`, parser.rb l.1404–
+  // 1592): a marker line ends the previous item only if the reader's
+  // loop SEES it (:1430, :1519), and a literal's slurp (:1488, :1539)
+  // hands it lines the loop never sees. Where the previous item's tail
+  // slurps that far, "sibling" is spelled with a blank line — so the
+  // printer writes one. These inputs are the oracle's TWO SIBLINGS;
+  // the row that used to stand here pinned the byte-for-byte
+  // corruption (issue #52), where the printed adjacency re-read as
+  // parent-and-child.
+  test.each([
+    ["metadata behind the literal (#52)", "* a\n\n  lit\n[[anc]]\n\n* a\n"],
+    ["an attrlist behind the literal", "* a\n\n  lit\n[role]\n\n* b\n"],
+    [
+      "a comment and an anchor behind it",
+      "* a\n\n  lit\n[[anc]]\n// c\n\n* b\n",
+    ],
+    [
+      "a delimited block behind the literal",
+      "* a\n\n  lit\n----\nx\n----\n\n* b\n",
+    ],
+    [
+      "an adjacent same-marker twin between the literal and the boundary",
+      "* a\n\n  lit\n[[anc]]\n* a\n\n* c\n",
+    ],
+    [
+      "the literal at the tail of a nested chain",
+      "* a\n** b\n*** c\n\n    lit\n[[anc]]\n\n* d\n",
+    ],
+    [
+      "a boundary between two NESTED siblings",
+      "* a\n** b\n\n   lit\n[[anc]]\n\n** c\n",
+    ],
+    ["an ordered list", ". a\n\n  lit\n[[anc]]\n\n. b\n"],
+    ["a callout list", "<1> a\n\n  lit\n[[anc]]\n\n<2> b\n"],
+    ["a dash list", "- a\n\n  lit\n[[anc]]\n\n- b\n"],
+    ["a checklist", "* [x] a\n\n  lit\n[[anc]]\n\n* [ ] b\n"],
+    [
+      "both boundaries of a three-item list",
+      "* a\n\n  lit\n[[anc]]\n\n* b\n\n  lit2\n[[anc2]]\n\n* c\n",
+    ],
+    // A metadata line does not end a LIVE continuation (parser.rb
+    // :1499), so the literal behind one still slurps and the blank is
+    // still load-bearing — which is why the walk cannot ask whether
+    // the literal's own gap is empty.
+    [
+      "a literal behind metadata under a live `+`",
+      "* a\n+\n[role]\n  lit\n\n* b\n",
+    ],
+  ])("%s", async (_name, input) => {
+    const out = await formatAdoc(input);
+    expect(out).toBe(input);
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });
 
-  // The arm replays only a LIVE `+` gap; any other gap — here a
-  // blank — is dropped so the nested reading survives the re-read.
-  // The dropped-blank spelling is the recorded sibling-fidelity loss
-  // (the oracle reads the INPUT as two siblings), so there is no
-  // render assert: this row pins bytes and idempotence only.
-  test("a blank gap before the same-marker twin is dropped", async () => {
-    const out = await formatAdoc("* a\n\n  lit\n[[anc]]\n\n* a\n");
-    expect(out).toBe("* a\n\n  lit\n[[anc]]\n* a\n");
+  // DERIVED, not replayed: the printer decides the blank from the tree
+  // it holds, so an authored blank RUN comes back as the one blank the
+  // boundary needs.
+  test("a blank run at a swallowing boundary prints as one blank", async () => {
+    const input = "* a\n\n  lit\n[[anc]]\n\n\n* b\n";
+    const out = await formatAdoc(input);
+    expect(out).toBe("* a\n\n  lit\n[[anc]]\n\n* b\n");
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+
+  // The CONSERVATIVE side of the question, pinned as the cost it is:
+  // an indented block the reader recorded as a literal but Asciidoctor
+  // folds into the item's text takes a blank it does not need. Bytes
+  // move, meaning does not — and the walk cannot tell the two apart
+  // without deciding, per block, whether a continuation is still live.
+  test("a literal the oracle folds into text still takes the blank", async () => {
+    const input = "* a\n[role]\n  lit\n[[anc]]\n* b\n";
+    const out = await formatAdoc(input);
+    expect(out).toBe("* a\n[role]\n  lit\n[[anc]]\n\n* b\n");
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+
+  // The other direction, and the negative controls: where the tail is
+  // harmless the boundary stays ADJACENT, whatever the author typed.
+  // A blank invented here would be noise at best — and after a `+`
+  // it would erase the continuation.
+  test.each([
+    ["plain siblings", "* a\n\n* b\n", "* a\n* b\n"],
+    [
+      "a literal cut off by a `+` gap",
+      "* a\n\n  lit\n+\npara\n\n* b\n",
+      "* a\n\n  lit\n+\npara\n* b\n",
+    ],
+    [
+      "a literal cut off by the printer's own blank",
+      "* a\n\n  lit\n[role]\n** b\n\n* a\n",
+      "* a\n\n  lit\n[role]\n\n** b\n* a\n",
+    ],
+    [
+      "a literal behind an authored blank",
+      "* a\n\n  lit\n\n** b\n\n* c\n",
+      "* a\n\n  lit\n\n** b\n* c\n",
+    ],
+    [
+      "a nested list of its own spelling",
+      "* a\n** b\n\n* c\n",
+      "* a\n** b\n* c\n",
+    ],
+    [
+      "metadata behind a `+`-attached block",
+      "* a\n+\n----\nx\n----\n[[anc]]\n\n* b\n",
+      "* a\n+\n----\nx\n----\n[[anc]]\n* b\n",
+    ],
+    // The `+` an author left between a slurped literal and the next
+    // marker is not a no-op: the literal's re-read carries it into the
+    // `<pre>`. It is printed back, and the boundary takes no blank —
+    // the `+` already stops the slurp, and a blank would put a line
+    // between the tail and the `+` the source never had.
+    [
+      "an item ending on a trailing continuation",
+      "* a\n\n  lit\n+\n* b\n",
+      "* a\n\n  lit\n+\n* b\n",
+    ],
+  ])("%s stays adjacent", async (_name, input, expected) => {
+    const out = await formatAdoc(input);
+    expect(out).toBe(expected);
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });
 });

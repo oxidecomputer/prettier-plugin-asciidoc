@@ -16,21 +16,28 @@
  * mutates `.git`. Unlike `scripts/metrics.ts`, the base copy DOES
  * need `bun install --frozen-lockfile`: it runs the baseline's own
  * parser, and a baseline may have runtime dependencies this revision
- * does not (every baseline before plan 3 imports chevrotain).
+ * does not (every baseline before c331bfbd, which dropped
+ * Chevrotain, imports chevrotain).
  *
  * The comparison travels as hashes (a full AST dump of 1,600
  * documents is hundreds of megabytes); a mismatching case is then
  * re-run in both checkouts to print the actual difference.
+ *
+ * Exit codes (`scripts/lib/cli.ts`): 0 identical, 1 a case DIFFERS,
+ * 2 the harness could not run — a bad argument, an unknown `--base`,
+ * or a corpus that did not load (the {@link floorComplaint} floor).
  */
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { CHILD_MAX_BUFFER, materialize } from "./lib/checkout.js";
+import { cannotRun, GATE_FAILED, printUsage, wantsHelp } from "./lib/cli.js";
 import {
-  GAMMA_FAMILIES,
-  foldPlanAlphaShapes,
-  foldPlanBetaShapes,
-  foldPlanGammaShapes,
+  LEDGER_FAMILIES,
+  foldAnchorAndAdmonitionShapes,
+  foldAttributeEntryUnset,
+  foldSectionAndHeadingShapes,
+  foldMarkerAndReftextShapes,
   loadExpectedDiffs,
   parseArguments,
   reportExpectedDiffs,
@@ -43,15 +50,26 @@ import {
 // counted lines this file has no room for (max-lines 450). The
 // brief also asked for `type FamilySets` here; nothing imports it
 // from this module, and this is the file with zero headroom, so it
-// is not re-exported (review m5) — `scripts/parity-ledger.js`
+// is not re-exported — `scripts/parity-ledger.js`
 // exports it directly for whoever needs it.
 export { expectedDiffFailures, parseArguments } from "./parity-ledger.js";
-export { GAMMA_FAMILIES } from "./parity-ledger.js";
+export { LEDGER_FAMILIES } from "./parity-ledger.js";
 export type { ExpectedDiff } from "./parity-ledger.js";
 
 const ARGUMENT_START = 2;
-const FAILURE = 1;
-const MAX_BUFFER = 268_435_456;
+
+/** What `--help` prints. */
+const USAGE = `usage: bun run parity --base <rev> [options]
+
+  --base <rev>              the baseline revision to compare against
+  --limit <n>               how many differing cases to detail (default 20)
+  --formatted-ledger        list formatted-only differences instead of
+                            failing on them; the AST alone gates
+  --expected-diffs <file>   run the ledger gate over that JSON ledger
+  --allow-parent-block-end  blank forced-closed parentBlock ends on both sides
+  --help                    this text
+
+exit: 0 identical, 1 a case differs, 2 could not run`;
 // `no-magic-numbers` is on outside tests; both of these are ordinary
 // array and line-number bookkeeping.
 const ZERO = 0;
@@ -66,9 +84,9 @@ const ONE = 1;
  * when one of them really moved; tests/scripts/parity.test.ts fails
  * when the real corpus no longer clears it. (It was 1,633 while the
  * vendored TCK's 13 `*-input.adoc` documents were a corpus group;
- * Ruling 43 deleted them.) A wrong cwd, a `vendor/` change or a loader
+ * that group is gone.) A wrong cwd, a `vendor/` change or a loader
  * regression makes both sides return zero rows, and without this the
- * plan's central gate passes silently on nothing.
+ * parity gate passes silently on nothing.
  */
 const MINIMUM_CASES = 1620;
 
@@ -260,10 +278,10 @@ function normalizeOneItem(_key: string, value: unknown): unknown {
  * `blankParentBlockEnds` as the exported surface.
  *
  * The parentBlock allowlist is the ONE enumerated AST difference
- * (Ruling 39) — a forced-closed parentBlock's end position — AND its
+ * — a forced-closed parentBlock's end position — AND its
  * propagation into list-item and list ends, which are DEFINED as their
  * last block's end rather than read off the source, so they move with
- * it (Ruling 54).
+ * it.
  *
  * That predicate is deliberately WIDER than that sentence: it blanks
  * EVERY `parentBlock` end, terminated ones included. It has to be — the
@@ -278,7 +296,7 @@ function normalizeOneItem(_key: string, value: unknown): unknown {
  * Both checkouts blank the same fields, so those fields stop being
  * compared and NOTHING else changes: a list item whose last block is
  * not a blanked parentBlock keeps its end under comparison. Never add
- * a second entry here without an owner ruling.
+ * a second entry here without the maintainer's agreement.
  *
  * A `JSON.parse` reviver, so the walk is the same one that produced
  * the string we hash: it visits every value, in any shape, and the
@@ -288,21 +306,22 @@ function normalizeOneItem(_key: string, value: unknown): unknown {
  * detected: a child is already `"<allowed>"` when its container is
  * visited.
  *
- * This function, `foldPlanAlphaShapes`, `foldPlanBetaShapes`,
- * `foldPlanGammaShapes`, `normalizeOneItem`, `blankOneEnd`,
+ * This function, `foldAnchorAndAdmonitionShapes`, `foldSectionAndHeadingShapes`,
+ * `foldMarkerAndReftextShapes`, `foldAttributeEntryUnset`,
+ * `normalizeOneItem`, `blankOneEnd`,
  * `derivedEnd`, `endSource`, `startOffset`, `isUnknownArray` and
  * `isRecordLike` are
  * SELF-CONTAINED on purpose: their source is embedded into the dumper
  * below with `Function.prototype.toString()`, so the comparison and
  * its test share one implementation instead of two copies that can
- * drift. A reference to anything outside these eleven bodies would
- * compile here and crash inside the baseline checkout. All three fold
- * bodies now live in `scripts/parity-ledger.ts` (plan ruling PR-6);
+ * drift. A reference to anything outside these twelve bodies would
+ * compile here and crash inside the baseline checkout. All four fold
+ * bodies now live in `scripts/parity-ledger.ts`;
  * `.toString()` embeds a body regardless of the module that defines
  * it, so the rule is unchanged.
  * @param tree - a parsed AST
  * @param allowParentBlockEnd - whether to blank forced-closed
- *   parentBlock ends (Ruling 39/54)
+ *   parentBlock ends
  * @returns a COPY, canonicalized
  */
 export function normalizeTree(
@@ -310,14 +329,16 @@ export function normalizeTree(
   allowParentBlockEnd: boolean,
 ): unknown {
   const normalized: unknown = JSON.parse(JSON.stringify(tree), (key, value) => {
-    // The gamma fold runs FIRST: `foldPlanAlphaShapes` rewrites a `blockAnchor`
-    // into a FRESH paragraph/inlineAnchor pair, and a fresh object is
-    // never revisited by the reviver — folding after it would leave
-    // that pair's reftext unfolded and surface as an AST difference.
-    const replayed = foldPlanGammaShapes(key, value);
-    const shaped = foldPlanAlphaShapes(key, replayed);
-    const flattened = foldPlanBetaShapes(key, shaped);
-    const folded = normalizeOneItem(key, flattened);
+    // The marker/reftext fold runs FIRST:
+    // `foldAnchorAndAdmonitionShapes` rewrites a `blockAnchor` into a
+    // FRESH paragraph/inlineAnchor pair, and a fresh object is never
+    // revisited by the reviver — folding after it would leave that
+    // pair's reftext unfolded and surface as an AST difference.
+    const replayed = foldMarkerAndReftextShapes(key, value);
+    const shaped = foldAnchorAndAdmonitionShapes(key, replayed);
+    const flattened = foldSectionAndHeadingShapes(key, shaped);
+    const entry = foldAttributeEntryUnset(key, flattened);
+    const folded = normalizeOneItem(key, entry);
     return allowParentBlockEnd ? blankOneEnd(key, folded) : folded;
   });
   return normalized;
@@ -325,7 +346,7 @@ export function normalizeTree(
 
 // The dumper is written into BOTH checkouts, so it can only use what
 // the baseline already has: the corpus loader, the format fixtures,
-// `formatAdoc` and `parse`, plus the eleven functions embedded
+// `formatAdoc` and `parse`, plus the twelve functions embedded
 // verbatim below. It prints one JSON line per case, then one timing
 // line.
 const DUMPER = String.raw`
@@ -344,9 +365,10 @@ ${endSource.toString()}
 ${derivedEnd.toString()}
 ${blankOneEnd.toString()}
 ${normalizeOneItem.toString()}
-${foldPlanAlphaShapes.toString()}
-${foldPlanBetaShapes.toString()}
-${foldPlanGammaShapes.toString()}
+${foldAnchorAndAdmonitionShapes.toString()}
+${foldSectionAndHeadingShapes.toString()}
+${foldMarkerAndReftextShapes.toString()}
+${foldAttributeEntryUnset.toString()}
 ${normalizeTree.toString()}
 const cases = loadCorpus().flatMap((group) => group.cases);
 const FIXTURES = "tests/format/fixtures/identity";
@@ -357,7 +379,7 @@ for (const name of readdirSync(FIXTURES).toSorted()) {
   });
 }
 const digest = (text) => createHash("sha256").update(text).digest("hex");
-// Only the FORMAT calls are timed (Ruling 44's report-only row).
+// Only the FORMAT calls are timed, for the report-only timing row.
 // formatAdoc parses AND prints, which is what the row is about; the
 // second parse below exists only to dump the AST, and the digesting
 // and I/O around both are the harness's own cost, not the formatter's.
@@ -443,42 +465,6 @@ export function isTiming(value: unknown): value is Timing {
 }
 
 /**
- * Materialize a revision and install its dependencies.
- * @param revision - anything `git archive` accepts
- * @returns the temp directory holding the installed checkout
- */
-function materialize(revision: string): string {
-  const directory = realpathSync(
-    mkdtempSync(path.join(tmpdir(), "parity-base-")),
-  );
-  const archive = path.join(directory, "revision.tar");
-  try {
-    execFileSync(
-      "git",
-      ["archive", "--format=tar", "--output", archive, revision],
-      {
-        maxBuffer: MAX_BUFFER,
-      },
-    );
-    execFileSync("tar", ["-xf", archive, "-C", directory]);
-    rmSync(archive, { force: true });
-    execFileSync("bun", ["install", "--frozen-lockfile"], {
-      cwd: directory,
-      maxBuffer: MAX_BUFFER,
-      stdio: ["ignore", "ignore", "inherit"],
-    });
-  } catch (error) {
-    // An unknown revision or a failed install must not leave a
-    // half-populated checkout behind: the caller never learns the
-    // path when this throws, so nothing else can clean it up. The
-    // caller's own `finally` only covers a directory it was handed.
-    rmSync(directory, { recursive: true, force: true });
-    throw error;
-  }
-  return directory;
-}
-
-/**
  * Write the dumper into a checkout, run it, and delete it again.
  * @param root - the checkout to run in
  * @param script - where to write the dumper
@@ -497,7 +483,7 @@ function runDumper(
     return execFileSync(
       "bun",
       [script, only ?? "-", allow ? "allow-parent-block-end" : ""],
-      { cwd: root, encoding: "utf8", maxBuffer: MAX_BUFFER },
+      { cwd: root, encoding: "utf8", maxBuffer: CHILD_MAX_BUFFER },
     );
   } finally {
     // The dumper is written INTO the checkout it runs in, so when it
@@ -581,7 +567,7 @@ export function describeDifference(
  * `ast` is in head order with the base-only ids appended; `formatted`
  * is in head order and never receives a base-only id.
  * Exported for tests/scripts/parity.test.ts: this is the function that
- * decides the plan's central gate, and every way it could wrongly
+ * decides the parity gate, and every way it could wrongly
  * return empty lists is a silent pass.
  * @param base - the baseline's rows
  * @param head - this checkout's rows
@@ -716,7 +702,7 @@ function report(options: {
     allowParentBlockEnd,
     formattedLedger,
   } = options;
-  // Report-only (Ruling 44). Printed on every run, pass or fail, so a
+  // Report-only timing. Printed on every run, pass or fail, so a
   // slowdown is visible in the same output the gate is read from.
   process.stdout.write(
     `parity: formatted ${String(base.size)} inputs in ${String(baseMs)} ms (base ${revision})\n`,
@@ -726,8 +712,10 @@ function report(options: {
   );
   const complaint = floorComplaint(head.size, base.size);
   if (complaint !== undefined) {
-    process.stdout.write(complaint);
-    process.exitCode = FAILURE;
+    // A 2, not a 1: a corpus that did not load says nothing about the
+    // code, and a build failed for it would read as a regression.
+    cannotRun(complaint.trimEnd());
+    return;
   }
   const { ast, formatted } = differingCases(base, head);
   // The ledger listing is printed whether or not the AST agreed: when
@@ -750,7 +738,7 @@ function report(options: {
       revision,
       limit,
       allowParentBlockEnd,
-      familySets: GAMMA_FAMILIES,
+      familySets: LEDGER_FAMILIES,
       reportCase,
     });
     return;
@@ -775,7 +763,7 @@ function report(options: {
   for (const id of failing.slice(ZERO, limit)) {
     reportCase(id, baseRoot, allowParentBlockEnd);
   }
-  process.exitCode = FAILURE;
+  process.exitCode = GATE_FAILED;
 }
 
 /**
@@ -784,6 +772,10 @@ function report(options: {
  * @param argv - the arguments after the script name
  */
 function main(argv: readonly string[]): void {
+  if (wantsHelp(argv)) {
+    printUsage(USAGE);
+    return;
+  }
   const {
     revision,
     limit,
@@ -793,7 +785,11 @@ function main(argv: readonly string[]): void {
   } = parseArguments(argv);
   const expected =
     expectedDiffs === undefined ? undefined : loadExpectedDiffs(expectedDiffs);
-  const baseRoot = materialize(revision);
+  const baseRoot = materialize({
+    revision,
+    prefix: "parity-base-",
+    install: true,
+  });
   try {
     report({
       base: dump(baseRoot, allowParentBlockEnd),
@@ -809,7 +805,7 @@ function main(argv: readonly string[]): void {
     // `process.exitCode` and a normal return, never `process.exit()`:
     // exit() terminates immediately and this `finally` would not run,
     // leaving a fully installed checkout (hundreds of MB) in $TMPDIR on
-    // every one of the plan's 20-odd parity runs. Same pattern as
+    // every parity run. Same pattern as
     // scripts/metrics.ts.
     rmSync(baseRoot, { recursive: true, force: true });
   }
@@ -818,4 +814,13 @@ function main(argv: readonly string[]): void {
 // Only when run as a program. `tests/scripts/parity.test.ts` imports
 // the three helpers above, and a module that materializes a checkout
 // the moment it is imported cannot be unit-tested at all.
-if (import.meta.main) main(process.argv.slice(ARGUMENT_START));
+if (import.meta.main) {
+  try {
+    main(process.argv.slice(ARGUMENT_START));
+  } catch (error) {
+    // An unrecognised argument, a missing `--base`, a revision
+    // `git archive` refuses, an unreadable ledger: none of them
+    // compared anything, so none of them is a 1.
+    cannotRun(error instanceof Error ? error.message : String(error));
+  }
+}

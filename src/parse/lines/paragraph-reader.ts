@@ -2,22 +2,31 @@
  * Paragraph extent: the port of `Parser.read_paragraph_lines` and the
  * `Reader.read_lines_until` options it passes (`break_on_blank_lines`,
  * `break_on_list_continuation`, `preserve_last_line`, and the
- * `StartOfBlock…Proc` break condition, which classify.ts holds as the
- * registry's interrupting sets).
+ * `StartOfBlock…Proc` break condition, which line-shapes.ts holds as
+ * the registry's interrupting sets).
  *
  * Split out of reader.ts by responsibility: this module decides how far
  * a paragraph-shaped block reaches and turns its lines into inline
  * tokens; reader.ts owns the read position and decides what a line
- * OPENS. list-reader.ts is the third member and reads the reader
- * through the same {@link ParagraphHost} seam.
+ * OPENS.
  *
- * Every decision here comes from the context the host hands over.
- * Nothing scans backwards or inspects a token history.
+ * PURE FACT FUNCTIONS over the lines, exactly as delimited-reader.ts
+ * is: each takes the lines and an index, returns what it found and
+ * the index the caller resumes at, and calls nothing back. There is no
+ * reader interface here to satisfy and nothing to mis-wire — a scan
+ * cannot advance a stream it does not own, so "who moved the read
+ * position" has one answer everywhere. Every decision comes from the
+ * {@link ParagraphScan} value the caller hands over; nothing scans
+ * backwards or inspects a token history.
  */
 import { tokenizeInline } from "../inline/tokenize.js";
 import type { InlineToken } from "../inline/tokens.js";
-import { LINE_COMMENT_HEAD, type ParagraphContext } from "../line-shapes.js";
-import { classifyLine, type LineKind, type ReaderContext } from "./classify.js";
+import {
+  LINE_COMMENT_HEAD,
+  type ParagraphContext,
+  type ReaderContext,
+} from "../line-shapes.js";
+import { classifyLine, type LineKind } from "./classify.js";
 import type { SourceLine } from "./split.js";
 
 // A line that is nothing but indentation and a `+` — the one line shape
@@ -31,23 +40,28 @@ const INDENTED_PLUS = /^[ \t]+\+$/v;
 const ITEM_TEXT_CONTEXTS = new Set<ParagraphContext>(["listItem", "dlistItem"]);
 
 /**
- * What paragraph reading needs from the BlockReader, which stays the
- * ONLY owner of the read position and of the block sequence.
+ * What one paragraph-shaped scan reads, beyond the index it starts
+ * at: DATA, not a reader. Every field is a fact fixed for the whole
+ * stream the scan runs over, which is why it can be handed across as
+ * a value — the read position, the block sequence and the held-back
+ * metadata all stay with the caller.
  */
-export interface ParagraphHost {
+export interface ParagraphScan {
   /** The whole document — inline runs are slices of it. */
   readonly source: string;
-  /** The next unread line, or undefined at end of input. */
-  readonly peek: () => SourceLine | undefined;
-  /** Consume the line `peek` returned, ending any run of blanks. */
-  readonly advance: () => void;
-  /** The reader's state as `classifyLine` consumes it. */
-  readonly context: (
-    openParagraph?: ParagraphContext,
-    firstLineAfterStart?: boolean,
-  ) => ReaderContext;
-  /** Release the metadata nodes held back for the block that follows. */
-  readonly flushMetadata: () => void;
+  /**
+   * The lines the scan walks: the document's, or a list item's
+   * buffer. Absolute offsets either way, so a token's image is a
+   * verbatim slice of `source` whichever stream it came from.
+   */
+  readonly lines: readonly SourceLine[];
+  /**
+   * Marker style of the list open around these lines, if any — the
+   * classifier's ancestry fact ({@link ReaderContext.openListStyle}).
+   * Fixed for the stream: a confined buffer carries exactly its own
+   * item's style.
+   */
+  readonly openListStyle: string | undefined;
 }
 
 /** A run of reflowable paragraph text to tokenize as inline content. */
@@ -78,8 +92,9 @@ type Piece =
     };
 
 /**
- * One paragraph being read. Owns the run bookkeeping only — the line
- * position and the context stay the host's.
+ * One paragraph being read. Owns the run bookkeeping AND its own read
+ * position into the scan's lines — a local counter the caller reads
+ * back as {@link Paragraph.end}, never a stream it shares with anyone.
  *
  * Nothing is tokenized until the paragraph is complete: `finish` turns
  * the pieces into tokens in one pass, once every line is in, so a rule
@@ -104,19 +119,26 @@ class Paragraph {
   // after it. See {@link Paragraph.finish}.
   private plusLine: SourceLine | undefined = undefined;
   private minIndentAfterPlus = Number.POSITIVE_INFINITY;
+  // Index of the next unread line. The paragraph's own first line is
+  // consumed here, at construction — `read_paragraph_lines` is called
+  // on a reader whose first line the caller already took.
+  private index: number;
 
   /**
-   * @param host - the reader that owns the context and the read position
+   * @param scan - the lines and the stream-wide facts (see
+   *   {@link ParagraphScan})
+   * @param at - index of the paragraph's first line
    * @param context - which interrupting set applies
-   * @param line - the paragraph's first line
    * @param from - raw column index where the paragraph's text starts
    */
   constructor(
-    private readonly host: ParagraphHost,
+    private readonly scan: ParagraphScan,
+    at: number,
     private readonly context: ParagraphContext,
-    line: SourceLine,
     from: number,
   ) {
+    const line = scan.lines[at];
+    this.index = at + 1;
     this.runEnd = line.offset + line.raw.length;
     if (context === "dlistItem" && line.text.startsWith(LINE_COMMENT_HEAD)) {
       // A dlist term that begins with `//` (`///b::` — not a comment to
@@ -140,19 +162,30 @@ class Paragraph {
    */
   read(): void {
     for (;;) {
-      const next = this.host.peek();
+      const next = this.scan.lines.at(this.index);
       if (next === undefined) {
         return;
       }
-      const kind = classifyLine(
-        next.text,
-        this.host.context(this.context, this.linesRead === 1),
-      );
+      const kind = classifyLine(next.text, {
+        openParagraph: this.context,
+        openListStyle: this.scan.openListStyle,
+        firstLineAfterStart: this.linesRead === 1,
+      });
       if (kind.kind !== "text" && kind.kind !== "raw") {
         return;
       }
       this.take(next, kind);
     }
+  }
+
+  /**
+   * Where the caller resumes: the index of the line that ENDED the
+   * paragraph, left unread (`read_lines_until` with
+   * `preserve_last_line: true`), or the lines' end.
+   * @returns the index after everything the paragraph consumed
+   */
+  get end(): number {
+    return this.index;
   }
 
   /**
@@ -221,10 +254,10 @@ class Paragraph {
     run: InlineRun,
     literalPlus: SourceLine | undefined,
   ): InlineToken[] {
-    const { host } = this;
-    const newline = host.source[run.end] === "\n" ? "\n" : "";
+    const { source } = this.scan;
+    const newline = source[run.end] === "\n" ? "\n" : "";
     const tokens = tokenizeInline(
-      `${host.source.slice(run.start, run.end)}${newline}`,
+      `${source.slice(run.start, run.end)}${newline}`,
       run.start,
     );
     if (literalPlus === undefined) {
@@ -262,7 +295,7 @@ class Paragraph {
       this.pieces.push({ kind: "raw", line });
     }
     this.linesRead += 1;
-    this.host.advance();
+    this.index += 1;
   }
 
   /**
@@ -308,30 +341,52 @@ class Paragraph {
 }
 
 /**
- * Read a paragraph-shaped block starting at `line`, whose text begins
- * at column `from` (past an admonition label or a list marker).
+ * The tokens a paragraph-shaped extent holds, and where it ends.
+ * NOT exported (knip's types bucket gates dead exported types at 0):
+ * the caller destructures the function's result.
+ */
+interface ParagraphBody {
+  /** The body's tokens, in source order. */
+  readonly tokens: InlineToken[];
+  /** Index (into the scan's lines) after everything the extent held. */
+  readonly end: number;
+}
+
+/**
+ * The lines a verbatim extent holds, and where it ends. NOT exported,
+ * for the same reason as {@link ParagraphBody}.
+ */
+interface VerbatimRun {
+  /** The run's lines, in order, the opening line first. */
+  readonly lines: readonly [SourceLine, ...SourceLine[]];
+  /** Index (into the scan's lines) after the run. */
+  readonly end: number;
+}
+
+/**
+ * Read a paragraph-shaped block opening at `at`, whose text begins at
+ * column `from` (past an admonition label or a list marker).
  *
  * Yields the body's tokens — one tokenized run per RUN of reflowable
  * text lines, a `RawLine` token for each line kept verbatim, in source
- * order. The line that ENDED the paragraph is left unconsumed; the
- * caller never classifies it again.
- * @param host - the reader that owns the context and the read position
+ * order — and the index the caller resumes at. The line that ENDED the
+ * paragraph is NOT consumed: `end` points AT it, so the caller
+ * classifies it once, as a block start.
+ * @param scan - the lines and the stream-wide facts
+ * @param at - index of the paragraph's first line
  * @param context - which interrupting set applies (see ParagraphContext)
- * @param line - the paragraph's first line
  * @param from - raw column index where the paragraph's text starts
- * @returns the body's tokens
+ * @returns the body's tokens and the resume index
  */
-export function readParagraph(
-  host: ParagraphHost,
+export function paragraphExtent(
+  scan: ParagraphScan,
+  at: number,
   context: ParagraphContext,
-  line: SourceLine,
   from: number,
-): InlineToken[] {
-  host.flushMetadata();
-  const paragraph = new Paragraph(host, context, line, from);
-  host.advance();
+): ParagraphBody {
+  const paragraph = new Paragraph(scan, at, context, from);
   paragraph.read();
-  return paragraph.finish();
+  return { tokens: paragraph.finish(), end: paragraph.end };
 }
 
 /**
@@ -355,69 +410,77 @@ export function readParagraph(
  * conditional's own body is text the author wrote. The oracle's output
  * is a subset of ours, never a reordering of it, so no rendered content
  * moves. Pinned in tests/parser/reader.test.ts.
- * @param host - the reader that owns the context and the read position
- * @param line - the paragraph's first (indented) line
- * @returns the run's lines, in order; a blank line ends the run, so
- *   two literal paragraphs it separates never share one
+ * @param scan - the lines and the stream-wide facts
+ * @param at - index of the paragraph's first (indented) line
+ * @returns the run's lines, in order, the opening line first — a blank
+ *   line ends the run, so two literal paragraphs it separates never
+ *   share one — and the resume index
  */
-export function readLiteralParagraph(
-  host: ParagraphHost,
-  line: SourceLine,
-): readonly SourceLine[] {
-  return readVerbatimRun(host, line, "literalParagraph");
-}
-
-/**
- * The shared verbatim-lines loop: flush the held metadata, take the
- * opening line, then consume every line the CONTEXT keeps — text and
- * raw alike stay in the run (a `//` line is CONTENT here; Ruby passes
- * no `skip_line_comments` on these paths) — leaving the ending line
- * unread.
- * @param host - the reader that owns the context and the read position
- * @param line - the run's first line
- * @param context - which interrupting set applies
- * @returns the run's lines, in order
- */
-function readVerbatimRun(
-  host: ParagraphHost,
-  line: SourceLine,
-  context: ParagraphContext,
-): readonly [SourceLine, ...SourceLine[]] {
-  host.flushMetadata();
-  const lines: [SourceLine, ...SourceLine[]] = [line];
-  host.advance();
-  for (;;) {
-    const next = host.peek();
-    if (next === undefined) {
-      break;
-    }
-    const kind = classifyLine(next.text, host.context(context));
-    if (kind.kind !== "text" && kind.kind !== "raw") {
-      break;
-    }
-    lines.push(next);
-    host.advance();
-  }
-  return lines;
+export function literalParagraphExtent(
+  scan: ParagraphScan,
+  at: number,
+): VerbatimRun {
+  return verbatimRunExtent(scan, at, "literalParagraph");
 }
 
 /**
  * Read a verbatim-STYLED paragraph's lines: `[source]`/`[listing]`/
  * `[literal]`/`[verse]` in hand, the extent runs to a blank line, a
- * lone `+`, or an enclosing terminator ONLY (parser.rb:555-560 →
- * :1017-1019 under default `Compliance.strict_verbatim_paragraphs`,
- * asciidoctor.rb:132; the registry's `verbatimStyled` row, pinned by
+ * lone `+`, or an enclosing terminator ONLY (parser.rb:561-567 →
+ * :1026-1028 under default `Compliance.strict_verbatim_paragraphs`,
+ * asciidoctor.rb:131; the registry's `verbatimStyled` row, pinned by
  * the interruption matrix). Issue #41's fix: the style is in hand
  * BEFORE any content line is read.
- * @param host - the reader that owns the context and the read position
- * @param line - the block's first content line
- * @returns the block's lines, in order
+ * @param scan - the lines and the stream-wide facts
+ * @param at - index of the block's first content line
+ * @returns the block's lines, in order, and the resume index
  */
-export function readVerbatimStyledLines(
-  host: ParagraphHost,
-  line: SourceLine,
-): readonly [SourceLine, ...SourceLine[]] {
-  return readVerbatimRun(host, line, "verbatimStyled");
+export function verbatimStyledExtent(
+  scan: ParagraphScan,
+  at: number,
+): VerbatimRun {
+  return verbatimRunExtent(scan, at, "verbatimStyled");
+}
+
+/**
+ * The shared verbatim-lines loop: take the opening line, then consume
+ * every line the CONTEXT keeps — text and raw alike stay in the run (a
+ * `//` line is CONTENT here; Ruby passes no `skip_line_comments` on
+ * these paths) — leaving the ending line unread.
+ *
+ * One ReaderContext for the whole loop: `firstLineAfterStart` is false
+ * at every position a verbatim run classifies, because the run's own
+ * opening line is taken without being classified at all.
+ * @param scan - the lines and the stream-wide facts
+ * @param at - index of the run's first line
+ * @param context - which interrupting set applies
+ * @returns the run's lines and the resume index
+ */
+function verbatimRunExtent(
+  scan: ParagraphScan,
+  at: number,
+  context: ParagraphContext,
+): VerbatimRun {
+  const reader: ReaderContext = {
+    openParagraph: context,
+    openListStyle: scan.openListStyle,
+    firstLineAfterStart: false,
+  };
+  const lines: [SourceLine, ...SourceLine[]] = [scan.lines[at]];
+  let index = at + 1;
+  for (;;) {
+    const next = scan.lines.at(index);
+    if (next === undefined) {
+      break;
+    }
+    const kind = classifyLine(next.text, reader);
+    if (kind.kind !== "text" && kind.kind !== "raw") {
+      break;
+    }
+    lines.push(next);
+    index += 1;
+  }
+  return { lines, end: index };
 }
 
 /**

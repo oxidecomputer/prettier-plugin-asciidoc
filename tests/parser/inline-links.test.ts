@@ -284,7 +284,7 @@ describe("inline anchors", () => {
   // A comma with nothing (or only blanks) after it is not a reftext:
   // the node carries none, so the printer writes `[[id]]` back. Both
   // spellings sit INSIDE text so that one rule covers both: `[[id, ]]`
-  // alone on a line IS a block-anchor line (spec D6) and would reach
+  // alone on a line IS a block-anchor line and would reach
   // the block layer instead, while `[[id,]]` alone stays a paragraph
   // (the grammar's reftext alternative needs a character after the
   // comma) — a difference this row is not about.

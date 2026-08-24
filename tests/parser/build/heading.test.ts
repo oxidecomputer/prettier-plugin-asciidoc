@@ -5,7 +5,7 @@
  * index) → node` with no context: the rows state the two things prose
  * cannot pin — that the builder is a FIELD READER over the
  * CLASSIFIER's parse (the module's own pattern, its slice arithmetic
- * and its agreement guard are all gone, spec D10(c)) — and the
+ * and its agreement guard are all gone) — and the
  * exclusive-end convention. The level/title derivation itself is
  * pinned on `parseSectionTitle` in tests/parser/lines.test.ts.
  */

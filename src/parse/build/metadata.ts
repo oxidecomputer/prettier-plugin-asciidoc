@@ -23,8 +23,7 @@ import type {
   ThematicBreakNode,
 } from "../../ast.js";
 import { makeInlineAnchor } from "../inline/inline-link-builder.js";
-import { rstrip } from "../line-shapes.js";
-import { rawLineForm } from "../lines/classify.js";
+import { rawLineForm, rstrip } from "../line-shapes.js";
 import type { Fragment, LocationIndex } from "../positions.js";
 import { buildRawLineParagraph } from "./paragraph.js";
 
@@ -205,10 +204,10 @@ export function buildBlockMacro(
 }
 
 /**
- * Build a block anchor node from a block anchor line (spec D6: its
- * own kind — two sites used to recognise "anchor" by pattern-matching
- * a wrapper paragraph's internals, and a first-class syntactic form
- * was riding as a degenerate paragraph).
+ * Build a block anchor node from a block anchor line — its OWN node
+ * kind: two sites used to recognise "anchor" by pattern-matching a
+ * wrapper paragraph's internals, and a first-class syntactic form was
+ * riding as a degenerate paragraph.
  *
  * Reuses `makeInlineAnchor` for the line's interior, so the id and
  * reftext split has one spelling.
@@ -235,7 +234,7 @@ export function buildBlockAnchor(
  * The node carries the line verbatim rather than a decomposition into
  * keyword/target/attrlist: the formatter never resolves a directive,
  * and Asciidoctor's own reader
- * (`PreprocessorReader#process_line`, reader.rb:819) removes the line
+ * (`PreprocessorReader#process_line`, reader.rb:824) removes the line
  * from the stream before block parsing, so there is no block for the
  * parts to describe.
  *
@@ -301,17 +300,13 @@ export function buildRawBlockLine(
  * @param kind - the classifier's parse of the line
  * @param kind.name - the attribute name
  * @param kind.value - the trimmed value, or undefined
- * @param kind.unset - the unset form, or false
+ * @param kind.unset - whether the entry unsets the attribute
  * @param line - the attribute-entry line's span
  * @param at - The document's location index.
  * @returns the attribute entry node
  */
 export function buildAttributeEntry(
-  kind: {
-    name: string;
-    value: string | undefined;
-    unset: false | "prefix" | "suffix";
-  },
+  kind: { name: string; value: string | undefined; unset: boolean },
   line: Fragment,
   at: LocationIndex,
 ): AttributeEntryNode {

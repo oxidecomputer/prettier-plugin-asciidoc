@@ -75,3 +75,33 @@ export function stdoutOf(error: unknown): string | undefined {
   const { stdout } = error;
   return typeof stdout === "string" && stdout !== "" ? stdout : undefined;
 }
+
+/** A strict parse: the value, or the syntax error to report. */
+export interface StrictParse {
+  /** The parsed value, or undefined when the text is not JSON. */
+  readonly value: unknown;
+  /** The syntax error, prefixed with the file's name, or undefined. */
+  readonly fault: string | undefined;
+}
+
+/**
+ * `JSON.parse` with the syntax error reported rather than swallowed.
+ *
+ * Deliberately not {@link parseJson}, which is documented for TOOL
+ * STDOUT: that one skips leading noise up to the first `[` and
+ * degrades a syntax error to "no measurement". Those are the right
+ * semantics for knip's output and the wrong ones for a REVIEWED FILE
+ * in the repository, where a file that reads short is the failure the
+ * whole registry family exists to prevent.
+ * @param label - the file's repo-relative path, for the message
+ * @param text - the file's bytes
+ * @returns the parsed value, or the syntax error to report
+ */
+export function strictJson(label: string, text: string): StrictParse {
+  try {
+    return { value: JSON.parse(text), fault: undefined };
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    return { value: undefined, fault: `${label}: not valid JSON (${detail})` };
+  }
+}

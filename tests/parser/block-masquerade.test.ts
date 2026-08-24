@@ -256,14 +256,14 @@ describe("masquerade with extended delimiters", () => {
 // Key ORDER is part of the no-change claim: parity digests the JSON
 // STRING (scripts/parity.ts), so a field that MOVES — same value,
 // different position — is an AST difference with no ledger family
-// (review B2: 12 corpus cases carry sourceDelimiter). The key-order
-// rows below hold Task 6's builders to today's serialized orders,
-// measured at the plan parent.
-// Unknown-style downgrade at open (parser.rb:542-543): a style that
+// (B2: 12 corpus cases carry sourceDelimiter). The key-order rows
+// below hold the builders to today's serialized orders, measured
+// against the baseline.
+// Unknown-style downgrade at open (parser.rb:548-549): a style that
 // matches no masquerade for the kind resolves to the delimiter's own
 // model — except that today's uppercase-word rule claims any single
 // alphabetic word as an admonition variant, `source` included. That
-// divergence is recorded (spec §5) and kept byte-round-tripping; these
+// divergence is recorded and kept byte-round-tripping; these
 // rows pin the TREE and the BYTES so the open-time resolver cannot
 // drift from the close-time pass it replaces.
 describe("held styles on delimiters the style does not re-model", () => {
@@ -273,7 +273,9 @@ describe("held styles on delimiters the style does not re-model", () => {
     );
     const input = "[source]\n====\nx\n====\n";
     expect(await formatAdoc(input)).toBe(input);
-    expect(renderedHtml(await formatAdoc(input))).toBe(renderedHtml(input));
+    expect(await renderedHtml(await formatAdoc(input))).toBe(
+      await renderedHtml(input),
+    );
   });
 
   test("[source] on **** keeps today's tree and bytes", async () => {
@@ -300,8 +302,9 @@ describe("held styles on delimiters the style does not re-model", () => {
     );
   });
 
-  // Re-pinned in Task 9 (D5): the reader now STAMPS its own record of
-  // the annotation it acted on, after the node is built, so
+  // A declared key-order exception: the reader STAMPS its own record
+  // of the annotation
+  // it acted on, after the node is built, so
   // `annotatedBy` trails `position` here. It cannot be an AST
   // difference — the parity normalizer drops the key before digesting
   // (scripts/parity.ts, `annotatedBy` → undefined), which is why (xi)

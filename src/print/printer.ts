@@ -22,10 +22,11 @@
  * AST nodes.
  */
 import { doc, type Printer, type Doc } from "prettier";
-import { MARKER_OFFSET } from "./constants.js";
-import { inlineAtoms } from "./print-inline.js";
+import { canonicalAttrlist } from "../parse/attrlist.js";
+import { MARKER_OFFSET } from "../constants.js";
+import { inlineAtoms } from "./inline.js";
 import { blockBody } from "./reflow.js";
-import { joinBlocks } from "./print-join.js";
+import { joinBlocks } from "./join.js";
 import {
   type AnyNode,
   hasPrecedingLanguageAttribute,
@@ -34,8 +35,8 @@ import {
   printComment,
   printDelimitedBlock,
   printParentBlock,
-} from "./print-blocks.js";
-import { printList, printListItem } from "./print-list.js";
+} from "./blocks.js";
+import { printList, printListItem } from "./list.js";
 import { anchorToSource } from "./serialize-inline.js";
 
 const {
@@ -71,7 +72,7 @@ const printer: Printer<AnyNode> = {
         return printAttributeEntry(node);
       }
       case "blockAttributeList": {
-        return ["[", node.value, "]"];
+        return ["[", canonicalAttrlist(node.value), "]"];
       }
       case "blockTitle": {
         return [".", node.title];
@@ -96,7 +97,12 @@ const printer: Printer<AnyNode> = {
       }
       case "blockMacro": {
         const { name, target, attrlist } = node;
-        return [name, "::", target, "[", attrlist, "]"];
+        // A block macro's brackets are ALWAYS an attribute list
+        // (`parse_attributes`, parser.rb:611, :665), so the one spacing
+        // rule applies with no per-name question — unlike an inline
+        // macro, where most names take TEXT between the brackets
+        // (src/print/serialize-inline.ts).
+        return [name, "::", target, "[", canonicalAttrlist(attrlist), "]"];
       }
       // A line Asciidoctor's reader eats before block parsing
       // (`PreprocessorReader#process_line`): kept exactly as written,
@@ -106,14 +112,14 @@ const printer: Printer<AnyNode> = {
       }
       // A block anchor prints through the same spelling the inline
       // anchor uses — one serializer, byte-identical to the wrapper
-      // paragraph it replaced (spec D6; parity enforces the bytes).
+      // paragraph it replaced (parity enforces the bytes).
       case "blockAnchor": {
         return anchorToSource(node);
       }
       case "paragraph": {
         // Reflow paragraph text to printWidth: THE block-body engine
         // (reflow.ts blockBody), shared with the paragraph-form
-        // admonition body and the list item's text (spec D7).
+        // admonition body and the list item's text.
         return blockBody(
           inlineAtoms(node.children, node.position.start.line),
           options.printWidth,

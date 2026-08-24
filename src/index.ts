@@ -1,7 +1,7 @@
 import type { Plugin } from "prettier";
 import language from "./language.js";
 import parser from "./parser.js";
-import printer from "./printer.js";
+import printer from "./print/printer.js";
 
 const plugin: Plugin = {
   languages: [language],

@@ -4,6 +4,12 @@
  * away, and whether any test has started checking two of our own
  * components against each other.
  *
+ * The seam list is split in two, because the old single list conflated
+ * two different things. A CONTRACT is what an implementer satisfies
+ * and is judged by width; VOCABULARY is the data types used in
+ * interface definitions and is judged by precision. Both are reported;
+ * only contracts ratchet.
+ *
  * All three are BUDGETS WE MAINTAIN, not numbers a tool discovers. The
  * seam list, the interior-validation registry and the harness list are
  * each written by hand and reviewed; what the tooling does is hold them
@@ -20,7 +26,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import ts from "typescript";
-import { isArray, isObject } from "./json.js";
+import { isArray, isObject, strictJson } from "./json.js";
 import { ONE, ZERO, type SeamWidth } from "./model.js";
 
 /** One named cross-module interface the scorecard measures. */
@@ -32,29 +38,56 @@ interface Seam {
 }
 
 /**
- * The named seams, in report order.
+ * The CONTRACTS, in report order.
  *
- * A seam earns a row when two modules meet across it BY NAME and the
- * name is what lets them stay apart: `ListHost` is what makes
- * reader.ts and list-reader.ts a DAG instead of a cycle,
- * `ReaderContext` is the whole vocabulary the classifier needs from
- * the reader's stack, `ExtentBounds` is what one extent scan needs
- * from its enclosing one, and `ParagraphHost` is what the paragraph
- * reader needs from whichever reader is driving it. Each member is a
- * fact one module had to publish about itself, so the count is
- * Parnas's leakage measured where the leak was declared — and the
- * denominator in Ousterhout's interface-size ratio.
+ * A contract is what an implementer satisfies. It is judged by WIDTH:
+ * each member is a fact one module had to publish about itself
+ * (Parnas's leakage counted where the leak was declared, Ousterhout's
+ * interface-size denominator), every conformer names it in an
+ * explicit `implements`, and it must be fakeable. Only these rows
+ * ratchet.
+ *
+ * THE LIST IS EMPTY, and that is a real state rather than a gap.
+ * `ListHost` and `ParagraphHost` were the two rows; both dissolved
+ * when the list and paragraph scans became pure functions over
+ * (lines, index, a context VALUE) returning what they found and where
+ * they end. There is no interface left for a reader to satisfy, no
+ * `implements` clause anywhere in `src/`, and nothing to fake — a
+ * contract with no implementer is not a narrow contract, it is not a
+ * contract. Both rows are REMOVED rather than left at zero: a seam
+ * that does not exist has no width to budget, and the head-absent
+ * gate would fire on every run if the names stayed. The rows come
+ * back when polymorphism does, which at this codebase's size means
+ * when a second sensible implementation exists.
  *
  * Adding a row is a deliberate act, exactly as `api-extractor` turned
  * inward would be: an unnamed structural type shared between two
  * modules is not on this list, and the honest reading of that is that
  * the list is a lower bound.
  */
-const SEAMS: readonly Seam[] = [
-  { name: "ListHost", file: "src/parse/lines/frames.ts" },
-  { name: "ReaderContext", file: "src/parse/lines/classify.ts" },
-  { name: "ExtentBounds", file: "src/parse/lines/list-reader.ts" },
-  { name: "ParagraphHost", file: "src/parse/lines/paragraph-reader.ts" },
+const CONTRACTS: readonly Seam[] = [];
+
+/**
+ * The VOCABULARY rows, in report order.
+ *
+ * Vocabulary is the concrete data used IN interface definitions.
+ * Nobody implements it, so width is not the question: it is judged by
+ * PRECISION — no unread published field, no valid-only-when field, one
+ * derivation of each fact. A wide vocabulary is fine; an imprecise one
+ * is not. The width is still REPORTED, because a number worth reading
+ * is worth printing, but it does not ratchet: narrowing `ReaderContext`
+ * is not automatically progress and widening it is not automatically
+ * regress.
+ *
+ * `LineKind` and the AST are vocabulary too and carry no row: both are
+ * unions, and {@link scanSeam} matches interface declarations only, so
+ * a row for either would report "not declared" and fire the head-absent
+ * gate. Whether the scanner should widen to unions is an open question
+ * this split deliberately leaves open — under the precision reading it
+ * is no longer an obvious yes.
+ */
+const VOCABULARY: readonly Seam[] = [
+  { name: "ReaderContext", file: "src/parse/line-shapes.ts" },
 ];
 
 /**
@@ -137,7 +170,7 @@ export interface DesignFacts {
 
 /**
  * Parse a file's text the way `scan.ts` does, so seam width is read
- * off the compiler's AST rather than out of a regex (Ruling 34).
+ * off the compiler's AST rather than out of a regex.
  * @param fileName - the file's name, for the compiler's diagnostics
  * @param text - the file's text
  * @returns the parsed file
@@ -263,6 +296,21 @@ function seamScan(root: string, seam: Seam): SeamScan {
 }
 
 /**
+ * One registry row, measured in the given checkout.
+ * @param root - the measured checkout root
+ * @param seam - the seam to measure
+ * @param kind - whether it is a contract or vocabulary
+ * @returns the row the scorecard prints and the gates read
+ */
+function measured(
+  root: string,
+  seam: Seam,
+  kind: SeamWidth["kind"],
+): SeamWidth {
+  return { name: seam.name, file: seam.file, kind, ...seamScan(root, seam) };
+}
+
+/**
  * The name a function-shaped DECLARATION carries: a function
  * declaration, a class method, or a getter — the BlockReader spells
  * several of its members as getters, so a registry entry may name one.
@@ -325,32 +373,6 @@ function declaresFunction(file: string, name: string): boolean {
   };
   visit(sourceFile);
   return found;
-}
-
-/**
- * `JSON.parse` with the syntax error reported rather than swallowed.
- *
- * Deliberately not `json.ts`'s `parseJson`, which is documented for
- * TOOL STDOUT: it skips leading noise up to the first `[` and degrades
- * a syntax error to "no measurement". Those are the right semantics for
- * knip's output and the wrong ones for a reviewed file in the
- * repository.
- * @param text - the file's bytes
- * @returns the parsed value, or the syntax error to report
- */
-function strictJson(text: string): {
-  value: unknown;
-  fault: string | undefined;
-} {
-  try {
-    return { value: JSON.parse(text), fault: undefined };
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
-    return {
-      value: undefined,
-      fault: `${REGISTRY_FILE}: not valid JSON (${detail})`,
-    };
-  }
 }
 
 /** A registry read: the entries, or every reason it is not a registry. */
@@ -435,6 +457,7 @@ export function readRegistry(root: string): RegistryRead {
     return { entries: undefined, faults: [`${REGISTRY_FILE}: not found`] };
   }
   const { value: parsed, fault: syntax } = strictJson(
+    REGISTRY_FILE,
     readFileSync(file, "utf8"),
   );
   if (syntax !== undefined) return { entries: undefined, faults: [syntax] };
@@ -498,11 +521,10 @@ export function staleEntries(
 export function readDesign(root: string): DesignFacts {
   const { entries, faults } = readRegistry(root);
   return {
-    seams: SEAMS.map((seam) => ({
-      name: seam.name,
-      file: seam.file,
-      ...seamScan(root, seam),
-    })),
+    seams: [
+      ...CONTRACTS.map((seam) => measured(root, seam, "contract")),
+      ...VOCABULARY.map((seam) => measured(root, seam, "vocabulary")),
+    ],
     interiorValidation: entries?.length,
     // Nothing to be stale about until the file reads as a registry;
     // the faults are what the gate reports in that case.

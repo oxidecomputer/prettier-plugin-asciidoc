@@ -39,7 +39,6 @@ import { preorder } from "./ast-walk.js";
  *                       directly above it; a blank line then N `+`
  *                       lines; an empty gap; blanks only (or a `+` the
  *                       blank budget erased)
- *   !dangling           the item's trailing `+` (trailingContinuation)
  *
  * An item's blocks — nested lists and attached blocks alike — render
  * in SOURCE order.
@@ -151,7 +150,6 @@ function itemShape(item: ListItemNode): string {
         : `${gapGlyph(gap)}${blockShape(block)}`,
     );
   }
-  if (item.trailingContinuation) parts.push("!dangling");
   return `item(${parts.filter((part) => part !== "").join(" ")})`;
 }
 
@@ -201,8 +199,9 @@ function blockShape(node: BlockNode): string {
  * @param input - the document
  * @returns how many `<li>` elements Asciidoctor renders
  */
-export function oracleItems(input: string): number {
-  return (renderedHtml(input).match(/<li>/gv) ?? []).length;
+export async function oracleItems(input: string): Promise<number> {
+  const html = await renderedHtml(input);
+  return (html.match(/<li>/gv) ?? []).length;
 }
 
 /**

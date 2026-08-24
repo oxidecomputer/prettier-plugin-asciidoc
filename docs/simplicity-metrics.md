@@ -19,42 +19,61 @@ bun run metrics -- --base=0298a2ba       # the same
 bun run metrics -- --json                # the raw snapshots
 bun run metrics -- --duplication         # also jscpd, fetched with bunx
 bun run metrics -- --root <dir>          # measure another checkout
+bun run metrics -- --help                # the usage string
 ```
 
 An unrecognised argument is an error, not a shrug: a silently dropped `--base`
 would print a head-only table that looks like a passing comparison.
+
+It obeys the exit-code contract every script in `scripts/` obeys
+(`scripts/lib/cli.ts`, and `docs/harnesses.md` for the family): **0** the gates
+held, **1** a gate or a ratchet FAILED, **2** the scorecard could not run — a
+bad argument, an unknown `--base`, or a `src` below the measured-nothing floor.
+The 1/2 split is the load-bearing one. Without it an empty `src` scores a
+perfect card: no files means no cycles, no unused exports and no escape hatches,
+all of them vacuously true.
 
 `scripts/metrics.ts` (with `scripts/metrics/`) measures `src` only — this is a
 scorecard for the shipped code, not for the tests. Nothing in it counts by hand:
 lines and escape hatches come from the TypeScript compiler's own parser,
 complexity from eslint, coupling from `dependency-cruiser`, dead code from
 `knip` and duplication from `jscpd`. Its own parts are tested in
-`tests/scripts/metrics.test.ts`. The base revision is materialized with
-`git archive | tar -x` into a temp directory, never `git worktree`: this
-repository is jj-managed and often has a concurrent session, and a worktree
-mutates `.git`. The base copy needs no install, because the eslint binary and
-the metrics eslint config are referenced by absolute path into this checkout.
+`tests/scripts/metrics.test.ts` (the measuring), `metrics-cli.test.ts` (the
+process exit codes) and `metrics-internal.test.ts` (the `@internal` split). The
+base revision is materialized by `scripts/lib/checkout.ts`, shared with every
+other differential harness, with `git archive | tar -x` into a temp directory,
+never `git worktree`: this repository is jj-managed and often has a concurrent
+session, and a worktree mutates `.git`. The base copy needs no install, because
+the eslint binary and the metrics eslint config are referenced by absolute path
+into this checkout.
 
-**Gates (non-zero exit), all in `scripts/metrics/gates.ts`.** Eight hold always:
-an import cycle at head (a cyclic group has no reading order), a relative import
-that resolves to nothing (a hole in that graph, which the cycle detection cannot
-see through), an unused exported symbol under `src` (the residue of a
-half-finished deletion), a resident agreement harness, a stale
-interior-validation registry entry, an interior-validation registry that cannot
-be READ at all, a defense marker split across two comment lines, and a named
-seam that is missing or unmeasurable. Four more are RATCHETS that need a
+**Gates (non-zero exit), all in `scripts/metrics/gates.ts`.** Thirteen hold
+always: an import cycle at head (a cyclic group has no reading order), a
+relative import that resolves to nothing (a hole in that graph, which the cycle
+detection cannot see through), an edge a LAYER RULE forbids (see "Layer rules"
+below), an unused exported symbol under `src` OR under `scripts` (the residue of
+a half-finished deletion), a `src` export with no `src` consumer that does not
+carry `@internal` (see "The `@internal` split" below), a resident agreement
+harness, a stale interior-validation registry entry, an interior-validation
+registry that cannot be READ at all, a defense marker split across two comment
+lines, a named seam that is missing or unmeasurable, an unregistered or stale
+cross-directory crossing, a quarantine manifest that has left its conformance
+pin, and a minimums file that no longer describes the source tree (see "Recorded
+minimums" and "The conformance pin" below). Four more are RATCHETS that need a
 `--base` to compare against: cognitive MAX per layer, each escape-hatch count,
-each named seam's width, and each defense counter. None may rise. A layer that
-did not exist at the base is skipped, since it cannot have regressed — and so is
-a seam or a defense marker the base does not carry. The count of functions over
+each named CONTRACT's width, and each defense counter. None may rise. A layer
+that did not exist at the base is skipped, since it cannot have regressed — and
+so is a contract or a defense marker the base does not carry. A VOCABULARY
+seam's width is reported and never ratcheted. The count of functions over
 cyclomatic 10 is REPORT-ONLY — see "Why cyclomatic is report-only here" below.
 The last three families are covered in "Design-quality budgets" below.
 
-The last three of those absolute gates read registries that describe THIS
-repository, so they hold against this repository only: an archived `--base`
-revision and a `--root <dir>` checkout are measured by them and not judged
-(`Snapshot.repository`). Without that, `--root` would fail on every foreign
-checkout — including the throwaway ones that test the CLI's own exit codes.
+The last five of those absolute gates, and the `@internal` one, read conventions
+and registries that describe THIS repository, so they hold against this
+repository only: an archived `--base` revision and a `--root <dir>` checkout are
+measured by them and not judged (`Snapshot.repository`). Without that, `--root`
+would fail on every foreign checkout — including the throwaway ones that test
+the CLI's own exit codes.
 
 knip is a devDependency and runs on EVERY invocation, because a hard gate that
 is silent by default is not a gate: if knip cannot run at all, the run FAILS
@@ -83,7 +102,7 @@ discriminated union, one arm per branch of Asciidoctor's
 cyclomatic tail would have asked for that `switch` to become a handler table
 keyed by a string — better score, worse code, and a metric that no longer means
 what it says. **A metric that tells us to turn a flat dispatch into a handler
-table is the wrong metric** (Ruling 35).
+table is the wrong metric.**
 
 So the row stays on the table, with base, head and delta, and the script prints
 the offending functions by name and line underneath it. Reading the four
@@ -93,17 +112,17 @@ functions takes a minute; the number alone tells you nothing.
 
 Six numbers, printed per layer at the end of a task and diffed against the
 task's base revision. The layers are `src/parse/lines`, `src/parse` (which
-includes it), the printer — `src/print*.ts` plus `src/reflow.ts` and
-`src/serialize-inline.ts`, seven files — and `src` overall.
+includes it), the printer — the eight modules of `src/print/` — and `src`
+overall.
 
-| #   | Metric                      | Definition                                                                                                                      | Tool                                            | Better                              | Gate                                                                                       |
-| --- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------ |
-| 1   | **Cognitive complexity**    | SonarSource cognitive complexity per function: SUM, MAX, count over 15                                                          | eslint + `eslint-plugin-sonarjs` at threshold 0 | down                                | **Ratchet on MAX** with `--base`; SUM and tail reported                                    |
-| 2   | **Code LoC + comment LoC**  | Lines carrying a real token, and lines carrying only comment trivia, counted separately                                         | the TypeScript parser                           | code down at a constant feature set | Report-only, ALWAYS printed as a pair                                                      |
-| 3   | **Cyclomatic complexity**   | eslint's `complexity` per function: SUM, MAX, count over 10                                                                     | eslint at threshold 0                           | down                                | Report-only — see "Why cyclomatic is report-only here"                                     |
-| 4   | **Coupling**                | Unique intra-`src` import edges (type-only imports included), files in a cycle, unresolved relative imports, exported names     | `dependency-cruiser`, the TypeScript parser     | edges and exports down              | **Hard gates: cycles = 0 and unresolved relative imports = 0**; edges and exports reported |
-| 5   | **Escape hatches**          | `eslint-disable` comments, `as X` / `<X>` assertions (`as const` excluded), non-null `!`, `any` in type position                | the TypeScript parser                           | down                                | **Ratchet** with `--base`                                                                  |
-| 6   | **Dead code + duplication** | Unused exports, types, enum and namespace members under `src` (and, reported only, under `scripts`); duplicated-line percentage | `knip` (always), `jscpd` (with `--duplication`) | zero unused; duplication under 1%   | **Hard gate: zero unused symbols under `src`**; jscpd report-only                          |
+| #   | Metric                      | Definition                                                                                                                                          | Tool                                                                   | Better                              | Gate                                                                                                                           |
+| --- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | **Cognitive complexity**    | SonarSource cognitive complexity per function: SUM, MAX, count over 15                                                                              | eslint + `eslint-plugin-sonarjs` at threshold 0                        | down                                | **Ratchet on MAX** with `--base`; SUM and tail reported                                                                        |
+| 2   | **Code LoC + comment LoC**  | Lines carrying a real token, and lines carrying only comment trivia, counted separately                                                             | the TypeScript parser                                                  | code down at a constant feature set | Report-only, ALWAYS printed as a pair                                                                                          |
+| 3   | **Cyclomatic complexity**   | eslint's `complexity` per function: SUM, MAX, count over 10                                                                                         | eslint at threshold 0                                                  | down                                | Report-only — see "Why cyclomatic is report-only here"                                                                         |
+| 4   | **Coupling**                | Unique intra-`src` import edges (type-only imports included), files in a cycle, unresolved relative imports, exported names                         | `dependency-cruiser`, the TypeScript parser                            | edges and exports down              | **Hard gates: cycles = 0 and unresolved relative imports = 0**; edges and exports reported                                     |
+| 5   | **Escape hatches**          | `eslint-disable` comments, `as X` / `<X>` assertions (`as const` excluded), non-null `!`, `any` in type position                                    | the TypeScript parser                                                  | down                                | **Ratchet** with `--base`                                                                                                      |
+| 6   | **Dead code + duplication** | Unused exports, types, enum and namespace members under `src` and under `scripts`; `src` exports with no `src` consumer; duplicated-line percentage | `knip` (always), the TypeScript parser, `jscpd` (with `--duplication`) | zero unused; duplication under 1%   | **Hard gates: zero unused symbols under `src` or `scripts`, and every test-only export tagged `@internal`**; jscpd report-only |
 
 Two things no tool computes, stated in prose in each task report:
 
@@ -119,8 +138,9 @@ Two things no tool computes, stated in prose in each task report:
   nothing else.
 
 Diagnostic, not gated: **hotspot = churn × cognitive complexity** per file, from
-`git log --format=%H -N --name-only -- src`. `src/printer.ts` is the standing
-hotspot — highest churn and the repository's worst cyclomatic function (33).
+`git log --format=%H -N --name-only -- src`. `src/print/printer.ts` is the
+standing hotspot — highest churn and the repository's worst cyclomatic function
+(33).
 
 ## Design-quality budgets
 
@@ -152,29 +172,46 @@ are hard failures rather than `n/a`, and why the `Total fallback:` baseline had
 to be completed in the commit that introduced it — an audit left half-done
 freezes a too-low floor, and finishing it later fails the gate.
 
-### Seam width
+### Seam width, split into contracts and vocabulary
 
-The member count of each NAMED cross-module interface, ratcheted per seam: a
-seam may not gain members. v1 names four, and each one is what one module had to
-publish for another: `ListHost` (`src/parse/lines/frames.ts`) — what
-extent-first list reading needs from a reader, and nothing else: the lines it
-reads, the document's unerased lines and its offset index, the source, one
-tail-safety fact, and the one call that reads an item's interior. Nothing in it
-writes BACK into the host — a finished list is RETURNED to whoever asked for it,
-so there is no callback to mis-wire and no push member to sequence against;
-`ReaderContext` (`src/parse/lines/classify.ts`) — the whole context the
-classifier reads, which is the open paragraph shape, the open list styles and
-whether this is the block's first line, and no terminator vocabulary at all;
-`ExtentBounds` (`src/parse/lines/list-reader.ts`) — the single stream-end fact
-one extent scan needs from its enclosing one; and `ParagraphHost`
-(`src/parse/lines/paragraph-reader.ts`) — what paragraph reading needs from the
-reader that owns the read position. The row COUNT is what the gate enforces;
-this sentence only says what the rows are.
+Every crossing is one of two things, and the scoreboard now says which.
 
-Every member is a fact one module had to publish about itself for another to
-work, which is Henry–Kafura information flow measured where the flow was
-declared, and Parnas's leakage counted at the point of the leak. It is also the
-DENOMINATOR in Ousterhout's deep-module ratio: functionality over interface
+A **contract** is what an implementer satisfies. It is judged by **width**: a
+contract may not gain members, every conformer names it in an explicit
+`implements`, and it must be fakeable. **There are no rows.** `ListHost` and
+`ParagraphHost` were the two, and both dissolved when the list and paragraph
+scans became pure functions over (lines, index, a context value) returning what
+they found and where they end. Nothing in `src/` declares `implements` any more,
+so there is no implementer to judge and nothing to fake — a contract with no
+implementer is not a narrow contract, it is not a contract. The rows are removed
+rather than held at zero: a seam that does not exist has no width to budget.
+They come back when polymorphism does.
+
+**Vocabulary** is the concrete data used IN those definitions. Nobody implements
+it, so width is not its metric: it is judged by **precision** — no unread
+published field, no valid-only-when field, one derivation of each fact. A wide
+vocabulary is fine; an imprecise one is not. One row: `ReaderContext`
+(`src/parse/line-shapes.ts`) — the whole context the classifier reads, which is
+the open paragraph shape, the open list style and whether this is the block's
+first line, and no terminator vocabulary at all. It is declared beside the
+interrupting-set registry rather than beside the classifier because both
+consumers sit at or below the classifier; `InterruptionOptions`, which used to
+respell its last two fields under other names, is gone. Its width is REPORTED
+and not ratcheted. `LineKind` and the AST are vocabulary too and carry no row,
+because the scanner matches interface declarations only and both are unions;
+whether it should widen to unions is open.
+
+`ExtentBounds` was a fourth row and is not one any more: both sides live in
+`list-reader.ts`, no module imports it, and its one member renames a boolean. A
+crossing between two functions in the same file is not a crossing. Removing a
+row is exactly the invisible undercount the gates in this family worry about, so
+it was a deliberate, argued removal in the commit that did it — the budget does
+not get _better_, it gets _honest_.
+
+Every contract member is a fact one module had to publish about itself for
+another to work, which is Henry–Kafura information flow measured where the flow
+was declared, and Parnas's leakage counted at the point of the leak. It is also
+the DENOMINATOR in Ousterhout's deep-module ratio: functionality over interface
 size, where a module gets deeper by shrinking the interface, not by growing the
 body. The pattern is `api-extractor`'s — a reviewed, checked-in report of a
 published surface — turned inward, at the seams between our own modules rather
@@ -207,8 +244,26 @@ base revision does not declare cannot have widened, so the ratchet skips it —
 the same tolerance `dead-code.ts` gives a tool that could not run. A seam
 missing at HEAD is the seam list itself rotting: renaming or deleting a named
 interface would otherwise drop it out of the budget with no ratchet firing.
-`SEAMS` is a hand-maintained list exactly as the interior-validation registry
-is, so it gets the same freshness gate.
+`CONTRACTS` + `VOCABULARY` is a hand-maintained list exactly as the
+interior-validation registry is, so it gets the same freshness gate.
+
+### Layer rules
+
+The layers are a DAG, and the DAG is enforced. `ast` ← `constants`/`positions` ←
+`line-shapes` ← `inline/` ← `build/` ← `lines/`, with `print/` importing
+`parse/` at exactly one deliberate, documented address
+(`src/parse/line-shapes.ts`, so the formatter and the parser cannot disagree
+about what a re-parsed line means) and `parse/` importing `print/` never. The
+rules live in `LAYER_RULES` (`scripts/metrics/graph.ts`) and are checked by
+dependency-cruiser's own rule engine, on the same cruise the cycle gate reads.
+
+Every rule is a **direction**, not a symbol list, so it costs nothing to
+maintain and cannot be satisfied by moving a name. `eslint`'s
+`no-restricted-imports` is deliberately NOT used as a second enforcer: it would
+duplicate these rules with a weaker vocabulary, which is the shape this
+repository calls an agreement harness. Barrel files are refused for the same
+family of reasons — they defeat the unused-export gate and erase the module
+address a reader needs.
 
 ### Defense inventory
 
@@ -283,6 +338,51 @@ Nothing scans `tests/`, which is why the scorecard row is labelled **agreement
 harnesses (declared)**: it is the length of a hand-written list, and a row that
 reads as measured when it is not is the one thing this table must never print.
 
+## The `@internal` split
+
+`knip` reports zero unused exports under `src`, and the number is true but
+coarse: a test importing a symbol is a consumer to knip. So an export nothing in
+`src` has needed since some refactor reads exactly like an export the parser
+depends on, and the two are worth telling apart. **src exports with no src
+consumer** is that second half, measured by
+`scripts/metrics/internal-surface.ts` off the import statements the tree
+actually carries.
+
+The rule is a TAXONOMY, not a budget: there is no ratchet, because a wide
+`@internal` surface is not automatically worse than a narrow one. What is worse
+is not knowing which exports are which. So every export in the second half must
+carry the bare `@internal` JSDoc tag, and the same block must NAME the unit that
+consumes it, as a path that exists:
+
+```ts
+/**
+ * …
+ * Exported for its unit test (tests/print/reflow.test.ts); no src
+ * consumer.
+ * @internal
+ */
+export function wrap(…)
+```
+
+Both directions gate, for the reason every registry here checks both ways: an
+untagged export in the second half fails, and an `@internal` on an export `src`
+DOES consume fails as a stale tag. `src/index.ts` is exempt in both directions —
+it is the package entry, its exports are the published API by definition, and
+nothing inside `src` is supposed to import it.
+
+It sits with the UNDERCOUNT gates because the transition it catches is
+invisible. An export loses its last `src` consumer during an ordinary refactor —
+no line is deleted, no count moves, knip still sees the test importing it — and
+quietly becomes surface that exists for a test alone. Nothing else on this
+scorecard can see that happen.
+
+**Honest bound:** consumption is read off import statements, matched by name
+against relative specifiers resolved back to a file. That is what this tree uses
+— there is no dynamic import and no `export *` under `src` — but it is a
+scanner, not a type checker, and a module reached by a namespace or default
+import is treated as consumed WHOLESALE, so its exports drop out of the split.
+`src/parser.ts` is the live case: the package entry imports its default.
+
 ## What disagreement between the rows tells you
 
 Running several metrics is only useful because the PATTERN of disagreement is
@@ -323,8 +423,8 @@ gamed, and the pairs print on the same table so a reviewer sees both at once.
 
 Every row above measures `src`. None of them can tell a test that would fail if
 the code broke from one that would not — and the test suite is most of what we
-add. StrykerJS answers exactly that question, and Ruling 38 makes it part of the
-discipline rather than an occasional curiosity.
+add. StrykerJS answers exactly that question, and it is part of the discipline
+rather than an occasional curiosity.
 
 **What it does.** Stryker takes the shipped code, introduces one small defect at
 a time — a `<` flipped to `<=`, a `&&` to `||`, a returned string literal
@@ -341,6 +441,19 @@ bun run mutate:full     # every mutant, rebuilding the incremental cache
 bun run mutate -- -c 6  # fewer workers, to leave the machine usable
 bunx stryker run --mutate 'src/parse/lines/split.ts'   # one file
 ```
+
+Both `mutate` scripts end by running `bun scripts/score-minimums.ts --mutation`,
+which compares the report just written against each file's RECORDED MINIMUM (see
+"Recorded minimums" below) and exits 1 if any file lost ground. A SCOPED run —
+the fourth line above — writes a report for those files only, so run the check
+by hand after one, and expect the other files to come back as "not measured"
+(exit 2) rather than as passes.
+
+**A scoped run must start from a cleared `reports/mutation/incremental.json`.**
+Otherwise it merges the last run's results for every other file into the report,
+and — measured on 2026-08-24 — can report survivors for the scoped file itself
+that a hand-applied mutation proves the tests kill. `--force` does not prevent
+the reuse.
 
 Configuration lives in `stryker.config.json`; it points the vitest runner at
 `vitest.stryker.config.ts`, which is this repository's own `vitest.config.ts`
@@ -387,10 +500,12 @@ not by score. Three readings, in order of what they are worth:
   `killedBy` for some mutant is load-bearing by construction. A test that never
   appears there kills nothing the rest of the suite did not already kill.
 - **Score is the least interesting number on the page.** It moves when the code
-  moves, and it is the number a reviewer is tempted to target. Thresholds here
-  are report-only (`"break": null`): the run never fails a build. Same rule as
-  the ratchets above — a number that moves the wrong way is a question to answer
-  in the task report, not a target.
+  moves, and it is the number a reviewer is tempted to target. Stryker's own
+  GLOBAL thresholds stay report-only (`"break": null`) for that reason: one
+  number over the whole tree is exactly the target nobody should aim at. What
+  fails a run is the PER-FILE RECORDED MINIMUM (see below), which is a different
+  question — not "is the tree's score high enough?" but "did this file lose
+  something it had?".
 
 **Static mutants are NOT ignored** (`ignoreStatic: false`), which is a
 deliberate cost. `src/parse/line-shapes.ts` is a registry of module-level
@@ -407,7 +522,7 @@ reporting yesterday's answer. A full run is minutes, not seconds — the
 conformance suite is the slow part, which is why `timeoutMS` is 60s and the
 dry-run timeout is generous.
 
-**The rule for a new test (Ruling 38).** A new test must do one of three things:
+**The rule for a new test.** A new test must do one of three things:
 
 1. kill at least one mutant the suite did not already kill,
 2. be a unit test at a module interface (a named export, called the way its
@@ -419,17 +534,136 @@ dry-run timeout is generous.
 A test that does none of the three is a test that costs maintenance and buys
 nothing; say so and drop it.
 
+## Recorded minimums: what a file may not lose
+
+Line coverage and mutation score are ratcheted per file against RECORDED
+MINIMUMS — the lowest score each file is allowed to report — committed in
+`scripts/metrics/score-minimums.json`. One file, one model, two metrics, because
+they fail the same way; and both are HARD: below the recorded minimum is exit 1.
+
+```bash
+bun run coverage        # the suite with v8 line coverage, then the minimums
+bun run mutate          # ~11 minutes, then the mutation minimums
+```
+
+The design doc proposed SOFT ratchets that warn. The maintainer's ruling
+(2026-08-24) upgraded them, and the argument is the one the rest of this file
+rests on: a soft ratchet is a printout, and a printout nobody has to answer for
+drifts. What makes hardness affordable is not a lower number, it is the
+EXCEPTIONS list. The honest answer to "some code cannot be tested without
+contortions" is to name that code, classify it, and say why — not to slacken the
+minimum for every other file at the same time.
+
+**The taxonomy**, in the maintainer's words, one `class` per exception row:
+
+| class   | means                             | what the `reason` field carries                       |
+| ------- | --------------------------------- | ----------------------------------------------------- |
+| `now`   | fixable now                       | what the missing test would assert                    |
+| `when`  | fixable when some condition holds | the TRIGGER, so the row can be re-read, not re-argued |
+| `never` | not practical to fix              | why NO test can distinguish the mutant                |
+
+**Minimums are measured-now values rounded DOWN to a tenth**, never aspirations.
+A minimum above the measured score fails on the commit that records it; a
+minimum set to the exact measurement fails on timing flap alone, because a
+mutant that times out on a loaded machine is killed on an idle one. **Raising a
+recorded minimum rides the commit that earns it** — that is the whole ratchet,
+and it is why the runs print
+`… against a recorded minimum of X — raise the recorded minimum to Y on the commit that earned it`
+for every file that has drifted a point above its number.
+
+That suggestion is a prompt to check, never an instruction. Two full mutation
+runs of one unchanged tree reported `src/parse/lines/open-style.ts` at 82.08 and
+at 83.2, because a loaded machine turns SURVIVED mutants into TIMEOUTs and a
+timeout counts as beaten. Raise a mutation minimum only when something in the
+diff explains the gain. The recorded minimum of 82.0 held on both runs, which is
+what rounding down conservatively buys.
+
+A minimum of **0** means the file has nothing to measure: `src/ast.ts`,
+`src/constants.ts` and `src/parse/inline/tokens.ts` are declarations only, so
+Stryker writes no row for them at all. Only a zero tolerates an unmeasured file.
+
+**A recorded file the run did not measure is exit 2, never a pass.** "The report
+did not mention that file" is the shape a scoped or crashed run takes, and a
+gate that goes quiet when its input disappears is not a gate. A file measured
+BELOW its minimum outranks it: a definite regression is evidence about the code
+(1); a run that could not reach every file is evidence about the harness (2).
+
+**`bun run metrics` checks the file's COMPLETENESS, not its numbers** — it never
+runs the suite. Every `src` file must have a recorded minimum (a file with none
+has a minimum of zero), no row may name a file that is gone, and no exception
+may name one either. That is the direction this file rots in, and it is cheap
+enough to check on every run.
+
+## The conformance pin
+
+`tests/conformance/quarantine.json` asserts EXACT agreement between a case's
+actual failures and its entry, so a fix turns quarantined cases red and the
+entry has to be deleted: the manifest shrinks monotonically **by convention**.
+Convention is the hole — nothing stops `bun run triage --write` from writing a
+LONGER manifest, and a longer manifest is a suite that goes green on strictly
+less.
+
+So the count is pinned in `scripts/metrics/conformance-pin.json` and checked by
+`bun run metrics`. The pin is EXACT, and the two directions carry different
+messages: growth means a case was quarantined, and moving the pin in the same
+commit is what makes that a deliberate, reviewable act; a shrink means a case
+was fixed, and the pin moves down with it, because a ceiling left above the real
+number is slack a later re-quarantine slips into unnoticed.
+
+## Census pins are directionless
+
+The node-kind census (`tests/parser/architecture.test.ts`) and the three
+realized grid sizes (`scripts/metrics/shape-census.ts`) are **equality pins, not
+budgets**. "As simple as possible, but not simpler": 35 node kinds instead of 30
+is fine, and a grid of 3,000 shapes is not better or worse than one of 2,966.
+Nothing about them is reported as a win or a loss, and `bun run metrics` prints
+them under `census pins` with exactly two verdicts — `pin holds` or `pin moved`.
+
+They are printed rather than merely gated because printing is how a human
+notices a DELIBERATE move: the standing grid once shrank from 2,810 to 2,433
+with `metrics`, `lint` and `test` all green, because the number appeared
+nowhere.
+
+## Unread published fields (report-only)
+
+`bun run metrics` prints, after the table, every field of every type named in
+the crossings registry that NOTHING reads. A field published across a boundary
+that no consumer reads is Parnas leakage with no benefit; `ListHost.source` and
+`LineKind`'s `raw`-arm `form` were the two live instances that motivated it,
+both since fixed.
+
+It is REPORT-ONLY by ruling, and is armed as a gate only once it has been
+observed quiet — a precision check that fires on the tree it was written against
+teaches reviewers to ignore it. References come from the TypeScript LANGUAGE
+SERVICE, the same machinery "find all references" runs in an editor, because a
+hand-rolled scan gets destructuring wrong. A property ASSIGNMENT in an object
+literal is a construction, not a read, and does not count. WHERE the read is
+does not matter: a record one module fills and its own declarer takes apart is
+the design here, not leakage. Serialized types are exempt as a CLASS
+(`src/ast.ts` — every field is read by `JSON.stringify` in the parity dumper and
+by Prettier's traversal, none of it a property access a scan can see).
+`scripts/metrics/unread-fields.ts` states the honest bounds.
+
+## Suite size (report-only)
+
+`bun run coverage` prints tests, test files and suite wall time. It is
+report-only and always will be: a ratchet on suite size penalizes adding a
+spec-citation pin, which is the opposite of what this repository wants. The
+right signal is "8,472 → 12,000 in one change, explain that in the task report".
+It is not on the scorecard table because the scorecard does not run the suite,
+and a number cached from the last run that did would print stale.
+
 ## Method notes
 
-- **Nothing is counted by hand.** Ruling 34: line classification and the
-  escape-hatch counts come from the TypeScript compiler's own parser
-  (`ts.createSourceFile`), coupling from `dependency-cruiser`, complexity from
-  eslint, dead code from `knip`, duplication from `jscpd`. A regex line counter
-  has blind spots by construction — a one-line block comment followed by code, a
-  block comment opened mid-line, `//` inside a string — and a regex `as` count
-  cannot tell `x as Foo` from `import * as T`. A raw `ts.createScanner` is not
-  enough either: standalone it cannot tell `/` as division from a regular
-  expression, and one wrong guess swallows the rest of the file.
+- **Nothing is counted by hand.** Line classification and the escape-hatch
+  counts come from the TypeScript compiler's own parser (`ts.createSourceFile`),
+  coupling from `dependency-cruiser`, complexity from eslint, dead code from
+  `knip`, duplication from `jscpd`. A regex line counter has blind spots by
+  construction — a one-line block comment followed by code, a block comment
+  opened mid-line, `//` inside a string — and a regex `as` count cannot tell
+  `x as Foo` from `import * as T`. A raw `ts.createScanner` is not enough
+  either: standalone it cannot tell `/` as division from a regular expression,
+  and one wrong guess swallows the rest of the file.
 - **A line is CODE if any real token starts on or spans it**, COMMENT if its
   only tokens are comment trivia, BLANK otherwise. Code wins over comment, so a
   line carrying both counts once, as code. Totals match `wc -l`.
@@ -457,10 +691,10 @@ nothing; say so and drop it.
   to its own type and adds `readonly`; it can never widen a value into a lie the
   way `x as Foo` can, and counting it would punish the safest spelling of a
   lookup table. `x as Foo` and `<Foo>x` are counted.
-- **knip is a devDependency and runs every time** (Ruling 36), because a hard
-  gate that is silent by default is not a gate: "knip could not run" is a
-  FAILURE, not a skipped row. It reports script entry points as "unused files"
-  and the metrics-only `eslint-plugin-sonarjs` as an unused devDependency — both
+- **knip is a devDependency and runs every time**, because a hard gate that is
+  silent by default is not a gate: "knip could not run" is a FAILURE, not a
+  skipped row. It reports script entry points as "unused files" and the
+  metrics-only `eslint-plugin-sonarjs` as an unused devDependency — both
   expected, which is why the gate is specifically on unused SYMBOLS under `src`,
   with `scripts/` printed beside it and never gated.
 - **jscpd is the one optional tool.** It is report-only, needs `--duplication`,

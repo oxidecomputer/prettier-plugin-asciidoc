@@ -9,10 +9,8 @@
  */
 import { describe, expect, test } from "vitest";
 import type { BlockNode } from "../../src/ast.js";
-import {
-  classifyLine,
-  BLOCK_START_CONTEXT,
-} from "../../src/parse/lines/classify.js";
+import { BLOCK_START_CONTEXT } from "../../src/parse/line-shapes.js";
+import { classifyLine } from "../../src/parse/lines/classify.js";
 import {
   fragmentOfLine,
   heldMetadataNode,
@@ -50,7 +48,7 @@ describe("heldMetadataNode", () => {
   // One line per kind `parse_block_metadata_line` claims, plus the
   // kinds it does not: an attribute ENTRY is processed where it stands,
   // and text, a marker and a title open blocks of their own. A block
-  // anchor is its own node kind (spec D6, build/metadata.ts).
+  // anchor is its own node kind (build/metadata.ts).
   const held: Array<[string, BlockNode["type"]]> = [
     ["[[id]]", "blockAnchor"],
     ["[source]", "blockAttributeList"],

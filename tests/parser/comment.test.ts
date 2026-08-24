@@ -172,7 +172,7 @@ describe("line comment parsing", () => {
     ]);
   });
 
-  // Flat model (spec D10): the comment and the paragraph are the
+  // Flat model, sections not modeled: the comment and the paragraph are the
   // heading's SIBLINGS; source order is all there is to keep.
   test("comment after a heading is a sibling", () => {
     const { children } = parse("== Title\n\n// remark\n\nText.\n");
@@ -300,9 +300,9 @@ describe("block comment parsing", () => {
   // a 6-slash line inside a 4-slash comment block is content and the
   // block runs on to end of input (Asciidoctor warns "unterminated
   // comment block"). ORACLE: nothing of it renders either way.
-  test("mismatched delimiter lengths (4-open, 6-close) leave the block unclosed", () => {
+  test("mismatched delimiter lengths (4-open, 6-close) leave the block unclosed", async () => {
     const input = "////\ncontent\n//////\n";
-    expect(renderedHtml(input)).not.toContain("content");
+    expect(await renderedHtml(input)).not.toContain("content");
     const document = parse(input);
     expect(document.children).toHaveLength(1);
     const {

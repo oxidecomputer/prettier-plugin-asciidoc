@@ -297,7 +297,7 @@ function handleFormattingMark(
   //
   // This is the ZERO-INNER-TOKENS shape only. A span whose children
   // are all WHITESPACE has tokens, so it is built and reaches the
-  // printer's own empty-span bail (appendSpan, src/print-inline.ts),
+  // printer's own empty-span bail (appendSpan, src/print/inline.ts),
   // which the whitespace-only `_# #_` fires and this loop never
   // sees. Neither guard subsumes the other; both are live.
   let closeIndex = findCloseMark(tokens, index);
@@ -533,7 +533,7 @@ export function buildFromTokens(
     // accumulated into the pending text and is trimmed off here,
     // and the one that ends the raw line is skipped below. Leaving
     // them in would put stray "\n" into text runs; the printer's
-    // atoms are newline-free by contract (src/reflow.ts, Atom).
+    // atoms are newline-free by contract (src/print/reflow.ts, Atom).
     if (type === "RawLine") {
       pendingText = withoutTrailingNewline(pendingText);
       flushText();

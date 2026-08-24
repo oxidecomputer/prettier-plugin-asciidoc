@@ -11,14 +11,14 @@
 import { describe, expect, test } from "vitest";
 import { formatAdoc, renderedHtml } from "../helpers.js";
 
-describe("rejected ids print the author's bytes (corruption fix, g1-pseudo-run-fold)", () => {
+describe("rejected ids print the author's bytes (corruption fix, pseudo-run-fold)", () => {
   // gP42: the pure serializer corruption — the base printed
   // "[[3-bad, Ref]]\n" for this input, which renders DIFFERENT text.
   test("[[3-bad,Ref]] stays comma-tight", async () => {
     const input = "[[3-bad,Ref]]\n";
     const out = await formatAdoc(input);
     expect(out).toBe(input);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });
   // gP43: the with-space twin — the row that adjudicated the repair
@@ -27,14 +27,14 @@ describe("rejected ids print the author's bytes (corruption fix, g1-pseudo-run-f
     const input = "[[3-bad, Ref]]\n";
     const out = await formatAdoc(input);
     expect(out).toBe(input);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
   });
   // The inline (mid-text) member of the same class.
   test("a rejected id in running text keeps the author's interior", async () => {
     const input = "x [[3-bad,Ref]] y\n";
     const out = await formatAdoc(input);
     expect(out).toBe(input);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
   });
 });
 
@@ -52,7 +52,7 @@ describe("valid ids keep today's normalized spelling (controls — no byte movem
   ])("%s [[anc,Ref]] prints [[anc, Ref]]", async (_name, input, expected) => {
     const out = await formatAdoc(input);
     expect(out).toBe(expected);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });
 });
@@ -65,7 +65,7 @@ describe("the whitespace-reftext narrowing stays FROZEN", () => {
   ])("[[id, ]] %s narrows to [[id]]", async (_name, input, expected) => {
     const out = await formatAdoc(input);
     expect(out).toBe(expected);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });
   // gP47: rejected id — a PRE-EXISTING live corruption (the output
@@ -87,7 +87,7 @@ describe("bibliography anchors print the author's interior verbatim", () => {
     const input = "* [[[Fowler_1997,1]]] x\n";
     const out = await formatAdoc(input);
     expect(out).toBe(input);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });
 });

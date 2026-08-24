@@ -7,6 +7,9 @@
  * imports the registry, never the reverse, and consumers
  * (scripts/shape-diff.ts, scripts/metrics/shape-census.ts) import
  * `listRunGrid` from here.
+ *
+ * A LIBRARY module, not a command, on the same terms as
+ * `scripts/shape-registry.ts`.
  */
 import {
   AUTHOR_PLUS_FAMILY,
@@ -28,7 +31,7 @@ import { CONTAINERS, type Shape } from "./shape-registry.js";
  * ABSENT: its in-run shape moves bytes with NO passing render proof
  * (the respell half is the fenced gP47 corruption), so its net is the
  * named characterization rows in tests/format/anchor-spelling.test.ts
- * — the same fixture-is-the-net treatment β gave its R1 divergence.
+ * — the same fixture-is-the-net treatment recorded divergence R1 gets.
  */
 const ANCHOR_SPELLINGS: ReadonlyArray<{
   readonly id: string;
@@ -79,7 +82,7 @@ const FOLLOWER_CODAS: ReadonlyArray<{
 ];
 
 /**
- * The `+`-inside-run axis (Ruling 66's F1 dimension, probes
+ * The `+`-inside-run axis (the F1 dimension, probes
  * gP27–gP32). Per-entry family: an attrlist/anchor/comment tail is
  * the declared byte-change class (respelling); a pseudo tail is a
  * live-corruption member; a title tail is the unchanged CONTROL

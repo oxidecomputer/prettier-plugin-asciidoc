@@ -40,7 +40,7 @@ import {
   interruptsByLineShape,
   isRawParagraphLine,
   LINE_COMMENT_HEAD,
-} from "./parse/line-shapes.js";
+} from "../parse/line-shapes.js";
 
 const {
   builders: { hardline },
@@ -175,8 +175,15 @@ function runBreak(
  *   by; the FIRST line is returned without it, because its caller writes
  *   whatever occupies those columns (a list marker) itself.
  * @returns the finished lines, indentation included.
+ * Exported for its unit test (tests/print/reflow.test.ts); no src
+ * consumer.
+ * @internal
  */
-function wrap(atoms: readonly Atom[], width: number, indent: number): string[] {
+export function wrap(
+  atoms: readonly Atom[],
+  width: number,
+  indent: number,
+): string[] {
   const lines: string[] = [];
   let line = "";
   let lineIndent = indent;
@@ -237,7 +244,7 @@ const PROBE_SUFFIX = "x";
  * AsciiDoc would re-parse them there as the start of a new block
  * or list item. Such a word is fused onto its predecessor — within a
  * text node by wordsToAtoms, and across a node boundary by the leading
- * boundary in src/print-inline.ts's text case.
+ * boundary in src/print/inline.ts's text case.
  *
  * The answer comes entirely from the line-shape registry, asked
  * in both spellings a reflowed word can take, because reflow does
@@ -308,8 +315,11 @@ function isDangerousAtLineEnd(word: string): boolean {
  * @param index - the atom to ask about.
  * @returns true when the three glue facts put it in its predecessor's
  *   run.
+ * Exported for its unit test (tests/print/reflow.test.ts); no src
+ * consumer.
+ * @internal
  */
-function isFused(atoms: readonly Atom[], index: number): boolean {
+export function isFused(atoms: readonly Atom[], index: number): boolean {
   if (index <= 0) {
     return false;
   }
@@ -532,9 +542,9 @@ export function keepLastBreak(atoms: readonly Atom[]): Atom[] {
 /**
  * THE block-body engine: one packer over a block's atoms — extracted so
  * the paragraph printer, the paragraph-form admonition body and the list
- * item's text are one engine BY CONSTRUCTION, not by review (spec D7:
- * the deleted string engine had already forked the dlist first-line
- * guard into a second spelling).
+ * item's text are one engine BY CONSTRUCTION, not by review: the
+ * deleted string engine had already forked the dlist first-line guard
+ * into a second spelling.
  * @param atoms - the block's atoms, in order.
  * @param width - the column budget for a whole output line.
  * @param indent - columns the continuation lines are indented by.

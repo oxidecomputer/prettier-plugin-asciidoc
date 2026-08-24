@@ -99,7 +99,7 @@ describe("literal block formatting", () => {
     // input and the printer closes it directly under its last line.
     const out = await formatAdoc(input);
     expect(out).toBe("....\n....x\n....\n");
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });
 });

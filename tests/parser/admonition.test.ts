@@ -12,13 +12,13 @@
  *
  * Paragraph-form admonitions produce `AdmonitionNode` directly
  * from the reader (`BlockReader.admonition`). Block-form
- * admonitions resolve at OPEN (spec D4a): the held style selects
+ * admonitions resolve at OPEN: the held style selects
  * the admonition variant (`resolveDelimitedOpen` in
  * lines/open-style.ts) and `openDelimited` builds the whole node
  * right there, through `buildDelimitedAdmonition`, from the extent
  * the open collected — no frame carries the decision and nothing
  * is renamed at close. Its `form` is the wrapper delimiter variant
- * (spec D7). The original `blockAttributeList` node is retained as
+ * The original `blockAttributeList` node is retained as
  * a preceding sibling so attribute metadata is not lost.
  */
 import { describe, test, expect } from "vitest";
@@ -95,7 +95,7 @@ describe("paragraph-form admonitions", () => {
 
   // Continuation lines (no blank line between them) are one text
   // child whose value keeps the \n separators — the same inline
-  // children a regular paragraph gets (spec D7).
+  // children a regular paragraph gets.
   test("multi-line paragraph-form admonition", () => {
     const { children } = parse("NOTE: First line\nsecond line\nthird line\n");
     expect(children).toHaveLength(1);
@@ -200,7 +200,7 @@ describe("block-form admonitions (open block)", () => {
 
 describe("block-form admonitions (sidebar and quote wrappers)", () => {
   // The widened `form` type says sidebar and quote wrappers exist;
-  // these rows are the reader outputs saying so (review F7 — base
+  // these rows are the reader outputs saying so (F7 — the baseline
   // pinned only the example and open spellings).
   test("[NOTE] + sidebar block carries form sidebar", () => {
     const { children } = parse("[NOTE]\n****\nContent.\n****\n");
@@ -256,7 +256,7 @@ describe("admonition edge cases", () => {
   });
 });
 
-describe("one prose representation (spec D7)", () => {
+describe("one prose representation", () => {
   test("a paragraph-form body is inline children", () => {
     const [node] = parse("NOTE: alpha beta\n").children;
     if (node.type !== "admonition") throw new Error(`got ${node.type}`);
@@ -280,10 +280,10 @@ describe("one prose representation (spec D7)", () => {
     expect(node.text.some((child) => child.type === "rawLine")).toBe(true);
   });
 
-  // KEY ORDER is part of the shape contract: Task 2's parity fold
-  // (foldPlanAlphaShapes, scripts/parity.ts) and its string-equality
-  // pins in tests/scripts/parity-ledger.test.ts spell the post-D7
-  // admonition with exactly this serialized order. The fold replaces
+  // KEY ORDER is part of the shape contract: the parity fold
+  // (foldAnchorAndAdmonitionShapes, scripts/parity.ts) and its string-equality
+  // pins in tests/scripts/parity-ledger.test.ts spell the admonition
+  // with exactly this serialized order. The fold replaces
   // every admonition before digesting, so a moved field could not
   // reach parity — this row keeps the constructed nodes aligned with
   // the encoding those pins wrote down. Measured, not assumed.

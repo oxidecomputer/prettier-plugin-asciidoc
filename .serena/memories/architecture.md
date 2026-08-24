@@ -72,18 +72,25 @@ bytes, the spellings the AST stores, and one record derived at ask time
   later stage re-derives nesting: no parser-state gates, no backtracking, no
   custom token pattern reading the token history, no lexer modes, and no
   post-hoc AST repair pass — the guard test asserts all of that textually over
-  every file in `src/parse`, plus zero import cycles (from `dependency-cruiser`,
-  through the same `cruiseImports` helper `bun run metrics` gates on) and a
-  ceiling on lint suppressions.
+  every file in `src/parse`, plus zero import cycles and zero LAYER-RULE
+  violations (both from `dependency-cruiser`, through the same `cruiseImports`
+  helper `bun run metrics` gates on) and a ceiling on lint suppressions. The
+  layer rules are directions, in `LAYER_RULES` (`scripts/metrics/graph.ts`):
+  `ast` <- `constants`/`positions` <- `line-shapes` <- `inline/` <- `build/` <-
+  `lines/`, `print/` reaching `parse/` only at `line-shapes.ts`, `parse/` never
+  reaching `print/`. Every cross-DIRECTORY symbol is additionally named,
+  classified vocabulary-or-contract and given a reason in
+  `scripts/metrics/crossings-registry.json`, gated in both directions
+  (unregistered crossing, stale row) by `scripts/metrics/crossings.ts`.
 
   Line SHAPES live in one registry, `src/parse/line-shapes.ts`, oracle-pinned by
   `tests/conformance/interruption.test.ts` and cited to the Asciidoctor Ruby
   source, keyed by four `ParagraphContext`s (`paragraph`, `listItem`,
   `listContinuation`, `dlistItem`). `src/parse/lines/classify.ts` is the pure
   function over that registry; the reader is its only parse-side consumer, and
-  reflow safety (`src/reflow.ts`) is its only print-side consumer, so the parser
-  and the formatter's word-wrapping can never disagree about what would re-parse
-  as block syntax. The classifier's whole context is three fields —
+  reflow safety (`src/print/reflow.ts`) is its only print-side consumer, so the
+  parser and the formatter's word-wrapping can never disagree about what would
+  re-parse as block syntax. The classifier's whole context is three fields —
   `ReaderContext = { openParagraph, openListStyles, firstLineAfterStart }`
   (`classify.ts`) — because with no frame stack there is nothing else for a line
   to be classified against. Lists are read EXTENT-FIRST in
@@ -94,24 +101,24 @@ bytes, the spellings the AST stores, and one record derived at ask time
   no per-item object and no cross-item state (only `itemExtent`'s five mutable
   members — Ruby's four locals plus the buffer). `frames.ts` keeps its
   historical name but holds no frame: it is the shared vocabulary the list layer
-  and `reader.ts` both need (`ListHost`, `VerbatimRole`, `fragmentOfLine`, the
+  and `reader.ts` both need (`ListHost`, `fragmentOfLine`, the
   leaf/held-metadata builder tables) so the two stay a DAG. Each block an item
   holds carries its verbatim `gap` (the `""`/`"+"` lines before it), and
-  replaying that gap line for line is `src/print-list.ts`'s DEFAULT — which is
-  what makes list formatting idempotent. The list's marker spelling is data too:
-  `ListNode.marker` holds what the classifier parsed and the printer replays it,
-  with nesting depth derived from the spelling and stored nowhere. On top of
-  that default the printer has four named separator decisions, no more:
-  `hazard(item)` (`src/print-list-hazard.ts`) — a pure predicate over the
-  finished node answering `"none" | "keepBreak"`, keyed on the leading metadata
-  run over one derived record (`anchorLineShape`); `printedGap`'s same-marker
-  arm (a nested list that shares its parent item's marker prints ADJACENT — a
-  blank-only gap there would read back as a sibling boundary — unless the gap
-  carries a live `+`); `printedGap`'s slurp arm (invent a blank that is in no
-  gap, where a literal's re-read slurp would swallow the next marker); and
-  `printList`'s two-hardline sibling separator after an item ending on an
-  indented literal. Each adjustment exists because verbatim replay would not
-  re-parse to the same tree there. Paragraph text is tokenized by the
+  replaying that gap line for line is `src/print/print-list.ts`'s DEFAULT —
+  which is what makes list formatting idempotent. The list's marker spelling is
+  data too: `ListNode.marker` holds what the classifier parsed and the printer
+  replays it, with nesting depth derived from the spelling and stored nowhere.
+  On top of that default the printer has four named separator decisions, no
+  more: `hazard(item)` (`src/print/print-list-hazard.ts`) — a pure predicate
+  over the finished node answering `"none" | "keepBreak"`, keyed on the leading
+  metadata run over one derived record (`anchorLineShape`); `printedGap`'s
+  same-marker arm (a nested list that shares its parent item's marker prints
+  ADJACENT — a blank-only gap there would read back as a sibling boundary —
+  unless the gap carries a live `+`); `printedGap`'s slurp arm (invent a blank
+  that is in no gap, where a literal's re-read slurp would swallow the next
+  marker); and `printList`'s two-hardline sibling separator after an item ending
+  on an indented literal. Each adjustment exists because verbatim replay would
+  not re-parse to the same tree there. Paragraph text is tokenized by the
   hand-rolled tokenizer (`src/parse/inline/tokenize.ts`) over each run of
   paragraph lines, and the paragraph node is built from those tokens
   (`src/parse/build/paragraph.ts`). See "Line classification is contextual" in
@@ -130,19 +137,20 @@ bytes, the spellings the AST stores, and one record derived at ask time
   (`tests/parser/architecture.test.ts`, counting the `type: "…"` discriminant
   literals in `src/ast.ts`); a 31st kind fails that row until it is deliberately
   updated.
-- **Printer** (`src/printer.ts`): Walks AST, produces Prettier Doc IR. Line
-  breaking inside a block happens BEFORE the Doc exists: `src/reflow.ts` turns a
-  block's inline content into `Atom`s — text plus the local break facts about
-  the join in front of it (`glueLeft`, `noBreakBefore`, `noBreakAfter`, and a
-  three-valued `breakBefore`) — and `blockBody(atoms, width, indent)` is the ONE
-  greedy packer the paragraph printer, the paragraph-form admonition body and a
-  list item's text all go through, so those bodies are one engine by
-  construction. The two containment facts the deleted `section` container used
-  to enforce invisibly are now NAMED rules in `src/print-join.ts`, each with its
-  rationale: a level-0 (document-title) heading always takes a blank line after
-  it (the byte the old section printer forced, frozen), and a pseudo-anchor line
-  never stacks directly above a level ≥ 1 heading (the stacked pair re-parses as
-  one joined line and the heading is destroyed). Both are pinned by
+- **Printer** (`src/print/printer.ts`): Walks AST, produces Prettier Doc IR.
+  Line breaking inside a block happens BEFORE the Doc exists:
+  `src/print/reflow.ts` turns a block's inline content into `Atom`s — text plus
+  the local break facts about the join in front of it (`glueLeft`,
+  `noBreakBefore`, `noBreakAfter`, and a three-valued `breakBefore`) — and
+  `blockBody(atoms, width, indent)` is the ONE greedy packer the paragraph
+  printer, the paragraph-form admonition body and a list item's text all go
+  through, so those bodies are one engine by construction. The two containment
+  facts the deleted `section` container used to enforce invisibly are now NAMED
+  rules in `src/print/print-join.ts`, each with its rationale: a level-0
+  (document-title) heading always takes a blank line after it (the byte the old
+  section printer forced, frozen), and a pseudo-anchor line never stacks
+  directly above a level ≥ 1 heading (the stacked pair re-parses as one joined
+  line and the heading is destroyed). Both are pinned by
   `tests/format/heading-adjacency.test.ts` and by the shape-diff
   `heading-adjacency` grid.
 - **Vendored deps** (`vendor/`): the Asciidoctor conformance corpus. Updated via
@@ -164,7 +172,7 @@ bytes, the spellings the AST stores, and one record derived at ask time
 - **Shape-level standing nets** (`scripts/shape-registry.ts`,
   `scripts/shape-registry-list-run.ts`, `scripts/shape-diff.ts`,
   `scripts/metrics/shape-census.ts`): the corpus can be BLIND to a construct
-  (β's #44 corruption had zero corpus instances — the quarantine list did not
+  (the #44 corruption had zero corpus instances — the quarantine list did not
   move in either direction), so shapes are also verified directly.
   `shape-registry.ts` is the shared input vocabulary: containers × constructs ×
   perturbations, each a named deterministic string generator;

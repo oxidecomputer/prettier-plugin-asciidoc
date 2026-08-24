@@ -29,7 +29,7 @@ import {
 import { gateFailures } from "../../scripts/metrics/gates.js";
 import { REPO_ROOT } from "../../scripts/metrics/model.js";
 import { scanSource } from "../../scripts/metrics/scan.js";
-import { makeSnapshot, seam } from "./metrics-snapshot.js";
+import { makeSnapshot, seam, vocabulary } from "./metrics-snapshot.js";
 
 /**
  * Scan a snippet as if it were a source file.
@@ -174,7 +174,7 @@ describe("seam width", () => {
   });
 
   // The shipped seams have to satisfy the flatness rule they impose.
-  test("every named seam is flat, single, and declared where SEAMS says", () => {
+  test("every named seam is flat, single, and declared where the registry says", () => {
     for (const shipped of readDesign(REPO_ROOT).seams) {
       expect(shipped.fault, shipped.name).toBeUndefined();
       expect(shipped.members, shipped.name).toBeGreaterThan(0);
@@ -279,7 +279,7 @@ describe("defense marker counting", () => {
     expect(wrappedMarkersInSource()).toEqual([]);
   });
 
-  // Ruling 34: an `unreachable(` text search would count the one
+  // An `unreachable(` text search would count the one
   // comment under `src` that names the function while explaining why a
   // nearby site is a silent strip instead.
   test.each([
@@ -302,7 +302,17 @@ describe("the interior-validation registry", () => {
   // definition and pass with no registry at all, which is exactly the
   // hole this replaces: the number has to be changed BY HAND, as part
   // of deciding that a site was added or designed away.
-  const SHIPPED_ENTRIES = 4;
+  //
+  // Zero, and the empty registry beside it is the end state rather
+  // than a deleted file: the four audited sites were designed away by
+  // changing what their functions TAKE — the opening list item and the
+  // literal run's first line became their own parameters
+  // (build/list.ts, build/paragraph.ts), the trailing-line scan made
+  // the line itself its loop condition (lines/list-reader.ts), and
+  // isBoundary reads the character once and treats its absence as the
+  // out-of-range answer (inline/rules.ts). A new site is an addition
+  // to argue for, not a return to a budget.
+  const SHIPPED_ENTRIES = 0;
 
   test("the shipped registry reads, holds its audited count, and is current", () => {
     const { entries, faults } = readRegistry(REPO_ROOT);
@@ -332,8 +342,8 @@ describe("the interior-validation registry", () => {
   });
 
   // H1: a registry that is not there is not "nothing to measure", it
-  // is a family that has been switched off. Ruling 36's rule for knip,
-  // applied to a file.
+  // is a family that has been switched off. A hard gate that goes
+  // quiet when its input is missing is not a gate.
   test("a missing registry is a fault, not a silent n/a", () => {
     const { entries, faults } = readFixtureRegistry();
     expect(entries).toBeUndefined();
@@ -436,25 +446,31 @@ describe("agreement harnesses", () => {
 });
 
 describe("the design gates and ratchets", () => {
-  test("a widened seam fails, naming it and both widths", () => {
-    const base = makeSnapshot({ seams: [seam("ListHost", 9)] });
-    const head = makeSnapshot({ seams: [seam("ListHost", 10)] });
-    expect(gateFailures(head, base)).toEqual(["seam ListHost: 9 -> 10"]);
+  test("a widened contract fails, naming it and both widths", () => {
+    const base = makeSnapshot({ seams: [seam("Host", 9)] });
+    const head = makeSnapshot({ seams: [seam("Host", 10)] });
+    expect(gateFailures(head, base)).toEqual(["contract Host: 9 -> 10"]);
+  });
+
+  // Vocabulary is judged by PRECISION, not width, so its width never
+  // ratchets — but an absent declaration still fails, as a contract's does.
+  test("a VOCABULARY seam ratchets on nothing, and still fails when absent", () => {
+    const base = makeSnapshot({ seams: [vocabulary("ReaderContext", 3)] });
+    const wider = makeSnapshot({ seams: [vocabulary("ReaderContext", 9)] });
+    expect(gateFailures(wider, base)).toEqual([]);
+    const gone = makeSnapshot({ seams: [vocabulary("ReaderContext")] });
+    expect(gateFailures(gone)[0]).toContain("vocabulary ReaderContext is not");
   });
 
   test("a narrowed seam passes, which is the direction the ratchet wants", () => {
-    const base = makeSnapshot({ seams: [seam("ListHost", 9)] });
-    const head = makeSnapshot({ seams: [seam("ListHost", 8)] });
+    const base = makeSnapshot({ seams: [seam("Host", 9)] });
+    const head = makeSnapshot({ seams: [seam("Host", 8)] });
     expect(gateFailures(head, base)).toEqual([]);
   });
 
   test.each([
-    ["the base does not declare it", seam("ListHost"), seam("ListHost", 9)],
-    [
-      "the base's registry never named it",
-      seam("Other", 1),
-      seam("ListHost", 9),
-    ],
+    ["the base does not declare it", seam("Host"), seam("Host", 9)],
+    ["the base's registry never named it", seam("Other", 1), seam("Host", 9)],
   ])("the seam RATCHET is skipped when %s", (_name, before, after) => {
     const base = makeSnapshot({ seams: [before] });
     const head = makeSnapshot({ seams: [after] });
@@ -466,17 +482,19 @@ describe("the design gates and ratchets", () => {
   // budget, which a rise-only ratchet reads as nothing at all. Same
   // treatment as a stale registry entry.
   test("a seam absent at HEAD fails, with or without a base", () => {
-    const head = makeSnapshot({ seams: [seam("ListHost")] });
-    expect(gateFailures(head)).toHaveLength(1);
-    expect(gateFailures(head)[0]).toContain("seam ListHost is not declared");
-    expect(gateFailures(head)[0]).toContain("update SEAMS");
-    const base = makeSnapshot({ seams: [seam("ListHost", 9)] });
+    const head = makeSnapshot({ seams: [seam("Host")] });
+    const [failure = ""] = gateFailures(head);
+    expect(failure).toContain("contract Host is not declared");
+    expect(failure).toContain("update CONTRACTS/VOCABULARY");
+    const base = makeSnapshot({ seams: [seam("Host", 9)] });
     expect(gateFailures(head, base)).toHaveLength(1);
   });
 
   test("a seam that cannot be measured flat fails at HEAD", () => {
     const fault = "S extends another type in f.ts (one flat declaration)";
-    const head = makeSnapshot({ seams: [seam("ListHost", undefined, fault)] });
+    const head = makeSnapshot({
+      seams: [seam("Host", undefined, fault)],
+    });
     expect(gateFailures(head)).toEqual([`seam ${fault}`]);
   });
 
@@ -551,14 +569,14 @@ describe("the design gates and ratchets", () => {
       repository: false,
       registryFaults: ["scripts/metrics/defense-registry.json: not found"],
       nearMisses: ["src/a.ts:1: Valid only when"],
-      seams: [seam("ListHost")],
+      seams: [seam("Host")],
     });
     expect(gateFailures(foreign)).toEqual([]);
     // …but the same facts about OUR tree are three failures.
     const ours = makeSnapshot({
       registryFaults: ["scripts/metrics/defense-registry.json: not found"],
       nearMisses: ["src/a.ts:1: Valid only when"],
-      seams: [seam("ListHost")],
+      seams: [seam("Host")],
     });
     expect(gateFailures(ours)).toHaveLength(3);
   });

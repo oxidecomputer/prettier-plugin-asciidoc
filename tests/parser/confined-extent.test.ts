@@ -1,5 +1,5 @@
 /**
- * The b44-confined-extent family (spec D4; issue #44): an unterminated
+ * The confined-extent family (issue #44): an unterminated
  * verbatim block whose forced close is a CONFINED stream end lost its
  * final content byte to `boundary - NEWLINE_LENGTH` arithmetic — at a
  * confined close the subtracted byte is a CONTENT byte, not a line
@@ -36,7 +36,7 @@ function firstVerbatim(source: string): { content: string; end: number } {
   throw new Error(`no verbatim node in ${JSON.stringify(source)}`);
 }
 
-describe("b44-confined-extent: content is whole, position.end does not move", () => {
+describe("confined-extent: content is whole, position.end does not move", () => {
   // [name, input, FIXED content, base-measured end offset]
   const rows: Array<[string, string, string, number]> = [
     ["listing / item", "* item\n+\n----\nfoo\n\nafter\n", "foo\n\nafter", 24],
@@ -122,7 +122,7 @@ describe("b44-confined-extent: content is whole, position.end does not move", ()
     expect(firstVerbatim(input)).toEqual({ content, end });
   });
 
-  // The must-not-change AST controls (spec D4): document-level EOF,
+  // The must-not-change AST controls: document-level EOF,
   // outer-terminator forced close, table-in-closed-example. Base-
   // measured; identical before and after the fix.
   test.each([

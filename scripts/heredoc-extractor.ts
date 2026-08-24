@@ -8,6 +8,9 @@
  *
  * Kept free of I/O so it is unit-testable; scripts/vendor.ts wires
  * it to the filesystem.
+ *
+ * A LIBRARY module, not a command: `scripts/vendor.ts` imports it.
+ * It has no argument parsing and no exit code of its own.
  */
 
 /** One corpus input plus the stable ID the quarantine manifest keys on. */

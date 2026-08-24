@@ -68,9 +68,10 @@ describe("unordered list parsing", () => {
   // `parse_list` skips blank lines before asking whether the next line
   // is a sibling item (`next_list`), and `read_lines_for_list_item`
   // breaks at the sibling marker either way. ORACLE: one `<ul>`.
-  test("two items separated by a blank line are one list", () => {
+  test("two items separated by a blank line are one list", async () => {
     const input = "* List A\n\n* List B\n";
-    expect(renderedHtml(input).match(/<ul>/gv)).toHaveLength(1);
+    const html = await renderedHtml(input);
+    expect(html.match(/<ul>/gv)).toHaveLength(1);
     const { children } = parse(input);
     expect(children).toHaveLength(1);
     expect(firstList(children).children).toHaveLength(2);

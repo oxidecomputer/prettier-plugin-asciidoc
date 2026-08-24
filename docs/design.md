@@ -37,26 +37,28 @@ Parsing happens in three phases:
    child `BlockReader` over the interior's subarray. Lists take the same shape
    through `src/parse/lines/list-reader.ts`, a port of Asciidoctor's own
    structure — `parse_list` → `parse_list_item` → `read_lines_for_list_item`
-   becomes `readList` → `readListItem` → `itemExtent`. `itemExtent` collects one
-   item's lines into Ruby's buffer; `readListItem` re-parses that buffer with a
-   confined `BlockReader` (Ruby's `Reader.new buffer`), so nesting composes
-   because an inner item's scan runs over the outer item's buffer. Headings are
-   leaves: sections are not modeled, so the document is a FLAT sequence of
-   blocks the reader appends to, nothing closes on a later unpredictable line,
-   and no frame of any kind remains (spec D10). Confinement is physical
-   everywhere Ruby's is — a confined reader's lines END at its boundary — and
-   structure the printer never consumes is not modeled.
+   becomes `listShape` → `itemExtent`. `itemExtent` collects one item's lines
+   into Ruby's buffer; `listShape` returns one such SHAPE per sibling item and
+   parses nothing, and the reader re-parses each buffer with a confined
+   `BlockReader` (Ruby's `Reader.new buffer`), so nesting composes because an
+   inner item's scan runs over the outer item's buffer. Headings are leaves:
+   sections are not modeled, so the document is a FLAT sequence of blocks the
+   reader appends to, nothing closes on a later unpredictable line, and no frame
+   of any kind remains. Confinement is physical everywhere Ruby's is — a
+   confined reader's lines END at its boundary — and structure the printer never
+   consumes is not modeled.
 
    There is no per-item object either: the only mutable per-item state is
    `itemExtent`'s five members (Ruby's four locals plus the buffer being built),
    and nothing points across an item boundary. `src/parse/lines/frames.ts` holds
-   the vocabulary the list layer shares with `reader.ts` — the `ListHost` seam,
-   the verbatim role, the leaf and held-metadata tables — so those modules stay
-   a DAG rather than an import cycle. Every node carries character offsets
-   (`locStart`/`locEnd`), comments and directives are first-class nodes, and the
-   tree is faithful to the source syntax. `tests/parser/architecture.test.ts` is
-   the mechanical guard that block context is decided in the reader and nowhere
-   else.
+   the vocabulary the list layer shares with `reader.ts` — the leaf and
+   held-metadata tables — so those modules stay a DAG rather than an import
+   cycle. No reader interface remains: every sub-scan is a pure function over
+   lines and an index, and `BlockReader` owns all the recursion. Every node
+   carries character offsets (`locStart`/`locEnd`), comments and directives are
+   first-class nodes, and the tree is faithful to the source syntax.
+   `tests/parser/architecture.test.ts` is the mechanical guard that block
+   context is decided in the reader and nowhere else.
 
 3. **Inline tokenizer** (`src/parse/inline/`): the paragraph reader
    (`src/parse/lines/paragraph-reader.ts`) hands each run of paragraph text to
@@ -75,8 +77,8 @@ exists, by the atom engine below, so the printer hands Prettier finished lines
 rather than break opportunities.
 
 **Reflow is an atom engine.** A block's inline content becomes a list of `Atom`s
-(`src/reflow.ts`): a newline-free text unit plus the LOCAL break facts about the
-join in front of it — `glueLeft` (fuse, no space), `noBreakBefore`,
+(`src/print/reflow.ts`): a newline-free text unit plus the LOCAL break facts
+about the join in front of it — `glueLeft` (fuse, no space), `noBreakBefore`,
 `noBreakAfter`, and a three-valued `breakBefore` (`"none" | "hard" | "literal"`,
 because a literal break opens its line at column 0 while a hard break opens at
 the block's continuation indent). Break decisions therefore live where atoms are
@@ -92,18 +94,24 @@ back as the same construct) and measures in COLUMNS, via Prettier's own
 none.
 
 Inside a list, the separators are the AST's, not the printer's invention:
-`src/print-list.ts`'s DEFAULT is to replay each `ItemBlock.gap` — the verbatim
-`""`/`"+"` lines the author wrote between an item's pieces — line for line,
-which is what makes list formatting idempotent by construction. Every
-continuation or hard-break `+` the printer emits is likewise a replay, with
-exactly three emitters (pass-block delimiters compute their own `+` runs):
-`gapParts` replays one recorded gap line, `printListItem`'s trailing arm replays
-the `+` the reader popped off the end of the item (`parser.rb:1571`), and the
-inline hard-break image replays an author's ` +` token. Above that default the
-printer has exactly four separator decisions of its own, enumerable because each
-one is a named arm rather than a judgement:
+`src/print/list.ts`'s DEFAULT is to print each `ItemBlock.gap` — the `""`/`"+"`
+lines the author wrote between an item's pieces — line for line, which is what
+makes list formatting idempotent by construction. One thing that default DOES
+normalize: a blank run collapses to one blank, up to the gap's first `+`. That
+is the same rule `joinBlocks` holds between blocks, and the boundary is the
+whole rule — a blank run AFTER a `+` is what erases the `+`
+(`parser.rb l.1576`), so shortening that one would attach a block that was not
+attached, while before any `+` the run reaches nothing
+(`read_lines_for_list_item` skips it whole at `parser.rb l.1515-17`). Every
+continuation or hard-break `+` the printer emits is a replay, with exactly two
+emitters (pass-block delimiters compute their own `+` runs): `gapParts` prints
+one recorded gap `+`, and the inline hard-break image replays an author's ` +`
+token. A `+` at an item's END is not among them — it attaches nothing, Ruby pops
+it (`parser.rb l.1580-81`), and the printer does not write it. Above that
+default the printer has exactly four separator decisions of its own, enumerable
+because each one is a named arm rather than a judgement:
 
-1. `hazard(item)` (`src/print-list-hazard.ts`) — a pure predicate over the
+1. `hazard(item)` (`src/print/list-hazard.ts`) — a pure predicate over the
    finished node returning `"none" | "keepBreak"`: whether reflowing the item's
    text would pull leading metadata onto the first line after the marker and so
    change the reading, in which case the metadata keeps a break the re-reader
@@ -113,7 +121,7 @@ one is a named arm rather than a judgement:
    no third answer, because the printer has no `+` of its own to offer.
 2. `printedGap`'s same-marker arm — a nested list may SHARE its parent item's
    marker, because the author wrote it that way and the printer replays it.
-   `read_lines_for_list_item` (`parser.rb:1395–1577`) runs an item's read
+   `read_lines_for_list_item` (`parser.rb l.1404-1592`) runs an item's read
    through an indented literal and the metadata behind it, so a marker line
    after them lands INSIDE the item however it is spelled; a blank-only gap in
    front of such a list would instead read back as a SIBLING boundary, and the
@@ -125,34 +133,70 @@ one is a named arm rather than a judgement:
 3. `printedGap`'s slurp arm — a blank line that is in no gap, invented where an
    indented literal's re-read slurp would otherwise swallow the nested marker
    that follows it.
-4. `printList`'s sibling separator — two hardlines instead of one when the
-   previous item ends on an indented literal paragraph, which reads on to the
-   next blank line and would otherwise eat the sibling's marker.
+4. `printList`'s sibling separator — two hardlines instead of one where the
+   previous item's TAIL would swallow the next marker line on re-read
+   (`tailSwallowsMarker`). Walking backwards from that item's last printed line
+   — through a trailing nested list, and across every gap the printer writes
+   EMPTY — reaches an indented literal, whose slurp runs on to the next blank or
+   `+` and takes the marker line with it. The blank is DERIVED there rather than
+   replayed from the source (issue #52): it is printed wherever the boundary
+   needs it, whatever the author typed, and nowhere else.
 
 Each of the three ADJUSTMENTS (2–4) exists for the same reason: verbatim replay
 would NOT re-parse to the same tree there. The code's comments — the
 `printedGap`, `slurpReaches`, and `printList` function comments in
-`print-list.ts` — carry the reasoning and the Ruby citation for each. Arms 3 and
-4 are pinned by byte tests in `tests/format/list-item-blocks.test.ts`; arm 2 by
-the same-marker rows in `tests/format/marker-spelling.test.ts` and by the
-list-shape sweep. A mutation pass once found all three under-tested, which is
-exactly what an undocumented decision looks like from the outside.
+`src/print/list.ts` — carry the reasoning and the Ruby citation for each. Arms 3
+and 4 are pinned by byte tests in `tests/format/list-item-blocks.test.ts`, arm 4
+also by the sibling-boundary rows (and their negative controls) in
+`tests/format/marker-spelling.test.ts`; arm 2 by the same-marker rows in that
+same file and by the list-shape sweep. A mutation pass once found all three
+under-tested, which is exactly what an undocumented decision looks like from the
+outside.
 
-**Marker spellings are data.** A list carries the marker its author wrote
-(`ListNode.marker`), exactly as the classifier parsed it — `-`, `*` through
-`*****`, `.` through `.....`, or the callout sentinel — and the printer replays
-it. Nesting depth is DERIVED from the spelling wherever something needs it, and
-stored nowhere. That is one application of a rule this codebase holds generally:
+## Formatting policy: uniformity is the job, meaning is the constraint
 
-> A construct's author-written spelling is data; the printer replays it;
-> normalizing a spelling away is information loss and requires an explicit owner
-> ruling per construct.
+A formatter exists to impose ONE canonical spelling; that is its entire value.
+"The output renders the same as the input" is the safety condition on that
+imposition, never the mission — taken as a mission, its optimum is the identity
+function, a formatter that does nothing. The rule, exactly:
 
-Reconstructing a marker from variant × depth was the older design, and it lost
-structure that no later pass could recover: `- Foo` holding `* Boo` came back
-with both printed `*`, and a tab-gapped `**\tb` was flattened out of its nesting
-altogether (issue #42). The spelling comparison is also what arm 2 above needs,
-so replaying the marker and preserving the nesting are the same mechanism.
+> Normalize, in a way that ALWAYS preserves meaning.
+
+Meaning-preservation is a simultaneous requirement on every transformation, not
+a preserve-by-default policy with exceptions. Syntax is DERIVED from the
+structure the reader recorded — emitted where the structure requires it, elided
+where it does not — never replayed from the author's habits. The model is
+parentheses in any code formatter: nobody "preserves the author's parens"; the
+printer computes the parens the expression needs. The blank line between sibling
+list items is this codebase's own example: canonical form prints siblings
+adjacent, and the printer emits a blank exactly where the preceding item's tail
+would otherwise swallow the next marker on re-read — uniform in both directions,
+whatever the author typed.
+
+Preserving an authored spelling is legitimate in exactly two cases: the bytes
+are CONTENT, not formatting syntax (verbatim block interiors, comment text, a
+rejected-anchor line the oracle reads as paragraph text — rewriting those edits
+the document); or the spelling is STRUCTURE-BEARING and no uniform respelling
+has yet been built that provably carries the meaning (then the authored spelling
+is the canonical form for that context, as a fact about our current derivations,
+not a policy). Every such preservation site is a normalization candidate: the
+question per construct is never "may we normalize?" but "what derivation
+preserves the meaning?" — decided per construct by an owner ruling, landed with
+render-equality proofs.
+
+**Marker spellings are data — the structure-bearing case.** A list carries the
+marker its author wrote (`ListNode.marker`), exactly as the classifier parsed it
+— `-`, `*` through `*****`, `.` through `.....`, or the callout sentinel — and
+the printer currently replays it, because marker spelling carries structure:
+sibling-matching is by style, so a naive respell changes nesting, and ordered
+dot-count selects the numbering style. Nesting depth is DERIVED from the
+spelling wherever something needs it, and stored nowhere. Reconstructing a
+marker from variant × depth was the older design, and it lost structure no later
+pass could recover: `- Foo` holding `* Boo` came back with both printed `*`, and
+a tab-gapped `**\tb` was flattened out of its nesting altogether (issue #42).
+The spelling comparison is also what arm 2 above needs, so replaying the marker
+and preserving the nesting are one mechanism. A verified respell-then-re-read
+canonicalization is the open normalization candidate here, per the policy above.
 
 ## One tree
 
@@ -176,17 +220,17 @@ semantic model intentionally discards.
 
 The list below is the 30 `type` discriminants declared in `src/ast.ts`, and
 nothing else — a node kind not named here does not exist. Tables pass through as
-an opaque `delimitedBlock` variant (spec D1) rather than being modeled; where
-AsciiDoc has a construct we do not model at all yet (description lists), there
-is no node for it and the source is carried as paragraph text; those gaps are
-tracked as GitHub issues, not as node names here.
+an opaque `delimitedBlock` variant rather than being modeled; where AsciiDoc has
+a construct we do not model at all yet (description lists), there is no node for
+it and the source is carried as paragraph text; those gaps are tracked as GitHub
+issues, not as node names here.
 
 **Block nodes:**
 
 - `document` — root, contains header blocks + body blocks
 - `heading` — one `= Title` / `== Section` line, at every level: a LEAF with
   `level` and `title`, carrying no children. Sections are not modeled, so a
-  heading's "contents" are simply the blocks that follow it (spec D10)
+  heading's "contents" are simply the blocks that follow it
 - `discreteHeading` — a `[discrete]`-styled heading, which is style rather than
   structure and is outside the flatten entirely
 - `attributeEntry` — `:key: value` lines
@@ -194,21 +238,24 @@ tracked as GitHub issues, not as node names here.
 - `list` — `variant: "unordered" | "ordered" | "callout"`
 - `listItem` — marker + `text` + `blocks` (each block behind the verbatim `gap`
   lines that led into it, in source order — a nested list is a block like any
-  other) + `trailingContinuation`
+  other). A `+` at the item's END is recorded nowhere: it attaches nothing, Ruby
+  pops it (`parser.rb` l.1580-81) and it renders not one character, so the
+  printer has nothing to write
 - `delimitedBlock` — every leaf block, under one node with two axes:
   `variant: "listing" | "literal" | "pass" | "verse" | "example" | "sidebar" | "quote" | "table"`
   and `form: "delimited" | "indented" | "paragraph"`. Backtick-fenced code
   (` ``` `) is a `listing` and is normalized to `----` on output; a masqueraded
   parent block (`[verse]` on `____`) keeps its original delimiter in
-  `sourceDelimiter`. `table` is an opaque passthrough; delimiters are content —
-  spec D1.
+  `sourceDelimiter`. `table` is an opaque passthrough, and its delimiter lines
+  are part of `content`.
 - `parentBlock` — `variant: "example" | "sidebar" | "open" | "quote"`; children
   are parsed as AsciiDoc
 - `admonition` — `form: "paragraph" | ParentBlockNode["variant"]`; `variant` is
   a `string`, so the 5 standard types and arbitrary custom styles (`[EXERCISE]`)
   are one node. The paragraph form's body is `text` (inline children, like a
   paragraph); the delimited form's body is `children`, and the wrapper delimiter
-  is `form` — the spelling and the wrapper are one fact (spec D7)
+  is `form` — the spelling and the wrapper are one fact, never two fields that
+  can disagree
 - `blockMacro` — image, video, audio, toc
 - `thematicBreak`, `pageBreak`
 
@@ -241,28 +288,46 @@ effective content model. For example, `[verse]` on a `____` block switches it
 from compound (parsed as AsciiDoc) to verbatim (line breaks preserved). `[stem]`
 on `++++` switches from raw passthrough to math notation. `[NOTE]` on `====`
 decides at the opening line that the block builds as an admonition rather than
-an example, with the wrapper delimiter recorded as the node's `form` (spec D7).
-The parser must check the preceding `blockAttributeList` before opening a block
-to determine its effective content model — otherwise it risks reflowing verbatim
+an example, with the wrapper delimiter recorded as the node's `form`. The parser
+must check the preceding `blockAttributeList` before opening a block to
+determine its effective content model — otherwise it risks reflowing verbatim
 content or failing to parse compound content. See the full masquerade table in
 `docs/asciidoc-format.md`.
 
 ## Testing strategy
 
-Two separate layers with different purposes:
+### The taxonomy
 
-**Unit tests** (`tests/parser/`, `tests/format/`): Written per feature, test our
-AST and formatted output directly. These provide real coverage — every
-construct, edge cases, position tracking, formatting normalization. Fixtures
-live alongside the tests in `tests/format/fixtures/`.
+Two halves, and the line between them is WHAT A TEST IS ALLOWED TO REACH.
 
-**Differential conformance** (`tests/conformance/`, `scripts/parity.ts`): Run
-over the vendored Asciidoctor corpus rather than per feature, and check the
-things a hand-written expectation cannot — that formatting preserves the
-rendering Asciidoctor produces, that a second pass changes nothing, and (in
-`parity.ts`) that a refactor changed no byte of output on any of the 1,620
-corpus documents. See "Our approach instead" below for why Asciidoctor is the
-reference.
+**Unit tests** pair one-to-one with a module. `tests/parser/build/` and
+`tests/print/` are the shape: one file per module, named after it, asserting on
+that module's own functions. A unit test may reach the module's `@internal`
+surface — an export that exists because the test needs it, tagged and saying so
+(`docs/simplicity-metrics.md`, "The `@internal` split"). That permission is what
+makes the tag honest: an export in that half is not a leak, it is a declared
+test surface, and the scorecard counts it as one.
+
+**Integration tests** organize by BEHAVIOR and go through public entry points
+only. `tests/format/` is the shape — format this document, assert on the bytes,
+with the pinned documents beside the tests in `tests/format/fixtures/` — and
+`tests/conformance/` is the same thing with an external authority supplying the
+expectation. They never import an `@internal` export; if one is tempting, the
+behavior under test has no entry point and that is the finding.
+
+The two halves fail differently, which is the point of keeping them apart. A
+unit test failing says which module broke. An integration test failing says a
+user-visible behavior broke, and leaves you to find out where.
+
+### The differential net
+
+`tests/conformance/` and `scripts/parity.ts` run over the vendored Asciidoctor
+corpus rather than per feature, and check the things a hand-written expectation
+cannot — that formatting preserves the rendering Asciidoctor produces, that a
+second pass changes nothing, and (in `parity.ts`) that a refactor changed no
+byte of output on any of the 1,620 corpus documents. See "Our approach instead"
+below for why Asciidoctor is the reference, and `docs/harnesses.md` for what
+each harness under `scripts/` proves and when to reach for it.
 
 ## Formatting opinions
 
@@ -413,12 +478,12 @@ interrupting set. Five rules keep the reader and reflow honest about that:
    decided by re-running the top-level line classifier.
 
    The context the classifier reads is exactly `ReaderContext`
-   (`src/parse/lines/classify.ts`): `openParagraph` (which paragraph shape is
-   open, if any), `openListStyles` (the marker styles of the open lists,
-   innermost first) and `firstLineAfterStart`. There is no terminator vocabulary
-   in it — a delimited block's closing line is matched by `delimitedExtent`
-   while it collects the extent, BEFORE classification ever runs on an interior
-   line, and a verbatim interior line is never classified at all.
+   (`src/parse/line-shapes.ts`): `openParagraph` (which paragraph shape is open,
+   if any), `openListStyle` (the marker style of the open list, if any) and
+   `firstLineAfterStart`. There is no terminator vocabulary in it — a delimited
+   block's closing line is matched by `delimitedExtent` while it collects the
+   extent, BEFORE classification ever runs on an interior line, and a verbatim
+   interior line is never classified at all.
 
 2. The registry is oracle-pinned: `tests/conformance/interruption.test.ts`
    checks every pattern against Asciidoctor for each of four `ParagraphContext`s
@@ -434,9 +499,9 @@ interrupting set. Five rules keep the reader and reflow honest about that:
    style), and `dlistItem` (a dlist description, the widest set, ended by
    anything that would become a non-paragraph block).
 3. Reflow safety consumes the same registry: `isBlockSyntaxAtLineStart`
-   (`src/reflow.ts`) asks it about a word alone on a line and a word starting
-   one, unioned over every context, so the line packer never places a word where
-   it would be re-parsed as block syntax. The first-line dlist hazard
+   (`src/print/reflow.ts`) asks it about a word alone on a line and a word
+   starting one, unioned over every context, so the line packer never places a
+   word where it would be re-parsed as block syntax. The first-line dlist hazard
    (`term::`-shaped words) is a word-based rule applied when atoms are built:
    the hazard word's atom carries a mandatory break, which always lands in front
    of the fused inline run the word belongs to, never inside it.

@@ -15,13 +15,15 @@ import type {
   DelimitedBlockNode,
   DocumentNode,
   InlineNode,
+  LeafDelimiterVariant,
   ListItemNode,
   ParentBlockNode,
-} from "./ast.js";
-import { MIN_DELIMITER_LENGTH, SAFE_DELIMITER_PAD } from "./constants.js";
-import { inlineAtoms } from "./print-inline.js";
+} from "../ast.js";
+import { canonicalAttrlist } from "../parse/attrlist.js";
+import { MIN_DELIMITER_LENGTH, SAFE_DELIMITER_PAD } from "../constants.js";
+import { inlineAtoms } from "./inline.js";
 import { atomOf, blockBody, type Atom } from "./reflow.js";
-import { joinBlocks } from "./print-join.js";
+import { joinBlocks } from "./join.js";
 
 const {
   builders: { hardline, join },
@@ -86,18 +88,15 @@ export function printComment(node: {
   return ["////", hardline, "////"];
 }
 
-// Leaf-block variants that use their own delimiter characters
-// (----, ...., ++++). The other variants (example, sidebar, quote,
-// verse) reach a delimited block only by masquerading, and then they
-// print from the source delimiter the open recorded (case 1 of
-// computeMasqueradeDelimiter) — so the leaf table is the whole of
-// what remains past that branch.
-type LeafBlockVariant = "listing" | "literal" | "pass";
-
-// Maps each leaf-block variant to its single delimiter character.
+// Maps each leaf delimiter variant to its single delimiter character.
 // Used by the printer to compute the minimum safe delimiter length
-// and build the output delimiter string.
-const DELIMITER_CHARS: Record<LeafBlockVariant, string> = {
+// and build the output delimiter string. The other variants
+// (example, sidebar, quote, verse) reach a delimited block only by
+// masquerading, and then they print from the source delimiter the
+// open recorded (case 1 of computeMasqueradeDelimiter) — so this
+// table is the whole of what remains past that branch, which is now
+// what the node types say (LeafDelimiterVariant, src/ast.ts).
+const DELIMITER_CHARS: Record<LeafDelimiterVariant, string> = {
   listing: "-",
   literal: ".",
   pass: "+",
@@ -165,39 +164,48 @@ function computeDelimiter(content: string, delimChar: string): string {
  * 2. Otherwise the variant is a leaf's
  *    (listing/literal/pass) — {@link DELIMITER_CHARS}.
  *
- * There is no third case: a masquerade variant always
- * carries its `sourceDelimiter` (ast-invariants row
- * (xiii)), so the fallback table that used to invent one
- * had no reachable caller. (`table` never reaches this
- * function; `printDelimitedBlock` replays its lines first.)
+ * There is no third case, and now no assertion saying so:
+ * the parameter takes the three delimited-form members that
+ * are not a table, and past the `sourceDelimiter` branch the
+ * two that remain — a fence and a leaf block — have leaf
+ * variants by declaration, so the table lookup is total.
  * @param node - The delimited block node whose delimiter
  *   to compute.
  * @returns The correctly-sized delimiter string.
  */
-function computeMasqueradeDelimiter(node: DelimitedBlockNode): string {
+function computeMasqueradeDelimiter(
+  // The delimited-form members that print a FRAME of their own: a
+  // leaf block, a fence, a masqueraded parent block. A table is
+  // delimited too, but its delimiter lines are CONTENT, so it never
+  // reaches here — printDelimitedBlock replays its lines first.
+  node: Exclude<
+    Extract<DelimitedBlockNode, { form: "delimited" }>,
+    { variant: "table" }
+  >,
+): string {
   if (node.sourceDelimiter !== undefined) {
     const parentChar = PARENT_DELIMITER_CHARS[node.sourceDelimiter];
     return node.sourceDelimiter === "open"
       ? parentChar.repeat(OPEN_BLOCK_DELIMITER_LENGTH)
       : computeDelimiter(node.content, parentChar);
   }
-  // Past the sourceDelimiter branch the variant is a leaf's:
-  // a masquerade variant always carries sourceDelimiter — pinned on
-  // every parse by ast-invariants row (xiii) — so nothing else
-  // reaches here.
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- masquerade variants carry sourceDelimiter (invariant xiii); only leaf variants remain
-  const leafChar = DELIMITER_CHARS[node.variant as LeafBlockVariant];
+  const leafChar = DELIMITER_CHARS[node.variant];
   return computeDelimiter(node.content, leafChar);
 }
 
 /**
  * Whether the reader recorded a `[source]`/`[source,lang]` annotation
  * that already covers this block's implicit source style — a FIELD
- * READ of the reader's own record (spec D5a), replacing a
+ * READ of the reader's own record, replacing a
  * getParentNode() cast and sibling scan that structurally could not
  * see inside list items (the measured duplicated prefix, ledger
- * family d5-fence-annotation). A fence with no language hint still
+ * family fence-annotation). A fence with no language hint still
  * implies `source`, so a bare `[source]` annotation counts.
+ *
+ * A fence is the ONLY member carrying a language hint, which the node
+ * types now say (src/ast.ts): the "or it has a language" half of this
+ * test used to be spelled beside the fence test and is gone with the
+ * combination it covered, not with any behavior.
  * @param node - The delimited block to check.
  * @returns True when the annotation already covers the source
  *   attribute this block would otherwise emit.
@@ -205,7 +213,7 @@ function computeMasqueradeDelimiter(node: DelimitedBlockNode): string {
 export function hasPrecedingLanguageAttribute(
   node: DelimitedBlockNode,
 ): boolean {
-  if (node.fenced !== true && node.language === undefined) return false;
+  if (node.fenced !== true) return false;
   const expectedValue =
     node.language === undefined ? "source" : `source,${node.language}`;
   return node.annotatedBy === expectedValue;
@@ -235,7 +243,7 @@ export function printDelimitedBlock(
   skipSourcePrefix: boolean,
 ): Doc {
   // A table replays its own source lines — the delimiters are part of
-  // `content` (spec D1) and no framing is added. Prettier strips
+  // `content` and no framing is added. Prettier strips
   // trailing whitespace per line, which is render-neutral: the
   // oracle's reader rstrips every line before parsing
   // (prepare_source_string); the trailing-whitespace rows in
@@ -266,13 +274,19 @@ export function printDelimitedBlock(
   // semantics when normalizing to AsciiDoc-native `----` syntax. Skip
   // when the preceding sibling already has a matching attribute list
   // to avoid emitting it twice.
-  const wantsSource = node.fenced === true || node.language !== undefined;
+  // Only a fence carries a language hint, so "wants a source prefix"
+  // and "is a fence" are one test (src/ast.ts's node types).
   let prefix: Doc[] = [];
-  if (wantsSource && !skipSourcePrefix) {
+  if (node.fenced === true && !skipSourcePrefix) {
+    // The synthesized list goes through the SAME spacing rule an
+    // authored one does: a fence's info string is the author's
+    // (` javascript, numbered`), and leaving it alone here printed a
+    // `[source,javascript, numbered]` that the next pass — reading it
+    // as a real attribute list — spelled differently.
     prefix =
       node.language === undefined
         ? ["[source]", hardline]
-        : ["[source,", node.language, "]", hardline];
+        : ["[", canonicalAttrlist(`source,${node.language}`), "]", hardline];
   }
 
   // Use trim() to detect whitespace-only content: Prettier strips
@@ -418,7 +432,7 @@ export function printParentBlock(
 /**
  * Prints an admonition node to Doc IR: the paragraph form is the
  * label plus THE paragraph body engine over its inline children (one
- * engine by construction — spec D7); a delimited form goes through
+ * engine by construction); a delimited form goes through
  * {@link printDelimitedParent}, THE wrapper printer, with the
  * delimiter variant read off `form` (the old `delimiter ?? "example"`
  * fallback left WITH the field it defended).
@@ -461,32 +475,37 @@ export function printAdmonition(
 }
 
 /**
- * Prints an attribute entry node to Doc IR.
+ * Prints an attribute entry node to Doc IR: `:name: value`, `:name:`,
+ * or `:!name:`.
  *
- * Produces the canonical `:name: value` form, handling
- * the three attribute-unset syntaxes: prefix bang
- * (`:!name:`), suffix bang (`:name!:`), and no bang
- * (attribute set, with or without a value).
+ * Two spellings the author had are DERIVED away here, both because
+ * Asciidoctor cannot see them. The `!` goes in FRONT: `store_attribute`
+ * (parser.rb l.2131, the chop at l.2133-40) chops it off whichever end carries it and
+ * reaches the same unset either way, and `:!name:` is the form the
+ * AsciiDoc documentation leads with. And the NAME goes down:
+ * `sanitize_attribute_name` (parser.rb l.2770-71) is
+ * `name.gsub(InvalidAttributeNameCharsRx, '').downcase`, so the case
+ * an author typed reaches neither the attribute table nor any
+ * reference to it. The character-stripping half of that sanitize is
+ * NOT copied — `:Foo Bar:` prints `:foo bar:`, which Asciidoctor
+ * sanitizes to the same `foobar` the original did.
  * @param node - The attribute entry node.
  * @param node.name - The attribute name (without
- *   surrounding colons).
+ *   surrounding colons), as the author spelled it.
  * @param node.value - The attribute value, or undefined
- *   for no-value entries (`:name:`) and unset entries.
- * @param node.unset - How the attribute is unset:
- *   "prefix" for `:!name:`, "suffix" for `:name!:`,
- *   or false when the attribute is being set (with or
- *   without a value).
+ *   for no-value entries (`:toc:`) and unset entries.
+ * @param node.unset - Whether the entry unsets the attribute.
  * @returns Doc IR for the formatted attribute entry.
  */
 export function printAttributeEntry(node: {
   name: string;
   value: string | undefined;
-  unset: false | "prefix" | "suffix";
+  unset: boolean;
 }): Doc {
-  const bangPrefix = node.unset === "prefix" ? "!" : "";
-  const bangSuffix = node.unset === "suffix" ? "!" : "";
+  const bang = node.unset ? "!" : "";
+  const name = node.name.toLowerCase();
   if (node.value !== undefined) {
-    return [":", bangPrefix, node.name, bangSuffix, ": ", node.value];
+    return [":", bang, name, ": ", node.value];
   }
-  return [":", bangPrefix, node.name, bangSuffix, ":"];
+  return [":", bang, name, ":"];
 }

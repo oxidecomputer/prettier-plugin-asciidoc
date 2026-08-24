@@ -9,14 +9,14 @@
  * issues #26, #27, #29.
  *
  * Both the BlockReader's classifier (src/parse/lines/classify.ts)
- * and reflow safety (src/reflow.ts) consume these patterns, so they
+ * and reflow safety (src/print/reflow.ts) consume these patterns, so they
  * can never drift apart. tests/conformance/interruption.test.ts pins
  * every pattern here against the Asciidoctor oracle — change a row
  * there before changing a pattern here.
  *
  * ## Where these rules come from
  *
- * The oracle (`@asciidoctor/core` 3.0.4) is Asciidoctor Ruby 2.0.20
+ * The oracle (`@asciidoctor/core` 4.0.11) is Asciidoctor Ruby 2.0.26
  * transpiled by Opal, so the Ruby source IS the spec it executes.
  * Every row below names the Ruby constant or method it mirrors —
  * `lib/asciidoctor/parser.rb` (`read_paragraph_lines`,
@@ -45,7 +45,7 @@
  *   the plain-paragraph set; the only markers that end it are the
  *   ones `read_lines_for_list_item` already stopped at, i.e. the
  *   OPEN list's own marker style (`is_sibling_list_item?`), which
- *   the caller supplies as `enclosingListStyle`.
+ *   the caller supplies as `openListStyle`.
  * - `dlistItem` — the description of a `term:: desc` item. Widest
  *   set: `parse_list_item` parses the lines after the term with
  *   `text_only: nil` — a full `next_block` — and then `fold_first`
@@ -65,14 +65,14 @@
  *   `list_type` — the day we model that, only this row changes.
  * - `verbatimStyled` — a paragraph opened under a held VERBATIM
  *   style (`[source]`, `[listing]`, `[literal]`, `[verse]` —
- *   VERBATIM_STYLES, asciidoctor.rb:277; NOT `[pass]`, oracle-pinned).
+ *   VERBATIM_STYLES, asciidoctor.rb:276; NOT `[pass]`, oracle-pinned).
  *   Behavior is `read_lines_until break_on_blank_lines: true,
- *   break_on_list_continuation: true` (parser.rb:1017-1019): blank
+ *   break_on_list_continuation: true` (parser.rb:1026-1028): blank
  *   lines are structural to the reader, so the pattern set carries
  *   only the lone `+`. The `+` sits in the ANY-LINE set because
  *   Ruby's `line_read` gate (reader.rb:414, :426) is false only for
  *   the styled block's OPENING line, which Ruby unshifts
- *   (parser.rb:558) and our reader consumes at open — every position
+ *   (parser.rb:565) and our reader consumes at open — every position
  *   this classifier sees corresponds to `line_read === true`. Pinned
  *   against the oracle, both positions, in
  *   tests/conformance/interruption.test.ts.
@@ -84,6 +84,58 @@ export type ParagraphContext =
   | "dlistItem"
   | "literalParagraph"
   | "verbatimStyled";
+
+/**
+ * The reader's state as every line rule reads it — exactly the facts
+ * the old token patterns reconstructed by scanning backwards, handed
+ * over instead of derived. Three fields and no more: the reader keeps
+ * no stack for anything else to read.
+ *
+ * ONE declaration, here rather than beside the classifier, because
+ * both consumers are below the classifier: the interrupting-set rules
+ * in this file and `classifyLine` in src/parse/lines/classify.ts. It
+ * was two declarations (this one and an `InterruptionOptions` naming
+ * the same last two facts under other names, with `?` optionality)
+ * kept in step by a translating object literal at the one call site
+ * that spanned them — a vocabulary that could drift and a rename that
+ * had to be made twice.
+ *
+ * Every field is spelled `| undefined` rather than `?`: the producer
+ * always supplies all three, so "absent" and "undefined" are not two
+ * states to tell apart.
+ */
+export interface ReaderContext {
+  /** The paragraph-shaped block being read, or undefined at a block start. */
+  readonly openParagraph: ParagraphContext | undefined;
+  /**
+   * Marker style (see {@link listMarkerStyle}) of the open list, if
+   * any (`is_sibling_list_item?`). 0-or-1 BY CONSTRUCTION: a confined
+   * reader carries exactly its own item's style, and the
+   * physically-truncated buffer is the rest of the old ancestry
+   * argument. undefined means no list is open, so no marker line ends
+   * the paragraph.
+   */
+  readonly openListStyle: string | undefined;
+  /**
+   * Whether this line is the FIRST one after the open block started.
+   * Some shapes only mean anything there — see
+   * FIRST_LINE_INTERRUPTERS and LATER_LINE_INTERRUPTERS, and the
+   * matching rule in {@link isRawParagraphLine}.
+   */
+  readonly firstLineAfterStart: boolean;
+}
+
+/**
+ * The context at a plain block start (document level, nothing open).
+ * Exported for its unit test (tests/parser/lines.test.ts); no src
+ * consumer.
+ * @internal
+ */
+export const BLOCK_START_CONTEXT: ReaderContext = {
+  openParagraph: undefined,
+  openListStyle: undefined,
+  firstLineAfterStart: false,
+};
 
 // The one character the oracle's rstrip removes that JavaScript's
 // `trimEnd()` does not. Kept as a string rather than folded into a
@@ -104,15 +156,21 @@ const NUL = "\u{0}";
  * before handing lines to these patterns; two spellings of "rstrip"
  * would be two dialects of every rule below.
  *
- * ORACLE SURPRISE, and the reason this is neither a plain `trimEnd()`
- * nor a hand-written MRI set: the oracle is Asciidoctor Ruby
- * transpiled by Opal, and Opal implements `String#rstrip` as the
- * JavaScript `self.replace(/[\s\u0000]*$/, '')`. That set is neither
- * MRI's nor `trimEnd`'s — it is JavaScript's `\s` (so a trailing
- * NO-BREAK SPACE goes, which MRI keeps) PLUS a NUL (which `trimEnd`
- * keeps). The oracle is the arbiter, so this mirrors Opal exactly:
- * `trimEnd()` is the `\s` half and the loop is the NUL half. The rows
- * in tests/conformance/interruption.test.ts pin both edges.
+ * This is neither a plain `trimEnd()` nor a hand-written MRI set
+ * because the oracle is Asciidoctor Ruby transpiled by Opal, and
+ * Opal's `String#rstrip` was the JavaScript
+ * `self.replace(/[\s\u0000]*$/, '')` — neither MRI's set nor
+ * `trimEnd`'s, but JavaScript's `\s` (so a trailing NO-BREAK SPACE
+ * goes, which MRI keeps) PLUS a NUL (which `trimEnd` keeps).
+ * `trimEnd()` is the `\s` half and the loop is the NUL half.
+ *
+ * RECORDED DIVERGENCE from the currently pinned oracle: Asciidoctor
+ * core 2.0.26 strips what MRI strips, so a trailing NUL or no-break
+ * space now survives into the line the oracle classifies while this
+ * still removes it. Nothing here moved when the pin did — the two
+ * characters that parted ways are pinned as divergence rows in
+ * tests/conformance/interruption.test.ts, and the ASCII edges, which
+ * both oracles agree on, stay agreement rows there.
  * @param line - one source line, without its trailing newline
  * @returns the line without its trailing run of JavaScript whitespace
  *   and NULs
@@ -213,9 +271,9 @@ export const DELIMITER_KINDS = [
   "commentBlock",
   "openBlock",
   "fencedCode",
-  "tablePipe", // |===   (psv; the hint char sets no format, parser.rb:865)
-  "tableComma", // ,===   (csv, parser.rb:867)
-  "tableColon", // :===   (dsv, parser.rb:867)
+  "tablePipe", // |===   (psv; the hint char sets no format, parser.rb:874)
+  "tableComma", // ,===   (csv, parser.rb:876)
+  "tableColon", // :===   (dsv, parser.rb:876)
   "tableBang", // !===   (psv; used for nested tables)
 ] as const;
 
@@ -230,7 +288,7 @@ export type DelimiterKind = (typeof DELIMITER_KINDS)[number];
  * Mirrors `is_delimited_block?`: the line must be the delimiter and
  * NOTHING else — a uniform run of the tip character, at least as long
  * as the tip; for the four table rows, the format-hint character then
- * a run of `=` at least three long (parser.rb:967-1001). `----:: x`
+ * a run of `=` at least three long (parser.rb:976-1010). `----:: x`
  * is therefore a description-list term, not a listing block, and
  * `:===` is a table, not an attribute entry (AttributeEntryRx needs a
  * word character after the colon). The one exception is the Markdown
@@ -330,6 +388,10 @@ const DELIMITED_BLOCK_LINES: readonly RegExp[] = DELIMITER_KINDS.map(
 
 /**
  * Whether a line is a delimited-block delimiter.
+ *
+ * Exported for the interruption oracle suite
+ * (tests/conformance/interruption.test.ts); no src consumer.
+ * @internal
  * @param line - one source line, without its trailing newline
  * @returns true for `----`, `--`, ` ``` `, and the rest of
  *   `DELIMITED_BLOCKS`
@@ -384,7 +446,11 @@ const PARAGRAPH_INTERRUPTERS: readonly RegExp[] = [
 // styles, not new claims about Asciidoctor.
 const UNORDERED_MARKER_SOURCE = String.raw`\*{1,5}|-`;
 const ORDERED_MARKER_SOURCE = String.raw`\.{1,5}`;
-const CALLOUT_MARKER_SOURCE = String.raw`<(?:\d+|\.)>`;
+// The interior is a NAMED group so the one match the classifier
+// already runs also reports the number, and no builder re-matches the
+// marker to learn it. The two patterns below that only ask "is this a
+// callout marker" carry the group unused, which costs them nothing.
+const CALLOUT_MARKER_SOURCE = String.raw`<(?<callout>\d+|\.)>`;
 
 // Sibling and nested item markers. Mirrors `AnyListRx` gathering the
 // three `ListRxMap` patterns: `UnorderedListRx` and `OrderedListRx`
@@ -501,6 +567,34 @@ export const PAGE_BREAK = /^<{3,}$/v;
  */
 export const LITERAL_LINE = /^[ \t]+\S/v;
 
+// The one shape that ends a ulist/olist/colist item ONLY on the line
+// directly after the marker line. `parse_list_item` hands the item's
+// collected lines to `next_block`, which reads the block's first line
+// to pick a context; `fold_first` then merges that block back into the
+// item text only when it came out a plain paragraph. A block macro
+// gives `next_block` a macro block, which `fold_first` refuses, so the
+// item text ends at the marker line. Further down there is a first
+// block already and the macro line is just paragraph text — the same
+// first-line/later split BLOCK_ANCHOR has, mirrored.
+//
+// Core 2.0.20 folded the macro in at BOTH positions; core 2.0.26 (the
+// `@asciidoctor/core` 4.0.11 transpile, the pinned oracle) splits at
+// the first. The probe is the arbiter for which Ruby line moved, and
+// it is pinned in tests/conformance/interruption.test.ts — the
+// `listItem, first line` / `block macro` row of "line-shape registry
+// matches the Asciidoctor oracle", plus the round-trip row of the
+// same name in "the formatter round-trips every construct in every
+// context". Direct pins live in tests/parser/list-reader.test.ts and
+// tests/format/list-block-macro.test.ts.
+//
+// WIDER THAN THE ORACLE, knowingly: BLOCK_MACRO's name group is open
+// (see its doc), while `next_block` only opens a block for a macro
+// name that is registered, so `custom::t[b]` on this line is item text
+// to the oracle and an interrupter here. DLIST_FIRST_LINE_INTERRUPTERS
+// has carried the same looseness since it was written; both rows are
+// pinned with `image::a.png[]`, the shape that is always registered.
+const LIST_ITEM_FIRST_LINE_INTERRUPTERS: readonly RegExp[] = [BLOCK_MACRO];
+
 // Shapes that end a dlist description ONLY on the first line after
 // the term. `parse_list_item` hands those lines to `next_block`,
 // which reads `this_line` — the block's first line — to pick a block
@@ -573,6 +667,10 @@ export const CALLOUT_STYLE = "<>";
  *   marker token image such as `"** "`
  * @returns the style key (`"*"`, `"**"`, `"-"`, `"."`, `"<>"`, …),
  *   or undefined when the line does not begin with a list marker
+ * Exported for the shape census, which reconciles this module's
+ * runtime export names against the registry's coverage
+ * (scripts/metrics/shape-census.ts); no src consumer.
+ * @internal
  */
 export function listMarkerStyle(line: string): string | undefined {
   for (const pattern of MARKER_STYLES) {
@@ -602,6 +700,11 @@ export function listMarkerStyle(line: string): string | undefined {
 //
 // `v`-flag character classes require `[` escaped even when negated
 // (bare `[` inside a class starts a nested set operation under `v`).
+/**
+ * Exported for the shape registry's coverage census
+ * (scripts/shape-registry.ts); no src consumer.
+ * @internal
+ */
 export const CONDITIONAL_DIRECTIVE =
   /^(?:ifdef|ifndef|ifeval|endif)::[^\[]*\[[^\]]*\]$/v;
 
@@ -617,12 +720,18 @@ export const CONDITIONAL_DIRECTIVE =
  * text (not the concept of a raw line) leaks into rendered output
  * for this one failure mode. tests/conformance/interruption.test.ts
  * skips the content-leak assertion for this row for that reason.
+ * Exported for the shape registry's coverage census
+ * (scripts/shape-registry.ts); no src consumer.
+ * @internal
  */
 export const INCLUDE_DIRECTIVE = /^include::[^\[]*\[[^\]]*\]$/v;
 
 /**
  * A line comment. A PREFIX match, not a whole-line one: `CommentLineRx`
  * is `%r(^//(?=[^/]|$))`, so everything after the `//` is the comment.
+ * Exported for the shape registry's coverage census
+ * (scripts/shape-registry.ts); no src consumer.
+ * @internal
  */
 export const LINE_COMMENT = new RegExp(`^${LINE_COMMENT_SOURCE}`, "v");
 
@@ -630,8 +739,8 @@ export const LINE_COMMENT = new RegExp(`^${LINE_COMMENT_SOURCE}`, "v");
  * The two characters `Reader#skip_line_comments` tests a line for
  * (`start_with? '//'`) — the one spelling of "line comment" on the
  * SCAN side, where raw LINE text is examined before nodes exist
- * (paragraph-reader.ts, print-list-hazard.ts, reflow.ts). The EMIT
- * side spells its own bytes (print-blocks.ts writes the literal
+ * (paragraph-reader.ts, src/print/list-hazard.ts, reflow.ts). The EMIT
+ * side spells its own bytes (src/print/blocks.ts writes the literal
  * prefix; build/metadata.ts slices its length) and is out of this
  * constant's scope.
  *
@@ -680,7 +789,7 @@ const RAW_BLOCK_ANCHOR_CONTEXTS = new Set<ParagraphContext>([
  * such word on the FIRST line of a block turns the block into a
  * dlist. Mid-paragraph it is text. Reflow must therefore never move
  * such a word from a later source line onto the first output line
- * (src/reflow.ts).
+ * (src/print/reflow.ts).
  *
  * `\S*`, not `\S+`: Ruby's term group is `([^ \t].*?)` over the whole
  * LINE, not over the word, so the separator may stand alone once
@@ -730,7 +839,7 @@ export function isDescriptionListLine(rawLine: string): boolean {
  * included: `foo ::` has term `"foo "`), and where the optional
  * inline description starts, as an offset into the RSTRIPPED line.
  * Grammar home: DESCRIPTION_LIST_LINE above (Ruby's
- * `DescriptionListRx`, rx.rb:335, pinned by tests/parser/lines.test.ts's
+ * `DescriptionListRx`, rx.rb:336, pinned by tests/parser/lines.test.ts's
  * split rows); the groups ride out so no builder
  * or reader ever re-parses the line.
  * @param rawLine - one source line, without its trailing newline;
@@ -782,7 +891,7 @@ const NO_PATTERNS: readonly RegExp[] = [];
 // started — where `next_block` still gets to choose a block context.
 const FIRST_LINE_INTERRUPTERS: Record<ParagraphContext, readonly RegExp[]> = {
   paragraph: NO_PATTERNS,
-  listItem: NO_PATTERNS,
+  listItem: LIST_ITEM_FIRST_LINE_INTERRUPTERS,
   listContinuation: NO_PATTERNS,
   dlistItem: DLIST_FIRST_LINE_INTERRUPTERS,
   literalParagraph: NO_PATTERNS,
@@ -811,16 +920,16 @@ const LATER_LINE_INTERRUPTERS: Record<ParagraphContext, readonly RegExp[]> = {
  * position-independent patterns plus the ones its position adds.
  * @param line - one rstripped source line
  * @param context - which kind of paragraph is open
- * @param firstLineAfterBlockStart - see {@link InterruptionOptions}
+ * @param firstLineAfterStart - see {@link ReaderContext}
  * @returns true when some applicable pattern matches
  */
 function matchesInterrupter(
   line: string,
   context: ParagraphContext,
-  firstLineAfterBlockStart: boolean,
+  firstLineAfterStart: boolean,
 ): boolean {
   const always = INTERRUPTERS_BY_CONTEXT[context];
-  const byPosition = firstLineAfterBlockStart
+  const byPosition = firstLineAfterStart
     ? FIRST_LINE_INTERRUPTERS
     : LATER_LINE_INTERRUPTERS;
   const positional = byPosition[context];
@@ -835,42 +944,27 @@ const ENDED_BY_DLIST_TERM = new Set<ParagraphContext>([
   "dlistItem",
 ]);
 
-/** Caller-supplied context {@link interruptsParagraph} cannot infer. */
-export interface InterruptionOptions {
-  /**
-   * Marker style (see {@link listMarkerStyle}) of the list open
-   * around a `listContinuation` paragraph. 0-or-1 BY CONSTRUCTION: a
-   * confined reader carries exactly its own item's style, and the
-   * physically-truncated buffer is the rest of the old ancestry
-   * argument. Ignored in the other contexts; undefined means no list
-   * is open, so no marker line ends the paragraph.
-   */
-  readonly enclosingListStyle?: string;
-  /**
-   * Whether the line being classified is the FIRST one after the
-   * block started. Some shapes only mean anything there — see
-   * FIRST_LINE_INTERRUPTERS and LATER_LINE_INTERRUPTERS, and the
-   * matching rule in {@link isRawParagraphLine}. Defaults to false,
-   * the position most lines are in.
-   */
-  readonly firstLineAfterBlockStart?: boolean;
-}
-
 /**
  * Whether a line ends the open paragraph (or list item text).
+ *
+ * `context` stays its own parameter beside `reader`, whose
+ * `openParagraph` names the same thing: the caller has already
+ * narrowed the open paragraph to a definite one to be asking at all,
+ * and passing the narrowing is what keeps the interrupting-set lookup
+ * total without an absent case.
  * @param rawLine - one source line, without its trailing newline;
  *   trailing whitespace is trimmed here (see rstrip)
  * @param context - which kind of paragraph is open; see
  *   {@link ParagraphContext} for what each set contains
- * @param options - the line's position in the block and the
- *   enclosing list ancestry, neither of which the line alone
- *   conveys; see {@link InterruptionOptions}
+ * @param reader - the line's position in the block and the enclosing
+ *   list ancestry, neither of which the line alone conveys; see
+ *   {@link ReaderContext}
  * @returns true when Asciidoctor would start a new block (or item) here
  */
 export function interruptsParagraph(
   rawLine: string,
   context: ParagraphContext,
-  options: InterruptionOptions = {},
+  reader: ReaderContext = BLOCK_START_CONTEXT,
 ): boolean {
   // A comment or preprocessor line is consumed while READING, before
   // block structure exists, so it can never end anything — including
@@ -881,9 +975,7 @@ export function interruptsParagraph(
     return false;
   }
   const line = rstrip(rawLine);
-  if (
-    matchesInterrupter(line, context, options.firstLineAfterBlockStart === true)
-  ) {
+  if (matchesInterrupter(line, context, reader.firstLineAfterStart)) {
     return true;
   }
   if (context === "listContinuation") {
@@ -894,7 +986,7 @@ export function interruptsParagraph(
     // term never ends one — the asymmetry with `listItem` below is
     // the oracle's, not a modelling shortcut.
     const style = listMarkerStyle(line);
-    return style !== undefined && style === options.enclosingListStyle;
+    return style !== undefined && style === reader.openListStyle;
   }
   // A dlist term interrupts a LIST ITEM's text — the oracle nests a
   // fresh `<div class="dlist">` inside the `<li>` — but is swallowed
@@ -912,7 +1004,7 @@ export function interruptsParagraph(
  * the list markers a sibling item or a `+`-continuation breaks at, and
  * the block anchor, so no context contributes a pattern it lacks.
  *
- * Exists for reflow (src/reflow.ts), which decides whether a word may
+ * Exists for reflow (src/print/reflow.ts), which decides whether a word may
  * be placed at the start of an output line while knowing nothing about
  * which kind of paragraph it is printing. Gluing a word that needed no
  * gluing only makes a line longer; letting an interrupting one reach
@@ -946,6 +1038,38 @@ export function interruptsByLineShape(line: string): boolean {
 }
 
 /**
+ * Why a line is raw — kept verbatim and invisible to block structure.
+ * The first three are consumed while READING (`skip_line_comments`,
+ * `PreprocessorReader#process_line`); `anchor` is block metadata for a
+ * block `fold_first` merges away, so the oracle renders no id at all.
+ */
+export type RawForm = "comment" | "conditional" | "include" | "anchor";
+
+/**
+ * Which raw shape a line has, of the ones the reader consumes wherever
+ * they occur. The block anchor is NOT here: it is raw only in the
+ * contexts {@link isRawParagraphLine} names.
+ *
+ * Declared HERE rather than in lines/classify.ts because this file
+ * owns all three patterns the answer is read off — the classifier
+ * merely names the result, and having the test live a layer above its
+ * own regexes made the builders import upwards to reach it.
+ * @param line - one rstripped source line
+ * @returns the raw form, or undefined for an ordinary line
+ */
+export function rawLineForm(
+  line: string,
+): Exclude<RawForm, "anchor"> | undefined {
+  if (LINE_COMMENT.test(line)) {
+    return "comment";
+  }
+  if (CONDITIONAL_DIRECTIVE.test(line)) {
+    return "conditional";
+  }
+  return INCLUDE_DIRECTIVE.test(line) ? "include" : undefined;
+}
+
+/**
  * Whether a line inside a paragraph must be kept verbatim rather than
  * treated as reflowable text: a comment or preprocessor line
  * anywhere, a whole-line block anchor directly after a list item's
@@ -955,28 +1079,28 @@ export function interruptsByLineShape(line: string): boolean {
  *   trailing whitespace is trimmed here (see rstrip)
  * @param context - the open paragraph's context; omit for the
  *   context-free preprocessor shapes alone
- * @param options - the line's position in the block and the
- *   enclosing list ancestry: the anchor rule applies on the first
- *   line after the block start alone, and the marker rule needs to
- *   know which lists are open (see {@link InterruptionOptions})
+ * @param reader - the line's position in the block and the enclosing
+ *   list ancestry: the anchor rule applies on the first line after
+ *   the block start alone, and the marker rule needs to know which
+ *   list is open (see {@link ReaderContext})
  * @returns true for line comments, conditional directives, includes,
  *   and the two context-dependent shapes
  */
 export function isRawParagraphLine(
   rawLine: string,
   context?: ParagraphContext,
-  options: InterruptionOptions = {},
+  reader: ReaderContext = BLOCK_START_CONTEXT,
 ): boolean {
   const line = rstrip(rawLine);
   if (PARAGRAPH_RAW_LINES.some((pattern) => pattern.test(line))) {
     return true;
   }
-  if (context === "listContinuation" && isForeignMarkerLine(line, options)) {
+  if (context === "listContinuation" && isForeignMarkerLine(line, reader)) {
     return true;
   }
   return (
     context !== undefined &&
-    options.firstLineAfterBlockStart === true &&
+    reader.firstLineAfterStart &&
     RAW_BLOCK_ANCHOR_CONTEXTS.has(context) &&
     BLOCK_ANCHOR.test(line)
   );
@@ -1002,17 +1126,14 @@ export function isRawParagraphLine(
  * (holding it back made `+` / `para` / `* item` / `more` reflow
  * differently on each pass).
  * @param line - one rstripped source line
- * @param options - the open list's style; a marker of that style
+ * @param reader - the open list's style; a marker of that style
  *   interrupts instead and never reaches this rule
  * @returns true when the line must keep its own output line
  */
-function isForeignMarkerLine(
-  line: string,
-  options: InterruptionOptions,
-): boolean {
-  if (options.enclosingListStyle === undefined) {
+function isForeignMarkerLine(line: string, reader: ReaderContext): boolean {
+  if (reader.openListStyle === undefined) {
     return false;
   }
   const style = listMarkerStyle(line);
-  return style !== undefined && style !== options.enclosingListStyle;
+  return style !== undefined && style !== reader.openListStyle;
 }

@@ -65,11 +65,11 @@ export async function assessCase(input: string): Promise<Assessment> {
   }
   let before: string | undefined = undefined;
   try {
-    before = renderedHtml(input);
+    before = await renderedHtml(input);
   } catch (error) {
     details.push(`oracle rejected original input: ${String(error)}`);
   }
-  if (before !== undefined && renderedHtmlSafe(first) !== before) {
+  if (before !== undefined && (await renderedHtmlSafe(first)) !== before) {
     failures.push("fidelity");
     details.push("Asciidoctor renders formatted output differently");
   }
@@ -84,9 +84,11 @@ export async function assessCase(input: string): Promise<Assessment> {
  * @param formatted - formatter output for the case
  * @returns the normalized HTML, or undefined when rendering throws
  */
-function renderedHtmlSafe(formatted: string): string | undefined {
+async function renderedHtmlSafe(
+  formatted: string,
+): Promise<string | undefined> {
   try {
-    return renderedHtml(formatted);
+    return await renderedHtml(formatted);
   } catch {
     return undefined;
   }

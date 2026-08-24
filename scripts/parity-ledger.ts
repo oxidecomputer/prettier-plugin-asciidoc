@@ -1,12 +1,11 @@
 /**
  * `scripts/parity.ts`'s command-line parsing and its `--expected-diffs`
- * ledger (spec D9): `parseArguments`, the closed family enumeration,
+ * ledger: `parseArguments`, the closed family enumeration,
  * the staleness/cross-check gate, and the detail-printing it drives.
  *
  * Split out of `scripts/parity.ts` to keep that file under the
  * project's `max-lines` ceiling — which is also why the two SHAPE
- * FOLDS at the bottom of this file live here (plan ruling PR-6):
- * `foldPlanAlphaShapes` and `foldPlanBetaShapes` belong to the
+ * FOLDS at the bottom of this file live here: they belong to the
  * DUMPER's embedded, SELF-CONTAINED function cluster (see
  * `normalizeTree`'s JSDoc in parity.ts) and carry that cluster's
  * rules with them — no reference to anything outside their own
@@ -19,12 +18,13 @@
  * pair acyclic (the metrics gate holds import cycles at 0).
  */
 import { readFileSync } from "node:fs";
+import { GATE_FAILED } from "./lib/cli.js";
 
-// `no-magic-numbers` is on outside tests; both of these are ordinary
-// exit-code and array bookkeeping, duplicated from parity.ts rather
-// than imported for the same acyclic-imports reason as `reportCase`.
+// `no-magic-numbers` is on outside tests; these are ordinary array
+// bookkeeping, duplicated from parity.ts rather than imported for the
+// same acyclic-imports reason as `reportCase`. The exit code is the
+// exception: it comes from the one place that states the contract.
 const ZERO = 0;
-const FAILURE = 1;
 const DEFAULT_LIMIT = 20;
 
 /**
@@ -52,11 +52,11 @@ function isPlainRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * The family sets one plan's ledger gate runs under (spec D7.2): the
- * closed enumeration, and the subset whose cases may differ in
- * formatted output only. A PARAMETER of the gate — the production
- * call site (scripts/parity.ts) passes {@link GAMMA_FAMILIES}; the
- * unit tests pass synthetic sets, so a plan's enum swap is a one-line
+ * The family sets the ledger gate runs under: the closed
+ * enumeration, and the subset whose cases may differ in formatted
+ * output only. A PARAMETER of the gate — the production call site
+ * (scripts/parity.ts) passes {@link LEDGER_FAMILIES}; the
+ * unit tests pass synthetic sets, so swapping the enum is a one-line
  * data change with no test edits.
  */
 export interface FamilySets {
@@ -70,32 +70,113 @@ export interface FamilySets {
  * The family ids, one declaration each — grid rows in
  * scripts/shape-registry-list-run.ts and ledger entries in
  * scripts/parity-expected-diffs.json cite these, so a rename cannot
- * orphan a spelling. The two g1 ids name the invented-`+` deletion
- * and the pseudo-run-fold corruption fix; the two g3 ids name the
- * marker families (spellings replayed, nesting fidelity restored).
+ * orphan a spelling. Two name the printer's byte-only changes — the
+ * invented-`+` deletion and the pseudo-run-fold corruption fix — two
+ * name the marker families (author spellings replayed, nesting
+ * fidelity restored), and one names the retirement of the `+` that
+ * attached nothing.
  */
-export const AUTHOR_PLUS_FAMILY = "g1-author-plus";
-export const PSEUDO_RUN_FOLD_FAMILY = "g1-pseudo-run-fold";
-export const MARKER_SPELLING_FAMILY = "g3-marker-spelling";
-export const NESTING_FIDELITY_FAMILY = "g3-nesting-fidelity";
+export const AUTHOR_PLUS_FAMILY = "author-plus";
+export const PSEUDO_RUN_FOLD_FAMILY = "pseudo-run-fold";
+export const MARKER_SPELLING_FAMILY = "marker-spelling";
+export const NESTING_FIDELITY_FAMILY = "nesting-fidelity";
+/**
+ * A `+` that attached nothing is popped, renders nothing and is no
+ * longer written — where the reader can prove the pop is Ruby's own.
+ * Formatted-only: the field the item carries is dropped from BOTH
+ * sides by parity's `normalizeOneItem`, so the record's own shape is
+ * invisible here whether it exists or not.
+ */
+export const NO_OP_CONTINUATION_FAMILY = "no-op-continuation";
+/**
+ * The third and later `+` of an adjacent run is read and dropped, as
+ * `parse_list_item`'s own gate always said. NOT formatted-only, and
+ * one id: `lists_test.rb#consecutive list continuation lines are
+ * folded#0`, whose tree moves by exactly two things — the `paragraph`
+ * child holding a single `rawLine` `"+"` at offsets 67-68 goes, and
+ * the item's `position.end` follows it back onto the end of the last
+ * remaining content line. Its own family so the byte-only ids above
+ * keep the AST cross-check armed. NOT exported: no grid row cites it,
+ * and knip holds dead exports at 0.
+ */
+const NO_OP_CONTINUATION_TREE_FAMILY = "no-op-continuation-tree";
+/**
+ * One unset spelling (`:name!:` respelled `:!name:`, one fact per
+ * `store_attribute`, parser.rb l.2131-41) and lowercase entry names
+ * (`sanitize_attribute_name`, l.2770-71). Formatted-only: the
+ * `unset` field's own shape change rides
+ * {@link foldAttributeEntryUnset}, and the name's case never left the
+ * printer. NOT exported, unlike the four above it: no grid row cites
+ * it — attribute entries are outside every shape grid — and knip
+ * holds dead exports at 0.
+ */
+const ATTRIBUTE_ENTRY_SPELLING_FAMILY = "attribute-entry-spelling";
+/**
+ * One spacing for every bracket interior Asciidoctor hands to
+ * `AttributeList` — no blank around a comma, none at the edges
+ * (attribute_list.rb l.30-34, l.199-201). Formatted-only: the
+ * interior is an opaque slice in the AST and the rule runs at print
+ * time, so no tree moves. Not exported: no grid row cites it.
+ */
+const ATTRLIST_SPACING_FAMILY = "attrlist-spacing";
+/**
+ * A shorthand xref's leading blank, trimmed (`link_text.lstrip`,
+ * substitutors.rb l.746). Formatted-only: a print-time derivation
+ * over a field the AST already carried. Not exported: no grid row
+ * cites it.
+ *
+ * NAMED FOR ITS MEMBER. It was `inline-mark-spelling`, after the
+ * constrained-mark respell that landed in the same commit — and that
+ * half moved NOTHING: 25 unconstrained spans in 5 corpus documents,
+ * in = out = 25, every one refused for a stated reason. A family id is
+ * what a future reader greps for, and that one pointed away from the
+ * only id in it. If a mark respell ever moves a corpus id it gets a
+ * family of its own, with its own argument.
+ */
+const XREF_TEXT_TRIM_FAMILY = "xref-text-trim";
+/**
+ * A blank RUN inside a list item's gap collapses to one blank, up to
+ * the gap's first `+` (a run after one erases it, parser.rb l.1576).
+ * Formatted-only: the recorded gap is unchanged and the collapse
+ * happens in `gapParts`. Not exported: no grid row cites it.
+ */
+const GAP_COLLAPSE_FAMILY = "gap-collapse";
 
 /**
  * The closed family enum. SURFACE HONESTY, not an armed
  * gate: a family id can only legally be a corpus id or an
- * identity-fixture id. The formatted-only subset is exactly the two
- * g1 families — they change BYTES only, while both g3 families ride
- * the D3 tree fold (`marker` added, `depth` dropped), so a g3 entry
- * whose AST differs is legal and a g1 entry whose AST differs fails
+ * identity-fixture id. The formatted-only subset is exactly
+ * author-plus, pseudo-run-fold, attribute-entry-spelling,
+ * attrlist-spacing, xref-text-trim and gap-collapse — they
+ * change BYTES only, while
+ * both marker families ride the list tree fold (`marker` added,
+ * `depth` dropped) and no-op-continuation-tree drops a block the
+ * reader used to build, so an entry of those three whose AST differs
+ * is legal and an entry of any other family whose AST differs fails
  * the cross-check.
  */
-export const GAMMA_FAMILIES: FamilySets = {
+export const LEDGER_FAMILIES: FamilySets = {
   families: new Set([
     AUTHOR_PLUS_FAMILY,
     PSEUDO_RUN_FOLD_FAMILY,
     MARKER_SPELLING_FAMILY,
     NESTING_FIDELITY_FAMILY,
+    NO_OP_CONTINUATION_FAMILY,
+    NO_OP_CONTINUATION_TREE_FAMILY,
+    ATTRIBUTE_ENTRY_SPELLING_FAMILY,
+    ATTRLIST_SPACING_FAMILY,
+    XREF_TEXT_TRIM_FAMILY,
+    GAP_COLLAPSE_FAMILY,
   ]),
-  formattedOnly: new Set([AUTHOR_PLUS_FAMILY, PSEUDO_RUN_FOLD_FAMILY]),
+  formattedOnly: new Set([
+    AUTHOR_PLUS_FAMILY,
+    PSEUDO_RUN_FOLD_FAMILY,
+    NO_OP_CONTINUATION_FAMILY,
+    ATTRIBUTE_ENTRY_SPELLING_FAMILY,
+    ATTRLIST_SPACING_FAMILY,
+    XREF_TEXT_TRIM_FAMILY,
+    GAP_COLLAPSE_FAMILY,
+  ]),
 };
 
 /** One expected-diff ledger entry: a case allowed to differ, and why. */
@@ -109,7 +190,7 @@ export interface ExpectedDiff {
 /**
  * Read and validate the expected-diff ledger file. The shape rule is
  * strict on purpose: a malformed ledger silently excusing everything
- * would turn the plan's central gate off.
+ * would turn the parity gate off.
  * @param file - path to the JSON array of `{ id, family }`
  * @returns the entries
  * @throws {TypeError} when the file is not an array of string pairs
@@ -135,8 +216,9 @@ export function loadExpectedDiffs(file: string): ExpectedDiff[] {
 }
 
 /**
- * One ledger entry's own failure, if any (spec D9 failure modes
- * ii–iv and the formatted-only cross-check). Split out from
+ * One ledger entry's own failure, if any: an unknown family, an id
+ * that has vanished from the corpus, an id that no longer differs,
+ * and the formatted-only cross-check. Split out from
  * {@link expectedDiffFailures} to stay under the complexity ceiling;
  * each entry produces AT MOST one failure — the inline version this
  * replaces used `continue` after the first match — so returning a
@@ -146,7 +228,7 @@ export function loadExpectedDiffs(file: string): ExpectedDiff[] {
  * @param streams.ast - ids whose AST differs (or one side lacks)
  * @param streams.formatted - ids differing in formatted output only
  * @param corpusIds - every id this checkout's dump produced
- * @param familySets - the plan's closed family enumeration
+ * @param familySets - the closed family enumeration
  * @returns the failure message, or undefined when the entry is clean
  */
 function ledgerEntryFailure(
@@ -174,15 +256,16 @@ function ledgerEntryFailure(
 
 /**
  * The expected-diff gate: which findings fail a run under
- * `--expected-diffs` (spec D9 failure modes i–iv plus the
- * ledger/allowlist cross-check). Every returned line is a failure;
- * an empty result is a pass.
+ * `--expected-diffs` — every failure an entry can carry (see
+ * {@link ledgerEntryFailure}) plus the other direction, an id that
+ * differs with NO entry excusing it. Every returned line is a
+ * failure; an empty result is a pass.
  * @param entries - the ledger entries
  * @param streams - the two differing-id lists from differingCases
  * @param streams.ast - ids whose AST differs (or one side lacks)
  * @param streams.formatted - ids differing in formatted output only
  * @param corpusIds - every id this checkout's dump produced
- * @param familySets - the plan's closed family enumeration
+ * @param familySets - the closed family enumeration
  * @returns one message per failure
  */
 export function expectedDiffFailures(
@@ -238,7 +321,7 @@ export function expectedDiffFailures(
  * @param options.limit - how many differing cases to detail
  * @param options.allowParentBlockEnd - whether forced-closed
  *   parentBlock ends were blanked on both sides
- * @param options.familySets - the plan's closed family enumeration
+ * @param options.familySets - the closed family enumeration
  * @param options.reportCase - prints one case's per-side difference;
  *   injected rather than imported so this module never imports FROM
  *   parity.ts (see the module-level comment)
@@ -295,7 +378,7 @@ export function reportExpectedDiffs(options: {
     reportCase(id, baseRoot, allowParentBlockEnd);
   }
   if (failures.length > ZERO) {
-    process.exitCode = FAILURE;
+    process.exitCode = GATE_FAILED;
     return;
   }
   process.stdout.write(
@@ -391,7 +474,7 @@ export function parseArguments(argv: readonly string[]): {
   };
 }
 
-// ── the DUMPER's embedded shape folds (plan ruling PR-6) ─────────────
+// ── the DUMPER's embedded shape folds ────────────────────────────────
 
 /**
  * Narrow an unknown value to an object whose properties can be read
@@ -423,9 +506,10 @@ function isUnknownArray(value: unknown): value is readonly unknown[] {
 }
 
 /**
- * Fold the plan-α shape changes so SHAPE-preserving refactors compare
- * (spec D9): a `blockAnchor` node folds to the old anchor-paragraph
- * encoding; an admonition folds `form`/`delimiter` to the old
+ * Fold the anchor and admonition shape changes so SHAPE-preserving
+ * refactors compare: a `blockAnchor` node folds back to the old
+ * anchor-paragraph encoding; an admonition folds `form`/`delimiter`
+ * to the old
  * spelling and blanks the body on BOTH sides (`content` → `""`,
  * `text` → `[]` — body BYTES stay policed by the formatted
  * comparison, the fixtures and the render-equality suite); the
@@ -443,7 +527,10 @@ function isUnknownArray(value: unknown): value is readonly unknown[] {
  * @param value - the revived value
  * @returns the folded value
  */
-export function foldPlanAlphaShapes(key: string, value: unknown): unknown {
+export function foldAnchorAndAdmonitionShapes(
+  key: string,
+  value: unknown,
+): unknown {
   if (key === "annotatedBy") return undefined;
   if (!isRecordLike(value)) return value;
   if (value.type === "blockAnchor") {
@@ -472,7 +559,7 @@ export function foldPlanAlphaShapes(key: string, value: unknown): unknown {
 }
 
 /**
- * Fold the plan-β shape change (spec D10(e)): a `section` container
+ * Fold the section and heading shape changes: a `section` container
  * splices to `[heading, ...children]` IN ITS PARENT ARRAY — the
  * revive is bottom-up, so an inner section is already spliced when
  * the outer array is visited; `documentTitle` retypes to a level-0
@@ -486,7 +573,10 @@ export function foldPlanAlphaShapes(key: string, value: unknown): unknown {
  * @param value - the revived value
  * @returns the folded value
  */
-export function foldPlanBetaShapes(key: string, value: unknown): unknown {
+export function foldSectionAndHeadingShapes(
+  key: string,
+  value: unknown,
+): unknown {
   if (isUnknownArray(value)) {
     // Written as one flatMap rather than a push loop so the splice
     // arm's branching sits in the callback, where the complexity
@@ -521,7 +611,8 @@ export function foldPlanBetaShapes(key: string, value: unknown): unknown {
 }
 
 /**
- * Fold the landed shape changes, both arms in place: the verbatim
+ * Fold the marker and reftext shape changes, both arms in place: the
+ * verbatim
  * reftext capture is invisible to corpus AST comparison — both sides
  * fold `reftext` to its trimStart() on inlineAnchor and blockAnchor
  * nodes — and a marker-bearing list folds back to the old shape,
@@ -534,7 +625,10 @@ export function foldPlanBetaShapes(key: string, value: unknown): unknown {
  * @param value - the revived value
  * @returns the folded value
  */
-export function foldPlanGammaShapes(key: string, value: unknown): unknown {
+export function foldMarkerAndReftextShapes(
+  key: string,
+  value: unknown,
+): unknown {
   if (!isRecordLike(value)) return value;
   if (value.type === "inlineAnchor" || value.type === "blockAnchor") {
     const { type, id, reftext, position } = value;
@@ -571,4 +665,27 @@ export function foldPlanGammaShapes(key: string, value: unknown): unknown {
     return { type, variant, children: items, position };
   }
   return value;
+}
+
+/**
+ * Fold the attribute-entry unset shape change: `unset` was
+ * `false | "prefix" | "suffix"` — which `!` spelling the author used —
+ * and is now the boolean fact both spellings mean. BOTH sides fold to
+ * the boolean, so the retirement of the spelling is invisible to AST
+ * comparison and the BYTES stay policed by the formatted comparison
+ * (the `attribute-entry-spelling` ledger family).
+ *
+ * ONE canonical key order — `type, name, value, unset, position`, the
+ * builder's literal — because parity digests the JSON STRING; a
+ * `value` of undefined drops the key on both sides, as it always did.
+ * Tolerates both tree shapes: the dumper embeds this body into the
+ * baseline checkout too.
+ * @param key - the reviver key
+ * @param value - the revived value
+ * @returns the folded value
+ */
+export function foldAttributeEntryUnset(key: string, value: unknown): unknown {
+  if (!isRecordLike(value) || value.type !== "attributeEntry") return value;
+  const { type, name, unset, position } = value;
+  return { type, name, value: value.value, unset: unset !== false, position };
 }

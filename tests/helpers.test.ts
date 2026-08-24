@@ -6,15 +6,15 @@ import { renderedHtml } from "./helpers.js";
 // <pre> content would silently blind every literal-block
 // assertion downstream rather than failing any of them.
 describe("renderedHtml", () => {
-  test("keeps <pre> content verbatim", () => {
-    const html = renderedHtml("----\ncode *here*\n----\n");
+  test("keeps <pre> content verbatim", async () => {
+    const html = await renderedHtml("----\ncode *here*\n----\n");
     expect(html).toContain("code *here*");
     expect(html).not.toContain("undefined");
   });
 
-  test("distinguishes documents that differ only inside <pre>", () => {
-    const a = renderedHtml("....\nline A\n....\n");
-    const b = renderedHtml("....\nline B\n....\n");
+  test("distinguishes documents that differ only inside <pre>", async () => {
+    const a = await renderedHtml("....\nline A\n....\n");
+    const b = await renderedHtml("....\nline B\n....\n");
     expect(a).not.toBe(b);
   });
 });

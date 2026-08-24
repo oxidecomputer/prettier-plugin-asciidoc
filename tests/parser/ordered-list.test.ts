@@ -70,9 +70,10 @@ describe("ordered list parsing", () => {
 
   // A blank line between two items does NOT split the list (see the
   // unordered-list suite for the Ruby). ORACLE: one `<ol>`.
-  test("two ordered items separated by a blank line are one list", () => {
+  test("two ordered items separated by a blank line are one list", async () => {
     const input = ". List A\n\n. List B\n";
-    expect(renderedHtml(input).match(/<ol/gv)).toHaveLength(1);
+    const html = await renderedHtml(input);
+    expect(html.match(/<ol/gv)).toHaveLength(1);
     const { children } = parse(input);
     expect(children).toHaveLength(1);
     expect(firstList(children).children).toHaveLength(2);

@@ -5,10 +5,12 @@
  * Fetches the vendored Asciidoctor conformance corpus (heredoc test
  * inputs, documentation pages, and test fixtures).
  *
- * Usage: bun scripts/vendor.ts
+ * Exit codes (`scripts/lib/cli.ts`): 0 fetched, 2 it could not fetch
+ * (no network, a moved pin). There is no 1: nothing here is a gate.
  */
 
 import { $ } from "bun";
+import { printUsage, wantsHelp } from "./lib/cli.js";
 import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -20,6 +22,18 @@ import {
 
 // Named to satisfy @typescript-eslint/no-magic-numbers below.
 const ZERO = 0;
+
+const USAGE = `usage: bun run vendor
+
+  --help  this text
+
+exit: 0 fetched, 2 could not fetch`;
+
+const ARGUMENT_START = 2;
+if (wantsHelp(process.argv.slice(ARGUMENT_START))) {
+  printUsage(USAGE);
+  process.exit();
+}
 
 const tempdir = await mkdtemp(path.join(tmpdir(), "asciidoc-vendor-"));
 

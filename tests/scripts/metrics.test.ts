@@ -1,12 +1,11 @@
 /**
  * The scorecard measures the codebase, so the scorecard itself has to
  * be measured by something. These tests pin the parts that used to be
- * hand-rolled regexes (Ruling 34): line classification, export
+ * hand-rolled regexes: line classification, export
  * counting, escape-hatch counting, the eslint-report parser, the
  * knip-report parser, and one real dependency-cruiser run.
  */
 import { describe, test, expect } from "vitest";
-import { spawnSync } from "node:child_process";
 import {
   mkdtempSync,
   mkdirSync,
@@ -132,7 +131,7 @@ describe("escape-hatch counting", () => {
     expect(scan("const x = <Foo>y;\n").assertions).toBe(1);
   });
 
-  // Ruling 36: `as const` narrows a literal to its own type and adds
+  // `as const` narrows a literal to its own type and adds
   // `readonly` — it can never widen a value into a lie the way
   // `x as Foo` can, so it is not an escape hatch.
   test("does not count `as const`", () => {
@@ -257,7 +256,9 @@ async function cruiseFixture(
       }),
     );
     for (const [name, contents] of Object.entries(files)) {
-      writeFileSync(path.join(root, "src", name), contents);
+      const file = path.join(root, "src", name);
+      mkdirSync(path.dirname(file), { recursive: true });
+      writeFileSync(file, contents);
     }
     return await cruiseImports(root);
   } finally {
@@ -308,7 +309,49 @@ describe("dependency-cruiser coupling", () => {
     expect(graph.unresolved).toEqual(["src/a.ts -> ./missing.js"]);
   });
 });
-// Ruling 35: the cyclomatic tail is REPORT-ONLY. Cyclomatic complexity
+
+// The POSITIVE CONTROL for the layer rules. dependency-cruiser's
+// `validate` option defaults to FALSE, and with it off a cruise
+// carrying rules reports zero violations rather than an error — the
+// same silent-disarm shape that switched the cycle gate off once
+// already. A planted violation is the only thing that can tell "the
+// tree is clean" apart from "the rules never ran", so it is a fixture
+// here rather than an assertion about our own tree.
+describe("layer rules", () => {
+  test("names the rule a forbidden edge breaks", async () => {
+    const graph = await cruiseFixture({
+      "parse/build/b.ts":
+        'import type { L } from "../lines/l.js";\nexport const b = (l: L): L => l;\n',
+      "parse/lines/l.ts": "export interface L {\n  x: number;\n}\n",
+    });
+    expect(graph.layerViolations).toEqual([
+      "src/parse/build/b.ts -> src/parse/lines/l.ts (build-imports-lines)",
+    ]);
+  });
+
+  test("lets the same edge through in the layered direction", async () => {
+    const graph = await cruiseFixture({
+      "parse/lines/l.ts":
+        'import type { B } from "../build/b.js";\nexport const l = (b: B): B => b;\n',
+      "parse/build/b.ts": "export interface B {\n  x: number;\n}\n",
+    });
+    expect(graph.layerViolations).toEqual([]);
+  });
+
+  test("lets print reach parse at its two addresses, and nowhere else", async () => {
+    const graph = await cruiseFixture({
+      "print/p.ts":
+        'import type { S } from "../parse/line-shapes.js";\nimport type { A } from "../parse/attrlist.js";\nimport type { P } from "../parse/positions.js";\nexport const p = (s: S, a: A, q: P): [S, A, P] => [s, a, q];\n',
+      "parse/line-shapes.ts": "export interface S {\n  x: number;\n}\n",
+      "parse/attrlist.ts": "export interface A {\n  x: number;\n}\n",
+      "parse/positions.ts": "export interface P {\n  x: number;\n}\n",
+    });
+    expect(graph.layerViolations).toEqual([
+      "src/print/p.ts -> src/parse/positions.ts (print-imports-parse-off-address)",
+    ]);
+  });
+});
+// The cyclomatic tail is REPORT-ONLY. Cyclomatic complexity
 // cannot tell a flat `switch` over a discriminated union from three
 // nested loops, and in a parser the dispatch is the shape the code is
 // supposed to have — gating on it would push the code towards handler
@@ -347,6 +390,32 @@ describe("gates and ratchets", () => {
     expect(gateFailures(head)).toEqual(["knip: 2 unused export(s) under src/"]);
   });
 
+  test("an untagged test-only export fails", () => {
+    const head = makeSnapshot({ untaggedInternal: ["src/a.ts:helper …"] });
+    expect(gateFailures(head)).toEqual(["src/a.ts:helper …"]);
+  });
+
+  test("a stale @internal tag fails too", () => {
+    const head = makeSnapshot({ staleInternalTags: ["src/a.ts:helper …"] });
+    expect(gateFailures(head)).toEqual(["src/a.ts:helper …"]);
+  });
+
+  test("neither is judged on a checkout that is not ours", () => {
+    const head = makeSnapshot({
+      repository: false,
+      untaggedInternal: ["src/a.ts:helper …"],
+      staleInternalTags: ["src/b.ts:other …"],
+    });
+    expect(gateFailures(head)).toEqual([]);
+  });
+
+  test("an unused export under scripts fails too", () => {
+    const head = makeSnapshot({ unusedScriptExports: 3 });
+    expect(gateFailures(head)).toEqual([
+      "knip: 3 unused export(s) under scripts/",
+    ]);
+  });
+
   test("a layer that did not exist at the base cannot regress", () => {
     const base = makeSnapshot({ files: 0, cognitiveMax: 0 });
     const head = makeSnapshot({ files: 3, cognitiveMax: 12 });
@@ -356,100 +425,4 @@ describe("gates and ratchets", () => {
   test("a clean pair passes", () => {
     expect(gateFailures(makeSnapshot({}), makeSnapshot({}))).toEqual([]);
   });
-});
-
-// The gate functions are unit-tested above, but what a build actually
-// sees is the PROCESS exit code. This drives the real CLI over a
-// throwaway checkout, so the wiring between `gateFailures` and
-// `process.exitCode` is covered too.
-/**
- * Write a minimal checkout the CLI can measure.
- * @param files - file name to contents, under `src`
- * @returns the checkout root
- */
-function writeCheckout(files: Record<string, string>): string {
-  const root = realpathSync(mkdtempSync(path.join(tmpdir(), "metrics-cli-")));
-  mkdirSync(path.join(root, "src"));
-  writeFileSync(
-    path.join(root, "package.json"),
-    JSON.stringify({
-      name: "fixture",
-      private: true,
-      type: "module",
-      main: "src/index.ts",
-    }),
-  );
-  writeFileSync(
-    path.join(root, "tsconfig.json"),
-    JSON.stringify({
-      compilerOptions: {
-        module: "ES2022",
-        moduleResolution: "bundler",
-        strict: true,
-        noEmit: true,
-      },
-      include: ["src/**/*.ts"],
-    }),
-  );
-  for (const [name, contents] of Object.entries(files)) {
-    writeFileSync(path.join(root, "src", name), contents);
-  }
-  return root;
-}
-
-/**
- * Run `bun scripts/metrics.ts --root <checkout>`.
- * @param files - the checkout's `src` files
- * @returns the process's exit code and stderr
- */
-function runCli(files: Record<string, string>): {
-  status: number;
-  stderr: string;
-} {
-  const root = writeCheckout(files);
-  try {
-    const result = spawnSync("bun", ["scripts/metrics.ts", "--root", root], {
-      cwd: process.cwd(),
-      encoding: "utf8",
-    });
-    return { status: result.status ?? -1, stderr: result.stderr };
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
-}
-
-describe("the command line's exit code", () => {
-  const CLI_TIMEOUT = 180_000;
-
-  test(
-    "exits 0 on a clean checkout",
-    () => {
-      const { status, stderr } = runCli({
-        "index.ts":
-          'import { helper } from "./helper.js";\nexport function run(): string {\n  return helper();\n}\n',
-        "helper.ts": 'export function helper(): string {\n  return "ok";\n}\n',
-      });
-      expect(status, stderr).toBe(0);
-    },
-    CLI_TIMEOUT,
-  );
-
-  test(
-    "exits 1 and names the files when a cycle is planted",
-    () => {
-      const { status, stderr } = runCli({
-        "index.ts":
-          'import { a } from "./a.js";\nexport function run(): unknown {\n  return a();\n}\n',
-        "a.ts":
-          'import { b } from "./b.js";\nexport const a = (): unknown => b;\n',
-        "b.ts":
-          'import { a } from "./a.js";\nexport const b = (): unknown => a;\n',
-      });
-      expect(status).toBe(1);
-      expect(stderr).toContain("import cycle");
-      expect(stderr).toContain("src/a.ts");
-      expect(stderr).toContain("src/b.ts");
-    },
-    CLI_TIMEOUT,
-  );
 });

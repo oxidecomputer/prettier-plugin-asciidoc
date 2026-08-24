@@ -48,7 +48,7 @@ describe("makeLocationIndex", () => {
 
   // A span whose INTERIOR crosses a line break, which is not the
   // same case as one that ends at a break: the end lands on the LAST
-  // line. This is the shape Task 2 measured off the old lexer — an
+  // line. This shape was measured off the old lexer — an
   // inline macro's or bare URL's attrlist is `[^\]]*`, which does not
   // exclude `\n`, so `xref:a[multi\nline label]` is ONE token over
   // two lines. Traced against the old lexer's token-instance

@@ -1,8 +1,8 @@
 /**
  * How the blocks inside a list item are SPELLED back: a detached `+`
  * that an outer item took, and blocks the item keeps with no `+` at
- * all (Ruling 24 — the printer keeps the source's spelling and never
- * invents a `+`). Split from list-continuation.test.ts for size.
+ * all (the printer keeps the source's spelling and never invents a
+ * `+`). Split from list-continuation.test.ts for size.
  */
 import { describe, test, expect } from "vitest";
 import { formatAdoc, renderedHtml } from "../helpers.js";
@@ -34,13 +34,13 @@ describe("a detached + taken by an outer item is released by the inner item", ()
   for (const [name, input] of cases) {
     test(`${name} keeps the block outside the list`, async () => {
       const out = await formatAdoc(input);
-      expect(renderedHtml(out)).toBe(renderedHtml(input));
+      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
       expect(await formatAdoc(out)).toBe(out);
     });
   }
 });
 
-// Ruling 24: a block the item keeps WITHOUT a `+` — a dlist term, a
+// A block the item keeps WITHOUT a `+` — a dlist term, a
 // literal paragraph after a blank line, metadata and its block, a
 // paragraph adjacent to an attached block — is printed in the source's
 // own spelling. No `+` the author never wrote is invented.
@@ -67,12 +67,12 @@ describe("blocks an item keeps without a + keep the source spelling", () => {
     test(`${name} round-trips byte for byte`, async () => {
       const out = await formatAdoc(input);
       expect(out).toBe(input);
-      expect(renderedHtml(out)).toBe(renderedHtml(input));
+      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     });
   }
 });
 
-// Ruling 26: the source spelling is kept only where Asciidoctor's reading
+// The source spelling is kept only where Asciidoctor's reading
 // is independent of how many lines the item text occupies. Block
 // metadata directly after reflowable item text, with no `+`, is NOT:
 // `* a` / `[role]` / `para` folds `para` into the text, while `* a` /
@@ -94,7 +94,7 @@ describe("metadata directly after reflowable item text keeps the break", () => {
   ])("%s", async (_name, input, expected) => {
     const out = await formatAdoc(input);
     expect(out).toBe(expected);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });
   // A block title on a later line of the item text is text to
@@ -102,7 +102,7 @@ describe("metadata directly after reflowable item text keeps the break", () => {
   test("a block title on a later text line is text and reflows", async () => {
     const input = "* a\npara\n.T\npara\n";
     const out = await formatAdoc(input);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });
   // On the FIRST line after the marker line the metadata folds the
@@ -112,39 +112,44 @@ describe("metadata directly after reflowable item text keeps the break", () => {
     const input = "* a\n[role]\npara\n";
     const out = await formatAdoc(input);
     expect(out).toBe(input);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
   });
 });
 
 // A `+` the author wrote between metadata and its block is ALWAYS
-// preserved, in source order; so is plan-1's `+` before the metadata.
+// preserved, in source order; so is one the author put BEFORE the
+// metadata.
 describe("a + between metadata and its block is kept where it was", () => {
   test.each([
     ["metadata, +, block", "* a\n[role]\n+\n----\nx\n----\n"],
     ["metadata, +, metadata, block", "* a\n[role]\n+\n[role]\n----\nx\n----\n"],
     ["metadata, title, +, title", "* a\n[role]\n.T\n+\n.T\n"],
     ["in a later item", "* a\n* b\n[role]\n+\n----\nx\n----\n"],
-    ["+, metadata, block (plan-1's form)", "* a\n+\n[role]\n----\nx\n----\n"],
+    ["+, metadata, block", "* a\n+\n[role]\n----\nx\n----\n"],
   ])("%s round-trips byte for byte", async (_name, input) => {
     const out = await formatAdoc(input);
     expect(out).toBe(input);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
   });
 });
 
-// Two detached `+` in a row inside a nested list: the outer item erases
-// only the LAST (`read_lines_for_list_item`'s scalar
-// `detached_continuation`), so the inner item re-reads the first as its
-// own detached `+` and takes the block. Both `+` lines are written back.
+// Two detached `+` in a row inside a nested list. The reader spells
+// core 2.0.20's reading: the outer item erases only the LAST
+// (`read_lines_for_list_item`'s scalar `detached_continuation`), so the
+// inner item re-reads the first as its own and takes the block. The
+// PINNED oracle (core 2.0.26) no longer reads it that way — the
+// paragraph lands in the OUTER item and the surviving `+` renders as
+// text — so the row below records where 2.0.26 puts it. Either way
+// both `+` lines are written back, which is what the formatter owes.
 describe("stacked detached continuations in a nested list", () => {
-  test("both + lines survive and the block stays in the inner item", async () => {
+  test("both + lines survive and the document round-trips", async () => {
     const input = "* a\n** b\n\n+\n\n+\npara\n";
-    expect(renderedHtml(input)).toMatch(
-      /<li>.*<p>b<\/p>.*<p>para<\/p>.*<\/li>/v,
+    expect(await renderedHtml(input)).toMatch(
+      /<li>.*<p>b<\/p>.*<\/li>.*<p>\+ para<\/p>.*<\/li>/v,
     );
     const out = await formatAdoc(input);
     expect(out).toBe(input);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
   });
 });
 
@@ -164,7 +169,7 @@ describe("comment lines are transparent to the first-rest-line count", () => {
   ])("%j round-trips byte for byte", async (input) => {
     const out = await formatAdoc(input);
     expect(out).toBe(input);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
   });
 });
 
@@ -181,7 +186,7 @@ describe("a metadata group that ended multi-line text keeps off the first rest l
     // nothing above the run. Counterfactual: the old bytes were
     // "* a para\n+\n[role]\n+\npara\n", with an invented first `+`.
     expect(out).toBe("* a\n  para\n[role]\n+\npara\n");
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });
   test.each([
@@ -195,7 +200,7 @@ describe("a metadata group that ended multi-line text keeps off the first rest l
     "* a\n  lit\n[role]\n.T\n",
   ])("trailing group %j renders the same and is idempotent", async (input) => {
     const out = await formatAdoc(input);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });
   // A single trailing metadata line folds harmlessly (it annotates
@@ -206,12 +211,12 @@ describe("a metadata group that ended multi-line text keeps off the first rest l
     "* a\npara\n[role]\n\npara\n",
   ])("a single trailing metadata line %j keeps its spelling", async (input) => {
     const out = await formatAdoc(input);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });
 });
 
-// Ruling 28: a TRAILING run (no block follows within the item) that
+// A TRAILING run (no block follows within the item) that
 // ended multi-line item text and carries a block title gets NO `+` — a
 // `+` there re-parents whatever block follows the list within the
 // continuation budget (`* a` / `para` / `[role]` / `.T` / blank / `== T`
@@ -224,7 +229,7 @@ describe("a trailing titled run keeps the text's last line break", () => {
     const input = "* a\npara\n[role]\n.T\n";
     const out = await formatAdoc(input);
     expect(out).toBe("* a\n  para\n[role]\n.T\n");
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });
   test.each([
@@ -238,13 +243,13 @@ describe("a trailing titled run keeps the text's last line break", () => {
     "* a\n  lit\n[role]\n.T\n\n== T\n\npara\n",
   ])("%j renders the same and is idempotent", async (input) => {
     const out = await formatAdoc(input);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });
   test("a following section survives", async () => {
     const input = "* a\npara\n[role]\n.T\n\n== T\n\npara\n";
     const out = await formatAdoc(input);
-    expect(renderedHtml(out)).toContain("<h2");
+    expect(await renderedHtml(out)).toContain("<h2");
     expect(out).toBe("* a\n  para\n[role]\n.T\n\n== T\n\npara\n");
   });
   test("single-line item text is untouched", async () => {
@@ -261,11 +266,11 @@ describe("a paragraph after a comment-consumed + is read as a continuation", () 
     const input = "* a\n+\n// c\npara\n** n\n";
     const out = await formatAdoc(input);
     expect(out).toBe(input);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
   });
 });
 
-// Ruling 29: the kept break is decided at paragraph level — the last
+// The kept break is decided at paragraph level — the last
 // soft separator of the flattened item text is hardened — so it holds
 // whatever begins the last source line: a formatting span, an inline
 // macro or URL, block syntax such as an admonition label.
@@ -278,7 +283,7 @@ describe("the kept break holds whatever begins the text's last line", () => {
     "* a\n_i_ t\n[[anc]]\n.T\n",
   ])("%j renders the same and is idempotent", async (input) => {
     const out = await formatAdoc(input);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });
 });
@@ -291,13 +296,13 @@ describe("a hard line break ending the item text", () => {
     "%j renders the same and is idempotent",
     async (input) => {
       const out = await formatAdoc(input);
-      expect(renderedHtml(out)).toBe(renderedHtml(input));
+      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
       expect(await formatAdoc(out)).toBe(out);
     },
   );
 });
 
-// Ruling 30: the kept break must be a separator that has CONTENT after
+// The kept break must be a separator that has CONTENT after
 // it. When the item's last text line ends in whitespace, the inline
 // printer appends a trailing `line` separator (pushTrailingBoundary), so
 // hardening the LAST separator hardened that trailing one — printing a
@@ -329,7 +334,7 @@ describe("a text line ending in whitespace still keeps a break with content afte
     "trailing %s before %j, then %s, renders the same and is idempotent",
     async (_ws, _meta, _what, input) => {
       const out = await formatAdoc(input);
-      expect(renderedHtml(out)).toBe(renderedHtml(input));
+      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
       expect(await formatAdoc(out)).toBe(out);
     },
   );
@@ -351,11 +356,11 @@ describe("a reader-eaten line ending a list item", () => {
   ])("%j round-trips byte for byte", async (input) => {
     const out = await formatAdoc(input);
     expect(out).toBe(input);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
   });
 });
 
-// Spec review F1 (tier-1 at the baseline): `within_nested_list`
+// F1 (tier-1 at the baseline): `within_nested_list`
 // blocks BOTH erasures, so both `+` lines reach the nested item and
 // Ruby/the oracle put `para` in b. The baseline reader put it in a and
 // printed `* a\n** b\n\n+\npara\n`, which renders differently.
@@ -366,10 +371,10 @@ describe("F1: suspended continuations reach the nested item", () => {
     const input = "* a\n** b\n+\n\n+\npara\n";
     const out = await formatAdoc(input);
     expect(out).toBe(input);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
   });
 });
-// Review round 1, blockers B1 and B2: the spelling the printer emits
+// Blockers B1 and B2: the spelling the printer emits
 // for a trailing `+` run must be a FIXED POINT of format∘parse. The
 // finish rule (list-reader.ts) reports a popped `+` only where the
 // reprint pops identically — at a safe boundary (EOF, a sibling, an
@@ -379,7 +384,7 @@ describe("F1: suspended continuations reach the nested item", () => {
 // after the list) or shrinks the run one `+` per pass. Each row pins
 // the whole contract: render-equality against the input, and
 // byte-stability of the first output.
-describe("trailing +-run spellings are fixed points (review B1/B2)", () => {
+describe("trailing +-run spellings are fixed points (B1/B2)", () => {
   test.each([
     // B1: the popped `+` of a NESTED item (its stream end is the outer
     // buffer, not the document) must not re-arm — `para` stays outside.
@@ -406,28 +411,28 @@ describe("trailing +-run spellings are fixed points (review B1/B2)", () => {
     const once = await formatAdoc(input);
     const twice = await formatAdoc(once);
     expect(twice).toBe(once);
-    expect(renderedHtml(once)).toBe(renderedHtml(input));
+    expect(await renderedHtml(once)).toBe(await renderedHtml(input));
   });
 });
 
-// Review round 1, blocker B3: the blank the baseline invented before an
+// Blocker B3: the blank the baseline invented before an
 // in-item nested list is load-bearing where a literal paragraph's
 // re-read slurp (`read_lines_until break_on_blank_lines`) would run
 // through adjacent metadata into the marker — and past the item's end
 // into the NEXT item's marker. printedGap re-invents exactly that
 // blank (`slurpReaches`), and the re-parsed gap [""] then replays
 // verbatim: idempotent by construction.
-describe("a literal's slurp cannot swallow a following nested marker (review B3)", () => {
+describe("a literal's slurp cannot swallow a following nested marker (B3)", () => {
   test("lit, [role], nested marker, then a sibling", async () => {
     const input = "* a\n\n  lit\n[role]\n** b\n\n* a\n";
     const once = await formatAdoc(input);
     expect(once).toBe("* a\n\n  lit\n[role]\n\n** b\n* a\n");
-    expect(renderedHtml(once)).toBe(renderedHtml(input));
+    expect(await renderedHtml(once)).toBe(await renderedHtml(input));
     expect(await formatAdoc(once)).toBe(once);
   });
 });
 
-// The plan's one full mutation pass found four rules whose one-line
+// One full mutation pass found four rules whose one-line
 // mutation changed real bytes while every test still passed: the corpus
 // carried three of them and the sweep saw the fourth, but the sweep
 // asserts RENDER-equality, and each of these mutants happens to stay
@@ -437,16 +442,20 @@ describe("a literal's slurp cannot swallow a following nested marker (review B3)
 describe("byte pins for rules only the corpus and the sweep reached", () => {
   test.each([
     // `within_nested_list` set by the AFTER-BLANK nestable arm
-    // (parser.rb l.1519-21), not only by the final else: without it
+    // (parser.rb l.1530-32), not only by the final else: without it
     // the outer scan erases the `+` that belongs to the inner list and
-    // the author's line vanishes — mutant: "* a\n\n** b\n** b\n".
+    // the author's line vanishes — mutant: "* a\n\n** b\n** b\n". The
+    // mutant's structural witness lives in the reader suite
+    // (tests/parser/reader-lists.test.ts, "the after-blank nestable
+    // arm keeps the + for the inner list"), where the erasure decides
+    // WHICH item a continuation's block attaches to.
     [
       "the after-blank nestable arm sets within_nested_list",
       "* a\n\n** b\n+\n** b\n",
       "* a\n\n** b\n+\n** b\n",
     ],
-    // endsWithLiteralParagraph looks THROUGH a trailing nested list —
-    // the previous item's last printed thing is the literal inside
+    // tailSwallowsMarker looks THROUGH a trailing nested list — the
+    // previous item's last printed thing is the literal inside
     // `** b`, so the sibling still needs the blank line that stops the
     // literal's re-read slurp (B3, one level down). Mutant without the
     // nested-list arm: "* a\n\n** b\n[role]\n  lit\n* a\n", whose
@@ -477,8 +486,9 @@ describe("byte pins for rules only the corpus and the sweep reached", () => {
       "* a\n[role]\n** b\n",
       "* a\n[role]\n** b\n",
     ],
-    // Ruling 64 is about `//` LINES (Reader#skip_line_comments), never
-    // a `////` comment BLOCK: the block is a block of the item, so it
+    // Line-comment transparency is about `//` LINES
+    // (Reader#skip_line_comments), never a `////` comment BLOCK: the
+    // block is a block of the item, so it
     // follows the leading metadata run and the hazard keeps the
     // item's own break.
     // Mutants that make isLineComment admit comment blocks read
@@ -529,7 +539,7 @@ describe("byte pins for rules only the corpus and the sweep reached", () => {
   ])("%s", async (_name, input, expected) => {
     const once = await formatAdoc(input);
     expect(once).toBe(expected);
-    expect(renderedHtml(once)).toBe(renderedHtml(input));
+    expect(await renderedHtml(once)).toBe(await renderedHtml(input));
     expect(await formatAdoc(once)).toBe(once);
   });
 
@@ -555,7 +565,7 @@ describe("byte pins for rules only the corpus and the sweep reached", () => {
   // idempotent there, and already fails render-equality there. So head
   // changes nothing about this shape; the byte and the fixed point are
   // what this row pins, and the rendering gap is the family's, not
-  // this plan's.
+  // this row's.
   test("the slurp walk starts at the nested list, not at the item's end", async () => {
     const input = "* a\n\n  lit\n[role]\n** b\n+\npara\n";
     const once = await formatAdoc(input);
@@ -635,7 +645,96 @@ describe("a pseudo-anchor line ends an item's metadata run", () => {
   test.each(cases.filter(([name]) => !name.includes("empty-reftext")))(
     "%s renders like its input",
     async (_name, input) => {
-      expect(renderedHtml(await formatAdoc(input))).toBe(renderedHtml(input));
+      expect(await renderedHtml(await formatAdoc(input))).toBe(
+        await renderedHtml(input),
+      );
     },
   );
+});
+
+// A block macro on the line directly after a marker line is the
+// item's first block, not a word in its text — so it stays on its own
+// line instead of being reflowed into the sentence. The bytes below
+// are exact because the corruption this fixes was invisible in a
+// round-trip check alone: `* a image::x.png[]` re-parses to the same
+// (wrong) tree, so only the RENDERING moved. Each row therefore
+// carries its rendering against the ORIGINAL INPUT (issue #48); the
+// reader-side pins live in tests/parser/block-macro.test.ts.
+describe("a block macro after a marker line keeps its own line", () => {
+  const cases: Array<[string, string, string]> = [
+    ["lone item", "* a\nimage::x.png[]\n", "* a\nimage::x.png[]\n"],
+    [
+      "the list continues after it",
+      "* a\nimage::x.png[]\n* b\n",
+      "* a\nimage::x.png[]\n* b\n",
+    ],
+    ["ordered item", ". a\nimage::x.png[]\n", ". a\nimage::x.png[]\n"],
+    ["callout item", "<1> a\nimage::x.png[]\n", "<1> a\nimage::x.png[]\n"],
+    // One line further down the macro is ordinary text, and reflow
+    // may take it — the position rule cuts exactly here.
+    [
+      "a later line is text and reflows",
+      "* a\nmore\nimage::x.png[]\n",
+      "* a more image::x.png[]\n",
+    ],
+  ];
+  test.each(cases)("%s", async (_name, input, expected) => {
+    const once = await formatAdoc(input);
+    expect(once).toBe(expected);
+    expect(await formatAdoc(once)).toBe(once);
+    expect(await renderedHtml(once)).toBe(await renderedHtml(input));
+  });
+});
+
+// A blank RUN inside an item's gap collapses to one blank — the same
+// rule joinBlocks holds between blocks, and the last place in the
+// printer where blank multiplicity survived. Only UP TO the gap's
+// first `+`: a run AFTER a `+` is what erases it (parser.rb l.1576),
+// so shortening that one can resurrect a dead continuation.
+describe("an item gap's blank run collapses to one blank", () => {
+  test.each([
+    ["two blanks before a literal", "* a\n\n\n  lit\n", "* a\n\n  lit\n"],
+    ["four blanks", "* a\n\n\n\n\n  lit\n", "* a\n\n  lit\n"],
+    ["before a DETACHED +", "* a\n\n\n+\npara\n", "* a\n\n+\npara\n"],
+    ["before a detached + run", "* a\n\n\n+\n+\npara\n", "* a\n\n+\n+\npara\n"],
+    // A gap gapParts really runs on: the item's SECOND block, behind
+    // the paragraph a live `+` attached. (A blank run before a
+    // DOCUMENT-level block is joinBlocks' collapse, not this one, and
+    // a row there would pass with `gapParts` reverted.)
+    [
+      "the second block's gap, behind a +-attached paragraph",
+      "* a\n+\npara\n\n\n  lit\n",
+      "* a\n+\npara\n\n  lit\n",
+    ],
+    [
+      "inside a nested item",
+      "* a\n** b\n\n\n   lit\n",
+      "* a\n** b\n\n   lit\n",
+    ],
+    // The boundary, from the other side, on gaps that carry a LIVE
+    // `+` with blanks BEHIND it (`["+", "", ""]`). Collapsing past the
+    // `+` shortens the run that erases it, and these rows say so in
+    // bytes: with the `livePlus` guard removed both print one blank
+    // where the source had two.
+    [
+      "a blank run behind a live + is replayed",
+      "* a\n* a\n+\n\n\n** b\n",
+      "* a\n* a\n+\n\n\n** b\n",
+    ],
+    [
+      "a longer run behind a live + is replayed",
+      "* a\n+\n\n\n\n** b\n",
+      "* a\n+\n\n\n\n** b\n",
+    ],
+    // And the two shapes where the reader has ALREADY erased the `+`
+    // into a blank, so `livePlus` never sees one: one blank is the
+    // budget the continuation survives, two erase it.
+    ["one blank after a live +", "* a\n+\n\npara\n", "* a\n+\n\npara\n"],
+    ["two blanks after a live +", "* a\n+\n\n\npara\n", "* a\n\npara\n"],
+  ])("%s", async (_name, input, expected) => {
+    const out = await formatAdoc(input);
+    expect(out).toBe(expected);
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
 });

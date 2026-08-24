@@ -76,7 +76,7 @@ describe("checklist formatting", () => {
     async (_name, input) => {
       const out = await formatAdoc(input);
       expect(out).toBe(input);
-      expect(renderedHtml(out)).toBe(renderedHtml(input));
+      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
       expect(await formatAdoc(out)).toBe(out);
     },
   );

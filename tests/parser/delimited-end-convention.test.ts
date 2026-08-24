@@ -1,9 +1,9 @@
 /**
- * The one end-position convention every delimited close obeys (spec
- * D4, the Q3 floor): a closed block ends past its terminator line's
+ * The one end-position convention every delimited close obeys: a
+ * closed block ends past its terminator line's
  * RAW end; a block forced shut by an outer terminator ends at that
  * line's START; a block forced shut by EOF ends at the document
- * length. Landed at the plan parent BEFORE the extent-first rewrite,
+ * length. Written BEFORE the extent-first rewrite,
  * so the rewrite's one-formula spelling (`at.at(extent.end)`) is
  * pinned against today's two spellings across every close kind ×
  * final-newline choice, plus the trailing-whitespace terminator.
@@ -18,8 +18,8 @@ import type { BlockNode, DelimitedBlockNode } from "../../src/ast.js";
  * The first listing node in a parse: a document child, or a child of
  * a parent block (the two places this table's rows put one). No
  * section traversal on purpose — the rows carry no headings, and the
- * helper must survive plan β's Task 4 (which deletes the section
- * kind) without an edit.
+ * helper must survive the deletion of the section kind without an
+ * edit.
  * @param source - the document
  * @returns the listing node
  */
@@ -90,7 +90,7 @@ describe("delimited end positions: one convention across every close kind", () =
     expect(listing.position.end).toEqual(end);
   });
 
-  test("the enclosing example's own end is past ITS close line (the two-offsets convention, spec D2)", () => {
+  test("the enclosing example's own end is past ITS close line (the two-offsets convention)", () => {
     const source = "====\n----\nfoo\n====\n";
     const [example] = parse(source).children;
     narrow(example, "parentBlock");

@@ -9,7 +9,7 @@
  * its line, and at the document's end.
  *
  * A verbatim block's ROLE is decided at OPEN by `lines/open-style.ts`
- * and handed straight to the builder with the extent (spec D4a), so
+ * and handed straight to the builder with the extent, so
  * these rows hand the builder the role a reader would: the delimiter
  * in the extent is bytes to slice, not a decision to re-derive. The
  * extent itself states both offsets — `contentEnd`, always a line's
@@ -57,7 +57,11 @@ function closedExtent(
 
 // The role a bare `----` opener resolves to — the one every content
 // row below is measured with.
-const LISTING_ROLE = { builds: "delimitedBlock", variant: "listing" } as const;
+const LISTING_ROLE = { builds: "leafBlock", variant: "listing" } as const;
+
+// The role a Markdown backtick fence resolves to, before the reader
+// completes it with the opening line's language hint.
+const FENCE_ROLE = { builds: "fencedBlock" } as const;
 
 describe("buildVerbatimBlock variants", () => {
   test.each([
@@ -67,7 +71,7 @@ describe("buildVerbatimBlock variants", () => {
   ] as const)("%j opens a %j block", (open, variant) => {
     const { extent, at } = closedExtent(open, "code", open);
     expect(
-      buildVerbatimBlock(extent, { builds: "delimitedBlock", variant }, at),
+      buildVerbatimBlock(extent, { builds: "leafBlock", variant }, at),
     ).toEqual({
       type: "delimitedBlock",
       variant,
@@ -82,7 +86,7 @@ describe("buildVerbatimBlock variants", () => {
 
   test("a fence with a language hint is a listing block that knows it", () => {
     const { extent, at } = closedExtent("```rust", "code", "```");
-    const role = { ...LISTING_ROLE, fenced: true, language: "rust" } as const;
+    const role = { ...FENCE_ROLE, language: "rust" } as const;
     expect(buildVerbatimBlock(extent, role, at)).toMatchObject({
       type: "delimitedBlock",
       variant: "listing",
@@ -94,11 +98,7 @@ describe("buildVerbatimBlock variants", () => {
 
   test("a bare fence is fenced with no language", () => {
     const { extent, at } = closedExtent("```", "code", "```");
-    const node = buildVerbatimBlock(
-      extent,
-      { ...LISTING_ROLE, fenced: true },
-      at,
-    );
+    const node = buildVerbatimBlock(extent, FENCE_ROLE, at);
     expect(node).toMatchObject({ variant: "listing", fenced: true });
     expect("language" in node).toBe(false);
   });

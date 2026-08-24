@@ -18,8 +18,8 @@
  * block's first line.
  *
  * Context is READ here, never derived: the reader owns the context.
- * That is the whole point of this module (see the spec's Success
- * criterion). Nothing in this file scans backwards, re-reads source,
+ * That is the whole point of this module. Nothing in this file scans
+ * backwards, re-reads source,
  * or inspects a token history.
  */
 import {
@@ -31,12 +31,9 @@ import {
   BLOCK_TITLE,
   CALLOUT_MARKER_LINE,
   CALLOUT_STYLE,
-  CONDITIONAL_DIRECTIVE,
   CONTINUATION_LINE,
   DELIMITED_BLOCK_PATTERNS,
   DELIMITER_KINDS,
-  INCLUDE_DIRECTIVE,
-  LINE_COMMENT,
   LIST_MARKER_LINE,
   LITERAL_LINE,
   PAGE_BREAK,
@@ -46,23 +43,34 @@ import {
   isRawParagraphLine,
   optionalGroup,
   parseDescriptionListLine,
+  rawLineForm,
   rstrip,
   type DelimiterKind,
   type ParagraphContext,
+  type RawForm,
+  type ReaderContext,
 } from "../line-shapes.js";
-import { MARKER_OFFSET } from "../../constants.js";
+import type { ListNode } from "../../ast.js";
+import { AUTO_CALLOUT_NUMBER, MARKER_OFFSET } from "../../constants.js";
 
 export type { DelimiterKind } from "../line-shapes.js";
 
-/** The three list kinds the AST knows (`ListNode.variant`). */
-export type ListVariant = "unordered" | "ordered" | "callout";
+/**
+ * The list kinds, read off the AST rather than respelled. This used to
+ * be a hand-synced copy of `ListNode.variant`'s three literals, which
+ * is one closed set with two spellings — the AST owns it, so the alias
+ * points there and can no longer drift. Local: every reference is in
+ * this file (ParsedMarker's two arms), and knip's types bucket gates
+ * dead exported types at 0.
+ */
+type ListVariant = ListNode["variant"];
 
 /**
  * What makes a later line a SIBLING item of an open list. Ruby's test
  * compares RESOLVED marker traits, never raw lines
- * (`is_sibling_list_item?`, parser.rb:2265-2269, via
- * `resolve_list_marker` :2177); dlists compare per-delimiter patterns
- * (`DescriptionListSiblingRx`, rx.rb:339-344; the marker arm is
+ * (`is_sibling_list_item?`, parser.rb:2280-2284, via
+ * `resolve_list_marker` :2192); dlists compare per-delimiter patterns
+ * (`DescriptionListSiblingRx`, rx.rb:340-345; the marker arm is
  * pinned by tests/parser/item-extent.test.ts). Only the marker arm
  * has a producer today; the dlist arm exists so #9 adds one and
  * extends the four dlist-cited insertion points in ExtentScan
@@ -83,12 +91,39 @@ export type SiblingTrait =
     };
 
 /**
- * Why a line is raw — kept verbatim and invisible to block structure.
- * The first three are consumed while READING (`skip_line_comments`,
- * `PreprocessorReader#process_line`); `anchor` is block metadata for a
- * block `fold_first` merges away, so the oracle renders no id at all.
+ * What a list-marker line reports, split by variant: a callout marker
+ * carries a NUMBER and the other two carry none, so the number sits on
+ * the arm it is valid on instead of beside a variant test somewhere
+ * downstream. That split is what lets the builder read the number the
+ * classifier's own match already captured, rather than re-matching
+ * `<1>` and needing a fallback for the impossible miss.
  */
-export type RawForm = "comment" | "conditional" | "include" | "anchor";
+type ParsedMarker =
+  | {
+      /** Which list kind the marker opens. */
+      readonly variant: Exclude<ListVariant, "callout">;
+      /** The marker style `is_sibling_list_item?` compares. */
+      readonly style: string;
+      /** Width of the leading whitespace Ruby's `[ \t]*` allows. */
+      readonly indent: number;
+      /** Offset within the line where the item's text starts. */
+      readonly markerEnd: number;
+    }
+  | {
+      /** Which list kind the marker opens. */
+      readonly variant: Extract<ListVariant, "callout">;
+      /** The style every callout marker resolves to (`<>`). */
+      readonly style: string;
+      /** Zero: `CalloutListRx` allows no leading whitespace at all. */
+      readonly indent: number;
+      /** Offset within the line where the item's text starts. */
+      readonly markerEnd: number;
+      /**
+       * The number the marker spells (`<3>` → 3), or
+       * `AUTO_CALLOUT_NUMBER` for the auto-numbering `<.>`.
+       */
+      readonly calloutNumber: number;
+    };
 
 /** What a line IS, in the reader's context. */
 export type LineKind =
@@ -137,8 +172,8 @@ export type LineKind =
       readonly name: string;
       /** The trimmed value, or undefined for no-value and unset forms. */
       readonly value: string | undefined;
-      /** How the attribute is unset: `:!name:`, `:name!:`, or not. */
-      readonly unset: false | "prefix" | "suffix";
+      /** Whether the entry unsets the attribute (either `!` spelling). */
+      readonly unset: boolean;
     }
   | {
       /** An ATX section title (`== Section`). */
@@ -148,18 +183,10 @@ export type LineKind =
       /** The title text after the markers, trimmed. */
       readonly title: string;
     }
-  | {
+  | ({
       /** The first line of a list item (`* item`, `. item`, `<1> item`). */
       readonly kind: "listMarker";
-      /** Which list kind the marker opens. */
-      readonly variant: ListVariant;
-      /** The marker style `is_sibling_list_item?` compares. */
-      readonly style: string;
-      /** Width of the leading whitespace Ruby's `[ \t]*` allows. */
-      readonly indent: number;
-      /** Offset within the line where the item's text starts. */
-      readonly markerEnd: number;
-    }
+    } & ParsedMarker)
   | {
       /** A lone `+` — `LIST_CONTINUATION`. */
       readonly kind: "continuation";
@@ -220,44 +247,26 @@ export type LineKind =
     };
 
 /**
- * The classifier's read-only view of the reader's state — exactly the
- * facts the old token patterns reconstructed by scanning backwards,
- * handed over instead of derived. Three fields and no more: the
- * reader keeps no stack for anything else to read.
+ * A list-marker line, as {@link LineKind} spells it — the classifier's
+ * own parse, narrowed to the one arm. Declared here because it IS a
+ * `LineKind` arm; both the list scan and the reader name it.
  */
-export interface ReaderContext {
-  /** The paragraph-shaped block being read, or undefined at a block start. */
-  readonly openParagraph: ParagraphContext | undefined;
-  /** Marker style of the open list, if any (`is_sibling_list_item?`). */
-  readonly openListStyle: string | undefined;
-  /** Whether this line is the FIRST one after the open block started. */
-  readonly firstLineAfterStart: boolean;
-}
-
-/** The context at a plain block start (document level, nothing open). */
-export const BLOCK_START_CONTEXT: ReaderContext = {
-  openParagraph: undefined,
-  openListStyle: undefined,
-  firstLineAfterStart: false,
-};
+export type MarkerKind = Extract<LineKind, Record<"kind", "listMarker">>;
 
 /**
  * Parse a list marker line (`UnorderedListRx` / `OrderedListRx` /
  * `CalloutListRx`). Callouts are tried first because they are the one
  * shape that may not be indented, and `next_block` gates them on
  * `!indented` for exactly that reason.
+ *
+ * The callout arm reports the marker's NUMBER, which the other two
+ * have none of — the split is the reason no builder re-matches `<1>`
+ * to read it back out.
  * @param line - one rstripped source line
- * @returns the marker's style and extent, or undefined when the line
- *   does not begin a list item
+ * @returns the marker's style and extent — plus the number, on a
+ *   callout — or undefined when the line does not begin a list item
  */
-export function parseListMarker(line: string):
-  | {
-      variant: ListVariant;
-      style: string;
-      indent: number;
-      markerEnd: number;
-    }
-  | undefined {
+export function parseListMarker(line: string): ParsedMarker | undefined {
   const callout = CALLOUT_MARKER_LINE.exec(line)?.groups;
   if (callout !== undefined) {
     return {
@@ -268,6 +277,10 @@ export function parseListMarker(line: string):
       style: CALLOUT_STYLE,
       indent: 0,
       markerEnd: callout.marker.length + callout.gap.length,
+      calloutNumber:
+        callout.callout === "."
+          ? AUTO_CALLOUT_NUMBER
+          : Number.parseInt(callout.callout, 10),
     };
   }
   const groups = LIST_MARKER_LINE.exec(line)?.groups;
@@ -288,6 +301,9 @@ export function parseListMarker(line: string):
  * @param line - one rstripped source line
  * @returns the section level (0 for the document title) and its title
  *   text, or undefined
+ * Exported for its unit test (tests/parser/lines.test.ts); no src
+ * consumer.
+ * @internal
  */
 export function parseSectionTitle(
   line: string,
@@ -299,24 +315,19 @@ export function parseSectionTitle(
 }
 
 /**
- * Determines whether an attribute entry uses `!` prefix or
- * suffix unset syntax, or is a normal set. AsciiDoc supports
- * both `:!name:` (prefix) and `:name!:` (suffix) forms to
- * undefine an attribute.
+ * Whether an attribute entry UNSETS the attribute. AsciiDoc writes the
+ * negation two ways, `:!name:` and `:name!:`, and they are one fact:
+ * `store_attribute` (parser.rb l.2131, the chop at l.2133-40) chops the `!` off whichever
+ * end carries it and unsets the same attribute either way. Which end
+ * the author used is therefore not recorded.
  * @param prefix - The character before the attribute name
  *   (empty string or "!").
  * @param suffix - The character after the attribute name
  *   (empty string or "!").
- * @returns `"prefix"` or `"suffix"` indicating the unset
- *   form, or `false` if the attribute is being set normally.
+ * @returns whether the entry unsets the attribute
  */
-function parseUnsetForm(
-  prefix: string,
-  suffix: string,
-): false | "prefix" | "suffix" {
-  if (prefix === "!") return "prefix";
-  if (suffix === "!") return "suffix";
-  return false;
+function parseUnsetBang(prefix: string, suffix: string): boolean {
+  return prefix === "!" || suffix === "!";
 }
 
 /**
@@ -325,14 +336,13 @@ function parseUnsetForm(
  * builder reads these fields and re-derives nothing.
  * @param line - one rstripped source line
  * @returns the entry's fields, or undefined when the line is none
+ * Exported for its unit test (tests/parser/lines.test.ts); no src
+ * consumer.
+ * @internal
  */
-export function parseAttributeEntry(line: string):
-  | {
-      name: string;
-      value: string | undefined;
-      unset: false | "prefix" | "suffix";
-    }
-  | undefined {
+export function parseAttributeEntry(
+  line: string,
+): { name: string; value: string | undefined; unset: boolean } | undefined {
   const groups = ATTRIBUTE_ENTRY.exec(line)?.groups;
   if (groups === undefined) {
     return undefined;
@@ -344,7 +354,7 @@ export function parseAttributeEntry(line: string):
   return {
     name: groups.name,
     value: trimmed === undefined || trimmed.length === 0 ? undefined : trimmed,
-    unset: parseUnsetForm(groups.prefixBang, groups.suffixBang),
+    unset: parseUnsetBang(groups.prefixBang, groups.suffixBang),
   };
 }
 
@@ -353,6 +363,9 @@ export function parseAttributeEntry(line: string):
  * fields — the ONE parse; the builder re-derives nothing.
  * @param line - one rstripped source line
  * @returns the macro's fields, or undefined when the line is none
+ * Exported for its unit test (tests/parser/lines.test.ts); no src
+ * consumer.
+ * @internal
  */
 export function parseBlockMacro(
   line: string,
@@ -368,6 +381,9 @@ export function parseBlockMacro(
  * @param line - one rstripped source line
  * @returns the style name and where the admonition's text starts, or
  *   undefined when the line carries no label
+ * Exported for its unit test (tests/parser/lines.test.ts); no src
+ * consumer.
+ * @internal
  */
 export function parseAdmonitionLabel(
   line: string,
@@ -387,25 +403,6 @@ export function delimiterKind(line: string): DelimiterKind | undefined {
   return DELIMITER_KINDS.find((kind) =>
     DELIMITED_BLOCK_PATTERNS[kind].test(line),
   );
-}
-
-/**
- * Which raw shape a line has, of the ones the reader consumes wherever
- * they occur. The block anchor is NOT here: it is raw only in the
- * contexts {@link isRawParagraphLine} names.
- * @param line - one rstripped source line
- * @returns the raw form, or undefined for an ordinary line
- */
-export function rawLineForm(
-  line: string,
-): Exclude<RawForm, "anchor"> | undefined {
-  if (LINE_COMMENT.test(line)) {
-    return "comment";
-  }
-  if (CONDITIONAL_DIRECTIVE.test(line)) {
-    return "conditional";
-  }
-  return INCLUDE_DIRECTIVE.test(line) ? "include" : undefined;
 }
 
 /**
@@ -520,18 +517,14 @@ function classifyInParagraph(
   context: ParagraphContext,
   reader: ReaderContext,
 ): LineKind | undefined {
-  const options = {
-    enclosingListStyle: reader.openListStyle,
-    firstLineAfterBlockStart: reader.firstLineAfterStart,
-  };
-  if (interruptsParagraph(line, context, options)) {
+  if (interruptsParagraph(line, context, reader)) {
     return undefined;
   }
   // The interrupter check runs FIRST so that a context where the
   // anchor DOES interrupt (dlistItem) never reaches this rule — the
   // registry's RAW_BLOCK_ANCHOR_CONTEXTS comment names the same
   // ordering.
-  if (!isRawParagraphLine(line, context, options)) {
+  if (!isRawParagraphLine(line, context, reader)) {
     return { kind: "text" };
   }
   // Of the registry's two contextual raw shapes only the anchor is a

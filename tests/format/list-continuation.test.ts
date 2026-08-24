@@ -28,7 +28,7 @@ describe("list continuation formatting", () => {
       "* second item.\n";
     const first = await formatAdoc(input);
     expect(first).toBe(input.replace("\n\n* second", "\n* second"));
-    expect(renderedHtml(first)).toBe(renderedHtml(input));
+    expect(await renderedHtml(first)).toBe(await renderedHtml(input));
     expect(await formatAdoc(first)).toBe(first);
   });
 
@@ -48,7 +48,7 @@ describe("list continuation formatting", () => {
     // lines, with the attached paragraphs flush left. The blank
     // line before the second item goes (same list, see above).
     expect(first).toBe(input.replace("\n\n* second", "\n* second"));
-    expect(renderedHtml(first)).toBe(renderedHtml(input));
+    expect(await renderedHtml(first)).toBe(await renderedHtml(input));
     expect(await formatAdoc(first)).toBe(first);
   });
 
@@ -101,26 +101,27 @@ describe("list continuation formatting", () => {
     // `read_lines_for_list_item` buffers ONE blank line after a `+`
     // as content, so the paragraph attaches (the oracle puts it
     // inside the item); the printer replays the recorded gap
-    // VERBATIM (spec D2) — collapsing the blank could change what a
+    // VERBATIM — collapsing the blank could change what a
     // later `+` means, and the byte round-trip is idempotent by
     // construction. Two blank lines would end the list.
     expect(first).toBe(input);
-    expect(renderedHtml(first)).toBe(renderedHtml(input));
+    expect(await renderedHtml(first)).toBe(await renderedHtml(input));
     expect(await formatAdoc(first)).toBe(first);
   });
 
   // Asciidoctor renders `+` after `+` at the end of an item as
   // nothing at all: the FIRST `+` is erased the moment the second
-  // line arrives (`buffer[-1] = ''`, parser.rb l.1429) and the second
-  // is popped as the optional trailing continuation (l.1571). The
-  // erased one is a blank to Ruby — dropping it is render-equal and
-  // idempotent (Ruling 23's carve-out) — so the doubled trailing `+`
-  // collapses to ONE `+` line, which then round-trips.
-  test("trailing consecutive + markers collapse to one", async () => {
+  // line arrives (`buffer[-1] = ListContinuationPlaceholder`,
+  // parser.rb l.1439 — an empty String TAGGED with
+  // `ListContinuationMarker`, where 2.0.20 wrote a plain `''`) and the
+  // second is popped as the optional trailing continuation
+  // (l.1580-81). Neither byte reaches the rendering, so neither comes
+  // back: the run leaves the item exactly as it found it.
+  test("a trailing + run collapses to nothing", async () => {
     const input = "* item\n+\n+\n";
     const first = await formatAdoc(input);
-    expect(first).toBe("* item\n+\n");
-    expect(renderedHtml(first)).toBe(renderedHtml(input));
+    expect(first).toBe("* item\n");
+    expect(await renderedHtml(first)).toBe(await renderedHtml(input));
     expect(await formatAdoc(first)).toBe(first);
   });
 
@@ -133,7 +134,7 @@ describe("list continuation formatting", () => {
     const input = "para one\n+\npara two\n";
     const first = await formatAdoc(input);
     expect(first).toBe("para one\n\n+ para two\n");
-    expect(renderedHtml(first)).toBe(renderedHtml(input));
+    expect(await renderedHtml(first)).toBe(await renderedHtml(input));
     expect(await formatAdoc(first)).toBe(first);
   });
 
@@ -159,7 +160,7 @@ describe("list continuation formatting", () => {
     // output line would become a hard break and one folded into a
     // `{plus}` would render new text.
     expect(first).toBe(input);
-    expect(renderedHtml(first)).toBe(renderedHtml(input));
+    expect(await renderedHtml(first)).toBe(await renderedHtml(input));
     expect(await formatAdoc(first)).toBe(first);
   });
 
@@ -238,7 +239,7 @@ describe("continuations around delimited blocks (issue #6)", () => {
     // Item two is the second item of the same list, so the blank line
     // before it goes (see "continuation paragraphs survive round-trip").
     expect(first).toBe(input.replace("\n\n* item two", "\n* item two"));
-    expect(renderedHtml(first)).toBe(renderedHtml(input));
+    expect(await renderedHtml(first)).toBe(await renderedHtml(input));
     expect(await formatAdoc(first)).toBe(first);
   });
 
@@ -332,7 +333,7 @@ describe("continuations around delimited blocks (issue #6)", () => {
   // `+`. ORACLE: `<p>== Heading</p>` inside the item.
   test("+ before a section heading attaches it as text", async () => {
     const input = "* i:\n+\n== Heading\n";
-    expect(renderedHtml(input)).toContain("<p>== Heading</p>");
+    expect(await renderedHtml(input)).toContain("<p>== Heading</p>");
     const first = await formatAdoc(input);
     expect(first).toBe(input);
     expect(await formatAdoc(first)).toBe(first);
@@ -340,14 +341,14 @@ describe("continuations around delimited blocks (issue #6)", () => {
 
   // One blank line between the `+` and the block: the block still
   // attaches (Asciidoctor buffers the first blank after a `+` as
-  // content), and the printer replays the gap VERBATIM (spec D2) —
+  // content), and the printer replays the gap VERBATIM —
   // the byte round-trip is idempotent by construction. Rendering is
   // unchanged.
   test("a + reaches across one blank line and attaches the block", async () => {
     const input = "* item\n+\n\n....\nliteral\n....\n";
     const first = await formatAdoc(input);
     expect(first).toBe(input);
-    expect(renderedHtml(first)).toBe(renderedHtml(input));
+    expect(await renderedHtml(first)).toBe(await renderedHtml(input));
     expect(await formatAdoc(first)).toBe(first);
   });
 });
@@ -410,7 +411,7 @@ describe("list continuation formatting preserves rendered HTML", () => {
   for (const [name, input] of Object.entries(corpus)) {
     test(`renders identically: ${name}`, async () => {
       const formatted = await formatAdoc(input);
-      expect(renderedHtml(formatted)).toBe(renderedHtml(input));
+      expect(await renderedHtml(formatted)).toBe(await renderedHtml(input));
     });
   }
 });
@@ -445,7 +446,7 @@ describe("whether a list is still open at a + line", () => {
   for (const [name, input] of cases) {
     test(`${name} round-trips`, async () => {
       const out = await formatAdoc(input);
-      expect(renderedHtml(out)).toBe(renderedHtml(input));
+      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
       expect(await formatAdoc(out)).toBe(out);
     });
   }
@@ -478,7 +479,7 @@ describe("a + chain resumes after any delimited block", () => {
     test(`${name} keeps the list ancestry`, async () => {
       const input = `* item\n+\n${block}\n+\npara\n* next\n`;
       const out = await formatAdoc(input);
-      expect(renderedHtml(out)).toBe(renderedHtml(input));
+      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
       expect(await formatAdoc(out)).toBe(out);
     });
   }
@@ -491,9 +492,9 @@ describe("a + chain resumes after any delimited block", () => {
   test("a fence with no language hint keeps the list structure", async () => {
     const input = "* item\n+\n```\ncode\n```\n+\npara\n* next\n";
     const out = await formatAdoc(input);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
-    expect(listItemCount(renderedHtml(out))).toBe(
-      listItemCount(renderedHtml(input)),
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(listItemCount(await renderedHtml(out))).toBe(
+      listItemCount(await renderedHtml(input)),
     );
     expect(await formatAdoc(out)).toBe(out);
   });
@@ -514,7 +515,7 @@ describe("delimiters with trailing whitespace", () => {
   for (const [name, input] of cases) {
     test(`${name} is still a delimiter`, async () => {
       const out = await formatAdoc(input);
-      expect(renderedHtml(out)).toBe(renderedHtml(input));
+      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
       expect(await formatAdoc(out)).toBe(out);
       expect(out.includes("  \n")).toBe(false);
     });
@@ -544,7 +545,7 @@ describe("a + continuation reaches across block metadata", () => {
   for (const [name, input] of cases) {
     test(`${name} keeps the sibling item`, async () => {
       const out = await formatAdoc(input);
-      expect(renderedHtml(out)).toBe(renderedHtml(input));
+      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
       expect(await formatAdoc(out)).toBe(out);
     });
   }
@@ -570,7 +571,7 @@ describe("a + continuation reaches across block metadata", () => {
   for (const [name, input] of orders) {
     test(`${name} matches the oracle`, async () => {
       const out = await formatAdoc(input);
-      expect(renderedHtml(out)).toBe(renderedHtml(input));
+      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
       expect(await formatAdoc(out)).toBe(out);
     });
   }
@@ -585,7 +586,7 @@ describe("a + continuation reaches across block metadata", () => {
   test.fails("a conditional then blank keeps the item", async () => {
     const input = "* a\n+\nifdef::x[]\nendif::[]\n\npara\n* b\n";
     const out = await formatAdoc(input);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
   });
 
   // TWO blank lines DO end the list: `read_lines_for_list_item`
@@ -594,7 +595,7 @@ describe("a + continuation reaches across block metadata", () => {
   test("two blank lines end the list", async () => {
     const input = "* a\n+\n\n\npara\n* b\n";
     const out = await formatAdoc(input);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });
 
@@ -610,11 +611,11 @@ describe("a + continuation reaches across block metadata", () => {
     const out = await formatAdoc(input);
     // The `+` is dead to Ruby (two blanks erased it) and the old
     // printer dropped the whole run; the gap is now replayed VERBATIM
-    // (spec D2, Ruling 23: the bytes are the author's), and the byte
+    // (the bytes are the author's), and the byte
     // round-trip is idempotent by construction. Rendering unchanged
     // either way.
     expect(out).toBe(input);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });
 });
@@ -644,7 +645,7 @@ describe("a foreign list marker keeps its own line", () => {
   for (const [name, input] of cases) {
     test(`${name} round-trips`, async () => {
       const out = await formatAdoc(input);
-      expect(renderedHtml(out)).toBe(renderedHtml(input));
+      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
       expect(await formatAdoc(out)).toBe(out);
     });
   }

@@ -128,7 +128,7 @@ describe("paragraph reflow", () => {
     const options = { printWidth: 10 };
     const out = await formatAdoc(input, options);
     expect(out).toBe("aaa bbb\n.title\n");
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out, options)).toBe(out);
   });
 
@@ -137,7 +137,7 @@ describe("paragraph reflow", () => {
     const options = { printWidth: 10 };
     const out = await formatAdoc(input, options);
     expect(out).toBe("aaa .foo\n.bar\n");
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out, options)).toBe(out);
   });
 
@@ -162,7 +162,7 @@ describe("paragraph reflow", () => {
     const options = { printWidth: 10 };
     const out = await formatAdoc(input, options);
     expect(out).toBe("use the\n:toc:\nattribute\n");
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out, options)).toBe(out);
   });
 
@@ -215,8 +215,8 @@ describe("paragraph reflow", () => {
     // first, leaving a bare `+`). `{plus}` is the formatter's escape
     // for that character and Asciidoctor renders it as the numeric
     // entity for the very same one, so the comparison decodes it.
-    expect(decodePlusEntity(renderedHtml(out))).toBe(
-      decodePlusEntity(renderedHtml(input)),
+    expect(decodePlusEntity(await renderedHtml(out))).toBe(
+      decodePlusEntity(await renderedHtml(input)),
     );
     expect(await formatAdoc(out)).toBe(out);
   });
@@ -434,14 +434,14 @@ describe("dlist separator join hazard", () => {
     const input = "first line\nterm:: definition\nlast line\n";
     const out = await formatAdoc(input);
     expect(out).toBe("first line\nterm:: definition last line\n");
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });
 
   test("hazard word inside a later inline sibling is still guarded", async () => {
     const input = "a line\n*bold* term:: x\n";
     const out = await formatAdoc(input);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });
 
@@ -450,7 +450,7 @@ describe("dlist separator join hazard", () => {
     // freely and the rendering must stay identical.
     const input = "see foo:: here\nand more\n";
     const out = await formatAdoc(input);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
   });
 
   // A hazard word can be GLUED to the preceding inline sibling —
@@ -462,7 +462,7 @@ describe("dlist separator join hazard", () => {
     const input = "first line\nsee https://example.com[x]):: def\n";
     const out = await formatAdoc(input);
     expect(out).toBe("first line see\nhttps://example.com[x]):: def\n");
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });
 
@@ -474,7 +474,7 @@ describe("dlist separator join hazard", () => {
     const input = "a +\nterm:: x\n";
     const out = await formatAdoc(input);
     expect(out).toBe(input);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });
 
@@ -485,7 +485,7 @@ describe("dlist separator join hazard", () => {
   test("does not break between a bare `+` and a hazard word", async () => {
     const input = "a line\nb + c:: d\n";
     const out = await formatAdoc(input);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });
 
@@ -494,7 +494,7 @@ describe("dlist separator join hazard", () => {
   test("keeps a bare `+` off a line end when a hazard follows", async () => {
     const input = `${"word ".repeat(14)}\nalpha + bravo:: charlie\n`;
     const out = await formatAdoc(input);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });
 
@@ -509,7 +509,7 @@ describe("dlist separator join hazard", () => {
     ["a span carrying the newline", "*a\nterm:: x*\n"],
   ])("guards a hazard word inside %s", async (_name, input) => {
     const out = await formatAdoc(input);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });
 
@@ -523,7 +523,7 @@ describe("dlist separator join hazard", () => {
     ["a block title", "a line\n*b* .Title:: x\n"],
   ])("fuses %s to the preceding sibling", async (_name, input) => {
     const out = await formatAdoc(input);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });
 
@@ -536,7 +536,7 @@ describe("dlist separator join hazard", () => {
     const options = { printWidth: 12 };
     const out = await formatAdoc(input, options);
     expect(out.split("\n").some((l) => l.startsWith("//"))).toBe(false);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out, options)).toBe(out);
   });
 
@@ -547,7 +547,7 @@ describe("dlist separator join hazard", () => {
     const options = { printWidth: 12 };
     const out = await formatAdoc(input, options);
     expect(out.split("\n").some((l) => l.startsWith("```"))).toBe(false);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out, options)).toBe(out);
   });
 
@@ -560,7 +560,7 @@ describe("dlist separator join hazard", () => {
     ["a separator glued to an inline span", "foo\nbar `code`:: baz\n"],
   ])("guards %s on a later line", async (_name, input) => {
     const out = await formatAdoc(input);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });
 
@@ -574,7 +574,7 @@ describe("dlist separator join hazard", () => {
     ["a multi-word term", "first line\nmulti word term:: def\n"],
   ])("guards %s on a later line", async (_name, input) => {
     const out = await formatAdoc(input);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });
 });
@@ -589,14 +589,14 @@ describe("reflow safety is driven by the line-shape registry", () => {
     const input = "aaaa bbbb cccc dddd .gitignore eeee\n";
     const out = await formatAdoc(input, { printWidth: 20 });
     expect(out).toBe("aaaa bbbb cccc dddd\n.gitignore eeee\n");
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
   });
 
   test("an interrupting shape is still glued away from column 0", async () => {
     const input = "aaaa bbbb cccc dddd [x] eeee\n";
     const out = await formatAdoc(input, { printWidth: 20 });
     expect(out.split("\n").some((l) => l.startsWith("[x]"))).toBe(false);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
   });
 
   // A bare list-marker word carries no trailing text, so the registry's
@@ -618,7 +618,7 @@ describe("reflow safety is driven by the line-shape registry", () => {
     // whitespace, so the marker is just as dangerous at column 2.
     const [, ...rest] = out.split("\n");
     expect(rest.some((l) => l.trimStart().startsWith(hazard))).toBe(false);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out, options)).toBe(out);
   });
 
@@ -636,7 +636,7 @@ describe("reflow safety is driven by the line-shape registry", () => {
     const options = { printWidth: 20 };
     const out = await formatAdoc(input, options);
     expect(out.split("\n").some((l) => l.startsWith(hazard))).toBe(false);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out, options)).toBe(out);
   });
 
@@ -665,7 +665,7 @@ describe("reflow safety is driven by the line-shape registry", () => {
       const input = "* aa bb cc dd ee ff term:: gg\n";
       const options = { printWidth: 20 };
       const out = await formatAdoc(input, options);
-      expect(renderedHtml(out)).toBe(renderedHtml(input));
+      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     },
   );
 
@@ -680,7 +680,7 @@ describe("reflow safety is driven by the line-shape registry", () => {
     const input = "* aaaa bbbb\ncccc term:: dddd\n";
     const options = { printWidth: 14 };
     const out = await formatAdoc(input, options);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
   });
 
   // KNOWN GAP (dlist support, tracked with #9 / follow-up issue TBD).
@@ -694,7 +694,7 @@ describe("reflow safety is driven by the line-shape registry", () => {
     const input = "aaaa bbbb cccc dddd term:: eeee ffff\n";
     const options = { printWidth: 20 };
     const out = await formatAdoc(input, options);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
   });
 
   // The mirror image: shapes that only classify as block syntax on a
@@ -709,7 +709,7 @@ describe("reflow safety is driven by the line-shape registry", () => {
     const input = `aaaa bbbb cccc dddd ${shape} eeee ffff\n`;
     const options = { printWidth: 20 };
     const out = await formatAdoc(input, options);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out, options)).toBe(out);
   });
 });
@@ -729,7 +729,7 @@ describe("a description-list term inside a list item", () => {
     ["nothing follows", "* a\nterm:: def\n"],
   ])("converges when %s", async (_name, input) => {
     const out = await formatAdoc(input);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });
 });

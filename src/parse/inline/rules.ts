@@ -10,15 +10,17 @@
  * lookahead, and `**` tried before `*` in the mark matcher). Building
  * a longest-match engine here would CHANGE behaviour.
  *
- * Every rule cites the Asciidoctor 2.0.20 source it mirrors
- * (`lib/asciidoctor/substitutors.rb`, `rx.rb`). Where our shape is
- * deliberately narrower or wider than Ruby's, the comment says so:
- * the formatter only has to recognise the construct, not resolve it.
+ * Every rule cites the Asciidoctor 2.0.26 source it mirrors
+ * (`lib/asciidoctor/asciidoctor.rb`, `substitutors.rb`, `rx.rb`) — the
+ * Ruby the oracle (`@asciidoctor/core` 4.0.11) is transpiled from.
+ * Where our shape is deliberately narrower or wider than Ruby's, the
+ * comment says so: the formatter only has to recognise the construct,
+ * not resolve it.
  */
 import type { InlineKind } from "./tokens.js";
 
 /** One entry of the ordered table. */
-export interface InlineRule {
+interface InlineRule {
   /** The kind this rule produces. */
   readonly type: InlineKind;
   /**
@@ -32,10 +34,10 @@ export interface InlineRule {
 
 // Punctuation that counts as a formatting boundary for constrained
 // inline formatting (the AsciiDoc spec's term, distinct from regex
-// \b). DIVERGENCE, stated as this file's header requires: this is the
-// old lexer's hand-written list, carried forward unchanged so the
-// removal stayed pure. Ruby does not use a list at all — rx.rb's
-// constrained-quote patterns test the neighbourhood with `(^|[^\w;:}])`
+// \b). DIVERGENCE, stated as this file's header requires: this is a
+// hand-written list, narrower than Ruby's rule. Ruby does not use a
+// list at all — the constrained entries of `QUOTE_SUBS`
+// (asciidoctor.rb l.448-464) test the neighbourhood with `(^|[^\w;:}])`
 // on the left and `(?!\w)` on the right, so Asciidoctor's boundary set
 // is "anything that is not a word character", minus `;` `:` `}` on the
 // left. Ours is neither a subset nor a superset: `a;*b*` and `a_*b*`
@@ -61,23 +63,33 @@ const WHITESPACE = /\s/v;
  * Whether the character at `index` is a constrained formatting
  * boundary. Out-of-range indices ARE boundaries: a mark at the very
  * start or end of the FRAGMENT is constrained-valid, and the fragment
- * is what the reader handed us — never the whole document (spec
- * Decision 8: `* *bold*` after a list marker sees a boundary at
- * offset 0 because index -1 is out of range).
+ * is what the reader handed us — never the whole document: `* *bold*`
+ * after a list marker sees a boundary at offset 0 because index -1 is
+ * out of range.
+ *
+ * Reading the character IS the range test: past either end there is no
+ * character, and no character is a boundary. The low end is spelled
+ * here because `at` counts a negative index from the END of the
+ * string, which would answer about the last character instead of about
+ * the absent one.
  * @param text - the fragment being tokenized
  * @param index - the character position to test; may be out of range
  * @returns whether that position is a formatting boundary
  */
 function isBoundary(text: string, index: number): boolean {
-  if (index < 0 || index >= text.length) return true;
-  const character = text.at(index) ?? "";
-  return WHITESPACE.test(character) || BOUNDARY_PUNCTUATION.has(character);
+  const character = index < 0 ? undefined : text.at(index);
+  return (
+    character === undefined ||
+    WHITESPACE.test(character) ||
+    BOUNDARY_PUNCTUATION.has(character)
+  );
 }
 
 /**
- * A constrained/unconstrained formatting mark — the `QUOTE_SUBS`
- * table in substitutors.rb (`strong`, `emphasis`, `monospaced`,
- * `mark`), whose constrained entries test the neighbouring characters
+ * A constrained/unconstrained formatting mark — `strong`, `emphasis`,
+ * `monospaced` and `mark` in the `QUOTE_SUBS` table, which is DEFINED
+ * in asciidoctor.rb l.439-470 and consumed by substitutors.rb l.191.
+ * Its constrained entries test the neighbouring characters
  * the way {@link isBoundary} does. The double mark is tried first
  * (unconstrained); the single one matches only next to a boundary, on
  * either side — the pairing into spans is inline-node-builder.ts's
@@ -137,7 +149,9 @@ export const INLINE_RULES: readonly InlineRule[] = [
   // has to leave the reference alone.
   { type: "AttributeReference", match: pattern(/\{[\w:.\-][\w:.\-]*\}/v) },
   // `[role]` immediately before `#` — the shorthand attrlist of a
-  // constrained highlight (rx.rb InlineAttributeListRx neighbourhood).
+  // constrained highlight. Ruby has no constant for it: it is the
+  // optional `(?:\[([^\]]+)\])?` group inside every `QUOTE_SUBS`
+  // pattern (asciidoctor.rb l.448-464).
   { type: "RoleAttribute", match: pattern(/\[[^\]]+\](?=#)/v) },
   // `name:target[attrlist]` — InlineMacroRx family, with the macro
   // names enumerated rather than `[a-z]+`: a generic name matches
@@ -190,7 +204,6 @@ export const INLINE_RULES: readonly InlineRule[] = [
   },
   // Single-character fallback. MUST be last: it is what makes the
   // tokenizer total, so there is no error channel to read (the
-  // old lexer's `errors` output was never read — provably
-  // dead, spec Decision 6).
+  // old lexer's `errors` output was never read — provably dead).
   { type: "InlineChar", match: pattern(/[^\n]/v) },
 ];

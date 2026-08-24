@@ -1,6 +1,6 @@
 /**
- * Unit tests for `scripts/parity.ts`'s `--expected-diffs` ledger (spec
- * D9): the loader's malformed-ledger TypeErrors, the family enum, the
+ * Unit tests for `scripts/parity.ts`'s `--expected-diffs` ledger: the
+ * loader's malformed-ledger TypeErrors, the family enum, the
  * staleness/cross-check gate, and the three normalizer folds it
  * depends on.
  *
@@ -15,13 +15,13 @@ import path from "node:path";
 import { describe, expect, test } from "vitest";
 import type { ExpectedDiff } from "../../scripts/parity.js";
 import {
-  GAMMA_FAMILIES,
+  LEDGER_FAMILIES,
   expectedDiffFailures,
   normalizeTree,
   parseArguments,
 } from "../../scripts/parity.js";
 import {
-  foldPlanGammaShapes,
+  foldMarkerAndReftextShapes,
   loadExpectedDiffs,
 } from "../../scripts/parity-ledger.js";
 
@@ -34,14 +34,14 @@ import {
 const entry = (id: string, family: string): ExpectedDiff => ({ id, family });
 
 // Synthetic family sets: the gate's arms are exercised with data of
-// this test's own, so a plan's enum swap never edits these rows
-// (spec D7.2, F1).
+// this test's own, so swapping the production enum never edits these
+// rows.
 const SYNTHETIC = {
   families: new Set(["fam-ast", "fam-bytes"]),
   formattedOnly: new Set(["fam-bytes"]),
 };
 
-describe("expected-diff ledger (spec D9)", () => {
+describe("expected-diff ledger", () => {
   const corpus = new Set(["a", "b", "c", "fixture:x"]);
 
   test("a clean run with an empty ledger has no failures", () => {
@@ -137,16 +137,27 @@ describe("expected-diff ledger (spec D9)", () => {
     expect(failures.some((line) => line.includes("formatted-only"))).toBe(true);
   });
 
-  test("the production enum: two g1 + two g3, g1 formatted-only", () => {
-    expect([...GAMMA_FAMILIES.families].toSorted()).toEqual([
-      "g1-author-plus",
-      "g1-pseudo-run-fold",
-      "g3-marker-spelling",
-      "g3-nesting-fidelity",
+  test("the production enum: ten families, the seven byte-only ones formatted-only", () => {
+    expect([...LEDGER_FAMILIES.families].toSorted()).toEqual([
+      "attribute-entry-spelling",
+      "attrlist-spacing",
+      "author-plus",
+      "gap-collapse",
+      "marker-spelling",
+      "nesting-fidelity",
+      "no-op-continuation",
+      "no-op-continuation-tree",
+      "pseudo-run-fold",
+      "xref-text-trim",
     ]);
-    expect([...GAMMA_FAMILIES.formattedOnly].toSorted()).toEqual([
-      "g1-author-plus",
-      "g1-pseudo-run-fold",
+    expect([...LEDGER_FAMILIES.formattedOnly].toSorted()).toEqual([
+      "attribute-entry-spelling",
+      "attrlist-spacing",
+      "author-plus",
+      "gap-collapse",
+      "no-op-continuation",
+      "pseudo-run-fold",
+      "xref-text-trim",
     ]);
   });
 
@@ -197,9 +208,9 @@ function ledgerFile(contents: string): { file: string; cleanup: () => void } {
   };
 }
 
-describe("loadExpectedDiffs (spec D9 ledger strictness)", () => {
+describe("loadExpectedDiffs: ledger strictness", () => {
   // A malformed ledger silently excusing everything would turn the
-  // plan's central gate off (the loader's own JSDoc says so) — each
+  // parity gate off (the loader's own JSDoc says so) — each
   // of loadExpectedDiffs's two throw sites gets a dedicated row here
   // pinning both the error's TYPE and its exact message, the way
   // tests/conformance/loader.test.ts pins parseJsonl's malformed-line
@@ -276,7 +287,7 @@ describe("loadExpectedDiffs (spec D9 ledger strictness)", () => {
 const canonical = (tree: unknown): string =>
   JSON.stringify(normalizeTree(tree, false));
 
-describe("the shape folds (α D9 + β D10(e) normalizers) — string equality, never toEqual", () => {
+describe("the shape folds (the dumper's embedded normalizers) — string equality, never toEqual", () => {
   // Parity compares digest(JSON.stringify(normalizeTree(...))) — the
   // STRING — so key order is load-bearing, and toEqual (key-order-
   // insensitive) cannot see an order break. Every row below asserts
@@ -284,7 +295,7 @@ describe("the shape folds (α D9 + β D10(e) normalizers) — string equality, n
   // real builders' key order (build/metadata.ts buildBlockAnchor,
   // inline-link-builder.ts makeInlineAnchor:153-166,
   // build/paragraph.ts buildAdmonitionParagraph, and the
-  // spec-D4-deleted paragraph-form.ts's styledConversion); that
+  // now-deleted paragraph-form.ts's styledConversion); that
   // spelling IS the assertion.
   const position = {
     start: { offset: 0, line: 1, column: 1 },
@@ -440,14 +451,14 @@ describe("the shape folds (α D9 + β D10(e) normalizers) — string equality, n
   });
 });
 
-describe("foldPlanGammaShapes", () => {
+describe("foldMarkerAndReftextShapes", () => {
   const position = {
     start: { offset: 0, line: 1, column: 1 },
     end: { offset: 4, line: 1, column: 5 },
   };
 
   test("reftext folds to its trimStart on both node kinds, key order fixed", () => {
-    const folded = foldPlanGammaShapes("", {
+    const folded = foldMarkerAndReftextShapes("", {
       type: "inlineAnchor",
       id: "3-bad",
       reftext: " Ref",
@@ -461,7 +472,7 @@ describe("foldPlanGammaShapes", () => {
         position,
       }),
     );
-    const block = foldPlanGammaShapes("", {
+    const block = foldMarkerAndReftextShapes("", {
       type: "blockAnchor",
       id: "anc",
       reftext: undefined,
@@ -473,9 +484,9 @@ describe("foldPlanGammaShapes", () => {
   });
 
   test("non-anchor values pass through untouched", () => {
-    expect(foldPlanGammaShapes("", "text")).toBe("text");
+    expect(foldMarkerAndReftextShapes("", "text")).toBe("text");
     const paragraph = { type: "paragraph", children: [] };
-    expect(foldPlanGammaShapes("", paragraph)).toBe(paragraph);
+    expect(foldMarkerAndReftextShapes("", paragraph)).toBe(paragraph);
   });
 
   test("a marker-bearing list folds to the old shape, depth re-derived", () => {
@@ -487,7 +498,7 @@ describe("foldPlanGammaShapes", () => {
       blocks: [],
       position,
     };
-    const folded = foldPlanGammaShapes("", {
+    const folded = foldMarkerAndReftextShapes("", {
       type: "list",
       variant: "unordered",
       marker: "-",
@@ -521,6 +532,6 @@ describe("foldPlanGammaShapes", () => {
 
   test("a depth-carrying old-shape list passes through untouched", () => {
     const oldList = { type: "list", variant: "unordered", children: [] };
-    expect(foldPlanGammaShapes("", oldList)).toBe(oldList);
+    expect(foldMarkerAndReftextShapes("", oldList)).toBe(oldList);
   });
 });

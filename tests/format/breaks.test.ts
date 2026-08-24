@@ -93,7 +93,7 @@ describe("hard line break formatting", () => {
     ["the block's last line", "text\nfoo\n +\nbar\n"],
   ])("a ` +` alone on its line breaks in %s", async (_name, input) => {
     const out = await formatAdoc(input);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(out.includes(" +\n")).toBe(true);
     expect(await formatAdoc(out)).toBe(out);
   });
@@ -110,7 +110,7 @@ describe("hard line break formatting", () => {
     ["a preceding formatting span", "*b*\n +\nmore\n"],
   ])("a ` +` after %s owns its line", async (_name, input) => {
     const out = await formatAdoc(input);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(out.split("\n")).toContain(" +");
     expect(await formatAdoc(out)).toBe(out);
   });
@@ -138,10 +138,11 @@ describe("hard line break formatting", () => {
     // `{plus}` is the formatter's escape for a trailing literal `+`,
     // and Asciidoctor renders it as the numeric entity for the very
     // same character, so the comparison decodes it.
-    expect(decodePlusEntity(renderedHtml(out))).toBe(
-      decodePlusEntity(renderedHtml(input)),
+    expect(decodePlusEntity(await renderedHtml(out))).toBe(
+      decodePlusEntity(await renderedHtml(input)),
     );
-    expect(renderedHtml(out).includes("<br>")).toBe(!literal);
+    const html = await renderedHtml(out);
+    expect(html.includes("<br>")).toBe(!literal);
     expect(await formatAdoc(out)).toBe(out);
   });
 
@@ -170,8 +171,8 @@ describe("hard line break formatting", () => {
   // break. Asserted on the AST rather than on formatted bytes: the
   // reflow that joins `a` and `a` moves the ` +` onto the first rest
   // line, where a second format pass reads it as literal — a
-  // round-trip wobble that predates this suite and is recorded in the
-  // Task 8 report, not pinned here.
+  // round-trip wobble that predates this suite and is not pinned
+  // here.
   test("a ` +` on a LATER line of the item's text is still a hard break", () => {
     const { children } = parse("* a\na\n +\n");
     const {

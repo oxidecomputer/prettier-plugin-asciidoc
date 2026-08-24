@@ -101,14 +101,14 @@ describe("unordered list formatting", () => {
   // line — is a list NESTED in that item, never a second list: after a
   // blank line `read_lines_for_list_item` keeps the item open for any
   // NESTABLE_LIST_CONTEXTS marker. The printer replays the blank the
-  // author wrote (spec D2: the gap is verbatim), so the input
+  // author wrote (the gap is verbatim), so the input
   // round-trips byte for byte. ORACLE: the `<ol>` is inside the `<li>`.
   test("unordered list followed by ordered list", async () => {
     const input = "* Unordered\n\n. Ordered\n";
-    expect(renderedHtml(input)).toMatch(/<li>.*<ol.*<\/li>/v);
+    expect(await renderedHtml(input)).toMatch(/<li>.*<ol.*<\/li>/v);
     const out = await formatAdoc(input);
     expect(out).toBe(input);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
   });
 
   // A list immediately after a section heading gets a blank-line
@@ -271,13 +271,13 @@ describe("list item continuation (contextual classification)", () => {
   test("indented continuation lines are item text", async () => {
     const input = "* item\n  continued here\n* next\n";
     const out = await formatAdoc(input);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });
   test("a block-title-shaped line inside an item is item text", async () => {
     const input = "* item\n.not a title\n* next\n";
     const out = await formatAdoc(input);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
   });
   test("a sibling marker still starts a new item", async () => {
     const input = "* one\n* two\n";
@@ -296,9 +296,10 @@ describe("block anchor inside a list item", () => {
     const input = "* item\n[[anchor]]\npara\n* next\n";
     const out = await formatAdoc(input);
     expect(out).toBe(input);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
     // The oracle drops it, so it must not appear in the rendering.
-    expect(renderedHtml(out).includes('id="anchor"')).toBe(false);
+    const html = await renderedHtml(out);
+    expect(html.includes('id="anchor"')).toBe(false);
   });
 });

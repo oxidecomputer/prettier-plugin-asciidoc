@@ -47,7 +47,7 @@ describe("attribute entry parsing", () => {
 
   // The prefix unset form `:!name:` negates the attribute. The `!`
   // is stripped from the name and stored as the unset form so the
-  // printer can reconstruct the original syntax.
+  // printer writes the one canonical spelling back.
   test(":!name: (prefix unset) parses correctly", () => {
     const document = parse(":!toc:\n");
     const { children } = document;
@@ -56,12 +56,12 @@ describe("attribute entry parsing", () => {
     narrow(child0, "attributeEntry");
     expect(child0.name).toBe("toc");
     expect(child0.value).toBeUndefined();
-    expect(child0.unset).toBe("prefix");
+    expect(child0.unset).toBe(true);
   });
 
-  // The suffix unset form `:name!:` is an alternative syntax. The
-  // parser tracks which form was used so the printer can
-  // reconstruct the author's original syntax.
+  // The suffix form `:name!:` is the same fact spelled differently —
+  // `store_attribute` (parser.rb l.2131-41) chops the `!` off either
+  // end — so the node records the FACT and not the end it sat on.
   test(":name!: (suffix unset) parses correctly", () => {
     const document = parse(":toc!:\n");
     const { children } = document;
@@ -70,7 +70,7 @@ describe("attribute entry parsing", () => {
     narrow(child0, "attributeEntry");
     expect(child0.name).toBe("toc");
     expect(child0.value).toBeUndefined();
-    expect(child0.unset).toBe("suffix");
+    expect(child0.unset).toBe(true);
   });
 
   // Prettier uses locStart/locEnd for cursor tracking and range
@@ -113,7 +113,7 @@ describe("attribute entry parsing", () => {
     expect(document.children[2].type).toBe("paragraph");
   });
 
-  // Flat model (spec D10): the entry and the paragraph are the
+  // Flat model, sections not modeled: the entry and the paragraph are the
   // heading's siblings.
   test("attribute entry after a heading is a sibling", () => {
     const { children } = parse("== Title\n\n:key: value\n\nText.\n");
@@ -152,7 +152,7 @@ describe("attribute entry parsing", () => {
 
   // Unset with a value (`:!name: value`) is unusual but syntactically
   // valid in AsciiDoc. This documents the expected behavior for this
-  // edge case: both the unset form ("prefix") and the value must be
+  // edge case: both the unset flag and the value must be
   // preserved independently on the AST node.
   test("unset with value (:!name: value) preserves both", () => {
     const document = parse(":!experimental: value\n");
@@ -161,7 +161,7 @@ describe("attribute entry parsing", () => {
     const [child0] = children;
     narrow(child0, "attributeEntry");
     expect(child0.name).toBe("experimental");
-    expect(child0.unset).toBe("prefix");
+    expect(child0.unset).toBe(true);
     expect(child0.value).toBe("value");
   });
 

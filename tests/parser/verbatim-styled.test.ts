@@ -18,8 +18,8 @@ function firstStyled(source: string): DelimitedBlockNode {
   return node;
 }
 
-// Extents are Ruby's (parser.rb:555-560, :1017-1019), oracle-probed in
-// Task 1; the D4 probe rows, one test each.
+// Extents are Ruby's (parser.rb:561-567, :1026-1028), oracle-probed;
+// one test per probed row.
 describe("verbatim-styled paragraph extents (issue #41)", () => {
   test("#41-1: a [NOTE] line is content", () => {
     expect(firstStyled("[source]\nline1\n[NOTE]\nline2\n").content).toBe(
@@ -41,7 +41,7 @@ describe("verbatim-styled paragraph extents (issue #41)", () => {
   test("the issue's original ---- shape: one styled paragraph on our side; the oracle reads setext", () => {
     // Characterization, NOT an oracle claim: the oracle renders two
     // setext sections here, with or without the style, and setext
-    // titles are out of α's scope (D11). Our reader takes the whole
+    // titles are out of scope. Our reader takes the whole
     // extent, the formatter reproduces the input bytes, and rendering
     // is preserved by identity (the format twin pins the bytes).
     expect(firstStyled("[source]\nline1\n----\nline2\n----\n").content).toBe(
@@ -97,10 +97,10 @@ describe("verbatim-styled paragraph extents (issue #41)", () => {
   });
 });
 
-// The recorded §5 divergences, pinned so a widening cannot land
-// silently (spec D4c guard; G8). Each is render-preserved by byte
+// The recorded divergences from Ruby's style handling, pinned so a
+// widening cannot land silently. Each is render-preserved by byte
 // fidelity — the format twin asserts the bytes.
-describe("characterization: the (c) guard and the §5 divergences", () => {
+describe("characterization: the transparency guard and the recorded divergences", () => {
   test("a held title after the attribute line disables the style", () => {
     // Oracle: styles a single listing block WITH the title, class
     // language-ruby.

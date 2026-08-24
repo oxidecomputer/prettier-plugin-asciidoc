@@ -1,0 +1,814 @@
+[
+  {
+    "file": "src/block-metadata.ts",
+    "symbol": "anchorLineShape",
+    "importer": "src/print/join.ts",
+    "kind": "vocabulary",
+    "reason": "the one spelling of what a block anchor line looks like once it is a node; the printer asks it instead of re-deriving the shape"
+  },
+  {
+    "file": "src/block-metadata.ts",
+    "symbol": "anchorLineShape",
+    "importer": "src/print/list-hazard.ts",
+    "kind": "vocabulary",
+    "reason": "the one spelling of what a block anchor line looks like once it is a node; the printer asks it instead of re-deriving the shape"
+  },
+  {
+    "file": "src/block-metadata.ts",
+    "symbol": "isBlockMetadata",
+    "importer": "src/print/list-hazard.ts",
+    "kind": "vocabulary",
+    "reason": "the one predicate for 'this node is block metadata', so the hazard rule and the reader agree by construction rather than by two lists"
+  },
+  {
+    "file": "src/block-metadata.ts",
+    "symbol": "isLineComment",
+    "importer": "src/print/join.ts",
+    "kind": "vocabulary",
+    "reason": "the one predicate for 'this node is a line comment', shared so the printer's join rules and the reader do not each spell it"
+  },
+  {
+    "file": "src/block-metadata.ts",
+    "symbol": "isLineComment",
+    "importer": "src/print/list-hazard.ts",
+    "kind": "vocabulary",
+    "reason": "the one predicate for 'this node is a line comment', shared so the printer's join rules and the reader do not each spell it"
+  },
+  {
+    "file": "src/block-metadata.ts",
+    "symbol": "isReaderConsumedLine",
+    "importer": "src/parse/lines/reader.ts",
+    "kind": "vocabulary",
+    "reason": "the one predicate for a line Ruby's reader consumes where it stands; both the reader and the join rules must agree on it"
+  },
+  {
+    "file": "src/block-metadata.ts",
+    "symbol": "isReaderConsumedLine",
+    "importer": "src/print/join.ts",
+    "kind": "vocabulary",
+    "reason": "the one predicate for a line Ruby's reader consumes where it stands; both the reader and the join rules must agree on it"
+  },
+  {
+    "file": "src/block-metadata.ts",
+    "symbol": "stacksAsMetadata",
+    "importer": "src/print/join.ts",
+    "kind": "vocabulary",
+    "reason": "the one predicate for metadata that stacks onto the block below it, read by the printer's join rules"
+  },
+  {
+    "file": "src/parse/attrlist.ts",
+    "symbol": "Attrlist",
+    "importer": "src/parse/lines/reader.ts",
+    "kind": "vocabulary",
+    "reason": "the parsed shape of a `[\u2026]` line, decided once at open and carried as data"
+  },
+  {
+    "file": "src/parse/attrlist.ts",
+    "symbol": "canonicalAttrlist",
+    "importer": "src/print/blocks.ts",
+    "kind": "vocabulary",
+    "reason": "the one answer to where one attribute inside a bracket line ends, so the printer's canonical spacing and the reader's parse cannot disagree about what a re-read interior means"
+  },
+  {
+    "file": "src/parse/attrlist.ts",
+    "symbol": "canonicalAttrlist",
+    "importer": "src/print/printer.ts",
+    "kind": "vocabulary",
+    "reason": "the one answer to where one attribute inside a bracket line ends, so the printer's canonical spacing and the reader's parse cannot disagree about what a re-read interior means"
+  },
+  {
+    "file": "src/parse/attrlist.ts",
+    "symbol": "canonicalAttrlist",
+    "importer": "src/print/serialize-inline.ts",
+    "kind": "vocabulary",
+    "reason": "the one answer to where one attribute inside a bracket line ends, so the printer's canonical spacing and the reader's parse cannot disagree about what a re-read interior means"
+  },
+  {
+    "file": "src/parse/attrlist.ts",
+    "symbol": "parseAttrlist",
+    "importer": "src/parse/lines/reader.ts",
+    "kind": "vocabulary",
+    "reason": "the one parse of a `[\u2026]` line; the reader calls it at open so nothing downstream re-derives a style"
+  },
+  {
+    "file": "src/parse/build/delimited.ts",
+    "symbol": "BlockExtent",
+    "importer": "src/parse/lines/delimited-reader.ts",
+    "kind": "vocabulary",
+    "reason": "the extent record the extent scan fills and the builders take apart \u2014 the whole vocabulary of 'where this block starts and stops'"
+  },
+  {
+    "file": "src/parse/build/delimited.ts",
+    "symbol": "VerbatimRole",
+    "importer": "src/parse/lines/open-style.ts",
+    "kind": "vocabulary",
+    "reason": "what a resolved verbatim open builds, declared beside the builder that takes it apart; the reader layer produces it and hands it straight over"
+  },
+  {
+    "file": "src/parse/build/delimited.ts",
+    "symbol": "buildDelimitedAdmonition",
+    "importer": "src/parse/lines/reader.ts",
+    "kind": "vocabulary",
+    "reason": "pure (extent, rename, index) -> Node constructor, called from the reader that collected the extent"
+  },
+  {
+    "file": "src/parse/build/delimited.ts",
+    "symbol": "buildParentBlock",
+    "importer": "src/parse/lines/reader.ts",
+    "kind": "vocabulary",
+    "reason": "pure (extent, children, index) -> Node constructor, called from the reader that collected the extent"
+  },
+  {
+    "file": "src/parse/build/delimited.ts",
+    "symbol": "buildVerbatimBlock",
+    "importer": "src/parse/lines/reader.ts",
+    "kind": "vocabulary",
+    "reason": "pure (extent, role, index) -> Node constructor, called from the reader that collected the extent"
+  },
+  {
+    "file": "src/parse/build/heading.ts",
+    "symbol": "buildDiscreteHeading",
+    "importer": "src/parse/lines/reader.ts",
+    "kind": "vocabulary",
+    "reason": "pure (line, index) -> Node constructor for a heading a `discrete` style demoted"
+  },
+  {
+    "file": "src/parse/build/heading.ts",
+    "symbol": "buildHeading",
+    "importer": "src/parse/lines/reader.ts",
+    "kind": "vocabulary",
+    "reason": "pure (line, index) -> Node constructor; headings are leaves"
+  },
+  {
+    "file": "src/parse/build/list.ts",
+    "symbol": "buildList",
+    "importer": "src/parse/lines/reader.ts",
+    "kind": "vocabulary",
+    "reason": "pure (items, index) -> Node constructor, called where the item nodes are assembled \u2014 the reader that owns the recursion"
+  },
+  {
+    "file": "src/parse/build/list.ts",
+    "symbol": "buildListItem",
+    "importer": "src/parse/lines/list-reader.ts",
+    "kind": "vocabulary",
+    "reason": "pure (input, index) -> Node constructor, called by the list reader that read the item's interior"
+  },
+  {
+    "file": "src/parse/build/metadata.ts",
+    "symbol": "buildAttributeEntry",
+    "importer": "src/parse/lines/reader.ts",
+    "kind": "vocabulary",
+    "reason": "pure (line, index) -> Node constructor for an attribute entry leaf"
+  },
+  {
+    "file": "src/parse/build/metadata.ts",
+    "symbol": "buildBlockAnchor",
+    "importer": "src/parse/lines/frames.ts",
+    "kind": "vocabulary",
+    "reason": "pure (line, index) -> Node constructor, in the held-metadata builder table"
+  },
+  {
+    "file": "src/parse/build/metadata.ts",
+    "symbol": "buildBlockAttributeList",
+    "importer": "src/parse/lines/frames.ts",
+    "kind": "vocabulary",
+    "reason": "pure (line, index) -> Node constructor, in the held-metadata builder table"
+  },
+  {
+    "file": "src/parse/build/metadata.ts",
+    "symbol": "buildBlockMacro",
+    "importer": "src/parse/lines/reader.ts",
+    "kind": "vocabulary",
+    "reason": "pure (line, index) -> Node constructor for a block macro leaf"
+  },
+  {
+    "file": "src/parse/build/metadata.ts",
+    "symbol": "buildBlockTitle",
+    "importer": "src/parse/lines/frames.ts",
+    "kind": "vocabulary",
+    "reason": "pure (line, index) -> Node constructor, in the held-metadata builder table"
+  },
+  {
+    "file": "src/parse/build/metadata.ts",
+    "symbol": "buildPageBreak",
+    "importer": "src/parse/lines/frames.ts",
+    "kind": "vocabulary",
+    "reason": "pure (line, index) -> Node constructor, in the leaf builder table"
+  },
+  {
+    "file": "src/parse/build/metadata.ts",
+    "symbol": "buildRawBlockLine",
+    "importer": "src/parse/lines/frames.ts",
+    "kind": "vocabulary",
+    "reason": "pure (line, index) -> Node constructor for a line kept verbatim"
+  },
+  {
+    "file": "src/parse/build/metadata.ts",
+    "symbol": "buildRawBlockLine",
+    "importer": "src/parse/lines/reader.ts",
+    "kind": "vocabulary",
+    "reason": "pure (line, index) -> Node constructor for a line kept verbatim"
+  },
+  {
+    "file": "src/parse/build/metadata.ts",
+    "symbol": "buildThematicBreak",
+    "importer": "src/parse/lines/frames.ts",
+    "kind": "vocabulary",
+    "reason": "pure (line, index) -> Node constructor, in the leaf builder table"
+  },
+  {
+    "file": "src/parse/build/paragraph.ts",
+    "symbol": "buildAdmonitionParagraph",
+    "importer": "src/parse/lines/reader.ts",
+    "kind": "vocabulary",
+    "reason": "pure (tokens, index) -> Node constructor for a labelled paragraph"
+  },
+  {
+    "file": "src/parse/build/paragraph.ts",
+    "symbol": "buildLiteralParagraph",
+    "importer": "src/parse/lines/reader.ts",
+    "kind": "vocabulary",
+    "reason": "pure (lines, index) -> Node constructor for an indented literal paragraph"
+  },
+  {
+    "file": "src/parse/build/paragraph.ts",
+    "symbol": "buildParagraph",
+    "importer": "src/parse/lines/reader.ts",
+    "kind": "vocabulary",
+    "reason": "pure (tokens, index) -> Node constructor for ordinary paragraph text"
+  },
+  {
+    "file": "src/parse/build/paragraph.ts",
+    "symbol": "buildParagraphFormBlock",
+    "importer": "src/parse/lines/reader.ts",
+    "kind": "vocabulary",
+    "reason": "pure (variant, tokens, source, index) -> Node constructor for a paragraph a style re-modelled"
+  },
+  {
+    "file": "src/parse/build/paragraph.ts",
+    "symbol": "buildStyledParagraph",
+    "importer": "src/parse/lines/reader.ts",
+    "kind": "vocabulary",
+    "reason": "pure (style, tokens, index) -> Node constructor for a styled paragraph"
+  },
+  {
+    "file": "src/parse/inline/inline-link-builder.ts",
+    "symbol": "makeInlineAnchor",
+    "importer": "src/parse/build/metadata.ts",
+    "kind": "vocabulary",
+    "reason": "the one construction of an inline anchor node, so a block anchor and an inline one cannot disagree about their shape"
+  },
+  {
+    "file": "src/parse/inline/inline-node-builder.ts",
+    "symbol": "buildFromTokens",
+    "importer": "src/parse/build/list.ts",
+    "kind": "vocabulary",
+    "reason": "the one token-run -> inline-node pass; every builder that holds inline content calls it rather than pairing tokens itself"
+  },
+  {
+    "file": "src/parse/inline/inline-node-builder.ts",
+    "symbol": "buildFromTokens",
+    "importer": "src/parse/build/paragraph.ts",
+    "kind": "vocabulary",
+    "reason": "the one token-run -> inline-node pass; every builder that holds inline content calls it rather than pairing tokens itself"
+  },
+  {
+    "file": "src/parse/inline/tokenize.ts",
+    "symbol": "tokenizeInline",
+    "importer": "src/parse/lines/paragraph-reader.ts",
+    "kind": "vocabulary",
+    "reason": "the one tokenization of a run of paragraph text, called where the run's extent is known"
+  },
+  {
+    "file": "src/parse/inline/tokens.ts",
+    "symbol": "InlineToken",
+    "importer": "src/parse/build/list.ts",
+    "kind": "vocabulary",
+    "reason": "the inline token vocabulary the tokenizer produces and every holder of inline content carries"
+  },
+  {
+    "file": "src/parse/inline/tokens.ts",
+    "symbol": "InlineToken",
+    "importer": "src/parse/build/paragraph.ts",
+    "kind": "vocabulary",
+    "reason": "the inline token vocabulary the tokenizer produces and every holder of inline content carries"
+  },
+  {
+    "file": "src/parse/inline/tokens.ts",
+    "symbol": "InlineToken",
+    "importer": "src/parse/lines/list-reader.ts",
+    "kind": "vocabulary",
+    "reason": "the inline token vocabulary the tokenizer produces and every holder of inline content carries"
+  },
+  {
+    "file": "src/parse/inline/tokens.ts",
+    "symbol": "InlineToken",
+    "importer": "src/parse/lines/paragraph-reader.ts",
+    "kind": "vocabulary",
+    "reason": "the inline token vocabulary the tokenizer produces and every holder of inline content carries"
+  },
+  {
+    "file": "src/parse/inline/tokens.ts",
+    "symbol": "InlineToken",
+    "importer": "src/parse/lines/reader.ts",
+    "kind": "vocabulary",
+    "reason": "the inline token vocabulary the tokenizer produces and every holder of inline content carries"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "ADMONITION_LABEL",
+    "importer": "src/parse/lines/classify.ts",
+    "kind": "vocabulary",
+    "reason": "registry pattern: the `NOTE: ` label that opens an admonition paragraph"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "ATTRIBUTE_ENTRY",
+    "importer": "src/parse/lines/classify.ts",
+    "kind": "vocabulary",
+    "reason": "registry pattern: a document attribute entry line"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "ATTRIBUTE_ENTRY",
+    "importer": "src/parse/lines/list-reader.ts",
+    "kind": "vocabulary",
+    "reason": "registry pattern: a document attribute entry line"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "BLOCK_ANCHOR",
+    "importer": "src/block-metadata.ts",
+    "kind": "vocabulary",
+    "reason": "registry pattern: a whole-line `[[id]]` anchor. The printer reads it at the one documented parse address, so the formatter and the parser cannot disagree about what a re-parsed anchor line means"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "BLOCK_ANCHOR",
+    "importer": "src/parse/lines/classify.ts",
+    "kind": "vocabulary",
+    "reason": "registry pattern: a whole-line `[[id]]` anchor. The printer reads it at the one documented parse address, so the formatter and the parser cannot disagree about what a re-parsed anchor line means"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "BLOCK_ANCHOR",
+    "importer": "src/parse/lines/list-reader.ts",
+    "kind": "vocabulary",
+    "reason": "registry pattern: a whole-line `[[id]]` anchor. The printer reads it at the one documented parse address, so the formatter and the parser cannot disagree about what a re-parsed anchor line means"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "BLOCK_ANCHOR",
+    "importer": "src/print/serialize-inline.ts",
+    "kind": "vocabulary",
+    "reason": "registry pattern: a whole-line `[[id]]` anchor. The printer reads it at the one documented parse address, so the formatter and the parser cannot disagree about what a re-parsed anchor line means"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "BLOCK_ATTRIBUTE_LINE",
+    "importer": "src/parse/lines/classify.ts",
+    "kind": "vocabulary",
+    "reason": "registry pattern: a `[\u2026]` block attribute line"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "BLOCK_ATTRIBUTE_LINE",
+    "importer": "src/parse/lines/list-reader.ts",
+    "kind": "vocabulary",
+    "reason": "registry pattern: a `[\u2026]` block attribute line"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "BLOCK_MACRO",
+    "importer": "src/parse/lines/classify.ts",
+    "kind": "vocabulary",
+    "reason": "registry pattern: a block macro line"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "BLOCK_TITLE",
+    "importer": "src/parse/lines/classify.ts",
+    "kind": "vocabulary",
+    "reason": "registry pattern: a `.Title` line"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "BLOCK_TITLE",
+    "importer": "src/parse/lines/list-reader.ts",
+    "kind": "vocabulary",
+    "reason": "registry pattern: a `.Title` line"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "CALLOUT_MARKER_LINE",
+    "importer": "src/parse/lines/classify.ts",
+    "kind": "vocabulary",
+    "reason": "registry pattern: a `<1>` callout list marker line"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "CALLOUT_STYLE",
+    "importer": "src/parse/lines/classify.ts",
+    "kind": "vocabulary",
+    "reason": "registry pattern: the style name that makes a list a callout list"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "CONTINUATION_LINE",
+    "importer": "src/parse/lines/classify.ts",
+    "kind": "vocabulary",
+    "reason": "registry pattern: the lone `+` list continuation"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "DELIMITED_BLOCK_PATTERNS",
+    "importer": "src/parse/lines/classify.ts",
+    "kind": "vocabulary",
+    "reason": "registry table: one delimiter pattern per block kind, and the enumeration source the shape census reads"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "DELIMITER_KINDS",
+    "importer": "src/parse/lines/classify.ts",
+    "kind": "vocabulary",
+    "reason": "registry enumeration: the delimited block kinds, in match order"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "DLIST_SEPARATOR_WORD",
+    "importer": "src/print/reflow.ts",
+    "kind": "vocabulary",
+    "reason": "registry vocabulary: the word reflow may not break across a dlist separator. Read at the one documented parse address the printer is allowed"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "DelimiterKind",
+    "importer": "src/parse/lines/classify.ts",
+    "kind": "vocabulary",
+    "reason": "registry vocabulary: which delimiter opened a block, named where the patterns live"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "DelimiterKind",
+    "importer": "src/parse/lines/open-style.ts",
+    "kind": "vocabulary",
+    "reason": "registry vocabulary: which delimiter opened a block, named where the patterns live"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "LINE_COMMENT_HEAD",
+    "importer": "src/parse/lines/paragraph-reader.ts",
+    "kind": "vocabulary",
+    "reason": "the two characters `skip_line_comments` tests for \u2014 the scan side's one spelling of 'line comment', deliberately wider than the parse-side pattern"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "LINE_COMMENT_HEAD",
+    "importer": "src/print/list-hazard.ts",
+    "kind": "vocabulary",
+    "reason": "the two characters `skip_line_comments` tests for \u2014 the scan side's one spelling of 'line comment', deliberately wider than the parse-side pattern"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "LINE_COMMENT_HEAD",
+    "importer": "src/print/reflow.ts",
+    "kind": "vocabulary",
+    "reason": "the two characters `skip_line_comments` tests for \u2014 the scan side's one spelling of 'line comment', deliberately wider than the parse-side pattern"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "LIST_MARKER_LINE",
+    "importer": "src/parse/lines/classify.ts",
+    "kind": "vocabulary",
+    "reason": "registry pattern: a list item marker line"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "LITERAL_LINE",
+    "importer": "src/parse/lines/classify.ts",
+    "kind": "vocabulary",
+    "reason": "registry pattern: an indented literal line"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "LITERAL_LINE",
+    "importer": "src/parse/lines/list-reader.ts",
+    "kind": "vocabulary",
+    "reason": "registry pattern: an indented literal line"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "PAGE_BREAK",
+    "importer": "src/parse/lines/classify.ts",
+    "kind": "vocabulary",
+    "reason": "registry pattern: a `<<<` page break"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "ParagraphContext",
+    "importer": "src/parse/lines/classify.ts",
+    "kind": "vocabulary",
+    "reason": "registry vocabulary: which paragraph shape is open, which is what selects an interrupting set"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "ParagraphContext",
+    "importer": "src/parse/lines/paragraph-reader.ts",
+    "kind": "vocabulary",
+    "reason": "registry vocabulary: which paragraph shape is open, which is what selects an interrupting set"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "ParagraphContext",
+    "importer": "src/parse/lines/reader.ts",
+    "kind": "vocabulary",
+    "reason": "registry vocabulary: which paragraph shape is open, which is what selects an interrupting set"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "RawForm",
+    "importer": "src/parse/lines/classify.ts",
+    "kind": "vocabulary",
+    "reason": "registry vocabulary: why a line is raw, named where the three patterns that decide it live"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "ReaderContext",
+    "importer": "src/parse/lines/classify.ts",
+    "kind": "vocabulary",
+    "reason": "the ONE declaration of the reader's state every line rule reads, declared beside the interrupting-set registry because both consumers \u2014 those rules and the classifier \u2014 sit at or below it; a second declaration up in the classifier is what `InterruptionOptions` was"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "ReaderContext",
+    "importer": "src/parse/lines/paragraph-reader.ts",
+    "kind": "vocabulary",
+    "reason": "the ONE declaration of the reader's state every line rule reads, declared beside the interrupting-set registry because both consumers \u2014 those rules and the classifier \u2014 sit at or below it; a second declaration up in the classifier is what `InterruptionOptions` was"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "ReaderContext",
+    "importer": "src/parse/lines/reader.ts",
+    "kind": "vocabulary",
+    "reason": "the ONE declaration of the reader's state every line rule reads, declared beside the interrupting-set registry because both consumers \u2014 those rules and the classifier \u2014 sit at or below it; a second declaration up in the classifier is what `InterruptionOptions` was"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "SECTION_TITLE",
+    "importer": "src/parse/lines/classify.ts",
+    "kind": "vocabulary",
+    "reason": "registry pattern: an `== Title` section title line"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "THEMATIC_BREAK",
+    "importer": "src/parse/lines/classify.ts",
+    "kind": "vocabulary",
+    "reason": "registry pattern: a thematic break line"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "interruptsByLineShape",
+    "importer": "src/print/reflow.ts",
+    "kind": "vocabulary",
+    "reason": "the one answer to 'does this line shape interrupt a paragraph', asked by reflow at the one documented parse address so the formatter cannot re-wrap a line the parser would re-read differently"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "interruptsParagraph",
+    "importer": "src/parse/lines/classify.ts",
+    "kind": "vocabulary",
+    "reason": "the one answer to 'does this line interrupt this paragraph context', which is the registry's interrupting sets"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "isDescriptionListLine",
+    "importer": "src/parse/lines/list-reader.ts",
+    "kind": "vocabulary",
+    "reason": "the one predicate over the dlist term patterns"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "isRawParagraphLine",
+    "importer": "src/parse/lines/classify.ts",
+    "kind": "vocabulary",
+    "reason": "the one answer to 'must this line stay verbatim inside a paragraph'; reflow asks it at the one documented parse address for the same reason"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "isRawParagraphLine",
+    "importer": "src/print/reflow.ts",
+    "kind": "vocabulary",
+    "reason": "the one answer to 'must this line stay verbatim inside a paragraph'; reflow asks it at the one documented parse address for the same reason"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "optionalGroup",
+    "importer": "src/parse/lines/classify.ts",
+    "kind": "vocabulary",
+    "reason": "named-group reading helper for the registry's own parse functions"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "parseDescriptionListLine",
+    "importer": "src/parse/lines/classify.ts",
+    "kind": "vocabulary",
+    "reason": "the one parse of a dlist term line, beside the patterns it uses"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "rawLineForm",
+    "importer": "src/parse/build/metadata.ts",
+    "kind": "vocabulary",
+    "reason": "the one answer to which context-free raw pattern a line matched, beside those patterns"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "rawLineForm",
+    "importer": "src/parse/lines/classify.ts",
+    "kind": "vocabulary",
+    "reason": "the one answer to which context-free raw pattern a line matched, beside those patterns"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "rstrip",
+    "importer": "src/parse/build/metadata.ts",
+    "kind": "vocabulary",
+    "reason": "the one line-normalization helper; Ruby's reader rstrips, so every consumer must strip the same way"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "rstrip",
+    "importer": "src/parse/lines/classify.ts",
+    "kind": "vocabulary",
+    "reason": "the one line-normalization helper; Ruby's reader rstrips, so every consumer must strip the same way"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "rstrip",
+    "importer": "src/parse/lines/split.ts",
+    "kind": "vocabulary",
+    "reason": "the one line-normalization helper; Ruby's reader rstrips, so every consumer must strip the same way"
+  },
+  {
+    "file": "src/parse/lines/reader.ts",
+    "symbol": "readDocument",
+    "importer": "src/parser.ts",
+    "kind": "vocabulary",
+    "reason": "the parse layer's one entry point: source in, DocumentNode out"
+  },
+  {
+    "file": "src/parse/positions.ts",
+    "symbol": "Fragment",
+    "importer": "src/parse/build/delimited.ts",
+    "kind": "vocabulary",
+    "reason": "the position vocabulary every builder takes: an image and the offset it was written at"
+  },
+  {
+    "file": "src/parse/positions.ts",
+    "symbol": "Fragment",
+    "importer": "src/parse/build/heading.ts",
+    "kind": "vocabulary",
+    "reason": "the position vocabulary every builder takes: an image and the offset it was written at"
+  },
+  {
+    "file": "src/parse/positions.ts",
+    "symbol": "Fragment",
+    "importer": "src/parse/build/list.ts",
+    "kind": "vocabulary",
+    "reason": "the position vocabulary every builder takes: an image and the offset it was written at"
+  },
+  {
+    "file": "src/parse/positions.ts",
+    "symbol": "Fragment",
+    "importer": "src/parse/build/metadata.ts",
+    "kind": "vocabulary",
+    "reason": "the position vocabulary every builder takes: an image and the offset it was written at"
+  },
+  {
+    "file": "src/parse/positions.ts",
+    "symbol": "Fragment",
+    "importer": "src/parse/build/paragraph.ts",
+    "kind": "vocabulary",
+    "reason": "the position vocabulary every builder takes: an image and the offset it was written at"
+  },
+  {
+    "file": "src/parse/positions.ts",
+    "symbol": "Fragment",
+    "importer": "src/parse/inline/inline-link-builder.ts",
+    "kind": "vocabulary",
+    "reason": "the position vocabulary every builder takes: an image and the offset it was written at"
+  },
+  {
+    "file": "src/parse/positions.ts",
+    "symbol": "Fragment",
+    "importer": "src/parse/inline/inline-node-builder.ts",
+    "kind": "vocabulary",
+    "reason": "the position vocabulary every builder takes: an image and the offset it was written at"
+  },
+  {
+    "file": "src/parse/positions.ts",
+    "symbol": "Fragment",
+    "importer": "src/parse/lines/frames.ts",
+    "kind": "vocabulary",
+    "reason": "the position vocabulary every builder takes: an image and the offset it was written at"
+  },
+  {
+    "file": "src/parse/positions.ts",
+    "symbol": "LocationIndex",
+    "importer": "src/parse/build/delimited.ts",
+    "kind": "vocabulary",
+    "reason": "the document's one offset -> Location index, built once and handed to every builder so no two agree on it separately"
+  },
+  {
+    "file": "src/parse/positions.ts",
+    "symbol": "LocationIndex",
+    "importer": "src/parse/build/heading.ts",
+    "kind": "vocabulary",
+    "reason": "the document's one offset -> Location index, built once and handed to every builder so no two agree on it separately"
+  },
+  {
+    "file": "src/parse/positions.ts",
+    "symbol": "LocationIndex",
+    "importer": "src/parse/build/list.ts",
+    "kind": "vocabulary",
+    "reason": "the document's one offset -> Location index, built once and handed to every builder so no two agree on it separately"
+  },
+  {
+    "file": "src/parse/positions.ts",
+    "symbol": "LocationIndex",
+    "importer": "src/parse/build/metadata.ts",
+    "kind": "vocabulary",
+    "reason": "the document's one offset -> Location index, built once and handed to every builder so no two agree on it separately"
+  },
+  {
+    "file": "src/parse/positions.ts",
+    "symbol": "LocationIndex",
+    "importer": "src/parse/build/paragraph.ts",
+    "kind": "vocabulary",
+    "reason": "the document's one offset -> Location index, built once and handed to every builder so no two agree on it separately"
+  },
+  {
+    "file": "src/parse/positions.ts",
+    "symbol": "LocationIndex",
+    "importer": "src/parse/inline/inline-link-builder.ts",
+    "kind": "vocabulary",
+    "reason": "the document's one offset -> Location index, built once and handed to every builder so no two agree on it separately"
+  },
+  {
+    "file": "src/parse/positions.ts",
+    "symbol": "LocationIndex",
+    "importer": "src/parse/inline/inline-node-builder.ts",
+    "kind": "vocabulary",
+    "reason": "the document's one offset -> Location index, built once and handed to every builder so no two agree on it separately"
+  },
+  {
+    "file": "src/parse/positions.ts",
+    "symbol": "LocationIndex",
+    "importer": "src/parse/lines/frames.ts",
+    "kind": "vocabulary",
+    "reason": "the document's one offset -> Location index, built once and handed to every builder so no two agree on it separately"
+  },
+  {
+    "file": "src/parse/positions.ts",
+    "symbol": "LocationIndex",
+    "importer": "src/parse/lines/list-reader.ts",
+    "kind": "vocabulary",
+    "reason": "the document's one offset -> Location index, built once and handed to every builder so no two agree on it separately"
+  },
+  {
+    "file": "src/parse/positions.ts",
+    "symbol": "LocationIndex",
+    "importer": "src/parse/lines/reader.ts",
+    "kind": "vocabulary",
+    "reason": "the document's one offset -> Location index, built once and handed to every builder so no two agree on it separately"
+  },
+  {
+    "file": "src/parse/positions.ts",
+    "symbol": "makeLocation",
+    "importer": "src/parse/build/paragraph.ts",
+    "kind": "vocabulary",
+    "reason": "the one construction of a Location from an offset"
+  },
+  {
+    "file": "src/parse/positions.ts",
+    "symbol": "makeLocationIndex",
+    "importer": "src/parse/lines/reader.ts",
+    "kind": "vocabulary",
+    "reason": "builds the document's single offset index, called once per document"
+  },
+  {
+    "file": "src/print/printer.ts",
+    "symbol": "default",
+    "importer": "src/index.ts",
+    "kind": "vocabulary",
+    "reason": "the Prettier printer object the plugin publishes; index.ts is the process-static composition root"
+  },
+  {
+    "file": "src/print/serialize-inline.ts",
+    "symbol": "anchorToSource",
+    "importer": "src/block-metadata.ts",
+    "kind": "vocabulary",
+    "reason": "the one serialization of an inline anchor back to source, so the metadata predicates and the printer cannot disagree about its spelling"
+  }
+]

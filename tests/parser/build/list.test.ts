@@ -39,6 +39,7 @@ function itemInput(overrides: Partial<ListItemInput>): ListItemInput {
   return {
     marker: { image: "* ", offset: 0 },
     variant: "unordered",
+    calloutNumber: undefined,
     text: [],
     blocks: [],
     trailingContinuation: false,
@@ -104,15 +105,17 @@ function item(start: number, end: number): ListItemNode {
   );
 }
 
+// The number is PARSED by the classifier (the rows for that live in
+// tests/parser/lines.test.ts, under parseListMarker); this builder
+// only carries it onto the node, so these rows pin the carrying.
 describe("callout numbers", () => {
-  test.each([
-    ["<1> ", 1],
-    ["<9> ", 9],
-    // `<.>` is auto-numbered; 0 is the sentinel for it.
-    ["<.> ", 0],
-  ])("a callout item %j carries number %i", (image, number) => {
+  test.each([1, 9, 0])("a callout item carries number %i", (number) => {
     const node = buildListItem(
-      itemInput({ marker: { image, offset: 0 }, variant: "callout" }),
+      itemInput({
+        marker: { image: "<1> ", offset: 0 },
+        variant: "callout",
+        calloutNumber: number,
+      }),
       at,
     );
     expect(node.calloutNumber).toBe(number);
@@ -244,20 +247,9 @@ describe("where an item ends", () => {
   });
 });
 
-describe("the flag the reader read off the source", () => {
-  test.each([[true], [false]])(
-    "trailingContinuation %j travels through",
-    (trailingContinuation) => {
-      expect(
-        buildListItem(itemInput({ trailingContinuation }), at),
-      ).toMatchObject({ trailingContinuation });
-    },
-  );
-});
-
 describe("buildList", () => {
   test("spans its first item's start to its last item's end", () => {
-    const node = buildList("unordered", "*", [item(0, 5), item(6, 11)]);
+    const node = buildList("unordered", "*", item(0, 5), [item(6, 11)]);
     expect(node).toMatchObject({ type: "list", variant: "unordered" });
     expect(node.children).toHaveLength(2);
     expect(node.position).toEqual({
@@ -269,7 +261,7 @@ describe("buildList", () => {
   test.each(["unordered", "ordered", "callout"] as const)(
     "carries the %j variant through",
     (variant) => {
-      expect(buildList(variant, "*", [item(0, 5)]).variant).toBe(variant);
+      expect(buildList(variant, "*", item(0, 5), []).variant).toBe(variant);
     },
   );
 
@@ -288,7 +280,7 @@ describe("buildList", () => {
   ] as const)(
     "a %s list carries the %j marker spelling through",
     (variant, marker) => {
-      expect(buildList(variant, marker, [item(0, 5)]).marker).toBe(marker);
+      expect(buildList(variant, marker, item(0, 5), []).marker).toBe(marker);
     },
   );
 });

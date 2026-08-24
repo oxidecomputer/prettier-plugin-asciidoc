@@ -8,7 +8,7 @@ import { formatAdoc, renderedHtml } from "../helpers.js";
 async function expectByteFaithful(input: string): Promise<void> {
   const output = await formatAdoc(input);
   expect(output).toBe(input);
-  expect(renderedHtml(output)).toBe(renderedHtml(input));
+  expect(await renderedHtml(output)).toBe(await renderedHtml(input));
   expect(await formatAdoc(output)).toBe(output);
 }
 
@@ -21,8 +21,8 @@ describe("verbatim-styled paragraphs keep their extent (issues #41, #39)", () =>
     await expectByteFaithful("[source]\nfirst content line\n----\nbar\n");
   });
 
-  test("the issue's original ---- shape passes through byte-faithfully (oracle reads setext there — D11)", async () => {
-    // renderedHtml(output) === renderedHtml(input) holds by IDENTITY:
+  test("the issue's original ---- shape passes through byte-faithfully (oracle reads setext there; setext titles are out of scope)", async () => {
+    // renderedHtml(output) === await renderedHtml(input) holds by IDENTITY:
     // the bytes do not move, whatever the oracle makes of them.
     await expectByteFaithful("[source]\nline1\n----\nline2\n----\n");
   });
@@ -51,7 +51,7 @@ describe("verbatim-styled paragraphs keep their extent (issues #41, #39)", () =>
     const input = "[source]\n[[a]]\nfoo\n";
     const output = await formatAdoc(input);
     expect(output).toBe("[source]\n[[a]]\n\nfoo\n");
-    expect(renderedHtml(output)).toBe(renderedHtml(input));
+    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
     expect(await formatAdoc(output)).toBe(output);
   });
 });

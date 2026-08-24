@@ -5,40 +5,103 @@ on:
     branches: [main]
   pull_request:
 
+# One job per QUESTION, not one per command. `gates` answers "is this
+# tree well-formed?" — everything that needs no other revision, so a
+# fresh clone answers it. `differential` answers "did this change
+# behaviour?" — everything that does, which is why it needs the whole
+# history and a base commit.
 jobs:
-  check:
-    name: Type Check
+  gates:
+    name: Gates (head only)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - run: bun run check
-
-  fmt:
-    name: Formatting
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
-      - run: bun install --frozen-lockfile
-      - run: bun run fmt:check
-
-  lint:
-    name: Lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
-      - run: bun install --frozen-lockfile
       - run: bun run lint
+      - run: bun run fmt:check
+      - run: bun run build
+      # The suite, under v8 line coverage, with each file's RECORDED
+      # MINIMUM coverage checked afterwards — ONE suite run, not two.
+      # Measured at 2.8s plain against 4.0s with coverage on 8,577
+      # tests, so the check costs about a second and belongs in the
+      # blocking job rather than in a step of its own. The mutation
+      # half of the same minimums file is checked by `bun run mutate`,
+      # which is ~11 minutes and stays manual.
+      - run: bun run coverage
+      # The scorecard, head-only: thirteen absolute gates plus the shape
+      # census's five rules, in about two seconds, needing no base and no
+      # network. It has been enforceable since the day it was written
+      # and was enforced by nobody; this line is the whole point of the
+      # workstream that added it.
+      - run: bun run metrics
+      # The exhaustive depth-5 list-shape sweep — 111,121 documents,
+      # each formatted twice and rendered on both sides against a
+      # 158-entry allowlist, ~30s. It used to ride inside `bun run
+      # test`, where it was 25.6s of a 26.1s suite; it left the default
+      # suite ON CONDITION that it became a blocking step here and the
+      # prelude to every mutation run, so nothing about what is
+      # enforced changed. Head-only and needs no base, so it belongs in
+      # this job.
+      - run: bun run sweep:deep
 
-  test:
-    name: Test
+  differential:
+    name: Differential (vs base)
     runs-on: ubuntu-latest
+    # FIRST ITERATION ONLY. The differential harnesses have never run
+    # on this machine shape, and a harness whose own footing is untested
+    # must not be able to block a merge on its first day. Flipping this
+    # to blocking is a one-line change, and the trigger for it is
+    # stated: three consecutive green runs on merges to main.
+    continue-on-error: true
     steps:
+      # `fetch-depth: 0` because every harness here materializes
+      # another revision with `git archive`, and a shallow clone does
+      # not have one.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
-      - run: bun run build
-      - run: bun run test
+
+      # The base is a SHA this workflow computes, never a branch name
+      # and never `github.event.pull_request.base.sha`. Two reasons,
+      # both learned here: this repository is jj-managed with a
+      # colocated `.git` and is routinely on no branch at all, so
+      # nothing may key on one; and the PR event's base sha is the base
+      # branch's TIP, not the merge base, so a long-lived branch would
+      # be diffed against commits it never contained.
+      - name: Resolve the base revision
+        id: base
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch --no-tags origin "${{ github.base_ref }}"
+            base=$(git merge-base FETCH_HEAD HEAD)
+          else
+            base=$(git rev-parse HEAD^)
+          fi
+          echo "sha=$base" >> "$GITHUB_OUTPUT"
+          echo "base is $base"
+
+      # Serialized inside ONE job on purpose. Each of these three
+      # materializes the base into $TMPDIR, and two of them run
+      # `bun install --frozen-lockfile` in it; run as parallel jobs
+      # they would each pay that install, and run as parallel steps
+      # they would pay it concurrently on one runner's disk.
+      - name: parity — every corpus document and fixture, bytes and AST
+        run:
+          bun run parity -- --base "${{ steps.base.outputs.sha }}"
+          --formatted-ledger
+      - name: shape-diff — the standing grid, with per-diff render proofs
+        run: bun run shape-diff -- --base "${{ steps.base.outputs.sha }}"
+      - name: shape-diff — the heading-adjacency grid
+        run:
+          bun run shape-diff -- --base "${{ steps.base.outputs.sha }}" --grid
+          heading-adjacency
+      - name: shape-diff — the list-run grid
+        run:
+          bun run shape-diff -- --base "${{ steps.base.outputs.sha }}" --grid
+          list-run
+      - name: metrics — the ratchets
+        run: bun run metrics -- --base "${{ steps.base.outputs.sha }}"

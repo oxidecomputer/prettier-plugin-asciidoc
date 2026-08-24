@@ -10,8 +10,8 @@
  * diverging without making the parse layer depend on the print
  * layer.
  *
- * THE pairing rule lives here too ({@link stacksAsMetadata}, spec
- * D5b): whether a metadata block stacks directly above the block
+ * THE pairing rule lives here too ({@link stacksAsMetadata}):
+ * whether a metadata block stacks directly above the block
  * below it is one decision with one home, and every consumer imports
  * it rather than restating its exceptions. Two of the classifications
  * it is built from ({@link isAnchorLine},
@@ -22,23 +22,23 @@
  * PRINTED `[[…]]` line re-reads as ({@link anchorLineShape}). A line
  * whose id fails the block-anchor grammar is not metadata at all, but
  * it prints as though it were, and the rules that GROUP an item's
- * held metadata lines (print-list-hazard.ts) and that suppress
- * stacking above a heading (print-join.ts) both have to say so.
+ * held metadata lines (src/print/list-hazard.ts) and that suppress
+ * stacking above a heading (src/print/join.ts) both have to say so.
  */
 import type { BlockNode } from "./ast.js";
 import { BLOCK_ANCHOR } from "./parse/line-shapes.js";
-import { anchorToSource } from "./serialize-inline.js";
+import { anchorToSource } from "./print/serialize-inline.js";
 
 /**
  * Tests whether a block is a `//` line comment — the ONE node-level
  * home for the question. `Reader#skip_line_comments` consumes such
  * lines before anything counts them, which makes them transparent
  * wherever adjacency or attachment is decided: the printer stacks
- * consecutive comments without a blank (print-join.ts, where closing
+ * consecutive comments without a blank (src/print/join.ts, where closing
  * the gap can change nothing — a line comment renders nothing, unlike
  * a preprocessor directive, whose blank-line gap the reader can still
  * make visible), and the list hazard reads through them on both sides
- * of its run (print-list-hazard.ts). A `////`-delimited comment BLOCK
+ * of its run (src/print/list-hazard.ts). A `////`-delimited comment BLOCK
  * is deliberately NOT one: `skip_line_comments` skips `//` lines only,
  * and a comment block is a block like any other.
  * @param block - The block node to test.
@@ -52,7 +52,7 @@ export function isLineComment(block: BlockNode): boolean {
  * Tests whether a block is a line Asciidoctor's READER consumes
  * before block structure exists: a line comment
  * (`Reader#skip_line_comments`) or a preprocessor directive
- * (`PreprocessorReader#process_line`, reader.rb:819).
+ * (`PreprocessorReader#process_line`, reader.rb:824).
  *
  * Such a line is TRANSPARENT: the parser never sees it, so metadata
  * on one side still annotates the block on the other, and a blank
@@ -63,7 +63,7 @@ export function isLineComment(block: BlockNode): boolean {
  * consult this: the parse layer looks past such lines when deciding
  * whether a held style is actionable (the reader's held-run
  * transparency guard, lines/reader.ts), the printer stacks them with
- * their neighbours (print-join.ts).
+ * their neighbours (src/print/join.ts).
  * @param block - The block node to test.
  * @returns Whether the reader eats this block's line.
  */
@@ -80,7 +80,7 @@ export function isReaderConsumedLine(block: BlockNode): boolean {
  * AsciiDoc where `[source,ruby]` sits directly above
  * `----` with no intervening blank line. Consulted through
  * {@link stacksAsMetadata}, which owns the exceptions, and by the
- * list hazard's run-membership test (print-list-hazard.ts) — the
+ * list hazard's run-membership test (src/print/list-hazard.ts) — the
  * metadata-KIND classification has this one home.
  * @param block - The block node to test.
  * @returns Whether the block is block metadata.
@@ -112,7 +112,7 @@ export function isBlockMetadata(block: BlockNode): boolean {
  * the re-reader. undefined: everything else.
  *
  * Grammar: BLOCK_ANCHOR (parse/line-shapes.ts, over
- * BLOCK_ANCHOR_SOURCE); behavior is Ruby's BlockAnchorRx (rx.rb:163),
+ * BLOCK_ANCHOR_SOURCE); behavior is Ruby's BlockAnchorRx (rx.rb:164),
  * pinned by the corpus rows `blocks_test.rb#should not recognize
  * block anchor that starts with digit#0` / `…illegal id characters#0`
  * and the pseudo-anchor suites. Spelling: anchorToSource — the
@@ -190,7 +190,8 @@ function wouldMergeWithAnchor(block: BlockNode): boolean {
 
 /**
  * Whether `previous` is block metadata that stacks directly above
- * `current` — THE pairing rule; every consumer shares it (spec D5b).
+ * `current` — THE pairing rule; every consumer shares it, so no
+ * consumer re-derives stacking from node shapes of its own.
  *
  * Block metadata (attribute lists, anchors, titles) stacks with each
  * other and with the block that follows them, as does a pseudo-anchor

@@ -13,35 +13,47 @@ import type {
   ListItemNode,
   ListNode,
 } from "../../ast.js";
-import { AUTO_CALLOUT_NUMBER } from "../../constants.js";
 import { buildFromTokens } from "../inline/inline-node-builder.js";
 import type { InlineToken } from "../inline/tokens.js";
-import type { ListVariant } from "../lines/classify.js";
 import type { Fragment, LocationIndex } from "../positions.js";
 import { bodyExtent } from "./paragraph.js";
-
-// Regex extracting the number between angle brackets in a
-// callout marker: `<1> ` → "1", `<.> ` → ".".
-const CALLOUT_NUMBER_RE = /<(?<inner>[^>]+)>/v;
 
 // Checklist marker: `[x] `, `[*] `, or `[ ] ` at the start
 // of an unordered list item's text. The named group captures the
 // inner character so we can distinguish checked from unchecked.
 const CHECKBOX_RE = /^\[(?<mark>[x* ])\] /v;
 // Length of the checkbox prefix: `[x] ` = 4 characters.
+/**
+ * Exported for its unit test (tests/parser/build/list.test.ts); no src
+ * consumer.
+ * @internal
+ */
 export const CHECKBOX_PREFIX_LEN = 4;
 
-/** Everything one list item is built from, as the reader read it. */
+/**
+ * Everything one list item is built from, as the reader read it.
+ * Exported for its unit test (tests/parser/build/list.test.ts); no src
+ * consumer.
+ * @internal
+ */
 export interface ListItemInput {
   /** The item's marker as written, leading indent excluded. */
   readonly marker: Fragment;
   /** Which list kind the marker opened. */
-  readonly variant: ListVariant;
+  readonly variant: ListNode["variant"];
+  /**
+   * The number a callout marker spells (`<3>` → 3, `<.>` → the auto
+   * sentinel), undefined for every other variant. Read off the group
+   * the classifier's match captured (lines/classify.ts, ParsedMarker's
+   * callout arm) — this builder does not re-match the marker, so there
+   * is no impossible miss here to degrade from.
+   */
+  readonly calloutNumber: number | undefined;
   /** The item's principal text, already tokenized. */
   readonly text: readonly InlineToken[];
   /** Everything the item holds after its text, gaps attached. */
   readonly blocks: readonly ItemBlock[];
-  /** Whether the item ends on an unerased `+` that attached nothing. */
+  /** Whether a `+` off the item's end must be printed back. */
   readonly trailingContinuation: boolean;
 }
 
@@ -123,7 +135,7 @@ function firstTextValue(children: InlineNode[]): string {
  * @returns the checkbox state, or undefined
  */
 function takeCheckbox(
-  variant: ListVariant,
+  variant: ListNode["variant"],
   inlineChildren: InlineNode[],
 ): ListItemNode["checkbox"] {
   if (variant !== "unordered") {
@@ -139,26 +151,10 @@ function takeCheckbox(
 }
 
 /**
- * The callout number of a callout marker: `<1> ` → 1, `<.> ` → 0 (auto).
- * @param marker - the callout marker span
- * @returns the number, or the auto sentinel
- */
-function calloutNumberOf(marker: Fragment): number {
-  // Total fallback: only a callout ITEM reaches here, and the reader
-  // opened it because this marker already matched the callout shape,
-  // so the group is always there. Degrading to `.` (auto-numbering)
-  // rather than throwing keeps the builder total.
-  // The blast radius is one marker: a miss would print that item's
-  // callout as auto-numbered and change nothing else.
-  const inner = CALLOUT_NUMBER_RE.exec(marker.image)?.groups?.inner ?? ".";
-  return inner === "." ? AUTO_CALLOUT_NUMBER : Number.parseInt(inner, 10);
-}
-
-/**
  * One list item: its principal text, and every block the reader put
  * inside it in source order, each behind its verbatim gap. The blocks
  * arrive already style-converted (style decisions resolve at the
- * OPENING line, spec D4), and already in source order — the confined
+ * OPENING line), and already in source order — the confined
  * reader pushed them as it met them, so there is nothing to merge.
  *
  * Field order in the literal is load-bearing: `text` before `blocks`
@@ -173,11 +169,10 @@ export function buildListItem(
 ): ListItemNode {
   const text = buildFromTokens(input.text, at);
   const checkbox = takeCheckbox(input.variant, text);
-  const isCallout = input.variant === "callout";
   return {
     type: "listItem",
     checkbox,
-    calloutNumber: isCallout ? calloutNumberOf(input.marker) : undefined,
+    calloutNumber: input.calloutNumber,
     text,
     blocks: [...input.blocks],
     trailingContinuation: input.trailingContinuation,
@@ -196,26 +191,33 @@ export function buildListItem(
  * A list: its items, with the variant and the marker spelling the
  * reader read off the first item's marker (every item of one list has
  * the same marker — the reader opens the list on that style and ends
- * it at any other, list-reader.ts's style check). A list always
- * has an item: the reader opens one on a marker line and builds that
- * item before it closes the list.
+ * it at any other, list-reader.ts's style check).
+ *
+ * The opening item is its OWN parameter, so "a list always has an
+ * item" is what the signature says rather than a sentence the body
+ * re-checks — the reader opens a list on a marker line and reads that
+ * item before it looks for a sibling. `rest.at(-1) ?? first` is then a
+ * total answer, not a guard: `rest` really is empty for a one-item
+ * list.
  * @param variant - which list kind it is
  * @param marker - the shared marker spelling (`ListNode.marker`)
- * @param items - the items, in source order; never empty
+ * @param first - the item the list opened on
+ * @param rest - the sibling items after it, in source order; empty for
+ *   a one-item list
  * @returns the list node
  */
 export function buildList(
   variant: ListNode["variant"],
   marker: string,
-  items: readonly ListItemNode[],
+  first: ListItemNode,
+  rest: readonly ListItemNode[],
 ): ListNode {
-  const [first] = items;
-  const last = items.at(-1) ?? first;
+  const last = rest.at(-1) ?? first;
   return {
     type: "list",
     variant,
     marker,
-    children: [...items],
+    children: [first, ...rest],
     position: { start: first.position.start, end: last.position.end },
   };
 }

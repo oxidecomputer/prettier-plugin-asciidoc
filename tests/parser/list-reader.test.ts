@@ -1,14 +1,98 @@
 /**
- * Direct tables for the two pure functions the cut-over added whose
- * edges whole-document parses reach only obliquely: gapsOf's verbatim
- * read (and its unreachable arm), and gapGlyph's budget-aware
- * spelling.
+ * Direct tables for list-reader.ts's pure functions whose edges
+ * whole-document parses reach only obliquely: listShape's sibling
+ * walk (the port of `parse_list`, parser.rb l.1115-1129), gapsOf's
+ * verbatim read (and its unreachable arm), and gapGlyph's
+ * budget-aware spelling.
+ *
+ * listShape is a SHAPE scan and nothing more — it decides extents and
+ * parses no item's interior — so these rows read markers, buffers and
+ * the resume index. What the items BECOME is pinned by the reader and
+ * format suites.
  */
 import { describe, expect, test } from "vitest";
 import type { BlockNode, GapLine } from "../../src/ast.js";
-import { gapsOf } from "../../src/parse/lines/list-reader.js";
-import { splitLines } from "../../src/parse/lines/split.js";
+import { BLOCK_START_CONTEXT } from "../../src/parse/line-shapes.js";
+import { classifyLine } from "../../src/parse/lines/classify.js";
+import { gapsOf, listShape } from "../../src/parse/lines/list-reader.js";
+import { splitLines, type SourceLine } from "../../src/parse/lines/split.js";
 import { gapGlyph } from "./reader-helpers.js";
+
+/**
+ * Scan the list a document opens with, the way the document reader
+ * does: from line 0, with the stream end EOF (tailSafe).
+ * @param source - the whole document; its first line is the marker
+ * @returns each item's marker text and buffer, and the resume index
+ */
+function shapeOf(source: string): {
+  items: Array<{ marker: string; buffer: string[] }>;
+  end: number;
+} {
+  const lines: readonly SourceLine[] = splitLines(source);
+  const opening = classifyLine(lines[0].text, BLOCK_START_CONTEXT);
+  if (opening.kind !== "listMarker") {
+    throw new Error(`not a marker line: ${JSON.stringify(lines[0].text)}`);
+  }
+  const shape = listShape(lines, 0, opening, true);
+  return {
+    items: shape.items.map((item) => ({
+      marker: item.markerLine.text,
+      buffer: item.buffer.map((line) => line.text),
+    })),
+    end: shape.end,
+  };
+}
+
+describe("listShape walks siblings and stops at anything else", () => {
+  test("one item per sibling marker, in source order", () => {
+    expect(shapeOf("* a\n* b\n* c\n")).toEqual({
+      items: [
+        { marker: "* a", buffer: [] },
+        { marker: "* b", buffer: [] },
+        { marker: "* c", buffer: [] },
+      ],
+      end: 3,
+    });
+  });
+
+  test("a marker of another style is no sibling — it nests INSIDE the item", () => {
+    // `is_sibling_list_item?` is style equality, so `. b` cannot open
+    // a second item here; `read_lines_for_list_item` keeps it in the
+    // buffer, where the item's own reader opens the nested list.
+    expect(shapeOf("* a\n. b\n")).toEqual({
+      items: [{ marker: "* a", buffer: [". b"] }],
+      end: 2,
+    });
+  });
+
+  test("a plain line after a blank ends both the item and the list", () => {
+    expect(shapeOf("* a\n\ntext\n")).toEqual({
+      items: [{ marker: "* a", buffer: [] }],
+      end: 2,
+    });
+  });
+
+  test("a lone marker line is a whole list — items is never empty", () => {
+    expect(shapeOf("* a\ntext\n").items).toHaveLength(1);
+  });
+
+  test("each item carries its own buffer and the list resumes past it", () => {
+    // `+` attaches the paragraph to the first item; the blank run
+    // before `* b` is consumed by the item's own extent scan, so the
+    // sibling loop never sees a blank line (see listShape's comment).
+    expect(shapeOf("* a\n+\npara\n\n* b\nmore\n")).toEqual({
+      items: [
+        { marker: "* a", buffer: ["", "para"] },
+        { marker: "* b", buffer: ["more"] },
+      ],
+      end: 6,
+    });
+  });
+
+  test("a trailing `+` that attached nothing leaves the buffer empty", () => {
+    expect(shapeOf("* a\n+\n").items[0].buffer).toEqual([]);
+  });
+});
 
 /**
  * A minimal positioned block for gapsOf (only positions are read).

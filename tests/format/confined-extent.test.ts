@@ -1,5 +1,5 @@
 /**
- * The b44-confined-extent family's byte proofs (spec D4, D7.6): every
+ * The confined-extent family's byte proofs (issue #44): every
  * fixed spelling is asserted exactly, is IDEMPOTENT, and — proof
  * direction for a CORRUPTION FIX — renders equal to the ORIGINAL
  * INPUT (comparing against the base's output would prove nothing: the
@@ -22,7 +22,7 @@ async function expectFixed(input: string, expected: string): Promise<void> {
   const output = await formatAdoc(input);
   expect(output).toBe(expected);
   expect(await formatAdoc(output)).toBe(output);
-  expect(renderedHtml(output)).toBe(renderedHtml(input));
+  expect(await renderedHtml(output)).toBe(await renderedHtml(input));
 }
 
 /**
@@ -39,7 +39,7 @@ async function expectFixedBytes(
   expect(await formatAdoc(output)).toBe(output);
 }
 
-describe("b44-confined-extent: every measured shape is byte-lossless", () => {
+describe("confined-extent: every measured shape is byte-lossless", () => {
   test.each([
     [
       "listing / item",

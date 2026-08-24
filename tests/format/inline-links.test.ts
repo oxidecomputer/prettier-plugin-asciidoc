@@ -4,7 +4,7 @@
  * and that these constructs round-trip cleanly.
  */
 import { describe, test, expect } from "vitest";
-import { formatAdoc } from "../helpers.js";
+import { formatAdoc, renderedHtml } from "../helpers.js";
 
 describe("inline links — format output", () => {
   test("bare URL is preserved", async () => {
@@ -204,5 +204,42 @@ describe("inline links — source newlines normalized on output", () => {
     const input = "See link:file.html[some link\ntext] end.\n";
     const result = await formatAdoc(input);
     expect(result).toContain("link:file.html[some link text]");
+  });
+});
+
+// The shorthand's post-comma bytes reach the link as
+// `link_text.lstrip` (substitutors.rb l.746), so a blank after the
+// comma is not data. A TRAILING blank is: nothing strips it, and it
+// renders inside the anchor. The inline-anchor serializer has always
+// trimmed the same edge and only that edge.
+describe("a shorthand xref's text loses its leading blank, not its trailing one", () => {
+  test.each([
+    [
+      "a blank after the comma",
+      "<<a, b>> x\n\n[[a]]y\n",
+      "<<a,b>> x\n\n[[a]]y\n",
+    ],
+    ["several blanks", "<<a,   b>> x\n\n[[a]]y\n", "<<a,b>> x\n\n[[a]]y\n"],
+    ["a tab", "<<a,\tb>> x\n\n[[a]]y\n", "<<a,b>> x\n\n[[a]]y\n"],
+    [
+      "blanks on BOTH sides — only the leading one goes",
+      "<<a, b >> x\n\n[[a]]y\n",
+      "<<a,b >> x\n\n[[a]]y\n",
+    ],
+    [
+      "text that is nothing but blanks",
+      "<<a,   >> x\n\n[[a]]y\n",
+      "<<a,>> x\n\n[[a]]y\n",
+    ],
+    [
+      "no text at all is untouched",
+      "<<a>> x\n\n[[a]]y\n",
+      "<<a>> x\n\n[[a]]y\n",
+    ],
+  ])("%s", async (_name, input, expected) => {
+    const out = await formatAdoc(input);
+    expect(out).toBe(expected);
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
   });
 });

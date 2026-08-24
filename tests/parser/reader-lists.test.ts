@@ -140,7 +140,11 @@ describe("reader: list items (read_lines_for_list_item)", () => {
       "* a\n[[x]]\npara\n",
       "list(item(t raw t))",
     ],
-    ["a trailing + at EOF is dangling", "* a\n+\n", "list(item(t !dangling))"],
+    [
+      "a trailing + at EOF leaves no trace on the item (Ruby pops it, l.1580-81)",
+      "* a\n+\n",
+      "list(item(t))",
+    ],
     [
       "indented content after + is a literal paragraph that runs on through a sibling marker",
       "* a\n+\n  lit\nflush\n* b\n",
@@ -229,10 +233,10 @@ describe("reader: list items (read_lines_for_list_item)", () => {
       "list(item(t +example(list(item(t)) p(t))) item(t))",
     ],
   ];
-  test.each(rows)("%s", (_name, input, expected) => {
+  test.each(rows)("%s", async (_name, input, expected) => {
     expect(astShape(input)).toBe(expected);
     expect(itemCount(input), "one list item per oracle <li>").toBe(
-      oracleItems(input),
+      await oracleItems(input),
     );
   });
 });
@@ -256,21 +260,21 @@ describe("reader: indented and tab-gapped markers (issue #29)", () => {
       "list(item(t) item(t))",
     ],
     ["a tab gap is a marker", "* a\n*\tb\n", "list(item(t) item(t))"],
-  ])("%s", (_name, input, expected) => {
+  ])("%s", async (_name, input, expected) => {
     expect(astShape(input)).toBe(expected);
-    expect(itemCount(input)).toBe(oracleItems(input));
+    expect(itemCount(input)).toBe(await oracleItems(input));
   });
 });
 
 describe("reader: list oracle surprises", () => {
-  test("a comment after + consumes the continuation, so the block breaks the list", () => {
+  test("a comment after + consumes the continuation, so the block breaks the list", async () => {
     // Ruby's `let block metadata play out` test names BlockTitleRx,
     // BlockAttributeLineRx and AttributeEntryRx only, so a comment line
     // falls into the else branch, which sets continuation = :inactive.
     // The listing below therefore hits `break unless continuation ==
     // :active` and lands OUTSIDE the list — as the oracle confirms.
     const input = "* a\n+\n// c\n[source]\n.T\n----\nx\n----\n* b\n";
-    expect(renderedHtml(input)).not.toContain('class="title">T');
+    expect(await renderedHtml(input)).not.toContain('class="title">T');
     expect(astShape(input)).toBe(
       "list(item(t +comment -attrs -title)) listing[1] list(item(t))",
     );
@@ -284,17 +288,17 @@ describe("reader: list oracle surprises", () => {
     // eats (with everything after it, there being no `endif`), so the
     // oracle sees a different document than the reader does.
     // `-attrs`, not the old `+attrs`: the source has no `+` line (the
-    // gap is empty), and the old glyph spelled the READER's Ruling-26
-    // decision to introduce one. Under spec D1 the AST records the
-    // verbatim gap and the printer answers the hazard on the re-read
+    // gap is empty), and the old glyph spelled the READER's earlier
+    // decision to INVENT one. The AST now records the verbatim gap
+    // and the printer answers the hazard on the re-read
     // ("none" | "keepBreak"; here keepBreak — the item text holds its
     // own break so `[source]` cannot land on the first rest line):
     // the formatted bytes are "** b\n   lit\n[source]\nNOTE: x\n",
     // with no invented `+`.
     // `-listing[1]`, not the old `-admonition(note)`: with `[source]`
     // in hand the NOTE: line is the styled paragraph's opening line
-    // (spec D4b, parser.rb:555-560 runs before the admonition arm
-    // :765), which is also what the oracle renders — a listingblock,
+    // (parser.rb:561-567 runs before the admonition arm
+    // :772), which is also what the oracle renders — a listingblock,
     // never an admonition. The formatted bytes above are unchanged
     // by that arm; the metadata-release ordering this row exists for
     // (`-attrs` before the block) is unaffected.
@@ -309,17 +313,33 @@ describe("reader: list oracle surprises", () => {
     expectAstInvariants("** b\n  lit\n[source]\nNOTE: x\n");
     expectAstInvariants("** b\nifdef::x[]\n// c\n[[x]]\n+\n+\n* a\n");
   });
-  test("adjacent + lines: the second is content, the rest are kept verbatim", () => {
-    // ORACLE DIVERGENCE, deliberate. Ruby buffers the second `+` as
-    // text and DROPS every later one, rendering `+\nAttached` as one
-    // paragraph. Dropping a line would delete source, so the reader
-    // keeps each extra `+` as its own RawLine; the printed bytes are
-    // unchanged, so the rendering is too.
-    expect(renderedHtml("* a\n+\n+\n+\nAttached\n")).toContain(
+  test("the after-blank nestable arm keeps the + for the inner list", async () => {
+    // `within_nested_list` set at parser.rb l.1530-32, not only at the
+    // final else: the outer scan must NOT erase a `+` that belongs to
+    // the nested list, or the block behind it attaches to the OUTER
+    // item. The oracle puts para inside `b`; a reader that skips the
+    // flag reads `list(item(t list(item(t)) +p(t)))` instead. Bytes
+    // cannot see this — the gap replay writes the `+` from the source
+    // lines either way — so the shape is the assertion.
+    expect(await renderedHtml("* a\n\n** b\n+\npara\n")).toContain(
+      '<p>b</p> <div class="paragraph"> <p>para</p>',
+    );
+    expect(astShape("* a\n\n** b\n+\npara\n")).toBe(
+      "list(item(t list(item(t +p(t)))))",
+    );
+  });
+  test("adjacent + lines: the second is content, every later one is dropped", async () => {
+    // l.1444's gate, Ruby's and ours: the second `+` freezes and is
+    // buffered as text, the third and later ones are read and thrown
+    // away. They render nothing — `+\nAttached` is one paragraph
+    // either way — and the byte comes back only because the dropped
+    // line still sits between the two blocks the reader kept, where
+    // the gap replay writes it.
+    expect(await renderedHtml("* a\n+\n+\n+\nAttached\n")).toContain(
       "<p>+ Attached</p>",
     );
     expect(astShape("* a\n+\n+\n+\nAttached\n")).toBe(
-      "list(item(t +p(raw) -p(raw) -p(t)))",
+      "list(item(t +p(raw) +p(t)))",
     );
   });
 });
@@ -354,30 +374,33 @@ describe("reader: a detached + an outer item took is released when the inner ite
   ];
   test.each(outside)(
     "%s: the blank-separated block is outside the list",
-    (_name, input, tail) => {
+    async (_name, input, tail) => {
       expect(astShape(input)).toMatch(tail);
-      expect(itemCount(input)).toBe(oracleItems(input));
+      expect(itemCount(input)).toBe(await oracleItems(input));
     },
   );
-  test("metadata after the detached + keeps it active for the outer item", () => {
+  test("metadata after the detached + keeps it active for the outer item", async () => {
     const input = "* a\n** b\n\n+\n[role]\npara\n";
     // The inner list ends at the metadata line; the paragraph is a's —
     // the detached `+` speaks for the metadata it stands above, and the
     // paragraph under it is stacked (no `+` of its own).
     expect(astShape(input)).toMatch(/list\(item\(t\)\) ~\+attrs -p\(t\)\)\)$/v);
-    expect(itemCount(input)).toBe(oracleItems(input));
+    expect(itemCount(input)).toBe(await oracleItems(input));
   });
 });
 
 describe("reader: stacked detached continuations", () => {
-  // Ruby's outer item erases only the LAST detached `+`
+  // Core 2.0.20's outer item erases only the LAST detached `+`
   // (`detached_continuation` is a scalar); the inner item re-reads the
   // first as its own and takes the block. Both marks ride ahead of it
-  // so the printer writes both `+` lines back.
-  test("the inner item takes the block, with one mark per +", () => {
+  // so the printer writes both `+` lines back. The pinned oracle (core
+  // 2.0.26) puts the paragraph in the OUTER item instead — a recorded
+  // divergence, not a reader change; the `<li>` count, which is what
+  // this row asserts against the oracle, is the same either way.
+  test("the inner item takes the block, with one mark per +", async () => {
     const input = "* a\n** b\n\n+\n\n+\npara\n";
     expect(astShape(input)).toBe("list(item(t list(item(t ~++p(t)))))");
-    expect(itemCount(input)).toBe(oracleItems(input));
+    expect(itemCount(input)).toBe(await oracleItems(input));
   });
 });
 
@@ -389,10 +412,10 @@ describe("reader: a //-headed dlist term keeps its own line", () => {
   // `* a` / `///b:: c` — the reflowed form — renders nothing after `a`.
   // The term is kept as a verbatim line so the description stays below
   // it.
-  test("the term line is verbatim, the description follows it", () => {
+  test("the term line is verbatim, the description follows it", async () => {
     const input = "* a\n///b::\nc\n";
-    expect(renderedHtml(input)).toContain("///b</dt>");
-    expect(renderedHtml("* a\n///b:: c\n")).not.toContain("///b");
+    expect(await renderedHtml(input)).toContain("///b</dt>");
+    expect(await renderedHtml("* a\n///b:: c\n")).not.toContain("///b");
     expect(astShape(input)).toBe("list(item(t -p(raw t)))");
   });
 });

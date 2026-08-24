@@ -21,6 +21,9 @@
  * `INLINE_RULES` is built in this order — and
  * tests/parser/inline-tokens.test.ts asserts that array's `type`s
  * against this one, so the two cannot drift.
+ * Exported for its unit test (tests/parser/inline-tokens.test.ts); no
+ * src consumer.
+ * @internal
  */
 export const INLINE_KINDS = [
   "BackslashEscape",

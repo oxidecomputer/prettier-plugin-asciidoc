@@ -16,7 +16,7 @@ describe("fenced code block formatting", () => {
     const input = "first line\n\n```\ncode\n```\n";
     const out = await formatAdoc(input);
     expect(out).toBe("first line\n\n[source]\n----\ncode\n----\n");
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
   });
 
   // Multi-line content is preserved verbatim.
@@ -73,7 +73,7 @@ describe("fenced code block formatting", () => {
     const input = "```rust\nfn main() {}\n```\n";
     const out = await formatAdoc(input);
     expect(out).toBe("[source,rust]\n----\nfn main() {}\n----\n");
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });
 
@@ -87,7 +87,7 @@ describe("fenced code block formatting", () => {
   ])("a titled fence %s keeps the title first", async (_name, input, head) => {
     const out = await formatAdoc(input);
     expect(out).toBe(`${head}----\ncode\n----\n`);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });
 
@@ -99,7 +99,7 @@ describe("fenced code block formatting", () => {
     const input = "[source]\n```\ncode\n```\n";
     const out = await formatAdoc(input);
     expect(out).toBe("[source]\n----\ncode\n----\n");
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });
 });
@@ -116,13 +116,13 @@ describe("fenced code block formatting", () => {
 // `path.getParentNode()` cast landed on an `ItemBlock`, which has no
 // `children`, so the sibling scan saw nothing and the printer emitted
 // its implied prefix ON TOP of the author's line.
-describe("fence annotation is the reader's own record (spec D5a)", () => {
+describe("fence annotation is the reader's own record", () => {
   test("a fence annotated inside a list item emits ONE [source] prefix", async () => {
     const input = "* item\n+\n[source,ruby]\n```ruby\nfoo\n```\n";
     const output = await formatAdoc(input);
     expect(output).toBe("* item\n+\n[source,ruby]\n----\nfoo\n----\n");
-    // The d5-fence-annotation proofs (spec D9.2), re-run at execution:
-    expect(renderedHtml(output)).toBe(renderedHtml(input));
+    // The fence-annotation proofs, re-run at execution:
+    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
     expect(await formatAdoc(output)).toBe(output);
   });
 });

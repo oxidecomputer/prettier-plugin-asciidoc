@@ -15,7 +15,7 @@ All five must pass before considering a task done.
    Run at every task/plan task; NOT required for a trivial doc-only change.
    Report-only: it never fails the build, but surviving mutants in code the task
    wrote are a finding for the task report, and a test the task added that kills
-   nothing new has to justify itself under Ruling 38 (see
+   nothing new has to justify itself under the load-bearing-test rule (see
    `docs/simplicity-metrics.md`, "Is this test load-bearing?"). Use
    `bun run mutate:full` at plan boundaries and whenever tests were added or
    deleted.

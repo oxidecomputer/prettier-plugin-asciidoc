@@ -275,7 +275,7 @@ export type InlineNode =
 /**
  * A heading line: `=` (level 0, the document title spelling) through
  * `======` (level 5). A LEAF — sections are not modeled: nothing the
- * printer emits consumes containment (the D10 audit), and the level
+ * printer emits consumes containment, and the level
  * is data, not a type distinction. Serialized key order:
  * `type, level, title, position` (pinned by the serializedKeys row in
  * tests/parser/heading.test.ts).
@@ -293,7 +293,7 @@ export interface HeadingNode extends Node {
  * A discrete heading — a heading preceded by `[discrete]` that does
  * not create a section. Unlike an ordinary `heading`, it is STYLE,
  * not structure: the oracle renders it as a heading element but it
- * opens no section, so `[discrete]` is outside the D10 flatten
+ * opens no section, so `[discrete]` is outside the heading flatten
  * entirely.
  */
 export interface DiscreteHeadingNode extends Node {
@@ -340,7 +340,13 @@ export interface CommentNode extends Node {
  * Syntax variants:
  * - `:name: value` — set with value
  * - `:name:` — set with no value (boolean/flag)
- * - `:!name:` or `:name!:` — unset (negation)
+ * - `:!name:` or `:name!:` — unset (negation), one fact under two
+ *   spellings; the printer writes `:!name:`
+ *
+ * The NAME is carried as the author wrote it and printed lowercase:
+ * `sanitize_attribute_name` (parser.rb l.2770-71) downcases it on the
+ * way in, so case reaches neither the attribute table nor a
+ * reference.
  */
 export interface AttributeEntryNode extends Node {
   /** Node discriminant. */
@@ -350,12 +356,14 @@ export interface AttributeEntryNode extends Node {
   /** Value text, or undefined for no-value entries like `:toc:`. */
   value: string | undefined;
   /**
-   * Whether this entry unsets the attribute and which syntax form
-   * was used. `false` means the attribute is set (not negated).
-   * `"prefix"` means `:!name:` form; `"suffix"` means `:name!:`.
-   * Tracking the form lets the printer reproduce the original syntax.
+   * Whether this entry UNSETS the attribute. One fact, not two
+   * spellings of one: `store_attribute` (parser.rb l.2131, the chop at l.2133-40) chops a
+   * `!` off either end of the name and reaches the same state either
+   * way, so `:!name:` and `:name!:` are the same entry and the
+   * printer writes the form Asciidoctor's own documentation leads
+   * with, `:!name:`.
    */
-  unset: false | "prefix" | "suffix";
+  unset: boolean;
 }
 
 /**
@@ -381,8 +389,8 @@ export interface ListNode extends Node {
    * classifier parsed it (`parseListMarker`'s `style`): `-`, `*`
    * through `*****`, `.` through `.....`, or the callout sentinel
    * `<>` (CALLOUT_STYLE) — the same string sibling matching compares,
-   * which is Ruby's resolve_list_marker result (parser.rb:2177,
-   * :2265–2269). The printer replays it; nesting depth is DERIVED
+   * which is Ruby's resolve_list_marker result (parser.rb:2192,
+   * :2280–2284). The printer replays it; nesting depth is DERIVED
    * from it where needed (`-` is depth 1; a run's length is its
    * depth), never stored.
    */
@@ -392,85 +400,235 @@ export interface ListNode extends Node {
 }
 
 /**
- * A delimited leaf block whose content is preserved verbatim
- * (no inline parsing). Covers listing (`----`), literal (`....`),
- * passthrough (`++++`), and verse blocks.
- *
- * **Valid variant+form combinations:**
- * - `listing | literal | pass` with `form: "delimited"` — fenced
- * - `literal` with `form: "indented"` — literal paragraph
- * - `verse` with `form: "delimited"` — masqueraded from quote
- * - any variant with `form: "paragraph"` — attribute + paragraph
- *
- * Parent-block variants (`example | sidebar | quote`) use
- * `ParentBlockNode` when delimited, not this type — unless
- * masqueraded to verbatim via a style attribute.
+ * The block kinds a verbatim delimited block carries, `table` aside:
+ * the three that own a leaf delimiter, plus the parent-block variants
+ * a style can re-model into verbatim content. A table is not among
+ * them — its delimiter lines are CONTENT, which is a node of its own
+ * below rather than a value this set could hold, and the style tables
+ * in lines/open-style.ts that name a target variant therefore cannot
+ * name one.
  */
-export interface DelimitedBlockNode extends Node {
+export type VerbatimVariant =
+  | "listing"
+  | "literal"
+  | "pass"
+  | "example"
+  | "sidebar"
+  | "quote"
+  | "verse";
+
+/**
+ * The three block kinds that own a delimiter character of their own —
+ * `----`, `....`, `++++`. The printer can spell a delimiter for these
+ * knowing nothing else about the block; every other variant reaches a
+ * verbatim block by masquerading and prints from the delimiter the
+ * open RECORDED.
+ */
+export type LeafDelimiterVariant = "listing" | "literal" | "pass";
+
+/**
+ * A block whose content is preserved verbatim (no inline parsing),
+ * in one of the six spellings AsciiDoc gives it.
+ *
+ * This is a UNION, not one node with conditional fields, and the
+ * split is the point: `language` belongs to a Markdown fence,
+ * `sourceDelimiter` to a masqueraded parent block, and neither
+ * belongs anywhere else. Each member declares all four of the
+ * once-conditional fields — `annotatedBy`, `fenced`, `language`,
+ * `sourceDelimiter` — either with the type it carries there or as
+ * `?: undefined`, so the type states every cell of the matrix that
+ * used to be prose above the interface: what a member may hold, and
+ * what it never holds. A consumer holding the union can still READ
+ * any of the four; only WRITING one where it is invalid is now a
+ * compile error.
+ *
+ * All six share the `"delimitedBlock"` discriminant, so nothing on
+ * the wire moves: the serialized key order and every `type` value are
+ * exactly what they were before the split (pinned by the key-order
+ * rows in tests/parser/block-masquerade.test.ts and by
+ * `bun scripts/parity.ts`).
+ *
+ * Parent-block variants (`example | sidebar | quote`) are
+ * `ParentBlockNode` when delimited, not this — unless a style
+ * re-modeled them to verbatim, which is {@link MasqueradedBlockNode}.
+ *
+ * `annotatedBy`, which every member carries, is the bracket interior
+ * of the block-attribute line released DIRECTLY above the block —
+ * recorded at open iff the attribute line is the LAST node of the
+ * pending run (a title, comment or directive held after it leaves the
+ * field undefined), and undefined when nothing annotated the block.
+ * The sibling BlockAttributeListNode still carries the spelling for
+ * printing; this field is the reader's own record, so no consumer
+ * re-pairs siblings to learn it (pinned by invariant (xi)). The
+ * reader stamps it after construction, so it trails `position` on the
+ * wire.
+ */
+export type DelimitedBlockNode =
+  | LeafDelimitedBlockNode
+  | FencedCodeBlockNode
+  | MasqueradedBlockNode
+  | TableBlockNode
+  | IndentedLiteralBlockNode
+  | ParagraphFormBlockNode;
+
+/**
+ * A block opened by its own leaf delimiter: `----`, `....` or `++++`.
+ * Nothing re-modeled it and no fence produced it, so it carries none
+ * of the three spelling records.
+ */
+interface LeafDelimitedBlockNode extends Node {
   /** Node discriminant. */
   type: "delimitedBlock";
-  /**
-   * Block kind: `"listing"` (`----`), `"literal"` (`....`),
-   * `"pass"` (`++++`), `"verse"`, or a masqueraded parent
-   * block variant (`"example"`, `"sidebar"`, `"quote"`).
-   *
-   * `"table"` is the opaque passthrough of `|===` `,===` `:===`
-   * `!===` blocks (spec D1): unlike every other variant the delimiter
-   * lines are part of `content`, and the printer replays the lines
-   * adding no framing of its own.
-   */
-  variant:
-    | "listing"
-    | "literal"
-    | "pass"
-    | "example"
-    | "sidebar"
-    | "quote"
-    | "verse"
-    | "table";
-  /**
-   * How the block was expressed in source: delimiters,
-   * indentation, or paragraph form (attribute list + text).
-   */
-  form: "delimited" | "indented" | "paragraph";
-  /** Verbatim block content (no inline parsing). */
+  /** Which leaf delimiter opened it. */
+  variant: LeafDelimiterVariant;
+  /** Delimiters, as opposed to indentation or paragraph form. */
+  form: "delimited";
+  /** Verbatim block content, delimiter lines excluded. */
   content: string;
-  /**
-   * The bracket interior of the block-attribute line released
-   * DIRECTLY above this block — recorded at open iff the attribute
-   * line is the LAST node of the pending run: a title, comment or
-   * directive held after the attribute line leaves it undefined.
-   * Undefined when nothing annotated the block. The sibling
-   * BlockAttributeListNode still carries the spelling for printing;
-   * this field is the reader's own record, so no consumer re-pairs
-   * siblings to learn it (spec D5a; pinned by invariant (xi)).
-   */
+  /** Never: this block prints from its own variant's delimiter. */
+  sourceDelimiter?: undefined;
+  /** Never: a Markdown fence is {@link FencedCodeBlockNode}. */
+  fenced?: undefined;
+  /** Never: only a fence's opening line carries a language hint. */
+  language?: undefined;
+  /** The attribute line's interior, as the reader recorded it. */
   annotatedBy?: string;
+}
+
+/**
+ * A block from a Markdown-style ``` fence. The fence implies the
+ * `source` style even with no language hint — Asciidoctor renders it
+ * as `<pre class="highlight">`, not a plain listing — so the printer
+ * emits `[source]` (or `[source,lang]`) when normalizing to `----`.
+ * This is the one spelling that carries a language hint, which is why
+ * `language` lives here and nowhere else.
+ */
+interface FencedCodeBlockNode extends Node {
+  /** Node discriminant. */
+  type: "delimitedBlock";
+  /** A fence always builds a listing. */
+  variant: "listing";
+  /** Delimiters, as opposed to indentation or paragraph form. */
+  form: "delimited";
+  /** Verbatim block content, fence lines excluded. */
+  content: string;
+  /** Never: a fence is not a masqueraded parent block. */
+  sourceDelimiter?: undefined;
+  /** Always set — it is what makes this member a fence. */
+  fenced: true;
   /**
-   * Source language hint from a Markdown-style fenced code
-   * block (e.g. "rust" from `` ```rust ``). Valid only when
-   * `fenced` is true: the fence is the only syntax carrying a
-   * language hint, so the parser sets the two together. The
-   * printer uses this to emit a `[source,lang]` attribute list
-   * during normalization.
+   * Source language hint from the opening line (e.g. "rust" from
+   * `` ```rust ``), absent for a bare ` ``` `. The printer emits it
+   * as `[source,lang]` during normalization.
    */
   language?: string;
-  /**
-   * Original parent block delimiter variant when this block
-   * was created by masquerading. For example, `[source]` on
-   * an open block (`--`) produces a listing variant with
-   * `sourceDelimiter: "open"` so the printer emits `--`
-   * delimiters instead of `----`. Undefined for blocks that
-   * were not masqueraded.
-   */
-  sourceDelimiter?: ParentBlockNode["variant"];
-  /**
-   * True when the block came from a Markdown-style ``` fence. Fences
-   * imply the `source` style even without a language, so the printer
-   * must emit `[source]` (or `[source,lang]`) when normalizing to
-   * `----` — otherwise Asciidoctor renders it as a plain listing.
-   */
-  fenced?: true;
+  /** The attribute line's interior, as the reader recorded it. */
+  annotatedBy?: string;
+}
+
+/**
+ * A parent block a style re-modeled to verbatim content: `[source]`
+ * on an open block (`--`), `[verse]` on a quote block (`____`), and
+ * the rest of `VERBATIM_MASQUERADES` (lines/open-style.ts). The open
+ * RECORDS the delimiter it re-modeled so the printer emits that
+ * spelling back rather than the variant's own — which is why
+ * `sourceDelimiter` is required here and absent everywhere else.
+ * Invariant (xiii) in tests/parser/ast-invariants.ts is the runtime
+ * witness that the parser never builds one of these without it.
+ */
+interface MasqueradedBlockNode extends Node {
+  /** Node discriminant. */
+  type: "delimitedBlock";
+  /** The variant the style re-modeled the block to. */
+  variant: VerbatimVariant;
+  /** Delimiters, as opposed to indentation or paragraph form. */
+  form: "delimited";
+  /** Verbatim block content, delimiter lines excluded. */
+  content: string;
+  /** The parent delimiter the style re-modeled; the printer emits it. */
+  sourceDelimiter: ParentBlockNode["variant"];
+  /** Never: a Markdown fence is {@link FencedCodeBlockNode}. */
+  fenced?: undefined;
+  /** Never: only a fence's opening line carries a language hint. */
+  language?: undefined;
+  /** The attribute line's interior, as the reader recorded it. */
+  annotatedBy?: string;
+}
+
+/**
+ * The opaque passthrough of a `|===` `,===` `:===` `!===` block (the
+ * issue #10 interim shape — full table MODELING is out of scope).
+ * Unlike every other member THE DELIMITER LINES ARE CONTENT: the
+ * reader slices from the opening line's start, and the printer
+ * replays those lines adding no framing of its own.
+ */
+interface TableBlockNode extends Node {
+  /** Node discriminant. */
+  type: "delimitedBlock";
+  /** The one variant whose delimiters live inside `content`. */
+  variant: "table";
+  /** Delimiters, as opposed to indentation or paragraph form. */
+  form: "delimited";
+  /** The block's source lines, DELIMITERS INCLUDED. */
+  content: string;
+  /** Never: a table is not a masqueraded parent block. */
+  sourceDelimiter?: undefined;
+  /** Never: a Markdown fence is {@link FencedCodeBlockNode}. */
+  fenced?: undefined;
+  /** Never: only a fence's opening line carries a language hint. */
+  language?: undefined;
+  /** The attribute line's interior, as the reader recorded it. */
+  annotatedBy?: string;
+}
+
+/**
+ * An indented literal paragraph: a run of indented lines, each
+ * keeping its leading spaces. Indentation is the only spelling that
+ * produces one, and it always produces a literal, so both facts are
+ * the type's rather than a combination it happens to allow.
+ */
+interface IndentedLiteralBlockNode extends Node {
+  /** Node discriminant. */
+  type: "delimitedBlock";
+  /** Indentation spells a literal and nothing else. */
+  variant: "literal";
+  /** Indentation, as opposed to delimiters or paragraph form. */
+  form: "indented";
+  /** The run's lines, joined with newlines, indentation kept. */
+  content: string;
+  /** Never: nothing re-modeled an indented run. */
+  sourceDelimiter?: undefined;
+  /** Never: a Markdown fence is {@link FencedCodeBlockNode}. */
+  fenced?: undefined;
+  /** Never: only a fence's opening line carries a language hint. */
+  language?: undefined;
+  /** The attribute line's interior, as the reader recorded it. */
+  annotatedBy?: string;
+}
+
+/**
+ * A paragraph a held style turned into a verbatim block: an attribute
+ * list and the paragraph's own text, printed back verbatim with no
+ * delimiters of its own. The sibling BlockAttributeListNode carries
+ * the `[...]` spelling.
+ */
+interface ParagraphFormBlockNode extends Node {
+  /** Node discriminant. */
+  type: "delimitedBlock";
+  /** The variant the held style named. */
+  variant: VerbatimVariant;
+  /** Paragraph form, as opposed to delimiters or indentation. */
+  form: "paragraph";
+  /** The paragraph's source text, sliced verbatim. */
+  content: string;
+  /** Never: a paragraph-form block has no delimiter to record. */
+  sourceDelimiter?: undefined;
+  /** Never: a Markdown fence is {@link FencedCodeBlockNode}. */
+  fenced?: undefined;
+  /** Never: only a fence's opening line carries a language hint. */
+  language?: undefined;
+  /** The attribute line's interior, as the reader recorded it. */
+  annotatedBy?: string;
 }
 
 /** A parent block contains structured child blocks (parsed recursively). */
@@ -488,14 +646,14 @@ export interface ParentBlockNode extends Node {
 
 /**
  * An admonition block (NOTE, TIP, IMPORTANT, CAUTION, WARNING —
- * custom variants allowed). One prose representation (spec D7): the
+ * custom variants allowed). One prose representation: the
  * paragraph form (`NOTE: text`) carries the SAME inline children a
  * paragraph does in `text`; the delimited form (`[NOTE]` on a parent
  * block) carries blocks in `children` and its wrapper delimiter in
  * `form`. Exactly one of the two bodies is non-empty — checked
  * structurally by invariant (ix) in tests/parser/ast-invariants.ts.
  * Behavior is Ruby's: an admonition paragraph's body IS a paragraph
- * (parser.rb:765-769, content_model :simple), pinned by the
+ * (parser.rb:772-776, content_model :simple), pinned by the
  * admonition render-equality suites.
  */
 export interface AdmonitionNode extends Node {
@@ -548,7 +706,7 @@ export interface BlockMacroNode extends Node {
  * A preprocessor directive line (`include::`, `ifdef::`, `ifndef::`,
  * `ifeval::`, `endif::`) that sits BETWEEN blocks.
  *
- * Asciidoctor's `PreprocessorReader#process_line` (reader.rb:819)
+ * Asciidoctor's `PreprocessorReader#process_line` (reader.rb:824)
  * matches the line and `shift`s it off the stream before
  * `Parser.next_block` is ever called, so a directive is not a block of
  * its own: it is a line the reader eats. The formatter cannot resolve
@@ -580,8 +738,13 @@ export interface PageBreakNode extends Node {
  * declaration order determines nothing. A description-list item (#9)
  * will extend this shape too, which is why it is one home rather
  * than a set of members copied between two node kinds.
+ *
+ * Not exported: the shape is shared by EXTENSION, and every consumer
+ * names the node it got — the printer's tail walk asks its questions
+ * of a `ListItemNode`, because the gaps it reads are the ones an
+ * item's own list decides.
  */
-export interface ItemBody {
+interface ItemBody {
   /** The principal text — inline nodes only. */
   text: InlineNode[];
   /**
@@ -591,19 +754,19 @@ export interface ItemBody {
    */
   blocks: ItemBlock[];
   /**
-   * The item's last non-blank line is a `+` that attached nothing —
-   * the line Ruby pops (`buffer.pop if last_line ==
-   * LIST_CONTINUATION`, parser.rb l.1571). `true` only when that `+`
-   * is a FIXED POINT of reprint (Ruling 68): printing it back must
-   * re-read as the same trailing, unerased `+`. An unerased `+` run
-   * whose spelling has no fixed point (e.g. the author's doubled `+`,
-   * which would reprint as one and then re-read as zero) is reported
-   * `false` and the extra byte(s) collapse; an ERASED `+` (one a blank
-   * run killed) or a `+` left detached at EOF is also `false` and
-   * drops. All three cases are render-equal to the source and
-   * idempotent under reprint, which is the property this field
-   * guarantees rather than verbatim preservation of every `+` byte the
-   * author typed.
+   * The item's source ended on a `+` that attached nothing AND that
+   * `+` must be PRINTED BACK.
+   *
+   * Ruby pops such a line (`buffer.pop if ListContinuationMarker ===
+   * buffer[-1]`) and it renders nothing — WHEN Ruby's own read ended
+   * where ours did. Where it did not, the line is content of the
+   * block above it: an indented literal's slurp carries the `+` into
+   * the `<pre>`, and a paragraph that swallowed a marker line carries
+   * it into the prose. Dropping it there deletes a rendered
+   * character, so the reader records the byte for exactly those tails
+   * ({@link ListItemNode}'s builder decides which) and the printer
+   * writes it back. `false` is the proven-inert case and the common
+   * one: the byte does not come back.
    */
   trailingContinuation: boolean;
 }

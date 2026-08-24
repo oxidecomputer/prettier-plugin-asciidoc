@@ -88,7 +88,7 @@ describe("document title parsing", () => {
 
   // The document title must not be confused with deeper headings:
   // disambiguation is by LEVEL, a field on the ONE heading kind
-  // (spec D10(a)) — `==` is level 1.
+  // — `==` is level 1.
   test("== is a level-1 heading, not the document title", () => {
     const document = parse("== Section\n");
     expect(document.children).toHaveLength(1);

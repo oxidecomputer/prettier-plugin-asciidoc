@@ -1,5 +1,5 @@
 /**
- * The two γ1 byte families, probed as bytes: the printer never
+ * The two byte-changing families, probed as bytes: the printer never
  * invents a `+`, so a leading metadata run under reflowable item text
  * is held back by keeping the text's last source break instead.
  *
@@ -70,7 +70,7 @@ describe("the pseudo-run fold classes render like the input", () => {
   ])("%s", async (_name, input, expected) => {
     const out = await formatAdoc(input);
     expect(out).toBe(expected);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });
 });
@@ -122,7 +122,7 @@ describe("the author-plus classes respell render-neutrally", () => {
   ])("%s", async (_name, input, expected) => {
     const out = await formatAdoc(input);
     expect(out).toBe(expected);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });
 });
@@ -156,7 +156,7 @@ describe("byte-stable controls (the two-answer hazard must NOT move these)", () 
   ])("%s round-trips to its recorded bytes", async (_name, input, expected) => {
     const out = await formatAdoc(input);
     expect(out).toBe(expected);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });
 

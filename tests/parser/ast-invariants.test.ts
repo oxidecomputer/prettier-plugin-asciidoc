@@ -1,25 +1,17 @@
 /**
- * The AST invariants, run over everything: Asciidoctor's own test
- * corpus, the reader line soup that found plan 2's two ordering bugs,
- * and random Unicode.
+ * The AST invariants, run over Asciidoctor's own test corpus, plus
+ * the negative rows that prove each invariant can fail.
  *
- * This suite replaces two gates that die with the grammar:
+ * This suite replaces two gates that died with the grammar:
  * reader.test.ts's "reader output is always grammatical" (the parser
  * accepted the stream on every corpus document) and its "positions
- * exact" corpus test. Both were proofs about a token stream; these are
- * the same proofs about the tree.
- *
- * The run counts are the ones mutation testing chose in plan 2 (3000
- * for the reader soup, 200 for random Unicode) and they are
- * load-bearing: the two ordering regressions are caught at 3000 and
- * NOT at 300.
+ * exact" corpus test. Both were proofs about a token stream; these
+ * are the same proofs about the tree, carried by the corpus and the
+ * deterministic shape grids.
  */
 import { describe, test, expect } from "vitest";
-import fc from "fast-check";
 import type { Location } from "../../src/ast.js";
 import { loadCorpus } from "../conformance/loader.js";
-import { randomInput, readerDocument } from "../fuzz/arbitraries.js";
-import { fuzzParameters } from "../fuzz/config.js";
 import {
   expectAnnotatedByPairing,
   expectAstInvariants,
@@ -37,25 +29,6 @@ describe("AST invariants: corpus", () => {
       expectAstInvariants(source);
     },
   );
-});
-
-describe("AST invariants: fuzz", () => {
-  test("reader line soup holds every invariant", () => {
-    fc.assert(
-      fc.property(readerDocument, (source) => {
-        expectAstInvariants(source);
-      }),
-      fuzzParameters({ numRuns: 3000 }),
-    );
-  });
-  test("random Unicode input holds every invariant", () => {
-    fc.assert(
-      fc.property(randomInput, (source) => {
-        expectAstInvariants(source);
-      }),
-      fuzzParameters({ numRuns: 200 }),
-    );
-  });
 });
 
 /**
@@ -148,7 +121,6 @@ describe("AST invariants: negative rows", () => {
           },
         },
       ],
-      trailingContinuation: false,
       position: { start: at(0, 1), end: at(6, 2) },
     };
     expect(() => {

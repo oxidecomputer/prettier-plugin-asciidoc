@@ -56,7 +56,7 @@ function lineOf(line: string): {
 }
 
 describe("buildBlockAnchor", () => {
-  // Its own node kind since spec D6 — no wrapper paragraph, no
+  // Its own node kind — no wrapper paragraph, no
   // inlineAnchor child to pattern-match.
   test("builds a blockAnchor over the whole line", () => {
     const { span, at } = lineOf("[[id]]");
@@ -124,8 +124,8 @@ describe("buildAttributeEntry", () => {
     [":name: value", "name", "value", false],
     [":name:  padded  ", "name", "padded", false],
     [":name:", "name", undefined, false],
-    [":!name:", "name", undefined, "prefix"],
-    [":name!:", "name", undefined, "suffix"],
+    [":!name:", "name", undefined, true],
+    [":name!:", "name", undefined, true],
   ])("%j → %j = %j (unset %j)", (line, name, value, unset) => {
     const { span, at } = lineOf(line);
     const kind = parseAttributeEntry(rstrip(line));

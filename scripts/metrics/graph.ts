@@ -2,7 +2,7 @@
  * Coupling: import edges, cycles, self-imports and unresolved relative
  * specifiers, all from `dependency-cruiser`.
  *
- * Ruling 34: this used to be a regex import scan plus a hand-rolled
+ * This used to be a regex import scan plus a hand-rolled
  * Tarjan pass. Both are now an established tool's job — the same tool
  * the architecture suite gates on, so the number in the scorecard and
  * the number in the test can never drift apart.
@@ -11,22 +11,87 @@
  * one file means opening six. Cycles are the hard case — a cyclic
  * group has no reading order at all — so they are a gate rather than a
  * report.
+ *
+ * The DIRECTION of an edge is the other hard case, and it is what the
+ * layer rules below state: each one is a direction, not a symbol list,
+ * so it costs nothing to maintain and cannot be satisfied by moving a
+ * name.
  */
 import { realpathSync } from "node:fs";
 import path from "node:path";
-import { cruise, type ICruiseResult } from "dependency-cruiser";
+import {
+  cruise,
+  type ICruiseResult,
+  type IForbiddenRuleType,
+} from "dependency-cruiser";
 import { ZERO } from "./model.js";
 
 // Index of the last element, for dropping a cycle's repeated tail.
 const LAST = -1;
 
+/**
+ * The layer rules, as directions.
+ *
+ * The stack is `ast` ← `constants`/`positions` ← `line-shapes` ←
+ * `inline/` ← `build/` ← `lines/`, with `print/` reaching into
+ * `parse/` at exactly two deliberate addresses and `parse/` never
+ * reaching into `print/`.
+ *
+ * Each `path` is TAIL-anchored (`(^|/)src/…`) rather than
+ * start-anchored, because dependency-cruiser reports a module's
+ * `source` relative to the process's own directory: at HEAD that is
+ * `src/parse/build/list.ts`, but for a `--base` revision materialized
+ * into a temp directory it is `../../private/var/…/src/parse/build/
+ * list.ts`. A start-anchored rule would match neither, and a rule that
+ * silently matches nothing is the failure mode this whole file's
+ * design is written against.
+ */
+const LAYER_RULES: IForbiddenRuleType[] = [
+  {
+    name: "print-imports-parse-off-address",
+    severity: "error",
+    comment:
+      "print/ reads parse/ at exactly two addresses — line-shapes.ts for what a re-parsed LINE means, attrlist.ts for where one attribute inside a bracket line ENDS. Both exist so the formatter and the parser cannot disagree about a spelling the printer has to reproduce; any other parse/ import is the printer reaching into the parser's interior.",
+    from: { path: "(^|/)src/print/" },
+    to: {
+      path: "(^|/)src/parse/",
+      pathNot: String.raw`(^|/)src/parse/(line-shapes|attrlist)\.ts$`,
+    },
+  },
+  {
+    name: "parse-imports-print",
+    severity: "error",
+    comment:
+      "parse/ never imports print/. The parser produces the AST; the printer consumes it. An edge this way makes the two one layer.",
+    from: { path: "(^|/)src/parse/" },
+    to: { path: "(^|/)src/print/" },
+  },
+  {
+    name: "build-imports-lines",
+    severity: "error",
+    comment:
+      "Builders are pure (lines, index) -> Node constructors BELOW the reader. An import from build/ back up into lines/ inverts the stack and is what stopped the layering from being a rule a tool could enforce.",
+    from: { path: "(^|/)src/parse/build/" },
+    to: { path: "(^|/)src/parse/lines/" },
+  },
+];
+
 // Type-only imports count: `import type` still makes one file's meaning
 // depend on another's, and excluding them would let a refactor "reduce
 // coupling" by adding a keyword. `tsPreCompilationDeps` is what keeps
 // them in the graph.
+//
+// `validate: true` is what ARMS the rule set. It defaults to false, and
+// with it off a cruise carrying rules reports zero violations rather
+// than an error — the same silent-disarm shape that once switched the
+// cycle gate off. `tests/scripts/metrics.test.ts` plants a violating
+// tree as the positive control, so the flag going false fails a test
+// rather than turning three gates green.
 const CRUISE_OPTIONS = {
   doNotFollow: { path: "node_modules" },
   tsPreCompilationDeps: true,
+  validate: true,
+  ruleSet: { forbidden: LAYER_RULES },
 };
 
 /**
@@ -52,6 +117,11 @@ export interface ImportGraph {
   selfImports: string[];
   /** Relative specifiers that resolve to no file, as `from -> spec`. */
   unresolved: string[];
+  /**
+   * Edges that break a layer rule, as `from -> to (rule name)`. Empty
+   * is the only passing value; see {@link LAYER_RULES}.
+   */
+  layerViolations: string[];
 }
 
 /**
@@ -135,7 +205,29 @@ export async function cruiseImports(
     cycles: cyclesOf(output, relative),
     selfImports,
     unresolved,
+    layerViolations: layerViolationsOf(output, relative),
   };
+}
+
+/**
+ * Every edge one of the layer rules forbids, once each.
+ *
+ * Read off the cruise's own violation list, which is populated because
+ * `CRUISE_OPTIONS` asks for validation. A violation names its rule, so
+ * the message says which DIRECTION was broken rather than just which
+ * two files touched.
+ * @param output - a cruise result
+ * @param relative - maps a cruised path to a root-relative one
+ * @returns one `from -> to (rule)` string per forbidden edge
+ */
+function layerViolationsOf(
+  output: ICruiseResult,
+  relative: (file: string) => string,
+): string[] {
+  return output.summary.violations.map(
+    (violation) =>
+      `${relative(violation.from)} -> ${relative(violation.to)} (${violation.rule.name})`,
+  );
 }
 
 /**

@@ -8,7 +8,7 @@
  * elsewhere — a variant, a role, a rename, or the parsed children —
  * and return the finished node. The extent states its own offsets —
  * where content stops and where the node ends — so no builder here
- * re-derives a boundary from a delimiter (spec D4). No traversal, no
+ * re-derives a boundary from a delimiter. No traversal, no
  * context: what a line MEANS was decided by lines/classify.ts against
  * the registry in line-shapes.ts, and which block it belongs to by
  * the extent lines/reader.ts collected for it. These only take it
@@ -19,11 +19,58 @@ import type {
   BlockNode,
   CommentNode,
   DelimitedBlockNode,
+  LeafDelimiterVariant,
   ParentBlockNode,
+  VerbatimVariant,
 } from "../../ast.js";
 import { NEWLINE_LENGTH } from "../../constants.js";
-import type { VerbatimRole } from "../lines/frames.js";
 import type { Fragment, LocationIndex } from "../positions.js";
+
+/**
+ * The node the reader builds at OPEN for a verbatim delimited block —
+ * decided by resolveDelimitedOpen (lines/open-style.ts) and handed
+ * straight to {@link buildVerbatimBlock} with the extent, so nothing
+ * is ever re-derived from the opener.
+ *
+ * Declared HERE, beside the builder that consumes it, rather than up
+ * in lines/frames.ts: the reader layer produces a role and this layer
+ * takes it apart, so the type belongs to the taking-apart. Resident in
+ * frames.ts it made an import run back UP the stack, which is the one
+ * direction the layer rules forbid.
+ */
+export type VerbatimRole =
+  | {
+      /** Role discriminant: a block opened by its own leaf delimiter. */
+      readonly builds: "leafBlock";
+      /** Which leaf delimiter opened it. */
+      readonly variant: LeafDelimiterVariant;
+    }
+  | {
+      /**
+       * Role discriminant: a Markdown-style backtick fence, which
+       * implies the `source` style and is the one opener carrying a
+       * language hint.
+       */
+      readonly builds: "fencedBlock";
+      /** The fence's language hint, when its opening line carried one. */
+      readonly language?: string;
+    }
+  | {
+      /** Role discriminant: a parent block a style re-modeled to verbatim. */
+      readonly builds: "masqueradedBlock";
+      /** The variant the style named. */
+      readonly variant: VerbatimVariant;
+      /** The parent delimiter the style re-modeled. */
+      readonly sourceDelimiter: ParentBlockNode["variant"];
+    }
+  | {
+      /** Role discriminant: a comment block, which is a CommentNode. */
+      readonly builds: "comment";
+    }
+  | {
+      /** Role discriminant: a table, an opaque verbatim extent. */
+      readonly builds: "table";
+    };
 
 /** The source extent an extent-first delimited read produced. */
 export interface BlockExtent {
@@ -48,9 +95,10 @@ export interface BlockExtent {
   /**
    * Exclusive offset where the NODE ends — total over both close
    * kinds: past the close line's raw end when the block closed;
-   * the confinement's forced-close offset (spec D2's convention: an
-   * inner block's forced end is the terminator line's START; the
-   * closed block's OWN end is that line's raw END) when it did not.
+   * the confinement's forced-close offset (the two-offsets
+   * convention: an inner block's forced end is the terminator line's
+   * START; the closed block's OWN end is that line's raw END) when it
+   * did not.
    */
   readonly end: number;
   /** The whole document; verbatim content is sliced from it. */
@@ -69,44 +117,114 @@ export interface BlockExtent {
 type ParentExtent = Pick<BlockExtent, "open" | "end">;
 
 /**
- * Builds a DelimitedBlockNode from its extent by extracting content
- * verbatim from the source text. Line-based reconstruction would lose
- * the blank lines inside.
+ * The interior of a delimited extent, sliced from the source text:
+ * from just past the opening delimiter line to where content stops.
+ * Line-based reconstruction would lose the blank lines inside, so
+ * every verbatim builder here slices instead.
  * @param extent - where the block opened and closed
- * @param variant - The block variant (listing, literal, pass,
- *   etc.) that determines how the printer formats content.
- * @param at - the document's location index
- * @param sourceDelimiter - the masqueraded parent's delimiter, when a
- *   style re-modeled the block (spec D4a); spread in BEFORE
- *   `position`, and THIS field is never assigned after construction —
- *   key order is part of parity's no-change claim, pinned by the
- *   key-order rows in tests/parser/block-masquerade.test.ts. Not a
- *   blanket rule for the node: `annotatedBy` IS stamped after
- *   construction (spec D5a, lines/reader.ts) and therefore trails
- *   `position`, which is admissible only because the parity fold
- *   drops that key before digesting (scripts/parity.ts), so its
- *   position never enters the comparison.
- * @returns A complete DelimitedBlockNode with content sliced
- *   directly from the source text.
+ * @returns the content, or `""` for an empty interior
  */
-function buildDelimitedBlock(
-  extent: BlockExtent,
-  variant: DelimitedBlockNode["variant"],
-  at: LocationIndex,
-  sourceDelimiter?: ParentBlockNode["variant"],
-): DelimitedBlockNode {
-  const { open, contentEnd, end, source } = extent;
+function interiorOf(extent: BlockExtent): string {
+  const { open, contentEnd, source } = extent;
   // Content starts after the open delimiter + newline.
   const contentStart = open.offset + open.image.length + NEWLINE_LENGTH;
-  const content =
-    contentStart <= contentEnd ? source.slice(contentStart, contentEnd) : "";
+  return contentStart <= contentEnd
+    ? source.slice(contentStart, contentEnd)
+    : "";
+}
+
+/**
+ * A delimited block's own span: the opening delimiter line's start to
+ * the extent's total `end`, which is one formula over both close kinds.
+ * @param extent - where the block opened and where the node ends
+ * @param at - the document's location index
+ * @returns the node's position
+ */
+function spanOf(
+  extent: Pick<BlockExtent, "open" | "end">,
+  at: LocationIndex,
+): DelimitedBlockNode["position"] {
+  return { start: at.start(extent.open), end: at.at(extent.end) };
+}
+
+/**
+ * A block opened by its own leaf delimiter — `----`, `....`, `++++`.
+ *
+ * Key order is part of parity's no-change claim (pinned by the
+ * key-order rows in tests/parser/block-masquerade.test.ts), so every
+ * literal in this file writes its keys in wire order and assigns
+ * nothing after construction. The one declared exception is
+ * `annotatedBy`, which lines/reader.ts stamps afterwards and which
+ * therefore trails `position` — admissible only because the parity
+ * fold drops that key before digesting (scripts/parity.ts), so its
+ * position never enters the comparison.
+ * @param extent - where the block opened and closed
+ * @param variant - which leaf delimiter opened it
+ * @param at - the document's location index
+ * @returns the leaf block node
+ */
+function buildLeafBlock(
+  extent: BlockExtent,
+  variant: LeafDelimiterVariant,
+  at: LocationIndex,
+): DelimitedBlockNode {
   return {
     type: "delimitedBlock",
     variant,
     form: "delimited",
-    content,
-    ...(sourceDelimiter === undefined ? {} : { sourceDelimiter }),
-    position: { start: at.start(open), end: at.at(end) },
+    content: interiorOf(extent),
+    position: spanOf(extent, at),
+  };
+}
+
+/**
+ * A block from a Markdown-style backtick fence. `fenced` and
+ * `language` follow `position` in the literal because that is where
+ * the old post-construction assignments put them on the wire.
+ * @param extent - where the fence opened and closed
+ * @param language - the hint the opening line carried, if any
+ * @param at - the document's location index
+ * @returns the fenced block node
+ */
+function buildFencedBlock(
+  extent: BlockExtent,
+  language: string | undefined,
+  at: LocationIndex,
+): DelimitedBlockNode {
+  return {
+    type: "delimitedBlock",
+    variant: "listing",
+    form: "delimited",
+    content: interiorOf(extent),
+    position: spanOf(extent, at),
+    fenced: true,
+    ...(language === undefined ? {} : { language }),
+  };
+}
+
+/**
+ * A parent block a held style re-modeled to verbatim content: the
+ * variant the style named, and the parent delimiter it re-modeled so
+ * the printer emits that spelling back.
+ * @param extent - where the block opened and closed
+ * @param variant - the variant the style named
+ * @param sourceDelimiter - the parent delimiter it re-modeled
+ * @param at - the document's location index
+ * @returns the masqueraded block node
+ */
+function buildMasqueradedBlock(
+  extent: BlockExtent,
+  variant: VerbatimVariant,
+  sourceDelimiter: ParentBlockNode["variant"],
+  at: LocationIndex,
+): DelimitedBlockNode {
+  return {
+    type: "delimitedBlock",
+    variant,
+    form: "delimited",
+    content: interiorOf(extent),
+    sourceDelimiter,
+    position: spanOf(extent, at),
   };
 }
 
@@ -124,27 +242,22 @@ function buildBlockComment(
   extent: BlockExtent,
   at: LocationIndex,
 ): CommentNode {
-  const { open, contentEnd, end, source } = extent;
-  const contentStart = open.offset + open.image.length + NEWLINE_LENGTH;
-  const value =
-    contentStart <= contentEnd ? source.slice(contentStart, contentEnd) : "";
   return {
     type: "comment",
     commentType: "block",
-    value,
-    position: { start: at.start(open), end: at.at(end) },
+    value: interiorOf(extent),
+    position: spanOf(extent, at),
   };
 }
 
 /**
- * A table block, passed through as an opaque verbatim extent (spec
- * D1, the issue #10 interim fix — full table MODELING is out of
- * scope). Unlike every other delimited block the DELIMITER LINES ARE
+ * A table block, passed through as an opaque verbatim extent (the
+ * issue #10 interim fix — full table MODELING is out of scope). Unlike every other delimited block the DELIMITER LINES ARE
  * CONTENT: the slice runs from the start of the opening line through
  * the RAW end of the closing line (trailing whitespace kept, newline
  * excluded), or — forced shut — through `contentEnd`, the raw end
  * of the last line this reader can see (behavior is Ruby's: an
- * unterminated table runs to EOF, parser.rb:863; pinned by
+ * unterminated table runs to EOF, parser.rb:872; pinned by
  * tests/parser/table.test.ts and tests/format/table.test.ts).
  * @param extent - where the block opened and closed
  * @param at - the document's location index
@@ -155,7 +268,8 @@ function buildTableBlock(
   at: LocationIndex,
 ): DelimitedBlockNode {
   const { open, close, contentEnd, end, source } = extent;
-  // The delimiter lines ARE content (spec D1/α-D1): through the close
+  // A table passes through opaque: the delimiter lines ARE content —
+  // through the close
   // line's raw end when the table closed, through the last interior
   // line's raw end when it did not — the same bytes as the old
   // spelling on closed tables, the fixed bytes on confined-
@@ -166,17 +280,17 @@ function buildTableBlock(
     variant: "table",
     form: "delimited",
     content: source.slice(open.offset, rawEnd),
-    position: { start: at.start(open), end: at.at(end) },
+    position: spanOf(extent, at),
   };
 }
 
 /**
  * A delimited block kept verbatim — listing, literal, pass, fence,
- * verse — or a comment block (a CommentNode), or a table (spec D1).
+ * verse — or a comment block (a CommentNode), or a table.
  * The ROLE was decided at open (lines/open-style.ts) and travels
  * with the extent: nothing is re-derived from the opener here, which
  * is what deleted the two agreement guards this function and
- * verbatimVariant used to carry (spec D4a).
+ * verbatimVariant used to carry.
  * @param extent - where the block opened and closed
  * @param role - what the opening line resolved to build
  * @param at - the document's location index
@@ -193,32 +307,28 @@ export function buildVerbatimBlock(
   if (role.builds === "table") {
     return buildTableBlock(extent, at);
   }
-  const node = buildDelimitedBlock(
-    extent,
-    role.variant,
-    at,
-    role.sourceDelimiter,
-  );
-  // fenced/language stay POST-construction assignments on purpose:
-  // that is where today's builder puts them, so the serialized key
-  // order (…, position, fenced, language) — which parity hashes —
-  // does not move. Pinned by the fence key-order row in
-  // tests/parser/block-masquerade.test.ts.
-  if (role.fenced === true) {
-    node.fenced = true;
-    if (role.language !== undefined) node.language = role.language;
+  if (role.builds === "fencedBlock") {
+    return buildFencedBlock(extent, role.language, at);
   }
-  return node;
+  if (role.builds === "masqueradedBlock") {
+    return buildMasqueradedBlock(
+      extent,
+      role.variant,
+      role.sourceDelimiter,
+      at,
+    );
+  }
+  return buildLeafBlock(extent, role.variant, at);
 }
 
 /**
  * A delimited block a held admonition style renamed at open
- * (parser.rb:537-538): an AdmonitionNode that KEEPS its parsed
- * children — Ruby keeps the :compound content model (parser.rb:872-875).
- * The wrapper delimiter IS the node's `form` (spec D7: the spelling
- * and the wrapper are one fact). Position is the parent block's own:
- * start at the opener, end at the extent's total `end` (one formula
- * for every close kind, spec D4).
+ * (parser.rb:543-544): an AdmonitionNode that KEEPS its parsed
+ * children — Ruby keeps the :compound content model (parser.rb:881-884).
+ * The wrapper delimiter IS the node's `form` — the spelling and the
+ * wrapper are one fact, never two fields that can disagree. Position
+ * is the parent block's own: start at the opener, end at the extent's
+ * total `end` (one formula for every close kind).
  *
  * The rename travels as ONE parameter because the linter caps a
  * builder at four; the two halves are inseparable anyway — a rename

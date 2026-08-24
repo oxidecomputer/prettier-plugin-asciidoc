@@ -161,20 +161,29 @@ describe("parse-layer architecture", () => {
     },
   );
 
-  // The node-kind budget is a GATE, not prose (spec D6, owner): 30 —
-  // plan β RETURNS the budget to plan-4's number while deleting a
-  // container kind (`section` and `documentTitle` out, `heading` in;
-  // spec D10(a)). A 31st kind fails this row until it is deliberately
-  // updated — which is what a budget means. Counted off the
-  // `type: "…"` discriminant literals declared in src/ast.ts, one per
-  // node kind.
-  test("the node-kind budget is 30", () => {
+  // A CENSUS of the `type: "…"` discriminant literals declared in
+  // src/ast.ts, and a GATE rather than prose: a 36th fails this row
+  // until it is deliberately updated. The count is DIRECTIONLESS — it
+  // is neither a budget nor a score, so a rise is not a cost and a
+  // fall is not progress; what the row buys is that no declaration
+  // appears or disappears without someone saying why here.
+  //
+  // 35, moved up from 30 with the DelimitedBlockNode split: that one
+  // interface became six members — a leaf-delimited block, a fence, a
+  // masqueraded parent block, a table, an indented literal paragraph
+  // and a paragraph-form block — each declaring the discriminant
+  // itself, so the census counts six where it counted one. The number
+  // of node kinds ON THE WIRE did not move: all six serialize
+  // `type: "delimitedBlock"`, which is what the parity runs and the
+  // key-order rows in tests/parser/block-masquerade.test.ts hold. The
+  // literal is what this file can see, so it is what the row counts.
+  test("the node-kind census is 35", () => {
     const source = readFileSync("src/ast.ts", "utf8");
     const kinds = source.match(/^ {2}type: "[a-zA-Z]+";$/gmv) ?? [];
-    expect(kinds).toHaveLength(30);
+    expect(kinds).toHaveLength(35);
   });
 
-  // The plan's constraint: no lint suppressions beyond
+  // The constraint: no lint suppressions beyond
   // `prefer-destructuring` on indexed access in the inline layer. This
   // is the count after the deletions above; it is a CEILING, so removing a
   // suppression needs no edit here, and adding one needs an argument in
@@ -226,5 +235,19 @@ describe("import graph", () => {
   test("every relative import resolves", async () => {
     const { unresolved } = await cruiseImports(process.cwd());
     expect(unresolved, unresolved.join("\n")).toEqual([]);
+  });
+
+  // The layers are a DAG, and the DAG is enforced: `ast` <-
+  // `constants`/`positions` <- `line-shapes` <- `inline/` <- `build/`
+  // <- `lines/`, with `print/` reaching into `parse/` at exactly one
+  // documented address and `parse/` never reaching into `print/`. The
+  // rules are DIRECTIONS, written in LAYER_RULES
+  // (scripts/metrics/graph.ts) and evaluated by dependency-cruiser's
+  // own rule engine on this same cruise. The fix for a failure here is
+  // always to move the declaration to the layer that owns it — never
+  // to add an exemption.
+  test("breaks no layer rule", async () => {
+    const { layerViolations } = await cruiseImports(process.cwd());
+    expect(layerViolations, layerViolations.join("\n")).toEqual([]);
   });
 });

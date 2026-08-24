@@ -25,7 +25,10 @@ import {
  * @param options.disables - `eslint-disable` count
  * @param options.assertions - `as` assertion count
  * @param options.cycles - import cycles, as printable paths
+ * @param options.layerViolations - edges a layer rule forbids
  * @param options.unusedExports - knip unused exports under `src`
+ * @param options.unusedScriptExports - knip unused exports under `scripts`
+ * @param options.exportedSymbols - exported names under `src`
  * @param options.seams - seam widths; an absent seam has no members
  * @param options.totalFallback - `Total fallback:` marker count
  * @param options.interiorValidation - registry length; omitted means
@@ -33,7 +36,19 @@ import {
  * @param options.staleEntries - registry entries whose site is gone
  * @param options.registryFaults - why the registry could not be read
  * @param options.nearMisses - markers a line wrap has hidden
+ * @param options.crossings - crossings-registry length
+ * @param options.unregisteredCrossings - crossings no row names
+ * @param options.staleCrossings - rows whose crossing is gone
+ * @param options.crossingFaults - why the crossings registry is unreadable
  * @param options.harnesses - declared agreement harnesses
+ * @param options.untaggedInternal - src exports with no src consumer
+ *   and no `@internal` tag
+ * @param options.staleInternalTags - `@internal` tags on exports src
+ *   does consume
+ * @param options.conformanceFaults - a quarantine manifest that has
+ *   left its pin
+ * @param options.minimumFaults - a minimums file that no longer describes
+ *   the source tree
  * @returns a complete Snapshot
  */
 export function makeSnapshot(options: {
@@ -45,14 +60,25 @@ export function makeSnapshot(options: {
   disables?: number;
   assertions?: number;
   cycles?: string[];
+  layerViolations?: string[];
   unusedExports?: number;
+  unusedScriptExports?: number;
+  exportedSymbols?: number;
   seams?: SeamWidth[];
   totalFallback?: number;
   interiorValidation?: number;
   staleEntries?: string[];
   registryFaults?: string[];
   nearMisses?: string[];
+  crossings?: number;
+  unregisteredCrossings?: string[];
+  staleCrossings?: string[];
+  crossingFaults?: string[];
   harnesses?: string[];
+  untaggedInternal?: string[];
+  staleInternalTags?: string[];
+  conformanceFaults?: string[];
+  minimumFaults?: string[];
 }): Snapshot {
   const cycles = options.cycles ?? [];
   return {
@@ -84,9 +110,10 @@ export function makeSnapshot(options: {
       importEdges: 1,
       filesInCycles: new Set(cycles).size,
       cycles,
-      exportedSymbols: 1,
+      exportedSymbols: options.exportedSymbols ?? 1,
       starExports: 0,
       unresolved: [],
+      layerViolations: options.layerViolations ?? [],
     },
     hatches: {
       eslintDisable: options.disables ?? 0,
@@ -96,12 +123,104 @@ export function makeSnapshot(options: {
     },
     seams: options.seams ?? [],
     defense: makeDefense(options),
+    crossings: makeCrossings(options),
     harnesses: options.harnesses ?? [],
-    dead: {
-      unusedExports: options.unusedExports ?? 0,
-      unusedScriptExports: 0,
-      duplicatedPercent: 0,
+    internal: makeInternal(options),
+    ...makePins(options),
+    dead: makeDead(options),
+  };
+}
+
+/**
+ * The conformance-pin and minimums halves of the snapshot, split out
+ * for the same reason {@link makeInternal} is: `makeSnapshot` has a
+ * complexity ceiling and every defaulted field costs a branch. Both
+ * default to a checkout whose pin holds and whose minimums file
+ * describes the tree, so a gate test names only the fault it is about.
+ * @param options - the same options `makeSnapshot` took
+ * @param options.conformanceFaults - a manifest that has left its pin
+ * @param options.minimumFaults - a minimums file that has gone stale
+ * @returns complete conformance and minimums facts
+ */
+function makePins(options: {
+  conformanceFaults?: string[];
+  minimumFaults?: string[];
+}): Pick<Snapshot, "conformance" | "minimums"> {
+  return {
+    conformance: {
+      quarantined: 0,
+      pin: 0,
+      faults: options.conformanceFaults ?? [],
     },
+    minimums: {
+      recorded: 0,
+      exceptions: 0,
+      faults: options.minimumFaults ?? [],
+    },
+  };
+}
+
+/**
+ * The `@internal` half of the snapshot, split out for the same reason
+ * {@link makeDead} is: `makeSnapshot` has a complexity ceiling.
+ * @param options - the same options `makeSnapshot` took
+ * @param options.untaggedInternal - src exports with no src consumer
+ *   and no `@internal` tag
+ * @param options.staleInternalTags - tags on exports src does consume
+ * @returns complete InternalFacts
+ */
+function makeInternal(options: {
+  untaggedInternal?: string[];
+  staleInternalTags?: string[];
+}): Snapshot["internal"] {
+  return {
+    testOnly: 0,
+    untagged: options.untaggedInternal ?? [],
+    staleTags: options.staleInternalTags ?? [],
+  };
+}
+
+/**
+ * The dead-code half of the snapshot, split out for the same reason
+ * {@link makeCrossings} is: `makeSnapshot` has a complexity ceiling
+ * and every defaulted field costs a branch.
+ * @param options - the same options `makeSnapshot` took
+ * @param options.unusedExports - knip unused exports under `src`
+ * @param options.unusedScriptExports - knip unused exports under `scripts`
+ * @returns a complete DeadCode
+ */
+function makeDead(options: {
+  unusedExports?: number;
+  unusedScriptExports?: number;
+}): Snapshot["dead"] {
+  return {
+    unusedExports: options.unusedExports ?? 0,
+    unusedScriptExports: options.unusedScriptExports ?? 0,
+    duplicatedPercent: 0,
+  };
+}
+
+/**
+ * The crossings half of the snapshot, split out so `makeSnapshot`
+ * stays under the complexity limit.
+ * @param options - the same options `makeSnapshot` took
+ * @param options.crossings - crossings-registry length
+ * @param options.unregisteredCrossings - crossings no row names
+ * @param options.staleCrossings - rows whose crossing is gone
+ * @param options.crossingFaults - why the registry is unreadable
+ * @returns a complete Crossings
+ */
+function makeCrossings(options: {
+  crossings?: number;
+  unregisteredCrossings?: string[];
+  staleCrossings?: string[];
+  crossingFaults?: string[];
+}): Snapshot["crossings"] {
+  return {
+    registered: options.crossings ?? 0,
+    unregistered: options.unregisteredCrossings ?? [],
+    stale: options.staleCrossings ?? [],
+    faults: options.crossingFaults ?? [],
   };
 }
 
@@ -137,7 +256,7 @@ function makeDefense(options: {
 }
 
 /**
- * One seam-width row for the seam ratchet's tests.
+ * One CONTRACT row for the seam ratchet's tests.
  * @param name - the seam's name
  * @param members - its member count; omitted means the measured
  *   revision does not declare that interface, which is how a seam
@@ -151,5 +270,22 @@ export function seam(
   members?: number,
   fault?: string,
 ): SeamWidth {
-  return { name, file: `src/${name}.ts`, members, fault };
+  return { name, file: `src/${name}.ts`, kind: "contract", members, fault };
+}
+
+/**
+ * One VOCABULARY row: reported, judged by precision, never ratcheted
+ * on width.
+ * @param name - the seam's name
+ * @param members - its member count, or absent at this revision
+ * @returns the row
+ */
+export function vocabulary(name: string, members?: number): SeamWidth {
+  return {
+    name,
+    file: `src/${name}.ts`,
+    kind: "vocabulary",
+    members,
+    fault: undefined,
+  };
 }

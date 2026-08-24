@@ -1,14 +1,14 @@
 #!/usr/bin/env bun
 /**
  * The shape-differential harness, consumption mode (1) of the shape
- * registry (spec D7.1): a DETERMINISTIC exhaustive product over
+ * registry: a DETERMINISTIC exhaustive product over
  * selected registry sub-grids, formatted under a base revision and
  * under this checkout, with per-diff proofs. No randomness anywhere.
  *
- *   bun scripts/shape-diff.ts --base 14ea1199 --task task-2b
- *   bun scripts/shape-diff.ts --base 14ea1199 --task task-1 --noise
- *   bun scripts/shape-diff.ts --base 14ea1199 --task task-4 --grid heading-adjacency
- *   bun scripts/shape-diff.ts --base 14ea1199 --task task-2 --grid list-run
+ *   bun run shape-diff -- --base 14ea1199
+ *   bun run shape-diff -- --base 14ea1199 --noise
+ *   bun run shape-diff -- --base 14ea1199 --grid heading-adjacency
+ *   bun run shape-diff -- --base 14ea1199 --grid list-run
  *
  * Per differing shape: render(input) vs render(headOut) (fidelity),
  * render(baseOut) vs render(headOut) (neutrality, REPORTED — a
@@ -17,20 +17,27 @@
  * a differing shape with no family FAILS the run. Render-BLIND rows
  * (the registry's two stated exceptions: comment blocks, whose render
  * equality is vacuous — the base's broken output also render-equals
- * the input — and the setext-pinned P16/P18 spellings, where byte
+ * the input — and the setext-pinned spellings, where byte
  * equality is the whole pin) omit their render fields; a differing
  * comment-block family row gates on idempotence alone, its byte/AST
  * proof living in the named fixtures and invariant (xii). The report
  * is JSONL (one row per shape) plus a
  * summary; the realized grid size prints with every run so a shrink
- * is visible. The base is materialized per G1's read-only exception
- * into a fresh, per-task-NAMED directory every run.
+ * is visible. The base is materialized into a fresh directory every
+ * run (`scripts/lib/checkout.ts`).
+ *
+ * Exit codes (`scripts/lib/cli.ts`): 0 every shape agreed or its
+ * difference is explained and proved, 1 a proof FAILED or a
+ * difference is unexplained, 2 the harness could not run — a bad
+ * argument, an unknown `--base`, or a base dump that came back short.
  */
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { formatAdoc, renderedHtml } from "../tests/helpers.js";
+import { CHILD_MAX_BUFFER, materialize } from "./lib/checkout.js";
+import { cannotRun, GATE_FAILED, printUsage, wantsHelp } from "./lib/cli.js";
 import { listRunGrid } from "./shape-registry-list-run.js";
 import {
   headingAdjacencyGrid,
@@ -39,10 +46,19 @@ import {
 } from "./shape-registry.js";
 
 const ARGUMENT_START = 2;
-const FAILURE = 1;
-const MAX_BUFFER = 268_435_456;
 
-/** One report row (spec D7.1's exact keys). */
+/** What `--help` prints. */
+const USAGE = `usage: bun run shape-diff -- --base <rev> [options]
+
+  --base <rev>   the baseline revision to format the grid under
+  --grid <name>  standing (default), heading-adjacency, or list-run
+  --noise        report the base's own idempotence noise instead
+  --help         this text
+
+exit: 0 explained and proved, 1 a proof failed or a diff is
+unexplained, 2 could not run`;
+
+/** One report row of the JSONL report. */
 interface ReportRow {
   /** `kind/container/perturbation`. */
   id: string;
@@ -65,7 +81,7 @@ interface ReportRow {
   /**
    * Why a per-diff proof could not be run — a throw from the
    * formatter or the oracle. Recorded rather than propagated so one
-   * bad row cannot destroy the whole report (review m1); a row
+   * bad row cannot destroy the whole report; a row
    * carrying this ALWAYS fails the run.
    */
   proofError?: string;
@@ -90,19 +106,22 @@ function parseGrid(
 
 /**
  * Parse the command line.
+ *
+ * `--task` is GONE. It named a plan-β task directory, which is a
+ * naming scheme for work that finished; the outputs key on the base
+ * revision and the grid instead, which is what a reader of a stray
+ * report in `$TMPDIR` actually needs to know.
  * @param argv - the arguments after the script name
- * @returns the base revision, the task name, the grid, the noise flag
- * @throws {Error} when an argument is unrecognised or required ones
- *   are missing
+ * @returns the base revision, the grid, the noise flag
+ * @throws {Error} when an argument is unrecognised or `--base` is
+ *   missing — a silently dropped base would compare nothing
  */
 function parseArguments(argv: readonly string[]): {
   base: string;
-  task: string;
   grid: "standing" | "heading-adjacency" | "list-run";
   noise: boolean;
 } {
   let base: string | undefined = undefined;
-  let task: string | undefined = undefined;
   let grid: "standing" | "heading-adjacency" | "list-run" = "standing";
   let noise = false;
   const rest = [...argv];
@@ -110,10 +129,6 @@ function parseArguments(argv: readonly string[]): {
     const argument = rest.shift() ?? "";
     if (argument === "--base") {
       base = rest.shift();
-      continue;
-    }
-    if (argument === "--task") {
-      task = rest.shift();
       continue;
     }
     if (argument === "--grid") {
@@ -126,43 +141,10 @@ function parseArguments(argv: readonly string[]): {
     }
     throw new Error(`shape-diff: unrecognised argument ${argument}`);
   }
-  if (base === undefined || task === undefined) {
-    throw new Error("shape-diff: --base <rev> and --task <name> are required");
+  if (base === undefined) {
+    throw new Error("shape-diff: --base <rev> is required");
   }
-  return { base, task, grid, noise };
-}
-
-/**
- * Materialize a revision (G1's read-only exception) and install its
- * dependencies — a fresh, per-task-NAMED directory every run, never a
- * shared "base" dir.
- * @param revision - anything `git archive` accepts
- * @param task - the task name, for the directory prefix
- * @returns the temp directory holding the installed checkout
- */
-function materialize(revision: string, task: string): string {
-  const directory = mkdtempSync(
-    path.join(tmpdir(), `shape-diff-${task}-base-`),
-  );
-  const archive = path.join(directory, "revision.tar");
-  try {
-    execFileSync(
-      "git",
-      ["archive", "--format=tar", "--output", archive, revision],
-      { maxBuffer: MAX_BUFFER },
-    );
-    execFileSync("tar", ["-xf", archive, "-C", directory]);
-    rmSync(archive, { force: true });
-    execFileSync("bun", ["install", "--frozen-lockfile"], {
-      cwd: directory,
-      maxBuffer: MAX_BUFFER,
-      stdio: ["ignore", "ignore", "inherit"],
-    });
-  } catch (error) {
-    rmSync(directory, { recursive: true, force: true });
-    throw error;
-  }
-  return directory;
+  return { base, grid, noise };
 }
 
 // The dumper written into the BASE checkout: it may only use what the
@@ -200,7 +182,7 @@ function dumpBase(root: string, shapes: readonly Shape[]): Map<string, string> {
     const stdout = execFileSync("bun", [script, inputs], {
       cwd: root,
       encoding: "utf8",
-      maxBuffer: MAX_BUFFER,
+      maxBuffer: CHILD_MAX_BUFFER,
     });
     const rows = new Map<string, string>();
     for (const line of stdout.split("\n")) {
@@ -257,10 +239,10 @@ async function reportRow(
   }
   if (shape.renderBlind) return row;
   try {
-    const inputHtml = renderedHtml(shape.input);
-    const headHtml = renderedHtml(headOut);
+    const inputHtml = await renderedHtml(shape.input);
+    const headHtml = await renderedHtml(headOut);
     row.headRenderEqualsInput = headHtml === inputHtml;
-    row.renderNeutral = headHtml === renderedHtml(baseOut);
+    row.renderNeutral = headHtml === (await renderedHtml(baseOut));
   } catch (error) {
     row.proofError = `a render proof threw: ${String(error)}`;
   }
@@ -271,8 +253,8 @@ async function reportRow(
  * One differing row's own gate failure, if any: a proof that threw, no
  * family, a failed idempotence proof, or a failed fidelity proof on a
  * render-checked family row. Render NEUTRALITY is reported, never
- * gated — β's one family is a corruption fix and is expected to change
- * the render relative to the broken base.
+ * gated — the one declared family is a corruption fix and is expected
+ * to change the render relative to the broken base.
  * @param row - a differing report row
  * @returns the failure message, or undefined
  */
@@ -287,7 +269,7 @@ function rowFailure(row: ReportRow): string | undefined {
     return `family row ${row.id}: head output is not idempotent`;
   }
   if (row.headRenderEqualsInput === false) {
-    return `family row ${row.id}: head output does not render-equal the ORIGINAL input (the corruption-fix proof, spec D7.6)`;
+    return `family row ${row.id}: head output does not render-equal the ORIGINAL input (the corruption-fix proof)`;
   }
   return undefined;
 }
@@ -295,12 +277,11 @@ function rowFailure(row: ReportRow): string | undefined {
 /**
  * The ids a dump failed to produce a row for.
  *
- * A dump that emitted NOTHING must never read as agreement (review
- * M1): both `Map.get` calls return undefined, the `!==` filter comes
- * back empty, and the noise proof — which the plan makes G4(h)'s
- * invalidation criterion — passes having measured nothing. The
- * criterion has to be unsatisfiable by an empty measurement or it is
- * a rubber stamp.
+ * A dump that emitted NOTHING must never read as agreement: both
+ * `Map.get` calls return undefined, the `!==` filter comes back empty,
+ * and the noise proof — the run's own invalidation criterion — passes
+ * having measured nothing. The criterion has to be unsatisfiable by
+ * an empty measurement or it is a rubber stamp.
  * @param dumped - the dump, by shape id
  * @param shapes - the grid the dump was asked for
  * @returns the missing ids, in grid order
@@ -324,14 +305,14 @@ function reportShortDump(
   missing: readonly string[],
 ): void {
   process.stdout.write(
-    `shape-diff: the base dump produced ${String(dumped.size)} of ${String(shapes.length)} rows — ${String(missing.length)} missing, first ${missing[0]}: the run measured nothing for those shapes and CANNOT stand (review M1)\n`,
+    `shape-diff: the base dump produced ${String(dumped.size)} of ${String(shapes.length)} rows — ${String(missing.length)} missing, first ${missing[0]}: the run measured nothing for those shapes and CANNOT stand — an empty measurement is not agreement\n`,
   );
-  process.exitCode = FAILURE;
+  process.exitCode = GATE_FAILED;
 }
 
 /**
  * The base-vs-base noise proof: the same checkout dumped twice must
- * agree on every row, or the harness itself is noisy (Task 1's proof).
+ * agree on every row, or the harness itself is noisy.
  * Both dumps must be COMPLETE first — see {@link missingIds}.
  * @param baseRoot - the materialized base checkout
  * @param shapes - the grid
@@ -355,18 +336,24 @@ function reportNoise(baseRoot: string, shapes: readonly Shape[]): void {
   process.stdout.write(
     `shape-diff: base-vs-base differing rows: ${String(noisy.length)}\n`,
   );
-  if (noisy.length > 0) process.exitCode = FAILURE;
+  if (noisy.length > 0) process.exitCode = GATE_FAILED;
 }
 
 /**
  * Write the JSONL report, print the summary, and set the exit code.
  * @param rows - one row per shape
- * @param task - the task name, for the report's file name
+ * @param run - what the report is OF: the grid and the base revision,
+ *   which is what identifies a report file found in `$TMPDIR` later
+ * @param run.grid - the grid that was realized
+ * @param run.base - the base revision it was formatted under
  */
-function reportRows(rows: readonly ReportRow[], task: string): void {
+function reportRows(
+  rows: readonly ReportRow[],
+  run: { grid: string; base: string },
+): void {
   const report = path.join(
     tmpdir(),
-    `shape-diff-${task}-${String(Date.now())}.jsonl`,
+    `shape-diff-${run.grid}-${run.base}-${String(Date.now())}.jsonl`,
   );
   writeFileSync(
     report,
@@ -394,7 +381,7 @@ function reportRows(rows: readonly ReportRow[], task: string): void {
   process.stdout.write(
     `shape-diff: unexplained-diff count: ${String(unexplained.length)}\n`,
   );
-  if (failures.length > 0) process.exitCode = FAILURE;
+  if (failures.length > 0) process.exitCode = GATE_FAILED;
 }
 
 /**
@@ -402,7 +389,11 @@ function reportRows(rows: readonly ReportRow[], task: string): void {
  * @param argv - the arguments after the script name
  */
 async function main(argv: readonly string[]): Promise<void> {
-  const { base, task, grid, noise } = parseArguments(argv);
+  if (wantsHelp(argv)) {
+    printUsage(USAGE);
+    return;
+  }
+  const { base, grid, noise } = parseArguments(argv);
   const shapes =
     grid === "standing"
       ? standingGrid()
@@ -410,20 +401,25 @@ async function main(argv: readonly string[]): Promise<void> {
         ? headingAdjacencyGrid()
         : listRunGrid();
   process.stdout.write(
-    `shape-diff: ${String(shapes.length)} shapes in the ${grid} grid (task ${task})\n`,
+    `shape-diff: ${String(shapes.length)} shapes in the ${grid} grid (base ${base})\n`,
   );
-  const baseRoot = materialize(base, task);
+  const baseRoot = materialize({
+    revision: base,
+    prefix: "shape-diff-base-",
+    install: true,
+  });
   try {
     if (noise) {
       reportNoise(baseRoot, shapes);
       return;
     }
     const baseOut = dumpBase(baseRoot, shapes);
-    // Defense in depth: `<<MISSING>>` below already turns an absent
-    // base row into a diff, so the primary run cannot pass on an
-    // empty measurement — but it would report it as 2,810 unexplained
-    // diffs rather than as what it is. Name it, and keep going so the
-    // JSONL is still written.
+    // The measured-nothing floor. `<<MISSING>>` below already turns an
+    // absent base row into a diff, so the primary run cannot pass on
+    // an empty measurement — but it would report it as 2,810
+    // unexplained diffs rather than as what it is. Name it, keep going
+    // so the JSONL is still written, and exit 2 at the end: a base
+    // dump that came back short proved nothing about this checkout.
     const missing = missingIds(baseOut, shapes);
     if (missing.length > 0) reportShortDump(baseOut, shapes, missing);
     const rows: ReportRow[] = [];
@@ -439,10 +435,23 @@ async function main(argv: readonly string[]): Promise<void> {
       // eslint-disable-next-line no-await-in-loop -- sequential on purpose
       rows.push(await reportRow(shape, fromBase, headOut));
     }
-    reportRows(rows, task);
+    reportRows(rows, { grid, base });
+    if (missing.length > 0) {
+      cannotRun(
+        `shape-diff: the base dump was short by ${String(missing.length)} of ${String(shapes.length)} shapes — nothing was proved about this checkout`,
+      );
+    }
   } finally {
     rmSync(baseRoot, { recursive: true, force: true });
   }
 }
 
-if (import.meta.main) await main(process.argv.slice(ARGUMENT_START));
+if (import.meta.main) {
+  try {
+    await main(process.argv.slice(ARGUMENT_START));
+  } catch (error) {
+    // An unrecognised argument, a missing `--base`, a revision
+    // `git archive` refuses: none of them formatted a single shape.
+    cannotRun(error instanceof Error ? error.message : String(error));
+  }
+}

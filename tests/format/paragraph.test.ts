@@ -102,7 +102,7 @@ describe("paragraph continuation (contextual classification)", () => {
       expect(out.includes("\n\n"), "must not split into two blocks").toBe(
         false,
       );
-      expect(renderedHtml(out)).toBe(renderedHtml(input));
+      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
       expect(await formatAdoc(out)).toBe(out);
     });
   }
@@ -111,7 +111,7 @@ describe("paragraph continuation (contextual classification)", () => {
     const input = "first line\n// a comment\nlast line\n";
     const out = await formatAdoc(input);
     expect(out).toBe("first line\n// a comment\nlast line\n");
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
   });
 
   test("a conditional directive inside a paragraph stays verbatim", async () => {
@@ -119,7 +119,7 @@ describe("paragraph continuation (contextual classification)", () => {
       "first line\nifdef::flag[]\nconditional text\nendif::[]\nlast line\n";
     const out = await formatAdoc(input);
     expect(out).toBe(input);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
   });
 
   test.each([
@@ -128,7 +128,7 @@ describe("paragraph continuation (contextual classification)", () => {
     ["an example delimiter", "first line\n====\nex\n====\n"],
   ])("%s still interrupts", async (_name, input) => {
     const out = await formatAdoc(input);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
   });
 });
 
@@ -141,7 +141,7 @@ describe("delimiter lines are whole lines", () => {
   test("a delimiter-prefixed line does not open a block", async () => {
     const out = await formatAdoc("====text\n");
     expect(out).toBe("====text\n");
-    expect(renderedHtml(out)).toBe(renderedHtml("====text\n"));
+    expect(await renderedHtml(out)).toBe(await renderedHtml("====text\n"));
     expect(await formatAdoc(out)).toBe(out);
   });
 
@@ -149,7 +149,7 @@ describe("delimiter lines are whole lines", () => {
     const input = "----\ncode\n----\n";
     const out = await formatAdoc(input);
     expect(out).toBe(input);
-    expect(renderedHtml(out)).toBe(renderedHtml(input));
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
   });
 
   test("a delimiter-prefixed dlist term in a list item is not a block", async () => {

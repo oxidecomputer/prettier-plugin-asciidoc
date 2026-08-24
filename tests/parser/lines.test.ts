@@ -1,8 +1,11 @@
 import { describe, test, expect } from "vitest";
 import { splitLines } from "../../src/parse/lines/split.js";
-import { parseDescriptionListLine } from "../../src/parse/line-shapes.js";
 import {
   BLOCK_START_CONTEXT,
+  parseDescriptionListLine,
+  type ReaderContext,
+} from "../../src/parse/line-shapes.js";
+import {
   classifyLine,
   delimiterKind,
   isContinuationLine,
@@ -11,7 +14,6 @@ import {
   parseBlockMacro,
   parseListMarker,
   parseSectionTitle,
-  type ReaderContext,
 } from "../../src/parse/lines/classify.js";
 
 describe("splitLines mirrors Helpers.prepare_source_string", () => {
@@ -110,7 +112,7 @@ describe("the kinds that carry their parse", () => {
         kind: "attributeEntry",
         name: "name",
         value: "value",
-        unset: "prefix",
+        unset: true,
       },
     ],
     ["== Section", { kind: "sectionTitle", level: 1, title: "Section" }],
@@ -209,7 +211,39 @@ describe("parseListMarker", () => {
     ["  **  a", { variant: "unordered", style: "**", indent: 2, markerEnd: 6 }],
     ["- a", { variant: "unordered", style: "-", indent: 0, markerEnd: 2 }],
     [".. a", { variant: "ordered", style: "..", indent: 0, markerEnd: 3 }],
-    ["<.> a", { variant: "callout", style: "<>", indent: 0, markerEnd: 4 }],
+    // The callout arm reports the marker's own number — the group its
+    // match captured. `<.>` is auto-numbered, and 0 is the sentinel
+    // for it (AUTO_CALLOUT_NUMBER).
+    [
+      "<.> a",
+      {
+        variant: "callout",
+        style: "<>",
+        indent: 0,
+        markerEnd: 4,
+        calloutNumber: 0,
+      },
+    ],
+    [
+      "<1> a",
+      {
+        variant: "callout",
+        style: "<>",
+        indent: 0,
+        markerEnd: 4,
+        calloutNumber: 1,
+      },
+    ],
+    [
+      "<12> a",
+      {
+        variant: "callout",
+        style: "<>",
+        indent: 0,
+        markerEnd: 5,
+        calloutNumber: 12,
+      },
+    ],
   ])("%j", (line, expected) => {
     expect(parseListMarker(line)).toEqual(expected);
   });
@@ -289,10 +323,12 @@ describe("parseAttributeEntry", () => {
     [":name:", { name: "name", value: undefined, unset: false }],
     [":name:   ", { name: "name", value: undefined, unset: false }],
     [":name:\tv  ", { name: "name", value: "v", unset: false }],
-    [":!a: v", { name: "a", value: "v", unset: "prefix" }],
-    [":!a:", { name: "a", value: undefined, unset: "prefix" }],
-    [":a!:", { name: "a", value: undefined, unset: "suffix" }],
-    [":a!: v", { name: "a", value: "v", unset: "suffix" }],
+    [":!a: v", { name: "a", value: "v", unset: true }],
+    [":!a:", { name: "a", value: undefined, unset: true }],
+    // The two `!` spellings are ONE fact: store_attribute (parser.rb
+    // l.2131-41) chops it off whichever end carries it.
+    [":a!:", { name: "a", value: undefined, unset: true }],
+    [":a!: v", { name: "a", value: "v", unset: true }],
     [":a b: v", { name: "a b", value: "v", unset: false }],
   ])("%j", (line, expected) => {
     expect(parseAttributeEntry(line)).toEqual(expected);

@@ -18,9 +18,9 @@ function firstTable(source: string): DelimitedBlockNode {
   return node;
 }
 
-// Spec D1: tables are opaque verbatim extents. The delimiter lines are
+// Tables are opaque verbatim extents. The delimiter lines are
 // part of `content`; behavior is Ruby's is_delimited_block? +
-// read_lines_until (parser.rb:967-1001, :861-869, reader.rb:414),
+// read_lines_until (parser.rb:976-1010, :870-878, reader.rb:414),
 // pinned here and in tests/format/table.test.ts.
 describe("table delimiters open verbatim table blocks", () => {
   test("a |=== table is one node, delimiters included in content", () => {
@@ -44,7 +44,7 @@ describe("table delimiters open verbatim table blocks", () => {
   });
 
   test("the terminator is the exact rstripped opening line: |==== inside |=== is content", () => {
-    // Oracle-probed (Task 1): the table stays open to EOF; `after` is
+    // Oracle-probed: the table stays open to EOF; `after` is
     // table content, not a paragraph.
     expect(astShape("|===\n|a\n|====\n\nafter\n")).toBe("table[5]");
   });
@@ -53,7 +53,7 @@ describe("table delimiters open verbatim table blocks", () => {
     expect(astShape("|====\n|a\n|====\n")).toBe("table[3]");
   });
 
-  test("an unterminated table runs to EOF (Ruby also runs to EOF, parser.rb:863)", () => {
+  test("an unterminated table runs to EOF (Ruby also runs to EOF, parser.rb:872)", () => {
     expect(astShape("|===\n|a |b\n")).toBe("table[2]");
     expect(firstTable("|===\n|a |b\n").content).toBe("|===\n|a |b");
   });

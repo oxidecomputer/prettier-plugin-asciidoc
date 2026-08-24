@@ -3,11 +3,12 @@
  *
  * The formatter preserves block metadata lines as-is:
  * - `[source,ruby]` — block attribute list
- * - `[[anchor-id]]` — block anchor (a `blockAnchor` node, spec D6)
+ * - `[[anchor-id]]` — block anchor (a `blockAnchor` node)
  * - `.Block Title` — block title
  *
  * Block metadata lines stack with the following block (no blank
- * line between them), matching idiomatic AsciiDoc style.
+ * line between them), matching idiomatic AsciiDoc style, and their
+ * bracket interior gets ONE spacing: `[a,b,c]`.
  */
 import { describe, test, expect } from "vitest";
 import { formatAdoc, renderedHtml } from "../helpers.js";
@@ -175,13 +176,13 @@ describe("combined block metadata formatting", () => {
   });
 });
 
-describe("block anchor spelling and idempotence (spec D6: byte-identical across the node change)", () => {
+describe("block anchor spelling and idempotence: byte-identical across the node change", () => {
   test("a bare anchor keeps its spelling", async () => {
     const input = "[[my-id]]\n\npara\n";
     const output = await formatAdoc(input);
     expect(output).toBe(input);
     expect(await formatAdoc(output)).toBe(output);
-    expect(renderedHtml(output)).toBe(renderedHtml(input));
+    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
   });
 
   test("an anchor with reftext keeps today's normalized spelling", async () => {
@@ -189,7 +190,7 @@ describe("block anchor spelling and idempotence (spec D6: byte-identical across 
     const output = await formatAdoc(input);
     expect(output).toBe("[[my-id, Ref Text]]\n\npara\n");
     expect(await formatAdoc(output)).toBe(output);
-    expect(renderedHtml(output)).toBe(renderedHtml(input));
+    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
   });
 
   test("anchor over a block stacks; anchor over a paragraph keeps its blank line", async () => {
@@ -210,19 +211,20 @@ describe("block anchor spelling and idempotence (spec D6: byte-identical across 
 // record both printer-side rules consult): the author's
 // bytes survive and re-parsing our output gains no blank line.
 //
-// The class the suites missed before spec D6: every anchor alphabet in
+// The class the suites missed before `blockAnchor` became its own node
+// kind: every anchor alphabet in
 // the repo (fuzz `/[A-Za-z_][\w-]{0,14}/`, the sweep's `[[anc]]`, the
 // hand-written `[[my-id]]`) generates a VALID id, so only the corpus
 // reached it — `blocks_test.rb#should not recognize block anchor that
 // starts with digit#0` and `#should not recognize block anchor with
 // illegal id characters#0`, which parity holds byte-identical.
-describe("pseudo-anchor lines (spec D6: a `[[…]]` line that is not a block anchor)", () => {
+describe("pseudo-anchor lines: a `[[…]]` line that is not a block anchor", () => {
   test("a digit-leading id stacks with the block below, unchanged", async () => {
     const input = "[[3-blind-mice]]\n----\nx\n----\n";
     const output = await formatAdoc(input);
     expect(output).toBe(input);
     expect(await formatAdoc(output)).toBe(output);
-    expect(renderedHtml(output)).toBe(renderedHtml(input));
+    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
   });
 
   test("an illegal-character id stacks with the block below, unchanged", async () => {
@@ -230,7 +232,7 @@ describe("pseudo-anchor lines (spec D6: a `[[…]]` line that is not a block anc
     const output = await formatAdoc(input);
     expect(output).toBe(input);
     expect(await formatAdoc(output)).toBe(output);
-    expect(renderedHtml(output)).toBe(renderedHtml(input));
+    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
   });
 
   // The corpus row's own spelling, and the fidelity fix that freed it
@@ -248,7 +250,7 @@ describe("pseudo-anchor lines (spec D6: a `[[…]]` line that is not a block anc
     const output = await formatAdoc(input);
     expect(output).toBe(input);
     expect(await formatAdoc(output)).toBe(output);
-    expect(renderedHtml(output)).toBe(renderedHtml(input));
+    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
   });
 
   // `[[id,]]` is not a block-anchor line either: the grammar's reftext
@@ -266,5 +268,92 @@ describe("pseudo-anchor lines (spec D6: a `[[…]]` line that is not a block anc
     const output = await formatAdoc("[[id,]]\n----\nx\n----\n");
     expect(output).toBe("[[id]]\n----\nx\n----\n");
     expect(await formatAdoc(output)).toBe(output);
+  });
+});
+
+// ONE spacing rule for every bracket interior Asciidoctor hands to
+// `AttributeList`: no blank around a comma, none at the edges. Those
+// blanks are what `skip_blank` and `BoundaryRx[',']`
+// (attribute_list.rb l.30-34, l.200-202) throw away before the
+// document ever sees them. Blanks INSIDE an attribute stay, and so
+// does everything between a value's quotes.
+describe("an attrlist interior gets one spacing", () => {
+  test.each([
+    [
+      "a block attribute list",
+      "[source, ruby]\n----\nx\n----\n",
+      "[source,ruby]\n----\nx\n----\n",
+    ],
+    [
+      "an attribution list keeps the blanks inside its attributes",
+      "[quote, Famous Person, A Book (2001)]\n____\nx\n____\n",
+      "[quote,Famous Person,A Book (2001)]\n____\nx\n____\n",
+    ],
+    [
+      "a quoted value keeps its comma and its blanks",
+      '[quote, "A, B", c]\n____\nx\n____\n',
+      '[quote,"A, B",c]\n____\nx\n____\n',
+    ],
+    [
+      "named values with commas inside quotes",
+      '[cols="1,2", options="header"]\n|===\n|a |b\n|===\n',
+      '[cols="1,2",options="header"]\n|===\n|a |b\n|===\n',
+    ],
+    [
+      "a trailing blank inside the brackets",
+      "[source ]\n----\nx\n----\n",
+      "[source]\n----\nx\n----\n",
+    ],
+    ["a block macro", "image::a.png[alt, 10]\n", "image::a.png[alt,10]\n"],
+    [
+      "a block macro with named attributes",
+      "video::a.mp4[width=100, height=50]\n",
+      "video::a.mp4[width=100,height=50]\n",
+    ],
+    [
+      "an inline image",
+      "x image:a.png[alt, 10] y\n",
+      "x image:a.png[alt,10] y\n",
+    ],
+    // The fence's info string is an attrlist the printer SYNTHESIZES,
+    // and it takes the same rule — otherwise pass two, reading it
+    // back as a real attribute list, spelled it differently.
+    [
+      "a synthesized [source,lang] from a fence",
+      "``` javascript, numbered\nx\n```\n",
+      "[source,javascript,numbered]\n----\nx\n----\n",
+    ],
+    // DECLINED: an unclosed quote is replayed byte for byte, because
+    // Ruby reads that quote as literal and the scan will not guess.
+    [
+      "an unclosed quote is left alone",
+      '[quote, "A B, c]\n____\nx\n____\n',
+      '[quote, "A B, c]\n____\nx\n____\n',
+    ],
+  ])("%s", async (_name, input, expected) => {
+    const out = await formatAdoc(input);
+    expect(out).toBe(expected);
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+
+  // The other inline macros put TEXT between the brackets, and text is
+  // content: each of these renders the comma-space, so the rule does
+  // not reach them. Measured against the oracle, one row each.
+  test.each([
+    ["link", "x link:http://e.com[Read, now] y\n"],
+    // `icon:` IS an attribute list to Asciidoctor, but the tokenizer
+    // does not know the name, so the text never becomes a macro node
+    // and nothing rewrites it.
+    ["icon", ":icons: font\n\nx icon:tags[role, red] y\n"],
+    ["xref", "x xref:t[the, text] y\n\n[[t]]z\n"],
+    ["pass", "x pass:[a, b] y\n"],
+    ["footnote", "x footnote:[a, b] y\n"],
+    [":experimental: kbd", ":experimental:\n\nx kbd:[Ctrl, T] y\n"],
+    [":experimental: btn", ":experimental:\n\nx btn:[OK, now] y\n"],
+  ])("%s keeps its bracket text verbatim", async (_name, input) => {
+    const out = await formatAdoc(input);
+    expect(out).toBe(input);
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
   });
 });

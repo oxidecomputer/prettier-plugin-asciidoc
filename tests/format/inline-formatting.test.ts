@@ -16,7 +16,7 @@
  *     the source semantics.
  */
 import { describe, test, expect } from "vitest";
-import { formatAdoc } from "../helpers.js";
+import { formatAdoc, renderedHtml } from "../helpers.js";
 
 // Basic preservation: each constrained and unconstrained form of
 // every formatting mark must survive a format round-trip unchanged
@@ -175,9 +175,15 @@ describe("inline formatting — edge case round-trips", () => {
     expect(await formatAdoc(input)).toBe("*_`code`_*\n");
   });
 
-  test("[role]##text## round-trips", async () => {
+  // The role rides the mark either way; at a word boundary the two
+  // spellings render the same `<span class="role">`, so the shorter
+  // one is what comes back.
+  test("[role]##text## shortens to [role]#text#", async () => {
     const input = "[role]##text##\n";
-    expect(await formatAdoc(input)).toBe("[role]##text##\n");
+    const out = await formatAdoc(input);
+    expect(out).toBe("[role]#text#\n");
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
   });
 
   test("backslash-escaped unconstrained bold is preserved", async () => {
@@ -261,5 +267,88 @@ describe("inline formatting — blank line normalisation", () => {
     const input = "== Section\n\n\nSome text.\n";
     const result = await formatAdoc(input);
     expect(result).toBe("== Section\n\nSome text.\n");
+  });
+});
+
+// Where BOTH spellings are legal they render the same, so the printer
+// writes the constrained one — the rule docs/design.md has promised
+// since the beginning. Legality is Ruby's own: the constrained quote
+// patterns (`QUOTE_SUBS`, asciidoctor.rb l.448-464) are
+// `(^|[^\w;:}])(?:\[…\])?\*(\S|\S.*?\S)\*(?!\w)`.
+describe("an unconstrained span shortens where the constrained one is legal", () => {
+  test.each([
+    ["bold at word boundaries", "a **b** c\n", "a *b* c\n"],
+    ["italic", "a __b__ c\n", "a _b_ c\n"],
+    ["monospace", "a ``b`` c\n", "a `b` c\n"],
+    ["highlight", "a ##b## c\n", "a #b# c\n"],
+    ["a role rides along", "a [.red]##b## c\n", "a [.red]#b# c\n"],
+    ["at the start of the block", "**b** c\n", "*b* c\n"],
+    ["at the end of the block", "a **b**\n", "a *b*\n"],
+    ["punctuation on both sides", "(**b**)\n", "(*b*)\n"],
+    ["before a comma", "a **b**, c\n", "a *b*, c\n"],
+    [
+      "two spans in one paragraph",
+      "a **b** and **c** d\n",
+      "a *b* and *c* d\n",
+    ],
+    ["a constrained child inside", "a **_b_** c\n", "a *_b_* c\n"],
+  ])("%s", async (_name, input, expected) => {
+    const out = await formatAdoc(input);
+    expect(out).toBe(expected);
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+
+  // The negative controls, one per clause of the predicate. Every row
+  // was measured against the oracle FIRST: shortening the span here
+  // renders a DIFFERENT document, which is why the author's spelling
+  // stands.
+  test.each([
+    ["mid-word — the whole reason unconstrained exists", "a**b**c\n"],
+    ["a word character in front", "ab**c** d\n"],
+    ["a semicolon in front — one of Ruby's three", "a;**b** c\n"],
+    ["a colon in front", "a:**b** c\n"],
+    ["a closing brace in front", "a}**b** c\n"],
+    ["a word character behind", "a **b**c\n"],
+    ["content flush against neither mark", "a ** b ** c\n"],
+    ["a neighbour that is not plain text", "a **b**__c__ d\n"],
+    ["nested inside another span", "_**Release date:** x_\n"],
+    ["a stray mark elsewhere in the paragraph", "a **b** and * stray\n"],
+    // The corpus row this predicate was tightened for: the `_` inside
+    // the bibliography anchor becomes an opening mark the moment the
+    // emphasis shortens.
+    [
+      "a stray mark inside a neighbouring anchor",
+      "- [[[_1984]]] George Orwell. __1984__. 1950.\n",
+    ],
+    // A hard break and a verbatim line are the two neighbours the
+    // predicate refuses without asking: one is a `+` the reflow
+    // places, the other is arbitrary source bytes.
+    ["a hard break in the paragraph", "a **b** c +\nd\n"],
+    ["a comment line in the paragraph", "a **b** c\n// note\nmore\n"],
+    // The NEIGHBOUR CLASSES, one row per exclusion Asciidoctor's own
+    // constrained patterns carry (QUOTE_SUBS, asciidoctor.rb
+    // l.448-464). `sub_specialchars` runs before the quote pass, so
+    // `<`, `>` and `&` are `;`-final entities by the time the pattern
+    // is matched and land in the `[^…;:}]` exclusion; `\p{Word}` is
+    // UNICODE, not ASCII; and a backtick beside a straight quote is a
+    // curved-quote mark, not a monospace one. Every row renders
+    // DIFFERENTLY once the mark shortens — measured, all four kinds
+    // swept across 41 left and 33 right neighbour characters.
+    ["a `<` in front becomes `&lt;`", "p <**b c** q\n"],
+    ["a `>` in front becomes `&gt;`", "p >**b c** q\n"],
+    ["an `&` in front becomes `&amp;`", "p &**b c** q\n"],
+    ["a `<` in front of an italic", "p <__b c__ q\n"],
+    ["a `<` in front of a monospace", "p <``b c`` q\n"],
+    ["a `<` in front of a highlight", "p <##b c## q\n"],
+    ["a straight double quote in front of a monospace", 'p "``b c``" q\n'],
+    ["a straight single quote behind a monospace", "p ``b c``' q\n"],
+    ["a backtick in front of a monospace", "p ```b c`` q\n"],
+    ["a NON-ASCII word character behind", "p **b c**\u00E9q\n"],
+    ["a non-ASCII word character in front", "p\u00E9**b c** q\n"],
+  ])("%s keeps the author's marks", async (_name, input) => {
+    const out = await formatAdoc(input);
+    expect(out).toBe(input);
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
   });
 });

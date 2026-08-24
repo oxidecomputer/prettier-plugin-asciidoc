@@ -75,7 +75,7 @@ export interface ComplexityMeasurement {
   /**
    * Every function over the cyclomatic tail, by name and place.
    *
-   * Ruling 35 made that count report-only, which is only defensible if
+   * That count is report-only, which is only defensible if
    * the report says WHICH functions — a flat dispatch over a
    * discriminated union and a genuinely branchy function score the
    * same here, and only a human can tell them apart.

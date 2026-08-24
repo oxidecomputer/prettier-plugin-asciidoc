@@ -3,8 +3,8 @@
  * matches, fall back to one character of text.
  *
  * Total by construction — every position produces exactly one token —
- * which is why nothing downstream has an error path (spec Decision
- * 6). `start_chars_hint`, `line_breaks` and `Lexer.NA` were
+ * which is why nothing downstream has an error path.
+ * `start_chars_hint`, `line_breaks` and `Lexer.NA` were
  * Chevrotain's lexer bookkeeping, an optimisation or unused, and are
  * retired with it.
  */
@@ -17,7 +17,7 @@ import type { InlineKind, InlineToken } from "./tokens.js";
  * Constrained-mark boundaries are computed against THIS text, never
  * the document: a mark at index 0 sees a boundary because index -1 is
  * out of range, which is what makes `*bold*` after a list marker
- * bold (spec Decision 8). The caller therefore has to hand over a
+ * bold. The caller therefore has to hand over a
  * fragment that starts where Asciidoctor's own substitution pass
  * would start.
  * @param text - the fragment, exactly as it appears in the source

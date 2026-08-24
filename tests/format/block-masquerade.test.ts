@@ -28,10 +28,15 @@ describe("[verse] on quote block formatting", () => {
     expect(await formatAdoc(input)).toBe(input);
   });
 
-  test("[verse] with attribution round-trips", async () => {
+  test("[verse] with attribution keeps everything but the skipped blanks", async () => {
     const input =
       "[verse, Carl Sandburg, Fog]\n____\nThe fog comes\non little cat feet.\n____\n";
-    expect(await formatAdoc(input)).toBe(input);
+    const out = await formatAdoc(input);
+    expect(out).toBe(
+      "[verse,Carl Sandburg,Fog]\n____\nThe fog comes\non little cat feet.\n____\n",
+    );
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
   });
 
   test("verse with blank lines preserved", async () => {
@@ -46,7 +51,7 @@ describe("[source]/[listing]/[literal] on open block formatting", () => {
     expect(await formatAdoc(input)).toBe(input);
   });
 
-  // The one behaviour the parentBlock-end fix changes (Ruling 42).
+  // The one behaviour the parentBlock-end fix changes.
   // The extent states `contentEnd` against the block's real source;
   // the masqueraded open block below builds as a verbatim
   // delimitedBlock whose content is sliced up to that offset. Before
@@ -59,7 +64,7 @@ describe("[source]/[listing]/[literal] on open block formatting", () => {
     const output = await formatAdoc(input);
     expect(output.split("\n")).toContain("a");
     expect(await formatAdoc(output)).toBe(output);
-    expect(renderedHtml(output)).toBe(renderedHtml(input));
+    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
   });
 
   test("[source,ruby] + open block round-trips", async () => {

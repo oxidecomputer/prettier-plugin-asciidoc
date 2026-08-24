@@ -62,12 +62,11 @@ knip and jscpd — nothing hand-rolled; `tests/scripts/metrics.test.ts` covers i
 Exits non-zero on an import cycle, an unresolved relative import, or an unused
 exported symbol under `src` (knip is a devDependency and runs every time), and —
 with `--base` — if cognitive MAX or an escape-hatch count went UP. The
-cyclomatic tail is report-only (Ruling 35: it cannot tell a flat dispatch from
-real branching), and the script names the functions over it under the table. The
-base revision is materialized with `git archive | tar -x` — never
-`git worktree`, which would mutate `.git` under a jj repo with a concurrent
-session. What each row means and how each is gamed:
-`docs/simplicity-metrics.md`.
+cyclomatic tail is report-only (it cannot tell a flat dispatch from real
+branching), and the script names the functions over it under the table. The base
+revision is materialized with `git archive | tar -x` — never `git worktree`,
+which would mutate `.git` under a jj repo with a concurrent session. What each
+row means and how each is gamed: `docs/simplicity-metrics.md`.
 
 **Note:** Bare `bun test` invokes Bun's built-in test runner, which fails on
 Vitest-only constructs like `test.fails`; always use `bun run test` instead.

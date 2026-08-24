@@ -3,12 +3,9 @@
  * The simplicity scorecard: measure this checkout, optionally against
  * another revision, and print ONE table.
  *
- *   bun run metrics                          # head only
- *   bun run metrics -- --base 0298a2ba       # base | head | delta
- *   bun run metrics -- --base=0298a2ba       # the same
- *   bun run metrics -- --json                # the raw snapshots
- *   bun run metrics -- --duplication         # also jscpd (via bunx)
- *   bun run metrics -- --root <dir>          # measure another checkout
+ * Exit codes (`scripts/lib/cli.ts`): 0 the gates held, 1 a gate or a
+ * ratchet FAILED, 2 the scorecard could not run — a bad argument, an
+ * unknown `--base`, or a `src` too small to have been measured at all.
  *
  * Why it exists: a refactor that claims to simplify has to be able to
  * show it, and no single number can. The rows are paired so that
@@ -23,11 +20,27 @@
  *
  * Gates (non-zero exit) live in `metrics/gates.ts`, which is where the
  * policy is stated and tested: an import cycle, an unresolved relative
- * import, a knip unused export under `src`, a resident agreement
- * harness, a stale interior-validation registry entry, and — with
+ * import, a knip unused export under `src` or `scripts`, a `src`
+ * export with no `src` consumer that does not carry `@internal`, a
+ * resident agreement
+ * harness, a stale interior-validation registry entry, an edge a layer
+ * rule forbids, an unregistered or stale cross-directory crossing, a
+ * quarantine manifest that has left its conformance pin, a minimums file
+ * that no longer describes the source tree,
+ * and — with
  * `--base` — a ratchet on cognitive MAX, on the escape hatches, on
  * each named seam's width and on each defense counter. The cyclomatic
- * tail is REPORT-ONLY (Ruling 35). Everything else is reported.
+ * tail is REPORT-ONLY.
+ *
+ * Three sections print BELOW the table and gate on nothing: the
+ * functions over the cyclomatic tail, the CENSUS PINS (`pin holds` /
+ * `pin moved` — a census is an equality pin, never a budget, so
+ * neither direction is a win) and the UNREAD PUBLISHED FIELD
+ * candidates. Everything else is reported.
+ *
+ * What the scorecard does NOT check is the minimums' NUMBERS: it never
+ * runs the suite. `bun run coverage` checks the coverage half and
+ * `bun run mutate` the mutation half; see `scripts/metrics/score-minimums.ts`.
  *
  * The seam, defense and harness rows are BUDGETS WE MAINTAIN, not
  * numbers a tool discovers: the seam list, the interior-validation
@@ -40,15 +53,15 @@
  * the TypeScript scanner, eslint, dependency-cruiser, knip and jscpd
  * rather than by anything hand-rolled here.
  */
-import { execFileSync } from "node:child_process";
-import { mkdtempSync, realpathSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { materialize } from "./lib/checkout.js";
+import { cannotRun, GATE_FAILED, printUsage, wantsHelp } from "./lib/cli.js";
 import { tails, writeEslintConfig } from "./metrics/complexity.js";
-import { gateFailures } from "./metrics/gates.js";
+import { gateFailures, measuredNothing } from "./metrics/gates.js";
 import { measure } from "./metrics/measure.js";
 import {
-  CHILD_MAX_BUFFER,
   LAYERS,
   NOT_FOUND,
   ONE,
@@ -56,11 +69,20 @@ import {
   ZERO,
   type Snapshot,
 } from "./metrics/model.js";
-import { shapeCensusFailures } from "./metrics/shape-census.js";
+
+/** What `--help` prints. */
+const USAGE = `usage: bun run metrics [-- <options>]
+
+  --base <rev>     compare against a revision: base | head | delta
+  --root <dir>     measure another checkout instead of this one
+  --json           print the raw snapshots instead of the table
+  --duplication    also run jscpd (report-only; may fetch it with bunx)
+  --help           this text
+
+exit: 0 gates held, 1 a gate or ratchet failed, 2 could not run`;
 
 const ARGUMENT_START = 2;
 const JSON_INDENT = 2;
-const FAILURE = 1;
 
 // Two decimal places, so jscpd's fractional percentage does not blow
 // the column open.
@@ -76,32 +98,6 @@ const VALUE_COLUMNS = 3;
 const TAIL_WIDTH = 4;
 
 const FLAGS = new Set(["--json", "--duplication"]);
-
-/**
- * Materialize a revision into a temp directory with `git archive`.
- *
- * Deliberately not `git worktree`: this repository is jj-managed and
- * often has a concurrent session, and a worktree mutates `.git`.
- * `realpath` on the result because macOS hands out `/var/...` here
- * while child processes report `/private/var/...`, and the two must
- * agree for a linted path to resolve back to a layer.
- * @param revision - anything `git archive` accepts
- * @returns the temp directory holding the checkout
- */
-function materialize(revision: string): string {
-  const directory = realpathSync(
-    mkdtempSync(path.join(tmpdir(), "metrics-base-")),
-  );
-  const archive = path.join(directory, "revision.tar");
-  execFileSync(
-    "git",
-    ["archive", "--format=tar", "--output", archive, revision],
-    { cwd: REPO_ROOT, maxBuffer: CHILD_MAX_BUFFER },
-  );
-  execFileSync("tar", ["-xf", archive, "-C", directory]);
-  rmSync(archive, { force: true });
-  return directory;
-}
 
 /**
  * Flatten a snapshot into the table's rows, in print order.
@@ -139,6 +135,7 @@ function rowsOf(snapshot: Snapshot): Array<[string, number | undefined]> {
     ["import edges", snapshot.coupling.importEdges],
     ["files in cycles", snapshot.coupling.filesInCycles],
     ["unresolved relative imports", snapshot.coupling.unresolved.length],
+    ["layer-rule violations", snapshot.coupling.layerViolations.length],
     ["exported symbols", snapshot.coupling.exportedSymbols],
     ["of those, `export *`", snapshot.coupling.starExports],
     ["eslint-disable", snapshot.hatches.eslintDisable],
@@ -146,11 +143,13 @@ function rowsOf(snapshot: Snapshot): Array<[string, number | undefined]> {
     ["non-null assertions", snapshot.hatches.nonNull],
     ["any in type position", snapshot.hatches.anyType],
   );
-  // Seam width, one row per named seam: a row printing "n/a" means the
-  // measured revision does not declare that interface, which is what
-  // lets it ratchet from absent.
+  // Seam width, one row per named seam, contracts first: a row printing
+  // "n/a" means the measured revision does not declare that interface,
+  // which is what lets it ratchet from absent. The row's prefix is its
+  // classification — a contract is judged by width and ratchets, a
+  // vocabulary row is reported and judged by precision.
   for (const seam of snapshot.seams) {
-    rows.push([`seam ${seam.name}`, seam.members]);
+    rows.push([`${seam.kind} ${seam.name}`, seam.members]);
   }
   rows.push(
     ["unreachable() sites", snapshot.defense.unreachableCalls],
@@ -158,10 +157,33 @@ function rowsOf(snapshot: Snapshot): Array<[string, number | undefined]> {
     ["Total fallback: markers", snapshot.defense.totalFallback],
     ["Valid only when markers", snapshot.defense.validOnlyWhen],
     ["interior validation sites", snapshot.defense.interiorValidation],
+    // The registry's LENGTH, not a coupling score: it rises when the
+    // tree gains a crossing somebody argued for, and that is not a
+    // regression. What gates is membership, in both directions.
+    ["registered crossings", snapshot.crossings.registered],
     // "(declared)" because nothing scans `tests/`: this row is the
     // length of a hand-written list, and a row that reads as measured
     // when it is not is the one thing this scorecard must not print.
     ["agreement harnesses (declared)", snapshot.harnesses.length],
+    // The other half of the unused-export count. knip reads a test as
+    // a consumer, so its zero says "nothing is orphaned", not
+    // "everything is used by the parser". This row is the difference,
+    // and the gate is that every one of them says `@internal`.
+    ["src exports with no src consumer", snapshot.internal.testOnly],
+    // The conformance pin, both halves on the table: the manifest's
+    // length and the number written down for it. Two rows rather than
+    // a delta, because the pin is the reviewed artefact — seeing them
+    // side by side is how a reader tells "200 because we said 200"
+    // from "200 because triage wrote 200".
+    ["quarantined conformance cases", snapshot.conformance.quarantined],
+    ["conformance quarantine pin", snapshot.conformance.pin],
+    // The minimums file's SIZE, not its numbers: the scorecard never
+    // runs the suite, so it can say how many files have a recorded
+    // minimum and how many gaps are classified, and nothing about
+    // whether the minimums hold. `bun run coverage` and
+    // `bun run mutate` check that.
+    ["files with recorded minimums", snapshot.minimums.recorded],
+    ["classified minimum exceptions", snapshot.minimums.exceptions],
     ["knip unused exports in src", snapshot.dead.unusedExports],
     ["knip unused exports in scripts", snapshot.dead.unusedScriptExports],
     ["jscpd duplicated %", snapshot.dead.duplicatedPercent],
@@ -225,7 +247,7 @@ function printTable(head: Snapshot, base: Snapshot | undefined): void {
 /**
  * Name the functions over the cyclomatic tail, under the table.
  *
- * That row is report-only (Ruling 35), and a report-only number is
+ * That row is report-only, and a report-only number is
  * only useful if it says WHICH functions: a flat dispatch over a
  * discriminated union and a genuinely branchy function score the same,
  * and only a reader can tell them apart.
@@ -241,6 +263,103 @@ function printOffenders(head: Snapshot): void {
   process.stdout.write(
     `\nfunctions over cyclomatic ${String(tail)} (report-only — read them, do not chase the number):\n${lines.join("\n")}\n`,
   );
+}
+
+/**
+ * Say so when there are no CONTRACT rows at all.
+ *
+ * An empty section that prints nothing reads as a section nobody
+ * filled in. This one is a RESULT: the two contracts dissolved when
+ * the readers became pure functions, and `src` now declares no
+ * interface an implementer satisfies. The scorecard says that in
+ * words, so a reader is not left to infer it from absence.
+ * @param head - the snapshot for this checkout
+ */
+function printContractNote(head: Snapshot): void {
+  if (head.seams.some((seam) => seam.kind === "contract")) return;
+  process.stdout.write(
+    "\nno CONTRACT rows: src declares no interface an implementer satisfies, so there is no width to budget (scripts/metrics/design.ts says why, and when the rows come back)\n",
+  );
+}
+
+/**
+ * Print the pinned censuses, neutrally.
+ *
+ * DIRECTIONLESS by ruling, and the phrasing carries it: a census is
+ * an equality pin, not a budget, so the row says "pin holds" or "pin
+ * moved" and never "up", "down", "improved" or "regressed". 33 node
+ * kinds instead of 30 is fine; a bigger grid is not a win and a
+ * smaller one is not a loss — what is not fine is either moving
+ * without anybody noticing, which is the only thing this section is
+ * for. (A moved pin also FAILS, in `metrics/shape-census.ts`; this
+ * section is what a human reads on a green run.)
+ * @param foreignRoot - whether `--root` pointed somewhere else, in
+ *   which case the pins do not describe the measured checkout
+ */
+async function printCensus(foreignRoot: boolean): Promise<void> {
+  if (foreignRoot) return;
+  const { censusPins } = await import("./metrics/shape-census.js");
+  const lines = censusPins().map(
+    ({ what, realized, pinned }) =>
+      `  ${what.padEnd(NAME_WIDTH)}${String(realized).padStart(TAIL_WIDTH)}  ${realized === pinned ? "pin holds" : `pin moved (written down: ${String(pinned)})`}`,
+  );
+  process.stdout.write(
+    `\ncensus pins (equality pins, not budgets — neither direction is a win; the node-kind census is pinned in tests/parser/architecture.test.ts):\n${lines.join("\n")}\n`,
+  );
+}
+
+/** The unread-field check's two outputs: what to print, and what fails. */
+interface UnreadGate {
+  /** The printable block, empty under a foreign `--root`. */
+  readonly report: string;
+  /** One line per unread published field; empty means the gate holds. */
+  readonly failures: readonly string[];
+}
+
+/**
+ * Measure the unread published fields: the report, and what it GATES.
+ *
+ * ARMED, 2026-08-24. It landed report-only under the maintainer's
+ * ruling — "a precision check that fires on the tree it was written
+ * against teaches reviewers to ignore it" — and the condition for
+ * arming it was that it be observed QUIET. It has one candidate left
+ * to spend, `Attrlist.raw`, and the commit that arms this deletes it,
+ * so the report reads `none` and every candidate from here on is a
+ * NEW one: a field published across a directory boundary and read by
+ * nobody. The serialized-types exemption (`unread-fields.ts`'s
+ * `SERIALIZED`) is unchanged and stays a CLASS, not a name list.
+ *
+ * `unscanned` stays a printed diagnostic rather than a gate. It says
+ * the check did not run for a registered type, which is a 2-shaped
+ * condition and not a 1-shaped one, and the only way it can happen at
+ * any scale — a `src` that did not load — is already the scorecard's
+ * `measuredNothing` floor, which exits 2 before this runs.
+ * @param foreignRoot - whether `--root` pointed somewhere else, in
+ *   which case neither the registry nor the exemption describes it
+ * @returns the printable report and one gate failure per unread field
+ */
+async function unreadFields(foreignRoot: boolean): Promise<UnreadGate> {
+  if (foreignRoot) return { report: "", failures: [] };
+  const { unreadPublishedFields } = await import("./metrics/unread-fields.js");
+  const { candidates, unscanned, examined } = unreadPublishedFields(REPO_ROOT);
+  const lines = candidates.map(
+    (field) => `  ${field.type}.${field.property} (${field.where})`,
+  );
+  const body =
+    lines.length === ZERO
+      ? "  none"
+      : `${lines.join("\n")}\n  a published field NOTHING reads: delete it, or give it a reader, or say here why it stays`;
+  const notExamined =
+    unscanned.length === ZERO
+      ? ""
+      : `  not examined:\n    ${unscanned.join("\n    ")}\n`;
+  return {
+    report: `\nunread published fields, ${String(examined)} examined (a field on a registered crossing that NOTHING reads):\n${body}\n${notExamined}`,
+    failures: candidates.map(
+      (field) =>
+        `unread published field: ${field.type}.${field.property} (${field.where}) is published across a directory boundary and read by nobody`,
+    ),
+  };
 }
 
 /** What the command line asked for. */
@@ -370,11 +489,16 @@ function parseOrExplain(argv: string[]): Options | string {
  * scorecard, and fail on a gate or a ratchet.
  */
 async function main(): Promise<void> {
-  const options = parseOrExplain(process.argv.slice(ARGUMENT_START));
+  const argv = process.argv.slice(ARGUMENT_START);
+  if (wantsHelp(argv)) {
+    printUsage(USAGE);
+    return;
+  }
+  const options = parseOrExplain(argv);
   if (typeof options === "string") {
-    // A usage mistake deserves one line, not a stack trace.
-    process.stderr.write(`${options}\n`);
-    process.exitCode = FAILURE;
+    // A usage mistake deserves one line, not a stack trace — and it is
+    // a 2, not a 1: nothing was measured, so nothing was proved.
+    cannotRun(options);
     return;
   }
   const workDirectory = mkdtempSync(path.join(tmpdir(), "metrics-config-"));
@@ -393,9 +517,18 @@ async function main(): Promise<void> {
       // us" and silently switch three hard gates off.
       repository: !options.foreignRoot,
     });
+    const floor = measuredNothing(head);
+    if (floor !== undefined) {
+      cannotRun(floor);
+      return;
+    }
     let base: Snapshot | undefined = undefined;
     if (options.base !== undefined) {
-      baseDirectory = materialize(options.base);
+      baseDirectory = materialize({
+        revision: options.base,
+        prefix: "metrics-base-",
+        install: false,
+      });
       base = await measure({
         directory: baseDirectory,
         label: options.base,
@@ -407,6 +540,11 @@ async function main(): Promise<void> {
         repository: false,
       });
     }
+    // Measured BEFORE the report/JSON fork, and gated after it: the
+    // scorecard's gates do not depend on which way it was asked to
+    // print, and `--json` must not be a way to skip one. Printing is
+    // the caller's, so `--json` stays machine-readable.
+    const unread = await unreadFields(options.foreignRoot);
     if (options.json) {
       process.stdout.write(
         `${JSON.stringify({ base, head }, undefined, JSON_INDENT)}\n`,
@@ -414,16 +552,34 @@ async function main(): Promise<void> {
     } else {
       printTable(head, base);
       printOffenders(head);
+      printContractNote(head);
+      // Late import for the same reason the census GATE is imported
+      // late below: `shape-census.ts` statically imports
+      // `src/parse/line-shapes.js`, so an emptied `src` would make the
+      // whole scorecard fail to LOAD.
+      await printCensus(options.foreignRoot);
+      process.stdout.write(unread.report);
     }
-    const failures = gateFailures(head, base);
+    const failures = [...gateFailures(head, base), ...unread.failures];
     // The shape census reads THIS repository's registry and
     // line-shapes module (live imports), so a foreign --root checkout
     // is measured and not judged by it — same stance as the other
     // hand-maintained registries (metrics/gates.ts).
-    if (!options.foreignRoot) failures.push(...shapeCensusFailures());
+    //
+    // Imported HERE rather than at the top of the file, and this is
+    // load-bearing: `shape-census.ts` imports `src/parse/line-shapes.js`
+    // statically, so a missing or emptied `src` makes the whole
+    // scorecard fail to LOAD — before `main` runs, with a module
+    // resolution error and exit 1, which reads as a failing gate. The
+    // late import puts that failure after the floor above, where it
+    // becomes the 2 it is.
+    if (!options.foreignRoot) {
+      const { shapeCensusFailures } = await import("./metrics/shape-census.js");
+      failures.push(...shapeCensusFailures());
+    }
     if (failures.length > ZERO) {
       process.stderr.write(`${failures.join("\n")}\n`);
-      process.exitCode = FAILURE;
+      process.exitCode = GATE_FAILED;
     }
   } finally {
     rmSync(workDirectory, { recursive: true, force: true });
@@ -433,4 +589,11 @@ async function main(): Promise<void> {
   }
 }
 
-await main();
+try {
+  await main();
+} catch (error) {
+  // Everything that reaches here failed to MEASURE: an unknown
+  // `--base` that `git archive` refused, a tool that would not start.
+  // None of it is evidence about the code, so it is a 2.
+  cannotRun(error instanceof Error ? error.message : String(error));
+}

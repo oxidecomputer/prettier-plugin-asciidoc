@@ -1,7 +1,7 @@
 /**
  * Conditional preprocessor directives (`ifdef`, `ifndef`, `ifeval`,
  * `endif`). Asciidoctor's `PreprocessorReader#process_line`
- * (reader.rb:819) matches `ConditionalDirectiveRx` and `shift`s the
+ * (reader.rb:824) matches `ConditionalDirectiveRx` and `shift`s the
  * line off the stream BEFORE `Parser.next_block` ever sees it, so a
  * directive is never a block of its own. The formatter cannot resolve
  * the condition (it has no attribute values), so it keeps the line

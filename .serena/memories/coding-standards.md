@@ -21,11 +21,10 @@ ESLint is strict. Rules that affect how you write code:
 - `max-lines: 450` (from eslint-config-love) — blank lines and comments are
   excluded from the count. **Never condense or remove comments to fit the
   limit.** Instead, split the file into smaller modules. Comments are critical
-  for understanding the code. One ruled, file-scoped exception:
-  `src/parse/lines/reader.ts` is capped at `max-lines: 500` instead
-  (`eslint.config.js`), ruled during plan α because the file had absorbed a
-  whole module's responsibility; plan β retires the override by restructuring
-  the file.
+  for understanding the code. There is no file-scoped exception left: the one
+  that existed (a 500-line cap on `src/parse/lines/reader.ts`, which had
+  absorbed a whole module's responsibility) was retired by restructuring the
+  file, and `eslint.config.js` carries no `max-lines` override.
 
 ## Code Comments
 
@@ -93,9 +92,9 @@ suppression beyond the current ceiling. The rules are textual and blunt and they
 read comments too: if one fires on a comment, reword the comment — do not weaken
 the rule or exempt a file.
 
-Reflow safety (`src/reflow.ts`) consumes the same registry, so the parser and
-the formatter's word-wrapping can never disagree about what would re-parse as
-block syntax. See "Line classification is contextual" in `docs/design.md`.
+Reflow safety (`src/print/reflow.ts`) consumes the same registry, so the parser
+and the formatter's word-wrapping can never disagree about what would re-parse
+as block syntax. See "Line classification is contextual" in `docs/design.md`.
 
 ## Writing Style
 

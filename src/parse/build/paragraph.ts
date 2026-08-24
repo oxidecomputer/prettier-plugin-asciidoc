@@ -14,6 +14,7 @@ import type {
   DelimitedBlockNode,
   Location,
   ParagraphNode,
+  VerbatimVariant,
 } from "../../ast.js";
 import { FIRST_COLUMN, FIRST_LINE } from "../../constants.js";
 import { buildFromTokens } from "../inline/inline-node-builder.js";
@@ -71,7 +72,7 @@ const COLON_SPACE_LEN = 2;
 
 /**
  * Builds an AdmonitionNode from a paragraph-form admonition. The body
- * keeps the SAME inline children a paragraph has (spec D7) — the
+ * keeps the SAME inline children a paragraph has — the
  * tokens are in hand at the reader's call site; no per-line
  * flattening remains. Position: start at the label, end at the last
  * content token (label end when the body is empty) — unchanged.
@@ -104,28 +105,36 @@ export function buildAdmonitionParagraph(
  * An indented literal paragraph: the reader's run of indented lines,
  * joined with newlines. Each line keeps its leading spaces, which is
  * what makes the content verbatim.
- * @param lines - the run's lines, in order, each the whole raw line
+ *
+ * The run's first line is its own parameter, the same way
+ * {@link buildStyledParagraph} takes one: the run cannot be empty —
+ * literalParagraphExtent opens it ON the indented line — and saying so
+ * in the signature makes `rest.at(-1) ?? first` a total answer instead
+ * of a guard the run's non-emptiness had to be trusted for.
+ * @param first - the run's first (indented) line
+ * @param rest - the run's remaining lines, in order; empty for a
+ *   one-line paragraph
  * @param at - the document's location index
  * @returns a literal delimited block in indented form
  */
 export function buildLiteralParagraph(
-  lines: readonly Fragment[],
+  first: Fragment,
+  rest: readonly Fragment[],
   at: LocationIndex,
 ): DelimitedBlockNode {
-  const [first] = lines;
-  const last = lines.at(-1) ?? first;
+  const last = rest.at(-1) ?? first;
   return {
     type: "delimitedBlock",
     variant: "literal",
     form: "indented",
-    content: lines.map((line) => line.image).join("\n"),
+    content: [first, ...rest].map((line) => line.image).join("\n"),
     position: { start: at.start(first), end: at.end(last) },
   };
 }
 
 /**
  * A verbatim-styled paragraph, built at OPEN from the lines the
- * `verbatimStyled` extent consumed (spec D4c): content is the source
+ * `verbatimStyled` extent consumed: content is the source
  * slice from the first content line's start to the last line's raw
  * end (no trailing newline), so the bytes are the author's. The
  * extent's non-emptiness lives in the SIGNATURE — the first line is
@@ -141,7 +150,7 @@ export function buildLiteralParagraph(
  * @returns a verbatim block in paragraph form
  */
 export function buildStyledParagraph(
-  variant: DelimitedBlockNode["variant"],
+  variant: VerbatimVariant,
   first: Fragment,
   rest: readonly Fragment[],
   at: LocationIndex,
@@ -158,8 +167,8 @@ export function buildStyledParagraph(
 
 /**
  * A paragraph-form block built where the reader was ABOUT to build a
- * paragraph and a held non-verbatim paragraph-form style spoke (spec
- * D4c): same extent the paragraph would have had (the tokens were
+ * paragraph and a held non-verbatim paragraph-form style spoke: same
+ * extent the paragraph would have had (the tokens were
  * read with the paragraph's own context), content by source slice —
  * byte-identical to the deleted post-pass conversion, minus the
  * serializer (#40).
@@ -170,7 +179,7 @@ export function buildStyledParagraph(
  * @returns a delimited block in paragraph form
  */
 export function buildParagraphFormBlock(
-  variant: DelimitedBlockNode["variant"],
+  variant: VerbatimVariant,
   tokens: readonly InlineToken[],
   source: string,
   at: LocationIndex,

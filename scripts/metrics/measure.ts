@@ -15,9 +15,13 @@
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { measureComplexity } from "./complexity.js";
+import { readConformance } from "./conformance.js";
+import { readCrossings } from "./crossings.js";
 import { readDeadCode } from "./dead-code.js";
 import { readDesign } from "./design.js";
+import { readMinimumsFacts } from "./score-minimums.js";
 import { cruiseImports } from "./graph.js";
+import { readInternalSurface } from "./internal-surface.js";
 import {
   layersFor,
   ONE,
@@ -153,6 +157,7 @@ export async function measure(measurement: Measurement): Promise<Snapshot> {
   const files = walkTypeScript(path.join(directory, "src")).toSorted();
   const scans = files.map((file) => scanFile(directory, file));
   const design = readDesign(directory);
+  const boundaries = readCrossings(directory);
   const graph = await cruiseImports(directory);
   const { cyclomatic, cognitive, cyclomaticOver } = measureComplexity(
     directory,
@@ -172,6 +177,7 @@ export async function measure(measurement: Measurement): Promise<Snapshot> {
       exportedSymbols: total(scans, (scan) => scan.exports),
       starExports: total(scans, (scan) => scan.starExports),
       unresolved: [...graph.unresolved, ...graph.selfImports],
+      layerViolations: graph.layerViolations,
     },
     hatches: {
       eslintDisable: total(scans, (scan) => scan.disables),
@@ -190,7 +196,19 @@ export async function measure(measurement: Measurement): Promise<Snapshot> {
       registryFaults: [...design.registryFaults],
       markerNearMisses: nearMisses(scans),
     },
+    crossings: {
+      registered: boundaries.registered,
+      unregistered: [...boundaries.unregistered],
+      stale: [...boundaries.stale],
+      faults: [...boundaries.faults],
+    },
     harnesses: [...design.harnesses],
+    internal: readInternalSurface(directory),
+    conformance: readConformance(directory),
+    minimums: readMinimumsFacts(
+      directory,
+      scans.map((scan) => scan.path),
+    ),
     dead: readDeadCode(directory, duplication),
   };
 }

@@ -1,9 +1,9 @@
 /**
- * The D10(d) containment-byte characterization fixtures: the two
+ * The containment-byte characterization fixtures: the two
  * facts the section container used to enforce invisibly, kept as
  * visible pairwise stacking rules and byte-frozen here. The corpus
  * cannot adjudicate ANY of this (zero flatten-created sibling pairs
- * on either arm over all 1,614 cases — spec D10(d)), so these rows
+ * on either arm over all 1,614 cases), so these rows
  * and the shape-diff heading-adjacency matrix are the ONLY nets.
  * Every input's expectation is 594dc598's measured output except the
  * two recorded divergences (R1, R2), whose comments carry the
@@ -46,7 +46,9 @@ describe("keep-blank rows: the post-heading blank is FROZEN SPELLING at level >=
     // identical today; the pseudo-anchor suppression keeps it so.
     const input = "== A\n\n[[3-blind-mice]]\n\n== B\n";
     await expectBytes(input, input);
-    expect(renderedHtml(await formatAdoc(input))).toBe(renderedHtml(input));
+    expect(await renderedHtml(await formatAdoc(input))).toBe(
+      await renderedHtml(input),
+    );
   });
 });
 
@@ -86,7 +88,7 @@ describe("keep-stacking rows: level 0 is SEMANTIC (the document header) and genu
   test("a pseudo-anchor before `= T` still stacks (the guard is keyed level >= 1)", async () => {
     // First-pass bytes only, deliberately: the stacked spelling's
     // SECOND pass joins to "[[3-blind-mice]] = T" — a PRE-EXISTING
-    // non-idempotence at 594dc598 (G8(b)), out of β's scope. What
+    // non-idempotence at 594dc598, out of scope here. What
     // this row pins is that the pseudo-anchor suppression does NOT
     // fire at level 0.
     const output = await formatAdoc("[[3-blind-mice]]\n\n= T\n");
@@ -136,7 +138,7 @@ describe("insurance rows", () => {
   });
 
   test("a list ending in a reader-eaten line ABSORBS the next heading (no pair arises)", async () => {
-    // Audit context (spec D10(d)): `== B` is INSIDE the item for
+    // Audit context: `== B` is INSIDE the item for
     // Asciidoctor, because the reader never sees the directive — so
     // no list-boundary pair exists in either direction.
     const input = "== A\n* a\n+\nifdef::x[]\n== B\n";
@@ -144,20 +146,23 @@ describe("insurance rows", () => {
   });
 });
 
-describe("recorded divergence R1 (plan G8(d)): the TOP-LEVEL pseudo-anchor pair", () => {
-  test("a top-level pseudo-anchor blank-separated before a heading keeps its blank (byte change vs base, by ruling)", async () => {
+describe("recorded divergence R1: the TOP-LEVEL pseudo-anchor pair", () => {
+  test("a top-level pseudo-anchor blank-separated before a heading keeps its blank (a deliberate byte change vs base)", async () => {
     // At 594dc598 this pair — with NO preceding section — already
     // stacks and DESTROYS the heading: base output is
     // "[[3-blind-mice]]\n== B\n", whose second pass joins to
     // "[[3-blind-mice]] == B\n". Post-flatten it is pairwise
-    // INDISTINGUISHABLE from the A1 row above, so the owner-mandated
+    // INDISTINGUISHABLE from the A1 row above, so the pseudo-anchor
     // guard fires here too. The new bytes are a strict improvement —
     // render fidelity AND idempotence newly hold — and this row is
     // the divergence's named net (it is excluded from the shape-diff
-    // product; plan ruling R1, reported as a spec-gap finding).
+    // product; recorded divergence R1, reported as a conformance-gap
+    // finding).
     const input = "[[3-blind-mice]]\n\n== B\n";
     await expectBytes(input, input);
-    expect(renderedHtml(await formatAdoc(input))).toBe(renderedHtml(input));
+    expect(await renderedHtml(await formatAdoc(input))).toBe(
+      await renderedHtml(input),
+    );
   });
 });
 
@@ -205,7 +210,9 @@ describe("recorded divergence R2: the HOISTED-RAW-LINE heading pair", () => {
     ],
   ])("%s gains the separating blank", async (_name, input, expected) => {
     await expectBytes(input, expected);
-    expect(renderedHtml(await formatAdoc(input))).toBe(renderedHtml(input));
+    expect(await renderedHtml(await formatAdoc(input))).toBe(
+      await renderedHtml(input),
+    );
   });
 
   test.each([
@@ -221,6 +228,8 @@ describe("recorded divergence R2: the HOISTED-RAW-LINE heading pair", () => {
     ],
   ])("%s keeps the base bytes", async (_name, input, expected) => {
     await expectBytes(input, expected);
-    expect(renderedHtml(await formatAdoc(input))).toBe(renderedHtml(input));
+    expect(await renderedHtml(await formatAdoc(input))).toBe(
+      await renderedHtml(input),
+    );
   });
 });

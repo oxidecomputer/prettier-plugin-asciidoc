@@ -1,8 +1,8 @@
 node_modules/
 dist/
 .claude/
-# Local copy of the AsciiDoc pre-spec PDF (3.2 MB binary; see
-# docs/gap-analysis.md "Source" for the download URL).
+# Local copy of the AsciiDoc pre-spec PDF (3.2 MB binary; download
+# URL in CLAUDE.md's Roadmap section).
 docs/asciidoc-pre-spec.pdf
 # Mutation testing output: the html/json reports and the incremental
 # file (a cache of last run's mutant results, machine-local by nature).
