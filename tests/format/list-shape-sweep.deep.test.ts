@@ -6,7 +6,7 @@
  * `list-shape-sweep.test.ts`: same alphabet, same named shapes, same
  * verdict, same strict set-equality against the same allowlist. It ran
  * in `bun run test` and owned the suite's entire wall time; it now runs
- * under `bun run sweep:deep`, in CI's blocking `gates` job, and as the
+ * under `bun run test:deeply-nested-lists`, in CI's blocking `gates` job, and as the
  * prelude to `bun run mutate` and `bun run mutate:full` so a mutation
  * baseline is never taken without it.
  *

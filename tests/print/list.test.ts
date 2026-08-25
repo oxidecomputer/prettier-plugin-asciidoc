@@ -20,7 +20,7 @@ import {
   tailSwallowsMarker,
 } from "../../src/print/list.js";
 import { parse } from "../../src/parser.js";
-import { narrow } from "../../src/unreachable.js";
+import { narrow } from "../../src/narrow.js";
 import type { ListItemNode, ListNode } from "../../src/ast.js";
 
 /**

@@ -60,15 +60,10 @@ const REGISTRY_FILE = "scripts/metrics/crossings-registry.json";
  * Declaring files whose crossings need no row: the tree's declared
  * universal vocabulary. `ast.ts` is the shape everything downstream of
  * the reader produces or consumes, `constants.ts` is the shared
- * numbers, and `unreachable.ts` is one function every layer may throw
- * through. Exempting them is a JUDGEMENT, written down here rather
+ * numbers. Exempting them is a JUDGEMENT, written down here rather
  * than implied by a threshold.
  */
-const UNIVERSAL = new Set([
-  "src/ast.ts",
-  "src/constants.ts",
-  "src/unreachable.ts",
-]);
+const UNIVERSAL = new Set(["src/ast.ts", "src/constants.ts"]);
 
 /** The symbol name a namespace or star re-export crosses under. */
 const STAR = "*";

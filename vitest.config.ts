@@ -15,7 +15,7 @@ export default defineConfig({
     // `**/*.deep.test.ts` is the OTHER entry: the exhaustive depth-5
     // list-shape sweep, 111,121 documents and 25.6 s of what used to
     // be a 26.1 s suite. It is not weakened by living outside the
-    // default run — it is a blocking CI step (`bun run sweep:deep`)
+    // default run — it is a blocking CI step (`bun run test:deeply-nested-lists`)
     // and the prelude to every mutation run — but a suite whose wall
     // time is one test is a suite nobody runs on every save. What
     // stays here is the same sweep at depth 4, which is what the

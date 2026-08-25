@@ -11,7 +11,7 @@
  * show it, and no single number can. The rows are paired so that
  * gaming one moves another the wrong way — code lines next to comment
  * lines, cyclomatic next to cognitive, import edges next to exported
- * symbols. `docs/simplicity-metrics.md` has the full scorecard, the
+ * symbols. `docs/harnesses.md` has the full scorecard, the
  * anti-gaming table, and the references.
  *
  * Metrics are instrumentation, not the objective. A row that moves the
@@ -45,7 +45,7 @@
  * The seam, defense and harness rows are BUDGETS WE MAINTAIN, not
  * numbers a tool discovers: the seam list, the interior-validation
  * registry and the harness list are written by hand in
- * `metrics/design.ts` and reviewed. See `docs/simplicity-metrics.md`.
+ * `metrics/design.ts` and reviewed. See `docs/harnesses.md`.
  *
  * This file is the command line only: argument parsing, materializing
  * the base revision, running the measurement, printing. The measuring

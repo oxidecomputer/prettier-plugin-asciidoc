@@ -8,7 +8,7 @@
  */
 import { describe, test, expect } from "vitest";
 import { parse } from "../../src/parser.js";
-import { narrow } from "../../src/unreachable.js";
+import { narrow } from "../../src/narrow.js";
 
 describe("document title parsing", () => {
   // The document title is a level-0 heading using a single `=` marker.

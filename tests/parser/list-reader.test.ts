@@ -33,7 +33,10 @@ function shapeOf(source: string): {
   if (opening.kind !== "listMarker") {
     throw new Error(`not a marker line: ${JSON.stringify(lines[0].text)}`);
   }
-  const shape = listShape(lines, 0, opening, true);
+  const shape = listShape(lines, 0, opening, {
+    tailSafe: true,
+    gaps: new Map(),
+  });
   return {
     items: shape.items.map((item) => ({
       marker: item.markerLine.text,
@@ -92,6 +95,36 @@ describe("listShape walks siblings and stops at anything else", () => {
   test("a trailing `+` that attached nothing leaves the buffer empty", () => {
     expect(shapeOf("* a\n+\n").items[0].buffer).toEqual([]);
   });
+
+  test("every sibling's marker is parsed from ITS OWN line", () => {
+    // The loop's `siblingMarker` answers with the parse, so the second
+    // item's indent and markerEnd are the second LINE's — the fragment
+    // the printer spells the marker from. Copying the opening's parse
+    // forward would put this item's text at column 3.
+    const lines: readonly SourceLine[] = splitLines("* a\n  * b\n");
+    const opening = classifyLine(lines[0].text, BLOCK_START_CONTEXT);
+    if (opening.kind !== "listMarker") throw new Error("not a marker line");
+    const shape = listShape(lines, 0, opening, {
+      tailSafe: true,
+      gaps: new Map(),
+    });
+    expect(shape.items.map((item) => item.marker)).toEqual([
+      {
+        kind: "listMarker",
+        variant: "unordered",
+        style: "*",
+        indent: 0,
+        markerEnd: 2,
+      },
+      {
+        kind: "listMarker",
+        variant: "unordered",
+        style: "*",
+        indent: 2,
+        markerEnd: 4,
+      },
+    ]);
+  });
 });
 
 /**
@@ -112,7 +145,13 @@ function blockAt(startLine: number, endLine: number): BlockNode {
 }
 
 describe("gapsOf", () => {
-  const lines = splitLines("* a\n+\n\npara\n\n  lit\n");
+  // The record for "* a\n+\n\npara\n\n  lit\n": the scan erased the
+  // `+` on line 2 and consumed the blanks on lines 3 and 5.
+  const record = new Map<number, GapLine>([
+    [2, "+"],
+    [3, ""],
+    [5, ""],
+  ]);
   test.each<[string, number, BlockNode[], GapLine[][]]>([
     ["adjacent block: empty gap", 1, [blockAt(2, 2)], [[]]],
     ["+ then blank before the block", 1, [blockAt(4, 4)], [["+", ""]]],
@@ -122,15 +161,26 @@ describe("gapsOf", () => {
       [blockAt(4, 4), blockAt(6, 6)],
       [["+", ""], [""]],
     ],
+    // Both ends exclusive: a line recorded ON the previous piece's last
+    // line is that piece's own, so it opens no gap.
+    ["an entry ON the boundary is in no gap", 2, [blockAt(4, 4)], [[""]]],
   ])("%s", (_name, textEnd, blocks, expected) => {
-    expect(gapsOf(lines, textEnd, blocks)).toEqual(expected);
+    expect(gapsOf(record, textEnd, blocks)).toEqual(expected);
   });
 
-  test("a content line inside a gap is unreachable — a reader bug, not an input", () => {
-    const withContent = splitLines("* a\ncontent\npara\n");
-    expect(() => gapsOf(withContent, 1, [blockAt(3, 3)])).toThrow(
-      "list-item gap holds",
-    );
+  test("entries come back in line order whatever order they were recorded", () => {
+    const outOfOrder = new Map<number, GapLine>([
+      [3, ""],
+      [2, "+"],
+    ]);
+    expect(gapsOf(outOfOrder, 1, [blockAt(4, 4)])).toEqual([["+", ""]]);
+  });
+
+  test("a line nothing recorded is not in any gap", () => {
+    // A hole in the record shortens the gap silently — the degrade
+    // gapsOf documents; parity and idempotence are the nets for it.
+    const holey = new Map<number, GapLine>([[2, "+"]]);
+    expect(gapsOf(holey, 1, [blockAt(4, 4)])).toEqual([["+"]]);
   });
 });
 

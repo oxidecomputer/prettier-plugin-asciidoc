@@ -271,7 +271,7 @@ describe("inline formatting — blank line normalisation", () => {
 });
 
 // Where BOTH spellings are legal they render the same, so the printer
-// writes the constrained one — the rule docs/design.md has promised
+// writes the constrained one — the rule docs/architecture.md has promised
 // since the beginning. Legality is Ruby's own: the constrained quote
 // patterns (`QUOTE_SUBS`, asciidoctor.rb l.448-464) are
 // `(^|[^\w;:}])(?:\[…\])?\*(\S|\S.*?\S)\*(?!\w)`.

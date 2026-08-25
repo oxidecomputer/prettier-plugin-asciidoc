@@ -161,9 +161,13 @@ describe("the rule table, by hand", () => {
   // thing that makes INLINE_KINDS the specification of that order is
   // this assertion. Reading the tokenizer's output cannot see it — a
   // table in a different order agrees with the fixture wherever no
-  // two rules can match at the same position.
-  test("is built in INLINE_KINDS order, one rule per kind", () => {
-    expect(INLINE_RULES.map((rule) => rule.type)).toEqual([...INLINE_KINDS]);
+  // two rules can match at the same position. InlineChar is excluded:
+  // it is the tokenizer's else branch for a position no rule claims,
+  // not a row in the table.
+  test("is built in INLINE_KINDS order, one rule per kind but InlineChar", () => {
+    expect(INLINE_RULES.map((rule) => rule.type)).toEqual(
+      [...INLINE_KINDS].filter((kind) => kind !== "InlineChar"),
+    );
   });
 
   test.each([

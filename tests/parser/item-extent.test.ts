@@ -5,7 +5,11 @@
  * and format suites — THIS table is the branch-level specification.
  */
 import { describe, expect, test } from "vitest";
-import { itemExtent } from "../../src/parse/lines/list-reader.js";
+import type { GapLine } from "../../src/ast.js";
+import {
+  itemExtent,
+  type GapRecord,
+} from "../../src/parse/lines/list-reader.js";
 import { splitLines } from "../../src/parse/lines/split.js";
 import type { SiblingTrait } from "../../src/parse/lines/classify.js";
 
@@ -35,7 +39,7 @@ function scan(
     lines,
     from,
     { kind: "marker", style },
-    { tailSafe: bounds.tailSafe ?? true },
+    { tailSafe: bounds.tailSafe ?? true, gaps: new Map() },
   );
   return {
     buffer: extent.buffer.map((line) => line.text),
@@ -349,8 +353,54 @@ describe("itemExtent: one row per read_lines_for_list_item branch", () => {
 
   test("erasure blanks text only — offsets and raw stay intact", () => {
     const lines = splitLines("* a\n+\npara\n");
-    const { buffer } = itemExtent(lines, 1, MARKER_TRAIT, { tailSafe: true });
+    const { buffer } = itemExtent(lines, 1, MARKER_TRAIT, {
+      tailSafe: true,
+      gaps: new Map(),
+    });
     expect(buffer[0]).toMatchObject({ text: "", raw: "+", offset: 4, line: 2 });
+  });
+});
+
+/**
+ * The scan's ONE declared side effect: the separator lines it consumes
+ * are reported into the shared gap record, spelled by the arm that
+ * consumed them (src/print/list.ts replays that spelling). These rows
+ * read the record itself, which the `scan` helper above throws away.
+ */
+describe("itemExtent records the separator lines it consumes", () => {
+  /**
+   * Scan a document with a record of its own and read the record back.
+   * @param source - the whole document; its first line is the marker
+   * @returns every recorded line, in line order
+   */
+  function gapsFrom(source: string): Array<[number, GapLine]> {
+    const gaps: GapRecord = new Map();
+    itemExtent(splitLines(source), 1, MARKER_TRAIT, { tailSafe: true, gaps });
+    return [...gaps].toSorted(([a], [b]) => a - b);
+  }
+
+  test.each<[string, string, Array<[number, GapLine]>]>([
+    [
+      "a plain content line separates nothing and is recorded nowhere",
+      "* a\nb\n",
+      [],
+    ],
+    [
+      "an erased + is recorded as the + it was, not as the blank it became (l.1439)",
+      "* a\n+\npara\n",
+      [[2, "+"]],
+    ],
+    [
+      "every line of a blank run is recorded — the first by the final else, the second by the after-blank arm, the third by skip_blank_lines (l.1515)",
+      "* a\n\n\n\n  lit\n",
+      [
+        [2, ""],
+        [3, ""],
+        [4, ""],
+      ],
+    ],
+  ])("%s", (_name, source, expected) => {
+    expect(gapsFrom(source)).toEqual(expected);
   });
 });
 

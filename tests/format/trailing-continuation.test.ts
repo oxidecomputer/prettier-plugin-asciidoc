@@ -28,6 +28,14 @@ describe("a + that attached nothing does not come back", () => {
       "* a\n\npara\n",
     ],
     ["an item whose text wrapped onto a second line", "* a\nb\n+\n", "* a b\n"],
+    [
+      // A DELIMITED block re-reads inside its own delimiters, so it
+      // cannot carry the `+` past the item the way an indented literal's
+      // slurp does — only `form === "indented"` keeps the byte.
+      "behind a delimited block the + DID attach",
+      "* a\n+\n----\nx\n----\n+\n",
+      "* a\n+\n----\nx\n----\n",
+    ],
   ])("%s", async (_name, input, expected) => {
     const out = await formatAdoc(input);
     expect(out).toBe(expected);
@@ -57,6 +65,14 @@ describe("a + the reader cannot prove inert comes back", () => {
     [
       "behind a paragraph that swallowed a marker",
       "* a\n+\npara\n** b\n+\n+\n",
+    ],
+    [
+      // The same tail with NOTHING frozen behind it, so the item's one
+      // block is the mixed paragraph itself: prose plus the raw line it
+      // swallowed. ONE raw child among them is what reads on past the
+      // item — the block does not have to be raw lines throughout.
+      "behind a paragraph that is part prose, part swallowed marker",
+      "* a\n+\npara\n** b\n+\n",
     ],
     ["behind a literal and a raw line", "* a\n[role]\n  lit\n** b\n+\n+\n"],
   ])("%s", async (_name, input) => {

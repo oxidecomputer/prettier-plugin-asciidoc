@@ -22,8 +22,6 @@
  * (blockLine), `read_paragraph_lines` (paragraph-reader.ts).
  */
 import type { BlockNode, DocumentNode, ListItemNode } from "../../ast.js";
-import { isReaderConsumedLine } from "../../block-metadata.js";
-import { parseAttrlist, type Attrlist } from "../attrlist.js";
 import {
   buildDelimitedAdmonition,
   buildParentBlock,
@@ -53,13 +51,14 @@ import {
   type MarkerKind,
 } from "./classify.js";
 import { blockExtentOf, delimitedExtent } from "./delimited-reader.js";
+import { fragmentOfLine, isLeafKind, leafBuilder } from "./frames.js";
+import { HeldMetadata } from "./held-metadata.js";
+import { listItemNode } from "./list-item-node.js";
 import {
-  fragmentOfLine,
-  heldMetadataNode,
-  isLeafKind,
-  leafBuilder,
-} from "./frames.js";
-import { listItemNode, listShape, type ListItemShape } from "./list-reader.js";
+  type GapRecord,
+  listShape,
+  type ListItemShape,
+} from "./list-reader.js";
 import {
   paragraphFormVariant,
   resolveDelimitedOpen,
@@ -67,6 +66,7 @@ import {
   withFenceLanguage,
 } from "./open-style.js";
 import {
+  continuationFoldExtent,
   literalParagraphExtent,
   paragraphExtent,
   verbatimStyledExtent,
@@ -128,12 +128,14 @@ interface ReaderScope {
   /** The document's offset→Location index, built once. */
   readonly at: LocationIndex;
   /**
-   * EVERY line of the document, unerased — gap spellings are read from
-   * here by 1-based line number, because a buffer omits lines the
-   * extent scan consumed (skipped blanks) and blanks the ones Ruby
-   * erased.
+   * The document-wide gap record: every extent scan, at every nesting
+   * depth, records the separator lines it consumes here, and each
+   * item's blocks are paired with their gaps by partitioning it
+   * (listItemNode → gapsOf). Shared because an inner scan re-reads an
+   * outer item's buffer, which omits blanks the outer scan skipped —
+   * the outer scan's entries are the only record of them.
    */
-  readonly documentLines: readonly SourceLine[];
+  readonly gaps: GapRecord;
 }
 
 /**
@@ -153,7 +155,6 @@ interface ReaderScope {
 class BlockReader {
   private readonly source: string;
   private readonly at: LocationIndex;
-  private readonly documentLines: readonly SourceLine[];
   /**
    * Every block this reader produces, appended in source order —
    * the document's blocks for the outermost reader, an interior's
@@ -175,17 +176,11 @@ class BlockReader {
    */
   private blanks = 0;
 
-  // Metadata NODES held back until we know what they annotate.
-  // Comment and preprocessor lines ride along so their SOURCE ORDER
-  // relative to the metadata survives whatever lands between them
-  // (see the `raw` case in blockLine).
-  private pending: BlockNode[] = [];
-  // Parsed view of the held-back `[…]` line, if any — set per
-  // attribute line (the last one wins, as Ruby's drain overwrites
-  // `attributes`), cleared by flushMetadata. Every open decision
-  // reads it; the line is parsed ONCE, by the single attrlist parser
-  // (src/parse/attrlist.ts), and nothing downstream re-derives it.
-  private pendingAttrlist: Attrlist | undefined = undefined;
+  // The held-back metadata run — the nodes waiting for the block they
+  // annotate and the parsed `[…]` view, owned by one small object
+  // (held-metadata.ts) so the reader keeps only the read position and
+  // the block sequence.
+  private readonly held = new HeldMetadata();
   private readonly scope: ReaderScope;
 
   /**
@@ -220,11 +215,7 @@ class BlockReader {
     private readonly lines: readonly SourceLine[],
     private readonly confinement?: Confinement,
   ) {
-    ({
-      source: this.source,
-      at: this.at,
-      documentLines: this.documentLines,
-    } = scope);
+    ({ source: this.source, at: this.at } = scope);
     this.scope = scope;
   }
 
@@ -493,7 +484,8 @@ class BlockReader {
    */
   private list(kind: MarkerKind): void {
     this.flushMetadata();
-    const shape = listShape(this.lines, this.index, kind, this.tailSafe);
+    const context = { tailSafe: this.tailSafe, gaps: this.scope.gaps };
+    const shape = listShape(this.lines, this.index, kind, context);
     // The opening item is read into its own local, not inlined into
     // the call, so the items are read in SOURCE ORDER on the page as
     // well as at run time.
@@ -541,7 +533,7 @@ class BlockReader {
     const text = inner.readText("listItem", shape.marker.markerEnd);
     const interior = { text, blocks: inner.run() };
     return listItemNode(shape, interior, {
-      documentLines: this.documentLines,
+      gaps: this.scope.gaps,
       at: this.at,
       // A `+` popped off an item read from ANOTHER item's buffer is
       // not provably the one Ruby pops — the enclosing scan reshaped
@@ -643,30 +635,51 @@ class BlockReader {
         return;
       }
       case "continuation": {
-        if (this.directlyInItem()) {
-          // An unerased `+` in an item's buffer is Ruby's frozen
-          // adjacent continuation (parser.rb l.1443-48), kept as its own
-          // raw line rather than folded into the paragraph — the pinned
-          // oracle divergence: same bytes, same rendering, and a
-          // column-0 `+` may not be reflowed into text. Transparent to
-          // the blank run — see transparentLeaf: the erased `+` above it
-          // reads as a blank to Ruby, so the paragraph after this line
-          // keeps the listContinuation set.
-          this.transparentLeaf(
-            buildRawBlockLine(fragmentOfLine(line), this.at),
-          );
-          return;
-        }
-        // At block level a lone `+` opens a plain paragraph:
-        // read_lines_until breaks on a `+` only once a line has been
-        // read (`line_read`).
-        this.paragraph("paragraph", 0);
+        this.continuationLine(line);
         return;
       }
       default: {
         this.paragraph(this.bodyContext(), 0);
       }
     }
+  }
+
+  /**
+   * A lone `+` opening a block — three readings, decided here:
+   *
+   * - In an item's buffer, a `+` still carrying the scan's marker tag
+   *   and standing after one or more skipped blanks (an erased `+`
+   *   counts — it reads as a blank here, exactly as it does to the
+   *   oracle's coercing skip) opens the non-content-adjacent FOLD
+   *   (`skipped === 0 && options.list_type` is false at parser.js
+   *   l.1065): a paragraph that runs THROUGH marker lines and stops at
+   *   the plain-paragraph break set (continuationFoldExtent).
+   * - Any other `+` directly in an item is Ruby's frozen adjacent
+   *   continuation (parser.rb l.1443-48), kept as its own raw line
+   *   rather than folded into the paragraph — the pinned oracle
+   *   divergence: same bytes, same rendering, and a column-0 `+` may
+   *   not be reflowed into text. Transparent to the blank run — see
+   *   transparentLeaf: the erased `+` above it reads as a blank to
+   *   Ruby, so the paragraph after this line keeps the
+   *   listContinuation set.
+   * - At block level a lone `+` opens a plain paragraph:
+   *   read_lines_until breaks on a `+` only once a line has been read
+   *   (`line_read`).
+   * @param line - the `+` line
+   */
+  private continuationLine(line: SourceLine): void {
+    if (!this.directlyInItem()) {
+      this.paragraph("paragraph", 0);
+      return;
+    }
+    if (this.blanks > 0 && line.continuationTag === "marker") {
+      this.flushMetadata();
+      const { tokens, end } = continuationFoldExtent(this.scan, this.index);
+      this.resume(end);
+      this.push(buildParagraph(tokens, this.at));
+      return;
+    }
+    this.transparentLeaf(buildRawBlockLine(fragmentOfLine(line), this.at));
   }
 
   /** Consume the current line and forget the blank run before it. */
@@ -688,12 +701,7 @@ class BlockReader {
    * @returns whether the line was held back
    */
   private holdMetadata(line: SourceLine, kind: LineKind): boolean {
-    const node = heldMetadataNode(kind, line, this.at);
-    if (node === undefined) return false;
-    if (kind.kind === "attributeLine") {
-      this.pendingAttrlist = parseAttrlist(line.text.slice(1, -1));
-    }
-    this.pending.push(node);
+    if (!this.held.hold(line, kind, this.at)) return false;
     this.index += 1;
     // The blank run is deliberately NOT reset: Ruby counts `skipped`
     // BEFORE parse_block_metadata_lines consumes these lines (next_block
@@ -711,56 +719,25 @@ class BlockReader {
 
   /** Release every held-back node, in source order. */
   private flushMetadata(): void {
-    for (const node of this.pending) this.push(node);
-    this.pending = [];
-    this.pendingAttrlist = undefined;
+    for (const node of this.held.drain()) this.push(node);
   }
 
   /**
-   * The held style, when the reader may ACT on it: the LAST held
-   * attribute line's first positional, valid only while every held
-   * node after that attribute line is reader-eaten (a raw
-   * comment/directive line) — the transparency the deleted
-   * `annotatedBlockIndex` scan implemented, applied BEFORE the open
-   * instead of after the parse. The guard REPRODUCES the shape
-   * observed today and never widens it. A held title or anchor after
-   * the attribute line disables the style, pinned by the
-   * characterization rows in tests/parser/block-masquerade.test.ts
-   * and tests/parser/verbatim-styled.test.ts (the recorded
-   * divergences from Ruby's own style handling, kept
-   * byte-round-tripping). Written as a forward walk — the flag resets at each
-   * attribute line, so it ends true exactly when the run's tail is
-   * transparent — because architecture.test.ts bans `findLast(` and
-   * `findLastIndex(` under src/parse.
+   * The held style, when the reader may ACT on it — see
+   * {@link HeldMetadata.actionableStyle}.
    * @returns the style, or undefined when none is actionable
    */
   private actionableStyle(): string | undefined {
-    if (this.pendingAttrlist === undefined) return undefined;
-    let transparent = true;
-    for (const node of this.pending) {
-      if (node.type === "blockAttributeList") transparent = true;
-      else if (!isReaderConsumedLine(node)) transparent = false;
-    }
-    return transparent ? this.pendingAttrlist.style : undefined;
+    return this.held.actionableStyle();
   }
 
   /**
-   * The reader's own record of the annotation it is about to act on:
-   * set iff the held run's LAST node is the attribute line — stricter
-   * than actionableStyle's transparency on purpose, so the recorded
-   * value equals the sibling BlockAttributeListNode's `value` by
-   * construction and invariant (xi) can check the pairing on every
-   * parse. Copied from the held NODE, never from the interior the
-   * splitter rstripped, so the equality holds even on a
-   * trailing-whitespace attribute line, where the two differ. (That
-   * rstripped interior used to be published as `Attrlist.raw`; it was
-   * deleted as unread, and this is the comment that says why it never
-   * had a reader here.)
+   * The annotation the reader is about to act on — see
+   * {@link HeldMetadata.annotation}.
    * @returns the sibling-to-be's value, or undefined
    */
   private annotation(): string | undefined {
-    const last = this.pending.at(-1);
-    return last?.type === "blockAttributeList" ? last.value : undefined;
+    return this.held.annotation();
   }
 
   /**
@@ -787,7 +764,7 @@ class BlockReader {
       this.paragraph(this.bodyContext(), 0);
       return;
     }
-    if (this.pendingAttrlist?.style === DISCRETE_STYLE) {
+    if (this.held.heldStyle() === DISCRETE_STYLE) {
       this.leaf(
         buildDiscreteHeading(
           fragmentOfLine(line),
@@ -934,7 +911,9 @@ class BlockReader {
 export function readDocument(source: string): DocumentNode {
   const documentLines = splitLines(source);
   const at = makeLocationIndex(source);
-  const reader = new BlockReader({ source, at, documentLines }, documentLines);
+  // One gap record per document — see ReaderScope.gaps.
+  const scope: ReaderScope = { source, at, gaps: new Map() };
+  const reader = new BlockReader(scope, documentLines);
   const children = reader.run();
   return {
     type: "document",

@@ -501,11 +501,14 @@ function expectItemGaps(lines: readonly string[], node: AnyNode): void {
  * (viii-b) — sibling monotonicity inside a list item: the item's text
  * ends at or before its first block starts, and each block ends at or
  * before the next begins. This is the assumption gapsOf
- * (src/parse/lines/list-reader.ts) consumes, stated in the direction
- * it can be violated SILENTLY: an over-spanning end makes
- * `documentLines.slice(previousEnd, start - 1)` too short and drops a
- * `+` with no throw — the under-span direction already fails loudly
- * on gapsOf's unreachable. Exported for its negative row in
+ * (src/parse/lines/list-reader.ts) consumes: it partitions a recorded
+ * GapRecord by each block's (previousEnd, start) range, and BOTH
+ * violation directions are now silent. An over-spanning end narrows
+ * the next range and drops a recorded gap line with no throw; an
+ * under-spanning end widens it and can pull in entries that belong to
+ * a nested list, injecting spurious "" lines. Neither fails loudly any
+ * more, which is exactly why this invariant and (vii) are the net
+ * that catches a violation. Exported for its negative row in
  * tests/parser/ast-invariants.test.ts.
  * @param nodes - every node, in document order
  */

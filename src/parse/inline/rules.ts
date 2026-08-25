@@ -202,8 +202,4 @@ export const INLINE_RULES: readonly InlineRule[] = [
       ),
     ),
   },
-  // Single-character fallback. MUST be last: it is what makes the
-  // tokenizer total, so there is no error channel to read (the
-  // old lexer's `errors` output was never read — provably dead).
-  { type: "InlineChar", match: pattern(/[^\n]/v) },
 ];

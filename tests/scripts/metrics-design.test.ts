@@ -7,7 +7,7 @@
  * of the scorecard: the COUNTING RULE (which interface members are
  * shared vocabulary, which mentions of a marker are defenses), the
  * registry's own freshness, and each gate's direction. See
- * `docs/simplicity-metrics.md`, "Design-quality budgets".
+ * `docs/harnesses.md`, "Design-quality budgets".
  */
 import { describe, test, expect } from "vitest";
 import {
@@ -508,7 +508,7 @@ describe("the design gates and ratchets", () => {
 
   // A zero at the base cannot be told apart from "this marker was not
   // a convention yet", and introducing a marker must not read as a
-  // regression. Stated as a caveat in docs/simplicity-metrics.md.
+  // regression. Stated as a caveat in docs/harnesses.md.
   test("a defense counter the base does not carry ratchets from absent", () => {
     const base = makeSnapshot({ totalFallback: 0 });
     const head = makeSnapshot({ totalFallback: 8 });

@@ -141,19 +141,40 @@ const XREF_TEXT_TRIM_FAMILY = "xref-text-trim";
  * happens in `gapParts`. Not exported: no grid row cites it.
  */
 const GAP_COLLAPSE_FAMILY = "gap-collapse";
+/**
+ * The erased tail behind a frozen `+` paragraph is printed back (one
+ * blank and a `+` — the shield that absorbs the re-read's single
+ * tagged pop, parser.rb l.1576/l.1580-82), and a list whose tail
+ * keeps a `+` armed through metadata is separated from the next block
+ * by TWO blanks (one attaches, l.1483). Formatted-only: the item
+ * fields carrying the two facts (`detachedTail`, `activeTail`) are
+ * dropped by the item canonicalization the way `trailingContinuation`
+ * is, so only bytes move. Not exported: no grid row cites it.
+ */
+const PLUS_RUN_TAIL_KEPT_FAMILY = "plus-run-tail-kept";
+/**
+ * A `+` run's parse follows the JS oracle's tagged Strings: an inner
+ * item scan hard-stops at the erased Placeholder (parser.js l.2168),
+ * the sibling probe eats it, and a frozen `+` opened after a skipped
+ * blank heads a FOLDED paragraph that runs through marker lines
+ * (l.1065, l.3018-47). NOT formatted-only — the trees move (a nested
+ * list splits around the `+` paragraph, marker lines become its raw
+ * lines) while the bytes hold. Not exported: no grid row cites it.
+ */
+const PLUS_RUN_PARAGRAPH_FAMILY = "plus-run-paragraph";
 
 /**
  * The closed family enum. SURFACE HONESTY, not an armed
  * gate: a family id can only legally be a corpus id or an
  * identity-fixture id. The formatted-only subset is exactly
  * author-plus, pseudo-run-fold, attribute-entry-spelling,
- * attrlist-spacing, xref-text-trim and gap-collapse — they
- * change BYTES only, while
+ * attrlist-spacing, xref-text-trim, gap-collapse and
+ * plus-run-tail-kept — they change BYTES only, while
  * both marker families ride the list tree fold (`marker` added,
- * `depth` dropped) and no-op-continuation-tree drops a block the
- * reader used to build, so an entry of those three whose AST differs
- * is legal and an entry of any other family whose AST differs fails
- * the cross-check.
+ * `depth` dropped), no-op-continuation-tree drops a block the reader
+ * used to build, and plus-run-paragraph reshapes a `+` run's item
+ * blocks, so an entry of those four whose AST differs is legal and an
+ * entry of any other family whose AST differs fails the cross-check.
  */
 export const LEDGER_FAMILIES: FamilySets = {
   families: new Set([
@@ -167,6 +188,8 @@ export const LEDGER_FAMILIES: FamilySets = {
     ATTRLIST_SPACING_FAMILY,
     XREF_TEXT_TRIM_FAMILY,
     GAP_COLLAPSE_FAMILY,
+    PLUS_RUN_TAIL_KEPT_FAMILY,
+    PLUS_RUN_PARAGRAPH_FAMILY,
   ]),
   formattedOnly: new Set([
     AUTHOR_PLUS_FAMILY,
@@ -176,6 +199,7 @@ export const LEDGER_FAMILIES: FamilySets = {
     ATTRLIST_SPACING_FAMILY,
     XREF_TEXT_TRIM_FAMILY,
     GAP_COLLAPSE_FAMILY,
+    PLUS_RUN_TAIL_KEPT_FAMILY,
   ]),
 };
 

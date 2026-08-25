@@ -4,18 +4,15 @@ A Prettier plugin for formatting AsciiDoc (.adoc) files.
 
 ## Project knowledge
 
-**IMPORTANT: Read the relevant memories before starting work.**
+**IMPORTANT: Read [docs/index.md](docs/index.md) first** — it is the index of
+all project documentation (architecture, coding standards, contributing
+workflow, harnesses, metrics) with one line on when to read each.
 
-- [Architecture](.serena/memories/architecture.md) — pipeline, components, tech
-  stack, key references
-- [Coding standards](.serena/memories/coding-standards.md) — lint rules, comment
-  conventions, JSDoc discipline
-- [Commands](.serena/memories/commands.md) — dev commands, jj commands, version
-  control pitfalls
-- [Task completion checklist](.serena/memories/task_completion_checklist.md) —
-  verification steps before considering work done
-- [Harnesses](docs/harnesses.md) — what each tool under `scripts/` proves, the
-  exit-code contract, and the CI jobs
+Version control is jj, not git: `jj st`, `jj diff --git`,
+`jj describe -m "message"`, `jj new`, `jj log`. Never run anything that opens an
+interactive editor — in particular never `jj squash -m`; squash with
+`jj squash --use-destination-message` and re-describe. Never bare `bun test`
+(Bun's own runner fails on vitest-only constructs); always `bun run test`.
 
 ## Roadmap
 

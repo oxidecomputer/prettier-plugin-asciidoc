@@ -32,7 +32,7 @@
     "prepublishOnly": "bun run build",
     "lint": "eslint . --max-warnings=0",
     "test": "vitest run",
-    "sweep:deep": "bun scripts/sweep-deep.ts",
+    "test:deeply-nested-lists": "bun scripts/test-deeply-nested-lists.ts",
     "check": "tsc --noEmit",
     "vendor": "bun scripts/vendor.ts",
     "fmt": "prettier --write .",
@@ -41,8 +41,8 @@
     "metrics": "bun scripts/metrics.ts",
     "parity": "bun scripts/parity.ts",
     "shape-diff": "bun scripts/shape-diff.ts",
-    "mutate": "bun run sweep:deep && bun run build && stryker run && bun scripts/score-minimums.ts --mutation",
-    "mutate:full": "bun run sweep:deep && bun run build && stryker run --force && bun scripts/score-minimums.ts --mutation",
+    "mutate": "bun run test:deeply-nested-lists && bun run build && stryker run && bun scripts/score-minimums.ts --mutation",
+    "mutate:full": "bun run test:deeply-nested-lists && bun run build && stryker run --force && bun scripts/score-minimums.ts --mutation",
     "triage": "bun scripts/conformance-triage.ts"
   },
   "peerDependencies": {

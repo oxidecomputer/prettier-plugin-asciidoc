@@ -11,7 +11,7 @@
  */
 import { describe, expect, test } from "vitest";
 import { parse } from "../../src/parser.js";
-import { narrow } from "../../src/unreachable.js";
+import { narrow } from "../../src/narrow.js";
 import type { BlockNode, DelimitedBlockNode } from "../../src/ast.js";
 
 /**

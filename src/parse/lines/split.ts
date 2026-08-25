@@ -28,6 +28,29 @@ export interface SourceLine {
   readonly offset: number;
   /** One-based line number. */
   readonly line: number;
+  /**
+   * Parse-internal: the extent scan's port of Asciidoctor's tagged
+   * Strings. `read_lines_for_list_item` swaps every `+` it reads for
+   * `ListContinuationString` (parser.rb l.1432) and erases into
+   * `ListContinuationPlaceholder` (l.1439/1576) — String instances
+   * extended with the `ListContinuationMarker` module — and two later
+   * readers key on the tag rather than the text: an inner item scan
+   * hard-stops on an erased line after a blank (the JS oracle's strict
+   * `===` at parser.js l.2168), and the confined paragraph read folds
+   * marker lines only under a tagged `+` head (parser.js l.1065,
+   * l.3018-47). The tag exists only on COPIES inside item buffers —
+   * `splitLines` never writes it, so a document line carries none —
+   * which is exactly where the oracle's tagged Strings live.
+   *
+   * One arm deliberately does NOT read the tag: an erased line
+   * reaching the scan's final else is buffered as the blank it
+   * spells, where the JS oracle pushes the boxed object with
+   * `hasText` true (parser.js l.2225-41). Reachable, if at all, only
+   * with an erased cell directly under non-blank content inside a
+   * nested extent — no sweep document constructs one; the deep sweep
+   * arbitrates.
+   */
+  readonly continuationTag?: "marker" | "erased";
 }
 
 /**

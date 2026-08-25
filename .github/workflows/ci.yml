@@ -10,18 +10,26 @@ on:
 # fresh clone answers it. `differential` answers "did this change
 # behaviour?" — everything that does, which is why it needs the whole
 # history and a base commit.
+#
+# Every gate carries `if: ${{ !cancelled() }}` so one failing gate
+# never hides the others — a push that breaks lint AND a minimum
+# should say so in one run, not across two.
 jobs:
   gates:
     name: Gates (head only)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - run: bun run check
+        if: ${{ !cancelled() }}
       - run: bun run lint
+        if: ${{ !cancelled() }}
       - run: bun run fmt:check
+        if: ${{ !cancelled() }}
       - run: bun run build
+        if: ${{ !cancelled() }}
       # The suite, under v8 line coverage, with each file's RECORDED
       # MINIMUM coverage checked afterwards — ONE suite run, not two.
       # Measured at 2.8s plain against 4.0s with coverage on 8,577
@@ -30,12 +38,14 @@ jobs:
       # half of the same minimums file is checked by `bun run mutate`,
       # which is ~11 minutes and stays manual.
       - run: bun run coverage
+        if: ${{ !cancelled() }}
       # The scorecard, head-only: thirteen absolute gates plus the shape
       # census's five rules, in about two seconds, needing no base and no
       # network. It has been enforceable since the day it was written
       # and was enforced by nobody; this line is the whole point of the
       # workstream that added it.
       - run: bun run metrics
+        if: ${{ !cancelled() }}
       # The exhaustive depth-5 list-shape sweep — 111,121 documents,
       # each formatted twice and rendered on both sides against a
       # 158-entry allowlist, ~30s. It used to ride inside `bun run
@@ -44,7 +54,8 @@ jobs:
       # prelude to every mutation run, so nothing about what is
       # enforced changed. Head-only and needs no base, so it belongs in
       # this job.
-      - run: bun run sweep:deep
+      - run: bun run test:deeply-nested-lists
+        if: ${{ !cancelled() }}
 
   differential:
     name: Differential (vs base)
@@ -59,7 +70,7 @@ jobs:
       # `fetch-depth: 0` because every harness here materializes
       # another revision with `git archive`, and a shallow clone does
       # not have one.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - uses: oven-sh/setup-bun@v2
@@ -89,19 +100,30 @@ jobs:
       # `bun install --frozen-lockfile` in it; run as parallel jobs
       # they would each pay that install, and run as parallel steps
       # they would pay it concurrently on one runner's disk.
+      #
+      # Parity runs the ledger gate: any case whose formatted output
+      # differs from the base must be declared in
+      # scripts/parity-expected-diffs.json (empty except while a change
+      # that intentionally moves bytes is in flight — the lifecycle is
+      # documented in docs/harnesses.md).
       - name: parity — every corpus document and fixture, bytes and AST
+        if: ${{ !cancelled() && steps.base.outputs.sha != '' }}
         run:
           bun run parity -- --base "${{ steps.base.outputs.sha }}"
-          --formatted-ledger
+          --expected-diffs scripts/parity-expected-diffs.json
       - name: shape-diff — the standing grid, with per-diff render proofs
+        if: ${{ !cancelled() && steps.base.outputs.sha != '' }}
         run: bun run shape-diff -- --base "${{ steps.base.outputs.sha }}"
       - name: shape-diff — the heading-adjacency grid
+        if: ${{ !cancelled() && steps.base.outputs.sha != '' }}
         run:
           bun run shape-diff -- --base "${{ steps.base.outputs.sha }}" --grid
           heading-adjacency
       - name: shape-diff — the list-run grid
+        if: ${{ !cancelled() && steps.base.outputs.sha != '' }}
         run:
           bun run shape-diff -- --base "${{ steps.base.outputs.sha }}" --grid
           list-run
       - name: metrics — the ratchets
+        if: ${{ !cancelled() && steps.base.outputs.sha != '' }}
         run: bun run metrics -- --base "${{ steps.base.outputs.sha }}"

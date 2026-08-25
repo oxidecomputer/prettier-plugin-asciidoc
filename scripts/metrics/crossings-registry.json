@@ -37,7 +37,7 @@
   {
     "file": "src/block-metadata.ts",
     "symbol": "isReaderConsumedLine",
-    "importer": "src/parse/lines/reader.ts",
+    "importer": "src/parse/lines/held-metadata.ts",
     "kind": "vocabulary",
     "reason": "the one predicate for a line Ruby's reader consumes where it stands; both the reader and the join rules must agree on it"
   },
@@ -58,7 +58,7 @@
   {
     "file": "src/parse/attrlist.ts",
     "symbol": "Attrlist",
-    "importer": "src/parse/lines/reader.ts",
+    "importer": "src/parse/lines/held-metadata.ts",
     "kind": "vocabulary",
     "reason": "the parsed shape of a `[\u2026]` line, decided once at open and carried as data"
   },
@@ -86,7 +86,7 @@
   {
     "file": "src/parse/attrlist.ts",
     "symbol": "parseAttrlist",
-    "importer": "src/parse/lines/reader.ts",
+    "importer": "src/parse/lines/held-metadata.ts",
     "kind": "vocabulary",
     "reason": "the one parse of a `[\u2026]` line; the reader calls it at open so nothing downstream re-derives a style"
   },
@@ -149,7 +149,7 @@
   {
     "file": "src/parse/build/list.ts",
     "symbol": "buildListItem",
-    "importer": "src/parse/lines/list-reader.ts",
+    "importer": "src/parse/lines/list-item-node.ts",
     "kind": "vocabulary",
     "reason": "pure (input, index) -> Node constructor, called by the list reader that read the item's interior"
   },
@@ -296,7 +296,7 @@
   {
     "file": "src/parse/inline/tokens.ts",
     "symbol": "InlineToken",
-    "importer": "src/parse/lines/list-reader.ts",
+    "importer": "src/parse/lines/list-item-node.ts",
     "kind": "vocabulary",
     "reason": "the inline token vocabulary the tokenizer produces and every holder of inline content carries"
   },
@@ -495,6 +495,13 @@
     "importer": "src/parse/lines/list-reader.ts",
     "kind": "vocabulary",
     "reason": "registry pattern: an indented literal line"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "LITERAL_LINE",
+    "importer": "src/parse/lines/paragraph-reader.ts",
+    "kind": "vocabulary",
+    "reason": "registry pattern: an indented literal line — inside a `+`-headed fold such a line keeps its own raw line, because a re-read hands it to a literal block's verbatim slurp"
   },
   {
     "file": "src/parse/line-shapes.ts",
@@ -772,7 +779,14 @@
   {
     "file": "src/parse/positions.ts",
     "symbol": "LocationIndex",
-    "importer": "src/parse/lines/list-reader.ts",
+    "importer": "src/parse/lines/held-metadata.ts",
+    "kind": "vocabulary",
+    "reason": "the document's one offset -> Location index, built once and handed to every builder so no two agree on it separately"
+  },
+  {
+    "file": "src/parse/positions.ts",
+    "symbol": "LocationIndex",
+    "importer": "src/parse/lines/list-item-node.ts",
     "kind": "vocabulary",
     "reason": "the document's one offset -> Location index, built once and handed to every builder so no two agree on it separately"
   },

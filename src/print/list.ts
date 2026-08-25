@@ -133,8 +133,11 @@ export function tailSwallowsMarker(
   list: ListNode | undefined,
 ): boolean {
   if (item.trailingContinuation) return false;
-  for (const index of [...item.blocks.keys()].toReversed()) {
-    const { block } = item.blocks[index];
+  // The printed detached tail — one blank and a `+` — already stands
+  // between the item's last block and the marker line, and a `+` is
+  // where every slurp stops.
+  if (item.detachedTail) return false;
+  for (const [index, { block }] of [...item.blocks.entries()].toReversed()) {
     if (isIndentedLiteral(block)) return true;
     if (block.type === "list") {
       const lastItem = block.children.at(-1);
@@ -272,9 +275,11 @@ export function printListItem(
     "blocks",
   );
   const parts: Doc[] = [item];
-  for (const index of node.blocks.keys()) {
+  // `path.map` walked `blocks`, so the printed docs are that array's
+  // parallel — the index is the item block's own.
+  for (const [index, printedBlock] of printedBlocks.entries()) {
     const adjusted = printedGap(node, parentList, index);
-    parts.push(...gapParts(adjusted), printedBlocks[index]);
+    parts.push(...gapParts(adjusted), printedBlock);
   }
   if (node.trailingContinuation) {
     // ONE hardline, unconditionally — including after a nested list.
@@ -285,6 +290,17 @@ export function printListItem(
     // blank line here would turn the `+` DETACHED on re-parse, l.1576
     // would erase it, and the second format would drop it.
     parts.push(hardline, "+");
+  }
+  if (node.detachedTail) {
+    // One blank line, then the `+` — the DETACHED spelling, and the
+    // only correct one: an ADJACENT `+` under the item's `+` paragraph
+    // would freeze onto it on re-read and the marked pop would take
+    // the paragraph (parser.rb l.1443-46, l.1580-81). Detached, the
+    // `+` erases into the shield (l.1576) that absorbs the pop and
+    // keeps the paragraph alive ({@link ListItemNode.detachedTail}).
+    // Blank-run multiplicity collapses to the one blank, the same
+    // collapse gapParts applies before a `+`.
+    parts.push(hardline, hardline, "+");
   }
   return parts;
 }

@@ -18,9 +18,10 @@
 /**
  * Every kind the tokenizer can emit, in the order the rules are
  * tried. Priority is data here rather than a comment, because
- * `INLINE_RULES` is built in this order — and
- * tests/parser/inline-tokens.test.ts asserts that array's `type`s
- * against this one, so the two cannot drift.
+ * `INLINE_RULES` is built in this order — `InlineChar` aside, which
+ * is the tokenizer's else branch rather than a table row — and
+ * tests/parser/inline-tokens.test.ts asserts the table's `type`s
+ * against this one (minus `InlineChar`), so the two cannot drift.
  * Exported for its unit test (tests/parser/inline-tokens.test.ts); no
  * src consumer.
  * @internal

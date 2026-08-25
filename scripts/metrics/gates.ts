@@ -46,7 +46,7 @@
  * it would push the code towards handler tables that score better and
  * read worse, which is the wrong direction and the wrong metric. It
  * stays on the table, with its offenders named, for a human to read.
- * See `docs/simplicity-metrics.md`.
+ * See `docs/harnesses.md`.
  */
 import { LAYERS, ZERO, type Snapshot } from "./model.js";
 
@@ -329,7 +329,7 @@ function seamRatchets(head: Snapshot, base: Snapshot): string[] {
  * be told apart from "this marker was not a convention yet" and
  * introducing a marker must not read as a regression. The cost is
  * real and worth stating: a category driven all the way to zero loses
- * its gate until something re-enters it. `docs/simplicity-metrics.md`
+ * its gate until something re-enters it. `docs/harnesses.md`
  * carries that caveat.
  * @param head - the snapshot for this checkout
  * @param base - the base snapshot

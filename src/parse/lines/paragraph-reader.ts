@@ -23,11 +23,30 @@ import { tokenizeInline } from "../inline/tokenize.js";
 import type { InlineToken } from "../inline/tokens.js";
 import {
   LINE_COMMENT_HEAD,
+  LITERAL_LINE,
   type ParagraphContext,
   type ReaderContext,
 } from "../line-shapes.js";
-import { classifyLine, type LineKind } from "./classify.js";
+import { classifyLine, isContinuationLine, type LineKind } from "./classify.js";
 import type { SourceLine } from "./split.js";
+
+/**
+ * What a {@link Paragraph} is reading: a registry context, or the one
+ * mode that is NOT a registry context — the `+`-headed fold. A
+ * paragraph opened non-content-adjacent inside a list item does not
+ * break at list-marker lines (`readParagraphLines` with a falsey
+ * `breakAtList`, parser.js l.1065/l.3018-47); its break set is the
+ * plain-paragraph one, which is exactly `listContinuation`'s
+ * interrupting set, so the fold CLASSIFIES as that context and differs
+ * in three reader-side behaviors only: the tagged `+` head keeps its
+ * own raw line, a tagged `+` MET mid-paragraph folds through as a
+ * raw line instead of interrupting (the oracle runs through
+ * `ListContinuationString`, parser.js l.3023-25 — only a plain `+`
+ * breaks), and an INDENTED line keeps its own raw line so the print
+ * side cannot dedent it ({@link Paragraph.reflows}). Local to this
+ * module: the mode exists only where the fold is read.
+ */
+type ParagraphMode = ParagraphContext | "continuationFold";
 
 // A line that is nothing but indentation and a `+` — the one line shape
 // whose meaning `adjust_indentation!` can change (see Paragraph).
@@ -124,22 +143,38 @@ class Paragraph {
   // on a reader whose first line the caller already took.
   private index: number;
 
+  // Which interrupting set the lines classify under, and whether the
+  // fold's two tagged-`+` behaviors are on — both derived from the
+  // constructor's mode (see {@link ParagraphMode}).
+  private readonly context: ParagraphContext;
+  private readonly fold: boolean;
+
   /**
    * @param scan - the lines and the stream-wide facts (see
    *   {@link ParagraphScan})
    * @param at - index of the paragraph's first line
-   * @param context - which interrupting set applies
+   * @param mode - which interrupting set applies, or the fold
    * @param from - raw column index where the paragraph's text starts
    */
   constructor(
     private readonly scan: ParagraphScan,
     at: number,
-    private readonly context: ParagraphContext,
+    mode: ParagraphMode,
     from: number,
   ) {
+    this.fold = mode === "continuationFold";
+    this.context = mode === "continuationFold" ? "listContinuation" : mode;
+    const { context } = this;
     const line = scan.lines[at];
     this.index = at + 1;
     this.runEnd = line.offset + line.raw.length;
+    if (this.fold) {
+      // The fold's head is the tagged `+` itself, and a column-0 `+`
+      // is never reflowed into prose: it keeps its own line the way a
+      // comment does.
+      this.pieces.push({ kind: "raw", line });
+      return;
+    }
     if (context === "dlistItem" && line.text.startsWith(LINE_COMMENT_HEAD)) {
       // A dlist term that begins with `//` (`///b::` — not a comment to
       // the classifier, which mirrors LineCommentRx) IS one to
@@ -172,10 +207,34 @@ class Paragraph {
         firstLineAfterStart: this.linesRead === 1,
       });
       if (kind.kind !== "text" && kind.kind !== "raw") {
-        return;
+        if (!this.foldsThrough(next)) return;
+        // A tagged `+` met mid-fold is run through as content on its
+        // own raw line — the oracle's `ListContinuationString` passes
+        // both break tests (parser.js l.3023-25, reader.js's strict
+        // `line === LIST_CONTINUATION`); only a PLAIN `+` interrupts.
+        this.closeRun();
+        this.pieces.push({ kind: "raw", line: next });
+        this.linesRead += 1;
+        this.index += 1;
+        continue;
       }
       this.take(next, kind);
     }
+  }
+
+  /**
+   * Whether an interrupting line is run through by the fold: only a
+   * `+` still carrying the scan's marker tag (see
+   * {@link ParagraphMode}).
+   * @param line - the line the classifier just refused
+   * @returns true when the fold keeps it as a raw piece
+   */
+  private foldsThrough(line: SourceLine): boolean {
+    return (
+      this.fold &&
+      isContinuationLine(line.text) &&
+      line.continuationTag === "marker"
+    );
   }
 
   /**
@@ -276,18 +335,12 @@ class Paragraph {
 
   /**
    * Add one line the paragraph keeps.
-   *
-   * A `text` line carrying `verbatim` is a foreign list marker inside a
-   * `+`-attached paragraph (Ruby's `within_nested_list`): reflowing it
-   * off column 0 would silently change what the NEXT `+` means, so it
-   * gets its own line the way a comment does — `rawLine` is the AST
-   * node the printer already keeps on an output line of its own.
    * @param line - the line to add
    * @param kind - what the classifier made of it
    */
   private take(line: SourceLine, kind: LineKind): void {
     this.trackLiteralPlus(line, kind);
-    if (kind.kind === "text" && kind.verbatim !== true) {
+    if (this.reflows(line, kind)) {
       this.runStart ??= line.offset;
       this.runEnd = line.offset + line.raw.length;
     } else {
@@ -296,6 +349,34 @@ class Paragraph {
     }
     this.linesRead += 1;
     this.index += 1;
+  }
+
+  /**
+   * Whether a kept line may join the reflowable run, or must keep its
+   * own output line as a raw piece. Two shapes must not reflow:
+   *
+   * - a `text` line carrying `verbatim`, a foreign list marker inside a
+   *   `+`-attached paragraph (Ruby's `within_nested_list`). Reflowing
+   *   it off column 0 would silently change what the NEXT `+` means.
+   * - an INDENTED line inside a fold. The fold is a paragraph to us,
+   *   but the lines behind its `+` head are also what a re-read hands
+   *   to a literal block's slurp
+   *   (`read_lines_until break_on_blank_lines, break_on_list_continuation`),
+   *   which copies them into `<pre>` byte for byte — dedenting one
+   *   there rewrites verbatim content, or drops the block's
+   *   `indented && !style` branch altogether. Only the fold needs the
+   *   rule: an ordinary paragraph's indent is already stripped by
+   *   `adjust_indentation!` before anything reads it.
+   *
+   * `rawLine` is the AST node the printer already keeps on an output
+   * line of its own, so both stay put.
+   * @param line - the line being added
+   * @param kind - what the classifier made of it
+   * @returns true when the line joins the run in progress
+   */
+  private reflows(line: SourceLine, kind: LineKind): boolean {
+    if (kind.kind !== "text" || kind.verbatim === true) return false;
+    return !(this.fold && LITERAL_LINE.test(line.text));
   }
 
   /**
@@ -385,6 +466,28 @@ export function paragraphExtent(
   from: number,
 ): ParagraphBody {
   const paragraph = new Paragraph(scan, at, context, from);
+  paragraph.read();
+  return { tokens: paragraph.finish(), end: paragraph.end };
+}
+
+/**
+ * Read the `+`-headed FOLD opening at `at` — the paragraph a confined
+ * reader opens on a tagged `+` after one or more skipped blanks. Such
+ * a paragraph is non-content-adjacent to the oracle (`skipped === 0 &&
+ * options.list_type` is false, parser.js l.1065), so it does not break
+ * at list-marker lines: they fold in as raw pieces (a foreign marker
+ * classifies verbatim under `listContinuation`), and the read stops at
+ * a blank, a plain `+`, a block-attribute line, or a delimiter — the
+ * plain-paragraph set (see {@link ParagraphMode}).
+ * @param scan - the lines and the stream-wide facts
+ * @param at - index of the tagged `+` line
+ * @returns the body's tokens and the resume index
+ */
+export function continuationFoldExtent(
+  scan: ParagraphScan,
+  at: number,
+): ParagraphBody {
+  const paragraph = new Paragraph(scan, at, "continuationFold", 0);
   paragraph.read();
   return { tokens: paragraph.finish(), end: paragraph.end };
 }

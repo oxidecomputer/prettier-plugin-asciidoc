@@ -7,7 +7,7 @@
  * 111,121 documents, each formatted twice and rendered on both sides,
  * pinned to a 158-entry allowlist by strict set equality.
  *
- *   bun run sweep:deep
+ *   bun run test:deeply-nested-lists
  *
  * WHY IT IS NOT IN `bun run test`. It was, and it cost 25.6 s of a
  * 26.1 s suite: one test owned the whole wall time, and a suite nobody
@@ -38,7 +38,7 @@ import path from "node:path";
 import { cannotRun, GATE_FAILED, printUsage, wantsHelp } from "./lib/cli.js";
 import { isObject, strictJson } from "./metrics/json.js";
 
-const USAGE = `usage: bun run sweep:deep
+const USAGE = `usage: bun run test:deeply-nested-lists
 
   --help   this text
 
@@ -92,36 +92,40 @@ function sweep(reportFile: string): void {
     { stdio: "inherit" },
   );
   if (run.error !== undefined) {
-    cannotRun(`sweep-deep: could not start vitest — ${run.error.message}`);
+    cannotRun(
+      `test-deeply-nested-lists: could not start vitest — ${run.error.message}`,
+    );
     return;
   }
   // The measured-nothing floor, read from the REPORTER rather than
   // from the exit code: `passWithNoTests` makes an empty run a pass.
   const total = testsRun(reportFile);
   if (total === undefined) {
-    cannotRun(`sweep-deep: no run report at ${reportFile} — nothing was swept`);
+    cannotRun(
+      `test-deeply-nested-lists: no run report at ${reportFile} — nothing was swept`,
+    );
     return;
   }
   if (total < MINIMUM_TESTS) {
     cannotRun(
-      "sweep-deep: the run collected 0 tests — vitest.sweep.config.ts matched no *.deep.test.ts file",
+      "test-deeply-nested-lists: the run collected 0 tests — vitest.sweep.config.ts matched no *.deep.test.ts file",
     );
     return;
   }
   if (run.status === VITEST_TESTS_FAILED) {
     console.error(
-      `sweep-deep: the failing set did not match the allowlist (${String(total)} test(s) ran)`,
+      `test-deeply-nested-lists: the failing set did not match the allowlist (${String(total)} test(s) ran)`,
     );
     process.exitCode = GATE_FAILED;
     return;
   }
   if (run.status !== 0) {
     cannotRun(
-      `sweep-deep: vitest exited ${String(run.status)} without running the gate`,
+      `test-deeply-nested-lists: vitest exited ${String(run.status)} without running the gate`,
     );
     return;
   }
-  console.log(`sweep-deep: ${String(total)} deep sweep(s) held.`);
+  console.log(`test-deeply-nested-lists: ${String(total)} deep sweep(s) held.`);
 }
 
 const ARGUMENT_START = 2;
@@ -129,9 +133,13 @@ const argv = process.argv.slice(ARGUMENT_START);
 if (wantsHelp(argv)) {
   printUsage(USAGE);
 } else if (argv.length > 0) {
-  cannotRun(`sweep-deep: unexpected argument ${argv[0]}\n${USAGE}`);
+  cannotRun(
+    `test-deeply-nested-lists: unexpected argument ${argv[0]}\n${USAGE}`,
+  );
 } else {
-  const reportDirectory = mkdtempSync(path.join(tmpdir(), "sweep-deep-"));
+  const reportDirectory = mkdtempSync(
+    path.join(tmpdir(), "test-deeply-nested-lists-"),
+  );
   try {
     sweep(path.join(reportDirectory, "report.json"));
   } finally {

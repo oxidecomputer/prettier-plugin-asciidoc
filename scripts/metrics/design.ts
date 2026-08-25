@@ -13,7 +13,7 @@
  * All three are BUDGETS WE MAINTAIN, not numbers a tool discovers. The
  * seam list, the interior-validation registry and the harness list are
  * each written by hand and reviewed; what the tooling does is hold them
- * to a ratchet and refuse to let them rot. `docs/simplicity-metrics.md`
+ * to a ratchet and refuse to let them rot. `docs/harnesses.md`
  * carries the framing and the two honest caveats.
  *
  * Everything here reads the MEASURED checkout, never this one, so a

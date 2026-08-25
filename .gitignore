@@ -1,6 +1,12 @@
 node_modules/
 dist/
 .claude/
+# Agent-tooling state: Serena's project config and per-machine memories
+# (the durable content lives in docs/ and CONTRIBUTING.md), and the
+# superpowers workflow's session artifacts.
+.serena/
+.superpowers/
+docs/superpowers/
 # Local copy of the AsciiDoc pre-spec PDF (3.2 MB binary; download
 # URL in CLAUDE.md's Roadmap section).
 docs/asciidoc-pre-spec.pdf

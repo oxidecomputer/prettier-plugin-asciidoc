@@ -769,6 +769,39 @@ interface ItemBody {
    * one: the byte does not come back.
    */
   trailingContinuation: boolean;
+  /**
+   * The item's source ended with a blank run and a DETACHED `+` — the
+   * erased shield (`buffer[detached_continuation] =
+   * ListContinuationPlaceholder`, parser.rb l.1576) — behind a
+   * paragraph that is a frozen `+` kept as prose. The shield renders
+   * nothing in place, but it is what absorbs the single tagged pop of
+   * the re-read's cleanup (l.1580-82): without it the pop takes the
+   * `+` paragraph instead and a rendered character disappears. So the
+   * printer writes the tail back as one blank line and a `+`
+   * (printListItem's detachedTail arm). Set only when the last block
+   * IS such a `+` paragraph — behind any other block the erased tail
+   * changes no re-read and is dropped as always.
+   *
+   * Mutually exclusive with `trailingContinuation` by construction:
+   * the extent scan's strip loop reports one pop or the other, never
+   * both (see ItemExtent.erasedTailContinuation,
+   * src/parse/lines/list-reader.ts).
+   */
+  detachedTail: boolean;
+  /**
+   * The item PRINTS a tail whose continuation is still ARMED: a `+`
+   * whose activation ran through block metadata only (a title, an
+   * attribute line, an anchor, an attribute entry keep `:active`,
+   * parser.rb l.1499-1501) and never met the block it was waiting for
+   * — and whose byte still reaches the output, replayed in a trailing
+   * metadata block's gap (armedTailPrints,
+   * src/parse/lines/list-reader.ts). One blank line under such a tail
+   * ATTACHES the next block to the item on re-read (the `:active`
+   * arm, l.1483); only a second blank detaches it (the after-blank
+   * break, l.1549). joinBlocks reads this to separate the list from
+   * the block after it with two blank lines instead of one.
+   */
+  activeTail: boolean;
 }
 
 /**

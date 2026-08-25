@@ -4,24 +4,20 @@
  * the MECHANISM that fails it and keyed to the tracker issue that owns
  * the fix.
  *
- * The grouping is the point. A flat list of 158 strings is a number a
+ * The grouping is the point. A flat list of 137 strings is a number a
  * reviewer can only watch go up or down; grouped, each block is one
  * bug with one issue, and a shape that moves between blocks is a
  * mechanism claim somebody has to defend. The equality gates read
- * {@link FAILING_TODAY}, which is the four blocks concatenated, so the
- * grouping cannot drift away from what is enforced.
+ * {@link FAILING_TODAY}, which is the three blocks concatenated, so
+ * the grouping cannot drift away from what is enforced.
  *
  * Every entry was classified by MEASUREMENT, not by shape: each was
  * formatted twice and rendered on both sides, and the family is the
- * mechanism that the byte and render deltas show. The families are
- * four rather than the three the fix report named — the report's
- * "reflowed paragraphs swallowing marker lines" turned out to be two
- * unrelated faults (an inline span eating a line break, and a reflow
- * join changing the block reading downstream of it), and they have
- * separate issues because they have separate fixes.
+ * mechanism that the byte and render deltas show.
  *
  * A shape LEAVING this file is progress and must be deliberate: the
- * commit that fixes one of the four takes its block out and says so.
+ * commit that fixes one of the families takes its block out and says
+ * so.
  */
 
 /**
@@ -116,38 +112,6 @@ const INLINE_SPAN_SWALLOWS_LINE_BREAK: readonly string[] = [
 ];
 
 /**
- * **#56 — a `+` run the oracle folds into a paragraph is erased as
- * continuation markers.** `read_lines_for_list_item` pops only the
- * LAST buffered continuation (parser.rb l.1580-81), so a run leaves
- * prose behind; we erase the whole run and the attached paragraph
- * goes with it. Not a fixed point either: one `+` per pass. The
- * blank-run shapes belong here from the other side — a blank RUN
- * under a `+` erases the continuation, so collapsing the run
- * re-attaches a paragraph the source left detached.
- */
-const PLUS_RUN_ERASED: readonly string[] = [
-  "* a\n\n+\n+\n\n+\n",
-  "* a\n  lit\n+\n+\n\n+\n",
-  "* a\n* a\n+\n+\n\n+\n",
-  "* a\n** b\n\n+\n+\n** b\n",
-  "* a\n+\n+\n\n\n+\n",
-  "* a\n+\n+\n\n+\n",
-  "* a\n+\n+\n\n+\n\n",
-  "* a\n+\n+\n\n+\n* a\n",
-  "* a\n+\n+\n\n+\n+\n",
-  "* a\n+\n+\n** b\n\n** b\n",
-  "* a\n+\n+\n+\n\n+\n",
-  "* a\n+\n.T\n\n\npara\n",
-  "* a\n+\n[[anc]]\n\n\npara\n",
-  "* a\n+\n[role]\n\n\npara\n",
-  "* a\n.T\n+\n+\n\n+\n",
-  "* a\n// c\n+\n+\n\n+\n",
-  "* a\n[[anc]]\n+\n+\n\n+\n",
-  "* a\n[role]\n+\n+\n\n+\n",
-  "* a\npara\n+\n+\n\n+\n",
-];
-
-/**
  * **#54 — the literal slurp's re-shape.** An indented literal tail
  * and what follows it re-read differently once printed:
  * `printedGap`'s slurp arm invents a blank that detaches the nested
@@ -173,8 +137,6 @@ const LITERAL_SLURP_RESHAPE: readonly string[] = [
   "* a\n** b\n[role]\npara\n[[anc]]\n  lit\n",
   "* a\n+\n  lit\n[[anc]]\n** b\n* a\n",
   "* a\n+\n  lit\n[role]\n** b\n* a\n",
-  "* a\n+\n+\n  lit\n+\n** b\n",
-  "* a\n+\n+\n** b\n[[anc]]\n  lit\n",
   "* a\n.T\n// c\n\n  lit\n* a\n",
   "* a\n.T\n// c\n\n  lit\n** b\n",
   "* a\n.T\n// c\n+\n  lit\n* a\n",
@@ -229,7 +191,7 @@ const REFLOW_JOIN_CHANGES_READING: readonly string[] = [
 ];
 
 /**
- * The four families, flat — what the sweeps assert set-equality
+ * The three families, flat — what the sweeps assert set-equality
  * against. The deep entry compares its whole failing set to this;
  * the default entry compares against this filtered to the documents
  * its shallower product actually spells (`allowlistFor`, in
@@ -237,7 +199,6 @@ const REFLOW_JOIN_CHANGES_READING: readonly string[] = [
  */
 export const FAILING_TODAY: readonly string[] = [
   ...INLINE_SPAN_SWALLOWS_LINE_BREAK,
-  ...PLUS_RUN_ERASED,
   ...LITERAL_SLURP_RESHAPE,
   ...REFLOW_JOIN_CHANGES_READING,
 ];

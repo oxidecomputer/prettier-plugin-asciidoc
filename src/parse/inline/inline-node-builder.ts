@@ -23,7 +23,6 @@ import type {
 } from "../../ast.js";
 import type { Fragment, LocationIndex } from "../positions.js";
 import { DELIM_WIDTH } from "../../constants.js";
-import { unreachable } from "../../unreachable.js";
 import type { InlineToken, InlineTokenType } from "./tokens.js";
 import {
   makeLinkFromUrl,
@@ -33,18 +32,27 @@ import {
 } from "./inline-link-builder.js";
 
 // Map from mark token kind to AST node type.
-const MARK_TO_TYPE = new Map<
-  InlineTokenType,
-  "bold" | "italic" | "monospace" | "highlight"
->([
-  ["BoldMark", "bold"],
-  ["ItalicMark", "italic"],
-  ["MonoMark", "monospace"],
-  ["HighlightMark", "highlight"],
-]);
+const MARK_TO_TYPE = {
+  BoldMark: "bold",
+  ItalicMark: "italic",
+  MonoMark: "monospace",
+  HighlightMark: "highlight",
+} as const;
 
-// Set of mark token kinds for fast membership testing.
-const MARK_TOKEN_TYPES = new Set(MARK_TO_TYPE.keys());
+// The mark token kinds, as a type — the keys of MARK_TO_TYPE.
+type MarkTokenType = keyof typeof MARK_TO_TYPE;
+
+/**
+ * Whether a token type is one of the four mark kinds.
+ *
+ * The single source both the gate and the lookup read, so they
+ * cannot disagree.
+ * @param type - The token type to test.
+ * @returns Whether it names one of the four mark kinds.
+ */
+function isMarkToken(type: InlineTokenType): type is MarkTokenType {
+  return type in MARK_TO_TYPE;
+}
 
 /**
  * Scan forward for a matching close mark of the same token
@@ -112,7 +120,7 @@ function makeTextNode(
 
 // Parameters for makeFormattingNode.
 interface FormattingNodeOptions {
-  markType: InlineTokenType;
+  markType: MarkTokenType;
   constrained: boolean;
   children: InlineNode[];
   openMark: Fragment;
@@ -139,7 +147,7 @@ function makeFormattingNode(
   options: FormattingNodeOptions,
 ): BoldNode | ItalicNode | MonospaceNode | HighlightNode {
   const { markType, constrained, children, openMark, closeMark, at } = options;
-  const type = MARK_TO_TYPE.get(markType);
+  const type = MARK_TO_TYPE[markType];
   const position = { start: at.start(openMark), end: at.end(closeMark) };
   const base = { constrained, children, position };
   switch (type) {
@@ -154,12 +162,6 @@ function makeFormattingNode(
     }
     case "highlight": {
       return { type, role: undefined, ...base };
-    }
-    case undefined: {
-      // MARK_TO_TYPE above and the tokenizer's mark rules in
-      // `inline/rules.ts` are two lists of the same four kinds. Only
-      // this guard says they have to agree.
-      return unreachable(`Unknown mark token: ${markType}`);
     }
   }
 }
@@ -265,7 +267,7 @@ function handleRoleAttribute(context: RoleAttributeContext): number {
 /**
  * Try to pair a formatting mark with its close.
  *
- * MARK_TOKEN_TYPES is the gate and it lives HERE, with the pairing
+ * isMarkToken is the gate and it lives HERE, with the pairing
  * it guards: extracts the tokens between the open and close marks,
  * recursively builds their InlineNode children, and wraps them in
  * the appropriate formatting node. Returns undefined for a token
@@ -286,7 +288,7 @@ function handleFormattingMark(
   token: InlineToken,
   at: LocationIndex,
 ): { node: InlineNode; nextIndex: number } | undefined {
-  if (!MARK_TOKEN_TYPES.has(token.type)) return undefined;
+  if (!isMarkToken(token.type)) return undefined;
   // Find a close mark that is not immediately adjacent to the
   // open mark. An adjacent close would create an empty
   // formatting span (e.g. `____` tokenized as `__` + `__`)

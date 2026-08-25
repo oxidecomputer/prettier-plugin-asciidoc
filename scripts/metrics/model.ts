@@ -46,7 +46,7 @@ export const NOT_FOUND = -1;
  * `gates.ts` names them in a ratchet failure. Each marker must stay on
  * ONE line where it is written — the count is over comment text, and an
  * 80-column wrap that splits a marker in two hides the defense from the
- * inventory. `docs/simplicity-metrics.md` defines what each one means.
+ * inventory. `docs/harnesses.md` defines what each one means.
  */
 export const DEFENSE_MARKERS = {
   callerContract: "Caller contract:",
@@ -64,13 +64,6 @@ export type MarkerKey = keyof typeof DEFENSE_MARKERS;
  * site is a silent strip instead — must not read as a call.
  */
 export const UNREACHABLE_CALLEE = "unreachable";
-
-/**
- * The module that DEFINES `unreachable`, excluded from its own count:
- * `narrow` calls it there, and counting that would report the
- * mechanism as one of its own users.
- */
-export const UNREACHABLE_MODULE = "src/unreachable.ts";
 
 /**
  * The layers the scorecard reports separately. `src/parse` includes
@@ -238,10 +231,10 @@ export interface SeamWidth {
  * is the formal notion and is not computable here, so this counts the
  * defenses that REMAIN instead. Every field is a budget to ratchet
  * down, and a defense may only be deleted together with its need. See
- * `docs/simplicity-metrics.md`.
+ * `docs/harnesses.md`.
  */
 interface Defense {
-  /** `unreachable(…)` call sites under `src`, its own module apart. */
+  /** `unreachable(…)` call sites under `src`. */
   unreachableCalls: number;
   /** `Caller contract:` marker occurrences under `src`. */
   callerContract: number;

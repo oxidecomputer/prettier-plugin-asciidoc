@@ -7,7 +7,7 @@
  * nesting and forgives `switch`, and is the metric with the best
  * evidence for tracking TIME TO UNDERSTAND. They are reported side by
  * side because they disagree in informative ways — see
- * `docs/simplicity-metrics.md`.
+ * `docs/harnesses.md`.
  *
  * Both rules run at threshold 0 so that every function reports its
  * value instead of only the ones over a limit, and both run from a

@@ -4,12 +4,10 @@
  * discrete heading that opens no section. Sections are not modeled
  * — a heading is a LEAF and its level is data.
  *
- * Every function here takes the CLASSIFIER's parse (the sectionTitle
- * LineKind carries it — SECTION_TITLE in line-shapes.ts, the ONE
- * derivation): the second marker pattern this module used to hold,
- * and the `unreachable(` agreement guard that held the two together,
- * died with it. The classifier's SECTION_TITLE capture carries the
- * title; nothing here slices or trims.
+ * Every function here takes the CLASSIFIER's parse: the sectionTitle
+ * LineKind carries it (SECTION_TITLE in line-shapes.ts, the ONE
+ * derivation), so nothing here holds a second marker pattern, slices
+ * or trims.
  */
 import type { DiscreteHeadingNode, HeadingNode } from "../../ast.js";
 import type { Fragment, LocationIndex } from "../positions.js";

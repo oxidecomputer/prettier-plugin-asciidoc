@@ -1,6 +1,6 @@
 import { describe, test, expect } from "vitest";
 import { parse } from "../../src/parser.js";
-import { narrow } from "../../src/unreachable.js";
+import { narrow } from "../../src/narrow.js";
 
 describe("discrete heading parsing", () => {
   // A `[discrete]` attribute list followed by a heading line

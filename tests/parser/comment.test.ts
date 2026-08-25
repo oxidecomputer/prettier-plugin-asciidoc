@@ -15,7 +15,7 @@
 import { describe, test, expect } from "vitest";
 import { parse } from "../../src/parser.js";
 import { renderedHtml } from "../helpers.js";
-import { narrow } from "../../src/unreachable.js";
+import { narrow } from "../../src/narrow.js";
 
 describe("line comment parsing", () => {
   // Verifies the fundamental contract: `// text` becomes a comment node,

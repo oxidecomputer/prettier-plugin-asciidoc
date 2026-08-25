@@ -9,7 +9,7 @@
 import { describe, test, expect } from "vitest";
 import { parse } from "../../src/parser.js";
 import { asParagraph, firstList, renderedHtml } from "../helpers.js";
-import { narrow } from "../../src/unreachable.js";
+import { narrow } from "../../src/narrow.js";
 
 describe("list continuation parsing", () => {
   test("+ attaches a paragraph to the item", () => {
@@ -151,10 +151,11 @@ describe("list continuation parsing", () => {
   // A `+` line DIRECTLY after a marker is content of the
   // attached paragraph, not a second marker — treating it as a
   // marker would silently delete the `+` from the rendered
-  // document (Asciidoctor renders `+ Attached` here). The reader
-  // keeps that `+` as a verbatim line of its own (a one-line raw
-  // paragraph) ahead of the attached paragraph, so the byte is
-  // printed back exactly where it was written.
+  // document (Asciidoctor renders `+ Attached` here). The frozen
+  // `+` heads ONE folded paragraph — non-content-adjacent, so the
+  // text after it folds in (parser.js l.1065) — with the `+` on a
+  // verbatim raw line of its own, so the byte is printed back
+  // exactly where it was written.
   test("+ line directly after a marker is content", async () => {
     const input = "* item\n+\n+\nAttached\n";
     expect(await renderedHtml(input)).toContain("<p>+ Attached</p>");
@@ -162,14 +163,10 @@ describe("list continuation parsing", () => {
     const {
       children: [item],
     } = firstList(children);
-    expect(item.blocks).toHaveLength(2);
-    expect(asParagraph(item.blocks[0].block).children).toEqual([
-      expect.objectContaining({ type: "rawLine", value: "+" }),
-    ]);
-    expect(asParagraph(item.blocks[1].block).children[0]).toMatchObject({
-      type: "text",
-      value: "Attached",
-    });
+    expect(item.blocks).toHaveLength(1);
+    const [first, second] = asParagraph(item.blocks[0].block).children;
+    expect(first).toMatchObject({ type: "rawLine", value: "+" });
+    expect(second).toMatchObject({ type: "text", value: "Attached" });
   });
 
   // Indented content after `+` is a literal block in

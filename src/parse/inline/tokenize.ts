@@ -34,31 +34,27 @@ export function tokenizeInline(
   const tokens: Array<InlineToken<InlineKind>> = [];
   let index = 0;
   while (index < text.length) {
+    let type: InlineKind = "InlineChar";
     let length = 0;
     for (const rule of INLINE_RULES) {
       length = rule.match(text, index);
       if (length > 0) {
-        tokens.push({
-          type: rule.type,
-          image: text.slice(index, index + length),
-          offset: baseOffset + index,
-        });
+        ({ type } = rule);
         break;
       }
     }
-    // Total fallback: unreachable while `InlineChar` is last in the
-    // table — it matches any character but a newline, and a newline is
-    // matched by InlineNewline. Kept as a one-character step rather
-    // than a throw so the tokenizer stays total whatever the table
-    // says. The blast radius is one character read as plain text.
-    if (length === 0) {
-      tokens.push({
-        type: "InlineChar",
-        image: text.slice(index, index + 1),
-        offset: baseOffset + index,
-      });
-      length = 1;
-    }
+    // No rule matched: one character of plain text. Not a defense —
+    // the rules match constructs, and a character no rule claims (a
+    // stray formatting mark, say) is InlineChar by definition. This
+    // used to be the table's own last row; as the else branch it is
+    // one mechanism instead of two that had to agree, and it keeps
+    // the loop finite whatever the table contains.
+    if (length === 0) length = 1;
+    tokens.push({
+      type,
+      image: text.slice(index, index + length),
+      offset: baseOffset + index,
+    });
     index += length;
   }
   return tokens;

@@ -4,13 +4,13 @@
  * Exhaustive over every body of length 1-4 the ten symbols spell, plus
  * the named shapes whose bodies are longer — 11,128 documents in 1.6s,
  * no sampling and no PRNG. Its deeper half lives in
- * `list-shape-sweep.deep.test.ts` and runs under `bun run sweep:deep`;
+ * `list-shape-sweep.deep.test.ts` and runs under `bun run test:deeply-nested-lists`;
  * the split is wall time and nothing else (the depth-5 product was
  * 25.6s of a 26.1s suite), and the machinery both entries sweep is one
  * module so they cannot disagree about what a document is.
  *
  * WHY FOUR and not the three the split was specified at: the mutation
- * harness runs THIS suite, not `sweep:deep`, so every mutant the sweep
+ * harness runs THIS suite, not `test:deeply-nested-lists`, so every mutant the sweep
  * used to kill has to be killed at the shallow depth or not at all.
  * Measured on a seeded `list-hazard.ts` mutant (`startsWith` →
  * `endsWith` on the comment head): survives depth 3, dies at depth 4.

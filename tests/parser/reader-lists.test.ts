@@ -13,6 +13,8 @@
  * written, the oracle won and the shape was fixed.
  */
 import { describe, expect, test } from "vitest";
+import { narrow } from "../../src/narrow.js";
+import { parse } from "../../src/parser.js";
 import { renderedHtml } from "../helpers.js";
 import { expectAstInvariants } from "./ast-invariants.js";
 import { astShape, itemCount, oracleItems } from "./reader-helpers.js";
@@ -241,6 +243,88 @@ describe("reader: list items (read_lines_for_list_item)", () => {
   });
 });
 
+// The erased detached `+` as a STOPPER (#56): an inner item scan
+// hard-stops on the tagged Placeholder after a blank (the JS oracle's
+// strict `thisLine === ''`, parser.js l.2168), and the sibling loop's
+// blank skip — `parse_list`'s `skip_blank_lines || break`, l.1125 —
+// consumes it, sibling or not. Item counts are the oracle's own.
+describe("reader: an erased detached + between items (#56)", () => {
+  test.each([
+    [
+      "a single detached + between siblings is eaten by the sibling probe",
+      "* a\n** b\n\n+\n** b\n",
+      "list(item(t list(item(t) item(t))))",
+    ],
+    [
+      "a detached RUN splits the nested list: the frozen + survives as a paragraph between two lists",
+      "* a\n** b\n\n+\n+\n** b\n",
+      "list(item(t list(item(t)) ~+p(raw) list(item(t))))",
+    ],
+    [
+      "the skip stays consumed on a failed probe: the + paragraph opens content-adjacent",
+      "* a\n** b\n\n+\n+\npara\n",
+      "list(item(t list(item(t)) ~+p(raw) -p(t)))",
+    ],
+  ])("%s", async (_name, input, expected) => {
+    expect(astShape(input)).toBe(expected);
+    expect(itemCount(input), "one list item per oracle <li>").toBe(
+      await oracleItems(input),
+    );
+  });
+});
+
+// The `+`-headed FOLD (#56): a frozen `+` opened after a skipped blank
+// (the erased `+` reads as one) is non-content-adjacent to the oracle
+// (`skipped === 0 && options.list_type` is false, parser.js l.1065),
+// so its paragraph runs THROUGH marker lines and stops at the
+// plain-paragraph set — a blank, a plain `+`, a block-attribute line,
+// a delimiter.
+describe("reader: a frozen + folds marker lines into its paragraph (#56)", () => {
+  test.each([
+    [
+      "the fold stops at the blank and the second nested list is its own block",
+      "* a\n+\n+\n** b\n\n** b\n",
+      "list(item(t +p(raw raw) list(item(t))))",
+    ],
+    [
+      "adjacent markers fold to the end of the buffer",
+      "* a\n+\n+\n** b\n** b\n",
+      "list(item(t +p(raw raw raw)))",
+    ],
+    [
+      "a tagged + mid-fold runs through as a raw line (parser.js l.3023-25)",
+      "* a\n+\n+\n** b\n+\n** b\n",
+      "list(item(t +p(raw raw raw raw)))",
+    ],
+    [
+      "text lines after the + head are ordinary fold content",
+      "* a\n+\n+\nfoo\nbar\n",
+      "list(item(t +p(raw t / t)))",
+    ],
+  ])("%s", async (_name, input, expected) => {
+    expect(astShape(input)).toBe(expected);
+    expect(itemCount(input), "one list item per oracle <li>").toBe(
+      await oracleItems(input),
+    );
+  });
+
+  test("shape 10's gap record: the + prints from the gap, the blank is replayed between the blocks", () => {
+    const [list] = parse("* a\n+\n+\n** b\n\n** b\n").children;
+    narrow(list, "list");
+    const [item] = list.children;
+    expect(item.blocks.map(({ gap, block }) => [gap, block.type])).toEqual([
+      [["+"], "paragraph"],
+      [[""], "list"],
+    ]);
+    const [{ block: paragraph }] = item.blocks;
+    narrow(paragraph, "paragraph");
+    expect(paragraph.children).toMatchObject([
+      { type: "rawLine", value: "+" },
+      { type: "rawLine", value: "** b" },
+    ]);
+  });
+});
+
 // Issue #29's seam, closed here: `read_lines_for_list_item` matches
 // siblings and nested markers with `ListRxMap`, whose `UnorderedListRx`
 // and `OrderedListRx` both open with `^[ \t]*` and take a `[ \t]+` gap.
@@ -305,8 +389,11 @@ describe("reader: list oracle surprises", () => {
     expect(astShape("** b\n  lit\n[source]\nNOTE: x\n")).toBe(
       "list(item(t / t -attrs -listing[1]))",
     );
+    // The frozen `+` heads a folded paragraph, so the foreign `* a`
+    // marker line after it is a raw line of that paragraph, not a
+    // nested list.
     expect(astShape("** b\nifdef::x[]\n// c\n[[x]]\n+\n+\n* a\n")).toBe(
-      "list(item(t raw raw -anchor +p(raw) list(item(t))))",
+      "list(item(t raw raw -anchor +p(raw raw)))",
     );
     // The invariant they were FOUND by, not just the shape they settled
     // on: document order, values reconstruct, containment.
@@ -329,17 +416,17 @@ describe("reader: list oracle surprises", () => {
     );
   });
   test("adjacent + lines: the second is content, every later one is dropped", async () => {
-    // l.1444's gate, Ruby's and ours: the second `+` freezes and is
-    // buffered as text, the third and later ones are read and thrown
-    // away. They render nothing — `+\nAttached` is one paragraph
-    // either way — and the byte comes back only because the dropped
-    // line still sits between the two blocks the reader kept, where
-    // the gap replay writes it.
+    // l.1444's gate, Ruby's and ours: the second `+` freezes and
+    // heads ONE folded paragraph (the oracle's `<p>+ Attached</p>`),
+    // the third and later ones are read and thrown away. A dropped
+    // `+` renders nothing and stands inside the paragraph's own span,
+    // so no gap replays it — the printed document spells the run with
+    // two.
     expect(await renderedHtml("* a\n+\n+\n+\nAttached\n")).toContain(
       "<p>+ Attached</p>",
     );
     expect(astShape("* a\n+\n+\n+\nAttached\n")).toBe(
-      "list(item(t +p(raw) +p(t)))",
+      "list(item(t +p(raw t)))",
     );
   });
 });
@@ -390,16 +477,17 @@ describe("reader: a detached + an outer item took is released when the inner ite
 });
 
 describe("reader: stacked detached continuations", () => {
-  // Core 2.0.20's outer item erases only the LAST detached `+`
-  // (`detached_continuation` is a scalar); the inner item re-reads the
-  // first as its own and takes the block. Both marks ride ahead of it
-  // so the printer writes both `+` lines back. The pinned oracle (core
-  // 2.0.26) puts the paragraph in the OUTER item instead — a recorded
-  // divergence, not a reader change; the `<li>` count, which is what
-  // this row asserts against the oracle, is the same either way.
-  test("the inner item takes the block, with one mark per +", async () => {
+  // The outer item erases only the FIRST detached `+`
+  // (`detached_continuation` is a scalar and the second `+` rides the
+  // `:active` arm as content, so the first stays registered); the
+  // inner item's re-read hard-stops at that erased Placeholder, the
+  // sibling probe eats it, and the surviving `+` and the paragraph
+  // land in the OUTER item — where the oracle renders them
+  // (`<p>+ para</p>` inside a's `<li>`). The `<li>` count, which is
+  // what this row asserts against the oracle, agrees.
+  test("the outer item takes the block, behind the surviving +", async () => {
     const input = "* a\n** b\n\n+\n\n+\npara\n";
-    expect(astShape(input)).toBe("list(item(t list(item(t ~++p(t)))))");
+    expect(astShape(input)).toBe("list(item(t list(item(t)) ~+p(raw) -p(t)))");
     expect(itemCount(input)).toBe(await oracleItems(input));
   });
 });

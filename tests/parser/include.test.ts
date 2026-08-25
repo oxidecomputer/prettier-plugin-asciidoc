@@ -11,7 +11,7 @@
 import { describe, test, expect } from "vitest";
 import { parse } from "../../src/parser.js";
 import { asParagraph } from "../helpers.js";
-import { narrow } from "../../src/unreachable.js";
+import { narrow } from "../../src/narrow.js";
 
 describe("include directive lines at block level", () => {
   test.each([

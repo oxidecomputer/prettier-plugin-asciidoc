@@ -1,7 +1,7 @@
 import { describe, test, expect } from "vitest";
 import { parse } from "../../src/parser.js";
 import { firstList } from "../helpers.js";
-import { narrow } from "../../src/unreachable.js";
+import { narrow } from "../../src/narrow.js";
 
 describe("checklist parsing", () => {
   // `[x]` is the canonical checked marker.

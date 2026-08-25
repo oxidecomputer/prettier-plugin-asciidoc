@@ -55,6 +55,16 @@ export interface ListItemInput {
   readonly blocks: readonly ItemBlock[];
   /** Whether a `+` off the item's end must be printed back. */
   readonly trailingContinuation: boolean;
+  /**
+   * Whether the erased detached tail must be printed back (see
+   * {@link ListItemNode}'s `detachedTail`).
+   */
+  readonly detachedTail: boolean;
+  /**
+   * Whether the item ends with its continuation still armed (see
+   * {@link ListItemNode}'s `activeTail`).
+   */
+  readonly activeTail: boolean;
 }
 
 /**
@@ -176,6 +186,8 @@ export function buildListItem(
     text,
     blocks: [...input.blocks],
     trailingContinuation: input.trailingContinuation,
+    detachedTail: input.detachedTail,
+    activeTail: input.activeTail,
     position: {
       start: at.start(input.marker),
       end:

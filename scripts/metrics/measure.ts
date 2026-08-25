@@ -26,7 +26,6 @@ import {
   layersFor,
   ONE,
   perLayer,
-  UNREACHABLE_MODULE,
   ZERO,
   type FileScan,
   type Layer,
@@ -96,26 +95,19 @@ function total(scans: FileScan[], pick: (scan: FileScan) => number): number {
 }
 
 /**
- * Total the `unreachable(…)` call sites, its own module apart.
- *
- * The exclusion is here rather than in `scan.ts` because this is where
- * a path is known to be `src/…`: the scanner counts what a file
- * contains and the aggregate decides which files the policy is about.
+ * Total the `unreachable(…)` call sites.
  * @param scans - one entry per measured file
- * @returns call sites outside `src/unreachable.ts`
+ * @returns call sites across `src`
  */
 function unreachableSites(scans: FileScan[]): number {
-  return total(scans, (scan) =>
-    scan.path === UNREACHABLE_MODULE ? ZERO : scan.unreachableCalls,
-  );
+  return total(scans, (scan) => scan.unreachableCalls);
 }
 
 /**
  * Every wrapped, uncounted marker in the tree, placed by file and line.
  *
- * Assembled here rather than in `scan.ts` for the same reason the
- * `unreachable()` exclusion is: the scanner reports what one file
- * holds, and only the aggregate knows that file's path.
+ * Assembled here rather than in `scan.ts` because the scanner reports
+ * what one file holds, and only the aggregate knows that file's path.
  * @param scans - one entry per measured file
  * @returns one `file:line: marker` string per near miss
  */

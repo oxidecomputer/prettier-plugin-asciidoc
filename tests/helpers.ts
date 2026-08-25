@@ -20,7 +20,7 @@ import type {
 } from "../src/ast.js";
 import type { parse } from "../src/parser.js";
 import plugin from "../src/index.js";
-import { narrow } from "../src/unreachable.js";
+import { narrow } from "../src/narrow.js";
 
 /**
  * Formats AsciiDoc input through Prettier with optional overrides.

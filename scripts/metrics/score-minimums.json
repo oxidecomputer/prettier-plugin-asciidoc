@@ -1,5 +1,5 @@
 {
-  "note": "Per-file RECORDED MINIMUMS: the lowest v8 LINE coverage (`bun run coverage`) and the lowest StrykerJS mutation score (`bun run mutate`) each source file is allowed to report. Both are measured-now values ROUNDED DOWN to a tenth, so timing flap cannot fail a run; raising a recorded minimum rides the commit that earns it. MUTATION re-seeded 2026-08-25 from a CLEARED-CACHE `bun run mutate:full` (3,767 mutants, 25m37s, 92.78% overall) at the normalization campaign's close-out; coverage from a `bun run coverage` run of the same tree. Read the two-sided move that re-seeding produced, because it is the reason the brief asked for a cleared cache: two files ROSE (lines/list-reader.ts 94.6 -> 94.9, print/serialize-inline.ts 96.1 -> 96.5) and six FELL (parse/attrlist.ts 100 -> 98.6, parse/inline/inline-node-builder.ts 87.3 -> 86.9, parse/lines/reader.ts 94.8 -> 94.2, print/blocks.ts 90.6 -> 90.3, print/inline.ts 92.7 -> 92.0, print/list.ts 96.5 -> 96.1). The falls are not a regression in the code: every number they replace came from an INCREMENTAL run that reused a stale cache, and two of the six covered functions that no cleared-cache run had ever measured (attrlistFields and closingQuote, added after the previous seeding). Two of the six were answered with TESTS before the minimum moved (attrlist.ts, and lines/reader.ts's restored tailSafe inheritance); the survivors that remain on those two are classified below as equivalent, with the document counts that establish it. Timing flap is wider than a tenth on the biggest files (inline-node-builder measured 87.3 and 86.9 on two identical-tree runs), so treat a sub-half-point fall on a file with hundreds of mutants as flap to re-measure, not as a regression to bisect. A minimum of 0 means the file has nothing to measure — see the exceptions for the three files Stryker writes no row for at all. HONEST BOUND on `exceptions`: it is the AUDITED set, not every survivor. It holds the two files audited mutant by mutant in W2's recovery, the type-forced and total-fallback arms, the plugin's registration surface, the three files with no mutants, and the three equivalent mutants this close-out proved by differential. The rest of the gap between a recorded minimum and 100% is recorded by the number itself and is a candidate for the next audit. See docs/simplicity-metrics.md, the Recorded minimums section.",
+  "note": "Per-file RECORDED MINIMUMS: the lowest v8 LINE coverage (`bun run coverage`) and the lowest StrykerJS mutation score (`bun run mutate`) each source file is allowed to report. Both are measured-now values ROUNDED DOWN to a tenth, so timing flap cannot fail a run; raising a recorded minimum rides the commit that earns it. MUTATION re-seeded 2026-08-25 from a CLEARED-CACHE `bun run mutate:full` (3,767 mutants, 25m37s, 92.78% overall) at the normalization campaign's close-out; coverage from a `bun run coverage` run of the same tree. Read the two-sided move that re-seeding produced, because it is the reason the brief asked for a cleared cache: two files ROSE (lines/list-reader.ts 94.6 -> 94.9, print/serialize-inline.ts 96.1 -> 96.5) and six FELL (parse/attrlist.ts 100 -> 98.6, parse/inline/inline-node-builder.ts 87.3 -> 86.9, parse/lines/reader.ts 94.8 -> 94.2, print/blocks.ts 90.6 -> 90.3, print/inline.ts 92.7 -> 92.0, print/list.ts 96.5 -> 96.1). The falls are not a regression in the code: every number they replace came from an INCREMENTAL run that reused a stale cache, and two of the six covered functions that no cleared-cache run had ever measured (attrlistFields and closingQuote, added after the previous seeding). Two of the six were answered with TESTS before the minimum moved (attrlist.ts, and lines/reader.ts's restored tailSafe inheritance); the survivors that remain on those two are classified below as equivalent, with the document counts that establish it. Timing flap is wider than a tenth on the biggest files (inline-node-builder measured 87.3 and 86.9 on two identical-tree runs), so treat a sub-half-point fall on a file with hundreds of mutants as flap to re-measure, not as a regression to bisect. A minimum of 0 means the file has nothing to measure \u2014 see the exceptions for the three files Stryker writes no row for at all. HONEST BOUND on `exceptions`: it is the AUDITED set, not every survivor. It holds the three files audited mutant by mutant (two in W2's recovery, list-reader.ts after the cell refactor), the type-forced arms, the plugin's registration surface, the three files with no mutants, and the three equivalent mutants this close-out proved by differential. The rest of the gap between a recorded minimum and 100% is recorded by the number itself and is a candidate for the next audit. See docs/harnesses.md, the Recorded minimums section.",
   "files": {
     "src/ast.ts": {
       "coverage": 100.0,
@@ -20,6 +20,10 @@
     "src/language.ts": {
       "coverage": 100.0,
       "mutation": 0.0
+    },
+    "src/narrow.ts": {
+      "coverage": 50.0,
+      "mutation": 25.0
     },
     "src/parse/attrlist.ts": {
       "coverage": 100.0,
@@ -50,7 +54,7 @@
       "mutation": 98.5
     },
     "src/parse/inline/inline-node-builder.ts": {
-      "coverage": 97.2,
+      "coverage": 98.1,
       "mutation": 86.9
     },
     "src/parse/inline/rules.ts": {
@@ -58,8 +62,8 @@
       "mutation": 96.8
     },
     "src/parse/inline/tokenize.ts": {
-      "coverage": 85.7,
-      "mutation": 73.0
+      "coverage": 100.0,
+      "mutation": 100.0
     },
     "src/parse/inline/tokens.ts": {
       "coverage": 100.0,
@@ -80,6 +84,14 @@
     "src/parse/lines/frames.ts": {
       "coverage": 100.0,
       "mutation": 100.0
+    },
+    "src/parse/lines/held-metadata.ts": {
+      "coverage": 100.0,
+      "mutation": 0.0
+    },
+    "src/parse/lines/list-item-node.ts": {
+      "coverage": 100.0,
+      "mutation": 0.0
     },
     "src/parse/lines/list-reader.ts": {
       "coverage": 100.0,
@@ -140,28 +152,24 @@
     "src/print/serialize-inline.ts": {
       "coverage": 100.0,
       "mutation": 96.5
-    },
-    "src/unreachable.ts": {
-      "coverage": 66.6,
-      "mutation": 40.0
     }
   },
   "exceptions": [
     {
       "file": "src/ast.ts",
-      "what": "mutation minimum 0 — Stryker writes no row for this file",
+      "what": "mutation minimum 0 \u2014 Stryker writes no row for this file",
       "class": "never",
       "reason": "the AST is interface declarations and nothing else, so there is no expression to mutate; a minimum of 0 here says 'nothing to measure', which is why an unmeasured file with a zero minimum is not an error"
     },
     {
       "file": "src/constants.ts",
-      "what": "mutation minimum 0 — Stryker writes no row for this file",
+      "what": "mutation minimum 0 \u2014 Stryker writes no row for this file",
       "class": "never",
       "reason": "declarations only, as src/ast.ts"
     },
     {
       "file": "src/index.ts",
-      "what": "ArrayDeclaration at index.ts:7 — `languages: [language]` emptied",
+      "what": "ArrayDeclaration at index.ts:7 \u2014 `languages: [language]` emptied",
       "class": "now",
       "reason": "same missing test as src/language.ts: nothing asserts the assembled Plugin object's shape"
     },
@@ -178,26 +186,50 @@
       "reason": "EQUIVALENT. The extra iteration reads `raw[raw.length]`, which is `undefined` and matches neither the escape nor the quote, so the loop still falls through to `return undefined`. Its seven siblings in this file were survivors too until this commit; five new rows in tests/parser/attrlist.test.ts kill them. The one the rows could not have killed is this one"
     },
     {
-      "file": "src/parse/inline/tokenize.ts",
-      "what": "the `Total fallback:` one-character step (tokenize.ts:54-58) — 7 mutants (6 NoCoverage plus the guard at :54 itself) and the uncovered lines behind the 85.7% coverage minimum",
-      "class": "when",
-      "reason": "unreachable while InlineChar is last in the rule table: it matches any character but a newline, and a newline is matched by InlineNewline. TRIGGER — a rule table where some character matches no rule; the day a rule is removed or narrowed, this arm becomes reachable and gets a test. Kept as a step rather than a throw so the tokenizer stays total whatever the table says"
-    },
-    {
       "file": "src/parse/inline/tokens.ts",
-      "what": "mutation minimum 0 — Stryker writes no row for this file",
+      "what": "mutation minimum 0 \u2014 Stryker writes no row for this file",
       "class": "never",
       "reason": "the inline token-kind names, declared as a const table; no expression to mutate"
     },
     {
+      "file": "src/parse/lines/list-reader.ts",
+      "what": "list-reader.ts:222 `marker.variant === \"callout\"` -> `true` in the calloutNumber ternary",
+      "class": "never",
+      "reason": "EQUIVALENT. `parseListMarker` writes `calloutNumber` on the callout arm and nowhere else, so on an ordered or unordered marker `marker.calloutNumber` reads `undefined` \u2014 the very value the else arm supplies"
+    },
+    {
+      "file": "src/parse/lines/list-reader.ts",
+      "what": "the whole of textEndLine (list-reader.ts:308-312) \u2014 5 mutants: `at(-1)` -> `at(+1)`, the empty-text guard -> `true`, -> `false` and `===` -> `!==`, and `Math.max` -> `Math.min`",
+      "class": "never",
+      "reason": "EQUIVALENT, for the two reasons this line number has exactly one reader. (a) The empty-text arm is unreachable: the tokens are read from the item's own marker line, and `parseListMarker` matches no line that carries no text, so `text.at(-1)` is always a token \u2014 killing the `false` and `!==` mutants means constructing an item with no text at all. (b) The other three only move the answer EARLIER within the text's OWN span, and gapsOf uses it as the exclusive lower bound of the first block's gap: every line of that span is text, and only blanks and `+` lines are ever recorded, so no entry can sit in the difference"
+    },
+    {
+      "file": "src/parse/lines/list-reader.ts",
+      "what": "the two guards of continuationArm (list-reader.ts:731-732) \u2014 3 mutants: each conjunct -> `true`, and `&&` -> `||`",
+      "class": "never",
+      "reason": "EQUIVALENT, and redundant by construction: `previousText` IS `previous?.current.text`, so the two are undefined together and defined together and no mutant can separate them. The pair states one fact twice because each half is load-bearing for a different reader \u2014 the second narrows the string `previousIsContinuation` takes, the first is the cell the `+` arm blanks"
+    },
+    {
+      "file": "src/parse/lines/list-reader.ts",
+      "what": "the nine emptied step-arm string literals (list-reader.ts:693, :705, :709, :764, :846, :856, :865, :870, :877) \u2014 `return \"go\"` and two `return \"stop\"`s -> `return \"\"`",
+      "class": "never",
+      "reason": "EQUIVALENT. `run` compares an arm's answer to `\"stop\"` and to nothing else, so a `\"go\"` spelled `\"\"` still means keep reading. The two `\"stop\"`s that survive are the two the loop RE-DERIVES: at EOF (l.846) the while condition has already run out of lines, and at the after-blank sibling (l.865) the arm unread the marker line, so the next turn's `endsTheItem` stops on it at the same index with the same buffer"
+    },
+    {
+      "file": "src/parse/lines/list-reader.ts",
+      "what": "list-reader.ts:477 `trait.kind !== \"marker\"` -> `false` in siblingMarker",
+      "class": "when",
+      "reason": "The `dlist` arm of SiblingTrait is type-legal and has no PRODUCER: `siblingTrait` builds marker traits only, and listShape's opening is a MarkerKind. Reaching the guard means handing itemExtent a trait nothing in src constructs, which pins a placeholder rather than a behavior. TRIGGER \u2014 #9 lands the dlist producer, and the sibling rows that arrive with it exercise the guard from the reader"
+    },
+    {
       "file": "src/parse/lines/reader.ts",
-      "what": "the LEFT disjunct of `tailSafe: extent.close !== undefined || this.tailSafe` (reader.ts:850) — 3 mutants: -> `true`, -> `false`, and `!==` -> `===`",
+      "what": "the LEFT disjunct of `tailSafe: extent.close !== undefined || this.tailSafe` (reader.ts:853) \u2014 3 mutants: -> `true`, -> `false`, and `!==` -> `===`",
       "class": "never",
       "reason": "EQUIVALENT, measured rather than assumed: all three produce byte-identical output over 66,429 documents (a depth-5 product over `----`, `====`, `--`, `****`, `* a`, `** b`, `+`, blank and `para`) and over all 111,121 list-shape sweep documents. Whenever a block CLOSED, the reader's own `tailSafe` is already true, so the left disjunct never decides. The RIGHT disjunct is live and pinned in tests/format/trailing-continuation.test.ts (a trailing `+` at the end of an unclosed `====` or `--` block comes back), which is what took this file from 93.6 to 94.2"
     },
     {
       "file": "src/parser.ts",
-      "what": "locStart and locEnd bodies (parser.ts:29, :39) — NoCoverage, and the two uncovered lines behind the 50% coverage minimum",
+      "what": "locStart and locEnd bodies (parser.ts:29, :39) \u2014 NoCoverage, and the two uncovered lines behind the 50% coverage minimum",
       "class": "now",
       "reason": "Prettier calls these only for --range formatting and cursor tracking; the suite formats whole documents. A unit test calling locStart/locEnd on a parsed node would cover and kill both. They are also the reason positions are in the parity comparison at all"
     },
@@ -205,13 +237,13 @@
       "file": "src/print/list.ts",
       "what": "list.ts:141 `lastItem !== undefined` -> `true`",
       "class": "never",
-      "reason": "Leaves `tailSwallowsMarker(lastItem, block)` reached with `lastItem === undefined` only for a list node with ZERO children, which the reader cannot build — a list exists because an item made it"
+      "reason": "Leaves `tailSwallowsMarker(lastItem, block)` reached with `lastItem === undefined` only for a list node with ZERO children, which the reader cannot build \u2014 a list exists because an item made it"
     },
     {
       "file": "src/print/list.ts",
       "what": "list.ts:349 `gap.includes(\"+\")` -> `gap.includes(\"\")`",
       "class": "when",
-      "reason": "The blank-run sweep class. The arm fires only when a nested list SHARES its parent's marker, and probing the reader for that shape shows it always arrives with an empty gap — a blank or a `+` in front of a same-marker line reads back as a SIBLING boundary (`* a\\n\\n  lit\\n[[anc]]\\n+\\n* a\\n` gives two items). With `gap === []` both spellings return `[]`. TRIGGER — the render-divergent sweep members are the distinguishing shapes; a byte+idempotence pin already guards the drop branch"
+      "reason": "The blank-run sweep class. The arm fires only when a nested list SHARES its parent's marker, and probing the reader for that shape shows it always arrives with an empty gap \u2014 a blank or a `+` in front of a same-marker line reads back as a SIBLING boundary (`* a\\n\\n  lit\\n[[anc]]\\n+\\n* a\\n` gives two items). With `gap === []` both spellings return `[]`. TRIGGER \u2014 the render-divergent sweep members are the distinguishing shapes; a byte+idempotence pin already guards the drop branch"
     },
     {
       "file": "src/print/list.ts",
@@ -223,31 +255,31 @@
       "file": "src/print/list.ts",
       "what": "list.ts:351 `index > 0` -> `true`",
       "class": "never",
-      "reason": "Redundant with the third conjunct: at `index === 0`, `slurpReaches(blocks, 0)` scans `blocks.slice(0, 0)` — empty — and returns false, so the condition is false either way"
+      "reason": "Redundant with the third conjunct: at `index === 0`, `slurpReaches(blocks, 0)` scans `blocks.slice(0, 0)` \u2014 empty \u2014 and returns false, so the condition is false either way"
     },
     {
       "file": "src/print/list.ts",
       "what": "list.ts:401 `blankRun = false` -> `blankRun = true` in gapParts's `+` arm",
       "class": "never",
-      "reason": "EQUIVALENT. The only read of `blankRun` is `!livePlus && blankRun` (list.ts:405), the `+` arm sets `livePlus` in the line above, and nothing clears it — so after a `+` the value can never be read again. Zero byte differences over all 111,121 list-shape sweep documents"
+      "reason": "EQUIVALENT. The only read of `blankRun` is `!livePlus && blankRun` (list.ts:405), the `+` arm sets `livePlus` in the line above, and nothing clears it \u2014 so after a `+` the value can never be read again. Zero byte differences over all 111,121 list-shape sweep documents"
     },
     {
       "file": "src/print/list.ts",
       "what": "list.ts:84 `block.type === \"delimitedBlock\"` -> `true`",
       "class": "never",
-      "reason": "Leaves `block.form === \"indented\"`. No other block node can carry that form: `delimitedBlock` is the only `BlockNode` with `form: … | \"indented\"` (`admonition`'s form is `\"paragraph\"` or a parent-block variant; `link`/`xref` forms are inline). The AST forbids the difference"
+      "reason": "Leaves `block.form === \"indented\"`. No other block node can carry that form: `delimitedBlock` is the only `BlockNode` with `form: \u2026 | \"indented\"` (`admonition`'s form is `\"paragraph\"` or a parent-block variant; `link`/`xref` forms are inline). The AST forbids the difference"
     },
     {
       "file": "src/print/printer.ts",
-      "what": "the default arm of the node dispatch (printer.ts:141-143) — 3 NoCoverage mutants",
+      "what": "the default arm of the node dispatch (printer.ts:141-143) \u2014 3 NoCoverage mutants",
       "class": "never",
       "reason": "an EQUIVALENT arm forced by the type system: Prettier's AstPath is invariant, so the printer's node union must admit the inline nodes a paragraph's children array is typed with. Every block that owns inline content builds its atoms itself, so no path reaches this arm; deleting it is a type error"
     },
     {
       "file": "src/print/printer.ts",
-      "what": "the empty-document arm (printer.ts:53 conditional, :56 the empty string) — 3 mutants",
+      "what": "the empty-document arm (printer.ts:53 conditional, :56 the empty string) \u2014 3 mutants",
       "class": "now",
-      "reason": "formatting an empty document is reachable — parse(\"\") — and nothing formats one. A fixture for the empty document would kill all three"
+      "reason": "formatting an empty document is reachable \u2014 parse(\"\") \u2014 and nothing formats one. A fixture for the empty document would kill all three"
     },
     {
       "file": "src/print/reflow.ts",
@@ -259,19 +291,19 @@
       "file": "src/print/reflow.ts",
       "what": "reflow.ts:350 `last < 0` -> `false` in escapeDanglingPlus",
       "class": "never",
-      "reason": "Dead by the caller contract: `endNodeAtoms` is the only caller and has already returned when `last < 0`, so the guard re-checks a state it can never be in. Killing it needs a direct call with an empty atom list — a test-only construction of unreachable state"
+      "reason": "Dead by the caller contract: `endNodeAtoms` is the only caller and has already returned when `last < 0`, so the guard re-checks a state it can never be in. Killing it needs a direct call with an empty atom list \u2014 a test-only construction of unreachable state"
     },
     {
       "file": "src/print/reflow.ts",
       "what": "reflow.ts:434 `let glueNext = false` -> `true` in wordsToAtoms",
       "class": "never",
-      "reason": "The initializer is read only on the first iteration, and there `fuseBackwards = index > 0 && (glueNext || …)` short-circuits on `index > 0` before `glueNext` is looked at. Every later read sees the value the previous iteration assigned"
+      "reason": "The initializer is read only on the first iteration, and there `fuseBackwards = index > 0 && (glueNext || \u2026)` short-circuits on `index > 0` before `glueNext` is looked at. Every later read sees the value the previous iteration assigned"
     },
     {
-      "file": "src/unreachable.ts",
-      "what": "narrow()'s guard and message (unreachable.ts:46-48), 6 mutants and the uncovered third of the file",
+      "file": "src/narrow.ts",
+      "what": "narrow()'s guard and message \u2014 the uncovered half of the file",
       "class": "never",
-      "reason": "narrow() is @internal, exported for the test helpers, and its throw fires only when two places that agree have drifted apart. Killing the mutants means constructing the impossible state on purpose — a test-only construction of unreachable state, which is the thing the defense inventory exists to shrink, not to pin"
+      "reason": "narrow's throw is the assertion-failure path of a test helper: it fires only when a test asserted the wrong node type, so a passing suite never covers it, and killing its mutants means writing a deliberately failing assertion"
     }
   ]
 }

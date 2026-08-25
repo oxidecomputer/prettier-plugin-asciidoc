@@ -4,7 +4,7 @@ import base from "./vitest.config.js";
 /**
  * The vitest entry for the DEEP sweeps — the `*.deep.test.ts` files,
  * today just the exhaustive depth-5 list-shape product, run by
- * `bun run sweep:deep`.
+ * `bun run test:deeply-nested-lists`.
  *
  * It is the base config with one glob moved from `exclude` to
  * `include`: what `vitest.config.ts` refuses to collect is the only
@@ -18,7 +18,7 @@ import base from "./vitest.config.js";
  * include names and the run would collect zero tests and pass
  * (`passWithNoTests`). That silent green is exactly the failure the
  * exit-code contract exists to prevent, which is also why
- * `scripts/sweep-deep.ts` checks that tests actually ran.
+ * `scripts/test-deeply-nested-lists.ts` checks that tests actually ran.
  */
 export default defineConfig({
   ...base,

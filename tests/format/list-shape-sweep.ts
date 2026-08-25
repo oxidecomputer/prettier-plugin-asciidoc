@@ -6,7 +6,7 @@
  * - `list-shape-sweep.test.ts`, exhaustive to depth 4, in the DEFAULT
  *   suite (`bun run test`);
  * - `list-shape-sweep.deep.test.ts`, exhaustive to depth 5, run by
- *   `bun run sweep:deep`, by CI's blocking job, and as the prelude to
+ *   `bun run test:deeply-nested-lists`, by CI's blocking job, and as the prelude to
  *   every mutation run.
  *
  * ONE module because the two must not disagree about what a sweep
@@ -45,7 +45,7 @@ export const ALPHABET = [
  * guessed. Depth 3 costs 305ms and allowlists nothing — every shape on
  * the deep sweep's list has a body of length 4 or 5 — but it also
  * kills fewer MUTANTS than the sweep did before the split, and the
- * mutation harness runs the default suite, not `sweep:deep`. A seeded
+ * mutation harness runs the default suite, not `test:deeply-nested-lists`. A seeded
  * `list-hazard.ts` mutant (`startsWith` → `endsWith` on the comment
  * head) survives depth 3 and DIES at depth 4. Depth 4 is 11,128
  * documents in 1.6s, it carries 4 live allowlist entries, and it keeps
@@ -53,7 +53,7 @@ export const ALPHABET = [
  */
 export const SHALLOW_DEPTH = 4;
 
-/** How deep the `sweep:deep` product runs. */
+/** How deep the `test:deeply-nested-lists` product runs. */
 export const DEEP_DEPTH = 5;
 
 // Named shapes, unioned in explicitly at BOTH depths. They earn their

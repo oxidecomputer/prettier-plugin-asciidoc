@@ -242,6 +242,39 @@ function startsOnTheNextLine(previous: BlockNode, current: BlockNode): boolean {
 }
 
 /**
+ * Whether a list's last printed line stands under a still-ARMED `+` —
+ * the tail {@link ListItemNode.activeTail} records: a continuation
+ * whose activation ran through block metadata only and never met its
+ * block. One blank line under such a tail ATTACHES the next block to
+ * the item on re-read (`read_lines_for_list_item`'s `:active` arm,
+ * parser.rb l.1483); two detach it (the after-blank break, l.1549).
+ * The recursion mirrors {@link endsWithReaderEatenLine}: a trailing
+ * nested list's own last item is what the printed lines actually end
+ * on, so the innermost item's flag is the one that answers.
+ * @param block - The preceding block node.
+ * @returns Whether its tail continuation is still armed.
+ */
+function listTailContinuationActive(block: BlockNode): boolean {
+  if (block.type !== "list") return false;
+  const item = block.children.at(-1);
+  const last = item?.blocks.at(-1)?.block;
+  if (last?.type === "list") return listTailContinuationActive(last);
+  return item?.activeTail ?? false;
+}
+
+/**
+ * The blank-line separator a non-stacking pair gets: one blank line,
+ * or two when the previous block's tail keeps a `+` armed.
+ * @param previous - The preceding block node.
+ * @returns The separator Doc.
+ */
+function separatorAfter(previous: BlockNode): Doc {
+  return listTailContinuationActive(previous)
+    ? [hardline, hardline, hardline]
+    : [hardline, hardline];
+}
+
+/**
  * Joins printed block children with appropriate
  * separators.
  *
@@ -263,10 +296,14 @@ export function joinBlocks(blocks: BlockNode[], printed: Doc[]): Doc {
   for (let index = 1; index < printed.length; index += 1) {
     // Stacked blocks (consecutive comments, consecutive attribute
     // entries, or document title + attribute entry in a header)
-    // use a single newline. All other pairs get a blank line.
+    // use a single newline. All other pairs get a blank line — TWO
+    // blank lines when the previous block is a list whose tail
+    // continuation is still armed, because one blank under a live `+`
+    // re-attaches the block the source left detached
+    // ({@link listTailContinuationActive}).
     const separator: Doc = shouldStack(blocks, index)
       ? hardline
-      : [hardline, hardline];
+      : separatorAfter(blocks[index - 1]);
     result.push(separator, printed[index]);
   }
   return result;
