@@ -153,6 +153,68 @@ describe("a live metadata tail behind a nested list detaches too", () => {
   });
 });
 
+// The live tail one level DOWN: the `+` and its metadata belong to the
+// NESTED item, so the outer item's own tail says nothing. What the
+// printed lines actually end on is the innermost item's tail, which is
+// the recursion listTailContinuationActive walks - the outer item's
+// last block is the nested list, and the answer has to come from
+// inside it. Collapsing the two blanks here attaches `para` to the
+// nested item on re-read.
+describe("a live metadata tail on a NESTED item detaches too", () => {
+  test.each([
+    [
+      "under a block attribute line",
+      "* a\n** b\n+\n[role]\n\n\npara\n",
+      "* a\n** b\n+\n[role]\n\n\npara\n",
+    ],
+    [
+      "under a block title",
+      "* a\n** b\n+\n.T\n\n\npara\n",
+      "* a\n** b\n+\n.T\n\n\npara\n",
+    ],
+    [
+      "under a block anchor",
+      "* a\n** b\n+\n[[anc]]\n\n\npara\n",
+      "* a\n** b\n+\n[[anc]]\n\n\npara\n",
+    ],
+    [
+      "two levels down",
+      "* a\n** b\n*** c\n+\n[role]\n\n\npara\n",
+      "* a\n** b\n*** c\n+\n[role]\n\n\npara\n",
+    ],
+  ])("%s", async (_name, input, expected) => {
+    const out = await formatAdoc(input);
+    expect(out).toBe(expected);
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+});
+
+// An ORDINARY `+`-attached paragraph is not a fold: it BREAKS at a
+// tagged `+` instead of running it through, and the break is what
+// leaves the indented line behind it a literal block of its own. Fold
+// the `+` in and the `  lit` becomes prose in the same paragraph and
+// reflows off its column.
+describe("only a fold runs a tagged + through", () => {
+  test.each([
+    [
+      "a + head attaches the paragraph, so the next + breaks it",
+      "* a\n+\npara\n** b\n+\n  lit\n",
+      "* a\n+\npara\n** b\n+\n  lit\n",
+    ],
+    [
+      "the same break behind a nested list",
+      "* a\n** b\n\n+\npara\n+\n  lit\n",
+      "* a\n** b\n\n+\npara\n+\n  lit\n",
+    ],
+  ])("%s", async (_name, input, expected) => {
+    const out = await formatAdoc(input);
+    expect(out).toBe(expected);
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+});
+
 // An INDENTED line folded in behind a `+` head keeps its column. The
 // fold is a paragraph to us, but a re-read hands those same lines to a
 // literal block's verbatim slurp (`read_lines_until
@@ -288,6 +350,16 @@ describe("a +-headed paragraph folds marker lines", () => {
       "a tagged + mid-fold is run through, not a break",
       "* a\n+\n+\n** b\n+\n** b\n",
       "* a\n+\n+\n** b\n+\n** b\n",
+    ],
+    // PROSE before the mid-fold `+`. The fold's pieces are a run and
+    // the raw lines around it, and the run has to be closed where the
+    // `+` arrives: leave it open and the whole paragraph prints its
+    // raw lines first and its prose after, which is a different
+    // document.
+    [
+      "prose before a mid-fold + keeps its place in the run",
+      "* a\n+\n+\npara\n+\n** b\n",
+      "* a\n+\n+\npara\n+\n** b\n",
     ],
   ])("%s", async (_name, input, expected) => {
     const out = await formatAdoc(input);

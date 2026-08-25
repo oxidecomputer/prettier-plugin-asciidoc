@@ -32,6 +32,32 @@ describe("paragraph formatting", () => {
     expect(await formatAdoc(input)).toBe(expected);
   });
 
+  // The document printer's other arm: with no children there is
+  // nothing to join and no trailing hardline to hang off it, so an
+  // empty document formats to empty output rather than to a lone
+  // newline. These two rows pin the end-to-end contract without
+  // reaching that arm at all -- Prettier's own coreFormat answers ""
+  // for any whitespace-only input before the parser is called.
+  test("an empty document formats to empty output", async () => {
+    expect(await formatAdoc("")).toBe("");
+  });
+
+  test("a document of nothing but blank lines formats to empty output", async () => {
+    expect(await formatAdoc("\n\n\n")).toBe("");
+  });
+
+  // The one document that reaches the printer's empty arm THROUGH
+  // Prettier. A NUL is not whitespace to JavaScript's `trim()`, so
+  // coreFormat's whitespace short-circuit does not fire and the
+  // document is parsed; the reader's rstrip strips NULs to match
+  // Opal's `String#rstrip` (src/parse/line-shapes.ts), so the only
+  // line reads back blank and the document has no children. The
+  // printer must answer "" there too: a stray newline would be the
+  // formatter inventing a byte no input had.
+  test("a document of nothing but a NUL byte formats to empty output", async () => {
+    expect(await formatAdoc("\u{0}\n")).toBe("");
+  });
+
   // Complement to the "collapsed" test: verify that a single blank line
   // between paragraphs is already canonical and is preserved unchanged.
   test("two paragraphs separated by single blank line", async () => {
