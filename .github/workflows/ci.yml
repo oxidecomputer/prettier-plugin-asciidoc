@@ -56,6 +56,19 @@ jobs:
       # this job.
       - run: bun run test:deeply-nested-lists
         if: ${{ !cancelled() }}
+      # Our AST's BLOCK STRUCTURE against the oracle's, over the
+      # conformance corpus and the depth-4 sweep product, gated on
+      # scripts/block-structure-corpus.json and
+      # scripts/block-structure-sweep.json. About a second, head-only
+      # and needing no base, so it sits beside the deep sweep. The
+      # default suite runs the CORPUS half only; this step is what
+      # covers the SWEEP half, where 931 of the 932 divergences no
+      # other net sees actually live. `--depth 5` is available for
+      # anyone who wants the deeper product: it adds 16 signatures and
+      # no new root cause. A passing run prints an Asciidoctor object
+      # dump on stderr for one corpus document; see docs/harnesses.md.
+      - run: bun run block-structure
+        if: ${{ !cancelled() }}
 
   differential:
     name: Differential (vs base)

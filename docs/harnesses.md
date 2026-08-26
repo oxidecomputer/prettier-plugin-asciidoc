@@ -29,10 +29,12 @@ checked and it is broken" from "I checked nothing" goes quiet exactly when its
 inputs disappear, and a quiet failure in CI is a green tick. Every harness
 therefore has a measured-nothing floor that exits 2: `parity` has
 `MINIMUM_CASES`, `shape-diff` reports the ids its base dump was missing,
-`triage` refuses a corpus with no groups, and `metrics` refuses a `src` too
-small to be this repository's. Without the split, an empty `src` would score a
-perfect card — no files means no cycles, no unused exports, and no escape
-hatches, all vacuously true.
+`triage` refuses a corpus with no groups, `block-structure` refuses a short
+corpus, a short sweep product, an oracle refusal other than the one document it
+pins by id, and ledgers whose header names an oracle other than the installed
+one, and `metrics` refuses a `src` too small to be this repository's. Without
+the split, an empty `src` would score a perfect card — no files means no cycles,
+no unused exports, and no escape hatches, all vacuously true.
 
 Every script takes `--help`, and an unrecognized argument is an error, not a
 shrug: a silently dropped `--base` would print a head-only table that looks like
@@ -233,6 +235,131 @@ suite fails if a quarantined case starts passing.
 
 Proves nothing by itself; it writes the report the quarantine manifest is
 generated from, and the manifest is what the suite gates on.
+
+### `bun run block-structure` - block structure against the oracle
+
+The three differential properties (issue #7) ask whether formatting crashes,
+whether it settles, and whether it changes what Asciidoctor renders; all three
+are properties of our OUTPUT. This comparison (issue #30) is a property of our
+PARSE. It projects our `parse()` and `Asciidoctor.load()` onto one canonical
+tree of KIND-ONLY nodes (`tests/conformance/structure.ts`) and requires the two
+to be equal as trees of kinds - kind, child order, nesting, count - with
+divergences enumerated per child list by an LCS alignment so one inserted node
+does not cascade over every sibling after it.
+
+It runs over BOTH corpora, because they are blind to different things: across
+1,614 conformance-corpus documents just five divergences have a path inside a
+list item, while the depth-4 list-shape sweep product has 932 diverging
+documents built from nothing but list structure, of which the sweep's own
+render-equality and idempotence allowlist knows one. Five real documents is far
+too thin a sample to gate list modelling on, which is why the generated product
+runs too. 225 corpus documents and 931 sweep documents round-trip byte-clean,
+are idempotent and render identically while our AST models them differently from
+Asciidoctor - that is the blind spot this harness exists for.
+
+**What it does NOT prove.** Node identity is the KIND ALONE: no content, no
+attributes, no positions, no levels. A document can pass this gate while its
+titles, ids, roles, styles, options, verbatim text, table cells and every inline
+span are wrong. That is the deliberate trade - kind-only is what keeps the
+mapping a couple of hundred lines of statements about the two MODELS instead of
+a canonicalization of every text-carrying field (measured: comparing verbatim
+content adds two folds and returns only re-indentation and preprocessor-unescape
+noise; heading levels add eight noise documents and no finding). Read a green
+run as "the block skeleton agrees", never as "the parse is right". Three further
+blind spots by construction: a no-op include processor means the oracle never
+sees included content, verbatim/table content is opaque on both sides, and an
+oracle `section` is spliced away into its heading plus its children, so which
+section a block belongs to is not compared either (our model has no section node
+to compare it against).
+
+**And a large minority of the corpus carries almost no structure to compare.**
+Of the 1,613 corpus documents the oracle loads, 637 canonicalize to two nodes or
+fewer on BOTH sides; 12 of those are the document node alone, where the whole
+comparison is `document == document`; and 298 are the document plus one OPAQUE
+leaf - a lone `listing`, `table`, `pass`, `literal` or `verse` whose content
+neither side descends into - so those assert only "there is exactly one block
+and it is of this kind". The median canonical tree is three nodes. The floor is
+a count of DOCUMENTS, and the honest reading of "1,614 conformance-corpus
+documents" is that roughly 40% of them make a nearly vacuous comparison; the
+structural weight of the corpus half sits in the rest.
+
+**Two ledgers, because the two corpora have different id economics.**
+`scripts/block-structure-corpus.json` is keyed by CASE ID and pins each
+diverging case's signature, so a fix that turns one divergence into a different
+one fails until the entry is rewritten or deleted. A signature is the sorted
+multiset of the divergence's kind pairs with counts
+(`-paragraph x2; paragraph=>dlist`) and the PATH is dropped, so it says what
+moved and not where; the corpus ledger's per-id key is what carries the "where".
+`scripts/block-structure-sweep.json` is keyed by SIGNATURE and pins a count plus
+a canonical example, because per-id is not an option at sweep scale (12,645
+diverging documents at depth 5); the example is checked too, so the common
+"repaired five, broke five" way of gaming a count does not pass. Both are
+generated by `bun run block-structure --write`, which keeps the family a human
+already named and records anything new as `UNTRIAGED` - and `UNTRIAGED` is not
+in the closed enum, so the gate stays red until somebody names it. The reviewer
+then reads the ledger DIFF, which is the artifact that says what a change did to
+our conformance.
+
+Unlike the parity ledger these files are NOT reset to empty by the next change:
+they describe an absolute standard (the oracle), not a diff against a base
+revision, so they persist and shrink. They are measured, not authored -
+regenerate both whenever the ORACLE PIN or the PARSER moves, and read the diff.
+
+**Two family prefixes, and the split is not cosmetic.** `gap:*` means our model
+is wrong or incomplete - a real conformance gap, mapped to an issue, which must
+shrink (341 corpus documents today). `oracle:*` means the oracle RESOLVED
+something a formatter must not resolve - a conditional, an attribute value, a
+doctype's semantics - and is permanent by design (71 documents). Without the
+split the corpus ledger reads as 412 bugs when 71 of its rows are statements
+about what a formatter is. `oracle:*` rows are ledgered rather than excluded on
+purpose: an exclusion rule is a silent filter that can grow, whereas 71 rows
+with a stated family are reviewable.
+
+**Floors and exit codes.** Exit 1 when a ledger gate fails: an unknown family, a
+stale entry, a case that no longer diverges, a signature that moved, a diverging
+case with no entry, a sweep count that moved. Exit 1 too when the MAPPING is out
+of date, reported under its own header so it is not read as a statement about
+the parse. Exit 2 for the measured-nothing conditions - fewer than 1,614 corpus
+cases loaded, fewer than 11,128 depth-4 sweep documents spelled, an oracle
+refusal other than the single pinned case, or a ledger header naming an oracle
+version other than the installed one.
+
+The refused case is pinned BY ID (`ORACLE_REFUSES` in
+`scripts/block-structure-ledger.ts`: an `attributes_test.rb` case setting
+`:backend: docbook5`, for which the JavaScript build ships no converter) rather
+than counted, because a count of one is satisfied by any one document - a corpus
+re-fetch that dropped this case while another started failing to load would keep
+the count and drop that other document from the comparison unremarked. The pin
+cuts both ways: a run in which nothing is refused fails too, as a stale pin. The
+version assertion exists for the same reason: the header is there to make the
+oracle boundary auditable, and a header nothing compares audits nothing.
+
+Flags: `--depth <n>` (4 or deeper; below 4 the sweep product is under its floor
+and the run refuses it, and any depth other than the one the ledger records is
+report-only), `--write`, `--limit <n>`, `--levels`, `--help`.
+
+**The family census.** Every `type:` discriminant in `src/ast.ts` must be named
+in the mapping's census, and every kind the mapping did not name renders as
+`?<kind>` - a spelling nothing on the other side can match. Both are checked by
+the run, so a construct either model learns fails loudly instead of quietly
+comparing equal. Both are also checked BEFORE `--write` may write anything: a
+node kind the census does not name would otherwise be baked into the regenerated
+signatures as `?<kind>`, poisoning the very diff the reviewer is told to read.
+
+**Expect a stderr dump on a passing run.** Asciidoctor's reader reports
+`unterminated example block` for one corpus document through `console` before a
+document is attached to the logger, so the configured `NullLogger` cannot
+suppress it and roughly twenty lines of an inspected `Cursor` object land on
+stderr. It is harmless, it predates this harness (the same dump appears in the
+default suite), and it does not affect any exit code.
+
+The CORPUS half also runs in the default suite
+(`tests/conformance/structure.test.ts`, 0.3 s), so a regression fails
+`bun run test` rather than waiting for a manual harness run. The sweep half runs
+only here.
+
+Proves: our AST models the same block skeleton the oracle does, everywhere the
+ledgers do not say otherwise.
 
 ### `bun run vendor` and `bun run build`
 
@@ -453,10 +580,11 @@ idempotence wobble that needs the dedicated regression test its issue calls for.
 
 **`gates`** — blocking, needs no other revision: `check`, `lint`, `fmt:check`,
 `build`, `coverage` (the suite runs under it), `metrics`,
-`test:deeply-nested-lists`. Every step carries `if: ${{ !cancelled() }}`, so one
-failing gate never hides the others. The reflow re-classification invariant
-needs no step of its own: its three gates ride the suite and the deep sweep that
-are already there, and `reading-ledger` is a generator, not a gate.
+`test:deeply-nested-lists`, `block-structure`. Every step carries
+`if: ${{ !cancelled() }}`, so one failing gate never hides the others. The
+reflow re-classification invariant needs no step of its own: its three gates
+ride the suite and the deep sweep that are already there, and `reading-ledger`
+is a generator, not a gate.
 
 **`differential`** — needs a base, and is `continue-on-error` for its first
 iteration; flipping it to blocking is a one-line change once it has proved

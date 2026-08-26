@@ -1,0 +1,57 @@
+{
+  "oracle": "@asciidoctor/core 4.0.11",
+  "depth": 4,
+  "regenerate": "Measured, not authored: regenerate with `bun run block-structure --write` whenever the oracle pin or the parser moves, then read the diff - it is the artifact that says what a change did to our conformance.",
+  "signatures": {
+    "+list:unordered": {
+      "family": "gap:nested-list-lost",
+      "count": 9,
+      "example": "* a\npara\n[[anc]]\n  lit\n** b\n"
+    },
+    "+list:unordered; literal=>paragraph": {
+      "family": "gap:nested-list-lost",
+      "count": 3,
+      "example": "* a\npara\n[role]\n  lit\n** b\n"
+    },
+    "+paragraph; -literal": {
+      "family": "gap:lazy-continuation",
+      "count": 1,
+      "example": "* a\n\n[role]\n  lit\n+\n"
+    },
+    "-literal": {
+      "family": "gap:lazy-continuation",
+      "count": 341,
+      "example": "* a\n* a\n* a\n[role]\n  lit\n"
+    },
+    "-literal; literal=>paragraph": {
+      "family": "gap:indent-literal-style",
+      "count": 1,
+      "example": "* a\n[role]\n  lit\n[role]\n  lit\n"
+    },
+    "-paragraph": {
+      "family": "gap:lazy-continuation",
+      "count": 404,
+      "example": "* a\n** b\n\n+\n\n+\npara\n"
+    },
+    "literal=>list:unordered": {
+      "family": "gap:nested-list-lost",
+      "count": 32,
+      "example": "* a\n* a\n[role]\n  lit\n** b\n"
+    },
+    "literal=>paragraph": {
+      "family": "gap:indent-literal-style",
+      "count": 136,
+      "example": "* a\n* a\n+\n[role]\n  lit\n"
+    },
+    "paragraph=>list:unordered": {
+      "family": "gap:nested-list-lost",
+      "count": 4,
+      "example": "* a\n[role]\n+\n+\n** b\n"
+    },
+    "paragraph=>literal": {
+      "family": "gap:indent-literal-style",
+      "count": 1,
+      "example": "* a\n[role]\npara\n[[anc]]\n  lit\n"
+    }
+  }
+}

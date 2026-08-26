@@ -36,12 +36,13 @@ bun run test
 bun run build
 bun run metrics
 bun run coverage
+bun run block-structure
 ```
 
-All seven must pass. They are fast (the slowest is the suite at ~4s) and they
-are exactly what CI's blocking `gates` job runs, minus the deep list sweep
-(`bun run test:deeply-nested-lists`, ~30s) — run that too when your change
-touches parsing or printing of lists.
+All eight must pass. They are fast (the slowest is the suite at ~4s;
+`block-structure` is about a second) and they are exactly what CI's blocking
+`gates` job runs, minus the deep list sweep (`bun run test:deeply-nested-lists`,
+~30s) — run that too when your change touches parsing or printing of lists.
 
 If THIS commit intentionally changes formatted output, declare every moved case
 id in its own commit message, one line each: `Parity-Diff: <family> <id>`. There

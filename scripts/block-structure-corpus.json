@@ -1,0 +1,1650 @@
+{
+  "oracle": "@asciidoctor/core 4.0.11",
+  "regenerate": "Measured, not authored: regenerate with `bun run block-structure --write` whenever the oracle pin or the parser moves, then read the diff - it is the artifact that says what a change did to our conformance.",
+  "cases": {
+    "api_test.rb#find_by should accept node but reject its children if block returns :prune#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph; paragraph=>dlist"
+    },
+    "api_test.rb#find_by should reject node and its children if block returns :reject#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph; paragraph=>dlist"
+    },
+    "api_test.rb#find_by should return Array of blocks anywhere in document tree that match criteria#0": {
+      "family": "gap:dlist",
+      "signature": "-image; -paragraph; paragraph=>dlist"
+    },
+    "api_test.rb#find_by should return Array of blocks that match style criteria#0": {
+      "family": "gap:md-thematic-break",
+      "signature": "paragraph=>thematic_break"
+    },
+    "api_test.rb#next_adjacent_block should return next item in dlist if called on last block of list item#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph x2; paragraph=>dlist"
+    },
+    "api_test.rb#should load input IO#0": {
+      "family": "gap:setext-title",
+      "signature": "+heading; -example"
+    },
+    "api_test.rb#should load input string array#0": {
+      "family": "gap:setext-title",
+      "signature": "+heading; -example"
+    },
+    "api_test.rb#should load input string#0": {
+      "family": "gap:setext-title",
+      "signature": "+heading; -example"
+    },
+    "api_test.rb#should return false when sections? is called on anything that is not a section#0": {
+      "family": "gap:styled-block-remodel",
+      "signature": "paragraph=>admonition"
+    },
+    "api_test.rb#with one author#0": {
+      "family": "gap:header-lines",
+      "signature": "-paragraph"
+    },
+    "api_test.rb#with two authors#0": {
+      "family": "gap:header-lines",
+      "signature": "-paragraph"
+    },
+    "attributes_test.rb#assigns multi-line attribute to empty string if substitution fails to resolve attribute#0": {
+      "family": "gap:attribute-continuation",
+      "signature": "-literal"
+    },
+    "attributes_test.rb#attribute entries can resolve previously defined attributes#0": {
+      "family": "gap:header-lines",
+      "signature": "-paragraph"
+    },
+    "attributes_test.rb#backend and doctype attributes are set by default in custom configuration#0": {
+      "family": "gap:header-lines",
+      "signature": "-paragraph"
+    },
+    "attributes_test.rb#backend and doctype attributes are set by default in default configuration#0": {
+      "family": "gap:header-lines",
+      "signature": "-paragraph"
+    },
+    "attributes_test.rb#collapses spaces in attribute names#0": {
+      "family": "gap:setext-title",
+      "signature": "+heading; -example"
+    },
+    "attributes_test.rb#creates an attribute by fusing a legacy multi-line value#0": {
+      "family": "gap:attribute-continuation",
+      "signature": "-literal"
+    },
+    "attributes_test.rb#creates an attribute by fusing a multi-line value#0": {
+      "family": "gap:attribute-continuation",
+      "signature": "-literal"
+    },
+    "attributes_test.rb#honors line break characters in multi-line values#0": {
+      "family": "gap:attribute-continuation",
+      "signature": "-paragraph"
+    },
+    "attributes_test.rb#id, role and options attributes can be specified on block style using shorthand syntax#0": {
+      "family": "gap:styled-block-remodel",
+      "signature": "paragraph=>literal"
+    },
+    "attributes_test.rb#id, role and options attributes can be specified using shorthand syntax on block style using multiple block attribute lines#0": {
+      "family": "gap:styled-block-remodel",
+      "signature": "paragraph=>literal"
+    },
+    "attributes_test.rb#interpolates attribute defined in header inside attribute entry in header#0": {
+      "family": "gap:header-lines",
+      "signature": "-paragraph"
+    },
+    "attributes_test.rb#interpolates author attribute inside attribute entry in header#0": {
+      "family": "gap:header-lines",
+      "signature": "-paragraph"
+    },
+    "attributes_test.rb#interpolates revinfo attribute inside attribute entry in header#0": {
+      "family": "gap:header-lines",
+      "signature": "-paragraph"
+    },
+    "attributes_test.rb#should allow pass macro to surround a multi-line value that contains line breaks#0": {
+      "family": "gap:attribute-continuation",
+      "signature": "-paragraph"
+    },
+    "blocks_test.rb#can resolve icon relative to custom iconsdir#0": {
+      "family": "gap:styled-block-remodel",
+      "signature": "paragraph=>admonition"
+    },
+    "blocks_test.rb#can resolve icon relative to default iconsdir#0": {
+      "family": "gap:styled-block-remodel",
+      "signature": "paragraph=>admonition"
+    },
+    "blocks_test.rb#cleans reference to ancestor directories before reading icon if safe mode level is at least SAFE#0": {
+      "family": "gap:styled-block-remodel",
+      "signature": "paragraph=>admonition"
+    },
+    "blocks_test.rb#comment style on open block should only skip block#0": {
+      "family": "oracle:comment-style",
+      "signature": "-pass"
+    },
+    "blocks_test.rb#comment style on paragraph should not cause adjacent block to be skipped#0": {
+      "family": "oracle:comment-style",
+      "signature": "-paragraph"
+    },
+    "blocks_test.rb#comment style on paragraph should only skip paragraph#0": {
+      "family": "oracle:comment-style",
+      "signature": "-paragraph"
+    },
+    "blocks_test.rb#does not embed base64-encoded data uri of icon when safe mode level is SECURE or greater#0": {
+      "family": "gap:styled-block-remodel",
+      "signature": "paragraph=>admonition"
+    },
+    "blocks_test.rb#dropped image does not break processing of following section and attribute-missing is drop-line#0": {
+      "family": "oracle:attribute-missing",
+      "signature": "-image"
+    },
+    "blocks_test.rb#drops line if image target is missing attribute reference and attribute-missing is drop-line#0": {
+      "family": "oracle:attribute-missing",
+      "signature": "-image"
+    },
+    "blocks_test.rb#embeds base64-encoded data uri of icon when data-uri attribute is set and safe mode level is less than SECURE#0": {
+      "family": "gap:styled-block-remodel",
+      "signature": "paragraph=>admonition"
+    },
+    "blocks_test.rb#font-based icon should not override icon specified on admonition#0": {
+      "family": "gap:styled-block-remodel",
+      "signature": "paragraph=>admonition"
+    },
+    "blocks_test.rb#lazy markdown-style quote block with single paragraph and no attribution#0": {
+      "family": "gap:md-quote",
+      "signature": "paragraph=>quote"
+    },
+    "blocks_test.rb#markdown-style quote block with multiple blocks and no attribution#0": {
+      "family": "gap:md-quote",
+      "signature": "paragraph=>quote"
+    },
+    "blocks_test.rb#markdown-style quote block with multiple paragraphs and no attribution#0": {
+      "family": "gap:md-quote",
+      "signature": "paragraph=>quote"
+    },
+    "blocks_test.rb#markdown-style quote block with single paragraph and attribution#0": {
+      "family": "gap:md-quote",
+      "signature": "paragraph=>quote"
+    },
+    "blocks_test.rb#markdown-style quote block with single paragraph and no attribution#0": {
+      "family": "gap:md-quote",
+      "signature": "paragraph=>quote"
+    },
+    "blocks_test.rb#preprocessor directives should not be processed on subsequent lines of a comment paragraph#0": {
+      "family": "oracle:comment-style",
+      "signature": "-paragraph"
+    },
+    "blocks_test.rb#preprocessor directives should not be processed within comment open block#0": {
+      "family": "oracle:comment-style",
+      "signature": "-pass"
+    },
+    "blocks_test.rb#quoted paragraph-style quote block with attribution#0": {
+      "family": "gap:quoted-paragraph",
+      "signature": "paragraph=>quote"
+    },
+    "blocks_test.rb#should add file extension to custom icon if not specified#0": {
+      "family": "gap:styled-block-remodel",
+      "signature": "paragraph=>admonition"
+    },
+    "blocks_test.rb#should allow abstract in document with title if doctype is book converted to DocBook#0": {
+      "family": "oracle:book-partintro",
+      "signature": "paragraph=>open"
+    },
+    "blocks_test.rb#should allow abstract in document with title if doctype is book#0": {
+      "family": "oracle:book-partintro",
+      "signature": "paragraph=>open"
+    },
+    "blocks_test.rb#should allow icontype to be specified when using custom admonition icon#0": {
+      "family": "gap:styled-block-remodel",
+      "signature": "paragraph=>admonition"
+    },
+    "blocks_test.rb#should allow source style and language to be specified on literal block#0": {
+      "family": "gap:styled-block-remodel",
+      "signature": "literal=>listing"
+    },
+    "blocks_test.rb#should allow source style to be specified on literal block#0": {
+      "family": "gap:styled-block-remodel",
+      "signature": "literal=>listing"
+    },
+    "blocks_test.rb#should embed base64-encoded data uri of custom icon when data-uri attribute is set#0": {
+      "family": "gap:styled-block-remodel",
+      "signature": "paragraph=>admonition"
+    },
+    "blocks_test.rb#should exclude partintro if not a child of part converted to DocBook#0": {
+      "family": "oracle:book-partintro",
+      "signature": "paragraph=>open"
+    },
+    "blocks_test.rb#should exclude partintro if not a child of part#0": {
+      "family": "oracle:book-partintro",
+      "signature": "paragraph=>open"
+    },
+    "blocks_test.rb#should import Font Awesome and use font-based icons when value of icons attribute is font#0": {
+      "family": "gap:styled-block-remodel",
+      "signature": "paragraph=>admonition"
+    },
+    "blocks_test.rb#should not allow abstract as direct child of document if doctype is book converted to DocBook#0": {
+      "family": "oracle:book-partintro",
+      "signature": "paragraph=>open"
+    },
+    "blocks_test.rb#should not allow abstract as direct child of document if doctype is book#0": {
+      "family": "oracle:book-partintro",
+      "signature": "paragraph=>open"
+    },
+    "blocks_test.rb#should not allow partintro unless doctype is book converted to DocBook#0": {
+      "family": "gap:styled-block-remodel",
+      "signature": "paragraph=>open"
+    },
+    "blocks_test.rb#should not allow partintro unless doctype is book#0": {
+      "family": "gap:styled-block-remodel",
+      "signature": "paragraph=>open"
+    },
+    "blocks_test.rb#should not drop content that follows skipped content inside a delimited block#0": {
+      "family": "gap:styled-block-remodel",
+      "signature": "-paragraph"
+    },
+    "blocks_test.rb#should not recognize fenced code blocks with more than three delimiters#0": {
+      "family": "gap:md-fence-edge",
+      "signature": "+open"
+    },
+    "blocks_test.rb#should parse credit line in markdown-style quote block like positional block attributes#0": {
+      "family": "gap:md-quote",
+      "signature": "paragraph=>quote"
+    },
+    "blocks_test.rb#should parse credit line in quoted paragraph-style quote block like positional block attributes#0": {
+      "family": "gap:quoted-paragraph",
+      "signature": "paragraph=>quote"
+    },
+    "blocks_test.rb#should transfer id and reftext on open paragraph to DocBook output#0": {
+      "family": "gap:styled-block-remodel",
+      "signature": "paragraph=>open"
+    },
+    "blocks_test.rb#should use iconsdir attribute set on admonition block in document to resolve icon path#0": {
+      "family": "gap:styled-block-remodel",
+      "signature": "paragraph=>admonition"
+    },
+    "blocks_test.rb#single-line epigraph verse block with attribution converted to DocBook#0": {
+      "family": "gap:styled-block-remodel",
+      "signature": "quote=>verse"
+    },
+    "converter_test.rb#should use Haml templates in place of built-in templates#0": {
+      "family": "gap:header-lines",
+      "signature": "-paragraph"
+    },
+    "converter_test.rb#should use Slim templates in place of built-in templates#0": {
+      "family": "gap:header-lines",
+      "signature": "-paragraph"
+    },
+    "docs/modules/ROOT/pages/errors-and-warnings.adoc": {
+      "family": "gap:dlist",
+      "signature": "+dlist; -paragraph x8; paragraph=>dlist"
+    },
+    "docs/modules/ROOT/pages/whats-new.adoc": {
+      "family": "oracle:book-partintro",
+      "signature": "paragraph=>open x20"
+    },
+    "docs/modules/api/pages/catalog-assets.adoc": {
+      "family": "gap:dlist",
+      "signature": "-paragraph; paragraph=>dlist"
+    },
+    "docs/modules/api/pages/find-blocks.adoc": {
+      "family": "gap:dlist",
+      "signature": "-paragraph x8; paragraph=>dlist x2"
+    },
+    "docs/modules/api/pages/generate-html-toc.adoc": {
+      "family": "gap:dlist",
+      "signature": "-paragraph; paragraph=>dlist"
+    },
+    "docs/modules/api/pages/index.adoc": {
+      "family": "gap:dlist",
+      "signature": "-paragraph x4; paragraph=>dlist x2"
+    },
+    "docs/modules/api/pages/sourcemap.adoc": {
+      "family": "gap:dlist",
+      "signature": "-paragraph x3; paragraph=>dlist"
+    },
+    "docs/modules/cli/pages/set-safe-mode.adoc": {
+      "family": "gap:dlist",
+      "signature": "-paragraph; paragraph=>dlist"
+    },
+    "docs/modules/cli/partials/man-asciidoctor.adoc": {
+      "family": "gap:dlist",
+      "signature": "-heading; -paragraph x31; paragraph=>dlist x6"
+    },
+    "docs/modules/convert/pages/available.adoc": {
+      "family": "gap:dlist",
+      "signature": "-paragraph x6; paragraph=>dlist x2"
+    },
+    "docs/modules/docbook-backend/pages/index.adoc": {
+      "family": "gap:dlist",
+      "signature": "-paragraph x3; paragraph=>dlist"
+    },
+    "docs/modules/extensions/pages/block-macro-processor.adoc": {
+      "family": "gap:dlist",
+      "signature": "paragraph=>dlist"
+    },
+    "docs/modules/extensions/pages/block-processor.adoc": {
+      "family": "gap:dlist",
+      "signature": "paragraph=>dlist"
+    },
+    "docs/modules/extensions/pages/compound-block-processor.adoc": {
+      "family": "gap:dlist",
+      "signature": "+listing; -list:unordered; -literal; paragraph=>dlist"
+    },
+    "docs/modules/extensions/pages/docinfo-processor.adoc": {
+      "family": "gap:dlist",
+      "signature": "paragraph=>dlist"
+    },
+    "docs/modules/extensions/pages/include-processor.adoc": {
+      "family": "gap:dlist",
+      "signature": "literal=>listing; paragraph=>dlist"
+    },
+    "docs/modules/extensions/pages/index.adoc": {
+      "family": "gap:dlist",
+      "signature": "-paragraph x7; paragraph=>dlist"
+    },
+    "docs/modules/extensions/pages/inline-macro-processor.adoc": {
+      "family": "gap:dlist",
+      "signature": "paragraph=>dlist"
+    },
+    "docs/modules/extensions/pages/postprocessor.adoc": {
+      "family": "gap:dlist",
+      "signature": "paragraph=>dlist"
+    },
+    "docs/modules/extensions/pages/preprocessor.adoc": {
+      "family": "gap:dlist",
+      "signature": "literal=>listing; paragraph=>dlist"
+    },
+    "docs/modules/extensions/pages/tree-processor.adoc": {
+      "family": "gap:dlist",
+      "signature": "paragraph=>dlist"
+    },
+    "docs/modules/html-backend/pages/default-stylesheet.adoc": {
+      "family": "gap:dlist",
+      "signature": "-paragraph x3; paragraph=>dlist x2"
+    },
+    "docs/modules/html-backend/pages/index.adoc": {
+      "family": "gap:dlist",
+      "signature": "-paragraph x6; paragraph=>dlist x2"
+    },
+    "docs/modules/html-backend/pages/verbatim-line-wrap.adoc": {
+      "family": "gap:styled-block-remodel",
+      "signature": "literal=>listing"
+    },
+    "docs/modules/manpage-backend/examples/manpage.adoc": {
+      "family": "gap:dlist",
+      "signature": "-heading; -paragraph x4; paragraph=>dlist x2"
+    },
+    "docs/modules/manpage-backend/pages/index.adoc": {
+      "family": "gap:dlist",
+      "signature": "-paragraph x6; paragraph=>dlist x2"
+    },
+    "docs/modules/stem/pages/docbook.adoc": {
+      "family": "gap:dlist",
+      "signature": "-paragraph; paragraph=>dlist"
+    },
+    "docs/modules/syntax-highlighting/pages/coderay.adoc": {
+      "family": "gap:dlist",
+      "signature": "-literal; -paragraph x5; paragraph=>dlist x2; paragraph=>listing"
+    },
+    "docs/modules/syntax-highlighting/pages/index.adoc": {
+      "family": "gap:styled-block-remodel",
+      "signature": "literal=>listing x4"
+    },
+    "docs/modules/syntax-highlighting/pages/pygments.adoc": {
+      "family": "gap:dlist",
+      "signature": "-literal; -paragraph; paragraph=>dlist; paragraph=>listing"
+    },
+    "docs/modules/syntax-highlighting/pages/rouge.adoc": {
+      "family": "gap:dlist",
+      "signature": "-paragraph x9; literal=>listing x2; paragraph=>dlist x2"
+    },
+    "docs/modules/tooling/pages/index.adoc": {
+      "family": "gap:dlist",
+      "signature": "-paragraph x4; paragraph=>dlist"
+    },
+    "document_test.rb#adds refname to DocBook output for each name defined in NAME section of manpage#0": {
+      "family": "oracle:manpage-doctype",
+      "signature": "-heading; -paragraph x2"
+    },
+    "document_test.rb#attribute entry can appear before author line under document title#0": {
+      "family": "gap:setext-title",
+      "signature": "+heading; -example"
+    },
+    "document_test.rb#attribute entry can appear immediately after document title#0": {
+      "family": "gap:setext-title",
+      "signature": "+heading; -example"
+    },
+    "document_test.rb#do not override explicit author initials#0": {
+      "family": "gap:header-lines",
+      "signature": "-paragraph"
+    },
+    "document_test.rb#document with doctitle defined as attribute entry followed by block with title#0": {
+      "family": "oracle:doctitle-attribute",
+      "signature": "+heading"
+    },
+    "document_test.rb#document with doctitle defined as attribute entry#0": {
+      "family": "oracle:doctitle-attribute",
+      "signature": "+heading"
+    },
+    "document_test.rb#document with subtitle and custom separator#0": {
+      "family": "gap:header-lines",
+      "signature": "-paragraph"
+    },
+    "document_test.rb#document with subtitle#0": {
+      "family": "gap:header-lines",
+      "signature": "-paragraph"
+    },
+    "document_test.rb#does not honor htmlsyntax attribute in document header if not followed by backend attribute#0": {
+      "family": "gap:md-thematic-break",
+      "signature": "paragraph=>thematic_break"
+    },
+    "document_test.rb#honor htmlsyntax attribute in document header if followed by backend attribute#0": {
+      "family": "gap:md-thematic-break",
+      "signature": "paragraph=>thematic_break"
+    },
+    "document_test.rb#parse header only#0": {
+      "family": "gap:header-lines",
+      "signature": "-paragraph"
+    },
+    "document_test.rb#should apply replacements substitution to value of mantitle attribute used in DocBook output#0": {
+      "family": "oracle:manpage-doctype",
+      "signature": "-heading; -paragraph x2"
+    },
+    "document_test.rb#should be able to set doctype to article when converting to DocBook#0": {
+      "family": "gap:header-lines",
+      "signature": "-paragraph"
+    },
+    "document_test.rb#should be able to set doctype to book when converting to DocBook#0": {
+      "family": "gap:header-lines",
+      "signature": "-paragraph"
+    },
+    "document_test.rb#should close all short tags when htmlsyntax is xml#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph; paragraph=>dlist"
+    },
+    "document_test.rb#should consume name section as manname and manpurpose for manpage doctype#0": {
+      "family": "oracle:manpage-doctype",
+      "signature": "-heading; -paragraph"
+    },
+    "document_test.rb#should create authorgroup in DocBook when multiple authors#0": {
+      "family": "gap:header-lines",
+      "signature": "-paragraph"
+    },
+    "document_test.rb#should enable compat mode for document with legacy doctitle#0": {
+      "family": "gap:setext-title",
+      "signature": "+heading; -example"
+    },
+    "document_test.rb#should include multiple authors in HTML output#0": {
+      "family": "gap:header-lines",
+      "signature": "-paragraph"
+    },
+    "document_test.rb#should include revision history in DocBook output if revdate and revnumber is set#0": {
+      "family": "gap:header-lines",
+      "signature": "-paragraph"
+    },
+    "document_test.rb#should include revision history in DocBook output if revdate and revremark is set#0": {
+      "family": "gap:header-lines",
+      "signature": "-paragraph"
+    },
+    "document_test.rb#should mark synopsis as special section in manpage doctype#0": {
+      "family": "oracle:manpage-doctype",
+      "signature": "-heading; -paragraph"
+    },
+    "document_test.rb#should not double escape ampersand in author attribute#0": {
+      "family": "gap:header-lines",
+      "signature": "-paragraph"
+    },
+    "document_test.rb#should not enable compat mode for document with legacy doctitle if compat mode disable by header#0": {
+      "family": "gap:setext-title",
+      "signature": "+heading; -example"
+    },
+    "document_test.rb#should not enable compat mode for document with legacy doctitle if compat mode is locked by API#0": {
+      "family": "gap:setext-title",
+      "signature": "+heading; -example"
+    },
+    "document_test.rb#should not honor custom separator for doctitle if attribute is locked by API#0": {
+      "family": "gap:header-lines",
+      "signature": "-paragraph"
+    },
+    "document_test.rb#should not include revision history in DocBook output if revdate is not set#0": {
+      "family": "gap:header-lines",
+      "signature": "-paragraph"
+    },
+    "document_test.rb#should not warn when parsing header only when docytpe is manpage and body is empty#0": {
+      "family": "oracle:manpage-doctype",
+      "signature": "-paragraph"
+    },
+    "document_test.rb#should output all mannames in name section in man page output#0": {
+      "family": "oracle:manpage-doctype",
+      "signature": "-heading; -paragraph"
+    },
+    "document_test.rb#should output special header block in HTML for manpage doctype#0": {
+      "family": "oracle:manpage-doctype",
+      "signature": "-heading; -paragraph"
+    },
+    "document_test.rb#should output special header block in embeddable HTML for manpage doctype#0": {
+      "family": "oracle:manpage-doctype",
+      "signature": "-heading; -paragraph"
+    },
+    "document_test.rb#should parse header only when docytpe is manpage#0": {
+      "family": "oracle:manpage-doctype",
+      "signature": "-heading; -paragraph x2"
+    },
+    "document_test.rb#should parse mantitle and manvolnum from document title for manpage doctype#0": {
+      "family": "oracle:manpage-doctype",
+      "signature": "-heading; -paragraph"
+    },
+    "document_test.rb#should parse revision line if date is empty#0": {
+      "family": "gap:header-lines",
+      "signature": "-paragraph"
+    },
+    "document_test.rb#should perform attribute substitution on mantitle in manpage doctype#0": {
+      "family": "oracle:manpage-doctype",
+      "signature": "-heading; -paragraph"
+    },
+    "document_test.rb#should set docname and outfilesuffix from manname and manvolnum for manpage backend and doctype#0": {
+      "family": "oracle:manpage-doctype",
+      "signature": "-heading; -paragraph"
+    },
+    "document_test.rb#should substitute replacements in author names in DocBook output#0": {
+      "family": "gap:header-lines",
+      "signature": "-paragraph"
+    },
+    "document_test.rb#should substitute replacements in author names in HTML output#0": {
+      "family": "gap:header-lines",
+      "signature": "-paragraph"
+    },
+    "document_test.rb#with metadata to DocBook 5#0": {
+      "family": "gap:header-lines",
+      "signature": "-paragraph"
+    },
+    "document_test.rb#with metadata#0": {
+      "family": "gap:header-lines",
+      "signature": "-paragraph"
+    },
+    "extensions_test.rb#create_section should set up all section properties#0": {
+      "family": "gap:block-macro-name",
+      "signature": "macro:sect=>paragraph"
+    },
+    "extensions_test.rb#should allow tree processor to replace tree#0": {
+      "family": "gap:header-lines",
+      "signature": "-paragraph"
+    },
+    "extensions_test.rb#should assign caption on image block if title is set on custom block macro#0": {
+      "family": "gap:block-macro-name",
+      "signature": "macro:cat_in_sink=>paragraph"
+    },
+    "extensions_test.rb#should be able to set header attribute in block macro processor#0": {
+      "family": "gap:block-macro-name",
+      "signature": "macro:attribute=>paragraph; macro:header_attribute=>paragraph"
+    },
+    "extensions_test.rb#should drop block macro line if target references missing attribute and attribute-missing is drop-line#0": {
+      "family": "gap:block-macro-name",
+      "signature": "+paragraph; -macro:snippet"
+    },
+    "extensions_test.rb#should ignore return value of custom block macro if value is parent#0": {
+      "family": "gap:block-macro-name",
+      "signature": "macro:para=>paragraph"
+    },
+    "extensions_test.rb#should invoke tree processors after parsing document#0": {
+      "family": "gap:header-lines",
+      "signature": "-paragraph"
+    },
+    "invoker_test.rb#should print warnings to stderr by default#0": {
+      "family": "gap:ordered-marker",
+      "signature": "paragraph=>list:ordered"
+    },
+    "invoker_test.rb#should return non-zero exit code if failure level is reached#0": {
+      "family": "gap:ordered-marker",
+      "signature": "paragraph=>list:ordered"
+    },
+    "invoker_test.rb#should silence warnings if -q flag is specified#0": {
+      "family": "gap:ordered-marker",
+      "signature": "paragraph=>list:ordered"
+    },
+    "invoker_test.rb#should write page for each alternate manname#0": {
+      "family": "oracle:manpage-doctype",
+      "signature": "-heading; -paragraph x2"
+    },
+    "lists_test.rb#a block title between elements should divide them into separate lists#0": {
+      "family": "gap:dlist",
+      "signature": "paragraph=>dlist x2"
+    },
+    "lists_test.rb#a line comment between elements should divide them into separate lists#0": {
+      "family": "gap:dlist",
+      "signature": "paragraph=>dlist x2"
+    },
+    "lists_test.rb#a list item for a different list terminates indented paragraph for text of list item#0": {
+      "family": "gap:dlist",
+      "signature": "paragraph=>dlist"
+    },
+    "lists_test.rb#a list item for a different list terminates non-indented paragraph for text of list item#0": {
+      "family": "gap:dlist",
+      "signature": "paragraph=>dlist"
+    },
+    "lists_test.rb#a literal paragraph offset by a blank line in list content followed by line with continuation is appended as two blocks#0": {
+      "family": "gap:setext-title",
+      "signature": "example=>list:unordered; paragraph=>heading"
+    },
+    "lists_test.rb#a literal paragraph offset by blank lines in list content is appended as a literal block#0": {
+      "family": "gap:setext-title",
+      "signature": "example=>list:unordered; paragraph=>heading"
+    },
+    "lists_test.rb#a literal paragraph without a trailing blank line consumes following list items#0": {
+      "family": "gap:setext-title",
+      "signature": "example=>list:unordered; paragraph=>heading"
+    },
+    "lists_test.rb#a non-indented wrapped line is folded into text of list item#0": {
+      "family": "gap:setext-title",
+      "signature": "example=>list:unordered; paragraph=>heading"
+    },
+    "lists_test.rb#a ruler between elements should divide them into separate lists#0": {
+      "family": "gap:dlist",
+      "signature": "paragraph=>dlist x2"
+    },
+    "lists_test.rb#adjacent list continuation line attaches following block with block attributes#0": {
+      "family": "gap:setext-title",
+      "signature": "example=>list:unordered; paragraph=>heading"
+    },
+    "lists_test.rb#adjacent list continuation line attaches following block#0": {
+      "family": "gap:setext-title",
+      "signature": "example=>list:unordered; paragraph=>heading"
+    },
+    "lists_test.rb#adjacent list continuation line attaches following paragraph#0": {
+      "family": "gap:setext-title",
+      "signature": "example=>list:unordered; paragraph=>heading"
+    },
+    "lists_test.rb#an indented wrapped line is unindented and folded into text of list item#0": {
+      "family": "gap:setext-title",
+      "signature": "example=>list:unordered; paragraph=>heading"
+    },
+    "lists_test.rb#appends block attached by continuation but not subsequent block not attached by continuation#0": {
+      "family": "gap:dlist",
+      "signature": "-literal; -paragraph; paragraph=>dlist"
+    },
+    "lists_test.rb#appends indented list to first term that is adjacent to second term#0": {
+      "family": "gap:dlist",
+      "signature": "-list:unordered; paragraph=>dlist"
+    },
+    "lists_test.rb#appends indented list to first term that is attached by a continuation and adjacent to second term#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph; paragraph=>dlist"
+    },
+    "lists_test.rb#appends line after continuation as block and literal line offset by blank line as block if item has inline description#0": {
+      "family": "gap:dlist",
+      "signature": "-literal; -paragraph; paragraph=>dlist"
+    },
+    "lists_test.rb#appends line as paragraph if attached by continuation following blank line and line comment when term has no inline description#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph; paragraph=>dlist"
+    },
+    "lists_test.rb#appends line attached by continuation as block if item has no inline description followed by block#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph; paragraph=>dlist"
+    },
+    "lists_test.rb#appends line attached by continuation as block if item has no inline description followed by ruler#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph; paragraph=>dlist"
+    },
+    "lists_test.rb#appends list and paragraph block when line following list attached by continuation#0": {
+      "family": "gap:dlist",
+      "signature": "-list:unordered; paragraph=>dlist"
+    },
+    "lists_test.rb#appends list if item has inline description#0": {
+      "family": "gap:dlist",
+      "signature": "-list:unordered; paragraph=>dlist"
+    },
+    "lists_test.rb#appends list if item has no inline description#0": {
+      "family": "gap:dlist",
+      "signature": "-list:unordered; paragraph=>dlist"
+    },
+    "lists_test.rb#appends list to first term when followed immediately by second term#0": {
+      "family": "gap:dlist",
+      "signature": "-list:unordered; paragraph=>dlist"
+    },
+    "lists_test.rb#appends literal line attached by continuation as block if item has inline description followed by ruler#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph; paragraph=>dlist"
+    },
+    "lists_test.rb#appends literal line attached by continuation as block if item has no inline description followed by ruler#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph; paragraph=>dlist"
+    },
+    "lists_test.rb#appends literal line attached by continuation as block if item has no inline description#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph; paragraph=>dlist"
+    },
+    "lists_test.rb#appends literal line offset by blank line as block and appends line after continuation as block if item has inline description#0": {
+      "family": "gap:dlist",
+      "signature": "-literal; -paragraph; paragraph=>dlist"
+    },
+    "lists_test.rb#appends literal line offset by blank line as block if item has inline description#0": {
+      "family": "gap:dlist",
+      "signature": "-literal; paragraph=>dlist"
+    },
+    "lists_test.rb#asterisk element mixed with dash elements should be nested#0": {
+      "family": "gap:setext-title",
+      "signature": "example=>list:unordered; paragraph=>heading"
+    },
+    "lists_test.rb#asterisk elements separated by a block title offset by a blank line should not merge lists#0": {
+      "family": "gap:setext-title",
+      "signature": "+list:unordered; example=>list:unordered; paragraph=>heading"
+    },
+    "lists_test.rb#asterisk elements separated by a line comment offset by blank lines should not merge lists#0": {
+      "family": "gap:setext-title",
+      "signature": "+list:unordered; example=>list:unordered; paragraph=>heading"
+    },
+    "lists_test.rb#asterisk elements separated by blank lines should merge lists#0": {
+      "family": "gap:setext-title",
+      "signature": "example=>list:unordered; paragraph=>heading"
+    },
+    "lists_test.rb#asterisk elements with no blank lines#0": {
+      "family": "gap:setext-title",
+      "signature": "example=>list:unordered; paragraph=>heading"
+    },
+    "lists_test.rb#attached paragraph does not break on adjacent nested description list term#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph; paragraph=>dlist"
+    },
+    "lists_test.rb#attached paragraph is terminated by adjacent sibling description list term#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph; paragraph=>dlist"
+    },
+    "lists_test.rb#attached styled paragraph does not break on adjacent nested description list term#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph; -quote; paragraph=>dlist"
+    },
+    "lists_test.rb#attribute substitutions#0": {
+      "family": "gap:setext-title",
+      "signature": "example=>list:unordered; paragraph=>heading"
+    },
+    "lists_test.rb#block anchor line breaks list even when term has no inline description#0": {
+      "family": "gap:dlist",
+      "signature": "paragraph=>dlist"
+    },
+    "lists_test.rb#block attribute line above delimited block that breaks a dlist is not duplicated#0": {
+      "family": "gap:dlist",
+      "signature": "paragraph=>dlist"
+    },
+    "lists_test.rb#block attribute line above paragraph breaks list even when term has no inline description#0": {
+      "family": "gap:dlist",
+      "signature": "paragraph=>dlist"
+    },
+    "lists_test.rb#block attribute line above paragraph that breaks a dlist is not duplicated#0": {
+      "family": "gap:dlist",
+      "signature": "paragraph=>dlist"
+    },
+    "lists_test.rb#block attribute lines above nested horizontal list does not break list#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph x5; paragraph=>dlist"
+    },
+    "lists_test.rb#block attribute lines above nested list with style does not break list#0": {
+      "family": "gap:dlist",
+      "signature": "-list:unordered; paragraph=>dlist"
+    },
+    "lists_test.rb#block title offset by blank line divides lists and becomes title of second list because item has text#0": {
+      "family": "gap:dlist",
+      "signature": "paragraph=>dlist x2"
+    },
+    "lists_test.rb#consecutive blocks in list continuation attach to list item#0": {
+      "family": "gap:setext-title",
+      "signature": "example=>list:unordered; paragraph=>heading"
+    },
+    "lists_test.rb#consecutive glossary terms should share same glossentry element in docbook#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph x2; paragraph=>dlist"
+    },
+    "lists_test.rb#consecutive list continuation lines are folded#0": {
+      "family": "gap:setext-title",
+      "signature": "example=>list:unordered; paragraph=>heading"
+    },
+    "lists_test.rb#consecutive literal paragraph offset by blank lines in list content are appended as a literal blocks#0": {
+      "family": "gap:setext-title",
+      "signature": "example=>list:unordered; paragraph=>heading"
+    },
+    "lists_test.rb#consecutive questions should share same question element in docbook#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph x2; paragraph=>dlist"
+    },
+    "lists_test.rb#consecutive terms in horizontal list should share same cell#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph x2; paragraph=>dlist"
+    },
+    "lists_test.rb#consecutive terms in horizontal list should share same entry in docbook#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph x2; paragraph=>dlist"
+    },
+    "lists_test.rb#consecutive terms share same varlistentry in docbook#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph x2; paragraph=>dlist"
+    },
+    "lists_test.rb#dash element mixed with asterisks elements should be nested#0": {
+      "family": "gap:setext-title",
+      "signature": "example=>list:unordered; paragraph=>heading"
+    },
+    "lists_test.rb#dash elements separated by a block title offset by a blank line should not merge lists#0": {
+      "family": "gap:setext-title",
+      "signature": "+list:unordered; example=>list:unordered; paragraph=>heading"
+    },
+    "lists_test.rb#dash elements separated by a line comment offset by blank lines should not merge lists#0": {
+      "family": "gap:setext-title",
+      "signature": "+list:unordered; example=>list:unordered; paragraph=>heading"
+    },
+    "lists_test.rb#dash elements separated by blank lines should merge lists#0": {
+      "family": "gap:setext-title",
+      "signature": "example=>list:unordered; paragraph=>heading"
+    },
+    "lists_test.rb#dash elements with no blank lines#0": {
+      "family": "gap:setext-title",
+      "signature": "example=>list:unordered; paragraph=>heading"
+    },
+    "lists_test.rb#delimited block breaks list even when term has no inline description#0": {
+      "family": "gap:dlist",
+      "signature": "paragraph=>dlist"
+    },
+    "lists_test.rb#dot elements separated by a block title offset by a blank line should not merge lists#0": {
+      "family": "gap:setext-title",
+      "signature": "+list:ordered; example=>list:ordered; paragraph=>heading"
+    },
+    "lists_test.rb#dot elements separated by blank lines should merge lists#0": {
+      "family": "gap:setext-title",
+      "signature": "example=>list:ordered; paragraph=>heading"
+    },
+    "lists_test.rb#dot elements separated by line comment offset by blank lines should not merge lists#0": {
+      "family": "gap:setext-title",
+      "signature": "+list:ordered; example=>list:ordered; paragraph=>heading"
+    },
+    "lists_test.rb#dot elements with no blank lines#0": {
+      "family": "gap:setext-title",
+      "signature": "example=>list:ordered; paragraph=>heading"
+    },
+    "lists_test.rb#first continued line associated with nested list item and second continued line associated with term#0": {
+      "family": "gap:dlist",
+      "signature": "-list:unordered; paragraph=>dlist"
+    },
+    "lists_test.rb#folds text from first line after blank line and immediately preceding next item#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph; paragraph=>dlist"
+    },
+    "lists_test.rb#folds text from first line after blank lines#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph; paragraph=>dlist"
+    },
+    "lists_test.rb#folds text from first line after comment line#0": {
+      "family": "gap:dlist",
+      "signature": "paragraph=>dlist"
+    },
+    "lists_test.rb#folds text from indented line after blank line#0": {
+      "family": "gap:dlist",
+      "signature": "-literal; paragraph=>dlist"
+    },
+    "lists_test.rb#folds text from inline description and line following comment line#0": {
+      "family": "gap:dlist",
+      "signature": "paragraph=>dlist"
+    },
+    "lists_test.rb#folds text from inline description and subsequent indented line#0": {
+      "family": "gap:dlist",
+      "signature": "paragraph=>dlist"
+    },
+    "lists_test.rb#folds text from inline description and subsequent line#0": {
+      "family": "gap:dlist",
+      "signature": "paragraph=>dlist"
+    },
+    "lists_test.rb#folds text from inline description and subsequent lines#0": {
+      "family": "gap:dlist",
+      "signature": "paragraph=>dlist"
+    },
+    "lists_test.rb#folds text from line following comment line offset by blank line#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph; paragraph=>dlist"
+    },
+    "lists_test.rb#folds text from subsequent indented line#0": {
+      "family": "gap:dlist",
+      "signature": "paragraph=>dlist"
+    },
+    "lists_test.rb#folds text from subsequent line#0": {
+      "family": "gap:dlist",
+      "signature": "paragraph=>dlist"
+    },
+    "lists_test.rb#folds text of first literal line offset by blank line appends subsequent literals offset by blank line as blocks#0": {
+      "family": "gap:dlist",
+      "signature": "-literal x3; paragraph=>dlist"
+    },
+    "lists_test.rb#folds text of subsequent line and appends following literal line offset by blank line as block if term has no inline description#0": {
+      "family": "gap:dlist",
+      "signature": "-literal; -paragraph; paragraph=>dlist"
+    },
+    "lists_test.rb#folds text that looks like admonition offset by blank line#0": {
+      "family": "gap:dlist",
+      "signature": "-admonition; paragraph=>dlist"
+    },
+    "lists_test.rb#folds text that looks like ruler and the line following it offset by blank line#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph; -thematic_break; paragraph=>dlist"
+    },
+    "lists_test.rb#folds text that looks like ruler offset by blank line and line comment#0": {
+      "family": "gap:dlist",
+      "signature": "-thematic_break; paragraph=>dlist"
+    },
+    "lists_test.rb#folds text that looks like ruler offset by blank line#0": {
+      "family": "gap:dlist",
+      "signature": "-thematic_break; paragraph=>dlist"
+    },
+    "lists_test.rb#folds text that looks like section title offset by blank line#0": {
+      "family": "gap:dlist",
+      "signature": "-heading; paragraph=>dlist"
+    },
+    "lists_test.rb#folds text that looks like title offset by blank line and line comment#0": {
+      "family": "gap:dlist",
+      "signature": "paragraph=>dlist"
+    },
+    "lists_test.rb#folds text that looks like title offset by blank line#0": {
+      "family": "gap:dlist",
+      "signature": "paragraph=>dlist"
+    },
+    "lists_test.rb#indented description list item inside outline list item offset by a blank line should be recognized as a nested list#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph x5; paragraph=>dlist"
+    },
+    "lists_test.rb#line attached by continuation is appended as paragraph if term has inline description followed by detached block#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph; paragraph=>dlist"
+    },
+    "lists_test.rb#line attached by continuation is appended as paragraph if term has inline description followed by detached paragraph#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph; paragraph=>dlist"
+    },
+    "lists_test.rb#line attached by continuation is appended as paragraph if term has no inline description#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph; paragraph=>dlist"
+    },
+    "lists_test.rb#line attached by continuation offset by blank line is appended as paragraph if term has inline description#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph; paragraph=>dlist"
+    },
+    "lists_test.rb#line attached by continuation offset by blank line is appended as paragraph if term has no inline description#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph; paragraph=>dlist"
+    },
+    "lists_test.rb#line attached by continuation offset by line comment is appended as paragraph if term has inline description#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph; paragraph=>dlist"
+    },
+    "lists_test.rb#line comment offset by blank line divides lists because item has text#0": {
+      "family": "gap:dlist",
+      "signature": "paragraph=>dlist x2"
+    },
+    "lists_test.rb#line offset by blank line breaks list if term has inline description#0": {
+      "family": "gap:dlist",
+      "signature": "paragraph=>dlist"
+    },
+    "lists_test.rb#lines prefixed with alternating list markers separated by blank lines should be nested#0": {
+      "family": "gap:setext-title",
+      "signature": "example=>list:unordered; paragraph=>heading"
+    },
+    "lists_test.rb#lines with alternating markers of bulleted and description list types separated by blank lines should be nested#0": {
+      "family": "gap:setext-title",
+      "signature": "example=>list:unordered; paragraph=>heading"
+    },
+    "lists_test.rb#lines with alternating markers of unordered and ordered list types separated by blank lines should be nested#0": {
+      "family": "gap:setext-title",
+      "signature": "example=>list:unordered; paragraph=>heading"
+    },
+    "lists_test.rb#list inside a description list offset by blank lines#0": {
+      "family": "gap:dlist",
+      "signature": "-list:unordered; paragraph=>dlist"
+    },
+    "lists_test.rb#list inside a description list#0": {
+      "family": "gap:dlist",
+      "signature": "-list:unordered; paragraph=>dlist"
+    },
+    "lists_test.rb#list item with literal content should not consume nested list of different type#0": {
+      "family": "gap:setext-title",
+      "signature": "example=>list:unordered; paragraph=>heading"
+    },
+    "lists_test.rb#list should terminate before next lower section heading with implicit id#0": {
+      "family": "gap:setext-title",
+      "signature": "+heading; example=>list:unordered; paragraph=>heading"
+    },
+    "lists_test.rb#list should terminate before next lower section heading#0": {
+      "family": "gap:setext-title",
+      "signature": "+heading; example=>list:unordered; paragraph=>heading"
+    },
+    "lists_test.rb#literal block inside description list with trailing line continuation#0": {
+      "family": "gap:dlist",
+      "signature": "-literal; -paragraph x2; paragraph=>dlist"
+    },
+    "lists_test.rb#literal block inside description list#0": {
+      "family": "gap:dlist",
+      "signature": "-literal; -paragraph x2; paragraph=>dlist"
+    },
+    "lists_test.rb#literal line attached by continuation swallows adjacent line that looks like term#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph x2; paragraph=>dlist"
+    },
+    "lists_test.rb#mixed single and multi-line adjacent elements#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph; paragraph=>dlist"
+    },
+    "lists_test.rb#mixed single and multi-line elements with indented nested elements#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph x2; paragraph=>dlist"
+    },
+    "lists_test.rb#more than 4 consecutive colons should become part of description list term#0": {
+      "family": "gap:dlist",
+      "signature": "paragraph=>dlist"
+    },
+    "lists_test.rb#multi-line adjacent nested elements#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph x2; paragraph=>dlist"
+    },
+    "lists_test.rb#multi-line element with indented nested element#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph x2; paragraph=>dlist"
+    },
+    "lists_test.rb#multi-line element with multiple terms#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph; paragraph=>dlist"
+    },
+    "lists_test.rb#multi-line element with paragraph starting with multiple dashes should not be seen as list#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph; paragraph=>dlist"
+    },
+    "lists_test.rb#multi-line elements with blank line before paragraph content#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph x2; paragraph=>dlist"
+    },
+    "lists_test.rb#multi-line elements with first paragraph folded to text with adjacent nested element#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph; paragraph=>dlist"
+    },
+    "lists_test.rb#multi-line elements with indented paragraph content that includes comment lines#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph; paragraph=>dlist"
+    },
+    "lists_test.rb#multi-line elements with indented paragraph content#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph; paragraph=>dlist"
+    },
+    "lists_test.rb#multi-line elements with paragraph and literal content#0": {
+      "family": "gap:dlist",
+      "signature": "-literal; -paragraph; paragraph=>dlist"
+    },
+    "lists_test.rb#multi-line elements with paragraph content#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph; paragraph=>dlist"
+    },
+    "lists_test.rb#multi-line nested elements separated by blank line at nested level repeated#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph x3; paragraph=>dlist"
+    },
+    "lists_test.rb#multiple block attribute lines above nested list does not break list#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph x5; paragraph=>dlist"
+    },
+    "lists_test.rb#multiple block attribute lines separated by empty line above nested list does not break list#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph x5; paragraph=>dlist"
+    },
+    "lists_test.rb#multiple listing blocks inside description list#0": {
+      "family": "gap:dlist",
+      "signature": "-listing x2; -paragraph x3; paragraph=>dlist"
+    },
+    "lists_test.rb#nested dlist attached by list continuation should not consume detached paragraph#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph; paragraph=>dlist"
+    },
+    "lists_test.rb#nested dlist with attached block offset by empty line#0": {
+      "family": "gap:dlist",
+      "signature": "-open; -paragraph x2; paragraph=>dlist"
+    },
+    "lists_test.rb#nested elements (2) with asterisks#0": {
+      "family": "gap:setext-title",
+      "signature": "example=>list:unordered; paragraph=>heading"
+    },
+    "lists_test.rb#nested elements (3) with asterisks#0": {
+      "family": "gap:setext-title",
+      "signature": "example=>list:unordered; paragraph=>heading"
+    },
+    "lists_test.rb#nested elements (4) with asterisks#0": {
+      "family": "gap:setext-title",
+      "signature": "example=>list:unordered; paragraph=>heading"
+    },
+    "lists_test.rb#nested elements (5) with asterisks#0": {
+      "family": "gap:setext-title",
+      "signature": "example=>list:unordered; paragraph=>heading"
+    },
+    "lists_test.rb#nested list item does not eat the title of the following detached block#0": {
+      "family": "gap:setext-title",
+      "signature": "+literal; example=>list:unordered; paragraph=>heading"
+    },
+    "lists_test.rb#nested ordered elements (2)#0": {
+      "family": "gap:setext-title",
+      "signature": "example=>list:ordered; paragraph=>heading"
+    },
+    "lists_test.rb#nested ordered elements (3)#0": {
+      "family": "gap:setext-title",
+      "signature": "example=>list:ordered; paragraph=>heading"
+    },
+    "lists_test.rb#nested ordered inside unordered elements#0": {
+      "family": "gap:setext-title",
+      "signature": "example=>list:unordered; paragraph=>heading"
+    },
+    "lists_test.rb#nested ordered with attribute inside unordered elements#0": {
+      "family": "gap:setext-title",
+      "signature": "example=>list:unordered; paragraph=>heading"
+    },
+    "lists_test.rb#nested term with description does not consume following heading#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph; paragraph=>dlist; paragraph=>heading"
+    },
+    "lists_test.rb#nested unordered inside ordered elements#0": {
+      "family": "gap:setext-title",
+      "signature": "example=>list:ordered; paragraph=>heading"
+    },
+    "lists_test.rb#open block inside description list#0": {
+      "family": "gap:dlist",
+      "signature": "-open; -paragraph x2; paragraph=>dlist"
+    },
+    "lists_test.rb#paragraph attached by a list continuation on either side in a description list#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph x2; paragraph=>dlist"
+    },
+    "lists_test.rb#paragraph attached by a list continuation on either side to a multi-line element in a description list#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph x2; paragraph=>dlist"
+    },
+    "lists_test.rb#paragraph offset by blank lines does not break list if label does not have inline text#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph x2; paragraph=>dlist"
+    },
+    "lists_test.rb#quoted text#0": {
+      "family": "gap:setext-title",
+      "signature": "example=>list:unordered; paragraph=>heading"
+    },
+    "lists_test.rb#ruler offset by blank line divides lists because item has text#0": {
+      "family": "gap:dlist",
+      "signature": "paragraph=>dlist x2"
+    },
+    "lists_test.rb#should add strong class to label if strong option is set#0": {
+      "family": "gap:dlist",
+      "signature": "paragraph=>dlist"
+    },
+    "lists_test.rb#should allow list style to be specified explicitly when using markers with implicit style#0": {
+      "family": "gap:ordered-marker",
+      "signature": "paragraph=>list:ordered"
+    },
+    "lists_test.rb#should allow term to end with a semicolon when using double semicolon delimiter#0": {
+      "family": "gap:dlist",
+      "signature": "paragraph=>dlist"
+    },
+    "lists_test.rb#should append subsequent paragraph literals to list item as block content#0": {
+      "family": "gap:dlist",
+      "signature": "-literal x2; -paragraph x2; paragraph=>dlist"
+    },
+    "lists_test.rb#should continue to parse blocks attached by a list continuation after block is dropped#0": {
+      "family": "oracle:comment-style",
+      "signature": "-paragraph"
+    },
+    "lists_test.rb#should continue to parse subsequent blocks attached to list item after first block is dropped#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph x2; paragraph=>dlist"
+    },
+    "lists_test.rb#should convert glossary list with proper semantics#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph; paragraph=>dlist"
+    },
+    "lists_test.rb#should convert horizontal list in docbook with proper markup#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph x2; paragraph=>dlist"
+    },
+    "lists_test.rb#should convert horizontal list with proper markup#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph x2; paragraph=>dlist"
+    },
+    "lists_test.rb#should convert qanda list in DocBook with proper semantics#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph x2; paragraph=>dlist"
+    },
+    "lists_test.rb#should convert qanda list in HTML with proper semantics#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph x2; paragraph=>dlist"
+    },
+    "lists_test.rb#should discover anchor at start of description term text and register it as a reference#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph; paragraph=>dlist"
+    },
+    "lists_test.rb#should escape special characters in all literal paragraphs attached to list item~3#0": {
+      "family": "gap:dlist",
+      "signature": "-literal x3; -paragraph; paragraph=>dlist"
+    },
+    "lists_test.rb#should implicitly set start on ordered list if explicit arabic numbering does not start at 1#0": {
+      "family": "gap:ordered-marker",
+      "signature": "paragraph=>list:ordered"
+    },
+    "lists_test.rb#should implicitly set start on ordered list if explicit roman numbering does not start at 1#0": {
+      "family": "gap:ordered-marker",
+      "signature": "paragraph=>list:ordered"
+    },
+    "lists_test.rb#should not hang if obsolete callout list is found inside dlist item#0": {
+      "family": "gap:dlist",
+      "signature": "paragraph=>dlist"
+    },
+    "lists_test.rb#should not hang on description list item in list that begins with ///#0": {
+      "family": "gap:dlist",
+      "signature": "paragraph=>dlist"
+    },
+    "lists_test.rb#should not hang on sibling description list item that begins with ///#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph; paragraph=>dlist"
+    },
+    "lists_test.rb#should not match comment line that looks like sibling description list term#0": {
+      "family": "gap:dlist",
+      "signature": "paragraph=>dlist"
+    },
+    "lists_test.rb#should not parse a nested dlist delimiter without a term as a dlist#0": {
+      "family": "gap:dlist",
+      "signature": "paragraph=>dlist"
+    },
+    "lists_test.rb#should not parse a nested indented dlist delimiter without a term as a dlist#0": {
+      "family": "gap:dlist",
+      "signature": "paragraph=>dlist"
+    },
+    "lists_test.rb#should not recognize callouts in an indented description list paragraph#0": {
+      "family": "gap:dlist",
+      "signature": "paragraph=>dlist"
+    },
+    "lists_test.rb#should not strip comment line in literal paragraph block attached to list item#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph; paragraph=>dlist"
+    },
+    "lists_test.rb#should not warn if explicit numbering starts at value of start attribute#0": {
+      "family": "gap:ordered-marker",
+      "signature": "paragraph=>list:ordered"
+    },
+    "lists_test.rb#should only grab one line following last item if item has no inline description#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph x3; paragraph=>dlist"
+    },
+    "lists_test.rb#should only grab one literal line following last item if item has no inline description#0": {
+      "family": "gap:dlist",
+      "signature": "-literal; -paragraph x2; paragraph=>dlist"
+    },
+    "lists_test.rb#should parse sibling items using same rules#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph; paragraph=>dlist"
+    },
+    "lists_test.rb#should set col widths of item and label if specified#0": {
+      "family": "gap:dlist",
+      "signature": "paragraph=>dlist"
+    },
+    "lists_test.rb#should set col widths of item and label in docbook if specified#0": {
+      "family": "gap:dlist",
+      "signature": "paragraph=>dlist"
+    },
+    "lists_test.rb#should skip dlist term that begins with // unless it begins with ///#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph x2; paragraph=>dlist"
+    },
+    "lists_test.rb#should warn if explicit lowercase roman numerals in list are out of sequence#0": {
+      "family": "gap:ordered-marker",
+      "signature": "paragraph=>list:ordered"
+    },
+    "lists_test.rb#should warn if explicit uppercase roman numerals in list are out of sequence#0": {
+      "family": "gap:ordered-marker",
+      "signature": "paragraph=>list:ordered"
+    },
+    "lists_test.rb#should warn if item with explicit numbering in ordered list is out of sequence#0": {
+      "family": "gap:ordered-marker",
+      "signature": "paragraph=>list:ordered"
+    },
+    "lists_test.rb#single-line adjacent elements#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph; paragraph=>dlist"
+    },
+    "lists_test.rb#single-line adjacent maximum nested elements#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph x4; paragraph=>dlist"
+    },
+    "lists_test.rb#single-line adjacent nested elements with alternate delimiters#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph x2; paragraph=>dlist"
+    },
+    "lists_test.rb#single-line adjacent nested elements#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph x2; paragraph=>dlist"
+    },
+    "lists_test.rb#single-line elements separated by blank line should create a single list#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph; paragraph=>dlist"
+    },
+    "lists_test.rb#single-line indented adjacent elements#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph; paragraph=>dlist"
+    },
+    "lists_test.rb#single-line nested elements separated by blank line at nested level#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph x3; paragraph=>dlist"
+    },
+    "lists_test.rb#single-line nested elements separated by blank line at top level#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph x2; paragraph=>dlist"
+    },
+    "lists_test.rb#text method of dd node should return nil if dd node only contains blocks#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph; paragraph=>dlist"
+    },
+    "lists_test.rb#trailing block attribute line attached by continuation should not create block#0": {
+      "family": "gap:setext-title",
+      "signature": "example=>list:unordered; paragraph=>heading"
+    },
+    "lists_test.rb#trailing block title line attached by continuation should not create block#0": {
+      "family": "gap:setext-title",
+      "signature": "example=>list:unordered; paragraph=>heading"
+    },
+    "lists_test.rb#verse paragraph inside a description list#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph x2; -verse; paragraph=>dlist"
+    },
+    "lists_test.rb#word ending sentence on continuing line not treated as a list item#0": {
+      "family": "gap:ordered-marker",
+      "signature": "paragraph=>list:ordered"
+    },
+    "manpage_test.rb#(outside test)#0": {
+      "family": "oracle:manpage-doctype",
+      "signature": "-heading; -paragraph x2"
+    },
+    "manpage_test.rb#should normalize whitespace and skip line comments before and inside NAME section#0": {
+      "family": "oracle:manpage-doctype",
+      "signature": "-heading; -paragraph x2"
+    },
+    "manpage_test.rb#should not parse NAME section if manname and manpurpose attributes are set#0": {
+      "family": "oracle:manpage-doctype",
+      "signature": "-paragraph"
+    },
+    "manpage_test.rb#should replace invalid characters in mantitle in info comment#0": {
+      "family": "oracle:manpage-doctype",
+      "signature": "-heading; -paragraph x2"
+    },
+    "manpage_test.rb#should substitute attributes in manname and manpurpose in NAME section#0": {
+      "family": "oracle:manpage-doctype",
+      "signature": "-heading; -paragraph x2"
+    },
+    "paragraphs_test.rb#normal style turns literal paragraph into normal paragraph#0": {
+      "family": "gap:styled-block-remodel",
+      "signature": "literal=>paragraph"
+    },
+    "paragraphs_test.rb#removes indentation from literal paragraph marked as normal#0": {
+      "family": "gap:styled-block-remodel",
+      "signature": "literal=>paragraph"
+    },
+    "paragraphs_test.rb#should convert open paragraph to open block#0": {
+      "family": "gap:styled-block-remodel",
+      "signature": "paragraph=>open"
+    },
+    "paragraphs_test.rb#should wrap text in simpara for styled paragraphs when converted to DocBook#0": {
+      "family": "oracle:book-partintro",
+      "signature": "paragraph=>open x3"
+    },
+    "paragraphs_test.rb#should wrap text in simpara for styled paragraphs with title when converted to DocBook#0": {
+      "family": "oracle:book-partintro",
+      "signature": "paragraph=>example; paragraph=>open x2; paragraph=>quote; paragraph=>sidebar"
+    },
+    "parser_test.rb#should resolve attribute references in rev number, data, and remark#0": {
+      "family": "gap:header-lines",
+      "signature": "-paragraph"
+    },
+    "preamble_test.rb#preamble in book doctype#0": {
+      "family": "oracle:book-partintro",
+      "signature": "paragraph=>open x2"
+    },
+    "preamble_test.rb#should move abstract in implicit preface to info tag when converting to DocBook#0": {
+      "family": "gap:styled-block-remodel",
+      "signature": "paragraph=>open"
+    },
+    "preamble_test.rb#should move abstract in preface section to info tag when converting to DocBook#0": {
+      "family": "oracle:book-partintro",
+      "signature": "paragraph=>open"
+    },
+    "reader_test.rb#ifdef around empty line does not introduce extra line#0": {
+      "family": "oracle:conditional",
+      "signature": "-paragraph"
+    },
+    "reader_test.rb#ifdef attribute name is not case sensitive#0": {
+      "family": "oracle:conditional",
+      "signature": "-paragraph"
+    },
+    "reader_test.rb#ifdef with all required attributes set includes content#0": {
+      "family": "oracle:conditional",
+      "signature": "-paragraph"
+    },
+    "reader_test.rb#ifdef with defined attribute includes content#0": {
+      "family": "oracle:conditional",
+      "signature": "-paragraph"
+    },
+    "reader_test.rb#ifdef with missing required attributes does not include content#0": {
+      "family": "oracle:conditional",
+      "signature": "-paragraph"
+    },
+    "reader_test.rb#ifdef with no alternative attributes set does not include content#0": {
+      "family": "oracle:conditional",
+      "signature": "-paragraph"
+    },
+    "reader_test.rb#ifdef with one alternative attribute set includes content#0": {
+      "family": "oracle:conditional",
+      "signature": "-paragraph"
+    },
+    "reader_test.rb#ifeval comparing double-quoted attribute to matching string includes content#0": {
+      "family": "oracle:conditional",
+      "signature": "-paragraph"
+    },
+    "reader_test.rb#ifeval comparing missing attribute to 0 drops content#0": {
+      "family": "oracle:conditional",
+      "signature": "-paragraph"
+    },
+    "reader_test.rb#ifeval comparing quoted attribute to non-matching string drops content#0": {
+      "family": "oracle:conditional",
+      "signature": "-paragraph"
+    },
+    "reader_test.rb#ifeval comparing single-quoted attribute to matching string includes content#0": {
+      "family": "oracle:conditional",
+      "signature": "-paragraph"
+    },
+    "reader_test.rb#ifeval matching numeric equality includes content#0": {
+      "family": "oracle:conditional",
+      "signature": "-paragraph"
+    },
+    "reader_test.rb#ifeval running invalid operation drops content#0": {
+      "family": "oracle:conditional",
+      "signature": "-paragraph"
+    },
+    "reader_test.rb#ifeval running unsupported operation on missing attribute drops content#0": {
+      "family": "oracle:conditional",
+      "signature": "-paragraph"
+    },
+    "reader_test.rb#include directive should not attempt to resolve target as remote if allow-uri-read is set and URL is not on first line#0": {
+      "family": "gap:attribute-continuation",
+      "signature": "-paragraph"
+    },
+    "reader_test.rb#include with nested exclude of inverted condition#0": {
+      "family": "oracle:conditional",
+      "signature": "-paragraph"
+    },
+    "reader_test.rb#include with non-matching nested exclude#0": {
+      "family": "oracle:conditional",
+      "signature": "-paragraph"
+    },
+    "reader_test.rb#peek_line returns nil if cursor advances past end of source#0": {
+      "family": "oracle:conditional",
+      "signature": "-paragraph"
+    },
+    "reader_test.rb#should log warning if endif contains text#0": {
+      "family": "oracle:conditional",
+      "signature": "-paragraph"
+    },
+    "reader_test.rb#should log warning if endif is mismatched#0": {
+      "family": "oracle:conditional",
+      "signature": "-paragraph"
+    },
+    "reader_test.rb#should not skip front matter by default#0": {
+      "family": "gap:front-matter",
+      "signature": "+thematic_break"
+    },
+    "reader_test.rb#should not skip front matter if ending delimiter is not found#0": {
+      "family": "gap:front-matter",
+      "signature": "+thematic_break"
+    },
+    "sections_test.rb#atx section title with leading marker#0": {
+      "family": "gap:md-atx-heading",
+      "signature": "paragraph=>heading"
+    },
+    "sections_test.rb#atx section title with symmetric markers#0": {
+      "family": "gap:md-atx-heading",
+      "signature": "paragraph=>heading"
+    },
+    "sections_test.rb#document title with level 0 headings#0": {
+      "family": "oracle:book-partintro",
+      "signature": "-paragraph; paragraph=>open x2"
+    },
+    "sections_test.rb#document title with multiline syntax and unicode characters#0": {
+      "family": "gap:setext-title",
+      "signature": "+heading; -example"
+    },
+    "sections_test.rb#explicit id can be defined using an embedded anchor when using setext section titles#0": {
+      "family": "gap:setext-title",
+      "signature": "-listing; paragraph=>heading"
+    },
+    "sections_test.rb#level 0 special sections in multipart book should be coerced to level 1#0": {
+      "family": "gap:styled-block-remodel",
+      "signature": "-paragraph"
+    },
+    "sections_test.rb#level offset should be added to discrete heading#0": {
+      "family": "gap:header-lines",
+      "signature": "-paragraph"
+    },
+    "sections_test.rb#multiline syntax with only multibyte characters#0": {
+      "family": "gap:setext-title",
+      "signature": "+heading; +paragraph; open=>heading"
+    },
+    "sections_test.rb#should add level offset to section level#0": {
+      "family": "gap:header-lines",
+      "signature": "-paragraph"
+    },
+    "sections_test.rb#should add partintro style to child paragraph of part#0": {
+      "family": "oracle:book-partintro",
+      "signature": "paragraph=>open"
+    },
+    "sections_test.rb#should add relative offset value to current leveloffset#0": {
+      "family": "gap:header-lines",
+      "signature": "-paragraph"
+    },
+    "sections_test.rb#should allow a special section to be nested at arbitrary depth in DocBook output#0": {
+      "family": "gap:dlist",
+      "signature": "-paragraph; paragraph=>dlist"
+    },
+    "sections_test.rb#should assign sequential roman numerals to book parts#0": {
+      "family": "oracle:book-partintro",
+      "signature": "paragraph=>open x2"
+    },
+    "sections_test.rb#should be able to reset level offset#0": {
+      "family": "gap:header-lines",
+      "signature": "-paragraph"
+    },
+    "sections_test.rb#should create only sections in docbook backend#0": {
+      "family": "gap:header-lines",
+      "signature": "-paragraph"
+    },
+    "sections_test.rb#should create parts and chapters in docbook backend#0": {
+      "family": "oracle:book-partintro",
+      "signature": "-paragraph; paragraph=>open x2"
+    },
+    "sections_test.rb#should not interpret a listing block as a heading#0": {
+      "family": "gap:setext-title",
+      "signature": "+paragraph; paragraph=>heading"
+    },
+    "sections_test.rb#should not interpret an attribute list as a heading#0": {
+      "family": "gap:setext-title",
+      "signature": "+heading; example=>admonition"
+    },
+    "sections_test.rb#should not interpret an open block as a heading#0": {
+      "family": "gap:setext-title",
+      "signature": "+heading; +open; -listing"
+    },
+    "sections_test.rb#should not match a heading in a bulleted list#0": {
+      "family": "gap:setext-title",
+      "signature": "+heading; +list:unordered; -listing"
+    },
+    "sections_test.rb#should not match a heading in a description list#0": {
+      "family": "gap:dlist",
+      "signature": "+dlist; +heading; -listing"
+    },
+    "sections_test.rb#should not promote title on partintro defined as normal paragraph#0": {
+      "family": "oracle:book-partintro",
+      "signature": "paragraph=>open"
+    },
+    "sections_test.rb#should output docbook elements that correspond to special sections in book doctype#0": {
+      "family": "oracle:book-partintro",
+      "signature": "paragraph=>open x3"
+    },
+    "sections_test.rb#should preprocess second line of setext discrete heading#0": {
+      "family": "gap:setext-title",
+      "signature": "-listing; paragraph=>heading"
+    },
+    "sections_test.rb#should preprocess second line of setext section title#0": {
+      "family": "gap:setext-title",
+      "signature": "-listing; paragraph=>heading"
+    },
+    "sections_test.rb#should preserve title on partintro defined as partintro paragraph#0": {
+      "family": "oracle:book-partintro",
+      "signature": "paragraph=>open"
+    },
+    "sections_test.rb#should print error if standalone document is included without level offset#0": {
+      "family": "gap:header-lines",
+      "signature": "-paragraph"
+    },
+    "sections_test.rb#should warn if part has no sections#0": {
+      "family": "oracle:book-partintro",
+      "signature": "paragraph=>open"
+    },
+    "sections_test.rb#should wrap abstract in implicit part intro in info tag when converting to DocBook#0": {
+      "family": "oracle:book-partintro",
+      "signature": "-paragraph; paragraph=>open"
+    },
+    "sections_test.rb#should wrap abstract in part intro section in info tag when converting to DocBook#0": {
+      "family": "oracle:book-partintro",
+      "signature": "paragraph=>open"
+    },
+    "sections_test.rb#should wrap child paragraphs of part in partintro open block#0": {
+      "family": "oracle:book-partintro",
+      "signature": "-paragraph; paragraph=>open"
+    },
+    "sections_test.rb#subsections in preface and appendix should start at level 2#0": {
+      "family": "oracle:book-partintro",
+      "signature": "-paragraph; paragraph=>open"
+    },
+    "test/fixtures/basic.adoc": {
+      "family": "gap:header-lines",
+      "signature": "-paragraph"
+    },
+    "test/fixtures/encoding.adoc": {
+      "family": "gap:block-macro-name",
+      "signature": "-macro:tag"
+    },
+    "test/fixtures/include-alt-extension.asciidoc": {
+      "family": "oracle:conditional",
+      "signature": "+paragraph"
+    },
+    "test/fixtures/lists.adoc": {
+      "family": "gap:dlist",
+      "signature": "-list:ordered; -paragraph x5; paragraph=>dlist x4"
+    },
+    "test/fixtures/sample.adoc": {
+      "family": "gap:setext-title",
+      "signature": "+heading x4; +list:unordered; +paragraph x3; +table; example=>admonition"
+    },
+    "test/fixtures/subs.adoc": {
+      "family": "gap:header-lines",
+      "signature": "-paragraph"
+    },
+    "test/fixtures/with-front-matter.adoc": {
+      "family": "gap:front-matter",
+      "signature": "+thematic_break"
+    }
+  }
+}

@@ -44,7 +44,8 @@
     "shape-diff": "bun scripts/shape-diff.ts",
     "mutate": "bun run test:deeply-nested-lists && bun run build && stryker run && bun scripts/score-minimums.ts --mutation",
     "mutate:full": "bun run test:deeply-nested-lists && bun run build && stryker run --force && bun scripts/score-minimums.ts --mutation",
-    "triage": "bun scripts/conformance-triage.ts"
+    "triage": "bun scripts/conformance-triage.ts",
+    "block-structure": "bun scripts/block-structure.ts"
   },
   "peerDependencies": {
     "prettier": "^3.0.0"
