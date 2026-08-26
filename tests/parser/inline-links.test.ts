@@ -159,6 +159,120 @@ describe("inline links — mailto", () => {
   });
 });
 
+describe("inline links - bare email addresses", () => {
+  test("a bare address alone is one link node, form `email`", () => {
+    const nodes = inlineNodes("user@example.com\n");
+    expect(nodes).toHaveLength(1);
+    const [node0] = nodes;
+    narrow(node0, "link");
+    expect(node0.form).toBe("email");
+    expect(node0.target).toBe("user@example.com");
+    expect(node0.text).toBeUndefined();
+  });
+
+  test("an address mid-sentence splits the run into text + link + text", () => {
+    const nodes = inlineNodes("Write to user@example.com today\n");
+    expect(nodes).toHaveLength(3);
+    const [node0, node1, node2] = nodes;
+    narrow(node0, "text");
+    narrow(node1, "link");
+    narrow(node2, "text");
+    expect(node0.value).toBe("Write to ");
+    expect(node1.target).toBe("user@example.com");
+    expect(node2.value).toBe(" today");
+  });
+
+  // The `_` inside the local part is a WORD character to Ruby
+  // (`CC_WORD` is `\p{Alphabetic}\p{N}\p{Pc}`), so it belongs to the
+  // address. Before the address was a construct, the tokenizer broke
+  // this run into `Write to dan`, a stray `_`, and `rosen@example.com`.
+  test("an underscore in the local part stays inside the address", () => {
+    const nodes = inlineNodes("Write to dan_rosen@example.com today\n");
+    expect(nodes).toHaveLength(3);
+    const [, node1] = nodes;
+    narrow(node1, "link");
+    expect(node1.target).toBe("dan_rosen@example.com");
+  });
+
+  // Ruby's InlineEmailRx has no left word boundary: it scans left to
+  // right and matches at the first position that works, so the whole
+  // glued word is the address (measured on the oracle).
+  test("a word character glued in front joins the address", () => {
+    const nodes = inlineNodes("xuser@example.com here\n");
+    const [node0] = nodes;
+    narrow(node0, "link");
+    expect(node0.target).toBe("xuser@example.com");
+  });
+
+  test("the address stops before trailing punctuation", () => {
+    const nodes = inlineNodes("Write to user@example.com, then wait\n");
+    const [, node1, node2] = nodes;
+    narrow(node1, "link");
+    narrow(node2, "text");
+    expect(node1.target).toBe("user@example.com");
+    expect(node2.value).toBe(", then wait");
+  });
+
+  test.each([
+    // Ruby's guard capture `([\\>:/])?`: where one of these stands in
+    // front, substitutors.rb's email arm returns the match unlinked.
+    ["a backslash escape", "Write to \\user@example.com today\n"],
+    ["a slash in front", "Write to a/user@example.com today\n"],
+    ["a colon in front", "Write to a:user@example.com today\n"],
+    // The domain's TLD is `[a-zA-Z]{2,5}`; six letters is not one.
+    ["a six-letter TLD", "Write to user@example.museum today\n"],
+    ["a one-letter TLD", "Write to user@example.c today\n"],
+    ["no TLD at all", "Write to user@localhost today\n"],
+    // The domain must open with an alphanumeric and end in a
+    // dot-plus-letters TLD, so a bare IPv4 host is not an address.
+    ["a numeric host", "Write to user@192.168.1.1 today\n"],
+    ["no local part", "Write to @example.com today\n"],
+  ])("%s is not an address", (_name, source) => {
+    const nodes = inlineNodes(source);
+    expect(nodes.map((node) => node.type)).not.toContain("link");
+  });
+
+  test.each([
+    ["a plus-addressed local", "user+tag@example.com"],
+    ["a dotted local", "doc.writer@example.com"],
+    ["a percent in the local", "user%x@example.com"],
+    ["a hyphen in the local", "a-b@example.com"],
+    // `&` stands where the oracle sees `&amp;`: its email arm runs
+    // after sub_specialchars, the tokenizer reads the author's bytes.
+    ["an ampersand in the local", "a&b@example.com"],
+    ["a subdomain", "user@mail.corp.example.com"],
+    ["mixed case", "User@Example.COM"],
+    ["a trailing dot in the local", "user.@example.com"],
+  ])("%s is part of the address", (_name, address) => {
+    const nodes = inlineNodes(`Write to ${address} today\n`);
+    const [, node1] = nodes;
+    narrow(node1, "link");
+    expect(node1.target).toBe(address);
+  });
+
+  test("a `mailto:` macro still wins over the bare address in it", () => {
+    const nodes = inlineNodes("mailto:user@example.com[Email]\n");
+    expect(nodes).toHaveLength(1);
+    const [node0] = nodes;
+    narrow(node0, "inlineMacro");
+    expect(node0.name).toBe("mailto");
+  });
+
+  test("a URL carrying an `@` stays one URL link", () => {
+    const nodes = inlineNodes("See https://example.com/a@b.com now\n");
+    const [, node1] = nodes;
+    narrow(node1, "link");
+    expect(node1.form).toBe("url");
+    expect(node1.target).toBe("https://example.com/a@b.com");
+  });
+
+  test("two addresses on one line are two link nodes", () => {
+    const nodes = inlineNodes("Mail a@example.com and b@example.org now\n");
+    const links = nodes.filter((node) => node.type === "link");
+    expect(links).toHaveLength(2);
+  });
+});
+
 describe("inline cross-references", () => {
   test("<<section-id>> → xref node with target", () => {
     const nodes = inlineNodes("<<section-id>>\n");

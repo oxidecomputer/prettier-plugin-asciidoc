@@ -35,6 +35,7 @@ import {
 } from "./span-pairing.js";
 import {
   makeLinkFromUrl,
+  makeLinkFromEmail,
   makeXrefFromShorthand,
   makeInlineAnchor,
   makeHardLineBreak,
@@ -352,6 +353,7 @@ const ATOMIC_DISPATCH = new Map<string, AtomicFactory>(
     AttributeReference: makeAttributeReference,
     InlineMacro: makeInlineMacro,
     InlineUrl: makeLinkFromUrl,
+    InlineEmail: makeLinkFromEmail,
     XrefShorthand: makeXrefFromShorthand,
     InlineAnchor: makeInlineAnchor,
     HardLineBreak: makeHardLineBreak,

@@ -130,6 +130,289 @@ function pattern(regex: RegExp): InlineRule["match"] {
 const MACRO_NAMES =
   "link|mailto|xref|image|kbd|btn|menu|footnoteref|footnote|pass";
 
+// A bare email address - InlineEmailRx, which our ORACLE,
+// `@asciidoctor/core` 4.0.11, spells at `build/node/index.cjs` l.518 as
+//
+//   ([\\>:/])?CG_WORD(?:&amp;|[CC_WORD\-.%+])*
+//   @CG_ALNUM[CC_ALNUM_\-.]*\.[a-zA-Z]{2,5}\b
+//
+// with `sub_macros`' email arm at l.19882-19897. The classes are the
+// TRANSPILE's (`index.cjs` l.49-55): `CC_WORD` is
+// `\p{Alphabetic}\p{N}\p{Pc}` and `CC_ALNUM` is `\p{Alphabetic}\p{N}`.
+// Ruby itself says something slightly different - asciidoctor.rb l.434
+// and l.436 are `CC_ALNUM = CG_ALNUM = '\p{Alnum}'` and
+// `CC_WORD = CG_WORD = '\p{Word}'`, and Onigmo's `\p{Word}` is
+// Alphabetic + M + Nd + Pc while `\p{Alnum}` is Alphabetic + Nd - so
+// the transpile drops `\p{M}` and widens `Nd` to `\p{N}`. The
+// transpile is what is transcribed here, because the transpile is the
+// oracle these tests measure against.
+//
+// One substitution, in the LOCAL part: Ruby's `&amp;` alternative
+// becomes a bare `&`. The email arm runs inside `sub_macros`, after
+// `sub_specialchars` has rewritten every `&` to `&amp;`; the tokenizer
+// reads the AUTHOR's bytes, where the same address is spelled
+// `a&b@example.com`.
+const EMAIL_ADDRESS =
+  String.raw`[\p{Alphabetic}\p{N}\p{Pc}](?:&|[\p{Alphabetic}\p{N}\p{Pc}\-.%+])*` +
+  String.raw`@[\p{Alphabetic}\p{N}][\p{Alphabetic}\p{N}_\-.]*\.[a-zA-Z]{2,5}\b`;
+
+// Ruby's leading `([\\>:/])?` is no part of the address: where the
+// group fires, the email arm returns the match UNLINKED
+// (`if (p1) return p1 === RS ? match.slice(1) : match`), having
+// CONSUMED it. Its `>` is absent here on purpose - under the default
+// substitution list that one closes a TAG an earlier pass wrote
+// (`<code>`, `</a>`) rather than standing in the author's own bytes,
+// which `sub_specialchars` has already rewritten to `&gt;`;
+// `a>user@example.com` DOES render as a link (measured). A block whose
+// subs list drops `specialcharacters` keeps the author's `>` and
+// guards on it, which we do not model - the same gap every other
+// `subs` override already sits in.
+const EMAIL_GUARD = new Set(["\\", ":", "/"]);
+
+// The five non-word characters an address's LOCAL part admits:
+// `[CC_WORD\-.%+]`'s punctuation, plus the `&` that stands where
+// Ruby's alternation has `&amp;` (it reads a substituted document, we
+// read the author's bytes). A set rather than a class, because a bare
+// `&` inside a `v`-mode class is spelled one way by the compiler's
+// reader and another by the linter's.
+const EMAIL_PUNCT = new Set(["-", ".", "%", "+", "&"]);
+
+// One character of Ruby's `CG_WORD`, which is what a local part has to
+// OPEN with - so the walk back asks the pattern's own question.
+const EMAIL_WORD = /[\p{Alphabetic}\p{N}\p{Pc}]/v;
+
+/**
+ * Whether a character may stand INSIDE an address's local part.
+ * @param character - one character of the fragment
+ * @returns true when the local part admits it
+ */
+function isLocal(character: string): boolean {
+  return EMAIL_WORD.test(character) || EMAIL_PUNCT.has(character);
+}
+
+// How many characters of address stand at an index. A `pattern()`
+// match function rather than a bare regex, so the sticky copy stays
+// private the way every rule's does.
+const addressAt = pattern(new RegExp(EMAIL_ADDRESS, "v"));
+
+// Whitespace, which no match can cross: neither the guard characters,
+// nor the local part, nor the domain admits any. That is what makes a
+// whitespace-delimited WORD the unit {@link scanWord} can read on its
+// own - Ruby's scan can never arrive in the middle of one with
+// anything consumed.
+const WHITESPACE = /\s/v;
+
+// The word most recently scanned, and the addresses Ruby's scan
+// accepts inside it. A cache of a pure function of (`text`, offset),
+// not state: recomputing is always safe, and the tokenizer walks left
+// to right, so consecutive questions land in the same word. The
+// initial `scannedTo` of 0 is what makes the first question a miss,
+// whatever `scannedText` holds.
+let scannedText = "";
+let scannedFrom = 0;
+let scannedTo = 0;
+const scannedStarts: number[] = [];
+const scannedLengths: number[] = [];
+
+/**
+ * Where the local part ending at the `@` in `at` opens, or -1 when
+ * there is none.
+ *
+ * Ruby matches at the FIRST position that works, and the local part
+ * `CG_WORD(?:&amp;|[CC_WORD\-.%+])*` can start at any word character
+ * of the run in front of the `@` - so the earliest one wins. `floor`
+ * is where Ruby's scan may still begin: a character behind it is
+ * already inside a match Ruby consumed, and cannot open a new one.
+ * @param text - the fragment being tokenized
+ * @param at - the `@`'s offset
+ * @param floor - the first offset the scan may still match at
+ * @returns the local part's first offset, or -1
+ */
+function localStart(text: string, at: number, floor: number): number {
+  let start = at;
+  while (start > floor && isLocal(text.charAt(start - 1))) start -= 1;
+  while (start < at && !EMAIL_WORD.test(text.charAt(start))) start += 1;
+  return start < at ? start : -1;
+}
+
+/** One match of Ruby's pattern: where the ADDRESS part of it sits. */
+interface Match {
+  /** The address's first offset. */
+  readonly start: number;
+  /** How many characters of address. */
+  readonly length: number;
+  /** Whether a guard character stands in front, still unconsumed. */
+  readonly guarded: boolean;
+}
+
+/**
+ * The match Ruby's pattern makes on the `@` at `at`, or undefined when
+ * it makes none.
+ *
+ * There is at most one, because the local part cannot cross an `@`:
+ * whatever start the scan takes, this is the `@` it reaches. And a
+ * later start in the same local run would only shorten the local part,
+ * which the pattern accepts either way - so if the earliest start
+ * fails, every start fails, and one attempt settles the `@`.
+ * @param text - the fragment being tokenized
+ * @param at - the `@`'s offset
+ * @param resume - the first offset the scan may still match at
+ * @returns the match, or undefined
+ */
+function matchOn(text: string, at: number, resume: number): Match | undefined {
+  if (at < resume) return undefined;
+  const start = localStart(text, at, resume);
+  if (start === -1) return undefined;
+  const length = addressAt(text, start);
+  if (length === 0) return undefined;
+  // The guard is part of the match, so it guards only while it is
+  // itself unconsumed.
+  const guarded = start > resume && EMAIL_GUARD.has(text.charAt(start - 1));
+  return { start, length, guarded };
+}
+
+/**
+ * The whitespace-free run holding `offset`, as `[from, to)`.
+ * @param text - the fragment being tokenized
+ * @param offset - an offset inside the run
+ * @returns the run's bounds, end exclusive
+ */
+function wordAround(
+  text: string,
+  offset: number,
+): { from: number; to: number } {
+  let from = offset;
+  while (from > 0 && !WHITESPACE.test(text.charAt(from - 1))) from -= 1;
+  let to = offset;
+  while (to < text.length && !WHITESPACE.test(text.charAt(to))) to += 1;
+  return { from, to };
+}
+
+/**
+ * Run Ruby's scan over the whitespace-delimited word holding `offset`
+ * and record the addresses it ACCEPTS, into the module's one-word
+ * cache.
+ *
+ * This is the email arm's own algorithm rather than a per-position
+ * test, because the arm's answer at any one position depends on what
+ * the scan has already consumed. `text.replace(globalRx(InlineEmailRx))`
+ * takes the leftmost match, moves past the WHOLE of it - guard
+ * character included - and repeats. Two consequences a one-character
+ * left test cannot express, both measured against the oracle:
+ *
+ * - a word character behind the local part's joiners refuses a start
+ *   only while it is UNCONSUMED. In `a@b.com.c@d.com` the `m` behind
+ *   the `.` is interior to the first address, so Ruby starts a second
+ *   match at `c` and so do we;
+ * - and a start one character past an `@` is legal only when
+ *   everything to the left of that `@` failed. `d_e@f.org-g.h@i.com`
+ *   yields three addresses, not a `f.org-g.h@i.com` that the oracle
+ *   never produces.
+ *
+ * Each `@` is visited once and its local part walked back at most to
+ * the previous `@`, so the whole word costs one pass.
+ * @param text - the fragment being tokenized
+ * @param offset - any offset inside the word to scan
+ */
+function scanWord(text: string, offset: number): void {
+  if (scannedText === text && offset >= scannedFrom && offset < scannedTo) {
+    return;
+  }
+  const { from, to } = wordAround(text, offset);
+  scannedText = text;
+  scannedFrom = from;
+  scannedTo = to;
+  scannedStarts.length = 0;
+  scannedLengths.length = 0;
+  // Ruby's `lastIndex`: where the next match may begin.
+  let resume = from;
+  let at = text.indexOf("@", from);
+  while (at !== -1 && at < to) {
+    const found = matchOn(text, at, resume);
+    if (found !== undefined) {
+      if (!found.guarded) {
+        scannedStarts.push(found.start);
+        scannedLengths.push(found.length);
+      }
+      resume = found.start + found.length;
+    }
+    at = text.indexOf("@", at + 1);
+  }
+}
+
+/**
+ * The InlineEmail rule: the address Ruby's scan accepts AT this exact
+ * offset, if any.
+ * @param text - the fragment being tokenized
+ * @param index - where to try
+ * @returns the address's length, or 0
+ */
+function emailMatch(text: string, index: number): number {
+  if (!EMAIL_WORD.test(text.charAt(index))) return 0;
+  scanWord(text, index);
+  const found = scannedStarts.indexOf(index);
+  return found === -1 ? 0 : scannedLengths[found];
+}
+
+/**
+ * Where the first accepted address inside `[from, limit)` starts, or
+ * -1 when there is none.
+ *
+ * Driven by the `@`s rather than by the positions: every address holds
+ * one, so finding them and asking their words is a single pass over
+ * the range instead of a candidacy test at every character. A word can
+ * open BEFORE `limit` while its `@` sits behind it - `Mail dan` stops
+ * at the `_` of `dan_rosen@x.com` - so the `@` itself is not bounded,
+ * only the word it belongs to.
+ * @param text - the fragment being tokenized
+ * @param from - the first offset an address may start at
+ * @param limit - the first offset that is too far
+ * @returns the address's start, or -1
+ */
+function firstAddressIn(text: string, from: number, limit: number): number {
+  let at = text.indexOf("@", from);
+  while (at !== -1) {
+    scanWord(text, at);
+    if (scannedFrom >= limit) return -1;
+    for (const start of scannedStarts) {
+      if (start >= from && start < limit) return start;
+    }
+    at = text.indexOf("@", scannedTo);
+  }
+  return -1;
+}
+
+/**
+ * The InlineText rule: a run of ordinary characters, stopped where an
+ * address begins.
+ *
+ * The run's other stops are fixed prefixes and ride in the pattern's
+ * own negative lookahead. An address is not one: it can open at any
+ * word character, and whether it does is a fact about Ruby's scan
+ * rather than about the characters at that position. Putting the
+ * address in the lookahead anyway costs an order of magnitude on
+ * ordinary prose and turns a long `@`-bearing token quadratic (both
+ * measured), because the lookahead is then tried, and scans forward,
+ * at every character. So the run is matched first and cut afterwards,
+ * by the same scan {@link emailMatch} reads point-wise.
+ * @param source - InlineText's pattern, with no address stop in it
+ * @returns the rule's match function
+ */
+function textMatcher(source: string): InlineRule["match"] {
+  const sticky = new RegExp(source, "vy");
+  return (text: string, index: number): number => {
+    sticky.lastIndex = index;
+    const found = sticky.exec(text);
+    if (found === null) return 0;
+    const [run] = found;
+    const { length } = run;
+    // From `index + 1`: an address AT `index` would have been this
+    // rule's predecessor in the table, and a cut of zero is no cut.
+    const cut = firstAddressIn(text, index + 1, index + length);
+    return cut === -1 ? length : cut - index;
+  };
+}
+
 /**
  * The table, in priority order (see {@link INLINE_KINDS}).
  *
@@ -173,6 +456,17 @@ export const INLINE_RULES: readonly InlineRule[] = [
     type: "InlineUrl",
     match: pattern(/https?:\/\/[^\s\[\]]+(?:\[[^\]]*\])?/v),
   },
+  // Bare email address - InlineEmailRx ({@link EMAIL_ADDRESS}) read
+  // through Ruby's own scan ({@link scanWord}). Behind InlineMacro and
+  // InlineUrl, which own the position outright; on the two shapes that
+  // collide, `mailto:a@b.com[x]` and `https://x/a@b.com`, Ruby reaches
+  // the same answer through its `:` and `/` guards. Not a general
+  // agreement between the two rules and Ruby: Ruby's InlineLinkRx trims
+  // trailing punctuation off a bare URL and lets the email arm read
+  // what is left, so `https://ex.com/p,c@d.com` is an address to Ruby
+  // and one long URL to our InlineUrl - a pre-existing, byte-neutral
+  // difference in the URL rule, not in this one.
+  { type: "InlineEmail", match: emailMatch },
   // `<<target>>` / `<<target,text>>` — InlineXrefMacroRx shorthand.
   { type: "XrefShorthand", match: pattern(/<<[^>\n]+(?:,[^>\n]+)?>>/v) },
   // `[[id]]` / `[[id, reftext]]` — InlineAnchorRx.
@@ -192,23 +486,22 @@ export const INLINE_RULES: readonly InlineRule[] = [
   // We tokenize the whole run at once and need it as a token.
   { type: "InlineNewline", match: pattern(/\n/v) },
   // A run of ordinary characters. The negative lookahead is what
-  // stops the run BEFORE a URL, a macro name or a hard break, which
-  // is how first-match-wins produces longest-match behaviour without
-  // a longest-match engine. `<` is excluded so `<<ref>>` is not eaten
-  // as text, and `+` so a passthrough is not: a run that swallowed the
-  // `+` in `a +text+ b` would hide the opening delimiter from the
-  // Passthrough rule, which is only ever tried at a position the run
-  // has not already taken. The ` +\n` lookahead stays for the hard
-  // break, whose match starts one character EARLIER, at the space.
-  // Ruby has no equivalent: substitutors.rb rewrites the whole line
-  // with `gsub`, so "everything else" is never named.
+  // stops the run BEFORE a URL, a macro name or a hard break, which is
+  // how first-match-wins produces longest-match behaviour without a
+  // longest-match engine; an ADDRESS stops it too, but through
+  // {@link textMatcher}'s cut rather than through this pattern. `<` is
+  // excluded so `<<ref>>` is not eaten as text, and `+` so a
+  // passthrough is not: a run that swallowed the `+` in `a +text+ b`
+  // would hide the opening delimiter from the Passthrough rule, which
+  // is only ever tried at a position the run has not already taken.
+  // The ` +\n` lookahead stays for the hard break, whose match starts
+  // one character EARLIER, at the space. Ruby has no equivalent:
+  // substitutors.rb rewrites the whole line with `gsub`, so
+  // "everything else" is never named.
   {
     type: "InlineText",
-    match: pattern(
-      new RegExp(
-        `(?:(?!https?://|(?:${MACRO_NAMES}):| \\+\\n)[^\\n*_\`#\\\\\\{\\[<+])+`,
-        "v",
-      ),
+    match: textMatcher(
+      `(?:(?!https?://|(?:${MACRO_NAMES}):| \\+\\n)[^\\n*_\`#\\\\\\{\\[<+])+`,
     ),
   },
 ];

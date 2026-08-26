@@ -275,6 +275,18 @@ const EXPLICIT_ORDERED_MARKER_FAMILY = "explicit-ordered-marker";
 const INLINE_PASSTHROUGH_FAMILY = "inline-passthrough";
 
 /**
+ * Issue #20: a bare email address becomes one atomic `link` node
+ * (`form: "email"`) where the base read plain text. NOT
+ * formatted-only: the tree moves. All fourteen cases are AST-only -
+ * author lines and fixture prose gain the node with bytes identical,
+ * so the formatted rendering is unchanged (Asciidoctor already made
+ * the address a mailto link; the model only now agrees).
+ *
+ * Not exported: no grid row cites it.
+ */
+const EMAIL_AUTOLINK_FAMILY = "email-autolink";
+
+/**
  * The closed family enum. SURFACE HONESTY, not an armed
  * gate: a family id can only legally be a corpus id or an
  * identity-fixture id. The formatted-only subset is exactly
@@ -288,10 +300,11 @@ const INLINE_PASSTHROUGH_FAMILY = "inline-passthrough";
  * blocks, bom-document-head re-reads the line a leading BOM hid,
  * the two inline SPAN families move spans (dissolved, crystallized,
  * or holding a kept `\n`), inline-passthrough replaces text - and
- * sometimes a whole span - with one atomic passthrough node, and
- * explicit-ordered-marker turns prose into ordered lists, so an
- * entry of those nine whose AST differs is legal and an entry of any
- * other family whose AST differs fails the cross-check.
+ * sometimes a whole span - with one atomic passthrough node,
+ * explicit-ordered-marker turns prose into ordered lists, and
+ * email-autolink hardens a bare address into one atomic link node,
+ * so an entry of those ten whose AST differs is legal and an entry
+ * of any other family whose AST differs fails the cross-check.
  */
 export const LEDGER_FAMILIES: FamilySets = {
   families: new Set([
@@ -313,6 +326,7 @@ export const LEDGER_FAMILIES: FamilySets = {
     CONTINUATION_KEEPS_LINE_FAMILY,
     EXPLICIT_ORDERED_MARKER_FAMILY,
     INLINE_PASSTHROUGH_FAMILY,
+    EMAIL_AUTOLINK_FAMILY,
   ]),
   formattedOnly: new Set([
     AUTHOR_PLUS_FAMILY,

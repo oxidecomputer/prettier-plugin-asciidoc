@@ -93,6 +93,32 @@ export function makeLinkFromUrl(
 }
 
 /**
+ * Build a LinkNode from a bare email-address token.
+ *
+ * The whole token IS the target: an address has no bracket syntax, so
+ * there is nothing to split and the display text is always undefined.
+ * The `mailto:` scheme Ruby prepends when it renders one
+ * (`substitutors.rb`'s email arm builds `mailto:#{address}`) is NOT
+ * stored: it is not in the author's bytes, and the printer writes
+ * the target back verbatim.
+ * @param fragment - InlineEmail token span
+ * @param at - the document's location index
+ * @returns LinkNode with form `"email"`
+ */
+export function makeLinkFromEmail(
+  fragment: Fragment,
+  at: LocationIndex,
+): LinkNode {
+  return {
+    type: "link",
+    form: "email",
+    target: fragment.image,
+    text: undefined,
+    position: positionOf(fragment, at),
+  };
+}
+
+/**
  * Build an XrefNode from the `<<target>>` shorthand.
  *
  * Strips the `<<`/`>>` delimiters, then splits at the

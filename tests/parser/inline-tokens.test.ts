@@ -188,6 +188,30 @@ describe("the rule table, by hand", () => {
     ["link:a[b *c*]", ["InlineMacro"]],
     // InlineText's negative lookahead is what stops a run BEFORE a URL.
     ["see https://x", ["InlineText", "InlineUrl"]],
+    // An address stops the run too, but not through the pattern: its
+    // start is no fixed prefix, so the run is matched whole and then
+    // CUT where the email arm's own scan opens one (textMatcher).
+    ["see a@b.com", ["InlineText", "InlineEmail"]],
+    // The underscore is a WORD character to Ruby, so it belongs to the
+    // local part rather than falling out of the run as a stray mark.
+    ["see a_b@c.com", ["InlineText", "InlineEmail"]],
+    // No left word boundary: the glued character joins the address,
+    // because the scan matches at the first position that works.
+    ["xa@b.com", ["InlineEmail"]],
+    // Ruby's guard `([\\>:/])?` is CONSUMED, so a guarded address is
+    // not retried one character to the right. Running the scan rather
+    // than testing a position is what reproduces that, and the run
+    // stays one stretch of plain text.
+    ["x/a@b.com", ["InlineText"]],
+    ["x:a@b.com", ["InlineText"]],
+    [String.raw`\a@b.com`, ["InlineChar", "InlineText"]],
+    // A word character behind the joiners refuses a start only while
+    // it is UNCONSUMED: here the `m` is interior to the first address,
+    // so the scan opens a second one behind the dot.
+    ["a@b.com.c@d.com", ["InlineEmail", "InlineText", "InlineEmail"]],
+    // A macro and a URL own the position outright.
+    ["mailto:a@b.com[x]", ["InlineMacro"]],
+    ["https://x/a@b.com", ["InlineUrl"]],
     // `**` is tried before `*`: unconstrained wins on a double mark.
     ["**b**", ["BoldMark", "InlineText", "BoldMark"]],
     // Constrained at fragment offset 0: index -1 is out of range and

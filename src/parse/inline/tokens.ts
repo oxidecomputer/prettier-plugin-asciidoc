@@ -36,6 +36,7 @@ export const INLINE_KINDS = [
   "RoleAttribute",
   "InlineMacro",
   "InlineUrl",
+  "InlineEmail",
   "XrefShorthand",
   "InlineAnchor",
   "BoldMark",

@@ -158,23 +158,38 @@ export interface AttributeReferenceNode extends Node {
 }
 
 /**
- * Inline link via bare URL: `https://example.com` or
- * `https://example.com[text]`. Kept separate from
- * InlineMacroNode because it has different syntax
- * (no `name:` prefix) and needs form tracking for
- * round-trip fidelity.
+ * Inline link written without a `name:` prefix: a bare URL
+ * (`https://example.com`, `https://example.com[text]`) or a bare
+ * email address (`user@example.com`). Kept separate from
+ * InlineMacroNode because it has different syntax: there is no name to
+ * split off and no attrlist to canonicalize. Round-trip fidelity comes
+ * from {@link LinkNode#target}, which the printer writes back
+ * verbatim.
  */
 export interface LinkNode extends Node {
   /** Node discriminant. */
   type: "link";
-  /** Always `"url"` — macro-form links use InlineMacroNode. */
-  form: "url";
-  /** The link destination URL. */
+  /**
+   * Which prefix-less spelling the author used: `"url"` for a bare
+   * URL, `"email"` for a bare address. Macro-form links (`link:`,
+   * `mailto:`) use InlineMacroNode instead.
+   *
+   * A RECORD of the spelling, not yet an input to one: nothing in
+   * `src/` reads it, because both spellings print as their target and
+   * the printer needs no case split to do it.
+   */
+  form: "url" | "email";
+  /**
+   * The link destination as the author wrote it: the URL, or the
+   * address without the `mailto:` scheme Ruby prepends when it
+   * renders one.
+   */
   target: string;
   /**
    * Display text from the attribute list (e.g. the
    * `text` in `https://example.com[text]`). Undefined
-   * when no display text was provided.
+   * when no display text was provided, which an address always is:
+   * it has no bracket syntax to carry one.
    */
   text: string | undefined;
 }
