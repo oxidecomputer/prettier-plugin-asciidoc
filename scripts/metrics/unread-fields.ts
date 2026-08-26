@@ -252,7 +252,14 @@ function isRead(
   const source = program.getSourceFile(entry.fileName);
   if (source === undefined) return false;
   const node = tokenAt(source, entry.textSpan.start);
-  if (node === undefined) return false;
+  // A reference with no PARENT is one that is not in the syntax tree
+  // at all: a `{@link Type.field}` inside a JSDoc comment, which the
+  // language service reports like any other reference. Naming a field
+  // in prose is not reading it, so it belongs on the same side as
+  // every other non-read shape - and the guard is what keeps the
+  // scorecard from crashing on `node.parent` the first time somebody
+  // links a field from a doc comment.
+  if (node?.parent === undefined) return false;
   return readsThroughParent(node.parent);
 }
 
