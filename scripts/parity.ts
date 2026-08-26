@@ -34,14 +34,14 @@ import { CHILD_MAX_BUFFER, materialize } from "./lib/checkout.js";
 import { cannotRun, GATE_FAILED, printUsage, wantsHelp } from "./lib/cli.js";
 import {
   LEDGER_FAMILIES,
+  collectExpectedDiffTrailers,
   foldAnchorAndAdmonitionShapes,
   foldAttributeEntryUnset,
   foldSectionAndHeadingShapes,
   foldMarkerAndReftextShapes,
-  loadExpectedDiffs,
   parseArguments,
   reportExpectedDiffs,
-  type ExpectedDiff,
+  type TrailerScan,
 } from "./parity-ledger.js";
 // Re-exported for the unit tests, which reach the ledger's surface
 // through this module. Three statements rather than one braced list:
@@ -64,8 +64,11 @@ const USAGE = `usage: bun run parity --base <rev> [options]
   --base <rev>              the baseline revision to compare against
   --limit <n>               how many differing cases to detail (default 20)
   --formatted-ledger        list formatted-only differences instead of
-                            failing on them; the AST alone gates
-  --expected-diffs <file>   run the ledger gate over that JSON ledger
+                            failing on them, as pasteable Parity-Diff
+                            trailers; the AST alone gates
+  --expected-diffs-trailers <rev>
+                            run the ledger gate over the Parity-Diff
+                            trailers in <base>..<rev>'s commit messages
   --allow-parent-block-end  blank forced-closed parentBlock ends on both sides
   --help                    this text
 
@@ -679,9 +682,9 @@ function reportCase(id: string, baseRoot: string, allow: boolean): void {
  *   parentBlock ends were blanked on both sides
  * @param options.formattedLedger - whether formatted-only differences
  *   are listed as expected-diff ledger candidates instead of failing
- * @param options.expectedDiffs - the loaded ledger, when
- *   `--expected-diffs` was given; drives the ledger gate instead of
- *   the default verdict
+ * @param options.expectedDiffs - the scanned `Parity-Diff` trailers,
+ *   when `--expected-diffs-trailers` was given; drives the ledger
+ *   gate instead of the default verdict
  */
 function report(options: {
   base: Dump;
@@ -691,7 +694,7 @@ function report(options: {
   limit: number;
   allowParentBlockEnd: boolean;
   formattedLedger: boolean;
-  expectedDiffs: readonly ExpectedDiff[] | undefined;
+  expectedDiffs: TrailerScan | undefined;
 }): void {
   const {
     base: { rows: base, formatMs: baseMs },
@@ -722,14 +725,20 @@ function report(options: {
   // both streams differ the run fails on the AST, and the ledger's
   // candidate list is still the thing the reader came for.
   if (formattedLedger && formatted.length > ZERO) {
+    // Printed as trailers, ready to paste into this commit's message,
+    // with `<family>` the one token the author still has to replace
+    // (the enum is declared in scripts/parity-ledger.ts).
     process.stdout.write(
-      `parity: ledger: ${String(formatted.length)} cases differ in formatted output only\n`,
+      `parity: ledger: ${String(formatted.length)} cases differ in formatted output only; declare each in this commit's message, replacing <family>:\n`,
     );
-    for (const id of formatted) process.stdout.write(`  ${id}\n`);
+    for (const id of formatted) {
+      process.stdout.write(`Parity-Diff: <family> ${id}\n`);
+    }
   }
   if (options.expectedDiffs !== undefined) {
     reportExpectedDiffs({
-      expectedDiffs: options.expectedDiffs,
+      expectedDiffs: options.expectedDiffs.entries,
+      trailerFailures: options.expectedDiffs.failures,
       ast,
       formatted,
       headIds: new Set(head.keys()),
@@ -781,10 +790,15 @@ function main(argv: readonly string[]): void {
     limit,
     allowParentBlockEnd,
     formattedLedger,
-    expectedDiffs,
+    expectedDiffsTrailers,
   } = parseArguments(argv);
+  // Scanned BEFORE the base is materialized: an unknown revision here
+  // throws out to the `cannotRun` handler below, and paying for a full
+  // install first would make a typo cost minutes.
   const expected =
-    expectedDiffs === undefined ? undefined : loadExpectedDiffs(expectedDiffs);
+    expectedDiffsTrailers === undefined
+      ? undefined
+      : collectExpectedDiffTrailers(revision, expectedDiffsTrailers);
   const baseRoot = materialize({
     revision,
     prefix: "parity-base-",
@@ -819,8 +833,8 @@ if (import.meta.main) {
     main(process.argv.slice(ARGUMENT_START));
   } catch (error) {
     // An unrecognised argument, a missing `--base`, a revision
-    // `git archive` refuses, an unreadable ledger: none of them
-    // compared anything, so none of them is a 1.
+    // `git archive` refuses, a trailer range `git log` refuses: none
+    // of them compared anything, so none of them is a 1.
     cannotRun(error instanceof Error ? error.message : String(error));
   }
 }

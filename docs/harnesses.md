@@ -76,47 +76,90 @@ offsets directly, so an AST that prints the same today can still break range
 formatting tomorrow.
 
 For a change that is meant to move bytes: `--formatted-ledger` accepts byte
-differences and gates on the AST alone, listing the ids that differ; those ids
-go into `scripts/parity-expected-diffs.json`, and `--expected-diffs <file>`
-gates on that ledger being exactly right — every listed id must still differ (a
-stale entry fails) and every differing id must be listed (an undeclared diff
+differences and gates on the AST alone, printing the ids that differ as
+pasteable `Parity-Diff:` trailer lines; those trailers go in the message of the
+commit that moves them, and `--expected-diffs-trailers <rev>` gates on the
+declaration being exactly right: every declared id must still differ (a stale
+declaration fails) and every differing id must be declared (an undeclared diff
 fails).
 
-**The ledger's lifecycle.** An entry is `{"id": ..., "family": ...}`: a corpus
-or fixture id plus a family from the closed enum in `scripts/parity-ledger.ts`
-(each family is declared once, with a doc comment saying what moved and why).
-The ledger describes exactly one commit: the diff between the head being checked
-and the base CI resolves for it (the merge base on a pull request, the pushed
-commit's parent on a push to `main`). Every commit is judged against its OWN
-parent, so an entry is never valid for two consecutive commits. Three rules
-follow, applied per commit:
+**The ledger's lifecycle.** A declaration is one line, anywhere in a commit
+message:
 
-1. A commit that does not intentionally change formatted output carries the file
-   as `[]`. That includes every commit stacked on top of one that carried
-   entries: resetting the file to `[]` is part of authoring the NEXT commit,
-   whatever that commit is about. This is the rule that bites - the entries pass
-   locally forever on the commit that earned them, and only fail in CI once a
-   later commit is compared against a parent that already contains the change
-   (CI run 32916094459 failed exactly this way).
-2. A commit that intentionally moves bytes lands WITH its entries in the same
-   commit. `bun run parity -- --base <parent sha> --formatted-ledger` lists the
-   ids whose formatted output differs; give each a family (adding to the enum in
-   `parity-ledger.ts` first if no existing family names the change) and prove
-   the change meaning-preserving with `bun run shape-diff` or a render check.
-3. Verify with CI's exact gate before describing any commit:
-   `bun run parity -- --base <parent sha> --expected-diffs scripts/parity-expected-diffs.json`
-   (with jj, the parent sha is `jj log -r @- --no-graph -T commit_id`; `--base`
-   feeds `git archive`, so it takes git revisions, not revsets). It runs in a
-   few seconds.
+```
+Parity-Diff: <family> <id>
+```
+
+`<family>` is a single token from the closed enum in `scripts/parity-ledger.ts`
+(each family is declared once, with a doc comment saying what moved and why),
+and `<id>` is the rest of the line: a corpus or fixture id, spaces and all
+(`lists_test.rb#consecutive list continuation lines are folded#0`).
+
+The key is exact and case-sensitive: `Parity-Diff:`. `parity-diff:` and
+`Parity-diff:` are prose, and the run then reports the id as undeclared while
+the author looks at what they believe is a trailer. In the other direction, ANY
+line of a gated commit message that starts with the key counts as a
+declaration - indentation, a quoted block and a fenced example included - so do
+not paste the literal syntax into a commit message. Pasting
+`Parity-Diff: <family> <id>` (or `--formatted-ledger` output with its `<family>`
+placeholder still in it) fails as an unknown family, and the cure there is
+removing the pasted line, not declaring a family.
+
+There is exactly one rule: **a commit that intentionally moves formatted output
+declares each moved id with a `Parity-Diff:` trailer in its OWN message.**
+Nothing has to be reset afterwards. CI resolves a base (the merge base on a pull
+request, the pushed commit's parent on a push to `main`), unions the trailers of
+every commit in `base..HEAD`, and gates the head against that union. A
+declaration therefore stops being read the moment the base advances past the
+commit carrying it, which is the same moment its diff stops being a diff. (The
+file this replaced, `scripts/parity-expected-diffs.json`, had to be reset to
+`[]` by the next commit, whatever that commit was about; CI run 32916094459
+failed on exactly that.)
+
+**A declaration goes stale the moment its diff is gone, including mid-range.**
+Inside one pull request, a later commit that reverts or supersedes an earlier
+one leaves the earlier commit's trailer in the scanned range with nothing left
+to excuse, and the run fails as a stale entry. The same trap in its other
+flavor: an id declared under a formatted-only family by one commit, whose AST a
+later commit in the same range also moves, fails the cross-check. Nothing in the
+working tree is the cure in either case - the fix is editing the DECLARING
+commit's message (`jj describe -r <that change>`; a git contributor amends or
+rebases that commit), not adding a trailer to the tip.
+
+Before describing a commit, verify with CI's own gate:
+
+```bash
+bun run parity -- --base $(jj log -r @- --no-graph -T commit_id) \
+  --expected-diffs-trailers $(jj log -r @ --no-graph -T commit_id)
+```
+
+Both arguments are git revisions, not revsets (`--base` feeds `git archive` and
+the trailer range feeds `git log`), which is why the shas come out of `jj log`.
+The working-copy commit works as the head: jj stores it in the colocated git
+store, so `git log` can read it even though no git ref points at it. The run
+takes a few seconds. To get the ids in the first place, run
+`bun run parity -- --base <parent sha> --formatted-ledger`, paste its
+`Parity-Diff:` lines into the message and replace each `<family>` (adding to the
+enum in `parity-ledger.ts` first if no existing family names the change); prove
+the change meaning-preserving with `bun run shape-diff` or a render check.
+
+**A jj-squash note.** `jj squash --use-destination-message` discards the source
+commit's message, and with it any trailers that message carried. Re-add them
+when you re-describe the squashed commit. A forgotten one is not silent: the
+local gate run above reports the id as an undeclared diff.
 
 The gate is exact in both directions, and each failure message names its cure:
-"stale entry - delete it" (the id vanished or no longer differs) means the entry
-outlived its commit - delete it, there is no phantom diff to chase; "differs ...
-and is not in scripts/parity-expected-diffs.json" is an undeclared behavior
-change - unintended means fix the code, intended means ledger it; "unknown
-family" means declare the family in `parity-ledger.ts` first; "differs in the
-AST but <family> is a formatted-only family" means the change moved the tree,
-not just bytes - the family is wrong or the change does more than believed.
+"stale entry - delete it" (the id vanished or no longer differs) means the
+declaration outlived its diff - drop the trailer, there is no phantom diff to
+chase; "differs ... and is not declared by a Parity-Diff trailer" is an
+undeclared behavior change - unintended means fix the code, intended means
+declare it; "malformed trailer" means a line starts with `Parity-Diff:` and does
+not parse - it declares nothing, so it fails rather than being read as prose;
+"is declared as both X and Y" means two trailers name one id under different
+families, and one of them is wrong; "unknown family" means declare the family in
+`parity-ledger.ts` first; "differs in the AST but <family> is a formatted-only
+family" means the change moved the tree, not just bytes - the family is wrong or
+the change does more than believed.
 
 Proves: a refactor changed no output. It is the harness a "no behavior change"
 claim is checkable against.
@@ -200,9 +243,9 @@ failing gate never hides the others.
 
 **`differential`** — needs a base, and is `continue-on-error` for its first
 iteration; flipping it to blocking is a one-line change once it has proved
-stable. It runs `parity --expected-diffs`, the three `shape-diff` grids, and
-`metrics --base`, serially in one job, because each step materializes the base
-into `$TMPDIR` and parallel steps would pay that concurrently.
+stable. It runs `parity --expected-diffs-trailers HEAD`, the three `shape-diff`
+grids, and `metrics --base`, serially in one job, because each step materializes
+the base into `$TMPDIR` and parallel steps would pay that concurrently.
 
 The base is a SHA the workflow computes: `git merge-base` against the PR's base
 ref, or `HEAD^` on a push to `main`. Never a branch name — the repo is routinely
@@ -210,16 +253,26 @@ on no branch — and never `github.event.pull_request.base.sha`, which is the ba
 branch's tip, not the merge base. `fetch-depth: 0`, because a shallow clone has
 no base revision to archive.
 
+`HEAD` there is CI's spelling, not a local one: a GitHub checkout's `HEAD` is
+the tree being tested, while in this jj-managed repo `HEAD` resolves to the
+working copy's PARENT. Copying `--expected-diffs-trailers HEAD` into a local run
+whose `--base` is `@-` names one commit twice; the gate refuses the empty range
+and exits 2 rather than measuring nothing. Locally, pass the working-copy commit
+id (`jj log -r @ --no-graph -T commit_id`), as the recipe above does.
+
 ### Running a differential harness locally
 
 ```bash
 bun run metrics -- --base <rev>
-bun run parity -- --base <rev> --expected-diffs scripts/parity-expected-diffs.json
+bun run parity -- --base <rev> --expected-diffs-trailers <head-rev>
 bun run shape-diff -- --base <rev> --grid standing
 ```
 
 `<rev>` is anything `git archive` accepts. Each run materializes that revision
-into `$TMPDIR` and deletes it on every path out, including failure.
+into `$TMPDIR` and deletes it on every path out, including failure. `<head-rev>`
+is a git revision too, and it is NOT `HEAD` locally: `HEAD` is CI's spelling and
+resolves to the working copy's parent under jj, so pass
+`$(jj log -r @ --no-graph -T commit_id)` and give `--base` the parent.
 
 **A known limit:** `scripts/` imports from `tests/` (the corpus loader, the
 conformance properties, the format helpers), and the parity dumper hardcodes

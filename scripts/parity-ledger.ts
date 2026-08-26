@@ -1,7 +1,8 @@
 /**
- * `scripts/parity.ts`'s command-line parsing and its `--expected-diffs`
- * ledger: `parseArguments`, the closed family enumeration,
- * the staleness/cross-check gate, and the detail-printing it drives.
+ * `scripts/parity.ts`'s command-line parsing and its expected-diff
+ * ledger, which lives in COMMIT MESSAGES: `parseArguments`, the closed
+ * family enumeration, the `Parity-Diff:` trailer scan, the
+ * staleness/cross-check gate, and the detail-printing it drives.
  *
  * Split out of `scripts/parity.ts` to keep that file under the
  * project's `max-lines` ceiling — which is also why the two SHAPE
@@ -17,7 +18,8 @@
  * `parity.ts` imports from here, never the reverse, which keeps the
  * pair acyclic (the metrics gate holds import cycles at 0).
  */
-import { readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { CHILD_MAX_BUFFER, REPO_ROOT } from "./lib/checkout.js";
 import { GATE_FAILED } from "./lib/cli.js";
 
 // `no-magic-numbers` is on outside tests; these are ordinary array
@@ -37,21 +39,6 @@ const BOOLEAN_FLAGS = new Set([
 ]);
 
 /**
- * Narrow an unknown value to a plain object with string keys.
- *
- * A small duplicate of parity.ts's own `isRecordLike` rather than an
- * import of it: that copy is one of the DUMPER's embedded,
- * SELF-CONTAINED functions, and importing it here would pull this
- * module into the embedding story for no reason. `instanceof Object`
- * excludes `null` and every primitive, same as the original.
- * @param value - anything parsed from the ledger file
- * @returns whether its properties can be read by name
- */
-function isPlainRecord(value: unknown): value is Record<string, unknown> {
-  return value instanceof Object;
-}
-
-/**
  * The family sets the ledger gate runs under: the closed
  * enumeration, and the subset whose cases may differ in formatted
  * output only. A PARAMETER of the gate — the production call site
@@ -68,9 +55,9 @@ export interface FamilySets {
 
 /**
  * The family ids, one declaration each — grid rows in
- * scripts/shape-registry-list-run.ts and ledger entries in
- * scripts/parity-expected-diffs.json cite these, so a rename cannot
- * orphan a spelling. Two name the printer's byte-only changes — the
+ * scripts/shape-registry-list-run.ts and the `Parity-Diff:` trailers
+ * in commit messages cite these, so a rename cannot orphan a
+ * spelling. Two name the printer's byte-only changes — the
  * invented-`+` deletion and the pseudo-run-fold corruption fix — two
  * name the marker families (author spellings replayed, nesting
  * fidelity restored), and one names the retirement of the `+` that
@@ -212,31 +199,155 @@ export interface ExpectedDiff {
 }
 
 /**
- * Read and validate the expected-diff ledger file. The shape rule is
- * strict on purpose: a malformed ledger silently excusing everything
- * would turn the parity gate off.
- * @param file - path to the JSON array of `{ id, family }`
- * @returns the entries
- * @throws {TypeError} when the file is not an array of string pairs
+ * The trailer key a commit message declares an expected diff under.
+ * Anything starting with it is MEANT to be a declaration, so a line
+ * that starts with it and does not parse is a failure rather than
+ * prose - a typo in a family or a missing id would otherwise excuse
+ * nothing and say nothing.
  */
-export function loadExpectedDiffs(file: string): ExpectedDiff[] {
-  const parsed: unknown = JSON.parse(readFileSync(file, "utf8"));
-  if (!Array.isArray(parsed)) {
-    throw new TypeError(`parity: ${file} is not a JSON array`);
+const TRAILER_KEY = "Parity-Diff:";
+
+/**
+ * One well-formed trailer: the key, a single-token family, then the
+ * id, which runs to the end of the line because corpus ids contain
+ * spaces (`lists_test.rb#consecutive list continuation lines are
+ * folded#0`).
+ *
+ * The line is trimmed before it is matched (which is what strips a
+ * CRLF message's `\r`), so a declared id can never carry leading or
+ * trailing whitespace: an id whose canonical corpus spelling ends in
+ * exotic whitespace could not be declared at all - it would fail as
+ * not in the corpus. No vendored id is shaped that way today; a
+ * re-vendor is what would change that.
+ */
+const TRAILER_LINE = /^Parity-Diff:\s*(?<family>\S+)\s+(?<id>\S.*)$/v;
+
+/** What a scan of a range's commit messages found. */
+export interface TrailerScan {
+  /** One entry per declared id, deduped, in first-seen order. */
+  readonly entries: ExpectedDiff[];
+  /** One message per unparseable or contradictory declaration. */
+  readonly failures: string[];
+}
+
+/**
+ * Record one parsed declaration against the ids seen so far. Split
+ * out of {@link parseExpectedDiffTrailers} to keep that function's
+ * loop body under the complexity ceiling.
+ *
+ * The same id under the same family is silent however often it
+ * repeats, and a contradicting family is reported ONCE per id: a
+ * rebase that duplicated a pair of trailers would otherwise print the
+ * same line once per repeat, which is the exact case the dedupe rule
+ * exists to be quiet about.
+ * @param entry - the declaration just parsed
+ * @param families - id to first-seen family, mutated here
+ * @param conflicts - the ids already reported as contradicted,
+ *   mutated here
+ * @returns the failure message, or undefined when there is none
+ */
+function recordTrailer(
+  entry: ExpectedDiff,
+  families: Map<string, string>,
+  conflicts: Set<string>,
+): string | undefined {
+  const { id, family } = entry;
+  const declared = families.get(id);
+  if (declared === undefined) {
+    families.set(id, family);
+    return undefined;
   }
-  return parsed.map((value: unknown) => {
-    if (
-      !isPlainRecord(value) ||
-      typeof value.id !== "string" ||
-      typeof value.family !== "string"
-    ) {
-      throw new TypeError(
-        `parity: ${file} entry is not { id, family }: ${JSON.stringify(value)}`,
+  if (declared === family || conflicts.has(id)) return undefined;
+  conflicts.add(id);
+  return `expected-diffs: ${id} is declared as both ${declared} and ${family} - one trailer is wrong`;
+}
+
+/**
+ * Scan commit-message text for `Parity-Diff:` trailers.
+ *
+ * Pure, so the gate's whole declaration story is testable without a
+ * repository; {@link collectExpectedDiffTrailers} is the thin shell
+ * wrapper that feeds it `git log`'s output.
+ *
+ * The same id declared twice with the SAME family dedupes silently -
+ * a rebase or a re-describe that repeats a trailer is not a mistake -
+ * while the same id under two DIFFERENT families is a failure: one of
+ * the two is wrong and the scan cannot know which.
+ * @param text - every commit message in the range, concatenated
+ * @returns the declared entries, and the declarations that failed
+ */
+export function parseExpectedDiffTrailers(text: string): TrailerScan {
+  const families = new Map<string, string>();
+  const conflicts = new Set<string>();
+  const failures: string[] = [];
+  for (const rawLine of text.split("\n")) {
+    const line = rawLine.trim();
+    if (!line.startsWith(TRAILER_KEY)) continue;
+    const match = TRAILER_LINE.exec(line);
+    if (match === null) {
+      failures.push(
+        `expected-diffs: malformed trailer ${JSON.stringify(line)} - the syntax is "Parity-Diff: <family> <id>"`,
       );
+      continue;
     }
-    const { id, family } = value;
-    return { id, family };
+    // `groups` is present whenever the pattern has named groups, and
+    // both of these are non-optional, so both are strings here.
+    const { family = "", id = "" } = match.groups ?? {};
+    const failure = recordTrailer({ id, family }, families, conflicts);
+    if (failure !== undefined) failures.push(failure);
+  }
+  const entries = [...families].map(([id, family]) => ({ id, family }));
+  return { entries, failures };
+}
+
+/**
+ * Run one git command in the repository root and return its stdout.
+ * @param arguments_ - the command line after `git`
+ * @returns what git wrote to stdout
+ * @throws {Error} when git exits non-zero - an unknown revision, say
+ */
+function git(arguments_: readonly string[]): string {
+  return execFileSync("git", [...arguments_], {
+    cwd: REPO_ROOT,
+    encoding: "utf8",
+    maxBuffer: CHILD_MAX_BUFFER,
   });
+}
+
+/**
+ * The declarations carried by every commit in `<base>..<head>`.
+ *
+ * That range is the same span the gate compares, so a trailer expires
+ * on its own: once the declaring commit is behind the base, its
+ * message is no longer read and its diff is no longer there to excuse.
+ * An EMPTY range is refused rather than scanned. `git log a..a` exits
+ * 0 with no output, so an empty range reads exactly like a clean run
+ * with no declarations - and the way to get one here is to pass git's
+ * `HEAD` locally: under jj, `HEAD` is the working copy's PARENT, so
+ * `--base @- --expected-diffs-trailers HEAD` names one commit twice
+ * and every declared id is then reported as undeclared. Measuring
+ * nothing is the cannot-run case, so this throws like an unknown
+ * revision does and the caller exits 2. CI cannot reach it: a push
+ * range is `HEAD^..HEAD` and a pull-request range contains the
+ * request's own commits.
+ * @param base - the baseline revision, the gate's `--base`
+ * @param head - the revision being gated
+ * @returns the declared entries, and the declarations that failed
+ * @throws {Error} when `git log` refuses the range, or the range is
+ *   empty - neither proves anything either way, so the caller exits 2
+ */
+export function collectExpectedDiffTrailers(
+  base: string,
+  head: string,
+): TrailerScan {
+  if (git(["rev-list", "--count", `${base}..${head}`]).trim() === "0") {
+    throw new Error(
+      `parity: the trailer range ${base}..${head} contains no commits - under jj, git HEAD is the working copy's PARENT; pass the working-copy commit id from \`jj log -r @ --no-graph -T commit_id\``,
+    );
+  }
+  return parseExpectedDiffTrailers(
+    git(["log", "--format=%B", `${base}..${head}`]),
+  );
 }
 
 /**
@@ -264,13 +375,13 @@ function ledgerEntryFailure(
   const { id, family } = entry;
   const { ast, formatted } = streams;
   if (!familySets.families.has(family)) {
-    return `expected-diffs: unknown family ${JSON.stringify(family)} on ${id} — the enum is ${[...familySets.families].join(" | ")}`;
+    return `expected-diffs: unknown family ${JSON.stringify(family)} on ${id} - the enum is ${[...familySets.families].join(" | ")}`;
   }
   if (!corpusIds.has(id)) {
-    return `expected-diffs: ${id} is not in the corpus (vanished id, stale entry — delete it)`;
+    return `expected-diffs: ${id} is not in the corpus (vanished id, stale entry - delete it)`;
   }
   if (!ast.has(id) && !formatted.has(id)) {
-    return `expected-diffs: ${id} no longer differs from the baseline (stale entry — delete it)`;
+    return `expected-diffs: ${id} no longer differs from the baseline (stale entry - delete it)`;
   }
   if (ast.has(id) && familySets.formattedOnly.has(family)) {
     return `expected-diffs: ${id} differs in the AST but ${family} is a formatted-only family`;
@@ -280,11 +391,11 @@ function ledgerEntryFailure(
 
 /**
  * The expected-diff gate: which findings fail a run under
- * `--expected-diffs` — every failure an entry can carry (see
+ * `--expected-diffs-trailers` — every failure an entry can carry (see
  * {@link ledgerEntryFailure}) plus the other direction, an id that
  * differs with NO entry excusing it. Every returned line is a
  * failure; an empty result is a pass.
- * @param entries - the ledger entries
+ * @param entries - the declared ledger entries
  * @param streams - the two differing-id lists from differingCases
  * @param streams.ast - ids whose AST differs (or one side lacks)
  * @param streams.formatted - ids differing in formatted output only
@@ -314,14 +425,14 @@ export function expectedDiffFailures(
   for (const id of streams.ast) {
     if (!byId.has(id)) {
       failures.push(
-        `parity: ${id} differs in the AST and is not in scripts/parity-expected-diffs.json`,
+        `parity: ${id} differs in the AST and is not declared by a Parity-Diff trailer`,
       );
     }
   }
   for (const id of streams.formatted) {
     if (!byId.has(id)) {
       failures.push(
-        `parity: ${id} differs in formatted output and is not in scripts/parity-expected-diffs.json`,
+        `parity: ${id} differs in formatted output and is not declared by a Parity-Diff trailer`,
       );
     }
   }
@@ -329,11 +440,15 @@ export function expectedDiffFailures(
 }
 
 /**
- * The `--expected-diffs` report path: print the ledger's verdict and
- * detail exactly the ids a human must read. Split out of `report` in
- * parity.ts to stay under the complexity ceiling.
+ * The `--expected-diffs-trailers` report path: print the ledger's
+ * verdict and detail exactly the ids a human must read. Split out of
+ * `report` in parity.ts to stay under the complexity ceiling.
  * @param options - everything the gate and its detail pass need
- * @param options.expectedDiffs - the loaded ledger
+ * @param options.expectedDiffs - the entries the trailers declared
+ * @param options.trailerFailures - the declarations that did not
+ *   parse, or that contradicted each other; they fail the run the
+ *   same way an undeclared diff does, and are printed first because a
+ *   trailer that did not parse is why an id below looks undeclared
  * @param options.ast - ids whose AST differs
  * @param options.formatted - ids differing in formatted output only
  * @param options.headIds - every id this checkout's dump produced
@@ -352,6 +467,7 @@ export function expectedDiffFailures(
  */
 export function reportExpectedDiffs(options: {
   expectedDiffs: readonly ExpectedDiff[];
+  trailerFailures: readonly string[];
   ast: readonly string[];
   formatted: readonly string[];
   headIds: ReadonlySet<string>;
@@ -365,6 +481,7 @@ export function reportExpectedDiffs(options: {
 }): void {
   const {
     expectedDiffs,
+    trailerFailures,
     ast,
     formatted,
     headIds,
@@ -376,12 +493,15 @@ export function reportExpectedDiffs(options: {
     familySets,
     reportCase,
   } = options;
-  const failures = expectedDiffFailures(
-    expectedDiffs,
-    { ast, formatted },
-    headIds,
-    familySets,
-  );
+  const failures = [
+    ...trailerFailures,
+    ...expectedDiffFailures(
+      expectedDiffs,
+      { ast, formatted },
+      headIds,
+      familySets,
+    ),
+  ];
   for (const line of failures) process.stdout.write(`${line}\n`);
   // Detail exactly the ids whose DIFF a human must read: unlisted
   // differing cases, and listed ones whose AST moved under a
@@ -413,7 +533,7 @@ export function reportExpectedDiffs(options: {
 /**
  * Validate and parse `--limit`'s argument. Split out of
  * {@link parseArguments} to stay under the complexity ceiling once
- * `--expected-diffs` added a branch there.
+ * `--expected-diffs-trailers` added a branch there.
  * @param raw - the token after `--limit`, or undefined when it was
  *   the last argument
  * @returns the parsed limit
@@ -437,7 +557,8 @@ function parseLimit(raw: string | undefined): number {
  * @param argv - the arguments after the script name
  * @returns the base revision, the report limit, the allowlist flag,
  *   whether formatted-only differences are a ledger listing rather
- *   than a failure, and the expected-diff ledger path, if given
+ *   than a failure, and the head revision whose `Parity-Diff`
+ *   trailers arm the ledger gate, if given
  * @throws {Error} when an argument is unrecognised or `--base` is
  *   missing — a silently dropped `--base` would compare a checkout
  *   with itself
@@ -447,11 +568,11 @@ export function parseArguments(argv: readonly string[]): {
   limit: number;
   allowParentBlockEnd: boolean;
   formattedLedger: boolean;
-  expectedDiffs: string | undefined;
+  expectedDiffsTrailers: string | undefined;
 } {
   let revision: string | undefined = undefined;
   let limit = DEFAULT_LIMIT;
-  let expectedDiffs: string | undefined = undefined;
+  let expectedDiffsTrailers: string | undefined = undefined;
   const flags = new Set<string>();
   // A queue rather than an index, because two of the five options
   // consume the argument after them.
@@ -470,12 +591,12 @@ export function parseArguments(argv: readonly string[]): {
       limit = parseLimit(rest.shift());
       continue;
     }
-    if (argument === "--expected-diffs") {
+    if (argument === "--expected-diffs-trailers") {
       const raw = rest.shift();
       if (raw === undefined) {
-        throw new Error("parity: --expected-diffs needs a file path");
+        throw new Error("parity: --expected-diffs-trailers needs a revision");
       }
-      expectedDiffs = raw;
+      expectedDiffsTrailers = raw;
       continue;
     }
     // The two value-less options share one arm: a branch each puts this
@@ -494,7 +615,7 @@ export function parseArguments(argv: readonly string[]): {
     limit,
     allowParentBlockEnd: flags.has("--allow-parent-block-end"),
     formattedLedger: flags.has("--formatted-ledger"),
-    expectedDiffs,
+    expectedDiffsTrailers,
   };
 }
 
@@ -504,12 +625,11 @@ export function parseArguments(argv: readonly string[]): {
  * Narrow an unknown value to an object whose properties can be read
  * by name.
  *
- * A local duplicate of the ledger's own {@link isPlainRecord}, under
- * the name the DUMPER's embedded cluster uses: the two folds below
- * are embedded into a baseline checkout by `.toString()`, and the
- * dumper defines `isRecordLike` and `isUnknownArray` for them there.
- * The names must match, and the bodies must not reach outside
- * themselves.
+ * The narrowing every fold below opens with, spelled under the name
+ * the DUMPER's embedded cluster uses: those folds are embedded into a
+ * baseline checkout by `.toString()`, and the dumper defines
+ * `isRecordLike` and `isUnknownArray` for them there. The names must
+ * match, and the bodies must not reach outside themselves.
  * @param value - anything at all
  * @returns whether its properties can be read by name
  */

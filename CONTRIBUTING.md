@@ -43,11 +43,11 @@ are exactly what CI's blocking `gates` job runs, minus the deep list sweep
 (`bun run test:deeply-nested-lists`, ~30s) — run that too when your change
 touches parsing or printing of lists.
 
-Then check `scripts/parity-expected-diffs.json`: it must be `[]` unless THIS
-commit intentionally changes formatted output - entries describe one commit's
-diff against its own parent and go stale the moment anything lands on top, so
-resetting the file is part of the next commit, whatever it is about. The full
-lifecycle and the verification command are in
+If THIS commit intentionally changes formatted output, declare every moved case
+id in its own commit message, one line each: `Parity-Diff: <family> <id>`. There
+is nothing to reset afterwards - CI reads the trailers of the commits it is
+gating, so a declaration expires with the commit that carried it. The syntax,
+the verification command and the failure messages are in
 [docs/harnesses.md](docs/harnesses.md).
 
 Two heavier checks run on a slower cadence:
@@ -60,7 +60,7 @@ Two heavier checks run on a slower cadence:
   `-- --base <rev>`): prove a change against a base revision. CI runs them
   against the merge base on every PR; run locally when you want the answer
   before pushing. See [docs/harnesses.md](docs/harnesses.md) for what each one
-  proves and the expected-diffs ledger's lifecycle.
+  proves and how a commit declares an expected diff.
 
 ## The verification model
 
@@ -74,9 +74,9 @@ The repo enforces more than "tests pass":
 - **`bun run metrics`** holds thirteen absolute gates over `src/` (cycles, layer
   rules, dead exports, registry freshness, and more) plus the shape census. See
   [docs/harnesses.md](docs/harnesses.md).
-- Formatting changes that intentionally move bytes must be declared in
-  `scripts/parity-expected-diffs.json` and proven meaning-preserving; see
-  [docs/harnesses.md](docs/harnesses.md).
+- Formatting changes that intentionally move bytes must be declared with
+  `Parity-Diff:` trailers in the commit message that moves them, and proven
+  meaning-preserving; see [docs/harnesses.md](docs/harnesses.md).
 
 ## Coding standards
 

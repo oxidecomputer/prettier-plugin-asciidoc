@@ -72,7 +72,7 @@ const PARSED_ARGUMENTS_ROWS = [
       limit: 20,
       allowParentBlockEnd: false,
       formattedLedger: false,
-      expectedDiffs: undefined,
+      expectedDiffsTrailers: undefined,
     },
   ],
   [
@@ -82,7 +82,7 @@ const PARSED_ARGUMENTS_ROWS = [
       limit: 20,
       allowParentBlockEnd: false,
       formattedLedger: false,
-      expectedDiffs: undefined,
+      expectedDiffsTrailers: undefined,
     },
   ],
   [
@@ -92,7 +92,7 @@ const PARSED_ARGUMENTS_ROWS = [
       limit: 3,
       allowParentBlockEnd: false,
       formattedLedger: false,
-      expectedDiffs: undefined,
+      expectedDiffsTrailers: undefined,
     },
   ],
   [
@@ -102,7 +102,7 @@ const PARSED_ARGUMENTS_ROWS = [
       limit: 20,
       allowParentBlockEnd: true,
       formattedLedger: false,
-      expectedDiffs: undefined,
+      expectedDiffsTrailers: undefined,
     },
   ],
   [
@@ -112,7 +112,7 @@ const PARSED_ARGUMENTS_ROWS = [
       limit: 20,
       allowParentBlockEnd: false,
       formattedLedger: true,
-      expectedDiffs: undefined,
+      expectedDiffsTrailers: undefined,
     },
   ],
   [
@@ -122,7 +122,7 @@ const PARSED_ARGUMENTS_ROWS = [
       limit: 20,
       allowParentBlockEnd: true,
       formattedLedger: true,
-      expectedDiffs: undefined,
+      expectedDiffsTrailers: undefined,
     },
   ],
 ] as const;

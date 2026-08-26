@@ -101,16 +101,17 @@ jobs:
       # they would each pay that install, and run as parallel steps
       # they would pay it concurrently on one runner's disk.
       #
-      # Parity runs the ledger gate: any case whose formatted output
-      # differs from the base must be declared in
-      # scripts/parity-expected-diffs.json (empty except while a change
-      # that intentionally moves bytes is in flight — the lifecycle is
-      # documented in docs/harnesses.md).
+      # Parity runs the ledger gate: any case whose formatted output or
+      # AST differs from the base must be declared by a
+      # "Parity-Diff: <family> <id>" trailer in the message of a commit
+      # in base..HEAD. Declarations expire on their own - a commit that
+      # moved bytes leaves the range as soon as the base advances past
+      # it - so there is no file to reset. See docs/harnesses.md.
       - name: parity — every corpus document and fixture, bytes and AST
         if: ${{ !cancelled() && steps.base.outputs.sha != '' }}
         run:
           bun run parity -- --base "${{ steps.base.outputs.sha }}"
-          --expected-diffs scripts/parity-expected-diffs.json
+          --expected-diffs-trailers HEAD
       - name: shape-diff — the standing grid, with per-diff render proofs
         if: ${{ !cancelled() && steps.base.outputs.sha != '' }}
         run: bun run shape-diff -- --base "${{ steps.base.outputs.sha }}"

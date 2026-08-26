@@ -1,17 +1,16 @@
 /**
- * Unit tests for `scripts/parity.ts`'s `--expected-diffs` ledger: the
- * loader's malformed-ledger TypeErrors, the family enum, the
- * staleness/cross-check gate, and the three normalizer folds it
- * depends on.
+ * Unit tests for `scripts/parity.ts`'s expected-diff ledger: the
+ * family enum, the staleness/cross-check gate, and the three
+ * normalizer folds it depends on.
  *
  * Split out of tests/scripts/parity.test.ts to keep that file under
  * the project's `max-lines` ceiling — this file mirrors
  * scripts/parity-ledger.ts the same way parity.test.ts mirrors
- * scripts/parity.ts's own dumper/comparison engine.
+ * scripts/parity.ts's own dumper/comparison engine. The same ceiling
+ * later split the DECLARATION half out of here: the `Parity-Diff:`
+ * trailer scan and its report live in
+ * tests/scripts/parity-trailers.test.ts.
  */
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { describe, expect, test } from "vitest";
 import type { ExpectedDiff } from "../../scripts/parity.js";
 import {
@@ -20,10 +19,7 @@ import {
   normalizeTree,
   parseArguments,
 } from "../../scripts/parity.js";
-import {
-  foldMarkerAndReftextShapes,
-  loadExpectedDiffs,
-} from "../../scripts/parity-ledger.js";
+import { foldMarkerAndReftextShapes } from "../../scripts/parity-ledger.js";
 
 /**
  * Build one ledger entry for a test row.
@@ -59,7 +55,7 @@ describe("expected-diff ledger", () => {
     );
     expect(failures).toHaveLength(1);
     expect(failures[0]).toContain("a");
-    expect(failures[0]).toContain("not in scripts/parity-expected-diffs.json");
+    expect(failures[0]).toContain("not declared by a Parity-Diff trailer");
   });
 
   test("(i) an unlisted formatted difference fails", () => {
@@ -164,121 +160,22 @@ describe("expected-diff ledger", () => {
     ]);
   });
 
-  test("parseArguments accepts --expected-diffs with a path", () => {
+  test("parseArguments accepts --expected-diffs-trailers with a revision", () => {
     expect(
-      parseArguments([
-        "--base",
-        "x",
-        "--expected-diffs",
-        "scripts/parity-expected-diffs.json",
-      ]),
+      parseArguments(["--base", "x", "--expected-diffs-trailers", "HEAD"]),
     ).toEqual({
       revision: "x",
       limit: 20,
       allowParentBlockEnd: false,
       formattedLedger: false,
-      expectedDiffs: "scripts/parity-expected-diffs.json",
+      expectedDiffsTrailers: "HEAD",
     });
   });
 
-  test("--expected-diffs without a path is an error", () => {
-    expect(() => parseArguments(["--base", "x", "--expected-diffs"])).toThrow(
-      "--expected-diffs needs a file path",
-    );
-  });
-});
-
-/**
- * Write `contents` to a fresh temp ledger file.
- *
- * Returns the path plus a cleanup callback, rather than taking a body
- * callback: a wrapping callback here would put the `expect(() => ...)`
- * thunk every malformed-input test needs at four levels of nested
- * callbacks, one past `max-nested-callbacks`.
- * @param contents - the file's raw contents
- * @returns the file's path, and a cleanup callback for the caller's
- *   `finally` to remove the temp directory
- */
-function ledgerFile(contents: string): { file: string; cleanup: () => void } {
-  const directory = mkdtempSync(path.join(tmpdir(), "expected-diffs-test-"));
-  const file = path.join(directory, "ledger.json");
-  writeFileSync(file, contents);
-  return {
-    file,
-    cleanup: () => {
-      rmSync(directory, { recursive: true, force: true });
-    },
-  };
-}
-
-describe("loadExpectedDiffs: ledger strictness", () => {
-  // A malformed ledger silently excusing everything would turn the
-  // parity gate off (the loader's own JSDoc says so) — each
-  // of loadExpectedDiffs's two throw sites gets a dedicated row here
-  // pinning both the error's TYPE and its exact message, the way
-  // tests/conformance/loader.test.ts pins parseJsonl's malformed-line
-  // throw.
-
-  test("accepts a well-formed ledger", () => {
-    const { file, cleanup } = ledgerFile(
-      '[{"id":"a","family":"d1-table"},{"id":"b","family":"d7-admonition-reflow"}]\n',
-    );
-    try {
-      expect(loadExpectedDiffs(file)).toEqual([
-        { id: "a", family: "d1-table" },
-        { id: "b", family: "d7-admonition-reflow" },
-      ]);
-    } finally {
-      cleanup();
-    }
-  });
-
-  test("rejects a JSON root that is not an array", () => {
-    const { file, cleanup } = ledgerFile('{"id":"a","family":"d1-table"}\n');
-    try {
-      expect(() => loadExpectedDiffs(file)).toThrow(TypeError);
-      expect(() => loadExpectedDiffs(file)).toThrowError(
-        `parity: ${file} is not a JSON array`,
-      );
-    } finally {
-      cleanup();
-    }
-  });
-
-  test("rejects an entry that is not an object", () => {
-    const { file, cleanup } = ledgerFile('["a"]\n');
-    try {
-      expect(() => loadExpectedDiffs(file)).toThrow(TypeError);
-      expect(() => loadExpectedDiffs(file)).toThrowError(
-        `parity: ${file} entry is not { id, family }: "a"`,
-      );
-    } finally {
-      cleanup();
-    }
-  });
-
-  test("rejects an entry missing a string id", () => {
-    const { file, cleanup } = ledgerFile('[{"family":"d1-table"}]\n');
-    try {
-      expect(() => loadExpectedDiffs(file)).toThrow(TypeError);
-      expect(() => loadExpectedDiffs(file)).toThrowError(
-        `parity: ${file} entry is not { id, family }: {"family":"d1-table"}`,
-      );
-    } finally {
-      cleanup();
-    }
-  });
-
-  test("rejects an entry missing a string family", () => {
-    const { file, cleanup } = ledgerFile('[{"id":"a","family":42}]\n');
-    try {
-      expect(() => loadExpectedDiffs(file)).toThrow(TypeError);
-      expect(() => loadExpectedDiffs(file)).toThrowError(
-        `parity: ${file} entry is not { id, family }: {"id":"a","family":42}`,
-      );
-    } finally {
-      cleanup();
-    }
+  test("--expected-diffs-trailers without a revision is an error", () => {
+    expect(() =>
+      parseArguments(["--base", "x", "--expected-diffs-trailers"]),
+    ).toThrow("--expected-diffs-trailers needs a revision");
   });
 });
 
