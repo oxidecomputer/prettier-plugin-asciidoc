@@ -67,8 +67,11 @@ export function buildParagraph(
   };
 }
 
-// Colon-space suffix length in admonition markers ("NOTE: ").
-const COLON_SPACE_LEN = 2;
+// Where an admonition's NAME ends inside the label span. Everything
+// after it is separator: the colon, then the blanks
+// `AdmonitionParagraphRx` requires (`[ \t]+`, one or more) and whose
+// width the span therefore does not fix.
+const LABEL_COLON = ":";
 
 /**
  * Builds an AdmonitionNode from a paragraph-form admonition. The body
@@ -76,7 +79,20 @@ const COLON_SPACE_LEN = 2;
  * tokens are in hand at the reader's call site; no per-line
  * flattening remains. Position: start at the label, end at the last
  * content token (label end when the body is empty) — unchanged.
- * @param label - The admonition label span (e.g. "NOTE: ").
+ *
+ * The variant is the name in FRONT of the colon, cut at the colon
+ * rather than by taking a fixed two characters off the label's end.
+ * The label span is the whole prefix the registry matched, and the
+ * blanks after the colon are `[ \t]+` — one or more — so a fixed cut
+ * kept every surplus blank in the variant ("NOTE:    text" gave
+ * "note:  ") and a tab gave "not". The printer spells the variant
+ * back with a colon after it, so either residue put a SECOND colon
+ * run on the line, which re-reads as a description-list term.
+ * @param label - The admonition label span (e.g. "NOTE: "). Its image
+ *   always contains the colon: the reader passes the registry's
+ *   matched prefix group (src/parse/lines/reader.ts), whose pattern
+ *   requires it. A hand-built Fragment without one would cut the
+ *   variant a character short rather than throw.
  * @param tokens - The body's tokens, in source order. May be empty.
  * @param at - The document's location index.
  * @returns An AdmonitionNode in paragraph form.
@@ -90,7 +106,9 @@ export function buildAdmonitionParagraph(
   const last = content.at(-1);
   return {
     type: "admonition",
-    variant: label.image.slice(0, -COLON_SPACE_LEN).toLowerCase(),
+    variant: label.image
+      .slice(0, label.image.indexOf(LABEL_COLON))
+      .toLowerCase(),
     form: "paragraph",
     text: buildFromTokens(tokens, at),
     children: [],

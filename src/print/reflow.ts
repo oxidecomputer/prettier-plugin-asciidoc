@@ -371,6 +371,55 @@ function escapeDanglingPlus(atoms: Atom[], escape: boolean): void {
 }
 
 /**
+ * Give a `+` that stood ALONE on its own source line an output line of
+ * its own again.
+ *
+ * Such a line is a list continuation, and the reader reads it as one
+ * (`cont`) before it reads anything after it. The two ordinary `+`
+ * rules both destroy that reading: {@link isDangerousAtLineEnd} fuses
+ * the FOLLOWING word onto the `+` so no break can land after it, and
+ * {@link isBlockSyntaxAtLineStart} exempts the `+` so no break lands
+ * before it either — between them the `+` can only ever come out
+ * joined to its neighbours as prose. One alphabet symbol away the same
+ * join does visible damage: `+` then `term:: def` comes out as
+ * `+ term:: def`, which reads back as a description-list term the
+ * source never had.
+ *
+ * Both rules exist to keep a MID-LINE `+` from drifting to a line
+ * boundary it was never at, so neither applies to a `+` that was
+ * already alone on a line: nothing joins it from the left (it opens
+ * the block, so the packer has an empty line in front of it) and the
+ * word after it takes the break the source wrote. A `+` alone on a
+ * line is not preceded by the space ` +\n` needs to be a hard line
+ * break, so clearing the forward fuse here creates nothing.
+ *
+ * The caller decides whether the `+` really was alone on its line;
+ * this only spells what "alone" costs in atoms. The break is a `hard`
+ * one, not a `literal` one: the `+` and the words after it belong to
+ * the same block, so they take the same continuation indent, and a
+ * literal break would move only the tail of the block to column 0.
+ * @param atoms - the node's atoms (mutated); the `+` is atoms[0].
+ * @param opensWithOne - what the caller measured: whether the node's
+ *   first word really is a `+` the source gave a line of its own. The
+ *   answer is the caller's because it needs the source position, and
+ *   passing it IN keeps the whole rule in one place rather than
+ *   splitting the guard across two files.
+ */
+function keepContinuationLine(atoms: Atom[], opensWithOne: boolean): void {
+  if (
+    !opensWithOne ||
+    atoms.length === 0 ||
+    atoms[0].text !== CONTINUATION_WORD
+  ) {
+    return;
+  }
+  atoms[0] = { ...atoms[0], noBreakAfter: false };
+  if (atoms.length > 1) {
+    atoms[1] = { ...atoms[1], noBreakBefore: false, breakBefore: "hard" };
+  }
+}
+
+/**
  * One word's atom.
  * @param word - the word.
  * @param fuseBackwards - whether it must share its predecessor's line.
@@ -416,6 +465,10 @@ function endNodeAtoms(atoms: Atom[], escapeTrailingPlus: boolean): void {
  *    them (`breakBefore`), which no amount of packing can undo — and
  *    which {@link wrap} lifts to the front of the whole run when rules 1
  *    and 2 have fused the word into one.
+ *
+ * Rule 2 has one exemption, {@link keepContinuationLine}: a `+` the
+ * source already gave a line of its own is a reading the join would
+ * delete rather than a hazard the join would create.
  * @param words - Array of whitespace-delimited tokens already
  *   split from the paragraph text. Each element is non-empty
  *   and contains no whitespace. The array itself may be empty,
@@ -437,14 +490,27 @@ function endNodeAtoms(atoms: Atom[], escapeTrailingPlus: boolean): void {
  *   closing mark follows the word in the output, so it can
  *   never end a line bare — and rewriting it would corrupt
  *   the span's content.
+ * @param options.opensWithContinuationLine - Whether the node's first
+ *   word is a `+` that stood ALONE on its own source line, and so
+ *   must keep an output line to itself
+ *   ({@link keepContinuationLine}). Defaults to false, which leaves
+ *   every `+` to the ordinary line-end rule — the right answer for
+ *   callers that cannot say where the word sat.
  * @returns The node's atoms, in order.
  */
 export function wordsToAtoms(
   words: readonly string[],
-  options?: { escapeTrailingPlus?: boolean; firstLineWordCount?: number },
+  options?: {
+    escapeTrailingPlus?: boolean;
+    firstLineWordCount?: number;
+    opensWithContinuationLine?: boolean;
+  },
 ): Atom[] {
-  const escapeTrailingPlus = options?.escapeTrailingPlus ?? true;
-  const firstLineWordCount = options?.firstLineWordCount ?? words.length;
+  const {
+    escapeTrailingPlus = true,
+    firstLineWordCount = words.length,
+    opensWithContinuationLine = false,
+  } = options ?? {};
   const atoms: Atom[] = [];
   let glueNext = false;
   for (const [index, word] of words.entries()) {
@@ -464,6 +530,7 @@ export function wordsToAtoms(
     atoms.push(wordAtom(word, fuseBackwards, hazard));
     glueNext = isDangerousAtLineEnd(word);
   }
+  keepContinuationLine(atoms, opensWithContinuationLine);
   endNodeAtoms(atoms, escapeTrailingPlus);
   return atoms;
 }

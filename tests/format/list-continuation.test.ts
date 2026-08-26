@@ -130,10 +130,17 @@ describe("list continuation formatting", () => {
   // second reading "+ para two" (the `+` is text, not consumed).
   // This used to be merged into one paragraph — issue #17, fixed
   // when paragraph reading moved into the reader.
+  //
+  // The `+` KEEPS the line the source gave it (issue #43). Rendering
+  // is the same either way — the oracle joins the two lines back into
+  // one paragraph — but `+ para two` is a line our own reader no
+  // longer reads as a continuation, and one alphabet symbol away
+  // (`+` then `term:: def`) the same join manufactures a
+  // description-list term.
   test("plus line between plain paragraphs splits the paragraph", async () => {
     const input = "para one\n+\npara two\n";
     const first = await formatAdoc(input);
-    expect(first).toBe("para one\n\n+ para two\n");
+    expect(first).toBe("para one\n\n+\npara two\n");
     expect(await renderedHtml(first)).toBe(await renderedHtml(input));
     expect(await formatAdoc(first)).toBe(first);
   });

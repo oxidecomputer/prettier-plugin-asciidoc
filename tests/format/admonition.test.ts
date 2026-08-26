@@ -311,3 +311,25 @@ describe("hard line breaks in a paragraph-form admonition body", () => {
     expect(await formatAdoc(out)).toBe(out);
   });
 });
+
+// Issue #45. `AdmonitionParagraphRx` separates the label from the
+// text with `[ \t]+` - one blank or many - and the label span the
+// reader hands the builder is that whole prefix. Cutting a fixed two
+// characters off its end left every surplus blank in the variant, and
+// the printer then wrote a colon after it: `NOTE:    text` came back
+// as `NOTE:  : text`, whose second colon run re-reads as a
+// description-list term on the next pass. The variant is now cut at
+// the colon, so the label carries exactly one colon run whatever the
+// source spelled.
+describe("an admonition label keeps exactly one colon run", () => {
+  test.each([
+    ["four spaces", "NOTE:    text\n"],
+    ["a tab", "WARNING:\ttext\n"],
+    ["one space, the ordinary spelling", "TIP: text\n"],
+  ])("%s", async (_name, input) => {
+    const out = await formatAdoc(input);
+    expect(out.split(":").length - 1).toBe(1);
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+});

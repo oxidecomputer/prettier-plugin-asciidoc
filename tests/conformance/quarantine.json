@@ -1,16 +1,4 @@
 {
-  "api_test.rb#find_by should accept node but reject its children if block returns :prune#0": {
-    "fails": ["fidelity", "reading"],
-    "issue": "#9"
-  },
-  "api_test.rb#find_by should reject node and its children if block returns :reject#0": {
-    "fails": ["fidelity", "reading"],
-    "issue": "#9"
-  },
-  "api_test.rb#next_adjacent_block should return next item in dlist if called on last block of list item#0": {
-    "fails": ["fidelity", "reading"],
-    "issue": "#9"
-  },
   "api_test.rb#should load input IO#0": {
     "fails": ["fidelity"],
     "issue": "#16"
@@ -134,7 +122,7 @@
     "issue": "#18"
   },
   "docs/modules/cli/partials/man-asciidoctor.adoc": {
-    "fails": ["fidelity", "reading"],
+    "fails": ["fidelity"],
     "issue": "#18"
   },
   "docs/modules/manpage-backend/examples/manpage.adoc": {
@@ -142,7 +130,7 @@
     "issue": "#18"
   },
   "docs/modules/syntax-highlighting/pages/coderay.adoc": {
-    "fails": ["fidelity", "reading"],
+    "fails": ["fidelity"],
     "issue": "#9"
   },
   "docs/modules/syntax-highlighting/pages/rouge.adoc": {
@@ -315,39 +303,19 @@
     "issue": "#16"
   },
   "lists_test.rb#appends indented list to first term that is attached by a continuation and adjacent to second term#0": {
-    "fails": ["fidelity", "reading"],
-    "issue": "#9"
-  },
-  "lists_test.rb#appends line after continuation as block and literal line offset by blank line as block if item has inline description#0": {
-    "fails": ["fidelity", "reading"],
-    "issue": "#9"
-  },
-  "lists_test.rb#appends line as paragraph if attached by continuation following blank line and line comment when term has no inline description#0": {
-    "fails": ["fidelity", "reading"],
-    "issue": "#9"
-  },
-  "lists_test.rb#appends line attached by continuation as block if item has no inline description followed by block#0": {
-    "fails": ["fidelity", "reading"],
-    "issue": "#9"
-  },
-  "lists_test.rb#appends line attached by continuation as block if item has no inline description followed by ruler#0": {
-    "fails": ["fidelity", "reading"],
+    "fails": ["fidelity"],
     "issue": "#9"
   },
   "lists_test.rb#appends literal line attached by continuation as block if item has inline description followed by ruler#0": {
-    "fails": ["fidelity", "reading"],
+    "fails": ["fidelity"],
     "issue": "#9"
   },
   "lists_test.rb#appends literal line attached by continuation as block if item has no inline description followed by ruler#0": {
-    "fails": ["fidelity", "reading"],
+    "fails": ["fidelity"],
     "issue": "#9"
   },
   "lists_test.rb#appends literal line attached by continuation as block if item has no inline description#0": {
-    "fails": ["fidelity", "reading"],
-    "issue": "#9"
-  },
-  "lists_test.rb#appends literal line offset by blank line as block and appends line after continuation as block if item has inline description#0": {
-    "fails": ["fidelity", "reading"],
+    "fails": ["fidelity"],
     "issue": "#9"
   },
   "lists_test.rb#asterisk element mixed with dash elements should be nested#0": {
@@ -370,12 +338,8 @@
     "fails": ["fidelity"],
     "issue": "#16"
   },
-  "lists_test.rb#attached paragraph does not break on adjacent nested description list term#0": {
-    "fails": ["fidelity", "reading"],
-    "issue": "#9"
-  },
   "lists_test.rb#attached paragraph is terminated by adjacent sibling description list term#0": {
-    "fails": ["fidelity", "reading"],
+    "fails": ["fidelity"],
     "issue": "#9"
   },
   "lists_test.rb#attribute substitutions#0": {
@@ -434,30 +398,6 @@
     "fails": ["fidelity"],
     "issue": "#9"
   },
-  "lists_test.rb#line attached by continuation is appended as paragraph if term has inline description followed by detached block#0": {
-    "fails": ["fidelity", "reading"],
-    "issue": "#9"
-  },
-  "lists_test.rb#line attached by continuation is appended as paragraph if term has inline description followed by detached paragraph#0": {
-    "fails": ["fidelity", "reading"],
-    "issue": "#9"
-  },
-  "lists_test.rb#line attached by continuation is appended as paragraph if term has no inline description#0": {
-    "fails": ["fidelity", "reading"],
-    "issue": "#9"
-  },
-  "lists_test.rb#line attached by continuation offset by blank line is appended as paragraph if term has inline description#0": {
-    "fails": ["fidelity", "reading"],
-    "issue": "#9"
-  },
-  "lists_test.rb#line attached by continuation offset by blank line is appended as paragraph if term has no inline description#0": {
-    "fails": ["fidelity", "reading"],
-    "issue": "#9"
-  },
-  "lists_test.rb#line attached by continuation offset by line comment is appended as paragraph if term has inline description#0": {
-    "fails": ["fidelity", "reading"],
-    "issue": "#9"
-  },
   "lists_test.rb#lines prefixed with alternating list markers separated by blank lines should be nested#0": {
     "fails": ["fidelity"],
     "issue": "#16"
@@ -482,16 +422,12 @@
     "fails": ["fidelity"],
     "issue": "#16"
   },
-  "lists_test.rb#literal block inside description list with trailing line continuation#0": {
-    "fails": ["fidelity", "reading"],
-    "issue": "#9"
-  },
   "lists_test.rb#literal line attached by continuation swallows adjacent line that looks like term#0": {
-    "fails": ["fidelity", "reading"],
+    "fails": ["fidelity"],
     "issue": "#9"
   },
   "lists_test.rb#nested dlist attached by list continuation should not consume detached paragraph#0": {
-    "fails": ["fidelity", "reading"],
+    "fails": ["fidelity"],
     "issue": "#9"
   },
   "lists_test.rb#nested elements (2) with asterisks#0": {
@@ -538,38 +474,10 @@
     "fails": ["fidelity"],
     "issue": "#16"
   },
-  "lists_test.rb#paragraph attached by a list continuation on either side in a description list#0": {
-    "fails": ["fidelity", "reading"],
-    "issue": "#9"
-  },
-  "lists_test.rb#paragraph attached by a list continuation on either side to a multi-line element in a description list#0": {
-    "fails": ["fidelity", "reading"],
-    "issue": "#9"
-  },
   "lists_test.rb#quoted text#0": { "fails": ["fidelity"], "issue": "#16" },
   "lists_test.rb#should allow list style to be specified explicitly when using markers with implicit style#0": {
     "fails": ["fidelity"],
     "issue": "#12"
-  },
-  "lists_test.rb#should continue to parse subsequent blocks attached to list item after first block is dropped#0": {
-    "fails": ["fidelity", "reading"],
-    "issue": "#9"
-  },
-  "lists_test.rb#should convert horizontal list in docbook with proper markup#0": {
-    "fails": ["fidelity", "reading"],
-    "issue": "#9"
-  },
-  "lists_test.rb#should convert horizontal list with proper markup#0": {
-    "fails": ["fidelity", "reading"],
-    "issue": "#9"
-  },
-  "lists_test.rb#should convert qanda list in DocBook with proper semantics#0": {
-    "fails": ["fidelity", "reading"],
-    "issue": "#9"
-  },
-  "lists_test.rb#should convert qanda list in HTML with proper semantics#0": {
-    "fails": ["fidelity", "reading"],
-    "issue": "#9"
   },
   "lists_test.rb#should implicitly set start on ordered list if explicit arabic numbering does not start at 1#0": {
     "fails": ["fidelity"],
@@ -580,7 +488,7 @@
     "issue": "#12"
   },
   "lists_test.rb#should not strip comment line in literal paragraph block attached to list item#0": {
-    "fails": ["fidelity", "reading"],
+    "fails": ["fidelity"],
     "issue": "#9"
   },
   "lists_test.rb#should not warn if explicit numbering starts at value of start attribute#0": {
@@ -598,10 +506,6 @@
   "lists_test.rb#should warn if item with explicit numbering in ordered list is out of sequence#0": {
     "fails": ["fidelity"],
     "issue": "#12"
-  },
-  "lists_test.rb#text method of dd node should return nil if dd node only contains blocks#0": {
-    "fails": ["fidelity", "reading"],
-    "issue": "#9"
   },
   "lists_test.rb#trailing block attribute line attached by continuation should not create block#0": {
     "fails": ["fidelity"],

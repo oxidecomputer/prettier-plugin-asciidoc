@@ -518,8 +518,13 @@ const KNOWN_GAPS = new Map<string, string>([
   // Description lists are not parsed yet, so everything a `term::`
   // line owns is emitted at the top level (or reflowed into the
   // term's text).
+  // `dlistItem/list continuation` used to sit in this list: the `+`
+  // line after an unparsed term was joined into the term's text,
+  // which mangled the render AND manufactured a description-list
+  // term out of the join. Issue #43 gave the `+` back the line the
+  // source wrote, so the row round-trips even though the term itself
+  // is still unparsed.
   ["dlistItem/callout list marker", "#9 — description lists not parsed"],
-  ["dlistItem/list continuation", "#9 — description lists not parsed"],
   ["dlistItem/block title", "#9 — description lists not parsed"],
   ["dlistItem/attribute entry", "#9 — description lists not parsed"],
   ["dlistItem/admonition marker", "#9 — description lists not parsed"],

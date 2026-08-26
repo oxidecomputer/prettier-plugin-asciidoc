@@ -62,25 +62,25 @@ describe("the invariant holds on ordinary documents", () => {
 });
 
 describe("the known-issue table (issue #58, section 4.4)", () => {
-  // #43's render-corrupting face: the lone `+` is joined with the term
-  // line after it, and the join MANUFACTURES a description-list term.
-  // The lone-plus-join mechanism (#43), the same one the depth-5
-  // ledger carries 710 rows of.
-  test("#43: a lone + joined onto a term line manufactures a dlist", async () => {
-    expect(await breachRows("+\nterm2:: def2\n")).toEqual([
-      "p1 [cont text] -> [dlist:::]",
-    ]);
+  // FIXED, and pinned clean. #43's render-corrupting face: the lone
+  // `+` was joined with the term line after it, and the join
+  // MANUFACTURED a description-list term (`+ term2:: def2`). The `+`
+  // now keeps the output line the source gave it, which is what
+  // emptied the depth-5 ledger's 710-row lone-plus-join family. The
+  // projection-side row - what the corrupted spelling reads as - lives
+  // in tests/lib/reading.test.ts, so it keeps its meaning here.
+  test("#43: a lone + before a term line keeps its own line", async () => {
+    expect(await breachRows("+\nterm2:: def2\n")).toEqual([]);
   });
 
-  // #45 appears on the pass-1/pass-2 PAIR, not on pass 1: the label
-  // split keeps surplus whitespace that only re-reads as a colon run
-  // once the first pass has emitted it: the admonition-colon-run
-  // mechanism (#45). No corpus case and no sweep document shows this
-  // shape.
-  test("#45: an admonition label split re-reads as a dlist term on pass 2", async () => {
-    expect(await breachRows("NOTE:    text\n")).toEqual([
-      "p2 [admon:NOTE] -> [dlist:::]",
-    ]);
+  // FIXED, and pinned clean. #45 appeared on the pass-1/pass-2 PAIR,
+  // not on pass 1: the label split kept the surplus blanks in the
+  // variant, the printer wrote a second colon after them
+  // (`NOTE:  : text`), and only the second pass read the residue as a
+  // description-list delimiter. No corpus case and no sweep document
+  // shows this shape, so this row is the whole guard.
+  test("#45: an admonition label keeps one colon run", async () => {
+    expect(await breachRows("NOTE:    text\n")).toEqual([]);
   });
 
   // NON-REPRODUCING at this revision, and pinned clean. Pass 1 is

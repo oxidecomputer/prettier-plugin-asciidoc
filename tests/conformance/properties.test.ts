@@ -28,14 +28,17 @@ describe("assessCase", () => {
   // The reading detail names WHERE as well as what: a signature alone
   // is enough for a six-line case and not enough for a corpus
   // document of several hundred lines. This one document is a live
-  // gap (#43) rather than a shape, deliberately - the same pair is
-  // pinned in tests/format/reading-invariant.test.ts, so the day the
-  // gap closes both rows move together.
+  // gap (#65's tail-reading-flip; the previous witness closed with
+  // #43) rather than a shape, deliberately - it is a ledger row in
+  // tests/format/reading-ledger.json, so the day the gap closes this
+  // row moves with the ledger.
   test("a reading failure is reported with its line", async () => {
-    const result = await assessCase("+\nterm2:: def2\n");
+    const result = await assessCase(
+      "* a\n[role]\npara\n  lit\n[[anc]]\n  lit\n",
+    );
     expect(result.failures).toContain("reading");
     expect(result.detail).toContain(
-      "re-reads differently: p1 line 1 [cont text] -> [dlist:::]",
+      "re-reads differently: p1 line 6 [indented] -> [text]",
     );
   });
 });

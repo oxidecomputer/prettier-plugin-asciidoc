@@ -515,19 +515,25 @@ into; a `cont` lost beside an admonition, a marker or a delimiter got there by
 some other path, and it falls through to another family or to UNCLASSIFIED
 rather than inflating #43's row count with rows #43's fix will not remove.
 
-The measured breakdown, as of the ledger checked in beside this file: 716 rows
-over the depth-5 product - 710 lone-plus-join, all `[cont] -> []`, and 6
-tail-reading-flip, three `[indented] -> [text]` and three `[title] -> [text]` -
-of which the depth-4 product spells 25, all lone-plus-join. All but a handful
-are render-EQUAL and idempotent today, so the sweep beside them passes every
-one: that is the population issue #58 was filed to enumerate, and no other gate
-can see it. The numbers live here rather than in the two sweep files, so they go
-stale in one place.
+The measured breakdown, as of the ledger checked in beside this file: 6 rows
+over the depth-5 product, all tail-reading-flip - three `[indented] -> [text]`
+and three `[title] -> [text]` - and the depth-4 product spells none of them.
+Every row is render-EQUAL and idempotent today, so the sweep beside them passes
+every one: that is the population issue #58 was filed to enumerate, and no other
+gate can see it. The numbers live here rather than in the two sweep files, so
+they go stale in one place.
+
+A family with no rows STAYS in the enumeration. It is what the classifier
+reaches for when the mechanism comes back, so deleting it would turn a
+regression into an unnamed signature the generator refuses to write rather than
+a row that names the issue. lone-plus-join and admonition-colon-run are both
+empty today.
 
 To refresh after a fix: `bun run reading-ledger --write`, then say in the commit
 which family shrank and why. Expect large generated diffs tied to one-line
-mechanism claims; the lone-plus-join fix deletes 710 rows at once, and that is
-the progress metric.
+mechanism claims: fixing lone-plus-join emptied that family in one move, taking
+the depth-5 ledger from 716 rows to 6 and the depth-4 derivation from 25 to 0.
+That is the progress metric.
 
 A TRACE-FIDELITY self-check rides along, in the generator, in the fixture loop
 and over the whole conformance corpus

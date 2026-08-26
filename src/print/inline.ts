@@ -30,6 +30,7 @@ import type {
   MonospaceNode,
   HighlightNode,
 } from "../ast.js";
+import { FIRST_COLUMN } from "../constants.js";
 import {
   MARK_BOUNDARY,
   afterSpecialchars,
@@ -260,6 +261,40 @@ function firstSourceLineWordCount(
   return splitWords(node.value.slice(0, firstNewline)).length;
 }
 
+// How a text node OPENS when a list continuation is its first line: a
+// `+` and then the line break that ended that line. The reader rstrips
+// every line, so nothing else can stand between the two.
+const OPENING_CONTINUATION_LINE = "+\n";
+
+/**
+ * Whether the node opens with a `+` that stood ALONE on its own source
+ * line, which reflow must give an output line of its own back
+ * (`keepContinuationLine` in src/print/reflow.ts).
+ *
+ * Column 1 is what makes "alone" true rather than merely likely. A `+`
+ * that opens a text node has a line to itself only when nothing at all
+ * precedes it on that line, and the node's own start column is the
+ * cheapest statement of that: it excludes an admonition body
+ * (`NOTE: +`), a formatting span's content (the opening mark holds
+ * column 1), a list item's text (`* +`) and any inline sibling that
+ * ended on the same line. In every one of those the `+` sits after a
+ * space, where it is a hard line break rather than a continuation, and
+ * the ordinary line-end rule is the one that must hold.
+ *
+ * A node this predicate accepts is always its block's FIRST inline
+ * node: a `+` at column 1 always opens a new block, so no preceding
+ * sibling can exist to hand it a glue lead. `keepContinuationLine`'s
+ * rewrite of the node's own atoms leans on that.
+ * @param node - the text node being printed.
+ * @returns Whether its first word is a continuation line of its own.
+ */
+function opensWithContinuationLine(node: TextNode): boolean {
+  return (
+    node.position.start.column === FIRST_COLUMN &&
+    node.value.startsWith(OPENING_CONTINUATION_LINE)
+  );
+}
+
 /**
  * Decide how a text node's trailing `+` word must be protected
  * from landing bare at the end of an output line (where ` +`
@@ -320,6 +355,41 @@ function leadingBoundary(cursor: Cursor, words: readonly string[]): Boundary {
 }
 
 /**
+ * The join a text node leaves BEHIND it, for the sibling that follows.
+ *
+ * The continuation-line arm is the cross-node half of
+ * `keepContinuationLine` (src/print/reflow.ts), which can only reach
+ * the words inside one node. A `+` alone on its source line is the
+ * node's ONLY word whenever the line after it opens an inline
+ * construct — `+` then `*a*` leaves the text node as just `"+\n"`
+ * with the span as the next sibling — and then the join is what
+ * decides whether the `+` keeps its line. It is a mandatory break at
+ * column 0, the same one a raw line asks for: the `+` and the content
+ * after it were both written at column 0, which is where a
+ * continuation and the block it attaches have to be.
+ * @param node - the text node.
+ * @param words - its whitespace-split words, non-empty.
+ * @param glueToSibling - whether a trailing `+` must fuse forward.
+ * @returns the join.
+ */
+function trailingBoundary(
+  node: TextNode,
+  words: readonly string[],
+  glueToSibling: boolean,
+): Boundary {
+  if (!/\s$/v.test(node.value)) {
+    return "glue";
+  }
+  if (words.length === 1 && opensWithContinuationLine(node)) {
+    return "literal";
+  }
+  // A trailing `+` with a sibling after it keeps the source's space but
+  // forbids the break, so no break can land after the `+` (where ` +`
+  // at end of line would become a hard line break).
+  return glueToSibling && words.at(-1) === "+" ? "space" : "break";
+}
+
+/**
  * Append a text node's atoms.
  * @param out - the block's atoms so far (mutated).
  * @param boundary - the join standing in front of this node.
@@ -349,18 +419,13 @@ function appendText(
   const atoms = wordsToAtoms(words, {
     escapeTrailingPlus,
     firstLineWordCount: firstSourceLineWordCount(node, cursor, words),
+    opensWithContinuationLine: opensWithContinuationLine(node),
   });
   const lead = /^\s/v.test(node.value)
     ? strongerBoundary(boundary, leadingBoundary(cursor, words))
     : boundary;
   out.push(withBoundary(atoms[0], lead), ...atoms.slice(1));
-  if (!/\s$/v.test(node.value)) {
-    return "glue";
-  }
-  // A trailing `+` with a sibling after it keeps the source's space but
-  // forbids the break, so no break can land after the `+` (where ` +`
-  // at end of line would become a hard line break).
-  return glueToSibling && words.at(-1) === "+" ? "space" : "break";
+  return trailingBoundary(node, words, glueToSibling);
 }
 
 /** The one mark character each span kind is spelled with. */

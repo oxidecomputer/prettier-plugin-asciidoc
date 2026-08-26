@@ -191,6 +191,8 @@ describe("buildAdmonitionParagraph", () => {
   test.each([
     ["NOTE: ", "note"],
     ["WARNING: ", "warning"],
+    ["NOTE:    ", "note"],
+    ["WARNING:\t\t", "warning"],
   ])("%j → variant %j", (image, variant) => {
     expect(buildAdmonitionParagraph({ image, offset: 0 }, [], at).variant).toBe(
       variant,

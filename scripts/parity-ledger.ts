@@ -214,6 +214,18 @@ const INLINE_BOUNDARY_SET_FAMILY = "inline-boundary-set";
  * head renderings. Not exported: no grid row cites it.
  */
 const INLINE_SPAN_KEEPS_BREAK_FAMILY = "inline-span-keeps-break";
+/**
+ * A `+` that was its own source line keeps its own output line:
+ * reflow's line-END exemption (`keepContinuationLine`,
+ * src/print/reflow.ts) refuses the join that used to pull the
+ * following text up onto the `+`, because Asciidoctor's reader would
+ * re-read the joined line as prose instead of a continuation
+ * (issue #43). Formatted-only: the `+` line's placement never
+ * entered the AST - the tree recorded the continuation either way,
+ * and only the printed line layout moves. Not exported: no grid row
+ * cites it.
+ */
+const CONTINUATION_KEEPS_LINE_FAMILY = "continuation-keeps-line";
 
 /**
  * The closed family enum. SURFACE HONESTY, not an armed
@@ -221,7 +233,8 @@ const INLINE_SPAN_KEEPS_BREAK_FAMILY = "inline-span-keeps-break";
  * identity-fixture id. The formatted-only subset is exactly
  * author-plus, pseudo-run-fold, no-op-continuation,
  * attribute-entry-spelling, attrlist-spacing, xref-text-trim,
- * gap-collapse and plus-run-tail-kept — they change BYTES only, while
+ * gap-collapse, plus-run-tail-kept and
+ * continuation-keeps-line — they change BYTES only, while
  * both marker families ride the list tree fold (`marker` added,
  * `depth` dropped), no-op-continuation-tree drops a block the reader
  * used to build, plus-run-paragraph reshapes a `+` run's item
@@ -248,6 +261,7 @@ export const LEDGER_FAMILIES: FamilySets = {
     BOM_DOCUMENT_HEAD_FAMILY,
     INLINE_BOUNDARY_SET_FAMILY,
     INLINE_SPAN_KEEPS_BREAK_FAMILY,
+    CONTINUATION_KEEPS_LINE_FAMILY,
   ]),
   formattedOnly: new Set([
     AUTHOR_PLUS_FAMILY,
@@ -258,6 +272,7 @@ export const LEDGER_FAMILIES: FamilySets = {
     XREF_TEXT_TRIM_FAMILY,
     GAP_COLLAPSE_FAMILY,
     PLUS_RUN_TAIL_KEPT_FAMILY,
+    CONTINUATION_KEEPS_LINE_FAMILY,
   ]),
 };
 
