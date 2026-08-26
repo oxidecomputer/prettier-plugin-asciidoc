@@ -259,7 +259,7 @@ block context, and the guard test forbids it.
 
 ## The AST
 
-`src/ast.ts` declares every node kind; the census is pinned at **35** kinds by
+`src/ast.ts` declares every node kind; the census is pinned at **36** kinds by
 `tests/parser/architecture.test.ts` — an equality pin, not a budget, so a new
 kind fails the pin until it is deliberately moved. The file is the reference;
 the shape of the tree in one paragraph:

@@ -237,6 +237,42 @@ const CONTINUATION_KEEPS_LINE_FAMILY = "continuation-keeps-line";
  * Not exported: no grid row cites it.
  */
 const EXPLICIT_ORDERED_MARKER_FAMILY = "explicit-ordered-marker";
+/**
+ * `+text+`, `++text++` and `+++text+++` are ONE atomic node carrying
+ * their own bytes, because `extract_passthroughs` (substitutors.rb
+ * l.1018) removes them from the line before any other substitution
+ * runs and nothing between the delimiters is ever a construct to the
+ * oracle (issue #25). NOT formatted-only - a passthrough ATOM
+ * replaces whatever the old tokenizer spelled in its place: a run of
+ * text, and sometimes a whole SPAN that the delimiters had hidden
+ * from Ruby. Eight ids, measured old-vs-new over the 1,614-case
+ * corpus:
+ *
+ * - seven are AST-ONLY, bytes identical: docs safe-modes.adoc
+ *   (two `+include::[]+`), whats-new.adoc (`+<<idname,>>+` and
+ *   `+\*(Aq+`), html-backend/skip-front-matter.adoc (`+---+`),
+ *   cli/process-multiple-files.adoc, and the three
+ *   document_test.rb legacy-doctitle compat-mode cases
+ *   (`+content+`). process-multiple-files.adoc is the one that
+ *   changes what the tree MEANS rather than only how it is spelled:
+ *   a spurious constrained bold used to span the `*` of the two
+ *   globs the page writes, `+*.adoc+` and the directory one spelled
+ *   `+*` then `/*.adoc+`, and the passthroughs now hide those marks
+ *   the way Ruby hides them (one bold node, gone). The three
+ *   compat-mode
+ *   cases carry a PRE-EXISTING render divergence to their source
+ *   that this family does not touch - bytes identical, so the
+ *   formatted rendering is unchanged.
+ * - ONE moves bytes: blocks_test.rb#should display latexmath block
+ *   in alt of equation in DocBook backend#1, where
+ *   `+(1+x)^2 < y]]></alt>\n<mathphrase><![CDATA[\sqrt{3x-1}+` is
+ *   now a single unbreakable atom and the packer wraps the
+ *   surrounding line differently. Verified render-equal to its
+ *   source on both sides.
+ *
+ * Not exported: no grid row cites it.
+ */
+const INLINE_PASSTHROUGH_FAMILY = "inline-passthrough";
 
 /**
  * The closed family enum. SURFACE HONESTY, not an armed
@@ -249,12 +285,13 @@ const EXPLICIT_ORDERED_MARKER_FAMILY = "explicit-ordered-marker";
  * both marker families ride the list tree fold (`marker` added,
  * `depth` dropped), no-op-continuation-tree drops a block the reader
  * used to build, plus-run-paragraph reshapes a `+` run's item
- * blocks, bom-document-head re-reads the line a leading BOM hid, and
- * the two inline families move spans (dissolved, crystallized, or
- * holding a kept `\n`), and explicit-ordered-marker turns prose
- * into ordered lists, so an entry of those eight whose AST differs
- * is legal and an entry of any other family whose AST differs fails
- * the cross-check.
+ * blocks, bom-document-head re-reads the line a leading BOM hid,
+ * the two inline SPAN families move spans (dissolved, crystallized,
+ * or holding a kept `\n`), inline-passthrough replaces text - and
+ * sometimes a whole span - with one atomic passthrough node, and
+ * explicit-ordered-marker turns prose into ordered lists, so an
+ * entry of those nine whose AST differs is legal and an entry of any
+ * other family whose AST differs fails the cross-check.
  */
 export const LEDGER_FAMILIES: FamilySets = {
   families: new Set([
@@ -275,6 +312,7 @@ export const LEDGER_FAMILIES: FamilySets = {
     INLINE_SPAN_KEEPS_BREAK_FAMILY,
     CONTINUATION_KEEPS_LINE_FAMILY,
     EXPLICIT_ORDERED_MARKER_FAMILY,
+    INLINE_PASSTHROUGH_FAMILY,
   ]),
   formattedOnly: new Set([
     AUTHOR_PLUS_FAMILY,

@@ -1,11 +1,14 @@
 /**
  * The inline token vocabulary, as plain data.
  *
- * Fifteen kinds the tokenizer produces, in the order it tries them —
+ * Sixteen kinds the tokenizer produces, in the order it tries them —
  * the SAME order the lexer it replaced (its `inlineModeTokens` array) had,
  * because that lexer is first-match-wins (there is no `longer_alt`
  * anywhere in the repository) and the order is therefore the
- * specification. Plus `RawLine`, which the tokenizer never produces:
+ * specification, with `Passthrough` in front of all of them because
+ * Asciidoctor extracts passthroughs before it substitutes anything
+ * else (substitutors.rb l.1018). Plus `RawLine`, which the tokenizer
+ * never produces:
  * the paragraph reader emits it for a line it kept verbatim inside a
  * paragraph body, and `inline-node-builder.ts` dispatches on it.
  *
@@ -27,6 +30,7 @@
  * @internal
  */
 export const INLINE_KINDS = [
+  "Passthrough",
   "BackslashEscape",
   "AttributeReference",
   "RoleAttribute",
@@ -44,7 +48,7 @@ export const INLINE_KINDS = [
   "InlineChar",
 ] as const;
 
-/** One of the fifteen kinds the tokenizer emits. */
+/** One of the sixteen kinds the tokenizer emits. */
 export type InlineKind = (typeof INLINE_KINDS)[number];
 
 /**

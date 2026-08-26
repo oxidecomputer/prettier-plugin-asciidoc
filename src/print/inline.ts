@@ -17,14 +17,9 @@
  * the max-lines lint limit.
  */
 import type {
-  AttributeReferenceNode,
-  InlineAnchorNode,
-  InlineMacroNode,
   InlineNode,
-  LinkNode,
   RawLineNode,
   TextNode,
-  XrefNode,
   BoldNode,
   ItalicNode,
   MonospaceNode,
@@ -35,12 +30,7 @@ import {
   MARK_BOUNDARY,
   afterSpecialchars,
 } from "../parse/inline/quote-boundaries.js";
-import {
-  inlineMacroToSource,
-  linkToSource,
-  xrefToSource,
-  anchorToSource,
-} from "./serialize-inline.js";
+import { verbatimText } from "./serialize-inline.js";
 import {
   atomOf,
   type Atom,
@@ -75,14 +65,6 @@ const OWN_LINE_SIBLINGS = new Set(["rawLine"]);
 
 /** A formatting span: its marks ride on the atoms they touch. */
 type SpanNode = BoldNode | ItalicNode | MonospaceNode | HighlightNode;
-
-/** A construct the printer emits verbatim, never breaking inside it. */
-type VerbatimNode =
-  | AttributeReferenceNode
-  | InlineMacroNode
-  | LinkNode
-  | XrefNode
-  | InlineAnchorNode;
 
 /**
  * The join between the atom just emitted and the next one.
@@ -195,34 +177,6 @@ function ownsItsLine(cursor: Cursor): boolean {
 }
 
 /**
- * Collapse source line breaks inside a serialized inline
- * construct to single spaces. Bracketed text (`url[text]`,
- * `xref:t[text]`, `<<t,text>>`) may span source lines — the
- * tokenizer's `InlineMacro`/`InlineUrl` rules
- * (src/parse/inline/rules.ts) match it across `\n`. Re-emitting the
- * raw newline would make the output layout depend on the input
- * layout (breaking idempotency, issue #1) and an atom's text must be
- * newline-free for the packer to measure it.
- * AsciiDoc renders the line break as a space, so this rewrite
- * is semantics-preserving; intra-line spacing is left alone.
- * Exception: a line ending in ` +` is a hard line break —
- * joining it would drop the break and expose a literal `+`, so
- * sources containing one are returned unchanged (their layout
- * stays source-dependent, matching pre-issue-#1 behavior).
- * @param source - Serialized AsciiDoc source for an atomic
- *   inline construct (link, macro, xref, anchor).
- * @returns The source with each newline run (including any
- *   surrounding indentation whitespace) replaced by one space,
- *   or unchanged when a hard line break is present.
- */
-function collapseSourceNewlines(source: string): string {
-  if (source.includes(" +\n")) {
-    return source;
-  }
-  return source.replaceAll(/[^\S\n]*\n\s*/gv, " ");
-}
-
-/**
  * How many leading words of this text node sit on the enclosing
  * BLOCK's first source line. Feeds wordsToAtoms' dlist guard: a
  * `term::` word from a later source line is plain text where it
@@ -307,6 +261,15 @@ function opensWithContinuationLine(node: TextNode): boolean {
  *   closing mark lands directly after the `+` in the output, so it can
  *   never end a line bare. No escape — escaping would corrupt the
  *   span's content (issue #2's `` `+` `` case).
+ * - The node is the `+` and NOTHING else, and the join in front of it
+ *   is a GLUE: the `+` prints hard against the previous node's last
+ *   byte, so it can neither open a line (a lone `+` line is a list
+ *   continuation) nor stand behind a space at a line end (` +` is a
+ *   hard line break). Both hazards need a character the glue
+ *   forbids, so there is nothing to escape. This is the shape a
+ *   passthrough leaves behind — `+a++` is the passthrough `+a+` and
+ *   a leftover `+` — and the same shape a formatting span leaves
+ *   (`*b*+`).
  * - Otherwise (block-level last child, or only a raw line follows —
  *   which owns its output line): the `+` truly ends an
  *   output line, so it must be escaped.
@@ -314,6 +277,9 @@ function opensWithContinuationLine(node: TextNode): boolean {
  * @param words - The node's whitespace-split words: a `+` that is
  *   the node's ONLY word, with nothing before it in the block, is
  *   alone on its output line, and `+` at column 0 is not a break.
+ * @param lead - the join the node's first atom will carry, which is
+ *   what decides whether a one-word node can reach a line boundary
+ *   at all.
  * @returns Whether to rewrite an unfused trailing `+` to
  *   `{plus}`, and whether to fuse it forward to a following
  *   inline sibling instead.
@@ -321,6 +287,7 @@ function opensWithContinuationLine(node: TextNode): boolean {
 function trailingPlusPolicy(
   cursor: Cursor,
   words: readonly string[],
+  lead: Boundary,
 ): {
   escapeTrailingPlus: boolean;
   glueToSibling: boolean;
@@ -328,9 +295,13 @@ function trailingPlusPolicy(
   const followedInBlock = hasFollowingInlineSibling(cursor);
   const startsItsOwnLine =
     words.length === 1 && !hasPrecedingInlineSibling(cursor);
+  const gluedToPredecessor = words.length === 1 && lead === "glue";
   return {
     escapeTrailingPlus:
-      !followedInBlock && !cursor.insideSpan && !startsItsOwnLine,
+      !followedInBlock &&
+      !cursor.insideSpan &&
+      !startsItsOwnLine &&
+      !gluedToPredecessor,
     glueToSibling: followedInBlock,
   };
 }
@@ -412,18 +383,22 @@ function appendText(
   if (words.length === 0) {
     return strongerBoundary(boundary, "break");
   }
+  // The lead is computed BEFORE the atoms, because the trailing-`+`
+  // policy reads it: a one-word node carrying a glue cannot reach a
+  // line boundary, and a `+` that cannot reach one needs no escape.
+  const lead = /^\s/v.test(node.value)
+    ? strongerBoundary(boundary, leadingBoundary(cursor, words))
+    : boundary;
   const { escapeTrailingPlus, glueToSibling } = trailingPlusPolicy(
     cursor,
     words,
+    lead,
   );
   const atoms = wordsToAtoms(words, {
     escapeTrailingPlus,
     firstLineWordCount: firstSourceLineWordCount(node, cursor, words),
     opensWithContinuationLine: opensWithContinuationLine(node),
   });
-  const lead = /^\s/v.test(node.value)
-    ? strongerBoundary(boundary, leadingBoundary(cursor, words))
-    : boundary;
   out.push(withBoundary(atoms[0], lead), ...atoms.slice(1));
   return trailingBoundary(node, words, glueToSibling);
 }
@@ -852,37 +827,37 @@ function appendHardLineBreak(
 }
 
 /**
- * The verbatim text of a source-preserved construct: these nodes are
- * emitted from the AST without reformatting, because their internal
- * syntax (URLs, target IDs, key combos, menu paths, etc.) is opaque to
- * the printer — changing whitespace or line breaks would alter
- * semantics or break rendering.
- * @param node - the construct.
- * @returns its one-line source text.
+ * The join in front of a VERBATIM node's one atom.
+ *
+ * The cross-node half of {@link leadingBoundary}, for the nodes whose
+ * atom text is not words: a construct that would become block syntax
+ * at column 0 may not be handed a breakable join, or the packer can
+ * open a line with it. The passthrough `++++` is the shape that made
+ * this necessary — it is a passthrough with empty content to
+ * Asciidoctor, and a delimited-block delimiter at the head of a line —
+ * and the same net covers an inline anchor, whose `[[id]]` is a block
+ * anchor there.
+ *
+ * A node with nothing before it in the block keeps its join: it
+ * already opens the block's first output line, exactly where the
+ * source put it, and fusing it backwards onto nothing would change
+ * nothing.
+ * @param boundary - the join standing in front of the node.
+ * @param cursor - where the node sits.
+ * @param image - the text its atom will carry.
+ * @returns the join, downgraded to a non-breaking space where a break
+ *   would be unsafe.
  */
-function verbatimText(node: VerbatimNode): string {
-  switch (node.type) {
-    case "attributeReference": {
-      return `{${node.name}}`;
-    }
-    case "inlineMacro": {
-      return collapseSourceNewlines(inlineMacroToSource(node));
-    }
-    case "link": {
-      return collapseSourceNewlines(linkToSource(node));
-    }
-    case "xref": {
-      // Defense-in-depth: the XrefShorthand and InlineAnchor token
-      // patterns exclude `\n`, so today these nodes can never contain a
-      // newline — only InlineUrl and InlineMacro match across lines. The
-      // collapse is kept so a future pattern change cannot silently
-      // reintroduce multi-line output.
-      return collapseSourceNewlines(xrefToSource(node));
-    }
-    case "inlineAnchor": {
-      return collapseSourceNewlines(anchorToSource(node));
-    }
-  }
+function verbatimBoundary(
+  boundary: Boundary,
+  cursor: Cursor,
+  image: string,
+): Boundary {
+  return boundary === "break" &&
+    isBlockSyntaxAtLineStart(image) &&
+    hasPrecedingInlineSibling(cursor)
+    ? "space"
+    : boundary;
 }
 
 /**
@@ -911,7 +886,10 @@ function appendNode(out: Atom[], boundary: Boundary, cursor: Cursor): Boundary {
       return appendHardLineBreak(out, boundary, cursor);
     }
     default: {
-      out.push(withBoundary(atomOf(verbatimText(node)), boundary));
+      const image = verbatimText(node);
+      out.push(
+        withBoundary(atomOf(image), verbatimBoundary(boundary, cursor, image)),
+      );
       return "glue";
     }
   }

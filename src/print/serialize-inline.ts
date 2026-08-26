@@ -3,11 +3,20 @@
  * representation. Covers the unified InlineMacroNode, bare-URL
  * links, xref shorthands, and inline anchors. Consumed by the
  * printer (src/print/inline.ts).
+ *
+ * The bottom half is the printer's ONE entry into all of it:
+ * {@link verbatimText}, which turns any {@link VerbatimNode} — the
+ * four constructs above, plus attribute references and passthroughs —
+ * into the single line the atom packer measures. It sits here rather
+ * than in inline.ts because it is serialization, and because
+ * inline.ts is at the max-lines limit.
  */
 import type {
+  AttributeReferenceNode,
   InlineAnchorNode,
   InlineMacroNode,
   LinkNode,
+  PassthroughNode,
   XrefNode,
 } from "../ast.js";
 import { canonicalAttrlist } from "../parse/attrlist.js";
@@ -43,7 +52,7 @@ const ATTRLIST_MACROS = new Set(["image"]);
  *   and raw attrlist content.
  * @returns AsciiDoc source string for the macro.
  */
-export function inlineMacroToSource(node: InlineMacroNode): string {
+function inlineMacroToSource(node: InlineMacroNode): string {
   const attrlist = ATTRLIST_MACROS.has(node.name)
     ? canonicalAttrlist(node.attrlist)
     : node.attrlist;
@@ -62,7 +71,7 @@ export function inlineMacroToSource(node: InlineMacroNode): string {
  *   display text. Form is always `"url"`.
  * @returns AsciiDoc source string for the bare URL.
  */
-export function linkToSource(node: LinkNode): string {
+function linkToSource(node: LinkNode): string {
   return node.text === undefined ? node.target : `${node.target}[${node.text}]`;
 }
 
@@ -82,7 +91,7 @@ export function linkToSource(node: LinkNode): string {
  *   display text. Form is always `"shorthand"`.
  * @returns AsciiDoc source string for the xref.
  */
-export function xrefToSource(node: XrefNode): string {
+function xrefToSource(node: XrefNode): string {
   return node.text === undefined
     ? `<<${node.target}>>`
     : `<<${node.target},${node.text.trimStart()}>>`;
@@ -121,4 +130,135 @@ export function anchorToSource(
   }
   const normalized = `[[${node.id}, ${node.reftext.trimStart()}]]`;
   return BLOCK_ANCHOR.test(normalized) ? normalized : verbatim;
+}
+
+// A construct the printer emits verbatim, never breaking inside it —
+// the argument {@link verbatimText} takes. Not exported: the printer
+// reaches these nodes through that one function, never through the
+// type.
+type VerbatimNode =
+  | AttributeReferenceNode
+  | InlineMacroNode
+  | LinkNode
+  | XrefNode
+  | InlineAnchorNode
+  | PassthroughNode;
+
+/**
+ * Collapse source line breaks inside a serialized inline
+ * construct to single spaces. Bracketed text (`url[text]`,
+ * `xref:t[text]`, `<<t,text>>`) may span source lines — the
+ * tokenizer's `InlineMacro`/`InlineUrl` rules
+ * (src/parse/inline/rules.ts) match it across `\n`. Re-emitting the
+ * raw newline would make the output layout depend on the input
+ * layout (breaking idempotency, issue #1) and an atom's text must be
+ * newline-free for the packer to measure it.
+ * AsciiDoc renders the line break as a space, so this rewrite
+ * is semantics-preserving; intra-line spacing is left alone.
+ * Exception: a line ending in ` +` is a hard line break —
+ * joining it would drop the break and expose a literal `+`, so
+ * sources containing one are returned unchanged (their layout
+ * stays source-dependent, matching pre-issue-#1 behavior).
+ * @param source - Serialized AsciiDoc source for an atomic
+ *   inline construct (link, macro, xref, anchor).
+ * @returns The source with each newline run (including any
+ *   surrounding indentation whitespace) replaced by one space,
+ *   or unchanged when a hard line break is present.
+ */
+function collapseSourceNewlines(source: string): string {
+  if (source.includes(" +\n")) {
+    return source;
+  }
+  return joinSourceLines(source);
+}
+
+/**
+ * Replace each newline run — and the whitespace around it — with one
+ * space. The rewrite {@link collapseSourceNewlines} performs once its
+ * hard-break exception has not fired, split out because the
+ * PASSTHROUGH case needs the rewrite without the exception: a ` +` in
+ * passthrough content is content, not a break (the passthrough is
+ * already out of the line by the time `sub_post_replacements` looks
+ * for one), so keeping the newline there would put a newline inside an
+ * atom — which the packer measures as one line and prints as two.
+ * @param source - Serialized AsciiDoc source for one inline construct.
+ * @returns The source on a single line.
+ */
+function joinSourceLines(source: string): string {
+  return source.replaceAll(/[^\S\n]*\n\s*/gv, " ");
+}
+
+// A passthrough whose content Asciidoctor substitutes NOTHING into:
+// `extract_passthroughs` gives the `+++` boundary `subs: []`, and
+// every other spelling `BASIC_SUBS` (substitutors.rb l.1049). The
+// optional attrlist is the one the two pass patterns take
+// (src/parse/inline/passthrough.ts).
+const RAW_PASSTHROUGH = /^(?:\[[^\[\]]+\])?\+\+\+/v;
+
+/**
+ * One passthrough's output text: its own bytes, with the source's
+ * line breaks kept ONLY where they can still be seen in the render.
+ *
+ * `+text+` and `++text++` carry `BASIC_SUBS`, so their content
+ * reaches the backend as escaped character data inside flowed text,
+ * where a newline and a space are the same thing to the renderer;
+ * collapsing costs nothing and buys an atom the packer can measure
+ * (the invariant {@link joinSourceLines} states). It is also the
+ * oracle-pinned answer for the one shape where the two rules could
+ * disagree: `+a +\nb+` renders `a + b`.
+ *
+ * `+++text+++` carries NO subs at all. Its bytes are copied into the
+ * backend output verbatim, so a newline inside one can be structure
+ * the render keeps — `+++<pre>a\nb</pre>+++` emits a real `<pre>`,
+ * where the line break is the content. Those bytes are therefore
+ * returned untouched, the way {@link collapseSourceNewlines} returns
+ * a hard break's line untouched, and for the same reason: the layout
+ * of a construct whose layout is meaningful stays the author's. The
+ * cost is the one that exception already carries — the atom holds a
+ * newline, so the packer measures it as one line and prints it as
+ * two, and the block's continuation indent does not reach the second.
+ * @param node - the passthrough node.
+ * @returns its output bytes.
+ */
+function passthroughText(node: PassthroughNode): string {
+  return RAW_PASSTHROUGH.test(node.value)
+    ? node.value
+    : joinSourceLines(node.value);
+}
+
+/**
+ * The verbatim text of a source-preserved construct: these nodes are
+ * emitted from the AST without reformatting, because their internal
+ * syntax (URLs, target IDs, key combos, menu paths, etc.) is opaque to
+ * the printer — changing whitespace or line breaks would alter
+ * semantics or break rendering.
+ * @param node - the construct.
+ * @returns its one-line source text.
+ */
+export function verbatimText(node: VerbatimNode): string {
+  switch (node.type) {
+    case "attributeReference": {
+      return `{${node.name}}`;
+    }
+    case "inlineMacro": {
+      return collapseSourceNewlines(inlineMacroToSource(node));
+    }
+    case "link": {
+      return collapseSourceNewlines(linkToSource(node));
+    }
+    case "xref": {
+      // Defense-in-depth: the XrefShorthand and InlineAnchor token
+      // patterns exclude `\n`, so today these nodes can never contain a
+      // newline — only InlineUrl and InlineMacro match across lines. The
+      // collapse is kept so a future pattern change cannot silently
+      // reintroduce multi-line output.
+      return collapseSourceNewlines(xrefToSource(node));
+    }
+    case "inlineAnchor": {
+      return collapseSourceNewlines(anchorToSource(node));
+    }
+    case "passthrough": {
+      return passthroughText(node);
+    }
+  }
 }

@@ -143,6 +143,7 @@ describe("expected-diff ledger", () => {
       "explicit-ordered-marker",
       "gap-collapse",
       "inline-boundary-set",
+      "inline-passthrough",
       "inline-span-keeps-break",
       "marker-spelling",
       "nesting-fidelity",

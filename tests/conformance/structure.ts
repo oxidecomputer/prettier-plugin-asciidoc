@@ -405,6 +405,7 @@ export const AST_KIND_CENSUS: ReadonlyMap<string, string> = new Map([
   ["inlineAnchor", "inline, out of scope"],
   ["inlineMacro", "inline, out of scope"],
   ["hardLineBreak", "inline, out of scope"],
+  ["passthrough", "inline, out of scope"],
   ["rawLine", "inline, out of scope"],
   ["heading", "kind heading"],
   ["discreteHeading", "kind heading"],

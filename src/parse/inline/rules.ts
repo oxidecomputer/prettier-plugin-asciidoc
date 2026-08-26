@@ -19,6 +19,7 @@
  */
 import type { InlineKind } from "./tokens.js";
 import { canOpenAt, canCloseAt, type MarkKind } from "./quote-boundaries.js";
+import { matchPassthrough } from "./passthrough.js";
 
 /** One entry of the ordered table. */
 interface InlineRule {
@@ -137,6 +138,14 @@ const MACRO_NAMES =
  * old custom matcher needed is gone.
  */
 export const INLINE_RULES: readonly InlineRule[] = [
+  // `+text+`, `++text++`, `+++text+++`, each with an optional
+  // `[attrlist]` in front — the passthrough forms `extract_passthroughs`
+  // pulls out of the line BEFORE any other substitution runs
+  // (substitutors.rb l.1018), which is why this is the first row: what
+  // the oracle removes first, nothing else may claim. The two patterns
+  // and the boundary they need live in passthrough.ts, the way the
+  // constrained MARK boundaries live in quote-boundaries.ts.
+  { type: "Passthrough", match: matchPassthrough },
   // Escaped inline formatting mark: `\*`, `\_`, `` \` ``, `\#`
   // (substitutors.rb strips the backslash when it applies quotes).
   { type: "BackslashEscape", match: pattern(/\\[*_`#]/v) },
@@ -186,14 +195,18 @@ export const INLINE_RULES: readonly InlineRule[] = [
   // stops the run BEFORE a URL, a macro name or a hard break, which
   // is how first-match-wins produces longest-match behaviour without
   // a longest-match engine. `<` is excluded so `<<ref>>` is not eaten
-  // as text; bare `+` is NOT excluded — only the ` +\n` sequence is
-  // reserved. Ruby has no equivalent: substitutors.rb rewrites the
-  // whole line with `gsub`, so "everything else" is never named.
+  // as text, and `+` so a passthrough is not: a run that swallowed the
+  // `+` in `a +text+ b` would hide the opening delimiter from the
+  // Passthrough rule, which is only ever tried at a position the run
+  // has not already taken. The ` +\n` lookahead stays for the hard
+  // break, whose match starts one character EARLIER, at the space.
+  // Ruby has no equivalent: substitutors.rb rewrites the whole line
+  // with `gsub`, so "everything else" is never named.
   {
     type: "InlineText",
     match: pattern(
       new RegExp(
-        `(?:(?!https?://|(?:${MACRO_NAMES}):| \\+\\n)[^\\n*_\`#\\\\\\{\\[<])+`,
+        `(?:(?!https?://|(?:${MACRO_NAMES}):| \\+\\n)[^\\n*_\`#\\\\\\{\\[<+])+`,
         "v",
       ),
     ),

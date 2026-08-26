@@ -364,8 +364,9 @@ function gridSizeFailures(
  *
  * Reported, not ratcheted, and the wording of every field here is
  * deliberate. A census is NOT a minimize-budget — "as simple as
- * possible, but not simpler"; 33 node kinds instead of 30 is fine, and
- * a grid of 3,000 shapes is not worse than one of 2,966. It is an
+ * possible, but not simpler"; one more node kind than the last count
+ * is fine, and a grid of 3,000 shapes is not worse than one of 2,966.
+ * It is an
  * EQUALITY PIN whose contract is "move the pin only when deliberate",
  * so neither direction is a win and neither is a loss. What the row
  * buys is that a human SEES the move — the standing grid once shrank

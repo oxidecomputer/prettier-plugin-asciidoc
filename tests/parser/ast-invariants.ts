@@ -278,6 +278,14 @@ function expectOneValue(node: AnyNode, slice: string): void {
       expect(slice, "raw line value is its own span").toBe(value);
       break;
     }
+    // A passthrough carries its WHOLE construct - delimiters and the
+    // optional attrlist included - so its value and its span are the
+    // same bytes. This row is what fails if the builder ever starts
+    // stripping the delimiters the printer has to re-emit.
+    case "passthrough": {
+      expect(slice, "passthrough value is its own span").toBe(value);
+      break;
+    }
     // `includes`, not equality: the span covers a `//` prefix or a
     // directive's delimiters that the value does not.
     case "comment":

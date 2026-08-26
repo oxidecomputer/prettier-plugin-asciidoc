@@ -162,7 +162,7 @@ describe("parse-layer architecture", () => {
   );
 
   // A CENSUS of the `type: "…"` discriminant literals declared in
-  // src/ast.ts, and a GATE rather than prose: a 36th fails this row
+  // src/ast.ts, and a GATE rather than prose: a 37th fails this row
   // until it is deliberately updated. The count is DIRECTIONLESS — it
   // is neither a budget nor a score, so a rise is not a cost and a
   // fall is not progress; what the row buys is that no declaration
@@ -177,10 +177,16 @@ describe("parse-layer architecture", () => {
   // `type: "delimitedBlock"`, which is what the parity runs and the
   // key-order rows in tests/parser/block-masquerade.test.ts hold. The
   // literal is what this file can see, so it is what the row counts.
-  test("the node-kind census is 35", () => {
+  //
+  // 36, moved up from 35 with PassthroughNode: `+text+` and its
+  // doubled and tripled spellings are ONE leaf carrying their own
+  // bytes, because Asciidoctor removes them from the line before it
+  // substitutes anything else and nothing downstream may read inside
+  // them (issue #25).
+  test("the node-kind census is 36", () => {
     const source = readFileSync("src/ast.ts", "utf8");
     const kinds = source.match(/^ {2}type: "[a-zA-Z]+";$/gmv) ?? [];
-    expect(kinds).toHaveLength(35);
+    expect(kinds).toHaveLength(36);
   });
 
   // The constraint: no lint suppressions beyond

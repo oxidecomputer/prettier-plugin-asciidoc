@@ -195,12 +195,34 @@ describe("the rule table, by hand", () => {
     ["*b*", ["BoldMark", "InlineText", "BoldMark"]],
     // Mid-word, no boundary either side: not a mark, one char of text.
     ["a*b", ["InlineText", "InlineChar", "InlineText"]],
-    // ` +` only before a newline; a bare `+` is ordinary text.
+    // ` +` only before a newline; a `+` that opens no passthrough is
+    // one character of text, because `InlineText`'s class excludes
+    // `+` so the Passthrough rule gets a look at every one of them.
     ["a +\n", ["InlineText", "HardLineBreak", "InlineNewline"]],
-    ["a + b", ["InlineText"]],
+    ["a + b", ["InlineText", "InlineChar", "InlineText"]],
     // `\r` is not special: it stays inside the text run, which is why
     // ` +\r\n` is NOT a hard break (existing behaviour, preserved).
-    ["a +\r\n", ["InlineText", "InlineNewline"]],
+    ["a +\r\n", ["InlineText", "InlineChar", "InlineText", "InlineNewline"]],
+    // The passthrough forms, matched as ONE token each: constrained
+    // (`+text+`), unconstrained (`++text++`, `+++text+++`), and with
+    // the attrlist Ruby's own patterns allow in front. Everything
+    // between the delimiters is the token's bytes, marks included —
+    // that is the whole point of the rule.
+    ["+*b*+", ["Passthrough"]],
+    ["a +*b*+ c", ["InlineText", "Passthrough", "InlineText"]],
+    ["`+*b*+`", ["MonoMark", "Passthrough", "MonoMark"]],
+    ["++*b*++", ["Passthrough"]],
+    ["+++*b*+++", ["Passthrough"]],
+    ["[x-]+*b*+", ["Passthrough"]],
+    // The constrained boundary: a word character, `;`, `:` or `\`
+    // in front refuses the opening (`[^#{CC_WORD};:\\]`, rx.rb
+    // l.583), and a word character behind refuses the close.
+    ["a+b+", ["InlineText", "InlineChar", "InlineText", "InlineChar"]],
+    ["x;+b+", ["InlineText", "InlineChar", "InlineText", "InlineChar"]],
+    ["+b+x", ["InlineChar", "InlineText", "InlineChar", "InlineText"]],
+    // Content must begin and end with a non-space (`(\S|\S.*?\S)`),
+    // so ` +` at a line end stays the hard break it was.
+    ["+ b +\n", ["InlineChar", "InlineText", "HardLineBreak", "InlineNewline"]],
     // A NUL is ordinary text — nothing in the table treats it
     // specially, and `InlineText`'s class does not exclude it
     // (a trailing-NUL input must not start being "fixed").

@@ -268,6 +268,26 @@ export interface RawLineNode extends Node {
   value: string;
 }
 
+/**
+ * An inline passthrough: `+text+`, `++text++` or `+++text+++`, with
+ * the optional `[attrlist]` in front when the author wrote one.
+ *
+ * A LEAF holding its own bytes, deliberately: Asciidoctor extracts
+ * passthroughs before it substitutes anything else
+ * (`extract_passthroughs`, substitutors.rb l.1018), so the marks,
+ * macros and attribute references between the delimiters are text to
+ * the oracle. Modelling the interior as children would hand the
+ * printer marks it would try to pair, respell and reflow around —
+ * which is how `+*not bold*+` came out as `+*not bold*{plus}`, with
+ * both the emphasis and the closing delimiter changed.
+ */
+export interface PassthroughNode extends Node {
+  /** Node discriminant. */
+  type: "passthrough";
+  /** The whole construct, delimiters and attrlist included, verbatim. */
+  value: string;
+}
+
 /** Content that appears within a paragraph (text, emphasis, links, etc.). */
 export type InlineNode =
   | TextNode
@@ -280,6 +300,7 @@ export type InlineNode =
   | LinkNode
   | XrefNode
   | InlineAnchorNode
+  | PassthroughNode
   | RawLineNode
   | HardLineBreakNode;
 

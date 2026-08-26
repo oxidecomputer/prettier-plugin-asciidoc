@@ -1059,11 +1059,11 @@ re-quarantine slips into unnoticed.
 
 **Census pins are directionless.** The node-kind census
 (`tests/parser/architecture.test.ts`) and the three realized grid sizes
-(`scripts/metrics/shape-census.ts`) are equality pins, not budgets: 35 node
-kinds is not better or worse than 30, and a grid of 3,000 shapes is not better
-than one of 2,966. `bun run metrics` prints them with exactly two verdicts —
-`pin holds` or `pin moved` — because printing is how a human notices a
-deliberate move: the standing grid once shrank by 377 shapes with every gate
+(`scripts/metrics/shape-census.ts`) are equality pins, not budgets: one more
+node kind is not better or worse than one fewer, and a grid of 3,000 shapes is
+not better than one of 2,966. `bun run metrics` prints them with exactly two
+verdicts — `pin holds` or `pin moved` — because printing is how a human notices
+a deliberate move: the standing grid once shrank by 377 shapes with every gate
 green, because the number appeared nowhere.
 
 **Unread published fields (report-only).** After the table, `metrics` prints

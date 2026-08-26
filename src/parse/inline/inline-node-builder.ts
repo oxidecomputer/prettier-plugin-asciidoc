@@ -15,6 +15,7 @@
 import type {
   InlineNode,
   InlineMacroNode,
+  PassthroughNode,
   RawLineNode,
   TextNode,
   BoldNode,
@@ -292,17 +293,71 @@ function makeInlineMacro(
   };
 }
 
+/**
+ * Build a PassthroughNode from a `+text+` / `++text++` / `+++text+++`
+ * token.
+ *
+ * The whole image is the value, delimiters included: Asciidoctor
+ * extracts the construct before any other substitution runs
+ * (substitutors.rb l.1018), so there is nothing inside it for the
+ * formatter to read, and re-emitting the author's own bytes is the
+ * only spelling guaranteed to render the same.
+ * @param fragment - The Passthrough token's span.
+ * @param at - The document's location index.
+ * @returns A PassthroughNode carrying the verbatim source.
+ */
+function makePassthroughNode(
+  fragment: Fragment,
+  at: LocationIndex,
+): PassthroughNode {
+  return {
+    type: "passthrough",
+    value: fragment.image,
+    position: { start: at.start(fragment), end: at.end(fragment) },
+  };
+}
+
 // Map from token kind to factory function for atomic
 // (single-token) inline nodes, avoiding a long if/else chain.
 type AtomicFactory = (fragment: Fragment, at: LocationIndex) => InlineNode;
-const ATOMIC_DISPATCH = new Map<InlineTokenType, AtomicFactory>([
-  ["AttributeReference", makeAttributeReference],
-  ["InlineMacro", makeInlineMacro],
-  ["InlineUrl", makeLinkFromUrl],
-  ["XrefShorthand", makeXrefFromShorthand],
-  ["InlineAnchor", makeInlineAnchor],
-  ["HardLineBreak", makeHardLineBreak],
-]);
+
+// The kinds {@link buildNodes}'s own loop handles WITHOUT a factory:
+// the raw line and the role attribute have branches of their own, the
+// four marks pair into spans, a newline becomes `\n`, and the rest
+// accumulate as plain text.
+type LoopHandledKind =
+  | "RawLine"
+  | "RoleAttribute"
+  | "BoldMark"
+  | "ItalicMark"
+  | "MonoMark"
+  | "HighlightMark"
+  | "InlineNewline"
+  | "InlineText"
+  | "InlineChar"
+  | "BackslashEscape";
+
+// Everything left: the kinds that MUST have a factory below.
+type AtomicKind = Exclude<InlineTokenType, LoopHandledKind>;
+
+// The `satisfies` is the completeness gate, and it is the reason the
+// table is an object rather than the pair array it used to be. A kind
+// added to INLINE_KINDS (tokens.ts) and to neither list here fails to
+// compile - where before it would silently become a TEXT node,
+// because `handleAtomicToken` reads a missing key as "fall through to
+// plain text". Both directions are checked: a missing key and a key
+// that names no kind are each an error.
+const ATOMIC_DISPATCH = new Map<string, AtomicFactory>(
+  Object.entries({
+    AttributeReference: makeAttributeReference,
+    InlineMacro: makeInlineMacro,
+    InlineUrl: makeLinkFromUrl,
+    XrefShorthand: makeXrefFromShorthand,
+    InlineAnchor: makeInlineAnchor,
+    HardLineBreak: makeHardLineBreak,
+    Passthrough: makePassthroughNode,
+  } satisfies Record<AtomicKind, AtomicFactory>),
+);
 
 /**
  * Dispatch an atomic (single-token) inline node through
