@@ -22,6 +22,14 @@
  * pin.
  */
 import { formatAdoc, renderedHtml } from "../helpers.js";
+import { readingBreachesOf } from "../lib/reading.js";
+import {
+  compareLedgerRows,
+  loadReadingLedger,
+  readingFamily,
+  UNCLASSIFIED,
+  type ReadingLedgerRow,
+} from "../lib/reading-ledger.js";
 import { FAILING_TODAY } from "./list-shape-allowlist.js";
 
 /** The ten symbols every generated body is spelled from. */
@@ -201,4 +209,61 @@ export async function sweepFailures(depth: number): Promise<string[]> {
     if (await sweepFails(source)) failing.push(source);
   }
   return failing.toSorted();
+}
+
+/**
+ * The reading ledger RESTRICTED to one depth's product - the same
+ * derivation {@link allowlistFor} makes over the render/idempotence
+ * allowlist, and for the same reason: one ledger serves both depths,
+ * so a document can never be ledgered at one and not the other.
+ *
+ * For the SHALLOW entry only. The deep entry compares against the
+ * whole file, because it sweeps the product the ledger was generated
+ * from: filtering there would let a row whose document the product no
+ * longer spells sit in the file forever, unreported at either depth.
+ * @param depth - the depth whose product the caller sweeps
+ * @returns the ledgered rows that product actually spells, in
+ *   canonical order
+ */
+export function readingLedgerFor(depth: number): ReadingLedgerRow[] {
+  const spelled = new Set(sweepDocuments(depth));
+  return loadReadingLedger()
+    .filter((row) => spelled.has(row.document))
+    .toSorted(compareLedgerRows);
+}
+
+/**
+ * Sweep one depth's product for REFLOW RE-CLASSIFICATION violations
+ * (issue #58) and report what it found.
+ *
+ * A PARALLEL gate to {@link sweepFailures}, deliberately not folded
+ * into `sweepFails`. The allowlist's families are render/idempotence
+ * mechanism claims; this ledger's are reading mechanisms, and the
+ * handful of documents that sit in both are there for two different
+ * reasons. Mixing the verdicts would blur what each entry asserts.
+ *
+ * It consults no oracle, which is what makes it affordable over the
+ * depth-5 product at all: the render sweep beside it is oracle-bound,
+ * this one is two parses and a format per document.
+ * @param depth - the depth to spell the product at
+ * @returns one row per violating (document, pass), in canonical order
+ */
+export async function readingFailures(
+  depth: number,
+): Promise<ReadingLedgerRow[]> {
+  const rows: ReadingLedgerRow[] = [];
+  for (const document_ of sweepDocuments(depth)) {
+    // Sequential on purpose, for {@link sweepFailures}'s reason.
+    // eslint-disable-next-line no-await-in-loop -- sequential on purpose
+    const breaches = await readingBreachesOf(document_);
+    for (const { pass, signature } of breaches) {
+      rows.push({
+        document: document_,
+        pass,
+        signature,
+        family: readingFamily(signature) ?? UNCLASSIFIED,
+      });
+    }
+  }
+  return rows.toSorted(compareLedgerRows);
 }

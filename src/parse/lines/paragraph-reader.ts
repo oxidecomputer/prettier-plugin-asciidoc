@@ -27,7 +27,12 @@ import {
   type ParagraphContext,
   type ReaderContext,
 } from "../line-shapes.js";
-import { classifyLine, isContinuationLine, type LineKind } from "./classify.js";
+import {
+  classifyLine,
+  classifyTrace,
+  isContinuationLine,
+  type LineKind,
+} from "./classify.js";
 import type { SourceLine } from "./split.js";
 
 /**
@@ -206,6 +211,7 @@ class Paragraph {
         openListStyle: this.scan.openListStyle,
         firstLineAfterStart: this.linesRead === 1,
       });
+      classifyTrace.observer?.(next.offset, kind);
       if (kind.kind !== "text" && kind.kind !== "raw") {
         if (!this.foldsThrough(next)) return;
         // A tagged `+` met mid-fold is run through as content on its
@@ -577,6 +583,7 @@ function verbatimRunExtent(
       break;
     }
     const kind = classifyLine(next.text, reader);
+    classifyTrace.observer?.(next.offset, kind);
     if (kind.kind !== "text" && kind.kind !== "raw") {
       break;
     }

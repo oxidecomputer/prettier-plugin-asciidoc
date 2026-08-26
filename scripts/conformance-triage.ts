@@ -3,7 +3,7 @@
 
 /**
  * Conformance triage runner (issue #7). Assesses every corpus case
- * against the three differential properties and reports failures
+ * against the four differential properties and reports failures
  * grouped by failure signature. With --write, regenerates the
  * quarantine manifest: existing issue tags survive for cases that
  * still fail; new failures are tagged UNTRIAGED for a human to map to

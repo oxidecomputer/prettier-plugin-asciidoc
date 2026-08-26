@@ -27,7 +27,12 @@ export interface QuarantineEntry {
 /** Repo-relative manifest path; the triage script writes this file. */
 export const QUARANTINE_PATH = "tests/conformance/quarantine.json";
 
-const PROPERTIES = new Set<string>(["crash", "idempotency", "fidelity"]);
+const PROPERTIES = new Set<string>([
+  "crash",
+  "idempotency",
+  "fidelity",
+  "reading",
+]);
 
 /**
  * Type guard for validating a QuarantineEntry. Checks that the value

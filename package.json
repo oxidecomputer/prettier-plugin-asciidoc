@@ -40,6 +40,7 @@
     "coverage": "bun scripts/score-minimums.ts --coverage",
     "metrics": "bun scripts/metrics.ts",
     "parity": "bun scripts/parity.ts",
+    "reading-ledger": "bun scripts/reading-ledger.ts",
     "shape-diff": "bun scripts/shape-diff.ts",
     "mutate": "bun run test:deeply-nested-lists && bun run build && stryker run && bun scripts/score-minimums.ts --mutation",
     "mutate:full": "bun run test:deeply-nested-lists && bun run build && stryker run --force && bun scripts/score-minimums.ts --mutation",

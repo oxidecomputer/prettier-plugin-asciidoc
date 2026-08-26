@@ -202,12 +202,29 @@ The default suite runs the same product at depth 4, and that depth is
 load-bearing: Stryker runs the default suite, so a shallower default would let
 sweep-killed mutants survive.
 
+Both entries carry a SECOND, parallel gate over the same product: the reflow
+re-classification invariant, against `tests/format/reading-ledger.json`. See
+[the reflow re-classification invariant](#the-reflow-re-classification-invariant).
+
 Proves: no list shape regressed, and no known-broken shape got quietly fixed
 without its allowlist entry (and issue) being retired.
 
+### `bun run reading-ledger` - the reading-violation inventory
+
+Sweeps the depth-5 list-shape product for reflow re-classification violations
+and reports them grouped by mechanism family; `--write` regenerates
+`tests/format/reading-ledger.json`, which both sweep entries gate against. Exit
+2 when the product spelled nothing, when a swept line left no verdict (the
+trace-fidelity self-check), or when a violation's signature matches no declared
+mechanism. There is no exit 1: the violating set is the report, and the ledger
+is the gate over it.
+
+Proves nothing by itself, exactly as `triage` does not; it writes the file the
+two sweep entries hold the tree to.
+
 ### `bun run triage` — the conformance sweep
 
-Assesses every corpus case against the three differential properties and groups
+Assesses every corpus case against the four differential properties and groups
 the failures by signature. `--write` regenerates
 `tests/conformance/quarantine.json`: still-failing cases keep their issue tag,
 new failures are tagged `UNTRIAGED`, and cases that now pass are dropped — which
@@ -232,6 +249,204 @@ what the commands share: the exit-code contract and the one
 `git archive | tar -x` into a temp directory, never `git worktree`, because this
 repository is jj-managed with concurrent sessions and a worktree mutates `.git`.
 
+## The reflow re-classification invariant
+
+Issue #58. Formatting may move where a line breaks; it may never move what a
+line IS. The net that says so needs no oracle at all, which is what makes it
+affordable over 111,121 documents.
+
+### The invariant
+
+A document's READING is the sequence of verdicts the production classifier hands
+the reader while `parse` runs, projected to tokens that legitimate reflow cannot
+change. For every document the suite formats:
+
+```
+readingOf(format(d))   == readingOf(d)
+readingOf(format^2(d)) == readingOf(format(d))    when format^2(d) != format(d)
+```
+
+token-for-token sequence equality. The second clause is what catches corruption
+that only appears on the second pass, and it is free: every consumer already
+formats twice for its idempotence check. It is skipped when the second pass
+changed no bytes, because byte-equal implies reading-equal.
+
+The oracle is OUR OWN reader, traced rather than re-derived. `classifyLine`
+reports every verdict it hands back through a module-level hook
+(`setClassifyObserver`, `src/parse/lines/classify.ts`) that the reader calls
+from its three classification sites; outside a harness the hook is undefined and
+each site is one undefined check. A test-owned context tracker was rejected: it
+would be a second reader dialect that drifts, and the point is to assert against
+the reader's own reading.
+
+Sequence equality rather than per-line provenance, because the printer does not
+track which source line an output line came from and plumbing that through
+reflow would be a behaviour-adjacent change. Any join or split that manufactures
+a structural reading, destroys one, or re-kinds one moves the sequence; joins
+and splits inside prose do not. Not an AST comparison either: that needs its own
+normalization and converges on "semantic AST equality", which is render-equality
+without the oracle's authority, and it points at a subtree rather than a line.
+The AST-level net (`tests/parser/ast-invariants.ts`) stays orthogonal - it
+constrains one parse's output, this constrains the relation between two parses.
+
+### The projection rules
+
+`tests/lib/reading.ts` implements them, and each one names the format test that
+declares its transform deliberate. A rule with no such licence would be a hazard
+the net has been told to ignore.
+
+| rule                                                                       | licensed by                                                              |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| blank lines emit no token and end every fold                               | see "what it does not catch" below                                       |
+| consecutive `text` tokens collapse to one                                  | `tests/format/reflow.test.ts`                                            |
+| consecutive `indented` tokens collapse to one, within one block            | `tests/format/literal-paragraph.test.ts`                                 |
+| a `text` run after a marker, dlist or admonition token is absorbed into it | `tests/format/unordered-list.test.ts`, `tests/format/admonition.test.ts` |
+| `raw:comment` is transparent to a fold                                     | `tests/format/comment.test.ts`                                           |
+| an attribute entry lowercases its name                                     | `tests/format/attribute-entry.test.ts`                                   |
+| a raw anchor folds onto the metadata anchor token                          | `tests/format/anchor-spelling.test.ts`                                   |
+| `delim:fencedCode` canonicalizes to `attrline delim:listing`               | `tests/format/fenced-code.test.ts`                                       |
+
+Both collapse rules are gated on the FOLD MODE rather than on the trailing
+token, and a blank line resets the mode. That is what keeps them block-scoped:
+two literal paragraphs with a blank between them are two blocks and read as two
+tokens, so deleting one of them moves the sequence.
+
+The fence's `attrline` is the fence's OWN and is emitted unconditionally. The
+printer emits a `[source,...]` line whatever precedes the fence, so a `[role]`
+above one is a second attrline on both sides; a projection that deduped by
+position instead reported that entirely ordinary document as a violation.
+
+Three shapes deliberately do NOT fold. A list marker projects its variant AND
+its style, because the style is what tells `*` from `**` - that is, what tells
+an item from the nested item under it, and a flatten is exactly the corruption
+class the sweep alphabet spells `* a` and `** b` to catch (issue #42). Nothing
+is licensed away there: marker spellings are data the printer replays byte for
+byte (`tests/format/marker-spelling.test.ts`). `textv` (the verbatim-flagged
+foreign marker line) stays its own token, because its COLUMN decides what the
+next `+` means and its disappearance must move the sequence. And a line the
+reader consumed without classifying stays invisible, except that a marker-shaped
+one synthesizes its token so the absorption rule can see the absorber; inside a
+verbatim interior the same synthesis happens on both sides and cancels.
+
+`tests/lib/reading.test.ts` pins every rule, plus the known-issue table in both
+directions: the clean spelling reads the way it should, and the corrupted
+spelling produces the signature the net is supposed to report.
+
+### Where it is gated
+
+Three consumers, three pinning mechanisms:
+
+- **the conformance corpus** - `reading` is the fourth `ConformanceProperty`
+  (`tests/conformance/properties.ts`), so a violation lands in
+  `tests/conformance/quarantine.json` beside its case's other failures and gets
+  the manifest's exact-agreement treatment in both directions. Its detail names
+  the pass, the LINE the two readings part company on and the tokens that
+  moved - `p1 line 412 [cont] -> []` - because a signature alone is enough to
+  read a six-line sweep document and not enough to find the spot in a corpus
+  document of several hundred lines. The line stays out of the ledger's
+  `signature`, so ledger rows stay stable;
+- **both list-shape sweeps** - a parallel gate against
+  `tests/format/reading-ledger.json`: the deep entry against the WHOLE file, the
+  depth-4 entry against the rows its shallower product spells (the
+  `allowlistFor` derivation, so one ledger serves both depths). The deep entry
+  does not filter, for the reason the deep allowlist gate does not: it sweeps
+  the product the ledger was generated from, so a row whose document the product
+  no longer spells fails there rather than sitting in the file unreported at
+  both depths;
+- **the named rows** - `tests/format/reading-invariant.test.ts` holds the shapes
+  no corpus case and no sweep alphabet spells, including the ones that do NOT
+  reproduce today (issues #27 and #46 shape 1), asserted clean with their issue
+  numbers in the test names, plus a loop over `tests/format/fixtures`.
+
+The sweep gate stays PARALLEL and is deliberately not folded into `sweepFails`.
+The allowlist's families are render/idempotence mechanism claims and the
+ledger's are reading mechanisms; the handful of documents in both are there for
+two different reasons, and mixing the verdicts would blur what each entry
+asserts.
+
+### The ledger workflow
+
+`tests/format/reading-ledger.json` is generated, checked in, and shrinks. Each
+row is `{ document, pass, signature, family }`, sorted by document, and the
+family is a mechanism with an issue behind it, not "known to fail":
+
+| family               | mechanism                                                                  | issue |
+| -------------------- | -------------------------------------------------------------------------- | ----- |
+| lone-plus-join       | a lone `+` is joined into the prose beside it, dissolving the continuation | #43   |
+| tail-reading-flip    | a prose join flips the reading of the line after it                        | #65   |
+| admonition-colon-run | an admonition label split re-reads as a description-list delimiter         | #45   |
+
+The enumeration lives in `tests/lib/reading-ledger.ts`, and the loader
+cross-checks both directions: a family the enum does not declare fails, and so
+does a row whose signature classifies as a different mechanism than it claims. A
+signature matching none of them cannot be written at all - the generator exits 2
+and asks for the family to be named and its issue filed.
+
+Each test asks for the MECHANISM, not for its arithmetic. `lone-plus-join` needs
+a lost `cont` and nothing on the losing side but the prose the `+` was joined
+into; a `cont` lost beside an admonition, a marker or a delimiter got there by
+some other path, and it falls through to another family or to UNCLASSIFIED
+rather than inflating #43's row count with rows #43's fix will not remove.
+
+The measured breakdown, as of the ledger checked in beside this file: 716 rows
+over the depth-5 product - 710 lone-plus-join, all `[cont] -> []`, and 6
+tail-reading-flip, three `[indented] -> [text]` and three `[title] -> [text]` -
+of which the depth-4 product spells 25, all lone-plus-join. All but a handful
+are render-EQUAL and idempotent today, so the sweep beside them passes every
+one: that is the population issue #58 was filed to enumerate, and no other gate
+can see it. The numbers live here rather than in the two sweep files, so they go
+stale in one place.
+
+To refresh after a fix: `bun run reading-ledger --write`, then say in the commit
+which family shrank and why. Expect large generated diffs tied to one-line
+mechanism claims; the lone-plus-join fix deletes 710 rows at once, and that is
+the progress metric.
+
+A TRACE-FIDELITY self-check rides along, in the generator, in the fixture loop
+and over the whole conformance corpus
+(`tests/format/reading-invariant.test.ts`). Last-wins-per-offset assumes every
+line the reader acts on leaves a verdict, and silent under-tracing would make
+the net quietly weaker rather than red. It runs under a stated bound: a
+delimited interior and a literal body are legitimately unclassified, and telling
+them apart from an under-traced line needs a second reader dialect this module
+refuses to grow, so documents containing either report nothing. Everywhere else,
+every non-blank line must carry a verdict, be marker-shaped, or be a lone `+`
+(the two shapes the list extent scan takes directly). Zero exceptions across the
+corpus and both sweep products, and the corpus half is now a gate rather than a
+claim: it was pointed only at the sweep products, whose alphabet spells no
+byte-order mark, and the one corpus document that opens with one had its whole
+first line falling through to `opaque` - an empty reading on both sides, passing
+vacuously, in exactly the shape this check exists to notice.
+
+### What it does not catch
+
+Measured, not assumed.
+
+- **Divergence visible only to Asciidoctor's reading (#57).** The net is closed
+  under our own parse, so a join that is legitimate reflow to us and a fold
+  change to the oracle is invisible here. #57's five instances stay pinned by
+  the deep sweep's render-equality allowlist. The consolation is concrete: at
+  depth 5 the net catches six sibling instances of the same thesis that
+  render-equality misses (family tail-reading-flip, issue #65).
+- **Intra-line changes (#32).** Whitespace collapsed inside a code span never
+  changes any line's classification. Out of scope by construction; #32 keeps its
+  render-equality coverage.
+- **Blank-line placement (#54, #46 shape 2).** Blank runs emit no token, so
+  blank insertion and collapse are invisible. That is deliberate - see the
+  rejected variant below.
+
+### Rejected: the gap-sensitive variant
+
+A projection that emitted a `gap` token for each blank run was built and
+measured. It pulls #54 and #46 shape 2 into the net, and it floods: 308 corpus
+and 645 depth-4 sweep diffs, dominated by families like `[] -> [gap]`,
+`[gap] -> []` and `[delim:example gap] -> [gap delim:example]`, every one of
+them deliberate gap normalization. A net whose report is mostly its own
+formatting policy is a net nobody reads, so blank placement stays with the
+harnesses that own it: #54 is already pinned by the sweep allowlist
+(render-divergent, tokens identical - measured), and #46 shape 2 is an
+idempotence wobble that needs the dedicated regression test its issue calls for.
+
 ## CI
 
 `.github/workflows/ci.yml`, two jobs, split by question rather than by command.
@@ -239,7 +454,9 @@ repository is jj-managed with concurrent sessions and a worktree mutates `.git`.
 **`gates`** — blocking, needs no other revision: `check`, `lint`, `fmt:check`,
 `build`, `coverage` (the suite runs under it), `metrics`,
 `test:deeply-nested-lists`. Every step carries `if: ${{ !cancelled() }}`, so one
-failing gate never hides the others.
+failing gate never hides the others. The reflow re-classification invariant
+needs no step of its own: its three gates ride the suite and the deep sweep that
+are already there, and `reading-ledger` is a generator, not a gate.
 
 **`differential`** — needs a base, and is `continue-on-error` for its first
 iteration; flipping it to blocking is a one-line change once it has proved

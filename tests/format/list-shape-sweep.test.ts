@@ -25,6 +25,8 @@
 import { describe, expect, test } from "vitest";
 import {
   allowlistFor,
+  readingFailures,
+  readingLedgerFor,
   SHALLOW_DEPTH,
   sweepFailures,
 } from "./list-shape-sweep.js";
@@ -33,5 +35,22 @@ describe("list-shape sweep (depth 4)", () => {
   test("the render-equality/idempotence failing set is exactly the allowlist", async () => {
     const failing = await sweepFailures(SHALLOW_DEPTH);
     expect(failing).toEqual(allowlistFor(SHALLOW_DEPTH).toSorted());
+  }, 300_000);
+});
+
+// The REFLOW RE-CLASSIFICATION gate (issue #58), over the same
+// product. A PARALLEL gate rather than another arm of `sweepFails`:
+// the allowlist above states render/idempotence mechanism claims and
+// this ledger states reading mechanisms, and the documents that sit in
+// both are there for two different reasons. It consults no oracle, so
+// it costs a fraction of the sweep beside it.
+//
+// The ledger is DERIVED to this depth from the depth-5 file, the same
+// way `allowlistFor` derives: a document cannot be ledgered here
+// without being ledgered in the deep sweep first.
+describe("reading invariant sweep (depth 4)", () => {
+  test("the reading-violation set is exactly the ledger", async () => {
+    const failing = await readingFailures(SHALLOW_DEPTH);
+    expect(failing).toEqual(readingLedgerFor(SHALLOW_DEPTH));
   }, 300_000);
 });

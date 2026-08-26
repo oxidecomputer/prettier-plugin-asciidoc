@@ -20,9 +20,23 @@ describe("assessCase", () => {
     const result = await assessCase("= Title\n");
     // Whatever the outcome, ordering must be a subsequence of the
     // canonical order so quarantine set-comparison is deterministic.
-    const order = ["crash", "idempotency", "fidelity"];
+    const order = ["crash", "idempotency", "fidelity", "reading"];
     const indexes = result.failures.map((f) => order.indexOf(f));
     expect([...indexes].toSorted((a, b) => a - b)).toEqual(indexes);
+  });
+
+  // The reading detail names WHERE as well as what: a signature alone
+  // is enough for a six-line case and not enough for a corpus
+  // document of several hundred lines. This one document is a live
+  // gap (#43) rather than a shape, deliberately - the same pair is
+  // pinned in tests/format/reading-invariant.test.ts, so the day the
+  // gap closes both rows move together.
+  test("a reading failure is reported with its line", async () => {
+    const result = await assessCase("+\nterm2:: def2\n");
+    expect(result.failures).toContain("reading");
+    expect(result.detail).toContain(
+      "re-reads differently: p1 line 1 [cont text] -> [dlist:::]",
+    );
   });
 });
 

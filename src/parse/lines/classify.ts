@@ -538,6 +538,52 @@ function classifyInParagraph(
 }
 
 /**
+ * What a trace hook is handed: the source offset of the line the
+ * reader just classified, and the verdict it acted on. Not exported:
+ * the two spellings a caller needs are the hook variable's own type
+ * and {@link setClassifyObserver}'s parameter, and both are named
+ * here.
+ */
+type ClassifyObserver = (offset: number, kind: LineKind) => void;
+
+/**
+ * The one slot a trace hook goes in. `observer` is undefined
+ * everywhere except inside a verification harness that installed one.
+ *
+ * The reader reports every verdict it acts on through this slot, from
+ * its three classification sites: `BlockReader#run`
+ * (lines/reader.ts), and the paragraph scan and `verbatimRunExtent`
+ * (lines/paragraph-reader.ts). With no hook installed each site is one
+ * undefined check, so the classifier's behaviour and cost are
+ * unchanged.
+ *
+ * A one-field object rather than an exported `let`: the lint rules
+ * want every binding initialized on declaration AND refuse an
+ * `= undefined` initializer at module scope, and a slot is what this
+ * is anyway.
+ */
+export const classifyTrace: { observer: ClassifyObserver | undefined } = {
+  observer: undefined,
+};
+
+/**
+ * Install a trace hook, or clear it by passing undefined.
+ *
+ * Verification only: the reflow re-classification invariant
+ * (tests/lib/reading.ts) installs a hook around one parse, collects
+ * the verdict per source offset and clears it again. Nothing in `src`
+ * calls this, and nothing in `src` may: a reader that consulted its
+ * own trace would be deriving context instead of being told it.
+ * @internal
+ * @param observer - the hook to call per verdict, or undefined to clear
+ */
+export function setClassifyObserver(
+  observer: ClassifyObserver | undefined,
+): void {
+  classifyTrace.observer = observer;
+}
+
+/**
  * Classify one line. See the module comment for the order and its Ruby.
  * @param rawLine - the source line without its newline; rstripped here,
  *   the way `Helpers.prepare_source_string` rstrips every line before

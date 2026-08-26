@@ -139,8 +139,8 @@ export function buildLiteralParagraph(
  * end (no trailing newline), so the bytes are the author's. The
  * extent's non-emptiness lives in the SIGNATURE — the first line is
  * its own parameter — so no `lines.at(-1) ?? first` interior-
- * validation site appears here (the registry may not grow, review
- * M1); `rest.at(-1) ?? first` below is a TOTAL answer, since `rest`
+ * validation site appears here (the registry may not grow);
+ * `rest.at(-1) ?? first` below is a TOTAL answer, since `rest`
  * really is empty for a one-line block.
  * @param variant - the style's target variant (verbatimStyledVariant)
  * @param first - the extent's first line

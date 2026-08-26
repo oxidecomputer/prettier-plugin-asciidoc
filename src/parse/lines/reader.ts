@@ -46,6 +46,7 @@ import type { ParagraphContext, ReaderContext } from "../line-shapes.js";
 import { makeLocationIndex, type LocationIndex } from "../positions.js";
 import {
   classifyLine,
+  classifyTrace,
   type DelimiterKind,
   type LineKind,
   type MarkerKind,
@@ -458,6 +459,7 @@ class BlockReader {
         break;
       }
       const kind = classifyLine(line.text, this.context);
+      classifyTrace.observer?.(line.offset, kind);
       if (kind.kind === "blank") {
         this.blanks += 1;
         this.index += 1;
