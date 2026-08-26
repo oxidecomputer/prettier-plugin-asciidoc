@@ -38,12 +38,22 @@ import {
 } from "./blocks.js";
 import { printList, printListItem } from "./list.js";
 import { anchorToSource } from "./serialize-inline.js";
+import { getVisitorKeys } from "./visitor-keys.js";
 
 const {
   builders: { hardline },
 } = doc;
 
 const printer: Printer<AnyNode> = {
+  // Printing asks for the children it wants by name; the walk Prettier
+  // makes over our AST on its own is generic and reads this table
+  // instead. Cursor tracking is the live reader today, and without the
+  // table it descends into `position` and calls locStart on an object
+  // that has none. Range formatting never reaches the table at all,
+  // for reasons that are Prettier's rather than ours.
+  // See src/print/visitor-keys.ts.
+  getVisitorKeys,
+
   print(path, options, print): Doc {
     const { node } = path;
 

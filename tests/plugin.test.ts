@@ -2,13 +2,14 @@
  * The plugin's registration surface — the half of the package Prettier
  * reads before any AsciiDoc is parsed.
  *
- * Three things live here and nowhere else in the suite. The
+ * Four things live here and nowhere else in the suite. The
  * SupportLanguage descriptor (src/language.ts) is what tells Prettier
  * which files this plugin claims and which parser name they bind to;
  * the assembled Plugin object (src/index.ts) is what wires that parser
- * name to a parser and that parser's astFormat to a printer; and
+ * name to a parser and that parser's astFormat to a printer;
  * locStart/locEnd (src/parser.ts) are the offset accessors Prettier
- * calls for cursor tracking and range formatting.
+ * calls for cursor tracking and range formatting; and the last describe
+ * exercises all THREE of Prettier's entry points, not just `format`.
  *
  * None of it is a tautology. The extensions claimed and the names
  * bound ARE the contract with Prettier: a typo in any of them is a
@@ -16,8 +17,12 @@
  * see it because they pass `parser: "asciidoc"` explicitly.
  * tests/format/identity.test.ts loads the built plugin from dist/ but
  * only formats through it, so it never reads the descriptor either.
+ * The rest of the suite goes through `format` alone, which is how
+ * `formatWithCursor` could throw on every document for as long as it
+ * did (issue #37).
  */
 import { describe, expect, test } from "vitest";
+import { format, formatWithCursor } from "prettier";
 import plugin, { locStart, locEnd } from "../src/index.js";
 import { parse } from "../src/parser.js";
 
@@ -113,5 +118,148 @@ describe("locStart and locEnd", () => {
     const parser = plugin.parsers?.asciidoc;
     expect(parser?.locStart(document)).toBe(locStart(document));
     expect(parser?.locEnd(document)).toBe(locEnd(document));
+  });
+});
+
+/**
+ * The three ways Prettier can be asked to format, exercised against
+ * one document. `format` is what the rest of the suite uses;
+ * `formatWithCursor` and the range options each take a code path of
+ * their own inside Prettier, and both walk the AST GENERICALLY rather
+ * than through the printer: the walk src/print/visitor-keys.ts
+ * exists to steer.
+ */
+describe("Prettier's entry points", () => {
+  // One document per thing that can hold a cursor: a heading leaf, a
+  // paragraph with a collapsible whitespace run, a list, a nested
+  // list, and a block attached to an item behind a `+`. The runs are
+  // deliberate: a document the formatter would not change cannot
+  // tell a correct cursor translation from a cursor left where it was.
+  const source = [
+    "= Title",
+    "",
+    "Some    paragraph text here.",
+    "",
+    "* one",
+    "** deep    inner",
+    "+",
+    "attached    para",
+    "* two",
+    "",
+  ].join("\n");
+  const expected = [
+    "= Title",
+    "",
+    "Some paragraph text here.",
+    "",
+    "* one",
+    "** deep inner",
+    "+",
+    "attached para",
+    "* two",
+    "",
+  ].join("\n");
+  const options = { parser: "asciidoc", plugins: [plugin] };
+
+  test("format collapses the whitespace runs", async () => {
+    expect(await format(source, options)).toBe(expected);
+  });
+
+  test("formatWithCursor produces the same text as format", async () => {
+    const result = await formatWithCursor(source, {
+      ...options,
+      cursorOffset: 0,
+    });
+    expect(result.formatted).toBe(expected);
+  });
+
+  // The regression this file's fourth entry exists for. Before
+  // src/print/visitor-keys.ts, Prettier's cursor walk read every
+  // enumerable property of every node and called locStart on
+  // `position` itself, which has no `position` of its own, so it threw
+  // `undefined is not an object` dereferencing `undefined.start`. Any
+  // offset reproduced it; every offset is checked so the row cannot
+  // pass by landing on the one node the walk stopped short of.
+  //
+  // `0 <= cursorOffset <= formatted.length` holds for THIS document,
+  // not universally, so do not read the row as an invariant if the
+  // document is ever swapped. Two upstream-owned shapes legitimately
+  // return -1: a whitespace-only document, where coreFormat returns
+  // `{formatted: "", cursorOffset: -1}` without parsing at all, and
+  // offset 0 of a document with a byte-order mark, where
+  // normalizeInputAndOptions strips the mark and decrements the cursor
+  // past 0 and nothing re-tracks it. Neither is anything this plugin
+  // causes or can fix.
+  test("formatWithCursor tracks a cursor at every offset", async () => {
+    const offsets = Array.from(
+      { length: source.length },
+      (_gap, index) => index,
+    );
+    const results = await Promise.all(
+      offsets.map(
+        async (cursorOffset) =>
+          await formatWithCursor(source, { ...options, cursorOffset }),
+      ),
+    );
+    const outOfRange = results.filter(
+      (result) =>
+        result.cursorOffset < 0 ||
+        result.cursorOffset > result.formatted.length,
+    );
+    expect(outOfRange).toEqual([]);
+  });
+
+  // Translation fidelity, as far as it is well defined: an offset
+  // sitting ON a word character comes back sitting on THAT character.
+  // Offsets inside a collapsed whitespace run have no such answer --
+  // the run they pointed into is gone -- so they are only held to
+  // being in range, above.
+  test("a cursor on a word character stays on that character", async () => {
+    const wordOffsets = Array.from(
+      { length: source.length },
+      (_gap, index) => index,
+    ).filter((index) => /\w/v.test(source.charAt(index)));
+    const landed = await Promise.all(
+      wordOffsets.map(async (cursorOffset) => {
+        const result = await formatWithCursor(source, {
+          ...options,
+          cursorOffset,
+        });
+        return result.formatted[result.cursorOffset];
+      }),
+    );
+    expect(landed).toEqual(wordOffsets.map((offset) => source[offset]));
+  });
+
+  test("a range covering the whole document formats the whole document", async () => {
+    expect(
+      await format(source, {
+        ...options,
+        rangeStart: 0,
+        rangeEnd: source.length,
+      }),
+    ).toBe(expected);
+  });
+
+  // A SUB-range returns the document untouched, and that is Prettier's
+  // own limit rather than something this plugin can lift. `calculateRange`
+  // narrows a range by finding the outermost node at each end that
+  // `isSourceElement` accepts, and `isSourceElement` is a switch over
+  // Prettier's OWN parser names with `return false` as its default --
+  // there is no plugin hook. Every third-party parser therefore gets
+  // `undefined` back, which `formatRange` reads as the empty range
+  // `[0, 0]`, so it formats the empty string and splices it into
+  // nothing. What this row holds is that the path stays TOTAL: with the
+  // visitor keys declared it walks children instead of position points,
+  // and it returns rather than throwing.
+  test("a sub-range returns the source unchanged, and does not throw", async () => {
+    const middle = source.indexOf("Some");
+    expect(
+      await format(source, {
+        ...options,
+        rangeStart: middle,
+        rangeEnd: middle + "Some    paragraph text here.".length,
+      }),
+    ).toBe(source);
   });
 });

@@ -14,15 +14,17 @@ A Prettier plugin registers three things, all wired up in `src/index.ts`:
 - **a parser** — `parse(text)` returning a tree, plus `locStart(node)` and
   `locEnd(node)` returning character offsets from the start of the file;
 - **a printer** — `print(path)` walking that tree and returning Prettier's Doc
-  IR, which Prettier's layout engine renders to text.
+  IR, which Prettier's layout engine renders to text, plus
+  `getVisitorKeys(node)` naming the properties that hold children.
 
-Prettier is agnostic about the tree. It never inspects node types or structure;
-it calls `parse`, uses the offsets for range formatting and cursor tracking, and
-hands the tree to the printer. So the AST's only obligations are the ones our
-own printer and offset helpers have — which is why it is designed for a
-formatter, not for the AsciiDoc language spec's semantic model.
+Prettier is agnostic about the tree's vocabulary: it knows no AsciiDoc node
+type. It calls `parse`, hands the tree to the printer, and for cursor tracking
+walks the tree itself, following `getVisitorKeys` and reading the offsets at
+each step. So the AST's only obligations are the ones our own printer, offset
+helpers and key table have — which is why it is designed for a formatter, not
+for the AsciiDoc language spec's semantic model.
 
-Those three calls still impose real requirements:
+Those calls still impose real requirements:
 
 1. **Character offsets on every node.** Line numbers are not enough: Prettier's
    `--range` and cursor tracking read offsets directly.
@@ -33,6 +35,15 @@ Those three calls still impose real requirements:
    keep.
 3. **Inline nodes with positions.** Bold, italic, links, and macros must be
    individually addressable nodes, each with offsets.
+4. **A declared key table.** `src/print/visitor-keys.ts` names, per node kind,
+   the properties Prettier's own walk may follow. Undeclared, the walk descends
+   into every enumerable property, and `position` is the first one it meets:
+   Prettier calls `locStart` on the `{start, end}` object itself, reads that
+   object's own `position` as `undefined`, and throws dereferencing
+   `undefined.start` -- it never gets as far as the `{offset, line, column}`
+   points inside. That is `formatWithCursor` throwing on every document (issue
+   #37). The table is derived from the AST types at compile time and
+   cross-checked against real parse trees in `tests/print/visitor-keys.test.ts`.
 
 ### Why not Asciidoctor.js
 
