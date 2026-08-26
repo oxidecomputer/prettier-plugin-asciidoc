@@ -157,17 +157,17 @@ export function makeInlineAnchor(
       position: positionOf(fragment, at),
     };
   }
-  // The post-comma spelling is captured VERBATIM: the printer prints
-  // it back byte-for-byte when the id fails the block-anchor grammar
-  // (anchorToSource, serialize-inline.ts). EMPTINESS is still judged
-  // on the trimmed view, so an empty-or-whitespace reftext narrows to
-  // undefined exactly as before and `[[id, ]]` keeps printing
-  // `[[id]]` (pinned by tests/format/anchor-spelling.test.ts).
-  const reftext = inner.slice(commaIndex + 1);
+  // The post-comma spelling is captured VERBATIM, whitespace-only
+  // included: `[[id, ]]` and `[[id]]` are different author bytes, and
+  // narrowing the first to the second is a respell the printer cannot
+  // undo (issue #53). The printer decides the spelling from the whole
+  // pair - a valid id takes the normalized `[[id, trimmed]]`, a
+  // grammar-rejected one replays these bytes verbatim (anchorToSource,
+  // serialize-inline.ts; pinned by tests/format/anchor-spelling.test.ts).
   return {
     type: "inlineAnchor",
     id: inner.slice(0, commaIndex),
-    reftext: reftext.trimStart().length > 0 ? reftext : undefined,
+    reftext: inner.slice(commaIndex + 1),
     position: positionOf(fragment, at),
   };
 }

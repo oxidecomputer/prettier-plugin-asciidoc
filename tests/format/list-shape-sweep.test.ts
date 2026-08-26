@@ -17,8 +17,8 @@
  * See {@link SHALLOW_DEPTH}.
  *
  * The allowlist is DERIVED, not copied: `allowlistFor(4)` is the deep
- * sweep\'s 158-entry allowlist filtered to the documents this shallower
- * product spells — 4 of them today. A shape can never be allowlisted
+ * sweep\'s 59-entry allowlist filtered to the documents this shallower
+ * product spells — 1 of them today. A shape can never be allowlisted
  * here without being allowlisted in the deep sweep first, and a new
  * failure at any depth ≤ 4 fails `bun run test`.
  */

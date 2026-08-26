@@ -347,37 +347,48 @@ describe("inline formatting — stray/unmatched marks", () => {
 
 describe("inline formatting — interleaved marks", () => {
   test("*_foo*_ — misnested bold/italic", () => {
-    // The bold pair closes around `_foo`, and the trailing
-    // `_` becomes plain text (no matching open mark).
+    // The `*` before `_` cannot close (Ruby's right lookahead
+    // `(?!\p{Word})`, and `_` is a word character), so the bold
+    // never pairs and its mark is text; the italic pair spans
+    // `foo*`. The oracle renders `*<em>foo*</em>`.
     const nodes = inlineNodes("*_foo*_\n");
     expect(nodes).toHaveLength(2);
-    const [node0] = nodes;
-    narrow(node0, "bold");
-    expect(node0.children).toHaveLength(1);
+    const [node0, node1] = nodes;
+    narrow(node0, "text");
+    expect(node0.value).toBe("*");
+    narrow(node1, "italic");
+    expect(node1.children).toHaveLength(1);
     const {
-      children: [boldInner],
-    } = node0;
-    narrow(boldInner, "text");
-    expect(boldInner.value).toBe("_foo");
-    expect(nodes[1].type).toBe("text");
+      children: [italicInner],
+    } = node1;
+    narrow(italicInner, "text");
+    expect(italicInner.value).toBe("foo*");
   });
 });
 
 describe("inline formatting — adjacent spans", () => {
   test("*bold*_italic_ — consecutive constrained marks", () => {
-    // Adjacent constrained marks with no space between the
-    // closing and opening marks. Mark characters are word
-    // boundaries for each other, so *bold*_italic_ parses
-    // as two separate formatting spans.
+    // The closing `*` stands directly before `_`, a word character,
+    // so Ruby's right lookahead rejects it and the bold never forms:
+    // the oracle renders `*bold*<em>italic</em>`, marks and all. The
+    // italic's own opener is fine — `*` is not in its excluded-left
+    // class.
     const nodes = inlineNodes("*bold*_italic_\n");
     expect(nodes).toHaveLength(2);
-    expect(nodes[0].type).toBe("bold");
-    expect(nodes[1].type).toBe("italic");
+    const [node0, node1] = nodes;
+    narrow(node0, "text");
+    expect(node0.value).toBe("*bold*");
+    expect(node1.type).toBe("italic");
   });
 });
 
 describe("inline formatting — deep nesting", () => {
-  test("*_`code`_* — three levels", () => {
+  test("*_`code`_* — two spans and a literal backtick pair", () => {
+    // Bold and italic nest, but the backticks stand against word
+    // characters on their boundary sides — the opener has `_` (a
+    // word character to Ruby) in front, the closer has `_` behind —
+    // so neither can open or close and the oracle renders
+    // `<strong><em>`code`</em></strong>`, backticks literal.
     const nodes = inlineNodes("*_`code`_*\n");
     expect(nodes).toHaveLength(1);
     const [node0] = nodes;
@@ -389,15 +400,10 @@ describe("inline formatting — deep nesting", () => {
     narrow(italicNode, "italic");
     expect(italicNode.children).toHaveLength(1);
     const {
-      children: [monoNode],
-    } = italicNode;
-    narrow(monoNode, "monospace");
-    expect(monoNode.children).toHaveLength(1);
-    const {
       children: [textNode],
-    } = monoNode;
+    } = italicNode;
     narrow(textNode, "text");
-    expect(textNode.value).toBe("code");
+    expect(textNode.value).toBe("`code`");
   });
 });
 

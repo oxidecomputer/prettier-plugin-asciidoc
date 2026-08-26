@@ -343,13 +343,15 @@ describe("the reader's annotation record", () => {
 
 describe("anchorLineShape: the printed-line record", () => {
   // One row per anchor spelling: what the PRINTED line re-reads as.
-  // `[[id,]]` prints `[[id]]` — an anchor on re-read;
-  // `[[3-bad,Ref]]` prints byte-faithfully under the serializer's
-  // verbatim arm and stays a text line.
+  // `[[id,]]` prints VERBATIM since #53's faithful replay (an empty
+  // reftext fails the grammar's own spelling) and stays a text line;
+  // `[[id, ]]` prints `[[id, ]]`, which the grammar accepts - an
+  // anchor on re-read. `[[3-bad,Ref]]` prints byte-faithfully under
+  // the serializer's verbatim arm and stays a text line.
   test.each([
     ["[[anc]]", "anchor"],
     ["[[anc,Ref]]", "anchor"],
-    ["[[id,]]", "anchor"],
+    ["[[id,]]", "lookalike"],
     ["[[id, ]]", "anchor"],
     ["[[3-bad]]", "lookalike"],
     ["[[illegal$id]]", "lookalike"],

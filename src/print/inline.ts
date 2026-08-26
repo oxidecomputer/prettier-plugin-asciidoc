@@ -31,6 +31,10 @@ import type {
   HighlightNode,
 } from "../ast.js";
 import {
+  MARK_BOUNDARY,
+  afterSpecialchars,
+} from "../parse/inline/quote-boundaries.js";
+import {
   inlineMacroToSource,
   linkToSource,
   xrefToSource,
@@ -139,6 +143,17 @@ interface Cursor {
    * mark follows the content in the output.
    */
   readonly insideSpan: boolean;
+  /**
+   * Whether the block's FIRST atom opens its output line at column 0.
+   * True for a paragraph, whose first line is its own; false where a
+   * prefix the printer writes holds the column - a list item's marker,
+   * an admonition's `NOTE: ` label. The block-start hazard net reads
+   * it on both paths ({@link hazardAtBlockStart} for a span's
+   * composed atom, {@link keepBlockStartBreak} for the finished
+   * list): only an atom that actually lands at column 0 can be
+   * re-read as block syntax there.
+   */
+  readonly blockAtColumnZero: boolean;
 }
 
 /**
@@ -330,7 +345,7 @@ function appendText(
 ): Boundary {
   const words = splitWords(node.value);
   // All-whitespace text nodes (e.g. " " between adjacent formatting
-  // marks, or " " as sole content of a formatting span like `_# #_`).
+  // marks, or " " as sole content of a formatting span like `** **`).
   // They contribute no atom, only the break opportunity their
   // whitespace stands for — dropping that would fuse adjacent siblings
   // or collapse content whitespace inside formatting marks.
@@ -437,93 +452,26 @@ function constrainedIsLegal(
   content: { flush: boolean; texts: readonly string[] },
 ): boolean {
   if (cursor.insideSpan || !content.flush) return false;
+  // A raw line among the children answers no: the oracle deletes a
+  // kept comment line before the quote pass runs, so the characters
+  // beside the marks in the RENDERED text are not the ones this
+  // function can see - `**\n// c\nb** c` respelled constrained
+  // renders literal (the content's real head after deletion is the
+  // newline, which `(\S|\S.*?\S)` refuses).
+  if (node.children.some((child) => child.type === "rawLine")) return false;
+  // Content ENDING in a hard line break answers no for the same
+  // reason: the closing mark detaches onto its own line (appendSpan)
+  // so the ` +` keeps the line end that makes it a break, and a
+  // SINGLE mark alone at column 0 with text behind it is a list
+  // marker - `a **b +\n** c` respelled constrained would write
+  // `* c`. The doubled mark is no marker.
+  if (content.texts.at(-1) === HARD_BREAK_IMAGE) return false;
   const mark = SPAN_MARKS[node.type];
   if (content.texts.some((text) => text.includes(mark))) return false;
   const others = cursor.siblings.filter((_, index) => index !== cursor.index);
   if (others.some((sibling) => carriesMark(sibling, mark))) return false;
   return neighboursAllowIt(node, cursor);
 }
-
-/**
- * The characters `sub_specialchars` replaces before the quote pass
- * ever runs, and what it replaces them with.
- */
-const SPECIALCHARS: Record<string, string> = {
-  "<": "&lt;",
-  ">": "&gt;",
-  "&": "&amp;",
-};
-
-/**
- * One neighbour's text as the QUOTE pass will see it.
- *
- * `sub_specialchars` runs first (`apply_subs`'s substitution order),
- * so a source `<` is already `&lt;` by the time a constrained pattern
- * is matched — and the character actually in front of the mark is
- * then `;`, which every one of those patterns EXCLUDES. Testing the
- * source character says legal where Asciidoctor says no match, and the
- * span is destroyed: `x <**b c** y` renders
- * `&lt;<strong>b c</strong>`, while `x <*b c* y` renders `&lt;*b c*`.
- *
- * Only the LEFT clause needs this. All three entities BEGIN with `&`,
- * so a substitution can never put a word character at the head of the
- * text that FOLLOWS a span — measured for all four marks.
- * @param text - a neighbouring text node's value
- * @returns the same text with the three entities substituted
- */
-function afterSpecialchars(text: string): string {
-  return text.replaceAll(/<|>|&/gv, (character) => SPECIALCHARS[character]);
-}
-
-/**
- * What may not stand immediately in FRONT of each constrained mark,
- * and immediately BEHIND it — the two clauses of Asciidoctor's own
- * constrained quote patterns (`QUOTE_SUBS`, asciidoctor.rb l.448-464),
- * transcribed one mark at a time rather than generalized:
- *
- * ```
- * strong      (^|[^\p{Word};:}])      \*(\S|\S.*?\S)\*      (?!\p{Word})
- * emphasis    (^|[^\p{Word};:}])      _(\S|\S.*?\S)_        (?!\p{Word})
- * monospaced  (^|[^\p{Word};:"'`}])  `(\S|\S.*?\S)`        (?![\p{Word}"'`])
- * mark        (^|[^\p{Word}&;:}])     #(\S|\S.*?\S)#        (?!\p{Word})
- * ```
- *
- * Monospace's two extra exclusions are the curved-quote marks: `"\``
- * opens a double curved quote and `` \`' `` closes a single one, so a
- * backtick beside a straight quote is not a monospace mark at all.
- * `a "``code``" b` renders `&#8220;<code>code</code>&#8221;`;
- * `a "`code`" b` renders `&#8220;code&#8221;`, the span gone.
- *
- * `\p{Word}` is Ruby's (asciidoctor.rb l.436) and is UNICODE:
- * `[\p{Alphabetic}\p{M}\p{Nd}\p{Pc}\p{Join_Control}]`. JavaScript's
- * `\w` is ASCII, and the difference is not academic —
- * `p **b c**éq` renders differently once the mark shortens.
- */
-const MARK_BOUNDARY: Record<
-  SpanNode["type"],
-  { readonly front: RegExp; readonly behind: RegExp }
-> = {
-  bold: {
-    front: /[\p{Alphabetic}\p{M}\p{Nd}\p{Pc}\p{Join_Control};:\}]$/v,
-    behind: /^[\p{Alphabetic}\p{M}\p{Nd}\p{Pc}\p{Join_Control}]/v,
-  },
-  italic: {
-    front: /[\p{Alphabetic}\p{M}\p{Nd}\p{Pc}\p{Join_Control};:\}]$/v,
-    behind: /^[\p{Alphabetic}\p{M}\p{Nd}\p{Pc}\p{Join_Control}]/v,
-  },
-  monospace: {
-    front: /[\p{Alphabetic}\p{M}\p{Nd}\p{Pc}\p{Join_Control};:"'`\}]$/v,
-    behind: /^[\p{Alphabetic}\p{M}\p{Nd}\p{Pc}\p{Join_Control}"'`]/v,
-  },
-  highlight: {
-    // Ruby's mark clause also excludes a literal `&` in front. It is
-    // not repeated here because it cannot survive
-    // afterSpecialchars: a trailing `&` becomes `&amp;`, whose `;`
-    // this class already excludes.
-    front: /[\p{Alphabetic}\p{M}\p{Nd}\p{Pc}\p{Join_Control};:\}]$/v,
-    behind: /^[\p{Alphabetic}\p{M}\p{Nd}\p{Pc}\p{Join_Control}]/v,
-  },
-};
 
 /**
  * The two boundary clauses of the constrained pattern, read off the
@@ -603,11 +551,11 @@ function appendSpan(
   cursor: Cursor,
   node: SpanNode,
 ): Boundary {
-  const { atoms: inner, trailing } = collectAtoms(
-    node.children,
-    cursor.blockStartLine,
-    true,
-  );
+  const { atoms: inner, trailing } = collectAtoms(node.children, {
+    blockStartLine: cursor.blockStartLine,
+    insideSpan: true,
+    blockAtColumnZero: false,
+  });
   // The span's own whitespace lives INSIDE its marks: content whitespace
   // at either edge is a space in the output, never a break, because the
   // marks fuse onto the content they enclose. Both edges are read off
@@ -623,25 +571,216 @@ function appendSpan(
         texts: inner.map((atom) => atom.text),
       }),
   );
-  // Children that are all whitespace produce no atoms (e.g. `_# #_`
-  // where highlight contains only a space). Emit the bare marks around
+  // Children that are all whitespace produce no atoms (`x ** ** y`,
+  // where the bold holds only a space). Emit the bare marks around
   // whatever whitespace they stood for. The other empty-span shape —
   // ZERO inner tokens, `____` — never arrives here: the builder's
   // adjacent-close skip (handleFormattingMark,
   // src/parse/inline/inline-node-builder.ts) refuses to build such a
   // node at all. Two conditions, two homes, both live.
   if (inner.length === 0) {
-    out.push(withBoundary(atomOf(`${open}${closeSpace}${close}`), boundary));
+    appendWhitespaceOnlySpan(out, boundary, cursor, {
+      open,
+      close,
+      closeSpace,
+    });
     return "glue";
   }
-  const last = inner.length - 1;
-  inner[0] = { ...inner[0], text: `${open}${openSpace}${inner[0].text}` };
-  inner[last] = {
-    ...inner[last],
-    text: `${inner[last].text}${closeSpace}${close}`,
-  };
-  out.push(withBoundary(inner[0], boundary), ...inner.slice(1));
+  const openText = `${open}${openSpace}`;
+  pushSpanAtoms(out, boundary, inner, {
+    openText,
+    closeText: `${closeSpace}${close}`,
+    ...detachedMarks(node, cursor, inner, openText),
+  });
   return "glue";
+}
+
+/**
+ * Which of a span's marks may NOT fuse onto the content atom beside
+ * it, and must stand alone against a literal break instead. Split
+ * from {@link appendSpan} for the complexity ceiling.
+ *
+ * A raw line at a span EDGE owns its output line, and a mark cannot
+ * ride it: fusing the close onto a kept comment line writes
+ * `// c**`, which the re-reader swallows into the comment and the
+ * rendered text loses the mark and everything behind it (measured on
+ * `para\n** b\n// c\n** b`). The span keeps the SOURCE break on that
+ * side instead - the mark stands alone against a literal break,
+ * exactly where the author's line boundary was. (A span holding a raw
+ * line never respells constrained either - constrainedIsLegal's
+ * raw-line clause.) The block-start hazard net detaches the open mark
+ * the same way (see {@link hazardAtBlockStart}).
+ *
+ * A HARD LINE BREAK last in the content owns its line END the same
+ * way: `LineBreakRx` is `^(.*)[ \t]\+$`, so the ` +` must stay at the
+ * end of a line to be a break at all, and fusing the close mark
+ * behind it writes `b +**` - literal text, the `<br>` gone (measured
+ * on `a **b +\n** c`). Detaching puts the close on the next line and
+ * leaves the break where the author had it. The OPEN side needs
+ * nothing there: a break that is not last has an atom behind it
+ * carrying the literal join (appendHardLineBreak), and a `+` pushed
+ * to column 0 would be a list continuation.
+ * @param node - the span node.
+ * @param cursor - where the span sits.
+ * @param inner - the span's content atoms.
+ * @param openText - the open mark plus the space the content's
+ *   leading whitespace became, the atom text the fusion would make.
+ * @returns the two placements {@link pushSpanAtoms} takes.
+ */
+function detachedMarks(
+  node: SpanNode,
+  cursor: Cursor,
+  inner: readonly Atom[],
+  openText: string,
+): { detachOpen: boolean; detachClose: boolean } {
+  return {
+    detachOpen:
+      node.children[0].type === "rawLine" ||
+      hazardAtBlockStart(cursor, `${openText}${inner[0].text}`),
+    detachClose:
+      node.children.at(-1)?.type === "rawLine" ||
+      inner.at(-1)?.text === HARD_BREAK_IMAGE,
+  };
+}
+
+/**
+ * Push a span's atoms with its marks placed: fused onto the edge
+ * content atoms in the ordinary case, or standing alone against a
+ * literal break where fusing would corrupt (a raw-line edge, the
+ * block-start hazard). Split from {@link appendSpan} for the
+ * complexity ceiling.
+ * @param out - the block's atoms so far (mutated).
+ * @param boundary - the join standing in front of the span.
+ * @param inner - the span's content atoms (mutated: marks fuse on).
+ * @param marks - how to place the two marks.
+ * @param marks.openText - the open mark plus the space the content's
+ *   leading whitespace became.
+ * @param marks.closeText - the space the content's trailing
+ *   whitespace became, plus the close mark.
+ * @param marks.detachOpen - emit the open TEXT as its own atom and
+ *   open the content at column 0 (the source's own break).
+ * @param marks.detachClose - emit the close mark on its own line at
+ *   column 0 instead of fusing it onto the last atom.
+ */
+function pushSpanAtoms(
+  out: Atom[],
+  boundary: Boundary,
+  inner: Atom[],
+  marks: {
+    openText: string;
+    closeText: string;
+    detachOpen: boolean;
+    detachClose: boolean;
+  },
+): void {
+  const { openText, closeText, detachOpen, detachClose } = marks;
+  const last = inner.length - 1;
+  if (!detachClose) {
+    inner[last] = { ...inner[last], text: `${inner[last].text}${closeText}` };
+  }
+  if (detachOpen) {
+    out.push(
+      withBoundary(atomOf(openText.trimEnd()), boundary),
+      withBoundary(inner[0], "literal"),
+      ...inner.slice(1),
+    );
+  } else {
+    inner[0] = { ...inner[0], text: `${openText}${inner[0].text}` };
+    out.push(withBoundary(inner[0], boundary), ...inner.slice(1));
+  }
+  if (detachClose) {
+    out.push(withBoundary(atomOf(closeText.trimStart()), "literal"));
+  }
+}
+
+/**
+ * Emit a span whose children produced NO atoms: bare marks around the
+ * whitespace they stood for. Split from {@link appendSpan} for the
+ * complexity ceiling. The block-start hazard net applies here too:
+ * `**\n**` replayed as `** **` at column 0 is a ulist line, so the
+ * net keeps the source break between the two bare marks.
+ * @param out - the block's atoms so far (mutated).
+ * @param boundary - the join standing in front of the span.
+ * @param cursor - where the span sits.
+ * @param parts - the marks and the space the content whitespace
+ *   became.
+ * @param parts.open - the opening mark.
+ * @param parts.close - the closing mark.
+ * @param parts.closeSpace - the space the whitespace-only content
+ *   stands for ("" when there was none).
+ */
+function appendWhitespaceOnlySpan(
+  out: Atom[],
+  boundary: Boundary,
+  cursor: Cursor,
+  parts: { open: string; close: string; closeSpace: string },
+): void {
+  const { open, close, closeSpace } = parts;
+  if (hazardAtBlockStart(cursor, `${open}${closeSpace}${close}`)) {
+    out.push(
+      withBoundary(atomOf(open), boundary),
+      withBoundary(atomOf(close), "literal"),
+    );
+    return;
+  }
+  out.push(withBoundary(atomOf(`${open}${closeSpace}${close}`), boundary));
+}
+
+/**
+ * The BLOCK-START HAZARD NET: whether fusing a span's opening mark
+ * onto its first content atom would put BLOCK SYNTAX at column 0.
+ *
+ * A span whose content begins with whitespace (a source break or
+ * space against the opening mark) fuses to an atom like `** b` - and
+ * at the head of a paragraph that atom opens the output's first line,
+ * where the reader sees a ulist marker: `**\nb** c` replayed as
+ * `** b** c` re-reads as a LIST, a measured corruption. Only the
+ * block's first atom can land there (wrap never moves it), so the net
+ * asks four things: first inline node of its block, the block's
+ * content opens at column 0, the content opens after a SOURCE BREAK
+ * ({@link contentOpensAfterBreak}), and the composed atom answers yes
+ * to the SAME line-shapes questions the reader asks
+ * ({@link isBlockSyntaxAtLineStart}). Where it fires, the span keeps
+ * the SOURCE's break instead of the space: the open mark stands
+ * alone on the first line and the content opens the next at column 0
+ * - the one deliberate exception to replaying an in-span break as a
+ * space, because here the space spelling changes the line's block
+ * classification.
+ * @param cursor - where the span sits.
+ * @param composed - the atom text the fusion would produce.
+ * @returns true when the net must keep the source's break.
+ */
+function hazardAtBlockStart(cursor: Cursor, composed: string): boolean {
+  return (
+    cursor.index === 0 &&
+    !cursor.insideSpan &&
+    cursor.blockAtColumnZero &&
+    contentOpensAfterBreak(cursor.siblings[0]) &&
+    isBlockSyntaxAtLineStart(composed)
+  );
+}
+
+// The whitespace a span's content opens with, reaching the next
+// SOURCE LINE: everything up to the first newline is horizontal.
+const OPENS_AFTER_BREAK = /^[^\S\n]*\n/v;
+
+/**
+ * Whether a span's content opens on the line AFTER its opening mark.
+ *
+ * The block-start hazard net trades the replayed space for a break,
+ * and it may only do that where the author wrote one: a span the
+ * source spells on ONE line (`## b## c`, which the classifier still
+ * reads as a paragraph - issue #63) must be printed back as it
+ * stands. Breaking it there would invent a line the source never
+ * had and destroy a heading the oracle does read.
+ * @param node - the block's first inline node, the span in question.
+ * @returns true when the content's leading whitespace holds a
+ *   newline.
+ */
+function contentOpensAfterBreak(node: InlineNode): boolean {
+  if (!("children" in node)) return false;
+  const [first] = node.children;
+  return first.type === "text" && OPENS_AFTER_BREAK.test(first.value);
 }
 
 /**
@@ -771,19 +910,30 @@ function appendNode(out: Atom[], boundary: Boundary, cursor: Cursor): Boundary {
   }
 }
 
+/** The block-level facts every cursor of one run shares. */
+interface RunContext {
+  /** 1-based source line the enclosing BLOCK starts on. */
+  readonly blockStartLine: number;
+  /**
+   * Whether the run is a formatting span's content, where a closing
+   * mark follows in the output.
+   */
+  readonly insideSpan: boolean;
+  /** Whether the block's first atom opens its line at column 0. */
+  readonly blockAtColumnZero: boolean;
+}
+
 /**
  * Build the atoms for a run of inline siblings.
  * @param nodes - the inline siblings, in order.
- * @param blockStartLine - 1-based source line the enclosing BLOCK
- *   starts on, for the dlist first-line guard.
- * @param insideSpan - whether these siblings sit inside a formatting
- *   span, where a closing mark follows the content.
+ * @param context - the block facts the run's cursors share: source
+ *   start line (for the dlist first-line guard), span membership, and
+ *   whether the first atom opens its line at column 0.
  * @returns the atoms, in order, and the join the last one leaves behind.
  */
 function collectAtoms(
   nodes: readonly InlineNode[],
-  blockStartLine: number,
-  insideSpan: boolean,
+  context: RunContext,
 ): { atoms: Atom[]; trailing: Boundary } {
   const out: Atom[] = [];
   let boundary: Boundary = "glue";
@@ -791,22 +941,105 @@ function collectAtoms(
     boundary = appendNode(out, boundary, {
       siblings: nodes,
       index,
-      blockStartLine,
-      insideSpan,
+      ...context,
     });
   }
   return { atoms: out, trailing: boundary };
 }
 
 /**
+ * The block-start hazard net on the block's FIRST ATOM, whatever
+ * node built it - the question {@link hazardAtBlockStart} asks of a
+ * span's composed opening atom, asked once over the finished list so
+ * the plain-TEXT path is covered by the same net.
+ *
+ * `wordsToAtoms` (src/print/reflow.ts) protects a block-syntax word
+ * by fusing it BACKWARDS onto its predecessor, which the block's
+ * first word has not got - its probe is disabled there by
+ * `index > 0`. The protection here is the other one: the break
+ * BEHIND the first atom is kept, so the atom stays alone on its
+ * line. `*\nb* c` reflowed to `* b* c` re-reads as a LIST, a
+ * measured corruption; kept broken it is the source's own two lines,
+ * and a mark alone on a line is no marker (`UnorderedListRx` needs
+ * whitespace and text after it).
+ *
+ * The question is asked of the LINE the two atoms would make, not of
+ * the first atom alone, because the first atom alone is a different
+ * line: `[[anc]] x para` is ordinary text, while the `[[anc]]` this
+ * net would strand on its own line is block metadata. Only a hazard
+ * the packed line actually carries may be traded for a break.
+ *
+ * And only where the author wrote the break this keeps
+ * ({@link opensWithSourceBreak}): a block whose first source line
+ * already reads `# Title` must be printed back as it stands, because
+ * the oracle reads a heading there that the classifier does not
+ * (issue #63) - breaking a line the source never had would destroy
+ * it.
+ *
+ * The break is kept only where one may land: an atom fused or
+ * space-joined to the first is one the packer may not break from,
+ * and an atom already demanding a break needs nothing - a span whose
+ * own net fired arrives that way, so the two nets cannot fight.
+ * @param atoms - the block's atoms (mutated).
+ * @param nodes - the block's inline children, for the source break.
+ */
+function keepBlockStartBreak(
+  atoms: Atom[],
+  nodes: readonly InlineNode[],
+): void {
+  const second = atoms.at(1);
+  if (
+    second === undefined ||
+    second.glueLeft ||
+    second.noBreakBefore ||
+    second.noBreakAfter ||
+    second.breakBefore !== "none" ||
+    !opensWithSourceBreak(nodes[0]) ||
+    !isBlockSyntaxAtLineStart(`${atoms[0].text} ${second.text}`)
+  ) {
+    return;
+  }
+  atoms[1] = { ...second, breakBefore: "literal" };
+}
+
+// A source line break BEHIND a text node's first word: the word,
+// then a whitespace run that reaches the next line.
+const FIRST_WORD_THEN_BREAK = /^\s*\S+[^\S\n]*\n/v;
+
+/**
+ * Whether a source line break stands behind the block's first word.
+ *
+ * Only a text node can answer yes: a node the printer writes
+ * verbatim ({@link verbatimText}) is one atom whose join to the next
+ * node this cannot see, and a span answers through its own net
+ * ({@link contentOpensAfterBreak}). No is the conservative answer -
+ * it leaves the packed line exactly as it was.
+ * @param node - the block's first inline node.
+ * @returns true when the node's first word ends a source line.
+ */
+function opensWithSourceBreak(node: InlineNode): boolean {
+  return node.type === "text" && FIRST_WORD_THEN_BREAK.test(node.value);
+}
+
+/**
  * Convert a block's inline content to atoms.
  * @param nodes - the block's inline children, in order.
  * @param blockStartLine - 1-based source line the block starts on.
+ * @param blockAtColumnZero - whether the first atom opens its output
+ *   line at column 0 (a paragraph) or follows a printed prefix that
+ *   holds the column (a list item's marker, an admonition's label).
  * @returns the block's atoms, ready for {@link wrap}.
  */
 export function inlineAtoms(
   nodes: readonly InlineNode[],
   blockStartLine: number,
+  blockAtColumnZero: boolean,
 ): Atom[] {
-  return collectAtoms(nodes, blockStartLine, false).atoms;
+  const { atoms } = collectAtoms(nodes, {
+    blockStartLine,
+    insideSpan: false,
+    blockAtColumnZero,
+  });
+  if (blockAtColumnZero && nodes.length > 0) keepBlockStartBreak(atoms, nodes);
+  return atoms;
 }

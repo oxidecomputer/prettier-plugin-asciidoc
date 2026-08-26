@@ -281,22 +281,25 @@ describe("inline anchors", () => {
     expect(node1.reftext).toBe("Term");
   });
 
-  // A comma with nothing (or only blanks) after it is not a reftext:
-  // the node carries none, so the printer writes `[[id]]` back. Both
-  // spellings sit INSIDE text so that one rule covers both: `[[id, ]]`
-  // alone on a line IS a block-anchor line and would reach
-  // the block layer instead, while `[[id,]]` alone stays a paragraph
-  // (the grammar's reftext alternative needs a character after the
-  // comma) — a difference this row is not about.
-  test.each(["[[id,]]", "[[id, ]]"])(
-    "%s → anchor with no reftext",
-    (anchor) => {
-      const [, node1] = inlineNodes(`x ${anchor}\n`);
-      narrow(node1, "inlineAnchor");
-      expect(node1.id).toBe("id");
-      expect(node1.reftext).toBeUndefined();
-    },
-  );
+  // A comma with nothing (or only blanks) after it is captured
+  // VERBATIM like every other post-comma spelling (issue #53): the
+  // empty string for `[[id,]]`, the lone space for `[[id, ]]`. The
+  // difference is load-bearing at print time - the oracle reads
+  // `[[id, ]]` as a live anchor and `[[id,]]` as literal TEXT
+  // (InlineAnchorRx's reftext needs a character after the comma), so
+  // anchorToSource replays the first normalized and the second
+  // byte-verbatim. Both spellings sit INSIDE text so that one rule
+  // covers both: `[[id, ]]` alone on a line IS a block-anchor line
+  // and would reach the block layer instead.
+  test.each([
+    ["[[id,]]", ""],
+    ["[[id, ]]", " "],
+  ])("%s → anchor with the verbatim blank reftext", (anchor, reftext) => {
+    const [, node1] = inlineNodes(`x ${anchor}\n`);
+    narrow(node1, "inlineAnchor");
+    expect(node1.id).toBe("id");
+    expect(node1.reftext).toBe(reftext);
+  });
 
   test("inline anchor in text", () => {
     const nodes = inlineNodes("This is [[anchor-here]]some anchored text\n");

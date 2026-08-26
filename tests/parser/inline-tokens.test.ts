@@ -19,9 +19,13 @@
  * const f="tests/parser/fixtures/inline-tokens.jsonl";
  * writeFileSync(f,readFileSync(f,"utf8").split("\n").filter(Boolean)
  * .map(l=>{const{text}=JSON.parse(l);return JSON.stringify({text,
- * tokens:tokenizeInline(text,0).map(({type,image,offset})=>
- * ({type,image,offset}))})}).join("\n")+"\n")'
+ * tokens:tokenizeInline(text,0).map(({type,image,offset,canOpen,canClose})=>
+ * ({type,image,offset,canOpen,canClose}))})}).join("\n")+"\n")'
  * ```
+ *
+ * (`JSON.stringify` drops the two flag fields where they are
+ * undefined, so only mark tokens carry them in the file — the same
+ * shape the tokenizer emits.)
  *
  * That command is byte-identical to a no-op today, so a non-empty diff
  * after running it IS the vocabulary change, ready to read.
@@ -52,6 +56,10 @@ interface PinnedToken {
   image: string;
   /** Where it starts, relative to the row's text. */
   offset: number;
+  /** For mark tokens: whether the mark can open a span here. */
+  canOpen?: boolean;
+  /** For mark tokens: whether the mark can close a span here. */
+  canClose?: boolean;
 }
 
 /** One pinned row: an input and the tokens it must produce. */
@@ -77,7 +85,9 @@ function isToken(value: unknown): value is PinnedToken {
   return (
     typeof token.type === "string" &&
     typeof token.image === "string" &&
-    typeof token.offset === "number"
+    typeof token.offset === "number" &&
+    (token.canOpen === undefined || typeof token.canOpen === "boolean") &&
+    (token.canClose === undefined || typeof token.canClose === "boolean")
   );
 }
 
@@ -130,6 +140,8 @@ describe("inline tokenizer matches its golden file", () => {
         type: token.type,
         image: token.image,
         offset: token.offset,
+        canOpen: token.canOpen,
+        canClose: token.canClose,
       }));
       expect(actual, JSON.stringify(row.text)).toEqual(row.tokens);
     },
@@ -195,15 +207,13 @@ describe("the rule table, by hand", () => {
     // The single-character fallback is exercised by the `a*b` row
     // above, where a mid-word `*` matches no mark rule.
     ["\u0000", ["InlineText"]],
-    // Out of range IS a boundary, at BOTH ends. The
-    // fragment's edges are the only place that rule is observable —
-    // everywhere else a neighbouring character decides — and a
-    // fragment usually ends in a newline, so these two rows are the
-    // whole of the evidence. Without them the bounds check in
-    // `isBoundary` can be deleted and every other test still passes:
-    // `text.at(-1)` returns the LAST character rather than undefined,
-    // which hides the missing check whenever a fragment happens to end
-    // in punctuation.
+    // The fragment's edges: start-of-text satisfies Ruby's left clause
+    // (`^` in `(^|[^\p{Word};:}])`), and end-of-text satisfies the
+    // right lookahead vacuously. These two rows are the whole of the
+    // evidence for the `index > 0` guard in quote-boundaries.ts's
+    // `before`: without it `text.at(-1)` returns the LAST character
+    // rather than undefined, which hides the missing check whenever a
+    // fragment happens to end in a character the classes admit.
     ["*b", ["BoldMark", "InlineText"]],
     ["a*", ["InlineText", "BoldMark"]],
     // The xref shorthand does not cross a line break: both halves of
@@ -221,14 +231,12 @@ describe("the rule table, by hand", () => {
 });
 
 /**
- * The constrained-mark boundary set, character by character.
- *
- * `BOUNDARY_PUNCTUATION` in src/parse/inline/rules.ts is a bare list of
- * characters — the kind of data the corpus pins only where a document
- * happens to use it, which leaves the rarer members (`—`, `–`, `…`, `?`,
- * `<`, `>`, `/`) resting on nothing. Every expectation below was read off
- * the tokenizer rather than imagined: all 26 boundaries open a
- * constrained mark, and the six controls do not.
+ * The constrained-mark boundary classes, character by character —
+ * Ruby's classes (`QUOTE_SUBS`, asciidoctor.rb l.448-464), consulted
+ * through quote-boundaries.ts, not a hand list. The rarer members
+ * (`—`, `–`, `…`, `?`, `/`, the specialchars pre-image `<` `>` `&`)
+ * rest on these rows; the format-level oracle table lives in
+ * tests/format/inline-boundary.test.ts.
  */
 /**
  * The mark to probe a boundary character with, and the kind it should
@@ -236,22 +244,22 @@ describe("the rule table, by hand", () => {
  *
  * `*` for every character but `*` itself: `x**b` would take the
  * UNCONSTRAINED double-mark path, which never consults the boundary
- * set, so that row could not fail however the set is edited. `x*_b`
- * asks the same question of the `_` mark instead, whose left
+ * classes, so that row could not fail however the classes are edited.
+ * `x*_b` asks the same question of the `_` mark instead, whose left
  * neighbour is the `*` under test.
  * @param character - the boundary character being probed
  * @returns the mark character to write after it, and the kind that
- *   mark produces when the character IS a boundary
+ *   mark produces when the character admits an opening
  */
 function probe(character: string): [string, string] {
   return character === "*" ? ["_", "ItalicMark"] : ["*", "BoldMark"];
 }
 
-describe("constrained marks and the boundary set", () => {
+describe("constrained marks and the boundary classes", () => {
+  // A character OUTSIDE the excluded-left class admits an opening
+  // mark (the content head `b` supplies the required `\S`).
   test.each([
     ",",
-    ";",
-    ":",
     "!",
     "?",
     ".",
@@ -260,9 +268,6 @@ describe("constrained marks and the boundary set", () => {
     "[",
     "]",
     "{",
-    "}",
-    "<",
-    ">",
     "/",
     '"',
     "'",
@@ -270,11 +275,15 @@ describe("constrained marks and the boundary set", () => {
     "–",
     "…",
     "*",
-    "_",
     "`",
-    "#",
     "+",
     " ",
+    "-",
+    "=",
+    "~",
+    "|",
+    "@",
+    "^",
   ])("%j before a mark opens it", (character) => {
     const [mark, kind] = probe(character);
     expect(
@@ -282,7 +291,13 @@ describe("constrained marks and the boundary set", () => {
     ).toContain(kind);
   });
 
-  test.each(["a", "0", "-", "=", "&", "~"])(
+  // The excluded-left class: `\p{Word}` (which holds `_`, `0` and the
+  // non-ASCII `é`), Ruby's explicit `;` `:` `}`, and the specialchars
+  // pre-image `<` `>` `&` (already `&lt;`/`&gt;`/`&amp;` — each
+  // ending in `;` — when the quote pass runs). A mark after one of
+  // these can still CLOSE, but here there is nothing open, so with
+  // `b` (a word character) behind it the mark is no token at all.
+  test.each(["a", "0", "\u00E9", "_", ";", ":", "}", "<", ">", "&"])(
     "%j before a mark does not",
     (character) => {
       const [mark, kind] = probe(character);
@@ -291,4 +306,66 @@ describe("constrained marks and the boundary set", () => {
       ).not.toContain(kind);
     },
   );
+
+  // The RIGHT side is the negative lookahead `(?!\p{Word})`, a
+  // different set from the left: `;` `:` `}` close fine, a word
+  // character does not.
+  test.each([";", ":", "}", "-", "&", " ", "\\"])(
+    "a closing mark stands before %j",
+    (character) => {
+      expect(tokenizeInline(`a*${character}`, 0).map((t) => t.type)).toContain(
+        "BoldMark",
+      );
+    },
+  );
+  test.each(["a", "0", "\u00E9", "_"])(
+    "a closing mark does not stand before %j",
+    (character) => {
+      expect(
+        tokenizeInline(`a*${character}`, 0).map((t) => t.type),
+      ).not.toContain("BoldMark");
+    },
+  );
+
+  // Monospace's per-mark extras — the curved-quote compounds: `"` and
+  // `'` join the excluded-left class and the right lookahead for the
+  // backtick only (`a "\`code\`" b` renders the curved quotes and no
+  // span). The same characters are fine beside `*`.
+  test.each(['"', "'"])(
+    "%j dissolves a monospace open, not a bold one",
+    (character) => {
+      expect(
+        tokenizeInline(`x${character}\`b`, 0).map((t) => t.type),
+      ).not.toContain("MonoMark");
+      expect(tokenizeInline(`x${character}*b`, 0).map((t) => t.type)).toContain(
+        "BoldMark",
+      );
+    },
+  );
+  test.each(['"', "'"])(
+    "%j dissolves a monospace close, not a bold one",
+    (character) => {
+      expect(
+        tokenizeInline(`a\`${character}`, 0).map((t) => t.type),
+      ).not.toContain("MonoMark");
+      expect(tokenizeInline(`a*${character}`, 0).map((t) => t.type)).toContain(
+        "BoldMark",
+      );
+    },
+  );
+
+  // The content edge: `(\S|\S.*?\S)` must start and end with a
+  // non-space, so a mark with whitespace on BOTH sides — or at a
+  // fragment edge facing whitespace — is no token in either
+  // direction.
+  test("a mark between spaces is no mark at all", () => {
+    expect(tokenizeInline("x * b", 0).map((t) => t.type)).not.toContain(
+      "BoldMark",
+    );
+  });
+  test("a newline is whitespace to the content edge", () => {
+    expect(tokenizeInline("x\n* b\n* c\n", 0).map((t) => t.type)).not.toContain(
+      "BoldMark",
+    );
+  });
 });

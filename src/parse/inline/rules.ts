@@ -18,6 +18,7 @@
  * not resolve it.
  */
 import type { InlineKind } from "./tokens.js";
+import { canOpenAt, canCloseAt, type MarkKind } from "./quote-boundaries.js";
 
 /** One entry of the ordered table. */
 interface InlineRule {
@@ -32,76 +33,71 @@ interface InlineRule {
   readonly match: (text: string, index: number) => number;
 }
 
-// Punctuation that counts as a formatting boundary for constrained
-// inline formatting (the AsciiDoc spec's term, distinct from regex
-// \b). DIVERGENCE, stated as this file's header requires: this is a
-// hand-written list, narrower than Ruby's rule. Ruby does not use a
-// list at all — the constrained entries of `QUOTE_SUBS`
-// (asciidoctor.rb l.448-464) test the neighbourhood with `(^|[^\w;:}])`
-// on the left and `(?!\w)` on the right, so Asciidoctor's boundary set
-// is "anything that is not a word character", minus `;` `:` `}` on the
-// left. Ours is neither a subset nor a superset: `a;*b*` and `a_*b*`
-// are bold for us and not for Asciidoctor, `a-*b*` and `*b*-c` are bold
-// for Asciidoctor and not for us. The divergence is pre-existing, is
-// pinned on purpose by tests/parser/inline-tokens.test.ts, and is filed
-// as a tier-2 issue rather than fixed here.
-//
-// Formatting-mark characters are boundaries for each other, which is
-// what lets `*_text_*` nest; `+` is a passthrough mark and is a
-// boundary for the same reason.
-// prettier-ignore
-const BOUNDARY_PUNCTUATION = new Set([
-  ",", ";", ":", "!", "?", ".", "(", ")", "[", "]",
-  "{", "}", "<", ">", "/", '"', "'",
-  "—", "–", "…",
-  "*", "_", "`", "#", "+",
-]);
-
-const WHITESPACE = /\s/v;
-
-/**
- * Whether the character at `index` is a constrained formatting
- * boundary. Out-of-range indices ARE boundaries: a mark at the very
- * start or end of the FRAGMENT is constrained-valid, and the fragment
- * is what the reader handed us — never the whole document: `* *bold*`
- * after a list marker sees a boundary at offset 0 because index -1 is
- * out of range.
- *
- * Reading the character IS the range test: past either end there is no
- * character, and no character is a boundary. The low end is spelled
- * here because `at` counts a negative index from the END of the
- * string, which would answer about the last character instead of about
- * the absent one.
- * @param text - the fragment being tokenized
- * @param index - the character position to test; may be out of range
- * @returns whether that position is a formatting boundary
- */
-function isBoundary(text: string, index: number): boolean {
-  const character = index < 0 ? undefined : text.at(index);
-  return (
-    character === undefined ||
-    WHITESPACE.test(character) ||
-    BOUNDARY_PUNCTUATION.has(character)
-  );
-}
+// Which span kind each mark token spells - the key into
+// quote-boundaries.ts's per-mark classes, for the matcher below and
+// for {@link markFlags}, so the two consult the same record.
+const MARK_KINDS: Partial<Record<InlineKind, MarkKind>> = {
+  BoldMark: "bold",
+  ItalicMark: "italic",
+  MonoMark: "monospace",
+  HighlightMark: "highlight",
+};
 
 /**
  * A constrained/unconstrained formatting mark — `strong`, `emphasis`,
  * `monospaced` and `mark` in the `QUOTE_SUBS` table, which is DEFINED
  * in asciidoctor.rb l.439-470 and consumed by substitutors.rb l.191.
- * Its constrained entries test the neighbouring characters
- * the way {@link isBoundary} does. The double mark is tried first
- * (unconstrained); the single one matches only next to a boundary, on
- * either side — the pairing into spans is inline-node-builder.ts's
- * job, not the tokenizer's.
+ * The double mark is tried first (unconstrained, no boundary test at
+ * all); the single one is a token only where Ruby's constrained
+ * pattern could OPEN or CLOSE with it - `canOpenAt`/`canCloseAt`
+ * (quote-boundaries.ts), each reading one neighbour and one content
+ * edge. A single mark that can do neither is no mark: it falls to
+ * `InlineText`/`InlineChar`. The pairing into spans is
+ * inline-node-builder.ts's job, not the tokenizer's; the DIRECTION
+ * facts ride on the token ({@link markFlags}).
+ *
+ * The boundary is computed against the FRAGMENT the reader handed us,
+ * never the whole document: `* *bold*` after a list marker can open
+ * at offset 0 because nothing precedes it in the fragment.
  * @param character - the mark character (`*`, `_`, `` ` ``, `#`)
+ * @param kind - the span kind whose boundary classes apply
  * @returns the rule's match function
  */
-function markMatcher(character: string): InlineRule["match"] {
+function markMatcher(character: string, kind: MarkKind): InlineRule["match"] {
   return (text: string, index: number): number => {
     if (text.at(index) !== character) return 0;
     if (text.at(index + 1) === character) return 1 + 1;
-    return isBoundary(text, index - 1) || isBoundary(text, index + 1) ? 1 : 0;
+    return canOpenAt(kind, text, index) || canCloseAt(kind, text, index)
+      ? 1
+      : 0;
+  };
+}
+
+/**
+ * The direction facts for a just-matched mark token: whether Ruby's
+ * constrained pattern could OPEN a span here, and whether it could
+ * CLOSE one. A DOUBLE mark answers `true` on both - the unconstrained
+ * patterns (`\*\*(.+?)\*\*` and kin, asciidoctor.rb l.448-464) test
+ * no boundary and take any content. For every non-mark kind the
+ * answer is undefined, and the token carries no flags.
+ * @param type - the kind that matched at `index`
+ * @param text - the fragment being tokenized
+ * @param index - where the token starts
+ * @param length - how many characters it matched
+ * @returns the two flags, or undefined for a non-mark kind
+ */
+export function markFlags(
+  type: InlineKind,
+  text: string,
+  index: number,
+  length: number,
+): { canOpen: boolean; canClose: boolean } | undefined {
+  const kind = MARK_KINDS[type];
+  if (kind === undefined) return undefined;
+  if (length > 1) return { canOpen: true, canClose: true };
+  return {
+    canOpen: canOpenAt(kind, text, index),
+    canClose: canCloseAt(kind, text, index),
   };
 }
 
@@ -172,10 +168,10 @@ export const INLINE_RULES: readonly InlineRule[] = [
   { type: "XrefShorthand", match: pattern(/<<[^>\n]+(?:,[^>\n]+)?>>/v) },
   // `[[id]]` / `[[id, reftext]]` — InlineAnchorRx.
   { type: "InlineAnchor", match: pattern(/\[\[[^\]\n]+\]\]/v) },
-  { type: "BoldMark", match: markMatcher("*") },
-  { type: "ItalicMark", match: markMatcher("_") },
-  { type: "MonoMark", match: markMatcher("`") },
-  { type: "HighlightMark", match: markMatcher("#") },
+  { type: "BoldMark", match: markMatcher("*", "bold") },
+  { type: "ItalicMark", match: markMatcher("_", "italic") },
+  { type: "MonoMark", match: markMatcher("`", "monospace") },
+  { type: "HighlightMark", match: markMatcher("#", "highlight") },
   // ` +` at end of line — HardLineBreakRx (`^(.*) \+$` after
   // `adjust_indentation!`). The newline is left for InlineNewline.
   // Context-free on purpose: the one shape Asciidoctor reads as a

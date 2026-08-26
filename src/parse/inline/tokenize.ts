@@ -8,7 +8,7 @@
  * Chevrotain's lexer bookkeeping, an optimisation or unused, and are
  * retired with it.
  */
-import { INLINE_RULES } from "./rules.js";
+import { INLINE_RULES, markFlags } from "./rules.js";
 import type { InlineKind, InlineToken } from "./tokens.js";
 
 /**
@@ -50,10 +50,16 @@ export function tokenizeInline(
     // one mechanism instead of two that had to agree, and it keeps
     // the loop finite whatever the table contains.
     if (length === 0) length = 1;
+    // A mark token carries its DIRECTION facts - whether Ruby's
+    // constrained pattern could open or close a span here - because
+    // the neighbourhood is visible HERE, in the fragment, and the
+    // builder that pairs marks into spans works on tokens alone.
+    const flags = markFlags(type, text, index, length);
     tokens.push({
       type,
       image: text.slice(index, index + length),
       offset: baseOffset + index,
+      ...flags,
     });
     index += length;
   }

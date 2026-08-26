@@ -533,6 +533,37 @@ const LIST_ITEM_INTERRUPTERS: readonly RegExp[] = [
 export const SECTION_TITLE = /^(?<markers>={1,6})[ \t]+(?<title>\S[^\n]*)$/v;
 
 /**
+ * The MARKDOWN spelling of a section title (`## Section`), which the
+ * oracle also accepts: `ExtAtxSectionTitleRx`
+ * (`/^(=={0,5}|##{0,5})[ \t]+(.+?)(?:[ \t]+\1)?$/`,
+ * `@asciidoctor/core/build/node/index.cjs` l.266) is the pattern
+ * `next_block` actually matches with, and its second alternative is
+ * one `#` followed by up to five more.
+ *
+ * The CLASSIFIER does not read this spelling yet (a `## b` line
+ * stays paragraph text here, which is issue #63), so it is not in
+ * any interrupting set; it is asked only by
+ * {@link startsSectionTitle}, see {@link SECTION_TITLE_SHAPES}.
+ */
+const MARKDOWN_ATX_SECTION_TITLE = /^#{1,6}[ \t]+\S[^\n]*$/v;
+
+/**
+ * Both spellings of a section title, together, for the ONE question
+ * no interrupting set answers: may reflow put this line at the start
+ * of an output line?
+ *
+ * Two spellings, one question, so {@link startsSectionTitle} - the
+ * only reader - cannot answer about one and forget the other. The
+ * measured corruptions are `##\nb## c` packed to `## b## c` (an
+ * `<h2>`, the text behind the marks eaten) and `=\nb= c` packed to
+ * `= b= c` (the document title, lifted out of the body).
+ */
+const SECTION_TITLE_SHAPES: readonly RegExp[] = [
+  SECTION_TITLE,
+  MARKDOWN_ATX_SECTION_TITLE,
+];
+
+/**
  * An admonition label (`NOTE: text`). Mirrors
  * `AdmonitionParagraphRx` (`/^(NOTE|TIP|IMPORTANT|WARNING|CAUTION):
  * [ \t]+/`), which is a PREFIX match: the rest of the line is the
@@ -1025,9 +1056,13 @@ export function interruptsParagraph(
  * there), and answering true here would fight that guard.
  *
  * Makes no new claim about Asciidoctor: it composes the sets above,
- * each of which carries its own Ruby citation. (Reflow additionally
- * asks isRawParagraphLine, because a comment or directive that a
- * word lands on destroys text without interrupting anything.)
+ * each of which carries its own Ruby citation, plus
+ * nothing. A section title is NOT in it: the oracle does not end a
+ * paragraph at one, so the union stays exactly "what interrupts
+ * somewhere" and reflow asks {@link startsSectionTitle} separately.
+ * (Reflow additionally asks
+ * isRawParagraphLine, because a comment or directive that a word
+ * lands on destroys text without interrupting anything.)
  * @param line - one source line, without its trailing newline
  * @returns true when some context would start a new block or item on
  *   a line beginning with this shape
@@ -1041,6 +1076,34 @@ export function interruptsByLineShape(line: string): boolean {
   }
   const text = rstrip(line);
   return DLIST_ITEM_INTERRUPTERS.some((pattern) => pattern.test(text));
+}
+
+/**
+ * Whether a line would START A SECTION where it stands - the second
+ * question reflow asks, and the one no interrupting set answers.
+ *
+ * A section title does not END a paragraph in the oracle, so neither
+ * spelling belongs to an interrupting set and
+ * {@link interruptsByLineShape} says nothing about them. But a title
+ * line reflow CREATES is a section the source did not have: `##`
+ * packed in front of a following word turns the paragraph into an
+ * `<h2>` and eats the text behind the marks, and `=` packed the same
+ * way writes the DOCUMENT TITLE, which the renderer lifts out of the
+ * body entirely. Refusing to WRITE the shape is a different question
+ * from reading it - the classifier still does not read the Markdown
+ * spelling (issue #63), and this answers about neither reader.
+ *
+ * The printer's block-start hazard nets (src/print/inline.ts) trade a
+ * replayed space for a break only where the AUTHOR's source already
+ * broke the line, so a title written on one line is printed back as
+ * it stands and a lone `=` or `##` word in reflowed prose only ever
+ * fuses backwards.
+ * @param line - one source line, without its trailing newline
+ * @returns true when the line is a section title in either spelling
+ */
+export function startsSectionTitle(line: string): boolean {
+  const text = rstrip(line);
+  return SECTION_TITLE_SHAPES.some((pattern) => pattern.test(text));
 }
 
 /**

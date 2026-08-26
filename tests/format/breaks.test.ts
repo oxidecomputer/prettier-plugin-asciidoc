@@ -74,6 +74,17 @@ describe("hard line break formatting", () => {
     expect(await formatAdoc(input)).toBe(input);
   });
 
+  // A hard break as the block's FIRST inline node: there is nothing
+  // in front of it to break away from, so it does not demand a
+  // leading break (ownsItsLine's first-node arm, src/print/inline.ts)
+  // and the paragraph round-trips byte-identically.
+  test("a hard break opening the paragraph is preserved", async () => {
+    const input = " +\nx\n";
+    const out = await formatAdoc(input);
+    expect(out).toBe(input);
+    expect(await formatAdoc(out)).toBe(out);
+  });
+
   // Multiple hard line breaks in sequence.
   test("multiple hard line breaks preserved", async () => {
     const input = "Line one +\nline two +\nline three.\n";

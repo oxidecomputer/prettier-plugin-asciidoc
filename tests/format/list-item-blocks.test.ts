@@ -582,9 +582,11 @@ describe("byte pins for rules only the corpus and the sweep reached", () => {
 // (isRunMetadata → anchorLineShape, block-metadata.ts): the lookalike
 // is a block that follows the run, the hazard answers `keepBreak`, and
 // the item's text holds its last source break. What decides
-// membership is what the PRINTED line re-reads as, which is why
-// `[[id,]]` — printed `[[id]]`, an anchor on re-read — stays in the
-// run while `[[3-bad]]` does not.
+// membership is what the PRINTED line re-reads as - and since #53's
+// faithful replay, `[[id,]]` prints verbatim (empty reftext, a text
+// line to the re-reader) and leaves the run exactly like `[[3-bad]]`;
+// only a spelling whose printed line passes the grammar, like
+// `[[id, ]]`, stays in.
 //
 // REPRESENTATIVE rows, not the whole class: a 180-row differential (30
 // item shape families × 6 anchor spellings) against the pre-record
@@ -621,13 +623,13 @@ describe("a pseudo-anchor line ends an item's metadata run", () => {
       ". o\n  para\n[role]\n[[illegal$id]]\n",
     ],
     // `[[id,]]` is not an anchor line either (the reftext alternative
-    // needs a character after the comma) and it PRINTS as `[[id]]`,
-    // which IS one on re-parse — so the run must keep it or the second
-    // pass would answer the hazard differently.
+    // needs a character after the comma), and since #53 it PRINTS
+    // verbatim - a text line on re-read too, so it leaves the run and
+    // the item's break holds, the same as every other lookalike row.
     [
-      "an empty-reftext anchor prints as [[id]] and stays in the run",
+      "an empty-reftext anchor prints verbatim and ends the run",
       "* a\npara\n[role]\n[[id,]]\n",
-      "* a para\n[role]\n[[id]]\n",
+      "* a\n  para\n[role]\n[[id,]]\n",
     ],
   ];
   test.each(cases)("%s", async (_name, input, expected) => {
@@ -639,17 +641,14 @@ describe("a pseudo-anchor line ends an item's metadata run", () => {
   // The lookalike rows are a CORRUPTION fix, so their proof direction
   // is head against the ORIGINAL INPUT — the old bytes read
   // differently, and comparing against them would prove nothing. The
-  // `[[id,]]` row is excluded: its printed `[[id]]` is a live anchor
-  // where the author's `[[id,]]` was literal text, a pre-existing
-  // narrowing this suite freezes rather than fixes.
-  test.each(cases.filter(([name]) => !name.includes("empty-reftext")))(
-    "%s renders like its input",
-    async (_name, input) => {
-      expect(await renderedHtml(await formatAdoc(input))).toBe(
-        await renderedHtml(input),
-      );
-    },
-  );
+  // `[[id,]]` row rides along since #53's faithful replay closed its
+  // narrowing (the old printed `[[id]]` was a live anchor where the
+  // author's `[[id,]]` was literal text).
+  test.each(cases)("%s renders like its input", async (_name, input) => {
+    expect(await renderedHtml(await formatAdoc(input))).toBe(
+      await renderedHtml(input),
+    );
+  });
 });
 
 // A block macro on the line directly after a marker line is the

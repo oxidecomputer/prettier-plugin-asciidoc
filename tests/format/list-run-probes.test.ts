@@ -160,16 +160,18 @@ describe("byte-stable controls (the two-answer hazard must NOT move these)", () 
     expect(await formatAdoc(out)).toBe(out);
   });
 
-  // The `[[id,]]` narrowing is byte-stable here too — its printed
-  // `[[id]]` re-reads as an anchor, so the line stays in the run and
-  // the hazard still answers "none". No render assert, and the
-  // omission is not incidental: the narrowing itself diverges
-  // (`[[id,]]` is literal text to Asciidoctor, `[[id]]` a live anchor
-  // on the block below), a pre-existing condition this suite freezes
-  // rather than fixes.
-  test("the [[id,]] narrowing keeps the run", async () => {
-    const out = await formatAdoc("* a\npara\n[role]\n[[id,]]\n");
-    expect(out).toBe("* a para\n[role]\n[[id]]\n");
+  // `[[id,]]` prints VERBATIM since #53's faithful replay: the empty
+  // reftext is captured as-is, the author's spelling fails the anchor
+  // grammar, and the printed line is text on re-read - so it LEAVES
+  // the run like every other lookalike, the hazard keeps the item's
+  // break, and the render assert the old narrowing could never carry
+  // (its printed `[[id]]` was a live anchor over the author's literal
+  // text) holds.
+  test("the [[id,]] lookalike ends the run, verbatim", async () => {
+    const input = "* a\npara\n[role]\n[[id,]]\n";
+    const out = await formatAdoc(input);
+    expect(out).toBe("* a\n  para\n[role]\n[[id,]]\n");
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });
 });
@@ -189,14 +191,18 @@ describe("the wrap-direction idempotence repair", () => {
   });
 });
 
-describe("the whitespace-reftext lookalike: bytes move, the respell stays fenced", () => {
-  // The whitespace-reftext lookalike leaves the run (keepBreak) but
-  // still prints [[3-bad]] — the `[[id,]]` narrowing's rejected-id
-  // cousin, a pre-existing corruption. First-pass bytes and
-  // idempotence are the whole pin; NO render assert on purpose.
-  test("* a/para/[role]/[[3-bad, ]] keeps break and the frozen spelling", async () => {
-    const out = await formatAdoc("* a\npara\n[role]\n[[3-bad, ]]\n");
-    expect(out).toBe("* a\n  para\n[role]\n[[3-bad]]\n");
+describe("the whitespace-reftext lookalike keeps the author's bytes", () => {
+  // The rejected-id cousin of the `[[id,]]` row above: since #53 the
+  // whitespace reftext is captured verbatim and the rejected id sends
+  // anchorToSource to its verbatim arm, so `[[3-bad, ]]` round-trips
+  // byte-faithfully - a text line to the re-reader, exactly what the
+  // author wrote, and the render assert this row could never carry
+  // before now holds.
+  test("* a/para/[role]/[[3-bad, ]] keeps break and its bytes", async () => {
+    const input = "* a\npara\n[role]\n[[3-bad, ]]\n";
+    const out = await formatAdoc(input);
+    expect(out).toBe("* a\n  para\n[role]\n[[3-bad, ]]\n");
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });
 });

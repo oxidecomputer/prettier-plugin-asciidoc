@@ -34,7 +34,7 @@ const LAST = -1;
  *
  * The stack is `ast` ← `constants`/`positions` ← `line-shapes` ←
  * `inline/` ← `build/` ← `lines/`, with `print/` reaching into
- * `parse/` at exactly two deliberate addresses and `parse/` never
+ * `parse/` at exactly three deliberate addresses and `parse/` never
  * reaching into `print/`.
  *
  * Each `path` is TAIL-anchored (`(^|/)src/…`) rather than
@@ -51,11 +51,11 @@ const LAYER_RULES: IForbiddenRuleType[] = [
     name: "print-imports-parse-off-address",
     severity: "error",
     comment:
-      "print/ reads parse/ at exactly two addresses — line-shapes.ts for what a re-parsed LINE means, attrlist.ts for where one attribute inside a bracket line ENDS. Both exist so the formatter and the parser cannot disagree about a spelling the printer has to reproduce; any other parse/ import is the printer reaching into the parser's interior.",
+      "print/ reads parse/ at exactly three addresses — line-shapes.ts for what a re-parsed LINE means, attrlist.ts for where one attribute inside a bracket line ENDS, and inline/quote-boundaries.ts for what may stand beside a constrained formatting MARK. All three exist so the formatter and the parser cannot disagree about a spelling the printer has to reproduce; any other parse/ import is the printer reaching into the parser's interior.",
     from: { path: "(^|/)src/print/" },
     to: {
       path: "(^|/)src/parse/",
-      pathNot: String.raw`(^|/)src/parse/(line-shapes|attrlist)\.ts$`,
+      pathNot: String.raw`(^|/)src/parse/(line-shapes|attrlist|inline/quote-boundaries)\.ts$`,
     },
   },
   {

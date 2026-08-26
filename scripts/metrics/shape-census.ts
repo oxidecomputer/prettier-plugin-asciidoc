@@ -50,6 +50,10 @@ import {
 const EXEMPT = new Map<string, string>([
   ["rstrip", "line-normalization helper, not a line shape"],
   [
+    "startsSectionTitle",
+    "reflow's refusal predicate over the two section-title spellings; the AsciiDoc form's dimension already exists and the Markdown ATX form is not a parsed construct (issue #63)",
+  ],
+  [
     "BLOCK_START_CONTEXT",
     "the reader-state value every line rule is asked against at a block start, not a line shape",
   ],

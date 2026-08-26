@@ -103,12 +103,13 @@ export function isBlockMetadata(block: BlockNode): boolean {
  *
  * "anchor": the printed spelling satisfies the block-anchor grammar —
  * a blockAnchor node, or a sole-inlineAnchor paragraph whose printed
- * line passes (`[[id,]]` prints `[[id]]`, which IS an anchor on
+ * line passes (`[[id, ]]` prints `[[id, ]]`, which IS an anchor on
  * re-read). "lookalike": the printed spelling fails the grammar and
  * IS the author's own line — for a comma-free spelling by the
- * sole-child extent argument below, and for a reftext-bearing one by
+ * sole-child extent argument below, and for a comma-bearing one by
  * the serializer's verbatim arm (anchorToSource emits the captured
- * post-comma bytes when the id fails the grammar) — a TEXT line to
+ * post-comma bytes whenever the author's spelling fails the grammar:
+ * a rejected id, or the empty reftext of `[[id,]]`) — a TEXT line to
  * the re-reader. undefined: everything else.
  *
  * Grammar: BLOCK_ANCHOR (parse/line-shapes.ts, over

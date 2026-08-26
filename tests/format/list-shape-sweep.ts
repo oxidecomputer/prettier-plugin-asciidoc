@@ -139,7 +139,7 @@ export function sweepDocuments(depth: number): string[] {
 /**
  * The allowlist RESTRICTED to one depth's product — a derivation, not
  * a second hand-kept list. The default suite pins a subset of the same
- * 158 entries, and deriving it here means a shape can never be
+ * 59 entries, and deriving it here means a shape can never be
  * allowlisted at one depth and not the other.
  * @param depth - the depth whose product the caller sweeps
  * @returns the allowlisted documents that product actually spells

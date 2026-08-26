@@ -161,6 +161,59 @@ const PLUS_RUN_PARAGRAPH_FAMILY = "plus-run-paragraph";
  * Not exported: no grid row cites it.
  */
 const BOM_DOCUMENT_HEAD_FAMILY = "bom-document-head";
+/**
+ * The constrained-mark boundary set is Ruby's own (`QUOTE_SUBS`,
+ * asciidoctor.rb l.448-464, transcribed in
+ * src/parse/inline/quote-boundaries.ts): a single mark is a token
+ * only where the constrained pattern could open or close with it, and
+ * the builder's pairing is directional. NOT formatted-only - spans
+ * DISSOLVE into text or CRYSTALLIZE out of it. Nine ids, three
+ * mechanisms, each verified render-equal before ledgering:
+ *
+ * - curved-quote monospace dissolves (`"` sits in mono's
+ *   excluded-left class and right lookahead - `"\`word\`"` is a
+ *   curved-quote pair to Ruby, not a span):
+ *   docs/modules/ROOT/pages/index.adoc, localization-support.adoc,
+ *   convert/pages/available.adoc, manpage-backend/pages/index.adoc,
+ *   migrate/pages/asciidoc-py.adoc - AST-only, bytes identical,
+ *   formatted output measured render-equal to the source;
+ * - a highlight over `#`-adjacent text dissolves (whats-new.adoc's
+ *   `... for # in xref target (#4393)`: the closing `#` stands
+ *   before a word character) - AST-only, measured render-equal;
+ * - bold crystallizes where `=` follows the closing mark
+ *   (`*-B, --base-dir*=_DIR_`: `=` fails Ruby's `(?!\p{Word})`, so
+ *   the span is real to the oracle too):
+ *   cli/partials/man-asciidoctor.adoc, whose reflow also moves bytes
+ *   (the fused span atoms pack differently at width), and
+ *   manpage-backend/examples/manpage.adoc (AST-only); and the
+ *   spurious bold over indented `* one` list lines dissolves in
+ *   lists_test.rb#appends indented list to first term that is
+ *   attached by a continuation and adjacent to second term#0
+ *   (AST-only). These three carry a PRE-EXISTING render divergence
+ *   to their source that this family does not touch: measured
+ *   head-formatted == base-formatted rendering, byte-for-byte of the
+ *   normalized HTML. Not exported: no grid row cites it.
+ */
+const INLINE_BOUNDARY_SET_FAMILY = "inline-boundary-set";
+/**
+ * A span's edge line break is content the oracle keeps (`sub_quotes`
+ * matches across the joined lines and carries the `\n` into the HTML
+ * verbatim, substitutors.rb l.189-196); the builder strips trailing
+ * newlines at the block-level entry only, and the printer replays
+ * the kept break as the one space inside the marks. NOT
+ * formatted-only - span text values gain `\n` and the bytes gain the
+ * edge space. One id: blocks_test.rb#should not recognize fenced
+ * code blocks with more than three delimiters#0, whose unconstrained
+ * monospace span (the four-backtick pseudo-fence) keeps its trailing
+ * break and prints the closing marks after a space. Verified: the
+ * formatted rendering MOVED TOWARD the source - the base output
+ * dropped the span's trailing whitespace where the source renders
+ * `World!" </code>`, the head output renders that fragment exactly
+ * as the source does - and the residual divergence (the `~~~~`
+ * pseudo-fence paragraph) is byte-identical between the base and
+ * head renderings. Not exported: no grid row cites it.
+ */
+const INLINE_SPAN_KEEPS_BREAK_FAMILY = "inline-span-keeps-break";
 
 /**
  * The closed family enum. SURFACE HONESTY, not an armed
@@ -172,9 +225,11 @@ const BOM_DOCUMENT_HEAD_FAMILY = "bom-document-head";
  * both marker families ride the list tree fold (`marker` added,
  * `depth` dropped), no-op-continuation-tree drops a block the reader
  * used to build, plus-run-paragraph reshapes a `+` run's item
- * blocks, and bom-document-head re-reads the line a leading BOM hid,
- * so an entry of those five whose AST differs is legal and an
- * entry of any other family whose AST differs fails the cross-check.
+ * blocks, bom-document-head re-reads the line a leading BOM hid, and
+ * the two inline families move spans (dissolved, crystallized, or
+ * holding a kept `\n`), so an entry of those seven whose AST differs
+ * is legal and an entry of any other family whose AST differs fails
+ * the cross-check.
  */
 export const LEDGER_FAMILIES: FamilySets = {
   families: new Set([
@@ -191,6 +246,8 @@ export const LEDGER_FAMILIES: FamilySets = {
     PLUS_RUN_TAIL_KEPT_FAMILY,
     PLUS_RUN_PARAGRAPH_FAMILY,
     BOM_DOCUMENT_HEAD_FAMILY,
+    INLINE_BOUNDARY_SET_FAMILY,
+    INLINE_SPAN_KEEPS_BREAK_FAMILY,
   ]),
   formattedOnly: new Set([
     AUTHOR_PLUS_FAMILY,

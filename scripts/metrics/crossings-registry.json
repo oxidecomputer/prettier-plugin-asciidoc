@@ -273,6 +273,20 @@
     "reason": "the one token-run -> inline-node pass; every builder that holds inline content calls it rather than pairing tokens itself"
   },
   {
+    "file": "src/parse/inline/quote-boundaries.ts",
+    "symbol": "MARK_BOUNDARY",
+    "importer": "src/print/inline.ts",
+    "kind": "vocabulary",
+    "reason": "the one transcription of Ruby's constrained-quote boundary classes; the printer asks it before respelling an unconstrained span so parse and print read the same classes"
+  },
+  {
+    "file": "src/parse/inline/quote-boundaries.ts",
+    "symbol": "afterSpecialchars",
+    "importer": "src/print/inline.ts",
+    "kind": "vocabulary",
+    "reason": "the one spelling of the specialchars pre-image (sub_specialchars runs before the quote pass), applied to a span's left neighbour on both sides of the round trip"
+  },
+  {
     "file": "src/parse/inline/tokenize.ts",
     "symbol": "tokenizeInline",
     "importer": "src/parse/lines/paragraph-reader.ts",
@@ -656,6 +670,13 @@
     "importer": "src/parse/lines/split.ts",
     "kind": "vocabulary",
     "reason": "the one line-normalization helper; Ruby's reader rstrips, so every consumer must strip the same way"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "startsSectionTitle",
+    "importer": "src/print/reflow.ts",
+    "kind": "vocabulary",
+    "reason": "the one answer to 'would this line start a section', in both spellings; no interrupting set carries it (a section title does not end a paragraph), and reflow asks it at the same parse address so the packer cannot write a heading the source never had"
   },
   {
     "file": "src/parse/lines/reader.ts",

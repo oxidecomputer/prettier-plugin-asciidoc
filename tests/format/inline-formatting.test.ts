@@ -246,11 +246,24 @@ describe("inline formatting — odd-count marks", () => {
     expect(await formatAdoc(input)).toBe("some ____ text\n");
   });
 
-  // `_# #_` is italic wrapping highlight with space content.
-  // The formatter must preserve the space between marks.
+  // `_# #_` is italic around the literal text `# #`: neither `#` can
+  // be a mark (the first cannot close against `_`-the-word-character,
+  // the second cannot open against the space), which is exactly what
+  // the oracle renders - `<em># #</em>`.
   test("nested marks with space content", async () => {
     const input = "some _# #_ text\n";
     expect(await formatAdoc(input)).toBe("some _# #_ text\n");
+  });
+
+  // A span whose only content is whitespace: the doubles take any
+  // content, the children yield no atoms, and the printer emits the
+  // bare marks around the one space they stood for.
+  test("a whitespace-only unconstrained span keeps its space", async () => {
+    const input = "x ** ** y\n";
+    expect(await formatAdoc(input)).toBe("x ** ** y\n");
+    expect(await renderedHtml(await formatAdoc(input))).toBe(
+      await renderedHtml(input),
+    );
   });
 });
 

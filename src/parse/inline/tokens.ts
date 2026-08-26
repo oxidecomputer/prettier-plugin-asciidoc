@@ -71,4 +71,21 @@ export interface InlineToken<Kind extends InlineTokenType = InlineTokenType> {
   readonly image: string;
   /** Zero-based offset of the first character IN THE DOCUMENT. */
   readonly offset: number;
+  /**
+   * Whether this mark can OPEN a span where it stands - Ruby's left
+   * boundary clause plus the content's leading `\S`
+   * (`canOpenAt`, quote-boundaries.ts). Present on the four mark
+   * kinds only; a double (unconstrained) mark carries `true`, because
+   * the unconstrained patterns test no boundary at all. The tokenizer
+   * owns the neighbourhood facts, so the builder never re-reads the
+   * source to pair marks.
+   */
+  readonly canOpen?: boolean;
+  /**
+   * Whether this mark can CLOSE a span where it stands - the
+   * content's trailing `\S` plus Ruby's right lookahead
+   * (`canCloseAt`, quote-boundaries.ts). Present on the four mark
+   * kinds only; doubles carry `true`, as with {@link InlineToken#canOpen}.
+   */
+  readonly canClose?: boolean;
 }

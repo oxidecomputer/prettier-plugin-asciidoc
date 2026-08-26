@@ -52,9 +52,10 @@ type Hazard = "none" | "keepBreak";
 /**
  * Whether a block is metadata a held-back run is made of: block
  * metadata proper, or a block whose PRINTED line re-reads as a valid
- * block anchor (`anchorLineShape` — `[[id,]]` prints `[[id]]`, an
+ * block anchor (`anchorLineShape` — `[[id, ]]` prints `[[id, ]]`, an
  * anchor on re-read, so it stays in the run and the fold bytes stay
- * fixed points). A LOOKALIKE — a rejected id, printed byte-faithfully
+ * fixed points). A LOOKALIKE — a rejected id or an empty `[[id,]]`
+ * reftext, printed byte-faithfully
  * — is a text line to the re-reader: it is NOT run metadata, so the
  * run ends before it and it sits in the follows slice like any other
  * block. Same record as the pairing rule's, for the same reason — the

@@ -61,7 +61,12 @@ function isMarkToken(type: InlineTokenType): type is MarkTokenType {
  * AsciiDoc formatting marks come in pairs (e.g. `*bold*`).
  * This greedy forward scan finds the nearest close mark that
  * matches the open mark's type and constraint level, enabling
- * the builder to extract the inner content for recursion.
+ * the builder to extract the inner content for recursion. Only a
+ * token whose `canClose` flag is set counts: the tokenizer computed
+ * whether Ruby's constrained pattern could END a span there (content
+ * `\S` before the mark, no word character after it), and a mark that
+ * cannot close must not be paired with - it may still OPEN a later
+ * span of its own.
  * @param tokens - The flat token stream being processed.
  * @param openIndex - Position of the open mark to match.
  * @returns Index of the matching close mark, or -1 if none
@@ -83,8 +88,13 @@ function findCloseMark(
     scanIndex += 1
   ) {
     const candidate = tokens[scanIndex];
-    // Same kind and same image length (single vs double mark).
-    if (candidate.type === openType && candidate.image.length === markLength) {
+    // Same kind, same image length (single vs double mark), and able
+    // to close where it stands.
+    if (
+      candidate.type === openType &&
+      candidate.image.length === markLength &&
+      candidate.canClose === true
+    ) {
       return scanIndex;
     }
   }
@@ -238,14 +248,19 @@ function handleRoleAttribute(context: RoleAttributeContext): number {
   const roleText = roleImage.slice(DELIM_WIDTH, -DELIM_WIDTH);
   const nextIndex = index + 1;
 
-  if (nextIndex < tokens.length && tokens[nextIndex].type === "HighlightMark") {
+  if (
+    nextIndex < tokens.length &&
+    tokens[nextIndex].type === "HighlightMark" &&
+    tokens[nextIndex].canOpen === true
+  ) {
     const closeIndex = findCloseMark(tokens, nextIndex);
     if (closeIndex !== -1) {
       flushText();
       const openMark = tokens[nextIndex];
       const closeMark = tokens[closeIndex];
       const innerTokens = tokens.slice(nextIndex + 1, closeIndex);
-      const children = buildFromTokens(innerTokens, at);
+      // Span content: no trailing-newline strip (see buildFromTokens).
+      const children = buildNodes(innerTokens, at);
       const constrained = openMark.image.length === DELIM_WIDTH;
       const highlightNode: HighlightNode = {
         type: "highlight",
@@ -277,7 +292,9 @@ function handleRoleAttribute(context: RoleAttributeContext): number {
  * @param tokens - The flat token stream being processed.
  * @param index - Position of the open formatting mark.
  * @param token - The token at the current position; its own `type`
- *   is the gate.
+ *   and its `canOpen` flag are the gate - a mark that cannot open
+ *   where it stands (the tokenizer read the neighbourhood) falls to
+ *   plain text even when a closer follows.
  * @param at - The document's location index.
  * @returns The built node and next index, or undefined if the token
  *   is not a formatting mark or has no close.
@@ -288,7 +305,7 @@ function handleFormattingMark(
   token: InlineToken,
   at: LocationIndex,
 ): { node: InlineNode; nextIndex: number } | undefined {
-  if (!isMarkToken(token.type)) return undefined;
+  if (!isMarkToken(token.type) || token.canOpen !== true) return undefined;
   // Find a close mark that is not immediately adjacent to the
   // open mark. An adjacent close would create an empty
   // formatting span (e.g. `____` tokenized as `__` + `__`)
@@ -300,8 +317,9 @@ function handleFormattingMark(
   // This is the ZERO-INNER-TOKENS shape only. A span whose children
   // are all WHITESPACE has tokens, so it is built and reaches the
   // printer's own empty-span bail (appendSpan, src/print/inline.ts),
-  // which the whitespace-only `_# #_` fires and this loop never
-  // sees. Neither guard subsumes the other; both are live.
+  // which the whitespace-only `** **` (a double mark takes any
+  // content) fires and this loop never sees. Neither guard subsumes
+  // the other; both are live.
   let closeIndex = findCloseMark(tokens, index);
   while (closeIndex !== -1) {
     const innerTokens = tokens.slice(index + 1, closeIndex);
@@ -311,7 +329,8 @@ function handleFormattingMark(
   if (closeIndex === -1) return undefined;
 
   const innerTokens = tokens.slice(index + 1, closeIndex);
-  const children = buildFromTokens(innerTokens, at);
+  // Span content: no trailing-newline strip (see buildFromTokens).
+  const children = buildNodes(innerTokens, at);
   const constrained = token.image.length === DELIM_WIDTH;
   const closeMark = tokens[closeIndex];
   return {
@@ -460,6 +479,38 @@ function skipNewlineAfterHardBreak(
 }
 
 /**
+ * The BLOCK-LEVEL entry: strip the trailing InlineNewline runs, then
+ * build.
+ *
+ * The strip belongs to this entry alone. The newline that ends a
+ * BLOCK's last line is structure - the reader's line boundary, never
+ * inline content - but the same walk also builds SPAN content
+ * (`buildNodes` recurses through the formatting-mark handlers), and
+ * there a trailing newline is content the oracle keeps: `sub_quotes`
+ * matches across the joined lines and carries the `\n` into the span
+ * verbatim (substitutors.rb l.189-196), where it renders as
+ * whitespace. Stripping on recursion is what issue #55 measured as
+ * `"x\n** b\n** c\n"` printing `"x ** b** c\n"` - the span's break
+ * was gone before the printer could replay it as the space the
+ * one-line spelling has.
+ * @param allTokens - Flat, offset-sorted token stream
+ *   from the inline tokenizer.
+ * @param at - The document's location index.
+ * @returns The built array of InlineNode AST nodes.
+ */
+export function buildFromTokens(
+  allTokens: readonly InlineToken[],
+  at: LocationIndex,
+): InlineNode[] {
+  const { length: tokenCount } = allTokens;
+  let end = tokenCount;
+  while (end > 0 && allTokens[end - 1].type === "InlineNewline") {
+    end -= 1;
+  }
+  return buildNodes(end < tokenCount ? allTokens.slice(0, end) : allTokens, at);
+}
+
+/**
  * Walk the flat, sorted token stream and build
  * InlineNode[].
  *
@@ -472,25 +523,15 @@ function skipNewlineAfterHardBreak(
  * The function delegates to handler functions that each
  * own one token category (role highlights, formatting
  * marks, atomic macros/links, plain text).
- * @param allTokens - Flat, offset-sorted token stream
- *   from the inline tokenizer.
+ * @param tokens - Flat, offset-sorted token stream: a whole block's
+ *   (via {@link buildFromTokens}) or one span's content.
  * @param at - The document's location index.
  * @returns The built array of InlineNode AST nodes.
  */
-export function buildFromTokens(
-  allTokens: readonly InlineToken[],
+function buildNodes(
+  tokens: readonly InlineToken[],
   at: LocationIndex,
 ): InlineNode[] {
-  // Strip trailing InlineNewline — it's a structural
-  // separator (paragraph boundary), not inline content.
-  // Only between-line newlines should become \n text.
-  const { length: tokenCount } = allTokens;
-  let end = tokenCount;
-  while (end > 0 && allTokens[end - 1].type === "InlineNewline") {
-    end -= 1;
-  }
-  const tokens = end < tokenCount ? allTokens.slice(0, end) : allTokens;
-
   const nodes: InlineNode[] = [];
   let pendingText = "";
   let pendingStart: InlineToken | undefined = undefined;

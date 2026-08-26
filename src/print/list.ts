@@ -255,7 +255,9 @@ export function printListItem(
   // builders for the length of a string it was holding.
   const checkboxWidth = checkboxPrefix.length;
 
-  const atoms = inlineAtoms(node.text, node.position.start.line);
+  // `false`: the marker written below holds column 0 of the item's
+  // first line.
+  const atoms = inlineAtoms(node.text, node.position.start.line, false);
   // The hazard, as a pure predicate over the finished node: reflow
   // may not push leading metadata onto the first rest line.
   const guard = hazard(node);

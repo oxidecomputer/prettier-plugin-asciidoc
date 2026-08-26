@@ -254,20 +254,20 @@ describe("pseudo-anchor lines: a `[[…]]` line that is not a block anchor", () 
   });
 
   // `[[id,]]` is not a block-anchor line either: the grammar's reftext
-  // alternative needs a character after the comma. It PRINTS as
-  // `[[id]]`, which IS a block anchor on re-parse — so without the
-  // pseudo-anchor clause pass 1 emitted a blank line that pass 2 took
-  // back. Pass 1 must be the fixed point.
-  //
-  // No render check here, and the omission is not incidental: the
-  // rendering DOES diverge (`[[id,]]` is literal text to Asciidoctor,
-  // while `[[id]]` is a live anchor on the block below). That is the
-  // pre-existing `anchorToSource` normalization, identical at
-  // `ca35418c` — bytes and the fixed point are what this row owns.
-  test("`[[id,]]` before a block: pass 1 is already the fixed point", async () => {
-    const output = await formatAdoc("[[id,]]\n----\nx\n----\n");
-    expect(output).toBe("[[id]]\n----\nx\n----\n");
+  // alternative needs a character after the comma. Since #53's
+  // faithful replay it PRINTS verbatim too - the empty reftext is
+  // captured as `""` and anchorToSource's verbatim test fails on the
+  // author's spelling - so the line stays TEXT on re-read, the
+  // render check this row could never carry before is restored, and
+  // pass 1 is trivially the fixed point. (The old normalization
+  // printed `[[id]]`, a LIVE anchor where the author wrote literal
+  // text.)
+  test("`[[id,]]` before a block: verbatim, render-equal, fixed", async () => {
+    const input = "[[id,]]\n----\nx\n----\n";
+    const output = await formatAdoc(input);
+    expect(output).toBe(input);
     expect(await formatAdoc(output)).toBe(output);
+    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
   });
 });
 

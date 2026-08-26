@@ -40,6 +40,7 @@ import {
   interruptsByLineShape,
   isRawParagraphLine,
   LINE_COMMENT_HEAD,
+  startsSectionTitle,
 } from "../parse/line-shapes.js";
 
 const {
@@ -262,18 +263,24 @@ const PROBE_SUFFIX = "x";
  *   `NOTE: ` all require that trailing text to match, and the packer
  *   would supply it with the very next word).
  *
- * Both the interrupting shapes and the RAW ones count, and the
- * difference in the QUESTION is the point. The reader asks "does this
- * line end the block", to which a comment or preprocessor directive
- * answers no (the reader consumes it before block structure exists).
- * Reflow asks "may this word begin a line", and there the same
- * shapes answer yes for a different reason — `//` at column 0
- * comments out everything packed after it, and `ifdef::x[]`
- * swallows it into a directive. Text destroyed is text destroyed,
- * whether by a new block or by the preprocessor.
+ * The interrupting shapes, the SECTION TITLES and the RAW ones all
+ * count, and the difference in the QUESTION is the point. The reader
+ * asks "does this line end the block", to which a comment or
+ * preprocessor directive answers no (the reader consumes it before
+ * block structure exists), and a section title answers no as well (a
+ * paragraph swallows one mid-block). Reflow asks "may this word begin
+ * a line", and there the same shapes answer yes for a different
+ * reason: `//` at column 0 comments out everything packed after it,
+ * `ifdef::x[]` swallows it into a directive, and `=` or `##` in front
+ * of a word writes a heading the source never had. Text destroyed is
+ * text destroyed, whether by a new block, by a section the author did
+ * not write, or by the preprocessor.
  * @param word - A single non-empty whitespace-delimited token
  *   from the paragraph text, as produced by String.split on
- *   whitespace. Callers guarantee it contains no whitespace.
+ *   whitespace - or a span-opening atom's COMPOSED text (mark, edge
+ *   space, first word: `** b`), whose interior space is part of the
+ *   line head the probes spell either way (the block-start hazard
+ *   net, src/print/inline.ts).
  * @returns True when the word would start a block, or be eaten by
  *   the preprocessor, at line start
  */
@@ -291,6 +298,8 @@ export function isBlockSyntaxAtLineStart(word: string): boolean {
   return (
     interruptsByLineShape(word) ||
     interruptsByLineShape(startingALine) ||
+    startsSectionTitle(word) ||
+    startsSectionTitle(startingALine) ||
     isRawParagraphLine(word) ||
     isRawParagraphLine(startingALine)
   );

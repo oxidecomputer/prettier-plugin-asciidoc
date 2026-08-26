@@ -127,7 +127,7 @@ const printer: Printer<AnyNode> = {
         // (reflow.ts blockBody), shared with the paragraph-form
         // admonition body and the list item's text.
         return blockBody(
-          inlineAtoms(node.children, node.position.start.line),
+          inlineAtoms(node.children, node.position.start.line, true),
           options.printWidth,
           0,
         );
@@ -146,7 +146,7 @@ const printer: Printer<AnyNode> = {
       // content builds its atoms itself.
       default: {
         return blockBody(
-          inlineAtoms([node], node.position.start.line),
+          inlineAtoms([node], node.position.start.line, true),
           options.printWidth,
           0,
         );

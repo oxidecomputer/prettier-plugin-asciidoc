@@ -4,12 +4,15 @@
  * the MECHANISM that fails it and keyed to the tracker issue that owns
  * the fix.
  *
- * The grouping is the point. A flat list of 137 strings is a number a
+ * The grouping is the point. A flat list of 59 strings is a number a
  * reviewer can only watch go up or down; grouped, each block is one
  * bug with one issue, and a shape that moves between blocks is a
  * mechanism claim somebody has to defend. The equality gates read
- * {@link FAILING_TODAY}, which is the three blocks concatenated, so
- * the grouping cannot drift away from what is enforced.
+ * {@link FAILING_TODAY}, which is the two blocks concatenated, so
+ * the grouping cannot drift away from what is enforced. The #55
+ * block (INLINE_SPAN_SWALLOWS_LINE_BREAK, 78 shapes) is gone: the
+ * tokenizer's directional flags took its 39 constrained twins, and
+ * the span-keeps-break fix took the remaining 39 unconstrained ones.
  *
  * Every entry was classified by MEASUREMENT, not by shape: each was
  * formatted twice and rendered on both sides, and the family is the
@@ -21,102 +24,11 @@
  */
 
 /**
- * **#55 — an inline span swallows the source line break inside its
- * content.** Asciidoctor renders the break as whitespace; the span's
- * content reaches our printer with the break already gone, so the
- * rendered text changes. `"x\n** b\n** c\n"` prints `"x ** b** c\n"`
- * where the oracle reads `x <strong> b </strong> c`. For the
- * CONSTRAINED marks the span is spurious as well (the oracle needs a
- * non-space after the opening mark and matches nothing) — the
- * parse-side twin of #36.
- */
-const INLINE_SPAN_SWALLOWS_LINE_BREAK: readonly string[] = [
-  "* a\n\n\npara\n* a\n* a\n",
-  "* a\n\n\npara\n** b\n** b\n",
-  "* a\n\n.T\n+\n* a\n* a\n",
-  "* a\n\n.T\n+\n** b\n** b\n",
-  "* a\n\n.T\npara\n* a\n* a\n",
-  "* a\n\n.T\npara\n** b\n** b\n",
-  "* a\n\n// c\n+\n* a\n* a\n",
-  "* a\n\n// c\n+\n** b\n** b\n",
-  "* a\n\n// c\npara\n* a\n* a\n",
-  "* a\n\n// c\npara\n** b\n** b\n",
-  "* a\n\n[[anc]]\n+\n* a\n* a\n",
-  "* a\n\n[[anc]]\n+\n** b\n** b\n",
-  "* a\n\n[[anc]]\npara\n* a\n* a\n",
-  "* a\n\n[[anc]]\npara\n** b\n** b\n",
-  "* a\n\n[role]\n+\n* a\n* a\n",
-  "* a\n\n[role]\n+\n** b\n** b\n",
-  "* a\n\n[role]\npara\n* a\n* a\n",
-  "* a\n\n[role]\npara\n** b\n** b\n",
-  "* a\n\npara\n  lit\n* a\n* a\n",
-  "* a\n\npara\n  lit\n** b\n** b\n",
-  "* a\n\npara\n* a\n  lit\n* a\n",
-  "* a\n\npara\n* a\n* a\n",
-  "* a\n\npara\n* a\n* a\n\n",
-  "* a\n\npara\n* a\n* a\n  lit\n",
-  "* a\n\npara\n* a\n* a\n* a\n",
-  "* a\n\npara\n* a\n* a\n** b\n",
-  "* a\n\npara\n* a\n* a\n+\n",
-  "* a\n\npara\n* a\n* a\n.T\n",
-  "* a\n\npara\n* a\n* a\n// c\n",
-  "* a\n\npara\n* a\n* a\n[[anc]]\n",
-  "* a\n\npara\n* a\n* a\n[role]\n",
-  "* a\n\npara\n* a\n* a\npara\n",
-  "* a\n\npara\n* a\n** b\n* a\n",
-  "* a\n\npara\n* a\n** b\n** b\n",
-  "* a\n\npara\n* a\n.T\n* a\n",
-  "* a\n\npara\n* a\n// c\n* a\n",
-  "* a\n\npara\n* a\npara\n* a\n",
-  "* a\n\npara\n** b\n  lit\n** b\n",
-  "* a\n\npara\n** b\n* a\n* a\n",
-  "* a\n\npara\n** b\n* a\n** b\n",
-  "* a\n\npara\n** b\n** b\n",
-  "* a\n\npara\n** b\n** b\n\n",
-  "* a\n\npara\n** b\n** b\n  lit\n",
-  "* a\n\npara\n** b\n** b\n* a\n",
-  "* a\n\npara\n** b\n** b\n** b\n",
-  "* a\n\npara\n** b\n** b\n+\n",
-  "* a\n\npara\n** b\n** b\n.T\n",
-  "* a\n\npara\n** b\n** b\n// c\n",
-  "* a\n\npara\n** b\n** b\n[[anc]]\n",
-  "* a\n\npara\n** b\n** b\n[role]\n",
-  "* a\n\npara\n** b\n** b\npara\n",
-  "* a\n\npara\n** b\n.T\n** b\n",
-  "* a\n\npara\n** b\n// c\n** b\n",
-  "* a\n\npara\n** b\npara\n** b\n",
-  "* a\n\npara\n+\n* a\n* a\n",
-  "* a\n\npara\n+\n** b\n** b\n",
-  "* a\n\npara\n.T\n* a\n* a\n",
-  "* a\n\npara\n.T\n** b\n** b\n",
-  "* a\n\npara\n// c\n* a\n* a\n",
-  "* a\n\npara\n// c\n** b\n** b\n",
-  "* a\n\npara\npara\n* a\n* a\n",
-  "* a\n\npara\npara\n** b\n** b\n",
-  "* a\n  lit\n\npara\n* a\n* a\n",
-  "* a\n  lit\n\npara\n** b\n** b\n",
-  "* a\n* a\n\npara\n* a\n* a\n",
-  "* a\n* a\n\npara\n** b\n** b\n",
-  "* a\n** b\n\npara\n* a\n* a\n",
-  "* a\n** b\n\npara\n** b\n** b\n",
-  "* a\n.T\n\npara\n* a\n* a\n",
-  "* a\n.T\n\npara\n** b\n** b\n",
-  "* a\n// c\n\npara\n* a\n* a\n",
-  "* a\n// c\n\npara\n** b\n** b\n",
-  "* a\n[[anc]]\n\npara\n* a\n* a\n",
-  "* a\n[[anc]]\n\npara\n** b\n** b\n",
-  "* a\n[role]\n\npara\n* a\n* a\n",
-  "* a\n[role]\n\npara\n** b\n** b\n",
-  "* a\npara\n\npara\n* a\n* a\n",
-  "* a\npara\n\npara\n** b\n** b\n",
-];
-
-/**
  * **#54 — the literal slurp's re-shape.** An indented literal tail
  * and what follows it re-read differently once printed:
  * `printedGap`'s slurp arm invents a blank that detaches the nested
  * list behind the tail, or removes the slurp that swallowed the next
- * marker line. The largest family after #55.
+ * marker line. The largest family.
  */
 const LITERAL_SLURP_RESHAPE: readonly string[] = [
   "* a\n\n  lit\n[[anc]]\n** b\n* a\n",
@@ -191,14 +103,13 @@ const REFLOW_JOIN_CHANGES_READING: readonly string[] = [
 ];
 
 /**
- * The three families, flat — what the sweeps assert set-equality
+ * The two families, flat — what the sweeps assert set-equality
  * against. The deep entry compares its whole failing set to this;
  * the default entry compares against this filtered to the documents
  * its shallower product actually spells (`allowlistFor`, in
  * `list-shape-sweep.ts`).
  */
 export const FAILING_TODAY: readonly string[] = [
-  ...INLINE_SPAN_SWALLOWS_LINE_BREAK,
   ...LITERAL_SLURP_RESHAPE,
   ...REFLOW_JOIN_CHANGES_READING,
 ];

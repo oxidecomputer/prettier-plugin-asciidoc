@@ -89,15 +89,21 @@ export function xrefToSource(node: XrefNode): string {
 }
 
 /**
- * Serialize an inline anchor AST node back to AsciiDoc source. A
- * VALID id takes the normalized spelling `[[id, reftext]]` (print-time
- * trim of the verbatim-captured reftext — byte-identical to the old
- * always-normalize behavior on valid ids); a grammar-REJECTED id
+ * Serialize an inline anchor AST node back to AsciiDoc source. An
+ * anchor whose AUTHOR'S spelling the grammar accepts takes the
+ * normalized `[[id, reftext]]` (print-time trim of the
+ * verbatim-captured reftext - byte-identical to the old
+ * always-normalize behavior on valid ids); one the grammar REJECTS
  * emits the author's interior verbatim, `[[id,` + reftext + `]]`,
- * because to the re-reader that line is TEXT and respelling it
- * changes the rendered characters (the grammar home is the registry's
- * BLOCK_ANCHOR — behavior is Ruby's BlockAnchorRx, rx.rb:164 — pinned
- * by tests/format/anchor-spelling.test.ts). Accepts any id/reftext
+ * because to the re-reader that spelling is TEXT and respelling it
+ * changes the rendered characters. BOTH spellings are asked of the
+ * grammar: a rejected id (`[[3-bad, Ref]]`) fails on either, and an
+ * EMPTY reftext (`[[id,]]`) fails verbatim while its normalized
+ * respell `[[id, ]]` would pass - and render as a live anchor where
+ * the author's bytes render literal, so the verbatim test must win
+ * (the grammar home is the registry's BLOCK_ANCHOR - behavior is
+ * Ruby's BlockAnchorRx, rx.rb:164 - pinned by
+ * tests/format/anchor-spelling.test.ts). Accepts any id/reftext
  * pair so the block-anchor printer shares this one spelling.
  * @param node - The parsed anchor with an id and optional verbatim
  *   reftext.
@@ -109,8 +115,10 @@ export function anchorToSource(
   if (node.reftext === undefined) {
     return `[[${node.id}]]`;
   }
+  const verbatim = `[[${node.id},${node.reftext}]]`;
+  if (!BLOCK_ANCHOR.test(verbatim)) {
+    return verbatim;
+  }
   const normalized = `[[${node.id}, ${node.reftext.trimStart()}]]`;
-  return BLOCK_ANCHOR.test(normalized)
-    ? normalized
-    : `[[${node.id},${node.reftext}]]`;
+  return BLOCK_ANCHOR.test(normalized) ? normalized : verbatim;
 }
