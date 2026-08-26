@@ -166,6 +166,25 @@ function runBreak(
  * lines carry `indent` spaces, except a line opened by a literal break,
  * which starts at column 0.
  *
+ * A WIDTH break is refused where the run it would start is block
+ * syntax at column 0 ({@link isBlockSyntaxAtLineStart}); the run
+ * overruns the current line instead. {@link wordsToAtoms} fuses such a
+ * word backwards while the atoms are being built, but only WITHIN one
+ * text node: a run the packer FUSES out of several nodes
+ * (`[` + an address atom + `]`, which no single node ever holds as one
+ * word) reaches this loop unprotected, and a break in front of it
+ * writes a block attribute line where the source had prose.
+ *
+ * A DEMANDED break still stands. Three of the four sources of one -
+ * a raw line, a hard line break, and the dlist first-line guard - are
+ * the AUTHOR's own line boundary, which the packer may not move
+ * whatever stands behind it. The fourth, {@link keepLastBreak}'s kept
+ * break, has not weighed this hazard: it consults `opensDeletedLine`
+ * alone. Its call sites are list items, where the line it opens
+ * carries the item's continuation indent and so does not start at
+ * column 0, and no reproduction is known - it is stated here because
+ * the guarantee is three sources wide, not four.
+ *
  * Width is COLUMNS, not characters: `getStringWidth` is Prettier's own
  * measure, so a full-width CJK character costs two and a combining mark
  * costs none — the same accounting every other Prettier printer wraps
@@ -199,7 +218,8 @@ export function wrap(
         1 +
         util.getStringWidth(run.text) <=
       width;
-    if (line !== "" && (run.breakBefore !== "none" || !fits)) {
+    const widthBreak = !fits && !isBlockSyntaxAtLineStart(run.text);
+    if (line !== "" && (run.breakBefore !== "none" || widthBreak)) {
       flush();
       lineIndent = run.breakBefore === "literal" ? 0 : indent;
       line = run.text;
@@ -254,14 +274,21 @@ const PROBE_SUFFIX = "x";
  * boundary in src/print/inline.ts's text case.
  *
  * The answer comes entirely from the line-shape registry, asked
- * in both spellings a reflowed word can take, because reflow does
+ * in both spellings a reflowed head can take, because reflow does
  * not know which kind of paragraph it is inside and the registry's
  * patterns are whole-LINE ones:
  *
- * - the word alone on a line (`----`, `[source]`, `[[a]]`),
- * - the word starting a line that continues (`* `, `. `, `<1> `,
+ * - the head alone on a line (`----`, `[source]`, `[[a]]`),
+ * - the head starting a line that continues (`* `, `. `, `<1> `,
  *   `NOTE: ` all require that trailing text to match, and the packer
  *   would supply it with the very next word).
+ *
+ * The second probe is exact for a single WORD and conservative for the
+ * two composed heads below: appending `PROBE_SUFFIX` to a head that
+ * already holds a space asks about a line one word longer than the
+ * packer would write. It can therefore only over-refuse, never
+ * under-refuse, and over-refusing costs a break the output did not
+ * need rather than a document the reader loses.
  *
  * The interrupting shapes, the SECTION TITLES and the RAW ones all
  * count, and the difference in the QUESTION is the point. The reader
@@ -275,13 +302,16 @@ const PROBE_SUFFIX = "x";
  * of a word writes a heading the source never had. Text destroyed is
  * text destroyed, whether by a new block, by a section the author did
  * not write, or by the preprocessor.
- * @param word - A single non-empty whitespace-delimited token
- *   from the paragraph text, as produced by String.split on
- *   whitespace - or a span-opening atom's COMPOSED text (mark, edge
- *   space, first word: `** b`), whose interior space is part of the
- *   line head the probes spell either way (the block-start hazard
- *   net, src/print/block-start-hazard.ts).
- * @returns True when the word would start a block, or be eaten by
+ * @param word - The head of an output line, in one of three
+ *   spellings: a single non-empty whitespace-delimited token from the
+ *   paragraph text, as produced by String.split on whitespace; a
+ *   span-opening atom's COMPOSED text (mark, edge space, first word:
+ *   `** b`, the block-start hazard net,
+ *   src/print/block-start-hazard.ts); or a whole FUSED RUN as
+ *   {@link wrap} joins it, which may hold any number of atoms and the
+ *   spaces between them (`[a@b.com] and`). The last two carry interior
+ *   whitespace, which the probes spell either way.
+ * @returns True when the head would start a block, or be eaten by
  *   the preprocessor, at line start
  */
 export function isBlockSyntaxAtLineStart(word: string): boolean {
@@ -292,8 +322,10 @@ export function isBlockSyntaxAtLineStart(word: string): boolean {
   if (word === CONTINUATION_WORD) {
     return false;
   }
-  // The word alone, then the word with a successor after it — the
-  // two lines the packer can produce from it.
+  // The head alone, then the head with a successor after it - the two
+  // lines the packer can produce from it. A head that is already
+  // several words makes the second probe conservative rather than
+  // exact; see the note above.
   const startingALine = `${word} ${PROBE_SUFFIX}`;
   return (
     interruptsByLineShape(word) ||

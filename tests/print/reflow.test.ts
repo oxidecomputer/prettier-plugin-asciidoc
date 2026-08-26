@@ -313,6 +313,30 @@ describe("packing atoms into lines", () => {
     const atoms = [atom("a"), atom("b", { breakBefore: "literal" }), atom("c")];
     expect(wrap(atoms, 5, 3)).toEqual(["a", "b c"]);
   });
+
+  // wordsToAtoms fuses a block-syntax word backwards, but only within
+  // one text node. A run the PACKER fuses out of several nodes -
+  // `[`, an atomic construct, `]` - reaches this loop unprotected, so
+  // the width break in front of it is refused here instead and the run
+  // overruns the line it is already on.
+  test("a width break is refused where the run would be block syntax", () => {
+    const atoms = [atom("aaa"), atom("[b@c.com]")];
+    expect(wrap(atoms, 5, 0)).toEqual(["aaa [b@c.com]"]);
+  });
+
+  test("an ordinary run of the same width still takes the break", () => {
+    expect(wrap([atom("aaa"), atom("bb@c.com")], 5, 0)).toEqual([
+      "aaa",
+      "bb@c.com",
+    ]);
+  });
+
+  // A DEMANDED break is the author's own line, or a net that already
+  // weighed this hazard: the refusal is for WIDTH breaks alone.
+  test("a demanded break still stands in front of block syntax", () => {
+    const atoms = [atom("aaa"), atom("[b@c.com]", { breakBefore: "literal" })];
+    expect(wrap(atoms, 80, 0)).toEqual(["aaa", "[b@c.com]"]);
+  });
 });
 
 describe("the block body", () => {
