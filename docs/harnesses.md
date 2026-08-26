@@ -940,8 +940,15 @@ The rules that keep the file honest:
   instruction.
 - **Raising a minimum rides the commit that earns it** — that is the whole
   ratchet.
-- **A minimum of 0 means the file has nothing to measure** (declaration-only
-  files Stryker writes no row for). Only a zero tolerates an unmeasured file.
+- **A minimum of 0 means the file has not been measured**, for one of two
+  reasons, and the file's `exceptions` row says which. Either Stryker writes no
+  row for it at all (a declaration-only file), or it is a NEW file whose
+  placeholder is waiting on the next batched mutation run — mutation runs at
+  batched integration points, not per change, so a file can land before any run
+  has seen it. Only a zero tolerates an unmeasured file, and a placeholder zero
+  disengages the ratchet for that file until it is reseeded, so it is a debt the
+  next run pays, not a resting state. Every zero row carries an `exceptions`
+  entry naming its reason.
 - **A recorded file the run did not measure is exit 2, never a pass** — that is
   the shape a scoped or crashed run takes. A file measured below its minimum
   outranks it: a definite regression is evidence about the code (1); a run that

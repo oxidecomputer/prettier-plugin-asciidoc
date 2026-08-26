@@ -628,11 +628,20 @@ function appendSpan(
   );
   // Children that are all whitespace produce no atoms (`x ** ** y`,
   // where the bold holds only a space). Emit the bare marks around
-  // whatever whitespace they stood for. The other empty-span shape —
-  // ZERO inner tokens, `____` — never arrives here: the builder's
-  // adjacent-close skip (handleFormattingMark,
-  // src/parse/inline/inline-node-builder.ts) refuses to build such a
-  // node at all. Two conditions, two homes, both live.
+  // whatever whitespace they stood for. That is one of THREE homes of
+  // "a span may not be empty", and none of them subsumes another:
+  //
+  // - a CONSTRAINED span may not hold whitespace at either edge, and
+  //   that is read off the source characters beside the mark, before
+  //   any pairing (canOpenAt/canCloseAt, quote-boundaries.ts): `x * *
+  //   y` is plain text, never a span;
+  // - a span may not hold NOTHING, which the pairing enforces by
+  //   skipping an adjacent close (closeForOpen,
+  //   src/parse/inline/span-pairing.ts), so `____` never reaches the
+  //   printer as a node at all;
+  // - and an UNCONSTRAINED span may hold whitespace alone, because
+  //   its patterns test no boundary - which is the shape that gets
+  //   here, and only here.
   if (inner.length === 0) {
     appendWhitespaceOnlySpan(out, boundary, cursor, {
       open,

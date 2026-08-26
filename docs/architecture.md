@@ -236,12 +236,18 @@ The tokenizer itself is a ~40-line first-match-wins loop over the ordered rule
 table in `src/parse/inline/rules.ts` — the single source of truth for inline
 shapes, the way `line-shapes.ts` is for line shapes, each rule citing the
 Asciidoctor source it mirrors (`substitutors.rb`, `rx.rb`). Its last rule
-consumes one character, so it is total and cannot stall.
-`inline-node-builder.ts` then pairs formatting marks into nested inline nodes;
-keeping the pairing out of the tokenizer is what lets an unclosed mark stay
-literal text instead of becoming an error. Where a line/column is needed, one
-`LocationIndex` (`src/parse/positions.ts`), built once per document, answers by
-binary search.
+consumes one character, so it is total and cannot stall. `span-pairing.ts` then
+decides which marks pair, and `inline-node-builder.ts` turns each resolved pair
+into a node; keeping the pairing out of the tokenizer is what lets an unclosed
+mark stay literal text instead of becoming an error. That pairing is not a
+left-to-right walk. Asciidoctor runs each row of its `QUOTE_SUBS` table as a
+gsub over the whole text, one row after the next, so where two different marks
+overlap the earlier row wins whatever the source order is — `_a *b_ c*` is a
+strong span holding `b_ c`, and the underscores stay literal. A candidate that
+crosses an already-resolved span is dropped: the oracle emits genuinely
+overlapping elements there, and no tree holds them. Where a line/column is
+needed, one `LocationIndex` (`src/parse/positions.ts`), built once per document,
+answers by binary search.
 
 The constrained/unconstrained distinction (`*` vs `**`, `_` vs `__`) is one
 `match` function over an `isBoundary` predicate: try the double mark first,

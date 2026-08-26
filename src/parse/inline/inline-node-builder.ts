@@ -1,10 +1,12 @@
 /**
  * Flat token stream → InlineNode[] builder.
  *
- * Takes the merged, sorted inline token stream of one paragraph
- * body and pairs formatting marks into nested spans. Dispatches
- * atomic tokens (links, macros) through a map-based dispatch
- * table.
+ * Takes the merged, sorted inline token stream of one paragraph body
+ * and turns it into nodes. WHICH marks pair into spans is decided
+ * before this walk begins, by `resolveSpans` (span-pairing.ts), in
+ * Asciidoctor's own `QUOTE_SUBS` row order; this file turns each
+ * resolved span into its node and dispatches the atomic tokens
+ * (links, macros) through a map-based dispatch table.
  *
  * A token carries only its bytes and its document offset, so line
  * and column come from the document's one location index, handed in
@@ -25,81 +27,27 @@ import type { Fragment, LocationIndex } from "../positions.js";
 import { DELIM_WIDTH } from "../../constants.js";
 import type { InlineToken, InlineTokenType } from "./tokens.js";
 import {
+  resolveSpans,
+  spanStart,
+  type MarkTokenKind,
+  type ResolvedSpan,
+} from "./span-pairing.js";
+import {
   makeLinkFromUrl,
   makeXrefFromShorthand,
   makeInlineAnchor,
   makeHardLineBreak,
 } from "./inline-link-builder.js";
 
-// Map from mark token kind to AST node type.
+// Map from mark token kind to AST node type. `satisfies` is what ties
+// it to the resolution table: a fifth mark kind added there fails to
+// compile here until it is given a node type.
 const MARK_TO_TYPE = {
   BoldMark: "bold",
   ItalicMark: "italic",
   MonoMark: "monospace",
   HighlightMark: "highlight",
-} as const;
-
-// The mark token kinds, as a type — the keys of MARK_TO_TYPE.
-type MarkTokenType = keyof typeof MARK_TO_TYPE;
-
-/**
- * Whether a token type is one of the four mark kinds.
- *
- * The single source both the gate and the lookup read, so they
- * cannot disagree.
- * @param type - The token type to test.
- * @returns Whether it names one of the four mark kinds.
- */
-function isMarkToken(type: InlineTokenType): type is MarkTokenType {
-  return type in MARK_TO_TYPE;
-}
-
-/**
- * Scan forward for a matching close mark of the same token
- * type and image length (constrained vs. unconstrained).
- *
- * AsciiDoc formatting marks come in pairs (e.g. `*bold*`).
- * This greedy forward scan finds the nearest close mark that
- * matches the open mark's type and constraint level, enabling
- * the builder to extract the inner content for recursion. Only a
- * token whose `canClose` flag is set counts: the tokenizer computed
- * whether Ruby's constrained pattern could END a span there (content
- * `\S` before the mark, no word character after it), and a mark that
- * cannot close must not be paired with - it may still OPEN a later
- * span of its own.
- * @param tokens - The flat token stream being processed.
- * @param openIndex - Position of the open mark to match.
- * @returns Index of the matching close mark, or -1 if none
- *   is found.
- */
-function findCloseMark(
-  tokens: readonly InlineToken[],
-  openIndex: number,
-): number {
-  const openToken = tokens[openIndex];
-  const {
-    type: openType,
-    image: { length: markLength },
-  } = openToken;
-
-  for (
-    let scanIndex = openIndex + 1;
-    scanIndex < tokens.length;
-    scanIndex += 1
-  ) {
-    const candidate = tokens[scanIndex];
-    // Same kind, same image length (single vs double mark), and able
-    // to close where it stands.
-    if (
-      candidate.type === openType &&
-      candidate.image.length === markLength &&
-      candidate.canClose === true
-    ) {
-      return scanIndex;
-    }
-  }
-  return -1;
-}
+} as const satisfies Record<MarkTokenKind, string>;
 
 /**
  * Build a TextNode from accumulated pending text.
@@ -130,7 +78,7 @@ function makeTextNode(
 
 // Parameters for makeFormattingNode.
 interface FormattingNodeOptions {
-  markType: MarkTokenType;
+  markType: MarkTokenKind;
   constrained: boolean;
   children: InlineNode[];
   openMark: Fragment;
@@ -200,150 +148,122 @@ function makeAttributeReference(
 }
 
 /**
- * State passed to {@link handleRoleAttribute} so it can
- * scan ahead for a highlight mark pair and emit the
- * appropriate inline node. Groups the token stream,
- * current position, and the text/node accumulation
- * callbacks that the main loop owns.
+ * The spans resolved INSIDE another one, re-based onto the content
+ * slice the recursion is about to walk.
+ *
+ * A span's indices only mean anything against the stream they were
+ * resolved from, and the recursion hands its child a slice; shifting
+ * them here is what lets the whole paragraph be resolved ONCE, before
+ * any recursion, which is the only way the order can be Ruby's
+ * (span-pairing.ts resolves a row over the whole text, as `sub_quotes`
+ * does).
+ * @param spans - every span of the current stream.
+ * @param outer - the span being descended into.
+ * @param base - index of its first content token, the shift amount.
+ * @returns the spans strictly inside it, in the same order.
  */
-interface RoleAttributeContext {
-  /** The full flat token stream being processed. */
-  tokens: readonly InlineToken[];
-  /** Current position in the token stream. */
-  index: number;
-  /** The RoleAttribute token at the current position. */
-  token: InlineToken;
-  /** Flush any accumulated plain text as a TextNode. */
-  flushText: () => void;
-  /** Append text to the pending plain-text accumulator. */
-  accumulate: (token: InlineToken, text: string) => void;
-  /** Output list of inline nodes built so far. */
-  nodes: InlineNode[];
-  /** The document's location index. */
-  at: LocationIndex;
+function innerSpans(
+  spans: readonly ResolvedSpan[],
+  outer: ResolvedSpan,
+  base: number,
+): ResolvedSpan[] {
+  return spans
+    .filter((span) => spanStart(span) >= base && span.close < outer.close)
+    .map((span) => ({
+      type: span.type,
+      open: span.open - base,
+      close: span.close - base,
+      role: span.role === undefined ? undefined : span.role - base,
+    }));
 }
 
 /**
- * Handle a RoleAttribute token (`[.role]`).
+ * Build the node one resolved span stands for, recursing into the
+ * tokens between its marks.
  *
- * A role attribute immediately before a highlight mark
- * (`#...#`) creates a custom-styled span. If no pairing is
- * found, the role token falls through as plain text — it may be
- * an unresolved or misplaced attribute.
- *
- * The HighlightNode is built HERE rather than through
- * {@link makeFormattingNode} even though the pair-and-recurse
- * shape matches: this literal spells the keys `type, constrained,
- * role, children, position`, the factory's highlight arm spells
- * `type, role, constrained, children, position`, and serialization
- * order is a contract — unifying them would move keys on every
- * `[.role]#x#` document.
- * @param context - The current token stream state and
- *   accumulator callbacks.
- * @returns The next token index to resume processing from.
+ * A role-carrying highlight is built from a LITERAL here rather than
+ * through {@link makeFormattingNode} even though the shape matches:
+ * this literal spells the keys `type, constrained, role, children,
+ * position`, the factory's highlight arm spells `type, role,
+ * constrained, children, position`, and serialization order is a
+ * contract — unifying them would move keys on every `[.role]#x#`
+ * document.
+ * @param tokens - the stream the span was resolved from.
+ * @param spans - every span of that stream, for the recursion.
+ * @param span - the span to build.
+ * @param at - The document's location index.
+ * @returns the formatting node, children and position included.
  */
-function handleRoleAttribute(context: RoleAttributeContext): number {
-  const { tokens, index, token, flushText, accumulate, nodes, at } = context;
-  const { image: roleImage } = token;
-  const roleText = roleImage.slice(DELIM_WIDTH, -DELIM_WIDTH);
-  const nextIndex = index + 1;
+function makeSpanNode(
+  tokens: readonly InlineToken[],
+  spans: readonly ResolvedSpan[],
+  span: ResolvedSpan,
+  at: LocationIndex,
+): InlineNode {
+  const base = span.open + 1;
+  const openMark = tokens[span.open];
+  const closeMark = tokens[span.close];
+  // Span content: no trailing-newline strip (see buildFromTokens).
+  const children = buildNodes(
+    tokens.slice(base, span.close),
+    innerSpans(spans, span, base),
+    at,
+  );
+  const constrained = openMark.image.length === DELIM_WIDTH;
+  // A span carrying a role is a HIGHLIGHT, and this branch never asks
+  // the span's own kind before saying so. What makes that safe lives
+  // in another file: the RoleAttribute rule is `/\[[^\]]+\](?=#)/v`
+  // (rules.ts), and that lookahead means a role token can only ever
+  // be emitted directly in front of a HighlightMark. The restriction
+  // is OURS, not Asciidoctor's - Ruby's `QuoteAttributeListRxt` group
+  // sits inside all ten quote rows, so `[ _a_ ]*x*` really renders
+  // `<strong class="...">x</strong>` while we print the brackets as
+  // text. A tokenizer that ever emitted a role in front of another
+  // mark would have to gate this branch on `span.type` first.
+  if (span.role !== undefined) {
+    const roleToken = tokens[span.role];
+    const highlightNode: HighlightNode = {
+      type: "highlight",
+      constrained,
+      role: roleToken.image.slice(DELIM_WIDTH, -DELIM_WIDTH),
+      children,
+      position: { start: at.start(roleToken), end: at.end(closeMark) },
+    };
+    return highlightNode;
+  }
+  return makeFormattingNode({
+    markType: span.type,
+    constrained,
+    children,
+    openMark,
+    closeMark,
+    at,
+  });
+}
 
-  if (
-    nextIndex < tokens.length &&
-    tokens[nextIndex].type === "HighlightMark" &&
-    tokens[nextIndex].canOpen === true
-  ) {
-    const closeIndex = findCloseMark(tokens, nextIndex);
-    if (closeIndex !== -1) {
-      flushText();
-      const openMark = tokens[nextIndex];
-      const closeMark = tokens[closeIndex];
-      const innerTokens = tokens.slice(nextIndex + 1, closeIndex);
-      // Span content: no trailing-newline strip (see buildFromTokens).
-      const children = buildNodes(innerTokens, at);
-      const constrained = openMark.image.length === DELIM_WIDTH;
-      const highlightNode: HighlightNode = {
-        type: "highlight",
-        constrained,
-        role: roleText,
-        children,
-        position: { start: at.start(token), end: at.end(closeMark) },
-      };
-      nodes.push(highlightNode);
-      return closeIndex + 1;
+/**
+ * The spans of one stream that no other span of it encloses — the
+ * ones this walk emits directly, each of which carries the rest
+ * inside it.
+ *
+ * `resolveSpans` returns its spans start-ascending, which for properly
+ * nested spans puts an enclosing one in front of everything inside it,
+ * so one forward pass with a high-water mark is enough: a span
+ * starting behind the furthest close seen so far is inside something
+ * already emitted.
+ * @param spans - every span of the stream, start-ascending.
+ * @returns the top-level ones, in source order.
+ */
+function outermostSpans(spans: readonly ResolvedSpan[]): ResolvedSpan[] {
+  const top: ResolvedSpan[] = [];
+  let reach = -1;
+  for (const span of spans) {
+    if (spanStart(span) > reach) {
+      top.push(span);
+      reach = span.close;
     }
   }
-
-  // No matching highlight — treat as text.
-  accumulate(token, token.image);
-  return index + 1;
-}
-
-/**
- * Try to pair a formatting mark with its close.
- *
- * isMarkToken is the gate and it lives HERE, with the pairing
- * it guards: extracts the tokens between the open and close marks,
- * recursively builds their InlineNode children, and wraps them in
- * the appropriate formatting node. Returns undefined for a token
- * that is not a formatting mark at all and for one with no matching
- * close, both of which send the caller on to plain-text
- * accumulation.
- * @param tokens - The flat token stream being processed.
- * @param index - Position of the open formatting mark.
- * @param token - The token at the current position; its own `type`
- *   and its `canOpen` flag are the gate - a mark that cannot open
- *   where it stands (the tokenizer read the neighbourhood) falls to
- *   plain text even when a closer follows.
- * @param at - The document's location index.
- * @returns The built node and next index, or undefined if the token
- *   is not a formatting mark or has no close.
- */
-function handleFormattingMark(
-  tokens: readonly InlineToken[],
-  index: number,
-  token: InlineToken,
-  at: LocationIndex,
-): { node: InlineNode; nextIndex: number } | undefined {
-  if (!isMarkToken(token.type) || token.canOpen !== true) return undefined;
-  // Find a close mark that is not immediately adjacent to the
-  // open mark. An adjacent close would create an empty
-  // formatting span (e.g. `____` tokenized as `__` + `__`)
-  // which has no content and crashes the printer. Skipping
-  // adjacent matches lets the tokens between them become
-  // content, matching Asciidoctor's behavior where `_____`
-  // is italic wrapping a literal `_`.
-  //
-  // This is the ZERO-INNER-TOKENS shape only. A span whose children
-  // are all WHITESPACE has tokens, so it is built and reaches the
-  // printer's own empty-span bail (appendSpan, src/print/inline.ts),
-  // which the whitespace-only `** **` (a double mark takes any
-  // content) fires and this loop never sees. Neither guard subsumes
-  // the other; both are live.
-  let closeIndex = findCloseMark(tokens, index);
-  while (closeIndex !== -1) {
-    const innerTokens = tokens.slice(index + 1, closeIndex);
-    if (innerTokens.length > 0) break;
-    closeIndex = findCloseMark(tokens, closeIndex);
-  }
-  if (closeIndex === -1) return undefined;
-
-  const innerTokens = tokens.slice(index + 1, closeIndex);
-  // Span content: no trailing-newline strip (see buildFromTokens).
-  const children = buildNodes(innerTokens, at);
-  const constrained = token.image.length === DELIM_WIDTH;
-  const closeMark = tokens[closeIndex];
-  return {
-    node: makeFormattingNode({
-      markType: token.type,
-      constrained,
-      children,
-      openMark: token,
-      closeMark,
-      at,
-    }),
-    nextIndex: closeIndex + 1,
-  };
+  return top;
 }
 
 /**
@@ -485,10 +405,10 @@ function skipNewlineAfterHardBreak(
  * The strip belongs to this entry alone. The newline that ends a
  * BLOCK's last line is structure - the reader's line boundary, never
  * inline content - but the same walk also builds SPAN content
- * (`buildNodes` recurses through the formatting-mark handlers), and
- * there a trailing newline is content the oracle keeps: `sub_quotes`
- * matches across the joined lines and carries the `\n` into the span
- * verbatim (substitutors.rb l.189-196), where it renders as
+ * ({@link makeSpanNode} recurses back into it), and there a trailing
+ * newline is content the oracle keeps: `sub_quotes` matches across
+ * the joined lines and carries the `\n` into the span verbatim
+ * (substitutors.rb l.189-196), where it renders as
  * whitespace. Stripping on recursion is what issue #55 measured as
  * `"x\n** b\n** c\n"` printing `"x ** b** c\n"` - the span's break
  * was gone before the printer could replay it as the space the
@@ -507,36 +427,44 @@ export function buildFromTokens(
   while (end > 0 && allTokens[end - 1].type === "InlineNewline") {
     end -= 1;
   }
-  return buildNodes(end < tokenCount ? allTokens.slice(0, end) : allTokens, at);
+  const body = end < tokenCount ? allTokens.slice(0, end) : allTokens;
+  // ONE resolution for the whole body, before any recursion: a
+  // `QUOTE_SUBS` row is a gsub over the whole text, so which spans a
+  // row wins cannot be decided a slice at a time.
+  return buildNodes(body, resolveSpans(body), at);
 }
 
 /**
  * Walk the flat, sorted token stream and build
  * InlineNode[].
  *
- * Formatting marks are paired greedily: each open mark
- * scans forward for the nearest matching close of the same
- * type and length, then the content between them is
- * recursively built. Tokens that don't match any
- * structural category are coalesced into text runs.
+ * The spans are already resolved and properly nested when this runs,
+ * so the walk only has to step over each one and recurse into its
+ * content. Tokens that don't match any structural category are
+ * coalesced into text runs.
  *
  * The function delegates to handler functions that each
- * own one token category (role highlights, formatting
- * marks, atomic macros/links, plain text).
+ * own one token category (formatting spans, atomic macros/links,
+ * plain text).
  * @param tokens - Flat, offset-sorted token stream: a whole block's
  *   (via {@link buildFromTokens}) or one span's content.
+ * @param spans - the spans resolved over THAT stream, with indices
+ *   into it.
  * @param at - The document's location index.
  * @returns The built array of InlineNode AST nodes.
  */
 function buildNodes(
   tokens: readonly InlineToken[],
+  spans: readonly ResolvedSpan[],
   at: LocationIndex,
 ): InlineNode[] {
   const nodes: InlineNode[] = [];
+  const top = outermostSpans(spans);
   let pendingText = "";
   let pendingStart: InlineToken | undefined = undefined;
   let pendingEnd: InlineToken | undefined = undefined;
   let index = 0;
+  let spanIndex = 0;
 
   /** Flush accumulated plain text into a TextNode. */
   function flushText(): void {
@@ -568,6 +496,25 @@ function buildNodes(
   }
 
   while (index < tokens.length) {
+    // A span that begins here was resolved before this walk started,
+    // marks and extent already decided (span-pairing.ts), so the walk
+    // does not look for one: it steps over the whole span and lets
+    // the recursion inside {@link makeSpanNode} take the content.
+    //
+    // `spanIndex` only ever advances when `index` LANDS on a span's
+    // first token, so a jump past one would strand it and lose every
+    // later span. The two jumps below cannot do that: both skip an
+    // InlineNewline and nothing else, and a span starts on a mark or
+    // a RoleAttribute.
+    const span = top.at(spanIndex);
+    if (span !== undefined && spanStart(span) === index) {
+      flushText();
+      nodes.push(makeSpanNode(tokens, spans, span, at));
+      index = span.close + 1;
+      spanIndex += 1;
+      continue;
+    }
+
     const token = tokens[index];
     const { type } = token;
 
@@ -585,32 +532,6 @@ function buildNodes(
       continue;
     }
 
-    // Dispatch to category-specific handlers.
-    if (type === "RoleAttribute") {
-      index = handleRoleAttribute({
-        tokens,
-        index,
-        token,
-        flushText,
-        accumulate,
-        nodes,
-        at,
-      });
-      continue;
-    }
-
-    // Paired formatting marks (*...*  _..._ `...` #...#): pair with
-    // the matching close, or fall through as plain text when none
-    // exists.
-    const pairedResult = handleFormattingMark(tokens, index, token, at);
-    if (pairedResult !== undefined) {
-      flushText();
-      const { node, nextIndex } = pairedResult;
-      nodes.push(node);
-      index = nextIndex;
-      continue;
-    }
-
     // Atomic single-token nodes: attribute references,
     // links, xrefs, inline anchors, macros.
     const atomicNode = handleAtomicToken(token, at);
@@ -625,7 +546,9 @@ function buildNodes(
       continue;
     }
 
-    // InlineNewline → \n, everything else → literal image.
+    // InlineNewline → \n, everything else → literal image. A mark
+    // and a `[role]` that no resolved span claimed arrive here: they
+    // are the bytes the author wrote and nothing more.
     accumulate(token, type === "InlineNewline" ? "\n" : token.image);
     index += 1;
   }
