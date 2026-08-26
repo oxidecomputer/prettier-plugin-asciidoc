@@ -32,9 +32,10 @@ therefore has a measured-nothing floor that exits 2: `parity` has
 `triage` refuses a corpus with no groups, `block-structure` refuses a short
 corpus, a short sweep product, an oracle refusal other than the one document it
 pins by id, and ledgers whose header names an oracle other than the installed
-one, and `metrics` refuses a `src` too small to be this repository's. Without
-the split, an empty `src` would score a perfect card — no files means no cycles,
-no unused exports, and no escape hatches, all vacuously true.
+one, `local-docs` refuses a directory with no documents in it, and `metrics`
+refuses a `src` too small to be this repository's. Without the split, an empty
+`src` would score a perfect card — no files means no cycles, no unused exports,
+and no escape hatches, all vacuously true.
 
 Every script takes `--help`, and an unrecognized argument is an error, not a
 shrug: a silently dropped `--base` would print a head-only table that looks like
@@ -360,6 +361,88 @@ only here.
 
 Proves: our AST models the same block skeleton the oracle does, everywhere the
 ledgers do not say otherwise.
+
+### `bun run local-docs <dir>` - the formatter against real documents
+
+Issue #13. Walks a directory for `.adoc` files, recursively, and runs four
+checks over each one: formatting must not throw, formatting our own output must
+not throw either, `format(format(d))` must equal `format(d)`, and Asciidoctor
+must render `format(d)` exactly the way it renders `d`. The render comparison is
+the conformance suite's own (`tests/helpers.ts`), oracle and normalization
+included, so a divergence here means the same thing it means there - the harness
+grows no comparison of its own.
+
+That shared normalization folds two things and only two: a line break outside
+`<pre>`, and a whitespace RUN outside `<pre>` and `<code>`. Both are reflow,
+which is what a formatter does; whitespace a reader can actually see is inside
+`<pre>` or `<code>`, where nothing is touched, and that is where issue #32's
+real failures are. The run rule was added when the first real-corpus sweep
+reported 115 documents whose only divergence was a collapsed double space in a
+sentence - a failure class that was never a failure.
+
+The corpus is nobody's to commit. It is whatever documents the person running it
+has: long, real, and written by people who were not thinking about our parser -
+which is the point, because the vendored corpus is thousands of small cases
+extracted from Asciidoctor's tests and both sweep products are generated
+alphabets. A first sweep over a real corpus found a header shape neither of them
+spells at all.
+
+```bash
+bun run local-docs ~/documents          # any directory
+bun run local-docs                      # the "corpus" field of the config
+bun run local-docs ~/documents --limit 300
+```
+
+The config file is `scripts/local-documents.config.json`, gitignored, with two
+optional string fields: `corpus` (the directory to walk) and `repository` (the
+git repository to collect from). Both are per-machine and both are overridable
+on the command line; the file only saves typing an absolute path. It is read
+STRICTLY - a file that exists and is not a config, a mistyped key included,
+exits 2 rather than being read short and pointed somewhere else. Neither field
+is the collector's OUTPUT directory, deliberately: see below.
+
+Exit 1 when a document failed a check; exit 2 for the measured-nothing floor - a
+directory with no `.adoc` file under it, which would otherwise report a perfect
+run over nothing. A run in which the oracle refused every input is NOT that
+floor and still exits 0: parsing, re-parsing and settling were all measured, and
+only the render comparison was not. What such a run may not do is claim
+otherwise, so the clean headline names the checks that actually ran and carries
+the unassessed count beside them. There is no CI job, and there cannot be one:
+the corpus does not exist on any machine but the runner's.
+
+**`bun run collect-local-docs`** builds such a directory out of a
+branch-per-document git repository - the layout where published documents live
+on one base branch at `<tree>/<number>/README.adoc` and a document still under
+discussion lives on a branch NAMED for its number (Oxide's RFD repository is the
+motivating example). The layout is fixed and `--base` is the only knob; only
+`refs/heads` is scanned, so a fresh clone with no local branches contributes the
+base branch's documents and nothing else. It writes `<number>.adoc` per document
+into the output directory, taking each numbered branch's own copy over the
+base's. Every git command it runs is a read - `for-each-ref`, `ls-tree`,
+`rev-parse`, `show` - so the source repository's working copy is never touched:
+no checkout, no fetch, no worktree. Every ref is spelled `refs/heads/<name>`,
+because git resolves a short name through `refs/tags/` first and a tag sharing a
+branch's name would shadow it silently.
+
+Two guards sit around the write, and both exist because the files involved are
+private documents. The output directory must be `.local-docs/documents` (the
+default) or a path `git check-ignore` reports as ignored, or the run exits 2 and
+asks for `--force`; and the only files a rerun deletes are the `<digits>.adoc`
+names the collector itself writes, so a hand-written document in the same
+directory survives. That is also why the output directory is not read from the
+config's `corpus`: `corpus` is what `local-docs` WALKS, frequently somebody's
+own document directory, and a field that doubled as both would aim a delete at
+it.
+
+**Nothing a real document said may be committed.** Not its text, not its title,
+not its file name. A finding leaves this harness as a MINIMAL SYNTHETIC REPRO -
+the smallest document that shows the mechanism, written from scratch - which
+then becomes a format test, a conformance row, or an issue. The report the
+harness prints is for the person who ran it and goes no further; the detail
+beside each id is there to be read while writing that repro, never to be pasted.
+The committed half of the harness is `tests/integration/fixtures/`: a handful of
+tiny synthetic documents that pin the walk and the shape of a result, and which
+are expected to pass every check.
 
 ### `bun run vendor` and `bun run build`
 

@@ -10,6 +10,12 @@ docs/superpowers/
 # Local copy of the AsciiDoc pre-spec PDF (3.2 MB binary; download
 # URL in CLAUDE.md's Roadmap section).
 docs/asciidoc-pre-spec.pdf
+# The local-documents harness (bun run local-docs): the corpus it walks
+# is real private documents, and where it lives is per-machine. Neither
+# the collected corpus nor the config file naming it is ever committed -
+# findings are distilled into synthetic repros instead.
+.local-docs/
+scripts/local-documents.config.json
 # Mutation testing output: the html/json reports and the incremental
 # file (a cache of last run's mutant results, machine-local by nature).
 reports/

@@ -1,0 +1,3 @@
+Not an AsciiDoc document. A real corpus directory is full of files
+like this one - images, diagram sources, notes - and the walk must
+ignore every one of them rather than trying to format it.

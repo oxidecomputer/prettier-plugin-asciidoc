@@ -1,0 +1,6 @@
+= A Well-Formed Document
+
+A paragraph the formatter leaves alone.
+
+* one
+* two

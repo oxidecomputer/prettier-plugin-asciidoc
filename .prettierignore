@@ -1,4 +1,5 @@
 vendor/
 tests/parser/fixtures/
+tests/integration/configs/not-json.json
 .superpowers/
 docs/superpowers/
