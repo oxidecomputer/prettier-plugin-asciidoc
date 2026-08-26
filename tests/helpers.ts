@@ -111,11 +111,26 @@ LoggerManager.setLogger(nullLogger);
  * difference is invisible in rendered HTML and not a semantic
  * change.
  *
- * Deliberately NARROW: whitespace runs WITHIN a line are left
- * alone, so a formatter that collapses a double space inside
- * `` `code` `` or a `+++passthrough+++` still fails the
- * comparison. Inside `<pre>`, where a line break is meaningful,
- * nothing is touched at all.
+ * Whitespace RUNS within a line collapse for the same reason, but
+ * under a narrower shelter: outside `<pre>` AND outside `<code>`.
+ * Reflowing prose is what a formatter does and two spaces after a
+ * full stop are not something a document MEANS, while a run inside
+ * `` `a  b` `` or a verbatim block is exactly issue #32's failure -
+ * whitespace the reader can see. So a formatter that collapses a
+ * double space inside a code span still fails this comparison; one
+ * that collapses it in a sentence no longer does.
+ *
+ * The two rules have deliberately different shelters. A line BREAK
+ * is folded inside `<code>` as well, because reflow may legitimately
+ * break a line inside an inline code span and Asciidoctor copies
+ * that break into the element; only `<pre>`, where a line break is
+ * content, is exempt from it.
+ *
+ * KNOWN COST: an inline passthrough (`+++a  b+++`) renders as bare
+ * text with no wrapping element, so a collapsed run inside one is
+ * invisible here. The `<pre>`/`<code>` split is what the rendered
+ * HTML makes available; a passthrough's whitespace needs a test
+ * against pinned bytes.
  *
  * Asciidoctor.js 4.x converts asynchronously — there is no sync
  * entry point in any of its builds — so this returns a promise and
@@ -132,27 +147,47 @@ export async function renderedHtml(input: string): Promise<string> {
   if (typeof result !== "string") {
     throw new TypeError("expected convert() to return a string");
   }
-  // Split around <pre>...</pre> blocks, normalize newlines only
-  // in the non-pre segments. Asciidoctor never nests <pre> tags.
-  const preBlocks: string[] = [];
-  const withPlaceholders = result.replaceAll(
-    /<pre[^>]*>[\s\S]*?<\/pre>/gv,
-    (match) => {
-      preBlocks.push(match);
-      return `\0PRE${String(preBlocks.length - 1)}\0`;
-    },
+  // Stash every whitespace-significant region, normalize what is
+  // left, then put the regions back. <pre> is stashed FIRST, so a
+  // stashed <code> can never contain a placeholder: a source block
+  // is <pre ...><code ...>, and the whole <pre> leaves in one piece
+  // before the <code> pass runs. Asciidoctor nests neither tag in
+  // itself.
+  // The sentinel carries a letter as well as the NUL pair, because a
+  // bare NUL-digits-NUL is a sequence a document can itself contain,
+  // and one that did would have its own text replaced by a stashed
+  // region here.
+  const kept: string[] = [];
+  const stash = (html: string, region: RegExp): string =>
+    html.replaceAll(region, (match) => {
+      kept.push(match);
+      return `\0R${String(kept.length - 1)}\0`;
+    });
+  // The two rules have different shelters, and the order says which.
+  // A LINE BREAK is folded everywhere outside <pre>, inside an
+  // inline code span included: reflow may legitimately break a line
+  // inside `` `a b` ``, and Asciidoctor copies that break into the
+  // <code> element. A whitespace RUN is folded only outside <code>
+  // as well, which is the #32 line. So: stash <pre>, fold breaks,
+  // stash <code>, fold runs.
+  const withPlaceholders = stash(
+    stash(result, /<pre[^>]*>[\s\S]*?<\/pre>/gv).replaceAll(
+      /[ \t]*\n[ \t]*/gv,
+      " ",
+    ),
+    /<code[^>]*>[\s\S]*?<\/code>/gv,
   );
   return (
     withPlaceholders
-      .replaceAll(/[ \t]*\n[ \t]*/gv, " ")
+      .replaceAll(/[ \t]{2,}/gv, " ")
       // The second callback argument is the first capture — being
       // named does not change its position. (The `groups` object
       // is the LAST argument, after offset and source; reading it
       // positionally is how a previous version of this helper
       // silently replaced every <pre> block with "undefined".)
       .replaceAll(
-        /\0PRE(?<index>\d+)\0/gv,
-        (_match: string, index: string) => preBlocks[Number(index)],
+        /\0R(?<index>\d+)\0/gv,
+        (_match: string, index: string) => kept[Number(index)],
       )
   );
 }

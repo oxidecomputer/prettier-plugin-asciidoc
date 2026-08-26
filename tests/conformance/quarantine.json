@@ -65,19 +65,11 @@
     "fails": ["fidelity"],
     "issue": "#24"
   },
-  "attributes_test.rb#should drop line that only contains attribute assignment#0": {
-    "fails": ["fidelity"],
-    "issue": "UNTRIAGED"
-  },
   "attributes_test.rb#should drop line with attribute unassignment by default#0": {
     "fails": ["fidelity"],
     "issue": "UNTRIAGED"
   },
   "attributes_test.rb#should drop line with reference to missing attribute if attribute-missing attribute is drop-line#0": {
-    "fails": ["fidelity"],
-    "issue": "UNTRIAGED"
-  },
-  "attributes_test.rb#verify toc attribute matrix#0": {
     "fails": ["fidelity"],
     "issue": "UNTRIAGED"
   },
@@ -520,10 +512,6 @@
     "issue": "#12"
   },
   "manpage_test.rb#(outside test)#0": { "fails": ["fidelity"], "issue": "#18" },
-  "manpage_test.rb#should manify and preserve whitespace in literal table cell#0": {
-    "fails": ["fidelity"],
-    "issue": "#32"
-  },
   "manpage_test.rb#should normalize whitespace and skip line comments before and inside NAME section#0": {
     "fails": ["fidelity"],
     "issue": "#18"
@@ -549,14 +537,6 @@
     "issue": "UNTRIAGED"
   },
   "parser_test.rb#expands tabs to spaces#0": {
-    "fails": ["fidelity"],
-    "issue": "UNTRIAGED"
-  },
-  "parser_test.rb#expands tabs to spaces#1": {
-    "fails": ["fidelity"],
-    "issue": "UNTRIAGED"
-  },
-  "parser_test.rb#parse rev date remark#0": {
     "fails": ["fidelity"],
     "issue": "UNTRIAGED"
   },
