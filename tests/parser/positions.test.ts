@@ -109,4 +109,23 @@ describe("splitLines and LocationIndex share one line numbering", () => {
       expect(at.at(line.offset).line).toBe(line.line);
     }
   });
+  // A stripped byte-order mark is SKIPPED, not cut out, so both
+  // authorities still measure the same string: the mark keeps its
+  // offset and the first line starts one past it. The row is here
+  // rather than beside the mark's own rows because it is the
+  // agreement that would break if the reader had shortened the
+  // source under the index instead.
+  test("a leading byte-order mark moves no line number", () => {
+    const source = "\u{FEFF}= Title\n\nbody\n";
+    const at = makeLocationIndex(source);
+    const lines = splitLines(source);
+    for (const line of lines) {
+      expect(at.at(line.offset).line).toBe(line.line);
+      expect(
+        source.slice(line.offset, line.offset + line.raw.length),
+        "an offset still indexes the ORIGINAL source",
+      ).toBe(line.raw);
+    }
+    expect(at.at(lines[0].offset)).toEqual({ offset: 1, line: 1, column: 2 });
+  });
 });

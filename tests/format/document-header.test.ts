@@ -8,6 +8,7 @@
  */
 import { describe, test, expect } from "vitest";
 import { formatAdoc } from "../helpers.js";
+import { parse } from "../../src/parser.js";
 
 describe("document title formatting", () => {
   // A canonical document title should pass through unchanged.
@@ -67,5 +68,86 @@ describe("document title formatting", () => {
   test("title with attributes then section", async () => {
     const input = "= My Document\n:toc:\n\n== First Section\n";
     expect(await formatAdoc(input)).toBe(input);
+  });
+});
+
+// Issue #60's document, in the shape the corpus carries it: a
+// byte-order mark, a document header, a body. The oracle's
+// prepare_source drops one leading mark before reading a line, so the
+// first line is a document title and not a paragraph; the reader does
+// the same in src/parse/lines/split.ts.
+//
+// Prettier takes a U+FEFF off the text before any plugin sees it and
+// puts it back on the formatted output (normalizeInputAndOptions), so
+// the end-to-end rows below say what the FILE does and the parse row
+// says what the READER does with the mark still attached. The
+// misdecoded spelling is the one Prettier does not know, which is why
+// it is the row that fails if the reader stops stripping.
+//
+// Stripping the mark is how the first line is READ, never an edit to
+// the file: whatever the reader takes off the head the printer puts
+// back, so the head bytes round-trip for every spelling and every
+// count. A doubled mark is the row that would notice otherwise -
+// delete one copy and the mark left behind is stripped by the next
+// read, so a paragraph would turn into a title one format at a time.
+describe("a leading byte-order mark", () => {
+  const BOM = "\u{FEFF}";
+  const MISDECODED_BOM = "\u{EF}\u{BB}\u{BF}";
+  const document = "= Title\n:attribute: value\n\nBody text.\n";
+  // A one-line document for the doubled rows: with a second mark left
+  // in front of it the first line is a PARAGRAPH, and a paragraph next
+  // to more header lines would be reflowed together with them, which
+  // would make the row about reflow rather than about the mark.
+  const title = "= Title\n";
+
+  test("the reader reads a title through the mark", () => {
+    const [block] = parse(`${BOM}${document}`).children;
+    expect(block.type).toBe("heading");
+  });
+
+  test("the reader records the mark it stripped", () => {
+    expect(parse(`${BOM}${document}`).byteOrderMark).toBe(BOM);
+    expect(parse(`${MISDECODED_BOM}${document}`).byteOrderMark).toBe(
+      MISDECODED_BOM,
+    );
+    expect(parse(document).byteOrderMark).toBeUndefined();
+  });
+
+  test("the misdecoded spelling comes back on the output", async () => {
+    expect(await formatAdoc(`${MISDECODED_BOM}${document}`)).toBe(
+      `${MISDECODED_BOM}${document}`,
+    );
+  });
+
+  test("a doubled misdecoded spelling comes back doubled", async () => {
+    expect(await formatAdoc(`${MISDECODED_BOM}${MISDECODED_BOM}${title}`)).toBe(
+      `${MISDECODED_BOM}${MISDECODED_BOM}${title}`,
+    );
+  });
+
+  test("Prettier hands its own mark back on the output", async () => {
+    expect(await formatAdoc(`${BOM}${document}`)).toBe(`${BOM}${document}`);
+  });
+
+  test("a doubled mark comes back doubled", async () => {
+    expect(await formatAdoc(`${BOM}${BOM}${title}`)).toBe(
+      `${BOM}${BOM}${title}`,
+    );
+  });
+
+  test("formatting a marked document is idempotent", async () => {
+    const once = await formatAdoc(`${BOM}${document}`);
+    expect(await formatAdoc(once)).toBe(once);
+  });
+
+  test("the mark costs the title one column and nothing else", () => {
+    const [heading] = parse(`${BOM}${document}`).children;
+    expect(heading.position.start).toEqual({
+      offset: 1,
+      line: 1,
+      column: 2,
+    });
+    const [plain] = parse(document).children;
+    expect(heading.position.end.line).toBe(plain.position.end.line);
   });
 });

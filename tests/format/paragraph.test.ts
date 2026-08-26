@@ -47,15 +47,25 @@ describe("paragraph formatting", () => {
   });
 
   // The one document that reaches the printer's empty arm THROUGH
-  // Prettier. A NUL is not whitespace to JavaScript's `trim()`, so
-  // coreFormat's whitespace short-circuit does not fire and the
-  // document is parsed; the reader's rstrip strips NULs to match
-  // Opal's `String#rstrip` (src/parse/line-shapes.ts), so the only
-  // line reads back blank and the document has no children. The
-  // printer must answer "" there too: a stray newline would be the
-  // formatter inventing a byte no input had.
-  test("a document of nothing but a NUL byte formats to empty output", async () => {
-    expect(await formatAdoc("\u{0}\n")).toBe("");
+  // Prettier. A misdecoded byte-order mark is three ordinary Latin-1
+  // characters, so coreFormat's whitespace short-circuit does not
+  // fire and the document is parsed; the reader takes the mark off
+  // the head of the source the way prepare_source does
+  // (src/parse/lines/split.ts), which leaves one blank line and no
+  // children. The empty arm prints the mark and nothing else: the
+  // mark is a byte the input had, while a trailing newline behind it
+  // would be a byte the formatter invented.
+  test("a document of nothing but a byte-order mark keeps the mark", async () => {
+    expect(await formatAdoc("\u{EF}\u{BB}\u{BF}\n")).toBe("\u{EF}\u{BB}\u{BF}");
+  });
+
+  // The complement, and the row issue #49 moved: a NUL is not
+  // whitespace to the oracle's rstrip either, so the only line is
+  // NOT blank and the document is a paragraph carrying the byte. The
+  // oracle renders `<p>` around the same NUL; deleting it here would
+  // be the formatter dropping a byte the input had.
+  test("a document of nothing but a NUL byte keeps the byte", async () => {
+    expect(await formatAdoc("\u{0}\n")).toBe("\u{0}\n");
   });
 
   // Complement to the "collapsed" test: verify that a single blank line

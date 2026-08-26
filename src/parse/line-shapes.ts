@@ -137,11 +137,13 @@ export const BLOCK_START_CONTEXT: ReaderContext = {
   firstLineAfterStart: false,
 };
 
-// The one character the oracle's rstrip removes that JavaScript's
-// `trimEnd()` does not. Kept as a string rather than folded into a
-// character class because a NUL inside a regex literal is a control
-// character ESLint rejects, and this is not worth a suppression.
-const NUL = "\u{0}";
+// The oracle's strip set, spelled out rather than as `\s`:
+// JavaScript's `\s` is wider at both ends of the code space (it also
+// takes a no-break space, every Unicode space separator and a
+// byte-order mark), and each of those survives the oracle's rstrip.
+// ONE spelling of the six characters: a second one is a second
+// dialect of every `$`-anchored rule below.
+const TRAILING_ASCII_WHITESPACE = new Set(["\t", "\n", "\v", "\f", "\r", " "]);
 
 /**
  * Trim trailing whitespace, the way Asciidoctor's reader does to
@@ -156,33 +158,37 @@ const NUL = "\u{0}";
  * before handing lines to these patterns; two spellings of "rstrip"
  * would be two dialects of every rule below.
  *
- * This is neither a plain `trimEnd()` nor a hand-written MRI set
- * because the oracle is Asciidoctor Ruby transpiled by Opal, and
- * Opal's `String#rstrip` was the JavaScript
- * `self.replace(/[\s\u0000]*$/, '')` — neither MRI's set nor
- * `trimEnd`'s, but JavaScript's `\s` (so a trailing NO-BREAK SPACE
- * goes, which MRI keeps) PLUS a NUL (which `trimEnd` keeps).
- * `trimEnd()` is the `\s` half and the loop is the NUL half.
+ * The set is the six ASCII whitespace characters and NOTHING else —
+ * TAB, LF, VT, FF, CR and SPACE — which is the pinned oracle's own
+ * `line.replace(/[ \t\r\n\f\v]+$/, '')` (the reader's
+ * `prepare_source` pair share it). It is narrower than `trimEnd()` at
+ * both ends of the code space: a trailing NUL survives, and so does
+ * every non-ASCII space. Measured against the oracle rather than read
+ * off its source alone — `----` followed by a space, a tab, a
+ * vertical tab, a form feed or a carriage return each opens a
+ * listing, while `----` followed by a NUL, U+00A0, U+1680, U+2000,
+ * U+2007, U+2009, U+202F, U+205F, U+2028, U+2029, U+3000, U+200B or
+ * U+FEFF is paragraph text, and each of those characters comes back
+ * verbatim from a listing block's content.
+ * tests/conformance/interruption.test.ts holds both halves as oracle
+ * rows.
  *
- * RECORDED DIVERGENCE from the currently pinned oracle: Asciidoctor
- * core 2.0.26 strips what MRI strips, so a trailing NUL or no-break
- * space now survives into the line the oracle classifies while this
- * still removes it. Nothing here moved when the pin did — the two
- * characters that parted ways are pinned as divergence rows in
- * tests/conformance/interruption.test.ts, and the ASCII edges, which
- * both oracles agree on, stay agreement rows there.
+ * SCANNED BACKWARD from the end rather than matched as an unanchored
+ * `+$` pattern: such a pattern is retried at every start position, so
+ * inside a long interior run of spaces the engine consumes the run,
+ * fails the anchor and backs off one character at a time, which costs
+ * time quadratic in the run. This function runs once per line in
+ * splitLines and several times more per line in classification, so
+ * that cost multiplies. The scan touches only the characters it
+ * removes, so a padded ASCII-art line or a pasted fixed-width table
+ * row costs what its tail costs and nothing for its interior.
  * @param line - one source line, without its trailing newline
- * @returns the line without its trailing run of JavaScript whitespace
- *   and NULs
+ * @returns the line without its trailing run of ASCII whitespace
  */
 export function rstrip(line: string): string {
-  let stripped = line.trimEnd();
-  // Loop, not a single slice: `a\u{0}\u{0}` and `a \u{0} ` must lose
-  // every trailing character, whichever half claims it.
-  while (stripped.endsWith(NUL)) {
-    stripped = stripped.slice(0, -1).trimEnd();
-  }
-  return stripped;
+  let end = line.length;
+  while (end > 0 && TRAILING_ASCII_WHITESPACE.has(line[end - 1])) end -= 1;
+  return end === line.length ? line : line.slice(0, end);
 }
 
 /**

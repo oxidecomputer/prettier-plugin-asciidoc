@@ -149,18 +149,31 @@ const PLUS_RUN_TAIL_KEPT_FAMILY = "plus-run-tail-kept";
  * lines) while the bytes hold. Not exported: no grid row cites it.
  */
 const PLUS_RUN_PARAGRAPH_FAMILY = "plus-run-paragraph";
+/**
+ * A leading U+FEFF strips off the document head before line splitting,
+ * as `Helpers.prepare_source_string` always did (helpers.rb, and
+ * helpers.js in the pinned JS oracle; reader.rb only calls it) - so a
+ * first line the BOM used to hide behind (a doctitle, an attribute
+ * entry) now reads as itself. NOT formatted-only: the bytes hold (the
+ * mark is put back on the formatted head) while the tree moves - the
+ * fixture's paragraph becomes the level-0 heading it always was to
+ * Asciidoctor.
+ * Not exported: no grid row cites it.
+ */
+const BOM_DOCUMENT_HEAD_FAMILY = "bom-document-head";
 
 /**
  * The closed family enum. SURFACE HONESTY, not an armed
  * gate: a family id can only legally be a corpus id or an
  * identity-fixture id. The formatted-only subset is exactly
- * author-plus, pseudo-run-fold, attribute-entry-spelling,
- * attrlist-spacing, xref-text-trim, gap-collapse and
- * plus-run-tail-kept — they change BYTES only, while
+ * author-plus, pseudo-run-fold, no-op-continuation,
+ * attribute-entry-spelling, attrlist-spacing, xref-text-trim,
+ * gap-collapse and plus-run-tail-kept — they change BYTES only, while
  * both marker families ride the list tree fold (`marker` added,
  * `depth` dropped), no-op-continuation-tree drops a block the reader
- * used to build, and plus-run-paragraph reshapes a `+` run's item
- * blocks, so an entry of those four whose AST differs is legal and an
+ * used to build, plus-run-paragraph reshapes a `+` run's item
+ * blocks, and bom-document-head re-reads the line a leading BOM hid,
+ * so an entry of those five whose AST differs is legal and an
  * entry of any other family whose AST differs fails the cross-check.
  */
 export const LEDGER_FAMILIES: FamilySets = {
@@ -177,6 +190,7 @@ export const LEDGER_FAMILIES: FamilySets = {
     GAP_COLLAPSE_FAMILY,
     PLUS_RUN_TAIL_KEPT_FAMILY,
     PLUS_RUN_PARAGRAPH_FAMILY,
+    BOM_DOCUMENT_HEAD_FAMILY,
   ]),
   formattedOnly: new Set([
     AUTHOR_PLUS_FAMILY,

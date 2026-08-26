@@ -72,7 +72,7 @@ import {
   verbatimStyledExtent,
   type ParagraphScan,
 } from "./paragraph-reader.js";
-import { splitLines, type SourceLine } from "./split.js";
+import { documentBom, splitLines, type SourceLine } from "./split.js";
 
 // The one block-attribute style the reader itself acts on: it turns the
 // heading that follows into a discreteHeading leaf instead of an
@@ -915,9 +915,15 @@ export function readDocument(source: string): DocumentNode {
   const scope: ReaderScope = { source, at, gaps: new Map() };
   const reader = new BlockReader(scope, documentLines);
   const children = reader.run();
+  // The mark splitLines skipped, recorded so the printer can re-emit
+  // it. Left OFF the node when there is none, rather than set to the
+  // empty string: an unmarked document's serialized tree must look
+  // exactly as it did before the field existed.
+  const byteOrderMark = documentBom(source);
   return {
     type: "document",
     children,
+    byteOrderMark: byteOrderMark === "" ? undefined : byteOrderMark,
     position: {
       start: at.at(0),
       end: at.at(source.length),

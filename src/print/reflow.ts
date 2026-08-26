@@ -220,6 +220,12 @@ export function wrap(
  * and whitespace-free. Shared so every caller — the text case and the
  * first-source-line counting that feeds the dlist guard — agrees on what
  * a word is; a mismatch would misplace the guard by a word.
+ *
+ * `\s` is wider than the reader's rstrip set, so every non-ASCII space
+ * the reader now preserves (a no-break space, an ideographic space, a
+ * byte-order mark mid-text) is rewritten to a plain space or dropped
+ * at a line end while the oracle keeps it: a recorded gap, tracked by
+ * issue #67.
  * @param value - Raw source text, or a prefix of it.
  * @returns The non-empty whitespace-delimited words, in order.
  */

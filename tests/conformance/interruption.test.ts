@@ -9,6 +9,7 @@ import {
   type ReaderContext,
 } from "../../src/parse/line-shapes.js";
 import { classifyLine, type LineKind } from "../../src/parse/lines/classify.js";
+import { parse } from "../../src/parser.js";
 
 // The registry in src/parse/line-shapes.ts is our MODEL of Asciidoctor's
 // paragraph-interruption rules. This test pins the model to the oracle:
@@ -337,20 +338,19 @@ describe("the block attribute line's exact shape", () => {
 
 // Every rule in the registry matches an already-rstripped line, so
 // which characters rstrip removes is part of the registry's contract.
-// The oracle is Asciidoctor Ruby transpiled by Opal, and Opal's
-// String#rstrip is a JavaScript regex rather than MRI's method — and
-// WHICH characters it covers changed under the pin. Through core
-// 2.0.20 it was `self.replace(/[\s\u0000]*$/, '')`, which also ate a
-// NUL and every character JavaScript's `\s` covers (a no-break space
-// among them); core 2.0.26 strips what MRI strips, and both survive.
-// src/parse/line-shapes.ts#rstrip still spells the old Opal, so the
-// two characters that moved are pinned as divergences below while the
-// ASCII rows, which either oracle agrees on, stay agreement rows.
+// The pinned oracle's set is the six ASCII whitespace characters and
+// nothing else (`line.replace(/[ \t\r\n\f\v]+$/, '')`), which is
+// MRI's set less the NUL: src/parse/line-shapes.ts#rstrip spells the
+// same six. Both halves are oracle rows here — the characters that go
+// and the characters that stay — because a set is only pinned when
+// its complement is too.
 describe("rstrip runs before every line rule", () => {
   test.each([
     ["a space", "---- "],
     ["a tab", "----\t"],
     ["a carriage return (CRLF input)", "----\r"],
+    ["a form feed", "----\f"],
+    ["a vertical tab", "----\v"],
   ])("%s after a delimiter still delimits", async (_name, delimiter) => {
     expect(isDelimiterLine(delimiter), JSON.stringify(delimiter)).toBe(true);
     expect(await renderedHtml(`${delimiter}\ncode\n----\n`)).toBe(
@@ -358,21 +358,101 @@ describe("rstrip runs before every line rule", () => {
     );
   });
 
-  // RECORDED DIVERGENCE, not a fix: we still rstrip these two and read
-  // the line as a delimiter; core 2.0.26 leaves them in place and reads
-  // paragraph text, so the two renderings must now differ.
+  // The complement, and the rows issue #49 closed: a NUL and a
+  // no-break space used to be stripped here and are not stripped by
+  // the pinned oracle, so both now READ AS TEXT on both sides. The
+  // rest of the row set is every other space-like character the
+  // oracle keeps, so a future widening of the set back towards
+  // JavaScript's `\s` fails here rather than in the corpus.
   test.each([
-    ["a NUL", "----\u0000"],
-    ["a no-break space", "----\u00A0"],
+    ["a NUL", "----\u{0}"],
+    ["a no-break space", "----\u{A0}"],
+    ["an ogham space mark", "----\u{1680}"],
+    ["an en quad", "----\u{2000}"],
+    ["a figure space", "----\u{2007}"],
+    ["a thin space", "----\u{2009}"],
+    ["a narrow no-break space", "----\u{202F}"],
+    ["a medium mathematical space", "----\u{205F}"],
+    ["a line separator", "----\u{2028}"],
+    ["a paragraph separator", "----\u{2029}"],
+    ["an ideographic space", "----\u{3000}"],
+    ["a zero-width space", "----\u{200B}"],
+    ["a byte-order mark", "----\u{FEFF}"],
+  ])("%s after a delimiter delimits for neither", async (_name, line) => {
+    expect(isDelimiterLine(line), JSON.stringify(line)).toBe(false);
+    expect(await renderedHtml(`${line}\ncode\n----\n`)).not.toBe(
+      await renderedHtml("----\ncode\n----\n"),
+    );
+  });
+
+  // The same set read from the other side: inside a listing block,
+  // where the only substitution is specialchars, a surviving
+  // character comes back verbatim and a stripped one does not.
+  test.each([
+    ["a NUL survives", "\u{0}", true],
+    ["a no-break space survives", "\u{A0}", true],
+    ["a line separator survives", "\u{2028}", true],
+    ["an ideographic space survives", "\u{3000}", true],
+    ["a byte-order mark survives", "\u{FEFF}", true],
+    ["a space is stripped", " ", false],
+    ["a tab is stripped", "\t", false],
+    ["a vertical tab is stripped", "\v", false],
+    ["a form feed is stripped", "\f", false],
   ])(
-    "%s after a delimiter delimits for us, no longer for the oracle",
-    async (_name, delimiter) => {
-      expect(isDelimiterLine(delimiter), JSON.stringify(delimiter)).toBe(true);
-      expect(await renderedHtml(`${delimiter}\ncode\n----\n`)).not.toBe(
-        await renderedHtml("----\ncode\n----\n"),
-      );
+    // The disposition rides in the row NAME: printf substitution
+    // assigns each specifier to the next argument, so a trailing `%j`
+    // would print the CHARACTER and every row would read "survives".
+    "%s at the end of verbatim content",
+    async (_name, char, survives) => {
+      const html = await renderedHtml(`----\nX${char}\n----\n`);
+      expect(html.includes(`X${char}`), html).toBe(survives);
     },
   );
+});
+
+// Asciidoctor's prepare_source drops ONE leading byte-order mark from
+// the whole document before the reader sees a line, so a BOM ahead of
+// `= Title` leaves a document title rather than demoting it to a
+// paragraph (issue #60). The reader does the same in
+// src/parse/lines/split.ts; these rows are the oracle's own answers
+// for the edges — one mark, not two, at offset 0 only.
+describe("prepare_source strips a leading byte-order mark", () => {
+  const BOM = "\u{FEFF}";
+  test("a BOM ahead of the title leaves the title standing", async () => {
+    expect(await renderedHtml(`${BOM}= Title\n\nbody\n`)).toBe(
+      await renderedHtml("= Title\n\nbody\n"),
+    );
+  });
+  test("a document of nothing but a BOM renders nothing", async () => {
+    expect(await renderedHtml(BOM)).toBe("");
+  });
+  test("the misdecoded three-character BOM goes too", async () => {
+    expect(await renderedHtml("\u{EF}\u{BB}\u{BF}= Title\n\nbody\n")).toBe(
+      await renderedHtml("= Title\n\nbody\n"),
+    );
+  });
+  test("a SECOND BOM is ordinary text", async () => {
+    expect(await renderedHtml(`${BOM}${BOM}= Title\n`)).toContain(
+      `<p>${BOM}= Title</p>`,
+    );
+  });
+  test("a BOM away from offset 0 is ordinary text", async () => {
+    const html = await renderedHtml(`= Title\n\n${BOM}para\n`);
+    expect(html).toContain(`${BOM}para`);
+  });
+  test("the BOM goes and the space behind it stays", async () => {
+    expect(await renderedHtml(`${BOM} = Title\n`)).toBe(
+      await renderedHtml(" = Title\n"),
+    );
+  });
+  // The parser's own answer for the row that names the issue: the
+  // first line is a document title, not a paragraph. Read through
+  // parse() rather than through Prettier, which strips a BOM of its
+  // own before any plugin is called.
+  test("the reader reads a document title through the mark", () => {
+    const [block] = parse(`${BOM}= Title\n`).children;
+    expect(block.type).toBe("heading");
+  });
 });
 
 describe("raw (non-text, non-interrupting) paragraph lines", () => {

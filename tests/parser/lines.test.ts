@@ -30,20 +30,103 @@ describe("splitLines mirrors Helpers.prepare_source_string", () => {
     expect(splitLines("a\n")).toHaveLength(1);
     expect(splitLines("")).toHaveLength(0);
   });
-  // The oracle is Asciidoctor Ruby transpiled by Opal, whose
-  // String#rstrip is `self.replace(/[\s\u0000]*$/, '')` — JavaScript's
-  // `\s`, not MRI's whitespace set. So it strips a NUL (which
-  // trimEnd() leaves) and a no-break space (which MRI leaves). The
-  // oracle rows in tests/conformance/interruption.test.ts pin both.
+  // The oracle's rstrip is `line.replace(/[ \t\r\n\f\v]+$/, '')` —
+  // the six ASCII whitespace characters, which is MRI's set less the
+  // NUL. The rows below are the ones that can reach a line end (a
+  // line never carries its own LF, and a CR only from CRLF input);
+  // the characters that SURVIVE have their own rows underneath, and
+  // tests/conformance/interruption.test.ts pins both halves against
+  // the oracle itself.
   test.each([
-    ["a NUL", "a\u0000"],
-    ["a no-break space", "a\u00A0"],
+    ["a space", "a "],
+    ["a tab", "a\t"],
     ["a carriage return", "a\r"],
     ["a form feed", "a\f"],
+    ["a vertical tab", "a\v"],
+    ["a mixed run", "a \t\r\f\v "],
   ])("rstrip removes %s", (_name, source) => {
     const [only] = splitLines(source);
     expect(only.text).toBe("a");
     expect(only.raw, "the author's bytes are kept alongside").toBe(source);
+  });
+  // Narrower than `trimEnd()` at both ends of the code space: the NUL
+  // sits below the ASCII set and every non-ASCII space above it, and
+  // the oracle keeps all of them. A run stops at the first survivor,
+  // so `a<NUL><space>` loses the space and keeps the NUL. A SAMPLE:
+  // the full survivor set is read from the oracle in
+  // tests/conformance/interruption.test.ts.
+  test.each([
+    ["a NUL", "a\u{0}", "a\u{0}"],
+    ["a no-break space", "a\u{A0}", "a\u{A0}"],
+    ["an ogham space mark", "a\u{1680}", "a\u{1680}"],
+    ["an en quad", "a\u{2000}", "a\u{2000}"],
+    ["a figure space", "a\u{2007}", "a\u{2007}"],
+    ["a narrow no-break space", "a\u{202F}", "a\u{202F}"],
+    ["a line separator", "a\u{2028}", "a\u{2028}"],
+    ["a paragraph separator", "a\u{2029}", "a\u{2029}"],
+    ["an ideographic space", "a\u{3000}", "a\u{3000}"],
+    ["a zero-width space", "a\u{200B}", "a\u{200B}"],
+    ["a byte-order mark away from offset 0", "a\u{FEFF}", "a\u{FEFF}"],
+    ["a NUL under a trailing space", "a\u{0} ", "a\u{0}"],
+    // Only the TAIL is scanned, so this line's interior costs nothing
+    // -- a padded ASCII-art line or a pasted fixed-width table row is
+    // read as fast as any other. Sized so that retrying an unanchored
+    // trailing-run match at every start position, which is what
+    // matching `/[...]+$/` against it does, would take seconds; the
+    // assertion is the answer, and the speed is the algorithm's.
+    ["a long interior run", `a${" ".repeat(1e5)}b`, `a${" ".repeat(1e5)}b`],
+  ])("rstrip keeps %s", (_name, source, text) => {
+    const [only] = splitLines(source);
+    expect(only.text).toBe(text);
+    expect(only.raw, "the author's bytes are kept alongside").toBe(source);
+  });
+});
+
+// Asciidoctor's prepare_source takes ONE byte-order mark off the head
+// of the whole document before any line rule runs, which is why
+// `<BOM>= Title` is a document title rather than a paragraph
+// (issue #60). Offsets stay original-relative: the mark is skipped,
+// not cut out, so the first line starts at offset 1 and every later
+// line keeps the offset it always had.
+describe("splitLines strips a leading byte-order mark", () => {
+  test("the mark leaves the first line and costs it one offset", () => {
+    expect(splitLines("\u{FEFF}= Title\n")).toEqual([
+      { text: "= Title", raw: "= Title", offset: 1, line: 1 },
+    ]);
+  });
+  test("the misdecoded three-character spelling goes too", () => {
+    expect(splitLines("\u{EF}\u{BB}\u{BF}= Title\n")).toEqual([
+      { text: "= Title", raw: "= Title", offset: 3, line: 1 },
+    ]);
+  });
+  test("a document of nothing but the mark has no lines", () => {
+    expect(splitLines("\u{FEFF}")).toEqual([]);
+  });
+  test("the mark before a blank line leaves the blank line", () => {
+    expect(splitLines("\u{FEFF}\n= Title\n")).toEqual([
+      { text: "", raw: "", offset: 1, line: 1 },
+      { text: "= Title", raw: "= Title", offset: 2, line: 2 },
+    ]);
+  });
+  test("ONE mark: a second is ordinary text", () => {
+    expect(splitLines("\u{FEFF}\u{FEFF}= Title\n")).toEqual([
+      {
+        text: "\u{FEFF}= Title",
+        raw: "\u{FEFF}= Title",
+        offset: 1,
+        line: 1,
+      },
+    ]);
+  });
+  test("a mark anywhere but offset 0 stays", () => {
+    expect(splitLines("= Title\n\u{FEFF}para\n")).toEqual([
+      { text: "= Title", raw: "= Title", offset: 0, line: 1 },
+      { text: "\u{FEFF}para", raw: "\u{FEFF}para", offset: 8, line: 2 },
+    ]);
+  });
+  test("the mark goes, the space after it stays", () => {
+    const [only] = splitLines("\u{FEFF} = Title\n");
+    expect(only.text).toBe(" = Title");
   });
 });
 
@@ -188,6 +271,21 @@ describe("classifyLine inside an open paragraph", () => {
       verbatim: true,
     });
     expect(classifyLine("plain words", reader)).toEqual({ kind: "text" });
+  });
+  test("with NO list open the foreign-marker rule stays out of the way", () => {
+    // Top level, with the ordered marker `. next` as the foreign one:
+    // `read_lines_for_list_item` never runs, so there is no
+    // `within_nested_list` flag for the marker's column to ride on and
+    // the line is ordinary reflowable text. Holding it
+    // back here made `+` / `para` / `* item` / `more` reflow
+    // differently on each pass, which is why the rule reads the open
+    // style rather than the shape alone.
+    expect(
+      classifyLine(". next", {
+        ...BLOCK_START_CONTEXT,
+        openParagraph: "listContinuation",
+      }),
+    ).toEqual({ kind: "text" });
   });
   test("a block anchor right after a list item's text stays raw", () => {
     const reader: ReaderContext = {

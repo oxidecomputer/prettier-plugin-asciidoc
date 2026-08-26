@@ -55,6 +55,17 @@ export interface DocumentNode extends Node {
   type: "document";
   /** Top-level block elements in document order. */
   children: BlockNode[];
+  /**
+   * The byte-order mark the reader took off the head of the source,
+   * as written, when there was one. Carried so the printer can put it
+   * back: taking it off is how the first line is READ, not an edit to
+   * the file, and a formatter that dropped it would delete bytes the
+   * input had and expose any second mark behind it to the next read.
+   * Absent, not empty, on the overwhelming majority of documents, so
+   * that an unmarked tree serializes exactly as it did before the
+   * field existed.
+   */
+  byteOrderMark?: string;
 }
 
 /** A paragraph contains inline nodes (text, emphasis, links, etc.). */

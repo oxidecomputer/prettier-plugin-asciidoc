@@ -50,10 +50,16 @@ const printer: Printer<AnyNode> = {
     switch (node.type) {
       case "document": {
         const children = path.map(print, "children");
+        // The byte-order mark the reader took off the head goes back
+        // on first, in both arms. Stripping it is how the first line
+        // is READ (src/parse/lines/split.ts); deleting it from the
+        // output would shorten the file and hand any second mark
+        // behind it to the next read, which strips that one in turn.
+        const mark = node.byteOrderMark ?? "";
         if (node.children.length > 0) {
-          return [joinBlocks(node.children, children), hardline];
+          return [mark, joinBlocks(node.children, children), hardline];
         }
-        return "";
+        return mark;
       }
       case "heading":
       case "discreteHeading": {

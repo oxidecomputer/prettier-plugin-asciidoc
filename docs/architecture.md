@@ -143,14 +143,21 @@ classifying a whole line in the context where it appears.
 
 Lines are rstripped before classification, exactly as Asciidoctor's
 `Helpers.prepare_source_string` does, and the registry's patterns assume that.
+The strip set is the six ASCII whitespace characters and nothing else, which is
+the pinned oracle's: a trailing NUL or no-break space survives into the line the
+rules match.
 
 ## The block reader
 
 Parsing runs in three phases.
 
-**Phase 1 — line splitting** (`src/parse/lines/split.ts`): cut the source into
-lines, rstripping each one while keeping the author's bytes and document offsets
-alongside.
+**Phase 1 — line splitting** (`src/parse/lines/split.ts`): take a leading
+byte-order mark off the head of the document, then cut the source into lines,
+rstripping each one while keeping the author's bytes and document offsets
+alongside. Both normalizations are `prepare_source`'s; the mark is skipped
+rather than cut out, so an offset still indexes the original source. The mark is
+recorded on the document node and re-emitted by the printer, so the head bytes
+round-trip: reading through a mark is not licence to delete it.
 
 **Phase 2 — the `BlockReader`** (`src/parse/lines/reader.ts`): walk the lines
 once, classify each in the open context, and build the AST directly through the
