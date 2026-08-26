@@ -122,9 +122,6 @@ export const BLOCK_STRUCTURE_FAMILIES: ReadonlySet<string> = new Set([
   // HTML matches, so the idempotency and fidelity properties see
   // nothing.
   "gap:setext-title",
-  // The author/revision line after `= Title` is a paragraph to us and
-  // header material to the oracle (#18).
-  "gap:header-lines",
   // `1.`, `A.`, `i)`, `IV)` explicit markers (#12).
   "gap:ordered-marker",
   // `:name: value \` line continuations become a paragraph or a

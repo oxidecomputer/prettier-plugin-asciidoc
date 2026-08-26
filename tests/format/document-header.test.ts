@@ -69,6 +69,25 @@ describe("document title formatting", () => {
     const input = "= My Document\n:toc:\n\n== First Section\n";
     expect(await formatAdoc(input)).toBe(input);
   });
+
+  // A blank line between the title and an attribute entry is the
+  // author saying the entry is NOT header material, and it survives.
+  // The old rule stacked a level-0 heading with any attribute entry
+  // below it and deleted that blank, which moved a body attribute
+  // entry into the header; now the header OWNS its own entries, so
+  // an entry outside it is left where it was written. Four corpus
+  // documents change bytes on this, all render-equal.
+  test("a blank line between title and attribute entry survives", async () => {
+    const input = "= My Document\n\n:!numbered:\n\n== First Section\n";
+    expect(await formatAdoc(input)).toBe(input);
+  });
+
+  // The same blank, with a header attribute entry ABOVE it: the
+  // header keeps `:toc:` adjacent and the body entry keeps its blank.
+  test("a header entry stacks while a body entry keeps its blank", async () => {
+    const input = "= My Document\n:toc:\n\n:!numbered:\n\nBody.\n";
+    expect(await formatAdoc(input)).toBe(input);
+  });
 });
 
 // Issue #60's document, in the shape the corpus carries it: a
@@ -102,7 +121,7 @@ describe("a leading byte-order mark", () => {
 
   test("the reader reads a title through the mark", () => {
     const [block] = parse(`${BOM}${document}`).children;
-    expect(block.type).toBe("heading");
+    expect(block.type).toBe("documentHeader");
   });
 
   test("the reader records the mark it stripped", () => {

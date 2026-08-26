@@ -92,8 +92,12 @@ describe("reader: headings and metadata", () => {
   test("headings inside a compound block are paragraph text (next_block never makes sections)", () => {
     expect(astShape("====\n== H\n====\n")).toBe("example(p(t))");
   });
-  test("a level-0 title is a heading leaf like any other", () => {
-    expect(astShape("= Doc\n\np\n")).toBe("h0 p(t)");
+  // At the top of a document a level-0 title opens the HEADER (issue
+  // #18); below body content, where no header can open, it is the
+  // leaf it always was.
+  test("a level-0 title opens a header at the top and a leaf below", () => {
+    expect(astShape("= Doc\n\np\n")).toBe("header(h0) p(t)");
+    expect(astShape("p\n\n= Doc\n\np\n")).toBe("p(t) h0 p(t)");
   });
 });
 

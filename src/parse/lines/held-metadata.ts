@@ -71,6 +71,26 @@ export class HeldMetadata {
   }
 
   /**
+   * Whether the held `[...]` line names a STYLE - see
+   * {@link Attrlist.styleAttribute}. The one consumer is the reader's
+   * document-header reachability: a style above the document title
+   * demotes it to a section (`[foo]`, `[NOTE]`, `[quote,Name]`),
+   * while an id, a role, an option or a named attribute leaves the
+   * header standing (`[#id]`, `[.role]`, `[%opt]`, `[separator=::]`).
+   *
+   * That demotion is the PINNED ORACLE's rule and not Ruby's: Ruby
+   * 2.0.26 builds a header under `[foo]` too (parser.rb:132 bails on
+   * a block title alone), and it is `@asciidoctor/core` 4.0.11 that
+   * adds `|| blockAttrs.style` (src/parser.js:180). The oracle wins;
+   * the sentence is here so the next reader does not align the code
+   * to the Ruby and re-open issue #18.
+   * @returns whether a style is held
+   */
+  holdsStyleAttribute(): boolean {
+    return this.attrlist?.styleAttribute !== undefined;
+  }
+
+  /**
    * The held style, when the reader may ACT on it: the LAST held
    * attribute line's first positional, valid only while every held
    * node after that attribute line is reader-eaten (a raw

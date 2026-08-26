@@ -38,29 +38,9 @@
       "family": "gap:styled-block-remodel",
       "signature": "paragraph=>admonition"
     },
-    "api_test.rb#with one author#0": {
-      "family": "gap:header-lines",
-      "signature": "-paragraph"
-    },
-    "api_test.rb#with two authors#0": {
-      "family": "gap:header-lines",
-      "signature": "-paragraph"
-    },
     "attributes_test.rb#assigns multi-line attribute to empty string if substitution fails to resolve attribute#0": {
       "family": "gap:attribute-continuation",
       "signature": "-literal"
-    },
-    "attributes_test.rb#attribute entries can resolve previously defined attributes#0": {
-      "family": "gap:header-lines",
-      "signature": "-paragraph"
-    },
-    "attributes_test.rb#backend and doctype attributes are set by default in custom configuration#0": {
-      "family": "gap:header-lines",
-      "signature": "-paragraph"
-    },
-    "attributes_test.rb#backend and doctype attributes are set by default in default configuration#0": {
-      "family": "gap:header-lines",
-      "signature": "-paragraph"
     },
     "attributes_test.rb#collapses spaces in attribute names#0": {
       "family": "gap:setext-title",
@@ -85,18 +65,6 @@
     "attributes_test.rb#id, role and options attributes can be specified using shorthand syntax on block style using multiple block attribute lines#0": {
       "family": "gap:styled-block-remodel",
       "signature": "paragraph=>literal"
-    },
-    "attributes_test.rb#interpolates attribute defined in header inside attribute entry in header#0": {
-      "family": "gap:header-lines",
-      "signature": "-paragraph"
-    },
-    "attributes_test.rb#interpolates author attribute inside attribute entry in header#0": {
-      "family": "gap:header-lines",
-      "signature": "-paragraph"
-    },
-    "attributes_test.rb#interpolates revinfo attribute inside attribute entry in header#0": {
-      "family": "gap:header-lines",
-      "signature": "-paragraph"
     },
     "attributes_test.rb#should allow pass macro to surround a multi-line value that contains line breaks#0": {
       "family": "gap:attribute-continuation",
@@ -262,14 +230,6 @@
       "family": "gap:styled-block-remodel",
       "signature": "quote=>verse"
     },
-    "converter_test.rb#should use Haml templates in place of built-in templates#0": {
-      "family": "gap:header-lines",
-      "signature": "-paragraph"
-    },
-    "converter_test.rb#should use Slim templates in place of built-in templates#0": {
-      "family": "gap:header-lines",
-      "signature": "-paragraph"
-    },
     "docs/modules/ROOT/pages/errors-and-warnings.adoc": {
       "family": "gap:dlist",
       "signature": "+dlist; -paragraph x8; paragraph=>dlist"
@@ -304,7 +264,7 @@
     },
     "docs/modules/cli/partials/man-asciidoctor.adoc": {
       "family": "gap:dlist",
-      "signature": "-heading; -paragraph x31; paragraph=>dlist x6"
+      "signature": "-heading; -paragraph x30; paragraph=>dlist x6"
     },
     "docs/modules/convert/pages/available.adoc": {
       "family": "gap:dlist",
@@ -368,7 +328,7 @@
     },
     "docs/modules/manpage-backend/examples/manpage.adoc": {
       "family": "gap:dlist",
-      "signature": "-heading; -paragraph x4; paragraph=>dlist x2"
+      "signature": "-heading; -paragraph x3; paragraph=>dlist x2"
     },
     "docs/modules/manpage-backend/pages/index.adoc": {
       "family": "gap:dlist",
@@ -400,7 +360,7 @@
     },
     "document_test.rb#adds refname to DocBook output for each name defined in NAME section of manpage#0": {
       "family": "oracle:manpage-doctype",
-      "signature": "-heading; -paragraph x2"
+      "signature": "-heading; -paragraph"
     },
     "document_test.rb#attribute entry can appear before author line under document title#0": {
       "family": "gap:setext-title",
@@ -410,10 +370,6 @@
       "family": "gap:setext-title",
       "signature": "+heading; -example"
     },
-    "document_test.rb#do not override explicit author initials#0": {
-      "family": "gap:header-lines",
-      "signature": "-paragraph"
-    },
     "document_test.rb#document with doctitle defined as attribute entry followed by block with title#0": {
       "family": "oracle:doctitle-attribute",
       "signature": "+heading"
@@ -421,14 +377,6 @@
     "document_test.rb#document with doctitle defined as attribute entry#0": {
       "family": "oracle:doctitle-attribute",
       "signature": "+heading"
-    },
-    "document_test.rb#document with subtitle and custom separator#0": {
-      "family": "gap:header-lines",
-      "signature": "-paragraph"
-    },
-    "document_test.rb#document with subtitle#0": {
-      "family": "gap:header-lines",
-      "signature": "-paragraph"
     },
     "document_test.rb#does not honor htmlsyntax attribute in document header if not followed by backend attribute#0": {
       "family": "gap:md-thematic-break",
@@ -438,57 +386,25 @@
       "family": "gap:md-thematic-break",
       "signature": "paragraph=>thematic_break"
     },
-    "document_test.rb#parse header only#0": {
-      "family": "gap:header-lines",
-      "signature": "-paragraph"
-    },
     "document_test.rb#should apply replacements substitution to value of mantitle attribute used in DocBook output#0": {
       "family": "oracle:manpage-doctype",
-      "signature": "-heading; -paragraph x2"
-    },
-    "document_test.rb#should be able to set doctype to article when converting to DocBook#0": {
-      "family": "gap:header-lines",
-      "signature": "-paragraph"
-    },
-    "document_test.rb#should be able to set doctype to book when converting to DocBook#0": {
-      "family": "gap:header-lines",
-      "signature": "-paragraph"
+      "signature": "-heading; -paragraph"
     },
     "document_test.rb#should close all short tags when htmlsyntax is xml#0": {
       "family": "gap:dlist",
-      "signature": "-paragraph; paragraph=>dlist"
+      "signature": "paragraph=>dlist"
     },
     "document_test.rb#should consume name section as manname and manpurpose for manpage doctype#0": {
       "family": "oracle:manpage-doctype",
       "signature": "-heading; -paragraph"
     },
-    "document_test.rb#should create authorgroup in DocBook when multiple authors#0": {
-      "family": "gap:header-lines",
-      "signature": "-paragraph"
-    },
     "document_test.rb#should enable compat mode for document with legacy doctitle#0": {
       "family": "gap:setext-title",
       "signature": "+heading; -example"
     },
-    "document_test.rb#should include multiple authors in HTML output#0": {
-      "family": "gap:header-lines",
-      "signature": "-paragraph"
-    },
-    "document_test.rb#should include revision history in DocBook output if revdate and revnumber is set#0": {
-      "family": "gap:header-lines",
-      "signature": "-paragraph"
-    },
-    "document_test.rb#should include revision history in DocBook output if revdate and revremark is set#0": {
-      "family": "gap:header-lines",
-      "signature": "-paragraph"
-    },
     "document_test.rb#should mark synopsis as special section in manpage doctype#0": {
       "family": "oracle:manpage-doctype",
       "signature": "-heading; -paragraph"
-    },
-    "document_test.rb#should not double escape ampersand in author attribute#0": {
-      "family": "gap:header-lines",
-      "signature": "-paragraph"
     },
     "document_test.rb#should not enable compat mode for document with legacy doctitle if compat mode disable by header#0": {
       "family": "gap:setext-title",
@@ -497,18 +413,6 @@
     "document_test.rb#should not enable compat mode for document with legacy doctitle if compat mode is locked by API#0": {
       "family": "gap:setext-title",
       "signature": "+heading; -example"
-    },
-    "document_test.rb#should not honor custom separator for doctitle if attribute is locked by API#0": {
-      "family": "gap:header-lines",
-      "signature": "-paragraph"
-    },
-    "document_test.rb#should not include revision history in DocBook output if revdate is not set#0": {
-      "family": "gap:header-lines",
-      "signature": "-paragraph"
-    },
-    "document_test.rb#should not warn when parsing header only when docytpe is manpage and body is empty#0": {
-      "family": "oracle:manpage-doctype",
-      "signature": "-paragraph"
     },
     "document_test.rb#should output all mannames in name section in man page output#0": {
       "family": "oracle:manpage-doctype",
@@ -524,15 +428,11 @@
     },
     "document_test.rb#should parse header only when docytpe is manpage#0": {
       "family": "oracle:manpage-doctype",
-      "signature": "-heading; -paragraph x2"
+      "signature": "-heading; -paragraph"
     },
     "document_test.rb#should parse mantitle and manvolnum from document title for manpage doctype#0": {
       "family": "oracle:manpage-doctype",
       "signature": "-heading; -paragraph"
-    },
-    "document_test.rb#should parse revision line if date is empty#0": {
-      "family": "gap:header-lines",
-      "signature": "-paragraph"
     },
     "document_test.rb#should perform attribute substitution on mantitle in manpage doctype#0": {
       "family": "oracle:manpage-doctype",
@@ -542,29 +442,9 @@
       "family": "oracle:manpage-doctype",
       "signature": "-heading; -paragraph"
     },
-    "document_test.rb#should substitute replacements in author names in DocBook output#0": {
-      "family": "gap:header-lines",
-      "signature": "-paragraph"
-    },
-    "document_test.rb#should substitute replacements in author names in HTML output#0": {
-      "family": "gap:header-lines",
-      "signature": "-paragraph"
-    },
-    "document_test.rb#with metadata to DocBook 5#0": {
-      "family": "gap:header-lines",
-      "signature": "-paragraph"
-    },
-    "document_test.rb#with metadata#0": {
-      "family": "gap:header-lines",
-      "signature": "-paragraph"
-    },
     "extensions_test.rb#create_section should set up all section properties#0": {
       "family": "gap:block-macro-name",
       "signature": "macro:sect=>paragraph"
-    },
-    "extensions_test.rb#should allow tree processor to replace tree#0": {
-      "family": "gap:header-lines",
-      "signature": "-paragraph"
     },
     "extensions_test.rb#should assign caption on image block if title is set on custom block macro#0": {
       "family": "gap:block-macro-name",
@@ -582,13 +462,9 @@
       "family": "gap:block-macro-name",
       "signature": "macro:para=>paragraph"
     },
-    "extensions_test.rb#should invoke tree processors after parsing document#0": {
-      "family": "gap:header-lines",
-      "signature": "-paragraph"
-    },
     "invoker_test.rb#should write page for each alternate manname#0": {
       "family": "oracle:manpage-doctype",
-      "signature": "-heading; -paragraph x2"
+      "signature": "-heading; -paragraph"
     },
     "lists_test.rb#a block title between elements should divide them into separate lists#0": {
       "family": "gap:dlist",
@@ -1304,23 +1180,19 @@
     },
     "manpage_test.rb#(outside test)#0": {
       "family": "oracle:manpage-doctype",
-      "signature": "-heading; -paragraph x2"
+      "signature": "-heading; -paragraph"
     },
     "manpage_test.rb#should normalize whitespace and skip line comments before and inside NAME section#0": {
       "family": "oracle:manpage-doctype",
-      "signature": "-heading; -paragraph x2"
-    },
-    "manpage_test.rb#should not parse NAME section if manname and manpurpose attributes are set#0": {
-      "family": "oracle:manpage-doctype",
-      "signature": "-paragraph"
+      "signature": "-heading; -paragraph"
     },
     "manpage_test.rb#should replace invalid characters in mantitle in info comment#0": {
       "family": "oracle:manpage-doctype",
-      "signature": "-heading; -paragraph x2"
+      "signature": "-heading; -paragraph"
     },
     "manpage_test.rb#should substitute attributes in manname and manpurpose in NAME section#0": {
       "family": "oracle:manpage-doctype",
-      "signature": "-heading; -paragraph x2"
+      "signature": "-heading; -paragraph"
     },
     "paragraphs_test.rb#normal style turns literal paragraph into normal paragraph#0": {
       "family": "gap:styled-block-remodel",
@@ -1341,10 +1213,6 @@
     "paragraphs_test.rb#should wrap text in simpara for styled paragraphs with title when converted to DocBook#0": {
       "family": "oracle:book-partintro",
       "signature": "paragraph=>example; paragraph=>open x2; paragraph=>quote; paragraph=>sidebar"
-    },
-    "parser_test.rb#should resolve attribute references in rev number, data, and remark#0": {
-      "family": "gap:header-lines",
-      "signature": "-paragraph"
     },
     "preamble_test.rb#preamble in book doctype#0": {
       "family": "oracle:book-partintro",
@@ -1456,7 +1324,7 @@
     },
     "sections_test.rb#document title with level 0 headings#0": {
       "family": "oracle:book-partintro",
-      "signature": "-paragraph; paragraph=>open x2"
+      "signature": "paragraph=>open x2"
     },
     "sections_test.rb#document title with multiline syntax and unicode characters#0": {
       "family": "gap:setext-title",
@@ -1466,29 +1334,13 @@
       "family": "gap:setext-title",
       "signature": "-listing; paragraph=>heading"
     },
-    "sections_test.rb#level 0 special sections in multipart book should be coerced to level 1#0": {
-      "family": "gap:styled-block-remodel",
-      "signature": "-paragraph"
-    },
-    "sections_test.rb#level offset should be added to discrete heading#0": {
-      "family": "gap:header-lines",
-      "signature": "-paragraph"
-    },
     "sections_test.rb#multiline syntax with only multibyte characters#0": {
       "family": "gap:setext-title",
       "signature": "+heading; +paragraph; open=>heading"
     },
-    "sections_test.rb#should add level offset to section level#0": {
-      "family": "gap:header-lines",
-      "signature": "-paragraph"
-    },
     "sections_test.rb#should add partintro style to child paragraph of part#0": {
       "family": "oracle:book-partintro",
       "signature": "paragraph=>open"
-    },
-    "sections_test.rb#should add relative offset value to current leveloffset#0": {
-      "family": "gap:header-lines",
-      "signature": "-paragraph"
     },
     "sections_test.rb#should allow a special section to be nested at arbitrary depth in DocBook output#0": {
       "family": "gap:dlist",
@@ -1498,17 +1350,9 @@
       "family": "oracle:book-partintro",
       "signature": "paragraph=>open x2"
     },
-    "sections_test.rb#should be able to reset level offset#0": {
-      "family": "gap:header-lines",
-      "signature": "-paragraph"
-    },
-    "sections_test.rb#should create only sections in docbook backend#0": {
-      "family": "gap:header-lines",
-      "signature": "-paragraph"
-    },
     "sections_test.rb#should create parts and chapters in docbook backend#0": {
       "family": "oracle:book-partintro",
-      "signature": "-paragraph; paragraph=>open x2"
+      "signature": "paragraph=>open x2"
     },
     "sections_test.rb#should not interpret a listing block as a heading#0": {
       "family": "gap:setext-title",
@@ -1550,10 +1394,6 @@
       "family": "oracle:book-partintro",
       "signature": "paragraph=>open"
     },
-    "sections_test.rb#should print error if standalone document is included without level offset#0": {
-      "family": "gap:header-lines",
-      "signature": "-paragraph"
-    },
     "sections_test.rb#should warn if part has no sections#0": {
       "family": "oracle:book-partintro",
       "signature": "paragraph=>open"
@@ -1572,11 +1412,7 @@
     },
     "sections_test.rb#subsections in preface and appendix should start at level 2#0": {
       "family": "oracle:book-partintro",
-      "signature": "-paragraph; paragraph=>open"
-    },
-    "test/fixtures/basic.adoc": {
-      "family": "gap:header-lines",
-      "signature": "-paragraph"
+      "signature": "paragraph=>open"
     },
     "test/fixtures/encoding.adoc": {
       "family": "gap:block-macro-name",
@@ -1588,15 +1424,11 @@
     },
     "test/fixtures/lists.adoc": {
       "family": "gap:dlist",
-      "signature": "-list:ordered; -paragraph x5; paragraph=>dlist x4"
+      "signature": "-list:ordered; -paragraph x4; paragraph=>dlist x4"
     },
     "test/fixtures/sample.adoc": {
       "family": "gap:setext-title",
       "signature": "+heading x4; +list:unordered; +paragraph x3; +table; example=>admonition"
-    },
-    "test/fixtures/subs.adoc": {
-      "family": "gap:header-lines",
-      "signature": "-paragraph"
     },
     "test/fixtures/with-front-matter.adoc": {
       "family": "gap:front-matter",

@@ -198,6 +198,13 @@ const CHILD_KEYS = declareVisitorKeys({
   passthrough: [],
 
   heading: [],
+  authorLine: [],
+  revisionLine: [],
+  // A header's lines are genuine nodes with positions of their own
+  // (issue #18's closed HeaderLineNode union), so the cursor walk may
+  // descend to the exact line it sits on. The PRINTER still never
+  // asks: it prints the header as one run without path.map.
+  documentHeader: ["lines"],
   discreteHeading: [],
   comment: [],
   attributeEntry: [],

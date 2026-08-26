@@ -74,6 +74,10 @@ const LOAD_OPTIONS = {
   extension_registry: registry,
 };
 
+// The level `= Title` spells, on both sides: the oracle's own header
+// title and our documentHeader node are the same leaf.
+const DOCUMENT_TITLE_LEVEL = 0;
+
 /** One node of the canonical tree. The kind is the WHOLE identity. */
 export interface Shape {
   /** The canonical kind, from the closed alphabet the mapping names. */
@@ -329,7 +333,7 @@ function oracleDocumentShape(
   const title = isBlock(header) ? header.getTitle() : null;
   const children: Shape[] = [];
   if (document.hasHeader() && title !== null) {
-    children.push(leaf(headingKind(0, levels)));
+    children.push(leaf(headingKind(DOCUMENT_TITLE_LEVEL, levels)));
   }
   children.push(...oracleKids(document, levels));
   return { kind: "document", children };
@@ -409,6 +413,9 @@ export const AST_KIND_CENSUS: ReadonlyMap<string, string> = new Map([
   ["rawLine", "inline, out of scope"],
   ["heading", "kind heading"],
   ["discreteHeading", "kind heading"],
+  ["documentHeader", "kind heading: the oracle's own doctitle leaf"],
+  ["authorLine", "inside a header, which contributes its title alone"],
+  ["revisionLine", "inside a header, which contributes its title alone"],
   ["comment", "dropped: the reader eats it"],
   ["attributeEntry", "dropped: the reader eats it"],
   ["preprocessorDirective", "dropped: the reader eats it"],
@@ -481,6 +488,14 @@ function ourNode(node: BlockNode, levels: boolean): Shape {
     case "heading":
     case "discreteHeading": {
       return leaf(headingKind(node.level, levels));
+    }
+    // A document header contributes exactly what the oracle's own
+    // header does: one level-0 heading leaf. Its LINES contribute
+    // nothing - the author line, the revision line and the header's
+    // attribute entries all reach the oracle as document attributes,
+    // never as blocks.
+    case "documentHeader": {
+      return leaf(headingKind(DOCUMENT_TITLE_LEVEL, levels));
     }
     case "blockMacro": {
       return leaf(

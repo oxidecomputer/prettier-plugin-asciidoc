@@ -337,6 +337,127 @@ export interface HeadingNode extends Node {
 }
 
 /**
+ * The AUTHOR LINE beneath the document title: the first line of the
+ * header that is neither an attribute entry nor a comment
+ * (`parse_header_metadata`, parser.rb:1815, reads it with
+ * `reader.read_line` and no test at all - `* item`, `== S` and `[foo]`
+ * all become the author, measured).
+ *
+ * The line is carried VERBATIM, as its own span. A formatter may not
+ * re-spell it: `AuthorInfoLineRx` (rx.rb:22) splits a name into first /
+ * middle / last / email and re-joining those parts would rewrite what
+ * the author typed (`First_Name Last` renders as `First Name Last`,
+ * so the substitution is not even reversible). It carries no inline
+ * children for the same reason the value is verbatim - the header is
+ * LINE syntax, and reflowing it into two lines would hand the second
+ * line to the revision slot.
+ */
+export interface AuthorLineNode extends Node {
+  /** Node discriminant. */
+  type: "authorLine";
+  /**
+   * The whole source line, verbatim - the exact bytes of the span
+   * this node claims, which invariant (iii) checks. Trailing
+   * whitespace is part of it and Prettier's Doc printer trims it on
+   * the way out, so the OUTPUT is the rstripped line; that is the
+   * spelling Asciidoctor read in the first place
+   * (`prepare_source_string`), and it is what makes the print
+   * idempotent.
+   */
+  value: string;
+}
+
+/**
+ * The REVISION LINE: the second attribution line of the header
+ * (`v1.0, 2026-08-26: remark` and every looser spelling
+ * `RevisionInfoLineRx` (rx.rb:42) admits, which is nearly any line -
+ * measured: `----`, `== S` and `not a rev` all land in `revdate`).
+ *
+ * A separate kind from {@link AuthorLineNode} rather than one kind
+ * with a slot field: they are two constructs in the language, with two
+ * patterns in rx.rb and two sets of attributes, and naming them apart
+ * is what lets the header's shape invariant say "at most one of each,
+ * author first" without a second vocabulary. Carried verbatim for the
+ * same reason.
+ */
+export interface RevisionLineNode extends Node {
+  /** Node discriminant. */
+  type: "revisionLine";
+  /** The whole source line, verbatim - see {@link AuthorLineNode}. */
+  value: string;
+}
+
+/**
+ * One line of the document header, after the title line.
+ *
+ * The union is CLOSED and deliberately narrow: these five kinds are
+ * everything `parse_header_metadata` reads. A paragraph, a list or a
+ * heading inside a header is unrepresentable, and so - the point of
+ * the node existing at all - is an author line anywhere but inside
+ * one.
+ */
+export type HeaderLineNode =
+  | AttributeEntryNode
+  | CommentNode
+  | PreprocessorDirectiveNode
+  | AuthorLineNode
+  | RevisionLineNode;
+
+/**
+ * The DOCUMENT HEADER: the `= Title` line and the lines Asciidoctor
+ * reads with it, up to the first blank line
+ * (`parse_document_header`, parser.rb:126 -> `parse_header_metadata`,
+ * parser.rb:1815).
+ *
+ * Read EXTENT-FIRST at the title line, like every other composite,
+ * because the header's extent is decided there and nowhere else: the
+ * title opens it, an attribute entry or a comment continues it, the
+ * first other line is the author, the next is the revision, and the
+ * first blank line ends it. Modeling it as one node is what makes the
+ * bug it was opened for (#18) unrepresentable - the printer joins the
+ * header's lines with a plain newline and has no separator decision
+ * to get wrong, where a blank line inserted after the title demotes
+ * the author line to the first body paragraph and shifts every
+ * section boundary below it.
+ *
+ * A header exists only where Asciidoctor builds one, and that is not
+ * the same as "at index 0": it is the first block that is not one of
+ * the lines the reader eats before the title - blank lines, comments,
+ * attribute entries, preprocessor directives, block anchors and
+ * block-attribute lines that name no style. Those keep their own
+ * nodes and stand AHEAD of the header in `children` (22 corpus
+ * documents parse a header at index > 0). A `= Title` anywhere else
+ * is an ordinary level-0 {@link HeadingNode}.
+ *
+ * The block-attribute line is the one entry in that list that needs a
+ * test rather than a kind: `[foo]` above the title demotes it,
+ * `[#id]` does not (see `Attrlist.styleAttribute` - the rule is the
+ * pinned oracle's, not Ruby's). The test runs ONCE, where the line is
+ * held.
+ *
+ * Those are SEQUENCE facts, checked by invariant (xiv) in
+ * tests/parser/ast-invariants.ts - the same way the admonition body
+ * split (ix) and the masquerade's recorded delimiter (xiii) are
+ * checked - along with "at most one author line, at most one revision
+ * line, and never a revision without an author".
+ */
+export interface DocumentHeaderNode extends Node {
+  /** Node discriminant. */
+  type: "documentHeader";
+  /** The title text after the `=` marker, trimmed. */
+  title: string;
+  /**
+   * The header's lines after the title, in source order. Named
+   * `lines` rather than `children` on purpose: they are LINES, not
+   * blocks - nothing recurses into them and the printer walks them
+   * without Prettier's path - and the printer's `path.map(print,
+   * "children")` calls would otherwise have to admit an author line
+   * as a printable node of its own.
+   */
+  lines: HeaderLineNode[];
+}
+
+/**
  * A discrete heading — a heading preceded by `[discrete]` that does
  * not create a section. Unlike an ordinary `heading`, it is STYLE,
  * not structure: the oracle renders it as a heading element but it
@@ -987,6 +1108,7 @@ export interface BlockAnchorNode extends Node {
 /** A top-level structural element of a document. */
 export type BlockNode =
   | ParagraphNode
+  | DocumentHeaderNode
   | HeadingNode
   | DiscreteHeadingNode
   | CommentNode

@@ -233,12 +233,21 @@ function buildMasqueradedBlock(
  * Content is sliced from the source text rather than rebuilt line by
  * line (which would lose the blank lines inside); a forced close ends
  * it where the reader ended the block.
+ *
+ * Exported for the SECOND consumer the variant dispatch below cannot
+ * serve: the document-header scan (lines/header-reader.ts) meets a
+ * `////` block where `skip_comment_lines` skips one, inside a header
+ * whose other lines are not delimited blocks at all - so it needs
+ * this builder without the variant table around it. Those blank lines
+ * inside are exactly why the header must consume the block whole
+ * rather than stop at it: to the oracle a blank INSIDE a comment
+ * block does not end the header (measured).
  * @param extent - where the block opened and closed
  * @param at - the document's location index
  * @returns A CommentNode with block type whose value contains
  *   the raw content between (or after) the delimiters.
  */
-function buildBlockComment(
+export function buildBlockComment(
   extent: BlockExtent,
   at: LocationIndex,
 ): CommentNode {

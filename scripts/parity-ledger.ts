@@ -287,6 +287,25 @@ const INLINE_PASSTHROUGH_FAMILY = "inline-passthrough";
 const EMAIL_AUTOLINK_FAMILY = "email-autolink";
 
 /**
+ * Issue #18: a titled document's header is one `documentHeader` node
+ * owning its author line, revision line and header attribute entries,
+ * where the base serialized a level-0 `heading` and let the lines
+ * fall into the first paragraph. NOT formatted-only: every titled
+ * document's first node changes kind (281 AST-only cases), and the 62
+ * byte-moving cases are the ones where the base inserted the blank
+ * line after the title that demoted the header lines to body content
+ * - removing it is the fix the oracle agrees with. Twelve of the
+ * byte-moving cases carry an email address on the author line and are
+ * DECLARED UNDER email-autolink instead: a case takes one family, and
+ * those twelve first diverged when issue #20 landed, one commit
+ * earlier, so keeping their trailers there is what keeps every prefix
+ * of the commit range self-consistent.
+ *
+ * Not exported: no grid row cites it.
+ */
+const DOCUMENT_HEADER_FAMILY = "document-header";
+
+/**
  * The closed family enum. SURFACE HONESTY, not an armed
  * gate: a family id can only legally be a corpus id or an
  * identity-fixture id. The formatted-only subset is exactly
@@ -301,10 +320,12 @@ const EMAIL_AUTOLINK_FAMILY = "email-autolink";
  * the two inline SPAN families move spans (dissolved, crystallized,
  * or holding a kept `\n`), inline-passthrough replaces text - and
  * sometimes a whole span - with one atomic passthrough node,
- * explicit-ordered-marker turns prose into ordered lists, and
+ * explicit-ordered-marker turns prose into ordered lists,
  * email-autolink hardens a bare address into one atomic link node,
- * so an entry of those ten whose AST differs is legal and an entry
- * of any other family whose AST differs fails the cross-check.
+ * and document-header re-roots a titled document's opening lines
+ * under one header node, so an entry of those eleven whose AST
+ * differs is legal and an entry of any other family whose AST
+ * differs fails the cross-check.
  */
 export const LEDGER_FAMILIES: FamilySets = {
   families: new Set([
@@ -327,6 +348,7 @@ export const LEDGER_FAMILIES: FamilySets = {
     EXPLICIT_ORDERED_MARKER_FAMILY,
     INLINE_PASSTHROUGH_FAMILY,
     EMAIL_AUTOLINK_FAMILY,
+    DOCUMENT_HEADER_FAMILY,
   ]),
   formattedOnly: new Set([
     AUTHOR_PLUS_FAMILY,

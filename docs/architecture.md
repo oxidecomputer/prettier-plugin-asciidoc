@@ -194,6 +194,12 @@ leaf:
   state — the only mutable state is `itemExtent`'s five members, Ruby's four
   locals plus the buffer. Each block an item holds carries its verbatim `gap`:
   the `""` and `"+"` lines the author wrote in front of it.
+- The **document header** is read extent-first too, at the title line
+  (`src/parse/lines/header-reader.ts`, a port of `parse_document_header` ->
+  `parse_header_metadata`). Whether a `= Title` opens one is reader state: a
+  forward-only bit that the first block or held line Ruby's
+  `parse_block_metadata_lines` does not eat clears, so a level-0 title deeper in
+  the file is an ordinary heading leaf.
 - **Headings are leaves.** Sections are not modeled — there is no `section` node
   — so the document is a flat sequence of blocks the reader appends to, and
   nothing closes on a later, unpredictable line.
@@ -270,19 +276,25 @@ block context, and the guard test forbids it.
 
 ## The AST
 
-`src/ast.ts` declares every node kind; the census is pinned at **36** kinds by
+`src/ast.ts` declares every node kind; the census is pinned at **39** kinds by
 `tests/parser/architecture.test.ts` — an equality pin, not a budget, so a new
 kind fails the pin until it is deliberately moved. The file is the reference;
 the shape of the tree in one paragraph:
 
 A `document` holds a flat sequence of blocks. Headings are leaves with a `level`
-(sections are not modeled). Paragraphs hold inline children. Lists hold items;
-each item holds its marker spelling, its text, and its blocks, each block behind
-its recorded `gap`. Delimited blocks carry their variant (listing, literal,
-pass, verse, example, sidebar, quote, table) and form (delimited, indented,
-paragraph); parent blocks hold parsed children; admonitions unify the paragraph
-and delimited forms. Beyond those, the formatter-specific nodes are the ones a
-semantic model would discard: comments, preprocessor directives (`include::`,
+(sections are not modeled), with one exception: a `= Title` at the top of the
+document opens a `documentHeader`, which OWNS the lines Asciidoctor reads with
+it - attribute entries, comments and preprocessor lines, then an `authorLine`
+and a `revisionLine`, up to the first blank line. Owning them is the point: the
+header prints as one run of lines, so no separator rule can insert the blank
+line that would end the header early and demote its lines to body content (issue
+#18). Paragraphs hold inline children. Lists hold items; each item holds its
+marker spelling, its text, and its blocks, each block behind its recorded `gap`.
+Delimited blocks carry their variant (listing, literal, pass, verse, example,
+sidebar, quote, table) and form (delimited, indented, paragraph); parent blocks
+hold parsed children; admonitions unify the paragraph and delimited forms.
+Beyond those, the formatter-specific nodes are the ones a semantic model would
+discard: comments, preprocessor directives (`include::`,
 `ifdef`/`ifndef`/`ifeval`/ `endif`, kept as verbatim lines), block attribute
 lists, block titles, block anchors, and `rawLine` (a verbatim line inside a
 paragraph, so a comment between two text lines survives reflow). Inline nodes

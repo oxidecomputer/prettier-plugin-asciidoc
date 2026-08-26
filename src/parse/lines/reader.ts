@@ -53,13 +53,16 @@ import {
 } from "./classify.js";
 import { blockExtentOf, delimitedExtent } from "./delimited-reader.js";
 import { fragmentOfLine, isLeafKind, leafBuilder } from "./frames.js";
-import { HeldMetadata } from "./held-metadata.js";
-import { listItemNode } from "./list-item-node.js";
 import {
-  type GapRecord,
-  listShape,
-  type ListItemShape,
-} from "./list-reader.js";
+  documentHeader,
+  headerSurvivesBlock,
+  headerSurvivesHold,
+  type HeaderScan,
+} from "./header-reader.js";
+import { HeldMetadata } from "./held-metadata.js";
+import type { Confinement, ReaderScope } from "./scope.js";
+import { listItemNode } from "./list-item-node.js";
+import { listShape, type ListItemShape } from "./list-reader.js";
 import {
   paragraphFormVariant,
   resolveDelimitedOpen,
@@ -80,64 +83,9 @@ import { documentBom, splitLines, type SourceLine } from "./split.js";
 // ordinary one.
 const DISCRETE_STYLE = "discrete";
 
-/**
- * How this reader is confined, when it is not the document reader.
- * Declared here, not exported: every consumer is a BlockReader
- * member, and knip's types bucket gates dead exported types at 0.
- */
-type Confinement =
-  | {
-      /** A list item's buffer (Ruby: parse_list_item's Reader, :1350). */
-      readonly kind: "item";
-      /** The item's marker style — the one-style ancestry. */
-      readonly style: string;
-      /** The item's own tail-safety (ItemExtent.tailSafe). */
-      readonly tailSafe: boolean;
-      /**
-       * Where a forced close at this buffer's end falls: the last
-       * buffer line's raw end — the vii-b clamp, computed at the one
-       * place that knows the buffer (listItem()) and carried as data.
-       */
-      readonly closeOffset: number;
-    }
-  | {
-      /**
-       * A compound block's interior (Ruby: build_block's Reader,
-       * parser.rb:1046; parse_blocks "does not consider sections",
-       * :1091-1092).
-       */
-      readonly kind: "block";
-      /**
-       * Whether a trailing `+` at this interior's end re-reads inert
-       * — true when the block closed (the printed terminator follows
-       * on the very next line and pops it), the enclosing reader's own
-       * tail-safety when it did not.
-       */
-      readonly tailSafe: boolean;
-      /**
-       * Where a forced close at this interior's end falls: the
-       * terminator line's start when the block closed, the
-       * enclosing reader's own forced-close offset when it did not.
-       */
-      readonly closeOffset: number;
-    };
-
-/** What every reader over this document shares, however confined. */
-interface ReaderScope {
-  /** The whole document. */
-  readonly source: string;
-  /** The document's offset→Location index, built once. */
-  readonly at: LocationIndex;
-  /**
-   * The document-wide gap record: every extent scan, at every nesting
-   * depth, records the separator lines it consumes here, and each
-   * item's blocks are paired with their gaps by partitioning it
-   * (listItemNode → gapsOf). Shared because an inner scan re-reads an
-   * outer item's buffer, which omits blanks the outer scan skipped —
-   * the outer scan's entries are the only record of them.
-   */
-  readonly gaps: GapRecord;
-}
+// The heading level `= Title` spells - the only level a document
+// header opens at (`is_next_line_doctitle?`, parser.rb).
+const DOCUMENT_TITLE_LEVEL = 0;
 
 /**
  * Reads one line array into blocks. One instance per document — plus
@@ -176,6 +124,19 @@ class BlockReader {
    * buffer reads as a blank here, exactly as it does to Ruby.
    */
   private blanks = 0;
+  /**
+   * Whether a DOCUMENT HEADER can still open at the next `= Title`
+   * line. Reader state, and forward-only: it starts true and is
+   * cleared by the first block or held line that is not one of the
+   * lines Ruby's `parse_block_metadata_lines` eats ahead of
+   * `parse_document_header` ({@link BEFORE_HEADER},
+   * {@link BEFORE_HEADER_HELD}), including the header itself - there
+   * is exactly one per document. A confined reader never reads it:
+   * `sectionTitle` sends every title inside an item buffer or a
+   * compound interior to the paragraph arm before the question is
+   * asked.
+   */
+  private headerReachable = true;
 
   // The held-back metadata run — the nodes waiting for the block they
   // annotate and the parsed `[…]` view, owned by one small object
@@ -309,9 +270,15 @@ class BlockReader {
 
   /**
    * Append a finished block to the document's children.
+   *
+   * The header-reachability bit is retired HERE, at the one place a
+   * block joins the sequence, so no dispatch arm can forget to do it
+   * - the header node itself retires it too, which is what makes a
+   * second header per document unreachable.
    * @param node - the block just built
    */
   private push(node: BlockNode): void {
+    this.headerReachable &&= headerSurvivesBlock(node.type);
     this.blocks.push(node);
   }
 
@@ -704,6 +671,10 @@ class BlockReader {
    */
   private holdMetadata(line: SourceLine, kind: LineKind): boolean {
     if (!this.held.hold(line, kind, this.at)) return false;
+    this.headerReachable &&= headerSurvivesHold(
+      kind,
+      this.held.holdsStyleAttribute(),
+    );
     this.index += 1;
     // The blank run is deliberately NOT reset: Ruby counts `skipped`
     // BEFORE parse_block_metadata_lines consumes these lines (next_block
@@ -777,9 +748,32 @@ class BlockReader {
       );
       return;
     }
+    if (kind.level === DOCUMENT_TITLE_LEVEL && this.headerReachable) {
+      // The header is a COMPOSITE where the level-0 heading it
+      // replaces was a leaf, and that is the whole change: its lines
+      // belong to it, so the printer joins them with a plain newline
+      // and never gets to insert the blank line that demotes the
+      // author line to body content (issue #18). Flush first, for the
+      // reason readText states.
+      this.flushMetadata();
+      const header = documentHeader(this.headerScan, this.index, kind.title);
+      this.push(header.node);
+      this.resume(header.end);
+      return;
+    }
     this.leaf(
       buildHeading(fragmentOfLine(line), kind.level, kind.title, this.at),
     );
+  }
+
+  /**
+   * What the document-header scan is given: the stream and the facts
+   * fixed over it, built fresh per call for the reason
+   * {@link BlockReader.scan} states.
+   * @returns the scan value
+   */
+  private get headerScan(): HeaderScan {
+    return { source: this.source, lines: this.lines, at: this.at };
   }
 
   // ── delimited blocks: is_delimited_block? + build_block ────────────

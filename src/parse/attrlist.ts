@@ -36,12 +36,79 @@ export interface Attrlist {
    * unrecognized, exactly as both replaced spellings behaved.
    */
   readonly style: string;
+  /**
+   * The style Ruby actually STORES - `attributes['style']` after
+   * `parse_style_attribute` (parser.rb) has had the first entry -
+   * or undefined when the line names no style at all.
+   *
+   * A second view of the same split rather than a second parse, and
+   * a second view rather than a correction to {@link Attrlist.style}
+   * because the open decisions' behaviour on `[source#id]` is pinned
+   * by their own oracle rows: aligning them is a byte-changing change
+   * of its own, not a side effect of this one.
+   *
+   * It differs from `style` in three ways, each measured against the
+   * oracle (tests/conformance/document-header.test.ts):
+   *
+   * - A NAMED first entry names no style: `[separator=::]` and
+   *   `[a=b,c]` both leave it undefined, because Ruby's positional
+   *   index counts ENTRIES, so a named first entry means there is no
+   *   `attributes[1]` at all.
+   * - SHORTHAND is stripped: an entry with no space that carries `.`,
+   *   `#` or `%` keeps only the part before the first of them, so
+   *   `[foo#id]` is `foo` and `[.role#id]` is undefined.
+   * - An EMPTY entry names no style: `[]` and `[,bar]` are undefined,
+   *   where `style` is `""`.
+   *
+   * WHAT CONSUMES IT is a rule the pinned oracle has and Ruby does
+   * not, so do not read this field's existence as Ruby semantics: the
+   * one reader is the document header's reachability, and there a
+   * style above the title demotes it to a section only because
+   * `@asciidoctor/core` 4.0.11 tests `blockAttrs.style`
+   * (src/parser.js:180). Ruby 2.0.26 bails on `block_attrs['title']`
+   * alone (parser.rb:132) and builds a header under `[foo]`.
+   */
+  readonly styleAttribute: string | undefined;
 }
+
+// A named attribute's name, and the `=` that makes it one: `NameRx`
+// anchored at the entry's start. An entry that matches is `name=value`
+// and takes no positional slot, which is why `[separator=::]` names no
+// style.
+//
+// The NAME CLASS is the PINNED ORACLE'S, and the two authorities
+// disagree here. Ruby's `NameRx` is `#{CG_WORD}[#{CC_WORD}\-.]*`
+// (attribute_list.rb:44) and admits a dot; `@asciidoctor/core` 4.0.11
+// spells it `${CG_WORD}[${CC_WORD}\\-]*`
+// (build/node/index.cjs:9929) and does NOT. We follow the oracle,
+// because the oracle is what renders: given `[foo.bar = baz]` it
+// scans the name as `foo`, finds `.` where it wants `=`, and reads
+// the whole entry as positional - so the entry names a style, and
+// above a title that style is a barrier. Ruby reads the same entry as
+// the named attribute `foo.bar` and keeps the header. Do not "fix"
+// the dot back in to match the Ruby.
+//
+// The BLANKS before the `=` are both authorities': `parse_attribute`
+// scans the name, then `skip_blank`, and only then tests for `=`
+// (attribute_list.rb:110-120), and `skip_blank` skips `BlankRx`,
+// which is `/[ \t]+/` in Ruby (attribute_list.rb:46) and identically
+// in the oracle (build/node/index.cjs:9932, read by `#skipBlank` at
+// :10250) - a TAB is as blank as a space. So `[foo = bar]`,
+// `[foo =bar]` and `[foo<TAB>=bar]` are named attributes and leave a
+// header standing, exactly as `[foo=bar]` does - measured against the
+// oracle. Blanks on the VALUE side (`[foo= bar]`) are the same
+// attribute for the same reason and need no expression here.
+const NAMED_ATTRIBUTE = /^\w[\w\-]*[ \t]*=/v;
+
+// The shorthand separators `parse_style_attribute` splits an entry
+// on: `.role`, `#id`, `%option`. The style is whatever stands before
+// the first of them.
+const SHORTHAND = /[.#%]/v;
 
 /**
  * Parse a block-attribute line's interior. The ONE spelling.
  * @param raw - the text between the brackets, brackets excluded
- * @returns its first positional attribute
+ * @returns its first positional attribute, in both views
  */
 export function parseAttrlist(raw: string): Attrlist {
   // Split on the first comma to isolate the style from any further
@@ -51,7 +118,25 @@ export function parseAttrlist(raw: string): Attrlist {
   // entry in any caller's lookup table, so no caller special-cases
   // them.
   const [first] = raw.split(",");
-  return { style: first.trim() };
+  const style = first.trim();
+  return { style, styleAttribute: styleAttributeOf(style) };
+}
+
+/**
+ * The style Ruby stores for a first entry - see
+ * {@link Attrlist.styleAttribute} for the three ways it differs from
+ * the entry itself.
+ * @param first - the first entry of the interior, trimmed
+ * @returns the stored style, or undefined when there is none
+ */
+function styleAttributeOf(first: string): string | undefined {
+  if (NAMED_ATTRIBUTE.test(first)) return undefined;
+  // The space test is Ruby's own guard: "spaces are not allowed in
+  // shorthand, so if we detect one, this ain't no shorthand", which
+  // is why `[foo bar]` keeps its whole spelling as the style.
+  const shorthand = first.includes(" ") ? -1 : first.search(SHORTHAND);
+  const style = shorthand === -1 ? first : first.slice(0, shorthand);
+  return style === "" ? undefined : style;
 }
 
 /** A quote character that can open an attribute value. */

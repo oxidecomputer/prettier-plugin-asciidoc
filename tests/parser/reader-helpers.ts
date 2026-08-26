@@ -9,6 +9,7 @@
 import type {
   BlockNode,
   GapLine,
+  HeaderLineNode,
   InlineNode,
   ListItemNode,
   ListNode,
@@ -27,6 +28,8 @@ import { preorder } from "./ast-walk.js";
  *   /                   a line break INSIDE a text node
  *   raw                 a rawLine node (a comment or directive kept in place)
  *   h0 h1 … h5        a heading leaf and its level
+ *   header(...)           the document header and its lines
+ *   author revision     a header's two attribution lines
  *   list(…) olist(…)    a list and its items — unordered, ordered,
  *   colist(…) item(…)   callout — and one item
  *   example(…) open(…)  a parent block and its children
@@ -163,6 +166,12 @@ function blockShape(node: BlockNode): string {
     case "heading": {
       return `h${String(node.level)}`;
     }
+    // The title is `h0` inside the header's own parentheses, so a row
+    // that used to read `h0` now reads `header(h0)` and the extra
+    // lines are visible where they belong.
+    case "documentHeader": {
+      return `header(${["h0", ...node.lines.map(headerLineShape)].join(" ")})`;
+    }
     case "paragraph": {
       return `p(${inlineShape(node.children)})`;
     }
@@ -189,6 +198,17 @@ function blockShape(node: BlockNode): string {
       return LEAF_NAMES[node.type] ?? node.type;
     }
   }
+}
+
+/**
+ * Render one line of a document header.
+ * @param node - the header line
+ * @returns the rendered line
+ */
+function headerLineShape(node: HeaderLineNode): string {
+  if (node.type === "authorLine") return "author";
+  if (node.type === "revisionLine") return "revision";
+  return blockShape(node);
 }
 
 /**

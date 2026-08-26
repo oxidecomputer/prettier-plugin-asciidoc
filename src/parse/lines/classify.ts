@@ -585,11 +585,11 @@ type ClassifyObserver = (offset: number, kind: LineKind) => void;
  * everywhere except inside a verification harness that installed one.
  *
  * The reader reports every verdict it acts on through this slot, from
- * its three classification sites: `BlockReader#run`
- * (lines/reader.ts), and the paragraph scan and `verbatimRunExtent`
- * (lines/paragraph-reader.ts). With no hook installed each site is one
- * undefined check, so the classifier's behaviour and cost are
- * unchanged.
+ * its four classification sites: `BlockReader#run` (lines/reader.ts),
+ * `documentHeaderExtent` (lines/header-reader.ts), and the paragraph
+ * scan and `verbatimRunExtent` (lines/paragraph-reader.ts). With no
+ * hook installed each site is one undefined check, so the
+ * classifier's behaviour and cost are unchanged.
  *
  * A one-field object rather than an exported `let`: the lint rules
  * want every binding initialized on declaration AND refuse an

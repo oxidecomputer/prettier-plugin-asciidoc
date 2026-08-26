@@ -34,6 +34,7 @@ import {
   printAttributeEntry,
   printComment,
   printDelimitedBlock,
+  printDocumentHeader,
   printParentBlock,
 } from "./blocks.js";
 import { printList, printListItem } from "./list.js";
@@ -70,6 +71,11 @@ const printer: Printer<AnyNode> = {
           return [mark, joinBlocks(node.children, children), hardline];
         }
         return mark;
+      }
+      // The document header owns its own lines, so it is one Doc
+      // with no separator decision above it - see printDocumentHeader.
+      case "documentHeader": {
+        return printDocumentHeader(node);
       }
       case "heading":
       case "discreteHeading": {

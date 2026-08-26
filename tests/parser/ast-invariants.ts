@@ -274,8 +274,13 @@ function expectOneValue(node: AnyNode, slice: string): void {
       expectTextValue(slice, value);
       break;
     }
-    case "rawLine": {
-      expect(slice, "raw line value is its own span").toBe(value);
+    // A header's attribution lines carry the SAME contract a raw line
+    // does, and for the same reason: the bytes are the construct, so
+    // the value has to be exactly the span it claims.
+    case "rawLine":
+    case "authorLine":
+    case "revisionLine": {
+      expect(slice, `${node.type} value is its own span`).toBe(value);
       break;
     }
     // A passthrough carries its WHOLE construct - delimiters and the
@@ -639,6 +644,90 @@ function expectAdmonitionBodyExclusive(nodes: AnyNode[]): void {
   }
 }
 
+// The attribution slots a document header can fill, in the order
+// `parse_header_metadata` fills them (parser.rb:1815): the author
+// line first, then - inside the second nested `if` - the revision
+// line.
+const ATTRIBUTION_ORDER = ["authorLine", "revisionLine"];
+
+// The only blocks that may stand ABOVE a document header: the lines
+// `parse_block_metadata_lines` eats before the title is looked for.
+// This is the SAME set the reader spells as BEFORE_HEADER
+// (src/parse/lines/header-reader.ts), stated here as a property of
+// every parse the corpus produces - the two are equal, member for
+// member, and a divergence between them is a finding on both sides.
+//
+// `blockAttributeList` is a member of both, and whether a particular
+// one is a barrier is decided ONCE, at hold time, by whether it names
+// a style: `[foo]` demotes the title, `[#id]`, `[.role]`, `[%opt]`
+// and `[separator=::]` do not (all measured; the rule is the pinned
+// oracle's, not Ruby's - see `Attrlist.styleAttribute`). This
+// invariant does not re-derive that condition; the oracle rows in
+// tests/conformance/document-header.test.ts are where it is pinned.
+const ABOVE_HEADER = new Set([
+  "comment",
+  "attributeEntry",
+  "preprocessorDirective",
+  "blockAnchor",
+  "blockAttributeList",
+]);
+
+/**
+ * (xiv) - the document header's shape: at most one per document, with
+ * nothing above it but the lines Asciidoctor's reader eats first, at
+ * most one author line, at most one revision line, and never a
+ * revision line without an author line above it.
+ *
+ * Sequence facts the type cannot carry, checked the way (ix) and
+ * (xiii) carry theirs. The ATTRIBUTION half is Ruby's control flow
+ * read as a shape: `parse_header_metadata` (parser.rb:1815) reads the
+ * two attribution lines in two nested `if`s with no third sibling -
+ * measured, `= T` / `A` / `B` / `C` puts `C` in the BODY. The
+ * ONE-HEADER-PER-DOCUMENT half is `parse_document_header` running
+ * once at the top of the document; what may stand above it is
+ * {@link ABOVE_HEADER}, which is the pinned oracle's rule where a
+ * style is involved.
+ * @param root - the document node
+ */
+export function expectDocumentHeaderShape(root: unknown): void {
+  const document = isRecord(root) ? root : {};
+  const { children } = document;
+  const blocks = isArray(children) ? children : [];
+  const headers = blocks
+    .map((block, index) => ({ block, index }))
+    .filter(({ block }) => isNode(block) && block.type === "documentHeader");
+  expect(headers.length, "more than one document header").toBeLessThanOrEqual(
+    1,
+  );
+  for (const { block, index } of headers) {
+    const above = blocks
+      .slice(0, index)
+      .map((earlier) => (isNode(earlier) ? earlier.type : "?"))
+      .filter((type) => !ABOVE_HEADER.has(type));
+    expect(
+      above,
+      "blocks above a document header that are not metadata",
+    ).toEqual([]);
+    expectAttributionOrder(isNode(block) ? block : undefined);
+  }
+}
+
+/**
+ * The attribution half of (xiv): the header's lines carry the two
+ * slots at most once each, in Ruby's order.
+ * @param header - the header node
+ */
+function expectAttributionOrder(header: AnyNode | undefined): void {
+  const lines = isArray(header?.lines) ? header.lines : [];
+  const slots = lines
+    .filter((line) => isNode(line))
+    .map((line) => line.type)
+    .filter((type) => ATTRIBUTION_ORDER.includes(type));
+  expect(slots, "header attribution slots").toEqual(
+    ATTRIBUTION_ORDER.slice(0, slots.length),
+  );
+}
+
 /**
  * Assert every AST invariant for one document.
  *
@@ -668,4 +757,5 @@ export function expectAstInvariants(source: string): void {
   expectAnnotatedByPairing(document);
   expectAdmonitionBodyExclusive(nodes);
   expectMasqueradeSourceDelimiter(nodes);
+  expectDocumentHeaderShape(document);
 }

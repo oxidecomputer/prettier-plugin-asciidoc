@@ -13,14 +13,20 @@ import type {
   AdmonitionNode,
   BlockNode,
   DelimitedBlockNode,
+  DocumentHeaderNode,
   DocumentNode,
+  HeaderLineNode,
   InlineNode,
   LeafDelimiterVariant,
   ListItemNode,
   ParentBlockNode,
 } from "../ast.js";
 import { canonicalAttrlist } from "../parse/attrlist.js";
-import { MIN_DELIMITER_LENGTH, SAFE_DELIMITER_PAD } from "../constants.js";
+import {
+  MARKER_OFFSET,
+  MIN_DELIMITER_LENGTH,
+  SAFE_DELIMITER_PAD,
+} from "../constants.js";
 import { inlineAtoms } from "./inline.js";
 import { atomOf, blockBody, type Atom } from "./reflow.js";
 import { joinBlocks } from "./join.js";
@@ -509,4 +515,58 @@ export function printAttributeEntry(node: {
     return [":", bang, name, ": ", node.value];
   }
   return [":", bang, name, ":"];
+}
+
+/**
+ * Prints one line of a document header.
+ *
+ * The two attribution lines and the preprocessor directive print
+ * their span back VERBATIM: they are line-oriented header syntax, not
+ * prose, and there is no derivation that could put them back - see
+ * {@link AuthorLineNode}. The other two go through the printers every
+ * other attribute entry and comment go through, so a header attribute
+ * entry is normalized exactly like a body one (`:name!:` still prints
+ * `:!name:`).
+ * @param node - one header line
+ * @returns Doc IR for the line, without its newline
+ */
+function printHeaderLine(node: HeaderLineNode): Doc {
+  switch (node.type) {
+    case "attributeEntry": {
+      return printAttributeEntry(node);
+    }
+    case "comment": {
+      return printComment(node);
+    }
+    case "preprocessorDirective":
+    case "authorLine":
+    case "revisionLine": {
+      return node.value;
+    }
+  }
+}
+
+/**
+ * Prints the document header: the title line, then its lines, each on
+ * the line below the last.
+ *
+ * The separator is a plain `hardline` and there is no decision above
+ * it - that is the fix for issue #18. Asciidoctor's header ENDS at
+ * the first blank line, so a blank line anywhere inside it demotes
+ * everything below to body content: the author line becomes the first
+ * paragraph and every section boundary under it shifts. Owning the
+ * lines is what leaves {@link joinBlocks} nothing to get wrong here.
+ * @param node - the header node
+ * @returns Doc IR for the whole header
+ */
+export function printDocumentHeader(node: DocumentHeaderNode): Doc {
+  return [
+    // The title is level 0 by construction - a header opens at no
+    // other level - so the marker is the same arithmetic the heading
+    // arm does, with the level folded out.
+    "=".repeat(MARKER_OFFSET),
+    " ",
+    node.title,
+    ...node.lines.map((child): Doc => [hardline, printHeaderLine(child)]),
+  ];
 }

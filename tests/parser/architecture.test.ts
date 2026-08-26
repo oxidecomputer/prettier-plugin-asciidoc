@@ -162,7 +162,7 @@ describe("parse-layer architecture", () => {
   );
 
   // A CENSUS of the `type: "…"` discriminant literals declared in
-  // src/ast.ts, and a GATE rather than prose: a 37th fails this row
+  // src/ast.ts, and a GATE rather than prose: a 40th fails this row
   // until it is deliberately updated. The count is DIRECTIONLESS — it
   // is neither a budget nor a score, so a rise is not a cost and a
   // fall is not progress; what the row buys is that no declaration
@@ -183,10 +183,23 @@ describe("parse-layer architecture", () => {
   // bytes, because Asciidoctor removes them from the line before it
   // substitutes anything else and nothing downstream may read inside
   // them (issue #25).
-  test("the node-kind census is 36", () => {
+  //
+  // 39, moved up from 36 with the DOCUMENT HEADER (issue #18): the
+  // header node itself, plus the author line and the revision line it
+  // can hold. Three kinds and not one, deliberately - the header is a
+  // composite whose lines belong to it (that ownership IS the fix: it
+  // leaves the printer no blank line to insert after the title), and
+  // the two attribution lines are two constructs in the language,
+  // with two patterns in rx.rb and two sets of attributes, so naming
+  // them apart is what lets the shape invariant say "at most one of
+  // each, author first". Unlike the delimited-block split, these DO
+  // move the wire: a titled document that used to serialize a level-0
+  // `heading` now serializes a `documentHeader`, which is the AST
+  // half of the parity diff this change declares.
+  test("the node-kind census is 39", () => {
     const source = readFileSync("src/ast.ts", "utf8");
     const kinds = source.match(/^ {2}type: "[a-zA-Z]+";$/gmv) ?? [];
-    expect(kinds).toHaveLength(36);
+    expect(kinds).toHaveLength(39);
   });
 
   // The constraint: no lint suppressions beyond

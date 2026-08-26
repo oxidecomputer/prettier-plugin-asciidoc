@@ -279,6 +279,34 @@ export function buildRawBlockLine(
   line: Fragment,
   at: LocationIndex,
 ): BlockNode {
+  return buildReaderConsumedLine(line, at) ?? buildRawLineParagraph(line, at);
+}
+
+/**
+ * Builds the node for a line Asciidoctor's READER consumes wherever it
+ * stands - a line comment or a preprocessor directive - and nothing
+ * else.
+ *
+ * Split out of {@link buildRawBlockLine} because the document-header
+ * scan needs exactly this half and must not have the other: a header
+ * line that is neither of these is the AUTHOR line, not a paragraph
+ * (`process_attribute_entries` -> `Reader#skip_comment_lines`,
+ * parser.rb), so a paragraph fallback reaching the header would put a
+ * node kind in it that {@link HeaderLineNode} does not admit. One
+ * derivation, two consumers, so the two cannot come to disagree about
+ * which lines the reader eats.
+ *
+ * Classifies the RSTRIPPED image, for the reason
+ * {@link buildRawBlockLine} states.
+ * @param line - The raw line.
+ * @param at - The document's location index.
+ * @returns The comment or directive node, or undefined when the line
+ *   is neither.
+ */
+export function buildReaderConsumedLine(
+  line: Fragment,
+  at: LocationIndex,
+): CommentNode | PreprocessorDirectiveNode | undefined {
   switch (rawLineForm(rstrip(line.image))) {
     case "comment": {
       return buildLineComment(line, at);
@@ -288,7 +316,7 @@ export function buildRawBlockLine(
       return buildPreprocessorDirective(line, at);
     }
     default: {
-      return buildRawLineParagraph(line, at);
+      return undefined;
     }
   }
 }

@@ -60,7 +60,7 @@
     "symbol": "Attrlist",
     "importer": "src/parse/lines/held-metadata.ts",
     "kind": "vocabulary",
-    "reason": "the parsed shape of a `[\u2026]` line, decided once at open and carried as data"
+    "reason": "the parsed shape of a `[...]` line, decided once at open and carried as data"
   },
   {
     "file": "src/parse/attrlist.ts",
@@ -88,14 +88,14 @@
     "symbol": "parseAttrlist",
     "importer": "src/parse/lines/held-metadata.ts",
     "kind": "vocabulary",
-    "reason": "the one parse of a `[\u2026]` line; the reader calls it at open so nothing downstream re-derives a style"
+    "reason": "the one parse of a `[...]` line; the reader calls it at open so nothing downstream re-derives a style"
   },
   {
     "file": "src/parse/build/delimited.ts",
     "symbol": "BlockExtent",
     "importer": "src/parse/lines/delimited-reader.ts",
     "kind": "vocabulary",
-    "reason": "the extent record the extent scan fills and the builders take apart \u2014 the whole vocabulary of 'where this block starts and stops'"
+    "reason": "the extent record the extent scan fills and the builders take apart - the whole vocabulary of 'where this block starts and stops'"
   },
   {
     "file": "src/parse/build/delimited.ts",
@@ -103,6 +103,13 @@
     "importer": "src/parse/lines/open-style.ts",
     "kind": "vocabulary",
     "reason": "what a resolved verbatim open builds, declared beside the builder that takes it apart; the reader layer produces it and hands it straight over"
+  },
+  {
+    "file": "src/parse/build/delimited.ts",
+    "symbol": "buildBlockComment",
+    "importer": "src/parse/lines/header-reader.ts",
+    "kind": "vocabulary",
+    "reason": "the one builder for a `////` block's node, reused by the header scan because skip_comment_lines runs one off inside a header (parser.rb) and a second spelling would slice the interior differently"
   },
   {
     "file": "src/parse/build/delimited.ts",
@@ -126,6 +133,27 @@
     "reason": "pure (extent, role, index) -> Node constructor, called from the reader that collected the extent"
   },
   {
+    "file": "src/parse/build/header.ts",
+    "symbol": "buildAuthorLine",
+    "importer": "src/parse/lines/header-reader.ts",
+    "kind": "vocabulary",
+    "reason": "the author line's node; the scan decides WHICH line fills the slot and the builder decides what the node is, the same split every other extent-first read has"
+  },
+  {
+    "file": "src/parse/build/header.ts",
+    "symbol": "buildDocumentHeader",
+    "importer": "src/parse/lines/header-reader.ts",
+    "kind": "vocabulary",
+    "reason": "the header node itself, built where its extent was decided - the same scan-decides/builder-constructs split every other extent-first read has"
+  },
+  {
+    "file": "src/parse/build/header.ts",
+    "symbol": "buildRevisionLine",
+    "importer": "src/parse/lines/header-reader.ts",
+    "kind": "vocabulary",
+    "reason": "the revision line's node; same split as the author line's builder"
+  },
+  {
     "file": "src/parse/build/heading.ts",
     "symbol": "buildDiscreteHeading",
     "importer": "src/parse/lines/reader.ts",
@@ -144,7 +172,7 @@
     "symbol": "buildList",
     "importer": "src/parse/lines/reader.ts",
     "kind": "vocabulary",
-    "reason": "pure (items, index) -> Node constructor, called where the item nodes are assembled \u2014 the reader that owns the recursion"
+    "reason": "pure (items, index) -> Node constructor, called where the item nodes are assembled - the reader that owns the recursion"
   },
   {
     "file": "src/parse/build/list.ts",
@@ -152,6 +180,13 @@
     "importer": "src/parse/lines/list-item-node.ts",
     "kind": "vocabulary",
     "reason": "pure (input, index) -> Node constructor, called by the list reader that read the item's interior"
+  },
+  {
+    "file": "src/parse/build/metadata.ts",
+    "symbol": "buildAttributeEntry",
+    "importer": "src/parse/lines/header-reader.ts",
+    "kind": "vocabulary",
+    "reason": "one builder for an attribute entry wherever it stands, so a header entry and a body entry cannot come to differ"
   },
   {
     "file": "src/parse/build/metadata.ts",
@@ -208,6 +243,13 @@
     "importer": "src/parse/lines/reader.ts",
     "kind": "vocabulary",
     "reason": "pure (line, index) -> Node constructor for a line kept verbatim"
+  },
+  {
+    "file": "src/parse/build/metadata.ts",
+    "symbol": "buildReaderConsumedLine",
+    "importer": "src/parse/lines/header-reader.ts",
+    "kind": "vocabulary",
+    "reason": "the one derivation of which lines Asciidoctor's reader eats where they stand, shared so the header scan and the block reader agree on it"
   },
   {
     "file": "src/parse/build/metadata.ts",
@@ -382,14 +424,14 @@
     "symbol": "BLOCK_ATTRIBUTE_LINE",
     "importer": "src/parse/lines/classify.ts",
     "kind": "vocabulary",
-    "reason": "registry pattern: a `[\u2026]` block attribute line"
+    "reason": "registry pattern: a `[...]` block attribute line"
   },
   {
     "file": "src/parse/line-shapes.ts",
     "symbol": "BLOCK_ATTRIBUTE_LINE",
     "importer": "src/parse/lines/list-reader.ts",
     "kind": "vocabulary",
-    "reason": "registry pattern: a `[\u2026]` block attribute line"
+    "reason": "registry pattern: a `[...]` block attribute line"
   },
   {
     "file": "src/parse/line-shapes.ts",
@@ -473,21 +515,21 @@
     "symbol": "LINE_COMMENT_HEAD",
     "importer": "src/parse/lines/paragraph-reader.ts",
     "kind": "vocabulary",
-    "reason": "the two characters `skip_line_comments` tests for \u2014 the scan side's one spelling of 'line comment', deliberately wider than the parse-side pattern"
+    "reason": "the two characters `skip_line_comments` tests for - the scan side's one spelling of 'line comment', deliberately wider than the parse-side pattern"
   },
   {
     "file": "src/parse/line-shapes.ts",
     "symbol": "LINE_COMMENT_HEAD",
     "importer": "src/print/list-hazard.ts",
     "kind": "vocabulary",
-    "reason": "the two characters `skip_line_comments` tests for \u2014 the scan side's one spelling of 'line comment', deliberately wider than the parse-side pattern"
+    "reason": "the two characters `skip_line_comments` tests for - the scan side's one spelling of 'line comment', deliberately wider than the parse-side pattern"
   },
   {
     "file": "src/parse/line-shapes.ts",
     "symbol": "LINE_COMMENT_HEAD",
     "importer": "src/print/reflow.ts",
     "kind": "vocabulary",
-    "reason": "the two characters `skip_line_comments` tests for \u2014 the scan side's one spelling of 'line comment', deliberately wider than the parse-side pattern"
+    "reason": "the two characters `skip_line_comments` tests for - the scan side's one spelling of 'line comment', deliberately wider than the parse-side pattern"
   },
   {
     "file": "src/parse/line-shapes.ts",
@@ -557,21 +599,28 @@
     "symbol": "ReaderContext",
     "importer": "src/parse/lines/classify.ts",
     "kind": "vocabulary",
-    "reason": "the ONE declaration of the reader's state every line rule reads, declared beside the interrupting-set registry because both consumers \u2014 those rules and the classifier \u2014 sit at or below it; a second declaration up in the classifier is what `InterruptionOptions` was"
+    "reason": "the ONE declaration of the reader's state every line rule reads, declared beside the interrupting-set registry because both consumers - those rules and the classifier - sit at or below it; a second declaration up in the classifier is what `InterruptionOptions` was"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "ReaderContext",
+    "importer": "src/parse/lines/header-reader.ts",
+    "kind": "vocabulary",
+    "reason": "the classifier's context view; the header scan classifies its lines at a block start, like the reader"
   },
   {
     "file": "src/parse/line-shapes.ts",
     "symbol": "ReaderContext",
     "importer": "src/parse/lines/paragraph-reader.ts",
     "kind": "vocabulary",
-    "reason": "the ONE declaration of the reader's state every line rule reads, declared beside the interrupting-set registry because both consumers \u2014 those rules and the classifier \u2014 sit at or below it; a second declaration up in the classifier is what `InterruptionOptions` was"
+    "reason": "the ONE declaration of the reader's state every line rule reads, declared beside the interrupting-set registry because both consumers - those rules and the classifier - sit at or below it; a second declaration up in the classifier is what `InterruptionOptions` was"
   },
   {
     "file": "src/parse/line-shapes.ts",
     "symbol": "ReaderContext",
     "importer": "src/parse/lines/reader.ts",
     "kind": "vocabulary",
-    "reason": "the ONE declaration of the reader's state every line rule reads, declared beside the interrupting-set registry because both consumers \u2014 those rules and the classifier \u2014 sit at or below it; a second declaration up in the classifier is what `InterruptionOptions` was"
+    "reason": "the ONE declaration of the reader's state every line rule reads, declared beside the interrupting-set registry because both consumers - those rules and the classifier - sit at or below it; a second declaration up in the classifier is what `InterruptionOptions` was"
   },
   {
     "file": "src/parse/line-shapes.ts",
@@ -702,6 +751,13 @@
   {
     "file": "src/parse/positions.ts",
     "symbol": "Fragment",
+    "importer": "src/parse/build/header.ts",
+    "kind": "vocabulary",
+    "reason": "the span type every builder takes"
+  },
+  {
+    "file": "src/parse/positions.ts",
+    "symbol": "Fragment",
     "importer": "src/parse/build/heading.ts",
     "kind": "vocabulary",
     "reason": "the position vocabulary every builder takes: an image and the offset it was written at"
@@ -747,6 +803,13 @@
     "importer": "src/parse/lines/frames.ts",
     "kind": "vocabulary",
     "reason": "the position vocabulary every builder takes: an image and the offset it was written at"
+  },
+  {
+    "file": "src/parse/positions.ts",
+    "symbol": "Fragment",
+    "importer": "src/parse/lines/header-reader.ts",
+    "kind": "vocabulary",
+    "reason": "the span type the scan hands its builders"
   },
   {
     "file": "src/parse/positions.ts",
@@ -758,6 +821,13 @@
   {
     "file": "src/parse/positions.ts",
     "symbol": "LocationIndex",
+    "importer": "src/parse/build/header.ts",
+    "kind": "vocabulary",
+    "reason": "the offset-to-Location index every builder asks for line and column"
+  },
+  {
+    "file": "src/parse/positions.ts",
+    "symbol": "LocationIndex",
     "importer": "src/parse/build/heading.ts",
     "kind": "vocabulary",
     "reason": "the document's one offset -> Location index, built once and handed to every builder so no two agree on it separately"
@@ -803,6 +873,13 @@
     "importer": "src/parse/lines/frames.ts",
     "kind": "vocabulary",
     "reason": "the document's one offset -> Location index, built once and handed to every builder so no two agree on it separately"
+  },
+  {
+    "file": "src/parse/positions.ts",
+    "symbol": "LocationIndex",
+    "importer": "src/parse/lines/header-reader.ts",
+    "kind": "vocabulary",
+    "reason": "the offset-to-Location index the scan hands its builders"
   },
   {
     "file": "src/parse/positions.ts",
@@ -824,6 +901,13 @@
     "importer": "src/parse/lines/reader.ts",
     "kind": "vocabulary",
     "reason": "the document's one offset -> Location index, built once and handed to every builder so no two agree on it separately"
+  },
+  {
+    "file": "src/parse/positions.ts",
+    "symbol": "LocationIndex",
+    "importer": "src/parse/lines/scope.ts",
+    "kind": "vocabulary",
+    "reason": "the offset-to-Location index every reader over a document shares, named in the record that says what a reader is given"
   },
   {
     "file": "src/parse/positions.ts",

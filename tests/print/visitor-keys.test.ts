@@ -273,7 +273,9 @@ describe("the declared visitor keys, against real parse trees", () => {
   // Vacuity guard, the with-children half. Kept as an exact list
   // because it fails loudly if a declaration is ever dropped from a
   // kind that has one, and it is stable against corpus churn: the
-  // hand-written document above reaches all ten on its own.
+  // hand-written document above reaches all eleven on its own: its
+  // `= Title` plus `:toc:` open a documentHeader whose `lines` hold
+  // the attribute entry (issue #18).
   test("the documents reach every kind that declares a child key", () => {
     const withChildren = ALL_NODES.filter(
       (node) => getVisitorKeys(node).length > 0,
@@ -283,6 +285,7 @@ describe("the declared visitor keys, against real parse trees", () => {
       "admonition",
       "bold",
       "document",
+      "documentHeader",
       "highlight",
       "italic",
       "list",

@@ -6,21 +6,35 @@ import {
 } from "../../src/parse/attrlist.js";
 
 describe("parseAttrlist — the one first-positional spelling", () => {
-  test.each([
-    ["", ""],
-    ["source,ruby", "source"],
-    [" verse , x", "verse"],
-    ["#myid", "#myid"],
-    [".role", ".role"],
-    ["a]b", "a]b"],
-    ["NOTE", "NOTE"],
-    ["quote, Firstname Lastname", "quote"],
-  ])("interior %j has style %j", (raw, style) => {
-    // The WHOLE record, not `.style`: the type has one field today
-    // (`raw` was deleted as unread), and a structural compare is what
-    // makes a re-added field show up here rather than pass unnoticed.
-    expect(parseAttrlist(raw)).toEqual({ style });
-  });
+  // Two views of the same first entry: `style` is the entry itself,
+  // which is what every open decision reads, and `styleAttribute` is
+  // what Ruby STORES for it (`parse_style_attribute`, parser.rb) -
+  // undefined for a named entry, for shorthand alone, and for an
+  // empty one. The rows where the two differ are the last four.
+  test.each<[string, string, string | undefined]>([
+    ["", "", undefined],
+    ["source,ruby", "source", "source"],
+    [" verse , x", "verse", "verse"],
+    ["#myid", "#myid", undefined],
+    [".role", ".role", undefined],
+    ["a]b", "a]b", "a]b"],
+    ["NOTE", "NOTE", "NOTE"],
+    ["quote, Firstname Lastname", "quote", "quote"],
+    ["separator=::", "separator=::", undefined],
+    ["%opt", "%opt", undefined],
+    ["foo#id", "foo#id", "foo"],
+    // Ruby's own guard: a space means this is not shorthand, so the
+    // whole entry is the style.
+    ["foo bar", "foo bar", "foo bar"],
+  ])(
+    "interior %j has style %j and style attribute %j",
+    (raw, style, styleAttribute) => {
+      // The WHOLE record, not one field: a structural compare is what
+      // makes a re-added field show up here rather than pass
+      // unnoticed.
+      expect(parseAttrlist(raw)).toEqual({ style, styleAttribute });
+    },
+  );
 });
 
 // Where one attribute ends and the next begins, as `AttributeList`

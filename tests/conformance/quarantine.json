@@ -11,23 +11,9 @@
     "fails": ["fidelity"],
     "issue": "#16"
   },
-  "api_test.rb#with one author#0": { "fails": ["fidelity"], "issue": "#18" },
-  "api_test.rb#with two authors#0": { "fails": ["fidelity"], "issue": "#18" },
   "attributes_test.rb#assigns multi-line attribute to empty string if substitution fails to resolve attribute#0": {
     "fails": ["fidelity"],
     "issue": "#24"
-  },
-  "attributes_test.rb#attribute entries can resolve previously defined attributes#0": {
-    "fails": ["fidelity"],
-    "issue": "#18"
-  },
-  "attributes_test.rb#backend and doctype attributes are set by default in custom configuration#0": {
-    "fails": ["fidelity"],
-    "issue": "#18"
-  },
-  "attributes_test.rb#backend and doctype attributes are set by default in default configuration#0": {
-    "fails": ["fidelity"],
-    "issue": "#18"
   },
   "attributes_test.rb#collapses spaces in attribute names#0": {
     "fails": ["fidelity"],
@@ -48,18 +34,6 @@
   "attributes_test.rb#ignores lines with bad attributes if attribute-missing is drop-line#0": {
     "fails": ["fidelity"],
     "issue": "UNTRIAGED"
-  },
-  "attributes_test.rb#interpolates attribute defined in header inside attribute entry in header#0": {
-    "fails": ["fidelity"],
-    "issue": "#18"
-  },
-  "attributes_test.rb#interpolates author attribute inside attribute entry in header#0": {
-    "fails": ["fidelity"],
-    "issue": "#18"
-  },
-  "attributes_test.rb#interpolates revinfo attribute inside attribute entry in header#0": {
-    "fails": ["fidelity"],
-    "issue": "#18"
   },
   "attributes_test.rb#should allow pass macro to surround a multi-line value that contains line breaks#0": {
     "fails": ["fidelity"],
@@ -105,22 +79,6 @@
     "fails": ["fidelity"],
     "issue": "UNTRIAGED"
   },
-  "converter_test.rb#should use Haml templates in place of built-in templates#0": {
-    "fails": ["fidelity"],
-    "issue": "#18"
-  },
-  "converter_test.rb#should use Slim templates in place of built-in templates#0": {
-    "fails": ["fidelity"],
-    "issue": "#18"
-  },
-  "docs/modules/cli/partials/man-asciidoctor.adoc": {
-    "fails": ["fidelity"],
-    "issue": "#18"
-  },
-  "docs/modules/manpage-backend/examples/manpage.adoc": {
-    "fails": ["fidelity"],
-    "issue": "#18"
-  },
   "docs/modules/syntax-highlighting/pages/coderay.adoc": {
     "fails": ["fidelity"],
     "issue": "#9"
@@ -128,10 +86,6 @@
   "docs/modules/syntax-highlighting/pages/rouge.adoc": {
     "fails": ["fidelity", "reading"],
     "issue": "#9"
-  },
-  "document_test.rb#adds refname to DocBook output for each name defined in NAME section of manpage#0": {
-    "fails": ["fidelity"],
-    "issue": "#18"
   },
   "document_test.rb#attribute entry can appear before author line under document title#0": {
     "fails": ["fidelity"],
@@ -141,61 +95,9 @@
     "fails": ["fidelity"],
     "issue": "#16"
   },
-  "document_test.rb#do not override explicit author initials#0": {
-    "fails": ["fidelity"],
-    "issue": "#18"
-  },
-  "document_test.rb#document with subtitle and custom separator#0": {
-    "fails": ["fidelity"],
-    "issue": "#9"
-  },
-  "document_test.rb#document with subtitle#0": {
-    "fails": ["fidelity"],
-    "issue": "#18"
-  },
-  "document_test.rb#parse header only#0": {
-    "fails": ["fidelity"],
-    "issue": "#18"
-  },
-  "document_test.rb#should apply replacements substitution to value of mantitle attribute used in DocBook output#0": {
-    "fails": ["fidelity"],
-    "issue": "#18"
-  },
-  "document_test.rb#should be able to set doctype to article when converting to DocBook#0": {
-    "fails": ["fidelity"],
-    "issue": "#18"
-  },
-  "document_test.rb#should be able to set doctype to book when converting to DocBook#0": {
-    "fails": ["fidelity"],
-    "issue": "#18"
-  },
-  "document_test.rb#should close all short tags when htmlsyntax is xml#0": {
-    "fails": ["fidelity"],
-    "issue": "#18"
-  },
-  "document_test.rb#should create authorgroup in DocBook when multiple authors#0": {
-    "fails": ["fidelity"],
-    "issue": "#18"
-  },
   "document_test.rb#should enable compat mode for document with legacy doctitle#0": {
     "fails": ["fidelity"],
     "issue": "#16"
-  },
-  "document_test.rb#should include multiple authors in HTML output#0": {
-    "fails": ["fidelity"],
-    "issue": "#18"
-  },
-  "document_test.rb#should include revision history in DocBook output if revdate and revnumber is set#0": {
-    "fails": ["fidelity"],
-    "issue": "#18"
-  },
-  "document_test.rb#should include revision history in DocBook output if revdate and revremark is set#0": {
-    "fails": ["fidelity"],
-    "issue": "#18"
-  },
-  "document_test.rb#should not double escape ampersand in author attribute#0": {
-    "fails": ["fidelity"],
-    "issue": "#18"
   },
   "document_test.rb#should not enable compat mode for document with legacy doctitle if compat mode disable by header#0": {
     "fails": ["fidelity"],
@@ -204,51 +106,6 @@
   "document_test.rb#should not enable compat mode for document with legacy doctitle if compat mode is locked by API#0": {
     "fails": ["fidelity"],
     "issue": "#16"
-  },
-  "document_test.rb#should not honor custom separator for doctitle if attribute is locked by API#0": {
-    "fails": ["fidelity"],
-    "issue": "UNTRIAGED"
-  },
-  "document_test.rb#should not include revision history in DocBook output if revdate is not set#0": {
-    "fails": ["fidelity"],
-    "issue": "#18"
-  },
-  "document_test.rb#should not warn when parsing header only when docytpe is manpage and body is empty#0": {
-    "fails": ["fidelity"],
-    "issue": "#18"
-  },
-  "document_test.rb#should parse header only when docytpe is manpage#0": {
-    "fails": ["fidelity"],
-    "issue": "#18"
-  },
-  "document_test.rb#should parse revision line if date is empty#0": {
-    "fails": ["fidelity"],
-    "issue": "#18"
-  },
-  "document_test.rb#should substitute replacements in author names in DocBook output#0": {
-    "fails": ["fidelity"],
-    "issue": "#18"
-  },
-  "document_test.rb#should substitute replacements in author names in HTML output#0": {
-    "fails": ["fidelity"],
-    "issue": "#18"
-  },
-  "document_test.rb#with metadata to DocBook 5#0": {
-    "fails": ["fidelity"],
-    "issue": "#18"
-  },
-  "document_test.rb#with metadata#0": { "fails": ["fidelity"], "issue": "#18" },
-  "extensions_test.rb#should allow tree processor to replace tree#0": {
-    "fails": ["fidelity"],
-    "issue": "#18"
-  },
-  "extensions_test.rb#should invoke tree processors after parsing document#0": {
-    "fails": ["fidelity"],
-    "issue": "#18"
-  },
-  "invoker_test.rb#should write page for each alternate manname#0": {
-    "fails": ["fidelity"],
-    "issue": "#18"
   },
   "lists_test.rb#a literal paragraph offset by a blank line in list content followed by line with continuation is appended as two blocks#0": {
     "fails": ["fidelity"],
@@ -467,23 +324,6 @@
     "fails": ["fidelity"],
     "issue": "#16"
   },
-  "manpage_test.rb#(outside test)#0": { "fails": ["fidelity"], "issue": "#18" },
-  "manpage_test.rb#should normalize whitespace and skip line comments before and inside NAME section#0": {
-    "fails": ["fidelity"],
-    "issue": "#18"
-  },
-  "manpage_test.rb#should not parse NAME section if manname and manpurpose attributes are set#0": {
-    "fails": ["fidelity"],
-    "issue": "#18"
-  },
-  "manpage_test.rb#should replace invalid characters in mantitle in info comment#0": {
-    "fails": ["fidelity"],
-    "issue": "#18"
-  },
-  "manpage_test.rb#should substitute attributes in manname and manpurpose in NAME section#0": {
-    "fails": ["fidelity"],
-    "issue": "#18"
-  },
   "paragraphs_test.rb#should add a hardbreak at end of each line when hardbreaks option is set#0": {
     "fails": ["fidelity"],
     "issue": "UNTRIAGED"
@@ -495,10 +335,6 @@
   "parser_test.rb#expands tabs to spaces#0": {
     "fails": ["fidelity"],
     "issue": "UNTRIAGED"
-  },
-  "parser_test.rb#should resolve attribute references in rev number, data, and remark#0": {
-    "fails": ["fidelity"],
-    "issue": "#18"
   },
   "reader_test.rb#escaped ifdef is unescaped and ignored#0": {
     "fails": ["fidelity"],
@@ -520,10 +356,6 @@
     "fails": ["fidelity"],
     "issue": "#21"
   },
-  "sections_test.rb#document title with level 0 headings#0": {
-    "fails": ["fidelity"],
-    "issue": "#18"
-  },
   "sections_test.rb#document title with multiline syntax and unicode characters#0": {
     "fails": ["fidelity"],
     "issue": "#16"
@@ -532,37 +364,9 @@
     "fails": ["fidelity"],
     "issue": "#16"
   },
-  "sections_test.rb#level 0 special sections in multipart book should be coerced to level 1#0": {
-    "fails": ["fidelity"],
-    "issue": "#18"
-  },
-  "sections_test.rb#level offset should be added to discrete heading#0": {
-    "fails": ["fidelity"],
-    "issue": "#18"
-  },
   "sections_test.rb#multiline syntax with only multibyte characters#0": {
     "fails": ["fidelity"],
     "issue": "#16"
-  },
-  "sections_test.rb#should add level offset to section level#0": {
-    "fails": ["fidelity"],
-    "issue": "#18"
-  },
-  "sections_test.rb#should add relative offset value to current leveloffset#0": {
-    "fails": ["fidelity"],
-    "issue": "#18"
-  },
-  "sections_test.rb#should be able to reset level offset#0": {
-    "fails": ["fidelity"],
-    "issue": "#18"
-  },
-  "sections_test.rb#should create only sections in docbook backend#0": {
-    "fails": ["fidelity"],
-    "issue": "#18"
-  },
-  "sections_test.rb#should create parts and chapters in docbook backend#0": {
-    "fails": ["fidelity"],
-    "issue": "#18"
   },
   "sections_test.rb#should not interpret a listing block as a heading#0": {
     "fails": ["fidelity"],
@@ -592,22 +396,11 @@
     "fails": ["fidelity"],
     "issue": "#16"
   },
-  "sections_test.rb#should print error if standalone document is included without level offset#0": {
-    "fails": ["fidelity"],
-    "issue": "#18"
-  },
-  "sections_test.rb#subsections in preface and appendix should start at level 2#0": {
-    "fails": ["fidelity"],
-    "issue": "#18"
-  },
-  "test/fixtures/basic.adoc": { "fails": ["fidelity"], "issue": "#18" },
   "test/fixtures/encoding.adoc": {
     "fails": ["fidelity"],
     "issue": "UNTRIAGED"
   },
-  "test/fixtures/lists.adoc": { "fails": ["fidelity"], "issue": "#18" },
   "test/fixtures/sample.adoc": { "fails": ["fidelity"], "issue": "#16" },
-  "test/fixtures/subs.adoc": { "fails": ["fidelity"], "issue": "#18" },
   "test/fixtures/with-front-matter.adoc": {
     "fails": ["fidelity"],
     "issue": "#21"

@@ -53,8 +53,13 @@ describe("heading parsing", () => {
     expect(child0.title).toBe("Subsection");
   });
 
-  test("marker counts 1 through 6 carry level = count - 1", () => {
-    for (let equals = 1; equals <= 6; equals += 1) {
+  // From TWO markers up: a single `=` at the top of a document opens
+  // the document HEADER instead of a heading leaf (issue #18), which
+  // is a node kind, not a level - the level-0 leaf is what a `= T`
+  // deeper in the document still makes, and the level-jump row below
+  // is where that is asserted.
+  test("marker counts 2 through 6 carry level = count - 1", () => {
+    for (let equals = 2; equals <= 6; equals += 1) {
       const marker = "=".repeat(equals);
       const [child0] = parse(`${marker} Heading\n`).children;
       narrow(child0, "heading");
@@ -105,9 +110,11 @@ describe("heading parsing", () => {
     expect(levels).toEqual([1, 2, 1]);
   });
 
+  // The level-0 leaf, reached where no header can open: below body
+  // content the `= D` line is a section title like any other.
   test("a level JUMP is carried, not interpreted", () => {
-    const { children } = parse("= D\n\n=== C\n");
-    const [first, second] = children;
+    const { children } = parse("p\n\n= D\n\n=== C\n");
+    const [, first, second] = children;
     narrow(first, "heading");
     narrow(second, "heading");
     expect(first.level).toBe(0);

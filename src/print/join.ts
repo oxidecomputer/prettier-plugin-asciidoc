@@ -105,10 +105,10 @@ function isSectionHeading(block: BlockNode): boolean {
  *   heading: the old section printer forced the
  *   post-heading blank, and that byte is frozen (see the
  *   level comment below)
- * - Consecutive attribute entries (idiomatic stacking)
- * - Document title followed by attribute entry (the
- *   contiguous header pattern: `= Title` then
- *   `:attr: value` with no blank line)
+ * - An attribute entry under another one, or under a
+ *   level-0 section title ({@link stacksOntoAttributeEntry})
+ * - A document header and the block written on the very
+ *   next line ({@link stacksUnderDocumentHeader})
  * - Block metadata and the block it annotates, per the one
  *   pairing rule and its anchor exceptions
  *   ({@link stacksAsMetadata}, block-metadata.ts) —
@@ -117,15 +117,16 @@ function isSectionHeading(block: BlockNode): boolean {
  *   and the heading is destroyed (the A1 row in
  *   tests/format/heading-adjacency.test.ts)
  *
- * The reverse (attribute entry before title) is
- * intentionally absent: in AsciiDoc, attributes follow
- * the title — they never precede it.
- *
- * Lists always get a blank-line separator — no stacking
- * conditions needed for list nodes. If future block types
- * (delimited blocks, tables) introduce more stacking
- * patterns, consider switching to a node property (e.g.
- * `stackable`) instead of pairwise checks.
+ * Only the attribute-entry arm keys on what `current` IS,
+ * so no block kind is exempt - a LIST included. A list
+ * stacks under a reader-eaten line (`// c` / `* item`),
+ * under the block metadata that annotates it (`[foo]` /
+ * `* item`) and under a document header the source wrote
+ * it directly beneath (`= T` / `A` / `: rem` / `* item`),
+ * and takes the blank-line separator everywhere else. The
+ * comment this replaces claimed lists always take the
+ * blank line; it was already false on the first two counts
+ * before the header arm added the third.
  * @param blocks - The full array of sibling block nodes.
  * @param index - Index of the current block (must be
  *   at least 1 so the previous block exists).
@@ -139,10 +140,62 @@ function shouldStack(blocks: BlockNode[], index: number): boolean {
     (isLineComment(previous) && isLineComment(current)) ||
     (stacksWithReaderEatenLine(previous, current) &&
       !isSectionHeading(previous)) ||
-    (isAttributeEntry(previous) && isAttributeEntry(current)) ||
-    (isDocumentTitle(previous) && isAttributeEntry(current)) ||
+    stacksOntoAttributeEntry(previous, current) ||
+    stacksUnderDocumentHeader(previous, current) ||
     (stacksAsMetadata(previous, current) &&
       !destroysHeadingWhenStacked(previous, current))
+  );
+}
+
+/**
+ * Whether the pair stacks because `current` is an attribute entry
+ * that belongs under what stands above it: another attribute entry,
+ * or a level-0 heading that is NOT a document header (a header owns
+ * its own attribute entries - {@link DocumentHeaderNode} - so the
+ * only `= Title` left here is a level-0 SECTION deeper in the file).
+ *
+ * The reverse (attribute entry before title) is intentionally absent:
+ * in AsciiDoc, attributes follow the title - they never precede it.
+ *
+ * Named rather than inlined for the reason
+ * {@link destroysHeadingWhenStacked} states: the ceiling counts
+ * {@link shouldStack}'s operators.
+ * @param previous - The preceding block node.
+ * @param current - The current block node.
+ * @returns Whether the two should stack.
+ */
+function stacksOntoAttributeEntry(
+  previous: BlockNode,
+  current: BlockNode,
+): boolean {
+  return (
+    isAttributeEntry(current) &&
+    (isAttributeEntry(previous) || isDocumentTitle(previous))
+  );
+}
+
+/**
+ * Whether the pair stacks because a document header stands directly
+ * above `current` in the SOURCE.
+ *
+ * The header ends at the first blank line, so a block written on the
+ * very next line instead is one Asciidoctor's own header read stopped
+ * short of - and its first line may still be part of one paragraph
+ * WITH the header's last line: a revision line
+ * `RevisionInfoLineRx` rejects is unshifted straight back into the
+ * body (`parse_header_metadata`, parser.rb). Adjacency is the only
+ * spelling that provably re-reads the same there, and it is the
+ * author's own.
+ * @param previous - The preceding block node.
+ * @param current - The current block node.
+ * @returns Whether the two should stack.
+ */
+function stacksUnderDocumentHeader(
+  previous: BlockNode,
+  current: BlockNode,
+): boolean {
+  return (
+    previous.type === "documentHeader" && startsOnTheNextLine(previous, current)
   );
 }
 

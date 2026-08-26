@@ -479,7 +479,7 @@ describe("prepare_source strips a leading byte-order mark", () => {
   // own before any plugin is called.
   test("the reader reads a document title through the mark", () => {
     const [block] = parse(`${BOM}= Title\n`).children;
-    expect(block.type).toBe("heading");
+    expect(block.type).toBe("documentHeader");
   });
 });
 
