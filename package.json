@@ -45,6 +45,7 @@
     "mutate": "bun run test:deeply-nested-lists && bun run build && stryker run && bun scripts/score-minimums.ts --mutation",
     "mutate:full": "bun run test:deeply-nested-lists && bun run build && stryker run --force && bun scripts/score-minimums.ts --mutation",
     "triage": "bun scripts/conformance-triage.ts",
+    "citation-check": "bun scripts/citation-check.ts",
     "block-structure": "bun scripts/block-structure.ts",
     "local-docs": "bun scripts/local-documents.ts",
     "collect-local-docs": "bun scripts/collect-local-documents.ts"

@@ -119,8 +119,14 @@ Three properties hold along the pipeline:
    ask time — never a replay of residue it does not understand.
 
 The parser mirrors Asciidoctor's own Ruby (`lib/asciidoctor/parser.rb`, `rx.rb`,
-`reader.rb`, at 2.0.26) structurally, and the code cites the Ruby it ports. When
-our reading of the Ruby and the oracle disagree, the oracle wins.
+`reader.rb`, at 2.0.26) structurally, and the code cites the Ruby it ports. That
+Ruby is vendored at `vendor/asciidoctor-ruby/`, so a cited line is one `Read`
+away. `bun run citation-check` reads every line reference in those comments and
+holds the ones that name a file (207 of the 292 it reads) to that file and line;
+the other 85 are bare references in comments that name none, and it reports them
+unchecked rather than guessing which file they meant. When our reading of the
+Ruby and the oracle disagree, the oracle wins; "The two authorities" in
+`docs/coding-standards.md` says what the comment then has to say.
 
 ## Line classification
 
@@ -477,7 +483,8 @@ each harness proves and when to reach for which.
   and the
   [AsciiDoc language project](https://gitlab.eclipse.org/eclipse/asciidoc-lang/asciidoc-lang)
 - Asciidoctor's Ruby source (`lib/asciidoctor/parser.rb`, `rx.rb`, `reader.rb`)
-  — the implementation the parser mirrors and cites
+  — the implementation the parser mirrors and cites, vendored at
+  `vendor/asciidoctor-ruby/`
 - [Prettier issue #5506](https://github.com/prettier/prettier/issues/5506) — the
   long-standing AsciiDoc plugin request
 - [AsciiDoc parsing lab](https://github.com/opendevise/asciidoc-parsing-lab) —

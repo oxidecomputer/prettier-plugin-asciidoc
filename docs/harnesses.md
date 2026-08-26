@@ -32,10 +32,11 @@ therefore has a measured-nothing floor that exits 2: `parity` has
 `triage` refuses a corpus with no groups, `block-structure` refuses a short
 corpus, a short sweep product, an oracle refusal other than the one document it
 pins by id, and ledgers whose header names an oracle other than the installed
-one, `local-docs` refuses a directory with no documents in it, and `metrics`
-refuses a `src` too small to be this repository's. Without the split, an empty
-`src` would score a perfect card — no files means no cycles, no unused exports,
-and no escape hatches, all vacuously true.
+one, `local-docs` refuses a directory with no documents in it, `citation-check`
+refuses a tree with fewer than a hundred citations in it, and `metrics` refuses
+a `src` too small to be this repository's. Without the split, an empty `src`
+would score a perfect card — no files means no cycles, no unused exports, and no
+escape hatches, all vacuously true.
 
 Every script takes `--help`, and an unrecognized argument is an error, not a
 shrug: a silently dropped `--base` would print a head-only table that looks like
@@ -362,6 +363,63 @@ only here.
 Proves: our AST models the same block skeleton the oracle does, everywhere the
 ledgers do not say otherwise.
 
+### `bun run citation-check` - the source citations in our comments
+
+The comments here cite two authorities by file and line: Asciidoctor's Ruby (the
+design spec, vendored at `vendor/asciidoctor-ruby/` at tag `v2.0.26`) and the
+oracle the tests measure against (`@asciidoctor/core`'s `build/node/index.cjs`
+and the `src/*.js` it is bundled from, read from `node_modules`). A citation is
+the one part of a comment a reader cannot check by reading, and it rots two
+ways: line numbers move under a pin bump, and names get mistyped or invented.
+Three wrong citations turned up in one week of adversarial review, one of them
+naming a method that does not exist in 2.0.26 at all.
+
+The gate reads every comment in `src`, `tests` and `scripts` with the TypeScript
+parser's own trivia (so a citation inside a string literal is not one, and a
+citation wrapped across two comment lines is one), and applies two checks per
+citation:
+
+- **the range check** - the cited file exists and the cited line is inside it;
+- **the identifier check** - the names in the citing comment
+  (`read_lines_for_list_item`, `QUOTE_SUBS`, `ExtAtxSectionTitleRx`, and against
+  a JavaScript citation `readParagraphLines` too) must include one that appears
+  within five lines of the cited range, or anywhere between the range and the
+  definition that encloses it. A comment naming nothing of that shape is
+  reported as UNANCHORED and counted, not failed: nothing to look for is not the
+  same as looking and not finding.
+
+**Bare references.** The house style names the file once and then writes
+`l.1439` for the rest of the comment, so a bare reference is resolved against
+the one recognized file its comment names. A comment naming NO file, or naming
+two (where picking the nearer one is how a citation ends up checked against the
+wrong file and passing), leaves its bare references unresolved: they are counted
+and reported per citing file, never failed and never dropped in silence. At the
+time of writing the gate reads 292 line references, checks the 207 that name a
+file, and reports 85 that do not.
+
+A file name with no line after it is a MENTION, not a citation, and claims
+nothing: `see parser.rb: it walks the buffer` is prose, not a gate failure. A
+line spec the grammar can see but cannot read - a typographic dash, a hyphen a
+line break split - is a failure rather than a truncation, because a citation
+half-read is exactly the error this exists to catch. The grammar and both checks
+are `scripts/citations.ts`, unit-tested in `tests/scripts/citations.test.ts`
+against the spellings the tree really uses. Those two files and that test are
+the only ones the gate does not scan (`NOT_SCANNED`): they are the one place
+where citation-shaped text is data rather than a claim.
+
+Exit codes: 0 every citation held, 1 a citation FAILED, 2 could not run - a bad
+argument, a missing vendored source (run `bun run vendor`), or a tree with fewer
+than a hundred citations, which means the scan lost its roots rather than that
+the comments lost their citations. With no `node_modules` present the oracle
+half is skipped and said so, never failed; the Ruby half needs no install and no
+network. `--list` prints every citation and every bare reference; `--window <n>`
+widens or narrows the identifier check.
+
+Proves: every cited file and line exists, and points at something the comment
+names. It does NOT prove the comment's READING of the cited code is right, and
+it does not reach a bare reference whose comment never says what file it is
+about.
+
 ### `bun run local-docs <dir>` - the formatter against real documents
 
 Issue #13. Walks a directory for `.adoc` files, recursively, and runs four
@@ -446,9 +504,12 @@ are expected to pass every check.
 
 ### `bun run vendor` and `bun run build`
 
-`vendor` re-fetches the Asciidoctor corpus at a pinned commit; the pin matters
-because extracted case ids are the quarantine manifest's keys. `build` bundles
-`src/index.ts` into `dist/`. Neither is a gate, so neither ever exits 1.
+`vendor` re-fetches both halves of `vendor/`: the Asciidoctor corpus at a pinned
+commit, where the pin matters because extracted case ids are the quarantine
+manifest's keys, and the six Ruby sources at tag `v2.0.26`, where it matters
+because our comments cite their line numbers and `citation-check` holds them to
+it. `build` bundles `src/index.ts` into `dist/`. Neither is a gate, so neither
+ever exits 1.
 
 ### The library modules
 
@@ -673,9 +734,9 @@ idempotence wobble that needs the dedicated regression test its issue calls for.
 
 **`gates`** — blocking, needs no other revision: `check`, `lint`, `fmt:check`,
 `build`, `coverage` (the suite runs under it), `metrics`,
-`test:deeply-nested-lists`, `block-structure`. Every step carries
-`if: ${{ !cancelled() }}`, so one failing gate never hides the others. The
-reflow re-classification invariant needs no step of its own: its three gates
+`test:deeply-nested-lists`, `block-structure`, `citation-check`. Every step
+carries `if: ${{ !cancelled() }}`, so one failing gate never hides the others.
+The reflow re-classification invariant needs no step of its own: its three gates
 ride the suite and the deep sweep that are already there, and `reading-ledger`
 is a generator, not a gate.
 

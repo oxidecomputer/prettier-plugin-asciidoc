@@ -850,7 +850,8 @@ class BlockReader {
    * Section titles keep their own dispatch (next_section runs outside
    * next_block); a delimiter goes to openDelimited's masquerade
    * resolution; an attribute entry stays a leaf whose flush kills the
-   * style (a recorded divergence from Ruby's drain,
+   * style (a recorded divergence from Ruby's drain, which runs
+   * `process_attribute_entry` on an `AttributeEntryRx` line,
    * parser.rb:2083-2085 — unchanged here).
    * @param line - the line about to open a block
    * @param kind - what the classifier made of it

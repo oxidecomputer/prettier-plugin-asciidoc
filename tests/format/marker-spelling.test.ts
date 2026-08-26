@@ -104,15 +104,15 @@ describe("a nested list that SHARES its parent's marker prints adjacent", () => 
 
 describe("a sibling boundary the re-read would swallow gets its blank", () => {
   // The mirror image of the describe above, and the same Ruby fact
-  // read the other way (`read_lines_for_list_item`, parser.rb l.1404–
-  // 1592): a marker line ends the previous item only if the reader's
-  // loop SEES it (:1430, :1519), and a literal's slurp (:1488, :1539)
-  // hands it lines the loop never sees. Where the previous item's tail
-  // slurps that far, "sibling" is spelled with a blank line — so the
-  // printer writes one. These inputs are the oracle's TWO SIBLINGS;
-  // the row that used to stand here pinned the byte-for-byte
-  // corruption (issue #52), where the printed adjacency re-read as
-  // parent-and-child.
+  // read the other way (`read_lines_for_list_item`,
+  // parser.rb l.1404-1592): a marker line ends the previous item only
+  // if the reader's loop SEES it (:1430, :1519), and a literal's slurp
+  // (:1488, :1539) hands it lines the loop never sees. Where the
+  // previous item's tail slurps that far, "sibling" is spelled with a
+  // blank line — so the printer writes one. These inputs are the
+  // oracle's TWO SIBLINGS; the row that used to stand here pinned the
+  // byte-for-byte corruption (issue #52), where the printed adjacency
+  // re-read as parent-and-child.
   test.each([
     ["metadata behind the literal (#52)", "* a\n\n  lit\n[[anc]]\n\n* a\n"],
     ["an attrlist behind the literal", "* a\n\n  lit\n[role]\n\n* b\n"],

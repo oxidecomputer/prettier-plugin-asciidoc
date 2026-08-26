@@ -210,8 +210,10 @@ export function headerSurvivesBlock(type: BlockNode["type"]): boolean {
  * `[foo#id]` and `[foo bar]` demote the title to a section, while
  * `[]`, `[#id]`, `[.role]`, `[%opt]`, `[,bar]`, `[a=b,c]`,
  * `[foo = bar]` and `[separator=::]` all leave the header standing.
- * The barrier is the ORACLE's behaviour; Ruby 2.0.26 builds a header
- * for every one of them (parser.js:180 against parser.rb:132).
+ * The barrier is the ORACLE's behaviour: `@asciidoctor/core` tests
+ * `blockAttrs.style` (src/parser.js:180), where Ruby 2.0.26 bails on
+ * `block_attrs['title']` alone (parser.rb:132) and builds a header
+ * for every one of them.
  * @param kind - what the classifier made of the held line
  * @param namesStyle - whether the held `[...]` line names a style
  *   ({@link Attrlist.styleAttribute}); read by the attribute-line arm

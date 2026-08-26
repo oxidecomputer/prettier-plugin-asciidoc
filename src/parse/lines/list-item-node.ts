@@ -89,7 +89,8 @@ export function listItemNode(
  * output finds no continuation to arm. The `+` reaches the output
  * only inside the gap of a block behind it, and under an
  * active-at-end scan every block after the activation is metadata
- * (anything else deactivates, parser.rb l.1511) — so the walk runs
+ * (anything else deactivates: `read_lines_for_list_item` sets
+ * `continuation = :inactive`, parser.rb l.1511) — so the walk runs
  * back over the trailing metadata run and asks whether one of its
  * gaps replays a `+`.
  * @param blocks - the item's blocks, gaps attached, in source order

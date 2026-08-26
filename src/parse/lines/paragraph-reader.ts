@@ -536,10 +536,12 @@ export function literalParagraphExtent(
  * Read a verbatim-STYLED paragraph's lines: `[source]`/`[listing]`/
  * `[literal]`/`[verse]` in hand, the extent runs to a blank line, a
  * lone `+`, or an enclosing terminator ONLY (parser.rb:561-567 →
- * :1026-1028 under default `Compliance.strict_verbatim_paragraphs`,
- * asciidoctor.rb:131; the registry's `verbatimStyled` row, pinned by
- * the interruption matrix). Issue #41's fix: the style is in hand
- * BEFORE any content line is read.
+ * parser.rb:1026-1028, where `read_lines_until` breaks on blank lines
+ * and on a list continuation, under default
+ * `Compliance.strict_verbatim_paragraphs`, asciidoctor.rb:131; the
+ * registry's `verbatimStyled` row, pinned by the interruption matrix).
+ * Issue #41's fix: the style is in hand BEFORE any content line is
+ * read.
  * @param scan - the lines and the stream-wide facts
  * @param at - index of the block's first content line
  * @returns the block's lines, in order, and the resume index

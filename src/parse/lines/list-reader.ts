@@ -396,7 +396,7 @@ function siblingMarker(
 /**
  * Whether a line starts a NESTABLE list — `NESTABLE_LIST_CONTEXTS =
  * [:ulist, :olist, :dlist]` (asciidoctor.rb:315, the authority; the
- * three `find` sites are l.1503, l.1530 and l.1562): an unordered or
+ * three `find` sites are parser.rb l.1503/1530/1562): an unordered or
  * ordered marker, or a dlist term. A callout marker is deliberately
  * NOT nestable (asciidoctor.rb:315 lists no :colist), which is why a
  * `<n>` line after a blank ends the item — but Ruby's `find` still
@@ -512,14 +512,15 @@ class ExtentScan {
    * which is why {@link ExtentScan.finish} can ask the question by
    * comparing cells. The oracle marks those lines by
    * IDENTITY, not by text: `this_line = ListContinuationString if
-   * this_line == LIST_CONTINUATION` (l.1432) swaps in a String
-   * instance extended with the `ListContinuationMarker` module
-   * (l.46-50), so the post-loop `ListContinuationMarker ===
-   * buffer[-1]` (l.1580) is `is_a?` and recognises only those. The
-   * JavaScript oracle these tests actually run says the same thing in
-   * its own words — `class ListContinuation extends String` and a pop
-   * gated on `isListContinuation(last)`
-   * (node_modules/@asciidoctor/core/src/parser.js). A `+` that reached the buffer INSIDE a slurped delimited
+   * this_line == LIST_CONTINUATION` (parser.rb l.1432) swaps in a
+   * String instance extended with the `ListContinuationMarker` module
+   * (parser.rb l.46-50), so the post-loop `ListContinuationMarker ===
+   * buffer[-1]` (parser.rb l.1580) is `is_a?` and recognises only
+   * those. The JavaScript oracle these tests actually run says the
+   * same thing in its own words — `class ListContinuation extends
+   * String` and a pop gated on `isListContinuation(last)`
+   * (node_modules/@asciidoctor/core/src/parser.js). A `+` that reached
+   * the buffer INSIDE a slurped delimited
    * block is an ordinary String and is never popped — it is content
    * of that block, and `* i\n+\n====\n----\nfoo\n----\n+\n` renders
    * it as a paragraph inside the example.
@@ -682,9 +683,10 @@ class ExtentScan {
   }
 
   /**
-   * The buffered-`+` arm (l.1435-51, `ListContinuationMarker ===
-   * prev_line` at 2.0.26): activate the pending `+` — blanking it
-   * unless inside a nested list — and freeze on an adjacent one. `LIST_CONTINUATION` itself (asciidoctor.rb l.332) is
+   * The buffered-`+` arm (parser.rb l.1435-51, `ListContinuationMarker
+   * === prev_line` at 2.0.26): activate the pending `+` — blanking it
+   * unless inside a nested list — and freeze on an adjacent one.
+   * `LIST_CONTINUATION` itself (asciidoctor.rb l.332) is
    * `isContinuationLine`'s pattern, shared with the classifier so the
    * scan and the reader can never disagree about what a `+` line is.
    * @param line - the line after the buffered `+`

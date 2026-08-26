@@ -332,8 +332,9 @@ export function buildVerbatimBlock(
 
 /**
  * A delimited block a held admonition style renamed at open
- * (parser.rb:543-544): an AdmonitionNode that KEEPS its parsed
- * children — Ruby keeps the :compound content model (parser.rb:881-884).
+ * (`ADMONITION_STYLES`, parser.rb:543-544): an AdmonitionNode that
+ * KEEPS its parsed children — Ruby's `:admonition` arm hands
+ * `build_block` the :compound content model (parser.rb:881-884).
  * The wrapper delimiter IS the node's `form` — the spelling and the
  * wrapper are one fact, never two fields that can disagree. Position
  * is the parent block's own: start at the opener, end at the extent's

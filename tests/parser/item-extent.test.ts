@@ -1,8 +1,9 @@
 /**
- * itemExtent — the pure port of read_lines_for_list_item (parser.rb
- * l.1404–1592) for ulist/olist/colist. One row per Ruby branch; the
- * oracle-facing behavior these buffers imply is pinned by the reader
- * and format suites — THIS table is the branch-level specification.
+ * itemExtent — the pure port of read_lines_for_list_item
+ * (parser.rb l.1404-1592) for ulist/olist/colist. One row per Ruby
+ * branch; the oracle-facing behavior these buffers imply is pinned by
+ * the reader and format suites — THIS table is the branch-level
+ * specification.
  */
 import { describe, expect, test } from "vitest";
 import type { GapLine } from "../../src/ast.js";

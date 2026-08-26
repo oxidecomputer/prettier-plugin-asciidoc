@@ -24,7 +24,8 @@
  * DIVERGENCE, recorded because a design decision turns on it: the
  * project's spec of record is Asciidoctor Ruby 2.0.26, but the oracle
  * this suite renders through is `@asciidoctor/core` 4.0.11, which
- * self-reports `2.0.26` (`index.cjs` l.23734) and is not it. Ruby
+ * self-reports `2.0.26` (`ASCIIDOCTOR_CORE_VERSION`, `index.cjs`
+ * l.23734) and is not it. Ruby
  * 2.0.26's own olist branch (`parser.rb` l.1337-1348) never sets
  * `list_block.attributes['start']`, and the 2.0.26 binary renders
  * `5. five` / `6. six` as a bare `<ol class="arabic">` with no

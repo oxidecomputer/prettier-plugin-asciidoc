@@ -300,7 +300,8 @@ function makeInlineMacro(
  *
  * The whole image is the value, delimiters included: Asciidoctor
  * extracts the construct before any other substitution runs
- * (substitutors.rb l.1018), so there is nothing inside it for the
+ * (`extract_passthroughs`, substitutors.rb l.1018), so there is
+ * nothing inside it for the
  * formatter to read, and re-emitting the author's own bytes is the
  * only spelling guaranteed to render the same.
  * @param fragment - The Passthrough token's span.

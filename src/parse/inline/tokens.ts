@@ -7,7 +7,8 @@
  * anywhere in the repository) and the order is therefore the
  * specification, with `Passthrough` in front of all of them because
  * Asciidoctor extracts passthroughs before it substitutes anything
- * else (substitutors.rb l.1018). Plus `RawLine`, which the tokenizer
+ * else (`extract_passthroughs`, substitutors.rb l.1018). Plus
+ * `RawLine`, which the tokenizer
  * never produces:
  * the paragraph reader emits it for a line it kept verbatim inside a
  * paragraph body, and `inline-node-builder.ts` dispatches on it.

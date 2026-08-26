@@ -310,7 +310,8 @@ export function printListItem(
     // One blank line, then the `+` — the DETACHED spelling, and the
     // only correct one: an ADJACENT `+` under the item's `+` paragraph
     // would freeze onto it on re-read and the marked pop would take
-    // the paragraph (parser.rb l.1443-46, l.1580-81). Detached, the
+    // the paragraph (both arms test `ListContinuationMarker`,
+    // parser.rb l.1443-46 and l.1580-81). Detached, the
     // `+` erases into the shield (l.1576) that absorbs the pop and
     // keeps the paragraph alive ({@link ListItemNode.detachedTail}).
     // Blank-run multiplicity collapses to the one blank, the same

@@ -78,8 +78,9 @@ function markMatcher(character: string, kind: MarkKind): InlineRule["match"] {
  * The direction facts for a just-matched mark token: whether Ruby's
  * constrained pattern could OPEN a span here, and whether it could
  * CLOSE one. A DOUBLE mark answers `true` on both - the unconstrained
- * patterns (`\*\*(.+?)\*\*` and kin, asciidoctor.rb l.448-464) test
- * no boundary and take any content. For every non-mark kind the
+ * rows of `QUOTE_SUBS` (`\*\*(.+?)\*\*` and kin, asciidoctor.rb
+ * l.444-468) test no boundary and take any content. For every non-mark
+ * kind the
  * answer is undefined, and the token carries no flags.
  * @param type - the kind that matched at `index`
  * @param text - the fragment being tokenized

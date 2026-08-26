@@ -69,6 +69,15 @@ jobs:
       # dump on stderr for one corpus document; see docs/harnesses.md.
       - run: bun run block-structure
         if: ${{ !cancelled() }}
+      # Every source citation in a comment - a Ruby file and line, or a
+      # line of the oracle build - against the file it names. Reads
+      # vendor/asciidoctor-ruby/ and node_modules only, takes under a
+      # second, needs no base: a head-only gate like the two above. It
+      # is its own step rather than a metrics row because it is its own
+      # question with its own exit-code contract, exactly as
+      # block-structure is.
+      - run: bun run citation-check
+        if: ${{ !cancelled() }}
 
   differential:
     name: Differential (vs base)

@@ -82,9 +82,9 @@ Make invalid states unrepresentable, and make every function total.
 A new construct that can appear as a whole line (a delimiter, a marker, a
 block-attribute-looking line, …) is added in three steps, in this order:
 
-1. **A registry row in `src/parse/line-shapes.ts`**, citing the Ruby it mirrors
-   (`lib/asciidoctor/parser.rb`, `rx.rb`, `reader.rb` in Asciidoctor 2.0.26).
-   The regex lives here and nowhere else.
+1. **A registry row in `src/parse/line-shapes.ts`**, citing the authority you
+   measured (see "The two authorities" below). The regex lives here and nowhere
+   else.
 2. **A table entry in `src/parse/lines/classify.ts`**, so the BlockReader learns
    the new `LineKind`. The classifier is a pure function over the registry; it
    is the only thing that turns a line into a kind.
@@ -98,6 +98,23 @@ A new INLINE construct is added the same way: a rule in
 wins), and a row in `tests/parser/inline-tokens.test.ts`. The rule table is the
 single source of truth for inline shapes, as `line-shapes.ts` is for line
 shapes.
+
+**The two authorities.** Cite the one you MEASURED. `@asciidoctor/core` is the
+behavioral authority: cite `build/node/index.cjs`, or the `src/*.js` it is
+bundled from, for anything you verified by running the oracle. The Ruby is the
+design spec it was transpiled from; cite `parser.rb`, `rx.rb`, `reader.rb`,
+`substitutors.rb`, `attribute_list.rb` or `asciidoctor.rb` by line only when you
+opened the source and it agrees, and it lives in the tree at
+`vendor/asciidoctor-ruby/` (tag `v2.0.26`) so that opening it is a `Read`, not a
+download. The two do diverge: the transpile spells Ruby's `\p{Word}`
+(`asciidoctor.rb l.436`) as `\p{Alphabetic}\p{N}\p{Pc}` (`index.cjs l.54`), and
+it resolves an ordered list's `start` attribute
+(`Parser.resolveOrderedListStart`, `index.cjs l.12154`) where 2.0.26 has no such
+call at all. Where they diverge, the comment names BOTH, states the divergence,
+and says the oracle wins. `bun run citation-check` holds every citation that
+names its file to that file, that line and the names the comment puts beside it,
+and reports the bare references that name none; a comment that cites nothing
+checkable is fine, a comment that cites the wrong line is a failed gate.
 
 **Never a token pattern.** Block-level context comes from the BlockReader and
 from nowhere else, and `tests/parser/architecture.test.ts` is the mechanical

@@ -2,8 +2,15 @@
 /* eslint-disable no-console -- runner script */
 
 /**
- * Fetches the vendored Asciidoctor conformance corpus (heredoc test
- * inputs, documentation pages, and test fixtures).
+ * Fetches everything under `vendor/`: the Asciidoctor conformance
+ * corpus (heredoc test inputs, documentation pages, and test
+ * fixtures), and the Asciidoctor Ruby sources our comments cite.
+ *
+ * The two are pinned separately and deliberately. The corpus is
+ * pinned to a COMMIT because the case ids extracted from it key the
+ * quarantine manifest; the Ruby is pinned to the RELEASE TAG the
+ * oracle was transpiled from, because a citation that says 2.0.26 has
+ * to mean it. `bun run citation-check` reads what this writes.
  *
  * Exit codes (`scripts/lib/cli.ts`): 0 fetched, 2 it could not fetch
  * (no network, a moved pin). There is no 1: nothing here is a gate.
@@ -131,6 +138,39 @@ try {
     serializeCorpus(fixtureCases),
   );
   console.log(`Extracted ${fixtureCases.length} fixture documents.`);
+
+  // --- Asciidoctor Ruby sources (the design spec our comments cite) ---
+  // Pinned to the RELEASE TAG @asciidoctor/core 4.0.11 transpiles, so
+  // that `parser.rb l.1404-1592` in a comment names lines somebody can
+  // open. `bun run citation-check` checks every such citation against
+  // these files; bumping the tag will move line numbers, and that run
+  // is what says which comments have to move with them.
+  const rubyTag = "v2.0.26";
+  console.log(`Fetching asciidoctor Ruby sources @ ${rubyTag}...`);
+  await $`git init -q ${tempdir}/asciidoctor-ruby`;
+  await $`git -C ${tempdir}/asciidoctor-ruby fetch -q --depth 1 https://github.com/asciidoctor/asciidoctor.git refs/tags/${rubyTag}`;
+  await $`git -C ${tempdir}/asciidoctor-ruby checkout -q FETCH_HEAD`;
+  await rm("vendor/asciidoctor-ruby", { recursive: true, force: true });
+  await $`mkdir -p vendor/asciidoctor-ruby`;
+  await $`cp ${tempdir}/asciidoctor-ruby/LICENSE vendor/asciidoctor-ruby/`;
+  const rubyLibrary = path.join(tempdir, "asciidoctor-ruby", "lib");
+  // `asciidoctor.rb` is the library's own entry file and sits one
+  // directory up from the rest; the other five are its modules.
+  await $`cp ${rubyLibrary}/asciidoctor.rb vendor/asciidoctor-ruby/`;
+  const rubyModules = [
+    "attribute_list.rb",
+    "parser.rb",
+    "reader.rb",
+    "rx.rb",
+    "substitutors.rb",
+  ];
+  await Promise.all(
+    rubyModules.map(
+      async (name) =>
+        await $`cp ${path.join(rubyLibrary, "asciidoctor", name)} vendor/asciidoctor-ruby/`,
+    ),
+  );
+  console.log(`Vendored ${rubyModules.length + 1} Ruby sources at ${rubyTag}.`);
 
   console.log("Done. Vendored files updated.");
 } finally {

@@ -325,9 +325,10 @@ function expectValuesReconstruct(source: string, nodes: AnyNode[]): void {
 // without a span of its own: `ItemBlock.gap` spells it verbatim, and
 // the block a gap introduces starts on the next line. A `+` at an
 // item's END is recorded nowhere at all — it attaches nothing, Ruby
-// pops it (parser.rb l.1580-81) and the printer never writes it. This
-// literal-`+` exemption in expectLineCoverage is load-bearing for
-// both — the gap invariant (vii) below checks the ones a gap holds.
+// pops it (the `ListContinuationMarker` arm, parser.rb l.1580-81) and
+// the printer never writes it. This literal-`+` exemption in
+// expectLineCoverage is load-bearing for both — the gap invariant
+// (vii) below checks the ones a gap holds.
 const CONTINUATION = "+";
 
 /**

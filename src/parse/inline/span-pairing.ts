@@ -3,8 +3,9 @@
  *
  * Asciidoctor does not walk a line once. `sub_quotes`
  * (substitutors.rb l.189-196) runs each row of the `QUOTE_SUBS` table
- * (asciidoctor.rb l.448-470, transcribed in the oracle at
- * `@asciidoctor/core`'s `build/node/index.cjs` l.1280-1374) as its
+ * (asciidoctor.rb l.448-470, transcribed in the oracle as
+ * `_normalQuoteSubs`, `@asciidoctor/core`'s
+ * `build/node/index.cjs` l.1281-1374) as its
  * own gsub over the WHOLE text, one row after the next, and
  * `convert_quoted_text` writes each match's HTML straight back into
  * that text. So the ROW order decides which span wins where two of

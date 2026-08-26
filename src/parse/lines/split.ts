@@ -56,9 +56,10 @@ export interface SourceLine {
    * extended with the `ListContinuationMarker` module — and two later
    * readers key on the tag rather than the text: an inner item scan
    * hard-stops on an erased line after a blank (the JS oracle's strict
-   * `===` at parser.js l.2168), and the confined paragraph read folds
-   * marker lines only under a tagged `+` head (parser.js l.1065,
-   * l.3018-47). The tag exists only on COPIES inside item buffers —
+   * `thisLine === ''` at parser.js l.2168), and the confined paragraph
+   * read folds marker lines only under a tagged `+` head
+   * (`readParagraphLines`, parser.js l.1065 and l.3018-47). The tag
+   * exists only on COPIES inside item buffers —
    * `splitLines` never writes it, so a document line carries none —
    * which is exactly where the oracle's tagged Strings live.
    *

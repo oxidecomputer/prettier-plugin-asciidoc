@@ -555,7 +555,8 @@ export interface ListNode extends Node {
   /**
    * The marker STYLE shared by this list's items, exactly as the
    * classifier resolved it (`parseListMarker`'s `style`): Ruby's
-   * `resolve_list_marker` result (parser.rb:2192, :2280–2284), which
+   * `resolve_list_marker` result (parser.rb:2192,
+   * parser.rb:2280-2284), which
    * is the string sibling matching compares: `-`, `*` through
    * `*****`, `.` through `.....`, one of the five explicit ordered
    * representatives (`1.`, `a.`, `A.`, `i)`, `I)`), or the callout

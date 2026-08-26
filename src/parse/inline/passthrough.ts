@@ -74,8 +74,9 @@
  *    below answers for both.
  */
 
-// `CC_WORD` as the pinned oracle spells it (`index.cjs` l.54, applied
-// with the `u` flag by `ru$1` on l.68, so the properties are real).
+// `CC_WORD` as the pinned oracle spells it (`index.cjs` l.54-68: the
+// class on the first line, applied with the `u` flag by the build's
+// regexp helper on the last, so the properties are real).
 // Transcribed EXACTLY, with no widening. quote-boundaries.ts adds
 // `\p{M}` and `\p{Join_Control}` to its own copy, on the argument
 // that a wider class can only refuse a span and refusing a span
