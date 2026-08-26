@@ -1093,7 +1093,8 @@ export function interruptsByLineShape(line: string): boolean {
  * from reading it - the classifier still does not read the Markdown
  * spelling (issue #63), and this answers about neither reader.
  *
- * The printer's block-start hazard nets (src/print/inline.ts) trade a
+ * The printer's block-start hazard nets
+ * (src/print/block-start-hazard.ts) trade a
  * replayed space for a break only where the AUTHOR's source already
  * broke the line, so a title written on one line is printed back as
  * it stands and a lone `=` or `##` word in reflowed prose only ever

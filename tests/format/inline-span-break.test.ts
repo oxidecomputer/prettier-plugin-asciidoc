@@ -16,7 +16,7 @@
  * collapseSourceNewlines).
  *
  * The one exception is the BLOCK-START HAZARD NET
- * (hazardAtBlockStart, src/print/inline.ts): where the space
+ * (hazardAtBlockStart, src/print/block-start-hazard.ts): where the space
  * spelling would put block syntax at column 0, the source break is
  * kept.
  */

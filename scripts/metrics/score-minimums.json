@@ -125,6 +125,10 @@
       "coverage": 100.0,
       "mutation": 100.0
     },
+    "src/print/block-start-hazard.ts": {
+      "coverage": 100.0,
+      "mutation": 0.0
+    },
     "src/print/blocks.ts": {
       "coverage": 97.4,
       "mutation": 90.3
@@ -317,6 +321,12 @@
     },
     {
       "file": "src/parse/inline/quote-boundaries.ts",
+      "what": "mutation minimum 0.0 - placeholder for a new file no mutation run has measured",
+      "class": "when",
+      "reason": "TRIGGER - the next batched `bun run mutate:full` measures the file and its rounded-down score replaces the placeholder"
+    },
+    {
+      "file": "src/print/block-start-hazard.ts",
       "what": "mutation minimum 0.0 - placeholder for a new file no mutation run has measured",
       "class": "when",
       "reason": "TRIGGER - the next batched `bun run mutate:full` measures the file and its rounded-down score replaces the placeholder"

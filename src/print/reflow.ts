@@ -280,7 +280,7 @@ const PROBE_SUFFIX = "x";
  *   whitespace - or a span-opening atom's COMPOSED text (mark, edge
  *   space, first word: `** b`), whose interior space is part of the
  *   line head the probes spell either way (the block-start hazard
- *   net, src/print/inline.ts).
+ *   net, src/print/block-start-hazard.ts).
  * @returns True when the word would start a block, or be eaten by
  *   the preprocessor, at line start
  */
