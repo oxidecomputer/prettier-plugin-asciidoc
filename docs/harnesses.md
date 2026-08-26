@@ -82,12 +82,41 @@ gates on that ledger being exactly right — every listed id must still differ (
 stale entry fails) and every differing id must be listed (an undeclared diff
 fails).
 
-**The ledger's lifecycle.** The ledger describes one change: the diff between
-the head being checked and the base CI resolves for it (the merge base on a pull
-request, the pushed commit's parent on a push to `main`). So on `main` it is
-`[]` except transiently: a change that intentionally moves output lands with its
-entries, and the next change resets the file to `[]` — those diffs are history,
-not a declaration about the new change.
+**The ledger's lifecycle.** An entry is `{"id": ..., "family": ...}`: a corpus
+or fixture id plus a family from the closed enum in `scripts/parity-ledger.ts`
+(each family is declared once, with a doc comment saying what moved and why).
+The ledger describes exactly one commit: the diff between the head being checked
+and the base CI resolves for it (the merge base on a pull request, the pushed
+commit's parent on a push to `main`). Every commit is judged against its OWN
+parent, so an entry is never valid for two consecutive commits. Three rules
+follow, applied per commit:
+
+1. A commit that does not intentionally change formatted output carries the file
+   as `[]`. That includes every commit stacked on top of one that carried
+   entries: resetting the file to `[]` is part of authoring the NEXT commit,
+   whatever that commit is about. This is the rule that bites - the entries pass
+   locally forever on the commit that earned them, and only fail in CI once a
+   later commit is compared against a parent that already contains the change
+   (CI run 32916094459 failed exactly this way).
+2. A commit that intentionally moves bytes lands WITH its entries in the same
+   commit. `bun run parity -- --base <parent sha> --formatted-ledger` lists the
+   ids whose formatted output differs; give each a family (adding to the enum in
+   `parity-ledger.ts` first if no existing family names the change) and prove
+   the change meaning-preserving with `bun run shape-diff` or a render check.
+3. Verify with CI's exact gate before describing any commit:
+   `bun run parity -- --base <parent sha> --expected-diffs scripts/parity-expected-diffs.json`
+   (with jj, the parent sha is `jj log -r @- --no-graph -T commit_id`; `--base`
+   feeds `git archive`, so it takes git revisions, not revsets). It runs in a
+   few seconds.
+
+The gate is exact in both directions, and each failure message names its cure:
+"stale entry - delete it" (the id vanished or no longer differs) means the entry
+outlived its commit - delete it, there is no phantom diff to chase; "differs ...
+and is not in scripts/parity-expected-diffs.json" is an undeclared behavior
+change - unintended means fix the code, intended means ledger it; "unknown
+family" means declare the family in `parity-ledger.ts` first; "differs in the
+AST but <family> is a formatted-only family" means the change moved the tree,
+not just bytes - the family is wrong or the change does more than believed.
 
 Proves: a refactor changed no output. It is the harness a "no behavior change"
 claim is checkable against.

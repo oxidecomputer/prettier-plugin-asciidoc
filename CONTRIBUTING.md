@@ -43,6 +43,13 @@ are exactly what CI's blocking `gates` job runs, minus the deep list sweep
 (`bun run test:deeply-nested-lists`, ~30s) — run that too when your change
 touches parsing or printing of lists.
 
+Then check `scripts/parity-expected-diffs.json`: it must be `[]` unless THIS
+commit intentionally changes formatted output - entries describe one commit's
+diff against its own parent and go stale the moment anything lands on top, so
+resetting the file is part of the next commit, whatever it is about. The full
+lifecycle and the verification command are in
+[docs/harnesses.md](docs/harnesses.md).
+
 Two heavier checks run on a slower cadence:
 
 - **Mutation testing** (`bun run mutate`, ~11 minutes): batched, not per-commit.
