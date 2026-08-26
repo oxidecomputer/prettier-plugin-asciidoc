@@ -531,12 +531,16 @@ its style, because the style is what tells `*` from `**` - that is, what tells
 an item from the nested item under it, and a flatten is exactly the corruption
 class the sweep alphabet spells `* a` and `** b` to catch (issue #42). Nothing
 is licensed away there: marker spellings are data the printer replays byte for
-byte (`tests/format/marker-spelling.test.ts`). `textv` (the verbatim-flagged
-foreign marker line) stays its own token, because its COLUMN decides what the
-next `+` means and its disappearance must move the sequence. And a line the
-reader consumed without classifying stays invisible, except that a marker-shaped
-one synthesizes its token so the absorption rule can see the absorber; inside a
-verbatim interior the same synthesis happens on both sides and cancels.
+byte (`tests/format/marker-spelling.test.ts`), so both readings carry the same
+spelling. The style is Ruby's RESOLVED one, so an explicit ordered list's items
+project alike (`5.` and `6.` are one list, style `1.`): that collapse is the
+structure itself, not a transform the formatter could make. `textv` (the
+verbatim-flagged foreign marker line) stays its own token, because its COLUMN
+decides what the next `+` means and its disappearance must move the sequence.
+And a line the reader consumed without classifying stays invisible, except that
+a marker-shaped one synthesizes its token so the absorption rule can see the
+absorber; inside a verbatim interior the same synthesis happens on both sides
+and cancels.
 
 `tests/lib/reading.test.ts` pins every rule, plus the known-issue table in both
 directions: the clean spelling reads the way it should, and the corrupted

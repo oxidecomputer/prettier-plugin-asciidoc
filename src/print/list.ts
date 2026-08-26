@@ -152,19 +152,32 @@ export function tailSwallowsMarker(
 
 /**
  * The marker string for a list item: callout items print from their
- * recorded number; every other item replays the list's OWN marker
- * spelling (`ListNode.marker` — the classifier's parse). Nothing is
- * reconstructed from a depth, so a spelling the author wrote can no
- * longer be normalized into a DIFFERENT list's spelling. Two lists
- * genuinely written with the SAME marker can still nest — the reader
- * follows the oracle there — and {@link printedGap} is what keeps
- * that pair printing nested.
+ * recorded number; every other item replays its OWN recorded spelling
+ * (`ListItemNode.markerSpelling` - the classifier's parse). Nothing
+ * is reconstructed from a depth or from the list's style, so a
+ * spelling the author wrote can no longer be normalized into a
+ * DIFFERENT list's spelling. Two lists genuinely written with the
+ * SAME marker can still nest (the reader follows the oracle there),
+ * and {@link printedGap} is what keeps that pair printing nested.
+ *
+ * PER ITEM rather than per list because an explicit ordered list's
+ * items do not share a spelling: `5.` and `6.` are one list (both
+ * resolve to the style `1.`), the ORACLE reads the list's `start` off
+ * the FIRST spelling (`resolveOrderedListStart`, `@asciidoctor/core`
+ * 4.0.11 `build/node/index.cjs` l.13396), and printing either item's
+ * marker from the list's style would rewrite that start to 1.
+ *
+ * The callout arm is the one variant that does NOT replay the
+ * recorded spelling, and nothing here changes that: a colist numbers
+ * its items by position, so rebuilding `<n>` from the parsed number
+ * is render-neutral and `<01>` comes back as `<1>`. The per-variant
+ * contract is written out on {@link ListItemNode.markerSpelling}.
  * @param node - The list item whose marker to build.
- * @param parentList - The parent list node, for the variant and the
- *   spelling. Prettier's path typing cannot promise the parent, so
- *   the undefined arm falls back to `*` rather than asserting; it
- *   mirrors the variant fallback that preceded it.
- * @returns The marker string (e.g. `-`, `**`, `...`, `<1>`).
+ * @param parentList - The parent list node, for the variant alone.
+ *   Prettier's path typing cannot promise the parent; a missing one
+ *   is simply not a callout list, and the item's own spelling answers
+ *   without a fallback.
+ * @returns The marker string (e.g. `-`, `**`, `...`, `2020.`, `<1>`).
  * Exported for its unit test (tests/print/list.test.ts); no src
  * consumer.
  * @internal
@@ -179,7 +192,7 @@ export function buildMarker(
       node.calloutNumber === 0 ? "." : String(node.calloutNumber);
     return `<${calloutLabel}>`;
   }
-  return parentList?.marker ?? "*";
+  return node.markerSpelling;
 }
 
 /**
@@ -343,11 +356,17 @@ export function printListItem(
  *   would erase the `+` chain on re-read — the family the cut-over
  *   fixed), and plain verbatim replay is already a fixed point.
  *
- * The first arm compares the two RECORDED spellings, not a
- * reconstruction: `ListNode.marker` is what the classifier read, so
- * the comparison asks the question the re-read will ask.
+ * The first arm compares the two RECORDED STYLES, not a
+ * reconstruction and not the printed bytes: `ListNode.marker` is the
+ * style the classifier resolved, and the re-read's own test
+ * (`is_sibling_list_item?`, parser.rb l.2280) compares resolved
+ * markers too, so the comparison asks exactly the question the
+ * re-read will ask. Spellings would be the WRONG comparison here: a
+ * nested `5.` under a `1.` parent is a sibling on re-read however
+ * differently the two are spelled.
  * @param node - the item being printed
- * @param parentList - its list, for the marker spelling
+ * @param parentList - its list, for the marker STYLE (the printed
+ *   spelling is the item's own, {@link buildMarker})
  * @param index - which of the item's blocks is being placed (the
  *   first keeps its adjacency to the text)
  * @returns the gap to print

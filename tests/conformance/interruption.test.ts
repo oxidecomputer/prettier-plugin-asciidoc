@@ -23,6 +23,34 @@ import { parse } from "../../src/parser.js";
 const CONSTRUCTS: Array<[string, string]> = [
   ["unordered list marker", "* item"],
   ["ordered list marker", ". item"],
+  // The EXPLICIT ordered forms of `OrderedListRx`
+  // (`\d+\.|[a-zA-Z]\.|[IVXivx]+\)`), one row per family plus the
+  // arabic form an author writes by accident: a year at the head of a
+  // sentence. Where `2020. item` interrupts and where it does not is
+  // the oracle's answer rather than a reading of the Ruby, because
+  // the printer's hazard net trades a break for it
+  // (tests/format/explicit-ordered-list.test.ts).
+  ["explicit arabic marker", "1. item"],
+  ["explicit arabic marker (a year)", "2020. item"],
+  ["explicit loweralpha marker", "a. item"],
+  ["explicit upperalpha marker", "A. item"],
+  ["explicit lowerroman marker", "i) item"],
+  ["explicit upperroman marker", "I) item"],
+  // The mixed-case roman forms, whose family `OrderedListMarkerRxMap`
+  // (rx.rb l.303) decides from the letter before the `)`. Here they
+  // are markers like any other; WHICH family they resolve to is
+  // pinned in tests/parser/ordered-marker-style.test.ts.
+  ["mixed-case roman marker (lower tail)", "Iv) item"],
+  ["mixed-case roman marker (upper tail)", "iV) item"],
+  // Negative controls: shapes one bracket or one letter away from the
+  // forms above, which `OrderedListRx` does NOT accept. Each must be
+  // ordinary text in every context, or the alternation is wider than
+  // Ruby's.
+  ["arabic with a paren, not a marker", "1) item"],
+  ["loweralpha with a paren, not a marker", "a) item"],
+  ["upperalpha with a paren, not a marker", "A) item"],
+  ["multi-letter alpha, not a marker", "ab. item"],
+  ["non-roman letter with a paren, not a marker", "l) item"],
   ["callout list marker", "<1> item"],
   ["list continuation", "+"],
   ["block title", ".A title"],

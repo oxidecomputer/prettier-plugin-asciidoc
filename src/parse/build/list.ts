@@ -39,6 +39,13 @@ export const CHECKBOX_PREFIX_LEN = 4;
 export interface ListItemInput {
   /** The item's marker as written, leading indent excluded. */
   readonly marker: Fragment;
+  /**
+   * The marker's own spelling - what the printer replays (see
+   * {@link ListItemNode.markerSpelling}). Separate from the Fragment
+   * beside it, which spans the marker AND its gap because it measures
+   * the item's POSITION.
+   */
+  readonly markerSpelling: string;
   /** Which list kind the marker opened. */
   readonly variant: ListNode["variant"];
   /**
@@ -181,6 +188,7 @@ export function buildListItem(
   const checkbox = takeCheckbox(input.variant, text);
   return {
     type: "listItem",
+    markerSpelling: input.markerSpelling,
     checkbox,
     calloutNumber: input.calloutNumber,
     text,
@@ -200,10 +208,11 @@ export function buildListItem(
 }
 
 /**
- * A list: its items, with the variant and the marker spelling the
- * reader read off the first item's marker (every item of one list has
- * the same marker — the reader opens the list on that style and ends
- * it at any other, list-reader.ts's style check).
+ * A list: its items, with the variant and the marker STYLE the reader
+ * resolved off the first item's marker (every item of one list has
+ * the same style - the reader opens the list on that style and ends
+ * it at any other, list-reader.ts's style check; the SPELLINGS may
+ * differ from item to item, so each item carries its own).
  *
  * The opening item is its OWN parameter, so "a list always has an
  * item" is what the signature says rather than a sentence the body
@@ -212,7 +221,8 @@ export function buildListItem(
  * total answer, not a guard: `rest` really is empty for a one-item
  * list.
  * @param variant - which list kind it is
- * @param marker - the shared marker spelling (`ListNode.marker`)
+ * @param marker - the shared marker STYLE (`ListNode.marker`); each
+ *   item's own spelling rides on the item
  * @param first - the item the list opened on
  * @param rest - the sibling items after it, in source order; empty for
  *   a one-item list

@@ -64,6 +64,7 @@ export function listItemNode(
   return buildListItem(
     {
       marker: fragmentOfLine(markerLine, marker.indent, marker.markerEnd),
+      markerSpelling: marker.spelling,
       variant: marker.variant,
       // The classifier captured the number when it matched the
       // marker; only a callout has one.

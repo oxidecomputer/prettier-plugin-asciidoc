@@ -38,6 +38,7 @@ const at = makeLocationIndex("* one\n* two\n* three\n* four\n");
 function itemInput(overrides: Partial<ListItemInput>): ListItemInput {
   return {
     marker: { image: "* ", offset: 0 },
+    markerSpelling: "*",
     variant: "unordered",
     calloutNumber: undefined,
     text: [],
@@ -301,11 +302,12 @@ describe("serialized key order", () => {
 
   // JSON.stringify drops undefined-valued keys, so the three item
   // shapes pin the relative order around the optional pair.
-  test("an item's order is the old one minus depth", () => {
+  test("an item leads with its marker spelling, then the optional pair", () => {
     const [list] = parse("* a\n").children;
     narrow(list, "list");
     expect(serializedKeys(list.children[0])).toEqual([
       "type",
+      "markerSpelling",
       "text",
       "blocks",
       "trailingContinuation",
@@ -315,11 +317,12 @@ describe("serialized key order", () => {
     ]);
   });
 
-  test("a checklist item keeps checkbox in slot two", () => {
+  test("a checklist item keeps checkbox in slot three", () => {
     const [list] = parse("* [x] a\n").children;
     narrow(list, "list");
     expect(serializedKeys(list.children[0])).toEqual([
       "type",
+      "markerSpelling",
       "checkbox",
       "text",
       "blocks",
@@ -330,11 +333,12 @@ describe("serialized key order", () => {
     ]);
   });
 
-  test("a callout item keeps calloutNumber in slot three", () => {
+  test("a callout item keeps calloutNumber in slot four", () => {
     const [list] = parse("<1> a\n").children;
     narrow(list, "list");
     expect(serializedKeys(list.children[0])).toEqual([
       "type",
+      "markerSpelling",
       "calloutNumber",
       "text",
       "blocks",

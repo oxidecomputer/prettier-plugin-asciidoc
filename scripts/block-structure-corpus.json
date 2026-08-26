@@ -586,18 +586,6 @@
       "family": "gap:header-lines",
       "signature": "-paragraph"
     },
-    "invoker_test.rb#should print warnings to stderr by default#0": {
-      "family": "gap:ordered-marker",
-      "signature": "paragraph=>list:ordered"
-    },
-    "invoker_test.rb#should return non-zero exit code if failure level is reached#0": {
-      "family": "gap:ordered-marker",
-      "signature": "paragraph=>list:ordered"
-    },
-    "invoker_test.rb#should silence warnings if -q flag is specified#0": {
-      "family": "gap:ordered-marker",
-      "signature": "paragraph=>list:ordered"
-    },
     "invoker_test.rb#should write page for each alternate manname#0": {
       "family": "oracle:manpage-doctype",
       "signature": "-heading; -paragraph x2"
@@ -1166,10 +1154,6 @@
       "family": "gap:dlist",
       "signature": "paragraph=>dlist"
     },
-    "lists_test.rb#should allow list style to be specified explicitly when using markers with implicit style#0": {
-      "family": "gap:ordered-marker",
-      "signature": "paragraph=>list:ordered"
-    },
     "lists_test.rb#should allow term to end with a semicolon when using double semicolon delimiter#0": {
       "family": "gap:dlist",
       "signature": "paragraph=>dlist"
@@ -1214,14 +1198,6 @@
       "family": "gap:dlist",
       "signature": "-literal x3; -paragraph; paragraph=>dlist"
     },
-    "lists_test.rb#should implicitly set start on ordered list if explicit arabic numbering does not start at 1#0": {
-      "family": "gap:ordered-marker",
-      "signature": "paragraph=>list:ordered"
-    },
-    "lists_test.rb#should implicitly set start on ordered list if explicit roman numbering does not start at 1#0": {
-      "family": "gap:ordered-marker",
-      "signature": "paragraph=>list:ordered"
-    },
     "lists_test.rb#should not hang if obsolete callout list is found inside dlist item#0": {
       "family": "gap:dlist",
       "signature": "paragraph=>dlist"
@@ -1254,10 +1230,6 @@
       "family": "gap:dlist",
       "signature": "-paragraph; paragraph=>dlist"
     },
-    "lists_test.rb#should not warn if explicit numbering starts at value of start attribute#0": {
-      "family": "gap:ordered-marker",
-      "signature": "paragraph=>list:ordered"
-    },
     "lists_test.rb#should only grab one line following last item if item has no inline description#0": {
       "family": "gap:dlist",
       "signature": "-paragraph x3; paragraph=>dlist"
@@ -1281,18 +1253,6 @@
     "lists_test.rb#should skip dlist term that begins with // unless it begins with ///#0": {
       "family": "gap:dlist",
       "signature": "-paragraph x2; paragraph=>dlist"
-    },
-    "lists_test.rb#should warn if explicit lowercase roman numerals in list are out of sequence#0": {
-      "family": "gap:ordered-marker",
-      "signature": "paragraph=>list:ordered"
-    },
-    "lists_test.rb#should warn if explicit uppercase roman numerals in list are out of sequence#0": {
-      "family": "gap:ordered-marker",
-      "signature": "paragraph=>list:ordered"
-    },
-    "lists_test.rb#should warn if item with explicit numbering in ordered list is out of sequence#0": {
-      "family": "gap:ordered-marker",
-      "signature": "paragraph=>list:ordered"
     },
     "lists_test.rb#single-line adjacent elements#0": {
       "family": "gap:dlist",
@@ -1341,10 +1301,6 @@
     "lists_test.rb#verse paragraph inside a description list#0": {
       "family": "gap:dlist",
       "signature": "-paragraph x2; -verse; paragraph=>dlist"
-    },
-    "lists_test.rb#word ending sentence on continuing line not treated as a list item#0": {
-      "family": "gap:ordered-marker",
-      "signature": "paragraph=>list:ordered"
     },
     "manpage_test.rb#(outside test)#0": {
       "family": "oracle:manpage-doctype",

@@ -70,6 +70,10 @@ const EXEMPT = new Map<string, string>([
     "pure predicate over LIST_MARKER_LINE; the list-marker dimension covers the shape",
   ],
   [
+    "orderedMarkerStyle",
+    "resolve_ordered_list_marker over an ordered marker the registry already matched; the list-marker dimension covers the shape",
+  ],
+  [
     "isDescriptionListLine",
     "pure predicate over the dlist patterns; the dlist-term dimension covers the shape",
   ],

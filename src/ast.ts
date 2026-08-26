@@ -396,14 +396,20 @@ export interface ListNode extends Node {
    */
   variant: "unordered" | "ordered" | "callout";
   /**
-   * The marker spelling shared by this list's items, exactly as the
-   * classifier parsed it (`parseListMarker`'s `style`): `-`, `*`
-   * through `*****`, `.` through `.....`, or the callout sentinel
-   * `<>` (CALLOUT_STYLE) — the same string sibling matching compares,
-   * which is Ruby's resolve_list_marker result (parser.rb:2192,
-   * :2280–2284). The printer replays it; nesting depth is DERIVED
-   * from it where needed (`-` is depth 1; a run's length is its
-   * depth), never stored.
+   * The marker STYLE shared by this list's items, exactly as the
+   * classifier resolved it (`parseListMarker`'s `style`): Ruby's
+   * `resolve_list_marker` result (parser.rb:2192, :2280–2284), which
+   * is the string sibling matching compares: `-`, `*` through
+   * `*****`, `.` through `.....`, one of the five explicit ordered
+   * representatives (`1.`, `a.`, `A.`, `i)`, `I)`), or the callout
+   * sentinel `<>` (CALLOUT_STYLE).
+   *
+   * NOT the bytes the printer writes. An explicit ordered list spells
+   * its items differently from its style and from each other (`5.`
+   * and `6.` are both style `1.`), so the marker bytes come from each
+   * item's own {@link ListItemNode.markerSpelling}. This field
+   * decides STRUCTURE: whether a marker line below continues this
+   * list or opens a nested one.
    */
   marker: string;
   /** Items in this list, in document order. */
@@ -829,6 +835,35 @@ interface ItemBody {
 export interface ListItemNode extends Node, ItemBody {
   /** Node discriminant. */
   type: "listItem";
+  /**
+   * This item's marker, exactly as the author wrote it. Recorded for
+   * every item; replayed as the printed bytes for every variant but
+   * one (see below).
+   *
+   * Per ITEM, not per list, because one ordered list's items may each
+   * spell their marker differently: `5.`, `6.` and `2020.` all resolve
+   * to the style `1.` and so belong to one list, but the oracle reads
+   * the list's `start` off the FIRST item's spelling
+   * (`resolveOrderedListStart`, `@asciidoctor/core` 4.0.11
+   * `build/node/index.cjs` l.13396, called at l.12154) and warns on
+   * the rest, so none of them is recoverable from the list's style.
+   *
+   * Where it sits relative to {@link ListNode.marker}, by variant:
+   *
+   * - unordered and IMPLICIT ordered (`*`, `-`, `.`, `..`): equal to
+   *   the list's style, and replayed.
+   * - EXPLICIT ordered (`5.`, `a.`, `i)`): differs from the style,
+   *   and replayed - this field is the only record of the bytes.
+   * - CALLOUT (`<1>`, `<.>`): equal to NEITHER. The list's style is
+   *   the `<>` sentinel every callout shares, and `buildMarker`
+   *   prints from {@link calloutNumber} instead, which is why `<01>`
+   *   comes back as `<1>`. That normalization is render-neutral (a
+   *   colist numbers its items by position, and the conum inside the
+   *   verbatim block is untouched) and predates this field; the field
+   *   is recorded uniformly so the classifier's parse has one shape,
+   *   not because the callout path reads it.
+   */
+  markerSpelling: string;
   /**
    * Checkbox state for checklist items. `undefined` for normal items,
    * `"checked"` for `[x]` or `[*]`, `"unchecked"` for `[ ]`. Only

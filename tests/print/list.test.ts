@@ -70,9 +70,29 @@ describe("the marker an item replays", () => {
     ["- a\n", "-"],
     ["** a\n", "**"],
     [". a\n", "."],
-  ])("%j replays the list's own spelling %j", (source, marker) => {
+    // Explicit ordered markers replay their own spelling, not the
+    // style they resolve to (`5.` and `2020.` are both style `1.`).
+    ["1. a\n", "1."],
+    ["5. a\n", "5."],
+    ["2020. a\n", "2020."],
+    ["a. a\n", "a."],
+    ["A. a\n", "A."],
+    ["i) a\n", "i)"],
+    ["I) a\n", "I)"],
+  ])("%j replays the item's own spelling %j", (source, marker) => {
     const list = listOf(source);
     expect(buildMarker(list.children[0], list)).toBe(marker);
+  });
+
+  // The list's STYLE is one string; its items' spellings need not be.
+  test("each item of one explicit ordered list replays its own marker", () => {
+    const list = listOf("5. five\n6. six\n2020. year\n");
+    expect(list.marker).toBe("1.");
+    expect(list.children.map((item) => buildMarker(item, list))).toEqual([
+      "5.",
+      "6.",
+      "2020.",
+    ]);
   });
 
   test("a callout item prints from its recorded number, not the list's marker", () => {
@@ -85,8 +105,13 @@ describe("the marker an item replays", () => {
     expect(buildMarker(list.children[1], list)).toBe("<.>");
   });
 
-  test("with no parent list to ask, the marker falls back to `*`", () => {
-    expect(buildMarker(itemOf("- a\n"), NO_PARENT_LIST)).toBe("*");
+  // The parent is asked for the VARIANT alone (is this a callout
+  // list?), so an absent one needs no marker fallback: the item's own
+  // recorded spelling answers, and a non-callout item answers the
+  // same with or without its parent.
+  test("with no parent list to ask, the item's own spelling answers", () => {
+    expect(buildMarker(itemOf("- a\n"), NO_PARENT_LIST)).toBe("-");
+    expect(buildMarker(itemOf("2020. a\n"), NO_PARENT_LIST)).toBe("2020.");
   });
 });
 

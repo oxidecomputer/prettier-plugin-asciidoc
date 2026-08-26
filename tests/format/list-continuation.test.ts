@@ -657,3 +657,32 @@ describe("a foreign list marker keeps its own line", () => {
     });
   }
 });
+
+// The same rule reached through a TAB gap. `ListRxMap`'s patterns
+// take `[ \t]+` between marker and text, but the registry's style
+// extractors once looked ahead for a single SPACE, so a tab-gapped
+// marker line resolved to NO style, matched no open list, and was
+// joined into the `+`-attached paragraph, while `interruptsByLineShape`
+// went on calling the same line block syntax. Measured over 1,408
+// continuation shapes: 316 render-breaks under the space-only
+// spelling, 0 under `[ \t]`, 0 regressions. The hole was never the
+// ordered families': the `*`, `-` and `.` rows below broke
+// identically before the fix.
+describe("a tab-gapped marker line is seen like a space-gapped one", () => {
+  test.each([
+    ["a sibling star", "* a\n+\npara\n*\tnext\n"],
+    ["a nested star", "* a\n+\npara\n**\tnext\n"],
+    ["a dash sibling", "- a\n+\npara\n-\tnext\n"],
+    ["an implicit ordered sibling", ". a\n+\npara\n.\tnext\n"],
+    ["a foreign ordered marker in a star list", "* a\n+\npara\n.\tnext\n"],
+    ["an explicit arabic sibling", "1. a\n+\npara\n2.\tnext\n"],
+    ["an explicit alpha sibling", "a. a\n+\npara\nb.\tnext\n"],
+    ["an explicit roman sibling", "i) a\n+\npara\nii)\tnext\n"],
+    ["a foreign explicit marker in a star list", "* a\n+\npara\n1.\tnext\n"],
+    ["a callout sibling", "<1> a\n+\npara\n<2>\tnext\n"],
+  ])("%s round-trips", async (_name, input) => {
+    const out = await formatAdoc(input);
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+});

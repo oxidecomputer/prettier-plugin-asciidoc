@@ -226,6 +226,17 @@ const INLINE_SPAN_KEEPS_BREAK_FAMILY = "inline-span-keeps-break";
  * cites it.
  */
 const CONTINUATION_KEEPS_LINE_FAMILY = "continuation-keeps-line";
+/**
+ * An explicit ordered marker (`1.`, `a.`, `A.`, `i)`, `I)` - Ruby's
+ * `OrderedListRx`, rx.rb l.300) now reads as a list marker where the
+ * registry used to see prose. NOT formatted-only: the trees move
+ * (paragraph text becomes an ordered list, `start` preserved via the
+ * replayed spelling) and the bytes move with them; the family also
+ * carries the width-refusal wrap shifts of the same change's
+ * block-start guard, whose bytes move while the input tree holds.
+ * Not exported: no grid row cites it.
+ */
+const EXPLICIT_ORDERED_MARKER_FAMILY = "explicit-ordered-marker";
 
 /**
  * The closed family enum. SURFACE HONESTY, not an armed
@@ -240,7 +251,8 @@ const CONTINUATION_KEEPS_LINE_FAMILY = "continuation-keeps-line";
  * used to build, plus-run-paragraph reshapes a `+` run's item
  * blocks, bom-document-head re-reads the line a leading BOM hid, and
  * the two inline families move spans (dissolved, crystallized, or
- * holding a kept `\n`), so an entry of those seven whose AST differs
+ * holding a kept `\n`), and explicit-ordered-marker turns prose
+ * into ordered lists, so an entry of those eight whose AST differs
  * is legal and an entry of any other family whose AST differs fails
  * the cross-check.
  */
@@ -262,6 +274,7 @@ export const LEDGER_FAMILIES: FamilySets = {
     INLINE_BOUNDARY_SET_FAMILY,
     INLINE_SPAN_KEEPS_BREAK_FAMILY,
     CONTINUATION_KEEPS_LINE_FAMILY,
+    EXPLICIT_ORDERED_MARKER_FAMILY,
   ]),
   formattedOnly: new Set([
     AUTHOR_PLUS_FAMILY,

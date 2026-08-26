@@ -441,17 +441,21 @@ const PARAGRAPH_INTERRUPTERS: readonly RegExp[] = [
 // The marker itself, one source per list kind, so that the three
 // shapes below (interrupting set, style extractor, whole-line parser)
 // spell the alternation once. Mirrors `ListRxMap`'s
-// `UnorderedListRx` (`(-|\*\**|•)`), `OrderedListRx` (`(\.\.*|\d+\.|
-// [a-zA-Z]\.|[IVXivx]+\))`) and `CalloutListRx` (`<(\d+|\.)>`).
+// `UnorderedListRx` (`(-|\*\**|•)`), `OrderedListRx` (rx.rb l.300,
+// `(\.\.*|\d+\.|[a-zA-Z]\.|[IVXivx]+\))`) and `CalloutListRx`
+// (`<(\d+|\.)>`).
 //
-// KNOWN NARROWER THAN RUBY, unchanged by this task: the marker runs
-// are capped at five (`*{1,5}`, `.{1,5}`) where Ruby's `\*\**` is
-// unbounded, and the ordered alternatives Ruby spells with digits,
-// letters and roman numerals are not modelled at all. Both are
-// pre-existing gaps tracked with description lists and numbering
-// styles, not new claims about Asciidoctor.
+// The ordered alternation is Ruby's, alternative for alternative and
+// in Ruby's order. WHICH ordered form matched is not read off the
+// match: the five explicit families are one string to every consumer,
+// and {@link orderedMarkerStyle} decides the style from that string.
+//
+// KNOWN NARROWER THAN RUBY, unchanged here: the marker runs are
+// capped at five (`*{1,5}`, `.{1,5}`) where Ruby's `\*\**` and
+// `\.\.*` are unbounded. That is a pre-existing gap tracked with
+// description lists, not a new claim about Asciidoctor.
 const UNORDERED_MARKER_SOURCE = String.raw`\*{1,5}|-`;
-const ORDERED_MARKER_SOURCE = String.raw`\.{1,5}`;
+const ORDERED_MARKER_SOURCE = String.raw`\.{1,5}|\d+\.|[a-zA-Z]\.|[IVXivx]+\)`;
 // The interior is a NAMED group so the one match the classifier
 // already runs also reports the number, and no builder re-matches the
 // marker to learn it. The two patterns below that only ask "is this a
@@ -485,13 +489,21 @@ const LIST_MARKERS: readonly RegExp[] = [
  * the parts the classifier reports: the leading whitespace Ruby
  * allows (`^[ \t]*`), the marker, the gap, and the text.
  *
+ * The marker is TWO named groups, one per list kind, so the VARIANT
+ * is read off the branch that participated instead of re-derived from
+ * the marker's spelling. That derivation used to be `startsWith(".")`,
+ * which was right only while `.`-runs were the sole ordered form:
+ * `1.`, `a.` and `i)` are ordered markers that start with neither a
+ * dot nor a star. The two branches are disjoint by first character,
+ * so exactly one group ever participates.
+ *
  * `\S[^\n]*` where Ruby has `(CC_ANY*)`: Ruby's text group may be
  * empty, but the line is rstripped before matching, so `*␠` arrives
  * as `*` and fails the `[ \t]+` gap anyway. Requiring the text makes
  * that explicit and keeps `****` (a sidebar delimiter) out.
  */
 export const LIST_MARKER_LINE = new RegExp(
-  String.raw`^(?<indent>[ \t]*)(?<marker>${UNORDERED_MARKER_SOURCE}|${ORDERED_MARKER_SOURCE})(?<gap>[ \t]+)(?<text>\S[^\n]*)$`,
+  String.raw`^(?<indent>[ \t]*)(?:(?<unordered>${UNORDERED_MARKER_SOURCE})|(?<ordered>${ORDERED_MARKER_SOURCE}))(?<gap>[ \t]+)(?<text>\S[^\n]*)$`,
   "v",
 );
 
@@ -676,17 +688,100 @@ const DLIST_ITEM_INTERRUPTERS: readonly RegExp[] = [
 // `resolve_list_marker` result, not the raw line, so `<2>` continues
 // a `<1>` list (its style is spelled `<>` here) while `-` and `*` are
 // different styles of unordered list.
-const MARKER_STYLES: readonly RegExp[] = [
-  // unordered: `*`…`*****`, `-`
-  new RegExp(`^(?<style>${UNORDERED_MARKER_SOURCE})(?= )`, "v"),
-  // ordered: `.`…`.....`
-  new RegExp(`^(?<style>${ORDERED_MARKER_SOURCE})(?= )`, "v"),
-  // callout: style is always `<>`
-  new RegExp(`^${CALLOUT_MARKER_SOURCE}(?= )`, "v"),
-];
+//
+// Three patterns rather than one list, because the three RESOLVE
+// differently: an unordered marker is its own style, a callout marker
+// collapses to CALLOUT_STYLE, and an ordered one goes through
+// {@link orderedMarkerStyle}.
+//
+// The gap lookahead is `[ \t]`, the gap `ListRxMap`'s patterns take
+// (`[ \t]+`) and the one LIST_MARKER_LINE and LIST_MARKERS take. It
+// used to be a single space, which made these three DISAGREE with the
+// rest of the registry about a TAB-gapped marker: `listMarkerStyle`
+// saw none where `interruptsByLineShape` saw one, so a tab-gapped
+// sibling marker inside a `+`-attached paragraph was invisible to
+// {@link isForeignMarkerLine} and to the `listContinuation` arm of
+// {@link interruptsParagraph}, and the line was joined into the
+// prose. Measured over 1,408 continuation shapes (8 openers x 11
+// sibling markers x 4 gaps x 2 bodies x 2 widths): 316 render-breaks
+// under the space-only spelling, 0 under this one, 0 regressions.
+// The corruption is not the ordered families': `*`, `**`, `-`, `.`
+// and `..` broke identically, so this closes a pre-existing hole
+// rather than one the widened alternation opened.
+const UNORDERED_MARKER_STYLE = new RegExp(
+  String.raw`^(?<style>${UNORDERED_MARKER_SOURCE})(?=[ \t])`,
+  "v",
+);
+const ORDERED_MARKER_STYLE = new RegExp(
+  String.raw`^(?<style>${ORDERED_MARKER_SOURCE})(?=[ \t])`,
+  "v",
+);
+const CALLOUT_MARKER_STYLE = new RegExp(
+  String.raw`^${CALLOUT_MARKER_SOURCE}(?=[ \t])`,
+  "v",
+);
 
-/** The style key every callout marker shares — see MARKER_STYLES. */
+/** The style key every callout marker shares. */
 export const CALLOUT_STYLE = "<>";
+
+// A lowercase ASCII letter at the head of what it is asked about:
+// how {@link orderedMarkerStyle} tells `i)` from `I)` and `a.` from
+// `A.`.
+const LOWERCASE_LETTER = /^[a-z]/v;
+
+// A digit at the head of a marker: the arabic branch of Ruby's
+// `OrderedListMarkerRxMap`, which no other explicit form can open.
+const ARABIC_MARKER = /^\d/v;
+
+// The last TWO characters of a roman marker: its final letter and the
+// `)` behind it. Taking a two-character tail and testing its HEAD is
+// how that letter is reached without an index that could go negative.
+const ROMAN_CASE_TAIL = 2;
+
+/**
+ * The style an ORDERED marker resolves to - Ruby's
+ * `resolve_ordered_list_marker` (parser.rb l.2229), which is what
+ * `is_sibling_list_item?` (parser.rb l.2280) compares. The four
+ * explicit families collapse onto five representatives, so `5.` and
+ * `2020.` both continue a list that `1.` opened, while an implicit
+ * `.` opens a NESTED one.
+ *
+ * An implicit marker resolves to ITSELF, run length included: Ruby
+ * returns early on a leading dot, and the list's rendered numbering
+ * then comes from the run's LENGTH
+ * (`ORDERED_LIST_STYLES[sibling_trait.length - 1]`, parser.rb l.1343,
+ * over the roster at asciidoctor.rb l.318): `.` is arabic, `..`
+ * loweralpha, `...` lowerroman, `....` upperalpha, `.....`
+ * upperroman.
+ *
+ * Total over the markers {@link ORDERED_MARKER_SOURCE} accepts, with
+ * every arm reachable: a dot run, a roman marker in either case, an
+ * arabic run, and a single letter in either case. Nothing here reads
+ * which alternative of that pattern matched - the marker arrives as a
+ * string and this decides from the string, which is why the pattern
+ * can stay Ruby's spelling exactly.
+ *
+ * The roman case is decided by the letter BEFORE the `)` because
+ * Ruby's `OrderedListMarkerRxMap` tests (rx.rb l.303) are unanchored:
+ * `[ivx]+\)` finds `v)` inside `Iv)`, so `Iv)` is lowerroman, while
+ * `iV)` has no lowercase letter against the `)` and falls to
+ * `[IVX]+\)`. Both are oracle-pinned in
+ * tests/parser/ordered-marker-style.test.ts.
+ * @param marker - an ordered marker, exactly as the author wrote it
+ * @returns the style key (`.`…`.....`, `1.`, `a.`, `A.`, `i)`, `I)`)
+ */
+export function orderedMarkerStyle(marker: string): string {
+  if (marker.startsWith(".")) {
+    return marker;
+  }
+  if (marker.endsWith(")")) {
+    return LOWERCASE_LETTER.test(marker.slice(-ROMAN_CASE_TAIL)) ? "i)" : "I)";
+  }
+  if (ARABIC_MARKER.test(marker)) {
+    return "1.";
+  }
+  return LOWERCASE_LETTER.test(marker) ? "a." : "A.";
+}
 
 /**
  * The marker style of a line (or of a bare marker token image) that
@@ -702,21 +797,24 @@ export const CALLOUT_STYLE = "<>";
  * registry spell them.
  * @param line - one source line without its newline, or a list
  *   marker token image such as `"** "`
- * @returns the style key (`"*"`, `"**"`, `"-"`, `"."`, `"<>"`, …),
- *   or undefined when the line does not begin with a list marker
+ * @returns the style key (`"*"`, `"**"`, `"-"`, `"."`, `"1."`,
+ *   `"<>"`, …), or undefined when the line does not begin with a list
+ *   marker
  * Exported for the shape census, which reconciles this module's
  * runtime export names against the registry's coverage
  * (scripts/metrics/shape-census.ts); no src consumer.
  * @internal
  */
 export function listMarkerStyle(line: string): string | undefined {
-  for (const pattern of MARKER_STYLES) {
-    const match = pattern.exec(line);
-    if (match !== null) {
-      return match.groups?.style ?? CALLOUT_STYLE;
-    }
+  const unordered = UNORDERED_MARKER_STYLE.exec(line)?.groups;
+  if (unordered !== undefined) {
+    return unordered.style;
   }
-  return undefined;
+  const ordered = ORDERED_MARKER_STYLE.exec(line)?.groups;
+  if (ordered !== undefined) {
+    return orderedMarkerStyle(ordered.style);
+  }
+  return CALLOUT_MARKER_STYLE.test(line) ? CALLOUT_STYLE : undefined;
 }
 
 /**

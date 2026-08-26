@@ -357,9 +357,12 @@ interface ItemExtent {
  * Whether a line is a sibling item of the list being read — style
  * equality on the RESOLVED trait, exactly `is_sibling_list_item?`
  * (parser.rb l.2280). The three marker variants' style sets are
- * disjoint by construction (`MARKER_STYLES` in line-shapes.ts; every
- * callout marker collapses to the one CALLOUT_STYLE), so equality
- * alone decides. The dlist arm has no producer yet: the conjunction's
+ * disjoint by construction (`listMarkerStyle` in line-shapes.ts: an
+ * unordered marker is its own style, an ordered one resolves through
+ * `orderedMarkerStyle`, and every callout marker collapses to the one
+ * CALLOUT_STYLE), so equality alone decides - and it decides on the
+ * RESOLVED style, which is why `5.` continues a list `1.` opened
+ * while `.` opens a nested one. The dlist arm has no producer yet: the conjunction's
  * first test is where #9's `DescriptionListSiblingRx` matching plugs
  * in.
  * @param text - one rstripped source line

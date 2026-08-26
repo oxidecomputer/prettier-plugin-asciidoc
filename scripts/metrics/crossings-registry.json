@@ -515,7 +515,7 @@
     "symbol": "LITERAL_LINE",
     "importer": "src/parse/lines/paragraph-reader.ts",
     "kind": "vocabulary",
-    "reason": "registry pattern: an indented literal line — inside a `+`-headed fold such a line keeps its own raw line, because a re-read hands it to a literal block's verbatim slurp"
+    "reason": "registry pattern: an indented literal line \u2014 inside a `+`-headed fold such a line keeps its own raw line, because a re-read hands it to a literal block's verbatim slurp"
   },
   {
     "file": "src/parse/line-shapes.ts",
@@ -628,6 +628,13 @@
     "importer": "src/parse/lines/classify.ts",
     "kind": "vocabulary",
     "reason": "named-group reading helper for the registry's own parse functions"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "orderedMarkerStyle",
+    "importer": "src/parse/lines/classify.ts",
+    "kind": "vocabulary",
+    "reason": "registry rule: resolve_ordered_list_marker, the style an ordered marker is compared as"
   },
   {
     "file": "src/parse/line-shapes.ts",

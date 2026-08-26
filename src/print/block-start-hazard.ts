@@ -138,10 +138,25 @@ function contentOpensAfterBreak(node: InlineNode): boolean {
  * (issue #63) - breaking a line the source never had would destroy
  * it.
  *
- * The break is kept only where one may land: an atom fused or
- * space-joined to the first is one the packer may not break from,
- * and an atom already demanding a break needs nothing - a span whose
- * own net fired arrives that way, so the two nets cannot fight.
+ * The break is kept only where one may land: an atom GLUED to the
+ * first (no space between them at all) is one the packer may not
+ * break from, an atom that may not end a line has to keep its
+ * successor, and an atom already demanding a break needs nothing - a
+ * span whose own net fired arrives that way, so the two nets cannot
+ * fight.
+ *
+ * `noBreakBefore` is NOT such a bail, and that is the one asymmetry
+ * here. It marks a word `wordsToAtoms` fused backwards because the
+ * word would be block syntax at a line start - which is the very
+ * shape that makes the packed line dangerous, so bailing on it would
+ * disarm the net exactly where it is needed (`.` then `b. c` packs to
+ * `. b. c`, an ordered list item the source never had). The two rules
+ * do not actually disagree: the backward fuse guards a word reflow
+ * would MOVE to a line start, and the break this keeps is one the
+ * AUTHOR wrote ({@link opensWithSourceBreak}), so the word lands back
+ * on the source line it already opened. Firing therefore clears the
+ * fuse, because a `noBreakBefore` left standing beside a demanded
+ * break is two atoms giving the packer opposite orders.
  * @param atoms - the block's atoms (mutated).
  * @param nodes - the block's inline children, for the source break.
  */
@@ -150,18 +165,25 @@ export function keepBlockStartBreak(
   nodes: readonly InlineNode[],
 ): void {
   const second = atoms.at(1);
+  if (second === undefined) {
+    return;
+  }
+  // Grouped by which atom each fact is about: the three that would
+  // stop a break landing in front of `second`, then the one about
+  // `atoms[0]` (a `+` that may not end a line), then the two about
+  // the pair. `atoms[0]` is indexed directly because the guard above
+  // already proved a second atom exists.
   if (
-    second === undefined ||
     second.glueLeft ||
-    second.noBreakBefore ||
     second.noBreakAfter ||
     second.breakBefore !== "none" ||
+    atoms[0].noBreakAfter ||
     !opensWithSourceBreak(nodes[0]) ||
     !isBlockSyntaxAtLineStart(`${atoms[0].text} ${second.text}`)
   ) {
     return;
   }
-  atoms[1] = { ...second, breakBefore: "literal" };
+  atoms[1] = { ...second, breakBefore: "literal", noBreakBefore: false };
 }
 
 // A source line break BEHIND a text node's first word: the word,

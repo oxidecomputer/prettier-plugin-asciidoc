@@ -91,7 +91,11 @@ function traceOf(document: string): Map<number, LineKind> {
  * exactly the corruption class the sweep alphabet spells `* a` and
  * `** b` to catch. There is nothing to license away: marker spellings
  * are data the printer replays byte for byte
- * (tests/format/marker-spelling.test.ts).
+ * (tests/format/marker-spelling.test.ts), so both readings carry the
+ * same spelling. The style is Ruby's RESOLVED one, which is the fact
+ * that decides structure and so the fact this check is about - `5.`
+ * and `6.` project alike because they really are one list, and no
+ * transform the formatter makes can reach that collapse.
  *
  * `textv` - the verbatim-flagged foreign marker line - stays a token
  * of its own rather than folding onto `text`. Its COLUMN is

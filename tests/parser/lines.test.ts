@@ -12,7 +12,6 @@ import {
   parseAdmonitionLabel,
   parseAttributeEntry,
   parseBlockMacro,
-  parseListMarker,
   parseSectionTitle,
 } from "../../src/parse/lines/classify.js";
 
@@ -300,54 +299,6 @@ describe("classifyLine inside an open paragraph", () => {
     expect(
       classifyLine("[[a]]", { ...reader, firstLineAfterStart: false }).kind,
     ).toBe("anchor");
-  });
-});
-
-describe("parseListMarker", () => {
-  test.each([
-    ["* a", { variant: "unordered", style: "*", indent: 0, markerEnd: 2 }],
-    ["  **  a", { variant: "unordered", style: "**", indent: 2, markerEnd: 6 }],
-    ["- a", { variant: "unordered", style: "-", indent: 0, markerEnd: 2 }],
-    [".. a", { variant: "ordered", style: "..", indent: 0, markerEnd: 3 }],
-    // The callout arm reports the marker's own number — the group its
-    // match captured. `<.>` is auto-numbered, and 0 is the sentinel
-    // for it (AUTO_CALLOUT_NUMBER).
-    [
-      "<.> a",
-      {
-        variant: "callout",
-        style: "<>",
-        indent: 0,
-        markerEnd: 4,
-        calloutNumber: 0,
-      },
-    ],
-    [
-      "<1> a",
-      {
-        variant: "callout",
-        style: "<>",
-        indent: 0,
-        markerEnd: 4,
-        calloutNumber: 1,
-      },
-    ],
-    [
-      "<12> a",
-      {
-        variant: "callout",
-        style: "<>",
-        indent: 0,
-        markerEnd: 5,
-        calloutNumber: 12,
-      },
-    ],
-  ])("%j", (line, expected) => {
-    expect(parseListMarker(line)).toEqual(expected);
-  });
-  test("no trailing text means no marker (rstripped line)", () => {
-    expect(parseListMarker("*")).toBeUndefined();
-    expect(parseListMarker("****")).toBeUndefined();
   });
 });
 

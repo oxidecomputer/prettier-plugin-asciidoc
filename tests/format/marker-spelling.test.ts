@@ -1,7 +1,16 @@
 /**
  * Marker spellings are DATA: the classifier's parse travels on
- * `ListNode.marker` and the printer replays it — `-` stays `-`, and a
- * tab-gapped `**` keeps its depth (issue #42). The third describe
+ * `ListItemNode.markerSpelling` and the printer replays it: `-`
+ * stays `-`, a tab-gapped `**` keeps its depth (issue #42), and an
+ * explicit ordered marker keeps the number the ORACLE reads its
+ * `start` from (issue #12; `resolveOrderedListStart`,
+ * `@asciidoctor/core` 4.0.11 `build/node/index.cjs` l.13396 - Ruby
+ * 2.0.26 emits no `start` there, see the divergence note in
+ * tests/format/explicit-ordered-list.test.ts). A CALLOUT item is the
+ * one exception, printing from its parsed number rather than its
+ * spelling; the "callout control" row pins that. What NESTS is a
+ * separate field, `ListNode.marker`, which carries the style the
+ * spelling resolves to. The third describe
  * pins the shape the replay does NOT make impossible: two lists the
  * author genuinely wrote with the SAME marker can still nest, because
  * an item's read runs through an indented literal and its metadata,
@@ -46,6 +55,16 @@ describe("marker-spelling: author spellings replay render-neutrally", () => {
     ["star nesting", "* a\n** b\n", "* a\n** b\n"],
     ["deep ordered nesting", ". a\n.. b\n... c\n", ". a\n.. b\n... c\n"],
     ["callout control", "<1> a\n<2> b\n", "<1> a\n<2> b\n"],
+    // An explicit ordered list is the one shape whose items do NOT
+    // share a spelling: `5.` and `6.` resolve to the same style
+    // (`1.`), so they are one list, and each replays its own bytes.
+    // Rewriting either to the style would move the rendered `start`.
+    ["explicit arabic", "1. a\n2. b\n", "1. a\n2. b\n"],
+    ["explicit arabic off 1", "5. a\n6. b\n", "5. a\n6. b\n"],
+    ["explicit loweralpha", "a. a\nb. b\n", "a. a\nb. b\n"],
+    ["explicit upperalpha", "A. a\nB. b\n", "A. a\nB. b\n"],
+    ["explicit lowerroman", "i) a\nii) b\n", "i) a\nii) b\n"],
+    ["explicit upperroman", "I) a\nII) b\n", "I) a\nII) b\n"],
   ])("%s round-trips byte for byte", async (_name, input, expected) => {
     const out = await formatAdoc(input);
     expect(out).toBe(expected);

@@ -42,6 +42,7 @@ import {
   interruptsParagraph,
   isRawParagraphLine,
   optionalGroup,
+  orderedMarkerStyle,
   parseDescriptionListLine,
   rawLineForm,
   rstrip,
@@ -104,6 +105,14 @@ type ParsedMarker =
       readonly variant: Exclude<ListVariant, "callout">;
       /** The marker style `is_sibling_list_item?` compares. */
       readonly style: string;
+      /**
+       * The marker exactly as the author wrote it. Equal to `style`
+       * for every unordered and implicit-ordered marker and DIFFERENT
+       * for an explicit ordered one (`5.` resolves to the style `1.`),
+       * which is why the two are separate fields: the style decides
+       * what is a sibling, the spelling is what the printer replays.
+       */
+      readonly spelling: string;
       /** Width of the leading whitespace Ruby's `[ \t]*` allows. */
       readonly indent: number;
       /** Offset within the line where the item's text starts. */
@@ -114,6 +123,8 @@ type ParsedMarker =
       readonly variant: Extract<ListVariant, "callout">;
       /** The style every callout marker resolves to (`<>`). */
       readonly style: string;
+      /** The marker exactly as the author wrote it (`<3>`, `<.>`). */
+      readonly spelling: string;
       /** Zero: `CalloutListRx` allows no leading whitespace at all. */
       readonly indent: number;
       /** Offset within the line where the item's text starts. */
@@ -262,9 +273,14 @@ export type MarkerKind = Extract<LineKind, Record<"kind", "listMarker">>;
  * The callout arm reports the marker's NUMBER, which the other two
  * have none of — the split is the reason no builder re-matches `<1>`
  * to read it back out.
+ *
+ * The VARIANT comes off the branch of {@link LIST_MARKER_LINE} that
+ * participated, not off the marker's first character: an explicit
+ * ordered marker (`1.`, `a.`, `i)`) starts with neither a dot nor a
+ * star, so a spelling test could not tell it from an unordered one.
  * @param line - one rstripped source line
- * @returns the marker's style and extent — plus the number, on a
- *   callout — or undefined when the line does not begin a list item
+ * @returns the marker's style, spelling and extent, plus the number on
+ *   a callout; undefined when the line does not begin a list item
  */
 export function parseListMarker(line: string): ParsedMarker | undefined {
   const callout = CALLOUT_MARKER_LINE.exec(line)?.groups;
@@ -275,6 +291,7 @@ export function parseListMarker(line: string): ParsedMarker | undefined {
       // compares `resolve_list_marker`'s result, so `<2>` continues a
       // `<1>` list.
       style: CALLOUT_STYLE,
+      spelling: callout.marker,
       indent: 0,
       markerEnd: callout.marker.length + callout.gap.length,
       calloutNumber:
@@ -287,12 +304,29 @@ export function parseListMarker(line: string): ParsedMarker | undefined {
   if (groups === undefined) {
     return undefined;
   }
-  const { indent, marker, gap } = groups;
-  return {
-    variant: marker.startsWith(".") ? "ordered" : "unordered",
-    style: marker,
+  const { indent, gap } = groups;
+  const extent = (marker: string): { indent: number; markerEnd: number } => ({
     indent: indent.length,
     markerEnd: indent.length + marker.length + gap.length,
+  });
+  // The ordered branch is the OPTIONAL one read through the widening;
+  // when it did not participate the unordered one did, so the fall
+  // through needs no second test.
+  const ordered = optionalGroup(groups.ordered);
+  if (ordered !== undefined) {
+    return {
+      variant: "ordered",
+      style: orderedMarkerStyle(ordered),
+      spelling: ordered,
+      ...extent(ordered),
+    };
+  }
+  const { unordered } = groups;
+  return {
+    variant: "unordered",
+    style: unordered,
+    spelling: unordered,
+    ...extent(unordered),
   };
 }
 

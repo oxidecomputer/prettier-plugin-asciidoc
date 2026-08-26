@@ -246,18 +246,6 @@
     "fails": ["fidelity"],
     "issue": "#18"
   },
-  "invoker_test.rb#should print warnings to stderr by default#0": {
-    "fails": ["fidelity"],
-    "issue": "#12"
-  },
-  "invoker_test.rb#should return non-zero exit code if failure level is reached#0": {
-    "fails": ["fidelity"],
-    "issue": "#12"
-  },
-  "invoker_test.rb#should silence warnings if -q flag is specified#0": {
-    "fails": ["fidelity"],
-    "issue": "#12"
-  },
   "invoker_test.rb#should write page for each alternate manname#0": {
     "fails": ["fidelity"],
     "issue": "#18"
@@ -467,37 +455,9 @@
     "issue": "#16"
   },
   "lists_test.rb#quoted text#0": { "fails": ["fidelity"], "issue": "#16" },
-  "lists_test.rb#should allow list style to be specified explicitly when using markers with implicit style#0": {
-    "fails": ["fidelity"],
-    "issue": "#12"
-  },
-  "lists_test.rb#should implicitly set start on ordered list if explicit arabic numbering does not start at 1#0": {
-    "fails": ["fidelity"],
-    "issue": "#12"
-  },
-  "lists_test.rb#should implicitly set start on ordered list if explicit roman numbering does not start at 1#0": {
-    "fails": ["fidelity"],
-    "issue": "#12"
-  },
   "lists_test.rb#should not strip comment line in literal paragraph block attached to list item#0": {
     "fails": ["fidelity"],
     "issue": "#9"
-  },
-  "lists_test.rb#should not warn if explicit numbering starts at value of start attribute#0": {
-    "fails": ["fidelity"],
-    "issue": "#12"
-  },
-  "lists_test.rb#should warn if explicit lowercase roman numerals in list are out of sequence#0": {
-    "fails": ["fidelity"],
-    "issue": "#12"
-  },
-  "lists_test.rb#should warn if explicit uppercase roman numerals in list are out of sequence#0": {
-    "fails": ["fidelity"],
-    "issue": "#12"
-  },
-  "lists_test.rb#should warn if item with explicit numbering in ordered list is out of sequence#0": {
-    "fails": ["fidelity"],
-    "issue": "#12"
   },
   "lists_test.rb#trailing block attribute line attached by continuation should not create block#0": {
     "fails": ["fidelity"],
@@ -506,10 +466,6 @@
   "lists_test.rb#trailing block title line attached by continuation should not create block#0": {
     "fails": ["fidelity"],
     "issue": "#16"
-  },
-  "lists_test.rb#word ending sentence on continuing line not treated as a list item#0": {
-    "fails": ["fidelity"],
-    "issue": "#12"
   },
   "manpage_test.rb#(outside test)#0": { "fails": ["fidelity"], "issue": "#18" },
   "manpage_test.rb#should normalize whitespace and skip line comments before and inside NAME section#0": {
