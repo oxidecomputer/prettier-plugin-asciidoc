@@ -54,6 +54,29 @@ AI agents) can tell the difference.
 **Line width:** Keep comments within 80 columns. Prettier doesn't reflow
 comments, so wrap them manually.
 
+## Type Discipline
+
+Make invalid states unrepresentable, and make every function total.
+
+- Model states as discriminated unions whose payloads carry exactly what each
+  arm needs. A field that is "only set when" some other field has some value is
+  a smell: split the union so the state that cannot occur does not typecheck.
+- Switches over a union are exhaustive and compiler-checked. No `default` arm
+  that "cannot happen", no defensive throw for a state the types already
+  exclude. If a branch is unreachable, delete the branch or fix the type that
+  made it look reachable.
+- Invariants hold by construction of the operations, not by runtime assertion.
+  If every mutation of a structure preserves a property, the property needs no
+  check; if a check feels necessary, the operations are wrong.
+- When existing code smears one logical state across several fields (flags plus
+  a string plus a nullable), a change that touches it should replace the smear
+  with a type whose variants are the legal states, not add another field.
+- Never re-derive a fact the caller already knows. A function that recomputes
+  what its caller established (re-testing a line's shape, re-checking a
+  condition the type already proves) creates a second source of truth that can
+  disagree with the first - and that disagreement is where invalid states come
+  from. Pass the fact down, carried in a type that makes it unforgeable.
+
 ## Line-Shaped Constructs
 
 A new construct that can appear as a whole line (a delimiter, a marker, a
