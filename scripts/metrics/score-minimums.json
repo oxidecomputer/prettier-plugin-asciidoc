@@ -1,5 +1,5 @@
 {
-  "note": "Per-file RECORDED MINIMUMS: the lowest v8 LINE coverage (`bun run coverage`) and the lowest StrykerJS mutation score (`bun run mutate`) each source file is allowed to report. Both are measured-now values ROUNDED DOWN to a tenth, so timing flap cannot fail a run; raising a recorded minimum rides the commit that earns it. MUTATION re-seeded 2026-08-25 from a CLEARED-CACHE `bun run mutate:full` (3,767 mutants, 25m37s, 92.78% overall) after the normalization work closed out; coverage from a `bun run coverage` run of the same tree. Read the two-sided move that re-seeding produced, because it is the reason the brief asked for a cleared cache: two files ROSE (lines/list-reader.ts 94.6 -> 94.9, print/serialize-inline.ts 96.1 -> 96.5) and six FELL (parse/attrlist.ts 100 -> 98.6, parse/inline/inline-node-builder.ts 87.3 -> 86.9, parse/lines/reader.ts 94.8 -> 94.2, print/blocks.ts 90.6 -> 90.3, print/inline.ts 92.7 -> 92.0, print/list.ts 96.5 -> 96.1). The falls are not a regression in the code: every number they replace came from an INCREMENTAL run that reused a stale cache, and two of the six covered functions that no cleared-cache run had ever measured (attrlistFields and closingQuote, added after the previous seeding). Two of the six were answered with TESTS before the minimum moved (attrlist.ts, and lines/reader.ts's restored tailSafe inheritance); the survivors that remain on those two are classified below as equivalent, with the document counts that establish it. Timing flap is wider than a tenth on the biggest files (inline-node-builder measured 87.3 and 86.9 on two identical-tree runs), so treat a sub-half-point fall on a file with hundreds of mutants as flap to re-measure, not as a regression to bisect. A minimum of 0 means the file has nothing to measure — see the exceptions for the three files Stryker writes no row for at all. HONEST BOUND on `exceptions`: it is the AUDITED set, not every survivor. It holds the three files audited mutant by mutant (two in W2's recovery, list-reader.ts after the cell refactor), the type-forced arms, the three files with no mutants, and the three equivalent mutants this close-out proved by differential. The rest of the gap between a recorded minimum and 100% is recorded by the number itself and is a candidate for the next audit. POST-#56 RECONCILIATION, the same day, after the `+`-run fix landed: a second cleared-cache `mutate:full` moved seven rows, and every one of them was re-measured with a SCOPED run (cleared incremental cache, one file at a time) before it was recorded. Three ROSE: lines/held-metadata.ts and lines/list-item-node.ts are the fix's new files, and their 0.0 rows were placeholders written before anything had measured them (97.5 and 84.1 now); lines/list-reader.ts 94.9 -> 96.0, which is the same code measured after the fix moved two of its audited survivor families into list-item-node.ts (the rows below follow them). Four FELL, with four different dispositions. print/join.ts 92.9 -> 91.6 and lines/paragraph-reader.ts 91.5 -> 92.3 are the fix's own new code, and SEVEN of their new survivors were killed with byte + render-equality + idempotence rows in tests/format/plus-run.test.ts (listTailContinuationActive's recursion into a nested item's tail, the fold's run-closing, and all three spellings of foldsThrough's left conjunct). That put paragraph-reader ABOVE its old minimum and left join.ts below it, because the same new function also added three mutants no test can reach. lines/reader.ts 94.2 -> 93.9 and print/list.ts 96.1 -> 95.6 looked like exactly the sub-half-point flap this note warns about, and re-measuring showed they are not: each is ONE genuinely new survivor on a file whose mutant population the fix changed, and each is classified below as equivalent with the document counts that establish it. The four scoped numbers, unrounded, were 91.67, 92.31, 93.95 and 95.65. REGISTRATION-SURFACE PASS, the same day: the four `now` rows retired. tests/plugin.test.ts asserts the SupportLanguage descriptor, the assembled Plugin object and locStart/locEnd on parsed nodes, and three rows in tests/format/paragraph.test.ts pin the empty document; four SCOPED runs (cleared incremental cache, one file at a time) then measured src/language.ts 0.0 -> 100.00, src/index.ts 75.0 -> 100.00, src/parser.ts 60.0 -> 100.00 and src/print/printer.ts 92.5 -> 96.25, with coverage moving alongside (src/parser.ts 50 -> 100, src/print/printer.ts 92.3 -> 96.15). The printer's empty-document arm took the one input that can reach it: Prettier's coreFormat returns an empty string for whitespace-only text WITHOUT parsing it, so the arm is reachable only by a document whose bytes survive JavaScript's trim() and are then erased by the reader's input normalization - a lone misdecoded byte-order mark. NORMALIZATION PASS (issues #49 and #60): rstrip now strips the six ASCII whitespace characters the pinned oracle strips and nothing else, and a leading byte-order mark comes off the head of the document the way prepare_source takes it off. The first of those retired the previous witness for that arm - a lone NUL, which the oracle keeps and which is now a paragraph - and the second supplied its replacement. src/parse/line-shapes.ts rose 99.0 -> 100.0 on the same pass: rewriting rstrip as one regex deleted four covered lines, and rather than let the shrunken denominator lower the row, the file's one uncovered branch (isForeignMarkerLine with no list open) was answered with a test in tests/parser/lines.test.ts. See docs/harnesses.md, the Recorded minimums section.",
+  "note": "Per-file RECORDED MINIMUMS: the lowest v8 LINE coverage (`bun run coverage`) and the lowest StrykerJS mutation score (`bun run mutate`) each source file is allowed to report. Both are measured-now values ROUNDED DOWN to a tenth, so timing flap cannot fail a run; raising a recorded minimum rides the commit that earns it. MUTATION re-seeded 2026-08-25 from a CLEARED-CACHE `bun run mutate:full` (3,767 mutants, 25m37s, 92.78% overall) after the normalization work closed out; coverage from a `bun run coverage` run of the same tree. Read the two-sided move that re-seeding produced, because it is the reason the brief asked for a cleared cache: two files ROSE (lines/list-reader.ts 94.6 -> 94.9, print/serialize-inline.ts 96.1 -> 96.5) and six FELL (parse/attrlist.ts 100 -> 98.6, parse/inline/inline-node-builder.ts 87.3 -> 86.9, parse/lines/reader.ts 94.8 -> 94.2, print/blocks.ts 90.6 -> 90.3, print/inline.ts 92.7 -> 92.0, print/list.ts 96.5 -> 96.1). The falls are not a regression in the code: every number they replace came from an INCREMENTAL run that reused a stale cache, and two of the six covered functions that no cleared-cache run had ever measured (attrlistFields and closingQuote, added after the previous seeding). Two of the six were answered with TESTS before the minimum moved (attrlist.ts, and lines/reader.ts's restored tailSafe inheritance); the survivors that remain on those two are classified below as equivalent, with the document counts that establish it. Timing flap is wider than a tenth on the biggest files (inline-node-builder measured 87.3 and 86.9 on two identical-tree runs), so treat a sub-half-point fall on a file with hundreds of mutants as flap to re-measure, not as a regression to bisect. A minimum of 0 means the file has nothing to measure — see the exceptions for the three files Stryker writes no row for at all. HONEST BOUND on `exceptions`: it is the AUDITED set, not every survivor. It holds the three files audited mutant by mutant (two in W2's recovery, list-reader.ts after the cell refactor), the type-forced arms, the three files with no mutants, and the three equivalent mutants this close-out proved by differential. The rest of the gap between a recorded minimum and 100% is recorded by the number itself and is a candidate for the next audit. POST-#56 RECONCILIATION, the same day, after the `+`-run fix landed: a second cleared-cache `mutate:full` moved seven rows, and every one of them was re-measured with a SCOPED run (cleared incremental cache, one file at a time) before it was recorded. Three ROSE: lines/held-metadata.ts and lines/list-item-node.ts are the fix's new files, and their 0.0 rows were placeholders written before anything had measured them (97.5 and 84.1 now); lines/list-reader.ts 94.9 -> 96.0, which is the same code measured after the fix moved two of its audited survivor families into list-item-node.ts (the rows below follow them). Four FELL, with four different dispositions. print/join.ts 92.9 -> 91.6 and lines/paragraph-reader.ts 91.5 -> 92.3 are the fix's own new code, and SEVEN of their new survivors were killed with byte + render-equality + idempotence rows in tests/format/plus-run.test.ts (listTailContinuationActive's recursion into a nested item's tail, the fold's run-closing, and all three spellings of foldsThrough's left conjunct). That put paragraph-reader ABOVE its old minimum and left join.ts below it, because the same new function also added three mutants no test can reach. lines/reader.ts 94.2 -> 93.9 and print/list.ts 96.1 -> 95.6 looked like exactly the sub-half-point flap this note warns about, and re-measuring showed they are not: each is ONE genuinely new survivor on a file whose mutant population the fix changed, and each is classified below as equivalent with the document counts that establish it. The four scoped numbers, unrounded, were 91.67, 92.31, 93.95 and 95.65. REGISTRATION-SURFACE PASS, the same day: the four `now` rows retired. tests/plugin.test.ts asserts the SupportLanguage descriptor, the assembled Plugin object and locStart/locEnd on parsed nodes, and three rows in tests/format/paragraph.test.ts pin the empty document; four SCOPED runs (cleared incremental cache, one file at a time) then measured src/language.ts 0.0 -> 100.00, src/index.ts 75.0 -> 100.00, src/parser.ts 60.0 -> 100.00 and src/print/printer.ts 92.5 -> 96.25, with coverage moving alongside (src/parser.ts 50 -> 100, src/print/printer.ts 92.3 -> 96.15). The printer's empty-document arm took the one input that can reach it: Prettier's coreFormat returns an empty string for whitespace-only text WITHOUT parsing it, so the arm is reachable only by a document whose bytes survive JavaScript's trim() and are then erased by the reader's input normalization - a lone misdecoded byte-order mark. NORMALIZATION PASS (issues #49 and #60): rstrip now strips the six ASCII whitespace characters the pinned oracle strips and nothing else, and a leading byte-order mark comes off the head of the document the way prepare_source takes it off. The first of those retired the previous witness for that arm - a lone NUL, which the oracle keeps and which is now a paragraph - and the second supplied its replacement. src/parse/line-shapes.ts rose 99.0 -> 100.0 on the same pass: rewriting rstrip as one regex deleted four covered lines, and rather than let the shrunken denominator lower the row, the file's one uncovered branch (isForeignMarkerLine with no list open) was answered with a test in tests/parser/lines.test.ts. THIRD RECONCILIATION, 2026-08-26, closing the integration stack that ran from the Parity-Diff trailer mechanism through the reader's input normalization, the reflow reading invariant, the block-structure conformance harness, the inline boundary set (constrained marks that ask Asciidoctor's own boundary classes, spans that keep their source break, rejected anchors replayed byte-faithfully), the block-start hazard net's move into a module of its own, and the lone-`+` fix. One cleared-cache `mutate:full` moved fifteen rows, and every fall plus the new module was re-measured with a SCOPED run (cleared incremental cache, one file at a time) before anything was recorded. SEVEN ROSE, recorded from the full run rounded down: inline/inline-link-builder.ts 98.5 -> 100.0 (100.00), inline/quote-boundaries.ts 0.0 placeholder -> 96.5 (96.59), lines/list-reader.ts 96.0 -> 97.4 (97.44), lines/open-style.ts 82.0 -> 98.8 (98.84), lines/paragraph-reader.ts 92.3 -> 95.0 (95.07), lines/reader.ts 93.9 -> 98.2 (98.25), and print/block-start-hazard.ts 0.0 placeholder -> 81.1, which is a SCOPED number for the reason two sentences below. EIGHT FELL, with four dispositions. Two were answered with TESTS and came back to where they were: print/blocks.ts (90.38 scoped) and print/list.ts (95.68 scoped) each gained exactly ONE mutant, the `false` the hazard net's new `blockAtColumnZero` argument spells at the admonition-label and list-marker call sites, and each survived because every existing column-0 row spelled its span on ONE line, where the net declines anyway. Three rows in tests/format/inline-span-break.test.ts now spell those shapes with the source break the net trades for (`* *` / `b* c`, `* **` / `b** c`, `NOTE: *` / `b* c`), and between them they kill that argument at both call sites, print/inline.ts's call guard, and three of the net's own conjuncts; two further rows (`**` / `b** c **` / `d** e` and `# b` / `c`) kill the two that say the net guards the block's FIRST node and the break behind its FIRST word. print/printer.ts 96.2 -> 95.1 (95.18) is population alone: the type-forced default arm the exceptions already named grew a fourth NoCoverage mutant when it took the same new argument. print/inline.ts 92.0 -> 91.8 (91.85) is population too, on a file this batch largely rewrote, so the number 92.0 measured is not the population 91.8 measures; two of its survivors are classified below and the rest are the gap the number itself records. src/block-metadata.ts 93.3 -> 92.2 (92.22), lines/classify.ts 99.4 -> 98.9 (98.96), print/reflow.ts 98.6 -> 97.6 (97.64) and print/list-hazard.ts 98.5 -> 95.7 (95.77) are the four whose new survivors are each classified below with the document counts that establish them. The list-hazard fall is the largest and the most instructive: nothing in that file changed, but #53's faithful anchor replay retired the only shape that made its `anchorLineShape(block) === \"anchor\"` disjunct decide anything, so two mutants a `[[id,]]` used to kill are now unreachable. TIMEOUT IS NOT A KILL, and this is where that stopped being theoretical. All seven Regex mutants of print/block-start-hazard.ts's two patterns TIMED OUT in the batched run, where twelve runners share the machine, and Stryker counts a timeout as killed: 82.61. The scoped run gave them time to finish and every one SURVIVED - 79.71 before this reconciliation's tests, 81.16 after. The lower number is the honest one, because a survivor is a completed run of the suite and a timeout is a verdict about the machine. Read the same way, the recorded minimums of the four files carrying large timeout populations (lines/reader.ts 63, lines/list-reader.ts 39, lines/open-style.ts 26, lines/paragraph-reader.ts 15) are upper bounds a scoped run could lower, and the first scoped run that lowers one is doing arithmetic, not finding a regression. See docs/harnesses.md, the Recorded minimums section.",
   "files": {
     "src/ast.ts": {
       "coverage": 100.0,
@@ -7,7 +7,7 @@
     },
     "src/block-metadata.ts": {
       "coverage": 100.0,
-      "mutation": 93.3
+      "mutation": 92.2
     },
     "src/constants.ts": {
       "coverage": 100.0,
@@ -51,7 +51,7 @@
     },
     "src/parse/inline/inline-link-builder.ts": {
       "coverage": 100.0,
-      "mutation": 98.5
+      "mutation": 100.0
     },
     "src/parse/inline/inline-node-builder.ts": {
       "coverage": 98.1,
@@ -59,7 +59,7 @@
     },
     "src/parse/inline/quote-boundaries.ts": {
       "coverage": 100.0,
-      "mutation": 0.0
+      "mutation": 96.5
     },
     "src/parse/inline/rules.ts": {
       "coverage": 100.0,
@@ -79,7 +79,7 @@
     },
     "src/parse/lines/classify.ts": {
       "coverage": 100.0,
-      "mutation": 99.4
+      "mutation": 98.9
     },
     "src/parse/lines/delimited-reader.ts": {
       "coverage": 100.0,
@@ -99,19 +99,19 @@
     },
     "src/parse/lines/list-reader.ts": {
       "coverage": 100.0,
-      "mutation": 96.0
+      "mutation": 97.4
     },
     "src/parse/lines/open-style.ts": {
       "coverage": 100.0,
-      "mutation": 82.0
+      "mutation": 98.8
     },
     "src/parse/lines/paragraph-reader.ts": {
       "coverage": 100.0,
-      "mutation": 92.3
+      "mutation": 95.0
     },
     "src/parse/lines/reader.ts": {
       "coverage": 100.0,
-      "mutation": 93.9
+      "mutation": 98.2
     },
     "src/parse/lines/split.ts": {
       "coverage": 100.0,
@@ -127,7 +127,7 @@
     },
     "src/print/block-start-hazard.ts": {
       "coverage": 100.0,
-      "mutation": 0.0
+      "mutation": 81.1
     },
     "src/print/blocks.ts": {
       "coverage": 97.4,
@@ -135,7 +135,7 @@
     },
     "src/print/inline.ts": {
       "coverage": 100.0,
-      "mutation": 92.0
+      "mutation": 91.8
     },
     "src/print/join.ts": {
       "coverage": 100.0,
@@ -143,7 +143,7 @@
     },
     "src/print/list-hazard.ts": {
       "coverage": 100.0,
-      "mutation": 98.5
+      "mutation": 95.7
     },
     "src/print/list.ts": {
       "coverage": 100.0,
@@ -151,11 +151,11 @@
     },
     "src/print/printer.ts": {
       "coverage": 96.1,
-      "mutation": 96.2
+      "mutation": 95.1
     },
     "src/print/reflow.ts": {
       "coverage": 100.0,
-      "mutation": 98.6
+      "mutation": 97.6
     },
     "src/print/serialize-inline.ts": {
       "coverage": 100.0,
@@ -176,6 +176,12 @@
       "reason": "declarations only, as src/ast.ts"
     },
     {
+      "file": "src/block-metadata.ts",
+      "what": "block-metadata.ts:151 `\"anchor\"` -> `\"\"` in anchorLineShape's ternary, the file's only NoCoverage row",
+      "class": "never",
+      "reason": "UNREACHABLE, and the twin of the list-hazard.ts:67 row below. The ternary is reached only for a PARAGRAPH whose sole child is an inline anchor, and such a paragraph exists only where the source line FAILED the block-anchor grammar - a line that passes is held back as a `blockAnchor` node and returns at line 142. Since #53's faithful replay, `anchorToSource` emits the author's captured bytes verbatim whenever the spelling fails the grammar, so the printed line fails it too and the ternary can only answer `\"lookalike\"`. Measured: 0 paragraphs answering `\"anchor\"` against 83,644 answering `\"lookalike\"`, over 319,216 documents (the depth-5 list-shape sweep, a depth-5 product over `* a`, `[[anc]]`, `[[id,]]`, `[[id, ]]`, `[[3-bad]]`, `[[3-bad,Ref]]`, `[[9]]`, `para`, `+`, blank and `[role]`, and a depth-4 inline-mark product)"
+    },
+    {
       "file": "src/parse/attrlist.ts",
       "what": "attrlist.ts:130 `index < raw.length` -> `index <= raw.length` in closingQuote",
       "class": "never",
@@ -186,6 +192,12 @@
       "what": "mutation minimum 0 — Stryker writes no row for this file",
       "class": "never",
       "reason": "the inline token-kind names, declared as a const table; no expression to mutate"
+    },
+    {
+      "file": "src/parse/lines/classify.ts",
+      "what": "classify.ts:565 the `classifyTrace` object literal -> `{}`",
+      "class": "never",
+      "reason": "EQUIVALENT: the slot's only read anywhere is `classifyTrace.observer`, which is `undefined` whether the property is declared with an `undefined` value or absent altogether. The property is spelled out because the lint rules want every binding initialized on declaration and refuse an `= undefined` initializer at module scope - not because any reader can tell the two apart"
     },
     {
       "file": "src/parse/lines/list-item-node.ts",
@@ -242,10 +254,34 @@
       "reason": "EQUIVALENT, and worth writing down because the guard IS reached with an untagged `+`. Every `+` that enters an item buffer goes through `pushMarker` and carries the tag, with ONE exception: the `+` that `activeContent` buffers as the attached block's own first line when it stands one blank under an active continuation (`* a` / `+` / blank / `+` is the smallest such document). That untagged cell is only ever the buffer's LAST line, because any line after it takes the `+` arm that blanks it, so the fold the mutant opens there reads exactly the one raw line the leaf arm builds and stops on the same index. Measured: byte-identical output AND byte-identical ASTs over all 111,110 depth-5 sweep documents, byte-identical output over 66,429 delimiter-bearing documents, and an instrumented build reaches the untagged case MID-buffer zero times in either product"
     },
     {
+      "file": "src/print/inline.ts",
+      "what": "inline.ts:612 `blockAtColumnZero: false` -> `true` in appendSpan's RunContext",
+      "class": "never",
+      "reason": "EQUIVALENT: the same object literal sets `insideSpan: true`, and `!cursor.insideSpan` is a conjunct of `hazardAtBlockStart` that no value of this flag can restore; `keepBlockStartBreak`, the other reader, is called from `inlineAtoms` alone and never from `collectAtoms`. Nothing running inside a span can see the flag at all"
+    },
+    {
+      "file": "src/print/inline.ts",
+      "what": "inline.ts:967 `nodes.length > 0` -> `true` and -> `nodes.length >= 0`, in the block-start hazard net's call guard",
+      "class": "never",
+      "reason": "EQUIVALENT: with no nodes there are no atoms, and `keepBlockStartBreak` returns at `atoms.at(1) === undefined` before it reads anything. The conjunct states one call earlier a fact the callee already checks. Its LEFT conjunct is live, and killed by the list-item and admonition rows in tests/format/inline-span-break.test.ts"
+    },
+    {
       "file": "src/print/join.ts",
       "what": "listTailContinuationActive's three unreachable mutants (join.ts:260 `item?.blocks` -> `item.blocks`, join.ts:262 `item?.activeTail` -> `item.activeTail`, and join.ts:262 `?? false` -> `?? true`, the file's only NoCoverage row), #56's new code",
       "class": "never",
       "reason": "TYPE-FORCED, and the same three shapes survive on endsWithReaderEatenLine right above it for the same reason. `children.at(-1)` is typed `ListItemNode | undefined`, so the optional chain and the `??` default are what the compiler demands, and a list node with ZERO children is a node the reader cannot build (a list exists because an item made it), the same fact the list.ts `lastItem !== undefined` row records. `activeTail` is a required boolean on every item, which is why the `?? false` arm never executes at all and Stryker reports it NoCoverage. The FIVE other mutants this function added are killed by the \"a live metadata tail on a NESTED item detaches too\" rows in tests/format/plus-run.test.ts, which is what the recorded 91.6 already reflects"
+    },
+    {
+      "file": "src/print/list-hazard.ts",
+      "what": "list-hazard.ts:67 `anchorLineShape(block) === \"anchor\"` -> `false`, and its `\"anchor\"` literal -> `\"\"` (2 mutants) in isRunMetadata",
+      "class": "never",
+      "reason": "EQUIVALENT, and the twin of the block-metadata.ts:151 row above. The disjunct can only decide for a block `isBlockMetadata` says no to, and the one such block `anchorLineShape` calls an anchor would be a paragraph whose sole child is an inline anchor - which since #53's faithful replay always answers `\"lookalike\"` instead. Measured over the same 319,216 documents: 0 blocks that are `\"anchor\"` without being block metadata. These two were killed before #53, when `anchorToSource` normalized `[[id,]]` to `[[id]]` and made that paragraph an anchor on re-read"
+    },
+    {
+      "file": "src/print/list-hazard.ts",
+      "what": "list-hazard.ts:115 `!transparent` -> `true`, so the run keeps the line comments it reads through",
+      "class": "never",
+      "reason": "EQUIVALENT. `run` has exactly two readers, `run.length === 0` and `run.some(blockTitle)`, and a line comment is no block title - so the two spellings can differ only for a leading adjacent run made of comments ALONE. That run cannot exist: a `//` line becomes a BLOCK of the item only once something else has already ended the item's text (until then `skip_line_comments` reads it through and the line after it continues the text), and that something is a block standing in front of the comment. Measured: 0 comments-only leading runs over 259,729 list items in the same 319,216 documents"
     },
     {
       "file": "src/print/list.ts",
@@ -291,27 +327,39 @@
     },
     {
       "file": "src/print/printer.ts",
-      "what": "the default arm of the node dispatch (printer.ts:141-143) — 3 NoCoverage mutants",
+      "what": "the default arm of the node dispatch (printer.ts:146-153) — 4 NoCoverage mutants",
       "class": "never",
       "reason": "an EQUIVALENT arm forced by the type system: Prettier's AstPath is invariant, so the printer's node union must admit the inline nodes a paragraph's children array is typed with. Every block that owns inline content builds its atoms itself, so no path reaches this arm; deleting it is a type error"
     },
     {
       "file": "src/print/reflow.ts",
-      "what": "reflow.ts:227 `/\\s+/v` -> `/\\s/v` in splitWords",
+      "what": "reflow.ts:234 `/\\s+/v` -> `/\\s/v` in splitWords",
       "class": "never",
       "reason": "The only difference between the two splits is the empty strings a single-character split emits between adjacent whitespace, and `.filter((word) => word.length > 0)` erases exactly those. The two produce the same array for every input"
     },
     {
       "file": "src/print/reflow.ts",
-      "what": "reflow.ts:350 `last < 0` -> `false` in escapeDanglingPlus",
+      "what": "reflow.ts:365 `last < 0` -> `false` in escapeDanglingPlus",
       "class": "never",
       "reason": "Dead by the caller contract: `endNodeAtoms` is the only caller and has already returned when `last < 0`, so the guard re-checks a state it can never be in. Killing it needs a direct call with an empty atom list — a test-only construction of unreachable state"
     },
     {
       "file": "src/print/reflow.ts",
-      "what": "reflow.ts:434 `let glueNext = false` -> `true` in wordsToAtoms",
+      "what": "reflow.ts:515 `let glueNext = false` -> `true` in wordsToAtoms",
       "class": "never",
       "reason": "The initializer is read only on the first iteration, and there `fuseBackwards = index > 0 && (glueNext || \u2026)` short-circuits on `index > 0` before `glueNext` is looked at. Every later read sees the value the previous iteration assigned"
+    },
+    {
+      "file": "src/print/reflow.ts",
+      "what": "keepContinuationLine's two entry guards (reflow.ts:411 `atoms.length === 0` -> `false`, reflow.ts:412 `atoms[0].text !== CONTINUATION_WORD` -> `false`)",
+      "class": "never",
+      "reason": "EQUIVALENT by the caller's contract. `opensWithOne` is `opensWithContinuationLine(node)` (src/print/inline.ts), which is true only when the node starts at column 1 and its value STARTS with `\"+\\n\"` - so the word list is non-empty and its first word is exactly `+`, which is what the two guards re-check. The same fact is why the caller can push `atoms[0]` unconditionally one line later. Measured: 36,960 nodes the printer reads as continuation openers over 319,216 documents, 0 of them with a first word other than `+`"
+    },
+    {
+      "file": "src/print/reflow.ts",
+      "what": "reflow.ts:418 `breakBefore: \"hard\"` -> `\"\"` in keepContinuationLine",
+      "class": "never",
+      "reason": "EQUIVALENT: `wrap` reads the field exactly twice, once as `!== \"none\"` (is there a forced break) and once as `=== \"literal\"` (does the line start at column 0 instead of the continuation indent). `\"\"` answers both questions the way `\"hard\"` does, so only the `\"literal\"` spelling is distinguishable at all"
     },
     {
       "file": "src/narrow.ts",
@@ -320,16 +368,40 @@
       "reason": "narrow's throw is the assertion-failure path of a test helper: it fires only when a test asserted the wrong node type, so a passing suite never covers it, and killing its mutants means writing a deliberately failing assertion"
     },
     {
-      "file": "src/parse/inline/quote-boundaries.ts",
-      "what": "mutation minimum 0.0 - placeholder for a new file no mutation run has measured",
-      "class": "when",
-      "reason": "TRIGGER - the next batched `bun run mutate:full` measures the file and its rounded-down score replaces the placeholder"
+      "file": "src/print/block-start-hazard.ts",
+      "what": "contentOpensAfterBreak's narrowing guard (block-start-hazard.ts:107 `!(\"children\" in node)` -> `false`, and the `return false` it guards -> `true`, the file's only NoCoverage row)",
+      "class": "never",
+      "reason": "TYPE-FORCED. `hazardAtBlockStart` asks `contentOpensAfterBreak(cursor.siblings[0])` only behind `cursor.index === 0`, so the node handed over IS the span the question is about, and a span always has `children`. The guard is the narrow TypeScript demands before `children` can be read off an `InlineNode` at all; deleting it is a type error"
     },
     {
       "file": "src/print/block-start-hazard.ts",
-      "what": "mutation minimum 0.0 - placeholder for a new file no mutation run has measured",
+      "what": "the two `X.type === \"text\"` guards (block-start-hazard.ts:109 in contentOpensAfterBreak, :183 in opensWithSourceBreak) - 2 mutants, each -> `true`",
+      "class": "never",
+      "reason": "EQUIVALENT. Dropping either guard leaves its regex to read `.value`, and among inline nodes only `text` and `rawLine` carry one: a rawLine holds ONE source line, so its value has no `\\n` and neither pattern can match, and every other node yields `undefined`, which the test coerces to the string `\"undefined\"`. Measured: 0 non-`text` inline nodes whose `value` holds a line break, over 996,271 inline nodes in 319,216 documents"
+    },
+    {
+      "file": "src/print/block-start-hazard.ts",
+      "what": "block-start-hazard.ts:164 `breakBefore: \"literal\"` -> `\"\"`, and block-start-hazard.ts:158 `second.breakBefore !== \"none\"` -> `false` (2 mutants)",
+      "class": "never",
+      "reason": "EQUIVALENT, both for the indent. `wrap` distinguishes `\"none\"` from everything else, and then `\"literal\"` from everything else only to pick the line's indent (`lineIndent = run.breakBefore === \"literal\" ? 0 : indent`). The net runs only where `blockAtColumnZero` holds, which is the printer's paragraph and standalone-inline arms, and both call `blockBody(..., 0)` - so the indent the other spelling selects is 0, the number `\"literal\"` names. The `!== \"none\"` guard is the same fact from the other side: past it the atom already carries a forced break with no fuse flag set, so the write can change only the break's KIND"
+    },
+    {
+      "file": "src/print/block-start-hazard.ts",
+      "what": "the five character-class and anchor mutants of the net's two patterns (block-start-hazard.ts:91 `[^\\S\\n]` -> `[\\S\\n]` and -> `[^\\s\\n]`; :169 `\\s*` -> `\\S*`, `[^\\S\\n]` -> `[\\S\\n]` and -> `[^\\s\\n]`)",
+      "class": "never",
+      "reason": "EQUIVALENT under the reader's own normalization. `Helpers.prepare_source_string` rstrips every line, so no source line ends in horizontal whitespace and the `[^\\S\\n]*` run both patterns allow is always EMPTY; and a paragraph's first line cannot begin with whitespace (leading whitespace makes it a literal paragraph), so the `\\s*` the second pattern opens with is empty too. With both runs empty every spelling accepts and rejects the same strings"
+    },
+    {
+      "file": "src/print/block-start-hazard.ts",
+      "what": "block-start-hazard.ts:91 `OPENS_AFTER_BREAK` -> unanchored (`/^[^\\S\\n]*\\n/v` -> `/[^\\S\\n]*\\n/v`)",
       "class": "when",
-      "reason": "TRIGGER - the next batched `bun run mutate:full` measures the file and its rounded-down score replaces the placeholder"
+      "reason": "The mutant fires the net for a span whose content opens with a horizontal SPACE and holds a break further along. Reaching it needs the composed atom to be block syntax at line start, which for the four span marks means the `#` spelling: `* b` and `** b` on a block's first line are read as a LIST, so there is no paragraph left to guard. The one witness is `## b\\nc## d\\n`, which formats to `## b c## d\\n` - a document whose rendering already diverges, because the classifier reads a paragraph where the oracle reads a heading. Pinning it would pin that divergence. TRIGGER - issue #63; the row belongs to the commit that teaches the classifier the Markdown heading spelling"
+    },
+    {
+      "file": "src/print/block-start-hazard.ts",
+      "what": "block-start-hazard.ts:154-158 the whole leading disjunction of keepBlockStartBreak's bail-out -> `false`",
+      "class": "when",
+      "reason": "The one live mutant here, and killing it today would pin a corrupted output. Its witness is the `noBreakAfter` arm: `=\\n+ x\\n` formats to `= + x\\n`, which the oracle reads as the DOCUMENT TITLE - the paragraph disappears - and the guard is what declines to trade the break there, because `+` fuses forward to the word after it. The mutant removes the hazard by accident, so the row that pins the shape is the fix's, not a reconciliation's. TRIGGER - issue #57, the reflow-join family this net covers only the first-atom half of"
     }
   ]
 }

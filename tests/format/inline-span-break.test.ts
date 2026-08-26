@@ -114,6 +114,15 @@ describe("the block-start hazard net keeps the source break", () => {
     expect(out.startsWith("** ")).toBe(false);
   });
 
+  // Only the block's FIRST node is guarded. A second span further
+  // along the same paragraph cannot reach column 0 however the packer
+  // arranges it - the words in front of it hold the line - so its
+  // source break is replayed as the ordinary space while the first
+  // span's is kept.
+  test("a later span's break is still replayed as a space", async () => {
+    await expectRow("**\nb** c **\nd** e\n", "**\nb** c ** d** e\n");
+  });
+
   // Where a printed prefix holds column 0 the net stays out: a list
   // item's marker and an admonition's label protect the line, and
   // the space replay is byte-stable.
@@ -122,6 +131,27 @@ describe("the block-start hazard net keeps the source break", () => {
   });
   test("an admonition label holds column 0", async () => {
     await expectRow("NOTE: ** b** c\n", "NOTE: ** b** c\n");
+  });
+
+  // The same two prefixes with the source break the net trades for.
+  // These are the rows that make the prefix load-bearing: the SAME
+  // bytes in a paragraph keep their break (`**\nb** c` above), and
+  // here they are packed away, because `* ` and `NOTE: ` already
+  // hold the column the re-reader would misread. The joined line is
+  // the item's own text and the label's own text, which is what the
+  // source said.
+  test("a list item's marker holds column 0 across a break", async () => {
+    await expectRow("* **\nb** c\n", "* ** b** c\n");
+  });
+  test("an admonition label holds column 0 across a break", async () => {
+    await expectRow("NOTE: *\nb* c\n", "NOTE: * b* c\n");
+  });
+
+  // The plain-TEXT path of the same rule: a lone `*` against a break
+  // is no mark at all, so the item's text is `*` then `b* c`, and the
+  // marker in front of it is why joining them is safe.
+  test("a list item's marker holds column 0 on the text path", async () => {
+    await expectRow("* *\nb* c\n", "* * b* c\n");
   });
 });
 
@@ -172,6 +202,15 @@ describe("the net also refuses to write a Markdown heading", () => {
   // disappears from the rendering.
   test("# / b# c round-trips byte-identically", async () => {
     await expectRow("#\nb# c\n", "#\nb# c\n");
+  });
+
+  // The break the net keeps is the one BEHIND THE BLOCK'S FIRST
+  // WORD, and nothing further along: `# b` is already the whole
+  // hazard on line one, so the break after `b` is an ordinary break
+  // and packs away like any other. Only an author's break in front
+  // of the second atom can be traded for.
+  test("a break past the first word is still packed away", async () => {
+    await expectRow("# b\nc\n", "# b c\n");
   });
 
   // The other side of the same rule: a heading the AUTHOR wrote on
