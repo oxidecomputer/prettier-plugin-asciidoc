@@ -24,9 +24,25 @@
  * it prints as though it were, and the rules that GROUP an item's
  * held metadata lines (src/print/list-hazard.ts) and that suppress
  * stacking above a heading (src/print/join.ts) both have to say so.
+ *
+ * That qualifier is why the module reads three addresses outside
+ * itself, and TWO of them are print-side: the grammar
+ * (`BLOCK_ANCHOR`, parse/line-shapes.ts) says what a line means on
+ * re-read, while the printer's own serializer (`anchorToSource`,
+ * print/serialize-inline.ts) and its own word split (`splitWords`,
+ * print/reflow.ts) say which line the printer will emit. A question
+ * about the PRINTED line cannot be answered without asking the
+ * printer, and asking it here is what keeps one answer where two
+ * consumers need it. Read the neutrality claim above with that in
+ * mind: no file under src/parse/ imports src/print/, which is the
+ * layer rule, but the parse layer's one import from here
+ * ({@link isReaderConsumedLine}) does reach print code through this
+ * module. What keeps that honest is that none of the printed-line
+ * records is on the parse layer's side of the module.
  */
-import type { BlockNode } from "./ast.js";
+import type { BlockNode, InlineAnchorNode, InlineNode } from "./ast.js";
 import { BLOCK_ANCHOR } from "./parse/line-shapes.js";
+import { splitWords } from "./print/reflow.js";
 import { anchorToSource } from "./print/serialize-inline.js";
 
 /**
@@ -94,6 +110,78 @@ export function isBlockMetadata(block: BlockNode): boolean {
 }
 
 /**
+ * Whether the printer emits nothing at all for this inline child, so
+ * it is not on the printed line however much source it covers.
+ *
+ * Only text can vanish, and the test is the PACKER's own word split
+ * (`splitWords`, print/reflow.ts): every atom a text node becomes is
+ * one of those words, so a value they find no word in reaches no
+ * output line. Asking the packer rather than restating a whitespace
+ * class is what keeps the two from drifting: the split's set is
+ * wider than the reader's rstrip (issue #67: a no-break space is
+ * content to the reader and nothing to the packer), and the printed
+ * line is what this module's records are about.
+ *
+ * "Only text" is a CLOSURE over the InlineNode union, checked kind by
+ * kind on 2026-08-26 and true of all of them: an attributeReference
+ * prints its own source (`{empty}` included), a rawLine owns an output
+ * line, a hardLineBreak prints ` +`, and every span kind carries its
+ * marks. A kind that later prints nothing and is not text would make
+ * this under-answer, which returns the caller to the behavior it had
+ * before the filter existed rather than to a wrong answer.
+ * @param node - one inline child of a paragraph
+ * @returns Whether the printer emits nothing for it.
+ */
+function printsNothing(node: InlineNode): boolean {
+  return node.type === "text" && splitWords(node.value).length === 0;
+}
+
+/**
+ * The anchor a block's PRINTED line spells, or undefined when the
+ * block prints no `[[...]]` line at all: the `blockAnchor` node
+ * itself, or a paragraph whose sole PRINTING child is an inline
+ * anchor.
+ *
+ * The children that print NOTHING are counted out first
+ * ({@link printsNothing}), and that is the whole of issue #46's second
+ * shape: a `[[...]]` line with trailing whitespace keeps those blanks in
+ * the paragraph's inline body, because the body is a source slice that
+ * ends at the raw line's end (parse/lines/paragraph-reader.ts) while
+ * the reader's rstrip took them off the line it classified. Left in
+ * the count they made the line stop being an anchor line, and the
+ * blank the printer then wrote in front of the block below was one its
+ * own second pass removed.
+ *
+ * The sole printing child is the whole PRINTED line, which is the only
+ * identity this needs: the printer emits one line here, that line is
+ * the serialization of the surviving children, and the ones counted
+ * out contribute no characters to it. The stronger claim, that the
+ * paragraph's own extent is the child's span (by `bodyExtent`,
+ * parse/build/paragraph.ts, over one content token), held while the
+ * gate was a raw child count and does NOT hold now: `[[3-bad]]` with
+ * two trailing spaces is two content tokens over a strictly wider
+ * extent. Extents are not what the record is about.
+ * @param block - The block node to test.
+ * @returns The id/reftext pair its printed line spells, or undefined.
+ */
+function anchorOfLine(
+  block: BlockNode,
+): Pick<InlineAnchorNode, "id" | "reftext"> | undefined {
+  if (block.type === "blockAnchor") {
+    return block;
+  }
+  if (block.type !== "paragraph") {
+    return undefined;
+  }
+  const printed = block.children.filter((node) => !printsNothing(node));
+  if (printed.length !== 1) {
+    return undefined;
+  }
+  const [child] = printed;
+  return child.type === "inlineAnchor" ? child : undefined;
+}
+
+/**
  * What this block's printed line re-reads as, when it prints as a
  * `[[…]]` line — THE printed-anchor record, derived at ask time and
  * stored nowhere: the fact depends on the PRINTER's spelling of the
@@ -101,16 +189,35 @@ export function isBlockMetadata(block: BlockNode): boolean {
  * and a stored field would go stale the moment the serializer
  * changed.
  *
- * "anchor": the printed spelling satisfies the block-anchor grammar —
- * a blockAnchor node, or a sole-inlineAnchor paragraph whose printed
- * line passes (`[[id, ]]` prints `[[id, ]]`, which IS an anchor on
- * re-read). "lookalike": the printed spelling fails the grammar and
- * IS the author's own line — for a comma-free spelling by the
- * sole-child extent argument below, and for a comma-bearing one by
- * the serializer's verbatim arm (anchorToSource emits the captured
- * post-comma bytes whenever the author's spelling fails the grammar:
- * a rejected id, or the empty reftext of `[[id,]]`) — a TEXT line to
- * the re-reader. undefined: everything else.
+ * "anchor": the printed spelling satisfies the block-anchor grammar
+ * (`[[id, ]]` prints `[[id, ]]`, which IS an anchor on re-read).
+ * "lookalike": the printed spelling fails it and IS the author's own
+ * line, because the serializer emits the captured post-comma bytes
+ * whenever the author's spelling fails the grammar (a rejected id, or
+ * the empty reftext of `[[id,]]`) - a TEXT line to the re-reader.
+ * undefined: {@link anchorOfLine} found no printed `[[...]]` line.
+ *
+ * ONE test for BOTH node kinds. A `blockAnchor` node used to answer
+ * `"anchor"` unconditionally, on the argument that its id passed the
+ * grammar at classification and the serializer keeps a valid spelling
+ * valid; that argument is false for the trailing-whitespace family
+ * (issue #69: `[[ok]]` with two trailing spaces builds the id `ok]]`
+ * from the raw line, and the printed `[[ok]]]]` is text on re-read),
+ * and a record that judges
+ * the printed line cannot take a node kind's word for it. Asking the
+ * grammar in one place is what makes the contract hold for both.
+ *
+ * The class that moves with the whitespace has TWO arms, because the
+ * packer's split set and the reader's rstrip set overlap without
+ * containing each other. A tail in BOTH (the six ASCII whitespace
+ * characters) leaves a line the grammar already rejected, since the
+ * blanks never reach the id: `[[3-bad]]` with two trailing spaces is a
+ * lookalike, as `[[3-bad]]` is. A tail only the PACKER takes (a
+ * no-break space, a thin space, an ideographic space, a byte-order
+ * mark: issue #67's set) leaves a line the reader refused to classify
+ * as an anchor and the printer nonetheless emits as one, so `[[anc]]`
+ * with a no-break space is a paragraph that answers `"anchor"` - the
+ * one shape where a paragraph does.
  *
  * Grammar: BLOCK_ANCHOR (parse/line-shapes.ts, over
  * BLOCK_ANCHOR_SOURCE); behavior is Ruby's BlockAnchorRx (rx.rb:164),
@@ -119,16 +226,6 @@ export function isBlockMetadata(block: BlockNode): boolean {
  * and the pseudo-anchor suites. Spelling: anchorToSource — the
  * printer's own serializer, so the record judges the line the printer
  * will actually emit.
- *
- * The single child IS the whole line, and the check does not have to
- * say so: a paragraph is positioned over its content tokens
- * (`bodyExtent`, parse/build/paragraph.ts) and `buildFromTokens`
- * (parse/inline/inline-node-builder.ts) builds one node per token
- * span, so a one-child paragraph was built from one content token and
- * the two extents are the same span by construction. Anything else on
- * the line — trailing text, a trailing space, a hard break — is
- * another content token and therefore another child, which the count
- * rejects.
  * @param block - The block node to test.
  * @returns What the block's printed line re-reads as, or undefined
  *   when it does not print as a `[[…]]` line.
@@ -136,19 +233,11 @@ export function isBlockMetadata(block: BlockNode): boolean {
 export function anchorLineShape(
   block: BlockNode,
 ): "anchor" | "lookalike" | undefined {
-  if (block.type === "blockAnchor") {
-    // A blockAnchor node's id passed BLOCK_ANCHOR at classification,
-    // and the serializer's valid-id arm keeps a valid spelling valid.
-    return "anchor";
-  }
-  if (block.type !== "paragraph" || block.children.length !== 1) {
+  const anchor = anchorOfLine(block);
+  if (anchor === undefined) {
     return undefined;
   }
-  const [child] = block.children;
-  if (child.type !== "inlineAnchor") {
-    return undefined;
-  }
-  return BLOCK_ANCHOR.test(anchorToSource(child)) ? "anchor" : "lookalike";
+  return BLOCK_ANCHOR.test(anchorToSource(anchor)) ? "anchor" : "lookalike";
 }
 
 /**

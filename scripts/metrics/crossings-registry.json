@@ -840,6 +840,13 @@
     "reason": "the Prettier printer object the plugin publishes; index.ts is the process-static composition root"
   },
   {
+    "file": "src/print/reflow.ts",
+    "symbol": "splitWords",
+    "importer": "src/block-metadata.ts",
+    "kind": "vocabulary",
+    "reason": "the one split that decides what a text node contributes to a printed line, so the metadata predicates and the packer cannot disagree about which children reach the output"
+  },
+  {
     "file": "src/print/serialize-inline.ts",
     "symbol": "anchorToSource",
     "importer": "src/block-metadata.ts",

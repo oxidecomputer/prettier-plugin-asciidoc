@@ -91,12 +91,16 @@ describe("the known-issue table (issue #58, section 4.4)", () => {
     expect(await breachRows("[[3-bad]]\n\n== S\n")).toEqual([]);
   });
 
-  // #46 shape 2 is a blank-line wobble, which is OUTSIDE this net by
+  // #46 shape 2 was a blank-line wobble, which is OUTSIDE this net by
   // design (blank placement is owned by the idempotence and
   // render-equality nets - a gap-sensitive projection was measured
-  // and floods). The row is here to record that, not to pin a fix:
-  // the reading is compatible whether or not the blank wobbles.
-  test("#46 shape 2 is reading-compatible: the wobble is blank placement", async () => {
+  // and floods). The row records that boundary; the wobble itself is
+  // FIXED - the printed-line record now counts out the children the
+  // printer emits nothing for, and the pass-1 spelling and its
+  // render-equality are pinned in tests/format/block-attributes.test.ts.
+  // The reading was compatible either way, which is why it took a
+  // different net to catch it.
+  test("#46 shape 2 is reading-compatible whichever blank it takes", async () => {
     expect(await breachRows("[[3-bad]]  \n----\nfoo\n----\n")).toEqual([]);
   });
 

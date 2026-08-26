@@ -269,6 +269,153 @@ describe("pseudo-anchor lines: a `[[…]]` line that is not a block anchor", () 
     expect(await formatAdoc(output)).toBe(output);
     expect(await renderedHtml(output)).toBe(await renderedHtml(input));
   });
+
+  // Issue #46's second shape: the SAME line with trailing whitespace.
+  // The reader rstrips before classifying, so the line reads exactly
+  // as it does without the blanks - but a paragraph's inline body is a
+  // source SLICE that ends at the raw line's end
+  // (src/parse/lines/paragraph-reader.ts), so the stripped blanks come
+  // back as a second child that prints nothing. The stacking record
+  // counted CHILDREN, found two, and the printer wrote a blank line
+  // that pass 2 took straight back out - a pure idempotency wobble,
+  // since the blank changes nothing about how the pair renders. The
+  // record now asks what the printer will EMIT (`anchorLineShape`,
+  // src/block-metadata.ts), so pass 1 is the fixed point.
+  //
+  // One row per block the anchor can sit above, because the wobble
+  // needs a following block that does NOT merge with an anchor: a
+  // paragraph reflows onto the anchor's own line instead, and the
+  // blank-keeping arms are pinned below.
+  test.each([
+    ["a listing block", "----\nx\n----\n"],
+    ["an example block", "====\nx\n====\n"],
+    ["an open block", "--\nx\n--\n"],
+    ["a table", "|===\n|a\n|===\n"],
+    ["an attribute line above a block", "[source]\n----\nx\n----\n"],
+  ])("a rejected id with trailing blanks stacks above %s", async (_n, rest) => {
+    const input = `[[3-bad]]  \n${rest}`;
+    const output = await formatAdoc(input);
+    expect(output).toBe(`[[3-bad]]\n${rest}`);
+    expect(await formatAdoc(output)).toBe(output);
+    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
+  });
+
+  // The tail is whatever the rstrip took, and the rstrip set is the
+  // six ASCII whitespace characters: tab, vertical tab and form feed
+  // are in it exactly as the space is, which is what pins that the
+  // packer's split and the reader's rstrip agree on those six. The
+  // reftext form's bytes still replay verbatim, and so does the
+  // serializer's empty-reftext arm, whose spelling the record's own
+  // doc comment names.
+  test.each([
+    ["a tab", "[[3-bad]]\t\n----\nx\n----\n", "[[3-bad]]\n----\nx\n----\n"],
+    [
+      "a vertical tab",
+      "[[3-bad]]\v\n----\nx\n----\n",
+      "[[3-bad]]\n----\nx\n----\n",
+    ],
+    [
+      "a form feed",
+      "[[3-bad]]\f\n----\nx\n----\n",
+      "[[3-bad]]\n----\nx\n----\n",
+    ],
+    [
+      "a reftext the grammar rejects",
+      "[[3-bad,Ref]]  \n----\nx\n----\n",
+      "[[3-bad,Ref]]\n----\nx\n----\n",
+    ],
+    [
+      "an empty reftext",
+      "[[id,]] \n----\nx\n----\n",
+      "[[id,]]\n----\nx\n----\n",
+    ],
+  ])("%s after the line stacks too", async (_n, input, expected) => {
+    const output = await formatAdoc(input);
+    expect(output).toBe(expected);
+    expect(await formatAdoc(output)).toBe(output);
+    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
+  });
+
+  // The two arms that KEEP the blank line take the trailing-blank
+  // spelling exactly as they take the bare one: a paragraph would
+  // merge into the anchor on re-read, and a heading stacked under a
+  // paragraph that prints `[[...]]` re-parses as one joined line. Both
+  // were already stable before the fix; they are pinned here so
+  // widening the record cannot quietly switch them off.
+  test.each([
+    ["a paragraph", "[[3-bad]]  \n\npara\n", "[[3-bad]]\n\npara\n"],
+    ["a section heading", "[[3-bad]]  \n\n== S\n", "[[3-bad]]\n\n== S\n"],
+  ])(
+    "the blank line before %s survives the trailing blanks",
+    async (_n, input, expected) => {
+      const output = await formatAdoc(input);
+      expect(output).toBe(expected);
+      expect(await formatAdoc(output)).toBe(output);
+      expect(await renderedHtml(output)).toBe(await renderedHtml(input));
+    },
+  );
+
+  // A character the rstrip does NOT take is content, and the printer's
+  // own word split is what decides: a NUL survives it, so the line the
+  // re-reader sees is `[[3-bad]]` plus a NUL - text, not an anchor
+  // line - and the blank line stays. (A no-break space is the opposite
+  // case and belongs to issue #67, not here: the packer drops it from
+  // the output while the reader keeps it.)
+  test("a NUL after the line is content, and keeps the blank", async () => {
+    const nul = String.fromCodePoint(0);
+    const input = `[[3-bad]]${nul}\n----\nx\n----\n`;
+    const output = await formatAdoc(input);
+    expect(output).toBe(`[[3-bad]]${nul}\n\n----\nx\n----\n`);
+    expect(await formatAdoc(output)).toBe(output);
+    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
+  });
+
+  // The other arm of the same class, and the one shape in the tree
+  // where a PARAGRAPH prints a live block anchor. The tail is in the
+  // packer's split set but NOT in the reader's rstrip set, so the
+  // reader refused to classify the line as an anchor (it is a
+  // paragraph whose id is perfectly valid) and the packer erases the
+  // tail on the way out - and the line the re-reader sees IS an
+  // anchor. Pass 1 is the fixed point either way; what moved is that
+  // it used to gain a blank line and lose it again on pass 2.
+  //
+  // NO render check: the packer's erasure of the tail character is
+  // issue #67's recorded gap (the reader keeps it, the oracle keeps
+  // it, the output does not), and it predates this record. Pinning
+  // bytes and idempotence is what belongs to this suite.
+  test.each([
+    ["a no-break space", "\u00A0"],
+    ["a thin space", "\u2009"],
+    ["an ideographic space", "\u3000"],
+    ["a byte-order mark", "\uFEFF"],
+  ])("%s after a VALID id prints a live anchor line", async (_n, tail) => {
+    const input = `[[anc]]${tail}\n----\nx\n----\n`;
+    const output = await formatAdoc(input);
+    expect(output).toBe("[[anc]]\n----\nx\n----\n");
+    expect(await formatAdoc(output)).toBe(output);
+  });
+
+  // The `blockAnchor` node's own arm, after it was made to ask the
+  // grammar the way the paragraph arm does. `[[ok]]` plus two spaces
+  // parses to a blockAnchor whose id is `ok]]` - issue #69, where the
+  // builder slices the RAW line - so the printed line is `[[ok]]]]`,
+  // which is TEXT on re-read and which the record now calls a
+  // lookalike instead of asserting an anchor about.
+  //
+  // What that did NOT do is settle the bytes: every consumer of the
+  // record reaches a blockAnchor node through `isBlockMetadata` first,
+  // which answers on the node KIND and short-circuits, so pass 1 is
+  // unchanged and still not the fixed point. Measured and pinned as
+  // it stands, with no render check: both faults are #69's, and this
+  // row is what will fail when #69 lands and force it to be rewritten.
+  test("issue #69's corrupted anchor is a lookalike, and still wobbles", async () => {
+    const input = "[[ok]]  \n----\nx\n----\n";
+    const pass1 = await formatAdoc(input);
+    expect(pass1).toBe("[[ok]]]]\n----\nx\n----\n");
+    const pass2 = await formatAdoc(pass1);
+    expect(pass2).toBe("[[ok]]]]\n\n----\nx\n----\n");
+    expect(await formatAdoc(pass2)).toBe(pass2);
+  });
 });
 
 // ONE spacing rule for every bracket interior Asciidoctor hands to

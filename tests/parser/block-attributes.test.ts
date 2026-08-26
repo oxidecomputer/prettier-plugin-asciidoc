@@ -367,4 +367,56 @@ describe("anchorLineShape: the printed-line record", () => {
     const [block] = parse("para\n").children;
     expect(anchorLineShape(block)).toBeUndefined();
   });
+
+  // Issue #46 shape 2. A rejected-id line with TRAILING WHITESPACE
+  // parses to two children - the anchor and the blanks the paragraph's
+  // source slice keeps past the rstrip - and the record is about the
+  // PRINTED line, which the blanks never reach. A child count alone
+  // answered undefined here, and the printer then wrote a blank line
+  // its own second pass removed.
+  test.each([
+    ["two spaces", "[[3-bad]]  "],
+    ["a tab", "[[3-bad]]\t"],
+    ["a rejected reftext and two spaces", "[[3-bad,Ref]]  "],
+    ["an empty reftext and a space", "[[id,]] "],
+  ] as const)("%s after the line still reads lookalike", (_n, line) => {
+    const [block] = parse(`${line}\n`).children;
+    expect(anchorLineShape(block)).toBe("lookalike");
+  });
+
+  // The complement: a trailing character the PRINTER keeps is content,
+  // so the printed line is not a `[[...]]` line at all. A NUL is
+  // outside both the reader's rstrip set and the packer's word split.
+  test("a trailing NUL answers undefined", () => {
+    const [block] = parse(`[[3-bad]]${String.fromCodePoint(0)}\n`).children;
+    expect(anchorLineShape(block)).toBeUndefined();
+  });
+
+  // The one shape in the tree where a PARAGRAPH answers "anchor". The
+  // tail is in the packer's word split but not in the reader's rstrip
+  // set, so the reader refused the line as a block anchor - it stays a
+  // paragraph - while the printer erases the tail and emits a line
+  // that IS one. Both halves of the class are pinned: the six ASCII
+  // whitespace characters above, which leave a rejected id rejected,
+  // and these four, which make an accepted id live again.
+  test.each([
+    ["a no-break space", "\u00A0"],
+    ["a thin space", "\u2009"],
+    ["an ideographic space", "\u3000"],
+    ["a byte-order mark", "\uFEFF"],
+  ] as const)("%s after a valid id reads anchor", (_n, tail) => {
+    const [block] = parse(`[[anc]]${tail}\n`).children;
+    expect(block.type).toBe("paragraph");
+    expect(anchorLineShape(block)).toBe("anchor");
+  });
+
+  // The `blockAnchor` arm asks the grammar too, rather than taking a
+  // node kind's word for the printed line. `[[ok]]` plus two spaces
+  // builds the id `ok]]` (issue #69: the builder slices the RAW line),
+  // whose printed spelling `[[ok]]]]` is text on re-read.
+  test("a blockAnchor whose printed line fails the grammar is a lookalike", () => {
+    const [block] = parse("[[ok]]  \n").children;
+    expect(block.type).toBe("blockAnchor");
+    expect(anchorLineShape(block)).toBe("lookalike");
+  });
 });
