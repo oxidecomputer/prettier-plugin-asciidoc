@@ -128,8 +128,18 @@ function pattern(regex: RegExp): InlineRule["match"] {
 // spellings cannot drift (they had: `footnoteref|footnote` here,
 // `footnote(?:ref)?` there — same language, two dialects).
 // `footnoteref` precedes `footnote` so the longer name wins.
+//
+// `icon` sits beside `image`: rx.rb l.476-486's InlineImageMacroRx is
+// `i(?:mage|con):...`, one pattern for both names, and its target
+// group has no leading boundary either - `microicon:x[]` matches from
+// the `icon:` onward the same way `Textfootnote:[x]` matches from the
+// `footnote:` onward (verified against the oracle).
+//
+// `stem` is InlineStemMacroRx (rx.rb l.543-551), which also covers
+// `asciimath`/`latexmath` - out of scope here (issue #19 asks for
+// `stem:` only), so only `stem` is added.
 const MACRO_NAMES =
-  "link|mailto|xref|image|kbd|btn|menu|footnoteref|footnote|pass";
+  "link|mailto|xref|image|icon|kbd|btn|menu|footnoteref|footnote|pass|stem";
 
 // A bare email address - InlineEmailRx, which our ORACLE,
 // `@asciidoctor/core` 4.0.11, spells at `build/node/index.cjs` l.518 as

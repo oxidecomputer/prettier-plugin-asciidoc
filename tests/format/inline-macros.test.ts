@@ -96,6 +96,34 @@ describe("footnote macro — format output", () => {
   });
 });
 
+// -- Icon macro ----------------------------------------------
+
+describe("icon macro - format output", () => {
+  test("icon with empty brackets is preserved", async () => {
+    const input = "icon:heart[]\n";
+    expect(await formatAdoc(input)).toBe("icon:heart[]\n");
+  });
+
+  test("icon with size attribute is preserved", async () => {
+    const input = "icon:heart[2x]\n";
+    expect(await formatAdoc(input)).toBe("icon:heart[2x]\n");
+  });
+
+  test("icon in text is preserved", async () => {
+    const input = "Click the icon:heart[] to save it.\n";
+    expect(await formatAdoc(input)).toBe(
+      "Click the icon:heart[] to save it.\n",
+    );
+  });
+
+  test("icon output is stable across a second format pass", async () => {
+    const input = "Click the icon:heart[] to save it.\n";
+    const once = await formatAdoc(input);
+    const twice = await formatAdoc(once);
+    expect(twice).toBe(once);
+  });
+});
+
 // ── Pass macro ──────────────────────────────────────────────
 
 describe("pass macro — format output", () => {
@@ -112,5 +140,36 @@ describe("pass macro — format output", () => {
   test("pass with empty content is preserved", async () => {
     const input = "pass:[]\n";
     expect(await formatAdoc(input)).toBe("pass:[]\n");
+  });
+});
+
+// -- STEM macro ----------------------------------------------
+
+describe("stem macro - format output", () => {
+  test("stem expression is preserved", async () => {
+    const input = "stem:[x < y]\n";
+    expect(await formatAdoc(input)).toBe("stem:[x < y]\n");
+  });
+
+  // The formatting characters inside the expression must not be
+  // reinterpreted as bold/italic/etc. marks by the printer either -
+  // the atomic macro token round-trips the bracket body byte for byte.
+  test("formatting characters inside stem are not reinterpreted", async () => {
+    const input = "stem:[a**b**]\n";
+    expect(await formatAdoc(input)).toBe("stem:[a**b**]\n");
+  });
+
+  test("stem mid-paragraph is preserved", async () => {
+    const input = "Given the equation stem:[x < y] we conclude.\n";
+    expect(await formatAdoc(input)).toBe(
+      "Given the equation stem:[x < y] we conclude.\n",
+    );
+  });
+
+  test("stem output is stable across a second format pass", async () => {
+    const input = "Given the equation stem:[x < y] we conclude.\n";
+    const once = await formatAdoc(input);
+    const twice = await formatAdoc(once);
+    expect(twice).toBe(once);
   });
 });

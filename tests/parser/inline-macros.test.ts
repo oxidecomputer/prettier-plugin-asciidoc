@@ -1,6 +1,6 @@
 /**
- * Parser tests for inline macros: image, kbd, btn, menu,
- * footnote, footnoteref, and pass. Verifies that the inline
+ * Parser tests for inline macros: image, icon, kbd, btn, menu,
+ * footnote, footnoteref, pass, and stem. Verifies that the inline
  * parser produces the correct InlineMacroNode for each type.
  */
 import { describe, test, expect } from "vitest";
@@ -196,6 +196,73 @@ describe("footnote macro", () => {
   });
 });
 
+// -- Icon macro ----------------------------------------------
+
+describe("icon macro", () => {
+  test("icon:name[] -> inlineMacro node", () => {
+    const nodes = inlineNodes("icon:heart[]\n");
+    expect(nodes).toHaveLength(1);
+    const [node0] = nodes;
+    narrow(node0, "inlineMacro");
+    expect(node0.name).toBe("icon");
+    expect(node0.target).toBe("heart");
+    expect(node0.attrlist).toBe("");
+  });
+
+  test("icon with size attribute", () => {
+    const nodes = inlineNodes("icon:heart[2x]\n");
+    expect(nodes).toHaveLength(1);
+    const [node0] = nodes;
+    narrow(node0, "inlineMacro");
+    expect(node0.name).toBe("icon");
+    expect(node0.target).toBe("heart");
+    expect(node0.attrlist).toBe("2x");
+  });
+
+  test("icon in surrounding text", () => {
+    const nodes = inlineNodes("Click the icon:heart[] to save it.\n");
+    expect(nodes).toHaveLength(3);
+    const [node0, node1, node2] = nodes;
+    narrow(node0, "text");
+    narrow(node1, "inlineMacro");
+    narrow(node2, "text");
+    expect(node0.value).toBe("Click the ");
+    expect(node1.name).toBe("icon");
+    expect(node1.target).toBe("heart");
+    expect(node1.attrlist).toBe("");
+    expect(node2.value).toBe(" to save it.");
+  });
+
+  test("icon adjacent to punctuation", () => {
+    const nodes = inlineNodes("A icon:heart[], then more.\n");
+    expect(nodes).toHaveLength(3);
+    const [node0, node1, node2] = nodes;
+    narrow(node0, "text");
+    narrow(node1, "inlineMacro");
+    narrow(node2, "text");
+    expect(node1.name).toBe("icon");
+    expect(node1.target).toBe("heart");
+    expect(node2.value).toBe(", then more.");
+  });
+
+  // Ruby's InlineImageMacroRx (`i(?:mage|con):...`) carries no leading
+  // boundary, so `icon:` matches wherever it starts, even mid-word -
+  // the same way `footnote:` does in `Textfootnote:[x]` below. Verified
+  // against the oracle: `microicon:x[]` renders
+  // `micro<span class="icon">...`.
+  test("icon matches mid-word, like footnote", () => {
+    const nodes = inlineNodes("microicon:x[]\n");
+    expect(nodes).toHaveLength(2);
+    const [node0, node1] = nodes;
+    narrow(node0, "text");
+    narrow(node1, "inlineMacro");
+    expect(node0.value).toBe("micro");
+    expect(node1.name).toBe("icon");
+    expect(node1.target).toBe("x");
+    expect(node1.attrlist).toBe("");
+  });
+});
+
 // ── Pass macro ──────────────────────────────────────────────
 
 describe("pass macro", () => {
@@ -226,5 +293,69 @@ describe("pass macro", () => {
     narrow(node0, "inlineMacro");
     expect(node0.name).toBe("pass");
     expect(node0.attrlist).toBe("");
+  });
+});
+
+// -- STEM macro ----------------------------------------------
+
+describe("stem macro", () => {
+  test("stem:[expression] -> inlineMacro node", () => {
+    const nodes = inlineNodes("stem:[x < y]\n");
+    expect(nodes).toHaveLength(1);
+    const [node0] = nodes;
+    narrow(node0, "inlineMacro");
+    expect(node0.name).toBe("stem");
+    expect(node0.target).toBe("");
+    expect(node0.attrlist).toBe("x < y");
+  });
+
+  // Formatting characters inside the expression are not inline marks
+  // (verified against the oracle: `stem:[a**b**]` renders `$a**b**$`,
+  // the `**` untouched) - the whole bracketed body is the macro's
+  // attrlist, one token, not text the mark rules can see into.
+  test("formatting characters inside stem survive as literal text", () => {
+    const nodes = inlineNodes("stem:[a**b**]\n");
+    expect(nodes).toHaveLength(1);
+    const [node0] = nodes;
+    narrow(node0, "inlineMacro");
+    expect(node0.name).toBe("stem");
+    expect(node0.attrlist).toBe("a**b**");
+  });
+
+  test("stem mid-paragraph", () => {
+    const nodes = inlineNodes("Given the equation stem:[x < y] we conclude.\n");
+    expect(nodes).toHaveLength(3);
+    const [node0, node1, node2] = nodes;
+    narrow(node0, "text");
+    narrow(node1, "inlineMacro");
+    narrow(node2, "text");
+    expect(node0.value).toBe("Given the equation ");
+    expect(node1.name).toBe("stem");
+    expect(node1.attrlist).toBe("x < y");
+    expect(node2.value).toBe(" we conclude.");
+  });
+
+  test("stem adjacent to punctuation", () => {
+    const nodes = inlineNodes("See stem:[a+b], next.\n");
+    expect(nodes).toHaveLength(3);
+    const [node0, node1, node2] = nodes;
+    narrow(node0, "text");
+    narrow(node1, "inlineMacro");
+    narrow(node2, "text");
+    expect(node1.name).toBe("stem");
+    expect(node1.attrlist).toBe("a+b");
+    expect(node2.value).toBe(", next.");
+  });
+
+  // `stem:` with a space before the bracket is not a macro at all -
+  // the pattern requires the `[` immediately after the target, and
+  // `[^\s\[]*` cannot cross the space. Verified against the oracle:
+  // "stem: not a macro" renders unchanged, as plain text.
+  test("stem: followed by a space is plain text, not a macro", () => {
+    const nodes = inlineNodes("stem: not a macro\n");
+    expect(nodes).toHaveLength(1);
+    const [node0] = nodes;
+    narrow(node0, "text");
+    expect(node0.value).toBe("stem: not a macro");
   });
 });
