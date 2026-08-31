@@ -403,6 +403,7 @@ export const AST_KIND_CENSUS: ReadonlyMap<string, string> = new Map([
   ["italic", "inline, out of scope"],
   ["monospace", "inline, out of scope"],
   ["highlight", "inline, out of scope"],
+  ["curvedQuote", "inline, out of scope"],
   ["attributeReference", "inline, out of scope"],
   ["link", "inline, out of scope"],
   ["xref", "inline, out of scope"],

@@ -62,7 +62,7 @@
       "mutation": 100.0
     },
     "src/parse/inline/inline-node-builder.ts": {
-      "coverage": 98.1,
+      "coverage": 100.0,
       "mutation": 86.9
     },
     "src/parse/inline/passthrough.ts": {
