@@ -205,6 +205,22 @@ describe("list continuation formatting", () => {
     expect(await formatAdoc(result, { printWidth: 14 })).toBe(result);
   });
 
+  // The same rule OUTSIDE a monospace span, on the ordinary
+  // (non-literal) text path: `code` above went through
+  // appendLiteralText once #32 gave monospace content its own atom
+  // path, which had stopped exercising the "space" glue arm of
+  // src/print/inline.ts's trailingBoundary (a dangling `+` glued
+  // forward to a following sibling). This row has no backticks, so
+  // it stays on appendText and keeps that arm covered.
+  test("plus outside a span never lands at end of line", async () => {
+    const input = "words code + {attr} after\n";
+    const result = await formatAdoc(input, { printWidth: 14 });
+    for (const outputLine of result.trimEnd().split("\n")) {
+      expect(outputLine).not.toMatch(/ \+$/v);
+    }
+    expect(await formatAdoc(result, { printWidth: 14 })).toBe(result);
+  });
+
   // A bare `+` word inside an attached paragraph must survive
   // narrow-width reflow without becoming continuation syntax or
   // a hard break.

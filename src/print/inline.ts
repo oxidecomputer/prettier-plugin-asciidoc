@@ -35,16 +35,21 @@ import {
 import {
   atomOf,
   type Atom,
-  type BreakBefore,
   isBlockSyntaxAtLineStart,
   splitWords,
   wordsToAtoms,
 } from "./reflow.js";
 import {
-  type BlockStartCursor,
   hazardAtBlockStart,
   keepBlockStartBreak,
 } from "./block-start-hazard.js";
+import {
+  strongerBoundary,
+  withBoundary,
+  type Boundary,
+  type Cursor,
+} from "./atom-join.js";
+import { appendLiteralText, spanIsFlush } from "./literal-span.js";
 
 // Whether a text node's FIRST character is a source separator standing
 // between it and the previous inline sibling. ASCII only (see
@@ -81,82 +86,6 @@ const LINE_START_BEFORE_BREAK = /\n[ \t]*$/v;
 // fusing. (Nested lists are not inline siblings — an item's `text`
 // holds inline nodes only; its blocks print elsewhere.)
 const OWN_LINE_SIBLINGS = new Set(["rawLine"]);
-
-/**
- * The join between the atom just emitted and the next one.
- *
- * `"glue"` fuses with no space, `"space"` puts a space there but forbids
- * a break, `"break"` is an ordinary breakable space, and `"literal"` is
- * a mandatory break that opens its line at column 0. They are RANKED:
- * when two nodes each ask for a join, the stronger one stands — which is
- * how a raw line's mandatory break survives a neighbour's whitespace
- * asking only for a breakable space.
- */
-type Boundary = "glue" | "space" | "break" | "literal";
-
-// Weakest join first: a later index outranks an earlier one.
-const BOUNDARY_ORDER: readonly Boundary[] = [
-  "glue",
-  "space",
-  "break",
-  "literal",
-];
-
-/**
- * The stronger of two joins.
- * @param left - the join already standing.
- * @param right - the join being asked for.
- * @returns whichever ranks higher.
- */
-function strongerBoundary(left: Boundary, right: Boundary): Boundary {
-  return BOUNDARY_ORDER.indexOf(right) > BOUNDARY_ORDER.indexOf(left)
-    ? right
-    : left;
-}
-
-/**
- * Stamp a join onto an atom. The atom's OWN break demand survives a
- * non-breaking join: a description-list hazard word that opens a
- * formatting span still demands its break, and {@link wrap} lifts the
- * demand to the front of the run the span belongs to.
- * @param atom - the atom the join lands on.
- * @param boundary - the join.
- * @returns the atom carrying it.
- */
-function withBoundary(atom: Atom, boundary: Boundary): Atom {
-  const breakBefore: BreakBefore =
-    boundary === "literal" ? "literal" : atom.breakBefore;
-  return {
-    ...atom,
-    glueLeft: boundary === "glue",
-    noBreakBefore: boundary === "space",
-    breakBefore,
-  };
-}
-
-/**
- * Where a node sits among its inline siblings, and in which block:
- * what the block-start hazard net reads ({@link BlockStartCursor}),
- * plus the block's source start line, which only the dlist
- * first-line guard reads.
- */
-interface Cursor extends BlockStartCursor {
-  /** 1-based source line the enclosing BLOCK starts on. */
-  readonly blockStartLine: number;
-  /**
-   * The span this node is the content of, when it is one - narrower
-   * than {@link BlockStartCursor}'s `InlineNode | undefined` so a span
-   * question (rowKeyOf, delimitersOf) can be asked of it directly.
-   */
-  readonly enclosing: SpanNode | undefined;
-  /**
-   * The block's top-level inline children. A constrained spelling
-   * exposes its marks to a pass that scans the whole LINE, so the
-   * stray-mark question is about the block and not about the span's
-   * siblings - see {@link constrainedIsLegal}.
-   */
-  readonly blockNodes: readonly InlineNode[];
-}
 
 /**
  * Check whether the node at `cursor` is followed by a sibling
@@ -680,11 +609,15 @@ function appendSpan(
   cursor: Cursor,
   node: SpanNode,
 ): Boundary {
+  // A monospace ancestor - this node or an outer one - makes every
+  // BYTE of the content CONTENT: see Cursor.literalInterior.
+  const literalInterior = cursor.literalInterior || node.type === "monospace";
   const { atoms: inner, trailing } = collectAtoms(node.children, {
     blockStartLine: cursor.blockStartLine,
     enclosing: node,
     blockNodes: cursor.blockNodes,
     blockAtColumnZero: false,
+    literalInterior,
   });
   // The span's own whitespace lives INSIDE its marks: content whitespace
   // at either edge is a space in the output, never a break, because the
@@ -693,6 +626,7 @@ function appendSpan(
   // asked for, and `trailing` is the join the last one left behind.
   const openSpace = inner.length > 0 && inner[0].glueLeft ? "" : " ";
   const closeSpace = trailing === "glue" ? "" : " ";
+  const flush = spanIsFlush(literalInterior, inner, openSpace, closeSpace);
   const { open, close } =
     node.type === "curvedQuote"
       ? curvedQuoteMarks(node)
@@ -700,7 +634,7 @@ function appendSpan(
           node,
           node.constrained ||
             constrainedIsLegal(node, cursor, {
-              flush: openSpace === "" && closeSpace === "",
+              flush,
               texts: inner.map((atom) => atom.text),
             }),
         );
@@ -974,7 +908,9 @@ function appendNode(out: Atom[], boundary: Boundary, cursor: Cursor): Boundary {
   const node = cursor.siblings[cursor.index];
   switch (node.type) {
     case "text": {
-      return appendText(out, boundary, cursor, node);
+      return cursor.literalInterior
+        ? appendLiteralText(out, boundary, cursor, node)
+        : appendText(out, boundary, cursor, node);
     }
     case "bold":
     case "italic":
@@ -1019,6 +955,8 @@ interface RunContext {
   readonly blockNodes: readonly InlineNode[];
   /** Whether the block's first atom opens its line at column 0. */
   readonly blockAtColumnZero: boolean;
+  /** See {@link Cursor.literalInterior}; carried into every cursor the run builds. */
+  readonly literalInterior: boolean;
 }
 
 /**
@@ -1065,6 +1003,7 @@ export function inlineAtoms(
     enclosing: undefined,
     blockNodes: nodes,
     blockAtColumnZero,
+    literalInterior: false,
   });
   if (blockAtColumnZero && nodes.length > 0) keepBlockStartBreak(atoms, nodes);
   return atoms;

@@ -264,6 +264,75 @@ export function splitWords(value: string): string[] {
   return value.split(ASCII_WHITESPACE_RUN).filter((word) => word.length > 0);
 }
 
+// A run of whitespace containing at least one LINE BREAK - the
+// boundary splitPreservingSpaces cuts on, as opposed to splitWords'
+// ASCII_WHITESPACE_RUN, which cuts on ANY whitespace run. `\n` is
+// itself inside ASCII_WHITESPACE, so the trailing quantifier already
+// absorbs a run of several newlines and the spaces between them; only
+// the leading quantifier is needed to reach back over indentation
+// BEFORE the break.
+const LINE_BREAK_RUN = new RegExp(
+  String.raw`${ASCII_WHITESPACE.source}*\n${ASCII_WHITESPACE.source}*`,
+  "v",
+);
+
+// The front and back halves of LINE_BREAK_RUN, anchored, for
+// leadsWithLineBreak/trailsWithLineBreak: whether a text node's OWN
+// edge run (as opposed to the run between two nodes) contains the
+// break rather than plain horizontal whitespace.
+const LEADING_LINE_BREAK = new RegExp(
+  String.raw`^${ASCII_WHITESPACE.source}*\n`,
+  "v",
+);
+const TRAILING_LINE_BREAK = new RegExp(
+  String.raw`\n${ASCII_WHITESPACE.source}*$`,
+  "v",
+);
+
+/**
+ * Split raw text into byte-preserving chunks: cut only where a LINE
+ * BREAK stood, never on an interior run of plain spaces or tabs. The
+ * byte-preserving counterpart to {@link splitWords}, for content
+ * Asciidoctor renders exactly as written - a monospace span's
+ * interior spacing is content, not prose to reflow (issue #32,
+ * measured: `` `a  b` `` renders `<code>a  b</code>`, both spaces
+ * kept). A line break still folds to one breakable join, same as
+ * ordinary reflowed text: Asciidoctor copies a line break inside an
+ * inline code span into the rendered element just as it does outside
+ * one, so moving it is not a meaning change - only an interior SPACE
+ * RUN is.
+ * @param value - Raw source text, or a prefix of it.
+ * @returns The chunks, in order; empty only where `value` held
+ *   nothing but a line-break run.
+ */
+export function splitPreservingSpaces(value: string): string[] {
+  return value.split(LINE_BREAK_RUN).filter((chunk) => chunk.length > 0);
+}
+
+/**
+ * Whether `value`'s LEADING whitespace run - if any - contains a line
+ * break. Pure leading spaces or tabs answer false: splitPreservingSpaces
+ * bakes them into its first chunk instead of treating them as a join,
+ * so the caller must not also ask the packer to insert one there.
+ * @param value - Raw source text.
+ * @returns Whether the run splitPreservingSpaces would cut at the
+ *   front of `value` contains a line break.
+ */
+export function leadsWithLineBreak(value: string): boolean {
+  return LEADING_LINE_BREAK.test(value);
+}
+
+/**
+ * Whether `value`'s TRAILING whitespace run - if any - contains a line
+ * break. Mirrors {@link leadsWithLineBreak} at the trailing edge.
+ * @param value - Raw source text.
+ * @returns Whether the run splitPreservingSpaces would cut at the end
+ *   of `value` contains a line break.
+ */
+export function trailsWithLineBreak(value: string): boolean {
+  return TRAILING_LINE_BREAK.test(value);
+}
+
 // ── Detection ──────────────────────────────────────────────
 
 // The lone `+`. Both reflow safety rules name it: at column 0 it is a

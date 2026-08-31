@@ -450,6 +450,13 @@
   {
     "file": "src/parse/line-shapes.ts",
     "symbol": "ASCII_WHITESPACE",
+    "importer": "src/print/literal-span.ts",
+    "kind": "vocabulary",
+    "reason": "Vocabulary consistency with splitWords/wordsToAtoms (reflow.ts), which the monospace byte-level flush test (edgeIsWhitespace, issue #32) sits beside and shares an ASCII-only whitespace definition with - NOT a correctness benefit for this specific question. Measured: a no-break space (U+00A0) at a span's edge IS whitespace under the pinned oracle's own `\\S` (Asciidoctor.js is Opal-transpiled, so its constrained content group runs on JavaScript's wider `\\s`), so the ASCII-only read at this one call site under-detects it - `` A ``<nbsp>ab`` in it. `` wrongly shortens to `` A `<nbsp>ab` in it. ``, which the oracle then refuses beside the mark and reads as literal text. NOT a regression: the same divergence already exists on the ordinary (non-monospace) mark-span path, unaffected by this crossing, so it is a pre-existing whole-family gap (issue #75 territory) this one crossing does not introduce and is not the place to fix"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "ASCII_WHITESPACE",
     "importer": "src/print/reflow.ts",
     "kind": "vocabulary",
     "reason": "Ruby's `\\s`, so splitWords cannot read a no-break space as a word separator the way JavaScript's wider `\\s` would (issue #75)"
