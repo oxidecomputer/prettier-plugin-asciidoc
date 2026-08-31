@@ -22,6 +22,7 @@ import type {
   ParentBlockNode,
 } from "../ast.js";
 import { canonicalAttrlist } from "../parse/attrlist.js";
+import { ASCII_NON_WHITESPACE } from "../parse/line-shapes.js";
 import {
   MARKER_OFFSET,
   MIN_DELIMITER_LENGTH,
@@ -84,10 +85,13 @@ export function printComment(node: {
     return "//";
   }
   // Block comment: delimiters on their own lines, content verbatim.
-  // Use trim() to detect whitespace-only content: Prettier strips
-  // trailing whitespace per line, so "     " would become a blank
-  // line that re-parses as an empty comment, breaking idempotency.
-  if (node.value.trim().length > 0) {
+  // Detect whitespace-only content by Ruby's definition of blank
+  // (ASCII_NON_WHITESPACE, issue #75), not trim()'s wider one: Prettier
+  // strips trailing ASCII whitespace per line, so "     " would become
+  // a blank line that re-parses as an empty comment, breaking
+  // idempotency - but a line holding only a no-break space is not
+  // blank to Asciidoctor, and trim() alone would drop it here.
+  if (ASCII_NON_WHITESPACE.test(node.value)) {
     const contentLines = node.value.split("\n");
     return ["////", hardline, join(hardline, contentLines), hardline, "////"];
   }
@@ -295,11 +299,13 @@ export function printDelimitedBlock(
         : ["[", canonicalAttrlist(`source,${node.language}`), "]", hardline];
   }
 
-  // Use trim() to detect whitespace-only content: Prettier strips
-  // trailing whitespace per line, so all-whitespace content would
-  // become blank lines that re-parse as an empty block, breaking
-  // idempotency.
-  if (node.content.trim().length > 0) {
+  // Detect whitespace-only content by Ruby's definition of blank
+  // (ASCII_NON_WHITESPACE, issue #75), not trim()'s wider one: Prettier
+  // strips trailing ASCII whitespace per line, so all-whitespace
+  // content would become blank lines that re-parse as an empty block,
+  // breaking idempotency - but a no-break space is not blank to
+  // Asciidoctor, and trim() alone would drop that content here.
+  if (ASCII_NON_WHITESPACE.test(node.content)) {
     const contentLines = node.content.split("\n");
     return [
       ...prefix,

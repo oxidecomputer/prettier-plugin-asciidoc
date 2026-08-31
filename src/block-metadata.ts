@@ -117,9 +117,9 @@ export function isBlockMetadata(block: BlockNode): boolean {
  * (`splitWords`, print/reflow.ts): every atom a text node becomes is
  * one of those words, so a value they find no word in reaches no
  * output line. Asking the packer rather than restating a whitespace
- * class is what keeps the two from drifting: the split's set is
- * wider than the reader's rstrip (issue #67: a no-break space is
- * content to the reader and nothing to the packer), and the printed
+ * class is what keeps the two from drifting - and since issue #75,
+ * splitWords' set IS the reader's rstrip set (both are Ruby's ASCII-only
+ * `\s`), so a no-break space is content to both or neither; the printed
  * line is what this module's records are about.
  *
  * "Only text" is a CLOSURE over the InlineNode union, checked kind by
@@ -217,17 +217,26 @@ function anchorOfLine(
  * the printed line cannot take a node kind's word for it. Asking the
  * grammar in one place is what makes the contract hold for both.
  *
- * The class that moves with the whitespace has TWO arms, because the
- * packer's split set and the reader's rstrip set overlap without
- * containing each other. A tail in BOTH (the six ASCII whitespace
- * characters) leaves a line the grammar already rejected, since the
+ * The class that moves with the whitespace used to have TWO arms,
+ * before issue #75, because the packer's split set was wider than the
+ * reader's rstrip set (JavaScript's `\s` against Ruby's ASCII-only
+ * one). A tail in the reader's rstrip set (the six ASCII whitespace
+ * characters) leaves a line the grammar already rejects, since the
  * blanks never reach the id: `[[3-bad]]` with two trailing spaces is a
- * lookalike, as `[[3-bad]]` is. A tail only the PACKER takes (a
- * no-break space, a thin space, an ideographic space, a byte-order
- * mark: issue #67's set) leaves a line the reader refused to classify
- * as an anchor and the printer nonetheless emits as one, so `[[anc]]`
- * with a no-break space is a paragraph that answers `"anchor"` - the
- * one shape where a paragraph does.
+ * lookalike, as `[[3-bad]]` is. A tail the packer used to erase but the
+ * reader kept (a no-break space, a thin space, an ideographic space, a
+ * byte-order mark) used to leave a line the reader refused to classify
+ * as an anchor while the printer nonetheless emitted one - the one
+ * shape where a paragraph answered `"anchor"`. splitWords is ASCII-only
+ * now, so that second arm is gone: every such tail is content to BOTH
+ * the reader and the packer, and the block-attributes suites'
+ * "a trailing %s answers undefined" (tests/parser/block-attributes.test.ts)
+ * and "a trailing %s is content, and keeps the blank"
+ * (tests/format/block-attributes.test.ts) rows pin the unified answer
+ * over the already-rejected `[[3-bad]]` id; the VALID-id shape
+ * (`[[anc]]` plus the same tail) is pinned separately, in
+ * tests/format/whitespace-nbsp.test.ts and
+ * tests/parser/block-attributes.test.ts's own `[[anc]]` rows.
  *
  * Grammar: BLOCK_ANCHOR (parse/line-shapes.ts, over
  * BLOCK_ANCHOR_SOURCE); behavior is Ruby's BlockAnchorRx (rx.rb:164),

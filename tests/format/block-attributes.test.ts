@@ -358,41 +358,43 @@ describe("pseudo-anchor lines: a `[[…]]` line that is not a block anchor", () 
   // A character the rstrip does NOT take is content, and the printer's
   // own word split is what decides: a NUL survives it, so the line the
   // re-reader sees is `[[3-bad]]` plus a NUL - text, not an anchor
-  // line - and the blank line stays. (A no-break space is the opposite
-  // case and belongs to issue #67, not here: the packer drops it from
-  // the output while the reader keeps it.)
-  test("a NUL after the line is content, and keeps the blank", async () => {
-    const nul = String.fromCodePoint(0);
-    const input = `[[3-bad]]${nul}\n----\nx\n----\n`;
-    const output = await formatAdoc(input);
-    expect(output).toBe(`[[3-bad]]${nul}\n\n----\nx\n----\n`);
-    expect(await formatAdoc(output)).toBe(output);
-    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
-  });
-
-  // The other arm of the same class, and the one shape in the tree
-  // where a PARAGRAPH prints a live block anchor. The tail is in the
-  // packer's split set but NOT in the reader's rstrip set, so the
-  // reader refused to classify the line as an anchor (it is a
-  // paragraph whose id is perfectly valid) and the packer erases the
-  // tail on the way out - and the line the re-reader sees IS an
-  // anchor. Pass 1 is the fixed point either way; what moved is that
-  // it used to gain a blank line and lose it again on pass 2.
+  // line - and the blank line stays.
   //
-  // NO render check: the packer's erasure of the tail character is
-  // issue #67's recorded gap (the reader keeps it, the oracle keeps
-  // it, the output does not), and it predates this record. Pinning
-  // bytes and idempotence is what belongs to this suite.
+  // Before issue #75, a no-break space, a thin space, an ideographic
+  // space and a byte-order mark were the OPPOSITE case: JavaScript's
+  // `\s` (splitWords, src/print/reflow.ts) matched them, so the
+  // packer's own word split erased one of those as trailing
+  // whitespace while the reader's ASCII-only rstrip kept it and read
+  // the line as a paragraph - the one shape in the tree where a
+  // paragraph printed a LIVE block anchor. splitWords is ASCII-only
+  // now (Ruby's `\s`), so all five behave alike: outside both sets,
+  // kept by both, the blank line stays and the tail survives.
   test.each([
+    ["a NUL", String.fromCodePoint(0)],
     ["a no-break space", "\u00A0"],
     ["a thin space", "\u2009"],
     ["an ideographic space", "\u3000"],
     ["a byte-order mark", "\uFEFF"],
-  ])("%s after a VALID id prints a live anchor line", async (_n, tail) => {
-    const input = `[[anc]]${tail}\n----\nx\n----\n`;
+  ])("a trailing %s is content, and keeps the blank", async (_n, tail) => {
+    const input = `[[3-bad]]${tail}\n----\nx\n----\n`;
     const output = await formatAdoc(input);
-    expect(output).toBe("[[anc]]\n----\nx\n----\n");
+    expect(output).toBe(`[[3-bad]]${tail}\n\n----\nx\n----\n`);
     expect(await formatAdoc(output)).toBe(output);
+    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
+  });
+
+  // The VALID-id shape, which is the one issue #75 actually changed:
+  // at main, `[[anc]]` (a perfectly valid id) plus a no-break space
+  // formatted to a LIVE anchor line (`[[anc]]\n----\nx\n----\n`, tail
+  // dropped, blank line lost, and the render changed to a listing
+  // block with id="anc"). Pinned separately from the `[[3-bad]]` rows
+  // above because THIS is the id the bug used to reach.
+  test("a no-break space after a VALID id is content, and keeps the blank", async () => {
+    const input = "[[anc]]\u00A0\n----\nx\n----\n";
+    const output = await formatAdoc(input);
+    expect(output).toBe("[[anc]]\u00A0\n\n----\nx\n----\n");
+    expect(await formatAdoc(output)).toBe(output);
+    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
   });
 
   // The `blockAnchor` node's own arm, after it was made to ask the

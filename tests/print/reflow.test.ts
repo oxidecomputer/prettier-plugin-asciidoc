@@ -88,6 +88,22 @@ describe("what a word is", () => {
     ["  one \t two \n three  ", ["one", "two", "three"]],
     ["", []],
     ["   ", []],
+    // Issue #75: a no-break space (U+00A0) is not whitespace to Ruby's
+    // `\s`, so it does not split a word - it rides inside one, unlike
+    // JavaScript's `\s`, which would read it as a separator here.
+    ["a\u00A0b", ["a\u00A0b"]],
+    ["one\u00A0two three", ["one\u00A0two", "three"]],
+    // Every other Unicode space JS's `\s` matches and Ruby's does not
+    // (the same divergence class, issue #67): narrow no-break space
+    // (U+202F), figure space (U+2007), ideographic space (U+3000),
+    // zero-width no-break space / BOM (U+FEFF).
+    ["a\u202Fb", ["a\u202Fb"]],
+    ["a\u2007b", ["a\u2007b"]],
+    ["a\u3000b", ["a\u3000b"]],
+    ["a\uFEFFb", ["a\uFEFFb"]],
+    // A node that is ENTIRELY a no-break space is one word, not zero:
+    // it is content Asciidoctor renders, not whitespace it collapses.
+    ["\u00A0", ["\u00A0"]],
   ])("splitWords(%j) is %j", (value, words) => {
     expect(splitWords(value)).toEqual(words);
   });

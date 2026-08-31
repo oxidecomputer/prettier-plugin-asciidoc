@@ -50,6 +50,18 @@ import {
 const EXEMPT = new Map<string, string>([
   ["rstrip", "line-normalization helper, not a line shape"],
   [
+    "ASCII_WHITESPACE",
+    String.raw`Ruby's \s spelled as a regex class, a whitespace-classification helper shared by src/print, not a line shape`,
+  ],
+  [
+    "ASCII_HORIZONTAL_WHITESPACE",
+    "ASCII_WHITESPACE minus the newline, a whitespace-classification helper shared by src/print, not a line shape",
+  ],
+  [
+    "ASCII_NON_WHITESPACE",
+    "the negation of ASCII_WHITESPACE, a whitespace-classification helper shared by src/print, not a line shape",
+  ],
+  [
     "startsSectionTitle",
     "reflow's refusal predicate over the two section-title spellings; the AsciiDoc form's dimension already exists and the Markdown ATX form is not a parsed construct (issue #63)",
   ],

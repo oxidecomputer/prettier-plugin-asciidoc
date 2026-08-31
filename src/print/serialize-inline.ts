@@ -20,7 +20,11 @@ import type {
   XrefNode,
 } from "../ast.js";
 import { canonicalAttrlist } from "../parse/attrlist.js";
-import { BLOCK_ANCHOR } from "../parse/line-shapes.js";
+import {
+  ASCII_HORIZONTAL_WHITESPACE,
+  ASCII_WHITESPACE,
+  BLOCK_ANCHOR,
+} from "../parse/line-shapes.js";
 
 /**
  * The inline macros whose brackets Asciidoctor hands to
@@ -212,6 +216,16 @@ function collapseSourceNewlines(source: string): string {
   return joinSourceLines(source);
 }
 
+// A run of newlines - and the ASCII whitespace around them - that
+// joinSourceLines collapses to one space. ASCII only (ASCII_WHITESPACE,
+// ASCII_HORIZONTAL_WHITESPACE, issue #75): a no-break space beside a
+// join a multi-line macro or link text takes is content the construct
+// carries, not indentation the reader would have consumed.
+const SOURCE_LINE_JOIN = new RegExp(
+  `${ASCII_HORIZONTAL_WHITESPACE.source}*\n${ASCII_WHITESPACE.source}*`,
+  "gv",
+);
+
 /**
  * Replace each newline run — and the whitespace around it — with one
  * space. The rewrite {@link collapseSourceNewlines} performs once its
@@ -225,7 +239,7 @@ function collapseSourceNewlines(source: string): string {
  * @returns The source on a single line.
  */
 function joinSourceLines(source: string): string {
-  return source.replaceAll(/[^\S\n]*\n\s*/gv, " ");
+  return source.replaceAll(SOURCE_LINE_JOIN, " ");
 }
 
 // A passthrough whose content Asciidoctor substitutes NOTHING into:

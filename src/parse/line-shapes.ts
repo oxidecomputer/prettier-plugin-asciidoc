@@ -145,6 +145,51 @@ export const BLOCK_START_CONTEXT: ReaderContext = {
 // dialect of every `$`-anchored rule below.
 const TRAILING_ASCII_WHITESPACE = new Set(["\t", "\n", "\v", "\f", "\r", " "]);
 
+// The class body the three exports below share, spelled ONCE (the same
+// principle TRAILING_ASCII_WHITESPACE's own comment states): TAB, LF,
+// VT, FF, CR, SPACE, as escape sequences ready to sit inside a `[...]`
+// or `[^...]` bracket expression.
+const ASCII_WHITESPACE_BODY = String.raw`\t\n\v\f\r `;
+
+/**
+ * The same six characters as {@link TRAILING_ASCII_WHITESPACE} - TAB,
+ * LF, VT, FF, CR, SPACE - spelled as a regex class instead of a Set,
+ * for callers that need a pattern (`split`, `test`, `replace`) rather
+ * than a membership check. This is Ruby's `\s`
+ * (`Regexp::POSIX_CLASSES` has no bearing here; Ruby's `\s` is the
+ * literal `[ \t\r\n\f\v]`, unlike JavaScript's, which also matches a
+ * no-break space, every Unicode space separator and a byte-order
+ * mark - see issue #75). Every word-segmentation or edge-whitespace
+ * test in src/print that looks at RAW SOURCE TEXT must use this, not
+ * `\s`, or it reads a no-break space as a word separator the way
+ * Asciidoctor never does.
+ */
+export const ASCII_WHITESPACE = new RegExp(`[${ASCII_WHITESPACE_BODY}]`, "v");
+
+/**
+ * {@link ASCII_WHITESPACE} minus the newline - the ASCII characters a
+ * `[^\S\n]`-shaped pattern means to reach for ("horizontal whitespace,
+ * not a line break"). JavaScript's `[^\S\n]` is `\s` minus `\n`, so it
+ * inherits the same over-wide `\s`; this is the ASCII-only equivalent,
+ * for the same reason as {@link ASCII_WHITESPACE} (issue #75).
+ */
+export const ASCII_HORIZONTAL_WHITESPACE = new RegExp(
+  `[${ASCII_WHITESPACE_BODY.replace(String.raw`\n`, "")}]`,
+  "v",
+);
+
+/**
+ * The negation of {@link ASCII_WHITESPACE} - Ruby's `\S` - for a
+ * `[^\S...]`-shaped pattern that means "a non-whitespace character", not
+ * JavaScript's wider one (which excludes a no-break space and the rest
+ * of {@link ASCII_WHITESPACE}'s over-wide counterpart, so it stops a
+ * "word" run one character early at one of them; issue #75).
+ */
+export const ASCII_NON_WHITESPACE = new RegExp(
+  `[^${ASCII_WHITESPACE_BODY}]`,
+  "v",
+);
+
 /**
  * Trim trailing whitespace, the way Asciidoctor's reader does to
  * EVERY line before the parser sees it

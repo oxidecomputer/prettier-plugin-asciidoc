@@ -19,6 +19,11 @@
  * the same net.
  */
 import type { InlineNode } from "../ast.js";
+import {
+  ASCII_HORIZONTAL_WHITESPACE,
+  ASCII_NON_WHITESPACE,
+  ASCII_WHITESPACE,
+} from "../parse/line-shapes.js";
 import { type Atom, isBlockSyntaxAtLineStart } from "./reflow.js";
 
 /**
@@ -87,8 +92,13 @@ export function hazardAtBlockStart(
 }
 
 // The whitespace a span's content opens with, reaching the next
-// SOURCE LINE: everything up to the first newline is horizontal.
-const OPENS_AFTER_BREAK = /^[^\S\n]*\n/v;
+// SOURCE LINE: everything up to the first newline is horizontal. ASCII
+// only (ASCII_HORIZONTAL_WHITESPACE, issue #75): a no-break space here
+// is content the span holds, not whitespace the source break replaced.
+const OPENS_AFTER_BREAK = new RegExp(
+  `^${ASCII_HORIZONTAL_WHITESPACE.source}*\n`,
+  "v",
+);
 
 /**
  * Whether a span's content opens on the line AFTER its opening mark.
@@ -186,9 +196,15 @@ export function keepBlockStartBreak(
   atoms[1] = { ...second, breakBefore: "literal", noBreakBefore: false };
 }
 
-// A source line break BEHIND a text node's first word: the word,
-// then a whitespace run that reaches the next line.
-const FIRST_WORD_THEN_BREAK = /^\s*\S+[^\S\n]*\n/v;
+// A source line break BEHIND a text node's first word: the word, then
+// a whitespace run that reaches the next line. ASCII only (issue #75):
+// with JavaScript's wider `\s`, a no-break space inside the first word
+// would end `\S+` early and read as the whitespace run instead - the
+// word "ends" mid-word where Ruby's `\s` sees plain content.
+const FIRST_WORD_THEN_BREAK = new RegExp(
+  `^${ASCII_WHITESPACE.source}*${ASCII_NON_WHITESPACE.source}+${ASCII_HORIZONTAL_WHITESPACE.source}*\n`,
+  "v",
+);
 
 /**
  * Whether a source line break stands behind the block's first word.

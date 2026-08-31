@@ -26,6 +26,7 @@ import type {
   HighlightNode,
 } from "../ast.js";
 import { FIRST_COLUMN } from "../constants.js";
+import { ASCII_WHITESPACE } from "../parse/line-shapes.js";
 import {
   MARK_BOUNDARY,
   afterSpecialchars,
@@ -44,6 +45,24 @@ import {
   hazardAtBlockStart,
   keepBlockStartBreak,
 } from "./block-start-hazard.js";
+
+// Whether a text node's FIRST character is a source separator standing
+// between it and the previous inline sibling. ASCII only (see
+// ASCII_WHITESPACE, issue #75): a no-break space at this position is
+// CONTENT glued directly to whatever precedes it, not a join the
+// printer may turn into a breakable space or a break.
+const LEADS_WITH_ASCII_WHITESPACE = new RegExp(
+  `^${ASCII_WHITESPACE.source}`,
+  "v",
+);
+
+// Whether a text node's LAST character is a source separator standing
+// between it and the next inline sibling. Mirrors
+// LEADS_WITH_ASCII_WHITESPACE at the trailing edge.
+const TRAILS_WITH_ASCII_WHITESPACE = new RegExp(
+  `${ASCII_WHITESPACE.source}$`,
+  "v",
+);
 
 // The two characters a hard line break prints: the space is part of
 // the syntax (`LineBreakRx` requires it), not a separator.
@@ -348,7 +367,7 @@ function trailingBoundary(
   words: readonly string[],
   glueToSibling: boolean,
 ): Boundary {
-  if (!/\s$/v.test(node.value)) {
+  if (!TRAILS_WITH_ASCII_WHITESPACE.test(node.value)) {
     return "glue";
   }
   if (words.length === 1 && opensWithContinuationLine(node)) {
@@ -386,7 +405,7 @@ function appendText(
   // The lead is computed BEFORE the atoms, because the trailing-`+`
   // policy reads it: a one-word node carrying a glue cannot reach a
   // line boundary, and a `+` that cannot reach one needs no escape.
-  const lead = /^\s/v.test(node.value)
+  const lead = LEADS_WITH_ASCII_WHITESPACE.test(node.value)
     ? strongerBoundary(boundary, leadingBoundary(cursor, words))
     : boundary;
   const { escapeTrailingPlus, glueToSibling } = trailingPlusPolicy(

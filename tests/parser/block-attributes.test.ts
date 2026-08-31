@@ -387,27 +387,40 @@ describe("anchorLineShape: the printed-line record", () => {
   // The complement: a trailing character the PRINTER keeps is content,
   // so the printed line is not a `[[...]]` line at all. A NUL is
   // outside both the reader's rstrip set and the packer's word split.
-  test("a trailing NUL answers undefined", () => {
-    const [block] = parse(`[[3-bad]]${String.fromCodePoint(0)}\n`).children;
-    expect(anchorLineShape(block)).toBeUndefined();
-  });
-
-  // The one shape in the tree where a PARAGRAPH answers "anchor". The
-  // tail is in the packer's word split but not in the reader's rstrip
-  // set, so the reader refused the line as a block anchor - it stays a
-  // paragraph - while the printer erases the tail and emits a line
-  // that IS one. Both halves of the class are pinned: the six ASCII
-  // whitespace characters above, which leave a rejected id rejected,
-  // and these four, which make an accepted id live again.
+  //
+  // Before issue #75, splitWords (src/print/reflow.ts) split on
+  // JavaScript's wider `\s`, which also matches a no-break space, a
+  // thin space, an ideographic space and a byte-order mark - so the
+  // PACKER erased one of those as trailing whitespace while the
+  // READER's ASCII-only rstrip kept it and read the line as a
+  // paragraph. That was the one shape in the tree where a paragraph
+  // answered "anchor": the tail was in the packer's word split but not
+  // in the reader's rstrip set. splitWords is ASCII-only now (Ruby's
+  // `\s`, matching the reader's rstrip set), so all four behave like
+  // the NUL row above - outside both sets, kept by both, undefined
+  // here the same way.
   test.each([
+    ["a NUL", String.fromCodePoint(0)],
     ["a no-break space", "\u00A0"],
     ["a thin space", "\u2009"],
     ["an ideographic space", "\u3000"],
     ["a byte-order mark", "\uFEFF"],
-  ] as const)("%s after a valid id reads anchor", (_n, tail) => {
-    const [block] = parse(`[[anc]]${tail}\n`).children;
+  ] as const)("a trailing %s answers undefined", (_n, tail) => {
+    const [block] = parse(`[[3-bad]]${tail}\n`).children;
+    expect(anchorLineShape(block)).toBeUndefined();
+  });
+
+  // The VALID-id shape, which is the one issue #75 actually changed:
+  // at main, `[[anc]]` (a perfectly valid id) plus a no-break space
+  // was the one case in the whole tree where a paragraph answered
+  // "anchor" - the packer erased the tail, so the printed line
+  // re-read as a live block anchor. Pinned separately from the
+  // `[[3-bad]]` rows above because THIS is the id the bug used to
+  // reach, not an already-rejected one.
+  test("a trailing no-break space after a VALID id also answers undefined", () => {
+    const [block] = parse("[[anc]]\u00A0\n").children;
     expect(block.type).toBe("paragraph");
-    expect(anchorLineShape(block)).toBe("anchor");
+    expect(anchorLineShape(block)).toBeUndefined();
   });
 
   // The `blockAnchor` arm asks the grammar too, rather than taking a

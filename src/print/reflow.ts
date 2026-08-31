@@ -36,12 +36,17 @@
  */
 import { doc, util, type Doc } from "prettier";
 import {
+  ASCII_WHITESPACE,
   DLIST_SEPARATOR_WORD,
   interruptsByLineShape,
   isRawParagraphLine,
   LINE_COMMENT_HEAD,
   startsSectionTitle,
 } from "../parse/line-shapes.js";
+
+// The `+` quantified form of ASCII_WHITESPACE, for splitting a run of
+// source whitespace rather than testing one character of it.
+const ASCII_WHITESPACE_RUN = new RegExp(`${ASCII_WHITESPACE.source}+`, "v");
 
 const {
   builders: { hardline },
@@ -238,20 +243,25 @@ export function wrap(
 
 /**
  * Split raw block text into the words wordsToAtoms expects: non-empty
- * and whitespace-free. Shared so every caller — the text case and the
- * first-source-line counting that feeds the dlist guard — agrees on what
- * a word is; a mismatch would misplace the guard by a word.
+ * and whitespace-free (by the ASCII definition below). Shared so every
+ * caller - the text case and the first-source-line counting that feeds
+ * the dlist guard - agrees on what a word is; a mismatch would misplace
+ * the guard by a word.
  *
- * `\s` is wider than the reader's rstrip set, so every non-ASCII space
- * the reader now preserves (a no-break space, an ideographic space, a
- * byte-order mark mid-text) is rewritten to a plain space or dropped
- * at a line end while the oracle keeps it: a recorded gap, tracked by
- * issue #67.
+ * Splits on {@link ASCII_WHITESPACE} - Ruby's `\s`, `[ \t\r\n\f\v]` -
+ * not JavaScript's wider `\s`, which also takes a no-break space, every
+ * Unicode space separator, the line/paragraph separators and a
+ * byte-order mark. Asciidoctor never treats any of those as a word
+ * separator (`Reader#rstrip`'s own strip set is the same six
+ * characters; see ASCII_WHITESPACE's citation), so a word containing
+ * one is ONE word here too, and the character rides inside the atom's
+ * text instead of being read as a break and rewritten to a plain space
+ * by {@link wrap}'s join. Issue #75.
  * @param value - Raw source text, or a prefix of it.
  * @returns The non-empty whitespace-delimited words, in order.
  */
 export function splitWords(value: string): string[] {
-  return value.split(/\s+/v).filter((word) => word.length > 0);
+  return value.split(ASCII_WHITESPACE_RUN).filter((word) => word.length > 0);
 }
 
 // ── Detection ──────────────────────────────────────────────
