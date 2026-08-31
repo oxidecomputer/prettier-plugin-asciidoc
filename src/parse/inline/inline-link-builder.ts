@@ -21,6 +21,10 @@ import type { Fragment, LocationIndex } from "../positions.js";
 // Number of characters in `<<`, `>>`, `[[`, or `]]`.
 const BRACKET_PAIR_LEN = 2;
 
+// Number of characters in `[[[` or `]]]` - the bibliography anchor's
+// wider delimiter (InlineBiblioAnchorRx, rx.rb l.457).
+const BRACKET_TRIPLE_LEN = 3;
+
 // ── String splitting helpers ────────────────────────────────
 
 /**
@@ -156,46 +160,93 @@ export function makeXrefFromShorthand(
 }
 
 /**
- * Build an InlineAnchorNode from a `[[id]]` token.
+ * Shared core of {@link makeInlineAnchor} and
+ * {@link makeInlineBiblioAnchor}: strip `width` delimiter characters
+ * from each end of the token image and split the interior at the
+ * first comma to separate the anchor id from optional reftext (the
+ * default cross-reference display text). The two anchor forms use
+ * IDENTICAL id/reftext grammar - InlineAnchorRx and
+ * InlineBiblioAnchorRx both spell it
+ * `[#{CC_ALPHA}_:][#{CC_WORD}\-:.]*` (rx.rb l.443 and l.457) - and
+ * differ only in delimiter width and the `form` tag the printer reads
+ * to choose two brackets or three, so one function builds both.
  *
- * Strips the `[[`/`]]` delimiters and splits at the
- * first comma to separate the anchor ID from optional
- * reftext (the default cross-reference display text).
- * The post-comma bytes are kept verbatim; the printer trims
- * them only when the id is valid (`anchorToSource`).
+ * The post-comma spelling is captured VERBATIM, whitespace-only
+ * included: `[[id, ]]` and `[[id]]` are different author bytes, and
+ * narrowing the first to the second is a respell the printer cannot
+ * undo (issue #53). The two printers this feeds read that capture
+ * differently: `anchorToSource` (two-bracket) takes a valid id's
+ * `[[id, trimmed]]` normalized spelling and a rejected one's bytes
+ * verbatim; `bibliographyAnchorToSource` (three-bracket) NEVER
+ * normalizes, because a bibliography anchor's reftext is rendered
+ * text rather than an inert `xreflabel` (serialize-inline.ts states
+ * why beside each; the two-bracket case is pinned by
+ * tests/format/anchor-spelling.test.ts, the three-bracket case by
+ * tests/format/bibliography-anchor.test.ts).
+ * @param fragment - the token span, delimiters included
+ * @param at - the document's location index
+ * @param width - how many delimiter characters stand on each side
+ *   ({@link BRACKET_PAIR_LEN} or {@link BRACKET_TRIPLE_LEN})
+ * @param form - which bracket syntax the author wrote
+ * @returns InlineAnchorNode with id and optional reftext
+ */
+function splitAnchor(
+  fragment: Fragment,
+  at: LocationIndex,
+  width: number,
+  form: InlineAnchorNode["form"],
+): InlineAnchorNode {
+  const inner = fragment.image.slice(width, -width);
+  const commaIndex = inner.indexOf(",");
+  const position = positionOf(fragment, at);
+  if (commaIndex === -1) {
+    return {
+      type: "inlineAnchor",
+      form,
+      id: inner,
+      reftext: undefined,
+      position,
+    };
+  }
+  return {
+    type: "inlineAnchor",
+    form,
+    id: inner.slice(0, commaIndex),
+    reftext: inner.slice(commaIndex + 1),
+    position,
+  };
+}
+
+/**
+ * Build an InlineAnchorNode from a `[[id]]` token.
  * @param fragment - InlineAnchor token span (image wrapped in
  *   `[[` and `]]`)
  * @param at - the document's location index
- * @returns InlineAnchorNode with id and optional reftext
+ * @returns InlineAnchorNode with `form: "inline"`
  */
 export function makeInlineAnchor(
   fragment: Fragment,
   at: LocationIndex,
 ): InlineAnchorNode {
-  // Strip the `[[` prefix and `]]` suffix.
-  const inner = fragment.image.slice(BRACKET_PAIR_LEN, -BRACKET_PAIR_LEN);
-  const commaIndex = inner.indexOf(",");
-  if (commaIndex === -1) {
-    return {
-      type: "inlineAnchor",
-      id: inner,
-      reftext: undefined,
-      position: positionOf(fragment, at),
-    };
-  }
-  // The post-comma spelling is captured VERBATIM, whitespace-only
-  // included: `[[id, ]]` and `[[id]]` are different author bytes, and
-  // narrowing the first to the second is a respell the printer cannot
-  // undo (issue #53). The printer decides the spelling from the whole
-  // pair - a valid id takes the normalized `[[id, trimmed]]`, a
-  // grammar-rejected one replays these bytes verbatim (anchorToSource,
-  // serialize-inline.ts; pinned by tests/format/anchor-spelling.test.ts).
-  return {
-    type: "inlineAnchor",
-    id: inner.slice(0, commaIndex),
-    reftext: inner.slice(commaIndex + 1),
-    position: positionOf(fragment, at),
-  };
+  return splitAnchor(fragment, at, BRACKET_PAIR_LEN, "inline");
+}
+
+/**
+ * Build an InlineAnchorNode from a `[[[id]]]` bibliography anchor
+ * token (InlineBiblioAnchorRx, rx.rb l.457) - recognised only at the
+ * start of the fragment the tokenizer was handed (rules.ts's
+ * `InlineBiblioAnchor` row), which is where a list item's own text
+ * begins.
+ * @param fragment - InlineBiblioAnchor token span (image wrapped in
+ *   `[[[` and `]]]`)
+ * @param at - the document's location index
+ * @returns InlineAnchorNode with `form: "bibliography"`
+ */
+export function makeInlineBiblioAnchor(
+  fragment: Fragment,
+  at: LocationIndex,
+): InlineAnchorNode {
+  return splitAnchor(fragment, at, BRACKET_TRIPLE_LEN, "bibliography");
 }
 
 /**

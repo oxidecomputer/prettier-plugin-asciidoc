@@ -38,6 +38,7 @@ import {
   makeLinkFromEmail,
   makeXrefFromShorthand,
   makeInlineAnchor,
+  makeInlineBiblioAnchor,
   makeHardLineBreak,
 } from "./inline-link-builder.js";
 
@@ -356,6 +357,7 @@ const ATOMIC_DISPATCH = new Map<string, AtomicFactory>(
     InlineUrl: makeLinkFromUrl,
     InlineEmail: makeLinkFromEmail,
     XrefShorthand: makeXrefFromShorthand,
+    InlineBiblioAnchor: makeInlineBiblioAnchor,
     InlineAnchor: makeInlineAnchor,
     HardLineBreak: makeHardLineBreak,
     Passthrough: makePassthroughNode,

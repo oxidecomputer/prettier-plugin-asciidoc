@@ -1,17 +1,19 @@
 /**
  * The inline token vocabulary, as plain data.
  *
- * Sixteen kinds the tokenizer produces, in the order it tries them —
- * the SAME order the lexer it replaced (its `inlineModeTokens` array) had,
- * because that lexer is first-match-wins (there is no `longer_alt`
- * anywhere in the repository) and the order is therefore the
- * specification, with `Passthrough` in front of all of them because
- * Asciidoctor extracts passthroughs before it substitutes anything
- * else (`extract_passthroughs`, substitutors.rb l.1018). Plus
- * `RawLine`, which the tokenizer
- * never produces:
- * the paragraph reader emits it for a line it kept verbatim inside a
- * paragraph body, and `inline-node-builder.ts` dispatches on it.
+ * Eighteen kinds the tokenizer emits. Seventeen of them are rule
+ * rows, tried in order - the SAME order the lexer it replaced (its
+ * `inlineModeTokens` array) had, because that lexer is
+ * first-match-wins (there is no `longer_alt` anywhere in the
+ * repository) and the order is therefore the specification, with
+ * `Passthrough` in front of all of them because Asciidoctor extracts
+ * passthroughs before it substitutes anything else
+ * (`extract_passthroughs`, substitutors.rb l.1018). The eighteenth,
+ * `InlineChar`, is the loop's own fallback for a position no rule
+ * claims, not a row in the table. Plus `RawLine`, which the tokenizer
+ * never produces: the paragraph reader emits it for a line it kept
+ * verbatim inside a paragraph body, and `inline-node-builder.ts`
+ * dispatches on it.
  *
  * A token carries the DOCUMENT offset of its first character and
  * nothing else about where it is: line and column come from the
@@ -39,6 +41,7 @@ export const INLINE_KINDS = [
   "InlineUrl",
   "InlineEmail",
   "XrefShorthand",
+  "InlineBiblioAnchor",
   "InlineAnchor",
   "BoldMark",
   "ItalicMark",
@@ -50,7 +53,7 @@ export const INLINE_KINDS = [
   "InlineChar",
 ] as const;
 
-/** One of the sixteen kinds the tokenizer emits. */
+/** One of the eighteen kinds the tokenizer emits. */
 export type InlineKind = (typeof INLINE_KINDS)[number];
 
 /**

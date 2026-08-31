@@ -215,22 +215,43 @@ export interface XrefNode extends Node {
 }
 
 /**
- * Inline anchor: `[[id]]` or `[[id, reftext]]`. Sets an
+ * Inline anchor: `[[id]]`/`[[id, reftext]]` (`form: "inline"`) or the
+ * bibliography spelling `[[[id]]]`/`[[[id, reftext]]]`
+ * (`form: "bibliography"`, InlineBiblioAnchorRx, rx.rb l.457). Sets an
  * anchor point within paragraph text. The two-argument form
- * provides default cross-reference display text.
+ * provides default cross-reference display text. The two forms share
+ * one node type because they share id/reftext grammar and every
+ * downstream consumer but the printer's own bracket count; `form` is
+ * what tells the printer which delimiter width to write back.
  */
 export interface InlineAnchorNode extends Node {
   /** Node discriminant. */
   type: "inlineAnchor";
+  /**
+   * Which bracket syntax the author wrote: `"inline"` for `[[id]]`,
+   * `"bibliography"` for `[[[id]]]`. The bibliography spelling is
+   * recognised only at the START of the fragment `tokenizeInline`
+   * received (src/parse/inline/tokenize.ts) - a paragraph's or list
+   * item's own text, never mid-run - which reproduces the "start of
+   * the list item" half of Ruby's guard
+   * (`@context == :list_item && \@parent.style == 'bibliography'`,
+   * substitutors.rb l.714) without the inline layer reading block
+   * style, at the cost of also recognising the shape at the start of
+   * an ordinary paragraph, where Ruby's guard would refuse it
+   * (measured: there Ruby's own InlineAnchorRx falls back to the
+   * two-bracket misparse `form: "inline"` still produces here).
+   */
+  form: "inline" | "bibliography";
   /** Anchor identifier (the first argument). */
   id: string;
   /**
    * The author's post-comma bytes from the two-argument form
-   * `[[id, reftext]]`, VERBATIM — leading whitespace included — so a
-   * grammar-rejected id can print byte-faithfully. Undefined when the
-   * anchor has no comma, or when the post-comma spelling is empty or
-   * all whitespace (the `[[id,]]`-class narrowing). Ruby's trimmed
-   * view is derived where needed; this value never feeds the oracle.
+   * `[[id, reftext]]`/`[[[id, reftext]]]`, VERBATIM - leading
+   * whitespace included - so a grammar-rejected id can print
+   * byte-faithfully. Undefined when the anchor has no comma, or when
+   * the post-comma spelling is empty or all whitespace (the
+   * `[[id,]]`-class narrowing). Ruby's trimmed view is derived where
+   * needed; this value never feeds the oracle.
    */
   reftext: string | undefined;
 }

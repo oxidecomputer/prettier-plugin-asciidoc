@@ -178,7 +178,17 @@ function anchorOfLine(
     return undefined;
   }
   const [child] = printed;
-  return child.type === "inlineAnchor" ? child : undefined;
+  // A BIBLIOGRAPHY-form anchor is excluded on purpose: its printed
+  // line is `[[[id]]]`, three brackets, which the two-bracket
+  // `BLOCK_ANCHOR` grammar this record answers against can never
+  // match - testing it here would mean calling `anchorToSource` (the
+  // two-bracket serializer) on a node it was not built for. A
+  // paragraph whose sole content is a bibliography anchor is
+  // therefore ordinary text as far as this record is concerned,
+  // exactly like any other paragraph that opens with plain prose.
+  return child.type === "inlineAnchor" && child.form === "inline"
+    ? child
+    : undefined;
 }
 
 /**

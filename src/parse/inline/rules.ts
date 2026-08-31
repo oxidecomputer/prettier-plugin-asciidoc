@@ -123,6 +123,14 @@ function pattern(regex: RegExp): InlineRule["match"] {
   };
 }
 
+// How many characters of a bibliography anchor stand at an index -
+// content narrowed the same way InlineAnchor's own pattern is (any
+// non-`]` run rather than Ruby's precise id/reftext classes): the
+// TOKEN only has to recognise the construct, and the printer
+// (bibliographyAnchorToSource, serialize-inline.ts) replays the
+// interior verbatim regardless.
+const biblioAnchorMatch = pattern(/\[\[\[[^\]\n]+\]\]\]/v);
+
 // The inline macro names, enumerated ONCE: interpolated into the
 // InlineMacro rule and into InlineText's stop lookahead, so the two
 // spellings cannot drift (they had: `footnoteref|footnote` here,
@@ -480,6 +488,38 @@ export const INLINE_RULES: readonly InlineRule[] = [
   { type: "InlineEmail", match: emailMatch },
   // `<<target>>` / `<<target,text>>` — InlineXrefMacroRx shorthand.
   { type: "XrefShorthand", match: pattern(/<<[^>\n]+(?:,[^>\n]+)?>>/v) },
+  // `[[[id]]]` / `[[[id, reftext]]]` - InlineBiblioAnchorRx (rx.rb
+  // l.457), tried BEFORE the plain two-bracket InlineAnchor row below
+  // so the third bracket is never left as stray text: at a position
+  // where both rules could match, InlineAnchor's own permissive
+  // `[^\]\n]+` would otherwise claim the first two brackets and the
+  // opening `[` of the id, exactly the corruption issue #8 reports.
+  //
+  // Ruby's own guard is `@context == :list_item &&
+  // @parent.style == 'bibliography'` (substitutors.rb l.714), applied
+  // with `.sub` (ONE substitution) against a pattern anchored `^`.
+  // The inline layer has no view of block style (`tests/parser/
+  // architecture.test.ts` forbids sniffing it from here), so this row
+  // reproduces the "start of the text" half of that guard the way
+  // {@link markMatcher}'s boundary already does: `index === 0` in the
+  // FRAGMENT `tokenizeInline` was handed, which is where a list
+  // item's own text starts once its marker is stripped
+  // (src/parse/inline/tokenize.ts). That is deliberately WIDER than
+  // Ruby's block-style half - a triple-bracket run opening an
+  // ORDINARY paragraph is read as a bibliography anchor here too,
+  // where Ruby's guard would refuse it, but harmlessly: our printer
+  // only replays source bytes, never resolves a real bibliography
+  // entry, so the extra recognition costs nothing a real document
+  // would render differently by (measured: outside bibliography
+  // context Ruby's own InlineAnchorRx falls back to the same
+  // two-bracket misparse the InlineAnchor row below already
+  // reproduces). Anywhere but index 0 this rule never matches, so
+  // `[[[id]]]` mid-paragraph keeps that misparse unchanged.
+  {
+    type: "InlineBiblioAnchor",
+    match: (text: string, index: number): number =>
+      index === 0 ? biblioAnchorMatch(text, index) : 0,
+  },
   // `[[id]]` / `[[id, reftext]]` — InlineAnchorRx.
   { type: "InlineAnchor", match: pattern(/\[\[[^\]\n]+\]\]/v) },
   { type: "BoldMark", match: markMatcher("*", "bold") },

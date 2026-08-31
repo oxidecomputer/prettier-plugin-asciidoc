@@ -132,6 +132,46 @@ export function anchorToSource(
   return BLOCK_ANCHOR.test(normalized) ? normalized : verbatim;
 }
 
+/**
+ * Serialize a bibliography anchor AST node (`form: "bibliography"`)
+ * back to AsciiDoc source: id and reftext rejoined around a bare
+ * comma, with NO comma-space normalization - unlike
+ * {@link anchorToSource}, which respells a valid id's
+ * `[[id,reftext]]` as `[[id, reftext]]`.
+ *
+ * Two-bracket anchors can take that normalization for free because
+ * `reftext` never reaches the HTML output at all (it feeds only
+ * `xreflabel`, an attribute a different backend reads). A bibliography
+ * anchor's reftext IS the rendered citation text: `InlineBiblioAnchorRx`
+ * captures it as its own second group (rx.rb l.457), and
+ * substitutors.rb's `.sub` on that same pattern builds the `Inline`
+ * node straight from the captured groups (substitutors.rb l.715) that
+ * the oracle then prints as `[reftext]` (measured, converter source
+ * not vendored here). Ruby's separator is LITERAL spaces only (rx.rb
+ * l.457's `, *` quantifies a space character, not `\s`), so a
+ * canonical single space is safe after a run of spaces but wrong
+ * after anything else - a tab right after the comma is not
+ * separator, it is the reftext's own first character (measured:
+ * `[[[id,\t1]]]` renders `[<TAB>1]`, not `[<TAB> 1]` or `[1]`).
+ * Verbatim replay sidesteps that whole class of near-miss respells by
+ * never attempting one: since the id/reftext split
+ * ({@link splitAnchor}, inline-link-builder.ts) always cuts at the
+ * first comma, rejoining around one always reproduces the author's
+ * exact interior, for every id and every reftext - pinned by
+ * tests/format/anchor-spelling.test.ts's own
+ * "bibliography anchors print the author's interior verbatim" suite.
+ * @param node - The parsed anchor with an id and optional verbatim
+ *   reftext.
+ * @returns AsciiDoc source string for the bibliography anchor.
+ */
+function bibliographyAnchorToSource(
+  node: Pick<InlineAnchorNode, "id" | "reftext">,
+): string {
+  return node.reftext === undefined
+    ? `[[[${node.id}]]]`
+    : `[[[${node.id},${node.reftext}]]]`;
+}
+
 // A construct the printer emits verbatim, never breaking inside it —
 // the argument {@link verbatimText} takes. Not exported: the printer
 // reaches these nodes through that one function, never through the
@@ -255,7 +295,11 @@ export function verbatimText(node: VerbatimNode): string {
       return collapseSourceNewlines(xrefToSource(node));
     }
     case "inlineAnchor": {
-      return collapseSourceNewlines(anchorToSource(node));
+      return collapseSourceNewlines(
+        node.form === "bibliography"
+          ? bibliographyAnchorToSource(node)
+          : anchorToSource(node),
+      );
     }
     case "passthrough": {
       return passthroughText(node);
