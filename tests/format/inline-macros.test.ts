@@ -276,3 +276,72 @@ describe("asciimath macro - format output", () => {
     expect(twice).toBe(once);
   });
 });
+
+// -- Bracket text - source newline collapses to a space (issue #78) ----
+//
+// A source newline inside a macro's bracket text
+// (`link:http://x[a\nb]`) becomes one space in the printed output
+// (`link:http://x[a b]`), the same rewrite {@link joinSourceLines}
+// (src/print/serialize-inline.ts) already applies to reflowed prose:
+// the formatter re-decides every other line break in a document, and
+// bracket text is prose the author happened to wrap by hand, not a
+// byte sequence the construct depends on. The macro token is atomic
+// under width pressure, so it cannot be re-wrapped at print time the
+// way a paragraph line can - if the source newline were kept, the
+// author's own line break would be the ONLY line break inside the
+// bracket that survives formatting, forever, which is not
+// maintainable. This is a deliberate normalization, not an
+// oversight: measured against the oracle (@asciidoctor/core), a
+// bracket newline and the space it collapses to differ in the raw
+// HTML only as a literal newline vs a space inside a text node, and
+// HTML collapses whitespace runs outside `<pre>`/`<code>` - the two
+// spellings are indistinguishable in a browser, which is what the
+// renderedHtml comparison below asserts. tests/format/inline-links.test.ts
+// pins the same rewrite for the `https://url[text]` and `<<id,text>>`
+// forms; these rows cover `link:`, `xref:`, `image:`, and
+// `footnote:`, plus the indented-continuation variant, with the
+// idempotency and render-equality checks this file's neighbours use.
+describe("bracket text - source newline collapses to a space", () => {
+  test("link macro bracket text", async () => {
+    const input = "See link:http://x[a\nb] here.\n";
+    const output = await formatAdoc(input);
+    expect(output).toBe("See link:http://x[a b] here.\n");
+    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(output)).toBe(output);
+  });
+
+  // The continuation line's own indentation is part of the run
+  // joinSourceLines collapses, not content it preserves: `a\n  b`
+  // and `a\nb` both print as `a b`.
+  test("link macro bracket text, indented continuation", async () => {
+    const input = "See link:http://x[a\n  b] here.\n";
+    const output = await formatAdoc(input);
+    expect(output).toBe("See link:http://x[a b] here.\n");
+    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(output)).toBe(output);
+  });
+
+  test("xref macro bracket text", async () => {
+    const input = "[[t]]Target.\n\nSee xref:t[a\nb] here.\n";
+    const output = await formatAdoc(input);
+    expect(output).toBe("[[t]]Target.\n\nSee xref:t[a b] here.\n");
+    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(output)).toBe(output);
+  });
+
+  test("image macro alt text", async () => {
+    const input = "See image:a.png[a\nb] here.\n";
+    const output = await formatAdoc(input);
+    expect(output).toBe("See image:a.png[a b] here.\n");
+    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(output)).toBe(output);
+  });
+
+  test("footnote macro text", async () => {
+    const input = "This is textfootnote:[a\nb] here.\n";
+    const output = await formatAdoc(input);
+    expect(output).toBe("This is textfootnote:[a b] here.\n");
+    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(output)).toBe(output);
+  });
+});
