@@ -221,11 +221,18 @@ const biblioAnchorMatch = pattern(/\[\[\[[^\]\n]+\]\]\]/v);
 // the `icon:` onward the same way `Textfootnote:[x]` matches from the
 // `footnote:` onward (verified against the oracle).
 //
-// `stem` is InlineStemMacroRx (rx.rb l.543-551), which also covers
-// `asciimath`/`latexmath` - out of scope here (issue #19 asks for
-// `stem:` only), so only `stem` is added.
+// `stem`, `latexmath` and `asciimath` are one pattern in Ruby,
+// InlineStemMacroRx (rx.rb l.551):
+// `\\?(stem|(?:latex|ascii)math):([a-z]+(?:,[a-z-]+)*)?\[(#{CC_ALL}*?[^\\])\]`.
+// Issue #19 added only `stem`; issue #76 adds the other two names the
+// same pattern covers. The middle group - an optional subs list
+// between the colon and the bracket, as in `stem:latexmath[x]` - needs
+// no separate handling here: it lands in `target`, the same place a
+// bare macro's empty target does, through the generic
+// `name:target[attrlist]` split every row in this table already gets
+// (inline-node-builder.ts's `makeInlineMacro`).
 const MACRO_NAMES =
-  "link|mailto|xref|image|icon|kbd|btn|menu|footnoteref|footnote|pass|stem";
+  "link|mailto|xref|image|icon|kbd|btn|menu|footnoteref|footnote|pass|stem|latexmath|asciimath";
 
 // A bare email address - InlineEmailRx, which our ORACLE,
 // `@asciidoctor/core` 4.0.11, spells at `build/node/index.cjs` l.518 as

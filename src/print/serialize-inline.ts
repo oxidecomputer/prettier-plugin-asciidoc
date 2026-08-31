@@ -34,24 +34,26 @@ import {
  * It is a SHORT list because most inline macros put TEXT between the
  * brackets, and text is content: `link:u[Read, now]` and
  * `xref:t[the, text]` render the comma-space into the anchor,
- * `pass:[a, b]` and `stem:[a, b]` pass it through verbatim,
- * `kbd:[Ctrl, T]` and `btn:[OK, now]` label with it, and
- * `footnote:[a, b]` is the footnote's own prose. Each of those was
- * measured against the oracle and each renders DIFFERENTLY once the
- * blank goes, which is what keeps them off this list. `image:` is the
- * one name left — the positional `[alt, width, height]` list — and it
- * renders identically either way. (`icon:` is the same kind of list
- * and would join it, but the tokenizer does not know the name:
- * src/parse/inline/rules.ts's macro alternation is the roster, and
- * this set is a SUBSET of it by construction.)
+ * `pass:[a, b]`, `stem:[a, b]`, `latexmath:[a, b]` and
+ * `asciimath:[a, b]` pass it through verbatim, `kbd:[Ctrl, T]` and
+ * `btn:[OK, now]` label with it, and `footnote:[a, b]` is the
+ * footnote's own prose. Each of those was measured against the oracle
+ * and each renders DIFFERENTLY once the blank goes, which is what
+ * keeps them off this list. `image:` is the one name left — the
+ * positional `[alt, width, height]` list — and it renders identically
+ * either way. (`icon:` is the same kind of list and would join it,
+ * but the tokenizer does not know the name: src/parse/inline/
+ * rules.ts's macro alternation is the roster, and this set is a
+ * SUBSET of it by construction.)
  */
 const ATTRLIST_MACROS = new Set(["image"]);
 
 /**
  * Serialize a unified inline macro node back to AsciiDoc
- * source as `name:target[attrlist]`. Handles all ten
- * macro types (link, mailto, xref, image, kbd, btn, menu,
- * footnote, footnoteref, pass) uniformly.
+ * source as `name:target[attrlist]`. Handles every macro name
+ * src/parse/inline/rules.ts's `MACRO_NAMES` lists (link, mailto,
+ * xref, image, icon, kbd, btn, menu, footnoteref, footnote, pass,
+ * stem, latexmath, asciimath) uniformly.
  * @param node - The parsed inline macro with name, target,
  *   and raw attrlist content.
  * @returns AsciiDoc source string for the macro.

@@ -1,7 +1,8 @@
 /**
  * Parser tests for inline macros: image, icon, kbd, btn, menu,
- * footnote, footnoteref, pass, and stem. Verifies that the inline
- * parser produces the correct InlineMacroNode for each type.
+ * footnote, footnoteref, pass, stem, latexmath, and asciimath.
+ * Verifies that the inline parser produces the correct
+ * InlineMacroNode for each type.
  */
 import { describe, test, expect } from "vitest";
 import { parse } from "../../src/parser.js";
@@ -357,5 +358,115 @@ describe("stem macro", () => {
     const [node0] = nodes;
     narrow(node0, "text");
     expect(node0.value).toBe("stem: not a macro");
+  });
+});
+
+// -- Math macros (latexmath, asciimath) -----------------------
+//
+// InlineStemMacroRx (rx.rb l.551) is one pattern for `stem`,
+// `latexmath` and `asciimath` - issue #19 added `stem`, issue #76
+// adds the other two names the same pattern covers. Both take the
+// same node shape as `stem:` above (empty target, whole bracket body
+// as attrlist), since it is the same rule row.
+
+describe("latexmath macro", () => {
+  test("latexmath:[expression] -> inlineMacro node", () => {
+    const nodes = inlineNodes("latexmath:[\\sqrt{4} = 2]\n");
+    expect(nodes).toHaveLength(1);
+    const [node0] = nodes;
+    narrow(node0, "inlineMacro");
+    expect(node0.name).toBe("latexmath");
+    expect(node0.target).toBe("");
+    expect(node0.attrlist).toBe(String.raw`\sqrt{4} = 2`);
+  });
+
+  // Formatting characters inside the expression are not inline marks
+  // (verified against the oracle: `latexmath:[a**b**]` renders
+  // `\(a**b**\)`, the `**` untouched) - the whole bracketed body is
+  // the macro's attrlist, one token, not text the mark rules can see
+  // into.
+  test("formatting characters inside latexmath survive as literal text", () => {
+    const nodes = inlineNodes("latexmath:[a**b**]\n");
+    expect(nodes).toHaveLength(1);
+    const [node0] = nodes;
+    narrow(node0, "inlineMacro");
+    expect(node0.name).toBe("latexmath");
+    expect(node0.attrlist).toBe("a**b**");
+  });
+
+  test("latexmath mid-paragraph", () => {
+    const nodes = inlineNodes(
+      "Given the equation latexmath:[x < y] we conclude.\n",
+    );
+    expect(nodes).toHaveLength(3);
+    const [node0, node1, node2] = nodes;
+    narrow(node0, "text");
+    narrow(node1, "inlineMacro");
+    narrow(node2, "text");
+    expect(node0.value).toBe("Given the equation ");
+    expect(node1.name).toBe("latexmath");
+    expect(node1.attrlist).toBe("x < y");
+    expect(node2.value).toBe(" we conclude.");
+  });
+
+  // The optional subs list between the colon and the bracket
+  // (rx.rb l.551's `([a-z]+(?:,[a-z-]+)*)?` group) lands in `target`,
+  // the same generic split every macro row gets - no separate
+  // handling needed. Verified against the oracle: the subs list
+  // changes which substitutions apply to the content, not its bytes.
+  test("latexmath with a subs list populates target", () => {
+    const nodes = inlineNodes("latexmath:specialchars[a < b]\n");
+    expect(nodes).toHaveLength(1);
+    const [node0] = nodes;
+    narrow(node0, "inlineMacro");
+    expect(node0.name).toBe("latexmath");
+    expect(node0.target).toBe("specialchars");
+    expect(node0.attrlist).toBe("a < b");
+  });
+
+  // `latexmath:` with a space before the bracket is not a macro at
+  // all - the pattern requires the `[` immediately after the target.
+  // Verified against the oracle: "latexmath: not a macro" renders
+  // unchanged, as plain text.
+  test("latexmath: followed by a space is plain text, not a macro", () => {
+    const nodes = inlineNodes("latexmath: not a macro\n");
+    expect(nodes).toHaveLength(1);
+    const [node0] = nodes;
+    narrow(node0, "text");
+    expect(node0.value).toBe("latexmath: not a macro");
+  });
+});
+
+describe("asciimath macro", () => {
+  test("asciimath:[expression] -> inlineMacro node", () => {
+    const nodes = inlineNodes("asciimath:[x != 0]\n");
+    expect(nodes).toHaveLength(1);
+    const [node0] = nodes;
+    narrow(node0, "inlineMacro");
+    expect(node0.name).toBe("asciimath");
+    expect(node0.target).toBe("");
+    expect(node0.attrlist).toBe("x != 0");
+  });
+
+  test("asciimath mid-paragraph", () => {
+    const nodes = inlineNodes(
+      "Given the equation asciimath:[x < y] we conclude.\n",
+    );
+    expect(nodes).toHaveLength(3);
+    const [node0, node1, node2] = nodes;
+    narrow(node0, "text");
+    narrow(node1, "inlineMacro");
+    narrow(node2, "text");
+    expect(node1.name).toBe("asciimath");
+    expect(node1.attrlist).toBe("x < y");
+    expect(node2.value).toBe(" we conclude.");
+  });
+
+  test("asciimath: followed by a space is plain text, not a macro", () => {
+    const nodes = inlineNodes("asciimath: not a macro\n");
+    expect(nodes).toHaveLength(1);
+    const [node0] = nodes;
+    narrow(node0, "text");
+    expect(node0.value).toBe("asciimath: not a macro");
   });
 });

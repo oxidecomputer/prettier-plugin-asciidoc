@@ -4,7 +4,7 @@
  * cleanly through the formatter.
  */
 import { describe, test, expect } from "vitest";
-import { formatAdoc } from "../helpers.js";
+import { formatAdoc, renderedHtml } from "../helpers.js";
 
 // ── Inline image ────────────────────────────────────────────
 
@@ -168,6 +168,109 @@ describe("stem macro - format output", () => {
 
   test("stem output is stable across a second format pass", async () => {
     const input = "Given the equation stem:[x < y] we conclude.\n";
+    const once = await formatAdoc(input);
+    const twice = await formatAdoc(once);
+    expect(twice).toBe(once);
+  });
+});
+
+// -- Math macros (latexmath, asciimath) -----------------------
+//
+// Same rule row as `stem:` above (InlineStemMacroRx, rx.rb l.551) -
+// issue #76 adds the two names it also covers. Each test pins byte
+// preservation, oracle render-equality, and idempotence together, the
+// idiom this file's neighbours already use.
+
+describe("latexmath macro - format output", () => {
+  test("latexmath expression is preserved", async () => {
+    const input = "latexmath:[\\sqrt{4} = 2]\n";
+    const output = await formatAdoc(input);
+    expect(output).toBe(input);
+    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(output)).toBe(output);
+  });
+
+  // Formatting characters inside the expression must not be
+  // reinterpreted as bold/italic/etc. marks by the printer - the
+  // atomic macro token round-trips the bracket body byte for byte.
+  // Verified against the oracle: `latexmath:[a**b**]` renders
+  // `\(a**b**\)`, the `**` untouched.
+  test("formatting characters inside latexmath are not reinterpreted", async () => {
+    const input = "latexmath:[a**b**]\n";
+    const output = await formatAdoc(input);
+    expect(output).toBe(input);
+    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(output)).toBe(output);
+  });
+
+  // A doubled space inside the brackets is content, not a run of
+  // ordinary text the printer may collapse or reflow through -
+  // verified against the oracle: `latexmath:[a  b]` renders
+  // `\(a  b\)`, both spaces intact.
+  test("a doubled space inside latexmath brackets is preserved", async () => {
+    const input = "latexmath:[a  b]\n";
+    const output = await formatAdoc(input);
+    expect(output).toBe(input);
+    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(output)).toBe(output);
+  });
+
+  test("latexmath mid-paragraph is preserved", async () => {
+    const input = "Given the equation latexmath:[x < y] we conclude.\n";
+    const output = await formatAdoc(input);
+    expect(output).toBe(input);
+    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(output)).toBe(output);
+  });
+
+  test("latexmath with a subs list is preserved", async () => {
+    const input = "latexmath:specialchars[a < b]\n";
+    const output = await formatAdoc(input);
+    expect(output).toBe(input);
+    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(output)).toBe(output);
+  });
+});
+
+describe("asciimath macro - format output", () => {
+  test("asciimath expression is preserved", async () => {
+    const input = "asciimath:[x != 0]\n";
+    const output = await formatAdoc(input);
+    expect(output).toBe(input);
+    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(output)).toBe(output);
+  });
+
+  // Verified against the oracle: `asciimath:[a**b**]` renders
+  // `\$a**b**\$`, the `**` untouched.
+  test("formatting characters inside asciimath are not reinterpreted", async () => {
+    const input = "asciimath:[a**b**]\n";
+    const output = await formatAdoc(input);
+    expect(output).toBe(input);
+    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(output)).toBe(output);
+  });
+
+  // Verified against the oracle: `asciimath:[a  b]` renders
+  // `\$a  b\$`, both spaces intact.
+  test("a doubled space inside asciimath brackets is preserved", async () => {
+    const input = "asciimath:[a  b]\n";
+    const output = await formatAdoc(input);
+    expect(output).toBe(input);
+    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(output)).toBe(output);
+  });
+
+  test("asciimath mid-paragraph is preserved", async () => {
+    const input = "Given the equation asciimath:[x < y] we conclude.\n";
+    const output = await formatAdoc(input);
+    expect(output).toBe(input);
+    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(output)).toBe(output);
+  });
+
+  test("asciimath output is stable across a second format pass", async () => {
+    const input = "Given the equation asciimath:[x < y] we conclude.\n";
     const once = await formatAdoc(input);
     const twice = await formatAdoc(once);
     expect(twice).toBe(once);

@@ -1,9 +1,10 @@
 /**
  * Reflow tests for inline macros under width pressure - split out of
  * reflow.test.ts to keep that file under the 450-line cap. Verifies
- * that image, kbd, btn, menu, footnote, pass, icon, and stem macros
- * are atomic units in fill()'s line-breaking: they are placed whole
- * on a line or wrapped to the next one, never split internally.
+ * that image, kbd, btn, menu, footnote, pass, icon, stem, and
+ * latexmath macros are atomic units in fill()'s line-breaking: they
+ * are placed whole on a line or wrapped to the next one, never split
+ * internally.
  */
 import { describe, test, expect } from "vitest";
 import { formatAdoc } from "../helpers.js";
@@ -115,6 +116,33 @@ describe("inline macro reflow", () => {
     // into a fragment like "stem:[x <" at the space inside it.
     expect(result).toBe(
       "Given the equation\nstem:[x < y] we conclude the\nproof.\n",
+    );
+  });
+
+  // Same rule row as stem (issue #76: `latexmath`/`asciimath` join
+  // `stem` under InlineStemMacroRx). `latexmath` and `asciimath` are
+  // both 9 characters, so this one test stands for both names -
+  // proving atomicity for one proves it for the shared rule.
+  //
+  // Measured: "Given the equation" is 18 characters, the whole macro
+  // "latexmath:[x < y]" is 17, and the prefix through the first
+  // fragment, "Given the equation latexmath:[x", is 31 - all measured
+  // via `formatAdoc`. At printWidth=33, 18 + 1 + 17 = 36 > 33, so the
+  // whole macro cannot fit on line 1 and fill() moves it whole to
+  // line 2. Were the macro read as separate words instead of one
+  // atom, the 31-character prefix through "latexmath:[x" WOULD fit
+  // within 33, and the next word "<" (32 chars with its space) would
+  // still fit too - only "y]" (35 chars) would not, so a non-atomic
+  // reader would wrap after "<", landing "latexmath:[x <" on line 1
+  // and "y]" on line 2: a line break inside the bracketed expression,
+  // exactly the corruption this test guards against. The actual
+  // output moves the whole macro down instead.
+  test("latexmath macro does not wrap internally under width pressure", async () => {
+    const input =
+      "Given the equation latexmath:[x < y] we conclude the proof.\n";
+    const result = await formatAdoc(input, { printWidth: 33 });
+    expect(result).toBe(
+      "Given the equation\nlatexmath:[x < y] we conclude the\nproof.\n",
     );
   });
 
