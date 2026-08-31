@@ -22,6 +22,8 @@ import { ASCII_WHITESPACE } from "../parse/line-shapes.js";
 import { MARK_BOUNDARY, QUOTE_ROW } from "../parse/inline/quote-boundaries.js";
 import { verbatimText } from "./serialize-inline.js";
 import {
+  attrlistAllowsIt,
+  attrlistInFront,
   curvedQuoteMarks,
   delimitersOf,
   edgeHead,
@@ -466,15 +468,45 @@ function constrainedIsLegal(
  */
 function neighboursAllowIt(node: MarkSpanNode, cursor: Cursor): boolean {
   const { front, behind } = MARK_BOUNDARY[node.type];
+  // This function is only ever asked about a span still spelled
+  // UNCONSTRAINED, so its own row is also the EARLIEST row that can
+  // read the single marks the shortening would leave behind. A
+  // neighbour whose own delimiter this reports (rather than its row's
+  // element boundary) is therefore a delimiter that is still a literal
+  // mark where those single marks would stand.
   const { order } = QUOTE_ROW[rowKeyOf(node)];
   const inFront = frontNeighbour(cursor, order);
   const behindIt = behindNeighbour(cursor, order);
-  return (
-    inFront !== undefined &&
-    behindIt !== undefined &&
-    !front.test(inFront) &&
-    !behind.test(behindIt)
+  if (inFront === undefined || behindIt === undefined) return false;
+  // NO SAME MARK MAY ABUT EITHER DELIMITER. Ruby's boundary clauses
+  // permit one - a mark character is not a word character - but the
+  // UNCONSTRAINED row of this same mark runs in front of the
+  // constrained one and pairs a DOUBLED delimiter, so a single mark
+  // written flush against another one is a `**` that row takes.
+  // Measured: `[**a***]**c*` is `[` + `**a**` + `*]*` + `*c*`, and
+  // shortening the first span writes `[*a**]**c*`, whose junction of
+  // two constrained spans the unconstrained row reads as a span of its
+  // own - `<strong>a<strong>]</strong>c</strong>` where the source has
+  // `<strong class="<strong>a</strong>*">*c</strong>`. `**a****b**`
+  // (issue #83) is the same hazard between two unconstrained spans.
+  const mark = spanMarks(node, true).close;
+  if (inFront.endsWith(mark) || behindIt.startsWith(mark)) return false;
+  // AN ATTRLIST IN FRONT BELONGS TO THE ROW THAT RESOLVES THE SPAN.
+  // The optional `(?:\[([^\]]+)\])?` group is part of the match, so a
+  // bracketed run flush against a span moves to the constrained row
+  // with it - and two things about that run then answer for the
+  // shortening (attrlistInFront, span-edges.ts, which reads it from the
+  // span's own role where the parser has one and from the printed bytes
+  // of the siblings where it has not).
+  const attrlist = attrlistInFront(
+    headContext(cursor, order),
+    cursor.siblings.slice(0, cursor.index),
+    node.type === "highlight" ? node.role : undefined,
   );
+  if (attrlist !== undefined && !attrlistAllowsIt(attrlist, mark, front)) {
+    return false;
+  }
+  return !front.test(inFront) && !behind.test(behindIt);
 }
 
 /**
@@ -500,9 +532,27 @@ function neighboursAllowIt(node: MarkSpanNode, cursor: Cursor): boolean {
  * @returns the text the front clause tests, or undefined to refuse
  */
 function frontNeighbour(cursor: Cursor, order: number): string | undefined {
-  if (cursor.index > 0) {
-    return edgeTail(cursor.siblings[cursor.index - 1], order);
-  }
+  return cursor.index > 0
+    ? edgeTail(cursor.siblings[cursor.index - 1], order)
+    : headContext(cursor, order);
+}
+
+/**
+ * What stands in front of the sibling LIST - the enclosing span's own
+ * edge, or the empty string at the head of a block.
+ *
+ * Split out of {@link frontNeighbour} because two questions need it and
+ * only one of them is about the span's immediate neighbour: an attrlist
+ * flush in front of a span can begin at the head of the list, and then
+ * what the row's left clause reads is this and not a sibling's tail.
+ * TOTAL where `frontNeighbour` is not: the head of a block is always
+ * knowable, and only a SIBLING can be a node whose bytes are not ours
+ * to predict.
+ * @param cursor - where the span sits
+ * @param order - the asking span's row index
+ * @returns the text in front of the first sibling
+ */
+function headContext(cursor: Cursor, order: number): string {
   const { enclosing } = cursor;
   if (enclosing === undefined) return "";
   const row = QUOTE_ROW[rowKeyOf(enclosing)];

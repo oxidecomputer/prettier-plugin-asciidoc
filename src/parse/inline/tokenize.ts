@@ -11,6 +11,7 @@
 import { INLINE_RULES, markFlags } from "./rules.js";
 import type { InlineKind, InlineToken } from "./tokens.js";
 import { scanCurvedQuotes } from "./curved-quotes.js";
+import { scanDoubledMarks } from "./doubled-marks.js";
 
 /**
  * Tokenize one fragment of paragraph text.
@@ -41,12 +42,18 @@ export function tokenizeInline(
   // (rules.ts's textMatcher/firstCurvedDelimiterIn) - the same reason
   // it already cuts before an email address.
   const curved = scanCurvedQuotes(text);
+  // The four unconstrained (doubled) rows are scanned ONCE for the same
+  // reason (doubled-marks.ts says why): `**a**` pairs and `**a*` does
+  // not, so whether two adjacent marks are one delimiter is a fact
+  // about the whole fragment. The doubled scan reads the curved scan's
+  // masked view where its own row runs later, so it is taken second.
+  const scan = { curved, doubled: scanDoubledMarks(text, curved) };
   let index = 0;
   while (index < text.length) {
     let type: InlineKind = "InlineChar";
     let length = 0;
     for (const rule of INLINE_RULES) {
-      length = rule.match(text, index, curved);
+      length = rule.match(text, index, scan);
       if (length > 0) {
         ({ type } = rule);
         break;

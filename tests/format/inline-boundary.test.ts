@@ -342,3 +342,129 @@ describe("the derived boundary at print time: a mark reading a SPAN sibling", ()
     expect(await formatAdoc(out)).toBe(out);
   });
 });
+
+describe("the shortening is refused where it would move a same mark (issue #72)", () => {
+  // Shortening an unconstrained span removes two mark characters from
+  // the line, and the rows read the whole line. Two neighbourhoods make
+  // that unsafe, and each row below is a shape where the shorter
+  // spelling reads DIFFERENTLY - asserted here against the oracle, so
+  // the refusal is pinned as necessary and not merely cautious.
+  //
+  // ABUTMENT. Ruby's boundary clauses admit a mark character beside a
+  // constrained delimiter, but the UNCONSTRAINED row of the same mark
+  // runs in front of the constrained one and pairs a DOUBLED
+  // delimiter, so two single marks written flush against each other
+  // are a `**` that row takes. `[**a***]**c*` is `[` + `**a**` +
+  // `*]*` + `*c*`, and the first span's close abuts the second span's
+  // open.
+  //
+  // AN ATTRLIST IN FRONT. Every row carries an optional
+  // `(?:\[([^\]]+)\])?` group in front of its delimiter
+  // (asciidoctor.rb l.446-464), so a bracketed run flush against a
+  // span belongs to whichever row resolves it; shortening hands the
+  // run to the constrained row, which consumes the marks inside it
+  // that the unconstrained spelling left for that row to re-read.
+  //
+  // Issue #83's own witnesses (`**a****b**`, `##a####b##`) are the
+  // abutment rule between two UNCONSTRAINED spans and are in the table
+  // for that reason.
+  test.each<[string, string]>([
+    ["[**a***]**c*", "[*a**]**c*"],
+    ["[**a***]**cc*", "[*a**]**cc*"],
+    ["[**a***]c**c*", "[*a**]c**c*"],
+    ["[**a***a]**c*", "[*a**a]**c*"],
+    ["[**aa***]**c*", "[*aa**]**c*"],
+    ["[##a###]c##c#", "[#a##]c##c#"],
+    ["[*a**a*]**c**", "[*a**a*]*c*"],
+    ["**a****b**", "*a**b*"],
+    ["##a####b##", "#a##b#"],
+    // A backtick standing LATER in the run: the `"` the run is written
+    // behind guards only its first character, and a space or a hyphen
+    // opens monospaced's constrained row like any other non-word
+    // character.
+    ["[a `b` c]``d``", "[a `b` c]`d`"],
+    ["[a-`b`-c]``d``", "[a-`b`-c]`d`"],
+    ["x[`a`]``c``", "x[`a`]`c`"],
+    // The one mark whose attrlist this parser PARSES: it rides on the
+    // span as a role rather than standing in the siblings, so the run
+    // is read from there.
+    ["[##a#]##c##", "[##a#]#c#"],
+    ["[####]##c##", "[####]#c#"],
+    ["[a #b# c]##d##", "[a #b# c]#d#"],
+    // A word character in front of the BRACKET. The constrained row's
+    // left clause is tested where the match starts, so the run the
+    // wider spelling took as a role is no role to the narrower one.
+    ["x[a]**c**", "x[a]*c*"],
+    ["x[a]__c__", "x[a]_c_"],
+    ["x[a]``c``", "x[a]`c`"],
+  ])(
+    "%s keeps its bytes, because %s reads differently",
+    async (source, shorter) => {
+      const input = `${source}\n`;
+      const out = await formatAdoc(input);
+      expect(out).toBe(input);
+      expect(await formatAdoc(out)).toBe(out);
+      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+      // The refusal is necessary: the spelling the printer would
+      // otherwise have written is a different document to the oracle.
+      expect(await renderedHtml(`${shorter}\n`)).not.toBe(
+        await renderedHtml(input),
+      );
+    },
+  );
+
+  // The other side of every clause, so none is a blanket refusal. A
+  // same-mark span elsewhere on the line is fine as long as nothing
+  // abuts (row 3); an attrlist in front is fine as long as it carries
+  // no mark AND no word character stands in front of its bracket
+  // (row 2); and row 4 is the abutment of two DIFFERENT marks, which
+  // the abutment clause leaves alone.
+  test.each<[string, string]>([
+    ["**c**", "*c*"],
+    ["[ab]**c**", "[ab]*c*"],
+    ["*a* **a**", "*a* *a*"],
+    ["**a**##b## c", "*a*#b# c"],
+  ])("%s still shortens to %s", async (source, expected) => {
+    const input = `${source}\n`;
+    const out = await formatAdoc(input);
+    expect(out).toBe(`${expected}\n`);
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+
+  // The conservative edge of the same two clauses: shapes where the
+  // shorter spelling happens to survive the oracle, and the clause
+  // refuses anyway because it reads the run and not the whole line.
+  // The trade is the file's own: a refusal prints the author's bytes,
+  // which costs bytes and no meaning, and the same clause is what
+  // keeps `[##a#]##c##` and `[a `b` c]``d`` from corrupting.
+  test.each<[string, string]>([
+    ["[`a`]``c``", "[`a`]`c`"],
+    ["[a##b]##c##", "[a##b]#c#"],
+  ])(
+    "%s is refused conservatively, and the shorter spelling %s would have survived",
+    async (source, shorter) => {
+      const input = `${source}\n`;
+      const out = await formatAdoc(input);
+      expect(out).toBe(input);
+      expect(await formatAdoc(out)).toBe(out);
+      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+      expect(await renderedHtml(`${shorter}\n`)).toBe(
+        await renderedHtml(input),
+      );
+    },
+  );
+
+  // A span the scan newly finds brings the block's existing
+  // break-keeping with it (issue #55's rule, reached by a corrected
+  // tree): `***` on the second line is a constrained span here, and
+  // the author's own break survives where it used to be reflowed into
+  // a space. Render-equal either way; the bytes are now the input's.
+  test("a newly-found span keeps the author's line break", async () => {
+    const input = "[a\n]***\n";
+    const out = await formatAdoc(input);
+    expect(out).toBe(input);
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+});

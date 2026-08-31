@@ -25,6 +25,7 @@ import {
   type MarkKind,
   type QuoteRowKey,
 } from "../parse/inline/quote-boundaries.js";
+import { verbatimText } from "./serialize-inline.js";
 
 /**
  * A formatting span with a CONSTRAINED spelling to choose: its marks
@@ -45,6 +46,16 @@ export type MarkSpanNode =
  * {@link MarkSpanNode} answers.
  */
 export type SpanNode = MarkSpanNode | CurvedQuoteNode;
+
+// The attrlist group's own brackets, `(?:\[([^\]]+)\])?`, which
+// every `QUOTE_SUBS` row carries in front of its opening delimiter.
+const ATTRLIST_OPEN = "[";
+const ATTRLIST_CLOSE = "]";
+
+// What a hard line break prints, spelled here because
+// {@link printedText} is total and a break is one of the nodes it has
+// to answer for.
+const HARD_BREAK = " +";
 
 /** The one mark character each span kind is spelled with. */
 const SPAN_MARKS = { bold: "*", italic: "_", monospace: "`", highlight: "#" };
@@ -220,4 +231,135 @@ export function edgeHead(
   if (!isSpanNode(neighbour)) return undefined;
   const row = QUOTE_ROW[rowKeyOf(neighbour)];
   return row.order < askingOrder ? row.opensWith : delimitersOf(neighbour).open;
+}
+
+/**
+ * The bytes a node prints.
+ *
+ * TOTAL, with no "cannot say" arm: a span prints its own delimiters
+ * around its content - which is what makes a nested run of marks
+ * visible to {@link attrlistCarriesMark} where the tree alone shows
+ * only nodes - a raw line prints the line it kept and a hard break its
+ * own ` +`, and every other node answers through `verbatimText`, the
+ * same function the printer writes it with.
+ * @param node - an inline node standing in front of a span
+ * @returns its printed bytes
+ */
+function printedText(node: InlineNode): string {
+  if (node.type === "text" || node.type === "rawLine") return node.value;
+  if (node.type === "hardLineBreak") return HARD_BREAK;
+  if (isSpanNode(node)) {
+    const { open, close } = delimitersOf(node);
+    return `${open}${node.children.map(printedText).join("")}${close}`;
+  }
+  return verbatimText(node);
+}
+
+/**
+ * The attrlist standing flush in front of a span: the run inside its
+ * brackets, and the bytes in front of its `[`.
+ *
+ * Every `QUOTE_SUBS` row carries an optional `(?:\[([^\]]+)\])?`
+ * group in front of its opening delimiter (asciidoctor.rb l.446-464),
+ * so a `[...]` run flush against a span belongs to whichever ROW
+ * resolves that span. Both fields are what a respelling decision needs
+ * from it, and they answer two different questions
+ * ({@link attrlistAllowsIt}). Not exported: the value travels from
+ * {@link attrlistInFront} to that predicate, and its one caller
+ * (`neighboursAllowIt`, src/print/inline.ts) never names the type.
+ */
+interface AttrlistInFront {
+  /** The run between the `[` and the `]`, never empty. */
+  readonly interior: string;
+  /**
+   * What stands in front of the `[`. The row's own LEFT clause is
+   * tested where the MATCH starts, which is the `[` and not the
+   * delimiter, so this is the text whose last character it reads.
+   */
+  readonly before: string;
+}
+
+/**
+ * The attrlist flush in front of a span, read from TWO places because
+ * this parser models one of them and prints the other.
+ *
+ * A highlight's attrlist is parsed (`rules.ts`'s `RoleAttribute` row,
+ * which fires in front of a `#` and nowhere else) and rides on the span
+ * as its role, so the printer writes the brackets itself and every byte
+ * in front of the span stands in front of them. For the other three
+ * marks the same bytes are ordinary text and spans that Ruby reads as a
+ * role all the same, so the run is recovered from what those siblings
+ * PRINT.
+ *
+ * `[^\]]+` cannot cross a `]`, so the group's `[` is the first one
+ * standing after the previous `]`; taking the first gives the widest
+ * interior, which is the conservative reading of what the group can
+ * hold. An empty interior is no attrlist at all, which is why
+ * `[]**c**` renders `[]<strong>c</strong>`.
+ * @param head - what stands in front of the sibling list itself
+ * @param inFront - the siblings in front of the span, in source order
+ * @param role - the span's own parsed attrlist, for the one mark that
+ *   has one
+ * @returns the run and its left context, or undefined when no attrlist
+ *   stands there
+ */
+export function attrlistInFront(
+  head: string,
+  inFront: readonly InlineNode[],
+  role: string | undefined,
+): AttrlistInFront | undefined {
+  const text = head + inFront.map(printedText).join("");
+  if (role !== undefined) return { interior: role, before: text };
+  // The group's own `\]` has to be the last byte in front of the
+  // delimiter; anything else and no group can end there.
+  if (!text.endsWith(ATTRLIST_CLOSE)) return undefined;
+  const body = text.slice(0, -1);
+  const region = body.slice(body.lastIndexOf(ATTRLIST_CLOSE) + 1);
+  const open = region.indexOf(ATTRLIST_OPEN);
+  const interior = open === -1 ? "" : region.slice(open + 1);
+  return interior === ""
+    ? undefined
+    : { interior, before: body.slice(0, body.length - region.length + open) };
+}
+
+/**
+ * Whether the attrlist standing flush in front of a span leaves the
+ * constrained spelling legal. Two independent refusals, each with its
+ * own witness.
+ *
+ * A MARK INSIDE THE RUN. The unconstrained row writes the run into its
+ * element's attribute and the constrained row then matches the marks
+ * left standing in there, while the constrained row doing the same
+ * match consumes them itself and nothing re-reads them. Measured:
+ * `[*a**a*]**c**` renders `<strong class="<strong>a</strong>*a*">c</strong>`
+ * and the shortened `[*a**a*]*c*` renders `<strong class="*a**a*">c</strong>`.
+ * Monospaced is no exception: its own left clause excludes `"`, which
+ * guards only the run's FIRST character, and a backtick standing later
+ * opens after a space or a hyphen like any other - `[a `b` c]``d``
+ * renders `<code class="a <code>b</code> c">d</code>` and the shortened
+ * `[a `b` c]`d`` renders `<code class="a `b` c">d</code>`.
+ *
+ * A WORD CHARACTER IN FRONT OF THE BRACKET. The unconstrained row has
+ * no left clause and the constrained row has one, tested where the
+ * MATCH starts - which is the `[`, not the delimiter. So a run the
+ * wider spelling took as a role is not a role to the narrower one at
+ * all: `x[a]**c**` renders `x<strong class="a">c</strong>` and the
+ * shortened `x[a]*c*` renders `x[a]<strong>c</strong>`, the role gone.
+ * The character is read through `afterSpecialchars` for the reason
+ * quote-boundaries.ts gives: `sub_specialchars` has already run when
+ * the quote pass reads it.
+ * @param attrlist - the run and its left context
+ * @param mark - the span's own mark character
+ * @param front - the mark's own left-boundary class
+ * @returns true when neither refusal applies
+ */
+export function attrlistAllowsIt(
+  attrlist: AttrlistInFront,
+  mark: string,
+  front: RegExp,
+): boolean {
+  return (
+    !attrlist.interior.includes(mark) &&
+    !front.test(afterSpecialchars(attrlist.before))
+  );
 }

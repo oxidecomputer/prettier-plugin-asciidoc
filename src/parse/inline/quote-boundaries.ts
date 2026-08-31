@@ -229,10 +229,10 @@ const MARK_UNCONSTRAINED_ROW: Record<MarkKind, QuoteRowKey> = {
  *   x "`**a**`" y  and  x "`*a*`" y   both render <strong>
  *   x "`__a__`" y  renders <em>;  x "`_a_`" y  does not
  *
- * Exported for its unit test (tests/parser/curved-quote-scan.test.ts);
- * no src consumer beyond {@link canOpenAt}/{@link canCloseAt} in this
- * same file.
- * @internal
+ * Consumed by {@link canOpenAt}/{@link canCloseAt} in this same file
+ * and by doubled-marks.ts, which picks each unconstrained row's source
+ * the same way; asserted directly by
+ * tests/parser/curved-quote-scan.test.ts.
  * @param kind - the mark whose rows are being asked about
  * @returns true when the curved rewrite is already in the text
  */

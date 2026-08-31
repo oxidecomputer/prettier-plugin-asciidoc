@@ -36,9 +36,10 @@
 import { DELIM_WIDTH } from "../../constants.js";
 import type { InlineToken } from "./tokens.js";
 import { CURVED_WIDTH } from "./curved-quotes.js";
-
-// An unconstrained mark is the constrained one written twice.
-const UNCONSTRAINED_WIDTH = DELIM_WIDTH + DELIM_WIDTH;
+// An unconstrained mark is the constrained one written twice - the
+// same width the scan that finds those delimiters is built on, taken
+// from there so a row here and a token there cannot disagree.
+import { UNCONSTRAINED_WIDTH } from "./doubled-marks.js";
 
 /**
  * The `QUOTE_SUBS` rows this parser models, in the table's own order.

@@ -285,12 +285,14 @@ needed, one `LocationIndex` (`src/parse/positions.ts`), built once per document,
 answers by binary search.
 
 The constrained/unconstrained distinction (`*` vs `**`, `_` vs `__`) is one
-`match` function over an `isBoundary` predicate: try the double mark first,
-accept the single one only next to a word boundary. The boundary is computed
-against the fragment handed to the tokenizer, never the document — an index
-outside the fragment counts as a boundary, which is what makes `* *bold*` bold.
-Reading surrounding characters is inline context; reading block history would be
-block context, and the guard test forbids it.
+`match` function over two facts: a doubled mark stands where the unconstrained
+row's own gsub put a delimiter (`doubled-marks.ts`, scanned once per fragment
+because `**a**` pairs and `**a*` does not), and the single mark is a token only
+next to a word boundary. The boundary is computed against the fragment handed to
+the tokenizer, never the document — an index outside the fragment counts as a
+boundary, which is what makes `* *bold*` bold. Reading surrounding characters is
+inline context; reading block history would be block context, and the guard test
+forbids it.
 
 ## The AST
 

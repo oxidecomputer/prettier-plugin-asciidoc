@@ -25,7 +25,36 @@ import {
   type CurvedQuoteSpelling,
 } from "./quote-boundaries.js";
 import { CURVED_WIDTH, type CurvedScan } from "./curved-quotes.js";
+import { UNCONSTRAINED_WIDTH } from "./doubled-marks.js";
 import { matchPassthrough } from "./passthrough.js";
+
+/**
+ * The two whole-fragment scans every rule is handed, taken once per
+ * fragment by `tokenizeInline`.
+ *
+ * Both exist because their construct is not decidable from a
+ * neighbourhood: a curved-quote pair (curved-quotes.ts) and a doubled
+ * mark (doubled-marks.ts) each answer to text arbitrarily far away.
+ * Together they are a fact about the same fragment every rule already
+ * has, not a history of what has been matched. Not exported: the one
+ * caller (tokenize.ts) builds the object inline from the two scans it
+ * has just taken, so nothing needs the type by name.
+ */
+interface FragmentScan {
+  /**
+   * Where the two curved-quote rows matched. The two curved rules read
+   * it to find their own delimiters, and `InlineText`'s own rule reads
+   * it to cut its run before one, the way it already cuts before an
+   * email address.
+   */
+  readonly curved: CurvedScan;
+  /**
+   * Every offset where an unconstrained (doubled) delimiter BEGINS.
+   * {@link markMatcher} reads it to decide the doubled spelling; every
+   * other rule ignores it.
+   */
+  readonly doubled: ReadonlySet<number>;
+}
 
 /** One entry of the ordered table. */
 interface InlineRule {
@@ -35,19 +64,10 @@ interface InlineRule {
    * How many characters match at `index`.
    * @param text - the fragment being tokenized
    * @param index - where to try, zero-based
-   * @param curved - where the two curved-quote rows matched in this
-   *   fragment (curved-quotes.ts), scanned once per fragment by
-   *   `tokenizeInline`. The two curved rules read it to find their own
-   *   delimiters; InlineText's own rule reads it to cut its run before
-   *   one (the way it already cuts before an email address); and
-   *   MonoMark's doubled branch reads it to refuse extending into a
-   *   curved delimiter, since a curved close shares its own first
-   *   character (a backtick) with monospace's mark. Every other rule
-   *   ignores it. It is a fact about the same text every rule already
-   *   has, not a history of what has been matched.
+   * @param scan - the fragment's two whole-text scans
    * @returns the match length, or 0 when the rule does not apply
    */
-  readonly match: (text: string, index: number, curved: CurvedScan) => number;
+  readonly match: (text: string, index: number, scan: FragmentScan) => number;
 }
 
 // Which span kind each mark token spells - the key into
@@ -64,8 +84,8 @@ const MARK_KINDS: Partial<Record<InlineKind, MarkKind>> = {
  * A constrained/unconstrained formatting mark — `strong`, `emphasis`,
  * `monospaced` and `mark` in the `QUOTE_SUBS` table, which is DEFINED
  * in asciidoctor.rb l.439-470 and consumed by substitutors.rb l.191.
- * The double mark is tried first (unconstrained, no boundary test at
- * all); the single one is a token only where Ruby's constrained
+ * The unconstrained (doubled) row is tried first, exactly as the table
+ * orders it; the single mark is a token only where Ruby's constrained
  * pattern could OPEN or CLOSE with it - `canOpenAt`/`canCloseAt`
  * (quote-boundaries.ts), each reading one neighbour and one content
  * edge. A single mark that can do neither is no mark: it falls to
@@ -77,30 +97,29 @@ const MARK_KINDS: Partial<Record<InlineKind, MarkKind>> = {
  * never the whole document: `* *bold*` after a list marker can open
  * at offset 0 because nothing precedes it in the fragment.
  *
- * The DOUBLED branch refuses to extend into a curved-quote delimiter:
- * `curved.delimiters` is keyed by a delimiter's own first character,
- * which for monospace's mark is the same backtick both curved rows
- * spell, and only THIS branch can reach past `index` without the
- * tokenizer trying a rule at `index + 1` fresh - a single-width match
- * never skips a position, so nothing else needs the check. Measured:
- * `"``a``"` scans a close delimiter at offset 5 (curved-quotes.ts),
- * but a doubled MonoMark tried at offset 4 would swallow it (`` `` ``
- * at 4-5) before DoubleQuoteMark ever got a turn at 5, losing the
- * close and the whole span with it - "where the scan says a curved
- * row matched, that row owns it" (the comment on the two curved rows
- * below) has to hold here too, not only at a delimiter's own start.
+ * TWO ADJACENT MARKS ARE NOT A DOUBLED MARK. Whether they are is the
+ * unconstrained row's own question, and that row is a gsub over the
+ * whole text (`sub_quotes`, substitutors.rb l.189-196), so the answer
+ * is not in this neighbourhood: `**a**` pairs and `**a*` does not.
+ * `scan.doubled` (doubled-marks.ts) is that row's own walk, and a
+ * doubled mark is a token at the offsets it names and nowhere else.
+ * Taking every adjacent pair instead hides the single mark the
+ * CONSTRAINED row pairs inside the same run, which is issue #72:
+ * `####` renders `<mark>#</mark>#` and `[r]####`
+ * `<span class="r">#</span>#`, where a greedy reading leaves plain
+ * text. The same walk is what keeps a doubled monospace mark off a
+ * backtick the curved rows already took, since it reads those rows'
+ * masked view rather than the source.
  * @param character - the mark character (`*`, `_`, `` ` ``, `#`)
  * @param kind - the span kind whose boundary classes apply
  * @returns the rule's match function
  */
 function markMatcher(character: string, kind: MarkKind): InlineRule["match"] {
-  return (text: string, index: number, curved: CurvedScan): number => {
+  return (text: string, index: number, scan: FragmentScan): number => {
     if (text.at(index) !== character) return 0;
-    if (text.at(index + 1) === character && !curved.delimiters.has(index + 1)) {
-      return 1 + 1;
-    }
-    return canOpenAt(kind, text, index, curved.view) ||
-      canCloseAt(kind, text, index, curved.view)
+    if (scan.doubled.has(index)) return UNCONSTRAINED_WIDTH;
+    return canOpenAt(kind, text, index, scan.curved.view) ||
+      canCloseAt(kind, text, index, scan.curved.view)
       ? 1
       : 0;
   };
@@ -114,8 +133,8 @@ function markMatcher(character: string, kind: MarkKind): InlineRule["match"] {
  * @returns the rule's match function
  */
 function curvedMatcher(quote: CurvedQuoteSpelling): InlineRule["match"] {
-  return (text: string, index: number, curved: CurvedScan): number =>
-    curved.delimiters.get(index)?.quote === quote ? CURVED_WIDTH : 0;
+  return (text: string, index: number, scan: FragmentScan): number =>
+    scan.curved.delimiters.get(index)?.quote === quote ? CURVED_WIDTH : 0;
 }
 
 /**
@@ -554,7 +573,7 @@ function nearerCut(left: number, right: number): number {
  */
 function textMatcher(source: string): InlineRule["match"] {
   const sticky = new RegExp(source, "vy");
-  return (text: string, index: number, curved: CurvedScan): number => {
+  return (text: string, index: number, scan: FragmentScan): number => {
     sticky.lastIndex = index;
     const found = sticky.exec(text);
     if (found === null) return 0;
@@ -563,7 +582,11 @@ function textMatcher(source: string): InlineRule["match"] {
     // From `index + 1`: an address or a delimiter AT `index` would have
     // been an earlier rule's, and a cut of zero is no cut.
     const emailCut = firstAddressIn(text, index + 1, index + length);
-    const curvedCut = firstCurvedDelimiterIn(curved, index + 1, index + length);
+    const curvedCut = firstCurvedDelimiterIn(
+      scan.curved,
+      index + 1,
+      index + length,
+    );
     const cut = nearerCut(emailCut, curvedCut);
     return cut === -1 ? length : cut - index;
   };

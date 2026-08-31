@@ -106,8 +106,12 @@ same four characters and only diverge on what stands later in the line, so a
 rule row would have to consume a quote plus a backtick before it can tell
 whether the span is a monospace pair or a curved one. That construct is a
 separate SCAN instead (`src/parse/inline/curved-quotes.ts`, whose own header
-explains the "why a scan" reasoning) - reach for a scan only when a rule
-genuinely cannot decide locally, the way this one could not.
+explains the "why a scan" reasoning). The doubled marks are the other one:
+`**a**` pairs and `**a*` does not, so whether two adjacent marks are one
+delimiter is a fact about the whole fragment, and
+`src/parse/inline/doubled-marks.ts` replays the unconstrained rows' own gsub to
+answer it. Reach for a scan only when a rule genuinely cannot decide locally,
+the way these two could not.
 
 **The two authorities.** Cite the one you MEASURED. `@asciidoctor/core` is the
 behavioral authority: cite `build/node/index.cjs`, or the `src/*.js` it is

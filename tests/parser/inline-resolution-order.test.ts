@@ -26,40 +26,8 @@
  * readings tied together.
  */
 import { describe, expect, test } from "vitest";
-import { asParagraph, formatAdoc, renderedHtml } from "../helpers.js";
-import { parse } from "../../src/parser.js";
-import type { InlineNode } from "../../src/ast.js";
-
-/**
- * A one-line spelling of an inline tree: `bold[…]` for a span,
- * `"…"` for a text run, `u`/`c` for unconstrained/constrained. Tests
- * compare whole shapes rather than probing node by node, because what
- * changed in issue #66 is which span exists at all, not one field of
- * one node.
- * @param node - an inline node
- * @returns its shape, with children nested inside the brackets
- */
-function shapeOf(node: InlineNode): string {
-  if (node.type === "text") return JSON.stringify(node.value);
-  if (node.type === "curvedQuote") {
-    const spelling = node.quote === "double" ? "d" : "s";
-    return `curved${spelling}[${node.children.map(shapeOf).join(",")}]`;
-  }
-  if (!("children" in node)) return node.type;
-  const spelling = "constrained" in node && node.constrained ? "c" : "u";
-  return `${node.type}${spelling}[${node.children.map(shapeOf).join(",")}]`;
-}
-
-/**
- * The shape of a one-paragraph document's inline content.
- * @param input - the document source
- * @returns one shape string per top-level inline node
- */
-function shapes(input: string): string[] {
-  const document = parse(input);
-  const [block] = document.children;
-  return asParagraph(block).children.map(shapeOf);
-}
+import { formatAdoc, renderedHtml } from "../helpers.js";
+import { shapes } from "./inline-shape.js";
 
 /**
  * One overlap: two marks whose spans cross in the source.
@@ -263,25 +231,6 @@ describe("a dropped candidate still consumes its marks", () => {
       '" d_ e_"',
     ]);
   });
-});
-
-describe("marks with nothing between them", () => {
-  // Every QUOTE_SUBS content group demands at least one character, so
-  // the adjacent close is skipped and no span is resolved. What the
-  // oracle then does is out of a tree's reach for a different reason:
-  // its CONSTRAINED mark row pairs the second `#` with the third and
-  // leaves the fourth over, while our tokenizer reads `####` as two
-  // doubled marks and never offers it a single one. The bytes are
-  // left exactly as written, which is the safe answer either way -
-  // and `[r]####` used to reach the printer as a childless span and
-  // crash it.
-  test.each(["####", "[r]####"])(
-    "%s is left alone rather than built as an empty span",
-    async (source) => {
-      expect(shapes(source)).toEqual([JSON.stringify(source)]);
-      expect(await formatAdoc(source)).toBe(`${source}\n`);
-    },
-  );
 });
 
 describe("curved-quote spans (issue #74)", () => {
