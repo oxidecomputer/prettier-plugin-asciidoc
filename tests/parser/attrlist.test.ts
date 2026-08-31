@@ -36,6 +36,60 @@ describe("parseAttrlist — the one first-positional spelling", () => {
     ["\u00A0NOTE", "\u00A0NOTE", "\u00A0NOTE"],
     ["NOTE ", "NOTE", "NOTE"],
     ["NOTE\t", "NOTE", "NOTE"],
+    // Issue #81: a quoted comma is not a boundary, in `style` any
+    // more than it already was in `attrlistFields`. The oracle
+    // (`@asciidoctor/core` 4.0.11, a paragraph's `attributes[1]`,
+    // which is what a generic block's style reads) stores the quotes
+    // stripped and the comma kept: `["a,b",c]` -> `{"1":"a,b","2":"c"}`.
+    // The unquoted control right after has the SAME three letters and
+    // splits at the first comma instead, style `a` - the contrast is
+    // the quoting, nothing else.
+    ['"a,b",c', "a,b", "a,b"],
+    ["a,b,c", "a", "a"],
+    // A single-quoted first entry unquotes the same way
+    // (`parse_attribute_value`, attribute_list.rb:186-198) - oracle
+    // confirms `['a,b',c]` -> `{"1":"a,b"}` too.
+    ["'a,b',c", "a,b", "a,b"],
+    // An escaped quote does not close the value (attribute_list.rb's
+    // `BoundaryRx[QUOT]`, `/.*?[^\\](?=")/`), so it stays part of the
+    // content and is then unescaped on the way out
+    // (`EscapedQuotes[QUOT]`, l.37-40, l.193). Oracle: `["a\"b",c]` ->
+    // `{"1":"a\"b"}` (a literal quote inside the style, one
+    // character).
+    [String.raw`"a\"b",c`, 'a"b', 'a"b'],
+    // An UNCLOSED quote is the one shape the unified scan declines
+    // (`attrlistFields` returns undefined), so `style` falls back to
+    // the blind first-comma split - which is what Ruby itself does
+    // here too: `parse_attribute_value`'s "leading quote only" branch
+    // (attribute_list.rb:194-197) keeps the quote character literal
+    // and stops at the delimiter. Oracle: `["a,b]` -> `{"1":"\"a"}`.
+    [String.raw`"a,b`, '"a', '"a'],
+    // Trailing bytes right after a closing quote, before the next
+    // comma: Ruby starts a NEW attribute there whether or not a comma
+    // ever shows up (`parse` re-enters `parse_attribute`
+    // unconditionally, attribute_list.rb:73-77), so the first
+    // attribute is still just the quoted content - `x` and `y` land
+    // on attributes 2 and 3, not glued onto the style. Oracle:
+    // `["a,b"x,y]` -> `{"1":"a,b","2":"x","3":"y"}`. A blank before
+    // the trailing bytes changes nothing (`skip_blank` eats it,
+    // attribute_list.rb:200-202) - same oracle result for
+    // `["a,b" x,y]`.
+    ['"a,b"x,y', "a,b", "a,b"],
+    ['"a,b" x,y', "a,b", "a,b"],
+    // The same shape, single-quoted - oracle: `['a,b'x,y]` and
+    // `['a,b' x,y]` both -> `{"1":"a,b","2":"x","3":"y"}`.
+    ["'a,b'x,y", "a,b", "a,b"],
+    ["'a,b' x,y", "a,b", "a,b"],
+    // A NAMED first entry whose quoted value carries a comma: the
+    // unified scan reads the whole `foo="b,z"` field instead of
+    // truncating at the comma inside the quotes (the incidental fix
+    // issue #81's own report flagged as unpinned). `style` is the
+    // raw field, unprocessed, because the field does not itself start
+    // with a quote (`unquoteField` only strips a BARE quoted value);
+    // `styleAttribute` is undefined because a named entry claims no
+    // positional slot. Oracle: `[foo="b,z",c]` -> `style: null`,
+    // `attrs: {"2":"c","foo":"b,z"}` - no `attributes[1]` at all.
+    ['foo="b,z",c', 'foo="b,z"', undefined],
   ])(
     "interior %j has style %j and style attribute %j",
     (raw, style, styleAttribute) => {
@@ -94,10 +148,28 @@ describe("attrlistFields — where one attribute ends", () => {
     [String.raw`a="b\",c"`, [String.raw`a="b\",c"`]],
     // A quote opens a value at the START of the interior, too.
     ['"a,b"', ['"a,b"']],
-    // ...and only at a value POSITION. After a quoted value the next
-    // quote is an ordinary character, and a blank does not re-open the
-    // position — so this comma SPLITS.
-    ['"a" "b,c"', ['"a" "b', 'c"']],
+    // Trailing bytes right after a closing quote start a NEW field,
+    // comma or not - Ruby never requires a delimiter between
+    // attributes (`parse` re-enters `parse_attribute` unconditionally,
+    // attribute_list.rb:73-77), so `skip_delimiter`
+    // (`SkipRx[',']`, l.48-50) finding nothing to skip costs nothing.
+    // Oracle: `["a,b"x,y]` -> `{"1":"a,b","2":"x","3":"y"}`, three
+    // attributes, not one field carrying the trailing bytes.
+    ['"a,b"x,y', ['"a,b"', "x", "y"]],
+    // A blank between the closing quote and the trailing bytes is
+    // just `skip_blank` (attribute_list.rb:200-202) - it disappears,
+    // it does not turn the bytes back into part of the quoted field.
+    // Same oracle result as the row above.
+    ['"a,b" x,y', ['"a,b"', "x", "y"]],
+    // The same shape, single-quoted.
+    ["'a,b'x,y", ["'a,b'", "x", "y"]],
+    ["'a,b' x,y", ["'a,b'", "x", "y"]],
+    // A second quoted value right after the first, with only a blank
+    // between them, is the same shape as the trailing-bytes rows
+    // above: the blank is `skip_blank`, then the quote opens the next
+    // attribute's value at that attribute's own start. Oracle:
+    // `["a" "b,c"]` -> `{"1":"a","2":"b,c"}`, two attributes.
+    ['"a" "b,c"', ['"a"', '"b,c"']],
     // Blanks around the `=` keep the value position open (`skip_blank`
     // runs before the value), space and tab alike.
     ['a = "b,c"', ['a = "b,c"']],

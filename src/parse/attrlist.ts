@@ -1,11 +1,11 @@
 /**
  * The parsed view of a block-attribute line's interior — beside the
  * registry on purpose: line-shapes.ts owns line SHAPES; this module
- * owns the bracket line's INTERIOR. One function, so the reader and
- * every style decision read the same first positional attribute
- * — one parser, one answer; the two spellings it replaced
- * (`firstPositional`,
- * `extractStyle`) agreed by luck, in two modules.
+ * owns the bracket line's INTERIOR. One shared boundary scan
+ * ({@link attrlistFields}), so the reader's first positional
+ * attribute and the printer's canonical spelling read the same field
+ * boundaries - one parser, one answer; the two spellings it replaced
+ * (`firstPositional`, `extractStyle`) agreed by luck, in two modules.
  *
  * Named attributes (`cols`, `format`, `separator`, `%options` —
  * Ruby's `AttributeList` / `parse_style_attribute`) are still OUT of
@@ -138,20 +138,29 @@ function trimBlank(field: string): string {
 }
 
 /**
- * Parse a block-attribute line's interior. The ONE spelling.
+ * Parse a block-attribute line's interior. The ONE spelling: the
+ * first positional attribute comes from {@link attrlistFields}'s own
+ * quote-aware boundary scan, the same scan that decides where every
+ * later attribute starts and ends, so a quoted first entry
+ * (`["a,b",c]`) cannot read differently here than it does there. A
+ * comma inside a closed quote is not a boundary either place; only
+ * an interior {@link attrlistFields} declines (an unclosed quote, an
+ * embedded newline) falls back to the blind first-comma split, which
+ * is what Ruby itself does for an unclosed quote (`parse_attribute_value`'s
+ * "leading quote only" branch, attribute_list.rb:194-197, keeps the
+ * quote character literal and stops at the next comma) - so the
+ * fallback is not a second parser, it is the first entry's answer on
+ * the one shape the unified scan cannot commit to.
  * @param raw - the text between the brackets, brackets excluded
  * @returns its first positional attribute, in both views
  */
 export function parseAttrlist(raw: string): Attrlist {
-  // Split on the first comma to isolate the style from any further
-  // positional attributes (the language in `[source,ruby]`, the
-  // attribution in `[quote, Name]`). Shorthand values like `#myid`
-  // and `.role` carry no comma and pass through as-is; they match no
-  // entry in any caller's lookup table, so no caller special-cases
-  // them.
-  const [first] = raw.split(",");
-  const style = trimBlank(first);
-  return { style, styleAttribute: styleAttributeOf(style) };
+  const fields = attrlistFields(raw);
+  const first =
+    fields === undefined
+      ? trimBlank(raw.split(",")[0])
+      : unquoteField(fields[0]);
+  return { style: first, styleAttribute: styleAttributeOf(first) };
 }
 
 /**
@@ -215,6 +224,17 @@ export function attrlistFields(raw: string): string[] | undefined {
       const end = closingQuote(raw, index);
       if (end === undefined) return undefined;
       field += raw.slice(index, end + 1);
+      if (!endsAttributeHere(raw, end + 1)) {
+        // Trailing bytes right after the closing quote, with nothing
+        // between them and the last one but blanks - Ruby starts a
+        // new attribute here whether or not a comma ever shows up
+        // (see {@link endsAttributeHere}), so this field is done.
+        fields.push(trimBlank(field));
+        field = "";
+        atValue = true;
+        index = end;
+        continue;
+      }
       index = end;
       atValue = false;
       continue;
@@ -252,6 +272,72 @@ function closingQuote(raw: string, open: number): number | undefined {
     if (raw[index] === quote) return index;
   }
   return undefined;
+}
+
+/**
+ * Whether the byte at `from` - the position right after a value's
+ * closing quote - can still belong to the SAME field, or whether a
+ * new field starts there instead.
+ *
+ * Ruby's own loop never requires a delimiter between attributes:
+ * `parse` calls `parse_attribute` again unconditionally right after
+ * every attribute, quoted or not (l.73-77), and the `skip_delimiter`
+ * call between them (`SkipRx[',']`, `/[ \t]*(,|$)/`, l.48-50) is a
+ * plain `StringScanner#skip` - it eats a run of blanks then a comma
+ * when one is there, but costs nothing when it is not, and either way
+ * the next `parse_attribute` starts right where the quote closed. So
+ * the only bytes that mean "nothing more to split off here" are the
+ * ones `skip_delimiter` would itself have consumed: a run of `[ \t]`
+ * up to a comma, or the end of the interior. Anything else - another
+ * quote, a bare word, digits - is the start of a new attribute, the
+ * same as it would be at the top of the whole interior.
+ * @param raw - the attrlist interior
+ * @param from - the index right after a value's closing quote
+ * @returns true when the field can keep absorbing raw text unchanged
+ */
+function endsAttributeHere(raw: string, from: number): boolean {
+  let index = from;
+  while (index < raw.length && ATTRLIST_BLANK.has(raw[index])) index += 1;
+  return index === raw.length || raw[index] === ",";
+}
+
+/**
+ * Ruby's own unescape for a quoted value's escaped quote:
+ * `EscapedQuotes[quote]` turns `\"` into `"` (double-quoted) or `\'`
+ * into `'` (single-quoted) - a literal two-character replacement,
+ * not a general backslash unescape, and specific to the quote that
+ * opened the value (attribute_list.rb:37-40, l.193). A backslash
+ * before any other character is left exactly as written.
+ * @param inner - a quoted field's content, quotes already stripped
+ * @param quote - the quote character that opened the value
+ * @returns the content with that one escape resolved
+ */
+function unescapeQuoted(inner: string, quote: string): string {
+  return inner.split(`\\${quote}`).join(quote);
+}
+
+/**
+ * The value Ruby stores for one {@link attrlistFields} field: the
+ * field itself, unless the field IS a bare quoted value - opening
+ * and closing quote both present and nothing else in the field -
+ * in which case the quotes are stripped and any escaped quote inside
+ * is unescaped (`parse_attribute_value`, attribute_list.rb:186-198).
+ * A field with text outside its quotes (`foo="bar"`, a name=value
+ * pair {@link attrlistFields} keeps whole) is not a bare quoted value
+ * and passes through unchanged; the first positional entry is always
+ * a bare value or a bare quoted one, never a name=value pair, so
+ * that is the only shape {@link parseAttrlist} ever asks this to
+ * unquote.
+ * @param field - one field from {@link attrlistFields}, already
+ *   trimmed of its surrounding blanks
+ * @returns the value Ruby's parser would store for that field
+ */
+function unquoteField(field: string): string {
+  if (field.length < 2) return field;
+  const [quote] = field;
+  if (!QUOTES.has(quote) || !field.endsWith(quote)) return field;
+  const inner = field.slice(1, -1);
+  return inner.includes("\\") ? unescapeQuoted(inner, quote) : inner;
 }
 
 /**
