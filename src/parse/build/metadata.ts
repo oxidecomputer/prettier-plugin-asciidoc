@@ -210,7 +210,19 @@ export function buildBlockMacro(
  * riding as a degenerate paragraph.
  *
  * Reuses `makeInlineAnchor` for the line's interior, so the id and
- * reftext split has one spelling.
+ * reftext split has one spelling. `makeInlineAnchor`
+ * (parse/inline/inline-link-builder.ts's `splitAnchor`) assumes its
+ * fragment IS the `[[...]]` token, delimiters included and nothing
+ * past the closing pair - true of an inline anchor, whose tokenizer
+ * span ends at the second `]`, but not of `line`: the classifier
+ * that routed this line here matched a RSTRIPPED copy (`^...$` over
+ * one rstripped line, line-shapes.ts's `wholeLine`), while `line`
+ * itself is the raw span, trailing ASCII whitespace and all
+ * (issue #69, Face 1). `slice(width, -width)` then cuts its last two
+ * bytes off the WRONG end - the trailing blanks, not the closing
+ * `]]` - leaving `]` characters from the real delimiter stuck to the
+ * id. rstripping here, once, before the split, is what makes this
+ * builder see the same bytes the classifier already judged.
  * @param line - A block anchor line (`[[id]]` on its own line).
  * @param at - The document's location index.
  * @returns The block anchor node.
@@ -219,7 +231,10 @@ export function buildBlockAnchor(
   line: Fragment,
   at: LocationIndex,
 ): BlockAnchorNode {
-  const anchor = makeInlineAnchor(line, at);
+  const anchor = makeInlineAnchor(
+    { image: rstrip(line.image), offset: line.offset },
+    at,
+  );
   return {
     type: "blockAnchor",
     id: anchor.id,

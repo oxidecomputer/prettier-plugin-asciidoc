@@ -424,12 +424,16 @@ describe("anchorLineShape: the printed-line record", () => {
   });
 
   // The `blockAnchor` arm asks the grammar too, rather than taking a
-  // node kind's word for the printed line. `[[ok]]` plus two spaces
-  // builds the id `ok]]` (issue #69: the builder slices the RAW line),
-  // whose printed spelling `[[ok]]]]` is text on re-read.
-  test("a blockAnchor whose printed line fails the grammar is a lookalike", () => {
+  // node kind's word for the printed line - a defense that stays live
+  // even now that issue #69's own repro no longer reaches the
+  // "lookalike" branch: `buildBlockAnchor` (build/metadata.ts) rstrips
+  // the line before splitting it, the same bytes the classifier
+  // already matched, so `[[ok]]` plus two trailing spaces builds the
+  // clean id `ok` and its printed spelling `[[ok]]` satisfies the
+  // grammar - an anchor, not a lookalike.
+  test("a blockAnchor's printed line satisfies the grammar even with trailing whitespace in the source", () => {
     const [block] = parse("[[ok]]  \n").children;
     expect(block.type).toBe("blockAnchor");
-    expect(anchorLineShape(block)).toBe("lookalike");
+    expect(anchorLineShape(block)).toBe("anchor");
   });
 });

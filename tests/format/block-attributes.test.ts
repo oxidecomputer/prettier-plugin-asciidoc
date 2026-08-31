@@ -397,26 +397,73 @@ describe("pseudo-anchor lines: a `[[…]]` line that is not a block anchor", () 
     expect(await renderedHtml(output)).toBe(await renderedHtml(input));
   });
 
-  // The `blockAnchor` node's own arm, after it was made to ask the
-  // grammar the way the paragraph arm does. `[[ok]]` plus two spaces
-  // parses to a blockAnchor whose id is `ok]]` - issue #69, where the
-  // builder slices the RAW line - so the printed line is `[[ok]]]]`,
-  // which is TEXT on re-read and which the record now calls a
-  // lookalike instead of asserting an anchor about.
-  //
-  // What that did NOT do is settle the bytes: every consumer of the
-  // record reaches a blockAnchor node through `isBlockMetadata` first,
-  // which answers on the node KIND and short-circuits, so pass 1 is
-  // unchanged and still not the fixed point. Measured and pinned as
-  // it stands, with no render check: both faults are #69's, and this
-  // row is what will fail when #69 lands and force it to be rewritten.
-  test("issue #69's corrupted anchor is a lookalike, and still wobbles", async () => {
+  // Issue #69's own repro, fixed by #79's landing: `[[ok]]` plus two
+  // trailing spaces used to build a blockAnchor whose id was `ok]]`
+  // (buildBlockAnchor, src/parse/build/metadata.ts, sliced the RAW
+  // line instead of the rstripped one the classifier had already
+  // matched), so the printed line gained a stray `]` and never
+  // reached a fixed point. buildBlockAnchor now rstrips before
+  // splitting, so the id is the clean `ok`, the printed line is a
+  // real anchor that stacks with the block below, and pass 1 is the
+  // fixed point.
+  test("issue #69's corrupted anchor is fixed: a clean id, stacked, stable", async () => {
     const input = "[[ok]]  \n----\nx\n----\n";
-    const pass1 = await formatAdoc(input);
-    expect(pass1).toBe("[[ok]]]]\n----\nx\n----\n");
-    const pass2 = await formatAdoc(pass1);
-    expect(pass2).toBe("[[ok]]]]\n\n----\nx\n----\n");
-    expect(await formatAdoc(pass2)).toBe(pass2);
+    const output = await formatAdoc(input);
+    expect(output).toBe("[[ok]]\n----\nx\n----\n");
+    expect(await formatAdoc(output)).toBe(output);
+    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
+  });
+});
+
+// Issue #79: `[[anc]] ` (a valid id, trailing ASCII whitespace, alone
+// on a line) used to format to `[[anc]]]` - an invented `]` byte, one
+// per trailing whitespace character, and a render change (the extra
+// bracket fails BLOCK_ANCHOR, so the corrupted line reads back as
+// text on re-parse). Root cause: buildBlockAnchor
+// (src/parse/build/metadata.ts) sliced the RAW line's image, which
+// still carried the trailing whitespace the classifier had already
+// rstripped away to recognise the line as an anchor in the first
+// place - `slice(2, -2)` then cut the closing `]]` short by however
+// many bytes of whitespace sat past it. The oracle rstrips every line
+// before any rule runs (Asciidoctor's reader), so the trailing
+// whitespace is not part of what it read either: every row below is
+// the SAME anchor as its bare-`[[anc]]` twin, and renders identically
+// to it.
+describe("issue #79: trailing ASCII whitespace after a valid anchor id", () => {
+  test.each([
+    ["one space", "[[anc]] \n\npara\n", "[[anc]]\n\npara\n"],
+    ["two spaces", "[[anc]]  \n\npara\n", "[[anc]]\n\npara\n"],
+    ["a tab", "[[anc]]\t\n\npara\n", "[[anc]]\n\npara\n"],
+    ["tab then space", "[[anc]]\t \n\npara\n", "[[anc]]\n\npara\n"],
+    ["space then tab", "[[anc]] \t\n\npara\n", "[[anc]]\n\npara\n"],
+    // No blank line in the source: the anchor still splits from the
+    // paragraph below it (wouldMergeWithAnchor - stacked, a re-parse
+    // would absorb the anchor into the paragraph's text).
+    [
+      "no blank line before the paragraph",
+      "[[anc]] \npara\n",
+      "[[anc]]\n\npara\n",
+    ],
+    // Nothing follows the anchor at all.
+    ["end of input, no following block", "[[anc]] \n", "[[anc]]\n"],
+    // A block the anchor DOES stack with (no merge risk): the blank
+    // line the author left is removed, same as a bare anchor.
+    [
+      "a listing block, blank line removed on stacking",
+      "[[anc]] \n\n----\ncode\n----\n",
+      "[[anc]]\n----\ncode\n----\n",
+    ],
+    ["a hyphenated id", "[[my-anchor]] \n\npara\n", "[[my-anchor]]\n\npara\n"],
+    [
+      "an id with reftext",
+      "[[anc,Some Label]] \n\npara\n",
+      "[[anc, Some Label]]\n\npara\n",
+    ],
+  ])("%s", async (_name, input, expected) => {
+    const output = await formatAdoc(input);
+    expect(output).toBe(expected);
+    expect(await formatAdoc(output)).toBe(output);
+    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
   });
 });
 

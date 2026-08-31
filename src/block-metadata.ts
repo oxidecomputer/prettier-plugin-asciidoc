@@ -210,12 +210,16 @@ function anchorOfLine(
  * ONE test for BOTH node kinds. A `blockAnchor` node used to answer
  * `"anchor"` unconditionally, on the argument that its id passed the
  * grammar at classification and the serializer keeps a valid spelling
- * valid; that argument is false for the trailing-whitespace family
- * (issue #69: `[[ok]]` with two trailing spaces builds the id `ok]]`
- * from the raw line, and the printed `[[ok]]]]` is text on re-read),
- * and a record that judges
- * the printed line cannot take a node kind's word for it. Asking the
- * grammar in one place is what makes the contract hold for both.
+ * valid; that argument used to be false for the trailing-whitespace
+ * family (issue #69/#79: `buildBlockAnchor`, parse/build/metadata.ts,
+ * sliced the RAW line rather than the rstripped one the classifier
+ * had already matched, so `[[ok]]` with two trailing spaces built the
+ * id `ok]]` and the printed `[[ok]]]]` was text on re-read).
+ * `buildBlockAnchor` now rstrips before splitting, so the builder and
+ * the classifier agree and this shape no longer reaches "lookalike" -
+ * but a record that judges the printed line still does not take a
+ * node kind's word for it, asking the grammar in one place rather
+ * than trusting a second invariant it does not itself enforce.
  *
  * The class that moves with the whitespace used to have TWO arms,
  * before issue #75, because the packer's split set was wider than the
