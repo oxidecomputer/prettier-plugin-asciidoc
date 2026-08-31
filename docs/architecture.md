@@ -118,15 +118,26 @@ Three properties hold along the pipeline:
    construct is content, the spellings the AST stores, and records derived at
    ask time — never a replay of residue it does not understand.
 
-The parser mirrors Asciidoctor's own Ruby (`lib/asciidoctor/parser.rb`, `rx.rb`,
-`reader.rb`, at 2.0.26) structurally, and the code cites the Ruby it ports. That
-Ruby is vendored at `vendor/asciidoctor-ruby/`, so a cited line is one `Read`
-away. `bun run citation-check` reads every line reference in those comments and
-holds the ones that name a file (207 of the 292 it reads) to that file and line;
-the other 85 are bare references in comments that name none, and it reports them
-unchecked rather than guessing which file they meant. When our reading of the
-Ruby and the oracle disagree, the oracle wins; "The two authorities" in
-`docs/coding-standards.md` says what the comment then has to say.
+Wherever the parser makes a decision about what a document means, the code cites
+Asciidoctor's Ruby (`lib/asciidoctor/parser.rb`, `rx.rb`, `reader.rb`, at
+2.0.26) as specifically as it can - the exact lines that decide the same
+question there. That Ruby is vendored at `vendor/asciidoctor-ruby/`, so a cited
+line is one `Read` away. `bun run citation-check` reads every line reference in
+those comments and holds the ones that name a file (207 of the 292 it reads) to
+that file and line; the other 85 are bare references in comments that name none,
+and it reports them unchecked rather than guessing which file they meant. When
+our reading of the Ruby and the oracle disagree, the oracle wins; "The two
+authorities" in `docs/coding-standards.md` says what the comment then has to
+say.
+
+Citing the Ruby is not mirroring it: only the semantics bind, and the code's own
+structure, data, and policy are decided here. The tree models no sections,
+because a formatter reprints headings where a converter needs a hierarchy; the
+block-structure ledger's `oracle:*` family records constructs the oracle
+resolves (conditionals, attribute values) that a formatter must keep; and the
+printer's canonical spellings come from the formatting policy below, not from
+anything the reference implementation does. Where a design choice differs from
+the reference's, render-equality is what proves the difference safe.
 
 ## Line classification
 
@@ -135,8 +146,8 @@ classifying a whole line in the context where it appears.
 
 - **`src/parse/line-shapes.ts`** is the single registry of line shapes. Every
   regex that recognizes a line lives here and nowhere else, each row citing the
-  Ruby it mirrors. The registry is keyed by four paragraph contexts —
-  `paragraph`, `listItem`, `listContinuation`, `dlistItem` — because
+  Ruby that decides the same shape. The registry is keyed by four paragraph
+  contexts — `paragraph`, `listItem`, `listContinuation`, `dlistItem` — because
   Asciidoctor's paragraphs are greedy: once open, a paragraph swallows every
   following line until a blank line or a small interrupting set, and that set
   differs by context.
@@ -192,18 +203,19 @@ leaf:
   Confinement is physical: a confined reader's lines end at its boundary, and
   the two boundary facts it needs (tail safety, the forced-close offset) travel
   as data in its `Confinement` record, not as stack state.
-- A **list** takes the same shape through `src/parse/lines/list-reader.ts`, a
-  port of Asciidoctor's `parse_list` → `parse_list_item` →
-  `read_lines_for_list_item`. `itemExtent` collects one item's lines into Ruby's
-  buffer; the reader re-parses each buffer with a confined `BlockReader`, so
-  nesting composes with no list frame, no per-item object, and no cross-item
-  state — the only mutable state is `itemExtent`'s five members, Ruby's four
-  locals plus the buffer. Each block an item holds carries its verbatim `gap`:
-  the `""` and `"+"` lines the author wrote in front of it.
+- A **list** takes the same shape through `src/parse/lines/list-reader.ts`,
+  which reads items the way Asciidoctor's `parse_list` → `parse_list_item` →
+  `read_lines_for_list_item` does, citing them throughout. `itemExtent` collects
+  one item's lines into Ruby's buffer; the reader re-parses each buffer with a
+  confined `BlockReader`, so nesting composes with no list frame, no per-item
+  object, and no cross-item state — the only mutable state is `itemExtent`'s
+  five members, Ruby's four locals plus the buffer. Each block an item holds
+  carries its verbatim `gap`: the `""` and `"+"` lines the author wrote in front
+  of it.
 - The **document header** is read extent-first too, at the title line
-  (`src/parse/lines/header-reader.ts`, a port of `parse_document_header` ->
-  `parse_header_metadata`). Whether a `= Title` opens one is reader state: a
-  forward-only bit that the first block or held line Ruby's
+  (`src/parse/lines/header-reader.ts`, reading the lines `parse_document_header`
+  -> `parse_header_metadata` reads). Whether a `= Title` opens one is reader
+  state: a forward-only bit that the first block or held line Ruby's
   `parse_block_metadata_lines` does not eat clears, so a level-0 title deeper in
   the file is an ordinary heading leaf.
 - **Headings are leaves.** Sections are not modeled — there is no `section` node
@@ -258,7 +270,7 @@ offset. Nothing is rebased afterwards.
 The tokenizer itself is a ~40-line first-match-wins loop over the ordered rule
 table in `src/parse/inline/rules.ts` — the single source of truth for inline
 shapes, the way `line-shapes.ts` is for line shapes, each rule citing the
-Asciidoctor source it mirrors (`substitutors.rb`, `rx.rb`). Its last rule
+Asciidoctor source that decides it (`substitutors.rb`, `rx.rb`). Its last rule
 consumes one character, so it is total and cannot stall. `span-pairing.ts` then
 decides which marks pair, and `inline-node-builder.ts` turns each resolved pair
 into a node; keeping the pairing out of the tokenizer is what lets an unclosed
@@ -483,8 +495,7 @@ each harness proves and when to reach for which.
   and the
   [AsciiDoc language project](https://gitlab.eclipse.org/eclipse/asciidoc-lang/asciidoc-lang)
 - Asciidoctor's Ruby source (`lib/asciidoctor/parser.rb`, `rx.rb`, `reader.rb`)
-  — the implementation the parser mirrors and cites, vendored at
-  `vendor/asciidoctor-ruby/`
+  — the reference the parser cites, vendored at `vendor/asciidoctor-ruby/`
 - [Prettier issue #5506](https://github.com/prettier/prettier/issues/5506) — the
   long-standing AsciiDoc plugin request
 - [AsciiDoc parsing lab](https://github.com/opendevise/asciidoc-parsing-lab) —

@@ -834,10 +834,11 @@ the diagnosis:
 - Per-file complexity down, files in cycles up → the problem moved across a
   module boundary and now needs two files open to read.
 - Comment lines up, code lines down → either a spec citation being recorded
-  (good — `src/parse/line-shapes.ts` is mostly comments, each naming the Ruby it
-  mirrors) or documentation papering over an unclear mechanism. Tell them apart
-  by where: comments in a registry citing `parser.rb` are good; comments inside
-  a long function explaining its own control flow are not.
+  (good — `src/parse/line-shapes.ts` is mostly comments, each naming the Ruby
+  that decides the same shape) or documentation papering over an unclear
+  mechanism. Tell them apart by where: comments in a registry citing `parser.rb`
+  are good; comments inside a long function explaining its own control flow are
+  not.
 - Everything down, escape hatches up → simplicity bought with casts and
   `eslint-disable`.
 

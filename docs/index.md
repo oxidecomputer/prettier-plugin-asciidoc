@@ -25,7 +25,7 @@ AsciiDoc syntax itself, the references are the
 [official syntax docs](https://docs.asciidoctor.org/asciidoc/latest/syntax-quick-reference/)
 and Asciidoctor's Ruby source — the in-repo registries
 (`src/parse/line-shapes.ts`, `src/parse/inline/rules.ts`) cite the exact Ruby
-they mirror, and that Ruby is vendored at `vendor/asciidoctor-ruby/` so the
-citations can be opened and checked (`bun run citation-check`, which holds every
-citation that names its file to that file and reports the bare references that
-name none).
+that decides each shape, and that Ruby is vendored at `vendor/asciidoctor-ruby/`
+so the citations can be opened and checked (`bun run citation-check`, which
+holds every citation that names its file to that file and reports the bare
+references that name none).

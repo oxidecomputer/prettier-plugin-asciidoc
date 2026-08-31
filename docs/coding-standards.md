@@ -93,7 +93,7 @@ block-attribute-looking line, …) is added in three steps, in this order:
    wins if it disagrees with your reading of the Ruby.
 
 A new INLINE construct is added the same way: a rule in
-`src/parse/inline/rules.ts` citing the Asciidoctor source it mirrors
+`src/parse/inline/rules.ts` citing the Asciidoctor source that decides it
 (`substitutors.rb`, `rx.rb`), in the right place in the ORDER (first match
 wins), and a row in `tests/parser/inline-tokens.test.ts`. The rule table is the
 single source of truth for inline shapes, as `line-shapes.ts` is for line
