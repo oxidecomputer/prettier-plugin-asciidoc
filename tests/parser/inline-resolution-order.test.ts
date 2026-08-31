@@ -41,6 +41,10 @@ import type { InlineNode } from "../../src/ast.js";
  */
 function shapeOf(node: InlineNode): string {
   if (node.type === "text") return JSON.stringify(node.value);
+  if (node.type === "curvedQuote") {
+    const spelling = node.quote === "double" ? "d" : "s";
+    return `curved${spelling}[${node.children.map(shapeOf).join(",")}]`;
+  }
   if (!("children" in node)) return node.type;
   const spelling = "constrained" in node && node.constrained ? "c" : "u";
   return `${node.type}${spelling}[${node.children.map(shapeOf).join(",")}]`;
@@ -278,6 +282,89 @@ describe("marks with nothing between them", () => {
       expect(await formatAdoc(source)).toBe(`${source}\n`);
     },
   );
+});
+
+describe("curved-quote spans (issue #74)", () => {
+  // One row per curved-quote resolution shape: the SCAN's own
+  // regression guard (row 1), the crossing fix that closes issue #74
+  // (row 2), the two curved rows crossing each other (row 3), the
+  // accepted overlap divergence (row 4, issue #66's
+  // tree-versus-overlap ruling), and the two nesting directions
+  // (rows 5 and 6). Every
+  // `oracleContains` was measured against the oracle before writing
+  // it, per this file's own convention.
+  interface CurvedRow {
+    /** What this row demonstrates. */
+    readonly name: string;
+    /** The source line. */
+    readonly source: string;
+    /** A substring of the oracle's rendered paragraph body. */
+    readonly oracleContains: string;
+    /** The expected top-level shape. */
+    readonly shape: readonly string[];
+  }
+
+  const CURVED_ROWS: readonly CurvedRow[] = [
+    {
+      name: "row 2 takes the outer backticks; the inner two stay literal content",
+      source: '"``a``"',
+      oracleContains: "&#8220;`a`&#8221;",
+      shape: ['curvedd["`a`"]'],
+    },
+    {
+      name: "a crossing HighlightMark candidate is dropped for crossing the already-resolved curved span - the fix for issue #74",
+      source: 'x "`##a`"## y',
+      oracleContains: "x &#8220;<mark>a&#8221;</mark> y",
+      shape: ['"x "', 'curvedd["##a"]', '"## y"'],
+    },
+    {
+      name: "the two curved rows cross; the EARLIER row (double, QUOTE_SUBS index 2) wins and the later row's (single) marks stay literal",
+      source: "x '`a \"`b`' c`\" y",
+      oracleContains: "x &#8216;a &#8220;b&#8217; c&#8221; y",
+      shape: ['"x \'`a "', 'curvedd["b`\' c"]', '" y"'],
+    },
+    {
+      // The accepted overlap divergence (issue #66): strong (QUOTE_SUBS row 1)
+      // runs before the curved row (row 2), so `crossesAccepted` keeps
+      // the strong span and leaves the curved delimiters literal text
+      // inside it - the oracle really did apply both rows, and a tree
+      // cannot hold the overlap (issue #66's ruling), so the printed
+      // bytes are the source's own.
+      name: "the accepted overlap divergence: strong beats the curved row (issue #66, issue #74)",
+      source: 'x *"`a*`" y',
+      oracleContains: "x <strong>&#8220;a</strong>&#8221; y",
+      shape: ['"x "', 'boldc["\\"`a"]', '"`\\" y"'],
+    },
+    {
+      name: "a single curved span nests inside a double one",
+      source: "x \"`a '`b`' c`\" y",
+      oracleContains: "x &#8220;a &#8216;b&#8217; c&#8221; y",
+      shape: ['"x "', 'curvedd["a ",curveds["b"]," c"]', '" y"'],
+    },
+    {
+      name: "a monospace span wraps a curved one",
+      source: 'x `"`a`"` y',
+      oracleContains: "x <code>&#8220;a&#8221;</code> y",
+      shape: ['"x "', 'monospacec[curvedd["a"]]', '" y"'],
+    },
+  ];
+
+  describe.each(CURVED_ROWS)("$name", (row) => {
+    test("the oracle's render", async () => {
+      expect(await renderedHtml(row.source)).toContain(row.oracleContains);
+    });
+
+    test("the parser builds this shape", () => {
+      expect(shapes(row.source)).toEqual(row.shape);
+    });
+
+    test("the bytes are pinned, render-equal and idempotent", async () => {
+      const out = await formatAdoc(row.source);
+      expect(out).toBe(`${row.source}\n`);
+      expect(await renderedHtml(out)).toBe(await renderedHtml(row.source));
+      expect(await formatAdoc(out)).toBe(out);
+    });
+  });
 });
 
 describe("a mark repeated three times", () => {

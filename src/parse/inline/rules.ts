@@ -18,7 +18,13 @@
  * not resolve it.
  */
 import type { InlineKind } from "./tokens.js";
-import { canOpenAt, canCloseAt, type MarkKind } from "./quote-boundaries.js";
+import {
+  canOpenAt,
+  canCloseAt,
+  type MarkKind,
+  type CurvedQuoteSpelling,
+} from "./quote-boundaries.js";
+import { CURVED_WIDTH, type CurvedScan } from "./curved-quotes.js";
 import { matchPassthrough } from "./passthrough.js";
 
 /** One entry of the ordered table. */
@@ -29,9 +35,19 @@ interface InlineRule {
    * How many characters match at `index`.
    * @param text - the fragment being tokenized
    * @param index - where to try, zero-based
+   * @param curved - where the two curved-quote rows matched in this
+   *   fragment (curved-quotes.ts), scanned once per fragment by
+   *   `tokenizeInline`. The two curved rules read it to find their own
+   *   delimiters; InlineText's own rule reads it to cut its run before
+   *   one (the way it already cuts before an email address); and
+   *   MonoMark's doubled branch reads it to refuse extending into a
+   *   curved delimiter, since a curved close shares its own first
+   *   character (a backtick) with monospace's mark. Every other rule
+   *   ignores it. It is a fact about the same text every rule already
+   *   has, not a history of what has been matched.
    * @returns the match length, or 0 when the rule does not apply
    */
-  readonly match: (text: string, index: number) => number;
+  readonly match: (text: string, index: number, curved: CurvedScan) => number;
 }
 
 // Which span kind each mark token spells - the key into
@@ -60,18 +76,71 @@ const MARK_KINDS: Partial<Record<InlineKind, MarkKind>> = {
  * The boundary is computed against the FRAGMENT the reader handed us,
  * never the whole document: `* *bold*` after a list marker can open
  * at offset 0 because nothing precedes it in the fragment.
+ *
+ * The DOUBLED branch refuses to extend into a curved-quote delimiter:
+ * `curved.delimiters` is keyed by a delimiter's own first character,
+ * which for monospace's mark is the same backtick both curved rows
+ * spell, and only THIS branch can reach past `index` without the
+ * tokenizer trying a rule at `index + 1` fresh - a single-width match
+ * never skips a position, so nothing else needs the check. Measured:
+ * `"``a``"` scans a close delimiter at offset 5 (curved-quotes.ts),
+ * but a doubled MonoMark tried at offset 4 would swallow it (`` `` ``
+ * at 4-5) before DoubleQuoteMark ever got a turn at 5, losing the
+ * close and the whole span with it - "where the scan says a curved
+ * row matched, that row owns it" (the comment on the two curved rows
+ * below) has to hold here too, not only at a delimiter's own start.
  * @param character - the mark character (`*`, `_`, `` ` ``, `#`)
  * @param kind - the span kind whose boundary classes apply
  * @returns the rule's match function
  */
 function markMatcher(character: string, kind: MarkKind): InlineRule["match"] {
-  return (text: string, index: number): number => {
+  return (text: string, index: number, curved: CurvedScan): number => {
     if (text.at(index) !== character) return 0;
-    if (text.at(index + 1) === character) return 1 + 1;
-    return canOpenAt(kind, text, index) || canCloseAt(kind, text, index)
+    if (text.at(index + 1) === character && !curved.delimiters.has(index + 1)) {
+      return 1 + 1;
+    }
+    return canOpenAt(kind, text, index, curved.view) ||
+      canCloseAt(kind, text, index, curved.view)
       ? 1
       : 0;
   };
+}
+
+/**
+ * A curved-quote delimiter, at an offset {@link scanCurvedQuotes} named.
+ * The scan is the row's own gsub, so a delimiter here always belongs to a
+ * real match; whether the span survives is span-pairing.ts's question.
+ * @param quote - which pair this rule is for
+ * @returns the rule's match function
+ */
+function curvedMatcher(quote: CurvedQuoteSpelling): InlineRule["match"] {
+  return (text: string, index: number, curved: CurvedScan): number =>
+    curved.delimiters.get(index)?.quote === quote ? CURVED_WIDTH : 0;
+}
+
+/**
+ * {@link markFlags}'s arguments, bundled into one object rather than
+ * five positional parameters (the project's `max-params` ceiling is
+ * four): what matched, where, how long, and the fragment's curved-quote
+ * scan every rule was already handed. Not exported: `markFlags`'s only
+ * caller (tokenize.ts) builds the object inline from values it already
+ * has, so nothing needs the type by name.
+ */
+interface MarkFlagsInput {
+  /** The kind that matched at `index`. */
+  readonly type: InlineKind;
+  /** The fragment being tokenized. */
+  readonly text: string;
+  /** Where the token starts. */
+  readonly index: number;
+  /** How many characters it matched. */
+  readonly length: number;
+  /**
+   * Where the two curved-quote rows matched in this fragment
+   * (curved-quotes.ts), the same scan `tokenizeInline` handed every
+   * rule's `match`.
+   */
+  readonly curved: CurvedScan;
 }
 
 /**
@@ -82,24 +151,27 @@ function markMatcher(character: string, kind: MarkKind): InlineRule["match"] {
  * l.444-468) test no boundary and take any content. For every non-mark
  * kind the
  * answer is undefined, and the token carries no flags.
- * @param type - the kind that matched at `index`
- * @param text - the fragment being tokenized
- * @param index - where the token starts
- * @param length - how many characters it matched
+ * @param input - what matched, where, and the fragment's curved scan
  * @returns the two flags, or undefined for a non-mark kind
  */
 export function markFlags(
-  type: InlineKind,
-  text: string,
-  index: number,
-  length: number,
+  input: MarkFlagsInput,
 ): { canOpen: boolean; canClose: boolean } | undefined {
+  const { type, text, index, length, curved } = input;
+  if (type === "DoubleQuoteMark" || type === "SingleQuoteMark") {
+    // Total by construction, not by defence: the token exists because a
+    // rule matched this offset in this same map. Reading the side back
+    // from it is a lookup, and a token that somehow had neither
+    // direction would simply never pair, which is the safe answer.
+    const side = curved.delimiters.get(index)?.side;
+    return { canOpen: side === "open", canClose: side === "close" };
+  }
   const kind = MARK_KINDS[type];
   if (kind === undefined) return undefined;
   if (length > 1) return { canOpen: true, canClose: true };
   return {
-    canOpen: canOpenAt(kind, text, index),
-    canClose: canCloseAt(kind, text, index),
+    canOpen: canOpenAt(kind, text, index, curved.view),
+    canClose: canCloseAt(kind, text, index, curved.view),
   };
 }
 
@@ -111,10 +183,16 @@ export function markFlags(
  * so no rule can forget it, and the sticky copy is private to the
  * returned function: `lastIndex` is per-rule state that nothing else
  * can observe.
+ *
+ * Returns the narrower two-parameter shape rather than
+ * {@link InlineRule.match}'s three, because {@link addressAt} calls its
+ * result directly with just `text` and `start` - a function with fewer
+ * parameters is still a valid `match`, which is why every table entry
+ * built from this still type-checks.
  * @param regex - a `v`-flag regex, anchored implicitly at the index
  * @returns the rule's match function
  */
-function pattern(regex: RegExp): InlineRule["match"] {
+function pattern(regex: RegExp): (text: string, index: number) => number {
   const sticky = new RegExp(regex.source, "vy");
   return (text: string, index: number): number => {
     sticky.lastIndex = index;
@@ -402,8 +480,54 @@ function firstAddressIn(text: string, from: number, limit: number): number {
 }
 
 /**
+ * Where the first curved-quote delimiter inside `[from, limit)` starts,
+ * or -1 when there is none.
+ *
+ * The same reason an address is not in {@link textMatcher}'s own
+ * pattern applies here twice over: a delimiter opens on an ordinary `"`
+ * or `'`, which prose is full of, so putting it in the lookahead would
+ * stop the run at nearly every quotation mark whether or not the scan
+ * ever made a match there. Driven by the scan's own offsets rather than
+ * a position-by-position test, the way {@link firstAddressIn} is driven
+ * by the `@`s.
+ * @param curved - the fragment's curved-quote scan
+ * @param from - the first offset a delimiter may start at
+ * @param limit - the first offset that is too far
+ * @returns the delimiter's start, or -1
+ */
+function firstCurvedDelimiterIn(
+  curved: CurvedScan,
+  from: number,
+  limit: number,
+): number {
+  let earliest = -1;
+  for (const offset of curved.delimiters.keys()) {
+    if (
+      offset >= from &&
+      offset < limit &&
+      (earliest === -1 || offset < earliest)
+    ) {
+      earliest = offset;
+    }
+  }
+  return earliest;
+}
+
+/**
+ * The nearer of two rule cuts, `-1` meaning "no cut" for either.
+ * @param left - one candidate cut offset, or -1
+ * @param right - another, or -1
+ * @returns the smaller of the two that is not -1, or -1 when both are
+ */
+function nearerCut(left: number, right: number): number {
+  if (left === -1) return right;
+  if (right === -1) return left;
+  return Math.min(left, right);
+}
+
+/**
  * The InlineText rule: a run of ordinary characters, stopped where an
- * address begins.
+ * address or a curved-quote delimiter begins.
  *
  * The run's other stops are fixed prefixes and ride in the pattern's
  * own negative lookahead. An address is not one: it can open at any
@@ -413,21 +537,27 @@ function firstAddressIn(text: string, from: number, limit: number): number {
  * ordinary prose and turns a long `@`-bearing token quadratic (both
  * measured), because the lookahead is then tried, and scans forward,
  * at every character. So the run is matched first and cut afterwards,
- * by the same scan {@link emailMatch} reads point-wise.
- * @param source - InlineText's pattern, with no address stop in it
+ * by the same scan {@link emailMatch} reads point-wise. A curved-quote
+ * delimiter is cut the same way and for the same reason: `"` and `'`
+ * are ordinary prose characters everywhere they are NOT one of the two
+ * rows' delimiters, so only the scan - not the pattern - knows where a
+ * cut is real.
+ * @param source - InlineText's pattern, with no address or curved stop in it
  * @returns the rule's match function
  */
 function textMatcher(source: string): InlineRule["match"] {
   const sticky = new RegExp(source, "vy");
-  return (text: string, index: number): number => {
+  return (text: string, index: number, curved: CurvedScan): number => {
     sticky.lastIndex = index;
     const found = sticky.exec(text);
     if (found === null) return 0;
     const [run] = found;
     const { length } = run;
-    // From `index + 1`: an address AT `index` would have been this
-    // rule's predecessor in the table, and a cut of zero is no cut.
-    const cut = firstAddressIn(text, index + 1, index + length);
+    // From `index + 1`: an address or a delimiter AT `index` would have
+    // been an earlier rule's, and a cut of zero is no cut.
+    const emailCut = firstAddressIn(text, index + 1, index + length);
+    const curvedCut = firstCurvedDelimiterIn(curved, index + 1, index + length);
+    const cut = nearerCut(emailCut, curvedCut);
     return cut === -1 ? length : cut - index;
   };
 }
@@ -524,6 +654,12 @@ export const INLINE_RULES: readonly InlineRule[] = [
   { type: "InlineAnchor", match: pattern(/\[\[[^\]\n]+\]\]/v) },
   { type: "BoldMark", match: markMatcher("*", "bold") },
   { type: "ItalicMark", match: markMatcher("_", "italic") },
+  // "`double-quoted`" and '`single-quoted`' - QUOTE_SUBS rows 3 and 4
+  // (asciidoctor.rb l.449-452). In front of MonoMark because they run
+  // in front of the monospaced rows and consume the same backtick;
+  // where the scan says a curved row matched, that row owns it.
+  { type: "DoubleQuoteMark", match: curvedMatcher("double") },
+  { type: "SingleQuoteMark", match: curvedMatcher("single") },
   { type: "MonoMark", match: markMatcher("`", "monospace") },
   { type: "HighlightMark", match: markMatcher("#", "highlight") },
   // ` +` at end of line — HardLineBreakRx (`^(.*) \+$` after

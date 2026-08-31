@@ -186,6 +186,7 @@ const CHILD_KEYS = declareVisitorKeys({
   italic: ["children"],
   monospace: ["children"],
   highlight: ["children"],
+  curvedQuote: ["children"],
   attributeReference: [],
   inlineMacro: [],
   link: [],

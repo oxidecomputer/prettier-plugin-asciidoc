@@ -166,6 +166,7 @@ export default defineConfig(
             "expectBytes",
             "expectFixed",
             "expectFixedBytes",
+            "expectFixedPoint",
             "expectRow",
             "expectTableFormat",
           ],

@@ -1,7 +1,7 @@
 /**
  * The inline tokenizer's own GOLDEN FILE.
  *
- * tests/parser/fixtures/inline-tokens.jsonl is 1,747 rows of
+ * tests/parser/fixtures/inline-tokens.jsonl is 1,751 rows of
  * `{ text, tokens }`: an input fragment and the exact token stream
  * `tokenizeInline` (src/parse/inline/) produces for it. The rows are an
  * EQUALITY pin, not a sample — every one must match to the character,

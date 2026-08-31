@@ -146,6 +146,32 @@ export interface HighlightNode extends Node {
 }
 
 /**
+ * A curved-quote span: `"` + backtick + content + backtick + `"`
+ * (rendered `&#8220;...&#8221;`), or the `'` pair (`&#8216;...&#8217;`)
+ * - entities measured from the oracle's output, since the converter
+ * that writes them is not among the vendored sources.
+ * `QUOTE_SUBS` rows 3 and 4, asciidoctor.rb l.449-452.
+ *
+ * No `constrained` field: the two rows have only one spelling each, so
+ * there is no constrained form for the printer to choose and no state
+ * to refuse at runtime. No `role` field either: the rows carry the
+ * same optional attrlist group every row has, but the tokenizer's
+ * `RoleAttribute` rule only fires in front of `#`, so a role before a
+ * curved pair reaches the printer as text (a known gap, kept out of
+ * scope for issue #74).
+ *
+ * Serialized key order: `type, quote, children, position`.
+ */
+export interface CurvedQuoteNode extends Node {
+  /** Node discriminant. */
+  type: "curvedQuote";
+  /** Which pair spells it: `"`...`"` or `'`...`'`. */
+  quote: "double" | "single";
+  /** Inline content within the curved-quote span. */
+  children: InlineNode[];
+}
+
+/**
  * An attribute reference: `{name}`. Preserved verbatim in the
  * AST — the formatter does not resolve attribute values. Also
  * covers counter attributes like `{counter:name}`.
@@ -331,6 +357,7 @@ export type InlineNode =
   | ItalicNode
   | MonospaceNode
   | HighlightNode
+  | CurvedQuoteNode
   | AttributeReferenceNode
   | InlineMacroNode
   | LinkNode

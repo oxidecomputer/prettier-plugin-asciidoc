@@ -99,6 +99,16 @@ wins), and a row in `tests/parser/inline-tokens.test.ts`. The rule table is the
 single source of truth for inline shapes, as `line-shapes.ts` is for line
 shapes.
 
+That fits a construct whose delimiter question a rule can answer from its own
+neighbourhood - one character, checked where it stands. The curved-quote pair
+(`"`...`"`, `'`...`'`) cannot: `x "``a`` y` and `x "``a``" y` start with the
+same four characters and only diverge on what stands later in the line, so a
+rule row would have to consume a quote plus a backtick before it can tell
+whether the span is a monospace pair or a curved one. That construct is a
+separate SCAN instead (`src/parse/inline/curved-quotes.ts`, whose own header
+explains the "why a scan" reasoning) - reach for a scan only when a rule
+genuinely cannot decide locally, the way this one could not.
+
 **The two authorities.** Cite the one you MEASURED. `@asciidoctor/core` is the
 behavioral authority: cite `build/node/index.cjs`, or the `src/*.js` it is
 bundled from, for anything you verified by running the oracle. The Ruby is the

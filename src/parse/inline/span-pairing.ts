@@ -35,6 +35,7 @@
  */
 import { DELIM_WIDTH } from "../../constants.js";
 import type { InlineToken } from "./tokens.js";
+import { CURVED_WIDTH } from "./curved-quotes.js";
 
 // An unconstrained mark is the constrained one written twice.
 const UNCONSTRAINED_WIDTH = DELIM_WIDTH + DELIM_WIDTH;
@@ -42,37 +43,25 @@ const UNCONSTRAINED_WIDTH = DELIM_WIDTH + DELIM_WIDTH;
 /**
  * The `QUOTE_SUBS` rows this parser models, in the table's own order.
  *
- * FOUR rows are left out, and they are not left out for the same
- * reason. Superscript and subscript (the last two) genuinely cannot
- * matter: `\^(\S+?)\^` and `~(\S+?)~` consume only `^` and `~`, which
- * no row here spells, and both run after every row here anyway.
+ * TWO rows are left out: superscript and subscript, the last two of
+ * the twelve (asciidoctor.rb l.465-468). They genuinely cannot matter
+ * here: `\^(\S+?)\^` and `~(\S+?)~` consume only `^` and `~`, which no
+ * row here spells, and both run after every row here anyway.
  *
- * The two CURVED-QUOTE rows (3 and 4) are a real gap. They are
- * `"` + backtick + content + backtick + `"` and the `'` pair, so they
- * consume BACKTICKS - the same character the two monospaced rows
- * spell - and they run BEFORE both of them. Where a source writes
- * them, our monospaced rows take backticks the oracle had already
- * spent: `"``a``"` renders `&#8220;`a`&#8221;`, the outer pair gone
- * to the curved quote and the inner two left as literal text, while
- * we build a `monospace` span the oracle has nowhere.
- *
- * That divergence is byte-stable on its own, but it does not stay
- * contained: the row REWRITES its neighbours into `&#8220;`/`&#8221;`,
- * whose `;` is excluded in front of every constrained mark, and the
- * printer's constrained-downgrade rule (`constrainedIsLegal`,
- * src/print/inline.ts) models `sub_specialchars` but not this
- * rewrite. `x "`__a__`" y` therefore formats to `x "`_a_`" y` and
- * loses the emphasis. That render bug is issue #74 and is older than
- * this table; modelling the two rows is what would close it.
- *
- * The four kinds ARE listed again in inline-node-builder.ts's map
- * from token kind to AST node type - that map answers what a span
- * IS, this table answers when it is resolved, and they are separate
- * facts.
+ * The ten rows here model six token kinds - BoldMark, DoubleQuoteMark,
+ * SingleQuoteMark, MonoMark, ItalicMark, HighlightMark - but only four
+ * of them are LISTED AGAIN in inline-node-builder.ts's `MARK_TO_TYPE`
+ * map from token kind to AST node type: the two curved kinds are not
+ * in that map at all, they get their own switch case there, building
+ * a `curvedQuote` node directly instead of looking up a type string.
+ * Either way, that file answers what a span IS, this table answers
+ * when it is resolved, and they are separate facts.
  */
 const RESOLUTION_ORDER = [
   { type: "BoldMark", width: UNCONSTRAINED_WIDTH },
   { type: "BoldMark", width: DELIM_WIDTH },
+  { type: "DoubleQuoteMark", width: CURVED_WIDTH },
+  { type: "SingleQuoteMark", width: CURVED_WIDTH },
   { type: "MonoMark", width: UNCONSTRAINED_WIDTH },
   { type: "MonoMark", width: DELIM_WIDTH },
   { type: "ItalicMark", width: UNCONSTRAINED_WIDTH },
@@ -82,12 +71,29 @@ const RESOLUTION_ORDER = [
 ] as const;
 
 /**
- * The four token kinds a span can be spelled with - read off
- * {@link RESOLUTION_ORDER} so the two cannot drift. What each one
- * BECOMES is inline-node-builder.ts's map; this is only which kinds
- * pair.
+ * The two kinds whose delimiters are a quote character and a
+ * backtick, not the mark character itself. Not exported: nothing
+ * outside this module needs it by name, only {@link MarkSpanTokenKind}
+ * (derived below) and {@link ResolvedSpan#type} (the wider
+ * {@link MarkTokenKind}) leave the file.
  */
-export type MarkTokenKind = (typeof RESOLUTION_ORDER)[number]["type"];
+type CurvedTokenKind = "DoubleQuoteMark" | "SingleQuoteMark";
+
+/**
+ * Every token kind {@link RESOLUTION_ORDER} pairs into a span - read
+ * off the table so the two cannot drift. What each one BECOMES is
+ * inline-node-builder.ts's map; this is only which kinds pair. Not
+ * exported: {@link ResolvedSpan#type} carries it out as a field type,
+ * which is all any consumer of a resolved span needs.
+ */
+type MarkTokenKind = (typeof RESOLUTION_ORDER)[number]["type"];
+
+/**
+ * The four kinds whose delimiter is the mark character itself -
+ * {@link MarkTokenKind} minus the two curved kinds, which spell a
+ * curved-quote node instead of a formatting node.
+ */
+export type MarkSpanTokenKind = Exclude<MarkTokenKind, CurvedTokenKind>;
 
 /**
  * One resolved span, as indices into the token stream it was

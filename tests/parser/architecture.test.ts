@@ -196,10 +196,10 @@ describe("parse-layer architecture", () => {
   // move the wire: a titled document that used to serialize a level-0
   // `heading` now serializes a `documentHeader`, which is the AST
   // half of the parity diff this change declares.
-  test("the node-kind census is 39", () => {
+  test("the node-kind census is 40", () => {
     const source = readFileSync("src/ast.ts", "utf8");
     const kinds = source.match(/^ {2}type: "[a-zA-Z]+";$/gmv) ?? [];
-    expect(kinds).toHaveLength(39);
+    expect(kinds).toHaveLength(40);
   });
 
   // The constraint: no lint suppressions beyond

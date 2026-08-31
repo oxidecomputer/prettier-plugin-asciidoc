@@ -323,8 +323,36 @@
   },
   {
     "file": "src/parse/inline/quote-boundaries.ts",
-    "symbol": "afterSpecialchars",
+    "symbol": "MarkKind",
+    "importer": "src/print/span-edges.ts",
+    "kind": "vocabulary",
+    "reason": "the four mark kinds' shared type, keying the row-key lookup table so it cannot be built for a kind QUOTE_ROW does not have a pair of rows for"
+  },
+  {
+    "file": "src/parse/inline/quote-boundaries.ts",
+    "symbol": "QUOTE_ROW",
     "importer": "src/print/inline.ts",
+    "kind": "vocabulary",
+    "reason": "the one table of QUOTE_SUBS row order and edge characters; the printer reads a row's order to know whether an enclosing or sibling span's row has already resolved"
+  },
+  {
+    "file": "src/parse/inline/quote-boundaries.ts",
+    "symbol": "QUOTE_ROW",
+    "importer": "src/print/span-edges.ts",
+    "kind": "vocabulary",
+    "reason": "the one table of QUOTE_SUBS row order and edge characters; the derived-edge functions read a neighbour's row to know what it presents to the row resolving the asking span"
+  },
+  {
+    "file": "src/parse/inline/quote-boundaries.ts",
+    "symbol": "QuoteRowKey",
+    "importer": "src/print/span-edges.ts",
+    "kind": "vocabulary",
+    "reason": "the row-key type the derived-edge functions key QUOTE_ROW with, so a span's row lookup cannot name a row the table does not have"
+  },
+  {
+    "file": "src/parse/inline/quote-boundaries.ts",
+    "symbol": "afterSpecialchars",
+    "importer": "src/print/span-edges.ts",
     "kind": "vocabulary",
     "reason": "the one spelling of the specialchars pre-image (sub_specialchars runs before the quote pass), applied to a span's left neighbour on both sides of the round trip"
   },

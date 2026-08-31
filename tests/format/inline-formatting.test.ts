@@ -324,7 +324,10 @@ describe("an unconstrained span shortens where the constrained one is legal", ()
     ["a closing brace in front", "a}**b** c\n"],
     ["a word character behind", "a **b**c\n"],
     ["content flush against neither mark", "a ** b ** c\n"],
-    ["a neighbour that is not plain text", "a **b**__c__ d\n"],
+    [
+      "a neighbour whose printed bytes are not ours to predict",
+      "a **b**+++c+++ d\n",
+    ],
     ["nested inside another span", "_**Release date:** x_\n"],
     ["a stray mark elsewhere in the paragraph", "a **b** and * stray\n"],
     // The corpus row this predicate was tightened for: the `_` inside

@@ -10,6 +10,7 @@
  */
 import { INLINE_RULES, markFlags } from "./rules.js";
 import type { InlineKind, InlineToken } from "./tokens.js";
+import { scanCurvedQuotes } from "./curved-quotes.js";
 
 /**
  * Tokenize one fragment of paragraph text.
@@ -32,12 +33,20 @@ export function tokenizeInline(
   baseOffset: number,
 ): Array<InlineToken<InlineKind>> {
   const tokens: Array<InlineToken<InlineKind>> = [];
+  // The two curved-quote rows are scanned ONCE for the whole fragment,
+  // because their delimiter is not decidable from a neighbourhood
+  // (curved-quotes.ts says why). Every rule is handed the result; the
+  // two curved rules read it to find their own delimiters, and
+  // InlineText's own rule reads it too, to cut its run before one
+  // (rules.ts's textMatcher/firstCurvedDelimiterIn) - the same reason
+  // it already cuts before an email address.
+  const curved = scanCurvedQuotes(text);
   let index = 0;
   while (index < text.length) {
     let type: InlineKind = "InlineChar";
     let length = 0;
     for (const rule of INLINE_RULES) {
-      length = rule.match(text, index);
+      length = rule.match(text, index, curved);
       if (length > 0) {
         ({ type } = rule);
         break;
@@ -54,7 +63,7 @@ export function tokenizeInline(
     // constrained pattern could open or close a span here - because
     // the neighbourhood is visible HERE, in the fragment, and the
     // builder that pairs marks into spans works on tokens alone.
-    const flags = markFlags(type, text, index, length);
+    const flags = markFlags({ type, text, index, length, curved });
     tokens.push({
       type,
       image: text.slice(index, index + length),

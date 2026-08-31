@@ -37,10 +37,12 @@ export interface BlockStartCursor {
   /** The node's index among them. */
   readonly index: number;
   /**
-   * Whether the node is inside a formatting span, where the closing
-   * mark follows the content in the output.
+   * The span this node is the content of, when it is one - only
+   * whether it is undefined is read here; the printer's own `Cursor`
+   * (src/print/inline.ts) narrows the type to its five span kinds for
+   * the questions this net does not ask.
    */
-  readonly insideSpan: boolean;
+  readonly enclosing: InlineNode | undefined;
   /**
    * Whether the block's FIRST atom opens its output line at column 0.
    * True for a paragraph, whose first line is its own; false where a
@@ -84,7 +86,7 @@ export function hazardAtBlockStart(
 ): boolean {
   return (
     cursor.index === 0 &&
-    !cursor.insideSpan &&
+    cursor.enclosing === undefined &&
     cursor.blockAtColumnZero &&
     contentOpensAfterBreak(cursor.siblings[0]) &&
     isBlockSyntaxAtLineStart(composed)

@@ -56,6 +56,7 @@ const HAND_WRITTEN = [
   ".A block title",
   "[.lead]",
   "Some *bold* and _italic_ and `mono` and #marked# text,",
+  "a \"`curved double`\" quote and a '`curved single`' quote,",
   "an {attribute} reference, a https://example.com[link], an",
   "<<xref,cross reference>>, an image:pic.png[alt] macro, an",
   "[[inline-anchor]] anchor, and a hard break +",
@@ -273,9 +274,10 @@ describe("the declared visitor keys, against real parse trees", () => {
   // Vacuity guard, the with-children half. Kept as an exact list
   // because it fails loudly if a declaration is ever dropped from a
   // kind that has one, and it is stable against corpus churn: the
-  // hand-written document above reaches all eleven on its own: its
+  // hand-written document above reaches all twelve on its own: its
   // `= Title` plus `:toc:` open a documentHeader whose `lines` hold
-  // the attribute entry (issue #18).
+  // the attribute entry (issue #18), and its curved-quote phrases
+  // (issue #74) reach `curvedQuote`.
   test("the documents reach every kind that declares a child key", () => {
     const withChildren = ALL_NODES.filter(
       (node) => getVisitorKeys(node).length > 0,
@@ -284,6 +286,7 @@ describe("the declared visitor keys, against real parse trees", () => {
     expect([...kinds].toSorted()).toEqual([
       "admonition",
       "bold",
+      "curvedQuote",
       "document",
       "documentHeader",
       "highlight",

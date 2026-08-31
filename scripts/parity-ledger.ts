@@ -306,6 +306,17 @@ const EMAIL_AUTOLINK_FAMILY = "email-autolink";
 const DOCUMENT_HEADER_FAMILY = "document-header";
 
 /**
+ * A `"\`...\`"` or `'\`...\`'` pair becomes a `curvedQuote` node
+ * (issue #74). The formatted bytes do not move - the printer writes
+ * the pair's own delimiters back - so every declared case differs in
+ * the AST alone: flattening the new nodes back to their source
+ * delimiters reproduces the base tree exactly.
+ *
+ * Not exported: no grid row cites it.
+ */
+const CURVED_QUOTE_NODE_FAMILY = "curved-quote-node";
+
+/**
  * The closed family enum. SURFACE HONESTY, not an armed
  * gate: a family id can only legally be a corpus id or an
  * identity-fixture id. The formatted-only subset is exactly
@@ -330,6 +341,7 @@ const DOCUMENT_HEADER_FAMILY = "document-header";
 export const LEDGER_FAMILIES: FamilySets = {
   families: new Set([
     AUTHOR_PLUS_FAMILY,
+    CURVED_QUOTE_NODE_FAMILY,
     PSEUDO_RUN_FOLD_FAMILY,
     MARKER_SPELLING_FAMILY,
     NESTING_FIDELITY_FAMILY,

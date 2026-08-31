@@ -185,9 +185,15 @@ for (const [mark, type] of MARKS) {
 
 describe("monospace's per-mark extras: the curved-quote characters", () => {
   // `"` and `'` join monospace's excluded-left class and its right
-  // lookahead (`"\`` opens a curved double quote, `\`'` closes a
-  // curved single one), while the other marks treat them as ordinary
-  // punctuation. One pair of rows per side, both marks compared.
+  // lookahead because they are the two curved-quote rows this parser
+  // MODELS (curved-quotes.ts: `"\`` opens the double row, `` \`' ``
+  // closes the single one), while the other marks treat them as
+  // ordinary punctuation. Neither frame below matches either row
+  // itself - `x"\`b\` y` opens no curved pair (nothing closes it) and
+  // `` x \`b\`"y `` closes none (nothing opened it) - so these rows
+  // stay about monospace's own excluded classes; the derived boundary
+  // a curved row's own rewrite creates is the next block's question.
+  // One pair of rows per side, both marks compared.
   test.each(['"', "'"])(
     "left %s: mono stays text, bold spans",
     async (character) => {
@@ -202,6 +208,45 @@ describe("monospace's per-mark extras: the curved-quote characters", () => {
       await expectRow(`x *b*${character}y\n`, "bold", true);
     },
   );
+});
+
+describe("the derived boundary: a mark reading its curved-quote neighbour", () => {
+  // Each row's mark stands right beside a curved-quote delimiter.
+  // Whether that neighbour reads as the source bytes (`"`, a
+  // backtick) or as the curved row's own rewrite (`&`, `;`) decides
+  // whether the mark's excluded classes refuse it - `seesCurvedRewrite`
+  // (quote-boundaries.ts). Measured against the oracle; `<p>` contents
+  // shown in each comment.
+  test.each<[string, string, boolean]>([
+    // <p>x <code>b</code>&#8220;a&#8221; y</p> - the monospace CLOSE
+    // at offset 4 reads the character after it through the rewrite:
+    // unmasked, the source `"` there would refuse the close (the bug
+    // this task fixes), though the oracle still makes the span.
+    ['x `b`"`a`" y\n', "monospace", true],
+    // <p>x &#8220;a&#8221;#b# y</p> - highlight's own row runs after
+    // the curved rows, so the `;` the curved close already wrote
+    // stands in front of the `#`, which its excluded-left class
+    // refuses.
+    ['x "`a`"#b# y\n', "highlight", false],
+    // <p>x &#8220;a&#8221;`b` y</p> - a control: monospace's own
+    // excluded-left class already carries `"` (MONOSPACE_EXTRA), so
+    // the source byte and the rewrite's `;` refuse this open alike,
+    // and the pair stays literal backticks under either reading.
+    ['x "`a`"`b` y\n', "monospace", false],
+    // <p>x &#8220;a&#8221;<strong>b</strong> y</p> - bold's rows run
+    // BEFORE the two curved rows (indices 0-1 of QUOTE_SUBS), so its
+    // open reads the SOURCE `"` in front of it - an ordinary,
+    // unexcluded character - where the three later marks read the
+    // rewrite's `;` instead.
+    ['x "`a`"*b* y\n', "bold", true],
+    // <p>x &#8220;<strong>a</strong>&#8221; y</p> - the same
+    // exemption inside the pair: bold's open sits right against the
+    // curved OPEN's own backtick and still spans, because it reads
+    // the source byte, not the rewrite.
+    ['x "`*a*`" y\n', "bold", true],
+  ])("%j", async (input, type, spans) => {
+    await expectRow(input, type, spans);
+  });
 });
 
 describe("the backslash escape stays an escape", () => {
@@ -268,6 +313,31 @@ describe("the word class is the oracle's, not Ruby's", () => {
     const input = "x **b c**\u00B2y\n";
     const out = await formatAdoc(input);
     expect(out).toBe(input);
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+});
+
+describe("the derived boundary at print time: a mark reading a SPAN sibling", () => {
+  // Two unconstrained spans standing shoulder to shoulder, with no
+  // text between them at all. The neighbour beside the second span is
+  // not a text node - it is the FIRST span itself - so a check that
+  // only ever read `previous?.type === "text"` could never see past
+  // it and always refused. Reading the sibling's row-derived edge
+  // (edgeTail/edgeHead, src/print/span-edges.ts) answers correctly
+  // instead: once the first span's own row has resolved, what stands
+  // beside the second is that row's element boundary (`>`), which
+  // none of the four marks excludes, so the second span may still
+  // shorten despite having no text neighbour of its own.
+  test.each<[string, string]>([
+    ["**a**__b__ c", "**a**_b_ c"],
+    ["**a**##b## c", "*a*#b# c"],
+    ["x ##a##__b__ c", "x #a#_b_ c"],
+  ])("%s shortens to %s", async (source, expected) => {
+    const input = `${source}\n`;
+    const expectedOut = `${expected}\n`;
+    const out = await formatAdoc(input);
+    expect(out).toBe(expectedOut);
     expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });

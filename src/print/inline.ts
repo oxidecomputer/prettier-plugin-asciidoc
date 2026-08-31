@@ -16,22 +16,22 @@
  * Extracted from the main printer to keep file size within
  * the max-lines lint limit.
  */
-import type {
-  InlineNode,
-  RawLineNode,
-  TextNode,
-  BoldNode,
-  ItalicNode,
-  MonospaceNode,
-  HighlightNode,
-} from "../ast.js";
+import type { InlineNode, RawLineNode, TextNode } from "../ast.js";
 import { FIRST_COLUMN } from "../constants.js";
 import { ASCII_WHITESPACE } from "../parse/line-shapes.js";
-import {
-  MARK_BOUNDARY,
-  afterSpecialchars,
-} from "../parse/inline/quote-boundaries.js";
+import { MARK_BOUNDARY, QUOTE_ROW } from "../parse/inline/quote-boundaries.js";
 import { verbatimText } from "./serialize-inline.js";
+import {
+  curvedQuoteMarks,
+  delimitersOf,
+  edgeHead,
+  edgeTail,
+  isSpanNode,
+  rowKeyOf,
+  spanMarks,
+  type MarkSpanNode,
+  type SpanNode,
+} from "./span-edges.js";
 import {
   atomOf,
   type Atom,
@@ -81,9 +81,6 @@ const LINE_START_BEFORE_BREAK = /\n[ \t]*$/v;
 // fusing. (Nested lists are not inline siblings — an item's `text`
 // holds inline nodes only; its blocks print elsewhere.)
 const OWN_LINE_SIBLINGS = new Set(["rawLine"]);
-
-/** A formatting span: its marks ride on the atoms they touch. */
-type SpanNode = BoldNode | ItalicNode | MonospaceNode | HighlightNode;
 
 /**
  * The join between the atom just emitted and the next one.
@@ -146,6 +143,19 @@ function withBoundary(atom: Atom, boundary: Boundary): Atom {
 interface Cursor extends BlockStartCursor {
   /** 1-based source line the enclosing BLOCK starts on. */
   readonly blockStartLine: number;
+  /**
+   * The span this node is the content of, when it is one - narrower
+   * than {@link BlockStartCursor}'s `InlineNode | undefined` so a span
+   * question (rowKeyOf, delimitersOf) can be asked of it directly.
+   */
+  readonly enclosing: SpanNode | undefined;
+  /**
+   * The block's top-level inline children. A constrained spelling
+   * exposes its marks to a pass that scans the whole LINE, so the
+   * stray-mark question is about the block and not about the span's
+   * siblings - see {@link constrainedIsLegal}.
+   */
+  readonly blockNodes: readonly InlineNode[];
 }
 
 /**
@@ -318,7 +328,7 @@ function trailingPlusPolicy(
   return {
     escapeTrailingPlus:
       !followedInBlock &&
-      !cursor.insideSpan &&
+      cursor.enclosing === undefined &&
       !startsItsOwnLine &&
       !gluedToPredecessor,
     glueToSibling: followedInBlock,
@@ -422,37 +432,6 @@ function appendText(
   return trailingBoundary(node, words, glueToSibling);
 }
 
-/** The one mark character each span kind is spelled with. */
-const SPAN_MARKS = { bold: "*", italic: "_", monospace: "`", highlight: "#" };
-
-/**
- * The opening and closing marks of a formatting span.
- *
- * Constrained marks (`*bold*`) require word boundaries; unconstrained
- * (`**bold**`) work anywhere, including mid-word — and where BOTH are
- * legal they render identically, so the printer writes the
- * constrained one ({@link constrainedIsLegal} decides). A role
- * attribute gives a highlight span semantic meaning used by CSS, e.g.
- * `[.red]#text#`: it is written as an inline attribute list
- * immediately before the mark, not as a block attribute list, so it is
- * emitted here and not through the block printer.
- * @param node - the span node.
- * @param constrained - whether to spell it with the single mark.
- * @returns its opening and closing marks.
- */
-function spanMarks(
-  node: SpanNode,
-  constrained: boolean,
-): { open: string; close: string } {
-  const single = SPAN_MARKS[node.type];
-  const mark = constrained ? single : `${single}${single}`;
-  if (node.type === "highlight") {
-    const rolePrefix = node.role === undefined ? "" : `[${node.role}]`;
-    return { open: `${rolePrefix}${mark}`, close: mark };
-  }
-  return { open: mark, close: mark };
-}
-
 /**
  * Whether an UNCONSTRAINED span may be respelled with the constrained
  * mark — the same question Ruby's constrained pattern asks, read off
@@ -469,24 +448,36 @@ function spanMarks(
  * so the shorter spelling is the canonical one and the longer one is
  * residue.
  *
- * Deliberately CONSERVATIVE in four places, each costing bytes and no
- * meaning:
+ * Four places this can refuse a shortening. Two of them DERIVE the
+ * answer from what actually stands beside the span (span-edges.ts's
+ * row facts); the other two stay deliberately CONSERVATIVE, always
+ * refusing, each costing bytes and no meaning:
  *
- * - a NEIGHBOUR that is not plain text answers no — the character it
- *   will print is not this function's to predict, and
- *   `a **b**__c__ d` measures render-UNEQUAL once the bold shortens
- *   even though `_` is no word character;
- * - a span NESTED inside another answers no: the character beside it
- *   is the enclosing mark, and `_` is a word character to Ruby, so
- *   `__*b*__` would not match;
- * - CONTENT carrying the mark character answers no — the constrained
- *   pattern is non-greedy and would end the span early;
- * - and a stray mark character ANYWHERE ELSE in the paragraph answers
- *   no ({@link carriesMark}). Shortening a span exposes its marks to
- *   the constrained pass, which scans the whole line: the corpus's
- *   `[[[_1984]]] George Orwell. __1984__.` renders differently the
- *   moment the emphasis shortens, because the `_` inside the
- *   bibliography anchor becomes an opening mark.
+ * - DERIVED: a NEIGHBOUR whose printed bytes are not this function's
+ *   to predict answers no - a macro, a link, an xref, an anchor, a
+ *   passthrough, a raw line or a hard break (edgeTail/edgeHead,
+ *   span-edges.ts); anything else, a text run or another span, gets
+ *   its real edge read off that row - measured: `a **b**__c__ d`
+ *   formats to `a **b**_c_ d`, the italic shortening against the
+ *   bold's derived edge while the bold keeps its wide spelling,
+ *   render-equal;
+ * - DERIVED: a span NESTED inside another reads what stands beside it
+ *   AS ITS OWN ROW SEES IT (span-edges.ts), which may be the enclosing
+ *   span's own delimiter or a sibling of the enclosing span's:
+ *   `__*b*__` still answers no, because emphasis's row runs after
+ *   strong's, so the enclosing `_` is still literal text where
+ *   strong's row reads it, but `x "`b __a__`" y` shortens the inner
+ *   emphasis, because the character in front of it is `b`'s own
+ *   trailing space, not a mark;
+ * - CONSERVATIVE: CONTENT carrying the mark character answers no -
+ *   the constrained pattern is non-greedy and would end the span
+ *   early;
+ * - CONSERVATIVE: a stray mark character ANYWHERE ELSE in the
+ *   paragraph answers no ({@link carriesMark}). Shortening a span
+ *   exposes its marks to the constrained pass, which scans the whole
+ *   line: the corpus's `[[[_1984]]] George Orwell. __1984__.` renders
+ *   differently the moment the emphasis shortens, because the `_`
+ *   inside the bibliography anchor becomes an opening mark.
  * @param node - the unconstrained span
  * @param cursor - where it sits among its siblings
  * @param content - the span's own facts: whether its content is flush
@@ -496,11 +487,11 @@ function spanMarks(
  * @returns true when the constrained spelling carries the same meaning
  */
 function constrainedIsLegal(
-  node: SpanNode,
+  node: MarkSpanNode,
   cursor: Cursor,
   content: { flush: boolean; texts: readonly string[] },
 ): boolean {
-  if (cursor.insideSpan || !content.flush) return false;
+  if (!content.flush) return false;
   // A raw line among the children answers no: the oracle deletes a
   // kept comment line before the quote pass runs, so the characters
   // beside the marks in the RENDERED text are not the ones this
@@ -515,63 +506,152 @@ function constrainedIsLegal(
   // marker - `a **b +\n** c` respelled constrained would write
   // `* c`. The doubled mark is no marker.
   if (content.texts.at(-1) === HARD_BREAK_IMAGE) return false;
-  const mark = SPAN_MARKS[node.type];
+  const mark = spanMarks(node, true).close;
   if (content.texts.some((text) => text.includes(mark))) return false;
-  const others = cursor.siblings.filter((_, index) => index !== cursor.index);
-  if (others.some((sibling) => carriesMark(sibling, mark))) return false;
+  // The BLOCK, not the siblings: shortening a span exposes its marks to
+  // a pass that scans the whole LINE, and a span nested inside another
+  // one has only its parent's content as siblings. Measured, on
+  // `x [[[_a]]] "`b __c__`" y`: the emphasis's siblings are the curved
+  // span's content, the bibliography anchor is outside it, and
+  // shortening the emphasis makes the anchor's `_` an opening mark - the
+  // anchor is destroyed and the emphasis crosses it.
+  if (cursor.blockNodes.some((sibling) => carriesMark(sibling, mark, node))) {
+    return false;
+  }
   return neighboursAllowIt(node, cursor);
 }
 
 /**
- * The two boundary clauses of the constrained pattern, read off the
- * span's siblings — the front one after {@link afterSpecialchars}.
- * Split from {@link constrainedIsLegal} for the complexity ceiling,
- * which is also where the clause split belongs: the caller asks about
- * the SPAN, this asks about what stands beside it.
+ * The two boundary clauses of the constrained pattern, read off what
+ * stands beside the span AS ITS OWN ROW SEES IT (span-edges.ts).
+ *
+ * At the edge of an enclosing span the neighbour is that span's own
+ * delimiter, which is why the enclosing node and not a boolean rides on
+ * the cursor: `x "`__a__`" y` may not shorten (the curved row already
+ * wrote `&#8220;`, whose `;` the front clause excludes) while
+ * `x "`b __a__`" y` may (a space stands there), and the two differ only
+ * in what the neighbour is.
  * @param node - the span being considered
- * @param cursor - where the span sits among its siblings
+ * @param cursor - where the span sits
  * @returns true when both neighbours leave the constrained form legal
  */
-function neighboursAllowIt(node: SpanNode, cursor: Cursor): boolean {
+function neighboursAllowIt(node: MarkSpanNode, cursor: Cursor): boolean {
   const { front, behind } = MARK_BOUNDARY[node.type];
-  const previous = cursor.siblings.at(cursor.index - 1);
-  const following = cursor.siblings.at(cursor.index + 1);
-  const leftOk =
-    cursor.index === 0 ||
-    (previous?.type === "text" &&
-      !front.test(afterSpecialchars(previous.value)));
-  const rightOk =
-    following === undefined ||
-    (following.type === "text" && !behind.test(following.value));
-  return leftOk && rightOk;
+  const { order } = QUOTE_ROW[rowKeyOf(node)];
+  const inFront = frontNeighbour(cursor, order);
+  const behindIt = behindNeighbour(cursor, order);
+  return (
+    inFront !== undefined &&
+    behindIt !== undefined &&
+    !front.test(inFront) &&
+    !behind.test(behindIt)
+  );
+}
+
+/**
+ * What stands in front of the span: the previous sibling's tail, the
+ * enclosing span's OWN edge at index 0 inside a span, or the empty
+ * string at the head of a block (which no `$`-anchored class can
+ * match, so it is legal).
+ *
+ * At index 0, the enclosing's edge is not simply its raw opening
+ * delimiter: where the enclosing's own row has already run
+ * (`row.order < order`), the whole match - open, content and close -
+ * was rewritten as one unit, and what stands beside our content is the
+ * LAST character of what that rewrite's OPEN side wrote, which for
+ * every one of the five spans is the same character its CLOSE side
+ * ends with too (`</strong>` and `<strong>` both end `>`, `&#8221;`
+ * and `&#8220;` both end `;`) - {@link QUOTE_ROW}'s `closesWith`.
+ * Measured: `x "`__a__`" y` does not shorten (`;` is excluded) while
+ * `x "`b __a__`" y` does (a space stands there instead, read off the
+ * PRECEDING SIBLING, not the enclosing edge - the two rows differ only
+ * in whether index 0 is reached at all).
+ * @param cursor - where the span sits
+ * @param order - the asking span's row index
+ * @returns the text the front clause tests, or undefined to refuse
+ */
+function frontNeighbour(cursor: Cursor, order: number): string | undefined {
+  if (cursor.index > 0) {
+    return edgeTail(cursor.siblings[cursor.index - 1], order);
+  }
+  const { enclosing } = cursor;
+  if (enclosing === undefined) return "";
+  const row = QUOTE_ROW[rowKeyOf(enclosing)];
+  return row.order < order ? row.closesWith : delimitersOf(enclosing).open;
+}
+
+/**
+ * What stands behind the span, mirroring {@link frontNeighbour}: the
+ * next sibling's head, the enclosing span's own edge at the LAST index
+ * inside a span, or the empty string at the tail of a block.
+ *
+ * The already-run branch reads `opensWith` rather than `closesWith` -
+ * the mirror image of {@link frontNeighbour}'s reasoning: what stands
+ * right behind our content is the FIRST character of what the
+ * enclosing's CLOSE side wrote, which is the same character its OPEN
+ * side starts with too (`<strong>` and `</strong>` both start `<`,
+ * `&#8220;` and `&#8221;` both start `&`). Neither of those two
+ * characters is ever excluded on the BEHIND side of any of the four
+ * marks (only the FRONT side excludes `;`/`:`/`}`), so this branch is
+ * unconditionally permissive in this codebase's five span kinds - a
+ * fact {@link constrainedIsLegal}'s doc notes for
+ * `x "`__a__ and __b__`" y`.
+ * @param cursor - where the span sits
+ * @param order - the asking span's row index
+ * @returns the text the behind clause tests, or undefined to refuse
+ */
+function behindNeighbour(cursor: Cursor, order: number): string | undefined {
+  if (cursor.index < cursor.siblings.length - 1) {
+    return edgeHead(cursor.siblings[cursor.index + 1], order);
+  }
+  const { enclosing } = cursor;
+  if (enclosing === undefined) return "";
+  const row = QUOTE_ROW[rowKeyOf(enclosing)];
+  return row.order < order ? row.opensWith : delimitersOf(enclosing).close;
 }
 
 /**
  * Whether a node beside a span may put the span's mark character on
- * the line — the question {@link constrainedIsLegal}'s last clause
- * asks of every other node in the paragraph.
+ * the line - the question {@link constrainedIsLegal}'s block-wide scan
+ * asks of every other node in the block.
  *
  * Text answers by its own bytes, and a macro, link, xref or anchor by
  * the bytes {@link verbatimText} will actually write. A formatting
  * span answers for its CONTENT only: its own marks are a balanced
  * pair, and Ruby's scan consumes them as one, so they cannot pair
- * with a neighbour's. A raw line or a hard break answers YES without
- * being asked — a verbatim line is arbitrary bytes, and neither is
- * worth a case here.
+ * with a neighbour's. A curved-quote span answers the same way and
+ * for the same underlying reason applied one row earlier: its own
+ * BACKTICKS are consumed by `QUOTE_SUBS` row 2 (or 3), before rows 4
+ * and later could ever see them, so they must not count against a
+ * monospace downgrade elsewhere on the line. A raw line or a hard
+ * break answers YES without being asked: a verbatim line is arbitrary
+ * bytes, and neither is worth a case here - UNLESS it is the asking
+ * span's own, which {@link constrainedIsLegal}'s earlier, more precise
+ * clauses already answer (a raw-line child refuses outright; a
+ * trailing hard break refuses by its atom text): the scan starts from
+ * the block ROOT, so the asking span is reachable through an ancestor
+ * as well as through its own siblings, and re-answering YES for its
+ * own break there would refuse every span that holds one, which is
+ * not what those earlier clauses decided.
  * @param node - an inline node beside the span
  * @param mark - the span's mark character
+ * @param asking - the span being decided, skipped where reached (its
+ *   own content is {@link constrainedIsLegal}'s to answer, not this
+ *   function's)
  * @returns true when the node may print that character
  */
-function carriesMark(node: InlineNode, mark: string): boolean {
+function carriesMark(
+  node: InlineNode,
+  mark: string,
+  asking: SpanNode,
+): boolean {
+  if (node === asking) return false;
+  if (isSpanNode(node)) {
+    return node.children.some((child) => carriesMark(child, mark, asking));
+  }
   switch (node.type) {
     case "text": {
       return node.value.includes(mark);
-    }
-    case "bold":
-    case "italic":
-    case "monospace":
-    case "highlight": {
-      return node.children.some((child) => carriesMark(child, mark));
     }
     case "rawLine":
     case "hardLineBreak": {
@@ -602,7 +682,8 @@ function appendSpan(
 ): Boundary {
   const { atoms: inner, trailing } = collectAtoms(node.children, {
     blockStartLine: cursor.blockStartLine,
-    insideSpan: true,
+    enclosing: node,
+    blockNodes: cursor.blockNodes,
     blockAtColumnZero: false,
   });
   // The span's own whitespace lives INSIDE its marks: content whitespace
@@ -612,14 +693,17 @@ function appendSpan(
   // asked for, and `trailing` is the join the last one left behind.
   const openSpace = inner.length > 0 && inner[0].glueLeft ? "" : " ";
   const closeSpace = trailing === "glue" ? "" : " ";
-  const { open, close } = spanMarks(
-    node,
-    node.constrained ||
-      constrainedIsLegal(node, cursor, {
-        flush: openSpace === "" && closeSpace === "",
-        texts: inner.map((atom) => atom.text),
-      }),
-  );
+  const { open, close } =
+    node.type === "curvedQuote"
+      ? curvedQuoteMarks(node)
+      : spanMarks(
+          node,
+          node.constrained ||
+            constrainedIsLegal(node, cursor, {
+              flush: openSpace === "" && closeSpace === "",
+              texts: inner.map((atom) => atom.text),
+            }),
+        );
   // Children that are all whitespace produce no atoms (`x ** ** y`,
   // where the bold holds only a space). Emit the bare marks around
   // whatever whitespace they stood for. That is one of THREE homes of
@@ -895,7 +979,8 @@ function appendNode(out: Atom[], boundary: Boundary, cursor: Cursor): Boundary {
     case "bold":
     case "italic":
     case "monospace":
-    case "highlight": {
+    case "highlight":
+    case "curvedQuote": {
       return appendSpan(out, boundary, cursor, node);
     }
     case "rawLine": {
@@ -919,10 +1004,19 @@ interface RunContext {
   /** 1-based source line the enclosing BLOCK starts on. */
   readonly blockStartLine: number;
   /**
-   * Whether the run is a formatting span's content, where a closing
-   * mark follows in the output.
+   * The span this run is the content of, when it is one: the printer
+   * needs the NODE and not just the fact, because what stands beside a
+   * span at the edge of its parent is the parent's delimiter as the
+   * child's row reads it (span-edges.ts). `undefined` at block level.
    */
-  readonly insideSpan: boolean;
+  readonly enclosing: SpanNode | undefined;
+  /**
+   * The block's top-level inline children. A constrained spelling
+   * exposes its marks to a pass that scans the whole LINE, so the
+   * stray-mark question is about the block and not about the span's
+   * siblings - see {@link constrainedIsLegal}.
+   */
+  readonly blockNodes: readonly InlineNode[];
   /** Whether the block's first atom opens its line at column 0. */
   readonly blockAtColumnZero: boolean;
 }
@@ -931,7 +1025,8 @@ interface RunContext {
  * Build the atoms for a run of inline siblings.
  * @param nodes - the inline siblings, in order.
  * @param context - the block facts the run's cursors share: source
- *   start line (for the dlist first-line guard), span membership, and
+ *   start line (for the dlist first-line guard), the enclosing span
+ *   and the block's own children (for the stray-mark scan), and
  *   whether the first atom opens its line at column 0.
  * @returns the atoms, in order, and the join the last one leaves behind.
  */
@@ -967,7 +1062,8 @@ export function inlineAtoms(
 ): Atom[] {
   const { atoms } = collectAtoms(nodes, {
     blockStartLine,
-    insideSpan: false,
+    enclosing: undefined,
+    blockNodes: nodes,
     blockAtColumnZero,
   });
   if (blockAtColumnZero && nodes.length > 0) keepBlockStartBreak(atoms, nodes);

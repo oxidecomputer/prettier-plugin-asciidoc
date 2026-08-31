@@ -22,6 +22,7 @@ import type {
   ItalicNode,
   MonospaceNode,
   HighlightNode,
+  CurvedQuoteNode,
   AttributeReferenceNode,
 } from "../../ast.js";
 import type { Fragment, LocationIndex } from "../positions.js";
@@ -30,7 +31,7 @@ import type { InlineToken, InlineTokenType } from "./tokens.js";
 import {
   resolveSpans,
   spanStart,
-  type MarkTokenKind,
+  type MarkSpanTokenKind,
   type ResolvedSpan,
 } from "./span-pairing.js";
 import {
@@ -50,7 +51,7 @@ const MARK_TO_TYPE = {
   ItalicMark: "italic",
   MonoMark: "monospace",
   HighlightMark: "highlight",
-} as const satisfies Record<MarkTokenKind, string>;
+} as const satisfies Record<MarkSpanTokenKind, string>;
 
 /**
  * Build a TextNode from accumulated pending text.
@@ -81,7 +82,7 @@ function makeTextNode(
 
 // Parameters for makeFormattingNode.
 interface FormattingNodeOptions {
-  markType: MarkTokenKind;
+  markType: MarkSpanTokenKind;
   constrained: boolean;
   children: InlineNode[];
   openMark: Fragment;
@@ -191,11 +192,15 @@ function innerSpans(
  * constrained, children, position`, and serialization order is a
  * contract — unifying them would move keys on every `[.role]#x#`
  * document.
+ *
+ * The switch on `span.type` is the completeness gate for the whole
+ * resolved-span vocabulary: a kind added to `RESOLUTION_ORDER`
+ * (span-pairing.ts) fails to compile here until it is given a node.
  * @param tokens - the stream the span was resolved from.
  * @param spans - every span of that stream, for the recursion.
  * @param span - the span to build.
  * @param at - The document's location index.
- * @returns the formatting node, children and position included.
+ * @returns the span's node, children and position included.
  */
 function makeSpanNode(
   tokens: readonly InlineToken[],
@@ -212,36 +217,58 @@ function makeSpanNode(
     innerSpans(spans, span, base),
     at,
   );
-  const constrained = openMark.image.length === DELIM_WIDTH;
-  // A span carrying a role is a HIGHLIGHT, and this branch never asks
-  // the span's own kind before saying so. What makes that safe lives
-  // in another file: the RoleAttribute rule is `/\[[^\]]+\](?=#)/v`
-  // (rules.ts), and that lookahead means a role token can only ever
-  // be emitted directly in front of a HighlightMark. The restriction
-  // is OURS, not Asciidoctor's - Ruby's `QuoteAttributeListRxt` group
-  // sits inside all ten quote rows, so `[ _a_ ]*x*` really renders
-  // `<strong class="...">x</strong>` while we print the brackets as
-  // text. A tokenizer that ever emitted a role in front of another
-  // mark would have to gate this branch on `span.type` first.
-  if (span.role !== undefined) {
-    const roleToken = tokens[span.role];
-    const highlightNode: HighlightNode = {
-      type: "highlight",
-      constrained,
-      role: roleToken.image.slice(DELIM_WIDTH, -DELIM_WIDTH),
-      children,
-      position: { start: at.start(roleToken), end: at.end(closeMark) },
-    };
-    return highlightNode;
+  switch (span.type) {
+    case "BoldMark":
+    case "ItalicMark":
+    case "MonoMark":
+    case "HighlightMark": {
+      const constrained = openMark.image.length === DELIM_WIDTH;
+      // A span carrying a role is a HIGHLIGHT, and this branch never
+      // asks the span's own kind before saying so. What makes that
+      // safe lives in another file: the RoleAttribute rule is
+      // `/\[[^\]]+\](?=#)/v` (rules.ts), and that lookahead means a
+      // role token can only ever be emitted directly in front of a
+      // HighlightMark - never in front of a curved-quote mark, whose
+      // DoubleQuoteMark/SingleQuoteMark case sits below as its own
+      // switch arm, so this branch IS gated on `span.type` already.
+      // The restriction is OURS, not Asciidoctor's - Ruby's
+      // `QuoteAttributeListRxt` group sits inside all twelve quote
+      // rows, so `[ _a_ ]*x*` really renders
+      // `<strong class="...">x</strong>` while we print the brackets
+      // as text, and `[role]"`a`" y` the same way: the bracket is
+      // never tokenized as RoleAttribute (no `#` follows it), so it
+      // prints as literal text in front of the curved span.
+      if (span.role !== undefined) {
+        const roleToken = tokens[span.role];
+        const highlightNode: HighlightNode = {
+          type: "highlight",
+          constrained,
+          role: roleToken.image.slice(DELIM_WIDTH, -DELIM_WIDTH),
+          children,
+          position: { start: at.start(roleToken), end: at.end(closeMark) },
+        };
+        return highlightNode;
+      }
+      return makeFormattingNode({
+        markType: span.type,
+        constrained,
+        children,
+        openMark,
+        closeMark,
+        at,
+      });
+    }
+    case "DoubleQuoteMark":
+    case "SingleQuoteMark": {
+      const curvedNode: CurvedQuoteNode = {
+        type: "curvedQuote",
+        quote: span.type === "DoubleQuoteMark" ? "double" : "single",
+        children,
+        position: { start: at.start(openMark), end: at.end(closeMark) },
+      };
+      return curvedNode;
+    }
   }
-  return makeFormattingNode({
-    markType: span.type,
-    constrained,
-    children,
-    openMark,
-    closeMark,
-    at,
-  });
 }
 
 /**
@@ -333,6 +360,8 @@ type LoopHandledKind =
   | "RoleAttribute"
   | "BoldMark"
   | "ItalicMark"
+  | "DoubleQuoteMark"
+  | "SingleQuoteMark"
   | "MonoMark"
   | "HighlightMark"
   | "InlineNewline"
