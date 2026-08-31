@@ -26,6 +26,16 @@ describe("parseAttrlist — the one first-positional spelling", () => {
     // Ruby's own guard: a space means this is not shorthand, so the
     // whole entry is the style.
     ["foo bar", "foo bar", "foo bar"],
+    // Issue #77: a no-break space is not blank to Ruby's `BlankRx`
+    // (`/[ \t]+/`, attribute_list.rb:46), so it survives on either
+    // edge of the first entry instead of being trimmed away with the
+    // ASCII blanks around it - unlike the plain-ASCII-space and tab
+    // rows right after, which stay blank and get trimmed down to the
+    // bare admonition name Ruby's ADMONITION_STYLES recognizes.
+    ["NOTE\u00A0", "NOTE\u00A0", "NOTE\u00A0"],
+    ["\u00A0NOTE", "\u00A0NOTE", "\u00A0NOTE"],
+    ["NOTE ", "NOTE", "NOTE"],
+    ["NOTE\t", "NOTE", "NOTE"],
   ])(
     "interior %j has style %j and style attribute %j",
     (raw, style, styleAttribute) => {
@@ -49,6 +59,18 @@ describe("attrlistFields — where one attribute ends", () => {
     ["source,ruby", ["source", "ruby"]],
     ["source, ruby", ["source", "ruby"]],
     ["source ,	ruby ", ["source", "ruby"]],
+    // Issue #77: a no-break space is not blank to Ruby's `BlankRx`
+    // (`/[ \t]+/`, attribute_list.rb:46) the way the ASCII space and
+    // tab above are, so it survives a field boundary instead of being
+    // folded away with them - on either side of a comma, and whether
+    // or not the field carries one at all.
+    ["NOTE\u00A0", ["NOTE\u00A0"]],
+    ["NOTE ", ["NOTE"]],
+    ["NOTE\t", ["NOTE"]],
+    ["#id\u00A0", ["#id\u00A0"]],
+    [".role%hardbreaks\u00A0", [".role%hardbreaks\u00A0"]],
+    ["source,ruby\u00A0", ["source", "ruby\u00A0"]],
+    ["source,\u00A0ruby", ["source", "\u00A0ruby"]],
     // The blanks INSIDE an attribute are data (l.144).
     [
       "quote, Famous Person, A Book (2001)",
@@ -101,6 +123,24 @@ describe("canonicalAttrlist — one spelling of the interior", () => {
     ['quote, "A, B", c', 'quote,"A, B",c'],
     ["alt, 10", "alt,10"],
     [".role", ".role"],
+    // Issue #77: the four render-visible witnesses print byte for
+    // byte - a no-break space is not one of Ruby's `[ \t]` blanks,
+    // so it is never trimmed off the printed interior.
+    ["NOTE\u00A0", "NOTE\u00A0"],
+    ["#id\u00A0", "#id\u00A0"],
+    ["source,ruby\u00A0", "source,ruby\u00A0"],
+    [".role%hardbreaks\u00A0", ".role%hardbreaks\u00A0"],
+    // The other direction of the same boundary: an ASCII space or
+    // tab is still a Ruby blank, so it prints trimmed away exactly
+    // as it did before this fix.
+    ["NOTE ", "NOTE"],
+    ["NOTE\t", "NOTE"],
+    // Interior whitespace is content, not a boundary - a no-break
+    // space inside a positional value (the attribution name) never
+    // sat at a field edge, so it printed unchanged even before this
+    // fix; pinned here as the control that proves the fix does not
+    // reach past the boundary it owns.
+    ["quote, Author\u00A0Name", "quote,Author\u00A0Name"],
     // A declined interior comes back byte for byte.
     ['quote, "A B, c', 'quote, "A B, c'],
     ["a,\nb", "a,\nb"],

@@ -105,6 +105,38 @@ const NAMED_ATTRIBUTE = /^\w[\w\-]*[ \t]*=/v;
 // the first of them.
 const SHORTHAND = /[.#%]/v;
 
+// Ruby's own blank set for attrlist scanning - NOT the six-character
+// {@link ASCII_WHITESPACE} class line-shapes.ts uses for a whole LINE
+// (issue #75). `skip_blank` runs `BlankRx`, which is `/[ \t]+/`
+// (attribute_list.rb:46); the boundary that ends an unquoted value is
+// `/.*?(?=[ \t]*(,|$))/` (`BoundaryRx[',']`, attribute_list.rb:30-34)
+// and the delimiter it eats is `/[ \t]*(,|$)/` (`SkipRx`,
+// attribute_list.rb:50) - space and tab, every time, never LF, VT,
+// FF or CR. So this is deliberately narrower than the six-character
+// class: reusing it here would over-strip a VT/FF/CR that a real
+// interior can still carry (only a literal newline turns
+// {@link attrlistFields} away, at the top of this file) and that
+// Ruby's own scan leaves standing. `.trim()` is wrong for the same
+// reason issue #75 gave for a line: JavaScript's notion of "blank"
+// also takes a no-break space and the rest of Unicode's space
+// separators, which Ruby's literal `[ \t]` never does (issue #77).
+const ATTRLIST_BLANK = new Set([" ", "\t"]);
+
+/**
+ * Trim the blanks Asciidoctor's `AttributeList` itself trims from an
+ * attrlist field - space and tab, {@link ATTRLIST_BLANK}, and nothing
+ * wider.
+ * @param field - one attrlist field, or the interior's first entry
+ * @returns the field with its leading and trailing blanks removed
+ */
+function trimBlank(field: string): string {
+  let start = 0;
+  let end = field.length;
+  while (start < end && ATTRLIST_BLANK.has(field[start])) start += 1;
+  while (end > start && ATTRLIST_BLANK.has(field[end - 1])) end -= 1;
+  return field.slice(start, end);
+}
+
 /**
  * Parse a block-attribute line's interior. The ONE spelling.
  * @param raw - the text between the brackets, brackets excluded
@@ -118,7 +150,7 @@ export function parseAttrlist(raw: string): Attrlist {
   // entry in any caller's lookup table, so no caller special-cases
   // them.
   const [first] = raw.split(",");
-  const style = first.trim();
+  const style = trimBlank(first);
   return { style, styleAttribute: styleAttributeOf(style) };
 }
 
@@ -188,7 +220,7 @@ export function attrlistFields(raw: string): string[] | undefined {
       continue;
     }
     if (character === ",") {
-      fields.push(field.trim());
+      fields.push(trimBlank(field));
       field = "";
       atValue = true;
       continue;
@@ -198,7 +230,7 @@ export function attrlistFields(raw: string): string[] | undefined {
     // `skip_blank` after the `=` (l.121).
     if (character !== " " && character !== "\t") atValue = character === "=";
   }
-  fields.push(field.trim());
+  fields.push(trimBlank(field));
   return fields;
 }
 
