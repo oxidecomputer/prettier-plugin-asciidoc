@@ -12,7 +12,8 @@ import type { InlineNode } from "../../src/ast.js";
 
 /**
  * A one-line spelling of an inline tree: `bold[...]` for a span,
- * `"..."` for a text run, `u`/`c` for unconstrained/constrained. Tests
+ * `"..."` for a text run, `u`/`c` for unconstrained/constrained,
+ * `ref("...")` for a character reference. Tests
  * compare whole shapes rather than probing node by node, because what
  * a resolution change moves is which span exists at all, not one field
  * of one node.
@@ -24,6 +25,16 @@ export function shapeOf(node: InlineNode): string {
   if (node.type === "curvedQuote") {
     const spelling = node.quote === "double" ? "d" : "s";
     return `curved${spelling}[${node.children.map(shapeOf).join(",")}]`;
+  }
+  // The two spans with no constrained/unconstrained choice, and the
+  // leaf that carries the author's own bytes (issue #14). Spelled apart
+  // from the generic branch below because that branch's `u` suffix
+  // would claim a spelling these three do not have.
+  if (node.type === "superscript" || node.type === "subscript") {
+    return `${node.type}[${node.children.map(shapeOf).join(",")}]`;
+  }
+  if (node.type === "characterReference") {
+    return `ref(${JSON.stringify(node.value)})`;
   }
   if (!("children" in node)) return node.type;
   const spelling = "constrained" in node && node.constrained ? "c" : "u";

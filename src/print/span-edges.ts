@@ -18,6 +18,8 @@ import type {
   MonospaceNode,
   HighlightNode,
   CurvedQuoteNode,
+  SuperscriptNode,
+  SubscriptNode,
 } from "../ast.js";
 import {
   QUOTE_ROW,
@@ -40,12 +42,20 @@ export type MarkSpanNode =
   | HighlightNode;
 
 /**
- * Every span the printer writes. A curved-quote span has no
- * constrained spelling to choose - rows 3 and 4 of `QUOTE_SUBS` have
- * one spelling each - so it carries none of the questions
- * {@link MarkSpanNode} answers.
+ * A span with ONE spelling and nothing to choose: rows 3 and 4 of
+ * `QUOTE_SUBS` (the curved pair) and rows 11 and 12 (super/sub) each
+ * have exactly one delimiter pair, so none of them carries the
+ * questions {@link MarkSpanNode} answers. Not exported: it reaches
+ * callers as the half of {@link SpanNode} that {@link isMarkSpanNode}
+ * narrows away, and {@link fixedSpanMarks} takes it structurally.
  */
-export type SpanNode = MarkSpanNode | CurvedQuoteNode;
+type FixedSpanNode = CurvedQuoteNode | SuperscriptNode | SubscriptNode;
+
+/**
+ * Every span the printer writes: the four with a constrained spelling
+ * to choose, plus the four rows that have only one.
+ */
+export type SpanNode = MarkSpanNode | FixedSpanNode;
 
 // The attrlist group's own brackets, `(?:\[([^\]]+)\])?`, which
 // every `QUOTE_SUBS` row carries in front of its opening delimiter.
@@ -97,17 +107,27 @@ const CURVED_MARKS = {
   single: { open: "'`", close: "`'" },
 } as const;
 
+// The single character each of the last two rows doubles nothing of:
+// `\^(\S+?)\^` and `~(\S+?)~` (asciidoctor.rb l.465-468), whose
+// delimiter is the same character at both ends.
+const SUPER_SUB_MARKS = {
+  superscript: "^",
+  subscript: "~",
+} as const;
+
 /**
- * A curved-quote span's delimiters. Unlike a mark span's there is no
- * choice to make: rows 3 and 4 have one spelling each.
- * @param node - the curved-quote span
+ * A fixed-spelling span's delimiters. Unlike a mark span's there is no
+ * choice to make: each of these four rows has exactly one spelling.
+ * @param node - the curved-quote, superscript or subscript span
  * @returns its opening and closing delimiters
  */
-export function curvedQuoteMarks(node: CurvedQuoteNode): {
+export function fixedSpanMarks(node: FixedSpanNode): {
   open: string;
   close: string;
 } {
-  return CURVED_MARKS[node.quote];
+  if (node.type === "curvedQuote") return CURVED_MARKS[node.quote];
+  const mark = SUPER_SUB_MARKS[node.type];
+  return { open: mark, close: mark };
 }
 
 // What a span's neighbour looks like to the ROW that resolves the span
@@ -133,16 +153,32 @@ export function curvedQuoteMarks(node: CurvedQuoteNode): {
 /**
  * Whether an inline node is one of the five spans.
  * @param node - the inline node to check
- * @returns true when it is a bold, italic, monospace, highlight or
- *   curved-quote span
+ * @returns true when it is a bold, italic, monospace, highlight,
+ *   curved-quote, superscript or subscript span
  */
 export function isSpanNode(node: InlineNode): node is SpanNode {
+  return (
+    isMarkSpanNode(node) ||
+    node.type === "curvedQuote" ||
+    node.type === "superscript" ||
+    node.type === "subscript"
+  );
+}
+
+/**
+ * Whether an inline node is one of the four spans with a CONSTRAINED
+ * spelling to choose. The printer asks this before it runs the
+ * respelling machinery at all: the other four span kinds have one
+ * delimiter pair each and nothing to decide.
+ * @param node - the inline node to check
+ * @returns true when it is a bold, italic, monospace or highlight span
+ */
+export function isMarkSpanNode(node: InlineNode): node is MarkSpanNode {
   return (
     node.type === "bold" ||
     node.type === "italic" ||
     node.type === "monospace" ||
-    node.type === "highlight" ||
-    node.type === "curvedQuote"
+    node.type === "highlight"
   );
 }
 
@@ -182,6 +218,9 @@ export function rowKeyOf(node: SpanNode): QuoteRowKey {
   if (node.type === "curvedQuote") {
     return node.quote === "double" ? "curvedDouble" : "curvedSingle";
   }
+  if (node.type === "superscript" || node.type === "subscript") {
+    return node.type;
+  }
   const { constrained, unconstrained } = MARK_ROW_KEYS[node.type];
   return node.constrained ? constrained : unconstrained;
 }
@@ -192,9 +231,9 @@ export function rowKeyOf(node: SpanNode): QuoteRowKey {
  * @returns its opening and closing delimiters
  */
 export function delimitersOf(node: SpanNode): { open: string; close: string } {
-  return node.type === "curvedQuote"
-    ? curvedQuoteMarks(node)
-    : spanMarks(node, node.constrained);
+  return isMarkSpanNode(node)
+    ? spanMarks(node, node.constrained)
+    : fixedSpanMarks(node);
 }
 
 /**
@@ -209,7 +248,9 @@ export function edgeTail(
   neighbour: InlineNode,
   askingOrder: number,
 ): string | undefined {
-  if (neighbour.type === "text") return afterSpecialchars(neighbour.value);
+  if (neighbour.type === "text" || neighbour.type === "characterReference") {
+    return afterSpecialchars(neighbour.value);
+  }
   if (!isSpanNode(neighbour)) return undefined;
   const row = QUOTE_ROW[rowKeyOf(neighbour)];
   return row.order < askingOrder
@@ -227,7 +268,9 @@ export function edgeHead(
   neighbour: InlineNode,
   askingOrder: number,
 ): string | undefined {
-  if (neighbour.type === "text") return neighbour.value;
+  if (neighbour.type === "text" || neighbour.type === "characterReference") {
+    return neighbour.value;
+  }
   if (!isSpanNode(neighbour)) return undefined;
   const row = QUOTE_ROW[rowKeyOf(neighbour)];
   return row.order < askingOrder ? row.opensWith : delimitersOf(neighbour).open;

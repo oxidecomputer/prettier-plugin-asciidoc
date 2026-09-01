@@ -23,6 +23,9 @@ import type {
   MonospaceNode,
   HighlightNode,
   CurvedQuoteNode,
+  SuperscriptNode,
+  SubscriptNode,
+  CharacterReferenceNode,
   AttributeReferenceNode,
 } from "../../ast.js";
 import type { Fragment, LocationIndex } from "../positions.js";
@@ -268,6 +271,29 @@ function makeSpanNode(
       };
       return curvedNode;
     }
+    // The last two QUOTE_SUBS rows. Like the curved pair they have one
+    // spelling each, so neither node carries a `constrained` field and
+    // neither is in MARK_TO_TYPE; unlike it they need no `quote`
+    // discriminant, because the row IS the node type. Two arms rather
+    // than one with a ternary, so the literal each returns spells its
+    // own key order - the serialization contract this file's
+    // role-carrying highlight comment above describes.
+    case "SuperscriptMark": {
+      const superscriptNode: SuperscriptNode = {
+        type: "superscript",
+        children,
+        position: { start: at.start(openMark), end: at.end(closeMark) },
+      };
+      return superscriptNode;
+    }
+    case "SubscriptMark": {
+      const subscriptNode: SubscriptNode = {
+        type: "subscript",
+        children,
+        position: { start: at.start(openMark), end: at.end(closeMark) },
+      };
+      return subscriptNode;
+    }
   }
 }
 
@@ -347,6 +373,30 @@ function makePassthroughNode(
   };
 }
 
+/**
+ * Build a CharacterReferenceNode from a `(C)`, `--`, `...`, arrow or
+ * entity token.
+ *
+ * The whole image is the value: the reference's rendered character is
+ * the oracle's to produce, and the formatter's job is to hand back the
+ * bytes the author wrote. That is also what makes the node atomic
+ * under reflow with no join rule of its own - the packer measures one
+ * whitespace-free string.
+ * @param fragment - The CharacterReference token's span.
+ * @param at - The document's location index.
+ * @returns A CharacterReferenceNode carrying the verbatim source.
+ */
+function makeCharacterReference(
+  fragment: Fragment,
+  at: LocationIndex,
+): CharacterReferenceNode {
+  return {
+    type: "characterReference",
+    value: fragment.image,
+    position: { start: at.start(fragment), end: at.end(fragment) },
+  };
+}
+
 // Map from token kind to factory function for atomic
 // (single-token) inline nodes, avoiding a long if/else chain.
 type AtomicFactory = (fragment: Fragment, at: LocationIndex) => InlineNode;
@@ -364,6 +414,8 @@ type LoopHandledKind =
   | "SingleQuoteMark"
   | "MonoMark"
   | "HighlightMark"
+  | "SuperscriptMark"
+  | "SubscriptMark"
   | "InlineNewline"
   | "InlineText"
   | "InlineChar"
@@ -390,6 +442,7 @@ const ATOMIC_DISPATCH = new Map<string, AtomicFactory>(
     InlineAnchor: makeInlineAnchor,
     HardLineBreak: makeHardLineBreak,
     Passthrough: makePassthroughNode,
+    CharacterReference: makeCharacterReference,
   } satisfies Record<AtomicKind, AtomicFactory>),
 );
 

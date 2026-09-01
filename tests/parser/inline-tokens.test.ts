@@ -1,7 +1,7 @@
 /**
  * The inline tokenizer's own GOLDEN FILE.
  *
- * tests/parser/fixtures/inline-tokens.jsonl is 1,780 rows of
+ * tests/parser/fixtures/inline-tokens.jsonl is 1,796 rows of
  * `{ text, tokens }`: an input fragment and the exact token stream
  * `tokenizeInline` (src/parse/inline/) produces for it. The rows are an
  * EQUALITY pin, not a sample — every one must match to the character,
@@ -30,9 +30,11 @@
  * That command is byte-identical to a no-op today, so a non-empty diff
  * after running it IS the vocabulary change, ready to read.
  *
- * There is NO in-tree generator for the row TEXTS, honestly: they were
- * harvested once from the fragments a since-deleted Chevrotain lexer
- * saw, and that harvest is not reproducible from this tree. Treat the
+ * There is NO in-tree generator for the row TEXTS, honestly: 1,780 of
+ * them were harvested once from the fragments a since-deleted
+ * Chevrotain lexer saw, and that harvest is not reproducible from this
+ * tree; the last sixteen were appended by hand with issue #14, one per
+ * shape the super/sub and character-reference vocabulary adds. Treat the
  * text column as a frozen, hand-extendable input set — add a row by
  * appending one `{ text, tokens }` object and running the command
  * above. Do not prune rows to make the file smaller; the rarer shapes

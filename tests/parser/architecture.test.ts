@@ -162,7 +162,7 @@ describe("parse-layer architecture", () => {
   );
 
   // A CENSUS of the `type: "…"` discriminant literals declared in
-  // src/ast.ts, and a GATE rather than prose: a 40th fails this row
+  // src/ast.ts, and a GATE rather than prose: a 44th fails this row
   // until it is deliberately updated. The count is DIRECTIONLESS — it
   // is neither a budget nor a score, so a rise is not a cost and a
   // fall is not progress; what the row buys is that no declaration
@@ -196,10 +196,25 @@ describe("parse-layer architecture", () => {
   // move the wire: a titled document that used to serialize a level-0
   // `heading` now serializes a `documentHeader`, which is the AST
   // half of the parity diff this change declares.
-  test("the node-kind census is 40", () => {
+  //
+  // 43, moved up from 40 with SUPER/SUBSCRIPT AND CHARACTER
+  // REFERENCES (issue #14): the last two `QUOTE_SUBS` rows become two
+  // span kinds of their own, and the `REPLACEMENTS` table becomes one
+  // leaf. Three kinds and not one, because a formatter has to ask them
+  // different questions - a super/sub span holds CHILDREN the printer
+  // recurses into and a reference holds BYTES it replays - and because
+  // superscript and subscript are two rows in Ruby's table with two
+  // patterns, the same reason the author and revision lines above are
+  // named apart. They move the wire wherever a document already spelled
+  // one: text that used to serialize as one `text` run now serializes
+  // as a run, a node and a run. Not one output BYTE moves with them
+  // (the corpus, the three shape grids and four directed sweeps all
+  // measured zero), which is the point - the tree gains the structure
+  // and the printer replays the same characters.
+  test("the node-kind census is 43", () => {
     const source = readFileSync("src/ast.ts", "utf8");
     const kinds = source.match(/^ {2}type: "[a-zA-Z]+";$/gmv) ?? [];
-    expect(kinds).toHaveLength(40);
+    expect(kinds).toHaveLength(43);
   });
 
   // The constraint: no lint suppressions beyond

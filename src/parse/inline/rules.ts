@@ -27,6 +27,7 @@ import {
 import { CURVED_WIDTH, type CurvedScan } from "./curved-quotes.js";
 import { UNCONSTRAINED_WIDTH } from "./doubled-marks.js";
 import { matchPassthrough } from "./passthrough.js";
+import { DELIM_WIDTH } from "../../constants.js";
 
 /**
  * The two whole-fragment scans every rule is handed, taken once per
@@ -54,6 +55,19 @@ interface FragmentScan {
    * other rule ignores it.
    */
   readonly doubled: ReadonlySet<number>;
+  /**
+   * Every offset where a superscript or subscript delimiter stands
+   * (super-sub.ts). {@link superSubMatcher} reads it, and
+   * `InlineText`'s own rule reads it to cut its run before one, the
+   * way it already cuts before a curved delimiter.
+   */
+  readonly superSub: ReadonlySet<number>;
+  /**
+   * Every character reference, by its first offset and its width
+   * (replacements.ts). The `CharacterReference` rule reads it, and
+   * `InlineText` cuts its run before one.
+   */
+  readonly replacements: ReadonlyMap<number, number>;
 }
 
 /** One entry of the ordered table. */
@@ -126,6 +140,28 @@ function markMatcher(character: string, kind: MarkKind): InlineRule["match"] {
 }
 
 /**
+ * A superscript or subscript delimiter, at an offset
+ * {@link scanSuperSubMarks} named - `QUOTE_SUBS` rows 11 and 12
+ * (asciidoctor.rb l.465-468), the last two of the table.
+ *
+ * A SCAN and not a neighbourhood test, for the reason super-sub.ts's
+ * own header gives: each row is a gsub of
+ * `\\?(?:\[([^\]]+)\])?X(\S+?)X` over
+ * the whole text, so `x ^a^b^ y` renders `x <sup>a</sup>b^ y` and the
+ * third caret is text only because the gsub had already consumed the
+ * pair in front of it. The character is checked here as well as in the
+ * scan so that each of the two rules claims only its own offsets - the
+ * scan reports both rows' delimiters in one set, exactly as
+ * {@link scanDoubledMarks} reports all four doubled rows' in one.
+ * @param character - the delimiter character (`^`, `~`)
+ * @returns the rule's match function
+ */
+function superSubMatcher(character: string): InlineRule["match"] {
+  return (text: string, index: number, scan: FragmentScan): number =>
+    text.at(index) === character && scan.superSub.has(index) ? DELIM_WIDTH : 0;
+}
+
+/**
  * A curved-quote delimiter, at an offset {@link scanCurvedQuotes} named.
  * The scan is the row's own gsub, so a delimiter here always belongs to a
  * real match; whether the span survives is span-pairing.ts's question.
@@ -167,8 +203,12 @@ interface MarkFlagsInput {
  * constrained pattern could OPEN a span here, and whether it could
  * CLOSE one. A DOUBLE mark answers `true` on both - the unconstrained
  * rows of `QUOTE_SUBS` (`\*\*(.+?)\*\*` and kin, asciidoctor.rb
- * l.444-468) test no boundary and take any content. For every non-mark
- * kind the
+ * l.444-468) test no boundary and take any content. A SUPER/SUB
+ * delimiter answers `true` on both for the same reason and one more:
+ * its rows are unconstrained too (asciidoctor.rb l.465-468), and
+ * super-sub.ts has already settled which offsets carry a delimiter at
+ * all, so there is no second question left to ask of the
+ * neighbourhood. For every non-mark kind the
  * answer is undefined, and the token carries no flags.
  * @param input - what matched, where, and the fragment's curved scan
  * @returns the two flags, or undefined for a non-mark kind
@@ -177,6 +217,9 @@ export function markFlags(
   input: MarkFlagsInput,
 ): { canOpen: boolean; canClose: boolean } | undefined {
   const { type, text, index, length, curved } = input;
+  if (type === "SuperscriptMark" || type === "SubscriptMark") {
+    return { canOpen: true, canClose: true };
+  }
   if (type === "DoubleQuoteMark" || type === "SingleQuoteMark") {
     // Total by construction, not by defence: the token exists because a
     // rule matched this offset in this same map. Reading the side back
@@ -506,28 +549,30 @@ function firstAddressIn(text: string, from: number, limit: number): number {
 }
 
 /**
- * Where the first curved-quote delimiter inside `[from, limit)` starts,
- * or -1 when there is none.
+ * Where the first offset one of the three whole-fragment scans named
+ * inside `[from, limit)` is, or -1 when there is none.
  *
  * The same reason an address is not in {@link textMatcher}'s own
- * pattern applies here twice over: a delimiter opens on an ordinary `"`
- * or `'`, which prose is full of, so putting it in the lookahead would
- * stop the run at nearly every quotation mark whether or not the scan
- * ever made a match there. Driven by the scan's own offsets rather than
- * a position-by-position test, the way {@link firstAddressIn} is driven
+ * pattern applies to all three, twice over: a curved delimiter opens on
+ * an ordinary `"` or `'`, a super/sub delimiter on a `^` or `~`, and a
+ * character reference on a `(`, `-`, `.`, `<`, `=` or `&` - characters
+ * prose is full of, so putting any of them in the lookahead would stop
+ * the run at nearly every one whether or not the scan ever made a match
+ * there. Driven by the scans' own offsets rather than a
+ * position-by-position test, the way {@link firstAddressIn} is driven
  * by the `@`s.
- * @param curved - the fragment's curved-quote scan
- * @param from - the first offset a delimiter may start at
+ * @param offsets - the scan's offsets, in any order
+ * @param from - the first offset a construct may start at
  * @param limit - the first offset that is too far
- * @returns the delimiter's start, or -1
+ * @returns the earliest offset in range, or -1
  */
-function firstCurvedDelimiterIn(
-  curved: CurvedScan,
+function firstScannedOffsetIn(
+  offsets: Iterable<number>,
   from: number,
   limit: number,
 ): number {
   let earliest = -1;
-  for (const offset of curved.delimiters.keys()) {
+  for (const offset of offsets) {
     if (
       offset >= from &&
       offset < limit &&
@@ -564,11 +609,12 @@ function nearerCut(left: number, right: number): number {
  * measured), because the lookahead is then tried, and scans forward,
  * at every character. So the run is matched first and cut afterwards,
  * by the same scan {@link emailMatch} reads point-wise. A curved-quote
- * delimiter is cut the same way and for the same reason: `"` and `'`
- * are ordinary prose characters everywhere they are NOT one of the two
- * rows' delimiters, so only the scan - not the pattern - knows where a
- * cut is real.
- * @param source - InlineText's pattern, with no address or curved stop in it
+ * delimiter, a super/sub delimiter and a character reference are cut
+ * the same way and for the same reason: their opening characters are
+ * ordinary prose everywhere they are NOT one of those rows' matches, so
+ * only the scan - not the pattern - knows where a cut is real.
+ * @param source - InlineText's pattern, with no address, curved,
+ *   super/sub or character-reference stop in it
  * @returns the rule's match function
  */
 function textMatcher(source: string): InlineRule["match"] {
@@ -579,15 +625,18 @@ function textMatcher(source: string): InlineRule["match"] {
     if (found === null) return 0;
     const [run] = found;
     const { length } = run;
-    // From `index + 1`: an address or a delimiter AT `index` would have
-    // been an earlier rule's, and a cut of zero is no cut.
-    const emailCut = firstAddressIn(text, index + 1, index + length);
-    const curvedCut = firstCurvedDelimiterIn(
-      scan.curved,
-      index + 1,
-      index + length,
-    );
-    const cut = nearerCut(emailCut, curvedCut);
+    // From `index + 1`: an address or a scanned construct AT `index`
+    // would have been an earlier rule's, and a cut of zero is no cut.
+    const from = index + 1;
+    const limit = index + length;
+    let cut = firstAddressIn(text, from, limit);
+    for (const offsets of [
+      scan.curved.delimiters.keys(),
+      scan.superSub,
+      scan.replacements.keys(),
+    ]) {
+      cut = nearerCut(cut, firstScannedOffsetIn(offsets, from, limit));
+    }
     return cut === -1 ? length : cut - index;
   };
 }
@@ -692,6 +741,37 @@ export const INLINE_RULES: readonly InlineRule[] = [
   { type: "SingleQuoteMark", match: curvedMatcher("single") },
   { type: "MonoMark", match: markMatcher("`", "monospace") },
   { type: "HighlightMark", match: markMatcher("#", "highlight") },
+  // `^superscript^` and `~subscript~` - QUOTE_SUBS rows 11 and 12
+  // (asciidoctor.rb l.465-468), the last two of the table, so they sit
+  // last among the mark rows here as well. Where the delimiters stand
+  // is super-sub.ts's scan, not a neighbourhood test.
+  //
+  // BEHIND InlineMacro and InlineUrl, which is a DIVERGENCE from
+  // Ruby's own pass order and a deliberate one. `sub_quotes` runs
+  // before `sub_macros` (NORMAL_SUBS, substitutors.rb l.16, the list
+  // `apply_subs` walks in order), so a
+  // pair inside a bare URL truncates the link: `https://a.com/~u~/p`
+  // renders the link as `https://a.com/` with a `<sub>u</sub>` behind
+  // it. Reading the URL whole instead costs no byte - the link node
+  // replays the author's characters either way, and a URL is one atom
+  // the packer never breaks - and it keeps the one address a formatter
+  // has to get right, the extent it prints back.
+  { type: "SuperscriptMark", match: superSubMatcher("^") },
+  { type: "SubscriptMark", match: superSubMatcher("~") },
+  // `(C)`, `--`, `...`, `->` and the rest of the `REPLACEMENTS` table,
+  // at the offsets replacements.ts's scan named - that module's header
+  // cites the table and transcribes every row it reads.
+  // `sub_replacements` (substitutors.rb l.282-286) runs AFTER
+  // the quote pass and before the macro pass, which is why this row
+  // sits behind every mark row and behind InlineMacro/InlineUrl: a
+  // reference inside a construct an earlier row already claimed is
+  // never offered this position at all, which is the same answer the
+  // pass order reaches.
+  {
+    type: "CharacterReference",
+    match: (text: string, index: number, scan: FragmentScan): number =>
+      scan.replacements.get(index) ?? 0,
+  },
   // ` +` at end of line — HardLineBreakRx (`^(.*) \+$` after
   // `adjust_indentation!`). The newline is left for InlineNewline.
   // Context-free on purpose: the one shape Asciidoctor reads as a

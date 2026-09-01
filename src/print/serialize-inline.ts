@@ -6,13 +6,15 @@
  *
  * The bottom half is the printer's ONE entry into all of it:
  * {@link verbatimText}, which turns any {@link VerbatimNode} — the
- * four constructs above, plus attribute references and passthroughs —
- * into the single line the atom packer measures. It sits here rather
+ * four constructs above, plus attribute references, character
+ * references and passthroughs, into the single line the atom
+ * packer measures. It sits here rather
  * than in inline.ts because it is serialization, and because
  * inline.ts is at the max-lines limit.
  */
 import type {
   AttributeReferenceNode,
+  CharacterReferenceNode,
   InlineAnchorNode,
   InlineMacroNode,
   LinkNode,
@@ -184,6 +186,7 @@ function bibliographyAnchorToSource(
 // type.
 type VerbatimNode =
   | AttributeReferenceNode
+  | CharacterReferenceNode
   | InlineMacroNode
   | LinkNode
   | XrefNode
@@ -295,6 +298,12 @@ export function verbatimText(node: VerbatimNode): string {
   switch (node.type) {
     case "attributeReference": {
       return `{${node.name}}`;
+    }
+    // The author's own bytes, with no collapse to run: a character
+    // reference holds no whitespace at all (replacements.ts), so there
+    // is no source line break inside one for joinSourceLines to find.
+    case "characterReference": {
+      return node.value;
     }
     case "inlineMacro": {
       return collapseSourceNewlines(inlineMacroToSource(node));

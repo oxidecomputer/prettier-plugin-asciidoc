@@ -42,19 +42,25 @@ import { CURVED_WIDTH } from "./curved-quotes.js";
 import { UNCONSTRAINED_WIDTH } from "./doubled-marks.js";
 
 /**
- * The `QUOTE_SUBS` rows this parser models, in the table's own order.
+ * All twelve `QUOTE_SUBS` rows, in the table's own order.
  *
- * TWO rows are left out: superscript and subscript, the last two of
- * the twelve (asciidoctor.rb l.465-468). They genuinely cannot matter
- * here: `\^(\S+?)\^` and `~(\S+?)~` consume only `^` and `~`, which no
- * row here spells, and both run after every row here anyway.
+ * The last two, superscript and subscript (asciidoctor.rb l.465-468),
+ * are UNCONSTRAINED rows with a single-character delimiter, which is
+ * why their width is `DELIM_WIDTH` and not `UNCONSTRAINED_WIDTH`:
+ * `\^(\S+?)\^` doubles nothing. Where their delimiters stand is
+ * super-sub.ts's scan, and being last is what makes `x ^a~b^c~ y`
+ * resolve to a superscript with the subscript dropped as a crossing
+ * candidate - the oracle emits `<sup>a<sub>b</sup>c</sub>` there, and
+ * no tree holds it.
  *
- * The ten rows here model six token kinds - BoldMark, DoubleQuoteMark,
- * SingleQuoteMark, MonoMark, ItalicMark, HighlightMark - but only four
+ * The twelve rows model eight token kinds - BoldMark, DoubleQuoteMark,
+ * SingleQuoteMark, MonoMark, ItalicMark, HighlightMark,
+ * SuperscriptMark, SubscriptMark - but only four
  * of them are LISTED AGAIN in inline-node-builder.ts's `MARK_TO_TYPE`
- * map from token kind to AST node type: the two curved kinds are not
- * in that map at all, they get their own switch case there, building
- * a `curvedQuote` node directly instead of looking up a type string.
+ * map from token kind to AST node type: the two curved kinds and the
+ * two super/sub kinds are not in that map at all, they get their own
+ * switch cases there, building a `curvedQuote`, `superscript` or
+ * `subscript` node directly instead of looking up a type string.
  * Either way, that file answers what a span IS, this table answers
  * when it is resolved, and they are separate facts.
  */
@@ -69,16 +75,25 @@ const RESOLUTION_ORDER = [
   { type: "ItalicMark", width: DELIM_WIDTH },
   { type: "HighlightMark", width: UNCONSTRAINED_WIDTH },
   { type: "HighlightMark", width: DELIM_WIDTH },
+  { type: "SuperscriptMark", width: DELIM_WIDTH },
+  { type: "SubscriptMark", width: DELIM_WIDTH },
 ] as const;
 
 /**
- * The two kinds whose delimiters are a quote character and a
- * backtick, not the mark character itself. Not exported: nothing
+ * The four kinds whose span has ONE spelling and no constrained
+ * alternative to choose: the two curved rows, whose delimiters are a
+ * quote character and a backtick rather than the mark character
+ * itself, and the two super/sub rows, whose single delimiter has no
+ * doubled twin. Not exported: nothing
  * outside this module needs it by name, only {@link MarkSpanTokenKind}
  * (derived below) and {@link ResolvedSpan#type} (the wider
  * {@link MarkTokenKind}) leave the file.
  */
-type CurvedTokenKind = "DoubleQuoteMark" | "SingleQuoteMark";
+type FixedSpellingTokenKind =
+  | "DoubleQuoteMark"
+  | "SingleQuoteMark"
+  | "SuperscriptMark"
+  | "SubscriptMark";
 
 /**
  * Every token kind {@link RESOLUTION_ORDER} pairs into a span - read
@@ -90,11 +105,13 @@ type CurvedTokenKind = "DoubleQuoteMark" | "SingleQuoteMark";
 type MarkTokenKind = (typeof RESOLUTION_ORDER)[number]["type"];
 
 /**
- * The four kinds whose delimiter is the mark character itself -
- * {@link MarkTokenKind} minus the two curved kinds, which spell a
- * curved-quote node instead of a formatting node.
+ * The four kinds whose delimiter is the mark character itself and
+ * whose span has two spellings to choose between -
+ * {@link MarkTokenKind} minus {@link FixedSpellingTokenKind}, which
+ * spell a curved-quote, superscript or subscript node instead of a
+ * formatting node.
  */
-export type MarkSpanTokenKind = Exclude<MarkTokenKind, CurvedTokenKind>;
+export type MarkSpanTokenKind = Exclude<MarkTokenKind, FixedSpellingTokenKind>;
 
 /**
  * One resolved span, as indices into the token stream it was

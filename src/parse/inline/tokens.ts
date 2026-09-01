@@ -1,14 +1,14 @@
 /**
  * The inline token vocabulary, as plain data.
  *
- * Twenty kinds the tokenizer emits. Nineteen of them are rule
+ * Twenty-three kinds the tokenizer emits. Twenty-two of them are rule
  * rows, tried in order - the SAME order the lexer it replaced (its
  * `inlineModeTokens` array) had, because that lexer is
  * first-match-wins (there is no `longer_alt` anywhere in the
  * repository) and the order is therefore the specification, with
  * `Passthrough` in front of all of them because Asciidoctor extracts
  * passthroughs before it substitutes anything else
- * (`extract_passthroughs`, substitutors.rb l.1018). The twentieth,
+ * (`extract_passthroughs`, substitutors.rb l.1018). The twenty-third,
  * `InlineChar`, is the loop's own fallback for a position no rule
  * claims, not a row in the table. Plus `RawLine`, which the tokenizer
  * never produces: the paragraph reader emits it for a line it kept
@@ -49,13 +49,16 @@ export const INLINE_KINDS = [
   "SingleQuoteMark",
   "MonoMark",
   "HighlightMark",
+  "SuperscriptMark",
+  "SubscriptMark",
+  "CharacterReference",
   "HardLineBreak",
   "InlineNewline",
   "InlineText",
   "InlineChar",
 ] as const;
 
-/** One of the twenty kinds the tokenizer emits. */
+/** One of the twenty-three kinds the tokenizer emits. */
 export type InlineKind = (typeof INLINE_KINDS)[number];
 
 /**
@@ -85,10 +88,13 @@ export interface InlineToken<Kind extends InlineTokenType = InlineTokenType> {
   /**
    * Whether this mark can OPEN a span where it stands - Ruby's left
    * boundary clause plus the content's leading `\S`
-   * (`canOpenAt`, quote-boundaries.ts). Present on the four mark kinds
-   * and the two curved-quote kinds; a double (unconstrained) mark
-   * carries `true`, because the unconstrained patterns test no
-   * boundary at all. A curved-quote token carries exactly ONE of
+   * (`canOpenAt`, quote-boundaries.ts). Present on the four mark kinds,
+   * the two curved-quote kinds and the two super/sub kinds; a double
+   * (unconstrained) mark carries `true`, because the unconstrained
+   * patterns test no boundary at all, and a super/sub delimiter carries
+   * `true` for the same reason - its own row is unconstrained too, and
+   * super-sub.ts has already decided that a delimiter stands here at
+   * all. A curved-quote token carries exactly ONE of
    * `canOpen`/`canClose`, never both: `scanCurvedQuotes`
    * (curved-quotes.ts) names each delimiter's side, unlike a doubled
    * mark, which is symmetric and answers `true` to both because it
@@ -101,7 +107,8 @@ export interface InlineToken<Kind extends InlineTokenType = InlineTokenType> {
    * Whether this mark can CLOSE a span where it stands - the
    * content's trailing `\S` plus Ruby's right lookahead
    * (`canCloseAt`, quote-boundaries.ts). Present on the four mark
-   * kinds and the two curved-quote kinds; doubles carry `true`, as
+   * kinds, the two curved-quote kinds and the two super/sub kinds;
+   * doubles and super/sub delimiters carry `true`, as
    * with {@link InlineToken#canOpen}, and a curved-quote token carries
    * the same one-of-two-directions fact that field describes.
    */

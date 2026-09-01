@@ -172,6 +172,75 @@ export interface CurvedQuoteNode extends Node {
 }
 
 /**
+ * A superscript span, `^text^` - `QUOTE_SUBS` row 11
+ * (asciidoctor.rb l.465-466), which renders `<sup>text</sup>`.
+ *
+ * No `constrained` field: the row is UNCONSTRAINED and has one
+ * spelling, so there is nothing for the printer to choose and no state
+ * to refuse at runtime. No `role` field either, for the same reason
+ * {@link CurvedQuoteNode} has none: the row carries the optional
+ * attrlist group every quote row has, but the tokenizer's
+ * `RoleAttribute` rule fires only in front of a `#`, so `[red]^a^`
+ * reaches the printer as text plus a superscript and prints back byte
+ * for byte.
+ *
+ * Its content can never hold whitespace - `(\S+?)` refuses even a
+ * newline - which is what makes the span one unbreakable atom under
+ * reflow with no rule anywhere saying so.
+ *
+ * Serialized key order: `type, children, position`.
+ */
+export interface SuperscriptNode extends Node {
+  /** Node discriminant. */
+  type: "superscript";
+  /** Inline content between the two carets. */
+  children: InlineNode[];
+}
+
+/**
+ * A subscript span, `~text~` - `QUOTE_SUBS` row 12
+ * (asciidoctor.rb l.467-468), which renders `<sub>text</sub>`. The
+ * superscript row's twin in every respect {@link SuperscriptNode}
+ * describes.
+ *
+ * Serialized key order: `type, children, position`.
+ */
+export interface SubscriptNode extends Node {
+  /** Node discriminant. */
+  type: "subscript";
+  /** Inline content between the two tildes. */
+  children: InlineNode[];
+}
+
+/**
+ * A character reference: one match of Asciidoctor's `REPLACEMENTS`
+ * table (asciidoctor.rb l.489-516) - `(C)`, `(R)`, `(TM)`, either
+ * em-dash spelling, the ellipsis, one of the four arrows, or a named
+ * or numeric entity such as `&copy;`.
+ *
+ * The node carries the AUTHOR'S bytes and not the character they
+ * render as. Resolving `(C)` to the copyright sign is the oracle's job
+ * at conversion time; a formatter that rewrote the bytes would be
+ * editing the document, and the two spellings are not interchangeable
+ * everywhere - inside a passthrough the same three characters render
+ * literally.
+ *
+ * A reference holds no whitespace, so it is one atom under reflow and
+ * the packer can never break it open. Two of the table's thirteen rows
+ * are deliberately not read as references - the right single quote and
+ * the in-word apostrophe - for the reason
+ * `src/parse/inline/replacements.ts` gives.
+ *
+ * Serialized key order: `type, value, position`.
+ */
+export interface CharacterReferenceNode extends Node {
+  /** Node discriminant. */
+  type: "characterReference";
+  /** The reference's own source bytes, verbatim. */
+  value: string;
+}
+
+/**
  * An attribute reference: `{name}`. Preserved verbatim in the
  * AST — the formatter does not resolve attribute values. Also
  * covers counter attributes like `{counter:name}`.
@@ -358,6 +427,9 @@ export type InlineNode =
   | MonospaceNode
   | HighlightNode
   | CurvedQuoteNode
+  | SuperscriptNode
+  | SubscriptNode
+  | CharacterReferenceNode
   | AttributeReferenceNode
   | InlineMacroNode
   | LinkNode

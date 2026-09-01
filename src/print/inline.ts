@@ -1,6 +1,7 @@
 /**
  * Inline node → ATOMS: turns a block's inline AST nodes (text, bold,
- * italic, monospace, highlight, attribute references, links, xrefs,
+ * italic, monospace, highlight, curved quotes, super/subscripts,
+ * character references, attribute references, links, xrefs,
  * inline anchors, inline images, UI macros, footnotes, passthroughs,
  * raw lines and hard line breaks) into the flat atom list
  * {@link wrap} packs into output lines.
@@ -24,10 +25,11 @@ import { verbatimText } from "./serialize-inline.js";
 import {
   attrlistAllowsIt,
   attrlistInFront,
-  curvedQuoteMarks,
   delimitersOf,
+  fixedSpanMarks,
   edgeHead,
   edgeTail,
+  isMarkSpanNode,
   isSpanNode,
   rowKeyOf,
   spanMarks,
@@ -677,17 +679,16 @@ function appendSpan(
   const openSpace = inner.length > 0 && inner[0].glueLeft ? "" : " ";
   const closeSpace = trailing === "glue" ? "" : " ";
   const flush = spanIsFlush(literalInterior, inner, openSpace, closeSpace);
-  const { open, close } =
-    node.type === "curvedQuote"
-      ? curvedQuoteMarks(node)
-      : spanMarks(
-          node,
-          node.constrained ||
-            constrainedIsLegal(node, cursor, {
-              flush,
-              texts: inner.map((atom) => atom.text),
-            }),
-        );
+  const { open, close } = isMarkSpanNode(node)
+    ? spanMarks(
+        node,
+        node.constrained ||
+          constrainedIsLegal(node, cursor, {
+            flush,
+            texts: inner.map((atom) => atom.text),
+          }),
+      )
+    : fixedSpanMarks(node);
   // Children that are all whitespace produce no atoms (`x ** ** y`,
   // where the bold holds only a space). Emit the bare marks around
   // whatever whitespace they stood for. That is one of THREE homes of
@@ -966,7 +967,9 @@ function appendNode(out: Atom[], boundary: Boundary, cursor: Cursor): Boundary {
     case "italic":
     case "monospace":
     case "highlight":
-    case "curvedQuote": {
+    case "curvedQuote":
+    case "superscript":
+    case "subscript": {
       return appendSpan(out, boundary, cursor, node);
     }
     case "rawLine": {

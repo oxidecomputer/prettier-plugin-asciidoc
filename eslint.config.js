@@ -162,6 +162,7 @@ export default defineConfig(
           assertFunctionNames: [
             "expect",
             "expectAstInvariants",
+            "expectAtomic",
             "expectByteFaithful",
             "expectBytes",
             "expectFixed",

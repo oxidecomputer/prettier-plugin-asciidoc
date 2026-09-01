@@ -68,7 +68,8 @@ export const ORACLE_WORD_CLASS = String.raw`\p{Alphabetic}\p{N}\p{Pc}`;
 export type CurvedQuoteSpelling = "double" | "single";
 
 /**
- * One row of the normal `QUOTE_SUBS` table this parser models.
+ * One row of the normal `QUOTE_SUBS` table, all twelve of which this
+ * parser models.
  * Exported for its unit test (tests/parser/curved-quote-scan.test.ts)
  * and consumed by src/print/span-edges.ts, which reads a row's order
  * to derive what a span's neighbour looks like to the row that
@@ -84,13 +85,15 @@ export type QuoteRowKey =
   | "italicUnconstrained"
   | "italicConstrained"
   | "highlightUnconstrained"
-  | "highlightConstrained";
+  | "highlightConstrained"
+  | "superscript"
+  | "subscript";
 
 /**
- * The ten rows' positions, spelled as an enum rather than as literal
+ * The twelve rows' positions, spelled as an enum rather than as literal
  * numbers beside each row below: TypeScript autonumbers an
  * initializer-free enum from its declaration order, so the sequence is
- * still "ten rows, ten indices, no arithmetic" and no member's number is
+ * still "twelve rows, twelve indices, no arithmetic" and no member's number is
  * ever typed by hand where it could drift from a row moved above it.
  * `no-magic-numbers` exempts an enum's own initializers (`ignoreEnums`,
  * eslint.config.js) for the same reason it exempts index arithmetic:
@@ -108,6 +111,8 @@ enum QuoteRowOrder {
   italicConstrained,
   highlightUnconstrained,
   highlightConstrained,
+  superscript,
+  subscript,
 }
 
 /**
@@ -121,7 +126,8 @@ enum QuoteRowOrder {
  * row's match has become its replacement, and these two characters are
  * all a later row can see of it.
  *
- * The eight mark rows write an element, so their edges are `<` and `>`.
+ * The eight mark rows write an element, so their edges are `<` and `>`,
+ * as do the two super/sub rows below them.
  * The two curved rows write `&#8220;`/`&#8221;` and `&#8216;`/`&#8217;`,
  * so their edges are `&` and `;` - and `;` is excluded on the LEFT of
  * every constrained row in the table, which is the whole of issue #74.
@@ -134,11 +140,8 @@ enum QuoteRowOrder {
  * the authority for the ORDER and for the type symbols
  * (asciidoctor.rb l.446-464).
  *
- * Rows 10 and 11, superscript and subscript (asciidoctor.rb l.465-468),
- * are not modelled: they consume `^` and `~`, which no row here spells,
- * and they run after every row here. The compat table
- * (asciidoctor.rb l.471-486) is not modelled either; it is selected by a
- * document attribute this parser does not track.
+ * The compat table (asciidoctor.rb l.471-486) is not modelled; it is
+ * selected by a document attribute this parser does not track.
  *
  * Exported for its unit test (tests/parser/curved-quote-scan.test.ts)
  * and consumed by src/print/span-edges.ts, the same way `QuoteRowKey`
@@ -199,6 +202,21 @@ export const QUOTE_ROW: Record<
   },
   highlightConstrained: {
     order: QuoteRowOrder.highlightConstrained,
+    opensWith: "<",
+    closesWith: ">",
+  },
+  // The last two rows write `<sup>`/`</sup>` and `<sub>`/`</sub>`,
+  // elements like the eight mark rows, so their edges are `<` and `>`
+  // too. Being LAST is the fact every other consumer reads off them:
+  // no modelled row runs after these two, so a span standing beside a
+  // superscript always sees the caret itself and never a rewrite of it.
+  superscript: {
+    order: QuoteRowOrder.superscript,
+    opensWith: "<",
+    closesWith: ">",
+  },
+  subscript: {
+    order: QuoteRowOrder.subscript,
     opensWith: "<",
     closesWith: ">",
   },

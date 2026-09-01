@@ -190,7 +190,7 @@ export function keepBlockStartBreak(
     second.noBreakAfter ||
     second.breakBefore !== "none" ||
     atoms[0].noBreakAfter ||
-    !opensWithSourceBreak(nodes[0]) ||
+    !opensWithSourceBreak(nodes) ||
     !isBlockSyntaxAtLineStart(`${atoms[0].text} ${second.text}`)
   ) {
     return;
@@ -211,14 +211,35 @@ const FIRST_WORD_THEN_BREAK = new RegExp(
 /**
  * Whether a source line break stands behind the block's first word.
  *
- * Only a text node can answer yes: a node the printer writes
- * verbatim (verbatimText, src/print/inline.ts) is one atom whose join
- * to the next node this cannot see, and a span answers through its
- * own net ({@link contentOpensAfterBreak}). No is the conservative
- * answer - it leaves the packed line exactly as it was.
- * @param node - the block's first inline node.
- * @returns true when the node's first word ends a source line.
+ * A text node answers from its own bytes. So does a CHARACTER
+ * REFERENCE, and that arm exists to keep this net's reach exactly what
+ * it was before the reference vocabulary landed: `...` used to be the
+ * first WORD of the block's first text node, where the net read it,
+ * and issue #14 moved those same three bytes into a node of their own
+ * without changing anything about the line they make. Without the arm,
+ * `...` then `b c` packs to `... b c` - an ordered list item the
+ * source never had. A reference is one whitespace-free atom
+ * (replacements.ts), so the break behind it is the NEXT sibling's own
+ * leading whitespace, which is where this reads it - and only there: a
+ * next sibling that is not a text node is answered NO, because a break
+ * this cannot see in a node's own bytes is one it may not trade for.
+ * Nothing reaches that arm today (a reference is whitespace-free, so a
+ * following construct is glued to it and offers no packing space at
+ * all, and a real source break arrives as a leading-newline text node),
+ * which is why it is stated here rather than pinned by a row.
+ *
+ * No other node kind answers yes: one the printer writes verbatim
+ * (verbatimText, src/print/inline.ts) is an atom whose join to the
+ * next node this cannot see, and a span answers through its own net
+ * ({@link contentOpensAfterBreak}). No is the conservative answer - it
+ * leaves the packed line exactly as it was.
+ * @param nodes - the block's inline children, in order.
+ * @returns true when the block's first word ends a source line.
  */
-function opensWithSourceBreak(node: InlineNode): boolean {
-  return node.type === "text" && FIRST_WORD_THEN_BREAK.test(node.value);
+function opensWithSourceBreak(nodes: readonly InlineNode[]): boolean {
+  const [node] = nodes;
+  if (node.type === "text") return FIRST_WORD_THEN_BREAK.test(node.value);
+  if (node.type !== "characterReference") return false;
+  const next = nodes.at(1);
+  return next?.type === "text" && OPENS_AFTER_BREAK.test(next.value);
 }

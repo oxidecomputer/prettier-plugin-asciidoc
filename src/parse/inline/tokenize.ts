@@ -12,6 +12,8 @@ import { INLINE_RULES, markFlags } from "./rules.js";
 import type { InlineKind, InlineToken } from "./tokens.js";
 import { scanCurvedQuotes } from "./curved-quotes.js";
 import { scanDoubledMarks } from "./doubled-marks.js";
+import { scanSuperSubMarks } from "./super-sub.js";
+import { scanReplacements } from "./replacements.js";
 
 /**
  * Tokenize one fragment of paragraph text.
@@ -47,7 +49,20 @@ export function tokenizeInline(
   // not, so whether two adjacent marks are one delimiter is a fact
   // about the whole fragment. The doubled scan reads the curved scan's
   // masked view where its own row runs later, so it is taken second.
-  const scan = { curved, doubled: scanDoubledMarks(text, curved) };
+  // The last two QUOTE_SUBS rows and the REPLACEMENTS table are scanned
+  // once each, for the same reason and with the same shape: a
+  // superscript delimiter answers to text arbitrarily far away
+  // (`^a^b^` pairs the first two carets and leaves the third), and a
+  // character reference answers to the ROW ORDER and to what an earlier
+  // row already consumed (`<->` is one right arrow, `-- --` one em
+  // dash). Both read the source rather than a rewritten view; their
+  // modules' headers say why that is faithful.
+  const scan = {
+    curved,
+    doubled: scanDoubledMarks(text, curved),
+    superSub: scanSuperSubMarks(text),
+    replacements: scanReplacements(text),
+  };
   let index = 0;
   while (index < text.length) {
     let type: InlineKind = "InlineChar";
