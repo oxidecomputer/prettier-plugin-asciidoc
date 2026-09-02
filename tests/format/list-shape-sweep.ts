@@ -172,23 +172,16 @@ async function formatTwice(
 }
 
 /**
- * Whether one document fails the sweep: the formatter threw, its
- * output is not idempotent, or Asciidoctor renders the formatted text
- * differently. One helper rather than the loop body it replaces so the
- * loop holds a single `await` — the oracle is async, and every one of
- * its calls would otherwise need its own sequential-on-purpose waiver.
- * @param source - one generated document
- * @returns true when the document belongs in the failing set
+ * Whether Asciidoctor renders a formatted output differently from the
+ * document it came from.
+ * @param source - the document that was formatted
+ * @param once - what one formatting pass made of it
+ * @returns true when the two renders differ
  */
-export async function sweepFails(source: string): Promise<boolean> {
-  const pair = await formatTwice(source);
-  if (pair === undefined) {
-    return true;
-  }
-  const { once, twice } = pair;
-  if (twice !== once) {
-    return true;
-  }
+async function rendersDifferently(
+  source: string,
+  once: string,
+): Promise<boolean> {
   // Byte-identical output is render-equal by definition — the
   // oracle is only consulted when the formatter changed bytes,
   // which keeps the sweep's wall time proportional to the
@@ -201,6 +194,117 @@ export async function sweepFails(source: string): Promise<boolean> {
     renderedHtml(source),
   ]);
   return formatted !== original;
+}
+
+/**
+ * What one document did under the sweep's three questions.
+ *
+ * A document the formatter threw on carries no other answer: there is
+ * no output to format again and none to render, and "it crashed" is a
+ * different report from "it came back unchanged".
+ */
+export type SweepVerdict =
+  | {
+      /** The formatter threw on one of the two passes. */
+      readonly kind: "threw";
+    }
+  | {
+      /** Both passes ran. */
+      readonly kind: "formatted";
+      /** Whether the second pass changed the first pass's output. */
+      readonly unstable: boolean;
+      /** Whether the oracle renders the output unlike the source. */
+      readonly renderUnequal: boolean;
+    };
+
+/**
+ * Whether a verdict belongs in the failing set: the three questions
+ * are one gate, and this is where they are joined.
+ * @param verdict - one document's verdict
+ * @returns true when the document failed any of the three
+ */
+export function verdictFails(verdict: SweepVerdict): boolean {
+  return verdict.kind === "threw" || verdict.unstable || verdict.renderUnequal;
+}
+
+/**
+ * Whether a verdict's document is one whose formatted text no longer
+ * renders like its source - the measure a caller reads on its own,
+ * beside {@link verdictFails}, because a document can trade a bad
+ * render for instability and back while the joined answer stays true.
+ * @param verdict - one document's verdict
+ * @returns true when the oracle rendered the output unlike the source
+ */
+export function verdictRenderUnequal(verdict: SweepVerdict): boolean {
+  return verdict.kind === "formatted" && verdict.renderUnequal;
+}
+
+/**
+ * The verdict on outputs somebody else produced.
+ *
+ * Split from {@link sweepVerdict} for the one caller that formats
+ * elsewhere - under another revision, in another process - and must
+ * still be judged by THIS definition of failing. Only the formatting
+ * may move between trees; what a failure IS may not, or the two sides
+ * of a comparison are measuring different things.
+ * @param source - the document that was formatted
+ * @param once - what one formatting pass made of it
+ * @param twice - what a second pass made of that
+ * @returns the verdict
+ */
+export async function verdictOfOutputs(
+  source: string,
+  once: string,
+  twice: string,
+): Promise<SweepVerdict> {
+  return {
+    kind: "formatted",
+    unstable: twice !== once,
+    renderUnequal: await rendersDifferently(source, once),
+  };
+}
+
+/**
+ * Format one document here and judge it on all three questions.
+ *
+ * Unlike {@link sweepFails} this asks the oracle even about an
+ * unstable output, because a caller comparing two revisions needs the
+ * render answer on its own: a document can trade instability for a
+ * bad render and back, and a single boolean hides the trade.
+ * @param source - one generated document
+ * @returns the verdict
+ */
+export async function sweepVerdict(source: string): Promise<SweepVerdict> {
+  const pair = await formatTwice(source);
+  return pair === undefined
+    ? { kind: "threw" }
+    : await verdictOfOutputs(source, pair.once, pair.twice);
+}
+
+/**
+ * Whether one document fails the sweep: the formatter threw, its
+ * output is not idempotent, or Asciidoctor renders the formatted text
+ * differently. One helper rather than the loop body it replaces so the
+ * loop holds a single `await` — the oracle is async, and every one of
+ * its calls would otherwise need its own sequential-on-purpose waiver.
+ *
+ * The short circuits are load-bearing: an unstable document is
+ * already failing, and asking the oracle about it anyway would put
+ * tens of thousands of renders the sweep's verdict cannot use into
+ * the default suite's wall time.
+ * @param source - one generated document
+ * @returns true when the document belongs in the failing set
+ */
+export async function sweepFails(source: string): Promise<boolean> {
+  const pair = await formatTwice(source);
+  if (pair === undefined) {
+    return true;
+  }
+  const { once, twice } = pair;
+  if (twice !== once) {
+    return true;
+  }
+  return await rendersDifferently(source, once);
 }
 
 /**

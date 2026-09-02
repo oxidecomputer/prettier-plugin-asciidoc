@@ -33,10 +33,12 @@ therefore has a measured-nothing floor that exits 2: `parity` has
 corpus, a short sweep product, an oracle refusal other than the one document it
 pins by id, and ledgers whose header names an oracle other than the installed
 one, `local-docs` refuses a directory with no documents in it, `citation-check`
-refuses a tree with fewer than a hundred citations in it, and `metrics` refuses
-a `src` too small to be this repository's. Without the split, an empty `src`
-would score a perfect card — no files means no cycles, no unused exports, and no
-escape hatches, all vacuously true.
+refuses a tree with fewer than a hundred citations in it, `probe-domains`
+refuses a generated domain that spelled a different number of documents than it
+is pinned at and a base revision that threw on every document of one, and
+`metrics` refuses a `src` too small to be this repository's. Without the split,
+an empty `src` would score a perfect card — no files means no cycles, no unused
+exports, and no escape hatches, all vacuously true.
 
 Every script takes `--help`, and an unrecognized argument is an error, not a
 shrug: a silently dropped `--base` would print a head-only table that looks like
@@ -304,6 +306,66 @@ output on its way back.
 Exit 2 when the domain is unknown, the reference is not there, a tree answers
 about a different number of documents than it was asked about, or a pinned
 domain spells the wrong count.
+
+### `bun run probe-domains` - four domains the sweep cannot spell
+
+Sweeps four exhaustively generated document domains under this checkout and,
+with `--base <rev>`, under a base revision, and reports the SET DIFFERENCE per
+domain: fixed, regressed, unchanged. Without `--base` it prints head counts and
+gates nothing.
+
+The domains exist because the list-shape sweep's alphabet has no hard-break line
+and no symbol that spans two source lines, so no depth of its product - and no
+part of the population, which contains that product - holds a document where a
+` +` decides whether a break survives, or where an inline construct opens on one
+line and closes on the next. Those are the lines the printer's reflow hold rules
+are decided by. A change to them can move thousands of documents while the
+sweep, the reading ledger and the population all report zero.
+
+The four, generated in `scripts/lib/probe-domains.ts`, each a depth-1-to-3
+product over its own alphabet under two prefixes (an item, and the same item
+with a second text line) and pinned at an exact size: `hard-break` (2,794
+documents - the sweep's alphabet with a ` +` line in it), `inline-opening`
+(3,626 - lines an inline construct opens), `two-line-construct` (3,628 -
+constructs broken across two source lines) and `indented-two-line` (2,122 - the
+same with both lines indented). Three of them also carry named witnesses: 16
+documents whose lines are not all alphabet symbols, each pinning a shape its
+domain's alphabet cannot spell. `--domain <name>` runs one; the default is all
+four. `--base` takes a revision or a directory holding a checkout of one, the
+way `migration-diff --baseline` does.
+
+Counts are not the report, which is why the differential is a set difference: a
+domain that fails the same number of documents on both trees can have fixed
+eleven and broken eleven, and the two counts agree while the tree got worse.
+Both measures are reported for the same reason - FAILING (the sweep's own
+verdict: the formatter threw, its output is not a fixed point, or the oracle
+renders it unlike its source) and RENDER-UNEQUAL alone, because a document can
+trade one for the other and the render is the one that says the text stopped
+meaning what it meant.
+
+What a failure IS comes from `tests/format/list-shape-sweep.ts`, the same
+definition the two sweep entries gate on. Only the formatting moves between
+trees: the base's outputs come back from a child process running that revision's
+own formatter (`scripts/lib/tree-format.ts`) and every render happens in this
+process under one normalizer.
+
+Exit 1 when a regressed set is non-empty. Exit 2 when the harness could not run:
+a bad argument, an unknown domain, an unknown `--base`, or a base tree that
+answered about a different number of documents than it was asked about. Two
+measured-nothing floors exit 2 as well. A domain that spelled a different number
+of documents than it is pinned at, since every count the tool prints is a count
+out of a domain. And a base tree that THREW on every document of a domain: its
+failing set is then the whole domain, so the set difference reports everything
+as fixed and nothing as regressed - a green tick over a tree that could not
+format at all, which is the one shape a differential's own success looks
+identical to.
+
+Running it with `--base` and no local edits is the tool's own self-check: the
+same tree reached two ways, in process here and through a child process there,
+must report every set unchanged.
+
+Proves: a change to the reflow hold rules broke no document in the four shape
+classes every other net is blind to.
 
 ### The divergence witnesses
 
@@ -984,8 +1046,9 @@ are already there, and `reading-ledger` is a generator, not a gate.
 **`differential`** — needs a base, and is `continue-on-error` for its first
 iteration; flipping it to blocking is a one-line change once it has proved
 stable. It runs `parity --expected-diffs-trailers HEAD`, the three `shape-diff`
-grids, and `metrics --base`, serially in one job, because each step materializes
-the base into `$TMPDIR` and parallel steps would pay that concurrently.
+grids, `probe-domains --base`, and `metrics --base`, serially in one job,
+because each step materializes the base into `$TMPDIR` and parallel steps would
+pay that concurrently.
 
 The base is a SHA the workflow computes: `git merge-base` against the PR's base
 ref, or `HEAD^` on a push to `main`. Never a branch name — the repo is routinely
@@ -1006,6 +1069,7 @@ id (`jj log -r @ --no-graph -T commit_id`), as the recipe above does.
 bun run metrics -- --base <rev>
 bun run parity -- --base <rev> --expected-diffs-trailers <head-rev>
 bun run shape-diff -- --base <rev> --grid standing
+bun run probe-domains -- --base <rev>
 ```
 
 `<rev>` is anything `git archive` accepts. Each run materializes that revision

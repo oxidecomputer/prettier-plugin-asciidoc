@@ -127,8 +127,8 @@ jobs:
           echo "sha=$base" >> "$GITHUB_OUTPUT"
           echo "base is $base"
 
-      # Serialized inside ONE job on purpose. Each of these three
-      # materializes the base into $TMPDIR, and two of them run
+      # Serialized inside ONE job on purpose. Each of these four
+      # materializes the base into $TMPDIR, and three of them run
       # `bun install --frozen-lockfile` in it; run as parallel jobs
       # they would each pay that install, and run as parallel steps
       # they would pay it concurrently on one runner's disk.
@@ -157,6 +157,16 @@ jobs:
         run:
           bun run shape-diff -- --base "${{ steps.base.outputs.sha }}" --grid
           list-run
+      # The four generated domains the list-shape sweep's alphabet
+      # cannot spell - a hard-break line, and constructs broken across
+      # two source lines - as SET DIFFERENCES on both measures, so a
+      # domain that fixes as many documents as it breaks cannot report
+      # the same count and pass. About ten seconds over 12,170
+      # documents, and the only step here that can see a reflow hold
+      # rule regress. See docs/harnesses.md.
+      - name: probe-domains — the shape classes every other net is blind to
+        if: ${{ !cancelled() && steps.base.outputs.sha != '' }}
+        run: bun run probe-domains -- --base "${{ steps.base.outputs.sha }}"
       - name: metrics — the ratchets
         if: ${{ !cancelled() && steps.base.outputs.sha != '' }}
         run: bun run metrics -- --base "${{ steps.base.outputs.sha }}"
