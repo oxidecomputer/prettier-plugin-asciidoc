@@ -220,6 +220,9 @@ describe("buildRawBlockLine", () => {
     expect(node).toEqual({
       type: "paragraph",
       children: [{ type: "rawLine", value: "+", position }],
+      // The line is one word, so the block-start hazard net's recorded
+      // fact is true here (src/ast.ts).
+      firstWordEndsItsLine: true,
       position,
     });
   });

@@ -114,6 +114,43 @@ Parity-Diff: <family> <id>
 and `<id>` is the rest of the line: a corpus or fixture id, spaces and all
 (`lists_test.rb#consecutive list continuation lines are folded#0`).
 
+**The blanket form, for a schema change.** A change that records a new fact on a
+node kind moves the serialized AST of every case that has that node kind, and no
+case's bytes. Per-id trailers there are a thousand lines carrying one fact, and
+a thousand lines nobody can read is not a ledger. So a family may declare the
+serialized-AST keys it OWNS (`blanketKeys` in `scripts/parity-ledger.ts`), and
+then one line with **no id** declares it:
+
+```
+Parity-Diff: <family>
+```
+
+That line accepts exactly the cases where the formatted bytes are identical
+**and** the two ASTs are deep-equal once the family's declared keys are ignored
+on both sides — proved per case, not asserted. Both halves matter, and the byte
+half is the one that is easy to think redundant: a case that moved BOTH its
+bytes and its tree is sorted by the AST, so it arrives at the blanket pass like
+any other tree difference, and if its tree diff happens to be confined to the
+declared keys then the byte equality is the only thing refusing it. A case that
+moved bytes ALONE never reaches the pass at all — it is in the formatted stream,
+which the pass leaves untouched. Either way it still needs its own per-id
+trailer, as does a case whose tree moved anywhere but in the declared keys. The
+blanket is therefore a NARROWER claim than the per-id form, which excuses
+whatever its case did.
+
+The two forms may appear in one range, and they interact in one direction: a
+per-id line for an id the bare trailer COVERS declares nothing and fails, naming
+both, because the blanket form exists to delete such lines and silence would let
+the ledger regrow them. Per-id lines for ids the blanket cannot prove are
+untouched, which is the combination to write when a schema change also moves a
+few cases for some other reason.
+
+A bare line naming a family that declares no keys is a failed gate (exit 1), not
+a cannot-run: the harness measured everything it needed and the declaration is
+wrong, which is the same class as an unknown family on a per-id trailer. Exit 2
+stays for the runs that measured nothing — an unknown revision, an empty trailer
+range, a corpus that did not load.
+
 The key is exact and case-sensitive: `Parity-Diff:`. `parity-diff:` and
 `Parity-diff:` are prose, and the run then reports the id as undeclared while
 the author looks at what they believe is a trailer. In the other direction, ANY

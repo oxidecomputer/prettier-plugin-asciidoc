@@ -184,6 +184,105 @@ describe("a raw line at a span edge keeps its line and the marks stay off it", (
   });
 });
 
+describe("the kept break is the SOURCE LINE's, not a fragment's", () => {
+  // The break the net trades for lives INSIDE a span here, which is
+  // the shape no inline fragment can answer for: `**` then `*b* c` is
+  // ONE bold span whose content is `*\n*b`, so the block's first node
+  // holds the break in the middle of its own bytes and the break
+  // behind the block's first WORD is in no node's value at all. The
+  // question is therefore asked of the SOURCE LINE, through the
+  // reader's recorded answer (`ParagraphNode.firstWordEndsItsLine`,
+  // src/ast.ts). Each row's two lines joined is block syntax the
+  // author did not write - `** *b* c` is a depth-2 list item - so the
+  // author's own line stands.
+  test.each(["**\n*b* c\n", "**\nb* c\n", "**\nb c*\n"])(
+    "%j keeps the author's line instead of writing a ulist",
+    async (input) => {
+      await expectRow(input, input);
+    },
+  );
+
+  // The heading twin, through the same span path: `##` opens an
+  // unconstrained highlight, and the joined line `## #b# c` is an
+  // `<h2>` that eats the text behind the marks.
+  test.each(["##\n#b# c\n", "##\nb# c\n", "##\nb c#\n"])(
+    "%j keeps the author's line instead of writing a heading",
+    async (input) => {
+      await expectRow(input, input);
+    },
+  );
+
+  // The deeper marker runs, where the span the first line opens takes
+  // only PART of the run: `***` is the mark `**` and a `*` the span
+  // holds, `#####` the mark `##` and a `###`. The composed first atom
+  // is the whole run either way, so it is the packed LINE that is
+  // block syntax - a depth-3 list item, a `<h5>` - and the net puts
+  // the source's line back.
+  test.each(["***\nb c\n", "#####\nb c\n", "####\nb## c\n"])(
+    "%j keeps the author's line under a longer marker run",
+    async (input) => {
+      await expectRow(input, input);
+    },
+  );
+
+  // The control: the recorded fact is TRUE here too (`**a**` is one
+  // word), and the line still packs, because the trade is made only
+  // where the packed line would be block syntax. A fact on its own
+  // buys no break.
+  test("a one-word first line that packs harmlessly still packs", async () => {
+    await expectRow("**a**\nb c\n", "*a* b c\n");
+  });
+
+  // The net may only strand an atom that IS the block's first source
+  // line, and a HIGHLIGHT span's role prefix is where that stops being
+  // automatic: `spanMarks` (src/print/span-edges.ts) writes the role as
+  // `[...]` in front of the mark, so the fused opening atom carries a
+  // `[` at its head - and `BLOCK_ATTRIBUTE_LINE` is decided by its head
+  // AND its `]` tail, so the packed line is block syntax while the
+  // opening atom alone (`[.role]## b`) is not. Stranding the FUSED atom
+  // would break between `b##` and `c]`, where the source has no
+  // newline, and the line it wrote is not a one-word line either, so a
+  // second format run would walk the break back. The atoms therefore
+  // pack, and these rows pin the bytes and the fixed point.
+  //
+  // This row's own line is render-EQUAL to its source: the packed line
+  // is `[.role]## b## c] d`, and the trailing ` d` past the `]` is what
+  // keeps it from being a block attribute line, so the paragraph still
+  // renders as a paragraph. The net declines anyway, because the line
+  // it tests is the one the first TWO atoms make (`[.role]## b## c]`),
+  // which is conservative by design - and that conservatism is what
+  // this row pins, through the full `expectRow` triple.
+  test("[.role]## / b## c] d packs, render-equal and a fixed point", async () => {
+    await expectRow("[.role]##\nb## c] d\n", "[.role]## b## c] d\n");
+  });
+
+  // The same shape without the trailing word. Everything above holds,
+  // and one thing more does not: the line the atoms pack into really IS
+  // a block attribute list, so the whole paragraph re-reads as metadata
+  // and renders EMPTY. That divergence is on this revision and on every
+  // revision before it - an open corruption of the family this file's
+  // other rows close - which is why this row asserts bytes and the
+  // fixed point rather than going through `expectRow`.
+  test("[.role]## / b## c] packs to its pre-existing reading", async () => {
+    const out = await formatAdoc("[.role]##\nb## c]\n");
+    expect(out).toBe("[.role]## b## c]\n");
+    expect(await formatAdoc(out)).toBe(out);
+  });
+
+  // The discriminator, not a blanket refusal: same role prefix, same
+  // marks, but here the opening atom IS the whole first source line
+  // (the content's `#` is glued to the mark, so nothing crossed the
+  // break into it). The atoms are `[.role]###`, `b]`, `c##`, and the
+  // line the net tests is the one the first TWO make - `[.role]### b]`,
+  // a block attribute line - so the author's own line goes back. The
+  // whole output line `[.role]### b] c##` is NOT one; the net asks
+  // about the pair, never about the finished line
+  // (`keepBlockStartBreak`, src/print/block-start-hazard.ts).
+  test("a role-prefixed opener that is its whole line keeps the break", async () => {
+    await expectRow("[.role]###\nb] c##\n", "[.role]###\nb] c##\n");
+  });
+});
+
 describe("the net also refuses to write a Markdown heading", () => {
   // The oracle's own section-title pattern is ExtAtxSectionTitleRx
   // (`/^(=={0,5}|##{0,5})[ \t]+(.+?)(?:[ \t]+\1)?$/`,

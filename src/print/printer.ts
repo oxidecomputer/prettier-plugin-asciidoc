@@ -143,7 +143,10 @@ const printer: Printer<AnyNode> = {
         // (reflow.ts blockBody), shared with the paragraph-form
         // admonition body and the list item's text.
         return blockBody(
-          inlineAtoms(node.children, node.position.start.line, true),
+          inlineAtoms(node.children, node.position.start.line, {
+            atColumnZero: true,
+            firstWordEndsItsLine: node.firstWordEndsItsLine,
+          }),
           options.printWidth,
           0,
         );
@@ -162,7 +165,14 @@ const printer: Printer<AnyNode> = {
       // content builds its atoms itself.
       default: {
         return blockBody(
-          inlineAtoms([node], node.position.start.line, true),
+          inlineAtoms([node], node.position.start.line, {
+            atColumnZero: true,
+            // No reader builds such a block, so no reader recorded
+            // this fact for one. False is the answer that trades
+            // nothing: the block-start hazard net keeps a source break
+            // only where a reader saw the author write it.
+            firstWordEndsItsLine: false,
+          }),
           options.printWidth,
           0,
         );

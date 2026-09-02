@@ -319,15 +319,9 @@
     },
     {
       "file": "src/print/inline.ts",
-      "what": "inline.ts:696 `blockAtColumnZero: false` -> `true` in appendSpan's RunContext",
+      "what": "inline.ts:699 `atColumnZero: false` -> `true` in appendSpan's RunContext",
       "class": "never",
       "reason": "EQUIVALENT: the same object literal sets `enclosing: node`, a defined SpanNode, and `cursor.enclosing === undefined` is a conjunct of `hazardAtBlockStart` no value of this field can satisfy from inside a span; `keepBlockStartBreak`, the other reader, is called from `inlineAtoms` alone and never from `collectAtoms`. Nothing running inside a span can see the field at all"
-    },
-    {
-      "file": "src/print/inline.ts",
-      "what": "inline.ts:1088 `nodes.length > 0` -> `true` and -> `nodes.length >= 0`, in the block-start hazard net's call guard",
-      "class": "never",
-      "reason": "EQUIVALENT: with no nodes there are no atoms, and `keepBlockStartBreak` returns at `atoms.at(1) === undefined` before it reads anything. The conjunct states one call earlier a fact the callee already checks. Its LEFT conjunct is live, and killed by the list-item and admonition rows in tests/format/inline-span-break.test.ts"
     },
     {
       "file": "src/print/join.ts",
@@ -361,27 +355,27 @@
     },
     {
       "file": "src/print/list.ts",
-      "what": "list.ts:397 `gap.includes(\"+\")` -> `gap.includes(\"\")`",
+      "what": "list.ts:398 `gap.includes(\"+\")` -> `gap.includes(\"\")`",
       "class": "when",
       "reason": "The blank-run sweep class. The arm fires only when a nested list SHARES its parent's marker, and probing the reader for that shape shows it always arrives with an empty gap - a blank or a `+` in front of a same-marker line reads back as a SIBLING boundary (`* a\\n\\n  lit\\n[[anc]]\\n+\\n* a\\n` gives two items). With `gap === []` both spellings return `[]`. TRIGGER - the render-divergent sweep members are the distinguishing shapes; a byte+idempotence pin already guards the drop branch"
     },
     {
       "file": "src/print/list.ts",
-      "what": "list.ts:399 `index > 0` -> `index >= 0`",
+      "what": "list.ts:400 `index > 0` -> `index >= 0`",
       "class": "never",
       "reason": "Same as the arm above; `index` comes from `node.blocks.keys()` and is never negative"
     },
     {
       "file": "src/print/list.ts",
-      "what": "list.ts:399 `index > 0` -> `true`",
+      "what": "list.ts:400 `index > 0` -> `true`",
       "class": "never",
       "reason": "Redundant with the third conjunct: at `index === 0`, `slurpReaches(blocks, 0)` scans `blocks.slice(0, 0)` - empty - and returns false, so the condition is false either way"
     },
     {
       "file": "src/print/list.ts",
-      "what": "list.ts:453 `blankRun = false` -> `blankRun = true` in gapParts's `+` arm",
+      "what": "list.ts:454 `blankRun = false` -> `blankRun = true` in gapParts's `+` arm",
       "class": "never",
-      "reason": "EQUIVALENT. The only read of `blankRun` is `!livePlus && blankRun` (list.ts:457), the `+` arm sets `livePlus` in the line above, and nothing clears it - so after a `+` the value can never be read again. Zero byte differences over all 111,121 list-shape sweep documents"
+      "reason": "EQUIVALENT. The only read of `blankRun` is `!livePlus && blankRun` (list.ts:458), the `+` arm sets `livePlus` in the line above, and nothing clears it - so after a `+` the value can never be read again. Zero byte differences over all 111,121 list-shape sweep documents"
     },
     {
       "file": "src/print/list.ts",
@@ -391,7 +385,7 @@
     },
     {
       "file": "src/print/printer.ts",
-      "what": "the default arm of the node dispatch (printer.ts:163-169, `inlineAtoms([node], node.position.start.line, true)`) - 4 NoCoverage mutants",
+      "what": "the default arm of the node dispatch (printer.ts:166-175, `inlineAtoms([node], node.position.start.line, {`) - 4 NoCoverage mutants",
       "class": "never",
       "reason": "an EQUIVALENT arm forced by the type system: Prettier's AstPath is invariant, so the printer's node union must admit the inline nodes a paragraph's children array is typed with. Every block that owns inline content builds its atoms itself, so no path reaches this arm; deleting it is a type error"
     },
@@ -433,39 +427,9 @@
     },
     {
       "file": "src/print/block-start-hazard.ts",
-      "what": "contentOpensAfterBreak's narrowing guard (block-start-hazard.ts:119 `!(\"children\" in node)` -> `false`, and the `return false` it guards -> `true`, the file's only NoCoverage row)",
+      "what": "block-start-hazard.ts:244 `breakBefore: \"literal\"` -> `\"\"`, and block-start-hazard.ts:235 `second.breakBefore !== \"none\"` -> `false` (2 mutants)",
       "class": "never",
-      "reason": "TYPE-FORCED. `hazardAtBlockStart` asks `contentOpensAfterBreak(cursor.siblings[0])` only behind `cursor.index === 0`, so the node handed over IS the span the question is about, and a span always has `children`. The guard is the narrow TypeScript demands before `children` can be read off an `InlineNode` at all; deleting it is a type error"
-    },
-    {
-      "file": "src/print/block-start-hazard.ts",
-      "what": "the two guards that keep a pattern off a node with no `value`, each -> `true` (block-start-hazard.ts:121 `first.type === \"text\"` in contentOpensAfterBreak, :244 `next?.type === \"text\"` in opensWithSourceBreak) - 2 mutants",
-      "class": "never",
-      "reason": "EQUIVALENT. Dropping either guard leaves its regex to read `.value`, and among inline nodes only `text` and `rawLine` carry one: a rawLine holds ONE source line, so its value has no `\\n` and neither pattern can match, and every other node yields `undefined`, which the test coerces to the string `\"undefined\"`. Measured: 0 non-`text` inline nodes whose `value` holds a line break, over 996,271 inline nodes in 319,216 documents. NOT IN THIS ROW, and noted so the next audit sees it: opensWithSourceBreak carries a THIRD guard of the same shape at :241 (`node.type === \"text\"`, in front of FIRST_WORD_THEN_BREAK), which no run has classified either way"
-    },
-    {
-      "file": "src/print/block-start-hazard.ts",
-      "what": "block-start-hazard.ts:198 `breakBefore: \"literal\"` -> `\"\"`, and block-start-hazard.ts:191 `second.breakBefore !== \"none\"` -> `false` (2 mutants)",
-      "class": "never",
-      "reason": "EQUIVALENT, both for the indent. `wrap` distinguishes `\"none\"` from everything else, and then `\"literal\"` from everything else only to pick the line's indent (`lineIndent = run.breakBefore === \"literal\" ? 0 : indent`). The net runs only where `blockAtColumnZero` holds, which is the printer's paragraph and standalone-inline arms, and both call `blockBody(..., 0)` - so the indent the other spelling selects is 0, the number `\"literal\"` names. The `!== \"none\"` guard is the same fact from the other side: past it the atom already carries a forced break with no fuse flag set, so the write can change only the break's KIND"
-    },
-    {
-      "file": "src/print/block-start-hazard.ts",
-      "what": "the quantifier mutants of the net's two patterns, which issue #75 rebuilt out of the shared classes (block-start-hazard.ts:101 `ASCII_HORIZONTAL_WHITESPACE` in OPENS_AFTER_BREAK, :207 `ASCII_WHITESPACE` in FIRST_WORD_THEN_BREAK) - each class quantified as `.source}*`, mutable to `+` or dropped",
-      "class": "now",
-      "reason": "NOT EQUIVALENT, and this row replaces one that said it was. The row this supersedes classified the CHARACTER-CLASS mutants of these two patterns (`[^\\S\\n]` -> `[\\S\\n]` and -> `[^\\s\\n]`) as `never`, on the argument that the reader's rstrip leaves the whitespace runs both patterns allow always EMPTY, so which characters the class admits can decide nothing. That was an argument about the LITERAL, and issue #75 took the literal away: both classes are now ASCII_WHITESPACE and ASCII_HORIZONTAL_WHITESPACE, imported from src/parse/line-shapes.ts and shared by five files (six counting the whole ASCII_* family), where a mutant is a mutant of every consumer and is nothing this row can speak for. What is left to mutate at these two lines is the QUANTIFIERS, and an always-empty run is exactly what makes a quantifier mutant VISIBLE rather than invisible: the old argument, carried across, refutes equivalence for the population that replaced the one it was written for. MEASURED against the real constants, since nothing else has: OPENS_AFTER_BREAK is `^[\\t\\v\\f\\r ]*\\n`, and on `\\n` and on `\\nx` the original matches while both `*` -> `+` and `*`-dropped refuse; FIRST_WORD_THEN_BREAK is `^[\\t\\n\\v\\f\\r ]*[^\\t\\n\\v\\f\\r ]+[\\t\\v\\f\\r ]*\\n`, and on `ab\\n` the original matches while all four of its quantifier mutants refuse. Those are the inputs the old argument called the only ones that occur, so these mutants are not merely killable, they are killable by the shortest document that reaches the net. WHAT THE MISSING TEST WOULD ASSERT: that a span whose content opens directly on a source break, with no horizontal whitespace in front of it, still arms the net - the `\\n` witness above, which is what both `*` mutants of OPENS_AFTER_BREAK refuse. tests/format/inline-span-break.test.ts already spells that shape; whether its rows reach these two patterns is the thing no run has measured, because the note's last measurement of this file (the third reconciliation's scoped 81.16) predates #75, which the note does not mention at all. Classified `now` on the block-metadata.ts:263 precedent: the mutants should already be dead, and the next cleared-cache mutate:full is what says so and removes the row. It records a gap; it no longer claims the gap can never be closed"
-    },
-    {
-      "file": "src/print/block-start-hazard.ts",
-      "what": "block-start-hazard.ts:100 `OPENS_AFTER_BREAK` -> unanchored (`^${ASCII_HORIZONTAL_WHITESPACE.source}*\\n` loses its `^`)",
-      "class": "when",
-      "reason": "The mutant fires the net for a span whose content opens with a horizontal SPACE and holds a break further along. Reaching it needs the composed atom to be block syntax at line start, which for the four span marks means the `#` spelling: `* b` and `** b` on a block's first line are read as a LIST, so there is no paragraph left to guard. The one witness is `## b\\nc## d\\n`, which formats to `## b c## d\\n` - a document whose rendering already diverges, because the classifier reads a paragraph where the oracle reads a heading. Pinning it would pin that divergence. TRIGGER - issue #63; the row belongs to the commit that teaches the classifier the Markdown heading spelling"
-    },
-    {
-      "file": "src/print/block-start-hazard.ts",
-      "what": "the whole leading disjunction of keepBlockStartBreak's bail-out (block-start-hazard.ts:188-192, opening `second.glueLeft ||`) -> `false`",
-      "class": "when",
-      "reason": "The one live mutant here, and killing it today would pin a corrupted output. Its witness is the `noBreakAfter` arm: `=\\n+ x\\n` formats to `= + x\\n`, which the oracle reads as the DOCUMENT TITLE - the paragraph disappears - and the guard is what declines to trade the break there, because `+` fuses forward to the word after it. The mutant removes the hazard by accident, so the row that pins the shape is the fix's, not a reconciliation's. TRIGGER - issue #57, the reflow-join family this net covers only the first-atom half of"
+      "reason": "EQUIVALENT, both for the indent. `wrap` distinguishes `\"none\"` from everything else, and then `\"literal\"` from everything else only to pick the line's indent (`lineIndent = run.breakBefore === \"literal\" ? 0 : indent`). The net runs only where `atColumnZero` holds, which is the printer's paragraph and standalone-inline arms, and both call `blockBody(..., 0)` - so the indent the other spelling selects is 0, the number `\"literal\"` names. The `!== \"none\"` guard is the same fact from the other side: past it the atom already carries a forced break with no fuse flag set, so the write can change only the break's KIND"
     },
     {
       "file": "src/print/span-edges.ts",

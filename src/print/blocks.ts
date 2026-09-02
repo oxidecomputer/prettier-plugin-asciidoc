@@ -477,8 +477,10 @@ export function printAdmonition(
     // it occupies its columns of the first output line, and the packer
     // must measure them. The join after it is the syntax's own space,
     // which may never become a break.
-    // `false`: the label below holds column 0 of the first line.
-    const body = inlineAtoms(node.text, node.position.start.line, false);
+    // The label below holds column 0 of the first line.
+    const body = inlineAtoms(node.text, node.position.start.line, {
+      atColumnZero: false,
+    });
     // Text nodes that are all whitespace produce no atoms, so a text
     // array with children can still yield none — and then the label is
     // the whole line, exactly as it is for an admonition with no text.

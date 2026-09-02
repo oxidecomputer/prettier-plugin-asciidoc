@@ -497,6 +497,47 @@ export const CONTINUATION_LINE = /^\+$/v;
  */
 export const INDENTED_PLUS = /^[ \t]+\+$/v;
 
+// A line carrying ONE word and nothing else. It names no Asciidoctor
+// construct: it is a question ABOUT a line, the way INDENTED_PLUS is,
+// and it is spelled here because the registry owns every pattern that
+// reads a source line.
+//
+// The word run is {@link ASCII_NON_WHITESPACE}, Ruby's `\S`, not
+// JavaScript's: a no-break space is CONTENT inside a word to
+// Asciidoctor, and `\S` would end the run at one and call a one-word
+// line two words (issue #75). The trailing anchor is exact because the
+// reader rstrips every line before any rule runs (see {@link rstrip}),
+// so a line's trailing whitespace cannot change the answer.
+const SINGLE_WORD_LINE = new RegExp(
+  `^${ASCII_HORIZONTAL_WHITESPACE.source}*${ASCII_NON_WHITESPACE.source}+$`,
+  "v",
+);
+
+/**
+ * Whether a line holds ONE word: its indent, one run of non-whitespace,
+ * and nothing more.
+ *
+ * A PREDICATE rather than a {@link LineKind} arm, the second route
+ * docs/coding-standards.md's line-shape recipe describes: the shape
+ * neither opens nor ends a block, so the classifier's verdict for such
+ * a line is unchanged and an interruption row for it would pin a grid
+ * of identical answers. It sits HERE rather than beside
+ * `isIndentedContinuationLine` in lines/classify.ts because the
+ * paragraph BUILDERS ask it (src/parse/build/paragraph.ts) and a
+ * builder may not import lines/ (the `build-imports-lines` layer rule,
+ * scripts/metrics/graph.ts).
+ *
+ * What reads the answer is the printer's block-start hazard net,
+ * through `ParagraphNode.firstWordEndsItsLine` (src/ast.ts); why ONE
+ * word is the condition it trades on is stated at the net itself
+ * (`keepBlockStartBreak`, src/print/block-start-hazard.ts).
+ * @param line - one rstripped source line
+ * @returns true when the line is one word between its edges
+ */
+export function isSingleWordLine(line: string): boolean {
+  return SINGLE_WORD_LINE.test(line);
+}
+
 // Lines that end a paragraph in EVERY context: `StartOfBlockProc` =
 // `(BlockAttributeLineRx.match? l) || (is_delimited_block? l)`, plus
 // the lone `+`, which `read_lines_until` breaks on separately

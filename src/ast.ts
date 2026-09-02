@@ -74,6 +74,37 @@ export interface ParagraphNode extends Node {
   type: "paragraph";
   /** Inline content: text, emphasis, links, etc. */
   children: InlineNode[];
+  /**
+   * The paragraph's FIRST SOURCE LINE ends after its first word: from
+   * where the block starts, that line holds one run of non-whitespace
+   * and nothing else (`isSingleWordLine`, src/parse/line-shapes.ts,
+   * carries the whitespace dialect and the `$` anchor's warrant).
+   *
+   * The printer's block-start hazard net
+   * (src/print/block-start-hazard.ts) is the one consumer, and this is
+   * the whole question it asks of the source. Reflow packs the block's
+   * words into lines, and a line it packs is read back by the same
+   * classifier that read the source, where `*`, `.`, `NOTE:`, `##` and
+   * their kin at column 0 are BLOCK syntax: `**` then `*b* c` packed
+   * to `** *b* c` is a nested list item the author never wrote. The
+   * net's answer is to keep the SOURCE's break instead of the space,
+   * and it may only do that where the author wrote one - which is
+   * exactly this fact. Why one word is the condition is the net's own
+   * argument, stated once at `keepBlockStartBreak`
+   * (src/print/block-start-hazard.ts): a marker alone on a line is no
+   * marker. Where the fact is FALSE the trade would invent a line: a
+   * paragraph the source spells `## b## c` on one line stays on one
+   * line, because the oracle reads a heading there (issue #63) that a
+   * break would destroy.
+   *
+   * The ANSWER travels, not the line, for the reason
+   * {@link ListItemNode.everyTextLineIndented} states: the reader
+   * holds the source and the printer asks one yes/no of it. A second
+   * question about this line gets a second recorded fact from the
+   * reader, never a re-derivation from this boolean or from the
+   * inline fragments the line was split into.
+   */
+  firstWordEndsItsLine: boolean;
 }
 
 /** Raw text content. Lines within a paragraph are joined with \n in `value`. */

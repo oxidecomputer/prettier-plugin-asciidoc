@@ -80,7 +80,12 @@ function blockAt(type: "paragraph" | "list", end: number): BlockNode {
         children: [],
         position,
       }
-    : { type: "paragraph", children: [], position };
+    : {
+        type: "paragraph",
+        children: [],
+        firstWordEndsItsLine: false,
+        position,
+      };
 }
 
 /**

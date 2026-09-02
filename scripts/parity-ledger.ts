@@ -21,6 +21,7 @@
 import { execFileSync } from "node:child_process";
 import { CHILD_MAX_BUFFER, REPO_ROOT } from "./lib/checkout.js";
 import { GATE_FAILED } from "./lib/cli.js";
+import { blanketCoverage } from "./parity-keys.js";
 
 // `no-magic-numbers` is on outside tests; these are ordinary array
 // bookkeeping, duplicated from parity.ts rather than imported for the
@@ -51,6 +52,24 @@ export interface FamilySets {
   readonly families: ReadonlySet<string>;
   /** The subset whose cases may differ in formatted output ONLY. */
   readonly formattedOnly: ReadonlySet<string>;
+  /**
+   * The families a BARE trailer may declare, each with the serialized
+   * AST keys it owns, spelled as they appear in the dumped JSON.
+   *
+   * A schema change - a node kind that starts recording a fact - moves
+   * every case that has that node kind and no case's bytes, so the
+   * per-id form would spell a thousand identical lines whose only
+   * information is a number. A family here says instead: these keys,
+   * and nothing else, may differ. The gate still has to PROVE that of
+   * every case it excuses ({@link blanketCoverage}), so the blanket is
+   * a narrower claim than a thousand per-id lines, not a looser one -
+   * a per-id trailer excuses whatever that case did.
+   *
+   * A family absent from this map cannot be declared bare. That is
+   * deliberate: a bare trailer on a family whose diffs are NOT one
+   * schema key would excuse arbitrary tree changes.
+   */
+  readonly blanketKeys: ReadonlyMap<string, ReadonlySet<string>>;
 }
 
 /**
@@ -332,6 +351,22 @@ const DOCUMENT_HEADER_FAMILY = "document-header";
 const CURVED_QUOTE_NODE_FAMILY = "curved-quote-node";
 
 /**
+ * Every paragraph records whether its first source line ends after
+ * its first word (`ParagraphNode.firstWordEndsItsLine`, src/ast.ts),
+ * the fact the printer's block-start hazard net reads in place of
+ * re-deriving it from inline fragment values. The formatted bytes do
+ * not move over this corpus - the net's answer changes only for a
+ * paragraph whose first source line holds one marker-shaped word,
+ * which no corpus case spells - so every declared case differs in the
+ * AST alone, by that one key and nothing else. NOT formatted-only:
+ * the key IS the difference, and a formatted-only family would fail
+ * the cross-check for every case.
+ *
+ * Not exported: no grid row cites it.
+ */
+const BLOCK_START_LINE_FACT_FAMILY = "block-start-line-fact";
+
+/**
  * The closed family enum. SURFACE HONESTY, not an armed
  * gate: a family id can only legally be a corpus id or an
  * identity-fixture id. The formatted-only subset is exactly
@@ -348,10 +383,12 @@ const CURVED_QUOTE_NODE_FAMILY = "curved-quote-node";
  * sometimes a whole span - with one atomic passthrough node,
  * explicit-ordered-marker turns prose into ordered lists,
  * email-autolink hardens a bare address into one atomic link node,
- * and document-header re-roots a titled document's opening lines
- * under one header node, so an entry of those eleven whose AST
- * differs is legal and an entry of any other family whose AST
- * differs fails the cross-check.
+ * document-header re-roots a titled document's opening lines under
+ * one header node, curved-quote-node turns a quoted backtick pair
+ * into a node, and block-start-line-fact records the source-line
+ * question the printer used to re-derive, so an entry of those
+ * thirteen whose AST differs is legal and an entry of any other
+ * family whose AST differs fails the cross-check.
  */
 export const LEDGER_FAMILIES: FamilySets = {
   families: new Set([
@@ -377,6 +414,7 @@ export const LEDGER_FAMILIES: FamilySets = {
     INLINE_PASSTHROUGH_FAMILY,
     EMAIL_AUTOLINK_FAMILY,
     DOCUMENT_HEADER_FAMILY,
+    BLOCK_START_LINE_FACT_FAMILY,
   ]),
   formattedOnly: new Set([
     AUTHOR_PLUS_FAMILY,
@@ -389,6 +427,13 @@ export const LEDGER_FAMILIES: FamilySets = {
     GAP_COLLAPSE_FAMILY,
     PLUS_RUN_TAIL_KEPT_FAMILY,
     CONTINUATION_KEEPS_LINE_FAMILY,
+  ]),
+  // One family so far, and the key it owns is the field
+  // `ParagraphNode.firstWordEndsItsLine` (src/ast.ts) as the dumper
+  // serializes it. Every other family names a change to what the tree
+  // MEANS at some ids; this one names a field every paragraph gained.
+  blanketKeys: new Map([
+    [BLOCK_START_LINE_FACT_FAMILY, new Set(["firstWordEndsItsLine"])],
   ]),
 };
 
@@ -410,10 +455,17 @@ export interface ExpectedDiff {
 const TRAILER_KEY = "Parity-Diff:";
 
 /**
- * One well-formed trailer: the key, a single-token family, then the
- * id, which runs to the end of the line because corpus ids contain
- * spaces (`lists_test.rb#consecutive list continuation lines are
- * folded#0`).
+ * One well-formed trailer: the key, a single-token family, then an
+ * OPTIONAL id, which runs to the end of the line because corpus ids
+ * contain spaces (`lists_test.rb#consecutive list continuation lines
+ * are folded#0`).
+ *
+ * With the id, the trailer excuses that one case whatever it did.
+ * WITHOUT it - the BARE form - the trailer excuses every case whose
+ * bytes are identical and whose AST differs only in the keys the
+ * family owns ({@link FamilySets.blanketKeys}); that is the form a
+ * schema change takes, where a per-id list would be a thousand lines
+ * carrying one fact.
  *
  * The line is trimmed before it is matched (which is what strips a
  * CRLF message's `\r`), so a declared id can never carry leading or
@@ -424,10 +476,33 @@ const TRAILER_KEY = "Parity-Diff:";
  */
 const TRAILER_LINE = /^Parity-Diff:\s*(?<family>\S+)\s+(?<id>\S.*)$/v;
 
+/**
+ * The BARE form of {@link TRAILER_LINE}: the key and a family, and
+ * nothing after it. A separate pattern rather than an optional group,
+ * because a group that may not match reads back as `string` from
+ * `match.groups` and the two forms would then be told apart by a
+ * condition the types say cannot happen.
+ */
+const BARE_TRAILER_LINE = /^Parity-Diff:\s*(?<family>\S+)$/v;
+
 /** What a scan of a range's commit messages found. */
 export interface TrailerScan {
   /** One entry per declared id, deduped, in first-seen order. */
   readonly entries: ExpectedDiff[];
+  /**
+   * The families declared with a BARE trailer, deduped, in first-seen
+   * order.
+   *
+   * A family may be declared both ways in one range, and the two DO
+   * interact: a per-id line for an id the bare trailer covers declares
+   * nothing and is reported as a failure naming both
+   * (`blanketCoverage`, scripts/parity-keys.ts, carries the argument).
+   * Per-id lines for ids the blanket cannot prove are untouched, which
+   * is the combination an author actually wants - one bare line for
+   * the schema key, one per-id line for each case that moved for some
+   * other reason.
+   */
+  readonly blanket: string[];
   /** One message per unparseable or contradictory declaration. */
   readonly failures: string[];
 }
@@ -465,6 +540,23 @@ function recordTrailer(
 }
 
 /**
+ * The family a BARE trailer declares, or undefined when the line is
+ * not one. Split out of {@link parseExpectedDiffTrailers} so that
+ * function's loop keeps one branch per FORM rather than one per
+ * pattern, which is what its complexity budget buys.
+ * @param line - one trimmed message line, already known to start with
+ *   the trailer key
+ * @returns the family, or undefined when the line carries an id (or
+ *   nothing at all)
+ */
+function bareFamily(line: string): string | undefined {
+  const match = BARE_TRAILER_LINE.exec(line);
+  // `groups` is present whenever the pattern has named groups, and
+  // this one is non-optional, so it is a string here.
+  return match === null ? undefined : (match.groups?.family ?? "");
+}
+
+/**
  * Scan commit-message text for `Parity-Diff:` trailers.
  *
  * Pure, so the gate's whole declaration story is testable without a
@@ -481,14 +573,20 @@ function recordTrailer(
 export function parseExpectedDiffTrailers(text: string): TrailerScan {
   const families = new Map<string, string>();
   const conflicts = new Set<string>();
+  const blanket = new Set<string>();
   const failures: string[] = [];
   for (const rawLine of text.split("\n")) {
     const line = rawLine.trim();
     if (!line.startsWith(TRAILER_KEY)) continue;
+    const bare = bareFamily(line);
+    if (bare !== undefined) {
+      blanket.add(bare);
+      continue;
+    }
     const match = TRAILER_LINE.exec(line);
     if (match === null) {
       failures.push(
-        `expected-diffs: malformed trailer ${JSON.stringify(line)} - the syntax is "Parity-Diff: <family> <id>"`,
+        `expected-diffs: malformed trailer ${JSON.stringify(line)} - the syntax is "Parity-Diff: <family> <id>", or "Parity-Diff: <family>" for a family that declares the AST keys it owns`,
       );
       continue;
     }
@@ -499,7 +597,7 @@ export function parseExpectedDiffTrailers(text: string): TrailerScan {
     if (failure !== undefined) failures.push(failure);
   }
   const entries = [...families].map(([id, family]) => ({ id, family }));
-  return { entries, failures };
+  return { entries, blanket: [...blanket], failures };
 }
 
 /**
@@ -663,12 +761,16 @@ export function expectedDiffFailures(
  * @param options.allowParentBlockEnd - whether forced-closed
  *   parentBlock ends were blanked on both sides
  * @param options.familySets - the closed family enumeration
+ * @param options.blanket - the families a bare trailer declared
+ * @param options.covers - proves one id against one family's declared
+ *   keys, injected for the same reason `reportCase` is
  * @param options.reportCase - prints one case's per-side difference;
  *   injected rather than imported so this module never imports FROM
  *   parity.ts (see the module-level comment)
  */
 export function reportExpectedDiffs(options: {
   expectedDiffs: readonly ExpectedDiff[];
+  blanket: readonly string[];
   trailerFailures: readonly string[];
   ast: readonly string[];
   formatted: readonly string[];
@@ -679,13 +781,12 @@ export function reportExpectedDiffs(options: {
   limit: number;
   allowParentBlockEnd: boolean;
   familySets: FamilySets;
+  covers: (id: string, keys: ReadonlySet<string>) => boolean;
   reportCase: (id: string, baseRoot: string, allow: boolean) => void;
 }): void {
   const {
     expectedDiffs,
     trailerFailures,
-    ast,
-    formatted,
     headIds,
     headSize,
     baseRoot,
@@ -695,10 +796,22 @@ export function reportExpectedDiffs(options: {
     familySets,
     reportCase,
   } = options;
+  // The blanket pass runs FIRST and only ever REMOVES ids, so what
+  // reaches the per-id gate below is exactly the set no bare trailer
+  // could prove - and the detail pass reads the same reduced streams,
+  // so a covered case is neither failed nor printed.
+  const blanketPass = blanketCoverage(
+    { blanket: options.blanket, entries: expectedDiffs },
+    { ast: options.ast, formatted: options.formatted },
+    familySets,
+    options.covers,
+  );
+  const { ast, formatted } = blanketPass.streams;
   const failures = [
     ...trailerFailures,
+    ...blanketPass.failures,
     ...expectedDiffFailures(
-      expectedDiffs,
+      blanketPass.entries,
       { ast, formatted },
       headIds,
       familySets,
@@ -727,8 +840,12 @@ export function reportExpectedDiffs(options: {
     process.exitCode = GATE_FAILED;
     return;
   }
+  // The count says how many of the expected diffs a BARE trailer
+  // proved, because that number is the whole claim such a trailer
+  // makes and the per-id lines that would otherwise carry it are gone.
+  const blanketed = options.ast.length - ast.length;
   process.stdout.write(
-    `parity: ${String(headSize)} cases match ${revision} (${String(ast.length + formatted.length)} expected diffs, all ledgered)\n`,
+    `parity: ${String(headSize)} cases match ${revision} (${String(ast.length + formatted.length + blanketed)} expected diffs, all ledgered; ${String(blanketed)} under a bare trailer's declared keys)\n`,
   );
 }
 

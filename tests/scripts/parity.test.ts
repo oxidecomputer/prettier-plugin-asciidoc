@@ -319,6 +319,7 @@ const span = (
 const para = (from: number): ParagraphNode => ({
   type: "paragraph",
   children: [],
+  firstWordEndsItsLine: false,
   position: span(from, from + 1),
 });
 const nestedList = (from: number): ListNode => ({

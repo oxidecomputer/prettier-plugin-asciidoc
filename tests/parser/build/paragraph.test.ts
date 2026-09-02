@@ -84,6 +84,7 @@ describe("buildParagraph", () => {
     const source = "one\ntwo\n";
     const node = buildParagraph(
       [text("one", 0), newline(3), text("two", 4)],
+      source,
       makeLocationIndex(source),
     );
     expect(node.type).toBe("paragraph");
@@ -117,6 +118,9 @@ describe("buildRawLineParagraph", () => {
     expect(node).toEqual({
       type: "paragraph",
       children: [{ type: "rawLine", value: "+", position }],
+      // The line is one word, so the block-start hazard net's recorded
+      // fact is true here (src/ast.ts).
+      firstWordEndsItsLine: true,
       position,
     });
   });

@@ -121,6 +121,10 @@ const EXEMPT = new Map<string, string>([
     "LINE_COMMENT_HEAD",
     "string head shared by skip_line_comments consumers; the line-comment dimension covers the shape",
   ],
+  [
+    "isSingleWordLine",
+    "whitespace-classification predicate in the ASCII_* family's dialect - 'this line holds one word' names no AsciiDoc construct, and the shapes a one-word line can spell (a marker, a delimiter, a section title) each have their own dimension already",
+  ],
 ]);
 
 // Rule (iii)'s rosters: the container and perturbation dimensions the

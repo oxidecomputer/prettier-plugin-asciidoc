@@ -20,8 +20,11 @@ import {
 // rows below declare nothing, so the enum they run under is only
 // scenery.
 const SYNTHETIC = {
-  families: new Set(["fam-ast", "fam-bytes"]),
+  families: new Set(["fam-ast", "fam-bytes", "fam-keyed"]),
   formattedOnly: new Set(["fam-bytes"]),
+  // Only `fam-keyed` may be declared with a BARE trailer, and the one
+  // key it owns is what the blanket rows below strip from both sides.
+  blanketKeys: new Map([["fam-keyed", new Set(["recorded"])]]),
 };
 
 /**
@@ -72,6 +75,8 @@ function reportTrailerFailures(trailerFailures: readonly string[]): {
         limit: 20,
         allowParentBlockEnd: false,
         familySets: SYNTHETIC,
+        blanket: [],
+        covers: () => false,
         reportCase: () => {
           throw new Error("no case differs, so none may be detailed");
         },
@@ -97,7 +102,7 @@ describe("parseExpectedDiffTrailers: the declaration scan", () => {
   test("a message with no trailers declares nothing", () => {
     expect(
       parseExpectedDiffTrailers("fix: a thing\n\nprose about the thing\n"),
-    ).toEqual({ entries: [], failures: [] });
+    ).toEqual({ entries: [], blanket: [], failures: [] });
   });
 
   test("one trailer, with the surrounding message ignored", () => {
@@ -105,7 +110,11 @@ describe("parseExpectedDiffTrailers: the declaration scan", () => {
       parseExpectedDiffTrailers(
         "fix: a thing\n\nWhy: because.\nParity-Diff: gap-collapse a\nCo-Authored-By: nobody\n",
       ),
-    ).toEqual({ entries: [{ id: "a", family: "gap-collapse" }], failures: [] });
+    ).toEqual({
+      entries: [{ id: "a", family: "gap-collapse" }],
+      blanket: [],
+      failures: [],
+    });
   });
 
   test("trailers union across several messages, in first-seen order", () => {
@@ -118,6 +127,7 @@ describe("parseExpectedDiffTrailers: the declaration scan", () => {
         { id: "b", family: "author-plus" },
         { id: "a", family: "gap-collapse" },
       ],
+      blanket: [],
       failures: [],
     });
   });
@@ -130,6 +140,7 @@ describe("parseExpectedDiffTrailers: the declaration scan", () => {
       ),
     ).toEqual({
       entries: [{ id, family: "no-op-continuation-tree" }],
+      blanket: [],
       failures: [],
     });
   });
@@ -139,7 +150,11 @@ describe("parseExpectedDiffTrailers: the declaration scan", () => {
       parseExpectedDiffTrailers(
         "a\n\nParity-Diff: author-plus x\n\nb\n\nParity-Diff: author-plus x\n",
       ),
-    ).toEqual({ entries: [{ id: "x", family: "author-plus" }], failures: [] });
+    ).toEqual({
+      entries: [{ id: "x", family: "author-plus" }],
+      blanket: [],
+      failures: [],
+    });
   });
 
   test("the same id under two families is a failure naming both", () => {
@@ -163,14 +178,35 @@ describe("parseExpectedDiffTrailers: the declaration scan", () => {
     expect(failures).toHaveLength(1);
   });
 
-  test("a Parity-Diff line with no id is malformed, not prose", () => {
-    const { entries, failures } = parseExpectedDiffTrailers(
-      "subject\n\nParity-Diff: author-plus\n",
-    );
-    expect(entries).toEqual([]);
-    expect(failures).toHaveLength(1);
-    expect(failures[0]).toContain("malformed trailer");
-    expect(failures[0]).toContain("Parity-Diff: author-plus");
+  // A line with no id is the BLANKET form: it declares the family,
+  // not a case, and what it covers is decided later against the
+  // family's own AST keys (blanketCoverage, scripts/parity-keys.ts).
+  // Whether the family may be declared this way is not the scan's
+  // question - the scan reports what was written.
+  test("a Parity-Diff line with no id declares the family, not a case", () => {
+    expect(
+      parseExpectedDiffTrailers("subject\n\nParity-Diff: author-plus\n"),
+    ).toEqual({ entries: [], blanket: ["author-plus"], failures: [] });
+  });
+
+  test("a bare family repeated across messages is declared once", () => {
+    expect(
+      parseExpectedDiffTrailers(
+        "a\n\nParity-Diff: fam\n\nb\n\nParity-Diff: fam\n",
+      ),
+    ).toEqual({ entries: [], blanket: ["fam"], failures: [] });
+  });
+
+  test("a family may be declared bare and per-id in one range", () => {
+    expect(
+      parseExpectedDiffTrailers(
+        "a\n\nParity-Diff: fam\nParity-Diff: fam one\n",
+      ),
+    ).toEqual({
+      entries: [{ id: "one", family: "fam" }],
+      blanket: ["fam"],
+      failures: [],
+    });
   });
 
   test("a Parity-Diff line with nothing after the key is malformed", () => {
@@ -182,10 +218,14 @@ describe("parseExpectedDiffTrailers: the declaration scan", () => {
   test("an indented trailer is read, and a mid-line one is not", () => {
     expect(
       parseExpectedDiffTrailers("subject\n\n    Parity-Diff: author-plus x\n"),
-    ).toEqual({ entries: [{ id: "x", family: "author-plus" }], failures: [] });
+    ).toEqual({
+      entries: [{ id: "x", family: "author-plus" }],
+      blanket: [],
+      failures: [],
+    });
     expect(
       parseExpectedDiffTrailers("see Parity-Diff: author-plus x for why\n"),
-    ).toEqual({ entries: [], failures: [] });
+    ).toEqual({ entries: [], blanket: [], failures: [] });
   });
 
   test("a CRLF message's trailer parses (the carriage return is trimmed)", () => {
@@ -195,18 +235,27 @@ describe("parseExpectedDiffTrailers: the declaration scan", () => {
       parseExpectedDiffTrailers(
         "subject\r\n\r\nParity-Diff: author-plus x\r\n",
       ),
-    ).toEqual({ entries: [{ id: "x", family: "author-plus" }], failures: [] });
+    ).toEqual({
+      entries: [{ id: "x", family: "author-plus" }],
+      blanket: [],
+      failures: [],
+    });
   });
 
   test("no space after the colon is accepted", () => {
     expect(
       parseExpectedDiffTrailers("subject\n\nParity-Diff:author-plus x\n"),
-    ).toEqual({ entries: [{ id: "x", family: "author-plus" }], failures: [] });
+    ).toEqual({
+      entries: [{ id: "x", family: "author-plus" }],
+      blanket: [],
+      failures: [],
+    });
   });
 
   test("the family is a single token, and the id is all the rest", () => {
     expect(parseExpectedDiffTrailers("Parity-Diff: a b c\n")).toEqual({
       entries: [{ id: "b c", family: "a" }],
+      blanket: [],
       failures: [],
     });
   });

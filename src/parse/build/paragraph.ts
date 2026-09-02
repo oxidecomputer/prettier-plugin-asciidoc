@@ -19,6 +19,7 @@ import type {
 import { FIRST_COLUMN, FIRST_LINE } from "../../constants.js";
 import { annotation } from "./delimited.js";
 import { buildFromTokens } from "../inline/inline-node-builder.js";
+import { isSingleWordLine, rstrip } from "../line-shapes.js";
 import type { InlineToken } from "../inline/tokens.js";
 import {
   makeLocation,
@@ -81,21 +82,46 @@ export function bodyExtent(
 }
 
 /**
+ * Whether the source line a block OPENS ON ends after its first word -
+ * `ParagraphNode.firstWordEndsItsLine` (src/ast.ts carries the whole
+ * argument and the printer that reads it).
+ *
+ * Measured off the SOURCE from the block's own start offset, so the
+ * indentation and any prefix in front of the block (a description
+ * list's term column) are outside the question, and rstripped before
+ * the test the way every registry rule is matched.
+ * @param source - the whole document
+ * @param start - the block's start offset
+ * @returns true when one word stands between that offset and the end
+ *   of its line
+ */
+function firstWordEndsItsLine(source: string, start: number): boolean {
+  const newline = source.indexOf("\n", start);
+  return isSingleWordLine(
+    rstrip(source.slice(start, newline === -1 ? source.length : newline)),
+  );
+}
+
+/**
  * A plain paragraph: its inline body, positioned over the CONTENT
  * tokens — newlines are separators, not content, so a paragraph does
  * not end on the line break that ended it.
  * @param tokens - the body's tokens, in source order
+ * @param source - the whole document, for the block's own first line
  * @param at - the document's location index
  * @returns the paragraph node
  */
 export function buildParagraph(
   tokens: readonly InlineToken[],
+  source: string,
   at: LocationIndex,
 ): ParagraphNode {
+  const position = bodyExtent(tokens, at);
   return {
     type: "paragraph",
     children: buildFromTokens(tokens, at),
-    position: bodyExtent(tokens, at),
+    firstWordEndsItsLine: firstWordEndsItsLine(source, position.start.offset),
+    position,
   };
 }
 
@@ -274,6 +300,9 @@ export function buildRawLineParagraph(
   return {
     type: "paragraph",
     children: [{ type: "rawLine", value: line.image, position }],
+    // The fragment IS the whole line, so its image is the source slice
+    // the question is about; offset 0 is that slice's own start.
+    firstWordEndsItsLine: firstWordEndsItsLine(line.image, 0),
     position,
   };
 }

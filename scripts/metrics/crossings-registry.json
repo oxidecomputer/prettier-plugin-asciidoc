@@ -408,23 +408,9 @@
   {
     "file": "src/parse/line-shapes.ts",
     "symbol": "ASCII_HORIZONTAL_WHITESPACE",
-    "importer": "src/print/block-start-hazard.ts",
-    "kind": "vocabulary",
-    "reason": "the ASCII horizontal-whitespace class a `[^\\S\\n]`-shaped pattern means, so the block-start hazard net's source-break detection cannot read a no-break space as the whitespace a line break replaced (issue #75)"
-  },
-  {
-    "file": "src/parse/line-shapes.ts",
-    "symbol": "ASCII_HORIZONTAL_WHITESPACE",
     "importer": "src/print/serialize-inline.ts",
     "kind": "vocabulary",
     "reason": "the ASCII horizontal-whitespace class a `[^\\S\\n]`-shaped pattern means, so joining a multi-line macro or link text's source lines cannot swallow a no-break space beside the join as if it were indentation (issue #75)"
-  },
-  {
-    "file": "src/parse/line-shapes.ts",
-    "symbol": "ASCII_NON_WHITESPACE",
-    "importer": "src/print/block-start-hazard.ts",
-    "kind": "vocabulary",
-    "reason": "Ruby's `\\S`, so the block-start hazard net's first-word scan cannot end early at a no-break space the way JavaScript's `\\S` would (issue #75)"
   },
   {
     "file": "src/parse/line-shapes.ts",
@@ -438,7 +424,7 @@
     "symbol": "ASCII_WHITESPACE",
     "importer": "src/print/block-start-hazard.ts",
     "kind": "vocabulary",
-    "reason": "Ruby's `\\s`, so the block-start hazard net's source-break detection cannot read a no-break space as the reader's own whitespace (issue #75)"
+    "reason": "Ruby's `\\s` as one class; the block-start net asks whether an atom carries whitespace in the same dialect every word-segmentation test in src/print uses"
   },
   {
     "file": "src/parse/line-shapes.ts",
@@ -757,6 +743,13 @@
   },
   {
     "file": "src/parse/line-shapes.ts",
+    "symbol": "isSingleWordLine",
+    "importer": "src/parse/build/paragraph.ts",
+    "kind": "vocabulary",
+    "reason": "the one answer to 'does this line hold one word and nothing else'; the paragraph builders record it for the printer's block-start hazard net, and a second spelling would be a second whitespace dialect"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
     "symbol": "optionalGroup",
     "importer": "src/parse/lines/classify.ts",
     "kind": "vocabulary",
@@ -794,6 +787,13 @@
     "file": "src/parse/line-shapes.ts",
     "symbol": "rstrip",
     "importer": "src/parse/build/metadata.ts",
+    "kind": "vocabulary",
+    "reason": "the one line-normalization helper; Ruby's reader rstrips, so every consumer must strip the same way"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "rstrip",
+    "importer": "src/parse/build/paragraph.ts",
     "kind": "vocabulary",
     "reason": "the one line-normalization helper; Ruby's reader rstrips, so every consumer must strip the same way"
   },

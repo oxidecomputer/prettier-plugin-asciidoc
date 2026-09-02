@@ -47,6 +47,7 @@ import {
 import {
   hazardAtBlockStart,
   keepBlockStartBreak,
+  type BlockStart,
 } from "./block-start-hazard.js";
 import {
   strongerBoundary,
@@ -693,7 +694,9 @@ function appendSpan(
     blockStartLine: cursor.blockStartLine,
     enclosing: node,
     blockNodes: cursor.blockNodes,
-    blockAtColumnZero: false,
+    // Content inside a span opens no block line of its own: the marks
+    // around it hold the column whatever the block does.
+    blockStart: { atColumnZero: false },
     literalInterior,
   });
   // The span's own whitespace lives INSIDE its marks: content whitespace
@@ -785,10 +788,14 @@ function detachedMarks(
   inner: readonly Atom[],
   openText: string,
 ): { detachOpen: boolean; detachClose: boolean } {
+  const composed = `${openText}${inner[0].text}`;
   return {
     detachOpen:
       node.children[0].type === "rawLine" ||
-      hazardAtBlockStart(cursor, `${openText}${inner[0].text}`),
+      // `glueLeft` on the first content atom is where `openSpace` came
+      // from (see {@link appendSpan}), so its negation is exactly "the
+      // fusion writes a space the content's own whitespace stood for".
+      hazardAtBlockStart(cursor, composed, !inner[0].glueLeft),
     detachClose:
       node.children.at(-1)?.type === "rawLine" ||
       inner.at(-1)?.text === HARD_BREAK_IMAGE,
@@ -868,7 +875,10 @@ function appendWhitespaceOnlySpan(
   parts: { open: string; close: string; closeSpace: string },
 ): void {
   const { open, close, closeSpace } = parts;
-  if (hazardAtBlockStart(cursor, `${open}${closeSpace}${close}`)) {
+  const composed = `${open}${closeSpace}${close}`;
+  // The whitespace this span held is all there is between the two
+  // marks, so `closeSpace` is the whole fusion's space here.
+  if (hazardAtBlockStart(cursor, composed, closeSpace !== "")) {
     out.push(
       withBoundary(atomOf(open), boundary),
       withBoundary(atomOf(close), "literal"),
@@ -1033,8 +1043,8 @@ interface RunContext {
    * siblings - see {@link constrainedIsLegal}.
    */
   readonly blockNodes: readonly InlineNode[];
-  /** Whether the block's first atom opens its line at column 0. */
-  readonly blockAtColumnZero: boolean;
+  /** Where the block's first atom lands (block-start-hazard.ts). */
+  readonly blockStart: BlockStart;
   /** See {@link Cursor.literalInterior}; carried into every cursor the run builds. */
   readonly literalInterior: boolean;
 }
@@ -1068,23 +1078,28 @@ function collectAtoms(
  * Convert a block's inline content to atoms.
  * @param nodes - the block's inline children, in order.
  * @param blockStartLine - 1-based source line the block starts on.
- * @param blockAtColumnZero - whether the first atom opens its output
- *   line at column 0 (a paragraph) or follows a printed prefix that
- *   holds the column (a list item's marker, an admonition's label).
+ * @param blockStart - where the block's first atom lands, and where
+ *   that is column 0, whether the source line under it ended after
+ *   its first word (block-start-hazard.ts).
  * @returns the block's atoms, ready for {@link wrap}.
  */
 export function inlineAtoms(
   nodes: readonly InlineNode[],
   blockStartLine: number,
-  blockAtColumnZero: boolean,
+  blockStart: BlockStart,
 ): Atom[] {
   const { atoms } = collectAtoms(nodes, {
     blockStartLine,
     enclosing: undefined,
     blockNodes: nodes,
-    blockAtColumnZero,
+    blockStart,
     literalInterior: false,
   });
-  if (blockAtColumnZero && nodes.length > 0) keepBlockStartBreak(atoms, nodes);
+  // The net's precondition is the caller's to establish, so the callee
+  // re-checks nothing: it runs only over a block that opens at column
+  // 0 on a source line its first word ended.
+  if (blockStart.atColumnZero && blockStart.firstWordEndsItsLine) {
+    keepBlockStartBreak(atoms);
+  }
   return atoms;
 }

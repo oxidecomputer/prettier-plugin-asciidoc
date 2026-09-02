@@ -236,16 +236,16 @@ export default defineConfig(
   {
     files: [
       "src/parse/lines/reader.ts", // 448 -> 462
-      "src/print/inline.ts", // 440 -> 460
-      "scripts/parity.ts", // 436 -> 456
-      "scripts/parity-ledger.ts", // 422 -> 446
+      "src/print/inline.ts", // 445 -> 463
+      "scripts/parity.ts", // 447 -> 467
+      "scripts/parity-ledger.ts", // 450 -> 477
       "scripts/shape-registry.ts", // 446 -> 448
       "tests/parser/ast-invariants.ts", // 397 -> 443
       "tests/parser/super-sub.test.ts", // 445 -> 445
       "tests/format/list-continuation.test.ts", // 450 -> 449
       "tests/format/list-item-blocks.test.ts", // 443 -> 443
       "tests/scripts/metrics-design.test.ts", // 447 -> 449
-      "tests/scripts/parity.test.ts", // 441 -> 443
+      "tests/scripts/parity.test.ts", // 442 -> 444
     ],
     rules: { curly: "off" },
   },
@@ -271,7 +271,6 @@ export default defineConfig(
       "src/parse/build/list.ts", // :132 `if (children.length === 0) return;`
       "src/parse/inline/rules.ts", // :429 `if (at < resume) return undefined;`
       "src/parse/lines/list-item-node.ts", // :169 `if (last === undefined) return markerLine.line;`
-      "src/print/block-start-hazard.ts", // :119 `if (!("children" in node)) return false;`
       "src/print/span-edges.ts", // :254, :274 `if (!isSpanNode(neighbour)) return undefined;`
     ],
     rules: { curly: "off" },

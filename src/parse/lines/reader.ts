@@ -349,7 +349,7 @@ class BlockReader {
     // no `annotatedBy` (src/ast.ts), which is what the type test that
     // used to stand here was really asking.
     if (variant === undefined) {
-      this.push(buildParagraph(tokens, this.at));
+      this.push(buildParagraph(tokens, this.source, this.at));
       return;
     }
     const held = { variant, annotatedBy };
@@ -628,7 +628,7 @@ class BlockReader {
       this.flushMetadata();
       const { tokens, end } = continuationFoldExtent(this.scan, this.index);
       this.resume(end);
-      this.push(buildParagraph(tokens, this.at));
+      this.push(buildParagraph(tokens, this.source, this.at));
       return;
     }
     this.transparentLeaf(buildRawBlockLine(fragmentOfLine(line), this.at));

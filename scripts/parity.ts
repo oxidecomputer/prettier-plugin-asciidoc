@@ -32,6 +32,7 @@ import { rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { CHILD_MAX_BUFFER, materialize } from "./lib/checkout.js";
 import { cannotRun, GATE_FAILED, printUsage, wantsHelp } from "./lib/cli.js";
+import { keyCoverage } from "./parity-keys.js";
 import {
   LEDGER_FAMILIES,
   collectExpectedDiffTrailers,
@@ -361,6 +362,7 @@ import { parse } from "./src/parser.js";
 
 const only = process.argv[2] === "-" ? undefined : process.argv[2];
 const allowParentBlockEnd = process.argv[3] === "allow-parent-block-end";
+const verbatim = process.argv[4] === "verbatim";
 ${isRecordLike.toString()}
 ${isUnknownArray.toString()}
 ${startOffset.toString()}
@@ -407,7 +409,7 @@ for (const one of cases) {
     ast = "<<THREW>> " + String(error);
   }
   const row =
-    only === undefined
+    only === undefined && !verbatim
       ? { id: one.id, formatted: digest(formatted), ast: digest(ast) }
       : { id: one.id, formatted, ast };
   process.stdout.write(JSON.stringify(row) + "\n");
@@ -468,24 +470,39 @@ export function isTiming(value: unknown): value is Timing {
 }
 
 /**
+ * Which cases a dump covers, and in what form.
+ *
+ * `verbatim` exists for the blanket `Parity-Diff` trailer's
+ * key-ignoring comparison (scripts/parity-keys.ts), which cannot strip
+ * a key from a digest. A single-case dump is verbatim whatever this
+ * says, because `reportCase` has always needed the texts.
+ */
+interface DumpScope {
+  /** A single case id, or undefined for all of them. */
+  readonly only?: string;
+  /** Whether every row carries its two full texts instead of digests. */
+  readonly verbatim?: boolean;
+}
+
+/**
  * Write the dumper into a checkout, run it, and delete it again.
  * @param root - the checkout to run in
- * @param script - where to write the dumper
  * @param allow - whether to blank forced-closed parentBlock ends
- * @param only - a single case id, or undefined for all of them
+ * @param what - which cases to dump and in what form
  * @returns everything it printed on stdout
  */
-function runDumper(
-  root: string,
-  script: string,
-  allow: boolean,
-  only?: string,
-): string {
+function runDumper(root: string, allow: boolean, what: DumpScope): string {
+  const script = path.join(root, "parity-dump.mjs");
   writeFileSync(script, DUMPER);
   try {
     return execFileSync(
       "bun",
-      [script, only ?? "-", allow ? "allow-parent-block-end" : ""],
+      [
+        script,
+        what.only ?? "-",
+        allow ? "allow-parent-block-end" : "",
+        what.verbatim === true ? "verbatim" : "",
+      ],
       { cwd: root, encoding: "utf8", maxBuffer: CHILD_MAX_BUFFER },
     );
   } finally {
@@ -512,12 +529,11 @@ interface Dump {
  * Run the dumper in one checkout.
  * @param root - the checkout to run in
  * @param allow - whether to blank forced-closed parentBlock ends
- * @param only - a single case id, or undefined for all of them
+ * @param what - which cases to dump and in what form
  * @returns its rows and its format wall time
  */
-function dump(root: string, allow: boolean, only?: string): Dump {
-  const script = path.join(root, "parity-dump.mjs");
-  const stdout = runDumper(root, script, allow, only);
+function dump(root: string, allow: boolean, what: DumpScope = {}): Dump {
+  const stdout = runDumper(root, allow, what);
   const rows = new Map<string, Row>();
   let formatMs = ZERO;
   for (const line of stdout.split("\n")) {
@@ -658,8 +674,8 @@ export function verdict(
  */
 function reportCase(id: string, baseRoot: string, allow: boolean): void {
   process.stdout.write(`  ${id}\n`);
-  const baseOne = dump(baseRoot, allow, id).rows.get(id);
-  const headOne = dump(process.cwd(), allow, id).rows.get(id);
+  const baseOne = dump(baseRoot, allow, { only: id }).rows.get(id);
+  const headOne = dump(process.cwd(), allow, { only: id }).rows.get(id);
   if (baseOne === undefined || headOne === undefined) return;
   for (const line of [
     describeDifference("formatted", baseOne.formatted, headOne.formatted),
@@ -738,6 +754,7 @@ function report(options: {
   if (options.expectedDiffs !== undefined) {
     reportExpectedDiffs({
       expectedDiffs: options.expectedDiffs.entries,
+      blanket: options.expectedDiffs.blanket,
       trailerFailures: options.expectedDiffs.failures,
       ast,
       formatted,
@@ -748,6 +765,10 @@ function report(options: {
       limit,
       allowParentBlockEnd,
       familySets: LEDGER_FAMILIES,
+      covers: keyCoverage(
+        (root) => dump(root, allowParentBlockEnd, { verbatim: true }).rows,
+        { base: baseRoot, head: process.cwd() },
+      ),
       reportCase,
     });
     return;

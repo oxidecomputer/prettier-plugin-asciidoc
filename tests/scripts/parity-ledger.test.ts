@@ -33,8 +33,11 @@ const entry = (id: string, family: string): ExpectedDiff => ({ id, family });
 // this test's own, so swapping the production enum never edits these
 // rows.
 const SYNTHETIC = {
-  families: new Set(["fam-ast", "fam-bytes"]),
+  families: new Set(["fam-ast", "fam-bytes", "fam-keyed"]),
   formattedOnly: new Set(["fam-bytes"]),
+  // Only `fam-keyed` may be declared with a BARE trailer, and the one
+  // key it owns is what the blanket rows below strip from both sides.
+  blanketKeys: new Map([["fam-keyed", new Set(["recorded"])]]),
 };
 
 describe("expected-diff ledger", () => {
@@ -133,11 +136,12 @@ describe("expected-diff ledger", () => {
     expect(failures.some((line) => line.includes("formatted-only"))).toBe(true);
   });
 
-  test("the production enum: 22 families, the ten byte-only ones formatted-only", () => {
+  test("the production enum: 23 families, the ten byte-only ones formatted-only", () => {
     expect([...LEDGER_FAMILIES.families].toSorted()).toEqual([
       "attribute-entry-spelling",
       "attrlist-spacing",
       "author-plus",
+      "block-start-line-fact",
       "bom-document-head",
       "continuation-keeps-line",
       "curved-quote-node",
