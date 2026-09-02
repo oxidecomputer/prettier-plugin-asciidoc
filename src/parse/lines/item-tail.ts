@@ -309,11 +309,19 @@ export interface ItemExtent {
  * is not a `+` at all and belongs to the strip arm below it
  * (l.1584-85). A `dropped` one never entered the buffer, so no walk
  * can reach it.
+ * A TYPE GUARD rather than a plain predicate, because the `undefined`
+ * arm is load-bearing at the only call site: {@link walkBufferTail}
+ * returns the role it just tested, and the guard is what proves to the
+ * compiler that a taken line always HAS a role. The guard is weaker
+ * than the switch - it narrows to the whole union, not to the four
+ * arms that answer true - which is sound in that direction and keeps
+ * the union's members in one list.
  * @param role - the role the buffer's last line carries, or undefined
  *   for a line no arm recorded: content, and content stops the walk
- * @returns true when the pop is what takes that line
+ * @returns true when the pop is what takes that line, narrowing the
+ *   role away from `undefined` for the caller that then reports it
  */
-function popTakes(role: GapRole | undefined): boolean {
+function popTakes(role: GapRole | undefined): role is GapRole {
   switch (role) {
     case "pending":
     case "frozen":
@@ -460,10 +468,52 @@ function tailPrintsInert(stop: ItemStop): boolean {
 }
 
 /**
+ * The post-loop's TAIL WALK, Ruby's `until buffer.empty?` and its
+ * three arms in Ruby's own order: pop ONE trailing marker
+ * (parser.rb l.1580-82), else strip a trailing blank and look again
+ * (l.1584-85), else stop (l.1586-87).
+ *
+ * It stands apart from {@link finishItem} because the two things it
+ * does have two different consumers: the SHORTENING is the buffer the
+ * item prints, finished when the walk returns, while the role the pop
+ * took is a fact the caller still has to spend. Keeping the arms here
+ * leaves that caller reading one value instead of reading a loop.
+ * @param cells - the item's buffer, {@link finishItem}'s own copy.
+ *   The walk SHORTENS it in place, as Ruby's `buffer.pop` does, and in
+ *   both of its taking arms: trailing blank cells are stripped
+ *   (l.1584-85) and the marker under them is popped (l.1580-82).
+ * @param roles - what the scan made of each separator line, by
+ *   1-based document line number
+ * @returns the role of the line the pop took, or undefined when the
+ *   walk stopped on content or emptied the buffer taking none
+ */
+function walkBufferTail(
+  cells: Cell[],
+  roles: ReadonlyMap<number, GapRole>,
+): GapRole | undefined {
+  // The CELL is the loop's condition, not the buffer's length: an
+  // empty buffer and a missing last cell are one fact, so spelling it
+  // once leaves nothing for the body to re-check.
+  for (let last = cells.at(-1); last !== undefined; last = cells.at(-1)) {
+    const role = roles.get(last.current.line);
+    if (popTakes(role)) {
+      cells.pop(); // drop the trailing continuation, parser.rb l.1580-82
+      return role;
+    }
+    if (last.current.text === "") {
+      cells.pop(); // strip trailing blank lines, parser.rb l.1584-85
+      continue;
+    }
+    return undefined; // parser.rb l.1586-87
+  }
+  return undefined;
+}
+
+/**
  * Finish one item: the post-loop cleanup (parser.rb l.1574-89) run
  * on the scan's final state, in Ruby's own arm order - blank the
- * detached `+` (l.1576), then pop ONE trailing marker (l.1580-82),
- * else strip a trailing blank (l.1584-85), else stop (l.1586-87).
+ * detached `+` (l.1576), then walk the buffer's tail
+ * ({@link walkBufferTail}).
  *
  * The popped `+`'s BYTES are not reported anywhere, because nothing
  * downstream may spend them: the line attached nothing, Ruby drops it
@@ -506,33 +556,14 @@ export function finishItem(tail: ScanTail): ItemExtent {
     // later write.
     roles.set(detached.current.line, "detached");
   }
-  let popped = false;
-  let erasedTail = false;
-  // The CELL is the loop's condition, not the buffer's length: an
-  // empty buffer and a missing last cell are one fact, so spelling it
-  // once leaves nothing for the body to re-check.
-  for (let last = cells.at(-1); last !== undefined; last = cells.at(-1)) {
-    const role = roles.get(last.current.line);
-    if (popTakes(role)) {
-      // WHICH role came off is the whole difference between the two
-      // reports: an erased shield prints back as a blank and a `+`
-      // (`ListItemNode.detachedTail`), any other marker as the `+`
-      // alone (`trailingContinuation`). Spelled as one branch so the
-      // exclusion the two facts claim cannot come apart.
-      if (role === "detached") {
-        erasedTail = true;
-      } else {
-        popped = true;
-      }
-      cells.pop();
-      break;
-    }
-    if (last.current.text === "") {
-      cells.pop(); // strip trailing blank lines, parser.rb l.1584-85
-      continue;
-    }
-    break; // parser.rb l.1586-87
-  }
+  const poppedRole = walkBufferTail(cells, roles);
+  // WHICH role came off is the whole difference between the two
+  // reports: an erased shield prints back as a blank and a `+`
+  // (`ListItemNode.detachedTail`), any other marker as the `+` alone
+  // (`trailingContinuation`). Both are read off the one role the walk
+  // returned, so the exclusion the two facts claim cannot come apart.
+  const erasedTail = poppedRole === "detached";
+  const liveTail = poppedRole !== undefined && !erasedTail;
   const inert = tailPrintsInert(tail.stop);
   return {
     // The cells are unwrapped ONCE, here: nothing outside the scan and
@@ -542,7 +573,7 @@ export function finishItem(tail: ScanTail): ItemExtent {
     gapWrites: [...roles].flatMap(([line, role]) =>
       gapSpelling(role).map((spelling) => ({ line, spelling })),
     ),
-    trailingContinuation: popped && inert,
+    trailingContinuation: liveTail && inert,
     erasedTailContinuation: erasedTail,
     activeTail: tail.armedTail === "printed",
     tailSafe: inert,
