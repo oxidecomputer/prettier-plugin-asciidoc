@@ -203,7 +203,9 @@ export function qualifiedBranch(branch: string): string {
  */
 export function documentNumber(file: string): string | undefined {
   const parts = file.split("/");
-  if (parts.length !== DOCUMENT_PATH_PARTS) return undefined;
+  if (parts.length !== DOCUMENT_PATH_PARTS) {
+    return undefined;
+  }
   const [directory, number, name] = parts;
   if (directory !== DOCUMENT_DIRECTORY || name !== DOCUMENT_FILE) {
     return undefined;
@@ -265,12 +267,16 @@ export function documentPlan(
   const sources = new Map<string, DocumentSource>();
   for (const file of basePaths) {
     const number = documentNumber(file);
-    if (number === undefined) continue;
+    if (number === undefined) {
+      continue;
+    }
     sources.set(number, { number, ref: qualifiedBranch(base), path: file });
   }
   for (const [branch, paths] of branchPaths) {
     const own = paths.find((file) => documentNumber(file) === branch);
-    if (own === undefined) continue;
+    if (own === undefined) {
+      continue;
+    }
     sources.set(branch, {
       number: branch,
       ref: qualifiedBranch(branch),
@@ -280,8 +286,12 @@ export function documentPlan(
   // Code point, not `localeCompare`: collation is locale-dependent,
   // and the order a corpus is written in should not be either.
   return [...sources.values()].toSorted((left, right) => {
-    if (left.number < right.number) return -1;
-    if (left.number > right.number) return 1;
+    if (left.number < right.number) {
+      return -1;
+    }
+    if (left.number > right.number) {
+      return 1;
+    }
     return 0;
   });
 }
@@ -424,7 +434,9 @@ function planFrom(repository: string, base: string): DocumentSource[] {
  */
 export function clearCollected(out: string): string[] {
   const removed = readdirSync(out).filter((name) => COLLECTED_NAME.test(name));
-  for (const name of removed) rmSync(path.join(out, name));
+  for (const name of removed) {
+    rmSync(path.join(out, name));
+  }
   return removed;
 }
 
@@ -469,7 +481,9 @@ function nearestExisting(target: string): string {
   let here = target;
   while (!existsSync(here)) {
     const up = path.dirname(here);
-    if (up === here) return here;
+    if (up === here) {
+      return here;
+    }
     here = up;
   }
   return here;
@@ -489,7 +503,9 @@ function nearestExisting(target: string): string {
  * @returns the complaint, or undefined when writing there is fine
  */
 function untrackedComplaint(out: string, force: boolean): string | undefined {
-  if (force || untracked(out)) return undefined;
+  if (force || untracked(out)) {
+    return undefined;
+  }
   return `collect-local-docs: ${out} is not gitignored - the documents are private and must not reach a tracked tree; use ${DEFAULT_CORPUS}, add the directory to .gitignore, or pass --force`;
 }
 
@@ -573,8 +589,11 @@ function main(options: Options): void {
 if (import.meta.main) {
   try {
     const argv = process.argv.slice(ARGUMENT_START);
-    if (wantsHelp(argv)) printUsage(USAGE);
-    else main(parseArguments(argv));
+    if (wantsHelp(argv)) {
+      printUsage(USAGE);
+    } else {
+      main(parseArguments(argv));
+    }
   } catch (error) {
     // A bad argument, a repository that is not one, a ref that does
     // not exist: none of them collected anything.

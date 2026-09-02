@@ -75,7 +75,9 @@ const MINIMUM_TESTS = 2;
  * @returns the realized test count, or undefined
  */
 function testsRun(reportFile: string): number | undefined {
-  if (!existsSync(reportFile)) return undefined;
+  if (!existsSync(reportFile)) {
+    return undefined;
+  }
   const { value } = strictJson(reportFile, readFileSync(reportFile, "utf8"));
   if (!isObject(value) || typeof value.numTotalTests !== "number") {
     return undefined;

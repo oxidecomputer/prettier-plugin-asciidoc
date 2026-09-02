@@ -304,14 +304,18 @@ describe("blockAnchor is its own node kind", () => {
   test("a standalone [[id]] line parses to a blockAnchor", () => {
     const [node] = parse("[[my-id]]\n").children;
     expect(node.type).toBe("blockAnchor");
-    if (node.type !== "blockAnchor") throw new Error("narrowed above");
+    if (node.type !== "blockAnchor") {
+      throw new Error("narrowed above");
+    }
     expect(node.id).toBe("my-id");
     expect(node.reftext).toBeUndefined();
   });
 
   test("[[id,reftext]] carries the reftext", () => {
     const [node] = parse("[[my-id,Ref Text]]\n").children;
-    if (node.type !== "blockAnchor") throw new Error(`got ${node.type}`);
+    if (node.type !== "blockAnchor") {
+      throw new Error(`got ${node.type}`);
+    }
     expect(node.reftext).toBe("Ref Text");
   });
 });

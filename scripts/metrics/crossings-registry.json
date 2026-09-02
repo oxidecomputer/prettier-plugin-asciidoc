@@ -198,14 +198,14 @@
   {
     "file": "src/parse/build/metadata.ts",
     "symbol": "buildBlockAnchor",
-    "importer": "src/parse/lines/frames.ts",
+    "importer": "src/parse/lines/held-metadata.ts",
     "kind": "vocabulary",
     "reason": "pure (line, index) -> Node constructor, in the held-metadata builder table"
   },
   {
     "file": "src/parse/build/metadata.ts",
     "symbol": "buildBlockAttributeList",
-    "importer": "src/parse/lines/frames.ts",
+    "importer": "src/parse/lines/held-metadata.ts",
     "kind": "vocabulary",
     "reason": "pure (line, index) -> Node constructor, in the held-metadata builder table"
   },
@@ -219,7 +219,7 @@
   {
     "file": "src/parse/build/metadata.ts",
     "symbol": "buildBlockTitle",
-    "importer": "src/parse/lines/frames.ts",
+    "importer": "src/parse/lines/held-metadata.ts",
     "kind": "vocabulary",
     "reason": "pure (line, index) -> Node constructor, in the held-metadata builder table"
   },
@@ -233,7 +233,7 @@
   {
     "file": "src/parse/build/metadata.ts",
     "symbol": "buildRawBlockLine",
-    "importer": "src/parse/lines/frames.ts",
+    "importer": "src/parse/lines/held-metadata.ts",
     "kind": "vocabulary",
     "reason": "pure (line, index) -> Node constructor for a line kept verbatim"
   },
@@ -477,13 +477,6 @@
   },
   {
     "file": "src/parse/line-shapes.ts",
-    "symbol": "ATTRIBUTE_ENTRY",
-    "importer": "src/parse/lines/list-reader.ts",
-    "kind": "vocabulary",
-    "reason": "registry pattern: a document attribute entry line"
-  },
-  {
-    "file": "src/parse/line-shapes.ts",
     "symbol": "BLOCK_ANCHOR",
     "importer": "src/block-metadata.ts",
     "kind": "vocabulary",
@@ -493,13 +486,6 @@
     "file": "src/parse/line-shapes.ts",
     "symbol": "BLOCK_ANCHOR",
     "importer": "src/parse/lines/classify.ts",
-    "kind": "vocabulary",
-    "reason": "registry pattern: a whole-line `[[id]]` anchor. The printer reads it at the one documented parse address, so the formatter and the parser cannot disagree about what a re-parsed anchor line means"
-  },
-  {
-    "file": "src/parse/line-shapes.ts",
-    "symbol": "BLOCK_ANCHOR",
-    "importer": "src/parse/lines/list-reader.ts",
     "kind": "vocabulary",
     "reason": "registry pattern: a whole-line `[[id]]` anchor. The printer reads it at the one documented parse address, so the formatter and the parser cannot disagree about what a re-parsed anchor line means"
   },
@@ -519,13 +505,6 @@
   },
   {
     "file": "src/parse/line-shapes.ts",
-    "symbol": "BLOCK_ATTRIBUTE_LINE",
-    "importer": "src/parse/lines/list-reader.ts",
-    "kind": "vocabulary",
-    "reason": "registry pattern: a `[...]` block attribute line"
-  },
-  {
-    "file": "src/parse/line-shapes.ts",
     "symbol": "BLOCK_MACRO",
     "importer": "src/parse/lines/classify.ts",
     "kind": "vocabulary",
@@ -535,13 +514,6 @@
     "file": "src/parse/line-shapes.ts",
     "symbol": "BLOCK_TITLE",
     "importer": "src/parse/lines/classify.ts",
-    "kind": "vocabulary",
-    "reason": "registry pattern: a `.Title` line"
-  },
-  {
-    "file": "src/parse/line-shapes.ts",
-    "symbol": "BLOCK_TITLE",
-    "importer": "src/parse/lines/list-reader.ts",
     "kind": "vocabulary",
     "reason": "registry pattern: a `.Title` line"
   },
@@ -603,6 +575,20 @@
   },
   {
     "file": "src/parse/line-shapes.ts",
+    "symbol": "INDENTED_PLUS",
+    "importer": "src/parse/lines/classify.ts",
+    "kind": "vocabulary",
+    "reason": "registry pattern: a line of nothing but indentation and a `+`, whose meaning an item-text dedent can change"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "LINE_COMMENT_HEAD",
+    "importer": "src/parse/lines/list-item-node.ts",
+    "kind": "vocabulary",
+    "reason": "the two characters `skip_line_comments` tests for - the scan side's one spelling of 'line comment', deliberately wider than the parse-side pattern"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
     "symbol": "LINE_COMMENT_HEAD",
     "importer": "src/parse/lines/paragraph-reader.ts",
     "kind": "vocabulary",
@@ -638,20 +624,6 @@
   },
   {
     "file": "src/parse/line-shapes.ts",
-    "symbol": "LITERAL_LINE",
-    "importer": "src/parse/lines/list-reader.ts",
-    "kind": "vocabulary",
-    "reason": "registry pattern: an indented literal line"
-  },
-  {
-    "file": "src/parse/line-shapes.ts",
-    "symbol": "LITERAL_LINE",
-    "importer": "src/parse/lines/paragraph-reader.ts",
-    "kind": "vocabulary",
-    "reason": "registry pattern: an indented literal line \u2014 inside a `+`-headed fold such a line keeps its own raw line, because a re-read hands it to a literal block's verbatim slurp"
-  },
-  {
-    "file": "src/parse/line-shapes.ts",
     "symbol": "PAGE_BREAK",
     "importer": "src/parse/lines/classify.ts",
     "kind": "vocabulary",
@@ -677,6 +649,13 @@
     "importer": "src/parse/lines/reader.ts",
     "kind": "vocabulary",
     "reason": "registry vocabulary: which paragraph shape is open, which is what selects an interrupting set"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "ParagraphContext",
+    "importer": "src/parse/lines/scope.ts",
+    "kind": "vocabulary",
+    "reason": "registry vocabulary: which interrupting set a paragraph is read under, the answer bodyContextIn returns"
   },
   {
     "file": "src/parse/line-shapes.ts",
@@ -709,9 +688,9 @@
   {
     "file": "src/parse/line-shapes.ts",
     "symbol": "ReaderContext",
-    "importer": "src/parse/lines/reader.ts",
+    "importer": "src/parse/lines/scope.ts",
     "kind": "vocabulary",
-    "reason": "the ONE declaration of the reader's state every line rule reads, declared beside the interrupting-set registry because both consumers - those rules and the classifier - sit at or below it; a second declaration up in the classifier is what `InterruptionOptions` was"
+    "reason": "registry vocabulary: the reader state every line rule is asked against, the value blockStartContextIn returns"
   },
   {
     "file": "src/parse/line-shapes.ts",
@@ -726,6 +705,20 @@
     "importer": "src/parse/lines/classify.ts",
     "kind": "vocabulary",
     "reason": "registry pattern: a thematic break line"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "conditionalDirective",
+    "importer": "src/parse/lines/list-reader.ts",
+    "kind": "vocabulary",
+    "reason": "registry reading: whether a line under an active continuation is a conditional directive, which the item scan's active arm treats as block metadata so the `+` is not spent on a line Ruby's parser never sees"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "conditionalDirective",
+    "importer": "src/parse/lines/scope.ts",
+    "kind": "vocabulary",
+    "reason": "registry reading: what a conditional directive line does to the reader's conditional stack, folded by directiveDepthAfter"
   },
   {
     "file": "src/parse/line-shapes.ts",
@@ -901,6 +894,20 @@
     "importer": "src/parse/lines/header-reader.ts",
     "kind": "vocabulary",
     "reason": "the span type the scan hands its builders"
+  },
+  {
+    "file": "src/parse/positions.ts",
+    "symbol": "Fragment",
+    "importer": "src/parse/lines/held-metadata.ts",
+    "kind": "vocabulary",
+    "reason": "the position vocabulary every builder takes: an image and the offset it was written at"
+  },
+  {
+    "file": "src/parse/positions.ts",
+    "symbol": "Fragment",
+    "importer": "src/parse/lines/split.ts",
+    "kind": "vocabulary",
+    "reason": "the position vocabulary every builder takes: an image and the offset it was written at"
   },
   {
     "file": "src/parse/positions.ts",

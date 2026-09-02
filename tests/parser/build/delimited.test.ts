@@ -55,6 +55,12 @@ function closedExtent(
   };
 }
 
+// What the reader hands a builder when no block-attribute line stood
+// above the block (`HeldMetadata.annotation` answered nothing). Named
+// rather than written out at each call so the rows read as "this one
+// carries no annotation" instead of as a hole in the argument list.
+const UNANNOTATED = undefined;
+
 // The role a bare `----` opener resolves to — the one every content
 // row below is measured with.
 const LISTING_ROLE = { builds: "leafBlock", variant: "listing" } as const;
@@ -62,6 +68,16 @@ const LISTING_ROLE = { builds: "leafBlock", variant: "listing" } as const;
 // The role a Markdown backtick fence resolves to, before the reader
 // completes it with the opening line's language hint.
 const FENCE_ROLE = { builds: "fencedBlock" } as const;
+
+// The two remaining verbatim roles, named for the annotation rows
+// below: every role a DelimitedBlockNode can come out of has to write
+// the annotation, so the rows enumerate them.
+const MASQUERADE_ROLE = {
+  builds: "masqueradedBlock",
+  variant: "verse",
+  sourceDelimiter: "quote",
+} as const;
+const TABLE_ROLE = { builds: "table" } as const;
 
 describe("buildVerbatimBlock variants", () => {
   test.each([
@@ -71,7 +87,12 @@ describe("buildVerbatimBlock variants", () => {
   ] as const)("%j opens a %j block", (open, variant) => {
     const { extent, at } = closedExtent(open, "code", open);
     expect(
-      buildVerbatimBlock(extent, { builds: "leafBlock", variant }, at),
+      buildVerbatimBlock(
+        extent,
+        { builds: "leafBlock", variant },
+        at,
+        UNANNOTATED,
+      ),
     ).toEqual({
       type: "delimitedBlock",
       variant,
@@ -87,7 +108,7 @@ describe("buildVerbatimBlock variants", () => {
   test("a fence with a language hint is a listing block that knows it", () => {
     const { extent, at } = closedExtent("```rust", "code", "```");
     const role = { ...FENCE_ROLE, language: "rust" } as const;
-    expect(buildVerbatimBlock(extent, role, at)).toMatchObject({
+    expect(buildVerbatimBlock(extent, role, at, UNANNOTATED)).toMatchObject({
       type: "delimitedBlock",
       variant: "listing",
       content: "code",
@@ -98,14 +119,16 @@ describe("buildVerbatimBlock variants", () => {
 
   test("a bare fence is fenced with no language", () => {
     const { extent, at } = closedExtent("```", "code", "```");
-    const node = buildVerbatimBlock(extent, FENCE_ROLE, at);
+    const node = buildVerbatimBlock(extent, FENCE_ROLE, at, UNANNOTATED);
     expect(node).toMatchObject({ variant: "listing", fenced: true });
     expect("language" in node).toBe(false);
   });
 
   test("`////` is a block comment, not a delimited block", () => {
     const { extent, at } = closedExtent("////", "hidden", "////");
-    expect(buildVerbatimBlock(extent, { builds: "comment" }, at)).toEqual({
+    expect(
+      buildVerbatimBlock(extent, { builds: "comment" }, at, UNANNOTATED),
+    ).toEqual({
       type: "comment",
       commentType: "block",
       value: "hidden",
@@ -117,10 +140,55 @@ describe("buildVerbatimBlock variants", () => {
   });
 });
 
+// The annotation is the builder's, not the caller's: it arrives as a
+// parameter and is written LAST in the node literal, so a node leaves
+// its builder finished. These rows hold both halves of that - the
+// key's POSITION on the wire (the contract the parse-level rows in
+// block-masquerade.test.ts pin from the other end) and the ABSENCE of
+// the key when nothing annotated the block, which is what
+// src/ast.ts's `annotatedBy?: string` declares.
+describe("buildVerbatimBlock annotation", () => {
+  test.each([
+    ["a leaf block", LISTING_ROLE],
+    ["a fence", FENCE_ROLE],
+    ["a masqueraded block", MASQUERADE_ROLE],
+    ["a table", TABLE_ROLE],
+  ] as const)("%s writes the annotation last", (_name, role) => {
+    const { extent, at } = closedExtent("----", "code", "----");
+    const node = buildVerbatimBlock(extent, role, at, "source,ruby");
+    expect(Object.keys(node).at(-1)).toBe("annotatedBy");
+    expect(node).toMatchObject({ annotatedBy: "source,ruby" });
+  });
+
+  test.each([
+    ["a leaf block", LISTING_ROLE],
+    ["a fence", FENCE_ROLE],
+    ["a masqueraded block", MASQUERADE_ROLE],
+    ["a table", TABLE_ROLE],
+  ] as const)("%s with no annotation carries no key", (_name, role) => {
+    const { extent, at } = closedExtent("----", "code", "----");
+    expect(
+      "annotatedBy" in buildVerbatimBlock(extent, role, at, UNANNOTATED),
+    ).toBe(false);
+  });
+
+  // A CommentNode declares no `annotatedBy` at all, so the annotation
+  // over a `////` block is dropped - the same answer the reader's own
+  // `node.type === "delimitedBlock"` guard gave before the parameter
+  // replaced it.
+  test("a block comment drops the annotation", () => {
+    const { extent, at } = closedExtent("////", "hidden", "////");
+    const node = buildVerbatimBlock(extent, { builds: "comment" }, at, "note");
+    expect("annotatedBy" in node).toBe(false);
+  });
+});
+
 describe("buildVerbatimBlock content", () => {
   test("keeps the blank lines inside, and stops before the terminator", () => {
     const { extent, at } = closedExtent("----", "a\n\nb", "----");
-    expect(buildVerbatimBlock(extent, LISTING_ROLE, at)).toMatchObject({
+    expect(
+      buildVerbatimBlock(extent, LISTING_ROLE, at, UNANNOTATED),
+    ).toMatchObject({
       content: "a\n\nb",
     });
   });
@@ -137,6 +205,7 @@ describe("buildVerbatimBlock content", () => {
       },
       LISTING_ROLE,
       makeLocationIndex(source),
+      UNANNOTATED,
     );
     expect(node).toMatchObject({ content: "" });
   });
@@ -153,6 +222,7 @@ describe("buildVerbatimBlock content", () => {
       },
       LISTING_ROLE,
       makeLocationIndex(source),
+      UNANNOTATED,
     );
     expect(node).toMatchObject({
       content: "code",
@@ -177,6 +247,7 @@ describe("buildVerbatimBlock content", () => {
       },
       LISTING_ROLE,
       makeLocationIndex(source),
+      UNANNOTATED,
     );
     expect(node).toMatchObject({
       content: "code",
@@ -199,6 +270,7 @@ describe("buildVerbatimBlock content", () => {
       },
       LISTING_ROLE,
       makeLocationIndex(source),
+      UNANNOTATED,
     );
     expect(node).toMatchObject({
       content: "code",

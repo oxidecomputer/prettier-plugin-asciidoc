@@ -122,8 +122,43 @@ describe("a live metadata tail keeps its two-blank detachment", () => {
   });
 });
 
+// Where the SCAN's half of `detachedTail` comes from: the pop, over
+// the buffer's tail, and not the item's separator roles read flat.
+//
+// In both rows the record holds a blank and a `detached` `+`, so a
+// rule reading the last `+` of that record answers TRUE - but the run
+// is CLOSED, by a line the item read after it, and flattening the
+// runs is exactly what loses that. The pop walks the BUFFER instead,
+// breaks on the content cell the block became, and reports nothing
+// (`ItemExtent.erasedTailContinuation` is false here). The `+` stands
+// between the item's text and that block, where the gap already
+// replays it; a flat rule would have the item write the erased tail
+// back as well and print a second `+` the source never had - measured
+// at 4 characters of difference on the first row.
+//
+// What these rows do NOT pin is the block-shape conjunct
+// (`endsInPlusParagraph`, src/parse/lines/list-item-node.ts): with
+// the scan's half already false, the conjunct changes nothing here.
+// The row that holds it is "behind an attached paragraph" below.
+describe("a detached + a block closed is not a detached TAIL", () => {
+  test.each([
+    ["a comment closes the run", "* a\n\n+\n// c\n", "* a\n\n+\n// c\n"],
+    [
+      "and a paragraph closes it the same way",
+      "* a\n\n+\npara\n",
+      "* a\n\n+\npara\n",
+    ],
+  ])("%s", async (_name, input, expected) => {
+    const out = await formatAdoc(input);
+    expect(out).toBe(expected);
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+});
+
 // The same live tail, inside an item that ALSO holds a nested list.
-// `finish()`'s l.1576 erase runs with no `within_nested_list` guard,
+// the post-loop's `buffer[detached_continuation]` erase (parser.rb l.1576)
+// runs with no `within_nested_list` guard,
 // so the detached `+` still reaches the output through the gap record
 // and a re-read still activates through the metadata below it — the
 // two blanks are what keep the paragraph OUT of the item, and
@@ -372,9 +407,106 @@ describe("a +-headed paragraph folds marker lines", () => {
 // The erased tail is dropped everywhere it shields nothing: behind an
 // ordinary attached block the re-read pops nothing that renders, so
 // the bytes stay gone.
+//
+// This row is where `endsInPlusParagraph` earns its keep, and it is
+// the one the conjunct decides: the pop DID take the erased shield
+// here (`ItemExtent.erasedTailContinuation` is true), and dropping
+// the conjunct alone makes the item print the tail back -
+// `"* a\n+\npara\n\n+\n"` instead of `"* a\n+\npara\n"`, measured.
+// Render-equal either way, which is why the guarantee it carries is
+// byte fidelity: the item does not write back a shield with nothing
+// to shield.
 describe("an erased tail behind an ordinary block stays dropped", () => {
   test.each([
     ["behind an attached paragraph", "* a\n+\npara\n\n+\n", "* a\n+\npara\n"],
+  ])("%s", async (_name, input, expected) => {
+    const out = await formatAdoc(input);
+    expect(out).toBe(expected);
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+});
+
+// The stopper an inner item ends on is an ENCLOSING scan's blanked
+// `+`: the outer item's detached `+` became Ruby's Placeholder after
+// its own loop (parser.rb l.1576) and the inner scan's after-blank arm
+// hard-stops on it. The enclosing gap replays that run around this
+// item's tail, so a `+` printed here comes back shielded by exactly
+// the bytes the source put there. The second row is where the answer
+// is byte-observable: with the stopper read as an ordinary line the
+// item drops the `+` the source wrote.
+describe("an item that ends on an enclosing scan's erased +", () => {
+  test.each([
+    ["the run alone", "* a\n** b\n+\n+\n\n+\n", "* a\n** b\n+\n"],
+    [
+      "with a block under the shield",
+      "* a\n** b\n+\n+\n\n+\npara\n",
+      "* a\n** b\n+\n+\n\n+\npara\n",
+    ],
+  ])("%s", async (_name, input, expected) => {
+    const out = await formatAdoc(input);
+    expect(out).toBe(expected);
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+});
+
+// The `within_nested_list` fold (parser.rb l.1412-14, l.1439) and the
+// callout marker that opens a NEW list under a popped `+`: two
+// neighbourhoods whose bytes are decided by the separator ROLE the
+// reading arm records and by what `tailPrintsInert` says about the
+// line the item stopped on. Neither is decided by directive
+// transparency, and every row here already held before that work; they
+// are committed as the guard that it moved none of them.
+//
+// The first five are documents an earlier reading core wrote back and
+// a line-by-line walk did not; the last three are the callout shapes,
+// where the answer turns on a marker that opens a NEW list being
+// written under a blank line - so a `+` above it would arm and attach
+// what follows, and `* a` / `+` / `+` / blank / `<1> n` renders its
+// colist OUTSIDE the item.
+describe("the fold facts and the new-list marker keep their answers", () => {
+  test.each([
+    [
+      "a dlist term under an attached +",
+      "* a\n+\nterm:: def\n+\n+\n",
+      "* a\n+\nterm:: def\n+\n+\n",
+    ],
+    [
+      "a dlist term after a blank",
+      "* a\n\nterm:: def\n+\n+\n",
+      "* a\n\nterm:: def\n+\n+\n",
+    ],
+    [
+      "a dlist term under block metadata",
+      "* a\n[role]\nterm:: def\n+\n+\n",
+      "* a\n[role]\nterm:: def\n+\n+\n",
+    ],
+    [
+      "a detached run between two nested lists",
+      "* a\n** b\n\n+\n+\n** b\n",
+      "* a\n** b\n\n+\n+\n** b\n",
+    ],
+    [
+      "a nested marker the item's own paragraph swallowed",
+      "* a\n+\npara\n** b\n+\n+\n",
+      "* a\n+\npara\n** b\n+\n+\n",
+    ],
+    [
+      "an anchor ends the pair's block above a callout",
+      "* a\n+\n+\n[[anc]]\npara\n<1> n\n",
+      "* a\n+\n+\n[[anc]]\npara\n<1> n\n",
+    ],
+    [
+      "a block attribute line does the same",
+      "* a\n+\n+\n[role]\npara\n<1> n\n",
+      "* a\n+\n+\n[role]\npara\n<1> n\n",
+    ],
+    [
+      "a callout under the frozen pair takes both bytes",
+      "* a\n+\n+\n\n<1> n\n",
+      "* a\n\n<1> n\n",
+    ],
   ])("%s", async (_name, input, expected) => {
     const out = await formatAdoc(input);
     expect(out).toBe(expected);

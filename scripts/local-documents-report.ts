@@ -153,7 +153,9 @@ export function reportLines(
     ...familyTable("unassessed checks", summary.unassessed),
     ...failingDocuments(summary.failures, limit),
   ];
-  if (summary.failing === 0) lines.push(cleanHeadline(summary));
+  if (summary.failing === 0) {
+    lines.push(cleanHeadline(summary));
+  }
   lines.push(...slowestLine(summary.slowest), ...largestLine(summary.largest));
   return lines;
 }
@@ -165,7 +167,9 @@ export function reportLines(
  * @returns the heading and one line per roll, or no lines at all
  */
 function familyTable(heading: string, family: readonly FamilyRoll[]): string[] {
-  if (family.length === 0) return [];
+  if (family.length === 0) {
+    return [];
+  }
   return [
     `local-docs: ${heading}:`,
     ...family.map(
@@ -185,7 +189,9 @@ function failingDocuments(
   failures: readonly CheckResult[],
   limit: number,
 ): string[] {
-  if (failures.length === 0) return [];
+  if (failures.length === 0) {
+    return [];
+  }
   const shown = failures.slice(0, limit);
   const heading =
     shown.length === failures.length
@@ -231,7 +237,9 @@ function cleanHeadline(summary: LocalDocumentsSummary): string {
  *   assessed
  */
 function unassessedNote(summary: LocalDocumentsSummary): string {
-  if (summary.unassessed.length === 0) return "";
+  if (summary.unassessed.length === 0) {
+    return "";
+  }
   const spelled = summary.unassessed
     .map((roll) => `${String(roll.documents.length)} ${roll.family}`)
     .join(", ");
@@ -246,7 +254,9 @@ function unassessedNote(summary: LocalDocumentsSummary): string {
  * @returns the line, or nothing when the run measured no documents
  */
 function slowestLine(slowest: readonly DocumentTime[]): string[] {
-  if (slowest.length === 0) return [];
+  if (slowest.length === 0) {
+    return [];
+  }
   const spelled = slowest
     .map((one) => `${one.id} ${String(one.elapsed)} ms`)
     .join(", ");
@@ -262,7 +272,9 @@ function slowestLine(slowest: readonly DocumentTime[]): string[] {
  * @returns the line, or nothing when the run measured no documents
  */
 function largestLine(largest: readonly DocumentSize[]): string[] {
-  if (largest.length === 0) return [];
+  if (largest.length === 0) {
+    return [];
+  }
   const spelled = largest
     .map((one) => `${one.id} ${String(one.size)} chars`)
     .join(", ");

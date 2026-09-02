@@ -286,10 +286,10 @@ describe("classifyLine inside an open paragraph", () => {
       }),
     ).toEqual({ kind: "text" });
   });
-  test("a block anchor right after a list item's text stays raw", () => {
+  test("a block anchor in the item's first block stays raw", () => {
     const reader: ReaderContext = {
       ...BLOCK_START_CONTEXT,
-      openParagraph: "listItem",
+      openParagraph: "listItemText",
       firstLineAfterStart: true,
     };
     expect(classifyLine("[[a]]", reader)).toEqual({

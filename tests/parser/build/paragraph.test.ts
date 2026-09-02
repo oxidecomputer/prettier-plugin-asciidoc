@@ -13,10 +13,16 @@ import {
   buildAdmonitionParagraph,
   buildLiteralParagraph,
   buildParagraph,
+  buildParagraphFormBlock,
   buildRawLineParagraph,
+  buildStyledParagraph,
 } from "../../../src/parse/build/paragraph.js";
 import type { InlineToken } from "../../../src/parse/inline/tokens.js";
 import { makeLocationIndex } from "../../../src/parse/positions.js";
+
+// What the reader hands a builder when no block-attribute line stood
+// above the block (`HeldMetadata.annotation` answered nothing).
+const UNANNOTATED = undefined;
 
 /**
  * One inline text token at a document offset.
@@ -126,6 +132,7 @@ describe("buildLiteralParagraph", () => {
         { image: "  c", offset: 9 },
       ],
       makeLocationIndex(source),
+      UNANNOTATED,
     );
     expect(node).toEqual({
       type: "delimitedBlock",
@@ -145,11 +152,58 @@ describe("buildLiteralParagraph", () => {
         { image: "  a", offset: 0 },
         [],
         makeLocationIndex("  a\n"),
+        UNANNOTATED,
       ).position,
     ).toEqual({
       start: { offset: 0, line: 1, column: 1 },
       end: { offset: 3, line: 1, column: 4 },
     });
+  });
+});
+
+// The annotation arrives as a parameter and is written LAST, so a node
+// leaves its builder finished; these rows hold the key's position on
+// the wire and its ABSENCE when nothing annotated the block. The two
+// style-driven builders take it inside the held-style parameter, which
+// is the four-parameter cap's doing and not a difference in the fact.
+describe("paragraph-shaped annotations", () => {
+  const at = makeLocationIndex("  a\n");
+  const first = { image: "  a", offset: 0 };
+  const built = [
+    [
+      "buildLiteralParagraph",
+      (a: string | undefined) => buildLiteralParagraph(first, [], at, a),
+    ],
+    [
+      "buildStyledParagraph",
+      (a: string | undefined) =>
+        buildStyledParagraph(
+          { variant: "listing", annotatedBy: a },
+          first,
+          [],
+          at,
+        ),
+    ],
+    [
+      "buildParagraphFormBlock",
+      (a: string | undefined) =>
+        buildParagraphFormBlock(
+          { variant: "listing", annotatedBy: a },
+          [text("a", 2)],
+          "  a\n",
+          at,
+        ),
+    ],
+  ] as const;
+
+  test.each(built)("%s writes the annotation last", (_name, build) => {
+    const node = build("source,ruby");
+    expect(Object.keys(node).at(-1)).toBe("annotatedBy");
+    expect(node).toMatchObject({ annotatedBy: "source,ruby" });
+  });
+
+  test.each(built)("%s with no annotation carries no key", (_name, build) => {
+    expect("annotatedBy" in build(UNANNOTATED)).toBe(false);
   });
 });
 

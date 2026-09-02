@@ -27,11 +27,15 @@ function firstListing(source: string): DelimitedBlockNode {
   const queue: BlockNode[] = [...parse(source).children];
   while (queue.length > 0) {
     const node = queue.shift();
-    if (node === undefined) break;
+    if (node === undefined) {
+      break;
+    }
     if (node.type === "delimitedBlock" && node.variant === "listing") {
       return node;
     }
-    if (node.type === "parentBlock") queue.push(...node.children);
+    if (node.type === "parentBlock") {
+      queue.push(...node.children);
+    }
   }
   throw new Error(`no listing in ${JSON.stringify(source)}`);
 }

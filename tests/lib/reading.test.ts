@@ -97,13 +97,35 @@ describe("the reading of a document", () => {
     expect(readingOf(source)).toEqual(expected);
   });
 
+  // EVERY lone `+` projects to `cont`, whatever the reader made of
+  // it. Two of these three used to project to nothing at all: the one
+  // the extent scan consumes never reaches `classifyLine`, and the one
+  // the reader ERASES comes back as a blank. Both were invisible, so a
+  // formatter that deleted the `+` moved no token and the invariant
+  // held vacuously - which is why `lone-plus-join` could sit in the
+  // family enumeration for months with no rows in it.
+  test.each([
+    ["a + between blocks", "para\n\n+\n\npara\n", 1],
+    ["a + the extent scan consumes", "* a\n+\npara\n", 1],
+    ["a + run the reader erases", "* a\n+\n+\n\npara\n", 2],
+  ])("%s projects to a cont", (_name, source, expected) => {
+    const conts = readingOf(source).filter((token) => token === "cont");
+    expect(conts).toHaveLength(expected);
+  });
+
   // `textv` is the verbatim-flagged foreign marker line. Its COLUMN
   // decides what the next `+` means, so it must NOT fold onto `text`:
   // its disappearance has to move the sequence.
+  //
+  // The `cont` in the middle is the `+` itself, and it is what the
+  // reader ERASED: before every lone `+` projected to a token, this
+  // document read with the `+` missing altogether, which is exactly
+  // the blindness the token was added to end.
   test("a foreign marker line inside a +-attached paragraph stays textv", () => {
     expect(readingOf("* a\nX\n// c\n+\npara\n** b\n")).toEqual([
       "marker:unordered:*",
       "raw:comment",
+      "cont",
       "text",
       "textv",
     ]);
@@ -311,18 +333,12 @@ describe("the known-issue table, projection side", () => {
       "class Dog\n\n  def initialize breed\n\nend\n",
       "[] -> [indented text]",
     ],
-    [
-      "#65 (tail-reading-flip): a join flips a trailing indented line to paragraph text",
-      "* a\n[role]\npara\npara\n[[anc]]\n  lit\n",
-      "* a\n[role]\npara para\n[[anc]]\n  lit\n",
-      "[indented] -> [text]",
-    ],
-    [
-      "#65 (tail-reading-flip): a join flips a trailing .T from block title to text",
-      "* a\n[role]\npara\npara\n[[anc]]\n.T\n",
-      "* a\n[role]\npara para\n[[anc]]\n.T\n",
-      "[title] -> [text]",
-    ],
+    // Two #65 rows stood here, both pairing an item whose second
+    // block's anchor was read as that block's metadata against the
+    // joined spelling it produced. The anchor now ends any block
+    // after the item's first, so the two spellings read ALIKE and
+    // the pair has no signature left to assert. The shapes are kept
+    // as clean-reading rows in tests/format/reading-invariant.test.ts.
   ])("%s", (_name, clean, corrupted, signature) => {
     expect(diffSignature(readingOf(clean), readingOf(corrupted))).toBe(
       signature,

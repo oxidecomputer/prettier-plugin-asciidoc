@@ -131,8 +131,12 @@ export interface FoundDocument {
  * @returns negative, zero or positive, as a comparator wants
  */
 function byCodePoint(left: string, right: string): number {
-  if (left < right) return -1;
-  if (left > right) return 1;
+  if (left < right) {
+    return -1;
+  }
+  if (left > right) {
+    return 1;
+  }
   return 0;
 }
 
@@ -171,10 +175,16 @@ function walk(root: string, prefix: string): FoundDocument[] {
   const here = prefix === "" ? root : path.join(root, prefix);
   return readdirSync(here, { withFileTypes: true }).flatMap((entry) => {
     const { name } = entry;
-    if (entry.isSymbolicLink() || name.startsWith(".")) return [];
+    if (entry.isSymbolicLink() || name.startsWith(".")) {
+      return [];
+    }
     const id = prefix === "" ? name : path.posix.join(prefix, name);
-    if (entry.isDirectory()) return walk(root, id);
-    if (!entry.isFile() || !name.endsWith(DOCUMENT_EXTENSION)) return [];
+    if (entry.isDirectory()) {
+      return walk(root, id);
+    }
+    if (!entry.isFile() || !name.endsWith(DOCUMENT_EXTENSION)) {
+      return [];
+    }
     return [{ id, file: path.join(root, id) }];
   });
 }
@@ -251,7 +261,9 @@ function settled(
     into.unassessed.push("idempotence");
     return;
   }
-  if (reformat.value === first) return;
+  if (reformat.value === first) {
+    return;
+  }
   into.failures.push("idempotence");
   into.details.push("the second format pass changed the output");
 }
@@ -283,7 +295,9 @@ function rendered(attempts: Attempts, into: Accumulator): void {
     );
     return;
   }
-  if (renderOutput.value === renderInput.value) return;
+  if (renderOutput.value === renderInput.value) {
+    return;
+  }
   into.failures.push("render");
   into.details.push("Asciidoctor renders the formatted output differently");
 }

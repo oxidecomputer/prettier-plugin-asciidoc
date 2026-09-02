@@ -148,25 +148,53 @@ function spanOf(
 }
 
 /**
+ * The bracket interior of the block-attribute line released directly
+ * above a block, as the reader recorded it (`HeldMetadata.annotation`,
+ * lines/held-metadata.ts), or undefined when nothing annotated the
+ * block, as the key to write LAST into a node literal - so a node
+ * leaves its builder finished and nothing assigns a field afterwards.
+ *
+ * ONE body, declared HERE and imported by build/paragraph.ts, because
+ * every builder that takes an annotation returns a
+ * `DelimitedBlockNode` and this is the module that builds that node
+ * kind. The rule it encodes is the wire format's: an absent key and a
+ * key holding `undefined` serialize alike but are not the same
+ * object, and src/ast.ts declares the field ABSENT when nothing
+ * annotated the block. A rule about the wire belongs in one place -
+ * two copies kept in step by a prose cross-reference is how the two
+ * spellings drift apart.
+ *
+ * The conditional spread is the same device `language` uses below.
+ * @param annotatedBy - the recorded annotation, or undefined
+ * @returns the key to spread last into a node literal
+ */
+export function annotation(annotatedBy: string | undefined): {
+  annotatedBy?: string;
+} {
+  return annotatedBy === undefined ? {} : { annotatedBy };
+}
+
+/**
  * A block opened by its own leaf delimiter — `----`, `....`, `++++`.
  *
  * Key order is part of parity's no-change claim (pinned by the
  * key-order rows in tests/parser/block-masquerade.test.ts), so every
  * literal in this file writes its keys in wire order and assigns
- * nothing after construction. The one declared exception is
- * `annotatedBy`, which lines/reader.ts stamps afterwards and which
- * therefore trails `position` — admissible only because the parity
- * fold drops that key before digesting (scripts/parity.ts), so its
- * position never enters the comparison.
+ * nothing after construction. `annotatedBy` trails `position`
+ * because the reader's old post-construction stamp put it there;
+ * writing it last in the literal keeps the wire order the pinned rows
+ * expect.
  * @param extent - where the block opened and closed
  * @param variant - which leaf delimiter opened it
  * @param at - the document's location index
+ * @param annotatedBy - the annotation the reader recorded, if any
  * @returns the leaf block node
  */
 function buildLeafBlock(
   extent: BlockExtent,
   variant: LeafDelimiterVariant,
   at: LocationIndex,
+  annotatedBy: string | undefined,
 ): DelimitedBlockNode {
   return {
     type: "delimitedBlock",
@@ -174,6 +202,7 @@ function buildLeafBlock(
     form: "delimited",
     content: interiorOf(extent),
     position: spanOf(extent, at),
+    ...annotation(annotatedBy),
   };
 }
 
@@ -181,16 +210,27 @@ function buildLeafBlock(
  * A block from a Markdown-style backtick fence. `fenced` and
  * `language` follow `position` in the literal because that is where
  * the old post-construction assignments put them on the wire.
+ *
+ * The hint arrives INSIDE the role, the way the masquerade's two
+ * halves do below: `language` and `annotatedBy` are both
+ * `string | undefined`, so as two loose positional slots a caller
+ * could swap them and the compiler would agree. The role carries the
+ * one the open resolved, which leaves a single slot of that type in
+ * the signature.
  * @param extent - where the fence opened and closed
- * @param language - the hint the opening line carried, if any
+ * @param fence - the role arm the open resolved, carrying the hint
+ *   the opening line had
  * @param at - the document's location index
+ * @param annotatedBy - the annotation the reader recorded, if any
  * @returns the fenced block node
  */
 function buildFencedBlock(
   extent: BlockExtent,
-  language: string | undefined,
+  fence: Extract<VerbatimRole, Record<"builds", "fencedBlock">>,
   at: LocationIndex,
+  annotatedBy: string | undefined,
 ): DelimitedBlockNode {
+  const { language } = fence;
   return {
     type: "delimitedBlock",
     variant: "listing",
@@ -199,6 +239,7 @@ function buildFencedBlock(
     position: spanOf(extent, at),
     fenced: true,
     ...(language === undefined ? {} : { language }),
+    ...annotation(annotatedBy),
   };
 }
 
@@ -206,25 +247,33 @@ function buildFencedBlock(
  * A parent block a held style re-modeled to verbatim content: the
  * variant the style named, and the parent delimiter it re-modeled so
  * the printer emits that spelling back.
+ *
+ * The masquerade travels as ONE parameter - the role's own arm -
+ * because the linter caps a builder at four and the annotation needs
+ * the fourth. The two halves were never separable anyway: the role
+ * declares them together and the open resolves them together, which
+ * is why {@link buildDelimitedAdmonition}'s `rename` has the same
+ * shape.
  * @param extent - where the block opened and closed
- * @param variant - the variant the style named
- * @param sourceDelimiter - the parent delimiter it re-modeled
+ * @param masquerade - the role arm the open resolved
  * @param at - the document's location index
+ * @param annotatedBy - the annotation the reader recorded, if any
  * @returns the masqueraded block node
  */
 function buildMasqueradedBlock(
   extent: BlockExtent,
-  variant: VerbatimVariant,
-  sourceDelimiter: ParentBlockNode["variant"],
+  masquerade: Extract<VerbatimRole, Record<"builds", "masqueradedBlock">>,
   at: LocationIndex,
+  annotatedBy: string | undefined,
 ): DelimitedBlockNode {
   return {
     type: "delimitedBlock",
-    variant,
+    variant: masquerade.variant,
     form: "delimited",
     content: interiorOf(extent),
-    sourceDelimiter,
+    sourceDelimiter: masquerade.sourceDelimiter,
     position: spanOf(extent, at),
+    ...annotation(annotatedBy),
   };
 }
 
@@ -270,11 +319,13 @@ export function buildBlockComment(
  * tests/parser/table.test.ts and tests/format/table.test.ts).
  * @param extent - where the block opened and closed
  * @param at - the document's location index
+ * @param annotatedBy - the annotation the reader recorded, if any
  * @returns the table node
  */
 function buildTableBlock(
   extent: BlockExtent,
   at: LocationIndex,
+  annotatedBy: string | undefined,
 ): DelimitedBlockNode {
   const { open, close, contentEnd, end, source } = extent;
   // A table passes through opaque: the delimiter lines ARE content —
@@ -290,6 +341,7 @@ function buildTableBlock(
     form: "delimited",
     content: source.slice(open.offset, rawEnd),
     position: spanOf(extent, at),
+    ...annotation(annotatedBy),
   };
 }
 
@@ -303,31 +355,32 @@ function buildTableBlock(
  * @param extent - where the block opened and closed
  * @param role - what the opening line resolved to build
  * @param at - the document's location index
+ * @param annotatedBy - the annotation the reader recorded, if any
  * @returns the node the role names
  */
 export function buildVerbatimBlock(
   extent: BlockExtent,
   role: VerbatimRole,
   at: LocationIndex,
+  annotatedBy: string | undefined,
 ): DelimitedBlockNode | CommentNode {
   if (role.builds === "comment") {
+    // A CommentNode declares no `annotatedBy` (src/ast.ts), so an
+    // annotation over a `////` block is dropped here - exactly what
+    // the reader's own `node.type === "delimitedBlock"` guard did
+    // before this parameter replaced it.
     return buildBlockComment(extent, at);
   }
   if (role.builds === "table") {
-    return buildTableBlock(extent, at);
+    return buildTableBlock(extent, at, annotatedBy);
   }
   if (role.builds === "fencedBlock") {
-    return buildFencedBlock(extent, role.language, at);
+    return buildFencedBlock(extent, role, at, annotatedBy);
   }
   if (role.builds === "masqueradedBlock") {
-    return buildMasqueradedBlock(
-      extent,
-      role.variant,
-      role.sourceDelimiter,
-      at,
-    );
+    return buildMasqueradedBlock(extent, role, at, annotatedBy);
   }
-  return buildLeafBlock(extent, role.variant, at);
+  return buildLeafBlock(extent, role.variant, at, annotatedBy);
 }
 
 /**

@@ -223,7 +223,9 @@ function computeMasqueradeDelimiter(
 export function hasPrecedingLanguageAttribute(
   node: DelimitedBlockNode,
 ): boolean {
-  if (node.fenced !== true) return false;
+  if (node.fenced !== true) {
+    return false;
+  }
   const expectedValue =
     node.language === undefined ? "source" : `source,${node.language}`;
   return node.annotatedBy === expectedValue;
@@ -342,9 +344,13 @@ function maxDescendantDelimiter(
 ): number {
   let max = 0;
   for (const child of children) {
-    if (child.type !== "parentBlock" && child.type !== "admonition") continue;
+    if (child.type !== "parentBlock" && child.type !== "admonition") {
+      continue;
+    }
     const childVariant = delimiterVariantOf(child);
-    if (childVariant === undefined) continue; // paragraph-form admonition
+    if (childVariant === undefined) {
+      continue;
+    } // paragraph-form admonition
     // Recurse regardless of variant — same-variant blocks might be
     // nested deeper; a same-variant child then needs at least the
     // minimum plus whatever its own nesting requires.
@@ -371,7 +377,9 @@ function maxDescendantDelimiter(
 function delimiterVariantOf(
   child: BlockNode,
 ): ParentBlockNode["variant"] | undefined {
-  if (child.type === "parentBlock") return child.variant;
+  if (child.type === "parentBlock") {
+    return child.variant;
+  }
   if (child.type === "admonition" && child.form !== "paragraph") {
     return child.form;
   }

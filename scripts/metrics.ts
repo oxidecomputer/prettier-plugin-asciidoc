@@ -254,7 +254,9 @@ function printTable(head: Snapshot, base: Snapshot | undefined): void {
  * @param head - the snapshot for this checkout
  */
 function printOffenders(head: Snapshot): void {
-  if (head.cyclomaticOver.length === ZERO) return;
+  if (head.cyclomaticOver.length === ZERO) {
+    return;
+  }
   const { cyclomatic: tail } = tails();
   const lines = head.cyclomaticOver.map(
     (offender) =>
@@ -276,7 +278,9 @@ function printOffenders(head: Snapshot): void {
  * @param head - the snapshot for this checkout
  */
 function printContractNote(head: Snapshot): void {
-  if (head.seams.some((seam) => seam.kind === "contract")) return;
+  if (head.seams.some((seam) => seam.kind === "contract")) {
+    return;
+  }
   process.stdout.write(
     "\nno CONTRACT rows: src declares no interface an implementer satisfies, so there is no width to budget (scripts/metrics/design.ts says why, and when the rows come back)\n",
   );
@@ -297,7 +301,9 @@ function printContractNote(head: Snapshot): void {
  *   which case the pins do not describe the measured checkout
  */
 async function printCensus(foreignRoot: boolean): Promise<void> {
-  if (foreignRoot) return;
+  if (foreignRoot) {
+    return;
+  }
   const { censusPins } = await import("./metrics/shape-census.js");
   const lines = censusPins().map(
     ({ what, realized, pinned }) =>
@@ -339,7 +345,9 @@ interface UnreadGate {
  * @returns the printable report and one gate failure per unread field
  */
 async function unreadFields(foreignRoot: boolean): Promise<UnreadGate> {
-  if (foreignRoot) return { report: "", failures: [] };
+  if (foreignRoot) {
+    return { report: "", failures: [] };
+  }
   const { unreadPublishedFields } = await import("./metrics/unread-fields.js");
   const { candidates, unscanned, examined } = unreadPublishedFields(REPO_ROOT);
   const lines = candidates.map(
@@ -427,7 +435,9 @@ function applyOption(
       return { ...options, base: value };
     }
     case "--root": {
-      if (value === undefined) return options;
+      if (value === undefined) {
+        return options;
+      }
       return { ...options, root: path.resolve(value), foreignRoot: true };
     }
     case "--json": {
@@ -465,7 +475,9 @@ function parseArguments(argv: string[]): Options {
     const value = TAKES_VALUE.has(name)
       ? (inline ?? nextValue(rest, name))
       : undefined;
-    if (value === "") throw new Error(`${name} needs a value`);
+    if (value === "") {
+      throw new Error(`${name} needs a value`);
+    }
     options = applyOption(options, name, value);
   }
   return options;

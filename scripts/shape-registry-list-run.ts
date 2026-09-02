@@ -86,7 +86,7 @@ const FOLLOWER_CODAS: ReadonlyArray<{
  * gP27–gP32). Per-entry family: an attrlist/anchor/comment tail is
  * the declared byte-change class (respelling); a pseudo tail is a
  * live-corruption member; a title tail is the unchanged CONTROL
- * (gP27 — the base already emits the keepBreak spelling).
+ * (gP27 - the base already emits the held-break spelling).
  */
 const PLUS_RUN_TAILS: ReadonlyArray<{
   readonly id: string;
@@ -251,7 +251,9 @@ export function listRunGrid(): Shape[] {
     }
   }
   for (const container of CONTAINERS) {
-    if (!RUN_CONTAINER_IDS.has(container.id)) continue;
+    if (!RUN_CONTAINER_IDS.has(container.id)) {
+      continue;
+    }
     rows.push({
       id: `composed/pseudo-run/${container.id}`,
       input: container.wrap("* a\npara\n[role]\n[[3-bad]]"),

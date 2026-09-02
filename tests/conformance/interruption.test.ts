@@ -125,9 +125,16 @@ function blockCount(html: string): number {
 // paragraph for the count to grow out of.
 // `literalParagraph`'s prefix is an indented line, which is the only
 // way to open one (`next_block`'s `indented && !style` branch).
+// `listItemText` is the item's FIRST block, so its prefix is the
+// marker line alone; `listItem` is a LATER block, so its prefix must
+// spend the first one first. A block macro is what spends it: it
+// gives `next_block` an image block, which `fold_first` refuses
+// (parser.rb l.1384 folds a `:paragraph` alone), so `para line`
+// below it opens a second block rather than continuing the first.
 const CONTEXT_PREFIX: Record<ParagraphContext, string> = {
   paragraph: "first line",
-  listItem: "* item",
+  listItemText: "* item",
+  listItem: "* item\nimage::a.png[]\npara line",
   listContinuation: "* item\n+\npara line",
   dlistItem: "term1:: desc",
   literalParagraph: "  indented first",
@@ -144,6 +151,7 @@ const CONTEXT_PREFIX: Record<ParagraphContext, string> = {
 // be told which one that is.
 const CONTEXT_LIST_STYLE: Record<ParagraphContext, string | undefined> = {
   paragraph: undefined,
+  listItemText: undefined,
   listItem: undefined,
   listContinuation: "*",
   dlistItem: undefined,
@@ -193,6 +201,7 @@ async function oracleInterrupts(
 // suites below cannot drift into probing different sets.
 const ALL_CONTEXTS: ParagraphContext[] = [
   "paragraph",
+  "listItemText",
   "listItem",
   "listContinuation",
   "dlistItem",
@@ -521,20 +530,24 @@ describe("raw (non-text, non-interrupting) paragraph lines", () => {
   );
 
   // The block anchor is the one raw shape that depends on position:
-  // directly after a list item's text it is metadata for a block
-  // `fold_first` merges away, so the oracle emits no id and the
-  // formatter must keep the line verbatim. One line further down the
-  // anchor keeps its id, so it interrupts instead.
-  test("a block anchor is raw only directly after a list item's text", () => {
+  // in the block `fold_first` merges away it is that block's own
+  // metadata, so the oracle emits no id and the formatter must keep
+  // the line verbatim. One line further down the anchor keeps its id,
+  // so it interrupts instead, and in every LATER block of the item
+  // it interrupts wherever it stands, there being a first block
+  // already.
+  test("a block anchor is raw only inside the item's first block", () => {
     const first: ReaderContext = {
-      openParagraph: "listItem",
+      openParagraph: "listItemText",
       openListStyle: undefined,
       firstLineAfterStart: true,
     };
-    expect(isRawParagraphLine("[[a]]", "listItem", first)).toBe(true);
-    expect(isRawParagraphLine("[[a]]", "listItem")).toBe(false);
-    expect(interruptsParagraph("[[a]]", "listItem", first)).toBe(false);
-    expect(interruptsParagraph("[[a]]", "listItem")).toBe(true);
+    expect(isRawParagraphLine("[[a]]", "listItemText", first)).toBe(true);
+    expect(isRawParagraphLine("[[a]]", "listItemText")).toBe(false);
+    expect(interruptsParagraph("[[a]]", "listItemText", first)).toBe(false);
+    expect(interruptsParagraph("[[a]]", "listItemText")).toBe(true);
+    expect(isRawParagraphLine("[[a]]", "listItem", first)).toBe(false);
+    expect(interruptsParagraph("[[a]]", "listItem", first)).toBe(true);
   });
 });
 
@@ -552,9 +565,13 @@ const KNOWN_GAPS = new Map<string, string>([
   // term out of the join. Issue #43 gave the `+` back the line the
   // source wrote, so the row round-trips even though the term itself
   // is still unparsed.
+  // `dlistItem/block title` and `dlistItem/attribute entry` used to
+  // sit here too: both lines were reflowed onto the term, which made
+  // them the term's last words and dropped what they decorated. They
+  // now keep the line the source wrote them on
+  // (RAW_DESCRIPTION_METADATA in src/parse/line-shapes.ts), so both
+  // round-trip while the term itself is still unparsed.
   ["dlistItem/callout list marker", "#9 — description lists not parsed"],
-  ["dlistItem/block title", "#9 — description lists not parsed"],
-  ["dlistItem/attribute entry", "#9 — description lists not parsed"],
   ["dlistItem/admonition marker", "#9 — description lists not parsed"],
   ["dlistItem/block macro", "#9 — description lists not parsed"],
   ["dlistItem/thematic break", "#9 — description lists not parsed"],

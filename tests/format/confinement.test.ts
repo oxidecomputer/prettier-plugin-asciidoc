@@ -52,32 +52,24 @@ describe("metadata flush order inside interiors", () => {
 describe("a trailing + inside a confined interior", () => {
   // The `+` at the inner item's end attaches nothing wherever the
   // item sits: inside an example, inside an open block nested in one,
-  // at any marker depth. It is popped (parser.rb l.1580-81) and never
-  // printed, and the interior's own terminator follows the item the
-  // way it always did. The machinery that used to decide whether such
-  // a `+` could be printed BACK — the confinement's tail-safety bit
-  // and the `closed || enclosing` disjunct at the compound open —
-  // went with the byte: there is nothing left for it to decide.
+  // at any marker depth. It is popped (parser.rb l.1580-82) and the
+  // byte is written back, because the interior's own terminator
+  // follows the item on the very next output line: the `+` pops
+  // again there rather than erasing above a blank. That terminator is
+  // what the confinement's tail-safety bit reports (`closeOffset` and
+  // `tailSafe`, src/parse/lines/reader.ts), and it is the whole of
+  // what decides here.
   test.each([
     [
       "a closed example directly in the item",
       "* outer\n+\n====\n* inner\n+\n====\n\npara\n",
-      "* outer\n+\n====\n* inner\n====\n\npara\n",
     ],
     [
       "a closed open block nested in the example",
       "* outer\n+\n====\n--\n* inner\n+\n--\n====\n\npara\n",
-      "* outer\n+\n====\n--\n* inner\n--\n====\n\npara\n",
     ],
-    [
-      "a deeper inner marker",
-      "* outer\n+\n====\n** inner\n+\n====\n\npara\n",
-      "* outer\n+\n====\n** inner\n====\n\npara\n",
-    ],
-  ])(
-    "%s drops the inner item's trailing +",
-    async (_name, source, expected) => {
-      await expectBytes(source, expected);
-    },
-  );
+    ["a deeper inner marker", "* outer\n+\n====\n** inner\n+\n====\n\npara\n"],
+  ])("%s keeps the inner item's trailing +", async (_name, source) => {
+    await expectBytes(source, source);
+  });
 });

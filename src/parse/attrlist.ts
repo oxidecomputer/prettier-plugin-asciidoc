@@ -132,8 +132,12 @@ const ATTRLIST_BLANK = new Set([" ", "\t"]);
 function trimBlank(field: string): string {
   let start = 0;
   let end = field.length;
-  while (start < end && ATTRLIST_BLANK.has(field[start])) start += 1;
-  while (end > start && ATTRLIST_BLANK.has(field[end - 1])) end -= 1;
+  while (start < end && ATTRLIST_BLANK.has(field[start])) {
+    start += 1;
+  }
+  while (end > start && ATTRLIST_BLANK.has(field[end - 1])) {
+    end -= 1;
+  }
   return field.slice(start, end);
 }
 
@@ -171,7 +175,9 @@ export function parseAttrlist(raw: string): Attrlist {
  * @returns the stored style, or undefined when there is none
  */
 function styleAttributeOf(first: string): string | undefined {
-  if (NAMED_ATTRIBUTE.test(first)) return undefined;
+  if (NAMED_ATTRIBUTE.test(first)) {
+    return undefined;
+  }
   // The space test is Ruby's own guard: "spaces are not allowed in
   // shorthand, so if we detect one, this ain't no shorthand", which
   // is why `[foo bar]` keeps its whole spelling as the style.
@@ -210,7 +216,9 @@ const QUOTES = new Set(['"', "'"]);
  * @internal
  */
 export function attrlistFields(raw: string): string[] | undefined {
-  if (raw.includes("\n")) return undefined;
+  if (raw.includes("\n")) {
+    return undefined;
+  }
   const fields: string[] = [];
   let field = "";
   // A value POSITION: the start of an attribute, or just past its
@@ -222,7 +230,9 @@ export function attrlistFields(raw: string): string[] | undefined {
     const character = raw[index];
     if (atValue && QUOTES.has(character)) {
       const end = closingQuote(raw, index);
-      if (end === undefined) return undefined;
+      if (end === undefined) {
+        return undefined;
+      }
       field += raw.slice(index, end + 1);
       if (!endsAttributeHere(raw, end + 1)) {
         // Trailing bytes right after the closing quote, with nothing
@@ -248,7 +258,9 @@ export function attrlistFields(raw: string): string[] | undefined {
     field += character;
     // Blanks keep the value position open — `foo = "bar"` is Ruby's
     // `skip_blank` after the `=` (l.121).
-    if (character !== " " && character !== "\t") atValue = character === "=";
+    if (character !== " " && character !== "\t") {
+      atValue = character === "=";
+    }
   }
   fields.push(trimBlank(field));
   return fields;
@@ -269,7 +281,9 @@ function closingQuote(raw: string, open: number): number | undefined {
       index += 1;
       continue;
     }
-    if (raw[index] === quote) return index;
+    if (raw[index] === quote) {
+      return index;
+    }
   }
   return undefined;
 }
@@ -297,7 +311,9 @@ function closingQuote(raw: string, open: number): number | undefined {
  */
 function endsAttributeHere(raw: string, from: number): boolean {
   let index = from;
-  while (index < raw.length && ATTRLIST_BLANK.has(raw[index])) index += 1;
+  while (index < raw.length && ATTRLIST_BLANK.has(raw[index])) {
+    index += 1;
+  }
   return index === raw.length || raw[index] === ",";
 }
 
@@ -333,9 +349,13 @@ function unescapeQuoted(inner: string, quote: string): string {
  * @returns the value Ruby's parser would store for that field
  */
 function unquoteField(field: string): string {
-  if (field.length < 2) return field;
+  if (field.length < 2) {
+    return field;
+  }
   const [quote] = field;
-  if (!QUOTES.has(quote) || !field.endsWith(quote)) return field;
+  if (!QUOTES.has(quote) || !field.endsWith(quote)) {
+    return field;
+  }
   const inner = field.slice(1, -1);
   return inner.includes("\\") ? unescapeQuoted(inner, quote) : inner;
 }

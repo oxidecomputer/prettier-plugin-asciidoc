@@ -199,7 +199,9 @@ describe("inline formatting — backslash escapes", () => {
     // reconstructable and contain the backslash.
     const fullText = nodes
       .map((n) => {
-        if (n.type === "text") return n.value;
+        if (n.type === "text") {
+          return n.value;
+        }
         return "";
       })
       .join("");

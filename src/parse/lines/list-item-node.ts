@@ -6,22 +6,27 @@
  * pure over its inputs: the recursion that produced the interior
  * happened in the caller, and nothing in this file can start another.
  *
- * The three tail FACTS the item carries are computed here, each one a
- * scan fact conjoined with the block shape that makes it printable:
- * `trailingContinuation` ({@link keptTrailingContinuation}),
- * `detachedTail` ({@link endsInPlusParagraph}) and `activeTail`
- * ({@link armedTailPrints}). Every Ruby line number cites parser.rb
- * at Asciidoctor core 2.0.26 — the revision the oracle runs — exactly
- * as list-reader.ts's do.
+ * ONE of the three tail FACTS is finished here: `detachedTail`, whose
+ * scan half (the pop took the erased shield) is conjoined with the
+ * block shape that makes the byte load-bearing
+ * ({@link endsInPlusParagraph}). The other two arrive decided -
+ * `trailingContinuation` and `activeTail` are the scan's own,
+ * finished in item-tail.ts, and nothing here re-derives them. The
+ * all-or-nothing indent answer the printer's reflow guard reads
+ * (`everyTextLineIndented`) is also computed here, off the extent's
+ * buffer, for the same reason: the source lines are in hand, and the
+ * ANSWER travels rather than the lines. Every Ruby line
+ * number cites parser.rb at Asciidoctor core 2.0.26, the revision
+ * the oracle runs, exactly as list-reader.ts's do.
  */
-import type { BlockNode, GapLine, ItemBlock, ListItemNode } from "../../ast.js";
+import type { BlockNode, GapLine, ListItemNode } from "../../ast.js";
 import { buildListItem } from "../build/list.js";
 import type { InlineToken } from "../inline/tokens.js";
 import type { LocationIndex } from "../positions.js";
-import { isContinuationLine } from "./classify.js";
-import { fragmentOfLine } from "./frames.js";
+import { LINE_COMMENT_HEAD } from "../line-shapes.js";
+import { isContinuationLine, isLiteralLine } from "./classify.js";
 import { gapsOf, type ListItemShape } from "./list-reader.js";
-import type { SourceLine } from "./split.js";
+import { fragmentOfLine, type SourceLine } from "./split.js";
 
 /** What reading one item's interior produced. NOT exported. */
 interface ItemInterior {
@@ -37,14 +42,11 @@ interface ItemInterior {
  * the GAP that precedes it.
  * @param shape - what the extent scan decided about the item
  * @param interior - the text and blocks the caller read from the buffer
- * @param lines - the document's gap record and offset index, plus
- *   whether this item was read from ANOTHER item's buffer
+ * @param lines - the document's gap record and offset index
  * @param lines.gaps - the document-wide gap record, complete for this
  *   item by now: its own scan and every descendant scan ran before
  *   this call
  * @param lines.at - the document's offset→Location index
- * @param lines.nested - true when the enclosing reader is confined to
- *   a list item's buffer
  * @returns the item node
  */
 export function listItemNode(
@@ -53,13 +55,13 @@ export function listItemNode(
   lines: {
     gaps: ReadonlyMap<number, GapLine>;
     at: LocationIndex;
-    nested: boolean;
   },
 ): ListItemNode {
-  const { at, nested } = lines;
+  const { at } = lines;
   const { markerLine, marker } = shape;
   const { text, blocks } = interior;
-  const gaps = gapsOf(lines.gaps, textEndLine(at, text, markerLine), blocks);
+  const textEnd = textEndLine(at, text, markerLine);
+  const gaps = gapsOf(lines.gaps, textEnd, blocks);
   const paired = blocks.map((block, index) => ({ gap: gaps[index], block }));
   return buildListItem(
     {
@@ -72,124 +74,82 @@ export function listItemNode(
         marker.variant === "callout" ? marker.calloutNumber : undefined,
       text,
       blocks: paired,
-      trailingContinuation: keptTrailingContinuation(shape, blocks, nested),
+      trailingContinuation: shape.trailingContinuation,
       detachedTail: shape.erasedTailContinuation && endsInPlusParagraph(blocks),
-      activeTail: shape.activeTailContinuation && armedTailPrints(paired),
+      activeTail: shape.activeTail,
+      everyTextLineIndented: everyTextLineIndented(
+        shape.buffer,
+        markerLine.line,
+        textEnd,
+      ),
     },
     at,
   );
 }
 
 /**
- * Whether the item's printed tail still SHOWS the armed `+` — the
- * other half of `ListItemNode.activeTail`'s condition (src/ast.ts).
- * The scan saying `:active` at the end is not enough: an activation
- * whose `+` was followed by blanks alone leaves nothing in the
- * buffer, the item prints without the byte, and a re-read of the
- * output finds no continuation to arm. The `+` reaches the output
- * only inside the gap of a block behind it, and under an
- * active-at-end scan every block after the activation is metadata
- * (anything else deactivates: `read_lines_for_list_item` sets
- * `continuation = :inactive`, parser.rb l.1511) — so the walk runs
- * back over the trailing metadata run and asks whether one of its
- * gaps replays a `+`.
- * @param blocks - the item's blocks, gaps attached, in source order
- * @returns true when the printed tail carries a live `+`
- */
-function armedTailPrints(blocks: readonly ItemBlock[]): boolean {
-  for (const { gap, block } of [...blocks].toReversed()) {
-    if (!isMetadataBlock(block)) return false;
-    if (gap.includes("+")) return true;
-  }
-  return false;
-}
-
-/**
- * Whether a block is one of the four shapes the `:active` arm reads
- * through (parser.rb l.1499-1501) — the node kinds
- * {@link armedTailPrints}' trailing walk may cross: exactly the
- * producers of list-reader.ts's `isBlockMetadataLine` line shapes.
- * @param block - one of the item's blocks
- * @returns true for a metadata block
- */
-function isMetadataBlock(block: BlockNode): boolean {
-  return (
-    block.type === "blockTitle" ||
-    block.type === "blockAttributeList" ||
-    block.type === "blockAnchor" ||
-    block.type === "attributeEntry"
-  );
-}
-
-/**
  * Whether the item's last block is a paragraph holding a frozen `+` as
- * its final raw line — the block that only stays alive on re-read
+ * its final raw line: the block that only stays alive on re-read
  * while a detached `+` shields it (see `ListItemNode.detachedTail` in
  * src/ast.ts). The shape is exactly what the confined reader makes of
  * a surviving frozen `+`: it heads a paragraph whose raw line spells
  * the byte.
+ *
+ * This conjunct STAYS here, and it is the one tail question the scan
+ * cannot take over. The other two moved because the scan already
+ * knows both their halves; this one asks what the item's BLOCKS
+ * turned out to be, which is decided after every scan has run.
+ *
+ * The committed row that holds it is
+ * `"* a\n+\npara\n\n+\n"` ("behind an attached paragraph",
+ * tests/format/plus-run.test.ts): the pop really did take the erased
+ * shield, so the scan's half is TRUE, and with this conjunct gone the
+ * item writes the tail back - `"* a\n+\npara\n\n+\n"` where the
+ * landed answer is `"* a\n+\npara\n"`, measured. The same shape is
+ * a plurality of the reading ledger's lone-plus-join rows
+ * (docs/harnesses.md): an erased `+` that attached nothing has one
+ * route back, the shield, and an item with nothing to shield does not
+ * get to take it.
  * @param blocks - the item's blocks, in source order
  * @returns true when the last block ends in a `+` raw line
  */
 function endsInPlusParagraph(blocks: readonly BlockNode[]): boolean {
   const last = blocks.at(-1);
-  if (last?.type !== "paragraph") return false;
+  if (last?.type !== "paragraph") {
+    return false;
+  }
   const child = last.children.at(-1);
   return child?.type === "rawLine" && isContinuationLine(child.value);
 }
 
 /**
- * Whether a `+` the scan popped off an item's end must be printed
- * back — the question `ListItemNode.trailingContinuation` answers.
+ * Whether every source line the item's text wrote under the marker
+ * line is indented: `ListItemNode.everyTextLineIndented` (src/ast.ts
+ * carries the Ruby argument and the two exempt line kinds).
  *
- * The pop is Ruby's and the byte renders nothing WHEN Ruby's own read
- * of the item ended where ours did. Two tails are where it does not,
- * and both are measured rather than argued (the list-shape sweep's own
- * alphabet, exhaustive to depth 5):
- *
- * - an INDENTED LITERAL. Its re-read slurp
- *   (`read_lines_until break_on_blank_lines, break_on_list_continuation`)
- *   takes the `+` and whatever follows into the `<pre>`, so
- *   `* a\n** b\n+\n  lit\n+\n** b\n` renders a three-line literal and
- *   dropping the byte renders a one-line one plus an `<li>` that was
- *   never written.
- * - a paragraph carrying a RAW LINE. That is the reader's record of a
- *   line Ruby folded into prose — a frozen `+`, a marker line a
- *   paragraph swallowed — and the `+` beside it is prose too:
- *   `* a\n+\npara\n** b\n+\n+\n` renders `para ** b +`.
- *
- * A NESTED item — one read from another item's buffer — keeps the byte
- * whatever its own blocks look like. There the enclosing scan has
- * already re-shaped the lines (erasures, slurps, folds) before this
- * item ever saw them, so "our read ended where Ruby's did" is not a
- * claim this reader can make — the enclosing item's own read decides
- * what the byte means, so the byte stays (the nested rows in
- * tests/format/trailing-continuation.test.ts pin the family).
- * @param shape - the extent scan's record for this item
- * @param blocks - the blocks its interior read
- * @param nested - whether it was read from another item's buffer
- * @returns true when the byte must come back
+ * Read off the item's own BUFFER, which is where the raw spelling of
+ * those lines already is: the scan handed the lines over with their
+ * indentation intact, so the question is asked of the source rather
+ * than of the nodes the text was split into.
+ * @param buffer - the item's lines, in document order
+ * @param markerLine - the item's marker line, which the strip does
+ *   not measure
+ * @param textEnd - the last line the principal text occupies
+ * @returns true when no line under the marker line stands at column 0
  */
-function keptTrailingContinuation(
-  shape: ListItemShape,
-  blocks: readonly BlockNode[],
-  nested: boolean,
+function everyTextLineIndented(
+  buffer: readonly SourceLine[],
+  markerLine: number,
+  textEnd: number,
 ): boolean {
-  if (!shape.poppedContinuation || !shape.tailSafe) return false;
-  return nested || blocks.some((block) => readsOnPastTheItem(block));
-}
-
-/**
- * Whether a block the item ends with re-reads PAST the item — the two
- * tails {@link keptTrailingContinuation} refuses to drop a `+` behind.
- * @param block - one of the item's blocks
- * @returns true when the block's re-read runs on into the lines below
- */
-function readsOnPastTheItem(block: BlockNode): boolean {
-  if (block.type === "list") return true;
-  if (block.type === "delimitedBlock") return block.form === "indented";
-  if (block.type !== "paragraph") return false;
-  return block.children.some((child) => child.type === "rawLine");
+  return buffer
+    .filter((line) => line.line > markerLine && line.line <= textEnd)
+    .every(
+      (line) =>
+        line.text === "" ||
+        line.text.startsWith(LINE_COMMENT_HEAD) ||
+        isLiteralLine(line.text),
+    );
 }
 
 /**

@@ -302,11 +302,12 @@ describe("held styles on delimiters the style does not re-model", () => {
     );
   });
 
-  // A declared key-order exception: the reader STAMPS its own record
-  // of the annotation
-  // it acted on, after the node is built, so
-  // `annotatedBy` trails `position` here. It cannot be an AST
-  // difference — the parity normalizer drops the key before digesting
+  // A declared key-order exception: `annotatedBy` trails `position`
+  // here. The builder writes it LAST in the node literal
+  // (src/parse/build/delimited.ts), which is where the reader's older
+  // post-construction stamp had left it, so this row holds the wire
+  // order across that move. It cannot be an AST difference - the
+  // parity normalizer drops the key before digesting
   // (scripts/parity.ts, `annotatedBy` → undefined), which is why (xi)
   // and not parity is its pin. Every other key keeps its baseline
   // position.

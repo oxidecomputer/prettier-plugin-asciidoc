@@ -34,6 +34,7 @@ import {
   CONTINUATION_LINE,
   DELIMITED_BLOCK_PATTERNS,
   DELIMITER_KINDS,
+  INDENTED_PLUS,
   LIST_MARKER_LINE,
   LITERAL_LINE,
   PAGE_BREAK,
@@ -69,13 +70,14 @@ type ListVariant = ListNode["variant"];
 /**
  * What makes a later line a SIBLING item of an open list. Ruby's test
  * compares RESOLVED marker traits, never raw lines
- * (`is_sibling_list_item?`, parser.rb:2280-2284, via
- * `resolve_list_marker` :2192); dlists compare per-delimiter patterns
- * (`DescriptionListSiblingRx`, rx.rb:340-345; the marker arm is
- * pinned by tests/parser/item-extent.test.ts). Only the marker arm
- * has a producer today; the dlist arm exists so #9 adds one and
- * extends the four dlist-cited insertion points in ExtentScan
- * (list-reader.ts) — never a parallel matching mechanism.
+ * (`is_sibling_list_item?`, parser.rb:2280-2284, whose last arm asks
+ * `sibling_trait == (resolve_list_marker list_type, $1)`); dlists
+ * compare per-delimiter patterns (`DescriptionListSiblingRx`,
+ * rx.rb:340-345; the marker arm is pinned by
+ * tests/parser/item-extent.test.ts). Only the marker arm has a
+ * producer today; the dlist arm exists so #9 adds one and extends
+ * the four dlist-cited insertion points in ExtentScan
+ * (list-reader.ts) - never a parallel matching mechanism.
  */
 export type SiblingTrait =
   | {
@@ -455,6 +457,98 @@ export function isContinuationLine(line: string): boolean {
 }
 
 /**
+ * Whether a line is INDENTED content - `next_block`'s own
+ * `indented = this_line.start_with? ' ', TAB` (parser.rb:572), and
+ * the same shape `LiteralParagraphRx` spells for the item scan's two
+ * slurps (parser.rb:1488 and parser.rb:1539). A line of nothing but
+ * whitespace is not one: it rstrips to empty first, which makes it
+ * blank.
+ *
+ * The list scan and the paragraph scan both ask this, which is why it
+ * is a question here rather than a pattern each of them tests: the
+ * shape has one home (line-shapes.ts) and one reader (this file).
+ * @param line - one rstripped source line
+ * @returns true when the line starts with a space or a tab
+ */
+export function isLiteralLine(line: string): boolean {
+  return LITERAL_LINE.test(line);
+}
+
+/**
+ * Whether a line is nothing but indentation and a `+` - the shape
+ * whose meaning `adjust_indentation!` can change (parser.rb:755; see
+ * INDENTED_PLUS in line-shapes.ts for the whole argument). Asked here
+ * because the paragraph scan that needs it consumes classifier
+ * verdicts, never patterns.
+ *
+ * A PREDICATE and not a {@link LineKind} arm, which is the second
+ * route docs/coding-standards.md's line-shape recipe describes: this
+ * shape neither opens nor ends a block, so the classifier's verdict
+ * for such a line is unchanged (it is `text`), and an interruption row
+ * for it would pin a grid of identical answers. What reads it is one
+ * scan asking about a line it has already claimed.
+ * @param line - one rstripped source line
+ * @returns true for an indented lone `+`
+ */
+export function isIndentedContinuationLine(line: string): boolean {
+  return INDENTED_PLUS.test(line);
+}
+
+/**
+ * The four shapes the item scan lets "block metadata play out" across
+ * (`BlockTitleRx`, `BlockAttributeLineRx`, `AttributeEntryRx` and the
+ * anchor form the second of those carries, parser.rb:1499-1501),
+ * spelled with {@link LineKind}'s own names so the two vocabularies
+ * cannot drift apart.
+ */
+type MetadataLineKind = Extract<
+  LineKind,
+  Record<"kind", "blockTitle" | "attributeLine" | "anchor" | "attributeEntry">
+>["kind"];
+
+/**
+ * "Let block metadata play out until we find the block" - which of the
+ * four shapes parser.rb:1499-1501 keeps `continuation == :active`
+ * across a line is, if any.
+ *
+ * Arms in Ruby's own order: a block title (`ch0 == '.'`), a block
+ * attribute line (`ch0 == '['`), then an attribute entry
+ * (`ch0 == ':'`). Ruby's `BlockAttributeLineRx` (rx.rb:184) carries
+ * the `[[anchor]]` form as one of its alternatives and this registry
+ * spells that alternative as a pattern of its own, so the anchor is
+ * tested where Ruby's second arm would have matched it.
+ *
+ * A COMMENT is deliberately absent: Ruby's test does not name one, so
+ * a comment falls to the else arm at parser.rb:1502 and CONSUMES the
+ * continuation (oracle-confirmed; the unit row is in
+ * tests/parser/item-extent.test.ts).
+ *
+ * A DIFFERENT question from the one {@link classifyLine} answers for a
+ * block's first line, and deliberately not funnelled into it: Ruby
+ * asks this one inside `read_lines_for_list_item` with three arms in
+ * this order, and the other inside `parse_block_metadata_line` with
+ * the anchor tested FIRST and an attribute entry parsed rather than
+ * matched. Two Ruby sites, two orders, two consequences.
+ * @param line - one rstripped source line
+ * @returns which metadata shape it is, or undefined when it is none
+ */
+export function metadataLineKind(line: string): MetadataLineKind | undefined {
+  if (BLOCK_TITLE.test(line)) {
+    return "blockTitle";
+  }
+  if (BLOCK_ATTRIBUTE_LINE.test(line)) {
+    return "attributeLine";
+  }
+  if (BLOCK_ANCHOR.test(line)) {
+    return "anchor";
+  }
+  if (ATTRIBUTE_ENTRY.test(line)) {
+    return "attributeEntry";
+  }
+  return undefined;
+}
+
+/**
  * Classify a line that is starting a block — `parse_block_metadata_line`
  * first (it runs before `next_block` even reads the line), then
  * `next_section`'s title test, then `next_block`'s own ladder.
@@ -533,7 +627,7 @@ function classifyBlockBody(line: string): LineKind {
   if (label !== undefined) {
     return { kind: "admonitionLabel", ...label };
   }
-  return LITERAL_LINE.test(line) ? { kind: "indented" } : { kind: "text" };
+  return isLiteralLine(line) ? { kind: "indented" } : { kind: "text" };
 }
 
 /**
@@ -561,11 +655,17 @@ function classifyInParagraph(
   if (!isRawParagraphLine(line, context, reader)) {
     return { kind: "text" };
   }
-  // Of the registry's two contextual raw shapes only the anchor is a
-  // raw LINE — a line the reader drops from the block's content. The
-  // other (a foreign list marker inside a `+`-attached paragraph) is
-  // ordinary TEXT whose COLUMN is load-bearing, so it stays text and
-  // carries the flag that keeps it on its own output line.
+  // Of the registry's three contextual raw shapes only the anchor is
+  // a raw LINE, a line the reader drops from the block's content.
+  // The other two are ordinary TEXT that must not be REFLOWED, which
+  // is what the verbatim flag says, and they need it for two
+  // different reasons. A foreign list marker inside a `+`-attached
+  // paragraph needs its COLUMN: moved off column 0 it stops flipping
+  // `within_nested_list` and a later `+` changes meaning. Block
+  // metadata on a description's first line needs its LINE: joined
+  // onto the term it becomes the term's last words and the block it
+  // titled loses what it said. Neither is dropped, so neither is
+  // raw.
   return BLOCK_ANCHOR.test(line)
     ? { kind: "raw", form: "anchor" }
     : { kind: "text", verbatim: true };

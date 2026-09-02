@@ -97,8 +97,11 @@ function lineAt(starts: number[], offset: number): number {
   let high = starts.length - ONE;
   while (low < high) {
     const middle = Math.ceil((low + high) / HALF);
-    if (starts[middle] <= offset) low = middle;
-    else high = middle - ONE;
+    if (starts[middle] <= offset) {
+      low = middle;
+    } else {
+      high = middle - ONE;
+    }
   }
   return low;
 }
@@ -124,7 +127,9 @@ function commentRanges(sourceFile: ts.SourceFile): ts.CommentRange[] {
   const seen = new Set<number>();
   const collect = (found: ts.CommentRange[] | undefined): void => {
     for (const range of found ?? []) {
-      if (seen.has(range.pos)) continue;
+      if (seen.has(range.pos)) {
+        continue;
+      }
       seen.add(range.pos);
       ranges.push(range);
     }
@@ -161,7 +166,9 @@ function eachToken(node: ts.Node, visit: (token: ts.Node) => void): void {
     visit(node);
     return;
   }
-  for (const child of children) eachToken(child, visit);
+  for (const child of children) {
+    eachToken(child, visit);
+  }
 }
 
 /**
@@ -180,7 +187,9 @@ function classifyLines(sourceFile: ts.SourceFile): LineKind[] {
   const mark = (from: number, to: number, kind: LineKind): void => {
     const last = lineAt(starts, Math.max(from, to - ONE));
     for (let line = lineAt(starts, from); line <= last; line += ONE) {
-      if (kinds[line] < kind) kinds[line] = kind;
+      if (kinds[line] < kind) {
+        kinds[line] = kind;
+      }
     }
   };
   for (const range of commentRanges(sourceFile)) {
@@ -189,11 +198,15 @@ function classifyLines(sourceFile: ts.SourceFile): LineKind[] {
   eachToken(sourceFile, (token) => {
     const from = token.getStart(sourceFile);
     const to = token.getEnd();
-    if (to > from) mark(from, to, LineKind.Code);
+    if (to > from) {
+      mark(from, to, LineKind.Code);
+    }
   });
   // A trailing newline leaves a final empty line that `wc -l` does not
   // count; drop it so the total matches `wc -l` exactly.
-  if (text.endsWith("\n")) kinds.pop();
+  if (text.endsWith("\n")) {
+    kinds.pop();
+  }
   return kinds;
 }
 
@@ -254,7 +267,9 @@ function countMarkers(sourceFile: ts.SourceFile): Record<MarkerKey, number> {
   );
   const occurrences = (marker: string): number => {
     let count = ZERO;
-    for (const comment of comments) count += occurrencesIn(comment, marker);
+    for (const comment of comments) {
+      count += occurrencesIn(comment, marker);
+    }
     return count;
   };
   return {
@@ -409,14 +424,18 @@ function isUnreachableCall(node: ts.Node): boolean {
 function exportedNames(node: ts.Node): { names: number; star: boolean } {
   if (ts.isExportDeclaration(node)) {
     const { exportClause: clause } = node;
-    if (clause === undefined) return { names: ONE, star: true };
+    if (clause === undefined) {
+      return { names: ONE, star: true };
+    }
     if (ts.isNamedExports(clause)) {
       return { names: clause.elements.length, star: false };
     }
     // `export * as ns from "…"` — one name.
     return { names: ONE, star: false };
   }
-  if (ts.isExportAssignment(node)) return { names: ONE, star: false };
+  if (ts.isExportAssignment(node)) {
+    return { names: ONE, star: false };
+  }
   const modifiers = ts.canHaveModifiers(node)
     ? ts.getModifiers(node)
     : undefined;
@@ -424,7 +443,9 @@ function exportedNames(node: ts.Node): { names: number; star: boolean } {
     modifiers?.some(
       (modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword,
     ) === true;
-  if (!exported) return { names: ZERO, star: false };
+  if (!exported) {
+    return { names: ZERO, star: false };
+  }
   if (ts.isVariableStatement(node)) {
     return { names: node.declarationList.declarations.length, star: false };
   }
@@ -482,9 +503,13 @@ export function scanSource(fileName: string, text: string): SourceCounts {
   let comment = ZERO;
   let code = ZERO;
   for (const kind of kinds) {
-    if (kind === LineKind.Code) code += ONE;
-    else if (kind === LineKind.Comment) comment += ONE;
-    else blank += ONE;
+    if (kind === LineKind.Code) {
+      code += ONE;
+    } else if (kind === LineKind.Comment) {
+      comment += ONE;
+    } else {
+      blank += ONE;
+    }
   }
 
   let assertions = ZERO;
@@ -493,7 +518,9 @@ export function scanSource(fileName: string, text: string): SourceCounts {
   let unreachableCalls = ZERO;
   walkNodes(sourceFile, (node) => {
     if (ts.isAsExpression(node) || ts.isTypeAssertionExpression(node)) {
-      if (!isConstAssertion(node)) assertions += ONE;
+      if (!isConstAssertion(node)) {
+        assertions += ONE;
+      }
     } else if (ts.isNonNullExpression(node)) {
       nonNull += ONE;
     } else if (node.kind === ts.SyntaxKind.AnyKeyword) {
@@ -507,7 +534,9 @@ export function scanSource(fileName: string, text: string): SourceCounts {
   for (const statement of sourceFile.statements) {
     const { names, star } = exportedNames(statement);
     exports += names;
-    if (star) starExports += ONE;
+    if (star) {
+      starExports += ONE;
+    }
   }
 
   return {

@@ -15,8 +15,7 @@
  */
 import type { BlockExtent } from "../build/delimited.js";
 import type { DelimiterKind } from "./classify.js";
-import { fragmentOfLine } from "./frames.js";
-import type { SourceLine } from "./split.js";
+import { fragmentOfLine, type SourceLine } from "./split.js";
 
 /**
  * A fenced code block's terminator is the bare tip, never the opening

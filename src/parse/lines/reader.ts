@@ -42,7 +42,7 @@ import {
   buildStyledParagraph,
 } from "../build/paragraph.js";
 import type { InlineToken } from "../inline/tokens.js";
-import type { ParagraphContext, ReaderContext } from "../line-shapes.js";
+import type { ParagraphContext } from "../line-shapes.js";
 import { makeLocationIndex, type LocationIndex } from "../positions.js";
 import {
   classifyLine,
@@ -52,7 +52,7 @@ import {
   type MarkerKind,
 } from "./classify.js";
 import { blockExtentOf, delimitedExtent } from "./delimited-reader.js";
-import { fragmentOfLine, isLeafKind, leafBuilder } from "./frames.js";
+import { isLeafKind, leafBuilder } from "./frames.js";
 import {
   documentHeader,
   headerSurvivesBlock,
@@ -60,7 +60,18 @@ import {
   type HeaderScan,
 } from "./header-reader.js";
 import { HeldMetadata } from "./held-metadata.js";
-import type { Confinement, ReaderScope } from "./scope.js";
+import type { GapWrite } from "./item-tail.js";
+import {
+  blockStartContextIn,
+  bodyContextIn,
+  closeOffsetIn,
+  directiveDepthAfter,
+  directlyInItem,
+  openListStyleIn,
+  tailSafeIn,
+  type Confinement,
+  type ReaderScope,
+} from "./scope.js";
 import { listItemNode } from "./list-item-node.js";
 import { listShape, type ListItemShape } from "./list-reader.js";
 import {
@@ -76,7 +87,12 @@ import {
   verbatimStyledExtent,
   type ParagraphScan,
 } from "./paragraph-reader.js";
-import { documentBom, splitLines, type SourceLine } from "./split.js";
+import {
+  documentBom,
+  fragmentOfLine,
+  splitLines,
+  type SourceLine,
+} from "./split.js";
 
 // The one block-attribute style the reader itself acts on: it turns the
 // heading that follows into a discreteHeading leaf instead of an
@@ -118,12 +134,30 @@ class BlockReader {
   private index = 0;
   /**
    * Blank lines seen since the last line the reader CONSUMED — Ruby's
-   * `skipped` count in `next_block` (l.505): a confined reader picks
-   * an in-item paragraph's interrupting set by it (see
-   * {@link BlockReader.bodyContext}). An erased `+` in an item's
-   * buffer reads as a blank here, exactly as it does to Ruby.
+   * `skipped` count in `next_block` (parser.rb l.505): a confined
+   * reader picks an in-item paragraph's interrupting set by it (see
+   * {@link BlockReader.bodyContext}). An erased `+` in an item's buffer
+   * reads as a blank here, exactly as it does to Ruby.
    */
   private blanks = 0;
+  /**
+   * How many conditional pairs stand open over the read position -
+   * the depth of Ruby's own `@conditional_stack`, which an `endif`
+   * pops (reader.rb l.919) and a region form pushes (l.1005) -
+   * counted rather than evaluated: the formatter never resolves a
+   * condition, so what this holds is the nesting the AUTHOR wrote.
+   * Reader state beside {@link BlockReader.blanks}, folded forward
+   * over the lines this reader walks and handed on as data - to every
+   * reader it confines ({@link Confinement.directiveDepth}) and to
+   * every extent scan it starts, which then counts its own. THE ONE
+   * PRODUCER: no other module writes it.
+   *
+   * A reader resumes past a whole list or delimited block in one
+   * step, so a pair a construct's own lines opened and did not close
+   * is not counted here; the scan that read those lines counted them
+   * for itself, which is where the question is asked.
+   */
+  private directiveDepth: number;
   /**
    * Whether a DOCUMENT HEADER can still open at the next `= Title`
    * line. Reader state, and forward-only: it starts true and is
@@ -165,12 +199,11 @@ class BlockReader {
    *   them), so every marker line the buffer holds is foreign. Its
    *   `tailSafe` is the confined stream's own tail-safety, which every
    *   extent scan run from this reader inherits as its stream-end
-   *   boundary fact (see {@link BlockReader.tailSafe}). Its
-   *   `closeOffset` is where a forced close at this reader's stream
-   *   end falls — computed at the ONE place that knows the boundary
-   *   (listItem() for an item buffer, the compound open for an
-   *   interior) and consumed as data
-   *   ({@link BlockReader.forcedCloseOffset}).
+   *   boundary fact (`tailSafeIn`, scope.ts). Its `closeOffset` is
+   *   where a forced close at this reader's stream end falls:
+   *   computed at the ONE place that knows the boundary (listItem()
+   *   for an item buffer, the compound open for an interior) and
+   *   consumed as data (`closeOffsetIn`, scope.ts).
    */
   constructor(
     scope: ReaderScope,
@@ -179,69 +212,10 @@ class BlockReader {
   ) {
     ({ source: this.source, at: this.at } = scope);
     this.scope = scope;
-  }
-
-  /**
-   * Whether a `+` printed at the very end of this reader's lines
-   * re-reads inert — the boundary fact every extent scan run from
-   * this reader inherits. The document's end is EOF, always safe; an
-   * item buffer's end is wherever the enclosing item ended, so the
-   * answer is that item's own; a block child's is
-   * `closed || enclosing`, decided at the compound open.
-   * @returns the boundary fact the extent scans inherit
-   */
-  private get tailSafe(): boolean {
-    return this.confinement?.tailSafe ?? true;
-  }
-
-  /**
-   * Where a forced close at THIS reader's stream end falls: the
-   * document length for the document reader (one past the final
-   * newline — the spelling every unclosed-at-EOF position has always
-   * had), the confinement's boundary for a confined one. One
-   * derivation for the boundary every forced close shares, pinned by
-   * tests/parser/delimited-end-convention.test.ts and the
-   * confined-extent fixtures' position literals.
-   * @returns the offset a forced close at stream end is stamped with
-   */
-  private get forcedCloseOffset(): number {
-    return this.confinement?.closeOffset ?? this.source.length;
+    this.directiveDepth = confinement?.directiveDepth ?? 0;
   }
 
   // ── context ────────────────────────────────────────────────────────
-
-  /**
-   * The reader's state as `classifyLine` consumes it AT A BLOCK
-   * START — read, never derived. The other two positions belong to
-   * the extent scans, which build their own context from the same
-   * ancestry fact ({@link BlockReader.openListStyle}): nothing open,
-   * and no line is "first after the block started" until a block has
-   * started.
-   * @returns the read-only context view
-   */
-  private get context(): ReaderContext {
-    return {
-      openParagraph: undefined,
-      openListStyle: this.openListStyle,
-      firstLineAfterStart: false,
-    };
-  }
-
-  /**
-   * The list ancestry the classifier reads here. Lists are read
-   * extent-first and a confined buffer is already truncated at every
-   * ancestor list's boundary, so ONE style — the confined item's own
-   * — is the whole ancestry the classifier can ever need (the
-   * foreign-marker verbatim rule keys on it). A block child reports
-   * undefined: fresh-reader behavior is Ruby's (build_block →
-   * Reader.new, no list_type).
-   * @returns the open list's marker style, or undefined
-   */
-  private get openListStyle(): string | undefined {
-    return this.confinement?.kind === "item"
-      ? this.confinement.style
-      : undefined;
-  }
 
   /**
    * What a paragraph-shaped scan is given here — the stream and the
@@ -254,8 +228,18 @@ class BlockReader {
     return {
       source: this.source,
       lines: this.lines,
-      openListStyle: this.openListStyle,
+      openListStyle: openListStyleIn(this.confinement),
     };
+  }
+
+  /**
+   * Which interrupting set a paragraph-shaped block gets here - the
+   * reading, over this reader's own two inputs ({@link bodyContextIn},
+   * scope.ts).
+   * @returns the context for the block about to be read
+   */
+  private get body(): ParagraphContext {
+    return bodyContextIn(this.confinement, this.blanks);
   }
 
   /**
@@ -295,12 +279,12 @@ class BlockReader {
   /**
    * Push a one-line block WITHOUT resetting the blank run — for lines
    * Ruby's `skipped` count reads through: a document attribute is
-   * processed inside parse_block_metadata_lines (next_block l.518),
-   * and an unerased `+` kept as a raw line reads as a blank to Ruby's
-   * prev_line. The transparency is stated here, where it is decided,
-   * instead of being repaired around leaf() after the fact; pinned by
-   * tests/parser/reader-lists.test.ts's attribute-entry and kept-`+`
-   * rows.
+   * processed inside parse_block_metadata_lines (next_block parser.rb
+   * l.518), and an unerased `+` kept as a raw line reads as a blank to
+   * Ruby's prev_line. The transparency is stated here, where it is
+   * decided, instead of being repaired around leaf() after the fact;
+   * pinned by tests/parser/reader-lists.test.ts's attribute-entry and
+   * kept-`+` rows.
    * @param node - the block
    */
   private transparentLeaf(node: BlockNode): void {
@@ -358,17 +342,18 @@ class BlockReader {
     // reproduced exactly. The style is read before readText flushes
     // the run; the extent is the paragraph's own (unchanged context
     // threading).
-    const formVariant = paragraphFormVariant(this.actionableStyle());
+    const variant = paragraphFormVariant(this.actionableStyle());
     const annotatedBy = this.annotation();
     const tokens = this.readText(context, from);
-    const node =
-      formVariant === undefined
-        ? buildParagraph(tokens, this.at)
-        : buildParagraphFormBlock(formVariant, tokens, this.source, this.at);
-    if (node.type === "delimitedBlock" && annotatedBy !== undefined) {
-      node.annotatedBy = annotatedBy;
+    // A plain paragraph records no annotation: ParagraphNode declares
+    // no `annotatedBy` (src/ast.ts), which is what the type test that
+    // used to stand here was really asking.
+    if (variant === undefined) {
+      this.push(buildParagraph(tokens, this.at));
+      return;
     }
-    this.push(node);
+    const held = { variant, annotatedBy };
+    this.push(buildParagraphFormBlock(held, tokens, this.source, this.at));
   }
 
   /**
@@ -408,8 +393,8 @@ class BlockReader {
       fragmentOfLine(firstLine),
       rest.map((each) => fragmentOfLine(each)),
       this.at,
+      annotatedBy,
     );
-    if (annotatedBy !== undefined) node.annotatedBy = annotatedBy;
     this.push(node);
   }
 
@@ -425,8 +410,12 @@ class BlockReader {
       if (line === undefined) {
         break;
       }
-      const kind = classifyLine(line.text, this.context);
+      const kind = classifyLine(
+        line.text,
+        blockStartContextIn(this.confinement),
+      );
       classifyTrace.observer?.(line.offset, kind);
+      this.directiveDepth = directiveDepthAfter(this.directiveDepth, line.text);
       if (kind.kind === "blank") {
         this.blanks += 1;
         this.index += 1;
@@ -453,8 +442,17 @@ class BlockReader {
    */
   private list(kind: MarkerKind): void {
     this.flushMetadata();
-    const context = { tailSafe: this.tailSafe, gaps: this.scope.gaps };
+    const context = {
+      tailSafe: tailSafeIn(this.confinement),
+      directiveDepth: this.directiveDepth,
+    };
     const shape = listShape(this.lines, this.index, kind, context);
+    // Every item's scan has run by now and none of them wrote
+    // anything: the whole list's separator spellings are applied here,
+    // BEFORE any item's interior is read, which is what makes the
+    // first-write-wins rule true - an inner scan re-reads this
+    // buffer's doctored lines and its writes arrive second.
+    this.applyGapWrites(shape.gapWrites);
     // The opening item is read into its own local, not inlined into
     // the call, so the items are read in SOURCE ORDER on the page as
     // well as at run time.
@@ -472,13 +470,31 @@ class BlockReader {
   }
 
   /**
-   * Read one item's interior and assemble its node — Ruby's
-   * `Reader.new read_lines_for_list_item(…)` + the `next_block` loop of
-   * parse_list_item (l.1359-1384). The marker line rides at the front
-   * of the confined reader's lines so the text scan consumes it and the
-   * text's continuation lines come from the buffer; the rest of the
-   * buffer is then read by the ordinary block loop, whose blocks ARE
-   * the item's blocks.
+   * Apply a scan's separator spellings to the document-wide record -
+   * the ONE writer of {@link ReaderScope.gaps}, standing beside the
+   * recursion order that makes its rule true. FIRST write wins: an
+   * inner scan re-reads an outer item's buffer, where a `+` the outer
+   * scan erased spells `""`, so the earliest write is the one made by
+   * the scan that saw the least-doctored line and a later scan may
+   * never overwrite it. The scans decide; nothing outside this method
+   * writes.
+   * @param writes - what a list's item scans decided, in item order
+   */
+  private applyGapWrites(writes: readonly GapWrite[]): void {
+    const { gaps } = this.scope;
+    for (const { line, spelling } of writes) {
+      if (!gaps.has(line)) gaps.set(line, spelling);
+    }
+  }
+
+  /**
+   * Read one item's interior and assemble its node - Ruby's `Reader.new
+   * read_lines_for_list_item(...)` + the `next_block` loop of
+   * parse_list_item (parser.rb l.1359-1384). The marker line rides at
+   * the front of the confined reader's lines so the text scan consumes
+   * it and the text's continuation lines come from the buffer; the rest
+   * of the buffer is then read by the ordinary block loop, whose blocks
+   * ARE the item's blocks.
    * @param shape - what the extent scan decided about the item
    * @returns the item's node
    */
@@ -496,49 +512,16 @@ class BlockReader {
         kind: "item",
         style: shape.marker.style,
         tailSafe: shape.tailSafe,
+        directiveDepth: this.directiveDepth,
         closeOffset: last.offset + last.raw.length,
       },
     );
-    const text = inner.readText("listItem", shape.marker.markerEnd);
+    const text = inner.readText("listItemText", shape.marker.markerEnd);
     const interior = { text, blocks: inner.run() };
     return listItemNode(shape, interior, {
       gaps: this.scope.gaps,
       at: this.at,
-      // A `+` popped off an item read from ANOTHER item's buffer is
-      // not provably the one Ruby pops — the enclosing scan reshaped
-      // the lines first — so the byte is kept
-      // (keptTrailingContinuation).
-      nested: this.confinement?.kind === "item",
     });
-  }
-
-  /**
-   * Whether the next block belongs to a list item's DIRECT interior.
-   * `options[:list_type]` travels only through parse_list_item's own
-   * next_block loop: a delimited block inside the item parses its
-   * children from a fresh reader with no list flavor (`build_block` →
-   * `Reader.new`), which is now literally what happens — the block
-   * child carries `kind: "block"`, so the item's contexts stop at it
-   * BY CONSTRUCTION (the confinement record's flavor bit; pinned by
-   * the flavor-bit row in tests/format/confinement.test.ts).
-   * @returns true in an item-confined reader
-   */
-  private directlyInItem(): boolean {
-    return this.confinement?.kind === "item";
-  }
-
-  /**
-   * Which interrupting set a paragraph-shaped block gets here. Ruby's
-   * next_block reads an in-item paragraph with `read_paragraph_lines
-   * reader, skipped == 0 && options[:list_type]` (parser.rb l.754/764):
-   * adjacent to the previous content the list-item set applies; after
-   * any blank line — an erased `+` included, which the buffer spells as
-   * a blank — the plain set does (the registry's listContinuation).
-   * @returns the context for the block about to be read
-   */
-  private bodyContext(): ParagraphContext {
-    if (!this.directlyInItem()) return "paragraph";
-    return this.blanks > 0 ? "listContinuation" : "listItem";
   }
 
   /**
@@ -588,7 +571,7 @@ class BlockReader {
         return;
       }
       case "admonitionLabel": {
-        this.admonition(this.bodyContext(), line, kind.labelEnd);
+        this.admonition(this.body, line, kind.labelEnd);
         return;
       }
       case "indented": {
@@ -608,7 +591,7 @@ class BlockReader {
         return;
       }
       default: {
-        this.paragraph(this.bodyContext(), 0);
+        this.paragraph(this.body, 0);
       }
     }
   }
@@ -637,7 +620,7 @@ class BlockReader {
    * @param line - the `+` line
    */
   private continuationLine(line: SourceLine): void {
-    if (!this.directlyInItem()) {
+    if (!directlyInItem(this.confinement)) {
       this.paragraph("paragraph", 0);
       return;
     }
@@ -677,12 +660,13 @@ class BlockReader {
     );
     this.index += 1;
     // The blank run is deliberately NOT reset: Ruby counts `skipped`
-    // BEFORE parse_block_metadata_lines consumes these lines (next_block
-    // l.505), so held metadata is transparent to the in-item paragraph
-    // context. Nothing at document level reads `blanks`. One known
-    // asymmetry, verified unobservable: blanks AFTER held metadata do
-    // not update Ruby's `skipped` either (the metadata loop's own
-    // skip_blank_lines at l.523 discards its count) while ours land in
+    // BEFORE parse_block_metadata_lines consumes these lines
+    // (next_block, parser.rb l.505), so held metadata is transparent
+    // to the in-item paragraph context. Nothing at document level
+    // reads `blanks`. One known asymmetry, verified unobservable:
+    // blanks AFTER held metadata do not update Ruby's `skipped`
+    // either (the metadata loop's own skip_blank_lines at l.523
+    // discards its count) while ours land in
     // `blanks` — but a metadata line keeps the continuation `:active`,
     // so the content after such a blank arrives with the buffer's first
     // line already an erased `+` (skipped ≥ 1 on both readings); no
@@ -734,7 +718,7 @@ class BlockReader {
       // ONE arm for both flavors: bodyContext() already answers
       // "paragraph" for a block child, because directlyInItem() is
       // false there.
-      this.paragraph(this.bodyContext(), 0);
+      this.paragraph(this.body, 0);
       return;
     }
     if (this.held.heldStyle() === DISCRETE_STYLE) {
@@ -797,31 +781,26 @@ class BlockReader {
     const resolved = resolveDelimitedOpen(block, this.actionableStyle());
     this.flushMetadata();
     const extent = delimitedExtent(this.lines, this.index, block);
-    const blockExtent = blockExtentOf(
-      extent,
-      this.source,
-      this.forcedCloseOffset,
-    );
+    // THIS reader's forced-close boundary, read once because both
+    // uses below want it: the extent is stamped with it when the
+    // block never closed, and the child inherits it for the same
+    // reason one line further down.
+    const closeAt = closeOffsetIn(this.confinement, this.source);
+    const blockExtent = blockExtentOf(extent, this.source, closeAt);
     if (resolved.model === "verbatim") {
       const node = buildVerbatimBlock(
         blockExtent,
         withFenceLanguage(resolved.role, block, line.text),
         this.at,
+        annotatedBy,
       );
-      // annotatedBy stays a POST-construction assignment: serialized
-      // key order is a contract (tests/parser/heading.test.ts), and
-      // stamping here keeps this key trailing `position`, which is
-      // admissible only because the parity fold drops it before
-      // digesting (scripts/parity.ts).
-      if (node.type === "delimitedBlock" && annotatedBy !== undefined) {
-        node.annotatedBy = annotatedBy;
-      }
       this.push(node);
     } else {
       const child = new BlockReader(this.scope, extent.interior, {
         kind: "block",
-        tailSafe: extent.close !== undefined || this.tailSafe,
-        closeOffset: extent.close?.offset ?? this.forcedCloseOffset,
+        tailSafe: extent.close !== undefined || tailSafeIn(this.confinement),
+        directiveDepth: this.directiveDepth,
+        closeOffset: extent.close?.offset ?? closeAt,
       });
       const children = child.run();
       this.push(
@@ -867,18 +846,17 @@ class BlockReader {
     }
     const variant = verbatimStyledVariant(this.actionableStyle());
     if (variant === undefined) return false;
-    const annotatedBy = this.annotation();
+    const held = { variant, annotatedBy: this.annotation() };
     this.flushMetadata();
     const { lines, end } = verbatimStyledExtent(this.scan, this.index);
     this.resume(end);
     const [firstLine, ...rest] = lines;
     const node = buildStyledParagraph(
-      variant,
+      held,
       fragmentOfLine(firstLine),
       rest.map((each) => fragmentOfLine(each)),
       this.at,
     );
-    if (annotatedBy !== undefined) node.annotatedBy = annotatedBy;
     this.push(node);
     return true;
   }

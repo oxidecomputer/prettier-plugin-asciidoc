@@ -60,8 +60,9 @@ export interface FamilySets {
  * spelling. Two name the printer's byte-only changes — the
  * invented-`+` deletion and the pseudo-run-fold corruption fix — two
  * name the marker families (author spellings replayed, nesting
- * fidelity restored), and one names the retirement of the `+` that
- * attached nothing.
+ * fidelity restored), one names the retirement of the `+` that
+ * attached nothing, and one its return where the tail it lands in
+ * re-reads inert.
  */
 export const AUTHOR_PLUS_FAMILY = "author-plus";
 export const PSEUDO_RUN_FOLD_FAMILY = "pseudo-run-fold";
@@ -87,6 +88,20 @@ export const NO_OP_CONTINUATION_FAMILY = "no-op-continuation";
  * and knip holds dead exports at 0.
  */
 const NO_OP_CONTINUATION_TREE_FAMILY = "no-op-continuation-tree";
+/**
+ * The other side of `no-op-continuation`: a `+` the item scan popped
+ * (parser.rb l.1580-82) is written back wherever the tail it would
+ * land in re-reads inert, instead of only where the item's last block
+ * reads on past the item. The block-shape half of the old test asked
+ * a question our node kinds cannot answer, and it deleted the byte on
+ * items whose held metadata closed a block early. Formatted-only, and
+ * this is the whole of the byte-level claim: `trailingContinuation`
+ * is not one of the seven fields `normalizeOneItem` keeps, so it is
+ * dropped from BOTH sides of the comparison and every id below moves
+ * bytes with a normalized tree that is identical hash for hash. NOT
+ * exported: no grid row cites it, and knip holds dead exports at 0.
+ */
+const TRAILING_CONTINUATION_KEPT_FAMILY = "trailing-continuation-kept";
 /**
  * One unset spelling (`:name!:` respelled `:!name:`, one fact per
  * `store_attribute`, parser.rb l.2131-41) and lowercase entry names
@@ -347,6 +362,7 @@ export const LEDGER_FAMILIES: FamilySets = {
     NESTING_FIDELITY_FAMILY,
     NO_OP_CONTINUATION_FAMILY,
     NO_OP_CONTINUATION_TREE_FAMILY,
+    TRAILING_CONTINUATION_KEPT_FAMILY,
     ATTRIBUTE_ENTRY_SPELLING_FAMILY,
     ATTRLIST_SPACING_FAMILY,
     XREF_TEXT_TRIM_FAMILY,
@@ -366,6 +382,7 @@ export const LEDGER_FAMILIES: FamilySets = {
     AUTHOR_PLUS_FAMILY,
     PSEUDO_RUN_FOLD_FAMILY,
     NO_OP_CONTINUATION_FAMILY,
+    TRAILING_CONTINUATION_KEPT_FAMILY,
     ATTRIBUTE_ENTRY_SPELLING_FAMILY,
     ATTRLIST_SPACING_FAMILY,
     XREF_TEXT_TRIM_FAMILY,

@@ -259,7 +259,9 @@ describe("admonition edge cases", () => {
 describe("one prose representation", () => {
   test("a paragraph-form body is inline children", () => {
     const [node] = parse("NOTE: alpha beta\n").children;
-    if (node.type !== "admonition") throw new Error(`got ${node.type}`);
+    if (node.type !== "admonition") {
+      throw new Error(`got ${node.type}`);
+    }
     expect(node.form).toBe("paragraph");
     expect(node.children).toEqual([]);
     expect(node.text.length).toBeGreaterThan(0);
@@ -268,7 +270,9 @@ describe("one prose representation", () => {
 
   test("a delimited form carries its wrapper in `form`", () => {
     const [, node] = parse("[NOTE]\n====\nbody\n====\n").children;
-    if (node.type !== "admonition") throw new Error(`got ${node.type}`);
+    if (node.type !== "admonition") {
+      throw new Error(`got ${node.type}`);
+    }
     expect(node.form).toBe("example");
     expect(node.text).toEqual([]);
     expect(node.children).toHaveLength(1);
@@ -276,7 +280,9 @@ describe("one prose representation", () => {
 
   test("a raw line in the body is a rawLine inline child", () => {
     const [node] = parse("NOTE: alpha\nifdef::x[]\nbeta\n").children;
-    if (node.type !== "admonition") throw new Error(`got ${node.type}`);
+    if (node.type !== "admonition") {
+      throw new Error(`got ${node.type}`);
+    }
     expect(node.text.some((child) => child.type === "rawLine")).toBe(true);
   });
 

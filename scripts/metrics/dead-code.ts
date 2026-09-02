@@ -45,7 +45,9 @@ function toolCommand(
   allowDownload: boolean,
 ): [string, string[]] | undefined {
   const local = path.join(REPO_ROOT, "node_modules/.bin", tool);
-  if (existsSync(local)) return [local, []];
+  if (existsSync(local)) {
+    return [local, []];
+  }
   return allowDownload ? ["bunx", [tool]] : undefined;
 }
 
@@ -60,7 +62,9 @@ function toolCommand(
  */
 function runKnip(directory: string): string | undefined {
   const command = toolCommand("knip", false);
-  if (command === undefined) return undefined;
+  if (command === undefined) {
+    return undefined;
+  }
   const [binary, lead] = command;
   const arguments_ = [...lead, "--no-progress", "--reporter", "json"];
   try {
@@ -96,17 +100,27 @@ export function countKnipExports(
   prefix: string,
 ): number | undefined {
   const parsed = parseJson(output);
-  if (!isObject(parsed)) return undefined;
+  if (!isObject(parsed)) {
+    return undefined;
+  }
   const { issues } = parsed;
-  if (!isArray(issues)) return undefined;
+  if (!isArray(issues)) {
+    return undefined;
+  }
   let count = ZERO;
   for (const raw of issues) {
-    if (!isObject(raw)) continue;
+    if (!isObject(raw)) {
+      continue;
+    }
     const { file } = raw;
-    if (typeof file !== "string" || !file.startsWith(prefix)) continue;
+    if (typeof file !== "string" || !file.startsWith(prefix)) {
+      continue;
+    }
     for (const bucket of KNIP_SYMBOL_BUCKETS) {
       const { [bucket]: found } = raw;
-      if (isArray(found)) count += found.length;
+      if (isArray(found)) {
+        count += found.length;
+      }
     }
   }
   return count;
@@ -123,7 +137,9 @@ function runJscpd(
   allowDownload: boolean,
 ): number | undefined {
   const command = toolCommand("jscpd", allowDownload);
-  if (command === undefined) return undefined;
+  if (command === undefined) {
+    return undefined;
+  }
   const [binary, lead] = command;
   const reportDirectory = mkdtempSync(path.join(tmpdir(), "metrics-jscpd-"));
   try {
@@ -164,11 +180,17 @@ function runJscpd(
  */
 function readJscpdPercentage(file: string): number | undefined {
   const parsed = parseJson(readFileSync(file, "utf8"));
-  if (!isObject(parsed)) return undefined;
+  if (!isObject(parsed)) {
+    return undefined;
+  }
   const { statistics } = parsed;
-  if (!isObject(statistics)) return undefined;
+  if (!isObject(statistics)) {
+    return undefined;
+  }
   const { total } = statistics;
-  if (!isObject(total)) return undefined;
+  if (!isObject(total)) {
+    return undefined;
+  }
   const { percentage } = total;
   return typeof percentage === "number" ? percentage : undefined;
 }

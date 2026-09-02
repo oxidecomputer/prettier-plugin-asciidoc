@@ -4,11 +4,11 @@
  * the MECHANISM that fails it and keyed to the tracker issue that owns
  * the fix.
  *
- * The grouping is the point. A flat list of 59 strings is a number a
+ * The grouping is the point. A flat list of bare strings is a number a
  * reviewer can only watch go up or down; grouped, each block is one
  * bug with one issue, and a shape that moves between blocks is a
  * mechanism claim somebody has to defend. The equality gates read
- * {@link FAILING_TODAY}, which is the two blocks concatenated, so
+ * {@link FAILING_TODAY}, which is every block concatenated, so
  * the grouping cannot drift away from what is enforced. The #55
  * block (INLINE_SPAN_SWALLOWS_LINE_BREAK, 78 shapes) is gone: the
  * tokenizer's directional flags took its 39 constrained twins, and
@@ -20,7 +20,20 @@
  *
  * A shape LEAVING this file is progress and must be deliberate: the
  * commit that fixes one of the families takes its block out and says
- * so.
+ * so. The #57 block (REFLOW_JOIN_CHANGES_READING, 4 shapes) is gone,
+ * and 14 of the 22 #54 shapes left with it: all eighteen failed
+ * because reflow packed the item's principal text onto the marker
+ * line and a `// c` moved up into the first buffer line, where the
+ * metadata loop eats it and leaves `next_block`'s blank count at zero
+ * (parser.rb l.505, read at l.764). The item's text now holds a break
+ * there ({@link hazard}, src/print/list-hazard.ts). 33 of the 59
+ * shapes that were here before left together: every one
+ * whose failing tail hung on a block anchor standing in a list item's
+ * SECOND block, which the classifier read as that block's own
+ * metadata and reflowed the line behind it into prose. The anchor now
+ * ends any block after the item's first, so the indented line behind
+ * it stays a literal (INTERRUPTERS_BY_CONTEXT's `listItem` row,
+ * src/parse/line-shapes.ts).
  */
 
 /**
@@ -28,88 +41,26 @@
  * and what follows it re-read differently once printed:
  * `printedGap`'s slurp arm invents a blank that detaches the nested
  * list behind the tail, or removes the slurp that swallowed the next
- * marker line. The largest family.
+ * marker line. The only family left, and the only one whose failing
+ * tail is decided in `printedGap` rather than in the item's text: no
+ * shape here has a first rest line reflow can move anything onto.
  */
 const LITERAL_SLURP_RESHAPE: readonly string[] = [
   "* a\n\n  lit\n[[anc]]\n** b\n* a\n",
   "* a\n\n  lit\n[role]\n** b\n* a\n",
-  "* a\n  lit\n// c\n\n  lit\n* a\n",
-  "* a\n  lit\n// c\n\n  lit\n** b\n",
-  "* a\n  lit\n// c\n+\n  lit\n* a\n",
-  "* a\n  lit\n// c\n+\n  lit\n** b\n",
-  "* a\n  lit\n// c\n+\n+\n** b\n",
-  "* a\n  lit\n// c\n+\npara\n** b\n",
-  "* a\n  lit\n[[anc]]\npara\n[[anc]]\n  lit\n",
-  "* a\n  lit\n[role]\npara\n[[anc]]\n  lit\n",
-  "* a\n* a\n[role]\npara\n[[anc]]\n  lit\n",
   "* a\n** b\n\n  lit\n[[anc]]\n* a\n",
   "* a\n** b\n\n  lit\n[role]\n* a\n",
   "* a\n** b\n+\n  lit\n[[anc]]\n* a\n",
   "* a\n** b\n+\n  lit\n[role]\n* a\n",
-  "* a\n** b\n[role]\npara\n[[anc]]\n  lit\n",
   "* a\n+\n  lit\n[[anc]]\n** b\n* a\n",
   "* a\n+\n  lit\n[role]\n** b\n* a\n",
-  "* a\n.T\n// c\n\n  lit\n* a\n",
-  "* a\n.T\n// c\n\n  lit\n** b\n",
-  "* a\n.T\n// c\n+\n  lit\n* a\n",
-  "* a\n.T\n// c\n+\n  lit\n** b\n",
-  "* a\n.T\n[[anc]]\npara\n[[anc]]\n  lit\n",
-  "* a\n.T\n[role]\npara\n[[anc]]\n  lit\n",
-  "* a\n// c\n[[anc]]\npara\n[[anc]]\n  lit\n",
-  "* a\n// c\n[role]\npara\n[[anc]]\n  lit\n",
-  "* a\n[[anc]]\n[[anc]]\npara\n[[anc]]\n  lit\n",
-  "* a\n[[anc]]\n[role]\npara\n[[anc]]\n  lit\n",
-  "* a\n[role]\n.T\npara\n[[anc]]\n  lit\n",
-  "* a\n[role]\n// c\npara\n[[anc]]\n  lit\n",
-  "* a\n[role]\n[[anc]]\npara\n[[anc]]\n  lit\n",
-  "* a\n[role]\n[role]\npara\n[[anc]]\n  lit\n",
-  "* a\n[role]\npara\n  lit\n[[anc]]\n  lit\n",
-  "* a\n[role]\npara\n.T\n[[anc]]\n  lit\n",
-  "* a\n[role]\npara\n[[anc]]\n  lit\n",
-  "* a\n[role]\npara\n[[anc]]\n  lit\n\n",
-  "* a\n[role]\npara\n[[anc]]\n  lit\n  lit\n",
-  "* a\n[role]\npara\n[[anc]]\n  lit\n* a\n",
-  "* a\n[role]\npara\n[[anc]]\n  lit\n** b\n",
-  "* a\n[role]\npara\n[[anc]]\n  lit\n+\n",
-  "* a\n[role]\npara\n[[anc]]\n  lit\n.T\n",
-  "* a\n[role]\npara\n[[anc]]\n  lit\n// c\n",
-  "* a\n[role]\npara\n[[anc]]\n  lit\n[[anc]]\n",
-  "* a\n[role]\npara\n[[anc]]\n  lit\n[role]\n",
-  "* a\n[role]\npara\n[[anc]]\n  lit\npara\n",
-  "* a\n[role]\npara\n[[anc]]\n.T\n  lit\n",
-  "* a\n[role]\npara\n[[anc]]\n// c\n  lit\n",
-  "* a\n[role]\npara\npara\n[[anc]]\n  lit\n",
-  "* a\npara\n// c\n\n  lit\n* a\n",
-  "* a\npara\n// c\n\n  lit\n** b\n",
-  "* a\npara\n// c\n+\n  lit\n* a\n",
-  "* a\npara\n// c\n+\n  lit\n** b\n",
-  "* a\npara\n[[anc]]\npara\n[[anc]]\n  lit\n",
-  "* a\npara\n[role]\npara\n[[anc]]\n  lit\n",
 ];
 
 /**
- * **#57 — a reflow join changes how the lines AFTER it are read.**
- * Two faces: the item's principal text joined across its source break
- * changes the oracle's reading of the `+`-attached block below it,
- * and a `.T` block-title line reflowed onto the paragraph it titles
- * destroys that paragraph outright.
- */
-const REFLOW_JOIN_CHANGES_READING: readonly string[] = [
-  "* a\n.T\n// c\n+\n+\n** b\n",
-  "* a\n.T\n// c\n+\npara\n** b\n",
-  "* a\n[role]\npara\n[[anc]]\n.T\npara\n",
-  "* a\npara\n// c\n+\n+\n** b\n",
-  "* a\npara\n// c\n+\npara\n** b\n",
-];
-
-/**
- * The two families, flat — what the sweeps assert set-equality
+ * The one remaining family, flat - what the sweeps assert set-equality
  * against. The deep entry compares its whole failing set to this;
  * the default entry compares against this filtered to the documents
  * its shallower product actually spells (`allowlistFor`, in
  * `list-shape-sweep.ts`).
  */
-export const FAILING_TODAY: readonly string[] = [
-  ...LITERAL_SLURP_RESHAPE,
-  ...REFLOW_JOIN_CHANGES_READING,
-];
+export const FAILING_TODAY: readonly string[] = [...LITERAL_SLURP_RESHAPE];

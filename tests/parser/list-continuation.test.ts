@@ -114,10 +114,12 @@ describe("list continuation parsing", () => {
   // strips blanks. 2.0.20 compared text and ran the pop in the else
   // arm, after the strip. The difference matters for an ERASED `+`,
   // which is an empty tagged String: 2.0.26 pops it and breaks where
-  // 2.0.20 stripped it as an ordinary blank. It is neither folded into
-  // the text nor kept anywhere else: the item is exactly what it would
-  // be without the line.
-  test("a trailing + leaves the item as if it were not written", () => {
+  // 2.0.20 stripped it as an ordinary blank. Nothing about the pop
+  // reaches the item's BLOCKS: it attached nothing, so the item holds
+  // what it would hold without the line. But the byte the author
+  // wrote is recorded on the node and printed back
+  // (`trailingContinuation`, list-item-node.ts).
+  test("a trailing + attaches nothing and is recorded, not folded", () => {
     const { children } = parse("* item text\n+\n");
     const {
       children: [item],
@@ -127,9 +129,12 @@ describe("list continuation parsing", () => {
       type: "text",
       value: "item text",
     });
-    expect(item).toEqual(
-      firstList(parse("* item text\n").children).children[0],
-    );
+    expect(item.trailingContinuation).toBe(true);
+    const {
+      children: [without],
+    } = firstList(parse("* item text\n").children);
+    expect(without.trailingContinuation).toBe(false);
+    expect({ ...item, trailingContinuation: false }).toEqual(without);
   });
 
   // A `+` line with trailing whitespace is still a marker —

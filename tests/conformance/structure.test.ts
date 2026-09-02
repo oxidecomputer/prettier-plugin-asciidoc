@@ -53,7 +53,9 @@ beforeAll(async () => {
       continue;
     }
     const events = divergences(ourTree(one.input), oracle);
-    if (events.length > 0) run.observed[one.id] = signature(events);
+    if (events.length > 0) {
+      run.observed[one.id] = signature(events);
+    }
   }
 });
 

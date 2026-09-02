@@ -133,12 +133,18 @@ export function writeEslintConfig(directory: string): string {
  */
 export function parseReport(output: string): EslintFileResult[] {
   const parsed = parseJson(output);
-  if (!isArray(parsed)) return [];
+  if (!isArray(parsed)) {
+    return [];
+  }
   const results: EslintFileResult[] = [];
   for (const entry of parsed) {
-    if (!isObject(entry)) continue;
+    if (!isObject(entry)) {
+      continue;
+    }
     const { filePath, messages } = entry;
-    if (typeof filePath !== "string" || !isArray(messages)) continue;
+    if (typeof filePath !== "string" || !isArray(messages)) {
+      continue;
+    }
     results.push({ filePath, messages: parseMessages(messages) });
   }
   return results;
@@ -152,7 +158,9 @@ export function parseReport(output: string): EslintFileResult[] {
 function parseMessages(messages: unknown[]): EslintMessage[] {
   const parsed: EslintMessage[] = [];
   for (const raw of messages) {
-    if (!isObject(raw)) continue;
+    if (!isObject(raw)) {
+      continue;
+    }
     const { ruleId, message, line } = raw;
     if (typeof ruleId === "string" && typeof message === "string") {
       parsed.push({
@@ -184,7 +192,9 @@ function runEslint(directory: string, configPath: string): EslintFileResult[] {
     );
   } catch (error) {
     const output = stdoutOf(error);
-    if (output === undefined) throw error;
+    if (output === undefined) {
+      throw error;
+    }
     return parseReport(output);
   }
 }
@@ -221,16 +231,22 @@ export function aggregate(
   for (const file of report) {
     const relative = path.relative(root, file.filePath);
     for (const message of file.messages) {
-      if (message.ruleId !== ruleId) continue;
+      if (message.ruleId !== ruleId) {
+        continue;
+      }
       const captured = valuePattern.exec(message.message)?.groups?.value;
-      if (captured === undefined) continue;
+      if (captured === undefined) {
+        continue;
+      }
       const value = Number(captured);
       for (const layer of layersFor(relative)) {
         const { [layer]: totalsForLayer } = totals;
         totalsForLayer.functions += ONE;
         totalsForLayer.sum += value;
         totalsForLayer.max = Math.max(totalsForLayer.max, value);
-        if (value > tail) totalsForLayer.over += ONE;
+        if (value > tail) {
+          totalsForLayer.over += ONE;
+        }
       }
     }
   }
@@ -286,12 +302,18 @@ function offenderOf(
   where: string,
   aggregation: Aggregation,
 ): Offender | undefined {
-  if (message.ruleId !== aggregation.ruleId) return undefined;
+  if (message.ruleId !== aggregation.ruleId) {
+    return undefined;
+  }
   const captured = aggregation.valuePattern.exec(message.message)?.groups
     ?.value;
-  if (captured === undefined) return undefined;
+  if (captured === undefined) {
+    return undefined;
+  }
   const value = Number(captured);
-  if (value <= aggregation.tail) return undefined;
+  if (value <= aggregation.tail) {
+    return undefined;
+  }
   return {
     where: `${where}:${String(message.line)}`,
     what: NAMED.exec(message.message)?.groups?.name ?? "(anonymous)",
@@ -308,10 +330,14 @@ function offendersOver(aggregation: Aggregation): Offender[] {
   const offenders: Offender[] = [];
   for (const file of aggregation.report) {
     const where = path.relative(aggregation.root, file.filePath);
-    if (layersFor(where).length === ZERO) continue;
+    if (layersFor(where).length === ZERO) {
+      continue;
+    }
     for (const message of file.messages) {
       const offender = offenderOf(message, where, aggregation);
-      if (offender !== undefined) offenders.push(offender);
+      if (offender !== undefined) {
+        offenders.push(offender);
+      }
     }
   }
   return offenders.toSorted((left, right) => right.value - left.value);

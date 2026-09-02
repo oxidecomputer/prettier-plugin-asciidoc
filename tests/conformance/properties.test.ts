@@ -28,17 +28,16 @@ describe("assessCase", () => {
   // The reading detail names WHERE as well as what: a signature alone
   // is enough for a six-line case and not enough for a corpus
   // document of several hundred lines. This one document is a live
-  // gap (#65's tail-reading-flip; the previous witness closed with
-  // #43) rather than a shape, deliberately - it is a ledger row in
-  // tests/format/reading-ledger.json, so the day the gap closes this
-  // row moves with the ledger.
+  // gap (#17's continuation-dropped; the previous witnesses closed
+  // with #43 and then #65) rather than a shape, deliberately - it is
+  // a ledger row in tests/format/reading-ledger.json, so the day the
+  // gap closes this row moves with the ledger. Its violation is on
+  // line 3 of 6, so the reported line is the line and not the end.
   test("a reading failure is reported with its line", async () => {
-    const result = await assessCase(
-      "* a\n[role]\npara\n  lit\n[[anc]]\n  lit\n",
-    );
+    const result = await assessCase("* a\n\n+\n* a\n\n+\n");
     expect(result.failures).toContain("reading");
     expect(result.detail).toContain(
-      "re-reads differently: p1 line 6 [indented] -> [text]",
+      "re-reads differently: p1 line 3 [cont marker:unordered:* cont] -> [marker:unordered:*]",
     );
   });
 });

@@ -30,7 +30,7 @@
     },
     "-paragraph": {
       "family": "gap:lazy-continuation",
-      "count": 404,
+      "count": 406,
       "example": "* a\n** b\n\n+\n\n+\npara\n"
     },
     "literal=>list:unordered": {
@@ -47,11 +47,6 @@
       "family": "gap:nested-list-lost",
       "count": 4,
       "example": "* a\n[role]\n+\n+\n** b\n"
-    },
-    "paragraph=>literal": {
-      "family": "gap:indent-literal-style",
-      "count": 1,
-      "example": "* a\n[role]\npara\n[[anc]]\n  lit\n"
     }
   }
 }

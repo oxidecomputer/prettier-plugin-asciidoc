@@ -77,7 +77,7 @@ describe("the pseudo-run fold classes render like the input", () => {
 
 describe("the author-plus classes respell render-neutrally", () => {
   // Respellings: the base's invented `+` was render-neutral; the
-  // keepBreak spelling is proved equal to the input as well.
+  // held-break spelling is proved equal to the input as well.
   test.each([
     [
       "+-listing after the run",

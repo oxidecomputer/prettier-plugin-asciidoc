@@ -66,7 +66,9 @@ export interface LocalDocumentsConfig {
 export function readLocalDocumentsConfig(
   file = CONFIG_FILE,
 ): LocalDocumentsConfig {
-  if (!existsSync(file)) return { corpus: undefined, repository: undefined };
+  if (!existsSync(file)) {
+    return { corpus: undefined, repository: undefined };
+  }
   const parsed = parsedJson(file);
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
     throw new TypeError(`${file}: not a JSON object`);
@@ -122,7 +124,9 @@ function field(
   file: string,
 ): string | undefined {
   const { [key]: value } = raw;
-  if (value === undefined) return undefined;
+  if (value === undefined) {
+    return undefined;
+  }
   if (typeof value !== "string" || value === "") {
     throw new TypeError(`${file}: ${key} must be a non-empty string`);
   }

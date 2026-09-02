@@ -755,8 +755,10 @@ export type LeafDelimiterVariant = "listing" | "literal" | "pass";
  * The sibling BlockAttributeListNode still carries the spelling for
  * printing; this field is the reader's own record, so no consumer
  * re-pairs siblings to learn it (pinned by invariant (xi)). The
- * reader stamps it after construction, so it trails `position` on the
- * wire.
+ * builder writes it LAST in the node literal, so it trails every
+ * other key on the wire - where the reader's old post-construction
+ * stamp used to leave it. Absent, never present and undefined, when
+ * nothing annotated the block.
  */
 export type DelimitedBlockNode =
   | LeafDelimitedBlockNode
@@ -1078,9 +1080,9 @@ interface ItemBody {
    * changes no re-read and is dropped as always.
    *
    * Mutually exclusive with `trailingContinuation` by construction:
-   * the extent scan's strip loop reports one pop or the other, never
-   * both (see ItemExtent.erasedTailContinuation,
-   * src/parse/lines/list-reader.ts).
+   * the post-loop's tail walk reports one pop or the other, never both
+   * (see ItemExtent.erasedTailContinuation,
+   * src/parse/lines/item-tail.ts).
    */
   detachedTail: boolean;
   /**
@@ -1089,14 +1091,44 @@ interface ItemBody {
    * attribute line, an anchor, an attribute entry keep `:active`,
    * parser.rb l.1499-1501) and never met the block it was waiting for
    * — and whose byte still reaches the output, replayed in a trailing
-   * metadata block's gap (armedTailPrints,
-   * src/parse/lines/list-reader.ts). One blank line under such a tail
+   * metadata block's gap. The item scan folds both halves as it reads
+   * (the armed-tail state, src/parse/lines/item-tail.ts). One blank
+   * line under such a tail
    * ATTACHES the next block to the item on re-read (the `:active`
    * arm, l.1483); only a second blank detaches it (the after-blank
    * break, l.1549). joinBlocks reads this to separate the list from
    * the block after it with two blank lines instead of one.
    */
   activeTail: boolean;
+  /**
+   * Every source line the item's text wrote UNDER the marker line
+   * stands at an indent - the all-or-nothing condition
+   * `adjust_indentation!` tests before it strips a block. The walk
+   * takes the least indented line (parser.rb l.2723-31), and one line
+   * at indent 0 sets `block_indent = nil` and cancels the strip for
+   * the whole block (l.2727-29), which leaves the space that makes a
+   * ` +` line under such text a hard break rather than a literal plus.
+   *
+   * Two line kinds do not count against it, neither of them in the
+   * block the walk sees: a blank line, which the walk itself skips
+   * (`next if line.empty?`, l.2726), and a `//` line, which
+   * `read_paragraph_lines` drops before the strip runs
+   * (`skip_line_comments: text_only`, l.754). The marker line is
+   * outside the question too: `fold_first` prepends the item's text
+   * to the block AFTER the strip has run (l.755 and l.1384).
+   *
+   * The ANSWER travels, not the lines. The scan that reads the item
+   * holds its buffer with every line's raw spelling intact
+   * (src/parse/lines/list-reader.ts), and the one consumer - the
+   * printer's reflow guard (src/print/list-hazard.ts) - asks exactly
+   * this yes/no of those lines, so the yes/no is what is recorded.
+   * Carrying the lines themselves would copy a slice of the source
+   * onto every item and leave the next question about them to be
+   * answered by re-deriving. A second question about these lines
+   * gets a second recorded fact from the scan, never a re-derivation
+   * from this boolean or from the inline fragments.
+   */
+  everyTextLineIndented: boolean;
 }
 
 /**

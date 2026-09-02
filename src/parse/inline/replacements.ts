@@ -148,7 +148,9 @@ const SPACED_EM_DASH: ReplacementRow = {
   pattern: /(?: |\n|^|\\)--(?: |\n|$)/gmv,
   site: (match: RegExpExecArray): Site | undefined => {
     const [whole] = match;
-    if (whole.startsWith(ESCAPE)) return undefined;
+    if (whole.startsWith(ESCAPE)) {
+      return undefined;
+    }
     const lead = whole.startsWith(EM_DASH) ? 0 : ESCAPE.length;
     return { offset: match.index + lead, length: EM_DASH.length };
   },
@@ -250,7 +252,9 @@ interface RowScan {
  */
 function isFree(scan: RowScan, from: number, to: number): boolean {
   for (let index = from; index < to; index += 1) {
-    if (scan.consumed[index] === 1) return false;
+    if (scan.consumed[index] === 1) {
+      return false;
+    }
   }
   return true;
 }
@@ -274,7 +278,9 @@ function runRow(text: string, row: ReplacementRow, scan: RowScan): void {
     if (isFree(scan, match.index, end)) {
       scan.consumed.fill(1, match.index, end);
       const site = row.site(match);
-      if (site !== undefined) scan.references.set(site.offset, site.length);
+      if (site !== undefined) {
+        scan.references.set(site.offset, site.length);
+      }
     }
     match = row.pattern.exec(text);
   }
@@ -293,6 +299,8 @@ export function scanReplacements(text: string): ReadonlyMap<number, number> {
     consumed: new Uint8Array(text.length),
     references: new Map<number, number>(),
   };
-  for (const row of REPLACEMENT_ROWS) runRow(text, row, scan);
+  for (const row of REPLACEMENT_ROWS) {
+    runRow(text, row, scan);
+  }
   return scan.references;
 }

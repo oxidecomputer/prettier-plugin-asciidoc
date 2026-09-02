@@ -157,19 +157,27 @@ function reachable(
   root: unknown,
   stepThroughItemBlocks: boolean,
 ): Set<AnyNode> {
-  if (!isNode(root)) return new Set();
+  if (!isNode(root)) {
+    return new Set();
+  }
   const seen = new Set<AnyNode>([root]);
   const queue = [root];
   while (queue.length > 0) {
     const node = queue.pop();
-    if (node === undefined) break;
+    if (node === undefined) {
+      break;
+    }
     const wrapper =
       stepThroughItemBlocks && node.type === "listItem" ? ["blocks"] : [];
     for (const key of [...getVisitorKeys(node), ...wrapper]) {
       const value = node[key];
-      if (!isArray(value)) continue;
+      if (!isArray(value)) {
+        continue;
+      }
       for (const child of value.flatMap(siblingsOf)) {
-        if (seen.has(child)) continue;
+        if (seen.has(child)) {
+          continue;
+        }
         seen.add(child);
         queue.push(child);
       }
@@ -222,7 +230,9 @@ function undeclaredKeysOf(node: AnyNode): string[] {
 function unsafeKeysOf(node: AnyNode): string[] {
   return getVisitorKeys(node).flatMap((key) => {
     const value = node[key];
-    if (value === undefined) return [];
+    if (value === undefined) {
+      return [];
+    }
     if (!isArray(value)) {
       return [`${node.type}.${key} is present but is not an array`];
     }

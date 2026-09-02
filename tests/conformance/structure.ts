@@ -226,7 +226,9 @@ function oracleKids(node: AbstractBlock, levels: boolean): Shape[] {
   if (node instanceof List) {
     return node.getItems().map((entry) => oracleItem(entry, levels));
   }
-  if (OPAQUE.has(node.getContext())) return [];
+  if (OPAQUE.has(node.getContext())) {
+    return [];
+  }
   return node.getBlocks().flatMap((child) => oracleShape(child, levels));
 }
 
@@ -248,14 +250,18 @@ function oracleKids(node: AbstractBlock, levels: boolean): Shape[] {
 function oracleShape(node: AbstractBlock, levels: boolean): Shape[] {
   const context = node.getContext();
   const kind = ORACLE_KINDS.get(context);
-  if (kind === undefined) return [leaf(`?${context}`)];
+  if (kind === undefined) {
+    return [leaf(`?${context}`)];
+  }
   if (context === "section") {
     return [
       leaf(headingKind(node.getLevel(), levels)),
       ...oracleKids(node, levels),
     ];
   }
-  if (context === "preamble") return oracleKids(node, levels);
+  if (context === "preamble") {
+    return oracleKids(node, levels);
+  }
   if (context === "floating_title") {
     return [leaf(headingKind(node.getLevel(), levels))];
   }
@@ -487,7 +493,9 @@ function ourAdmonition(node: AdmonitionNode, levels: boolean): Shape {
  */
 function ourNode(node: BlockNode, levels: boolean): Shape {
   const leafKind = LEAF_KINDS.get(node.type);
-  if (leafKind !== undefined) return leaf(leafKind);
+  if (leafKind !== undefined) {
+    return leaf(leafKind);
+  }
   switch (node.type) {
     case "heading":
     case "discreteHeading": {
@@ -535,7 +543,9 @@ function ourNode(node: BlockNode, levels: boolean): Shape {
  * @returns the shapes it contributes
  */
 function ourShape(node: BlockNode, levels: boolean): Shape[] {
-  if (DROPPED.has(node.type)) return [];
+  if (DROPPED.has(node.type)) {
+    return [];
+  }
   return [ourNode(node, levels)];
 }
 
@@ -617,7 +627,9 @@ function align(
       oracleAt += 1;
     } else if (table[oursAt + 1][oracleAt] >= table[oursAt][oracleAt + 1]) {
       oursAt += 1;
-    } else oracleAt += 1;
+    } else {
+      oracleAt += 1;
+    }
   }
   return pairs;
 }
@@ -648,8 +660,12 @@ export function divergences(ours: Shape, oracle: Shape, path = ""): string[] {
     for (let at = 0; at < shared; at += 1) {
       out.push(`${where}\t${deleted[at]}=>${inserted[at]}`);
     }
-    for (const kind of deleted.slice(shared)) out.push(`${where}\t-${kind}`);
-    for (const kind of inserted.slice(shared)) out.push(`${where}\t+${kind}`);
+    for (const kind of deleted.slice(shared)) {
+      out.push(`${where}\t-${kind}`);
+    }
+    for (const kind of inserted.slice(shared)) {
+      out.push(`${where}\t+${kind}`);
+    }
     oursAt = untilOurs;
     oracleAt = untilOracle;
   };

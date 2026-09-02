@@ -39,7 +39,9 @@ function passthroughs(value: unknown): string[] {
   if (Array.isArray(value)) {
     return (value as unknown[]).flatMap((item) => passthroughs(item));
   }
-  if (typeof value !== "object" || value === null) return [];
+  if (typeof value !== "object" || value === null) {
+    return [];
+  }
   const node: Record<string, unknown> = { ...value };
   if (node.type === "passthrough" && typeof node.value === "string") {
     return [node.value];

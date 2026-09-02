@@ -35,7 +35,7 @@ function shapeOf(source: string): {
   }
   const shape = listShape(lines, 0, opening, {
     tailSafe: true,
-    gaps: new Map(),
+    directiveDepth: 0,
   });
   return {
     items: shape.items.map((item) => ({
@@ -103,10 +103,12 @@ describe("listShape walks siblings and stops at anything else", () => {
     // forward would put this item's text at column 3.
     const lines: readonly SourceLine[] = splitLines("* a\n  * b\n");
     const opening = classifyLine(lines[0].text, BLOCK_START_CONTEXT);
-    if (opening.kind !== "listMarker") throw new Error("not a marker line");
+    if (opening.kind !== "listMarker") {
+      throw new Error("not a marker line");
+    }
     const shape = listShape(lines, 0, opening, {
       tailSafe: true,
-      gaps: new Map(),
+      directiveDepth: 0,
     });
     expect(shape.items.map((item) => item.marker)).toEqual([
       {

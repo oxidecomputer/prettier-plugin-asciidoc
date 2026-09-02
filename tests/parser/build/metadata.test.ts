@@ -35,7 +35,9 @@ import {
  * @returns the same value, without the undefined arm
  */
 function required<T>(kind: T | undefined): T {
-  if (kind === undefined) throw new Error("the row's line did not parse");
+  if (kind === undefined) {
+    throw new Error("the row's line did not parse");
+  }
   return kind;
 }
 

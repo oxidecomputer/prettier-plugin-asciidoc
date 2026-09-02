@@ -7,10 +7,7 @@
  */
 import { describe, expect, test } from "vitest";
 import type { GapLine } from "../../src/ast.js";
-import {
-  itemExtent,
-  type GapRecord,
-} from "../../src/parse/lines/list-reader.js";
+import { itemExtent } from "../../src/parse/lines/list-reader.js";
 import { splitLines } from "../../src/parse/lines/split.js";
 import type { SiblingTrait } from "../../src/parse/lines/classify.js";
 
@@ -40,7 +37,7 @@ function scan(
     lines,
     from,
     { kind: "marker", style },
-    { tailSafe: bounds.tailSafe ?? true, gaps: new Map() },
+    { tailSafe: bounds.tailSafe ?? true, directiveDepth: 0 },
   );
   return {
     buffer: extent.buffer.map((line) => line.text),
@@ -291,10 +288,13 @@ describe("itemExtent: one row per read_lines_for_list_item branch", () => {
       4,
     ],
     [
-      "a detached + at EOF is erased by l.1576, so the pop finds nothing",
+      // l.1576 writes a cell that is STILL a continuation marker, so
+      // the tail walk takes it at l.1580 and breaks there, and the blank
+      // above it never reaches l.1584's strip.
+      "a detached + at EOF is erased by l.1576 and popped by l.1580",
       "* a\n\n+\n",
       "*",
-      [],
+      [""],
       3,
     ],
     [
@@ -356,28 +356,49 @@ describe("itemExtent: one row per read_lines_for_list_item branch", () => {
     const lines = splitLines("* a\n+\npara\n");
     const { buffer } = itemExtent(lines, 1, MARKER_TRAIT, {
       tailSafe: true,
-      gaps: new Map(),
+      directiveDepth: 0,
     });
     expect(buffer[0]).toMatchObject({ text: "", raw: "+", offset: 4, line: 2 });
   });
 });
 
+// The sibling test asked with the OTHER trait. `SiblingTrait`'s dlist
+// arm is type-legal and has no producer yet (#9): the classifier
+// builds only the marker arm, and `siblingMarker` answers undefined
+// for anything else, so no line ends an item read under a dlist
+// trait. The row exists because the guard that says so is otherwise
+// unreached - #9's matcher plugs in exactly there, and this pins what
+// it replaces.
+test("a dlist trait matches no sibling marker yet (#9)", () => {
+  const extent = itemExtent(
+    splitLines("t:: d\nu:: e\n* m\n"),
+    1,
+    { kind: "dlist", delimiter: "::" },
+    { tailSafe: true, directiveDepth: 0 },
+  );
+  expect(extent.buffer.map((line) => line.text)).toEqual(["u:: e", "* m"]);
+});
+
 /**
- * The scan's ONE declared side effect: the separator lines it consumes
- * are reported into the shared gap record, spelled by the arm that
- * consumed them (src/print/list.ts replays that spelling). These rows
- * read the record itself, which the `scan` helper above throws away.
+ * What the scan hands back about the separator lines it consumed: one
+ * write per line, spelled from the role the consuming arm recorded
+ * (src/print/list.ts replays that spelling). These rows read the
+ * writes, which the `scan` helper above throws away.
  */
-describe("itemExtent records the separator lines it consumes", () => {
+describe("itemExtent reports the separator lines it consumes", () => {
   /**
-   * Scan a document with a record of its own and read the record back.
+   * Scan a document and read its gap writes back, in line order.
    * @param source - the whole document; its first line is the marker
-   * @returns every recorded line, in line order
+   * @returns every line the scan wrote, in line order
    */
   function gapsFrom(source: string): Array<[number, GapLine]> {
-    const gaps: GapRecord = new Map();
-    itemExtent(splitLines(source), 1, MARKER_TRAIT, { tailSafe: true, gaps });
-    return [...gaps].toSorted(([a], [b]) => a - b);
+    const { gapWrites } = itemExtent(splitLines(source), 1, MARKER_TRAIT, {
+      tailSafe: true,
+      directiveDepth: 0,
+    });
+    return gapWrites
+      .map(({ line, spelling }): [number, GapLine] => [line, spelling])
+      .toSorted(([a], [b]) => a - b);
   }
 
   test.each<[string, string, Array<[number, GapLine]>]>([
@@ -402,6 +423,28 @@ describe("itemExtent records the separator lines it consumes", () => {
     ],
   ])("%s", (_name, source, expected) => {
     expect(gapsFrom(source)).toEqual(expected);
+  });
+
+  // CAN one scan write the same line twice? No (parser.rb l.1576 is
+  // the last write any line gets), and this is the row
+  // that says so rather than leaving it to be assumed: the record is
+  // keyed by line number, so an arm that revises what an earlier arm
+  // of the SAME scan decided replaces the entry instead of adding
+  // one. The document below has every revision the loop can make on
+  // one line - the after-blank arm records the `+` at line 3 as
+  // detached, the activation blanks it into an erased one, and the
+  // post-loop's l.1576 write settles it as detached again - and the line
+  // comes out once. Under the shared record this question was moot
+  // (the has-guard swallowed a second write); with the writes handed
+  // back as values, a duplicate would reach the applier and a reader
+  // would have to know which one won.
+  test("a line an arm revises is written once, not twice", () => {
+    const writes = gapsFrom("* a\n\n+\npara\n");
+    expect(writes).toEqual([
+      [2, ""],
+      [3, "+"],
+    ]);
+    expect(new Set(writes.map(([line]) => line)).size).toBe(writes.length);
   });
 });
 

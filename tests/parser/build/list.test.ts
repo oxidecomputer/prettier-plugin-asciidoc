@@ -46,6 +46,7 @@ function itemInput(overrides: Partial<ListItemInput>): ListItemInput {
     trailingContinuation: false,
     detachedTail: false,
     activeTail: false,
+    everyTextLineIndented: false,
     ...overrides,
   };
 }
@@ -313,6 +314,7 @@ describe("serialized key order", () => {
       "trailingContinuation",
       "detachedTail",
       "activeTail",
+      "everyTextLineIndented",
       "position",
     ]);
   });
@@ -329,6 +331,7 @@ describe("serialized key order", () => {
       "trailingContinuation",
       "detachedTail",
       "activeTail",
+      "everyTextLineIndented",
       "position",
     ]);
   });
@@ -345,6 +348,7 @@ describe("serialized key order", () => {
       "trailingContinuation",
       "detachedTail",
       "activeTail",
+      "everyTextLineIndented",
       "position",
     ]);
   });

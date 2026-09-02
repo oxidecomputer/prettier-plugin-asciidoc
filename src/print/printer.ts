@@ -6,7 +6,7 @@
  *
  * Formatting opinions applied here:
  * - Paragraph text is reflowed to printWidth by the atom engine
- *   (src/reflow.ts): whitespace — including newlines — is normalized
+ *   (src/print/reflow.ts): whitespace — including newlines — is normalized
  *   to single spaces between words, and the greedy packer decides
  *   where to break.
  * - Blocks separated by exactly one blank line

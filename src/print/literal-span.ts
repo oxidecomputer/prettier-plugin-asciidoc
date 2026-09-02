@@ -7,7 +7,7 @@
  * max-lines lint limit; the two share the {@link Boundary}/
  * {@link Cursor} plumbing from src/print/atom-join.ts rather
  * than one importing the other, so dependency-cruiser's cycle check
- * (scripts/metrics-cli.test.ts) stays clean.
+ * (tests/scripts/metrics-cli.test.ts) stays clean.
  */
 import type { TextNode } from "../ast.js";
 import { ASCII_WHITESPACE } from "../parse/line-shapes.js";

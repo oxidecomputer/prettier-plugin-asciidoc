@@ -66,6 +66,14 @@ const TOP_KEYS = new Set(["note", "files", "exceptions"]);
 const ROW_KEYS = new Set(["coverage", "mutation"]);
 const EXCEPTION_KEYS = ["file", "what", "class", "reason"];
 
+// The one key an exception row MAY carry on top of those four:
+// `formerly`, the citations in its `what` that name a tree the move
+// this row records has already left. `bun run internal-citations`
+// reads it and exempts exactly those from the line check; nothing
+// here reads it, and it is listed only so a row carrying one is not
+// rejected as a typo.
+const OPTIONAL_EXCEPTION_KEYS = new Set(["formerly"]);
+
 /** The three ways a gap between the minimum and 100% is classified. */
 const CLASSES = ["now", "when", "never"];
 
@@ -199,7 +207,7 @@ function validateException(
     return { exception: undefined, fault: `${at}: not an object` };
   }
   const unknown = Object.keys(raw).filter(
-    (key) => !EXCEPTION_KEYS.includes(key),
+    (key) => !EXCEPTION_KEYS.includes(key) && !OPTIONAL_EXCEPTION_KEYS.has(key),
   );
   if (unknown.length > ZERO) {
     return {
@@ -296,9 +304,11 @@ function readExceptions(raw: readonly unknown[]): {
   const faults: string[] = [];
   for (const [index, element] of raw.entries()) {
     const { exception, fault } = validateException(element, index);
-    if (exception === undefined)
+    if (exception === undefined) {
       faults.push(fault ?? `${MINIMUMS_FILE}: malformed`);
-    else exceptions.push(exception);
+    } else {
+      exceptions.push(exception);
+    }
   }
   return { exceptions, faults };
 }
@@ -319,12 +329,16 @@ function readExceptions(raw: readonly unknown[]): {
  */
 export function readMinimums(root: string): MinimumsRead {
   const file = path.join(root, MINIMUMS_FILE);
-  if (!existsSync(file)) return { minimums: undefined, faults: [] };
+  if (!existsSync(file)) {
+    return { minimums: undefined, faults: [] };
+  }
   const { value, fault } = strictJson(
     MINIMUMS_FILE,
     readFileSync(file, "utf8"),
   );
-  if (fault !== undefined) return { minimums: undefined, faults: [fault] };
+  if (fault !== undefined) {
+    return { minimums: undefined, faults: [fault] };
+  }
   const { shape, fault: shapeFault } = readShape(value);
   if (shape === undefined) {
     return {
@@ -337,9 +351,11 @@ export function readMinimums(root: string): MinimumsRead {
   const files = new Map<string, MinimumRow>();
   for (const [name, raw] of Object.entries(rawFiles)) {
     const { row, fault: rowFault } = validateRow(raw, name);
-    if (row === undefined)
+    if (row === undefined) {
       faults.push(rowFault ?? `${MINIMUMS_FILE}: malformed`);
-    else files.set(name, row);
+    } else {
+      files.set(name, row);
+    }
   }
   const { exceptions, faults: exceptionFaults } = readExceptions(rawExceptions);
   faults.push(...exceptionFaults);

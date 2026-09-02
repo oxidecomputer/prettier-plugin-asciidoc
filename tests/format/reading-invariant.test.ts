@@ -142,22 +142,24 @@ describe("the known-issue table (issue #58, section 4.4)", () => {
   );
 
   // #65's tail-reading-flip mechanism, in the two shapes the depth-5
-  // sweep spells.
-  // Render-EQUAL today, which is what makes them invisible to every
-  // other gate - and what implies a parse-side divergence on one side.
+  // sweep spells. Both used to breach: an anchor standing in the
+  // item's SECOND block was read as that block's own metadata, so the
+  // line behind it reflowed into prose and its reading flipped. The
+  // anchor now ends any block after the item's first
+  // (INTERRUPTERS_BY_CONTEXT's `listItem` row,
+  // src/parse/line-shapes.ts), the line behind it keeps its own line,
+  // and the flip is gone. They stay here as the regression guard.
   test.each([
     [
-      "a trailing indented line flips to paragraph text",
+      "a trailing indented line stays a literal",
       "* a\n[role]\npara\npara\n[[anc]]\n  lit\n",
-      "p1 [indented] -> [text]",
     ],
     [
-      "a trailing .T flips from block title to text",
+      "a trailing .T stays a block title",
       "* a\n[role]\npara\npara\n[[anc]]\n.T\n",
-      "p1 [title] -> [text]",
     ],
-  ])("#65: %s", async (_name, source, signature) => {
-    expect(await breachRows(source)).toEqual([signature]);
+  ])("#65: %s", async (_name, source) => {
+    expect(await breachRows(source)).toEqual([]);
   });
 });
 

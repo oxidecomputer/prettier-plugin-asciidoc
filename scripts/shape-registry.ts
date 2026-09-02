@@ -289,6 +289,12 @@ const OTHER_CONSTRUCTS: readonly ConstructEntry[] = [
     nearMisses: ["+ x", "++"],
   },
   {
+    id: "indented-continuation",
+    covers: ["INDENTED_PLUS"],
+    body: "  +",
+    nearMisses: ["  + x", "  ++"],
+  },
+  {
     id: "indented-line",
     covers: ["LITERAL_LINE"],
     body: "  lit",

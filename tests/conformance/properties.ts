@@ -63,11 +63,19 @@ export async function assessCase(input: string): Promise<Assessment> {
     details.push("second format pass changed the output");
   }
   const fidelity = await fidelityVerdict(input, first);
-  if (fidelity.failed) failures.push("fidelity");
-  if (fidelity.detail !== undefined) details.push(fidelity.detail);
+  if (fidelity.failed) {
+    failures.push("fidelity");
+  }
+  if (fidelity.detail !== undefined) {
+    details.push(fidelity.detail);
+  }
   const reading = readingVerdict(input, first, second);
-  if (reading.failed) failures.push("reading");
-  if (reading.detail !== undefined) details.push(reading.detail);
+  if (reading.failed) {
+    failures.push("reading");
+  }
+  if (reading.detail !== undefined) {
+    details.push(reading.detail);
+  }
   return { failures, detail: details.join("; ") };
 }
 
@@ -114,7 +122,9 @@ async function fidelityVerdict(
   } catch (error) {
     rejection = `oracle rejected original input: ${String(error)}`;
   }
-  if (before === undefined) return { failed: false, detail: rejection };
+  if (before === undefined) {
+    return { failed: false, detail: rejection };
+  }
   if ((await renderedHtmlSafe(formatted)) === before) {
     return { failed: false, detail: undefined };
   }
@@ -141,7 +151,9 @@ async function fidelityVerdict(
  */
 function readingVerdict(input: string, first: string, second: string): Verdict {
   const breaches = readingBreaches(input, first, second);
-  if (breaches.length === 0) return { failed: false, detail: undefined };
+  if (breaches.length === 0) {
+    return { failed: false, detail: undefined };
+  }
   const spelled = breaches
     .map(
       (breach) =>

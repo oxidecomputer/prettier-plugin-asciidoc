@@ -35,10 +35,26 @@
  * - `paragraph` — `read_paragraph_lines` with a falsey `break_at_list`,
  *   i.e. `StartOfBlockProc`: only a delimited block or a block
  *   attribute line (which includes `[[anchor]]`) ends it.
- * - `listItem` — the lines `read_lines_for_list_item` collects for a
- *   ulist/olist/colist item. It additionally stops at a sibling or
- *   nested marker (`AnyListRx`, `is_sibling_list_item?`) and at a
- *   description-list term.
+ * - `listItemText` is the lines that go into a ulist/olist/colist
+ *   item's FIRST block, the one `parse_list_item` may fold back into
+ *   the item's own text (`list_item.fold_first` fires on `blocks[0]`
+ *   alone, parser.rb l.1384). Where it stops is `listItem`'s answer
+ *   MINUS the block anchor: an `[[anchor]]` standing here is
+ *   `BlockAttributeLineRx` metadata for the very block `fold_first`
+ *   merges away, id and all, so the oracle emits no id (see
+ *   RAW_BLOCK_ANCHOR_CONTEXTS).
+ * - `listItem` is a LATER block of the same item, read with
+ *   `read_paragraph_lines reader, skipped == 0 && options[:list_type]`
+ *   (parser.rb l.764). A first block exists by then, so an
+ *   `[[anchor]]` opens a SECOND one and keeps its id, and the anchor
+ *   ends this paragraph from any position.
+ *   Both stop at a sibling or nested marker (`AnyListRx`,
+ *   `is_sibling_list_item?`) and at a description-list term. For
+ *   `listItem` that is the `skipped == 0` half of the cited line and
+ *   not an unconditional claim about later blocks: a block opened
+ *   ACROSS a blank line gets a falsey `break_at_list` and is
+ *   `listContinuation` instead, which is the choice `bodyContext`
+ *   makes (src/parse/lines/reader.ts).
  * - `listContinuation` — a paragraph a `+` attached to a list item.
  *   It is NOT a blend of the other two: `parse_list_item` parses it
  *   with `read_paragraph_lines` and NO `break_at_list`, so it takes
@@ -70,8 +86,8 @@
  *   break_on_list_continuation: true` (parser.rb:1026-1028): blank
  *   lines are structural to the reader, so the pattern set carries
  *   only the lone `+`. The `+` sits in the ANY-LINE set because
- *   Ruby's `line_read` gate (reader.rb:414, :426) is false only for
- *   the styled block's OPENING line, which Ruby unshifts
+ *   Ruby's `line_read` gate (reader.rb:414 and l.426) is false only
+ *   for the styled block's OPENING line, which Ruby unshifts
  *   (parser.rb:565) and our reader consumes at open — every position
  *   this classifier sees corresponds to `line_read === true`. Pinned
  *   against the oracle, both positions, in
@@ -79,6 +95,7 @@
  */
 export type ParagraphContext =
   | "paragraph"
+  | "listItemText"
   | "listItem"
   | "listContinuation"
   | "dlistItem"
@@ -232,7 +249,9 @@ export const ASCII_NON_WHITESPACE = new RegExp(
  */
 export function rstrip(line: string): string {
   let end = line.length;
-  while (end > 0 && TRAILING_ASCII_WHITESPACE.has(line[end - 1])) end -= 1;
+  while (end > 0 && TRAILING_ASCII_WHITESPACE.has(line[end - 1])) {
+    end -= 1;
+  }
   return end === line.length ? line : line.slice(0, end);
 }
 
@@ -464,6 +483,20 @@ export function isDelimiterLine(line: string): boolean {
  */
 export const CONTINUATION_LINE = /^\+$/v;
 
+/**
+ * A line of nothing but indentation and a `+` - the one shape whose
+ * MEANING an item-text dedent can change. `adjust_indentation!`
+ * (parser.rb:755, the literal-paragraph branch's own call, not the
+ * def) strips the run's common indent before `HardLineBreakRx`
+ * (rx.rb:627) ever runs, so an indented `+` can reach the break test
+ * as a bare `+` - plain text, not a break. The rule that decides
+ * which it is needs the whole paragraph and lives with the scan that
+ * has it (lines/paragraph-reader.ts, THE LITERAL-PLUS RULE); the
+ * SHAPE lives here beside CONTINUATION_LINE, which is the same line
+ * without its indent.
+ */
+export const INDENTED_PLUS = /^[ \t]+\+$/v;
+
 // Lines that end a paragraph in EVERY context: `StartOfBlockProc` =
 // `(BlockAttributeLineRx.match? l) || (is_delimited_block? l)`, plus
 // the lone `+`, which `read_lines_until` breaks on separately
@@ -679,7 +712,7 @@ export const LITERAL_LINE = /^[ \t]+\S/v;
 // matches the Asciidoctor oracle", plus the round-trip row of the
 // same name in "the formatter round-trips every construct in every
 // context". Direct pins live in tests/parser/list-reader.test.ts and
-// tests/format/list-block-macro.test.ts.
+// tests/format/block-macro.test.ts.
 //
 // WIDER THAN THE ORACLE, knowingly: BLOCK_MACRO's name group is open
 // (see its doc), while `next_block` only opens a block for a macro
@@ -702,6 +735,20 @@ const DLIST_FIRST_LINE_INTERRUPTERS: readonly RegExp[] = [
   BLOCK_MACRO,
   THEMATIC_BREAK,
   PAGE_BREAK,
+];
+
+/**
+ * Lines that end a LIST ITEM's LATER block: the item-text set plus
+ * the block anchor. Past the first block `fold_first` (parser.rb
+ * l.1384) has nothing left to merge into the item text, so an
+ * `[[anchor]]` here is metadata for a block of its own and
+ * `StartOfBlockOrListProc` (parser.rb l.40) breaks the paragraph at
+ * it, id and all. (Oracle: `* a` / `para` / `[[anc]]` / `  lit` puts
+ * the indented line in a literal block with `id="anc"`.)
+ */
+const LIST_ITEM_LATER_BLOCK_INTERRUPTERS: readonly RegExp[] = [
+  ...LIST_ITEM_INTERRUPTERS,
+  BLOCK_ANCHOR,
 ];
 
 /**
@@ -882,11 +929,95 @@ export function listMarkerStyle(line: string): string | undefined {
 // (bare `[` inside a class starts a nested set operation under `v`).
 /**
  * Exported for the shape registry's coverage census
- * (scripts/shape-registry.ts); no src consumer.
+ * (scripts/shape-registry.ts); the one src consumer is
+ * {@link conditionalDirective} below, in this file, which reads the
+ * three groups. No other module imports it.
  * @internal
  */
 export const CONDITIONAL_DIRECTIVE =
-  /^(?:ifdef|ifndef|ifeval|endif)::[^\[]*\[[^\]]*\]$/v;
+  /^(?<name>ifdef|ifndef|ifeval|endif)::(?<target>[^\[]*)\[(?<text>[^\]]*)\]$/v;
+
+/**
+ * `EvalExpressionRx` (rx.rb l.83): the restricted comparison an
+ * `ifeval` must spell for the reader to open a region at all. A
+ * transcription, not an approximation - `CC_ANY` is Ruby's `.`
+ * (asciidoctor.rb l.431), and the operator set is the one the regex
+ * itself enforces, "a restricted set of math-related operations"
+ * (reader.rb l.973).
+ *
+ * NOT part of the shape registry's dimension set: it matches the TEXT
+ * inside a directive's brackets, never a line.
+ */
+const EVAL_EXPRESSION = /^.+? *(?:[=!><]=|[><]) *.+$/v;
+
+/**
+ * What a conditional directive line does to the reader's conditional
+ * stack - the stack `PreprocessorReader` pushes a region onto and
+ * pops it off (reader.rb l.913-924 for the pop, l.989-1006 for the
+ * two pushes).
+ *
+ * - `opens` - the region form: an `ifeval` with no target whose text
+ *   matches {@link EVAL_EXPRESSION} (l.970-991: the match is the
+ *   condition of the very branch that reaches the push), and an
+ *   `ifdef`/`ifndef` with a target whose brackets are EMPTY
+ *   (l.1003-1006).
+ * - `closes` - an `endif` with empty brackets (l.918-920).
+ * - `inert` - a directive line that moves the stack not at all: the
+ *   single-line `ifdef::attr[text]` form, which replaces itself with
+ *   its own text (l.992-1001), and the malformed spellings Ruby
+ *   reports and returns from without touching the stack - a
+ *   targetless `ifdef` or `ifndef` (l.936-939, l.952-954), an
+ *   `ifeval` carrying a target (l.981-984) or one whose text is
+ *   missing or not a comparison (l.977-979, whose own message says
+ *   `invalid expression` for the second and `missing expression` for
+ *   the first), and an `endif` carrying text (l.914-915).
+ *
+ * ONE RULING, written rather than implied. Ruby pops only when the
+ * `endif`'s target is empty OR equal to the target of the pair on top
+ * of its stack (l.918); a mismatched target logs "mismatched
+ * preprocessor directive" and pops NOTHING (l.922). This answer does
+ * not model targets, so `endif::other[]` closes whatever pair the
+ * count has open. The reason is what the count is FOR: it feeds one
+ * boolean, "does a pair the author opened still stand over this
+ * line", and a mismatched `endif` is a document Ruby has already
+ * called an error. Answering `inert` there would leave the count open
+ * over every line to the end of the reader's stream on the strength
+ * of a typo, which is the worse of the two wrong answers. Modelling
+ * it properly means carrying the targets, not a depth.
+ *
+ * The condition itself is never evaluated here, and that is the whole
+ * reason a formatter can count these lines at all: the depth this
+ * answer folds into is the depth of the pairs the AUTHOR WROTE, which
+ * is a property of the bytes on the page rather than of the
+ * attributes a build happens to set. An `ifeval`'s EXPRESSION is a
+ * different matter and is read: whether the reader pushes at all
+ * turns on the text matching, not on what it evaluates to.
+ * @param line - one rstripped source line
+ * @returns what the line does to the stack, or undefined when the
+ *   line is not a conditional directive at all
+ */
+export function conditionalDirective(
+  line: string,
+): "opens" | "closes" | "inert" | undefined {
+  const groups = CONDITIONAL_DIRECTIVE.exec(line)?.groups;
+  if (groups === undefined) {
+    return undefined;
+  }
+  const { name, target, text } = groups;
+  if (name === "endif") {
+    return text === "" ? "closes" : "inert";
+  }
+  if (name === "ifeval") {
+    // `no_target` and an `EvalExpressionRx` match, both, or the reader
+    // logs and returns without pushing (reader.rb l.968-979). Trimmed
+    // because Ruby matches the expression against `text.strip`
+    // (reader.rb l.970).
+    return target === "" && EVAL_EXPRESSION.test(text.trim())
+      ? "opens"
+      : "inert";
+  }
+  return target !== "" && text === "" ? "opens" : "inert";
+}
 
 /**
  * An include directive.
@@ -945,6 +1076,26 @@ const PARAGRAPH_RAW_LINES: readonly RegExp[] = [
   INCLUDE_DIRECTIVE,
 ];
 
+// Block metadata a description's FIRST line can be while STAYING in
+// the description. `parse_list_item` hands the lines after the term to
+// a full `next_block` (parser.rb l.1374), which reads them as the
+// metadata of the description's first block (a `.T` titles that
+// block, a `:a: b` sets an attribute), and `fold_first` (l.1384) then
+// merges the block back into the term's text without carrying the
+// title along. Reflowed onto the term the line becomes the term's own
+// last words and whatever it decorated loses what it said (oracle:
+// `t:: d` / `.T` / `** b` titles the nested list "T"; `t:: d .T` /
+// blank / `** b` renders `d .T` and an untitled list).
+//
+// The third shape the item scan reads through at l.1499-1501,
+// `BlockAttributeLineRx`, is deliberately absent: it is in
+// SHARED_INTERRUPTERS, so a `[role]` ENDS the description and the
+// interrupter check turns it away before this rule is asked.
+const RAW_DESCRIPTION_METADATA: readonly RegExp[] = [
+  BLOCK_TITLE,
+  ATTRIBUTE_ENTRY,
+];
+
 // Contexts where a whole-line block anchor DIRECTLY after the block
 // start is kept VERBATIM rather than reflowed into the text. There
 // the anchor is `BlockAttributeLineRx` metadata for the item's first
@@ -952,12 +1103,15 @@ const PARAGRAPH_RAW_LINES: readonly RegExp[] = [
 // emits no id at all, and reflowing the anchor into the text would
 // instead emit an `<a id>` it does not have. A line further down is a
 // different case entirely: it opens a SECOND block and keeps its id,
-// which is why LATER_LINE_INTERRUPTERS makes it interrupt instead.
+// which is why `listItem` interrupts at one unconditionally. The key
+// here is `listItemText` because "the item's first block" is what
+// `fold_first` is about: a count of lines within one paragraph says
+// the same thing only while nothing has closed that paragraph early.
 // (In `dlistItem` the interrupter check runs first, so the anchor
 // ends the description there and never reaches this rule — it is
 // listed for the case where that ordering ever changes.)
 const RAW_BLOCK_ANCHOR_CONTEXTS = new Set<ParagraphContext>([
-  "listItem",
+  "listItemText",
   "dlistItem",
 ]);
 
@@ -1054,7 +1208,8 @@ export function parseDescriptionListLine(
 // see interruptsParagraph.
 const INTERRUPTERS_BY_CONTEXT: Record<ParagraphContext, readonly RegExp[]> = {
   paragraph: PARAGRAPH_INTERRUPTERS,
-  listItem: LIST_ITEM_INTERRUPTERS,
+  listItemText: LIST_ITEM_INTERRUPTERS,
+  listItem: LIST_ITEM_LATER_BLOCK_INTERRUPTERS,
   listContinuation: PARAGRAPH_INTERRUPTERS,
   dlistItem: DLIST_ITEM_ANY_LINE_INTERRUPTERS,
   // The literal-paragraph branch of `next_block` calls
@@ -1071,7 +1226,16 @@ const NO_PATTERNS: readonly RegExp[] = [];
 // started — where `next_block` still gets to choose a block context.
 const FIRST_LINE_INTERRUPTERS: Record<ParagraphContext, readonly RegExp[]> = {
   paragraph: NO_PATTERNS,
-  listItem: LIST_ITEM_FIRST_LINE_INTERRUPTERS,
+  listItemText: LIST_ITEM_FIRST_LINE_INTERRUPTERS,
+  // Nothing: this position is the SECOND line of a block that already
+  // has a first, so `next_block` has picked its context and
+  // `read_paragraph_lines` is running (parser.rb l.764) under
+  // `StartOfBlockOrListProc` (chosen at l.966-67, the proc itself at
+  // l.40). A block macro line matches none of that proc's three
+  // alternatives, so it is prose (oracle: `* item` /
+  // `image::a.png[]` / `para line` / `image::a.png[]` renders one
+  // paragraph, not two blocks).
+  listItem: NO_PATTERNS,
   listContinuation: NO_PATTERNS,
   dlistItem: DLIST_FIRST_LINE_INTERRUPTERS,
   literalParagraph: NO_PATTERNS,
@@ -1082,13 +1246,15 @@ const FIRST_LINE_INTERRUPTERS: Record<ParagraphContext, readonly RegExp[]> = {
 // the mirror of the raw-line rule: a `[[a]]` directly after a list
 // item's text is metadata for the item's FIRST block, which
 // `fold_first` merges into the item text — anchor and all, so the
-// oracle emits no id (see BLOCK_ANCHOR). Further down there is a
-// first block already, so the anchor opens a second one and keeps
-// its id (`* item` / `foo` / `[[a]]` / `para` renders
-// `<div id="a">`).
+// oracle emits no id (see BLOCK_ANCHOR). Further down THAT SAME BLOCK
+// there is a first line already, so the anchor opens a second block
+// and keeps its id (`* item` / `foo` / `[[a]]` / `para` renders
+// `<div id="a">`). Blocks after the first hold the same anchor at
+// every position, which is INTERRUPTERS_BY_CONTEXT's `listItem` row.
 const LATER_LINE_INTERRUPTERS: Record<ParagraphContext, readonly RegExp[]> = {
   paragraph: NO_PATTERNS,
-  listItem: [BLOCK_ANCHOR],
+  listItemText: [BLOCK_ANCHOR],
+  listItem: NO_PATTERNS,
   listContinuation: NO_PATTERNS,
   dlistItem: NO_PATTERNS,
   literalParagraph: NO_PATTERNS,
@@ -1120,6 +1286,7 @@ function matchesInterrupter(
 // Contexts in which a `term::` word starts a nested description list
 // rather than being plain text.
 const ENDED_BY_DLIST_TERM = new Set<ParagraphContext>([
+  "listItemText",
   "listItem",
   "dlistItem",
 ]);
@@ -1285,9 +1452,11 @@ export function rawLineForm(
 /**
  * Whether a line inside a paragraph must be kept verbatim rather than
  * treated as reflowable text: a comment or preprocessor line
- * anywhere, a whole-line block anchor directly after a list item's
- * text (see RAW_BLOCK_ANCHOR_CONTEXTS), and a foreign list marker
- * inside a `+`-attached paragraph (see isForeignMarkerLine).
+ * anywhere, a whole-line block anchor inside a list item's first
+ * block (see RAW_BLOCK_ANCHOR_CONTEXTS), block metadata on a
+ * description's first line (see RAW_DESCRIPTION_METADATA), and a
+ * foreign list marker inside a `+`-attached paragraph (see
+ * isForeignMarkerLine).
  * @param rawLine - one source line, without its trailing newline;
  *   trailing whitespace is trimmed here (see rstrip)
  * @param context - the open paragraph's context; omit for the
@@ -1297,7 +1466,7 @@ export function rawLineForm(
  *   the block start alone, and the marker rule needs to know which
  *   list is open (see {@link ReaderContext})
  * @returns true for line comments, conditional directives, includes,
- *   and the two context-dependent shapes
+ *   and the three context-dependent shapes
  */
 export function isRawParagraphLine(
   rawLine: string,
@@ -1308,15 +1477,27 @@ export function isRawParagraphLine(
   if (PARAGRAPH_RAW_LINES.some((pattern) => pattern.test(line))) {
     return true;
   }
-  if (context === "listContinuation" && isForeignMarkerLine(line, reader)) {
+  if (context === undefined) {
+    return false;
+  }
+  if (context === "listContinuation") {
+    return isForeignMarkerLine(line, reader);
+  }
+  // Both remaining shapes are about the FIRST line after a block
+  // start, and for one reason: that is the line `next_block` reads to
+  // pick the block's context and to collect its metadata
+  // (parser.rb l.1374). From the second line on `read_paragraph_lines`
+  // is running and knows none of them.
+  if (!reader.firstLineAfterStart) {
+    return false;
+  }
+  if (
+    context === "dlistItem" &&
+    RAW_DESCRIPTION_METADATA.some((pattern) => pattern.test(line))
+  ) {
     return true;
   }
-  return (
-    context !== undefined &&
-    reader.firstLineAfterStart &&
-    RAW_BLOCK_ANCHOR_CONTEXTS.has(context) &&
-    BLOCK_ANCHOR.test(line)
-  );
+  return RAW_BLOCK_ANCHOR_CONTEXTS.has(context) && BLOCK_ANCHOR.test(line);
 }
 
 /**

@@ -72,6 +72,11 @@ export interface ListItemInput {
    * {@link ListItemNode}'s `activeTail`).
    */
   readonly activeTail: boolean;
+  /**
+   * Whether every line the item's text wrote under the marker line is
+   * indented (see {@link ListItemNode}'s `everyTextLineIndented`).
+   */
+  readonly everyTextLineIndented: boolean;
 }
 
 /**
@@ -196,6 +201,7 @@ export function buildListItem(
     trailingContinuation: input.trailingContinuation,
     detachedTail: input.detachedTail,
     activeTail: input.activeTail,
+    everyTextLineIndented: input.everyTextLineIndented,
     position: {
       start: at.start(input.marker),
       end:

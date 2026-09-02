@@ -52,8 +52,12 @@ function isCorpusCase(object: unknown): object is CorpusCase {
  * @returns negative, zero, or positive per the usual sort contract
  */
 export function compareIds(a: string, b: string): number {
-  if (a < b) return -1;
-  if (a > b) return 1;
+  if (a < b) {
+    return -1;
+  }
+  if (a > b) {
+    return 1;
+  }
   return 0;
 }
 
@@ -69,7 +73,9 @@ export function parseJsonl(filePath: string): CorpusCase[] {
   const lines = readFileSync(filePath, "utf8").split("\n");
   const cases: CorpusCase[] = [];
   for (const [index, line] of lines.entries()) {
-    if (line === "") continue;
+    if (line === "") {
+      continue;
+    }
     const parsed: unknown = JSON.parse(line);
     if (!isCorpusCase(parsed)) {
       throw new Error(

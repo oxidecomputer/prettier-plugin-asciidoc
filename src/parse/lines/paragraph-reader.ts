@@ -23,7 +23,6 @@ import { tokenizeInline } from "../inline/tokenize.js";
 import type { InlineToken } from "../inline/tokens.js";
 import {
   LINE_COMMENT_HEAD,
-  LITERAL_LINE,
   type ParagraphContext,
   type ReaderContext,
 } from "../line-shapes.js";
@@ -31,6 +30,8 @@ import {
   classifyLine,
   classifyTrace,
   isContinuationLine,
+  isIndentedContinuationLine,
+  isLiteralLine,
   type LineKind,
 } from "./classify.js";
 import type { SourceLine } from "./split.js";
@@ -53,15 +54,14 @@ import type { SourceLine } from "./split.js";
  */
 type ParagraphMode = ParagraphContext | "continuationFold";
 
-// A line that is nothing but indentation and a `+` — the one line shape
-// whose meaning `adjust_indentation!` can change (see Paragraph).
-const INDENTED_PLUS = /^[ \t]+\+$/v;
-
 // The two paragraph contexts whose lines Asciidoctor re-reads through
 // `next_block` with `text_only`: a list item's and a dlist item's own
 // text (`parse_list_item`). Only there does an indented first rest-line
 // open the literal-paragraph branch that strips the indent.
-const ITEM_TEXT_CONTEXTS = new Set<ParagraphContext>(["listItem", "dlistItem"]);
+const ITEM_TEXT_CONTEXTS = new Set<ParagraphContext>([
+  "listItemText",
+  "dlistItem",
+]);
 
 /**
  * What one paragraph-shaped scan reads, beyond the index it starts
@@ -213,7 +213,9 @@ class Paragraph {
       });
       classifyTrace.observer?.(next.offset, kind);
       if (kind.kind !== "text" && kind.kind !== "raw") {
-        if (!this.foldsThrough(next)) return;
+        if (!this.foldsThrough(next)) {
+          return;
+        }
         // A tagged `+` met mid-fold is run through as content on its
         // own raw line — the oracle's `ListContinuationString` passes
         // both break tests (parser.js l.3023-25, reader.js's strict
@@ -381,8 +383,10 @@ class Paragraph {
    * @returns true when the line joins the run in progress
    */
   private reflows(line: SourceLine, kind: LineKind): boolean {
-    if (kind.kind !== "text" || kind.verbatim === true) return false;
-    return !(this.fold && LITERAL_LINE.test(line.text));
+    if (kind.kind !== "text" || kind.verbatim === true) {
+      return false;
+    }
+    return !(this.fold && isLiteralLine(line.text));
   }
 
   /**
@@ -408,7 +412,7 @@ class Paragraph {
     } else if (
       this.linesRead === 1 &&
       ITEM_TEXT_CONTEXTS.has(this.context) &&
-      INDENTED_PLUS.test(line.text)
+      isIndentedContinuationLine(line.text)
     ) {
       this.plusLine = line;
     }

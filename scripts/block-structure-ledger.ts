@@ -272,7 +272,9 @@ export function staleOracleComplaint(
     [SWEEP_LEDGER_PATH, sweep.oracle],
   ]);
   for (const [file, was] of recorded) {
-    if (was === installed) continue;
+    if (was === installed) {
+      continue;
+    }
     return `block-structure: ${file} was measured against ${JSON.stringify(was)} and ${JSON.stringify(installed)} is installed - regenerate with \`bun run block-structure --write\` and read the diff`;
   }
   return undefined;
@@ -286,8 +288,12 @@ export function staleOracleComplaint(
  * @returns negative, zero, or positive per the usual sort contract
  */
 function byCodeUnit(a: string, b: string): number {
-  if (a < b) return -1;
-  if (a > b) return 1;
+  if (a < b) {
+    return -1;
+  }
+  if (a > b) {
+    return 1;
+  }
   return 0;
 }
 
@@ -430,10 +436,14 @@ export function corpusFailures(
   const failures: string[] = [];
   for (const [id, entry] of Object.entries(ledger.cases)) {
     const failure = corpusEntryFailure(id, entry, observed, corpusIds);
-    if (failure !== undefined) failures.push(failure);
+    if (failure !== undefined) {
+      failures.push(failure);
+    }
   }
   for (const [id, signature] of observed) {
-    if (id in ledger.cases) continue;
+    if (id in ledger.cases) {
+      continue;
+    }
     failures.push(
       `block-structure: ${id} diverges as ${JSON.stringify(signature)} and is not in ${CORPUS_LEDGER_PATH}`,
     );
@@ -503,10 +513,14 @@ export function sweepFailures(
   const failures: string[] = [];
   for (const [sign, row] of Object.entries(ledger.signatures)) {
     const failure = sweepRowFailure(sign, row, observed, exampleSignatures);
-    if (failure !== undefined) failures.push(failure);
+    if (failure !== undefined) {
+      failures.push(failure);
+    }
   }
   for (const [sign, seen] of observed) {
-    if (sign in ledger.signatures) continue;
+    if (sign in ledger.signatures) {
+      continue;
+    }
     failures.push(
       `block-structure: sweep signature ${JSON.stringify(sign)} covers ${String(seen.count)} documents and is not in ${SWEEP_LEDGER_PATH}`,
     );

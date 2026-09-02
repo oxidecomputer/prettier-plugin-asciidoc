@@ -43,7 +43,7 @@ export interface ReadingFamily {
 }
 
 /**
- * The closed family enumeration. Three mechanisms, not five issues'
+ * The closed family enumeration. Four mechanisms, not five issues'
  * worth of unknowns - which is the measurement issue #58 was filed to
  * produce.
  *
@@ -54,7 +54,11 @@ export interface ReadingFamily {
 export const READING_FAMILIES: Readonly<Record<string, ReadingFamily>> = {
   "lone-plus-join": {
     issue: "#43",
-    what: "a lone `+` line is joined with adjacent prose, so the continuation dissolves - and one alphabet symbol away the same join manufactures a description-list term",
+    what: "a lone `+` line leaves the reading, so the continuation dissolves. #43 is CLOSED and the issue field is provenance, not an open bug: what #43 tracked was the CORRUPTING variant, where a JOIN landed on a dlist-shaped line and manufactured a description list, and that was fixed. What is left is not joins at all - measured over a systematic sample of the rows, no output holds a `+` joined into a text line. Every remaining row DELETES the byte, by one of three routes; classified by shape, each row counted once in the first class it matches. A RUN OF THREE OR MORE (253 rows): its third and later `+` lines are read and dropped without buffering (parser.rb l.1443-44). An ERASED `+` (2,540 of the rest, the plurality): the first of an adjacent pair (l.1439) or one standing under a blank line (l.1576). Erasure alone does not lose the byte - where such a `+` ATTACHED a block it comes back as that block's gap - but in every row of this class it attached nothing, and there its one route back is the shield `ListItemNode.detachedTail` writes, which needs a trailing `+`-paragraph to shield, so an item with nothing to shield loses the byte - an item whose `+` stands directly under the marker line keeps it, the same `+` with a blank above it does not. A TAIL THAT IS NOT INERT (the remaining 100): the pop takes the byte, but it would be printed above a blank line, where a re-read ERASES and arms it instead of popping it. All three are render-equal - the oracle renders the output as the source - and no rows appeared here at all until every lone `+` gained a token",
+  },
+  "continuation-dropped": {
+    issue: "#17",
+    what: "continuation lines go away and the list structure beside them does not: the `+` lines vanish from the reading while the markers, comments, anchors and attribute lines around them survive unchanged - the trailing-marker collapse #17 tracks, seen from the reading side",
   },
   "tail-reading-flip": {
     issue: "#65",
@@ -104,6 +108,77 @@ function continuations(side: readonly string[]): number {
 }
 
 /**
+ * Is this signature the continuation-dropped mechanism?
+ *
+ * A separate predicate rather than another arm inline, because the
+ * claim it makes is a conjunction of three things and reads better
+ * named: a continuation was lost; the losing side carries something
+ * that is neither a continuation nor prose (which is what keeps it
+ * disjoint from lone-plus-join); and taking the continuations out of
+ * both sides leaves them equal, so the continuations are the ONLY
+ * thing that moved.
+ * @param before - the earlier reading's differing tokens
+ * @param after - the later reading's differing tokens
+ * @returns whether the signature is that mechanism
+ */
+function isContinuationDropped(
+  before: readonly string[],
+  after: readonly string[],
+): boolean {
+  return (
+    continuations(before) > continuations(after) &&
+    before.some(isStructural) &&
+    withoutContinuations(before) === withoutContinuations(after)
+  );
+}
+
+/**
+ * Is this token neither a continuation nor prose?
+ *
+ * What tells the two continuation-losing families apart:
+ * lone-plus-join's losing side is only `cont` and `text`, and this
+ * asks for the token that makes a side something else.
+ * @param token - one projected token
+ * @returns whether it is structure rather than prose or a `+`
+ */
+function isStructural(token: string): boolean {
+  return token !== "cont" && token !== "text";
+}
+
+/**
+ * One side with its continuation tokens taken out, as a comparable
+ * string.
+ *
+ * The device that lets continuation-dropped ask whether the
+ * continuations are the ONLY thing that moved: if both sides agree
+ * once the `cont`s are gone, nothing else did.
+ * @param side - one side's tokens
+ * @returns the remaining tokens, space-joined, order kept
+ */
+function withoutContinuations(side: readonly string[]): string {
+  return side.filter((token) => token !== "cont").join(" ");
+}
+
+/**
+ * Is this signature the lone-plus-join mechanism?
+ *
+ * A continuation is lost and the ONLY other thing on the losing side
+ * is the prose it was joined into - see {@link readingFamily} on why
+ * the test asks for the mechanism rather than the arithmetic.
+ * @param before - the earlier reading's differing tokens
+ * @param after - the later reading's differing tokens
+ * @returns whether the signature is that mechanism
+ */
+function isLonePlusJoin(
+  before: readonly string[],
+  after: readonly string[],
+): boolean {
+  return (
+    continuations(before) > continuations(after) && !before.some(isStructural)
+  );
+}
+
+/**
  * The tokens of one bracketed side.
  * @param side - the text between the brackets
  * @returns its tokens, empty for an empty side
@@ -130,29 +205,37 @@ function sidesOf(signature: string): {
  * Which mechanism a signature is, or undefined when it is none of
  * them.
  *
- * The three tests are read off the measured inventory and are
- * deliberately narrow - a widened test would silently absorb a NEW
- * mechanism into an existing issue's row count, which is the one
- * thing this classification exists to prevent.
+ * The tests are read off the measured inventory and are deliberately
+ * narrow - a widened test would silently absorb a NEW mechanism into
+ * an existing issue's row count, which is the one thing this
+ * classification exists to prevent.
  *
  * So lone-plus-join asks for the MECHANISM, not merely for its
  * arithmetic: a `cont` is lost, and the only other thing on the
  * losing side is the prose the lone `+` was joined into. A signature
  * that drops a `cont` alongside anything else - an admonition label,
  * a marker, a delimiter - reached that loss by some other path and
- * must not be counted against #43; it falls through to the tests
- * below and, failing those, to UNCLASSIFIED, where the generator
+ * must not be counted against #43.
+ *
+ * Where it goes instead is continuation-dropped, and the two are
+ * disjoint by construction: lone-plus-join needs a losing side of
+ * nothing but `cont` and `text`, this one needs at least one token
+ * that is neither. Its own test is the stronger claim - that the
+ * ONLY thing that changed is the disappearance of continuations, so
+ * removing them from the losing side leaves exactly the winning side.
+ * A signature where the surrounding structure also moved fails that
+ * equality and falls through to UNCLASSIFIED, where the generator
  * refuses to write it and asks for a name.
  * @param signature - the reading diff
  * @returns the family key, or undefined for an unclassified signature
  */
 export function readingFamily(signature: string): string | undefined {
   const { before, after } = sidesOf(signature);
-  if (
-    continuations(before) > continuations(after) &&
-    before.every((token) => token === "cont" || token === "text")
-  ) {
+  if (isLonePlusJoin(before, after)) {
     return "lone-plus-join";
+  }
+  if (isContinuationDropped(before, after)) {
+    return "continuation-dropped";
   }
   if (
     before.some((token) => token.startsWith("admon:")) &&
@@ -190,7 +273,9 @@ export function compareLedgerRows(
   if (left.document !== right.document) {
     return left.document < right.document ? -1 : 1;
   }
-  if (left.pass === right.pass) return 0;
+  if (left.pass === right.pass) {
+    return 0;
+  }
   return left.pass < right.pass ? -1 : 1;
 }
 
@@ -286,7 +371,9 @@ export function loadReadingLedger(
   }
   return rows.map((raw, index) => {
     const { row, fault } = validateRow(raw, `${file}[${String(index)}]`);
-    if (row === undefined) throw new Error(fault ?? `${file}: malformed`);
+    if (row === undefined) {
+      throw new Error(fault ?? `${file}: malformed`);
+    }
     return row;
   });
 }

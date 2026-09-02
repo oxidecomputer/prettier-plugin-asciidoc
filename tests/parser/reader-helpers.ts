@@ -96,7 +96,9 @@ function lineCount(content: string): number {
  */
 function inlineShape(children: readonly InlineNode[]): string {
   const parts = children.map((child) => {
-    if (child.type === "rawLine") return "raw";
+    if (child.type === "rawLine") {
+      return "raw";
+    }
     if (child.type === "text") {
       const breaks = child.value
         .split("\n")
@@ -123,11 +125,17 @@ function inlineShape(children: readonly InlineNode[]): string {
  * @returns the glyph prefix for the block's shape
  */
 export function gapGlyph(gap: readonly GapLine[]): string {
-  if (gap.length === 0) return "-";
+  if (gap.length === 0) {
+    return "-";
+  }
   let trailingBlanks = 0;
-  while (gap.at(-1 - trailingBlanks) === "") trailingBlanks += 1;
+  while (gap.at(-1 - trailingBlanks) === "") {
+    trailingBlanks += 1;
+  }
   const core = gap.slice(0, gap.length - trailingBlanks);
-  if (core.length === 0 || trailingBlanks >= 2) return "~";
+  if (core.length === 0 || trailingBlanks >= 2) {
+    return "~";
+  }
   const { length: pluses } = core.filter((line) => line === "+");
   return core[0] === "+" && pluses === 1 ? "+" : `~${"+".repeat(pluses)}`;
 }
@@ -206,8 +214,12 @@ function blockShape(node: BlockNode): string {
  * @returns the rendered line
  */
 function headerLineShape(node: HeaderLineNode): string {
-  if (node.type === "authorLine") return "author";
-  if (node.type === "revisionLine") return "revision";
+  if (node.type === "authorLine") {
+    return "author";
+  }
+  if (node.type === "revisionLine") {
+    return "revision";
+  }
   return blockShape(node);
 }
 

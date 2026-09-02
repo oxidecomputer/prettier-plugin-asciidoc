@@ -207,7 +207,9 @@ export function parseLineSpec(spec: string): CitedRange[] | undefined {
   const ranges: CitedRange[] = [];
   for (const text of spec.split(SPEC_JOINER)) {
     const range = parsePart(text);
-    if (range === undefined) return undefined;
+    if (range === undefined) {
+      return undefined;
+    }
     ranges.push(range);
   }
   return ranges.length === 0 ? undefined : ranges;
@@ -221,11 +223,17 @@ export function parseLineSpec(spec: string): CitedRange[] | undefined {
 function parsePart(text: string): CitedRange | undefined {
   const groups = STRICT_PART.exec(text)?.groups;
   const startText = groups?.start;
-  if (startText === undefined) return undefined;
+  if (startText === undefined) {
+    return undefined;
+  }
   const start = Number.parseInt(startText, DECIMAL);
-  if (start === 0) return undefined;
+  if (start === 0) {
+    return undefined;
+  }
   const endText = groups?.end;
-  if (endText === undefined) return { start, end: start };
+  if (endText === undefined) {
+    return { start, end: start };
+  }
   const end = expandRangeEnd(startText, endText);
   return end === undefined ? undefined : { start, end };
 }
@@ -252,9 +260,15 @@ function expandRangeEnd(
 ): number | undefined {
   const start = Number.parseInt(startText, DECIMAL);
   const written = Number.parseInt(endText, DECIMAL);
-  if (written >= start) return written;
-  if (endText.length < SHORTEST_ABBREVIATION) return undefined;
-  if (endText.length >= startText.length) return undefined;
+  if (written >= start) {
+    return written;
+  }
+  if (endText.length < SHORTEST_ABBREVIATION) {
+    return undefined;
+  }
+  if (endText.length >= startText.length) {
+    return undefined;
+  }
   const prefix = startText.slice(0, startText.length - endText.length);
   const grafted = Number.parseInt(`${prefix}${endText}`, DECIMAL);
   return grafted > start ? grafted : undefined;
@@ -332,7 +346,9 @@ function comments(path: string, text: string): FlatComment[] {
   let previousWasLine = false;
   const take = (ranges: ts.CommentRange[] | undefined): void => {
     for (const range of ranges ?? []) {
-      if (seen.has(range.pos)) continue;
+      if (seen.has(range.pos)) {
+        continue;
+      }
       seen.add(range.pos);
       const startLine =
         parsed.getLineAndCharacterOfPosition(range.pos).line + 1;
@@ -376,8 +392,13 @@ function eachToken(node: ts.Node, visit: (token: ts.Node) => void): void {
     return;
   }
   const children = node.getChildren();
-  if (children.length === 0) visit(node);
-  else for (const child of children) eachToken(child, visit);
+  if (children.length === 0) {
+    visit(node);
+  } else {
+    for (const child of children) {
+      eachToken(child, visit);
+    }
+  }
 }
 
 /**
@@ -399,7 +420,9 @@ export function findCitations(path: string, text: string): FileScan {
     // second time as a citation of its own.
     let consumed = 0;
     for (const lead of comment.text.matchAll(CITATION_LEAD)) {
-      if (lead.index < consumed) continue;
+      if (lead.index < consumed) {
+        continue;
+      }
       const read = resolve(path, comment, mentions, lead);
       consumed = read.until;
       switch (read.read) {
@@ -485,14 +508,20 @@ function resolve(
   const after = at + lead[0].length;
   const line = comment.lineAt[at] ?? 0;
   const spec = CITATION_SPEC.exec(comment.text.slice(after))?.[0];
-  if (spec === undefined) return { read: "mention", until: after };
+  if (spec === undefined) {
+    return { read: "mention", until: after };
+  }
   const until = after + spec.length;
   const spelling = `${lead[0]}${spec}`;
   const attempt = { source: path, line, spelling };
   const ranges = parseLineSpec(spec);
-  if (ranges === undefined) return { read: "unparsed", attempt, until };
+  if (ranges === undefined) {
+    return { read: "unparsed", attempt, until };
+  }
   const file = lead.groups?.file ?? contextFile(mentions);
-  if (file === undefined) return { read: "contextless", attempt, until };
+  if (file === undefined) {
+    return { read: "contextless", attempt, until };
+  }
   return {
     read: "citation",
     until,
@@ -569,10 +598,14 @@ const JAVASCRIPT = /\.(?:c|m)?js$/v;
 export function identifierCandidates(comment: string, cited: string): string[] {
   const prose = comment.replaceAll(PATHS, " ");
   const patterns = [SNAKE, SCREAMING, CAMEL, UNDERSCORED];
-  if (JAVASCRIPT.test(cited)) patterns.push(LOWER_CAMEL);
+  if (JAVASCRIPT.test(cited)) {
+    patterns.push(LOWER_CAMEL);
+  }
   const found = new Set<string>();
   for (const pattern of patterns) {
-    for (const match of prose.matchAll(pattern)) found.add(match[0]);
+    for (const match of prose.matchAll(pattern)) {
+      found.add(match[0]);
+    }
   }
   return [...found];
 }
@@ -698,7 +731,9 @@ function windowText(
 function nearestHeader(lines: readonly string[], from: number): number {
   const floor = Math.max(0, from - ENCLOSING_LOOKBACK);
   for (let at = from; at >= floor; at -= 1) {
-    if (DEFINITION_HEADER.test(lines[at] ?? "")) return at;
+    if (DEFINITION_HEADER.test(lines[at] ?? "")) {
+      return at;
+    }
   }
   return from;
 }
@@ -727,12 +762,18 @@ function enclosingNames(lines: readonly string[], from: number): string[] {
   let indent = Number.POSITIVE_INFINITY;
   for (let at = from; at >= 0; at -= 1) {
     const line = lines[at] ?? "";
-    if (!DEFINITION_HEADER.test(line)) continue;
+    if (!DEFINITION_HEADER.test(line)) {
+      continue;
+    }
     const width = line.length - line.trimStart().length;
-    if (width >= indent) continue;
+    if (width >= indent) {
+      continue;
+    }
     found.push(line);
     indent = width;
-    if (indent === 0) break;
+    if (indent === 0) {
+      break;
+    }
   }
   return found;
 }

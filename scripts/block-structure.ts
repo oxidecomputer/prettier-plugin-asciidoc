@@ -184,9 +184,15 @@ function collectUnmapped(
 ): void {
   for (const tree of trees) {
     const kinds = unmappedKinds(tree);
-    if (kinds.length === 0) continue;
+    if (kinds.length === 0) {
+      continue;
+    }
     const where = render(tree);
-    for (const kind of kinds) if (!into.has(kind)) into.set(kind, where);
+    for (const kind of kinds) {
+      if (!into.has(kind)) {
+        into.set(kind, where);
+      }
+    }
   }
 }
 
@@ -211,7 +217,9 @@ async function runCorpus(levels: boolean): Promise<CorpusRun> {
     const ours = ourTree(one.input, levels);
     collectUnmapped(unmapped, [ours, oracle]);
     const events = divergences(ours, oracle);
-    if (events.length > 0) observed.set(one.id, signature(events));
+    if (events.length > 0) {
+      observed.set(one.id, signature(events));
+    }
   }
   return {
     cases: cases.length,
@@ -270,13 +278,19 @@ async function runSweep(
     collectUnmapped(unmapped, [ours, oracle]);
     const events = divergences(ours, oracle);
     const sign = events.length === 0 ? "" : signature(events);
-    if (examples.has(source) && sign !== "")
+    if (examples.has(source) && sign !== "") {
       exampleSignatures.set(source, sign);
-    if (sign === "" || !spelled.has(source)) continue;
+    }
+    if (sign === "" || !spelled.has(source)) {
+      continue;
+    }
     diverging += 1;
     const seen = observed.get(sign);
-    if (seen === undefined) observed.set(sign, { count: 1, example: source });
-    else seen.count += 1;
+    if (seen === undefined) {
+      observed.set(sign, { count: 1, example: source });
+    } else {
+      seen.count += 1;
+    }
   }
   return {
     documents: documents.length,
@@ -305,13 +319,17 @@ function censusFailures(): string[] {
   );
   const failures: string[] = [];
   for (const kind of declared) {
-    if (AST_KIND_CENSUS.has(kind)) continue;
+    if (AST_KIND_CENSUS.has(kind)) {
+      continue;
+    }
     failures.push(
       `block-structure: src/ast.ts declares node kind ${JSON.stringify(kind)} and the block-structure mapping does not name it`,
     );
   }
   for (const kind of AST_KIND_CENSUS.keys()) {
-    if (declared.has(kind)) continue;
+    if (declared.has(kind)) {
+      continue;
+    }
     failures.push(
       `block-structure: the block-structure mapping names node kind ${JSON.stringify(kind)} and src/ast.ts no longer declares it`,
     );
@@ -360,7 +378,9 @@ function floorComplaint(
     return `block-structure: only ${String(corpus.cases)} corpus cases loaded, expected at least ${String(MINIMUM_CASES)} - the corpus did not load`;
   }
   const refusal = refusalComplaint(corpus.refused);
-  if (refusal !== undefined) return refusal;
+  if (refusal !== undefined) {
+    return refusal;
+  }
   if (sweep.documents < MINIMUM_SWEEP_DOCUMENTS) {
     return `block-structure: only ${String(sweep.documents)} sweep documents spelled, expected at least ${String(MINIMUM_SWEEP_DOCUMENTS)}`;
   }
@@ -380,8 +400,12 @@ function reportFamilies(families: ReadonlyMap<string, string>): void {
   let gaps = 0;
   let permanent = 0;
   for (const [family, count] of counts) {
-    if (family.startsWith("gap:")) gaps += count;
-    if (family.startsWith("oracle:")) permanent += count;
+    if (family.startsWith("gap:")) {
+      gaps += count;
+    }
+    if (family.startsWith("oracle:")) {
+      permanent += count;
+    }
   }
   // The third bucket is named rather than folded into either: an
   // UNLEDGERED document has no family yet, and counting it as
@@ -411,7 +435,9 @@ function reportFailures(
   limit: number,
   what: string,
 ): void {
-  if (failures.length === 0) return;
+  if (failures.length === 0) {
+    return;
+  }
   process.stdout.write(`block-structure: ${String(failures.length)} ${what}\n`);
   for (const line of failures.slice(0, limit)) {
     process.stdout.write(`  ${line}\n`);
@@ -580,8 +606,11 @@ async function main(options: Options): Promise<void> {
 if (import.meta.main) {
   try {
     const argv = process.argv.slice(ARGUMENT_START);
-    if (wantsHelp(argv)) printUsage(USAGE);
-    else await main(parseArguments(argv));
+    if (wantsHelp(argv)) {
+      printUsage(USAGE);
+    } else {
+      await main(parseArguments(argv));
+    }
   } catch (error) {
     // A bad argument, an unreadable ledger, a corpus that did not
     // load: none of them compared anything, so none of them is a 1.

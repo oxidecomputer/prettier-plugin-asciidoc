@@ -21,7 +21,9 @@ import type { InlineNode } from "../../src/ast.js";
  * @returns its shape, with children nested inside the brackets
  */
 export function shapeOf(node: InlineNode): string {
-  if (node.type === "text") return JSON.stringify(node.value);
+  if (node.type === "text") {
+    return JSON.stringify(node.value);
+  }
   if (node.type === "curvedQuote") {
     const spelling = node.quote === "double" ? "d" : "s";
     return `curved${spelling}[${node.children.map(shapeOf).join(",")}]`;
@@ -36,7 +38,9 @@ export function shapeOf(node: InlineNode): string {
   if (node.type === "characterReference") {
     return `ref(${JSON.stringify(node.value)})`;
   }
-  if (!("children" in node)) return node.type;
+  if (!("children" in node)) {
+    return node.type;
+  }
   const spelling = "constrained" in node && node.constrained ? "c" : "u";
   return `${node.type}${spelling}[${node.children.map(shapeOf).join(",")}]`;
 }

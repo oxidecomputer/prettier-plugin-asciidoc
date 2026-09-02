@@ -70,7 +70,9 @@ function isLocation(value: unknown): value is Location {
  * @returns whether it is a node with a full position
  */
 export function isNode(value: unknown): value is AnyNode {
-  if (!isRecord(value)) return false;
+  if (!isRecord(value)) {
+    return false;
+  }
   const { type, position } = value;
   return (
     typeof type === "string" &&
@@ -97,15 +99,23 @@ export function preorder(root: unknown): AnyNode[] {
   const nodes: AnyNode[] = [];
   const visit = (value: unknown): void => {
     if (isArray(value)) {
-      for (const element of value) visit(element);
+      for (const element of value) {
+        visit(element);
+      }
       return;
     }
-    if (!isRecord(value)) return;
-    if (isNode(value)) nodes.push(value);
+    if (!isRecord(value)) {
+      return;
+    }
+    if (isNode(value)) {
+      nodes.push(value);
+    }
     const children = Object.entries(value)
       .filter(([key]) => key !== "position")
       .map(([, child]) => child);
-    for (const child of children) visit(child);
+    for (const child of children) {
+      visit(child);
+    }
   };
   visit(root);
   return nodes;
@@ -119,8 +129,12 @@ export function preorder(root: unknown): AnyNode[] {
  * @returns the nodes it holds
  */
 export function siblingsOf(element: unknown): AnyNode[] {
-  if (isNode(element)) return [element];
-  if (!isRecord(element)) return [];
+  if (isNode(element)) {
+    return [element];
+  }
+  if (!isRecord(element)) {
+    return [];
+  }
   return Object.values(element).filter((inner) => isNode(inner));
 }
 
@@ -138,12 +152,18 @@ export function siblingGroups(root: unknown): AnyNode[][] {
         group.push(...siblingsOf(element));
         visit(element);
       }
-      if (group.length > 1) groups.push(group);
+      if (group.length > 1) {
+        groups.push(group);
+      }
       return;
     }
-    if (!isRecord(value)) return;
+    if (!isRecord(value)) {
+      return;
+    }
     for (const [key, child] of Object.entries(value)) {
-      if (key === "position") continue;
+      if (key === "position") {
+        continue;
+      }
       visit(child);
     }
   };

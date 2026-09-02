@@ -135,7 +135,9 @@ function nextStart(source: string, mark: string, from: number): number {
  * @returns the first offset behind the group, or -1
  */
 function attrlistEnd(source: string, at: number): number {
-  if (source.charAt(at) !== ATTRLIST_OPEN) return -1;
+  if (source.charAt(at) !== ATTRLIST_OPEN) {
+    return -1;
+  }
   const close = source.indexOf(ATTRLIST_CLOSE, at + 1);
   return close > at + 1 ? close + 1 : -1;
 }

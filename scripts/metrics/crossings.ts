@@ -140,7 +140,9 @@ function keyOf(crossing: Crossing): string {
 function walk(root: string, directory: string): string[] {
   return readdirSync(path.join(root, directory)).flatMap((name) => {
     const file = path.posix.join(directory, name);
-    if (statSync(path.join(root, file)).isDirectory()) return walk(root, file);
+    if (statSync(path.join(root, file)).isDirectory()) {
+      return walk(root, file);
+    }
     return file.endsWith(".ts") ? [file] : [];
   });
 }
@@ -159,11 +161,17 @@ function walk(root: string, directory: string): string[] {
 function importedNames(statement: ts.Statement): string[] {
   if (ts.isImportDeclaration(statement)) {
     const clause = statement.importClause;
-    if (clause === undefined) return [];
+    if (clause === undefined) {
+      return [];
+    }
     const names = clause.name === undefined ? [] : [DEFAULT_IMPORT];
     const { namedBindings } = clause;
-    if (namedBindings === undefined) return names;
-    if (ts.isNamespaceImport(namedBindings)) return [...names, STAR];
+    if (namedBindings === undefined) {
+      return names;
+    }
+    if (ts.isNamespaceImport(namedBindings)) {
+      return [...names, STAR];
+    }
     return [
       ...names,
       ...namedBindings.elements.map(
@@ -171,10 +179,16 @@ function importedNames(statement: ts.Statement): string[] {
       ),
     ];
   }
-  if (!ts.isExportDeclaration(statement)) return [];
+  if (!ts.isExportDeclaration(statement)) {
+    return [];
+  }
   const clause = statement.exportClause;
-  if (clause === undefined) return [STAR];
-  if (!ts.isNamedExports(clause)) return [];
+  if (clause === undefined) {
+    return [STAR];
+  }
+  if (!ts.isNamedExports(clause)) {
+    return [];
+  }
   return clause.elements.map(
     (element) => (element.propertyName ?? element.name).text,
   );
@@ -212,7 +226,9 @@ function resolveSpecifier(
   importer: string,
   specifier: string,
 ): string | undefined {
-  if (!specifier.startsWith(".")) return undefined;
+  if (!specifier.startsWith(".")) {
+    return undefined;
+  }
   const target = path.posix.normalize(
     path.posix.join(
       path.posix.dirname(importer),
@@ -239,11 +255,19 @@ function crossingsIn(root: string, importer: string): Crossing[] {
   const here = path.posix.dirname(importer);
   return sourceFile.statements.flatMap((statement) => {
     const specifier = specifierOf(statement);
-    if (specifier === undefined) return [];
+    if (specifier === undefined) {
+      return [];
+    }
     const file = resolveSpecifier(root, importer, specifier);
-    if (file === undefined) return [];
-    if (path.posix.dirname(file) === here) return [];
-    if (UNIVERSAL.has(file)) return [];
+    if (file === undefined) {
+      return [];
+    }
+    if (path.posix.dirname(file) === here) {
+      return [];
+    }
+    if (UNIVERSAL.has(file)) {
+      return [];
+    }
     return importedNames(statement).map((symbol) => ({
       file,
       symbol,
@@ -290,8 +314,9 @@ function validateEntry(
   index: number,
 ): { entry: CrossingEntry | undefined; fault: string | undefined } {
   const at = `${REGISTRY_FILE}[${String(index)}]`;
-  if (!isObject(raw))
+  if (!isObject(raw)) {
     return { entry: undefined, fault: `${at}: not an object` };
+  }
   const unknown = Object.keys(raw).filter((key) => !ENTRY_KEYS.includes(key));
   if (unknown.length > ZERO) {
     return {
@@ -376,7 +401,9 @@ export function readCrossingsRegistry(root: string): CrossingsRead {
     return { entries: undefined, faults: [`${REGISTRY_FILE}: not found`] };
   }
   const { value: parsed, fault } = strictJson(readFileSync(file, "utf8"));
-  if (fault !== undefined) return { entries: undefined, faults: [fault] };
+  if (fault !== undefined) {
+    return { entries: undefined, faults: [fault] };
+  }
   if (!isArray(parsed)) {
     return {
       entries: undefined,
@@ -423,9 +450,11 @@ function validated(parsed: readonly unknown[]): CrossingsRead {
   const faults: string[] = [];
   for (const [index, raw] of parsed.entries()) {
     const { entry, fault } = validateEntry(raw, index);
-    if (entry === undefined)
+    if (entry === undefined) {
       faults.push(fault ?? `${REGISTRY_FILE}: malformed`);
-    else entries.push(entry);
+    } else {
+      entries.push(entry);
+    }
   }
   return faults.length > ZERO
     ? { entries: undefined, faults }
@@ -458,10 +487,14 @@ function validated(parsed: readonly unknown[]): CrossingsRead {
  */
 function outOfOrder(entries: readonly CrossingEntry[]): string[] {
   for (const [index, entry] of entries.entries()) {
-    if (index === ZERO) continue;
+    if (index === ZERO) {
+      continue;
+    }
     const previous = keyOf(entries[index - ONE]);
     const here = keyOf(entry);
-    if (previous < here) continue;
+    if (previous < here) {
+      continue;
+    }
     return [
       `${REGISTRY_FILE}[${String(index)}]: out of canonical order — ${here} must not follow ${previous}`,
     ];

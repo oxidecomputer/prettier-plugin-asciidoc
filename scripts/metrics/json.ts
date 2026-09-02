@@ -42,7 +42,9 @@ export function isArray(value: unknown): value is unknown[] {
  */
 export function parseJson(text: string): unknown {
   const from = firstOf(text.indexOf("{"), text.indexOf("["));
-  if (from === NOT_FOUND) return undefined;
+  if (from === NOT_FOUND) {
+    return undefined;
+  }
   try {
     return JSON.parse(text.slice(from)) as unknown;
   } catch {
@@ -57,8 +59,12 @@ export function parseJson(text: string): unknown {
  * @returns the smaller present index, or NOT_FOUND when both missed
  */
 function firstOf(left: number, right: number): number {
-  if (left === NOT_FOUND) return right;
-  if (right === NOT_FOUND) return left;
+  if (left === NOT_FOUND) {
+    return right;
+  }
+  if (right === NOT_FOUND) {
+    return left;
+  }
   return Math.min(left, right);
 }
 
@@ -71,7 +77,9 @@ function firstOf(left: number, right: number): number {
  * @returns the captured stdout, when there was any
  */
 export function stdoutOf(error: unknown): string | undefined {
-  if (!isObject(error)) return undefined;
+  if (!isObject(error)) {
+    return undefined;
+  }
   const { stdout } = error;
   return typeof stdout === "string" && stdout !== "" ? stdout : undefined;
 }

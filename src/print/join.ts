@@ -308,10 +308,14 @@ function startsOnTheNextLine(previous: BlockNode, current: BlockNode): boolean {
  * @returns Whether its tail continuation is still armed.
  */
 function listTailContinuationActive(block: BlockNode): boolean {
-  if (block.type !== "list") return false;
+  if (block.type !== "list") {
+    return false;
+  }
   const item = block.children.at(-1);
   const last = item?.blocks.at(-1)?.block;
-  if (last?.type === "list") return listTailContinuationActive(last);
+  if (last?.type === "list") {
+    return listTailContinuationActive(last);
+  }
   return item?.activeTail ?? false;
 }
 

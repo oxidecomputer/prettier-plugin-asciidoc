@@ -1,6 +1,8 @@
 /**
- * The shared vocabulary's pure units: `fragmentOfLine` and
- * `heldMetadataNode` in src/parse/lines/frames.ts.
+ * The reading core's pure units: `fragmentOfLine` (src/parse/lines/
+ * split.ts, beside the SourceLine it measures), `heldMetadataNode`
+ * (src/parse/lines/held-metadata.ts, beside its one caller) and
+ * `isLeafKind` (src/parse/lines/frames.ts, the leaf-builder table).
  *
  * Table-driven because each is `(input) → value` with no context: the
  * rows are the specification. The reader's characterization suites
@@ -11,12 +13,13 @@ import { describe, expect, test } from "vitest";
 import type { BlockNode } from "../../src/ast.js";
 import { BLOCK_START_CONTEXT } from "../../src/parse/line-shapes.js";
 import { classifyLine } from "../../src/parse/lines/classify.js";
+import { isLeafKind } from "../../src/parse/lines/frames.js";
+import { heldMetadataNode } from "../../src/parse/lines/held-metadata.js";
 import {
   fragmentOfLine,
-  heldMetadataNode,
-  isLeafKind,
-} from "../../src/parse/lines/frames.js";
-import { splitLines, type SourceLine } from "../../src/parse/lines/split.js";
+  splitLines,
+  type SourceLine,
+} from "../../src/parse/lines/split.js";
 import { makeLocationIndex } from "../../src/parse/positions.js";
 
 describe("fragmentOfLine", () => {

@@ -9,6 +9,7 @@
  * that says "a line the reader would have eaten".
  */
 import { describe, test, expect } from "vitest";
+import { conditionalDirective } from "../../src/parse/line-shapes.js";
 import { parse } from "../../src/parser.js";
 import { asParagraph } from "../helpers.js";
 import { narrow } from "../../src/narrow.js";
@@ -75,5 +76,46 @@ describe("conditional directive lines at block level", () => {
     expect(
       asParagraph(children[0]).children.some((c) => c.type === "rawLine"),
     ).toBe(true);
+  });
+});
+
+// What each spelling does to Ruby's `@conditional_stack`, which is
+// the fact the reader and the item scan count without ever resolving
+// a condition. Every row is read off `preprocess_conditional_directive`
+// (reader.rb l.909-1006): a region form pushes (l.991, l.1005), an
+// `endif` with empty brackets pops (l.919), a single-line
+// `ifdef`/`ifndef` replaces itself with its own text and pushes
+// nothing (l.993-1001), and the malformed spellings are reported and
+// returned from with the stack untouched (a targetless `ifdef`
+// l.936-939, an `ifeval` carrying a target l.982-984 or a text that
+// is not a comparison l.978-979, an `endif` carrying text
+// l.914-915). The one place this answer parts company with Ruby is
+// the last row, and it is a written ruling rather than an oversight:
+// a targeted `endif` pops only on a target match (l.918) and logs a
+// mismatch otherwise (l.922), and a count that carries no targets
+// closes on it - see the reason at `conditionalDirective`.
+describe("what a conditional directive line does to the stack", () => {
+  test.each<[string, "opens" | "closes" | "inert" | undefined]>([
+    ["ifdef::backend[]", "opens"],
+    ["ifndef::attr[]", "opens"],
+    ["ifdef::attr1,attr2[]", "opens"],
+    ["ifeval::[{version} > 1]", "opens"],
+    ["endif::[]", "closes"],
+    ["endif::backend[]", "closes"],
+    ["ifdef::backend[Content here]", "inert"],
+    ["ifndef::attr[text]", "inert"],
+    ["ifdef::[text]", "inert"],
+    ["ifndef::[]", "inert"],
+    ["ifeval::[]", "inert"],
+    ["ifeval::[bogus]", "inert"],
+    ['ifeval::[ "a" == "a" ]', "opens"],
+    ["ifeval::target[expr]", "inert"],
+    ["endif::[text]", "inert"],
+    ["endif::other[]", "closes"],
+    ["para", undefined],
+    ["include::a.adoc[]", undefined],
+    ["// c", undefined],
+  ])("%j is %s", (line, expected) => {
+    expect(conditionalDirective(line)).toBe(expected);
   });
 });

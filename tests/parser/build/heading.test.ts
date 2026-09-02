@@ -25,7 +25,9 @@ import { makeLocationIndex } from "../../../src/parse/positions.js";
  */
 function parsed(line: string): { level: number; title: string } {
   const kind = parseSectionTitle(line);
-  if (kind === undefined) throw new Error(`not a section title: ${line}`);
+  if (kind === undefined) {
+    throw new Error(`not a section title: ${line}`);
+  }
   return kind;
 }
 

@@ -19,11 +19,40 @@ describe("readingFamily", () => {
     // beside it, which then re-reads as a description-list term.
     ["[cont] -> []", "lone-plus-join"],
     ["[cont text] -> [dlist:::]", "lone-plus-join"],
+    // The continuations go and the list structure beside them stays:
+    // #17's trailing-marker collapse, seen from the reading side. The
+    // sweep spells hundreds of these and spelled none of them until
+    // every lone `+` got a token of its own.
+    [
+      "[cont marker:unordered:* cont] -> [marker:unordered:*]",
+      "continuation-dropped",
+    ],
+    [
+      "[cont marker:unordered:* attrline cont] -> [marker:unordered:* attrline]",
+      "continuation-dropped",
+    ],
     ["[admon:NOTE] -> [dlist:::]", "admonition-colon-run"],
     ["[indented] -> [text]", "tail-reading-flip"],
     ["[title] -> [text]", "tail-reading-flip"],
   ])("%s is %s", (signature, family) => {
     expect(readingFamily(signature)).toBe(family);
+  });
+
+  // The two continuation families are disjoint BY CONSTRUCTION, not by
+  // arm order: lone-plus-join needs a losing side of nothing but `cont`
+  // and `text`, continuation-dropped needs at least one token that is
+  // neither. Neither signature can reach both tests.
+  test("a cont-only loss stays lone-plus-join, not continuation-dropped", () => {
+    expect(readingFamily("[cont cont] -> []")).toBe("lone-plus-join");
+  });
+
+  // The stronger half of continuation-dropped's claim: it says the
+  // continuations were the ONLY thing that moved. Structure that moved
+  // as well fails the equality and has to be named separately.
+  test("structure moving alongside a dropped cont is unclassified", () => {
+    expect(
+      readingFamily("[cont marker:unordered:* cont] -> [marker:unordered:**]"),
+    ).toBeUndefined();
   });
 
   // The narrowing that keeps #43's row count honest. A dropped `cont`

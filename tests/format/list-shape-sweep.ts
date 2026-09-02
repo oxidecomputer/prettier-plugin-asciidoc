@@ -129,7 +129,9 @@ export function sweepDocuments(depth: number): string[] {
     for (const symbol of ALPHABET) {
       const next = [...lines, symbol];
       documents.push(`* a\n${next.join("\n")}\n`);
-      if (remaining > 1) grow(next, remaining - 1);
+      if (remaining > 1) {
+        grow(next, remaining - 1);
+      }
     }
   };
   grow([], depth);
@@ -139,7 +141,7 @@ export function sweepDocuments(depth: number): string[] {
 /**
  * The allowlist RESTRICTED to one depth's product — a derivation, not
  * a second hand-kept list. The default suite pins a subset of the same
- * 59 entries, and deriving it here means a shape can never be
+ * 26 entries, and deriving it here means a shape can never be
  * allowlisted at one depth and not the other.
  * @param depth - the depth whose product the caller sweeps
  * @returns the allowlisted documents that product actually spells
@@ -180,14 +182,20 @@ async function formatTwice(
  */
 export async function sweepFails(source: string): Promise<boolean> {
   const pair = await formatTwice(source);
-  if (pair === undefined) return true;
+  if (pair === undefined) {
+    return true;
+  }
   const { once, twice } = pair;
-  if (twice !== once) return true;
+  if (twice !== once) {
+    return true;
+  }
   // Byte-identical output is render-equal by definition — the
   // oracle is only consulted when the formatter changed bytes,
   // which keeps the sweep's wall time proportional to the
   // interesting shapes.
-  if (once === source) return false;
+  if (once === source) {
+    return false;
+  }
   const [formatted, original] = await Promise.all([
     renderedHtml(once),
     renderedHtml(source),
@@ -206,7 +214,9 @@ export async function sweepFailures(depth: number): Promise<string[]> {
     // Sequential on purpose: thousands of concurrent Prettier runs
     // would exhaust memory, and the oracle is the wall time here.
     // eslint-disable-next-line no-await-in-loop -- sequential on purpose
-    if (await sweepFails(source)) failing.push(source);
+    if (await sweepFails(source)) {
+      failing.push(source);
+    }
   }
   return failing.toSorted();
 }

@@ -103,8 +103,11 @@ export function makeLocationIndex(source: string): LocationIndex {
     let high = starts.length;
     while (high - low > 1) {
       const middle = Math.floor((low + high) / 2);
-      if (starts[middle] <= offset) low = middle;
-      else high = middle;
+      if (starts[middle] <= offset) {
+        low = middle;
+      } else {
+        high = middle;
+      }
     }
     return makeLocation(
       offset,
@@ -116,7 +119,9 @@ export function makeLocationIndex(source: string): LocationIndex {
     at,
     start: (fragment) => at(fragment.offset),
     end: (fragment) => {
-      if (fragment.image.length === 0) return at(fragment.offset);
+      if (fragment.image.length === 0) {
+        return at(fragment.offset);
+      }
       const last = at(fragment.offset + fragment.image.length - 1);
       return makeLocation(
         fragment.offset + fragment.image.length,

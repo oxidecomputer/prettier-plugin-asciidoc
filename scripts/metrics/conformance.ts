@@ -86,7 +86,9 @@ function readManifest(root: string): {
     MANIFEST_FILE,
     readFileSync(file, "utf8"),
   );
-  if (fault !== undefined) return { quarantined: undefined, fault };
+  if (fault !== undefined) {
+    return { quarantined: undefined, fault };
+  }
   // An ARRAY is an object to `typeof`, and a manifest accidentally
   // written as `[]` would count zero quarantined cases — the shape
   // that reads as "everything passes now".
@@ -109,9 +111,13 @@ function readPin(root: string): {
   fault: string | undefined;
 } {
   const file = path.join(root, PIN_FILE);
-  if (!existsSync(file)) return { pin: undefined, fault: undefined };
+  if (!existsSync(file)) {
+    return { pin: undefined, fault: undefined };
+  }
   const { value, fault } = strictJson(PIN_FILE, readFileSync(file, "utf8"));
-  if (fault !== undefined) return { pin: undefined, fault };
+  if (fault !== undefined) {
+    return { pin: undefined, fault };
+  }
   if (!isObject(value) || isArray(value)) {
     return { pin: undefined, fault: `${PIN_FILE}: not a JSON object` };
   }
@@ -147,8 +153,12 @@ export function readConformance(root: string): ConformanceFacts {
   const { quarantined, fault: manifestFault } = readManifest(root);
   const { pin, fault: pinFault } = readPin(root);
   const faults: string[] = [];
-  if (manifestFault !== undefined) faults.push(manifestFault);
-  if (pinFault !== undefined) faults.push(pinFault);
+  if (manifestFault !== undefined) {
+    faults.push(manifestFault);
+  }
+  if (pinFault !== undefined) {
+    faults.push(pinFault);
+  }
   if (
     quarantined !== undefined &&
     pin === undefined &&

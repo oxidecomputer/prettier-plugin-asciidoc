@@ -86,6 +86,10 @@ const EXEMPT = new Map<string, string>([
     "resolve_ordered_list_marker over an ordered marker the registry already matched; the list-marker dimension covers the shape",
   ],
   [
+    "conditionalDirective",
+    "pure reading over CONDITIONAL_DIRECTIVE, which the conditional-directive dimension already covers; this one answers what the line does to the reader's conditional stack, not what shape it is",
+  ],
+  [
     "isDescriptionListLine",
     "pure predicate over the dlist patterns; the dlist-term dimension covers the shape",
   ],
@@ -198,6 +202,10 @@ const GRID_EXEMPT = new Map<string, string>([
   [
     "styled-paragraph-opener",
     "as styled-verbatim-opener, for the compound roles",
+  ],
+  [
+    "indented-continuation",
+    "the shape only MEANS anything on the line after a list item's marker line, where the dedent that can turn it into a bare `+` runs; none of these grids puts a construct there, so the coordinate lives in the item-text rows of tests/format/breaks.test.ts instead",
   ],
 ]);
 

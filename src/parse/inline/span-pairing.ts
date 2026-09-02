@@ -287,7 +287,9 @@ function resolveRow(
       close,
       role: roleBefore(tokens, index),
     };
-    if (!crossesAccepted(candidate, accepted)) accepted.push(candidate);
+    if (!crossesAccepted(candidate, accepted)) {
+      accepted.push(candidate);
+    }
     index = close + 1;
   }
 }
@@ -308,7 +310,9 @@ function resolveRow(
  */
 export function resolveSpans(tokens: readonly InlineToken[]): ResolvedSpan[] {
   const accepted: ResolvedSpan[] = [];
-  for (const row of RESOLUTION_ORDER) resolveRow(tokens, row, accepted);
+  for (const row of RESOLUTION_ORDER) {
+    resolveRow(tokens, row, accepted);
+  }
   // Start alone orders them. No two spans can share a start - a mark
   // belongs to at most one span, and a `[role]` token is not a mark -
   // and properly nested intervals with distinct starts put every

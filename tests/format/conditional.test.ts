@@ -120,3 +120,37 @@ describe("trailing whitespace on a directive line", () => {
     expect(await formatAdoc(out)).toBe(out);
   });
 });
+
+// A conditional pair the author wrote around a list item's tail is a
+// region this formatter never evaluates: both spellings of the pair's
+// interior reach the reader unchanged, so a `+` standing inside it is
+// a byte to keep. Asciidoctor's own reading of these documents is the
+// same either way - the reader `shift`s the whole region away and
+// hands on `nil` when the condition is false (reader.rb l.879-881),
+// and `preprocess_conditional_directive` takes only the two directive
+// lines when it is true (reader.rb l.844-848). A `+` printed back
+// inside the region is the second of an adjacent pair on re-read
+// either way:
+// `ListContinuationMarker === this_line` freezes it (parser.rb
+// l.1443-46), and frozen is the one state `is_delimited_block?` does
+// not attach under (parser.rb l.1453-56).
+describe("a continuation inside a directive pair over an item's tail", () => {
+  const input = "* a\nifdef::x[]\n+\n+\n----\nx\n----\nendif::[]\npara\n";
+
+  test("the + the pair holds is written back", async () => {
+    expect(await formatAdoc(input)).toBe(
+      "* a\nifdef::x[]\n+\n\n----\nx\n----\nendif::[]\npara\n",
+    );
+  });
+
+  test("every pass renders as the source and pass 3 has converged", async () => {
+    const pass1 = await formatAdoc(input);
+    const pass2 = await formatAdoc(pass1);
+    const pass3 = await formatAdoc(pass2);
+    const source = await renderedHtml(input);
+    expect(await renderedHtml(pass1)).toBe(source);
+    expect(await renderedHtml(pass2)).toBe(source);
+    expect(await renderedHtml(pass3)).toBe(source);
+    expect(pass3).toBe(pass2);
+  });
+});

@@ -1,10 +1,10 @@
 /**
- * The tail FACTS `ExtentScan.finish` reports beside the buffer
- * (src/parse/lines/list-reader.ts), and the after-blank arm's hard
- * stop on an erased line — the #56 rows, split from
+ * The tail FACTS the post-loop reports beside the buffer
+ * (`finishItem`, src/parse/lines/item-tail.ts), and the after-blank
+ * arm's hard stop on an erased line: the #56 rows, split from
  * tests/parser/item-extent.test.ts so each file stays under the
  * `max-lines` ceiling. The branch table itself lives there; these
- * rows pin only what finish() says about an item's TAIL and what the
+ * rows pin only what `finishItem` says about an item's TAIL and what the
  * Placeholder tag does to an inner scan.
  */
 import { describe, expect, test } from "vitest";
@@ -19,42 +19,44 @@ const MARKER_TRAIT: SiblingTrait = { kind: "marker", style: "*" };
 /**
  * Scan a document and read back only the tail facts.
  * @param source - the whole document; its first line is the marker
- * @returns the booleans finish() reported
+ * @returns the three facts `finishItem` reported
  */
 function tailFacts(source: string): {
-  popped: boolean;
+  trailing: boolean;
   erasedTail: boolean;
   activeTail: boolean;
 } {
   const extent = itemExtent(splitLines(source), 1, MARKER_TRAIT, {
     tailSafe: true,
-    gaps: new Map(),
+    directiveDepth: 0,
   });
   return {
-    popped: extent.poppedContinuation,
+    trailing: extent.trailingContinuation,
     erasedTail: extent.erasedTailContinuation,
-    activeTail: extent.activeTailContinuation,
+    activeTail: extent.activeTail,
   };
 }
 
-// The tail facts finish() reports beside the buffer. The first two
-// are structurally mutually exclusive: `marked` IS the detached cell
-// whenever a detached `+` is the last one buffered, so the strip
-// loop either breaks on the marked pop before reaching the detached
-// cell, or pops the blanked detached cell as a blank and then breaks
-// on content. The third is the continuation still armed at the end.
+// The three facts `finishItem` reports beside the buffer - Ruby's
+// post-loop, from `reader.unshift_line this_line` to the `buffer.pop`
+// walk (parser.rb l.1574-89) - each finished
+// rather than raw: what the pop TOOK is conjoined here with the
+// boundary the item closed on, and the armed tail with what the scan
+// buffered behind the `+`, so a reader of ItemExtent sees the answer
+// the node carries and not a half of it.
 //
-// The third is the RAW scan fact and nothing more: it says only that
-// `continuation` was still `:active`, never that the printed item
-// shows a live `+`. A nested-list row reads true here while the NODE's
-// `activeTail` is false, because list-item-node.ts's armedTailPrints
-// finds a list — not metadata — behind the tail. The printed side is
-// pinned in tests/format/plus-run.test.ts.
-describe("the tail facts finish() reports", () => {
-  // [name, source, popped, erasedTail, activeTail]
+// The first two are structurally mutually exclusive: the pop takes
+// exactly one cell and breaks, and the role of the cell it took is
+// what says which fact to report - `detached` for the shield
+// `detached_continuation` names (parser.rb l.1576), any other marker
+// role for a `+` the item may print back.
+// The third is the armed continuation, which is a fact about what the
+// item BUFFERED and not about what came off its tail.
+describe("the tail facts finishItem reports", () => {
+  // [name, source, trailingContinuation, erasedTail, activeTail]
   test.each<[string, string, boolean, boolean, boolean]>([
     [
-      "a blanked detached + strips off the tail (l.1576 then l.1583-85)",
+      "a blanked detached + strips off the tail (l.1576 then l.1580-82)",
       "* a\nb\n\n+\n",
       false,
       true,
@@ -68,14 +70,14 @@ describe("the tail facts finish() reports", () => {
       false,
     ],
     [
-      "content after the detached + shields it from the strip",
+      "content after the detached + shields it from the pop",
       "* a\n\n+\npara\n* b\n",
       false,
       false,
       false,
     ],
     [
-      "the marked pop fires instead when a marked + ends the buffer (l.1580-81)",
+      "the marked pop fires instead when a live marker ends the buffer (l.1580-82)",
       "* a\nb\n+\n",
       true,
       false,
@@ -97,11 +99,18 @@ describe("the tail facts finish() reports", () => {
       true,
     ],
     [
-      "a nested list is no exception: the raw fact reads :active there too",
-      "* a\n** b\n+\n\n\npara\n",
+      "a + a NESTED list will own arms nothing here: the mark was never erased (l.1412-14)",
+      "* a\n** b\n+\n",
       true,
       false,
-      true,
+      false,
+    ],
+    [
+      "and the same shape stopping on content prints no byte back: the tail is not inert",
+      "* a\n** b\n+\n\n\npara\n",
+      false,
+      false,
+      false,
     ],
     [
       "content consumes the continuation (l.1511), so the tail is not armed",
@@ -111,8 +120,8 @@ describe("the tail facts finish() reports", () => {
       false,
     ],
   ])("%s", (...row) => {
-    const [, source, popped, erasedTail, activeTail] = row;
-    expect(tailFacts(source)).toEqual({ popped, erasedTail, activeTail });
+    const [, source, trailing, erasedTail, activeTail] = row;
+    expect(tailFacts(source)).toEqual({ trailing, erasedTail, activeTail });
   });
 });
 
@@ -128,7 +137,7 @@ test("the after-blank arm hard-stops on an ERASED line, unread", () => {
   );
   const extent = itemExtent(lines, 1, MARKER_TRAIT, {
     tailSafe: true,
-    gaps: new Map(),
+    directiveDepth: 0,
   });
   expect(extent.buffer.map((line) => line.text)).toEqual(["b"]);
   expect(extent.end).toBe(3);

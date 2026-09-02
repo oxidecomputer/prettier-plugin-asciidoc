@@ -373,11 +373,19 @@ export interface Snapshot {
  * @returns every layer that contains the file, outermost first
  */
 export function layersFor(file: string): Layer[] {
-  if (!file.startsWith("src/")) return [];
+  if (!file.startsWith("src/")) {
+    return [];
+  }
   const layers: Layer[] = ["src"];
-  if (file.startsWith("src/parse/")) layers.push("src/parse");
-  if (file.startsWith("src/parse/lines/")) layers.push("src/parse/lines");
-  if (PRINT_FILES.test(file)) layers.push("src/print");
+  if (file.startsWith("src/parse/")) {
+    layers.push("src/parse");
+  }
+  if (file.startsWith("src/parse/lines/")) {
+    layers.push("src/parse/lines");
+  }
+  if (PRINT_FILES.test(file)) {
+    layers.push("src/print");
+  }
   return layers;
 }
 

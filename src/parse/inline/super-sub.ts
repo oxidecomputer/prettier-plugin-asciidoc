@@ -201,7 +201,9 @@ function nextStart(source: string, mark: string, from: number): number {
  * @returns the first offset behind the group, or -1
  */
 function attrlistEnd(source: string, at: number): number {
-  if (source.charAt(at) !== ATTRLIST_OPEN) return -1;
+  if (source.charAt(at) !== ATTRLIST_OPEN) {
+    return -1;
+  }
   const close = source.indexOf(ATTRLIST_CLOSE, at + 1);
   return close > at + 1 ? close + 1 : -1;
 }
@@ -242,8 +244,12 @@ function closeFor(source: string, mark: string, open: number): number {
   const first = open + DELIM_WIDTH + SHORTEST_CONTENT;
   for (let index = open + DELIM_WIDTH; index < source.length; index += 1) {
     const character = source.charAt(index);
-    if (WHITESPACE.test(character)) return -1;
-    if (character === mark && index >= first) return index;
+    if (WHITESPACE.test(character)) {
+      return -1;
+    }
+    if (character === mark && index >= first) {
+      return index;
+    }
   }
   return -1;
 }
@@ -292,6 +298,8 @@ function scanRow(source: string, mark: string, delimiters: Set<number>): void {
  */
 export function scanSuperSubMarks(text: string): ReadonlySet<number> {
   const delimiters = new Set<number>();
-  for (const { mark } of SUPER_SUB_ROWS) scanRow(text, mark, delimiters);
+  for (const { mark } of SUPER_SUB_ROWS) {
+    scanRow(text, mark, delimiters);
+  }
   return delimiters;
 }

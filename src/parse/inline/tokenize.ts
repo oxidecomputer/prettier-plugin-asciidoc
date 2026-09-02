@@ -80,7 +80,9 @@ export function tokenizeInline(
     // used to be the table's own last row; as the else branch it is
     // one mechanism instead of two that had to agree, and it keeps
     // the loop finite whatever the table contains.
-    if (length === 0) length = 1;
+    if (length === 0) {
+      length = 1;
+    }
     // A mark token carries its DIRECTION facts - whether Ruby's
     // constrained pattern could open or close a span here - because
     // the neighbourhood is visible HERE, in the fragment, and the

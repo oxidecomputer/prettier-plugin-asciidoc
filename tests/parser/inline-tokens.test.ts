@@ -82,7 +82,9 @@ interface PinnedRow {
  * @returns whether it has the three fields a token needs
  */
 function isToken(value: unknown): value is PinnedToken {
-  if (typeof value !== "object" || value === null) return false;
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
   const token: Record<string, unknown> = { ...value };
   return (
     typeof token.type === "string" &&

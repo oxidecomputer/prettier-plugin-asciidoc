@@ -397,7 +397,9 @@ export function canOpenAt(
   view: string,
 ): boolean {
   const next = text.at(index + 1);
-  if (next === undefined || !NON_SPACE.test(next)) return false;
+  if (next === undefined || !NON_SPACE.test(next)) {
+    return false;
+  }
   // The neighbour as THIS mark's row reads it. `sub_specialchars` has
   // already run (afterSpecialchars); so have the two curved-quote rows,
   // for every kind but bold, and `view` is the fragment with their
@@ -439,7 +441,9 @@ export function canCloseAt(
   view: string,
 ): boolean {
   const previous = before(text, index);
-  if (previous === undefined || !NON_SPACE.test(previous)) return false;
+  if (previous === undefined || !NON_SPACE.test(previous)) {
+    return false;
+  }
   const source = seesCurvedRewrite(kind) ? view : text;
   const next = source.at(index + 1);
   return next === undefined || !MARK_BOUNDARY[kind].behind.test(next);

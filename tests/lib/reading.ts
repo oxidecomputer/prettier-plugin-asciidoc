@@ -186,13 +186,29 @@ type LineContribution =
  * What one physical line contributes, from the trace and the text.
  *
  * A line with no recorded verdict is one the reader consumed without
- * classifying. Marker-shaped ones are SYNTHESIZED - the list extent
- * scan takes sibling and nested marker lines through `parseListMarker`
- * directly, and the fold-absorption rule below has to be able to see
- * an absorber. Synthesis is a modeled guess rather than a recorded
- * reading; inside a verbatim interior the same guess is made on both
- * sides of the comparison and cancels, and `untracedLines` bounds
- * what else it can be hiding.
+ * classifying. Two shapes are SYNTHESIZED rather than left invisible,
+ * and it is one fact about the reader that makes both necessary: the
+ * list extent scan takes sibling and nested marker lines through
+ * `parseListMarker` and continuation lines through
+ * `isContinuationLine`, and neither of those is a `classifyLine`
+ * call.
+ *
+ * - A MARKER line, because the fold-absorption rule below has to be
+ *   able to see an absorber.
+ * - A lone `+`, because a continuation is the whole difference
+ *   between an item that owns the block below it and one that does
+ *   not. Left opaque, every `+` the extent scan consumed was
+ *   invisible here, so a formatter that dropped one, moved one across
+ *   a boundary, or dissolved one into the prose beside it moved no
+ *   token and the invariant held VACUOUSLY. That blindness is why
+ *   `lone-plus-join` could sit in the family enumeration as a
+ *   declared mechanism with no rows: the rows were always there, the
+ *   alphabet had no letter to spell them with.
+ *
+ * Synthesis is a modeled guess rather than a recorded reading; inside
+ * a verbatim interior the same guess is made on both sides of the
+ * comparison and cancels, and `untracedLines` bounds what else it can
+ * be hiding.
  * @param events - the trace, keyed by source offset
  * @param offset - this line's source offset
  * @param line - this line, rstripped the way the reader rstrips it
@@ -203,12 +219,23 @@ function contributionOf(
   offset: number,
   line: string,
 ): LineContribution {
+  // Before the verdict, not after it: a `+` the reader ERASED comes
+  // back from `classifyLine` as a blank, and taking that verdict at
+  // face value is the second half of the same blindness - the line is
+  // still a `+` in the source, and whether the formatter keeps it is
+  // exactly the question. Every lone `+` gets a token; no verdict
+  // folds one away.
+  if (isContinuationLine(line)) {
+    return { kind: "token", token: "cont" };
+  }
   const kind = events.get(offset);
   if (kind !== undefined) {
     const token = tokenOf(kind);
     return token === undefined ? { kind: "blank" } : { kind: "token", token };
   }
-  if (line.length === 0) return { kind: "blank" };
+  if (line.length === 0) {
+    return { kind: "blank" };
+  }
   const marker = parseListMarker(line);
   return marker === undefined
     ? { kind: "opaque" }
@@ -329,7 +356,9 @@ function append(
   mode: FoldMode,
 ): FoldMode {
   if (token === "text") {
-    if (mode === "armed" || mode === "textrun") return mode;
+    if (mode === "armed" || mode === "textrun") {
+      return mode;
+    }
     emit(reading, token);
     return "textrun";
   }
@@ -338,7 +367,9 @@ function append(
     return mode;
   }
   if (token === "indented") {
-    if (mode === "indentedrun") return mode;
+    if (mode === "indentedrun") {
+      return mode;
+    }
     emit(reading, token);
     return "indentedrun";
   }
@@ -408,17 +439,22 @@ export function readingOf(document: string): string[] {
  * apart from an under-traced one needs a second reader dialect, which
  * this module refuses to grow. So the check runs only on documents
  * whose reading opens no delimited block and starts no literal
- * paragraph; there, every non-blank line must carry a verdict, be
- * marker-shaped, or be a lone `+`. Documents with either token report
- * nothing.
+ * paragraph; there, every non-blank line must carry a verdict or be
+ * one of the two shapes `contributionOf` synthesizes. Documents with
+ * either token report nothing.
  *
- * The `+` exemption is the same fact as marker synthesis: the list
- * extent scan reads a continuation line through `isContinuationLine`
- * and a sibling or nested item line through `parseListMarker`,
- * neither of which is a `classifyLine` call. Measured across the
- * corpus and both sweep products, those two shapes are the ONLY lines
- * the reader consumes without a verdict outside a delimited extent or
- * a literal body.
+ * There is no `+` EXEMPTION here any more, and its disappearance
+ * changes nothing this check reports. A lone `+` used to be named and
+ * excused at this test; it is now accounted for the same way a marker
+ * line is, by having a token - `contributionOf` gives it one before
+ * the trace is read, so it is never `opaque` and never reaches the
+ * test to be excused. The exemption went away because it became
+ * unreachable, not because the check grew teeth: an untraced `+` is
+ * still not reported here, one step earlier. What the token buys is
+ * paid out in the PROJECTION, where a dropped `+` now moves the
+ * sequence. Measured across the corpus and both sweep products, a
+ * continuation and a marker are the ONLY lines the reader consumes
+ * without a verdict outside a delimited extent or a literal body.
  *
  * That measurement is a GATE at all three scales - the generator
  * sweeps both products, tests/format/reading-invariant.test.ts runs
@@ -435,7 +471,9 @@ export function untracedLines(document: string): string[] {
   const opaqueAllowed = reading.some(
     (token) => token.startsWith("delim:") || token === "indented",
   );
-  if (opaqueAllowed) return [];
+  if (opaqueAllowed) {
+    return [];
+  }
   const events = traceOf(document);
   const missed: string[] = [];
   // Past the byte-order mark, for {@link projectionOf}'s reason.
@@ -445,7 +483,7 @@ export function untracedLines(document: string): string[] {
     const line = rstrip(rawLine);
     const contribution = contributionOf(events, offset, line);
     offset += rawLine.length + 1;
-    if (contribution.kind === "opaque" && !isContinuationLine(line)) {
+    if (contribution.kind === "opaque") {
       missed.push(line);
     }
   }
@@ -582,7 +620,9 @@ export function readingBreaches(
       line: divergenceLine(first.at, sourceReading.lines, onceReading.lines),
     });
   }
-  if (twice === once) return breaches;
+  if (twice === once) {
+    return breaches;
+  }
   const twiceReading = projectionOf(twice);
   const second = readingDiff(onceReading.tokens, twiceReading.tokens);
   if (second.signature !== "") {

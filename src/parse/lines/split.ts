@@ -37,6 +37,7 @@
  */
 import { FIRST_LINE } from "../../constants.js";
 import { rstrip } from "../line-shapes.js";
+import type { Fragment } from "../positions.js";
 
 /** One source line with both spellings and its position. */
 export interface SourceLine {
@@ -52,16 +53,16 @@ export interface SourceLine {
    * Parse-internal: the extent scan's port of Asciidoctor's tagged
    * Strings. `read_lines_for_list_item` swaps every `+` it reads for
    * `ListContinuationString` (parser.rb l.1432) and erases into
-   * `ListContinuationPlaceholder` (l.1439/1576) — String instances
-   * extended with the `ListContinuationMarker` module — and two later
-   * readers key on the tag rather than the text: an inner item scan
-   * hard-stops on an erased line after a blank (the JS oracle's strict
-   * `thisLine === ''` at parser.js l.2168), and the confined paragraph
-   * read folds marker lines only under a tagged `+` head
-   * (`readParagraphLines`, parser.js l.1065 and l.3018-47). The tag
-   * exists only on COPIES inside item buffers —
-   * `splitLines` never writes it, so a document line carries none —
-   * which is exactly where the oracle's tagged Strings live.
+   * `ListContinuationPlaceholder` (parser.rb l.1439/1576) - String
+   * instances extended with the `ListContinuationMarker` module - and
+   * two later readers key on the tag rather than the text: an inner
+   * item scan hard-stops on an erased line after a blank (the JS
+   * oracle's strict `thisLine === ''` at parser.js l.2168), and the
+   * confined paragraph read folds marker lines only under a tagged `+`
+   * head (`readParagraphLines`, parser.js l.1065 and l.3018-47). The
+   * tag exists only on COPIES inside item buffers - `splitLines` never
+   * writes it, so a document line carries none - which is exactly
+   * where the oracle's tagged Strings live.
    *
    * One arm deliberately does NOT read the tag: an erased line
    * reaching the scan's final else is buffered as the blank it
@@ -72,6 +73,24 @@ export interface SourceLine {
    * arbitrates.
    */
   readonly continuationTag?: "marker" | "erased";
+}
+
+/**
+ * One line's span, for the builders. A block node is built from the
+ * RAW spelling of its line, trailing whitespace and all, and that is
+ * what its position measures; classification used the rstripped
+ * `text`.
+ * @param line - the source line
+ * @param from - raw start column index, 0-based
+ * @param to - raw end column index, exclusive
+ * @returns the span
+ */
+export function fragmentOfLine(
+  line: SourceLine,
+  from = 0,
+  to = line.raw.length,
+): Fragment {
+  return { image: line.raw.slice(from, to), offset: line.offset + from };
 }
 
 /** The byte-order mark as one decoded character. */
@@ -93,8 +112,12 @@ const MISDECODED_BOM = "\u{EF}\u{BB}\u{BF}";
  * @returns 1, 3, or 0 when the document opens with neither spelling
  */
 function bomWidth(source: string): number {
-  if (source.startsWith(BOM)) return BOM.length;
-  if (source.startsWith(MISDECODED_BOM)) return MISDECODED_BOM.length;
+  if (source.startsWith(BOM)) {
+    return BOM.length;
+  }
+  if (source.startsWith(MISDECODED_BOM)) {
+    return MISDECODED_BOM.length;
+  }
   return 0;
 }
 

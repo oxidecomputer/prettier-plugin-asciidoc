@@ -15,7 +15,7 @@ import type {
 import { MARKER_OFFSET } from "../constants.js";
 import { inlineAtoms } from "./inline.js";
 import { hazard } from "./list-hazard.js";
-import { blockBody, keepLastBreak } from "./reflow.js";
+import { blockBody, keepTextOnFirstRestLine } from "./reflow.js";
 import type { PrintFunction, PrintPath } from "./blocks.js";
 
 const {
@@ -132,20 +132,28 @@ export function tailSwallowsMarker(
   item: ListItemNode,
   list: ListNode | undefined,
 ): boolean {
-  if (item.trailingContinuation) return false;
+  if (item.trailingContinuation) {
+    return false;
+  }
   // The printed detached tail — one blank and a `+` — already stands
   // between the item's last block and the marker line, and a `+` is
   // where every slurp stops.
-  if (item.detachedTail) return false;
+  if (item.detachedTail) {
+    return false;
+  }
   for (const [index, { block }] of [...item.blocks.entries()].toReversed()) {
-    if (isIndentedLiteral(block)) return true;
+    if (isIndentedLiteral(block)) {
+      return true;
+    }
     if (block.type === "list") {
       const lastItem = block.children.at(-1);
       if (lastItem !== undefined && tailSwallowsMarker(lastItem, block)) {
         return true;
       }
     }
-    if (printedGap(item, list, index).length > 0) return false;
+    if (printedGap(item, list, index).length > 0) {
+      return false;
+    }
   }
   return false;
 }
@@ -279,7 +287,7 @@ export function printListItem(
     " ",
     checkboxPrefix,
     ...blockBody(
-      guard === "keepBreak" ? keepLastBreak(atoms) : atoms,
+      guard === "none" ? atoms : keepTextOnFirstRestLine(atoms, guard),
       printWidth,
       markerWidth + checkboxWidth,
     ),
@@ -382,7 +390,9 @@ export function printedGap(
 ): readonly GapLine[] {
   const { blocks } = node;
   const { gap, block } = blocks[index];
-  if (block.type !== "list") return gap;
+  if (block.type !== "list") {
+    return gap;
+  }
   if (block.marker === parentList?.marker) {
     return gap.includes("+") ? gap : [];
   }
@@ -405,8 +415,12 @@ export function printedGap(
  */
 function slurpReaches(blocks: readonly ItemBlock[], index: number): boolean {
   for (const previous of blocks.slice(0, index).toReversed()) {
-    if (isIndentedLiteral(previous.block)) return true;
-    if (previous.gap.length > 0) return false;
+    if (isIndentedLiteral(previous.block)) {
+      return true;
+    }
+    if (previous.gap.length > 0) {
+      return false;
+    }
   }
   return false;
 }
@@ -440,7 +454,9 @@ function gapParts(gap: readonly GapLine[]): Doc[] {
       parts.push("+", hardline);
       continue;
     }
-    if (!livePlus && blankRun) continue;
+    if (!livePlus && blankRun) {
+      continue;
+    }
     blankRun = true;
     parts.push(hardline);
   }

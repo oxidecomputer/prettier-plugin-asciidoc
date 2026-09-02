@@ -17,6 +17,7 @@ import type {
   VerbatimVariant,
 } from "../../ast.js";
 import { FIRST_COLUMN, FIRST_LINE } from "../../constants.js";
+import { annotation } from "./delimited.js";
 import { buildFromTokens } from "../inline/inline-node-builder.js";
 import type { InlineToken } from "../inline/tokens.js";
 import {
@@ -24,6 +25,37 @@ import {
   type Fragment,
   type LocationIndex,
 } from "../positions.js";
+
+/**
+ * What the block-attribute line held above a paragraph made of it: the
+ * variant its style named, and the line's own bracket interior as the
+ * reader recorded it.
+ *
+ * TWO facts with two producers, travelling as ONE parameter because
+ * the linter caps a builder at four and both builders that take this
+ * were already at four; the device is the `rename` parameter of
+ * buildDelimitedAdmonition (build/delimited.ts), for the same reason.
+ * Each field names its own producer, because the two rules differ:
+ * `annotatedBy` is set only when the attribute line is the LAST node
+ * of the held run, which is stricter than the style's transparency.
+ *
+ * NOT exported (knip's types bucket gates dead exported types at 0):
+ * the reader passes an object literal, and the name exists for the two
+ * signatures alone.
+ */
+interface HeldStyle {
+  /**
+   * The variant the style named - `paragraphFormVariant` or
+   * `verbatimStyledVariant` over `HeldMetadata.actionableStyle`
+   * (lines/open-style.ts, lines/held-metadata.ts).
+   */
+  readonly variant: VerbatimVariant;
+  /**
+   * The attribute line's bracket interior (`HeldMetadata.annotation`),
+   * or undefined when no attribute line ended the held run.
+   */
+  readonly annotatedBy: string | undefined;
+}
 
 /**
  * The start and end of a paragraph body, from its first to its last
@@ -133,12 +165,14 @@ export function buildAdmonitionParagraph(
  * @param rest - the run's remaining lines, in order; empty for a
  *   one-line paragraph
  * @param at - the document's location index
+ * @param annotatedBy - the annotation the reader recorded, if any
  * @returns a literal delimited block in indented form
  */
 export function buildLiteralParagraph(
   first: Fragment,
   rest: readonly Fragment[],
   at: LocationIndex,
+  annotatedBy: string | undefined,
 ): DelimitedBlockNode {
   const last = rest.at(-1) ?? first;
   return {
@@ -147,6 +181,7 @@ export function buildLiteralParagraph(
     form: "indented",
     content: [first, ...rest].map((line) => line.image).join("\n"),
     position: { start: at.start(first), end: at.end(last) },
+    ...annotation(annotatedBy),
   };
 }
 
@@ -160,7 +195,9 @@ export function buildLiteralParagraph(
  * validation site appears here (the registry may not grow);
  * `rest.at(-1) ?? first` below is a TOTAL answer, since `rest`
  * really is empty for a one-line block.
- * @param variant - the style's target variant (verbatimStyledVariant)
+ * @param held - what the held attribute line made of the block
+ * @param held.variant - the style's target (verbatimStyledVariant)
+ * @param held.annotatedBy - the annotation the reader recorded, if any
  * @param first - the extent's first line
  * @param rest - the extent's remaining lines, in order; empty for a
  *   one-line block
@@ -168,7 +205,7 @@ export function buildLiteralParagraph(
  * @returns a verbatim block in paragraph form
  */
 export function buildStyledParagraph(
-  variant: VerbatimVariant,
+  held: HeldStyle,
   first: Fragment,
   rest: readonly Fragment[],
   at: LocationIndex,
@@ -176,10 +213,11 @@ export function buildStyledParagraph(
   const last = rest.at(-1) ?? first;
   return {
     type: "delimitedBlock",
-    variant,
+    variant: held.variant,
     form: "paragraph",
     content: [first, ...rest].map((line) => line.image).join("\n"),
     position: { start: at.start(first), end: at.end(last) },
+    ...annotation(held.annotatedBy),
   };
 }
 
@@ -190,14 +228,16 @@ export function buildStyledParagraph(
  * read with the paragraph's own context), content by source slice —
  * byte-identical to the deleted post-pass conversion, minus the
  * serializer (#40).
- * @param variant - the style's target (paragraphFormVariant)
+ * @param held - what the held attribute line made of the block
+ * @param held.variant - the style's target (paragraphFormVariant)
+ * @param held.annotatedBy - the annotation the reader recorded, if any
  * @param tokens - the paragraph body's tokens, as read
  * @param source - the whole document
  * @param at - the document's location index
  * @returns a delimited block in paragraph form
  */
 export function buildParagraphFormBlock(
-  variant: VerbatimVariant,
+  held: HeldStyle,
   tokens: readonly InlineToken[],
   source: string,
   at: LocationIndex,
@@ -205,10 +245,11 @@ export function buildParagraphFormBlock(
   const position = bodyExtent(tokens, at);
   return {
     type: "delimitedBlock",
-    variant,
+    variant: held.variant,
     form: "paragraph",
     content: source.slice(position.start.offset, position.end.offset),
     position,
+    ...annotation(held.annotatedBy),
   };
 }
 

@@ -132,7 +132,9 @@ describe("paragraph-form verse blocks", () => {
     // The blockAttributeList at children[0] should preserve
     // the full attribute string including positional params.
     expect(children[0].type).toBe("blockAttributeList");
-    if (children[0].type !== "blockAttributeList") return;
+    if (children[0].type !== "blockAttributeList") {
+      return;
+    }
     expect(children[0].value).toBe("verse, Robert Frost, Fire and Ice");
     const block = delimitedBlockAt(children, 1);
     expect(block.variant).toBe("verse");
@@ -166,7 +168,9 @@ describe("paragraph-form quote blocks", () => {
     // The blockAttributeList at children[0] should preserve
     // the full attribute string including positional params.
     expect(children[0].type).toBe("blockAttributeList");
-    if (children[0].type !== "blockAttributeList") return;
+    if (children[0].type !== "blockAttributeList") {
+      return;
+    }
     expect(children[0].value).toBe("quote, Shakespeare, Hamlet");
     const block = delimitedBlockAt(children, 1);
     expect(block.variant).toBe("quote");

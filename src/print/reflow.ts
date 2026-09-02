@@ -83,7 +83,7 @@ export interface Atom {
   readonly noBreakAfter: boolean;
   /**
    * A line break before this atom is mandatory (raw lines, hard line
-   * breaks, the dlist first-line guard, keepLastBreak's kept break).
+   * breaks, the dlist first-line guard, keepTextOnFirstRestLine's kept break).
    */
   readonly breakBefore: BreakBefore;
 }
@@ -180,15 +180,18 @@ function runBreak(
  * word) reaches this loop unprotected, and a break in front of it
  * writes a block attribute line where the source had prose.
  *
- * A DEMANDED break still stands. Three of the four sources of one -
- * a raw line, a hard line break, and the dlist first-line guard - are
- * the AUTHOR's own line boundary, which the packer may not move
- * whatever stands behind it. The fourth, {@link keepLastBreak}'s kept
- * break, has not weighed this hazard: it consults `opensDeletedLine`
- * alone. Its call sites are list items, where the line it opens
- * carries the item's continuation indent and so does not start at
- * column 0, and no reproduction is known - it is stated here because
- * the guarantee is three sources wide, not four.
+ * A DEMANDED break still stands, and three of the four sources of one
+ * - a raw line, a hard line break, and the dlist first-line guard -
+ * are the AUTHOR's own line boundary, which the packer may not move
+ * whatever stands behind it. The fourth,
+ * {@link keepTextOnFirstRestLine}'s kept break, is not exempt from the
+ * hazard above: it weighs it itself. It lands in front of some run
+ * past the block's first, and where the line that run would open is
+ * COLUMN 0 it asks this same question of the run and walks left until
+ * a run answers no - so a fused run reaching that line is refused
+ * there rather than written. A kept break that opens its line at the
+ * block's continuation indent asks nothing, because at a non-zero
+ * column none of these shapes is read.
  *
  * Width is COLUMNS, not characters: `getStringWidth` is Prettier's own
  * measure, so a full-width CJK character costs two and a combining mark
@@ -338,6 +341,17 @@ export function trailsWithLineBreak(value: string): boolean {
 // The lone `+`. Both reflow safety rules name it: at column 0 it is a
 // list continuation, at end of a line a hard line break.
 const CONTINUATION_WORD = "+";
+
+/**
+ * What a hard line break PRINTS as: a space and a `+`, closing the
+ * line the break ends (`HardLineBreakRx`, rx.rb l.624 and l.627,
+ * `^(.*) \+$` - a SPACE before the `+`, never a tab). Declared here
+ * beside {@link CONTINUATION_WORD}, the other `+` the printer writes,
+ * so the two spellings the packer must tell apart live together; the
+ * inline printer emits it (src/print/inline.ts) and
+ * {@link opensOrdinaryTextLine} recognizes the line it opens.
+ */
+export const HARD_BREAK_IMAGE = " +";
 
 // Stands in for "whatever word the packer puts next", so the registry
 // can be asked about a word that STARTS a line rather than one alone on
@@ -649,85 +663,162 @@ export function wordsToAtoms(
 // ── The kept break ─────────────────────────────────────────
 
 /**
- * Whether the run at `index` is a whole output line the READER DELETES:
- * a `//` comment line. `Reader#skip_line_comments` (reader.rb) drops
- * such lines before the parser counts any, so the break that opens one
- * is not a break the parser will ever see. The run must be a SINGLE atom
- * — that is what makes it the line's whole content rather than the last
- * word of a longer line. The head is the registry's
- * ({@link LINE_COMMENT_HEAD}), whose prefix test is wider than
- * `CommentLineRx`; the difference cannot be reached from here, because
- * the only lines this is asked about are raw lines the BlockReader
- * already classified.
+ * Whether the line the run at `run` OPENS is one the reader reads as
+ * the block's ordinary text. Two runs are not, and both must be a
+ * SINGLE atom to be the line's whole content rather than its last
+ * word:
+ *
+ * - a whole `//` line, which `Reader#skip_line_comments` (reader.rb)
+ *   drops before the parser counts any line. The head is the
+ *   registry's ({@link LINE_COMMENT_HEAD}), whose prefix test is wider
+ *   than `CommentLineRx`; the difference cannot be reached from here,
+ *   because the only lines this is asked about are raw lines the
+ *   BlockReader already classified.
+ * - the {@link HARD_BREAK_IMAGE}, whose leading space makes the line
+ *   INDENTED (`indented = this_line.start_with? ' ', TAB`,
+ *   parser.rb l.572) and so sends the whole block down the arm that
+ *   strips its indentation.
  * @param atoms - the block's atoms.
  * @param run - the run that the break opens.
- * @returns Whether the reader deletes that line.
+ * @returns Whether the reader reads that line as ordinary text.
  */
-function opensDeletedLine(atoms: readonly Atom[], run: Run): boolean {
-  return (
-    run.end - run.start === 1 &&
-    atoms[run.start].text.startsWith(LINE_COMMENT_HEAD)
-  );
+function opensOrdinaryTextLine(atoms: readonly Atom[], run: Run): boolean {
+  if (run.end - run.start !== 1) {
+    return true;
+  }
+  const { text } = atoms[run.start];
+  return !text.startsWith(LINE_COMMENT_HEAD) && text !== HARD_BREAK_IMAGE;
 }
 
 /**
- * Make a block's inline content print on at least two lines: the last
- * run whose break the reader still sees gets a mandatory break in front
- * of it.
+ * Put an ordinary TEXT line on the block's FIRST REST LINE - the line
+ * directly under the one the block opens on.
  *
- * A list item whose text is followed by a trailing titled metadata run
- * (`hazard(item) === "keepBreak"`) needs this: reflowed onto
- * one line, the run's first line would be the first line after the
- * marker line, where Asciidoctor folds it and reads the title as text.
- * ANY break in the text suffices — the run folds only on the first rest
- * line — so the decision is made here over the finished atom list, and
- * is robust to spans, macros, glue and the dlist guard by construction:
- * no word index, no position.
+ * That line is where a list item's re-reader makes its decisions. The
+ * item's buffer starts there (`read_lines_for_list_item`,
+ * parser.rb l.1404), and three of Ruby's own tests read only its first
+ * line: `skip_line_comments` and the peek behind it, which decide
+ * whether the item's blocks are its text (parser.rb l.1364-70);
+ * `next_block`'s blank count, taken once on entry (parser.rb l.505)
+ * and read again by `read_paragraph_lines` to decide whether a
+ * paragraph breaks at a nested marker (parser.rb l.764); and the
+ * `text_only` indent test (parser.rb l.572) that sends the block down
+ * the arm `adjust_indentation!` strips (parser.rb l.753-755). Reflow
+ * packs the item's text onto the MARKER line, so whatever the source
+ * put under it moves up into that position - and {@link hazard}
+ * (src/print/list-hazard.ts) says when the move would answer one of
+ * those tests differently. The remedy is this one: hold a break so a
+ * plain text line stands there, exactly as it did in the source.
  *
- * The break has to be one the READER will still see. A run that already
- * demands a break usually needs nothing (a hard line break's, a dlist
- * guard's, an ordinary raw line's) — but a break that opens a line
- * `Reader#skip_line_comments` (reader.rb) DELETES buys no break at all:
- * strip the `// c` line from `* a .T` / `// c` / `[role]` and the
- * metadata is back on the first rest line, folding exactly as it would
- * have with no break. So a deleted line is walked past and the search
- * continues to its left, until a breakable join can be made mandatory or
- * the atoms run out. Atoms that form ONE run — a single unbreakable
- * unit — are left alone. Behavior is Ruby's (`Reader#skip_line_comments`,
- * reader.rb), pinned by the `// c` rows in
- * tests/format/list-item-blocks.test.ts and the sweep in
- * tests/format/list-shape-sweep.test.ts.
+ * WHICH break is held follows from which run opens that line. A run
+ * that already demands a break of its own opens it, so the first such
+ * run is the one to ask about: if it is ordinary text the line is
+ * already right and nothing is held; if it is a deleted comment line
+ * or an indented one, the break moves to the last TEXT run in front of
+ * it. Where no run demands a break at all the packer's width decides,
+ * and the LAST run is the one a held break can put on the first rest
+ * line while leaving the most reflow intact. Either way the held run
+ * is never the block's first - the break in front of that one is not
+ * this block's to make, and a block whose only text run opens the line
+ * has no earlier text to hold, which is the source's own reading
+ * anyway.
  *
- * There is no separator slot after the last run to pick by
- * mistake. Only a join with content on both sides puts a break INSIDE
- * the text; a trailing whitespace boundary contributes no atom at all,
- * so hardening it — which would print a blank line after the item text
- * and detach the very run this break exists to keep attached — is not
- * a move this walk can make.
+ * The candidate still has to be a run that MAY open the line it would
+ * be given ({@link canOpenLine}), and where it may not the search walks
+ * on to its left. {@link wrap} honours a demanded break without asking
+ * about the line it opens, so this is the place the question gets
+ * asked.
  * @param atoms - the block's atoms.
+ * @param kept - which break to demand: `"hard"` opens the line at the
+ *   block's continuation indent, `"literal"` at column 0. The caller
+ *   knows which, because it is the caller that knows what else stands
+ *   on the item's lines (src/print/list-hazard.ts).
  * @returns The same atoms, with that break made mandatory.
  */
-export function keepLastBreak(atoms: readonly Atom[]): Atom[] {
+export function keepTextOnFirstRestLine(
+  atoms: readonly Atom[],
+  kept: "hard" | "literal",
+): Atom[] {
   const runs: Run[] = [];
-  let index = 0;
-  while (index < atoms.length) {
-    const run = runAt(atoms, index);
-    runs.push(run);
-    index = run.end;
+  for (let index = 0; index < atoms.length; index = runs.at(-1)?.end ?? 0) {
+    runs.push(runAt(atoms, index));
   }
-  for (let position = runs.length - 1; position > 0; position -= 1) {
-    const run = runs[position];
-    if (run.breakBefore === "none") {
-      return atoms.with(run.start, {
-        ...atoms[run.start],
-        breakBefore: "hard",
-      });
-    }
-    if (!opensDeletedLine(atoms, run)) {
-      return [...atoms];
+  const opener = runs.findIndex(
+    (run, index) => index > 0 && run.breakBefore !== "none",
+  );
+  if (opener !== -1 && opensOrdinaryTextLine(atoms, runs[opener])) {
+    return [...atoms];
+  }
+  const held = heldRun(
+    runs,
+    opener === -1 ? runs.length - 1 : opener - 1,
+    kept,
+  );
+  if (held === -1) {
+    return [...atoms];
+  }
+  return atoms.with(runs[held].start, {
+    ...atoms[runs[held].start],
+    breakBefore: kept,
+  });
+}
+
+/**
+ * Whether the run at `index` may open the line a kept break would give
+ * it.
+ *
+ * At the block's continuation indent it always may, and the reason is
+ * narrower than "nothing is read there": a list MARKER is read at any
+ * column (the registry's own patterns are anchored `^[ \t]*`), so an
+ * indented `** b` is still a marker line. What a HELD run can carry is
+ * what makes it safe - the run is a text run past the block's first,
+ * whose own words `wordsToAtoms` has already fused backwards if any of
+ * them is block syntax at a line start - and the claim is measured
+ * rather than derived: 0 of 112,610 population documents move a byte
+ * on this path. At COLUMN 0 it is the same question
+ * {@link isBlockSyntaxAtLineStart} answers for a width break, and it
+ * has to be asked for the same reason: `wordsToAtoms` fuses a
+ * block-syntax WORD backwards, so no single word a run past the first
+ * starts with is one - but a run the packer FUSES out of several nodes
+ * (`[` + an address atom + `]`, which no single node ever holds as one
+ * word) is the exception {@link wrap}'s own comment records, and a
+ * break held in front of one at column 0 writes a block attribute line
+ * where the source had prose.
+ * @param runs - the block's runs, in order.
+ * @param index - the run being considered.
+ * @param kept - the break the caller would demand.
+ * @returns Whether that run may take it.
+ */
+function canOpenLine(
+  runs: readonly Run[],
+  index: number,
+  kept: "hard" | "literal",
+): boolean {
+  return kept === "hard" || !isBlockSyntaxAtLineStart(runs[index].text);
+}
+
+/**
+ * The run whose join the kept break lands in front of: the candidate,
+ * or the nearest run to its left that may open the line
+ * ({@link canOpenLine}). `-1` when none can - the block's first run is
+ * never held, because the break in front of it is not this block's to
+ * make.
+ * @param runs - the block's runs, in order.
+ * @param from - the candidate index the search starts at.
+ * @param kept - the break the caller would demand.
+ * @returns The run's index, or -1.
+ */
+function heldRun(
+  runs: readonly Run[],
+  from: number,
+  kept: "hard" | "literal",
+): number {
+  for (let index = from; index >= 1; index -= 1) {
+    if (canOpenLine(runs, index, kept)) {
+      return index;
     }
   }
-  return [...atoms];
+  return -1;
 }
 
 // ── The block body ─────────────────────────────────────────

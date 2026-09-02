@@ -69,6 +69,19 @@ The mutation half of the same minimums file is checked by `bun run mutate` (see
 [Mutation testing](#mutation-testing)). The split is cost, not principle:
 coverage is seconds and belongs in CI; mutation is minutes and runs batched.
 
+The run is the WHOLE suite, deliberately: a minimum scored from a red suite
+scores nothing. In a checkout with no colocated `.git`, though,
+`tests/scripts/parity-trailers.test.ts` cannot pass - it shells out to
+`git rev-list` - so the whole-suite precondition fails there and no minimum is
+checked. That is the environment's limitation, not the tree's, and the runner
+keeps its precondition rather than growing a flag that would let anyone score
+coverage from a red suite. Score the minimums by hand instead: run
+`bunx vitest run --coverage --exclude '**/parity-trailers.test.ts'` and compare
+the `reports/coverage/coverage-summary.json` it writes against
+`scripts/metrics/score-minimums.json` - `compareMinimums`
+(`scripts/metrics/score-minimums.ts`) is the same comparison the runner makes,
+and it is what the run reports.
+
 Proves: no file silently lost the tests it had.
 
 ### `bun run parity -- --base <rev>` — same output as revision X
@@ -225,6 +238,88 @@ is the gate over it.
 
 Proves nothing by itself, exactly as `triage` does not; it writes the file the
 two sweep entries hold the tree to.
+
+### `bun run migration-diff -- --domain <name>` - three trees, bytes and renders
+
+Formats one document domain under up to three checkouts and compares them on
+bytes and on oracle renders. The CANDIDATE is this checkout; `--reference <dir>`
+names a materialized checkout holding another implementation of the same
+formatter; `--baseline <ref>` names a revision of this repository, or a checkout
+of one. Candidate-against-baseline says what the current work changed;
+candidate-against-reference says how far this tree sits from the other
+implementation. Those are different questions, so the tool reports both rather
+than folding them into one number.
+
+The domains are `directive` (6,384 documents wrapping a body in an
+`ifdef::`/`endif::` pair, `scripts/lib/directive-product.ts`), `dlist` (54,000
+documents putting a description-list term under four wrappers,
+`scripts/lib/dlist-product.ts`) and `population` (the corpus, the depth-5 sweep
+product and the divergence witnesses, `scripts/lib/population.ts`). The first
+two are pinned at exact sizes and the run refuses to start when the generator
+spells a different number - the bars are stated in those sets, so a product that
+quietly shrank would move the bar instead of failing it. `population` prints the
+count it walked, which is the one number every tool that says "the population"
+means.
+
+`--word-loss` adds the word-loss column: a document loses words when the
+multiset of the source's words minus the multiset of `format(format(source))`'s
+words is non-empty, split on the six ASCII whitespace characters
+`ASCII_WHITESPACE` names, counted over every document of the domain with no
+instability precondition. `--gate` turns a non-empty "another tree renders this
+and we do not" bucket into exit 1; without it the run reports and exits 0.
+
+Each tree pair produces THREE buckets. Two are directional and about renders -
+"the other tree renders this as its source and the candidate does not", and the
+same question the other way round. The third is about BYTES: the documents the
+two trees print differently, whatever either renders. It is symmetric, it
+ignores the second pass (two trees that print the same pass-1 bytes and then
+diverge differ in stability, which each tree reports for itself in the
+`unstable` column), and it skips any document a tree threw on, since there is no
+output to compare.
+
+The byte bucket is reported, never gated: two trees printing a document
+differently is what a migration does. It is also the only bucket that can see
+its class at all. A document both trees render as their source and spell two
+different ways produces no render row in either direction - on the `directive`
+domain, 865 documents differ in bytes between the candidate and the reference
+and only 32 of them appear in a render bucket. The summary table carries the
+count as the `bytes-differ` column, dashed for the candidate, whose own column
+would be zero by construction.
+
+Every render happens in THIS process under one normalizer, from bytes the other
+trees hand back (`scripts/lib/tree-format.ts`) - three checkouts normalizing
+three ways would report differences belonging to the harnesses rather than to
+the formatters. Divergences in every bucket are grouped into families by the
+reading diff between the two outputs, up to five witnesses kept per family; an
+empty signature means the two outputs READ alike and whatever separates them
+sits below what the projection can see.
+
+Running it with `--baseline` and no local edits is the tool's own self-check:
+the same tree reached two different ways - in process here, through a child
+process there - must report no divergence at all, in renders OR in bytes. The
+byte half is the stronger one: renders can agree while bytes differ, so a
+render-only self-check would pass even if the child process were re-encoding
+output on its way back.
+
+Exit 2 when the domain is unknown, the reference is not there, a tree answers
+about a different number of documents than it was asked about, or a pinned
+domain spells the wrong count.
+
+### The divergence witnesses
+
+`tests/format/divergence-witnesses.json` holds documents that once told two
+readers apart, taken from the sealed line-reading revision `24240b2e` so they
+outlive the export they came from, each with the family it witnesses and whether
+the two readers differed in bytes, readings or both. It asserts nothing about
+how this tree reads them - a claim of that kind belongs to whichever change
+makes it, as its own fail-then-pass fixture. What it pins is that the documents
+SURVIVE, so a later change cannot quietly lose the input that would have caught
+it.
+
+Corpus witnesses carry an id rather than bytes, resolved through
+`vendor/asciidoctor-corpus` at load time; re-committing those bytes would be a
+second copy free to disagree with the first. `tests/lib/divergence-witnesses.ts`
+is the loader, and it throws rather than skipping when an id stops resolving.
 
 ### `bun run triage` — the conformance sweep
 
@@ -404,8 +499,9 @@ line break split - is a failure rather than a truncation, because a citation
 half-read is exactly the error this exists to catch. The grammar and both checks
 are `scripts/citations.ts`, unit-tested in `tests/scripts/citations.test.ts`
 against the spellings the tree really uses. Those two files and that test are
-the only ones the gate does not scan (`NOT_SCANNED`): they are the one place
-where citation-shaped text is data rather than a claim.
+among the six the gate does not scan (`NOT_SCANNED`), with
+`scripts/internal-citations.ts` and its test: those six are where
+citation-shaped text is data rather than a claim.
 
 Exit codes: 0 every citation held, 1 a citation FAILED, 2 could not run - a bad
 argument, a missing vendored source (run `bun run vendor`), or a tree with fewer
@@ -419,6 +515,73 @@ Proves: every cited file and line exists, and points at something the comment
 names. It does NOT prove the comment's READING of the cited code is right, and
 it does not reach a bare reference whose comment never says what file it is
 about.
+
+### `bun run internal-citations` - the citations we write about ourselves
+
+The other direction from the gate above: a `<file>:<line>` naming a file in this
+repository. Two places keep them by hand. A
+`scripts/metrics/score-minimums.json` exception's `what` field names the
+surviving mutant and quotes it, in the form "attrlist.ts:279
+`index < raw.length` -> `index <= raw.length` in closingQuote", and the
+coverage-deferral comments in `eslint.config.js` name the guard a brace would
+uncover, quoted beside the path they defer. Both rot the moment an edit moves
+the code, and three review rounds running found rotted ones; the manual remedy
+was always the same mechanical thing, so it is a check.
+
+One grammar covers both files. Inside a SCOPE - one exception's `what`, or one
+line of `eslint.config.js` - a `.ts` name binds every `:<line>` and
+`:<from>-<to>` after it, so `list-reader.ts:558, :572` is two citations of one
+file. An exception's own `file` binds a reference that opens the scope. A bare
+basename resolves against `src`, with the row's own file breaking the one tie
+the tree has (`list.ts`). Two checks per citation:
+
+- **the range check** - the cited file resolves to exactly one path and the
+  cited line is inside it;
+- **the quotation check** - the backtick-quoted runs between the citation and
+  the next `->` must include one that is on the cited line, or somewhere inside
+  the cited range. `->` is where the quoting stops because it is how both files
+  spell "and the mutant put this in its place", and a replacement is by
+  construction not in the source. The runs are held DISJUNCTIVELY: a citation of
+  nine lines quotes the several things that sit on them (a `return "go"` and two
+  `return "stop"`s), and no one line carries them all.
+
+**Provenance.** Two rows deliberately name coordinates in a tree that no longer
+exists, where a mutant sat BEFORE issue #56 moved it, and they say so in a
+`formerly` field listing the exact citations they mean, beside the `what` that
+writes them. Those are counted, not checked. Be exact about what that buys: it
+is an UNCONDITIONAL suppression, and nothing mechanical tells a citation whose
+tree is gone from one that simply rotted. Its three guarantees are that the
+suppression is VISIBLE at the entry rather than hidden in the checker, that it
+is per citation rather than per row (every other citation in the row is still
+checked, and both of these rows carry one that is), and that it is DEAD-ENTRY
+PROOF: a `formerly` naming a citation the row's `what` does not write is itself
+a failure, which is also what makes a drift of an exempt citation fail, since
+the array still names the undrifted spelling.
+
+A third, weaker scan holds every `src/`, `tests/` or `scripts/` `.ts` path named
+in a `src` file to a file that exists. No line, so no quotation check. It caught
+three rotted paths across the two rounds that built it, two of them in the test
+and harness trees a `src` comment names as freely as it names another module.
+
+Exit codes: 0 every citation held, 1 a citation FAILED, 2 could not run - a bad
+argument, a missing scanned file, or fewer than thirty citations, which means
+the scan lost its roots. `--list` prints every citation with the file it
+resolved to and the runs it will look for. `scripts/internal-citations.ts`, unit
+tested in `tests/scripts/internal-citations.test.ts`.
+
+A citation that quotes nothing is checkable for its line and no further, and a
+row in that state is one a human has to correct unaided, which is where a wrong
+hand correction went undetected once. Every scanned citation quotes source today
+(56 of 56), so the class is empty rather than merely small; keep it that way by
+quoting one identifier from the cited region whenever a row is written.
+
+Proves: every repo-internal citation names a line that exists and still carries
+what it quotes. It does NOT read the `reason` field (free prose, where the next
+quoted run is as likely to be a function named three clauses later), it does not
+resolve a citation outside `src` (the two scanned files cite nothing else, and
+letting a bare basename reach the test tree would make half of them ambiguous),
+and it does not check that the quoted line still MEANS what the row says about
+it - which is the failure mode a re-cite has to be reviewed for, not gated on.
 
 ### `bun run local-docs <dir>` - the formatter against real documents
 
@@ -545,10 +708,18 @@ changed no bytes, because byte-equal implies reading-equal.
 The oracle is OUR OWN reader, traced rather than re-derived. `classifyLine`
 reports every verdict it hands back through a module-level hook
 (`setClassifyObserver`, `src/parse/lines/classify.ts`) that the reader calls
-from its three classification sites; outside a harness the hook is undefined and
-each site is one undefined check. A test-owned context tracker was rejected: it
-would be a second reader dialect that drifts, and the point is to assert against
-the reader's own reading.
+from its four classification sites; outside a harness the hook is undefined and
+each site is one undefined check. The hook is meant as a REPORT and never an
+input, and a row of `tests/parser/architecture.test.ts` guards the four
+spellings that would make it one: it fails any line that names
+`classifyTrace.observer?.(` and is not the whole statement, so a call inside a
+condition, an assignment, a return or a conjunct is caught. Its domain is
+ONE-LINE spellings - an assignment Prettier wraps onto its own line, or a call
+through a local alias, passes it - so the row is a guard against the accident,
+not a proof that the reader never reads its own trace back; that stays a
+reviewer's judgement. A test-owned context tracker was rejected: it would be a
+second reader dialect that drifts, and the point is to assert against the
+reader's own reading.
 
 Sequence equality rather than per-line provenance, because the printer does not
 track which source line an output line came from and plumbing that through
@@ -566,16 +737,17 @@ constrains one parse's output, this constrains the relation between two parses.
 declares its transform deliberate. A rule with no such licence would be a hazard
 the net has been told to ignore.
 
-| rule                                                                       | licensed by                                                              |
-| -------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| blank lines emit no token and end every fold                               | see "what it does not catch" below                                       |
-| consecutive `text` tokens collapse to one                                  | `tests/format/reflow.test.ts`                                            |
-| consecutive `indented` tokens collapse to one, within one block            | `tests/format/literal-paragraph.test.ts`                                 |
-| a `text` run after a marker, dlist or admonition token is absorbed into it | `tests/format/unordered-list.test.ts`, `tests/format/admonition.test.ts` |
-| `raw:comment` is transparent to a fold                                     | `tests/format/comment.test.ts`                                           |
-| an attribute entry lowercases its name                                     | `tests/format/attribute-entry.test.ts`                                   |
-| a raw anchor folds onto the metadata anchor token                          | `tests/format/anchor-spelling.test.ts`                                   |
-| `delim:fencedCode` canonicalizes to `attrline delim:listing`               | `tests/format/fenced-code.test.ts`                                       |
+| rule                                                                       | licensed by                                                                |
+| -------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| blank lines emit no token and end every fold                               | see "what it does not catch" below                                         |
+| consecutive `text` tokens collapse to one                                  | `tests/format/reflow.test.ts`                                              |
+| consecutive `indented` tokens collapse to one, within one block            | `tests/format/literal-paragraph.test.ts`                                   |
+| a `text` run after a marker, dlist or admonition token is absorbed into it | `tests/format/unordered-list.test.ts`, `tests/format/admonition.test.ts`   |
+| `raw:comment` is transparent to a fold                                     | `tests/format/comment.test.ts`                                             |
+| an attribute entry lowercases its name                                     | `tests/format/attribute-entry.test.ts`                                     |
+| a raw anchor folds onto the metadata anchor token                          | `tests/format/anchor-spelling.test.ts`                                     |
+| `delim:fencedCode` canonicalizes to `attrline delim:listing`               | `tests/format/fenced-code.test.ts`                                         |
+| every lone `+` projects to `cont`, whatever verdict the reader recorded    | `tests/lib/reading.test.ts` (three rows: consumed, erased, between blocks) |
 
 Both collapse rules are gated on the FOLD MODE rather than on the trailing
 token, and a blank line resets the mode. That is what keeps them block-scoped:
@@ -598,10 +770,22 @@ project alike (`5.` and `6.` are one list, style `1.`): that collapse is the
 structure itself, not a transform the formatter could make. `textv` (the
 verbatim-flagged foreign marker line) stays its own token, because its COLUMN
 decides what the next `+` means and its disappearance must move the sequence.
-And a line the reader consumed without classifying stays invisible, except that
-a marker-shaped one synthesizes its token so the absorption rule can see the
-absorber; inside a verbatim interior the same synthesis happens on both sides
-and cancels.
+And a line the reader consumed without classifying stays invisible, except for
+TWO synthesized shapes: a marker-shaped one, so the absorption rule can see the
+absorber, and a lone `+`. Inside a verbatim interior the same synthesis happens
+on both sides and cancels.
+
+The `+` is the stronger of the two and works differently. Marker synthesis fills
+a GAP - it runs only where the trace recorded nothing. The `+` is projected
+BEFORE the trace is consulted, so it overrides a recorded verdict: a `+` the
+reader ERASED comes back from `classifyLine` as a blank, and taking that verdict
+at face value is the second half of the same blindness that hid the ones the
+extent scan consumes. Under either, a formatter that deleted a `+` moved no
+token and the invariant held vacuously. The line is still a `+` in the source
+and whether the output keeps it is exactly the question, so it always has a
+token. This is the one projection rule that is not a licence to IGNORE a
+transform but a refusal to ignore one, which is why its licensing test asserts
+that the token appears rather than that a difference is allowed.
 
 `tests/lib/reading.test.ts` pins every rule, plus the known-issue table in both
 directions: the clean spelling reads the way it should, and the corrupted
@@ -645,11 +829,38 @@ asserts.
 row is `{ document, pass, signature, family }`, sorted by document, and the
 family is a mechanism with an issue behind it, not "known to fail":
 
-| family               | mechanism                                                                  | issue |
-| -------------------- | -------------------------------------------------------------------------- | ----- |
-| lone-plus-join       | a lone `+` is joined into the prose beside it, dissolving the continuation | #43   |
-| tail-reading-flip    | a prose join flips the reading of the line after it                        | #65   |
-| admonition-colon-run | an admonition label split re-reads as a description-list delimiter         | #45   |
+| family               | mechanism                                                          | issue |
+| -------------------- | ------------------------------------------------------------------ | ----- |
+| lone-plus-join       | a lone `+` leaves the reading, dissolving the continuation         | #43   |
+| continuation-dropped | the `+` lines go and the list structure beside them does not       | #17   |
+| tail-reading-flip    | a prose join flips the reading of the line after it                | #65   |
+| admonition-colon-run | an admonition label split re-reads as a description-list delimiter | #45   |
+
+`#43` on the first row is PROVENANCE, not an open bug. What #43 tracked was the
+corrupting variant - a JOIN landing on a dlist-shaped line and manufacturing a
+description list - and that is fixed and closed. What the family holds now is
+not joins at all: measured over a systematic sample of the rows, no output holds
+a `+` joined into a text line. Every remaining row DELETES the byte, by one of
+three routes. Classified by shape, each of the 2,893 rows counted once in the
+first class it matches:
+
+- **253** carry a run of three or more `+`, whose third and later lines
+  `read_lines_for_list_item` reads and drops without buffering (parser.rb
+  l.1443-44).
+- **2,540** of the rest carry a `+` the scan ERASES - the first of an adjacent
+  pair (l.1439) or one standing under a blank line (l.1576). Erasure alone does
+  not lose the byte: where such a `+` ATTACHED a block it comes back as that
+  block's gap, which is why `"* a\n+\npara\n"` keeps its byte. In every row of
+  this class it attached nothing, and there its one route back is the shield
+  `ListItemNode.detachedTail` writes, which needs a trailing `+`-paragraph to
+  shield; an item with nothing to shield loses the byte. This is the plurality,
+  and the pair that isolates it has the same inert tail and opposite outcomes:
+  `"* a\n+\n"` keeps the byte, `"* a\n\n+\n"` drops it.
+- the remaining **100** carry a `+` above a blank line. The pop takes it, but a
+  `+` printed there ERASES and arms on re-read instead of popping, so the byte
+  is dropped rather than made to mean something the source did not.
+
+All three are render-equal.
 
 The enumeration lives in `tests/lib/reading-ledger.ts`, and the loader
 cross-checks both directions: a family the enum does not declare fails, and so
@@ -658,30 +869,59 @@ signature matching none of them cannot be written at all - the generator exits 2
 and asks for the family to be named and its issue filed.
 
 Each test asks for the MECHANISM, not for its arithmetic. `lone-plus-join` needs
-a lost `cont` and nothing on the losing side but the prose the `+` was joined
-into; a `cont` lost beside an admonition, a marker or a delimiter got there by
-some other path, and it falls through to another family or to UNCLASSIFIED
-rather than inflating #43's row count with rows #43's fix will not remove.
+a lost `cont` and nothing on the losing side but the prose the `+` stood beside;
+a `cont` lost beside an admonition, a marker or a delimiter got there by some
+other path, and it falls through to another family or to UNCLASSIFIED rather
+than inflating #43's row count with rows #43's fix will not remove.
 
-The measured breakdown, as of the ledger checked in beside this file: 6 rows
-over the depth-5 product, all tail-reading-flip - three `[indented] -> [text]`
-and three `[title] -> [text]` - and the depth-4 product spells none of them.
+The measured breakdown, as of the ledger checked in beside this file: **2,897
+rows** over the depth-5 product - 2,893 lone-plus-join, 4 continuation-dropped,
+0 tail-reading-flip - all on pass 1.
+
+It was 2,945 one change earlier, and 48 rows went for one reason: the post-loop
+pop now recognises the `+` lines Ruby's own marker test recognises. A `+` an
+armed continuation attached as CONTENT (parser.rb l.1502-11) is the tagged
+String the swap at l.1432 made of it, so an activation that later blanks it
+(l.1439) leaves a Placeholder the pop takes at l.1580-82 - where a test on cell
+identity saw a line the loop had not marked, let the blank strip have it, and
+lost the byte. 6 of the 48 came from the erased-`+` route below and 42 from the
+`+`-above-a-blank route.
+
+Before that it was 10,508 rows - 10,190 / 312 / 6 - and three things took the
+difference. A `+` the item scan popped is now written back wherever the tail it
+lands in re-reads inert, which is most of the 7,249 lone-plus-join rows that
+went and all but four of continuation-dropped. tail-reading-flip emptied for a
+different reason: its six rows were an anchor in an item's SECOND block being
+read as that block's own metadata, and the anchor now ends any block after the
+item's first.
+
+Before either, the number was 6 rows, until every lone `+` gained a token in the
+projection. That old number was mostly BLINDNESS rather than health: a `+` the
+extent scan consumes never reaches `classifyLine`, and a `+` the reader erases
+comes back from it as a blank, so under either a formatter that deleted a `+`
+moved no token and the invariant held vacuously. `lone-plus-join` sat in this
+enumeration as a declared mechanism with zero rows while the sweep was spelling
+ten thousand of them.
+
 Every row is render-EQUAL and idempotent today, so the sweep beside them passes
 every one: that is the population issue #58 was filed to enumerate, and no other
-gate can see it. The numbers live here rather than in the two sweep files, so
-they go stale in one place.
+gate can see it. Read the size as a measurement of the instrument's reach, not
+as a regression - and note that "no growth" is now a bar over 2,897 rows rather
+than over 6. The numbers live here rather than in the two sweep files, so they
+go stale in one place.
 
 A family with no rows STAYS in the enumeration. It is what the classifier
 reaches for when the mechanism comes back, so deleting it would turn a
 regression into an unnamed signature the generator refuses to write rather than
-a row that names the issue. lone-plus-join and admonition-colon-run are both
-empty today.
+a row that names the issue. admonition-colon-run and tail-reading-flip are empty
+today.
 
 To refresh after a fix: `bun run reading-ledger --write`, then say in the commit
 which family shrank and why. Expect large generated diffs tied to one-line
-mechanism claims: fixing lone-plus-join emptied that family in one move, taking
-the depth-5 ledger from 716 rows to 6 and the depth-4 derivation from 25 to 0.
-That is the progress metric.
+mechanism claims: fixing lone-plus-join once emptied that family in one move,
+taking the depth-5 ledger from 716 rows to 6 and the depth-4 derivation from 25
+to 0. A change that empties either continuation family now will produce a diff
+of tens of thousands of lines for the same reason. That is the progress metric.
 
 A TRACE-FIDELITY self-check rides along, in the generator, in the fixture loop
 and over the whole conformance corpus
@@ -708,7 +948,8 @@ Measured, not assumed.
   change to the oracle is invisible here. #57's five instances stay pinned by
   the deep sweep's render-equality allowlist. The consolation is concrete: at
   depth 5 the net catches six sibling instances of the same thesis that
-  render-equality misses (family tail-reading-flip, issue #65).
+  render-equality misses (family tail-reading-flip, issue #65) - though that
+  family is empty today, its six rows having gone with the anchor fix.
 - **Intra-line changes (#32).** Whitespace collapsed inside a code span never
   changes any line's classification. Out of scope by construction; #32 keeps its
   render-equality coverage.
@@ -734,11 +975,11 @@ idempotence wobble that needs the dedicated regression test its issue calls for.
 
 **`gates`** — blocking, needs no other revision: `check`, `lint`, `fmt:check`,
 `build`, `coverage` (the suite runs under it), `metrics`,
-`test:deeply-nested-lists`, `block-structure`, `citation-check`. Every step
-carries `if: ${{ !cancelled() }}`, so one failing gate never hides the others.
-The reflow re-classification invariant needs no step of its own: its three gates
-ride the suite and the deep sweep that are already there, and `reading-ledger`
-is a generator, not a gate.
+`test:deeply-nested-lists`, `block-structure`, `citation-check`,
+`internal-citations`. Every step carries `if: ${{ !cancelled() }}`, so one
+failing gate never hides the others. The reflow re-classification invariant
+needs no step of its own: its three gates ride the suite and the deep sweep that
+are already there, and `reading-ledger` is a generator, not a gate.
 
 **`differential`** — needs a base, and is `continue-on-error` for its first
 iteration; flipping it to blocking is a one-line change once it has proved
@@ -1089,6 +1330,19 @@ The rules that keep the file honest:
   instruction.
 - **Raising a minimum rides the commit that earns it** — that is the whole
   ratchet.
+- **A `what` field's `<file>:<line>` is checked**, by
+  `bun run internal-citations`, against the line it names: the code quoted
+  beside the citation has to still be there. A row whose citation deliberately
+  names a tree that no longer exists, where a mutant sat before a move, lists
+  that exact citation in an optional `formerly` array beside its `what`. It is
+  the only key an exception row may carry on top of the four above, and it is an
+  UNCONDITIONAL suppression of the citations it names: nothing mechanical tells
+  "the tree is gone" from "it rotted and I did not fix it", because both are
+  citations that no longer hold. What it does guarantee is that the suppression
+  is visible at the entry rather than in the checker, that it is per citation
+  rather than per row, and that it fails if it names a citation the row's `what`
+  does not write, so it cannot outlive or outgrow that citation. Reviewing one
+  is reviewing a claim, not a checkbox.
 - **A minimum of 0 means the file has not been measured**, for one of two
   reasons, and the file's `exceptions` row says which. Either Stryker writes no
   row for it at all (a declaration-only file), or it is a NEW file whose

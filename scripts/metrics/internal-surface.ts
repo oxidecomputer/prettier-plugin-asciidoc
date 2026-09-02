@@ -77,10 +77,14 @@ interface Exported {
  */
 function walk(root: string, directory: string): string[] {
   const full = path.join(root, directory);
-  if (!existsSync(full)) return [];
+  if (!existsSync(full)) {
+    return [];
+  }
   return readdirSync(full, { withFileTypes: true }).flatMap((entry) => {
     const here = path.posix.join(directory, entry.name);
-    if (entry.isDirectory()) return walk(root, here);
+    if (entry.isDirectory()) {
+      return walk(root, here);
+    }
     return entry.name.endsWith(".ts") ? [here] : [];
   });
 }
@@ -141,13 +145,17 @@ function exportsOf(text: string, node: ts.Statement): Exported[] {
   const jsdoc = jsdocOf(text, node);
   if (ts.isExportDeclaration(node)) {
     const { exportClause: clause } = node;
-    if (clause === undefined || !ts.isNamedExports(clause)) return [];
+    if (clause === undefined || !ts.isNamedExports(clause)) {
+      return [];
+    }
     return clause.elements.map((element) => ({
       name: element.name.text,
       jsdoc,
     }));
   }
-  if (!isExported(node)) return [];
+  if (!isExported(node)) {
+    return [];
+  }
   if (ts.isVariableStatement(node)) {
     return node.declarationList.declarations.flatMap((declaration) =>
       ts.isIdentifier(declaration.name)
@@ -169,10 +177,16 @@ function exportsOf(text: string, node: ts.Statement): Exported[] {
  * @returns `file|name` keys for every relative import it names
  */
 function importsOf(file: string, node: ts.Statement): string[] {
-  if (!ts.isImportDeclaration(node) && !ts.isExportDeclaration(node)) return [];
+  if (!ts.isImportDeclaration(node) && !ts.isExportDeclaration(node)) {
+    return [];
+  }
   const { moduleSpecifier: specifier } = node;
-  if (specifier === undefined || !ts.isStringLiteral(specifier)) return [];
-  if (!specifier.text.startsWith(".")) return [];
+  if (specifier === undefined || !ts.isStringLiteral(specifier)) {
+    return [];
+  }
+  if (!specifier.text.startsWith(".")) {
+    return [];
+  }
   const target = path.posix.join(
     path.posix.dirname(file),
     specifier.text.replace(/\.js$/v, ".ts"),
@@ -194,7 +208,9 @@ function namedFrom(
   target: string,
   clause: ts.ImportClause | ts.NamedExportBindings | undefined,
 ): string[] {
-  if (clause === undefined) return [];
+  if (clause === undefined) {
+    return [];
+  }
   const bindings = ts.isImportClause(clause) ? clause.namedBindings : clause;
   if (bindings !== undefined && ts.isNamedImports(bindings)) {
     return bindings.elements.map(
@@ -244,8 +260,11 @@ function readSurface(root: string): Surface {
     for (const statement of parsed.statements) {
       published.push(...exportsOf(text, statement));
       for (const key of importsOf(file, statement)) {
-        if (key.endsWith("|*")) wholesale.add(key.slice(ZERO, -"|*".length));
-        else consumed.add(key);
+        if (key.endsWith("|*")) {
+          wholesale.add(key.slice(ZERO, -"|*".length));
+        } else {
+          consumed.add(key);
+        }
       }
     }
     exports.set(file, published);
@@ -277,7 +296,9 @@ export function readInternalSurface(root: string): InternalFacts {
   const untagged: string[] = [];
   const staleTags: string[] = [];
   for (const [file, published] of exports) {
-    if (file === PACKAGE_ENTRY || wholesale.has(file)) continue;
+    if (file === PACKAGE_ENTRY || wholesale.has(file)) {
+      continue;
+    }
     for (const { name, jsdoc } of published) {
       const tagged = jsdoc.includes(INTERNAL_TAG);
       if (consumed.has(`${file}|${name}`)) {

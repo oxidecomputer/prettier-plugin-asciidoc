@@ -42,7 +42,9 @@ import { scanSource } from "./scan.js";
 function walkTypeScript(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const full = path.join(directory, entry.name);
-    if (entry.isDirectory()) return walkTypeScript(full);
+    if (entry.isDirectory()) {
+      return walkTypeScript(full);
+    }
     return entry.name.endsWith(".ts") ? [full] : [];
   });
 }
@@ -90,7 +92,9 @@ function aggregateLayers(scans: FileScan[]): Record<Layer, LayerTotals> {
  */
 function total(scans: FileScan[], pick: (scan: FileScan) => number): number {
   let accumulated = ZERO;
-  for (const scan of scans) accumulated += pick(scan);
+  for (const scan of scans) {
+    accumulated += pick(scan);
+  }
   return accumulated;
 }
 

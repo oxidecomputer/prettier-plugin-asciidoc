@@ -248,7 +248,9 @@ function cyclesOf(
   const byKey = new Map<string, string[]>();
   for (const module of output.modules) {
     for (const dependency of module.dependencies) {
-      if (!dependency.circular) continue;
+      if (!dependency.circular) {
+        continue;
+      }
       const path_ = [
         relative(module.source),
         ...(dependency.cycle ?? []).map((step) => relative(step.name)),
@@ -256,7 +258,9 @@ function cyclesOf(
       // The last hop returns to the start; drop it for the key, keep
       // it in the message so the loop reads as a loop.
       const key = cycleKey(path_.slice(ZERO, LAST));
-      if (!byKey.has(key)) byKey.set(key, path_);
+      if (!byKey.has(key)) {
+        byKey.set(key, path_);
+      }
     }
   }
   return [...byKey.values()];

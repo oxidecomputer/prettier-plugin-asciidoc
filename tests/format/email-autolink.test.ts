@@ -29,7 +29,9 @@ import type { InlineNode } from "../../src/ast.js";
  */
 function linkTargets(nodes: readonly InlineNode[]): string[] {
   return nodes.flatMap((node) => {
-    if (node.type === "link") return [node.target];
+    if (node.type === "link") {
+      return [node.target];
+    }
     return "children" in node ? linkTargets(node.children) : [];
   });
 }

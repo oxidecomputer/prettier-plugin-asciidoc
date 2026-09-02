@@ -2,6 +2,7 @@ import { describe, test, expect } from "vitest";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { cruiseImports } from "../../scripts/metrics/graph.js";
+import { optionalGroup } from "../../src/parse/line-shapes.js";
 
 /**
  * The architectural rule of the parse layer, enforced by the suite
@@ -71,6 +72,93 @@ function walk(directory: string): string[] {
 const files = walk(PARSE_DIR);
 
 /**
+ * Every `.ts` file under a directory, recursively - {@link walk} under
+ * a name the rows below share with their own prose ("filesUnder the
+ * reading core").
+ * @param directory - directory to walk, relative to the repository root
+ * @returns paths of every TypeScript file below it
+ */
+function filesUnder(directory: string): string[] {
+  return walk(directory);
+}
+
+/**
+ * Registry exports that are NOT a pattern despite the ALL-CAPS
+ * spelling every pattern export also carries: two plain string
+ * constants (`CALLOUT_STYLE`, `LINE_COMMENT_HEAD`), one array of kind
+ * names (`DELIMITER_KINDS`) and one reader-state value
+ * (`BLOCK_START_CONTEXT`). The convention is the signal; this is its
+ * short exception list, checked once here rather than reasoned about
+ * at each call site.
+ */
+const NOT_A_PATTERN = new Set([
+  "CALLOUT_STYLE",
+  "LINE_COMMENT_HEAD",
+  "DELIMITER_KINDS",
+  "BLOCK_START_CONTEXT",
+]);
+
+/**
+ * Whether an imported NAME names a pattern in the registry, by the
+ * registry's own convention: every `RegExp`, `RegExp[]` or
+ * `Record<_, RegExp>` export is ALL-CAPS, and {@link NOT_A_PATTERN}
+ * is the convention's only exceptions.
+ * @param name - an imported binding's name
+ * @returns true when the name is a pattern, not a function or a type
+ */
+function isPatternName(name: string): boolean {
+  return /^[A-Z][A-Z0-9_]*$/v.test(name) && !NOT_A_PATTERN.has(name);
+}
+
+/**
+ * The value names one `{ ... }` import body names, dropping every
+ * per-specifier `type` name and any `as` alias tail.
+ * @param body - the text between an import's braces
+ * @returns the value-imported names, in the body's own order
+ */
+function valueNamesFrom(body: string): string[] {
+  const names: string[] = [];
+  for (const raw of body.split(",")) {
+    const name = raw.trim();
+    if (name.length === 0 || name.startsWith("type ")) {
+      continue;
+    }
+    const [first] = name.split(/\s+as\s+/v);
+    names.push(first);
+  }
+  return names;
+}
+
+/**
+ * Whether a file imports a PATTERN - a registry export
+ * {@link isPatternName} recognizes as one - from a module, as a value
+ * (not a `type`-only import).
+ * @param file - path of a TypeScript file
+ * @param moduleBaseName - the imported module's filename, without its
+ *   extension (e.g. `"line-shapes"`)
+ * @returns true when the file takes a pattern from the module
+ */
+function importsPatternFrom(file: string, moduleBaseName: string): boolean {
+  const source = readFileSync(file, "utf8");
+  const valueNames: string[] = [];
+  for (const match of source.matchAll(
+    /import\s+(?<wholeType>type\s+)?\{(?<body>[^\}]*)\}\s+from\s+"(?<specifier>[^"]+)"/gv,
+  )) {
+    const { groups } = match;
+    if (groups === undefined) {
+      continue;
+    }
+    if (path.basename(groups.specifier, ".js") !== moduleBaseName) {
+      continue;
+    }
+    if (optionalGroup(groups.wholeType) === undefined) {
+      valueNames.push(...valueNamesFrom(groups.body));
+    }
+  }
+  return valueNames.some(isPatternName);
+}
+
+/**
  * Textual signatures of context reconstruction, each with the mechanism
  * it stands for. Applied to every file under `src/parse`, the reader
  * included: the reader is told its context, and reads it forward from
@@ -125,6 +213,69 @@ function disableSites(file: string): string[] {
         ? [`${file}:${String(index + 1)}: ${line.trim()}`]
         : [],
     );
+}
+
+// How the reader reports a verdict to the classifier's trace hook, and
+// the shape that spelling has when the line is nothing else: the call
+// as its own statement. A line that names the hook and does not match
+// the second is reading the hook's answer.
+const TRACE_CALL = "classifyTrace.observer?.(";
+const TRACE_STATEMENT = /^\s*classifyTrace\.observer\?\.\(/v;
+
+/**
+ * Sites in one file where the trace hook's answer is READ rather than
+ * the hook simply being told: a condition, an assignment, a return, a
+ * conjunct.
+ * @param file - path of a TypeScript file under `src/parse`
+ * @returns one `path:line: text` string per site
+ */
+function traceReadSites(file: string): string[] {
+  return readFileSync(file, "utf8")
+    .split("\n")
+    .flatMap((line, index) =>
+      line.includes(TRACE_CALL) && !TRACE_STATEMENT.test(line)
+        ? [`${file}:${String(index + 1)}: ${line.trim()}`]
+        : [],
+    );
+}
+
+/** The two files whose arms record what a separator line turned out to be. */
+const ROLE_WRITERS = [
+  "src/parse/lines/list-reader.ts",
+  "src/parse/lines/item-tail.ts",
+];
+
+/**
+ * Every separator role literal one file's arms write, one entry per
+ * WRITE and not per line: a line carrying two writes yields two, so
+ * the "exactly one" half of the row below is an assertion the check
+ * can actually make.
+ * @param file - path of a file whose arms record roles
+ * @returns `path:line role` per write site, in file order
+ */
+function roleWrites(file: string): string[] {
+  const write = /(?:this\.role|roles\.set)\([^;]*?, "(?<role>[a-z]+)"\);/gv;
+  return readFileSync(file, "utf8")
+    .split("\n")
+    .flatMap((line, index) =>
+      [...line.matchAll(write)].map(
+        (match) => `${file}:${String(index + 1)} ${match.groups?.role ?? "?"}`,
+      ),
+    );
+}
+
+/**
+ * The separator roles item-tail.ts declares, read off the declaration
+ * so this row cannot fall out of step with the type.
+ * @returns the union's members, as written
+ */
+function declaredRoles(): string[] {
+  const source = readFileSync("src/parse/lines/item-tail.ts", "utf8");
+  const union = /export type GapRole =(?<members>[^;]+);/v.exec(source);
+  const members = union?.groups?.members ?? "";
+  return [...members.matchAll(/"(?<role>[a-z]+)"/gv)].map(
+    (match) => match.groups?.role ?? "",
+  );
 }
 
 describe("parse-layer architecture", () => {
@@ -215,6 +366,91 @@ describe("parse-layer architecture", () => {
     const source = readFileSync("src/ast.ts", "utf8");
     const kinds = source.match(/^ {2}type: "[a-zA-Z]+";$/gmv) ?? [];
     expect(kinds).toHaveLength(43);
+  });
+
+  test("only the classification pass imports a pattern from the registry", () => {
+    // NARROWER than the principle it enforces: a hand-rolled string test
+    // bypasses it, so the residue is enforcement by review. What it does
+    // catch is a consumer re-testing a line the classification pass
+    // already classified.
+    //
+    // The pass is ONE file here, classify.ts, which is what makes the
+    // set a one-name exemption rather than a list: every other module
+    // under the reading core consumes a VERDICT. The two that used to
+    // test patterns of their own ask classify.ts instead -
+    // `metadataLineKind` for the item scan's four metadata shapes and
+    // `isLiteralLine` / `isIndentedContinuationLine` for the two
+    // indentation questions.
+    const CLASSIFICATION_PASS = new Set(["classify.ts"]);
+    const offenders = filesUnder("src/parse/lines")
+      .filter((file) => !CLASSIFICATION_PASS.has(path.basename(file)))
+      .filter((file) => importsPatternFrom(file, "line-shapes"));
+    expect(offenders).toEqual([]);
+  });
+
+  // The classifier's trace hook is a REPORT, never an input: the reader
+  // tells the observer what it decided and reads nothing back. A hook
+  // whose answer entered a condition or an assignment would make the
+  // installed harness able to change what the reader does, which is
+  // exactly the derivation this layer is built to forbid.
+  //
+  // Textual and blunt, like the rows above: the call is pinned to its
+  // own STATEMENT line, so `if (classifyTrace...`, `= classifyTrace...`,
+  // `return classifyTrace...` and `x && classifyTrace...` all fail. A
+  // legitimate future call site spells it the same way the four
+  // existing ones do.
+  //
+  // ITS DOMAIN, stated so nobody reads more into a green run: ONE-LINE
+  // spellings. Two bypasses are measured - an assignment long enough
+  // that the printer puts the call on a line of its own, and a local
+  // alias (`const seen = classifyTrace.observer;` then `seen?.(...)`)
+  // - and neither is caught. That is the residue review covers, the
+  // same trade the containment row above makes.
+  test("the classify trace is called as a statement, never read", () => {
+    const sites = filesUnder("src/parse").flatMap(traceReadSites);
+    expect(sites, sites.join("\n")).toEqual([]);
+  });
+
+  // The item scan's separator vocabulary, checked against the arms
+  // that speak it: every member of `GapRole` is written by some arm,
+  // and every write names exactly one member.
+  //
+  // Why it is worth a row: the roles are what the post-loop's pop switch
+  // reads (`popTakes`, item-tail.ts), and that switch is exhaustive,
+  // so a role NOTHING writes would look answered-for while standing
+  // for a fate no line ever gets - a vocabulary entry with no
+  // producer, which is exactly the drift the classification rows
+  // above watch for in the other direction. Six of the seven are the
+  // loop's arms (list-reader.ts) and one is item-tail.ts's own
+  // write over the `detached_continuation` slot (parser.rb l.1576).
+  //
+  // The seven come from the declaration itself rather than a list
+  // here, so the row cannot fall out of step with the type. Textual
+  // and blunt, like the rows above: it reads the two files' source.
+  //
+  // ITS DOMAIN, stated so nobody reads more into a green run: it
+  // proves each write site names ONE role and that the seven are all
+  // written SOMEWHERE. It does not prove the arm that writes a role
+  // is the arm Ruby decides it in - that is what the cited parser.rb
+  // line beside each write is for, and what review covers.
+  test("every arm that writes a separator role writes exactly one", () => {
+    const declared = declaredRoles();
+    expect(declared).toHaveLength(7);
+    const sites = ROLE_WRITERS.flatMap(roleWrites);
+    // EXACTLY one: a line that writes two roles is two sites at the
+    // same coordinate, and a coordinate seen twice is the offender.
+    const seen = new Set<string>();
+    const twice: string[] = [];
+    for (const site of sites) {
+      const [where] = site.split(" ");
+      if (seen.has(where)) {
+        twice.push(site);
+      }
+      seen.add(where);
+    }
+    expect(twice, twice.join("\n")).toEqual([]);
+    const written = new Set(sites.map((site) => site.split(" ")[1]));
+    expect([...written].toSorted()).toEqual(declared.toSorted());
   });
 
   // The constraint: no lint suppressions beyond

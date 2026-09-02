@@ -58,7 +58,9 @@ async function oracleReading(input: string): Promise<OracleReading> {
  * @returns the value, or undefined when the header set none
  */
 function attributeOf(attributes: unknown, name: string): string | undefined {
-  if (typeof attributes !== "object" || attributes === null) return undefined;
+  if (typeof attributes !== "object" || attributes === null) {
+    return undefined;
+  }
   const value: unknown = Reflect.get(attributes, name);
   return typeof value === "string" ? value : undefined;
 }

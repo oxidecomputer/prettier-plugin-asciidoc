@@ -186,7 +186,9 @@ function dumpBase(root: string, shapes: readonly Shape[]): Map<string, string> {
     });
     const rows = new Map<string, string>();
     for (const line of stdout.split("\n")) {
-      if (line === "") continue;
+      if (line === "") {
+        continue;
+      }
       const parsed: unknown = JSON.parse(line);
       // `instanceof Object` rather than `!== null`: `unicorn/no-null`
       // bans the literal outside tests (same spelling as parity.ts's
@@ -229,15 +231,21 @@ async function reportRow(
     headOut,
     byteEqual,
   };
-  if (byteEqual) return row;
-  if (shape.family !== undefined) row.family = shape.family;
+  if (byteEqual) {
+    return row;
+  }
+  if (shape.family !== undefined) {
+    row.family = shape.family;
+  }
   try {
     row.headIdempotent = (await formatAdoc(headOut)) === headOut;
   } catch (error) {
     row.proofError = `the idempotence proof threw: ${String(error)}`;
     return row;
   }
-  if (shape.renderBlind) return row;
+  if (shape.renderBlind) {
+    return row;
+  }
   try {
     const inputHtml = await renderedHtml(shape.input);
     const headHtml = await renderedHtml(headOut);
@@ -336,7 +344,9 @@ function reportNoise(baseRoot: string, shapes: readonly Shape[]): void {
   process.stdout.write(
     `shape-diff: base-vs-base differing rows: ${String(noisy.length)}\n`,
   );
-  if (noisy.length > 0) process.exitCode = GATE_FAILED;
+  if (noisy.length > 0) {
+    process.exitCode = GATE_FAILED;
+  }
 }
 
 /**
@@ -376,12 +386,16 @@ function reportRows(
   for (const [family, count] of byFamily) {
     process.stdout.write(`  ${family}: ${String(count)}\n`);
   }
-  for (const failure of failures) process.stdout.write(`${failure}\n`);
+  for (const failure of failures) {
+    process.stdout.write(`${failure}\n`);
+  }
   const unexplained = differing.filter((row) => row.family === undefined);
   process.stdout.write(
     `shape-diff: unexplained-diff count: ${String(unexplained.length)}\n`,
   );
-  if (failures.length > 0) process.exitCode = GATE_FAILED;
+  if (failures.length > 0) {
+    process.exitCode = GATE_FAILED;
+  }
 }
 
 /**
@@ -421,7 +435,9 @@ async function main(argv: readonly string[]): Promise<void> {
     // so the JSONL is still written, and exit 2 at the end: a base
     // dump that came back short proved nothing about this checkout.
     const missing = missingIds(baseOut, shapes);
-    if (missing.length > 0) reportShortDump(baseOut, shapes, missing);
+    if (missing.length > 0) {
+      reportShortDump(baseOut, shapes, missing);
+    }
     const rows: ReportRow[] = [];
     for (const shape of shapes) {
       const fromBase = baseOut.get(shape.id) ?? "<<MISSING>>";

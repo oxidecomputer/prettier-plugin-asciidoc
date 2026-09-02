@@ -104,7 +104,9 @@ export function extractCorpusCases(
     if (testNameFromMatch === undefined) {
       const openMatch = HEREDOC_OPEN.exec(line);
       const delimFromMatch = openMatch?.groups?.delim;
-      if (delimFromMatch === undefined) continue;
+      if (delimFromMatch === undefined) {
+        continue;
+      }
       const [body, nextIndex] = collectHeredocBody(
         lines,
         lineIndex + ONE,
@@ -146,7 +148,9 @@ export function extractCorpusCases(
  *   an empty corpus
  */
 export function serializeCorpus(cases: CorpusCase[]): string {
-  if (cases.length === ZERO) return "";
+  if (cases.length === ZERO) {
+    return "";
+  }
   return `${cases.map((c) => asciiOnly(JSON.stringify(c))).join("\n")}\n`;
 }
 

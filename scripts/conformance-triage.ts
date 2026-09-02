@@ -100,7 +100,9 @@ if (write) {
   const manifest: Record<string, QuarantineEntry> = {};
   for (const id of [...failing.keys()].toSorted(compareIds)) {
     const found = failing.get(id);
-    if (found === undefined) continue;
+    if (found === undefined) {
+      continue;
+    }
     manifest[id] = {
       fails: found.fails,
       // A still-failing case keeps its issue tag even if its failure

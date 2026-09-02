@@ -1,0 +1,687 @@
+{
+  "note": "The DIVERGENCE WITNESSES: the witness set of the sealed line-reading revision 24240b2e, carried into this tree so the documents that once told two readers apart survive the reference export they came from. Extracted from that revision's tests/format/cutover-allowlist.json (its families' witnesses and its named documents) and its tests/format/list-shape-allowlist.ts. A witness names the FAMILY it witnesses and the SCOPE the two readers differed in - bytes, readings, or both. A corpus witness carries no source: its id resolves through vendor/asciidoctor-corpus, and re-committing those bytes would be a second copy that can disagree with the first. See tests/lib/divergence-witnesses.ts for the loader and docs/harnesses.md for the workflow.",
+  "witnesses": [
+    {
+      "id": "corpus/api_test/api_test.rb#next_adjacent_block should return next item in dlist if called on last block of list item#0",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "a spelling change both cores render as the source"
+    },
+    {
+      "id": "corpus/docs/docs/modules/ROOT/pages/errors-and-warnings.adoc",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "a spelling change both cores render as the source"
+    },
+    {
+      "id": "corpus/docs/docs/modules/api/pages/find-blocks.adoc",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "a spelling change both cores render as the source"
+    },
+    {
+      "id": "corpus/docs/docs/modules/cli/pages/set-safe-mode.adoc",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "a spelling change both cores render as the source"
+    },
+    {
+      "id": "corpus/docs/docs/modules/cli/partials/man-asciidoctor.adoc",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "a spelling change both cores render as the source"
+    },
+    {
+      "id": "corpus/docs/docs/modules/convert/pages/available.adoc",
+      "origin": "corpus",
+      "scope": "both",
+      "family": "a marker line inside a verbatim interior is no longer synthesized"
+    },
+    {
+      "id": "corpus/docs/docs/modules/convert/pages/templates.adoc",
+      "origin": "corpus",
+      "scope": "readings",
+      "family": "a marker line inside a verbatim interior is no longer synthesized"
+    },
+    {
+      "id": "corpus/docs/docs/modules/extensions/pages/block-macro-processor.adoc",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "a spelling change both cores render as the source"
+    },
+    {
+      "id": "corpus/docs/docs/modules/extensions/pages/block-processor.adoc",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "a spelling change both cores render as the source"
+    },
+    {
+      "id": "corpus/docs/docs/modules/extensions/pages/compound-block-processor.adoc",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "a spelling change both cores render as the source"
+    },
+    {
+      "id": "corpus/docs/docs/modules/extensions/pages/docinfo-processor.adoc",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "a spelling change both cores render as the source"
+    },
+    {
+      "id": "corpus/docs/docs/modules/extensions/pages/include-processor.adoc",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "a spelling change both cores render as the source"
+    },
+    {
+      "id": "corpus/docs/docs/modules/extensions/pages/index.adoc",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "a spelling change both cores render as the source"
+    },
+    {
+      "id": "corpus/docs/docs/modules/extensions/pages/inline-macro-processor.adoc",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "a spelling change both cores render as the source"
+    },
+    {
+      "id": "corpus/docs/docs/modules/extensions/pages/postprocessor.adoc",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "a spelling change both cores render as the source"
+    },
+    {
+      "id": "corpus/docs/docs/modules/extensions/pages/preprocessor.adoc",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "a spelling change both cores render as the source"
+    },
+    {
+      "id": "corpus/docs/docs/modules/extensions/pages/tree-processor.adoc",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "a spelling change both cores render as the source"
+    },
+    {
+      "id": "corpus/docs/docs/modules/install/pages/ruby-packaging.adoc",
+      "origin": "corpus",
+      "scope": "readings",
+      "family": "a marker line inside a verbatim interior is no longer synthesized"
+    },
+    {
+      "id": "corpus/docs/docs/modules/manpage-backend/examples/manpage.adoc",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "a spelling change both cores render as the source"
+    },
+    {
+      "id": "corpus/docs/docs/modules/manpage-backend/pages/index.adoc",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "a spelling change both cores render as the source"
+    },
+    {
+      "id": "corpus/docs/docs/modules/migrate/pages/asciidoc-py.adoc",
+      "origin": "corpus",
+      "scope": "readings",
+      "family": "a marker line inside a verbatim interior is no longer synthesized"
+    },
+    {
+      "id": "corpus/docs/docs/modules/stem/pages/docbook.adoc",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "a spelling change both cores render as the source"
+    },
+    {
+      "id": "corpus/docs/docs/modules/syntax-highlighting/pages/coderay.adoc",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "neither core renders the document as written"
+    },
+    {
+      "id": "corpus/docs/docs/modules/syntax-highlighting/pages/pygments.adoc",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "a spelling change both cores render as the source"
+    },
+    {
+      "id": "corpus/docs/docs/modules/syntax-highlighting/pages/rouge.adoc",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "neither core renders the document as written"
+    },
+    {
+      "id": "corpus/fixtures/test/fixtures/lists.adoc",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "a spelling change both cores render as the source"
+    },
+    {
+      "id": "corpus/fixtures/test/fixtures/sample.adoc",
+      "origin": "corpus",
+      "scope": "readings",
+      "family": "a section title inside a delimited block reads as a paragraph"
+    },
+    {
+      "id": "corpus/lists_test/lists_test.rb#adjacent list continuation line attaches following block#0",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "neither core renders the document as written"
+    },
+    {
+      "id": "corpus/lists_test/lists_test.rb#adjacent list continuation line attaches following paragraph#0",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "neither core renders the document as written"
+    },
+    {
+      "id": "corpus/lists_test/lists_test.rb#appends indented list to first term that is adjacent to second term#0",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "a spelling change both cores render as the source"
+    },
+    {
+      "id": "corpus/lists_test/lists_test.rb#appends indented list to first term that is attached by a continuation and adjacent to second term#0",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "neither core renders the document as written"
+    },
+    {
+      "id": "corpus/lists_test/lists_test.rb#consecutive blocks in list continuation attach to list item#0",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "neither core renders the document as written"
+    },
+    {
+      "id": "corpus/lists_test/lists_test.rb#consecutive glossary terms should share same glossentry element in docbook#0",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "a spelling change both cores render as the source"
+    },
+    {
+      "id": "corpus/lists_test/lists_test.rb#consecutive list continuation lines are folded#0",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "neither core renders the document as written"
+    },
+    {
+      "id": "corpus/lists_test/lists_test.rb#consecutive questions should share same question element in docbook#0",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "a spelling change both cores render as the source"
+    },
+    {
+      "id": "corpus/lists_test/lists_test.rb#consecutive terms in horizontal list should share same cell#0",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "a spelling change both cores render as the source"
+    },
+    {
+      "id": "corpus/lists_test/lists_test.rb#consecutive terms share same varlistentry in docbook#0",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "a spelling change both cores render as the source"
+    },
+    {
+      "id": "corpus/lists_test/lists_test.rb#folds text from subsequent indented line#0",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "a spelling change both cores render as the source"
+    },
+    {
+      "id": "corpus/lists_test/lists_test.rb#folds text from subsequent line#0",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "a spelling change both cores render as the source"
+    },
+    {
+      "id": "corpus/lists_test/lists_test.rb#folds text of subsequent line and appends following literal line offset by blank line as block if term has no inline description#0",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "a spelling change both cores render as the source"
+    },
+    {
+      "id": "corpus/lists_test/lists_test.rb#indented description list item inside outline list item offset by a blank line should be recognized as a nested list#0",
+      "origin": "corpus",
+      "scope": "readings",
+      "family": "the roles a continuation run's + lines settle on"
+    },
+    {
+      "id": "corpus/lists_test/lists_test.rb#list should terminate before next lower section heading with implicit id#0",
+      "origin": "corpus",
+      "scope": "readings",
+      "family": "a section title inside a delimited block reads as a paragraph"
+    },
+    {
+      "id": "corpus/lists_test/lists_test.rb#list should terminate before next lower section heading#0",
+      "origin": "corpus",
+      "scope": "readings",
+      "family": "a section title inside a delimited block reads as a paragraph"
+    },
+    {
+      "id": "corpus/lists_test/lists_test.rb#mixed single and multi-line adjacent elements#0",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "a spelling change both cores render as the source"
+    },
+    {
+      "id": "corpus/lists_test/lists_test.rb#mixed single and multi-line elements with indented nested elements#0",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "a spelling change both cores render as the source"
+    },
+    {
+      "id": "corpus/lists_test/lists_test.rb#multi-line adjacent nested elements#0",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "a spelling change both cores render as the source"
+    },
+    {
+      "id": "corpus/lists_test/lists_test.rb#multi-line element with indented nested element#0",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "a spelling change both cores render as the source"
+    },
+    {
+      "id": "corpus/lists_test/lists_test.rb#multi-line element with multiple terms#0",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "a spelling change both cores render as the source"
+    },
+    {
+      "id": "corpus/lists_test/lists_test.rb#multi-line element with paragraph starting with multiple dashes should not be seen as list#0",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "a spelling change both cores render as the source"
+    },
+    {
+      "id": "corpus/lists_test/lists_test.rb#multi-line elements with first paragraph folded to text with adjacent nested element#0",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "a spelling change both cores render as the source"
+    },
+    {
+      "id": "corpus/lists_test/lists_test.rb#multi-line elements with indented paragraph content that includes comment lines#0",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "a spelling change both cores render as the source"
+    },
+    {
+      "id": "corpus/lists_test/lists_test.rb#multi-line elements with indented paragraph content#0",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "a spelling change both cores render as the source"
+    },
+    {
+      "id": "corpus/lists_test/lists_test.rb#multi-line elements with paragraph and literal content#0",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "a spelling change both cores render as the source"
+    },
+    {
+      "id": "corpus/lists_test/lists_test.rb#multi-line elements with paragraph content#0",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "a spelling change both cores render as the source"
+    },
+    {
+      "id": "corpus/lists_test/lists_test.rb#multi-line nested elements separated by blank line at nested level repeated#0",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "a spelling change both cores render as the source"
+    },
+    {
+      "id": "corpus/lists_test/lists_test.rb#nested term with description does not consume following heading#0",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "neither core renders the document as written"
+    },
+    {
+      "id": "corpus/lists_test/lists_test.rb#paragraph attached by a list continuation on either side to a multi-line element in a description list#0",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "a spelling change both cores render as the source"
+    },
+    {
+      "id": "corpus/lists_test/lists_test.rb#should convert qanda list in DocBook with proper semantics#0",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "a spelling change both cores render as the source"
+    },
+    {
+      "id": "corpus/lists_test/lists_test.rb#should not hang if obsolete callout list is found inside dlist item#0",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "a spelling change both cores render as the source"
+    },
+    {
+      "id": "corpus/lists_test/lists_test.rb#should not parse a nested indented dlist delimiter without a term as a dlist#0",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "a spelling change both cores render as the source"
+    },
+    {
+      "id": "corpus/lists_test/lists_test.rb#should not recognize callouts in an indented description list paragraph#0",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "a spelling change both cores render as the source"
+    },
+    {
+      "id": "corpus/lists_test/lists_test.rb#trailing block attribute line attached by continuation should not create block#0",
+      "origin": "corpus",
+      "scope": "both",
+      "family": "neither core renders the document as written"
+    },
+    {
+      "id": "corpus/paragraphs_test/paragraphs_test.rb#should read content below literal style verbatim#0",
+      "origin": "corpus",
+      "scope": "readings",
+      "family": "a block shape inside a verbatim body is content"
+    },
+    {
+      "id": "corpus/sections_test/sections_test.rb#should allow a special section to be nested at arbitrary depth in DocBook output#0",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "a spelling change both cores render as the source"
+    },
+    {
+      "id": "corpus/sections_test/sections_test.rb#should not match a heading in a block#0",
+      "origin": "corpus",
+      "scope": "readings",
+      "family": "a section title inside a delimited block reads as a paragraph"
+    },
+    {
+      "id": "corpus/sections_test/sections_test.rb#should not match a heading in a bulleted list#0",
+      "origin": "corpus",
+      "scope": "readings",
+      "family": "a marker line inside a verbatim interior is no longer synthesized"
+    },
+    {
+      "id": "corpus/tables_test/tables_test.rb#callout numbers should be globally unique, including AsciiDoc table cells#0",
+      "origin": "corpus",
+      "scope": "readings",
+      "family": "a marker line inside a verbatim interior is no longer synthesized"
+    },
+    {
+      "id": "corpus/tables_test/tables_test.rb#no implicit header row if AsciiDoc cell in first line spans multiple lines#0",
+      "origin": "corpus",
+      "scope": "readings",
+      "family": "a marker line inside a verbatim interior is no longer synthesized"
+    },
+    {
+      "id": "sweep \"* a\\n* a\\n  lit\\n[[anc]]\\n  lit\\n* a\\n\"",
+      "origin": "generated",
+      "scope": "both",
+      "family": "a marker line inside a list item no longer opens an item",
+      "source": "* a\n* a\n  lit\n[[anc]]\n  lit\n* a\n"
+    },
+    {
+      "id": "sweep \"* a\\n* a\\n  lit\\n[role]\\n  lit\\n* a\\n\"",
+      "origin": "generated",
+      "scope": "both",
+      "family": "a marker line inside a list item no longer opens an item",
+      "source": "* a\n* a\n  lit\n[role]\n  lit\n* a\n"
+    },
+    {
+      "id": "sweep \"* a\\n* a\\n* a\\n* a\\n[role]\\n  lit\\n\"",
+      "origin": "generated",
+      "scope": "readings",
+      "family": "issues #57 and #65: an item's first block no longer holds block metadata",
+      "source": "* a\n* a\n* a\n* a\n[role]\n  lit\n"
+    },
+    {
+      "id": "sweep \"* a\\n* a\\n* a\\n* a\\n[role]\\n.T\\n\"",
+      "origin": "generated",
+      "scope": "readings",
+      "family": "issues #57 and #65: an item's first block no longer holds block metadata",
+      "source": "* a\n* a\n* a\n* a\n[role]\n.T\n"
+    },
+    {
+      "id": "sweep \"* a\\n* a\\n* a\\n** b\\n[role]\\n  lit\\n\"",
+      "origin": "generated",
+      "scope": "readings",
+      "family": "issues #57 and #65: an item's first block no longer holds block metadata",
+      "source": "* a\n* a\n* a\n** b\n[role]\n  lit\n"
+    },
+    {
+      "id": "sweep \"* a\\n* a\\n* a\\n** b\\n[role]\\n.T\\n\"",
+      "origin": "generated",
+      "scope": "readings",
+      "family": "issues #57 and #65: an item's first block no longer holds block metadata",
+      "source": "* a\n* a\n* a\n** b\n[role]\n.T\n"
+    },
+    {
+      "id": "sweep \"* a\\n* a\\n* a\\n+\\n  lit\\n// c\\n\"",
+      "origin": "generated",
+      "scope": "readings",
+      "family": "a block shape inside a verbatim body is content",
+      "source": "* a\n* a\n* a\n+\n  lit\n// c\n"
+    },
+    {
+      "id": "sweep \"* a\\n* a\\n* a\\n+\\n+\\n** b\\n\"",
+      "origin": "generated",
+      "scope": "readings",
+      "family": "the roles a continuation run's + lines settle on",
+      "source": "* a\n* a\n* a\n+\n+\n** b\n"
+    },
+    {
+      "id": "sweep \"* a\\n* a\\n* a\\n+\\n// c\\n+\\n\"",
+      "origin": "generated",
+      "scope": "both",
+      "family": "the roles a continuation run's + lines settle on",
+      "source": "* a\n* a\n* a\n+\n// c\n+\n"
+    },
+    {
+      "id": "sweep \"* a\\n* a\\n* a\\n\\n  lit\\n// c\\n\"",
+      "origin": "generated",
+      "scope": "readings",
+      "family": "a block shape inside a verbatim body is content",
+      "source": "* a\n* a\n* a\n\n  lit\n// c\n"
+    },
+    {
+      "id": "sweep \"* a\\n* a\\n** b\\n+\\n  lit\\n// c\\n\"",
+      "origin": "generated",
+      "scope": "readings",
+      "family": "a block shape inside a verbatim body is content",
+      "source": "* a\n* a\n** b\n+\n  lit\n// c\n"
+    },
+    {
+      "id": "sweep \"* a\\n* a\\n** b\\n\\n  lit\\n// c\\n\"",
+      "origin": "generated",
+      "scope": "readings",
+      "family": "a block shape inside a verbatim body is content",
+      "source": "* a\n* a\n** b\n\n  lit\n// c\n"
+    },
+    {
+      "id": "sweep \"* a\\n* a\\n+\\n// c\\n  lit\\n* a\\n\"",
+      "origin": "generated",
+      "scope": "both",
+      "family": "a marker line inside a list item no longer opens an item",
+      "source": "* a\n* a\n+\n// c\n  lit\n* a\n"
+    },
+    {
+      "id": "sweep \"* a\\n* a\\n[role]\\npara\\n[[anc]]\\n  lit\\n\"",
+      "origin": "generated",
+      "scope": "both",
+      "family": "issues #57 and #65: the new core keeps a rendering the old core lost",
+      "source": "* a\n* a\n[role]\npara\n[[anc]]\n  lit\n"
+    },
+    {
+      "id": "sweep \"* a\\n* a\\npara\\n[[anc]]\\n  lit\\n* a\\n\"",
+      "origin": "generated",
+      "scope": "both",
+      "family": "a marker line inside a list item no longer opens an item",
+      "source": "* a\n* a\npara\n[[anc]]\n  lit\n* a\n"
+    },
+    {
+      "id": "sweep \"* a\\n* a\\npara\\n[role]\\n  lit\\n* a\\n\"",
+      "origin": "generated",
+      "scope": "both",
+      "family": "a marker line inside a list item no longer opens an item",
+      "source": "* a\n* a\npara\n[role]\n  lit\n* a\n"
+    },
+    {
+      "id": "sweep \"* a\\n** b\\n[role]\\npara\\n[[anc]]\\n  lit\\n\"",
+      "origin": "generated",
+      "scope": "both",
+      "family": "issues #57 and #65: the new core keeps a rendering the old core lost",
+      "source": "* a\n** b\n[role]\npara\n[[anc]]\n  lit\n"
+    },
+    {
+      "id": "sweep \"* a\\n+\\n\\n+\\npara\\n\"",
+      "origin": "generated",
+      "scope": "readings",
+      "family": "the roles a continuation run's + lines settle on",
+      "source": "* a\n+\n\n+\npara\n"
+    },
+    {
+      "id": "sweep \"* a\\npara\\n[role]\\npara\\n[[anc]]\\n  lit\\n\"",
+      "origin": "generated",
+      "scope": "both",
+      "family": "issues #57 and #65: the new core keeps a rendering the old core lost",
+      "source": "* a\npara\n[role]\npara\n[[anc]]\n  lit\n"
+    },
+    {
+      "id": "witness/a style held inside a directive pair, over an indented block below it",
+      "origin": "authored",
+      "scope": "readings",
+      "family": "issues #57 and #65: an item's first block no longer holds block metadata",
+      "source": "ifdef::x[]\n[literal]\nendif::[]\n  para\n"
+    },
+    {
+      "id": "witness/an item that ends inside the directive pair it opened",
+      "origin": "authored",
+      "scope": "bytes",
+      "family": "a spelling change both cores render as the source",
+      "source": "* a\n+\nifdef::x[]\n+\n----\nx\n----\nendif::[]\n"
+    },
+    {
+      "id": "witness/issue #34: a directive pair keeps the item after it",
+      "origin": "authored",
+      "scope": "both",
+      "family": "issues #57 and #65: the new core keeps a rendering the old core lost",
+      "source": "* a\n+\nifdef::x[]\nendif::[]\n\npara\n* b\n"
+    },
+    {
+      "id": "witness/issue #35: a nested item's continuation across a blank",
+      "origin": "authored",
+      "scope": "readings",
+      "family": "the roles a continuation run's + lines settle on",
+      "source": "* a\n** b\n+\n\n+\npara\n"
+    },
+    {
+      "id": "witness/issue #57 face 2: an anchored, titled paragraph in an item",
+      "origin": "authored",
+      "scope": "both",
+      "family": "issues #57 and #65: the new core keeps a rendering the old core lost",
+      "source": "* a\n[role]\npara\n[[anc]]\n.T\npara\n"
+    }
+  ],
+  "depthFiveKnownFailures": [
+    {
+      "document": "* a\n\n  lit\n[[anc]]\n** b\n* a\n",
+      "family": "#54 the literal slurp's re-shape"
+    },
+    {
+      "document": "* a\n\n  lit\n[role]\n** b\n* a\n",
+      "family": "#54 the literal slurp's re-shape"
+    },
+    {
+      "document": "* a\n  lit\n// c\n\n  lit\n* a\n",
+      "family": "#54 the literal slurp's re-shape"
+    },
+    {
+      "document": "* a\n  lit\n// c\n\n  lit\n** b\n",
+      "family": "#54 the literal slurp's re-shape"
+    },
+    {
+      "document": "* a\n  lit\n// c\n+\n  lit\n* a\n",
+      "family": "#54 the literal slurp's re-shape"
+    },
+    {
+      "document": "* a\n  lit\n// c\n+\n  lit\n** b\n",
+      "family": "#54 the literal slurp's re-shape"
+    },
+    {
+      "document": "* a\n  lit\n// c\n+\n+\n** b\n",
+      "family": "#54 the literal slurp's re-shape"
+    },
+    {
+      "document": "* a\n  lit\n// c\n+\npara\n** b\n",
+      "family": "#54 the literal slurp's re-shape"
+    },
+    {
+      "document": "* a\n** b\n\n  lit\n[[anc]]\n* a\n",
+      "family": "#54 the literal slurp's re-shape"
+    },
+    {
+      "document": "* a\n** b\n\n  lit\n[role]\n* a\n",
+      "family": "#54 the literal slurp's re-shape"
+    },
+    {
+      "document": "* a\n** b\n+\n  lit\n[[anc]]\n* a\n",
+      "family": "#54 the literal slurp's re-shape"
+    },
+    {
+      "document": "* a\n** b\n+\n  lit\n[role]\n* a\n",
+      "family": "#54 the literal slurp's re-shape"
+    },
+    {
+      "document": "* a\n+\n  lit\n[[anc]]\n** b\n* a\n",
+      "family": "#54 the literal slurp's re-shape"
+    },
+    {
+      "document": "* a\n+\n  lit\n[role]\n** b\n* a\n",
+      "family": "#54 the literal slurp's re-shape"
+    },
+    {
+      "document": "* a\n.T\n// c\n\n  lit\n* a\n",
+      "family": "#54 the literal slurp's re-shape"
+    },
+    {
+      "document": "* a\n.T\n// c\n\n  lit\n** b\n",
+      "family": "#54 the literal slurp's re-shape"
+    },
+    {
+      "document": "* a\n.T\n// c\n+\n  lit\n* a\n",
+      "family": "#54 the literal slurp's re-shape"
+    },
+    {
+      "document": "* a\n.T\n// c\n+\n  lit\n** b\n",
+      "family": "#54 the literal slurp's re-shape"
+    },
+    {
+      "document": "* a\n.T\n// c\n+\n+\n** b\n",
+      "family": "#57 a reflow join changes how the lines after it are read"
+    },
+    {
+      "document": "* a\n.T\n// c\n+\npara\n** b\n",
+      "family": "#57 a reflow join changes how the lines after it are read"
+    },
+    {
+      "document": "* a\npara\n// c\n\n  lit\n* a\n",
+      "family": "#54 the literal slurp's re-shape"
+    },
+    {
+      "document": "* a\npara\n// c\n\n  lit\n** b\n",
+      "family": "#54 the literal slurp's re-shape"
+    },
+    {
+      "document": "* a\npara\n// c\n+\n  lit\n* a\n",
+      "family": "#54 the literal slurp's re-shape"
+    },
+    {
+      "document": "* a\npara\n// c\n+\n  lit\n** b\n",
+      "family": "#54 the literal slurp's re-shape"
+    },
+    {
+      "document": "* a\npara\n// c\n+\n+\n** b\n",
+      "family": "#57 a reflow join changes how the lines after it are read"
+    },
+    {
+      "document": "* a\npara\n// c\n+\npara\n** b\n",
+      "family": "#57 a reflow join changes how the lines after it are read"
+    }
+  ]
+}

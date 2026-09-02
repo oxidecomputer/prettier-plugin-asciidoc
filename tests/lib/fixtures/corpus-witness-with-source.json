@@ -1,0 +1,13 @@
+{
+  "note": "A DELIBERATELY MALFORMED witness file, committed so the loader's corpus-row-carries-no-source branch has a test that reaches it. The row below names origin \"corpus\" and also carries a source, which the union in tests/lib/divergence-witnesses.ts makes unrepresentable in TypeScript; this file is the same guarantee for the JSON, which the type system never sees. Everything else about the file is well formed, so a test against it fails on the validation branch rather than on a parse error.",
+  "witnesses": [
+    {
+      "id": "corpus/lists_test/lists_test.rb#a case that also carries bytes#0",
+      "origin": "corpus",
+      "scope": "bytes",
+      "family": "a corpus witness must resolve through the corpus, not carry its own copy",
+      "source": "* a\n"
+    }
+  ],
+  "depthFiveKnownFailures": []
+}

@@ -92,6 +92,14 @@ block-attribute-looking line, …) is added in three steps, in this order:
    shape against `@asciidoctor/core` in every `ParagraphContext`. The oracle
    wins if it disagrees with your reading of the Ruby.
 
+Steps 2 and 3 are about a line that ENDS or OPENS a block. A shape that does
+neither - one only a reader consults about a line it has already claimed, the
+way the paragraph scan asks about an indented `+` (`INDENTED_PLUS`) - gets step
+1 and a named predicate in `classify.ts` instead: no `LineKind` arm, because the
+classifier's verdict does not change, and no interruption row, because a shape
+that interrupts nothing would pin a row of identical answers. Say which you are
+adding, and why, where the predicate is declared.
+
 A new INLINE construct is added the same way: a rule in
 `src/parse/inline/rules.ts` citing the Asciidoctor source that decides it
 (`substitutors.rb`, `rx.rb`), in the right place in the ORDER (first match

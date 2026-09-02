@@ -191,7 +191,9 @@ function parseSource(fileName: string, text: string): ts.SourceFile {
  * @returns the parsed file, or undefined when it is not there
  */
 function sourceFileAt(file: string): ts.SourceFile | undefined {
-  if (!existsSync(file)) return undefined;
+  if (!existsSync(file)) {
+    return undefined;
+  }
   return parseSource(file, readFileSync(file, "utf8"));
 }
 
@@ -291,7 +293,9 @@ export function scanSeam(
  */
 function seamScan(root: string, seam: Seam): SeamScan {
   const file = path.join(root, seam.file);
-  if (!existsSync(file)) return { members: undefined, fault: undefined };
+  if (!existsSync(file)) {
+    return { members: undefined, fault: undefined };
+  }
   return scanSeam(seam.file, readFileSync(file, "utf8"), seam.name);
 }
 
@@ -323,7 +327,9 @@ function declarationName(node: ts.Node): string | undefined {
     ts.isFunctionDeclaration(node) ||
     ts.isMethodDeclaration(node) ||
     ts.isGetAccessorDeclaration(node);
-  if (!isDeclaration) return undefined;
+  if (!isDeclaration) {
+    return undefined;
+  }
   const { name } = node;
   return name !== undefined && ts.isIdentifier(name) ? name.text : undefined;
 }
@@ -361,10 +367,14 @@ function boundFunctionName(node: ts.Node): string | undefined {
  */
 function declaresFunction(file: string, name: string): boolean {
   const sourceFile = sourceFileAt(file);
-  if (sourceFile === undefined) return false;
+  if (sourceFile === undefined) {
+    return false;
+  }
   let found = false;
   const visit = (node: ts.Node): void => {
-    if (found) return;
+    if (found) {
+      return;
+    }
     if ((declarationName(node) ?? boundFunctionName(node)) === name) {
       found = true;
       return;
@@ -460,7 +470,9 @@ export function readRegistry(root: string): RegistryRead {
     REGISTRY_FILE,
     readFileSync(file, "utf8"),
   );
-  if (syntax !== undefined) return { entries: undefined, faults: [syntax] };
+  if (syntax !== undefined) {
+    return { entries: undefined, faults: [syntax] };
+  }
   if (!isArray(parsed)) {
     return {
       entries: undefined,
@@ -471,9 +483,11 @@ export function readRegistry(root: string): RegistryRead {
   const faults: string[] = [];
   for (const [index, raw] of parsed.entries()) {
     const { entry, fault } = validateEntry(raw, index);
-    if (entry === undefined)
+    if (entry === undefined) {
       faults.push(fault ?? `${REGISTRY_FILE}: malformed`);
-    else entries.push(entry);
+    } else {
+      entries.push(entry);
+    }
   }
   // A malformed entry invalidates the COUNT, not just that row: a
   // shorter registry passes the ratchet, so there is no honest number

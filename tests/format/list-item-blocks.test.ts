@@ -580,7 +580,7 @@ describe("byte pins for rules only the corpus and the sweep reached", () => {
 // bytes back faithfully — so the RE-READER sees a text line there too.
 // The item's held-back metadata run therefore ENDS before it
 // (isRunMetadata → anchorLineShape, block-metadata.ts): the lookalike
-// is a block that follows the run, the hazard answers `keepBreak`, and
+// is a block that follows the run, the hazard answers `"hard"`, and
 // the item's text holds its last source break. What decides
 // membership is what the PRINTED line re-reads as - and since #53's
 // faithful replay, `[[id,]]` prints verbatim (empty reftext, a text

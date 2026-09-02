@@ -10,7 +10,7 @@
  * prelude to `bun run mutate` and `bun run mutate:full` so a mutation
  * baseline is never taken without it.
  *
- * This entry holds the FULL 59-entry assertion. A new failure is a
+ * This entry holds the FULL 26-entry assertion. A new failure is a
  * regression; a shape leaving the list is progress that must be moved
  * out of `list-shape-allowlist.ts` deliberately, by the commit that
  * fixes its family, and named there. Nothing here samples.

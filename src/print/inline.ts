@@ -39,6 +39,7 @@ import {
 import {
   atomOf,
   type Atom,
+  HARD_BREAK_IMAGE,
   isBlockSyntaxAtLineStart,
   splitWords,
   wordsToAtoms,
@@ -72,10 +73,6 @@ const TRAILS_WITH_ASCII_WHITESPACE = new RegExp(
   `${ASCII_WHITESPACE.source}$`,
   "v",
 );
-
-// The two characters a hard line break prints: the space is part of
-// the syntax (`LineBreakRx` requires it), not a separator.
-const HARD_BREAK_IMAGE = " +";
 
 // A hard line break OWNS its line when nothing but whitespace
 // precedes it there — which, in AST terms, means the text node in
@@ -119,20 +116,48 @@ function hasPrecedingInlineSibling(cursor: Cursor): boolean {
 }
 
 /**
- * Whether the source gave the hard line break at `cursor` a line of
+ * Whether the source gave the hard line break at `index` a line of
  * its own.
  *
  * A break that opens the block's inline content is NOT counted:
  * there is nothing in front of it to break away from, and emitting
  * a leading break would open the block with a blank line.
- * @param cursor - where the hard line break sits.
+ *
+ * Two shapes of predecessor answer yes. A TEXT node answers from its
+ * own bytes, ending with the newline that opened the break's line. A
+ * node that ENDS the line it stands on answers by construction,
+ * whatever its bytes: a raw line IS a whole source line, and another
+ * hard break's ` +` closes one, so in both cases the break at `index`
+ * can only stand on the next line. Those two are the same nodes the
+ * printer hands a `"literal"` join anyway, so reading them here moves
+ * no byte - it makes the predicate answer for the lines the printer
+ * actually writes.
+ *
+ * Over the SIBLINGS rather than over a `Cursor`, because the item's
+ * reflow hazard (src/print/list-hazard.ts) asks the same question of
+ * a finished node and the two must not answer it differently: which
+ * breaks print a ` +` of their own is what puts an indented line on a
+ * list item's first rest line.
+ * The two-arm test below is exhaustive because the tokenizer
+ * materializes inter-sibling whitespace - a newline included - as a
+ * text node: a break's predecessor either is that text node, or is a
+ * node that ended with no newline behind it, so no other node kind
+ * can put line-opening whitespace in front of the break.
+ * @param siblings - the inline nodes the break sits among.
+ * @param index - the break's index among them.
  * @returns True when only whitespace precedes it on its line.
  */
-function ownsItsLine(cursor: Cursor): boolean {
-  if (cursor.index <= 0) {
+export function hardBreakOwnsItsLine(
+  siblings: readonly InlineNode[],
+  index: number,
+): boolean {
+  if (index <= 0) {
     return false;
   }
-  const previous = cursor.siblings.at(cursor.index - 1);
+  const previous = siblings.at(index - 1);
+  if (previous?.type === "rawLine" || previous?.type === "hardLineBreak") {
+    return true;
+  }
   return (
     previous?.type === "text" && LINE_START_BEFORE_BREAK.test(previous.value)
   );
@@ -909,7 +934,9 @@ function appendHardLineBreak(
   boundary: Boundary,
   cursor: Cursor,
 ): Boundary {
-  const lead = ownsItsLine(cursor) ? "literal" : boundary;
+  const lead = hardBreakOwnsItsLine(cursor.siblings, cursor.index)
+    ? "literal"
+    : boundary;
   out.push(withBoundary(atomOf(HARD_BREAK_IMAGE), lead));
   return hasFollowingInlineSibling(cursor) ? "literal" : "glue";
 }

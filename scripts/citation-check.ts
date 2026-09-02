@@ -71,14 +71,16 @@ export const MINIMUM_CITATIONS = 100;
 export const SCANNED = ["src", "tests", "scripts"];
 
 /**
- * The checker's own sources, which are NOT scanned.
+ * The files where citation-shaped text is DATA rather than a claim,
+ * which are NOT scanned.
  *
- * These four are the one place in the repository where citation-shaped
- * text is DATA rather than a claim: the grammar's comments quote the
- * spellings it refuses (`l.1404–1592`, `parser.rb:1404, 1592`) and the
- * tests' table rows are made of them. Reading them would fail the gate
- * on its own documentation, and worse, would let a made-up line number
- * in a test fixture masquerade as real rot.
+ * The first four are this checker's own: the grammar's comments quote
+ * the spellings it refuses (`l.1404–1592`, `parser.rb:1404, 1592`) and
+ * the tests' table rows are made of them. The last two are the
+ * repo-internal checker's, whose comments and fixtures spell its own
+ * grammar the same way (`a.ts:5, :7, :9`). Reading any of them would
+ * fail a gate on its own documentation, and worse, would let a made-up
+ * line number in a fixture masquerade as real rot.
  *
  * Exported so the exemption is pinned and visible
  * (tests/scripts/citation-check.test.ts); no other consumer.
@@ -87,8 +89,10 @@ export const SCANNED = ["src", "tests", "scripts"];
 export const NOT_SCANNED = new Set([
   "scripts/citations.ts",
   "scripts/citation-check.ts",
+  "scripts/internal-citations.ts",
   "tests/scripts/citations.test.ts",
   "tests/scripts/citation-check.test.ts",
+  "tests/scripts/internal-citations.test.ts",
 ]);
 
 /** What `--help` prints. */
@@ -157,7 +161,9 @@ export function parseArguments(argv: readonly string[]): Options {
  */
 export function sources(root: string, directory: string): string[] {
   const absolute = path.join(root, directory);
-  if (!existsSync(absolute)) return [];
+  if (!existsSync(absolute)) {
+    return [];
+  }
   return readdirSync(absolute, { recursive: true, encoding: "utf8" })
     .filter((name) => name.endsWith(".ts"))
     .map((name) => path.join(directory, name).replaceAll(path.sep, "/"))
@@ -217,7 +223,9 @@ function readCited(root: string): CitedSources {
  */
 export function sourceLines(text: string): string[] {
   const lines = text.split("\n");
-  if (lines.at(-1) === "") lines.pop();
+  if (lines.at(-1) === "") {
+    lines.pop();
+  }
   return lines;
 }
 
@@ -286,7 +294,9 @@ function run(root: string, cited: CitedSources, window: number): Report {
         }
         report.checked.push(citation);
         const verdict = checkCitation(citation, lines, window);
-        if (!verdict.anchored) report.unanchored += 1;
+        if (!verdict.anchored) {
+          report.unanchored += 1;
+        }
         for (const failure of verdict.failures) {
           report.failures.push(
             `${citation.source}:${String(citation.line)}: ${failure}`,
@@ -438,15 +448,22 @@ function main(options: Options): void {
     cannotRun(said.message);
     return;
   }
-  for (const line of said.lines) process.stdout.write(`${line}\n`);
-  if (said.kind === "failed") process.exitCode = GATE_FAILED;
+  for (const line of said.lines) {
+    process.stdout.write(`${line}\n`);
+  }
+  if (said.kind === "failed") {
+    process.exitCode = GATE_FAILED;
+  }
 }
 
 if (import.meta.main) {
   try {
     const argv = process.argv.slice(ARGUMENT_START);
-    if (wantsHelp(argv)) printUsage(USAGE);
-    else main(parseArguments(argv));
+    if (wantsHelp(argv)) {
+      printUsage(USAGE);
+    } else {
+      main(parseArguments(argv));
+    }
   } catch (error) {
     // A bad argument or a missing vendored source: neither checked
     // anything, so neither is a 1.

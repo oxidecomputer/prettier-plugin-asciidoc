@@ -375,7 +375,7 @@ describe("reader: list oracle surprises", () => {
     // gap is empty), and the old glyph spelled the READER's earlier
     // decision to INVENT one. The AST now records the verbatim gap
     // and the printer answers the hazard on the re-read
-    // ("none" | "keepBreak"; here keepBreak — the item text holds its
+    // ("none" | "hard" | "literal"; here "hard" - the item text holds its
     // own break so `[source]` cannot land on the first rest line):
     // the formatted bytes are "** b\n   lit\n[source]\nNOTE: x\n",
     // with no invented `+`.

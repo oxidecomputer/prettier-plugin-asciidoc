@@ -117,7 +117,9 @@ function runSuite(): number | undefined {
  */
 function readReport(file: string): unknown {
   const absolute = path.join(REPO_ROOT, file);
-  if (!existsSync(absolute)) return undefined;
+  if (!existsSync(absolute)) {
+    return undefined;
+  }
   const { value } = strictJson(file, readFileSync(absolute, "utf8"));
   return value;
 }
@@ -132,15 +134,23 @@ function readReport(file: string): unknown {
  */
 function coverageByFile(): Map<string, number> | undefined {
   const report = readReport(COVERAGE_SUMMARY);
-  if (!isObject(report)) return undefined;
+  if (!isObject(report)) {
+    return undefined;
+  }
   const measured = new Map<string, number>();
   for (const [file, entry] of Object.entries(report)) {
     // The summary carries a synthetic `total` row alongside the files.
-    if (file === "total" || !isObject(entry)) continue;
+    if (file === "total" || !isObject(entry)) {
+      continue;
+    }
     const { lines } = entry;
-    if (!isObject(lines)) continue;
+    if (!isObject(lines)) {
+      continue;
+    }
     const { pct } = lines;
-    if (typeof pct !== "number") continue;
+    if (typeof pct !== "number") {
+      continue;
+    }
     measured.set(path.relative(REPO_ROOT, file), pct);
   }
   return measured;
@@ -156,16 +166,26 @@ function scoreOf(mutants: readonly unknown[]): number | undefined {
   let beaten = 0;
   let missed = 0;
   for (const mutant of mutants) {
-    if (!isObject(mutant)) continue;
+    if (!isObject(mutant)) {
+      continue;
+    }
     const { status } = mutant;
-    if (typeof status !== "string") continue;
-    if (BEATEN.has(status)) beaten += 1;
-    if (MISSED.has(status)) missed += 1;
+    if (typeof status !== "string") {
+      continue;
+    }
+    if (BEATEN.has(status)) {
+      beaten += 1;
+    }
+    if (MISSED.has(status)) {
+      missed += 1;
+    }
   }
   // A file whose every mutant was a compile error yields no score at
   // all. Undefined, never zero: reporting it as 0% would fail every
   // recorded minimum it has, and nothing was measured.
-  if (beaten + missed === 0) return undefined;
+  if (beaten + missed === 0) {
+    return undefined;
+  }
   return (beaten * PERCENT) / (beaten + missed);
 }
 
@@ -175,16 +195,26 @@ function scoreOf(mutants: readonly unknown[]): number | undefined {
  */
 function mutationByFile(): Map<string, number> | undefined {
   const report = readReport(MUTATION_REPORT);
-  if (!isObject(report)) return undefined;
+  if (!isObject(report)) {
+    return undefined;
+  }
   const { files } = report;
-  if (!isObject(files)) return undefined;
+  if (!isObject(files)) {
+    return undefined;
+  }
   const measured = new Map<string, number>();
   for (const [file, entry] of Object.entries(files)) {
-    if (!isObject(entry)) continue;
+    if (!isObject(entry)) {
+      continue;
+    }
     const { mutants } = entry;
-    if (!isArray(mutants)) continue;
+    if (!isArray(mutants)) {
+      continue;
+    }
     const score = scoreOf(mutants);
-    if (score !== undefined) measured.set(file, score);
+    if (score !== undefined) {
+      measured.set(file, score);
+    }
   }
   return measured;
 }

@@ -13,10 +13,53 @@
 import type { BlockNode } from "../../ast.js";
 import { isReaderConsumedLine } from "../../block-metadata.js";
 import { parseAttrlist, type Attrlist } from "../attrlist.js";
-import type { LocationIndex } from "../positions.js";
+import {
+  buildBlockAnchor,
+  buildBlockAttributeList,
+  buildBlockTitle,
+  buildRawBlockLine,
+} from "../build/metadata.js";
+import type { Fragment, LocationIndex } from "../positions.js";
 import type { LineKind } from "./classify.js";
-import { heldMetadataNode } from "./frames.js";
-import type { SourceLine } from "./split.js";
+import { fragmentOfLine, type SourceLine } from "./split.js";
+
+// Line kinds `parse_block_metadata_line` claims, and the node each
+// becomes: an anchor, an attribute list, a block title, and the
+// comment/preprocessor lines the same scan consumes. An attribute
+// ENTRY is deliberately absent: Ruby processes it as a document
+// attribute where it stands, so it stays a leaf where it was
+// written. This table is the one source of truth for which line
+// kinds are held-back metadata.
+const HELD_BUILDERS = new Map<
+  LineKind["kind"],
+  (line: Fragment, at: LocationIndex) => BlockNode
+>([
+  ["anchor", buildBlockAnchor],
+  ["attributeLine", buildBlockAttributeList],
+  ["blockTitle", buildBlockTitle],
+  ["raw", buildRawBlockLine],
+]);
+
+/**
+ * The node a held-back metadata line becomes once it is known what it
+ * annotates: what `BlockReader.holdMetadata` in reader.ts holds and
+ * releases.
+ * @param kind - what the classifier made of the line
+ * @param line - the line itself
+ * @param at - the document's location index
+ * @returns the node, or undefined when the line is not held-back
+ *   metadata
+ * Exported for its table-driven unit rows (tests/parser/frames.test.ts);
+ * its one src caller is `hold` below.
+ * @internal
+ */
+export function heldMetadataNode(
+  kind: LineKind,
+  line: SourceLine,
+  at: LocationIndex,
+): BlockNode | undefined {
+  return HELD_BUILDERS.get(kind.kind)?.(fragmentOfLine(line), at);
+}
 
 /** The held-back run. One instance per BlockReader (reader.ts). */
 export class HeldMetadata {
@@ -40,7 +83,9 @@ export class HeldMetadata {
    */
   hold(line: SourceLine, kind: LineKind, at: LocationIndex): boolean {
     const node = heldMetadataNode(kind, line, at);
-    if (node === undefined) return false;
+    if (node === undefined) {
+      return false;
+    }
     if (kind.kind === "attributeLine") {
       this.attrlist = parseAttrlist(line.text.slice(1, -1));
     }
@@ -109,11 +154,16 @@ export class HeldMetadata {
    * @returns the style, or undefined when none is actionable
    */
   actionableStyle(): string | undefined {
-    if (this.attrlist === undefined) return undefined;
+    if (this.attrlist === undefined) {
+      return undefined;
+    }
     let transparent = true;
     for (const node of this.pending) {
-      if (node.type === "blockAttributeList") transparent = true;
-      else if (!isReaderConsumedLine(node)) transparent = false;
+      if (node.type === "blockAttributeList") {
+        transparent = true;
+      } else if (!isReaderConsumedLine(node)) {
+        transparent = false;
+      }
     }
     return transparent ? this.attrlist.style : undefined;
   }

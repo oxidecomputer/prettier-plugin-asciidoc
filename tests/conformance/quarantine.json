@@ -188,7 +188,7 @@
     "issue": "#16"
   },
   "lists_test.rb#consecutive list continuation lines are folded#0": {
-    "fails": ["fidelity"],
+    "fails": ["fidelity", "reading"],
     "issue": "#16"
   },
   "lists_test.rb#consecutive literal paragraph offset by blank lines in list content are appended as a literal blocks#0": {

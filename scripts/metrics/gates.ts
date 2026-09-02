@@ -186,7 +186,9 @@ function absoluteGates(head: Snapshot): string[] {
  * @returns one message per undercount, empty when not our tree
  */
 function undercountGates(head: Snapshot): string[] {
-  if (!head.repository) return [];
+  if (!head.repository) {
+    return [];
+  }
   const failures: string[] = [];
   // "A hard gate that goes quiet when its tool is missing is not a
   // gate" applies to a registry as much as to knip: a
@@ -285,8 +287,12 @@ function crossingFaults(head: Snapshot): string[] {
  */
 function seamFaults(head: Snapshot): string[] {
   return head.seams.flatMap((seam) => {
-    if (seam.fault !== undefined) return [`seam ${seam.fault}`];
-    if (seam.members !== undefined) return [];
+    if (seam.fault !== undefined) {
+      return [`seam ${seam.fault}`];
+    }
+    if (seam.members !== undefined) {
+      return [];
+    }
     return [
       `${seam.kind} ${seam.name} is not declared in ${seam.file} (a renamed or deleted seam silently leaves the budget — update CONTRACTS/VOCABULARY in scripts/metrics/design.ts)`,
     ];
@@ -313,9 +319,13 @@ function seamFaults(head: Snapshot): string[] {
 function seamRatchets(head: Snapshot, base: Snapshot): string[] {
   const before = new Map(base.seams.map((seam) => [seam.name, seam.members]));
   return head.seams.flatMap((seam) => {
-    if (seam.kind !== "contract") return [];
+    if (seam.kind !== "contract") {
+      return [];
+    }
     const was = before.get(seam.name);
-    if (was === undefined || seam.members === undefined) return [];
+    if (was === undefined || seam.members === undefined) {
+      return [];
+    }
     return seam.members > was
       ? [`contract ${seam.name}: ${String(was)} -> ${String(seam.members)}`]
       : [];
@@ -345,7 +355,9 @@ function defenseRatchets(head: Snapshot, base: Snapshot): string[] {
   for (const [name, key] of DEFENSES) {
     const { [key]: before } = was;
     const { [key]: after } = now;
-    if (before === ZERO) continue;
+    if (before === ZERO) {
+      continue;
+    }
     if (after > before) {
       failures.push(`${name}: ${String(before)} -> ${String(after)}`);
     }
@@ -376,7 +388,9 @@ function defenseRatchets(head: Snapshot, base: Snapshot): string[] {
 function ratchets(head: Snapshot, base: Snapshot): string[] {
   const failures: string[] = [];
   for (const layer of LAYERS) {
-    if (base.layers[layer].files === ZERO) continue;
+    if (base.layers[layer].files === ZERO) {
+      continue;
+    }
     if (head.cognitive[layer].max > base.cognitive[layer].max) {
       failures.push(
         `cognitive MAX ${layer}: ${String(base.cognitive[layer].max)} -> ${String(head.cognitive[layer].max)}`,
@@ -425,7 +439,9 @@ export function gateFailures(head: Snapshot, base?: Snapshot): string[] {
  * @returns the reason it could not run, or undefined
  */
 export function measuredNothing(head: Snapshot): string | undefined {
-  if (!head.repository) return undefined;
+  if (!head.repository) {
+    return undefined;
+  }
   const { files } = head.layers.src;
   const symbols = head.coupling.exportedSymbols;
   if (files >= MINIMUM_SOURCE_FILES && symbols >= MINIMUM_EXPORTED_SYMBOLS) {

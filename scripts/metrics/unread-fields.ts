@@ -129,17 +129,27 @@ interface PublishedType {
  */
 function registeredTypes(root: string): PublishedType[] {
   const file = path.join(root, REGISTRY_FILE);
-  if (!existsSync(file)) return [];
+  if (!existsSync(file)) {
+    return [];
+  }
   const { value } = strictJson(REGISTRY_FILE, readFileSync(file, "utf8"));
-  if (!isArray(value)) return [];
+  if (!isArray(value)) {
+    return [];
+  }
   const seen = new Set<string>();
   const types: PublishedType[] = [];
   for (const row of value) {
-    if (!isObject(row)) continue;
+    if (!isObject(row)) {
+      continue;
+    }
     const { file: declaring, symbol } = row;
-    if (typeof declaring !== "string" || typeof symbol !== "string") continue;
+    if (typeof declaring !== "string" || typeof symbol !== "string") {
+      continue;
+    }
     const key = `${declaring}#${symbol}`;
-    if (seen.has(key)) continue;
+    if (seen.has(key)) {
+      continue;
+    }
     seen.add(key);
     types.push({ file: declaring, name: symbol });
   }
@@ -250,7 +260,9 @@ function isRead(
     return false;
   }
   const source = program.getSourceFile(entry.fileName);
-  if (source === undefined) return false;
+  if (source === undefined) {
+    return false;
+  }
   const node = tokenAt(source, entry.textSpan.start);
   // A reference with no PARENT is one that is not in the syntax tree
   // at all: a `{@link Type.field}` inside a JSDoc comment, which the
@@ -259,7 +271,9 @@ function isRead(
   // every other non-read shape - and the guard is what keeps the
   // scorecard from crashing on `node.parent` the first time somebody
   // links a field from a doc comment.
-  if (node?.parent === undefined) return false;
+  if (node?.parent === undefined) {
+    return false;
+  }
   return readsThroughParent(node.parent);
 }
 
@@ -269,7 +283,9 @@ function isRead(
  * @returns whether that shape is a read of the property
  */
 function readsThroughParent(parent: ts.Node): boolean {
-  if (ts.isBindingElement(parent)) return true;
+  if (ts.isBindingElement(parent)) {
+    return true;
+  }
   if (
     ts.isPropertyAccessExpression(parent) ||
     ts.isElementAccessExpression(parent)
@@ -317,7 +333,9 @@ interface Project {
  */
 function openProject(root: string): Project | undefined {
   const configPath = path.join(root, TSCONFIG_FILE);
-  if (!existsSync(configPath)) return undefined;
+  if (!existsSync(configPath)) {
+    return undefined;
+  }
   // `readConfigFile` types its payload `any`; widening it to
   // `unknown` here is the opposite of an escape hatch — it takes the
   // `any` away before it can spread, and the parser below is the only
@@ -326,7 +344,9 @@ function openProject(root: string): Project | undefined {
     readFileSync(file, "utf8"),
   ).config;
   const parsed = ts.parseJsonConfigFileContent(config, ts.sys, root);
-  if (parsed.fileNames.length === ZERO) return undefined;
+  if (parsed.fileNames.length === ZERO) {
+    return undefined;
+  }
   const host: ts.LanguageServiceHost = {
     getScriptFileNames: () => parsed.fileNames,
     getScriptVersion: () => "1",
@@ -375,7 +395,9 @@ export function unreadPublishedFields(root: string): UnreadReport {
   const candidates: UnreadField[] = [];
   let examined = ZERO;
   for (const type of types) {
-    if (SERIALIZED.has(type.file)) continue;
+    if (SERIALIZED.has(type.file)) {
+      continue;
+    }
     const source = program.getSourceFile(path.join(root, type.file));
     if (source === undefined) {
       unscanned.push(

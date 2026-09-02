@@ -209,9 +209,15 @@ leaf:
   one item's lines into Ruby's buffer; the reader re-parses each buffer with a
   confined `BlockReader`, so nesting composes with no list frame, no per-item
   object, and no cross-item state — the only mutable state is `itemExtent`'s
-  five members, Ruby's four locals plus the buffer. Each block an item holds
-  carries its verbatim `gap`: the `""` and `"+"` lines the author wrote in front
-  of it.
+  members, Ruby's four locals plus the buffer, the armed-tail state and the
+  record of what each separator line turned out to be. The LOOP is that file and
+  the POST-LOOP is its sibling `src/parse/lines/item-tail.ts` (Ruby's own: the
+  detached erase, the tail walk, and the three tail facts), one Ruby range each;
+  `finishItem` is handed the scan's final state once, as one value, and reads no
+  line a second time. Each block an item holds carries its verbatim `gap`: the
+  `""` and `"+"` lines the author wrote in front of it, spelled from the role
+  the arm that consumed each line recorded and applied to the document-wide
+  record by the reader that owns it.
 - The **document header** is read extent-first too, at the title line
   (`src/parse/lines/header-reader.ts`, reading the lines `parse_document_header`
   -> `parse_header_metadata` reads). Whether a `= Title` opens one is reader
@@ -227,9 +233,12 @@ What a held style or attribute line makes of the block that follows — a
 builds an example wrapper as an admonition, a verbatim role — is resolved once,
 at the opening line, by `src/parse/lines/open-style.ts`, and the builders build
 from that recorded decision. The held `[…]` line itself has one parser,
-`src/parse/attrlist.ts`. `src/parse/lines/frames.ts` holds the vocabulary the
-list layer and the reader share (the leaf and held-metadata builder tables) so
-the two stay a DAG rather than an import cycle.
+`src/parse/attrlist.ts`. `src/parse/lines/frames.ts` holds what is left of the
+vocabulary the readers share (the leaf builder table the reader dispatches
+through), so the layer stays a DAG rather than an import cycle; the
+held-metadata table sits in `src/parse/lines/held-metadata.ts` beside the run it
+is about, and `fragmentOfLine` in `src/parse/lines/split.ts` beside the
+`SourceLine` it measures.
 
 **Phase 3 — the inline tokenizer** (`src/parse/inline/`), described below.
 
@@ -391,10 +400,11 @@ own, each a named arm whose function comment carries the reasoning and the Ruby
 citation (`printedGap`, `hazard`, `slurpReaches`, `printList` in
 `src/print/list.ts` and `src/print/list-hazard.ts`). All four exist for one
 reason: verbatim replay would not re-parse to the same tree there — a reflow
-that would pull leading metadata onto the marker line, a nested list sharing its
-parent's marker spelling, an indented literal whose re-read would slurp the
-following marker, a previous item's tail that would swallow the next marker
-line.
+that would move the item's first rest line up (the line Ruby reads three ways:
+the metadata drain, the blank count, and the indent strip), a nested list
+sharing its parent's marker spelling, an indented literal whose re-read would
+slurp the following marker, a previous item's tail that would swallow the next
+marker line.
 
 ## Formatting policy
 

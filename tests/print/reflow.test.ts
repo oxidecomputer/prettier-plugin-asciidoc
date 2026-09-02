@@ -18,7 +18,7 @@ import {
   atomOf,
   blockBody,
   isFused,
-  keepLastBreak,
+  keepTextOnFirstRestLine,
   splitWords,
   wordsToAtoms,
   wrap,
@@ -365,8 +365,16 @@ describe("the block body", () => {
 });
 
 describe("the kept break", () => {
-  test("the last breakable join is made mandatory", () => {
-    expect(breaks(keepLastBreak([atom("a"), atom("b")]))).toEqual([
+  test("with no break of its own anywhere, the LAST run's join is made mandatory", () => {
+    expect(
+      breaks(keepTextOnFirstRestLine([atom("a"), atom("b")], "hard")),
+    ).toEqual(["none", "hard"]);
+  });
+
+  test("the last run is the one held, so the first line keeps the most reflow", () => {
+    const atoms = [atom("a"), atom("b"), atom("c")];
+    expect(breaks(keepTextOnFirstRestLine(atoms, "hard"))).toEqual([
+      "none",
       "none",
       "hard",
     ]);
@@ -374,25 +382,49 @@ describe("the kept break", () => {
 
   test("atoms that form ONE run are left alone — there is no join to harden", () => {
     const atoms = [atom("a"), atom("b", { noBreakBefore: true })];
-    expect(breaks(keepLastBreak(atoms))).toEqual(["none", "none"]);
+    expect(breaks(keepTextOnFirstRestLine(atoms, "hard"))).toEqual([
+      "none",
+      "none",
+    ]);
   });
 
-  test("a run that already demands a break ends the search", () => {
+  test("a run that already opens the first rest line with TEXT needs nothing", () => {
     const atoms = [
       atom("a"),
       atom("b"),
       atom("[role]", { breakBefore: "literal" }),
     ];
-    expect(breaks(keepLastBreak(atoms))).toEqual(["none", "none", "literal"]);
+    expect(breaks(keepTextOnFirstRestLine(atoms, "hard"))).toEqual([
+      "none",
+      "none",
+      "literal",
+    ]);
   });
 
-  test("a break that opens a line the reader DELETES buys nothing: the search walks past it", () => {
+  test("a line the reader DELETES is no text line: the break moves in front of it", () => {
     const atoms = [
       atom("a"),
       atom("b"),
       atom("//c", { breakBefore: "literal" }),
     ];
-    expect(breaks(keepLastBreak(atoms))).toEqual(["none", "hard", "literal"]);
+    expect(breaks(keepTextOnFirstRestLine(atoms, "hard"))).toEqual([
+      "none",
+      "hard",
+      "literal",
+    ]);
+  });
+
+  test("the hard-break image is no text line either: its leading space indents the line", () => {
+    const atoms = [
+      atom("a"),
+      atom("b"),
+      atom(" +", { breakBefore: "literal" }),
+    ];
+    expect(breaks(keepTextOnFirstRestLine(atoms, "literal"))).toEqual([
+      "none",
+      "literal",
+      "literal",
+    ]);
   });
 
   test("a run that merely BEGINS with `//` is not a whole deleted line", () => {
@@ -402,7 +434,7 @@ describe("the kept break", () => {
       atom("//c", { breakBefore: "literal" }),
       atom("tail", { noBreakBefore: true }),
     ];
-    expect(breaks(keepLastBreak(atoms))).toEqual([
+    expect(breaks(keepTextOnFirstRestLine(atoms, "hard"))).toEqual([
       "none",
       "none",
       "literal",
@@ -410,8 +442,53 @@ describe("the kept break", () => {
     ]);
   });
 
-  test("the walk stops before the first run: the break in front of the block is not this block's to make", () => {
+  test("the held run is never the block's first: the break in front of that one is not this block's to make", () => {
     const atoms = [atom("a"), atom("//c", { breakBefore: "literal" })];
-    expect(spell(keepLastBreak(atoms))).toEqual(spell(atoms));
+    expect(spell(keepTextOnFirstRestLine(atoms, "hard"))).toEqual(spell(atoms));
+  });
+
+  test("no atoms at all is not a block with a first rest line", () => {
+    expect(keepTextOnFirstRestLine([], "hard")).toEqual([]);
+  });
+
+  test("a column-0 hold refuses a run that would be block syntax there, and moves left", () => {
+    const atoms = [
+      atom("a"),
+      atom("x"),
+      atom("[b@c.de]"),
+      atom(" +", { breakBefore: "literal" }),
+    ];
+    expect(breaks(keepTextOnFirstRestLine(atoms, "literal"))).toEqual([
+      "none",
+      "literal",
+      "none",
+      "literal",
+    ]);
+  });
+
+  test("the same run takes the hold at the continuation indent, where no block shape is read", () => {
+    const atoms = [
+      atom("a"),
+      atom("x"),
+      atom("[b@c.de]"),
+      atom("//c", { breakBefore: "literal" }),
+    ];
+    expect(breaks(keepTextOnFirstRestLine(atoms, "hard"))).toEqual([
+      "none",
+      "none",
+      "hard",
+      "literal",
+    ]);
+  });
+
+  test("a column-0 hold with no run that may open the line holds nothing", () => {
+    const atoms = [
+      atom("a"),
+      atom("[b@c.de]"),
+      atom(" +", { breakBefore: "literal" }),
+    ];
+    expect(spell(keepTextOnFirstRestLine(atoms, "literal"))).toEqual(
+      spell(atoms),
+    );
   });
 });

@@ -218,7 +218,9 @@ export function withFenceLanguage(
   block: DelimiterKind,
   text: string,
 ): VerbatimRole {
-  if (block !== "fencedCode" || role.builds !== "fencedBlock") return role;
+  if (block !== "fencedCode" || role.builds !== "fencedBlock") {
+    return role;
+  }
   const language = text.slice(BACKTICK_COUNT).trim();
   return language.length === 0 ? role : { ...role, language };
 }

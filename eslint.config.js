@@ -24,7 +24,10 @@ export default defineConfig(
   // of the project, tsconfig included, which otherwise makes
   // typescript-eslint see two candidate tsconfig roots and refuse to
   // parse anything. It survives a crashed mutation run, so ignoring it
-  // is not optional.
+  // is not optional. `.superpowers/` is scratch: .gitignore excludes
+  // it, nothing there ships, and nothing there is in tsconfig's
+  // project - so a lintable file under it can only fail the run with a
+  // parse error, never earn a fix.
   {
     ignores: [
       "node_modules/**",
@@ -32,6 +35,7 @@ export default defineConfig(
       "build.ts",
       ".stryker-tmp/**",
       "reports/**",
+      ".superpowers/**",
     ],
   },
 
@@ -195,7 +199,81 @@ export default defineConfig(
     ...tseslint.configs.disableTypeChecked,
   },
 
-  // eslint-config-prettier: disable rules that conflict with
-  // Prettier formatting. Must be last to override earlier configs.
+  // eslint-config-prettier: disables the rules that conflict with
+  // Prettier formatting.
   prettier,
+
+  // Braces on every control-flow body. An omitted brace is the largest
+  // single category of "atoms of confusion" in this tree (48 of a
+  // census of 50, taken 2026-09-01), and it is the one that costs
+  // nothing to remove: the fix is mechanical and changes no behavior.
+  //
+  // AFTER `prettier`, and that placement is the whole rule. Flat config
+  // gives the last matching entry the severity, and eslint-config-
+  // prettier turns `curly` OFF - it is one of that config's "special
+  // rules", disabled because the `multi-line` and `multi-or-nest`
+  // options fight the printer. `all` does not: Prettier keeps braces
+  // wherever they are written, so asserting them everywhere agrees
+  // with it. Asserted before `prettier`, the rule resolves to off for
+  // every file and a green `lint` says nothing about braces at all.
+  {
+    files: ["**/*.ts"],
+    rules: { curly: ["error", "all"] },
+  },
+
+  // Files where `curly` is DEFERRED, not waived, for one of two
+  // measured reasons. Both deferrals are temporary and neither is a
+  // judgment that the braces are unwanted: whichever change next
+  // clears the obstacle takes the entry out and runs `eslint --fix`
+  // on the file.
+  //
+  // ONE - no room. Braces cost about two lines per omitted brace, and
+  // these files are close enough to the 450-line `max-lines` ceiling
+  // that the fix would either breach it or leave nothing to work in.
+  // The count beside each path is what the file measures today under
+  // `max-lines`'s own accounting (code lines, blanks and comments
+  // excluded); the fix would put it where the second number says.
+  {
+    files: [
+      "src/parse/lines/reader.ts", // 448 -> 462
+      "src/print/inline.ts", // 440 -> 460
+      "scripts/parity.ts", // 436 -> 456
+      "scripts/parity-ledger.ts", // 422 -> 446
+      "scripts/shape-registry.ts", // 446 -> 448
+      "tests/parser/ast-invariants.ts", // 397 -> 443
+      "tests/parser/super-sub.test.ts", // 445 -> 445
+      "tests/format/list-continuation.test.ts", // 450 -> 449
+      "tests/format/list-item-blocks.test.ts", // 443 -> 443
+      "tests/scripts/metrics-design.test.ts", // 447 -> 449
+      "tests/scripts/parity.test.ts", // 441 -> 443
+    ],
+    rules: { curly: "off" },
+  },
+
+  // TWO - the braces would move a coverage floor without moving the
+  // coverage. Each of these files holds a one-line defensive guard
+  // (`if (x) return;`) that the suite never takes. On one line, v8
+  // counts the line as covered because the `if` ran; braced, the
+  // `return` becomes a line of its own that nothing reaches, and the
+  // file drops below the 100% line minimum recorded for it in
+  // scripts/metrics/score-minimums.json.
+  //
+  // Nothing about the suite got worse - branch coverage is 98.55%
+  // either way, and these guards were always among the branches it
+  // does not take. The rule here is the repo's: a number that moves
+  // the wrong way is a question, not a target, so neither the floor
+  // was lowered nor a test written to chase the line. The guards and
+  // the line each sits on are recorded in the task report for the
+  // owners of these files; the entry leaves when the guard is tested
+  // or shown unreachable and deleted.
+  {
+    files: [
+      "src/parse/build/list.ts", // :132 `if (children.length === 0) return;`
+      "src/parse/inline/rules.ts", // :429 `if (at < resume) return undefined;`
+      "src/parse/lines/list-item-node.ts", // :169 `if (last === undefined) return markerLine.line;`
+      "src/print/block-start-hazard.ts", // :119 `if (!("children" in node)) return false;`
+      "src/print/span-edges.ts", // :254, :274 `if (!isSpanNode(neighbour)) return undefined;`
+    ],
+    rules: { curly: "off" },
+  },
 );

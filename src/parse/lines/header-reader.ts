@@ -60,8 +60,7 @@ import type { Fragment, LocationIndex } from "../positions.js";
 import type { ReaderContext } from "../line-shapes.js";
 import { classifyLine, classifyTrace, type LineKind } from "./classify.js";
 import { blockExtentOf, delimitedExtent } from "./delimited-reader.js";
-import { fragmentOfLine } from "./frames.js";
-import type { SourceLine } from "./split.js";
+import { fragmentOfLine, type SourceLine } from "./split.js";
 
 /**
  * How the classifier sees a header line. Every header line is a BLOCK
@@ -224,7 +223,9 @@ export function headerSurvivesHold(
   kind: LineKind,
   namesStyle: boolean,
 ): boolean {
-  if (kind.kind === "attributeLine") return !namesStyle;
+  if (kind.kind === "attributeLine") {
+    return !namesStyle;
+  }
   return BEFORE_HEADER_HELD.has(kind.kind);
 }
 
@@ -295,14 +296,18 @@ export function documentHeader(
   while (index < lines.length) {
     const kind = classifyLine(lines[index].text, HEADER_CONTEXT);
     classifyTrace.observer?.(lines[index].offset, kind);
-    if (kind.kind === "blank") break;
+    if (kind.kind === "blank") {
+      break;
+    }
     const metadata = headerMetadata(scan, index, kind);
     if (metadata !== undefined) {
       collected.push(metadata.node);
       index = metadata.resume;
       continue;
     }
-    if (slot === undefined) break;
+    if (slot === undefined) {
+      break;
+    }
     collected.push(SLOT_BUILDERS[slot](fragmentOfLine(lines[index]), at));
     slot = NEXT_SLOT[slot];
     index += 1;

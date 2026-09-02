@@ -78,6 +78,16 @@ jobs:
       # block-structure is.
       - run: bun run citation-check
         if: ${{ !cancelled() }}
+      # The other direction: every `<file>:<line>` this repository
+      # writes about ITSELF - the `what` field of a score-minimums
+      # exception, the coverage-deferral comments in eslint.config.js -
+      # against the line it names, plus every `src/...ts` path a `src`
+      # comment names against a file that exists. Reads the working
+      # tree only, takes well under a second, needs no base: a
+      # head-only gate beside the one above, and its own question with
+      # its own exit-code contract for the same reason that one is.
+      - run: bun run internal-citations
+        if: ${{ !cancelled() }}
 
   differential:
     name: Differential (vs base)

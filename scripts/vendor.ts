@@ -70,7 +70,9 @@ try {
     rubyFiles.map(async (name) => {
       const source = await readFile(path.join(testDirectory, name), "utf8");
       const cases = extractCorpusCases(source, name);
-      if (cases.length === ZERO) return ZERO;
+      if (cases.length === ZERO) {
+        return ZERO;
+      }
       const outName = `${path.basename(name, ".rb")}.jsonl`;
       await writeFile(
         path.join("vendor/asciidoctor-corpus", outName),

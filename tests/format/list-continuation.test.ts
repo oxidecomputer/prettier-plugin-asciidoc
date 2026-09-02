@@ -115,12 +115,13 @@ describe("list continuation formatting", () => {
   // parser.rb l.1439 — an empty String TAGGED with
   // `ListContinuationMarker`, where 2.0.20 wrote a plain `''`) and the
   // second is popped as the optional trailing continuation
-  // (l.1580-81). Neither byte reaches the rendering, so neither comes
-  // back: the run leaves the item exactly as it found it.
-  test("a trailing + run collapses to nothing", async () => {
+  // (l.1580-82). Neither byte reaches the rendering, so the run
+  // leaves the item exactly as it found it, and the ONE byte the pop
+  // was about is written back, which a re-read pops again.
+  test("a trailing + run collapses to the one byte the pop took", async () => {
     const input = "* item\n+\n+\n";
     const first = await formatAdoc(input);
-    expect(first).toBe("* item\n");
+    expect(first).toBe("* item\n+\n");
     expect(await renderedHtml(first)).toBe(await renderedHtml(input));
     expect(await formatAdoc(first)).toBe(first);
   });
@@ -599,17 +600,17 @@ describe("a + continuation reaches across block metadata", () => {
     });
   }
 
-  // KNOWN GAP (predates this work — the base commit is wrong here
-  // too). A conditional directive between the `+` and its block is
-  // transparent to the PARSER, so the classifier gets it right, but
-  // the printer splits the `ifdef`/`endif` pair across the list
-  // boundary (the `ifdef` ends up inside the item, the `endif`
-  // after it) and a blank line lands between the `endif` and the
-  // paragraph, which abandons the continuation.
-  test.fails("a conditional then blank keeps the item", async () => {
+  // Was a known gap: the pair's two lines fell on either side of the
+  // list boundary, a blank landed between the `endif` and the
+  // paragraph, and the continuation was abandoned. It closed when the
+  // item scan stopped spending the `+` on a directive line
+  // (`activeContent`, list-reader.ts): the pair now stays inside the
+  // item with the block the `+` attached.
+  test("a conditional then blank keeps the item", async () => {
     const input = "* a\n+\nifdef::x[]\nendif::[]\n\npara\n* b\n";
     const out = await formatAdoc(input);
     expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
   });
 
   // TWO blank lines DO end the list: `read_lines_for_list_item`

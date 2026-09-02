@@ -113,7 +113,9 @@ function corpusRoot(options: Options): {
     return { root: options.root, complaint: undefined };
   }
   const { corpus } = readLocalDocumentsConfig();
-  if (corpus !== undefined) return { root: corpus, complaint: undefined };
+  if (corpus !== undefined) {
+    return { root: corpus, complaint: undefined };
+  }
   return {
     root: undefined,
     complaint: `local-docs: no corpus directory - pass one, or put {"corpus": "<dir>"} in ${CONFIG_FILE}`,
@@ -152,14 +154,19 @@ async function main(options: Options): Promise<void> {
   for (const line of reportLines(summary, options.limit)) {
     process.stdout.write(`${line}\n`);
   }
-  if (summary.failing > 0) process.exitCode = GATE_FAILED;
+  if (summary.failing > 0) {
+    process.exitCode = GATE_FAILED;
+  }
 }
 
 if (import.meta.main) {
   try {
     const argv = process.argv.slice(ARGUMENT_START);
-    if (wantsHelp(argv)) printUsage(USAGE);
-    else await main(parseArguments(argv));
+    if (wantsHelp(argv)) {
+      printUsage(USAGE);
+    } else {
+      await main(parseArguments(argv));
+    }
   } catch (error) {
     // A bad argument, an unreadable directory, a config file that is
     // not a config: none of them checked a document, so none of them

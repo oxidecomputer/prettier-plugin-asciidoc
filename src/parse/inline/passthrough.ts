@@ -146,7 +146,9 @@ const OPENERS = new Set(["+", "["]);
  * @returns whether the preceding character admits an opening
  */
 function canOpenAt(text: string, index: number): boolean {
-  if (index === 0) return true;
+  if (index === 0) {
+    return true;
+  }
   const previous = text.at(index - 1);
   return previous === undefined || !NO_OPEN_AFTER.test(previous);
 }
@@ -166,11 +168,17 @@ function canOpenAt(text: string, index: number): boolean {
  */
 export function matchPassthrough(text: string, index: number): number {
   const head = text.at(index);
-  if (head === undefined || !OPENERS.has(head)) return 0;
+  if (head === undefined || !OPENERS.has(head)) {
+    return 0;
+  }
   UNCONSTRAINED.lastIndex = index;
   const unconstrained = UNCONSTRAINED.exec(text);
-  if (unconstrained !== null) return unconstrained[0].length;
-  if (!canOpenAt(text, index)) return 0;
+  if (unconstrained !== null) {
+    return unconstrained[0].length;
+  }
+  if (!canOpenAt(text, index)) {
+    return 0;
+  }
   CONSTRAINED.lastIndex = index;
   const constrained = CONSTRAINED.exec(text);
   return constrained === null ? 0 : constrained[0].length;
