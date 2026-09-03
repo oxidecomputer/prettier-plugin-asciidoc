@@ -555,6 +555,13 @@
   {
     "file": "src/parse/line-shapes.ts",
     "symbol": "DLIST_SEPARATOR_WORD",
+    "importer": "src/parse/lines/classify.ts",
+    "kind": "vocabulary",
+    "reason": "registry pattern: the word shape that opens a dlist term, read by the classification pass so the paragraph scan can ask a predicate instead of a pattern"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "DLIST_SEPARATOR_WORD",
     "importer": "src/print/reflow.ts",
     "kind": "vocabulary",
     "reason": "registry vocabulary: the word reflow may not break across a dlist separator. Read at the one documented parse address the printer is allowed"

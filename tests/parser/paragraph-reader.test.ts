@@ -90,6 +90,27 @@ describe("paragraphExtent", () => {
     expect(breaks("skipped")).toBe(0);
   });
 
+  // Issue #105. `TextOpen.comments` is only the CALLER's half of the
+  // answer. The extent supplies the other: `next_block` reads the
+  // caller's argument in one arm alone (parser.rb l.753-754), and
+  // which arm runs is decided by the line after the block's own, so
+  // an unindented one leaves the comment the comment it looks like
+  // whatever the caller said. Where the arm does fold it in, the line
+  // is text, and a text line joins the reflowable run rather than
+  // standing as a RawLine the printer replays at column 0.
+  test.each([
+    ["the indented arm reads it as text", "t:: item\n  x\n// c\n", 0],
+    ["the arm beside it does not", "t:: item\n// c\ncontinued\n", 1],
+  ])("%s, whatever the caller said", (_name, source, rawLines) => {
+    const { tokens } = paragraphExtent(scanOf(source), 0, "dlistItem", {
+      from: 0,
+      comments: "content",
+    });
+    expect(tokens.filter((token) => token.type === "RawLine")).toHaveLength(
+      rawLines,
+    );
+  });
+
   test("a foreign marker inside a `+`-attached paragraph stays its own line", () => {
     // `within_nested_list` keys on the marker's COLUMN, so the line may
     // not be reflowed onto its predecessor — the scan marks it raw.

@@ -34,6 +34,7 @@ import {
   CONTINUATION_LINE,
   DELIMITED_BLOCK_PATTERNS,
   DELIMITER_KINDS,
+  DLIST_SEPARATOR_WORD,
   INDENTED_PLUS,
   LIST_MARKER_LINE,
   LITERAL_LINE,
@@ -493,6 +494,28 @@ export function isLiteralLine(line: string): boolean {
  */
 export function isIndentedContinuationLine(line: string): boolean {
   return INDENTED_PLUS.test(line);
+}
+
+/**
+ * Whether a line carries a word that would open a description-list
+ * term wherever it stood - `DLIST_SEPARATOR_WORD` asked of every word
+ * (see line-shapes.ts for why the WORD is the unit and the line is
+ * not). Asked here for the same reason the two predicates above are:
+ * the paragraph scan that needs it consumes classifier verdicts,
+ * never patterns.
+ *
+ * A PREDICATE and not a {@link LineKind} arm, the second route
+ * docs/coding-standards.md's line-shape recipe describes. The
+ * classifier's verdict for such a line is unchanged, because the one
+ * caller asks it about a line already classified as a COMMENT and the
+ * question is not what the line is: it is what the line's words would
+ * become if the `//` that heads them stopped heading them
+ * (paragraph-reader.ts, `reflows`).
+ * @param line - one rstripped source line
+ * @returns true when a word of it ends in a dlist term separator
+ */
+export function holdsDescriptionListSeparator(line: string): boolean {
+  return line.split(/[ \t]+/v).some((word) => DLIST_SEPARATOR_WORD.test(word));
 }
 
 /**

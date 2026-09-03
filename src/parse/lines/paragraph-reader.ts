@@ -29,6 +29,7 @@ import {
 import {
   classifyLine,
   classifyTrace,
+  holdsDescriptionListSeparator,
   isContinuationLine,
   isIndentedContinuationLine,
   isLiteralLine,
@@ -100,13 +101,16 @@ export interface TextOpen {
   /** Raw column index where the paragraph's text starts. */
   readonly from: number;
   /**
-   * How Asciidoctor reads a `//` line inside the extent: `skipped` is
-   * `read_paragraph_lines`'s `skip_line_comments`, which drops the
-   * line before `adjust_indentation!` ever sees it, and `content`
-   * folds it into the text like any other line. The formatter keeps
-   * the line's bytes either way; what the two answers change is
-   * whether its indent counts (see
-   * {@link Paragraph.adjustsIndentation}).
+   * The caller's answer for `read_paragraph_lines`'s
+   * `skip_line_comments` argument: `skipped` drops a `//` line before
+   * `adjust_indentation!` ever sees it, and `content` folds it into
+   * the text like any other line. It is half an answer, because only
+   * one of `next_block`'s two arms passes the caller's value on; the
+   * extent supplies the other half (see
+   * {@link Paragraph.foldsCommentLine}). Where both halves say
+   * content the line IS text: its indent counts
+   * ({@link Paragraph.adjustsIndentation}) and it reflows with the
+   * words around it ({@link Paragraph.reflows}).
    */
   readonly comments: "content" | "skipped";
 }
@@ -180,6 +184,9 @@ class Paragraph {
   // constructor's mode (see {@link ParagraphMode}).
   private readonly context: ParagraphContext;
   private readonly fold: boolean;
+  // Whether a `//` line inside this extent is CONTENT (see
+  // {@link Paragraph.foldsCommentLine}).
+  private readonly commentsAreContent: boolean;
 
   /**
    * @param scan - the lines and the stream-wide facts (see
@@ -200,6 +207,15 @@ class Paragraph {
     const { context } = this;
     const line = scan.lines[at];
     this.index = at + 1;
+    // `next_block` decides its branch on the first line AFTER this
+    // one, and only the indented arm asks the caller how a `//` line
+    // reads: `skip_line_comments: text_only` (parser.rb l.753-754),
+    // against `skip_line_comments: true` in the arm beside it
+    // (parser.rb l.764). So the caller's answer alone does not settle
+    // it - see {@link Paragraph.foldsCommentLine}.
+    this.commentsAreContent =
+      text.comments === "content" &&
+      isLiteralLine(scan.lines.at(at + 1)?.text ?? "");
     this.runEnd = line.offset + line.raw.length;
     if (this.fold) {
       // The fold's head is the tagged `+` itself, and a column-0 `+`
@@ -414,12 +430,40 @@ class Paragraph {
    *   `adjust_indentation!` before anything reads it.
    *
    * `rawLine` is the AST node the printer already keeps on an output
-   * line of its own, so both stay put.
+   * line of its own, so both stay put. A `//` line the extent reads
+   * as CONTENT is not one of them: it is text, and holding it on a
+   * line of its own under a folded description is what left it at
+   * column 0, where a re-read takes it as the comment it no longer is
+   * (issue #105; see {@link Paragraph.foldsCommentLine}). ONE such
+   * line still stays put.
+   *
+   * A `//` line's own `term::` words are inert twice over:
+   * `DescriptionListRx` refuses a line whose head is `//` outright
+   * (rx.rb:336, the `(?!//[^/])` lookahead), and inside a
+   * description's text a `term::` word stands behind the term the
+   * source already wrote, which binds first because Ruby's term group
+   * is non-greedy. Folding keeps the second and spends the first: the
+   * words become ordinary words of the paragraph, and reflow may put
+   * one at the HEAD of an output line. `term::` is the one block
+   * shape the packer's line-start rule deliberately does not refuse
+   * (`isBlockSyntaxAtLineStart`, src/print/reflow.ts), because on a
+   * plain paragraph's later line such a word is text (ORACLE: `para
+   * one` / `x:: y` renders one `<p>`); on a DESCRIPTION's rest line
+   * it is a sibling term that ends the item (ORACLE: `t:: item` /
+   * `x // x:: y` renders a second `<dt>`). So such a line keeps the
+   * output line of its own that keeps its words out of the text. The
+   * comment is then outside the description again and the render
+   * loses it, which is issue #105's loss left standing for this one
+   * shape: a lost comment is a smaller wrong than a fabricated list
+   * item, and it is what the formatter already did here.
    * @param line - the line being added
    * @param kind - what the classifier made of it
    * @returns true when the line joins the run in progress
    */
   private reflows(line: SourceLine, kind: LineKind): boolean {
+    if (this.foldsCommentLine(kind)) {
+      return !holdsDescriptionListSeparator(line.text);
+    }
     if (kind.kind !== "text" || kind.verbatim === true) {
       return false;
     }
@@ -434,8 +478,8 @@ class Paragraph {
    * line usually is not one of those: `read_paragraph_lines` runs
    * with `skip_line_comments`, so it never reaches
    * `adjust_indentation!`, and where it IS content
-   * ({@link TextOpen.comments}) its indent counts like any other
-   * line's. A preprocessor line never counts: the reader that
+   * ({@link Paragraph.foldsCommentLine}) its indent counts like any
+   * other line's. A preprocessor line never counts: the reader that
    * resolves it runs before `read_paragraph_lines` sees a line at
    * all. KNOWN DIVERGENCE there, and the reason this says never: an
    * UNRESOLVED include is a flush-left message line to the oracle, so
@@ -483,13 +527,48 @@ class Paragraph {
    *   taken over
    */
   private adjustsIndentation(kind: LineKind): boolean {
-    if (kind.kind === "text") {
-      return true;
-    }
+    return kind.kind === "text" || this.foldsCommentLine(kind);
+  }
+
+  /**
+   * Whether a `//` line in this extent is CONTENT: text that renders,
+   * reflows and wraps like any other, rather than a line the printer
+   * replays on an output line of its own.
+   *
+   * Two facts, and both are needed. The CALLER's is
+   * {@link TextOpen.comments}: `read_paragraph_lines` takes
+   * `skip_line_comments: text_only` (parser.rb l.754) and
+   * `parse_list_item` passes `text_only: has_text ? nil : true` while
+   * keeping `has_text` for a description list alone (parser.rb
+   * l.1369-74, where a ulist or olist item's content-adjacent text
+   * clears it). The EXTENT's is the branch that asks: only
+   * `next_block`'s `indented && !style` arm reads the caller's answer
+   * (parser.rb l.753), and which arm runs is decided by the first
+   * line after the block's own (parser.rb l.571-588, where a leading
+   * space or TAB is what indented means). The arm beside it passes
+   * `skip_line_comments: true` whatever the caller said (parser.rb
+   * l.764), which is why `term:: def` / `// c` / `more` renders
+   * `def more` and drops the comment while `term:: def` / `  x` /
+   * `// c` renders `x // c` and keeps it.
+   *
+   * The deciding line is read at a fixed offset from the block's own,
+   * so a comment standing THERE answers no for the whole extent. For
+   * that line itself the answer is exact: `next_block`'s metadata
+   * drain shifts a leading `//` away before the branch test runs
+   * (parser.rb l.519-523, `parse_block_metadata_line` answering for
+   * `//`), so the oracle drops it and so does a re-read of the bytes
+   * the printer leaves on a line of its own. For a comment FURTHER
+   * down it is not: the drain walks on to the first line it cannot
+   * take, and an indented one there opens the arm that folds later
+   * `//` lines in. `t:: item` / `// a` / `  x` / `// b` drops `// a`
+   * and KEEPS `// b`; we answer no for both and lose `// b` from the
+   * render. Recorded here, not fixed here.
+   * @param kind - what the classifier made of the line
+   * @returns true for a `//` line this extent folds in as text
+   */
+  private foldsCommentLine(kind: LineKind): boolean {
     return (
-      this.text.comments === "content" &&
-      kind.kind === "raw" &&
-      kind.form === "comment"
+      this.commentsAreContent && kind.kind === "raw" && kind.form === "comment"
     );
   }
 

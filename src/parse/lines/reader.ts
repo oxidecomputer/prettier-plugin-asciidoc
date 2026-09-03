@@ -589,11 +589,12 @@ class BlockReader {
       }
       case "dlistTerm": {
         // The description of an item that carries its own inline text
-        // is the one paragraph whose `//` lines the oracle folds in as
-        // CONTENT rather than skipping: `parse_list_item` keeps
+        // is the one paragraph whose `//` lines the oracle can fold in
+        // as CONTENT rather than skipping: `parse_list_item` keeps
         // `has_text` for a dlist, so `text_only` reaches the literal
-        // branch unset (paragraph-reader.ts, `adjustsIndentation`;
-        // issue #101).
+        // branch unset (issue #101). CAN, not does: only that branch
+        // passes the value on, and which branch runs is the extent's
+        // own question (paragraph-reader.ts, `foldsCommentLine`).
         const comments =
           kind.descriptionStart === undefined ? "skipped" : "content";
         this.paragraph("dlistItem", { from: kind.indent, comments });
