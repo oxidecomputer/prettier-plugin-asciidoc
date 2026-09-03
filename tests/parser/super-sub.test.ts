@@ -25,7 +25,7 @@
  * file and in tests/parser/inline-resolution-order.test.ts.
  */
 import { describe, expect, test } from "vitest";
-import { formatAdoc, renderedHtml } from "../helpers.js";
+import { formatAdoc, oracleHtml, renderedHtml } from "../helpers.js";
 import { shapes } from "./inline-shape.js";
 import { scanSuperSubMarks } from "../../src/parse/inline/super-sub.js";
 
@@ -84,7 +84,7 @@ interface Row {
  */
 function checkRow(row: Row): void {
   test("the oracle's render", async () => {
-    expect(await renderedHtml(row.source)).toContain(row.oracleContains);
+    expect(await oracleHtml(row.source)).toContain(row.oracleContains);
   });
 
   test("the scan names these delimiters", () => {
@@ -140,7 +140,10 @@ describe("the superscript and subscript rows", () => {
     {
       name: "content may not cross a line either",
       source: "x ^a\nb^ y",
-      oracleContains: "x ^a b^ y",
+      // The oracle keeps the source's own line break here; the pin
+      // reads its bytes, so it names the break rather than the space
+      // a reflow-tolerant comparison would fold it to.
+      oracleContains: "x ^a\nb^ y",
       delimiters: [],
       shape: [String.raw`"x ^a\nb^ y"`],
       formatted: "x ^a b^ y",
@@ -334,9 +337,7 @@ describe("the two rows against the rest of the vocabulary", () => {
   // untouched either way, which is what the fixed point holds.
   test("a crossing pair is dropped, its delimiters left as text", async () => {
     const source = "x ^a~b^c~ y";
-    expect(await renderedHtml(source)).toContain(
-      "x <sup>a<sub>b</sup>c</sub> y",
-    );
+    expect(await oracleHtml(source)).toContain("x <sup>a<sub>b</sup>c</sub> y");
     expect(superSubOffsets(source)).toEqual([2, 4, 6, 8]);
     expect(shapes(source)).toEqual(['"x "', 'superscript["a~b"]', '"c~ y"']);
     const out = await formatAdoc(source);
@@ -351,7 +352,7 @@ describe("the two rows against the rest of the vocabulary", () => {
   // the packer never breaks.
   test("a subscript inside a bare URL is the URL's, not the row's", async () => {
     const source = "https://a.com/~u~/p and x";
-    expect(await renderedHtml(source)).toContain("<sub>u</sub>");
+    expect(await oracleHtml(source)).toContain("<sub>u</sub>");
     expect(shapes(source)).toEqual(["link", '" and x"']);
     const out = await formatAdoc(source);
     expect(out).toBe(`${source}\n`);
@@ -399,7 +400,7 @@ function hasPair(shape: readonly string[]): boolean {
  */
 function checkDivergence(row: DivergenceRow, oraclePairs: boolean): void {
   test("the oracle's render, and whether it pairs", async () => {
-    const html = await renderedHtml(row.source);
+    const html = await oracleHtml(row.source);
     expect(html).toContain(row.oracleContains);
     expect(/<su[pb]>/v.test(html)).toBe(oraclePairs);
   });
@@ -548,7 +549,7 @@ describe("the same divergence the other way round", () => {
 
   describe.each(AGREE)("$source", (row) => {
     test("the oracle pairs and so do we", async () => {
-      const html = await renderedHtml(row.source);
+      const html = await oracleHtml(row.source);
       expect(html).toContain(row.oracleContains);
       expect(/<su[pb]>/v.test(html)).toBe(true);
       expect(shapes(row.source)).toEqual(row.shape);
@@ -602,7 +603,7 @@ describe("where no attrlist is taken, the scan and the oracle agree", () => {
 
   describe.each(ROWS)("$source", (row) => {
     test("both pair", async () => {
-      const html = await renderedHtml(row.source);
+      const html = await oracleHtml(row.source);
       expect(html).toContain(row.oracleContains);
       expect(/<su[pb]>/v.test(html)).toBe(true);
       expect(shapes(row.source)).toEqual(row.shape);
@@ -624,7 +625,7 @@ describe("where no attrlist is taken, the scan and the oracle agree", () => {
   // instead. One shape, one node, no byte.
   test("a refused candidate leaves a later pair for the oracle", async () => {
     const source = "x ^[red]#c#^a^ y";
-    expect(await renderedHtml(source)).toContain(
+    expect(await oracleHtml(source)).toContain(
       'x ^<span class="red">c</span><sup>a</sup> y',
     );
     expect(shapes(source)).toEqual([

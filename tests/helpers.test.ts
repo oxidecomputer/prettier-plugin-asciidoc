@@ -1,5 +1,16 @@
 import { describe, expect, test } from "vitest";
-import { renderedHtml } from "./helpers.js";
+import { oracleHtml, renderedHtml } from "./helpers.js";
+
+/**
+ * A source block whose attributes are substituted, so the oracle
+ * renders `{plus}` as a character reference INSIDE the `<code>` the
+ * normalizer shelters.
+ * @param plus - what to write between the block's two words
+ * @returns the block's AsciiDoc source
+ */
+function sourceBlockAround(plus: string): string {
+  return `[source,ruby,subs="+attributes"]\n----\na ${plus} b\n----\n`;
+}
 
 // Guards the normalizer itself: the semantic-fidelity tests
 // compare renderedHtml() on both sides, so a bug that mangles
@@ -51,5 +62,88 @@ describe("renderedHtml", () => {
   // would leave three spaces where a reflow put one.
   test("collapses a run that straddles a line break", async () => {
     expect(await renderedHtml("a  \n  b\n")).toBe(await renderedHtml("a b\n"));
+  });
+
+  // Issue #33: a NUMERIC character reference and the character it
+  // names are one thing here. `{plus}` is the formatter's escape for
+  // a `+` that must not read as a hard line break, and Asciidoctor
+  // renders it `&#43;` while a literal `+` stays `+` - so without
+  // this rule a respelling that changed nothing a reader can see
+  // reported itself as a rendering change.
+  test("reads a decimal reference as the character it names", async () => {
+    expect(await renderedHtml("a {plus} b\n")).toBe(
+      await renderedHtml("a + b\n"),
+    );
+  });
+
+  test("reads a hex reference as the character it names", async () => {
+    expect(await renderedHtml("a &#x41; b\n")).toBe(
+      await renderedHtml("a A b\n"),
+    );
+  });
+
+  // The three characters that carry markup meaning decode to their
+  // NAMED spelling, never to the raw character, so decoding can never
+  // turn text into something that reads as a tag. Both directions are
+  // pinned: `&#60;b&#62;` arrives as an escaped `<b>` and stays one,
+  // and the numeric and named spellings of `&` meet.
+  test("a reference to a markup character decodes to its name", async () => {
+    const html = await renderedHtml("a &#60;b&#62; c\n");
+    expect(html).toContain("a &lt;b&gt; c");
+    expect(html).not.toContain("<b>");
+  });
+
+  test("the numeric and named spellings of an ampersand meet", async () => {
+    expect(await renderedHtml("a &#38; b\n")).toBe(
+      await renderedHtml("a &amp; b\n"),
+    );
+  });
+
+  // Each radix reads only its own alphabet, so a decimal form
+  // holding a hex letter is no reference at all: it must not decode
+  // to the U+0004 that reading `4a` as base-10 would truncate it to.
+  // The oracle escapes such a form's `&` in prose, but a passthrough
+  // hands it through raw, which is how one reaches this lens.
+  test("leaves a mixed-radix form undecoded", async () => {
+    expect(await renderedHtml("a pass:[&#4a;] b\n")).toContain("a &#4a; b");
+  });
+
+  // A NAMED entity is left alone. It is HTML's structural escape, and
+  // decoding one would leave text that reads as markup
+  // indistinguishable from markup.
+  test("leaves a named entity alone", async () => {
+    expect(await renderedHtml("a &amp; b\n")).toContain("a &amp; b");
+  });
+
+  // The decode runs only where the whitespace rules run. The
+  // shelter is conservative, not semantic (an HTML reader decodes a
+  // reference inside <code> too): keeping every normalization out of
+  // verbatim regions can only report a false DIFFERENCE there, never
+  // a false equality, so two documents that differ only in spelling
+  // inside a code span stay apart.
+  test("keeps a reference inside an inline code span verbatim", async () => {
+    expect(await renderedHtml("`a {plus} b`\n")).not.toBe(
+      await renderedHtml("`a + b`\n"),
+    );
+  });
+
+  test("keeps a reference inside a source block verbatim", async () => {
+    expect(await renderedHtml(sourceBlockAround("{plus}"))).not.toBe(
+      await renderedHtml(sourceBlockAround("+")),
+    );
+  });
+});
+
+// The other lens: what the oracle SPELLS. A test that names an entity
+// in its expectation is making a claim about Asciidoctor's bytes, and
+// renderedHtml cannot carry that claim now that a reference and its
+// character are one thing there.
+describe("oracleHtml", () => {
+  test("hands back the reference the oracle wrote", async () => {
+    expect(await oracleHtml("a {plus} b\n")).toContain("a &#43; b");
+  });
+
+  test("normalizes no whitespace at all", async () => {
+    expect(await oracleHtml("a\nb\n")).toContain("<p>a\nb</p>");
   });
 });

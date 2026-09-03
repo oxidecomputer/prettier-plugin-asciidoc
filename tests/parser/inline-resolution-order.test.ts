@@ -26,7 +26,7 @@
  * readings tied together.
  */
 import { describe, expect, test } from "vitest";
-import { formatAdoc, renderedHtml } from "../helpers.js";
+import { formatAdoc, oracleHtml, renderedHtml } from "../helpers.js";
 import { shapes } from "./inline-shape.js";
 
 /**
@@ -166,7 +166,7 @@ describe.each(OVERLAPS)("crossed marks: $source", (overlap) => {
   const { source, oracleSpan, shape, formatted } = overlap;
 
   test("the oracle resolves the earlier QUOTE_SUBS row first", async () => {
-    expect(await renderedHtml(source)).toContain(oracleSpan);
+    expect(await oracleHtml(source)).toContain(oracleSpan);
   });
 
   test("the parser builds that span and leaves the loser literal", () => {
@@ -186,7 +186,7 @@ describe("resolution order leaves proper nesting alone", () => {
   // both spans survive and nest - resolving the strong first does not
   // cost the emphasis around it.
   test("_a *b* c_ nests the strong inside the emphasis", async () => {
-    expect(await renderedHtml("_a *b* c_")).toContain(
+    expect(await oracleHtml("_a *b* c_")).toContain(
       "<em>a <strong>b</strong> c</em>",
     );
     expect(shapes("_a *b* c_")).toEqual(['italicc["a ",boldc["b"]," c"]']);
@@ -196,7 +196,7 @@ describe("resolution order leaves proper nesting alone", () => {
   // the strong is resolved first, and the `[r]#…#` inside it is still
   // found when the mark row comes round.
   test("*a [r]#b#* keeps the role highlight inside the strong", async () => {
-    expect(await renderedHtml("*a [r]#b#*")).toContain(
+    expect(await oracleHtml("*a [r]#b#*")).toContain(
       '<strong>a <span class="r">b</span></strong>',
     );
     expect(shapes("*a [r]#b#*")).toEqual(['boldc["a ",highlightc["b"]]']);
@@ -206,7 +206,7 @@ describe("resolution order leaves proper nesting alone", () => {
   // row is the later one: the oracle's own `<span>` closes outside the
   // `</em>`.
   test("_a [r]#b_ c# keeps the emphasis and drops the crossing mark", async () => {
-    expect(await renderedHtml("_a [r]#b_ c#")).toContain(
+    expect(await oracleHtml("_a [r]#b_ c#")).toContain(
       '<em>a <span class="r">b</em> c</span>',
     );
     expect(shapes("_a [r]#b_ c#")).toEqual(['italicc["a [r]#b"]', '" c#"']);
@@ -222,7 +222,7 @@ describe("a dropped candidate still consumes its marks", () => {
   // and would be kept: that emphasis is exactly what the oracle does
   // NOT have.
   test("_a *b_ c* d_ e_ leaves both later underscores literal", async () => {
-    expect(await renderedHtml("_a *b_ c* d_ e_")).toContain(
+    expect(await oracleHtml("_a *b_ c* d_ e_")).toContain(
       "<em>a <strong>b</em> c</strong> d_ e_",
     );
     expect(shapes("_a *b_ c* d_ e_")).toEqual([
@@ -300,7 +300,7 @@ describe("curved-quote spans (issue #74)", () => {
 
   describe.each(CURVED_ROWS)("$name", (row) => {
     test("the oracle's render", async () => {
-      expect(await renderedHtml(row.source)).toContain(row.oracleContains);
+      expect(await oracleHtml(row.source)).toContain(row.oracleContains);
     });
 
     test("the parser builds this shape", () => {
@@ -324,7 +324,7 @@ describe("a mark repeated three times", () => {
   // `bold</strong>`, so the second `<strong>` crosses the first one's
   // closing tag and no tree holds it.
   test("***bold*** is one unconstrained strong holding a literal mark", async () => {
-    expect(await renderedHtml("***bold***")).toContain(
+    expect(await oracleHtml("***bold***")).toContain(
       "<strong><strong>bold</strong></strong>",
     );
     expect(shapes("***bold***")).toEqual(['boldu["*bold"]', '"*"']);
@@ -334,7 +334,7 @@ describe("a mark repeated three times", () => {
   // content stops at the first `**`, and the inner `*` has a word
   // character on both sides so it is no mark to begin with.
   test("**a*b** is one unconstrained strong holding a literal mark", async () => {
-    expect(await renderedHtml("**a*b**")).toContain("<strong>a*b</strong>");
+    expect(await oracleHtml("**a*b**")).toContain("<strong>a*b</strong>");
     expect(shapes("**a*b**")).toEqual(['boldu["a*b"]']);
   });
 });

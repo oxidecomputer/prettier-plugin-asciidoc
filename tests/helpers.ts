@@ -104,6 +104,82 @@ const nullLogger = NullLogger.create();
 LoggerManager.setLogger(nullLogger);
 
 /**
+ * Renders AsciiDoc to HTML via Asciidoctor and hands back what the
+ * oracle emitted, byte for byte, with nothing normalized.
+ *
+ * This is the lens for pinning what the oracle SPELLS. A test whose
+ * expectation names `&#8217;` is making a claim about the bytes
+ * Asciidoctor writes, and {@link renderedHtml} cannot carry that
+ * claim by design: through it a numeric character reference and the
+ * character it names are one thing. So a byte pin reads the bytes
+ * here, and {@link renderedHtml} compares one render against another.
+ * @param input - AsciiDoc source text.
+ * @returns Asciidoctor's HTML in safe mode with logging suppressed.
+ */
+export async function oracleHtml(input: string): Promise<string> {
+  const result = await convert(input, {
+    safe: "safe",
+    logger: nullLogger,
+  });
+  if (typeof result !== "string") {
+    throw new TypeError("expected convert() to return a string");
+  }
+  return result;
+}
+
+/**
+ * The three characters that carry markup meaning in HTML text, and
+ * the named entity each one is spelled with. A numeric reference to
+ * one of them decodes to the NAME, never to the raw character, so
+ * that decoding can never turn text into something that reads as a
+ * tag or as the start of another entity.
+ */
+const MARKUP_CHARACTER_NAMES = new Map([
+  ["&", "&amp;"],
+  ["<", "&lt;"],
+  [">", "&gt;"],
+]);
+
+/**
+ * Decodes decimal and hex numeric character references to the
+ * characters they name. See {@link renderedHtml} for why numeric
+ * references decode and named entities do not.
+ *
+ * A form this cannot read as a character is left exactly as it
+ * stands. Each radix reads only its own alphabet: the alternation
+ * has no branch that would match a decimal form holding a hex letter
+ * (`&#4a;`), so a mixed form is not a reference and never parses.
+ * Of the forms that do parse, a code point past the Unicode range
+ * names nothing, and NUL is the byte the region sentinel is built
+ * from, so decoding one would forge a placeholder.
+ * @param html - HTML with its whitespace-significant regions stashed
+ * @returns the same HTML with numeric references decoded
+ */
+function decodeNumericReferences(html: string): string {
+  return html.replaceAll(
+    /&#(?:[xX][0-9a-fA-F]+|[0-9]+);/gv,
+    (match: string): string => {
+      // Between the `&#` and the `;` sits either an `x`-marked hex
+      // form or a decimal one; the marker says which radix reads it.
+      const body = match.slice(2, -1);
+      const codePoint = /^[xX]/v.test(body)
+        ? Number.parseInt(body.slice(1), 16)
+        : Number.parseInt(body, 10);
+      // Each branch's alphabet matches its radix, so the parse is
+      // never NaN; what remains ungoverned is the VALUE. A code
+      // point past the Unicode range names nothing, and NUL is the
+      // byte the region sentinel is built from, so decoding one
+      // would forge a placeholder.
+      if (!(codePoint > 0 && codePoint <= 0x10_ff_ff)) {
+        return match;
+      }
+      const character = String.fromCodePoint(codePoint);
+      return MARKUP_CHARACTER_NAMES.get(character) ?? character;
+    },
+  );
+}
+
+/**
  * Renders AsciiDoc to normalized HTML via Asciidoctor for
  * semantic-fidelity comparisons: asserting that formatting did
  * not change what a document MEANS, not just that it round-trips
@@ -130,6 +206,37 @@ LoggerManager.setLogger(nullLogger);
  * that break into the element; only `<pre>`, where a line break is
  * content, is exempt from it.
  *
+ * A NUMERIC character reference is read as the character it names.
+ * `&#43;` and `+` are the same character to a reader, and Asciidoctor
+ * spells one or the other depending on how the source reached it: a
+ * literal `+` stays `+`, while the `{plus}` attribute the formatter
+ * escapes with renders as `&#43;`. Comparing the two spellings as
+ * unequal reports a rendering change where the reader sees none, and
+ * once did (issue #33). Decimal (`&#NNN;`) and hex (`&#xHH;`) both
+ * decode, and only outside the stashed regions. That shelter is
+ * CONSERVATIVE, not semantic: an HTML reader decodes a reference
+ * inside `<code>` exactly as outside, so `` `a {plus} b` `` and
+ * `` `a + b` `` display identically yet compare unequal here. The
+ * decode shares the whitespace rules' zone so that every
+ * normalization stays out of verbatim regions (one rule, one zone),
+ * and the error it can make points only one way: a false FAILURE a
+ * test author sees and questions, never a false pass. The decode
+ * also runs after the line-break fold, so a newline a reference
+ * names (`&#10;`, which the oracle passes through) decodes to a
+ * newline that no longer folds. That too is harmless for equality,
+ * since both renders decode alike. A test that means to pin the
+ * SPELLING rather
+ * than compare two renders reads {@link oracleHtml} instead, which
+ * normalizes nothing.
+ *
+ * NAMED entities do NOT decode. `&amp;`, `&lt;`, `&gt;` and `&quot;`
+ * are HTML's structural escapes, and decoding them would leave text
+ * that reads as markup indistinguishable from markup. For the same
+ * reason a numeric reference that names one of `<`, `>` or `&`
+ * decodes to the NAMED spelling rather than the raw character: the
+ * two spellings still compare equal, and no comparison ever sees a
+ * `<` that the document did not mean as a tag.
+ *
  * KNOWN COST: an inline passthrough (`+++a  b+++`) renders as bare
  * text with no wrapping element, so a collapsed run inside one is
  * invisible here. The `<pre>`/`<code>` split is what the rendered
@@ -144,13 +251,7 @@ LoggerManager.setLogger(nullLogger);
  *   safe mode with logging suppressed.
  */
 export async function renderedHtml(input: string): Promise<string> {
-  const result = await convert(input, {
-    safe: "safe",
-    logger: nullLogger,
-  });
-  if (typeof result !== "string") {
-    throw new TypeError("expected convert() to return a string");
-  }
+  const result = await oracleHtml(input);
   // Stash every whitespace-significant region, normalize what is
   // left, then put the regions back. <pre> is stashed FIRST, so a
   // stashed <code> can never contain a placeholder: a source block
@@ -182,7 +283,7 @@ export async function renderedHtml(input: string): Promise<string> {
     /<code[^>]*>[\s\S]*?<\/code>/gv,
   );
   return (
-    withPlaceholders
+    decodeNumericReferences(withPlaceholders)
       .replaceAll(/[ \t]{2,}/gv, " ")
       // The second callback argument is the first capture — being
       // named does not change its position. (The `groups` object

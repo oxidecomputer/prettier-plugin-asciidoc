@@ -25,7 +25,7 @@
  * drift away from what `@asciidoctor/core` does.
  */
 import { describe, expect, test } from "vitest";
-import { formatAdoc, renderedHtml } from "../helpers.js";
+import { formatAdoc, oracleHtml, renderedHtml } from "../helpers.js";
 import { shapes } from "./inline-shape.js";
 import { scanReplacements } from "../../src/parse/inline/replacements.js";
 
@@ -78,7 +78,7 @@ interface Row {
  */
 function checkRow(row: Row): void {
   test("the oracle's render", async () => {
-    expect(await renderedHtml(row.source)).toContain(row.oracleContains);
+    expect(await oracleHtml(row.source)).toContain(row.oracleContains);
   });
 
   test("the scan finds these references", () => {
@@ -241,7 +241,7 @@ describe("what the rows refuse", () => {
   // the whitespace rewrite above it is a separate question.
   test("a tab is not the space the spaced row admits", async () => {
     expect(references("a\t--\tb")).toEqual([]);
-    expect(await renderedHtml("a\t--\tb")).toContain("a\t--\tb");
+    expect(await oracleHtml("a\t--\tb")).toContain("a\t--\tb");
     expect(await formatAdoc("a\t--\tb")).toBe("a -- b\n");
     expect(references("a -- b")).toEqual(["2:--"]);
   });
@@ -395,7 +395,7 @@ describe("references against the rest of the vocabulary", () => {
   // hold.
   test("a passthrough keeps its own dashes", async () => {
     const source = "x +a -- b+ c -- d y";
-    expect(await renderedHtml(source)).toContain(
+    expect(await oracleHtml(source)).toContain(
       "x a -- b c&#8201;&#8212;&#8201;d y",
     );
     expect(shapes(source)).toEqual([
@@ -412,7 +412,7 @@ describe("references against the rest of the vocabulary", () => {
 
   test("a bare URL keeps its own dashes, and the oracle replaces them", async () => {
     const source = "https://a.com/x--y and -- z";
-    expect(await renderedHtml(source)).toContain(
+    expect(await oracleHtml(source)).toContain(
       "https://a.com/x&#8212;&#8203;y",
     );
     expect(shapes(source)).toEqual(["link", '" and "', 'ref("--")', '" z"']);
@@ -423,9 +423,7 @@ describe("references against the rest of the vocabulary", () => {
 
   test("a reference inside a monospace span is a child of it", async () => {
     const source = "x `a--b` c";
-    expect(await renderedHtml(source)).toContain(
-      "<code>a&#8212;&#8203;b</code>",
-    );
+    expect(await oracleHtml(source)).toContain("<code>a&#8212;&#8203;b</code>");
     expect(shapes(source)).toEqual([
       '"x "',
       'monospacec["a",ref("--"),"b"]',

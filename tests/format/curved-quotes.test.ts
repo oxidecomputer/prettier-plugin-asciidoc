@@ -23,25 +23,30 @@
  *     points with their renders.
  */
 import { describe, expect, test } from "vitest";
-import { asParagraph, formatAdoc, renderedHtml } from "../helpers.js";
+import {
+  asParagraph,
+  formatAdoc,
+  oracleHtml,
+  renderedHtml,
+} from "../helpers.js";
 import { parse } from "../../src/parser.js";
 import { serializedKeys } from "../parser/reader-helpers.js";
 
 /**
  * One row's full verdict for a FIXED POINT: formatted bytes equal the
- * source plus a trailing newline, the render contains the given
- * oracle HTML, and a second format is stable.
+ * source plus a trailing newline, the oracle's render contains the
+ * given element, and a second format is stable.
  * @param source - the row's document, without its trailing newline
- * @param oracleHtml - the paragraph element the oracle renders
+ * @param oracleElement - the paragraph element the oracle renders
  */
 async function expectFixedPoint(
   source: string,
-  oracleHtml: string,
+  oracleElement: string,
 ): Promise<void> {
   const input = `${source}\n`;
   const out = await formatAdoc(input);
   expect(out).toBe(input);
-  expect(await renderedHtml(input)).toContain(oracleHtml);
+  expect(await oracleHtml(input)).toContain(oracleElement);
   expect(await formatAdoc(out)).toBe(out);
 }
 
@@ -84,8 +89,8 @@ describe("the twelve corruption witnesses", () => {
   test("the second mark of two, at the curved quote's close side, shortens; the render and idempotence still hold", async () => {
     const source = 'x "`__a__ and __b__`" y';
     const input = `${source}\n`;
-    const oracleHtml = "<p>x &#8220;<em>a</em> and <em>b</em>&#8221; y</p>";
-    expect(await renderedHtml(input)).toContain(oracleHtml);
+    const oracleElement = "<p>x &#8220;<em>a</em> and <em>b</em>&#8221; y</p>";
+    expect(await oracleHtml(input)).toContain(oracleElement);
     const out = await formatAdoc(input);
     expect(out).toBe('x "`__a__ and _b_`" y\n');
     expect(await renderedHtml(out)).toBe(await renderedHtml(input));
@@ -124,7 +129,7 @@ describe("the stray-mark witness: a block-wide scan, not a sibling scan", () => 
     const input = 'x [[[_a]]] "`b __c__`" y\n';
     const out = await formatAdoc(input);
     expect(out).toBe(input);
-    expect(await renderedHtml(input)).toContain(
+    expect(await oracleHtml(input)).toContain(
       '<p>x [<a id="_a"></a>] &#8220;b <em>c</em>&#8221; y</p>',
     );
     expect(await formatAdoc(out)).toBe(out);

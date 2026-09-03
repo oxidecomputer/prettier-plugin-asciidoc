@@ -8,16 +8,6 @@
 import { describe, test, expect } from "vitest";
 import { formatAdoc, renderedHtml } from "../helpers.js";
 
-/**
- * Decode the numeric entity Asciidoctor emits for `{plus}` so it can
- * be compared with a literal `+` from the same source character.
- * @param html - rendered HTML from the oracle
- * @returns the HTML with `&#43;` decoded
- */
-function decodePlusEntity(html: string): string {
-  return html.replaceAll("&#43;", "+");
-}
-
 describe("paragraph reflow", () => {
   // A short paragraph that fits within printWidth should remain
   // on a single line — no wrapping needed.
@@ -214,10 +204,9 @@ describe("paragraph reflow", () => {
     // (NOT a hard line break — Asciidoctor strips the item's indent
     // first, leaving a bare `+`). `{plus}` is the formatter's escape
     // for that character and Asciidoctor renders it as the numeric
-    // entity for the very same one, so the comparison decodes it.
-    expect(decodePlusEntity(await renderedHtml(out))).toBe(
-      decodePlusEntity(await renderedHtml(input)),
-    );
+    // reference for the very same one, which `renderedHtml` reads as
+    // that character.
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });
 });

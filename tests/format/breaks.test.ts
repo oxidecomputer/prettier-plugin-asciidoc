@@ -7,16 +7,6 @@ import {
 } from "../helpers.js";
 import { parse } from "../../src/parser.js";
 
-/**
- * Decode the numeric entity Asciidoctor emits for `{plus}` so it can
- * be compared with a literal `+` from the same source character.
- * @param html - rendered HTML from the oracle
- * @returns the HTML with `&#43;` decoded
- */
-function decodePlusEntity(html: string): string {
-  return html.replaceAll("&#43;", "+");
-}
-
 describe("thematic break formatting", () => {
   // Basic thematic break preserved.
   test("basic thematic break preserved", async () => {
@@ -147,11 +137,9 @@ describe("hard line break formatting", () => {
   ])("%j reads its ` +` as literal: %s", async (input, literal) => {
     const out = await formatAdoc(input);
     // `{plus}` is the formatter's escape for a trailing literal `+`,
-    // and Asciidoctor renders it as the numeric entity for the very
-    // same character, so the comparison decodes it.
-    expect(decodePlusEntity(await renderedHtml(out))).toBe(
-      decodePlusEntity(await renderedHtml(input)),
-    );
+    // and Asciidoctor renders it as the numeric reference for the very
+    // same character, which `renderedHtml` reads as that character.
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     const html = await renderedHtml(out);
     expect(html.includes("<br>")).toBe(!literal);
     expect(await formatAdoc(out)).toBe(out);
@@ -241,10 +229,11 @@ describe("a lone indented ` +` is the literal the oracle reads", () => {
   // `item +`, with no break anywhere.
   //
   // The formatter escapes that `+` as `{plus}`, which Asciidoctor
-  // renders as the numeric entity for the very same character, so the
-  // comparison decodes it. Only the READING is pinned here. The
-  // spelling is a print-side question of its own (issue #33): pinning
-  // the bytes would settle it by accident.
+  // renders as the numeric reference for the very same character, and
+  // `renderedHtml` reads a reference as the character it names. Only
+  // the READING is pinned here. The spelling is a print-side question
+  // of its own (issue #33): pinning the bytes would settle it by
+  // accident.
   test.each([
     ["a following item", ". item\n +\n. next\n"],
     // The same line with trailing blanks. Every line is rstripped
@@ -253,9 +242,7 @@ describe("a lone indented ` +` is the literal the oracle reads", () => {
     ["trailing blanks and nothing else", ". item\n +  \n"],
   ])("with %s, the ` +` reads as a literal plus", async (_name, input) => {
     const out = await formatAdoc(input);
-    expect(decodePlusEntity(await renderedHtml(out))).toBe(
-      decodePlusEntity(await renderedHtml(input)),
-    );
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });
 
