@@ -142,17 +142,26 @@ describe("hard line break parsing", () => {
   // `tokenizeRun` appends the document's newline to a run only when
   // the source really has one there, so that every token's image stays
   // a verbatim slice of the source. At EOF without a trailing newline
-  // there is nothing to append, and a trailing ` +` therefore has no
-  // newline to break — it stays text. (Asciidoctor renders this `a<br>`
-  // instead; the divergence is pre-existing and filed, not fixed here.)
-  test("a trailing ` +` at EOF with no newline is text, not a hard break", () => {
+  // there is none to append, and the hard-break rule takes the end of
+  // input for the end of a line anyway, because Ruby matches
+  // HardLineBreakRx against the rstripped line and the last line of a
+  // document is a line like any other. Asciidoctor renders this
+  // `a<br>` and so do we now (issue #70).
+  test("a trailing ` +` at EOF with no newline is still a hard break", () => {
     const { children } = parse("a +");
     expect(asParagraph(children[0]).children).toEqual([
       {
         type: "text",
-        value: "a +",
+        value: "a",
         position: {
           start: { offset: 0, line: 1, column: 1 },
+          end: { offset: 1, line: 1, column: 2 },
+        },
+      },
+      {
+        type: "hardLineBreak",
+        position: {
+          start: { offset: 1, line: 1, column: 2 },
           end: { offset: 3, line: 1, column: 4 },
         },
       },

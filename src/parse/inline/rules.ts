@@ -27,6 +27,7 @@ import {
 import { CURVED_WIDTH, type CurvedScan } from "./curved-quotes.js";
 import { UNCONSTRAINED_WIDTH } from "./doubled-marks.js";
 import { matchPassthrough } from "./passthrough.js";
+import { ASCII_HORIZONTAL_WHITESPACE } from "../line-shapes.js";
 import { DELIM_WIDTH } from "../../constants.js";
 
 /**
@@ -295,6 +296,24 @@ const biblioAnchorMatch = pattern(/\[\[\[[^\]\n]+\]\]\]/v);
 // (inline-node-builder.ts's `makeInlineMacro`).
 const MACRO_NAMES =
   "link|mailto|xref|image|icon|kbd|btn|menu|footnoteref|footnote|pass|stem|latexmath|asciimath";
+
+// A hard line break, enumerated ONCE for the same reason MACRO_NAMES
+// is: the HardLineBreak rule matches it and InlineText's stop
+// lookahead has to refuse the very same shape, one character earlier.
+//
+// Ruby's HardLineBreakRx is `^(.*) \+$` (rx.rb), matched against the
+// RSTRIPPED line - `Helpers.prepare_source_string` rstrips every line
+// before any rule runs. This module reads the run's RAW bytes, where
+// the line's trailing blanks are still there and where the last line
+// of a document may have no newline at all. So the same rule spelled
+// in the raw dialect is: a ` +` with nothing after it but horizontal
+// blanks, up to the newline or the end of input.
+//
+// The blanks are consumed (they are not content); the newline is left
+// for InlineNewline. The printer respells every hard break as the
+// canonical " +" (HARD_BREAK_IMAGE, src/print/reflow.ts), so the wider
+// image never reaches the output.
+const HARD_BREAK = String.raw` \+${ASCII_HORIZONTAL_WHITESPACE.source}*(?=\n|$)`;
 
 // A bare email address - InlineEmailRx, which our ORACLE,
 // `@asciidoctor/core` 4.0.11, spells at `build/node/index.cjs` l.518 as
@@ -772,12 +791,12 @@ export const INLINE_RULES: readonly InlineRule[] = [
     match: (text: string, index: number, scan: FragmentScan): number =>
       scan.replacements.get(index) ?? 0,
   },
-  // ` +` at end of line — HardLineBreakRx (`^(.*) \+$` after
-  // `adjust_indentation!`). The newline is left for InlineNewline.
-  // Context-free on purpose: the one shape Asciidoctor reads as a
-  // literal `+` instead is decided by the reader's literal-plus rule
-  // (lines/paragraph-reader.ts), which tells the caller.
-  { type: "HardLineBreak", match: pattern(/ \+(?=\n)/v) },
+  // ` +` at end of line - HardLineBreakRx, in the raw-run dialect
+  // {@link HARD_BREAK} transcribes. Context-free on purpose: the one
+  // shape Asciidoctor reads as a literal `+` instead is decided by the
+  // reader's literal-plus rule (lines/paragraph-reader.ts), which
+  // tells the caller.
+  { type: "HardLineBreak", match: pattern(new RegExp(HARD_BREAK, "v")) },
   // Not an Asciidoctor construct: Ruby reads a paragraph line by line,
   // so the line break inside one is structure it never has to match.
   // We tokenize the whole run at once and need it as a token.
@@ -791,14 +810,16 @@ export const INLINE_RULES: readonly InlineRule[] = [
   // passthrough is not: a run that swallowed the `+` in `a +text+ b`
   // would hide the opening delimiter from the Passthrough rule, which
   // is only ever tried at a position the run has not already taken.
-  // The ` +\n` lookahead stays for the hard break, whose match starts
-  // one character EARLIER, at the space. Ruby has no equivalent:
+  // The {@link HARD_BREAK} lookahead stays for the hard break, whose
+  // match starts one character EARLIER, at the space; the run must
+  // stop before EVERY break that rule accepts, or it takes the space
+  // first and the break is gone. Ruby has no equivalent:
   // substitutors.rb rewrites the whole line with `gsub`, so
   // "everything else" is never named.
   {
     type: "InlineText",
     match: textMatcher(
-      `(?:(?!https?://|(?:${MACRO_NAMES}):| \\+\\n)[^\\n*_\`#\\\\\\{\\[<+])+`,
+      `(?:(?!https?://|(?:${MACRO_NAMES}):|${HARD_BREAK})[^\\n*_\`#\\\\\\{\\[<+])+`,
     ),
   },
 ];

@@ -266,7 +266,7 @@ export default defineConfig(
   {
     files: [
       "src/parse/build/list.ts", // :132 `if (children.length === 0) return;`
-      "src/parse/inline/rules.ts", // :429 `if (at < resume) return undefined;`
+      "src/parse/inline/rules.ts", // :448 `if (at < resume) return undefined;`
       "src/parse/lines/list-item-node.ts", // :169 `if (last === undefined) return markerLine.line;`
       "src/print/span-edges.ts", // :254, :274 `if (!isSpanNode(neighbour)) return undefined;`
     ],

@@ -207,3 +207,26 @@ describe("hard line break formatting", () => {
     ]);
   });
 });
+
+describe("a hard break survives trailing whitespace and EOF", () => {
+  // Ruby matches HardLineBreakRx against the RSTRIPPED line, so
+  // trailing blanks and a missing final newline are invisible to the
+  // oracle: "a +  " IS a hard break. The tokenizer sees raw bytes and
+  // must speak the same dialect (issues #70, #33 shape 3).
+  test.each([
+    ["a +  \nb\n", "a +\nb\n"],
+    ["a +\t\nb\n", "a +\nb\n"],
+    ["a +", "a +\n"],
+  ])("%j formats to %j", async (input, expected) => {
+    expect(await formatAdoc(input)).toBe(expected);
+  });
+
+  test.each(["a +  \nb\n", "a +"])(
+    "%j renders the same formatted",
+    async (input) => {
+      expect(await renderedHtml(await formatAdoc(input))).toBe(
+        await renderedHtml(input),
+      );
+    },
+  );
+});

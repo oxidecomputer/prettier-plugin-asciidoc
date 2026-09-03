@@ -408,6 +408,13 @@
   {
     "file": "src/parse/line-shapes.ts",
     "symbol": "ASCII_HORIZONTAL_WHITESPACE",
+    "importer": "src/parse/inline/rules.ts",
+    "kind": "vocabulary",
+    "reason": "the ASCII horizontal-whitespace class a `[^\\S\\n]`-shaped pattern means, so the hard-break rule's \"nothing after it but blanks\" is the same class the line shapes rstrip by, rather than a second one (issue #70)"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "ASCII_HORIZONTAL_WHITESPACE",
     "importer": "src/print/serialize-inline.ts",
     "kind": "vocabulary",
     "reason": "the ASCII horizontal-whitespace class a `[^\\S\\n]`-shaped pattern means, so joining a multi-line macro or link text's source lines cannot swallow a no-break space beside the join as if it were indentation (issue #75)"

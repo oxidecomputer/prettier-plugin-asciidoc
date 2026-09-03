@@ -228,9 +228,12 @@ describe("the rule table, by hand", () => {
     // `+` so the Passthrough rule gets a look at every one of them.
     ["a +\n", ["InlineText", "HardLineBreak", "InlineNewline"]],
     ["a + b", ["InlineText", "InlineChar", "InlineText"]],
-    // `\r` is not special: it stays inside the text run, which is why
-    // ` +\r\n` is NOT a hard break (existing behaviour, preserved).
-    ["a +\r\n", ["InlineText", "InlineChar", "InlineText", "InlineNewline"]],
+    // A `\r` before the newline is horizontal blank like any other:
+    // Ruby matches HardLineBreakRx against the RSTRIPPED line, where
+    // the `\r` is already gone, so ` +\r\n` IS a hard break and the
+    // oracle renders `a<br>` (issue #70). The `\r` is part of the
+    // token's image and the printer respells it away.
+    ["a +\r\n", ["InlineText", "HardLineBreak", "InlineNewline"]],
     // The passthrough forms, matched as ONE token each: constrained
     // (`+text+`), unconstrained (`++text++`, `+++text+++`), and with
     // the attrlist Ruby's own patterns allow in front. Everything
