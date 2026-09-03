@@ -6,8 +6,9 @@
  * (terminations, codas, garnishes, and for every valid spelling its
  * near-misses), and byte operators (document-level transforms applied
  * to realized inputs). Each entry is a named, DETERMINISTIC string
- * generator. The list-run grid lives in its sibling module,
- * scripts/shape-registry-list-run.ts, built from this file's Shape
+ * generator. The list-run grid and the width-2 pair grid live in their
+ * own sibling modules, scripts/shape-registry-list-run.ts and
+ * scripts/shape-registry-pairs.ts, built from this file's Shape
  * vocabulary; the byte-operator dimension lives in its own sibling
  * module, scripts/shape-registry-byte-operators.ts, re-exported below.
  *
@@ -437,6 +438,12 @@ export const PERTURBATIONS: readonly PerturbationEntry[] = [
 // `ByteOperatorEntry` stays declared where it is used (no consumer
 // needs the type by name, only the value).
 export { BYTE_OPERATORS } from "./shape-registry-byte-operators.js";
+
+// The width-2 pair grid lives in its own module for the same
+// max-lines reason. `pairGrid` and `pairAlphabet` are re-exported here
+// so they still read as this registry's vocabulary; `PairAlphabetMember`
+// stays declared where it is used.
+export { pairAlphabet, pairGrid } from "./shape-registry-pairs.js";
 
 /** One generated shape. */
 export interface Shape {

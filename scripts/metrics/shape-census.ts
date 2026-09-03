@@ -9,8 +9,17 @@
  * rosters below in BOTH directions. Rule (iv): every construct
  * dimension either reaches a realized grid or is named in GRID_EXEMPT
  * with its reason. Rule
- * (v): the realized grids are exactly the sizes pinned below. A pure
- * set difference over runtime values, never a parse.
+ * (v): the realized grids are exactly the sizes pinned below,
+ * `pairGrid()` included. A pure set difference over runtime values,
+ * never a parse.
+ *
+ * The pair grid runs its own rule (iv) analog
+ * (`pairAlphabetCoverageFailures`): every pair-alphabet member,
+ * `CONSTRUCTS`' bodies and near misses again, this time squared, must
+ * reach a realized `pairGrid()` input. It has no GRID_EXEMPT twin
+ * because the pair alphabet has no leaf-line carve-out: every member
+ * pairs with every other member, so an unreached one names a wrong
+ * body, not a construct outside grid surface.
  *
  * Rules (iii)–(v) exist because rules (i)–(ii) reach only
  * `CONSTRUCTS`: deleting one container and one perturbation once
@@ -42,6 +51,8 @@ import {
   CONSTRUCTS,
   CONTAINERS,
   headingAdjacencyGrid,
+  pairAlphabet,
+  pairGrid,
   PERTURBATIONS,
   standingGrid,
 } from "../shape-registry.js";
@@ -239,7 +250,11 @@ const GRID_EXEMPT = new Map<string, string>([
 // positions plus 9 named explicit rows (the original 4 + the 5 R2
 // rows); the
 // list-run grid is a standing selection (its arithmetic is
-// spelled at listRunGrid()). New rows are realizable against any
+// spelled at listRunGrid()); the pair grid is a 104-member alphabet
+// (every CONSTRUCTS body plus every near miss) squared, x 2 joins
+// (adjacent, blank) x 3 containers (doc, item, dlist-desc-line) =
+// 64,896, with no realized duplicates to dedupe away at that size. New
+// rows are realizable against any
 // base — shape-diff hands head-generated inputs to the base dumper —
 // so a grid extension moves its pin DELIBERATELY, in the same commit,
 // to the count the new source list produces; it is not a number to
@@ -247,6 +262,7 @@ const GRID_EXEMPT = new Map<string, string>([
 const STANDING_GRID_SIZE = 3278;
 const HEADING_ADJACENCY_GRID_SIZE = 79;
 const LIST_RUN_GRID_SIZE = 104;
+const PAIR_GRID_SIZE = 64_896;
 
 /**
  * Rule (i): every delimiter kind has a registry dimension.
@@ -372,16 +388,43 @@ function gridCoverageFailures(inputs: readonly string[]): string[] {
 }
 
 /**
+ * The pair grid's rule (iv) analog: every pair-alphabet member (a
+ * construct body or one of its near misses) must reach at least one
+ * realized `pairGrid()` input, the same "canonical spelling appears in
+ * a realized input" test rule (iv) runs for `CONSTRUCTS`. Unlike rule
+ * (iv), this has no exemption map: `PAIR_CONTAINER_IDS` is a fixed
+ * three-container subset, but every alphabet member pairs with every
+ * other member, so an unreached member means the member's own body is
+ * wrong (empty, or a substring of something else), not that the
+ * dimension is legitimately outside grid surface.
+ * @param pairInputs - every realized pairGrid() shape's input document
+ * @returns one message per alphabet member that reaches no pair row
+ */
+function pairAlphabetCoverageFailures(pairInputs: readonly string[]): string[] {
+  const reaches = (body: string): boolean =>
+    pairInputs.some((input) => input.includes(body));
+  return pairAlphabet().flatMap((member) =>
+    reaches(member.body)
+      ? []
+      : [
+          `shape census: pair alphabet member ${member.id} reaches no realized pairGrid() input (rule (iv) analog): its body never appears inside a realized pair; check the alphabet entry in scripts/shape-registry-pairs.ts`,
+        ],
+  );
+}
+
+/**
  * Rule (v): the realized grids are the sizes pinned in this module.
  * @param standing - the standing grid's realized length
  * @param adjacency - the heading-adjacency grid's realized length
  * @param listRun - the list-run grid's realized length
+ * @param pair - the pair grid's realized length
  * @returns one message per shrunk or grown grid
  */
 function gridSizeFailures(
   standing: number,
   adjacency: number,
   listRun: number,
+  pair: number,
 ): string[] {
   const failures: string[] = [];
   if (standing !== STANDING_GRID_SIZE) {
@@ -397,6 +440,11 @@ function gridSizeFailures(
   if (listRun !== LIST_RUN_GRID_SIZE) {
     failures.push(
       `shape census: listRunGrid() realized ${String(listRun)} shapes, not the pinned ${String(LIST_RUN_GRID_SIZE)} (rule (v)) — the realized grid no longer matches the pin, and a shrink narrows the net silently; move the pin in scripts/metrics/shape-census.ts only when the change is deliberate`,
+    );
+  }
+  if (pair !== PAIR_GRID_SIZE) {
+    failures.push(
+      `shape census: pairGrid() realized ${String(pair)} shapes, not the pinned ${String(PAIR_GRID_SIZE)} (rule (v)): the realized grid no longer matches the pin, and a shrink narrows the net silently; move the pin in scripts/metrics/shape-census.ts only when the change is deliberate`,
     );
   }
   return failures;
@@ -454,6 +502,11 @@ export function censusPins(): CensusPin[] {
       realized: listRunGrid().length,
       pinned: LIST_RUN_GRID_SIZE,
     },
+    {
+      what: "pair grid",
+      realized: pairGrid().length,
+      pinned: PAIR_GRID_SIZE,
+    },
   ];
 }
 
@@ -465,9 +518,11 @@ export function shapeCensusFailures(): string[] {
   const standing = standingGrid();
   const adjacency = headingAdjacencyGrid();
   const listRun = listRunGrid();
+  const pair = pairGrid();
   const inputs = [...standing, ...adjacency, ...listRun].map(
     (shape) => shape.input,
   );
+  const pairInputs = pair.map((shape) => shape.input);
   return [
     ...delimiterKindFailures(),
     ...exportNameFailures(),
@@ -487,6 +542,12 @@ export function shapeCensusFailures(): string[] {
       BYTE_OPERATOR_IDS,
     ),
     ...gridCoverageFailures(inputs),
-    ...gridSizeFailures(standing.length, adjacency.length, listRun.length),
+    ...pairAlphabetCoverageFailures(pairInputs),
+    ...gridSizeFailures(
+      standing.length,
+      adjacency.length,
+      listRun.length,
+      pair.length,
+    ),
   ];
 }
