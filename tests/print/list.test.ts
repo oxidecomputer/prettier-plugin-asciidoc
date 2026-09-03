@@ -1,18 +1,20 @@
 /**
- * `print/list.ts` — the decisions a list item's printer makes before
- * any Doc is built: the marker it replays, the checkbox prefix whose
- * width is the item's extra indent, whether the item's TAIL would
- * swallow the next marker line, and the gap each of its blocks prints
- * behind.
+ * `print/list.ts` — the decisions a list item's printer makes: the
+ * marker it replays, the checkbox prefix whose width is the item's
+ * extra indent, the gap each of its blocks prints behind, and whether
+ * the LINES the item comes out as would swallow the next marker line.
  *
- * The fixtures are PARSED, not hand-built: every shape a row asks
- * about is one the reader produces, so a row can never pin a state
- * the printer will not be handed. The rules are Ruby's
+ * No fixture is hand-built. The node rows are PARSED, so a row can
+ * never pin a state the printer will not be handed; the line rows are
+ * FORMATTED, so they are the printer's real output rather than a
+ * guess at it (each of those documents is one item, so the whole
+ * output is that item's lines). The rules are Ruby's
  * (`read_lines_for_list_item`, parser.rb) — a nested marker sharing
  * its parent's spelling must print adjacent, and a marker an indented
  * literal's slurp would swallow needs a blank line in front of it.
  */
 import { describe, expect, test } from "vitest";
+import { formatAdoc } from "../helpers.js";
 import {
   buildMarker,
   formatCheckbox,
@@ -63,6 +65,19 @@ const NO_LITERAL = "* a\n[role]\n** b\n";
 // marker and the gap take `ListNode | undefined`. This is that absent
 // parent, named so the rows read as the fallback they are about.
 const NO_PARENT_LIST: ListNode | undefined = undefined;
+
+/**
+ * The output lines of a document that is ONE list item — the unit
+ * {@link tailSwallowsMarker} answers in, taken from the printer
+ * rather than written out beside the source.
+ * @param source - a document whose whole body is one list item
+ * @returns the lines it is printed as, without the trailing newline's
+ *   empty tail
+ */
+async function itemLines(source: string): Promise<string[]> {
+  const formatted = await formatAdoc(source);
+  return formatted.split("\n").slice(0, -1);
+}
 
 describe("the marker an item replays", () => {
   test.each([
@@ -142,7 +157,7 @@ describe("whether an item's tail swallows the next marker line", () => {
     ["an item ending on an indented literal", "* a\n\n  lit\n", true],
     // The slurp does not care what KIND of line follows the literal —
     // metadata, a delimited block, a marker: it takes them all
-    // (parser.rb l.1539), so the boundary behind them is still inside it.
+    // (parser.rb l.1546), so the boundary behind them is still inside it.
     [
       "an item whose literal stands behind trailing metadata",
       "* a\n\n  lit\n[[anc]]\n",
@@ -158,24 +173,39 @@ describe("whether an item's tail swallows the next marker line", () => {
       "* a\n\n  lit\n[[anc]]\n* a\n",
       true,
     ],
-    ["an item ending on an attached paragraph", "* a\n+\npara\n", false],
-    // A `+` in the printed gap is where the slurp stops
-    // (break_on_list_continuation), so the tail behind it is out of
-    // reach.
     [
-      "an item whose literal is cut off by a `+` gap",
+      "an item whose literal stands behind a nested marker",
+      "* a\n\n  lit\n[role]\n** b\n",
+      true,
+    ],
+    ["an item ending on an attached paragraph", "* a\n+\npara\n", false],
+    // A `+` is where the slurp stops
+    // (break_on_list_continuation), so the tail behind it is out of
+    // reach — unless the line after it opens a literal of its own.
+    [
+      "an item whose literal is cut off by a `+`",
       "* a\n\n  lit\n+\npara\n",
       false,
     ],
-    // The blank here is one printedGap INVENTS in front of the nested
-    // marker; it stops the slurp the same way an authored blank would.
+    // "Let block metadata play out until we find the block"
+    // (parser.rb l.1499-1501): the continuation is still live under
+    // the `[role]`, so the indented line below it opens a literal.
     [
-      "an item whose literal is cut off by the printer's own blank",
-      "* a\n\n  lit\n[role]\n** b\n",
+      "an item whose live `+` reaches a literal through metadata",
+      "* a\n+\n[role]\n  lit\n",
+      true,
+    ],
+    // After a BLANK there is no such tolerance: the branch breaks the
+    // item on anything but a marker, a `+` or an indented line
+    // (parser.rb l.1537-39), so the metadata run below the marker
+    // never reaches a slurp.
+    [
+      "an item whose indented tail follows a marker and metadata",
+      "* a\n\n** b\n[role]\n  lit\n",
       false,
     ],
     [
-      "an item ending on a nested list whose last item ends on one",
+      "an item ending on a nested list whose last item ends on a literal",
       "* a\n** b\n\n   lit\n",
       true,
     ],
@@ -185,19 +215,12 @@ describe("whether an item's tail swallows the next marker line", () => {
       false,
     ],
     // The item PRINTS its trailing `+`, so that `+` is the last line
-    // it writes: it already stops the slurp, and a blank in front of
-    // the next marker would put a line between the tail and the `+`
-    // that the source never had.
+    // it writes: nothing follows it to open a literal, and a blank in
+    // front of the next marker would put a line between the tail and
+    // the `+` that the source never had.
     ["an item that prints a trailing continuation", "* a\n\n  lit\n+\n", false],
-  ])("%s: %o", (_rule, source, swallows) => {
-    expect(tailSwallowsMarker(itemOf(source), listOf(source))).toBe(swallows);
-  });
-
-  test("with no parent list to ask, no marker matches and the twin gains the blank that stops the slurp", () => {
-    // The same-marker row above, asked without its parent: printedGap's
-    // marker arm cannot fire, so the twin is placed behind an INVENTED
-    // blank instead of adjacently, and that blank stops the slurp.
-    expect(tailSwallowsMarker(itemOf(SAME_MARKER), NO_PARENT_LIST)).toBe(false);
+  ])("%s: %o", async (_rule, source, swallows) => {
+    expect(tailSwallowsMarker(await itemLines(source))).toBe(swallows);
   });
 });
 
@@ -216,17 +239,22 @@ describe("the gap a block prints behind", () => {
     expect(printedGap(item, list, 2)).toEqual([]);
   });
 
-  test("an empty gap in front of a marker the literal's slurp would swallow gains a blank line", () => {
+  // The slurp that would swallow this marker runs INSIDE the item,
+  // over the item's own lines, and re-parsing them gives the same
+  // blocks back — so the gap is replayed and the blank that stops a
+  // slurp reaching PAST the item is left to the boundary
+  // ({@link tailSwallowsMarker}).
+  test("an empty gap in front of a marker the literal's slurp would swallow is replayed", () => {
     const list = listOf(SWALLOWED_MARKER);
-    expect(printedGap(list.children[0], list, 2)).toEqual([""]);
+    expect(printedGap(list.children[0], list, 2)).toEqual([]);
   });
 
-  test("a gap that already stops the slurp is replayed verbatim", () => {
+  test("a `+` gap in front of a nested marker is replayed verbatim", () => {
     const list = listOf(STOPPED_SLURP);
     expect(printedGap(list.children[0], list, 1)).toEqual(["+"]);
   });
 
-  test("with no literal earlier in the item, the empty gap is replayed", () => {
+  test("an empty gap in front of a nested marker is replayed", () => {
     const list = listOf(NO_LITERAL);
     expect(printedGap(list.children[0], list, 1)).toEqual([]);
   });

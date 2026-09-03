@@ -415,23 +415,6 @@ describe("trailing +-run spellings are fixed points (B1/B2)", () => {
   });
 });
 
-// Blocker B3: the blank the baseline invented before an
-// in-item nested list is load-bearing where a literal paragraph's
-// re-read slurp (`read_lines_until break_on_blank_lines`) would run
-// through adjacent metadata into the marker — and past the item's end
-// into the NEXT item's marker. printedGap re-invents exactly that
-// blank (`slurpReaches`), and the re-parsed gap [""] then replays
-// verbatim: idempotent by construction.
-describe("a literal's slurp cannot swallow a following nested marker (B3)", () => {
-  test("lit, [role], nested marker, then a sibling", async () => {
-    const input = "* a\n\n  lit\n[role]\n** b\n\n* a\n";
-    const once = await formatAdoc(input);
-    expect(once).toBe("* a\n\n  lit\n[role]\n\n** b\n* a\n");
-    expect(await renderedHtml(once)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(once)).toBe(once);
-  });
-});
-
 // One full mutation pass found four rules whose one-line
 // mutation changed real bytes while every test still passed: the corpus
 // carried three of them and the sweep saw the fourth, but the sweep
@@ -454,33 +437,35 @@ describe("byte pins for rules only the corpus and the sweep reached", () => {
       "* a\n\n** b\n+\n** b\n",
       "* a\n\n** b\n+\n** b\n",
     ],
-    // tailSwallowsMarker looks THROUGH a trailing nested list — the
-    // previous item's last printed thing is the literal inside
-    // `** b`, so the sibling still needs the blank line that stops the
-    // literal's re-read slurp (B3, one level down). Mutant without the
-    // nested-list arm: "* a\n\n** b\n[role]\n  lit\n* a\n", whose
-    // second pass moves the marker into the literal.
+    // The indented tail here opens NO literal: after a blank the
+    // reader's loop takes the marker line through its nestable arm
+    // (parser.rb l.1530-32) and everything below it through the final
+    // else (l.1560-69), so no slurp is running when the item ends and
+    // the sibling stays adjacent. Mutants that let any indented line
+    // start one write a blank the source never had:
+    // "* a\n\n** b\n[role]\n  lit\n\n* a\n".
     [
-      "a literal ending a nested list still separates the siblings",
+      "an indented tail behind a marker line swallows nothing",
       "* a\n\n** b\n[role]\n  lit\n* a\n",
-      "* a\n\n** b\n[role]\n  lit\n\n* a\n",
+      "* a\n\n** b\n[role]\n  lit\n* a\n",
     ],
-    // printedGap invents its blank only for an EMPTY gap: here the gap
-    // is ["+"] and that `+` is the author's, so it must be replayed.
-    // Mutants that drop the gap-emptiness test print the blank
-    // instead: "* a\n  .T\n[role]\n\n** b\n", which re-reads the
-    // nested list as a detached block of no item. Counterfactual: the
-    // old bytes were "* a .T\n+\n[role]\n+\n** b\n", whose first
-    // `+` the printer invented.
+    // A gap of ["+"] is the author's `+` and must be replayed:
+    // printedGap touches a nested list's gap only to DROP a blank in
+    // front of a same-marker twin, never to add one. Mutants that
+    // print a blank here instead give
+    // "* a\n  .T\n[role]\n\n** b\n", which re-reads the nested
+    // list as a detached block of no item. Counterfactual: the old
+    // bytes were "* a .T\n+\n[role]\n+\n** b\n", whose first `+`
+    // the printer invented.
     [
       "a +-gapped nested list keeps its +, and the text keeps its break",
       "* a\n.T\n[role]\n+\n** b\n",
       "* a\n  .T\n[role]\n+\n** b\n",
     ],
-    // …and only where a literal's slurp really reaches: a metadata run
-    // directly above an ADJACENT nested list gets no blank at all.
-    // Mutants that default slurpReaches to true invent one:
-    // "* a\n[role]\n\n** b\n".
+    // …and a metadata run directly above an ADJACENT nested list
+    // gets no blank at all. Mutants that make the gap arm invent one
+    // print "* a\n[role]\n\n** b\n", which re-reads the nested list
+    // as a detached block of no item.
     [
       "an adjacent nested list under metadata gets no blank",
       "* a\n[role]\n** b\n",
@@ -502,10 +487,10 @@ describe("byte pins for rules only the corpus and the sweep reached", () => {
       "* a\npara\n[role]\n+\n////\nc\n////\n",
       "* a\n  para\n[role]\n+\n////\nc\n////\n",
     ],
-    // slurpReaches stops at the first NON-EMPTY gap: the literal is
-    // three blocks back but a `+` stands between it and the nested
-    // list, so the literal's re-read slurp cannot reach the marker and
-    // no blank is invented. Mutant without the stop:
+    // A `+` is where every slurp stops, so the literal three blocks
+    // back reaches neither the nested marker nor the item's end, and
+    // the recorded gaps replay untouched. Mutants that invent a blank
+    // in front of the nested list print
     // "* a\n\n  lit\n+\npara\n[role]\n\n** b\n".
     [
       "a + between the literal and the marker ends the slurp's reach",
@@ -543,33 +528,18 @@ describe("byte pins for rules only the corpus and the sweep reached", () => {
     expect(await formatAdoc(once)).toBe(once);
   });
 
-  // The same family, one row apart: slurpReaches walks the blocks
-  // BEFORE the nested list, never the ones after it. Here the item's
-  // last block (`para`, behind a `+`) would stop a backwards walk that
-  // started at the end, so a mutant walking all the blocks answers
-  // false and drops the blank the literal needs.
-  //
-  // No render-equality assertion, and here is the anchor for that: this
-  // shape belongs to the LITERAL-INDENT family that list-shape-sweep's
-  // FAILING_TODAY names ("`  lit` runs the reader re-shapes",
-  // pre-existing, tracked by the conformance issues) — its shorter
-  // cousin "* a\npara\n[role]\n  lit\n** b\n.T\n" is one of that
-  // allowlist's 14. This document itself is NOT in the sweep's document
-  // set: the alphabet's exhaustive part stops at suffix length 3 and its
-  // seeded part draws 4-5, and this is a 6-symbol suffix, which is why
-  // the row lives here rather than in the allowlist.
-  //
-  // Pre-existing, verified rather than assumed: the same input at
-  // baseline c331bfbd (materialized with `git archive`) formats to the
-  // BYTE-IDENTICAL "* a\n\n  lit\n[role]\n\n** b\n+\npara\n", is
-  // idempotent there, and already fails render-equality there. So head
-  // changes nothing about this shape; the byte and the fixed point are
-  // what this row pins, and the rendering gap is the family's, not
-  // this row's.
-  test("the slurp walk starts at the nested list, not at the item's end", async () => {
+  // The same family, one row apart: the item's own lines end on
+  // `para`, behind a `+` that stops every slurp, so the item swallows
+  // nothing and the nested marker keeps its recorded adjacency. A
+  // mutant that answers the boundary from the item's BLOCKS instead
+  // of its lines reaches the literal three blocks back and writes
+  // "* a\n\n  lit\n[role]\n\n** b\n+\npara\n", which detaches the
+  // nested list from the item that holds it.
+  test("a `+` between the literal and the item's end stops the slurp", async () => {
     const input = "* a\n\n  lit\n[role]\n** b\n+\npara\n";
     const once = await formatAdoc(input);
-    expect(once).toBe("* a\n\n  lit\n[role]\n\n** b\n+\npara\n");
+    expect(once).toBe(input);
+    expect(await renderedHtml(once)).toBe(await renderedHtml(input));
     expect(await formatAdoc(once)).toBe(once);
   });
 });

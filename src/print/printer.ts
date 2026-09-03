@@ -152,7 +152,7 @@ const printer: Printer<AnyNode> = {
         );
       }
       case "list": {
-        return printList(node, path, print);
+        return printList(path, print, options);
       }
       case "listItem": {
         return printListItem(node, path, print, options.printWidth);

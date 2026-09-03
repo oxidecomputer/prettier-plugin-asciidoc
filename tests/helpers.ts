@@ -10,7 +10,7 @@
  * validates that the build artifact works end-to-end. Do not refactor
  * identity.test.ts to use this shared helper — that would defeat its purpose.
  */
-import { format } from "prettier";
+import { format, type Options } from "prettier";
 import { LoggerManager, NullLogger, convert } from "@asciidoctor/core";
 import type {
   BlockNode,
@@ -30,12 +30,16 @@ import { narrow } from "../src/narrow.js";
  * @param options - optional Prettier overrides; the asciidoc parser
  *   and plugin are always injected regardless of what is passed here
  * @param options.printWidth - line width limit for the formatter
+ * @param options.endOfLine - the line terminator Prettier writes; the
+ *   printer reads its own output back to place a list item boundary
+ *   (`printedLines`, src/print/list.ts), so this is the one option
+ *   besides the width that changes what that rule sees
  * @returns the formatted output string; Prettier always appends a
  *   trailing newline, so callers can rely on that invariant
  */
 export async function formatAdoc(
   input: string,
-  options?: { printWidth?: number },
+  options?: { printWidth?: number; endOfLine?: Options["endOfLine"] },
 ): Promise<string> {
   return await format(input, {
     parser: "asciidoc",

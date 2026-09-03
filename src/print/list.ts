@@ -5,26 +5,24 @@
  * same way. Split out of src/print/blocks.ts by responsibility.
  */
 import { doc, type Doc } from "prettier";
-import type {
-  BlockNode,
-  GapLine,
-  ItemBlock,
-  ListItemNode,
-  ListNode,
-} from "../ast.js";
+import type { GapLine, ListItemNode, ListNode } from "../ast.js";
 import { MARKER_OFFSET } from "../constants.js";
+import {
+  CONTINUATION_LINE,
+  LITERAL_LINE,
+  continuationMetadataKind,
+  isDelimiterLine,
+  rstrip,
+} from "../parse/line-shapes.js";
 import { inlineAtoms } from "./inline.js";
 import { hazard } from "./list-hazard.js";
 import { blockBody, keepTextOnFirstRestLine } from "./reflow.js";
-import type { PrintFunction, PrintPath } from "./blocks.js";
+import type { PrintFunction, PrintOptions, PrintPath } from "./blocks.js";
 
 const {
   builders: { hardline },
+  printer: { printDocToString },
 } = doc;
-
-// One blank line, as a gap: what a re-read literal slurp forces in
-// front of an otherwise-adjacent nested list (see printedGap).
-const BLANK_GAP: readonly GapLine[] = [""];
 
 /**
  * Prints a list node: items separated by hard line
@@ -33,16 +31,18 @@ const BLANK_GAP: readonly GapLine[] = [""];
  * Items at different depths are handled by the nested
  * ListNode structure — each ListItemNode prints its own
  * nested children recursively.
- * @param node - The list node.
  * @param path - Prettier's AST path, used to recurse
  *   into list items via `path.map(print, "children")`.
  * @param print - Prettier's recursive print callback.
+ * @param options - the print options in force, for rendering an
+ *   item's finished Doc back to the lines it will be written as
+ *   ({@link printedLines}).
  * @returns Doc IR for the formatted list.
  */
 export function printList(
-  node: ListNode,
   path: PrintPath,
   print: PrintFunction,
+  options: PrintOptions,
 ): Doc {
   const items = path.map(print, "children");
   const parts: Doc[] = [];
@@ -57,9 +57,10 @@ export function printList(
       // DERIVED, not recorded: it is printed exactly where the tail
       // would swallow this marker, whatever the author typed, and
       // nowhere else.
-      const previous = node.children[index - 1];
       parts.push(
-        tailSwallowsMarker(previous, node) ? [hardline, hardline] : hardline,
+        tailSwallowsMarker(printedLines(items[index - 1], options))
+          ? [hardline, hardline]
+          : hardline,
       );
     }
     parts.push(item);
@@ -68,94 +69,196 @@ export function printList(
 }
 
 /**
- * Whether a block is an indented literal paragraph — the ONE spelling
- * of the fact both slurp rules consume: such a block re-reads with
- * `read_lines_until break_on_blank_lines`, a slurp that runs through
- * adjacent metadata and marker lines, so both "does the slurp run off
- * the item's END" ({@link tailSwallowsMarker}, printList's double
- * hardline) and "does one stand earlier, connected by empty gaps"
- * ({@link slurpReaches}, printedGap's invented blank) are questions
- * about this shape; tests/format/list-item-blocks.test.ts's literal
- * rows pin both. The next slurp rule starts here.
- * @param block - a block node
- * @returns true for an indented literal paragraph
+ * The lines one item will actually be written as.
+ *
+ * Prettier's own Doc renderer, on the item's own finished Doc — so
+ * these are the printer's bytes, not a model of them. An item's Doc
+ * carries its indentation as literal spaces (the packer writes them,
+ * src/print/reflow.ts) and no enclosing `indent`, so rendering it
+ * apart from its list produces exactly the lines the list will
+ * contain.
+ *
+ * Rendered at `endOfLine: "lf"` whatever the document is being
+ * written with, because the question the boundary rule asks is about
+ * line CONTENT and every reader of the finished file agrees about
+ * that. A terminator is uniform across an output, and
+ * `Helpers.prepare_source_string` rewrites `\r\n` and then a bare
+ * `\r` to `\n` before it splits anything (src/parse/lines/split.ts),
+ * so a `crlf` or `cr` file yields the very lines an `lf` one does.
+ * Reading the probe at the document's own terminator instead is what
+ * makes the rule fail OPEN: under `crlf` every line comes off the
+ * split carrying its `\r`, and under `cr` there is no `\n` in the
+ * output at all, so the whole item arrives as ONE line. Either way no
+ * line equals `""`, no `+` line matches {@link CONTINUATION_LINE} and
+ * no delimiter matches, so no slurp is ever seen to start or stop and
+ * every boundary blank is dropped — the corruption this rule exists
+ * to prevent, spelled by the line ending.
+ *
+ * Each line is RSTRIPPED on top of that, so the probe's dialect is
+ * the reader's by construction rather than by an argument spanning
+ * three files. It is a normalization, not a defence, and the
+ * difference is worth stating: the reader rstrips every source line
+ * as it splits, and Prettier trims spaces and tabs off a line as it
+ * breaks, so between them nothing with trailing whitespace reaches
+ * this probe today - measured over the depth-4 sweep's 11,128
+ * documents and the 1,614-document conformance corpus, where no
+ * probe line differs from its rstripped self. What the two do NOT
+ * share is the vertical tab and the form feed, which the reader
+ * calls blank and Prettier's trim leaves standing; keeping the map
+ * means this rule does not depend on the reader continuing to strip
+ * them upstream.
+ *
+ * Rendering an item BEFORE its list is placed is safe because the
+ * printer builds no `group` and no `fill`: the whole Doc is strings,
+ * arrays and hardlines, so there is no break state for the renderer's
+ * `propagateBreaks` to settle early and differently.
+ * @param item - one item's finished Doc
+ * @param options - the print options in force; only the width is read
+ *   as given, the terminator being fixed above
+ * @returns the item's output lines, in order
  */
-function isIndentedLiteral(block: BlockNode): boolean {
-  return block.type === "delimitedBlock" && block.form === "indented";
+function printedLines(item: Doc, options: PrintOptions): string[] {
+  // A typed binding rather than an inline literal: the renderer's own
+  // options type does not DECLARE `endOfLine` (it reads it all the
+  // same), and a fresh literal would be rejected for the extra
+  // property. `PrintOptions` declares it, so the widening is the
+  // plugin's own option type rather than an assertion.
+  const probeOptions: PrintOptions = { ...options, endOfLine: "lf" };
+  return printDocToString(item, probeOptions)
+    .formatted.split("\n")
+    .map((line) => rstrip(line));
 }
 
 /**
- * Whether a marker line printed DIRECTLY under this item would read
- * back INSIDE it rather than as the sibling it is — the question
- * printList asks at every item boundary.
+ * What the lines read so far leave open, as far as a literal
+ * paragraph's slurp is concerned — the only state
+ * {@link tailSwallowsMarker} has to carry. ONE value rather than a
+ * set of flags: the four are mutually exclusive, because the reader
+ * is either inside a slurp, or standing where one could start, or in
+ * neither, and never in two of those at once.
+ */
+type SlurpState =
+  /** Nothing pending: no slurp, and no position one could start from. */
+  | "settled"
+  /** A blank line stands here (parser.rb l.1513-19). */
+  | "afterBlank"
+  /** A `+` is live, metadata still playing out (parser.rb l.1435-40). */
+  | "underContinuation"
+  /** An indented literal's read is running. */
+  | "slurping";
+
+/**
+ * Whether the item's OWN OUTPUT LINES leave a literal paragraph's
+ * slurp running when they end, so that a marker line written directly
+ * under them is read as part of the item instead of as the sibling it
+ * is — the question printList asks at every item boundary.
  *
- * The reader ends an item at a sibling marker only when its own loop
- * reads that line (`is_sibling_list_item?`, parser.rb l.1430, and l.1519
- * for the line after a blank). An indented literal denies it the
- * chance: the literal re-reads with `read_lines_until
- * break_on_blank_lines, break_on_list_continuation` (parser.rb l.1488
- * and l.1539), a slurp that runs through metadata, block delimiters and
- * marker lines alike and stops only at a blank or a `+`. So the tail
- * is walked BACKWARDS from the last line the item prints: a literal
- * the walk reaches swallows the boundary; a nested list is descended
- * into, since its own last item's tail is what the printed lines
- * actually end on; and the first gap the walk crosses that the PRINTER
- * will write non-empty stops it, because a blank or a `+` is where the
- * slurp stops. The gaps are the printed ones, not the recorded ones —
- * {@link printedGap} both invents and drops blanks, and only what is
- * written is read back. An item that PRINTS a trailing `+`
- * ({@link ListItemNode.trailingContinuation}) answers false: that `+`
- * already stops the slurp, and a blank in front of the marker would
- * put a line between the tail and the `+` that the source never had.
- * An item whose popped `+` proved inert prints no such line, so the
- * walk runs past where it stood and asks the tail the same question
- * every other item gets.
+ * Asked of the LINES, because that is the only unit in which it has
+ * an answer. The reader ends an item at a sibling marker only when
+ * its own loop reads that line (`is_sibling_list_item?`, parser.rb
+ * l.1430 and l.1519), and one thing takes the line away from the
+ * loop: an indented literal's slurp (`read_lines_until
+ * break_on_blank_lines, break_on_list_continuation`, parser.rb l.1495
+ * and l.1546), which runs through metadata, delimiters and marker
+ * lines alike and stops only at a blank or a `+`. So the item
+ * swallows the boundary exactly when one is still running on its last
+ * line.
  *
- * A recorded indented literal counts wherever the walk reaches it —
- * the same spelling {@link slurpReaches} asks about, deliberately, and
- * the CONSERVATIVE side of the question: an indented block the reader
- * recorded but Ruby re-reads as folded text takes a blank it does not
- * need, which costs a byte and no meaning. The gap in front of the
- * literal cannot be the test — under a live `+` the continuation
- * survives a metadata line, so `* a\n+\n[role]\n  lit\n\n* a\n` slurps
- * from a literal whose own gap is empty (the list-shape sweep fails
- * that shape the moment the walk demands one).
- * @param item - the item the boundary follows
- * @param list - the list holding it, for the gaps its blocks print
- *   behind
+ * The lines are walked in the reader's own order, and every shape
+ * that moves the state is the line-shape registry's
+ * (src/parse/line-shapes.ts) rather than a guess at one:
+ *
+ * - a slurp starts only from a blank or a live `+`, and only on a
+ *   line that is itself indented ({@link LITERAL_LINE}). After a
+ *   blank the branch tests a sibling marker, a `+` and a nestable
+ *   marker first and breaks the item on anything else (parser.rb
+ *   l.1537-39); under a `+` block metadata "plays out until we find
+ *   the block" ({@link continuationMetadataKind}, parser.rb
+ *   l.1483-1501), so the slurp can start several lines below it —
+ *   `* a\n+\n[role]\n  lit\n\n* a\n` slurps from a literal the `+`
+ *   does not touch.
+ * - a DELIMITED block is opaque. Its lines never reach the item's
+ *   loop at all: the delimiter is buffered and `read_lines_until
+ *   terminator:` takes the body whole (parser.rb l.1455-61), so an
+ *   indented line inside an example block opens nothing. A slurp
+ *   already running swallows the delimiter like any other line, which
+ *   is why the skip is asked only when none is.
+ *
+ * An item ending on a blank or a `+` has nothing after it to open a
+ * slurp, which is how a printed trailing continuation
+ * ({@link ListItemNode.trailingContinuation}) and a detached tail
+ * ({@link ListItemNode.detachedTail}) answer: both write a `+` last.
+ *
+ * KNOWN CONSERVATIVE in one place: a `+` that is the second of an
+ * adjacent run is FROZEN (parser.rb l.1443-49) and starts no
+ * continuation, so a literal under one is slurped by nothing. Such an
+ * item takes a blank it does not need, which costs a byte and no
+ * meaning.
+ * @param lines - the item's output lines ({@link printedLines})
  * @returns true when the marker line needs a blank in front of it
  * Exported for its unit test (tests/print/list.test.ts); no src
  * consumer.
  * @internal
  */
-export function tailSwallowsMarker(
-  item: ListItemNode,
-  list: ListNode | undefined,
-): boolean {
-  if (item.trailingContinuation) {
-    return false;
-  }
-  // The printed detached tail — one blank and a `+` — already stands
-  // between the item's last block and the marker line, and a `+` is
-  // where every slurp stops.
-  if (item.detachedTail) {
-    return false;
-  }
-  for (const [index, { block }] of [...item.blocks.entries()].toReversed()) {
-    if (isIndentedLiteral(block)) {
-      return true;
+export function tailSwallowsMarker(lines: readonly string[]): boolean {
+  let state: SlurpState = "settled";
+  let index = 0;
+  while (index < lines.length) {
+    if (state !== "slurping" && isDelimiterLine(lines[index])) {
+      index = closingDelimiter(lines, index) + 1;
+      state = "settled";
+      continue;
     }
-    if (block.type === "list") {
-      const lastItem = block.children.at(-1);
-      if (lastItem !== undefined && tailSwallowsMarker(lastItem, block)) {
-        return true;
-      }
-    }
-    if (printedGap(item, list, index).length > 0) {
-      return false;
+    state = afterLine(state, lines[index]);
+    index += 1;
+  }
+  return state === "slurping";
+}
+
+/**
+ * The state one more line leaves behind.
+ * @param state - what the lines before it left open
+ * @param line - the next output line
+ * @returns the state after reading it
+ */
+function afterLine(state: SlurpState, line: string): SlurpState {
+  if (line === "") {
+    return "afterBlank";
+  }
+  if (CONTINUATION_LINE.test(line)) {
+    return "underContinuation";
+  }
+  if (state === "slurping") {
+    return "slurping";
+  }
+  if (
+    state === "underContinuation" &&
+    continuationMetadataKind(line) !== undefined
+  ) {
+    return "underContinuation";
+  }
+  return state !== "settled" && LITERAL_LINE.test(line)
+    ? "slurping"
+    : "settled";
+}
+
+/**
+ * Where a delimited block opened at `open` closes: the next line
+ * SPELLED the same way, which is the `terminator` Ruby matches
+ * (parser.rb l.1460). An unterminated block runs to the item's end,
+ * and the index past the last line is what says so.
+ * @param lines - the item's output lines
+ * @param open - the index of the opening delimiter
+ * @returns the closing delimiter's index, or the line count
+ */
+function closingDelimiter(lines: readonly string[], open: number): number {
+  const terminator = lines[open];
+  for (let index = open + 1; index < lines.length; index += 1) {
+    if (lines[index] === terminator) {
+      return index;
     }
   }
-  return false;
+  return lines.length;
 }
 
 /**
@@ -332,41 +435,34 @@ export function printListItem(
 
 /**
  * The gap one block prints behind — the recorded one, adjusted in the
- * cases where verbatim replay would not read back as the same
- * structure, both involving a nested list:
+ * ONE case where verbatim replay would not read back as the same
+ * structure: a nested list may SHARE its parent item's marker, and
+ * then it must print ADJACENT.
  *
- * - a nested list may SHARE its parent item's marker, and then it must
- *   print ADJACENT. Behavior is Ruby's (`read_lines_for_list_item`,
- *   parser.rb l.1404-1592): the item's read runs THROUGH an indented
- *   literal and the metadata behind it, so the marker line after them
- *   lands INSIDE the item however it is spelled — the oracle reads the
- *   second `* a` of `* a\n\n  lit\n[[anc]]\n* a\n` as a nested list, and
- *   reads the same document with one blank line more as two siblings.
- *   So any blank-only gap in front of such a list reads back as a
- *   SIBLING boundary — worse, the sibling probe eats the blank, so a
- *   second pass prints different bytes. A gap carrying a `+` is left
- *   alone: the `+` is live and must survive. Checked FIRST: the blank
- *   the next arm invents would end the item at a sibling boundary
- *   instead. Pinned by the same-marker rows in
- *   tests/format/marker-spelling.test.ts and by the list-shape sweep.
- * - an empty gap gets a blank line invented in front of the list when
- *   the marker would otherwise be SWALLOWED on re-read (the blank is
- *   safe — after one, `read_lines_for_list_item` keeps every nestable
- *   marker in the item — and the next pass re-parses it AS [""],
- *   which the replay reproduces: idempotent). One reading needs it,
- *   tested precisely ({@link slurpReaches}): an indented literal
- *   earlier in the item re-reads with a slurp (`read_lines_until
- *   break_on_blank_lines`) that runs THROUGH adjacent metadata and
- *   marker lines, so a marker connected to the literal by empty gaps
- *   would be swallowed into it — and, past the item's end, so would
- *   the next item's marker (B3,
- *   `* a\n\n  lit\n[role]\n** b\n\n* a\n`).
- *   The arm deliberately does NOT fire elsewhere: under a frozen `+`
- *   raw line the adjacency is load-bearing the other way (a blank
- *   would erase the `+` chain on re-read — the family the cut-over
- *   fixed), and plain verbatim replay is already a fixed point.
+ * Behavior is Ruby's (`read_lines_for_list_item`, parser.rb
+ * l.1404-1592): the item's read runs THROUGH an indented literal and
+ * the metadata behind it, so the marker line after them lands INSIDE
+ * the item however it is spelled — the oracle reads the second `* a`
+ * of `* a\n\n  lit\n[[anc]]\n* a\n` as a nested list, and reads the
+ * same document with one blank line more as two siblings. So any
+ * blank-only gap in front of such a list reads back as a SIBLING
+ * boundary — worse, the sibling probe eats the blank, so a second
+ * pass prints different bytes. A gap carrying a `+` is left alone: the
+ * `+` is live and must survive. Pinned by the same-marker rows in
+ * tests/format/marker-spelling.test.ts and by the list-shape sweep.
  *
- * The first arm compares the two RECORDED STYLES, not a
+ * NO blank is invented in front of a nested list the item's own
+ * literal slurp would swallow, and the asymmetry with
+ * {@link tailSwallowsMarker} is the whole point: a slurp that runs
+ * INSIDE the item takes the item's own lines into the item's own
+ * buffer, which is re-parsed from those same lines and gives the same
+ * blocks back. It is only where a slurp runs PAST the item's last
+ * line that it reaches a line belonging to somebody else, and the
+ * blank that stops it belongs there, at the boundary, not several
+ * lines above it — an invented blank here ends the item early instead
+ * and detaches everything behind it.
+ *
+ * The comparison is between the two RECORDED STYLES, not a
  * reconstruction and not the printed bytes: `ListNode.marker` is the
  * style the classifier resolved, and the re-read's own test
  * (`is_sibling_list_item?`, parser.rb l.2280) compares resolved
@@ -377,8 +473,7 @@ export function printListItem(
  * @param node - the item being printed
  * @param parentList - its list, for the marker STYLE (the printed
  *   spelling is the item's own, {@link buildMarker})
- * @param index - which of the item's blocks is being placed (the
- *   first keeps its adjacency to the text)
+ * @param index - which of the item's blocks is being placed
  * @returns the gap to print
  * Exported for its unit test (tests/print/list.test.ts); no src
  * consumer.
@@ -389,41 +484,11 @@ export function printedGap(
   parentList: ListNode | undefined,
   index: number,
 ): readonly GapLine[] {
-  const { blocks } = node;
-  const { gap, block } = blocks[index];
-  if (block.type !== "list") {
-    return gap;
-  }
-  if (block.marker === parentList?.marker) {
+  const { gap, block } = node.blocks[index];
+  if (block.type === "list" && block.marker === parentList?.marker) {
     return gap.includes("+") ? gap : [];
   }
-  if (index > 0 && gap.length === 0 && slurpReaches(node.blocks, index)) {
-    return BLANK_GAP;
-  }
   return gap;
-}
-
-/**
- * Whether the re-read literal slurp reaches the block at `index`: an
- * indented literal stands earlier in the item, connected to it by
- * EMPTY gaps only. The slurp (`read_lines_until break_on_blank_lines,
- * break_on_list_continuation`) consumes every adjacent line whatever
- * its shape, and stops only at a blank or a `+` — which is exactly a
- * non-empty gap.
- * @param blocks - the item's blocks, in source order
- * @param index - the block being placed
- * @returns true when a literal's slurp would swallow it on re-read
- */
-function slurpReaches(blocks: readonly ItemBlock[], index: number): boolean {
-  for (const previous of blocks.slice(0, index).toReversed()) {
-    if (isIndentedLiteral(previous.block)) {
-      return true;
-    }
-    if (previous.gap.length > 0) {
-      return false;
-    }
-  }
-  return false;
 }
 
 /**

@@ -10,15 +10,35 @@
  * one exception, printing from its parsed number rather than its
  * spelling; the "callout control" row pins that. What NESTS is a
  * separate field, `ListNode.marker`, which carries the style the
- * spelling resolves to. The third describe
- * pins the shape the replay does NOT make impossible: two lists the
- * author genuinely wrote with the SAME marker can still nest, because
- * an item's read runs through an indented literal and its metadata,
- * and such a pair must print ADJACENT or the re-read turns it into
- * siblings. The fourth reads that same fact backwards: where the read
- * runs that far, two SIBLINGS need a blank between them, and the
- * printer derives it. The gP names in row comments are opaque probe
- * ids.
+ * spelling resolves to. The gP names in row comments are opaque
+ * probe ids.
+ *
+ * The describes are named for what they pin, and each names the rule
+ * it belongs to rather than its neighbours' positions:
+ *
+ * - "a nested list that SHARES its parent's marker prints adjacent"
+ *   is the shape the replay does not make impossible: two lists the
+ *   author genuinely wrote with the same marker can still nest,
+ *   because an item's read runs through an indented literal and its
+ *   metadata, and such a pair must print ADJACENT or the re-read
+ *   turns it into siblings.
+ * - "a sibling boundary the re-read would swallow gets its blank"
+ *   reads that same fact backwards: where the read runs that far, two
+ *   SIBLINGS are spelled with a blank between them, and the printer
+ *   DERIVES that blank from its own output lines rather than
+ *   replaying what the author typed - so the rows run both ways,
+ *   boundaries that gain a blank and boundaries that stay adjacent.
+ * - "a slurp that stays inside the item needs no blank" is the OTHER
+ *   rule, and the one that keeps the two from being one describe: it
+ *   is about the gap between an item's own BLOCKS, where a slurp
+ *   swallows only the item's own lines and no blank may be invented
+ *   (`printedGap`, src/print/list.ts). The describe above it is about
+ *   the boundary BETWEEN items, where a slurp reaches somebody else's
+ *   marker line and a blank must be (`tailSwallowsMarker`).
+ * - "the boundary survives a non-LF line terminator" is the boundary
+ *   rule under the two non-LF spellings a document can ask for; the
+ *   probe renders its lines at LF, so the spelling must not change
+ *   the verdict.
  */
 import { describe, expect, test } from "vitest";
 import { formatAdoc, renderedHtml } from "../helpers.js";
@@ -152,6 +172,22 @@ describe("a sibling boundary the re-read would swallow gets its blank", () => {
       "a literal behind metadata under a live `+`",
       "* a\n+\n[role]\n  lit\n\n* b\n",
     ],
+    // The slurp reaches the boundary from further in: through the
+    // metadata AND the nested marker behind the literal, and out of a
+    // nested item's own tail. Where the author already spelled the
+    // blank, the derivation writes the same one back.
+    [
+      "lit, an attrlist, a nested marker, then a sibling",
+      "* a\n\n  lit\n[role]\n** b\n\n* a\n",
+    ],
+    [
+      "lit, metadata, an attached paragraph, then a sibling",
+      "* a\n\n  lit\n[[anc]]\npara\n\n* a\n",
+    ],
+    [
+      "a literal ending a nested item, then a sibling",
+      "* a\n\n** b\n\n  lit\n\n* a\n",
+    ],
   ])("%s", async (_name, input) => {
     const out = await formatAdoc(input);
     expect(out).toBe(input);
@@ -170,15 +206,14 @@ describe("a sibling boundary the re-read would swallow gets its blank", () => {
     expect(await formatAdoc(out)).toBe(out);
   });
 
-  // The CONSERVATIVE side of the question, pinned as the cost it is:
-  // an indented block the reader recorded as a literal but Asciidoctor
-  // folds into the item's text takes a blank it does not need. Bytes
-  // move, meaning does not — and the walk cannot tell the two apart
-  // without deciding, per block, whether a continuation is still live.
-  test("a literal the oracle folds into text still takes the blank", async () => {
+  // An indented line reached by neither a blank nor a live `+` opens
+  // no literal at all: the reader's loop takes it through the final
+  // else (parser.rb l.1560-69), so nothing is slurping when the item
+  // ends and the sibling needs no blank.
+  test("an indented line the loop reads as text swallows nothing", async () => {
     const input = "* a\n[role]\n  lit\n[[anc]]\n* b\n";
     const out = await formatAdoc(input);
-    expect(out).toBe("* a\n[role]\n  lit\n[[anc]]\n\n* b\n");
+    expect(out).toBe(input);
     expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });
@@ -193,11 +228,6 @@ describe("a sibling boundary the re-read would swallow gets its blank", () => {
       "a literal cut off by a `+` gap",
       "* a\n\n  lit\n+\npara\n\n* b\n",
       "* a\n\n  lit\n+\npara\n* b\n",
-    ],
-    [
-      "a literal cut off by the printer's own blank",
-      "* a\n\n  lit\n[role]\n** b\n\n* a\n",
-      "* a\n\n  lit\n[role]\n\n** b\n* a\n",
     ],
     [
       "a literal behind an authored blank",
@@ -230,4 +260,120 @@ describe("a sibling boundary the re-read would swallow gets its blank", () => {
     expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
   });
+});
+
+// The other half of the same rule: a slurp that runs INSIDE an item
+// takes the item's own lines into the item's own buffer, which is
+// re-parsed from those same lines and gives the same blocks back. So
+// nothing is invented in front of them — a blank written here would
+// end the item at the blank instead, detaching everything behind it
+// and changing what the document says. Every one of these documents
+// is its own output.
+describe("a slurp that stays inside the item needs no blank", () => {
+  test.each([
+    ["metadata, then a nested marker", "* a\n\n  lit\n[[anc]]\n** b\n* a\n"],
+    ["an attrlist, then a nested marker", "* a\n\n  lit\n[role]\n** b\n* a\n"],
+    [
+      "a nested item's literal, then metadata",
+      "* a\n** b\n\n  lit\n[[anc]]\n* a\n",
+    ],
+    [
+      "a nested item's literal, then an attrlist",
+      "* a\n** b\n\n  lit\n[role]\n* a\n",
+    ],
+    [
+      "a nested item's `+` literal, then metadata",
+      "* a\n** b\n+\n  lit\n[[anc]]\n* a\n",
+    ],
+    [
+      "a nested item's `+` literal, then an attrlist",
+      "* a\n** b\n+\n  lit\n[role]\n* a\n",
+    ],
+    [
+      "a `+` literal, metadata, then a nested marker",
+      "* a\n+\n  lit\n[[anc]]\n** b\n* a\n",
+    ],
+    [
+      "a `+` literal, an attrlist, then a nested marker",
+      "* a\n+\n  lit\n[role]\n** b\n* a\n",
+    ],
+    // Longer than the sweep's product spells, and the shape the issue
+    // was filed on: the slurp crosses metadata AND a paragraph before
+    // it reaches the marker.
+    [
+      "a `+` literal, metadata, a paragraph, then a marker",
+      "* a\n** b\n+\n  lit\n[[anc]]\npara\n* a\n",
+    ],
+  ])("%s", async (_name, input) => {
+    const once = await formatAdoc(input);
+    expect(once).toBe(input);
+    expect(await renderedHtml(once)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(once)).toBe(once);
+  });
+});
+
+// The boundary rule reads the printer's OWN OUTPUT LINES, and a
+// document's line TERMINATOR is not part of any of them. Read at the
+// document's own terminator the rule fails OPEN in two different
+// spellings: under `crlf` every line carries a trailing `\r`, and
+// under `cr` the output holds no `\n` at all, so the whole item
+// arrives as ONE line. Either way no blank, no `+` and no delimiter
+// is ever seen, no slurp is seen to start or stop, and every boundary
+// blank is dropped - which the oracle, whose reader rewrites both
+// spellings to `\n` before it splits, reads as the marker swallowed.
+// The probe renders at `lf` instead (`printedLines`,
+// src/print/list.ts), so all three terminators get the same answer.
+//
+// The output is normalized before ANY comparison, on both sides.
+// That is issue #68: the oracle treats a bare `\r` as a line break
+// and our own reader treats it as trailing whitespace, so a `cr`
+// output fed back unnormalized is one line to us and seven to the
+// oracle, and neither the render nor the fixed point would be asking
+// about the same document.
+describe("the boundary survives a non-LF line terminator", () => {
+  const shapes: ReadonlyArray<readonly [string, string]> = [
+    [
+      "lit, [role], nested marker, then a sibling",
+      "* a\n\n  lit\n[role]\n** b\n\n* a\n",
+    ],
+    [
+      "lit, metadata, an attached paragraph, then a sibling",
+      "* a\n\n  lit\n[[anc]]\npara\n\n* a\n",
+    ],
+    [
+      "a literal ending a nested item, then a sibling",
+      "* a\n\n** b\n\n  lit\n\n* a\n",
+    ],
+  ];
+  const terminators: ReadonlyArray<readonly ["crlf" | "cr", string]> = [
+    ["crlf", "\r\n"],
+    ["cr", "\r"],
+  ];
+  test.each(
+    terminators.flatMap(([endOfLine, terminator]) =>
+      shapes.map(
+        ([name, input]) =>
+          [`${endOfLine}: ${name}`, input, endOfLine, terminator] as const,
+      ),
+    ),
+  )("%s", async (_name, input, endOfLine, terminator) => {
+    const out = await formatAdoc(input, { endOfLine });
+    const normalized = out.replaceAll(terminator, "\n");
+    // The bytes are the LF output with these terminators - blank line
+    // and all - so the boundary held.
+    expect(normalized).toBe(input);
+    expect(await renderedHtml(normalized)).toBe(await renderedHtml(input));
+  });
+
+  // A crlf output re-fed at crlf is a byte-level fixed point. A cr
+  // output gets no such row: our reader does not split on bare `\r`
+  // (issue #68), so re-reading one would be asking about a different
+  // document.
+  test.each(shapes)(
+    "crlf: %s is a byte-level fixed point",
+    async (_name, input) => {
+      const out = await formatAdoc(input, { endOfLine: "crlf" });
+      expect(await formatAdoc(out, { endOfLine: "crlf" })).toBe(out);
+    },
+  );
 });

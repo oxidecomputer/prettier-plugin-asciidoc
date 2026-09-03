@@ -526,6 +526,13 @@
   },
   {
     "file": "src/parse/line-shapes.ts",
+    "symbol": "CONTINUATION_LINE",
+    "importer": "src/print/list.ts",
+    "kind": "vocabulary",
+    "reason": "the one spelling of a `+` line; the printer reads its own output lines with the same pattern the reader classifies source lines by, so the two cannot disagree about where a literal's slurp stops"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
     "symbol": "DELIMITED_BLOCK_PATTERNS",
     "importer": "src/parse/lines/classify.ts",
     "kind": "vocabulary",
@@ -607,6 +614,13 @@
     "importer": "src/parse/lines/classify.ts",
     "kind": "vocabulary",
     "reason": "registry pattern: an indented literal line"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "LITERAL_LINE",
+    "importer": "src/print/list.ts",
+    "kind": "vocabulary",
+    "reason": "the one spelling of an indented line (`LiteralParagraphRx`); the boundary rule asks it about the line the printer is about to write, which is the same question the re-read will ask of that byte"
   },
   {
     "file": "src/parse/line-shapes.ts",
@@ -708,6 +722,20 @@
   },
   {
     "file": "src/parse/line-shapes.ts",
+    "symbol": "continuationMetadataKind",
+    "importer": "src/parse/lines/classify.ts",
+    "kind": "vocabulary",
+    "reason": "the one answer to 'does a live list continuation play out across this line'; the reader's kind names are declared against it so the registry and LineKind cannot drift apart"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "continuationMetadataKind",
+    "importer": "src/print/list.ts",
+    "kind": "vocabulary",
+    "reason": "the one answer to 'does a live list continuation play out across this line' (parser.rb l.1499-1501); the printer must skip exactly the lines the reader skips, or the slurp it predicts starts on a different line than the one that starts it"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
     "symbol": "interruptsByLineShape",
     "importer": "src/print/reflow.ts",
     "kind": "vocabulary",
@@ -719,6 +747,13 @@
     "importer": "src/parse/lines/classify.ts",
     "kind": "vocabulary",
     "reason": "the one answer to 'does this line interrupt this paragraph context', which is the registry's interrupting sets"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "isDelimiterLine",
+    "importer": "src/print/list.ts",
+    "kind": "vocabulary",
+    "reason": "the one spelling of a delimited block's opening line; the item-boundary rule must call the same lines opaque that the reader's item loop hands to `read_lines_until terminator:`, or it reads an example block's interior as the item's own"
   },
   {
     "file": "src/parse/line-shapes.ts",
@@ -810,6 +845,13 @@
     "importer": "src/parse/lines/split.ts",
     "kind": "vocabulary",
     "reason": "the one line-normalization helper; Ruby's reader rstrips, so every consumer must strip the same way"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "rstrip",
+    "importer": "src/print/list.ts",
+    "kind": "vocabulary",
+    "reason": "the oracle's own per-line rstrip (`prepare_source_string`); the item-boundary rule reads the printer's output lines and must hand them to the registry in the same dialect the reader hands it source lines, or a CRLF terminator makes every shape test fail open"
   },
   {
     "file": "src/parse/line-shapes.ts",

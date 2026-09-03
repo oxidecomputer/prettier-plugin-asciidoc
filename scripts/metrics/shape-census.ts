@@ -90,6 +90,10 @@ const EXEMPT = new Map<string, string>([
     "pure reading over CONDITIONAL_DIRECTIVE, which the conditional-directive dimension already covers; this one answers what the line does to the reader's conditional stack, not what shape it is",
   ],
   [
+    "continuationMetadataKind",
+    "names which of four metadata shapes a live list continuation plays out across; each of the four (block title, block attribute line, block anchor, attribute entry) already has its own dimension",
+  ],
+  [
     "isDescriptionListLine",
     "pure predicate over the dlist patterns; the dlist-term dimension covers the shape",
   ],

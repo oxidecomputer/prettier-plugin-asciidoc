@@ -40,6 +40,7 @@ import {
   PAGE_BREAK,
   SECTION_TITLE,
   THEMATIC_BREAK,
+  continuationMetadataKind,
   interruptsParagraph,
   isRawParagraphLine,
   optionalGroup,
@@ -507,46 +508,44 @@ type MetadataLineKind = Extract<
 >["kind"];
 
 /**
- * "Let block metadata play out until we find the block" - which of the
- * four shapes parser.rb:1499-1501 keeps `continuation == :active`
- * across a line is, if any.
- *
- * Arms in Ruby's own order: a block title (`ch0 == '.'`), a block
- * attribute line (`ch0 == '['`), then an attribute entry
- * (`ch0 == ':'`). Ruby's `BlockAttributeLineRx` (rx.rb:184) carries
- * the `[[anchor]]` form as one of its alternatives and this registry
- * spells that alternative as a pattern of its own, so the anchor is
- * tested where Ruby's second arm would have matched it.
- *
- * A COMMENT is deliberately absent: Ruby's test does not name one, so
- * a comment falls to the else arm at parser.rb:1502 and CONSUMES the
- * continuation (oracle-confirmed; the unit row is in
- * tests/parser/item-extent.test.ts).
- *
- * A DIFFERENT question from the one {@link classifyLine} answers for a
- * block's first line, and deliberately not funnelled into it: Ruby
- * asks this one inside `read_lines_for_list_item` with three arms in
- * this order, and the other inside `parse_block_metadata_line` with
- * the anchor tested FIRST and an attribute entry parsed rather than
- * matched. Two Ruby sites, two orders, two consequences.
- * @param line - one rstripped source line
- * @returns which metadata shape it is, or undefined when it is none
+ * The registry's own answer set, read off the function rather than
+ * respelled here - a second spelling would be the drift the
+ * declaration below exists to catch.
  */
-export function metadataLineKind(line: string): MetadataLineKind | undefined {
-  if (BLOCK_TITLE.test(line)) {
-    return "blockTitle";
-  }
-  if (BLOCK_ATTRIBUTE_LINE.test(line)) {
-    return "attributeLine";
-  }
-  if (BLOCK_ANCHOR.test(line)) {
-    return "anchor";
-  }
-  if (ATTRIBUTE_ENTRY.test(line)) {
-    return "attributeEntry";
-  }
-  return undefined;
-}
+type RegistryMetadataKind = NonNullable<
+  ReturnType<typeof continuationMetadataKind>
+>;
+
+/**
+ * `A` when the two unions name the SAME set, and `never` when either
+ * carries a name the other does not.
+ *
+ * Both directions, because one direction is not a guard: a plain
+ * annotation accepts a registry answer set that has SHRUNK, so a name
+ * quietly dropped there would leave {@link LineKind} claiming a kind
+ * nothing can produce. The tuple wrappers stop the conditionals
+ * distributing over the union, which is what makes them compare the
+ * sets rather than their members one at a time.
+ */
+type SameNames<A, B> = [A] extends [B] ? ([B] extends [A] ? A : never) : never;
+
+/**
+ * "Let block metadata play out until we find the block", answered by
+ * the line-shape registry.
+ *
+ * The DECLARATION is what earns its place here: the registry names
+ * the four shapes on its own terms, and this annotation fails to
+ * compile if those names and {@link LineKind}'s drift apart in
+ * EITHER direction - a name added to or dropped from either side
+ * collapses the return type to `undefined`, which the registry's
+ * function does not satisfy. The rule itself, its Ruby, and why a
+ * comment is not one of the four are stated at
+ * {@link continuationMetadataKind}.
+ */
+export const metadataLineKind: (
+  line: string,
+) => SameNames<MetadataLineKind, RegistryMetadataKind> | undefined =
+  continuationMetadataKind;
 
 /**
  * Classify a line that is starting a block — `parse_block_metadata_line`

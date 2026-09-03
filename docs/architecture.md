@@ -395,16 +395,25 @@ only a blank run down to one blank, up to the gap's first `+` (the same rule
 emits is a replay of one the author wrote; a `+` at an item's end is not
 replayed, because Ruby pops it and it renders nothing.
 
-Above that default the printer holds exactly four separator decisions of its
+Above that default the printer holds exactly three separator decisions of its
 own, each a named arm whose function comment carries the reasoning and the Ruby
-citation (`printedGap`, `hazard`, `slurpReaches`, `printList` in
-`src/print/list.ts` and `src/print/list-hazard.ts`). All four exist for one
-reason: verbatim replay would not re-parse to the same tree there — a reflow
-that would move the item's first rest line up (the line Ruby reads three ways:
-the metadata drain, the blank count, and the indent strip), a nested list
-sharing its parent's marker spelling, an indented literal whose re-read would
-slurp the following marker, a previous item's tail that would swallow the next
+citation (`printedGap`, `hazard`, `tailSwallowsMarker` in `src/print/list.ts`
+and `src/print/list-hazard.ts`). All three exist for one reason: verbatim replay
+would not re-parse to the same tree there — a reflow that would move the item's
+first rest line up (the line Ruby reads three ways: the metadata drain, the
+blank count, and the indent strip), a nested list sharing its parent's marker
+spelling, and a previous item's tail whose literal slurp would swallow the next
 marker line.
+
+`tailSwallowsMarker` is the one decision that cannot be made from the AST at
+all, and it is the printer's only reader of its own output: what a re-read makes
+of a marker line depends on the LINES standing above it, so the item's finished
+Doc is rendered back to those lines (Prettier's own `printDocToString`) and the
+line-shape registry is asked about them. Answering from the recorded blocks
+instead is what issue #54 was: a slurp that runs inside an item is harmless —
+the item's buffer is re-parsed from the item's own lines — and a blank invented
+up there ends the item early instead of stopping the slurp where it runs past
+the item's end.
 
 ## Formatting policy
 

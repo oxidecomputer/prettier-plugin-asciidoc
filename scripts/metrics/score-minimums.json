@@ -257,7 +257,7 @@
     },
     {
       "file": "src/parse/lines/classify.ts",
-      "what": "classify.ts:699 the `classifyTrace` object literal -> `{}`",
+      "what": "classify.ts:698 the `classifyTrace` object literal -> `{}`",
       "class": "never",
       "reason": "EQUIVALENT: the slot's only read anywhere is `classifyTrace.observer`, which is `undefined` whether the property is declared with an `undefined` value or absent altogether. The property is spelled out because the lint rules want every binding initialized on declaration and refuse an `= undefined` initializer at module scope - not because any reader can tell the two apart"
     },
@@ -343,45 +343,15 @@
     },
     {
       "file": "src/print/list.ts",
-      "what": "list.ts:141 `if (item.detachedTail)` -> the guard never fires (#56's new code)",
-      "class": "never",
-      "reason": "EQUIVALENT: the loop under the guard returns false at its very first block anyway. `detachedTail` is set only when the item's LAST block is a frozen `+` paragraph (list-item-node.ts's endsInPlusParagraph), such a paragraph is neither an indented literal nor a list, and its printed gap is never empty: the frozen `+` is by construction the SECOND `+` of an adjacent run, and the first one is the erased cell the gap record spells as `+`. So the reversed walk falls straight to `printedGap(...).length > 0` and returns false, which is what the guard returns. printedGap can only empty a gap for a nested LIST sharing its parent's marker, which this block is not. Measured: over the 111,110 depth-5 sweep documents a detachedTail item carries exactly ONE block signature, a `paragraph` behind the gap `[\"+\"]`, and an instrumented build that computes both answers logs zero disagreements"
-    },
-    {
-      "file": "src/print/list.ts",
-      "what": "list.ts:150 `lastItem !== undefined` -> `true`",
-      "class": "never",
-      "reason": "Leaves `tailSwallowsMarker(lastItem, block)` reached with `lastItem === undefined` only for a list node with ZERO children, which the reader cannot build - a list exists because an item made it"
-    },
-    {
-      "file": "src/print/list.ts",
-      "what": "list.ts:398 `gap.includes(\"+\")` -> `gap.includes(\"\")`",
+      "what": "list.ts:489 `gap.includes(\"+\")` -> `gap.includes(\"\")`",
       "class": "when",
       "reason": "The blank-run sweep class. The arm fires only when a nested list SHARES its parent's marker, and probing the reader for that shape shows it always arrives with an empty gap - a blank or a `+` in front of a same-marker line reads back as a SIBLING boundary (`* a\\n\\n  lit\\n[[anc]]\\n+\\n* a\\n` gives two items). With `gap === []` both spellings return `[]`. TRIGGER - the render-divergent sweep members are the distinguishing shapes; a byte+idempotence pin already guards the drop branch"
     },
     {
       "file": "src/print/list.ts",
-      "what": "list.ts:400 `index > 0` -> `index >= 0`",
+      "what": "list.ts:519 `blankRun = false` -> `blankRun = true` in gapParts's `+` arm",
       "class": "never",
-      "reason": "Same as the arm above; `index` comes from `node.blocks.keys()` and is never negative"
-    },
-    {
-      "file": "src/print/list.ts",
-      "what": "list.ts:400 `index > 0` -> `true`",
-      "class": "never",
-      "reason": "Redundant with the third conjunct: at `index === 0`, `slurpReaches(blocks, 0)` scans `blocks.slice(0, 0)` - empty - and returns false, so the condition is false either way"
-    },
-    {
-      "file": "src/print/list.ts",
-      "what": "list.ts:454 `blankRun = false` -> `blankRun = true` in gapParts's `+` arm",
-      "class": "never",
-      "reason": "EQUIVALENT. The only read of `blankRun` is `!livePlus && blankRun` (list.ts:458), the `+` arm sets `livePlus` in the line above, and nothing clears it - so after a `+` the value can never be read again. Zero byte differences over all 111,121 list-shape sweep documents"
-    },
-    {
-      "file": "src/print/list.ts",
-      "what": "list.ts:84 `block.type === \"delimitedBlock\"` -> `true`",
-      "class": "never",
-      "reason": "Leaves `block.form === \"indented\"`. No other block node can carry that form: `delimitedBlock` is the only `BlockNode` with `form: ... | \"indented\"` (`admonition`'s form is `\"paragraph\"` or a parent-block variant; `link`/`xref` forms are inline). The AST forbids the difference"
+      "reason": "EQUIVALENT. The only read of `blankRun` is `!livePlus && blankRun` (list.ts:523), the `+` arm sets `livePlus` in the line above, and nothing clears it - so after a `+` the value can never be read again. Zero byte differences over all 111,121 list-shape sweep documents"
     },
     {
       "file": "src/print/printer.ts",

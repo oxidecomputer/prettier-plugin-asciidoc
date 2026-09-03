@@ -251,7 +251,8 @@ Runs `tests/format/list-shape-sweep.deep.test.ts` under its own vitest config:
 every nested-list shape to depth 5 — 111,121 documents, each formatted twice and
 rendered on both sides — against the allowlist of known-failing shapes in
 `tests/format/list-shape-allowlist.ts`, each entry tagged with its tracker
-issue. Exit 1 when the failing set does not match the allowlist in either
+issue. That allowlist is EMPTY today, so the gate asserts the whole product is
+clean. Exit 1 when the failing set does not match the allowlist in either
 direction; exit 2 when vitest collected nothing.
 
 The default suite runs the same product at depth 4, and that depth is
@@ -1052,9 +1053,9 @@ Measured, not assumed.
 - **Intra-line changes (#32).** Whitespace collapsed inside a code span never
   changes any line's classification. Out of scope by construction; #32 keeps its
   render-equality coverage.
-- **Blank-line placement (#54, #46 shape 2).** Blank runs emit no token, so
-  blank insertion and collapse are invisible. That is deliberate - see the
-  rejected variant below.
+- **Blank-line placement (#46 shape 2, and #54 while it was open).** Blank runs
+  emit no token, so blank insertion and collapse are invisible. That is
+  deliberate - see the rejected variant below.
 
 ### Rejected: the gap-sensitive variant
 
@@ -1064,9 +1065,10 @@ and 645 depth-4 sweep diffs, dominated by families like `[] -> [gap]`,
 `[gap] -> []` and `[delim:example gap] -> [gap delim:example]`, every one of
 them deliberate gap normalization. A net whose report is mostly its own
 formatting policy is a net nobody reads, so blank placement stays with the
-harnesses that own it: #54 is already pinned by the sweep allowlist
-(render-divergent, tokens identical - measured), and #46 shape 2 is an
-idempotence wobble that needs the dedicated regression test its issue calls for.
+harnesses that own it: #54's shapes were pinned by the sweep allowlist while
+they failed (render-divergent, tokens identical - measured) and are committed
+rows now that they do not, and #46 shape 2 is an idempotence wobble that needs
+the dedicated regression test its issue calls for.
 
 ## CI
 

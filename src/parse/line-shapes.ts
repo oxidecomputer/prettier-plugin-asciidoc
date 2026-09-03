@@ -459,9 +459,11 @@ const DELIMITED_BLOCK_LINES: readonly RegExp[] = DELIMITER_KINDS.map(
 /**
  * Whether a line is a delimited-block delimiter.
  *
- * Exported for the interruption oracle suite
- * (tests/conformance/interruption.test.ts); no src consumer.
- * @internal
+ * Read by the printer's item-boundary rule (`tailSwallowsMarker`,
+ * src/print/list.ts), which has to call the same lines opaque that
+ * the reader's item loop hands to `read_lines_until terminator:`, and
+ * by the interruption oracle suite
+ * (tests/conformance/interruption.test.ts).
  * @param line - one source line, without its trailing newline
  * @returns true for `----`, `--`, ` ``` `, and the rest of
  *   `DELIMITED_BLOCKS`
@@ -536,6 +538,63 @@ const SINGLE_WORD_LINE = new RegExp(
  */
 export function isSingleWordLine(line: string): boolean {
   return SINGLE_WORD_LINE.test(line);
+}
+
+/**
+ * Which shape of block metadata a line is, for the ONE reader rule
+ * that lets metadata "play out until we find the block"
+ * (parser.rb:1499-1501) - the four shapes a live list continuation
+ * survives, in Ruby's own order.
+ */
+type ContinuationMetadataKind =
+  | "blockTitle"
+  | "attributeLine"
+  | "anchor"
+  | "attributeEntry";
+
+/**
+ * "Let block metadata play out until we find the block" - which of
+ * the four shapes parser.rb:1499-1501 keeps `continuation == :active`
+ * across a line is, if any.
+ *
+ * Arms in Ruby's own order: a block title (`ch0 == '.'`), a block
+ * attribute line (`ch0 == '['`), then an attribute entry
+ * (`ch0 == ':'`). Ruby's `BlockAttributeLineRx` (rx.rb:184) carries
+ * the `[[anchor]]` form as one of its alternatives and this registry
+ * spells that alternative as a pattern of its own, so the anchor is
+ * tested where Ruby's second arm would have matched it.
+ *
+ * A COMMENT is deliberately absent: Ruby's test does not name one, so
+ * a comment falls to the else arm at parser.rb:1502 and CONSUMES the
+ * continuation (oracle-confirmed; the unit row is in
+ * tests/parser/item-extent.test.ts).
+ *
+ * A DIFFERENT question from the one the block-start classifier
+ * answers for a block's first line, and deliberately not funnelled
+ * into it: Ruby asks this one inside `read_lines_for_list_item` with
+ * three arms in this order, and the other inside
+ * `parse_block_metadata_line` with the anchor tested FIRST and an
+ * attribute entry parsed rather than matched. Two Ruby sites, two
+ * orders, two consequences.
+ * @param line - one rstripped source line
+ * @returns which metadata shape it is, or undefined when it is none
+ */
+export function continuationMetadataKind(
+  line: string,
+): ContinuationMetadataKind | undefined {
+  if (BLOCK_TITLE.test(line)) {
+    return "blockTitle";
+  }
+  if (BLOCK_ATTRIBUTE_LINE.test(line)) {
+    return "attributeLine";
+  }
+  if (BLOCK_ANCHOR.test(line)) {
+    return "anchor";
+  }
+  if (ATTRIBUTE_ENTRY.test(line)) {
+    return "attributeEntry";
+  }
+  return undefined;
 }
 
 // Lines that end a paragraph in EVERY context: `StartOfBlockProc` =

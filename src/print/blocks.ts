@@ -8,7 +8,7 @@
  * parent blocks recurse into children via
  * {@link joinBlocks}.
  */
-import { doc, type AstPath, type Doc } from "prettier";
+import { doc, type AstPath, type Doc, type ParserOptions } from "prettier";
 import type {
   AdmonitionNode,
   BlockNode,
@@ -60,6 +60,13 @@ export type PrintPath = AstPath<AnyNode>;
  * callback, specialized to the AsciiDoc node union.
  */
 export type PrintFunction = (path: PrintPath) => Doc;
+
+/**
+ * The options Prettier hands the printer, specialized to the AsciiDoc
+ * node union — every width and line-ending setting resolved, which is
+ * what makes them the options Prettier's own Doc renderer takes.
+ */
+export type PrintOptions = ParserOptions<AnyNode>;
 
 /**
  * Prints a comment node to Doc IR.
