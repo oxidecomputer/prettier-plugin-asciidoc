@@ -53,6 +53,7 @@ import {
   type MarkerKind,
 } from "./classify.js";
 import { blockExtentOf, delimitedExtent } from "./delimited-reader.js";
+import { readFrontMatter } from "./front-matter.js";
 import { isLeafKind, leafBuilder } from "./frames.js";
 import {
   documentHeader,
@@ -911,8 +912,16 @@ export function readDocument(source: string): DocumentNode {
   const at = makeLocationIndex(source);
   // One gap record per document — see ReaderScope.gaps.
   const scope: ReaderScope = { source, at, gaps: new Map() };
-  const reader = new BlockReader(scope, documentLines);
-  const children = reader.run();
+  // Front matter comes OFF the stream before the reader walks it, as
+  // it does for Asciidoctor's own reader (front-matter.ts): it is a
+  // question about the document's first lines, and the BlockReader
+  // reads an item's buffer and a block's interior with the same code
+  // that reads the document.
+  const front = readFrontMatter(source, documentLines, at);
+  const body =
+    front === undefined ? documentLines : documentLines.slice(front.resume);
+  const read = new BlockReader(scope, body).run();
+  const children = front === undefined ? read : [front.node, ...read];
   // The mark splitLines skipped, recorded so the printer can re-emit
   // it. Left OFF the node when there is none, rather than set to the
   // empty string: an unmarked document's serialized tree must look

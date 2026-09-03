@@ -128,8 +128,6 @@ export const BLOCK_STRUCTURE_FAMILIES: ReadonlySet<string> = new Set([
   "gap:md-quote",
   // `---` / `***` Markdown thematic breaks (#23).
   "gap:md-thematic-break",
-  // YAML front matter (#21).
-  "gap:front-matter",
   // `## Section One`, `## Section One ##` (#63).
   "gap:md-atx-heading",
   // `~~~~ javascript` - a fenced block to the oracle, not to us (#64).
@@ -164,6 +162,16 @@ export const BLOCK_STRUCTURE_FAMILIES: ReadonlySet<string> = new Set([
   // The oracle EVALUATES `ifdef`/`ifndef`/`ifeval` and drops or keeps
   // the body. A formatter must not.
   "oracle:conditional",
+  // YAML front matter, read under the attribute the document did not
+  // set: `skip_front_matter!` lifts the block off the stream only
+  // with `skip-front-matter`, and without it the oracle reads the
+  // opening `---` as a thematic break and the metadata under it as a
+  // paragraph. We model the block itself and print it back byte for
+  // byte, which is the only spelling that is right under BOTH
+  // readings and to the generator that wrote the YAML - so the trees
+  // differ permanently while the bytes and the rendering do not
+  // (#21).
+  "oracle:front-matter",
   // Under `:doctype: manpage` the NAME section is consumed into
   // `manname`/`manpurpose`.
   "oracle:manpage-doctype",

@@ -1283,11 +1283,11 @@
       "signature": "-paragraph"
     },
     "reader_test.rb#should not skip front matter by default#0": {
-      "family": "gap:front-matter",
-      "signature": "+thematic_break"
+      "family": "oracle:front-matter",
+      "signature": "+paragraph; heading=>thematic_break"
     },
     "reader_test.rb#should not skip front matter if ending delimiter is not found#0": {
-      "family": "gap:front-matter",
+      "family": "gap:md-thematic-break",
       "signature": "+thematic_break"
     },
     "sections_test.rb#atx section title with leading marker#0": {
@@ -1407,7 +1407,7 @@
       "signature": "+heading x4; +list:unordered; +paragraph x3; +table; example=>admonition"
     },
     "test/fixtures/with-front-matter.adoc": {
-      "family": "gap:front-matter",
+      "family": "oracle:front-matter",
       "signature": "+thematic_break"
     }
   }

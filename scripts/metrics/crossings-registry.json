@@ -589,6 +589,13 @@
   },
   {
     "file": "src/parse/line-shapes.ts",
+    "symbol": "FRONT_MATTER_FENCE",
+    "importer": "src/parse/lines/front-matter.ts",
+    "kind": "vocabulary",
+    "reason": "registry spelling: the `---` line a document's YAML front matter opens and closes with. A string rather than a pattern, which is why the document reader may take it directly"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
     "symbol": "INDENTED_PLUS",
     "importer": "src/parse/lines/classify.ts",
     "kind": "vocabulary",
@@ -1048,6 +1055,13 @@
     "importer": "src/parse/lines/frames.ts",
     "kind": "vocabulary",
     "reason": "the document's one offset -> Location index, built once and handed to every builder so no two agree on it separately"
+  },
+  {
+    "file": "src/parse/positions.ts",
+    "symbol": "LocationIndex",
+    "importer": "src/parse/lines/front-matter.ts",
+    "kind": "vocabulary",
+    "reason": "the document's offset-to-Location index, taken by every reader that stamps a node's position"
   },
   {
     "file": "src/parse/positions.ts",

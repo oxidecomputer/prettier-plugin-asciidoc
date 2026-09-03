@@ -774,12 +774,23 @@ const ATTRIBUTION_ORDER = ["authorLine", "revisionLine"];
 // oracle's, not Ruby's - see `Attrlist.styleAttribute`). This
 // invariant does not re-derive that condition; the oracle rows in
 // tests/conformance/document-header.test.ts are where it is pinned.
+//
+// `frontMatter` is a member HERE and NOT in BEFORE_HEADER, and the
+// difference is not drift. The block never reaches the reader's
+// `push`: `readDocument` takes it off the stream before the
+// BlockReader walks a line (src/parse/lines/front-matter.ts), the way
+// Asciidoctor's own reader lifts it in `prepare_lines`, so there is
+// no header-reachability bit to retire for it. The DOCUMENT's block
+// sequence, which is what this invariant reads, still holds it above
+// the header - and a header under front matter is the reading
+// `skip-front-matter` gives, which is the one our tree models.
 const ABOVE_HEADER = new Set([
   "comment",
   "attributeEntry",
   "preprocessorDirective",
   "blockAnchor",
   "blockAttributeList",
+  "frontMatter",
 ]);
 
 /**

@@ -154,6 +154,7 @@ function shouldStack(blocks: BlockNode[], index: number): boolean {
       !isSectionHeading(previous)) ||
     stacksOntoAttributeEntry(previous, current) ||
     stacksUnderDocumentHeader(previous, current) ||
+    stacksUnderFrontMatter(previous, current) ||
     (stacksAsMetadata(previous, current) &&
       !destroysHeadingWhenStacked(previous, current))
   );
@@ -183,6 +184,30 @@ function stacksOntoAttributeEntry(
   return (
     isAttributeEntry(current) &&
     (isAttributeEntry(previous) || isDocumentTitle(previous))
+  );
+}
+
+/**
+ * Whether the pair stacks because YAML front matter stands directly
+ * above `current` in the SOURCE.
+ *
+ * A blank line here is not cosmetic either. WITHOUT
+ * `skip-front-matter` - Asciidoctor's default - the closing `---` is
+ * not a delimiter at all: it is the last line of a paragraph that
+ * runs on into whatever the author wrote under it, so a blank line
+ * inserted between them SPLITS that paragraph and the document
+ * renders differently. Adjacency is the author's own spelling and the
+ * only one that re-reads the same under both readings of the block.
+ * @param previous - The preceding block node.
+ * @param current - The current block node.
+ * @returns Whether the two should stack.
+ */
+function stacksUnderFrontMatter(
+  previous: BlockNode,
+  current: BlockNode,
+): boolean {
+  return (
+    previous.type === "frontMatter" && startsOnTheNextLine(previous, current)
   );
 }
 

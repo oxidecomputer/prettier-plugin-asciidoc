@@ -1192,6 +1192,23 @@ export const LINE_COMMENT = new RegExp(`^${LINE_COMMENT_SOURCE}`, "v");
  */
 export const LINE_COMMENT_HEAD = "//";
 
+/**
+ * The YAML front-matter fence, and a whole line rather than a
+ * pattern: `skip_front_matter!` compares the prepared line to the
+ * literal `---` at both ends of the block (reader.rb l.1305, l.1310),
+ * so there is no regex to mirror and none is written here.
+ *
+ * It takes no `LineKind` arm and no interruption row, and unlike
+ * every other whole-line spelling in this file it is not a line SHAPE
+ * at all: the same three characters are ordinary text everywhere but
+ * the top of a document, and what makes them a fence is the POSITION
+ * plus a second fence below (src/parse/lines/front-matter.ts). Its
+ * one consumer is the document reader, which may import it because it
+ * is a string and not a pattern - see the pattern-import rule in
+ * tests/parser/architecture.test.ts.
+ */
+export const FRONT_MATTER_FENCE = "---";
+
 const PARAGRAPH_RAW_LINES: readonly RegExp[] = [
   LINE_COMMENT,
   CONDITIONAL_DIRECTIVE,

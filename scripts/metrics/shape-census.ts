@@ -87,6 +87,10 @@ const EXEMPT = new Map<string, string>([
     "matches the two-character suffix of an attribute entry's VALUE, not a line: it is the one export here that is not a whole-line rule, and the line it belongs to is covered by the attribute-entry dimension",
   ],
   [
+    "FRONT_MATTER_FENCE",
+    "the `---` line a document's YAML front matter opens and closes with, and the one whole-line spelling here that is not a line SHAPE: what makes it a fence is the POSITION plus a second fence below (src/parse/lines/front-matter.ts), so a dimension - which spells its construct into every container the grids wrap - would spell a line that is ordinary text in all of them",
+  ],
+  [
     "optionalGroup",
     "named-group reading helper shared by the parse functions, not a line shape",
   ],

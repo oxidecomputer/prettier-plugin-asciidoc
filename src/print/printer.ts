@@ -42,7 +42,7 @@ import { anchorToSource } from "./serialize-inline.js";
 import { getVisitorKeys } from "./visitor-keys.js";
 
 const {
-  builders: { hardline },
+  builders: { hardline, join },
 } = doc;
 
 const printer: Printer<AnyNode> = {
@@ -131,6 +131,12 @@ const printer: Printer<AnyNode> = {
       // because the formatter cannot resolve it.
       case "preprocessorDirective": {
         return node.value;
+      }
+      // YAML, not AsciiDoc, and read two ways by the oracle depending
+      // on `skip-front-matter`, so the lines go back exactly as they
+      // were written (src/parse/lines/front-matter.ts).
+      case "frontMatter": {
+        return join(hardline, node.content.split("\n"));
       }
       // A block anchor prints through the same spelling the inline
       // anchor uses — one serializer, byte-identical to the wrapper

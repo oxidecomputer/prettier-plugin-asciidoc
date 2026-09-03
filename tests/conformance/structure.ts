@@ -362,6 +362,16 @@ function oracleDocumentShape(
  * `next_block` ever sees it (see `PreprocessorDirectiveNode`'s doc
  * comment in src/ast.ts); our AST keeps them only so the printer can
  * reproduce them.
+ *
+ * `frontMatter` is a fourth in that group with a fifth reason, and
+ * the one that DIVERGES here on purpose: `skip_front_matter!` lifts
+ * the block off the stream only when the document sets
+ * `skip-front-matter`, and the oracle this harness runs does not, so
+ * a front-matter document leaves the oracle a thematic break and a
+ * paragraph that our tree does not spell. The bytes are the author's
+ * either way (src/parse/lines/front-matter.ts), which is why the
+ * fidelity property is green on the same documents; what the ledger
+ * records is a MODEL difference, and its family says so.
  */
 const DROPPED = new Set([
   "comment",
@@ -370,6 +380,7 @@ const DROPPED = new Set([
   "blockAttributeList",
   "blockTitle",
   "blockAnchor",
+  "frontMatter",
 ]);
 
 /** Our node types that map to one canonical leaf kind and nothing else. */
@@ -430,6 +441,7 @@ export const AST_KIND_CENSUS: ReadonlyMap<string, string> = new Map([
   ["comment", "dropped: the reader eats it"],
   ["attributeEntry", "dropped: the reader eats it"],
   ["preprocessorDirective", "dropped: the reader eats it"],
+  ["frontMatter", "dropped: the reader lifts it under skip-front-matter"],
   ["list", "kind list:<variant>"],
   ["listItem", "kind item"],
   ["delimitedBlock", "kind <variant>"],

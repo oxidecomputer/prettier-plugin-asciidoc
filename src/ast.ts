@@ -1128,6 +1128,35 @@ export interface BlockMacroNode extends Node {
 }
 
 /**
+ * The YAML FRONT MATTER a static site generator writes above the
+ * document: a `---` line at the very top, everything down to the next
+ * `---` line, and that closing line.
+ *
+ * Kept VERBATIM, fences included, and the reason is that Asciidoctor
+ * reads it two ways. With `skip-front-matter` set, its reader lifts
+ * the whole block off the stream before parsing begins
+ * (`skip_front_matter!`, reader.rb l.1304-22) and the document starts
+ * under it. WITHOUT the attribute - the default - nothing is lifted:
+ * `---` renders as a thematic break and the metadata under it is a
+ * paragraph that swallows the closing fence. Only the author's own
+ * bytes satisfy both readings at once, so this node carries the lines
+ * and the printer writes them back. It is also what the block IS to
+ * the generator that reads it: YAML, where a re-wrapped line is a
+ * different document.
+ *
+ * The block exists only at offset 0 and only when a closing fence is
+ * found (`skip_front_matter!` puts the lines back when it reaches the
+ * end of input first), so nothing decides it from a line's shape
+ * alone - see src/parse/lines/front-matter.ts.
+ */
+export interface FrontMatterNode extends Node {
+  /** Node discriminant. */
+  type: "frontMatter";
+  /** The block's source lines, fences included, joined with newlines. */
+  content: string;
+}
+
+/**
  * A preprocessor directive line (`include::`, `ifdef::`, `ifndef::`,
  * `ifeval::`, `endif::`) that sits BETWEEN blocks.
  *
@@ -1742,6 +1771,7 @@ export type BlockNode =
   | PageBreakNode
   | BlockMacroNode
   | PreprocessorDirectiveNode
+  | FrontMatterNode
   | BlockAttributeListNode
   | BlockTitleNode
   | BlockAnchorNode;

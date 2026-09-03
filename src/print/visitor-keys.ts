@@ -224,6 +224,7 @@ const CHILD_KEYS = declareVisitorKeys({
   pageBreak: [],
   blockMacro: [],
   preprocessorDirective: [],
+  frontMatter: [],
   blockAttributeList: [],
   blockTitle: [],
   blockAnchor: [],

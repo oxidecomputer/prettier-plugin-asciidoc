@@ -125,6 +125,10 @@
       "coverage": 100.0,
       "mutation": 100.0
     },
+    "src/parse/lines/front-matter.ts": {
+      "coverage": 100.0,
+      "mutation": 0.0
+    },
     "src/parse/lines/header-reader.ts": {
       "coverage": 100.0,
       "mutation": 90.2
@@ -269,7 +273,7 @@
       "file": "src/parse/inline/span-pairing.ts",
       "what": "mutation minimum 0 - a PLACEHOLDER, not a file with nothing to measure",
       "class": "when",
-      "reason": "TRIGGER: the next batched mutation run. This file has plenty to mutate - the resolution table, the close search, the empty-span retry and the crossing test - and none of it has been measured, because mutation runs at batched integration points and this file (issue #66) landed between two of them. Its coverage row is measured (100.00 lines, `bun run coverage`) and its behaviour is pinned by 50 rows in tests/parser/inline-resolution-order.test.ts, every one against `@asciidoctor/core`'s own HTML; what the zero costs is the RATCHET, which stays disengaged for this file alone until the run that reseeds it. It is one of two zeros in this file that are a debt rather than a fact (the other is src/parse/lines/attribute-entry.ts, below); the remaining three (src/ast.ts, src/constants.ts, src/parse/inline/tokens.ts) are declaration-only files Stryker writes no row for. See docs/harnesses.md, the two reasons a zero is allowed"
+      "reason": "TRIGGER: the next batched mutation run. This file has plenty to mutate - the resolution table, the close search, the empty-span retry and the crossing test - and none of it has been measured, because mutation runs at batched integration points and this file (issue #66) landed between two of them. Its coverage row is measured (100.00 lines, `bun run coverage`) and its behaviour is pinned by 50 rows in tests/parser/inline-resolution-order.test.ts, every one against `@asciidoctor/core`'s own HTML; what the zero costs is the RATCHET, which stays disengaged for this file alone until the run that reseeds it. It is one of three zeros in this file that are a debt rather than a fact (the others are src/parse/lines/attribute-entry.ts and src/parse/lines/front-matter.ts, below); the remaining three (src/ast.ts, src/constants.ts, src/parse/inline/tokens.ts) are declaration-only files Stryker writes no row for. See docs/harnesses.md, the two reasons a zero is allowed"
     },
     {
       "file": "src/parse/lines/classify.ts",
@@ -323,19 +327,19 @@
     },
     {
       "file": "src/parse/lines/reader.ts",
-      "what": "the LEFT disjunct of the child reader's tailSafe (reader.ts:824 `tailSafe: extent.close !== undefined || tailSafeIn(this.confinement)`) - 3 mutants: -> `true`, -> `false`, and `!==` -> `===`",
+      "what": "the LEFT disjunct of the child reader's tailSafe (reader.ts:825 `tailSafe: extent.close !== undefined || tailSafeIn(this.confinement)`) - 3 mutants: -> `true`, -> `false`, and `!==` -> `===`",
       "class": "never",
       "reason": "EQUIVALENT, measured rather than assumed: all three produce byte-identical output over 66,429 documents (a depth-5 product over `----`, `====`, `--`, `****`, `* a`, `** b`, `+`, blank and `para`) and over all 111,121 list-shape sweep documents. Whenever a block CLOSED, the reader's own `tailSafe` is already true, so the left disjunct never decides. The RIGHT disjunct is live and pinned in tests/format/trailing-continuation.test.ts (a trailing `+` at the end of an unclosed `====` or `--` block comes back), which is what took this file from 93.6 to 94.2"
     },
     {
       "file": "src/parse/lines/reader.ts",
-      "what": "reader.ts:656 `line.continuationTag === \"marker\"` -> `true` in continuationLine's fold arm (#56's new code)",
+      "what": "reader.ts:657 `line.continuationTag === \"marker\"` -> `true` in continuationLine's fold arm (#56's new code)",
       "class": "never",
       "reason": "EQUIVALENT, and worth writing down because the guard IS reached with an untagged `+`. Every `+` that enters an item buffer goes through `pushMarker` and carries the tag, with ONE exception: the `+` that `activeContent` buffers as the attached block's own first line when it stands one blank under an active continuation (`* a` / `+` / blank / `+` is the smallest such document). That untagged cell is only ever the buffer's LAST line, because any line after it takes the `+` arm that blanks it, so the fold the mutant opens there reads exactly the one raw line the leaf arm builds and stops on the same index. Measured: byte-identical output AND byte-identical ASTs over all 111,110 depth-5 sweep documents, byte-identical output over 66,429 delimiter-bearing documents, and an instrumented build reaches the untagged case MID-buffer zero times in either product"
     },
     {
       "file": "src/print/join.ts",
-      "what": "listTailContinuationActive's three unreachable mutants (join.ts:327 `item?.blocks` -> `item.blocks`, join.ts:331 `item?.activeTail` -> `item.activeTail`, and join.ts:331 `?? false` -> `?? true`, the file's only NoCoverage row), #56's new code",
+      "what": "listTailContinuationActive's three unreachable mutants (join.ts:352 `item?.blocks` -> `item.blocks`, join.ts:356 `item?.activeTail` -> `item.activeTail`, and join.ts:356 `?? false` -> `?? true`, the file's only NoCoverage row), #56's new code",
       "class": "never",
       "reason": "TYPE-FORCED, and the same three shapes survive on endsWithReaderEatenLine right above it for the same reason. `children.at(-1)` is typed `ListItemNode | undefined`, so the optional chain and the `??` default are what the compiler demands, and a list node with ZERO children is a node the reader cannot build (a list exists because an item made it), the same fact the list.ts `lastItem !== undefined` row records. `activeTail` is a required boolean on every item, which is why the `?? false` arm never executes at all and Stryker reports it NoCoverage. The FIVE other mutants this function added are killed by the \"a live metadata tail on a NESTED item detaches too\" rows in tests/format/plus-run.test.ts, which is what the recorded 91.6 already reflects"
     },
@@ -470,6 +474,12 @@
       "what": "mutation minimum 0 - a PLACEHOLDER, not a file with nothing to measure",
       "class": "when",
       "reason": "TRIGGER: the next batched mutation run. The file decides an extent - which lines an attribute entry's continued value reaches over - and every one of its branches is worth mutating; none has been measured, because mutation runs at batched integration points and this file (issue #24) landed between two of them. Its coverage row is measured (100.00 lines, `bun run coverage`) and its behaviour is pinned by the continued-value rows in tests/parser/attribute-entry.test.ts and tests/format/attribute-entry.test.ts, the latter against `@asciidoctor/core`'s own HTML, plus the six corpus cases whose quarantine entries this commit deletes. What the zero costs is the RATCHET, which stays disengaged for this file alone until the run that reseeds it."
+    },
+    {
+      "file": "src/parse/lines/front-matter.ts",
+      "what": "mutation minimum 0 - a PLACEHOLDER, not a file with nothing to measure",
+      "class": "when",
+      "reason": "TRIGGER: the next batched mutation run. The file decides an extent - whether a document opens with YAML front matter and how far it reaches - and its fence tests and loop bounds are all worth mutating; none has been measured, because mutation runs at batched integration points and this file (issue #21) landed between two of them. Its coverage row is measured (100.00 lines, `bun run coverage`) and its behaviour is pinned by tests/parser/front-matter.test.ts and tests/format/front-matter.test.ts, the latter proving the bytes against BOTH readings of the block (with `skip-front-matter` and without), plus the two corpus cases whose quarantine entries this commit deletes. What the zero costs is the RATCHET, which stays disengaged for this file alone until the run that reseeds it."
     }
   ]
 }

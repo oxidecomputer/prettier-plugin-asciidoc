@@ -84,16 +84,17 @@ function filesUnder(directory: string): string[] {
 
 /**
  * Registry exports that are NOT a pattern despite the ALL-CAPS
- * spelling every pattern export also carries: two plain string
- * constants (`CALLOUT_STYLE`, `LINE_COMMENT_HEAD`), one array of kind
- * names (`DELIMITER_KINDS`) and one reader-state value
- * (`BLOCK_START_CONTEXT`). The convention is the signal; this is its
- * short exception list, checked once here rather than reasoned about
- * at each call site.
+ * spelling every pattern export also carries: three plain string
+ * constants (`CALLOUT_STYLE`, `LINE_COMMENT_HEAD`,
+ * `FRONT_MATTER_FENCE`), one array of kind names (`DELIMITER_KINDS`)
+ * and one reader-state value (`BLOCK_START_CONTEXT`). The convention
+ * is the signal; this is its short exception list, checked once here
+ * rather than reasoned about at each call site.
  */
 const NOT_A_PATTERN = new Set([
   "CALLOUT_STYLE",
   "LINE_COMMENT_HEAD",
+  "FRONT_MATTER_FENCE",
   "DELIMITER_KINDS",
   "BLOCK_START_CONTEXT",
 ]);
@@ -396,10 +397,15 @@ describe("parse-layer architecture", () => {
   // over-width line with or without this change - so it is an
   // existing class joined rather than a new one, and both spellings
   // render the same.
-  test("the node-kind census is 47", () => {
+  // 48, moved up from 47 with FRONT MATTER (issue #21): `frontMatter`
+  // joins as one leaf holding the whole block's bytes, opening fence
+  // to closing fence. One kind with no children: under either of the
+  // oracle's two readings the only correct output is the author's own
+  // bytes, so the node replays them and the printer asks nothing else.
+  test("the node-kind census is 48", () => {
     const source = readFileSync("src/ast.ts", "utf8");
     const kinds = source.match(/^ {2}type: "[a-zA-Z]+";$/gmv) ?? [];
-    expect(kinds).toHaveLength(47);
+    expect(kinds).toHaveLength(48);
   });
 
   test("only the classification pass imports a pattern from the registry", () => {

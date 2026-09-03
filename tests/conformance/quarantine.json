@@ -291,7 +291,10 @@
     "fails": ["fidelity"],
     "issue": "#16"
   },
-  "lists_test.rb#quoted text#0": { "fails": ["fidelity"], "issue": "#16" },
+  "lists_test.rb#quoted text#0": {
+    "fails": ["fidelity"],
+    "issue": "#16"
+  },
   "lists_test.rb#should not strip comment line in literal paragraph block attached to list item#0": {
     "fails": ["fidelity"],
     "issue": "#9"
@@ -324,13 +327,9 @@
     "fails": ["fidelity"],
     "issue": "UNTRIAGED"
   },
-  "reader_test.rb#should not skip front matter by default#0": {
-    "fails": ["fidelity"],
-    "issue": "#21"
-  },
   "reader_test.rb#should not skip front matter if ending delimiter is not found#0": {
     "fails": ["fidelity"],
-    "issue": "#21"
+    "issue": "#23"
   },
   "sections_test.rb#document title with multiline syntax and unicode characters#0": {
     "fails": ["fidelity"],
@@ -376,9 +375,8 @@
     "fails": ["fidelity"],
     "issue": "UNTRIAGED"
   },
-  "test/fixtures/sample.adoc": { "fails": ["fidelity"], "issue": "#16" },
-  "test/fixtures/with-front-matter.adoc": {
+  "test/fixtures/sample.adoc": {
     "fails": ["fidelity"],
-    "issue": "#21"
+    "issue": "#16"
   }
 }
