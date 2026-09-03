@@ -261,6 +261,13 @@ function opensWithContinuationLine(node: TextNode): boolean {
  * - Otherwise (block-level last child, or only a raw line follows —
  *   which owns its output line): the `+` truly ends an
  *   output line, so it must be escaped.
+ *
+ * That last arm is live, and the tokenizer is why. `HARD_BREAK`
+ * (src/parse/inline/rules.ts) takes a `+` behind a literal SPACE, up
+ * to trailing blanks and the line end - so ` +` at a line end is
+ * already a hardLineBreak node and never reaches a word list. A `+`
+ * behind any OTHER whitespace is not: `a<TAB>+` is text whose last
+ * word is `+`, and it comes out `a {plus}`.
  * @param cursor - where the text node sits.
  * @param words - The node's whitespace-split words: a `+` that is
  *   the node's ONLY word, with nothing before it in the block, is

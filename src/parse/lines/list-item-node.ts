@@ -131,6 +131,17 @@ function endsInPlusParagraph(blocks: readonly BlockNode[]): boolean {
  * those lines already is: the scan handed the lines over with their
  * indentation intact, so the question is asked of the source rather
  * than of the nodes the text was split into.
+ *
+ * THREE disjuncts, and only the last is the indent test. The other
+ * two are `adjust_indentation!`'s own exemptions, transcribed: a
+ * blank line, which the walk skips (`next if line.empty?`,
+ * parser.rb l.2726), and a `//` line, which `read_paragraph_lines`
+ * drops before the strip runs (l.754). The blank row cannot be
+ * reached from today's extent - a blank ends the principal text, so
+ * no line in `(markerLine, textEnd]` is empty - and it stays anyway:
+ * it is a row of the RULE, not a guard on this call, and dropping it
+ * would make the transcription answer differently from Ruby the
+ * first time an extent runs through a blank.
  * @param buffer - the item's lines, in document order
  * @param markerLine - the item's marker line, which the strip does
  *   not measure
@@ -155,6 +166,11 @@ function everyTextLineIndented(
 /**
  * The last source line the principal text occupies — where the first
  * block's gap starts counting from.
+ *
+ * TOTAL over `readonly InlineToken[]`, empty array included: no
+ * marker shape LIST_MARKER_LINE admits leaves the text empty today,
+ * but the marker line is the honest answer where it is, and reading
+ * `text.at(-1)` without it would throw rather than answer.
  * @param at - the document's offset→Location index
  * @param text - the principal text's tokens
  * @param markerLine - the item's marker line (the answer for empty text)

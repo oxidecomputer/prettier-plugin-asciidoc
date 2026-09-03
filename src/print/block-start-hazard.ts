@@ -26,7 +26,6 @@
  * list, whatever node built it, so the plain-TEXT path is covered by
  * the same net.
  */
-import type { InlineNode } from "../ast.js";
 import { ASCII_WHITESPACE } from "../parse/line-shapes.js";
 import { type Atom, isBlockSyntaxAtLineStart } from "./reflow.js";
 
@@ -57,22 +56,14 @@ export type BlockStart =
     };
 
 /**
- * Where a node sits, as far as the net reads it. The printer's
- * `Cursor` (src/print/inline.ts) extends this with the block's source
- * start line, which the net does not read.
+ * Where a node sits, as far as the net reads it - TWO facts, which is
+ * all the net reads. The printer's `Cursor` (src/print/inline.ts)
+ * extends this with the siblings, the enclosing span and the block's
+ * source start line, none of which the net asks about.
  */
 export interface BlockStartCursor {
-  /** The inline siblings the node sits among. */
-  readonly siblings: readonly InlineNode[];
-  /** The node's index among them. */
+  /** The node's index among its inline siblings. */
   readonly index: number;
-  /**
-   * The span this node is the content of, when it is one - only
-   * whether it is undefined is read here; the printer's own `Cursor`
-   * (src/print/inline.ts) narrows the type to its five span kinds for
-   * the questions this net does not ask.
-   */
-  readonly enclosing: InlineNode | undefined;
   /**
    * Where the block's FIRST atom lands and what stood on its source
    * line. The block-start hazard net reads it on both paths
@@ -94,16 +85,29 @@ export interface BlockStartCursor {
  * where the reader sees a ulist marker: `**\nb** c` replayed as
  * `** b** c` re-reads as a LIST, a measured corruption. Only the
  * block's first atom can land there (wrap never moves it), so the net
- * asks four things: first inline node of its block, the block's
- * content opens at column 0 on a source line its first word ended,
- * the fusion's space is whitespace the SOURCE had (`fusesOverSpace`),
- * and the composed atom answers yes to the SAME line-shapes questions
- * the reader asks ({@link isBlockSyntaxAtLineStart}). Where it fires,
+ * asks four things: first node of the run it is asked about, the
+ * block's content opens at column 0 on a source line its first word
+ * ended, the fusion's space is whitespace the SOURCE had
+ * (`fusesOverSpace`), and the composed atom answers yes to the SAME
+ * line-shapes questions the reader asks
+ * ({@link isBlockSyntaxAtLineStart}). Where it fires,
  * the span keeps the SOURCE's break instead of the space: the open
  * mark stands alone on the first line and the content opens the next
  * at column 0 - the one deliberate exception to replaying an in-span
  * break as a space, because here the space spelling changes the
  * line's block classification.
+ *
+ * A span's own CONTENT is refused by the column-0 fact, not by a
+ * second test here: content inside a span is collected with
+ * `blockStart: { atColumnZero: false }` (src/print/inline.ts's
+ * `appendSpan`), because the marks around it hold the column. That
+ * one claim covers all three prefixes the printer writes - a list
+ * marker, a `NOTE: ` label and a span's marks - so the net needs no
+ * span-shaped guard of its own. Removing BOTH is what breaks:
+ * `w` / `*##` / `b c##* d` then keeps a break at an INNER span's
+ * mark, and the output no longer answers `firstWordEndsItsLine`, so
+ * a second pass walks it back (pinned in
+ * tests/format/inline-span-break.test.ts).
  *
  * `fusesOverSpace` is what makes the recorded fact the RIGHT fact for
  * this path. Detaching strands the open MARK on the first line, so it
@@ -128,7 +132,6 @@ export function hazardAtBlockStart(
 ): boolean {
   return (
     cursor.index === 0 &&
-    cursor.enclosing === undefined &&
     cursor.blockStart.atColumnZero &&
     cursor.blockStart.firstWordEndsItsLine &&
     fusesOverSpace &&

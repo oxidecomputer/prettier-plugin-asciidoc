@@ -252,7 +252,7 @@ export function rstrip(line: string): string {
   while (end > 0 && TRAILING_ASCII_WHITESPACE.has(line[end - 1])) {
     end -= 1;
   }
-  return end === line.length ? line : line.slice(0, end);
+  return line.slice(0, end);
 }
 
 /**
@@ -1577,6 +1577,12 @@ export function isRawParagraphLine(
   if (PARAGRAPH_RAW_LINES.some((pattern) => pattern.test(line))) {
     return true;
   }
+  // The context-free caller's answer, and the NARROWING the three
+  // context-dependent rules below need: `RAW_BLOCK_ANCHOR_CONTEXTS`
+  // is a `Set<ParagraphContext>`, so the last line does not compile
+  // while `context` may still be undefined. Reading it as a
+  // redundant restatement of the fall-through misses that; it is
+  // also the hot path, taken by every context-free call.
   if (context === undefined) {
     return false;
   }

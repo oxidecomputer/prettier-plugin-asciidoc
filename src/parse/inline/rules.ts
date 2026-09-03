@@ -439,20 +439,29 @@ interface Match {
  * later start in the same local run would only shorten the local part,
  * which the pattern accepts either way - so if the earliest start
  * fails, every start fails, and one attempt settles the `@`.
+ *
+ * `at` is never BEHIND `resume`. `EMAIL_ADDRESS` holds exactly one
+ * `@` (neither its local class nor its domain class admits one), so
+ * the next `@` the caller finds past a match's own is at or past that
+ * match's end, which is what `resume` became.
  * @param text - the fragment being tokenized
  * @param at - the `@`'s offset
  * @param resume - the first offset the scan may still match at
  * @returns the match, or undefined
  */
 function matchOn(text: string, at: number, resume: number): Match | undefined {
-  if (at < resume) return undefined;
   const start = localStart(text, at, resume);
   if (start === -1) return undefined;
   const length = addressAt(text, start);
   if (length === 0) return undefined;
   // The guard is part of the match, so it guards only while it is
-  // itself unconsumed.
-  const guarded = start > resume && EMAIL_GUARD.has(text.charAt(start - 1));
+  // itself unconsumed - and `localStart` already floors the walk at
+  // `resume`, so an unconsumed character is the only kind there is.
+  // At `start === resume` the character behind is either the word's
+  // own left edge (whitespace, or nothing at offset 0) or the last
+  // character of the address just consumed, which `EMAIL_ADDRESS`
+  // ends `[a-zA-Z]{2,5}` - never one of the three guards.
+  const guarded = EMAIL_GUARD.has(text.charAt(start - 1));
   return { start, length, guarded };
 }
 

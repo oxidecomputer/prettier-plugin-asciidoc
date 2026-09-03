@@ -790,7 +790,7 @@ class BlockReader {
     if (resolved.model === "verbatim") {
       const node = buildVerbatimBlock(
         blockExtent,
-        withFenceLanguage(resolved.role, block, line.text),
+        withFenceLanguage(resolved.role, line.text),
         this.at,
         annotatedBy,
       );

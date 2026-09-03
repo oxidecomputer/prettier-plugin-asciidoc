@@ -143,6 +143,18 @@ enum QuoteRowOrder {
  * The compat table (asciidoctor.rb l.471-486) is not modelled; it is
  * selected by a document attribute this parser does not track.
  *
+ * Only the curved rows' `;` currently CHANGES an answer: none of the
+ * boundary classes (MARK_BOUNDARY below, and the two curved patterns
+ * in curved-quotes.ts) excludes `<`, `>` or `&`, so those edges read
+ * the same as the empty string a block head hands over. That is a
+ * fact about the classes, not about the table - the fields say what
+ * the row WRITES, which is what a consumer has to be handed to ask
+ * its own question, and the eight element rows write `<` and `>`.
+ * Blanking them would encode "this row writes nothing", which is
+ * false, and would answer wrongly the first time a class widens (a
+ * block whose `subs` drops `specialcharacters` keeps the author's
+ * `<`, the gap {@link afterSpecialchars} already records).
+ *
  * Exported for its unit test (tests/parser/curved-quote-scan.test.ts)
  * and consumed by src/print/span-edges.ts, the same way `QuoteRowKey`
  * is.

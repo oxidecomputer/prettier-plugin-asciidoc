@@ -554,7 +554,7 @@ class ExtentScan {
     // it is how the arm says which line that is.
     const previous = this.buffer.at(-1);
     const previousText = previous?.current.text;
-    if (this.continuationArm(line, previous, previousText)) {
+    if (this.continuationArm(line, previous)) {
       return "go";
     }
     const delimiter = delimiterKind(line.text);
@@ -580,26 +580,26 @@ class ExtentScan {
 
   /**
    * The buffered-`+` arm's guard: whether the previous buffered cell
-   * holds a lone `+`, tested on `previousText` — the one read `step`
-   * already made — rather than a second read of the cell. Split out of
-   * `step` so that guard is two conditions here instead of folded into
-   * `step`'s own count, which is what keeps `step` under the
-   * `complexity` ceiling.
+   * holds a lone `+`. The text is read here, past the cell's own
+   * guard, and it is the same text `step` holds: nothing has run
+   * between the two reads, and the blanking this arm does happens
+   * inside `afterContinuation`, after the test. `step` keeps its own
+   * `previousText` because its after-blank arm needs the value from
+   * BEFORE this arm ran. Split out of `step` so that guard is two
+   * conditions here instead of folded into `step`'s own count, which
+   * is what keeps `step` under the `complexity` ceiling.
    * @param line - the line just read
    * @param previous - the last buffered cell, or undefined at an
    *   item's first line
-   * @param previousText - that cell's text, already read by the caller
    * @returns true when the `+` arm consumes this turn
    */
   private continuationArm(
     line: SourceLine,
     previous: Cell | undefined,
-    previousText: string | undefined,
   ): boolean {
     return (
       previous !== undefined &&
-      previousText !== undefined &&
-      previousIsContinuation(previousText) &&
+      previousIsContinuation(previous.current.text) &&
       this.afterContinuation(line, previous)
     );
   }

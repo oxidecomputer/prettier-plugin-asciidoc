@@ -134,9 +134,13 @@ class Paragraph {
   private runStart: number | undefined = undefined;
   // Document offset just past the run's last character.
   private runEnd: number;
-  // How many lines have been read; `firstLineAfterStart` is a rule of
-  // its own in the registry (a block anchor, for one, only counts there).
-  private linesRead = 1;
+  // Whether the line about to be read is the one directly after the
+  // block's start line, which the constructor already consumed:
+  // `firstLineAfterStart` is a rule of its own in the registry (a
+  // block anchor, for one, only counts there). A FLAG rather than a
+  // line COUNT, because the count answered nothing else - both of its
+  // readers asked it for this one bit.
+  private firstLineAfterStart = true;
   // The literal-plus rule's state: the candidate ` +` line (the first
   // line after an item's marker line, when it is indentation and a `+`
   // and nothing else) and the smallest indent of any content line
@@ -209,7 +213,7 @@ class Paragraph {
       const kind = classifyLine(next.text, {
         openParagraph: this.context,
         openListStyle: this.scan.openListStyle,
-        firstLineAfterStart: this.linesRead === 1,
+        firstLineAfterStart: this.firstLineAfterStart,
       });
       classifyTrace.observer?.(next.offset, kind);
       if (kind.kind !== "text" && kind.kind !== "raw") {
@@ -222,7 +226,7 @@ class Paragraph {
         // `line === LIST_CONTINUATION`); only a PLAIN `+` interrupts.
         this.closeRun();
         this.pieces.push({ kind: "raw", line: next });
-        this.linesRead += 1;
+        this.firstLineAfterStart = false;
         this.index += 1;
         continue;
       }
@@ -364,7 +368,7 @@ class Paragraph {
       this.closeRun();
       this.pieces.push({ kind: "raw", line });
     }
-    this.linesRead += 1;
+    this.firstLineAfterStart = false;
     this.index += 1;
   }
 
@@ -419,7 +423,7 @@ class Paragraph {
         indentOf(line.text),
       );
     } else if (
-      this.linesRead === 1 &&
+      this.firstLineAfterStart &&
       ITEM_TEXT_CONTEXTS.has(this.context) &&
       isIndentedContinuationLine(line.text)
     ) {

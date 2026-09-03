@@ -479,7 +479,9 @@ export function isFused(atoms: readonly Atom[], index: number): boolean {
  * renders as `+` — backslash is NOT a recognized escape for `+` in
  * Asciidoctor (` \+` renders a literal backslash), so the previously
  * used `\+` changed the rendered text.
- * @param atoms - the finished atoms (mutated).
+ * @param atoms - the finished atoms (mutated). NON-EMPTY:
+ *   {@link endNodeAtoms} is the only caller and it returns on an
+ *   empty list two statements before this call.
  * @param escape - Whether escaping is enabled for this text
  *   (disabled when a sibling follows in the same block, or
  *   inside a formatting span whose closing mark follows the
@@ -487,7 +489,7 @@ export function isFused(atoms: readonly Atom[], index: number): boolean {
  */
 function escapeDanglingPlus(atoms: Atom[], escape: boolean): void {
   const last = atoms.length - 1;
-  if (!escape || last < 0) {
+  if (!escape) {
     return;
   }
   if (atoms[last].text === CONTINUATION_WORD && !isFused(atoms, last)) {
@@ -531,6 +533,11 @@ function escapeDanglingPlus(atoms: Atom[], escape: boolean): void {
  *   splitting the guard across two files.
  */
 function keepContinuationLine(atoms: Atom[], opensWithOne: boolean): void {
+  // Both clauses behind `opensWithOne` are what make this TOTAL over
+  // the (atoms, flag) pairs {@link wordsToAtoms} declares: the flag is
+  // an exported function's option and no type ties it to the atoms
+  // beside it, so the emptiness and the `+` are checked here rather
+  // than assumed from the caller's claim.
   if (
     !opensWithOne ||
     atoms.length === 0 ||
@@ -740,8 +747,10 @@ export function keepTextOnFirstRestLine(
   kept: "hard" | "literal",
 ): Atom[] {
   const runs: Run[] = [];
-  for (let index = 0; index < atoms.length; index = runs.at(-1)?.end ?? 0) {
-    runs.push(runAt(atoms, index));
+  for (let index = 0; index < atoms.length; ) {
+    const run = runAt(atoms, index);
+    runs.push(run);
+    index = run.end;
   }
   const opener = runs.findIndex(
     (run, index) => index > 0 && run.breakBefore !== "none",

@@ -73,16 +73,19 @@ export function withBoundary(atom: Atom, boundary: Boundary): Atom {
 /**
  * Where a node sits among its inline siblings, and in which block:
  * what the block-start hazard net reads ({@link BlockStartCursor}),
- * plus the block's source start line, which only the dlist
+ * plus everything only the printer asks - the siblings themselves,
+ * the enclosing span, and the block's source start line the dlist
  * first-line guard reads.
  */
 export interface Cursor extends BlockStartCursor {
+  /** The inline siblings the node sits among. */
+  readonly siblings: readonly InlineNode[];
   /** 1-based source line the enclosing BLOCK starts on. */
   readonly blockStartLine: number;
   /**
-   * The span this node is the content of, when it is one - narrower
-   * than {@link BlockStartCursor}'s `InlineNode | undefined` so a span
-   * question (rowKeyOf, delimitersOf) can be asked of it directly.
+   * The span this node is the content of, when it is one. Declared
+   * as a span rather than as any inline node so a span question
+   * (rowKeyOf, delimitersOf) can be asked of it directly.
    */
   readonly enclosing: SpanNode | undefined;
   /**

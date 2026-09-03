@@ -64,9 +64,9 @@ function inlineMacroToSource(node: InlineMacroNode): string {
   const attrlist = ATTRLIST_MACROS.has(node.name)
     ? canonicalAttrlist(node.attrlist)
     : node.attrlist;
-  return node.target.length === 0
-    ? `${node.name}:[${attrlist}]`
-    : `${node.name}:${node.target}[${attrlist}]`;
+  // One template for both: an empty target interpolates to nothing,
+  // which is the same `name:[attrlist]` the split arm wrote by hand.
+  return `${node.name}:${node.target}[${attrlist}]`;
 }
 
 /**

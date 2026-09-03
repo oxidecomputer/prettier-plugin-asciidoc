@@ -148,6 +148,13 @@ export function resolveDelimitedOpen(
 
 // Recognized paragraph-form styles -> the variant they produce
 // (`source` and `listing` both map to "listing").
+//
+// The four rows VERBATIM_STYLES also carries are NOT shadowed by it.
+// `verbatimStyledOpen` (lines/reader.ts) leaves a SECTION TITLE
+// before it reads the held style at all, and a section title inside
+// a confinement falls through to `paragraph()`, which resolves the
+// style here: `====` / `[source]` / `== Title` / `====` builds a
+// verbatim listing, and dropping the rows reflows its content.
 const PARAGRAPH_FORM_STYLES: ReadonlyMap<string, VerbatimVariant> = new Map([
   ["source", "listing"],
   ["listing", "listing"],
@@ -208,17 +215,19 @@ const BACKTICK_COUNT = 3;
  * rewrites a fence line to its tip and keeps the rest as the hint,
  * parser.rb:992-1002), so the completion lives beside it rather than
  * in the reader that happens to hold the line.
+ *
+ * The role alone says which delimiter opened: `builds: "fencedBlock"`
+ * is DELIMITER_MODELS' `fencedCode` row and nothing else writes it,
+ * so asking the kind a second time asked one fact twice.
  * @param role - the resolved role
- * @param block - which delimiter opened the block
  * @param text - the opening line, rstripped
  * @returns the role, with `language` set for a hinted fence
  */
 export function withFenceLanguage(
   role: VerbatimRole,
-  block: DelimiterKind,
   text: string,
 ): VerbatimRole {
-  if (block !== "fencedCode" || role.builds !== "fencedBlock") {
+  if (role.builds !== "fencedBlock") {
     return role;
   }
   const language = text.slice(BACKTICK_COUNT).trim();

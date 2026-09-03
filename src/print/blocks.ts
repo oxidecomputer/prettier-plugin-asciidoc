@@ -150,17 +150,17 @@ const OPEN_BLOCK_DELIMITER_LENGTH = 2;
  */
 function computeDelimiter(content: string, delimChar: string): string {
   let maxConflict = 0;
-  if (content.length > 0) {
-    // Escape the delimiter char for use in a regex.
-    // `.` and `+` are regex metacharacters; `-` is safe
-    // outside character classes and must NOT be escaped
-    // (the `v` flag rejects unnecessary escapes).
-    const escaped = delimChar.replace(/[.+]/v, String.raw`\$&`);
-    const pattern = new RegExp(`^${escaped}{${MIN_DELIMITER_LENGTH},}$`, "v");
-    for (const line of content.split("\n")) {
-      if (pattern.test(line)) {
-        maxConflict = Math.max(maxConflict, line.length);
-      }
+  // Escape the delimiter char for use in a regex.
+  // `.` and `+` are regex metacharacters; `-` is safe
+  // outside character classes and must NOT be escaped
+  // (the `v` flag rejects unnecessary escapes).
+  const escaped = delimChar.replace(/[.+]/v, String.raw`\$&`);
+  const pattern = new RegExp(`^${escaped}{${MIN_DELIMITER_LENGTH},}$`, "v");
+  // Empty content needs no guard: it splits to one empty line, and no
+  // `{4,}` pattern matches that.
+  for (const line of content.split("\n")) {
+    if (pattern.test(line)) {
+      maxConflict = Math.max(maxConflict, line.length);
     }
   }
   const length = Math.max(
@@ -223,6 +223,12 @@ function computeMasqueradeDelimiter(
  * types now say (src/ast.ts): the "or it has a language" half of this
  * test used to be spelled beside the fence test and is gone with the
  * combination it covered, not with any behavior.
+ *
+ * The fence test itself is LOAD-BEARING and not a restatement of it.
+ * A DELIMITED `[source]` / `----` block is not fenced and carries
+ * exactly the annotation `source`, so without this line it would
+ * report covered and the printer would drop the author's `[source]`
+ * line (8 corpus documents measured).
  * @param node - The delimited block to check.
  * @returns True when the annotation already covers the source
  *   attribute this block would otherwise emit.
@@ -477,9 +483,6 @@ export function printAdmonition(
 ): Doc {
   if (node.form === "paragraph") {
     const label = `${node.variant.toUpperCase()}:`;
-    if (node.text.length === 0) {
-      return label;
-    }
     // The label is an atom of the body, not a prefix in front of it:
     // it occupies its columns of the first output line, and the packer
     // must measure them. The join after it is the syntax's own space,
@@ -490,7 +493,9 @@ export function printAdmonition(
     });
     // Text nodes that are all whitespace produce no atoms, so a text
     // array with children can still yield none — and then the label is
-    // the whole line, exactly as it is for an admonition with no text.
+    // the whole line. ONE test for both: an empty text array yields no
+    // atoms either, so the emptiness the caller could have asked about
+    // upstream is the same emptiness answered here.
     if (body.length === 0) {
       return label;
     }

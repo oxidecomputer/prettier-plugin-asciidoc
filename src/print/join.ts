@@ -41,6 +41,12 @@ function isAttributeEntry(block: BlockNode): boolean {
  * entries forms a contiguous header (`= Title` then `:attr: value`
  * with no blank line). A field read now that headings are one kind
  * (level 0 is SEMANTIC — it opens the document header run).
+ *
+ * A live arm of {@link stacksOntoAttributeEntry}, not a restatement
+ * of its attribute-entry half: a level-0 heading DEEPER in the file
+ * is a plain `heading` node (the document's own title is a
+ * `documentHeader` that owns its entries), and the entries under it
+ * stack on this test alone (measured on two corpus documents).
  * @param block - The block node to test.
  * @returns Whether the block is the level-0 heading.
  */
@@ -116,6 +122,12 @@ function isSectionHeading(block: BlockNode): boolean {
  *   level >= 1 heading: the stacked pair re-parses joined
  *   and the heading is destroyed (the A1 row in
  *   tests/format/heading-adjacency.test.ts)
+ *
+ * The comment-pair arm is the one that does NOT ask about source
+ * adjacency, and that is the whole of what it adds: two line comments
+ * with a blank line between them come out stacked (`// a` / blank /
+ * `// b` prints as the two lines), which the reader-eaten arm below
+ * refuses because {@link startsOnTheNextLine} is false there.
  *
  * Only the attribute-entry arm keys on what `current` IS,
  * so no block kind is exempt - a LIST included. A list

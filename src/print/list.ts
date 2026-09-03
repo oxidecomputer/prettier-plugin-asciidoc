@@ -515,8 +515,10 @@ function gapParts(gap: readonly GapLine[]): Doc[] {
   let blankRun = false;
   for (const line of gap) {
     if (line === "+") {
+      // No reset of `blankRun` here: `livePlus` never goes back to
+      // false, so the collapse below is switched off for the rest of
+      // the gap whatever `blankRun` holds.
       livePlus = true;
-      blankRun = false;
       parts.push("+", hardline);
       continue;
     }

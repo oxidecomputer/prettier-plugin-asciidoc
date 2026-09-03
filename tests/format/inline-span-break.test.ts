@@ -281,6 +281,24 @@ describe("the kept break is the SOURCE LINE's, not a fragment's", () => {
   test("a role-prefixed opener that is its whole line keeps the break", async () => {
     await expectRow("[.role]###\nb] c##\n", "[.role]###\nb] c##\n");
   });
+
+  // THE WITNESS for the net's one remaining precondition: content
+  // inside a span opens no block line, so it is collected with
+  // `blockStart: { atColumnZero: false }` (appendSpan,
+  // src/print/inline.ts). Here the outer `*` span's content holds an
+  // INNER `##` span whose own opening mark stands at the end of a
+  // source line, and nothing about it is a block start - the block
+  // starts at `w`. The atoms pack onto one line.
+  //
+  // Drop that claim and the net fires on the inner mark, keeping a
+  // break the block-start argument does not justify: the output
+  // becomes `w *##\nb c##* d`, whose first source line no longer
+  // ends after its first word, so a SECOND pass packs it back and
+  // the format is not idempotent. `expectRow`'s third assertion is
+  // what catches that, which is why this row goes through it.
+  test("a break at an inner span's mark is not a block start", async () => {
+    await expectRow("w\n*##\nb c##* d\n", "w *## b c##* d\n");
+  });
 });
 
 describe("the net also refuses to write a Markdown heading", () => {
