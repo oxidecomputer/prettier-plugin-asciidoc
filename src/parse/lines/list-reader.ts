@@ -222,11 +222,11 @@ function siblingTrait(kind: MarkerKind): SiblingTrait {
  * previous piece of the item and the block. A partition of the
  * document-wide gap record (GapRecord, scope.ts) by block positions.
  * Nothing here reads line text, so a non-gap line in a gap is
- * unrepresentable. The record is complete for these ranges because
- * every line between two of an item's blocks was consumed by a
- * recording arm of some scan (comments, metadata and attribute
- * entries are blocks); a hole would shorten a printed gap, which the
- * parity, idempotence and ast-invariants nets all see.
+ * unrepresentable. Every line between two of an item's blocks was
+ * consumed by a recording arm of some scan (comments and metadata are
+ * blocks), so the record covers these ranges but for the one a scan's
+ * own pop took off an item's tail and the item prints back itself
+ * (`finishItem`, item-tail.ts) - the exception invariant (vii) states.
  * @param record - the document-wide gap record
  * @param textEnd - the text's last line number
  * @param blocks - the item's blocks, in source order

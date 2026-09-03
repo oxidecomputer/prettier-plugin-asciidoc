@@ -451,6 +451,82 @@ describe("an item that ends on an enclosing scan's erased +", () => {
   });
 });
 
+// The `+` the pop takes off an item's buffer is that ITEM's byte, and
+// only that item's. A nested item is where the two spellings can meet
+// on ONE physical line: the enclosing scan leaves a `+` standing
+// inside a nested list rather than blanking it ("they will be
+// processed when grabbing the lines for those nested lists",
+// parser.rb l.1412-14, l.1439), so the enclosing gap still spans the
+// line; the nested scan's own activation then erases it (l.1439) and
+// the pop takes it off the tail (l.1580-82), which is the nested
+// item's `+` to print back.
+//
+// Spelling it in both places writes two adjacent `+` lines, and the
+// second one is not a spare byte: on re-read it is the second of an
+// adjacent pair, which freezes the continuation (l.1443-46) and ends
+// the nested item on the frozen mark, so the block below the shield
+// is read into the OUTER item instead.
+//
+// The FAMILY is one shape — an outer item, a nested item, a `+`, a
+// blank RUN, the detached `+` the run erases, and one block under it
+// — with the block and the marker vocabulary free. The first four
+// rows are its members. Three of them were RENDER-corrupting: a
+// paragraph and an indented literal under the shield, and the ordered
+// spelling of the paragraph one, which shows the family is not about
+// `*`. The fourth is a block-attribute line, standing for the members
+// whose block renders nothing on its own, where only the byte moved
+// (a comment, an anchor and a block title spell the same bytes).
+//
+// The last two rows are the edges, and each fails for its own reason.
+// One blank instead of a RUN reaches no pop at all — the nested item
+// keeps the block, so the outer item has a single block and no gap to
+// spell twice — so it brackets the blank-run dimension and nothing
+// else. A THIRD level does reach the pop, but the byte it takes is
+// still `pending` there (a `+` an enclosing scan left standing for a
+// nested list to answer for, which spells nothing in any gap), so its
+// gap was already short of that line before this rule existed.
+//
+// Every row renders as its source and is a fixed point.
+describe("a popped + is spelled once, by the item that popped it", () => {
+  test.each([
+    [
+      "a blank run and a detached + behind a nested item",
+      "* a\n** b\n+\n\n\n+\npara\n",
+      "* a\n** b\n+\n\n+\npara\n",
+    ],
+    [
+      "a literal under the shield rather than a paragraph",
+      "* a\n** b\n+\n\n\n+\n  lit\n",
+      "* a\n** b\n+\n\n+\n  lit\n",
+    ],
+    [
+      "an ordered list spells it the same way",
+      ". a\n.. b\n+\n\n\n+\npara\n",
+      ". a\n.. b\n+\n\n+\npara\n",
+    ],
+    [
+      "block metadata under the shield, where the byte alone moved",
+      "* a\n** b\n+\n\n\n+\n[role]\n",
+      "* a\n** b\n+\n\n+\n[role]\n",
+    ],
+    [
+      "one blank instead of a run reaches no pop",
+      "* a\n** b\n+\n\n+\npara\n",
+      "* a\n** b\n+\n\n+\npara\n",
+    ],
+    [
+      "a third level pops a + that spells nothing anyway",
+      "* a\n** b\n*** c\n+\n\n\n+\npara\n",
+      "* a\n** b\n*** c\n+\n\n+\npara\n",
+    ],
+  ])("%s", async (_name, input, expected) => {
+    const out = await formatAdoc(input);
+    expect(out).toBe(expected);
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+});
+
 // The `within_nested_list` fold (parser.rb l.1412-14, l.1439) and the
 // callout marker that opens a NEW list under a popped `+`: two
 // neighbourhoods whose bytes are decided by the separator ROLE the

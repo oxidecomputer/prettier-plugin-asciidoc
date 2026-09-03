@@ -16,6 +16,7 @@ import {
   expectAnnotatedByPairing,
   expectAstInvariants,
   expectContainment,
+  expectGapsVerbatim,
   expectItemSiblingMonotonicity,
   expectMasqueradeSourceDelimiter,
 } from "./ast-invariants.js";
@@ -145,5 +146,79 @@ describe("AST invariants: negative rows", () => {
     expect(() => {
       expectMasqueradeSourceDelimiter(preorder(bad));
     }).toThrow();
+  });
+});
+
+// (vii)'s ONE exception, exercised rather than described: a `+` a
+// nested item pops off its own buffer is printed back from that
+// item's tail (`ListItemNode.trailingContinuation`), so the enclosing
+// gap that spans the line does not record it too. Writing both
+// spellings puts an adjacent `+` pair in the output, which the
+// `ListContinuationMarker === this_line` arm freezes on re-read
+// (parser.rb l.1443-46).
+//
+// The corpus rows above hold the equality half — no corpus document
+// has this shape — so these are where the exception is measured at
+// all. The first two are the two spellings that reach it: a run the
+// nested scan erases its `+` into, and the adjacent pair whose SECOND
+// `+` the pop takes. The third has the tail one level deeper.
+describe("AST invariants: (vii) allows a popped + out of the gap", () => {
+  test.each([
+    "* a\n** b\n+\n\n\n+\npara\n",
+    "* a\n** b\n+\n+\n\n+\npara\n",
+    "* a\n** b\n*** c\n+\n\n\n+\npara\n",
+  ])("%s", (source) => {
+    expectAstInvariants(source);
+  });
+
+  // And it stays an exception: with no tail fact under the previous
+  // block, the same missing `+` is a failure. The item below records
+  // one gap line where the source has two, and no nested item is
+  // there to have printed the other.
+  test("(vii) bites: a gap short a + no tail prints back fails", () => {
+    const bad = {
+      type: "document",
+      children: [
+        {
+          type: "list",
+          variant: "unordered",
+          marker: "*",
+          children: [
+            {
+              type: "listItem",
+              markerSpelling: "*",
+              text: [
+                {
+                  type: "text",
+                  value: "a",
+                  position: { start: at(2, 1), end: at(3, 1) },
+                },
+              ],
+              blocks: [
+                {
+                  gap: [""],
+                  block: {
+                    type: "paragraph",
+                    children: [],
+                    position: { start: at(7, 4), end: at(11, 4) },
+                  },
+                },
+              ],
+              position: { start: at(0, 1), end: at(11, 4) },
+            },
+          ],
+          position: { start: at(0, 1), end: at(11, 4) },
+        },
+      ],
+      position: { start: at(0, 1), end: at(11, 4) },
+    };
+    const source = "* a\n+\n\npara\n";
+    // The MESSAGE is asserted, not just the throw: every other way
+    // this walk can fail (a content line in the gap, a dropped blank,
+    // an entry the source has not got) would also throw, and the row
+    // is about the DROP COUNT.
+    expect(() => {
+      expectGapsVerbatim(source, preorder(bad));
+    }).toThrow(/dropped a \+ no tail prints back/v);
   });
 });

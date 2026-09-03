@@ -472,13 +472,41 @@ function expectListsNonEmpty(nodes: AnyNode[]): void {
 }
 
 /**
- * (vii) Gaps are verbatim: the lines strictly between an item's pieces
- * are exactly the recorded gap, and nothing but blank lines and `+`
- * lines ever sits in one.
+ * (vii) Gaps are verbatim, with ONE exception: the lines strictly
+ * between an item's pieces are the recorded gap, one entry per line
+ * and in source order, and nothing but blank lines and `+` lines ever
+ * sits in one — except a `+` that a nested item at the end of the
+ * previous block prints back from its own tail
+ * (`ListItemNode.trailingContinuation`), which is recorded on that
+ * item and so is not recorded here as well.
+ *
+ * The exception is not a loosening. It is exactly as wide as the tail
+ * facts standing under the previous block ({@link tailContinuations}):
+ * a gap may omit that many `+` entries and not one more, may omit no
+ * blank line at all, and keeps every entry it does record in source
+ * order. Where no such tail stands below it — which is every gap in
+ * the conformance corpus — the check is the equality it always was.
+ *
+ * Why the byte moves at all: an item's own read pops a trailing `+`
+ * off its buffer (`ListContinuationMarker === buffer[-1]` and the
+ * `buffer.pop` under it, parser.rb l.1580-82) and the item prints
+ * that byte back itself, so the separator record must not spell it a
+ * second time — the two spellings are one physical line, and writing
+ * both puts an adjacent `+` pair in the output, which the
+ * `ListContinuationMarker === this_line` arm freezes on re-read
+ * (l.1443-46), moving the block under it out of the nested item.
+ * Only a NESTED item can collide this way: its popped line is the
+ * last of its own buffer, so no gap of its own blocks can span it,
+ * and an enclosing item's gap spans it only because the enclosing
+ * scan leaves a `+` inside a nested list standing rather than
+ * blanking it (`within_nested_list`, l.1412-14 and l.1439).
+ *
+ * Exported for its rows in tests/parser/ast-invariants.test.ts, which
+ * pin the exception's shapes and show the check still bites.
  * @param source - the whole document
  * @param nodes - every node, in document order
  */
-function expectGapsVerbatim(source: string, nodes: AnyNode[]): void {
+export function expectGapsVerbatim(source: string, nodes: AnyNode[]): void {
   const lines = source.split("\n").map((line) => rstrip(line));
   for (const node of nodes) {
     if (node.type === "listItem") expectItemGaps(lines, node);
@@ -497,6 +525,10 @@ function expectItemGaps(lines: readonly string[], node: AnyNode): void {
   let previousEnd = isNode(lastText)
     ? lastText.position.end.line
     : node.position.start.line;
+  // The item's TEXT prints no trailing `+`, so the FIRST gap has no
+  // allowance at all; each later one is measured against the block
+  // standing directly above it.
+  let allowance = 0;
   for (const entry of isArray(blocks) ? blocks : []) {
     if (!isRecord(entry)) continue;
     const { block, gap } = entry;
@@ -506,9 +538,86 @@ function expectItemGaps(lines: readonly string[], node: AnyNode): void {
       between.every((line) => line === "" || line === "+"),
       `gap holds a content line: ${JSON.stringify(between)}`,
     ).toBe(true);
-    expect(gap).toEqual(between.map((line) => (line === "+" ? "+" : "")));
+    expectGapOmitsOnlyTailPluses(
+      gap,
+      between.map((line) => (line === "+" ? "+" : "")),
+      allowance,
+    );
     previousEnd = block.position.end.line;
+    allowance = tailContinuations(block);
   }
+}
+
+/**
+ * How many `+` bytes a block prints AFTER its own last node — the
+ * width of (vii)'s exception for the gap that follows it.
+ *
+ * Only a list can print one, and only at the end of its last item, so
+ * the count is a walk down the last-item/last-block chain: an item
+ * whose own last block is another list can have a tail under a tail.
+ *
+ * `detachedTail` is NOT counted. Its `+` is written under a blank
+ * line the printer adds, and no measured document puts one inside an
+ * enclosing gap; if one ever does, this invariant fires rather than
+ * waving it through, which is the right direction for a fact nothing
+ * has established.
+ * @param block - the block standing above the gap
+ * @returns how many `+` entries that gap may omit
+ */
+function tailContinuations(block: AnyNode): number {
+  if (block.type !== "list") return 0;
+  const items = isArray(block.children) ? block.children : [];
+  const last = items.at(-1);
+  if (!isNode(last)) return 0;
+  const own = last.trailingContinuation === true ? 1 : 0;
+  const inner = isArray(last.blocks) ? last.blocks.at(-1) : undefined;
+  return (
+    own +
+    (isRecord(inner) && isNode(inner.block)
+      ? tailContinuations(inner.block)
+      : 0)
+  );
+}
+
+/**
+ * (vii)'s comparison: the recorded gap is `between` with `allowance`
+ * `+` entries dropped and nothing else changed.
+ *
+ * Walked with a cursor rather than compared as multisets, because
+ * ORDER is what the printer replays — a gap holding the same bytes in
+ * another order prints a different document. Each source line either
+ * matches the next recorded entry or is a dropped `+`; a dropped
+ * blank, an entry the source has not got, and a drop count other than
+ * the allowance all fail.
+ * @param gap - the recorded gap, as the node carries it
+ * @param between - the source lines between the item's two pieces,
+ *   each normalized to `""` or `"+"`
+ * @param allowance - how many `+` entries the block above this gap
+ *   prints back itself ({@link tailContinuations})
+ */
+function expectGapOmitsOnlyTailPluses(
+  gap: unknown,
+  between: readonly string[],
+  allowance: number,
+): void {
+  const recorded = isArray(gap) ? gap : [];
+  const seen = `gap ${JSON.stringify(recorded)} against ${JSON.stringify(between)}`;
+  let index = 0;
+  let dropped = 0;
+  for (const line of between) {
+    if (index < recorded.length && recorded[index] === line) {
+      index += 1;
+      continue;
+    }
+    dropped += 1;
+    expect(line, `a gap dropped a blank line: ${seen}`).toBe("+");
+  }
+  expect(index, `a gap records a line the source has not got: ${seen}`).toBe(
+    recorded.length,
+  );
+  expect(dropped, `a gap dropped a + no tail prints back: ${seen}`).toBe(
+    allowance,
+  );
 }
 
 /**

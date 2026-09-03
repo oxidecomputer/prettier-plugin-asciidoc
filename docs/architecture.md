@@ -217,7 +217,16 @@ leaf:
   line a second time. Each block an item holds carries its verbatim `gap`: the
   `""` and `"+"` lines the author wrote in front of it, spelled from the role
   the arm that consumed each line recorded and applied to the document-wide
-  record by the reader that owns it.
+  record by the reader that owns it. Verbatim has exactly one exception: a `+`
+  the post-loop's pop took off a NESTED item's tail is printed back from that
+  item's own `trailingContinuation` (or deliberately dropped when the tail is
+  withheld; the argument sits with the deletion in
+  `src/parse/lines/item-tail.ts`), so the enclosing gap that spans the line does
+  not spell it as well — two spellings of one line write an adjacent `+` pair,
+  which freezes the continuation on re-read and moves the block under it out of
+  the nested item. Invariant (vii) in `tests/parser/ast-invariants.ts` states
+  the exception and holds it to exactly the tail facts standing under the block
+  above each gap.
 - The **document header** is read extent-first too, at the title line
   (`src/parse/lines/header-reader.ts`, reading the lines `parse_document_header`
   -> `parse_header_metadata` reads). Whether a `= Title` opens one is reader
