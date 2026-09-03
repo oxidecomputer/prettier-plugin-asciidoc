@@ -362,10 +362,21 @@ describe("parse-layer architecture", () => {
   // (the corpus, the three shape grids and four directed sweeps all
   // measured zero), which is the point - the tree gains the structure
   // and the printer replays the same characters.
-  test("the node-kind census is 43", () => {
+  //
+  // 46, moved up from 43 with TABLE STRUCTURE (issue #10): `table`,
+  // `tableRow` and `tableCell` join the file, three discriminants for
+  // the modeled table a builder can now assemble. None of the three
+  // is a `BlockNode` or `DelimitedBlockNode` member yet - `|===` still
+  // resolves to the existing opaque `TableBlockNode` passthrough - so
+  // this row moves before the wire does. Wiring the three in, and
+  // retiring `TableBlockNode`'s own `"delimitedBlock"` literal, is a
+  // later change; when it lands the census falls by one even as the
+  // tree gains structure, which is why the row above says the count
+  // is directionless.
+  test("the node-kind census is 46", () => {
     const source = readFileSync("src/ast.ts", "utf8");
     const kinds = source.match(/^ {2}type: "[a-zA-Z]+";$/gmv) ?? [];
-    expect(kinds).toHaveLength(43);
+    expect(kinds).toHaveLength(46);
   });
 
   test("only the classification pass imports a pattern from the registry", () => {

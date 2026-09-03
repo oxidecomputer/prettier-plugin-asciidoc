@@ -440,6 +440,9 @@ export const AST_KIND_CENSUS: ReadonlyMap<string, string> = new Map([
   ["blockAttributeList", "dropped: an attribute to the oracle"],
   ["blockTitle", "dropped: an attribute to the oracle"],
   ["blockAnchor", "dropped: an attribute to the oracle"],
+  ["table", "not yet reached: a table still passes through as bytes"],
+  ["tableRow", "not yet reached: a table still passes through as bytes"],
+  ["tableCell", "not yet reached: a table still passes through as bytes"],
 ]);
 
 /**

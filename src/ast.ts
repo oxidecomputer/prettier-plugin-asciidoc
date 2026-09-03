@@ -1304,6 +1304,346 @@ export interface BlockAnchorNode extends Node {
   reftext: string | undefined;
 }
 
+/**
+ * Table structure (issue #10). These four types are the modeled
+ * table: `table`, `tableRow`, `tableCell`, and the auxiliary shapes
+ * a cell's opening and spec carry. NOT YET a member of `BlockNode` or
+ * `DelimitedBlockNode`: the reader still resolves a `|===` block to
+ * `TableBlockNode`'s opaque verbatim passthrough above, so these types
+ * currently have no `src` producer or consumer beyond
+ * `src/parse/build/table.ts` and the tests that exercise it directly.
+ * Wiring them in is a later change, made once a hookup can decide,
+ * from the corpus, that the modeled tree replays every byte the
+ * passthrough already does.
+ *
+ * Shapes here mirror the table SCAN's own types
+ * (`src/parse/lines/table-reader.ts`, `src/parse/lines/table-cell-spec.ts`)
+ * field for field, including which fields carry `readonly`: those two
+ * modules are the parse-side source of truth this file cannot import
+ * (the AST layer is a leaf; every parser module imports FROM it), so
+ * the shapes are transcribed rather than re-exported.
+ */
+
+/**
+ * A table. Unlike every other delimited construct this is a node of
+ * its own rather than a `DelimitedBlockNode` member: a table's
+ * interior is neither one verbatim slice nor a sequence of blocks,
+ * and its delimiter lines frame recorded structure rather than
+ * bracketing content.
+ *
+ * The node's records PARTITION its extent. Concatenating, in
+ * document order, `open`, `leadingRuns`, every span held by every
+ * cell of every row, and the closing line reproduces the source
+ * between `position.start` and `position.end` exactly (a dropped `//`
+ * or blank line is a run like any other, never actually dropped).
+ * That is what makes a byte-replaying printer possible and what a
+ * later normalization gives up one span class at a time.
+ */
+export interface TableNode extends Node {
+  /** Node discriminant. */
+  type: "table";
+  /**
+   * The opening delimiter line as written (`|===`, `,====`, `!===`),
+   * newline excluded. Trailing whitespace is kept: like every other
+   * delimited block's opening Fragment, this is the raw span, and the
+   * partition rule needs the literal bytes to replay.
+   */
+  open: string;
+  /** How the extent ended. */
+  close: TableClose;
+  /**
+   * How cells are cut, resolved once at the opening line from the
+   * delimiter's hint character and the held attribute line
+   * (parser.rb:874-877, table.rb:459-486).
+   */
+  cutting: TableCutting;
+  /**
+   * The `cols=` parse, in declaration order after `N*` repeats are
+   * expanded (parser.rb:2436-2482); absent when the block carried no
+   * readable `cols` value. Column WIDTHS in percent are not modeled:
+   * they change no source byte (table.rb:121-152).
+   */
+  columns?: readonly TableColumnSpec[];
+  /**
+   * Whether the first row is a header. Asciidoctor decides this with
+   * a mutable assumption it cancels from three places
+   * (parser.rb:2303-2310, :2328-2335, :2338-2348, :2395); this is a
+   * total predicate over facts the reader already recorded (see
+   * `readHeaderDecision`, src/parse/lines/table-reader.ts). Recorded
+   * on the node because it is what makes the blank line after the
+   * first row structure-bearing for any later normalizer.
+   */
+  header: "explicit" | "implicit" | "none";
+  /** Whether `options=footer` made the last row a footer. */
+  footer: boolean;
+  /**
+   * Runs before the first cell begins: the blank lines and comment
+   * lines a reader consumes ahead of the first separator
+   * (`skip_blank_lines`, reader.rb:279-291, reached from
+   * parser.rb:2303). Empty for a table that opens with content.
+   */
+  leadingRuns: readonly TableTextRun[];
+  /** The table's rows, in document order. */
+  children: TableRowNode[];
+  /** The attribute line's interior, as the reader recorded it. */
+  annotatedBy?: string;
+}
+
+/**
+ * How a table's extent ended: at its terminator, or at the end of the
+ * stream the reader could see (parser.rb:872, reader.rb:433-437).
+ * A union rather than an optional string so that "closed with no
+ * closing line" is unrepresentable.
+ */
+export type TableClose =
+  | {
+      /** Close discriminant: the terminator line was met. */
+      readonly kind: "delimiter";
+      /**
+       * The closing line as written, newline excluded, trailing
+       * whitespace kept (see {@link TableNode.open}).
+       */
+      readonly image: string;
+    }
+  | {
+      /** Close discriminant: the extent ran to the end of its stream. */
+      readonly kind: "endOfStream";
+    };
+
+/**
+ * Where a table's cells are cut. `tsv` is absent by construction: the
+ * `FORMATS` table Asciidoctor checks the value against normalizes it
+ * to csv with a tab separator at open (table.rb:461-463), so the pair
+ * here is always the pair that actually cuts. The author's
+ * `format=tsv` spelling survives on the sibling block attribute list
+ * node.
+ */
+export interface TableCutting {
+  /** Which cell rules apply: cell specs and `\|` escaping (psv), quotes (csv), `\:` escaping (dsv). */
+  readonly format: "psv" | "csv" | "dsv";
+  /**
+   * The string that cuts a cell. `|` for a top-level psv table
+   * whatever its hint character, because `!sv` is selected by
+   * `document.nested?` and never by the delimiter (table.rb:466-474).
+   */
+  readonly separator: string;
+}
+
+/** One `cols=` record, after `N*` expansion (parser.rb:2452-2481). */
+export interface TableColumnSpec {
+  /** `<`, `^`, `>` as `left`, `center`, `right`; absent when the record set none. */
+  readonly halign?: TableHorizontalAlignment;
+  /** `.<`, `.^`, `.>` as `top`, `middle`, `bottom`; absent when the record set none. */
+  readonly valign?: TableVerticalAlignment;
+  /** The one style letter's meaning, absent when the record named none or named an unmapped letter. */
+  readonly style?: TableCellStyle;
+}
+
+/**
+ * `TableCellHorzAlignments` (parser.rb:53-59). Read structurally
+ * through `TableColumnSpec`/`TableCellSpec`, never named by import.
+ * Exported for tests/parser/table-structure.test.ts; a future
+ * consumer that reads an alignment BY NAME (a printer, a normalizer)
+ * is the real `src` consumer once it lands.
+ * @internal
+ */
+export type TableHorizontalAlignment = "left" | "center" | "right";
+
+/**
+ * `TableCellVertAlignments` (parser.rb:61-67). Read structurally
+ * through `TableColumnSpec`/`TableCellSpec`, never named by import.
+ * Exported for tests/parser/table-structure.test.ts; a future
+ * consumer that reads an alignment BY NAME (a printer, a normalizer)
+ * is the real `src` consumer once it lands.
+ * @internal
+ */
+export type TableVerticalAlignment = "top" | "middle" | "bottom";
+
+/**
+ * `TableCellStyles` (parser.rb:69-77). Read structurally through
+ * `TableColumnSpec`/`TableCellSpec`, never named by import. Exported
+ * for tests/parser/table-structure.test.ts; a future consumer that
+ * reads a style BY NAME (a printer, a normalizer) is the real `src`
+ * consumer once it lands.
+ * @internal
+ */
+export type TableCellStyle =
+  | "none"
+  | "strong"
+  | "emphasis"
+  | "monospaced"
+  | "header"
+  | "literal"
+  | "asciidoc";
+
+/**
+ * One row: the cells Asciidoctor's column arithmetic groups together
+ * (table.rb:668-676 through :731). The grouping is a RECORDED
+ * derivation, made where the scan decides it, and a byte-replaying
+ * printer does not need to read it: a row prints as its cells' spans,
+ * so a grouping error can mislabel structure and cannot move a byte.
+ *
+ * A row's span runs from its first cell's start to its last cell's
+ * end, so rows are contiguous, non-overlapping and in document order.
+ */
+export interface TableRowNode extends Node {
+  /** Node discriminant. */
+  type: "tableRow";
+  /** The row's cells, in document order. */
+  children: TableCellNode[];
+}
+
+/**
+ * One cell. Its CONTENT is bytes: the runs below are
+ * replayed, never re-read. What is parsed is where the cell begins
+ * (its spec and separator) and where its text stops (the next cell's
+ * opening, the closing delimiter, or the end of the stream).
+ */
+export interface TableCellNode extends Node {
+  /** Node discriminant. */
+  type: "tableCell";
+  /** How this cell was opened. */
+  opening: TableCellOpening;
+  /**
+   * The cell's raw text, as a partition of the source between the
+   * opening and the next cell: `content` runs are the cell's text,
+   * `droppedComment` runs are the `//` lines a reader deletes before
+   * the table is parsed (reader.rb:424), and `skippedBlank` runs are
+   * blank lines no cell was open to take (reader.rb:279-291).
+   * Concatenating every run's `image` reproduces the region;
+   * concatenating the `content` runs alone reproduces Asciidoctor's
+   * cell buffer BEFORE its own per-line rstrip and escape chop
+   * (table.rb:525-528); those two transforms are applied when a
+   * cell's text is read, never stored beside the bytes.
+   */
+  runs: readonly TableTextRun[];
+  /**
+   * The repeat Asciidoctor's cell-spec QUEUE hands this cell, which is
+   * what row grouping counted. Usually the repeat of the cell's own
+   * opening spec (`opening.parsed.repeat` for a `separator` opening);
+   * in a table whose first line is missing its leading separator the
+   * queue runs one behind for the whole table (`take_cellspec` shifts,
+   * table.rb:554-556, what `push_cellspec` put there one separator
+   * later, table.rb:562-565), so each cell takes the NEXT opening's
+   * repeat and the last cell takes none. A sibling of `opening` rather
+   * than a field inside it, because it is a fact about the QUEUE, not
+   * about how this cell's own text was spelled.
+   */
+  repeat: TableCellRepeat;
+}
+
+/**
+ * How a cell began. A psv cell opens at a separator, optionally
+ * behind a spec; `recovered` is Asciidoctor's "table missing leading
+ * separator" repair, where the text before the first separator of the
+ * first line becomes a cell (table.rb:621-627); a csv or dsv cell that
+ * starts a line opens at `lineStart`, since those formats close every
+ * cell at end of line (parser.rb:2401-2406).
+ */
+export type TableCellOpening =
+  | {
+      /** Opening discriminant: a separator, with the spec in front of it. */
+      readonly kind: "separator";
+      /**
+       * The spec text as written, INCLUDING the leading or trailing
+       * whitespace `CellSpecStartRx` and `CellSpecEndRx` take with it
+       * (rx.rb:399-400). `""` for a bare `|`; the empty string is the
+       * ordinary case, not an absence.
+       */
+      readonly spec: string;
+      /** The spec's parse; every field absent for `spec === ""`. */
+      readonly parsed: TableCellSpec;
+      /**
+       * The separator as CONSUMED, which is `cutting.separator`
+       * everywhere but at a line start, where Asciidoctor cuts one
+       * character off a line it matched the whole separator against
+       * (parser.rb:2319-2320, table.rb:502-504).
+       */
+      readonly separator: string;
+      /** Zero-based offset of the spec's first character. */
+      readonly offset: number;
+    }
+  | {
+      /** Opening discriminant: an opening that writes no bytes of its own. */
+      readonly kind: "lineStart" | "recovered";
+      /** Zero-based offset of the cell's first character. */
+      readonly offset: number;
+    };
+
+/**
+ * One run of a cell's raw region. One flat record rather than a
+ * discriminated union: all three kinds carry the same two fields, so a
+ * union would separate nothing a reader has to tell apart.
+ */
+export interface TableTextRun {
+  /** Why these bytes are here. */
+  readonly kind: TableRunKind;
+  /** The bytes, verbatim, newlines included. */
+  readonly image: string;
+  /** Zero-based offset of the run's first character. */
+  readonly offset: number;
+}
+
+/**
+ * Why a run's bytes are in a cell's region (or in `TableNode.leadingRuns`):
+ * `content` is the cell's own text, and the other two are lines a
+ * reader consumes before the table could see them, kept so a
+ * byte-replaying printer can write them back. `droppedComment` is a
+ * `//` line, but not a `///` one (`skip_comments`, reader.rb:420-425);
+ * `skippedBlank` is a blank line no cell was open to take
+ * (`skip_blank_lines`, reader.rb:279-291). Read
+ * structurally through `TableTextRun.kind`, never named by import.
+ * Exported for tests/parser/table-structure.test.ts; a future
+ * consumer that branches on a run's kind BY NAME (a printer) is the
+ * real `src` consumer once it lands.
+ * @internal
+ */
+export type TableRunKind = "content" | "droppedComment" | "skippedBlank";
+
+/**
+ * A cell spec's parse (`parse_cellspec`, parser.rb:2495-2545). `repeat`
+ * is a union because Asciidoctor's `+` and `*` forms are exclusive:
+ * `+` sets colspan and rowspan, `*` sets a duplication count and
+ * IGNORES the row half of the same digits (parser.rb:2515-2520). Two
+ * nullable number fields would let `{ colspan: 2, duplicate: 3 }`
+ * typecheck. Read structurally through the `separator` opening's
+ * `parsed` field, never named by import. Exported for
+ * tests/parser/table-structure.test.ts; a future consumer that reads
+ * a spec BY NAME is the real `src` consumer once it lands.
+ * @internal
+ */
+export interface TableCellSpec {
+  /** The `N+`, `N.M+` or `N*` prefix, or its absence. */
+  readonly repeat: TableCellRepeat;
+  /** The horizontal alignment the spec named, if any. */
+  readonly halign?: TableHorizontalAlignment;
+  /** The vertical alignment the spec named, if any. */
+  readonly valign?: TableVerticalAlignment;
+  /** The style the spec's letter named, absent for an unmapped letter. */
+  readonly style?: TableCellStyle;
+}
+
+/** The three exclusive forms of a cell spec's leading digits. */
+export type TableCellRepeat =
+  | {
+      /** Repeat discriminant: no digits in front of the spec. */
+      readonly kind: "none";
+    }
+  | {
+      /** Repeat discriminant: `N+`, `.M+` or `N.M+`. */
+      readonly kind: "span";
+      /** Columns spanned; 1 when the spec wrote only a row half. */
+      readonly colspan: number;
+      /** Rows spanned; 1 when the spec wrote only a column half. */
+      readonly rowspan: number;
+    }
+  | {
+      /** Repeat discriminant: `N*`, which repeats the cell N times. */
+      readonly kind: "duplicate";
+      /** How many cells the one spelling produces. */
+      readonly count: number;
+    };
+
 /** A top-level structural element of a document. */
 export type BlockNode =
   | ParagraphNode

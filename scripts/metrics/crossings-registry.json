@@ -1010,6 +1010,13 @@
   {
     "file": "src/parse/positions.ts",
     "symbol": "LocationIndex",
+    "importer": "src/parse/build/table.ts",
+    "kind": "vocabulary",
+    "reason": "the document's one offset -> Location index, built once and handed to every builder so no two agree on it separately"
+  },
+  {
+    "file": "src/parse/positions.ts",
+    "symbol": "LocationIndex",
     "importer": "src/parse/inline/inline-link-builder.ts",
     "kind": "vocabulary",
     "reason": "the document's one offset -> Location index, built once and handed to every builder so no two agree on it separately"

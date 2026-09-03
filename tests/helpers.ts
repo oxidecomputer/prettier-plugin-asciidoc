@@ -11,7 +11,13 @@
  * identity.test.ts to use this shared helper — that would defeat its purpose.
  */
 import { format, type Options } from "prettier";
-import { LoggerManager, NullLogger, convert } from "@asciidoctor/core";
+import {
+  LoggerManager,
+  MemoryLogger,
+  NullLogger,
+  convert,
+  load,
+} from "@asciidoctor/core";
 import type {
   BlockNode,
   DelimitedBlockNode,
@@ -401,5 +407,193 @@ export async function renderedHtml(input: string): Promise<string> {
         /\0R(?<index>\d+)\0/gv,
         (_match: string, index: string) => kept[Number(index)],
       )
+  );
+}
+
+/**
+ * One cell's structural facts, read from the oracle's own
+ * `Table::Cell`: its colspan, rowspan and the alignment/style
+ * `getAttributes()` carries. Text is read separately, into
+ * {@link OracleTable.rows}, because the structure suite compares it
+ * against a different transform than these facts (issue #10).
+ */
+export interface OracleCellSpec {
+  /** `Table::Cell#colspan`. */
+  readonly colspan: number;
+  /** `Table::Cell#rowspan`. */
+  readonly rowspan: number;
+  /** The resolved horizontal alignment, absent when none applies. */
+  readonly halign: string | undefined;
+  /** The resolved vertical alignment, absent when none applies. */
+  readonly valign: string | undefined;
+  /** The resolved cell style, absent when none applies. */
+  readonly style: string | undefined;
+}
+
+/**
+ * The oracle's own structural read of the FIRST table `findBy` meets
+ * in a document: its rows' cell text, a parallel per-cell spec grid
+ * (same row and column indices as `rows`), the header and footer row
+ * counts, its resolved column count, and every severity the run
+ * logged.
+ */
+export interface OracleTable {
+  /** Every row's cell text, `head` then `body` then `foot`, in order. */
+  readonly rows: ReadonlyArray<readonly string[]>;
+  /** Each row's cells' colspan/rowspan/alignment/style, same shape as `rows`. */
+  readonly specs: ReadonlyArray<readonly OracleCellSpec[]>;
+  /** `table.rows.head.length`. */
+  readonly head: number;
+  /** `table.rows.foot.length`. */
+  readonly foot: number;
+  /** `table.getAttribute("colcount")`, as a number. */
+  readonly colcount: number;
+  /**
+   * One severity label (`"ERROR"`, `"WARN"`, ...) per message loading
+   * the document logged, in order; empty for a clean load.
+   */
+  readonly severities: readonly string[];
+}
+
+/**
+ * The oracle's own `Table::Cell` shape, restated because
+ * `@asciidoctor/core`'s published types do not export `Table` or
+ * `Table.Cell` (probed on 4.0.11: `source()`, `colspan`, `rowspan`
+ * and `getAttributes()` all answer directly).
+ */
+interface OracleRubyCell {
+  /**
+   * The cell's own text BEFORE substitutions: `source` answers
+   * `\@text` directly (`def source; \@text; end`, table.rb:391-393,
+   * just above the `file`/`lineno` pair that reads `\@source_location`
+   * instead), where `text` wraps the SAME `\@text` in `apply_subs`
+   * (`def text; apply_subs \@text, \@subs; end`, table.rb:357-359).
+   * `\@text` is `close_cell`'s already strip/style/csv-unquote-resolved
+   * buffer (table.rb:617-683, `Table::Cell#initialize`). Structure,
+   * not rendering, is this suite's question.
+   */
+  readonly source: () => string;
+  /**
+   * How many columns this cell spans, or `null` for a csv/dsv cell
+   * (`Table::Cell#initialize` sets `\@colspan = \@rowspan = nil` when
+   * it carries no cellspec at all, table.rb:285).
+   */
+  readonly colspan: number | null;
+  /** How many rows this cell spans, or `null`; see `colspan`. */
+  readonly rowspan: number | null;
+  /** The cell's own attributes, `halign`/`valign`/`style` among them. */
+  readonly getAttributes: () => Record<string, unknown>;
+}
+
+/**
+ * The oracle's own `Table` shape, restated for the same reason as
+ * {@link OracleRubyCell}: `table.rows` is a live property (an Opal
+ * accessor, not a `getRows()` method), and `getAttribute("colcount")`
+ * answers the resolved column count.
+ */
+interface OracleRubyTable {
+  /** The table's rows, grouped by section. */
+  readonly rows: {
+    /** Header rows. */
+    readonly head: OracleRubyCell[][];
+    /** Body rows. */
+    readonly body: OracleRubyCell[][];
+    /** Footer rows. */
+    readonly foot: OracleRubyCell[][];
+  };
+  /**
+   * One node attribute's raw value.
+   * @param name - the attribute's name
+   * @returns the value, or undefined when unset
+   */
+  readonly getAttribute: (name: string) => unknown;
+}
+
+/**
+ * One attribute value, read defensively: `getAttributes()` and
+ * `getAttribute()` answer `unknown` here because Asciidoctor's own
+ * attribute store is untyped.
+ * @param value - the attribute's raw value
+ * @returns the value as a string, or undefined when it is not one
+ */
+function stringAttribute(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
+
+/**
+ * One oracle cell's structural facts.
+ * @param cell - the oracle's own cell
+ * @returns its colspan, rowspan, alignment and style
+ */
+function cellSpecOf(cell: OracleRubyCell): OracleCellSpec {
+  const attributes = cell.getAttributes();
+  return {
+    colspan: cell.colspan ?? 1,
+    rowspan: cell.rowspan ?? 1,
+    halign: stringAttribute(attributes.halign),
+    valign: stringAttribute(attributes.valign),
+    style: stringAttribute(attributes.style),
+  };
+}
+
+/**
+ * One found table, read into {@link OracleTable}'s shape. Every table
+ * in one document shares the same `severities`: they come from one
+ * `load`, and Ruby's own log messages are not attributed to a single
+ * table, so a warning anywhere in the document is a fact about all of
+ * them here.
+ * @param table - the oracle's own table
+ * @param severities - the whole load's own logged severities
+ * @returns the table's structure
+ */
+function oracleTableOf(
+  table: OracleRubyTable,
+  severities: readonly string[],
+): OracleTable {
+  const sections = [table.rows.head, table.rows.body, table.rows.foot];
+  const rows: string[][] = [];
+  const specs: OracleCellSpec[][] = [];
+  for (const section of sections) {
+    for (const row of section) {
+      rows.push(row.map((cell) => cell.source()));
+      specs.push(row.map(cellSpecOf));
+    }
+  }
+  return {
+    rows,
+    specs,
+    head: table.rows.head.length,
+    foot: table.rows.foot.length,
+    colcount: Number(table.getAttribute("colcount")),
+    severities,
+  };
+}
+
+/**
+ * The oracle's own structural read of every table `findBy` meets in
+ * `input`, in document order, via `load` rather than `convert`:
+ * `load` reaches the parsed model (`doc.findBy({ context: "table" })`,
+ * `table.rows`, each cell's `source()`/`colspan`/`rowspan`/
+ * `getAttributes()`), which {@link convert}'s rendered HTML does not
+ * expose (issue #10). Empty, not thrown, when `input` holds no table
+ * context at all.
+ *
+ * Runs under its own `MemoryLogger`, passed as the `logger` load
+ * option rather than swapped in through `LoggerManager`: `load`
+ * accepts a per-call logger directly, so this needs no process-wide
+ * state and is safe to run many of at once (`Promise.all` included).
+ * @param input - AsciiDoc source text
+ * @returns every table's structure, in document order
+ */
+export async function oracleTables(input: string): Promise<OracleTable[]> {
+  const memory = MemoryLogger.create();
+  const loadedDocument = await load(input, { safe: "safe", logger: memory });
+  const found = loadedDocument.findBy({ context: "table" });
+  const severities = memory
+    .getMessages()
+    .map((message) => message.getSeverity());
+  return found.map((table) =>
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- @asciidoctor/core does not export Table's own shape; OracleRubyTable restates the probed 4.0.11 API
+    oracleTableOf(table as unknown as OracleRubyTable, severities),
   );
 }

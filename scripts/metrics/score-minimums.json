@@ -53,6 +53,10 @@
       "coverage": 100.0,
       "mutation": 98.5
     },
+    "src/parse/build/table.ts": {
+      "coverage": 93.3,
+      "mutation": 0.0
+    },
     "src/parse/inline/curved-quotes.ts": {
       "coverage": 100.0,
       "mutation": 90.3
@@ -450,6 +454,12 @@
       "what": "mutation minimum 0 - a PLACEHOLDER, not a file with nothing to measure",
       "class": "when",
       "reason": "TRIGGER: the next batched mutation run. This file is new (issue #10, table modeling) and holds the table scan - cutCells, groupRows and readHeaderDecision over parser.rb:2295-2422 and table.rb:455-731 - none of which has been measured, because mutation runs at batched integration points and this file landed between two of them. Its coverage row is measured (100.0 lines, 185 of 185, from a ``bunx vitest run --coverage --exclude \"**/parity-trailers.test.ts\"`` run of this tree, the same workaround prior placeholder rows used). Its behaviour is pinned by the 50 rows of tests/parser/table-reader.test.ts, every one of which also asserts the byte partition: the openings and runs replay the interior with no gap and no overlap, so a mutant that moves a cut point has to move a byte to survive. See docs/harnesses.md, the two reasons a zero is allowed"
+    },
+    {
+      "file": "src/parse/build/table.ts",
+      "what": "mutation minimum 0 - a PLACEHOLDER, not a file with nothing to measure",
+      "class": "when",
+      "reason": "TRIGGER: the next batched mutation run. This file is new (issue #10, table modeling) and assembles a TableNode from the table SCAN's own output (cellEnd, buildCell, buildRow, closeOf, buildTable), none of which has been measured, because mutation runs at batched integration points and this file landed between two of them. Its coverage row is measured (93.33 lines, 14 of 15, from a `bunx vitest run --coverage --exclude \"**/parity-trailers.test.ts\"` run of this tree, the same workaround prior placeholder rows used); three branches are uncovered. Two are structurally out of the corpus's reach: buildRow's can't-happen guard (thrown only if groupRows produced a row with no cells, which it never does) and closeOf's endOfStream arm (no corpus table case is left unterminated, since an unterminated table is also one the oracle logs a warning for, which excludes the case from tests/parser/table-structure.test.ts outright). The third is a genuine gap rather than an impossibility: cellEnd's `lineStart`/`recovered` opening with zero runs (a wholly empty final cell with no separator hint), which the corpus happens not to contain. What this file's own arithmetic gets checked by is tests/parser/table-structure.test.ts's `replays its own bytes` rows (158/158): open, every leading run, each cell's opening (spec and separator) and runs, and close.image concatenate back to the passthrough's own source bytes exactly, which is what open/leadingRuns/openingImage/close.image assembly in buildTable has to get right, and what cutCells/groupRows's own cut (src/parse/lines/table-reader.ts) has to have partitioned correctly for buildTable to carry through unchanged - NOT a check on cellEnd/TableRowNode.position, which is a Location no assertion here reads. The oracle-comparison rows (144 tables) pin the rest: row grouping, header/footer verdict, colcount and per-cell text/colspan/rowspan/alignment/style against @asciidoctor/core's own parsed model. See docs/harnesses.md, the two reasons a zero is allowed"
     }
   ]
 }
