@@ -28,18 +28,18 @@ The 1/2 split is the reason the contract exists. A gate that cannot tell "I
 checked and it is broken" from "I checked nothing" goes quiet exactly when its
 inputs disappear, and a quiet failure in CI is a green tick. Every harness
 therefore has a measured-nothing floor that exits 2: `parity` has
-`MINIMUM_CASES`, `shape-diff` reports the ids its base dump was missing (its
-floor exits 1, a recorded gap), `migration-diff` refuses a comparison tree that
-measured nothing, `triage` refuses a corpus with no groups, `block-structure`
-refuses a short corpus, a short sweep product, an oracle refusal other than the
-one document it pins by id, and ledgers whose header names an oracle other than
-the installed one, `local-docs` refuses a directory with no documents in it,
-`citation-check` refuses a tree with fewer than a hundred citations in it,
-`probe-domains` refuses a generated domain that spelled a different number of
-documents than it is pinned at and a base revision that threw on every document
-of one, and `metrics` refuses a `src` too small to be this repository's. Without
-the split, an empty `src` would score a perfect card — no files means no cycles,
-no unused exports, and no escape hatches, all vacuously true.
+`MINIMUM_CASES`, `shape-diff` reports the ids its base dump was missing,
+`migration-diff` refuses a comparison tree that measured nothing, `triage`
+refuses a corpus with no groups, `block-structure` refuses a short corpus, a
+short sweep product, an oracle refusal other than the one document it pins by
+id, and ledgers whose header names an oracle other than the installed one,
+`local-docs` refuses a directory with no documents in it, `citation-check`
+refuses a tree with fewer than a hundred citations in it, `probe-domains`
+refuses a generated domain that spelled a different number of documents than it
+is pinned at and a base revision that threw on every document of one, and
+`metrics` refuses a `src` too small to be this repository's. Without the split,
+an empty `src` would score a perfect card — no files means no cycles, no unused
+exports, and no escape hatches, all vacuously true.
 
 Every script takes `--help`, and an unrecognized argument is an error, not a
 shrug: a silently dropped `--base` would print a head-only table that looks like

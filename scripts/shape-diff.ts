@@ -302,20 +302,29 @@ function missingIds(
 }
 
 /**
- * Say that a dump came back short, and fail the run.
+ * Say that a dump came back short: the run measured nothing for those
+ * shapes, which is the cannot-run doctrine's own floor, not a gate
+ * failure: a short base dump proves nothing about this checkout
+ * either way, so it must not read as the same 1 a real difference
+ * gets.
+ *
+ * Exported so the exit-code contract is testable directly: a
+ * genuinely short base dump needs a materialized checkout whose
+ * dumper child process exits 0 without covering every shape, which
+ * `--base` (always a `git archive` of THIS repository) offers no
+ * hook to construct.
  * @param dumped - the dump, by shape id
  * @param shapes - the grid the dump was asked for
  * @param missing - the ids it failed to produce
  */
-function reportShortDump(
+export function reportShortDump(
   dumped: ReadonlyMap<string, string>,
   shapes: readonly Shape[],
   missing: readonly string[],
 ): void {
-  process.stdout.write(
-    `shape-diff: the base dump produced ${String(dumped.size)} of ${String(shapes.length)} rows — ${String(missing.length)} missing, first ${missing[0]}: the run measured nothing for those shapes and CANNOT stand — an empty measurement is not agreement\n`,
+  cannotRun(
+    `shape-diff: the base dump produced ${String(dumped.size)} of ${String(shapes.length)} rows — ${String(missing.length)} missing, first ${missing[0]}: the run measured nothing for those shapes and CANNOT stand — an empty measurement is not agreement`,
   );
-  process.exitCode = GATE_FAILED;
 }
 
 /**
