@@ -1,6 +1,6 @@
 /**
- * The BLOCK-START HAZARD NET: the two questions the printer asks
- * before an atom is allowed to open a block's first output line.
+ * The BLOCK-START HAZARD NET: the question the printer asks before an
+ * atom list is allowed to open a block's first output line.
  *
  * Reflow packs a block's inline content into lines, and the line it
  * packs is read back by the same classifier that read the source. At
@@ -19,12 +19,18 @@
  * `**` then `*b* c` is one bold span whose content is `*\n*b`, which
  * is why the question is asked of the source line instead.
  *
- * Two entry points, one rule, because two paths build the block's
- * first atom: {@link hazardAtBlockStart} asks about the atom a
- * formatting span's opening mark would compose, before the span
- * fuses; {@link keepBlockStartBreak} asks about the finished atom
- * list, whatever node built it, so the plain-TEXT path is covered by
- * the same net.
+ * ONE question, asked once over the finished atom list
+ * ({@link keepBlockStartBreak}), so the plain-TEXT path and the span
+ * path are covered by the same net. A span's opening MARK would
+ * otherwise be invisible to it - the mark fuses onto the content atom
+ * beside it, and the fused atom carries a space where the source had
+ * the break, which is not a line the net may strand. So the span hands
+ * the net the pieces instead: {@link openMarkStandsApart} keeps the
+ * mark as its OWN atom, joined to the content over a space that packs
+ * exactly as the fusion did, wherever the recorded fact says the
+ * author's line ended right there. The net then trades that space for
+ * the break, or leaves it alone, from the one place that can see the
+ * whole line.
  */
 import { ASCII_WHITESPACE } from "../parse/line-shapes.js";
 import { type Atom, isBlockSyntaxAtLineStart } from "./reflow.js";
@@ -66,36 +72,38 @@ export interface BlockStartCursor {
   readonly index: number;
   /**
    * Where the block's FIRST atom lands and what stood on its source
-   * line. The block-start hazard net reads it on both paths
-   * ({@link hazardAtBlockStart} for a span's composed atom,
-   * {@link keepBlockStartBreak} for the finished list): only an atom
-   * that actually lands at column 0 can be re-read as block syntax
-   * there.
+   * line. Only an atom that actually lands at column 0 can be re-read
+   * as block syntax there, so both {@link openMarkStandsApart} and
+   * {@link keepBlockStartBreak} start from this.
    */
   readonly blockStart: BlockStart;
 }
 
 /**
- * Whether fusing a span's opening mark onto its first content atom
- * would put BLOCK SYNTAX at column 0.
+ * Whether a span's opening mark must stay its OWN atom instead of
+ * fusing onto the content atom beside it.
  *
- * A span whose content begins with whitespace (a source break or
- * space against the opening mark) fuses to an atom like `** b` - and
- * at the head of a paragraph that atom opens the output's first line,
- * where the reader sees a ulist marker: `**\nb** c` replayed as
- * `** b** c` re-reads as a LIST, a measured corruption. Only the
- * block's first atom can land there (wrap never moves it), so the net
- * asks four things: first node of the run it is asked about, the
- * block's content opens at column 0 on a source line its first word
- * ended, the fusion's space is whitespace the SOURCE had
- * (`fusesOverSpace`), and the composed atom answers yes to the SAME
- * line-shapes questions the reader asks
- * ({@link isBlockSyntaxAtLineStart}). Where it fires,
- * the span keeps the SOURCE's break instead of the space: the open
- * mark stands alone on the first line and the content opens the next
- * at column 0 - the one deliberate exception to replaying an in-span
- * break as a space, because here the space spelling changes the
- * line's block classification.
+ * A span whose content begins with whitespace (a source break or a
+ * space against the opening mark) would otherwise fuse to an atom like
+ * `** b`, and at the head of a paragraph that atom opens the output's
+ * first line, where the reader sees a ulist marker: `**\nb** c`
+ * replayed as `** b** c` re-reads as a LIST, a measured corruption.
+ * Putting the source's break back means printing the mark alone on the
+ * first line - and no fused atom can be cut there afterwards, because
+ * nothing in the atom says which of its spaces the source wrote. So the
+ * cut is made HERE, while the mark and the content are still two
+ * things, and the two atoms are joined over the same space the fusion
+ * would have written: identical bytes, identical packing, one atom
+ * boundary the net can trade for a break.
+ *
+ * Which is why this asks nothing about block SYNTAX. The whole-line
+ * question belongs to {@link keepBlockStartBreak}, which is the only
+ * place that can see the line the atoms pack into; this one answers
+ * only "is the space between these two atoms a break the author
+ * wrote", which is exactly three facts: first node of the run it is
+ * asked about, the block's content opens at column 0 on a source line
+ * its first word ended, and the fusion's space is whitespace the SOURCE
+ * had (`fusesOverSpace`).
  *
  * A span's own CONTENT is refused by the column-0 fact, not by a
  * second test here: content inside a span is collected with
@@ -110,40 +118,85 @@ export interface BlockStartCursor {
  * tests/format/inline-span-break.test.ts).
  *
  * `fusesOverSpace` is what makes the recorded fact the RIGHT fact for
- * this path. Detaching strands the open MARK on the first line, so it
- * may only fire where the mark is the whole word that line ended
- * with; the mark is that word exactly when the content behind it
- * opened with whitespace, since anything else it opened with would be
- * more of the same word (`**` then `*b* c` is the mark `*` and a
- * content `*` the author wrote against it - there the block's first
- * ATOM is the word, and {@link keepBlockStartBreak} is the path that
- * puts the line back).
+ * this path. Standing the mark apart puts it alone on the first line
+ * if the net fires, so it may only be done where the mark is the whole
+ * word that line ended with; the mark is that word exactly when the
+ * content behind it opened with whitespace, since anything else it
+ * opened with would be more of the same word (`**` then `*b* c` is the
+ * mark `*` and a content `*` the author wrote against it - there the
+ * block's first ATOM is the word already, and no cut is needed).
  * @param cursor - where the span sits.
- * @param composed - the atom text the fusion would produce.
  * @param fusesOverSpace - whether the fusion writes a space between
  *   the mark and the content, standing for whitespace the span's
  *   content began with.
- * @returns true when the net must keep the source's break.
+ * @returns true when the mark stays a separate atom.
  */
-export function hazardAtBlockStart(
+export function openMarkStandsApart(
   cursor: BlockStartCursor,
-  composed: string,
   fusesOverSpace: boolean,
 ): boolean {
   return (
     cursor.index === 0 &&
     cursor.blockStart.atColumnZero &&
     cursor.blockStart.firstWordEndsItsLine &&
-    fusesOverSpace &&
-    isBlockSyntaxAtLineStart(composed)
+    fusesOverSpace
   );
 }
 
 /**
- * The block-start hazard net on the block's FIRST ATOM, whatever
- * node built it - the question {@link hazardAtBlockStart} asks of a
- * span's composed opening atom, asked once over the finished list so
- * the plain-TEXT path is covered by the same net.
+ * Whether the line the block's atoms pack into re-reads as BLOCK
+ * SYNTAX.
+ *
+ * TWO lines are asked about. The PAIR - `atoms[0]` and its successor -
+ * answers for the shapes decided by their HEAD, and it answers for the
+ * longer lines too, because {@link isBlockSyntaxAtLineStart} asks its
+ * own question twice, once of the head it is given and once of that
+ * head with a word after it. What the pair cannot answer for is a
+ * shape anchored at BOTH ends: `BLOCK_ATTRIBUTE_LINE`
+ * (src/parse/line-shapes.ts) needs a `[` at the head AND a `]` at the
+ * end, so the `]` deciding it can live any number of atoms further
+ * along. The WHOLE join answers for those, and it is the line the
+ * packer writes whenever the block's content fits on one.
+ *
+ * The witness is issue #96's `[.role]##` then `b## c]`: a highlight
+ * span's role prefix (`spanMarks`, src/print/span-edges.ts) puts the
+ * `[` at the head, `[.role]## b##` is no block shape, and
+ * `[.role]## b## c]` is a block attribute line - so the paragraph
+ * packed into block METADATA and rendered EMPTY.
+ *
+ * KNOWN GAP, stated because it is easy to read this as total: a WRAP
+ * can also end the first line at a `]`, and neither line asked about
+ * here is that one. It is not this net's to close - every line of a
+ * packed block opens at column 0, so a wrap-created tail is the same
+ * hazard on line five as on line one, and `wordsToAtoms`
+ * (src/print/reflow.ts) guards line STARTS only.
+ * @param atoms - the block's atoms, at least two.
+ * @returns true when the packed line reads as block syntax.
+ */
+function packsIntoBlockSyntax(atoms: readonly Atom[]): boolean {
+  // Spelled with a space because the caller has already refused a
+  // successor glued to `atoms[0]`: these two atoms make this line.
+  const pair = `${atoms[0].text} ${atoms[1].text}`;
+  let line = pair;
+  for (let index = 2; index < atoms.length; index += 1) {
+    const atom = atoms[index];
+    // The packer must end its line at a demanded break, so nothing
+    // past one joins the line asked about here.
+    if (atom.breakBefore !== "none") {
+      break;
+    }
+    line += atom.glueLeft ? atom.text : ` ${atom.text}`;
+  }
+  return (
+    isBlockSyntaxAtLineStart(pair) ||
+    (line !== pair && isBlockSyntaxAtLineStart(line))
+  );
+}
+
+/**
+ * The block-start hazard net on the block's FIRST ATOM, whatever node
+ * built it - asked once over the finished list, so the plain-TEXT path
+ * and the span path are covered by the same net.
  *
  * `wordsToAtoms` (src/print/reflow.ts) protects a block-syntax word
  * by fusing it BACKWARDS onto its predecessor, which the block's
@@ -161,11 +214,13 @@ export function hazardAtBlockStart(
  * `ParagraphNode.firstWordEndsItsLine` (src/ast.ts) and
  * `isSingleWordLine` (src/parse/line-shapes.ts) both defer to.
  *
- * The question is asked of the LINE the two atoms would make, not of
- * the first atom alone, because the first atom alone is a different
- * line: `[[anc]] x para` is ordinary text, while the `[[anc]]` this
- * net would strand on its own line is block metadata. Only a hazard
- * the packed line actually carries may be traded for a break.
+ * The question is asked of the LINE the atoms pack into, never of the
+ * first atom alone, because the first atom alone is a different line:
+ * `[[anc]] x para` is ordinary text, while the `[[anc]]` this net would
+ * strand on its own line is block metadata. Only a hazard the packed
+ * line actually carries may be traded for a break
+ * ({@link packsIntoBlockSyntax}, which reads the pair AND the whole
+ * join, because not every shape is decided by its head).
  *
  * CALLED ONLY where the author wrote the break this keeps - the
  * caller's own guard, `firstWordEndsItsLine` on a block that opens at
@@ -178,27 +233,13 @@ export function hazardAtBlockStart(
  * legitimate where `atoms[0]` IS the block's first source line - and
  * the recorded fact says that line holds one WORD, which is
  * whitespace-free. Hence the interior-whitespace test below: an atom
- * carrying whitespace is one a span fused ACROSS the break (the space
- * IS what the newline became), so stranding it would put a line the
+ * carrying whitespace fused ACROSS a break somewhere (the space IS
+ * what the newline became), so stranding it would put a line the
  * author never wrote at column 0, which is the one thing this module
- * promises not to do.
- *
- * The span's own net does not always catch that case first, and the
- * reason is worth stating because it is easy to assume otherwise: not
- * every line shape is decided by its HEAD. `BLOCK_ATTRIBUTE_LINE`
- * (src/parse/line-shapes.ts) needs a `[` at the head AND a `]` at the
- * END, and a highlight span's ROLE prefix (`spanMarks`,
- * src/print/span-edges.ts) puts that `[` at the head of the fused
- * atom - so the packed line can be block syntax when neither
- * {@link hazardAtBlockStart}'s composed atom nor the successor probe
- * inside {@link isBlockSyntaxAtLineStart} is. The witness is
- * `[.role]##` then `b## c]`: `[.role]## b` is no block shape,
- * `[.role]## b## c]` is a block attribute line, and without this test
- * the net breaks between `b##` and `c]` - a boundary the source has
- * no newline at, and one whose own output no longer answers the
- * recorded fact, so a second format run walks it back.
- * tests/format/inline-span-break.test.ts pins that document's bytes
- * and its idempotence.
+ * promises not to do. A span's opening mark is the case where the
+ * break is worth keeping anyway, and it never reaches here fused:
+ * {@link openMarkStandsApart} left it as its own atom precisely so
+ * this test would pass.
  *
  * The break is kept only where one may land: an atom GLUED to the
  * first (no space between them at all) is one the packer may not
@@ -230,7 +271,7 @@ export function keepBlockStartBreak(atoms: Atom[]): void {
   // stop a break landing in front of `second`, then the two about
   // `atoms[0]` (a `+` that may not end a line, and the whitespace that
   // proves the atom is not the block's one-word first line), then the
-  // one about the pair. `atoms[0]` is indexed directly because the
+  // one about the line. `atoms[0]` is indexed directly because the
   // guard above already proved a second atom exists.
   if (
     second.glueLeft ||
@@ -240,7 +281,7 @@ export function keepBlockStartBreak(atoms: Atom[]): void {
     // ASCII whitespace only (issue #75): a no-break space is content
     // the atom holds, not a run a source line break stood for.
     ASCII_WHITESPACE.test(atoms[0].text) ||
-    !isBlockSyntaxAtLineStart(`${atoms[0].text} ${second.text}`)
+    !packsIntoBlockSyntax(atoms)
   ) {
     return;
   }

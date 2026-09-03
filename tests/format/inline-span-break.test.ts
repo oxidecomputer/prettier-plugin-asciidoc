@@ -233,51 +233,65 @@ describe("the kept break is the SOURCE LINE's, not a fragment's", () => {
     await expectRow("**a**\nb c\n", "*a* b c\n");
   });
 
-  // The net may only strand an atom that IS the block's first source
-  // line, and a HIGHLIGHT span's role prefix is where that stops being
-  // automatic: `spanMarks` (src/print/span-edges.ts) writes the role as
-  // `[...]` in front of the mark, so the fused opening atom carries a
-  // `[` at its head - and `BLOCK_ATTRIBUTE_LINE` is decided by its head
-  // AND its `]` tail, so the packed line is block syntax while the
-  // opening atom alone (`[.role]## b`) is not. Stranding the FUSED atom
-  // would break between `b##` and `c]`, where the source has no
-  // newline, and the line it wrote is not a one-word line either, so a
-  // second format run would walk the break back. The atoms therefore
-  // pack, and these rows pin the bytes and the fixed point.
-  //
-  // This row's own line is render-EQUAL to its source: the packed line
-  // is `[.role]## b## c] d`, and the trailing ` d` past the `]` is what
-  // keeps it from being a block attribute line, so the paragraph still
-  // renders as a paragraph. The net declines anyway, because the line
-  // it tests is the one the first TWO atoms make (`[.role]## b## c]`),
-  // which is conservative by design - and that conservatism is what
-  // this row pins, through the full `expectRow` triple.
+  // A HIGHLIGHT span's role prefix is the shape that made the net's
+  // question the whole line's rather than the pair's (issue #96):
+  // `spanMarks` (src/print/span-edges.ts) writes the role as `[...]` in
+  // front of the mark, so the opening atom carries a `[` at its head,
+  // and `BLOCK_ATTRIBUTE_LINE` is decided by its head AND its `]` tail.
+  // The `]` lives two atoms further along, so the pair `[.role]## b##`
+  // is no block shape while the packed line `[.role]## b## c]` is one -
+  // and the paragraph packed into it re-read as block METADATA and
+  // rendered EMPTY. The net keeps the author's line instead.
+  test("[.role]## / b## c] keeps the author's line", async () => {
+    await expectRow("[.role]##\nb## c]\n", "[.role]##\nb## c]\n");
+  });
+
+  // The `]` glued to the closing mark, so the packed line is
+  // `[.role]## b##]` and the last atom fuses rather than joining over a
+  // space. The line is a block attribute list either way.
+  test("[.role]## / b##] keeps the author's line", async () => {
+    await expectRow("[.role]##\nb##]\n", "[.role]##\nb##]\n");
+  });
+
+  // The plain-TEXT twin of the same hazard: a constrained `#` against a
+  // break opens no span at all (the marks stay literal), so the atoms
+  // are the three words `[.role]#`, `b#` and `c]` and no span path is
+  // involved. The pair `[.role]# b#` is no block shape and the packed
+  // line `[.role]# b# c]` is one, which is the same under-refusal.
+  test("[.role]# / b# c] keeps the author's line", async () => {
+    await expectRow("[.role]#\nb# c]\n", "[.role]#\nb# c]\n");
+  });
+
+  // The DISCRIMINATOR for the whole-line question: the same span with a
+  // word past the `]`. The packed line is `[.role]## b## c] d`, whose
+  // trailing ` d` past the `]` is exactly what keeps it from being a
+  // block attribute line - so the paragraph still renders as a
+  // paragraph and the atoms pack. The net reads the line, not the `[`
+  // at its head.
   test("[.role]## / b## c] d packs, render-equal and a fixed point", async () => {
     await expectRow("[.role]##\nb## c] d\n", "[.role]## b## c] d\n");
   });
 
-  // The same shape without the trailing word. Everything above holds,
-  // and one thing more does not: the line the atoms pack into really IS
-  // a block attribute list, so the whole paragraph re-reads as metadata
-  // and renders EMPTY. That divergence is on this revision and on every
-  // revision before it - an open corruption of the family this file's
-  // other rows close - which is why this row asserts bytes and the
-  // fixed point rather than going through `expectRow`.
-  test("[.role]## / b## c] packs to its pre-existing reading", async () => {
-    const out = await formatAdoc("[.role]##\nb## c]\n");
-    expect(out).toBe("[.role]## b## c]\n");
-    expect(await formatAdoc(out)).toBe(out);
+  // The NEAR MISS: the same span with a word in FRONT of it. The block's
+  // first atom is `x`, so the span can never reach column 0 however the
+  // packer arranges it, the recorded fact is false, and the net stays
+  // out - the source break inside the span replays as the ordinary
+  // space.
+  test("the same span mid-paragraph still packs", async () => {
+    await expectRow("x [.role]##\nb## c]\n", "x [.role]## b## c]\n");
   });
 
-  // The discriminator, not a blanket refusal: same role prefix, same
-  // marks, but here the opening atom IS the whole first source line
-  // (the content's `#` is glued to the mark, so nothing crossed the
-  // break into it). The atoms are `[.role]###`, `b]`, `c##`, and the
-  // line the net tests is the one the first TWO make - `[.role]### b]`,
-  // a block attribute line - so the author's own line goes back. The
-  // whole output line `[.role]### b] c##` is NOT one; the net asks
-  // about the pair, never about the finished line
-  // (`keepBlockStartBreak`, src/print/block-start-hazard.ts).
+  // The other near miss: the author already wrote the packed line, so
+  // there is no break to keep and the net invents none.
+  test("the packed spelling with a trailing word is a fixed point", async () => {
+    await expectRow("[.role]## b## c] d\n", "[.role]## b## c] d\n");
+  });
+
+  // The same role prefix where the opening atom is its whole first
+  // source line on its own (the content's `#` is glued to the mark, so
+  // nothing crossed the break into it). Here the PAIR is already the
+  // block attribute line - `[.role]### b]` - so this row held the net
+  // before the whole-line probe existed and holds it still.
   test("a role-prefixed opener that is its whole line keeps the break", async () => {
     await expectRow("[.role]###\nb] c##\n", "[.role]###\nb] c##\n");
   });

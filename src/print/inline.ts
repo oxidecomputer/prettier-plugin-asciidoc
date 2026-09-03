@@ -45,8 +45,8 @@ import {
   wordsToAtoms,
 } from "./reflow.js";
 import {
-  hazardAtBlockStart,
   keepBlockStartBreak,
+  openMarkStandsApart,
   type BlockStart,
 } from "./block-start-hazard.js";
 import {
@@ -748,19 +748,32 @@ function appendSpan(
     });
     return "glue";
   }
-  const openText = `${open}${openSpace}`;
   pushSpanAtoms(out, boundary, inner, {
-    openText,
+    openText: `${open}${openSpace}`,
     closeText: `${closeSpace}${close}`,
-    ...detachedMarks(node, cursor, inner, openText),
+    ...markPlacement(node, cursor, inner),
   });
   return "glue";
 }
 
 /**
- * Which of a span's marks may NOT fuse onto the content atom beside
- * it, and must stand alone against a literal break instead. Split
- * from {@link appendSpan} for the complexity ceiling.
+ * Where a span's OPENING mark goes relative to the content atom beside
+ * it.
+ *
+ * `"fused"` is the ordinary case: mark and first content atom become
+ * one atom, which is what keeps them adjacent for AsciiDoc's
+ * constrained formatting. The other two keep the mark as an atom of
+ * its own and differ only in the join behind it - `"detached"` puts
+ * the source's break there outright, `"apart"` puts the space the
+ * fusion would have written and leaves the break to the block-start
+ * hazard net.
+ */
+type OpenMarkPlacement = "fused" | "apart" | "detached";
+
+/**
+ * Where a span's marks go: the opening one's placement, and whether
+ * the closing one must stand alone against a literal break. Split from
+ * {@link appendSpan} for the complexity ceiling.
  *
  * A raw line at a span EDGE owns its output line, and a mark cannot
  * ride it: fusing the close onto a kept comment line writes
@@ -770,8 +783,14 @@ function appendSpan(
  * side instead - the mark stands alone against a literal break,
  * exactly where the author's line boundary was. (A span holding a raw
  * line never respells constrained either - constrainedIsLegal's
- * raw-line clause.) The block-start hazard net detaches the open mark
- * the same way (see {@link hazardAtBlockStart}).
+ * raw-line clause.)
+ *
+ * At a BLOCK START the mark comes apart from the content without a
+ * break behind it (see {@link openMarkStandsApart}): the two atoms pack
+ * into the same bytes the fusion would have written, and the net that
+ * can see the whole packed line decides afterwards whether the space
+ * becomes the author's break. A raw-line edge outranks it, because
+ * there the break is not a trade but the only legal placement.
  *
  * A HARD LINE BREAK last in the content owns its line END the same
  * way: `LineBreakRx` is `^(.*)[ \t]\+$`, so the ` +` must stay at the
@@ -785,24 +804,15 @@ function appendSpan(
  * @param node - the span node.
  * @param cursor - where the span sits.
  * @param inner - the span's content atoms.
- * @param openText - the open mark plus the space the content's
- *   leading whitespace became, the atom text the fusion would make.
  * @returns the two placements {@link pushSpanAtoms} takes.
  */
-function detachedMarks(
+function markPlacement(
   node: SpanNode,
   cursor: Cursor,
   inner: readonly Atom[],
-  openText: string,
-): { detachOpen: boolean; detachClose: boolean } {
-  const composed = `${openText}${inner[0].text}`;
+): { openPlacement: OpenMarkPlacement; detachClose: boolean } {
   return {
-    detachOpen:
-      node.children[0].type === "rawLine" ||
-      // `glueLeft` on the first content atom is where `openSpace` came
-      // from (see {@link appendSpan}), so its negation is exactly "the
-      // fusion writes a space the content's own whitespace stood for".
-      hazardAtBlockStart(cursor, composed, !inner[0].glueLeft),
+    openPlacement: openMarkPlacement(node, cursor, inner),
     detachClose:
       node.children.at(-1)?.type === "rawLine" ||
       inner.at(-1)?.text === HARD_BREAK_IMAGE,
@@ -810,11 +820,33 @@ function detachedMarks(
 }
 
 /**
+ * The opening mark's placement alone, split off so
+ * {@link markPlacement} stays a flat pair of answers.
+ * @param node - the span node.
+ * @param cursor - where the span sits.
+ * @param inner - the span's content atoms.
+ * @returns the placement.
+ */
+function openMarkPlacement(
+  node: SpanNode,
+  cursor: Cursor,
+  inner: readonly Atom[],
+): OpenMarkPlacement {
+  if (node.children[0].type === "rawLine") {
+    return "detached";
+  }
+  // `glueLeft` on the first content atom is where `openSpace` came
+  // from (see {@link appendSpan}), so its negation is exactly "the
+  // fusion writes a space the content's own whitespace stood for".
+  return openMarkStandsApart(cursor, !inner[0].glueLeft) ? "apart" : "fused";
+}
+
+/**
  * Push a span's atoms with its marks placed: fused onto the edge
- * content atoms in the ordinary case, or standing alone against a
- * literal break where fusing would corrupt (a raw-line edge, the
- * block-start hazard). Split from {@link appendSpan} for the
- * complexity ceiling.
+ * content atoms in the ordinary case, or standing as atoms of their
+ * own where fusing would corrupt or would hide a break the net may
+ * need (a raw-line edge, the block start). Split from
+ * {@link appendSpan} for the complexity ceiling.
  * @param out - the block's atoms so far (mutated).
  * @param boundary - the join standing in front of the span.
  * @param inner - the span's content atoms (mutated: marks fuse on).
@@ -823,8 +855,8 @@ function detachedMarks(
  *   leading whitespace became.
  * @param marks.closeText - the space the content's trailing
  *   whitespace became, plus the close mark.
- * @param marks.detachOpen - emit the open TEXT as its own atom and
- *   open the content at column 0 (the source's own break).
+ * @param marks.openPlacement - where the open mark goes
+ *   ({@link OpenMarkPlacement}).
  * @param marks.detachClose - emit the close mark on its own line at
  *   column 0 instead of fusing it onto the last atom.
  */
@@ -835,24 +867,27 @@ function pushSpanAtoms(
   marks: {
     openText: string;
     closeText: string;
-    detachOpen: boolean;
+    openPlacement: OpenMarkPlacement;
     detachClose: boolean;
   },
 ): void {
-  const { openText, closeText, detachOpen, detachClose } = marks;
+  const { openText, closeText, openPlacement, detachClose } = marks;
   const last = inner.length - 1;
   if (!detachClose) {
     inner[last] = { ...inner[last], text: `${inner[last].text}${closeText}` };
   }
-  if (detachOpen) {
-    out.push(
-      withBoundary(atomOf(openText.trimEnd()), boundary),
-      withBoundary(inner[0], "literal"),
-      ...inner.slice(1),
-    );
-  } else {
+  if (openPlacement === "fused") {
     inner[0] = { ...inner[0], text: `${openText}${inner[0].text}` };
     out.push(withBoundary(inner[0], boundary), ...inner.slice(1));
+  } else {
+    // `"apart"` writes the SPACE the fusion would have written, so the
+    // packer measures and prints the same bytes; `"detached"` writes
+    // the author's break, where no other placement is legal.
+    out.push(
+      withBoundary(atomOf(openText.trimEnd()), boundary),
+      withBoundary(inner[0], openPlacement === "apart" ? "space" : "literal"),
+      ...inner.slice(1),
+    );
   }
   if (detachClose) {
     out.push(withBoundary(atomOf(closeText.trimStart()), "literal"));
@@ -863,8 +898,9 @@ function pushSpanAtoms(
  * Emit a span whose children produced NO atoms: bare marks around the
  * whitespace they stood for. Split from {@link appendSpan} for the
  * complexity ceiling. The block-start hazard net applies here too:
- * `**\n**` replayed as `** **` at column 0 is a ulist line, so the
- * net keeps the source break between the two bare marks.
+ * `**\n**` replayed as `** **` at column 0 is a ulist line, so at a
+ * block start the two marks stay two atoms and the net puts the source
+ * break between them.
  * @param out - the block's atoms so far (mutated).
  * @param boundary - the join standing in front of the span.
  * @param cursor - where the span sits.
@@ -882,13 +918,12 @@ function appendWhitespaceOnlySpan(
   parts: { open: string; close: string; closeSpace: string },
 ): void {
   const { open, close, closeSpace } = parts;
-  const composed = `${open}${closeSpace}${close}`;
   // The whitespace this span held is all there is between the two
   // marks, so `closeSpace` is the whole fusion's space here.
-  if (hazardAtBlockStart(cursor, composed, closeSpace !== "")) {
+  if (openMarkStandsApart(cursor, closeSpace !== "")) {
     out.push(
       withBoundary(atomOf(open), boundary),
-      withBoundary(atomOf(close), "literal"),
+      withBoundary(atomOf(close), "space"),
     );
     return;
   }

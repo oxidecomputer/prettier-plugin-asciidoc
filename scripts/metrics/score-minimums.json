@@ -379,7 +379,7 @@
     },
     {
       "file": "src/print/block-start-hazard.ts",
-      "what": "block-start-hazard.ts:247 `breakBefore: \"literal\"` -> `\"\"`, and block-start-hazard.ts:238 `second.breakBefore !== \"none\"` -> `false` (2 mutants)",
+      "what": "block-start-hazard.ts:288 `breakBefore: \"literal\"` -> `\"\"`, and block-start-hazard.ts:279 `second.breakBefore !== \"none\"` -> `false` (2 mutants)",
       "class": "never",
       "reason": "EQUIVALENT, both for the indent. `wrap` distinguishes `\"none\"` from everything else, and then `\"literal\"` from everything else only to pick the line's indent (`lineIndent = run.breakBefore === \"literal\" ? 0 : indent`). The net runs only where `atColumnZero` holds, which is the printer's paragraph and standalone-inline arms, and both call `blockBody(..., 0)` - so the indent the other spelling selects is 0, the number `\"literal\"` names. The `!== \"none\"` guard is the same fact from the other side: past it the atom already carries a forced break with no fuse flag set, so the write can change only the break's KIND"
     },
