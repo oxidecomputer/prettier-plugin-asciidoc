@@ -489,3 +489,57 @@ describe("a comment carrying a dlist separator is not folded", () => {
     expect(await formatAdoc(out)).toBe(out);
   });
 });
+
+// Issue #106. A TAB-indented lone `+` in a description was said to be
+// respelled `{plus}` because `adjust_indentation!` expands tabs before
+// the common-indent scan while our accounting reads raw columns. It
+// does not: the literal arm calls `adjust_indentation! lines` with no
+// arguments (parser.rb l.755) and the expansion is gated on the
+// `tab_size` that call leaves at its default 0 (parser.rb l.2679).
+// Nothing expands, so a tab-indented `+` never reaches
+// `HardLineBreakRx` (rx.rb:627, `^(.*) \+$`) with the SPACE that pattern
+// wants, and the oracle renders a literal `+` where a space-indented
+// `+` renders a break. The formatter agreed about the plus all along;
+// what it lost was the comment line behind it, by the route issue #105
+// names, and the rows below are that family with a tab for the indent.
+// One row of it is not here and is not fixed: a comment whose text
+// carries a `term::` word keeps its own line for the reason the parent
+// commit states, so `t:: item` / `\t+` / `// x:: y` still comes out
+// `t:: item {plus}` / `// x:: y` and still drops the comment from the
+// render.
+describe("a tab-indented `+` in a dlist description keeps its comment", () => {
+  test.each([
+    ["one tab", "t:: item\n\t+\n// c\n", "t:: item + // c\n"],
+    ["a space then a tab", "t:: item\n \t+\n// c\n", "t:: item + // c\n"],
+    ["two tabs", "t:: item\n\t\t+\n// c\n", "t:: item + // c\n"],
+    [
+      "a text line after the comment",
+      "t:: item\n\t+\n// c\n  b\n",
+      "t:: item + // c b\n",
+    ],
+  ])(
+    "with %s, the plus is text and so is the comment",
+    async (_n, source, want) => {
+      const out = await formatAdoc(source);
+      expect(out).toBe(want);
+      const html = await renderedHtml(out);
+      expect(html).toBe(await renderedHtml(source));
+      // The oracle's own answer, and the reason the output may spell the
+      // plus inline: no break was ever there to keep.
+      expect(html.includes("<br>")).toBe(false);
+      expect(await formatAdoc(out)).toBe(out);
+    },
+  );
+
+  // The contrast the issue rests on, and the #101 rows it must not
+  // disturb: one SPACE in the same position is a hard break, the
+  // break holds its line, and the comment stays inside the
+  // description by standing under an indented line rather than by
+  // reflowing into it.
+  test("a space in the same position is still a break", async () => {
+    const input = "t:: item\n +\n// c\n";
+    expect(await formatAdoc(input)).toBe(input);
+    const html = await renderedHtml(input);
+    expect(html.includes("<br>")).toBe(true);
+  });
+});
