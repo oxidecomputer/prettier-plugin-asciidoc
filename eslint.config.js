@@ -237,8 +237,7 @@ export default defineConfig(
     files: [
       "src/parse/lines/reader.ts", // 447 -> 461
       "src/print/inline.ts", // 445 -> 463
-      "scripts/parity.ts", // 447 -> 467
-      "scripts/parity-ledger.ts", // 450 -> 477
+      "scripts/parity.ts", // 449 -> 469
       "scripts/shape-registry.ts", // 446 -> 448
       "tests/parser/ast-invariants.ts", // 441 -> 491
       "tests/scripts/metrics-design.test.ts", // 447 -> 449

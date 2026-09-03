@@ -7,16 +7,19 @@
  * Split out of tests/scripts/parity-ledger.test.ts to keep that file
  * under the project's `max-lines` ceiling; that file keeps the gate
  * itself (`expectedDiffFailures`, the family enum) and the dumper's
- * shape folds.
+ * shape folds. The scan itself later moved to `scripts/parity-trailers.ts`
+ * when `parity-ledger.ts` reached the same ceiling on its own account;
+ * `reportExpectedDiffs` stayed there, which is why the two imports
+ * below name different modules.
  */
 import { execFileSync } from "node:child_process";
 import { describe, expect, test } from "vitest";
 import { REPO_ROOT } from "../../scripts/lib/checkout.js";
+import { reportExpectedDiffs } from "../../scripts/parity-ledger.js";
 import {
   collectExpectedDiffTrailers,
   parseExpectedDiffTrailers,
-  reportExpectedDiffs,
-} from "../../scripts/parity-ledger.js";
+} from "../../scripts/parity-trailers.js";
 
 /**
  * Whether `git` can see a checkout here at all.

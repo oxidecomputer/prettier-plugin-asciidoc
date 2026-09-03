@@ -35,15 +35,17 @@ import { cannotRun, GATE_FAILED, printUsage, wantsHelp } from "./lib/cli.js";
 import { keyCoverage } from "./parity-keys.js";
 import {
   LEDGER_FAMILIES,
-  collectExpectedDiffTrailers,
   foldAnchorAndAdmonitionShapes,
   foldAttributeEntryUnset,
   foldSectionAndHeadingShapes,
   foldMarkerAndReftextShapes,
   parseArguments,
   reportExpectedDiffs,
-  type TrailerScan,
 } from "./parity-ledger.js";
+import {
+  collectExpectedDiffTrailers,
+  type TrailerScan,
+} from "./parity-trailers.js";
 // Re-exported for the unit tests, which reach the ledger's surface
 // through this module. Three statements rather than one braced list:
 // `export … from` is required here (unicorn/prefer-export-from) and

@@ -14,11 +14,14 @@
  * `normalizeTree` output, are parsed here, stripped, and re-serialized.
  *
  * A module of its own only because scripts/parity.ts and
- * scripts/parity-ledger.ts are both at the `max-lines` ceiling, which
- * docs/coding-standards.md answers with a split rather than with
- * shorter comments. It imports from NEITHER of them — the two things
- * it would want, `Row` and `FamilySets`, are taken structurally, so
- * the pair stays acyclic (the metrics gate holds import cycles at 0).
+ * scripts/parity-ledger.ts were both at the `max-lines` ceiling when
+ * this split happened, which docs/coding-standards.md answers with a
+ * split rather than with shorter comments; parity-ledger.ts later
+ * shed its own trailer scan into scripts/parity-trailers.ts for the
+ * same reason, on its own account. It imports from NEITHER of them —
+ * the two things it would want, `Row` and `FamilySets`, are taken
+ * structurally, so the pair stays acyclic (the metrics gate holds
+ * import cycles at 0).
  */
 
 /** The rows a verbatim dump produces, as this module reads them. */

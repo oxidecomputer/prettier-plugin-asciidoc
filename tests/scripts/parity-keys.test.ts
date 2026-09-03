@@ -16,8 +16,8 @@ import {
 import {
   LEDGER_FAMILIES,
   expectedDiffFailures,
-  parseExpectedDiffTrailers,
 } from "../../scripts/parity-ledger.js";
+import { parseExpectedDiffTrailers } from "../../scripts/parity-trailers.js";
 
 // A synthetic family set, as in parity-ledger.test.ts: only
 // `fam-keyed` may be declared with a BARE trailer, and the one key it
