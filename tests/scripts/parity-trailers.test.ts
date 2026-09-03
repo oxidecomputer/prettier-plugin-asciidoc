@@ -9,12 +9,36 @@
  * itself (`expectedDiffFailures`, the family enum) and the dumper's
  * shape folds.
  */
+import { execFileSync } from "node:child_process";
 import { describe, expect, test } from "vitest";
+import { REPO_ROOT } from "../../scripts/lib/checkout.js";
 import {
   collectExpectedDiffTrailers,
   parseExpectedDiffTrailers,
   reportExpectedDiffs,
 } from "../../scripts/parity-ledger.js";
+
+/**
+ * Whether `git` can see a checkout here at all.
+ *
+ * A jj workspace of this repository often colocates no `.git` -
+ * parallel implementer lanes run exactly that way - and `git
+ * rev-parse --git-dir` is the cheapest question that distinguishes
+ * "no repository" from every other way `git` can fail (an unknown
+ * revision, say, which the test below still wants to exercise).
+ * @returns whether a `git` command run here has a repository to read
+ */
+function hasGitCheckout(): boolean {
+  try {
+    execFileSync("git", ["rev-parse", "--git-dir"], {
+      cwd: REPO_ROOT,
+      stdio: ["ignore", "ignore", "ignore"],
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 // A synthetic family set, as in parity-ledger.test.ts: the report
 // rows below declare nothing, so the enum they run under is only
@@ -281,7 +305,16 @@ describe("parseExpectedDiffTrailers: the declaration scan", () => {
     });
   });
 
-  test("an empty trailer range is refused, not read as no declarations", () => {
+  test("an empty trailer range is refused, not read as no declarations", ({
+    skip,
+  }) => {
+    // This is the one row that shells to the real `git`, over this
+    // repository, read-only. A jj workspace with no colocated `.git`
+    // cannot run it at all - `git rev-list` fails before it gets the
+    // chance to report the empty range - so it skips by name rather
+    // than failing the whole suite (and, through it, the coverage
+    // gate's floor comparison) on an environment limitation.
+    skip(!hasGitCheckout(), "no colocated .git in this checkout");
     // git exits 0 on `a..a` with no output, which reads exactly like a
     // clean scan - and `--expected-diffs-trailers HEAD` under jj is
     // how a local run gets one. The throw makes parity exit 2.

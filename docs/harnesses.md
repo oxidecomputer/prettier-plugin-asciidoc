@@ -73,17 +73,13 @@ The mutation half of the same minimums file is checked by `bun run mutate` (see
 coverage is seconds and belongs in CI; mutation is minutes and runs batched.
 
 The run is the WHOLE suite, deliberately: a minimum scored from a red suite
-scores nothing. In a checkout with no colocated `.git`, though,
-`tests/scripts/parity-trailers.test.ts` cannot pass - it shells out to
-`git rev-list` - so the whole-suite precondition fails there and no minimum is
-checked. That is the environment's limitation, not the tree's, and the runner
-keeps its precondition rather than growing a flag that would let anyone score
-coverage from a red suite. Score the minimums by hand instead: run
-`bunx vitest run --coverage --exclude '**/parity-trailers.test.ts'` and compare
-the `reports/coverage/coverage-summary.json` it writes against
-`scripts/metrics/score-minimums.json` - `compareMinimums`
-(`scripts/metrics/score-minimums.ts`) is the same comparison the runner makes,
-and it is what the run reports.
+scores nothing. One row of `tests/scripts/parity-trailers.test.ts` shells out to
+`git rev-list` over this repository, and in a checkout with no colocated
+`.git` - a jj workspace with none, which is exactly where parallel implementer
+lanes run - that command has no repository to read at all. The row detects the
+absence with `git rev-parse --git-dir` and skips itself by name rather than
+failing, so the whole-suite precondition still holds and coverage's floor
+comparison runs there too.
 
 Proves: no file silently lost the tests it had.
 
