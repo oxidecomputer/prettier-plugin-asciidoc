@@ -90,10 +90,8 @@ export interface TableColumnSpec {
  * row half of the same digits (parser.rb:2515-2520). Two nullable
  * number fields would let `{ colspan: 2, duplicate: 3 }` typecheck.
  *
- * Exported for tests/parser/table-cell-spec.test.ts; moves to
- * `src/ast.ts` once table modeling gives the AST its own node kinds,
- * which is when it gains a `src` consumer.
- * @internal
+ * Read by the table scan, and moves to `src/ast.ts` once table
+ * modeling gives the AST its own node kinds.
  */
 export interface TableCellSpec {
   /** The `N+`, `N.M+` or `N*` prefix, or its absence. */
@@ -109,10 +107,8 @@ export interface TableCellSpec {
 /**
  * The three exclusive forms of a cell spec's leading digits.
  *
- * Exported for tests/parser/table-cell-spec.test.ts; moves to
- * `src/ast.ts` once table modeling gives the AST its own node kinds,
- * which is when it gains a `src` consumer.
- * @internal
+ * Read by the table scan, and moves to `src/ast.ts` once table
+ * modeling gives the AST its own node kinds.
  */
 export type TableCellRepeat =
   | {
@@ -342,11 +338,6 @@ export type CellSpecStartResult =
  * @param text - the text before the line's first separator, leading
  *   whitespace included
  * @returns the spec `text` opens, or `"continues"` when it is not one
- *
- * Exported for tests/parser/table-cell-spec.test.ts; the table reader
- * that scans a line for a separator (not part of this change) becomes
- * the real `src` consumer once it lands.
- * @internal
  */
 export function parseCellSpecStart(text: string): CellSpecStartResult {
   const match = CELL_SPEC_START_RX.exec(text);
@@ -387,11 +378,6 @@ export interface CellSpecEndResult {
  * (the `match_delimiter` loop, parser.rb:2351-2356).
  * @param text - the text before a later separator
  * @returns the parsed spec and the cell text left over
- *
- * Exported for tests/parser/table-cell-spec.test.ts; the table reader
- * that scans a line for a separator (not part of this change) becomes
- * the real `src` consumer once it lands.
- * @internal
  */
 export function parseCellSpecEnd(text: string): CellSpecEndResult {
   const match = CELL_SPEC_END_RX.exec(text);

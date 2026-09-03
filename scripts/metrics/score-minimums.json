@@ -161,6 +161,10 @@
       "coverage": 98.3,
       "mutation": 0.0
     },
+    "src/parse/lines/table-reader.ts": {
+      "coverage": 100.0,
+      "mutation": 0.0
+    },
     "src/parse/positions.ts": {
       "coverage": 100.0,
       "mutation": 100.0
@@ -440,6 +444,12 @@
       "what": "mutation minimum 0 - a PLACEHOLDER, not a file with nothing to measure",
       "class": "when",
       "reason": "TRIGGER: the next batched mutation run. This file is new (issue #10, table modeling) and holds the table cell-spec and column-spec grammar - ColumnSpecRx, CellSpecStartRx and CellSpecEndRx (rx.rb:390,399-400) and their parse into TableCellSpec/TableColumnSpec - none of which has been measured, because mutation runs at batched integration points and this file landed between two of them. Its coverage row is measured (98.38 lines, 61 of 62, from a `bunx vitest run --coverage --exclude \"**/parity-trailers.test.ts\"` run of this tree, the same workaround prior placeholder rows used); the one uncovered line is repeatFrom's can't-happen guard, thrown only if a regex match produced repeat digits with neither `+` nor `*` as the paired operator, which the atomic capture group makes impossible. Its behaviour is pinned by the 33 rows of tests/parser/table-cell-spec.test.ts, including rx.rb's own `1*h,2*,^3e` worked example, a worked `.2+^.^h` cell spec, an asymmetric `<.>` alignment row and a cols row covering every TableCellStyles letter. See docs/harnesses.md, the two reasons a zero is allowed"
+    },
+    {
+      "file": "src/parse/lines/table-reader.ts",
+      "what": "mutation minimum 0 - a PLACEHOLDER, not a file with nothing to measure",
+      "class": "when",
+      "reason": "TRIGGER: the next batched mutation run. This file is new (issue #10, table modeling) and holds the table scan - cutCells, groupRows and readHeaderDecision over parser.rb:2295-2422 and table.rb:455-731 - none of which has been measured, because mutation runs at batched integration points and this file landed between two of them. Its coverage row is measured (100.0 lines, 185 of 185, from a ``bunx vitest run --coverage --exclude \"**/parity-trailers.test.ts\"`` run of this tree, the same workaround prior placeholder rows used). Its behaviour is pinned by the 50 rows of tests/parser/table-reader.test.ts, every one of which also asserts the byte partition: the openings and runs replay the interior with no gap and no overlap, so a mutant that moves a cut point has to move a byte to survive. See docs/harnesses.md, the two reasons a zero is allowed"
     }
   ]
 }
