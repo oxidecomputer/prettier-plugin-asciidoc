@@ -1,15 +1,22 @@
 /**
- * The inline passthrough, read as ONE unit (issue #25).
+ * The inline passthrough, read as ONE unit (issues #25 and #82).
  *
- * Asciidoctor pulls `+text+`, `++text++` and `+++text+++` out of the
- * line before it substitutes anything else (`extract_passthroughs`,
- * substitutors.rb l.1018), so everything between the delimiters is
- * literal: `+*not bold*+` renders the asterisks. Reading the interior
- * as ordinary inline content is what corrupted output - the closing
- * `+` came out as a separate word, which reflow's dangling-`+` rule
- * rewrote to `{plus}`, and `+*not bold*+` was printed
- * `+*not bold*{plus}`: a literal `+`, a REAL bold span, and a `+`
- * that renders as `&#43;`.
+ * Asciidoctor pulls `+text+`, `++text++`, `+++text+++` and `$$text$$`
+ * out of the line before it substitutes anything else
+ * (`extract_passthroughs`, substitutors.rb l.1018), so everything
+ * between the delimiters is literal: `+*not bold*+` renders the
+ * asterisks. Reading the interior as ordinary inline content is what
+ * corrupted output - the closing `+` came out as a separate word,
+ * which reflow's dangling-`+` rule rewrote to `{plus}`, and
+ * `+*not bold*+` was printed `+*not bold*{plus}`: a literal `+`, a
+ * REAL bold span, and a `+` that renders as `&#43;`.
+ *
+ * The `$$` delimiter was the same construct read as prose. Its bytes
+ * survived, so nothing here corrupted, but its interior was reflowed:
+ * a run of spaces collapsed and a wrap could put a line break between
+ * two words the oracle keeps together, both invisible to a renderer
+ * that flows text and both real changes to the bytes the backend
+ * receives.
  *
  * Every expectation here was measured against the oracle
  * (`@asciidoctor/core`) rather than imagined, and every row asserts
@@ -19,7 +26,7 @@
  * point.
  */
 import { describe, expect, test } from "vitest";
-import { formatAdoc, renderedHtml } from "../helpers.js";
+import { formatAdoc, oracleHtml, renderedHtml } from "../helpers.js";
 import { parse } from "../../src/parser.js";
 
 /**
@@ -160,6 +167,36 @@ const PASSTHROUGHS: Array<[string, string[], string]> = [
   ["++a+++", ["++a++"], "++a+++\n"],
   ["+*a++", ["+*a+"], "+*a++\n"],
   ["x +++++", ["++++"], "x +++++\n"],
+  // The `$$` delimiter (issue #82). It is the unconstrained row's
+  // third alternative, so it takes no boundary test either: the same
+  // rows the `+` spellings answer, answered the same way.
+  ["$$*b*$$", ["$$*b*$$"], "$$*b*$$\n"],
+  ["a $$*b*$$ c", ["$$*b*$$"], "a $$*b*$$ c\n"],
+  ["$$pass:[x]$$", ["$$pass:[x]$$"], "$$pass:[x]$$\n"],
+  // Monospace WRAPPING a passthrough, the mirror of the `+literal+`
+  // row above: the span is the node's parent, so the backticks belong
+  // to the monospace and the dollars to the construct inside it.
+  ["`$$literal$$`", ["$$literal$$"], "`$$literal$$`\n"],
+  ["$$<<ref>>$$", ["$$<<ref>>$$"], "$$<<ref>>$$\n"],
+  ["$$`tick`$$", ["$$`tick`$$"], "$$`tick`$$\n"],
+  ["[.role]$$a$$", ["[.role]$$a$$"], "[.role]$$a$$\n"],
+  ["* item $$*b*$$", ["$$*b*$$"], "* item $$*b*$$\n"],
+  ["NOTE: $$*b*$$", ["$$*b*$$"], "NOTE: $$*b*$$\n"],
+  // Content may be EMPTY: the group is `(#{CC_ALL}*?)`, not `+?`.
+  ["$$$$", ["$$$$"], "$$$$\n"],
+  // Two passthroughs, not one: the lazy content group closes at the
+  // FIRST `$$` behind the opener, and the walk resumes behind it.
+  ["$$a$$$$b$$", ["$$a$$", "$$b$$"], "$$a$$$$b$$\n"],
+  // The delimiters do not nest. Whichever opens first owns the run,
+  // because `gsub` takes the leftmost match start and the closer is a
+  // backreference to the opener - so the other spelling is content.
+  ["$$a+++b$$", ["$$a+++b$$"], "$$a+++b$$\n"],
+  ["+++a$$b+++", ["+++a$$b+++"], "+++a$$b+++\n"],
+  // `$$` carries `BASIC_SUBS`, like `++` and unlike `+++`, so its
+  // content reaches the backend as flowed text and a source line
+  // break there renders as a space. Collapsing it is what keeps the
+  // node one atom the packer can measure.
+  ["$$a\nb$$", ["$$a\nb$$"], "$$a b$$\n"],
 ];
 
 describe.each(PASSTHROUGHS)("%j", (source, values, formatted) => {
@@ -207,6 +244,15 @@ const NOT_PASSTHROUGHS: Array<[string, string]> = [
   // An unmatched delimiter is one character of text.
   ["+a", "+a\n"],
   ["a + b", "a + b\n"],
+  // The `$$` delimiter with nothing to close it. Unlike `+`, a lone
+  // `$` is ordinary prose, so these are the rows that say the new
+  // alternative did not start freezing currency amounts and shell
+  // variables into constructs.
+  ["C$$D", "C$$D\n"],
+  ["a $$ b", "a $$ b\n"],
+  ["cost $5 and $9", "cost $5 and $9\n"],
+  ["$PATH is $HOME/bin", "$PATH is $HOME/bin\n"],
+  ["a $$b", "a $$b\n"],
 ];
 
 describe.each(NOT_PASSTHROUGHS)("%j is not a passthrough", (source, output) => {
@@ -253,6 +299,73 @@ test("a passthrough is not broken across the wrap", async () => {
   const formatted = await formatAdoc(source);
   expect(formatted).toContain("+a b c d e f g h i+");
   expect(await renderedHtml(formatted)).toBe(await renderedHtml(source));
+});
+
+/**
+ * Issue #82's own measurement, which no render comparison can carry.
+ *
+ * A passthrough renders as bare text with no wrapping element, so
+ * `renderedHtml` - which collapses whitespace outside `<pre>` and
+ * `<code>` - reads a collapsed interior run and an intact one as the
+ * same string. The pin is the CONSTRUCT'S OWN BYTES in the output,
+ * checked with `toContain`, which is the only lens that sees the
+ * difference: before the `$$` delimiter was a passthrough, its
+ * interior was prose, so `$$a  *b*$$` was reflowed to `$$a *b*$$` and
+ * one of the author's two spaces was gone from the backend's input,
+ * and a width break could fall between two of its words.
+ *
+ * Each row names the width it is measured at, because that is the
+ * variable: a construct that survives at 80 columns and is taken
+ * apart at 12 is not atomic, it is merely lucky.
+ */
+describe("the construct's bytes survive the reflow", () => {
+  test.each<[string, string, number]>([
+    // Issue #82's own probe, at the width where it fits and at one
+    // where the paragraph must wrap around it.
+    ["before $$a  *b*$$ after", "$$a  *b*$$", 80],
+    ["before $$a  *b*$$ after", "$$a  *b*$$", 12],
+    // An interior run of spaces in the middle of a line that has room
+    // to spare: prose would have closed it up with no wrap involved.
+    ["x $$one   two$$ y", "$$one   two$$", 80],
+    // Interior WORDS under width pressure from both sides: the packer
+    // places the construct whole or not at all.
+    [
+      "word word word word word word word word $$a b c d e f g h i$$",
+      "$$a b c d e f g h i$$",
+      40,
+    ],
+    [
+      "$$a b c d e f g h i$$ word word word word word word word",
+      "$$a b c d e f g h i$$",
+      40,
+    ],
+    ["word word word $$a b c$$ word word word word", "$$a b c$$", 20],
+    // The ATTRLIST rides on the node, so width pressure moves the two
+    // together or not at all: a wrap between `[.role]` and its
+    // delimiter would leave the brackets as a paragraph of their own
+    // and the role would stop applying.
+    ["word word word word [.role]$$a b c$$ word word", "[.role]$$a b c$$", 20],
+  ])("%j keeps %j at width %i", async (source, construct, printWidth) => {
+    const formatted = await formatAdoc(source, { printWidth });
+    expect(formatted).toContain(construct);
+    expect(await renderedHtml(formatted)).toBe(await renderedHtml(source));
+    expect(await formatAdoc(formatted, { printWidth })).toBe(formatted);
+  });
+});
+
+/**
+ * The oracle's own bytes, for the one shape whose output layout does
+ * not move: at 80 columns the paragraph fits on one line either way,
+ * so a byte comparison against {@link oracleHtml} is a comparison of
+ * the interior alone. This is the assertion that would have failed
+ * before issue #82 - `renderedHtml` passed throughout, which is why
+ * the gap survived as long as it did.
+ */
+test("the oracle receives the interior byte for byte", async () => {
+  const source = "before $$a  *b*$$ after\n";
+  const formatted = await formatAdoc(source);
+  expect(formatted).toBe(source);
+  expect(await oracleHtml(formatted)).toBe(await oracleHtml(source));
 });
 
 /**

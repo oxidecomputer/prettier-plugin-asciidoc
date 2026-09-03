@@ -1,7 +1,7 @@
 /**
  * The inline tokenizer's own GOLDEN FILE.
  *
- * tests/parser/fixtures/inline-tokens.jsonl is 1,796 rows of
+ * tests/parser/fixtures/inline-tokens.jsonl is 1,808 rows of
  * `{ text, tokens }`: an input fragment and the exact token stream
  * `tokenizeInline` (src/parse/inline/) produces for it. The rows are an
  * EQUALITY pin, not a sample — every one must match to the character,
@@ -33,12 +33,15 @@
  * There is NO in-tree generator for the row TEXTS, honestly: 1,780 of
  * them were harvested once from the fragments a since-deleted
  * Chevrotain lexer saw, and that harvest is not reproducible from this
- * tree; the last sixteen were appended by hand with issue #14, one per
- * shape the super/sub and character-reference vocabulary adds. Treat the
- * text column as a frozen, hand-extendable input set — add a row by
- * appending one `{ text, tokens }` object and running the command
- * above. Do not prune rows to make the file smaller; the rarer shapes
- * are exactly the ones nothing else covers.
+ * tree; sixteen were appended by hand with issue #14, one per shape
+ * the super/sub and character-reference vocabulary adds, and the last
+ * twelve with issue #82, one per shape the `$$` passthrough
+ * delimiter's own reading turns on, including the ones where it must
+ * NOT fire, since a lone `$` is ordinary prose where a lone `+` is
+ * not. Treat the text column as a frozen, hand-extendable input set:
+ * add a row by appending one `{ text, tokens }` object and running the
+ * command above. Do not prune rows to make the file smaller; the rarer
+ * shapes are exactly the ones nothing else covers.
  *
  * Row names are INDICES (`row 0`, `row 1`, …), so inserting a row
  * anywhere but the end renumbers every row after it. Append rather

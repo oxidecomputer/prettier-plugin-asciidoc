@@ -1794,3 +1794,15 @@
 {"text":"x &copy; y\n","tokens":[{"type":"InlineText","image":"x ","offset":0},{"type":"CharacterReference","image":"&copy;","offset":2},{"type":"InlineText","image":" y","offset":8},{"type":"InlineNewline","image":"\n","offset":10}]}
 {"text":"x \\(C) y\n","tokens":[{"type":"InlineText","image":"x ","offset":0},{"type":"InlineChar","image":"\\","offset":2},{"type":"InlineText","image":"(C) y","offset":3},{"type":"InlineNewline","image":"\n","offset":8}]}
 {"text":"x ^(C)^ y\n","tokens":[{"type":"InlineText","image":"x ","offset":0},{"type":"SuperscriptMark","image":"^","offset":2,"canOpen":true,"canClose":true},{"type":"CharacterReference","image":"(C)","offset":3},{"type":"SuperscriptMark","image":"^","offset":6,"canOpen":true,"canClose":true},{"type":"InlineText","image":" y","offset":7},{"type":"InlineNewline","image":"\n","offset":9}]}
+{"text":"a $$b$$ c\n","tokens":[{"type":"InlineText","image":"a ","offset":0},{"type":"Passthrough","image":"$$b$$","offset":2},{"type":"InlineText","image":" c","offset":7},{"type":"InlineNewline","image":"\n","offset":9}]}
+{"text":"before $$a  *b*$$ after\n","tokens":[{"type":"InlineText","image":"before ","offset":0},{"type":"Passthrough","image":"$$a  *b*$$","offset":7},{"type":"InlineText","image":" after","offset":17},{"type":"InlineNewline","image":"\n","offset":23}]}
+{"text":"$$*x*$$\n","tokens":[{"type":"Passthrough","image":"$$*x*$$","offset":0},{"type":"InlineNewline","image":"\n","offset":7}]}
+{"text":"[foo]$$x$$\n","tokens":[{"type":"Passthrough","image":"[foo]$$x$$","offset":0},{"type":"InlineNewline","image":"\n","offset":10}]}
+{"text":"C$$D\n","tokens":[{"type":"InlineText","image":"C","offset":0},{"type":"InlineChar","image":"$","offset":1},{"type":"InlineText","image":"$D","offset":2},{"type":"InlineNewline","image":"\n","offset":4}]}
+{"text":"$$a$$$$b$$\n","tokens":[{"type":"Passthrough","image":"$$a$$","offset":0},{"type":"Passthrough","image":"$$b$$","offset":5},{"type":"InlineNewline","image":"\n","offset":10}]}
+{"text":"$$a+++b$$\n","tokens":[{"type":"Passthrough","image":"$$a+++b$$","offset":0},{"type":"InlineNewline","image":"\n","offset":9}]}
+{"text":"+++a$$b+++\n","tokens":[{"type":"Passthrough","image":"+++a$$b+++","offset":0},{"type":"InlineNewline","image":"\n","offset":10}]}
+{"text":"$$$$\n","tokens":[{"type":"Passthrough","image":"$$$$","offset":0},{"type":"InlineNewline","image":"\n","offset":4}]}
+{"text":"cost $5 and $9\n","tokens":[{"type":"InlineText","image":"cost $5 and $9","offset":0},{"type":"InlineNewline","image":"\n","offset":14}]}
+{"text":"x$$a\nb$$y\n","tokens":[{"type":"InlineText","image":"x","offset":0},{"type":"Passthrough","image":"$$a\nb$$","offset":1},{"type":"InlineText","image":"y","offset":8},{"type":"InlineNewline","image":"\n","offset":9}]}
+{"text":"$$pass:[x]$$\n","tokens":[{"type":"Passthrough","image":"$$pass:[x]$$","offset":0},{"type":"InlineNewline","image":"\n","offset":12}]}

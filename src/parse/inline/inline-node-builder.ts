@@ -368,8 +368,8 @@ function makeInlineMacro(
 }
 
 /**
- * Build a PassthroughNode from a `+text+` / `++text++` / `+++text+++`
- * token.
+ * Build a PassthroughNode from a `+text+` / `++text++` /
+ * `+++text+++` / `$$text$$` token.
  *
  * The whole image is the value, delimiters included: Asciidoctor
  * extracts the construct before any other substitution runs

@@ -249,21 +249,21 @@ function joinSourceLines(source: string): string {
 
 // A passthrough whose content Asciidoctor substitutes NOTHING into:
 // `extract_passthroughs` gives the `+++` boundary `subs: []`, and
-// every other spelling `BASIC_SUBS` (substitutors.rb l.1049). The
-// optional attrlist is the one the two pass patterns take
-// (src/parse/inline/passthrough.ts).
+// every other spelling - `$$` among them - `BASIC_SUBS`
+// (substitutors.rb l.1049). The optional attrlist is the one the two
+// pass patterns take (src/parse/inline/passthrough.ts).
 const RAW_PASSTHROUGH = /^(?:\[[^\[\]]+\])?\+\+\+/v;
 
 /**
  * One passthrough's output text: its own bytes, with the source's
  * line breaks kept ONLY where they can still be seen in the render.
  *
- * `+text+` and `++text++` carry `BASIC_SUBS`, so their content
- * reaches the backend as escaped character data inside flowed text,
- * where a newline and a space are the same thing to the renderer;
- * collapsing costs nothing and buys an atom the packer can measure
- * (the invariant {@link joinSourceLines} states). It is also the
- * oracle-pinned answer for the one shape where the two rules could
+ * `+text+`, `++text++` and `$$text$$` carry `BASIC_SUBS`, so their
+ * content reaches the backend as escaped character data inside flowed
+ * text, where a newline and a space are the same thing to the
+ * renderer; collapsing costs nothing and buys an atom the packer can
+ * measure (the invariant {@link joinSourceLines} states). It is also
+ * the oracle-pinned answer for the one shape where the two rules could
  * disagree: `+a +\nb+` renders `a + b`.
  *
  * `+++text+++` carries NO subs at all. Its bytes are copied into the

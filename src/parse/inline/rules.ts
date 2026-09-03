@@ -677,8 +677,8 @@ function textMatcher(source: string): InlineRule["match"] {
  * old custom matcher needed is gone.
  */
 export const INLINE_RULES: readonly InlineRule[] = [
-  // `+text+`, `++text++`, `+++text+++`, each with an optional
-  // `[attrlist]` in front — the passthrough forms `extract_passthroughs`
+  // `+text+`, `++text++`, `+++text+++`, `$$text$$`, each with an
+  // optional `[attrlist]` in front: the forms `extract_passthroughs`
   // pulls out of the line BEFORE any other substitution runs
   // (substitutors.rb l.1018), which is why this is the first row: what
   // the oracle removes first, nothing else may claim. The two patterns
@@ -829,6 +829,12 @@ export const INLINE_RULES: readonly InlineRule[] = [
   // passthrough is not: a run that swallowed the `+` in `a +text+ b`
   // would hide the opening delimiter from the Passthrough rule, which
   // is only ever tried at a position the run has not already taken.
+  // The passthrough's OTHER delimiter, `$$`, is kept out the same way
+  // but as a LOOKAHEAD rather than a class exclusion: a lone `$` is
+  // ordinary prose (`$5`, `$HOME`) where a lone `+` is not, so
+  // excluding the character would cut every currency amount into
+  // three tokens for nothing. The two-character lookahead cuts the
+  // run only where a passthrough could really open.
   // The {@link HARD_BREAK} lookahead stays for the hard break, whose
   // match starts one character EARLIER, at the space; the run must
   // stop before EVERY break that rule accepts, or it takes the space
@@ -838,7 +844,7 @@ export const INLINE_RULES: readonly InlineRule[] = [
   {
     type: "InlineText",
     match: textMatcher(
-      `(?:(?!https?://|(?:${MACRO_NAMES}):|${HARD_BREAK})[^\\n*_\`#\\\\\\{\\[<+])+`,
+      `(?:(?!https?://|(?:${MACRO_NAMES}):|${HARD_BREAK}|\\$\\$)[^\\n*_\`#\\\\\\{\\[<+])+`,
     ),
   },
 ];

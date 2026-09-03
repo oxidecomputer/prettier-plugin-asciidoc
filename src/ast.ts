@@ -446,8 +446,9 @@ export interface RawLineNode extends Node {
 }
 
 /**
- * An inline passthrough: `+text+`, `++text++` or `+++text+++`, with
- * the optional `[attrlist]` in front when the author wrote one.
+ * An inline passthrough: `+text+`, `++text++`, `+++text+++` or
+ * `$$text$$`, with the optional `[attrlist]` in front when the author
+ * wrote one.
  *
  * A LEAF holding its own bytes, deliberately: Asciidoctor extracts
  * passthroughs before it substitutes anything else
@@ -456,7 +457,10 @@ export interface RawLineNode extends Node {
  * the oracle. Modelling the interior as children would hand the
  * printer marks it would try to pair, respell and reflow around —
  * which is how `+*not bold*+` came out as `+*not bold*{plus}`, with
- * both the emphasis and the closing delimiter changed.
+ * both the emphasis and the closing delimiter changed. The `$$`
+ * spelling was the same hazard one delimiter later: read as prose, a
+ * run of interior spaces collapsed and a wrap could land a line break
+ * between two words the oracle never separates.
  */
 export interface PassthroughNode extends Node {
   /** Node discriminant. */

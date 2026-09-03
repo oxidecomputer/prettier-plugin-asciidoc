@@ -13,21 +13,29 @@
  * passthrough is ONE token carrying its own bytes, so nothing
  * downstream can look inside it.
  *
- * Two of Asciidoctor's three `+`-spelled forms live here:
+ * Two of Asciidoctor's three delimiter-spelled forms live here:
  *
- * - the UNCONSTRAINED macro form `++text++` / `+++text+++`
- *   (`InlinePassMacroRx`, rx.rb l.597), which takes no boundary test
- *   at all and is extracted FIRST (substitutors.rb l.1021);
+ * - the UNCONSTRAINED macro form `++text++` / `+++text+++` /
+ *   `$$text$$` (`InlinePassMacroRx`, rx.rb l.597), which takes no
+ *   boundary test at all and is extracted FIRST (substitutors.rb
+ *   l.1021);
  * - the CONSTRAINED form `+text+` (`InlinePassRx[false]`, rx.rb
  *   l.583), extracted second (substitutors.rb l.1075), which does.
  *
  * The order matters and is Ruby's: `+++raw+++` read constrained-first
  * would match `+++raw+` and leave a stray `++` behind.
  *
+ * `$$text$$` is the unconstrained row's THIRD delimiter, not a form
+ * of its own: one alternation `(\+\+\+?|\$\$)` offers all three and
+ * the closer is a backreference to whichever opened, so `$$a+++b$$`
+ * is one passthrough holding `a+++b` and `+++a$$b+++` is one holding
+ * `a$$b`. Which one wins where they abut is decided by nothing but
+ * position - `gsub` takes the leftmost match start - so the
+ * first-match-wins tokenizer reaches the same answer by walking left
+ * to right.
+ *
  * The third form, `pass:[text]`, is a named macro and already has a
- * rule of its own (`InlineMacro` in rules.ts). `$$text$$` is not
- * matched here: it shares no character with the `+` forms, so nothing
- * about reading it as ordinary text can be changed by them.
+ * rule of its own (`InlineMacro` in rules.ts).
  *
  * WHAT THE CONSTRAINED PATTERN REALLY SAYS. The pinned oracle spells
  * `InlinePassRx[false]` (`@asciidoctor/core` 4.0.11,
@@ -100,13 +108,20 @@ const WORD = String.raw`\p{Alphabetic}\p{N}\p{Pc}`;
 const ATTRLIST = String.raw`\[[^\[\]]+\]`;
 
 // `(?:(?:(\\?)\[([^\[\]]+)\])?(\\{0,2})(\+\+\+?|\$\$)(#{CC_ALL}*?)\4|…)`
-// - InlinePassMacroRx (rx.rb l.597) restricted to its `+` boundaries.
-// `\+\+\+?` prefers the longer boundary and the closer is a
-// backreference, so the two lengths are two alternatives here, longer
-// first. No boundary condition of any kind: this form is
-// unconstrained, which is why `C++ and D++` renders `C and D`.
+// - InlinePassMacroRx (rx.rb l.597, the same three delimiters in the
+// oracle at `index.cjs` l.726-728) with its `pass:` arm dropped, that
+// arm being the InlineMacro rule's. `\+\+\+?` prefers the longer
+// boundary and the closer is a backreference, so each length is its
+// own alternative here, longer first; `\$\$` is a third, and its
+// order among them is immaterial because no two of the three share a
+// first character. No boundary condition of any kind: this form is
+// unconstrained, which is why `C++ and D++` renders `C and D` and
+// `C$$D` renders `C$$D` only because nothing closes it.
+//
+// The content group is `*?`, not `+?`: it may be EMPTY, so `++++` and
+// `$$$$` are both passthroughs holding nothing.
 const UNCONSTRAINED = new RegExp(
-  String.raw`(?:${ATTRLIST})?(?:\+\+\+[\s\S]*?\+\+\+|\+\+[\s\S]*?\+\+)`,
+  String.raw`(?:${ATTRLIST})?(?:\+\+\+[\s\S]*?\+\+\+|\+\+[\s\S]*?\+\+|\$\$[\s\S]*?\$\$)`,
   "vy",
 );
 
@@ -128,11 +143,11 @@ const CONSTRAINED = new RegExp(
 const NO_OPEN_EXTRAS = String.raw`;:\\`;
 const NO_OPEN_AFTER = new RegExp(`[${WORD}${NO_OPEN_EXTRAS}]`, "v");
 
-// The two characters a passthrough can begin with: the delimiter
-// itself, or the `[` of the attrlist in front of it. Checked before
-// either pattern runs, so the rule costs one character comparison at
-// the overwhelming majority of positions.
-const OPENERS = new Set(["+", "["]);
+// The three characters a passthrough can begin with: either
+// delimiter, or the `[` of the attrlist in front of one. Checked
+// before either pattern runs, so the rule costs one character
+// comparison at the overwhelming majority of positions.
+const OPENERS = new Set(["+", "$", "["]);
 
 /**
  * Whether a constrained passthrough may OPEN at `index` - Ruby's
