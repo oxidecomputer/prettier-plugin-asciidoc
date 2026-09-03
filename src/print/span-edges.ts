@@ -67,6 +67,17 @@ const ATTRLIST_CLOSE = "]";
 // (asciidoctor.rb l.446-468); see {@link attrlistAllowsIt}.
 const ATTRLIST_ESCAPE = "\\";
 
+// A bracketed run the bytes in front of a span leave OPEN: a `[` with
+// no `]` after it. `[^\]]+` cannot cross a `]`, so a group standing
+// there can only have opened at that `[`.
+const OPEN_BRACKET_RUN = /\[[^\]]*$/v;
+
+// The bytes that CLOSE such a run flush against the span behind them:
+// no `]` of their own, then the one the group ends with and nothing
+// after it, because the group's `]` has to be the last byte in front
+// of that span's delimiter.
+const CLOSES_FLUSH = /^[^\]]*\]$/v;
+
 // A whole bracketed run and nothing else: the shape the bytes between
 // two spans have when the second one's attributes group opens flush
 // against the first one's closing delimiter.
@@ -495,19 +506,57 @@ function stealsBoundaryBehind(
 }
 
 /**
+ * Whether the span's own bytes stand INSIDE a bracketed run that a
+ * span BEHIND it takes as its attributes group.
+ *
+ * The run is that span's attribute VALUE, and the value is text the
+ * quote pass has already been over: every row that ran before the one
+ * which consumed the run rewrote the bytes inside it, so the class
+ * holds a rewrite of the author's spelling rather than the spelling.
+ * Respelling a span in there moves it to a different row, and the
+ * class then says something else. Measured: `[**a**]*c*` renders
+ * `<strong class="<strong>a</strong>">c</strong>` and the shortened
+ * `[*a*]*c*` renders `<strong class="*a*">c</strong>`.
+ *
+ * CONSERVATIVE, in two directions that both only refuse. The run is
+ * treated as the following span's group without asking whether that
+ * span's own row can still reach it, and without asking whether the
+ * inner span's rows run early enough for the rewrite to be the same
+ * either way. A refusal keeps the author's bytes, which costs bytes
+ * and no meaning.
+ * @param head - what stands in front of the sibling list itself
+ * @param inFront - the siblings in front of the span, in source order
+ * @param behind - the siblings behind the span, in source order
+ * @returns true when the span's bytes stand inside such a run
+ */
+function insideFollowingAttrlist(
+  head: string,
+  inFront: readonly InlineNode[],
+  behind: readonly InlineNode[],
+): boolean {
+  const front = head + inFront.map(printedText).join("");
+  if (!OPEN_BRACKET_RUN.test(front)) return false;
+  const span = behind.findIndex((node) => isSpanNode(node));
+  if (span === -1) return false;
+  const between = behind.slice(0, span).map(printedText).join("");
+  return CLOSES_FLUSH.test(between);
+}
+
+/**
  * Whether every bracketed run standing around a span leaves the
  * constrained spelling legal - the one entry point the printer asks,
- * over the two refusals above.
+ * over the three refusals above.
  *
  * A `[...]` run flush against a span is never just text: every
  * `QUOTE_SUBS` row carries an optional `(?:\[([^\]]+)\])?` group in
  * front of its opening delimiter (asciidoctor.rb l.446-468), so such a
  * run belongs to whichever row resolves the span it stands against.
- * Two runs can therefore answer for one shortening: the run in FRONT
+ * Three runs can therefore answer for one shortening: the run in FRONT
  * of the span, which moves to the constrained row with it
- * ({@link attrlistAllowsIt}), and a run BEHIND, whose bracket loses
- * the boundary character it stands on
- * ({@link stealsBoundaryBehind}).
+ * ({@link attrlistAllowsIt}); a run the span stands INSIDE, which is
+ * another span's attribute value ({@link insideFollowingAttrlist});
+ * and a run BEHIND, whose bracket loses the boundary character it
+ * stands on ({@link stealsBoundaryBehind}).
  * @param node - the span whose shortening is in question
  * @param where - where the span sits among the bytes
  * @param where.head - what stands in front of the sibling list itself
@@ -530,6 +579,7 @@ export function bracketsAllowIt(
   return (
     (attrlist === undefined ||
       attrlistAllowsIt(attrlist, boundary.mark, boundary.front)) &&
+    !insideFollowingAttrlist(where.head, before, after) &&
     !stealsBoundaryBehind(node, after)
   );
 }

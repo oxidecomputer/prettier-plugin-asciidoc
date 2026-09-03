@@ -566,3 +566,68 @@ describe("the shortening reads the attrlist's own left context (issues #85, #88)
     expect(await formatAdoc(out)).toBe(out);
   });
 });
+
+describe("a span inside another span's attrlist keeps its spelling (issue #86)", () => {
+  // The mirror of the run in FRONT of a span: here the span being
+  // respelled stands INSIDE the bracketed run that a span behind it
+  // takes as its attributes group. The run is that span's attribute
+  // VALUE and the value goes through the quote pass, so the class
+  // holds a rewrite of the author's bytes and not the bytes: which
+  // row reads the inner span decides what the class says.
+  test.each<[string, string]>([
+    ["[**a**]*c*", "[*a*]*c*"],
+    ["[ **a**]*c*", "[ *a*]*c*"],
+    ["[**a** b]*c*", "[*a* b]*c*"],
+    ["[__a__]_c_", "[_a_]_c_"],
+    ["[``a``]`c`", "[`a`]`c`"],
+  ])(
+    "%s keeps its bytes, because %s reads differently",
+    async (source, shorter) => {
+      const input = `${source}\n`;
+      const out = await formatAdoc(input);
+      expect(out).toBe(input);
+      expect(await formatAdoc(out)).toBe(out);
+      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+      expect(await renderedHtml(`${shorter}\n`)).not.toBe(
+        await renderedHtml(input),
+      );
+    },
+  );
+
+  // The other side of the clause: a run that does not close flush
+  // against a span is no attributes group, and a span standing in
+  // one still shortens.
+  test.each<[string, string]>([
+    ["[**a**] *c*", "[*a*] *c*"],
+    ["[**a**]x", "[*a*]x"],
+  ])("%s still shortens to %s", async (source, expected) => {
+    const input = `${source}\n`;
+    const out = await formatAdoc(input);
+    expect(out).toBe(`${expected}\n`);
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+
+  // The conservative edge: the run in these shapes is not the inner
+  // span's hazard at all - the inner mark's rows run in front of the
+  // row that consumes the run either way, so the class reads the
+  // same - and the clause refuses them with the rest because it asks
+  // where the bytes stand, not which row will read them. A refusal
+  // prints the author's bytes, which costs bytes and no meaning.
+  test.each<[string, string]>([
+    ["[**a**]`c`", "[*a*]`c`"],
+    ["x[**a**]*c*", "x[*a*]*c*"],
+  ])(
+    "%s is refused conservatively, and the shorter spelling %s would have survived",
+    async (source, shorter) => {
+      const input = `${source}\n`;
+      const out = await formatAdoc(input);
+      expect(out).toBe(input);
+      expect(await formatAdoc(out)).toBe(out);
+      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+      expect(await renderedHtml(`${shorter}\n`)).toBe(
+        await renderedHtml(input),
+      );
+    },
+  );
+});
