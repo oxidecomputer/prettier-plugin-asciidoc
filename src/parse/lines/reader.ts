@@ -86,6 +86,7 @@ import {
   paragraphExtent,
   verbatimStyledExtent,
   type ParagraphScan,
+  type TextOpen,
 } from "./paragraph-reader.js";
 import {
   documentBom,
@@ -93,6 +94,14 @@ import {
   splitLines,
   type SourceLine,
 } from "./split.js";
+
+// Text starting at `from` whose `//` lines are the comments they look
+// like, which is every paragraph but one: `read_paragraph_lines`
+// passes `skip_line_comments` on every path except the literal branch
+// of an item whose `text_only` is unset, and a dlist item carrying its
+// own text is the only item that leaves it unset (parser.rb l.754,
+// l.1367-74).
+const textAt = (from: number): TextOpen => ({ from, comments: "skipped" });
 
 // The one block-attribute style the reader itself acts on: it turns the
 // heading that follows into a discreteHeading leaf instead of an
@@ -315,28 +324,25 @@ class BlockReader {
    * here, at the open, after every decision that reads the held style
    * has been made.
    * @param context - which interrupting set applies
-   * @param from - raw column index where the text starts
+   * @param text - where the text starts and how its `//` lines read
+   *   (see {@link TextOpen})
    * @returns the body's tokens
    */
-  private readText(context: ParagraphContext, from: number): InlineToken[] {
+  private readText(context: ParagraphContext, text: TextOpen): InlineToken[] {
     this.flushMetadata();
-    const { tokens, end } = paragraphExtent(
-      this.scan,
-      this.index,
-      context,
-      from,
-    );
-    this.resume(end);
-    return tokens;
+    const body = paragraphExtent(this.scan, this.index, context, text);
+    this.resume(body.end);
+    return body.tokens;
   }
 
   /**
    * Read a plain paragraph — the one opening at the read position —
    * and push it.
    * @param context - which interrupting set applies
-   * @param from - raw column index where its text starts
+   * @param text - where its text starts and how its `//` lines read
+   *   (see {@link TextOpen})
    */
-  private paragraph(context: ParagraphContext, from: number): void {
+  private paragraph(context: ParagraphContext, text: TextOpen): void {
     // The non-verbatim paragraph-form fold: only a line
     // that opens a PARAGRAPH converts — today's observed shape,
     // reproduced exactly. The style is read before readText flushes
@@ -344,7 +350,7 @@ class BlockReader {
     // threading).
     const variant = paragraphFormVariant(this.actionableStyle());
     const annotatedBy = this.annotation();
-    const tokens = this.readText(context, from);
+    const tokens = this.readText(context, text);
     // A plain paragraph records no annotation: ParagraphNode declares
     // no `annotatedBy` (src/ast.ts), which is what the type test that
     // used to stand here was really asking.
@@ -369,7 +375,7 @@ class BlockReader {
     line: SourceLine,
     labelEnd: number,
   ): void {
-    const tokens = this.readText(context, labelEnd);
+    const tokens = this.readText(context, textAt(labelEnd));
     this.push(
       buildAdmonitionParagraph(
         fragmentOfLine(line, 0, labelEnd),
@@ -516,7 +522,10 @@ class BlockReader {
         closeOffset: last.offset + last.raw.length,
       },
     );
-    const text = inner.readText("listItemText", shape.marker.markerEnd);
+    // `parse_list_item` clears `has_text` for a ulist or olist item
+    // whose content is adjacent (parser.rb l.1369), so the item's own
+    // text is read with `text_only` and its `//` lines are comments.
+    const text = inner.readText("listItemText", textAt(shape.marker.markerEnd));
     const interior = { text, blocks: inner.run() };
     return listItemNode(shape, interior, {
       gaps: this.scope.gaps,
@@ -579,7 +588,15 @@ class BlockReader {
         return;
       }
       case "dlistTerm": {
-        this.paragraph("dlistItem", kind.indent);
+        // The description of an item that carries its own inline text
+        // is the one paragraph whose `//` lines the oracle folds in as
+        // CONTENT rather than skipping: `parse_list_item` keeps
+        // `has_text` for a dlist, so `text_only` reaches the literal
+        // branch unset (paragraph-reader.ts, `adjustsIndentation`;
+        // issue #101).
+        const comments =
+          kind.descriptionStart === undefined ? "skipped" : "content";
+        this.paragraph("dlistItem", { from: kind.indent, comments });
         return;
       }
       case "listMarker": {
@@ -591,7 +608,7 @@ class BlockReader {
         return;
       }
       default: {
-        this.paragraph(this.body, 0);
+        this.paragraph(this.body, textAt(0));
       }
     }
   }
@@ -621,7 +638,7 @@ class BlockReader {
    */
   private continuationLine(line: SourceLine): void {
     if (!directlyInItem(this.confinement)) {
-      this.paragraph("paragraph", 0);
+      this.paragraph("paragraph", textAt(0));
       return;
     }
     if (this.blanks > 0 && line.continuationTag === "marker") {
@@ -718,7 +735,7 @@ class BlockReader {
       // ONE arm for both flavors: bodyContext() already answers
       // "paragraph" for a block child, because directlyInItem() is
       // false there.
-      this.paragraph(this.body, 0);
+      this.paragraph(this.body, textAt(0));
       return;
     }
     if (this.held.heldStyle() === DISCRETE_STYLE) {

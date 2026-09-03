@@ -295,25 +295,25 @@
     },
     {
       "file": "src/parse/lines/paragraph-reader.ts",
-      "what": "paragraph-reader.ts:229 `this.firstLineAfterStart = false` -> the flag left true in the fold's tagged-`+` arm (#56's new code; the field was a line COUNT and the `+= 1` this row was first written against until the dead-branch sweep made it the boolean its two readers asked for)",
+      "what": "paragraph-reader.ts:253 `this.firstLineAfterStart = false` -> the flag left true in the fold's tagged-`+` arm (#56's new code; the field was a line COUNT and the `+= 1` this row was first written against until the dead-branch sweep made it the boolean its two readers asked for)",
       "class": "never",
       "reason": "EQUIVALENT: nothing reads the flag in fold mode, so the arm writes a fact no one asks for. Its two readers are `firstLineAfterStart`, which for the fold's context (always `listContinuation`, set in the constructor) picks between two EMPTY pattern lists in FIRST_LINE_INTERRUPTERS and LATER_LINE_INTERRUPTERS and a RAW_BLOCK_ANCHOR_CONTEXTS set that context is not a member of; and trackLiteralPlus's literal-plus candidate, gated on ITEM_TEXT_CONTEXTS (`listItem` and `dlistItem`), which the fold is not in either. Confirmed by differential: identical bytes and identical ASTs over the 111,110 depth-5 sweep documents and over 335,922 depth-7 documents spelled from `* a`, `** b`, `+`, blank, `para` and `  lit`. The three OTHER mutants of this arm are killed by the fold rows in tests/format/plus-run.test.ts"
     },
     {
       "file": "src/parse/lines/paragraph-reader.ts",
-      "what": "paragraph-reader.ts:248 `line.continuationTag === \"marker\"` -> `true` in foldsThrough (#56's new code)",
+      "what": "paragraph-reader.ts:272 `line.continuationTag === \"marker\"` -> `true` in foldsThrough (#56's new code)",
       "class": "never",
       "reason": "UNREACHABLE: a fold only ever MEETS tagged `+` lines, so dropping the tag test changes nothing it can see. The single untagged `+` an item buffer can hold is the one `activeContent` buffers (see the reader.ts row above), and it is always that buffer's last line, which no fold running inside the buffer can reach. Measured: an instrumented build logs the difference zero times over four products totalling 2,520,988 documents (the depth-5 ten-symbol sweep, plus three deeper products that add `[role]`, `----` and `--`). The left conjunct of the same expression is live in three spellings, all killed by tests/format/plus-run.test.ts's \"only a fold runs a tagged + through\" rows"
     },
     {
       "file": "src/parse/lines/reader.ts",
-      "what": "the LEFT disjunct of the child reader's tailSafe (reader.ts:801 `tailSafe: extent.close !== undefined || tailSafeIn(this.confinement)`) - 3 mutants: -> `true`, -> `false`, and `!==` -> `===`",
+      "what": "the LEFT disjunct of the child reader's tailSafe (reader.ts:818 `tailSafe: extent.close !== undefined || tailSafeIn(this.confinement)`) - 3 mutants: -> `true`, -> `false`, and `!==` -> `===`",
       "class": "never",
       "reason": "EQUIVALENT, measured rather than assumed: all three produce byte-identical output over 66,429 documents (a depth-5 product over `----`, `====`, `--`, `****`, `* a`, `** b`, `+`, blank and `para`) and over all 111,121 list-shape sweep documents. Whenever a block CLOSED, the reader's own `tailSafe` is already true, so the left disjunct never decides. The RIGHT disjunct is live and pinned in tests/format/trailing-continuation.test.ts (a trailing `+` at the end of an unclosed `====` or `--` block comes back), which is what took this file from 93.6 to 94.2"
     },
     {
       "file": "src/parse/lines/reader.ts",
-      "what": "reader.ts:627 `line.continuationTag === \"marker\"` -> `true` in continuationLine's fold arm (#56's new code)",
+      "what": "reader.ts:644 `line.continuationTag === \"marker\"` -> `true` in continuationLine's fold arm (#56's new code)",
       "class": "never",
       "reason": "EQUIVALENT, and worth writing down because the guard IS reached with an untagged `+`. Every `+` that enters an item buffer goes through `pushMarker` and carries the tag, with ONE exception: the `+` that `activeContent` buffers as the attached block's own first line when it stands one blank under an active continuation (`* a` / `+` / blank / `+` is the smallest such document). That untagged cell is only ever the buffer's LAST line, because any line after it takes the `+` arm that blanks it, so the fold the mutant opens there reads exactly the one raw line the leaf arm builds and stops on the same index. Measured: byte-identical output AND byte-identical ASTs over all 111,110 depth-5 sweep documents, byte-identical output over 66,429 delimiter-bearing documents, and an instrumented build reaches the untagged case MID-buffer zero times in either product"
     },

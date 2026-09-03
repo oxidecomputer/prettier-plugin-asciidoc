@@ -88,6 +88,29 @@ export interface ParagraphScan {
   readonly openListStyle: string | undefined;
 }
 
+/**
+ * Where a paragraph-shaped extent's TEXT starts, and how a `//` line
+ * inside it reads. Both are the caller's to fix before the first line
+ * is read, and neither can be recovered from the lines alone: the
+ * start sits past a marker or a label the reader parsed, and the
+ * comment reading follows from WHICH construct the paragraph belongs
+ * to.
+ */
+export interface TextOpen {
+  /** Raw column index where the paragraph's text starts. */
+  readonly from: number;
+  /**
+   * How Asciidoctor reads a `//` line inside the extent: `skipped` is
+   * `read_paragraph_lines`'s `skip_line_comments`, which drops the
+   * line before `adjust_indentation!` ever sees it, and `content`
+   * folds it into the text like any other line. The formatter keeps
+   * the line's bytes either way; what the two answers change is
+   * whether its indent counts (see
+   * {@link Paragraph.adjustsIndentation}).
+   */
+  readonly comments: "content" | "skipped";
+}
+
 /** A run of reflowable paragraph text to tokenize as inline content. */
 interface InlineRun {
   /** Document offset of the run's first character. */
@@ -163,13 +186,14 @@ class Paragraph {
    *   {@link ParagraphScan})
    * @param at - index of the paragraph's first line
    * @param mode - which interrupting set applies, or the fold
-   * @param from - raw column index where the paragraph's text starts
+   * @param text - where the paragraph's text starts and how its `//`
+   *   lines read (see {@link TextOpen})
    */
   constructor(
     private readonly scan: ParagraphScan,
     at: number,
     mode: ParagraphMode,
-    from: number,
+    private readonly text: TextOpen,
   ) {
     this.fold = mode === "continuationFold";
     this.context = mode === "continuationFold" ? "listContinuation" : mode;
@@ -197,7 +221,7 @@ class Paragraph {
       this.pieces.push({ kind: "raw", line });
       return;
     }
-    this.runStart = line.offset + from;
+    this.runStart = line.offset + this.text.from;
   }
 
   /**
@@ -405,16 +429,23 @@ class Paragraph {
   /**
    * Feed one consumed line to the literal-plus rule (see
    * {@link Paragraph.finish}): the first line after an item's own line
-   * is the candidate when it is indentation and a `+`; every content
-   * line after it lowers the common indent. Comment and preprocessor
-   * lines do not count — `read_paragraph_lines` runs with
-   * `skip_line_comments` here, so they never reach
-   * `adjust_indentation!`.
+   * is the candidate when it is indentation and a `+`; every line the
+   * indent is taken over after it lowers the common indent. A comment
+   * line usually is not one of those: `read_paragraph_lines` runs
+   * with `skip_line_comments`, so it never reaches
+   * `adjust_indentation!`, and where it IS content
+   * ({@link TextOpen.comments}) its indent counts like any other
+   * line's. A preprocessor line never counts: the reader that
+   * resolves it runs before `read_paragraph_lines` sees a line at
+   * all. KNOWN DIVERGENCE there, and the reason this says never: an
+   * UNRESOLVED include is a flush-left message line to the oracle, so
+   * `t:: item` / ` +` / `include::x[]` renders a break there and a
+   * literal plus here.
    * @param line - the line being added to the paragraph
    * @param kind - what the classifier made of it
    */
   private trackLiteralPlus(line: SourceLine, kind: LineKind): void {
-    if (kind.kind !== "text") {
+    if (!this.adjustsIndentation(kind)) {
       return;
     }
     if (this.plusLine !== undefined) {
@@ -429,6 +460,37 @@ class Paragraph {
     ) {
       this.plusLine = line;
     }
+  }
+
+  /**
+   * Whether `adjust_indentation!` takes the common indent over this
+   * line: every text line, and a COMMENT line in the one paragraph
+   * the oracle reads without skipping comments.
+   *
+   * `read_paragraph_lines` passes `skip_line_comments: text_only`
+   * (parser.rb l.754), and `parse_list_item` passes
+   * `text_only: has_text ? nil : true` while keeping `has_text` for a
+   * description list alone (parser.rb l.1367-74, where a ulist or
+   * olist item's content-adjacent text clears it). So the description
+   * of a dlist item that carries its own inline text is the paragraph
+   * whose `//` lines Asciidoctor folds in as CONTENT: they render,
+   * they reach `adjust_indentation!`, and a flush-left one there
+   * takes the common indent to 0, which is what keeps the space on a
+   * ` +` line above it and so keeps the break (issue #101; ORACLE:
+   * `t:: item` / ` +` / `// c` renders `item <br> // c`).
+   * @param kind - what the classifier made of the line
+   * @returns true when the line's indent is one the common indent is
+   *   taken over
+   */
+  private adjustsIndentation(kind: LineKind): boolean {
+    if (kind.kind === "text") {
+      return true;
+    }
+    return (
+      this.text.comments === "content" &&
+      kind.kind === "raw" &&
+      kind.form === "comment"
+    );
   }
 
   /** Close the run in progress as one piece. */
@@ -479,16 +541,17 @@ interface VerbatimRun {
  * @param scan - the lines and the stream-wide facts
  * @param at - index of the paragraph's first line
  * @param context - which interrupting set applies (see ParagraphContext)
- * @param from - raw column index where the paragraph's text starts
+ * @param text - where the paragraph's text starts and how its `//`
+ *   lines read (see {@link TextOpen})
  * @returns the body's tokens and the resume index
  */
 export function paragraphExtent(
   scan: ParagraphScan,
   at: number,
   context: ParagraphContext,
-  from: number,
+  text: TextOpen,
 ): ParagraphBody {
-  const paragraph = new Paragraph(scan, at, context, from);
+  const paragraph = new Paragraph(scan, at, context, text);
   paragraph.read();
   return { tokens: paragraph.finish(), end: paragraph.end };
 }
@@ -510,7 +573,14 @@ export function continuationFoldExtent(
   scan: ParagraphScan,
   at: number,
 ): ParagraphBody {
-  const paragraph = new Paragraph(scan, at, "continuationFold", 0);
+  // The fold's own `+` head is its first line, so its text starts at
+  // column 0; a `//` line inside it is the comment it looks like
+  // (`read_paragraph_lines` skips comments on every path but the
+  // literal branch's).
+  const paragraph = new Paragraph(scan, at, "continuationFold", {
+    from: 0,
+    comments: "skipped",
+  });
   paragraph.read();
   return { tokens: paragraph.finish(), end: paragraph.end };
 }

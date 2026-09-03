@@ -286,3 +286,62 @@ describe("a lone indented ` +` is the literal the oracle reads", () => {
     expect(await formatAdoc(out)).toBe(out);
   });
 });
+
+// Issue #101. A description-list item that carries its own text is
+// the one item whose folded first block Asciidoctor reads WITHOUT
+// skipping line comments: `parse_list_item` passes
+// `text_only: has_text ? nil : true` and keeps `has_text` for a dlist
+// (parser.rb l.1367-74), and the literal branch passes that value
+// straight on as `read_paragraph_lines ... skip_line_comments:
+// text_only` (parser.rb l.754). So a `//` line inside such a
+// description is CONTENT: it reaches `adjust_indentation!`, its
+// indent counts in the common indent, and the ` +` line above it
+// keeps the space that makes it a hard break. ORACLE: `t:: item` /
+// ` +` / `// c` renders `item <br> // c`; dropping either the break
+// or the comment line drops rendered content.
+describe("a comment line inside a dlist description is content", () => {
+  test.each([
+    ["one comment line", "t:: item\n +\n// c\n"],
+    ["two comment lines", "t:: item\n +\n// c\n// d\n"],
+    ["a comment with nothing after the slashes", "t:: item\n +\n//\n"],
+    ["a ` +` the comment still outdents", "t:: item\n  +\n// c\n"],
+    ["a paragraph after the item", "t:: item\n +\n// c\n\nafter\n"],
+    ["the item nested in a list item", "* a\nt:: item\n +\n// c\n"],
+  ])("with %s, the break and the comment both survive", async (_n, input) => {
+    const out = await formatAdoc(input);
+    const html = await renderedHtml(out);
+    expect(html).toBe(await renderedHtml(input));
+    expect(html.includes("<br>")).toBe(true);
+    expect(out.includes("//")).toBe(true);
+    expect(await formatAdoc(out)).toBe(out);
+  });
+
+  // The issue's own repro, byte for byte: both lines stand where the
+  // source put them, so the reformatted document reads back as the
+  // same one (`t:: item {plus}` / `// c` used to lose the break and,
+  // with it, the reading that makes the comment line content).
+  test("the repro keeps its bytes", async () => {
+    const input = "t:: item\n +\n// c\n";
+    expect(await formatAdoc(input)).toBe(input);
+  });
+
+  // The reading is the dlist's alone, and only where the item carries
+  // its own text. A ulist or olist item's content-adjacent fold is
+  // read with `text_only` true (`has_text = nil unless dlist`), and a
+  // dlist item with no inline text has `has_text` false, so both
+  // SKIP the comment: the ` +` line is then the only line the common
+  // indent is taken over, its space goes, and the bare `+` that
+  // reaches `HardLineBreakRx` is plain text. ORACLE: none of the
+  // three renders a `<br>`.
+  test.each([
+    ["a ulist item", "* item\n +\n// c\n"],
+    ["an olist item", ". item\n +\n// c\n"],
+    ["a dlist item with no text of its own", "t::\n +\n// c\n"],
+  ])("in %s the comment is a comment", async (_name, input) => {
+    const out = await formatAdoc(input);
+    const html = await renderedHtml(out);
+    expect(html).toBe(await renderedHtml(input));
+    expect(html.includes("<br>")).toBe(false);
+    expect(await formatAdoc(out)).toBe(out);
+  });
+});

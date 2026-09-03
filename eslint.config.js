@@ -235,7 +235,7 @@ export default defineConfig(
   // excluded); the fix would put it where the second number says.
   {
     files: [
-      "src/parse/lines/reader.ts", // 448 -> 462
+      "src/parse/lines/reader.ts", // 447 -> 461
       "src/print/inline.ts", // 445 -> 463
       "scripts/parity.ts", // 447 -> 467
       "scripts/parity-ledger.ts", // 450 -> 477
