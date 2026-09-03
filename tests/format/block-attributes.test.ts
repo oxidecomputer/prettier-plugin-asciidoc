@@ -419,12 +419,13 @@ describe("pseudo-anchor lines: a `[[…]]` line that is not a block anchor", () 
 // on a line) used to format to `[[anc]]]` - an invented `]` byte, one
 // per trailing whitespace character, and a render change (the extra
 // bracket fails BLOCK_ANCHOR, so the corrupted line reads back as
-// text on re-parse). Root cause: buildBlockAnchor
-// (src/parse/build/metadata.ts) sliced the RAW line's image, which
-// still carried the trailing whitespace the classifier had already
-// rstripped away to recognise the line as an anchor in the first
-// place - `slice(2, -2)` then cut the closing `]]` short by however
-// many bytes of whitespace sat past it. The oracle rstrips every line
+// text on re-parse). Root cause: the builder sliced the RAW line's
+// image, which still carried the trailing whitespace the classifier
+// had already rstripped away to recognise the line as an anchor in
+// the first place - `slice(2, -2)` then cut the closing `]]` short by
+// however many bytes of whitespace sat past it. Every held metadata
+// builder now gets the rstripped span instead (`heldMetadataNode`,
+// src/parse/lines/held-metadata.ts). The oracle rstrips every line
 // before any rule runs (Asciidoctor's reader), so the trailing
 // whitespace is not part of what it read either: every row below is
 // the SAME anchor as its bare-`[[anc]]` twin, and renders identically
@@ -464,6 +465,35 @@ describe("issue #79: trailing ASCII whitespace after a valid anchor id", () => {
     expect(output).toBe(expected);
     expect(await formatAdoc(output)).toBe(output);
     expect(await renderedHtml(output)).toBe(await renderedHtml(input));
+  });
+});
+
+// The same invented `]` reached every OTHER held metadata line, not
+// just the anchor issue #79 patched locally: `heldMetadataNode`
+// handed each builder the RAW span, so `[NOTE]␠`'s `slice(1, -1)`
+// cut the blank instead of the `]` and stored `NOTE]` (issues #69,
+// #97). Asciidoctor rstrips every line on read
+// (`Helpers.prepare_source_string`), so to the oracle these inputs
+// ARE their stripped spellings.
+describe("a trailing-whitespace metadata line formats to its rstripped spelling", () => {
+  test.each([
+    ["[NOTE] \npara\n", "[NOTE]\npara\n"],
+    ["[role]  \npara\n", "[role]\npara\n"],
+    ["[source,ruby]   \n----\nfoo\n----\n", "[source,ruby]\n----\nfoo\n----\n"],
+    ["[[ok]]  \npara\n", "[[ok]]\n\npara\n"],
+    [".Title  \npara\n", ".Title\npara\n"],
+  ])("%j formats to %j", async (input, expected) => {
+    expect(await formatAdoc(input)).toBe(expected);
+  });
+
+  test.each([
+    "[NOTE] \npara\n",
+    "[role]  \npara\n",
+    "[source,ruby]   \n----\nfoo\n----\n",
+  ])("%j renders the same formatted", async (input) => {
+    expect(await renderedHtml(await formatAdoc(input))).toBe(
+      await renderedHtml(input),
+    );
   });
 });
 

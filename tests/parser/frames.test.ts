@@ -24,7 +24,8 @@ import { makeLocationIndex } from "../../src/parse/positions.js";
 
 describe("fragmentOfLine", () => {
   // The third line carries trailing whitespace: `raw` keeps it, `text`
-  // does not, and a node is built from RAW.
+  // does not, and the DEFAULT span is the raw one; the held-metadata
+  // caller is what asks for `text.length` as `to`.
   const [first, second, third] = splitLines("ab\ncde\nfg  \n");
 
   const rows: Array<

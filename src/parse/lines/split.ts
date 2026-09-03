@@ -76,10 +76,11 @@ export interface SourceLine {
 }
 
 /**
- * One line's span, for the builders. A block node is built from the
- * RAW spelling of its line, trailing whitespace and all, and that is
- * what its position measures; classification used the rstripped
- * `text`.
+ * One line's span, for the builders. The default span is the RAW
+ * spelling of the line, trailing whitespace and all, and that is what
+ * its position measures; classification used the rstripped `text`, so
+ * a builder that has to take the line apart the way the classifier
+ * read it asks for `line.text.length` as `to` (held-metadata.ts).
  * @param line - the source line
  * @param from - raw start column index, 0-based
  * @param to - raw end column index, exclusive

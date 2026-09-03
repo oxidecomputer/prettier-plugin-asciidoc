@@ -22,8 +22,8 @@
  * ONE field. It carried a second, `raw` — the interior as given — and
  * NOTHING ever read it: the reader kept the record for its style, and
  * every consumer that wanted the bytes had a better source for them
- * (`annotatedBy` pairs the held NODE's `value`, which differs from the
- * interior on a trailing-whitespace attribute line, and
+ * (`annotatedBy` pairs the held NODE's `value`, which spells the
+ * interior exactly - both sides decompose the rstripped line - and
  * {@link canonicalAttrlist} takes the interior as an argument). It was
  * the standing example in the scorecard's unread-published-field
  * report; deleting it is what let that report be armed as a gate.

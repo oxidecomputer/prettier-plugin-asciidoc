@@ -58,7 +58,14 @@ export function heldMetadataNode(
   line: SourceLine,
   at: LocationIndex,
 ): BlockNode | undefined {
-  return HELD_BUILDERS.get(kind.kind)?.(fragmentOfLine(line), at);
+  // The classifier judged the RSTRIPPED spelling (`line.text`), so
+  // the builder has to take apart the same bytes: handing it the raw
+  // span let `[NOTE]␠`'s `slice(1, -1)` cut the blank instead of the
+  // `]` and store a value with the delimiter still in it (#69, #97).
+  return HELD_BUILDERS.get(kind.kind)?.(
+    fragmentOfLine(line, 0, line.text.length),
+    at,
+  );
 }
 
 /** The held-back run. One instance per BlockReader (reader.ts). */
@@ -86,8 +93,13 @@ export class HeldMetadata {
     if (node === undefined) {
       return false;
     }
-    if (kind.kind === "attributeLine") {
-      this.attrlist = parseAttrlist(line.text.slice(1, -1));
+    // The interior is read back off the node just built, which holds
+    // exactly the bytes between the brackets: the line is taken apart
+    // in ONE place, and the record and the sibling node cannot come to
+    // spell it differently. Narrowed on the node, not on `kind`, so
+    // the pairing does not rest on the builder table's routing.
+    if (node.type === "blockAttributeList") {
+      this.attrlist = parseAttrlist(node.value);
     }
     this.pending.push(node);
     return true;
@@ -174,12 +186,10 @@ export class HeldMetadata {
    * than actionableStyle's transparency on purpose, so the recorded
    * value equals the sibling BlockAttributeListNode's `value` by
    * construction and invariant (xi) can check the pairing on every
-   * parse. Copied from the held NODE, never from the interior the
-   * splitter rstripped, so the equality holds even on a
-   * trailing-whitespace attribute line, where the two differ. (That
-   * rstripped interior used to be published as `Attrlist.raw`; it was
-   * deleted as unread, and this is the comment that says why it never
-   * had a reader here.)
+   * parse. Copied from the held NODE, which is the very string `hold`
+   * hands `parseAttrlist` above. (That interior used to be published
+   * as `Attrlist.raw`; it was deleted as unread, and this is the
+   * comment that says why it never had a reader here.)
    * @returns the sibling-to-be's value, or undefined
    */
   annotation(): string | undefined {

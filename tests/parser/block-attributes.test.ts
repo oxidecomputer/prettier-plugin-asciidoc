@@ -321,27 +321,26 @@ describe("blockAnchor is its own node kind", () => {
 });
 
 describe("the reader's annotation record", () => {
-  // The record is copied from the held NODE's `value`, never from the
-  // RSTRIPPED bracket interior the reader hands `parseAttrlist`;
-  // pinned on the ONE shape that distinguishes the two: an attribute
-  // line with TRAILING WHITESPACE. The held node is built from the RAW
-  // line (`fragmentOfLine`), so its `value` is the raw image minus its
-  // first and last character — for `[source,ruby]···` that is
-  // `source,ruby]··`, closing bracket included. The rstripped interior
-  // is `source,ruby`, so a mutant that records THAT leaves the entire
-  // suite green: invariant (xi) only compares the record against the
-  // sibling's value, and neither the corpus nor the fuzz alphabets
-  // ever put a trailing-whitespace attribute line above a block. Asserting both halves here is the (xi) equality on the
-  // one shape (xi) never sees, and the exact string is reachable only
-  // from the node.
-  test("annotatedBy copies the held NODE's value, not the rstripped attrlist", () => {
+  // The record is copied from the held NODE's `value`, and the two
+  // spellings that once differed - that value and the RSTRIPPED
+  // bracket interior the reader hands `parseAttrlist` - CONVERGED
+  // when the builders started decomposing the rstripped line the
+  // classifier matched (#69, #97). Pinned on the shape that used to
+  // separate them, an attribute line with TRAILING WHITESPACE: the
+  // held node's value was the raw image minus its first and last
+  // character, so `[source,ruby]␠␠␠` stored `source,ruby]␠␠`, the
+  // closing bracket included. Both halves are asserted because
+  // invariant (xi) only compares the record against the sibling's
+  // value, and neither the corpus nor the fuzz alphabets ever put a
+  // trailing-whitespace attribute line above a block.
+  test("annotatedBy and the attribute value are the rstripped interior", () => {
     const [attributes, block] = parse(
       "[source,ruby]   \n----\nfoo\n----\n",
     ).children;
     narrow(attributes, "blockAttributeList");
     narrow(block, "delimitedBlock");
-    expect(attributes.value).toBe("source,ruby]  ");
-    expect(block.annotatedBy).toBe("source,ruby]  ");
+    expect(attributes.value).toBe("source,ruby");
+    expect(block.annotatedBy).toBe("source,ruby");
   });
 });
 

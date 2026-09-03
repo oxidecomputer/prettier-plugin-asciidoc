@@ -211,12 +211,12 @@ function anchorOfLine(
  * `"anchor"` unconditionally, on the argument that its id passed the
  * grammar at classification and the serializer keeps a valid spelling
  * valid; that argument used to be false for the trailing-whitespace
- * family (issue #69/#79: `buildBlockAnchor`, parse/build/metadata.ts,
- * sliced the RAW line rather than the rstripped one the classifier
- * had already matched, so `[[ok]]` with two trailing spaces built the
- * id `ok]]` and the printed `[[ok]]]]` was text on re-read).
- * `buildBlockAnchor` now rstrips before splitting, so the builder and
- * the classifier agree and this shape no longer reaches "lookalike" -
+ * family (issue #69/#79: the anchor builder sliced the RAW line, not
+ * the rstripped one the classifier had already matched, so `[[ok]]`
+ * with two trailing spaces built the id `ok]]` and the printed
+ * `[[ok]]]]` was text on re-read). `heldMetadataNode`
+ * (parse/lines/held-metadata.ts) hands every held builder the
+ * rstripped span now, so this shape no longer reaches "lookalike" -
  * but a record that judges the printed line still does not take a
  * node kind's word for it, asking the grammar in one place rather
  * than trusting a second invariant it does not itself enforce.

@@ -213,16 +213,9 @@ export function buildBlockMacro(
  * reftext split has one spelling. `makeInlineAnchor`
  * (parse/inline/inline-link-builder.ts's `splitAnchor`) assumes its
  * fragment IS the `[[...]]` token, delimiters included and nothing
- * past the closing pair - true of an inline anchor, whose tokenizer
- * span ends at the second `]`, but not of `line`: the classifier
- * that routed this line here matched a RSTRIPPED copy (`^...$` over
- * one rstripped line, line-shapes.ts's `wholeLine`), while `line`
- * itself is the raw span, trailing ASCII whitespace and all
- * (issue #69, Face 1). `slice(width, -width)` then cuts its last two
- * bytes off the WRONG end - the trailing blanks, not the closing
- * `]]` - leaving `]` characters from the real delimiter stuck to the
- * id. rstripping here, once, before the split, is what makes this
- * builder see the same bytes the classifier already judged.
+ * past the closing pair; `heldMetadataNode` (lines/held-metadata.ts)
+ * satisfies that by handing every held builder the rstripped span
+ * the classifier matched.
  * @param line - A block anchor line (`[[id]]` on its own line).
  * @param at - The document's location index.
  * @returns The block anchor node.
@@ -231,10 +224,7 @@ export function buildBlockAnchor(
   line: Fragment,
   at: LocationIndex,
 ): BlockAnchorNode {
-  const anchor = makeInlineAnchor(
-    { image: rstrip(line.image), offset: line.offset },
-    at,
-  );
+  const anchor = makeInlineAnchor(line, at);
   return {
     type: "blockAnchor",
     id: anchor.id,
@@ -281,10 +271,13 @@ function buildPreprocessorDirective(
  * a comment or a preprocessor directive kept verbatim, or a line that
  * is raw for another reason (see `buildRawLineParagraph`).
  *
- * Classifies the RSTRIPPED image: a span carries the author's bytes
- * (`SourceLine.raw`) while every shape in the registry is written
- * against the rstripped spelling (`SourceLine.text`), so
- * `ifdef::backend[]␠␠` would otherwise miss the `$`-anchored
+ * Classifies the RSTRIPPED image, because the span reaches here in
+ * EITHER spelling: `heldMetadataNode` (lines/held-metadata.ts) passes
+ * the rstripped line the classifier matched, while the reader's
+ * continuation leaf (lines/reader.ts) passes the author's bytes
+ * (`SourceLine.raw`). Every shape in the registry is written against
+ * the rstripped spelling (`SourceLine.text`), so without the strip
+ * `ifdef::backend[]␠␠` off the raw path would miss the `$`-anchored
  * directive pattern and lose its transparency.
  * @param line - The raw line.
  * @param at - The document's location index.
@@ -312,7 +305,9 @@ export function buildRawBlockLine(
  * which lines the reader eats.
  *
  * Classifies the RSTRIPPED image, for the reason
- * {@link buildRawBlockLine} states.
+ * {@link buildRawBlockLine} states, and for its own second caller:
+ * the document-header scan (lines/header-reader.ts) hands it a raw
+ * span too.
  * @param line - The raw line.
  * @param at - The document's location index.
  * @returns The comment or directive node, or undefined when the line
