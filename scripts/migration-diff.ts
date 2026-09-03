@@ -408,6 +408,20 @@ async function everyTree(
 }
 
 /**
+ * Whether a tree's measurement says nothing: every document threw,
+ * so no byte or render comparison against it can mean anything. The
+ * same floor `scripts/probe-domains.ts` applies to its base, grown to
+ * every tree here - candidate, reference and baseline alike, since a
+ * candidate that cannot format at all is exactly as uninformative as
+ * a broken comparison tree.
+ * @param report - the tree's measurement
+ * @returns whether every document threw
+ */
+function measuredNothing(report: TreeReport): boolean {
+  return report.pairs.length > 0 && report.threw === report.pairs.length;
+}
+
+/**
  * Run the differential.
  * @param request - what was asked for
  * @returns whether a bucket the gate cares about was non-empty
@@ -432,6 +446,11 @@ async function run(request: Request): Promise<boolean> {
   );
   const reports = await everyTree(request, documents);
   const [candidate] = reports;
+  // Named now, checked at the end: the summary and buckets below are
+  // still worth printing for a broken tree - that is how a reader
+  // sees WHICH tree came back empty - but nothing they report can be
+  // trusted as a comparison once one side measured nothing.
+  const short = reports.filter(measuredNothing);
   // ONCE per pair. The summary's byte column and the bucket printed
   // below are the same measurement, and it is not a cheap one: a row
   // per differing document, each carrying a reading diff of two
@@ -480,6 +499,16 @@ async function run(request: Request): Promise<boolean> {
     if (lost.rows.length > 0) {
       gated = true;
     }
+  }
+  // LAST, so a measured-nothing tree wins over a gate verdict taken
+  // from buckets that used it: a comparison against a tree that threw
+  // on every document proved nothing, and 2 is the code that says so
+  // rather than the 0 or 1 the buckets above would otherwise report.
+  if (short.length > 0) {
+    cannotRun(
+      `migration-diff: ${short.map((report) => report.name).join(", ")} threw on every document - nothing was proved by comparing against ${short.length === 1 ? "it" : "them"}`,
+    );
+    return false;
   }
   return gated;
 }
