@@ -6,7 +6,7 @@
  *
  * Comments here cite two authorities. The Ruby (`parser.rb`, `rx.rb`,
  * `reader.rb`, `substitutors.rb`, `attribute_list.rb`,
- * `asciidoctor.rb`, Asciidoctor 2.0.26) is the design spec, vendored
+ * `asciidoctor.rb`, `table.rb`, Asciidoctor 2.0.26) is the design spec, vendored
  * at `vendor/asciidoctor-ruby/` so this check needs no network. The
  * oracle (`@asciidoctor/core`'s `build/node/index.cjs` and the
  * `src/*.js` it is bundled from) is the behavioral authority the tests

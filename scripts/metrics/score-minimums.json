@@ -157,6 +157,10 @@
       "coverage": 100.0,
       "mutation": 100.0
     },
+    "src/parse/lines/table-cell-spec.ts": {
+      "coverage": 98.3,
+      "mutation": 0.0
+    },
     "src/parse/positions.ts": {
       "coverage": 100.0,
       "mutation": 100.0
@@ -430,6 +434,12 @@
       "what": "the two mutants of the `default:` arm (`return undefined`) in parse/build/metadata.ts's buildReaderConsumedLine",
       "class": "never",
       "reason": "EQUIVALENT. The arm's whole contract is 'an unclaimed line builds nothing': emptying the block makes control fall off the function's end to the same undefined, and no rewriting of the default arm can change what the named arms return for the comment and directive lines the suite pins. These two rows are why the file's minimum reads 96.4 and not 100 after the 2026-09-03 reseeding."
+    },
+    {
+      "file": "src/parse/lines/table-cell-spec.ts",
+      "what": "mutation minimum 0 - a PLACEHOLDER, not a file with nothing to measure",
+      "class": "when",
+      "reason": "TRIGGER: the next batched mutation run. This file is new (issue #10, table modeling) and holds the table cell-spec and column-spec grammar - ColumnSpecRx, CellSpecStartRx and CellSpecEndRx (rx.rb:390,399-400) and their parse into TableCellSpec/TableColumnSpec - none of which has been measured, because mutation runs at batched integration points and this file landed between two of them. Its coverage row is measured (98.38 lines, 61 of 62, from a `bunx vitest run --coverage --exclude \"**/parity-trailers.test.ts\"` run of this tree, the same workaround prior placeholder rows used); the one uncovered line is repeatFrom's can't-happen guard, thrown only if a regex match produced repeat digits with neither `+` nor `*` as the paired operator, which the atomic capture group makes impossible. Its behaviour is pinned by the 33 rows of tests/parser/table-cell-spec.test.ts, including rx.rb's own `1*h,2*,^3e` worked example, a worked `.2+^.^h` cell spec, an asymmetric `<.>` alignment row and a cols row covering every TableCellStyles letter. See docs/harnesses.md, the two reasons a zero is allowed"
     }
   ]
 }

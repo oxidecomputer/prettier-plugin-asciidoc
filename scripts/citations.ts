@@ -44,7 +44,7 @@ export const RUBY_DIRECTORY = "vendor/asciidoctor-ruby";
 export const ORACLE_DIRECTORY = "node_modules/@asciidoctor/core";
 
 /**
- * The Ruby files a comment may cite. Exactly the six that are
+ * The Ruby files a comment may cite. Exactly the seven that are
  * vendored: a citation of any other Ruby file cannot be checked
  * offline, so the grammar does not pretend to know it.
  */
@@ -55,6 +55,7 @@ export const RUBY_FILES = [
   "reader.rb",
   "rx.rb",
   "substitutors.rb",
+  "table.rb",
 ] as const;
 
 /**

@@ -157,7 +157,7 @@ try {
   await $`cp ${tempdir}/asciidoctor-ruby/LICENSE vendor/asciidoctor-ruby/`;
   const rubyLibrary = path.join(tempdir, "asciidoctor-ruby", "lib");
   // `asciidoctor.rb` is the library's own entry file and sits one
-  // directory up from the rest; the other five are its modules.
+  // directory up from the rest; the other six are its modules.
   await $`cp ${rubyLibrary}/asciidoctor.rb vendor/asciidoctor-ruby/`;
   const rubyModules = [
     "attribute_list.rb",
@@ -165,6 +165,10 @@ try {
     "reader.rb",
     "rx.rb",
     "substitutors.rb",
+    // table.rb: vendored ahead of table modeling (issue #10) so that
+    // every `table.rb:NNN` citation that work writes is checkable
+    // offline the same way parser.rb/rx.rb citations are.
+    "table.rb",
   ];
   await Promise.all(
     rubyModules.map(
