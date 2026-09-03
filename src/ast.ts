@@ -750,7 +750,12 @@ export interface AttributeEntryNode extends Node {
   type: "attributeEntry";
   /** Clean attribute name without `!` prefix/suffix. */
   name: string;
-  /** Value text, or undefined for no-value entries like `:toc:`. */
+  /**
+   * Value text, or undefined for no-value entries like `:toc:`. A
+   * value the author CONTINUED onto the lines below carries those
+   * lines here too, separated by newlines and spelled as they were
+   * written (src/parse/lines/attribute-entry.ts).
+   */
   value: string | undefined;
   /**
    * Whether this entry UNSETS the attribute. One fact, not two
@@ -762,6 +767,20 @@ export interface AttributeEntryNode extends Node {
    */
   unset: boolean;
 }
+
+/**
+ * The three facts an attribute entry carries besides its position -
+ * ONE spelling, because three layers hold the same value and a
+ * second declaration is where they would drift: the classifier
+ * parses them out of the line (`parseAttributeEntry`,
+ * src/parse/lines/classify.ts), the entry's extent read may replace
+ * the value with the source spelling of every line it runs onto
+ * (src/parse/lines/attribute-entry.ts), and the builder takes them
+ * as they stand (`buildAttributeEntry`, src/parse/build/metadata.ts).
+ */
+export type AttributeEntryFields = Readonly<
+  Pick<AttributeEntryNode, "name" | "value" | "unset">
+>;
 
 /**
  * An unordered, ordered, or callout list.

@@ -11,6 +11,7 @@
  * These only take it apart.
  */
 import type {
+  AttributeEntryFields,
   AttributeEntryNode,
   BlockAnchorNode,
   BlockAttributeListNode,
@@ -335,16 +336,15 @@ export function buildReaderConsumedLine(
  * Builds an AttributeEntryNode from the classifier's parsed fields —
  * the value arrives trimmed and empty-narrowed; nothing is
  * re-derived.
- * @param kind - the classifier's parse of the line
- * @param kind.name - the attribute name
- * @param kind.value - the trimmed value, or undefined
- * @param kind.unset - whether the entry unsets the attribute
- * @param line - the attribute-entry line's span
+ * @param kind - the entry's fields, as the classifier parsed them or
+ *   as the entry's extent read amended them ({@link AttributeEntryFields})
+ * @param line - the entry's span, which for a continued value covers
+ *   every line it runs onto
  * @param at - The document's location index.
  * @returns the attribute entry node
  */
 export function buildAttributeEntry(
-  kind: { name: string; value: string | undefined; unset: boolean },
+  kind: AttributeEntryFields,
   line: Fragment,
   at: LocationIndex,
 ): AttributeEntryNode {

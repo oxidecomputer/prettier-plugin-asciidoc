@@ -44,6 +44,7 @@ import {
 import type { InlineToken } from "../inline/tokens.js";
 import type { ParagraphContext } from "../line-shapes.js";
 import { makeLocationIndex, type LocationIndex } from "../positions.js";
+import { readAttributeEntry } from "./attribute-entry.js";
 import {
   classifyLine,
   classifyTrace,
@@ -276,13 +277,18 @@ class BlockReader {
   }
 
   /**
-   * Push a one-line block, releasing any metadata it annotates first.
+   * Push a block that occupies WHOLE LINES, releasing any metadata it
+   * annotates first. One line unless the caller says otherwise: an
+   * attribute entry whose value is continued onto the lines below it
+   * (attribute-entry.ts) is the one leaf that reaches past its own
+   * line, and it passes the resume index its own read measured.
    * @param node - the block
+   * @param end - the read's resume index; the next line by default
    */
-  private leaf(node: BlockNode): void {
+  private leaf(node: BlockNode, end = this.index + 1): void {
     this.flushMetadata();
     this.push(node);
-    this.advance();
+    this.resume(end);
   }
 
   /**
@@ -295,10 +301,11 @@ class BlockReader {
    * pinned by tests/parser/reader-lists.test.ts's attribute-entry and
    * kept-`+` rows.
    * @param node - the block
+   * @param end - the read's resume index; the next line by default
    */
-  private transparentLeaf(node: BlockNode): void {
+  private transparentLeaf(node: BlockNode, end = this.index + 1): void {
     const { blanks } = this;
-    this.leaf(node);
+    this.leaf(node, end);
     this.blanks = blanks;
   }
 
@@ -307,9 +314,8 @@ class BlockReader {
   /**
    * Take an extent a scan just measured: move the read position past
    * it and forget the blank run before it. Every scan consumes at
-   * least its own opening line, so the blank run is always over —
-   * which is what the per-line `advance()` used to say one line at a
-   * time.
+   * least its own opening line, so the blank run is always over by
+   * the time the position moves.
    * @param end - the scan's resume index
    */
   private resume(end: number): void {
@@ -542,9 +548,14 @@ class BlockReader {
    */
   private parsedLeaf(line: SourceLine, kind: LineKind): boolean {
     if (kind.kind === "attributeEntry") {
+      // An entry reaches past its own line when its value is
+      // continued (attribute-entry.ts), so the read owns the resume
+      // index.
+      const entry = readAttributeEntry(this.scan, this.index, kind);
       // Transparent to the blank run — see transparentLeaf.
       this.transparentLeaf(
-        buildAttributeEntry(kind, fragmentOfLine(line), this.at),
+        buildAttributeEntry(entry.fields, entry.span, this.at),
+        entry.resume,
       );
       return true;
     }
@@ -650,12 +661,6 @@ class BlockReader {
       return;
     }
     this.transparentLeaf(buildRawBlockLine(fragmentOfLine(line), this.at));
-  }
-
-  /** Consume the current line and forget the blank run before it. */
-  private advance(): void {
-    this.index += 1;
-    this.blanks = 0;
   }
 
   /**

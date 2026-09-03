@@ -124,9 +124,6 @@ export const BLOCK_STRUCTURE_FAMILIES: ReadonlySet<string> = new Set([
   "gap:setext-title",
   // `1.`, `A.`, `i)`, `IV)` explicit markers (#12).
   "gap:ordered-marker",
-  // `:name: value \` line continuations become a paragraph or a
-  // literal for us (#24).
-  "gap:attribute-continuation",
   // `> quoted` blocks (#22).
   "gap:md-quote",
   // `---` / `***` Markdown thematic breaks (#23).

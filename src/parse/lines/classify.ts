@@ -24,6 +24,7 @@
  */
 import {
   ADMONITION_LABEL,
+  ATTRIBUTE_CONTINUATION,
   ATTRIBUTE_ENTRY,
   BLOCK_ANCHOR,
   BLOCK_ATTRIBUTE_LINE,
@@ -54,7 +55,7 @@ import {
   type RawForm,
   type ReaderContext,
 } from "../line-shapes.js";
-import type { ListNode } from "../../ast.js";
+import type { AttributeEntryFields, ListNode } from "../../ast.js";
 import { AUTO_CALLOUT_NUMBER, MARKER_OFFSET } from "../../constants.js";
 
 export type { DelimiterKind } from "../line-shapes.js";
@@ -180,16 +181,10 @@ export type LineKind =
       /** A block title (`.Title`). */
       readonly kind: "blockTitle";
     }
-  | {
+  | ({
       /** An attribute entry (`:name: value`). */
       readonly kind: "attributeEntry";
-      /** The attribute name (without colons or bangs). */
-      readonly name: string;
-      /** The trimmed value, or undefined for no-value and unset forms. */
-      readonly value: string | undefined;
-      /** Whether the entry unsets the attribute (either `!` spelling). */
-      readonly unset: boolean;
-    }
+    } & AttributeEntryFields)
   | {
       /** An ATX section title (`== Section`). */
       readonly kind: "sectionTitle";
@@ -380,7 +375,7 @@ function parseUnsetBang(prefix: string, suffix: string): boolean {
  */
 export function parseAttributeEntry(
   line: string,
-): { name: string; value: string | undefined; unset: boolean } | undefined {
+): AttributeEntryFields | undefined {
   const groups = ATTRIBUTE_ENTRY.exec(line)?.groups;
   if (groups === undefined) {
     return undefined;
@@ -394,6 +389,37 @@ export function parseAttributeEntry(
     value: trimmed === undefined || trimmed.length === 0 ? undefined : trimmed,
     unset: parseUnsetBang(groups.prefixBang, groups.suffixBang),
   };
+}
+
+/**
+ * Whether an attribute entry's value runs onto the line below, and
+ * with which suffix.
+ *
+ * The PAIR is the answer because both halves are needed at once: the
+ * value proves there is something to continue (an entry with no value
+ * continues nothing, and the type would otherwise let a caller ask
+ * for a continued value that does not exist), and the suffix is what
+ * every following line is measured against - `process_attribute_entry`
+ * fixes `con` from the first line and reads on only while a line ends
+ * with THAT spelling, so ` \` never chains into ` +` (parser.rb
+ * l.2107-13).
+ *
+ * The registry's own predicate, declared here because a READER is the
+ * only caller (see {@link ATTRIBUTE_CONTINUATION} for why the shape
+ * takes that route through the three-step recipe).
+ * @param value - the entry's value as the classifier parsed it, or
+ *   undefined for `:name:` and the unset forms
+ * @returns the value and the two-character suffix it ends with, or
+ *   undefined when the entry is finished on its own line
+ */
+export function attributeContinuation(
+  value: string | undefined,
+): { readonly value: string; readonly suffix: string } | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  const groups = ATTRIBUTE_CONTINUATION.exec(value)?.groups;
+  return groups === undefined ? undefined : { value, suffix: groups.suffix };
 }
 
 /**

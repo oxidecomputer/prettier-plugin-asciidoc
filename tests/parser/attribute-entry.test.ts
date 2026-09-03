@@ -11,6 +11,7 @@
  * - `:name:` — set attribute with no value (boolean/flag)
  * - `:!name:` — unset attribute (prefix form)
  * - `:name!:` — unset attribute (suffix form)
+ * - a value ending in ` \` or ` +` runs onto the line below
  */
 import { describe, test, expect } from "vitest";
 import { parse } from "../../src/parser.js";
@@ -195,5 +196,99 @@ describe("attribute entry parsing", () => {
     narrow(child0, "attributeEntry");
     expect(child0.name).toBe("key");
     expect(child0.value).toBeUndefined();
+  });
+});
+
+// The value carried onto the lines below (issue #24). Before the
+// entry reached past its own line, `:a: one \` was a one-line entry
+// and every line under it was a block of its own - the value lost
+// everything after its first piece. The node carries the SOURCE
+// spelling, newlines and all, because the split points are the
+// author's and Asciidoctor cannot see them
+// (src/parse/lines/attribute-entry.ts).
+describe("a continued attribute entry", () => {
+  test.each([
+    ["the backslash marker", ":a: one \\\ntwo\n", "one \\\ntwo"],
+    ["the legacy plus marker", ":a: one +\ntwo\n", "one +\ntwo"],
+    [
+      "every line that repeats the suffix",
+      ":a: one \\\ntwo \\\nthree\n",
+      "one \\\ntwo \\\nthree",
+    ],
+    [
+      "the indentation the author aligned with",
+      ":a: one \\\n    two\n",
+      "one \\\n    two",
+    ],
+    [
+      "a run that stops at a line without the suffix",
+      ":a: one \\\ntwo\nthree\n",
+      "one \\\ntwo",
+    ],
+    [
+      "a backslash run that does not chain into a plus line",
+      ":a: one \\\ntwo +\nthree\n",
+      "one \\\ntwo +",
+    ],
+  ])("%s", (_name, input, value) => {
+    const { children } = parse(input);
+    const [child0] = children;
+    narrow(child0, "attributeEntry");
+    expect(child0.name).toBe("a");
+    expect(child0.value).toBe(value);
+  });
+
+  // The entry's span reaches to the end of its last line, so the
+  // block after it starts where the source says it does.
+  test("the entry's position covers every line it read", () => {
+    const document = parse(":a: one \\\ntwo\n\npara\n");
+    const [child0, child1] = document.children;
+    narrow(child0, "attributeEntry");
+    expect(child0.position.start.line).toBe(1);
+    expect(child0.position.end.line).toBe(2);
+    narrow(child1, "paragraph");
+    expect(child1.position.start.line).toBe(4);
+  });
+
+  // ADVERSARIAL NEIGHBOURS: a trailing backslash with no space before
+  // it is not the ` \` suffix `process_attribute_entry` tests, and
+  // `:a: \` has the single character `\` for a value because
+  // AttributeEntryRx eats the blanks after the colon. Neither
+  // continues, so the line below stays a block of its own.
+  test.each([
+    ["a backslash with no space before it", ":a: one\\\ntwo\n", "one\\"],
+    ["a value that is only the marker character", ":a: \\\ntwo\n", "\\"],
+    ["a marker with a blank line under it", ":a: one \\\n\ntwo\n", "one \\"],
+  ])("%s leaves the next line its own block", (_name, input, value) => {
+    const { children } = parse(input);
+    const [child0, child1] = children;
+    narrow(child0, "attributeEntry");
+    expect(child0.value).toBe(value);
+    narrow(child1, "paragraph");
+  });
+
+  // End of input is the loop's other exit: there is no line to
+  // continue onto, so the entry is the ordinary one-line case.
+  test("a marker at the end of input continues nothing", () => {
+    const { children } = parse(":a: one \\\n");
+    expect(children).toHaveLength(1);
+    const [child0] = children;
+    narrow(child0, "attributeEntry");
+    expect(child0.value).toBe("one \\");
+  });
+
+  // A header entry is read by the header scan, not the block reader,
+  // and it has its own reason to get this right: reading the
+  // continuation as a line of its own used to spend the author slot
+  // on it and demote the real author line to the revision.
+  test("a continued entry inside a document header keeps the slots", () => {
+    const document = parse("= T\n:a: one \\\n  two\nDoc Writer\n");
+    const [header] = document.children;
+    narrow(header, "documentHeader");
+    const [entry, author] = header.lines;
+    narrow(entry, "attributeEntry");
+    expect(entry.value).toBe("one \\\n  two");
+    narrow(author, "authorLine");
+    expect(author.value).toBe("Doc Writer");
   });
 });

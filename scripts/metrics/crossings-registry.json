@@ -463,6 +463,13 @@
   },
   {
     "file": "src/parse/line-shapes.ts",
+    "symbol": "ATTRIBUTE_CONTINUATION",
+    "importer": "src/parse/lines/classify.ts",
+    "kind": "vocabulary",
+    "reason": "registry pattern: the suffix that carries an attribute entry's value onto the line below"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
     "symbol": "ATTRIBUTE_ENTRY",
     "importer": "src/parse/lines/classify.ts",
     "kind": "vocabulary",
@@ -934,6 +941,13 @@
     "file": "src/parse/positions.ts",
     "symbol": "Fragment",
     "importer": "src/parse/inline/inline-node-builder.ts",
+    "kind": "vocabulary",
+    "reason": "the position vocabulary every builder takes: an image and the offset it was written at"
+  },
+  {
+    "file": "src/parse/positions.ts",
+    "symbol": "Fragment",
+    "importer": "src/parse/lines/attribute-entry.ts",
     "kind": "vocabulary",
     "reason": "the position vocabulary every builder takes: an image and the offset it was written at"
   },

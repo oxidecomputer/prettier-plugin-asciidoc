@@ -83,6 +83,10 @@ const EXEMPT = new Map<string, string>([
     "the reader-state value every line rule is asked against at a block start, not a line shape",
   ],
   [
+    "ATTRIBUTE_CONTINUATION",
+    "matches the two-character suffix of an attribute entry's VALUE, not a line: it is the one export here that is not a whole-line rule, and the line it belongs to is covered by the attribute-entry dimension",
+  ],
+  [
     "optionalGroup",
     "named-group reading helper shared by the parse functions, not a line shape",
   ],

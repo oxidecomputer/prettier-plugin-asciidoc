@@ -524,6 +524,13 @@ export function printAdmonition(
  * reference to it. The character-stripping half of that sanitize is
  * NOT copied — `:Foo Bar:` prints `:foo bar:`, which Asciidoctor
  * sanitizes to the same `foobar` the original did.
+ *
+ * A value the author CONTINUED onto the lines below carries those
+ * lines in its own text, separated by newlines, and they are written
+ * back where they stood (see src/parse/lines/attribute-entry.ts for
+ * why the split points are the author's to keep). Splitting on the
+ * newline is what a block comment's body already does two functions
+ * up: a Doc string may hold no line break of its own.
  * @param node - The attribute entry node.
  * @param node.name - The attribute name (without
  *   surrounding colons), as the author spelled it.
@@ -540,7 +547,7 @@ export function printAttributeEntry(node: {
   const bang = node.unset ? "!" : "";
   const name = node.name.toLowerCase();
   if (node.value !== undefined) {
-    return [":", bang, name, ": ", node.value];
+    return [":", bang, name, ": ", join(hardline, node.value.split("\n"))];
   }
   return [":", bang, name, ":"];
 }

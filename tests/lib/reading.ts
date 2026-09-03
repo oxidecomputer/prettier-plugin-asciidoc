@@ -37,6 +37,7 @@
 import { formatAdoc } from "../helpers.js";
 import { rstrip } from "../../src/parse/line-shapes.js";
 import {
+  attributeContinuation,
   isContinuationLine,
   parseListMarker,
   setClassifyObserver,
@@ -175,9 +176,10 @@ type LineContribution =
   | {
       /**
        * A line the reader consumed without classifying and without a
-       * marker shape - a delimited-block interior or a
-       * literal-paragraph body line. Invisible to the reading, and it
-       * ends no fold, because the reader never read it as structure.
+       * marker shape - a delimited-block interior, a
+       * literal-paragraph body line, or a line an attribute entry's
+       * value ran onto. Invisible to the reading, and it ends no
+       * fold, because the reader never read it as structure.
        */
       readonly kind: "opaque";
     };
@@ -424,6 +426,31 @@ export function readingOf(document: string): string[] {
 }
 
 /**
+ * The suffix an attribute entry at this offset leaves open, when it
+ * has one.
+ *
+ * An entry whose value ends in ` \` (or the legacy ` +`) reaches past
+ * its own line, and the lines it reaches over are consumed by the
+ * entry's extent (src/parse/lines/attribute-entry.ts) rather than
+ * classified - the same way a delimited block's interior is. They are
+ * therefore opaque with a REASON, and this is what {@link
+ * untracedLines} reads to tell them from a line nothing accounted
+ * for.
+ * @param events - the trace, keyed by offset
+ * @param offset - the line's offset
+ * @returns the suffix the entry's value ends with, or undefined
+ */
+function continuationSuffixAt(
+  events: ReadonlyMap<number, LineKind>,
+  offset: number,
+): string | undefined {
+  const kind = events.get(offset);
+  return kind?.kind === "attributeEntry"
+    ? attributeContinuation(kind.value)?.suffix
+    : undefined;
+}
+
+/**
  * The TRACE-FIDELITY self-check: lines the reader consumed without
  * leaving a verdict, in a document where every line should have one.
  *
@@ -453,8 +480,11 @@ export function readingOf(document: string): string[] {
  * still not reported here, one step earlier. What the token buys is
  * paid out in the PROJECTION, where a dropped `+` now moves the
  * sequence. Measured across the corpus and both sweep products, a
- * continuation and a marker are the ONLY lines the reader consumes
- * without a verdict outside a delimited extent or a literal body.
+ * continuation and a marker are the only lines the reader consumes
+ * without a verdict outside a delimited extent, a literal body and
+ * the lines an attribute entry's value runs onto - and those last
+ * ones are excused by their entry rather than by the document, so a
+ * line past the extent is still reported.
  *
  * That measurement is a GATE at all three scales - the generator
  * sweeps both products, tests/format/reading-invariant.test.ts runs
@@ -479,11 +509,25 @@ export function untracedLines(document: string): string[] {
   // Past the byte-order mark, for {@link projectionOf}'s reason.
   const bom = documentBom(document);
   let offset = bom.length;
+  // The suffix an attribute entry left open over THIS line, if any -
+  // carried forward exactly as far as the entry's own extent reaches,
+  // so the lines its value runs onto are excused and the first line
+  // past them is not.
+  let openSuffix: string | undefined = undefined;
   for (const rawLine of document.slice(bom.length).split("\n")) {
     const line = rstrip(rawLine);
     const contribution = contributionOf(events, offset, line);
+    // Annotated, not inferred: the assignment below reads this
+    // binding, so leaving it to inference asks the checker to type an
+    // expression in terms of itself.
+    const continued: string | undefined = openSuffix;
+    openSuffix =
+      continuationSuffixAt(events, offset) ??
+      (continued !== undefined && line !== "" && line.endsWith(continued)
+        ? continued
+        : undefined);
     offset += rawLine.length + 1;
-    if (contribution.kind === "opaque") {
+    if (contribution.kind === "opaque" && continued === undefined) {
       missed.push(line);
     }
   }

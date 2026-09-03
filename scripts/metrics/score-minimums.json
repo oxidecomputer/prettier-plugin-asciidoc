@@ -109,6 +109,10 @@
       "coverage": 100.0,
       "mutation": 87.2
     },
+    "src/parse/lines/attribute-entry.ts": {
+      "coverage": 100.0,
+      "mutation": 0.0
+    },
     "src/parse/lines/classify.ts": {
       "coverage": 100.0,
       "mutation": 98.9
@@ -265,11 +269,11 @@
       "file": "src/parse/inline/span-pairing.ts",
       "what": "mutation minimum 0 - a PLACEHOLDER, not a file with nothing to measure",
       "class": "when",
-      "reason": "TRIGGER: the next batched mutation run. This file has plenty to mutate - the resolution table, the close search, the empty-span retry and the crossing test - and none of it has been measured, because mutation runs at batched integration points and this file (issue #66) landed between two of them. Its coverage row is measured (100.00 lines, `bun run coverage`) and its behaviour is pinned by 50 rows in tests/parser/inline-resolution-order.test.ts, every one against `@asciidoctor/core`'s own HTML; what the zero costs is the RATCHET, which stays disengaged for this file alone until the run that reseeds it. This is the only zero in the file that is a debt rather than a fact - the other three (src/ast.ts, src/constants.ts, src/parse/inline/tokens.ts) are declaration-only files Stryker writes no row for. See docs/harnesses.md, the two reasons a zero is allowed"
+      "reason": "TRIGGER: the next batched mutation run. This file has plenty to mutate - the resolution table, the close search, the empty-span retry and the crossing test - and none of it has been measured, because mutation runs at batched integration points and this file (issue #66) landed between two of them. Its coverage row is measured (100.00 lines, `bun run coverage`) and its behaviour is pinned by 50 rows in tests/parser/inline-resolution-order.test.ts, every one against `@asciidoctor/core`'s own HTML; what the zero costs is the RATCHET, which stays disengaged for this file alone until the run that reseeds it. It is one of two zeros in this file that are a debt rather than a fact (the other is src/parse/lines/attribute-entry.ts, below); the remaining three (src/ast.ts, src/constants.ts, src/parse/inline/tokens.ts) are declaration-only files Stryker writes no row for. See docs/harnesses.md, the two reasons a zero is allowed"
     },
     {
       "file": "src/parse/lines/classify.ts",
-      "what": "classify.ts:721 the `classifyTrace` object literal -> `{}`",
+      "what": "classify.ts:747 the `classifyTrace` object literal -> `{}`",
       "class": "never",
       "reason": "EQUIVALENT: the slot's only read anywhere is `classifyTrace.observer`, which is `undefined` whether the property is declared with an `undefined` value or absent altogether. The property is spelled out because the lint rules want every binding initialized on declaration and refuse an `= undefined` initializer at module scope - not because any reader can tell the two apart"
     },
@@ -319,13 +323,13 @@
     },
     {
       "file": "src/parse/lines/reader.ts",
-      "what": "the LEFT disjunct of the child reader's tailSafe (reader.ts:819 `tailSafe: extent.close !== undefined || tailSafeIn(this.confinement)`) - 3 mutants: -> `true`, -> `false`, and `!==` -> `===`",
+      "what": "the LEFT disjunct of the child reader's tailSafe (reader.ts:824 `tailSafe: extent.close !== undefined || tailSafeIn(this.confinement)`) - 3 mutants: -> `true`, -> `false`, and `!==` -> `===`",
       "class": "never",
       "reason": "EQUIVALENT, measured rather than assumed: all three produce byte-identical output over 66,429 documents (a depth-5 product over `----`, `====`, `--`, `****`, `* a`, `** b`, `+`, blank and `para`) and over all 111,121 list-shape sweep documents. Whenever a block CLOSED, the reader's own `tailSafe` is already true, so the left disjunct never decides. The RIGHT disjunct is live and pinned in tests/format/trailing-continuation.test.ts (a trailing `+` at the end of an unclosed `====` or `--` block comes back), which is what took this file from 93.6 to 94.2"
     },
     {
       "file": "src/parse/lines/reader.ts",
-      "what": "reader.ts:645 `line.continuationTag === \"marker\"` -> `true` in continuationLine's fold arm (#56's new code)",
+      "what": "reader.ts:656 `line.continuationTag === \"marker\"` -> `true` in continuationLine's fold arm (#56's new code)",
       "class": "never",
       "reason": "EQUIVALENT, and worth writing down because the guard IS reached with an untagged `+`. Every `+` that enters an item buffer goes through `pushMarker` and carries the tag, with ONE exception: the `+` that `activeContent` buffers as the attached block's own first line when it stands one blank under an active continuation (`* a` / `+` / blank / `+` is the smallest such document). That untagged cell is only ever the buffer's LAST line, because any line after it takes the `+` arm that blanks it, so the fold the mutant opens there reads exactly the one raw line the leaf arm builds and stops on the same index. Measured: byte-identical output AND byte-identical ASTs over all 111,110 depth-5 sweep documents, byte-identical output over 66,429 delimiter-bearing documents, and an instrumented build reaches the untagged case MID-buffer zero times in either product"
     },
@@ -460,6 +464,12 @@
       "what": "mutation minimum 0 - a PLACEHOLDER, not a file with nothing to measure",
       "class": "when",
       "reason": "TRIGGER: the next batched mutation run. This file is new (issue #10, table modeling) and assembles a TableNode from the table SCAN's own output (cellEnd, buildCell, buildRow, closeOf, buildTable), none of which has been measured, because mutation runs at batched integration points and this file landed between two of them. Its coverage row is measured (93.33 lines, 14 of 15, from a `bunx vitest run --coverage --exclude \"**/parity-trailers.test.ts\"` run of this tree, the same workaround prior placeholder rows used); three branches are uncovered. Two are structurally out of the corpus's reach: buildRow's can't-happen guard (thrown only if groupRows produced a row with no cells, which it never does) and closeOf's endOfStream arm (no corpus table case is left unterminated, since an unterminated table is also one the oracle logs a warning for, which excludes the case from tests/parser/table-structure.test.ts outright). The third is a genuine gap rather than an impossibility: cellEnd's `lineStart`/`recovered` opening with zero runs (a wholly empty final cell with no separator hint), which the corpus happens not to contain. What this file's own arithmetic gets checked by is tests/parser/table-structure.test.ts's `replays its own bytes` rows (158/158): open, every leading run, each cell's opening (spec and separator) and runs, and close.image concatenate back to the passthrough's own source bytes exactly, which is what open/leadingRuns/openingImage/close.image assembly in buildTable has to get right, and what cutCells/groupRows's own cut (src/parse/lines/table-reader.ts) has to have partitioned correctly for buildTable to carry through unchanged - NOT a check on cellEnd/TableRowNode.position, which is a Location no assertion here reads. The oracle-comparison rows (144 tables) pin the rest: row grouping, header/footer verdict, colcount and per-cell text/colspan/rowspan/alignment/style against @asciidoctor/core's own parsed model. See docs/harnesses.md, the two reasons a zero is allowed"
+    },
+    {
+      "file": "src/parse/lines/attribute-entry.ts",
+      "what": "mutation minimum 0 - a PLACEHOLDER, not a file with nothing to measure",
+      "class": "when",
+      "reason": "TRIGGER: the next batched mutation run. The file decides an extent - which lines an attribute entry's continued value reaches over - and every one of its branches is worth mutating; none has been measured, because mutation runs at batched integration points and this file (issue #24) landed between two of them. Its coverage row is measured (100.00 lines, `bun run coverage`) and its behaviour is pinned by the continued-value rows in tests/parser/attribute-entry.test.ts and tests/format/attribute-entry.test.ts, the latter against `@asciidoctor/core`'s own HTML, plus the six corpus cases whose quarantine entries this commit deletes. What the zero costs is the RATCHET, which stays disengaged for this file alone until the run that reseeds it."
     }
   ]
 }

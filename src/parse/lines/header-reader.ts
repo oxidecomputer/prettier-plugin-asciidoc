@@ -30,18 +30,16 @@
  *   the first line past a filled revision slot. Nothing else closes
  *   it.
  *
- * KNOWN GAP, inherited rather than introduced: an attribute entry
- * whose value CONTINUES onto the next line (`:x: a \` then `  b`) is
- * one entry to the oracle and two lines to us (#24, the
- * `gap:attribute-continuation` family, 6 corpus documents). Inside a
- * header that costs an attribution slot - we read `  b` as the author
- * and the real author line as the revision - and the slot invariant
- * reads as satisfied while both slots hold the wrong lines. Every
- * shape probed is byte-preserving and render-equal, because the lines
- * are replayed where they were written; it is the MODEL that is
- * wrong, and it stops being wrong when #24 does.
+ * An attribute entry whose value CONTINUES onto the line below
+ * (`:x: a \` then `  b`) is ONE entry here as it is to the oracle:
+ * the extent comes from attribute-entry.ts and the scan resumes past
+ * every line the value ran onto. A continuation line read as a line
+ * of its own would take an attribution slot - the author's - and the
+ * slot invariant would still read as satisfied with both slots
+ * holding the wrong lines.
  */
 import { buildBlockComment } from "../build/delimited.js";
+import { readAttributeEntry } from "./attribute-entry.js";
 import {
   buildAuthorLine,
   buildDocumentHeader,
@@ -251,9 +249,13 @@ function headerMetadata(
   const { source, lines, at } = scan;
   const line = lines[index];
   if (kind.kind === "attributeEntry") {
+    // A header entry is continued the same way a body one is
+    // (attribute-entry.ts), and the lines its value runs onto are
+    // part of the header rather than the lines under it.
+    const entry = readAttributeEntry(scan, index, kind);
     return {
-      node: buildAttributeEntry(kind, fragmentOfLine(line), at),
-      resume: index + 1,
+      node: buildAttributeEntry(entry.fields, entry.span, at),
+      resume: entry.resume,
     };
   }
   if (kind.kind === "delimiterOpen" && kind.block === "commentBlock") {

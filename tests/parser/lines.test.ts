@@ -6,6 +6,7 @@ import {
   type ReaderContext,
 } from "../../src/parse/line-shapes.js";
 import {
+  attributeContinuation,
   classifyLine,
   delimiterKind,
   isContinuationLine,
@@ -498,4 +499,32 @@ describe("isContinuationLine", () => {
   test.each(["++", " +", "+x", ""])("%j is not", (line) => {
     expect(isContinuationLine(line)).toBe(false);
   });
+});
+
+describe("attributeContinuation", () => {
+  // Every value here ends in the character a raw template cannot end
+  // in, so these rows carry the escape instead.
+  /* eslint-disable unicorn/prefer-string-raw -- see above */
+  // The suffix is the two characters `process_attribute_entry` tests
+  // (` \` and the legacy ` +`), and it is answered over the entry's
+  // VALUE: `:a: \` has the value `\` alone, so a caller asking about
+  // the line instead would continue where Asciidoctor does not.
+  test.each([
+    ["one \\", " \\"],
+    ["one +", " +"],
+    ["one \\ \\", " \\"],
+  ])("%j continues with %j", (value, suffix) => {
+    expect(attributeContinuation(value)).toEqual({ value, suffix });
+  });
+
+  // The last row is the entry with no value at all (`:toc:`,
+  // `:!toc:`), which is what makes the function total over everything
+  // the classifier can hand it.
+  test.each(["one\\", "one+", "\\", "+", "one \\x", "", " \\ ", undefined])(
+    "%j continues nothing",
+    (value) => {
+      expect(attributeContinuation(value)).toBeUndefined();
+    },
+  );
+  /* eslint-enable unicorn/prefer-string-raw */
 });

@@ -167,3 +167,79 @@ describe("the unset spelling is one", () => {
     expect(await formatAdoc(out)).toBe(out);
   });
 });
+
+// A value the author carried onto the lines below with ` \` (or the
+// legacy ` +`). Before the entry reached past its own line, the
+// printer wrote a blank line under the first one and the rest of the
+// value became body text - a literal paragraph, in the aligned
+// spelling below - so the attribute lost everything after its first
+// piece. Each row proves three things at once: the bytes come back,
+// Asciidoctor renders the output the way it renders the input, and
+// the output is a fixed point.
+describe("a continued value keeps the author's split points", () => {
+  test.each([
+    [
+      "the backslash marker",
+      ":description: This is the first \\\n              Ruby implementation of \\\n              AsciiDoc.\n\n{description}\n",
+      ":description: This is the first \\\n              Ruby implementation of \\\n              AsciiDoc.\n\n{description}\n",
+    ],
+    [
+      "the legacy plus marker",
+      ":description: This is the first +\n              Ruby implementation of +\n              AsciiDoc.\n\n{description}\n",
+      ":description: This is the first +\n              Ruby implementation of +\n              AsciiDoc.\n\n{description}\n",
+    ],
+    [
+      "a hard line break inside a continued value",
+      ":description: first line + \\\nsecond line\n\n{description}\n",
+      ":description: first line + \\\nsecond line\n\n{description}\n",
+    ],
+    // The run ends ON the line that does not repeat the suffix -
+    // that line belongs to the value - and the block under it is a
+    // block of its own, which is why the two rows below take the
+    // ordinary blank-line separator between an entry and a paragraph.
+    [
+      "a run that stops at the first line without the marker",
+      ":a: one \\\ntwo \\\nthree\nfour\n\n{a}\n",
+      ":a: one \\\ntwo \\\nthree\n\nfour\n\n{a}\n",
+    ],
+    [
+      "a backslash run does not chain into a plus line",
+      ":a: one \\\ntwo +\nthree\n\n{a}\n",
+      ":a: one \\\ntwo +\n\nthree\n\n{a}\n",
+    ],
+    [
+      "the entry sits in a document header",
+      "= T\n:description: one \\\n  two\nDoc Writer\n\n{description}\n",
+      "= T\n:description: one \\\n  two\nDoc Writer\n\n{description}\n",
+    ],
+    [
+      "an unset spelling is still respelled around it",
+      ":a!: one \\\ntwo\n\n{a}\n",
+      ":!a: one \\\ntwo\n\n{a}\n",
+    ],
+  ])("%s", async (_name, input, expected) => {
+    const out = await formatAdoc(input);
+    expect(out).toBe(expected);
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+
+  // ADVERSARIAL NEIGHBOURS: lines that look like the new syntax and
+  // are not. `:a: one\` ends in a backslash with no space before it,
+  // which `process_attribute_entry` does not accept (it tests the
+  // two-character suffix ` \`), and `:a: \` has a value of `\` alone
+  // because AttributeEntryRx eats the blanks after the colon. Both
+  // leave the next line a block of its own, and the formatter must
+  // not swallow it into the entry.
+  test.each([
+    ["a backslash with no space before it", ":a: one\\\ntwo\n\n{a}\n"],
+    ["a value that is only the marker character", ":a: \\\ntwo\n\n{a}\n"],
+    ["a marker with a blank line under it", ":a: one \\\n\ntwo\n\n{a}\n"],
+    ["a marker at the end of input", ":a: one \\\n"],
+    ["a plus that is a hard line break in prose", "one +\ntwo\n"],
+  ])("%s", async (_name, input) => {
+    const out = await formatAdoc(input);
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+});

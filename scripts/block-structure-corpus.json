@@ -38,25 +38,9 @@
       "family": "gap:styled-block-remodel",
       "signature": "paragraph=>admonition"
     },
-    "attributes_test.rb#assigns multi-line attribute to empty string if substitution fails to resolve attribute#0": {
-      "family": "gap:attribute-continuation",
-      "signature": "-literal"
-    },
     "attributes_test.rb#collapses spaces in attribute names#0": {
       "family": "gap:setext-title",
       "signature": "+heading; -example"
-    },
-    "attributes_test.rb#creates an attribute by fusing a legacy multi-line value#0": {
-      "family": "gap:attribute-continuation",
-      "signature": "-literal"
-    },
-    "attributes_test.rb#creates an attribute by fusing a multi-line value#0": {
-      "family": "gap:attribute-continuation",
-      "signature": "-literal"
-    },
-    "attributes_test.rb#honors line break characters in multi-line values#0": {
-      "family": "gap:attribute-continuation",
-      "signature": "-paragraph"
     },
     "attributes_test.rb#id, role and options attributes can be specified on block style using shorthand syntax#0": {
       "family": "gap:styled-block-remodel",
@@ -65,10 +49,6 @@
     "attributes_test.rb#id, role and options attributes can be specified using shorthand syntax on block style using multiple block attribute lines#0": {
       "family": "gap:styled-block-remodel",
       "signature": "paragraph=>literal"
-    },
-    "attributes_test.rb#should allow pass macro to surround a multi-line value that contains line breaks#0": {
-      "family": "gap:attribute-continuation",
-      "signature": "-paragraph"
     },
     "blocks_test.rb#can resolve icon relative to custom iconsdir#0": {
       "family": "gap:styled-block-remodel",
@@ -1280,10 +1260,6 @@
     },
     "reader_test.rb#ifeval running unsupported operation on missing attribute drops content#0": {
       "family": "oracle:conditional",
-      "signature": "-paragraph"
-    },
-    "reader_test.rb#include directive should not attempt to resolve target as remote if allow-uri-read is set and URL is not on first line#0": {
-      "family": "gap:attribute-continuation",
       "signature": "-paragraph"
     },
     "reader_test.rb#include with nested exclude of inverted condition#0": {

@@ -422,6 +422,28 @@ export const BLOCK_TITLE = /^\.\.?[^ \t.][^\n]*$/v;
 export const ATTRIBUTE_ENTRY =
   /^:(?<prefixBang>!?)(?<name>\w[^:]*?)(?<suffixBang>!?):(?:[ \t]+(?<value>[^\n]*))?$/v;
 
+// The suffix that carries an attribute entry's VALUE onto the line
+// below: `LINE_CONTINUATION` (` \`) or the legacy spelling ` +` it
+// shares with a hard line break (asciidoctor.rb l.335-339), tested by
+// `process_attribute_entry` with `value.end_with?` (parser.rb l.2107).
+// A SPACE before the mark, never a tab, and the two characters are
+// one unit: `end_with?` decides the whole suffix, and the same suffix
+// then has to match on every line the value runs onto (l.2111), which
+// is why the group is the PAIR rather than the mark alone.
+//
+// Matched against the entry's value, not against the line: `:a: \`
+// ends in ` \` as a LINE while its value is the single character `\`
+// (`AttributeEntryRx` above eats the run of blanks after the colon),
+// and Asciidoctor continues nothing there.
+//
+// A registry row with a named predicate and no `LineKind` arm (see
+// "Line-Shaped Constructs" in docs/coding-standards.md): the shape
+// neither opens nor ends a block, and the only caller is a reader
+// asking about a line it has already read as an attribute entry, so
+// the classifier's verdict does not change and an interruption row
+// would pin a column of identical answers.
+export const ATTRIBUTE_CONTINUATION = /(?<suffix> [\\+])$/v;
+
 /**
  * Delimiter lines keyed by kind, one per {@link DELIMITER_SOURCES}
  * entry (and so per `DELIMITED_BLOCKS` key), anchored to a whole

@@ -11,33 +11,13 @@
     "fails": ["fidelity"],
     "issue": "#16"
   },
-  "attributes_test.rb#assigns multi-line attribute to empty string if substitution fails to resolve attribute#0": {
-    "fails": ["fidelity"],
-    "issue": "#24"
-  },
   "attributes_test.rb#collapses spaces in attribute names#0": {
     "fails": ["fidelity"],
     "issue": "#16"
   },
-  "attributes_test.rb#creates an attribute by fusing a legacy multi-line value#0": {
-    "fails": ["fidelity"],
-    "issue": "#24"
-  },
-  "attributes_test.rb#creates an attribute by fusing a multi-line value#0": {
-    "fails": ["fidelity"],
-    "issue": "#24"
-  },
-  "attributes_test.rb#honors line break characters in multi-line values#0": {
-    "fails": ["fidelity"],
-    "issue": "#24"
-  },
   "attributes_test.rb#ignores lines with bad attributes if attribute-missing is drop-line#0": {
     "fails": ["fidelity"],
     "issue": "UNTRIAGED"
-  },
-  "attributes_test.rb#should allow pass macro to surround a multi-line value that contains line breaks#0": {
-    "fails": ["fidelity"],
-    "issue": "#24"
   },
   "attributes_test.rb#should drop line with attribute unassignment by default#0": {
     "fails": ["fidelity"],
@@ -343,10 +323,6 @@
   "reader_test.rb#escaped include directive is left unprocessed#0": {
     "fails": ["fidelity"],
     "issue": "UNTRIAGED"
-  },
-  "reader_test.rb#include directive should not attempt to resolve target as remote if allow-uri-read is set and URL is not on first line#0": {
-    "fails": ["fidelity"],
-    "issue": "#24"
   },
   "reader_test.rb#should not skip front matter by default#0": {
     "fails": ["fidelity"],
