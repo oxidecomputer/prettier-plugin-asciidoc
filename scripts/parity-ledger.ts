@@ -368,6 +368,21 @@ const CURVED_QUOTE_NODE_FAMILY = "curved-quote-node";
 const BLOCK_START_LINE_FACT_FAMILY = "block-start-line-fact";
 
 /**
+ * A `[role]` in front of any mark span is the span's own attrlist
+ * rather than a text node beside it (issue #108). Every declared
+ * case therefore loses a text node, moves the span's
+ * `position.start` onto the bracket, and gains a `role`; thirteen of
+ * them also pack `[.path]_file_` as the one word it now is, so the
+ * family is NOT formatted-only. Not a blanket family either: the
+ * base tree also holds the extra text node and different span
+ * positions, so no single-key strip could make the two dumps
+ * deep-equal, and the per-id trailers carry the declaration.
+ *
+ * Not exported: no grid row cites it.
+ */
+const SPAN_ROLE_NODE_FAMILY = "span-role-node";
+
+/**
  * The closed family enum. SURFACE HONESTY, not an armed
  * gate: a family id can only legally be a corpus id or an
  * identity-fixture id. The formatted-only subset is exactly
@@ -416,6 +431,7 @@ export const LEDGER_FAMILIES: FamilySets = {
     EMAIL_AUTOLINK_FAMILY,
     DOCUMENT_HEADER_FAMILY,
     BLOCK_START_LINE_FACT_FAMILY,
+    SPAN_ROLE_NODE_FAMILY,
   ]),
   formattedOnly: new Set([
     AUTHOR_PLUS_FAMILY,
