@@ -146,4 +146,25 @@ describe("oracleHtml", () => {
   test("normalizes no whitespace at all", async () => {
     expect(await oracleHtml("a\nb\n")).toContain("<p>a\nb</p>");
   });
+
+  // The oracle's warnings for some documents reach the global console
+  // rather than either installed logger, so oracleHtml mutes the
+  // console for the length of the conversion. OVERLAPPING calls are
+  // the hazard that muting creates: the suite runs oracle calls
+  // through `Promise.all` (tests/conformance/interruption.test.ts), so
+  // a second call can begin while the first still has the console
+  // muted, and an implementation that saved the console per call would
+  // capture the first call's no-op as "the original" and put THAT back
+  // when it finished, muting the worker for every test after it. Both
+  // documents warn, so both calls take the muting path.
+  test("overlapping calls leave the console as they found it", async () => {
+    /* eslint-disable no-console -- the console IS what this row asserts about */
+    const before = console.warn;
+    await Promise.all([
+      oracleHtml("* item\n+\n----\ncontent\n"),
+      oracleHtml("* item\n+\n----\nmore content\n"),
+    ]);
+    expect(console.warn).toBe(before);
+    /* eslint-enable no-console */
+  });
 });

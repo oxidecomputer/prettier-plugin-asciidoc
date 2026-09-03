@@ -247,11 +247,15 @@ corpus instances).
 Proves: where output moved, the new output still means what the input meant —
 the only harness that proves fidelity per difference.
 
-### `bun run test:deeply-nested-lists` — the exhaustive list-shape product
+### `bun run test:deeply-nested-lists` - the deep sweeps
 
-Runs `tests/format/list-shape-sweep.deep.test.ts` under its own vitest config:
-every nested-list shape to depth 5 — 111,121 documents, each formatted twice and
-rendered on both sides — against the allowlist of known-failing shapes in
+Runs every `*.deep.test.ts` under its own vitest config. Three tests today, and
+the runner's floor is exactly three, so one being renamed out of the glob or
+skipped is exit 2 rather than a green tick.
+
+`tests/format/list-shape-sweep.deep.test.ts`: every nested-list shape to depth
+5, which is 111,121 documents, each formatted twice and rendered on both sides,
+against the allowlist of known-failing shapes in
 `tests/format/list-shape-allowlist.ts`, each entry tagged with its tracker
 issue. That allowlist is EMPTY today, so the gate asserts the whole product is
 clean. Exit 1 when the failing set does not match the allowlist in either
@@ -265,8 +269,16 @@ Both entries carry a SECOND, parallel gate over the same product: the reflow
 re-classification invariant, against `tests/format/reading-ledger.json`. See
 [the reflow re-classification invariant](#the-reflow-re-classification-invariant).
 
-Proves: no list shape regressed, and no known-broken shape got quietly fixed
-without its allowlist entry (and issue) being retired.
+`tests/conformance/registry-sweep.deep.test.ts` is the third: the registry
+sweep's deep tier. See
+[the registry sweep](#bun-run-registry-sweep-triage---the-generated-conformance-sweep)
+for what it sweeps and why its manifest is written as clusters. It is the most
+expensive of the three, which is the reason it is here and not in
+`bun run test`.
+
+Proves: no list shape regressed, no known-broken shape got quietly fixed without
+its allowlist entry (and issue) being retired, and no generated coordinate
+outside the default tier changed its verdict.
 
 ### `bun run reading-ledger` - the reading-violation inventory
 
@@ -436,6 +448,49 @@ suite fails if a quarantined case starts passing.
 
 Proves nothing by itself; it writes the report the quarantine manifest is
 generated from, and the manifest is what the suite gates on.
+
+### `bun run registry-sweep-triage` - the generated conformance sweep
+
+The same three differential properties (crash, idempotency, fidelity) run over
+the documents `scripts/shape-registry.ts` GENERATES rather than over the
+vendored corpus. The corpus says how the formatter behaves on prose people
+wrote; the grids reach coordinates no corpus contains, and shape-diff already
+runs those coordinates but only for base-against-head byte equality, so it can
+hold a whole grid stable while every row of it crashes. This is the missing
+verdict. `tests/conformance/registry-sweep.ts` is the sweep itself; the two
+gates over it are tiered by wall time:
+
+- DEFAULT tier, in `bun run test` (`tests/conformance/registry-sweep.test.ts`):
+  the standing grid crossed with every byte operator, 29,229 rows in about 8 s,
+  which is roughly 2.5 s of added suite wall time because vitest runs it beside
+  everything else. Pinned to `tests/conformance/registry-sweep-quarantine.json`
+  one entry per failing row, 281 of them today.
+- DEEP tier, in `bun run test:deeply-nested-lists`
+  (`tests/conformance/registry-sweep.deep.test.ts`): both grids under every byte
+  operator, 613,293 rows in two minutes on its own and a little over three
+  sharing the runner. Pinned to
+  `tests/conformance/registry-sweep-deep-manifest.json`, 22,248 failing rows in
+  49 clusters today.
+
+Both pins are exact in both directions, so a coordinate that starts failing
+fails the gate AND a pinned coordinate that gets fixed fails it too, until its
+entry goes. The deep manifest is written as CLUSTERS only because a five-figure
+row list is a file nobody reviews: a cluster is keyed by grid, byte operator and
+failed properties, and records the row count, five example ids and the sha256 of
+its full sorted id list, all three of which the gate recomputes. A row that
+appears, vanishes or migrates between clusters therefore changes a hash. When
+the deep gate disagrees it writes the whole failing list to
+`reports/registry-sweep-deep-failures.json` (gitignored) and prints the path,
+because the manifest names only five ids per cluster and triage needs the rest.
+
+`--write` regenerates both manifests from one sweep, on the terms
+`bun run triage` uses: still-failing entries keep their issue tag, new ones are
+tagged `UNTRIAGED`, and entries that now pass are dropped. Exit 0 the sweep ran,
+2 it could not run (a registry that spelled no rows); there is no exit 1,
+because the failing set is the report and the manifests are the gate.
+
+Proves nothing by itself, the way `triage` does not; it writes the two files the
+sweep's gates hold the tree to.
 
 ### `bun run block-structure` - block structure against the oracle
 

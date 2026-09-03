@@ -1,0 +1,552 @@
+{
+  "pair/bom/fidelity": {
+    "count": 2017,
+    "examples": [
+      "pair/admonition-label-near-0/callout/adjacent/dlist-desc-line@bom",
+      "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/dlist-desc-line@bom",
+      "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/doc@bom",
+      "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/item@bom",
+      "pair/admonition-label-near-1/callout/adjacent/dlist-desc-line@bom"
+    ],
+    "sha256": "11386ef2929594e8c4bd9e6e95e14448b18cd9acb1581a9811fafd8168a8adcd",
+    "issue": "UNTRIAGED"
+  },
+  "pair/bom/idempotency": {
+    "count": 38,
+    "examples": [
+      "pair/attribute-entry/delimiter-commentBlock-near-2/adjacent/dlist-desc-line@bom",
+      "pair/block-anchor-near-1/delimiter-commentBlock-near-2/blank/doc@bom",
+      "pair/block-anchor-near-2/delimiter-commentBlock-near-2/blank/doc@bom",
+      "pair/block-title-near-1/delimiter-commentBlock-near-2/adjacent/doc@bom",
+      "pair/block-title-near-1/delimiter-commentBlock-near-2/adjacent/item@bom"
+    ],
+    "sha256": "69b072f292645e823e1892c25bb7a5c3da4db82a847290087d13b3de7db64bf0",
+    "issue": "UNTRIAGED"
+  },
+  "pair/bom/idempotency+fidelity": {
+    "count": 363,
+    "examples": [
+      "pair/admonition-label-near-0/indented-continuation/adjacent/dlist-desc-line@bom",
+      "pair/admonition-label-near-1/indented-continuation/adjacent/dlist-desc-line@bom",
+      "pair/attribute-entry-near-0/indented-continuation/adjacent/dlist-desc-line@bom",
+      "pair/attribute-entry-near-1/indented-continuation/adjacent/dlist-desc-line@bom",
+      "pair/attribute-entry/callout-near-1/adjacent/dlist-desc-line@bom"
+    ],
+    "sha256": "edd1bf5413338b05053585bb6d459559b7a3dd96dee217991130590831ac153e",
+    "issue": "UNTRIAGED"
+  },
+  "pair/clean/fidelity": {
+    "count": 2017,
+    "examples": [
+      "pair/admonition-label-near-0/callout/adjacent/dlist-desc-line",
+      "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/dlist-desc-line",
+      "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/doc",
+      "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/item",
+      "pair/admonition-label-near-1/callout/adjacent/dlist-desc-line"
+    ],
+    "sha256": "dfda0a13ea68170db5e6b868cd558997105b57acaf245c9987c65cb60303f1ae",
+    "issue": "UNTRIAGED"
+  },
+  "pair/clean/idempotency": {
+    "count": 38,
+    "examples": [
+      "pair/attribute-entry/delimiter-commentBlock-near-2/adjacent/dlist-desc-line",
+      "pair/block-anchor-near-1/delimiter-commentBlock-near-2/blank/doc",
+      "pair/block-anchor-near-2/delimiter-commentBlock-near-2/blank/doc",
+      "pair/block-title-near-1/delimiter-commentBlock-near-2/adjacent/doc",
+      "pair/block-title-near-1/delimiter-commentBlock-near-2/adjacent/item"
+    ],
+    "sha256": "be4b7ec65375f74b5bf69bb8b7b33a1e2e7a828e1bdc8aa88fca299a228dd044",
+    "issue": "UNTRIAGED"
+  },
+  "pair/clean/idempotency+fidelity": {
+    "count": 363,
+    "examples": [
+      "pair/admonition-label-near-0/indented-continuation/adjacent/dlist-desc-line",
+      "pair/admonition-label-near-1/indented-continuation/adjacent/dlist-desc-line",
+      "pair/attribute-entry-near-0/indented-continuation/adjacent/dlist-desc-line",
+      "pair/attribute-entry-near-1/indented-continuation/adjacent/dlist-desc-line",
+      "pair/attribute-entry/callout-near-1/adjacent/dlist-desc-line"
+    ],
+    "sha256": "c9ebf685a30ea037f88081532e1bdfcdb3683dcd8a0c2c4fb2621a177596e6e0",
+    "issue": "UNTRIAGED"
+  },
+  "pair/crlf/fidelity": {
+    "count": 2017,
+    "examples": [
+      "pair/admonition-label-near-0/callout/adjacent/dlist-desc-line@crlf",
+      "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/dlist-desc-line@crlf",
+      "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/doc@crlf",
+      "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/item@crlf",
+      "pair/admonition-label-near-1/callout/adjacent/dlist-desc-line@crlf"
+    ],
+    "sha256": "a8ca0dc5cd45096b4f08d72d31caae6e4b10b9dc60ca6d0dec43e42e1e45ba2b",
+    "issue": "UNTRIAGED"
+  },
+  "pair/crlf/idempotency": {
+    "count": 38,
+    "examples": [
+      "pair/attribute-entry/delimiter-commentBlock-near-2/adjacent/dlist-desc-line@crlf",
+      "pair/block-anchor-near-1/delimiter-commentBlock-near-2/blank/doc@crlf",
+      "pair/block-anchor-near-2/delimiter-commentBlock-near-2/blank/doc@crlf",
+      "pair/block-title-near-1/delimiter-commentBlock-near-2/adjacent/doc@crlf",
+      "pair/block-title-near-1/delimiter-commentBlock-near-2/adjacent/item@crlf"
+    ],
+    "sha256": "d4eaf0270cf9a4f023c032abfd4dc42374ec2d9fb4173232bc2a72e0e82b5391",
+    "issue": "UNTRIAGED"
+  },
+  "pair/crlf/idempotency+fidelity": {
+    "count": 363,
+    "examples": [
+      "pair/admonition-label-near-0/indented-continuation/adjacent/dlist-desc-line@crlf",
+      "pair/admonition-label-near-1/indented-continuation/adjacent/dlist-desc-line@crlf",
+      "pair/attribute-entry-near-0/indented-continuation/adjacent/dlist-desc-line@crlf",
+      "pair/attribute-entry-near-1/indented-continuation/adjacent/dlist-desc-line@crlf",
+      "pair/attribute-entry/callout-near-1/adjacent/dlist-desc-line@crlf"
+    ],
+    "sha256": "673a97529a66a3e6d780e555256ac1d73cd7bb0921dd32d1660666273f1537e2",
+    "issue": "UNTRIAGED"
+  },
+  "pair/no-final-newline/fidelity": {
+    "count": 2017,
+    "examples": [
+      "pair/admonition-label-near-0/callout/adjacent/dlist-desc-line@no-final-newline",
+      "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/dlist-desc-line@no-final-newline",
+      "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/doc@no-final-newline",
+      "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/item@no-final-newline",
+      "pair/admonition-label-near-1/callout/adjacent/dlist-desc-line@no-final-newline"
+    ],
+    "sha256": "31004364ffda216ab689de40556969c44b9cef2e06509739d09753195fc3a1f8",
+    "issue": "UNTRIAGED"
+  },
+  "pair/no-final-newline/idempotency": {
+    "count": 38,
+    "examples": [
+      "pair/attribute-entry/delimiter-commentBlock-near-2/adjacent/dlist-desc-line@no-final-newline",
+      "pair/block-anchor-near-1/delimiter-commentBlock-near-2/blank/doc@no-final-newline",
+      "pair/block-anchor-near-2/delimiter-commentBlock-near-2/blank/doc@no-final-newline",
+      "pair/block-title-near-1/delimiter-commentBlock-near-2/adjacent/doc@no-final-newline",
+      "pair/block-title-near-1/delimiter-commentBlock-near-2/adjacent/item@no-final-newline"
+    ],
+    "sha256": "25a22ad003b2e4f78c0e968a6f31e04916133f35cb551b1721dbac4684d35b0d",
+    "issue": "UNTRIAGED"
+  },
+  "pair/no-final-newline/idempotency+fidelity": {
+    "count": 363,
+    "examples": [
+      "pair/admonition-label-near-0/indented-continuation/adjacent/dlist-desc-line@no-final-newline",
+      "pair/admonition-label-near-1/indented-continuation/adjacent/dlist-desc-line@no-final-newline",
+      "pair/attribute-entry-near-0/indented-continuation/adjacent/dlist-desc-line@no-final-newline",
+      "pair/attribute-entry-near-1/indented-continuation/adjacent/dlist-desc-line@no-final-newline",
+      "pair/attribute-entry/callout-near-1/adjacent/dlist-desc-line@no-final-newline"
+    ],
+    "sha256": "15f5c88d765d123fb287c3ece4f40567e0d8e5f352485d8cb5b2b58ffa310fad",
+    "issue": "UNTRIAGED"
+  },
+  "pair/trailing-ff/fidelity": {
+    "count": 2091,
+    "examples": [
+      "pair/admonition-label-near-0/callout/adjacent/dlist-desc-line@trailing-ff",
+      "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/dlist-desc-line@trailing-ff",
+      "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/doc@trailing-ff",
+      "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/item@trailing-ff",
+      "pair/admonition-label-near-1/callout/adjacent/dlist-desc-line@trailing-ff"
+    ],
+    "sha256": "fd7d6f72008d59a21abeef8d7f574854e55e83eef55642ce2631fef6739e9c5c",
+    "issue": "UNTRIAGED"
+  },
+  "pair/trailing-ff/idempotency": {
+    "count": 36,
+    "examples": [
+      "pair/attribute-entry/delimiter-commentBlock-near-2/adjacent/dlist-desc-line@trailing-ff",
+      "pair/block-anchor-near-1/delimiter-commentBlock-near-2/blank/doc@trailing-ff",
+      "pair/block-anchor-near-2/delimiter-commentBlock-near-2/blank/doc@trailing-ff",
+      "pair/block-title-near-1/delimiter-commentBlock-near-2/adjacent/doc@trailing-ff",
+      "pair/block-title-near-1/delimiter-commentBlock-near-2/adjacent/item@trailing-ff"
+    ],
+    "sha256": "f19d8e66e106c3100703c4048335c0de56b1acd2247f4589938c513643085e18",
+    "issue": "UNTRIAGED"
+  },
+  "pair/trailing-ff/idempotency+fidelity": {
+    "count": 345,
+    "examples": [
+      "pair/admonition-label-near-0/indented-continuation/adjacent/dlist-desc-line@trailing-ff",
+      "pair/admonition-label-near-1/indented-continuation/adjacent/dlist-desc-line@trailing-ff",
+      "pair/attribute-entry-near-0/indented-continuation/adjacent/dlist-desc-line@trailing-ff",
+      "pair/attribute-entry-near-1/indented-continuation/adjacent/dlist-desc-line@trailing-ff",
+      "pair/attribute-entry/callout-near-1/adjacent/dlist-desc-line@trailing-ff"
+    ],
+    "sha256": "19ce651b6c771f00cf4c19b49f18b82135ecc6e34c1eb7763e24b2aa9b9f20d6",
+    "issue": "UNTRIAGED"
+  },
+  "pair/trailing-space-first-line/fidelity": {
+    "count": 2019,
+    "examples": [
+      "pair/admonition-label-near-0/callout/adjacent/dlist-desc-line@trailing-space-first-line",
+      "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/dlist-desc-line@trailing-space-first-line",
+      "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/doc@trailing-space-first-line",
+      "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/item@trailing-space-first-line",
+      "pair/admonition-label-near-1/callout/adjacent/dlist-desc-line@trailing-space-first-line"
+    ],
+    "sha256": "d100e0cd73831500936b300f38df10adabae9d4c2b64bc0b60795bc15357aa6b",
+    "issue": "UNTRIAGED"
+  },
+  "pair/trailing-space-first-line/idempotency": {
+    "count": 37,
+    "examples": [
+      "pair/attribute-entry/delimiter-commentBlock-near-2/adjacent/dlist-desc-line@trailing-space-first-line",
+      "pair/block-anchor-near-1/delimiter-commentBlock-near-2/blank/doc@trailing-space-first-line",
+      "pair/block-anchor-near-2/delimiter-commentBlock-near-2/blank/doc@trailing-space-first-line",
+      "pair/block-title-near-1/delimiter-commentBlock-near-2/adjacent/doc@trailing-space-first-line",
+      "pair/block-title-near-1/delimiter-commentBlock-near-2/adjacent/item@trailing-space-first-line"
+    ],
+    "sha256": "1532a0569c47da4d3ef615065eced7770b0fa6b81ce6f69bffc47cc1a49f3f92",
+    "issue": "UNTRIAGED"
+  },
+  "pair/trailing-space-first-line/idempotency+fidelity": {
+    "count": 351,
+    "examples": [
+      "pair/admonition-label-near-0/indented-continuation/adjacent/dlist-desc-line@trailing-space-first-line",
+      "pair/admonition-label-near-1/indented-continuation/adjacent/dlist-desc-line@trailing-space-first-line",
+      "pair/attribute-entry-near-0/indented-continuation/adjacent/dlist-desc-line@trailing-space-first-line",
+      "pair/attribute-entry-near-1/indented-continuation/adjacent/dlist-desc-line@trailing-space-first-line",
+      "pair/attribute-entry/callout-near-1/adjacent/dlist-desc-line@trailing-space-first-line"
+    ],
+    "sha256": "518798062532119b34fabbceb067d7c035c8bc94fc39006d4bd45672b81903d8",
+    "issue": "UNTRIAGED"
+  },
+  "pair/trailing-space/fidelity": {
+    "count": 2091,
+    "examples": [
+      "pair/admonition-label-near-0/callout/adjacent/dlist-desc-line@trailing-space",
+      "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/dlist-desc-line@trailing-space",
+      "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/doc@trailing-space",
+      "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/item@trailing-space",
+      "pair/admonition-label-near-1/callout/adjacent/dlist-desc-line@trailing-space"
+    ],
+    "sha256": "714873030c57e1a0693d0d75b1b55670aed27ce9e0298f65bf61f760d0595b1c",
+    "issue": "UNTRIAGED"
+  },
+  "pair/trailing-space/idempotency": {
+    "count": 36,
+    "examples": [
+      "pair/attribute-entry/delimiter-commentBlock-near-2/adjacent/dlist-desc-line@trailing-space",
+      "pair/block-anchor-near-1/delimiter-commentBlock-near-2/blank/doc@trailing-space",
+      "pair/block-anchor-near-2/delimiter-commentBlock-near-2/blank/doc@trailing-space",
+      "pair/block-title-near-1/delimiter-commentBlock-near-2/adjacent/doc@trailing-space",
+      "pair/block-title-near-1/delimiter-commentBlock-near-2/adjacent/item@trailing-space"
+    ],
+    "sha256": "9788ae60f2bd70b34857e439b955dfd9efcc0469ed341b4a83e6069e1965d8b6",
+    "issue": "UNTRIAGED"
+  },
+  "pair/trailing-space/idempotency+fidelity": {
+    "count": 345,
+    "examples": [
+      "pair/admonition-label-near-0/indented-continuation/adjacent/dlist-desc-line@trailing-space",
+      "pair/admonition-label-near-1/indented-continuation/adjacent/dlist-desc-line@trailing-space",
+      "pair/attribute-entry-near-0/indented-continuation/adjacent/dlist-desc-line@trailing-space",
+      "pair/attribute-entry-near-1/indented-continuation/adjacent/dlist-desc-line@trailing-space",
+      "pair/attribute-entry/callout-near-1/adjacent/dlist-desc-line@trailing-space"
+    ],
+    "sha256": "460c28ba41846156937beb02e3e2112cd6974d84c8e7928a327ab00c79730faf",
+    "issue": "UNTRIAGED"
+  },
+  "pair/trailing-tab/fidelity": {
+    "count": 2091,
+    "examples": [
+      "pair/admonition-label-near-0/callout/adjacent/dlist-desc-line@trailing-tab",
+      "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/dlist-desc-line@trailing-tab",
+      "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/doc@trailing-tab",
+      "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/item@trailing-tab",
+      "pair/admonition-label-near-1/callout/adjacent/dlist-desc-line@trailing-tab"
+    ],
+    "sha256": "6f5bbe98b508329511cf70cb45c3bc4ccb98e55f556d88b6b31657a75a748107",
+    "issue": "UNTRIAGED"
+  },
+  "pair/trailing-tab/idempotency": {
+    "count": 36,
+    "examples": [
+      "pair/attribute-entry/delimiter-commentBlock-near-2/adjacent/dlist-desc-line@trailing-tab",
+      "pair/block-anchor-near-1/delimiter-commentBlock-near-2/blank/doc@trailing-tab",
+      "pair/block-anchor-near-2/delimiter-commentBlock-near-2/blank/doc@trailing-tab",
+      "pair/block-title-near-1/delimiter-commentBlock-near-2/adjacent/doc@trailing-tab",
+      "pair/block-title-near-1/delimiter-commentBlock-near-2/adjacent/item@trailing-tab"
+    ],
+    "sha256": "5c9c596b2260680202c6fda6c13c46eb0dceefedc1c8009aa05269dc72d044fa",
+    "issue": "UNTRIAGED"
+  },
+  "pair/trailing-tab/idempotency+fidelity": {
+    "count": 345,
+    "examples": [
+      "pair/admonition-label-near-0/indented-continuation/adjacent/dlist-desc-line@trailing-tab",
+      "pair/admonition-label-near-1/indented-continuation/adjacent/dlist-desc-line@trailing-tab",
+      "pair/attribute-entry-near-0/indented-continuation/adjacent/dlist-desc-line@trailing-tab",
+      "pair/attribute-entry-near-1/indented-continuation/adjacent/dlist-desc-line@trailing-tab",
+      "pair/attribute-entry/callout-near-1/adjacent/dlist-desc-line@trailing-tab"
+    ],
+    "sha256": "bb5e614ad5fd2188f71c0fb4c745f3836106b5b19033b0e306a840c549471ad3",
+    "issue": "UNTRIAGED"
+  },
+  "pair/trailing-vt/fidelity": {
+    "count": 2091,
+    "examples": [
+      "pair/admonition-label-near-0/callout/adjacent/dlist-desc-line@trailing-vt",
+      "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/dlist-desc-line@trailing-vt",
+      "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/doc@trailing-vt",
+      "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/item@trailing-vt",
+      "pair/admonition-label-near-1/callout/adjacent/dlist-desc-line@trailing-vt"
+    ],
+    "sha256": "bb572e585cbf5104cc84a56c730e4f2ae697d34637f10b3847987904e8c3e8fe",
+    "issue": "UNTRIAGED"
+  },
+  "pair/trailing-vt/idempotency": {
+    "count": 36,
+    "examples": [
+      "pair/attribute-entry/delimiter-commentBlock-near-2/adjacent/dlist-desc-line@trailing-vt",
+      "pair/block-anchor-near-1/delimiter-commentBlock-near-2/blank/doc@trailing-vt",
+      "pair/block-anchor-near-2/delimiter-commentBlock-near-2/blank/doc@trailing-vt",
+      "pair/block-title-near-1/delimiter-commentBlock-near-2/adjacent/doc@trailing-vt",
+      "pair/block-title-near-1/delimiter-commentBlock-near-2/adjacent/item@trailing-vt"
+    ],
+    "sha256": "68783848578b1014357910cd817dcc0d71e34e2f8c255d07cbb7ddccf5eb7c5a",
+    "issue": "UNTRIAGED"
+  },
+  "pair/trailing-vt/idempotency+fidelity": {
+    "count": 345,
+    "examples": [
+      "pair/admonition-label-near-0/indented-continuation/adjacent/dlist-desc-line@trailing-vt",
+      "pair/admonition-label-near-1/indented-continuation/adjacent/dlist-desc-line@trailing-vt",
+      "pair/attribute-entry-near-0/indented-continuation/adjacent/dlist-desc-line@trailing-vt",
+      "pair/attribute-entry-near-1/indented-continuation/adjacent/dlist-desc-line@trailing-vt",
+      "pair/attribute-entry/callout-near-1/adjacent/dlist-desc-line@trailing-vt"
+    ],
+    "sha256": "2f175e0102dfdd1a1cf5ca5ee50bac305944a6876aeaa4307f18c5eb630ada62",
+    "issue": "UNTRIAGED"
+  },
+  "standing/bom/fidelity": {
+    "count": 15,
+    "examples": [
+      "example/after-h0-adjacent/foreign-marker-inside@bom",
+      "example/after-h0-adjacent/heading-inside@bom",
+      "example/in-example/closed-no-final-newline@bom",
+      "example/in-example/closed-then-text-adjacent@bom",
+      "example/in-example/closed@bom"
+    ],
+    "sha256": "dc6244360c96e07dc427e34bd2a06381dfd1f5965d8b5cf9fca6dbe14f1cb24c",
+    "issue": "UNTRIAGED"
+  },
+  "standing/bom/idempotency": {
+    "count": 1,
+    "examples": ["commentBlock/dlist-desc/longer-delimiter-inside@bom"],
+    "sha256": "8e81d8088ceea619ee1c9d80640c6b2c84b902162d5e4098b1da00cb6b9660d1",
+    "issue": "UNTRIAGED"
+  },
+  "standing/clean/fidelity": {
+    "count": 15,
+    "examples": [
+      "example/after-h0-adjacent/foreign-marker-inside",
+      "example/after-h0-adjacent/heading-inside",
+      "example/in-example/closed",
+      "example/in-example/closed-no-final-newline",
+      "example/in-example/closed-then-text-adjacent"
+    ],
+    "sha256": "b9314bdcfd9669dd8426a3957bfd3a0e938b0f6a233b9a8fc65f1f7aad0bf70c",
+    "issue": "UNTRIAGED"
+  },
+  "standing/clean/idempotency": {
+    "count": 1,
+    "examples": ["commentBlock/dlist-desc/longer-delimiter-inside"],
+    "sha256": "bef2666a7ec0eba3ace218220eb2d8ee000a85aa499c10ef5e4129e61164e22f",
+    "issue": "UNTRIAGED"
+  },
+  "standing/crlf/fidelity": {
+    "count": 15,
+    "examples": [
+      "example/after-h0-adjacent/foreign-marker-inside@crlf",
+      "example/after-h0-adjacent/heading-inside@crlf",
+      "example/in-example/closed-no-final-newline@crlf",
+      "example/in-example/closed-then-text-adjacent@crlf",
+      "example/in-example/closed@crlf"
+    ],
+    "sha256": "df2d46a4b4514e08441f70692730a738c534edfa6c2361791f537e2152b7691d",
+    "issue": "UNTRIAGED"
+  },
+  "standing/crlf/idempotency": {
+    "count": 1,
+    "examples": ["commentBlock/dlist-desc/longer-delimiter-inside@crlf"],
+    "sha256": "5d38ecf9d8c8030cd2e93e10786ad148119b3d6bdd7df1f51da471075a916d66",
+    "issue": "UNTRIAGED"
+  },
+  "standing/no-final-newline/fidelity": {
+    "count": 14,
+    "examples": [
+      "example/after-h0-adjacent/foreign-marker-inside@no-final-newline",
+      "example/after-h0-adjacent/heading-inside@no-final-newline",
+      "example/in-example/closed-then-text-adjacent@no-final-newline",
+      "example/in-example/closed@no-final-newline",
+      "example/in-example/heading-inside@no-final-newline"
+    ],
+    "sha256": "cadda3ef1d389a79a17a9d3ee4fccc1eb30fc78d5695d3e2389923341c86b129",
+    "issue": "UNTRIAGED"
+  },
+  "standing/no-final-newline/idempotency": {
+    "count": 1,
+    "examples": [
+      "commentBlock/dlist-desc/longer-delimiter-inside@no-final-newline"
+    ],
+    "sha256": "f65defaf237c76562cbbd8918fdb6034f988ef18a8a84ae45a6df17943fd4b23",
+    "issue": "UNTRIAGED"
+  },
+  "standing/trailing-ff/fidelity": {
+    "count": 15,
+    "examples": [
+      "example/after-h0-adjacent/foreign-marker-inside@trailing-ff",
+      "example/after-h0-adjacent/heading-inside@trailing-ff",
+      "example/in-example/closed-no-final-newline@trailing-ff",
+      "example/in-example/closed-then-text-adjacent@trailing-ff",
+      "example/in-example/closed@trailing-ff"
+    ],
+    "sha256": "2898aadc0e717ba40a72094547f536f8ce717f7e3087882083384de16fa98472",
+    "issue": "UNTRIAGED"
+  },
+  "standing/trailing-ff/idempotency": {
+    "count": 1,
+    "examples": ["commentBlock/dlist-desc/longer-delimiter-inside@trailing-ff"],
+    "sha256": "f7989bb0e943a16082d240ad73fe7042fe4634a1cfe37584c2669eafcf60aa74",
+    "issue": "UNTRIAGED"
+  },
+  "standing/trailing-ff/idempotency+fidelity": {
+    "count": 6,
+    "examples": [
+      "listing/after-h0-adjacent/longer-delimiter-inside@trailing-ff",
+      "listing/dlist-desc/longer-delimiter-inside@trailing-ff",
+      "literal/after-h0-adjacent/longer-delimiter-inside@trailing-ff",
+      "literal/dlist-desc/longer-delimiter-inside@trailing-ff",
+      "pass/after-h0-adjacent/longer-delimiter-inside@trailing-ff"
+    ],
+    "sha256": "a247664a320d90ba3f210457ccc2fbb97b9b429948b9f333065e7f4b2297156e",
+    "issue": "UNTRIAGED"
+  },
+  "standing/trailing-space-first-line/fidelity": {
+    "count": 15,
+    "examples": [
+      "example/after-h0-adjacent/foreign-marker-inside@trailing-space-first-line",
+      "example/after-h0-adjacent/heading-inside@trailing-space-first-line",
+      "example/in-example/closed-no-final-newline@trailing-space-first-line",
+      "example/in-example/closed-then-text-adjacent@trailing-space-first-line",
+      "example/in-example/closed@trailing-space-first-line"
+    ],
+    "sha256": "e4b55885ef741679bc24f8e26ec5d07831a2bb00091403a3bd68d17511db8f49",
+    "issue": "UNTRIAGED"
+  },
+  "standing/trailing-space-first-line/idempotency": {
+    "count": 1,
+    "examples": [
+      "commentBlock/dlist-desc/longer-delimiter-inside@trailing-space-first-line"
+    ],
+    "sha256": "c33aa5e3e6fc7d21e13f18ac734ac50eaa4b431696932cd13bed8a8e66192062",
+    "issue": "UNTRIAGED"
+  },
+  "standing/trailing-space/fidelity": {
+    "count": 15,
+    "examples": [
+      "example/after-h0-adjacent/foreign-marker-inside@trailing-space",
+      "example/after-h0-adjacent/heading-inside@trailing-space",
+      "example/in-example/closed-no-final-newline@trailing-space",
+      "example/in-example/closed-then-text-adjacent@trailing-space",
+      "example/in-example/closed@trailing-space"
+    ],
+    "sha256": "014ea98fea040e6cd1c335ed41e7f1e5d8696687693ded6a31cbd3d9afb30ef6",
+    "issue": "UNTRIAGED"
+  },
+  "standing/trailing-space/idempotency": {
+    "count": 58,
+    "examples": [
+      "commentBlock/dlist-desc/longer-delimiter-inside@trailing-space",
+      "listing/after-fence/longer-delimiter-inside@trailing-space",
+      "listing/after-h0-blank/longer-delimiter-inside@trailing-space",
+      "listing/after-h1-adjacent/longer-delimiter-inside@trailing-space",
+      "listing/after-h1-blank/longer-delimiter-inside@trailing-space"
+    ],
+    "sha256": "e9291b44ce737dea9ae0fde9273a3ef4ee60e0b132d88e0873124b03c0073a8a",
+    "issue": "UNTRIAGED"
+  },
+  "standing/trailing-space/idempotency+fidelity": {
+    "count": 6,
+    "examples": [
+      "listing/after-h0-adjacent/longer-delimiter-inside@trailing-space",
+      "listing/dlist-desc/longer-delimiter-inside@trailing-space",
+      "literal/after-h0-adjacent/longer-delimiter-inside@trailing-space",
+      "literal/dlist-desc/longer-delimiter-inside@trailing-space",
+      "pass/after-h0-adjacent/longer-delimiter-inside@trailing-space"
+    ],
+    "sha256": "b5e8babdcfd5bed32f36dba1a100ccca0f7667c6a7eab48264f1eadf9220a1ea",
+    "issue": "UNTRIAGED"
+  },
+  "standing/trailing-tab/fidelity": {
+    "count": 15,
+    "examples": [
+      "example/after-h0-adjacent/foreign-marker-inside@trailing-tab",
+      "example/after-h0-adjacent/heading-inside@trailing-tab",
+      "example/in-example/closed-no-final-newline@trailing-tab",
+      "example/in-example/closed-then-text-adjacent@trailing-tab",
+      "example/in-example/closed@trailing-tab"
+    ],
+    "sha256": "5103bb4ca9f8e53a7c7c05792430369a8e98cd35cdb3e7c0f61700afd5147c37",
+    "issue": "UNTRIAGED"
+  },
+  "standing/trailing-tab/idempotency": {
+    "count": 58,
+    "examples": [
+      "commentBlock/dlist-desc/longer-delimiter-inside@trailing-tab",
+      "listing/after-fence/longer-delimiter-inside@trailing-tab",
+      "listing/after-h0-blank/longer-delimiter-inside@trailing-tab",
+      "listing/after-h1-adjacent/longer-delimiter-inside@trailing-tab",
+      "listing/after-h1-blank/longer-delimiter-inside@trailing-tab"
+    ],
+    "sha256": "4a736c80b31a3e962ab28fa4acd6478366029ab19b6010accf17423925121c7e",
+    "issue": "UNTRIAGED"
+  },
+  "standing/trailing-tab/idempotency+fidelity": {
+    "count": 6,
+    "examples": [
+      "listing/after-h0-adjacent/longer-delimiter-inside@trailing-tab",
+      "listing/dlist-desc/longer-delimiter-inside@trailing-tab",
+      "literal/after-h0-adjacent/longer-delimiter-inside@trailing-tab",
+      "literal/dlist-desc/longer-delimiter-inside@trailing-tab",
+      "pass/after-h0-adjacent/longer-delimiter-inside@trailing-tab"
+    ],
+    "sha256": "624c0ff348de5cdebe3c5d364d1ba54f5932dc3dec28177db4ad290adf3dd537",
+    "issue": "UNTRIAGED"
+  },
+  "standing/trailing-vt/fidelity": {
+    "count": 15,
+    "examples": [
+      "example/after-h0-adjacent/foreign-marker-inside@trailing-vt",
+      "example/after-h0-adjacent/heading-inside@trailing-vt",
+      "example/in-example/closed-no-final-newline@trailing-vt",
+      "example/in-example/closed-then-text-adjacent@trailing-vt",
+      "example/in-example/closed@trailing-vt"
+    ],
+    "sha256": "f976c3b36a67f4fe27840c52e7103f4ddcc59b0c388b1b20520b556ff0daaa51",
+    "issue": "UNTRIAGED"
+  },
+  "standing/trailing-vt/idempotency": {
+    "count": 1,
+    "examples": ["commentBlock/dlist-desc/longer-delimiter-inside@trailing-vt"],
+    "sha256": "39e16e0fb864fa2de36b19012c46d76cd7e9c5ce5a0611193b9cd9d14c8a00e8",
+    "issue": "UNTRIAGED"
+  },
+  "standing/trailing-vt/idempotency+fidelity": {
+    "count": 6,
+    "examples": [
+      "listing/after-h0-adjacent/longer-delimiter-inside@trailing-vt",
+      "listing/dlist-desc/longer-delimiter-inside@trailing-vt",
+      "literal/after-h0-adjacent/longer-delimiter-inside@trailing-vt",
+      "literal/dlist-desc/longer-delimiter-inside@trailing-vt",
+      "pass/after-h0-adjacent/longer-delimiter-inside@trailing-vt"
+    ],
+    "sha256": "9a15effa4b9be5581761775e9634cbfb69abe2097d7f04ef39da152626676faf",
+    "issue": "UNTRIAGED"
+  }
+}

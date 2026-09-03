@@ -2,14 +2,17 @@
 /* eslint-disable no-console -- runner script, not library code */
 
 /**
- * The DEEP sweeps, as their own entry: every `*.deep.test.ts` file,
- * which today means the exhaustive depth-5 list-shape product —
- * 111,121 documents, gated TWICE over. The render/idempotence entry
- * formats each document twice and renders both sides, pinned to the
- * allowlist by strict set equality; the reflow re-classification
- * entry (issue #58) re-reads each document's output and pins the
- * violating set to `tests/format/reading-ledger.json` the same way.
- * Two tests, one product.
+ * The DEEP sweeps, as their own entry: every `*.deep.test.ts` file.
+ * Today that is two products. The exhaustive depth-5 list-shape
+ * product - 111,121 documents - is gated TWICE over: the
+ * render/idempotence entry formats each document twice and renders
+ * both sides, pinned to the allowlist by strict set equality, and the
+ * reflow re-classification entry (issue #58) re-reads each document's
+ * output and pins the violating set to
+ * `tests/format/reading-ledger.json` the same way. The registry
+ * sweep's deep tier is the third: both shape-registry grids, clean
+ * and under every byte operator, pinned to the cluster manifest in
+ * `tests/conformance/registry-sweep-deep-manifest.json`.
  *
  *   bun run test:deeply-nested-lists
  *
@@ -26,15 +29,15 @@
  * kill has to die at the shallow depth or not at all. Neither samples.
  *
  * Exit codes (`scripts/lib/cli.ts`): 0 the sweeps ran and their
- * failing sets matched the allowlist and the ledger, 1 a GATE failed —
- * a shape regressed, or an allowlisted shape started passing and its
- * entry is stale, 2 the harness could not run: a bad argument, vitest
- * missing, or a run that collected FEWER tests than the entries this
- * script exists to run. That last one is the reason this script exists
- * rather than a bare `vitest run --config`: `passWithNoTests` is on
- * for the repository, so a config typo that collects nothing exits 0,
- * and a green tick for a sweep that swept nothing is the expensive
- * failure.
+ * failing sets matched the allowlist, the ledger and the cluster
+ * manifest, 1 a GATE failed - a shape regressed, or a pinned shape
+ * started passing and its entry is stale, 2 the harness could not
+ * run: a bad argument, vitest missing, or a run that collected FEWER
+ * tests than the entries this script exists to run. That last one is
+ * the reason this script exists rather than a bare
+ * `vitest run --config`: `passWithNoTests` is on for the repository,
+ * so a config typo that collects nothing exits 0, and a green tick
+ * for a sweep that swept nothing is the expensive failure.
  */
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
@@ -48,11 +51,13 @@ const USAGE = `usage: bun run test:deeply-nested-lists
   --help   this text
 
 Runs every *.deep.test.ts under vitest.sweep.config.ts: the exhaustive
-depth-5 list-shape sweep (111,121 documents) and the reflow
-re-classification ledger over the same product.
+depth-5 list-shape sweep (111,121 documents), the reflow
+re-classification ledger over the same product, and the registry
+sweep's deep tier (both shape-registry grids under every byte
+operator).
 
-exit: 0 the failing sets matched the allowlist and the ledger,
-1 a gate failed, 2 could not run`;
+exit: 0 the failing sets matched the allowlist, the ledger and the
+cluster manifest, 1 a gate failed, 2 could not run`;
 
 /** Vitest's own exit code for "a test failed". */
 const VITEST_TESTS_FAILED = 1;
@@ -60,13 +65,15 @@ const VITEST_TESTS_FAILED = 1;
 /**
  * A run that collected fewer tests than this swept nothing.
  *
- * TWO, because the deep entry gates the product twice over: the
- * render/idempotence sweep and the reflow re-classification ledger. A
- * floor of one would let either of them be dropped, renamed out of the
- * glob or skipped and still report a green tick - the silent green
- * this script exists to make impossible.
+ * THREE, one per gate the deep entry runs: the list-shape
+ * render/idempotence sweep, the reflow re-classification ledger over
+ * that same product, and the registry sweep's deep tier. The floor is
+ * the exact count on purpose - a lower one would let any of them be
+ * dropped, renamed out of the glob or skipped and still report a
+ * green tick, which is the silent green this script exists to make
+ * impossible.
  */
-const MINIMUM_TESTS = 2;
+const MINIMUM_TESTS = 3;
 
 /**
  * How many tests the run reported, or undefined when it left no
@@ -130,7 +137,7 @@ function sweep(reportFile: string): void {
   }
   if (run.status === VITEST_TESTS_FAILED) {
     console.error(
-      `test-deeply-nested-lists: the failing set did not match the allowlist (${String(total)} test(s) ran)`,
+      `test-deeply-nested-lists: a failing set did not match its manifest (${String(total)} test(s) ran)`,
     );
     process.exitCode = GATE_FAILED;
     return;

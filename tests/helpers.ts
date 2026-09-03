@@ -104,6 +104,110 @@ const nullLogger = NullLogger.create();
 LoggerManager.setLogger(nullLogger);
 
 /**
+ * The console methods Asciidoctor's logging fallback can reach.
+ *
+ * A THIRD sink, past both logger installs above. The Logging mixin
+ * resolves its logger as `this._document?.logger ?? console`
+ * (`@asciidoctor/core/build/node/index.cjs` l.6604, l.7334), so a
+ * Reader that carries no document writes straight to the global
+ * console and neither `LoggerManager.setLogger` nor the per-call
+ * `logger` option is consulted. A delimited block left unterminated
+ * INSIDE a list item is read by such a Reader: `----\ncontent` on its
+ * own is silent, and `* item\n+\n----\ncontent` prints a
+ * `console.warn` of the raw log record. The registry grid spells that
+ * coordinate hundreds of times over, so the escape hatch has to be
+ * closed here or a green sweep buries its own result.
+ */
+interface ConsoleSink {
+  /** Where `logger.warn` lands. */
+  warn: typeof console.warn;
+  /** Where `logger.error` lands. */
+  error: typeof console.error;
+  /** Where `logger.info` lands. */
+  info: typeof console.info;
+}
+
+/** The muted console method while a conversion is running. */
+function swallow(): void {
+  // Dropping the record IS the behavior: see ConsoleSink for why
+  // these records have nowhere better to go.
+}
+
+/** The sink installed while any conversion is running. */
+const SWALLOWING: ConsoleSink = {
+  warn: swallow,
+  error: swallow,
+  info: swallow,
+};
+
+/**
+ * Reads the console methods currently installed.
+ * @returns the three methods, as they are right now
+ */
+function currentConsole(): ConsoleSink {
+  /* eslint-disable-next-line no-console -- reading the sink this module mutes */
+  return { warn: console.warn, error: console.error, info: console.info };
+}
+
+/**
+ * Installs three console methods.
+ * @param sink - the methods to install
+ */
+function installConsole(sink: ConsoleSink): void {
+  /* eslint-disable no-console -- writing the sink this module mutes */
+  console.warn = sink.warn;
+  console.error = sink.error;
+  console.info = sink.info;
+  /* eslint-enable no-console */
+}
+
+/**
+ * How many conversions are muting the console right now, and what to
+ * put back when the last of them finishes.
+ *
+ * MODULE state, not per-call state. `oracleHtml` is async and callers
+ * overlap it (`Promise.all` in tests/conformance/interruption.test.ts),
+ * so a call that saved the console on entry could capture an earlier
+ * overlapping call's {@link swallow} as "the original" and restore
+ * THAT, muting the process for the rest of the worker. The counter
+ * makes the OUTERMOST conversion the only one that installs or
+ * restores, and `savedConsole` is only ever read from the console at a
+ * moment when nothing is muted, so it can never hold a swallow.
+ */
+let mutedConversions = 0;
+let savedConsole: ConsoleSink = currentConsole();
+
+/**
+ * Runs the oracle with its console fallback muted.
+ *
+ * Scoped to the call rather than installed once at module load: this
+ * silences the process's console, so anything else logging while it
+ * is in effect would be swallowed too, and the window has to be no
+ * wider than the conversions themselves. `finally` restores even when
+ * the oracle throws, which it does on inputs the grids are built to
+ * contain.
+ * @param convertOnce - the conversion to run muted
+ * @returns whatever the conversion returned
+ */
+async function withoutConsoleFallback<T>(
+  convertOnce: () => Promise<T>,
+): Promise<T> {
+  if (mutedConversions === 0) {
+    savedConsole = currentConsole();
+    installConsole(SWALLOWING);
+  }
+  mutedConversions += 1;
+  try {
+    return await convertOnce();
+  } finally {
+    mutedConversions -= 1;
+    if (mutedConversions === 0) {
+      installConsole(savedConsole);
+    }
+  }
+}
+
+/**
  * Renders AsciiDoc to HTML via Asciidoctor and hands back what the
  * oracle emitted, byte for byte, with nothing normalized.
  *
@@ -117,10 +221,13 @@ LoggerManager.setLogger(nullLogger);
  * @returns Asciidoctor's HTML in safe mode with logging suppressed.
  */
 export async function oracleHtml(input: string): Promise<string> {
-  const result = await convert(input, {
-    safe: "safe",
-    logger: nullLogger,
-  });
+  const result = await withoutConsoleFallback(
+    async () =>
+      await convert(input, {
+        safe: "safe",
+        logger: nullLogger,
+      }),
+  );
   if (typeof result !== "string") {
     throw new TypeError("expected convert() to return a string");
   }
