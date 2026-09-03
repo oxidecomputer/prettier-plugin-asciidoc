@@ -211,6 +211,10 @@ const INDENTED_TWO_LINE_SIZE = 2122;
 /** The four domains, in the order the report prints them. */
 export const PROBE_DOMAINS: readonly ProbeDomain[] = [
   {
+    // HARD_BREAK_SIZE is a hand count over this alphabet plus HARD_BREAK,
+    // not a value the product computes for itself, so a symbol added to
+    // ALPHABET moves what this entry spells without moving the pinned
+    // size, and shortDomain's mismatch message will not say why.
     name: "hard-break",
     what: "the sweep's own alphabet with a hard-break line in it",
     symbols: [

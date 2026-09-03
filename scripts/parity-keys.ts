@@ -131,15 +131,8 @@ export function astAgreesIgnoringKeys(
  * identical formatted bytes, and two ASTs that agree once the family's
  * declared keys are ignored.
  *
- * The BYTE conjunct is load-bearing and is the ONLY thing standing
- * between a byte mover and blanket coverage. `differingCases`
- * (scripts/parity.ts) tests the AST FIRST, so a case whose bytes AND
- * tree both moved lands in the `ast` stream, not the `formatted` one -
- * it reaches {@link blanketCoverage} like any other AST difference,
- * and if its tree diff happens to be confined to the declared keys,
- * this equality is what refuses it. Drop it and a bare trailer would
- * accept "any key-confined tree diff, bytes be damned", which is not
- * what the trailer claims. tests/scripts/parity-keys.test.ts drives
+ * The BYTE conjunct is load-bearing: {@link blanketCoverage} is the
+ * canonical statement of why. tests/scripts/parity-keys.test.ts drives
  * exactly that shape through this predicate.
  *
  * The gate's own two dumps carry DIGESTS, which no key can be stripped

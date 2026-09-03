@@ -28,17 +28,18 @@ The 1/2 split is the reason the contract exists. A gate that cannot tell "I
 checked and it is broken" from "I checked nothing" goes quiet exactly when its
 inputs disappear, and a quiet failure in CI is a green tick. Every harness
 therefore has a measured-nothing floor that exits 2: `parity` has
-`MINIMUM_CASES`, `shape-diff` reports the ids its base dump was missing,
-`triage` refuses a corpus with no groups, `block-structure` refuses a short
-corpus, a short sweep product, an oracle refusal other than the one document it
-pins by id, and ledgers whose header names an oracle other than the installed
-one, `local-docs` refuses a directory with no documents in it, `citation-check`
-refuses a tree with fewer than a hundred citations in it, `probe-domains`
-refuses a generated domain that spelled a different number of documents than it
-is pinned at and a base revision that threw on every document of one, and
-`metrics` refuses a `src` too small to be this repository's. Without the split,
-an empty `src` would score a perfect card — no files means no cycles, no unused
-exports, and no escape hatches, all vacuously true.
+`MINIMUM_CASES`, `shape-diff` reports the ids its base dump was missing (its
+floor exits 1, a recorded gap), `migration-diff` refuses a comparison tree that
+measured nothing, `triage` refuses a corpus with no groups, `block-structure`
+refuses a short corpus, a short sweep product, an oracle refusal other than the
+one document it pins by id, and ledgers whose header names an oracle other than
+the installed one, `local-docs` refuses a directory with no documents in it,
+`citation-check` refuses a tree with fewer than a hundred citations in it,
+`probe-domains` refuses a generated domain that spelled a different number of
+documents than it is pinned at and a base revision that threw on every document
+of one, and `metrics` refuses a `src` too small to be this repository's. Without
+the split, an empty `src` would score a perfect card — no files means no cycles,
+no unused exports, and no escape hatches, all vacuously true.
 
 Every script takes `--help`, and an unrecognized argument is an error, not a
 shrug: a silently dropped `--base` would print a head-only table that looks like
@@ -127,16 +128,17 @@ Parity-Diff: <family>
 
 That line accepts exactly the cases where the formatted bytes are identical
 **and** the two ASTs are deep-equal once the family's declared keys are ignored
-on both sides — proved per case, not asserted. Both halves matter, and the byte
-half is the one that is easy to think redundant: a case that moved BOTH its
-bytes and its tree is sorted by the AST, so it arrives at the blanket pass like
-any other tree difference, and if its tree diff happens to be confined to the
-declared keys then the byte equality is the only thing refusing it. A case that
-moved bytes ALONE never reaches the pass at all — it is in the formatted stream,
-which the pass leaves untouched. Either way it still needs its own per-id
-trailer, as does a case whose tree moved anywhere but in the declared keys. The
-blanket is therefore a NARROWER claim than the per-id form, which excuses
+on both sides, proved per case, not asserted. Both halves matter;
+`blanketCoverage` in `scripts/parity-keys.ts` is the canonical statement of why
+the byte half is not redundant. A case that moved bytes alone, or whose tree
+moved anywhere but in the declared keys, still needs its own per-id trailer, and
+the blanket is therefore a NARROWER claim than the per-id form, which excuses
 whatever its case did.
+
+Proving a bare trailer costs one extra corpus dump per side, memoized so it
+happens once regardless of how many families a run's trailers name and bounded
+like every other child process here by `CHILD_MAX_BUFFER`, so a schema-change
+commit roughly doubles parity's format work.
 
 The two forms may appear in one range, and they interact in one direction: a
 per-id line for an id the bare trailer COVERS declares nothing and fails, naming
@@ -306,7 +308,9 @@ multiset of the source's words minus the multiset of `format(format(source))`'s
 words is non-empty, split on the six ASCII whitespace characters
 `ASCII_WHITESPACE` names, counted over every document of the domain with no
 instability precondition. `--gate` turns a non-empty "another tree renders this
-and we do not" bucket into exit 1; without it the run reports and exits 0.
+and we do not" bucket into exit 1; without it the run reports and exits 0. A
+comparison tree that measured nothing exits 2 with or without `--gate`: a gate
+verdict taken from data that proved nothing is not a verdict.
 
 Each tree pair produces THREE buckets. Two are directional and about renders -
 "the other tree renders this as its source and the candidate does not", and the

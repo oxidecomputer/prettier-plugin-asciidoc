@@ -60,10 +60,9 @@ export interface FamilySets {
    * every case that has that node kind and no case's bytes, so the
    * per-id form would spell a thousand identical lines whose only
    * information is a number. A family here says instead: these keys,
-   * and nothing else, may differ. The gate still has to PROVE that of
-   * every case it excuses ({@link blanketCoverage}), so the blanket is
-   * a narrower claim than a thousand per-id lines, not a looser one -
-   * a per-id trailer excuses whatever that case did.
+   * and nothing else, may differ. {@link blanketCoverage} is the
+   * canonical statement of why the gate still has to PROVE that of
+   * every case it excuses, rather than take the declaration on faith.
    *
    * A family absent from this map cannot be declared bare. That is
    * deliberate: a bare trailer on a family whose diffs are NOT one
