@@ -240,9 +240,7 @@ export default defineConfig(
       "scripts/parity.ts", // 447 -> 467
       "scripts/parity-ledger.ts", // 450 -> 477
       "scripts/shape-registry.ts", // 446 -> 448
-      "tests/parser/ast-invariants.ts", // 397 -> 443
-      "tests/parser/super-sub.test.ts", // 445 -> 445
-      "tests/format/list-continuation.test.ts", // 450 -> 449
+      "tests/parser/ast-invariants.ts", // 441 -> 491
       "tests/scripts/metrics-design.test.ts", // 447 -> 449
       "tests/scripts/parity.test.ts", // 442 -> 444
     ],

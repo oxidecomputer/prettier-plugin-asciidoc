@@ -51,12 +51,33 @@ function captureStdout(body: () => void): string {
 }
 
 /**
+ * The bare-trailer half of a `reportExpectedDiffs` call: the families
+ * a bare trailer declared, the differing-AST ids they run against, and
+ * the coverage proof the gate injects.
+ */
+interface BlanketRun {
+  blanket: readonly string[];
+  ast: readonly string[];
+  covers: (id: string, keys: ReadonlySet<string>) => boolean;
+}
+
+/** No bare trailer, no differing case: what the non-blanket rows run. */
+const NO_BLANKET: BlanketRun = { blanket: [], ast: [], covers: () => false };
+
+/**
  * Report over otherwise clean streams, capturing what it printed and
  * restoring the process exit code the assertions read.
  * @param trailerFailures - the scan failures to feed the gate
+ * @param blanketRun - the bare-trailer half of the same call
+ * @param blanketRun.blanket - the families a bare trailer declared
+ * @param blanketRun.ast - the ids whose AST differs
+ * @param blanketRun.covers - proves one id against a family's keys
  * @returns what was written to stdout, and the exit code it left
  */
-function reportTrailerFailures(trailerFailures: readonly string[]): {
+function reportTrailerFailures(
+  trailerFailures: readonly string[],
+  blanketRun: BlanketRun = NO_BLANKET,
+): {
   output: string;
   exitCode: number | string | undefined;
 } {
@@ -66,7 +87,7 @@ function reportTrailerFailures(trailerFailures: readonly string[]): {
       reportExpectedDiffs({
         expectedDiffs: [],
         trailerFailures,
-        ast: [],
+        ast: blanketRun.ast,
         formatted: [],
         headIds: new Set(["a"]),
         headSize: 1,
@@ -75,8 +96,8 @@ function reportTrailerFailures(trailerFailures: readonly string[]): {
         limit: 20,
         allowParentBlockEnd: false,
         familySets: SYNTHETIC,
-        blanket: [],
-        covers: () => false,
+        blanket: blanketRun.blanket,
+        covers: blanketRun.covers,
         reportCase: () => {
           throw new Error("no case differs, so none may be detailed");
         },
@@ -284,6 +305,37 @@ describe("reportExpectedDiffs: the line that turns a scan into a failure", () =>
     expect(output).toContain("malformed trailer");
     expect(output).not.toContain("cases match");
     expect(exitCode).toBe(1);
+  });
+
+  // The blanket pass is spread into the same failure list
+  // (`...blanketPass.failures`). It is the gate relaxation's own
+  // refusal path: drop that spread and a bare trailer over a family
+  // with no declared keys relaxes the gate anyway, silently.
+  test("a bare trailer over a keyless family fails the run", () => {
+    const { output, exitCode } = reportTrailerFailures([], {
+      blanket: ["fam-ast"],
+      ast: [],
+      covers: () => false,
+    });
+    expect(output).toContain("declares no AST keys");
+    expect(output).not.toContain("cases match");
+    expect(exitCode).toBe(1);
+  });
+
+  // What a bare trailer excuses is the whole claim it makes, so the
+  // success line says how many ids it covered. The count is taken
+  // across the blanket pass (`options.ast.length - ast.length`),
+  // which is also what proves the reduced streams reached the gate:
+  // an uncovered `a` would fail as undeclared instead.
+  test("a covering blanket clears its ids and counts them on the success line", () => {
+    const { output, exitCode } = reportTrailerFailures([], {
+      blanket: ["fam-keyed"],
+      ast: ["a"],
+      covers: () => true,
+    });
+    expect(output).toContain("1 under a bare trailer's declared keys");
+    expect(output).toContain("1 expected diffs, all ledgered");
+    expect(exitCode).not.toBe(1);
   });
 
   test("no trailer failure and no diff prints the success line, leaving the exit code alone", () => {

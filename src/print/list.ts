@@ -172,7 +172,7 @@ type SlurpState =
  *   line that is itself indented ({@link LITERAL_LINE}). After a
  *   blank the branch tests a sibling marker, a `+` and a nestable
  *   marker first and breaks the item on anything else (parser.rb
- *   l.1537-39); under a `+` block metadata "plays out until we find
+ *   l.1522-49); under a `+` block metadata "plays out until we find
  *   the block" ({@link continuationMetadataKind}, parser.rb
  *   l.1483-1501), so the slurp can start several lines below it —
  *   `* a\n+\n[role]\n  lit\n\n* a\n` slurps from a literal the `+`

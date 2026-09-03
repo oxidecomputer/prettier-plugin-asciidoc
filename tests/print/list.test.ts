@@ -197,7 +197,7 @@ describe("whether an item's tail swallows the next marker line", () => {
     ],
     // After a BLANK there is no such tolerance: the branch breaks the
     // item on anything but a marker, a `+` or an indented line
-    // (parser.rb l.1537-39), so the metadata run below the marker
+    // (parser.rb l.1522-49), so the metadata run below the marker
     // never reaches a slurp.
     [
       "an item whose indented tail follows a marker and metadata",
