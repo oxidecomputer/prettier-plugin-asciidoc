@@ -383,6 +383,29 @@ const BLOCK_START_LINE_FACT_FAMILY = "block-start-line-fact";
 const SPAN_ROLE_NODE_FAMILY = "span-role-node";
 
 /**
+ * A continued attribute entry (a value ending in ` \\`) is ONE entry
+ * whose value reaches over the lines the continuation claims (issue
+ * #24): the base tree read each continued line as its own block, the
+ * head tree folds them into the entry's value, and the formatted
+ * bytes keep the author's split points while the render is identical.
+ * NOT formatted-only: the tree loses the blocks the value absorbed.
+ *
+ * Not exported: no grid row cites it.
+ */
+const ATTRIBUTE_CONTINUATION_FAMILY = "attribute-continuation";
+
+/**
+ * A document opening with a `---` fence holds YAML front matter
+ * (issue #21): the base tree read the block as paragraph prose, the
+ * head tree holds one frontMatter leaf replaying the author's bytes,
+ * fence to fence. NOT formatted-only: the paragraph the base built is
+ * gone and a leaf stands in its place.
+ *
+ * Not exported: no grid row cites it.
+ */
+const FRONT_MATTER_FAMILY = "front-matter";
+
+/**
  * The closed family enum. SURFACE HONESTY, not an armed
  * gate: a family id can only legally be a corpus id or an
  * identity-fixture id. The formatted-only subset is exactly
@@ -408,7 +431,9 @@ const SPAN_ROLE_NODE_FAMILY = "span-role-node";
  */
 export const LEDGER_FAMILIES: FamilySets = {
   families: new Set([
+    ATTRIBUTE_CONTINUATION_FAMILY,
     AUTHOR_PLUS_FAMILY,
+    FRONT_MATTER_FAMILY,
     CURVED_QUOTE_NODE_FAMILY,
     PSEUDO_RUN_FOLD_FAMILY,
     MARKER_SPELLING_FAMILY,

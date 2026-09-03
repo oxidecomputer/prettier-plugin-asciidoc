@@ -1,6 +1,6 @@
 {
   "pair/bom/fidelity": {
-    "count": 2017,
+    "count": 2016,
     "examples": [
       "pair/admonition-label-near-0/callout/adjacent/dlist-desc-line@bom",
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/dlist-desc-line@bom",
@@ -8,7 +8,7 @@
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/item@bom",
       "pair/admonition-label-near-1/callout/adjacent/dlist-desc-line@bom"
     ],
-    "sha256": "11386ef2929594e8c4bd9e6e95e14448b18cd9acb1581a9811fafd8168a8adcd",
+    "sha256": "ec0207c9aebbcd1350a5651793636234e78c98441d136b0d78a63de5fc335aa6",
     "issue": "UNTRIAGED"
   },
   "pair/bom/idempotency": {
@@ -36,7 +36,7 @@
     "issue": "UNTRIAGED"
   },
   "pair/clean/fidelity": {
-    "count": 2017,
+    "count": 2016,
     "examples": [
       "pair/admonition-label-near-0/callout/adjacent/dlist-desc-line",
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/dlist-desc-line",
@@ -44,7 +44,7 @@
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/item",
       "pair/admonition-label-near-1/callout/adjacent/dlist-desc-line"
     ],
-    "sha256": "dfda0a13ea68170db5e6b868cd558997105b57acaf245c9987c65cb60303f1ae",
+    "sha256": "fe71a199fe3027b862bc5fbf5b8d1b658a1b0c50d04e5a65b524f879dcf281ee",
     "issue": "UNTRIAGED"
   },
   "pair/clean/idempotency": {
@@ -72,7 +72,7 @@
     "issue": "UNTRIAGED"
   },
   "pair/crlf/fidelity": {
-    "count": 2017,
+    "count": 2016,
     "examples": [
       "pair/admonition-label-near-0/callout/adjacent/dlist-desc-line@crlf",
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/dlist-desc-line@crlf",
@@ -80,7 +80,7 @@
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/item@crlf",
       "pair/admonition-label-near-1/callout/adjacent/dlist-desc-line@crlf"
     ],
-    "sha256": "a8ca0dc5cd45096b4f08d72d31caae6e4b10b9dc60ca6d0dec43e42e1e45ba2b",
+    "sha256": "64d0835d407ae524c6e87d32205b2b715aae289a138f586affacbb8801424e4d",
     "issue": "UNTRIAGED"
   },
   "pair/crlf/idempotency": {
@@ -108,7 +108,7 @@
     "issue": "UNTRIAGED"
   },
   "pair/no-final-newline/fidelity": {
-    "count": 2017,
+    "count": 2016,
     "examples": [
       "pair/admonition-label-near-0/callout/adjacent/dlist-desc-line@no-final-newline",
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/dlist-desc-line@no-final-newline",
@@ -116,7 +116,7 @@
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/item@no-final-newline",
       "pair/admonition-label-near-1/callout/adjacent/dlist-desc-line@no-final-newline"
     ],
-    "sha256": "31004364ffda216ab689de40556969c44b9cef2e06509739d09753195fc3a1f8",
+    "sha256": "304a62bb646acff52e437dc0719ea35b218dbfaeeec103cabe80230e7b4c5ae3",
     "issue": "UNTRIAGED"
   },
   "pair/no-final-newline/idempotency": {
@@ -144,7 +144,7 @@
     "issue": "UNTRIAGED"
   },
   "pair/trailing-ff/fidelity": {
-    "count": 2091,
+    "count": 2090,
     "examples": [
       "pair/admonition-label-near-0/callout/adjacent/dlist-desc-line@trailing-ff",
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/dlist-desc-line@trailing-ff",
@@ -152,7 +152,7 @@
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/item@trailing-ff",
       "pair/admonition-label-near-1/callout/adjacent/dlist-desc-line@trailing-ff"
     ],
-    "sha256": "fd7d6f72008d59a21abeef8d7f574854e55e83eef55642ce2631fef6739e9c5c",
+    "sha256": "faddc8f29967c0626d0bcb646e900c16d9619a39d9ad1ea35a0263e3a23ad557",
     "issue": "UNTRIAGED"
   },
   "pair/trailing-ff/idempotency": {
@@ -180,7 +180,7 @@
     "issue": "UNTRIAGED"
   },
   "pair/trailing-space-first-line/fidelity": {
-    "count": 2019,
+    "count": 2018,
     "examples": [
       "pair/admonition-label-near-0/callout/adjacent/dlist-desc-line@trailing-space-first-line",
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/dlist-desc-line@trailing-space-first-line",
@@ -188,7 +188,7 @@
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/item@trailing-space-first-line",
       "pair/admonition-label-near-1/callout/adjacent/dlist-desc-line@trailing-space-first-line"
     ],
-    "sha256": "d100e0cd73831500936b300f38df10adabae9d4c2b64bc0b60795bc15357aa6b",
+    "sha256": "5619c95cea3f78e09a8bdc05ead383a7a5641d2476a2a87c3099a54a8f80c09b",
     "issue": "UNTRIAGED"
   },
   "pair/trailing-space-first-line/idempotency": {
@@ -216,7 +216,7 @@
     "issue": "UNTRIAGED"
   },
   "pair/trailing-space/fidelity": {
-    "count": 2091,
+    "count": 2090,
     "examples": [
       "pair/admonition-label-near-0/callout/adjacent/dlist-desc-line@trailing-space",
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/dlist-desc-line@trailing-space",
@@ -224,7 +224,7 @@
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/item@trailing-space",
       "pair/admonition-label-near-1/callout/adjacent/dlist-desc-line@trailing-space"
     ],
-    "sha256": "714873030c57e1a0693d0d75b1b55670aed27ce9e0298f65bf61f760d0595b1c",
+    "sha256": "1a47f8b26fa7df035f599865748e306bc5c4491ac787a037be06cd5ea144c63f",
     "issue": "UNTRIAGED"
   },
   "pair/trailing-space/idempotency": {
@@ -252,7 +252,7 @@
     "issue": "UNTRIAGED"
   },
   "pair/trailing-tab/fidelity": {
-    "count": 2091,
+    "count": 2090,
     "examples": [
       "pair/admonition-label-near-0/callout/adjacent/dlist-desc-line@trailing-tab",
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/dlist-desc-line@trailing-tab",
@@ -260,7 +260,7 @@
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/item@trailing-tab",
       "pair/admonition-label-near-1/callout/adjacent/dlist-desc-line@trailing-tab"
     ],
-    "sha256": "6f5bbe98b508329511cf70cb45c3bc4ccb98e55f556d88b6b31657a75a748107",
+    "sha256": "85d88b947b0fae1358cd3c5baa2f0357b162e9e9d0dfa92a72cc4ef0c4c1497c",
     "issue": "UNTRIAGED"
   },
   "pair/trailing-tab/idempotency": {
@@ -288,7 +288,7 @@
     "issue": "UNTRIAGED"
   },
   "pair/trailing-vt/fidelity": {
-    "count": 2091,
+    "count": 2090,
     "examples": [
       "pair/admonition-label-near-0/callout/adjacent/dlist-desc-line@trailing-vt",
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/dlist-desc-line@trailing-vt",
@@ -296,7 +296,7 @@
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/item@trailing-vt",
       "pair/admonition-label-near-1/callout/adjacent/dlist-desc-line@trailing-vt"
     ],
-    "sha256": "bb572e585cbf5104cc84a56c730e4f2ae697d34637f10b3847987904e8c3e8fe",
+    "sha256": "c3b4ade627e621e291ad0162070fbc99c0242ae6d34994a7fec6ac3645328c1b",
     "issue": "UNTRIAGED"
   },
   "pair/trailing-vt/idempotency": {
