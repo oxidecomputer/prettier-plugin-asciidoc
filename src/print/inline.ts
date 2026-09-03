@@ -23,8 +23,7 @@ import { ASCII_WHITESPACE } from "../parse/line-shapes.js";
 import { MARK_BOUNDARY, QUOTE_ROW } from "../parse/inline/quote-boundaries.js";
 import { verbatimText } from "./serialize-inline.js";
 import {
-  attrlistAllowsIt,
-  attrlistInFront,
+  bracketsAllowIt,
   delimitersOf,
   fixedSpanMarks,
   edgeHead,
@@ -497,9 +496,13 @@ function constrainedIsLegal(
  * wrote `&#8220;`, whose `;` the front clause excludes) while
  * `x "`b __a__`" y` may (a space stands there), and the two differ only
  * in what the neighbour is.
+ *
+ * The bracketed runs standing around the span are a separate question
+ * with its own three refusals ({@link bracketsAllowIt}).
  * @param node - the span being considered
  * @param cursor - where the span sits
- * @returns true when both neighbours leave the constrained form legal
+ * @returns true when the span's whole neighbourhood leaves the
+ *   constrained form legal
  */
 function neighboursAllowIt(node: MarkSpanNode, cursor: Cursor): boolean {
   const { front, behind } = MARK_BOUNDARY[node.type];
@@ -526,21 +529,10 @@ function neighboursAllowIt(node: MarkSpanNode, cursor: Cursor): boolean {
   // (issue #83) is the same hazard between two unconstrained spans.
   const mark = spanMarks(node, true).close;
   if (inFront.endsWith(mark) || behindIt.startsWith(mark)) return false;
-  // AN ATTRLIST IN FRONT BELONGS TO THE ROW THAT RESOLVES THE SPAN.
-  // The optional `(?:\[([^\]]+)\])?` group is part of the match, so a
-  // bracketed run flush against a span moves to the constrained row
-  // with it - and two things about that run then answer for the
-  // shortening (attrlistInFront, span-edges.ts, which reads it from the
-  // span's own role where the parser has one and from the printed bytes
-  // of the siblings where it has not).
-  const attrlist = attrlistInFront(
-    headContext(cursor, order),
-    cursor.siblings.slice(0, cursor.index),
-    node.type === "highlight" ? node.role : undefined,
-  );
-  if (attrlist !== undefined && !attrlistAllowsIt(attrlist, mark, front)) {
+  const head = headContext(cursor, order);
+  const { siblings, index } = cursor;
+  if (!bracketsAllowIt(node, { head, siblings, index }, { mark, front }))
     return false;
-  }
   return !front.test(inFront) && !behind.test(behindIt);
 }
 

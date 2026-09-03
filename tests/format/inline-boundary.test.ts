@@ -468,3 +468,101 @@ describe("the shortening is refused where it would move a same mark (issue #72)"
     expect(await formatAdoc(out)).toBe(out);
   });
 });
+
+describe("the shortening reads the attrlist's own left context (issues #85, #88)", () => {
+  // Two more things about the bytes in FRONT of an attrlist's `[`
+  // decide whether the run is still that run to the narrower row.
+  //
+  // A MARK CHARACTER (issue #85). The constrained row's left clause
+  // `(^|[^\p{Word};:}])` CONSUMES a character, and a match of that
+  // same row standing in front of the bracket ends with the mark it
+  // closed - so the character the second match needed is already
+  // spent and its `[` is read as the boundary character instead, the
+  // attributes group gone. `[a]**c**[b]**d**` renders two roles;
+  // shortening BOTH spans keeps only the first, and it chains.
+  //
+  // The same hazard has a second direction, and the refusal has to
+  // reach both: where the span BEHIND is already spelled constrained
+  // in the source, nothing is asked about it and the damage is done
+  // by shortening the span in FRONT onto its row. Only a span behind
+  // on that same row can lose the character - one on any other row is
+  // matched in a pass of its own, by which time the span in front is
+  // an element and the byte before its bracket is a boundary
+  // character nothing has spent.
+  //
+  // A BACKSLASH (issue #88). Only the UNCONSTRAINED rows carry a
+  // `\\?` in front of their attributes group (asciidoctor.rb
+  // l.446-468); on those the escape returns the whole match as
+  // literal text, which the constrained row of the same mark then
+  // re-reads. The constrained rows have no `\\?` at all and take the
+  // backslash through the left clause instead, where an escaped
+  // match keeps its brackets and drops only the escape
+  // (`convert_quoted_text`, substitutors.rb l.1419-1426). So the two
+  // spellings read the escape differently and the shorter one may
+  // not stand in for the wider one.
+  test.each<[string, string, string]>([
+    // issue #85
+    ["[a]**c**[b]**d**", "[a]*c*[b]**d**", "[a]*c*[b]*d*"],
+    ["[a]*c*[b]**d**", "[a]*c*[b]**d**", "[a]*c*[b]*d*"],
+    [
+      "[a]**c**[b]**d**[e]**f**",
+      "[a]*c*[b]**d**[e]**f**",
+      "[a]*c*[b]*d*[e]*f*",
+    ],
+    // issue #85, the span behind already constrained in the source
+    ["[a]**c**[b]*d*", "[a]**c**[b]*d*", "[a]*c*[b]*d*"],
+    ["[a]__c__[b]_d_", "[a]__c__[b]_d_", "[a]_c_[b]_d_"],
+    ["[a]``c``[b]`d`", "[a]``c``[b]`d`", "[a]`c`[b]`d`"],
+    ["[a]##c##[b]#d#", "[a]##c##[b]#d#", "[a]#c#[b]#d#"],
+    ["**c**[b]*d*", "**c**[b]*d*", "*c*[b]*d*"],
+    // issue #88
+    [
+      String.raw`x \[red]**c** y`,
+      String.raw`x \[red]**c** y`,
+      String.raw`x \[red]*c* y`,
+    ],
+    [
+      String.raw`x \[red]__c__ y`,
+      String.raw`x \[red]__c__ y`,
+      String.raw`x \[red]_c_ y`,
+    ],
+    ["x \\[red]``c`` y", "x \\[red]``c`` y", "x \\[red]`c` y"],
+    [
+      String.raw`x \[red]##c## y`,
+      String.raw`x \[red]##c## y`,
+      String.raw`x \[red]#c# y`,
+    ],
+  ])(
+    "%s formats to %s, because %s reads differently",
+    async (source, expected, shorter) => {
+      const input = `${source}\n`;
+      const out = await formatAdoc(input);
+      expect(out).toBe(`${expected}\n`);
+      expect(await formatAdoc(out)).toBe(out);
+      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+      // The refusal is necessary: the spelling the printer would
+      // otherwise have written is a different document to the oracle.
+      expect(await renderedHtml(`${shorter}\n`)).not.toBe(
+        await renderedHtml(input),
+      );
+    },
+  );
+
+  // The other side of both clauses, so neither is a blanket refusal:
+  // a span behind on ANOTHER row cannot take the character, a run
+  // that does not open flush against this span's closing delimiter
+  // never needed it, and an ordinary attrlist with neither a mark nor
+  // a backslash in front of its bracket still shortens.
+  test.each<[string, string]>([
+    ["[a]**c**[b]__d__", "[a]*c*[b]_d_"],
+    ["[a]**c** [b]*d*", "[a]*c* [b]*d*"],
+    ["[a]**c**][b]*d*", "[a]*c*][b]*d*"],
+    ["x [red]**c** y", "x [red]*c* y"],
+  ])("%s still shortens to %s", async (source, expected) => {
+    const input = `${source}\n`;
+    const out = await formatAdoc(input);
+    expect(out).toBe(`${expected}\n`);
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+});

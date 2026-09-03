@@ -62,6 +62,16 @@ export type SpanNode = MarkSpanNode | FixedSpanNode;
 const ATTRLIST_OPEN = "[";
 const ATTRLIST_CLOSE = "]";
 
+// The escape character the UNCONSTRAINED rows carry a `\\?` for in
+// front of that group and the constrained rows do not
+// (asciidoctor.rb l.446-468); see {@link attrlistAllowsIt}.
+const ATTRLIST_ESCAPE = "\\";
+
+// A whole bracketed run and nothing else: the shape the bytes between
+// two spans have when the second one's attributes group opens flush
+// against the first one's closing delimiter.
+const FLUSH_ATTRLIST = /^\[[^\]]+\]$/v;
+
 // What a hard line break prints, spelled here because
 // {@link printedText} is total and a break is one of the nodes it has
 // to answer for.
@@ -281,11 +291,11 @@ export function edgeHead(
  *
  * TOTAL, with no "cannot say" arm: a span prints its own delimiters
  * around its content - which is what makes a nested run of marks
- * visible to {@link attrlistCarriesMark} where the tree alone shows
+ * visible to {@link attrlistAllowsIt} where the tree alone shows
  * only nodes - a raw line prints the line it kept and a hard break its
  * own ` +`, and every other node answers through `verbatimText`, the
  * same function the printer writes it with.
- * @param node - an inline node standing in front of a span
+ * @param node - an inline node standing beside a span
  * @returns its printed bytes
  */
 function printedText(node: InlineNode): string {
@@ -346,7 +356,7 @@ interface AttrlistInFront {
  * @returns the run and its left context, or undefined when no attrlist
  *   stands there
  */
-export function attrlistInFront(
+function attrlistInFront(
   head: string,
   inFront: readonly InlineNode[],
   role: string | undefined,
@@ -367,7 +377,7 @@ export function attrlistInFront(
 
 /**
  * Whether the attrlist standing flush in front of a span leaves the
- * constrained spelling legal. Two independent refusals, each with its
+ * constrained spelling legal. Four independent refusals, each with its
  * own witness.
  *
  * A MARK INSIDE THE RUN. The unconstrained row writes the run into its
@@ -391,18 +401,135 @@ export function attrlistInFront(
  * The character is read through `afterSpecialchars` for the reason
  * quote-boundaries.ts gives: `sub_specialchars` has already run when
  * the quote pass reads it.
+ *
+ * THE MARK ITSELF IN FRONT OF THE BRACKET. That left clause does not
+ * merely test the character, it CONSUMES it - and a match of the same
+ * constrained row standing in front of the bracket ends with the mark
+ * it closed, so the character this match needed is already spent and
+ * the `[` is read as the boundary character instead, the attributes
+ * group gone. `[a]**c**[b]**d**` renders two roles and the doubly
+ * shortened `[a]*c*[b]*d*` renders
+ * `<strong class="a">c</strong>[b]<strong>d</strong>`, the second role
+ * lost. Where no such match stands there, the mark is one the
+ * constrained row may pair with a delimiter of ours instead, which is
+ * the same refusal for the other reason.
+ *
+ * A BACKSLASH IN FRONT OF THE BRACKET. Only the UNCONSTRAINED rows
+ * carry a `\\?` in front of their attributes group (asciidoctor.rb
+ * l.446-468): on those an escaped match is returned as literal text
+ * for the later rows to re-read, while the constrained rows have no
+ * `\\?` at all and take the backslash through the left clause, where
+ * an escaped match keeps its brackets and drops only the escape
+ * (`convert_quoted_text`, substitutors.rb l.1419-1426). So the two
+ * spellings read the escape differently: `x \[red]**c** y` renders
+ * `x <strong class="red">*c</strong>* y` and the shortened
+ * `x \[red]*c* y` renders `x [red]<strong>c</strong> y`.
  * @param attrlist - the run and its left context
  * @param mark - the span's own mark character
  * @param front - the mark's own left-boundary class
- * @returns true when neither refusal applies
+ * @returns true when no refusal applies
  */
-export function attrlistAllowsIt(
+function attrlistAllowsIt(
   attrlist: AttrlistInFront,
   mark: string,
   front: RegExp,
 ): boolean {
   return (
     !attrlist.interior.includes(mark) &&
+    !attrlist.before.endsWith(mark) &&
+    !attrlist.before.endsWith(ATTRLIST_ESCAPE) &&
     !front.test(afterSpecialchars(attrlist.before))
+  );
+}
+
+/**
+ * Whether shortening this span would TAKE the boundary character an
+ * attrlist behind it needs.
+ *
+ * `sub_quotes` runs one gsub per row, and a gsub resumes where its
+ * last match ended: the constrained row's left clause
+ * `(^|[^\p{Word};:}])` consumes a character, so a match of that row
+ * ending flush against the next `[` leaves that `[` to be read as the
+ * boundary character and the attributes group with nowhere to open.
+ * The span asking here is still UNCONSTRAINED, so today its match is
+ * on the row in front and takes nothing; shortening moves it onto the
+ * row that resolves the span behind, where it takes the character
+ * first. Measured: `[red]**c**[b]*d*` renders
+ * `<strong class="red">c</strong><strong class="b">d</strong>` and
+ * `[red]*c*[b]*d*` renders
+ * `<strong class="red">c</strong>[b]<strong>d</strong>`, the second
+ * role lost.
+ *
+ * Only the SAME row can take it. A span behind that is resolved by any
+ * other row is matched in a pass of its own, by which time this span
+ * is an element and the `]` or `>` in front of its bracket is a
+ * boundary character nothing has spent -
+ * `[red]**c**[b]**d**` and `[red]**c**[b]_d_` both stay whole.
+ * @param node - the span whose shortening is in question
+ * @param behind - the siblings behind it, in source order
+ * @returns true when the shortening would take that character
+ */
+function stealsBoundaryBehind(
+  node: MarkSpanNode,
+  behind: readonly InlineNode[],
+): boolean {
+  const between: string[] = [];
+  for (const sibling of behind) {
+    if (!isSpanNode(sibling)) {
+      between.push(printedText(sibling));
+      continue;
+    }
+    if (rowKeyOf(sibling) !== MARK_ROW_KEYS[node.type].constrained) {
+      return false;
+    }
+    const run = between.join("");
+    // The one mark whose attrlist this parser PARSES rides on the span
+    // as a role, so its brackets stand among no siblings at all and
+    // flushness is the absence of anything between.
+    return (
+      FLUSH_ATTRLIST.test(run) ||
+      (run === "" && sibling.type === "highlight" && sibling.role !== undefined)
+    );
+  }
+  return false;
+}
+
+/**
+ * Whether every bracketed run standing around a span leaves the
+ * constrained spelling legal - the one entry point the printer asks,
+ * over the two refusals above.
+ *
+ * A `[...]` run flush against a span is never just text: every
+ * `QUOTE_SUBS` row carries an optional `(?:\[([^\]]+)\])?` group in
+ * front of its opening delimiter (asciidoctor.rb l.446-468), so such a
+ * run belongs to whichever row resolves the span it stands against.
+ * Two runs can therefore answer for one shortening: the run in FRONT
+ * of the span, which moves to the constrained row with it
+ * ({@link attrlistAllowsIt}), and a run BEHIND, whose bracket loses
+ * the boundary character it stands on
+ * ({@link stealsBoundaryBehind}).
+ * @param node - the span whose shortening is in question
+ * @param where - where the span sits among the bytes
+ * @param where.head - what stands in front of the sibling list itself
+ * @param where.siblings - the span's own sibling list
+ * @param where.index - the span's position in it
+ * @param boundary - the span's own mark and left-boundary class
+ * @param boundary.mark - the single mark character it would print
+ * @param boundary.front - the mark's left-boundary class
+ * @returns true when no run standing around the span refuses it
+ */
+export function bracketsAllowIt(
+  node: MarkSpanNode,
+  where: { head: string; siblings: readonly InlineNode[]; index: number },
+  boundary: { mark: string; front: RegExp },
+): boolean {
+  const before = where.siblings.slice(0, where.index);
+  const after = where.siblings.slice(where.index + 1);
+  const role = node.type === "highlight" ? node.role : undefined;
+  const attrlist = attrlistInFront(where.head, before, role);
+  return (
+    (attrlist === undefined ||
+      attrlistAllowsIt(attrlist, boundary.mark, boundary.front)) &&
+    !stealsBoundaryBehind(node, after)
   );
 }
