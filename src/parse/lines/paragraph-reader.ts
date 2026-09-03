@@ -275,6 +275,15 @@ class Paragraph {
    * `  more` renders `item + more`; with `more` flush left it renders
    * `item <br> more` (the common indent is 0), and `text` / ` +` /
    * `  more` is a break too (a plain paragraph is never re-indented).
+   *
+   * The indent is common to ALL of the item's rest lines, the ` +`
+   * line included. So a ` +` with NO content line after it is the
+   * only line that indent is taken over: its own indent IS the
+   * common one, the space always goes, and the plus is literal.
+   * That is what `minIndentAfterPlus` starting at `+Infinity` says,
+   * and it is the reading the oracle gives rather than a vacuous
+   * comparison to guard against - `. item` / ` +` / `. next` renders
+   * `item +`, with no break anywhere.
    * @returns the body's tokens
    */
   finish(): InlineToken[] {

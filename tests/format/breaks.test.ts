@@ -230,3 +230,72 @@ describe("a hard break survives trailing whitespace and EOF", () => {
     },
   );
 });
+
+describe("a lone indented ` +` is the literal the oracle reads", () => {
+  // `adjust_indentation!` takes the common indent of ALL the item's
+  // rest lines, the ` +` line included. With no content line after
+  // it, the ` +` line is the only line that indent is taken over: its
+  // own indent IS the common one, the space always goes, and the bare
+  // `+` that reaches `HardLineBreakRx` (`^(.*) \+$`, which needs the
+  // space) is plain text. ORACLE: `. item` / ` +` / `. next` renders
+  // `item +`, with no break anywhere.
+  //
+  // The formatter escapes that `+` as `{plus}`, which Asciidoctor
+  // renders as the numeric entity for the very same character, so the
+  // comparison decodes it. Only the READING is pinned here. The
+  // spelling is a print-side question of its own (issue #33): pinning
+  // the bytes would settle it by accident.
+  test.each([
+    ["a following item", ". item\n +\n. next\n"],
+    // The same line with trailing blanks. Every line is rstripped
+    // before INDENTED_PLUS (`/^[ \t]+\+$/v`) is asked about it, so
+    // the blanks change nothing and the oracle agrees.
+    ["trailing blanks and nothing else", ". item\n +  \n"],
+  ])("with %s, the ` +` reads as a literal plus", async (_name, input) => {
+    const out = await formatAdoc(input);
+    expect(decodePlusEntity(await renderedHtml(out))).toBe(
+      decodePlusEntity(await renderedHtml(input)),
+    );
+    expect(await formatAdoc(out)).toBe(out);
+  });
+
+  // The two faces of the family that keep their bytes: a ` +` on a
+  // LATER line of an item's text is past the point where the common
+  // indent is taken, so it stays a break, and a ` +` that OPENS a
+  // literal block is inside `<pre>`, where nothing is re-indented at
+  // all. (A ` +` at EOF with no newline is the third; it is pinned
+  // with the rstripped-dialect rows above.)
+  test.each([
+    ["a later line of an item's text", "* a\na\n +\n"],
+    ["the first line of a literal block", " +\nmore\n"],
+  ])("%s keeps its bytes", async (_name, input) => {
+    const out = await formatAdoc(input);
+    expect(out).toBe(input);
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+
+  // The retype reaches the ` +` LINE and no other break in the
+  // paragraph. The item's own marker line ends in a hard break and
+  // the indented content line after the ` +` ends in another; both
+  // must survive while the ` +` between them goes literal.
+  test("the retype reaches the ` +` line and no break outside it", async () => {
+    const input = ". item +\n +\n  more +\n  tail\n";
+    const out = await formatAdoc(input);
+    expect(out).toBe(". item +\n+ more +\ntail\n");
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+
+  // And the reading belongs to ITEM TEXT alone. The same shape in a
+  // plain paragraph, which `adjust_indentation!` never runs over,
+  // keeps its break even though the line after the ` +` is indented
+  // past it.
+  test("the same shape in a plain paragraph keeps its break", async () => {
+    const input = "text\n +\n  more\n";
+    const out = await formatAdoc(input);
+    expect(out).toBe("text\n +\nmore\n");
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+});
