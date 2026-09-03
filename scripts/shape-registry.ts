@@ -1,13 +1,15 @@
 /**
  * The shape registry: the shared input vocabulary for shape-level
- * verification. Three dimension classes —
+ * verification. Four dimension classes:
  * containers (where a construct sits), constructs (everything
  * line-shapes.ts knows, one dimension per rule), perturbations
  * (terminations, codas, garnishes, and for every valid spelling its
- * near-misses) — each entry a named, DETERMINISTIC string generator.
- * The list-run grid lives in its sibling module,
+ * near-misses), and byte operators (document-level transforms applied
+ * to realized inputs). Each entry is a named, DETERMINISTIC string
+ * generator. The list-run grid lives in its sibling module,
  * scripts/shape-registry-list-run.ts, built from this file's Shape
- * vocabulary.
+ * vocabulary; the byte-operator dimension lives in its own sibling
+ * module, scripts/shape-registry-byte-operators.ts, re-exported below.
  *
  * Two consumption modes are designed for; only mode (1) exists:
  * (1) deterministic exhaustive matrices (`scripts/shape-diff.ts`);
@@ -420,6 +422,14 @@ export const PERTURBATIONS: readonly PerturbationEntry[] = [
       wrapped.endsWith("\n") ? wrapped.slice(0, -1) : wrapped,
   },
 ];
+
+// The byte-operator dimension lives in its own module, on the same
+// "split rather than condense" terms as shape-registry-list-run.ts:
+// this file is at its max-lines ceiling. `BYTE_OPERATORS` is
+// re-exported here so it still reads as this registry's vocabulary;
+// `ByteOperatorEntry` stays declared where it is used (no consumer
+// needs the type by name, only the value).
+export { BYTE_OPERATORS } from "./shape-registry-byte-operators.js";
 
 /** One generated shape. */
 export interface Shape {

@@ -5,9 +5,10 @@
  * registry dimension. Rule (ii): every RUNTIME EXPORT NAME of
  * line-shapes.ts is either covered by a dimension's `covers` or named
  * in the EXEMPT map below, and neither list may go stale. Rule (iii):
- * the container and perturbation dimensions match the rosters below in
- * BOTH directions. Rule (iv): every construct dimension either reaches
- * a realized grid or is named in GRID_EXEMPT with its reason. Rule
+ * the container, perturbation and byte-operator dimensions match the
+ * rosters below in BOTH directions. Rule (iv): every construct
+ * dimension either reaches a realized grid or is named in GRID_EXEMPT
+ * with its reason. Rule
  * (v): the realized grids are exactly the sizes pinned below. A pure
  * set difference over runtime values, never a parse.
  *
@@ -37,6 +38,7 @@ import * as lineShapes from "../../src/parse/line-shapes.js";
 import { DELIMITER_KINDS } from "../../src/parse/line-shapes.js";
 import { listRunGrid } from "../shape-registry-list-run.js";
 import {
+  BYTE_OPERATORS,
   CONSTRUCTS,
   CONTAINERS,
   headingAdjacencyGrid,
@@ -171,6 +173,17 @@ const PERTURBATION_IDS: readonly string[] = [
   "longer-delimiter-inside",
   "near-miss-terminator-inside",
   "closed-no-final-newline",
+];
+
+const BYTE_OPERATOR_IDS: readonly string[] = [
+  "trailing-space",
+  "trailing-tab",
+  "trailing-vt",
+  "trailing-ff",
+  "trailing-space-first-line",
+  "crlf",
+  "no-final-newline",
+  "bom",
 ];
 
 // Rule (iv)'s exemptions: construct dimensions whose canonical
@@ -464,6 +477,11 @@ export function shapeCensusFailures(): string[] {
       "perturbation",
       PERTURBATIONS.map((entry) => entry.id),
       PERTURBATION_IDS,
+    ),
+    ...rosterFailures(
+      "byte-operator",
+      BYTE_OPERATORS.map((entry) => entry.id),
+      BYTE_OPERATOR_IDS,
     ),
     ...gridCoverageFailures(inputs),
     ...gridSizeFailures(standing.length, adjacency.length, listRun.length),
