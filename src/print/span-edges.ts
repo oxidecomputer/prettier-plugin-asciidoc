@@ -426,8 +426,8 @@ function attrlistInFront(
  * the same refusal for the other reason.
  *
  * A BACKSLASH IN FRONT OF THE BRACKET. Only the UNCONSTRAINED rows
- * carry a `\\?` in front of their attributes group (asciidoctor.rb
- * l.446-468): on those an escaped match is returned as literal text
+ * carry a `\\?` in front of their attributes group (`QUOTE_SUBS`,
+ * asciidoctor.rb l.439-468): on those an escaped match is returned as literal text
  * for the later rows to re-read, while the constrained rows have no
  * `\\?` at all and take the backslash through the left clause, where
  * an escaped match keeps its brackets and drops only the escape

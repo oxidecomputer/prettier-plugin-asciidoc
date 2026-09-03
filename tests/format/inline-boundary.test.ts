@@ -491,8 +491,8 @@ describe("the shortening reads the attrlist's own left context (issues #85, #88)
   // character nothing has spent.
   //
   // A BACKSLASH (issue #88). Only the UNCONSTRAINED rows carry a
-  // `\\?` in front of their attributes group (asciidoctor.rb
-  // l.446-468); on those the escape returns the whole match as
+  // `\\?` in front of their attributes group (`QUOTE_SUBS`,
+  // asciidoctor.rb l.439-468); on those the escape returns the whole match as
   // literal text, which the constrained row of the same mark then
   // re-reads. The constrained rows have no `\\?` at all and take the
   // backslash through the left clause instead, where an escaped
