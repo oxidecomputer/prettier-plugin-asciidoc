@@ -158,6 +158,8 @@ const CONTAINER_IDS: readonly string[] = [
   "before-h1-adjacent",
   "before-h1-blank",
   "under-note-attrlist",
+  "dlist-desc",
+  "dlist-desc-line",
 ];
 
 const PERTURBATION_IDS: readonly string[] = [
@@ -231,8 +233,9 @@ const GRID_EXEMPT = new Map<string, string>([
 ]);
 
 // Rule (v): the realized grid sizes, pinned. The
-// standing grid is 13 kinds x 19 containers x 12 perturbations plus
-// the two setext pins; the adjacency grid is 10 constructs x 7
+// standing grid is 13 kinds x 21 containers x 12 perturbations plus
+// the two setext pins (the roster grew by the dlist-desc and
+// dlist-desc-line containers); the adjacency grid is 10 constructs x 7
 // positions plus 9 named explicit rows (the original 4 + the 5 R2
 // rows); the
 // list-run grid is a standing selection (its arithmetic is
@@ -241,7 +244,7 @@ const GRID_EXEMPT = new Map<string, string>([
 // so a grid extension moves its pin DELIBERATELY, in the same commit,
 // to the count the new source list produces; it is not a number to
 // discover from a red gate and paste back.
-const STANDING_GRID_SIZE = 2966;
+const STANDING_GRID_SIZE = 3278;
 const HEADING_ADJACENCY_GRID_SIZE = 79;
 const LIST_RUN_GRID_SIZE = 104;
 

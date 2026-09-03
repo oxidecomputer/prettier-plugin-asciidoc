@@ -363,6 +363,13 @@ export const CONTAINERS: readonly ContainerEntry[] = [
   // retires); for verbatim kinds it is the uppercase-word admonition
   // masquerade, pinned byte-stable by the same rows.
   { id: "under-note-attrlist", wrap: (body) => `[NOTE]\n${body}\n` },
+  // The dlist description's two beginnings: inline after the `::`
+  // separator (the position `term:: [` occupies in the known
+  // idempotency failure) and alone on the line the separator ends,
+  // with the body flowing into the description's continuation lines
+  // either way.
+  { id: "dlist-desc", wrap: (body) => `term:: ${body}\n` },
+  { id: "dlist-desc-line", wrap: (body) => `term::\n${body}\n` },
 ];
 
 /**
