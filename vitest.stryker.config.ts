@@ -21,5 +21,19 @@ export default mergeConfig(base, {
   test: {
     pool: "forks",
     fileParallelism: false,
+    // These three hold assertions against the repo's own SOURCE TEXT,
+    // and inside Stryker's sandbox that text is the instrumented
+    // rewrite (every call becomes a mutant-switch ternary), which is
+    // not the domain they measure: the statement-position row and the
+    // repo-internal citation quotes fail on text no real tree
+    // contains, and the near-miss scan reads markers that are not
+    // there. None of them can kill a mutant either - what they read is
+    // identical whichever mutant is active. So the class leaves the
+    // mutation run entirely.
+    exclude: [
+      "tests/parser/architecture.test.ts",
+      "tests/scripts/internal-citations.test.ts",
+      "tests/scripts/metrics-design.test.ts",
+    ],
   },
 });

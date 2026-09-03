@@ -222,6 +222,17 @@ describe("whether an item's tail swallows the next marker line", () => {
   ])("%s: %o", async (_rule, source, swallows) => {
     expect(tailSwallowsMarker(await itemLines(source))).toBe(swallows);
   });
+
+  // The printer derives delimiters from structure, so its output
+  // always closes what it opens - no ITEM prints an unterminated
+  // opener. The walk's type does not know that: it is total over any
+  // line array, and an opener with no closer skips to the end of the
+  // lines (the same fate Ruby gives an unterminated body,
+  // read_lines_until terminator: running out of lines) where nothing
+  // is left to slurp.
+  test("an unterminated opener, which no item prints, skips to the end", () => {
+    expect(tailSwallowsMarker(["* a", "----", "lit"])).toBe(false);
+  });
 });
 
 describe("the gap a block prints behind", () => {
