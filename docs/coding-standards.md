@@ -142,11 +142,16 @@ download. The two do diverge: the transpile spells Ruby's `\p{Word}`
 (`asciidoctor.rb l.436`) as `\p{Alphabetic}\p{N}\p{Pc}` (`index.cjs l.54`), and
 it resolves an ordered list's `start` attribute
 (`Parser.resolveOrderedListStart`, `index.cjs l.12154`) where 2.0.26 has no such
-call at all. Where they diverge, the comment names BOTH, states the divergence,
-and says the oracle wins. `bun run citation-check` holds every citation that
-names its file to that file, that line and the names the comment puts beside it,
-and reports the bare references that name none; a comment that cites nothing
-checkable is fine, a comment that cites the wrong line is a failed gate.
+call at all, and its attrlist group in front of a quoted span
+(`QuoteAttributeListRxt`, `index.cjs l.59`) crosses neither bracket where
+2.0.26's inline spelling (`asciidoctor.rb l.446-468`) crosses an open one, so
+`[a[b]**c**` carries class `b` to the oracle and `a[b` to a reader of the
+vendored rows. Where they diverge, the comment names BOTH, states the
+divergence, and says the oracle wins. `bun run citation-check` holds every
+citation that names its file to that file, that line and the names the comment
+puts beside it, and reports the bare references that name none; a comment that
+cites nothing checkable is fine, a comment that cites the wrong line is a failed
+gate.
 
 **Never a token pattern.** Block-level context comes from the BlockReader and
 from nowhere else, and `tests/parser/architecture.test.ts` is the mechanical

@@ -567,6 +567,77 @@ describe("the shortening reads the attrlist's own left context (issues #85, #88)
   });
 });
 
+describe("the attrlist scan stops at the LAST open bracket (issue #110)", () => {
+  // Which `[` opens the attributes group decides which bytes the
+  // refusals above get to read. The group is `QuoteAttributeListRxt`,
+  // `\[([^\[\]]+)\]`
+  // (`node_modules/@asciidoctor/core/build/node/index.cjs` l.59), and
+  // its interior crosses NEITHER bracket, so the `[` that opens it is
+  // the LAST one in front of its `]` and a `[` standing earlier opens
+  // nothing. Reading the widest run instead put those earlier bytes
+  // INSIDE the interior, where no refusal tests them: an escaping
+  // backslash between the two brackets stopped being a backslash in
+  // front of the group.
+  //
+  // The Ruby the oracle was transpiled from spells the same group
+  // inline as `\[([^\]]+)\]` (`QUOTE_SUBS`,
+  // asciidoctor.rb l.446-468), whose interior does cross a `[`. The
+  // two authorities diverge here and the oracle wins: it renders
+  // `[\[a]**c**` as `[<strong class="a">*c</strong>*`, the narrow
+  // reading, with the escape spent on the group `[a]`.
+  test.each<[string, string]>([
+    // The escape refusal, now reached: the backslash stands in front
+    // of the group even though another `[` stands in front of it.
+    [String.raw`[\[a]**c**`, String.raw`[\[a]*c*`],
+    [String.raw`[\[a]__c__`, String.raw`[\[a]_c_`],
+    ["[\\[a]``c``", "[\\[a]`c`"],
+    [String.raw`[\[a]##c##`, String.raw`[\[a]#c#`],
+    // The same escape with bytes of its own in front of it.
+    [String.raw`[x\[a]**c**`, String.raw`[x\[a]*c*`],
+    [String.raw`[x\[a]__c__`, String.raw`[x\[a]_c_`],
+    // A span standing in the widest run is not in the real group,
+    // and the escape in front of that group still refuses.
+    [String.raw`[\[**c**]__d__`, String.raw`[\[**c**]_d_`],
+    // The word-character refusal reaches the same bytes: `x` is what
+    // stands in front of the group's `[`, not part of its interior.
+    ["[x[a]**c**", "[x[a]*c*"],
+    ["[;[b]**c**", "[;[b]*c*"],
+    ["[}[b]**c**", "[}[b]*c*"],
+  ])(
+    "%s keeps its bytes, because %s reads differently",
+    async (source, shorter) => {
+      const input = `${source}\n`;
+      const out = await formatAdoc(input);
+      expect(out).toBe(input);
+      expect(await formatAdoc(out)).toBe(out);
+      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+      expect(await renderedHtml(`${shorter}\n`)).not.toBe(
+        await renderedHtml(input),
+      );
+    },
+  );
+
+  // The other side of the narrowed scan, so it is not a blanket
+  // refusal: what stands in front of the group's own `[` is read
+  // there and nowhere else, so a `[`, a space or a mark with a space
+  // after it all leave the shortening legal, and a backslash INSIDE
+  // the interior is no escape at all.
+  test.each<[string, string]>([
+    ["[[a]**c**", "[[a]*c*"],
+    ["[ [a]**c**", "[ [a]*c*"],
+    [String.raw`[\a]**c**`, String.raw`[\a]*c*`],
+    ["[*a* [b]**c**", "[*a* [b]*c*"],
+    ["[[a]__c__", "[[a]_c_"],
+    ["[[a]##c##", "[[a]#c#"],
+  ])("%s still shortens to %s", async (source, expected) => {
+    const input = `${source}\n`;
+    const out = await formatAdoc(input);
+    expect(out).toBe(`${expected}\n`);
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+});
+
 describe("a span inside another span's attrlist keeps its spelling (issue #86)", () => {
   // The mirror of the run in FRONT of a span: here the span being
   // respelled stands INSIDE the bracketed run that a span behind it

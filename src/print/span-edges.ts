@@ -57,7 +57,7 @@ type FixedSpanNode = CurvedQuoteNode | SuperscriptNode | SubscriptNode;
  */
 export type SpanNode = MarkSpanNode | FixedSpanNode;
 
-// The attrlist group's own brackets, `(?:\[([^\]]+)\])?`, which
+// The attrlist group's own brackets, `(?:\[([^\[\]]+)\])?`, which
 // every `QUOTE_SUBS` row carries in front of its opening delimiter.
 const ATTRLIST_OPEN = "[";
 const ATTRLIST_CLOSE = "]";
@@ -68,8 +68,8 @@ const ATTRLIST_CLOSE = "]";
 const ATTRLIST_ESCAPE = "\\";
 
 // A bracketed run the bytes in front of a span leave OPEN: a `[` with
-// no `]` after it. `[^\]]+` cannot cross a `]`, so a group standing
-// there can only have opened at that `[`.
+// no `]` after it. The group's interior crosses no `]`, so a group
+// standing there can only have opened at a `[` this run holds.
 const OPEN_BRACKET_RUN = /\[[^\]]*$/v;
 
 // The bytes that CLOSE such a run flush against the span behind them:
@@ -349,17 +349,31 @@ interface AttrlistInFront {
  *
  * A highlight's attrlist is parsed (`rules.ts`'s `RoleAttribute` row,
  * which fires in front of a `#` and nowhere else) and rides on the span
- * as its role, so the printer writes the brackets itself and every byte
- * in front of the span stands in front of them. For the other three
- * marks the same bytes are ordinary text and spans that Ruby reads as a
- * role all the same, so the run is recovered from what those siblings
- * PRINT.
+ * as its role, so the printer writes the brackets itself. For the other
+ * three marks the same bytes are ordinary text and spans that Ruby
+ * reads as a role all the same, so the run is recovered from what those
+ * siblings PRINT. Both are answered by the same scan over the bytes the
+ * printer WRITES in front of the delimiter, a role's own brackets among
+ * them: that rule matches on `[^\]]+`, one character wider than the
+ * group below, so a parsed role is not always the group either.
  *
- * `[^\]]+` cannot cross a `]`, so the group's `[` is the first one
- * standing after the previous `]`; taking the first gives the widest
- * interior, which is the conservative reading of what the group can
- * hold. An empty interior is no attrlist at all, which is why
- * `[]**c**` renders `[]<strong>c</strong>`.
+ * The group's interior is `[^\[\]]+` (`QuoteAttributeListRxt`,
+ * `node_modules/@asciidoctor/core/build/node/index.cjs` l.59), which
+ * crosses NEITHER bracket, so there is exactly one run to read: the
+ * group's `[` is the LAST one standing in front of that `]`, and a `[`
+ * earlier in the line opens nothing. Those earlier bytes stand in
+ * FRONT of the group, which is where {@link attrlistAllowsIt} tests
+ * them; reading them as part of a wider interior hides them from
+ * every one of its clauses. An empty interior is no attrlist at all,
+ * which is why `[]**c**` renders `[]<strong>c</strong>`.
+ *
+ * The Ruby this repo vendors (tag v2.0.26) spells the same group inline
+ * as `\[([^\]]+)\]` in each row (`QUOTE_SUBS`,
+ * asciidoctor.rb l.446-468), an interior that DOES cross a `[`. The
+ * two authorities diverge here and the oracle wins: it renders
+ * `[\[a]**c**` as `[<strong class="a">*c</strong>*`, the narrow
+ * reading, with the escape spent on the group `[a]` and the first `[`
+ * left as text.
  * @param head - what stands in front of the sibling list itself
  * @param inFront - the siblings in front of the span, in source order
  * @param role - the span's own parsed attrlist, for the one mark that
@@ -372,18 +386,24 @@ function attrlistInFront(
   inFront: readonly InlineNode[],
   role: string | undefined,
 ): AttrlistInFront | undefined {
-  const text = head + inFront.map(printedText).join("");
-  if (role !== undefined) return { interior: role, before: text };
+  const siblings = head + inFront.map(printedText).join("");
+  const text =
+    role === undefined
+      ? siblings
+      : `${siblings}${ATTRLIST_OPEN}${role}${ATTRLIST_CLOSE}`;
   // The group's own `\]` has to be the last byte in front of the
   // delimiter; anything else and no group can end there.
   if (!text.endsWith(ATTRLIST_CLOSE)) return undefined;
   const body = text.slice(0, -1);
-  const region = body.slice(body.lastIndexOf(ATTRLIST_CLOSE) + 1);
-  const open = region.indexOf(ATTRLIST_OPEN);
-  const interior = open === -1 ? "" : region.slice(open + 1);
-  return interior === ""
+  const open = body.lastIndexOf(ATTRLIST_OPEN);
+  if (open === -1) return undefined;
+  // Everything after the last `[` holds no `[` by construction; a `]`
+  // in there is one the interior cannot cross either, and nothing in
+  // front of it can open a group that ends at this `]`.
+  const interior = body.slice(open + 1);
+  return interior === "" || interior.includes(ATTRLIST_CLOSE)
     ? undefined
-    : { interior, before: body.slice(0, body.length - region.length + open) };
+    : { interior, before: body.slice(0, open) };
 }
 
 /**
