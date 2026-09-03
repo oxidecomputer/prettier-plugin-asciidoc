@@ -87,34 +87,42 @@ function makeTextNode(
 interface FormattingNodeOptions {
   markType: MarkSpanTokenKind;
   constrained: boolean;
+  role: string | undefined;
   children: InlineNode[];
-  openMark: Fragment;
+  start: Fragment;
   closeMark: Fragment;
   at: LocationIndex;
 }
 
 /**
  * Create a formatting AST node (bold, italic, monospace, or
- * highlight without a role).
+ * highlight), role and all.
  *
  * A single factory for all four formatting types avoids
- * duplicating the shared position/constrained/children
+ * duplicating the shared position/constrained/role/children
  * logic. The switch on the resolved type name ensures each
  * variant gets the correct discriminant for the AST union: the
  * four arms look identical because a spread with a UNION-typed
  * `type` does not narrow to a union member, so each member needs
- * its own literal — a TypeScript price, not a drifting spelling.
- * @param options - Mark type, constraint level, children,
- *   and the open/close mark tokens for position tracking.
+ * its own literal, a TypeScript price rather than a drifting
+ * spelling.
+ *
+ * The key order the four arms spell is a CONTRACT: the AST is
+ * serialized whole for the parity digests (scripts/parity.ts), so
+ * moving `role` in front of `constrained` would rewrite the digest of
+ * every `[role]#x#` document without changing what it means.
+ * @param options - Mark type, constraint level, role, children, the
+ *   token the span's extent starts at and its closing mark.
  * @returns The typed formatting node for the AST.
  */
 function makeFormattingNode(
   options: FormattingNodeOptions,
 ): BoldNode | ItalicNode | MonospaceNode | HighlightNode {
-  const { markType, constrained, children, openMark, closeMark, at } = options;
+  const { markType, constrained, role, children, start, closeMark, at } =
+    options;
   const type = MARK_TO_TYPE[markType];
-  const position = { start: at.start(openMark), end: at.end(closeMark) };
-  const base = { constrained, children, position };
+  const position = { start: at.start(start), end: at.end(closeMark) };
+  const base = { constrained, role, children, position };
   switch (type) {
     case "bold": {
       return { type, ...base };
@@ -126,7 +134,7 @@ function makeFormattingNode(
       return { type, ...base };
     }
     case "highlight": {
-      return { type, role: undefined, ...base };
+      return { type, ...base };
     }
   }
 }
@@ -185,16 +193,39 @@ function innerSpans(
 }
 
 /**
+ * A resolved span's attrlist and the token its EXTENT starts at.
+ *
+ * Ruby's optional `(?:\[([^\]]+)\])?` group sits inside the match, not
+ * in front of it, so a span that wrote one starts at the bracket: the
+ * node's position has to cover the brackets the printer writes back,
+ * and the two facts move together, which is why one call answers both.
+ * The image is sliced by {@link DELIM_WIDTH} at each end because that
+ * is the width of a bracket, the same one character a constrained mark
+ * is spelled with.
+ * @param tokens - the stream the span was resolved from.
+ * @param span - the span being built.
+ * @param openMark - its opening mark, the extent's start when it wrote
+ *   no attrlist.
+ * @returns the role, undefined where there is none, and the start.
+ */
+function roleAndStart(
+  tokens: readonly InlineToken[],
+  span: ResolvedSpan,
+  openMark: InlineToken,
+): { role: string | undefined; start: Fragment } {
+  if (span.role === undefined) {
+    return { role: undefined, start: openMark };
+  }
+  const roleToken = tokens[span.role];
+  return {
+    role: roleToken.image.slice(DELIM_WIDTH, -DELIM_WIDTH),
+    start: roleToken,
+  };
+}
+
+/**
  * Build the node one resolved span stands for, recursing into the
  * tokens between its marks.
- *
- * A role-carrying highlight is built from a LITERAL here rather than
- * through {@link makeFormattingNode} even though the shape matches:
- * this literal spells the keys `type, constrained, role, children,
- * position`, the factory's highlight arm spells `type, role,
- * constrained, children, position`, and serialization order is a
- * contract — unifying them would move keys on every `[.role]#x#`
- * document.
  *
  * The switch on `span.type` is the completeness gate for the whole
  * resolved-span vocabulary: a kind added to `RESOLUTION_ORDER`
@@ -225,38 +256,26 @@ function makeSpanNode(
     case "ItalicMark":
     case "MonoMark":
     case "HighlightMark": {
-      const constrained = openMark.image.length === DELIM_WIDTH;
-      // A span carrying a role is a HIGHLIGHT, and this branch never
-      // asks the span's own kind before saying so. What makes that
-      // safe lives in another file: the RoleAttribute rule is
-      // `/\[[^\]]+\](?=#)/v` (rules.ts), and that lookahead means a
-      // role token can only ever be emitted directly in front of a
-      // HighlightMark - never in front of a curved-quote mark, whose
-      // DoubleQuoteMark/SingleQuoteMark case sits below as its own
-      // switch arm, so this branch IS gated on `span.type` already.
-      // The restriction is OURS, not Asciidoctor's - Ruby's
-      // `QuoteAttributeListRxt` group sits inside all twelve quote
-      // rows, so `[ _a_ ]*x*` really renders
-      // `<strong class="...">x</strong>` while we print the brackets
-      // as text, and `[role]"`a`" y` the same way: the bracket is
-      // never tokenized as RoleAttribute (no `#` follows it), so it
-      // prints as literal text in front of the curved span.
-      if (span.role !== undefined) {
-        const roleToken = tokens[span.role];
-        const highlightNode: HighlightNode = {
-          type: "highlight",
-          constrained,
-          role: roleToken.image.slice(DELIM_WIDTH, -DELIM_WIDTH),
-          children,
-          position: { start: at.start(roleToken), end: at.end(closeMark) },
-        };
-        return highlightNode;
-      }
+      // The role is the attrlist group Ruby carries INSIDE every
+      // `QUOTE_SUBS` row, `(?:\[([^\]]+)\])?` (asciidoctor.rb
+      // l.439-467), so it belongs to the span rather than standing in
+      // front of it as text: `[a]**c**` renders
+      // `<strong class="a">c</strong>`. All four mark kinds take one,
+      // which is why this arm asks only whether the resolution found
+      // one and not which mark it found it on.
+      //
+      // The FOUR is ours, not Asciidoctor's: the RoleAttribute rule is
+      // `/\[[^\]]+\](?=[*_`#])/v` (rules.ts), and that lookahead emits
+      // a role token only in front of these marks, never in front of a
+      // curved-quote, superscript or subscript delimiter, whose switch
+      // arms sit below and carry no role. Ruby reads a role there too,
+      // so `[a]^b^` renders `<sup class="a">b</sup>` while we print the
+      // brackets as literal text in front of the span.
       return makeFormattingNode({
         markType: span.type,
-        constrained,
+        constrained: openMark.image.length === DELIM_WIDTH,
+        ...roleAndStart(tokens, span, openMark),
         children,
-        openMark,
         closeMark,
         at,
       });
@@ -276,8 +295,8 @@ function makeSpanNode(
     // neither is in MARK_TO_TYPE; unlike it they need no `quote`
     // discriminant, because the row IS the node type. Two arms rather
     // than one with a ternary, so the literal each returns spells its
-    // own key order - the serialization contract this file's
-    // role-carrying highlight comment above describes.
+    // own key order - the serialization contract
+    // {@link makeFormattingNode} describes.
     case "SuperscriptMark": {
       const superscriptNode: SuperscriptNode = {
         type: "superscript",

@@ -199,7 +199,7 @@ describe("resolution order leaves proper nesting alone", () => {
     expect(await oracleHtml("*a [r]#b#*")).toContain(
       '<strong>a <span class="r">b</span></strong>',
     );
-    expect(shapes("*a [r]#b#*")).toEqual(['boldc["a ",highlightc["b"]]']);
+    expect(shapes("*a [r]#b#*")).toEqual(['boldc["a ",highlightc(r)["b"]]']);
   });
 
   // A role highlight that CROSSES an emphasis loses, because the mark

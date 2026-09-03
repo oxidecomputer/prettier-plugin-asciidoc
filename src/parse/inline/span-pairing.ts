@@ -129,11 +129,12 @@ export interface ResolvedSpan {
   /** Index of the closing mark token. */
   readonly close: number;
   /**
-   * Index of the `[role]` token in front of a highlight's opening
-   * mark, when the source wrote one - Ruby's optional
-   * `(?:\[([^\]]+)\])?` group, which sits INSIDE every `QUOTE_SUBS`
-   * pattern and is therefore part of the match's extent. Undefined
-   * everywhere else.
+   * Index of the `[role]` token in front of the opening mark, when the
+   * source wrote one - Ruby's optional `(?:\[([^\]]+)\])?` group,
+   * which sits INSIDE every `QUOTE_SUBS` pattern and is therefore part
+   * of the match's extent. Undefined everywhere else, and always
+   * undefined on the rows the tokenizer emits no role token in front
+   * of (`RoleAttribute`, rules.ts).
    */
   readonly role: number | undefined;
 }
@@ -220,7 +221,12 @@ function closeForOpen(
 }
 
 /**
- * The `[role]` token in front of a highlight's opening mark, if any.
+ * The `[role]` token in front of an opening mark, if any.
+ *
+ * Asked of EVERY row, because Ruby's attrlist group sits inside every
+ * one of them; which marks can have a role token standing in front of
+ * them at all is the tokenizer's answer, not this one's
+ * (`RoleAttribute`, rules.ts).
  * @param tokens - the stream being resolved
  * @param openIndex - position of the opening mark
  * @returns the role token's index, or undefined

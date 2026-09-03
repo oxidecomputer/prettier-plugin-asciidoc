@@ -435,50 +435,50 @@ describe("the attrlist divergence family (issue #14, known and byte-neutral)", (
     {
       source: "x ^[red]#c#^ y",
       oracleContains: 'x ^<span class="red">c</span>^ y',
-      shape: ['"x "', 'superscript[highlightc["c"]]', '" y"'],
+      shape: ['"x "', 'superscript[highlightc(red)["c"]]', '" y"'],
     },
     {
       source: "x ~[red]#c#~ y",
       oracleContains: 'x ~<span class="red">c</span>~ y',
-      shape: ['"x "', 'subscript[highlightc["c"]]', '" y"'],
+      shape: ['"x "', 'subscript[highlightc(red)["c"]]', '" y"'],
     },
     {
       source: "x ^[red]*c*^ y",
       oracleContains: 'x ^<strong class="red">c</strong>^ y',
-      shape: ['"x "', 'superscript["[red]",boldc["c"]]', '" y"'],
+      shape: ['"x "', 'superscript[boldc(red)["c"]]', '" y"'],
     },
     {
       source: "x ^[red]_c_^ y",
       oracleContains: 'x ^<em class="red">c</em>^ y',
-      shape: ['"x "', 'superscript["[red]",italicc["c"]]', '" y"'],
+      shape: ['"x "', 'superscript[italicc(red)["c"]]', '" y"'],
     },
     {
       source: "x ^[red]`c`^ y",
       oracleContains: 'x ^<code class="red">c</code>^ y',
-      shape: ['"x "', 'superscript["[red]",monospacec["c"]]', '" y"'],
+      shape: ['"x "', 'superscript[monospacec(red)["c"]]', '" y"'],
     },
     {
       source: "x ^[red]**c**^ y",
       oracleContains: 'x ^<strong class="red">c</strong>^ y',
-      shape: ['"x "', 'superscript["[red]",boldu["c"]]', '" y"'],
+      shape: ['"x "', 'superscript[boldu(red)["c"]]', '" y"'],
       formatted: "x ^[red]*c*^ y",
     },
     {
       source: "x ^[red]__c__^ y",
       oracleContains: 'x ^<em class="red">c</em>^ y',
-      shape: ['"x "', 'superscript["[red]",italicu["c"]]', '" y"'],
+      shape: ['"x "', 'superscript[italicu(red)["c"]]', '" y"'],
       formatted: "x ^[red]_c_^ y",
     },
     {
       source: "x ^[red]``c``^ y",
       oracleContains: 'x ^<code class="red">c</code>^ y',
-      shape: ['"x "', 'superscript["[red]",monospaceu["c"]]', '" y"'],
+      shape: ['"x "', 'superscript[monospaceu(red)["c"]]', '" y"'],
       formatted: "x ^[red]`c`^ y",
     },
     {
       source: "x ^[red]##c##^ y",
       oracleContains: 'x ^<span class="red">c</span>^ y',
-      shape: ['"x "', 'superscript[highlightu["c"]]', '" y"'],
+      shape: ['"x "', 'superscript[highlightu(red)["c"]]', '" y"'],
       formatted: "x ^[red]#c#^ y",
     },
     {
@@ -494,12 +494,12 @@ describe("the attrlist divergence family (issue #14, known and byte-neutral)", (
     {
       source: "x ^[.a.b]#c#^ y",
       oracleContains: 'x ^<span class="a b">c</span>^ y',
-      shape: ['"x "', 'superscript[highlightc["c"]]', '" y"'],
+      shape: ['"x "', 'superscript[highlightc(.a.b)["c"]]', '" y"'],
     },
     {
       source: "x ^[#i]*c*^ y",
       oracleContains: 'x ^<strong id="i">c</strong>^ y',
-      shape: ['"x "', 'superscript["[#i]",boldc["c"]]', '" y"'],
+      shape: ['"x "', 'superscript[boldc(#i)["c"]]', '" y"'],
     },
   ];
 
@@ -523,7 +523,7 @@ describe("the same divergence the other way round", () => {
     {
       source: "x ^[ ]*c*^ y",
       oracleContains: "x <sup><strong>c</strong></sup> y",
-      shape: ['"x ^[ ]"', 'boldc["c"]', '"^ y"'],
+      shape: ['"x ^"', 'boldc( )["c"]', '"^ y"'],
     },
   ];
 
@@ -538,12 +538,12 @@ describe("the same divergence the other way round", () => {
     {
       source: "x ^[,]*c*^ y",
       oracleContains: "x <sup><strong>c</strong></sup> y",
-      shape: ['"x "', 'superscript["[,]",boldc["c"]]', '" y"'],
+      shape: ['"x "', 'superscript[boldc(,)["c"]]', '" y"'],
     },
     {
       source: String.raw`x ^\[red]*c*^ y`,
       oracleContains: "x <sup>[red]<strong>c</strong></sup> y",
-      shape: ['"x "', String.raw`superscript["\\[red]",boldc["c"]]`, '" y"'],
+      shape: ['"x "', String.raw`superscript["\\",boldc(red)["c"]]`, '" y"'],
     },
   ];
 
@@ -597,7 +597,7 @@ describe("where no attrlist is taken, the scan and the oracle agree", () => {
     {
       source: "x ^a[red]#c#^ y",
       oracleContains: "x <sup>a[red]<mark>c</mark></sup> y",
-      shape: ['"x "', 'superscript["a",highlightc["c"]]', '" y"'],
+      shape: ['"x "', 'superscript["a",highlightc(red)["c"]]', '" y"'],
     },
   ];
 
@@ -630,7 +630,7 @@ describe("where no attrlist is taken, the scan and the oracle agree", () => {
     );
     expect(shapes(source)).toEqual([
       '"x "',
-      'superscript[highlightc["c"]]',
+      'superscript[highlightc(red)["c"]]',
       '"a^ y"',
     ]);
     const out = await formatAdoc(source);

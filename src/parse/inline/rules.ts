@@ -692,11 +692,21 @@ export const INLINE_RULES: readonly InlineRule[] = [
   // Ruby's, which also takes `set:`/`counter2:`; the formatter only
   // has to leave the reference alone.
   { type: "AttributeReference", match: pattern(/\{[\w:.\-][\w:.\-]*\}/v) },
-  // `[role]` immediately before `#` — the shorthand attrlist of a
-  // constrained highlight. Ruby has no constant for it: it is the
-  // optional `(?:\[([^\]]+)\])?` group inside every `QUOTE_SUBS`
-  // pattern (asciidoctor.rb l.448-464).
-  { type: "RoleAttribute", match: pattern(/\[[^\]]+\](?=#)/v) },
+  // `[role]` immediately before a bold, italic, monospace or highlight
+  // mark: the shorthand attrlist of the span that mark opens. Ruby has
+  // no constant for it: it is the optional `(?:\[([^\]]+)\])?` group
+  // inside every `QUOTE_SUBS` pattern (asciidoctor.rb l.445-467), and
+  // `[a]**c**` therefore renders `<strong class="a">c</strong>`.
+  //
+  // FOUR of the twelve rows, not all twelve. The other eight - the two
+  // curved pairs, superscript and subscript - carry the same group and
+  // get no token here, so a role in front of one of them stays literal
+  // text (src/ast.ts's CurvedQuoteNode and SuperscriptNode say what
+  // that costs). A lookahead is also all this rule has: it cannot know
+  // whether the mark it sees ever closes, so where none does the token
+  // takes a bracketed run Ruby's own backtracking would have left
+  // alone (pinned in tests/parser/doubled-marks.test.ts).
+  { type: "RoleAttribute", match: pattern(/\[[^\]]+\](?=[*_`#])/v) },
   // `name:target[attrlist]` — InlineMacroRx family, with the macro
   // names enumerated rather than `[a-z]+`: a generic name matches
   // mid-word (`Textfootnote:`) and collides with `https://url[text]`.

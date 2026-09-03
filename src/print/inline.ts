@@ -635,9 +635,20 @@ function behindNeighbour(cursor: Cursor, order: number): string | undefined {
  *
  * Text answers by its own bytes, and a macro, link, xref or anchor by
  * the bytes {@link verbatimText} will actually write. A formatting
- * span answers for its CONTENT only: its own marks are a balanced
- * pair, and Ruby's scan consumes them as one, so they cannot pair
- * with a neighbour's. A curved-quote span answers the same way and
+ * span answers for its content AND its ROLE, and the two halves are
+ * there for opposite reasons. Its own MARKS are a balanced pair that
+ * Ruby's scan consumes as one, so they cannot pair with a
+ * neighbour's and are left out. Its role is the other way round: the
+ * printer writes those bytes onto the line verbatim
+ * (`spanMarks`, src/print/span-edges.ts), the row that resolves the
+ * span writes them into an HTML attribute rather than consuming them
+ * as delimiters, and a LATER row then reads the marks left standing
+ * in there. So a role holding this mark character can pair with a
+ * single mark the shortening would leave behind:
+ * `[b**c]**d** **a**` shortened to `[b**c]**d** *a*` renders
+ * `<strong class="b*<strong>c">d</strong> *a</strong>`, the second
+ * span destroyed and the first one's class rewritten. A curved-quote
+ * span answers the same way and
  * for the same underlying reason applied one row earlier: its own
  * BACKTICKS are consumed by `QUOTE_SUBS` row 2 (or 3), before rows 4
  * and later could ever see them, so they must not count against a
@@ -664,6 +675,9 @@ function carriesMark(
   asking: SpanNode,
 ): boolean {
   if (node === asking) return false;
+  if (isMarkSpanNode(node) && node.role?.includes(mark) === true) {
+    return true;
+  }
   if (isSpanNode(node)) {
     return node.children.some((child) => carriesMark(child, mark, asking));
   }

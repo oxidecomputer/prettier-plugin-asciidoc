@@ -98,10 +98,14 @@ const SPAN_MARKS = { bold: "*", italic: "_", monospace: "`", highlight: "#" };
  * (`**bold**`) work anywhere, including mid-word - and where BOTH are
  * legal they render identically, so the printer writes the
  * constrained one (`constrainedIsLegal` (src/print/inline.ts) decides). A role
- * attribute gives a highlight span semantic meaning used by CSS, e.g.
- * `[.red]#text#`: it is written as an inline attribute list
- * immediately before the mark, not as a block attribute list, so it is
- * emitted here and not through the block printer.
+ * attribute gives a span semantic meaning used by CSS, e.g.
+ * `[.red]#text#` or `[.path]_file_`: it is written as an inline
+ * attribute list immediately before the mark, not as a block attribute
+ * list, so it is emitted here and not through the block printer. All
+ * four mark kinds take one - Ruby's group sits inside all twelve quote
+ * rows - and the prefix belongs to the OPEN mark, which is what puts
+ * its `[` at the head of the atom the block-start hazard net reads
+ * (src/print/block-start-hazard.ts).
  * @param node - the span node.
  * @param constrained - whether to spell it with the single mark.
  * @returns its opening and closing marks.
@@ -112,11 +116,8 @@ export function spanMarks(
 ): { open: string; close: string } {
   const single = SPAN_MARKS[node.type];
   const mark = constrained ? single : `${single}${single}`;
-  if (node.type === "highlight") {
-    const rolePrefix = node.role === undefined ? "" : `[${node.role}]`;
-    return { open: `${rolePrefix}${mark}`, close: mark };
-  }
-  return { open: mark, close: mark };
+  const rolePrefix = node.role === undefined ? "" : `[${node.role}]`;
+  return { open: `${rolePrefix}${mark}`, close: mark };
 }
 
 /**
@@ -347,12 +348,13 @@ interface AttrlistInFront {
  * The attrlist flush in front of a span, read from TWO places because
  * this parser models one of them and prints the other.
  *
- * A highlight's attrlist is parsed (`rules.ts`'s `RoleAttribute` row,
- * which fires in front of a `#` and nowhere else) and rides on the span
- * as its role, so the printer writes the brackets itself. For the other
- * three marks the same bytes are ordinary text and spans that Ruby
- * reads as a role all the same, so the run is recovered from what those
- * siblings PRINT. Both are answered by the same scan over the bytes the
+ * A MARK span's attrlist is parsed (`rules.ts`'s `RoleAttribute` row,
+ * which fires in front of the four mark delimiters and nowhere else)
+ * and rides on the span as its role, so the printer writes the
+ * brackets itself. In front of a curved, superscript or subscript
+ * span the same bytes are ordinary text that Ruby reads as a role all
+ * the same, so there the run is recovered from what those siblings
+ * PRINT. Both are answered by the same scan over the bytes the
  * printer WRITES in front of the delimiter, a role's own brackets among
  * them: that rule matches on `[^\]]+`, one character wider than the
  * group below, so a parsed role is not always the group either.
@@ -514,12 +516,12 @@ function stealsBoundaryBehind(
       return false;
     }
     const run = between.join("");
-    // The one mark whose attrlist this parser PARSES rides on the span
-    // as a role, so its brackets stand among no siblings at all and
+    // A mark span's attrlist is PARSED and rides on the span as its
+    // role, so its brackets stand among no siblings at all and
     // flushness is the absence of anything between.
     return (
       FLUSH_ATTRLIST.test(run) ||
-      (run === "" && sibling.type === "highlight" && sibling.role !== undefined)
+      (run === "" && isMarkSpanNode(sibling) && sibling.role !== undefined)
     );
   }
   return false;
@@ -594,8 +596,7 @@ export function bracketsAllowIt(
 ): boolean {
   const before = where.siblings.slice(0, where.index);
   const after = where.siblings.slice(where.index + 1);
-  const role = node.type === "highlight" ? node.role : undefined;
-  const attrlist = attrlistInFront(where.head, before, role);
+  const attrlist = attrlistInFront(where.head, before, node.role);
   return (
     (attrlist === undefined ||
       attrlistAllowsIt(attrlist, boundary.mark, boundary.front)) &&

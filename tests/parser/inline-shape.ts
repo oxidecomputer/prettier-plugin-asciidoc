@@ -11,8 +11,27 @@ import { parse } from "../../src/parser.js";
 import type { InlineNode } from "../../src/ast.js";
 
 /**
+ * The attrlist a span carries, spelled `(role)`, or the empty string
+ * where it carries none.
+ *
+ * The role is part of a span's IDENTITY, not of its content: two spans
+ * with the same children and different attrlists are different
+ * documents, so a shape that dropped it would stop discriminating
+ * exactly the rows the attrlist suites are made of.
+ * @param node - an inline node
+ * @returns its role in brackets, or ""
+ */
+function roleOf(node: InlineNode): string {
+  if (!("role" in node) || node.role === undefined) {
+    return "";
+  }
+  return `(${node.role})`;
+}
+
+/**
  * A one-line spelling of an inline tree: `bold[...]` for a span,
  * `"..."` for a text run, `u`/`c` for unconstrained/constrained,
+ * `(role)` for the attrlist a span carries,
  * `ref("...")` for a character reference. Tests
  * compare whole shapes rather than probing node by node, because what
  * a resolution change moves is which span exists at all, not one field
@@ -42,7 +61,9 @@ export function shapeOf(node: InlineNode): string {
     return node.type;
   }
   const spelling = "constrained" in node && node.constrained ? "c" : "u";
-  return `${node.type}${spelling}[${node.children.map(shapeOf).join(",")}]`;
+  return `${node.type}${spelling}${roleOf(node)}[${node.children
+    .map(shapeOf)
+    .join(",")}]`;
 }
 
 /**

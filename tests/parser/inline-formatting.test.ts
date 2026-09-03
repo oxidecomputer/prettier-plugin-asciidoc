@@ -465,8 +465,8 @@ describe("inline formatting — InlineChar fallback", () => {
     expect(node0.value).toBe("text { more text");
   });
 
-  test("[not-a-role] without # is plain text", () => {
-    // RoleAttribute requires a # to follow the ].
+  test("[not-a-role] with no mark behind it is plain text", () => {
+    // RoleAttribute requires one of `*_`#` to follow the `]`.
     // Without it, the brackets are consumed by InlineChar
     // and InlineText as plain text.
     const nodes = inlineNodes("[not-a-role] more\n");

@@ -124,6 +124,11 @@ export interface BoldNode extends Node {
    * unconstrained (`**`) delimiters.
    */
   constrained: boolean;
+  /**
+   * Role/style attribute from the preceding `[role]` syntax.
+   * Undefined when no role is specified.
+   */
+  role: string | undefined;
   /** Inline content within the bold span. */
   children: InlineNode[];
 }
@@ -137,6 +142,11 @@ export interface ItalicNode extends Node {
    * unconstrained (`__`) delimiters.
    */
   constrained: boolean;
+  /**
+   * Role/style attribute from the preceding `[role]` syntax.
+   * Undefined when no role is specified.
+   */
+  role: string | undefined;
   /** Inline content within the italic span. */
   children: InlineNode[];
 }
@@ -150,6 +160,11 @@ export interface MonospaceNode extends Node {
    * unconstrained (` `` `) delimiters.
    */
   constrained: boolean;
+  /**
+   * Role/style attribute from the preceding `[role]` syntax.
+   * Undefined when no role is specified.
+   */
+  role: string | undefined;
   /** Inline content within the monospace span. */
   children: InlineNode[];
 }
@@ -187,9 +202,9 @@ export interface HighlightNode extends Node {
  * there is no constrained form for the printer to choose and no state
  * to refuse at runtime. No `role` field either: the rows carry the
  * same optional attrlist group every row has, but the tokenizer's
- * `RoleAttribute` rule only fires in front of `#`, so a role before a
- * curved pair reaches the printer as text (a known gap, kept out of
- * scope for issue #74).
+ * `RoleAttribute` rule fires only in front of the four MARK
+ * delimiters, so a role before a curved pair reaches the printer as
+ * text (a known gap, kept out of scope for issue #74).
  *
  * Serialized key order: `type, quote, children, position`.
  */
@@ -211,9 +226,9 @@ export interface CurvedQuoteNode extends Node {
  * to refuse at runtime. No `role` field either, for the same reason
  * {@link CurvedQuoteNode} has none: the row carries the optional
  * attrlist group every quote row has, but the tokenizer's
- * `RoleAttribute` rule fires only in front of a `#`, so `[red]^a^`
- * reaches the printer as text plus a superscript and prints back byte
- * for byte.
+ * `RoleAttribute` rule fires only in front of the four MARK
+ * delimiters, so `[red]^a^` reaches the printer as text plus a
+ * superscript and prints back byte for byte.
  *
  * Its content can never hold whitespace - `(\S+?)` refuses even a
  * newline - which is what makes the span one unbreakable atom under
