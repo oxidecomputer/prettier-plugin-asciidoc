@@ -221,4 +221,85 @@ describe("AST invariants: (vii) allows a popped + out of the gap", () => {
       expectGapsVerbatim(source, preorder(bad));
     }).toThrow(/dropped a \+ no tail prints back/v);
   });
+
+  // The allowance bounds COUNT, not POSITION - this row pins that the
+  // walk also bounds where the drop falls. The nested item's own `+`
+  // is the FIRST line of the gap it stands under (issue #98); a
+  // recording that instead keeps that leading `+` and drops the
+  // block's own trailing `+` puts the two spellings in the wrong
+  // order, and a gap 2,600 pages of asciidoctor's reader still cannot
+  // produce today must fail loudly rather than pass because the drop
+  // COUNT happened to still be right.
+  test("(vii) bites: a gap drops a + out of its leading prefix", () => {
+    const bad = {
+      type: "document",
+      children: [
+        {
+          type: "list",
+          variant: "unordered",
+          marker: "*",
+          children: [
+            {
+              type: "listItem",
+              markerSpelling: "*",
+              text: [
+                {
+                  type: "text",
+                  value: "a",
+                  position: { start: at(2, 1), end: at(3, 1) },
+                },
+              ],
+              blocks: [
+                {
+                  gap: [],
+                  block: {
+                    type: "list",
+                    variant: "unordered",
+                    marker: "**",
+                    children: [
+                      {
+                        type: "listItem",
+                        markerSpelling: "**",
+                        text: [
+                          {
+                            type: "text",
+                            value: "b",
+                            position: { start: at(7, 2), end: at(8, 2) },
+                          },
+                        ],
+                        blocks: [],
+                        trailingContinuation: true,
+                        position: { start: at(4, 2), end: at(8, 2) },
+                      },
+                    ],
+                    position: { start: at(4, 2), end: at(8, 2) },
+                  },
+                },
+                {
+                  // The real recording for this source drops the
+                  // FIRST between-line ("+", the nested item's own
+                  // tail) and keeps the rest: gap: ["", "", "+"]. This
+                  // row drops the LAST one instead, keeping the
+                  // leading "+": same drop count, wrong position.
+                  gap: ["+", "", ""],
+                  block: {
+                    type: "paragraph",
+                    children: [],
+                    position: { start: at(15, 7), end: at(19, 7) },
+                  },
+                },
+              ],
+              position: { start: at(0, 1), end: at(19, 7) },
+            },
+          ],
+          position: { start: at(0, 1), end: at(19, 7) },
+        },
+      ],
+      position: { start: at(0, 1), end: at(19, 7) },
+    };
+    const source = "* a\n** b\n+\n\n\n+\npara\n";
+    expect(() => {
+      expectGapsVerbatim(source, preorder(bad));
+    }).toThrow(/a gap records a line the source has not got/v);
+  });
 });

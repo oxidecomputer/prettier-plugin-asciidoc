@@ -581,14 +581,20 @@ function tailContinuations(block: AnyNode): number {
 
 /**
  * (vii)'s comparison: the recorded gap is `between` with `allowance`
- * `+` entries dropped and nothing else changed.
+ * `+` entries dropped off its FRONT and nothing else changed.
  *
- * Walked with a cursor rather than compared as multisets, because
- * ORDER is what the printer replays — a gap holding the same bytes in
- * another order prints a different document. Each source line either
- * matches the next recorded entry or is a dropped `+`; a dropped
- * blank, an entry the source has not got, and a drop count other than
- * the allowance all fail.
+ * `allowance` is known independently of what the gap recorded
+ * (`tailContinuations` counts the block standing above, not this
+ * gap), so what the gap may omit is fixed before this walk ever reads
+ * it: the allowance-many lines at the FRONT of `between`. A block's
+ * own trailing `+` prints immediately after the block itself, never
+ * after a line the enclosing item's own gap goes on to hold, so a
+ * drop anywhere but the leading run would have the gap and the
+ * printed output disagree on order, sliced rather than matched by a
+ * cursor for exactly that reason: two adjacent `+` lines are the same
+ * VALUE, so a cursor that prefers to match early cannot tell "dropped
+ * the first" from "dropped the second" apart, and only a position
+ * fixed in advance says which one this gap was allowed to drop.
  * @param gap - the recorded gap, as the node carries it
  * @param between - the source lines between the item's two pieces,
  *   each normalized to `""` or `"+"`
@@ -602,22 +608,16 @@ function expectGapOmitsOnlyTailPluses(
 ): void {
   const recorded = isArray(gap) ? gap : [];
   const seen = `gap ${JSON.stringify(recorded)} against ${JSON.stringify(between)}`;
-  let index = 0;
-  let dropped = 0;
-  for (const line of between) {
-    if (index < recorded.length && recorded[index] === line) {
-      index += 1;
-      continue;
-    }
-    dropped += 1;
+  expect(between.length, `a gap dropped a + no tail prints back: ${seen}`).toBe(
+    recorded.length + allowance,
+  );
+  for (const line of between.slice(0, allowance)) {
     expect(line, `a gap dropped a blank line: ${seen}`).toBe("+");
   }
-  expect(index, `a gap records a line the source has not got: ${seen}`).toBe(
-    recorded.length,
-  );
-  expect(dropped, `a gap dropped a + no tail prints back: ${seen}`).toBe(
-    allowance,
-  );
+  expect(
+    between.slice(allowance),
+    `a gap records a line the source has not got: ${seen}`,
+  ).toEqual(recorded);
 }
 
 /**
