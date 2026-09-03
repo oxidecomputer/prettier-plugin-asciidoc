@@ -123,12 +123,13 @@ export function isBlockMetadata(block: BlockNode): boolean {
  * line is what this module's records are about.
  *
  * "Only text" is a CLOSURE over the InlineNode union, checked kind by
- * kind on 2026-08-26 and true of all of them: an attributeReference
+ * kind on 2026-09-03 and true of all of them: an attributeReference
  * prints its own source (`{empty}` included), a rawLine owns an output
- * line, a hardLineBreak prints ` +`, and every span kind carries its
- * marks. A kind that later prints nothing and is not text would make
- * this under-answer, which returns the caller to the behavior it had
- * before the filter existed rather than to a wrong answer.
+ * line, a hardLineBreak prints ` +`, an escapedMark prints a backslash
+ * and a mark, and every span kind carries its marks. A kind that later
+ * prints nothing and is not text would make this under-answer, which
+ * returns the caller to the behavior it had before the filter existed
+ * rather than to a wrong answer.
  * @param node - one inline child of a paragraph
  * @returns Whether the printer emits nothing for it.
  */

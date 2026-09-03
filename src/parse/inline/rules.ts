@@ -687,6 +687,10 @@ export const INLINE_RULES: readonly InlineRule[] = [
   { type: "Passthrough", match: matchPassthrough },
   // Escaped inline formatting mark: `\*`, `\_`, `` \` ``, `\#`
   // (substitutors.rb strips the backslash when it applies quotes).
+  // FOUR of the six marks a `QUOTE_SUBS` unconstrained row can escape:
+  // `\^` and `\~` (asciidoctor.rb l.466, l.468) are deliberately not
+  // here, and stay in the text run, which prints the same bytes -
+  // src/ast.ts's EscapedMarkNode names that gap and what it costs.
   { type: "BackslashEscape", match: pattern(/\\[*_`#]/v) },
   // `{name}` / `{counter:name}` — AttributeReferenceRx. Narrower than
   // Ruby's, which also takes `set:`/`counter2:`; the formatter only

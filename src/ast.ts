@@ -287,6 +287,64 @@ export interface CharacterReferenceNode extends Node {
 }
 
 /**
+ * An escaped formatting mark: `\*`, `\_`, `` \` `` or `\#`.
+ *
+ * The backslash is Asciidoctor's escape for a `QUOTE_SUBS` row that
+ * WOULD otherwise resolve a span here, and nothing at all where no row
+ * would. Each of the six UNCONSTRAINED rows opens with a bare optional
+ * `\\?` - a literal outside every group, capturing nothing
+ * (asciidoctor.rb l.446-468); the CONSTRAINED rows have no such
+ * literal and take the backslash through their left boundary class
+ * instead (`(^|[^#{CC_WORD};:}])`, asciidoctor.rb l.448), which admits
+ * it because a backslash is no word character. Where a row does match,
+ * `convert_quoted_text` sees a match beginning with the backslash and
+ * writes the matched text back with the backslash removed and no span
+ * built (substitutors.rb l.1419-1425), so `x \*a* y` renders
+ * `x *a* y`. Where NO row matches - `a\*b`, whose marks stand
+ * mid-word where no boundary clause admits them - the oracle consumes
+ * neither byte and `a\*b` renders as itself, backslash included. This
+ * node names the PAIR either way; which of the two readings applies is
+ * a fact about the rest of the line, not about the two characters.
+ *
+ * The four marks and not six: `\^` and `\~` open the last two
+ * unconstrained rows (asciidoctor.rb l.466, l.468) and get no node,
+ * because the tokenizer has no rule for them - they melt into a text
+ * run, which prints the same bytes and renders correctly
+ * (measured: `x \^a^ y` and `x \~a~ y` round-trip render-equal).
+ * They are the gap this vocabulary leaves, named here so the next
+ * reader does not have to rediscover it.
+ *
+ * A LEAF holding its own two bytes, for the reason every verbatim
+ * leaf here holds its own: those bytes decide what the marks around
+ * them mean. Left inside a text run they were indistinguishable from
+ * a mark the author simply wrote, so the printer could not tell the
+ * escape from what it escapes, and any rule that reasons about
+ * pairing near one had nothing in the tree to read. The node holds no
+ * whitespace, so it is one atom under reflow and can never be broken
+ * open between its backslash and its mark.
+ *
+ * WHAT THIS NODE DOES NOT MODEL. An escaped UNCONSTRAINED match is
+ * re-read by the CONSTRAINED row that runs next, over the text the
+ * escape's own removal produced: `\**a**` renders
+ * `<strong>*a</strong>*`, a real strong span whose content is `*a`,
+ * not the literal run the spelling suggests. Resolving that means
+ * reading a row's own output, which is outside this parser's
+ * one-coordinate-space model (`src/parse/inline/doubled-marks.ts`
+ * says why), so the marks behind the escape stay the literal text
+ * they are here. The bytes are the author's either way, and the pins
+ * in tests/format/escaped-mark.test.ts hold the whole family
+ * render-equal; what is missing is a span node, not a rendering.
+ *
+ * Serialized key order: `type, value, position`.
+ */
+export interface EscapedMarkNode extends Node {
+  /** Node discriminant. */
+  type: "escapedMark";
+  /** The backslash and the mark it escapes, verbatim. */
+  value: string;
+}
+
+/**
  * An attribute reference: `{name}`. Preserved verbatim in the
  * AST — the formatter does not resolve attribute values. Also
  * covers counter attributes like `{counter:name}`.
@@ -480,6 +538,7 @@ export type InlineNode =
   | SuperscriptNode
   | SubscriptNode
   | CharacterReferenceNode
+  | EscapedMarkNode
   | AttributeReferenceNode
   | InlineMacroNode
   | LinkNode

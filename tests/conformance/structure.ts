@@ -413,6 +413,7 @@ export const AST_KIND_CENSUS: ReadonlyMap<string, string> = new Map([
   ["superscript", "inline, out of scope"],
   ["subscript", "inline, out of scope"],
   ["characterReference", "inline, out of scope"],
+  ["escapedMark", "inline, out of scope"],
   ["attributeReference", "inline, out of scope"],
   ["link", "inline, out of scope"],
   ["xref", "inline, out of scope"],

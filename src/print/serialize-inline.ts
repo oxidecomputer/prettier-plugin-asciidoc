@@ -7,14 +7,15 @@
  * The bottom half is the printer's ONE entry into all of it:
  * {@link verbatimText}, which turns any {@link VerbatimNode} — the
  * four constructs above, plus attribute references, character
- * references and passthroughs, into the single line the atom
- * packer measures. It sits here rather
+ * references, escaped marks and passthroughs, into the single line
+ * the atom packer measures. It sits here rather
  * than in inline.ts because it is serialization, and because
  * inline.ts is at the max-lines limit.
  */
 import type {
   AttributeReferenceNode,
   CharacterReferenceNode,
+  EscapedMarkNode,
   InlineAnchorNode,
   InlineMacroNode,
   LinkNode,
@@ -191,6 +192,7 @@ type VerbatimNode =
   | LinkNode
   | XrefNode
   | InlineAnchorNode
+  | EscapedMarkNode
   | PassthroughNode;
 
 /**
@@ -325,6 +327,13 @@ export function verbatimText(node: VerbatimNode): string {
           ? bibliographyAnchorToSource(node)
           : anchorToSource(node),
       );
+    }
+    // Both bytes, and no collapse to run: an escaped mark is a
+    // backslash and one mark character, so it holds no whitespace and
+    // no source line break for joinSourceLines to find. Emitting only
+    // the mark would build the span the author escaped.
+    case "escapedMark": {
+      return node.value;
     }
     case "passthrough": {
       return passthroughText(node);

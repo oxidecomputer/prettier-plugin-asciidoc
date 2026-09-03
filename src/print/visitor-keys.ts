@@ -190,6 +190,9 @@ const CHILD_KEYS = declareVisitorKeys({
   superscript: ["children"],
   subscript: ["children"],
   characterReference: [],
+  // An escaped mark is an atomic leaf for the same reason: its two
+  // bytes live in `value` and neither is a node.
+  escapedMark: [],
   attributeReference: [],
   inlineMacro: [],
   link: [],

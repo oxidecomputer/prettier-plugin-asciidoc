@@ -26,6 +26,7 @@ import type {
   SuperscriptNode,
   SubscriptNode,
   CharacterReferenceNode,
+  EscapedMarkNode,
   AttributeReferenceNode,
 } from "../../ast.js";
 import type { Fragment, LocationIndex } from "../positions.js";
@@ -416,6 +417,31 @@ function makeCharacterReference(
   };
 }
 
+/**
+ * Build an EscapedMarkNode from a `\*`, `\_`, `` \` `` or `\#` token.
+ *
+ * Both bytes are the value. The backslash is what tells the printer
+ * that the mark behind it is a character and not a delimiter, and
+ * dropping it would build a mark the author escaped; keeping it inside
+ * a text run, as this used to, left the printer no way to tell the two
+ * apart at all. Atomic under reflow for the same reason the character
+ * reference is: the value holds no whitespace, so the packer measures
+ * one string and can never break between the escape and its mark.
+ * @param fragment - The BackslashEscape token's span.
+ * @param at - The document's location index.
+ * @returns An EscapedMarkNode carrying the verbatim source.
+ */
+function makeEscapedMark(
+  fragment: Fragment,
+  at: LocationIndex,
+): EscapedMarkNode {
+  return {
+    type: "escapedMark",
+    value: fragment.image,
+    position: { start: at.start(fragment), end: at.end(fragment) },
+  };
+}
+
 // Map from token kind to factory function for atomic
 // (single-token) inline nodes, avoiding a long if/else chain.
 type AtomicFactory = (fragment: Fragment, at: LocationIndex) => InlineNode;
@@ -423,7 +449,10 @@ type AtomicFactory = (fragment: Fragment, at: LocationIndex) => InlineNode;
 // The kinds {@link buildNodes}'s own loop handles WITHOUT a factory:
 // the raw line and the role attribute have branches of their own, the
 // four marks pair into spans, a newline becomes `\n`, and the rest
-// accumulate as plain text.
+// accumulate as plain text. An unpaired MARK is in that last group,
+// which is the whole distinction the escaped mark's own factory
+// draws: a mark no span claimed is the byte the author wrote, while
+// `\*` is the byte plus the reason it renders as itself.
 type LoopHandledKind =
   | "RawLine"
   | "RoleAttribute"
@@ -437,8 +466,7 @@ type LoopHandledKind =
   | "SubscriptMark"
   | "InlineNewline"
   | "InlineText"
-  | "InlineChar"
-  | "BackslashEscape";
+  | "InlineChar";
 
 // Everything left: the kinds that MUST have a factory below.
 type AtomicKind = Exclude<InlineTokenType, LoopHandledKind>;
@@ -462,6 +490,7 @@ const ATOMIC_DISPATCH = new Map<string, AtomicFactory>(
     HardLineBreak: makeHardLineBreak,
     Passthrough: makePassthroughNode,
     CharacterReference: makeCharacterReference,
+    BackslashEscape: makeEscapedMark,
   } satisfies Record<AtomicKind, AtomicFactory>),
 );
 

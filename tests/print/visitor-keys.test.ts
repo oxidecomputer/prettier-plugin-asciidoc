@@ -58,6 +58,7 @@ const HAND_WRITTEN = [
   "Some *bold* and _italic_ and `mono` and #marked# text,",
   "a \"`curved double`\" quote and a '`curved single`' quote,",
   "a ^super^ and a ~sub~ span, a (C) and an -- and a &copy; reference,",
+  String.raw`an escaped \* mark that opens nothing (issue #84),`,
   "an {attribute} reference, a https://example.com[link], an",
   "<<xref,cross reference>>, an image:pic.png[alt] macro, an",
   "[[inline-anchor]] anchor, and a hard break +",

@@ -153,63 +153,57 @@ describe("inline formatting — mixed", () => {
   });
 });
 
-// Backslash escapes are tokenised by the `BackslashEscape` rule in
-// src/parse/inline/rules.ts and converted to text nodes by
-// inline-node-builder.ts. The backslash is preserved in the
-// value so the printer can round-trip the escape.
+// A backslash in front of a mark is its own node (issue #84): the
+// `BackslashEscape` rule in src/parse/inline/rules.ts tokenises it and
+// inline-node-builder.ts builds an `escapedMark` leaf holding both
+// bytes. It used to melt into the surrounding text run, which left the
+// printer unable to tell an escape from the mark it escapes.
 describe("inline formatting — backslash escapes", () => {
-  test("backslash before * prevents bold — produces literal text", () => {
+  test("backslash before * is an escapedMark, then literal text", () => {
+    // Before this was modelled the whole line came back as ONE text
+    // node whose value happened to start with a backslash.
     const nodes = inlineNodes(`${String.raw`\*not bold*`}\n`);
-    // The escaped mark should produce text, not a bold node.
-    // The backslash is preserved in the value for round-trip
-    // safety — the formatter re-emits it so re-parsing
-    // produces the same AST.
-    expect(nodes).toHaveLength(1);
-    const [node0] = nodes;
-    narrow(node0, "text");
-    expect(node0.value).toBe(String.raw`\*not bold*`);
+    expect(nodes.map((node) => node.type)).toEqual(["escapedMark", "text"]);
+    const [escape, rest] = nodes;
+    narrow(escape, "escapedMark");
+    narrow(rest, "text");
+    expect(escape.value).toBe(String.raw`\*`);
+    expect(rest.value).toBe("not bold*");
   });
 
   // Same principle as the \* test above: the backslash escape
-  // prevents the _ from opening an italic span.
-  test("backslash before _ prevents italic — produces literal text", () => {
+  // prevents the _ from opening an italic span, and the escape is
+  // the node that says so.
+  test("backslash before _ is an escapedMark, then literal text", () => {
     const nodes = inlineNodes(`${String.raw`\_not italic_`}\n`);
-    expect(nodes).toHaveLength(1);
-    const [node0] = nodes;
-    narrow(node0, "text");
-    expect(node0.value).toBe(String.raw`\_not italic_`);
+    expect(nodes.map((node) => node.type)).toEqual(["escapedMark", "text"]);
+    const [escape] = nodes;
+    narrow(escape, "escapedMark");
+    expect(escape.value).toBe(String.raw`\_`);
   });
 
-  test("backslash before unconstrained ** — escape prevents bold", () => {
-    // The backslash escape pattern /\\[*_`#]/ matches \* (one
-    // char after backslash). So \** → BackslashEscape(\*) then
-    // the second * begins an unmatched constrained mark that
-    // falls through as text together with the rest.
+  test("backslash before an unconstrained ** escapes only the escape", () => {
+    // The rule matches ONE character behind the backslash, so `\**`
+    // is `escapedMark(\*)` and then a `*` the doubled-mark scan did
+    // not claim, which falls through as text with the rest.
+    //
+    // What the oracle does here is NOT what this tree says, and the
+    // gap is recorded rather than papered over (src/ast.ts's
+    // EscapedMarkNode says it too): the escaped UNCONSTRAINED match
+    // writes its text back WITHOUT the backslash, and the constrained
+    // row that runs next pairs what is left, so `\**a**` renders
+    // `<strong>*a</strong>*` - a real strong span. Reading it that way
+    // means re-reading a row's own output, which this parser's one
+    // coordinate space cannot express. The bytes are the author's
+    // either way, which is why the render survives; what is missing is
+    // a span node.
     const nodes = inlineNodes(`${String.raw`\**not bold**`}\n`);
-    // After the escape token, the remaining sequence *not bold**
-    // is: one * (potential constrained open) + "not bold" + **
-    // (unconstrained close). A constrained open cannot pair with
-    // an unconstrained close, and the constrained close would
-    // require the char after it to be non-word — here it's *,
-    // which satisfies that, but the token already emitted as
-    // BackslashEscape means the subsequent marks lose pairing
-    // context. In any case the result is all plain text.
-    expect(nodes.length).toBeGreaterThanOrEqual(1);
-    // Regardless of how many text nodes, the full image must be
-    // reconstructable and contain the backslash.
-    const fullText = nodes
-      .map((n) => {
-        if (n.type === "text") {
-          return n.value;
-        }
-        return "";
-      })
-      .join("");
-    expect(fullText).toContain(String.raw`\*`);
-    // Must NOT produce a bold node — the escape prevents it.
-    for (const node of nodes) {
-      expect(node.type).not.toBe("bold");
-    }
+    expect(nodes.map((node) => node.type)).toEqual(["escapedMark", "text"]);
+    const [escape, rest] = nodes;
+    narrow(escape, "escapedMark");
+    narrow(rest, "text");
+    expect(escape.value).toBe(String.raw`\*`);
+    expect(rest.value).toBe("*not bold**");
   });
 });
 

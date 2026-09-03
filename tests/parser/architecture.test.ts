@@ -313,7 +313,7 @@ describe("parse-layer architecture", () => {
   );
 
   // A CENSUS of the `type: "…"` discriminant literals declared in
-  // src/ast.ts, and a GATE rather than prose: a 44th fails this row
+  // src/ast.ts, and a GATE rather than prose: a 45th fails this row
   // until it is deliberately updated. The count is DIRECTIONLESS — it
   // is neither a budget nor a score, so a rise is not a cost and a
   // fall is not progress; what the row buys is that no declaration
@@ -373,10 +373,33 @@ describe("parse-layer architecture", () => {
   // later change; when it lands the census falls by one even as the
   // tree gains structure, which is why the row above says the count
   // is directionless.
-  test("the node-kind census is 46", () => {
+  //
+  // 47, moved up from 46 with the ESCAPED MARK (issue #84): `\*`,
+  // `\_`, `` \` `` and `\#` become one leaf holding both bytes. ONE
+  // kind and not four, unlike the pairs above, because the four
+  // spellings answer every question identically - the node replays
+  // its own two characters and holds no children - and the mark it
+  // carries is already in the value. It moves the wire wherever a
+  // document spelled one: a text run that held an escape now
+  // serializes as a run, a node and a run.
+  //
+  // NO OUTPUT BYTE MOVES over the domain measured: the 1,614-document
+  // corpus at printWidth 80 and 40, and two directed sweeps over the
+  // four marks (1,052 inputs, widths 80 down to 14). OUTSIDE it one
+  // does, and the witness is worth carrying: `aaa **` plus an escaped
+  // backtick plus `abc` at printWidth 8 wrapped after `aaa` before
+  // this kind existed and now stays on one 11-column line, because
+  // the escape is an atom of its own and returns glue, so the packer
+  // commits to the two-character `**` run in front of it and has
+  // nowhere left to break. That is the behaviour every other verbatim
+  // leaf in that position already had - `aaa **{attr}abc` is one
+  // over-width line with or without this change - so it is an
+  // existing class joined rather than a new one, and both spellings
+  // render the same.
+  test("the node-kind census is 47", () => {
     const source = readFileSync("src/ast.ts", "utf8");
     const kinds = source.match(/^ {2}type: "[a-zA-Z]+";$/gmv) ?? [];
-    expect(kinds).toHaveLength(46);
+    expect(kinds).toHaveLength(47);
   });
 
   test("only the classification pass imports a pattern from the registry", () => {

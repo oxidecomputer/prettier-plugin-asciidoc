@@ -13,6 +13,9 @@
  */
 import type {
   InlineNode,
+  TextNode,
+  CharacterReferenceNode,
+  EscapedMarkNode,
   BoldNode,
   ItalicNode,
   MonospaceNode,
@@ -258,6 +261,34 @@ export function delimitersOf(node: SpanNode): { open: string; close: string } {
     : fixedSpanMarks(node);
 }
 
+// A neighbour that prints exactly its own `value` and nothing else.
+// Every other non-span kind answers `undefined` to both edge
+// questions, not because its bytes are unknowable but because they
+// are assembled elsewhere (serialize-inline.ts) and a boundary read
+// off a reassembly is a second source of truth.
+type OwnValueNode = TextNode | CharacterReferenceNode | EscapedMarkNode;
+
+/**
+ * Whether a neighbour's printed bytes are its own `value`.
+ *
+ * One predicate rather than the same disjunction written into both
+ * edge functions, because the two must never disagree about which
+ * kinds they can read. The ESCAPED MARK is here and not among the
+ * kinds that answer `undefined`: `\*` prints the two characters it
+ * holds, and they are the characters that stood in the text run this
+ * node was carved out of, so reading them keeps every respelling
+ * decision beside one exactly where it was before the node existed.
+ * @param node - the neighbour being read
+ * @returns whether its `value` is what it prints
+ */
+function hasOwnValue(node: InlineNode): node is OwnValueNode {
+  return (
+    node.type === "text" ||
+    node.type === "characterReference" ||
+    node.type === "escapedMark"
+  );
+}
+
 /**
  * The TAIL of what stands in front of a span, as row `askingOrder` reads
  * it, or undefined when the neighbour's printed bytes are not ours to
@@ -270,7 +301,7 @@ export function edgeTail(
   neighbour: InlineNode,
   askingOrder: number,
 ): string | undefined {
-  if (neighbour.type === "text" || neighbour.type === "characterReference") {
+  if (hasOwnValue(neighbour)) {
     return afterSpecialchars(neighbour.value);
   }
   if (!isSpanNode(neighbour)) return undefined;
@@ -290,7 +321,7 @@ export function edgeHead(
   neighbour: InlineNode,
   askingOrder: number,
 ): string | undefined {
-  if (neighbour.type === "text" || neighbour.type === "characterReference") {
+  if (hasOwnValue(neighbour)) {
     return neighbour.value;
   }
   if (!isSpanNode(neighbour)) return undefined;
