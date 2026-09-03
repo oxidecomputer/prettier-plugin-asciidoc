@@ -63,9 +63,11 @@ function isQuarantineEntry(
 /**
  * Parses and validates the manifest. Validation is strict because a
  * malformed entry would silently excuse real failures.
- * @param manifestPath - manifest file to read; defaults to the
- *   checked-in manifest, overridable only so tests can exercise the
- *   validation paths against scratch files
+ * @param manifestPath - manifest file to read; defaults to the corpus
+ *   suite's manifest. More than one suite keeps known failures in
+ *   this format: the registry sweep has its own manifest over its own
+ *   id space (`tests/conformance/registry-sweep.ts`), and tests point
+ *   the parameter at scratch files to exercise the validation paths.
  * @returns map from case ID to its expected-failure entry
  */
 export function loadQuarantine(
