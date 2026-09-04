@@ -26,26 +26,26 @@ vitest-only constructs like `test.fails`. Always `bun run test`.
 
 ## Before you push
 
-Run, in order:
-
 ```bash
-bun run fmt
-bun run check
-bun run lint
-bun run test
-bun run build
-bun run metrics
-bun run coverage
-bun run block-structure
+bun run gates
 ```
 
-All eight must pass. They are fast (the slowest is the suite, ten to seventeen
-seconds depending on how loaded the machine is - two generated sweeps run inside
-it and both inflate under contention; `block-structure` is about a second) and
-they are exactly what CI's blocking `gates` job runs, minus the deep sweeps
+runs, in order: `fmt`, `check`, `lint`, `test`, `build`, `metrics`, `coverage`,
+`block-structure`, `citation-check`, `internal-citations`. All ten must pass.
+They are fast but not instant: the slowest are the suite and `coverage`, which
+re-runs it instrumented, at ten to seventeen seconds each depending on how
+loaded the machine is - two generated sweeps run inside the suite and both
+inflate under contention - and the rest are a few seconds or less. Together they
+are exactly what CI's blocking `gates` job runs, minus the deep sweeps
 (`bun run test:deeply-nested-lists`, about three minutes); run those too when
 your change touches parsing or printing of lists, or the shape or inline
 registries.
+
+Run `bun run gates` rather than the ten commands by hand: two lanes in one night
+each ran a partial local battery that skipped `citation-check` and shipped
+citations it rejects, because the step was in CI but not in anyone's local list
+(issue #138). A single command that always runs the full set is what keeps
+"gates green" locally from meaning something narrower than "gates green" in CI.
 
 If THIS commit intentionally changes formatted output, declare every moved case
 id in its own commit message, one line each: `Parity-Diff: <family> <id>`. There
