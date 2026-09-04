@@ -44,6 +44,13 @@ import type { LocationIndex } from "../positions.js";
  * position is what {@link buildCell} measures from the offsets the
  * runs already carry.
  *
+ * The derivation couples the two in ONE direction, and the direction
+ * matters to whoever grows the node: a field added to `TableCellNode`
+ * for a PRINTER's benefit becomes a required field of the scan's
+ * answer, so the cut has to have a value for it. A fact only the
+ * printer needs and the cut cannot know does not belong on the cell
+ * node; it belongs where the printer can derive it.
+ *
  * `closedAtLineEnd` is absent for a different reason - it is not a
  * cell fact at all, but cut-time bookkeeping `groupRows`
  * (src/parse/lines/table-reader.ts) already spent deciding which cells
