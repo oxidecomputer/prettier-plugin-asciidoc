@@ -210,3 +210,72 @@ describe("the cell surfaces format to themselves", () => {
     await expectTableFormat("!===\n|a |b\n!===\n", "!===\n|a |b\n!===\n");
   });
 });
+
+/**
+ * The delimiter lines are the one thing this printer respells, and it
+ * respells them for EVERY table, replayed or not: the rule reads the
+ * two delimiter lines and the interior as text, and moves no byte
+ * between them.
+ */
+describe("the delimiter is respelled to its shortest safe length", () => {
+  // A long delimiter shortens to the canonical three, and the
+  // terminator moves with it: the closing line is the exact rstripped
+  // opening line (parser.rb:976-1010, reader.rb:396-438), so the two
+  // are one decision. Before the respelling both lines came back as
+  // `|=======`.
+  test("a long delimiter shortens to three", async () => {
+    await expectTableFormat(
+      "|=======\n|a |b\n\n|c |d\n|=======\n",
+      "|===\n|a |b\n\n|c |d\n|===\n",
+    );
+  });
+
+  // MINIMAL LENGTH, not grow-past-the-longest. `computeDelimiter`
+  // (src/print/blocks.ts) pads past the longest conflicting line, so
+  // a rule of that shape would answer this interior with something
+  // LONGER than `|=======`. Both re-read as the same table; only the
+  // shortest is canonical.
+  test("an interior line longer than the delimiter does not lengthen it", async () => {
+    await expectTableFormat(
+      "|=====\n|a\n|=======\n|b\n|=====\n",
+      "|===\n|a\n|=======\n|b\n|===\n",
+    );
+  });
+
+  // The guard is a search, not a shortening: line 3 IS what the
+  // shortened delimiter would be, so shortening would make it the
+  // terminator and orphan `|b`.
+  test("an interior line equal to the shorter delimiter blocks the shortening", async () => {
+    await expectTableFormat(
+      "|====\n|a\n|===\n|b\n|====\n",
+      "|====\n|a\n|===\n|b\n|====\n",
+    );
+  });
+
+  // The rule reaches a table the layout opinion will never touch:
+  // csv's own collision case, which is why the guard is not a psv
+  // detail that csv inherits by luck.
+  test("a csv table's delimiter is respelled under the same guard", async () => {
+    await expectTableFormat(
+      ",=====\na,b\n,===\nc,d\n,=====\n",
+      ",====\na,b\n,===\nc,d\n,====\n",
+    );
+  });
+
+  // An unterminated table has no closing line to move, and its opening
+  // is still respelled under the same guard.
+  test("an unterminated table's opening is respelled", async () => {
+    await expectTableFormat("|=====\n|a |b\n", "|===\n|a |b\n");
+  });
+
+  // The hint character is never changed. For `,` and `:` it selects
+  // the format (parser.rb:874-877); for `!` at top level it selects
+  // nothing, and rewriting it would erase the author's nesting intent.
+  test.each([
+    [",=====\na,b\n,=====\n", ",===\na,b\n,===\n"],
+    [":=====\na:b\n:=====\n", ":===\na:b\n:===\n"],
+    ["!=====\n!a\n!=====\n", "!===\n!a\n!===\n"],
+  ])("%j keeps its hint character", async (input, expected) => {
+    await expectTableFormat(input, expected);
+  });
+});

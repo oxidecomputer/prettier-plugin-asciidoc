@@ -946,6 +946,13 @@
   },
   {
     "file": "src/parse/line-shapes.ts",
+    "symbol": "rstrip",
+    "importer": "src/print/table.ts",
+    "kind": "vocabulary",
+    "reason": "the oracle's own per-line rstrip (`prepare_source_string`); the table delimiter's collision guard asks whether an interior line IS the delimiter, and the reader answers that question over rstripped lines, so a trailing-space `|===` has to count as a collision"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
     "symbol": "startsSectionTitle",
     "importer": "src/print/reflow.ts",
     "kind": "vocabulary",

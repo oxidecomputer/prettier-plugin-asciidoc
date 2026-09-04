@@ -34,6 +34,13 @@ export const MIN_DELIMITER_LENGTH = 4;
 // ambiguity on re-parse.
 export const SAFE_DELIMITER_PAD = 1;
 
+// A table's delimiter lines are three characters long, not the four
+// the delimited-block family takes: `|===`, `,===`, `:===`, `!===`.
+// A block-delimiter-length option (issue #11) governs the family
+// above and must NOT be wired to tables, which would spell `|====`
+// by default and no AsciiDoc document does.
+export const MIN_TABLE_DELIMITER_LENGTH = 3;
+
 // Lines and columns are 1-based, as editors count them. These mark the
 // origin position in a source file.
 export const FIRST_LINE = 1;

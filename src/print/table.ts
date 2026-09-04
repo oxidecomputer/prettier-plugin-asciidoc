@@ -1,7 +1,8 @@
 /**
- * Table printing (issue #10): REPLAY. Every byte the table's records
- * hold goes back exactly as the author wrote it, and the printer adds
- * nothing and drops nothing.
+ * Table printing (issue #10): REPLAY of the interior, under respelled
+ * delimiter lines. Every byte between the two delimiters goes back
+ * exactly as the author wrote it, and the printer adds nothing there
+ * and drops nothing.
  *
  * The table node's records PARTITION its extent (src/ast.ts): the
  * opening line, then the runs before the first cell, then every cell
@@ -20,17 +21,25 @@
  * `|===` over a blank line over `|===` (one interior line, two
  * terminators) are told apart by that test and by nothing else.
  *
- * WHAT IS NOT NORMALIZED, and why: everything. A cell's spacing, a
- * row's line breaks and the column alignment authors lay out by hand
- * are all still the author's, because the node records where each
- * cell's bytes begin and end but not yet what a normalizer would be
- * allowed to move. Trailing whitespace does go, on every line - not a
- * decision here but Prettier's own trim at a hardline, and
- * render-neutral: the oracle's reader rstrips every line before
+ * WHAT IS NOT NORMALIZED, and why: the interior, entirely. A cell's
+ * spacing, a row's line breaks and the column alignment authors lay
+ * out by hand are all still the author's, because the node records
+ * where each cell's bytes begin and end but not yet what a normalizer
+ * would be allowed to move. Trailing whitespace does go, on every
+ * line - not a decision here but Prettier's own trim at a hardline,
+ * and render-neutral: the oracle's reader rstrips every line before
  * parsing (`prepare_source_string`).
+ *
+ * The two DELIMITER lines are the exception, and the only one: they
+ * take their shortest safe spelling ({@link tableDelimiter}). That
+ * rule reads the delimiter lines and the interior as text and moves
+ * no byte between them, so it holds for every table whatever its
+ * interior turned out to be.
  */
 import { doc, type Doc } from "prettier";
 import type { TableCellNode, TableNode } from "../ast.js";
+import { MIN_TABLE_DELIMITER_LENGTH } from "../constants.js";
+import { rstrip } from "../parse/line-shapes.js";
 import type { PrintFunction, PrintPath } from "./blocks.js";
 
 const {
@@ -49,7 +58,78 @@ function replay(image: string): Doc {
 }
 
 /**
- * One cell: the bytes its OPENING wrote of its own, then its runs.
+ * A table's delimiter line: the hint character followed by the
+ * SHORTEST run of `=` that is at least {@link
+ * MIN_TABLE_DELIMITER_LENGTH} long and equals no interior line.
+ *
+ * The closing line is the exact rstripped opening line, so the two
+ * lines are one decision and this is it: `is_delimited_block?`
+ * (`parser.rb:976-1010`) hands back the whole matched LINE as the
+ * block's terminator, and `read_lines_until` (`reader.rb:396-438`)
+ * closes the block on `line == terminator`, an equality and not a
+ * prefix test.
+ *
+ * MINIMAL LENGTH, not grow-past-the-longest, which is where it
+ * differs from `computeDelimiter` (./blocks.ts): that one measures
+ * the LONGEST conflicting line and pads past it, so a rule of that
+ * shape answers an interior `|=======` with a delimiter longer than
+ * it, where this one answers `|===` and never grows at all unless the
+ * shorter spellings are themselves taken. Both re-read as the same
+ * table; only the shortest is what AsciiDoc documents are written
+ * in.
+ *
+ * The unbounded `for` terminates, and not by assumption: the interior
+ * is a finite set of lines, so some candidate length is absent from
+ * it, and the loop returns at the first one.
+ *
+ * The comparison rstrips because the reader does
+ * (`prepare_source_string`), so a trailing-space `|===` in the
+ * interior is a collision even though its bytes differ.
+ * @param hint - the delimiter's first character, never changed
+ * @param interior - the bytes about to be emitted between the two
+ *   delimiter lines
+ * @returns the delimiter line both ends of the table take
+ */
+function tableDelimiter(hint: string, interior: string): string {
+  const lines = new Set(interior.split("\n").map((line) => rstrip(line)));
+  for (let length = MIN_TABLE_DELIMITER_LENGTH; ; length += 1) {
+    const candidate = hint + "=".repeat(length);
+    if (!lines.has(candidate)) {
+      return candidate;
+    }
+  }
+}
+
+/**
+ * The table's interior as one string: its leading runs, then every
+ * cell of every row, each cell's opening bytes followed by its runs.
+ *
+ * A MIRROR of the walk {@link printTable} and {@link printTableCell}
+ * make over the same records, not a shared one: this side builds a
+ * string and that side builds Doc. What holds the two in step is
+ * {@link openingImage}, the one expression of a cell's opening bytes,
+ * plus {@link tableDelimiter}'s rstrip, which absorbs the only
+ * difference the two can have today (Prettier trims each line at a
+ * hardline; this helper reads the raw images). Reorder the runs on
+ * one side without the other and the guard would be reading a
+ * document nobody prints, and nothing here would say so.
+ * @param node - the table node
+ * @returns the interior bytes, delimiter lines excluded
+ */
+function replayedInterior(node: TableNode): string {
+  return [
+    ...node.leadingRuns.map((run) => run.image),
+    ...node.children.flatMap((row) =>
+      row.children.map(
+        (cell) =>
+          openingImage(cell) + cell.runs.map((run) => run.image).join(""),
+      ),
+    ),
+  ].join("");
+}
+
+/**
+ * The bytes a cell's OPENING wrote of its own.
  *
  * A `separator` opening wrote its spec and the separator character
  * that followed it; the other two openings wrote nothing at all - a
@@ -57,13 +137,20 @@ function replay(image: string): Doc {
  * cell begins at text that stands in front of the first separator
  * (src/ast.ts, {@link TableCellNode.opening}).
  * @param node - the cell node
+ * @returns the opening's own bytes, empty for the two that wrote none
+ */
+function openingImage(node: TableCellNode): string {
+  const { opening } = node;
+  return opening.kind === "separator" ? opening.spec + opening.separator : "";
+}
+
+/**
+ * One cell: the bytes its OPENING wrote of its own, then its runs.
+ * @param node - the cell node
  * @returns Doc IR for the cell's own bytes
  */
 export function printTableCell(node: TableCellNode): Doc {
-  const { opening } = node;
-  const written =
-    opening.kind === "separator" ? opening.spec + opening.separator : "";
-  return [written, ...node.runs.map((run) => replay(run.image))];
+  return [openingImage(node), ...node.runs.map((run) => replay(run.image))];
 }
 
 /**
@@ -89,6 +176,13 @@ export function printTableRow(path: PrintPath, print: PrintFunction): Doc {
 
 /**
  * A whole table.
+ *
+ * The interior the collision guard reads is the one ABOUT TO BE
+ * EMITTED, which is what makes the output re-read as this same table:
+ * a guard run over some other interior would be answering for a
+ * document nobody writes. The `endOfStream` close writes no closing
+ * line, so an unterminated table's opening is respelled with nothing
+ * to keep it company.
  * @param node - the table node
  * @param path - Prettier's AST path, at the table
  * @param print - Prettier's recursive print callback
@@ -103,9 +197,13 @@ export function printTable(
     ...node.leadingRuns.map((run) => replay(run.image)),
     ...path.map(print, "children"),
   ];
+  const delimiter = tableDelimiter(
+    node.open.slice(0, 1),
+    replayedInterior(node),
+  );
   return [
-    node.open,
+    delimiter,
     ...(interior.length === 0 ? [] : [hardline, interior]),
-    ...(node.close.kind === "delimiter" ? [hardline, node.close.image] : []),
+    ...(node.close.kind === "delimiter" ? [hardline, delimiter] : []),
   ];
 }

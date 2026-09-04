@@ -416,13 +416,38 @@ const FRONT_MATTER_FAMILY = "front-matter";
  * openings and runs all arrive - so the per-id trailers carry the
  * declaration.
  *
- * The BYTE side is empty by construction and measured, not assumed:
- * the printer replays the same partition the passthrough replayed, so
- * every declared case differs in the AST alone.
+ * The BYTE side is empty and measured, not assumed, RELATIVE TO A
+ * BASE THAT ALREADY REPLAYS THE INTERIOR: across such a range the
+ * printer writes the same partition the passthrough wrote, so a case
+ * declared here differs in the AST alone. An id whose bytes also move
+ * leaves this family's domain rather than joining it, because one id
+ * takes exactly ONE trailer (`recordTrailer`,
+ * scripts/parity-trailers.ts, fails an id declared under two
+ * families, and `differingCases`, scripts/parity.ts, puts an id in
+ * the AST stream or the formatted stream and never in both). Which
+ * one it takes follows from that split: where the AST is unchanged
+ * and only the delimiter moved it is
+ * {@link TABLE_DELIMITER_LENGTH_FAMILY}, and where the table fold
+ * itself is in the range the id differs in the AST, so `table-node`
+ * is the single legal declaration and the byte side of the family is
+ * NOT empty over that range.
  *
  * Not exported: no grid row cites it.
  */
 const TABLE_NODE_FAMILY = "table-node";
+
+/**
+ * A table's two delimiter lines take the shortest spelling that is at
+ * least three characters long and equals no interior line, so a
+ * longer-than-canonical `|=======` comes back as `|===` and the
+ * terminator moves with it. FORMATTED-ONLY: the length is a property
+ * of the OUTPUT, and neither tree records it - the opening and closing
+ * images the base and head both hold are the author's - so an AST
+ * diff at one of these ids is a real failure.
+ *
+ * Not exported: no grid row cites it.
+ */
+const TABLE_DELIMITER_LENGTH_FAMILY = "table-delimiter-length";
 
 /**
  * The closed family enum. SURFACE HONESTY, not an armed
@@ -430,15 +455,17 @@ const TABLE_NODE_FAMILY = "table-node";
  * identity-fixture id. The formatted-only subset is exactly
  * author-plus, pseudo-run-fold, no-op-continuation,
  * attribute-entry-spelling, attrlist-spacing, xref-text-trim,
- * gap-collapse, plus-run-tail-kept and
- * continuation-keeps-line — they change BYTES only, while
- * both marker families ride the list tree fold (`marker` added,
- * `depth` dropped), no-op-continuation-tree drops a block the reader
- * used to build, plus-run-paragraph reshapes a `+` run's item
- * blocks, bom-document-head re-reads the line a leading BOM hid,
- * the two inline SPAN families move spans (dissolved, crystallized,
- * or holding a kept `\n`), inline-passthrough replaces text - and
- * sometimes a whole span - with one atomic passthrough node,
+ * gap-collapse, plus-run-tail-kept, trailing-continuation-kept,
+ * continuation-keeps-line and table-delimiter-length (which respells
+ * a table's two delimiter lines, a length neither tree records): they
+ * change BYTES only, while both marker families ride the list tree
+ * fold (`marker` added, `depth` dropped), no-op-continuation-tree
+ * drops a block the reader used to build, plus-run-paragraph reshapes
+ * a `+` run's item blocks, bom-document-head re-reads the line a
+ * leading BOM hid, the two inline SPAN families move spans
+ * (dissolved, crystallized, or holding a kept `\n`),
+ * inline-passthrough replaces text - and sometimes a whole span -
+ * with one atomic passthrough node,
  * explicit-ordered-marker turns prose into ordered lists,
  * email-autolink hardens a bare address into one atomic link node,
  * document-header re-roots a titled document's opening lines under
@@ -478,6 +505,7 @@ export const LEDGER_FAMILIES: FamilySets = {
     BLOCK_START_LINE_FACT_FAMILY,
     SPAN_ROLE_NODE_FAMILY,
     TABLE_NODE_FAMILY,
+    TABLE_DELIMITER_LENGTH_FAMILY,
   ]),
   formattedOnly: new Set([
     AUTHOR_PLUS_FAMILY,
@@ -490,6 +518,7 @@ export const LEDGER_FAMILIES: FamilySets = {
     GAP_COLLAPSE_FAMILY,
     PLUS_RUN_TAIL_KEPT_FAMILY,
     CONTINUATION_KEEPS_LINE_FAMILY,
+    TABLE_DELIMITER_LENGTH_FAMILY,
   ]),
   // One family so far, and the key it owns is the field
   // `ParagraphNode.firstWordEndsItsLine` (src/ast.ts) as the dumper
