@@ -23,7 +23,7 @@ import path from "node:path";
 import { describe, expect, test } from "vitest";
 import { loadCorpus } from "../conformance/loader.js";
 import { formatAdoc } from "../helpers.js";
-import { readingBreachesOf, untracedLines } from "../lib/reading.js";
+import { readingBreachesOf, readingOf, untracedLines } from "../lib/reading.js";
 
 /**
  * The invariant's verdict for one document, as printable rows.
@@ -186,6 +186,80 @@ describe("the known-issue table (issue #58, section 4.4)", () => {
     ],
   ])("#65: %s", async (_name, source) => {
     expect(await breachRows(source)).toEqual([]);
+  });
+});
+
+// A description item is where the invariant earns its keep, because
+// it is the one construct whose printing turns on a recorded VERDICT:
+// a run the scan cleared joins its term line and is packed to the
+// width, and every other run is written back line for line. Both arms
+// have to re-classify the same way, and these rows are one per arm
+// and one per mechanism that decides which arm an item takes.
+describe("a description item re-classifies whichever arm it takes", () => {
+  test.each([
+    // The reflow arm, with nothing in its way: the join is what the
+    // `dlist:` token absorbs (tests/lib/reading.ts, `absorbsText`).
+    ["a run that joins", "t:: alpha\nbravo charlie\n"],
+    // The separator condition's arm. Joining would hand the list's own
+    // sibling pattern a line to match, and the replay is what keeps
+    // the word off a term line.
+    ["a description carrying a separator word", "t:: item\nx x:: y\n"],
+    // A `//` line inside the run, in the position where the oracle
+    // reads the comment as CONTENT (a term line that carried inline
+    // text, parser.rb:754, :1304, :1369, :1374).
+    ["a description carrying a // line", "t:: item\n// c\nx\n"],
+    // A hard break at the end of the run: the `+` is a word the wrap
+    // conditions refuse, so the item replays and the break survives.
+    ["a description ending on a hard break", "t:: item\nyy +\n"],
+    // The enclosing `::` list's sibling pattern would match the
+    // JOINED line with the term `b::: item z // p`, which destroys
+    // the nested list and mangles the term.
+    ["a nested sibling shape", "a:: x\nb::: item\n  z\n// p:: q\n"],
+    // Both arms in one document, so a change that made the printer ask
+    // the question a second time has two answers to disagree about.
+    ["both arms in one list", "a:: alpha\nbravo\nb:: gamma\n  delta\n"],
+  ])("%s", async (_name, source) => {
+    expect(await breachRows(source)).toEqual([]);
+  });
+});
+
+// The projection's teeth over a line NO reader classifies: a `//`
+// line the description item's head drain took never reaches
+// `classifyLine` at all (`skip_line_comments`, reader.rb:331-345,
+// through `parse_list_item`, parser.rb:1363-1371), so it has a token
+// only because `contributionOf` synthesizes one. Dropping such a line
+// is render-equal - the oracle deletes it too - and moves no span, so
+// this is the ONE net that can see it, and it can see it only while
+// the synthesis reads the drain's own bare `//` prefix.
+//
+// Red under the classifier's `LINE_COMMENT` spelling, which is the
+// narrower one and the wrong one here: it mirrors `CommentLineRx`,
+// which exempts `///` where the drain's `start_with? '//'`
+// (reader.rb:337-339) does not, and `///` is exactly the line the two
+// disagree on - so a dropped `///c` moved no token and the two
+// readings below compared EQUAL.
+describe("a drained comment line has a reading of its own", () => {
+  test.each([
+    [
+      "a `///` line between two folded terms",
+      "t::\n///c\nu:: x\n",
+      "t::\nu:: x\n",
+    ],
+    ["a `//` line under a described term", "t:: item\n//c\n", "t:: item\n"],
+    [
+      "a `///` line above a paragraph",
+      "term::\n///c\n\ntext\n",
+      "term::\n\ntext\n",
+    ],
+  ])("%s", (_name, kept, dropped) => {
+    expect(readingOf(kept)).not.toEqual(readingOf(dropped));
+  });
+
+  // The exclusion the synthesis needs, from the other side: a `////`
+  // fence is `//`-headed and is NOT a drained comment, and an
+  // unterminated one's interior is opaque with a reason of its own.
+  test("a `////` fence is not synthesized as a comment", () => {
+    expect(readingOf("////\nx\n")).toEqual(["delim:commentBlock"]);
   });
 });
 

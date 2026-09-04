@@ -217,6 +217,14 @@ const CHILD_KEYS = declareVisitorKeys({
   attributeEntry: [],
   list: ["children"],
   listItem: ["text"],
+  descriptionList: ["children"],
+  // `terms` is NOT declared, for the reason `blocks` is not: a
+  // TermEntry is a `{term, gap}` record, and Prettier's walk calls
+  // `locStart` on every array element a declared key leads it to. The
+  // printer reaches the term nodes one level in the way it reaches an
+  // item's blocks, with an explicit `path.call` through the wrapper.
+  descriptionListItem: ["text"],
+  descriptionTerm: ["children"],
   delimitedBlock: [],
   // A table's rows hold its cells and a cell holds no node at all -
   // its bytes are its opening and its runs, both records rather than

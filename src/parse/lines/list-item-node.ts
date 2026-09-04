@@ -13,27 +13,83 @@
  * `trailingContinuation` and `activeTail` are the scan's own,
  * finished in item-tail.ts, and nothing here re-derives them. The
  * all-or-nothing indent answer the printer's reflow guard reads
- * (`everyTextLineIndented`) is also computed here, off the extent's
- * buffer, for the same reason: the source lines are in hand, and the
- * ANSWER travels rather than the lines. Every Ruby line
+ * (`everyTextLineIndented`) is asked here of the extent's own buffer,
+ * for the same reason: the source lines are in hand, and the ANSWER
+ * travels rather than the lines. The question itself, and the two
+ * others every item body is assembled from, live in item-body.ts,
+ * where a description item asks them too. Every Ruby line
  * number cites parser.rb at Asciidoctor core 2.0.26, the revision
  * the oracle runs, exactly as list-reader.ts's do.
  */
 import type { BlockNode, GapLine, ListItemNode } from "../../ast.js";
 import { buildListItem } from "../build/list.js";
-import type { InlineToken } from "../inline/tokens.js";
 import type { LocationIndex } from "../positions.js";
-import { LINE_COMMENT_HEAD } from "../line-shapes.js";
-import { isContinuationLine, isLiteralLine } from "./classify.js";
-import { gapsOf, type ListItemShape } from "./list-reader.js";
-import { fragmentOfLine, type SourceLine } from "./split.js";
+import { isContinuationLine, type MarkerKind } from "./classify.js";
+import {
+  everyTextLineIndented,
+  recordedTextLines,
+  textEndLine,
+  type ItemInterior,
+} from "./item-body.js";
+import type { ListItemShape } from "./list-reader.js";
+import { fragmentOfLine } from "./split.js";
 
-/** What reading one item's interior produced. NOT exported. */
-interface ItemInterior {
-  /** The principal text's tokens. */
-  readonly text: InlineToken[];
-  /** The item's blocks, in source order. */
-  readonly blocks: BlockNode[];
+/**
+ * Each block's gap: the recorded separator lines strictly between the
+ * previous piece of the item and the block. A partition of the
+ * document-wide gap record (GapRecord, scope.ts) by block positions.
+ * Nothing here reads line text, so a non-gap line in a gap is
+ * unrepresentable. Every line between two of an item's blocks was
+ * consumed by a recording arm of some scan (comments and metadata are
+ * blocks), so the record covers these ranges but for the one a scan's
+ * own pop took off an item's tail and the item prints back itself
+ * (`finishItem`, item-tail.ts) - the exception invariant (vii) states.
+ * @param record - the document-wide gap record
+ * @param textEnd - the text's last line number
+ * @param blocks - the item's blocks, in source order
+ * @returns one gap per block
+ * Lives here, beside its one caller, because list-reader.ts has no
+ * room for it under `max-lines` and this is the assembly step it is
+ * part of.
+ *
+ * Its src consumers are {@link listItemNode} above and
+ * description-list-node.ts, which partitions a description item's
+ * blocks by the same rule.
+ */
+export function gapsOf(
+  record: ReadonlyMap<number, GapLine>,
+  textEnd: number,
+  blocks: readonly BlockNode[],
+): GapLine[][] {
+  // Sorted ONCE for the whole call, then walked with a single cursor:
+  // block ranges are disjoint and increasing, so no entry a later
+  // block needs can sit before an entry an earlier block already
+  // consumed.
+  const entries = [...record].toSorted(([a], [b]) => a - b);
+  let cursor = 0;
+  let previousEnd = textEnd;
+  return blocks.map((block) => {
+    // Boundaries are 1-based line numbers, both ends exclusive: the
+    // previous piece ends ON previousEnd, the block starts ON its
+    // start line.
+    const start = previousEnd;
+    previousEnd = block.position.end.line;
+    // Advance past entries at or before this gap's start, which
+    // skips both the previous block's own gap and any entry inside
+    // the previous block's own span, before collecting this one.
+    while (cursor < entries.length && entries[cursor][0] <= start) {
+      cursor += 1;
+    }
+    const gap: GapLine[] = [];
+    while (
+      cursor < entries.length &&
+      entries[cursor][0] < block.position.start.line
+    ) {
+      gap.push(entries[cursor][1]);
+      cursor += 1;
+    }
+    return gap;
+  });
 }
 
 /**
@@ -50,7 +106,7 @@ interface ItemInterior {
  * @returns the item node
  */
 export function listItemNode(
-  shape: ListItemShape,
+  shape: ListItemShape<MarkerKind>,
   interior: ItemInterior,
   lines: {
     gaps: ReadonlyMap<number, GapLine>;
@@ -78,9 +134,9 @@ export function listItemNode(
       detachedTail: shape.erasedTailContinuation && endsInPlusParagraph(blocks),
       activeTail: shape.activeTail,
       everyTextLineIndented: everyTextLineIndented(
-        shape.buffer,
-        markerLine.line,
-        textEnd,
+        recordedTextLines(shape.buffer, markerLine.line, textEnd).map(
+          (line) => line.text,
+        ),
       ),
     },
     at,
@@ -112,79 +168,16 @@ export function listItemNode(
  * get to take it.
  * @param blocks - the item's blocks, in source order
  * @returns true when the last block ends in a `+` raw line
+ *
+ * Exported for description-list-node.ts, which asks the same question
+ * of a description item's blocks: the shape is the item body's, not
+ * the marker's.
  */
-function endsInPlusParagraph(blocks: readonly BlockNode[]): boolean {
+export function endsInPlusParagraph(blocks: readonly BlockNode[]): boolean {
   const last = blocks.at(-1);
   if (last?.type !== "paragraph") {
     return false;
   }
   const child = last.children.at(-1);
   return child?.type === "rawLine" && isContinuationLine(child.value);
-}
-
-/**
- * Whether every source line the item's text wrote under the marker
- * line is indented: `ListItemNode.everyTextLineIndented` (src/ast.ts
- * carries the Ruby argument and the two exempt line kinds).
- *
- * Read off the item's own BUFFER, which is where the raw spelling of
- * those lines already is: the scan handed the lines over with their
- * indentation intact, so the question is asked of the source rather
- * than of the nodes the text was split into.
- *
- * THREE disjuncts, and only the last is the indent test. The other
- * two are `adjust_indentation!`'s own exemptions, transcribed: a
- * blank line, which the walk skips (`next if line.empty?`,
- * parser.rb l.2726), and a `//` line, which `read_paragraph_lines`
- * drops before the strip runs (l.754). The blank row cannot be
- * reached from today's extent - a blank ends the principal text, so
- * no line in `(markerLine, textEnd]` is empty - and it stays anyway:
- * it is a row of the RULE, not a guard on this call, and dropping it
- * would make the transcription answer differently from Ruby the
- * first time an extent runs through a blank.
- * @param buffer - the item's lines, in document order
- * @param markerLine - the item's marker line, which the strip does
- *   not measure
- * @param textEnd - the last line the principal text occupies
- * @returns true when no line under the marker line stands at column 0
- */
-function everyTextLineIndented(
-  buffer: readonly SourceLine[],
-  markerLine: number,
-  textEnd: number,
-): boolean {
-  return buffer
-    .filter((line) => line.line > markerLine && line.line <= textEnd)
-    .every(
-      (line) =>
-        line.text === "" ||
-        line.text.startsWith(LINE_COMMENT_HEAD) ||
-        isLiteralLine(line.text),
-    );
-}
-
-/**
- * The last source line the principal text occupies — where the first
- * block's gap starts counting from.
- *
- * TOTAL over `readonly InlineToken[]`, empty array included: no
- * marker shape LIST_MARKER_LINE admits leaves the text empty today,
- * but the marker line is the honest answer where it is, and reading
- * `text.at(-1)` without it would throw rather than answer.
- * @param at - the document's offset→Location index
- * @param text - the principal text's tokens
- * @param markerLine - the item's marker line (the answer for empty text)
- * @returns the 1-based line number
- */
-function textEndLine(
-  at: LocationIndex,
-  text: readonly InlineToken[],
-  markerLine: SourceLine,
-): number {
-  const last = text.at(-1);
-  if (last === undefined) return markerLine.line;
-  // One BEFORE the exclusive end: a token ending at a newline must
-  // report the line it ends ON, not the next one.
-  const end = last.offset + Math.max(last.image.length, 1) - 1;
-  return at.at(end).line;
 }

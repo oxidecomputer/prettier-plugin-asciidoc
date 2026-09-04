@@ -6,11 +6,15 @@
  * (terminations, codas, garnishes, and for every valid spelling its
  * near-misses), and byte operators (document-level transforms applied
  * to realized inputs). Each entry is a named, DETERMINISTIC string
- * generator. The list-run grid and the width-2 pair grid live in their
- * own sibling modules, scripts/shape-registry-list-run.ts and
- * scripts/shape-registry-pairs.ts, built from this file's Shape
- * vocabulary; the byte-operator dimension lives in its own sibling
- * module, scripts/shape-registry-byte-operators.ts, re-exported below.
+ * generator. This file holds the DIMENSIONS; every realized grid is
+ * built from them in a sibling module, all four re-exported below:
+ * scripts/shape-registry-grids.ts (the standing and heading-adjacency
+ * grids), scripts/shape-registry-list-run.ts, and
+ * scripts/shape-registry-pairs.ts (the width-2 pair grid). The
+ * byte-operator dimension likewise lives in its own sibling module,
+ * scripts/shape-registry-byte-operators.ts. A dimension added here
+ * reaches those grids without any of them being edited, which is why
+ * the vocabulary stays in one file while the grids do not.
  *
  * Two consumption modes are designed for; only mode (1) exists:
  * (1) deterministic exhaustive matrices (`scripts/shape-diff.ts`);
@@ -21,7 +25,8 @@
  *
  * Completeness is HELD by `scripts/metrics/shape-census.ts` (a
  * `bun run metrics` gate): every `DELIMITER_KINDS` entry needs a
- * delimiter dimension, and every line-shapes.ts runtime export name
+ * delimiter dimension, and every runtime export name of every
+ * registry module (line-shapes.ts and each `line-shapes-*.ts`)
  * needs a dimension declaring `covers` or an in-gate exemption — a
  * parser that learns a new construct is thereby FORCED to teach these
  * generators (or write the exemption down) in the same commit.
@@ -34,7 +39,6 @@ import {
   DELIMITER_KINDS,
   type DelimiterKind,
 } from "../src/parse/line-shapes.js";
-import { gridRowFamily } from "./shape-registry-families.js";
 
 /** Where a construct sits: wraps a construct's lines into a document. */
 export interface ContainerEntry {
@@ -50,7 +54,7 @@ export interface ConstructEntry {
   readonly id: string;
   /** The `DELIMITER_KINDS` entry this dimension is for (rule (i)). */
   readonly delimiter?: DelimiterKind;
-  /** line-shapes.ts runtime export names this dimension covers (rule (ii)). */
+  /** Registry export names this dimension covers (rule (ii)). */
   readonly covers?: readonly string[];
   /** The construct's canonical spelling, `\n`-joined lines. */
   readonly body: string;
@@ -76,7 +80,7 @@ export interface PerturbationEntry {
 }
 
 /** The pieces a delimited-block perturbation composes. */
-interface DelimiterParts {
+export interface DelimiterParts {
   /** The opening delimiter line. */
   readonly open: string;
   /** The closing delimiter line (the bare tip for a fence). */
@@ -92,7 +96,7 @@ interface DelimiterParts {
 // One row per DELIMITER_KINDS entry (the census's rule (i) checks the
 // derived list below against the imported array — a Record over the
 // kind type makes a missing kind a compile error first).
-const DELIMITER_PARTS: Record<DelimiterKind, DelimiterParts> = {
+export const DELIMITER_PARTS: Record<DelimiterKind, DelimiterParts> = {
   listing: {
     open: "----",
     close: "----",
@@ -269,7 +273,12 @@ const OTHER_CONSTRUCTS: readonly ConstructEntry[] = [
   },
   {
     id: "dlist-term",
-    covers: ["DLIST_SEPARATOR_WORD", "parseDescriptionListLine"],
+    covers: [
+      "DESCRIPTION_LIST_LINE",
+      "DLIST_SEPARATOR_WORD",
+      "parseDescriptionListLine",
+      "parseDescriptionSiblingLine",
+    ],
     body: "term:: def",
     nearMisses: ["term: : def"],
   },
@@ -451,6 +460,12 @@ export { BYTE_OPERATORS } from "./shape-registry-byte-operators.js";
 // stays declared where it is used.
 export { pairAlphabet, pairGrid } from "./shape-registry-pairs.js";
 
+/**
+ * The standing and heading-adjacency grids, re-exported from their
+ * own module so a consumer still asks the registry for a grid.
+ */
+export { headingAdjacencyGrid, standingGrid } from "./shape-registry-grids.js";
+
 /** One generated shape. */
 export interface Shape {
   /** `kind/container/perturbation`. */
@@ -476,160 +491,4 @@ export interface Shape {
    * and a diff is a STOP, never a family candidate).
    */
   readonly renderBlind: boolean;
-}
-
-/**
- * The standing selection: the delimited-block constructs ×
- * all containers × the termination/coda/garnish perturbations.
- * Deterministic and exhaustive; no randomness anywhere in this mode.
- * @returns the realized grid, in a stable order
- */
-export function standingGrid(): Shape[] {
-  const shapes: Shape[] = [];
-  for (const kind of DELIMITER_KINDS) {
-    const parts = DELIMITER_PARTS[kind];
-    for (const container of CONTAINERS) {
-      for (const perturbation of PERTURBATIONS) {
-        const block = perturbation.block(parts);
-        if (block === undefined) continue;
-        const wrapped = container.wrap(block);
-        const input =
-          perturbation.document === undefined
-            ? wrapped
-            : perturbation.document(wrapped);
-        // Which standing coordinates may differ, and under which
-        // family, is answered in one place
-        // (scripts/shape-registry-families.ts) because the answer
-        // needs BOTH coordinates: a `tablePipe` row moves for a reason
-        // its perturbation does not name. Every coordinate that map
-        // does not name is expected byte-identical and a diff there
-        // fails the run.
-        shapes.push({
-          id: `${kind}/${container.id}/${perturbation.id}`,
-          input,
-          family: gridRowFamily(kind, perturbation.id),
-          renderBlind: kind === "commentBlock",
-        });
-      }
-    }
-  }
-  // The setext-shaped spellings: our read already diverges from the
-  // oracle (recorded, out of scope — issues #16 and #18), so these
-  // rows are pinned by base-vs-head BYTE equality only; a differing
-  // row here has no family and STOPS the run.
-  shapes.push(
-    {
-      id: "setext/trailing-underline/doc",
-      input: "====\nfoo\n====\nbar\n====\n",
-      renderBlind: true,
-    },
-    {
-      id: "setext/nested-listing/doc",
-      input: "====\n----\nfoo\n====\nbar\n----\n",
-      renderBlind: true,
-    },
-  );
-  return shapes;
-}
-
-/**
- * The heading-adjacency matrix: every construct that can
- * sit beside a heading × the adjacency positions, plus the named
- * explicit rows (the A1 pseudo-anchor pair in its FLATTEN-CREATED
- * spelling, the discrete row, the level-jump row). Pseudo-anchor
- * lines are deliberately EXCLUDED from the blind product: the
- * top-level pseudo-anchor pair is recorded divergence R1, whose net
- * is the named characterization fixture in
- * tests/format/heading-adjacency.test.ts rather than this grid; the
- * A1 spelling below is the pair the flatten actually creates.
- * @returns the realized rows, in a stable order
- */
-export function headingAdjacencyGrid(): Shape[] {
-  const beside: ReadonlyArray<{ id: string; body: string }> = [
-    { id: "line-comment", body: "// c" },
-    { id: "conditional", body: "ifdef::x[]" },
-    { id: "attribute-entry", body: ":a: 1" },
-    { id: "block-title", body: ".T" },
-    { id: "block-anchor", body: "[[id]]" },
-    { id: "attrlist", body: "[.role]" },
-    { id: "paragraph", body: "para" },
-    { id: "heading", body: "== H" },
-    { id: "metadata-run", body: "[[id]]\n.T" },
-    { id: "attribute-run", body: ":a: 1\n:b: 2" },
-  ];
-  const positions: ReadonlyArray<{
-    id: string;
-    wrap: (body: string) => string;
-  }> = [
-    { id: "after-h0-adjacent", wrap: (body) => `= T\n${body}\n` },
-    { id: "after-h0-blank", wrap: (body) => `= T\n\n${body}\n` },
-    { id: "after-h1-adjacent", wrap: (body) => `== T\n${body}\n` },
-    { id: "after-h1-blank", wrap: (body) => `== T\n\n${body}\n` },
-    { id: "after-h2-adjacent", wrap: (body) => `=== T\n${body}\n` },
-    { id: "before-h1-adjacent", wrap: (body) => `${body}\n== B\n` },
-    { id: "before-h1-blank", wrap: (body) => `${body}\n\n== B\n` },
-  ];
-  const rows: Shape[] = [];
-  for (const construct of beside) {
-    for (const position of positions) {
-      rows.push({
-        id: `adjacency/${construct.id}/${position.id}`,
-        input: position.wrap(construct.body),
-        renderBlind: false,
-      });
-    }
-  }
-  rows.push(
-    {
-      id: "adjacency/a1-pseudo-anchor/flatten-created",
-      input: "== A\n\n[[3-blind-mice]]\n\n== B\n",
-      renderBlind: false,
-    },
-    {
-      id: "adjacency/discrete/comment-after",
-      input: "[discrete]\n== D\n// c\n",
-      renderBlind: false,
-    },
-    {
-      id: "adjacency/level-jump/h0-then-h2",
-      input: "= D\n\n=== C\n",
-      renderBlind: false,
-    },
-    {
-      id: "adjacency/list-reader-eaten/before-h1",
-      input: "== A\n* a\n+\nifdef::x[]\n== B\n",
-      renderBlind: false,
-    },
-    // The R2 class (the recorded hoisted-raw-line divergence,
-    // tests/format/heading-adjacency.test.ts): a level >= 1 heading,
-    // held raw line(s), then a same-or-shallower heading. The base
-    // bytes are already the uniform-blank spelling, so these rows are
-    // byte-stable and family-free.
-    {
-      id: "adjacency/r2-comment/same-level",
-      input: "== T\n// c\n== U\n",
-      renderBlind: false,
-    },
-    {
-      id: "adjacency/r2-conditional/same-level",
-      input: "== T\nifdef::x[]\n== U\n",
-      renderBlind: false,
-    },
-    {
-      id: "adjacency/r2-comment/shallower",
-      input: "=== T\n// c\n== U\n",
-      renderBlind: false,
-    },
-    {
-      id: "adjacency/r2-comment/deeper",
-      input: "== T\n// c\n=== V\n",
-      renderBlind: false,
-    },
-    {
-      id: "adjacency/r2-comment/level0",
-      input: "= T\n// c\n= U\n",
-      renderBlind: false,
-    },
-  );
-  return rows;
 }

@@ -51,7 +51,12 @@ import {
   NullLogger,
   load,
 } from "@asciidoctor/core";
-import type { AdmonitionNode, BlockNode, ListNode } from "../../src/ast.js";
+import type {
+  AdmonitionNode,
+  BlockNode,
+  DescriptionListNode,
+  ListNode,
+} from "../../src/ast.js";
 import { parse } from "../../src/parser.js";
 
 const nullLogger = NullLogger.create();
@@ -463,6 +468,9 @@ export const AST_KIND_CENSUS: ReadonlyMap<string, string> = new Map([
   ["blockAttributeList", "dropped: an attribute to the oracle"],
   ["blockTitle", "dropped: an attribute to the oracle"],
   ["blockAnchor", "dropped: an attribute to the oracle"],
+  ["descriptionList", "kind dlist"],
+  ["descriptionListItem", "kind dlistItem"],
+  ["descriptionTerm", "the terms half of the oracle's pair, not compared"],
   ["table", "kind table"],
   ["tableRow", "inside a table, which is opaque on both sides"],
   ["tableCell", "inside a table, which is opaque on both sides"],
@@ -481,6 +489,28 @@ function ourList(node: ListNode, levels: boolean): Shape {
     kind: `list:${node.variant}`,
     children: node.children.map((item) => ({
       kind: "item",
+      children: item.blocks.flatMap((entry) => ourShape(entry.block, levels)),
+    })),
+  };
+}
+
+/**
+ * One description list, on our side. Its items are the FOLDED pairs -
+ * a run of term-only siblings is one item on both sides
+ * (`parse_description_list`, parser.rb:1230-1235) - and an item's
+ * children are the blocks it holds after its description, exactly as
+ * an outline item's are. The terms themselves contribute nothing:
+ * the oracle's tuple keeps them in a half this comparison does not
+ * read, the same way neither side's principal text is a child.
+ * @param node - the description list node
+ * @param levels - whether heading levels are part of the identity
+ * @returns the list's shape
+ */
+function ourDescriptionList(node: DescriptionListNode, levels: boolean): Shape {
+  return {
+    kind: "dlist",
+    children: node.children.map((item) => ({
+      kind: "dlistItem",
       children: item.blocks.flatMap((entry) => ourShape(entry.block, levels)),
     })),
   };
@@ -542,6 +572,9 @@ function ourNode(node: BlockNode, levels: boolean): Shape {
     }
     case "list": {
       return ourList(node, levels);
+    }
+    case "descriptionList": {
+      return ourDescriptionList(node, levels);
     }
     case "parentBlock": {
       return {

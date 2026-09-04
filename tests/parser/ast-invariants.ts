@@ -19,6 +19,10 @@ import { rstrip } from "../../src/parse/line-shapes.js";
 import type { DocumentNode } from "../../src/ast.js";
 import { parse } from "../../src/parser.js";
 import {
+  expectDescriptionPartition,
+  expectFoldedItemsClosed,
+} from "./ast-invariants-description.js";
+import {
   isArray,
   isNode,
   isRecord,
@@ -343,6 +347,9 @@ const SPANNING_CONTAINERS = new Set([
   "parentBlock",
   "list",
   "listItem",
+  "descriptionList",
+  "descriptionListItem",
+  "descriptionTerm",
   "delimitedBlock",
   "admonition",
 ]);
@@ -884,4 +891,6 @@ export function expectAstInvariants(source: string): void {
   expectMasqueradeSourceDelimiter(nodes);
   expectDocumentHeaderShape(document);
   expectTablePartition(source, document);
+  expectFoldedItemsClosed(nodes);
+  expectDescriptionPartition(source, nodes);
 }

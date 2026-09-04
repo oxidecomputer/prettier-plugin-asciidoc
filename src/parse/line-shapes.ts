@@ -1292,13 +1292,26 @@ export const DLIST_SEPARATOR_WORD = /^\S*(?:::|:::|::::|;;)$/v;
 // (`a multi word term::`) is a dlist. A leading `//` comment is
 // excluded the same way Ruby excludes it.
 //
-// The delimiter is spelled `:{2,4}` — greedy, exactly Ruby's
-// `:::{0,2}` — so the groups below split a line the way Ruby splits
-// it. The named groups are what parseDescriptionListLine hands the
-// classifier; isDescriptionListLine only asks whether there is a
-// match at all.
-const DESCRIPTION_LIST_LINE =
-  /^(?!\/\/[^\/])[ \t]*(?<term>[^ \t][^\n]*?)(?<delimiter>;;|:{2,4})(?:$|[ \t]+(?<description>[^\n]*))$/v;
+// The delimiter is FOUR branches, longest colon run first, which is
+// Ruby's `(:::{0,2}|;;)` alternative for alternative: the engine
+// tries `::::`, then `:::`, then `::` at each term length, exactly as
+// a greedy `:{2,4}` would. The branches are what makes the delimiter
+// a DescriptionDelimiter without an assertion - the spelling is read
+// off the branch that participated, never re-derived from the
+// captured text. Three of the four are NAMED; `;;` is what is left
+// when no colon branch participated, so a group there would be one
+// nothing reads. The named groups are what parseDescriptionListLine
+// hands the classifier; isDescriptionListLine only asks whether there
+// is a match at all.
+//
+// EXPORTED, unlike most patterns here, and to exactly one reader:
+// line-shapes-description.ts holds the parse that rides these groups
+// out. The pattern stays here because interruptsParagraph below asks
+// isDescriptionListLine itself, and a registry module that imported
+// this file back would close an import cycle src/parse does not
+// admit.
+export const DESCRIPTION_LIST_LINE =
+  /^(?!\/\/[^\/])[ \t]*(?<term>[^ \t][^\n]*?)(?:(?<colons4>::::)|(?<colons3>:::)|(?<colons2>::)|;;)(?:$|[ \t]+(?<description>[^\n]*))$/v;
 
 /**
  * Whether Asciidoctor would read a line as a description-list item —
@@ -1312,42 +1325,6 @@ const DESCRIPTION_LIST_LINE =
  */
 export function isDescriptionListLine(rawLine: string): boolean {
   return DESCRIPTION_LIST_LINE.test(rstrip(rawLine));
-}
-
-/**
- * Parse a description-list term line into the fields the classifier
- * carries: the delimiter (`::` | `:::` | `::::` | `;;`), the term
- * text (Ruby's group — trailing spaces before the delimiter
- * included: `foo ::` has term `"foo "`), and where the optional
- * inline description starts, as an offset into the RSTRIPPED line.
- * Grammar home: DESCRIPTION_LIST_LINE above (Ruby's
- * `DescriptionListRx`, rx.rb:336, pinned by tests/parser/lines.test.ts's
- * split rows); the groups ride out so no builder
- * or reader ever re-parses the line.
- * @param rawLine - one source line, without its trailing newline;
- *   trailing whitespace is trimmed here (see rstrip)
- * @returns the term line's fields, or undefined when the line is no
- *   description-list item
- */
-export function parseDescriptionListLine(
-  rawLine: string,
-):
-  | { delimiter: string; term: string; descriptionStart: number | undefined }
-  | undefined {
-  const line = rstrip(rawLine);
-  const groups = DESCRIPTION_LIST_LINE.exec(line)?.groups;
-  if (groups === undefined) {
-    return undefined;
-  }
-  // The description group is the one OPTIONAL branch, so it is the
-  // one read through {@link optionalGroup}.
-  const description = optionalGroup(groups.description);
-  return {
-    delimiter: groups.delimiter,
-    term: groups.term,
-    descriptionStart:
-      description === undefined ? undefined : line.length - description.length,
-  };
 }
 
 // The pattern list each context uses REGARDLESS of where the line
@@ -1524,6 +1501,16 @@ export function interruptsParagraph(
  * @param line - one source line, without its trailing newline
  * @returns true when some context would start a new block or item on
  *   a line beginning with this shape
+ *
+ * Its src readers are {@link startsBlockAtLineStart} and
+ * {@link endsDescriptionLine}'s probe, both below and both in this
+ * file. It stays EXPORTED for the two suites that import it - the one
+ * holding the model to the oracle construct by construct
+ * (tests/conformance/interruption.test.ts) and the one pinning the
+ * two probe spellings the line-end predicate reads it in
+ * (tests/parser/description-list.test.ts); no src module outside this
+ * file imports it.
+ * @internal
  */
 export function interruptsByLineShape(line: string): boolean {
   // Same exemption as interruptsParagraph: a comment or preprocessor
@@ -1559,6 +1546,14 @@ export function interruptsByLineShape(line: string): boolean {
  * fuses backwards.
  * @param line - one source line, without its trailing newline
  * @returns true when the line is a section title in either spelling
+ *
+ * Its src readers are {@link startsBlockAtLineStart} and
+ * {@link endsDescriptionLine}'s probe, both below and both in this
+ * file. It stays EXPORTED for the shape census, which reconciles this
+ * module's runtime export names against the registry's coverage and
+ * carries a row for this one (scripts/metrics/shape-census.ts); no
+ * src module imports it.
+ * @internal
  */
 export function startsSectionTitle(line: string): boolean {
   const text = rstrip(line);
@@ -1684,4 +1679,320 @@ function isForeignMarkerLine(line: string, reader: ReaderContext): boolean {
   }
   const style = listMarkerStyle(line);
   return style !== undefined && style !== reader.openListStyle;
+}
+
+// Stands in for "whatever word comes next", so the registry can be
+// asked about a word that STARTS a line rather than one alone on it.
+// Any non-blank, non-syntactic text does; the marker patterns only
+// require that something follow the space.
+const PROBE_SUFFIX = "x";
+
+// The mirror of PROBE_SUFFIX, so the registry can be asked about a
+// word that ENDS a line rather than one alone on it. Any non-blank,
+// non-syntactic text does; what it has to supply is a preceding word,
+// because the shapes that turn on a line's last word ({@link
+// BLOCK_MACRO} above all) are whole-LINE patterns and read nothing
+// about the text in front of that word beyond its being there.
+const PROBE_PREFIX = "p";
+
+/**
+ * Whether a word written at the START of a line would be re-read there
+ * as the opening of a new block, as a section title, or as a line the
+ * preprocessor eats. It is the question a caller assembling output
+ * lines must ask of every head it is about to write.
+ *
+ * A DIFFERENT question from {@link interruptsParagraph}'s, and the
+ * difference is the point. The reader asks "does this line end the
+ * block", to which a comment or preprocessor directive answers no (the
+ * reader consumes it before block structure exists), and a section
+ * title answers no as well (a paragraph swallows one mid-block). This
+ * asks "may this word begin a line", and there the same shapes answer
+ * yes for a different reason: `//` at column 0 comments out everything
+ * written after it, `ifdef::x[]` swallows it into a directive, and `=`
+ * or `##` in front of a word writes a heading the source never had.
+ * Text destroyed is text destroyed, whether by a new block, by a
+ * section the author did not write, or by the preprocessor. So the
+ * interrupting shapes, the SECTION TITLES and the RAW ones all count.
+ *
+ * Asked in both spellings a head can take, because the caller does not
+ * know which kind of line it is building and the patterns here are
+ * whole-LINE ones:
+ *
+ * - the head alone on a line (`----`, `[source]`, `[[a]]`),
+ * - the head starting a line that continues (`* `, `. `, `<1> `,
+ *   `NOTE: ` all require that trailing text to match, and the caller
+ *   would supply it with the very next word).
+ *
+ * The second probe is exact for a single WORD and conservative for a
+ * head that already carries a space: appending `PROBE_SUFFIX` to such
+ * a head asks about a line one word longer than the caller would
+ * write. It can therefore only over-refuse, never under-refuse, and
+ * over-refusing costs a break the output did not need rather than a
+ * document the reader loses.
+ * @param word - the head of a line: a single whitespace-delimited
+ *   token, or several words with the spaces between them
+ * @returns true when the head would start a block, start a section, or
+ *   be eaten by the preprocessor at line start
+ */
+export function startsBlockAtLineStart(word: string): boolean {
+  // The head alone, then the head with a successor after it - the two
+  // lines a caller can produce from it. A head that is already several
+  // words makes the second probe conservative rather than exact; see
+  // the note above.
+  const startingALine = `${word} ${PROBE_SUFFIX}`;
+  return (
+    interruptsByLineShape(word) ||
+    interruptsByLineShape(startingALine) ||
+    startsSectionTitle(word) ||
+    startsSectionTitle(startingALine) ||
+    isRawParagraphLine(word) ||
+    isRawParagraphLine(startingALine)
+  );
+}
+
+/**
+ * The block heads Asciidoctor opens a block on and this registry's
+ * classifier files as TEXT. A description's join is the first pass
+ * that can lose one: our reader kept such a line where it stood and
+ * the render agreed, and a run that swallows it does not.
+ *
+ * THE FIRST PATTERN CLOSES A CLASS BY SHAPE, which is what an
+ * enumeration of spellings could not do. Every delimiter Asciidoctor
+ * opens a block on is a UNIFORM RUN of one non-alphanumeric character
+ * - `DELIMITED_BLOCKS` (asciidoctor.rb l.278-292) is `--`, `----`,
+ * `....`, `====`, `****`, `____`, `++++`, `////` and the fence, and
+ * the layout breaks (`LAYOUT_BREAK_CHARS` l.300-303) and markdown
+ * rules (`MARKDOWN_THEMATIC_BREAK_CHARS` l.305-308) are runs of one
+ * character too, the rule's optional interior spacing included. The
+ * four table delimiters `|===`, `,===`, `:===` and `!===` are the
+ * only entries of those three tables that are NOT uniform, and this
+ * registry models all four. One more non-uniform block opener stands
+ * outside them and is modelled elsewhere: {@link BLOCK_ATTRIBUTE_LINE}
+ * is what refuses `[]` and `[a b]`, so a mixed run like `{}` or `()`
+ * passing this pattern is inert rather than uncovered. Refusing every
+ * uniform run therefore refuses every delimiter there is and every
+ * one a later Asciidoctor adds, without naming any of them - which is
+ * the property an enumeration of spellings does not have. Measured
+ * over 32 punctuation characters at lengths two to six: of the 160
+ * spellings this refuses, three are live render losses today (`~{4,}`
+ * opens an OPEN block) and the rest are inert, and refusing all 160
+ * costs the vendored corpus nothing.
+ *
+ * THE OTHER TWO ARE NAMED, because neither is a run:
+ *
+ * - the markdown blockquote arm of `next_block` (parser.rb l.777),
+ *   `md_syntax && ch0 == '>' && this_line.start_with?('> ')`, spelled
+ *   as its head test.
+ * - U+2022 BULLET, which `UnorderedListRx` (rx.rb l.284) carries as a
+ *   third marker alternative beside `-` and `*`, and `AnyListRx`
+ *   (l.274) with it. The MARKER is what this registry does not model,
+ *   which puts the shape in the same class as the two above and not
+ *   in the marker sets. Anchored at the head and NOT at a following
+ *   space, unlike Ruby's `[ \t]+`: this pattern is asked of a WORD as
+ *   well as of a line, and a wrap that puts the bare word at a line
+ *   start supplies the space itself. So a line whose bullet has no
+ *   space behind it is refused where the oracle reads text, and a run
+ *   carrying a bullet word anywhere replays - including at positions
+ *   no width can move to a line start - which is the same whole-run
+ *   posture the separator condition takes. Over-refusal, bytes only.
+ *   The lookalikes the pattern does
+ *   NOT name stay text on both sides - U+2043 HYPHEN BULLET, U+2219
+ *   BULLET OPERATOR and U+00B7 MIDDLE DOT among them - because this
+ *   Asciidoctor's alternation holds one bullet and not a class.
+ *
+ * WHAT IS NOT CLOSED HERE, and what watches it instead. A head that
+ * is neither a uniform run nor named above is one this registry does
+ * not model and this file cannot know about - the standing set of
+ * those is the block-structure ledger's `gap:*` families
+ * (scripts/block-structure.ts), and the gate that crosses every one
+ * of them with a description's join lives in
+ * tests/format/description-sweep.test.ts. That gate is a REGRESSION
+ * net rather than a proof: it reds when a family arrives with nothing
+ * answering for it, and a shape no ledger has met yet - a bullet was
+ * one - it cannot see at all.
+ */
+const UNMODELLED_BLOCK_HEADS: readonly RegExp[] = [
+  /^[ \t]*(?<mark>[^\p{L}\p{N}\s])(?:[ \t]*\k<mark>)+[ \t]*$/v,
+  /^> /v,
+  /^[ \t]*\u{2022}/v,
+];
+
+/**
+ * Whether a word written at the START of a line INSIDE a description
+ * list's item would be re-read there as anything but that
+ * description's own text. WIDER than
+ * {@link startsBlockAtLineStart}, by exactly the shapes a
+ * description's line loses and a paragraph's later lines keep, and a
+ * SEPARATE predicate rather than a widening of that one because the
+ * two questions are asked at different reader positions.
+ *
+ * The narrower question is the paragraph packer's: "may this word
+ * begin a line at document level", where a mid-paragraph `:a: v`,
+ * `.T` or `//c` is ordinary text - `read_paragraph_lines` breaks on
+ * `StartOfBlockProc` / `StartOfListProc` and on nothing else
+ * (parser.rb l.962-969). Answering true for those there would
+ * over-refuse every plain paragraph, so the widening may not leak
+ * back.
+ *
+ * This one is asked where a description's wrapped line stands, which
+ * is the FIRST line the item's confined `next_block` sees: a comment
+ * is drained by `skip_line_comments` with nothing behind it to
+ * unshift back (parser.rb l.1363-1371), and an attribute entry or a
+ * block title is drained by the metadata loop (l.519-523) and takes
+ * the text it decorates with it. All three destroy content there and
+ * none of them mid-paragraph, which is exactly why the narrower
+ * predicate does not catch them. {@link UNMODELLED_BLOCK_HEADS} is here
+ * for a different reason, stated at its own declaration: those shapes
+ * are blocks to the ORACLE and text to this registry, so no
+ * composition of the sets above can reach them.
+ *
+ * {@link BLOCK_ATTRIBUTE_LINE} is deliberately NOT a fourth shape: it
+ * is already inside {@link interruptsByLineShape} through
+ * SHARED_INTERRUPTERS, and naming it again would state one shape
+ * twice and invite a later reader to believe the two lists are
+ * independent.
+ *
+ * A DISCLOSURE RULE, applied to every clause of this predicate, of
+ * {@link endsDescriptionLine}, and of the run predicate that reads
+ * them both (src/parse/lines/description-list.ts). A clause that
+ * refuses nothing over its measured domain is DELETED when it is
+ * inert for a structural reason the code can name, and KEPT with the
+ * measurement written down when it is one arm of an enumeration of a
+ * real domain. Deleted under it: the successor spellings of the two
+ * patterns below, and the blank-line and empty-word guards in the run
+ * predicate. Kept under it: the second spelling of
+ * {@link endsDescriptionLine} and two of the three questions its
+ * probe asks. The rule is stated once, here, so the next clause is
+ * decided rather than adjudicated.
+ *
+ * The shapes added here are asked in ONE spelling, where the
+ * composition below asks its three in two. Deleted under the rule,
+ * and the structural reason is this: the successor spelling
+ * appends a fixed non-syntactic word, and none of them can be
+ * completed by such a word. `BLOCK_TITLE` is decided by
+ * `^\.\.?[^ \t.]`, the comment head by two characters,
+ * `ATTRIBUTE_ENTRY` needs a closing `:` the probe suffix does not
+ * carry, and {@link UNMODELLED_BLOCK_HEADS}' two patterns are anchored
+ * at both ends. Over 346,200 probe strings no input made a successor
+ * spelling refuse where the bare one did not, so a second call would
+ * be a branch nothing reaches.
+ *
+ * THAT IS THE WHOLE OF WHAT A PROBE SUFFIX CAN DO, and it is where
+ * this predicate ends rather than where the danger does.
+ * `ATTRIBUTE_ENTRY` constrains a line at BOTH ends: `:a a:` is one
+ * entry written as two words, and no probe that appends a fixed word
+ * can see it. A shape that constrains both ends needs a word-PAIR
+ * test over the whole run, which is a question about a run and not
+ * about a word; the run's own predicate carries it
+ * (src/parse/lines/description-list.ts).
+ *
+ * The line-END half of the same question is
+ * {@link endsDescriptionLine}.
+ * @param word - the head of a line: a single whitespace-delimited
+ *   token, or several words with the spaces between them; rstripped
+ *   here, so a caller may hand it a raw source line
+ * @returns true when the head would start a block, a section, a
+ *   preprocessor line, or one of the drained metadata shapes
+ */
+export function startsItemBlockLine(word: string): boolean {
+  // Rstripped for the same reason the three questions
+  // {@link startsBlockAtLineStart} composes rstrip internally: the
+  // oracle rstrips every line in `prepare_source_string`, and the
+  // shapes added here test the string they are given, so a CRLF
+  // terminator on `:a:` would otherwise make them all fail open.
+  const head = rstrip(word);
+  return (
+    startsBlockAtLineStart(head) ||
+    BLOCK_TITLE.test(head) ||
+    ATTRIBUTE_ENTRY.test(head) ||
+    head.startsWith(LINE_COMMENT_HEAD) ||
+    UNMODELLED_BLOCK_HEADS.some((pattern) => pattern.test(head))
+  );
+}
+
+/**
+ * Whether a word written at the END of a description's line would
+ * make that line something other than the description's own text.
+ * The line-END half of {@link startsItemBlockLine}'s question, and
+ * not answerable by it: a wrap creates a line start and a line end at
+ * the same point, and a run that is safe at every start it can make
+ * is not thereby safe at every end.
+ *
+ * Asked of the TWO lines a description's wrap can close: a
+ * continuation line the word ends, and the item's own TERM line,
+ * which is still standing in front of the word whenever the wrap
+ * falls on the first output line. The term head is what makes the
+ * second one a different question and it is not optional:
+ * `t:: p x[]` is `name:: target[attrlist]` under {@link BLOCK_MACRO}
+ * and interrupts, while `p x[]` does not, so the shape that costs the
+ * item its description is visible only when the probe carries the
+ * head. Symmetrically `t:: p x{}` does not interrupt, which is what
+ * keeps this from refusing `x[`, `x]`, `x{}` and `x()`, the
+ * neighbouring spellings that wrap and stay stable.
+ *
+ * MEASURED, so the asymmetry between the two spellings is not read as
+ * an accident: the CONTINUATION spelling refuses nothing today, and
+ * the reason is the PREFIX, not the shapes. A fixed prefix decides
+ * the probe line's own head, and every shape that turns on a line's
+ * last word constrains its first word too - {@link BLOCK_MACRO} needs
+ * a `name::` head, {@link BLOCK_ATTRIBUTE_LINE} a `[` one. The prefix
+ * supplies neither, so the spelling can only ever report a line whose
+ * head IS the prefix. It does not follow that a continuation line is
+ * safe: `image::y x[]` is a block macro whose `name::` comes from a
+ * word of the description itself, and no fixed prefix reaches it.
+ * That case is a word PAIR, and the run's own predicate carries it
+ * (src/parse/lines/description-list.ts) for the same reason the
+ * line-start half hands `ATTRIBUTE_ENTRY`'s pair face over.
+ *
+ * Note also what this composition does NOT ask. It is the
+ * document-level one, three questions, while its line-start twin
+ * {@link startsItemBlockLine} asks the item-level one, six. Narrowing
+ * the gap is what would make the continuation spelling live, and it
+ * needs both spellings standing to be narrowed into.
+ *
+ * Swept over every punctuation pair as a word, alone and with a
+ * letter in front and behind, the continuation spelling was true for
+ * no word. It is KEPT under the disclosure rule stated at
+ * {@link startsItemBlockLine}, as one arm of a two-arm enumeration of
+ * a real domain - a wrap does create both lines - and the
+ * measurement is written down so that no reader takes it for a live
+ * guard in the meantime.
+ * @param word - one whitespace-delimited word of a description
+ * @param termHead - the item's own term and delimiter (`t::`): the
+ *   opening the printer replays, and therefore the text a wrap can
+ *   leave standing in front of the word
+ * @returns true when either line the word could close reads as
+ *   something other than description text
+ */
+export function endsDescriptionLine(word: string, termHead: string): boolean {
+  return (
+    closesADescriptionLine(`${PROBE_PREFIX} ${word}`) ||
+    closesADescriptionLine(`${termHead} ${PROBE_PREFIX} ${word}`)
+  );
+}
+
+/**
+ * The three registry questions {@link endsDescriptionLine} asks of
+ * each of its two probe lines, and the same three
+ * {@link startsBlockAtLineStart} asks of its own: what interrupts,
+ * what starts a section, and what the reader eats before block
+ * structure exists. Written once so the two spellings cannot drift.
+ *
+ * MEASURED, under the disclosure rule stated at
+ * {@link startsItemBlockLine}: over those probe words only
+ * `interruptsByLineShape` was ever true, in either spelling. The
+ * other two are KEPT because the three
+ * together are one enumeration of "what makes a line not text" - the
+ * enumeration {@link startsBlockAtLineStart} asks and the one the
+ * line-end half will be narrowed toward - and not because either has
+ * a witness here.
+ * @param line - one whole probe line
+ * @returns true when the line is not ordinary text
+ */
+function closesADescriptionLine(line: string): boolean {
+  return (
+    interruptsByLineShape(line) ||
+    startsSectionTitle(line) ||
+    isRawParagraphLine(line)
+  );
 }

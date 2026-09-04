@@ -182,6 +182,34 @@
     "reason": "pure (extent, role, index) -> Node constructor, called from the reader that collected the extent"
   },
   {
+    "file": "src/parse/build/description-list.ts",
+    "symbol": "DescriptionPair",
+    "importer": "src/parse/lines/description-list-node.ts",
+    "kind": "vocabulary",
+    "reason": "the shape one scanned sibling hands the fold, declared beside the fold that reads it"
+  },
+  {
+    "file": "src/parse/build/description-list.ts",
+    "symbol": "DescriptionPair",
+    "importer": "src/parse/lines/list-read.ts",
+    "kind": "vocabulary",
+    "reason": "the shape one scanned sibling hands the fold, declared beside the fold that reads it"
+  },
+  {
+    "file": "src/parse/build/description-list.ts",
+    "symbol": "buildDescriptionList",
+    "importer": "src/parse/lines/list-read.ts",
+    "kind": "vocabulary",
+    "reason": "pure (delimiter, siblings, index) -> Node constructor, called where the siblings are assembled; the term fold that decides how many items they make is the builder's, not the read's"
+  },
+  {
+    "file": "src/parse/build/description-list.ts",
+    "symbol": "buildDescriptionTerm",
+    "importer": "src/parse/lines/description-list-node.ts",
+    "kind": "vocabulary",
+    "reason": "pure (tokens, span, line, index) -> Node constructor, called where the term line's own parse is in hand"
+  },
+  {
     "file": "src/parse/build/header.ts",
     "symbol": "buildAuthorLine",
     "importer": "src/parse/lines/header-reader.ts",
@@ -219,9 +247,9 @@
   {
     "file": "src/parse/build/list.ts",
     "symbol": "buildList",
-    "importer": "src/parse/lines/reader.ts",
+    "importer": "src/parse/lines/list-read.ts",
     "kind": "vocabulary",
-    "reason": "pure (items, index) -> Node constructor, called where the item nodes are assembled - the reader that owns the recursion"
+    "reason": "pure (items, index) -> Node constructor, called where the item nodes are assembled - the list read that owns them"
   },
   {
     "file": "src/parse/build/list.ts",
@@ -373,6 +401,13 @@
   {
     "file": "src/parse/inline/inline-node-builder.ts",
     "symbol": "buildFromTokens",
+    "importer": "src/parse/build/description-list.ts",
+    "kind": "vocabulary",
+    "reason": "the one token-run -> inline-node pass; every builder that holds inline content calls it rather than pairing tokens itself"
+  },
+  {
+    "file": "src/parse/inline/inline-node-builder.ts",
+    "symbol": "buildFromTokens",
     "importer": "src/parse/build/list.ts",
     "kind": "vocabulary",
     "reason": "the one token-run -> inline-node pass; every builder that holds inline content calls it rather than pairing tokens itself"
@@ -429,9 +464,23 @@
   {
     "file": "src/parse/inline/tokenize.ts",
     "symbol": "tokenizeInline",
+    "importer": "src/parse/lines/description-list-node.ts",
+    "kind": "vocabulary",
+    "reason": "the one source-to-token pass; a term's text is tokenized where it stands rather than by a second scanner"
+  },
+  {
+    "file": "src/parse/inline/tokenize.ts",
+    "symbol": "tokenizeInline",
     "importer": "src/parse/lines/paragraph-reader.ts",
     "kind": "vocabulary",
     "reason": "the one tokenization of a run of paragraph text, called where the run's extent is known"
+  },
+  {
+    "file": "src/parse/inline/tokens.ts",
+    "symbol": "InlineToken",
+    "importer": "src/parse/build/description-list.ts",
+    "kind": "vocabulary",
+    "reason": "the inline token vocabulary the tokenizer produces and every holder of inline content carries"
   },
   {
     "file": "src/parse/inline/tokens.ts",
@@ -450,7 +499,14 @@
   {
     "file": "src/parse/inline/tokens.ts",
     "symbol": "InlineToken",
-    "importer": "src/parse/lines/list-item-node.ts",
+    "importer": "src/parse/lines/item-body.ts",
+    "kind": "vocabulary",
+    "reason": "the inline token vocabulary the tokenizer produces and every holder of inline content carries"
+  },
+  {
+    "file": "src/parse/inline/tokens.ts",
+    "symbol": "InlineToken",
+    "importer": "src/parse/lines/list-read.ts",
     "kind": "vocabulary",
     "reason": "the inline token vocabulary the tokenizer produces and every holder of inline content carries"
   },
@@ -467,6 +523,27 @@
     "importer": "src/parse/lines/reader.ts",
     "kind": "vocabulary",
     "reason": "the inline token vocabulary the tokenizer produces and every holder of inline content carries"
+  },
+  {
+    "file": "src/parse/line-shapes-description.ts",
+    "symbol": "parseDescriptionListLine",
+    "importer": "src/parse/lines/classify.ts",
+    "kind": "vocabulary",
+    "reason": "the one parse of a dlist term line, in the registry module that holds the description-list rows"
+  },
+  {
+    "file": "src/parse/line-shapes-description.ts",
+    "symbol": "parseDescriptionListLine",
+    "importer": "src/parse/lines/description-list.ts",
+    "kind": "vocabulary",
+    "reason": "the term line's own parse, asked for its inline-description group: the greedy read is handed back only by a term that carries none"
+  },
+  {
+    "file": "src/parse/line-shapes-description.ts",
+    "symbol": "parseDescriptionSiblingLine",
+    "importer": "src/parse/lines/description-list.ts",
+    "kind": "vocabulary",
+    "reason": "the one parse of a line against the pattern an OPEN description list is keyed to, beside the four patterns it chooses among"
   },
   {
     "file": "src/parse/line-shapes.ts",
@@ -688,9 +765,23 @@
   {
     "file": "src/parse/line-shapes.ts",
     "symbol": "LINE_COMMENT_HEAD",
-    "importer": "src/parse/lines/list-item-node.ts",
+    "importer": "src/parse/lines/description-list-node.ts",
+    "kind": "vocabulary",
+    "reason": "the two characters `skip_line_comments` tests for - a term line the drain deletes may not have the line that follows it joined away"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "LINE_COMMENT_HEAD",
+    "importer": "src/parse/lines/item-body.ts",
     "kind": "vocabulary",
     "reason": "the two characters `skip_line_comments` tests for - the scan side's one spelling of 'line comment', deliberately wider than the parse-side pattern"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "LINE_COMMENT_HEAD",
+    "importer": "src/parse/lines/list-read.ts",
+    "kind": "vocabulary",
+    "reason": "the two characters `skip_line_comments` tests for - the head drain reads the drain's own spelling, not the classifier's"
   },
   {
     "file": "src/parse/line-shapes.ts",
@@ -747,6 +838,13 @@
     "importer": "src/parse/lines/classify.ts",
     "kind": "vocabulary",
     "reason": "registry vocabulary: which paragraph shape is open, which is what selects an interrupting set"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "ParagraphContext",
+    "importer": "src/parse/lines/list-read.ts",
+    "kind": "vocabulary",
+    "reason": "registry reading: which interrupting set an item's own text is read under, named where the two list reads choose between them"
   },
   {
     "file": "src/parse/line-shapes.ts",
@@ -848,10 +946,10 @@
   },
   {
     "file": "src/parse/line-shapes.ts",
-    "symbol": "interruptsByLineShape",
-    "importer": "src/print/reflow.ts",
+    "symbol": "endsDescriptionLine",
+    "importer": "src/parse/lines/description-list.ts",
     "kind": "vocabulary",
-    "reason": "the one answer to 'does this line shape interrupt a paragraph', asked by reflow at the one documented parse address so the formatter cannot re-wrap a line the parser would re-read differently"
+    "reason": "the line-END half of the same answer, which needs the registry's whole-line patterns and the item's term head together and can therefore be spelled nowhere but beside them"
   },
   {
     "file": "src/parse/line-shapes.ts",
@@ -859,6 +957,13 @@
     "importer": "src/parse/lines/classify.ts",
     "kind": "vocabulary",
     "reason": "the one answer to 'does this line interrupt this paragraph context', which is the registry's interrupting sets"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "interruptsParagraph",
+    "importer": "src/parse/lines/description-list.ts",
+    "kind": "vocabulary",
+    "reason": "the same answer, asked of the line a description's first block opens on: the shapes that end the description only on its first line are the ones a wrap costs their meaning"
   },
   {
     "file": "src/parse/line-shapes.ts",
@@ -870,21 +975,14 @@
   {
     "file": "src/parse/line-shapes.ts",
     "symbol": "isDescriptionListLine",
-    "importer": "src/parse/lines/list-reader.ts",
+    "importer": "src/parse/lines/description-list.ts",
     "kind": "vocabulary",
-    "reason": "the one predicate over the dlist term patterns"
+    "reason": "the dlist arm of the any-list question the block-attribute look-ahead asks, so that predicate and the classifier read one grammar"
   },
   {
     "file": "src/parse/line-shapes.ts",
     "symbol": "isRawParagraphLine",
     "importer": "src/parse/lines/classify.ts",
-    "kind": "vocabulary",
-    "reason": "the one answer to 'must this line stay verbatim inside a paragraph'; reflow asks it at the one documented parse address for the same reason"
-  },
-  {
-    "file": "src/parse/line-shapes.ts",
-    "symbol": "isRawParagraphLine",
-    "importer": "src/print/reflow.ts",
     "kind": "vocabulary",
     "reason": "the one answer to 'must this line stay verbatim inside a paragraph'; reflow asks it at the one documented parse address for the same reason"
   },
@@ -911,13 +1009,6 @@
   },
   {
     "file": "src/parse/line-shapes.ts",
-    "symbol": "parseDescriptionListLine",
-    "importer": "src/parse/lines/classify.ts",
-    "kind": "vocabulary",
-    "reason": "the one parse of a dlist term line, beside the patterns it uses"
-  },
-  {
-    "file": "src/parse/line-shapes.ts",
     "symbol": "rawLineForm",
     "importer": "src/parse/build/metadata.ts",
     "kind": "vocabulary",
@@ -929,6 +1020,13 @@
     "importer": "src/parse/lines/classify.ts",
     "kind": "vocabulary",
     "reason": "the one answer to which context-free raw pattern a line matched, beside those patterns"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "rawLineForm",
+    "importer": "src/parse/lines/paragraph-reader.ts",
+    "kind": "vocabulary",
+    "reason": "registry reading: whether a rest line is a comment `next_block`'s metadata loop drains, which is what decides the arm a description folds down"
   },
   {
     "file": "src/parse/line-shapes.ts",
@@ -957,6 +1055,13 @@
     "importer": "src/parse/lines/classify.ts",
     "kind": "vocabulary",
     "reason": "the one line-normalization helper; Ruby's reader rstrips, so every consumer must strip the same way"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "rstrip",
+    "importer": "src/parse/lines/description-list-node.ts",
+    "kind": "vocabulary",
+    "reason": "the one line-normalization helper; a term gap is spelled from the line's RAW bytes, which an enclosing read never rewrites, so it strips them the way the reader does"
   },
   {
     "file": "src/parse/line-shapes.ts",
@@ -995,10 +1100,17 @@
   },
   {
     "file": "src/parse/line-shapes.ts",
-    "symbol": "startsSectionTitle",
+    "symbol": "startsBlockAtLineStart",
     "importer": "src/print/reflow.ts",
     "kind": "vocabulary",
-    "reason": "the one answer to 'would this line start a section', in both spellings; no interrupting set carries it (a section title does not end a paragraph), and reflow asks it at the same parse address so the packer cannot write a heading the source never had"
+    "reason": "the one answer to 'may this word begin a line', in both spellings, asked by reflow at the one documented parse address so the packer cannot write a block, a section or a preprocessor line the source never had"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "startsItemBlockLine",
+    "importer": "src/parse/lines/description-list.ts",
+    "kind": "vocabulary",
+    "reason": "the one answer to 'may this word begin a line inside a description item', asked at the one documented parse address so the reflow conditions and the registry cannot disagree about which shapes an item's confined read drains"
   },
   {
     "file": "src/parse/lines/reader.ts",
@@ -1011,6 +1123,13 @@
     "file": "src/parse/positions.ts",
     "symbol": "Fragment",
     "importer": "src/parse/build/delimited.ts",
+    "kind": "vocabulary",
+    "reason": "the position vocabulary every builder takes: an image and the offset it was written at"
+  },
+  {
+    "file": "src/parse/positions.ts",
+    "symbol": "Fragment",
+    "importer": "src/parse/build/description-list.ts",
     "kind": "vocabulary",
     "reason": "the position vocabulary every builder takes: an image and the offset it was written at"
   },
@@ -1108,6 +1227,13 @@
   {
     "file": "src/parse/positions.ts",
     "symbol": "LocationIndex",
+    "importer": "src/parse/build/description-list.ts",
+    "kind": "vocabulary",
+    "reason": "the document's one offset -> Location index, built once and handed to every builder so no two agree on it separately"
+  },
+  {
+    "file": "src/parse/positions.ts",
+    "symbol": "LocationIndex",
     "importer": "src/parse/build/header.ts",
     "kind": "vocabulary",
     "reason": "the offset-to-Location index every builder asks for line and column"
@@ -1164,6 +1290,13 @@
   {
     "file": "src/parse/positions.ts",
     "symbol": "LocationIndex",
+    "importer": "src/parse/lines/description-list-node.ts",
+    "kind": "vocabulary",
+    "reason": "the document's one offset -> Location index, built once and handed to every builder so no two agree on it separately"
+  },
+  {
+    "file": "src/parse/positions.ts",
+    "symbol": "LocationIndex",
     "importer": "src/parse/lines/frames.ts",
     "kind": "vocabulary",
     "reason": "the document's one offset -> Location index, built once and handed to every builder so no two agree on it separately"
@@ -1186,6 +1319,13 @@
     "file": "src/parse/positions.ts",
     "symbol": "LocationIndex",
     "importer": "src/parse/lines/held-metadata.ts",
+    "kind": "vocabulary",
+    "reason": "the document's one offset -> Location index, built once and handed to every builder so no two agree on it separately"
+  },
+  {
+    "file": "src/parse/positions.ts",
+    "symbol": "LocationIndex",
+    "importer": "src/parse/lines/item-body.ts",
     "kind": "vocabulary",
     "reason": "the document's one offset -> Location index, built once and handed to every builder so no two agree on it separately"
   },

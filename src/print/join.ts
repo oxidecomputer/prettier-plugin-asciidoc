@@ -9,7 +9,11 @@
  * contain child blocks.
  */
 import { doc, type Doc } from "prettier";
-import type { BlockNode } from "../ast.js";
+import type {
+  BlockNode,
+  DescriptionListItemNode,
+  ListItemNode,
+} from "../ast.js";
 import {
   anchorLineShape,
   isLineComment,
@@ -291,6 +295,31 @@ function stacksWithReaderEatenLine(
 }
 
 /**
+ * The last ITEM of a list-like block, or undefined for a block that
+ * is not one.
+ *
+ * TWO kinds, one accessor. A `list` and a `descriptionList` are the
+ * only blocks whose last printed line is their last CHILD's line
+ * rather than a delimiter of their own, and the three fields the two
+ * questions below ask of that child (`blocks`, `text`, `activeTail`)
+ * are the item BODY both item kinds extend (src/ast.ts). Naming the
+ * kinds once here is what keeps a description list from being
+ * invisible to both tests: while only `list` was named, a `t:: a` /
+ * `+` / `[role]` item's armed tail reached neither, the pair below it
+ * got one blank line where it needs two, and the next block attached
+ * to the item on re-read.
+ * @param block - any block node
+ * @returns its last item, or undefined when it holds none
+ */
+function lastItemOf(
+  block: BlockNode,
+): ListItemNode | DescriptionListItemNode | undefined {
+  return block.type === "list" || block.type === "descriptionList"
+    ? block.children.at(-1)
+    : undefined;
+}
+
+/**
  * Whether the LAST line a block occupies is one the reader eats.
  *
  * A list is the one container whose last line is its last CHILD's
@@ -306,18 +335,18 @@ function stacksWithReaderEatenLine(
  * @returns Whether its last printed line is reader-eaten.
  */
 function endsWithReaderEatenLine(block: BlockNode): boolean {
-  if (block.type !== "list") {
+  const item = lastItemOf(block);
+  if (item === undefined) {
     return isReaderConsumedLine(block);
   }
-  const item = block.children.at(-1);
-  const last = item?.blocks.at(-1)?.block;
+  const last = item.blocks.at(-1)?.block;
   if (last !== undefined) {
     // A trailing nested list recurses through the same test.
     return endsWithReaderEatenLine(last);
   }
   // An inline rawLine is a comment or a preprocessor directive by
   // construction (`isRawParagraphLine` admits nothing else).
-  return item?.text.at(-1)?.type === "rawLine";
+  return item.text.at(-1)?.type === "rawLine";
 }
 
 /**
@@ -340,20 +369,23 @@ function startsOnTheNextLine(previous: BlockNode, current: BlockNode): boolean {
  * parser.rb l.1483); two detach it (the after-blank break, l.1549).
  * The recursion mirrors {@link endsWithReaderEatenLine}: a trailing
  * nested list's own last item is what the printed lines actually end
- * on, so the innermost item's flag is the one that answers.
+ * on, so the innermost item's flag is the one that answers, and
+ * {@link lastItemOf} is what makes both reach a description list.
  * @param block - The preceding block node.
  * @returns Whether its tail continuation is still armed.
  */
 function listTailContinuationActive(block: BlockNode): boolean {
-  if (block.type !== "list") {
+  const item = lastItemOf(block);
+  if (item === undefined) {
     return false;
   }
-  const item = block.children.at(-1);
-  const last = item?.blocks.at(-1)?.block;
-  if (last?.type === "list") {
+  const last = item.blocks.at(-1)?.block;
+  // A trailing nested list of EITHER kind is what the printed lines
+  // end on, so the innermost item's flag is the one that answers.
+  if (last !== undefined && lastItemOf(last) !== undefined) {
     return listTailContinuationActive(last);
   }
-  return item?.activeTail ?? false;
+  return item.activeTail;
 }
 
 /**

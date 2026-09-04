@@ -555,28 +555,13 @@ describe("raw (non-text, non-interrupting) paragraph lines", () => {
 // that tracks it. A row here is a promise, not an excuse: when the
 // issue is fixed the entry must be deleted, and the test below fails
 // loudly if a listed row starts passing.
-const KNOWN_GAPS = new Map<string, string>([
-  // Description lists are not parsed yet, so everything a `term::`
-  // line owns is emitted at the top level (or reflowed into the
-  // term's text).
-  // `dlistItem/list continuation` used to sit in this list: the `+`
-  // line after an unparsed term was joined into the term's text,
-  // which mangled the render AND manufactured a description-list
-  // term out of the join. Issue #43 gave the `+` back the line the
-  // source wrote, so the row round-trips even though the term itself
-  // is still unparsed.
-  // `dlistItem/block title` and `dlistItem/attribute entry` used to
-  // sit here too: both lines were reflowed onto the term, which made
-  // them the term's last words and dropped what they decorated. They
-  // now keep the line the source wrote them on
-  // (RAW_DESCRIPTION_METADATA in src/parse/line-shapes.ts), so both
-  // round-trip while the term itself is still unparsed.
-  ["dlistItem/callout list marker", "#9 — description lists not parsed"],
-  ["dlistItem/admonition marker", "#9 — description lists not parsed"],
-  ["dlistItem/block macro", "#9 — description lists not parsed"],
-  ["dlistItem/thematic break", "#9 — description lists not parsed"],
-  ["dlistItem/page break", "#9 — description lists not parsed"],
-]);
+// EMPTY, and it stays a map rather than becoming a boolean: the
+// `dlistItem` rows that were its last five entries are gone - each was
+// a line a `term::` line owned being emitted at the top level or
+// reflowed into the term's text, and a description is an ITEM now, so
+// its recorded lines are written back where the author wrote them and
+// each construct keeps the line and the column that decide what it is.
+const KNOWN_GAPS = new Map<string, string>();
 
 /**
  * Key for the KNOWN_GAPS map.

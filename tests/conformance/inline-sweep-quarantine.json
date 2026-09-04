@@ -42,33 +42,5 @@
   "InlineAnchor-alt-1/escaped/para-tail": {
     "fails": ["fidelity"],
     "issue": "UNTRIAGED"
-  },
-  "InlineAnchor-near-0/reflow-edge/dlist-desc": {
-    "fails": ["idempotency"],
-    "issue": "UNTRIAGED"
-  },
-  "InlineMacro-alt-2/reflow-edge/dlist-desc": {
-    "fails": ["idempotency"],
-    "issue": "UNTRIAGED"
-  },
-  "InlineMacro-alt-3/reflow-edge/dlist-desc": {
-    "fails": ["idempotency"],
-    "issue": "UNTRIAGED"
-  },
-  "InlineMacro-near-0/reflow-edge/dlist-desc": {
-    "fails": ["idempotency"],
-    "issue": "UNTRIAGED"
-  },
-  "InlineMacro-near-2/reflow-edge/dlist-desc": {
-    "fails": ["idempotency"],
-    "issue": "UNTRIAGED"
-  },
-  "InlineMacro-near-3/reflow-edge/dlist-desc": {
-    "fails": ["idempotency"],
-    "issue": "UNTRIAGED"
-  },
-  "InlineMacro/reflow-edge/dlist-desc": {
-    "fails": ["idempotency"],
-    "issue": "UNTRIAGED"
   }
 }

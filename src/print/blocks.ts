@@ -13,6 +13,8 @@ import type {
   AdmonitionNode,
   BlockNode,
   DelimitedBlockNode,
+  DescriptionListItemNode,
+  DescriptionTermNode,
   DocumentHeaderNode,
   DocumentNode,
   HeaderLineNode,
@@ -55,7 +57,9 @@ export type AnyNode =
   | InlineNode
   | ListItemNode
   | TableRowNode
-  | TableCellNode;
+  | TableCellNode
+  | DescriptionListItemNode
+  | DescriptionTermNode;
 
 /**
  * Convenience alias for Prettier's AST path, specialized

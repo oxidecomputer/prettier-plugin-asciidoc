@@ -66,29 +66,5 @@
     ],
     "sha256": "4e3b92d5543a4761618684fd1d13deca04f9a54ca010dc08f01d77b4cbbd44ce",
     "issue": "UNTRIAGED"
-  },
-  "standing/InlineAnchor/reflow-edge/idempotency": {
-    "count": 9,
-    "examples": [
-      "InlineAnchor-near-0/reflow-edge/dlist-desc",
-      "InlineAnchor-near-0/reflow-edge/dlist-desc@bom",
-      "InlineAnchor-near-0/reflow-edge/dlist-desc@crlf",
-      "InlineAnchor-near-0/reflow-edge/dlist-desc@no-final-newline",
-      "InlineAnchor-near-0/reflow-edge/dlist-desc@trailing-ff"
-    ],
-    "sha256": "8c229e2f6cf98993d4a47aa0b38ee5522e9ee3336b9c0c761887ba71867ba337",
-    "issue": "UNTRIAGED"
-  },
-  "standing/InlineMacro/reflow-edge/idempotency": {
-    "count": 54,
-    "examples": [
-      "InlineMacro-alt-2/reflow-edge/dlist-desc",
-      "InlineMacro-alt-2/reflow-edge/dlist-desc@bom",
-      "InlineMacro-alt-2/reflow-edge/dlist-desc@crlf",
-      "InlineMacro-alt-2/reflow-edge/dlist-desc@no-final-newline",
-      "InlineMacro-alt-2/reflow-edge/dlist-desc@trailing-ff"
-    ],
-    "sha256": "44847bfd4cc4aa6a1b312f4ce88ef807bdbf5ae2efb977ee9662a1f72de5e43e",
-    "issue": "UNTRIAGED"
   }
 }

@@ -591,14 +591,39 @@ const TABLE_UNREAD_ATTRLIST_FAMILY = "table-unread-attrlist";
  * one header node, curved-quote-node turns a quoted backtick pair
  * into a node, block-start-line-fact records the source-line
  * question the printer used to re-derive, table-node replaces a
- * table's opaque text with the cells it was cut into, and
+ * table's opaque text with the cells it was cut into,
  * table-cell-column-index records the column every cell inherits its
- * style from, and table-unread-attrlist records that an attribute line
- * above a table went unread, so an entry of those sixteen whose AST
- * differs is legal
- * and an entry of any other family whose AST differs fails the
- * cross-check.
+ * style from, table-unread-attrlist records that an attribute line
+ * above a table went unread, and description-list-item re-roots a
+ * `term:: description` run from a run of paragraphs onto one
+ * description list, so an entry of those seventeen whose AST differs
+ * is legal and an entry of any other family whose AST differs fails
+ * the cross-check.
  */
+/**
+ * A description is an ITEM, so a `term:: description` run that used
+ * to serialize as one `paragraph` per term line now serializes as a
+ * `descriptionList` with items, terms and a body - the ids whose tree
+ * is RE-ROOTED by the reader that opens a list on a term line.
+ *
+ * Not formatted-only: it names a change to what the tree MEANS. Not a
+ * blanket family either: it does not name a field every node gained,
+ * it names ids whose whole subtree is a different shape, and the
+ * blanket form would excuse arbitrary tree changes on every case that
+ * happens to carry a `::`. EXPORTED because the standing grid cites
+ * it: every row built inside the `dlist-desc` container moved when
+ * the reader began opening a list on a term line, and
+ * `gridRowFamily` (scripts/shape-registry-families.ts) names that
+ * family for them.
+ *
+ * The SAME reader also records on that tree the verdict that decides
+ * how the item prints (`printing`, src/ast.ts), so an id whose tree
+ * was already re-rooted and whose only remaining difference is that
+ * verdict's value and the description bytes it licenses belongs to
+ * this family too: one meaning change, landed in two commits.
+ */
+export const DESCRIPTION_LIST_ITEM_FAMILY = "description-list-item";
+
 export const LEDGER_FAMILIES: FamilySets = {
   families: new Set([
     ATTRIBUTE_CONTINUATION_FAMILY,
@@ -634,6 +659,7 @@ export const LEDGER_FAMILIES: FamilySets = {
     TABLE_LAYOUT_FAMILY,
     TABLE_WIDTH_LAYOUT_FAMILY,
     TABLE_UNREAD_ATTRLIST_FAMILY,
+    DESCRIPTION_LIST_ITEM_FAMILY,
   ]),
   formattedOnly: new Set([
     AUTHOR_PLUS_FAMILY,

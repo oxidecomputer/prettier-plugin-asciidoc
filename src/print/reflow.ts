@@ -38,10 +38,8 @@ import { doc, util, type Doc } from "prettier";
 import {
   ASCII_WHITESPACE,
   DLIST_SEPARATOR_WORD,
-  interruptsByLineShape,
-  isRawParagraphLine,
   LINE_COMMENT_HEAD,
-  startsSectionTitle,
+  startsBlockAtLineStart,
 } from "../parse/line-shapes.js";
 import {
   foldChangesEmDash,
@@ -472,12 +470,6 @@ const CONTINUATION_WORD = "+";
  */
 export const HARD_BREAK_IMAGE = " +";
 
-// Stands in for "whatever word the packer puts next", so the registry
-// can be asked about a word that STARTS a line rather than one alone on
-// it. Any non-blank, non-syntactic text does; the marker patterns only
-// require that something follow the space.
-const PROBE_SUFFIX = "x";
-
 /**
  * Detect words that must not begin an output line, because
  * AsciiDoc would re-parse them there as the start of a new block
@@ -485,35 +477,10 @@ const PROBE_SUFFIX = "x";
  * text node by wordsToAtoms, and across a node boundary by the leading
  * boundary in src/print/inline.ts's text case.
  *
- * The answer comes entirely from the line-shape registry, asked
- * in both spellings a reflowed head can take, because reflow does
- * not know which kind of paragraph it is inside and the registry's
- * patterns are whole-LINE ones:
- *
- * - the head alone on a line (`----`, `[source]`, `[[a]]`),
- * - the head starting a line that continues (`* `, `. `, `<1> `,
- *   `NOTE: ` all require that trailing text to match, and the packer
- *   would supply it with the very next word).
- *
- * The second probe is exact for a single WORD and conservative for the
- * two composed heads below: appending `PROBE_SUFFIX` to a head that
- * already holds a space asks about a line one word longer than the
- * packer would write. It can therefore only over-refuse, never
- * under-refuse, and over-refusing costs a break the output did not
- * need rather than a document the reader loses.
- *
- * The interrupting shapes, the SECTION TITLES and the RAW ones all
- * count, and the difference in the QUESTION is the point. The reader
- * asks "does this line end the block", to which a comment or
- * preprocessor directive answers no (the reader consumes it before
- * block structure exists), and a section title answers no as well (a
- * paragraph swallows one mid-block). Reflow asks "may this word begin
- * a line", and there the same shapes answer yes for a different
- * reason: `//` at column 0 comments out everything packed after it,
- * `ifdef::x[]` swallows it into a directive, and `=` or `##` in front
- * of a word writes a heading the source never had. Text destroyed is
- * text destroyed, whether by a new block, by a section the author did
- * not write, or by the preprocessor.
+ * The answer comes entirely from the line-shape registry.
+ * {@link startsBlockAtLineStart} answers whether the head would be
+ * re-read as syntax where it stands; this adds the one word the
+ * PRINTER must answer differently, the lone `+`.
  * @param word - The head of an output line, in one of three
  *   spellings: a single non-empty whitespace-delimited token from the
  *   paragraph text, as produced by String.split on whitespace; a
@@ -522,31 +489,22 @@ const PROBE_SUFFIX = "x";
  *   src/print/block-start-hazard.ts); or a whole FUSED RUN as
  *   {@link wrap} joins it, which may hold any number of atoms and the
  *   spaces between them (`[a@b.com] and`). The last two carry interior
- *   whitespace, which the probes spell either way.
- * @returns True when the head would start a block, or be eaten by
- *   the preprocessor, at line start
+ *   whitespace, which the registry's probes spell either way.
+ * @returns True when the head would start a block, start a section,
+ *   or be eaten by the preprocessor, at line start
  */
 export function isBlockSyntaxAtLineStart(word: string): boolean {
   // A lone `+` is the one interrupter this rule must NOT act on: it
   // is handled by the line-END rule (isDangerousAtLineEnd) and by
   // escapeDanglingPlus, and fusing it backwards here would put ` +`
-  // at the end of a line instead — a hard line break.
+  // at the end of a line instead, a hard line break. That is a rule
+  // about where a BREAK may land, which is the printer's question and
+  // not the registry's about what a line shape means, so it lives
+  // here rather than in the registry.
   if (word === CONTINUATION_WORD) {
     return false;
   }
-  // The head alone, then the head with a successor after it - the two
-  // lines the packer can produce from it. A head that is already
-  // several words makes the second probe conservative rather than
-  // exact; see the note above.
-  const startingALine = `${word} ${PROBE_SUFFIX}`;
-  return (
-    interruptsByLineShape(word) ||
-    interruptsByLineShape(startingALine) ||
-    startsSectionTitle(word) ||
-    startsSectionTitle(startingALine) ||
-    isRawParagraphLine(word) ||
-    isRawParagraphLine(startingALine)
-  );
+  return startsBlockAtLineStart(word);
 }
 
 /**
@@ -814,6 +772,21 @@ export function wordsToAtoms(
     // the first line of a block. When it came from a later source
     // line, packing it onto the first output line would silently
     // turn the paragraph into a description list.
+    //
+    // THIS GUARD ANSWERS FOR A PLAIN PARAGRAPH, and for no other
+    // construct. On a paragraph's later line the word really is text
+    // (oracle-pinned at src/parse/lines/paragraph-reader.ts), so what
+    // is dangerous is the MOVE onto the first line, and a per-word,
+    // per-line guard is the right size for it. Inside a DESCRIPTION
+    // the same word is a sibling term on EVERY line of the item
+    // (`is_sibling_list_item?`, parser.rb:1430, :2281), so no break
+    // the packer could place is safe and no guard here would be the
+    // right size: that construct is answered whole-run by
+    // `descriptionPrinting`'s separator condition
+    // (src/parse/lines/description-list.ts), which replays the item
+    // instead of packing it. Two guards for one hazard word, named at
+    // both sites, so a later change cannot widen either into the
+    // other's job.
     const hazard =
       index >= firstLineWordCount && DLIST_SEPARATOR_WORD.test(word);
     // Rules 1 and 2 both fuse `word` backwards: the previous word is

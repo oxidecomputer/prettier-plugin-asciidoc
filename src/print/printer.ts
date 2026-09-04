@@ -37,6 +37,10 @@ import {
   printDocumentHeader,
   printParentBlock,
 } from "./blocks.js";
+import {
+  printDescriptionList,
+  printDescriptionListItem,
+} from "./description-list.js";
 import { printList, printListItem } from "./list.js";
 import { printTable, printTableCell, printTableRow } from "./table.js";
 import { anchorToSource } from "./serialize-inline.js";
@@ -178,6 +182,22 @@ const printer: Printer<AnyNode> = {
       }
       case "listItem": {
         return printListItem(node, path, print, options.printWidth);
+      }
+      // NO print width for the LIST, which writes only the separator
+      // between two items. The ITEM takes one and reads it on the one
+      // arm that packs (src/print/description-list.ts).
+      case "descriptionList": {
+        return printDescriptionList(path, print);
+      }
+      case "descriptionListItem": {
+        return printDescriptionListItem(node, path, print, options.printWidth);
+      }
+      // The whole term LINE, verbatim: its indent, its delimiter and
+      // the inline description that shares it are all bytes this
+      // formatter replays rather than respells (src/ast.ts,
+      // DescriptionTermNode.line).
+      case "descriptionTerm": {
+        return node.line;
       }
       // An inline node standing alone is a one-node block: the same
       // engine, at the full width. Prettier's AstPath is invariant, so

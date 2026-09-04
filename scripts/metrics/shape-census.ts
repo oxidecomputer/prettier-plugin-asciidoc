@@ -2,9 +2,11 @@
  * The shape-registry completeness census: a `bun run
  * metrics` gate in the same idiom as the node-kind census, housed with
  * the design budgets. Rule (i): every `DELIMITER_KINDS` entry has a
- * registry dimension. Rule (ii): every RUNTIME EXPORT NAME of
- * line-shapes.ts is either covered by a dimension's `covers` or named
- * in the EXEMPT map below, and neither list may go stale. Rule (iii):
+ * registry dimension. Rule (ii): every RUNTIME EXPORT NAME of every
+ * registry module (line-shapes.ts and each `line-shapes-*.ts` it is
+ * split over) is either covered by a dimension's `covers` or named in
+ * the EXEMPT map below; neither list may go stale, and neither may the
+ * module list itself. Rule (iii):
  * the container, perturbation and byte-operator dimensions match the
  * rosters below in BOTH directions. Rule (iv): every construct
  * dimension either reaches a realized grid or is named in GRID_EXEMPT
@@ -34,18 +36,29 @@
  * rule, or a widening of an existing pattern's alternation, stays
  * invisible; CONSTRUCT coverage, not INTERACTION coverage — a novel
  * failure AXIS (a new kind of nesting, a new boundary) still requires
- * a human to add a dimension; and MODULE-scoped — the enumeration
- * names line-shapes.ts alone, so a new `line-shapes-*.ts` would be
- * invisible to it ("no patterns outside line-shapes.ts" is NOT
- * promotable to a standing gate: six src files define one regex each;
- * the narrower guard that exists is the diff-grep floor).
+ * a human to add a dimension; and REGISTRY-scoped: the enumeration
+ * covers line-shapes.ts and each `line-shapes-*.ts` sibling it is
+ * split over, and nothing else. That list is no longer a hand-written
+ * one that can go stale: `registryModuleFailures` reads the directory
+ * and fails until the census imports every module it finds, so a
+ * family moved into a new sibling cannot slip past rule (ii). It
+ * reads it through the SAME derivation the pattern-import rule in
+ * tests/parser/architecture.test.ts uses
+ * (scripts/metrics/registry-modules.ts), so the two rules cannot
+ * disagree about which files they are holding. What
+ * stays outside is a pattern defined somewhere else entirely ("no
+ * patterns outside the registry" is NOT promotable to a standing
+ * gate: six src files define one regex each; the narrower guard that
+ * exists is the diff-grep floor).
  * Rule (iv) adds a fourth: a dimension "reaches a grid" when its
  * canonical spelling appears in a realized input, which says the net
  * FEEDS the construct to the formatter — not that it varies it.
  */
 import * as lineShapes from "../../src/parse/line-shapes.js";
+import * as descriptionShapes from "../../src/parse/line-shapes-description.js";
 import { DELIMITER_KINDS } from "../../src/parse/line-shapes.js";
 import { listRunGrid } from "../shape-registry-list-run.js";
+import { REGISTRY_DIRECTORY, registryModuleNames } from "./registry-modules.js";
 import {
   BYTE_OPERATORS,
   CONSTRUCTS,
@@ -56,6 +69,22 @@ import {
   PERTURBATIONS,
   standingGrid,
 } from "../shape-registry.js";
+
+// The census reads VALUES, so it must import each registry module
+// statically; registryModuleNames() is what stops that hand-written
+// list from going stale, and it is the SAME answer the pattern-import
+// rule in tests/parser/architecture.test.ts works from.
+// Every module the registry is spread over, by the basename the
+// directory spells. Rule (ii) enumerates the exports of ALL of them:
+// the registry is a set of tables, not a file, and a family split out
+// of line-shapes.ts to stay under `max-lines` must not thereby leave
+// the coverage rule. `registryModuleFailures` holds this map to the
+// directory in both directions, so the next split fails the census
+// until it is named here.
+const REGISTRY_MODULES: ReadonlyMap<string, readonly string[]> = new Map([
+  ["line-shapes", Object.keys(lineShapes)],
+  ["line-shapes-description", Object.keys(descriptionShapes)],
+]);
 
 // Runtime export names that are deliberately NOT dimensions, each with
 // its reason. Helpers and enumeration sources only — a LINE SHAPE may
@@ -77,6 +106,18 @@ const EXEMPT = new Map<string, string>([
   [
     "startsSectionTitle",
     "reflow's refusal predicate over the two section-title spellings; the AsciiDoc form's dimension already exists and the Markdown ATX form is not a parsed construct (issue #63)",
+  ],
+  [
+    "startsBlockAtLineStart",
+    "the line-start refusal that composes three existing dimensions (interruptsByLineShape, startsSectionTitle, isRawParagraphLine) over two probe spellings; every shape it asks about already has a dimension of its own, and a composition of dimensions is not itself a line shape",
+  ],
+  [
+    "startsItemBlockLine",
+    "the line-START refusal a description's item asks: startsBlockAtLineStart widened by the three shapes an item's confined read drains (block title, attribute entry, line comment), so six shape questions in all; every shape it asks about already has a dimension of its own, and a composition of dimensions is not itself a line shape",
+  ],
+  [
+    "endsDescriptionLine",
+    "the line-END refusal a description's item asks, composing three of those same six dimensions (interruptsByLineShape, startsSectionTitle, isRawParagraphLine) over two probe spellings, one bare and one carrying the item's term head; the shapes it can report, the block macro above all, each have a dimension already. It asks FEWER than its line-start twin because the three it omits are decided by a line's head, which a probe PREFIX overwrites and a probe SUFFIX cannot supply. A shape that constrains both ends of a line is therefore invisible to both, and those are carried as word-pair clauses by the run predicate that reads these two (src/parse/lines/description-list.ts), not by either predicate here",
   ],
   [
     "BLOCK_START_CONTEXT",
@@ -298,30 +339,59 @@ function delimiterKindFailures(): string[] {
  */
 function exportNameFailures(): string[] {
   const failures: string[] = [];
-  const exportNames = new Set(Object.keys(lineShapes));
+  const modules = [...REGISTRY_MODULES].flatMap(([module, names]) =>
+    names.map((name) => ({ module, name })),
+  );
+  const exportNames = new Set(modules.map((entry) => entry.name));
   const covered = new Set(CONSTRUCTS.flatMap((entry) => entry.covers ?? []));
-  for (const name of exportNames) {
+  for (const { module, name } of modules) {
     if (!covered.has(name) && !EXEMPT.has(name)) {
       failures.push(
-        `shape census: line-shapes.ts export ${name} is neither covered by a registry dimension nor exempted (rule (ii)) — teach scripts/shape-registry.ts the construct, or write the exemption down in scripts/metrics/shape-census.ts`,
+        `shape census: ${module}.ts export ${name} is neither covered by a registry dimension nor exempted (rule (ii)); teach scripts/shape-registry.ts the construct, or write the exemption down in scripts/metrics/shape-census.ts`,
       );
     }
   }
   for (const name of covered) {
     if (!exportNames.has(name)) {
       failures.push(
-        `shape census: registry dimension covers ${name}, which line-shapes.ts no longer exports (stale covers entry)`,
+        `shape census: registry dimension covers ${name}, which no registry module exports any more (stale covers entry)`,
       );
     }
   }
   for (const name of EXEMPT.keys()) {
     if (!exportNames.has(name)) {
       failures.push(
-        `shape census: EXEMPT names ${name}, which line-shapes.ts no longer exports (stale exemption)`,
+        `shape census: EXEMPT names ${name}, which no registry module exports any more (stale exemption)`,
       );
     }
   }
   return failures;
+}
+
+/**
+ * Rule (ii)'s own premise: the modules the census enumerates are
+ * exactly the registry modules on disk. Checked in both directions,
+ * because the failure this catches is silent - a family split into a
+ * new `line-shapes-*.ts` that nothing imports here would leave rule
+ * (ii) passing while covering nothing.
+ * @returns one message per disagreement
+ */
+function registryModuleFailures(): string[] {
+  const onDisk = new Set(registryModuleNames());
+  return [
+    ...[...onDisk]
+      .filter((name) => !REGISTRY_MODULES.has(name))
+      .map(
+        (name) =>
+          `shape census: ${REGISTRY_DIRECTORY}/${name}.ts is a registry module the census does not enumerate (rule (ii)). Import it in scripts/metrics/shape-census.ts and name it in REGISTRY_MODULES, or its exports are covered by nothing`,
+      ),
+    ...[...REGISTRY_MODULES.keys()]
+      .filter((name) => !onDisk.has(name))
+      .map(
+        (name) =>
+          `shape census: REGISTRY_MODULES names ${name}, which ${REGISTRY_DIRECTORY}/ no longer holds (stale module entry)`,
+      ),
+  ];
 }
 
 /**
@@ -533,6 +603,7 @@ export function shapeCensusFailures(): string[] {
   const pairInputs = pair.map((shape) => shape.input);
   return [
     ...delimiterKindFailures(),
+    ...registryModuleFailures(),
     ...exportNameFailures(),
     ...rosterFailures(
       "container",

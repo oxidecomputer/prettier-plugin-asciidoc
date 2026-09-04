@@ -60,13 +60,27 @@ describe("a popped + comes back where the tail re-reads inert", () => {
       "* a\n+\n----\nx\n----\n+\n",
       "* a\n+\n----\nx\n----\n+\n",
     ],
-    // A description's body ending in held metadata: the `+` is what
-    // carries the anchor's own paragraph (`<div id="anc"><p>+</p>`),
-    // so dropping it deleted a rendering.
+    // An item's body ending in held metadata: the `+` is what carries
+    // the anchor's own paragraph (`<div id="anc"><p>+</p>`), so
+    // dropping it deleted a rendering. Spelled with a MARKER, because
+    // the description spelling of the same lines is no longer this
+    // shape: a `[...]` line inside a description item is decided by
+    // the look-ahead at parser.rb l.1462-82, which finds a `+` behind
+    // the run and breaks the item in front of it, so the anchor and
+    // the `+` are blocks of the document (oracle-confirmed: the two
+    // spellings render the same list and the same anchored paragraph).
     [
-      "behind a description body's block anchor",
-      "t:: d\n** b\n[[anc]]\n+\n",
-      "t:: d\n\n** b\n[[anc]]\n+\n",
+      "behind a list item's block anchor",
+      "* d\n** b\n[[anc]]\n+\n",
+      "* d\n** b\n[[anc]]\n+\n",
+    ],
+    // The description's own tail: the pop takes the `+` off the item's
+    // end and the sibling-free stream boundary re-reads it inert, so
+    // the byte comes back under the nested list it stands beside.
+    [
+      "behind a description body's nested list",
+      "t:: d\n** b\n+\n",
+      "t:: d\n** b\n+\n",
     ],
     // Tails where an item's own re-read runs on past it: a nested
     // item read from another item's buffer, an indented literal whose

@@ -2,6 +2,7 @@ import { describe, test, expect } from "vitest";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { cruiseImports } from "../../scripts/metrics/graph.js";
+import { registryModuleNames } from "../../scripts/metrics/registry-modules.js";
 import { optionalGroup } from "../../src/parse/line-shapes.js";
 
 /**
@@ -131,15 +132,34 @@ function valueNamesFrom(body: string): string[] {
 }
 
 /**
- * Whether a file imports a PATTERN - a registry export
- * {@link isPatternName} recognizes as one - from a module, as a value
- * (not a `type`-only import).
- * @param file - path of a TypeScript file
- * @param moduleBaseName - the imported module's filename, without its
- *   extension (e.g. `"line-shapes"`)
- * @returns true when the file takes a pattern from the module
+ * Every module the registry is spread over, DERIVED from the tree
+ * rather than listed: line-shapes.ts and each `line-shapes-*.ts`
+ * family split out of it to keep that file under `max-lines`. Derived
+ * so the rule below cannot be evaded by the next split - a family
+ * moved into a new sibling is guarded the moment the file exists,
+ * with no test edit to remember.
+ *
+ * The SAME derivation the completeness census works from
+ * (scripts/metrics/registry-modules.ts), and shared rather than
+ * spelled twice: this rule and rule (ii) of that census guard the
+ * same set of files, and two walks that agree today are two walks
+ * that can drift into a module one of them cannot see.
  */
-function importsPatternFrom(file: string, moduleBaseName: string): boolean {
+const REGISTRY_MODULES = new Set(registryModuleNames(PARSE_DIR));
+
+/**
+ * Whether a file imports a PATTERN - a registry export
+ * {@link isPatternName} recognizes as one - from one of the registry's
+ * modules, as a value (not a `type`-only import).
+ * @param file - path of a TypeScript file
+ * @param modules - the module filenames to guard, without extensions;
+ *   {@link REGISTRY_MODULES}
+ * @returns true when the file takes a pattern from one of them
+ */
+function importsPatternFrom(
+  file: string,
+  modules: ReadonlySet<string>,
+): boolean {
   const source = readFileSync(file, "utf8");
   const valueNames: string[] = [];
   for (const match of source.matchAll(
@@ -149,7 +169,7 @@ function importsPatternFrom(file: string, moduleBaseName: string): boolean {
     if (groups === undefined) {
       continue;
     }
-    if (path.basename(groups.specifier, ".js") !== moduleBaseName) {
+    if (!modules.has(path.basename(groups.specifier, ".js"))) {
       continue;
     }
     if (optionalGroup(groups.wholeType) === undefined) {
@@ -414,10 +434,25 @@ describe("parse-layer architecture", () => {
   // delimiter lines as text now serializes as a `table` carrying
   // cells. NOT ONE OUTPUT BYTE moves with it - the printer replays
   // the same partition the passthrough replayed.
-  test("the node-kind census is 47", () => {
+  //
+  // 50, moved up from 47 with DESCRIPTION LISTS (issue #9):
+  // `descriptionList`, `descriptionListItem` and `descriptionTerm`
+  // join the file. Three discriminants and not one, because a list, an
+  // item and a term answer different questions - a list carries the
+  // delimiter that decides structure, an item carries terms and the
+  // body every list-like item has, and a term carries inline children
+  // and nothing else: no marker, no blocks, no continuation state, so
+  // none of those fields exists on it to be wrong. Unlike the table
+  // kinds above them, the three arrive already dispatched:
+  // `descriptionList` is a `BlockNode` member, a term line opens one
+  // in the reader, and the printer has an arm for it. They move the
+  // wire wherever a document spells a term line: what serialized as
+  // one `paragraph` per term line now serializes as a
+  // `descriptionList` with items, terms and a body.
+  test("the node-kind census is 50", () => {
     const source = readFileSync("src/ast.ts", "utf8");
     const kinds = source.match(/^ {2}type: "[a-zA-Z]+";$/gmv) ?? [];
-    expect(kinds).toHaveLength(47);
+    expect(kinds).toHaveLength(50);
   });
 
   test("only the classification pass imports a pattern from the registry", () => {
@@ -433,10 +468,18 @@ describe("parse-layer architecture", () => {
     // `metadataLineKind` for the item scan's four metadata shapes and
     // `isLiteralLine` / `isIndentedContinuationLine` for the two
     // indentation questions.
+    //
+    // "The registry" is every module of it, not the main table alone:
+    // {@link REGISTRY_MODULES} is derived from the tree, so splitting a
+    // pattern family into a `line-shapes-*.ts` sibling to stay under
+    // `max-lines` does not move it out of this rule's reach.
+    // Vacuity backstop: a derivation that found NO registry module
+    // would pass this row by guarding nothing.
+    expect(REGISTRY_MODULES.has("line-shapes")).toBe(true);
     const CLASSIFICATION_PASS = new Set(["classify.ts"]);
     const offenders = filesUnder("src/parse/lines")
       .filter((file) => !CLASSIFICATION_PASS.has(path.basename(file)))
-      .filter((file) => importsPatternFrom(file, "line-shapes"));
+      .filter((file) => importsPatternFrom(file, REGISTRY_MODULES));
     expect(offenders).toEqual([]);
   });
 

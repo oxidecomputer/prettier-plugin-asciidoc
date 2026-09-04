@@ -44,8 +44,8 @@ import {
 /**
  * A document reaching the node kinds the corpus cannot be relied on to
  * carry, spelled out so the rows below are never vacuous for them:
- * both admonition forms, the inline spans, an anchor, a page break and
- * a thematic break.
+ * both admonition forms, the inline spans, an anchor, a page break, a
+ * thematic break and a description-list item.
  */
 const HAND_WRITTEN = [
   "= Title",
@@ -120,6 +120,8 @@ const HAND_WRITTEN = [
   "",
   "'''",
   "",
+  "term:: a description item (issue #9)",
+  "",
   "<<<",
   "",
 ].join("\n");
@@ -139,25 +141,38 @@ function documents(): string[] {
 const SOURCES = documents();
 
 /**
+ * The record-wrapped arrays, by node kind: the hops a declared visitor
+ * key may not take, because Prettier calls `locStart` on every array
+ * element a declared key leads it to and these arrays hold
+ * `{gap, block}` and `{term, gap}` records.
+ *
+ * A closed list, so a wrapper appearing anywhere else in the AST fails
+ * the row below rather than quietly shrinking what cursor tracking can
+ * see.
+ */
+const WRAPPER_KEYS: ReadonlyMap<string, readonly string[]> = new Map([
+  ["listItem", ["blocks"]],
+  ["descriptionListItem", ["blocks", "terms"]],
+]);
+
+/**
  * The nodes reachable from a root by following the declared visitor
  * keys -- Prettier's own walk, run here without Prettier.
  *
- * With `stepThroughItemBlocks`, a list item's `blocks` is followed too,
- * and `siblingsOf` unwraps each `{gap, block}` record to the node
- * inside it. That is the hop the declared keys cannot express, and
- * having both walks under one function is what lets the two rows below
- * measure exactly the difference between them.
+ * With `stepThroughWrappers`, the record-wrapped arrays are followed
+ * too, and `siblingsOf` unwraps each record to the node inside it.
+ * Those are the hops the declared keys cannot express, and having both
+ * walks under one function is what lets the two rows below measure
+ * exactly the difference between them.
  * The root is taken as `unknown` and narrowed here, the same way
  * `preorder` takes it, so the two walks below can be compared without
  * either side asserting a type at the other.
  * @param root - a parsed document
- * @param stepThroughItemBlocks - follow a list item's `blocks` as well
+ * @param stepThroughWrappers - follow the record-wrapped arrays as
+ *   well ({@link WRAPPER_KEYS})
  * @returns every node the walk reaches, root included
  */
-function reachable(
-  root: unknown,
-  stepThroughItemBlocks: boolean,
-): Set<AnyNode> {
+function reachable(root: unknown, stepThroughWrappers: boolean): Set<AnyNode> {
   if (!isNode(root)) {
     return new Set();
   }
@@ -168,8 +183,9 @@ function reachable(
     if (node === undefined) {
       break;
     }
-    const wrapper =
-      stepThroughItemBlocks && node.type === "listItem" ? ["blocks"] : [];
+    const wrapper = stepThroughWrappers
+      ? (WRAPPER_KEYS.get(node.type) ?? [])
+      : [];
     for (const key of [...getVisitorKeys(node), ...wrapper]) {
       const value = node[key];
       if (!isArray(value)) {
@@ -286,15 +302,16 @@ describe("the declared visitor keys, against real parse trees", () => {
   // Vacuity guard, the with-children half. Kept as an exact list
   // because it fails loudly if a declaration is ever dropped from a
   // kind that has one, and it is stable against corpus churn: the
-  // hand-written document above reaches all sixteen on its own: its
+  // hand-written document above reaches all nineteen on its own: its
   // `= Title` plus `:toc:` open a documentHeader whose `lines` hold
   // the attribute entry (issue #18), its curved-quote phrases
   // (issue #74) reach `curvedQuote`, its `^super^`/`~sub~` phrases
   // (issue #14) reach the two span kinds the last two `QUOTE_SUBS`
-  // rows spell, and its `|===` block reaches a table and the row
-  // holding its cells (issue #10). `tableCell` is NOT here and must
-  // not be: a cell declares no child key, so it belongs to the
-  // every-kind row above instead.
+  // rows spell, its `|===` block reaches a table and the row holding
+  // its cells (issue #10), and its `term:: description` item reaches
+  // the three description kinds. `tableCell` is NOT here and must not
+  // be: a cell declares no child key, so it belongs to the every-kind
+  // row above instead.
   test("the documents reach every kind that declares a child key", () => {
     const withChildren = ALL_NODES.filter(
       (node) => getVisitorKeys(node).length > 0,
@@ -304,6 +321,9 @@ describe("the declared visitor keys, against real parse trees", () => {
       "admonition",
       "bold",
       "curvedQuote",
+      "descriptionList",
+      "descriptionListItem",
+      "descriptionTerm",
       "document",
       "documentHeader",
       "highlight",

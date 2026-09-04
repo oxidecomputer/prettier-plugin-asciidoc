@@ -14,7 +14,7 @@
  */
 import { describe, expect, test } from "vitest";
 import { parse } from "../../src/parser.js";
-import { narrow, renderedHtml } from "../helpers.js";
+import { formatAdoc, narrow, renderedHtml } from "../helpers.js";
 import { expectAstInvariants } from "./ast-invariants.js";
 import { astShape, itemCount, oracleItems } from "./reader-helpers.js";
 
@@ -114,7 +114,7 @@ describe("reader: list items (read_lines_for_list_item)", () => {
     [
       "+ then TWO blanks then a dlist term: the item keeps it, the + is gone",
       "* a\n+\n\n\nterm:: def\n",
-      "list(item(t ~p(t)))",
+      "list(item(t ~descriptionList))",
     ],
     [
       "+ then TWO blanks then a nested marker: the item keeps it, the + is gone",
@@ -157,14 +157,14 @@ describe("reader: list items (read_lines_for_list_item)", () => {
       "list(item(t ~literal-indented[2]))",
     ],
     [
-      "a dlist term ends item text and continues as a dlistItem paragraph inside the item",
+      "a dlist term ends item text and opens a description list inside the item",
       "* a\nterm:: def\nmore\n* b\n",
-      "list(item(t -p(t / t)) item(t))",
+      "list(item(t -descriptionList) item(t))",
     ],
     [
       "a dlist term after a blank line keeps the item open (NESTABLE_LIST_CONTEXTS)",
       "* a\n\nterm:: def\n",
-      "list(item(t ~p(t)))",
+      "list(item(t ~descriptionList))",
     ],
     [
       "a section title after + is attached paragraph text (no sections inside list readers)",
@@ -496,13 +496,14 @@ describe("reader: a //-headed dlist term keeps its own line", () => {
   // (`///b::` included — the classifier, mirroring LineCommentRx, does
   // not), and `parse_list_item` restores what it skipped only when a
   // line follows. So `* a` / `///b::` / `c` renders the dlist, while
-  // `* a` / `///b:: c` — the reflowed form — renders nothing after `a`.
-  // The term is kept as a verbatim line so the description stays below
-  // it.
+  // `* a` / `///b:: c` (the joined form) renders nothing after `a`.
+  // The term line is a description list of its own now, and the item
+  // replays it, so the description stays on the line below it.
   test("the term line is verbatim, the description follows it", async () => {
     const input = "* a\n///b::\nc\n";
     expect(await renderedHtml(input)).toContain("///b</dt>");
     expect(await renderedHtml("* a\n///b:: c\n")).not.toContain("///b");
-    expect(astShape(input)).toBe("list(item(t -p(raw t)))");
+    expect(astShape(input)).toBe("list(item(t -descriptionList))");
+    expect(await formatAdoc(input)).toBe(input);
   });
 });

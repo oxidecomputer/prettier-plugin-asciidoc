@@ -144,13 +144,18 @@ the reference's, render-equality is what proves the difference safe.
 The block layer is line-oriented: every block-level decision is made by
 classifying a whole line in the context where it appears.
 
-- **`src/parse/line-shapes.ts`** is the single registry of line shapes. Every
-  regex that recognizes a line lives here and nowhere else, each row citing the
-  Ruby that decides the same shape. The registry is keyed by four paragraph
-  contexts — `paragraph`, `listItem`, `listContinuation`, `dlistItem` — because
-  Asciidoctor's paragraphs are greedy: once open, a paragraph swallows every
-  following line until a blank line or a small interrupting set, and that set
-  differs by context.
+- **`src/parse/line-shapes.ts`** is the registry of line shapes, together with
+  its named `line-shapes-*.ts` siblings: a row family moves into one of those
+  whole when the main table nears its `max-lines` ceiling. Every regex that
+  recognizes a line lives in one of those modules and nowhere else, each row
+  citing the Ruby that decides the same shape. Which files those are is derived
+  in one place (`scripts/metrics/registry-modules.ts`) and read by both the
+  rules that hold the boundary: the completeness census and the pattern-import
+  rule in `tests/parser/architecture.test.ts`. The registry is keyed by four
+  paragraph contexts (`paragraph`, `listItem`, `listContinuation`, `dlistItem`)
+  because Asciidoctor's paragraphs are greedy: once open, a paragraph swallows
+  every following line until a blank line or a small interrupting set, and that
+  set differs by context.
 - **`src/parse/lines/classify.ts`** is a pure function over the registry: it
   turns one line plus a `ReaderContext` into a `LineKind`, and it is the only
   thing that does. The context is three fields — the open paragraph shape, the
@@ -167,7 +172,10 @@ classifying a whole line in the context where it appears.
 - **Reflow safety consumes the same registry.** The printer's word-wrapping asks
   `isBlockSyntaxAtLineStart` (`src/print/reflow.ts`) about every word it might
   place at a line start, unioned over every context — so the parser and the
-  formatter can never disagree about what would re-parse as block syntax.
+  formatter can never disagree about what would re-parse as block syntax. The
+  question itself is the registry's own, `startsBlockAtLineStart`
+  (`src/parse/line-shapes.ts`), composed there over the shapes it asks about;
+  what the printer adds on top is one exemption, for a lone `+`.
 
 Lines are rstripped before classification, exactly as Asciidoctor's
 `Helpers.prepare_source_string` does, and the registry's patterns assume that.

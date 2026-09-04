@@ -47,7 +47,6 @@ import {
   isRawParagraphLine,
   optionalGroup,
   orderedMarkerStyle,
-  parseDescriptionListLine,
   rawLineForm,
   rstrip,
   type DelimiterKind,
@@ -55,7 +54,12 @@ import {
   type RawForm,
   type ReaderContext,
 } from "../line-shapes.js";
-import type { AttributeEntryFields, ListNode } from "../../ast.js";
+import { parseDescriptionListLine } from "../line-shapes-description.js";
+import type {
+  AttributeEntryFields,
+  DescriptionDelimiter,
+  ListNode,
+} from "../../ast.js";
 import { AUTO_CALLOUT_NUMBER, MARKER_OFFSET } from "../../constants.js";
 
 export type { DelimiterKind } from "../line-shapes.js";
@@ -77,10 +81,9 @@ type ListVariant = ListNode["variant"];
  * `sibling_trait == (resolve_list_marker list_type, $1)`); dlists
  * compare per-delimiter patterns (`DescriptionListSiblingRx`,
  * rx.rb:340-345; the marker arm is pinned by
- * tests/parser/item-extent.test.ts). Only the marker arm has a
- * producer today; the dlist arm exists so #9 adds one and extends
- * the four dlist-cited insertion points in ExtentScan
- * (list-reader.ts) - never a parallel matching mechanism.
+ * tests/parser/item-extent.test.ts). Both arms have a producer in
+ * list-reader.ts's `siblingTrait`, and both are answered through the
+ * one `siblingMarker` - never a parallel matching mechanism.
  */
 export type SiblingTrait =
   | {
@@ -92,8 +95,12 @@ export type SiblingTrait =
   | {
       /** A description list, opened by a term line. */
       readonly kind: "dlist";
-      /** The term delimiter a sibling term must repeat. */
-      readonly delimiter: string;
+      /**
+       * The term delimiter a sibling term must repeat - the key the
+       * sibling pattern family is looked up by, so it is the AST's
+       * four-member type and not a string a caller could mis-spell.
+       */
+      readonly delimiter: DescriptionDelimiter;
     };
 
 /**
@@ -209,8 +216,12 @@ export type LineKind =
        * swallows: the term — and the item's text — starts after it.
        */
       readonly indent: number;
-      /** The term delimiter: `::`, `:::`, `::::` or `;;`. */
-      readonly delimiter: string;
+      /**
+       * The term delimiter. A four-member type because the pattern
+       * that captured it can spell no other, and because the open
+       * list's sibling pattern is KEYED on it.
+       */
+      readonly delimiter: DescriptionDelimiter;
       /** The term text, exactly as the registry's group captured it. */
       readonly term: string;
       /**
@@ -262,6 +273,15 @@ export type LineKind =
  * `LineKind` arm; both the list scan and the reader name it.
  */
 export type MarkerKind = Extract<LineKind, Record<"kind", "listMarker">>;
+
+/**
+ * A description-list term line, as {@link LineKind} spells it. Beside
+ * {@link MarkerKind} and for the same reason: it IS a `LineKind` arm,
+ * and it is the value both a list's OPENING term and every sibling
+ * term below it carry, so the two are one type and no caller has to
+ * tell them apart.
+ */
+export type DlistTermKind = Extract<LineKind, Record<"kind", "dlistTerm">>;
 
 /**
  * Parse a list marker line (`UnorderedListRx` / `OrderedListRx` /
@@ -492,9 +512,10 @@ export function isContinuationLine(line: string): boolean {
  * whitespace is not one: it rstrips to empty first, which makes it
  * blank.
  *
- * The list scan and the paragraph scan both ask this, which is why it
- * is a question here rather than a pattern each of them tests: the
- * shape has one home (line-shapes.ts) and one reader (this file).
+ * The list scan, the paragraph scan and the description-list reflow
+ * conditions all ask this, which is why it is a question here rather
+ * than a pattern each of them tests: the shape has one home
+ * (line-shapes.ts) and one reader (this file).
  * @param line - one rstripped source line
  * @returns true when the line starts with a space or a tab
  */
@@ -532,11 +553,18 @@ export function isIndentedContinuationLine(line: string): boolean {
  *
  * A PREDICATE and not a {@link LineKind} arm, the second route
  * docs/coding-standards.md's line-shape recipe describes. The
- * classifier's verdict for such a line is unchanged, because the one
- * caller asks it about a line already classified as a COMMENT and the
- * question is not what the line is: it is what the line's words would
- * become if the `//` that heads them stopped heading them
- * (paragraph-reader.ts, `reflows`).
+ * classifier's verdict for such a line is unchanged either way,
+ * because neither caller asks what the line IS.
+ *
+ * TWO callers, asking two different questions of the same test. The
+ * paragraph scan asks it about a line already classified as a
+ * COMMENT, and its question is what the line's words would become if
+ * the `//` that heads them stopped heading them (paragraph-reader.ts,
+ * `reflows`). The description-list reflow conditions ask it about
+ * ordinary description text, and their question is what a word of
+ * that text would become if a wrap put it at the head of a line
+ * (description-list.ts, condition S). The answer serves both because
+ * the word is the unit in each.
  * @param line - one rstripped source line
  * @returns true when a word of it ends in a dlist term separator
  */

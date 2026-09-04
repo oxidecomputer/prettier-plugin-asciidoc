@@ -82,9 +82,15 @@ Make invalid states unrepresentable, and make every function total.
 A new construct that can appear as a whole line (a delimiter, a marker, a
 block-attribute-looking line, …) is added in three steps, in this order:
 
-1. **A registry row in `src/parse/line-shapes.ts`**, citing the authority you
-   measured (see "The two authorities" below). The regex lives here and nowhere
-   else.
+1. **A registry row in the line-shape registry**, citing the authority you
+   measured (see "The two authorities" below). The registry is
+   `src/parse/line-shapes.ts` plus its named `line-shapes-*.ts` siblings, which
+   exist because a row family moves out whole when that file nears its
+   `max-lines` ceiling. The regex lives in one of those modules and nowhere
+   else: the completeness census (`bun run metrics`) and the pattern-import rule
+   in `tests/parser/architecture.test.ts` both enforce over every registry
+   module, from one shared derivation of which files those are
+   (`scripts/metrics/registry-modules.ts`).
 2. **A table entry in `src/parse/lines/classify.ts`**, so the BlockReader learns
    the new `LineKind`. The classifier is a pure function over the registry; it
    is the only thing that turns a line into a kind.
@@ -157,6 +163,26 @@ comment names BOTH, states the divergence, and says the oracle wins.
 that line and the names the comment puts beside it, and reports the bare
 references that name none; a comment that cites nothing checkable is fine, a
 comment that cites the wrong line is a failed gate.
+
+The divergences this formatter carries KNOWINGLY, each recorded at its code site
+as well as here, so a reader meets the list before meeting the shape:
+
+- **`include::` inside a description (#107).** The oracle preprocesses
+  `include::` before it parses, so the document it reads a description item from
+  is not the document our reader sees. Nothing inside a description reader can
+  be right about that in isolation, and this formatter replays the line where
+  the author wrote it rather than resolving it. The oracle wins, and it wins
+  here: the replayed bytes render exactly what the author's did, message line
+  included. What differs is a MODEL no render can show, and modelling the
+  preprocessor lines is what closes it.
+- **A comment carrying a term separator (#119).** A `//` line whose text holds a
+  word ending in `::`, `:::`, `::::` or `;;` keeps the output line the author
+  gave it, and the description it stands in is never joined onto its term line.
+  Joining it would hand the ENCLOSING list's sibling pattern a line to match
+  (`is_sibling_list_item?`, parser.rb l.1430 and l.2281), which destroys a
+  nested list and mangles its term. The oracle wins on RESULTS - the replayed
+  bytes render exactly what the author's did - and what is given up is the
+  joined spelling, not a byte.
 
 **Never a token pattern.** Block-level context comes from the BlockReader and
 from nowhere else, and `tests/parser/architecture.test.ts` is the mechanical

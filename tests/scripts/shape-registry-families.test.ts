@@ -10,13 +10,14 @@
  * next differential run STOPS on rows that were meant to be explained,
  * far from the commit that broke it.
  *
- * Four claims, and each of them is a fact the differential run
+ * Five claims, and each of them is a fact the differential run
  * assumes rather than checks: every family the grid cites is in the
  * closed enumeration, every perturbation the table names is one the
  * grid really generates, the four leaf kinds whose fence the
  * shortest-safe speller respells answer for it at the one coordinate
- * that moves them, and no coordinate outside those sets gained a
- * family by accident.
+ * that moves them, the description container answers its own family
+ * for every row inside it, and no coordinate outside those sets and
+ * the container blanket gained a family by accident.
  */
 import { describe, expect, test } from "vitest";
 import { LEDGER_FAMILIES } from "../../scripts/parity.js";
@@ -34,6 +35,17 @@ const LONGER_INSIDE = "longer-delimiter-inside";
 
 /** The leaf kinds whose fence the shortest-safe speller respells. */
 const BLOCK_DELIMITER_KINDS = ["listing", "literal", "pass", "commentBlock"];
+
+/** The container every row of which the description read moved. */
+const DESCRIPTION = "dlist-desc";
+
+/**
+ * A container the description blanket must not reach, used wherever a
+ * row asks what a kind and a perturbation answer on their own. Its
+ * sibling `dlist-desc-line` is the sharper of the two, since the
+ * blanket's prefix would swallow it under a looser test.
+ */
+const PLAIN = "doc";
 
 describe("the standing grid's family assignment", () => {
   // The enum is closed and `shape-diff` treats `Shape.family` as an
@@ -61,13 +73,13 @@ describe("the standing grid's family assignment", () => {
   test("every perturbation the table names is one the grid generates", () => {
     const named = PERTURBATIONS.filter(
       (perturbation) =>
-        gridRowFamily(TABLE_PIPE, perturbation.id) !== undefined,
+        gridRowFamily(TABLE_PIPE, PLAIN, perturbation.id) !== undefined,
     );
     expect(named.length).toBe(8);
     expect(
       named.filter(
         (perturbation) =>
-          gridRowFamily(TABLE_PIPE, perturbation.id) === "table-layout",
+          gridRowFamily(TABLE_PIPE, PLAIN, perturbation.id) === "table-layout",
       ).length,
     ).toBe(5);
   });
@@ -76,31 +88,64 @@ describe("the standing grid's family assignment", () => {
   // grid. The kind list is the load-bearing half: a fifth kind added
   // to it would excuse rows nothing measured, and a kind dropped from
   // it stops excusing rows the speller really moves, which is the
-  // quiet failure this file exists to make loud.
+  // quiet failure this file exists to make loud. Asked at a PLAIN
+  // container, because inside a description the container answers
+  // first and the row below pins that precedence.
   test("the four leaf kinds answer for their fence's own coordinate", () => {
     for (const kind of BLOCK_DELIMITER_KINDS) {
-      expect(gridRowFamily(kind, LONGER_INSIDE)).toBe("block-delimiter-length");
+      expect(gridRowFamily(kind, PLAIN, LONGER_INSIDE)).toBe(
+        "block-delimiter-length",
+      );
     }
-    const rows = standingGrid().filter(
-      (shape) =>
-        shape.id.split("/")[2] === LONGER_INSIDE &&
-        BLOCK_DELIMITER_KINDS.includes(shape.id.split("/")[0]),
-    );
+    const rows = standingGrid().filter((shape) => {
+      const [kind, container, perturbation] = shape.id.split("/");
+      return (
+        perturbation === LONGER_INSIDE &&
+        container !== DESCRIPTION &&
+        BLOCK_DELIMITER_KINDS.includes(kind)
+      );
+    });
     expect(rows.length).toBeGreaterThan(0);
     for (const shape of rows) {
       expect(shape.family).toBe("block-delimiter-length");
     }
   });
 
-  // The other kinds keep exactly the answer the perturbation table
-  // used to carry, which is what holds the leaf-fence entry to the
-  // four kinds and the one coordinate it was measured for: a parent
-  // wrapper answering it, or a leaf answering it at a second
-  // perturbation, shows up here.
-  test("no other kind's coordinates changed their answer", () => {
+  // The container arm, asked directly and asked of the realized grid.
+  // Directly, because the arm has to answer for coordinates the two
+  // per-kind rules also claim - a `tablePipe` termination and a leaf
+  // fence - which is the precedence the measurement forced, and over
+  // the grid, because a container the blanket silently stopped
+  // covering is the failure this file exists to make loud.
+  test("every row inside the description container takes its family", () => {
+    expect(gridRowFamily(TABLE_PIPE, DESCRIPTION, "closed")).toBe(
+      "description-list-item",
+    );
+    expect(gridRowFamily("listing", DESCRIPTION, LONGER_INSIDE)).toBe(
+      "description-list-item",
+    );
+    expect(gridRowFamily("listing", DESCRIPTION, TRAILING_PLUS)).toBe(
+      "description-list-item",
+    );
+    const rows = standingGrid().filter(
+      (shape) => shape.id.split("/")[1] === DESCRIPTION,
+    );
+    expect(rows.length).toBeGreaterThan(0);
+    for (const shape of rows) {
+      expect(shape.family).toBe("description-list-item");
+    }
+  });
+
+  // Every coordinate outside those three sets keeps exactly the answer
+  // the perturbation table used to carry, which is what holds the
+  // blanket to its one container and the leaf-fence entry to its four
+  // kinds and one perturbation: a prefix match would show up here as
+  // `dlist-desc-line` answering the description family, and a parent
+  // wrapper answering the fence family would show up the same way.
+  test("no other kind or container changed its answer", () => {
     for (const shape of standingGrid()) {
-      const [kind, , perturbation] = shape.id.split("/");
-      if (kind === TABLE_PIPE) {
+      const [kind, container, perturbation] = shape.id.split("/");
+      if (kind === TABLE_PIPE || container === DESCRIPTION) {
         continue;
       }
       if (
@@ -113,5 +158,12 @@ describe("the standing grid's family assignment", () => {
         perturbation === TRAILING_PLUS ? "no-op-continuation" : undefined,
       );
     }
+    const line = standingGrid().filter(
+      (shape) => shape.id.split("/")[1] === "dlist-desc-line",
+    );
+    expect(line.length).toBeGreaterThan(0);
+    expect(
+      line.every((shape) => shape.family !== "description-list-item"),
+    ).toBe(true);
   });
 });

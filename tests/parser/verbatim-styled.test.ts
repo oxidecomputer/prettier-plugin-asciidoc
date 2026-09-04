@@ -133,8 +133,12 @@ describe("characterization: the transparency guard and the recorded divergences"
     expect(astShape("[quote]\n  x\n")).toBe("attrs literal-indented[1]");
   });
 
-  test("[quote] before a dlist-term line converts (a paragraph opened)", () => {
-    // Oracle: a description list with class "quote", not a quote block.
-    expect(astShape("[quote]\nterm:: x\n")).toBe("attrs quote[1]");
+  test("[quote] before a dlist-term line leaves the list alone", () => {
+    // Oracle: a description list with class "quote", not a quote block
+    // - and a description list is what the reader now builds, so the
+    // held `[quote]` stays the attribute line it was written as. Red
+    // before the description reader: the term line opened a PARAGRAPH,
+    // the held style converted it, and the list was gone.
+    expect(astShape("[quote]\nterm:: x\n")).toBe("attrs descriptionList");
   });
 });

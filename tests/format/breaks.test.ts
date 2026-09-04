@@ -347,61 +347,48 @@ describe("a comment line inside a dlist description is content", () => {
 });
 
 // Issue #105. Which arm of `next_block` a dlist description folds
-// down is decided by the FIRST line after the term line, and only
-// the indented arm reads the caller's answer for `//` lines:
+// down is decided by the first NON-COMMENT line after the term line,
+// and only the indented arm reads the caller's answer for `//` lines:
 // `read_paragraph_lines ... skip_line_comments: text_only`
 // (parser.rb l.753-754) against `skip_line_comments: true` in the arm
 // beside it (parser.rb l.764). Under the indented arm a `//` line is
-// text like any other, and reflow used to leave it standing at
-// column 0 under a description folded onto the term line, where the
-// second read hands it to `skip_comment_lines` and the render loses
-// it. Content it is, so content it stays: the line joins the
-// reflowable run and packs with the words around it. ORACLE:
-// `t:: item` / `  x` / `// c` renders `item x // c`.
-describe("a content comment line reflows with the description", () => {
+// text like any other, and the loss the issue records was a reflow
+// that left it standing at column 0 under a description folded onto
+// the term line, where the second read hands it to
+// `skip_comment_lines` and the render loses it. A description item
+// REPLAYS its recorded lines, so the comment stands where the author
+// wrote it, inside the description, and no join can move it anywhere.
+// ORACLE: `t:: item` / `  x` / `// c` renders `item x // c`, which is
+// what the input renders and therefore what the output renders.
+describe("a content comment line stays inside the description", () => {
   test.each([
-    ["the issue's first repro", "t:: item\n  x\n// c\n", "t:: item x // c\n"],
-    [
-      "the issue's second repro",
-      "t:: item\n  a\n// c\n  b\n",
-      "t:: item a // c b\n",
-    ],
-    [
-      "two comment lines",
-      "t:: item\n  x\n// c\n// d\n",
-      "t:: item x // c // d\n",
-    ],
-    ["nothing after the slashes", "t:: item\n  x\n//\n", "t:: item x //\n"],
-    ["a tab for the indent", "t:: item\n\tx\n// c\n", "t:: item x // c\n"],
-    [
-      "the item nested in a list item",
-      "* a\nt:: item\n  x\n// c\n",
-      "* a\nt:: item x // c\n",
-    ],
-    [
-      "a paragraph after the item",
-      "t:: item\n  x\n// c\n\nafter\n",
-      "t:: item x // c\n\nafter\n",
-    ],
-  ])("with %s the comment stays inside", async (_name, input, expected) => {
+    ["the issue's first repro", "t:: item\n  x\n// c\n"],
+    ["the issue's second repro", "t:: item\n  a\n// c\n  b\n"],
+    ["two comment lines", "t:: item\n  x\n// c\n// d\n"],
+    ["nothing after the slashes", "t:: item\n  x\n//\n"],
+    ["a tab for the indent", "t:: item\n\tx\n// c\n"],
+    ["the item nested in a list item", "* a\nt:: item\n  x\n// c\n"],
+    ["a paragraph after the item", "t:: item\n  x\n// c\n\nafter\n"],
+  ])("with %s the comment stays inside", async (_name, input) => {
     const out = await formatAdoc(input);
-    expect(out).toBe(expected);
+    // A ROUND TRIP: the item replays, so the comment keeps the line
+    // and the column the author gave it, which is the one position
+    // whose reading the render already agrees with.
+    expect(out).toBe(input);
     expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    // The whole point: no output line OPENS with the comment head,
-    // which is the one position a re-read takes it as a comment.
-    expect(out.split("\n").some((line) => line.startsWith("//"))).toBe(false);
     expect(await formatAdoc(out)).toBe(out);
   });
 
-  // The indented arm is the only one that folds a `//` line in, so a
-  // description whose first rest line is NOT indented reads its
-  // comment as the comment it looks like, and the printer leaves it
-  // on the line of its own that keeps that reading. The first two
-  // rows reduce lists_test.rb cases (`folds text from inline
-  // description and line following comment line`, `should not match
-  // comment line that looks like sibling description list term`);
-  // the other two are this file's own. The comment is gone from
-  // every one of these renders.
+  // The indented arm is the only one whose `//` lines the oracle reads
+  // as content, so a description whose first non-comment rest line is
+  // NOT indented reads its comment as the comment it looks like. The
+  // printer leaves it on the line of its own that keeps that reading
+  // either way, which is what a replay does. The first two rows
+  // reduce lists_test.rb cases (`folds text from inline description
+  // and line following comment line`, `should not match comment line
+  // that looks like sibling description list term`); the other two are
+  // this file's own. The comment is gone from every one of these
+  // renders.
   test.each([
     ["the first rest line is the comment", "t:: def1\n// c\ncontinued\n"],
     ["the comment looks like a sibling term", "foo:: bar\n//yin:: yang\n"],
@@ -416,51 +403,35 @@ describe("a content comment line reflows with the description", () => {
 });
 
 // How many description-list terms a render carries. Counting `<dt`
-// rather than comparing whole renders because these rows LOSE the
-// comment line from the render on purpose; what must not change is
-// the list structure around it.
+// rather than comparing whole renders keeps the row's own subject in
+// view: what may never change is the list STRUCTURE, whatever the
+// comment line does.
 const termCount = (html: string): number => (html.match(/<dt/gv) ?? []).length;
 
-// Issue #105, and the one shape folding may not touch. A `//` line's
-// own `term::` words are inert twice over: `DescriptionListRx` refuses
-// a line whose head is `//` (rx.rb:336), and inside a description's
-// text the term the source wrote binds first, because Ruby's term
-// group is non-greedy. Folding spends the first of those. The packer
-// lets a `term::` word open a line on purpose, since on a plain
-// paragraph's later line it is text (ORACLE: `para one` / `x:: y`
-// renders one `<p>`), and its dlist guard DEMANDS a break in front of
-// one that came from a later source line. In a description that break
-// opens the item's REST line, where the word is a sibling term
-// (ORACLE: `t:: item` / `x // x:: y` renders a second `<dt>`). So a
-// comment carrying such a word keeps the line of its own that keeps
-// its words out of the text: the render loses the comment, as it did
-// before this fix, and no list item is invented.
+// Issue #105, and the shape that shows why a description is replayed
+// rather than joined. A `//` line's own `term::` words are inert
+// twice over: `DescriptionListRx` refuses a line whose head is `//`
+// (rx.rb:336), and inside a description's text the term the source
+// wrote binds first, because Ruby's term group is non-greedy. A join
+// spends the first of those, and the joined line is then read by the
+// ENCLOSING list's sibling pattern (`is_sibling_list_item?`,
+// parser.rb:1430, :2281), where the word IS a sibling term (ORACLE:
+// `t:: item` / `x // x:: y` renders a second `<dt>`). So the item
+// replays: every line keeps its own place, and no list item is
+// invented. What issue #119 leaves standing is the refused JOIN, not
+// a lost render: measured, these rows round-trip and both sides
+// render the comment inside the description. It is recorded as a
+// standing divergence in docs/coding-standards.md.
 describe("a comment carrying a dlist separator is not folded", () => {
   test.each([
-    ["one term", "t:: item\n  x\n// x:: y\n", "t:: item x\n// x:: y\n"],
-    [
-      "two terms",
-      "t:: item\n  x\n// a:: b:: c\n",
-      "t:: item x\n// a:: b:: c\n",
-    ],
-    [
-      "a tab for the indent",
-      "t:: item\n\tx\n// x:: y\n",
-      "t:: item x\n// x:: y\n",
-    ],
-    [
-      "a second comment head in front of it",
-      "t:: item\n  x\n// // x:: y\n",
-      "t:: item x\n// // x:: y\n",
-    ],
-    [
-      "the `;;` separator",
-      "t:: item\n  x\n// x;; y\n",
-      "t:: item x\n// x;; y\n",
-    ],
-  ])("with %s, the comment keeps its line", async (_name, source, want) => {
+    ["one term", "t:: item\n  x\n// x:: y\n"],
+    ["two terms", "t:: item\n  x\n// a:: b:: c\n"],
+    ["a tab for the indent", "t:: item\n\tx\n// x:: y\n"],
+    ["a second comment head in front of it", "t:: item\n  x\n// // x:: y\n"],
+    ["the `;;` separator", "t:: item\n  x\n// x;; y\n"],
+  ])("with %s, the comment keeps its line", async (_name, source) => {
     const out = await formatAdoc(source);
-    expect(out).toBe(want);
+    expect(out).toBe(source);
     // Nothing invented: the reformatted document carries exactly the
     // terms the source's own render does.
     const before = await renderedHtml(source);
@@ -476,15 +447,11 @@ describe("a comment carrying a dlist separator is not folded", () => {
   // different question), so the break holds its line and the comment
   // stays inside the description by standing under it.
   test.each([
-    [
-      "a `::` inside a word",
-      "t:: item\n  x\n// a x::y\n",
-      "t:: item x // a x::y\n",
-    ],
-    ["a ` +` above it", "t:: item\n +\n// x:: y\n", "t:: item\n +\n// x:: y\n"],
-  ])("with %s the render is unchanged", async (_name, source, want) => {
+    ["a `::` inside a word", "t:: item\n  x\n// a x::y\n"],
+    ["a ` +` above it", "t:: item\n +\n// x:: y\n"],
+  ])("with %s the render is unchanged", async (_name, source) => {
     const out = await formatAdoc(source);
-    expect(out).toBe(want);
+    expect(out).toBe(source);
     expect(await renderedHtml(out)).toBe(await renderedHtml(source));
     expect(await formatAdoc(out)).toBe(out);
   });
@@ -502,34 +469,25 @@ describe("a comment carrying a dlist separator is not folded", () => {
 // `+` renders a break. The formatter agreed about the plus all along;
 // what it lost was the comment line behind it, by the route issue #105
 // names, and the rows below are that family with a tab for the indent.
-// One row of it is not here and is not fixed: a comment whose text
-// carries a `term::` word keeps its own line for the reason the parent
-// commit states, so `t:: item` / `\t+` / `// x:: y` still comes out
-// `t:: item {plus}` / `// x:: y` and still drops the comment from the
-// render.
+// Every one of them is a ROUND TRIP now: the description replays, so
+// the tab, the plus and the comment all stand where they were
+// written.
 describe("a tab-indented `+` in a dlist description keeps its comment", () => {
   test.each([
-    ["one tab", "t:: item\n\t+\n// c\n", "t:: item + // c\n"],
-    ["a space then a tab", "t:: item\n \t+\n// c\n", "t:: item + // c\n"],
-    ["two tabs", "t:: item\n\t\t+\n// c\n", "t:: item + // c\n"],
-    [
-      "a text line after the comment",
-      "t:: item\n\t+\n// c\n  b\n",
-      "t:: item + // c b\n",
-    ],
-  ])(
-    "with %s, the plus is text and so is the comment",
-    async (_n, source, want) => {
-      const out = await formatAdoc(source);
-      expect(out).toBe(want);
-      const html = await renderedHtml(out);
-      expect(html).toBe(await renderedHtml(source));
-      // The oracle's own answer, and the reason the output may spell the
-      // plus inline: no break was ever there to keep.
-      expect(html.includes("<br>")).toBe(false);
-      expect(await formatAdoc(out)).toBe(out);
-    },
-  );
+    ["one tab", "t:: item\n\t+\n// c\n"],
+    ["a space then a tab", "t:: item\n \t+\n// c\n"],
+    ["two tabs", "t:: item\n\t\t+\n// c\n"],
+    ["a text line after the comment", "t:: item\n\t+\n// c\n  b\n"],
+  ])("with %s, the plus is text and so is the comment", async (_n, source) => {
+    const out = await formatAdoc(source);
+    expect(out).toBe(source);
+    const html = await renderedHtml(out);
+    expect(html).toBe(await renderedHtml(source));
+    // The oracle's own answer, and the reason the output may spell the
+    // plus inline: no break was ever there to keep.
+    expect(html.includes("<br>")).toBe(false);
+    expect(await formatAdoc(out)).toBe(out);
+  });
 
   // The contrast the issue rests on, and the #101 rows it must not
   // disturb: one SPACE in the same position is a hard break, the

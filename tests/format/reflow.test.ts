@@ -590,14 +590,14 @@ describe("reflow safety is driven by the line-shape registry", () => {
     expect(await renderedHtml(out)).toBe(await renderedHtml(input));
   });
 
-  // KNOWN GAP (dlist support, tracked with #9 / follow-up issue TBD).
-  // The mirror case: a `::` word on a paragraph's FIRST source line
-  // makes the block a description list to Asciidoctor. We parse it as
-  // a paragraph instead, so fill() is free to wrap in front of the
-  // word — and the dlist the source described disappears. The guard
-  // above only pushes hazard words OFF the first line; nothing keeps
-  // one that started there in place. Predates this task.
-  test.fails("wrapping never dissolves a description list", async () => {
+  // The mirror case, and the one this reader closed: a `::` word on a
+  // block's FIRST source line makes the block a description list to
+  // Asciidoctor, and it is one to us as well now, so the line is a
+  // term line the printer replays rather than prose fill() may wrap
+  // in front of the word. Red before the description reader: the
+  // block was a paragraph, the wrap put `term:: eeee ffff` on a line
+  // of its own, and the dlist the source described disappeared.
+  test("wrapping never dissolves a description list", async () => {
     const input = "aaaa bbbb cccc dddd term:: eeee ffff\n";
     const options = { printWidth: 20 };
     const out = await formatAdoc(input, options);

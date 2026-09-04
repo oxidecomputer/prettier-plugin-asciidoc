@@ -8,13 +8,19 @@
  * Placeholder tag does to an inner scan.
  */
 import { describe, expect, test } from "vitest";
-import { itemExtent } from "../../src/parse/lines/list-reader.js";
+import { itemExtent, markerList } from "../../src/parse/lines/list-reader.js";
 import { splitLines } from "../../src/parse/lines/split.js";
-import type { SiblingTrait } from "../../src/parse/lines/classify.js";
+import { classifyLine } from "../../src/parse/lines/classify.js";
+import { BLOCK_START_CONTEXT } from "../../src/parse/line-shapes.js";
 
-// The trait every row matches by: the unordered marker each document
-// opens with.
-const MARKER_TRAIT: SiblingTrait = { kind: "marker", style: "*" };
+// The rule every row matches by: the unordered marker each document
+// opens with, read through the classifier so the rows and the reader
+// resolve the style the same way.
+const OPENING = classifyLine("* x", BLOCK_START_CONTEXT);
+if (OPENING.kind !== "listMarker") {
+  throw new Error("`* x` is a marker line");
+}
+const MARKER_RULE = markerList(OPENING);
 
 /**
  * Scan a document and read back only the tail facts.
@@ -26,9 +32,10 @@ function tailFacts(source: string): {
   erasedTail: boolean;
   activeTail: boolean;
 } {
-  const extent = itemExtent(splitLines(source), 1, MARKER_TRAIT, {
+  const extent = itemExtent(splitLines(source), 1, MARKER_RULE, {
     tailSafe: true,
     directiveDepth: 0,
+    hasText: true,
   });
   return {
     trailing: extent.trailingContinuation,
@@ -135,9 +142,10 @@ test("the after-blank arm hard-stops on an ERASED line, unread", () => {
   const lines = splitLines("* a\nb\n\n\npara\n").map((line, index) =>
     index === 3 ? { ...line, continuationTag: "erased" as const } : line,
   );
-  const extent = itemExtent(lines, 1, MARKER_TRAIT, {
+  const extent = itemExtent(lines, 1, MARKER_RULE, {
     tailSafe: true,
     directiveDepth: 0,
+    hasText: true,
   });
   expect(extent.buffer.map((line) => line.text)).toEqual(["b"]);
   expect(extent.end).toBe(3);

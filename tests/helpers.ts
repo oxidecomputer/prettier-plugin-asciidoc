@@ -735,3 +735,172 @@ export async function oracleCellDocuments(input: string): Promise<string[][]> {
   }
   return documents;
 }
+
+/**
+ * The delimiter group of `DescriptionListRx` (rx.rb:336), asked of one
+ * source line. The whole term pattern is not restated here: the oracle
+ * has already decided that the line opens a description list, so the
+ * only open question is which of the four spellings it used, and the
+ * group is anchored to the same non-greedy term the pattern has - the
+ * `//` lookahead included, which exempts a `///` head so that a term
+ * line spelled `///x::` still reports its delimiter.
+ */
+const ORACLE_TERM_DELIMITER =
+  /^(?!\/\/[^\/])[ \t]*[^ \t].*?(?<mark>:{2,4}|;;)(?:$|[ \t])/v;
+
+/**
+ * One description item as the oracle's model carries it: the pair
+ * `parse_list_item` builds for a dlist, `[[terms], description-or-nil]`
+ * (parser.rb:1387).
+ */
+export interface OracleDescriptionItem {
+  /**
+   * Each term's own source text, before substitutions, in source
+   * order. Never empty.
+   */
+  readonly terms: readonly string[];
+  /**
+   * The description half's `getText()`, or null where the pair's
+   * second entry is nil - the item has neither text nor blocks.
+   */
+  readonly text: string | null;
+  /** How many blocks the description half holds; 0 when it is nil. */
+  readonly blockCount: number;
+}
+
+/** The oracle's own structural read of one description list. */
+export interface OracleDescriptionList {
+  /**
+   * The 1-based line the list starts on, as `sourcemap` reports it -
+   * over the PREPROCESSED stream, so a document carrying an
+   * `include::` or a conditional reports lines that are not its own.
+   */
+  readonly line: number;
+  /**
+   * The delimiter the list's first term line spells. Read off the
+   * SOURCE, because the model does not carry it: `parse_description_list`
+   * keys the sibling pattern on it (parser.rb:1225) and keeps nothing.
+   * Empty when the reported line is not a term line, which is what a
+   * document whose preprocessor moved the line numbers looks like.
+   */
+  readonly delimiter: string;
+  /** Each `[[terms], description]` pair, in source order. */
+  readonly items: readonly OracleDescriptionItem[];
+  /**
+   * One severity label (`"ERROR"`, `"WARN"`, ...) per message loading
+   * the document logged, in order; empty for a clean load. Shared by
+   * every list in one document, for the reason {@link OracleTable}'s
+   * own copy is.
+   */
+  readonly severities: readonly string[];
+}
+
+/**
+ * The oracle's own dlist shapes, restated because `@asciidoctor/core`
+ * types `List#getItems()` as `ListItem[]` while a DESCRIPTION list's
+ * items are the tuples its own doc comment describes,
+ * `[[term, term, ...], desc]` with a null second entry where the
+ * description is unset (probed on 4.0.11).
+ */
+interface OracleRubyDescriptionList {
+  /** The `[[terms], description-or-null]` pairs, in source order. */
+  readonly getItems: () => Array<
+    [OracleRubyListItem[], OracleRubyListItem | null]
+  >;
+  /** Where the list starts, with `sourcemap` on. */
+  readonly getSourceLocation: () => {
+    readonly getLineNumber: () => number;
+  } | null;
+}
+
+/** One `ListItem`, term or description half. */
+interface OracleRubyListItem {
+  /**
+   * The item's text as the PARSER stored it, before substitutions.
+   * `ListItem#text` is `apply_subs \@text`, so `getText()` on a term
+   * carrying `*bold*` answers markup, and the structural question
+   * here is which source text the term captured - the same reason
+   * {@link OracleRubyCell} reads `source` rather than `text`. Probed
+   * on 4.0.11: the ivar is on the object as `_text`.
+   */
+  readonly _text: string | null;
+  /** The item's text with substitutions applied, or null when unset. */
+  readonly getText: () => string | null;
+  /** The blocks the item holds after its text. */
+  readonly getBlocks: () => unknown[];
+}
+
+/**
+ * One found description list, read into {@link OracleDescriptionList}'s
+ * shape.
+ * @param list - the oracle's own dlist block
+ * @param sourceLines - the document's own lines, for the delimiter
+ * @param severities - the whole load's own logged severities
+ * @returns the list's structure
+ */
+function oracleDescriptionListOf(
+  list: OracleRubyDescriptionList,
+  sourceLines: readonly string[],
+  severities: readonly string[],
+): OracleDescriptionList {
+  const line = list.getSourceLocation()?.getLineNumber() ?? 0;
+  const termLine = sourceLines[line - 1] ?? "";
+  return {
+    line,
+    delimiter: ORACLE_TERM_DELIMITER.exec(termLine)?.groups?.mark ?? "",
+    items: list.getItems().map(([terms, description]) => ({
+      terms: terms.map((term) => term._text ?? ""),
+      text: description === null ? null : description.getText(),
+      blockCount: description === null ? 0 : description.getBlocks().length,
+    })),
+    severities,
+  };
+}
+
+/**
+ * The oracle's own structural read of every description list `findBy`
+ * meets in `input`, in document order, via `load` rather than
+ * {@link convert}: `load` reaches the parsed model, where a dlist item
+ * is the `[[terms], description]` pair `parse_list_item` returns
+ * (parser.rb:1387) and the rendered HTML is only its `<dt>`/`<dd>`
+ * shadow. Empty, not thrown, when `input` holds no dlist at all.
+ *
+ * `sourcemap` is on, which is the ONE load option this departs from
+ * {@link oracleTables} on, and deliberately: the delimiter that
+ * decides which term lines are siblings (parser.rb:1225) is not on
+ * the model at all, while the list's own start line is, so the
+ * delimiter is read off that source line.
+ * Line numbers are over the PREPROCESSED stream, so a document
+ * carrying an `include::` or a conditional reports lines that are not
+ * its own; callers that compare delimiters exclude those (issue #107).
+ *
+ * Runs under its own `MemoryLogger`, passed as the `logger` load
+ * option rather than swapped in through `LoggerManager`: `load`
+ * accepts a per-call logger directly, so this needs no process-wide
+ * state and is safe to run many of at once (`Promise.all` included).
+ * @param input - AsciiDoc source text
+ * @returns every description list's structure, in document order
+ */
+export async function oracleDescriptionList(
+  input: string,
+): Promise<OracleDescriptionList[]> {
+  const memory = MemoryLogger.create();
+  const loadedDocument = await load(input, {
+    safe: "safe",
+    sourcemap: true,
+    logger: memory,
+  });
+  const found = loadedDocument.findBy({ context: "dlist" });
+  const severities = memory
+    .getMessages()
+    .map((message) => message.getSeverity());
+  const sourceLines = input.split("\n");
+  return found.map((list) =>
+    oracleDescriptionListOf(
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- @asciidoctor/core types List#getItems as ListItem[]; a dlist's items are the tuples OracleRubyDescriptionList restates
+      list as unknown as OracleRubyDescriptionList,
+      sourceLines,
+      severities,
+    ),
+  );
+}

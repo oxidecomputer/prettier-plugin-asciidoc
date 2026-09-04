@@ -2,9 +2,9 @@ import { describe, test, expect } from "vitest";
 import { splitLines } from "../../src/parse/lines/split.js";
 import {
   BLOCK_START_CONTEXT,
-  parseDescriptionListLine,
   type ReaderContext,
 } from "../../src/parse/line-shapes.js";
+import { parseDescriptionListLine } from "../../src/parse/line-shapes-description.js";
 import {
   attributeContinuation,
   classifyLine,

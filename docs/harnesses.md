@@ -234,7 +234,8 @@ above a heading can destroy it), and `list-run` (a list item's leading metadata
 run). The generators live in `scripts/shape-registry.ts` and
 `scripts/shape-registry-list-run.ts`; the completeness gate is
 `scripts/metrics/shape-census.ts`, wired into `bun run metrics`, which requires
-every delimiter kind and every `line-shapes.ts` runtime export to have a
+every delimiter kind and every runtime export of every registry module
+(`src/parse/line-shapes.ts` and its `line-shapes-*.ts` siblings) to have a
 covering dimension (or a written-down exemption) — so a parser that learns a new
 construct must teach these generators in the same commit. The grids exist
 because the corpus can be blind to a construct (the #44 corruption had zero

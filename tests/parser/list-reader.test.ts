@@ -2,8 +2,8 @@
  * Direct tables for list-reader.ts's pure functions whose edges
  * whole-document parses reach only obliquely: listShape's sibling
  * walk (the port of `parse_list`, parser.rb l.1115-1129), gapsOf's
- * verbatim read (and its unreachable arm), and gapGlyph's
- * budget-aware spelling.
+ * verbatim read (and its unreachable arm) from its sibling
+ * list-item-node.ts, and gapGlyph's budget-aware spelling.
  *
  * listShape is a SHAPE scan and nothing more — it decides extents and
  * parses no item's interior — so these rows read markers, buffers and
@@ -14,7 +14,8 @@ import { describe, expect, test } from "vitest";
 import type { BlockNode, GapLine } from "../../src/ast.js";
 import { BLOCK_START_CONTEXT } from "../../src/parse/line-shapes.js";
 import { classifyLine } from "../../src/parse/lines/classify.js";
-import { gapsOf, listShape } from "../../src/parse/lines/list-reader.js";
+import { gapsOf } from "../../src/parse/lines/list-item-node.js";
+import { listShape, markerList } from "../../src/parse/lines/list-reader.js";
 import { splitLines, type SourceLine } from "../../src/parse/lines/split.js";
 import { gapGlyph } from "./reader-helpers.js";
 
@@ -33,7 +34,7 @@ function shapeOf(source: string): {
   if (opening.kind !== "listMarker") {
     throw new Error(`not a marker line: ${JSON.stringify(lines[0].text)}`);
   }
-  const shape = listShape(lines, 0, opening, {
+  const shape = listShape(lines, 0, markerList(opening), {
     tailSafe: true,
     directiveDepth: 0,
   });
@@ -106,7 +107,7 @@ describe("listShape walks siblings and stops at anything else", () => {
     if (opening.kind !== "listMarker") {
       throw new Error("not a marker line");
     }
-    const shape = listShape(lines, 0, opening, {
+    const shape = listShape(lines, 0, markerList(opening), {
       tailSafe: true,
       directiveDepth: 0,
     });

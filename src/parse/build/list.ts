@@ -32,31 +32,18 @@ const CHECKBOX_RE = /^\[(?<mark>[x* ])\] /v;
 export const CHECKBOX_PREFIX_LEN = 4;
 
 /**
- * Everything one list item is built from, as the reader read it.
- * Exported for its unit test (tests/parser/build/list.test.ts); no src
- * consumer.
- * @internal
+ * The body half of a list-like item's input: everything
+ * {@link ItemBody} needs, and nothing about what introduced the item.
+ * The two item kinds share it by EXTENSION here for the same reason
+ * their nodes share `ItemBody` in src/ast.ts - one home, rather than
+ * a set of members copied between two builders that could come to
+ * disagree.
+ *
+ * Exported for src/parse/build/description-list.ts, whose item is
+ * introduced by terms instead of by a marker and reuses this half
+ * whole.
  */
-export interface ListItemInput {
-  /** The item's marker as written, leading indent excluded. */
-  readonly marker: Fragment;
-  /**
-   * The marker's own spelling - what the printer replays (see
-   * {@link ListItemNode.markerSpelling}). Separate from the Fragment
-   * beside it, which spans the marker AND its gap because it measures
-   * the item's POSITION.
-   */
-  readonly markerSpelling: string;
-  /** Which list kind the marker opened. */
-  readonly variant: ListNode["variant"];
-  /**
-   * The number a callout marker spells (`<3>` → 3, `<.>` → the auto
-   * sentinel), undefined for every other variant. Read off the group
-   * the classifier's match captured (lines/classify.ts, ParsedMarker's
-   * callout arm) — this builder does not re-match the marker, so there
-   * is no impossible miss here to degrade from.
-   */
-  readonly calloutNumber: number | undefined;
+export interface ItemBodyInput {
   /** The item's principal text, already tokenized. */
   readonly text: readonly InlineToken[];
   /** Everything the item holds after its text, gaps attached. */
@@ -78,6 +65,34 @@ export interface ListItemInput {
    * indented (see {@link ListItemNode}'s `everyTextLineIndented`).
    */
   readonly everyTextLineIndented: boolean;
+}
+
+/**
+ * Everything one list item is built from, as the reader read it.
+ * Exported for its unit test (tests/parser/build/list.test.ts); no src
+ * consumer.
+ * @internal
+ */
+export interface ListItemInput extends ItemBodyInput {
+  /** The item's marker as written, leading indent excluded. */
+  readonly marker: Fragment;
+  /**
+   * The marker's own spelling - what the printer replays (see
+   * {@link ListItemNode.markerSpelling}). Separate from the Fragment
+   * beside it, which spans the marker AND its gap because it measures
+   * the item's POSITION.
+   */
+  readonly markerSpelling: string;
+  /** Which list kind the marker opened. */
+  readonly variant: ListNode["variant"];
+  /**
+   * The number a callout marker spells (`<3>` → 3, `<.>` → the auto
+   * sentinel), undefined for every other variant. Read off the group
+   * the classifier's match captured (lines/classify.ts, ParsedMarker's
+   * callout arm) — this builder does not re-match the marker, so there
+   * is no impossible miss here to degrade from.
+   */
+  readonly calloutNumber: number | undefined;
 }
 
 /**

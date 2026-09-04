@@ -7,13 +7,35 @@
  */
 import { describe, expect, test } from "vitest";
 import type { GapLine } from "../../src/ast.js";
-import { itemExtent } from "../../src/parse/lines/list-reader.js";
+import {
+  descriptionList,
+  itemExtent,
+  markerList,
+  type ListRule,
+} from "../../src/parse/lines/list-reader.js";
 import { splitLines } from "../../src/parse/lines/split.js";
-import type { SiblingTrait } from "../../src/parse/lines/classify.js";
+import { classifyLine } from "../../src/parse/lines/classify.js";
+import { BLOCK_START_CONTEXT } from "../../src/parse/line-shapes.js";
 
-// The trait the rows that name no style of their own match by: the
+/**
+ * The rule of a list a marker of this style opened, built the way the
+ * reader builds it: through the classifier, so the rows match on the
+ * RESOLVED style rather than on a hand-written trait that could
+ * disagree with it.
+ * @param style - the marker the document opens with
+ * @returns the list's rule
+ */
+function markerRule(style: string): ListRule {
+  const opening = classifyLine(`${style} x`, BLOCK_START_CONTEXT);
+  if (opening.kind !== "listMarker") {
+    throw new Error(`not a marker: ${JSON.stringify(style)}`);
+  }
+  return markerList(opening);
+}
+
+// The rule the rows that name no style of their own match by: the
 // unordered marker every such document opens with.
-const MARKER_TRAIT: SiblingTrait = { kind: "marker", style: "*" };
+const MARKER_RULE = markerRule("*");
 
 /**
  * Run itemExtent over a document, starting after its first line. The
@@ -33,12 +55,11 @@ function scan(
   bounds: { tailSafe?: boolean } = {},
 ): { buffer: string[]; end: number } {
   const lines = splitLines(source);
-  const extent = itemExtent(
-    lines,
-    from,
-    { kind: "marker", style },
-    { tailSafe: bounds.tailSafe ?? true, directiveDepth: 0 },
-  );
+  const extent = itemExtent(lines, from, markerRule(style), {
+    tailSafe: bounds.tailSafe ?? true,
+    directiveDepth: 0,
+    hasText: true,
+  });
   return {
     buffer: extent.buffer.map((line) => line.text),
     end: extent.end,
@@ -354,29 +375,36 @@ describe("itemExtent: one row per read_lines_for_list_item branch", () => {
 
   test("erasure blanks text only — offsets and raw stay intact", () => {
     const lines = splitLines("* a\n+\npara\n");
-    const { buffer } = itemExtent(lines, 1, MARKER_TRAIT, {
+    const { buffer } = itemExtent(lines, 1, MARKER_RULE, {
       tailSafe: true,
       directiveDepth: 0,
+      hasText: true,
     });
     expect(buffer[0]).toMatchObject({ text: "", raw: "+", offset: 4, line: 2 });
   });
 });
 
-// The sibling test asked with the OTHER trait. `SiblingTrait`'s dlist
-// arm is type-legal and has no producer yet (#9): the classifier
-// builds only the marker arm, and `siblingMarker` answers undefined
-// for anything else, so no line ends an item read under a dlist
-// trait. The row exists because the guard that says so is otherwise
-// unreached - #9's matcher plugs in exactly there, and this pins what
-// it replaces.
-test("a dlist trait matches no sibling marker yet (#9)", () => {
+// The sibling test asked with the OTHER trait. Before the dlist arm
+// had a producer this row read `["u:: e", "* m"]`: `siblingMarker`
+// answered undefined for anything but a marker trait, so no line
+// ended an item read under a dlist trait and the scan swallowed the
+// rest of the document. `u:: e` now ends the item where it stands,
+// and `* m` is never reached.
+test("a dlist trait ends the item at a sibling term", () => {
   const extent = itemExtent(
     splitLines("t:: d\nu:: e\n* m\n"),
     1,
-    { kind: "dlist", delimiter: "::" },
-    { tailSafe: true, directiveDepth: 0 },
+    descriptionList({
+      kind: "dlistTerm",
+      indent: 0,
+      delimiter: "::",
+      term: "t",
+      descriptionStart: 3,
+    }),
+    { tailSafe: true, directiveDepth: 0, hasText: true },
   );
-  expect(extent.buffer.map((line) => line.text)).toEqual(["u:: e", "* m"]);
+  expect(extent.buffer.map((line) => line.text)).toEqual([]);
+  expect(extent.end).toBe(1);
 });
 
 /**
@@ -392,9 +420,10 @@ describe("itemExtent reports the separator lines it consumes", () => {
    * @returns every line the scan wrote, in line order
    */
   function gapsFrom(source: string): Array<[number, GapLine]> {
-    const { gapWrites } = itemExtent(splitLines(source), 1, MARKER_TRAIT, {
+    const { gapWrites } = itemExtent(splitLines(source), 1, MARKER_RULE, {
       tailSafe: true,
       directiveDepth: 0,
+      hasText: true,
     });
     return gapWrites
       .map(({ line, spelling }): [number, GapLine] => [line, spelling])

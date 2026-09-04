@@ -37,18 +37,23 @@
  * {@link itemExtent} is the pure port of `read_lines_for_list_item`
  * (parser.rb l.1404-1592, Asciidoctor core 2.0.26 — the revision
  * `@asciidoctor/core` 4.0.11 bundles, which is the oracle these tests
- * run; EVERY Ruby line number in this file is against it) for ulist /
- * olist /
- * colist, returning Ruby's BUFFER — the item's lines with every line
- * Ruby blanks rewritten to `text: ""`, offsets and raw spelling intact
- * — plus where the item ends.
- * Every branch cites its parser.rb line. Only the `list_type == :dlist`
- * local branches (the greedy no-text arm l.1551-56, the
- * BlockAttributeLineRx look-ahead l.1462-82) are out of scope (#9);
- * they are left as cited comments where they would go.
+ * run; EVERY Ruby line number in this file is against it) for all
+ * four list contexts, returning Ruby's BUFFER (the item's lines, with
+ * every line Ruby blanks rewritten to `text: ""` and offsets and raw
+ * spelling intact) plus where the item ends.
+ * Every branch cites its parser.rb line. Three of them ask which kind
+ * of list is open: the greedy no-text arm (l.1551-56), the
+ * `BlockAttributeLineRx` look-ahead (l.1462-82) and the sibling guard
+ * on the literal-paragraph slurp (l.1490-93, l.1541-44). Each reads
+ * its description-list half from description-list.ts.
  */
-import type { BlockNode, GapLine } from "../../ast.js";
-import { conditionalDirective, isDescriptionListLine } from "../line-shapes.js";
+import { conditionalDirective } from "../line-shapes.js";
+import {
+  attributeRunAhead,
+  descriptionSibling,
+  nestedListKind,
+  type AttributeRun,
+} from "./description-list.js";
 import {
   delimiterKind,
   isContinuationLine,
@@ -56,6 +61,7 @@ import {
   metadataLineKind,
   parseListMarker,
   type DelimiterKind,
+  type DlistTermKind,
   type MarkerKind,
   type SiblingTrait,
 } from "./classify.js";
@@ -75,16 +81,25 @@ import { directiveDepthAfter } from "./scope.js";
 import type { SourceLine } from "./split.js";
 
 /**
+ * Either parse that can OPEN a list: a marker line, or the term line
+ * of a description list. Every item of one list carries the same arm
+ * of it, because a sibling is matched by the trait the opening line
+ * produced - which is why it travels as a type parameter below and
+ * not as a union each consumer would have to re-split.
+ */
+type ListOpening = MarkerKind | DlistTermKind;
+
+/**
  * One item's SHAPE — everything the surface lines decide about it,
  * and nothing that needs the item parsed. Exported because the caller
  * that owns the recursion hands one back to list-item-node.ts once
  * the interior has been read.
  */
-export interface ListItemShape {
+export interface ListItemShape<Opening extends ListOpening = ListOpening> {
   /** The item's marker line. */
   readonly markerLine: SourceLine;
-  /** The marker, as the classifier parses one. */
-  readonly marker: MarkerKind;
+  /** What opened the item, as the classifier parsed it. */
+  readonly marker: Opening;
   /** Ruby's buffer: the item's lines, erasures applied (see {@link ItemExtent}). */
   readonly buffer: readonly SourceLine[];
   /** Whether a `+` the pop took off the item's end must be printed back. */
@@ -98,14 +113,17 @@ export interface ListItemShape {
 }
 
 /** A whole list's shape, and where the list ends. NOT exported. */
-interface ListShape {
+interface ListShape<Opening extends ListOpening> {
   /**
    * One shape per sibling item, in source order. The opening item is
    * scanned BEFORE the sibling loop, which is what makes "a list
    * always has an item" a fact of this control flow rather than a
    * sentence buildList re-checks.
    */
-  readonly items: readonly [ListItemShape, ...ListItemShape[]];
+  readonly items: readonly [
+    ListItemShape<Opening>,
+    ...Array<ListItemShape<Opening>>,
+  ];
   /** Index (into `lines`) after the last item's extent. */
   readonly end: number;
   /**
@@ -113,6 +131,92 @@ interface ListShape {
    * order - the writes reader.ts applies to the document-wide record.
    */
   readonly gapWrites: readonly GapWrite[];
+}
+
+/**
+ * How an OPEN list recognizes its own: what a sibling line has to
+ * repeat, and the parse such a line yields. ONE rule with two shapes
+ * of answer - the item scan asks only WHETHER a line is a sibling,
+ * the sibling loop asks what it parsed TO - and the two cannot
+ * disagree, because the second is the first.
+ *
+ * A VALUE rather than two functions over a {@link SiblingTrait},
+ * because the parse's TYPE is the point. A rule is built where the
+ * arm is known, so `sibling` is written once against a concrete
+ * opening and the compiler carries "a marker list's siblings are
+ * markers" from the constructor through {@link listShape} to every
+ * {@link ListItemShape}. Reading the arm back off the trait instead
+ * would hand list-item-node.ts a `marker` the compiler believes and
+ * nothing checks.
+ *
+ * Exported for the unit tests that build one
+ * (tests/parser/item-extent.test.ts); src passes rules around by
+ * inference, through {@link markerList} and {@link descriptionList}.
+ * @internal
+ */
+export interface ListRule<Opening extends ListOpening = ListOpening> {
+  /** The line that opened the list, as the classifier parsed it. */
+  readonly opening: Opening;
+  /**
+   * What a sibling repeats: the value `is_sibling_list_item?`
+   * compares (parser.rb l.2280-84), and the one the description-local
+   * arms of the item scan key on.
+   */
+  readonly trait: SiblingTrait;
+  /**
+   * The same parse for a LATER line, when that line continues this
+   * list; undefined when it does not.
+   */
+  readonly sibling: (text: string) => Opening | undefined;
+}
+
+/**
+ * The rule of a list a MARKER opened: style equality on the RESOLVED
+ * trait, exactly the last arm of `is_sibling_list_item?` (parser.rb
+ * l.2284, the comparison itself; the def is at l.2280). The three
+ * marker variants' style sets are disjoint by construction
+ * (`listMarkerStyle` in line-shapes.ts: an unordered marker is its
+ * own style, an ordered one resolves through `orderedMarkerStyle`,
+ * and every callout marker collapses to the one CALLOUT_STYLE), so
+ * equality alone decides - and it decides on the RESOLVED style,
+ * which is why `5.` continues a list `1.` opened while `.` opens a
+ * nested one.
+ * @param opening - the marker line that opened the list
+ * @returns the list's rule
+ */
+export function markerList(opening: MarkerKind): ListRule<MarkerKind> {
+  const { style } = opening;
+  return {
+    opening,
+    trait: { kind: "marker", style },
+    sibling: (text) => {
+      const parsed = parseListMarker(text);
+      return parsed?.style === style
+        ? { kind: "listMarker", ...parsed }
+        : undefined;
+    },
+  };
+}
+
+/**
+ * The rule of a list a TERM line opened. A description list compares
+ * nothing: the pattern keyed to its delimiter either matches or does
+ * not (`sibling_pattern = DescriptionListSiblingRx[match[2]]`,
+ * parser.rb l.1225; rx.rb l.340-45).
+ * @param opening - the term line that opened the list
+ * @returns the list's rule
+ *
+ * Its src consumer is the description read in list-read.ts.
+ */
+export function descriptionList(
+  opening: DlistTermKind,
+): ListRule<DlistTermKind> {
+  const { delimiter } = opening;
+  return {
+    opening,
+    trait: { kind: "dlist", delimiter },
+    sibling: (text) => descriptionSibling(text, delimiter),
+  };
 }
 
 /**
@@ -126,38 +230,45 @@ interface ListShape {
  * reader handed back to it, which is the seam this module no longer
  * has.
  *
- * The dlist arm (#9) plugs in at {@link siblingMarker} and at this
- * function's `opening` parameter, which becomes the union of the
- * opening parses; nothing else here is marker-specific.
+ * Nothing here is specific to a marker: the rule carries both the
+ * opening's parse and a later line's, and every item's shape is typed
+ * by the arm the rule was built on.
  * @param lines - the lines the list is read from (the document's, or
  *   an enclosing item's buffer)
  * @param at - index of the first marker line
- * @param opening - the first marker, as the classifier parsed it
+ * @param rule - the list's rule, built from the line that opened it
+ *   ({@link ListRule})
  * @param context - the stream-end fact every item extent inherits
  *   ({@link ExtentContext})
  * @returns one shape per item, the index the caller resumes at, and
  *   every gap write the items decided
  */
-export function listShape(
+export function listShape<Opening extends ListOpening>(
   lines: readonly SourceLine[],
   at: number,
-  opening: MarkerKind,
-  context: ExtentContext,
-): ListShape {
-  const trait = siblingTrait(opening);
+  rule: ListRule<Opening>,
+  context: ListContext,
+): ListShape<Opening> {
   // The list's writes, in item order: each item's scan hands its own
   // back and this is where they are strung together, because the list
   // is what the caller applies them for.
   const gapWrites: GapWrite[] = [];
   // One item's shape, as a closure over the facts every item in
   // this list shares — which is also why it is not a top-level
-  // function: `lines`, `trait` and `context` are the LIST's, and
+  // function: `lines`, `rule` and `context` are the LIST's, and
   // passing them per item was four arguments saying one thing.
   const itemAt = (
     index: number,
-    marker: MarkerKind,
-  ): { shape: ListItemShape; end: number } => {
-    const extent = itemExtent(lines, index + 1, trait, context);
+    marker: Opening,
+  ): { shape: ListItemShape<Opening>; end: number } => {
+    const extent = itemExtent(lines, index + 1, rule, {
+      ...context,
+      // parser.rb l.1304: a marker line's own text is the item's, so
+      // only a term with no inline description opens an item that is
+      // still owed one.
+      hasText:
+        marker.kind === "listMarker" || marker.descriptionStart !== undefined,
+    });
     gapWrites.push(...extent.gapWrites);
     return {
       shape: {
@@ -172,8 +283,10 @@ export function listShape(
       end: extent.end,
     };
   };
-  const first = itemAt(at, opening);
-  const items: [ListItemShape, ...ListItemShape[]] = [first.shape];
+  const first = itemAt(at, rule.opening);
+  const items: [ListItemShape<Opening>, ...Array<ListItemShape<Opening>>] = [
+    first.shape,
+  ];
   let index = first.end;
   for (;;) {
     // Ruby's `reader.skip_blank_lines || break` between items
@@ -195,8 +308,7 @@ export function listShape(
     // `list_rx =~ reader.peek_line` for the next sibling (parser.rb
     // l.1119).
     const next = lines.at(index);
-    const marker =
-      next === undefined ? undefined : siblingMarker(next.text, trait);
+    const marker = next === undefined ? undefined : rule.sibling(next.text);
     if (marker === undefined) {
       break;
     }
@@ -208,73 +320,10 @@ export function listShape(
 }
 
 /**
- * The sibling trait of a marker-opened list: the marker arm, carrying
- * the classifier's resolved style.
- * @param kind - the list's first marker
- * @returns the trait sibling matching compares
+ * What every item of ONE list is read under: the facts about the
+ * stream around the list that its lines cannot say.
  */
-function siblingTrait(kind: MarkerKind): SiblingTrait {
-  return { kind: "marker", style: kind.style };
-}
-
-/**
- * Each block's gap: the recorded separator lines strictly between the
- * previous piece of the item and the block. A partition of the
- * document-wide gap record (GapRecord, scope.ts) by block positions.
- * Nothing here reads line text, so a non-gap line in a gap is
- * unrepresentable. Every line between two of an item's blocks was
- * consumed by a recording arm of some scan (comments and metadata are
- * blocks), so the record covers these ranges but for the one a scan's
- * own pop took off an item's tail and the item prints back itself
- * (`finishItem`, item-tail.ts) - the exception invariant (vii) states.
- * @param record - the document-wide gap record
- * @param textEnd - the text's last line number
- * @param blocks - the item's blocks, in source order
- * @returns one gap per block
- * Consumed by list-item-node.ts's listItemNode; its unit table is
- * tests/parser/list-reader.test.ts.
- */
-export function gapsOf(
-  record: ReadonlyMap<number, GapLine>,
-  textEnd: number,
-  blocks: readonly BlockNode[],
-): GapLine[][] {
-  // Sorted ONCE for the whole call, then walked with a single cursor:
-  // block ranges are disjoint and increasing, so no entry a later
-  // block needs can sit before an entry an earlier block already
-  // consumed.
-  const entries = [...record].toSorted(([a], [b]) => a - b);
-  let cursor = 0;
-  let previousEnd = textEnd;
-  return blocks.map((block) => {
-    // Boundaries are 1-based line numbers, both ends exclusive: the
-    // previous piece ends ON previousEnd, the block starts ON its
-    // start line.
-    const start = previousEnd;
-    previousEnd = block.position.end.line;
-    // Advance past entries at or before this gap's start — that skips
-    // both the previous block's own gap and any entry inside the
-    // previous block's own span — before collecting this one.
-    while (cursor < entries.length && entries[cursor][0] <= start) {
-      cursor += 1;
-    }
-    const gap: GapLine[] = [];
-    while (
-      cursor < entries.length &&
-      entries[cursor][0] < block.position.start.line
-    ) {
-      gap.push(entries[cursor][1]);
-      cursor += 1;
-    }
-    return gap;
-  });
-}
-
-/**
- * What one extent scan is given beyond the lines themselves: the one
- * fact about the stream around it that the lines cannot say.
- */
-interface ExtentContext {
+interface ListContext {
   /**
    * Whether a `+` printed at the very end of the STREAM re-reads
    * inert — true for the document reader (EOF), the confined reader's
@@ -291,74 +340,21 @@ interface ExtentContext {
 }
 
 /**
- * Whether a line is a sibling item of the list being read — style
- * equality on the RESOLVED trait, exactly the last arm of
- * `is_sibling_list_item?` (parser.rb l.2284, the comparison itself;
- * the def is at l.2280). The three marker variants' style sets are
- * disjoint by construction (`listMarkerStyle` in line-shapes.ts: an
- * unordered marker is its own style, an ordered one resolves through
- * `orderedMarkerStyle`, and every callout marker collapses to the one
- * CALLOUT_STYLE), so equality alone decides - and it decides on the
- * RESOLVED style, which is why `5.` continues a list `1.` opened
- * while `.` opens a nested one. The dlist arm has no producer yet: the conjunction's
- * first test is where #9's `DescriptionListSiblingRx` matching plugs
- * in.
- * @param text - one rstripped source line
- * @param trait - the open list's sibling trait
- * @returns true when the line starts a sibling item
+ * What ONE item's scan is given beyond the lines: its list's context,
+ * plus the one fact that is the item's own. Ruby passes that fact as
+ * a parameter with a default (`has_text = true`, parser.rb l.1404);
+ * here it rides with the rest, because five parameters is one more
+ * than this codebase allows and because it is the same kind of thing
+ * as the other two - what the lines from `from` on cannot say.
  */
-function isSibling(text: string, trait: SiblingTrait): boolean {
-  return siblingMarker(text, trait) !== undefined;
-}
-
-/**
- * The same test, answering with the marker itself — what the sibling
- * LOOP needs, which would otherwise spell the rule a second time to
- * get the parse it builds the item from. ONE rule, two shapes of
- * answer: {@link isSibling} is this function asked whether there was
- * one.
- * @param text - one rstripped source line
- * @param trait - the open list's sibling trait
- * @returns the sibling's marker, or undefined when the line is not one
- */
-function siblingMarker(
-  text: string,
-  trait: SiblingTrait,
-): MarkerKind | undefined {
-  if (trait.kind !== "marker") {
-    return undefined;
-  }
-  const parsed = parseListMarker(text);
-  if (parsed?.style !== trait.style) {
-    return undefined;
-  }
-  return { kind: "listMarker", ...parsed };
-}
-
-/**
- * Whether a line starts a NESTABLE list — `NESTABLE_LIST_CONTEXTS =
- * [:ulist, :olist, :dlist]` (asciidoctor.rb:315, the authority; the
- * three `find` sites are parser.rb l.1503/1530/1562): an unordered or
- * ordered marker, or a dlist term. A callout marker is deliberately
- * NOT nestable (asciidoctor.rb:315 lists no :colist), which is why a
- * `<n>` line after a blank ends the item — but Ruby's `find` still
- * tries `DescriptionListRx` on it, so a callout-shaped line that is
- * ALSO a dlist term (`<1> t:: d`) nests; hence the `||`, not an
- * early return. One unmodelled nuance, verified harmless: when
- * `within_nested_list` is already true, Ruby narrows the search set to
- * `[:dlist]` — the only effects of a match there are re-setting an
- * already-true flag and the dlist-only `has_text` reset (out of
- * scope, #9), so the unconditional test is equivalent; do not "fix"
- * it.
- * @param text - one rstripped source line
- * @returns true when the line would set `within_nested_list`
- */
-function isNestable(text: string): boolean {
-  const marker = parseListMarker(text);
-  return (
-    (marker !== undefined && marker.variant !== "callout") ||
-    isDescriptionListLine(text)
-  );
+interface ExtentContext extends ListContext {
+  /**
+   * Whether the line that opened the item carried the item's text
+   * (`has_text = true if (item_text = match[3])`, parser.rb l.1304).
+   * Always true for a marker list: only a description list can open
+   * an item that is still owed one.
+   */
+  readonly hasText: boolean;
 }
 
 /**
@@ -453,6 +449,15 @@ class ExtentScan {
    * takes, and neither writes the other's.
    */
   private directiveDepth: number;
+  /**
+   * Whether the item has its text yet - Ruby's `has_text` (parser.rb
+   * l.1404), the ONE state the after-blank arm's greedy branch is
+   * gated on (l.1525) and the only thing anything reads it for.
+   * Seeded by the line that opened the item and lowered only by
+   * {@link lowersHasText}, so Ruby's assignments scattered down the
+   * loop are arms of one fold here.
+   */
+  private hasText: boolean;
   private index: number;
 
   /**
@@ -460,17 +465,18 @@ class ExtentScan {
    *   an enclosing item's buffer)
    * @param from - index of the first line AFTER the item's marker line
    *   (parse_list_item shifts the marker before reading, parser.rb l.1357)
-   * @param trait - the trait siblings are matched by
-   * @param context - the stream-end fact ({@link ExtentContext})
+   * @param rule - how this list recognizes its own ({@link ListRule})
+   * @param context - what the lines cannot say ({@link ExtentContext})
    */
   constructor(
     private readonly lines: readonly SourceLine[],
     from: number,
-    private readonly trait: SiblingTrait,
+    private readonly rule: ListRule,
     private readonly context: ExtentContext,
   ) {
     this.index = from;
     this.directiveDepth = context.directiveDepth;
+    this.hasText = context.hasText;
   }
 
   /**
@@ -561,12 +567,10 @@ class ExtentScan {
     if (delimiter !== undefined) {
       return this.delimitedArm(delimiter);
     }
-    // Ruby's next arm is the dlist-only `BlockAttributeLineRx`
-    // look-ahead (parser.rb l.1462-82, `elsif dlist && continuation !=
-    // :active && ...`): it decides whether a `[...]` run in front of a
-    // non-sibling list item joins the item or breaks it. Out of scope
-    // with the rest of the dlist branches (#9); it would go exactly
-    // here, between the delimited arm and the `:active` arm.
+    const run = this.attributeRun();
+    if (run !== undefined) {
+      return this.attributeArm(run);
+    }
     if (this.continuation === "active" && line.text !== "") {
       this.activeContent(line);
       return "go";
@@ -605,6 +609,80 @@ class ExtentScan {
   }
 
   /**
+   * The dlist-only `BlockAttributeLineRx` look-ahead (parser.rb
+   * l.1462-82, `elsif dlist && continuation != :active && ...`),
+   * asked at the position Ruby asks it: after the delimited arm and
+   * before the `:active` one. Ruby's two facts are the guard here and
+   * the shape of the line is the look-ahead's own, so an arm that
+   * does not apply and a run that breaks the item stay two answers.
+   * @returns what the run does, or undefined when this turn is not
+   *   the arm's
+   */
+  private attributeRun(): AttributeRun | undefined {
+    if (this.rule.trait.kind !== "dlist" || this.continuation === "active") {
+      return undefined;
+    }
+    return attributeRunAhead(
+      this.lines,
+      this.index - 1,
+      this.rule.trait.delimiter,
+    );
+  }
+
+  /**
+   * The `[...]` look-ahead's verdict, applied. Concat buffers the
+   * whole `block_attribute_lines` run and the read resumes past it
+   * (`buffer.concat block_attribute_lines`, parser.rb l.1471-72);
+   * the other arm unreads every line of it, so the item ends in
+   * front of the run and the enclosing reader sees it whole
+   * (`reader.unshift_lines block_attribute_lines`, l.1478-81).
+   *
+   * The run's lines carry no {@link GapRole}, for the reason a
+   * slurped block's do not: they are the item's content, and the
+   * scan that re-reads them is the one that says what each of them
+   * is.
+   * @param run - what the look-ahead decided
+   * @returns whether the item ends on this line
+   */
+  private attributeArm(run: AttributeRun): "stop" | "go" {
+    if (!run.concat) {
+      this.index -= 1;
+      return "stop";
+    }
+    this.bufferThrough(this.index - 1, run.end);
+    return "go";
+  }
+
+  /**
+   * What a nested list line does to the scan, at every one of Ruby's
+   * three tests for one (parser.rb l.1503-08, l.1530-36, l.1562-68):
+   * the flag goes up, and a nested TERM with no description of its
+   * own hands the read its greedy appetite back ("get greedy
+   * again"). One method because Ruby writes the same two lines three
+   * times.
+   *
+   * The SET the line is offered to is the caller's, because Ruby's
+   * three sites do not agree on it: two narrow to `[:dlist]` once
+   * `within_nested_list` stands and the third never narrows.
+   * @param text - the line just read
+   * @param descriptionsOnly - whether this site's search set is the
+   *   narrowed one ({@link nestedListKind})
+   * @returns whether the line opened a nested list, which the
+   *   after-blank arm needs in order to buffer it
+   */
+  private nestedList(text: string, descriptionsOnly: boolean): boolean {
+    const nested = nestedListKind(text, descriptionsOnly);
+    if (nested === undefined) {
+      return false;
+    }
+    this.withinNestedList = true;
+    if (nested === "textlessTerm") {
+      this.hasText = false;
+    }
+    return true;
+  }
+
+  /**
    * `is_sibling_list_item?` (parser.rb l.1430) - the one shape that
    * ends the item wherever it is read, before and after a blank run
    * alike (l.1519/1528-29 ask the same question a second time). The old
@@ -614,7 +692,7 @@ class ExtentScan {
    * @returns true when the item ends on this line, unread
    */
   private endsTheItem(text: string): boolean {
-    return isSibling(text, this.trait);
+    return this.rule.sibling(text) !== undefined;
   }
 
   /**
@@ -647,6 +725,7 @@ class ExtentScan {
   private afterContinuation(line: SourceLine, previousCell: Cell): boolean {
     if (this.continuation === "inactive") {
       this.continuation = "active"; // l.1437
+      this.hasText = true; // l.1438
       // "if we are within a nested list, we don't throw away the list
       // continuation marks because they will be processed when
       // grabbing the lines for those nested lists" - parser.rb
@@ -698,8 +777,9 @@ class ExtentScan {
     if (isLiteralLine(line.text)) {
       // "if we don't process it as a whole, then a line in it that
       // looks like a list item will throw off the exit from it" —
-      // parser.rb l.1486-95 (l.1495 is the non-dlist read; the dlist one
-      // at l.1493 is out of scope).
+      // parser.rb l.1486-95. Both of Ruby's reads are one call here:
+      // the sibling guard the dlist one adds (l.1490-93) is a stop
+      // condition of the slurp itself.
       this.index -= 1;
       this.slurpLiteral();
       this.spendContinuation(); // parser.rb l.1497
@@ -746,10 +826,8 @@ class ExtentScan {
     if (isContinuationLine(line.text)) {
       this.role(line, "attached");
     }
-    // parser.rb l.1503-04
-    if (isNestable(line.text)) {
-      this.withinNestedList = true;
-    }
+    // parser.rb l.1503-08; l.1503 narrows the search set.
+    this.nestedList(line.text, this.withinNestedList);
     this.buffer.push({ current: line });
     this.spendContinuation(); // parser.rb l.1511
   }
@@ -757,9 +835,9 @@ class ExtentScan {
   /**
    * `prev_line && prev_line.empty?` (parser.rb l.1513-50): skip further
    * blanks, then only a detached `+`, a nestable marker or a literal
-   * paragraph keeps the item. `has_text` is always true outside dlists
-   * (l.1525); the greedy no-text arm (l.1551-56) is dlist-only and out
-   * of scope (#9).
+   * paragraph keeps the item - unless the item is still owed its
+   * text, in which case the greedy arm (l.1551-56) takes whatever
+   * the line is.
    * @param first - the line that arrived after the blank
    * @returns whether the item ends here
    */
@@ -802,10 +880,19 @@ class ExtentScan {
     // whether the line it just read is a sibling once for the
     // re-read-past-blanks path and once for the fall-through path, and
     // both arms unread the line and break. A `+` is not a sibling
-    // marker, so testing it first changes nothing.
+    // marker, so testing it first changes nothing. Nor does lifting
+    // it out of Ruby's `elsif has_text`, where l.1528 sits: the only
+    // line that can reach here untested is the one l.1517 read, and
+    // l.1519 tests exactly that one before `has_text` is consulted.
     if (this.endsTheItem(line.text)) {
       this.index -= 1;
       return "stop";
+    }
+    // "Only dlist in need of item text, so slurp it up!" - parser.rb
+    // l.1551-56, the `else` of l.1525's `elsif has_text`.
+    if (this.stillOwedText()) {
+      this.greedyText(line);
+      return "go";
     }
     // Both arms below buffer a line the item's re-read makes a BLOCK
     // of, and a block that is not metadata is where the armed tail
@@ -813,9 +900,10 @@ class ExtentScan {
     // Ruby leaves `continuation` alone here (parser.rb l.1530-46
     // assign none),
     // and so do we - the flag and the printed tail are two questions.
-    if (isNestable(line.text)) {
-      this.buffer.push({ current: line }); // parser.rb l.1530-32
-      this.withinNestedList = true;
+    // parser.rb l.1530-36. l.1530 is the one site that does NOT
+    // narrow the search set, whatever `within_nested_list` says.
+    if (this.nestedList(line.text, false)) {
+      this.buffer.push({ current: line });
       this.armedTail = "spent";
       return "go";
     }
@@ -830,6 +918,52 @@ class ExtentScan {
     // break - parser.rb l.1549; this_line unshifted at l.1574
     this.index -= 1;
     return "stop";
+  }
+
+  /**
+   * Whether the item is still owed its text, which is what l.1525's
+   * `elsif has_text` falls through on.
+   *
+   * A KNOWN DIVERGENCE, stated where it is made. Ruby gates the
+   * greedy arm on `has_text` alone, and `has_text` is lowered with no
+   * test of the enclosing list's kind (l.1507, l.1535, l.1566), so a
+   * MARKER list reads greedily there too: the oracle renders `* a` /
+   * `nested::` / blank / `text` as one item whose description list
+   * carries `text`, where this reader ends the item at the blank.
+   * l.1525's own comment ("has_text is always true for all other
+   * lists") is what the gate here follows, and it is wrong. The
+   * oracle wins, so this gate is a gap to close (#135) and not a
+   * decision; closing it moves marker-list bytes, which is why it is
+   * not closed in the change that ports the description arms.
+   * @returns true when the after-blank arm reads greedily
+   */
+  private stillOwedText(): boolean {
+    return this.rule.trait.kind === "dlist" && !this.hasText;
+  }
+
+  /**
+   * The greedy read a textless item makes across a blank run
+   * (`buffer.pop unless within_nested_list`, parser.rb l.1551-56):
+   * the blank is POPPED so that it cannot re-read as a list
+   * continuation, and the line becomes the item's text wherever it
+   * stood. The pop is skipped inside a nested list for the reason
+   * the `+` erase is: `within_nested_list` guards both (l.1553 and
+   * l.1439), because those marks belong to the scan that re-reads
+   * them.
+   *
+   * The popped line keeps the {@link GapRole} the arm that buffered
+   * it wrote. It stood in the document between the item's opening
+   * line and its text, and a role is what puts a byte back there;
+   * dropping it from the BUFFER only keeps it out of what the item
+   * re-reads, which is what Ruby's pop is for.
+   * @param line - the first content line after the blank run
+   */
+  private greedyText(line: SourceLine): void {
+    if (!this.withinNestedList) {
+      this.buffer.pop();
+    }
+    this.buffer.push({ current: line });
+    this.hasText = true;
   }
 
   /**
@@ -871,14 +1005,17 @@ class ExtentScan {
     // loop, so it is buffered AS a marker - live, and waiting for the
     // next line to say what it was.
     if (isContinuationLine(line.text)) {
+      this.hasText = true; // parser.rb l.1558
       this.role(line, "pending");
       this.pushMarker(line);
       return;
     }
-    // parser.rb l.1562-63
-    if (isNestable(line.text)) {
-      this.withinNestedList = true;
+    // `has_text = true unless this_line.empty?` - parser.rb l.1561
+    if (line.text !== "") {
+      this.hasText = true;
     }
+    // parser.rb l.1562-68; l.1562 narrows the search set.
+    this.nestedList(line.text, this.withinNestedList);
     // The FIRST blank of a run lands here (later ones take the
     // afterBlank arm): it is buffered, and it is a gap line.
     if (line.text === "") {
@@ -915,18 +1052,24 @@ class ExtentScan {
   private slurpDelimited(kind: DelimiterKind): void {
     const openIndex = this.index - 1;
     const { resume } = delimitedExtent(this.lines, openIndex, kind);
-    for (let at = openIndex; at < resume; at += 1) {
-      this.buffer.push({ current: this.lines[at] });
-    }
-    this.index = resume;
+    this.bufferThrough(openIndex, resume);
     this.spendContinuation(); // parser.rb l.1461
   }
 
   /**
    * `read_lines_until preserve_last_line: true, break_on_blank_lines:
-   * true, break_on_list_continuation: true` (parser.rb l.1495/1546, the
-   * two non-dlist calls): the literal paragraph runs until a blank line
-   * or a `+`, whichever comes first.
+   * true, break_on_list_continuation: true` (parser.rb l.1495/1546):
+   * the literal paragraph runs until a blank line or a `+`, whichever
+   * comes first.
+   *
+   * Inside a description list it stops at a SIBLING term as well, the
+   * block Ruby passes at l.1493 and l.1544 - "we may be in an
+   * indented list disguised as a literal paragraph, so we need to
+   * make sure we don't slurp up a legitimate sibling". Ruby writes
+   * two calls at each of its two sites, one guarded and one not;
+   * here it is one stop condition, because both sites read through
+   * this one method. `preserve_last_line` is the early return: the
+   * stopping line is left unread for whoever comes next.
    */
   private slurpLiteral(): void {
     while (this.index < this.lines.length) {
@@ -934,9 +1077,27 @@ class ExtentScan {
       if (line.text === "" || isContinuationLine(line.text)) {
         return;
       }
+      if (this.rule.trait.kind === "dlist" && this.endsTheItem(line.text)) {
+        return;
+      }
       this.buffer.push({ current: line });
       this.index += 1;
     }
+  }
+
+  /**
+   * Take a run of lines whole - Ruby's `buffer.concat
+   * reader.read_lines_until ...`, which both the delimited slurp
+   * (parser.rb l.1460) and the attribute look-ahead (l.1472) end in.
+   * The read position lands past the run either way.
+   * @param from - index of the run's first line
+   * @param to - index past the run's last line
+   */
+  private bufferThrough(from: number, to: number): void {
+    for (let at = from; at < to; at += 1) {
+      this.buffer.push({ current: this.lines[at] });
+    }
+    this.index = to;
   }
 
   /**
@@ -1018,8 +1179,8 @@ class ExtentScan {
  * @param lines - the lines the item is read from (the document's, or
  *   an enclosing item's buffer — nesting composes by re-scanning)
  * @param from - index of the first line after the item's marker line
- * @param trait - the trait siblings are matched by
- * @param context - the stream-end fact ({@link ExtentContext})
+ * @param rule - how this list recognizes its own ({@link ListRule})
+ * @param context - what the lines cannot say ({@link ExtentContext})
  * @returns the buffer, the end index, the gap writes and the tail facts
  * Exported for its unit test (tests/parser/item-extent.test.ts); no
  * src consumer.
@@ -1028,8 +1189,8 @@ class ExtentScan {
 export function itemExtent(
   lines: readonly SourceLine[],
   from: number,
-  trait: SiblingTrait,
+  rule: ListRule,
   context: ExtentContext,
 ): ItemExtent {
-  return new ExtentScan(lines, from, trait, context).run();
+  return new ExtentScan(lines, from, rule, context).run();
 }

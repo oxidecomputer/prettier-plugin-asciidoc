@@ -177,6 +177,7 @@ export default defineConfig(
             "expectQuarantineRejected",
             "expectRow",
             "expectRunFaithful",
+            "expectStable",
             "expectTableFormat",
           ],
         },
@@ -238,11 +239,10 @@ export default defineConfig(
   // excluded); the fix would put it where the second number says.
   {
     files: [
-      "src/parse/lines/reader.ts", // 450 -> 464
+      "src/parse/lines/reader.ts", // 445 -> 457
       "scripts/parity.ts", // 449 -> 469
-      "scripts/shape-registry.ts", // 448 -> 450
-      "tests/parser/ast-invariants.ts", // 438 -> 488
-      "tests/scripts/metrics-design.test.ts", // 447 -> 449
+      "tests/parser/ast-invariants.ts", // 447 -> 497
+      "tests/scripts/metrics-design.test.ts", // 433 -> 435
       "tests/scripts/parity.test.ts", // 442 -> 444
     ],
     rules: { curly: "off" },
@@ -267,7 +267,6 @@ export default defineConfig(
   {
     files: [
       "src/parse/inline/rules.ts", // :508 `if (start === -1) return undefined;`
-      "src/parse/lines/list-item-node.ts", // :185 `if (last === undefined) return markerLine.line;`
       "src/print/span-edges.ts", // :290, :310 `if (!isSpanNode(neighbour)) return undefined;`
     ],
     rules: { curly: "off" },

@@ -21,14 +21,13 @@
  * `parse_block_metadata_lines` (holdMetadata), `next_block`'s ladder
  * (blockLine), `read_paragraph_lines` (paragraph-reader.ts).
  */
-import type { BlockNode, DocumentNode, ListItemNode } from "../../ast.js";
+import type { BlockNode, DocumentNode } from "../../ast.js";
 import {
   buildDelimitedAdmonition,
   buildParentBlock,
   buildVerbatimBlock,
 } from "../build/delimited.js";
 import { buildDiscreteHeading, buildHeading } from "../build/heading.js";
-import { buildList } from "../build/list.js";
 import {
   buildAttributeEntry,
   buildBlockMacro,
@@ -50,6 +49,7 @@ import {
   classifyLine,
   classifyTrace,
   type DelimiterKind,
+  type DlistTermKind,
   type LineKind,
   type MarkerKind,
 } from "./classify.js";
@@ -63,7 +63,6 @@ import {
   type HeaderScan,
 } from "./header-reader.js";
 import { HeldMetadata } from "./held-metadata.js";
-import type { GapWrite } from "./item-tail.js";
 import {
   blockStartContextIn,
   bodyContextIn,
@@ -75,8 +74,12 @@ import {
   type Confinement,
   type ReaderScope,
 } from "./scope.js";
-import { listItemNode } from "./list-item-node.js";
-import { listShape, type ListItemShape } from "./list-reader.js";
+import type { ItemInterior } from "./item-body.js";
+import {
+  readDescriptionList,
+  readMarkerList,
+  type ListHost,
+} from "./list-read.js";
 import {
   paragraphFormVariant,
   resolveDelimitedOpen,
@@ -451,9 +454,9 @@ class BlockReader {
 
   /**
    * Read the whole list opening at the read position and push it.
-   * `listShape` decides every item's EXTENT from the lines alone; this
-   * method owns the recursion those extents call for — one confined
-   * reader per item — and hands the results back for assembly.
+   * `listShape` decides every item's EXTENT from the lines alone
+   * (list-read.ts assembles what it found); this method owns the
+   * recursion those extents call for, one confined reader per item.
    *
    * Metadata read ahead of the first marker annotates the LIST, so it
    * flushes into this container BEFORE any item is read: the order is
@@ -462,89 +465,90 @@ class BlockReader {
    */
   private list(kind: MarkerKind): void {
     this.flushMetadata();
-    const context = {
+    this.takeList(readMarkerList(this.listHost, kind));
+  }
+
+  /**
+   * The same for a list a TERM line opens. A description list is read
+   * by the list machinery, not by a reader of its own: the item scan,
+   * the sibling loop and the confined re-read are all shared, and
+   * what a description spells differently is its assembly
+   * (list-read.ts).
+   * @param kind - the opening term line, as the classifier parsed it
+   */
+  private descriptionList(kind: DlistTermKind): void {
+    this.flushMetadata();
+    this.takeList(readDescriptionList(this.listHost, kind));
+  }
+
+  /**
+   * Take a finished list: push it and move the read position past it.
+   * @param read - what one of the two list reads produced
+   * @param read.node - the list node it built
+   * @param read.end - the index the reader resumes at
+   */
+  private takeList(read: { node: BlockNode; end: number }): void {
+    this.push(read.node);
+    this.resume(read.end);
+  }
+
+  /**
+   * What a list read is given here - the stream, the facts fixed over
+   * it, and the one operation only a reader can perform. Built fresh
+   * per call for the reason {@link BlockReader.scan} states.
+   * @returns the host value
+   */
+  private get listHost(): ListHost {
+    return {
+      scope: this.scope,
+      lines: this.lines,
+      at: this.index,
       tailSafe: tailSafeIn(this.confinement),
       directiveDepth: this.directiveDepth,
+      interiorOf: (markerLine, buffer, item, open) =>
+        this.itemInterior(markerLine, buffer, item, open),
     };
-    const shape = listShape(this.lines, this.index, kind, context);
-    // Every item's scan has run by now and none of them wrote
-    // anything: the whole list's separator spellings are applied here,
-    // BEFORE any item's interior is read, which is what makes the
-    // first-write-wins rule true - an inner scan re-reads this
-    // buffer's doctored lines and its writes arrive second.
-    this.applyGapWrites(shape.gapWrites);
-    // The opening item is read into its own local, not inlined into
-    // the call, so the items are read in SOURCE ORDER on the page as
-    // well as at run time.
-    const [opening, ...rest] = shape.items;
-    const first = this.listItem(opening);
-    this.push(
-      buildList(
-        kind.variant,
-        kind.style,
-        first,
-        rest.map((item) => this.listItem(item)),
-      ),
-    );
-    this.resume(shape.end);
   }
 
   /**
-   * Apply a scan's separator spellings to the document-wide record -
-   * the ONE writer of {@link ReaderScope.gaps}, standing beside the
-   * recursion order that makes its rule true. FIRST write wins: an
-   * inner scan re-reads an outer item's buffer, where a `+` the outer
-   * scan erased spells `""`, so the earliest write is the one made by
-   * the scan that saw the least-doctored line and a later scan may
-   * never overwrite it. The scans decide; nothing outside this method
-   * writes.
-   * @param writes - what a list's item scans decided, in item order
-   */
-  private applyGapWrites(writes: readonly GapWrite[]): void {
-    const { gaps } = this.scope;
-    for (const { line, spelling } of writes) {
-      if (!gaps.has(line)) gaps.set(line, spelling);
-    }
-  }
-
-  /**
-   * Read one item's interior and assemble its node - Ruby's `Reader.new
+   * Read one item's interior - Ruby's `Reader.new
    * read_lines_for_list_item(...)` + the `next_block` loop of
-   * parse_list_item (parser.rb l.1359-1384). The marker line rides at
-   * the front of the confined reader's lines so the text scan consumes
-   * it and the text's continuation lines come from the buffer; the rest
-   * of the buffer is then read by the ordinary block loop, whose blocks
-   * ARE the item's blocks.
-   * @param shape - what the extent scan decided about the item
-   * @returns the item's node
+   * parse_list_item (parser.rb l.1359-1384). The item's own line
+   * rides at the front of the confined reader's lines so the text
+   * scan consumes it and the text's continuation lines come from the
+   * buffer; the rest of the buffer is then read by the ordinary block
+   * loop, whose blocks ARE the item's blocks.
+   * @param markerLine - the item's marker or term line
+   * @param buffer - the item's lines, as its own read left them
+   * @param item - the item's ancestry style and its tail safety
+   * @param item.style - the one-style ancestry a confined reader sees
+   * @param item.tailSafe - the item's own tail safety
+   * @param open - where the item's text starts and under which
+   *   interrupting set it is read
+   * @param open.context - which interrupting set applies
+   * @param open.text - where the text starts and how its `//` lines
+   *   read
+   * @returns the item's text and blocks
    */
-  private listItem(shape: ListItemShape): ListItemNode {
-    // The buffer's last line — the marker line itself when the buffer
-    // is empty — is where a forced close inside this item falls: its
-    // raw end, the vii-b clamp as DATA. The marker line
-    // rides at the front of every buffer, so the `??` arm is total
-    // without a further guard.
-    const last = shape.buffer.at(-1) ?? shape.markerLine;
-    const inner = new BlockReader(
-      this.scope,
-      [shape.markerLine, ...shape.buffer],
-      {
-        kind: "item",
-        style: shape.marker.style,
-        tailSafe: shape.tailSafe,
-        directiveDepth: this.directiveDepth,
-        closeOffset: last.offset + last.raw.length,
-      },
-    );
-    // `parse_list_item` clears `has_text` for a ulist or olist item
-    // whose content is adjacent (parser.rb l.1369), so the item's own
-    // text is read with `text_only` and its `//` lines are comments.
-    const text = inner.readText("listItemText", textAt(shape.marker.markerEnd));
-    const interior = { text, blocks: inner.run() };
-    return listItemNode(shape, interior, {
-      gaps: this.scope.gaps,
-      at: this.at,
+  private itemInterior(
+    markerLine: SourceLine,
+    buffer: readonly SourceLine[],
+    item: { style: string; tailSafe: boolean },
+    open: { context: ParagraphContext; text: TextOpen },
+  ): ItemInterior {
+    // The buffer's last line - the item's own line when the buffer is
+    // empty - is where a forced close inside this item falls: its raw
+    // end, the vii-b clamp as DATA.
+    const last = buffer.at(-1) ?? markerLine;
+    const inner = new BlockReader(this.scope, [markerLine, ...buffer], {
+      kind: "item",
+      style: item.style,
+      tailSafe: item.tailSafe,
+      directiveDepth: this.directiveDepth,
+      closeOffset: last.offset + last.raw.length,
     });
+    const text = inner.readText(open.context, open.text);
+    return { text, blocks: inner.run() };
   }
 
   /**
@@ -607,16 +611,7 @@ class BlockReader {
         return;
       }
       case "dlistTerm": {
-        // The description of an item that carries its own inline text
-        // is the one paragraph whose `//` lines the oracle can fold in
-        // as CONTENT rather than skipping: `parse_list_item` keeps
-        // `has_text` for a dlist, so `text_only` reaches the literal
-        // branch unset (issue #101). CAN, not does: only that branch
-        // passes the value on, and which branch runs is the extent's
-        // own question (paragraph-reader.ts, `foldsCommentLine`).
-        const comments =
-          kind.descriptionStart === undefined ? "skipped" : "content";
-        this.paragraph("dlistItem", { from: kind.indent, comments });
+        this.descriptionList(kind);
         return;
       }
       case "listMarker": {

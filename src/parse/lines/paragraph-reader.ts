@@ -23,6 +23,7 @@ import { tokenizeInline } from "../inline/tokenize.js";
 import type { InlineToken } from "../inline/tokens.js";
 import {
   LINE_COMMENT_HEAD,
+  rawLineForm,
   type ParagraphContext,
   type ReaderContext,
 } from "../line-shapes.js";
@@ -153,6 +154,30 @@ type Piece =
  * decided BEFORE the tokenizer runs — the reader never rewrites a
  * token it has already placed.
  */
+/**
+ * The first line after `at` that `next_block`'s metadata loop does
+ * not take: a comment line is shifted away before the block's branch
+ * is chosen (parser.rb l.519-523, l.2076-2081), so it is never the
+ * line that decides one.
+ *
+ * The comment spelling here is `parse_block_metadata_line`'s own -
+ * the classifier's `LINE_COMMENT`, which mirrors `CommentLineRx` and
+ * EXEMPTS `///` (l.2080) - and NOT `Reader#skip_line_comments`'s bare
+ * prefix. The two disagree on `///c`, and this is the site where the
+ * exemption is the right half: a `///` line is ordinary text to the
+ * metadata loop, so it stays and it decides.
+ * @param scan - the lines and the stream-wide facts
+ * @param at - index of the block's own first line
+ * @returns that line's text, or `""` where the lines run out
+ */
+function firstUncommented(scan: ParagraphScan, at: number): string {
+  let index = at + 1;
+  while (rawLineForm(scan.lines.at(index)?.text ?? "") === "comment") {
+    index += 1;
+  }
+  return scan.lines.at(index)?.text ?? "";
+}
+
 class Paragraph {
   // The pieces read so far, in source order.
   private readonly pieces: Piece[] = [];
@@ -213,9 +238,17 @@ class Paragraph {
     // against `skip_line_comments: true` in the arm beside it
     // (parser.rb l.764). So the caller's answer alone does not settle
     // it - see {@link Paragraph.foldsCommentLine}.
+    //
+    // The line that decides is the first NON-COMMENT one, not the
+    // line at `at + 1`: `next_block` runs its metadata loop first and
+    // shifts every line `parse_block_metadata_line` consumed
+    // (parser.rb l.519-523), whose `//` arms take a comment line
+    // outright (l.2076-2081). So `t:: item` / `// a` / `  x` is the
+    // indented arm, and asking `// a` instead put it on the arm
+    // beside it, where the comment is dropped from the render
+    // (issue #115).
     this.commentsAreContent =
-      text.comments === "content" &&
-      isLiteralLine(scan.lines.at(at + 1)?.text ?? "");
+      text.comments === "content" && isLiteralLine(firstUncommented(scan, at));
     this.runEnd = line.offset + line.raw.length;
     if (this.fold) {
       // The fold's head is the tagged `+` itself, and a column-0 `+`

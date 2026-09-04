@@ -556,8 +556,12 @@ export function printedGap(
  * count reaches nothing.
  * @param gap - the separator lines the block prints behind
  * @returns the Doc parts to put in front of the block
+ *
+ * Exported for src/print/description-list.ts: a description item's
+ * blocks stand behind the same recorded separator lines, so the
+ * spelling is one rule and not two.
  */
-function gapParts(gap: readonly GapLine[]): Doc[] {
+export function gapParts(gap: readonly GapLine[]): Doc[] {
   const parts: Doc[] = [hardline];
   let livePlus = false;
   let blankRun = false;

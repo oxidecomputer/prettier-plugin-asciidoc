@@ -826,6 +826,25 @@ export interface ListNode extends Node {
 }
 
 /**
+ * The four delimiters a description-list term may carry
+ * (`DescriptionListRx`, rx.rb:336).
+ *
+ * It decides STRUCTURE, not spelling: `DescriptionListSiblingRx` is
+ * keyed on it (parser.rb:1225, rx.rb:340-345), so a `:::` term inside
+ * a `::` list opens a nested list rather than continuing the one it
+ * sits in.
+ *
+ * Declared here, in the AST, and IMPORTED by src/parse/line-shapes.ts
+ * so that `parseDescriptionListLine` returns the narrowed value at the
+ * pattern that already knows it: the delimiter group is `;;|:{2,4}`,
+ * which is exactly these four spellings. Narrowing later instead would
+ * make a builder assert what the pattern proved, and would leave the
+ * classifier's `dlistTerm.delimiter` a bare string every consumer
+ * re-checks.
+ */
+export type DescriptionDelimiter = "::" | ":::" | "::::" | ";;";
+
+/**
  * The block kinds a verbatim delimited block carries: the three that
  * own a leaf delimiter, plus the parent-block variants a style can
  * re-model into verbatim content. A table is not among them: its
@@ -1342,6 +1361,214 @@ export interface ItemBlock {
 export type GapLine = "" | "+";
 
 /**
+ * A description list: a run of `term:: description` items sharing one
+ * delimiter.
+ *
+ * Not a {@link ListNode}. A description item carries no marker,
+ * carries one or more TERMS, and may carry no body at all, so folding
+ * it into {@link ListItemNode} would add three fields that are
+ * meaningful only behind a variant test. What the two DO share is the
+ * item body, and that is shared by extending the body interface above
+ * rather than by copying fields.
+ */
+export interface DescriptionListNode extends Node {
+  /** Node discriminant. */
+  type: "descriptionList";
+  /**
+   * The delimiter every item of this list repeats. It is what
+   * `DescriptionListSiblingRx` is keyed on (parser.rb:1225,
+   * rx.rb:340-345), so it decides STRUCTURE: a `:::` term inside a
+   * `::` list opens a nested list rather than continuing this one.
+   */
+  delimiter: DescriptionDelimiter;
+  /** Items in this list, in document order. */
+  children: DescriptionListItemNode[];
+}
+
+/**
+ * One term of a description item. A node rather than a string because
+ * a term carries inline formatting (`*bold*:: d` renders a
+ * `<strong>`) and may carry a leading inline anchor
+ * (`parse_list_item`, parser.rb:1301-1303), and because its own span
+ * is what the AST invariants over positions walk.
+ */
+export interface DescriptionTermNode extends Node {
+  /** Node discriminant. */
+  type: "descriptionTerm";
+  /** The term's text, as inline nodes. */
+  children: InlineNode[];
+  /**
+   * The whole source line this term was written on, rstripped - the
+   * bytes a replayed item writes back for it, and what this node
+   * prints as.
+   *
+   * The LINE, not the term: the indent Ruby's `[ \t]*` swallowed, the
+   * delimiter, and the inline description that follows on the same
+   * line are all part of it, and none of the three is inside
+   * `position`, which spans the term TEXT alone. Recorded rather than
+   * rebuilt, for the reason {@link DescriptionPrinting}'s `"replay"`
+   * answer exists at all: a spelling this formatter reconstructs is
+   * one it can get wrong, and `t::d`, `t::   d` and `t:: d` are three
+   * the oracle reads alike.
+   */
+  line: string;
+}
+
+/**
+ * One description item: its terms, then the body every list-like item
+ * has.
+ *
+ * TERMS ARE PLURAL because Asciidoctor folds a run of term-only items
+ * into the next item that has a body: `parse_description_list` keeps
+ * the pair open while its description half is nil and appends the
+ * next term to the same pair (parser.rb:1230-1235). So `a::` / `b::`
+ * / `c:: shared` is ONE item with three terms.
+ *
+ * The body may be empty: Asciidoctor's pair carries nil where
+ * `list_item` has neither text nor blocks (parser.rb:1387). That
+ * state is REACHABLE only on the last item of a list, because any
+ * earlier one would have absorbed the next term instead. Stated as an invariant
+ * over the sibling array rather than as a union, because position in
+ * a sibling array is not a fact a type can carry, so a union would
+ * name the state without excluding it.
+ */
+export interface DescriptionListItemNode extends Node, ItemBody {
+  /** Node discriminant. */
+  type: "descriptionListItem";
+  /**
+   * The terms this item is introduced by, in source order, each with
+   * the lines that followed it. Non-empty by construction: an item
+   * exists because a term line opened it.
+   *
+   * A mutable tuple, like {@link ItemBody}'s `blocks` beside it and
+   * for the same reason: Prettier's `AstPath.map` reads an array
+   * field's element type through `T extends Array<infer E>`, which a
+   * `readonly` array does not satisfy, and the printer walks these
+   * the way it walks the blocks.
+   */
+  terms: [TermEntry, ...TermEntry[]];
+  /**
+   * The source lines the item's principal text was read from, in
+   * order and rstripped: everything under the LAST term line that the
+   * description's own text run consumed, and nothing a block owns.
+   *
+   * `text` above is the same source as inline nodes, and the two are
+   * not redundant: the nodes are what a `"reflow"` item is packed
+   * from, these lines are what a `"replay"` item is written back as,
+   * and neither is recoverable from the other. Reflow cannot recover
+   * an indent, a `//` line's column or the spacing inside a run,
+   * which is what #115, #116, #117 and #121 each lost; the nodes
+   * cannot be recovered from the lines without re-reading the source,
+   * which is the shape that produced #120.
+   *
+   * Empty where the description lives entirely on its term line, and
+   * empty where the item has no description at all.
+   */
+  textLines: readonly string[];
+  /**
+   * What the printer may do with this item's recorded lines, decided
+   * by the scan that read them and never re-derived.
+   */
+  printing: DescriptionPrinting;
+}
+
+/**
+ * One term line and the source between it and whatever follows.
+ *
+ * The gap is not decoration. When `parse_description_list` folds a run
+ * of term-only items onto one pair (parser.rb:1230-1235) the lines
+ * between two folded term lines are inside the item's extent and
+ * belong to no term's text and to no block: a `//` line the metadata
+ * drain took (`next_block`, parser.rb:519-523), or a blank run.
+ * Probed: `t::` / `///c` / `u:: x` is ONE item whose terms are `t`
+ * and `u`, with `///c` between the two term lines. Without this field
+ * those bytes have no home, and losing them is render-equal, so no
+ * render bar would ever catch it. Same shape and same reason as
+ * {@link ItemBlock}'s gap.
+ */
+export interface TermEntry {
+  /** The term itself. */
+  term: DescriptionTermNode;
+  /**
+   * The lines strictly between this term line and the next piece of
+   * the item, verbatim: `""` for a blank line, `"+"` for a
+   * continuation line, and the line's own text for a comment the
+   * drain removed. Empty for the common case of a term line followed
+   * directly by the next term or by the description.
+   */
+  gap: readonly TermGapLine[];
+}
+
+/**
+ * A comment line a term's gap holds, its own text with it.
+ *
+ * Named rather than written inline in the union below so the field
+ * can carry a doc comment of its own. Not exported, for the reason
+ * `ItemBody` is not: every consumer names the alias it got.
+ */
+interface TermGapComment {
+  /** The comment line's own text, its `//` head included. */
+  readonly comment: string;
+}
+
+/**
+ * One line inside a term's gap: a blank, a `+`, or a comment line the
+ * drain took.
+ *
+ * The `"+"` arm is not decoration either. A `+` standing between two
+ * term lines is buffered by the read loop's continuation arm
+ * (`read_lines_for_list_item`, parser.rb:1557-1559) and then discarded
+ * by the post-loop pop (parser.rb:1580-1582), so it gives the item no
+ * body and the term fold rolls on. Probed: `a::` / `+` / `b:: y` is
+ * ONE item whose terms are `a` and `b`, and so is `a::` / blank / `+`
+ * / `b:: y`. A gap alphabet without it would have no home for that
+ * byte, which is the same defect the comment arm exists to prevent.
+ *
+ * A separate alphabet from {@link GapLine} rather than a reuse,
+ * because a comment line's TEXT has to travel with it and a block
+ * gap's does not.
+ */
+export type TermGapLine = "" | "+" | TermGapComment;
+
+/**
+ * What the printer may do with a description item's recorded lines.
+ *
+ * Two answers, not three, and the harder half is the WRAP. Measured:
+ * the join direction is clean over an eleven-token hazard sweep
+ * (every row render-equal), while the wrap direction loses content on
+ * shapes the join never touches, because a wrap can put a word at a
+ * line start that was inert in the middle of a line. So `reflow` is
+ * gated on wrap safety, and a run that may not be wrapped is replayed
+ * rather than joined. That is stricter than the join alone needs and
+ * it is deliberate: a third "join but do not wrap" member waits on
+ * carrying the enclosing list's delimiter to the packer, because the
+ * sibling patterns a join has to survive are asked of the JOINED line
+ * as a whole (`is_sibling_list_item?`, parser.rb:2281, reached from
+ * the item read at parser.rb:1430).
+ *
+ * `"replay"` writes the item's recorded lines back as they stand: the
+ * default, and the answer for every shape the reflow conditions
+ * refuse. `"reflow"` lets the description's rest lines join the term
+ * line and the result be wrapped to the print width, which is what
+ * the formatter does with a description today.
+ *
+ * Two NULLARY answers, so they are spelled as a string union the way
+ * {@link GapLine} and {@link TermGapLine} are, rather than as records
+ * carrying a `kind`. Neither arm holds anything beside the answer, so
+ * the record spelling says nothing more, and it costs the file's last
+ * room to say it. Measured, in code lines this file allows 450 of:
+ * this spelling 447, the record with each arm's doc comment written
+ * ABOVE its `|` 449 - which `jsdoc/require-jsdoc` then rejects, since
+ * the comment has to sit on the property itself - and every spelling
+ * that does put it there 453 or 455, over the ceiling before this
+ * kind has even joined the block union. The day an arm carries a
+ * field is the day it becomes a record, and the day this file needs
+ * room again is the day `Node` and the item body move to a base
+ * module.
+ */
+export type DescriptionPrinting = "replay" | "reflow";
+
+/**
  * A block attribute list: `[source,ruby]`, `[#myid]`, `[.role]`, etc.
  *
  * Block attribute lists appear on their own line immediately before a
@@ -1776,6 +2003,7 @@ export type BlockNode =
   | CommentNode
   | AttributeEntryNode
   | ListNode
+  | DescriptionListNode
   | DelimitedBlockNode
   | TableNode
   | ParentBlockNode

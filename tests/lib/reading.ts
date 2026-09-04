@@ -35,14 +35,16 @@
  * blank-line placement (issue #54) - see docs/harnesses.md.
  */
 import { formatAdoc } from "../helpers.js";
-import { rstrip } from "../../src/parse/line-shapes.js";
+import { LINE_COMMENT_HEAD, rstrip } from "../../src/parse/line-shapes.js";
 import {
   attributeContinuation,
+  delimiterKind,
   isContinuationLine,
   parseListMarker,
   setClassifyObserver,
   type LineKind,
 } from "../../src/parse/lines/classify.js";
+import { parseDescriptionListLine } from "../../src/parse/line-shapes-description.js";
 import { frontMatterExtent } from "../../src/parse/lines/front-matter.js";
 import { documentBom, splitLines } from "../../src/parse/lines/split.js";
 import { parse } from "../../src/parser.js";
@@ -199,6 +201,30 @@ type LineContribution =
  *
  * - A MARKER line, because the fold-absorption rule below has to be
  *   able to see an absorber.
+ * - A description TERM line, for the same reason and from the same
+ *   fact: `listShape`'s sibling loop matches a later term line with
+ *   the open list's own `DescriptionListSiblingRx` and never calls
+ *   `classifyLine`, so only the term that OPENED a list leaves a
+ *   verdict. A term line absorbs the text under it, so a synthesis
+ *   that skipped it would read every sibling item's description as a
+ *   run of its own on one side and as absorbed text on the other.
+ * - A `//`-HEADED line with no verdict, which is one the head drain
+ *   of a description item took: `parse_list_item` peeks past a run of
+ *   them with `Reader#skip_line_comments` and unshifts them back only
+ *   when a line follows (parser.rb l.1363-71), so a run that reaches
+ *   the end of an item's buffer never reaches the confined reader and
+ *   never reaches `classifyLine`. The spelling is the DRAIN's own
+ *   bare `//` prefix, minus the one shape it must not swallow: a
+ *   `////` fence, whose unterminated interior is opaque with a reason
+ *   of its own (patching the bare prefix in without that exclusion
+ *   turns three "unterminated comment block" conformance rows red,
+ *   each `p1 line N [] -> [raw:comment]`). The classifier's
+ *   `LINE_COMMENT` would be the narrower spelling and the wrong one:
+ *   it EXEMPTS `///`, which is exactly the line the drain takes and
+ *   `CommentLineRx` does not, so a dropped `///c` would move no token
+ *   at all. What the token buys is that dropping a drained comment
+ *   moves the sequence; both sides of the comparison drain the same
+ *   line, so where the line survives the token cancels.
  * - A lone `+`, because a continuation is the whole difference
  *   between an item that owns the block below it and one that does
  *   not. Left opaque, every `+` the extent scan consumed was
@@ -241,9 +267,16 @@ function contributionOf(
     return { kind: "blank" };
   }
   const marker = parseListMarker(line);
-  return marker === undefined
-    ? { kind: "opaque" }
-    : { kind: "token", token: `marker:${marker.variant}:${marker.style}` };
+  if (marker !== undefined) {
+    return { kind: "token", token: `marker:${marker.variant}:${marker.style}` };
+  }
+  const term = parseDescriptionListLine(line);
+  if (term !== undefined) {
+    return { kind: "token", token: `dlist:${term.delimiter}` };
+  }
+  return line.startsWith(LINE_COMMENT_HEAD) && delimiterKind(line) === undefined
+    ? { kind: "token", token: "raw:comment" }
+    : { kind: "opaque" };
 }
 
 /**
@@ -268,9 +301,18 @@ type FoldMode = "armed" | "textrun" | "indentedrun" | "none";
  * `* a` / `X` formatting to `* a X` is ordinary reflow, not a reading
  * change (tests/format/unordered-list.test.ts, "short flush
  * continuation is reflowed"); the same is true of an admonition label
- * (tests/format/admonition.test.ts reflows a long `NOTE:`) and of a
- * description-list term line, which will produce the same join when
- * issue #9 parses dlists.
+ * (tests/format/admonition.test.ts reflows a long `NOTE:`).
+ *
+ * The `dlist:` arm is kept and it is now CONDITIONAL in the formatter
+ * rather than in this projection: a description item produces the
+ * join only where the scan called its run `reflow`
+ * (src/parse/lines/description-list.ts), and replays its recorded
+ * lines otherwise. Absorbing unconditionally here is the right
+ * direction for a net: it licenses the join wherever the formatter
+ * makes one, and a replayed item makes none, so its text run reads
+ * the same on both sides and nothing is hidden. What the arm would
+ * hide is a description whose text VANISHED, and the render and byte
+ * nets beside this one are what answer for that.
  * @param token - the token just projected
  * @returns whether a following text run is absorbed into it
  */
