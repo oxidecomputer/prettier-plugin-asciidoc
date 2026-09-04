@@ -74,7 +74,7 @@ interface Row {
    * character (as a `\u` escape, since most of them are invisible on
    * the page) rather than the numeric reference the oracle writes.
    */
-  readonly oracleContains: string;
+  readonly renders: string;
   /** The references the scan must find, `offset:bytes`. */
   readonly found: string[];
 }
@@ -88,7 +88,7 @@ interface Row {
  */
 function checkRow(row: Row): void {
   test("the oracle's render", async () => {
-    expect(await renderedHtml(row.source)).toContain(row.oracleContains);
+    expect(await renderedHtml(row.source)).toContain(row.renders);
   });
 
   test("the scan finds these references", () => {
@@ -108,73 +108,73 @@ describe("the eleven modelled rows of REPLACEMENTS", () => {
     {
       name: "(C)",
       source: "x (C) y",
-      oracleContains: "x \u00A9 y",
+      renders: "x \u00A9 y",
       found: ["2:(C)"],
     },
     {
       name: "(R)",
       source: "x (R) y",
-      oracleContains: "x \u00AE y",
+      renders: "x \u00AE y",
       found: ["2:(R)"],
     },
     {
       name: "(TM), the one four-character reference",
       source: "x (TM) y",
-      oracleContains: "x \u2122 y",
+      renders: "x \u2122 y",
       found: ["2:(TM)"],
     },
     {
       name: "the spaced em dash, whose match eats both spaces",
       source: "x -- y",
-      oracleContains: "x\u2009\u2014\u2009y",
+      renders: "x\u2009\u2014\u2009y",
       found: ["2:--"],
     },
     {
       name: "the word em dash, whose match eats the word in front",
       source: "x--y",
-      oracleContains: "x\u2014\u200By",
+      renders: "x\u2014\u200By",
       found: ["1:--"],
     },
     {
       name: "the ellipsis",
       source: "x ... y",
-      oracleContains: "x \u2026\u200B y",
+      renders: "x \u2026\u200B y",
       found: ["2:..."],
     },
     {
       name: "the right arrow",
       source: "x -> y",
-      oracleContains: "x \u2192 y",
+      renders: "x \u2192 y",
       found: ["2:->"],
     },
     {
       name: "the right double arrow",
       source: "x => y",
-      oracleContains: "x \u21D2 y",
+      renders: "x \u21D2 y",
       found: ["2:=>"],
     },
     {
       name: "the left arrow",
       source: "x <- y",
-      oracleContains: "x \u2190 y",
+      renders: "x \u2190 y",
       found: ["2:<-"],
     },
     {
       name: "the left double arrow",
       source: "x <= y",
-      oracleContains: "x \u21D0 y",
+      renders: "x \u21D0 y",
       found: ["2:<="],
     },
     {
       name: "a named entity, restored rather than replaced",
       source: "x &copy; y",
-      oracleContains: "x &copy; y",
+      renders: "x &copy; y",
       found: ["2:&copy;"],
     },
     {
       name: "a numeric entity",
       source: "x &#169; y",
-      oracleContains: "x \u00A9 y",
+      renders: "x \u00A9 y",
       found: ["2:&#169;"],
     },
   ];
@@ -194,43 +194,43 @@ describe("what the rows refuse", () => {
     {
       name: "the copyright row is case-sensitive",
       source: "x (c) y",
-      oracleContains: "x (c) y",
+      renders: "x (c) y",
       found: [],
     },
     {
       name: "the spaced em dash needs a space BEHIND the dashes",
       source: "x --y",
-      oracleContains: "x --y",
+      renders: "x --y",
       found: [],
     },
     {
       name: "and a space in FRONT of them",
       source: "x-- y",
-      oracleContains: "x-- y",
+      renders: "x-- y",
       found: [],
     },
     {
       name: "four dashes are neither row's",
       source: "a ---- b",
-      oracleContains: "a ---- b",
+      renders: "a ---- b",
       found: [],
     },
     {
       name: "an entity name is two letters or more",
       source: "x &a; y",
-      oracleContains: "x &amp;a; y",
+      renders: "x &amp;a; y",
       found: [],
     },
     {
       name: "a numeric entity is at most six digits",
       source: "x &#1234567; y",
-      oracleContains: "x &amp;#1234567; y",
+      renders: "x &amp;#1234567; y",
       found: [],
     },
     {
       name: "an entity needs its semicolon",
       source: "x a&b y",
-      oracleContains: "x a&amp;b y",
+      renders: "x a&amp;b y",
       found: [],
     },
   ];
@@ -270,49 +270,49 @@ describe("row order and consumption", () => {
     {
       name: "`<->` is the right arrow, because its row runs first",
       source: "a <-> b",
-      oracleContains: "a &lt;\u2192 b",
+      renders: "a &lt;\u2192 b",
       found: ["3:->"],
     },
     {
       name: "`<=>` is the right DOUBLE arrow, for the same reason",
       source: "a <=> b",
-      oracleContains: "a &lt;\u21D2 b",
+      renders: "a &lt;\u21D2 b",
       found: ["3:=>"],
     },
     {
       name: "`<==` leaves the left double arrow, nothing having taken it",
       source: "a <== b",
-      oracleContains: "a \u21D0= b",
+      renders: "a \u21D0= b",
       found: ["2:<="],
     },
     {
       name: "`-->` is one dash and one arrow",
       source: "a --> b",
-      oracleContains: "a -\u2192 b",
+      renders: "a -\u2192 b",
       found: ["3:->"],
     },
     {
       name: "`-- --` is ONE em dash: the second pair's space is eaten",
       source: "a -- -- b",
-      oracleContains: "a\u2009\u2014\u2009-- b",
+      renders: "a\u2009\u2014\u2009-- b",
       found: ["2:--"],
     },
     {
       name: "the word row resumes behind its own match, so both pair",
       source: "a--b--c",
-      oracleContains: "a\u2014\u200Bb\u2014\u200Bc",
+      renders: "a\u2014\u200Bb\u2014\u200Bc",
       found: ["1:--", "4:--"],
     },
     {
       name: "five dots are one ellipsis and two dots",
       source: "a ..... b",
-      oracleContains: "a \u2026\u200B.. b",
+      renders: "a \u2026\u200B.. b",
       found: ["2:..."],
     },
     {
       name: "two arrows run together are two references",
       source: "a ->-> b",
-      oracleContains: "a \u2192\u2192 b",
+      renders: "a \u2192\u2192 b",
       found: ["2:->", "4:->"],
     },
   ];
@@ -333,37 +333,37 @@ describe("escapes are consumed and record nothing", () => {
     {
       name: "an escaped copyright",
       source: String.raw`x \(C) y`,
-      oracleContains: "x (C) y",
+      renders: "x (C) y",
       found: [],
     },
     {
       name: "an escaped em dash",
       source: String.raw`x \-- y`,
-      oracleContains: "x -- y",
+      renders: "x -- y",
       found: [],
     },
     {
       name: "an escaped word em dash",
       source: String.raw`x\--y`,
-      oracleContains: "x--y",
+      renders: "x--y",
       found: [],
     },
     {
       name: "an escaped ellipsis",
       source: String.raw`x \... y`,
-      oracleContains: "x ... y",
+      renders: "x ... y",
       found: [],
     },
     {
       name: "an escaped arrow",
       source: String.raw`x \-> y`,
-      oracleContains: "x -&gt; y",
+      renders: "x -&gt; y",
       found: [],
     },
     {
       name: "an escaped entity",
       source: String.raw`x \&copy; y`,
-      oracleContains: "x &amp;copy; y",
+      renders: "x &amp;copy; y",
       found: [],
     },
   ];
@@ -384,13 +384,13 @@ describe("the two rows this parser does not model", () => {
     {
       name: "the right single quote renders and is still text to us",
       source: "x `' y",
-      oracleContains: "x \u2019 y",
+      renders: "x \u2019 y",
       found: [],
     },
     {
       name: "the in-word apostrophe, the same",
       source: "dont x'y z",
-      oracleContains: "dont x\u2019y z",
+      renders: "dont x\u2019y z",
       found: [],
     },
   ];

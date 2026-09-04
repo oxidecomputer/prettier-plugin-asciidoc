@@ -246,15 +246,20 @@ describe("curved-quote spans (issue #74)", () => {
   // accepted overlap divergence (row 4, issue #66's
   // tree-versus-overlap ruling), and the two nesting directions
   // (rows 5 and 6). Every
-  // `oracleContains` was measured against the oracle before writing
+  // `renders` was measured against the oracle before writing
   // it, per this file's own convention.
   interface CurvedRow {
     /** What this row demonstrates. */
     readonly name: string;
     /** The source line. */
     readonly source: string;
-    /** A substring of the oracle's rendered paragraph body. */
-    readonly oracleContains: string;
+    /**
+     * A fragment the oracle renders, read through the comparison
+     * lens: these rows claim which span RESOLVED where, which is
+     * content, so a numeric character reference would be written
+     * here as the character it names.
+     */
+    readonly renders: string;
     /** The expected top-level shape. */
     readonly shape: readonly string[];
   }
@@ -263,19 +268,19 @@ describe("curved-quote spans (issue #74)", () => {
     {
       name: "row 2 takes the outer backticks; the inner two stay literal content",
       source: '"``a``"',
-      oracleContains: "\u201C`a`\u201D",
+      renders: "\u201C`a`\u201D",
       shape: ['curvedd["`a`"]'],
     },
     {
       name: "a crossing HighlightMark candidate is dropped for crossing the already-resolved curved span - the fix for issue #74",
       source: 'x "`##a`"## y',
-      oracleContains: "x \u201C<mark>a\u201D</mark> y",
+      renders: "x \u201C<mark>a\u201D</mark> y",
       shape: ['"x "', 'curvedd["##a"]', '"## y"'],
     },
     {
       name: "the two curved rows cross; the EARLIER row (double, QUOTE_SUBS index 2) wins and the later row's (single) marks stay literal",
       source: "x '`a \"`b`' c`\" y",
-      oracleContains: "x \u2018a \u201Cb\u2019 c\u201D y",
+      renders: "x \u2018a \u201Cb\u2019 c\u201D y",
       shape: ['"x \'`a "', 'curvedd["b`\' c"]', '" y"'],
     },
     {
@@ -287,13 +292,13 @@ describe("curved-quote spans (issue #74)", () => {
       // bytes are the source's own.
       name: "the accepted overlap divergence: strong beats the curved row (issue #66, issue #74)",
       source: 'x *"`a*`" y',
-      oracleContains: "x <strong>\u201Ca</strong>\u201D y",
+      renders: "x <strong>\u201Ca</strong>\u201D y",
       shape: ['"x "', 'boldc["\\"`a"]', '"`\\" y"'],
     },
     {
       name: "a single curved span nests inside a double one",
       source: "x \"`a '`b`' c`\" y",
-      oracleContains: "x \u201Ca \u2018b\u2019 c\u201D y",
+      renders: "x \u201Ca \u2018b\u2019 c\u201D y",
       shape: ['"x "', 'curvedd["a ",curveds["b"]," c"]', '" y"'],
     },
     {
@@ -302,14 +307,14 @@ describe("curved-quote spans (issue #74)", () => {
       // hands a verbatim region back exactly as the oracle wrote it.
       name: "a monospace span wraps a curved one",
       source: 'x `"`a`"` y',
-      oracleContains: "x <code>&#8220;a&#8221;</code> y",
+      renders: "x <code>&#8220;a&#8221;</code> y",
       shape: ['"x "', 'monospacec[curvedd["a"]]', '" y"'],
     },
   ];
 
   describe.each(CURVED_ROWS)("$name", (row) => {
     test("the oracle's render", async () => {
-      expect(await renderedHtml(row.source)).toContain(row.oracleContains);
+      expect(await renderedHtml(row.source)).toContain(row.renders);
     });
 
     test("the parser builds this shape", () => {

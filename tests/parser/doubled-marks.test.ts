@@ -69,7 +69,7 @@ describe("doubled marks inside a run of marks (issue #72)", () => {
   // opens with no doubled close in both directions, a role in front, a
   // run beside word characters (where the constrained row refuses),
   // and a mixed constrained/unconstrained opening. Every
-  // `oracleContains` was measured against the oracle before writing
+  // `renders` was measured against the oracle before writing
   // it, per this file's own convention.
   //
   // `[r]####` carries a second job: a role token in front of a run must
@@ -86,7 +86,7 @@ describe("doubled marks inside a run of marks (issue #72)", () => {
      * oracle RESOLVED, so a numeric character reference would be
      * written here as the character it names.
      */
-    readonly oracleContains: string;
+    readonly renders: string;
     /** The expected top-level shape. */
     readonly shape: readonly string[];
   }
@@ -95,37 +95,37 @@ describe("doubled marks inside a run of marks (issue #72)", () => {
     {
       name: "four marks: the constrained row pairs inside the run and the fourth mark is left over",
       source: "####",
-      oracleContains: "<mark>#</mark>#",
+      renders: "<mark>#</mark>#",
       shape: ['highlightc["#"]', '"#"'],
     },
     {
       name: "four marks with a role in front",
       source: "[r]####",
-      oracleContains: '<span class="r">#</span>#',
+      renders: '<span class="r">#</span>#',
       shape: ['highlightc(r)["#"]', '"#"'],
     },
     {
       name: "five marks: the unconstrained row pairs the outer two pairs around the middle mark",
       source: "#####",
-      oracleContains: "<mark>#</mark>",
+      renders: "<mark>#</mark>",
       shape: ['highlightu["#"]'],
     },
     {
       name: "five marks with a role in front",
       source: "[r]#####",
-      oracleContains: '<span class="r">#</span>',
+      renders: '<span class="r">#</span>',
       shape: ['highlightu(r)["#"]'],
     },
     {
       name: "three bold marks mid-line",
       source: "a *** b",
-      oracleContains: "a <strong>*</strong> b",
+      renders: "a <strong>*</strong> b",
       shape: ['"a "', 'boldc["*"]', '" b"'],
     },
     {
       name: "five bold marks mid-line",
       source: "a ***** b",
-      oracleContains: "a <strong>*</strong> b",
+      renders: "a <strong>*</strong> b",
       shape: ['"a "', 'boldu["*"]', '" b"'],
     },
     {
@@ -134,7 +134,7 @@ describe("doubled marks inside a run of marks (issue #72)", () => {
       // the run rather than the second.
       name: "four italic marks mid-line, whose close cannot stand in front of another underscore",
       source: "a ____ b",
-      oracleContains: "a <em>__</em> b",
+      renders: "a <em>__</em> b",
       shape: ['"a "', 'italicc["__"]', '" b"'],
     },
     {
@@ -142,50 +142,50 @@ describe("doubled marks inside a run of marks (issue #72)", () => {
       // (asciidoctor.rb l.456's `(?![\p{Word}"'`])`).
       name: "four monospace marks mid-line",
       source: "a ```` b",
-      oracleContains: "a <code>``</code> b",
+      renders: "a <code>``</code> b",
       shape: ['"a "', 'monospacec["``"]', '" b"'],
     },
     {
       name: "a doubled open with a single close pairs as one constrained span",
       source: "**x*",
-      oracleContains: "<strong>*x</strong>",
+      renders: "<strong>*x</strong>",
       shape: ['boldc["*x"]'],
     },
     {
       name: "a single open with a doubled close pairs and leaves the last mark over",
       source: "*x**",
-      oracleContains: "<strong>x</strong>*",
+      renders: "<strong>x</strong>*",
       shape: ['boldc["x"]', '"*"'],
     },
     {
       name: "a doubled highlight open with a single close",
       source: "##x#",
-      oracleContains: "<mark>#x</mark>",
+      renders: "<mark>#x</mark>",
       shape: ['highlightc["#x"]'],
     },
     {
       name: "a run flanked by word characters pairs nothing: the constrained row refuses both ends",
       source: "w####w",
-      oracleContains: "w####w",
+      renders: "w####w",
       shape: ['"w####w"'],
     },
     {
       name: "a mixed opening: the constrained bold takes the whole run and the emphasis nests inside it",
       source: "**_x_*",
-      oracleContains: "<strong>*<em>x</em></strong>",
+      renders: "<strong>*<em>x</em></strong>",
       shape: ['boldc["*",italicc["x"]]'],
     },
     {
       name: "a doubled open with no close of either width stays literal text",
       source: "a **b c",
-      oracleContains: "a **b c",
+      renders: "a **b c",
       shape: ['"a **b c"'],
     },
   ];
 
   describe.each(RUN_ROWS)("$name", (row) => {
     test("the oracle's render", async () => {
-      expect(await renderedHtml(row.source)).toContain(row.oracleContains);
+      expect(await renderedHtml(row.source)).toContain(row.renders);
     });
 
     test("the parser builds this shape", () => {
@@ -216,7 +216,7 @@ describe("an attrlist in front of a doubled mark (issue #72)", () => {
   // not, at the fragment start and away from it, the escaped spelling,
   // the `[]` that is no attrlist at all, a failed attrlist start that
   // must NOT end the row, a resume behind a closer, and all four
-  // marks. Every `oracleContains` was measured against the oracle
+  // marks. Every `renders` was measured against the oracle
   // before writing it, per this file's own convention.
   interface AttrlistRow {
     /** What this row demonstrates. */
@@ -229,7 +229,7 @@ describe("an attrlist in front of a doubled mark (issue #72)", () => {
      * oracle RESOLVED, so a numeric character reference would be
      * written here as the character it names.
      */
-    readonly oracleContains: string;
+    readonly renders: string;
     /**
      * Where the scan says an unconstrained delimiter BEGINS, ascending.
      * These are the offsets Ruby's own match consumes, which is what
@@ -252,7 +252,7 @@ describe("an attrlist in front of a doubled mark (issue #72)", () => {
     {
       name: "an attrlist holding the pair swallows it, and the opener is the delimiter behind the bracket",
       source: "[a**b]**c**",
-      oracleContains: '<strong class="a**b">c</strong>',
+      renders: '<strong class="a**b">c</strong>',
       doubled: [6, 9],
       shape: ['boldu(a**b)["c"]'],
       formatted: "[a**b]**c**",
@@ -260,7 +260,7 @@ describe("an attrlist in front of a doubled mark (issue #72)", () => {
     {
       name: "the same, with the attrlist away from the fragment start",
       source: "x[a**b]**c**",
-      oracleContains: 'x<strong class="a**b">c</strong>',
+      renders: 'x<strong class="a**b">c</strong>',
       doubled: [7, 10],
       shape: ['"x"', 'boldu(a**b)["c"]'],
       formatted: "x[a**b]**c**",
@@ -268,7 +268,7 @@ describe("an attrlist in front of a doubled mark (issue #72)", () => {
     {
       name: "the same, mid-line between two words",
       source: "a [b**c]**d** e",
-      oracleContains: 'a <strong class="b**c">d</strong> e',
+      renders: 'a <strong class="b**c">d</strong> e',
       doubled: [8, 11],
       shape: ['"a "', 'boldu(b**c)["d"]', '" e"'],
       formatted: "a [b**c]**d** e",
@@ -276,7 +276,7 @@ describe("an attrlist in front of a doubled mark (issue #72)", () => {
     {
       name: "an attrlist with no pair inside moves nothing",
       source: "[ab]**c**",
-      oracleContains: '<strong class="ab">c</strong>',
+      renders: '<strong class="ab">c</strong>',
       doubled: [4, 7],
       shape: ['boldu(ab)["c"]'],
       formatted: "[ab]*c*",
@@ -284,7 +284,7 @@ describe("an attrlist in front of a doubled mark (issue #72)", () => {
     {
       name: "no attrlist at all: the delimiter stands at the match start",
       source: "**c**",
-      oracleContains: "<strong>c</strong>",
+      renders: "<strong>c</strong>",
       doubled: [0, 3],
       shape: ['boldu["c"]'],
       formatted: "*c*",
@@ -298,7 +298,7 @@ describe("an attrlist in front of a doubled mark (issue #72)", () => {
       // space this parser works in (docs/architecture.md).
       name: "the escaped spelling consumes the same two delimiters",
       source: String.raw`\[a**b]**c**`,
-      oracleContains: '<strong class="a**b">*c</strong>*',
+      renders: '<strong class="a**b">*c</strong>*',
       doubled: [7, 10],
       shape: [String.raw`"\\"`, 'boldu(a**b)["c"]'],
       formatted: String.raw`\[a**b]**c**`,
@@ -306,7 +306,7 @@ describe("an attrlist in front of a doubled mark (issue #72)", () => {
     {
       name: "`[]` is no attrlist: the group's own run demands a character",
       source: "[]**c**",
-      oracleContains: "[]<strong>c</strong>",
+      renders: "[]<strong>c</strong>",
       doubled: [2, 5],
       shape: ['"[]"', 'boldu["c"]'],
       formatted: "[]*c*",
@@ -329,7 +329,7 @@ describe("an attrlist in front of a doubled mark (issue #72)", () => {
       // render of the source, which the rows below assert.
       name: "a start whose attrlist leaves the delimiter unclosed does not end the row",
       source: "[a**b]**",
-      oracleContains: "[a<strong>b]</strong>",
+      renders: "[a<strong>b]</strong>",
       doubled: [2, 6],
       shape: ['"[a**b]**"'],
       formatted: "[a**b]**",
@@ -337,7 +337,7 @@ describe("an attrlist in front of a doubled mark (issue #72)", () => {
     {
       name: "the walk resumes behind a closer and then reads an attrlist",
       source: "**a**[b**c]**d**",
-      oracleContains: '<strong>a</strong><strong class="b**c">d</strong>',
+      renders: '<strong>a</strong><strong class="b**c">d</strong>',
       doubled: [0, 3, 11, 14],
       shape: ['boldu["a"]', 'boldu(b**c)["d"]'],
       // NEITHER span shortens, and the two refusals are different
@@ -354,7 +354,7 @@ describe("an attrlist in front of a doubled mark (issue #72)", () => {
     {
       name: "the highlight row",
       source: "[a##b]##c##",
-      oracleContains: '<span class="a##b">c</span>',
+      renders: '<span class="a##b">c</span>',
       doubled: [6, 9],
       shape: ['highlightu(a##b)["c"]'],
       // Not shortened: the role carries the mark, and the printer
@@ -365,7 +365,7 @@ describe("an attrlist in front of a doubled mark (issue #72)", () => {
     {
       name: "the emphasis row",
       source: "[a__b]__c__",
-      oracleContains: '<em class="a__b">c</em>',
+      renders: '<em class="a__b">c</em>',
       doubled: [6, 9],
       shape: ['italicu(a__b)["c"]'],
       formatted: "[a__b]__c__",
@@ -373,7 +373,7 @@ describe("an attrlist in front of a doubled mark (issue #72)", () => {
     {
       name: "the monospaced row",
       source: "[a``b]``c``",
-      oracleContains: '<code class="a``b">c</code>',
+      renders: '<code class="a``b">c</code>',
       doubled: [6, 9],
       shape: ['monospaceu(a``b)["c"]'],
       formatted: "[a``b]``c``",
@@ -382,7 +382,7 @@ describe("an attrlist in front of a doubled mark (issue #72)", () => {
 
   describe.each(ATTRLIST_ROWS)("$name", (row) => {
     test("the oracle's render", async () => {
-      expect(await renderedHtml(row.source)).toContain(row.oracleContains);
+      expect(await renderedHtml(row.source)).toContain(row.renders);
     });
 
     test("the scan names these delimiters", () => {
