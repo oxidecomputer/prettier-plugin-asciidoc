@@ -15,7 +15,7 @@
  * two files pin one contract.
  */
 import { describe, expect, test } from "vitest";
-import { formatAdoc, renderedHtml } from "../helpers.js";
+import { expectFormatted, formatAdoc, renderedHtml } from "../helpers.js";
 
 describe("the pseudo-run fold classes render like the input", () => {
   // Corruption fixes: the base FOLDED these (metadata onto the first
@@ -68,10 +68,7 @@ describe("the pseudo-run fold classes render like the input", () => {
       "* a\n  para\n[role]\n[[3-bad,Ref]]\n+\n[[3-bad]]\n",
     ],
   ])("%s", async (_name, input, expected) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(expected);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, expected);
   });
 });
 
@@ -120,10 +117,7 @@ describe("the author-plus classes respell render-neutrally", () => {
       "* a\n  para\n[role]\n+\n// c\n+\n[role2]\n",
     ],
   ])("%s", async (_name, input, expected) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(expected);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, expected);
   });
 });
 
@@ -154,10 +148,7 @@ describe("byte-stable controls (the two-answer hazard must NOT move these)", () 
       "* a para [[3-bad]]\n",
     ],
   ])("%s round-trips to its recorded bytes", async (_name, input, expected) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(expected);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, expected);
   });
 
   // `[[id,]]` prints VERBATIM since #53's faithful replay: the empty

@@ -18,7 +18,12 @@
  * idempotency.
  */
 import { describe, expect, test } from "vitest";
-import { asParagraph, formatAdoc, renderedHtml } from "../helpers.js";
+import {
+  asParagraph,
+  expectFormatted,
+  formatAdoc,
+  renderedHtml,
+} from "../helpers.js";
 import { parse } from "../../src/parser.js";
 import type { InlineNode } from "../../src/ast.js";
 
@@ -53,10 +58,7 @@ function paragraphLinks(source: string): string[] {
  * @param source - the document source, newline-terminated
  */
 async function expectFixed(source: string): Promise<void> {
-  const once = await formatAdoc(source);
-  expect(once).toBe(source);
-  expect(await renderedHtml(once)).toBe(await renderedHtml(source));
-  expect(await formatAdoc(once)).toBe(once);
+  await expectFormatted(source, source);
 }
 
 // Each row: the frame, and the address the ORACLE turns into a

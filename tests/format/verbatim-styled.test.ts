@@ -1,15 +1,12 @@
 import { describe, expect, test } from "vitest";
-import { formatAdoc, renderedHtml } from "../helpers.js";
+import { expectFormatted, formatAdoc, renderedHtml } from "../helpers.js";
 
 /**
  * Byte-identical, render-equal, idempotent — the passthrough triple.
  * @param input - the document
  */
 async function expectByteFaithful(input: string): Promise<void> {
-  const output = await formatAdoc(input);
-  expect(output).toBe(input);
-  expect(await renderedHtml(output)).toBe(await renderedHtml(input));
-  expect(await formatAdoc(output)).toBe(output);
+  await expectFormatted(input, input);
 }
 
 describe("verbatim-styled paragraphs keep their extent (issues #41, #39)", () => {

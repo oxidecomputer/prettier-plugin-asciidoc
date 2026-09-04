@@ -17,7 +17,7 @@
  * coverage for anything outside the reflow/print path.
  */
 import { describe, expect, test } from "vitest";
-import { formatAdoc, renderedHtml } from "../helpers.js";
+import { expectFormatted, formatAdoc } from "../helpers.js";
 
 /**
  * Byte-identical, render-equal, idempotent - the character survived
@@ -26,10 +26,7 @@ import { formatAdoc, renderedHtml } from "../helpers.js";
  * @param input - the document
  */
 async function expectByteFaithful(input: string): Promise<void> {
-  const output = await formatAdoc(input);
-  expect(output).toBe(input);
-  expect(await renderedHtml(output)).toBe(await renderedHtml(input));
-  expect(await formatAdoc(output)).toBe(output);
+  await expectFormatted(input, input);
 }
 
 describe("a no-break space in prose survives byte for byte", () => {

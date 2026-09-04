@@ -20,7 +20,7 @@
  * that suite does not cover.
  */
 import { describe, expect, test } from "vitest";
-import { formatAdoc, renderedHtml } from "../helpers.js";
+import { expectFormatted, formatAdoc, renderedHtml } from "../helpers.js";
 
 describe("bibliography anchors - verbatim round-trip, every comma spelling", () => {
   test.each([
@@ -69,10 +69,7 @@ describe("bibliography anchors - verbatim round-trip, every comma spelling", () 
       "Some text [[[gof]]] more text.\n",
     ],
   ])("%s", async (_name, input) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, input);
   });
 });
 

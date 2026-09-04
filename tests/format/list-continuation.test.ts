@@ -10,7 +10,7 @@
  * characters).
  */
 import { describe, test, expect } from "vitest";
-import { formatAdoc, renderedHtml } from "../helpers.js";
+import { expectFormatted, formatAdoc, renderedHtml } from "../helpers.js";
 
 describe("list continuation formatting", () => {
   // The blank line before the second item is dropped: a blank line
@@ -370,10 +370,7 @@ describe("continuations around delimited blocks (issue #6)", () => {
   // unchanged.
   test("a + reaches across one blank line and attaches the block", async () => {
     const input = "* item\n+\n\n....\nliteral\n....\n";
-    const first = await formatAdoc(input);
-    expect(first).toBe(input);
-    expect(await renderedHtml(first)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(first)).toBe(first);
+    await expectFormatted(input, input);
   });
 });
 

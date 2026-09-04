@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { formatAdoc, renderedHtml } from "../helpers.js";
+import { expectFormatted, formatAdoc, renderedHtml } from "../helpers.js";
 
 describe("conditional directive formatting", () => {
   // ifdef preserved as-is.
@@ -114,10 +114,7 @@ describe("trailing whitespace on a directive line", () => {
       `[listing]\nifdef::backend[]\n${long}\nendif::[]\n`,
     ],
   ])("%j formats to %j", async (input, expected) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(expected);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, expected);
   });
 });
 

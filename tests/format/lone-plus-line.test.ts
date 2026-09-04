@@ -12,7 +12,7 @@
  * renders the same on both sides.
  */
 import { describe, test, expect } from "vitest";
-import { formatAdoc, renderedHtml } from "../helpers.js";
+import { expectFormatted, formatAdoc, renderedHtml } from "../helpers.js";
 import { readingBreachesOf } from "../lib/reading.js";
 
 // Issue #43. A `+` alone on a source line is a list continuation, and
@@ -36,10 +36,7 @@ describe("a lone + keeps the line the source gave it", () => {
       "+\nterm2:: def2\n",
     ],
   ])("%s", async (_name, input, expected) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(expected);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, expected);
   });
 
   // The `+` is the text node's ONLY word here - the two marker lines

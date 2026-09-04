@@ -36,7 +36,7 @@
  * checked in and inlined, never generated.
  */
 import { describe, expect, test } from "vitest";
-import { formatAdoc, renderedHtml } from "../helpers.js";
+import { expectFormatted, formatAdoc, renderedHtml } from "../helpers.js";
 
 // The widths every atomicity row is packed at. The narrowest is below
 // the length of every construct here, which is the point: a packer
@@ -134,10 +134,7 @@ describe("the block-start hazard net still reaches a reference", () => {
 
   test("and does so inside a list item's attached paragraph", async () => {
     const input = "* item\n+\n...\nb c\n";
-    const out = await formatAdoc(input);
-    expect(out).toBe(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, input);
   });
 
   // The other direction, so the row above is not passing by accident:

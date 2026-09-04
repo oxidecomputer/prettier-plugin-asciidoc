@@ -6,7 +6,7 @@
  * preserves them without adding delimiters.
  */
 import { describe, test, expect } from "vitest";
-import { formatAdoc, renderedHtml } from "../helpers.js";
+import { expectFormatted, formatAdoc, renderedHtml } from "../helpers.js";
 
 describe("paragraph-form source block formatting", () => {
   // Canonical form: [source] + content preserved as-is.
@@ -194,10 +194,7 @@ describe("a boundary line in paragraph-form content", () => {
 describe("converted verbatim content is the author's bytes (issue #40)", () => {
   test("#40: empty attribute brackets survive", async () => {
     const input = "[source]\nhttps://x[]\n";
-    const output = await formatAdoc(input);
-    expect(output).toBe(input);
-    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(output)).toBe(output);
+    await expectFormatted(input, input);
   });
 
   test("the [[id,reftext]] spelling survives (review A's cousin)", async () => {
@@ -224,9 +221,6 @@ describe("converted verbatim content is the author's bytes (issue #40)", () => {
   // lines are the one newline the author wrote.
   test("#39: two adjacent reader-eaten lines gain no blank line", async () => {
     const input = "* a\n[source]\nflush\nifdef::x[]\nifdef::x[]\n";
-    const output = await formatAdoc(input);
-    expect(output).toBe(input);
-    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(output)).toBe(output);
+    await expectFormatted(input, input);
   });
 });

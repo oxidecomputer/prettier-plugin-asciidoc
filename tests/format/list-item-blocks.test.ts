@@ -5,7 +5,7 @@
  * `+`). Split from list-continuation.test.ts for size.
  */
 import { describe, test, expect } from "vitest";
-import { formatAdoc, renderedHtml } from "../helpers.js";
+import { expectFormatted, formatAdoc, renderedHtml } from "../helpers.js";
 
 // A detached `+` inside a nested list belongs to the OUTERMOST item, but
 // once the inner item keeps the line after it (a sibling or nested
@@ -92,10 +92,7 @@ describe("metadata directly after reflowable item text keeps the break", () => {
     ],
     ["an anchor", "* a\npara\n[[anc]]\npara\n", "* a\n  para\n[[anc]]\npara\n"],
   ])("%s", async (_name, input, expected) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(expected);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, expected);
   });
   // A block title on a later line of the item text is text to
   // Asciidoctor (`.T` does not interrupt an item's text), so it reflows.
@@ -522,10 +519,7 @@ describe("byte pins for rules only the corpus and the sweep reached", () => {
       "* a\n  b\n[role]\n+\n\n.T\n",
     ],
   ])("%s", async (_name, input, expected) => {
-    const once = await formatAdoc(input);
-    expect(once).toBe(expected);
-    expect(await renderedHtml(once)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(once)).toBe(once);
+    await expectFormatted(input, expected);
   });
 
   // The same family, one row apart: the item's own lines end on
@@ -537,10 +531,7 @@ describe("byte pins for rules only the corpus and the sweep reached", () => {
   // nested list from the item that holds it.
   test("a `+` between the literal and the item's end stops the slurp", async () => {
     const input = "* a\n\n  lit\n[role]\n** b\n+\npara\n";
-    const once = await formatAdoc(input);
-    expect(once).toBe(input);
-    expect(await renderedHtml(once)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(once)).toBe(once);
+    await expectFormatted(input, input);
   });
 });
 
@@ -701,9 +692,6 @@ describe("an item gap's blank run collapses to one blank", () => {
     ["one blank after a live +", "* a\n+\n\npara\n", "* a\n+\n\npara\n"],
     ["two blanks after a live +", "* a\n+\n\n\npara\n", "* a\n\npara\n"],
   ])("%s", async (_name, input, expected) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(expected);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, expected);
   });
 });

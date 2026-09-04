@@ -13,7 +13,7 @@
  * of stacking attributes together.
  */
 import { describe, test, expect } from "vitest";
-import { formatAdoc, renderedHtml } from "../helpers.js";
+import { expectFormatted, formatAdoc, renderedHtml } from "../helpers.js";
 
 describe("attribute entry formatting", () => {
   // A canonical attribute entry with value must pass
@@ -132,10 +132,7 @@ describe("attribute-entry names print lowercase", () => {
       ":foo: v\n\n{Foo} {foo}\n",
     ],
   ])("%s", async (_name, input, expected) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(expected);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, expected);
   });
 });
 
@@ -161,10 +158,7 @@ describe("the unset spelling is one", () => {
       "= T\n:!sectnums:\n\n== S\n",
     ],
   ])("%s", async (_name, input, expected) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(expected);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, expected);
   });
 });
 
@@ -218,10 +212,7 @@ describe("a continued value keeps the author's split points", () => {
       ":!a: one \\\ntwo\n\n{a}\n",
     ],
   ])("%s", async (_name, input, expected) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(expected);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, expected);
   });
 
   // ADVERSARIAL NEIGHBOURS: lines that look like the new syntax and

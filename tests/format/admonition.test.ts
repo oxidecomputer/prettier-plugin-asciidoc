@@ -7,7 +7,7 @@
  * Block-form admonitions preserve their delimiter structure.
  */
 import { describe, test, expect } from "vitest";
-import { formatAdoc, renderedHtml } from "../helpers.js";
+import { expectFormatted, formatAdoc, renderedHtml } from "../helpers.js";
 import { astShape } from "../parser/reader-helpers.js";
 
 describe("paragraph-form admonition formatting", () => {
@@ -216,10 +216,7 @@ describe("raw lines inside a paragraph-form admonition", () => {
   ];
   for (const [name, input] of cases) {
     test(`${name} survives verbatim`, async () => {
-      const out = await formatAdoc(input);
-      expect(out).toBe(input);
-      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-      expect(await formatAdoc(out)).toBe(out);
+      await expectFormatted(input, input);
     });
   }
 
@@ -259,10 +256,7 @@ describe("a [source] paragraph keeps a [NOTE] line as content", () => {
     ],
   ])("%s stays one nested listing", async (_name, input, shape) => {
     expect(astShape(input)).toBe(shape);
-    const out = await formatAdoc(input);
-    expect(out).toBe(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, input);
   });
 });
 
@@ -284,10 +278,7 @@ describe("the admonition body rides the paragraph engine", () => {
 
   test("raw lines keep their own output lines through the shared engine", async () => {
     const input = "NOTE: alpha\nifdef::x[]\nbeta\n";
-    const output = await formatAdoc(input);
-    expect(output).toBe(input);
-    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(output)).toBe(output);
+    await expectFormatted(input, input);
   });
 });
 
@@ -305,10 +296,7 @@ describe("hard line breaks in a paragraph-form admonition body", () => {
     ["mid-body", "NOTE: one two three alpha +\nbeta four five six\n"],
     ["trailing", "NOTE: alpha beta +\n"],
   ])("a %s ` +` survives verbatim", async (_name, input) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, input);
   });
 });
 

@@ -21,7 +21,7 @@
  * kept.
  */
 import { describe, expect, test } from "vitest";
-import { formatAdoc, renderedHtml } from "../helpers.js";
+import { expectFormatted, formatAdoc, renderedHtml } from "../helpers.js";
 
 /**
  * Format once, pin the bytes, and prove render equality and
@@ -30,10 +30,7 @@ import { formatAdoc, renderedHtml } from "../helpers.js";
  * @param expected - the exact formatted bytes
  */
 async function expectRow(input: string, expected: string): Promise<void> {
-  const out = await formatAdoc(input);
-  expect(out).toBe(expected);
-  expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-  expect(await formatAdoc(out)).toBe(out);
+  await expectFormatted(input, expected);
 }
 
 describe("an in-span source break replays as one space", () => {

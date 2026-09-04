@@ -16,7 +16,7 @@
  *     the source semantics.
  */
 import { describe, test, expect } from "vitest";
-import { formatAdoc, renderedHtml } from "../helpers.js";
+import { expectFormatted, formatAdoc, renderedHtml } from "../helpers.js";
 
 // Basic preservation: each constrained and unconstrained form of
 // every formatting mark must survive a format round-trip unchanged
@@ -306,10 +306,7 @@ describe("an unconstrained span shortens where the constrained one is legal", ()
     ],
     ["a constrained child inside", "a **_b_** c\n", "a *_b_* c\n"],
   ])("%s", async (_name, input, expected) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(expected);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, expected);
   });
 
   // The negative controls, one per clause of the predicate. Every row

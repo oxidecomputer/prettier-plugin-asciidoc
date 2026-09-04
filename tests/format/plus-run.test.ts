@@ -13,8 +13,8 @@
  * tests/format/list-continuation.test.ts and
  * tests/format/trailing-continuation.test.ts.
  */
-import { describe, expect, test } from "vitest";
-import { formatAdoc, renderedHtml } from "../helpers.js";
+import { describe, test } from "vitest";
+import { expectFormatted } from "../helpers.js";
 
 // Every row asserts the exact output, that Asciidoctor renders the
 // output as it renders the input, and that a second pass is a fixed
@@ -77,10 +77,7 @@ describe("a frozen + paragraph keeps its erased shield", () => {
     ],
     ["a run of three", "* a\n+\n+\n+\n\n+\n", "* a\n+\n+\n\n+\n"],
   ])("%s", async (_name, input, expected) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(expected);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, expected);
   });
 });
 
@@ -115,10 +112,7 @@ describe("a live metadata tail keeps its two-blank detachment", () => {
       "* a\n+\n[role]\n\n\n// c\n",
     ],
   ])("%s", async (_name, input, expected) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(expected);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, expected);
   });
 });
 
@@ -149,10 +143,7 @@ describe("a detached + a block closed is not a detached TAIL", () => {
       "* a\n\n+\npara\n",
     ],
   ])("%s", async (_name, input, expected) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(expected);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, expected);
   });
 });
 
@@ -181,10 +172,7 @@ describe("a live metadata tail behind a nested list detaches too", () => {
       "* a\n** b\n\n+\n[[anc]]\n\n\npara\n",
     ],
   ])("%s", async (_name, input, expected) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(expected);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, expected);
   });
 });
 
@@ -218,10 +206,7 @@ describe("a live metadata tail on a NESTED item detaches too", () => {
       "* a\n** b\n*** c\n+\n[role]\n\n\npara\n",
     ],
   ])("%s", async (_name, input, expected) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(expected);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, expected);
   });
 });
 
@@ -243,10 +228,7 @@ describe("only a fold runs a tagged + through", () => {
       "* a\n** b\n\n+\npara\n+\n  lit\n",
     ],
   ])("%s", async (_name, input, expected) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(expected);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, expected);
   });
 });
 
@@ -282,10 +264,7 @@ describe("an indented line folded behind a + keeps its indent", () => {
       "* a\n+\n+\n  lit\n+\n** b\n",
     ],
   ])("%s", async (_name, input, expected) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(expected);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, expected);
   });
 });
 
@@ -303,10 +282,7 @@ describe("a tail stopping at an erased line keeps its +", () => {
       "* a\n** b\n+\n+\n\n+\n  lit\n",
     ],
   ])("%s", async (_name, input, expected) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(expected);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, expected);
   });
 });
 
@@ -329,10 +305,7 @@ describe("tails that are not live keep their one blank", () => {
       "* a\n** b\n\npara\n",
     ],
   ])("%s", async (_name, input, expected) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(expected);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, expected);
   });
 });
 
@@ -358,10 +331,7 @@ describe("an erased + run between nested items", () => {
       "* a\n** b\n** b\n",
     ],
   ])("%s", async (_name, input, expected) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(expected);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, expected);
   });
 });
 
@@ -397,10 +367,7 @@ describe("a +-headed paragraph folds marker lines", () => {
       "* a\n+\n+\npara\n+\n** b\n",
     ],
   ])("%s", async (_name, input, expected) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(expected);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, expected);
   });
 });
 
@@ -420,10 +387,7 @@ describe("an erased tail behind an ordinary block stays dropped", () => {
   test.each([
     ["behind an attached paragraph", "* a\n+\npara\n\n+\n", "* a\n+\npara\n"],
   ])("%s", async (_name, input, expected) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(expected);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, expected);
   });
 });
 
@@ -444,10 +408,7 @@ describe("an item that ends on an enclosing scan's erased +", () => {
       "* a\n** b\n+\n+\n\n+\npara\n",
     ],
   ])("%s", async (_name, input, expected) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(expected);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, expected);
   });
 });
 
@@ -520,10 +481,7 @@ describe("a popped + is spelled once, by the item that popped it", () => {
       "* a\n** b\n*** c\n+\n\n+\npara\n",
     ],
   ])("%s", async (_name, input, expected) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(expected);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, expected);
   });
 });
 
@@ -584,9 +542,6 @@ describe("the fold facts and the new-list marker keep their answers", () => {
       "* a\n\n<1> n\n",
     ],
   ])("%s", async (_name, input, expected) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(expected);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, expected);
   });
 });

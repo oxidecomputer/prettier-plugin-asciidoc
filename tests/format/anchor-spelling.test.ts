@@ -9,17 +9,14 @@
  * stable so the conformance backlog can cite rows.
  */
 import { describe, expect, test } from "vitest";
-import { formatAdoc, renderedHtml } from "../helpers.js";
+import { expectFormatted, formatAdoc, renderedHtml } from "../helpers.js";
 
 describe("rejected ids print the author's bytes (corruption fix, pseudo-run-fold)", () => {
   // gP42: the pure serializer corruption — the base printed
   // "[[3-bad, Ref]]\n" for this input, which renders DIFFERENT text.
   test("[[3-bad,Ref]] stays comma-tight", async () => {
     const input = "[[3-bad,Ref]]\n";
-    const out = await formatAdoc(input);
-    expect(out).toBe(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, input);
   });
   // gP43: the with-space twin — the row that adjudicated the repair
   // variant ("drop the injected space" would have corrupted it).
@@ -50,10 +47,7 @@ describe("valid ids keep today's normalized spelling (controls — no byte movem
       "[[anc, Ref]]\n----\nx\n----\n",
     ],
   ])("%s [[anc,Ref]] prints [[anc, Ref]]", async (_name, input, expected) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(expected);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, expected);
   });
 });
 
@@ -70,10 +64,7 @@ describe("a whitespace-only reftext replays faithfully (issue #53)", () => {
   ])(
     "[[id, ]] %s keeps its comma and space",
     async (_name, input, expected) => {
-      const out = await formatAdoc(input);
-      expect(out).toBe(expected);
-      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-      expect(await formatAdoc(out)).toBe(out);
+      await expectFormatted(input, expected);
     },
   );
   // gP47: rejected id. To the oracle this line is TEXT, so the only
@@ -84,10 +75,7 @@ describe("a whitespace-only reftext replays faithfully (issue #53)", () => {
   // corruption this fix closes.
   test("[[3-bad, ]] keeps the author's bytes", async () => {
     const input = "[[3-bad, ]]\n";
-    const out = await formatAdoc(input);
-    expect(out).toBe(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, input);
   });
 
   // The oracle sweep of the whitespace-reftext spelling
@@ -113,10 +101,7 @@ describe("a whitespace-only reftext replays faithfully (issue #53)", () => {
     ["standalone, comma-tight empty", "[[id,]]\n", "[[id,]]\n"],
     ["rejected id, comma-tight empty", "[[3-bad,]]\n", "[[3-bad,]]\n"],
   ])("%s", async (_name, input, expected) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(expected);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, expected);
   });
 });
 
@@ -126,9 +111,6 @@ describe("bibliography anchors print the author's interior verbatim", () => {
   // `[[id,reftext]]` normalization above.
   test("[[[Fowler_1997,1]]] stays comma-tight", async () => {
     const input = "* [[[Fowler_1997,1]]] x\n";
-    const out = await formatAdoc(input);
-    expect(out).toBe(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, input);
   });
 });

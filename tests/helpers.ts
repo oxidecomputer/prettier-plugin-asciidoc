@@ -10,6 +10,7 @@
  * validates that the build artifact works end-to-end. Do not refactor
  * identity.test.ts to use this shared helper — that would defeat its purpose.
  */
+import { expect } from "vitest";
 import { format, type Options } from "prettier";
 import {
   LoggerManager,
@@ -428,6 +429,28 @@ export async function renderedHtml(input: string): Promise<string> {
         (_match: string, index: string) => kept[Number(index)],
       )
   );
+}
+
+/**
+ * The three-way check every format test wants: the output matches
+ * the pinned expectation, the output renders the same as the input
+ * (formatting does not change meaning), and formatting the output
+ * again is a fixed point (idempotence). Shared so the three
+ * assertions and their order stay in one place; see
+ * tests/parser/ast-invariants.ts for the same pattern applied to the
+ * parser's expectX helpers.
+ * @param input - AsciiDoc source text to format.
+ * @param expected - the exact output the formatter must produce for
+ *   `input`; pass `input` itself to assert the row is already stable.
+ */
+export async function expectFormatted(
+  input: string,
+  expected: string,
+): Promise<void> {
+  const out = await formatAdoc(input);
+  expect(out).toBe(expected);
+  expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+  expect(await formatAdoc(out)).toBe(out);
 }
 
 /**

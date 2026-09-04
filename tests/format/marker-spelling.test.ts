@@ -41,7 +41,7 @@
  *   the verdict.
  */
 import { describe, expect, test } from "vitest";
-import { formatAdoc, renderedHtml } from "../helpers.js";
+import { expectFormatted, formatAdoc, renderedHtml } from "../helpers.js";
 
 describe("nesting-fidelity: the oracle reads the output nested where it read the input nested", () => {
   // Corruption fixes — proof: head output vs the ORIGINAL INPUT (the
@@ -60,10 +60,7 @@ describe("nesting-fidelity: the oracle reads the output nested where it read the
       "* a\n** b\n*** c\n",
     ],
   ])("%s", async (_name, input, expected) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(expected);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, expected);
   });
 });
 
@@ -86,10 +83,7 @@ describe("marker-spelling: author spellings replay render-neutrally", () => {
     ["explicit lowerroman", "i) a\nii) b\n", "i) a\nii) b\n"],
     ["explicit upperroman", "I) a\nII) b\n", "I) a\nII) b\n"],
   ])("%s round-trips byte for byte", async (_name, input, expected) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(expected);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, expected);
   });
 });
 
@@ -115,10 +109,7 @@ describe("a nested list that SHARES its parent's marker prints adjacent", () => 
     // so a callout pair nests under the same rule as the others.
     ["callout inside callout", "<1> a\n\n  lit\n[[anc]]\n<2> b\n"],
   ])("%s", async (_name, input) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, input);
   });
 });
 
@@ -189,10 +180,7 @@ describe("a sibling boundary the re-read would swallow gets its blank", () => {
       "* a\n\n** b\n\n  lit\n\n* a\n",
     ],
   ])("%s", async (_name, input) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, input);
   });
 
   // DERIVED, not replayed: the printer decides the blank from the tree
@@ -212,10 +200,7 @@ describe("a sibling boundary the re-read would swallow gets its blank", () => {
   // ends and the sibling needs no blank.
   test("an indented line the loop reads as text swallows nothing", async () => {
     const input = "* a\n[role]\n  lit\n[[anc]]\n* b\n";
-    const out = await formatAdoc(input);
-    expect(out).toBe(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, input);
   });
 
   // The other direction, and the negative controls: where the tail is
@@ -255,10 +240,7 @@ describe("a sibling boundary the re-read would swallow gets its blank", () => {
       "* a\n\n  lit\n+\n* b\n",
     ],
   ])("%s stays adjacent", async (_name, input, expected) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(expected);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, expected);
   });
 });
 
@@ -305,10 +287,7 @@ describe("a slurp that stays inside the item needs no blank", () => {
       "* a\n** b\n+\n  lit\n[[anc]]\npara\n* a\n",
     ],
   ])("%s", async (_name, input) => {
-    const once = await formatAdoc(input);
-    expect(once).toBe(input);
-    expect(await renderedHtml(once)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(once)).toBe(once);
+    await expectFormatted(input, input);
   });
 });
 

@@ -15,7 +15,7 @@ import { describe, expect, test } from "vitest";
 import type { ListItemNode } from "../../src/ast.js";
 import { hazard } from "../../src/print/list-hazard.js";
 import { parse } from "../../src/parser.js";
-import { formatAdoc, renderedHtml } from "../helpers.js";
+import { expectFormatted, formatAdoc, renderedHtml } from "../helpers.js";
 
 /**
  * The first list item of a parsed document.
@@ -198,10 +198,7 @@ describe("a reflowed list item keeps a text line on its first rest line", () => 
   // COLUMN 0, because the strip takes the whole block's least indent.
   test("a hard-break line reaching the first rest line is refused", async () => {
     const input = "* a\na\n +\n";
-    const out = await formatAdoc(input);
-    expect(out).toBe(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, input);
   });
 
   // The other direction, and the one that keeps the rule honest: a
@@ -222,10 +219,7 @@ describe("a reflowed list item keeps a text line on its first rest line", () => 
   // meets.
   test("a comment does not hide the hard-break line behind it", async () => {
     const input = "* a\nb\n// c\n +\n";
-    const out = await formatAdoc(input);
-    expect(out).toBe(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, input);
   });
 
   // The strip decision 3 fires is all-or-nothing over the block: an
@@ -245,10 +239,7 @@ describe("a reflowed list item keeps a text line on its first rest line", () => 
       "* a lit\n// c\n +\n",
     ],
   ])("the strip is all-or-nothing: %s", async (_name, input, expected) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(expected);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, expected);
   });
 
   // The lines the strip measures are SOURCE LINES, and the item's text
@@ -350,10 +341,7 @@ describe("a reflowed list item keeps a text line on its first rest line", () => 
     ["a link in brackets", "* a\nx [https://example.com]\n +\n"],
     ["an address in brackets", "* a\nx [b@c.de]\n +\n"],
   ])("the column-0 hold refuses a fused run: %s", async (_name, input) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, input);
   });
 
   // A comment under a text line the gap does NOT separate from its
