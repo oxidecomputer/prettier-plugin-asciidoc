@@ -4,7 +4,8 @@
  * and that these constructs round-trip cleanly.
  */
 import { describe, test, expect } from "vitest";
-import { formatAdoc, renderedHtml } from "../helpers.js";
+import { formatAdoc, oracleHtml, renderedHtml } from "../helpers.js";
+import { shapes } from "../parser/inline-shape.js";
 
 describe("inline links — format output", () => {
   test("bare URL is preserved", async () => {
@@ -263,5 +264,54 @@ describe("a shorthand xref's text loses its leading blank, not its trailing one"
     expect(out).toBe(expected);
     expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
+  });
+});
+
+/**
+ * A bare URL never takes the delimiter that closes a span (issue
+ * #150).
+ *
+ * `sub_quotes` runs BEFORE `sub_macros` (`NORMAL_SUBS`,
+ * substitutors.rb l.16, the list `apply_subs` walks in order), so the
+ * quote pass has already paired its delimiters by the time
+ * `InlineLinkRx` (rx.rb l.526) reads what is left: the link is built
+ * from the text INSIDE the span, and a mark standing at the end of a
+ * URL run belongs to the span, not to the address.
+ *
+ * Reading the URL through the delimiter instead lost the span
+ * outright, and with it the shelter its interior stands in: the tab
+ * in each row below rendered inside `<code>`/`<strong>` and folded to
+ * a space once the span was gone. The URL is still read WHOLE
+ * wherever no span wants its last character - src/parse/inline/
+ * rules.ts's SuperscriptMark row says why that divergence from Ruby's
+ * pass order is deliberate and what it buys.
+ */
+describe("a URL stops at the delimiter that closes a span", () => {
+  const MONOSPACE = "`a\thttps://e.com`";
+  const BOLD = "**a\thttps://e.com/x**";
+
+  test.each([
+    [MONOSPACE, String.raw`monospacec["a\t",link]`],
+    [BOLD, String.raw`boldu["a\t",link]`],
+  ])("%j is a span holding the address", (source, shape) => {
+    expect(shapes(source)).toEqual([shape]);
+  });
+
+  test.each([
+    [MONOSPACE, '<code>a\t<a href="https://e.com" class="bare">'],
+    [BOLD, '<strong>a\t<a href="https://e.com/x" class="bare">'],
+  ])("%j is what the oracle renders", async (source, html) => {
+    expect(await oracleHtml(source)).toContain(html);
+  });
+
+  // Only the monospace row can carry a BYTE claim about the tab: the
+  // render lens folds whitespace everywhere but `<pre>` and `<code>`
+  // (tests/helpers.ts), so the bold row's tab is invisible to it and
+  // the row above is what holds that span's extent.
+  test("the sheltered tab survives the round trip", async () => {
+    const formatted = await formatAdoc(MONOSPACE);
+    expect(formatted).toBe(`${MONOSPACE}\n`);
+    expect(await renderedHtml(formatted)).toBe(await renderedHtml(MONOSPACE));
+    expect(await formatAdoc(formatted)).toBe(formatted);
   });
 });

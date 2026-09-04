@@ -87,7 +87,14 @@ export function tokenizeInline(
     // constrained pattern could open or close a span here - because
     // the neighbourhood is visible HERE, in the fragment, and the
     // builder that pairs marks into spans works on tokens alone.
-    const flags = markFlags({ type, text, index, length, curved });
+    const flags = markFlags({
+      type,
+      text,
+      index,
+      length,
+      curved,
+      doubled: scan.doubled,
+    });
     tokens.push({
       type,
       image: text.slice(index, index + length),

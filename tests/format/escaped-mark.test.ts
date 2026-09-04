@@ -35,6 +35,7 @@
 import { describe, expect, test } from "vitest";
 import { formatAdoc, oracleHtml, renderedHtml } from "../helpers.js";
 import { parse } from "../../src/parser.js";
+import { shapes } from "../parser/inline-shape.js";
 
 /**
  * The verbatim bytes of every escaped-mark node in a parsed document,
@@ -92,6 +93,7 @@ const MARKS = ["*", "_", "`", "#"] as const;
 // spelled neither as a template (the backtick ends it) nor as a plain
 // string the lint rules accept.
 const TICK = "`";
+const BACKSLASH = "\\";
 const ESCAPE_IN_MONOSPACE = `${TICK}${String.raw`\*a*`}${TICK}`;
 
 /**
@@ -313,4 +315,63 @@ describe.each(MARKS)("the escape of %j", (mark) => {
       expect(result.again).toBe(result.formatted);
     },
   );
+});
+
+/**
+ * The backslash in front of a CLOSING delimiter is content, not an
+ * escape (issue #150).
+ *
+ * `convert_quoted_text` asks `match[0].start_with? RS`
+ * (substitutors.rb l.1420), and `match[0]` begins at the OPENING
+ * delimiter - the constrained rows admit the backslash through their
+ * left boundary class, `(^|[^#{CC_WORD};:}])` (asciidoctor.rb l.448),
+ * and the unconstrained rows through the bare `\\?` in front of the
+ * same delimiter (asciidoctor.rb l.446). Neither row looks at what
+ * stands in front of the CLOSER, so a mark behind a backslash still
+ * closes the span an earlier delimiter opened, and the backslash
+ * lands in the content.
+ *
+ * Reading an escape there instead took the closing delimiter out of
+ * the stream, and with it the whole span: the tab in the monospace
+ * row below then stood in ordinary prose, where the packer folds it -
+ * the tier-1 corruption issue #150 reports. The contrast is
+ * `x \*not em\* y` in the first table of this file: there the OPENER
+ * is escaped too, so the match is written back literally and both
+ * backslashes stay escapes.
+ */
+describe("a mark behind a backslash still closes a span", () => {
+  // A TAB inside the span, because that is what makes the missing
+  // span visible: `<code>` is whitespace-significant, so a folded tab
+  // is a rendering change and not a byte the reader never sees.
+  const TABBED_MONOSPACE = `${TICK}a\tb${BACKSLASH}${TICK}`;
+  // The shortest content `(\S|\S#{CC_ALL}*?\S)` takes, one character
+  // wide, and that character is the backslash itself.
+  const LONE_BACKSLASH = `${TICK}${BACKSLASH}${TICK}`;
+
+  test.each([
+    [TABBED_MONOSPACE, String.raw`monospacec["a\tb\\"]`],
+    [String.raw`*a b\*`, String.raw`boldc["a b\\"]`],
+    [String.raw`_a b\_`, String.raw`italicc["a b\\"]`],
+    [String.raw`#a b\#`, String.raw`highlightc["a b\\"]`],
+    [LONE_BACKSLASH, String.raw`monospacec["\\"]`],
+  ])("%j is one span whose content ends in the backslash", (source, shape) => {
+    expect(shapes(source)).toEqual([shape]);
+  });
+
+  test.each([
+    [TABBED_MONOSPACE, `<code>a\tb${BACKSLASH}</code>`],
+    [String.raw`*a b\*`, `<strong>a b${BACKSLASH}</strong>`],
+    [String.raw`_a b\_`, `<em>a b${BACKSLASH}</em>`],
+    [String.raw`#a b\#`, `<mark>a b${BACKSLASH}</mark>`],
+    [LONE_BACKSLASH, `<code>${BACKSLASH}</code>`],
+  ])("%j is what the oracle renders", async (source, html) => {
+    expect(await oracleHtml(source)).toContain(html);
+  });
+
+  test("the sheltered tab survives the round trip", async () => {
+    const result = await measure(TABBED_MONOSPACE);
+    expect(result.formatted).toBe(`${TABBED_MONOSPACE}\n`);
+    expect(result.after).toBe(result.before);
+    expect(result.again).toBe(result.formatted);
+  });
 });

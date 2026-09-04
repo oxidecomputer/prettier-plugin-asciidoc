@@ -34,13 +34,13 @@
  * Ruby.
  */
 import { DELIM_WIDTH } from "../../constants.js";
-import type { InlineToken } from "./tokens.js";
+import type { InlineKind, InlineToken, InlineTokenType } from "./tokens.js";
 import { CURVED_WIDTH } from "./curved-quotes.js";
 // An unconstrained mark is the constrained one written twice - the
 // same width the scan that finds those delimiters is built on, taken
 // from there so a row here and a token there cannot disagree.
 import { UNCONSTRAINED_WIDTH } from "./doubled-marks.js";
-import type { MarkKind } from "./quote-boundaries.js";
+import { MARK_ROW, type MarkKind } from "./quote-boundaries.js";
 
 /**
  * All twelve `QUOTE_SUBS` rows, in the table's own order.
@@ -170,11 +170,128 @@ export function spanStart(span: ResolvedSpan): number {
 }
 
 /**
- * Scan forward for a mark that can CLOSE the one at `openIndex`: same
- * kind, same width (constrained marks never pair with unconstrained
- * ones), and able to close where it stands.
+ * The kinds whose match can END on a delimiter this table pairs, and
+ * the kind the rest of that match becomes once the delimiter is split
+ * off it.
  *
- * The nearest such mark is the right one because Ruby's content
+ * Two rules reach a closing delimiter before the mark rows do, and
+ * for two different reasons in the same Ruby.
+ *
+ * A BARE URL: `sub_quotes` runs BEFORE `sub_macros` (`NORMAL_SUBS`,
+ * substitutors.rb l.16, the list `apply_subs` walks in order), so
+ * `InlineLinkRx` (rx.rb l.526) reads text whose spans are already
+ * resolved - a mark at the end of a URL run belongs to the span, and
+ * the address stops in front of it.
+ *
+ * An ESCAPE: `convert_quoted_text` refuses a match whose FIRST
+ * character is the backslash (substitutors.rb l.1420), and neither
+ * scope looks at what stands in front of the CLOSER. So `\*` behind
+ * an open span is one backslash of content and the mark that closes
+ * it, not an escape.
+ *
+ * TWO KINDS and not a predicate over all of them: every other rule's
+ * match ends on a character no `QUOTE_SUBS` row spells (a bracket, a
+ * brace, a `+`), and naming these two makes a third one a decision
+ * rather than an accident. The head kind is what the match is once
+ * the delimiter leaves: a URL is still a URL, and an escape's
+ * backslash is the character no rule claims.
+ */
+const TRAILING_DELIMITER_HEAD: Partial<Record<InlineTokenType, InlineKind>> = {
+  BackslashEscape: "InlineChar",
+  InlineUrl: "InlineUrl",
+};
+
+/**
+ * Whether a match of this kind can END on a delimiter the mark rows
+ * pair, which is what earns it the direction facts a mark token
+ * carries (`markFlags`, rules.ts).
+ * @param type - the kind that matched
+ * @returns true for the kinds {@link TRAILING_DELIMITER_HEAD} names
+ */
+export function mayEndOnDelimiter(type: InlineTokenType): boolean {
+  return TRAILING_DELIMITER_HEAD[type] !== undefined;
+}
+
+/**
+ * The token a span's closing token leaves behind as CONTENT: the
+ * match minus the delimiter at its end, or undefined when the whole
+ * token is the delimiter (every ordinary mark).
+ *
+ * The offset is the match's own, so the head covers exactly the
+ * source it always did minus its last `width` characters, and the
+ * delimiter that follows it is what the span's node ends at.
+ * @param token - the token a span closed on
+ * @param width - the closing delimiter's width, which is the opening
+ *   delimiter's own: a constrained mark never pairs with a doubled one
+ * @returns the head token, or undefined when there is no head
+ */
+export function delimiterHead(
+  token: InlineToken,
+  width: number,
+): InlineToken | undefined {
+  const type = TRAILING_DELIMITER_HEAD[token.type];
+  return type === undefined
+    ? undefined
+    : { type, image: token.image.slice(0, -width), offset: token.offset };
+}
+
+/**
+ * Which character each row's delimiter is spelled with, for the four
+ * kinds that have one.
+ *
+ * DERIVED from the two tables that already hold it - this file's
+ * {@link MARK_SPAN_KINDS} says which mark a token kind spells and
+ * `MARK_ROW` (quote-boundaries.ts) says which character that mark is
+ * written with - so a fifth mark is spelled once, there, and never
+ * again here. The four kinds with no entry are the curved and
+ * super/sub rows, whose delimiters are not a mark character repeated
+ * and which therefore never stand at the end of another match.
+ */
+const MARK_CHARACTER: Partial<Record<MarkTokenKind, string>> =
+  Object.fromEntries(
+    Object.entries(MARK_SPAN_KINDS).map(([type, kind]) => [
+      type,
+      MARK_ROW[kind].mark,
+    ]),
+  );
+
+/**
+ * Whether the token at `scanIndex` can CLOSE this row: a mark of the
+ * row's own kind and width, or a match that ENDS on that row's
+ * delimiter ({@link TRAILING_DELIMITER_HEAD}). Either way it has to be
+ * able to close where the delimiter stands, which is what `canClose`
+ * records (`markFlags`, rules.ts).
+ * @param candidate - the token being considered
+ * @param row - the row being resolved
+ * @returns true when this row may close here
+ */
+function closesRow(
+  candidate: InlineToken,
+  row: (typeof RESOLUTION_ORDER)[number],
+): boolean {
+  if (candidate.canClose !== true) {
+    return false;
+  }
+  if (candidate.type === row.type) {
+    return candidate.image.length === row.width;
+  }
+  const mark = MARK_CHARACTER[row.type];
+  // A head of at least one character, because every content group
+  // demands one: the delimiter cannot be the whole match.
+  return (
+    mark !== undefined &&
+    mayEndOnDelimiter(candidate.type) &&
+    candidate.image.length > row.width &&
+    candidate.image.endsWith(mark.repeat(row.width))
+  );
+}
+
+/**
+ * Scan forward for a token that can CLOSE the mark at `openIndex`:
+ * the row's own kind and width, or a match ending on its delimiter,
+ * and able to close where it stands.
+ *
+ * The nearest such token is the right one because Ruby's content
  * groups are non-greedy (`(.+?)`, `(\S|\S.*?\S)`). A mark that cannot
  * close is skipped rather than ending the search: Ruby's engine
  * backtracks past a position where the trailing lookahead fails and
@@ -182,27 +299,21 @@ export function spanStart(span: ResolvedSpan): number {
  * (quote-boundaries.ts).
  * @param tokens - the stream being resolved
  * @param openIndex - position of the opening mark
- * @returns the closing mark's index, or -1 when there is none
+ * @param row - the row being resolved, whose kind and width the close
+ *   must match
+ * @returns the closing token's index, or -1 when there is none
  */
 function findCloseMark(
   tokens: readonly InlineToken[],
   openIndex: number,
+  row: (typeof RESOLUTION_ORDER)[number],
 ): number {
-  const {
-    type: openType,
-    image: { length: markWidth },
-  } = tokens[openIndex];
   for (
     let scanIndex = openIndex + 1;
     scanIndex < tokens.length;
     scanIndex += 1
   ) {
-    const candidate = tokens[scanIndex];
-    if (
-      candidate.type === openType &&
-      candidate.image.length === markWidth &&
-      candidate.canClose === true
-    ) {
+    if (closesRow(tokens[scanIndex], row)) {
       return scanIndex;
     }
   }
@@ -222,20 +333,27 @@ function findCloseMark(
  * becomes content, which is why the search resumes FROM it rather
  * than from the opener.
  *
+ * An adjacent close that carries a HEAD is not empty at all: the head
+ * is the content, so `` `\` `` is a monospace span around one
+ * backslash and the skip does not apply to it.
+ *
  * The retry is an `if` and not a loop because it can only ever happen
  * once: the second search starts AT the adjacent close and so answers
  * at least `openIndex + 2`, which the test can no longer hold for.
  * @param tokens - the stream being resolved
  * @param openIndex - position of the opening mark
+ * @param row - the row being resolved
  * @returns the closing mark's index, or -1 when there is none
  */
 function closeForOpen(
   tokens: readonly InlineToken[],
   openIndex: number,
+  row: (typeof RESOLUTION_ORDER)[number],
 ): number {
-  const closeIndex = findCloseMark(tokens, openIndex);
-  return closeIndex === openIndex + 1
-    ? findCloseMark(tokens, closeIndex)
+  const closeIndex = findCloseMark(tokens, openIndex, row);
+  return closeIndex === openIndex + 1 &&
+    delimiterHead(tokens[closeIndex], row.width) === undefined
+    ? findCloseMark(tokens, closeIndex, row)
     : closeIndex;
 }
 
@@ -301,7 +419,7 @@ function resolveRow(
       token.type === row.type &&
       token.image.length === row.width &&
       token.canOpen === true;
-    const close = opens ? closeForOpen(tokens, index) : -1;
+    const close = opens ? closeForOpen(tokens, index, row) : -1;
     if (close === -1) {
       index += 1;
       continue;

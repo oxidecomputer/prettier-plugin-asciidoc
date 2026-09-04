@@ -18,10 +18,11 @@
  * not resolve it.
  */
 import type { InlineKind } from "./tokens.js";
-import { MARK_SPAN_KINDS } from "./span-pairing.js";
+import { MARK_SPAN_KINDS, mayEndOnDelimiter } from "./span-pairing.js";
 import {
   canOpenAt,
   canCloseAt,
+  MARK_ROW,
   type MarkKind,
   type CurvedQuoteSpelling,
 } from "./quote-boundaries.js";
@@ -90,6 +91,15 @@ interface InlineRule {
 // {@link markFlags} is handed any InlineKind, and a kind that spells no
 // mark simply has no row.
 const MARK_KINDS: Partial<Record<InlineKind, MarkKind>> = MARK_SPAN_KINDS;
+
+// Which mark each delimiter character spells, read off the same
+// `MARK_ROW` the printer writes the character back from: a match that
+// ENDS on one of these four characters ends on a delimiter, and
+// {@link markFlags} asks this to find out which mark's boundary
+// classes decide whether it can close there.
+const MARK_KIND_BY_CHARACTER = new Map<string, MarkKind>(
+  Object.values(MARK_ROW).map((row) => [row.mark, row.kind]),
+);
 
 /**
  * A constrained/unconstrained formatting mark — `strong`, `emphasis`,
@@ -193,6 +203,51 @@ interface MarkFlagsInput {
    * rule's `match`.
    */
   readonly curved: CurvedScan;
+  /**
+   * Every offset where an unconstrained (doubled) delimiter BEGINS
+   * (doubled-marks.ts), the same scan the mark rules read. Only
+   * {@link trailingDelimiterFlags} asks it: a match that ends on a
+   * doubled delimiter ends on one this scan has already paired, and
+   * no neighbourhood test can answer that.
+   */
+  readonly doubled: ReadonlySet<number>;
+}
+
+/**
+ * The direction facts for a match that can END on a delimiter - a
+ * bare URL or an escape ({@link mayEndOnDelimiter}, span-pairing.ts,
+ * which cites the Ruby for both).
+ *
+ * It can never OPEN a span. Ruby refuses exactly that for the escape
+ * (`convert_quoted_text`, substitutors.rb l.1420, on a match whose
+ * first character is the backslash), and a link is read out of text
+ * `sub_quotes` has already paired (`NORMAL_SUBS`, substitutors.rb
+ * l.16), so neither match can begin one. It CLOSES where the
+ * delimiter at its end could: the doubled scan's own answer where the
+ * last two characters are an unconstrained delimiter it paired
+ * (those rows test no boundary at all), and the constrained
+ * lookahead at the last character otherwise.
+ *
+ * `undefined` where the match ends on no delimiter at all, which is
+ * most URLs: no delimiter, no direction facts, and no flags on the
+ * token.
+ * @param input - what matched, where, and the fragment's scans
+ * @returns the two flags, or undefined when the match ends on no
+ *   delimiter
+ */
+function trailingDelimiterFlags(
+  input: MarkFlagsInput,
+): { canOpen: boolean; canClose: boolean } | undefined {
+  const { text, index, length, curved, doubled } = input;
+  const end = index + length;
+  if (doubled.has(end - UNCONSTRAINED_WIDTH)) {
+    return { canOpen: false, canClose: true };
+  }
+  const at = end - DELIM_WIDTH;
+  const kind = MARK_KIND_BY_CHARACTER.get(text.charAt(at));
+  return kind === undefined
+    ? undefined
+    : { canOpen: false, canClose: canCloseAt(kind, text, at, curved.view) };
 }
 
 /**
@@ -224,6 +279,9 @@ export function markFlags(
     // direction would simply never pair, which is the safe answer.
     const side = curved.delimiters.get(index)?.side;
     return { canOpen: side === "open", canClose: side === "close" };
+  }
+  if (mayEndOnDelimiter(type)) {
+    return trailingDelimiterFlags(input);
   }
   const kind = MARK_KINDS[type];
   if (kind === undefined) return undefined;
