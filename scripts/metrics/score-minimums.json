@@ -385,19 +385,19 @@
     },
     {
       "file": "src/print/reflow.ts",
-      "what": "reflow.ts:766 `let glueNext = false` -> `true` in wordsToAtoms",
+      "what": "reflow.ts:810 `let glueNext = false` -> `true` in wordsToAtoms",
       "class": "never",
       "reason": "The initializer is read only on the first iteration, and there `fuseBackwards = index > 0 && (glueNext || ...)` short-circuits on `index > 0` before `glueNext` is looked at. Every later read sees the value the previous iteration assigned"
     },
     {
       "file": "src/print/reflow.ts",
-      "what": "keepContinuationLine's two entry guards (reflow.ts:660 `atoms.length === 0` -> `false`, reflow.ts:661 `atoms[0].text !== CONTINUATION_WORD` -> `false`)",
+      "what": "keepContinuationLine's two entry guards (reflow.ts:665 `atoms.length === 0` -> `false`, reflow.ts:666 `atoms[0].text !== CONTINUATION_WORD` -> `false`)",
       "class": "never",
       "reason": "EQUIVALENT by the caller's contract. `opensWithOne` is `opensWithContinuationLine(node)` (src/print/inline.ts), which is true only when the node starts at column 1 and its value STARTS with `\"+\\n\"` - so the word list is non-empty and its first word is exactly `+`, which is what the two guards re-check. The same fact is why the caller can push `atoms[0]` unconditionally one line later. Measured: 36,960 nodes the printer reads as continuation openers over 319,216 documents, 0 of them with a first word other than `+`"
     },
     {
       "file": "src/print/reflow.ts",
-      "what": "reflow.ts:667 `breakBefore: \"hard\"` -> `\"\"` in keepContinuationLine",
+      "what": "reflow.ts:672 `breakBefore: \"hard\"` -> `\"\"` in keepContinuationLine",
       "class": "never",
       "reason": "EQUIVALENT: `wrap` reads the field exactly twice, once as `!== \"none\"` (is there a forced break) and once as `=== \"literal\"` (does the line start at column 0 instead of the continuation indent). `\"\"` answers both questions the way `\"hard\"` does, so only the `\"literal\"` spelling is distinguishable at all"
     },

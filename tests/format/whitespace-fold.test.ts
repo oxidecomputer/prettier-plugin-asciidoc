@@ -78,3 +78,84 @@ describe("the spellings the refusal must not touch", () => {
     expect(await formatAdoc("a\tb\n")).toBe("a b\n");
   });
 });
+
+/**
+ * Issue #145: the same run, standing at a NODE boundary.
+ *
+ * `splitWords` cuts one text node, and the runs at that node's two
+ * EDGES are not between two of its words - each stands between the
+ * node and the inline sibling beside it, where the printer's join
+ * decides what gets written. So a lone `--` with an inline macro
+ * against it lost the very character the replacement reads.
+ *
+ * Red before the fix, measured: the first row formatted to
+ * `See https://e.com -- sales@b.com for more.`, whose render is not
+ * two links beside an em dash but ONE anchor - the thin-space
+ * entities the replacement writes extend the bare-URL match until the
+ * first anchor swallows the em dash and the whole second anchor.
+ * Every other row in the group lost its tab to a space the same way.
+ */
+describe("a run beside a lone `--` keeps its bytes across a node edge", () => {
+  test.each([
+    // The issue's own document: a macro on each side, so BOTH tabs are
+    // edge runs and the node holds nothing but the dashes.
+    ["a macro on each side", "See https://e.com\t--\tsales@b.com for more.\n"],
+    // One edge run is enough to arm the replacement where the source
+    // already spelled the other side's boundary itself.
+    ["a macro and then a source space", "See https://e.com\t-- more.\n"],
+    ["a source space and then a macro", "See more --\thttps://e.com now.\n"],
+    // The end of the block is the row's own right boundary, so the tab
+    // in front of the dashes is the only thing refusing the match.
+    ["a macro and then the end of the block", "See https://e.com\t--\n"],
+    // The backslash carries the row's left boundary, which leaves the
+    // edge run behind the dashes deciding the match alone.
+    ["dashes behind a backslash", "See a \\--\thttps://e.com now.\n"],
+    // Not only macros: every inline node ends the text node the same
+    // way, and the span's own marks stand where the tab has to go.
+    ["a formatting span on the left", "See *bold*\t--\tsales@b.com now.\n"],
+    ["a monospace span on the left", "See `mono`\t--\tsales@b.com now.\n"],
+    // The whole run comes back, not just the one character the row
+    // reads.
+    ["a space beside each tab", "See https://e.com \t--\t sales@b.com y.\n"],
+    ["inside a list item", "* See https://e.com\t--\tsales@b.com now.\n"],
+    ["inside an admonition", "NOTE: See https://e.com\t--\tsales@b.com y.\n"],
+  ])("%s", async (_name, input) => {
+    await expectByteFaithful(input);
+  });
+});
+
+describe("the node edges the refusal must not touch", () => {
+  // The narrowness, and here it costs nothing to state: where the
+  // OTHER side of the dashes is a run INSIDE the node, the interior
+  // rule has already fused it, so the node's first word is
+  // `--<TAB>word` rather than `--` and no edge question arises. The
+  // macro-side tab folds and the render does not move, because the
+  // interior tab is still the character the replacement reads.
+  //
+  // These three kept today's behaviour through the fix; the pins are
+  // here so a wider rule cannot land unnoticed.
+  test.each([
+    [
+      "a macro on the left only",
+      "See https://e.com\t--\tword for more.\n",
+      "See https://e.com --\tword for more.\n",
+    ],
+    [
+      "a macro on the right only",
+      "See word\t--\tsales@b.com for more.\n",
+      "See word\t-- sales@b.com for more.\n",
+    ],
+    // An edge run with no dashes beside it at all: a tab against a
+    // macro is prose to reflow, the same as anywhere else.
+    [
+      "an ordinary tab against a macro",
+      "See https://e.com\tword now.\n",
+      "See https://e.com word now.\n",
+    ],
+  ])("%s", async (_name, input, expected) => {
+    const output = await formatAdoc(input);
+    expect(output).toBe(expected);
+    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(output)).toBe(output);
+  });
+});

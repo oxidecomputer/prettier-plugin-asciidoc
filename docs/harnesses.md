@@ -272,7 +272,7 @@ for what it sweeps and why its manifest is written as clusters. It is the most
 expensive of the four, which is the reason it is here and not in `bun run test`.
 
 `tests/conformance/inline-sweep.deep.test.ts` is the fourth: the inline sweep's
-deep tier, 411,106 documents in a little under two minutes. See
+deep tier, 474,908 documents in about two minutes. See
 [the inline sweep](#bun-run-inline-sweep-triage---the-generated-inline-sweep).
 
 Proves: no list shape regressed, no known-broken shape got quietly fixed without
@@ -576,10 +576,10 @@ Two gates over it, tiered by wall time:
 - DEEP tier, in `bun run test:deeply-nested-lists`
   (`tests/conformance/inline-sweep.deep.test.ts`): that grid under every byte
   operator, plus the whole pair product - any two alphabet members standing in
-  ONE inline run, joined adjacently, by a space, by a bracket pair or across a
-  kept comment line. 411,106 rows in about a minute and a half. Pinned to
-  `tests/conformance/inline-sweep-deep-manifest.json`, 168 failing rows in 9
-  clusters today.
+  ONE inline run, joined adjacently, by a space, by a bracket pair, across a
+  kept comment line or across a tabbed em-dash spelling. 474,908 rows in about
+  two minutes. Pinned to `tests/conformance/inline-sweep-deep-manifest.json`,
+  190 failing rows in 13 clusters today.
 
 The byte operators are `scripts/shape-registry-byte-operators.ts`, not a second
 set: the ingest bytes Asciidoctor erases are one vocabulary. They are a

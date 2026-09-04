@@ -1,4 +1,16 @@
 {
+  "pair/BoldMark/BoldMark/tab-dash/fidelity": {
+    "count": 6,
+    "examples": [
+      "pair/BoldMark-near-6/BoldMark-alt-1/tab-dash/item",
+      "pair/BoldMark-near-6/BoldMark-alt-1/tab-dash/para",
+      "pair/BoldMark-near-6/BoldMark-near-4/tab-dash/item",
+      "pair/BoldMark-near-6/BoldMark-near-4/tab-dash/para",
+      "pair/BoldMark-near-6/BoldMark-near-5/tab-dash/item"
+    ],
+    "sha256": "3867a96a3fbe38654390cc961c825447be348dde3ef4b88cffba5b60694cc96d",
+    "issue": "#147"
+  },
   "pair/HighlightMark/CharacterReference/comment/fidelity": {
     "count": 1,
     "examples": [
@@ -6,6 +18,18 @@
     ],
     "sha256": "b4e19a0399ec54219f8f9b10849e6389ebbe129a92412ca968217828fb14d02a",
     "issue": "UNTRIAGED"
+  },
+  "pair/HighlightMark/HighlightMark/tab-dash/fidelity": {
+    "count": 6,
+    "examples": [
+      "pair/HighlightMark-near-4/HighlightMark-alt-1/tab-dash/item",
+      "pair/HighlightMark-near-4/HighlightMark-alt-1/tab-dash/para",
+      "pair/HighlightMark-near-4/HighlightMark-near-2/tab-dash/item",
+      "pair/HighlightMark-near-4/HighlightMark-near-2/tab-dash/para",
+      "pair/HighlightMark-near-4/HighlightMark-near-3/tab-dash/item"
+    ],
+    "sha256": "29a30af678e853ab8814c4534675e67497a7d61864a2403a8deb61507b8cdd1c",
+    "issue": "#147"
   },
   "pair/HighlightMark/InlineChar/comment/fidelity": {
     "count": 1,
@@ -30,6 +54,29 @@
     ],
     "sha256": "c0f73cc6efe362dba09e1ba960cc227578d876c3d9dda54bbaee2fc2ea7a8f76",
     "issue": "UNTRIAGED"
+  },
+  "pair/ItalicMark/ItalicMark/tab-dash/fidelity": {
+    "count": 6,
+    "examples": [
+      "pair/ItalicMark-near-4/ItalicMark-alt-1/tab-dash/item",
+      "pair/ItalicMark-near-4/ItalicMark-alt-1/tab-dash/para",
+      "pair/ItalicMark-near-4/ItalicMark-near-2/tab-dash/item",
+      "pair/ItalicMark-near-4/ItalicMark-near-2/tab-dash/para",
+      "pair/ItalicMark-near-4/ItalicMark-near-3/tab-dash/item"
+    ],
+    "sha256": "2f8c0e91292105e0b5a5a1b0ae500cfce72362c64db1184dc8312c7da099abf6",
+    "issue": "#147"
+  },
+  "pair/MonoMark/BackslashEscape/tab-dash/fidelity": {
+    "count": 4,
+    "examples": [
+      "pair/MonoMark-near-0/BackslashEscape-alt-2/tab-dash/item",
+      "pair/MonoMark-near-0/BackslashEscape-alt-2/tab-dash/para",
+      "pair/MonoMark-near-3/BackslashEscape-alt-2/tab-dash/item",
+      "pair/MonoMark-near-3/BackslashEscape-alt-2/tab-dash/para"
+    ],
+    "sha256": "ea6c5830e74fbacfbc0a38de76367628cd9c032992ac4282dae1a6a07ddec4f9",
+    "issue": "#150"
   },
   "standing/CharacterReference/repeated/fidelity": {
     "count": 9,

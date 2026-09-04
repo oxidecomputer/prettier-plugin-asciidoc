@@ -120,6 +120,7 @@ const PAIR_JOINS: readonly string[] = [
   "spaced",
   "bracket",
   "comment",
+  "tab-dash",
 ];
 
 const PAIR_CONTEXTS: readonly string[] = ["para", "item", "cell"];
@@ -133,12 +134,20 @@ const PRINT_WIDTH = 80;
 // Rule (vi): the realized grid sizes, pinned. The standing grid is a
 // 146-member alphabet x 15 neighbourhoods x 8 contexts, less the
 // realizations two coordinates spell the same way; the pair grid is
-// that whole alphabet squared, x 4 joins x 3 contexts, less the same
+// that whole alphabet squared, x 5 joins x 3 contexts, less the same
 // kind of collision. A grid extension moves its pin DELIBERATELY, in
 // the same change, to the count the new source lists produce; it is
 // not a number to discover from a red gate and paste back.
+//
+// The pair pin last moved for the `tab-dash` join, the only
+// coordinate either grid has for a construct on BOTH sides of a
+// reference: 254,965 rows to 318,767. That is one whole alphabet
+// squared in three contexts (63,948) less 146, the same collision
+// the `comment` join loses the same number of rows to - a first
+// member spelled `* b*` makes the `para` context spell the `item`
+// context of the member spelled `b*`.
 const STANDING_GRID_SIZE = 17_349;
-const PAIR_GRID_SIZE = 254_965;
+const PAIR_GRID_SIZE = 318_767;
 
 /**
  * Rule (i): every construct dimension is still a row of the rule

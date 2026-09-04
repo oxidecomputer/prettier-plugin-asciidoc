@@ -57,6 +57,7 @@ import {
   type Cursor,
 } from "./atom-join.js";
 import { appendLiteralText, spanIsFlush } from "./literal-span.js";
+import { keptLeadingRun, keptTrailingRun } from "./whitespace-fold.js";
 
 // Whether a text node's FIRST character is a source separator standing
 // between it and the previous inline sibling. ASCII only (see
@@ -337,14 +338,18 @@ function leadingBoundary(cursor: Cursor, words: readonly string[]): Boundary {
  * @param node - the text node.
  * @param words - its whitespace-split words, non-empty.
  * @param glueToSibling - whether a trailing `+` must fuse forward.
+ * @param keptRun - the node's trailing run where its bytes ride inside
+ *   the last atom instead of folding, which leaves the printer nothing
+ *   to write between the two nodes.
  * @returns the join.
  */
 function trailingBoundary(
   node: TextNode,
   words: readonly string[],
   glueToSibling: boolean,
+  keptRun: string,
 ): Boundary {
-  if (!TRAILS_WITH_ASCII_WHITESPACE.test(node.value)) {
+  if (keptRun !== "" || !TRAILS_WITH_ASCII_WHITESPACE.test(node.value)) {
     return "glue";
   }
   if (words.length === 1 && opensWithContinuationLine(node)) {
@@ -379,24 +384,37 @@ function appendText(
   if (words.length === 0) {
     return strongerBoundary(boundary, "break");
   }
+  // A kept edge run rides inside the atom at its end, so the join
+  // there stays the glue it already was and the printer writes nothing
+  // of its own between the two nodes. The leading run needs an atom
+  // ALREADY EMITTED to ride against: at the head of a block or of a
+  // span's content there is none, and the bytes would open an output
+  // line instead of standing between two nodes.
+  const gluedInFront = out.length > 0 && boundary === "glue";
+  const leading = keptLeadingRun(node.value, words, gluedInFront);
   // The lead is computed BEFORE the atoms, because the trailing-`+`
   // policy reads it: a one-word node carrying a glue cannot reach a
   // line boundary, and a `+` that cannot reach one needs no escape.
-  const lead = LEADS_WITH_ASCII_WHITESPACE.test(node.value)
-    ? strongerBoundary(boundary, leadingBoundary(cursor, words))
-    : boundary;
+  const lead =
+    leading === "" && LEADS_WITH_ASCII_WHITESPACE.test(node.value)
+      ? strongerBoundary(boundary, leadingBoundary(cursor, words))
+      : boundary;
   const { escapeTrailingPlus, glueToSibling } = trailingPlusPolicy(
     cursor,
     words,
     lead,
   );
+  // `glueToSibling` carries the one fact the trailing run needs as
+  // well: whether an inline sibling follows in this block.
+  const trailing = keptTrailingRun(node.value, words, glueToSibling);
   const atoms = wordsToAtoms(words, {
     escapeTrailingPlus,
     firstLineWordCount: firstSourceLineWordCount(node, cursor, words),
     opensWithContinuationLine: opensWithContinuationLine(node),
+    edgeRuns: { leading, trailing },
   });
   out.push(withBoundary(atoms[0], lead), ...atoms.slice(1));
-  return trailingBoundary(node, words, glueToSibling);
+  return trailingBoundary(node, words, glueToSibling, trailing);
 }
 
 /**

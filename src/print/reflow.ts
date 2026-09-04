@@ -46,7 +46,12 @@ import {
 import {
   foldChangesEmDash,
   manufacturedChecklistRun,
+  type KeptEdgeRuns,
 } from "./whitespace-fold.js";
+
+// A text node with no edge run to keep, which is every caller but the
+// text case in src/print/inline.ts.
+const NO_EDGE_RUNS: KeptEdgeRuns = { leading: "", trailing: "" };
 
 // The `+` quantified form of ASCII_WHITESPACE, CAPTURED, so a split on
 // it keeps the run beside the words it separated: whether a run may
@@ -703,6 +708,38 @@ function endNodeAtoms(atoms: Atom[], escapeTrailingPlus: boolean): void {
 }
 
 /**
+ * Give the node's kept EDGE runs the only place they can stand: inside
+ * the atom at each end, where the packer's join can no longer rewrite
+ * them.
+ *
+ * The atoms are otherwise finished, so no rule above has read a word
+ * with the run's bytes on it. That is the point: the runs are
+ * whitespace the source wrote OUTSIDE every word, and the packing
+ * decisions - which word may open a line, which may end one - are
+ * about the words.
+ * @param atoms - the node's finished atoms.
+ * @param runs - the bytes to keep at each end; empty where the fold is
+ *   safe.
+ * @returns the same atoms, with the runs riding at the two ends.
+ */
+function withEdgeRuns(atoms: Atom[], runs: KeptEdgeRuns): Atom[] {
+  // Every text node in every document asks, and almost none has a run
+  // to keep: measured at about 5% of format time to rebuild the atoms
+  // for nothing.
+  if (runs.leading === "" && runs.trailing === "") {
+    return atoms;
+  }
+  const last = atoms.length - 1;
+  return atoms.map((atom, index) => ({
+    ...atom,
+    text:
+      (index === 0 ? runs.leading : "") +
+      atom.text +
+      (index === last ? runs.trailing : ""),
+  }));
+}
+
+/**
  * Convert a text node's word list into atoms. Three safety mechanisms
  * prevent reflow from creating syntax:
  * 1. Words dangerous at line START are fused onto their
@@ -747,6 +784,11 @@ function endNodeAtoms(atoms: Atom[], escapeTrailingPlus: boolean): void {
  *   ({@link keepContinuationLine}). Defaults to false, which leaves
  *   every `+` to the ordinary line-end rule — the right answer for
  *   callers that cannot say where the word sat.
+ * @param options.edgeRuns - The bytes of the node's own EDGE runs that
+ *   may not fold, which stand outside every word and so ride on the
+ *   first and last atom instead ({@link KeptEdgeRuns},
+ *   src/print/whitespace-fold.ts). Defaults to none, the answer for
+ *   every caller that has no node edges to speak of.
  * @returns The node's atoms, in order.
  */
 export function wordsToAtoms(
@@ -755,12 +797,14 @@ export function wordsToAtoms(
     escapeTrailingPlus?: boolean;
     firstLineWordCount?: number;
     opensWithContinuationLine?: boolean;
+    edgeRuns?: KeptEdgeRuns;
   },
 ): Atom[] {
   const {
     escapeTrailingPlus = true,
     firstLineWordCount = words.length,
     opensWithContinuationLine = false,
+    edgeRuns = NO_EDGE_RUNS,
   } = options ?? {};
   const atoms: Atom[] = [];
   let glueNext = false;
@@ -783,7 +827,7 @@ export function wordsToAtoms(
   }
   keepContinuationLine(atoms, opensWithContinuationLine);
   endNodeAtoms(atoms, escapeTrailingPlus);
-  return atoms;
+  return withEdgeRuns(atoms, edgeRuns);
 }
 
 // ── The kept break ─────────────────────────────────────────

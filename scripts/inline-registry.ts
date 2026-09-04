@@ -452,6 +452,17 @@ const PAIR_JOINS: ReadonlyArray<{
   // decide whether a pair reaches across it, where the oracle's own
   // quote pass runs on a line the comment never interrupted.
   { id: "comment", glue: "\n// c\n" },
+  // A REPLACEMENT standing between the two members, with the tabs that
+  // refuse it. This is the one join that is itself a construct, and it
+  // is a join rather than a third member because the class it spells
+  // is "a construct on each side of the reference": the em-dash row
+  // (`(?: |\n|^|\\)--(?: |\n|$)`, asciidoctor.rb l.498) reads the one
+  // character beside the dashes, both of those characters here sit at
+  // an inline NODE boundary, and folding either of them is what turns
+  // the tabbed spelling into the replacement (issue #145). The pair
+  // product supplies the constructs; nothing else in either grid can
+  // put one on both sides of a reference.
+  { id: "tab-dash", glue: "\t--\t" },
 ];
 
 /** The pair joins' ids, for the census's roster rule. */

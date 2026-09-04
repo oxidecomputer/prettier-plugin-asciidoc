@@ -498,6 +498,13 @@
   },
   {
     "file": "src/parse/line-shapes.ts",
+    "symbol": "ASCII_WHITESPACE",
+    "importer": "src/print/whitespace-fold.ts",
+    "kind": "vocabulary",
+    "reason": "Ruby's `\\s`, so the run at a text node's EDGE is cut in the same dialect splitWords cuts the runs inside it; a no-break space there is content, and the em-dash row never reads one as its boundary (issue #75)"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
     "symbol": "ATTRIBUTE_CONTINUATION",
     "importer": "src/parse/lines/classify.ts",
     "kind": "vocabulary",
