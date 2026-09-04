@@ -462,14 +462,20 @@ gates over it are tiered by wall time:
 - DEFAULT tier, in `bun run test` (`tests/conformance/registry-sweep.test.ts`):
   the standing grid crossed with every byte operator, 29,229 rows in about 8 s,
   which is roughly 2.5 s of added suite wall time because vitest runs it beside
-  everything else. Pinned to `tests/conformance/registry-sweep-quarantine.json`
-  one entry per failing row, 281 of them today.
+  everything else. Pinned to `tests/conformance/registry-sweep-quarantine.json`,
+  one entry per failing row.
 - DEEP tier, in `bun run test:deeply-nested-lists`
   (`tests/conformance/registry-sweep.deep.test.ts`): both grids under every byte
   operator, 613,293 rows in two minutes on its own and a little over three
   sharing the runner. Pinned to
-  `tests/conformance/registry-sweep-deep-manifest.json`, 22,239 failing rows in
-  49 clusters today.
+  `tests/conformance/registry-sweep-deep-manifest.json`, failing rows grouped
+  into clusters.
+
+`bun run registry-sweep-triage` (no `--write`) sweeps both tiers without
+touching either file and prints the current totals on its first line - rows
+swept, rows failing, clusters, and the default-tier slice of each - which is
+where to read today's count for both manifests above; a number copied into this
+prose would just go stale the next time either file regenerates.
 
 Both pins are exact in both directions, so a coordinate that starts failing
 fails the gate AND a pinned coordinate that gets fixed fails it too, until its
@@ -572,14 +578,19 @@ Two gates over it, tiered by wall time:
   contention, while the suite's own wall time moves by under a second, because
   the line registry's default tier is the longer pole; both figures move with
   machine load. Pinned to `tests/conformance/inline-sweep-quarantine.json`, one
-  entry per failing row, 18 of them today.
+  entry per failing row.
 - DEEP tier, in `bun run test:deeply-nested-lists`
   (`tests/conformance/inline-sweep.deep.test.ts`): that grid under every byte
   operator, plus the whole pair product - any two alphabet members standing in
   ONE inline run, joined adjacently, by a space, by a bracket pair, across a
   kept comment line or across a tabbed em-dash spelling. 474,908 rows in about
   two minutes. Pinned to `tests/conformance/inline-sweep-deep-manifest.json`,
-  190 failing rows in 13 clusters today.
+  failing rows grouped into clusters.
+
+`bun run inline-sweep-triage` (no `--write`) sweeps both tiers without touching
+either file and prints the current totals on its first line, the same way
+`registry-sweep-triage` does - see above for what each field means and where it
+lands in these two manifests.
 
 The byte operators are `scripts/shape-registry-byte-operators.ts`, not a second
 set: the ingest bytes Asciidoctor erases are one vocabulary. They are a
@@ -725,13 +736,16 @@ regenerate both whenever the ORACLE PIN or the PARSER moves, and read the diff.
 
 **Two family prefixes, and the split is not cosmetic.** `gap:*` means our model
 is wrong or incomplete - a real conformance gap, mapped to an issue, which must
-shrink (341 corpus documents today). `oracle:*` means the oracle RESOLVED
-something a formatter must not resolve - a conditional, an attribute value, a
-doctype's semantics - and is permanent by design (71 documents). Without the
-split the corpus ledger reads as 412 bugs when 71 of its rows are statements
-about what a formatter is. `oracle:*` rows are ledgered rather than excluded on
-purpose: an exclusion rule is a silent filter that can grow, whereas 71 rows
-with a stated family are reviewable.
+shrink. `oracle:*` means the oracle RESOLVED something a formatter must not
+resolve - a conditional, an attribute value, a doctype's semantics - and is
+permanent by design. Without the split the corpus ledger would read as one pile
+of bugs when a real share of its rows are statements about what a formatter is,
+not gaps to close. `oracle:*` rows are ledgered rather than excluded on purpose:
+an exclusion rule is a silent filter that can grow, while a stated family is
+reviewable. `bun run block-structure` prints both counts on its
+`corpus families:` line every run; they are not repeated here because they move
+whenever the ledger is regenerated and a written-down copy would just go stale,
+the way one already had.
 
 **Floors and exit codes.** Exit 1 when a ledger gate fails: an unknown family, a
 stale entry, a case that no longer diverges, a signature that moved, a diverging

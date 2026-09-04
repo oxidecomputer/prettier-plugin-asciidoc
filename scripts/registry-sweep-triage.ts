@@ -85,11 +85,17 @@ const defaultFailures = failures.filter((failure) =>
   defaultIds.has(failure.id),
 );
 
+const clusters = clusterFacts(failures);
+
+// The counts docs/harnesses.md points readers at instead of printing
+// its own copy: rows.length/failures.length are the deep manifest's
+// current row total, clusters.size its current cluster count, and
+// defaultFailures.length the default-tier quarantine's current entry
+// count - the same three numbers `--write` would commit.
 console.log(
-  `${String(rows.length)} rows (${String(defaultIds.size)} default tier), ${String(failures.length)} failing (${String(defaultFailures.length)} default tier).\n`,
+  `${String(rows.length)} rows (${String(defaultIds.size)} default tier), ${String(failures.length)} failing in ${String(clusters.size)} clusters (${String(defaultFailures.length)} default tier).\n`,
 );
 
-const clusters = clusterFacts(failures);
 printClusters(clusters, (line) => {
   console.log(line);
 });
