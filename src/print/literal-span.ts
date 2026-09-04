@@ -39,7 +39,7 @@ import {
  *
  * `+`-escaping never applies here: `literalInterior` is only true
  * inside a span (`cursor.enclosing` is always set), and the ordinary
- * path's own `trailingPlusPolicy` (inline.ts) already disables the
+ * path's own `trailingPlusPolicy` (text-edges.ts) already disables the
  * escape there - the closing mark follows the word in the output, so
  * a trailing `+` can never end a line bare.
  * @param out - the block's atoms so far (mutated).

@@ -192,3 +192,66 @@ describe("a run beside a lone `--` keeps its bytes at a span edge", () => {
     await expectByteFaithful(input);
   });
 });
+
+/**
+ * Issue #149: the dashes the printer cannot see, because they are an
+ * attribute's VALUE.
+ *
+ * `NORMAL_SUBS` substitutes attributes before the replacement pass
+ * (`[:specialcharacters, :quotes, :attributes, :replacements,
+ * :macros, :post_replacements]`, substitutors.rb l.16), so `{d}` is
+ * already `--` when the em-dash row reads its boundaries. No rule
+ * over the printer's own runs can see that: the dashes stand in no
+ * text node at all.
+ *
+ * So the refusal is about the NEIGHBOUR and not about the bytes: a
+ * run beside an attribute reference keeps what the author wrote,
+ * because what the reference expands to is not a fact this tree
+ * holds. It costs the author's own bytes where the value spells no
+ * dashes and no render anywhere.
+ */
+describe("a run beside an attribute reference keeps its bytes", () => {
+  test.each([
+    ["a run on each side", ":d: --\n\nSee a\t{d}\tb now.\n"],
+    ["a run behind the reference", ":d: --\n\nSee a {d}\tb now.\n"],
+    ["a run in front of it", ":d: --\n\nSee a\t{d} b now.\n"],
+    ["the reference opens the block", ":d: --\n\n{d}\tb now.\n"],
+    // The reference ENDS the block, so the run in front of it is the
+    // only boundary the row can read: the fold spells `See a --` at
+    // the end of a line, which the row's `$` accepts.
+    ["the reference ends the block", ":d: --\n\nSee a\t{d}\n"],
+    // The value spells no dashes at all, and the run is kept anyway:
+    // the printer does not model attribute values, so the refusal
+    // reads the neighbour and stops. Bytes, and only the author's.
+    ["a value that is not the dashes", ":d: xy\n\nSee a\t{d}\tb now.\n"],
+  ])("%s", async (_name, input) => {
+    await expectByteFaithful(input);
+  });
+
+  // The node in FRONT of the run is the one the refusal reads, and at
+  // the head of a span's content there is none. A span's first child
+  // sits at index 0 among its siblings, where reading "one before"
+  // off the end of the array answers with the span's LAST child - a
+  // node that stands nowhere near the run. Here that last child is
+  // the reference, and the run in front of `x` folds like the prose
+  // run it is.
+  test("a reference behind the run is not the node in front of it", async () => {
+    const input = ":d: --\n\n__\tx {d}__\n";
+    const output = await formatAdoc(input);
+    expect(output).toBe(":d: --\n\n__ x {d}__\n");
+    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(output)).toBe(output);
+  });
+
+  // A run BEHIND the reference at the end of a line is the reader's,
+  // not the printer's: `prepare_lines` rstrips it (reader.rb l.582)
+  // before any pass reads it, so the row sees `$` beside the dashes
+  // whether the printer writes the bytes or not.
+  test("a run the reader has already rstripped is nobody's to keep", async () => {
+    const input = ":d: --\n\nSee {d}\t\n";
+    const output = await formatAdoc(input);
+    expect(output).toBe(":d: --\n\nSee {d}\n");
+    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(output)).toBe(output);
+  });
+});

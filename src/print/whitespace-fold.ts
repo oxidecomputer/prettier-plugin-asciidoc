@@ -16,6 +16,7 @@
  * question about the runs at a text node's EDGES, which no splitter
  * sees ({@link keptLeadingRun} and {@link keptTrailingRun}).
  */
+import type { InlineNode } from "../ast.js";
 import { ASCII_WHITESPACE } from "../parse/line-shapes.js";
 
 // The em-dash replacement row, `(?: |\n|^|\\)--(?: |\n|$)`
@@ -97,6 +98,33 @@ function runOpensEmDash(run: string, next: string): boolean {
   return run !== "" && next === EM_DASH && !ROW_BOUNDARY.has(run.slice(-1));
 }
 
+/**
+ * Whether a node can spell the dashes WITHOUT holding their bytes -
+ * an attribute reference, and only that.
+ *
+ * `NORMAL_SUBS` substitutes attributes before the replacement pass
+ * (`[:specialcharacters, :quotes, :attributes, :replacements,
+ * :macros, :post_replacements]`, substitutors.rb l.16), so `{d}` is
+ * already whatever `:d:` was set to by the time the em-dash row reads
+ * its boundaries: with `:d: --` in the header, `See a<TAB>{d}<TAB>b`
+ * renders literal dashes and `See a {d} b` renders an em dash. The
+ * dashes stand in no text node at all, so no rule over the printer's
+ * own runs can see the hazard (issue #149).
+ *
+ * The answer is therefore about the NEIGHBOUR and not about its
+ * value: this tree does not model what a reference expands to, and
+ * asking would mean resolving the document's attributes at print
+ * time. Refusing the fold beside one costs the author's own bytes
+ * where the value spells no dashes, and no render anywhere - the same
+ * trade span-edges.ts already makes when it refuses to read a
+ * reference inside a span's edge run.
+ * @param node - the neighbour, or undefined where there is none.
+ * @returns true when the node's rendered bytes are not in the tree.
+ */
+function hidesItsBytes(node: InlineNode | undefined): boolean {
+  return node?.type === "attributeReference";
+}
+
 // A text node's own EDGE runs: the whitespace in front of its first
 // word and the whitespace behind its last. `cutValue`
 // (src/print/reflow.ts) drops both, because neither stands BETWEEN
@@ -154,28 +182,34 @@ function edgeRun(value: string, edge: RegExp): string {
  * `--` and no edge question arises. Only dashes that reach a node
  * boundary are asked about here.
  *
- * The MIRRORED half of each edge is a FIXED POINT and is not asked.
- * It would need the node before this one to end with the bare dashes,
- * or the node after it to begin with them, and one node does spell
- * exactly that: a character reference, whose value IS `--` (`a -- b`
- * reads as the text `a `, the reference, and the text ` b`). But such
- * a node exists only where the row ALREADY matched, and the row
- * matches only over a space or a newline - so the character the fold
- * would rewrite on that side is already one of them, and rewriting it
- * can neither arm the row nor disarm it. `a  --  b` keeps a
- * two-character run whose adjacent character is a space either way.
- * A passthrough is the other construct that can spell the dashes
- * alone, and there Asciidoctor exempts its content from the
+ * The MIRRORED half of each edge is asked of the NEIGHBOUR, because
+ * three nodes can spell the bare dashes and only two of them are
+ * fixed points. A character reference whose value IS `--` (`a -- b`
+ * reads as the text `a `, the reference, and the text ` b`) exists
+ * only where the row ALREADY matched, and the row matches only over a
+ * space or a newline - so the character the fold would rewrite on
+ * that side is already one of them, and rewriting it can neither arm
+ * the row nor disarm it. `a  --  b` keeps a two-character run whose
+ * adjacent character is a space either way. A passthrough is the
+ * second, and there Asciidoctor exempts its content from the
  * replacement pass (measured: `a<TAB>+++--+++<TAB>b` and
- * `a +++--+++ b` both render the dashes literally).
+ * `a +++--+++ b` both render the dashes literally). The third is an
+ * ATTRIBUTE REFERENCE, which is neither: its value is substituted
+ * before the replacement pass runs and is not in this tree at all
+ * ({@link hidesItsBytes}, issue #149).
  * @param value - the node's raw source text.
  * @param words - its words, as `splitWords` produced them; non-empty.
- * @param gluedInFront - whether the join in front of the node is
- *   already a glue: the printer writes nothing at all between the
- *   previous node's last byte and this node's first atom, so the run
- *   can ride at the front of that atom and stand where the source put
- *   it. Under any other join the printer writes its own space or its
- *   own break there and the bytes have nowhere to go.
+ * @param gluedInFront - whether the run has anything to ride against:
+ *   the join in front of the node is a glue AND something is already
+ *   written for it to ride on, which is a previous atom at block
+ *   level and the opening mark at the head of a span's content
+ *   (issue #147). The printer then writes nothing at all between that
+ *   byte and this node's first atom, so the run can stand where the
+ *   source put it; under any other join the printer writes its own
+ *   space or its own break there and the bytes have nowhere to go.
+ * @param inFront - the inline sibling standing in front of the node,
+ *   or undefined where there is none. Read for the mirrored half
+ *   above, and for nothing else.
  * @returns the bytes to keep, or the empty string where the fold is
  *   safe.
  */
@@ -183,12 +217,16 @@ export function keptLeadingRun(
   value: string,
   words: readonly string[],
   gluedInFront: boolean,
+  inFront: InlineNode | undefined,
 ): string {
   if (!gluedInFront) {
     return "";
   }
   const run = edgeRun(value, LEADING_RUN);
-  return runOpensEmDash(run, words[0]) ? run : "";
+  const kept =
+    runOpensEmDash(run, words[0]) ||
+    (hidesItsBytes(inFront) && runClosesEmDash(EM_DASH, run));
+  return kept ? run : "";
 }
 
 /**
@@ -197,20 +235,17 @@ export function keptLeadingRun(
  * states the rule.
  * @param value - the node's raw source text.
  * @param words - its words, as `splitWords` produced them; non-empty.
- * @param followed - whether an inline sibling follows the node among
- *   its own siblings. Two different things stand behind a node that
- *   has none, and neither can carry the run's bytes. It may END the
- *   block, where the run is the last line's trailing whitespace and
- *   the reader's own rstrip takes it (`prepare_lines`, reader.rb
- *   l.582), so the row reads `$` beside the dashes whether the run
- *   folds or not. Or it may be the LAST CHILD OF A SPAN, where the
- *   closing mark stands behind the run and the line goes on: there
- *   the fold does change the row (`**a --<TAB>** b` comes out
- *   `**a -- ** b`, an em dash inside the strong element), and keeping
- *   the bytes is still refused because content whitespace at a span's
- *   edge arms the constrained respelling the oracle then rejects.
- *   That is the trailing half of the family issue #147 states on the
- *   leading side, and it needs the same fix there.
+ * @param followed - whether anything stands behind the run that can
+ *   carry its bytes: an inline sibling among the node's own siblings,
+ *   or the closing mark of the span this node is the last child of
+ *   (issue #147), which is written flush onto the content it
+ *   encloses. A node with neither ENDS the block, where the run is
+ *   the last line's trailing whitespace and the reader's own rstrip
+ *   takes it (`prepare_lines`, reader.rb l.582), so the row reads `$`
+ *   beside the dashes whether the run folds or not.
+ * @param behind - the inline sibling standing behind the node, or
+ *   undefined where there is none. Read for the mirrored half
+ *   {@link keptLeadingRun} states, and for nothing else.
  * @returns the bytes to keep, or the empty string where the fold is
  *   safe.
  */
@@ -218,13 +253,17 @@ export function keptTrailingRun(
   value: string,
   words: readonly string[],
   followed: boolean,
+  behind: InlineNode | undefined,
 ): string {
   if (!followed) {
     return "";
   }
   const [last] = words.slice(-1);
   const run = edgeRun(value, TRAILING_RUN);
-  return runClosesEmDash(last, run) ? run : "";
+  const kept =
+    runClosesEmDash(last, run) ||
+    (hidesItsBytes(behind) && runOpensEmDash(run, EM_DASH));
+  return kept ? run : "";
 }
 
 // The bracket spellings a checklist prefix opens with that survive a

@@ -59,9 +59,11 @@ import {
 import { appendLiteralText, spanIsFlush } from "./literal-span.js";
 import { keptLeadingRun, keptTrailingRun } from "./whitespace-fold.js";
 import {
+  followingSibling,
   hasFollowingInlineSibling,
   hasPrecedingInlineSibling,
   leadingBoundary,
+  precedingSibling,
   trailingPlusPolicy,
 } from "./text-edges.js";
 
@@ -283,7 +285,12 @@ function appendText(
   // says the run has somewhere to go (issue #147).
   const gluedInFront =
     (out.length > 0 || cursor.enclosing !== undefined) && boundary === "glue";
-  const leading = keptLeadingRun(node.value, words, gluedInFront);
+  const leading = keptLeadingRun(
+    node.value,
+    words,
+    gluedInFront,
+    precedingSibling(cursor),
+  );
   // The lead is computed BEFORE the atoms, because the trailing-`+`
   // policy reads it: a one-word node carrying a glue cannot reach a
   // line boundary, and a `+` that cannot reach one needs no escape.
@@ -305,6 +312,7 @@ function appendText(
     node.value,
     words,
     glueToSibling || cursor.enclosing !== undefined,
+    followingSibling(cursor),
   );
   const atoms = wordsToAtoms(words, {
     escapeTrailingPlus,

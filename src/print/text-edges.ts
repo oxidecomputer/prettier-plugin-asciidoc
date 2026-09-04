@@ -15,6 +15,7 @@
  * Split out of inline.ts, whose `max-lines` ceiling the edge rules
  * issue #147 added left no room in.
  */
+import type { InlineNode } from "../ast.js";
 import { isBlockSyntaxAtLineStart } from "./reflow.js";
 import type { Boundary, Cursor } from "./atom-join.js";
 
@@ -27,13 +28,41 @@ import type { Boundary, Cursor } from "./atom-join.js";
 const OWN_LINE_SIBLINGS = new Set(["rawLine"]);
 
 /**
+ * The node standing directly in FRONT of the one at `cursor`, or
+ * undefined at the head of the run.
+ *
+ * The index guard is the whole function: `at(-1)` reads the LAST
+ * element, so asking for "one before index 0" off a bare array
+ * answers with the node at the other end of the run - which is a
+ * neighbour of nothing. Spelled once, here, because two callers need
+ * the node itself and a third needs only whether there is one.
+ * @param cursor - where the node sits.
+ * @returns the preceding sibling, or undefined when there is none.
+ */
+export function precedingSibling(cursor: Cursor): InlineNode | undefined {
+  return cursor.index <= 0 ? undefined : cursor.siblings.at(cursor.index - 1);
+}
+
+/**
+ * The node standing directly BEHIND the one at `cursor`, or undefined
+ * at the end of the run. The mirror of {@link precedingSibling}, and
+ * it needs no guard: an index past the end is not an index from the
+ * end.
+ * @param cursor - where the node sits.
+ * @returns the following sibling, or undefined when there is none.
+ */
+export function followingSibling(cursor: Cursor): InlineNode | undefined {
+  return cursor.siblings.at(cursor.index + 1);
+}
+
+/**
  * Check whether the node at `cursor` is followed by a sibling
  * that participates in the same block packing.
  * @param cursor - where the node sits.
  * @returns True when an inline sibling directly follows.
  */
 export function hasFollowingInlineSibling(cursor: Cursor): boolean {
-  const next = cursor.siblings.at(cursor.index + 1);
+  const next = followingSibling(cursor);
   return next !== undefined && !OWN_LINE_SIBLINGS.has(next.type);
 }
 
@@ -46,10 +75,7 @@ export function hasFollowingInlineSibling(cursor: Cursor): boolean {
  * @returns True when an inline sibling directly precedes.
  */
 export function hasPrecedingInlineSibling(cursor: Cursor): boolean {
-  if (cursor.index <= 0) {
-    return false;
-  }
-  const previous = cursor.siblings.at(cursor.index - 1);
+  const previous = precedingSibling(cursor);
   return previous !== undefined && !OWN_LINE_SIBLINGS.has(previous.type);
 }
 
