@@ -4,9 +4,9 @@
  *
  * One module rather than a field on the perturbation table, because
  * the answer is not a property of the perturbation alone: the same
- * perturbation moves a `tablePipe` row for a reason no other kind's
- * row moves for, so the question needs both coordinates and the table
- * that answers it needs both. Splitting it out is also what keeps
+ * termination moves a `tablePipe` row for a reason no other kind's row
+ * moves for, so the question needs both coordinates and the table that
+ * answers it needs both. Splitting it out is also what keeps
  * scripts/shape-registry.ts under its `max-lines` ceiling, which it is
  * at exactly.
  *
@@ -22,6 +22,7 @@
 import {
   NO_OP_CONTINUATION_FAMILY,
   TABLE_DELIMITER_LENGTH_FAMILY,
+  TABLE_LAYOUT_FAMILY,
 } from "./parity-ledger.js";
 
 /** The delimiter kind whose rows the table print rules move. */
@@ -30,16 +31,32 @@ const TABLE_PIPE_KIND = "tablePipe";
 /**
  * The family a `tablePipe` coordinate takes, by perturbation.
  *
- * The three perturbations below are the ones where a container
- * swallows the opening delimiter, so the interior `|====` opens a
- * table of its own and its two delimiter lines take their shortest
- * safe spelling ({@link TABLE_DELIMITER_LENGTH_FAMILY}) - measured
- * over the realized grid, 2 rows at each of the three keys. A
- * `tablePipe` coordinate outside the map is expected byte-identical,
- * `trailing-plus-after-close` included: the `+` that perturbation
- * writes stopped moving bytes once the base carried the lone-`+` fix.
+ * TWO families and not one, because the table print rules move these
+ * rows for two different reasons and a family names the reason. Where
+ * the table the grid writes is ACCEPTED, its second row goes back on
+ * one line and the whole interior takes the normal form
+ * ({@link TABLE_LAYOUT_FAMILY}); where a container swallows the
+ * opening delimiter, the interior `|====` opens a table of its own
+ * and only its two delimiter lines take their shortest spelling
+ * ({@link TABLE_DELIMITER_LENGTH_FAMILY}). The two sets are exactly
+ * the perturbations below, measured over the realized grid: 19 rows
+ * at each of the five layout keys and 2 at each of the three
+ * delimiter keys.
+ *
+ * `trailing-plus-after-close` is in the LAYOUT set rather than taking
+ * the `no-op-continuation` family every other kind takes at that
+ * coordinate. The `+` it writes stopped moving bytes once the base
+ * carried the lone-`+` fix, so what moves in a `tablePipe` row there
+ * is the table interior like every other closed row, and a family
+ * naming the `+` would be excusing the right row for the wrong
+ * reason.
  */
 const TABLE_PIPE_FAMILIES: ReadonlyMap<string, string> = new Map([
+  ["closed", TABLE_LAYOUT_FAMILY],
+  ["terminator-trailing-ws", TABLE_LAYOUT_FAMILY],
+  ["closed-then-text-adjacent", TABLE_LAYOUT_FAMILY],
+  ["closed-no-final-newline", TABLE_LAYOUT_FAMILY],
+  ["trailing-plus-after-close", TABLE_LAYOUT_FAMILY],
   ["unterminated", TABLE_DELIMITER_LENGTH_FAMILY],
   ["unterminated-then-blank-text", TABLE_DELIMITER_LENGTH_FAMILY],
   ["longer-delimiter-inside", TABLE_DELIMITER_LENGTH_FAMILY],

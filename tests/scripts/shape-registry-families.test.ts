@@ -2,19 +2,19 @@
  * The standing grid's expected-diff family assignment
  * (`gridRowFamily`, scripts/shape-registry-families.ts).
  *
- * `shape-diff` is a differential run between two revisions: it needs
- * two checkouts and it is not part of `bun run test`, so nothing in
- * the suite would notice a family that names a perturbation the grid
- * does not generate. That failure is quiet in the worst way - a
- * renamed or mistyped key stops excusing the rows it was written for,
- * and the next differential run STOPS on rows that were meant to be
- * explained, far from the commit that broke it.
+ * `shape-diff` is a controller-side differential run: it needs two
+ * checkouts and it is not part of `bun run test`, so nothing in the
+ * suite would notice a family that names a perturbation the grid does
+ * not generate. That failure is quiet in the worst way - a renamed or
+ * mistyped key stops excusing the rows it was written for, and the
+ * next differential run STOPS on rows that were meant to be explained,
+ * far from the commit that broke it.
  *
  * Three claims, and each of them is a fact the differential run
  * assumes rather than checks: every family the grid cites is in the
  * closed enumeration, every perturbation the table names is one the
- * grid really generates, and no coordinate outside the table's sets
- * gained a family by accident.
+ * grid really generates, and no coordinate outside the table's two
+ * sets gained a family by accident.
  */
 import { describe, expect, test } from "vitest";
 import { LEDGER_FAMILIES } from "../../scripts/parity.js";
@@ -46,23 +46,22 @@ describe("the standing grid's family assignment", () => {
     }
   });
 
-  // NO DEAD KEY. Three perturbations are named, all for the delimiter
-  // respell; a typo in any of them leaves two and this row goes red
-  // in the commit that makes it rather than in a differential run
-  // nobody ran.
+  // NO DEAD KEY. Eight perturbations are named, five for the row
+  // consolidation and three for the delimiter respell; a typo in any
+  // of them leaves seven and this row goes red in the commit that
+  // makes it rather than in a differential run nobody ran.
   test("every perturbation the table names is one the grid generates", () => {
     const named = PERTURBATIONS.filter(
       (perturbation) =>
         gridRowFamily(TABLE_PIPE, perturbation.id) !== undefined,
     );
-    expect(named.length).toBe(3);
+    expect(named.length).toBe(8);
     expect(
-      named.every(
+      named.filter(
         (perturbation) =>
-          gridRowFamily(TABLE_PIPE, perturbation.id) ===
-          "table-delimiter-length",
-      ),
-    ).toBe(true);
+          gridRowFamily(TABLE_PIPE, perturbation.id) === "table-layout",
+      ).length,
+    ).toBe(5);
   });
 
   // The other twelve kinds keep exactly the answer the perturbation

@@ -445,10 +445,10 @@ const TABLE_NODE_FAMILY = "table-node";
  * images the base and head both hold are the author's - so an AST
  * diff at one of these ids is a real failure.
  *
- * Exported: the standing grid's `tablePipe` rows cite it where a
- * container swallows the opening delimiter and the interior `|====`
- * opens a table of its own (`TABLE_PIPE_FAMILIES`,
- * scripts/shape-registry-families.ts).
+ * Exported: the standing grid's `tablePipe` rows cite it wherever a
+ * container swallows the opening delimiter, so the interior `|====`
+ * opens a table of its own and only its delimiter lines move
+ * (`TABLE_PIPE_FAMILIES`, scripts/shape-registry-families.ts).
  */
 export const TABLE_DELIMITER_LENGTH_FAMILY = "table-delimiter-length";
 
@@ -485,9 +485,11 @@ const TABLE_CELL_COLUMN_INDEX_FAMILY = "table-cell-column-index";
  * is the wider of the two: the delimiter is respelled from the
  * interior this family produced.
  *
- * Not exported: no grid row cites it.
+ * Exported: the standing grid's `tablePipe` rows cite it wherever the
+ * grid's own table is accepted and its second row goes back on one
+ * line (`TABLE_PIPE_FAMILIES`, scripts/shape-registry-families.ts).
  */
-const TABLE_LAYOUT_FAMILY = "table-layout";
+export const TABLE_LAYOUT_FAMILY = "table-layout";
 
 /**
  * An accepted table whose rows do not all fit in the print width
