@@ -31,17 +31,6 @@
     "sha256": "c0f73cc6efe362dba09e1ba960cc227578d876c3d9dda54bbaee2fc2ea7a8f76",
     "issue": "UNTRIAGED"
   },
-  "pair/InlineUrl/RoleAttribute/adjacent/fidelity": {
-    "count": 4,
-    "examples": [
-      "pair/InlineUrl-alt-2/RoleAttribute-near-1/adjacent/item",
-      "pair/InlineUrl-alt-2/RoleAttribute-near-1/adjacent/para",
-      "pair/InlineUrl/RoleAttribute-near-1/adjacent/item",
-      "pair/InlineUrl/RoleAttribute-near-1/adjacent/para"
-    ],
-    "sha256": "5e4fe835fa87585c370175ecfe348429da8d2851cb1edb9946362793a7b061da",
-    "issue": "UNTRIAGED"
-  },
   "standing/CharacterReference/bare/fidelity": {
     "count": 45,
     "examples": [
@@ -244,15 +233,6 @@
       "InlineAnchor-near-0/reflow-edge/dlist-desc@trailing-ff"
     ],
     "sha256": "8c229e2f6cf98993d4a47aa0b38ee5522e9ee3336b9c0c761887ba71867ba337",
-    "issue": "UNTRIAGED"
-  },
-  "standing/InlineChar/bracketed/fidelity": {
-    "count": 2,
-    "examples": [
-      "InlineChar/bracketed/item@trailing-space",
-      "InlineChar/bracketed/item@trailing-space-first-line"
-    ],
-    "sha256": "217bbadf7a92b10d403c16d32a2efde529fe470a5228f5fa4ef78dbeffb5039c",
     "issue": "UNTRIAGED"
   },
   "standing/InlineMacro/reflow-edge/idempotency": {
