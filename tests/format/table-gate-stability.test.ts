@@ -26,6 +26,14 @@
  * hardest, because its rows are separated by blank lines wherever the
  * header verdict allows and a blank in the wrong place either forges a
  * header or is the `leading-runs` decline itself.
+ *
+ * COLUMN ALIGNMENT IS THE THIRD VALUE, and it asks the question about
+ * whitespace rather than about blank lines: the padding a row gains
+ * sits in front of the next cell's spec, so a re-read that took it
+ * for a cell spec instead of for discarded whitespace would move a
+ * spec into every row and could decline the table outright. The sweep
+ * is what says it does not, over every accepted table in the corpus
+ * and twice over.
  */
 import { describe, expect, test } from "vitest";
 import { loadCorpus } from "../conformance/loader.js";
@@ -34,12 +42,17 @@ import { scanTables } from "../parser/table-structure-scan.js";
 import { planTable } from "../../src/print/table-layout.js";
 
 /**
- * The styles the whole sweep is taken under: the default, where the
- * width chooses, and one cell per line whatever the width.
+ * The three styles the whole sweep is taken under: the default, where
+ * the width chooses; one cell per line whatever the width; and the
+ * default again with the columns padded out.
  */
 const VARIANTS: Array<[string, FormatOverrides | undefined]> = [
   ["the default row style", undefined],
   ["the cell style", { asciidocTableLayout: "cell" }],
+  [
+    "the row style with its columns aligned",
+    { asciidocTableAlignColumns: true },
+  ],
 ];
 
 /**
@@ -103,7 +116,7 @@ function frozenIn(
 }
 
 // The population, read ONCE: the gate takes no style, so which cases
-// hold an accepted table is the same list under either variant.
+// hold an accepted table is the same list under every variant.
 const CASES = loadCorpus()
   .flatMap((group) => group.cases)
   .filter((corpusCase) => acceptance(corpusCase.input).includes(true));

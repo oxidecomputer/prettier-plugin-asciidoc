@@ -52,7 +52,7 @@ export const asciidocOptions: SupportOptions = {
     category: "Global",
     default: false,
     description:
-      "Pad cell text so the separators line up. Applies only where rows are on one line, and is a no-op for a table holding a colspan or a rowspan.",
+      "Pad cell text so the separators line up. Applies only where rows are on one line, and is a no-op for a table holding a colspan or a rowspan. The layout is chosen from the unpadded rows and the padding is added afterwards, so an aligned table may exceed the print width its unaligned spelling fitted inside.",
   },
 };
 
@@ -65,17 +65,20 @@ export const asciidocOptions: SupportOptions = {
  * accident: a type published across a directory boundary carrying a
  * field nobody reads is what `scripts/metrics/unread-fields.ts` gates
  * against, and it gates on the crossing rather than on the
- * declaration, so a field can sit here unread only until the printer
- * first names the type. Column alignment is therefore NOT a field
- * yet - `asciidocTableAlignColumns` is registered above and resolved
- * by Prettier, and its field arrives here with the code that pads a
- * cell.
+ * declaration, so a field declared here that no printer reads fails
+ * `bun run metrics` as soon as `src/print/` names the type. All three
+ * below are read by the emission (src/print/table-layout.ts):
+ * `layout` and `printWidth` choose between the two spellings of an
+ * accepted table, and `alignColumns` decides whether the spelling that
+ * puts a row on one line pads that row's cell text.
  */
 export interface TableStyle {
   /** One recorded row per line, or one cell per line after the first row. */
   readonly layout: "row" | "cell";
   /** The width in force, which is what chooses a `"row"` table's real layout. */
   readonly printWidth: number;
+  /** Whether cell text is padded on the right so the separators line up. */
+  readonly alignColumns: boolean;
 }
 
 // The fields the printer reads, module-private: an exported type with
@@ -83,14 +86,15 @@ export interface TableStyle {
 interface TableOptionsSource {
   readonly printWidth: number;
   readonly asciidocTableLayout: "row" | "cell";
+  readonly asciidocTableAlignColumns: boolean;
 }
 
 /**
- * Renames the layout option and the print width into the printer's own
- * vocabulary. The ONE read of these fields: nothing in `src/print/`
- * reads `options.asciidocTable*` directly, so the printer has one view
- * of the style and there is no second place for a default to be
- * spelled.
+ * Renames the two table options and the print width into the printer's
+ * own vocabulary. The ONE read of these fields: nothing in
+ * `src/print/` reads `options.asciidocTable*` directly, so the printer
+ * has one view of the style and there is no second place for a default
+ * to be spelled.
  * @param options - the fields Prettier resolves for this run
  * @returns the printer's own table style
  */
@@ -98,5 +102,6 @@ export function tableStyle(options: TableOptionsSource): TableStyle {
   return {
     layout: options.asciidocTableLayout,
     printWidth: options.printWidth,
+    alignColumns: options.asciidocTableAlignColumns,
   };
 }

@@ -615,6 +615,105 @@ describe("the cell layout, and the width that chooses it", () => {
   });
 });
 
+/** Cell text padded so the separators line up, asked for by name. */
+const ALIGN = { asciidocTableAlignColumns: true } as const;
+
+/**
+ * The second knob: cell text padded on the right so every row's
+ * separators stand in the same columns.
+ *
+ * OFF BY DEFAULT, and the two arguments for that are recorded where
+ * the padding is written (src/print/table-layout.ts). Both are
+ * cosmetic risks rather than correctness ones: every row below is
+ * byte-exact, render-equal against its own input, and a fixed point,
+ * which is what `expectTableFormat` asserts.
+ *
+ * THE NO-OP ROWS each assert two things: the exact bytes, so the row
+ * is not a tautology, AND the equality with the unaligned run, which
+ * is the claim. Asserting only the second would pass on a build where
+ * alignment never ran at all.
+ */
+describe("cell text padded so the separators line up", () => {
+  test("alignment pads cell text so the separators line up", async () => {
+    await expectTableFormat(
+      "|===\n|a |bbbb\n\n|cccc |d\n|===\n",
+      "|===\n|a    |bbbb\n\n|cccc |d\n|===\n",
+      ALIGN,
+    );
+  });
+
+  // Padding goes on the RIGHT of a cell's text, in front of the next
+  // cell's spec, which is whitespace the parse discards: a spec that
+  // matched only whitespace returns the text in front of it rstripped
+  // (`parse_cellspec`, parser.rb:2511), and a psv cell's own text is
+  // stripped besides (`cell_text.strip`, table.rb:282). It never pads
+  // AFTER a separator, so no cell's leading whitespace moves and the
+  // literal-cell hazard cannot arise. The LAST cell of a row gains no
+  // padding, which is also why no padded line can rstrip into a
+  // delimiter and create a collision the guard would have to grow past.
+  test("no output line carries trailing whitespace under alignment", async () => {
+    const input = "|===\n|aaaa |b\n\n|c |d\n|===\n";
+    const expected = "|===\n|aaaa |b\n\n|c    |d\n|===\n";
+    await expectTableFormat(input, expected, ALIGN);
+    expect(expected.split("\n").every((line) => line === line.trimEnd())).toBe(
+      true,
+    );
+  });
+
+  // A span means the cells do not sit in a fixed column grid, so the
+  // aligned output is the unaligned one. ONE spec form carries both
+  // halves (`TableCellRepeat`'s `"span"` arm, src/ast.ts), which is
+  // what makes these two rows one rule: a COLSPAN puts one cell where
+  // two columns' text sits, and a ROWSPAN leaves the row below it
+  // short by the slots it reserved. Each row asserts the bytes, so it
+  // is not a tautology, AND the equality with the unaligned run, which
+  // is the claim. Neither is vacuous: both hold a first column whose
+  // cells differ in width, so a table without the span would pad.
+  test.each([
+    ["a colspan", '[cols="3*"]\n|===\n|a 2+|bbbb\n\n|cc |d |e\n|===\n'],
+    ["a rowspan", "|===\n|a |bbbb\n\n.2+|cccc |d\n|e\n|===\n"],
+  ])("a table with %s is not aligned", async (_name, input) => {
+    await expectTableFormat(input, input, ALIGN);
+    expect(await formatAdoc(input, ALIGN)).toBe(await formatAdoc(input));
+  });
+
+  test("alignment is a no-op under the cell layout", async () => {
+    const input = "|===\n|a |bbbb\n\n|cccc |d\n|===\n";
+    const both = { ...CELL, ...ALIGN } as const;
+    await expectTableFormat(input, "|===\n|a |bbbb\n\n|cccc\n|d\n|===\n", both);
+    expect(await formatAdoc(input, both)).toBe(await formatAdoc(input, CELL));
+  });
+
+  // THE PADDING MAY PUSH A TABLE PAST `printWidth`, and this row is
+  // where that is written down as bytes. Every row of this table
+  // measures 44 columns unaligned and fits the width of 50; padding
+  // column 0 out to 41 takes the second row to 83. Accepted rather
+  // than guarded, because a guard is the oscillation `chooseLayout`
+  // (src/print/table-layout.ts) refuses: padding that fed back into
+  // the layout choice would widen a row, flip the layout, and turn
+  // itself off again. Byte-exact, render-equal and a fixed point all
+  // the same, which is what makes exceeding the width a cost rather
+  // than a defect.
+  test("padding may push an accepted table past the print width", async () => {
+    const long = "a".repeat(40);
+    const tall = "d".repeat(40);
+    const input = `|===\n|${long} |b\n\n|c |${tall}\n|===\n`;
+    const expected = `|===\n|${long} |b\n\n|c${" ".repeat(39)} |${tall}\n|===\n`;
+    await expectTableFormat(input, expected, { ...ALIGN, printWidth: 50 });
+    // Every character here is ASCII, so a code unit is a column.
+    expect(Math.max(...expected.split("\n").map((line) => line.length))).toBe(
+      83,
+    );
+  });
+  // Idempotent by construction as well as by measurement: the padding
+  // is stripped back off when the output is re-read, so the widths
+  // recompute identically.
+  test("an already-aligned table is a fixed point", async () => {
+    const input = "|===\n|a    |bbbb\n\n|cccc |d\n|===\n";
+    await expectTableFormat(input, input, ALIGN);
+  });
+});
+
 /**
  * One row per decline reason, each asserting that the table's interior
  * is the author's. These are the census's claims stated as bytes:

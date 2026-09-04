@@ -23,11 +23,12 @@
  * makes the emission total without an unreachable branch.
  *
  * NO KNOB REACHES THE GATE. {@link planTable} takes the table and
- * nothing else, so which tables are laid out is the same set under
- * either style value, and the census (tests/format/table-census.test.ts)
- * is a property of the corpus rather than of one option value. The
+ * nothing else, so which tables are laid out is the same set whatever
+ * the style asks for, and the census (tests/format/table-census.test.ts)
+ * is a property of the corpus rather than of any option value. The
  * style reaches the EMISSION alone, where it chooses between two
- * spellings of a table already accepted.
+ * spellings of a table already accepted and decides whether that
+ * table's cell text is padded out.
  *
  * PER TABLE, not per document. A document holding one declined table
  * still has its other tables laid out, so a reader can meet both
@@ -111,6 +112,16 @@ interface LaidOutPlan {
   readonly kind: "laidOut";
   /** The rows, in document order; empty for a table with no cells. */
   readonly rows: readonly PlannedRow[];
+  /**
+   * Whether the cells sit in a fixed column grid, which is what column
+   * alignment pads against.
+   *
+   * DECIDED AT GATE TIME rather than at the padding, because a
+   * {@link PlannedCell} deliberately carries no repeat: an emission
+   * that read one would have to re-read the node it was planned from,
+   * and the plan would stop being everything the emission may read.
+   */
+  readonly alignable: boolean;
 }
 
 /**
@@ -147,6 +158,9 @@ const SEPARATOR_OPENING = "separator";
 
 /** The style whose cells keep their own leading whitespace. */
 const LITERAL_STYLE = "literal";
+
+/** The repeat kind that carries a colspan and a rowspan both. */
+const SPAN_REPEAT = "span";
 
 /** The header verdict that emits no blank line after the first row. */
 const NO_HEADER = "none";
@@ -203,7 +217,35 @@ export function planTable(node: TableNode): TablePlan {
   if (grouping !== undefined) {
     return { kind: "replay", decline: grouping };
   }
-  return { kind: "laidOut", rows };
+  return { kind: "laidOut", rows, alignable: !hasSpan(node) };
+}
+
+/**
+ * Whether some cell's spec spans columns or rows, which is what takes
+ * the table out of a fixed column grid.
+ *
+ * ONE PREDICATE for both, because the `"span"` arm carries both halves
+ * (`N+`, `.M+` and `N.M+` all parse to one colspan and one rowspan,
+ * src/ast.ts): a colspan puts one cell where two columns' worth of
+ * text sits, and a rowspan leaves the row below it short by the slots
+ * `activate_rowspan` reserved (table.rb:713-716). Under either, the
+ * cell at index `i` of one row and the cell at index `i` of the next
+ * are not the same column, so there is no width to pad them to.
+ *
+ * A DUPLICATE (`3*|x`) is not one of these and does not decline
+ * alignment. It is one recorded cell standing for several of Ruby's,
+ * so the indexes on either side of it do drift - what the padding
+ * lines up is then the recorded cells rather than the rendered
+ * columns. That is a cosmetic difference and not a correctness one:
+ * padding only ever adds whitespace in front of the next cell's spec,
+ * which the parse discards (`parse_cellspec`, parser.rb:2511).
+ * @param node - the table to read
+ * @returns whether any cell spans columns or rows
+ */
+function hasSpan(node: TableNode): boolean {
+  return node.children.some((row) =>
+    row.children.some((cell) => cell.repeat.kind === SPAN_REPEAT),
+  );
 }
 
 /**
@@ -495,7 +537,7 @@ function rowVisits(row: TableRowNode, reserved: number[]): number {
   let visits = 0;
   for (const cell of row.children) {
     const { repeat } = cell;
-    if (repeat.kind === "span") {
+    if (repeat.kind === SPAN_REPEAT) {
       while (reserved.length < repeat.rowspan) {
         reserved.push(0);
       }
@@ -599,6 +641,14 @@ const SEPARATOR_PAD = "";
  */
 const SEPARATOR_PAD_BEFORE = " ";
 
+/**
+ * The one character column alignment pads with, and a third pad
+ * distinct from the two above it: this one goes at the END of a cell
+ * that is not its row's last, where the two above go between a spec
+ * and its separator and between a separator and its cell's text.
+ */
+const ALIGNMENT_PAD = " ";
+
 /** The emission that puts one recorded row on one source line. */
 const ROW_LAYOUT = "row";
 
@@ -642,6 +692,7 @@ const CELL_LAYOUT = "cell";
  * @param node - the table, read for its header verdict alone
  * @param plan - the accepted plan, whose rows are the emission
  * @param style - the style in force, which chooses between the two
+ *   spellings and decides whether the cells are padded
  * @returns the interior bytes, delimiter lines excluded, with no
  *   trailing line feed of their own
  */
@@ -651,10 +702,96 @@ export function printLaidOut(
   style: TableStyle,
 ): string {
   const layout = chooseLayout(plan.rows, style);
-  const headerBlank = blankAfterFirstRow(node);
+  const emission: Emission = {
+    layout,
+    headerBlank: blankAfterFirstRow(node),
+    widths: columnWidths(plan, layout, style),
+  };
   return plan.rows
-    .flatMap((row, index) => rowLines(row, index, layout, headerBlank))
+    .flatMap((row, index) => rowLines(row, index, emission))
     .join(LINE_FEED);
+}
+
+/**
+ * Everything one accepted table's emission decides ONCE, for the
+ * table rather than for a row: which spelling its rows take, where the
+ * header verdict puts a blank, and the widths its cells are padded out
+ * to. Grouped so that a row's own emission reads facts already
+ * settled and settles none of its own.
+ */
+interface Emission {
+  /** One row per line, or one cell per line after the first row. */
+  readonly layout: "row" | "cell";
+  /** Whether one blank line follows the first row. */
+  readonly headerBlank: boolean;
+  /**
+   * The width each cell but the last in its row is padded out to,
+   * indexed by the cell's position in its row, or undefined where
+   * nothing is padded at all. As long as the longest row when it is
+   * present, so a cell that is padded always has a width to reach
+   * ({@link columnWidths}).
+   */
+  readonly widths: readonly number[] | undefined;
+}
+
+/**
+ * The width each column is padded out to, or undefined where no cell
+ * is padded.
+ *
+ * OFF BY DEFAULT (`asciidocTableAlignColumns`, src/options.ts), and
+ * the two arguments the default rests on are these. Alignment is
+ * unavailable on every table the gate declines and on every table
+ * holding a span, so defaulting it on would leave one table in a file
+ * aligned and the next one not. And a one-character edit to a long
+ * cell re-pads that cell's whole column, so a one-word change reaches
+ * a diff as a change to every row of the table. And an aligned table
+ * may EXCEED the `printWidth` its unaligned spelling fitted inside,
+ * because the layout was chosen from the unpadded images and the
+ * padding is added afterwards; that is accepted rather than guarded,
+ * because a guard is the oscillation {@link chooseLayout} refuses -
+ * padding that fed back into the choice would widen a row, flip the
+ * layout, and turn itself off again. All three are COSMETIC costs
+ * rather than correctness ones - the padding is render-neutral and a
+ * fixed point either way - which is what makes this a question with
+ * two safe answers instead of a rule.
+ *
+ * APPLIED AFTER the layout choice, and only under `"row"`. Under the
+ * cell emission a row is not on one line and there is nothing to line
+ * up; and measuring the width BEFORE the padding is what stops the two
+ * from oscillating ({@link chooseLayout}).
+ *
+ * MEASURED IN COLUMNS, with the same `getStringWidth` the layout
+ * choice measures by, so a full-width character costs two here too.
+ * The same measure means the same blind spots, and the domain of the
+ * claim is what that function scores: a tab counts zero columns, so a
+ * cell holding one is padded by that count rather than to a rendered
+ * tab stop.
+ * @param plan - the accepted plan
+ * @param layout - the emission the style and the width settled on
+ * @param style - the style in force
+ * @returns one width per column index, as long as the longest row, or
+ *   undefined where nothing is padded
+ */
+function columnWidths(
+  plan: LaidOutPlan,
+  layout: "row" | "cell",
+  style: TableStyle,
+): readonly number[] | undefined {
+  if (!style.alignColumns || !plan.alignable || layout !== ROW_LAYOUT) {
+    return undefined;
+  }
+  const widths: number[] = [];
+  for (const row of plan.rows) {
+    for (const [index, cell] of row.cells.entries()) {
+      const width = util.getStringWidth(cellImage(cell));
+      if (index === widths.length) {
+        widths.push(width);
+      } else if (width > widths[index]) {
+        widths[index] = width;
+      }
+    }
+  }
+  return widths;
 }
 
 /**
@@ -672,18 +809,20 @@ export function printLaidOut(
  * so a full-width CJK character costs two and a combining mark costs
  * none. One tree, one answer to what a print width is.
  *
- * MEASURED ON THE UNALIGNED SPELLING, which is the spelling there is:
- * nothing pads cell text today. Column alignment arrives with the code
- * that reads it, and it has to be applied AFTER this choice rather
- * than before, or the two oscillate - alignment widens rows, a widened
- * row would flip the layout, and the flipped layout turns alignment
- * off again. Measuring here on the unaligned image is what makes that
- * order available.
+ * MEASURED ON THE UNALIGNED SPELLING, always, and column alignment
+ * ({@link columnWidths}) is applied AFTER this choice rather than
+ * before. The other order oscillates: alignment widens rows, a widened
+ * row flips the layout to `"cell"`, and the cell emission turns
+ * alignment off again. Measuring the unaligned image here is what
+ * makes this order the only one there is.
  *
- * A table MAY exceed `printWidth`, and does whenever its first row
- * alone is too wide, since the first row is never split
- * ({@link printLaidOut}). The width selects a LAYOUT; it never forces
- * a break inside a row.
+ * A table MAY exceed `printWidth`, TWO ways. Its first row alone can
+ * be too wide, and the first row is never split
+ * ({@link printLaidOut}); and column alignment ({@link columnWidths})
+ * pads after this choice was taken on the unpadded images, so a table
+ * whose every row fits can be pushed past the width by its own
+ * padding. The width selects a LAYOUT; it never forces a break inside
+ * a row, and it is not a promise about the emitted columns.
  * @param rows - the accepted plan's rows
  * @param style - the style in force
  * @returns which emission to write
@@ -715,23 +854,22 @@ function chooseLayout(
  * out on the next read.
  * @param row - the planned row
  * @param index - its position in the table, the first row being 0
- * @param layout - the emission in force
- * @param headerBlank - whether the first row is a header row, which is
- *   what puts a blank after it and in front of every row from the
- *   third onward
+ * @param emission - what the table settled: the spelling, the header
+ *   verdict's blank, and the widths the cells are padded out to
  * @returns the row's lines, in order, none with a line feed of its own
  */
 function rowLines(
   row: PlannedRow,
   index: number,
-  layout: "row" | "cell",
-  headerBlank: boolean,
+  emission: Emission,
 ): string[] {
+  const { layout, headerBlank, widths } = emission;
   if (index === 0) {
-    return headerBlank ? [rowImage(row), ""] : [rowImage(row)];
+    const first = rowImage(row, widths);
+    return headerBlank ? [first, ""] : [first];
   }
   if (layout === ROW_LAYOUT) {
-    return [rowImage(row)];
+    return [rowImage(row, widths)];
   }
   const cells = row.cells.map(cellImage);
   return index > 1 && headerBlank ? ["", ...cells] : cells;
@@ -761,12 +899,44 @@ function blankAfterFirstRow(node: TableNode): boolean {
 
 /**
  * One row as its source line: the cells, joined by the pad that keeps
- * every mid-line separator readable as one.
+ * every mid-line separator readable as one, each but the LAST padded
+ * out to its column's width where `widths` asks for it.
+ *
+ * PADDED ON THE RIGHT, in front of the next cell's spec, which is
+ * where the parse throws whitespace away: a spec position that matches
+ * nothing but whitespace hands back the text in front of it rstripped
+ * (`parse_cellspec`, parser.rb:2511), and a psv cell's own text is
+ * stripped besides ({@link cellStrip}). Nothing is ever padded AFTER a
+ * separator, so no cell's leading whitespace moves - which is the byte
+ * a literal cell would lose, and the reason this rule is stated as a
+ * direction rather than as a width.
+ *
+ * THE LAST CELL IS NEVER PADDED, and that is two facts rather than
+ * one. The PADDING puts no trailing whitespace on any line, so nothing
+ * here leans on Prettier's own trim at a hardline to take a pad back
+ * off again. That claim is narrower than "no line ends in whitespace",
+ * deliberately: a line ends with its last cell's text, and that text
+ * came through an ASCII-only strip (`cell_text.strip`, table.rb:282),
+ * so a cell ending in U+00A0 ends its line with one under either value
+ * of the option. And no padded line can rstrip INTO the delimiter that
+ * the length guard (src/print/table.ts) sizes against the interior it
+ * is handed, so alignment adds no collision of its own.
  * @param row - the planned row
+ * @param widths - the width each cell but the last is padded out to;
+ *   omitted, and undefined, where nothing is padded
  * @returns the line, with no line feed of its own
  */
-function rowImage(row: PlannedRow): string {
-  return row.cells.map(cellImage).join(SEPARATOR_PAD_BEFORE);
+function rowImage(row: PlannedRow, widths?: readonly number[]): string {
+  const last = row.cells.length - 1;
+  return row.cells
+    .map((cell, index) => {
+      const image = cellImage(cell);
+      return widths === undefined || index === last
+        ? image
+        : image +
+            ALIGNMENT_PAD.repeat(widths[index] - util.getStringWidth(image));
+    })
+    .join(SEPARATOR_PAD_BEFORE);
 }
 
 /**

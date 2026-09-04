@@ -116,17 +116,22 @@ describe("the plugin's own options", () => {
   // the literal is what a `PrintOptions` satisfies structurally once
   // the module augmentation gives the names their types.
   //
-  // ALIGNMENT IS NOT A FIELD, and this row is where that shows. The
-  // option is registered and Prettier resolves it, but the printer
-  // pads no cell yet, and a published field nothing reads is what
-  // `scripts/metrics/unread-fields.ts` fails on; the field arrives
-  // with the code that reads it.
+  // BOTH KNOBS ARE FIELDS, and both are read by the emission
+  // (src/print/table-layout.ts): a published field nothing reads is
+  // what `scripts/metrics/unread-fields.ts` fails on, so this literal
+  // going out of date in either direction is a gate failure and not
+  // only a red row here.
   test("the option read renames the knobs into the printer's vocabulary", () => {
     const style: TableStyle = tableStyle({
       printWidth: 80,
       asciidocTableLayout: "cell",
+      asciidocTableAlignColumns: true,
     });
-    expect(style).toEqual({ layout: "cell", printWidth: 80 });
+    expect(style).toEqual({
+      layout: "cell",
+      printWidth: 80,
+      alignColumns: true,
+    });
   });
 
   test("an option the caller never set arrives at its default", async () => {
