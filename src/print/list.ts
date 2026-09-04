@@ -15,8 +15,13 @@ import {
   rstrip,
 } from "../parse/line-shapes.js";
 import { inlineAtoms } from "./inline.js";
-import { hazard } from "./list-hazard.js";
-import { blockBody, keepTextOnFirstRestLine } from "./reflow.js";
+import { hazard, markerLineGuard } from "./list-hazard.js";
+import {
+  type Atom,
+  type BreakBefore,
+  blockBody,
+  keepTextOnFirstRestLine,
+} from "./reflow.js";
 import type { PrintFunction, PrintOptions, PrintPath } from "./blocks.js";
 
 const {
@@ -306,6 +311,13 @@ export function buildMarker(
   return node.markerSpelling;
 }
 
+// The two spellings Asciidoctor reads as a CHECKED box, and the one
+// the printer writes. `list_item.attributes['checked']` is set unless
+// the text opens `[ ` (parser.rb l.1332), so `[x]` and `[*]` are one
+// state to the reader and `[x]` is the canonical way back.
+const CHECKED_MARK = "[x]";
+const CHECKED_ALIAS = "[*]";
+
 /**
  * Formats a checklist checkbox into its canonical string
  * representation.
@@ -323,12 +335,72 @@ export function buildMarker(
  */
 export function formatCheckbox(checkbox: ListItemNode["checkbox"]): string {
   if (checkbox === "checked") {
-    return "[x] ";
+    return `${CHECKED_MARK} `;
   }
   if (checkbox === "unchecked") {
     return "[ ] ";
   }
   return "";
+}
+
+/**
+ * Respell a marker line's head as the reader will write it back.
+ *
+ * Only reached where the line is going to be read as a checked item
+ * whatever the printer does ({@link markerLineGuard}'s
+ * `canonicalHead`). The two checked spellings are one state to the
+ * reader, and the printer writes {@link CHECKED_MARK} for it, so a head
+ * left spelling {@link CHECKED_ALIAS} would be moved by the NEXT
+ * format - the same document, two spellings, neither of them a fixed
+ * point. Every other head already spells itself back: `[x]` is the
+ * canonical mark, and `[` then `]` is what `[ ] ` prints as.
+ * @param atoms - the item's atoms; its head is atoms[0].
+ * @returns the atoms, head canonical.
+ */
+function canonicalChecklistHead(atoms: readonly Atom[]): readonly Atom[] {
+  return atoms[0].text === CHECKED_ALIAS
+    ? atoms.with(0, { ...atoms[0], text: CHECKED_MARK })
+    : atoms;
+}
+
+/**
+ * The item's atoms with both reflow guards applied, in the order the
+ * two questions are answered.
+ *
+ * The first-rest-line guard runs first because it chooses which run
+ * opens the line UNDER the marker line, and it chooses the LAST one it
+ * can, to leave the most reflow intact. The marker-line guard then
+ * reads the atoms it produced: a break already demanded at the atom it
+ * would name means the line already ends there, and the guard says
+ * nothing further.
+ * @param node - the item node.
+ * @param parentList - the list the item belongs to.
+ * @param atoms - the item's atoms, straight from the inline printer.
+ * @param guard - what {@link hazard} answered for this item.
+ * @returns the atoms the block body is packed from.
+ */
+function guardedAtoms(
+  node: ListItemNode,
+  parentList: ListNode | undefined,
+  atoms: readonly Atom[],
+  guard: BreakBefore,
+): readonly Atom[] {
+  const held = guard === "none" ? atoms : keepTextOnFirstRestLine(atoms, guard);
+  const marker = markerLineGuard(node, parentList, held);
+  switch (marker.kind) {
+    case "asPacked": {
+      return held;
+    }
+    case "holdBreak": {
+      return held.with(marker.at, {
+        ...held[marker.at],
+        breakBefore: "hard",
+      });
+    }
+    case "canonicalHead": {
+      return canonicalChecklistHead(held);
+    }
+  }
 }
 
 /**
@@ -391,7 +463,7 @@ export function printListItem(
     " ",
     checkboxPrefix,
     ...blockBody(
-      guard === "none" ? atoms : keepTextOnFirstRestLine(atoms, guard),
+      guardedAtoms(node, parentList, atoms, guard),
       printWidth,
       markerWidth + checkboxWidth,
     ),

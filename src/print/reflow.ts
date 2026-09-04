@@ -565,13 +565,16 @@ function isDangerousAtLineEnd(word: string): boolean {
 /**
  * Whether the atom at `index` is fused to the one before it, and so
  * cannot start a line of its own.
+ *
+ * Read by anything that wants to DEMAND a break in front of an atom:
+ * a demand recorded on a fused atom is lifted to the front of its
+ * whole run ({@link runBreak}), which puts the line boundary somewhere
+ * else entirely. `markerLineGuard` (src/print/list-hazard.ts) asks it
+ * for exactly that reason.
  * @param atoms - the atoms built so far.
  * @param index - the atom to ask about.
  * @returns true when the three glue facts put it in its predecessor's
  *   run.
- * Exported for its unit test (tests/print/reflow.test.ts); no src
- * consumer.
- * @internal
  */
 export function isFused(atoms: readonly Atom[], index: number): boolean {
   if (index <= 0) {

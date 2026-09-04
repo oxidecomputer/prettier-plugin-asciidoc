@@ -457,13 +457,6 @@
   {
     "file": "src/parse/line-shapes.ts",
     "symbol": "ASCII_NON_WHITESPACE",
-    "importer": "src/parse/build/list.ts",
-    "kind": "vocabulary",
-    "reason": "Ruby's definition of blank content, so \"the item's text writes a line under its marker\" counts the same characters the reader's own rstrip leaves standing (issue #75)"
-  },
-  {
-    "file": "src/parse/line-shapes.ts",
-    "symbol": "ASCII_NON_WHITESPACE",
     "importer": "src/print/blocks.ts",
     "kind": "vocabulary",
     "reason": "Ruby's definition of blank content, so a comment or listing block holding only a no-break space is not read as empty the way JavaScript's wider trim() would read it (issue #75)"
@@ -607,6 +600,13 @@
     "importer": "src/parse/lines/classify.ts",
     "kind": "vocabulary",
     "reason": "registry pattern: the word shape that opens a dlist term, read by the classification pass so the paragraph scan can ask a predicate instead of a pattern"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "DLIST_SEPARATOR_WORD",
+    "importer": "src/print/list-hazard.ts",
+    "kind": "vocabulary",
+    "reason": "registry vocabulary: the word shape that opens a dlist term, so the marker-line guard refuses to hold a break in front of one and cannot invent the nested description list reflow's own guard exists to prevent"
   },
   {
     "file": "src/parse/line-shapes.ts",

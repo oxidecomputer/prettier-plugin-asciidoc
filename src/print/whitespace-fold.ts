@@ -84,13 +84,6 @@ export function foldChangesEmDash(
 const MARKED_BRACKETS = new Set(["[x]", "[*]"]);
 
 /**
- * The two ways a checklist prefix can be spelled across a whitespace
- * split. The arms differ in how many words the prefix spans, which is
- * what a caller holding words rather than bytes needs from it.
- */
-type ChecklistHead = "markedBracket" | "splitBracket";
-
-/**
  * Which checklist prefix a value's head would spell once its runs are
  * folded to spaces.
  *
@@ -116,7 +109,9 @@ type ChecklistHead = "markedBracket" | "splitBracket";
  * @returns which prefix the head would spell, or undefined for a head
  *   that spells none.
  */
-function checklistHead(words: readonly string[]): ChecklistHead | undefined {
+export function checklistHead(
+  words: readonly string[],
+): "markedBracket" | "splitBracket" | undefined {
   const [first, second] = words;
   if (words.length < 2) {
     return undefined;

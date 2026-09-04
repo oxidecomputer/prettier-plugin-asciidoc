@@ -361,19 +361,19 @@
     },
     {
       "file": "src/print/list-hazard.ts",
-      "what": "list-hazard.ts:111 `anchorLineShape(block) === \"anchor\"` -> `false`, and its `\"anchor\"` literal -> `\"\"` (2 mutants) in isRunMetadata",
+      "what": "list-hazard.ts:131 `anchorLineShape(block) === \"anchor\"` -> `false`, and its `\"anchor\"` literal -> `\"\"` (2 mutants) in isRunMetadata",
       "class": "never",
       "reason": "The twin of the block-metadata.ts:263 row above, on ground the same change made NARROWER. The disjunct can only decide for a block `isBlockMetadata` says no to - which since issue #46 shape 2 CAN be a paragraph answering `\"anchor\"`: one whose `[[id]]` tail is in the packer's word split but not in the reader's rstrip set (issue #67's set), which the reader leaves a paragraph and the printer emits as a live anchor. The old argument, that such a paragraph always answers `\"lookalike\"` since #53's faithful replay, no longer holds. What holds instead is weaker and is why the row survives as `never`: no item shape is known in which such a paragraph becomes an item BLOCK rather than folding into the item's text, so nothing reaches the disjunct to decide. Issue #73 records that search, and the same issue records that `isRunMetadata` judges an item's block by its UNINDENTED spelling, which is the other reason a live anchor line is not what the item prints. STALE MEASUREMENT, kept for the record: 0 blocks that are `\"anchor\"` without being block metadata, over the same 319,216 documents - a count that predates this change and whose generator carries no exotic whitespace. These two were killed before #53, when `anchorToSource` normalized `[[id,]]` to `[[id]]` and made that paragraph an anchor on re-read"
     },
     {
       "file": "src/print/list-hazard.ts",
-      "what": "list-hazard.ts:163 `!transparent` -> `true`, so the run keeps the line comments it reads through",
+      "what": "list-hazard.ts:177 `!transparent` -> `true`, so the run keeps the line comments it reads through",
       "class": "never",
       "reason": "EQUIVALENT. `run` has exactly two readers, `run.length === 0` and `run.some(blockTitle)`, and a line comment is no block title - so the two spellings can differ only for a leading adjacent run made of comments ALONE. That run cannot exist: a `//` line becomes a BLOCK of the item only once something else has already ended the item's text (until then `skip_line_comments` reads it through and the line after it continues the text), and that something is a block standing in front of the comment. Measured: 0 comments-only leading runs over 259,729 list items in the same 319,216 documents"
     },
     {
       "file": "src/print/list.ts",
-      "what": "list.ts:489 `gap.includes(\"+\")` -> `gap.includes(\"\")`",
+      "what": "list.ts:561 `gap.includes(\"+\")` -> `gap.includes(\"\")`",
       "class": "when",
       "reason": "The blank-run sweep class. The arm fires only when a nested list SHARES its parent's marker, and probing the reader for that shape shows it always arrives with an empty gap - a blank or a `+` in front of a same-marker line reads back as a SIBLING boundary (`* a\\n\\n  lit\\n[[anc]]\\n+\\n* a\\n` gives two items). With `gap === []` both spellings return `[]`. TRIGGER - the render-divergent sweep members are the distinguishing shapes; a byte+idempotence pin already guards the drop branch"
     },
@@ -385,19 +385,19 @@
     },
     {
       "file": "src/print/reflow.ts",
-      "what": "reflow.ts:763 `let glueNext = false` -> `true` in wordsToAtoms",
+      "what": "reflow.ts:766 `let glueNext = false` -> `true` in wordsToAtoms",
       "class": "never",
       "reason": "The initializer is read only on the first iteration, and there `fuseBackwards = index > 0 && (glueNext || ...)` short-circuits on `index > 0` before `glueNext` is looked at. Every later read sees the value the previous iteration assigned"
     },
     {
       "file": "src/print/reflow.ts",
-      "what": "keepContinuationLine's two entry guards (reflow.ts:657 `atoms.length === 0` -> `false`, reflow.ts:658 `atoms[0].text !== CONTINUATION_WORD` -> `false`)",
+      "what": "keepContinuationLine's two entry guards (reflow.ts:660 `atoms.length === 0` -> `false`, reflow.ts:661 `atoms[0].text !== CONTINUATION_WORD` -> `false`)",
       "class": "never",
       "reason": "EQUIVALENT by the caller's contract. `opensWithOne` is `opensWithContinuationLine(node)` (src/print/inline.ts), which is true only when the node starts at column 1 and its value STARTS with `\"+\\n\"` - so the word list is non-empty and its first word is exactly `+`, which is what the two guards re-check. The same fact is why the caller can push `atoms[0]` unconditionally one line later. Measured: 36,960 nodes the printer reads as continuation openers over 319,216 documents, 0 of them with a first word other than `+`"
     },
     {
       "file": "src/print/reflow.ts",
-      "what": "reflow.ts:664 `breakBefore: \"hard\"` -> `\"\"` in keepContinuationLine",
+      "what": "reflow.ts:667 `breakBefore: \"hard\"` -> `\"\"` in keepContinuationLine",
       "class": "never",
       "reason": "EQUIVALENT: `wrap` reads the field exactly twice, once as `!== \"none\"` (is there a forced break) and once as `=== \"literal\"` (does the line start at column 0 instead of the continuation indent). `\"\"` answers both questions the way `\"hard\"` does, so only the `\"literal\"` spelling is distinguishable at all"
     },

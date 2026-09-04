@@ -1,7 +1,23 @@
 /**
- * The reflow hazard of one list item - a PURE predicate over the
- * finished node, asked by the printer; three answers, and none of them
- * an invented continuation line.
+ * The reflow hazards of one list item, asked by the printer.
+ *
+ * Reflow packs an item's text onto its MARKER line, and that one move
+ * changes what stands on TWO lines the re-reader decides by. So there
+ * are two questions here, one per line. They are separate functions
+ * because they read different things and answer in different
+ * vocabularies:
+ *
+ * - {@link hazard} - what stands on the item's FIRST REST LINE. A PURE
+ *   predicate over the finished node; three answers, and none of them
+ *   an invented continuation line. Everything from here down to that
+ *   function is about this question.
+ * - {@link markerLineGuard} - whether the MARKER line itself would
+ *   read back as a checklist item the source did not write. It reads
+ *   the finished ATOMS rather than the node, because what the line
+ *   spells is a fact about the bytes the packer would place there,
+ *   and it answers with the move the printer must make.
+ *
+ * ── The first rest line ────────────────────────────────────
  *
  * ONE question, asked about ONE line: what stands on the item's FIRST
  * REST LINE - the line directly under the marker line. That line opens
@@ -83,15 +99,19 @@
  * verbatim), so a `+`-attached block is simply a FOLLOWER: it ends
  * the run and counts toward "a block follows".
  */
-import type { BlockNode, ListItemNode } from "../ast.js";
+import type { BlockNode, ListItemNode, ListNode } from "../ast.js";
 import {
   anchorLineShape,
   isBlockMetadata,
   isLineComment,
 } from "../block-metadata.js";
-import { LINE_COMMENT_HEAD } from "../parse/line-shapes.js";
+import {
+  DLIST_SEPARATOR_WORD,
+  LINE_COMMENT_HEAD,
+} from "../parse/line-shapes.js";
 import { hardBreakOwnsItsLine } from "./inline.js";
-import type { BreakBefore } from "./reflow.js";
+import { type Atom, type BreakBefore, isFused } from "./reflow.js";
+import { checklistHead } from "./whitespace-fold.js";
 
 /**
  * Whether a block is metadata a held-back run is made of: block
@@ -311,4 +331,145 @@ function metadataRunNeedsBreak(item: ListItemNode): BreakBefore {
     return "hard";
   }
   return run.some((block) => block.type === "blockTitle") ? "hard" : "none";
+}
+
+// ── The marker line ────────────────────────────
+
+/**
+ * What the printer must do about an item's MARKER LINE, so the line
+ * reads back the way the source's own first line read.
+ *
+ * Three answers, because the printer has three moves and not two: the
+ * line is already right, the break can be held, or the line will read
+ * as a checklist item whatever the printer does and the only thing
+ * left to get right is the SPELLING of that reading.
+ */
+type MarkerLineGuard =
+  | {
+      /** The line reads as the source's did; nothing to do. */
+      readonly kind: "asPacked";
+    }
+  | {
+      /** Hold a break in front of the atom at `at`. */
+      readonly kind: "holdBreak";
+      /** The atom whose join becomes a mandatory break. */
+      readonly at: number;
+    }
+  | {
+      /**
+       * The line spells a prefix and no break can stop it, so its head
+       * must be spelled the way the re-read writes that prefix back.
+       */
+      readonly kind: "canonicalHead";
+    };
+
+/** The one answer with no payload, built once. */
+const AS_PACKED: MarkerLineGuard = { kind: "asPacked" };
+
+/**
+ * Whether a break demanded in front of the atom at `index` would land
+ * on a line the reader takes for something other than the item's text.
+ *
+ * TWO questions, and they are asked separately because only one of
+ * them is already recorded on the atom:
+ *
+ * - BLOCK SYNTAX at a line start is recorded. `wordsToAtoms` fuses
+ *   such a word onto its predecessor, and the text case does the same
+ *   across a node boundary (`leadingBoundary`, src/print/inline.ts),
+ *   so `isFused` IS that answer and re-deriving it here would make a
+ *   second source of truth for it. A demand recorded on a fused atom
+ *   would also be lifted to the front of its whole run (`runBreak`,
+ *   src/print/reflow.ts), landing in front of the bracket rather than
+ *   behind it, which spells the same marker line again.
+ * - A DESCRIPTION-LIST separator word is not. `wordsToAtoms` marks one
+ *   only where it came from a later source line
+ *   (`index >= firstLineWordCount`), because that is the only way the
+ *   FOLD can move one onto the block's first line - and there the mark
+ *   is a demanded break this function then reads as `breakBefore`. A
+ *   separator word from the item's own first line carries no mark at
+ *   all, and a break held in front of it is this function inventing
+ *   the very move the mark exists to prevent: `* [x]<TAB>a:: b` would
+ *   print `a:: b` on a line of its own, where it re-reads as a nested
+ *   description list.
+ *
+ * The rule the second case violates is `wrap`'s own
+ * (src/print/reflow.ts): a demanded break that is not the author's own
+ * line boundary is not exempt from the hazard.
+ * @param atoms - the item's atoms.
+ * @param index - the atom a break would be demanded in front of.
+ * @returns true when that break may not be demanded.
+ */
+function refusesTheBreak(atoms: readonly Atom[], index: number): boolean {
+  return isFused(atoms, index) || DLIST_SEPARATOR_WORD.test(atoms[index].text);
+}
+
+/**
+ * How the item's MARKER LINE must be written, so it does not read back
+ * as a checklist item the source did not write.
+ *
+ * Asciidoctor reads a checkbox off an unordered item's first line and
+ * off nothing else, testing the four-character prefix against the
+ * right-stripped `item_text` (parser.rb l.1330; the two split
+ * spellings a word list can reach it by are {@link checklistHead},
+ * src/print/whitespace-fold.ts). The reader answered the same question
+ * about the SOURCE's first line, and an item that carries no checkbox
+ * is one whose first line did not spell one - so the marker line the
+ * printer writes must not spell one either.
+ *
+ * Only a packed line break can put it there. Every other run that
+ * would spell the prefix keeps its bytes at the split
+ * (`manufacturedChecklistRun`, src/print/whitespace-fold.ts), and a run
+ * that IS a single space already spelled the prefix in the source,
+ * where the reader would have read the checkbox. What is left is the
+ * source's own line break, folded to a space by the packer, and the
+ * remedy is to hold it: `* [x]` over `more` prints as two lines again,
+ * and the re-reader sees `[x]` alone on the marker line exactly as the
+ * author wrote it.
+ *
+ * Where the break may not be held ({@link refusesTheBreak}) the line
+ * keeps its packing and DOES read as a checklist item - a failure the
+ * base tree has too, and one this cannot trade away without inventing
+ * a worse one. What it can do is make that reading a fixed point: the
+ * re-read spells a checked box `[x]`, so a head spelled `[*]` has to
+ * be written the same way, or the next format moves bytes this one
+ * wrote. Hence the third answer.
+ *
+ * ASKED OF EVERY UNORDERED LIST, including a `[bibliography]` one,
+ * where Ruby takes the bibliography arm BEFORE the checkbox test
+ * (parser.rb l.1321-1323) and so reads no checkbox at all. The DIVERGENCE
+ * is deliberate and one-directional: the reader records no list style
+ * for the printer to ask about, and the cost of asking anyway is a
+ * break held where none was needed - bytes frozen, the render
+ * unchanged, and the document still idempotent. The oracle wins on
+ * results, and the result is the same either way.
+ * @param item - the finished item node.
+ * @param parentList - the list the item belongs to, as the printer
+ *   holds it; only an unordered list reads a checkbox at all.
+ * @param atoms - the item's atoms, guards already applied, in the
+ *   order the packer will place them.
+ * @returns what the printer must do about the line.
+ */
+export function markerLineGuard(
+  item: ListItemNode,
+  parentList: ListNode | undefined,
+  atoms: readonly Atom[],
+): MarkerLineGuard {
+  if (parentList?.variant !== "unordered" || item.checkbox !== undefined) {
+    return AS_PACKED;
+  }
+  const head = checklistHead(atoms.map((atom) => atom.text));
+  if (head === undefined) {
+    return AS_PACKED;
+  }
+  // The prefix's last word is the one that must move off the line: the
+  // text behind `[x]`, or behind the `]` of the split spelling.
+  const at = head === "markedBracket" ? 1 : 2;
+  if (atoms[at].breakBefore !== "none") {
+    // A break already stands there, so the line already ends at the
+    // bracket and the prefix is not live.
+    return AS_PACKED;
+  }
+  return refusesTheBreak(atoms, at)
+    ? { kind: "canonicalHead" }
+    : { kind: "holdBreak", at };
 }

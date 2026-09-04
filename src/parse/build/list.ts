@@ -15,7 +15,7 @@ import type {
 } from "../../ast.js";
 import { buildFromTokens } from "../inline/inline-node-builder.js";
 import type { InlineToken } from "../inline/tokens.js";
-import { ASCII_NON_WHITESPACE, rstrip } from "../line-shapes.js";
+import { rstrip } from "../line-shapes.js";
 import type { Fragment, LocationIndex } from "../positions.js";
 import { bodyExtent } from "./paragraph.js";
 
@@ -150,42 +150,26 @@ function stripCheckboxPrefix(children: InlineNode[], prefix: string): boolean {
  * `* [*] ` is the literal text `[*]`, and text that only arrives on a
  * continuation line arrives after the question was settled.
  *
+ * The strip runs whether or not the item's text continues below, which
+ * is the reader's own reading and not a convenience: `* [*] ` with
+ * `more` written under it carries NO checkbox, because the trailing
+ * space came off before the prefix was tested. What that costs is a
+ * tree whose printed spelling has to be held apart from the marker
+ * line - `markerLineGuard` (src/print/list-hazard.ts) is the other
+ * half of it, and without that half this strip would only trade the
+ * render failure for an idempotency one.
+ *
  * Read off the token images rather than the built nodes, because the
  * prefix's line can end inside a construct - `* [x] *b*` puts `[x] `
  * in a text node and `b` in a span - and only the images still hold
  * the source bytes in order.
  * @param tokens - the item's principal text, as tokenized
- * @returns the item's first source line, right-stripped where the
- *   item's text writes no line under it
+ * @returns the item's first source line, right-stripped
  */
 function checkboxLine(tokens: readonly InlineToken[]): string {
   const text = tokens.map((token) => token.image).join("");
   const breakAt = text.indexOf("\n");
-  if (breakAt === -1) {
-    return rstrip(text);
-  }
-  const line = text.slice(0, breakAt);
-  // The right-strip stops where the item's text really does continue
-  // below, and that is a DIVERGENCE from the oracle: it strips this
-  // line too, so `* [*] ` with `more` written under it carries no
-  // checkbox there either.
-  //
-  // Nothing about such an item is saved by taking it. It is corrupt
-  // BOTH WAYS and stays in issue #139: reflow packs the `more` onto
-  // the marker line under either reading, so `* [*] ` over `more`
-  // formats to `* [x] more` - the author's `[*]` respelled, and a
-  // checkmark rendered where the input renders the literal text. This
-  // is a choice between two spellings of the same known failure.
-  // Measured over a 2,000-shape grid of marker and continuation
-  // shapes: applying the strip here leaves the render failures
-  // identical (465 either way) and adds idempotency failures (27 on
-  // that grid, 72 on a wider one), because the tree it produces has
-  // no spelling the printer can print back. So the line is read as
-  // written, and the whole family is left to one fix, in the printer,
-  // where the join is decided.
-  return ASCII_NON_WHITESPACE.test(text.slice(breakAt + 1))
-    ? line
-    : rstrip(line);
+  return rstrip(breakAt === -1 ? text : text.slice(0, breakAt));
 }
 
 /**
