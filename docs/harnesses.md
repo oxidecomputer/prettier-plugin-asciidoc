@@ -465,7 +465,7 @@ gates over it are tiered by wall time:
   (`tests/conformance/registry-sweep.deep.test.ts`): both grids under every byte
   operator, 613,293 rows in two minutes on its own and a little over three
   sharing the runner. Pinned to
-  `tests/conformance/registry-sweep-deep-manifest.json`, 22,248 failing rows in
+  `tests/conformance/registry-sweep-deep-manifest.json`, 22,239 failing rows in
   49 clusters today.
 
 Both pins are exact in both directions, so a coordinate that starts failing
@@ -478,6 +478,40 @@ appears, vanishes or migrates between clusters therefore changes a hash. When
 the deep gate disagrees it writes the whole failing list to
 `reports/registry-sweep-deep-failures.json` (gitignored) and prints the path,
 because the manifest names only five ids per cluster and triage needs the rest.
+
+**The byte spellings the corpus cannot carry.** Asciidoctor normalizes at
+ingest: `Helpers.prepare_source_string`, reached from `prepare_lines` in
+`vendor/asciidoctor-ruby/reader.rb:584`, rstrips every line, strips a BOM and
+rewrites CRLF before the first classification rule sees a line (helpers.rb
+itself is not vendored, so the call site is where a reader checks this). Those
+bytes therefore cannot change what a document renders as, and nothing pressures
+a corpus file into carrying one: of the 1,614 vendored cases, four carry
+trailing whitespace, one carries a BOM, and none carries a CRLF or a missing
+final newline. Our formatter sits on the other side of that erasure, working on
+the author's bytes, so a delimiter line with a trailing space is a line it has
+to classify as a delimiter and print without the space. Minting the bytes is the
+only way to test that, which is what the eight operators in
+`scripts/shape-registry-byte-operators.ts` do: a trailing space, tab, vertical
+tab or form feed on every non-empty line; a trailing space on the first line
+alone, because an all-lines operator masks a position-dependent bug; CRLF; no
+final newline; a BOM. Bare CR is out while #68 is open.
+
+**The ratchet.** A bug in a shape these grids can reach is expressed as a sweep
+row before it is fixed, whatever found it: a real document, a review reading, an
+oracle disagreement someone hit by hand. The row comes first because a fix
+pinned only by the case that exposed it holds one coordinate, where a row holds
+every coordinate the grids reach around it, each under every byte operator that
+changes its bytes. When the registry cannot spell the bug, that is the finding:
+the same change extends whichever dimension is missing, the construct alphabet,
+the container set or the byte operators, until it can. The census pins move with
+the extension, and they are what makes this mechanical rather than a promise:
+rule (iii) of `scripts/metrics/shape-census.ts` matches each roster against the
+registry in both directions and rule (v) pins the realized grid sizes, so a new
+container or operator fails `bun run metrics` until its numbers are moved
+deliberately, and both manifests here are regenerated in the same commit. A
+change that fixes a grid-reachable bug while the row counts and both manifests
+stand still has not been ratcheted, and the next bug of its family arrives
+unpinned.
 
 `--write` regenerates both manifests from one sweep, on the terms
 `bun run triage` uses: still-failing entries keep their issue tag, new ones are
