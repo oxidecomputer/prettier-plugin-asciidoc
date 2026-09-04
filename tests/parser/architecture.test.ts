@@ -367,13 +367,11 @@ describe("parse-layer architecture", () => {
   // 46, moved up from 43 with TABLE STRUCTURE (issue #10): `table`,
   // `tableRow` and `tableCell` join the file, three discriminants for
   // the modeled table a builder can now assemble. None of the three
-  // is a `BlockNode` or `DelimitedBlockNode` member yet - `|===` still
-  // resolves to the existing opaque `TableBlockNode` passthrough - so
-  // this row moves before the wire does. Wiring the three in, and
-  // retiring `TableBlockNode`'s own `"delimitedBlock"` literal, is a
-  // later change; when it lands the census falls by one even as the
-  // tree gains structure, which is why the row above says the count
-  // is directionless.
+  // was a `BlockNode` or `DelimitedBlockNode` member when they
+  // landed - `|===` still resolved to the opaque passthrough - so
+  // this row moved before the reader and printer dispatch that would
+  // reach the three, and before the wire that dispatch moves. Both
+  // arrived two rows below.
   //
   // 47, moved up from 46 with the ESCAPED MARK (issue #84): `\*`,
   // `\_`, `` \` `` and `\#` become one leaf holding both bytes. ONE
@@ -402,10 +400,24 @@ describe("parse-layer architecture", () => {
   // to closing fence. One kind with no children: under either of the
   // oracle's two readings the only correct output is the author's own
   // bytes, so the node replays them and the printer asks nothing else.
-  test("the node-kind census is 48", () => {
+  //
+  // 47, moved DOWN from 48 with the TABLE DISPATCH (issue #10):
+  // `|===` now resolves to the `table` node the three rows above
+  // added, the reader and printer reach it, and
+  // the opaque passthrough that stood in for it - one more
+  // `"delimitedBlock"` literal - is deleted. The count falls while
+  // the tree gains a level of structure, which is the row above's
+  // "directionless" said out loud: nothing was removed from the
+  // language, one node kind replaced another and brought its rows and
+  // cells with it. It moves the wire wherever a document holds a
+  // table: what serialized as a `delimitedBlock` carrying its own
+  // delimiter lines as text now serializes as a `table` carrying
+  // cells. NOT ONE OUTPUT BYTE moves with it - the printer replays
+  // the same partition the passthrough replayed.
+  test("the node-kind census is 47", () => {
     const source = readFileSync("src/ast.ts", "utf8");
     const kinds = source.match(/^ {2}type: "[a-zA-Z]+";$/gmv) ?? [];
-    expect(kinds).toHaveLength(48);
+    expect(kinds).toHaveLength(47);
   });
 
   test("only the classification pass imports a pattern from the registry", () => {

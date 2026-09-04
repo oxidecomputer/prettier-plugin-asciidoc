@@ -6,13 +6,17 @@
  * well-formedness check on the reader's emission order were knowingly
  * retired with Chevrotain, and these take their place).
  *
- * They are deliberately structural: nothing here knows which node
- * kinds exist, so the same file keeps working after the reader builds
- * the AST itself. The walk itself — the node shape, the narrowings,
- * document order, sibling grouping — lives in ./ast-walk.ts.
+ * They are deliberately structural: almost nothing here knows which
+ * node kinds exist, so the same file keeps working after the reader
+ * builds the AST itself. The walk itself (the node shape, the
+ * narrowings, document order, sibling grouping) lives in
+ * ./ast-walk.ts. The one exception is the table partition (xv), which
+ * is a claim about records rather than about a span and says so where
+ * it stands.
  */
 import { expect } from "vitest";
 import { rstrip } from "../../src/parse/line-shapes.js";
+import type { DocumentNode } from "../../src/ast.js";
 import { parse } from "../../src/parser.js";
 import {
   isArray,
@@ -24,6 +28,7 @@ import {
   siblingsOf,
   type AnyNode,
 } from "./ast-walk.js";
+import { allowsOverhang, replayTable, tableNodes } from "./table-nodes.js";
 
 /**
  * (i) Positions are well formed: inside the source, non-inverted, and
@@ -176,36 +181,6 @@ function expectVerbatimContent(slice: string, content: string): void {
 }
 
 /**
- * (x) — a table node's content IS the source of its own extent: the
- * content is a PREFIX of the slice its position names — compared
- * against the SLICE, which derives from the position alone, so a
- * future builder that REBUILDS content instead of slicing it fails
- * here — and the position over-spans the content by at most one
- * character (zero on a terminator close and on a CONFINED forced
- * close — the extent-first slice ends at a line's own raw end, per
- * invariant (xii); one on the other forced closes — document-level EOF,
- * where the overhang is the final newline, and an outer terminator
- * in the same reader, where it is the newline before that line).
- * Invariant (x) is stated in rstripped-line terms because that is
- * the property the PRINTED side preserves; the builder slices raw, so this raw prefix check
- * is the same claim held a fortiori — the printed side is pinned by
- * the format rows in tests/format/table.test.ts, not here.
- * @param slice - the source the node's position names
- * @param content - the table's verbatim content
- */
-function expectTableContent(slice: string, content: string): void {
-  const over = slice.length - content.length;
-  expect(
-    over === 0 || over === 1,
-    `table position spans ${String(over)} characters past its content`,
-  ).toBe(true);
-  expect(
-    slice.startsWith(content),
-    "table content is not the source of its own extent",
-  ).toBe(true);
-}
-
-/**
  * (xii) — forced-close honesty: a source-sliced verbatim
  * node's extent `source.slice(start, end)` decomposes EXACTLY into
  * the opener line, the content, and at most one close line, joined
@@ -255,15 +230,6 @@ function expectExtentDecomposition(slice: string, content: string): void {
 function expectOneValue(node: AnyNode, slice: string): void {
   const { value, content } = node;
   if (node.type === "delimitedBlock" && typeof content === "string") {
-    if (node.variant === "table") {
-      // A table's content carries its own delimiter lines, so its
-      // (xii) form is prefix + {"" | "\n"} — expectTableContent's
-      // prefix check plus the bound below.
-      expectTableContent(slice, content);
-      const over = slice.slice(content.length);
-      expect(over === "" || over === "\n", "table overhang").toBe(true);
-      return;
-    }
     expectVerbatimContent(slice, content);
     if (node.form === "delimited") expectExtentDecomposition(slice, content);
     return;
@@ -850,6 +816,44 @@ function expectAttributionOrder(header: AnyNode | undefined): void {
 }
 
 /**
+ * (xv) - the partition rule: a table's own records account for every
+ * byte of the extent its position names. Concatenating the opening
+ * line, the runs before the first cell, every cell of every row (each
+ * one's opening bytes then its runs) and the closing line reproduces
+ * the source, with only the overhang the close kind allows
+ * (`allowsOverhang`, ./table-nodes.ts): nothing at all on a
+ * terminator close, at most the final newline on a forced one, which
+ * is invariant (x)'s bound stated per close kind rather than over
+ * both at once.
+ *
+ * The one invariant here that reads a node's fields BY NAME
+ * ({@link replayTable} does the reading), because it is the one claim
+ * that is about a partition rather than about a span: a table is the
+ * only node whose bytes are recorded in pieces, and a piece dropped
+ * or reordered is invisible to every other row in this file. It is
+ * also what the printer relies on to replay the table
+ * (src/print/table.ts).
+ * @param source - the whole document
+ * @param document - the parsed document
+ */
+function expectTablePartition(source: string, document: DocumentNode): void {
+  for (const table of tableNodes(document)) {
+    const { start, end } = table.position;
+    const slice = source.slice(start.offset, end.offset);
+    const replayed = replayTable(table);
+    expect(
+      slice.startsWith(replayed),
+      `table records do not partition ${JSON.stringify(slice)}`,
+    ).toBe(true);
+    const over = slice.slice(replayed.length);
+    expect(
+      allowsOverhang(table, over),
+      `table ${table.close.kind} close leaves ${JSON.stringify(over)} over`,
+    ).toBe(true);
+  }
+}
+
+/**
  * Assert every AST invariant for one document.
  *
  * The five invariants `expectStreamInvariants` asserted of the token
@@ -879,4 +883,5 @@ export function expectAstInvariants(source: string): void {
   expectAdmonitionBodyExclusive(nodes);
   expectMasqueradeSourceDelimiter(nodes);
   expectDocumentHeaderShape(document);
+  expectTablePartition(source, document);
 }

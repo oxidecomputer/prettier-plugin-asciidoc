@@ -52,10 +52,8 @@ import type { SourceLine } from "./split.js";
  * against `cursor_at_prev_line` (table.rb:459-467), so neither ever
  * reaches the scan.
  *
- * Exported for tests/parser/table-reader.test.ts; the reader dispatch
- * that resolves a table's open (not part of this change) becomes the
- * real `src` consumer once it lands.
- * @internal
+ * Named by a table's open (lines/table-open.ts), which resolves it,
+ * and by tests/parser/table-reader.test.ts.
  */
 export type TableFormat = "psv" | "csv" | "dsv";
 
@@ -63,10 +61,8 @@ export type TableFormat = "psv" | "csv" | "dsv";
  * How a table cuts cells: the format's rules, and the one string that
  * separates cells under them.
  *
- * Exported for tests/parser/table-reader.test.ts; the reader dispatch
- * that resolves a table's open (not part of this change) becomes the
- * real `src` consumer once it lands.
- * @internal
+ * Resolved by a table's open (lines/table-open.ts) and handed to the
+ * two functions below; also read by tests/parser/table-reader.test.ts.
  */
 export interface TableCutting {
   /** The cutting rules to apply. */
@@ -91,9 +87,9 @@ export interface TableCutting {
  * (parser.rb:2398-2401) and leaving `cell_text` no spec at all
  * (table.rb:628-631).
  *
- * Exported for tests/parser/table-reader.test.ts; the table builder
- * (not part of this change) becomes the real `src` consumer once it
- * lands.
+ * Exported for tests/parser/table-reader.test.ts. No `src` consumer
+ * spells the name: the builder reads the shape through src/ast.ts's
+ * own restatement of it.
  * @internal
  */
 export type TableCellOpening =
@@ -136,12 +132,13 @@ export type TableCellOpening =
  * (`skip_comments`, reader.rb:420-425); `skippedBlank` is a blank line no cell was open
  * to take (`skip_blank_lines`, reader.rb:279-291, reached from
  * parser.rb:2303 and parser.rb:2413). Both cover the line AND its
- * terminator,
- * so the run list has no gaps.
+ * terminator, so the run list has no gaps - except on the extent's
+ * LAST line, whose terminator belongs to the closing delimiter
+ * ({@link regionEnd}), so a blank one there is a run of no bytes.
  *
- * Exported for tests/parser/table-reader.test.ts; the table builder
- * (not part of this change) becomes the real `src` consumer once it
- * lands.
+ * Exported for tests/parser/table-reader.test.ts. No `src` consumer
+ * spells the name: the builder reads the shape through src/ast.ts's
+ * own restatement of it.
  * @internal
  */
 export type TableRunKind = "content" | "droppedComment" | "skippedBlank";
@@ -151,9 +148,9 @@ export type TableRunKind = "content" | "droppedComment" | "skippedBlank";
  * discriminated union: all three kinds carry the same two fields, so a
  * union would separate nothing a reader has to tell apart.
  *
- * Exported for tests/parser/table-reader.test.ts; the table builder
- * (not part of this change) becomes the real `src` consumer once it
- * lands.
+ * Exported for tests/parser/table-reader.test.ts. No `src` consumer
+ * spells the name: the builder reads the shape through src/ast.ts's
+ * own restatement of it.
  * @internal
  */
 export interface TableTextRun {
@@ -168,9 +165,9 @@ export interface TableTextRun {
 /**
  * One cell as the scan cut it.
  *
- * Exported for tests/parser/table-reader.test.ts; the table builder
- * (not part of this change) becomes the real `src` consumer once it
- * lands.
+ * Exported for tests/parser/table-reader.test.ts. No `src` consumer
+ * spells the name: the builder reads the shape through src/ast.ts's
+ * own restatement of it.
  * @internal
  */
 export interface TableScanCell {
@@ -205,9 +202,9 @@ export interface TableScanCell {
 /**
  * What one table's interior cut into.
  *
- * Exported for tests/parser/table-reader.test.ts; the table builder
- * (not part of this change) becomes the real `src` consumer once it
- * lands.
+ * Exported for tests/parser/table-reader.test.ts. No `src` consumer
+ * spells the name: the builder reads the shape through src/ast.ts's
+ * own restatement of it.
  * @internal
  */
 export interface TableCut {
@@ -225,9 +222,9 @@ export interface TableCut {
 /**
  * What a table's first row is.
  *
- * Exported for tests/parser/table-reader.test.ts; the table builder
- * (not part of this change) becomes the real `src` consumer once it
- * lands.
+ * Exported for tests/parser/table-reader.test.ts. No `src` consumer
+ * spells the name: the builder reads the shape through src/ast.ts's
+ * own restatement of it.
  * @internal
  */
 export type TableHeaderDecision = "explicit" | "implicit" | "none";
@@ -235,9 +232,9 @@ export type TableHeaderDecision = "explicit" | "implicit" | "none";
 /**
  * The header-related options the block's attribute list declared.
  *
- * Exported for tests/parser/table-reader.test.ts; the table builder
- * (not part of this change) becomes the real `src` consumer once it
- * lands.
+ * Exported for tests/parser/table-reader.test.ts. No `src` consumer
+ * spells the name: the builder reads the shape through src/ast.ts's
+ * own restatement of it.
  * @internal
  */
 export interface TableHeaderOptions {
@@ -472,11 +469,20 @@ function appendContent(scan: LineScan, from: number, to: number): void {
 
 /**
  * Add a whole line to the region, as bytes no cell's text claims.
+ *
+ * Pushed WITHOUT {@link appendRun}'s empty-image test, which is the
+ * one place a run of no bytes is still a run: the extent's LAST line
+ * carries no terminator of its own ({@link regionEnd}), so a blank
+ * line there writes nothing at all, and the run is then the only
+ * record that the interior had a line. That record is what tells a
+ * replaying printer `|===` directly over `|===` from `|===` over a
+ * blank line over `|===` - two extents whose runs are otherwise
+ * identical and whose bytes are not.
  * @param scan - the line being read
  * @param kind - why the reader consumed it
  */
 function appendWholeLine(scan: LineScan, kind: TableRunKind): void {
-  appendRun(scan.state, {
+  scan.state.region.runs.push({
     kind,
     image: imageBetween(scan.line, scan.line.offset, scan.end),
     offset: scan.line.offset,
@@ -825,14 +831,12 @@ function assignRepeats(cells: readonly PositionalCell[]): TableScanCell[] {
  * Cut a table's interior into cells: where each one begins, and which
  * bytes are its own.
  *
- * Exported for tests/parser/table-reader.test.ts; the table builder
- * (not part of this change) becomes the real `src` consumer once it
- * lands.
+ * Driven by a table's open (lines/table-open.ts) and by
+ * tests/parser/table-reader.test.ts.
  * @param lines - the extent's interior lines, with their offsets in
  *   the whole document
  * @param cutting - the format and separator the table resolved to
  * @returns the cells, and whatever came before the first of them
- * @internal
  */
 export function cutCells(
   lines: readonly SourceLine[],
@@ -915,14 +919,12 @@ function activateRowspan(reserved: number[], repeat: TableCellRepeat): void {
  * row between two repetitions of the same spelling when the count runs
  * out mid-way.
  *
- * Exported for tests/parser/table-reader.test.ts; the table builder
- * (not part of this change) becomes the real `src` consumer once it
- * lands.
+ * Driven by a table's open (lines/table-open.ts) and by
+ * tests/parser/table-reader.test.ts.
  * @param cells - the cells cut, in document order
  * @param columnCount - the count `cols=` fixed, or undefined when the
  *   first row is to fix it
  * @returns the rows, in document order
- * @internal
  */
 export function groupRows(
   cells: readonly TableScanCell[],
@@ -980,15 +982,13 @@ export function groupRows(
  * out of a line that ended on a quoted separator (parser.rb:2357), so
  * `a,"b,` followed by a gap keeps its header there and loses it here.
  *
- * Exported for tests/parser/table-reader.test.ts; the table builder
- * (not part of this change) becomes the real `src` consumer once it
- * lands.
+ * Driven by a table's open (lines/table-open.ts) and by
+ * tests/parser/table-reader.test.ts.
  * @param lines - the extent's interior lines
  * @param cells - the cells {@link cutCells} cut from them
  * @param cutting - the format and separator the table resolved to
  * @param options - the header options the attribute list declared
  * @returns what the first row is
- * @internal
  */
 export function readHeaderDecision(
   lines: readonly SourceLine[],

@@ -218,6 +218,13 @@ const CHILD_KEYS = declareVisitorKeys({
   list: ["children"],
   listItem: ["text"],
   delimitedBlock: [],
+  // A table's rows hold its cells and a cell holds no node at all -
+  // its bytes are its opening and its runs, both records rather than
+  // children. The walk descends to the cell a cursor sits in and
+  // stops there.
+  table: ["children"],
+  tableRow: ["children"],
+  tableCell: [],
   parentBlock: ["children"],
   admonition: ["text", "children"],
   thematicBreak: [],

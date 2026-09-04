@@ -62,10 +62,9 @@ describe("a run inside a verbatim construct keeps its bytes", () => {
     ["a source block", "[source,ruby]\n----\na  b\n----\n"],
     ["an indented literal paragraph", " a  b\n"],
     ["a verse block", "[verse]\n____\na  b\n____\n"],
-    // A table is an opaque passthrough today (issue #10 interim
-    // shape, TableBlockNode) - the delimiter lines are content, so a
-    // literal cell's run survives as a side effect, not because
-    // anything here reads cell styles.
+    // A table REPLAYS its cells' recorded bytes (issue #10), so a
+    // literal cell's run survives as a side effect of that, not
+    // because anything here reads cell styles.
     ["a literal table cell", "|===\nl|a  b\n|===\n"],
     ["the pass:[] macro", "Text pass:[a  b] more.\n"],
   ])("%s", async (_name, input) => {

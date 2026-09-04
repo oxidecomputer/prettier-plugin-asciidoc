@@ -29,9 +29,13 @@
  *   oracle's reader push an empty file for every `include::` target,
  *   because a formatter cannot resolve an include either. Bugs that
  *   live in included content are invisible here.
- * - Verbatim and table CONTENT is opaque on both sides: our AST holds
- *   it as one slice, so the oracle is not descended into for
- *   `listing`, `literal`, `pass`, `verse`, `stem` or `table`.
+ * - Verbatim and table CONTENT is opaque on both sides: the oracle is
+ *   not descended into for `listing`, `literal`, `pass`, `verse`,
+ *   `stem` or `table`. Verbatim content is one slice on our side; a
+ *   table's cells ARE modeled, and holding them opaque here is a
+ *   scope decision - this comparison is about BLOCK structure, and a
+ *   cell-level comparison has a suite of its own
+ *   (tests/parser/table-structure.test.ts).
  *
  * Lives under `tests/` because it imports both `src/parser.js` and the
  * oracle, and both `scripts/block-structure.ts` and
@@ -383,11 +387,17 @@ const DROPPED = new Set([
   "frontMatter",
 ]);
 
-/** Our node types that map to one canonical leaf kind and nothing else. */
+/**
+ * Our node types that map to one canonical leaf kind and nothing
+ * else. A table is a LEAF here though its node has children: its
+ * context is in {@link OPAQUE}, so the comparison descends into
+ * neither side's cells.
+ */
 const LEAF_KINDS: ReadonlyMap<string, string> = new Map([
   ["paragraph", "paragraph"],
   ["thematicBreak", "thematic_break"],
   ["pageBreak", "page_break"],
+  ["table", "table"],
 ]);
 
 /** The block-macro names that are a context of their own to the oracle. */
@@ -453,9 +463,9 @@ export const AST_KIND_CENSUS: ReadonlyMap<string, string> = new Map([
   ["blockAttributeList", "dropped: an attribute to the oracle"],
   ["blockTitle", "dropped: an attribute to the oracle"],
   ["blockAnchor", "dropped: an attribute to the oracle"],
-  ["table", "not yet reached: a table still passes through as bytes"],
-  ["tableRow", "not yet reached: a table still passes through as bytes"],
-  ["tableCell", "not yet reached: a table still passes through as bytes"],
+  ["table", "kind table"],
+  ["tableRow", "inside a table, which is opaque on both sides"],
+  ["tableCell", "inside a table, which is opaque on both sides"],
 ]);
 
 /**

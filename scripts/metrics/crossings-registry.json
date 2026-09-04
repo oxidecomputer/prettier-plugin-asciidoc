@@ -64,6 +64,27 @@
   },
   {
     "file": "src/parse/attrlist.ts",
+    "symbol": "AttrlistValues",
+    "importer": "src/parse/lines/table-open.ts",
+    "kind": "vocabulary",
+    "reason": "the parsed values of a `[...]` line, so a table's open reads `cols`, `format` and `separator` off the same field boundaries the printer spells back"
+  },
+  {
+    "file": "src/parse/attrlist.ts",
+    "symbol": "NO_ATTRLIST_VALUES",
+    "importer": "src/parse/lines/table-open.ts",
+    "kind": "vocabulary",
+    "reason": "the one spelling of a bracket line that names nothing, so a block with no attribute line and one whose interior the scan declines read the same way"
+  },
+  {
+    "file": "src/parse/attrlist.ts",
+    "symbol": "attrlistValues",
+    "importer": "src/parse/lines/table-open.ts",
+    "kind": "vocabulary",
+    "reason": "the one read of a bracket line's named values; a table's open asks it rather than splitting the interior a second way"
+  },
+  {
+    "file": "src/parse/attrlist.ts",
     "symbol": "canonicalAttrlist",
     "importer": "src/print/blocks.ts",
     "kind": "vocabulary",
@@ -292,6 +313,20 @@
     "importer": "src/parse/lines/reader.ts",
     "kind": "vocabulary",
     "reason": "pure (style, tokens, index) -> Node constructor for a styled paragraph"
+  },
+  {
+    "file": "src/parse/build/table.ts",
+    "symbol": "TableScan",
+    "importer": "src/parse/lines/table-open.ts",
+    "kind": "vocabulary",
+    "reason": "the shape a table's builder takes, named by the open that fills it so the two cannot disagree about what a table is made of"
+  },
+  {
+    "file": "src/parse/build/table.ts",
+    "symbol": "buildTable",
+    "importer": "src/parse/lines/reader.ts",
+    "kind": "vocabulary",
+    "reason": "the table builder, called at the reader's delimited open the way every other builder is"
   },
   {
     "file": "src/parse/inline/inline-link-builder.ts",

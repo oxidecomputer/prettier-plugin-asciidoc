@@ -1162,6 +1162,15 @@ export const INCLUDE_DIRECTIVE = /^include::[^\[]*\[[^\]]*\]$/v;
 /**
  * A line comment. A PREFIX match, not a whole-line one: `CommentLineRx`
  * is `%r(^//(?=[^/]|$))`, so everything after the `//` is the comment.
+ *
+ * ONE src consumer asks the same question without this pattern, and
+ * it is sanctioned rather than an oversight: the table scan
+ * (src/parse/lines/table-reader.ts) spells `skip_comments`'s own two
+ * prefix tests as two local constants, because reader.rb:424 IS two
+ * prefix tests (`//` taken, `///` left) and that line, not a pattern,
+ * is where the rule the scan needs lives. Any OTHER src consumer
+ * deciding whether a line is a comment to the parser reaches for this
+ * constant.
  * Exported for the shape registry's coverage census
  * (scripts/shape-registry.ts); no src consumer.
  * @internal

@@ -197,6 +197,13 @@ function blockShape(node: BlockNode): string {
       const name = node.form === "indented" ? "literal-indented" : node.variant;
       return `${name}[${String(lineCount(node.content))}]`;
     }
+    // A table renders as its ROWS, since that is the structure the
+    // node records and the count a row test wants to assert. Its
+    // delimiter lines are its own fields, not children, so they are
+    // not in the number.
+    case "table": {
+      return `table[${String(node.children.length)}]`;
+    }
     case "comment": {
       return node.commentType === "block"
         ? `commentBlock[${String(lineCount(node.value))}]`

@@ -69,15 +69,14 @@ const LISTING_ROLE = { builds: "leafBlock", variant: "listing" } as const;
 // completes it with the opening line's language hint.
 const FENCE_ROLE = { builds: "fencedBlock" } as const;
 
-// The two remaining verbatim roles, named for the annotation rows
-// below: every role a DelimitedBlockNode can come out of has to write
-// the annotation, so the rows enumerate them.
+// The last verbatim role, named for the annotation rows below: every
+// role a DelimitedBlockNode can come out of has to write the
+// annotation, so the rows enumerate them.
 const MASQUERADE_ROLE = {
   builds: "masqueradedBlock",
   variant: "verse",
   sourceDelimiter: "quote",
 } as const;
-const TABLE_ROLE = { builds: "table" } as const;
 
 describe("buildVerbatimBlock variants", () => {
   test.each([
@@ -152,7 +151,6 @@ describe("buildVerbatimBlock annotation", () => {
     ["a leaf block", LISTING_ROLE],
     ["a fence", FENCE_ROLE],
     ["a masqueraded block", MASQUERADE_ROLE],
-    ["a table", TABLE_ROLE],
   ] as const)("%s writes the annotation last", (_name, role) => {
     const { extent, at } = closedExtent("----", "code", "----");
     const node = buildVerbatimBlock(extent, role, at, "source,ruby");
@@ -164,7 +162,6 @@ describe("buildVerbatimBlock annotation", () => {
     ["a leaf block", LISTING_ROLE],
     ["a fence", FENCE_ROLE],
     ["a masqueraded block", MASQUERADE_ROLE],
-    ["a table", TABLE_ROLE],
   ] as const)("%s with no annotation carries no key", (_name, role) => {
     const { extent, at } = closedExtent("----", "code", "----");
     expect(

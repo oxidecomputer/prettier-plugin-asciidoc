@@ -66,10 +66,6 @@ export type VerbatimRole =
   | {
       /** Role discriminant: a comment block, which is a CommentNode. */
       readonly builds: "comment";
-    }
-  | {
-      /** Role discriminant: a table, an opaque verbatim extent. */
-      readonly builds: "table";
     };
 
 /** The source extent an extent-first delimited read produced. */
@@ -78,9 +74,9 @@ export interface BlockExtent {
   readonly open: Fragment;
   /**
    * The closing delimiter line, when the block met one. Optional
-   * DATA (the table arm branches on it for its raw end), not half
-   * of an exclusive pair — `contentEnd` and `end` are total either
-   * way, and nothing decodes a two-field encoding of one fact.
+   * DATA (a table's builder reads its image back, build/table.ts),
+   * not half of an exclusive pair: `contentEnd` and `end` are total
+   * either way, and nothing decodes a two-field encoding of one fact.
    */
   readonly close: Fragment | undefined;
   /**
@@ -309,45 +305,8 @@ export function buildBlockComment(
 }
 
 /**
- * A table block, passed through as an opaque verbatim extent (the
- * issue #10 interim fix — full table MODELING is out of scope). Unlike every other delimited block the DELIMITER LINES ARE
- * CONTENT: the slice runs from the start of the opening line through
- * the RAW end of the closing line (trailing whitespace kept, newline
- * excluded), or — forced shut — through `contentEnd`, the raw end
- * of the last line this reader can see (behavior is Ruby's: an
- * unterminated table runs to EOF, parser.rb:872; pinned by
- * tests/parser/table.test.ts and tests/format/table.test.ts).
- * @param extent - where the block opened and closed
- * @param at - the document's location index
- * @param annotatedBy - the annotation the reader recorded, if any
- * @returns the table node
- */
-function buildTableBlock(
-  extent: BlockExtent,
-  at: LocationIndex,
-  annotatedBy: string | undefined,
-): DelimitedBlockNode {
-  const { open, close, contentEnd, end, source } = extent;
-  // A table passes through opaque: the delimiter lines ARE content —
-  // through the close
-  // line's raw end when the table closed, through the last interior
-  // line's raw end when it did not — the same bytes as the old
-  // spelling on closed tables, the fixed bytes on confined-
-  // unterminated ones (#44).
-  const rawEnd = close === undefined ? contentEnd : end;
-  return {
-    type: "delimitedBlock",
-    variant: "table",
-    form: "delimited",
-    content: source.slice(open.offset, rawEnd),
-    position: spanOf(extent, at),
-    ...annotation(annotatedBy),
-  };
-}
-
-/**
  * A delimited block kept verbatim — listing, literal, pass, fence,
- * verse — or a comment block (a CommentNode), or a table.
+ * verse, or a comment block (a CommentNode).
  * The ROLE was decided at open (lines/open-style.ts) and travels
  * with the extent: nothing is re-derived from the opener here, which
  * is what deleted the two agreement guards this function and
@@ -370,9 +329,6 @@ export function buildVerbatimBlock(
     // the reader's own `node.type === "delimitedBlock"` guard did
     // before this parameter replaced it.
     return buildBlockComment(extent, at);
-  }
-  if (role.builds === "table") {
-    return buildTableBlock(extent, at, annotatedBy);
   }
   if (role.builds === "fencedBlock") {
     return buildFencedBlock(extent, role, at, annotatedBy);

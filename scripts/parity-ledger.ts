@@ -406,6 +406,25 @@ const ATTRIBUTE_CONTINUATION_FAMILY = "attribute-continuation";
 const FRONT_MATTER_FAMILY = "front-matter";
 
 /**
+ * Issue #10: a `|===` block is a `table` node holding rows and cells,
+ * where the base serialized a `delimitedBlock` whose `content` was
+ * the whole block's text, delimiter lines included. NOT
+ * formatted-only: every table-bearing case changes the kind of one
+ * node and gains the tree under it. Not a blanket family either - no
+ * single key strip makes the two dumps deep-equal, since the base
+ * tree's `content`, `variant` and `form` all go and rows, cells,
+ * openings and runs all arrive - so the per-id trailers carry the
+ * declaration.
+ *
+ * The BYTE side is empty by construction and measured, not assumed:
+ * the printer replays the same partition the passthrough replayed, so
+ * every declared case differs in the AST alone.
+ *
+ * Not exported: no grid row cites it.
+ */
+const TABLE_NODE_FAMILY = "table-node";
+
+/**
  * The closed family enum. SURFACE HONESTY, not an armed
  * gate: a family id can only legally be a corpus id or an
  * identity-fixture id. The formatted-only subset is exactly
@@ -424,9 +443,10 @@ const FRONT_MATTER_FAMILY = "front-matter";
  * email-autolink hardens a bare address into one atomic link node,
  * document-header re-roots a titled document's opening lines under
  * one header node, curved-quote-node turns a quoted backtick pair
- * into a node, and block-start-line-fact records the source-line
- * question the printer used to re-derive, so an entry of those
- * thirteen whose AST differs is legal and an entry of any other
+ * into a node, block-start-line-fact records the source-line
+ * question the printer used to re-derive, and table-node replaces a
+ * table's opaque text with the cells it was cut into, so an entry of
+ * those fourteen whose AST differs is legal and an entry of any other
  * family whose AST differs fails the cross-check.
  */
 export const LEDGER_FAMILIES: FamilySets = {
@@ -457,6 +477,7 @@ export const LEDGER_FAMILIES: FamilySets = {
     DOCUMENT_HEADER_FAMILY,
     BLOCK_START_LINE_FACT_FAMILY,
     SPAN_ROLE_NODE_FAMILY,
+    TABLE_NODE_FAMILY,
   ]),
   formattedOnly: new Set([
     AUTHOR_PLUS_FAMILY,

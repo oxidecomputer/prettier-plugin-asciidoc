@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
   attrlistFields,
+  attrlistValues,
   canonicalAttrlist,
   parseAttrlist,
 } from "../../src/parse/attrlist.js";
@@ -218,5 +219,55 @@ describe("canonicalAttrlist — one spelling of the interior", () => {
     ["a,\nb", "a,\nb"],
   ])("%j prints %j", (raw, canonical) => {
     expect(canonicalAttrlist(raw)).toBe(canonical);
+  });
+});
+
+describe("attrlistValues - the named values and options a table's open reads", () => {
+  test.each([
+    // Ruby's own three shapes for a name: bare, quoted, and with the
+    // blanks `skip_blank` eats around the `=`.
+    ['cols="1,1"', "cols", "1,1"],
+    ["cols=2*", "cols", "2*"],
+    ["format = csv", "format", "csv"],
+    ["separator=;", "separator", ";"],
+    // A quoted value keeps the comma the boundary scan protected.
+    ['a,separator=",", b', "separator", ","],
+    // The name half is `NameRx`: a field whose text before the first
+    // `=` is not one is positional and names nothing.
+    ['"a=b"', "a", undefined],
+    ["a b=c", "a b", undefined],
+  ])("%j names %j as %j", (raw, name, value) => {
+    expect(attrlistValues(raw).named.get(name)).toBe(value);
+  });
+
+  test.each([
+    // `%option` shorthand on the STYLE entry, which is the first
+    // POSITIONAL field however many named ones stand in front of it.
+    ["%header", ["header"]],
+    ["%header%footer", ["header", "footer"]],
+    ["cols=2,%header", ["header"]],
+    ["verse#id.role%header", ["header"]],
+    // Ruby refuses shorthand on an entry with a space in it, and
+    // reads it out of `attributes[1]` and nowhere else.
+    ["a b%header", []],
+    ["a,%header", []],
+    // Both spellings of the options attribute, and the empty entry
+    // neither of them names. An UNQUOTED comma is a field boundary
+    // before it is a list separator, which is why the multi-entry row
+    // is the quoted one.
+    ['options="header,footer"', ["header", "footer"]],
+    ["opts=header", ["header"]],
+    ['options=" ,header"', ["header"]],
+    ["%", []],
+  ])("%j declares options %j", (raw, options) => {
+    expect([...attrlistValues(raw).options]).toEqual(options);
+  });
+
+  // The total fallback: an interior the boundary scan declines names
+  // no value at all rather than being split a second way.
+  test.each(['cols="1,1', "a=b,\nc=d"])("%j names nothing", (raw) => {
+    const values = attrlistValues(raw);
+    expect(values.named.size).toBe(0);
+    expect(values.options.size).toBe(0);
   });
 });

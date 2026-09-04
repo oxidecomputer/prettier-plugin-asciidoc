@@ -380,10 +380,24 @@ describe("cutCells, the reader's own deletions (reader.rb:424, :279)", () => {
     ]);
   });
 
+  // The SECOND run has no bytes and is a run anyway: the extent's
+  // last line owns no terminator, so the only record that the line
+  // was there at all is the run itself. Before `appendWholeLine`
+  // stopped filtering it out, this row read one run, and a table
+  // whose whole interior is one blank line replayed as an empty one.
   test("an interior of nothing but blanks cuts no cell at all", () => {
     const result = expectRunFaithful("\n\n", PSV);
     expect(result.cells).toStrictEqual([]);
-    expect(runKinds(result)).toStrictEqual([String.raw`skippedBlank:"\n"`]);
+    expect(runKinds(result)).toStrictEqual([
+      String.raw`skippedBlank:"\n"`,
+      'skippedBlank:""',
+    ]);
+  });
+
+  test("a lone blank interior line is a run of no bytes", () => {
+    const result = expectRunFaithful("\n", PSV);
+    expect(result.cells).toStrictEqual([]);
+    expect(runKinds(result)).toStrictEqual(['skippedBlank:""']);
   });
 });
 

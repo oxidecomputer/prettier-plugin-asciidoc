@@ -1,346 +1,74 @@
 /**
- * Table structure (issue #10): the scan, build and oracle-comparable
- * flattening tests/parser/table-structure.test.ts drives over the
- * corpus. Split out of that file to stay under the repo's line
- * ceiling, the way tests/parser/ast-walk.ts split out of
- * ast-invariants.ts for the identical reason.
+ * Table structure (issue #10): the oracle-comparable flattening
+ * tests/parser/table-structure.test.ts drives over the corpus. Split
+ * out of that file to stay under the repo's line ceiling, the way
+ * tests/parser/ast-walk.ts split out of ast-invariants.ts for the
+ * identical reason.
  *
- * No reader hookup exists yet (a `|===` block still resolves to the
- * opaque `TableBlockNode` passthrough), so {@link scanTables} locates
- * each table's extent itself, from the passthrough node `parse()`
- * already builds correctly: its `content` is exactly the table's own
- * bytes (delimiters included, confinement already resolved), and its
- * `annotatedBy` is the held attribute line's interior. From there it
- * resolves the cutting scheme, column spec and header/footer options
- * the way a table's open eventually will, cuts and groups the cells
- * with `cutCells`/`groupRows`/`readHeaderDecision`
- * (src/parse/lines/table-reader.ts), and assembles a `TableNode` with
- * `buildTable` (src/parse/build/table.ts).
+ * The tables themselves come from `parse()` (tests/parser/table-nodes.ts):
+ * the reader resolves a table's open and drives the scan, so nothing
+ * here re-decides a cutting scheme or re-cuts a cell. What this file
+ * owns is the READING of a built cell that the comparison needs and
+ * the node deliberately does not store - the buffer text Asciidoctor
+ * would hold, and the spec a cell inherits from its column - plus the
+ * exclusions the comparison is not entitled to make.
  */
 import { parse } from "../../src/parser.js";
 import type {
   TableCellNode,
-  TableCellOpening,
   TableCellRepeat,
   TableCellSpec,
   TableCellStyle,
+  TableCutting,
   TableHorizontalAlignment,
   TableNode,
   TableRowNode,
   TableRunKind,
   TableVerticalAlignment,
 } from "../../src/ast.js";
-import {
-  cutCells,
-  groupRows,
-  readHeaderDecision,
-  type TableCutting,
-  type TableFormat,
-  type TableHeaderOptions,
-} from "../../src/parse/lines/table-reader.js";
-import {
-  parseColumnSpecs,
-  type TableColumnSpec,
-} from "../../src/parse/lines/table-cell-spec.js";
-import { buildTable, type TableScan } from "../../src/parse/build/table.js";
-import {
-  blockExtentOf,
-  delimitedExtent,
-} from "../../src/parse/lines/delimited-reader.js";
-import { splitLines } from "../../src/parse/lines/split.js";
-import {
-  delimiterKind,
-  type DelimiterKind,
-} from "../../src/parse/lines/classify.js";
-import { attrlistFields } from "../../src/parse/attrlist.js";
+import type { TableColumnSpec } from "../../src/parse/lines/table-cell-spec.js";
 import { rstrip } from "../../src/parse/line-shapes.js";
-import { makeLocationIndex } from "../../src/parse/positions.js";
-import { preorder, type AnyNode } from "./ast-walk.js";
+import { tableNodes } from "./table-nodes.js";
 import type { OracleCellSpec } from "../helpers.js";
 
 // ---------------------------------------------------------------------------
-// Locating a table's extent from the existing passthrough
+// The tables one document parses to
 // ---------------------------------------------------------------------------
 
-/**
- * The default cutting scheme a table's own delimiter hint selects
- * before any `format=` attribute overrides it (`table.rb:459-467`):
- * `|` and `!` both open a psv table, `,` opens csv, `:` opens dsv.
- * @param kind - the delimiter kind that opened the table
- * @returns the default format
- */
-function defaultFormat(kind: DelimiterKind): TableFormat {
-  return kind === "tableComma" ? "csv" : kind === "tableColon" ? "dsv" : "psv";
-}
-
-/** The default cell separator for one cutting format. */
-const DEFAULT_SEPARATOR: Record<TableFormat, string> = {
-  psv: "|",
-  csv: ",",
-  dsv: ":",
-};
-
-/**
- * One block-attribute line's interior, split into its named
- * attributes and its `%shorthand` option names (`options="header"` and
- * `%header` are the same fact spelled two ways, parser.rb:2304-2306).
- * Built with {@link attrlistFields} rather than a hand-rolled split, so
- * a quoted `cols="1,1"` splits the same way the reader's own attrlist
- * parser splits it.
- */
-interface TableAttributes {
-  /** Named attribute values, keyed by name. */
-  readonly named: ReadonlyMap<string, string>;
-  /** Every `%name` shorthand and every `options=` list entry, together. */
-  readonly options: ReadonlySet<string>;
-}
-
-/** An attrlist field with no attributes at all (a table with no held line). */
-const NO_ATTRIBUTES: TableAttributes = { named: new Map(), options: new Set() };
-
-/**
- * Strip one layer of matching quotes from an attrlist value, when the
- * whole value is quoted. Not Ruby's full unescape (this suite has no
- * need of `\"`), only enough to read `cols="1,1"` and `options="header,footer"`.
- * @param value - the field's value half
- * @returns the value with its surrounding quotes removed, if any
- */
-function unquote(value: string): string {
-  if (value.length < 2) {
-    return value;
-  }
-  const [quote] = value;
-  return (quote === '"' || quote === "'") && value.endsWith(quote)
-    ? value.slice(1, -1)
-    : value;
-}
-
-/**
- * Parse a table's held attribute-line interior into named attributes
- * and option names.
- * @param annotatedBy - the interior the reader recorded, or undefined
- * @returns the parsed attributes
- */
-function tableAttributes(annotatedBy: string | undefined): TableAttributes {
-  if (annotatedBy === undefined) {
-    return NO_ATTRIBUTES;
-  }
-  const fields = attrlistFields(annotatedBy) ?? annotatedBy.split(",");
-  const named = new Map<string, string>();
-  const options = new Set<string>();
-  for (const field of fields) {
-    const trimmed = field.trim();
-    const shorthand = /^%(?<name>[\w\-]+)$/v.exec(trimmed);
-    if (shorthand?.groups !== undefined) {
-      options.add(shorthand.groups.name);
-      continue;
-    }
-    const eq = trimmed.indexOf("=");
-    if (eq === -1) {
-      continue;
-    }
-    const name = trimmed.slice(0, eq).trim();
-    const value = unquote(trimmed.slice(eq + 1).trim());
-    named.set(name, value);
-    if (name === "options") {
-      for (const option of value.split(",")) {
-        if (option !== "") {
-          options.add(option.trim());
-        }
-      }
-    }
-  }
-  return { named, options };
-}
-
-/**
- * Resolve a table's cutting scheme: the delimiter's own default,
- * `format=` if it named one (with `tsv` aliased to csv, table.rb:461-463),
- * then `separator=` if it named one.
- * @param kind - the delimiter kind that opened the table
- * @param attributes - the table's parsed attribute line
- * @returns the cutting
- */
-function resolveCutting(
-  kind: DelimiterKind,
-  attributes: TableAttributes,
-): TableCutting {
-  const named = attributes.named.get("format");
-  const format: TableFormat =
-    named === "psv" || named === "csv" || named === "dsv"
-      ? named
-      : named === "tsv"
-        ? "csv"
-        : defaultFormat(kind);
-  const separator = attributes.named.get("separator");
-  return {
-    format,
-    separator:
-      separator === undefined || separator === ""
-        ? format === "csv" && named === "tsv"
-          ? "\t"
-          : DEFAULT_SEPARATOR[format]
-        : separator,
-  };
-}
-
-/**
- * Resolve a table's `cols=` value into its column specs, absent (not
- * `[]`) when the attribute is missing or names no column at all
- * (`parseColumnSpecs`'s own contract for an empty value).
- * @param attributes - the table's parsed attribute line
- * @returns the columns, or undefined
- */
-function resolveColumns(
-  attributes: TableAttributes,
-): TableColumnSpec[] | undefined {
-  const cols = attributes.named.get("cols");
-  if (cols === undefined) {
-    return;
-  }
-  const parsed = parseColumnSpecs(cols);
-  return parsed.length === 0 ? undefined : parsed;
-}
-
-/** One table's passthrough node, as `parse()` still builds it. */
-interface TablePassthrough {
-  /** The table's raw bytes, delimiters included. */
-  readonly content: string;
-  /** The held attribute line's interior, if any. */
-  readonly annotatedBy: string | undefined;
-}
-
-/**
- * Whether a preorder-walked node is the existing table passthrough:
- * a `delimitedBlock` whose variant is `"table"`.
- * @param node - a node from {@link preorder}
- * @returns the node's `content`/`annotatedBy`, or undefined
- */
-function asTablePassthrough(node: AnyNode): TablePassthrough | undefined {
-  if (node.type !== "delimitedBlock" || node.variant !== "table") {
-    return undefined;
-  }
-  const { content, annotatedBy } = node;
-  if (typeof content !== "string") {
-    return undefined;
-  }
-  return {
-    content,
-    annotatedBy: typeof annotatedBy === "string" ? annotatedBy : undefined,
-  };
-}
-
-/** One table, scanned and built, ready to compare against the oracle. */
+/** One table, as the reader built it, ready to compare. */
 export interface ScannedTable {
-  /** The assembled node. */
+  /** The node `parse()` produced. */
   readonly table: TableNode;
   /** The cutting the table resolved to (needed to reconstruct cell text). */
   readonly cutting: TableCutting;
   /**
-   * The passthrough's own raw bytes this table was built from,
-   * delimiters included: what {@link replayTable} is checked against.
+   * The table's own bytes, delimiters included: the source its
+   * position names, which is what {@link replayTable} is checked
+   * against. A forced close can name one byte more - the final
+   * newline - so the check at the call site is a prefix with that
+   * overhang, exactly as AST invariant (x) states it.
    */
   readonly content: string;
 }
 
 /**
- * Scan and build every table `parse()` finds in `input`, in document
- * order. Each table's own passthrough `content` stands in for "the
- * whole document" here: {@link delimitedExtent} re-finds the same
- * close line (or the same unterminated run) the passthrough already
- * resolved, correctly for a nested or confined table too, since
- * `content` never runs past where the real reader stopped it.
+ * Every table `parse()` finds in `input`, in document order.
+ *
+ * The reader resolves the open and drives the scan itself now, so
+ * this is a walk and nothing else: whatever this suite measures, it
+ * measures about the tables a document really parses to.
  * @param input - AsciiDoc source text
  * @returns every table found, in document order
  */
 export function scanTables(input: string): ScannedTable[] {
-  const document = parse(input);
-  const passthroughs = preorder(document)
-    .map(asTablePassthrough)
-    .filter((found) => found !== undefined);
-  return passthroughs.map(({ content, annotatedBy }) => {
-    const lines = splitLines(content);
-    const kind = delimiterKind(lines[0].text);
-    if (kind === undefined) {
-      throw new Error("table-structure: passthrough content opens no table");
-    }
-    const extent = delimitedExtent(lines, 0, kind);
-    const packaged = blockExtentOf(extent, content, content.length);
-    const attributes = tableAttributes(annotatedBy);
-    const cutting = resolveCutting(kind, attributes);
-    const columns = resolveColumns(attributes);
-    const cut = cutCells(extent.interior, cutting);
-    const rows = groupRows(cut.cells, columns?.length);
-    const headerOptions: TableHeaderOptions = {
-      header: attributes.options.has("header"),
-      noheader: attributes.options.has("noheader"),
-    };
-    const header = readHeaderDecision(
-      extent.interior,
-      cut.cells,
-      cutting,
-      headerOptions,
-    );
-    const scan: TableScan = {
-      cutting,
-      leadingRuns: cut.leadingRuns,
-      rows,
-      header,
-      footer: attributes.options.has("footer"),
-      ...(columns === undefined ? {} : { columns }),
-    };
-    const at = makeLocationIndex(content);
-    const table = buildTable(packaged, scan, at, annotatedBy);
-    return { table, cutting, content };
-  });
-}
-
-/**
- * The bytes one cell's opening wrote of its own: `spec + separator`
- * for a `separator` opening, empty for the two openings that write
- * none (design section 3.4's `openingImage`).
- * @param opening - the cell's opening
- * @returns the bytes the opening itself contributes
- */
-function openingImage(opening: TableCellOpening): string {
-  return opening.kind === "separator" ? opening.spec + opening.separator : "";
-}
-
-/**
- * Replay a built table's own records to the bytes they partition
- * (design section 3.4, and AST invariant (xv) once this suite's
- * reader hooks up for real): `open`, a newline, every leading run in
- * order, every row's cells in order (each one's opening bytes then
- * its own runs' images), and the close. Checked against the
- * passthrough's own `content` at the call site, which is this suite's
- * proof that `open`, `leadingRuns`, each cell's `opening` (spec and
- * separator) and `runs`, and `close.image` together account for every
- * byte with none moved or dropped - `cutCells`/`groupRows`'s own cut
- * (src/parse/lines/table-reader.ts) carried through
- * src/parse/build/table.ts's assembly unchanged. It does NOT check
- * `cellEnd`/`TableRowNode.position` (a Location, not a byte, and
- * nothing here reads one) or `closeOf`'s `endOfStream` arm (no corpus
- * table is left unterminated, so that arm has no case to run this
- * check against at all).
- * @param table - the built table
- * @returns the bytes the table's own records account for
- */
-export function replayTable(table: TableNode): string {
-  const leading = table.leadingRuns.map((run) => run.image).join("");
-  const rows = table.children
-    .map((row) =>
-      row.children
-        .map(
-          (cell) =>
-            openingImage(cell.opening) +
-            cell.runs.map((run) => run.image).join(""),
-        )
-        .join(""),
-    )
-    .join("");
-  const close =
-    table.close.kind === "delimiter" ? `\n${table.close.image}` : "";
-  return `${table.open}\n${leading}${rows}${close}`;
+  return tableNodes(parse(input)).map((table) => ({
+    table,
+    cutting: table.cutting,
+    content: input.slice(
+      table.position.start.offset,
+      table.position.end.offset,
+    ),
+  }));
 }
 
 // ---------------------------------------------------------------------------

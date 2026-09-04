@@ -41,6 +41,7 @@ import {
   buildParagraphFormBlock,
   buildStyledParagraph,
 } from "../build/paragraph.js";
+import { buildTable } from "../build/table.js";
 import type { InlineToken } from "../inline/tokens.js";
 import type { ParagraphContext } from "../line-shapes.js";
 import { makeLocationIndex, type LocationIndex } from "../positions.js";
@@ -96,6 +97,7 @@ import {
   splitLines,
   type SourceLine,
 } from "./split.js";
+import { readTable } from "./table-open.js";
 
 // Text starting at `from` whose `//` lines are the comments they look
 // like, which is every paragraph but one: `read_paragraph_lines`
@@ -355,8 +357,8 @@ class BlockReader {
     // reproduced exactly. The style is read before readText flushes
     // the run; the extent is the paragraph's own (unchanged context
     // threading).
-    const variant = paragraphFormVariant(this.actionableStyle());
-    const annotatedBy = this.annotation();
+    const variant = paragraphFormVariant(this.held.actionableStyle());
+    const annotatedBy = this.held.annotation();
     const tokens = this.readText(context, text);
     // A plain paragraph records no annotation: ParagraphNode declares
     // no `annotatedBy` (src/ast.ts), which is what the type test that
@@ -397,7 +399,7 @@ class BlockReader {
    * it.
    */
   private literalParagraph(): void {
-    const annotatedBy = this.annotation();
+    const annotatedBy = this.held.annotation();
     this.flushMetadata();
     const { lines, end } = literalParagraphExtent(this.scan, this.index);
     this.resume(end);
@@ -704,24 +706,6 @@ class BlockReader {
   }
 
   /**
-   * The held style, when the reader may ACT on it — see
-   * {@link HeldMetadata.actionableStyle}.
-   * @returns the style, or undefined when none is actionable
-   */
-  private actionableStyle(): string | undefined {
-    return this.held.actionableStyle();
-  }
-
-  /**
-   * The annotation the reader is about to act on — see
-   * {@link HeldMetadata.annotation}.
-   * @returns the sibling-to-be's value, or undefined
-   */
-  private annotation(): string | undefined {
-    return this.held.annotation();
-  }
-
-  /**
    * A heading line — a LEAF at every level. The section
    * frame only routed finished nodes into a container, deciding
    * nothing about any line, which is why it left without a
@@ -801,8 +785,8 @@ class BlockReader {
    * @param block - which delimited block it opens
    */
   private openDelimited(line: SourceLine, block: DelimiterKind): void {
-    const annotatedBy = this.annotation();
-    const resolved = resolveDelimitedOpen(block, this.actionableStyle());
+    const annotatedBy = this.held.annotation();
+    const resolved = resolveDelimitedOpen(block, this.held.actionableStyle());
     this.flushMetadata();
     const extent = delimitedExtent(this.lines, this.index, block);
     // THIS reader's forced-close boundary, read once because both
@@ -811,7 +795,12 @@ class BlockReader {
     // reason one line further down.
     const closeAt = closeOffsetIn(this.confinement, this.source);
     const blockExtent = blockExtentOf(extent, this.source, closeAt);
-    if (resolved.model === "verbatim") {
+    if (resolved.model === "table") {
+      // The confined-reader branch below is not reachable for a table:
+      // its interior is cells, never blocks.
+      const scan = readTable(extent.interior, resolved.hint, annotatedBy);
+      this.push(buildTable(blockExtent, scan, this.at, annotatedBy));
+    } else if (resolved.model === "verbatim") {
       const node = buildVerbatimBlock(
         blockExtent,
         withFenceLanguage(resolved.role, line.text),
@@ -820,13 +809,12 @@ class BlockReader {
       );
       this.push(node);
     } else {
-      const child = new BlockReader(this.scope, extent.interior, {
+      const children = new BlockReader(this.scope, extent.interior, {
         kind: "block",
         tailSafe: extent.close !== undefined || tailSafeIn(this.confinement),
         directiveDepth: this.directiveDepth,
         closeOffset: extent.close?.offset ?? closeAt,
-      });
-      const children = child.run();
+      }).run();
       this.push(
         resolved.admonition === undefined
           ? buildParentBlock(blockExtent, resolved.variant, children, this.at)
@@ -868,9 +856,9 @@ class BlockReader {
     ) {
       return false;
     }
-    const variant = verbatimStyledVariant(this.actionableStyle());
+    const variant = verbatimStyledVariant(this.held.actionableStyle());
     if (variant === undefined) return false;
-    const held = { variant, annotatedBy: this.annotation() };
+    const held = { variant, annotatedBy: this.held.annotation() };
     this.flushMetadata();
     const { lines, end } = verbatimStyledExtent(this.scan, this.index);
     this.resume(end);

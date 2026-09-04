@@ -823,12 +823,12 @@ export interface ListNode extends Node {
 }
 
 /**
- * The block kinds a verbatim delimited block carries, `table` aside:
- * the three that own a leaf delimiter, plus the parent-block variants
- * a style can re-model into verbatim content. A table is not among
- * them — its delimiter lines are CONTENT, which is a node of its own
- * below rather than a value this set could hold, and the style tables
- * in lines/open-style.ts that name a target variant therefore cannot
+ * The block kinds a verbatim delimited block carries: the three that
+ * own a leaf delimiter, plus the parent-block variants a style can
+ * re-model into verbatim content. A table is not among them: its
+ * delimiter lines are CONTENT, which {@link TableNode} models below
+ * rather than a value this set could hold, and the style tables in
+ * lines/open-style.ts that name a target variant therefore cannot
  * name one.
  */
 export type VerbatimVariant =
@@ -892,7 +892,6 @@ export type DelimitedBlockNode =
   | LeafDelimitedBlockNode
   | FencedCodeBlockNode
   | MasqueradedBlockNode
-  | TableBlockNode
   | IndentedLiteralBlockNode
   | ParagraphFormBlockNode;
 
@@ -972,32 +971,6 @@ interface MasqueradedBlockNode extends Node {
   content: string;
   /** The parent delimiter the style re-modeled; the printer emits it. */
   sourceDelimiter: ParentBlockNode["variant"];
-  /** Never: a Markdown fence is {@link FencedCodeBlockNode}. */
-  fenced?: undefined;
-  /** Never: only a fence's opening line carries a language hint. */
-  language?: undefined;
-  /** The attribute line's interior, as the reader recorded it. */
-  annotatedBy?: string;
-}
-
-/**
- * The opaque passthrough of a `|===` `,===` `:===` `!===` block (the
- * issue #10 interim shape — full table MODELING is out of scope).
- * Unlike every other member THE DELIMITER LINES ARE CONTENT: the
- * reader slices from the opening line's start, and the printer
- * replays those lines adding no framing of its own.
- */
-interface TableBlockNode extends Node {
-  /** Node discriminant. */
-  type: "delimitedBlock";
-  /** The one variant whose delimiters live inside `content`. */
-  variant: "table";
-  /** Delimiters, as opposed to indentation or paragraph form. */
-  form: "delimited";
-  /** The block's source lines, DELIMITERS INCLUDED. */
-  content: string;
-  /** Never: a table is not a masqueraded parent block. */
-  sourceDelimiter?: undefined;
   /** Never: a Markdown fence is {@link FencedCodeBlockNode}. */
   fenced?: undefined;
   /** Never: only a fence's opening line carries a language hint. */
@@ -1418,14 +1391,12 @@ export interface BlockAnchorNode extends Node {
 /**
  * Table structure (issue #10). These four types are the modeled
  * table: `table`, `tableRow`, `tableCell`, and the auxiliary shapes
- * a cell's opening and spec carry. NOT YET a member of `BlockNode` or
- * `DelimitedBlockNode`: the reader still resolves a `|===` block to
- * `TableBlockNode`'s opaque verbatim passthrough above, so these types
- * currently have no `src` producer or consumer beyond
- * `src/parse/build/table.ts` and the tests that exercise it directly.
- * Wiring them in is a later change, made once a hookup can decide,
- * from the corpus, that the modeled tree replays every byte the
- * passthrough already does.
+ * a cell's opening and spec carry. {@link TableNode} is a
+ * {@link BlockNode} member and NOT a `DelimitedBlockNode` one: a
+ * `|===` block resolves to it, and no delimited-block variant may
+ * spell a table, because a table's delimiter lines are its own
+ * fields rather than a slice of content. Rows and cells are interior
+ * nodes: nothing outside a table holds one.
  *
  * Shapes here mirror the table SCAN's own types
  * (`src/parse/lines/table-reader.ts`, `src/parse/lines/table-cell-spec.ts`)
@@ -1765,6 +1736,7 @@ export type BlockNode =
   | AttributeEntryNode
   | ListNode
   | DelimitedBlockNode
+  | TableNode
   | ParentBlockNode
   | AdmonitionNode
   | ThematicBreakNode

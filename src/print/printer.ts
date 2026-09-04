@@ -15,11 +15,10 @@
  *   (hardline after last child).
  * - Empty documents produce empty output (no trailing newline).
  *
- * TODO: Reflow treats all paragraph text as prose. Constructs
- * the parser doesn't yet recognise (block macros, tables,
- * etc.) are parsed as paragraphs and will be incorrectly
- * reflowed. This resolves as those constructs get their own
- * AST nodes.
+ * TODO: Reflow treats all paragraph text as prose. A construct the
+ * parser does not yet recognise is parsed as a paragraph and will be
+ * incorrectly reflowed. This resolves as those constructs get their
+ * own AST nodes.
  */
 import { doc, type Printer, type Doc } from "prettier";
 import { canonicalAttrlist } from "../parse/attrlist.js";
@@ -38,6 +37,7 @@ import {
   printParentBlock,
 } from "./blocks.js";
 import { printList, printListItem } from "./list.js";
+import { printTable, printTableCell, printTableRow } from "./table.js";
 import { anchorToSource } from "./serialize-inline.js";
 import { getVisitorKeys } from "./visitor-keys.js";
 
@@ -101,6 +101,19 @@ const printer: Printer<AnyNode> = {
       }
       case "delimitedBlock": {
         return printDelimitedBlock(node, hasPrecedingLanguageAttribute(node));
+      }
+      // A table replays its own bytes, delimiter lines included, and
+      // its rows and cells are reached ONLY from here - the two arms
+      // below exist so that path.map's recursion lands on them
+      // instead of on the inline default at the bottom.
+      case "table": {
+        return printTable(node, path, print);
+      }
+      case "tableRow": {
+        return printTableRow(path, print);
+      }
+      case "tableCell": {
+        return printTableCell(node);
       }
       case "parentBlock": {
         return printParentBlock(node, path, print);

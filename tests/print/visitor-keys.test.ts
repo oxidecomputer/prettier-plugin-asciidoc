@@ -286,12 +286,15 @@ describe("the declared visitor keys, against real parse trees", () => {
   // Vacuity guard, the with-children half. Kept as an exact list
   // because it fails loudly if a declaration is ever dropped from a
   // kind that has one, and it is stable against corpus churn: the
-  // hand-written document above reaches all fourteen on its own: its
+  // hand-written document above reaches all sixteen on its own: its
   // `= Title` plus `:toc:` open a documentHeader whose `lines` hold
   // the attribute entry (issue #18), its curved-quote phrases
-  // (issue #74) reach `curvedQuote`, and its `^super^`/`~sub~` phrases
+  // (issue #74) reach `curvedQuote`, its `^super^`/`~sub~` phrases
   // (issue #14) reach the two span kinds the last two `QUOTE_SUBS`
-  // rows spell.
+  // rows spell, and its `|===` block reaches a table and the row
+  // holding its cells (issue #10). `tableCell` is NOT here and must
+  // not be: a cell declares no child key, so it belongs to the
+  // every-kind row above instead.
   test("the documents reach every kind that declares a child key", () => {
     const withChildren = ALL_NODES.filter(
       (node) => getVisitorKeys(node).length > 0,
@@ -312,6 +315,8 @@ describe("the declared visitor keys, against real parse trees", () => {
       "parentBlock",
       "subscript",
       "superscript",
+      "table",
+      "tableRow",
     ]);
   });
 

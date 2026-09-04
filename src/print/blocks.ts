@@ -20,6 +20,8 @@ import type {
   LeafDelimiterVariant,
   ListItemNode,
   ParentBlockNode,
+  TableCellNode,
+  TableRowNode,
 } from "../ast.js";
 import { canonicalAttrlist } from "../parse/attrlist.js";
 import { ASCII_NON_WHITESPACE } from "../parse/line-shapes.js";
@@ -41,9 +43,18 @@ const {
  *
  * Prettier's generic `Printer` type needs this to
  * type-check `path.map()` calls across different node
- * shapes.
+ * shapes. A table's rows and cells are members for that
+ * reason and no other: they are not blocks, and nothing
+ * but the table printer's own recursion
+ * (src/print/table.ts) ever reaches them.
  */
-export type AnyNode = DocumentNode | BlockNode | InlineNode | ListItemNode;
+export type AnyNode =
+  | DocumentNode
+  | BlockNode
+  | InlineNode
+  | ListItemNode
+  | TableRowNode
+  | TableCellNode;
 
 /**
  * Convenience alias for Prettier's AST path, specialized
@@ -181,24 +192,22 @@ function computeDelimiter(content: string, delimChar: string): string {
  * 2. Otherwise the variant is a leaf's
  *    (listing/literal/pass) — {@link DELIMITER_CHARS}.
  *
- * There is no third case, and now no assertion saying so:
- * the parameter takes the three delimited-form members that
- * are not a table, and past the `sourceDelimiter` branch the
- * two that remain — a fence and a leaf block — have leaf
- * variants by declaration, so the table lookup is total.
+ * There is no third case, and no assertion saying so: the
+ * parameter takes the three delimited-form members, and past
+ * the `sourceDelimiter` branch the two that remain (a fence
+ * and a leaf block) have leaf variants by declaration, so
+ * the delimiter-character lookup is total.
  * @param node - The delimited block node whose delimiter
  *   to compute.
  * @returns The correctly-sized delimiter string.
  */
 function computeMasqueradeDelimiter(
   // The delimited-form members that print a FRAME of their own: a
-  // leaf block, a fence, a masqueraded parent block. A table is
-  // delimited too, but its delimiter lines are CONTENT, so it never
-  // reaches here — printDelimitedBlock replays its lines first.
-  node: Exclude<
-    Extract<DelimitedBlockNode, { form: "delimited" }>,
-    { variant: "table" }
-  >,
+  // leaf block, a fence, a masqueraded parent block. A table is not
+  // among them and cannot be: its delimiter lines are CONTENT, so it
+  // is a node of its own (src/print/table.ts) rather than a member of
+  // this union.
+  node: Extract<DelimitedBlockNode, { form: "delimited" }>,
 ): string {
   if (node.sourceDelimiter !== undefined) {
     const parentChar = PARENT_DELIMITER_CHARS[node.sourceDelimiter];
@@ -267,16 +276,6 @@ export function printDelimitedBlock(
   node: DelimitedBlockNode,
   skipSourcePrefix: boolean,
 ): Doc {
-  // A table replays its own source lines — the delimiters are part of
-  // `content` and no framing is added. Prettier strips
-  // trailing whitespace per line, which is render-neutral: the
-  // oracle's reader rstrips every line before parsing
-  // (prepare_source_string); the trailing-whitespace rows in
-  // tests/format/table.test.ts pin the output bytes.
-  if (node.variant === "table") {
-    return join(hardline, node.content.split("\n"));
-  }
-
   // Indented literal paragraphs and paragraph-form blocks: print
   // content verbatim without delimiters. The preceding attribute
   // list (for paragraph form) is a separate node handled by the

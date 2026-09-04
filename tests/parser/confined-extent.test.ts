@@ -14,6 +14,7 @@
 import { describe, expect, test } from "vitest";
 import { parse } from "../../src/parser.js";
 import { preorder } from "./ast-walk.js";
+import { replayTable, tableNodes } from "./table-nodes.js";
 
 /**
  * The first source-sliced verbatim node in a parse — a delimited
@@ -34,6 +35,27 @@ function firstVerbatim(source: string): { content: string; end: number } {
     }
   }
   throw new Error(`no verbatim node in ${JSON.stringify(source)}`);
+}
+
+/**
+ * The same two facts for the first TABLE in a parse. A table holds no
+ * `content` slice - its bytes are its own records - so the row's
+ * literal is compared against the REPLAY of those records
+ * (tests/parser/table-nodes.ts), which is the string a table's own
+ * bytes have to spell for it to have kept them. The literals and the
+ * end offsets are the base-measured ones this file's header names,
+ * unchanged: what a confined forced close ends at is the property
+ * these rows exist for, and it does not depend on how the bytes
+ * inside are recorded.
+ * @param source - the document
+ * @returns the table's replayed bytes and end offset
+ */
+function firstTable(source: string): { content: string; end: number } {
+  const table = tableNodes(parse(source)).at(0);
+  if (table === undefined) {
+    throw new Error(`no table in ${JSON.stringify(source)}`);
+  }
+  return { content: replayTable(table), end: table.position.end.offset };
 }
 
 describe("confined-extent: content is whole, position.end does not move", () => {
@@ -104,6 +126,15 @@ describe("confined-extent: content is whole, position.end does not move", () => 
       "x",
       20,
     ],
+  ];
+  test.each(rows)("%s", (_name, input, content, end) => {
+    expect(firstVerbatim(input)).toEqual({ content, end });
+  });
+
+  // The same three sites for a table, whose bytes are its records
+  // rather than a slice: same inputs, same literals, same end
+  // offsets, read through {@link firstTable}.
+  test.each([
     ["table / item", "* item\n+\n|===\n|a\n\nafter\n", "|===\n|a\n\nafter", 23],
     [
       "table / nested item",
@@ -117,10 +148,12 @@ describe("confined-extent: content is whole, position.end does not move", () => 
       "|===\n|a",
       21,
     ],
-  ];
-  test.each(rows)("%s", (_name, input, content, end) => {
-    expect(firstVerbatim(input)).toEqual({ content, end });
-  });
+  ] as Array<[string, string, string, number]>)(
+    "%s",
+    (_name, input, content, end) => {
+      expect(firstTable(input)).toEqual({ content, end });
+    },
+  );
 
   // The must-not-change AST controls: document-level EOF,
   // outer-terminator forced close, table-in-closed-example. Base-
@@ -128,11 +161,17 @@ describe("confined-extent: content is whole, position.end does not move", () => 
   test.each([
     ["document-level EOF", "----\nfoo\n", "foo", 9],
     ["outer-terminator forced close", "====\n----\nfoo\n====\n", "foo", 14],
-    ["table in a closed example", "====\n|===\n|a\n====\n", "|===\n|a", 13],
   ] as Array<[string, string, string, number]>)(
     "%s is unchanged",
     (_name, input, content, end) => {
       expect(firstVerbatim(input)).toEqual({ content, end });
     },
   );
+
+  test("a table in a closed example is unchanged", () => {
+    expect(firstTable("====\n|===\n|a\n====\n")).toEqual({
+      content: "|===\n|a",
+      end: 13,
+    });
+  });
 });

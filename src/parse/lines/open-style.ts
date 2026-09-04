@@ -12,16 +12,18 @@
 import type { ParentBlockNode, VerbatimVariant } from "../../ast.js";
 import type { DelimiterKind } from "../line-shapes.js";
 import type { VerbatimRole } from "../build/delimited.js";
+import type { TableFormat } from "./table-reader.js";
 
 // The model a BARE delimiter opens, before any held style speaks —
 // one row per DELIMITER_KINDS entry, totality compiler-checked by the
 // Record key. Compound rows are `DELIMITED_BLOCKS`' block content
 // model; everything else keeps its bytes (a comment block builds a
-// CommentNode, a table an opaque table extent).
+// CommentNode, a table its own recorded cells).
 const DELIMITER_MODELS: Record<
   DelimiterKind,
   | { readonly compound: ParentBlockNode["variant"] }
   | { readonly role: VerbatimRole }
+  | { readonly cuts: TableFormat }
 > = {
   listing: { role: { builds: "leafBlock", variant: "listing" } },
   literal: { role: { builds: "leafBlock", variant: "literal" } },
@@ -34,10 +36,17 @@ const DELIMITER_MODELS: Record<
   // Fences imply the `source` style even without a language hint; the
   // reader completes the role with the hint parsed from the line.
   fencedCode: { role: { builds: "fencedBlock" } },
-  tablePipe: { role: { builds: "table" } },
-  tableComma: { role: { builds: "table" } },
-  tableColon: { role: { builds: "table" } },
-  tableBang: { role: { builds: "table" } },
+  // A table row carries the FORMAT its hint character contributes,
+  // which a `format=` attribute then overrides: `,` contributes csv
+  // and `:` dsv (`attributes['format'] ||=`, parser.rb:874-877),
+  // while `|` and `!` contribute the psv every other path defaults
+  // to. The separator is NOT here - it follows from the resolved
+  // format and the block's own attribute list, where the held line is
+  // readable (lines/table-open.ts).
+  tablePipe: { cuts: "psv" },
+  tableComma: { cuts: "csv" },
+  tableColon: { cuts: "dsv" },
+  tableBang: { cuts: "psv" },
 };
 
 // Styles that masquerade a parent block's content model to verbatim,
@@ -103,6 +112,12 @@ type DelimitedOpen =
       readonly model: "verbatim";
       /** What the extent will build once it is collected. */
       readonly role: VerbatimRole;
+    }
+  | {
+      /** Open model: an interior cut into cells and rows. */
+      readonly model: "table";
+      /** The format the delimiter's hint character contributed. */
+      readonly hint: TableFormat;
     };
 
 /**
@@ -112,7 +127,8 @@ type DelimitedOpen =
  * masquerade for the kind resolves to the delimiter's own model,
  * which is Ruby's unknown-style downgrade (parser.rb:548-549) —
  * modulo the uppercase-word admonition rule above, which claims any
- * single alphabetic word first (today's tables, verbatim).
+ * single alphabetic word first (tables are outside both: they cut
+ * cells whatever the style says).
  * @param kind - which delimiter opened
  * @param style - the held style, if the (c) guard released one
  * @returns what the opened block will build
@@ -124,6 +140,13 @@ export function resolveDelimitedOpen(
   const model = DELIMITER_MODELS[kind];
   if ("role" in model) {
     return { model: "verbatim", role: model.role };
+  }
+  // A table's model never consults the held style: no style
+  // masquerades a table into anything else, and the style entry it
+  // does read (a `%header` shorthand) is an attribute VALUE, read
+  // where the whole interior is (lines/table-open.ts).
+  if ("cuts" in model) {
+    return { model: "table", hint: model.cuts };
   }
   const { compound } = model;
   if (style !== undefined) {

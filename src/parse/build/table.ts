@@ -69,10 +69,9 @@ interface ScannedCell {
  * delimiter's hint character and the block's attribute list
  * (table.rb:459-486, parser.rb:2425-2482).
  *
- * Exported for tests/parser/table-structure.test.ts, which drives
- * `cutCells`, `groupRows` and `readHeaderDecision` itself (no reader
- * hookup exists yet) and assembles this record from their answers.
- * @internal
+ * Filled by a table's open (src/parse/lines/table-open.ts), which
+ * drives `cutCells`, `groupRows` and `readHeaderDecision` and gathers
+ * their answers into it.
  */
 export interface TableScan {
   /** The format and separator the table resolved to. */
@@ -172,17 +171,14 @@ function closeOf(extent: BlockExtent): TableClose {
  * A table, assembled from the SCAN's own answers and the extent a
  * delimited read already collected.
  *
- * Exported for tests/parser/table-structure.test.ts; the reader
- * dispatch that resolves a table's open and hooks this builder into
- * the normal block read (not part of this change) becomes the real
- * `src` consumer once it lands.
+ * Called by the reader at a table's delimited open
+ * (src/parse/lines/reader.ts), the way every other builder is.
  * @param extent - where the table opened and closed
  * @param scan - what `cutCells`, `groupRows` and `readHeaderDecision`,
  *   plus the block's own attribute list, decided about this table
  * @param at - the document's location index
  * @param annotatedBy - the annotation the reader recorded, if any
  * @returns the table node
- * @internal
  */
 export function buildTable(
   extent: BlockExtent,

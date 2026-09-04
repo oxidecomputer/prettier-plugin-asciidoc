@@ -22,12 +22,12 @@ import {
   flattenRow,
   hasPreprocessorLine,
   hasSplittingDuplicate,
-  replayTable,
   scanTables,
   type Exclusion,
   type FlatCell,
   type ScannedTable,
 } from "./table-structure-scan.js";
+import { allowsOverhang, replayTable } from "./table-nodes.js";
 import { oracleTables, type OracleTable } from "../helpers.js";
 import { parseJsonl, type CorpusCase } from "../conformance/loader.js";
 
@@ -349,9 +349,16 @@ describe("table structure vs the oracle", () => {
   // Independent of the oracle: every table this reader builds, from
   // every case (excluded ones included, since this is a fact about
   // this reader's own records, not about agreement with the oracle),
-  // replays to the exact bytes it was cut from (design section 3.4).
+  // replays the bytes of the extent its position names, with only the
+  // overhang its close kind allows (`allowsOverhang`,
+  // tests/parser/table-nodes.ts). Every corpus table closes on its
+  // terminator, so every row here is really asserting EQUALITY.
   test.each(ALL_SCANNED)("$group: $id replays its own bytes", (scanned) => {
-    expect(replayTable(scanned.table)).toBe(scanned.content);
+    const replayed = replayTable(scanned.table);
+    expect(scanned.content.startsWith(replayed)).toBe(true);
+    expect(
+      allowsOverhang(scanned.table, scanned.content.slice(replayed.length)),
+    ).toBe(true);
   });
 
   test("exclusion counts are pinned per family", () => {

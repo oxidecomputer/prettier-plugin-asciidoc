@@ -235,11 +235,11 @@ export default defineConfig(
   // excluded); the fix would put it where the second number says.
   {
     files: [
-      "src/parse/lines/reader.ts", // 447 -> 461
+      "src/parse/lines/reader.ts", // 448 -> 462
       "src/print/inline.ts", // 445 -> 463
       "scripts/parity.ts", // 449 -> 469
       "scripts/shape-registry.ts", // 446 -> 448
-      "tests/parser/ast-invariants.ts", // 441 -> 491
+      "tests/parser/ast-invariants.ts", // 438 -> 488
       "tests/scripts/metrics-design.test.ts", // 447 -> 449
       "tests/scripts/parity.test.ts", // 442 -> 444
     ],

@@ -72,7 +72,6 @@ export type TableCellStyle =
  * Exported for tests/parser/table-cell-spec.test.ts; moves to
  * `src/ast.ts` once table modeling gives the AST its own node kinds,
  * which is when it gains a `src` consumer.
- * @internal
  */
 export interface TableColumnSpec {
   /** `<`, `^`, `>` as `left`, `center`, `right`; absent when the record set none. */
@@ -303,9 +302,9 @@ function cellSpecFrom(
 /**
  * How a cell-opening spec's text ended: a real spec, or nothing.
  *
- * Exported for tests/parser/table-cell-spec.test.ts; the table reader
- * that scans a line for a separator (not part of this change) becomes
- * the real `src` consumer once it lands.
+ * Exported for tests/parser/table-cell-spec.test.ts. No `src`
+ * consumer spells the name: the scan reads the result through the
+ * function that returns it.
  * @internal
  */
 export type CellSpecStartResult =
@@ -350,9 +349,9 @@ export function parseCellSpecStart(text: string): CellSpecStartResult {
 /**
  * What one `CellSpecEndRx` reading found.
  *
- * Exported for tests/parser/table-cell-spec.test.ts; the table reader
- * that scans a line for a separator (not part of this change) becomes
- * the real `src` consumer once it lands.
+ * Exported for tests/parser/table-cell-spec.test.ts. No `src`
+ * consumer spells the name: the scan reads the result through the
+ * function that returns it.
  * @internal
  */
 export interface CellSpecEndResult {
@@ -434,10 +433,8 @@ function columnRepeatCount(digits: string | undefined): number {
  * @returns one entry per column, in declaration order after `N*`
  *   repeats are expanded
  *
- * Exported for tests/parser/table-cell-spec.test.ts; the table reader
- * that scans a line for a separator (not part of this change) becomes
- * the real `src` consumer once it lands.
- * @internal
+ * Called by a table's open (lines/table-open.ts) on the `cols` value
+ * it read, and by tests/parser/table-cell-spec.test.ts.
  */
 export function parseColumnSpecs(value: string): TableColumnSpec[] {
   const records = value.includes(" ") ? value.replaceAll(" ", "") : value;

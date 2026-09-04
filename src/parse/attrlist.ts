@@ -8,12 +8,12 @@
  * (`firstPositional`, `extractStyle`) agreed by luck, in two modules.
  *
  * Named attributes (`cols`, `format`, `separator`, `%options` —
- * Ruby's `AttributeList` / `parse_style_attribute`) are still OUT of
- * scope as VALUES: nothing consumes them yet. What this module does
- * own beyond the style is where one attribute ENDS and the next
- * begins ({@link attrlistFields}), which is all the printer needs to
- * spell the interior canonically. The revisit trigger for the values
- * themselves is real table modeling (#10).
+ * Ruby's `AttributeList` / `parse_style_attribute`) are read as
+ * VALUES by {@link attrlistValues}, over the same boundary scan: a
+ * table's open is the consumer (#10), and it asks the four keys that
+ * change how a table cuts. Nothing else about a named attribute is
+ * modeled - no substitution, no `attributes[N]` positional map - so
+ * the values are what the interior spells and nothing more.
  */
 
 /**
@@ -358,6 +358,154 @@ function unquoteField(field: string): string {
   }
   const inner = field.slice(1, -1);
   return inner.includes("\\") ? unescapeQuoted(inner, quote) : inner;
+}
+
+/**
+ * The values a table's open reads out of one `[...]` interior: every
+ * named attribute, and every option name, over {@link attrlistFields}'s
+ * own boundary scan so a quoted `cols="1,1"` splits here exactly as
+ * it splits for the printer.
+ */
+export interface AttrlistValues {
+  /** Named attribute values, keyed by the name the interior spells. */
+  readonly named: ReadonlyMap<string, string>;
+  /** The option names, both spellings below folded into one set. */
+  readonly options: ReadonlySet<string>;
+}
+
+/**
+ * A reading that names nothing: the answer for a block with no
+ * attribute line at all, and the TOTAL FALLBACK for an interior
+ * {@link attrlistFields} declines - an unclosed quote, an embedded
+ * newline. The fallback is the same conservatism the canonical
+ * spelling takes on those interiors, and it costs a table nothing a
+ * reader can see: an unresolved `format=` or `cols=` changes where
+ * the table's own records say its cells were cut, never which bytes
+ * it replays.
+ *
+ * Exported so a caller with no interior to read spells the empty
+ * reading THIS way rather than assembling one of its own - two empty
+ * containers are easy to build and easy to build differently.
+ */
+export const NO_ATTRLIST_VALUES: AttrlistValues = {
+  named: new Map(),
+  options: new Set(),
+};
+
+// A field's name half, when the field is `name=value`: `NameRx`
+// anchored at the field's start, then the blanks `skip_blank` eats
+// before the `=` (attribute_list.rb:110-124). A field whose text
+// before its first `=` fails this is POSITIONAL, and takes an
+// `attributes[N]` slot Ruby counts but nothing here models.
+const NAMED_HALF = /^\w[\w\-]*[ \t]*$/v;
+
+// One `%option` segment of a shorthand style entry: the marker and
+// everything up to the next one (`parse_style_attribute`, parser.rb).
+const SHORTHAND_OPTION = /%[^.#%]+/gv;
+
+// The two spellings of the attribute that names options; Ruby stores
+// each entry of either as `<name>-option` (attribute_list.rb).
+const OPTION_KEYS = new Set(["options", "opts"]);
+
+/**
+ * The `%option` names a STYLE entry carries. Ruby reads shorthand out
+ * of `attributes[1]` and nowhere else, and refuses it outright on an
+ * entry with a space in it ("spaces are not allowed in shorthand, so
+ * if we detect one, this ain't no shorthand"), so `[a,%header]` names
+ * an option and `[a b,%header]` names none.
+ * @param first - the first POSITIONAL field, unquoted
+ * @returns the option names it spells, in order
+ */
+function shorthandOptions(first: string): string[] {
+  if (first.includes(" ")) {
+    return [];
+  }
+  return [...first.matchAll(SHORTHAND_OPTION)].map((match) =>
+    match[0].slice(1),
+  );
+}
+
+/**
+ * What one attrlist field IS: Ruby's two kinds, as a value the caller
+ * records rather than a flag it has to decode
+ * (`parse_attribute`, attribute_list.rb:110-124).
+ */
+type Field =
+  | {
+      /** Field discriminant: `name=value`. */
+      readonly kind: "named";
+      /** The name, blanks before the `=` removed. */
+      readonly name: string;
+      /** The value, unquoted the way Ruby stores it. */
+      readonly value: string;
+    }
+  | {
+      /**
+       * Field discriminant: anything else, which takes an
+       * `attributes[N]` slot Ruby counts and nothing here models.
+       */
+      readonly kind: "positional";
+    };
+
+/**
+ * Read one field.
+ *
+ * The `=` is found by INDEX rather than by a capture, so the name and
+ * the value are two slices of the field and no branch here is
+ * unreachable: a field with no `=`, and one whose text before the
+ * first `=` is not a name, are the same positional answer.
+ * @param field - one field from {@link attrlistFields}
+ * @returns what the field is
+ */
+function readField(field: string): Field {
+  const equals = field.indexOf("=");
+  if (equals === -1 || !NAMED_HALF.test(field.slice(0, equals))) {
+    return { kind: "positional" };
+  }
+  return {
+    kind: "named",
+    name: trimBlank(field.slice(0, equals)),
+    value: unquoteField(trimBlank(field.slice(equals + 1))),
+  };
+}
+
+/**
+ * Read one block-attribute interior's named values and options.
+ * @param raw - the text between the brackets, brackets excluded
+ * @returns the values it names
+ */
+export function attrlistValues(raw: string): AttrlistValues {
+  const fields = attrlistFields(raw);
+  if (fields === undefined) {
+    return NO_ATTRLIST_VALUES;
+  }
+  const named = new Map<string, string>();
+  const options = new Set<string>();
+  let positionals = 0;
+  for (const field of fields) {
+    const read = readField(field);
+    if (read.kind === "positional") {
+      positionals += 1;
+      // Shorthand is read out of `attributes[1]`, the FIRST
+      // positional, and nowhere else.
+      if (positionals === 1) {
+        for (const option of shorthandOptions(unquoteField(field))) {
+          options.add(option);
+        }
+      }
+      continue;
+    }
+    named.set(read.name, read.value);
+    if (OPTION_KEYS.has(read.name)) {
+      for (const option of read.value.split(",")) {
+        options.add(trimBlank(option));
+      }
+    }
+  }
+  // An empty option name is no option: `[%]` and `[options=" ,a"]`
+  // both spell one, and Ruby stores `-option` for neither.
+  options.delete("");
+  return { named, options };
 }
 
 /**
