@@ -21,10 +21,6 @@
       "coverage": 100.0,
       "mutation": 100.0
     },
-    "src/narrow.ts": {
-      "coverage": 50.0,
-      "mutation": 25.0
-    },
     "src/parse/attrlist.ts": {
       "coverage": 100.0,
       "mutation": 89.6
@@ -400,12 +396,6 @@
       "what": "reflow.ts:672 `breakBefore: \"hard\"` -> `\"\"` in keepContinuationLine",
       "class": "never",
       "reason": "EQUIVALENT: `wrap` reads the field exactly twice, once as `!== \"none\"` (is there a forced break) and once as `=== \"literal\"` (does the line start at column 0 instead of the continuation indent). `\"\"` answers both questions the way `\"hard\"` does, so only the `\"literal\"` spelling is distinguishable at all"
-    },
-    {
-      "file": "src/narrow.ts",
-      "what": "narrow()'s guard and message - the uncovered half of the file",
-      "class": "never",
-      "reason": "narrow's throw is the assertion-failure path of a test helper: it fires only when a test asserted the wrong node type, so a passing suite never covers it, and killing its mutants means writing a deliberately failing assertion"
     },
     {
       "file": "src/print/block-start-hazard.ts",

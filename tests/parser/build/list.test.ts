@@ -17,7 +17,7 @@ import {
   type ListItemInput,
 } from "../../../src/parse/build/list.js";
 import { parse } from "../../../src/parser.js";
-import { narrow } from "../../../src/narrow.js";
+import { narrow } from "../../helpers.js";
 import { serializedKeys } from "../reader-helpers.js";
 import type { InlineToken } from "../../../src/parse/inline/tokens.js";
 import { makeLocationIndex } from "../../../src/parse/positions.js";

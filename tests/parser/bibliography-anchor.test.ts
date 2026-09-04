@@ -23,7 +23,7 @@
 import { describe, test, expect } from "vitest";
 import { parse } from "../../src/parser.js";
 import type { InlineNode } from "../../src/ast.js";
-import { narrow } from "../../src/narrow.js";
+import { narrow } from "../helpers.js";
 
 /**
  * Parses AsciiDoc input and returns the inline nodes of its first

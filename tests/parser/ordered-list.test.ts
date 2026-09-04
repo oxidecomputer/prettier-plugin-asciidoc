@@ -1,7 +1,6 @@
 import { describe, test, expect } from "vitest";
 import { parse } from "../../src/parser.js";
-import { firstList, renderedHtml } from "../helpers.js";
-import { narrow } from "../../src/narrow.js";
+import { firstList, narrow, renderedHtml } from "../helpers.js";
 
 describe("ordered list parsing", () => {
   // The simplest case: a single `. item` line is a one-item list.

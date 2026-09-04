@@ -25,9 +25,8 @@
  * pinned.
  */
 import { describe, expect, test } from "vitest";
-import { formatAdoc, renderedHtml, asParagraph } from "../helpers.js";
+import { asParagraph, formatAdoc, narrow, renderedHtml } from "../helpers.js";
 import { parse } from "../../src/parser.js";
-import { narrow } from "../../src/narrow.js";
 
 /**
  * Format once, pin the bytes, and prove render equality and

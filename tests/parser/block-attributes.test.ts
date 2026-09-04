@@ -18,7 +18,7 @@
 import { describe, test, expect } from "vitest";
 import { parse } from "../../src/parser.js";
 import { anchorLineShape } from "../../src/block-metadata.js";
-import { narrow } from "../../src/narrow.js";
+import { narrow } from "../helpers.js";
 
 describe("block attribute list parsing", () => {
   // The fundamental case: a positional attribute list like

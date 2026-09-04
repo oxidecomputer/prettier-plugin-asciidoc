@@ -14,7 +14,7 @@
  * literal's slurp would swallow needs a blank line in front of it.
  */
 import { describe, expect, test } from "vitest";
-import { formatAdoc } from "../helpers.js";
+import { formatAdoc, narrow } from "../helpers.js";
 import {
   buildMarker,
   formatCheckbox,
@@ -22,7 +22,6 @@ import {
   tailSwallowsMarker,
 } from "../../src/print/list.js";
 import { parse } from "../../src/parser.js";
-import { narrow } from "../../src/narrow.js";
 import type { ListItemNode, ListNode } from "../../src/ast.js";
 
 /**

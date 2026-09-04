@@ -8,8 +8,7 @@
  */
 import { describe, test, expect } from "vitest";
 import { parse } from "../../src/parser.js";
-import { asParagraph, firstList, renderedHtml } from "../helpers.js";
-import { narrow } from "../../src/narrow.js";
+import { asParagraph, firstList, narrow, renderedHtml } from "../helpers.js";
 
 describe("list continuation parsing", () => {
   test("+ attaches a paragraph to the item", () => {

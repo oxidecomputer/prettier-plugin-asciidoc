@@ -26,7 +26,27 @@ import type {
 } from "../src/ast.js";
 import type { parse } from "../src/parser.js";
 import plugin from "../src/index.js";
-import { narrow } from "../src/narrow.js";
+
+/**
+ * Assert that a node has the expected `type` discriminant, narrowing
+ * its TypeScript type accordingly. Throws if the node is undefined or
+ * has a different type.
+ *
+ * Replaces the verbose `if (x?.type !== "foo") throw ...` pattern
+ * with a single call: `narrow(x, "foo")`. It lives here because only
+ * tests narrow an AST node before asserting on it; src reads the
+ * discriminant through exhaustive switches instead.
+ * @param node - The node to narrow (may be undefined).
+ * @param type - The expected value of `node.type`.
+ */
+export function narrow<T extends { type: string }, K extends T["type"]>(
+  node: T | undefined,
+  type: K,
+): asserts node is Extract<T, { type: K }> {
+  if (node?.type !== type) {
+    throw new Error(`expected ${type}, got ${String(node?.type)}`);
+  }
+}
 
 /**
  * Formats AsciiDoc input through Prettier with optional overrides.

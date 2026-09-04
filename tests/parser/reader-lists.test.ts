@@ -13,9 +13,8 @@
  * written, the oracle won and the shape was fixed.
  */
 import { describe, expect, test } from "vitest";
-import { narrow } from "../../src/narrow.js";
 import { parse } from "../../src/parser.js";
-import { renderedHtml } from "../helpers.js";
+import { narrow, renderedHtml } from "../helpers.js";
 import { expectAstInvariants } from "./ast-invariants.js";
 import { astShape, itemCount, oracleItems } from "./reader-helpers.js";
 

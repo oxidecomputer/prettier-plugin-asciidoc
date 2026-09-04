@@ -14,7 +14,7 @@
 import { describe, test, expect } from "vitest";
 import { parse } from "../../src/parser.js";
 import type { DelimitedBlockNode } from "../../src/ast.js";
-import { narrow } from "../../src/narrow.js";
+import { narrow } from "../helpers.js";
 
 /**
  * Extracts the child at the given index as a

@@ -14,7 +14,7 @@
  */
 import { describe, test, expect } from "vitest";
 import { parse } from "../../src/parser.js";
-import { narrow } from "../../src/narrow.js";
+import { narrow } from "../helpers.js";
 import { astShape } from "./reader-helpers.js";
 import type { DocumentHeaderNode } from "../../src/ast.js";
 

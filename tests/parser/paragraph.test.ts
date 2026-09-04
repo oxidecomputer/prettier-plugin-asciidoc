@@ -1,8 +1,7 @@
 import { describe, test, expect } from "vitest";
 import { parse } from "../../src/parser.js";
 import type { ParagraphNode } from "../../src/ast.js";
-import { asParagraph } from "../helpers.js";
-import { narrow } from "../../src/narrow.js";
+import { asParagraph, narrow } from "../helpers.js";
 
 /**
  * Extracts the raw text value from a paragraph's first

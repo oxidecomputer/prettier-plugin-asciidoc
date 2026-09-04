@@ -8,7 +8,7 @@
  */
 import { describe, test, expect } from "vitest";
 import { parse } from "../../src/parser.js";
-import { narrow } from "../../src/narrow.js";
+import { narrow } from "../helpers.js";
 import { serializedKeys } from "./reader-helpers.js";
 
 describe("heading parsing", () => {

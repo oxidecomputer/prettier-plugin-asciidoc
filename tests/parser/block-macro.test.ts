@@ -1,7 +1,7 @@
 import { describe, test, expect } from "vitest";
 import { parse } from "../../src/parser.js";
 import type { ListItemNode } from "../../src/ast.js";
-import { narrow } from "../../src/narrow.js";
+import { narrow } from "../helpers.js";
 
 describe("block macro parsing", () => {
   // image:: is the most common block macro.

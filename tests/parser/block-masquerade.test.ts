@@ -19,8 +19,7 @@
 import { describe, test, expect } from "vitest";
 import { parse } from "../../src/parser.js";
 import type { DelimitedBlockNode, ParentBlockNode } from "../../src/ast.js";
-import { narrow } from "../../src/narrow.js";
-import { formatAdoc, renderedHtml } from "../helpers.js";
+import { formatAdoc, narrow, renderedHtml } from "../helpers.js";
 import { astShape, serializedKeys } from "./reader-helpers.js";
 
 /**

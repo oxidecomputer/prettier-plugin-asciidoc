@@ -12,8 +12,7 @@
  */
 import { describe, expect, test } from "vitest";
 import { parse } from "../../src/parser.js";
-import { narrow } from "../../src/narrow.js";
-import { renderedHtml } from "../helpers.js";
+import { narrow, renderedHtml } from "../helpers.js";
 import { astShape } from "./reader-helpers.js";
 
 describe("reader: paragraphs", () => {

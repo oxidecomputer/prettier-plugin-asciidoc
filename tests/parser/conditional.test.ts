@@ -11,8 +11,7 @@
 import { describe, test, expect } from "vitest";
 import { conditionalDirective } from "../../src/parse/line-shapes.js";
 import { parse } from "../../src/parser.js";
-import { asParagraph } from "../helpers.js";
-import { narrow } from "../../src/narrow.js";
+import { asParagraph, narrow } from "../helpers.js";
 
 describe("conditional directive lines at block level", () => {
   test.each([

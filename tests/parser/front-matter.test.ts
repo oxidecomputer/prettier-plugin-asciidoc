@@ -15,7 +15,7 @@
  */
 import { describe, test, expect } from "vitest";
 import { parse } from "../../src/parser.js";
-import { narrow } from "../../src/narrow.js";
+import { narrow } from "../helpers.js";
 
 describe("front matter parsing", () => {
   test("the block is one node, fences included", () => {
