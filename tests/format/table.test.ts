@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { formatAdoc, renderedHtml } from "../helpers.js";
+import { formatAdoc, renderedHtml, type FormatOverrides } from "../helpers.js";
 
 /**
  * Passthrough contract: line-for-line with each line's
@@ -7,15 +7,18 @@ import { formatAdoc, renderedHtml } from "../helpers.js";
  * every line before parsing — prepare_source_string), idempotent.
  * @param input - the document
  * @param expected - the exact formatted bytes
+ * @param overrides - optional Prettier overrides, passed to every
+ *   `formatAdoc` call this helper makes
  */
 async function expectTableFormat(
   input: string,
   expected: string,
+  overrides?: FormatOverrides,
 ): Promise<void> {
-  const output = await formatAdoc(input);
+  const output = await formatAdoc(input, overrides);
   expect(output).toBe(expected);
   expect(await renderedHtml(output)).toBe(await renderedHtml(input));
-  expect(await formatAdoc(output)).toBe(output);
+  expect(await formatAdoc(output, overrides)).toBe(output);
 }
 
 describe("tables pass through line-for-line (issue #10 interim fix)", () => {

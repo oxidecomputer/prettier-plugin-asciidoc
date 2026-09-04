@@ -50,6 +50,26 @@ export function narrow<T extends { type: string }, K extends T["type"]>(
 }
 
 /**
+ * The overrides `formatAdoc` accepts, exported so other test helpers
+ * can name the same shape rather than spelling their own.
+ */
+export interface FormatOverrides {
+  /** Line width limit for the formatter. */
+  printWidth?: number;
+  /**
+   * The line terminator Prettier writes; the printer reads its own
+   * output back to place a list item boundary (`printedLines`,
+   * src/print/list.ts), so this is the one option besides the width
+   * that changes what that rule sees.
+   */
+  endOfLine?: Options["endOfLine"];
+  /** How an accepted table's rows are laid out; see src/options.ts. */
+  asciidocTableLayout?: "row" | "cell";
+  /** Whether an accepted table's cell text is padded to align; see src/options.ts. */
+  asciidocTableAlignColumns?: boolean;
+}
+
+/**
  * Formats AsciiDoc input through Prettier with optional overrides.
  * Shared test helper that avoids duplicating plugin configuration
  * in every test file.
@@ -61,12 +81,16 @@ export function narrow<T extends { type: string }, K extends T["type"]>(
  *   printer reads its own output back to place a list item boundary
  *   (`printedLines`, src/print/list.ts), so this is the one option
  *   besides the width that changes what that rule sees
+ * @param options.asciidocTableLayout - how an accepted table's rows
+ *   are laid out
+ * @param options.asciidocTableAlignColumns - whether an accepted
+ *   table's cell text is padded to align
  * @returns the formatted output string; Prettier always appends a
  *   trailing newline, so callers can rely on that invariant
  */
 export async function formatAdoc(
   input: string,
-  options?: { printWidth?: number; endOfLine?: Options["endOfLine"] },
+  options?: FormatOverrides,
 ): Promise<string> {
   return await format(input, {
     parser: "asciidoc",

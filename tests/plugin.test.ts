@@ -25,6 +25,12 @@ import { describe, expect, test } from "vitest";
 import { format, formatWithCursor } from "prettier";
 import plugin, { locStart, locEnd } from "../src/index.js";
 import { parse } from "../src/parser.js";
+import {
+  asciidocOptions,
+  tableStyle,
+  type TableStyle,
+} from "../src/options.js";
+import { formatAdoc } from "./helpers.js";
 
 describe("the SupportLanguage descriptor", () => {
   test("names the language, its parser, and the files it claims", () => {
@@ -69,6 +75,67 @@ describe("the assembled Plugin object", () => {
   test("the parser's astFormat is a printer the plugin ships", () => {
     expect(plugin.parsers?.asciidoc.astFormat).toBe("asciidoc-ast");
     expect(Object.keys(plugin.printers ?? {})).toEqual(["asciidoc-ast"]);
+  });
+});
+
+describe("the plugin's own options", () => {
+  test("both table options are registered on the plugin", () => {
+    expect(Object.keys(plugin.options ?? {}).toSorted()).toEqual([
+      "asciidocTableAlignColumns",
+      "asciidocTableLayout",
+    ]);
+  });
+
+  // The two values name STYLES, not mechanisms. There is no "auto"
+  // value: "auto" would name a mechanism rather than a spelling, and
+  // both declared values name spellings instead. The width-driven
+  // choice is the documented behaviour of the default value "row"
+  // (src/print/table-layout.ts): printWidth picks the layout, the
+  // option only names which style the document prefers.
+  test("the layout option is a two-value choice defaulting to row", () => {
+    const option = asciidocOptions.asciidocTableLayout;
+    expect(option.type).toBe("choice");
+    expect(option.default).toBe("row");
+    expect(
+      option.type === "choice"
+        ? option.choices.map(
+            (choice: { value: "row" | "cell" }) => choice.value,
+          )
+        : [],
+    ).toEqual(["row", "cell"]);
+  });
+
+  test("the alignment option is a boolean defaulting to false", () => {
+    const option = asciidocOptions.asciidocTableAlignColumns;
+    expect(option.type).toBe("boolean");
+    expect(option.default).toBe(false);
+  });
+
+  // The ONE read of the two option names. The annotation is not
+  // decoration: it is what names `TableStyle` from an entry point,
+  // and the three-field literal is what a `PrintOptions` satisfies
+  // structurally once the module augmentation gives the two names
+  // their types.
+  test("the option read renames the two knobs into the printer's vocabulary", () => {
+    const style: TableStyle = tableStyle({
+      printWidth: 80,
+      asciidocTableLayout: "cell",
+      asciidocTableAlignColumns: true,
+    });
+    expect(style).toEqual({
+      layout: "cell",
+      alignColumns: true,
+      printWidth: 80,
+    });
+  });
+
+  test("an option the caller never set arrives at its default", async () => {
+    // Formatting is unchanged by either option at this revision; what
+    // this row owns is that Prettier resolves both names, which a
+    // misspelled `name` field or a missing registration breaks.
+    await expect(
+      formatAdoc("|===\n|a\n|===\n", { asciidocTableLayout: "cell" }),
+    ).resolves.toBe("|===\n|a\n|===\n");
   });
 });
 
