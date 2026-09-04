@@ -3,16 +3,13 @@
  * proved, 1 a proof failed or a diff is unexplained, 2 the harness
  * could not run.
  */
-import { spawnSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
-import { REPO_ROOT } from "../../scripts/lib/checkout.js";
 import { reportShortDump } from "../../scripts/shape-diff.js";
-
-/** The exit code a harness that could not run has to produce. */
-const CANNOT_RUN = 2;
-
-/** The exit code a gate that failed has to produce. */
-const GATE_FAILED = 1;
+import {
+  CANNOT_RUN,
+  GATE_FAILED,
+  runCli as runCliScript,
+} from "./cli-runner.js";
 
 /**
  * Run `body` with `process.stderr.write` captured, `process.exitCode`
@@ -53,11 +50,7 @@ function captureExit(body: () => void): {
  * @returns the process exit code
  */
 function runCli(argv: readonly string[]): number {
-  const result = spawnSync("bun", ["scripts/shape-diff.ts", ...argv], {
-    cwd: REPO_ROOT,
-    encoding: "utf8",
-  });
-  return result.status ?? -1;
+  return runCliScript("scripts/shape-diff.ts", argv);
 }
 
 describe("reportShortDump: the measured-nothing floor is cannot-run, not gate-failed", () => {

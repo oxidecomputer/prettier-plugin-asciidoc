@@ -3,43 +3,14 @@
  * measured-nothing floor: a comparison tree that threw on every
  * document must not report as agreement.
  */
-import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
+import { rmSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { REPO_ROOT } from "../../scripts/lib/checkout.js";
-
-/** The exit code a harness that could not run has to produce. */
-const CANNOT_RUN = 2;
-
-/** The exit code a gate that failed has to produce. */
-const GATE_FAILED = 1;
-
-/**
- * Write a stand-in checkout for `--reference` or `--baseline` to
- * format the domain in.
- *
- * The differential reaches another tree through that tree's own
- * `tests/helpers.js` (see `scripts/lib/tree-format.ts`), so a
- * directory holding one IS a reference as far as the run is
- * concerned.
- * @param formatBody - the body of the stand-in `formatAdoc`
- * @returns the checkout root
- */
-function writeStandInCheckout(formatBody: string): string {
-  const root = mkdtempSync(path.join(tmpdir(), "migration-diff-stand-in-"));
-  writeFileSync(
-    path.join(root, "package.json"),
-    JSON.stringify({ name: "stand-in", private: true, type: "module" }),
-  );
-  mkdirSync(path.join(root, "tests"));
-  writeFileSync(
-    path.join(root, "tests", "helpers.js"),
-    `export async function formatAdoc(source) {\n${formatBody}\n}\n`,
-  );
-  return root;
-}
+import {
+  CANNOT_RUN,
+  GATE_FAILED,
+  runCli as runCliScript,
+  writeStandInCheckout,
+} from "./cli-runner.js";
 
 /**
  * Run the real CLI and report the code a shell would read.
@@ -47,11 +18,7 @@ function writeStandInCheckout(formatBody: string): string {
  * @returns the process exit code
  */
 function runCli(argv: readonly string[]): number {
-  const result = spawnSync("bun", ["scripts/migration-diff.ts", ...argv], {
-    cwd: REPO_ROOT,
-    encoding: "utf8",
-  });
-  return result.status ?? -1;
+  return runCliScript("scripts/migration-diff.ts", argv);
 }
 
 describe("the runner's exit-code contract", () => {

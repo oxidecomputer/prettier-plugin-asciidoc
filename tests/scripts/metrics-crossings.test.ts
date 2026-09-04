@@ -11,15 +11,6 @@
  */
 import { describe, test, expect } from "vitest";
 import {
-  mkdirSync,
-  mkdtempSync,
-  realpathSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
-import {
   crossings,
   readCrossings,
   readCrossingsRegistry,
@@ -27,38 +18,13 @@ import {
 import { REPO_ROOT } from "../../scripts/metrics/model.js";
 import { gateFailures } from "../../scripts/metrics/gates.js";
 import { makeSnapshot } from "./metrics-snapshot.js";
+import { inCheckout } from "../lib/checkout.js";
 
 /**
- * Write a throwaway checkout: `src` files plus, optionally, a
- * crossings registry.
+ * Run a check over a throwaway checkout: `src` files plus, optionally,
+ * a crossings registry.
  * @param files - path under `src` to contents, subdirectories allowed
  * @param registry - the registry file's exact text, when there is one
- * @returns the checkout root
- */
-function writeCheckout(
-  files: Record<string, string>,
-  registry?: string,
-): string {
-  const root = realpathSync(mkdtempSync(path.join(tmpdir(), "crossings-")));
-  for (const [name, contents] of Object.entries(files)) {
-    const file = path.join(root, "src", name);
-    mkdirSync(path.dirname(file), { recursive: true });
-    writeFileSync(file, contents);
-  }
-  if (registry !== undefined) {
-    mkdirSync(path.join(root, "scripts", "metrics"), { recursive: true });
-    writeFileSync(
-      path.join(root, "scripts", "metrics", "crossings-registry.json"),
-      registry,
-    );
-  }
-  return root;
-}
-
-/**
- * Run a check over a throwaway checkout and clean it up.
- * @param files - the checkout's `src` files
- * @param registry - the registry file's text, when there is one
  * @param read - what to measure
  * @returns whatever `read` returned
  */
@@ -67,12 +33,20 @@ function overCheckout<T>(
   registry: string | undefined,
   read: (root: string) => T,
 ): T {
-  const root = writeCheckout(files, registry);
-  try {
-    return read(root);
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
+  return inCheckout(
+    {
+      ...Object.fromEntries(
+        Object.entries(files).map(([name, contents]) => [
+          `src/${name}`,
+          contents,
+        ]),
+      ),
+      ...(registry === undefined
+        ? {}
+        : { "scripts/metrics/crossings-registry.json": registry }),
+    },
+    read,
+  );
 }
 
 /** One registry row for `a/one.ts`'s `X`, as `b/two.ts` imports it. */

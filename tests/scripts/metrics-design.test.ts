@@ -10,15 +10,7 @@
  * `docs/harnesses.md`, "Design-quality budgets".
  */
 import { describe, test, expect } from "vitest";
-import {
-  mkdirSync,
-  mkdtempSync,
-  readdirSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
+import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import {
   readDesign,
@@ -30,6 +22,7 @@ import { gateFailures } from "../../scripts/metrics/gates.js";
 import { REPO_ROOT } from "../../scripts/metrics/model.js";
 import { scanSource } from "../../scripts/metrics/scan.js";
 import { makeSnapshot, seam, vocabulary } from "./metrics-snapshot.js";
+import { inCheckout } from "../lib/checkout.js";
 
 /**
  * Scan a snippet as if it were a source file.
@@ -80,19 +73,12 @@ function wrappedMarkersInSource(): string[] {
 function readFixtureRegistry(
   contents?: string,
 ): ReturnType<typeof readRegistry> {
-  const root = mkdtempSync(path.join(tmpdir(), "metrics-registry-"));
-  try {
-    mkdirSync(path.join(root, "scripts", "metrics"), { recursive: true });
-    if (contents !== undefined) {
-      writeFileSync(
-        path.join(root, "scripts", "metrics", "defense-registry.json"),
-        contents,
-      );
-    }
-    return readRegistry(root);
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
+  return inCheckout(
+    contents === undefined
+      ? {}
+      : { "scripts/metrics/defense-registry.json": contents },
+    readRegistry,
+  );
 }
 
 describe("seam width", () => {

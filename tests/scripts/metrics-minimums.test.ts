@@ -11,9 +11,6 @@
  * a manifest that drifted away from its pin in either direction.
  */
 import { describe, expect, test } from "vitest";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { readConformance } from "../../scripts/metrics/conformance.js";
 import {
   compareMinimums,
@@ -25,30 +22,7 @@ import {
 } from "../../scripts/metrics/score-minimums.js";
 import { gateFailures } from "../../scripts/metrics/gates.js";
 import { makeSnapshot } from "./metrics-snapshot.js";
-
-/**
- * Run a reader against a throwaway checkout holding the given files.
- * @param files - repo-relative path to contents; a path that is
- *   omitted is a file that is not there at that revision
- * @param read - what to ask of that checkout
- * @returns whatever the reader returned
- */
-function inCheckout<T>(
-  files: Record<string, string>,
-  read: (root: string) => T,
-): T {
-  const root = mkdtempSync(path.join(tmpdir(), "metrics-minimums-"));
-  try {
-    for (const [name, contents] of Object.entries(files)) {
-      const full = path.join(root, name);
-      mkdirSync(path.dirname(full), { recursive: true });
-      writeFileSync(full, contents);
-    }
-    return read(root);
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
-}
+import { inCheckout } from "../lib/checkout.js";
 
 /** A minimums file with one file row and one exception. */
 const GOOD_MINIMUMS = JSON.stringify({

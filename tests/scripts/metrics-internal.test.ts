@@ -10,37 +10,33 @@
  */
 import { describe, test, expect } from "vitest";
 import {
-  mkdirSync,
-  mkdtempSync,
-  realpathSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
-import {
   readInternalSurface,
   type InternalFacts,
 } from "../../scripts/metrics/internal-surface.js";
+import { inCheckout } from "../lib/checkout.js";
 
 /**
  * Plant a checkout and read its internal surface.
+ *
+ * `tests/x.test.ts` is planted deliberately, empty: the internal-surface
+ * reader keys on a test consumer existing, and this stub is that
+ * consumer.
  * @param files - `src` files, by name
  * @returns the facts for that tree
  */
 function surfaceOf(files: Record<string, string>): InternalFacts {
-  const root = realpathSync(mkdtempSync(path.join(tmpdir(), "internal-")));
-  try {
-    mkdirSync(path.join(root, "src"));
-    mkdirSync(path.join(root, "tests"));
-    writeFileSync(path.join(root, "tests/x.test.ts"), "");
-    for (const [name, contents] of Object.entries(files)) {
-      writeFileSync(path.join(root, "src", name), contents);
-    }
-    return readInternalSurface(root);
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
+  return inCheckout(
+    {
+      "tests/x.test.ts": "",
+      ...Object.fromEntries(
+        Object.entries(files).map(([name, contents]) => [
+          `src/${name}`,
+          contents,
+        ]),
+      ),
+    },
+    readInternalSurface,
+  );
 }
 
 // The half of the export surface knip cannot see: an export with no

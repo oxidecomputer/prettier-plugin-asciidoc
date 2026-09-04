@@ -9,11 +9,11 @@
  * manifest can go wrong, and a validator with an unexercised guard is
  * a validator nobody can trust to be strict.
  */
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { rmSync } from "node:fs";
 import path from "node:path";
 import { describe, test, expect, onTestFinished } from "vitest";
 import { loadSweepClusters } from "./registry-sweep-clusters.js";
+import { plantCheckout } from "../lib/checkout.js";
 
 /** A hex sha256 of the right width, for the well-formed fields. */
 const DIGEST = "a".repeat(64);
@@ -26,13 +26,11 @@ const DIGEST = "a".repeat(64);
  * @returns the scratch file's path
  */
 function scratchManifest(text: string): string {
-  const directory = mkdtempSync(path.join(tmpdir(), "sweep-clusters-test-"));
+  const directory = plantCheckout({ "manifest.json": text });
   onTestFinished(() => {
     rmSync(directory, { recursive: true, force: true });
   });
-  const manifest = path.join(directory, "manifest.json");
-  writeFileSync(manifest, text);
-  return manifest;
+  return path.join(directory, "manifest.json");
 }
 
 /** One rejected cluster body, and what makes it wrong. */

@@ -173,6 +173,8 @@ export default defineConfig(
             "expectFixedBytes",
             "expectFixedPoint",
             "expectFormatted",
+            "expectMalformedLineThrows",
+            "expectQuarantineRejected",
             "expectRow",
             "expectRunFaithful",
             "expectTableFormat",

@@ -10,74 +10,55 @@
  */
 import { describe, test, expect } from "vitest";
 import { spawnSync } from "node:child_process";
-import {
-  mkdtempSync,
-  mkdirSync,
-  realpathSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
 import path from "node:path";
 import { REPO_ROOT } from "../../scripts/lib/checkout.js";
+import { inCheckout } from "../lib/checkout.js";
 import { gateFailures, measuredNothing } from "../../scripts/metrics/gates.js";
 import { makeSnapshot } from "./metrics-snapshot.js";
 
 /**
- * Write a minimal checkout the CLI can measure.
+ * Run `bun scripts/metrics.ts --root <checkout>` over a minimal
+ * checkout the CLI can measure.
  * @param files - file name to contents, under `src`
- * @returns the checkout root
- */
-function writeCheckout(files: Record<string, string>): string {
-  const root = realpathSync(mkdtempSync(path.join(tmpdir(), "metrics-cli-")));
-  mkdirSync(path.join(root, "src"));
-  writeFileSync(
-    path.join(root, "package.json"),
-    JSON.stringify({
-      name: "fixture",
-      private: true,
-      type: "module",
-      main: "src/index.ts",
-    }),
-  );
-  writeFileSync(
-    path.join(root, "tsconfig.json"),
-    JSON.stringify({
-      compilerOptions: {
-        module: "ES2022",
-        moduleResolution: "bundler",
-        strict: true,
-        noEmit: true,
-      },
-      include: ["src/**/*.ts"],
-    }),
-  );
-  for (const [name, contents] of Object.entries(files)) {
-    writeFileSync(path.join(root, "src", name), contents);
-  }
-  return root;
-}
-
-/**
- * Run `bun scripts/metrics.ts --root <checkout>`.
- * @param files - the checkout's `src` files
  * @returns the process's exit code and stderr
  */
 function runCli(files: Record<string, string>): {
   status: number;
   stderr: string;
 } {
-  const root = writeCheckout(files);
-  try {
-    const result = spawnSync(
-      "bun",
-      [path.join(REPO_ROOT, "scripts/metrics.ts"), "--root", root],
-      { cwd: REPO_ROOT, encoding: "utf8" },
-    );
-    return { status: result.status ?? -1, stderr: result.stderr };
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
+  return inCheckout(
+    {
+      "package.json": JSON.stringify({
+        name: "fixture",
+        private: true,
+        type: "module",
+        main: "src/index.ts",
+      }),
+      "tsconfig.json": JSON.stringify({
+        compilerOptions: {
+          module: "ES2022",
+          moduleResolution: "bundler",
+          strict: true,
+          noEmit: true,
+        },
+        include: ["src/**/*.ts"],
+      }),
+      ...Object.fromEntries(
+        Object.entries(files).map(([name, contents]) => [
+          `src/${name}`,
+          contents,
+        ]),
+      ),
+    },
+    (root) => {
+      const result = spawnSync(
+        "bun",
+        [path.join(REPO_ROOT, "scripts/metrics.ts"), "--root", root],
+        { cwd: REPO_ROOT, encoding: "utf8" },
+      );
+      return { status: result.status ?? -1, stderr: result.stderr };
+    },
+  );
 }
 
 describe("the command line's exit code", () => {

@@ -1,5 +1,3 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, test, expect } from "vitest";
 import {
@@ -8,6 +6,7 @@ import {
   parseJsonl,
   _readDirectorySafe,
 } from "./loader.js";
+import { inCheckout } from "../lib/checkout.js";
 
 // These assertions pin the loader to the real vendored corpus rather
 // than fixtures: the corpus is checked in, so its gross shape is a
@@ -41,24 +40,32 @@ describe("loadCorpus", () => {
   });
 });
 
+/**
+ * Asserts that `bad.jsonl` under a planted checkout fails to parse
+ * with a `file:line` message naming the malformed second line.
+ * @param root - the checkout root
+ */
+function expectMalformedLineThrows(root: string): void {
+  const bad = path.join(root, "bad.jsonl");
+  expect(() => parseJsonl(bad)).toThrowError(
+    `${bad}:2: expected {id, input} strings`,
+  );
+}
+
 describe("parseJsonl", () => {
   test("throws with file:line on a malformed line", () => {
     // A corrupted vendor file must fail loudly at collection time,
     // naming the exact line, instead of surfacing as confusing
     // per-case failures downstream.
-    const directory = mkdtempSync(path.join(tmpdir(), "corpus-loader-test-"));
-    const bad = path.join(directory, "bad.jsonl");
-    try {
-      writeFileSync(
-        bad,
-        '{"id":"ok#t#0","input":"fine\\n"}\n{"id":"missing-input"}\n',
-      );
-      expect(() => parseJsonl(bad)).toThrowError(
-        `${bad}:2: expected {id, input} strings`,
-      );
-    } finally {
-      rmSync(directory, { recursive: true, force: true });
-    }
+    inCheckout(
+      {
+        "bad.jsonl":
+          '{"id":"ok#t#0","input":"fine\\n"}\n{"id":"missing-input"}\n',
+      },
+      (root) => {
+        expectMalformedLineThrows(root);
+      },
+    );
   });
 });
 

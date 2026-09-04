@@ -1,9 +1,8 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, test, expect } from "vitest";
 import { assessCase } from "./properties.js";
 import { loadQuarantine } from "./quarantine.js";
+import { inCheckout } from "../lib/checkout.js";
 
 describe("assessCase", () => {
   test("clean input passes all properties", async () => {
@@ -42,6 +41,17 @@ describe("assessCase", () => {
   });
 });
 
+/**
+ * Asserts that a planted `quarantine.json` fails to load with the
+ * given message.
+ * @param directory - the checkout root
+ * @param expected - the exact error message
+ */
+function expectQuarantineRejected(directory: string, expected: string): void {
+  const manifest = path.join(directory, "quarantine.json");
+  expect(() => loadQuarantine(manifest)).toThrowError(expected);
+}
+
 describe("loadQuarantine", () => {
   test("loads the checked-in manifest", () => {
     // Asserts only that the checked-in manifest stays parseable and
@@ -58,28 +68,23 @@ describe("loadQuarantine", () => {
     // typeof [] === "object", so without an explicit check an array
     // manifest would validate vacuously (empty) or key entries by
     // index — either way silently excusing real failures.
-    const directory = mkdtempSync(path.join(tmpdir(), "quarantine-test-"));
-    const manifest = path.join(directory, "quarantine.json");
-    try {
-      writeFileSync(manifest, "[]\n");
-      expect(() => loadQuarantine(manifest)).toThrowError(
-        `${manifest}: expected an object`,
+    inCheckout({ "quarantine.json": "[]\n" }, (directory) => {
+      expectQuarantineRejected(
+        directory,
+        `${path.join(directory, "quarantine.json")}: expected an object`,
       );
-    } finally {
-      rmSync(directory, { recursive: true, force: true });
-    }
+    });
   });
 
   test("rejects a malformed entry", () => {
-    const directory = mkdtempSync(path.join(tmpdir(), "quarantine-test-"));
-    const manifest = path.join(directory, "quarantine.json");
-    try {
-      writeFileSync(manifest, '{"case#t#0":{"fails":[],"issue":"#1"}}\n');
-      expect(() => loadQuarantine(manifest)).toThrowError(
-        `${manifest}: malformed entry for case#t#0`,
-      );
-    } finally {
-      rmSync(directory, { recursive: true, force: true });
-    }
+    inCheckout(
+      { "quarantine.json": '{"case#t#0":{"fails":[],"issue":"#1"}}\n' },
+      (directory) => {
+        expectQuarantineRejected(
+          directory,
+          `${path.join(directory, "quarantine.json")}: malformed entry for case#t#0`,
+        );
+      },
+    );
   });
 });

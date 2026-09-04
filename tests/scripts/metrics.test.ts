@@ -6,15 +6,6 @@
  * knip-report parser, and one real dependency-cruiser run.
  */
 import { describe, test, expect } from "vitest";
-import {
-  mkdtempSync,
-  mkdirSync,
-  realpathSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { scanSource } from "../../scripts/metrics/scan.js";
 import {
   aggregate,
@@ -26,6 +17,7 @@ import { countKnipExports } from "../../scripts/metrics/dead-code.js";
 import { cruiseImports } from "../../scripts/metrics/graph.js";
 import { gateFailures } from "../../scripts/metrics/gates.js";
 import { makeSnapshot } from "./metrics-snapshot.js";
+import { inCheckoutAsync } from "../lib/checkout.js";
 
 /**
  * Scan a snippet as if it were a source file.
@@ -243,27 +235,21 @@ describe("knip report parsing", () => {
 async function cruiseFixture(
   files: Record<string, string>,
 ): Promise<Awaited<ReturnType<typeof cruiseImports>>> {
-  const root = realpathSync(
-    mkdtempSync(path.join(tmpdir(), "metrics-fixture-")),
-  );
-  try {
-    mkdirSync(path.join(root, "src"));
-    writeFileSync(
-      path.join(root, "tsconfig.json"),
-      JSON.stringify({
+  return await inCheckoutAsync(
+    {
+      "tsconfig.json": JSON.stringify({
         compilerOptions: { module: "ES2022", moduleResolution: "bundler" },
         include: ["src/**/*.ts"],
       }),
-    );
-    for (const [name, contents] of Object.entries(files)) {
-      const file = path.join(root, "src", name);
-      mkdirSync(path.dirname(file), { recursive: true });
-      writeFileSync(file, contents);
-    }
-    return await cruiseImports(root);
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
+      ...Object.fromEntries(
+        Object.entries(files).map(([name, contents]) => [
+          `src/${name}`,
+          contents,
+        ]),
+      ),
+    },
+    cruiseImports,
+  );
 }
 
 describe("dependency-cruiser coupling", () => {

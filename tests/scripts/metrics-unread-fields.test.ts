@@ -15,16 +15,8 @@
  * the behaviour is checkable at all.
  */
 import { describe, expect, test } from "vitest";
-import {
-  mkdirSync,
-  mkdtempSync,
-  realpathSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { unreadPublishedFields } from "../../scripts/metrics/unread-fields.js";
+import { inCheckout } from "../lib/checkout.js";
 
 /** One row of the planted crossings registry. */
 interface PlantedRow {
@@ -44,13 +36,9 @@ function scan(
   rows: readonly PlantedRow[],
   files: Record<string, string>,
 ): string[] {
-  const root = realpathSync(mkdtempSync(path.join(tmpdir(), "unread-")));
-  try {
-    mkdirSync(path.join(root, "src"), { recursive: true });
-    mkdirSync(path.join(root, "scripts", "metrics"), { recursive: true });
-    writeFileSync(
-      path.join(root, "scripts", "metrics", "crossings-registry.json"),
-      JSON.stringify(
+  return inCheckout(
+    {
+      "scripts/metrics/crossings-registry.json": JSON.stringify(
         rows.map((row) => ({
           ...row,
           importer: "src/other.ts",
@@ -58,10 +46,7 @@ function scan(
           reason: "planted",
         })),
       ),
-    );
-    writeFileSync(
-      path.join(root, "tsconfig.json"),
-      JSON.stringify({
+      "tsconfig.json": JSON.stringify({
         compilerOptions: {
           module: "ES2022",
           moduleResolution: "bundler",
@@ -70,16 +55,18 @@ function scan(
         },
         include: ["src/**/*.ts"],
       }),
-    );
-    for (const [name, contents] of Object.entries(files)) {
-      writeFileSync(path.join(root, "src", name), contents);
-    }
-    return unreadPublishedFields(root).candidates.map(
-      (field) => `${field.type}.${field.property}`,
-    );
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
+      ...Object.fromEntries(
+        Object.entries(files).map(([name, contents]) => [
+          `src/${name}`,
+          contents,
+        ]),
+      ),
+    },
+    (root) =>
+      unreadPublishedFields(root).candidates.map(
+        (field) => `${field.type}.${field.property}`,
+      ),
+  );
 }
 
 const DECLARATION =

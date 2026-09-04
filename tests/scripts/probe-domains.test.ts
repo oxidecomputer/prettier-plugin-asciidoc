@@ -8,13 +8,15 @@
  * what make a size meaningful, since a product could hit its count
  * with duplicates or with documents of the wrong shape in it.
  */
-import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
+import { rmSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { sweepVerdict, verdictFails } from "../format/list-shape-sweep.js";
-import { REPO_ROOT } from "../../scripts/lib/checkout.js";
+import {
+  CANNOT_RUN,
+  GATE_FAILED,
+  runCli as runCliScript,
+  writeStandInCheckout,
+} from "./cli-runner.js";
 import {
   PROBE_DOMAINS,
   probeDocuments,
@@ -22,40 +24,8 @@ import {
   type ProbeDomain,
 } from "../../scripts/lib/probe-domains.js";
 
-/** The exit code a harness that could not run has to produce. */
-const CANNOT_RUN = 2;
-
-/** The exit code a gate that failed has to produce. */
-const GATE_FAILED = 1;
-
 /** The smallest domain, so the rows that drive the CLI stay quick. */
 const ONE_DOMAIN = "indented-two-line";
-
-/**
- * Write a stand-in checkout for `--base` to format the domain in.
- *
- * The runner reaches another tree through that tree's own
- * `tests/helpers.js`, so a directory holding one IS a base as far as
- * the run is concerned. That is what makes the two verdicts a base
- * can produce - it formatted, or it threw - reachable from a test at
- * all: no revision of this repository formats every document of a
- * domain identically, and none throws on all of them.
- * @param formatBody - the body of the stand-in `formatAdoc`
- * @returns the checkout root
- */
-function writeStandInCheckout(formatBody: string): string {
-  const root = mkdtempSync(path.join(tmpdir(), "probe-domains-stand-in-"));
-  writeFileSync(
-    path.join(root, "package.json"),
-    JSON.stringify({ name: "stand-in", private: true, type: "module" }),
-  );
-  mkdirSync(path.join(root, "tests"));
-  writeFileSync(
-    path.join(root, "tests", "helpers.js"),
-    `export async function formatAdoc(source) {\n${formatBody}\n}\n`,
-  );
-  return root;
-}
 
 /**
  * Whether one domain's alphabet carries a symbol occupying two source
@@ -73,11 +43,7 @@ function spansLines(domain: ProbeDomain): boolean {
  * @returns the process exit code
  */
 function runCli(argv: readonly string[]): number {
-  const result = spawnSync("bun", ["scripts/probe-domains.ts", ...argv], {
-    cwd: REPO_ROOT,
-    encoding: "utf8",
-  });
-  return result.status ?? -1;
+  return runCliScript("scripts/probe-domains.ts", argv);
 }
 
 describe("the probe domains", () => {
