@@ -26,24 +26,20 @@
  * composition cannot live there either. What it leaves the reader is
  * one call.
  */
-import type {
-  TableCellOpening,
-  TableCellRepeat,
-  TableTextRun,
-} from "../../ast.js";
+import type { TableColumnSpec, TableCutting } from "../../ast.js";
 import {
   attrlistValues,
   NO_ATTRLIST_VALUES,
   type AttrlistValues,
 } from "../attrlist.js";
-import type { TableScan } from "../build/table.js";
-import { parseColumnSpecs, type TableColumnSpec } from "./table-cell-spec.js";
+import type { TableCellFacts, TableScan } from "../build/table.js";
+import { parseColumnSpecs } from "./table-cell-spec.js";
 import {
   cutCells,
   groupRows,
   readHeaderDecision,
-  type TableCutting,
   type TableFormat,
+  type TableScanCell,
 } from "./table-reader.js";
 import type { SourceLine } from "./split.js";
 
@@ -150,35 +146,6 @@ function resolveColumns(
 }
 
 /**
- * The three fields of a cut cell this fold reads and passes on.
- *
- * Restates the scan's `TableScanCell` shape rather than importing it,
- * the same way src/parse/build/table.ts restates it: a real scanned
- * cell satisfies this by structural typing alone, `closedAtLineEnd`
- * is cut-time bookkeeping the grouping already spent, and the names
- * come from src/ast.ts so that what leaves here is spelled in the
- * same vocabulary the builder is declared to take.
- */
-interface CutCell {
-  /** How this cell was opened. */
-  readonly opening: TableCellOpening;
-  /** The cell's raw region, partitioned into runs. */
-  readonly runs: readonly TableTextRun[];
-  /** The repeat the cell-spec queue handed this cell. */
-  readonly repeat: TableCellRepeat;
-}
-
-/**
- * One cut cell with the column it inherits its style from recorded.
- * What leaves here is exactly what {@link TableScan.rows} is declared
- * to hold, so the compiler proves the fold ran.
- */
-interface IndexedCell extends CutCell {
-  /** The column whose style this cell inherits. */
-  readonly columnIndex: number;
-}
-
-/**
  * Number each row's cells by their PHYSICAL position after duplicate
  * expansion, which is the index Asciidoctor inherits a cell's style
  * from (`@table.columns[@current_row.size]`, table.rb:662).
@@ -196,14 +163,18 @@ interface IndexedCell extends CutCell {
  * reserved slots in: a reservation moves `@active_rowspans`
  * (table.rb:713-716) and with it `effective_column_visits` (:727-729),
  * neither of which is `@current_row.size`.
+ * What LEAVES here is exactly what {@link TableScan.rows} is declared
+ * to hold, so the compiler proves the fold ran; what enters is the
+ * scan's own cell, whose `closedAtLineEnd` the grouping already spent
+ * and which no field of the cell node carries.
  * @param rows - the grouped rows, in document order
  * @returns the same rows, every cell carrying its column index
  */
 function withColumnIndexes(
-  rows: ReadonlyArray<readonly CutCell[]>,
-): ReadonlyArray<readonly IndexedCell[]> {
+  rows: ReadonlyArray<readonly TableScanCell[]>,
+): ReadonlyArray<readonly TableCellFacts[]> {
   return rows.map((row) => {
-    const indexed: IndexedCell[] = [];
+    const indexed: TableCellFacts[] = [];
     let columnIndex = 0;
     for (const cell of row) {
       indexed.push({

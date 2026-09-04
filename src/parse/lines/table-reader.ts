@@ -37,12 +37,15 @@
  * is derived where it is needed instead of kept beside the bytes it
  * came from.
  */
-import {
-  parseCellSpecEnd,
-  parseCellSpecStart,
-  type TableCellRepeat,
-  type TableCellSpec,
-} from "./table-cell-spec.js";
+import type {
+  TableCellOpening,
+  TableCellRepeat,
+  TableCellSpec,
+  TableCutting,
+  TableRunKind,
+  TableTextRun,
+} from "../../ast.js";
+import { parseCellSpecEnd, parseCellSpecStart } from "./table-cell-spec.js";
 import type { SourceLine } from "./split.js";
 
 /**
@@ -58,117 +61,12 @@ import type { SourceLine } from "./split.js";
 export type TableFormat = "psv" | "csv" | "dsv";
 
 /**
- * How a table cuts cells: the format's rules, and the one string that
- * separates cells under them.
+ * One cell as the scan cut it: the cell node's own facts, plus the
+ * cut-time bookkeeping that never leaves this layer.
  *
- * Resolved by a table's open (lines/table-open.ts) and handed to the
- * two functions below; also read by tests/parser/table-reader.test.ts.
- */
-export interface TableCutting {
-  /** The cutting rules to apply. */
-  readonly format: TableFormat;
-  /**
-   * The separator as written. Never empty from a document, since a
-   * `nil_or_empty?` `separator=` falls back to the format's default
-   * (table.rb:475-479); the searches below find an empty one nowhere,
-   * because a separator that matched at every position would cut for
-   * ever.
-   */
-  readonly separator: string;
-}
-
-/**
- * How a cell began. A psv cell opens at a separator, optionally behind
- * a spec. `recovered` is Asciidoctor's "table missing leading
- * separator" repair, where the text in front of the first separator of
- * the first line becomes a cell (`take_cellspec` finds nothing to
- * take, table.rb:621-626). `lineStart` is how a csv or dsv cell
- * begins, those formats calling `close_cell` at the end of a line
- * (parser.rb:2398-2401) and leaving `cell_text` no spec at all
- * (table.rb:628-631).
- *
- * Exported for tests/parser/table-reader.test.ts. No `src` consumer
- * spells the name: the builder reads the shape through src/ast.ts's
- * own restatement of it.
- * @internal
- */
-export type TableCellOpening =
-  | {
-      /** Opening discriminant: a separator, with its spec in front. */
-      readonly kind: "separator";
-      /**
-       * The spec text as written, INCLUDING the leading or trailing
-       * whitespace `CellSpecStartRx` and `CellSpecEndRx` take with it
-       * (rx.rb:399-400). `""` for a bare `|`, which is the ordinary
-       * case rather than an absence, and always `""` for csv and dsv.
-       */
-      readonly spec: string;
-      /** The spec's parse; every field absent for `spec === ""`. */
-      readonly parsed: TableCellSpec;
-      /**
-       * The separator as CONSUMED, which is `cutting.separator`
-       * everywhere but at a line start, where Asciidoctor cuts one
-       * character off a line it matched the whole separator against
-       * (parser.rb:2319-2320 against `starts_with_delimiter?`,
-       * table.rb:502-504). Probed: with `separator=;;`, the first cell
-       * of `;;a ;;b` reads `;a`.
-       */
-      readonly separator: string;
-      /** Zero-based offset of the spec's first character. */
-      readonly offset: number;
-    }
-  | {
-      /** Opening discriminant: an opening that writes no bytes of its own. */
-      readonly kind: "lineStart" | "recovered";
-      /** Zero-based offset of the cell's first character. */
-      readonly offset: number;
-    };
-
-/**
- * Why a run's bytes are in a cell's region: `content` is the cell's
- * own text, and the other two are lines the reader consumed before the
- * table could see them, kept so the printer can write them back.
- * `droppedComment` is a `//` line, but not a `///` one
- * (`skip_comments`, reader.rb:420-425); `skippedBlank` is a blank line no cell was open
- * to take (`skip_blank_lines`, reader.rb:279-291, reached from
- * parser.rb:2303 and parser.rb:2413). Both cover the line AND its
- * terminator, so the run list has no gaps - except on the extent's
- * LAST line, whose terminator belongs to the closing delimiter
- * ({@link regionEnd}), so a blank one there is a run of no bytes.
- *
- * Exported for tests/parser/table-reader.test.ts. No `src` consumer
- * spells the name: the builder reads the shape through src/ast.ts's
- * own restatement of it.
- * @internal
- */
-export type TableRunKind = "content" | "droppedComment" | "skippedBlank";
-
-/**
- * One run of a cell's raw region. One record rather than a
- * discriminated union: all three kinds carry the same two fields, so a
- * union would separate nothing a reader has to tell apart.
- *
- * Exported for tests/parser/table-reader.test.ts. No `src` consumer
- * spells the name: the builder reads the shape through src/ast.ts's
- * own restatement of it.
- * @internal
- */
-export interface TableTextRun {
-  /** Why these bytes are here. */
-  readonly kind: TableRunKind;
-  /** The bytes, verbatim, newlines included. */
-  readonly image: string;
-  /** Zero-based offset of the run's first character. */
-  readonly offset: number;
-}
-
-/**
- * One cell as the scan cut it.
- *
- * Exported for tests/parser/table-reader.test.ts. No `src` consumer
- * spells the name: the builder reads the shape through src/ast.ts's
- * own restatement of it.
- * @internal
+ * Named by a table's open (lines/table-open.ts), which hands these
+ * cells to the grouping and then folds the grouping's answer into
+ * what the builder takes, and by tests/parser/table-reader.test.ts.
  */
 export interface TableScanCell {
   /** How this cell was opened. */
@@ -203,8 +101,8 @@ export interface TableScanCell {
  * What one table's interior cut into.
  *
  * Exported for tests/parser/table-reader.test.ts. No `src` consumer
- * spells the name: the builder reads the shape through src/ast.ts's
- * own restatement of it.
+ * spells the name: a table's open (lines/table-open.ts) reads it off
+ * the function that returns it, without ever writing the type down.
  * @internal
  */
 export interface TableCut {
@@ -223,8 +121,8 @@ export interface TableCut {
  * What a table's first row is.
  *
  * Exported for tests/parser/table-reader.test.ts. No `src` consumer
- * spells the name: the builder reads the shape through src/ast.ts's
- * own restatement of it.
+ * spells the name: a table's open (lines/table-open.ts) reads it off
+ * the function that returns it, without ever writing the type down.
  * @internal
  */
 export type TableHeaderDecision = "explicit" | "implicit" | "none";
@@ -233,8 +131,8 @@ export type TableHeaderDecision = "explicit" | "implicit" | "none";
  * The header-related options the block's attribute list declared.
  *
  * Exported for tests/parser/table-reader.test.ts. No `src` consumer
- * spells the name: the builder reads the shape through src/ast.ts's
- * own restatement of it.
+ * spells the name: a table's open (lines/table-open.ts) reads it off
+ * the function that returns it, without ever writing the type down.
  * @internal
  */
 export interface TableHeaderOptions {

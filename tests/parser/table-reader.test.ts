@@ -1,16 +1,18 @@
 import { describe, expect, test } from "vitest";
+import type {
+  TableCellOpening,
+  TableCutting,
+  TableRunKind,
+  TableTextRun,
+} from "../../src/ast.js";
 import { splitLines } from "../../src/parse/lines/split.js";
 import {
   cutCells,
   groupRows,
   readHeaderDecision,
-  type TableCellOpening,
   type TableCut,
-  type TableCutting,
   type TableFormat,
-  type TableRunKind,
   type TableScanCell,
-  type TableTextRun,
 } from "../../src/parse/lines/table-reader.js";
 
 /**

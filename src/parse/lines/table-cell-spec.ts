@@ -16,9 +16,12 @@
  *
  * `TableCellSpec`, `TableCellRepeat`, `TableColumnSpec` and the
  * alignment/style unions are transcribed verbatim from Asciidoctor's
- * own cell and column semantics; they are homed here until table
- * modeling gives the AST its own node kinds, when they move to
- * `src/ast.ts` and this module imports them back.
+ * own cell and column semantics, and they live in `src/ast.ts`, which
+ * is where table modeling put the node kinds that carry them. This
+ * module imports them rather than restating them: a second
+ * declaration of the same shape is a second place for it to drift,
+ * and the compiler cannot tell two structurally identical copies
+ * apart, so nothing would ever report the drift.
  *
  * Every regex here is anchored with `^`/`$` the way Ruby's own is,
  * and the two mean the same thing only because every caller passes a
@@ -29,105 +32,14 @@
  * functions, which this module's inputs never carry.
  */
 
-/**
- * `TableCellHorzAlignments` (parser.rb:53-59).
- *
- * Exported for tests/parser/table-cell-spec.test.ts; moves to
- * `src/ast.ts` once table modeling gives the AST its own node kinds,
- * which is when it gains a `src` consumer.
- * @internal
- */
-export type TableHorizontalAlignment = "left" | "center" | "right";
-
-/**
- * `TableCellVertAlignments` (parser.rb:61-67).
- *
- * Exported for tests/parser/table-cell-spec.test.ts; moves to
- * `src/ast.ts` once table modeling gives the AST its own node kinds,
- * which is when it gains a `src` consumer.
- * @internal
- */
-export type TableVerticalAlignment = "top" | "middle" | "bottom";
-
-/**
- * `TableCellStyles` (parser.rb:69-77).
- *
- * Exported for tests/parser/table-cell-spec.test.ts; moves to
- * `src/ast.ts` once table modeling gives the AST its own node kinds,
- * which is when it gains a `src` consumer.
- * @internal
- */
-export type TableCellStyle =
-  | "none"
-  | "strong"
-  | "emphasis"
-  | "monospaced"
-  | "header"
-  | "literal"
-  | "asciidoc";
-
-/**
- * One `cols=` record, after `N*` expansion (parser.rb:2452-2481).
- *
- * Exported for tests/parser/table-cell-spec.test.ts; moves to
- * `src/ast.ts` once table modeling gives the AST its own node kinds,
- * which is when it gains a `src` consumer.
- */
-export interface TableColumnSpec {
-  /** `<`, `^`, `>` as `left`, `center`, `right`; absent when the record set none. */
-  readonly halign?: TableHorizontalAlignment;
-  /** `.<`, `.^`, `.>` as `top`, `middle`, `bottom`; absent when the record set none. */
-  readonly valign?: TableVerticalAlignment;
-  /** The one style letter's meaning, absent when the record named none or named an unmapped letter. */
-  readonly style?: TableCellStyle;
-}
-
-/**
- * A cell spec's parse (parser.rb:2495-2545). `repeat` is a union
- * because Asciidoctor's `+` and `*` forms are exclusive: `+` sets
- * colspan and rowspan, `*` sets a duplication count and IGNORES the
- * row half of the same digits (parser.rb:2515-2520). Two nullable
- * number fields would let `{ colspan: 2, duplicate: 3 }` typecheck.
- *
- * Read by the table scan, and moves to `src/ast.ts` once table
- * modeling gives the AST its own node kinds.
- */
-export interface TableCellSpec {
-  /** The `N+`, `N.M+` or `N*` prefix, or its absence. */
-  readonly repeat: TableCellRepeat;
-  /** The horizontal alignment the spec named, if any. */
-  readonly halign?: TableHorizontalAlignment;
-  /** The vertical alignment the spec named, if any. */
-  readonly valign?: TableVerticalAlignment;
-  /** The style the spec's letter named, absent for an unmapped letter. */
-  readonly style?: TableCellStyle;
-}
-
-/**
- * The three exclusive forms of a cell spec's leading digits.
- *
- * Read by the table scan, and moves to `src/ast.ts` once table
- * modeling gives the AST its own node kinds.
- */
-export type TableCellRepeat =
-  | {
-      /** Repeat discriminant: no digits in front of the spec. */
-      readonly kind: "none";
-    }
-  | {
-      /** Repeat discriminant: `N+`, `.M+` or `N.M+`. */
-      readonly kind: "span";
-      /** Columns spanned; 1 when the spec wrote only a row half. */
-      readonly colspan: number;
-      /** Rows spanned; 1 when the spec wrote only a column half. */
-      readonly rowspan: number;
-    }
-  | {
-      /** Repeat discriminant: `N*`, which repeats the cell N times. */
-      readonly kind: "duplicate";
-      /** How many cells the one spelling produces. */
-      readonly count: number;
-    };
+import type {
+  TableCellRepeat,
+  TableCellSpec,
+  TableCellStyle,
+  TableColumnSpec,
+  TableHorizontalAlignment,
+  TableVerticalAlignment,
+} from "../../ast.js";
 
 /**
  * `ColumnSpecRx` (rx.rb:390), applied to one comma/semicolon-split

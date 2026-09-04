@@ -19,6 +19,7 @@ import type {
   TableCellRepeat,
   TableCellSpec,
   TableCellStyle,
+  TableColumnSpec,
   TableCutting,
   TableHorizontalAlignment,
   TableNode,
@@ -26,7 +27,6 @@ import type {
   TableRunKind,
   TableVerticalAlignment,
 } from "../../src/ast.js";
-import type { TableColumnSpec } from "../../src/parse/lines/table-cell-spec.js";
 import { rstrip } from "../../src/parse/line-shapes.js";
 import { tableNodes } from "./table-nodes.js";
 import type { OracleCellSpec } from "../helpers.js";

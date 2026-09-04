@@ -1549,32 +1549,23 @@ export interface TableColumnSpec {
 }
 
 /**
- * `TableCellHorzAlignments` (parser.rb:53-59). Read structurally
- * through `TableColumnSpec`/`TableCellSpec`, never named by import.
- * Exported for tests/parser/table-structure.test.ts; a future
- * consumer that reads an alignment BY NAME (a printer, a normalizer)
- * is the real `src` consumer once it lands.
- * @internal
+ * `TableCellHorzAlignments` (parser.rb:53-59). Named by the cell-spec
+ * grammar that maps `<`, `^` and `>` onto it
+ * (src/parse/lines/table-cell-spec.ts).
  */
 export type TableHorizontalAlignment = "left" | "center" | "right";
 
 /**
- * `TableCellVertAlignments` (parser.rb:61-67). Read structurally
- * through `TableColumnSpec`/`TableCellSpec`, never named by import.
- * Exported for tests/parser/table-structure.test.ts; a future
- * consumer that reads an alignment BY NAME (a printer, a normalizer)
- * is the real `src` consumer once it lands.
- * @internal
+ * `TableCellVertAlignments` (parser.rb:61-67). Named by the cell-spec
+ * grammar that maps `.<`, `.^` and `.>` onto it
+ * (src/parse/lines/table-cell-spec.ts).
  */
 export type TableVerticalAlignment = "top" | "middle" | "bottom";
 
 /**
- * `TableCellStyles` (parser.rb:69-77). Read structurally through
- * `TableColumnSpec`/`TableCellSpec`, never named by import. Exported
- * for tests/parser/table-structure.test.ts; a future consumer that
- * reads a style BY NAME (a printer, a normalizer) is the real `src`
- * consumer once it lands.
- * @internal
+ * `TableCellStyles` (parser.rb:69-77). Named by the cell-spec grammar
+ * that maps a style letter onto it
+ * (src/parse/lines/table-cell-spec.ts).
  */
 export type TableCellStyle =
   | "none"
@@ -1729,12 +1720,8 @@ export interface TableTextRun {
  * byte-replaying printer can write them back. `droppedComment` is a
  * `//` line, but not a `///` one (`skip_comments`, reader.rb:420-425);
  * `skippedBlank` is a blank line no cell was open to take
- * (`skip_blank_lines`, reader.rb:279-291). Read
- * structurally through `TableTextRun.kind`, never named by import.
- * Exported for tests/parser/table-structure.test.ts; a future
- * consumer that branches on a run's kind BY NAME (a printer) is the
- * real `src` consumer once it lands.
- * @internal
+ * (`skip_blank_lines`, reader.rb:279-291). Named by the scan that
+ * tags each run as it appends it (src/parse/lines/table-reader.ts).
  */
 export type TableRunKind = "content" | "droppedComment" | "skippedBlank";
 
@@ -1744,11 +1731,9 @@ export type TableRunKind = "content" | "droppedComment" | "skippedBlank";
  * `+` sets colspan and rowspan, `*` sets a duplication count and
  * IGNORES the row half of the same digits (parser.rb:2515-2520). Two
  * nullable number fields would let `{ colspan: 2, duplicate: 3 }`
- * typecheck. Read structurally through the `separator` opening's
- * `parsed` field, never named by import. Exported for
- * tests/parser/table-structure.test.ts; a future consumer that reads
- * a spec BY NAME is the real `src` consumer once it lands.
- * @internal
+ * typecheck. Named by the cell-spec grammar that builds it
+ * (src/parse/lines/table-cell-spec.ts) and by the scan that carries
+ * it onto an opening (src/parse/lines/table-reader.ts).
  */
 export interface TableCellSpec {
   /** The `N+`, `N.M+` or `N*` prefix, or its absence. */

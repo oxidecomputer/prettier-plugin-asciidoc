@@ -344,6 +344,13 @@
   },
   {
     "file": "src/parse/build/table.ts",
+    "symbol": "TableCellFacts",
+    "importer": "src/parse/lines/table-open.ts",
+    "kind": "vocabulary",
+    "reason": "the cell fields a builder takes, derived from the cell node itself, so the fold that numbers a cell's column leaves exactly what the builder is declared to receive and neither side restates the other's shape"
+  },
+  {
+    "file": "src/parse/build/table.ts",
     "symbol": "TableScan",
     "importer": "src/parse/lines/table-open.ts",
     "kind": "vocabulary",

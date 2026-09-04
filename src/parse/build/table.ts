@@ -15,17 +15,14 @@
  *
  * Builders sit BELOW the reader in the parse stack (`build-imports-lines`,
  * scripts/metrics/graph.ts), so this file may not import
- * src/parse/lines/table-reader.ts back up. {@link ScannedCell} restates
- * that module's `TableScanCell` shape field for field instead: a real
- * `TableScanCell` satisfies it with no conversion, by structural
- * typing alone, the same way src/ast.ts restates the table SCAN's
- * types rather than importing them (that file is a leaf every parser
- * module imports FROM).
+ * src/parse/lines/table-reader.ts back up. It does not need to:
+ * {@link TableCellFacts} is derived from the node it builds, and
+ * src/ast.ts is the leaf every parser module imports FROM, so the one
+ * declaration of a cell's fields serves the reader above and the
+ * builder below alike.
  */
 import type {
   TableCellNode,
-  TableCellOpening,
-  TableCellRepeat,
   TableClose,
   TableColumnSpec,
   TableCutting,
@@ -37,33 +34,23 @@ import { annotation, type BlockExtent } from "./delimited.js";
 import type { LocationIndex } from "../positions.js";
 
 /**
- * One cell as the table SCAN cut it (`cutCells`'s `TableScanCell`,
- * src/parse/lines/table-reader.ts), restated rather than imported
- * (see the module comment). `closedAtLineEnd` is not carried: it is
- * cut-time bookkeeping `groupRows` already spent deciding which cells
- * share a row, and once that grouping is done, no further question
- * this module or a printer asks needs it.
+ * One cell's facts as everything above this module hands them over:
+ * the cell node less the two fields THIS module writes, its
+ * discriminant and its position.
  *
- * NOT exported: {@link TableScan.rows} is built from `groupRows`'s
- * own return value, which satisfies this shape structurally with no
- * caller ever needing to name it.
+ * Derived from the node rather than restated beside it, so a field
+ * added to a cell is added once. Neither omitted field is a fact the
+ * cut recorded: the discriminant is what a builder stamps on, and the
+ * position is what {@link buildCell} measures from the offsets the
+ * runs already carry.
+ *
+ * `closedAtLineEnd` is absent for a different reason - it is not a
+ * cell fact at all, but cut-time bookkeeping `groupRows`
+ * (src/parse/lines/table-reader.ts) already spent deciding which cells
+ * share a row, and no question this module or a printer asks needs it
+ * afterwards.
  */
-interface ScannedCell {
-  /** How this cell was opened. */
-  readonly opening: TableCellOpening;
-  /** The cell's raw region, partitioned into runs. */
-  readonly runs: readonly TableTextRun[];
-  /** The repeat the cell-spec queue handed this cell. */
-  readonly repeat: TableCellRepeat;
-  /**
-   * The column whose style this cell inherits, numbered by a table's
-   * open (src/parse/lines/table-open.ts) beside the resolved columns
-   * it indexes into. Carried, never recomputed here: the arithmetic
-   * that turns a duplicate spec into an advance of its own count is a
-   * decision, and decisions do not live in this module.
-   */
-  readonly columnIndex: number;
-}
+export type TableCellFacts = Readonly<Omit<TableCellNode, "type" | "position">>;
 
 /**
  * Everything the table SCAN and a table's open decided, bundled for
@@ -86,8 +73,8 @@ export interface TableScan {
   readonly cutting: TableCutting;
   /** Runs before the first cell begins (`TableCut.leadingRuns`). */
   readonly leadingRuns: readonly TableTextRun[];
-  /** The cut cells, grouped into rows (`groupRows`'s own return). */
-  readonly rows: ReadonlyArray<readonly ScannedCell[]>;
+  /** The cut cells, grouped into rows and numbered by column. */
+  readonly rows: ReadonlyArray<readonly TableCellFacts[]>;
   /** What the first row is (`readHeaderDecision`'s answer). */
   readonly header: TableNode["header"];
   /** Whether `options=footer` made the last row a footer. */
@@ -106,7 +93,7 @@ export interface TableScan {
  * @param cell - the cut cell
  * @returns the offset just past the cell's own region
  */
-function cellEnd(cell: ScannedCell): number {
+function cellEnd(cell: TableCellFacts): number {
   const last = cell.runs.at(-1);
   if (last !== undefined) {
     return last.offset + last.image.length;
@@ -125,7 +112,7 @@ function cellEnd(cell: ScannedCell): number {
  * @param at - the document's location index
  * @returns the cell node
  */
-function buildCell(cell: ScannedCell, at: LocationIndex): TableCellNode {
+function buildCell(cell: TableCellFacts, at: LocationIndex): TableCellNode {
   return {
     type: "tableCell",
     opening: cell.opening,
@@ -149,7 +136,7 @@ function buildCell(cell: ScannedCell, at: LocationIndex): TableCellNode {
  *   before pushing at least one cell into it
  */
 function buildRow(
-  cells: readonly ScannedCell[],
+  cells: readonly TableCellFacts[],
   at: LocationIndex,
 ): TableRowNode {
   const children = cells.map((cell) => buildCell(cell, at));

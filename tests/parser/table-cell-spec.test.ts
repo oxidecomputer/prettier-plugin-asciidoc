@@ -1,14 +1,16 @@
 import { describe, expect, test } from "vitest";
+import type {
+  TableCellRepeat,
+  TableCellSpec,
+  TableCellStyle,
+  TableColumnSpec,
+  TableHorizontalAlignment,
+  TableVerticalAlignment,
+} from "../../src/ast.js";
 import {
   parseCellSpecEnd,
   parseCellSpecStart,
   parseColumnSpecs,
-  type TableCellRepeat,
-  type TableCellSpec,
-  type TableCellStyle,
-  type TableColumnSpec,
-  type TableHorizontalAlignment,
-  type TableVerticalAlignment,
 } from "../../src/parse/lines/table-cell-spec.js";
 
 /** A cell spec naming nothing at all: the bare `\|` reading. */
