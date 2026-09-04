@@ -482,10 +482,6 @@
       "family": "gap:setext-title",
       "signature": "+heading; example=>list:unordered; paragraph=>heading"
     },
-    "lists_test.rb#nested dlist with attached block offset by empty line#0": {
-      "family": "gap:dlist",
-      "signature": "+open; -open"
-    },
     "lists_test.rb#nested elements (2) with asterisks#0": {
       "family": "gap:setext-title",
       "signature": "example=>list:unordered; paragraph=>heading"

@@ -695,3 +695,28 @@ describe("an item gap's blank run collapses to one blank", () => {
     await expectFormatted(input, expected);
   });
 });
+
+// A markerless paragraph directly under an attached block is the
+// item's, not a sibling of the list: `read_lines_for_list_item` keeps
+// reading adjacent lines as item content, because no blank line has
+// ended the item. A printed blank line between them would end it and
+// move the paragraph out of the list, so these have to come back byte
+// for byte - and one attached listing block is not enough to pin
+// that, because the anchor kind decides which reading arm buffers the
+// block and a table, a parent block and an admonition each take a
+// different one. The oracle assertion is what keeps the byte
+// assertion honest: it says the paragraph really is inside the `<li>`
+// of the source, so an output identical to the source is right rather
+// than merely stable.
+describe("a paragraph adjacent to an attached block stays in the item", () => {
+  test.each([
+    ["an open block", "* a\n+\n--\nx\n--\nplain\n"],
+    ["an example block", "* a\n+\n====\nx\n====\nplain\n"],
+    ["an admonition block", "* a\n+\n[NOTE]\n====\nx\n====\nplain\n"],
+    ["a table", "* a\n+\n|===\n|c\n|===\nplain\n"],
+    ["a listing block before a sibling", "* a\n+\n----\nx\n----\nplain\n* b\n"],
+  ])("%s", async (_name, input) => {
+    expect(await renderedHtml(input)).toMatch(/<li>.*<p>plain<\/p>.*<\/li>/v);
+    await expectFormatted(input, input);
+  });
+});

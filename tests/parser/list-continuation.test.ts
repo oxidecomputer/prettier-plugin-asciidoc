@@ -8,7 +8,13 @@
  */
 import { describe, test, expect } from "vitest";
 import { parse } from "../../src/parser.js";
-import { asParagraph, firstList, narrow, renderedHtml } from "../helpers.js";
+import {
+  asParagraph,
+  expectFormatted,
+  firstList,
+  narrow,
+  renderedHtml,
+} from "../helpers.js";
 
 describe("list continuation parsing", () => {
   test("+ attaches a paragraph to the item", () => {
@@ -482,5 +488,30 @@ describe("continuations around delimited blocks (issue #6)", () => {
       type: "delimitedBlock",
       content: "lit",
     });
+  });
+});
+
+// A comment and a sibling list are anchors a `+` attaches like any
+// other: each is the item's own block, behind the `+` its gap
+// replays, exactly as Asciidoctor reads the source, and the printed
+// document is the source byte for byte. A comment is the case a
+// rendered-HTML comparison cannot carry on its own, because the
+// oracle emits nothing for it either way, so the gap and the block
+// type are read off the item and the round-trip is asserted beside
+// them.
+describe("a + attaches a comment or a sibling list like any anchor", () => {
+  test.each([
+    ["a line comment", "* a\n+\n// c\n\nb\n", "comment"],
+    ["a comment block", "* a\n+\n////\nc\n////\n", "comment"],
+    ["an ordered sibling list", "* a\n+\n. one\n. two\n", "list"],
+    ["a callout list", "* a\n+\n<1> n\n", "list"],
+  ])("%s", async (_name, source, type) => {
+    const {
+      children: [item],
+    } = firstList(parse(source).children);
+    expect(item.blocks).toHaveLength(1);
+    expect(item.blocks[0].gap).toEqual(["+"]);
+    expect(item.blocks[0].block.type).toBe(type);
+    await expectFormatted(source, source);
   });
 });
