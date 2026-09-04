@@ -385,10 +385,13 @@ export interface LinkNode extends Node {
    */
   target: string;
   /**
-   * Display text from the attribute list (e.g. the
-   * `text` in `https://example.com[text]`). Undefined
-   * when no display text was provided, which an address always is:
-   * it has no bracket syntax to carry one.
+   * The attribute list's interior (e.g. the `text` in
+   * `https://example.com[text]`). Three states, and the printer
+   * writes a different spelling for each: undefined when the author
+   * wrote no bracket group at all, which an address always is (it has
+   * no bracket syntax to carry one); the empty string for
+   * `https://example.com[]`, whose brackets carry no display text but
+   * are what END the target; and the interior itself otherwise.
    */
   text: string | undefined;
 }

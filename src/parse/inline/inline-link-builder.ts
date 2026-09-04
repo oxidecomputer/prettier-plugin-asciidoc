@@ -78,6 +78,14 @@ function positionOf(
  * and `https://example.com[label]` (with display text).
  * The form is always `"url"` to distinguish from the
  * explicit `link:` macro during round-trip formatting.
+ *
+ * An EMPTY bracket group stays an empty string rather than folding
+ * into `undefined`. InlineLinkRx (rx.rb l.524) lets that group's
+ * interior be empty, and the group is what ENDS the target's own run
+ * of characters. Fold the two spellings together and the printer
+ * writes back the shorter one, at which point the URL runs on into
+ * whatever stands behind it: `https://e.com[]*b*` would print as
+ * `https://e.com*b*`, one link whose target swallowed the span.
  * @param fragment - InlineUrl token span
  * @param at - the document's location index
  * @returns LinkNode with form `"url"`
@@ -91,7 +99,7 @@ export function makeLinkFromUrl(
     type: "link",
     form: "url",
     target,
-    text: text === undefined || text.length === 0 ? undefined : text,
+    text,
     position: positionOf(fragment, at),
   };
 }

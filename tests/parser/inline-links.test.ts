@@ -71,14 +71,28 @@ describe("inline links — bare URLs", () => {
 });
 
 describe("inline links — URLs with display text", () => {
-  // Empty brackets are not display text: the node carries no text at
-  // all, which is what makes the printer re-emit the bare URL.
-  test("URL with EMPTY brackets → link node with no text", () => {
+  // Empty brackets are not display text, but they ARE the group that
+  // ends the target's run of characters (InlineLinkRx, rx.rb l.524),
+  // so the node holds an empty string and the printer writes the
+  // brackets back. Undefined is reserved for a URL that never wrote
+  // any group at all. This used to be undefined for both, which let
+  // the printer drop the `[]` and the target swallow whatever stood
+  // behind it.
+  test("URL with EMPTY brackets keeps an empty text on the node", () => {
     const nodes = inlineNodes("https://example.com[]\n");
     expect(nodes).toHaveLength(1);
     const [node0] = nodes;
     narrow(node0, "link");
     expect(node0.target).toBe("https://example.com");
+    expect(node0.text).toBe("");
+  });
+
+  // A bare URL with no bracket group at all: nothing to write back.
+  test("URL with NO brackets has no text on the node", () => {
+    const nodes = inlineNodes("https://example.com\n");
+    expect(nodes).toHaveLength(1);
+    const [node0] = nodes;
+    narrow(node0, "link");
     expect(node0.text).toBeUndefined();
   });
 

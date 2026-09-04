@@ -72,12 +72,14 @@ function inlineMacroToSource(node: InlineMacroNode): string {
 
 /**
  * Serialize a bare-URL link AST node back to AsciiDoc source.
- * Handles `https://example.com` (no display text) and
- * `https://example.com[label]` (with display text). Only
+ * Handles `https://example.com` (no bracket group at all),
+ * `https://example.com[]` (an empty group, which is what ends the
+ * target) and `https://example.com[label]`. The three are the three
+ * states of {@link LinkNode#text}, and each keeps its own bytes. Only
  * used for the `"url"` form — macro-form links are now
  * InlineMacroNode.
- * @param node - The parsed link with target and optional
- *   display text. Form is always `"url"`.
+ * @param node - The parsed link with target and its bracket group's
+ *   interior. Form is always `"url"`.
  * @returns AsciiDoc source string for the bare URL.
  */
 function linkToSource(node: LinkNode): string {

@@ -163,6 +163,28 @@ describe("inline links — edge cases", () => {
     const second = await formatAdoc(first);
     expect(second).toBe(first);
   });
+
+  // An EMPTY attrlist is what ENDS a bare URL. InlineLinkRx (rx.rb
+  // l.524) takes the target up to a bracket group whose interior is
+  // allowed to be empty, and only the group that follows stops the
+  // target's own run of characters. So the `[]` is not decoration:
+  // without it the URL keeps eating, and the bytes behind it land
+  // inside the href. Dropping it turned `https://e.com[]*b*` into
+  // `https://e.com*b*`, which renders one link whose target is
+  // `https://e.com*b*` where the input renders a link and a bold `b`.
+  test.each([
+    ["a bold span", "https://e.com[]*b*\n"],
+    ["an italic span", "https://e.com[]_b_\n"],
+    ["a monospace span", "https://e.com[]`b`\n"],
+    ["a bare word", "https://e.com[]x\n"],
+    ["another bracket group", "https://e.com[][c]\n"],
+    ["nothing at all", "https://e.com[]\n"],
+  ])("the empty attrlist survives in front of %s", async (_name, input) => {
+    const out = await formatAdoc(input);
+    expect(out).toBe(input);
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
 });
 
 // Issue #1: bracketed inline constructs can span source lines —
