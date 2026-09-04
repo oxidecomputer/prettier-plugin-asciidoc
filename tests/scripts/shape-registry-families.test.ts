@@ -2,8 +2,8 @@
  * The standing grid's expected-diff family assignment
  * (`gridRowFamily`, scripts/shape-registry-families.ts).
  *
- * `shape-diff` is a controller-side differential run: it needs two
- * checkouts and it is not part of `bun run test`, so nothing in the
+ * `shape-diff` is a differential run between two revisions: it needs
+ * two checkouts and it is not part of `bun run test`, so nothing in the
  * suite would notice a family that names a perturbation the grid does
  * not generate. That failure is quiet in the worst way - a renamed or
  * mistyped key stops excusing the rows it was written for, and the

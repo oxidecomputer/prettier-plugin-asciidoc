@@ -23,9 +23,11 @@ passes through byte-for-byte rather than being guessed at.
 
 Early. Paragraphs, headings, lists (including nesting, continuations, and
 checklists), delimited blocks, admonitions, inline formatting, links and macros,
-attribute entries, and conditionals are parsed and formatted. Description lists
-and tables are not yet modeled — they pass through verbatim. Known conformance
-gaps are tracked as
+attribute entries, and conditionals are parsed and formatted. Tables are
+modeled, and a table whose facts the plugin fully records is reprinted in a
+uniform shape; one holding anything it cannot record keeps its interior byte for
+byte. Description lists are not yet modeled and pass through verbatim. Known
+conformance gaps are tracked as
 [issues](https://github.com/oxidecomputer/prettier-plugin-asciidoc/issues)
 labeled `tier-1`/`tier-2`.
 
@@ -58,6 +60,38 @@ In VS Code, the Prettier extension needs to be told about the extension:
   "prettier.documentSelectors": ["**/*.adoc"]
 }
 ```
+
+## Options
+
+Two options, resolved by Prettier like any other: set them in a Prettier config,
+or pass `--asciidoc-table-layout` and `--asciidoc-table-align-columns` on the
+command line.
+
+| Option                      | Values            | Default |
+| --------------------------- | ----------------- | ------- |
+| `asciidocTableLayout`       | `"row"`, `"cell"` | `"row"` |
+| `asciidocTableAlignColumns` | `true`, `false`   | `false` |
+
+Both apply only to a table the plugin fully models. A table holding any of ten
+facts the layout cannot answer for (a cell whose text spans source lines, a
+literal cell, a non-`psv` format, an attribute line above it whose values could
+not be read, and six more) keeps its interior exactly as written, and neither
+option changes that.
+
+`asciidocTableLayout` chooses how an accepted table is written. `"row"` puts one
+recorded row on one source line, unless some row does not fit in `printWidth`,
+in which case the whole table prints in the cell shape instead. `"cell"` puts
+one cell per line after the first row, whatever the width. The first row is
+never split under either value: until a row has closed there is no column count
+to split against.
+
+`asciidocTableAlignColumns` pads cell text on the right so that the separators
+of a table's rows stand in the same columns. It applies only where rows are on
+one line, so it does nothing under `"cell"` or where the width chose the cell
+shape, and it does nothing for a table holding a colspan or a rowspan, whose
+cells do not sit in a fixed grid. The layout is chosen from the unpadded rows
+and the padding is added afterwards, so an aligned table may exceed the print
+width its unaligned spelling fitted inside.
 
 ## Development
 

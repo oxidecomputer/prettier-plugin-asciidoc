@@ -241,13 +241,13 @@ function resolvedSpec(
  * instances on the oracle's side (`close_cell`'s `1.upto(repeat)`
  * loop, table.rb:651), each carrying the same text and the same spec
  * minus the repeat itself (`repeatcol` is deleted before the spec
- * reaches `Table::Cell.new`, table.rb:620). Expanding here, rather
+ * reaches `Table::Cell.new`, table.rb:622). Expanding here, rather
  * than excluding every table that uses `*`, is what lets this suite
  * compare the two representations as the same STRUCTURE despite the
  * different node count.
  *
  * `column` reads `columns[physicalIndex]`, matching
- * `@table.columns[@current_row.size]` (table.rb:653): the column a
+ * `@table.columns[@current_row.size]` (table.rb:662): the column a
  * cell inherits from is its PHYSICAL position within the row (a
  * duplicated cell's own copies each advance that position by one),
  * not the column its colspan visually reaches.
