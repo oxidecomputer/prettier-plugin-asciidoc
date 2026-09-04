@@ -409,11 +409,12 @@ export const CONTEXTS: readonly ContextEntry[] = [
  *
  * `--` is not a placeholder; it is the reproduction the #149 fix
  * itself measured. `NORMAL_SUBS` substitutes attributes before it
- * substitutes replacements, so a reference whose value is `--` puts
- * two literal hyphens into the run at print time, no earlier - the
- * text a whole-fragment scan (the em-dash replacement's own rule)
- * reads never existed at parse time, only at render time, in a text
- * node this tree does not hold. Ruby's em-dash rule reads exactly one
+ * substitutes replacements (`:attributes` before `:replacements`,
+ * substitutors.rb:16), so a reference whose value is `--` puts two
+ * literal hyphens into the run at print time, no earlier - the text a
+ * whole-fragment scan (the em-dash replacement's own rule) reads
+ * never existed at parse time, only at render time, in a text node
+ * this tree does not hold. Ruby's em-dash rule reads exactly one
  * ASCII space flanking a substituted `--`; a tab does not qualify, so
  * a formatter that folds a whitespace run standing beside the
  * reference into a plain space turns bytes that render literally into
@@ -427,7 +428,7 @@ export const CONTEXTS: readonly ContextEntry[] = [
  * `{counter:n}` is a self-initializing counter that expands with no
  * definition at all, so it was never vacuous, and `{a.b-c}` is not a
  * reference the oracle recognizes in the first place - Ruby's
- * `AttributeReferenceRx` (rx.rb) takes a name of `\p{Word}` and
+ * `AttributeReferenceRx` (rx.rb:153) takes a name of `\p{Word}` and
  * hyphen only, no dot, so `{a.b-c}` reaches Asciidoctor as literal
  * text regardless of what is defined. That spelling is this
  * tokenizer's own regex accepting a dot Ruby's does not - a
@@ -438,6 +439,22 @@ const ATTRIBUTE_REFERENCE_HEADER = ":attr: --\n\n";
 
 /** The alphabet id {@link ATTRIBUTE_REFERENCE_HEADER} answers. */
 const CANONICAL_ATTRIBUTE_REFERENCE_ID = "AttributeReference";
+
+/** The body {@link ATTRIBUTE_REFERENCE_HEADER} was written to answer. */
+const CANONICAL_ATTRIBUTE_REFERENCE_BODY = "{attr}";
+
+// Fails at import time, loudest possible: attributeHeaderFor arms the
+// header by ID, not by body, so a reorder of AttributeReference's
+// spellings tuple would silently move the canonical ID onto a
+// different body and reintroduce the vacuous rows #151 closed.
+if (
+  INLINE_SPELLINGS.AttributeReference.spellings[0] !==
+  CANONICAL_ATTRIBUTE_REFERENCE_BODY
+) {
+  throw new Error(
+    `inline registry: AttributeReference's first spelling is ${JSON.stringify(INLINE_SPELLINGS.AttributeReference.spellings[0])}, not ${JSON.stringify(CANONICAL_ATTRIBUTE_REFERENCE_BODY)} - ATTRIBUTE_REFERENCE_HEADER defines :attr: for that exact body; move the header's attribute name with the reorder`,
+  );
+}
 
 /**
  * The header to prepend for one alphabet member's realized document,
