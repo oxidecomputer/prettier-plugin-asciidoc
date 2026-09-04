@@ -635,8 +635,8 @@ function closesGroupFromOutside(head: HeadContext, text: string): boolean {
 
 /**
  * Whether the attrlist standing flush in front of a span leaves the
- * constrained spelling legal. Four independent refusals, each with its
- * own witness.
+ * constrained spelling legal. Three independent refusals, each with
+ * its own witness.
  *
  * A MARK INSIDE THE RUN. The unconstrained row writes the run into its
  * element's attribute and the constrained row then matches the marks
@@ -660,18 +660,6 @@ function closesGroupFromOutside(head: HeadContext, text: string): boolean {
  * quote-boundaries.ts gives: `sub_specialchars` has already run when
  * the quote pass reads it.
  *
- * THE MARK ITSELF IN FRONT OF THE BRACKET. That left clause does not
- * merely test the character, it CONSUMES it - and a match of the same
- * constrained row standing in front of the bracket ends with the mark
- * it closed, so the character this match needed is already spent and
- * the `[` is read as the boundary character instead, the attributes
- * group gone. `[a]**c**[b]**d**` renders two roles and the doubly
- * shortened `[a]*c*[b]*d*` renders
- * `<strong class="a">c</strong>[b]<strong>d</strong>`, the second role
- * lost. Where no such match stands there, the mark is one the
- * constrained row may pair with a delimiter of ours instead, which is
- * the same refusal for the other reason.
- *
  * A BACKSLASH IN FRONT OF THE BRACKET. Only the UNCONSTRAINED rows
  * carry a `\\?` in front of their attributes group (`QUOTE_SUBS`,
  * asciidoctor.rb l.439-468): on those an escaped match is returned as literal text
@@ -694,7 +682,6 @@ function attrlistAllowsIt(
 ): boolean {
   return (
     !attrlist.interior.includes(mark) &&
-    !attrlist.before.endsWith(mark) &&
     !attrlist.before.endsWith(ATTRLIST_ESCAPE) &&
     !front.test(afterSpecialchars(attrlist.before))
   );
