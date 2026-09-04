@@ -76,3 +76,115 @@ export function foldChangesEmDash(
     (opens && !ROW_BOUNDARY.has(run.slice(-1)))
   );
 }
+
+// The bracket spellings a checklist prefix opens with that survive a
+// whitespace split as ONE word. `[ ]` does not: its own space cuts it
+// into `[` and `]`, which is why the two head shapes below are two
+// arms rather than one lookup.
+const MARKED_BRACKETS = new Set(["[x]", "[*]"]);
+
+/**
+ * The two ways a checklist prefix can be spelled across a whitespace
+ * split. The arms differ in how many words the prefix spans, which is
+ * what a caller holding words rather than bytes needs from it.
+ */
+type ChecklistHead = "markedBracket" | "splitBracket";
+
+/**
+ * Which checklist prefix a value's head would spell once its runs are
+ * folded to spaces.
+ *
+ * Asciidoctor reads a checked or unchecked box off an unordered item's
+ * first line, and the test is a literal one:
+ * `item_text.start_with?('[ ] ', '[x] ', '[*] ')` (parser.rb l.1330,
+ * whose arm sets the list's `checklist` option and slices the four
+ * characters off the item's text). The space is the fourth character
+ * of each spelling, so `* [x]<TAB>a` is an item whose text is
+ * `[x]<TAB>a` while `* [x] a` is a CHECKED item whose text is `a`.
+ *
+ * Two head shapes reach the prefix's four characters across a
+ * whitespace split - `[x]` or `[*]` and then anything, or `[`, `]` and
+ * then anything - and nothing past the third word can spell one at
+ * all, because the prefix is four characters long.
+ *
+ * The reader's side of the same line of Ruby spells the three prefixes
+ * as a pattern (`CHECKBOX_RE`, src/parse/build/list.ts); the two are
+ * readings of one rule, and the oracle binds both.
+ * @param words - the value's words, in order. Asked of source words
+ *   and of finished atom texts alike, because the prefix is spelled
+ *   the same either way.
+ * @returns which prefix the head would spell, or undefined for a head
+ *   that spells none.
+ */
+function checklistHead(words: readonly string[]): ChecklistHead | undefined {
+  const [first, second] = words;
+  if (words.length < 2) {
+    return undefined;
+  }
+  if (MARKED_BRACKETS.has(first)) {
+    return "markedBracket";
+  }
+  if (first === "[" && second === "]" && words.length > 2) {
+    return "splitBracket";
+  }
+  return undefined;
+}
+
+/**
+ * Whether keeping this run's bytes would spell the prefix's own space
+ * anyway.
+ *
+ * Ruby tests the prefix against `item_text`, which is the item's FIRST
+ * line and which the reader has already right-stripped
+ * (`prepare_lines`, reader.rb l.582). So a run that opens with a space
+ * and stays on the line still reads as the prefix's space whatever
+ * stands behind it, while a run carrying a LINE BREAK ends the line,
+ * and the strip takes every blank it left in front of the break.
+ * @param run - the run, as the source wrote it.
+ * @returns true when the prefix's space survives the run's own bytes.
+ */
+function spellsThePrefixSpace(run: string): boolean {
+  return run.startsWith(" ") && !run.includes("\n");
+}
+
+/**
+ * The one run at a value's head whose fold would spell a checklist
+ * prefix the source did not write.
+ *
+ * At most one run in either head shape needs its bytes: the first run
+ * that is not already the prefix's own space is the one that breaks
+ * the spelling, and a run after it would only hold bytes nothing
+ * reads.
+ *
+ * The question is asked of every block's text, not only a list item's,
+ * because the splitter has no block. Everywhere else the answer costs
+ * the author's own bytes and no meaning: a paragraph opening
+ * `[x]<TAB>a` keeps its tab instead of folding it, and nothing reads a
+ * checklist prefix there.
+ * @param words - the value's source words, in order.
+ * @param runs - the runs between them: `runs[index]` stands between
+ *   `words[index]` and `words[index + 1]`.
+ * @returns the index in `runs` of the run that must keep its bytes, or
+ *   undefined where no fold at this head spells a prefix.
+ */
+export function manufacturedChecklistRun(
+  words: readonly string[],
+  runs: readonly string[],
+): number | undefined {
+  const head = checklistHead(words);
+  if (head === undefined) {
+    return undefined;
+  }
+  // `[x]` or `[*]`, then anything: the fold writes the prefix's space
+  // straight after the bracket, and that one run is the whole story.
+  if (head === "markedBracket") {
+    return spellsThePrefixSpace(runs[0]) ? undefined : 0;
+  }
+  // `[`, `]`, then anything: the first run spells the prefix's inner
+  // space and the second its trailing one, so whichever of the two is
+  // not already a lone space is the one to keep.
+  if (runs[0] !== " ") {
+    return 0;
+  }
+  return spellsThePrefixSpace(runs[1]) ? undefined : 1;
+}

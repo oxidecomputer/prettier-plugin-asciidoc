@@ -43,7 +43,10 @@ import {
   LINE_COMMENT_HEAD,
   startsSectionTitle,
 } from "../parse/line-shapes.js";
-import { foldChangesEmDash } from "./whitespace-fold.js";
+import {
+  foldChangesEmDash,
+  manufacturedChecklistRun,
+} from "./whitespace-fold.js";
 
 // The `+` quantified form of ASCII_WHITESPACE, CAPTURED, so a split on
 // it keeps the run beside the words it separated: whether a run may
@@ -296,12 +299,18 @@ function cutValue(value: string): CutValue {
  * @param previous - the word in front of the run.
  * @param run - the run, as the source wrote it.
  * @param next - the word behind the run.
+ * @param spellsAChecklistPrefix - what the value's head already
+ *   answered about this run: folding it would spell a checklist prefix
+ *   the source did not write. Asked once, about the whole head, and
+ *   passed in rather than re-derived here, where the head is out of
+ *   reach.
  * @returns true when the fold would change what Asciidoctor reads.
  */
 function runKeepsItsBytes(
   previous: string,
   run: string,
   next: string,
+  spellsAChecklistPrefix: boolean,
 ): boolean {
   // A fused word carries interior whitespace, and {@link wordsToAtoms}'
   // dlist guard reads a WHOLE word (DLIST_SEPARATOR_WORD is anchored
@@ -318,7 +327,7 @@ function runKeepsItsBytes(
   if (run.includes("\n")) {
     return false;
   }
-  return foldChangesEmDash(previous, run, next);
+  return spellsAChecklistPrefix || foldChangesEmDash(previous, run, next);
 }
 
 /**
@@ -349,11 +358,20 @@ function runKeepsItsBytes(
  */
 export function splitWords(value: string): string[] {
   const { words, runs } = cutValue(value);
+  // The checklist prefix is anchored at the head of the value, so it is
+  // ONE question about the whole word list rather than a question the
+  // walk below could ask of each run in turn.
+  const checklistRun = manufacturedChecklistRun(words, runs);
   const packed: string[] = [];
   for (const [index, word] of words.entries()) {
     if (
       index > 0 &&
-      runKeepsItsBytes(words[index - 1], runs[index - 1], word)
+      runKeepsItsBytes(
+        words[index - 1],
+        runs[index - 1],
+        word,
+        index - 1 === checklistRun,
+      )
     ) {
       packed[packed.length - 1] += runs[index - 1] + word;
     } else {

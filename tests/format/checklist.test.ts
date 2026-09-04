@@ -111,6 +111,49 @@ describe("checklist formatting", () => {
     expect(await formatAdoc("* [*] \n")).toBe("* [*]\n");
   });
 
+  // The fourth character of each prefix is a literal SPACE, so a
+  // bracket the source separated from its text by anything else is
+  // TEXT to the oracle and the run that separates them is syntax.
+  // Red before the fold refusal (issue #140): every row here formatted
+  // its run to one space and the output rendered a checkbox glyph
+  // where the input rendered the bracket - `* [x]<TAB>a` came out
+  // `* [x] a`. The run keeps its bytes now
+  // (src/print/whitespace-fold.ts), so the bytes, the render and a
+  // second format all hold.
+  test.each([
+    ["a tab after the bracket", "* [x]\ta\n"],
+    ["a tab after an unchecked bracket", "* [ ]\ta\n"],
+    ["a tab after the `[*]` spelling", "* [*]\ta\n"],
+    ["a tab and then a space", "* [x]\t a\n"],
+    // The unchecked bracket's own space splits it in two, so the run
+    // INSIDE it is the one that decides the spelling here.
+    ["a tab inside the bracket", "* [\t] a\n"],
+    ["two tabs after the bracket", "* [ ]\t\ta\n"],
+    ["a wider bracket than the prefix spells", "* [  ] a\n"],
+    ["more text after the first word", "* [ ]\ta b\n"],
+    ["a nested item", "** [x]\ta\n"],
+    ["the other unordered marker", "- [x]\ta\n"],
+    // Two rows where nothing reads a checklist prefix at all: an
+    // ordered item (`parse_list_item` asks only of a ulist) and a
+    // paragraph. The run keeps its bytes there too, because the
+    // splitter has no block to ask about - which costs the author's
+    // own bytes and no meaning.
+    ["an ordered item, which has no checkbox", ". [x]\ta\n"],
+    ["a paragraph, which has no checkbox", "[x]\ta\n"],
+  ])("the run keeps its bytes with %s", async (_name, input) => {
+    const out = await formatAdoc(input);
+    expect(out).toBe(input);
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+
+  // The narrowness of that refusal. A tab anywhere else in an item's
+  // text still folds: reflowing prose is what the formatter is for,
+  // and only the run the prefix is spelled across is syntax.
+  test("a tab elsewhere in the item text still folds", async () => {
+    expect(await formatAdoc("* a\tb\n")).toBe("* a b\n");
+  });
+
   // The checked marker's own `*` is a bold delimiter too, so where a
   // second `*` stands later on the line the tokenizer pairs them and
   // the item's leading text node holds only `[`. There is no
