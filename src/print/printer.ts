@@ -23,6 +23,7 @@
 import { doc, type Printer, type Doc } from "prettier";
 import { canonicalAttrlist } from "../parse/attrlist.js";
 import { MARKER_OFFSET } from "../constants.js";
+import { tableStyle } from "../options.js";
 import { inlineAtoms } from "./inline.js";
 import { blockBody } from "./reflow.js";
 import { joinBlocks } from "./join.js";
@@ -109,7 +110,7 @@ const printer: Printer<AnyNode> = {
       // so that path.map's recursion lands on them instead of on the
       // inline default at the bottom.
       case "table": {
-        return printTable(node, path, print);
+        return printTable(node, path, print, tableStyle(options));
       }
       case "tableRow": {
         return printTableRow(path, print);

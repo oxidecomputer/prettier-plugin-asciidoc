@@ -42,7 +42,11 @@ import { loadCorpus } from "../conformance/loader.js";
 import { scanTables } from "../parser/table-structure-scan.js";
 import type { TableCellNode, TableNode } from "../../src/ast.js";
 import { rstrip } from "../../src/parse/line-shapes.js";
-import { planTable, type TableDecline } from "../../src/print/table-layout.js";
+import {
+  planTable,
+  type TableDecline,
+  type TablePlan,
+} from "../../src/print/table-layout.js";
 
 /**
  * A census with every reason at zero, spelled out rather than built
@@ -286,7 +290,42 @@ function spansLines(scanned: Scanned): boolean {
   return holdsMultiLineCell(scanned.table);
 }
 
+/**
+ * `planTable` under the type that says what it reads: the TABLE, and
+ * nothing else.
+ *
+ * THE ANNOTATION IS THE PIN, and it is a static one: a gate that took
+ * the style as a second parameter is not assignable to this type, so
+ * `bun run check` fails before any test runs. Nothing at runtime can
+ * pin it, because there is no style to vary - the parameter the
+ * annotation refuses is the parameter a runtime check would have to
+ * pass. The row below is therefore a count taken THROUGH the
+ * constrained signature: it pins the accepted population against the
+ * same literal the census pins, so the static claim and a number stand
+ * or fall together.
+ */
+const gateReadsTheTableAlone: (table: TableNode) => TablePlan = planTable;
+
 describe("what the gate accepts", () => {
+  // ONE census, not one per option value. The style reaches the
+  // EMISSION alone (`chooseLayout`, src/print/table-layout.ts), where
+  // it chooses between two spellings of a table already accepted, so
+  // the accepted set is the same under both values of
+  // `asciidocTableLayout` and every number in this file is a property
+  // of the corpus rather than of one option value. A gate that read
+  // the style would need this census taken twice, and it would mean a
+  // document's tables stop being laid out when its author changes a
+  // style preference. What runs the emission under both values is
+  // tests/format/table-gate-stability.test.ts, which sweeps the whole
+  // corpus twice.
+  test("the gate accepts 82 tables reading nothing but the table", () => {
+    expect(
+      TABLES.filter(
+        (scanned) => gateReadsTheTableAlone(scanned.table).kind === "laidOut",
+      ).length,
+    ).toBe(82);
+  });
+
   test("accepted tables, and documents whose every table is accepted", () => {
     expect({
       tables: TABLES.filter(isAccepted).length,

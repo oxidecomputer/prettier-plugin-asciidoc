@@ -62,6 +62,7 @@
 import { doc, type Doc } from "prettier";
 import type { TableCellNode, TableNode, TableRowNode } from "../ast.js";
 import { MIN_TABLE_DELIMITER_LENGTH } from "../constants.js";
+import type { TableStyle } from "../options.js";
 import { rstrip } from "../parse/line-shapes.js";
 import type { PrintFunction, PrintPath } from "./blocks.js";
 import { planTable, printLaidOut, type TablePlan } from "./table-layout.js";
@@ -223,19 +224,27 @@ export function printTableRow(path: PrintPath, print: PrintFunction): Doc {
  *
  * The `endOfStream` close writes no closing line, so an unterminated
  * table's opening is respelled with nothing to keep it company.
+ *
+ * The STYLE reaches the laid-out arm alone. Which arm a table takes
+ * is the gate's answer over the table's own records, so a declined
+ * table replays the same bytes under either style value.
  * @param node - the table node
  * @param path - Prettier's AST path, at the table
  * @param print - Prettier's recursive print callback
+ * @param style - the table style in force, read by the laid-out arm
  * @returns Doc IR for the table
  */
 export function printTable(
   node: TableNode,
   path: PrintPath,
   print: PrintFunction,
+  style: TableStyle,
 ): Doc {
   const plan: TablePlan = planTable(node);
   const interior =
-    plan.kind === "replay" ? replayedInterior(node) : printLaidOut(node, plan);
+    plan.kind === "replay"
+      ? replayedInterior(node)
+      : printLaidOut(node, plan, style);
   const delimiter = tableDelimiter(node.open.slice(0, 1), interior);
   const body: Doc =
     plan.kind === "replay"

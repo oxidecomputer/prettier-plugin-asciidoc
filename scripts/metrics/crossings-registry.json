@@ -63,6 +63,27 @@
     "reason": "the one predicate for metadata that stacks onto the block below it, read by the printer's join rules"
   },
   {
+    "file": "src/options.ts",
+    "symbol": "TableStyle",
+    "importer": "src/print/table-layout.ts",
+    "kind": "vocabulary",
+    "reason": "the style an accepted table's emission reads: the layout the document asked for and the width that chooses under it, in the printer's own vocabulary rather than in Prettier's option names"
+  },
+  {
+    "file": "src/options.ts",
+    "symbol": "TableStyle",
+    "importer": "src/print/table.ts",
+    "kind": "vocabulary",
+    "reason": "the style the table printer hands to the laid-out arm; naming the type here is what keeps the option read in one place instead of every arm reaching into Prettier's options object"
+  },
+  {
+    "file": "src/options.ts",
+    "symbol": "tableStyle",
+    "importer": "src/print/printer.ts",
+    "kind": "vocabulary",
+    "reason": "the ONE read of the two table options and the print width, at the one site that has Prettier's resolved options; no default for either option is spelled anywhere else"
+  },
+  {
     "file": "src/parse/attrlist.ts",
     "symbol": "Attrlist",
     "importer": "src/parse/lines/held-metadata.ts",

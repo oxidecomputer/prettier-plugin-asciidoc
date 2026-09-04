@@ -22,11 +22,12 @@
  * and no branch for a literal cell's leading whitespace. That is what
  * makes the emission total without an unreachable branch.
  *
- * NO KNOB REACHES HERE. Nothing in the gate or the emission asks the
- * printer's table style anything, so the style is not carried in: a
- * type published across a directory boundary whose fields nothing
- * reads is the precise leak `scripts/metrics/unread-fields.ts` gates
- * against. A style parameter belongs here the day a rule reads one.
+ * NO KNOB REACHES THE GATE. {@link planTable} takes the table and
+ * nothing else, so which tables are laid out is the same set under
+ * either style value, and the census (tests/format/table-census.test.ts)
+ * is a property of the corpus rather than of one option value. The
+ * style reaches the EMISSION alone, where it chooses between two
+ * spellings of a table already accepted.
  *
  * PER TABLE, not per document. A document holding one declined table
  * still has its other tables laid out, so a reader can meet both
@@ -36,7 +37,9 @@
  * built, and its price is the population of mixed documents that
  * tests/format/table-census.test.ts measures and reports.
  */
+import { util } from "prettier";
 import type { TableCellNode, TableNode, TableRowNode } from "../ast.js";
+import type { TableStyle } from "../options.js";
 import { rstrip } from "../parse/line-shapes.js";
 
 /**
@@ -596,16 +599,41 @@ const SEPARATOR_PAD = "";
  */
 const SEPARATOR_PAD_BEFORE = " ";
 
+/** The emission that puts one recorded row on one source line. */
+const ROW_LAYOUT = "row";
+
+/** The emission that puts one cell per line after the first row. */
+const CELL_LAYOUT = "cell";
+
 /**
- * Emit an accepted table's interior: one recorded row per source line,
- * and one blank line after the first row exactly when the first row is
- * a header row.
+ * Emit an accepted table's interior in the emission
+ * {@link chooseLayout} picked, with the blank lines the header verdict
+ * asks for and no others.
  *
- * The first row keeps the first interior line, which is what preserves
- * the column count by construction: while no readable `cols=` fixed
- * it, only the end of a line can close the first row, and `close_row`
- * sets the table's `colcount` from the `column_visits` that line held
- * (table.rb:701). Every row after it may be laid out any way at all.
+ * THE FIRST ROW KEEPS THE FIRST INTERIOR LINE, in both emissions,
+ * which is what preserves the column count by construction: while no
+ * readable `cols=` fixed it, only the end of a line can close the
+ * first row, and `close_row` sets the table's `colcount` from the
+ * `column_visits` that line held (table.rb:701). Every row after it
+ * may be laid out any way at all.
+ *
+ * With an explicit `cols=` the first row's line placement is no longer
+ * load-bearing and the first row COULD be split. Keeping it on one
+ * line anyway is a UNIFORMITY choice and not a safety one: a table
+ * whose shape depends on whether its author wrote a `cols=` reads as
+ * two different styles in one document, and splitting the first row of
+ * a table that declared no `cols=` would mean WRITING one into the
+ * author's attribute list, which no rule here does. So the rule is
+ * stated once, over every accepted table.
+ *
+ * SPLITTING THE LATER ROWS IS SAFE, and the reason is a decline rather
+ * than an argument about line breaks: `hasRaggedRows` (above) refuses
+ * every table some row's effective column visits do not carry to the
+ * column count, rowspan reservations included, so in an accepted table
+ * the reader regroups the flat cell stream back into these same rows
+ * wherever the line breaks fall (`end_of_row?`, table.rb:721-729).
+ * Take that decline away and the cell emission restructures a short
+ * row's table.
  *
  * EMPTY for a table with no rows, and the caller writes no interior
  * line for it. Emitting one would write a blank line between the two
@@ -613,18 +641,100 @@ const SEPARATOR_PAD_BEFORE = " ";
  * on the next read.
  * @param node - the table, read for its header verdict alone
  * @param plan - the accepted plan, whose rows are the emission
+ * @param style - the style in force, which chooses between the two
  * @returns the interior bytes, delimiter lines excluded, with no
  *   trailing line feed of their own
  */
-export function printLaidOut(node: TableNode, plan: LaidOutPlan): string {
-  const lines: string[] = [];
-  for (const [index, row] of plan.rows.entries()) {
-    lines.push(rowImage(row));
-    if (index === 0 && blankAfterFirstRow(node)) {
-      lines.push("");
-    }
+export function printLaidOut(
+  node: TableNode,
+  plan: LaidOutPlan,
+  style: TableStyle,
+): string {
+  const layout = chooseLayout(plan.rows, style);
+  const headerBlank = blankAfterFirstRow(node);
+  return plan.rows
+    .flatMap((row, index) => rowLines(row, index, layout, headerBlank))
+    .join(LINE_FEED);
+}
+
+/**
+ * Which emission an accepted table takes: the style's own value, or,
+ * under `"row"`, the width's answer.
+ *
+ * ALL-OR-NOTHING per table. A table whose rows do not ALL fit prints
+ * in the cell style, which is the group semantics Prettier applies to
+ * an object literal and what keeps one table internally uniform. To
+ * take the other side of that question - `"row"` meaning row layout
+ * whatever the width - return `style.layout` here.
+ *
+ * MEASURED IN COLUMNS, not in characters: `getStringWidth` is
+ * Prettier's own measure, the one `wrap` (./reflow.ts) packs prose by,
+ * so a full-width CJK character costs two and a combining mark costs
+ * none. One tree, one answer to what a print width is.
+ *
+ * MEASURED ON THE UNALIGNED SPELLING, which is the spelling there is:
+ * nothing pads cell text today. Column alignment arrives with the code
+ * that reads it, and it has to be applied AFTER this choice rather
+ * than before, or the two oscillate - alignment widens rows, a widened
+ * row would flip the layout, and the flipped layout turns alignment
+ * off again. Measuring here on the unaligned image is what makes that
+ * order available.
+ *
+ * A table MAY exceed `printWidth`, and does whenever its first row
+ * alone is too wide, since the first row is never split
+ * ({@link printLaidOut}). The width selects a LAYOUT; it never forces
+ * a break inside a row.
+ * @param rows - the accepted plan's rows
+ * @param style - the style in force
+ * @returns which emission to write
+ */
+function chooseLayout(
+  rows: readonly PlannedRow[],
+  style: TableStyle,
+): "row" | "cell" {
+  if (style.layout === CELL_LAYOUT) {
+    return CELL_LAYOUT;
   }
-  return lines.join(LINE_FEED);
+  return rows.every(
+    (row) => util.getStringWidth(rowImage(row)) <= style.printWidth,
+  )
+    ? ROW_LAYOUT
+    : CELL_LAYOUT;
+}
+
+/**
+ * One row's lines, with the blank lines the header verdict puts around
+ * it.
+ *
+ * A HEADERLESS table gets no blank line anywhere, so under the cell
+ * emission its rows are not visually separated at all. Both spellings
+ * that would separate them are unavailable: a blank after the first
+ * row forges an implicit header (`implicit_header`,
+ * parser.rb:2340-2345), and a leading blank is the gate's own
+ * `leading-runs` decline, so a table printed with one stops being laid
+ * out on the next read.
+ * @param row - the planned row
+ * @param index - its position in the table, the first row being 0
+ * @param layout - the emission in force
+ * @param headerBlank - whether the first row is a header row, which is
+ *   what puts a blank after it and in front of every row from the
+ *   third onward
+ * @returns the row's lines, in order, none with a line feed of its own
+ */
+function rowLines(
+  row: PlannedRow,
+  index: number,
+  layout: "row" | "cell",
+  headerBlank: boolean,
+): string[] {
+  if (index === 0) {
+    return headerBlank ? [rowImage(row), ""] : [rowImage(row)];
+  }
+  if (layout === ROW_LAYOUT) {
+    return [rowImage(row)];
+  }
+  const cells = row.cells.map(cellImage);
+  return index > 1 && headerBlank ? ["", ...cells] : cells;
 }
 
 /**

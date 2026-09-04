@@ -490,6 +490,35 @@ const TABLE_CELL_COLUMN_INDEX_FAMILY = "table-cell-column-index";
 const TABLE_LAYOUT_FAMILY = "table-layout";
 
 /**
+ * An accepted table whose rows do not all fit in the print width
+ * prints one cell per line after the first row, which is the DEFAULT
+ * option value's own behaviour rather than a value anybody set: the
+ * width chooses inside `"row"`, all-or-nothing per table
+ * (`chooseLayout`, src/print/table-layout.ts). The `"cell"` value
+ * itself moves nothing in a parity run, since a run formats with the
+ * defaults.
+ *
+ * MEASURED, because the two layouts each have a measured population
+ * and the flip between them had none: 6 of the 82 accepted corpus
+ * tables hold a row
+ * whose unaligned image exceeds the default print width of 80, in 2
+ * documents (`docs/modules/migrate/pages/asciidoc-py.adoc`, 4 tables,
+ * and `docs/modules/migrate/pages/upgrade.adoc`, 2), and all 6 emit
+ * differently under the two layouts. That is the whole population this
+ * family can name.
+ *
+ * FORMATTED-ONLY, for {@link TABLE_LAYOUT_FAMILY}'s reason: the width
+ * is a property of the RUN and the layout a property of the OUTPUT,
+ * and neither tree records either, so an AST diff at one of these ids
+ * is a real failure. An id takes exactly ONE trailer, so an id in this
+ * family is one whose table was relaid out BY THE WIDTH; an id whose
+ * tables all fit takes {@link TABLE_LAYOUT_FAMILY} instead.
+ *
+ * Not exported: no grid row cites it.
+ */
+const TABLE_WIDTH_LAYOUT_FAMILY = "table-width-layout";
+
+/**
  * A table records that a block attribute line stood above it whose
  * values its open could NOT read: a second attribute line, or one
  * standing behind a title or an anchor, which the reader's
@@ -518,9 +547,11 @@ const TABLE_UNREAD_ATTRLIST_FAMILY = "table-unread-attrlist";
  * attribute-entry-spelling, attrlist-spacing, xref-text-trim,
  * gap-collapse, plus-run-tail-kept, trailing-continuation-kept,
  * continuation-keeps-line, table-delimiter-length (which respells a
- * table's two delimiter lines, a length neither tree records) and
+ * table's two delimiter lines, a length neither tree records),
  * table-layout (which rewrites an accepted table's interior from
- * records both trees already hold): they change BYTES only,
+ * records both trees already hold) and table-width-layout (the same
+ * interior, written one cell per line because the width chose):
+ * they change BYTES only,
  * while both marker families ride the list tree
  * fold (`marker` added, `depth` dropped), no-op-continuation-tree
  * drops a block the reader used to build, plus-run-paragraph reshapes
@@ -575,6 +606,7 @@ export const LEDGER_FAMILIES: FamilySets = {
     TABLE_DELIMITER_LENGTH_FAMILY,
     TABLE_CELL_COLUMN_INDEX_FAMILY,
     TABLE_LAYOUT_FAMILY,
+    TABLE_WIDTH_LAYOUT_FAMILY,
     TABLE_UNREAD_ATTRLIST_FAMILY,
   ]),
   formattedOnly: new Set([
@@ -590,6 +622,7 @@ export const LEDGER_FAMILIES: FamilySets = {
     CONTINUATION_KEEPS_LINE_FAMILY,
     TABLE_DELIMITER_LENGTH_FAMILY,
     TABLE_LAYOUT_FAMILY,
+    TABLE_WIDTH_LAYOUT_FAMILY,
   ]),
   // Two families, and each owns exactly the field it named, as the
   // dumper serializes it: `ParagraphNode.firstWordEndsItsLine` and

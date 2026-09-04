@@ -111,28 +111,29 @@ describe("the plugin's own options", () => {
     expect(option.default).toBe(false);
   });
 
-  // The ONE read of the two option names. The annotation is not
-  // decoration: it is what names `TableStyle` from an entry point,
-  // and the three-field literal is what a `PrintOptions` satisfies
-  // structurally once the module augmentation gives the two names
-  // their types.
-  test("the option read renames the two knobs into the printer's vocabulary", () => {
+  // The ONE read of the option names. The annotation is not
+  // decoration: it is what names `TableStyle` from an entry point, and
+  // the literal is what a `PrintOptions` satisfies structurally once
+  // the module augmentation gives the names their types.
+  //
+  // ALIGNMENT IS NOT A FIELD, and this row is where that shows. The
+  // option is registered and Prettier resolves it, but the printer
+  // pads no cell yet, and a published field nothing reads is what
+  // `scripts/metrics/unread-fields.ts` fails on; the field arrives
+  // with the code that reads it.
+  test("the option read renames the knobs into the printer's vocabulary", () => {
     const style: TableStyle = tableStyle({
       printWidth: 80,
       asciidocTableLayout: "cell",
-      asciidocTableAlignColumns: true,
     });
-    expect(style).toEqual({
-      layout: "cell",
-      alignColumns: true,
-      printWidth: 80,
-    });
+    expect(style).toEqual({ layout: "cell", printWidth: 80 });
   });
 
   test("an option the caller never set arrives at its default", async () => {
-    // Formatting is unchanged by either option at this revision; what
-    // this row owns is that Prettier resolves both names, which a
-    // misspelled `name` field or a missing registration breaks.
+    // A ONE-ROW table, so the layout value cannot move a byte here
+    // (the first row is never split): what this row owns is that
+    // Prettier resolves the name, which a misspelled `name` field or a
+    // missing registration breaks.
     await expect(
       formatAdoc("|===\n|a\n|===\n", { asciidocTableLayout: "cell" }),
     ).resolves.toBe("|===\n|a\n|===\n");

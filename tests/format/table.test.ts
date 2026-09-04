@@ -501,6 +501,120 @@ describe("an accepted table takes the normal form", () => {
   });
 });
 
+/** One cell per source line after the first row, asked for by name. */
+const CELL = { asciidocTableLayout: "cell" } as const;
+
+/**
+ * The second emission an accepted table has, and the width that
+ * chooses it under the first.
+ *
+ * THE FIRST ROW IS NEVER SPLIT, under either value. A block that
+ * declared no readable `cols=` starts with no column count at all, and
+ * until one exists only the end of a line can close the first row:
+ * `close_row` then takes the count from the column visits that line
+ * held (table.rb:701). So `|a |b` / `|c |d` relaid out as one cell per
+ * line is a ONE-column table with four rows, and `%noheader` does not
+ * change it.
+ *
+ * Every row's blank lines come from the HEADER VERDICT, never from row
+ * separation, which is why a headerless table gets none at all: a
+ * blank after the first row forges an `implicit_header`
+ * (parser.rb:2340-2345), and a leading blank is the gate's own
+ * `leading-runs` decline.
+ */
+describe("the cell layout, and the width that chooses it", () => {
+  // The first row whole, then the blank the header verdict asks for,
+  // then each later row's cells one per line, with a blank in front of
+  // each row from the THIRD onward.
+  test("the cell layout puts one cell per line after the first row", async () => {
+    await expectTableFormat(
+      "|===\n|a |b\n\n|c |d\n|e |f\n|===\n",
+      "|===\n|a |b\n\n|c\n|d\n\n|e\n|f\n|===\n",
+      CELL,
+    );
+  });
+
+  // A HEADERLESS table gets no blank line anywhere, and no leading
+  // blank either. Both spellings that would separate its rows are
+  // unavailable, so its rows run together: that is the cost of the
+  // style, and it is a structural difference from a table with a
+  // header rather than an accident.
+  test("a headerless cell-layout table gets no row separation", async () => {
+    await expectTableFormat(
+      "[%noheader]\n|===\n|a |b\n|c |d\n|===\n",
+      "[%noheader]\n|===\n|a |b\n|c\n|d\n|===\n",
+      CELL,
+    );
+  });
+
+  // The blank comes from the header verdict, so a one-row table with
+  // no body to separate still gets it. Vacuous as a layout row - one
+  // row offers nothing to split - and that is what makes it the pin: a
+  // cell layout deriving its blanks from row separation deletes this
+  // table's header.
+  test("a one-row implicit-header table keeps its blank under cell", async () => {
+    const input = "|===\n|Column 1 |Column 2\n\n|===\n";
+    await expectTableFormat(input, input, CELL);
+  });
+
+  // The width chooses inside the default `"row"` value, all-or-nothing
+  // per table: the rows do not all fit, so the whole table prints in
+  // the cell style. The wide row is a LATER row, so the flip is
+  // visible without asking the first row to split.
+  const WIDE = "x".repeat(40);
+  const TALL = "y".repeat(40);
+  test("a later row that does not fit flips the whole table to the cell style", async () => {
+    await expectTableFormat(
+      `|===\n|a |b\n\n|${WIDE} |${TALL}\n|===\n`,
+      `|===\n|a |b\n\n|${WIDE}\n|${TALL}\n|===\n`,
+      { printWidth: 40 },
+    );
+  });
+
+  // The print-width ruling: a table MAY exceed `printWidth`, and does
+  // whenever its FIRST row alone is too wide, because the first row
+  // cannot be split. The width selects a LAYOUT; it never forces a
+  // break inside a row.
+  test("a first row wider than the width is not split", async () => {
+    await expectTableFormat(
+      `|===\n|${WIDE} |${TALL}\n\n|a |b\n|===\n`,
+      `|===\n|${WIDE} |${TALL}\n\n|a\n|b\n|===\n`,
+      { printWidth: 40 },
+    );
+  });
+
+  // ONE EMISSION, reached two ways. A width-flipped table under the
+  // default value and the same table under `"cell"` are the same
+  // bytes, because `chooseLayout` (src/print/table-layout.ts) answers
+  // `"cell"` in both cases and the emission reads only that answer.
+  // The parity families lean on this: an id whose tables were flipped
+  // by the width takes `table-width-layout`, and it may do so only
+  // because the flip writes what the option value writes.
+  test("the width flip and the cell value are the same emission", async () => {
+    const input = `|===\n|a |b\n\n|${WIDE} |${TALL}\n|c |d\n|===\n`;
+    const flipped = await formatAdoc(input, { printWidth: 40 });
+    expect(flipped).toBe(await formatAdoc(input, { printWidth: 40, ...CELL }));
+    // Non-vacuous: at a width every row fits in, the default value
+    // writes the ROW emission instead, so the equality above is two
+    // spellings meeting and not one spelling asserted twice.
+    expect(flipped).not.toBe(await formatAdoc(input, { printWidth: 200 }));
+  });
+
+  // The delimiter collision is reachable under this layout too, and a
+  // mid-table cell reaches it: `===` lands alone on a line and spells
+  // the terminator. The minimal-length guard reads the interior about
+  // to be emitted and grows the delimiter. Both spellings read as one
+  // two-column table whose last cell is `===` in the oracle's own
+  // model.
+  test("a cell-layout line that would spell the terminator grows the delimiter", async () => {
+    await expectTableFormat(
+      "|===\n|a |b\n\n|c | ===\n|===\n",
+      "|====\n|a |b\n\n|c\n|===\n|====\n",
+      CELL,
+    );
+  });
+});
+
 /**
  * One row per decline reason, each asserting that the table's interior
  * is the author's. These are the census's claims stated as bytes:

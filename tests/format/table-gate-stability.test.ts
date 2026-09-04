@@ -18,12 +18,29 @@
  * The corpus half runs over every case holding at least one accepted
  * table. The two rows after it are shapes the corpus does not spell,
  * and they are the two a careless blank-line rule freezes first.
+ *
+ * TAKEN ONCE PER STYLE VALUE. The gate reads the table and never the
+ * style, so which tables go in is one set; what comes OUT is a
+ * different emission under each value, and freezing is a property of
+ * what was written. The cell emission is where the question bites
+ * hardest, because its rows are separated by blank lines wherever the
+ * header verdict allows and a blank in the wrong place either forges a
+ * header or is the `leading-runs` decline itself.
  */
 import { describe, expect, test } from "vitest";
 import { loadCorpus } from "../conformance/loader.js";
-import { formatAdoc } from "../helpers.js";
+import { formatAdoc, type FormatOverrides } from "../helpers.js";
 import { scanTables } from "../parser/table-structure-scan.js";
 import { planTable } from "../../src/print/table-layout.js";
+
+/**
+ * The styles the whole sweep is taken under: the default, where the
+ * width chooses, and one cell per line whatever the width.
+ */
+const VARIANTS: Array<[string, FormatOverrides | undefined]> = [
+  ["the default row style", undefined],
+  ["the cell style", { asciidocTableLayout: "cell" }],
+];
 
 /**
  * Which of a document's tables the gate accepts, in document order.
@@ -46,12 +63,16 @@ function acceptance(source: string): boolean[] {
  * its second, and the second pass is the one whose output a repository
  * actually keeps.
  * @param source - the document to format twice and re-read after each
+ * @param overrides - the style to format under, both passes
  * @returns one printable row per flip, empty when the gate held
  */
-async function flipsOf(source: string): Promise<string[]> {
+async function flipsOf(
+  source: string,
+  overrides: FormatOverrides | undefined,
+): Promise<string[]> {
   const before = acceptance(source);
-  const once = await formatAdoc(source);
-  const twice = await formatAdoc(once);
+  const once = await formatAdoc(source, overrides);
+  const twice = await formatAdoc(once, overrides);
   return [once, twice].flatMap((output, index) =>
     frozenIn(before, acceptance(output), index + 1),
   );
@@ -81,40 +102,50 @@ function frozenIn(
   );
 }
 
-describe("every accepted corpus table is accepted again after formatting", () => {
-  const cases = loadCorpus()
-    .flatMap((group) => group.cases)
-    .filter((corpusCase) => acceptance(corpusCase.input).includes(true));
+// The population, read ONCE: the gate takes no style, so which cases
+// hold an accepted table is the same list under either variant.
+const CASES = loadCorpus()
+  .flatMap((group) => group.cases)
+  .filter((corpusCase) => acceptance(corpusCase.input).includes(true));
 
-  // Non-vacuous by assertion, not by hope: an empty list here would
-  // make every row below pass and prove nothing.
-  test("the population is not empty", () => {
-    expect(cases.length).toBeGreaterThan(0);
+describe.each(VARIANTS)("under %s", (_style, overrides) => {
+  describe("every accepted corpus table is accepted again after formatting", () => {
+    // Non-vacuous by assertion, not by hope: an empty list here would
+    // make every row below pass and prove nothing.
+    test("the population is not empty", () => {
+      expect(CASES.length).toBeGreaterThan(0);
+    });
+
+    test.each(CASES.map((corpusCase) => [corpusCase.id, corpusCase.input]))(
+      "%s",
+      async (_id, input) => {
+        expect(await flipsOf(input, overrides)).toEqual([]);
+      },
+    );
   });
 
-  test.each(cases.map((corpusCase) => [corpusCase.id, corpusCase.input]))(
-    "%s",
-    async (_id, input) => {
-      expect(await flipsOf(input)).toEqual([]);
-    },
-  );
-});
+  describe("the shapes the corpus does not spell", () => {
+    // A HEADERLESS table is the whole population a leading-blank rule
+    // would be for: a leading blank line is a byte-only spelling of
+    // `%noheader` and renders identically, and writing one would make
+    // the table decline for `leading-runs` on the very next read. The
+    // printer must never write one, and this row is what says so for
+    // the shape that would freeze. Under the cell style it is also the
+    // shape that gets no row separation at all, which is the price of
+    // the same fact.
+    test("a headerless two-row table", async () => {
+      expect(await flipsOf("|===\n|a |b\n|c |d\n|===\n", overrides)).toEqual(
+        [],
+      );
+    });
 
-describe("the shapes the corpus does not spell", () => {
-  // A HEADERLESS table is the whole population a leading-blank rule
-  // would be for: a leading blank line is a byte-only spelling of
-  // `%noheader` and renders identically, and writing one would make
-  // the table decline for `leading-runs` on the very next read. The
-  // printer must never write one, and this row is what says so for
-  // the shape that would freeze.
-  test("a headerless two-row table", async () => {
-    expect(await flipsOf("|===\n|a |b\n|c |d\n|===\n")).toEqual([]);
-  });
-
-  // A ONE-ROW IMPLICIT-HEADER table is the case a blank line derived
-  // from ROW SEPARATION deletes: there is no second row to separate
-  // it from, and deleting the blank loses the header outright.
-  test("a one-row implicit-header table", async () => {
-    expect(await flipsOf("|===\n|Column 1 |Column 2\n\n|===\n")).toEqual([]);
+    // A ONE-ROW IMPLICIT-HEADER table is the case a blank line derived
+    // from ROW SEPARATION deletes: there is no second row to separate
+    // it from, and deleting the blank loses the header outright.
+    test("a one-row implicit-header table", async () => {
+      expect(
+        await flipsOf("|===\n|Column 1 |Column 2\n\n|===\n", overrides),
+      ).toEqual([]);
+    });
   });
 });
