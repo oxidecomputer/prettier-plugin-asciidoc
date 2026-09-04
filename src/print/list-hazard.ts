@@ -375,7 +375,7 @@ const AS_PACKED: MarkerLineGuard = { kind: "asPacked" };
  *
  * - BLOCK SYNTAX at a line start is recorded. `wordsToAtoms` fuses
  *   such a word onto its predecessor, and the text case does the same
- *   across a node boundary (`leadingBoundary`, src/print/inline.ts),
+ *   across a node boundary (`leadingBoundary`, src/print/text-edges.ts),
  *   so `isFused` IS that answer and re-deriving it here would make a
  *   second source of truth for it. A demand recorded on a fused atom
  *   would also be lifted to the front of its whole run (`runBreak`,

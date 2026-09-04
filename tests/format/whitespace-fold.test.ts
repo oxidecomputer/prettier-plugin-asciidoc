@@ -159,3 +159,36 @@ describe("the node edges the refusal must not touch", () => {
     expect(await formatAdoc(output)).toBe(output);
   });
 });
+
+/**
+ * Issue #147: the same run, standing at a SPAN CONTENT edge.
+ *
+ * A span's content is its own run of nodes, so the run in front of its
+ * first word has no atom already emitted to ride against and the run
+ * behind its last word has no inline sibling following it. Both edge
+ * rules read those facts and dropped the bytes, and the fold then
+ * armed the row the source had refused: `b**<TAB>--<TAB>**b**` came
+ * out `b** -- **b**`, an em dash inside the strong element.
+ *
+ * The span's own MARKS are what the run stands against - they are
+ * written flush onto the content they enclose - so the bytes have
+ * somewhere to go after all, and it is the enclosing span that says
+ * so.
+ */
+describe("a run beside a lone `--` keeps its bytes at a span edge", () => {
+  test.each([
+    // The issue's own two documents: the leading edge of a doubled
+    // span's content, once with the dashes alone in the node and once
+    // with a word behind them.
+    ["a doubled mark on the left", "b**\t--\t**b**\n"],
+    ["a doubled mark and a word behind", "__\t-- x__\n"],
+    // The trailing half of the same family (the issue's comment): the
+    // run stands between the content and the closing mark.
+    ["a run in front of the closing mark", "**a --\t** b\n"],
+    ["a run at both ends of the content", "x **\t-- y** z\n"],
+    ["inside a list item", "* b**\t--\t**b**\n"],
+    ["inside an admonition", "NOTE: b**\t--\t**b**\n"],
+  ])("%s", async (_name, input) => {
+    await expectByteFaithful(input);
+  });
+});

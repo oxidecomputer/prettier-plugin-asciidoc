@@ -60,7 +60,7 @@
  *    refused and stays TEXT - a different reading of the same line,
  *    reaching the same bytes. What makes that equivalence hold even
  *    where the interior carries a mark is the glued-`+` rule in
- *    `trailingPlusPolicy` (src/print/inline.ts): the trailing
+ *    `trailingPlusPolicy` (src/print/text-edges.ts): the trailing
  *    delimiter of `\+*b*+` lands hard against the span it follows, so
  *    it is not escaped, and the line comes back out as the author
  *    wrote it. Measured render-equal to the oracle's

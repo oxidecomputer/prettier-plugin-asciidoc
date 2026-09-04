@@ -58,6 +58,12 @@ import {
 } from "./atom-join.js";
 import { appendLiteralText, spanIsFlush } from "./literal-span.js";
 import { keptLeadingRun, keptTrailingRun } from "./whitespace-fold.js";
+import {
+  hasFollowingInlineSibling,
+  hasPrecedingInlineSibling,
+  leadingBoundary,
+  trailingPlusPolicy,
+} from "./text-edges.js";
 
 // Whether a text node's FIRST character is a source separator standing
 // between it and the previous inline sibling. ASCII only (see
@@ -82,41 +88,6 @@ const TRAILS_WITH_ASCII_WHITESPACE = new RegExp(
 // front of it ends with the newline that opened the line (plus any
 // further indentation the token did not take).
 const LINE_START_BEFORE_BREAK = /\n[ \t]*$/v;
-
-// Siblings that do NOT share the enclosing block's packing: a raw
-// line forces a break on both sides. The node before one still ENDS
-// an output line, so a trailing `+` there is a hard line break and
-// must be escaped, and a word after one starts a line rather than
-// fusing. (Nested lists are not inline siblings — an item's `text`
-// holds inline nodes only; its blocks print elsewhere.)
-const OWN_LINE_SIBLINGS = new Set(["rawLine"]);
-
-/**
- * Check whether the node at `cursor` is followed by a sibling
- * that participates in the same block packing.
- * @param cursor - where the node sits.
- * @returns True when an inline sibling directly follows.
- */
-function hasFollowingInlineSibling(cursor: Cursor): boolean {
-  const next = cursor.siblings.at(cursor.index + 1);
-  return next !== undefined && !OWN_LINE_SIBLINGS.has(next.type);
-}
-
-/**
- * Check whether the node at `cursor` is preceded by a sibling that
- * participates in the same block packing. Mirrors
- * hasFollowingInlineSibling — see OWN_LINE_SIBLINGS for what does
- * not count.
- * @param cursor - where the node sits.
- * @returns True when an inline sibling directly precedes.
- */
-function hasPrecedingInlineSibling(cursor: Cursor): boolean {
-  if (cursor.index <= 0) {
-    return false;
-  }
-  const previous = cursor.siblings.at(cursor.index - 1);
-  return previous !== undefined && !OWN_LINE_SIBLINGS.has(previous.type);
-}
 
 /**
  * Whether the source gave the hard line break at `index` a line of
@@ -240,89 +211,6 @@ function opensWithContinuationLine(node: TextNode): boolean {
 }
 
 /**
- * Decide how a text node's trailing `+` word must be protected
- * from landing bare at the end of an output line (where ` +`
- * becomes a hard line break). Three cases:
- *
- * - An inline sibling follows in the same block: fuse the `+`
- *   forward to that sibling so no break can land after it. No escape —
- *   escaping would put a literal `{plus}` mid-line.
- * - No sibling follows but this text is inside a formatting span: the
- *   closing mark lands directly after the `+` in the output, so it can
- *   never end a line bare. No escape — escaping would corrupt the
- *   span's content (issue #2's `` `+` `` case).
- * - The node is the `+` and NOTHING else, and the join in front of it
- *   is a GLUE: the `+` prints hard against the previous node's last
- *   byte, so it can neither open a line (a lone `+` line is a list
- *   continuation) nor stand behind a space at a line end (` +` is a
- *   hard line break). Both hazards need a character the glue
- *   forbids, so there is nothing to escape. This is the shape a
- *   passthrough leaves behind — `+a++` is the passthrough `+a+` and
- *   a leftover `+` — and the same shape a formatting span leaves
- *   (`*b*+`).
- * - Otherwise (block-level last child, or only a raw line follows —
- *   which owns its output line): the `+` truly ends an
- *   output line, so it must be escaped.
- *
- * That last arm is live, and the tokenizer is why. `HARD_BREAK`
- * (src/parse/inline/rules.ts) takes a `+` behind a literal SPACE, up
- * to trailing blanks and the line end - so ` +` at a line end is
- * already a hardLineBreak node and never reaches a word list. A `+`
- * behind any OTHER whitespace is not: `a<TAB>+` is text whose last
- * word is `+`, and it comes out `a {plus}`.
- * @param cursor - where the text node sits.
- * @param words - The node's whitespace-split words: a `+` that is
- *   the node's ONLY word, with nothing before it in the block, is
- *   alone on its output line, and `+` at column 0 is not a break.
- * @param lead - the join the node's first atom will carry, which is
- *   what decides whether a one-word node can reach a line boundary
- *   at all.
- * @returns Whether to rewrite an unfused trailing `+` to
- *   `{plus}`, and whether to fuse it forward to a following
- *   inline sibling instead.
- */
-function trailingPlusPolicy(
-  cursor: Cursor,
-  words: readonly string[],
-  lead: Boundary,
-): {
-  escapeTrailingPlus: boolean;
-  glueToSibling: boolean;
-} {
-  const followedInBlock = hasFollowingInlineSibling(cursor);
-  const startsItsOwnLine =
-    words.length === 1 && !hasPrecedingInlineSibling(cursor);
-  const gluedToPredecessor = words.length === 1 && lead === "glue";
-  return {
-    escapeTrailingPlus:
-      !followedInBlock &&
-      cursor.enclosing === undefined &&
-      !startsItsOwnLine &&
-      !gluedToPredecessor,
-    glueToSibling: followedInBlock,
-  };
-}
-
-/**
- * The join a text node's LEADING whitespace asks for.
- *
- * Normally a breakable space. But when the node's FIRST word would
- * become block syntax at column 0 (a fenced-code prefix, `----`,
- * `.Title`) and an inline sibling precedes it, a break there is unsafe:
- * wordsToAtoms fuses such a word onto its predecessor WITHIN a node, and
- * the same must hold ACROSS the node boundary — so the join is a space
- * that forbids a break, and the word travels in the preceding run.
- * @param cursor - where the text node sits.
- * @param words - The node's whitespace-split words.
- * @returns the join asked for.
- */
-function leadingBoundary(cursor: Cursor, words: readonly string[]): Boundary {
-  return isBlockSyntaxAtLineStart(words[0]) && hasPrecedingInlineSibling(cursor)
-    ? "space"
-    : "break";
-}
-
-/**
  * The join a text node leaves BEHIND it, for the sibling that follows.
  *
  * The continuation-line arm is the cross-node half of
@@ -386,11 +274,15 @@ function appendText(
   }
   // A kept edge run rides inside the atom at its end, so the join
   // there stays the glue it already was and the printer writes nothing
-  // of its own between the two nodes. The leading run needs an atom
-  // ALREADY EMITTED to ride against: at the head of a block or of a
-  // span's content there is none, and the bytes would open an output
-  // line instead of standing between two nodes.
-  const gluedInFront = out.length > 0 && boundary === "glue";
+  // of its own between the two nodes. The leading run needs something
+  // ALREADY WRITTEN to ride against: at the head of a BLOCK there is
+  // none and the bytes would open an output line instead of standing
+  // between two nodes. At the head of a SPAN's content there is one
+  // even though `out` is empty - the opening mark, which appendSpan
+  // writes flush onto the first atom - so the enclosing span is what
+  // says the run has somewhere to go (issue #147).
+  const gluedInFront =
+    (out.length > 0 || cursor.enclosing !== undefined) && boundary === "glue";
   const leading = keptLeadingRun(node.value, words, gluedInFront);
   // The lead is computed BEFORE the atoms, because the trailing-`+`
   // policy reads it: a one-word node carrying a glue cannot reach a
@@ -405,8 +297,15 @@ function appendText(
     lead,
   );
   // `glueToSibling` carries the one fact the trailing run needs as
-  // well: whether an inline sibling follows in this block.
-  const trailing = keptTrailingRun(node.value, words, glueToSibling);
+  // well: whether an inline sibling follows in this block. The
+  // closing mark of an enclosing span is the other thing that can
+  // stand behind the run and carry its bytes, and it stands there
+  // whatever the siblings say (issue #147).
+  const trailing = keptTrailingRun(
+    node.value,
+    words,
+    glueToSibling || cursor.enclosing !== undefined,
+  );
   const atoms = wordsToAtoms(words, {
     escapeTrailingPlus,
     firstLineWordCount: firstSourceLineWordCount(node, cursor, words),
@@ -496,15 +395,21 @@ function constrainedIsLegal(
   cursor: Cursor,
   content: { flush: boolean; texts: readonly string[] },
 ): boolean {
-  if (!content.flush) return false;
+  if (!content.flush) {
+    return false;
+  }
   // Content ENDING in a hard line break answers no: the closing mark
   // detaches onto its own line (appendSpan) so the ` +` keeps the line
   // end that makes it a break, and a SINGLE mark alone at column 0
   // with text behind it is a list marker - `a **b +\n** c` respelled
   // constrained would write `* c`. The doubled mark is no marker.
-  if (content.texts.at(-1) === HARD_BREAK_IMAGE) return false;
+  if (content.texts.at(-1) === HARD_BREAK_IMAGE) {
+    return false;
+  }
   const mark = spanMarks(node, true).close;
-  if (content.texts.some((text) => text.includes(mark))) return false;
+  if (content.texts.some((text) => text.includes(mark))) {
+    return false;
+  }
   // The BLOCK, not the siblings: shortening a span exposes its marks to
   // a pass that scans the whole LINE, and a span nested inside another
   // one has only its parent's content as siblings. Measured, on
@@ -547,7 +452,9 @@ function neighboursAllowIt(node: MarkSpanNode, cursor: Cursor): boolean {
   const { order } = QUOTE_ROW[rowKeyOf(node)];
   const inFront = frontNeighbour(cursor, order);
   const behindIt = behindNeighbour(cursor, order);
-  if (inFront === undefined || behindIt === undefined) return false;
+  if (inFront === undefined || behindIt === undefined) {
+    return false;
+  }
   // NO SAME MARK MAY ABUT EITHER DELIMITER. Ruby's boundary clauses
   // permit one - a mark character is not a word character - but the
   // UNCONSTRAINED row of this same mark runs in front of the
@@ -560,13 +467,16 @@ function neighboursAllowIt(node: MarkSpanNode, cursor: Cursor): boolean {
   // `<strong class="<strong>a</strong>*">*c</strong>`. `**a****b**`
   // (issue #83) is the same hazard between two unconstrained spans.
   const mark = spanMarks(node, true).close;
-  if (inFront.endsWith(mark) || behindIt.startsWith(mark)) return false;
+  if (inFront.endsWith(mark) || behindIt.startsWith(mark)) {
+    return false;
+  }
   const head = headContext(cursor, order);
   const { siblings, index } = cursor;
   if (
     !bracketsAllowIt(node, { head, siblings, index }, { mark, front, behind })
-  )
+  ) {
     return false;
+  }
   return !front.test(inFront) && !behind.test(behindIt);
 }
 
@@ -615,7 +525,9 @@ function frontNeighbour(cursor: Cursor, order: number): string | undefined {
  */
 function headContext(cursor: Cursor, order: number): HeadContext {
   const { enclosing } = cursor;
-  if (enclosing === undefined) return { kind: "blockStart" };
+  if (enclosing === undefined) {
+    return { kind: "blockStart" };
+  }
   const row = QUOTE_ROW[rowKeyOf(enclosing)];
   return {
     kind: "spanEdge",
@@ -648,7 +560,9 @@ function behindNeighbour(cursor: Cursor, order: number): string | undefined {
     return edgeHead(cursor.siblings[cursor.index + 1], order);
   }
   const { enclosing } = cursor;
-  if (enclosing === undefined) return "";
+  if (enclosing === undefined) {
+    return "";
+  }
   const row = QUOTE_ROW[rowKeyOf(enclosing)];
   return row.order < order ? row.opensWith : delimitersOf(enclosing).close;
 }
@@ -699,7 +613,9 @@ function carriesMark(
   mark: string,
   asking: SpanNode,
 ): boolean {
-  if (node === asking) return false;
+  if (node === asking) {
+    return false;
+  }
   if (isMarkSpanNode(node) && node.role?.includes(mark) === true) {
     return true;
   }
@@ -756,7 +672,7 @@ function appendSpan(
   // asked for, and `trailing` is the join the last one left behind.
   const openSpace = inner.length > 0 && inner[0].glueLeft ? "" : " ";
   const closeSpace = trailing === "glue" ? "" : " ";
-  const flush = spanIsFlush(literalInterior, inner, openSpace, closeSpace);
+  const flush = spanIsFlush(inner, openSpace, closeSpace);
   const { open, close } = isMarkSpanNode(node)
     ? spanMarks(
         node,
