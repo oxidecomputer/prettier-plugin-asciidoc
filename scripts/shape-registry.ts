@@ -34,7 +34,7 @@ import {
   DELIMITER_KINDS,
   type DelimiterKind,
 } from "../src/parse/line-shapes.js";
-import { NO_OP_CONTINUATION_FAMILY } from "./parity-ledger.js";
+import { gridRowFamily } from "./shape-registry-families.js";
 
 /** Where a construct sits: wraps a construct's lines into a document. */
 export interface ContainerEntry {
@@ -73,14 +73,6 @@ export interface PerturbationEntry {
   readonly block: (parts: DelimiterParts) => string | undefined;
   /** Whole-document rewrite applied after wrapping, if any. */
   readonly document?: (wrapped: string) => string;
-  /**
-   * The family that explains a base-vs-head difference on rows this
-   * perturbation generates, when one is expected at all. Only
-   * `trailing-plus-after-close` carries one: inside an item container
-   * the `+` it writes sits at the item's END, where it attaches
-   * nothing and is no longer printed.
-   */
-  readonly family?: string;
 }
 
 /** The pieces a delimited-block perturbation composes. */
@@ -414,7 +406,6 @@ export const PERTURBATIONS: readonly PerturbationEntry[] = [
   {
     id: "trailing-plus-after-close",
     block: ({ open, close, content }) => `${open}\n${content}\n${close}\n+`,
-    family: NO_OP_CONTINUATION_FAMILY,
   },
   {
     id: "metadata-above-close",
@@ -469,9 +460,10 @@ export interface Shape {
   /**
    * The expected-diff family this coordinate belongs to, when it is
    * allowed to differ base-vs-head at all — the closed enum lives in
-   * scripts/parity-ledger.ts (LEDGER_FAMILIES); only listRunGrid()
-   * coordinates carry one. Undefined everywhere else, and a differing
-   * row with no family fails the run.
+   * scripts/parity-ledger.ts (LEDGER_FAMILIES). A `listRunGrid()`
+   * coordinate carries its own; a `standingGrid()` one is answered by
+   * `gridRowFamily` (scripts/shape-registry-families.ts). Undefined
+   * everywhere else, and a differing row with no family fails the run.
    */
   readonly family?: string;
   /**
@@ -505,15 +497,17 @@ export function standingGrid(): Shape[] {
           perturbation.document === undefined
             ? wrapped
             : perturbation.document(wrapped);
-        // One standing coordinate carries a family — the trailing `+`
-        // this perturbation writes, which an ITEM container puts at an
-        // item's end where the byte is retired. Every other standing
-        // row is expected byte-identical (the base revision contains
-        // the #44 fix) and a diff there fails the run.
+        // Which standing coordinates may differ, and under which
+        // family, is answered in one place
+        // (scripts/shape-registry-families.ts) because the answer
+        // needs BOTH coordinates: a `tablePipe` row moves for a reason
+        // its perturbation does not name. Every coordinate that map
+        // does not name is expected byte-identical and a diff there
+        // fails the run.
         shapes.push({
           id: `${kind}/${container.id}/${perturbation.id}`,
           input,
-          family: perturbation.family,
+          family: gridRowFamily(kind, perturbation.id),
           renderBlind: kind === "commentBlock",
         });
       }

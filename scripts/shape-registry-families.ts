@@ -1,0 +1,73 @@
+/**
+ * Which expected-diff family explains a base-vs-head difference at a
+ * STANDING GRID coordinate (`standingGrid`, scripts/shape-registry.ts).
+ *
+ * One module rather than a field on the perturbation table, because
+ * the answer is not a property of the perturbation alone: the same
+ * perturbation moves a `tablePipe` row for a reason no other kind's
+ * row moves for, so the question needs both coordinates and the table
+ * that answers it needs both. Splitting it out is also what keeps
+ * scripts/shape-registry.ts under its `max-lines` ceiling, which it is
+ * at exactly.
+ *
+ * A coordinate with NO family is expected byte-identical, and a diff
+ * there STOPS the run. That is the point of naming coordinates rather
+ * than blanketing a kind: the rows below are the ones the table print
+ * rules move, and every other row in the grid is still pinned.
+ *
+ * A LIBRARY module, not a command, and the family strings are the
+ * closed enumeration's (scripts/parity-ledger.ts) rather than this
+ * file's own.
+ */
+import {
+  NO_OP_CONTINUATION_FAMILY,
+  TABLE_DELIMITER_LENGTH_FAMILY,
+} from "./parity-ledger.js";
+
+/** The delimiter kind whose rows the table print rules move. */
+const TABLE_PIPE_KIND = "tablePipe";
+
+/**
+ * The family a `tablePipe` coordinate takes, by perturbation.
+ *
+ * The three perturbations below are the ones where a container
+ * swallows the opening delimiter, so the interior `|====` opens a
+ * table of its own and its two delimiter lines take their shortest
+ * safe spelling ({@link TABLE_DELIMITER_LENGTH_FAMILY}) - measured
+ * over the realized grid, 2 rows at each of the three keys. A
+ * `tablePipe` coordinate outside the map is expected byte-identical,
+ * `trailing-plus-after-close` included: the `+` that perturbation
+ * writes stopped moving bytes once the base carried the lone-`+` fix.
+ */
+const TABLE_PIPE_FAMILIES: ReadonlyMap<string, string> = new Map([
+  ["unterminated", TABLE_DELIMITER_LENGTH_FAMILY],
+  ["unterminated-then-blank-text", TABLE_DELIMITER_LENGTH_FAMILY],
+  ["longer-delimiter-inside", TABLE_DELIMITER_LENGTH_FAMILY],
+]);
+
+/**
+ * The family every OTHER kind takes at `trailing-plus-after-close`:
+ * inside an item container the `+` that perturbation writes sits at
+ * the item's end, where it attaches nothing and is no longer printed.
+ * The one coordinate outside `tablePipe` that is allowed to differ.
+ */
+const TRAILING_PLUS = "trailing-plus-after-close";
+
+/**
+ * The family a standing grid row takes, or undefined where the row is
+ * expected byte-identical.
+ * @param kind - the delimiter kind the row is built from
+ * @param perturbationId - the perturbation's stable name
+ * @returns the family, or undefined where a diff stops the run
+ */
+export function gridRowFamily(
+  kind: string,
+  perturbationId: string,
+): string | undefined {
+  if (kind === TABLE_PIPE_KIND) {
+    return TABLE_PIPE_FAMILIES.get(perturbationId);
+  }
+  return perturbationId === TRAILING_PLUS
+    ? NO_OP_CONTINUATION_FAMILY
+    : undefined;
+}

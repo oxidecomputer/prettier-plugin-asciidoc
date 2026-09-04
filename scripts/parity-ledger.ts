@@ -445,9 +445,12 @@ const TABLE_NODE_FAMILY = "table-node";
  * images the base and head both hold are the author's - so an AST
  * diff at one of these ids is a real failure.
  *
- * Not exported: no grid row cites it.
+ * Exported: the standing grid's `tablePipe` rows cite it where a
+ * container swallows the opening delimiter and the interior `|====`
+ * opens a table of its own (`TABLE_PIPE_FAMILIES`,
+ * scripts/shape-registry-families.ts).
  */
-const TABLE_DELIMITER_LENGTH_FAMILY = "table-delimiter-length";
+export const TABLE_DELIMITER_LENGTH_FAMILY = "table-delimiter-length";
 
 /**
  * The closed family enum. SURFACE HONESTY, not an armed
