@@ -359,15 +359,15 @@
     },
     {
       "file": "src/parse/lines/list-reader.ts",
-      "what": "continuationArm's cell guard (list-reader.ts:605 `previous !== undefined`) -> `true`",
+      "what": "continuationArm's cell guard (list-reader.ts:650 `previous !== undefined`) -> `true`",
       "class": "never",
-      "reason": "EQUIVALENT: the guard is the narrowing that lets the next conjunct read `previous.current.text` at all, so a mutant that drops it is a type error rather than a behavior. The redundant twin this row used to also cover (`previousText !== undefined`, one fact stated twice because `previousText` IS `previous?.current.text`) was deleted with the dead-branch sweep; the text is now read past the guard"
+      "reason": "EQUIVALENT: the guard is the narrowing that lets the next conjunct read `previous.current` at all, so a mutant that drops it is a type error rather than a behavior. The redundant twin this row used to also cover (`previousText !== undefined`, one fact stated twice because `previousText` IS `previous?.current.text`) was deleted with the dead-branch sweep; the cell's line is now read past the guard"
     },
     {
       "file": "src/parse/lines/list-reader.ts",
-      "what": "the nine emptied step-arm string literals (list-reader.ts:564, :576, :582, :711, :864, :877, :889, :908, :916) - `return \"go\"` and two `return \"stop\"`s -> `return \"\"`",
+      "what": "the nine emptied step-arm string literals (list-reader.ts:609, :621, :627, :756, :909, :922, :934, :953, :961) - `return \"go\"` and two `return \"stop\"`s -> `return \"\"`",
       "class": "never",
-      "reason": "EQUIVALENT. `run` compares an arm's answer to `\"stop\"` and to nothing else, so a `\"go\"` spelled `\"\"` still means keep reading. The two `\"stop\"`s that survive are the two the loop RE-DERIVES: at EOF (:864) the while condition has already run out of lines, and at the after-blank sibling (:889) the arm unread the marker line, so the next turn's `endsTheItem` stops on it at the same index with the same buffer"
+      "reason": "EQUIVALENT. `run` compares an arm's answer to `\"stop\"` and to nothing else, so a `\"go\"` spelled `\"\"` still means keep reading. The two `\"stop\"`s that survive are the two the loop RE-DERIVES: at EOF (:909) the while condition has already run out of lines, and at the after-blank sibling (:934) the arm unread the marker line, so the next turn's `endsTheItem` stops on it at the same index with the same buffer"
     },
     {
       "file": "src/parse/lines/paragraph-reader.ts",

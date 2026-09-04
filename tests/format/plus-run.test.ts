@@ -545,3 +545,46 @@ describe("the fold facts and the new-list marker keep their answers", () => {
     await expectFormatted(input, expected);
   });
 });
+
+// An ERASED `+` standing as the previous buffered line of a live
+// scan is the one value Ruby's `ListContinuationMarker === prev_line`
+// (parser.rb l.1435) and 2.0.20's `prev_line == LIST_CONTINUATION`
+// disagree about: the erased cell is the empty
+// `ListContinuationPlaceholder`, a marker to the first test and a
+// blank to the second.
+//
+// The CONDITION these rows sample: a nested marker written INDENTED
+// under an active `+` is slurped as a literal paragraph (parser.rb
+// l.1495) and so never sets `within_nested_list`, which leaves a
+// later `+` in the same item free to be erased in place (l.1439);
+// the nested scan then meets that erasure as an ordinary line and
+// buffers it through its final else. Only the FIRST marker's
+// indentation is load-bearing, which is why the flush-left rows
+// below flip too - what follows the erased `+` needs no indent. The
+// condition also holds for ordered markers, at other indent widths
+// and marker depths, and down a chain of such items; the rows here
+// are a sample of it, not its extent.
+//
+// Under the text test every row printed its two nested markers with
+// nothing between them - the `+` the author wrote there was dropped.
+// Under Ruby's own test the frozen marker survives. Both spellings render
+// what the source renders and both are fixed points, so the ORACLE
+// does not choose between them; what the identity test buys is one
+// answer to "is this cell a continuation marker" instead of two
+// inside a single scan.
+describe("an erased + is still a marker when the next line reads it", () => {
+  const nested = "* a\n+\n** z\n+\n** z\n";
+  test.each([
+    ["adjacent markers", "* a\n+\n  ** z\n+\n+\n  ** z\n", nested],
+    ["a blank between them", "* a\n+\n  ** z\n+\n\n  ** z\n", nested],
+    ["a flush-left second marker", "* a\n+\n  ** z\n+\n+\n** z\n", nested],
+    ["flush left, a blank between", "* a\n+\n  ** z\n+\n\n** z\n", nested],
+    [
+      "an ordered pair",
+      ". a\n+\n  .. z\n+\n+\n.. z\n",
+      ". a\n+\n.. z\n+\n.. z\n",
+    ],
+  ])("%s", async (_name, input, expected) => {
+    await expectFormatted(input, expected);
+  });
+});

@@ -358,31 +358,70 @@ interface ExtentContext extends ListContext {
 }
 
 /**
- * Ruby's "is the buffered previous line a `+`" test (parser.rb l.1435).
+ * Ruby's "is the buffered previous line a marker" test (parser.rb
+ * l.1435).
  * The empty-buffer case is the CALLER's branch, not this one's:
  * `prev_line` is nil for the first line of an item, and nil matches
  * neither the `+` arm nor the after-blank arm (l.1513 tests `prev_line
  * &&` for the same reason), which in this port is the buffer having no
  * last cell.
  *
- * A TEXT test here; at 2.0.26 Ruby's is an IDENTITY test —
- * `ListContinuationMarker === prev_line`, an `is_a?` on the module the
- * two `+`-carrying Strings are extended with (l.46-50). 2.0.20 spelled
- * it `prev_line == LIST_CONTINUATION` and this port mirrors THAT. The
- * two disagree on exactly one value: the erased Placeholder, which is
- * empty (so the text test says no) and tagged (so the identity test
- * says yes). The tag IS modeled where the oracle demonstrably spends
- * it — the after-blank arm hard-stops on an erased THIS line
- * ({@link ExtentScan.afterBlank}), keyed on
- * {@link SourceLine.continuationTag} — but an erased PREVIOUS line
- * reaching this test stays OPEN: it needs a buffered erased cell as
- * `prev` under a live scan, which no sweep document constructs; the
- * deep sweep arbitrates.
- * @param previous - the last buffered line's text
- * @returns true when the previous line is a lone `+`
+ * An IDENTITY test, Ruby's own: `ListContinuationMarker === prev_line`
+ * is an `is_a?` on the module both `+`-carrying Strings are extended
+ * with (l.46-50), so it takes the live `ListContinuationString` and
+ * the erased `ListContinuationPlaceholder` alike. The two disjuncts
+ * below are those two Strings. `ListContinuationString` is the swap
+ * l.1432 makes of every `+` line the loop reads, which here is any
+ * cell whose text is a lone `+`; the Placeholder is the empty String
+ * l.1439 and l.1576 write over an erased cell, which here is the
+ * `erased` tag ({@link SourceLine.continuationTag}).
+ *
+ * 2.0.20 spelled the test `prev_line == LIST_CONTINUATION`, and the
+ * two spellings disagree on exactly one value: the Placeholder is
+ * empty, so a TEXT test reads it as a blank where the identity test
+ * reads it as a marker. Reaching that disagreement takes an erased
+ * cell buffered under non-blank content, which only a NESTED scan
+ * builds - a scan's own erasure always has a line buffered after it
+ * before the next turn reads `prev`, so the erasure has to arrive as
+ * an ordinary line of an inner scan's stream.
+ *
+ * The CONDITION that builds it: a nested marker written INDENTED
+ * under an active `+` is slurped as a literal paragraph (l.1495)
+ * rather than buffered as a marker, so it never sets
+ * `within_nested_list`; a later `+` in the same item is therefore
+ * still free to be erased in place (l.1439); and the nested scan the
+ * indented marker opened meets that erasure as an ordinary line of
+ * its own stream and buffers it through its final else, where it
+ * stands as `prev` for the next turn. Only the FIRST marker's
+ * indentation is load-bearing - it is what suppresses
+ * `within_nested_list` - so what follows the erased `+` may be
+ * written flush left. Nothing else in the condition is fixed: it
+ * holds for ordered markers as well as unordered ones, at any indent
+ * width and any marker depth, with or without a following sibling,
+ * and repeats down a chain of such items.
+ *
+ * MEASURED over the depth-6 product of `* a`, `+`, a blank, `para`
+ * and `  ** z`, where exactly two documents change. That count is a
+ * fact about the PRODUCT and not about the condition: the alphabet
+ * spells no flush-left `** z`, so the product cannot reach the
+ * shapes whose second marker carries no indent.
+ *
+ * The ORACLE does not arbitrate the two: on every document measured,
+ * inside the product and outside it, both spellings read the source
+ * into the tree Asciidoctor reads it into and both print output it
+ * renders the same. Ruby's test wins on a different ground -
+ * it leaves ONE answer to "is this cell a continuation marker", the
+ * tag, which the after-blank arm already keys its hard-stop on
+ * ({@link ExtentScan.afterBlank}). Under a text test that one line
+ * answered `marker` there and `blank` here, within a single scan.
+ * @param previous - the last buffered line
+ * @returns true when the previous line is one of the two marker
+ *   Strings Ruby's test matches
  */
-function previousIsContinuation(previous: string): boolean {
-  return isContinuationLine(previous);
+function previousIsContinuation(previous: SourceLine): boolean {
+  return (
+    isContinuationLine(previous.text) || previous.continuationTag === "erased"
+  );
 }
 
 /**
@@ -545,9 +584,10 @@ class ExtentScan {
       this.index -= 1;
       return "stop";
     }
-    // prev_line is read from the MUTATED buffer (parser.rb l.1433): a
-    // `+` an EARLIER turn blanked reads as a blank here, which is what
-    // makes the flat `+`/blank/`+`/para shape take the detached arm.
+    // prev_line is read from the MUTATED buffer (parser.rb l.1433), so
+    // it carries whatever an EARLIER turn wrote over the cell - the
+    // erased Placeholder included, which the `+` arm below still
+    // matches ({@link previousIsContinuation}).
     //
     // Two reads of one thing, and the difference between them decides
     // an arm. `prev_line` is Ruby's LOCAL: it holds the String the
@@ -558,6 +598,11 @@ class ExtentScan {
     // read once and before any arm runs. The CELL travels beside it
     // because the `+` arm blanks the very line it tested, and holding
     // it is how the arm says which line that is.
+    //
+    // `previousText === ""` below is Ruby's `prev_line.empty?`
+    // (l.1513), a TEXT test in Ruby too - and the erased Placeholder is
+    // empty, so it would pass. It never reaches the test: l.1435's
+    // identity arm takes the Placeholder first, in Ruby and here alike.
     const previous = this.buffer.at(-1);
     const previousText = previous?.current.text;
     if (this.continuationArm(line, previous)) {
@@ -584,14 +629,14 @@ class ExtentScan {
 
   /**
    * The buffered-`+` arm's guard: whether the previous buffered cell
-   * holds a lone `+`. The text is read here, past the cell's own
-   * guard, and it is the same text `step` holds: nothing has run
-   * between the two reads, and the blanking this arm does happens
-   * inside `afterContinuation`, after the test. `step` keeps its own
-   * `previousText` because its after-blank arm needs the value from
-   * BEFORE this arm ran. Split out of `step` so that guard is two
-   * conditions here instead of folded into `step`'s own count, which
-   * is what keeps `step` under the `complexity` ceiling.
+   * is one of Ruby's marker Strings. The cell's line is read here,
+   * past the cell's own guard, and it is the same line `step` holds:
+   * nothing has run between the two reads, and the blanking this arm
+   * does happens inside `afterContinuation`, after the test. `step`
+   * keeps its own `previousText` because its after-blank arm needs
+   * the value from BEFORE this arm ran. Split out of `step` so that
+   * guard is two conditions here instead of folded into `step`'s own
+   * count, which is what keeps `step` under the `complexity` ceiling.
    * @param line - the line just read
    * @param previous - the last buffered cell, or undefined at an
    *   item's first line
@@ -603,7 +648,7 @@ class ExtentScan {
   ): boolean {
     return (
       previous !== undefined &&
-      previousIsContinuation(previous.current.text) &&
+      previousIsContinuation(previous.current) &&
       this.afterContinuation(line, previous)
     );
   }
