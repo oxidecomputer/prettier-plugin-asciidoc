@@ -303,12 +303,16 @@ describe("a slurp that stays inside the item needs no blank", () => {
 // The probe renders at `lf` instead (`printedLines`,
 // src/print/list.ts), so all three terminators get the same answer.
 //
-// The output is normalized before ANY comparison, on both sides.
-// That is issue #68: the oracle treats a bare `\r` as a line break
-// and our own reader treats it as trailing whitespace, so a `cr`
-// output fed back unnormalized is one line to us and seven to the
-// oracle, and neither the render nor the fixed point would be asking
-// about the same document.
+// The row below normalizes the printer's raw output BY HAND before
+// comparing it against the LF input and rendering it: `out` still
+// carries real `\r` bytes, and the comparison wants the terminator-
+// independent content, not a parse of them. The byte-level
+// fixed-point check further down does NOT normalize by hand - it
+// feeds `out` straight back into formatAdoc - because it does not
+// need to: Prettier's own entry point rewrites `\r\n?` to `\n`
+// (normalizeEndOfLine) before any plugin parser runs, so that
+// second call never sees a raw `\r` either, no matter what this
+// reader does with one.
 describe("the boundary survives a non-LF line terminator", () => {
   const shapes: ReadonlyArray<readonly [string, string]> = [
     [
@@ -344,15 +348,27 @@ describe("the boundary survives a non-LF line terminator", () => {
     expect(await renderedHtml(normalized)).toBe(await renderedHtml(input));
   });
 
-  // A crlf output re-fed at crlf is a byte-level fixed point. A cr
-  // output gets no such row: our reader does not split on bare `\r`
-  // (issue #68), so re-reading one would be asking about a different
-  // document.
-  test.each(shapes)(
-    "crlf: %s is a byte-level fixed point",
-    async (_name, input) => {
-      const out = await formatAdoc(input, { endOfLine: "crlf" });
-      expect(await formatAdoc(out, { endOfLine: "crlf" })).toBe(out);
-    },
-  );
+  // A crlf output re-fed at crlf is a byte-level fixed point, and so
+  // is a cr one - but this row does not exercise this reader's own
+  // lone-CR handling (issue #68) at all. Prettier's own entry point
+  // rewrites `\r\n?` to `\n` before any plugin parser runs, so by the
+  // time formatAdoc's second call reaches splitLines the `cr` output
+  // has already become an LF document, whatever splitLines would have
+  // done with the raw `\r`. What this row actually guards is
+  // narrower: the PRINTER's `endOfLine` output round-trips through
+  // Prettier's own input normalization without changing content.
+  // Whether this reader can read a raw `cr` document at all is not
+  // reachable through formatAdoc or any other plugin entry point;
+  // splitLines-vs-the-JS-oracle (tests/parser/lines.test.ts) is the
+  // only pin for that.
+  test.each(
+    (["crlf", "cr"] as const).flatMap((endOfLine) =>
+      shapes.map(
+        ([name, input]) => [`${endOfLine}: ${name}`, input, endOfLine] as const,
+      ),
+    ),
+  )("%s is a byte-level fixed point", async (_name, input, endOfLine) => {
+    const out = await formatAdoc(input, { endOfLine });
+    expect(await formatAdoc(out, { endOfLine })).toBe(out);
+  });
 });
