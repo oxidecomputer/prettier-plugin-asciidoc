@@ -468,15 +468,60 @@ export const TABLE_DELIMITER_LENGTH_FAMILY = "table-delimiter-length";
 const TABLE_CELL_COLUMN_INDEX_FAMILY = "table-cell-column-index";
 
 /**
+ * A table whose facts the model fully records takes one NORMAL FORM:
+ * one recorded row per source line, one space in front of every
+ * mid-line separator, the separator flush against its cell's first
+ * content byte, and one blank line after the first row exactly when
+ * the first row is a header row. A table holding any of ten facts
+ * the layout cannot answer for keeps its interior byte for byte
+ * instead.
+ *
+ * FORMATTED-ONLY: the tree is untouched. Every fact the gate reads and
+ * every byte the emission writes comes off records the reader already
+ * made, so an AST diff at one of these ids is a real failure. Ids
+ * whose delimiter ALSO moved take this family and not
+ * {@link TABLE_DELIMITER_LENGTH_FAMILY}, because one id takes exactly
+ * ONE trailer (`recordTrailer`, scripts/parity-trailers.ts) and this
+ * is the wider of the two: the delimiter is respelled from the
+ * interior this family produced.
+ *
+ * Not exported: no grid row cites it.
+ */
+const TABLE_LAYOUT_FAMILY = "table-layout";
+
+/**
+ * A table records that a block attribute line stood above it whose
+ * values its open could NOT read: a second attribute line, or one
+ * standing behind a title or an anchor, which the reader's
+ * last-node rule refuses (`TableNode.attrlistUnread`, src/ast.ts).
+ * Asciidoctor reads every metadata line above a block into one
+ * attribute hash whatever the order (`parse_block_metadata_lines`,
+ * parser.rb:2014-2021), so the fact is what stops a consumer acting
+ * on a `cutting`, a `columns` or a `header` resolved from less than
+ * the author wrote.
+ *
+ * NOT formatted-only: the key IS the difference at these ids. Their
+ * bytes move too - the delimiter rule reaches every table - but an id
+ * takes exactly ONE trailer and an id whose AST differs may not take a
+ * formatted-only family, so this is the single legal declaration for
+ * one, exactly as {@link TABLE_NODE_FAMILY} is over its own range.
+ *
+ * Not exported: no grid row cites it.
+ */
+const TABLE_UNREAD_ATTRLIST_FAMILY = "table-unread-attrlist";
+
+/**
  * The closed family enum. SURFACE HONESTY, not an armed
  * gate: a family id can only legally be a corpus id or an
  * identity-fixture id. The formatted-only subset is exactly
  * author-plus, pseudo-run-fold, no-op-continuation,
  * attribute-entry-spelling, attrlist-spacing, xref-text-trim,
  * gap-collapse, plus-run-tail-kept, trailing-continuation-kept,
- * continuation-keeps-line and table-delimiter-length (which respells
- * a table's two delimiter lines, a length neither tree records): they
- * change BYTES only, while both marker families ride the list tree
+ * continuation-keeps-line, table-delimiter-length (which respells a
+ * table's two delimiter lines, a length neither tree records) and
+ * table-layout (which rewrites an accepted table's interior from
+ * records both trees already hold): they change BYTES only,
+ * while both marker families ride the list tree
  * fold (`marker` added, `depth` dropped), no-op-continuation-tree
  * drops a block the reader used to build, plus-run-paragraph reshapes
  * a `+` run's item blocks, bom-document-head re-reads the line a
@@ -492,7 +537,9 @@ const TABLE_CELL_COLUMN_INDEX_FAMILY = "table-cell-column-index";
  * question the printer used to re-derive, table-node replaces a
  * table's opaque text with the cells it was cut into, and
  * table-cell-column-index records the column every cell inherits its
- * style from, so an entry of those fifteen whose AST differs is legal
+ * style from, and table-unread-attrlist records that an attribute line
+ * above a table went unread, so an entry of those sixteen whose AST
+ * differs is legal
  * and an entry of any other family whose AST differs fails the
  * cross-check.
  */
@@ -527,6 +574,8 @@ export const LEDGER_FAMILIES: FamilySets = {
     TABLE_NODE_FAMILY,
     TABLE_DELIMITER_LENGTH_FAMILY,
     TABLE_CELL_COLUMN_INDEX_FAMILY,
+    TABLE_LAYOUT_FAMILY,
+    TABLE_UNREAD_ATTRLIST_FAMILY,
   ]),
   formattedOnly: new Set([
     AUTHOR_PLUS_FAMILY,
@@ -540,6 +589,7 @@ export const LEDGER_FAMILIES: FamilySets = {
     PLUS_RUN_TAIL_KEPT_FAMILY,
     CONTINUATION_KEEPS_LINE_FAMILY,
     TABLE_DELIMITER_LENGTH_FAMILY,
+    TABLE_LAYOUT_FAMILY,
   ]),
   // Two families, and each owns exactly the field it named, as the
   // dumper serializes it: `ParagraphNode.firstWordEndsItsLine` and

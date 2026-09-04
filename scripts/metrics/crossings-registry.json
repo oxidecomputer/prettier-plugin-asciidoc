@@ -16,6 +16,13 @@
   {
     "file": "src/block-metadata.ts",
     "symbol": "isBlockMetadata",
+    "importer": "src/parse/lines/held-metadata.ts",
+    "kind": "vocabulary",
+    "reason": "the one predicate for 'this node is block metadata', asked where the held run decides whether a block that joined the sequence ENDS it, so the reader and the printer cannot come to disagree about which node kinds stack as metadata"
+  },
+  {
+    "file": "src/block-metadata.ts",
+    "symbol": "isBlockMetadata",
     "importer": "src/print/list-hazard.ts",
     "kind": "vocabulary",
     "reason": "the one predicate for 'this node is block metadata', so the hazard rule and the reader agree by construction rather than by two lists"
@@ -943,6 +950,13 @@
     "importer": "src/print/list.ts",
     "kind": "vocabulary",
     "reason": "the oracle's own per-line rstrip (`prepare_source_string`); the item-boundary rule reads the printer's output lines and must hand them to the registry in the same dialect the reader hands it source lines, or a CRLF terminator makes every shape test fail open"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "rstrip",
+    "importer": "src/print/table-layout.ts",
+    "kind": "vocabulary",
+    "reason": "the one spelling of the per-line trailing-whitespace strip the reader applies before a table is parsed, so the multi-line-cell predicate reads a cell's lines exactly as the parse handed them over"
   },
   {
     "file": "src/parse/line-shapes.ts",

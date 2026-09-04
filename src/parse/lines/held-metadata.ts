@@ -11,7 +11,7 @@
  * (see the `raw` case in reader.ts's blockLine).
  */
 import type { BlockNode } from "../../ast.js";
-import { isReaderConsumedLine } from "../../block-metadata.js";
+import { isBlockMetadata, isReaderConsumedLine } from "../../block-metadata.js";
 import { parseAttrlist, type Attrlist } from "../attrlist.js";
 import {
   buildBlockAnchor,
@@ -78,6 +78,14 @@ export class HeldMetadata {
   // the line is parsed ONCE, by the single attrlist parser
   // (src/parse/attrlist.ts), and nothing downstream re-derives it.
   private attrlist: Attrlist | undefined = undefined;
+  // Attribute lines this run already released, counted because the
+  // run is NOT over: `parse_block_metadata_lines` (parser.rb:2014-2021)
+  // keeps looping past lines this reader pushes as blocks of their own
+  // (an attribute entry, a comment block), so `pending` can be empty
+  // while the run Ruby would still be collecting goes on. Reset at
+  // {@link blockJoined}, the one place a block that ENDS the run
+  // reaches.
+  private released = 0;
 
   /**
    * Hold one line's node back, when the line is one this run holds:
@@ -111,9 +119,42 @@ export class HeldMetadata {
    */
   drain(): BlockNode[] {
     const nodes = this.pending;
+    this.released += attributeLines(nodes);
     this.pending = [];
     this.attrlist = undefined;
     return nodes;
+  }
+
+  /**
+   * A block joined the sequence: END the metadata run, unless it is a
+   * line `parse_block_metadata_line` (parser.rb:2043-2089) claims for
+   * itself and this reader nevertheless pushes as a block.
+   *
+   * SIX line kinds are metadata there: an anchor (:2047-2055), an
+   * attribute list (:2056-2063), a block title (:2064-2070), a `//`
+   * line (:2072-2073), a `////` comment block (:2074-2078) and an
+   * attribute entry (:2083-2085); blank lines between them are
+   * skipped and the loop goes on (:2018). Four of the six are held
+   * back here and reach this method only as a drain releases them.
+   * The other two do not: a comment block and an attribute entry are
+   * pushed where they were written, which is what left the run
+   * looking finished when it was not.
+   *
+   * Called from the reader's one push site, so no dispatch arm can
+   * forget it - the same guarantee the header-reachability bit takes
+   * from sitting there.
+   * @param node - the block that just joined the sequence
+   */
+  blockJoined(node: BlockNode): void {
+    if (
+      isBlockMetadata(node) ||
+      node.type === "comment" ||
+      node.type === "preprocessorDirective" ||
+      node.type === "attributeEntry"
+    ) {
+      return;
+    }
+    this.released = 0;
   }
 
   /**
@@ -196,4 +237,49 @@ export class HeldMetadata {
     const last = this.pending.at(-1);
     return last?.type === "blockAttributeList" ? last.value : undefined;
   }
+
+  /**
+   * Whether the held run carried a block attribute line whose values
+   * {@link annotation} does not carry: a SECOND attribute line, of
+   * which only the last is recorded, or one standing behind a title,
+   * an anchor or any other held node, which the last-node rule above
+   * refuses outright.
+   *
+   * Asciidoctor has no such gap. `parse_block_metadata_lines`
+   * (parser.rb:2014-2021) loops until the next line is not metadata
+   * and accumulates every attribute line, title and anchor into ONE
+   * attributes hash whatever their order - an anchor writes `id`, a
+   * title writes `title`, an attribute line merges its own parse - and
+   * the block that follows reads that hash. So where this answers
+   * true, the block's attribute VALUES were resolved from less than
+   * the author wrote, and a consumer that acts on them has to know it.
+   *
+   * Counted over the whole RUN and not over what is still pending:
+   * an attribute entry or a comment block between the attribute line
+   * and the block empties `pending` without ending the run, so the
+   * count carries across a drain ({@link blockJoined} is what ends
+   * it). One count answers both shapes and the second-attribute-line
+   * one, because they are the same question asked once: was every
+   * attribute line accounted for.
+   * @returns whether an attribute line's values went unrecorded
+   */
+  unreadAttrlist(): boolean {
+    const seen = this.released + attributeLines(this.pending);
+    return seen > (this.annotation() === undefined ? 0 : 1);
+  }
+}
+
+/**
+ * How many block attribute lines a released run held.
+ * @param nodes - the run's nodes, in source order
+ * @returns the count
+ */
+function attributeLines(nodes: readonly BlockNode[]): number {
+  let seen = 0;
+  for (const node of nodes) {
+    if (node.type === "blockAttributeList") {
+      seen += 1;
+    }
+  }
+  return seen;
 }

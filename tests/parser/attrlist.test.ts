@@ -241,12 +241,25 @@ describe("attrlistValues - the named values and options a table's open reads", (
   });
 
   test.each([
-    // `%option` shorthand on the STYLE entry, which is the first
-    // POSITIONAL field however many named ones stand in front of it.
+    // `%option` shorthand on the STYLE entry, which is `attributes[1]`
+    // and therefore the FIRST FIELD when that field is unnamed - not
+    // the first unnamed field. `AttributeList#parse` counts every
+    // field, named or not, and stores an unnamed one under its own
+    // field position (`@attributes[index + 1] = name`,
+    // attribute_list.rb:180, over the loop at :71-77), and
+    // `parse_style_attribute` runs only on `attributes[1]`
+    // (parser.rb:2057-2061).
     ["%header", ["header"]],
     ["%header%footer", ["header", "footer"]],
-    ["cols=2,%header", ["header"]],
     ["verse#id.role%header", ["header"]],
+    // RED BEFORE THE FIX, and measured against the oracle both ways:
+    // `[cols="2",%header]` renders `head = 0` where
+    // `[%header,cols="2"]` renders `head = 1`. The shorthand here is
+    // `attributes[2]`, so it is not shorthand at all. This row used
+    // to assert `["header"]`, which gave a table a header the oracle
+    // does not give it - harmless while the printer replayed a
+    // table's bytes, a render difference the moment it lays one out.
+    ["cols=2,%header", []],
     // Ruby refuses shorthand on an entry with a space in it, and
     // reads it out of `attributes[1]` and nowhere else.
     ["a b%header", []],

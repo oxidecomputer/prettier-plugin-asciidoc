@@ -1,7 +1,12 @@
 /**
- * Table printing (issue #10): REPLAY of the interior, under respelled
- * delimiter lines. Every byte between the two delimiters goes back
- * exactly as the author wrote it, and the printer adds nothing there
+ * Table printing (issue #10): one NORMAL FORM for a table whose facts
+ * the model fully records, and REPLAY of the author's interior bytes
+ * for every other table.
+ *
+ * Which of the two a table takes is one total function's answer
+ * (./table-layout.ts). The replay arm is what this file did before
+ * anything was normalized: every byte between the two delimiters goes
+ * back exactly as the author wrote it, the printer adds nothing there
  * and drops nothing.
  *
  * The table node's records PARTITION its extent (src/ast.ts): the
@@ -19,28 +24,47 @@
  * run even where it wrote no bytes, so `|===` directly over `|===`
  * (no interior, one terminator between the two delimiters) and
  * `|===` over a blank line over `|===` (one interior line, two
- * terminators) are told apart by that test and by nothing else.
+ * terminators) are told apart by that test and by nothing else. The
+ * laid-out arm keeps the same test: a table it accepts with no rows
+ * has no leading run either, because a leading run is its own
+ * decline.
  *
- * WHAT IS NOT NORMALIZED, and why: the interior, entirely. A cell's
- * spacing, a row's line breaks and the column alignment authors lay
- * out by hand are all still the author's, because the node records
- * where each cell's bytes begin and end but not yet what a normalizer
- * would be allowed to move. Trailing whitespace does go, on every
- * line - not a decision here but Prettier's own trim at a hardline,
- * and render-neutral: the oracle's reader rstrips every line before
- * parsing (`prepare_source_string`).
+ * ONE COMPOSITION of a table's recorded bytes, {@link cellBytes}, and
+ * everything that needs those bytes goes through it: the delimiter
+ * guard, which must read the interior ABOUT TO BE EMITTED and cannot
+ * ask a Doc; the replay arm's Doc, cell by cell; and the laid-out
+ * arm, which is a string throughout. What is left over the records is
+ * an ITERATION - leading runs, then rows, then cells, in document
+ * order - and the replay arm makes it twice, once as a string for the
+ * guard and once as a Doc through Prettier's own recursion.
  *
- * The two DELIMITER lines are the exception, and the only one: they
- * take their shortest safe spelling ({@link tableDelimiter}). That
+ * That second iteration is the residue of a subtraction that does not
+ * fit: dropping the Doc walk entirely and emitting `replay(interior)`
+ * for both arms is byte-identical and deletes three functions, but
+ * `AnyNode` (./blocks.ts) must still admit a row and a cell, so the
+ * print switch must still carry an arm for each - and with nothing
+ * recursing, that arm is reachable by no walk and by no test.
+ *
+ * WHAT IS NOT NORMALIZED in a REPLAYED table: the interior, entirely.
+ * A cell's spacing, a row's line breaks and the column alignment
+ * authors lay out by hand are all still the author's. Trailing
+ * whitespace does go, on every line - not a decision here but
+ * Prettier's own trim at a hardline, and render-neutral: the oracle's
+ * reader rstrips every line before parsing
+ * (`prepare_source_string`).
+ *
+ * The two DELIMITER lines are outside that split, and the only thing
+ * that is: they take their shortest safe spelling ({@link
+ * tableDelimiter}) whichever arm produced the interior, because that
  * rule reads the delimiter lines and the interior as text and moves
- * no byte between them, so it holds for every table whatever its
- * interior turned out to be.
+ * no byte between them.
  */
 import { doc, type Doc } from "prettier";
-import type { TableCellNode, TableNode } from "../ast.js";
+import type { TableCellNode, TableNode, TableRowNode } from "../ast.js";
 import { MIN_TABLE_DELIMITER_LENGTH } from "../constants.js";
 import { rstrip } from "../parse/line-shapes.js";
 import type { PrintFunction, PrintPath } from "./blocks.js";
+import { planTable, printLaidOut, type TablePlan } from "./table-layout.js";
 
 const {
   builders: { hardline, join },
@@ -102,55 +126,71 @@ function tableDelimiter(hint: string, interior: string): string {
 
 /**
  * The table's interior as one string: its leading runs, then every
- * cell of every row, each cell's opening bytes followed by its runs.
+ * row's cells, adjacent.
  *
- * A MIRROR of the walk {@link printTable} and {@link printTableCell}
- * make over the same records, not a shared one: this side builds a
- * string and that side builds Doc. What holds the two in step is
- * {@link openingImage}, the one expression of a cell's opening bytes,
- * plus {@link tableDelimiter}'s rstrip, which absorbs the only
- * difference the two can have today (Prettier trims each line at a
- * hardline; this helper reads the raw images). Reorder the runs on
- * one side without the other and the guard would be reading a
- * document nobody prints, and nothing here would say so.
+ * The ONE composition of a replayed table's bytes, which is what the
+ * delimiter guard reads and what {@link printTable} emits. Rows write
+ * no bytes of their own - the grouping is a recorded derivation over
+ * cells that were already cut - so a row is exactly its cells and
+ * there is no row separator to write.
  * @param node - the table node
  * @returns the interior bytes, delimiter lines excluded
  */
 function replayedInterior(node: TableNode): string {
   return [
     ...node.leadingRuns.map((run) => run.image),
-    ...node.children.flatMap((row) =>
-      row.children.map(
-        (cell) =>
-          openingImage(cell) + cell.runs.map((run) => run.image).join(""),
-      ),
-    ),
+    ...node.children.map(rowBytes),
   ].join("");
 }
 
 /**
- * The bytes a cell's OPENING wrote of its own.
+ * One row's recorded bytes: its cells, adjacent.
+ *
+ * A row with NO cells would write nothing and be invisible here. None
+ * exists: `groupRows` (src/parse/lines/table-reader.ts) never pushes a
+ * row before pushing a cell into it. That is a fact about the producer
+ * rather than a guarantee of the type - `TableRowNode.children` is a
+ * plain array and admits an empty one - which is why it is written
+ * down at the consumer that would be the one to lose bytes if it
+ * stopped holding.
+ * @param row - the row node
+ * @returns the row's recorded bytes
+ */
+function rowBytes(row: TableRowNode): string {
+  return row.children.map(cellBytes).join("");
+}
+
+/**
+ * One cell's recorded bytes: what its OPENING wrote of its own, then
+ * its runs.
  *
  * A `separator` opening wrote its spec and the separator character
  * that followed it; the other two openings wrote nothing at all - a
  * csv or dsv cell begins where its line begins, and a recovered psv
  * cell begins at text that stands in front of the first separator
  * (src/ast.ts, {@link TableCellNode.opening}).
- * @param node - the cell node
- * @returns the opening's own bytes, empty for the two that wrote none
+ * @param cell - the cell node
+ * @returns the cell's recorded bytes
  */
-function openingImage(node: TableCellNode): string {
-  const { opening } = node;
-  return opening.kind === "separator" ? opening.spec + opening.separator : "";
+function cellBytes(cell: TableCellNode): string {
+  const { opening } = cell;
+  const image =
+    opening.kind === "separator" ? opening.spec + opening.separator : "";
+  return image + cell.runs.map((run) => run.image).join("");
 }
 
 /**
- * One cell: the bytes its OPENING wrote of its own, then its runs.
+ * One cell: its recorded bytes as the lines they are.
+ *
+ * Reached only through {@link printTable}'s REPLAY arm, whose Doc is
+ * Prettier's own recursion over the same records the guard read as a
+ * string; {@link cellBytes} is what keeps the two answering the same
+ * bytes.
  * @param node - the cell node
  * @returns Doc IR for the cell's own bytes
  */
 export function printTableCell(node: TableCellNode): Doc {
-  return [openingImage(node), ...node.runs.map((run) => replay(run.image))];
+  return replay(cellBytes(node));
 }
 
 /**
@@ -158,14 +198,6 @@ export function printTableCell(node: TableCellNode): Doc {
  * the grouping is a recorded derivation over cells that were already
  * cut, so there is no row separator to print and no line break the
  * cells do not already carry.
- *
- * A row with NO cells would print nothing and be invisible here.
- * None exists: `groupRows` (src/parse/lines/table-reader.ts) never
- * pushes a row before pushing a cell into it. That is a fact about
- * the producer rather than a guarantee of the type -
- * `TableRowNode.children` is a plain array and admits an empty one -
- * which is why it is written down at the consumer that would be the
- * one to lose bytes if it stopped holding.
  * @param path - Prettier's AST path, at the row
  * @param print - Prettier's recursive print callback
  * @returns Doc IR for the row
@@ -175,14 +207,22 @@ export function printTableRow(path: PrintPath, print: PrintFunction): Doc {
 }
 
 /**
- * A whole table.
+ * A whole table: its delimiter lines, and between them either the
+ * normal form or the author's own interior bytes.
  *
- * The interior the collision guard reads is the one ABOUT TO BE
- * EMITTED, which is what makes the output re-read as this same table:
- * a guard run over some other interior would be answering for a
- * document nobody writes. The `endOfStream` close writes no closing
- * line, so an unterminated table's opening is respelled with nothing
- * to keep it company.
+ * The guard reads the interior ABOUT TO BE EMITTED, which is what
+ * makes the output re-read as this same table: a guard run over some
+ * other interior would be answering for a document nobody writes. So
+ * both arms build that interior as a STRING first, and only then does
+ * each say it as a Doc - the laid-out arm through {@link replay},
+ * because a Doc says line breaks with hardlines and never with `\n`
+ * inside a string (Prettier's column tracking and its
+ * trailing-whitespace trim at a hardline both key off the hardline),
+ * and the replay arm through Prettier's own recursion over the very
+ * records {@link replayedInterior} just read.
+ *
+ * The `endOfStream` close writes no closing line, so an unterminated
+ * table's opening is respelled with nothing to keep it company.
  * @param node - the table node
  * @param path - Prettier's AST path, at the table
  * @param print - Prettier's recursive print callback
@@ -193,17 +233,37 @@ export function printTable(
   path: PrintPath,
   print: PrintFunction,
 ): Doc {
-  const interior: Doc[] = [
-    ...node.leadingRuns.map((run) => replay(run.image)),
-    ...path.map(print, "children"),
-  ];
-  const delimiter = tableDelimiter(
-    node.open.slice(0, 1),
-    replayedInterior(node),
-  );
+  const plan: TablePlan = planTable(node);
+  const interior =
+    plan.kind === "replay" ? replayedInterior(node) : printLaidOut(node, plan);
+  const delimiter = tableDelimiter(node.open.slice(0, 1), interior);
+  const body: Doc =
+    plan.kind === "replay"
+      ? [
+          ...node.leadingRuns.map((run) => replay(run.image)),
+          ...path.map(print, "children"),
+        ]
+      : replay(interior);
   return [
     delimiter,
-    ...(interior.length === 0 ? [] : [hardline, interior]),
+    ...(hasInteriorLine(node) ? [hardline, body] : []),
     ...(node.close.kind === "delimiter" ? [hardline, delimiter] : []),
   ];
+}
+
+/**
+ * Whether the extent held an interior LINE at all, which is what tells
+ * `|===` directly over `|===` from `|===` over one blank line.
+ *
+ * Read off the RECORDS rather than off the interior text, because the
+ * two spellings differ by a terminator and not by a byte either arm
+ * writes: a blank line is a run even where it wrote no bytes. Both
+ * arms answer it here, and the laid-out arm needs no separate test - a
+ * table it accepted with no rows has no leading run either, since a
+ * leading run is its own decline.
+ * @param node - the table node
+ * @returns whether to write an interior at all
+ */
+function hasInteriorLine(node: TableNode): boolean {
+  return node.leadingRuns.length > 0 || node.children.length > 0;
 }

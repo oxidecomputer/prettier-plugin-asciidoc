@@ -271,11 +271,16 @@ class BlockReader {
    * The header-reachability bit is retired HERE, at the one place a
    * block joins the sequence, so no dispatch arm can forget to do it
    * - the header node itself retires it too, which is what makes a
-   * second header per document unreachable.
+   * second header per document unreachable. The metadata run ends
+   * here for the same reason (`blockJoined`, lines/held-metadata.ts):
+   * an attribute entry and a comment block are pushed as blocks of
+   * their own and Ruby's own metadata loop reads through both, so the
+   * question cannot be answered from what is still held.
    * @param node - the block just built
    */
   private push(node: BlockNode): void {
     this.headerReachable &&= headerSurvivesBlock(node.type);
+    this.held.blockJoined(node);
     this.blocks.push(node);
   }
 
@@ -786,6 +791,12 @@ class BlockReader {
    */
   private openDelimited(line: SourceLine, block: DelimiterKind): void {
     const annotatedBy = this.held.annotation();
+    // Read BEFORE the flush, like the annotation beside it: both are
+    // questions about the run the flush is about to empty. Only a
+    // table acts on the second - every other block reads the held
+    // annotation for its style, and a style is what actionableStyle
+    // already answers under its own transparency rule.
+    const held = { annotatedBy, attrlistUnread: this.held.unreadAttrlist() };
     const resolved = resolveDelimitedOpen(block, this.held.actionableStyle());
     this.flushMetadata();
     const extent = delimitedExtent(this.lines, this.index, block);
@@ -799,7 +810,7 @@ class BlockReader {
       // The confined-reader branch below is not reachable for a table:
       // its interior is cells, never blocks.
       const scan = readTable(extent.interior, resolved.hint, annotatedBy);
-      this.push(buildTable(blockExtent, scan, this.at, annotatedBy));
+      this.push(buildTable(blockExtent, scan, this.at, held));
     } else if (resolved.model === "verbatim") {
       const node = buildVerbatimBlock(
         blockExtent,

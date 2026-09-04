@@ -481,14 +481,20 @@ export function attrlistValues(raw: string): AttrlistValues {
   }
   const named = new Map<string, string>();
   const options = new Set<string>();
-  let positionals = 0;
-  for (const field of fields) {
+  for (const [index, field] of fields.entries()) {
     const read = readField(field);
     if (read.kind === "positional") {
-      positionals += 1;
-      // Shorthand is read out of `attributes[1]`, the FIRST
-      // positional, and nowhere else.
-      if (positionals === 1) {
+      // Shorthand is read out of `attributes[1]` and nowhere else
+      // (`parse_style_attribute` runs only on `attributes[1]`,
+      // parser.rb:2057-2061), and `attributes[1]` is the first FIELD
+      // when that field is unnamed - not the first unnamed field.
+      // `AttributeList#parse` counts every field, named or not, and
+      // stores an unnamed one under its own field position
+      // (`@attributes[index + 1] = name`, attribute_list.rb:180, over
+      // the loop at :71-77). So the `%header` of `[cols="1,1",%header]`
+      // is `attributes[2]`, is never read as shorthand, and gives the
+      // table no header - which is what the oracle renders.
+      if (index === 0) {
         for (const option of shorthandOptions(unquoteField(field))) {
           options.add(option);
         }

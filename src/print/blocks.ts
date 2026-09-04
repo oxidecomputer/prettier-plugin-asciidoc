@@ -46,7 +46,11 @@ const {
  * shapes. A table's rows and cells are members for that
  * reason and no other: they are not blocks, and nothing
  * but the table printer's own recursion
- * (src/print/table.ts) ever reaches them.
+ * (src/print/table.ts) ever reaches them. They cannot be
+ * dropped from the union even if that recursion goes:
+ * `path.map(print, "children")` is typed over every
+ * `children` array any member declares, and a table's is
+ * one of them.
  */
 export type AnyNode =
   | DocumentNode

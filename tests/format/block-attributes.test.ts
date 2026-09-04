@@ -520,10 +520,13 @@ describe("an attrlist interior gets one spacing", () => {
       '[quote, "A, B", c]\n____\nx\n____\n',
       '[quote,"A, B",c]\n____\nx\n____\n',
     ],
+    // The blank line after the row is not an attrlist decision: the
+    // table's layout writes one blank after the first row exactly when
+    // that row is a header row, and `options="header"` makes it one.
     [
       "named values with commas inside quotes",
       '[cols="1,2", options="header"]\n|===\n|a |b\n|===\n',
-      '[cols="1,2",options="header"]\n|===\n|a |b\n|===\n',
+      '[cols="1,2",options="header"]\n|===\n|a |b\n\n|===\n',
     ],
     [
       "a trailing blank inside the brackets",

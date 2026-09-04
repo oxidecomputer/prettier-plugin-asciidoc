@@ -57,14 +57,30 @@ describe("the invariant holds on ordinary documents", () => {
     ["a literal paragraph", "para\n\n  lit\n  more\n\npara\n"],
     ["a delimited block with list-shaped content", "----\n* a\n** b\n----\n"],
     // A table whose CELL TEXT is shaped like block syntax (issue #10).
-    // The printer replays a table's own bytes, so the reading is
-    // stable here by construction; the row is written down for the day
-    // a cell's interior is read and reflowed, when a cell opening `* `
-    // or `== ` is exactly what would tempt a reflow into manufacturing
-    // a list item or a heading at column 0.
+    // Half of the old reason for these rows still holds and half does
+    // not. What holds: a cell's text is still never re-read, so no
+    // reflow can manufacture a list item or a heading out of it, and
+    // that is the day these rows were written for. What does not: an
+    // accepted table's bytes are no longer the author's, so the cell
+    // text now MOVES between two separator-bounded positions, and the
+    // reading has to survive the move rather than survive by nothing
+    // happening. The last row is the control: it declines, so its
+    // interior is replayed exactly as before.
     [
       "a table whose cells look like block syntax",
       "|===\n|* item\n|== heading\n|===\n",
+    ],
+    [
+      "a table whose block-shaped cell text is relaid out",
+      "|===\n|  * item\n|==   heading\n|===\n",
+    ],
+    [
+      "a table whose second row is rejoined onto one line",
+      "|===\n|a |b\n\n|* item\n|== heading\n|===\n",
+    ],
+    [
+      "a table holding a dropped comment line",
+      "|===\n|* item\n// c\n|== heading\n|===\n",
     ],
   ])("%s", async (_name, source) => {
     expect(await breachRows(source)).toEqual([]);

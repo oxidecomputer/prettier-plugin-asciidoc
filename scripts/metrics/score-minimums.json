@@ -241,6 +241,10 @@
       "coverage": 100.0,
       "mutation": 88.6
     },
+    "src/print/table-layout.ts": {
+      "coverage": 100.0,
+      "mutation": 0.0
+    },
     "src/print/table.ts": {
       "coverage": 100.0,
       "mutation": 0.0
@@ -343,13 +347,13 @@
     },
     {
       "file": "src/parse/lines/reader.ts",
-      "what": "the LEFT disjunct of the child reader's tailSafe (reader.ts:814 `tailSafe: extent.close !== undefined || tailSafeIn(this.confinement)`) - 3 mutants: -> `true`, -> `false`, and `!==` -> `===`",
+      "what": "the LEFT disjunct of the child reader's tailSafe (reader.ts:825 `tailSafe: extent.close !== undefined || tailSafeIn(this.confinement)`) - 3 mutants: -> `true`, -> `false`, and `!==` -> `===`",
       "class": "never",
       "reason": "EQUIVALENT, measured rather than assumed: all three produce byte-identical output over 66,429 documents (a depth-5 product over `----`, `====`, `--`, `****`, `* a`, `** b`, `+`, blank and `para`) and over all 111,121 list-shape sweep documents. Whenever a block CLOSED, the reader's own `tailSafe` is already true, so the left disjunct never decides. The RIGHT disjunct is live and pinned in tests/format/trailing-continuation.test.ts (a trailing `+` at the end of an unclosed `====` or `--` block comes back), which is what took this file from 93.6 to 94.2"
     },
     {
       "file": "src/parse/lines/reader.ts",
-      "what": "reader.ts:659 `line.continuationTag === \"marker\"` -> `true` in continuationLine's fold arm (#56's new code)",
+      "what": "reader.ts:664 `line.continuationTag === \"marker\"` -> `true` in continuationLine's fold arm (#56's new code)",
       "class": "never",
       "reason": "EQUIVALENT, and worth writing down because the guard IS reached with an untagged `+`. Every `+` that enters an item buffer goes through `pushMarker` and carries the tag, with ONE exception: the `+` that `activeContent` buffers as the attached block's own first line when it stands one blank under an active continuation (`* a` / `+` / blank / `+` is the smallest such document). That untagged cell is only ever the buffer's LAST line, because any line after it takes the `+` arm that blanks it, so the fold the mutant opens there reads exactly the one raw line the leaf arm builds and stops on the same index. Measured: byte-identical output AND byte-identical ASTs over all 111,110 depth-5 sweep documents, byte-identical output over 66,429 delimiter-bearing documents, and an instrumented build reaches the untagged case MID-buffer zero times in either product"
     },
@@ -490,6 +494,12 @@
       "what": "mutation minimum 0 - a PLACEHOLDER, not a file with nothing to measure",
       "class": "when",
       "reason": "TRIGGER: the next batched mutation run. This file is new (issue #10, the reader's table dispatch) and holds what a table's open resolves - the format key the delimiter hint and a `format=` attribute settle between, the separator that follows from it, the `cols=` parse and the header/footer options - none of which has been measured, because mutation runs at batched integration points and this file landed between two of them. Its coverage row is measured (100.0 lines, 22 of 22, from a `bunx vitest run --coverage --exclude \"**/parity-trailers.test.ts\"` run of this tree). What holds its behaviour meanwhile is tests/parser/table.test.ts's open rows (the four delimiters, `format=` overriding the hint and an illegal value falling back to psv, `separator=` and its empty fallback, `cols=` fixing the column count, and both spellings of the header and footer options) and tests/parser/table-structure.test.ts, which now drives every corpus table through the reader and compares the cells the resolved cutting produced against @asciidoctor/core's own parsed model"
+    },
+    {
+      "file": "src/print/table-layout.ts",
+      "what": "mutation minimum 0 - a PLACEHOLDER, not a file with nothing to measure",
+      "class": "when",
+      "reason": "TRIGGER: the next batched mutation run. This file is new (issue #10, the table layout gate and the normal form) and nothing has measured it, because mutation runs at batched integration points and this file landed between two of them. Its coverage row is measured (100.0 lines, 124 of 124, from a `bunx vitest run --coverage --exclude \"**/parity-trailers.test.ts\"` run of this tree). What holds its behaviour meanwhile is measured in two directions at once: tests/format/table-census.test.ts pins how many corpus tables decline under each reason, exact in both directions, so a gate reading one fact differently moves a pinned number; tests/format/table-gate-stability.test.ts formats every corpus document holding an accepted table twice and asserts the same tables are accepted again; and tests/format/table.test.ts asserts the exact bytes, render-equality against the oracle and the fixed point for one row per decline reason and one per emission rule"
     },
     {
       "file": "src/print/table.ts",

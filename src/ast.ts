@@ -1472,6 +1472,28 @@ export interface TableNode extends Node {
   children: TableRowNode[];
   /** The attribute line's interior, as the reader recorded it. */
   annotatedBy?: string;
+  /**
+   * Set when a block attribute line stood above this table whose
+   * values the open could NOT read: a second attribute line, of which
+   * only the last is recorded, or one standing behind a title or an
+   * anchor, which the reader's last-node rule refuses
+   * (`unreadAttrlist`, src/parse/lines/held-metadata.ts).
+   *
+   * Asciidoctor accumulates every metadata line above a block into
+   * ONE attribute hash whatever the order
+   * (`parse_block_metadata_lines`, parser.rb:2014-2021), so where this
+   * is set the `cutting`, `columns` and `header` above were resolved
+   * from less than the author wrote: a `format=`, a `separator=`, a
+   * `cols=` or a header option may be sitting in the source and be
+   * absent from this node with nothing else here saying so. A consumer
+   * that only REPLAYS the recorded bytes is unharmed; one that acts on
+   * those three fields is not, and must read this first.
+   *
+   * ABSENT, never `false`, when `annotatedBy` is the whole truth,
+   * which is every table whose attribute line - if it has one - is the
+   * line immediately above it.
+   */
+  attrlistUnread?: true;
 }
 
 /**

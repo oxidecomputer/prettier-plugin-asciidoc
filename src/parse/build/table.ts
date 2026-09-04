@@ -177,6 +177,24 @@ function closeOf(extent: BlockExtent): TableClose {
 }
 
 /**
+ * What the metadata run above a table left the builder, bundled into
+ * one parameter because the linter caps a builder at four (the same
+ * reason {@link TableScan} bundles the open's own answers).
+ *
+ * NOT exported: the reader fills it structurally, so no caller has to
+ * name it, and an export nothing imports is a knip failure.
+ */
+interface HeldAboveTable {
+  /** The attribute line's interior, when the reader recorded one. */
+  readonly annotatedBy: string | undefined;
+  /**
+   * Whether an attribute line stood above the table whose values the
+   * open did NOT read (`TableNode.attrlistUnread`, src/ast.ts).
+   */
+  readonly attrlistUnread: boolean;
+}
+
+/**
  * A table, assembled from the SCAN's own answers and the extent a
  * delimited read already collected.
  *
@@ -186,14 +204,14 @@ function closeOf(extent: BlockExtent): TableClose {
  * @param scan - what `cutCells`, `groupRows` and `readHeaderDecision`,
  *   plus the block's own attribute list, decided about this table
  * @param at - the document's location index
- * @param annotatedBy - the annotation the reader recorded, if any
+ * @param held - what the reader held above the table
  * @returns the table node
  */
 export function buildTable(
   extent: BlockExtent,
   scan: TableScan,
   at: LocationIndex,
-  annotatedBy: string | undefined,
+  held: HeldAboveTable,
 ): TableNode {
   return {
     type: "table",
@@ -206,6 +224,7 @@ export function buildTable(
     leadingRuns: scan.leadingRuns,
     children: scan.rows.map((row) => buildRow(row, at)),
     position: { start: at.start(extent.open), end: at.at(extent.end) },
-    ...annotation(annotatedBy),
+    ...annotation(held.annotatedBy),
+    ...(held.attrlistUnread ? { attrlistUnread: true as const } : {}),
   };
 }

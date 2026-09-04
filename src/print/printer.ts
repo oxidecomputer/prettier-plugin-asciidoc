@@ -102,11 +102,12 @@ const printer: Printer<AnyNode> = {
       case "delimitedBlock": {
         return printDelimitedBlock(node, hasPrecedingLanguageAttribute(node));
       }
-      // A table replays its own interior bytes under delimiter lines
-      // it respells to their shortest safe length (./table.ts), and
-      // its rows and cells are reached ONLY from here - the two arms
-      // below exist so that path.map's recursion lands on them
-      // instead of on the inline default at the bottom.
+      // A table takes one normal form when its facts are fully
+      // recorded and replays its own interior bytes otherwise
+      // (./table.ts), and only the replay arm recurses. Its rows and
+      // cells are reached ONLY from there - the two arms below exist
+      // so that path.map's recursion lands on them instead of on the
+      // inline default at the bottom.
       case "table": {
         return printTable(node, path, print);
       }
