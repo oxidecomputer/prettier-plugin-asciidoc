@@ -166,8 +166,18 @@ const DELIMITER_PARTS: Record<DelimiterKind, DelimiterParts> = {
   },
   tablePipe: {
     open: "|===",
+    // Four coordinates in one content string, so the grid reaches
+    // the decisions the layout makes without gaining a dimension: a
+    // multi-cell line (the separator rule), a cell spec (the
+    // CellSpecStartRx boundary, rx.rb:400), a blank after the first
+    // line (the implicit_header_boundary rule, parser.rb:2340-2345),
+    // and an interior line longer than the delimiter (the
+    // minimal-length collision guard, which must NOT lengthen it).
+    // Every row is complete: an incomplete last row makes the oracle
+    // log an error and drop it (close_table, table.rb:685-688), which
+    // would degrade every generated shape here.
+    content: "|a 2+|b\n\n|c |d\n|====\n|e |f |g",
     close: "|===",
-    content: "|a",
     longer: "|====",
     nearMiss: "|==",
   },
@@ -187,8 +197,13 @@ const DELIMITER_PARTS: Record<DelimiterKind, DelimiterParts> = {
   },
   tableBang: {
     open: "!===",
+    // A top-level `!===` table cuts on `|`, not on `!` (the `!sv`
+    // scheme belongs to a nested document, table.rb:466-474), so
+    // this is a psv table with a literal first cell: the coordinate
+    // for the flush exception, which a literal cell answers by
+    // declining its whole table.
+    content: "l|a |b",
     close: "!===",
-    content: "!a",
     longer: "!====",
     nearMiss: "!==",
   },
