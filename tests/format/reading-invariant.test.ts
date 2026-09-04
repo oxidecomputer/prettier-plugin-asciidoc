@@ -56,6 +56,16 @@ describe("the invariant holds on ordinary documents", () => {
     ["an admonition", "NOTE: a note that is short.\n"],
     ["a literal paragraph", "para\n\n  lit\n  more\n\npara\n"],
     ["a delimited block with list-shaped content", "----\n* a\n** b\n----\n"],
+    // A table whose CELL TEXT is shaped like block syntax (issue #10).
+    // The printer replays a table's own bytes, so the reading is
+    // stable here by construction; the row is written down for the day
+    // a cell's interior is read and reflowed, when a cell opening `* `
+    // or `== ` is exactly what would tempt a reflow into manufacturing
+    // a list item or a heading at column 0.
+    [
+      "a table whose cells look like block syntax",
+      "|===\n|* item\n|== heading\n|===\n",
+    ],
   ])("%s", async (_name, source) => {
     expect(await breachRows(source)).toEqual([]);
   });

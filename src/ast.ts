@@ -1505,8 +1505,10 @@ export interface TableCutting {
   readonly format: "psv" | "csv" | "dsv";
   /**
    * The string that cuts a cell. `|` for a top-level psv table
-   * whatever its hint character, because `!sv` is selected by
-   * `document.nested?` and never by the delimiter (table.rb:466-474).
+   * whatever its hint character, because `!sv` is selected by a nested
+   * document and never by the delimiter; the `xsv` key that choice
+   * sets is what indexes `DELIMITERS` into `@delimiter` and
+   * `delimiter_rx` (table.rb:466-474).
    */
   readonly separator: string;
 }

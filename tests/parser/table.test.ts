@@ -37,7 +37,9 @@ describe("table delimiters open table nodes", () => {
     ["csv", ",===\na,b\n,===\n", "csv", ","],
     ["dsv", ":===\na:b\n:===\n", "dsv", ":"],
     // A top-level `!===` cuts on `|`, not on `!`: Ruby takes the `!`
-    // separator only where `document.nested?` (table.rb:466-474).
+    // separator only where the document is nested, and the `xsv` key
+    // that branch sets is what indexes `DELIMITERS` into `@delimiter`
+    // and `delimiter_rx` (table.rb:466-474).
     ["nested-psv", "!===\n!a\n!===\n", "psv", "|"],
   ])(
     "%s delimiter opens and closes a table",

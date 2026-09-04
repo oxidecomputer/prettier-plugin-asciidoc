@@ -146,12 +146,17 @@ call at all, and its attrlist group in front of a quoted span
 (`QuoteAttributeListRxt`, `index.cjs l.59`) crosses neither bracket where
 2.0.26's inline spelling (`asciidoctor.rb l.446-468`) crosses an open one, so
 `[a[b]**c**` carries class `b` to the oracle and `a[b` to a reader of the
-vendored rows. Where they diverge, the comment names BOTH, states the
-divergence, and says the oracle wins. `bun run citation-check` holds every
-citation that names its file to that file, that line and the names the comment
-puts beside it, and reports the bare references that name none; a comment that
-cites nothing checkable is fine, a comment that cites the wrong line is a failed
-gate.
+vendored rows, and a blank line inside an OPEN table cell reaches an arm of its
+own whose only call is `keepCellOpen` (`parser.js l.3376-3383`) where 2.0.26
+blanks the line and lets it fall through to the arm a line with no separator
+takes (`parser.rb l.2315-2316`), which would end a dsv cell there, so a dsv cell
+held open by an escaped separator swallows the blank line after it to the oracle
+and closes at it to a reader of the vendored rows. Where they diverge, the
+comment names BOTH, states the divergence, and says the oracle wins.
+`bun run citation-check` holds every citation that names its file to that file,
+that line and the names the comment puts beside it, and reports the bare
+references that name none; a comment that cites nothing checkable is fine, a
+comment that cites the wrong line is a failed gate.
 
 **Never a token pattern.** Block-level context comes from the BlockReader and
 from nowhere else, and `tests/parser/architecture.test.ts` is the mechanical

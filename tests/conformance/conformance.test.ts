@@ -61,6 +61,45 @@ for (const group of groups) {
   });
 }
 
+/**
+ * How many cases the table corpus held when tables were still copied
+ * through as opaque lines. A FLOOR, not a census: a re-vendor may add
+ * cases and must not lose them, but the floor cannot see a re-vendor
+ * that drops one table case while adding two. What it does rule out is
+ * the failure that would make the row under it meaningless, which is
+ * the group not loading at all.
+ */
+const MINIMUM_TABLE_CASES = 125;
+
+describe("the table corpus stays out of quarantine (issue #10)", () => {
+  const tableCases =
+    groups.find((group) => group.name === "tables_test")?.cases ?? [];
+
+  // Vacuity guard: with the group missing, the row under this one
+  // passes by having nothing to say.
+  test("the table corpus loaded", () => {
+    expect(tableCases.length).toBeGreaterThanOrEqual(MINIMUM_TABLE_CASES);
+  });
+
+  // The bar tables were measured against. All three properties were
+  // already green on every one of these cases while a table was
+  // copied through as opaque lines, so reading one into rows and
+  // cells has NO known gap to excuse: a quarantine row here would be
+  // a regression the reader caused, and quarantining it would file
+  // that regression under the wrong heading.
+  //
+  // The `tables_test` group ONLY. Other groups hold table-bearing
+  // cases too (`docs` and `blocks_test` among them), and those are
+  // covered by the oracle comparison in
+  // tests/parser/table-structure.test.ts rather than by this floor.
+  test("no table case is quarantined", () => {
+    const quarantined = tableCases
+      .map((entry) => entry.id)
+      .filter((id) => quarantine.has(id));
+    expect(quarantined).toEqual([]);
+  });
+});
+
 describe("quarantine manifest", () => {
   test("has no stale entries", () => {
     // An entry for a case that no longer exists can only excuse
