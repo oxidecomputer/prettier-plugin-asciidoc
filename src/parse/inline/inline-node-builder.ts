@@ -33,6 +33,7 @@ import type { Fragment, LocationIndex } from "../positions.js";
 import { DELIM_WIDTH } from "../../constants.js";
 import type { InlineToken, InlineTokenType } from "./tokens.js";
 import {
+  MARK_SPAN_KINDS,
   resolveSpans,
   spanStart,
   type MarkSpanTokenKind,
@@ -46,16 +47,6 @@ import {
   makeInlineBiblioAnchor,
   makeHardLineBreak,
 } from "./inline-link-builder.js";
-
-// Map from mark token kind to AST node type. `satisfies` is what ties
-// it to the resolution table: a fifth mark kind added there fails to
-// compile here until it is given a node type.
-const MARK_TO_TYPE = {
-  BoldMark: "bold",
-  ItalicMark: "italic",
-  MonoMark: "monospace",
-  HighlightMark: "highlight",
-} as const satisfies Record<MarkSpanTokenKind, string>;
 
 /**
  * Build a TextNode from accumulated pending text.
@@ -121,7 +112,7 @@ function makeFormattingNode(
 ): BoldNode | ItalicNode | MonospaceNode | HighlightNode {
   const { markType, constrained, role, children, start, closeMark, at } =
     options;
-  const type = MARK_TO_TYPE[markType];
+  const type = MARK_SPAN_KINDS[markType];
   const position = { start: at.start(start), end: at.end(closeMark) };
   const base = { constrained, role, children, position };
   switch (type) {
@@ -293,7 +284,7 @@ function makeSpanNode(
     }
     // The last two QUOTE_SUBS rows. Like the curved pair they have one
     // spelling each, so neither node carries a `constrained` field and
-    // neither is in MARK_TO_TYPE; unlike it they need no `quote`
+    // neither is in MARK_SPAN_KINDS; unlike it they need no `quote`
     // discriminant, because the row IS the node type. Two arms rather
     // than one with a ternary, so the literal each returns spells its
     // own key order - the serialization contract

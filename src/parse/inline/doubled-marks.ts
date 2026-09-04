@@ -48,7 +48,7 @@
  * Deciding which of these spans survive is span-pairing.ts's job, the
  * way it is for the curved-quote scan next door.
  */
-import { seesCurvedRewrite, type MarkKind } from "./quote-boundaries.js";
+import { MARK_ROW, seesCurvedRewrite } from "./quote-boundaries.js";
 import type { CurvedScan } from "./curved-quotes.js";
 import { DELIM_WIDTH } from "../../constants.js";
 
@@ -75,23 +75,6 @@ const ESCAPE = "\\";
 // The attrlist group's own brackets, `\[([^\]]+)\])?`.
 const ATTRLIST_OPEN = "[";
 const ATTRLIST_CLOSE = "]";
-
-/**
- * The four unconstrained rows, in the table's own order, each with the
- * character its delimiter doubles. The order is immaterial to the
- * result - the four characters are distinct, so no row can claim an
- * offset another row wants - and is kept only so the table reads
- * against `QUOTE_SUBS` itself (asciidoctor.rb l.446-462).
- */
-const UNCONSTRAINED_ROWS: ReadonlyArray<{
-  readonly kind: MarkKind;
-  readonly mark: string;
-}> = [
-  { kind: "bold", mark: "*" },
-  { kind: "monospace", mark: "`" },
-  { kind: "italic", mark: "_" },
-  { kind: "highlight", mark: "#" },
-];
 
 /**
  * The next offset at or after `from` where a match could BEGIN.
@@ -215,7 +198,10 @@ export function scanDoubledMarks(
   curved: CurvedScan,
 ): ReadonlySet<number> {
   const delimiters = new Set<number>();
-  for (const { kind, mark } of UNCONSTRAINED_ROWS) {
+  // One pass per unconstrained row. The order is immaterial to the
+  // result: the four characters are distinct, so no row can claim an
+  // offset another row wants.
+  for (const { kind, mark } of Object.values(MARK_ROW)) {
     scanRow(seesCurvedRewrite(kind) ? curved.view : text, mark, delimiters);
   }
   return delimiters;

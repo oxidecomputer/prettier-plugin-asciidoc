@@ -40,6 +40,7 @@ import { CURVED_WIDTH } from "./curved-quotes.js";
 // same width the scan that finds those delimiters is built on, taken
 // from there so a row here and a token there cannot disagree.
 import { UNCONSTRAINED_WIDTH } from "./doubled-marks.js";
+import type { MarkKind } from "./quote-boundaries.js";
 
 /**
  * All twelve `QUOTE_SUBS` rows, in the table's own order.
@@ -55,14 +56,14 @@ import { UNCONSTRAINED_WIDTH } from "./doubled-marks.js";
  *
  * The twelve rows model eight token kinds - BoldMark, DoubleQuoteMark,
  * SingleQuoteMark, MonoMark, ItalicMark, HighlightMark,
- * SuperscriptMark, SubscriptMark - but only four
- * of them are LISTED AGAIN in inline-node-builder.ts's `MARK_TO_TYPE`
- * map from token kind to AST node type: the two curved kinds and the
- * two super/sub kinds are not in that map at all, they get their own
- * switch cases there, building a `curvedQuote`, `superscript` or
- * `subscript` node directly instead of looking up a type string.
- * Either way, that file answers what a span IS, this table answers
- * when it is resolved, and they are separate facts.
+ * SuperscriptMark, SubscriptMark - and the four mark kinds among them
+ * appear again in `MARK_SPAN_KINDS` below, which maps each to the
+ * `MarkKind` its AST node carries: the two curved kinds and the two
+ * super/sub kinds are not in that map at all, inline-node-builder.ts
+ * gives them their own switch cases, building a `curvedQuote`,
+ * `superscript` or `subscript` node directly instead of looking up a
+ * kind. Either way, `MARK_SPAN_KINDS` answers what a mark span BUILDS,
+ * this table answers when it is resolved.
  */
 const RESOLUTION_ORDER = [
   { type: "BoldMark", width: UNCONSTRAINED_WIDTH },
@@ -112,6 +113,24 @@ type MarkTokenKind = (typeof RESOLUTION_ORDER)[number]["type"];
  * formatting node.
  */
 export type MarkSpanTokenKind = Exclude<MarkTokenKind, FixedSpellingTokenKind>;
+
+/**
+ * Which mark each pairing token spells. The tokenizer reads it to pick
+ * a token's per-mark boundary classes (`markFlags`, rules.ts) and the
+ * builder reads it for the AST node's `type`, which is the same four
+ * words - so one table rather than one per reader, which is a pair
+ * that can disagree about a fifth mark.
+ *
+ * `satisfies` is what ties it to {@link RESOLUTION_ORDER}: a fifth
+ * mark kind added there fails to compile here until it is given a
+ * mark.
+ */
+export const MARK_SPAN_KINDS = {
+  BoldMark: "bold",
+  ItalicMark: "italic",
+  MonoMark: "monospace",
+  HighlightMark: "highlight",
+} as const satisfies Record<MarkSpanTokenKind, MarkKind>;
 
 /**
  * One resolved span, as indices into the token stream it was

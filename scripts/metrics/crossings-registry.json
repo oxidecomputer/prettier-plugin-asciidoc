@@ -358,10 +358,10 @@
   },
   {
     "file": "src/parse/inline/quote-boundaries.ts",
-    "symbol": "MarkKind",
+    "symbol": "MARK_ROW",
     "importer": "src/print/span-edges.ts",
     "kind": "vocabulary",
-    "reason": "the four mark kinds' shared type, keying the row-key lookup table so it cannot be built for a kind QUOTE_ROW does not have a pair of rows for"
+    "reason": "the one table of each mark's delimiter character and its two QUOTE_SUBS rows; the printer writes the character back and reads the rows to say which one resolved a span, so parse and print cannot disagree about what a mark is"
   },
   {
     "file": "src/parse/inline/quote-boundaries.ts",

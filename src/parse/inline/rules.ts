@@ -18,6 +18,7 @@
  * not resolve it.
  */
 import type { InlineKind } from "./tokens.js";
+import { MARK_SPAN_KINDS } from "./span-pairing.js";
 import {
   canOpenAt,
   canCloseAt,
@@ -85,15 +86,10 @@ interface InlineRule {
   readonly match: (text: string, index: number, scan: FragmentScan) => number;
 }
 
-// Which span kind each mark token spells - the key into
-// quote-boundaries.ts's per-mark classes, for the matcher below and
-// for {@link markFlags}, so the two consult the same record.
-const MARK_KINDS: Partial<Record<InlineKind, MarkKind>> = {
-  BoldMark: "bold",
-  ItalicMark: "italic",
-  MonoMark: "monospace",
-  HighlightMark: "highlight",
-};
+// The pairing table's mark map under the wider key this file asks with:
+// {@link markFlags} is handed any InlineKind, and a kind that spells no
+// mark simply has no row.
+const MARK_KINDS: Partial<Record<InlineKind, MarkKind>> = MARK_SPAN_KINDS;
 
 /**
  * A constrained/unconstrained formatting mark — `strong`, `emphasis`,

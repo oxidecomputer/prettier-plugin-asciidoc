@@ -25,9 +25,9 @@ import type {
   SubscriptNode,
 } from "../ast.js";
 import {
+  MARK_ROW,
   QUOTE_ROW,
   afterSpecialchars,
-  type MarkKind,
   type QuoteRowKey,
 } from "../parse/inline/quote-boundaries.js";
 import { verbatimText } from "./serialize-inline.js";
@@ -103,9 +103,6 @@ const FLUSH_ATTRLIST = /^\[[^\]]+\]$/v;
 // to answer for.
 const HARD_BREAK = " +";
 
-/** The one mark character each span kind is spelled with. */
-const SPAN_MARKS = { bold: "*", italic: "_", monospace: "`", highlight: "#" };
-
 /**
  * The opening and closing marks of a formatting span.
  *
@@ -129,7 +126,7 @@ export function spanMarks(
   node: MarkSpanNode,
   constrained: boolean,
 ): { open: string; close: string } {
-  const single = SPAN_MARKS[node.type];
+  const single = MARK_ROW[node.type].mark;
   const mark = constrained ? single : `${single}${single}`;
   const rolePrefix = node.role === undefined ? "" : `[${node.role}]`;
   return { open: `${rolePrefix}${mark}`, close: mark };
@@ -220,32 +217,6 @@ export function isMarkSpanNode(node: InlineNode): node is MarkSpanNode {
 }
 
 /**
- * The two row keys each mark kind spells, by whether the span is
- * currently constrained. Split out of {@link rowKeyOf} so its own
- * complexity stays low: four kinds times two spellings is eight
- * literal branches on top of the switch, over the ceiling in one
- * function.
- */
-const MARK_ROW_KEYS: Record<
-  MarkKind,
-  { readonly constrained: QuoteRowKey; readonly unconstrained: QuoteRowKey }
-> = {
-  bold: { constrained: "boldConstrained", unconstrained: "boldUnconstrained" },
-  italic: {
-    constrained: "italicConstrained",
-    unconstrained: "italicUnconstrained",
-  },
-  monospace: {
-    constrained: "monospaceConstrained",
-    unconstrained: "monospaceUnconstrained",
-  },
-  highlight: {
-    constrained: "highlightConstrained",
-    unconstrained: "highlightUnconstrained",
-  },
-};
-
-/**
  * Which `QUOTE_SUBS` row resolved this span. Exhaustive over the five
  * span kinds, which is the compile-time gate on a sixth.
  * @param node - a span node
@@ -258,7 +229,7 @@ export function rowKeyOf(node: SpanNode): QuoteRowKey {
   if (node.type === "superscript" || node.type === "subscript") {
     return node.type;
   }
-  const { constrained, unconstrained } = MARK_ROW_KEYS[node.type];
+  const { constrained, unconstrained } = MARK_ROW[node.type];
   return node.constrained ? constrained : unconstrained;
 }
 
@@ -738,7 +709,7 @@ function stealsBoundaryBehind(
       continue;
     }
     const run = between.join("");
-    const rows = MARK_ROW_KEYS[node.type];
+    const rows = MARK_ROW[node.type];
     // A mark span's attrlist is PARSED and rides on the span as its
     // role, so its brackets stand among no siblings at all and
     // flushness is the absence of anything between - or, for the

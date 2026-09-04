@@ -234,17 +234,55 @@ export const QUOTE_ROW: Record<
   },
 };
 
-// Which row each mark's UNCONSTRAINED spelling is. In the normal table
-// (asciidoctor.rb l.446-464) both members of a mark's pair sit on the
-// same side of the two curved rows, so one key per mark answers the
-// question below for either spelling. The compat-mode table breaks that
-// property (compat.insert at l.486 moves constrained emphasis ahead of
-// the single curved row), but compat mode is not modeled here.
-const MARK_UNCONSTRAINED_ROW: Record<MarkKind, QuoteRowKey> = {
-  bold: "boldUnconstrained",
-  italic: "italicUnconstrained",
-  monospace: "monospaceUnconstrained",
-  highlight: "highlightUnconstrained",
+/**
+ * What each mark is, on both sides of the parse/print boundary: the
+ * character its delimiter doubles, and the two `QUOTE_SUBS` rows that
+ * resolve its two spellings (asciidoctor.rb l.446-464).
+ *
+ * One table because the parser reads the character to find a doubled
+ * delimiter (doubled-marks.ts) and the printer writes the same
+ * character back (src/print/span-edges.ts), and a table on each side
+ * is a pair that can silently disagree about a mark the other has.
+ * The `kind` field repeats its own key so a walk over the values
+ * carries it; nothing else needs the key order, and the four
+ * characters are distinct, so no order is load-bearing.
+ *
+ * Exported so src/print/span-edges.ts can read it, the same way
+ * {@link QUOTE_ROW} is.
+ */
+export const MARK_ROW: Record<
+  MarkKind,
+  {
+    readonly kind: MarkKind;
+    readonly mark: string;
+    readonly constrained: QuoteRowKey;
+    readonly unconstrained: QuoteRowKey;
+  }
+> = {
+  bold: {
+    kind: "bold",
+    mark: "*",
+    constrained: "boldConstrained",
+    unconstrained: "boldUnconstrained",
+  },
+  monospace: {
+    kind: "monospace",
+    mark: "`",
+    constrained: "monospaceConstrained",
+    unconstrained: "monospaceUnconstrained",
+  },
+  italic: {
+    kind: "italic",
+    mark: "_",
+    constrained: "italicConstrained",
+    unconstrained: "italicUnconstrained",
+  },
+  highlight: {
+    kind: "highlight",
+    mark: "#",
+    constrained: "highlightConstrained",
+    unconstrained: "highlightUnconstrained",
+  },
 };
 
 /**
@@ -267,8 +305,14 @@ const MARK_UNCONSTRAINED_ROW: Record<MarkKind, QuoteRowKey> = {
  * @returns true when the curved rewrite is already in the text
  */
 export function seesCurvedRewrite(kind: MarkKind): boolean {
+  // The UNCONSTRAINED row answers for either spelling: in the normal
+  // table both members of a mark's pair sit on the same side of the two
+  // curved rows. The compat-mode table breaks that property
+  // (compat.insert at asciidoctor.rb l.486 moves constrained emphasis
+  // ahead of the single curved row), but compat mode is not modeled
+  // here.
   return (
-    QUOTE_ROW[MARK_UNCONSTRAINED_ROW[kind]].order > QUOTE_ROW.curvedSingle.order
+    QUOTE_ROW[MARK_ROW[kind].unconstrained].order > QUOTE_ROW.curvedSingle.order
   );
 }
 
