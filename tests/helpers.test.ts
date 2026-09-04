@@ -56,6 +56,26 @@ describe("renderedHtml", () => {
     );
   });
 
+  // A LONE TAB is a run too: HTML renders a tab and a space as the
+  // same gap in prose, so a respell between them is not a difference
+  // a reader can see. The sheltered contexts keep the byte, in both
+  // directions, and oracleHtml still hands the tab through raw.
+  test("reads a lone tab as the space it renders as", async () => {
+    expect(await renderedHtml("a\tb\n")).toBe(await renderedHtml("a b\n"));
+  });
+
+  test("keeps a lone tab inside an inline code span", async () => {
+    expect(await renderedHtml("`a\tb`\n")).not.toBe(
+      await renderedHtml("`a b`\n"),
+    );
+  });
+
+  test("keeps a lone tab inside a verbatim block", async () => {
+    expect(await renderedHtml("----\na\tb\n----\n")).not.toBe(
+      await renderedHtml("----\na b\n----\n"),
+    );
+  });
+
   // A run split by the line break it surrounds is still one run: the
   // newline rule turns `a  \n  b` into a run of spaces before the
   // intra-line rule sees it, and running them the other way round
@@ -145,6 +165,10 @@ describe("oracleHtml", () => {
 
   test("normalizes no whitespace at all", async () => {
     expect(await oracleHtml("a\nb\n")).toContain("<p>a\nb</p>");
+  });
+
+  test("hands a lone tab through raw", async () => {
+    expect(await oracleHtml("a\tb\n")).toContain("a\tb");
   });
 
   // The oracle's warnings for some documents reach the global console

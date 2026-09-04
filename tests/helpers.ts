@@ -397,7 +397,7 @@ export async function renderedHtml(input: string): Promise<string> {
   );
   return (
     decodeNumericReferences(withPlaceholders)
-      .replaceAll(/[ \t]{2,}/gv, " ")
+      .replaceAll(/[ \t]{2,}|\t/gv, " ")
       // The second callback argument is the first capture — being
       // named does not change its position. (The `groups` object
       // is the LAST argument, after offset and source; reading it
