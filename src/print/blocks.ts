@@ -80,13 +80,21 @@ export type PrintFunction = (path: PrintPath) => Doc;
  */
 export type PrintOptions = ParserOptions<AnyNode>;
 
+// The character a comment block's delimiter line repeats. The two
+// tables further down map a block VARIANT to its character; a comment
+// is a node of its own rather than a member of either union
+// (src/parse/line-shapes.ts spells the line `/{4,}`), so its
+// character stands on its own here.
+const COMMENT_DELIMITER_CHAR = "/";
+
 /**
  * Prints a comment node to Doc IR.
  *
  * Extracted from the main print method to keep cyclomatic
  * complexity manageable as more node types are added.
- * Line comments produce `// text`; block comments produce
- * `////` delimiters with verbatim content between them.
+ * Line comments produce `// text`; block comments produce a run of
+ * slashes ({@link shortestSafeDelimiter}) with verbatim content
+ * between the two delimiter lines.
  * @param node - The comment node.
  * @param node.commentType - Whether this is a line
  *   (`//`) or block (`////`) comment.
@@ -110,11 +118,28 @@ export function printComment(node: {
   // a blank line that re-parses as an empty comment, breaking
   // idempotency - but a line holding only a no-break space is not
   // blank to Asciidoctor, and trim() alone would drop it here.
-  if (ASCII_NON_WHITESPACE.test(node.value)) {
-    const contentLines = node.value.split("\n");
-    return ["////", hardline, join(hardline, contentLines), hardline, "////"];
+  const interior = ASCII_NON_WHITESPACE.test(node.value) ? node.value : "";
+  // The delimiter is spelled off that interior like every other one
+  // this printer writes: a comment block closes on a line EQUAL to
+  // the one that opened it, so a `////` line inside a `//////`
+  // comment ends the block early and spills the rest of the interior
+  // into the document as content, which the oracle then renders.
+  const delimiter = shortestSafeDelimiter(
+    "",
+    COMMENT_DELIMITER_CHAR,
+    MIN_DELIMITER_LENGTH,
+    interior,
+  );
+  if (interior.length === 0) {
+    return [delimiter, hardline, delimiter];
   }
-  return ["////", hardline, "////"];
+  return [
+    delimiter,
+    hardline,
+    join(hardline, interior.split("\n")),
+    hardline,
+    delimiter,
+  ];
 }
 
 // Maps each leaf delimiter variant to its single delimiter character.
@@ -147,8 +172,11 @@ const OPEN_BLOCK_DELIMITER_LENGTH = 2;
  * THE delimiter speller: `prefix` followed by the SHORTEST run of
  * `char` that is at least `minLength` long and equals no line of the
  * interior about to be written between the two delimiter lines. Every
- * delimiter this plugin chooses comes from here - a leaf block's, a
- * masqueraded parent's, a wrapper's and a table's.
+ * delimiter line this printer writes is spelled here - a leaf
+ * block's, a masqueraded parent's, a wrapper's, a comment block's and
+ * a table's - save the one the syntax gives no room to choose: an
+ * open block's `--`, which has no longer spelling to move to (the
+ * exception paragraph on {@link printDelimitedParent}).
  *
  * The closing line is the exact rstripped opening line, so the two
  * lines are one decision and this is it: `is_delimited_block?`
@@ -438,11 +466,16 @@ interface WrappedBlocks {
  * question about text, where the walk over descendant NODES this
  * replaces could only answer for the blocks it recognised.
  *
- * Open blocks are the exception and take the fixed two-dash spelling:
- * the registry admits `--` and nothing longer
- * (src/parse/line-shapes.ts), so a conflict in an open block's
- * interior cannot be spelled out of and is not this function's to
- * repair.
+ * Open blocks are the exception and take the fixed two-dash spelling.
+ * `is_delimited_block?` reaches its open-block arm only for a line of
+ * exactly two characters (`parser.rb:980-983`), and a three-character
+ * `tip_len` returns nothing at all (`parser.rb:1002-1003`), so `--`
+ * has no longer spelling to move to. A `--` line in an open block's
+ * printed interior therefore closes it early and no delimiter choice
+ * can prevent that; issue #144 is open for the hole. The same fixed
+ * spelling is written at the one other `--` site,
+ * {@link computeMasqueradeDelimiter}'s open arm, for the same reason
+ * and under the same issue.
  * @param wrapper - the delimiter variant and the blocks it wraps
  * @param path - Prettier's AST path
  * @param print - Prettier's recursive print callback

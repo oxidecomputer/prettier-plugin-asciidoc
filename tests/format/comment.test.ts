@@ -114,6 +114,38 @@ describe("block comment formatting", () => {
     expect(await formatAdoc(input)).toBe(expected);
   });
 
+  // Regression: the delimiter is spelled off the interior about to be
+  // written, the way every other block's is. A `////` line inside a
+  // `//////` comment used to print as "////\n////\n////\n", whose
+  // second line closes the block its first line opened: the result is
+  // not a fixed point (it re-formats to "////\n////\n\n////\n////\n"),
+  // and anything standing after the conflicting line leaves the
+  // comment. A comment block renders to nothing only while it stays a
+  // comment, which is what the corruption ends: the second row's
+  // `secret` reached the oracle as a paragraph before this fix, so
+  // render-equality is a real assertion here and not a trivial one.
+  test.each([
+    ["//////\n////\n//////\n", "/////\n////\n/////\n"],
+    [
+      "//////\n////\nsecret\n////\n//////\n",
+      "/////\n////\nsecret\n////\n/////\n",
+    ],
+  ])("%j keeps its interior inside the comment", async (input, expected) => {
+    const out = await formatAdoc(input);
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(out).toBe(expected);
+    expect(await formatAdoc(out)).toBe(out);
+  });
+
+  // The minimum spelling is kept where nothing collides: an interior
+  // line LONGER than the delimiter is content to the reader, which
+  // closes on an equality (`read_lines_until`, reader.rb:396-438), so
+  // it constrains nothing.
+  test("an interior line longer than the delimiter leaves it at four", async () => {
+    const input = "////\ncontent\n//////\n////\n";
+    expect(await formatAdoc(input)).toBe(input);
+  });
+
   // Regression: whitespace-only content in a block comment is
   // dropped. Prettier trims trailing whitespace, so "     "
   // would become a blank line that re-parses differently.
