@@ -55,6 +55,14 @@ interface ScannedCell {
   readonly runs: readonly TableTextRun[];
   /** The repeat the cell-spec queue handed this cell. */
   readonly repeat: TableCellRepeat;
+  /**
+   * The column whose style this cell inherits, numbered by a table's
+   * open (src/parse/lines/table-open.ts) beside the resolved columns
+   * it indexes into. Carried, never recomputed here: the arithmetic
+   * that turns a duplicate spec into an advance of its own count is a
+   * decision, and decisions do not live in this module.
+   */
+  readonly columnIndex: number;
 }
 
 /**
@@ -110,9 +118,9 @@ function cellEnd(cell: ScannedCell): number {
 }
 
 /**
- * One cut cell, as a `TableCellNode`. `opening`, `runs` and `repeat`
- * carry straight across (see the module comment on structural
- * typing); only the position is computed here.
+ * One cut cell, as a `TableCellNode`. `opening`, `runs`, `repeat` and
+ * `columnIndex` carry straight across (see the module comment on
+ * structural typing); only the position is computed here.
  * @param cell - the cut cell
  * @param at - the document's location index
  * @returns the cell node
@@ -123,6 +131,7 @@ function buildCell(cell: ScannedCell, at: LocationIndex): TableCellNode {
     opening: cell.opening,
     runs: cell.runs,
     repeat: cell.repeat,
+    columnIndex: cell.columnIndex,
     position: {
       start: at.at(cell.opening.offset),
       end: at.at(cellEnd(cell)),

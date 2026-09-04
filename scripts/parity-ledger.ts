@@ -453,6 +453,21 @@ const TABLE_NODE_FAMILY = "table-node";
 export const TABLE_DELIMITER_LENGTH_FAMILY = "table-delimiter-length";
 
 /**
+ * Every table cell records the column it inherits its style from
+ * (`TableCellNode.columnIndex`, src/ast.ts): its physical position in
+ * its row after duplicate expansion, which a consumer would otherwise
+ * re-derive by counting the same cells a second time. The formatted
+ * bytes do not move at all, over this corpus or any other, because
+ * nothing in src/print reads the field yet - so every declared case
+ * differs in the AST alone, by that one key and nothing else. NOT
+ * formatted-only: the key IS the difference, and a formatted-only
+ * family would fail the cross-check for every case.
+ *
+ * Not exported: no grid row cites it.
+ */
+const TABLE_CELL_COLUMN_INDEX_FAMILY = "table-cell-column-index";
+
+/**
  * The closed family enum. SURFACE HONESTY, not an armed
  * gate: a family id can only legally be a corpus id or an
  * identity-fixture id. The formatted-only subset is exactly
@@ -474,10 +489,12 @@ export const TABLE_DELIMITER_LENGTH_FAMILY = "table-delimiter-length";
  * document-header re-roots a titled document's opening lines under
  * one header node, curved-quote-node turns a quoted backtick pair
  * into a node, block-start-line-fact records the source-line
- * question the printer used to re-derive, and table-node replaces a
- * table's opaque text with the cells it was cut into, so an entry of
- * those fourteen whose AST differs is legal and an entry of any other
- * family whose AST differs fails the cross-check.
+ * question the printer used to re-derive, table-node replaces a
+ * table's opaque text with the cells it was cut into, and
+ * table-cell-column-index records the column every cell inherits its
+ * style from, so an entry of those fifteen whose AST differs is legal
+ * and an entry of any other family whose AST differs fails the
+ * cross-check.
  */
 export const LEDGER_FAMILIES: FamilySets = {
   families: new Set([
@@ -509,6 +526,7 @@ export const LEDGER_FAMILIES: FamilySets = {
     SPAN_ROLE_NODE_FAMILY,
     TABLE_NODE_FAMILY,
     TABLE_DELIMITER_LENGTH_FAMILY,
+    TABLE_CELL_COLUMN_INDEX_FAMILY,
   ]),
   formattedOnly: new Set([
     AUTHOR_PLUS_FAMILY,
@@ -523,12 +541,14 @@ export const LEDGER_FAMILIES: FamilySets = {
     CONTINUATION_KEEPS_LINE_FAMILY,
     TABLE_DELIMITER_LENGTH_FAMILY,
   ]),
-  // One family so far, and the key it owns is the field
-  // `ParagraphNode.firstWordEndsItsLine` (src/ast.ts) as the dumper
-  // serializes it. Every other family names a change to what the tree
-  // MEANS at some ids; this one names a field every paragraph gained.
+  // Two families, and each owns exactly the field it named, as the
+  // dumper serializes it: `ParagraphNode.firstWordEndsItsLine` and
+  // `TableCellNode.columnIndex` (both src/ast.ts). Every other family
+  // names a change to what the tree MEANS at some ids; these two name
+  // a field every paragraph, or every table cell, gained.
   blanketKeys: new Map([
     [BLOCK_START_LINE_FACT_FAMILY, new Set(["firstWordEndsItsLine"])],
+    [TABLE_CELL_COLUMN_INDEX_FAMILY, new Set(["columnIndex"])],
   ]),
 };
 

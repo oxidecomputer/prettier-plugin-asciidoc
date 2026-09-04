@@ -17,6 +17,17 @@ function firstTable(source: string): TableNode {
   return node;
 }
 
+/**
+ * The column index every cell of a table recorded, row by row.
+ * @param source - a document whose first block is a table
+ * @returns one array of indexes per row, in document order
+ */
+function columnIndexes(source: string): number[][] {
+  return firstTable(source).children.map((row) =>
+    row.children.map((cell) => cell.columnIndex),
+  );
+}
+
 // A table is a node of its own, with the delimiter lines as its own
 // fields and the interior cut into cells; behavior is Ruby's
 // is_delimited_block? + parse_table (parser.rb:976-1010, :870-878,
@@ -152,5 +163,48 @@ describe("table delimiters open table nodes", () => {
     const replayed = replayTable(node);
     expect(slice.startsWith(replayed)).toBe(true);
     expect(allowsOverhang(node, slice.slice(replayed.length))).toBe(true);
+  });
+});
+
+// The column a cell inherits its style from is its PHYSICAL position
+// in the row after duplicate expansion, which is Ruby's own
+// `@table.columns[@current_row.size]` (table.rb:662). These pin that
+// index where the parser records it, so nothing downstream re-derives
+// it from a second reading of the same cells.
+describe("a table cell records the column it inherits its style from", () => {
+  test("a plain row indexes its cells in order", () => {
+    expect(columnIndexes("|===\n|a |b |c\n|===\n")).toEqual([[0, 1, 2]]);
+  });
+
+  // A colspan is ONE Table::Cell (table.rb:665), so it advances the
+  // position by one and not by its span, even though it advances
+  // @column_visits by its colspan (:670).
+  test("a colspan advances the index by one", () => {
+    expect(
+      columnIndexes('[cols="3*"]\n|===\n|a 2+|b\n|c |d |e\n|===\n'),
+    ).toEqual([
+      [0, 1],
+      [0, 1, 2],
+    ]);
+  });
+
+  // A duplicate runs the `1.upto(repeat)` loop `count` times
+  // (table.rb:651), each iteration pushing a cell at :671, so the next
+  // recorded cell's index is past all N of them.
+  test("a duplicate advances the index by its count", () => {
+    expect(columnIndexes('[cols="4*"]\n|===\n3*|x |d\n|===\n')).toEqual([
+      [0, 3],
+    ]);
+  });
+
+  // The index restarts at every row, including a row a rowspan above
+  // has reserved slots in: the reservation moves @active_rowspans
+  // (table.rb:713-716) and effective_column_visits (:727-729), not
+  // `@current_row.size`.
+  test("a row under a rowspan still indexes from zero", () => {
+    expect(columnIndexes('[cols="2*"]\n|===\n.2+|s |b\n|c\n|===\n')).toEqual([
+      [0, 1],
+      [0],
+    ]);
   });
 });

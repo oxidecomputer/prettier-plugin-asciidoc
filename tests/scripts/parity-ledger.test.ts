@@ -136,7 +136,7 @@ describe("expected-diff ledger", () => {
     expect(failures.some((line) => line.includes("formatted-only"))).toBe(true);
   });
 
-  test("the production enum: 28 families, the eleven byte-only ones formatted-only", () => {
+  test("the production enum: 29 families, the eleven byte-only ones formatted-only", () => {
     expect([...LEDGER_FAMILIES.families].toSorted()).toEqual([
       "attribute-continuation",
       "attribute-entry-spelling",
@@ -162,6 +162,7 @@ describe("expected-diff ledger", () => {
       "plus-run-tail-kept",
       "pseudo-run-fold",
       "span-role-node",
+      "table-cell-column-index",
       "table-delimiter-length",
       "table-node",
       "trailing-continuation-kept",

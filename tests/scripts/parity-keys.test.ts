@@ -376,13 +376,17 @@ describe("a family declared BOTH ways in one range", () => {
 });
 
 describe("the production enum's blanket declaration", () => {
-  test("the family owns exactly the recorded-fact key", () => {
+  test("each family owns exactly the recorded-fact key it named", () => {
     expect([...LEDGER_FAMILIES.blanketKeys.keys()]).toEqual([
       "block-start-line-fact",
+      "table-cell-column-index",
     ]);
     expect([
       ...(LEDGER_FAMILIES.blanketKeys.get("block-start-line-fact") ?? []),
     ]).toEqual(["firstWordEndsItsLine"]);
+    expect([
+      ...(LEDGER_FAMILIES.blanketKeys.get("table-cell-column-index") ?? []),
+    ]).toEqual(["columnIndex"]);
     // A blanket family may not also be formatted-only: the two claims
     // contradict (one says the bytes are identical, the other says the
     // bytes are the only thing that moved).

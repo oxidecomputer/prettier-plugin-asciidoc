@@ -1617,6 +1617,35 @@ export interface TableCellNode extends Node {
    * about how this cell's own text was spelled.
    */
   repeat: TableCellRepeat;
+  /**
+   * The column this cell inherits its style from, as a zero-based
+   * index into {@link TableNode.columns}: the cell's PHYSICAL
+   * position in its row after duplicate expansion, which is Ruby's
+   * own `@table.columns[@current_row.size]` (table.rb:662). A
+   * DUPLICATE spec (`3*|x`) is one node here standing for several of
+   * Ruby's cells, so it advances the index by its count; a COLSPAN is
+   * one `Table::Cell` however many columns it visits (table.rb:665),
+   * so it advances the index by one while advancing `@column_visits`
+   * by its colspan (:670).
+   *
+   * Recorded and not derived. A cell's effective style is its own
+   * spec's style, or the style of the column at this index, so a
+   * consumer that re-derived the index would be a second source of
+   * truth beside the grouping that already counted the same cells.
+   *
+   * One gap a reader of the index inherits: a HEADER row's cells take
+   * no column style at all. `Table::Cell#initialize` reaches
+   * `cell_style = column.style` only on the arm a non-header row
+   * takes, and an implicit header row that had one nulls it again
+   * (table.rb:241-247), so no header-row cell is literal even under
+   * `[cols="1l"]`. The index itself says nothing about that: it is
+   * the plain physical position on a header row as everywhere else,
+   * and {@link TableNode.header} is what names the row. A consumer
+   * that only ever DECLINES to move whitespace may read a header-row
+   * cell as literal and be conservative; one that read it as
+   * non-literal would not be.
+   */
+  columnIndex: number;
 }
 
 /**
