@@ -240,15 +240,16 @@ describe("what the rows refuse", () => {
   });
 
   // The space class, pinned apart from the fixed-point rows because
-  // this shape is NOT one. Ruby's spaced row admits the space
-  // character, a newline and a line boundary, never a tab, so
+  // the two spellings are DIFFERENT documents. Ruby's spaced row admits
+  // the space character, a newline and a line boundary, never a tab, so
   // `a<TAB>--<TAB>b` renders its dashes literally and the scan finds
-  // nothing. The formatter's own whitespace normalisation then rewrites
-  // the tabs to spaces and the output DOES carry an em dash - a
-  // pre-existing reflow decision (the parent revision writes the same
-  // bytes), which this vocabulary is the first thing to name. Recorded
-  // here rather than hidden: the row this file is about is right, and
-  // the whitespace rewrite above it is a separate question.
+  // nothing, while `a -- b` carries an em dash.
+  //
+  // Red before the fold refusal (issue #87): the formatter rewrote the
+  // tabs to spaces, so this row's third line read `a -- b\n` and the
+  // formatted document rendered an em dash the input had not got. The
+  // tabs are load-bearing bytes now (src/print/whitespace-fold.ts), and
+  // the output is the input.
   //
   // The TABS are the claim, so this row reads the oracle's own bytes.
   // The comparison lens happens to carry a lone tab through today (its
@@ -258,7 +259,7 @@ describe("what the rows refuse", () => {
   test("a tab is not the space the spaced row admits", async () => {
     expect(references("a\t--\tb")).toEqual([]);
     expect(await oracleHtml("a\t--\tb")).toContain("a\t--\tb");
-    expect(await formatAdoc("a\t--\tb")).toBe("a -- b\n");
+    expect(await formatAdoc("a\t--\tb")).toBe("a\t--\tb\n");
     expect(references("a -- b")).toEqual(["2:--"]);
   });
 });
