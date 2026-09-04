@@ -108,7 +108,7 @@ describe("listing block formatting", () => {
     expect(await renderedHtml(withTrailingSpace)).toBe(
       await renderedHtml(stripped),
     );
-    // And that shared render is the single, unsplit listing block  - 
+    // And that shared render is the single, unsplit listing block  -
     // not two blocks the interior line accidentally terminated.
     expect(await oracleHtml(stripped)).toBe(
       '<div class="listingblock">\n<div class="content">\n<pre>foo\n-----</pre>\n</div>\n</div>',
