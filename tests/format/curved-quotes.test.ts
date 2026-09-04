@@ -23,12 +23,7 @@
  *     points with their renders.
  */
 import { describe, expect, test } from "vitest";
-import {
-  asParagraph,
-  formatAdoc,
-  oracleHtml,
-  renderedHtml,
-} from "../helpers.js";
+import { asParagraph, formatAdoc, renderedHtml } from "../helpers.js";
 import { parse } from "../../src/parser.js";
 import { serializedKeys } from "../parser/reader-helpers.js";
 
@@ -36,6 +31,13 @@ import { serializedKeys } from "../parser/reader-helpers.js";
  * One row's full verdict for a FIXED POINT: formatted bytes equal the
  * source plus a trailing newline, the oracle's render contains the
  * given element, and a second format is stable.
+ *
+ * The element is read through the comparison lens, so a curly quote
+ * is written as the character it is rather than as the numeric
+ * reference the oracle spells it with: these rows claim which span
+ * resolved where, never how Asciidoctor serializes a character.
+ * Inside a verbatim region the lens changes nothing, so the one row
+ * whose quotes land in a `<code>` element spells them as references.
  * @param source - the row's document, without its trailing newline
  * @param oracleElement - the paragraph element the oracle renders
  */
@@ -46,7 +48,7 @@ async function expectFixedPoint(
   const input = `${source}\n`;
   const out = await formatAdoc(input);
   expect(out).toBe(input);
-  expect(await oracleHtml(input)).toContain(oracleElement);
+  expect(await renderedHtml(input)).toContain(oracleElement);
   expect(await formatAdoc(out)).toBe(out);
 }
 
@@ -61,19 +63,19 @@ describe("the twelve corruption witnesses", () => {
   // are byte fixed points; the twelfth is not (see the row below the
   // table) and is asserted separately.
   test.each<[string, string]>([
-    ['x "`__a__`" y', "<p>x &#8220;<em>a</em>&#8221; y</p>"],
-    ['x "`__a__ b`" y', "<p>x &#8220;<em>a</em> b&#8221; y</p>"],
-    ['x "`##a##`" y', "<p>x &#8220;<mark>a</mark>&#8221; y</p>"],
-    ['x "`##a## b`" y', "<p>x &#8220;<mark>a</mark> b&#8221; y</p>"],
-    ['x "`##a`"## y', "<p>x &#8220;<mark>a&#8221;</mark> y</p>"],
-    ["x '`__a__`' y", "<p>x &#8216;<em>a</em>&#8217; y</p>"],
-    ["x '`__a__ b`' y", "<p>x &#8216;<em>a</em> b&#8217; y</p>"],
-    ["x '`##a##`' y", "<p>x &#8216;<mark>a</mark>&#8217; y</p>"],
-    ["x '`##a## b`' y", "<p>x &#8216;<mark>a</mark> b&#8217; y</p>"],
-    ["x '`##a`'## y", "<p>x &#8216;<mark>a&#8217;</mark> y</p>"],
-    ["'`__a__`'", "<p>&#8216;<em>a</em>&#8217;</p>"],
-  ])("%s", async (source, oracleHtml) => {
-    await expectFixedPoint(source, oracleHtml);
+    ['x "`__a__`" y', "<p>x \u201C<em>a</em>\u201D y</p>"],
+    ['x "`__a__ b`" y', "<p>x \u201C<em>a</em> b\u201D y</p>"],
+    ['x "`##a##`" y', "<p>x \u201C<mark>a</mark>\u201D y</p>"],
+    ['x "`##a## b`" y', "<p>x \u201C<mark>a</mark> b\u201D y</p>"],
+    ['x "`##a`"## y', "<p>x \u201C<mark>a\u201D</mark> y</p>"],
+    ["x '`__a__`' y", "<p>x \u2018<em>a</em>\u2019 y</p>"],
+    ["x '`__a__ b`' y", "<p>x \u2018<em>a</em> b\u2019 y</p>"],
+    ["x '`##a##`' y", "<p>x \u2018<mark>a</mark>\u2019 y</p>"],
+    ["x '`##a## b`' y", "<p>x \u2018<mark>a</mark> b\u2019 y</p>"],
+    ["x '`##a`'## y", "<p>x \u2018<mark>a\u2019</mark> y</p>"],
+    ["'`__a__`'", "<p>\u2018<em>a</em>\u2019</p>"],
+  ])("%s", async (source, oracleElement) => {
+    await expectFixedPoint(source, oracleElement);
   });
 
   // The twelfth witness holds TWO unconstrained spans in the same
@@ -89,8 +91,8 @@ describe("the twelve corruption witnesses", () => {
   test("the second mark of two, at the curved quote's close side, shortens; the render and idempotence still hold", async () => {
     const source = 'x "`__a__ and __b__`" y';
     const input = `${source}\n`;
-    const oracleElement = "<p>x &#8220;<em>a</em> and <em>b</em>&#8221; y</p>";
-    expect(await oracleHtml(input)).toContain(oracleElement);
+    const oracleElement = "<p>x \u201C<em>a</em> and <em>b</em>\u201D y</p>";
+    expect(await renderedHtml(input)).toContain(oracleElement);
     const out = await formatAdoc(input);
     expect(out).toBe('x "`__a__ and _b_`" y\n');
     expect(await renderedHtml(out)).toBe(await renderedHtml(input));
@@ -129,8 +131,8 @@ describe("the stray-mark witness: a block-wide scan, not a sibling scan", () => 
     const input = 'x [[[_a]]] "`b __c__`" y\n';
     const out = await formatAdoc(input);
     expect(out).toBe(input);
-    expect(await oracleHtml(input)).toContain(
-      '<p>x [<a id="_a"></a>] &#8220;b <em>c</em>&#8221; y</p>',
+    expect(await renderedHtml(input)).toContain(
+      '<p>x [<a id="_a"></a>] \u201Cb <em>c</em>\u201D y</p>',
     );
     expect(await formatAdoc(out)).toBe(out);
   });
@@ -146,9 +148,9 @@ describe("near-miss and nesting rows", () => {
     // close past the doubled backticks, and the leftover backticks
     // stay literal (monospace's own front class excludes the `;` the
     // curved row's entity leaves behind).
-    ['x "``a``" y', "<p>x &#8220;`a`&#8221; y</p>"],
+    ['x "``a``" y', "<p>x \u201C`a`\u201D y</p>"],
     // The same shape with no surrounding text.
-    ['"``a``"', "<p>&#8220;`a`&#8221;</p>"],
+    ['"``a``"', "<p>\u201C`a`\u201D</p>"],
     // A monospace pair HOLDING a curved quote: the outer backticks pair
     // first (monospace's row runs before the curved rows), so the
     // curved pair inside is content, not a sibling construct.
@@ -156,15 +158,15 @@ describe("near-miss and nesting rows", () => {
     // Two candidate curved-double opens; the first's non-greedy content
     // search closes at the FIRST `` `" `` it finds, leaving the second
     // pair's marks as ordinary content.
-    ['x "`a "`b`" c`" y', '<p>x &#8220;a "`b&#8221; c`" y</p>'],
+    ['x "`a "`b`" c`" y', '<p>x \u201Ca "`b\u201D c`" y</p>'],
     // A double pair holding a nested single pair as content: the
     // single pair's own row runs after the double's, resolving inside
     // the content the double row already carried through unprocessed.
-    ["x \"`a '`b`' c`\" y", "<p>x &#8220;a &#8216;b&#8217; c&#8221; y</p>"],
+    ["x \"`a '`b`' c`\" y", "<p>x \u201Ca \u2018b\u2019 c\u201D y</p>"],
     // An inline attribute list beside a curved pair: `[.foo]` is not a
     // role a curved quote takes (only highlight's `#...#` reads one),
     // so it converts on its own and the curved pair still forms.
-    ['x [.foo]"`a`" y', '<p>x <span class="foo">&#8220;a&#8221;</span> y</p>'],
+    ['x [.foo]"`a`" y', '<p>x <span class="foo">\u201Ca\u201D</span> y</p>'],
     // A backslash escapes the straight quote itself: the curved pair
     // cannot open, but the monospace pair beside it is unaffected.
     ['x \\"`a`" y', '<p>x "`a`" y</p>'],
@@ -187,22 +189,22 @@ describe("near-miss and nesting rows", () => {
     ['x "`a`"b y', '<p>x "`a`"b y</p>'],
     // Parentheses on both sides are ordinary punctuation: the pair
     // forms normally.
-    ['x ("`a`") y', "<p>x (&#8220;a&#8221;) y</p>"],
+    ['x ("`a`") y', "<p>x (\u201Ca\u201D) y</p>"],
     // `;` immediately BEHIND the close is not excluded - only the
     // front clause excludes it - so the pair still forms.
-    ['x "`a`";b y', "<p>x &#8220;a&#8221;;b y</p>"],
+    ['x "`a`";b y', "<p>x \u201Ca\u201D;b y</p>"],
     // A constrained italic immediately behind the close, with no space
     // between: both spans form independently.
     ['x "`a`"_b_ y', '<p>x "`a`"<em>b</em> y</p>'],
     // The single curved quote's own possessive/contraction guard: a
     // letter immediately behind the close refuses the pair, leaving an
     // ordinary apostrophe-s.
-    ["x '`a`'s y", "<p>x '`a&#8217;s y</p>"],
+    ["x '`a`'s y", "<p>x '`a\u2019s y</p>"],
     // The single-quote analogue of the monospace-holding-a-curved-pair
     // row above.
-    ["x `'`a`' y", "<p>x &#8217;`a&#8217; y</p>"],
-  ])("%s", async (source, oracleHtml) => {
-    await expectFixedPoint(source, oracleHtml);
+    ["x `'`a`' y", "<p>x \u2019`a\u2019 y</p>"],
+  ])("%s", async (source, oracleElement) => {
+    await expectFixedPoint(source, oracleElement);
   });
 });
 

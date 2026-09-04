@@ -80,7 +80,12 @@ describe("doubled marks inside a run of marks (issue #72)", () => {
     readonly name: string;
     /** The source line. */
     readonly source: string;
-    /** A substring of the oracle's rendered paragraph body. */
+    /**
+     * A substring of the oracle's rendered paragraph body, read
+     * through the comparison lens: these rows claim which span the
+     * oracle RESOLVED, so a numeric character reference would be
+     * written here as the character it names.
+     */
     readonly oracleContains: string;
     /** The expected top-level shape. */
     readonly shape: readonly string[];
@@ -218,7 +223,12 @@ describe("an attrlist in front of a doubled mark (issue #72)", () => {
     readonly name: string;
     /** The source line. */
     readonly source: string;
-    /** A substring of the oracle's rendered paragraph body. */
+    /**
+     * A substring of the oracle's rendered paragraph body, read
+     * through the comparison lens: these rows claim which span the
+     * oracle RESOLVED, so a numeric character reference would be
+     * written here as the character it names.
+     */
     readonly oracleContains: string;
     /**
      * Where the scan says an unconstrained delimiter BEGINS, ascending.

@@ -22,7 +22,11 @@
  * directions.
  *
  * Every row carries the oracle's own render, so no expectation here can
- * drift away from what `@asciidoctor/core` does.
+ * drift away from what `@asciidoctor/core` does. A row asks WHICH
+ * CHARACTER a replacement produced, which is content, so the rows read
+ * the comparison lens and name the character itself; only the tab row,
+ * whose claim is about a whitespace class, reads the oracle's bytes,
+ * where no fold of the lens's can reach it.
  */
 import { describe, expect, test } from "vitest";
 import { formatAdoc, oracleHtml, renderedHtml } from "../helpers.js";
@@ -63,7 +67,13 @@ interface Row {
   readonly name: string;
   /** The document, without its trailing newline. */
   readonly source: string;
-  /** A fragment of the oracle's own render that must appear. */
+  /**
+   * A fragment the oracle renders, read through the comparison lens.
+   * What a row claims is WHICH CHARACTER the replacement produced,
+   * not how Asciidoctor serializes it, so the expectation names the
+   * character (as a `\u` escape, since most of them are invisible on
+   * the page) rather than the numeric reference the oracle writes.
+   */
   readonly oracleContains: string;
   /** The references the scan must find, `offset:bytes`. */
   readonly found: string[];
@@ -78,7 +88,7 @@ interface Row {
  */
 function checkRow(row: Row): void {
   test("the oracle's render", async () => {
-    expect(await oracleHtml(row.source)).toContain(row.oracleContains);
+    expect(await renderedHtml(row.source)).toContain(row.oracleContains);
   });
 
   test("the scan finds these references", () => {
@@ -98,61 +108,61 @@ describe("the eleven modelled rows of REPLACEMENTS", () => {
     {
       name: "(C)",
       source: "x (C) y",
-      oracleContains: "x &#169; y",
+      oracleContains: "x \u00A9 y",
       found: ["2:(C)"],
     },
     {
       name: "(R)",
       source: "x (R) y",
-      oracleContains: "x &#174; y",
+      oracleContains: "x \u00AE y",
       found: ["2:(R)"],
     },
     {
       name: "(TM), the one four-character reference",
       source: "x (TM) y",
-      oracleContains: "x &#8482; y",
+      oracleContains: "x \u2122 y",
       found: ["2:(TM)"],
     },
     {
       name: "the spaced em dash, whose match eats both spaces",
       source: "x -- y",
-      oracleContains: "x&#8201;&#8212;&#8201;y",
+      oracleContains: "x\u2009\u2014\u2009y",
       found: ["2:--"],
     },
     {
       name: "the word em dash, whose match eats the word in front",
       source: "x--y",
-      oracleContains: "x&#8212;&#8203;y",
+      oracleContains: "x\u2014\u200By",
       found: ["1:--"],
     },
     {
       name: "the ellipsis",
       source: "x ... y",
-      oracleContains: "x &#8230;&#8203; y",
+      oracleContains: "x \u2026\u200B y",
       found: ["2:..."],
     },
     {
       name: "the right arrow",
       source: "x -> y",
-      oracleContains: "x &#8594; y",
+      oracleContains: "x \u2192 y",
       found: ["2:->"],
     },
     {
       name: "the right double arrow",
       source: "x => y",
-      oracleContains: "x &#8658; y",
+      oracleContains: "x \u21D2 y",
       found: ["2:=>"],
     },
     {
       name: "the left arrow",
       source: "x <- y",
-      oracleContains: "x &#8592; y",
+      oracleContains: "x \u2190 y",
       found: ["2:<-"],
     },
     {
       name: "the left double arrow",
       source: "x <= y",
-      oracleContains: "x &#8656; y",
+      oracleContains: "x \u21D0 y",
       found: ["2:<="],
     },
     {
@@ -164,7 +174,7 @@ describe("the eleven modelled rows of REPLACEMENTS", () => {
     {
       name: "a numeric entity",
       source: "x &#169; y",
-      oracleContains: "x &#169; y",
+      oracleContains: "x \u00A9 y",
       found: ["2:&#169;"],
     },
   ];
@@ -239,6 +249,12 @@ describe("what the rows refuse", () => {
   // bytes), which this vocabulary is the first thing to name. Recorded
   // here rather than hidden: the row this file is about is right, and
   // the whitespace rewrite above it is a separate question.
+  //
+  // The TABS are the claim, so this row reads the oracle's own bytes.
+  // The comparison lens happens to carry a lone tab through today (its
+  // run rule wants two adjacent blanks), but which whitespace that lens
+  // folds is its own decision to revisit; a claim ABOUT a whitespace
+  // class should not rest on it.
   test("a tab is not the space the spaced row admits", async () => {
     expect(references("a\t--\tb")).toEqual([]);
     expect(await oracleHtml("a\t--\tb")).toContain("a\t--\tb");
@@ -254,49 +270,49 @@ describe("row order and consumption", () => {
     {
       name: "`<->` is the right arrow, because its row runs first",
       source: "a <-> b",
-      oracleContains: "a &lt;&#8594; b",
+      oracleContains: "a &lt;\u2192 b",
       found: ["3:->"],
     },
     {
       name: "`<=>` is the right DOUBLE arrow, for the same reason",
       source: "a <=> b",
-      oracleContains: "a &lt;&#8658; b",
+      oracleContains: "a &lt;\u21D2 b",
       found: ["3:=>"],
     },
     {
       name: "`<==` leaves the left double arrow, nothing having taken it",
       source: "a <== b",
-      oracleContains: "a &#8656;= b",
+      oracleContains: "a \u21D0= b",
       found: ["2:<="],
     },
     {
       name: "`-->` is one dash and one arrow",
       source: "a --> b",
-      oracleContains: "a -&#8594; b",
+      oracleContains: "a -\u2192 b",
       found: ["3:->"],
     },
     {
       name: "`-- --` is ONE em dash: the second pair's space is eaten",
       source: "a -- -- b",
-      oracleContains: "a&#8201;&#8212;&#8201;-- b",
+      oracleContains: "a\u2009\u2014\u2009-- b",
       found: ["2:--"],
     },
     {
       name: "the word row resumes behind its own match, so both pair",
       source: "a--b--c",
-      oracleContains: "a&#8212;&#8203;b&#8212;&#8203;c",
+      oracleContains: "a\u2014\u200Bb\u2014\u200Bc",
       found: ["1:--", "4:--"],
     },
     {
       name: "five dots are one ellipsis and two dots",
       source: "a ..... b",
-      oracleContains: "a &#8230;&#8203;.. b",
+      oracleContains: "a \u2026\u200B.. b",
       found: ["2:..."],
     },
     {
       name: "two arrows run together are two references",
       source: "a ->-> b",
-      oracleContains: "a &#8594;&#8594; b",
+      oracleContains: "a \u2192\u2192 b",
       found: ["2:->", "4:->"],
     },
   ];
@@ -368,13 +384,13 @@ describe("the two rows this parser does not model", () => {
     {
       name: "the right single quote renders and is still text to us",
       source: "x `' y",
-      oracleContains: "x &#8217; y",
+      oracleContains: "x \u2019 y",
       found: [],
     },
     {
       name: "the in-word apostrophe, the same",
       source: "dont x'y z",
-      oracleContains: "dont x&#8217;y z",
+      oracleContains: "dont x\u2019y z",
       found: [],
     },
   ];
@@ -395,8 +411,8 @@ describe("references against the rest of the vocabulary", () => {
   // hold.
   test("a passthrough keeps its own dashes", async () => {
     const source = "x +a -- b+ c -- d y";
-    expect(await oracleHtml(source)).toContain(
-      "x a -- b c&#8201;&#8212;&#8201;d y",
+    expect(await renderedHtml(source)).toContain(
+      "x a -- b c\u2009\u2014\u2009d y",
     );
     expect(shapes(source)).toEqual([
       '"x "',
@@ -412,8 +428,8 @@ describe("references against the rest of the vocabulary", () => {
 
   test("a bare URL keeps its own dashes, and the oracle replaces them", async () => {
     const source = "https://a.com/x--y and -- z";
-    expect(await oracleHtml(source)).toContain(
-      "https://a.com/x&#8212;&#8203;y",
+    expect(await renderedHtml(source)).toContain(
+      "https://a.com/x\u2014\u200By",
     );
     expect(shapes(source)).toEqual(["link", '" and "', 'ref("--")', '" z"']);
     const out = await formatAdoc(source);
@@ -421,9 +437,15 @@ describe("references against the rest of the vocabulary", () => {
     expect(await renderedHtml(out)).toBe(await renderedHtml(source));
   });
 
+  // The one row here whose expectation keeps the reference spelling:
+  // the replacement lands inside a `<code>` element, and the
+  // comparison lens hands a verbatim region back exactly as the
+  // oracle wrote it.
   test("a reference inside a monospace span is a child of it", async () => {
     const source = "x `a--b` c";
-    expect(await oracleHtml(source)).toContain("<code>a&#8212;&#8203;b</code>");
+    expect(await renderedHtml(source)).toContain(
+      "<code>a&#8212;&#8203;b</code>",
+    );
     expect(shapes(source)).toEqual([
       '"x "',
       'monospacec["a",ref("--"),"b"]',

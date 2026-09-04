@@ -12,7 +12,13 @@
  *
  * Every row below carries the oracle's own HTML, asserted here rather
  * than quoted in a comment, so the expectation cannot drift away from
- * what `@asciidoctor/core` actually does.
+ * what `@asciidoctor/core` actually does. What each row claims is
+ * which span the oracle RESOLVED, never how it spelled a character,
+ * so the rows read the comparison lens (`renderedHtml`): there a
+ * numeric character reference and the character it names are one
+ * thing, and a curly quote is written as that character. A reference
+ * standing inside a verbatim region is the exception - the lens hands
+ * those back untouched - so the row holding one spells the reference.
  *
  * WHERE A TREE RUNS OUT. The later rows match ACROSS the tags an
  * earlier row already wrote, so the oracle emits genuinely
@@ -26,7 +32,7 @@
  * readings tied together.
  */
 import { describe, expect, test } from "vitest";
-import { formatAdoc, oracleHtml, renderedHtml } from "../helpers.js";
+import { formatAdoc, renderedHtml } from "../helpers.js";
 import { shapes } from "./inline-shape.js";
 
 /**
@@ -166,7 +172,7 @@ describe.each(OVERLAPS)("crossed marks: $source", (overlap) => {
   const { source, oracleSpan, shape, formatted } = overlap;
 
   test("the oracle resolves the earlier QUOTE_SUBS row first", async () => {
-    expect(await oracleHtml(source)).toContain(oracleSpan);
+    expect(await renderedHtml(source)).toContain(oracleSpan);
   });
 
   test("the parser builds that span and leaves the loser literal", () => {
@@ -186,7 +192,7 @@ describe("resolution order leaves proper nesting alone", () => {
   // both spans survive and nest - resolving the strong first does not
   // cost the emphasis around it.
   test("_a *b* c_ nests the strong inside the emphasis", async () => {
-    expect(await oracleHtml("_a *b* c_")).toContain(
+    expect(await renderedHtml("_a *b* c_")).toContain(
       "<em>a <strong>b</strong> c</em>",
     );
     expect(shapes("_a *b* c_")).toEqual(['italicc["a ",boldc["b"]," c"]']);
@@ -196,7 +202,7 @@ describe("resolution order leaves proper nesting alone", () => {
   // the strong is resolved first, and the `[r]#…#` inside it is still
   // found when the mark row comes round.
   test("*a [r]#b#* keeps the role highlight inside the strong", async () => {
-    expect(await oracleHtml("*a [r]#b#*")).toContain(
+    expect(await renderedHtml("*a [r]#b#*")).toContain(
       '<strong>a <span class="r">b</span></strong>',
     );
     expect(shapes("*a [r]#b#*")).toEqual(['boldc["a ",highlightc(r)["b"]]']);
@@ -206,7 +212,7 @@ describe("resolution order leaves proper nesting alone", () => {
   // row is the later one: the oracle's own `<span>` closes outside the
   // `</em>`.
   test("_a [r]#b_ c# keeps the emphasis and drops the crossing mark", async () => {
-    expect(await oracleHtml("_a [r]#b_ c#")).toContain(
+    expect(await renderedHtml("_a [r]#b_ c#")).toContain(
       '<em>a <span class="r">b</em> c</span>',
     );
     expect(shapes("_a [r]#b_ c#")).toEqual(['italicc["a [r]#b"]', '" c#"']);
@@ -222,7 +228,7 @@ describe("a dropped candidate still consumes its marks", () => {
   // and would be kept: that emphasis is exactly what the oracle does
   // NOT have.
   test("_a *b_ c* d_ e_ leaves both later underscores literal", async () => {
-    expect(await oracleHtml("_a *b_ c* d_ e_")).toContain(
+    expect(await renderedHtml("_a *b_ c* d_ e_")).toContain(
       "<em>a <strong>b</em> c</strong> d_ e_",
     );
     expect(shapes("_a *b_ c* d_ e_")).toEqual([
@@ -257,19 +263,19 @@ describe("curved-quote spans (issue #74)", () => {
     {
       name: "row 2 takes the outer backticks; the inner two stay literal content",
       source: '"``a``"',
-      oracleContains: "&#8220;`a`&#8221;",
+      oracleContains: "\u201C`a`\u201D",
       shape: ['curvedd["`a`"]'],
     },
     {
       name: "a crossing HighlightMark candidate is dropped for crossing the already-resolved curved span - the fix for issue #74",
       source: 'x "`##a`"## y',
-      oracleContains: "x &#8220;<mark>a&#8221;</mark> y",
+      oracleContains: "x \u201C<mark>a\u201D</mark> y",
       shape: ['"x "', 'curvedd["##a"]', '"## y"'],
     },
     {
       name: "the two curved rows cross; the EARLIER row (double, QUOTE_SUBS index 2) wins and the later row's (single) marks stay literal",
       source: "x '`a \"`b`' c`\" y",
-      oracleContains: "x &#8216;a &#8220;b&#8217; c&#8221; y",
+      oracleContains: "x \u2018a \u201Cb\u2019 c\u201D y",
       shape: ['"x \'`a "', 'curvedd["b`\' c"]', '" y"'],
     },
     {
@@ -281,16 +287,19 @@ describe("curved-quote spans (issue #74)", () => {
       // bytes are the source's own.
       name: "the accepted overlap divergence: strong beats the curved row (issue #66, issue #74)",
       source: 'x *"`a*`" y',
-      oracleContains: "x <strong>&#8220;a</strong>&#8221; y",
+      oracleContains: "x <strong>\u201Ca</strong>\u201D y",
       shape: ['"x "', 'boldc["\\"`a"]', '"`\\" y"'],
     },
     {
       name: "a single curved span nests inside a double one",
       source: "x \"`a '`b`' c`\" y",
-      oracleContains: "x &#8220;a &#8216;b&#8217; c&#8221; y",
+      oracleContains: "x \u201Ca \u2018b\u2019 c\u201D y",
       shape: ['"x "', 'curvedd["a ",curveds["b"]," c"]', '" y"'],
     },
     {
+      // The one row whose curly quotes stay spelled as references:
+      // they stand inside a `<code>` element, and the comparison lens
+      // hands a verbatim region back exactly as the oracle wrote it.
       name: "a monospace span wraps a curved one",
       source: 'x `"`a`"` y',
       oracleContains: "x <code>&#8220;a&#8221;</code> y",
@@ -300,7 +309,7 @@ describe("curved-quote spans (issue #74)", () => {
 
   describe.each(CURVED_ROWS)("$name", (row) => {
     test("the oracle's render", async () => {
-      expect(await oracleHtml(row.source)).toContain(row.oracleContains);
+      expect(await renderedHtml(row.source)).toContain(row.oracleContains);
     });
 
     test("the parser builds this shape", () => {
@@ -324,7 +333,7 @@ describe("a mark repeated three times", () => {
   // `bold</strong>`, so the second `<strong>` crosses the first one's
   // closing tag and no tree holds it.
   test("***bold*** is one unconstrained strong holding a literal mark", async () => {
-    expect(await oracleHtml("***bold***")).toContain(
+    expect(await renderedHtml("***bold***")).toContain(
       "<strong><strong>bold</strong></strong>",
     );
     expect(shapes("***bold***")).toEqual(['boldu["*bold"]', '"*"']);
@@ -334,7 +343,7 @@ describe("a mark repeated three times", () => {
   // content stops at the first `**`, and the inner `*` has a word
   // character on both sides so it is no mark to begin with.
   test("**a*b** is one unconstrained strong holding a literal mark", async () => {
-    expect(await oracleHtml("**a*b**")).toContain("<strong>a*b</strong>");
+    expect(await renderedHtml("**a*b**")).toContain("<strong>a*b</strong>");
     expect(shapes("**a*b**")).toEqual(['boldu["a*b"]']);
   });
 });
