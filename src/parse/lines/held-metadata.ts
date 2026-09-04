@@ -140,6 +140,18 @@ export class HeldMetadata {
    * pushed where they were written, which is what left the run
    * looking finished when it was not.
    *
+   * A PREPROCESSOR DIRECTIVE is the seventh kind the guard tests and
+   * is not one of the six: `parse_block_metadata_line` never sees
+   * one, because the reader DELETES the line before the parser reads
+   * it (`PreprocessorReader#process_line`, reader.rb:824). So it
+   * cannot end a held run either, by a different mechanism and to the
+   * same effect: the six are CLAIMED by the metadata loop, and this
+   * one is GONE before the loop runs.
+   * The kinds are tested here rather than delegated to
+   * `isReaderConsumedLine` (src/block-metadata.ts) because that
+   * predicate answers for a `//` line and a preprocessor directive
+   * and NOT for a `////` comment block, which is one of the six.
+   *
    * Called from the reader's one push site, so no dispatch arm can
    * forget it - the same guarantee the header-reachability bit takes
    * from sitting there.
