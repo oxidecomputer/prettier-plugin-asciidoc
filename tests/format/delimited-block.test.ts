@@ -1,5 +1,10 @@
 import { describe, test, expect } from "vitest";
-import { formatAdoc, renderedHtml } from "../helpers.js";
+import {
+  expectFormatted,
+  formatAdoc,
+  oracleHtml,
+  renderedHtml,
+} from "../helpers.js";
 
 describe("listing block formatting", () => {
   // Canonical listing block passes through unchanged.
@@ -51,6 +56,63 @@ describe("listing block formatting", () => {
     const input = "------\n----\nstill inside\n------\n";
     const expected = "-----\n----\nstill inside\n-----\n";
     expect(await formatAdoc(input)).toBe(expected);
+  });
+
+  // #125: the interior line `----- ` carries a trailing space, so its
+  // raw bytes are not delimiter-shaped and used to slip past the
+  // widening check - but Prettier's hardline strips that trailing
+  // space from every printed line regardless (src/print/blocks.ts,
+  // TRAILING_SPACE_OR_TAB), so pass one's OUTPUT line reads `-----`,
+  // 5 dashes, a conflict with the 4-dash fence. Widening has to see
+  // that respelling on pass one, not two passes later.
+  test("fence widens for a trailing-space interior conflict on pass one", async () => {
+    await expectFormatted(
+      "----\nfoo\n----- \n----\n",
+      "------\nfoo\n-----\n------\n",
+    );
+  });
+
+  // The mirrored operator: a trailing TAB is the other byte Prettier's
+  // hardline strips (getTrailingIndentionLength treats space and tab
+  // alike), so it widens on pass one the same way trailing space does.
+  test("fence widens for a trailing-tab interior conflict on pass one", async () => {
+    await expectFormatted(
+      "----\nfoo\n-----\t\n----\n",
+      "------\nfoo\n-----\n------\n",
+    );
+  });
+
+  // The mirrored operator in the OTHER direction: LEADING whitespace
+  // is not something Prettier's hardline trims (trimIndentation scans
+  // only from the end of the line), so a leading-space interior line
+  // never printed delimiter-shaped and must not widen the fence - on
+  // either side of the #125 fix.
+  test("leading whitespace on an interior conflict does not widen the fence", async () => {
+    await expectFormatted(
+      "----\nfoo\n ----\n----\n",
+      "----\nfoo\n ----\n----\n",
+    );
+  });
+
+  // Render equality, measured rather than assumed: the trailing-space
+  // spelling and the space-stripped spelling of the same interior
+  // line render identically ONLY once a fence wide enough to hold
+  // both as content (not as a terminator) wraps them - Asciidoctor's
+  // own reader rstrips a listing line before comparing it to the
+  // delimiter, so `----- ` is as much a same-length conflict as
+  // `-----` is, and a 4-dash fence would let neither survive as
+  // content unwidened. Both need the 6-dash fence #125 now produces.
+  test("trailing-space and stripped interior spellings render identically inside a wide-enough fence", async () => {
+    const withTrailingSpace = "------\nfoo\n----- \n------\n";
+    const stripped = "------\nfoo\n-----\n------\n";
+    expect(await renderedHtml(withTrailingSpace)).toBe(
+      await renderedHtml(stripped),
+    );
+    // And that shared render is the single, unsplit listing block  - 
+    // not two blocks the interior line accidentally terminated.
+    expect(await oracleHtml(stripped)).toBe(
+      '<div class="listingblock">\n<div class="content">\n<pre>foo\n-----</pre>\n</div>\n</div>',
+    );
   });
 });
 

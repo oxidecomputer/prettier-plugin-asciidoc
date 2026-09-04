@@ -143,13 +143,36 @@ const PARENT_DELIMITER_CHARS: Record<ParentBlockNode["variant"], string> = {
 const OPEN_BLOCK_DELIMITER_LENGTH = 2;
 
 /**
+ * The trailing whitespace Prettier's own doc printer strips from a
+ * hardline-joined line before writing the line break - narrower than
+ * Asciidoctor's rstrip (src/parse/line-shapes.ts's `rstrip`, six ASCII
+ * whitespace characters). The non-literal branch of `DOC_TYPE_LINE`
+ * calls `result.trim()`, which removes only a trailing run of SPACE
+ * and TAB (prettier's `src/document/printer/trim-indentation.js`,
+ * `getTrailingIndentionLength`, reached from the `DOC_TYPE_LINE` case
+ * in `src/document/printer/printer.js` whenever `doc.literal` is not
+ * set - the case every content line below goes through, since content
+ * is joined with `hardline`, not `literalline`). A trailing vertical
+ * tab or form feed survives that trim untouched; a trailing space or
+ * tab does not (#125).
+ */
+const TRAILING_SPACE_OR_TAB = /[ \t]+$/v;
+
+/**
  * Computes the shortest safe delimiter for a delimited
  * block.
  *
  * Scans the block content for lines that consist entirely
  * of the delimiter character (4+ chars) — these would be
- * misinterpreted as delimiters on re-parse. Returns a
- * delimiter one character longer than the longest
+ * misinterpreted as delimiters on re-parse. Each line is
+ * compared as {@link TRAILING_SPACE_OR_TAB} will respell it once
+ * printed, not as the author's raw bytes: an interior line whose
+ * only departure from a delimiter shape is trailing space or tab
+ * still prints delimiter-shaped, once the printer's own hardline
+ * trims that whitespace away, so pass one has to see the same
+ * spelling pass one is about to emit (#125 - matching the raw bytes
+ * here left widening one pass behind the trim, a bounded two-pass
+ * wobble). Returns a delimiter one character longer than the longest
  * conflict. When no conflicts exist, returns the minimum
  * 4-character delimiter.
  * @param content - The verbatim text content of the
@@ -170,8 +193,9 @@ function computeDelimiter(content: string, delimChar: string): string {
   // Empty content needs no guard: it splits to one empty line, and no
   // `{4,}` pattern matches that.
   for (const line of content.split("\n")) {
-    if (pattern.test(line)) {
-      maxConflict = Math.max(maxConflict, line.length);
+    const printed = line.replace(TRAILING_SPACE_OR_TAB, "");
+    if (pattern.test(printed)) {
+      maxConflict = Math.max(maxConflict, printed.length);
     }
   }
   const length = Math.max(

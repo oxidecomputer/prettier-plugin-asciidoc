@@ -216,7 +216,7 @@
     "issue": "UNTRIAGED"
   },
   "pair/trailing-space/fidelity": {
-    "count": 2090,
+    "count": 2092,
     "examples": [
       "pair/admonition-label-near-0/callout/adjacent/dlist-desc-line@trailing-space",
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/dlist-desc-line@trailing-space",
@@ -224,7 +224,7 @@
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/item@trailing-space",
       "pair/admonition-label-near-1/callout/adjacent/dlist-desc-line@trailing-space"
     ],
-    "sha256": "1a47f8b26fa7df035f599865748e306bc5c4491ac787a037be06cd5ea144c63f",
+    "sha256": "7190c8300360233900101288af0e558fb8597f8453d48046b63c5ecc3434c4d1",
     "issue": "UNTRIAGED"
   },
   "pair/trailing-space/idempotency": {
@@ -240,7 +240,7 @@
     "issue": "UNTRIAGED"
   },
   "pair/trailing-space/idempotency+fidelity": {
-    "count": 345,
+    "count": 339,
     "examples": [
       "pair/admonition-label-near-0/indented-continuation/adjacent/dlist-desc-line@trailing-space",
       "pair/admonition-label-near-1/indented-continuation/adjacent/dlist-desc-line@trailing-space",
@@ -248,11 +248,11 @@
       "pair/attribute-entry-near-1/indented-continuation/adjacent/dlist-desc-line@trailing-space",
       "pair/attribute-entry/callout-near-1/adjacent/dlist-desc-line@trailing-space"
     ],
-    "sha256": "460c28ba41846156937beb02e3e2112cd6974d84c8e7928a327ab00c79730faf",
+    "sha256": "736c7a4e21fc5dcb271654e63d736e730ca56d78bec9406f6e67dc8622fdfaaf",
     "issue": "UNTRIAGED"
   },
   "pair/trailing-tab/fidelity": {
-    "count": 2090,
+    "count": 2092,
     "examples": [
       "pair/admonition-label-near-0/callout/adjacent/dlist-desc-line@trailing-tab",
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/dlist-desc-line@trailing-tab",
@@ -260,7 +260,7 @@
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/item@trailing-tab",
       "pair/admonition-label-near-1/callout/adjacent/dlist-desc-line@trailing-tab"
     ],
-    "sha256": "85d88b947b0fae1358cd3c5baa2f0357b162e9e9d0dfa92a72cc4ef0c4c1497c",
+    "sha256": "5355fc32214d6d9d6ad276112dd6519b51d56f16e04bdd8ff33ba9790e5cf5a1",
     "issue": "UNTRIAGED"
   },
   "pair/trailing-tab/idempotency": {
@@ -276,7 +276,7 @@
     "issue": "UNTRIAGED"
   },
   "pair/trailing-tab/idempotency+fidelity": {
-    "count": 345,
+    "count": 339,
     "examples": [
       "pair/admonition-label-near-0/indented-continuation/adjacent/dlist-desc-line@trailing-tab",
       "pair/admonition-label-near-1/indented-continuation/adjacent/dlist-desc-line@trailing-tab",
@@ -284,7 +284,7 @@
       "pair/attribute-entry-near-1/indented-continuation/adjacent/dlist-desc-line@trailing-tab",
       "pair/attribute-entry/callout-near-1/adjacent/dlist-desc-line@trailing-tab"
     ],
-    "sha256": "bb5e614ad5fd2188f71c0fb4c745f3836106b5b19033b0e306a840c549471ad3",
+    "sha256": "93a868cd76577855f2e48456cf5a438a81ec72f550ecdaf11cf72071581ad11c",
     "issue": "UNTRIAGED"
   },
   "pair/trailing-vt/fidelity": {
@@ -460,27 +460,11 @@
     "issue": "UNTRIAGED"
   },
   "standing/trailing-space/idempotency": {
-    "count": 58,
+    "count": 1,
     "examples": [
-      "commentBlock/dlist-desc/longer-delimiter-inside@trailing-space",
-      "listing/after-fence/longer-delimiter-inside@trailing-space",
-      "listing/after-h0-blank/longer-delimiter-inside@trailing-space",
-      "listing/after-h1-adjacent/longer-delimiter-inside@trailing-space",
-      "listing/after-h1-blank/longer-delimiter-inside@trailing-space"
+      "commentBlock/dlist-desc/longer-delimiter-inside@trailing-space"
     ],
-    "sha256": "e9291b44ce737dea9ae0fde9273a3ef4ee60e0b132d88e0873124b03c0073a8a",
-    "issue": "UNTRIAGED"
-  },
-  "standing/trailing-space/idempotency+fidelity": {
-    "count": 6,
-    "examples": [
-      "listing/after-h0-adjacent/longer-delimiter-inside@trailing-space",
-      "listing/dlist-desc/longer-delimiter-inside@trailing-space",
-      "literal/after-h0-adjacent/longer-delimiter-inside@trailing-space",
-      "literal/dlist-desc/longer-delimiter-inside@trailing-space",
-      "pass/after-h0-adjacent/longer-delimiter-inside@trailing-space"
-    ],
-    "sha256": "b5e8babdcfd5bed32f36dba1a100ccca0f7667c6a7eab48264f1eadf9220a1ea",
+    "sha256": "2103d6c968e096d9b7c9bab397b6c5414401f5eb9336e55415dee984009bb4f5",
     "issue": "UNTRIAGED"
   },
   "standing/trailing-tab/fidelity": {
@@ -496,27 +480,11 @@
     "issue": "UNTRIAGED"
   },
   "standing/trailing-tab/idempotency": {
-    "count": 58,
+    "count": 1,
     "examples": [
-      "commentBlock/dlist-desc/longer-delimiter-inside@trailing-tab",
-      "listing/after-fence/longer-delimiter-inside@trailing-tab",
-      "listing/after-h0-blank/longer-delimiter-inside@trailing-tab",
-      "listing/after-h1-adjacent/longer-delimiter-inside@trailing-tab",
-      "listing/after-h1-blank/longer-delimiter-inside@trailing-tab"
+      "commentBlock/dlist-desc/longer-delimiter-inside@trailing-tab"
     ],
-    "sha256": "4a736c80b31a3e962ab28fa4acd6478366029ab19b6010accf17423925121c7e",
-    "issue": "UNTRIAGED"
-  },
-  "standing/trailing-tab/idempotency+fidelity": {
-    "count": 6,
-    "examples": [
-      "listing/after-h0-adjacent/longer-delimiter-inside@trailing-tab",
-      "listing/dlist-desc/longer-delimiter-inside@trailing-tab",
-      "literal/after-h0-adjacent/longer-delimiter-inside@trailing-tab",
-      "literal/dlist-desc/longer-delimiter-inside@trailing-tab",
-      "pass/after-h0-adjacent/longer-delimiter-inside@trailing-tab"
-    ],
-    "sha256": "624c0ff348de5cdebe3c5d364d1ba54f5932dc3dec28177db4ad290adf3dd537",
+    "sha256": "8ff60ed9fc62bdadc67f5ac5251709ac1015255a44d848ac6da51b0c69498c01",
     "issue": "UNTRIAGED"
   },
   "standing/trailing-vt/fidelity": {
