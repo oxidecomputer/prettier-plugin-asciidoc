@@ -483,6 +483,29 @@ interface OracleRubyCell {
   readonly rowspan: number | null;
   /** The cell's own attributes, `halign`/`valign`/`style` among them. */
   readonly getAttributes: () => Record<string, unknown>;
+  /**
+   * The nested `Document` an `a|` cell holds, `null` for every other
+   * cell (`attr_reader :inner_document`, "only set when style is
+   * :asciidoc", table.rb:231-232). A cell in a HEADER row answers
+   * `null` even where its column named the style, because that style
+   * was nulled before the branch building the document ran
+   * (`cell_style = nil`, table.rb:241-245), so this is the authority on
+   * which cells the oracle really reads as documents.
+   */
+  readonly getInnerDocument: () => OracleRubyDocument | null;
+}
+
+/**
+ * The oracle's own `Document` shape, restated for the same reason as
+ * {@link OracleRubyCell}. Only the source lines are read here, and
+ * they are the lines the nested parse was handed.
+ */
+interface OracleRubyDocument {
+  /**
+   * The document's source lines, newlines excluded.
+   * @returns one entry per line
+   */
+  readonly getSourceLines: () => string[];
 }
 
 /**
@@ -596,4 +619,52 @@ export async function oracleTables(input: string): Promise<OracleTable[]> {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- @asciidoctor/core does not export Table's own shape; OracleRubyTable restates the probed 4.0.11 API
     oracleTableOf(table as unknown as OracleRubyTable, severities),
   );
+}
+
+/**
+ * Every nested document the oracle builds for an `a|` cell in
+ * `input`, in document order, as the source lines each one was
+ * parsed from.
+ *
+ * `getInnerDocument()` is the predicate as well as the payload: a
+ * cell answers a document exactly when the oracle read its content as
+ * one, header-row suppression included (see
+ * {@link OracleRubyCell.getInnerDocument}), so nothing here re-derives
+ * a style. `findBy` does not descend into those documents
+ * (`traverse_documents` is off by default), so a table nested inside a
+ * cell contributes none of its own - which is equally true of the
+ * reader this is compared against.
+ * @param input - AsciiDoc source text
+ * @returns one line array per nested document, in document order
+ */
+export async function oracleCellDocuments(input: string): Promise<string[][]> {
+  // Muted for the reason {@link ConsoleSink} states: a corpus case
+  // with an unterminated block inside a cell is read by a Reader that
+  // carries no document, and its record goes straight to the console
+  // past both logger installs.
+  const loadedDocument = await withoutConsoleFallback(
+    async () => await load(input, { safe: "safe" }),
+  );
+  const found = loadedDocument.findBy({ context: "table" });
+  const documents: string[][] = [];
+  for (const table of found) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- @asciidoctor/core does not export Table's own shape; OracleRubyTable restates the probed 4.0.11 API
+    const rubyTable = table as unknown as OracleRubyTable;
+    const sections = [
+      rubyTable.rows.head,
+      rubyTable.rows.body,
+      rubyTable.rows.foot,
+    ];
+    for (const section of sections) {
+      for (const row of section) {
+        for (const cell of row) {
+          const inner = cell.getInnerDocument();
+          if (inner !== null) {
+            documents.push(inner.getSourceLines());
+          }
+        }
+      }
+    }
+  }
+  return documents;
 }

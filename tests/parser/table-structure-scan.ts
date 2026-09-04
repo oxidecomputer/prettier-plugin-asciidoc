@@ -411,3 +411,49 @@ export function hasSplittingDuplicate(table: TableNode): boolean {
   const columnCount = establishedColumnCount(table);
   return table.children.some((row) => duplicateSplitsRow(row, columnCount));
 }
+
+// ---------------------------------------------------------------------------
+// The cells Asciidoctor reads as a nested document
+// ---------------------------------------------------------------------------
+
+/**
+ * Every cell of `table` whose content Asciidoctor reads as a document
+ * of its own, in the oracle's own order.
+ *
+ * Two facts decide it. The resolved style is `asciidoc` - the cell's
+ * own spec, else the column at the cell's PHYSICAL position, the same
+ * resolution {@link flattenRow} makes. And the cell is not in a
+ * header row: `Table::Cell#initialize` nulls the style it would have
+ * taken while `header_row?` holds (`cell_style = nil`,
+ * table.rb:241-245) and refuses the cell's own style there too
+ * (`unless in_header_row`, table.rb:259), so a header row's cell is a
+ * plain cell whatever the column says. `header_row?` is true only
+ * while the body is still empty (table.rb:83-85), which is the FIRST
+ * row and no other.
+ *
+ * An `N*` duplicate yields its own repetitions, as `flattenRow` does:
+ * the oracle builds one `Table::Cell` per repetition, each with its
+ * own nested document.
+ * @param table - the table to read
+ * @returns the cells, in document order
+ */
+export function nestedDocumentCells(table: TableNode): TableCellNode[] {
+  const found: TableCellNode[] = [];
+  for (const [rowIndex, row] of table.children.entries()) {
+    const headerRow = rowIndex === 0 && table.header !== "none";
+    let position = 0;
+    for (const cell of row.children) {
+      const own = specOf(cell);
+      const repetitions =
+        cell.repeat.kind === "duplicate" ? cell.repeat.count : 1;
+      for (let index = 0; index < repetitions; index += 1) {
+        const { style } = resolvedSpec(own, table.columns?.[position]);
+        if (style === "asciidoc" && !headerRow) {
+          found.push(cell);
+        }
+        position += 1;
+      }
+    }
+  }
+  return found;
+}

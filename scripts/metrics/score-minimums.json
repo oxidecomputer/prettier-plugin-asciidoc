@@ -169,6 +169,10 @@
       "coverage": 100.0,
       "mutation": 100.0
     },
+    "src/parse/lines/table-cell-document.ts": {
+      "coverage": 100.0,
+      "mutation": 0.0
+    },
     "src/parse/lines/table-cell-spec.ts": {
       "coverage": 98.3,
       "mutation": 0.0
@@ -500,6 +504,12 @@
       "what": "mutation minimum 0 - a PLACEHOLDER, not a file with nothing to measure",
       "class": "when",
       "reason": "TRIGGER: the next batched mutation run. This file is new (issue #10, the printer's table dispatch) and replays a table's own records back to bytes, and nothing has measured it, because mutation runs at batched integration points and this file landed between two of them. Its coverage row is measured (100.0 lines, 10 of 10, from a `bunx vitest run --coverage --exclude \"**/parity-trailers.test.ts\"` run of this tree). What holds its behaviour meanwhile is the byte contract itself: tests/format/table.test.ts formats each shape and asserts the exact output bytes, render-equality against the oracle and idempotence, and the whole corpus runs through parity, where a table's formatted bytes may not move at all"
+    },
+    {
+      "file": "src/parse/lines/table-cell-document.ts",
+      "what": "mutation minimum 0 - a PLACEHOLDER, not a file with nothing to measure",
+      "class": "when",
+      "reason": "TRIGGER: the next batched mutation run. This file is new (issue #130) and recovers the lines an `a|` cell's nested document is read from - the buffer's line split across non-adjacent runs, the per-line rstrip and escape chop, and the two trims of close_cell and Table::Cell#initialize - none of which has been measured, because mutation runs at batched integration points and this file landed between two of them. Its coverage row is measured (100.0 lines, 56 of 56, and 31 of 31 branches, from a `bun run coverage` run of this tree). What holds its behaviour meanwhile is the oracle: tests/parser/table-cell-document.test.ts compares every line of all 58 comparable `a|` cell documents in the 1,614-case corpus against `getInnerDocument().getSourceLines()`, asserts each line's `raw` really is the span of the case's own source at the offset it carries, and drives twenty synthetic shapes one trim branch at a time, each one also checked against the oracle"
     }
   ]
 }

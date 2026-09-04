@@ -926,6 +926,13 @@
   {
     "file": "src/parse/line-shapes.ts",
     "symbol": "rstrip",
+    "importer": "src/parse/lines/table-cell-document.ts",
+    "kind": "vocabulary",
+    "reason": "the one line-normalization helper; Ruby's reader rstrips, so every consumer must strip the same way"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "rstrip",
     "importer": "src/print/list.ts",
     "kind": "vocabulary",
     "reason": "the oracle's own per-line rstrip (`prepare_source_string`); the item-boundary rule reads the printer's output lines and must hand them to the registry in the same dialect the reader hands it source lines, or a CRLF terminator makes every shape test fail open"
@@ -1146,6 +1153,13 @@
     "importer": "src/parse/lines/scope.ts",
     "kind": "vocabulary",
     "reason": "the offset-to-Location index every reader over a document shares, named in the record that says what a reader is given"
+  },
+  {
+    "file": "src/parse/positions.ts",
+    "symbol": "LocationIndex",
+    "importer": "src/parse/lines/table-cell-document.ts",
+    "kind": "vocabulary",
+    "reason": "the document's one offset -> Location index, so a cell's recovered lines carry the same line numbers every other line of the document does"
   },
   {
     "file": "src/parse/positions.ts",
