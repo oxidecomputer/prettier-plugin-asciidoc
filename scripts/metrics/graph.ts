@@ -62,7 +62,7 @@ const LAYER_RULES: IForbiddenRuleType[] = [
     name: "parse-imports-print",
     severity: "error",
     comment:
-      "parse/ never imports print/. The parser produces the AST; the printer consumes it. An edge this way makes the two one layer.",
+      "parse/ never imports print/ DIRECTLY. The parser produces the AST; the printer consumes it, and a direct edge this way makes the two one layer. Only a direct edge: a forbidden rule matches one dependency, and dependency-cruiser's via/viaOnly restrictions narrow CYCLES, not transitive reach (src/validate/matchers.mjs tests them only where a dependency carries a cycle). Six transitive edges stand today, all of them through src/block-metadata.ts, the root-level module whose own header argues for the shared home that makes them legal: src/parse/lines/held-metadata.ts and src/parse/lines/reader.ts each reach src/print/reflow.ts, src/print/serialize-inline.ts and src/print/whitespace-fold.ts. Making the rule transitive is `to: { reachable: true }`, which reports exactly those six and would have to name the shared home as its exception; that is a layering decision, not a rule repair.",
     from: { path: "(^|/)src/parse/" },
     to: { path: "(^|/)src/print/" },
   },
