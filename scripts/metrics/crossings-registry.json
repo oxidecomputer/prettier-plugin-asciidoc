@@ -968,6 +968,13 @@
   {
     "file": "src/parse/line-shapes.ts",
     "symbol": "rstrip",
+    "importer": "src/print/blocks.ts",
+    "kind": "vocabulary",
+    "reason": "the oracle's own per-line rstrip (`prepare_source_string`); THE delimiter speller asks whether an interior line IS the delimiter, and the reader answers that question over rstripped lines, so a trailing-space `----` has to count as a collision"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "rstrip",
     "importer": "src/print/list.ts",
     "kind": "vocabulary",
     "reason": "the oracle's own per-line rstrip (`prepare_source_string`); the item-boundary rule reads the printer's output lines and must hand them to the registry in the same dialect the reader hands it source lines, or a CRLF terminator makes every shape test fail open"
@@ -978,13 +985,6 @@
     "importer": "src/print/table-layout.ts",
     "kind": "vocabulary",
     "reason": "the one spelling of the per-line trailing-whitespace strip the reader applies before a table is parsed, so the multi-line-cell predicate reads a cell's lines exactly as the parse handed them over"
-  },
-  {
-    "file": "src/parse/line-shapes.ts",
-    "symbol": "rstrip",
-    "importer": "src/print/table.ts",
-    "kind": "vocabulary",
-    "reason": "the oracle's own per-line rstrip (`prepare_source_string`); the table delimiter's collision guard asks whether an interior line IS the delimiter, and the reader answers that question over rstripped lines, so a trailing-space `|===` has to count as a collision"
   },
   {
     "file": "src/parse/line-shapes.ts",

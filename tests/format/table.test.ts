@@ -297,11 +297,12 @@ describe("the delimiter is respelled to its shortest safe length", () => {
     );
   });
 
-  // MINIMAL LENGTH, not grow-past-the-longest. `computeDelimiter`
-  // (src/print/blocks.ts) pads past the longest conflicting line, so
-  // a rule of that shape would answer this interior with something
-  // LONGER than `|=======`. Both re-read as the same table; only the
-  // shortest is canonical.
+  // MINIMAL LENGTH, not grow-past-the-longest: a rule that padded
+  // past the longest conflicting line would answer this interior with
+  // something LONGER than `|=======`. Both re-read as the same table;
+  // only the shortest is canonical, and it is the same rule every
+  // other delimiter takes (`shortestSafeDelimiter`,
+  // src/print/blocks.ts).
   test("an interior line longer than the delimiter does not lengthen it", async () => {
     await expectTableFormat(
       "|=====\n|a\n|=======\n|b\n|=====\n",

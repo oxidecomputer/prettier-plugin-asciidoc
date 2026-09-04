@@ -24,18 +24,15 @@ import type {
   TableRowNode,
 } from "../ast.js";
 import { canonicalAttrlist } from "../parse/attrlist.js";
-import { ASCII_NON_WHITESPACE } from "../parse/line-shapes.js";
-import {
-  MARKER_OFFSET,
-  MIN_DELIMITER_LENGTH,
-  SAFE_DELIMITER_PAD,
-} from "../constants.js";
+import { ASCII_NON_WHITESPACE, rstrip } from "../parse/line-shapes.js";
+import { MARKER_OFFSET, MIN_DELIMITER_LENGTH } from "../constants.js";
 import { inlineAtoms } from "./inline.js";
 import { atomOf, blockBody, type Atom } from "./reflow.js";
 import { joinBlocks } from "./join.js";
 
 const {
   builders: { hardline, join },
+  printer: { printDocToString },
 } = doc;
 
 /**
@@ -147,66 +144,104 @@ const PARENT_DELIMITER_CHARS: Record<ParentBlockNode["variant"], string> = {
 const OPEN_BLOCK_DELIMITER_LENGTH = 2;
 
 /**
- * The trailing whitespace Prettier's own doc printer strips from a
- * hardline-joined line before writing the line break - narrower than
- * Asciidoctor's rstrip (src/parse/line-shapes.ts's `rstrip`, six ASCII
- * whitespace characters). The non-literal branch of `DOC_TYPE_LINE`
- * calls `result.trim()`, which removes only a trailing run of SPACE
- * and TAB (prettier's `src/document/printer/trim-indentation.js`,
- * `getTrailingIndentionLength`, reached from the `DOC_TYPE_LINE` case
- * in `src/document/printer/printer.js` whenever `doc.literal` is not
- * set - the case every content line below goes through, since content
- * is joined with `hardline`, not `literalline`). A trailing vertical
- * tab or form feed survives that trim untouched; a trailing space or
- * tab does not (#125).
- */
-const TRAILING_SPACE_OR_TAB = /[ \t]+$/v;
-
-/**
- * Computes the shortest safe delimiter for a delimited
- * block.
+ * THE delimiter speller: `prefix` followed by the SHORTEST run of
+ * `char` that is at least `minLength` long and equals no line of the
+ * interior about to be written between the two delimiter lines. Every
+ * delimiter this plugin chooses comes from here - a leaf block's, a
+ * masqueraded parent's, a wrapper's and a table's.
  *
- * Scans the block content for lines that consist entirely
- * of the delimiter character (4+ chars) — these would be
- * misinterpreted as delimiters on re-parse. Each line is
- * compared as {@link TRAILING_SPACE_OR_TAB} will respell it once
- * printed, not as the author's raw bytes: an interior line whose
- * only departure from a delimiter shape is trailing space or tab
- * still prints delimiter-shaped, once the printer's own hardline
- * trims that whitespace away, so pass one has to see the same
- * spelling pass one is about to emit (#125 - matching the raw bytes
- * here left widening one pass behind the trim, a bounded two-pass
- * wobble). Returns a delimiter one character longer than the longest
- * conflict. When no conflicts exist, returns the minimum
- * 4-character delimiter.
- * @param content - The verbatim text content of the
- *   block.
- * @param delimChar - The single character used for the
- *   delimiter (e.g. `-` for listing blocks).
- * @returns The delimiter string, repeated to a safe
- *   length.
+ * The closing line is the exact rstripped opening line, so the two
+ * lines are one decision and this is it: `is_delimited_block?`
+ * (`parser.rb:976-1010`) hands back the whole matched LINE as the
+ * block's terminator (`parser.rb:536-538`), and `read_lines_until`
+ * (`reader.rb:396-438`) closes the block on `line == terminator`, an
+ * EQUALITY and not a prefix or length test. So a delimiter is safe
+ * exactly when no interior line equals it, and a longer interior line
+ * constrains nothing: a `------` inside a `----` block is content,
+ * which is what the oracle renders it as.
+ *
+ * MINIMAL LENGTH is therefore the whole rule, and it is the rule the
+ * table delimiter always used. Growing past the longest conflict
+ * instead was over-conservative on a leaf block (an interior `------`
+ * bought a seven-dash fence nothing needed) and, for a wrapper, was
+ * computed from a walk over DESCENDANT NODES rather than from the
+ * text - a proxy blind to verbatim content, which is how a `____`
+ * line inside a nested listing block used to shorten the quote around
+ * it into a delimiter its own interior closes (issue #143).
+ *
+ * The comparison rstrips because the reader does
+ * (`prepare_source_string`), so a trailing-space `----` in the
+ * interior is a collision even though its bytes differ. That is the
+ * wider of the two trims in play and it subsumes the narrower one:
+ * Prettier's hardline strips a trailing run of space and tab from
+ * every line it writes (#125), and rstrip strips those plus the
+ * vertical tab, form feed and carriage return the reader also calls
+ * whitespace - so reading the interior rstripped answers for the
+ * bytes pass one emits AND for what the next read makes of them.
+ *
+ * The unbounded `for` terminates, and not by assumption: the interior
+ * is a finite set of lines, so some candidate length is absent from
+ * it, and the loop returns at the first one.
+ * @param prefix - what stands in front of the run, never changed: a
+ *   table's hint character, and the empty string everywhere else
+ * @param char - the character the run repeats
+ * @param minLength - the shortest run the syntax admits
+ * @param interior - the bytes about to be emitted between the two
+ *   delimiter lines
+ * @returns the delimiter line both ends take
  */
-function computeDelimiter(content: string, delimChar: string): string {
-  let maxConflict = 0;
-  // Escape the delimiter char for use in a regex.
-  // `.` and `+` are regex metacharacters; `-` is safe
-  // outside character classes and must NOT be escaped
-  // (the `v` flag rejects unnecessary escapes).
-  const escaped = delimChar.replace(/[.+]/v, String.raw`\$&`);
-  const pattern = new RegExp(`^${escaped}{${MIN_DELIMITER_LENGTH},}$`, "v");
-  // Empty content needs no guard: it splits to one empty line, and no
-  // `{4,}` pattern matches that.
-  for (const line of content.split("\n")) {
-    const printed = line.replace(TRAILING_SPACE_OR_TAB, "");
-    if (pattern.test(printed)) {
-      maxConflict = Math.max(maxConflict, printed.length);
+export function shortestSafeDelimiter(
+  prefix: string,
+  char: string,
+  minLength: number,
+  interior: string,
+): string {
+  const lines = new Set(interior.split("\n").map((line) => rstrip(line)));
+  for (let length = minLength; ; length += 1) {
+    const candidate = prefix + char.repeat(length);
+    if (!lines.has(candidate)) {
+      return candidate;
     }
   }
-  const length = Math.max(
-    MIN_DELIMITER_LENGTH,
-    maxConflict + SAFE_DELIMITER_PAD,
-  );
-  return delimChar.repeat(length);
+}
+
+/**
+ * The text a finished Doc will be written as.
+ *
+ * Prettier's own Doc renderer, on the Doc the printer just built - so
+ * these are the printer's bytes, not a model of them. This is what
+ * lets a delimiter be chosen from the interior ABOUT TO BE EMITTED
+ * rather than from a proxy for it.
+ *
+ * Rendered at `endOfLine: "lf"` whatever the document is being
+ * written with, because every question asked of this text is about
+ * line CONTENT and every reader of the finished file agrees about
+ * that: `Helpers.prepare_source_string` rewrites `\r\n` and then a
+ * bare `\r` to `\n` before it splits anything
+ * (src/parse/lines/split.ts), so a `crlf` or `cr` file yields the
+ * very lines an `lf` one does. Reading at the document's own
+ * terminator instead would fail OPEN - under `cr` there is no `\n` in
+ * the output at all, so the whole Doc would arrive as ONE line and no
+ * line would equal any delimiter.
+ *
+ * Rendering a Doc BEFORE its enclosing Doc is placed is safe because
+ * the printer builds no `group` and no `fill`: every Doc it makes is
+ * a string, an array or a hardline, so there is no break state for
+ * the renderer's `propagateBreaks` to settle early and differently,
+ * and no width decision left to make.
+ * @param item - a finished Doc
+ * @param options - the print options in force; only the width is read
+ *   as given, the terminator being fixed above
+ * @returns the bytes the Doc renders to
+ */
+export function printedText(item: Doc, options: PrintOptions): string {
+  // A typed binding rather than an inline literal: the renderer's own
+  // options type does not DECLARE `endOfLine` (it reads it all the
+  // same), and a fresh literal would be rejected for the extra
+  // property. `PrintOptions` declares it, so the widening is the
+  // plugin's own option type rather than an assertion.
+  const probeOptions: PrintOptions = { ...options, endOfLine: "lf" };
+  return printDocToString(item, probeOptions).formatted;
 }
 
 /**
@@ -241,10 +276,20 @@ function computeMasqueradeDelimiter(
     const parentChar = PARENT_DELIMITER_CHARS[node.sourceDelimiter];
     return node.sourceDelimiter === "open"
       ? parentChar.repeat(OPEN_BLOCK_DELIMITER_LENGTH)
-      : computeDelimiter(node.content, parentChar);
+      : shortestSafeDelimiter(
+          "",
+          parentChar,
+          MIN_DELIMITER_LENGTH,
+          node.content,
+        );
   }
   const leafChar = DELIMITER_CHARS[node.variant];
-  return computeDelimiter(node.content, leafChar);
+  return shortestSafeDelimiter(
+    "",
+    leafChar,
+    MIN_DELIMITER_LENGTH,
+    node.content,
+  );
 }
 
 /**
@@ -285,12 +330,11 @@ export function hasPrecedingLanguageAttribute(
  * Prints a delimited leaf block to Doc IR.
  *
  * Produces delimiter, content lines (verbatim), delimiter.
- * Content is not reflowed — it is preserved exactly. The
- * delimiter length is computed by
- * {@link computeDelimiter} to avoid conflicts with
- * content. Indented literal paragraphs (form: "indented")
- * and paragraph-form blocks are printed verbatim without
- * delimiters.
+ * Content is not reflowed: it is preserved exactly, which is what
+ * makes `node.content` the interior {@link shortestSafeDelimiter}
+ * reads: the bytes below go out as they stand. Indented literal
+ * paragraphs (form: "indented") and paragraph-form blocks are printed
+ * verbatim without delimiters.
  * @param node - The delimited block AST node.
  * @param skipSourcePrefix - When true, suppress the
  *   `[source]`/`[source,lang]` prefix normally emitted for
@@ -362,109 +406,79 @@ export function printDelimitedBlock(
 }
 
 /**
- * Recursively finds the maximum delimiter length used by
- * any descendant parent block with the given variant.
+ * What a delimited parent's frame is decided by, and the whole of it:
+ * the delimiter variant it wraps itself in, and the blocks it wraps.
  *
- * Searches through ALL children — not just same-variant
- * — because a quote block inside a sidebar inside a quote
- * still produces `____` delimiters within the outer
- * quote's formatted output. Without this, nested
- * same-type blocks would normalize to identical delimiter
- * lengths and collapse on re-parse.
- * @param variant - The parent-block variant whose
- *   delimiter length to track.
- * @param children - The child block nodes to recurse
- *   into.
- * @returns The longest same-variant delimiter found
- *   among descendants, or 0 if none exist.
+ * A parentBlock's variant is its own field; a delimited-form
+ * admonition's is its `form`. Naming the two FIELDS rather than the
+ * node is what keeps `"paragraph"` - the admonition form that wraps
+ * nothing and has no delimiter - out of the argument by construction,
+ * with no assertion and no unreachable arm saying so.
  */
-function maxDescendantDelimiter(
-  variant: ParentBlockNode["variant"],
-  children: readonly BlockNode[],
-): number {
-  let max = 0;
-  for (const child of children) {
-    if (child.type !== "parentBlock" && child.type !== "admonition") {
-      continue;
-    }
-    const childVariant = delimiterVariantOf(child);
-    if (childVariant === undefined) {
-      continue;
-    } // paragraph-form admonition
-    // Recurse regardless of variant — same-variant blocks might be
-    // nested deeper; a same-variant child then needs at least the
-    // minimum plus whatever its own nesting requires.
-    const childInner = maxDescendantDelimiter(variant, child.children);
-    max = Math.max(
-      max,
-      childVariant === variant
-        ? Math.max(MIN_DELIMITER_LENGTH, childInner + SAFE_DELIMITER_PAD)
-        : childInner,
-    );
-  }
-  return max;
-}
-
-/**
- * The wrapper-delimiter variant one child prints with, when it prints
- * parent-style delimiters at all: a parentBlock's `variant`, a
- * delimited-form admonition's `form`. Undefined for everything else —
- * the one answer maxDescendantDelimiter's two arms used to spell
- * twice.
- * @param child - a child block
- * @returns the delimiter variant it wraps itself in, if any
- */
-function delimiterVariantOf(
-  child: BlockNode,
-): ParentBlockNode["variant"] | undefined {
-  if (child.type === "parentBlock") {
-    return child.variant;
-  }
-  if (child.type === "admonition" && child.form !== "paragraph") {
-    return child.form;
-  }
-  return undefined;
+interface WrappedBlocks {
+  /** The delimiter variant the frame is spelled in. */
+  readonly variant: ParentBlockNode["variant"];
+  /** The blocks between the two delimiter lines, in document order. */
+  readonly children: BlockNode[];
 }
 
 /**
  * THE delimited-parent printer (three near-identical bodies became
  * this one): computes the wrapper delimiter for a
  * compound block — a parentBlock or a delimited-form admonition — and
- * prints delimiter/children/delimiter. Open blocks take the fixed
- * two-dash spelling; every other variant out-lengths its deepest
- * same-variant descendant so the nesting re-parses.
- * @param variant - the wrapper's delimiter variant
- * @param node - the block being printed
+ * prints delimiter/children/delimiter.
+ *
+ * The children are printed FIRST and rendered to text, because the
+ * delimiter is chosen from the interior about to be written
+ * ({@link shortestSafeDelimiter}) and a wrapper's interior is a Doc
+ * rather than a recorded string. Nesting needs no separate rule: an
+ * inner quote's own `____` stands in the outer quote's printed
+ * interior, so the outer clears it the same way it clears a `____`
+ * that is a listing block's verbatim content (issue #143). It is one
+ * question about text, where the walk over descendant NODES this
+ * replaces could only answer for the blocks it recognised.
+ *
+ * Open blocks are the exception and take the fixed two-dash spelling:
+ * the registry admits `--` and nothing longer
+ * (src/parse/line-shapes.ts), so a conflict in an open block's
+ * interior cannot be spelled out of and is not this function's to
+ * repair.
+ * @param wrapper - the delimiter variant and the blocks it wraps
  * @param path - Prettier's AST path
  * @param print - Prettier's recursive print callback
+ * @param options - the print options in force, for rendering the
+ *   interior back to the lines it will be written as
  * @returns Doc IR for the wrapped block
  */
 function printDelimitedParent(
-  variant: ParentBlockNode["variant"],
-  node: ParentBlockNode | AdmonitionNode,
+  wrapper: WrappedBlocks,
   path: PrintPath,
   print: PrintFunction,
+  options: PrintOptions,
 ): Doc {
+  const { variant, children } = wrapper;
   const delimChar = PARENT_DELIMITER_CHARS[variant];
-  const delimLength =
+  // A childless wrapper has NO interior, which is a different thing
+  // from an empty one: it writes a single line break between its two
+  // delimiters, and {@link joinBlocks} has no first block to join
+  // from. Carrying that as `undefined` is what lets the delimiter
+  // below be one expression rather than one per arm.
+  const interior: Doc | undefined =
+    children.length === 0
+      ? undefined
+      : joinBlocks(children, path.map(print, "children"));
+  const delimiter =
     variant === "open"
-      ? OPEN_BLOCK_DELIMITER_LENGTH
-      : Math.max(
+      ? delimChar.repeat(OPEN_BLOCK_DELIMITER_LENGTH)
+      : shortestSafeDelimiter(
+          "",
+          delimChar,
           MIN_DELIMITER_LENGTH,
-          maxDescendantDelimiter(variant, node.children) + SAFE_DELIMITER_PAD,
+          interior === undefined ? "" : printedText(interior, options),
         );
-  const delimiter = delimChar.repeat(delimLength);
-  if (node.children.length === 0) {
-    return [delimiter, hardline, delimiter];
-  }
-  const children = path.map(print, "children");
-  return [
-    delimiter,
-    hardline,
-    joinBlocks(node.children, children),
-    hardline,
-    delimiter,
-  ];
+  return interior === undefined
+    ? [delimiter, hardline, delimiter]
+    : [delimiter, hardline, interior, hardline, delimiter];
 }
 
 /**
@@ -479,14 +493,21 @@ function printDelimitedParent(
  * @param path - Prettier's AST path, used to recurse
  *   into children via `path.map(print, "children")`.
  * @param print - Prettier's recursive print callback.
+ * @param options - the print options in force.
  * @returns Doc IR for the formatted parent block.
  */
 export function printParentBlock(
   node: ParentBlockNode,
   path: PrintPath,
   print: PrintFunction,
+  options: PrintOptions,
 ): Doc {
-  return printDelimitedParent(node.variant, node, path, print);
+  return printDelimitedParent(
+    { variant: node.variant, children: node.children },
+    path,
+    print,
+    options,
+  );
 }
 
 /**
@@ -499,14 +520,16 @@ export function printParentBlock(
  * @param node - The admonition AST node.
  * @param path - Prettier's AST path, for recursing into the body.
  * @param print - Prettier's recursive print callback.
- * @param printWidth - the column budget for a whole output line.
+ * @param options - the print options in force: the column budget for
+ *   a whole output line in the paragraph arm, and the renderer's own
+ *   settings in the delimited one.
  * @returns Doc IR for the formatted admonition.
  */
 export function printAdmonition(
   node: AdmonitionNode,
   path: PrintPath,
   print: PrintFunction,
-  printWidth: number,
+  options: PrintOptions,
 ): Doc {
   if (node.form === "paragraph") {
     const label = `${node.variant.toUpperCase()}:`;
@@ -531,9 +554,14 @@ export function printAdmonition(
       { ...body[0], glueLeft: false, noBreakBefore: true },
       ...body.slice(1),
     ];
-    return blockBody(atoms, printWidth, 0);
+    return blockBody(atoms, options.printWidth, 0);
   }
-  return printDelimitedParent(node.form, node, path, print);
+  return printDelimitedParent(
+    { variant: node.form, children: node.children },
+    path,
+    print,
+    options,
+  );
 }
 
 /**

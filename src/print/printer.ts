@@ -119,10 +119,10 @@ const printer: Printer<AnyNode> = {
         return printTableCell(node);
       }
       case "parentBlock": {
-        return printParentBlock(node, path, print);
+        return printParentBlock(node, path, print, options);
       }
       case "admonition": {
-        return printAdmonition(node, path, print, options.printWidth);
+        return printAdmonition(node, path, print, options);
       }
       // Normalize breaks to the canonical three-character form
       // regardless of how many characters the source used

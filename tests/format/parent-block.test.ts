@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { formatAdoc } from "../helpers.js";
+import { expectFormatted, formatAdoc } from "../helpers.js";
 
 describe("example block formatting", () => {
   // Canonical example block passes through unchanged.
@@ -154,5 +154,51 @@ describe("nested parent block formatting", () => {
     const input = "______\n____\nInner text.\n____\n______\n";
     const expected = "_____\n____\nInner text.\n____\n_____\n";
     expect(await formatAdoc(input)).toBe(expected);
+  });
+});
+
+/**
+ * A wrapper delimiter is chosen from the BYTES about to be written
+ * between its two delimiter lines, and a line that is delimiter-shaped
+ * closes the wrapper whatever node it belongs to.
+ *
+ * Asciidoctor's read says so directly: `is_delimited_block?`
+ * (`parser.rb:976-1010`) hands the whole opening LINE back as the
+ * block's terminator (`parser.rb:536-538`) and `read_lines_until`
+ * (`reader.rb:396-438`) closes on `line == terminator`, a raw line
+ * scan that never asks which block the line was written inside. So a
+ * `____` line standing as VERBATIM
+ * content of a nested listing block really does close an enclosing
+ * quote - the oracle reports an unterminated listing block and ends
+ * the quote there.
+ */
+describe("a delimiter-shaped line in nested verbatim content", () => {
+  // Issue #143. The quote's delimiter used to be measured by walking
+  // the child nodes for the deepest same-variant descendant, which
+  // found none here (the `____` is a listing block's content, not a
+  // quote node) and shortened the quote to `____` - the very line its
+  // own interior writes. The input renders quote > listing("____") >
+  // "after"; the shortened output renders quote > empty listing, with
+  // the rest dumped into a second listing block.
+  test("a quote keeps a delimiter its nested listing's content cannot close", async () => {
+    const input = "_____\nbefore\n\n----\n____\n----\n\nafter\n_____\n";
+    await expectFormatted(input, input);
+  });
+
+  // The same hole one level in and in the other variant: a `****`
+  // line inside a nested literal block is what an enclosing sidebar
+  // has to clear.
+  test("a sidebar keeps a delimiter its nested literal's content cannot close", async () => {
+    const input = "*****\n....\n****\n....\n*****\n";
+    await expectFormatted(input, input);
+  });
+
+  // A delimiter-shaped line inside a nested block that is NOT the
+  // wrapper's own character constrains nothing, so the wrapper takes
+  // the minimum: the rule reads the interior lines it is about to
+  // write, not the nesting depth.
+  test("an unrelated delimiter shape in nested content leaves the minimum", async () => {
+    const input = "____\n----\n****\n----\n____\n";
+    await expectFormatted(input, input);
   });
 });

@@ -22,11 +22,15 @@ import {
   blockBody,
   keepTextOnFirstRestLine,
 } from "./reflow.js";
-import type { PrintFunction, PrintOptions, PrintPath } from "./blocks.js";
+import {
+  printedText,
+  type PrintFunction,
+  type PrintOptions,
+  type PrintPath,
+} from "./blocks.js";
 
 const {
   builders: { hardline },
-  printer: { printDocToString },
 } = doc;
 
 /**
@@ -74,30 +78,13 @@ export function printList(
 }
 
 /**
- * The lines one item will actually be written as.
+ * The lines one item will actually be written as: THE Doc renderer
+ * ({@link printedText}, src/print/blocks.ts) split at its line breaks.
  *
- * Prettier's own Doc renderer, on the item's own finished Doc — so
- * these are the printer's bytes, not a model of them. An item's Doc
- * carries its indentation as literal spaces (the packer writes them,
- * src/print/reflow.ts) and no enclosing `indent`, so rendering it
- * apart from its list produces exactly the lines the list will
- * contain.
- *
- * Rendered at `endOfLine: "lf"` whatever the document is being
- * written with, because the question the boundary rule asks is about
- * line CONTENT and every reader of the finished file agrees about
- * that. A terminator is uniform across an output, and
- * `Helpers.prepare_source_string` rewrites `\r\n` and then a bare
- * `\r` to `\n` before it splits anything (src/parse/lines/split.ts),
- * so a `crlf` or `cr` file yields the very lines an `lf` one does.
- * Reading the probe at the document's own terminator instead is what
- * makes the rule fail OPEN: under `crlf` every line comes off the
- * split carrying its `\r`, and under `cr` there is no `\n` in the
- * output at all, so the whole item arrives as ONE line. Either way no
- * line equals `""`, no `+` line matches {@link CONTINUATION_LINE} and
- * no delimiter matches, so no slurp is ever seen to start or stop and
- * every boundary blank is dropped — the corruption this rule exists
- * to prevent, spelled by the line ending.
+ * An item's Doc carries its indentation as literal spaces (the packer
+ * writes them, src/print/reflow.ts) and no enclosing `indent`, so
+ * rendering it apart from its list produces exactly the lines the list
+ * will contain.
  *
  * Each line is RSTRIPPED on top of that, so the probe's dialect is
  * the reader's by construction rather than by an argument spanning
@@ -112,25 +99,14 @@ export function printList(
  * calls blank and Prettier's trim leaves standing; keeping the map
  * means this rule does not depend on the reader continuing to strip
  * them upstream.
- *
- * Rendering an item BEFORE its list is placed is safe because the
- * printer builds no `group` and no `fill`: the whole Doc is strings,
- * arrays and hardlines, so there is no break state for the renderer's
- * `propagateBreaks` to settle early and differently.
  * @param item - one item's finished Doc
  * @param options - the print options in force; only the width is read
- *   as given, the terminator being fixed above
+ *   as given, the terminator being fixed by the renderer
  * @returns the item's output lines, in order
  */
 function printedLines(item: Doc, options: PrintOptions): string[] {
-  // A typed binding rather than an inline literal: the renderer's own
-  // options type does not DECLARE `endOfLine` (it reads it all the
-  // same), and a fresh literal would be rejected for the extra
-  // property. `PrintOptions` declares it, so the widening is the
-  // plugin's own option type rather than an assertion.
-  const probeOptions: PrintOptions = { ...options, endOfLine: "lf" };
-  return printDocToString(item, probeOptions)
-    .formatted.split("\n")
+  return printedText(item, options)
+    .split("\n")
     .map((line) => rstrip(line));
 }
 

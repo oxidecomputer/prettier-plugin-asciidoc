@@ -496,38 +496,6 @@
     "fails": ["fidelity"],
     "issue": "UNTRIAGED"
   },
-  "listing/after-h0-adjacent/longer-delimiter-inside@trailing-ff": {
-    "fails": ["idempotency", "fidelity"],
-    "issue": "UNTRIAGED"
-  },
-  "listing/after-h0-adjacent/longer-delimiter-inside@trailing-vt": {
-    "fails": ["idempotency", "fidelity"],
-    "issue": "UNTRIAGED"
-  },
-  "listing/dlist-desc/longer-delimiter-inside@trailing-ff": {
-    "fails": ["idempotency", "fidelity"],
-    "issue": "UNTRIAGED"
-  },
-  "listing/dlist-desc/longer-delimiter-inside@trailing-vt": {
-    "fails": ["idempotency", "fidelity"],
-    "issue": "UNTRIAGED"
-  },
-  "literal/after-h0-adjacent/longer-delimiter-inside@trailing-ff": {
-    "fails": ["idempotency", "fidelity"],
-    "issue": "UNTRIAGED"
-  },
-  "literal/after-h0-adjacent/longer-delimiter-inside@trailing-vt": {
-    "fails": ["idempotency", "fidelity"],
-    "issue": "UNTRIAGED"
-  },
-  "literal/dlist-desc/longer-delimiter-inside@trailing-ff": {
-    "fails": ["idempotency", "fidelity"],
-    "issue": "UNTRIAGED"
-  },
-  "literal/dlist-desc/longer-delimiter-inside@trailing-vt": {
-    "fails": ["idempotency", "fidelity"],
-    "issue": "UNTRIAGED"
-  },
   "pass/after-h0-adjacent/foreign-marker-inside": {
     "fails": ["fidelity"],
     "issue": "UNTRIAGED"
@@ -598,22 +566,6 @@
   },
   "pass/after-h0-adjacent/heading-inside@trailing-vt": {
     "fails": ["fidelity"],
-    "issue": "UNTRIAGED"
-  },
-  "pass/after-h0-adjacent/longer-delimiter-inside@trailing-ff": {
-    "fails": ["idempotency", "fidelity"],
-    "issue": "UNTRIAGED"
-  },
-  "pass/after-h0-adjacent/longer-delimiter-inside@trailing-vt": {
-    "fails": ["idempotency", "fidelity"],
-    "issue": "UNTRIAGED"
-  },
-  "pass/dlist-desc/longer-delimiter-inside@trailing-ff": {
-    "fails": ["idempotency", "fidelity"],
-    "issue": "UNTRIAGED"
-  },
-  "pass/dlist-desc/longer-delimiter-inside@trailing-vt": {
-    "fails": ["idempotency", "fidelity"],
     "issue": "UNTRIAGED"
   }
 }

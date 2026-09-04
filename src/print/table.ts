@@ -54,17 +54,24 @@
  * (`prepare_source_string`).
  *
  * The two DELIMITER lines are outside that split, and the only thing
- * that is: they take their shortest safe spelling ({@link
- * tableDelimiter}) whichever arm produced the interior, because that
- * rule reads the delimiter lines and the interior as text and moves
- * no byte between them.
+ * that is: they take their shortest safe spelling (THE delimiter
+ * speller, `shortestSafeDelimiter` in ./blocks.ts) whichever arm
+ * produced the interior, because that rule reads the delimiter lines
+ * and the interior as text and moves no byte between them. A table's
+ * only departure from every other delimited block is the two
+ * arguments it hands that speller: a hint character in front of the
+ * run, and a three-character minimum where the block family takes
+ * four.
  */
 import { doc, type Doc } from "prettier";
 import type { TableCellNode, TableNode, TableRowNode } from "../ast.js";
 import { MIN_TABLE_DELIMITER_LENGTH } from "../constants.js";
 import type { TableStyle } from "../options.js";
-import { rstrip } from "../parse/line-shapes.js";
-import type { PrintFunction, PrintPath } from "./blocks.js";
+import {
+  shortestSafeDelimiter,
+  type PrintFunction,
+  type PrintPath,
+} from "./blocks.js";
 import { planTable, printLaidOut, type TablePlan } from "./table-layout.js";
 
 const {
@@ -80,49 +87,6 @@ const {
  */
 function replay(image: string): Doc {
   return join(hardline, image.split("\n"));
-}
-
-/**
- * A table's delimiter line: the hint character followed by the
- * SHORTEST run of `=` that is at least {@link
- * MIN_TABLE_DELIMITER_LENGTH} long and equals no interior line.
- *
- * The closing line is the exact rstripped opening line, so the two
- * lines are one decision and this is it: `is_delimited_block?`
- * (`parser.rb:976-1010`) hands back the whole matched LINE as the
- * block's terminator, and `read_lines_until` (`reader.rb:396-438`)
- * closes the block on `line == terminator`, an equality and not a
- * prefix test.
- *
- * MINIMAL LENGTH, not grow-past-the-longest, which is where it
- * differs from `computeDelimiter` (./blocks.ts): that one measures
- * the LONGEST conflicting line and pads past it, so a rule of that
- * shape answers an interior `|=======` with a delimiter longer than
- * it, where this one answers `|===` and never grows at all unless the
- * shorter spellings are themselves taken. Both re-read as the same
- * table; only the shortest is what AsciiDoc documents are written
- * in.
- *
- * The unbounded `for` terminates, and not by assumption: the interior
- * is a finite set of lines, so some candidate length is absent from
- * it, and the loop returns at the first one.
- *
- * The comparison rstrips because the reader does
- * (`prepare_source_string`), so a trailing-space `|===` in the
- * interior is a collision even though its bytes differ.
- * @param hint - the delimiter's first character, never changed
- * @param interior - the bytes about to be emitted between the two
- *   delimiter lines
- * @returns the delimiter line both ends of the table take
- */
-function tableDelimiter(hint: string, interior: string): string {
-  const lines = new Set(interior.split("\n").map((line) => rstrip(line)));
-  for (let length = MIN_TABLE_DELIMITER_LENGTH; ; length += 1) {
-    const candidate = hint + "=".repeat(length);
-    if (!lines.has(candidate)) {
-      return candidate;
-    }
-  }
 }
 
 /**
@@ -245,7 +209,12 @@ export function printTable(
     plan.kind === "replay"
       ? replayedInterior(node)
       : printLaidOut(node, plan, style);
-  const delimiter = tableDelimiter(node.open.slice(0, 1), interior);
+  const delimiter = shortestSafeDelimiter(
+    node.open.slice(0, 1),
+    "=",
+    MIN_TABLE_DELIMITER_LENGTH,
+    interior,
+  );
   const body: Doc =
     plan.kind === "replay"
       ? [

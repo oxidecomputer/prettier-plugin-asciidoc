@@ -28,12 +28,6 @@ export const DELIM_WIDTH = 1;
 // (e.g. `----`, `....`, `++++`).
 export const MIN_DELIMITER_LENGTH = 4;
 
-// When a delimited block's content contains a line that looks
-// like a delimiter, the output delimiter must be this many
-// characters longer than the conflicting line to avoid
-// ambiguity on re-parse.
-export const SAFE_DELIMITER_PAD = 1;
-
 // A table's delimiter lines are three characters long, not the four
 // the delimited-block family takes: `|===`, `,===`, `:===`, `!===`.
 // A block-delimiter-length option (issue #11) governs the family
