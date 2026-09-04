@@ -1,16 +1,22 @@
 /**
  * Source → lines, the way Asciidoctor's reader sees them.
  *
- * `Helpers.prepare_source_string` does THREE normalizations before
- * the parser sees a single line, and two of them happen here and
- * nowhere else: the byte-order-mark strip and the per-line rstrip.
- * The third is line-ending normalization: the oracle rewrites `\r\n`
- * and then a bare `\r` to `\n` before splitting, so a bare CR is a
- * LINE BREAK to it and merely trailing whitespace to us, and an
- * old-Mac document that is several lines to the oracle is one line
- * here. That is a recorded gap, tracked by issue #68. CRLF is
- * unaffected, because its `\r` lands at a line end where the rstrip
- * set covers it.
+ * `Helpers.prepare_source_string` names two different behaviors, and
+ * the two Asciidoctors diverge on it. MRI Ruby's own (helpers.rb:
+ * 116-133, not vendored, see docs/coding-standards.md's authority
+ * list) does no line-ending normalization at all: BOM strip, split on
+ * `\n` alone, per-line rstrip, nothing else. `@asciidoctor/core`
+ * 4.0.11's `prepareSourceString` (helpers.js l.80-82) adds a third
+ * normalization MRI does not have: it rewrites `\r\n` and then a bare
+ * `\r` to `\n` before ever splitting. This codebase's tests run
+ * against the JS oracle, and it wins, so all three of ITS
+ * normalizations happen here: the byte-order-mark strip, line-ending
+ * normalization (`nextLineBreak`, src/parse/positions.ts), and the
+ * per-line rstrip. A bare CR is a LINE BREAK under the JS oracle, and
+ * an old-Mac document that is several lines to it is several lines
+ * here too (issue #68). CRLF is unaffected by the bare-CR rule,
+ * because its `\r` is not lone; it still lands at a line end where
+ * the rstrip set covers it.
  *
  * A leading BYTE-ORDER MARK is not part of the first line. The oracle
  * drops one U+FEFF from the head of the whole document, and failing
@@ -37,6 +43,7 @@
  */
 import { FIRST_LINE } from "../../constants.js";
 import { rstrip } from "../line-shapes.js";
+import { nextLineBreak } from "../positions.js";
 import type { Fragment } from "../positions.js";
 
 /** One source line with both spellings and its position. */
@@ -164,17 +171,16 @@ export function documentBom(source: string): string {
  *   the reason an empty document has no lines at all)
  */
 export function splitLines(source: string): SourceLine[] {
-  // Line numbers here count the SAME \n scan makeLocationIndex counts
-  // (src/parse/positions.ts) — the two authorities cannot disagree
-  // while both split on every newline; the agreement is pinned by
+  // Line numbers here count the SAME breaks makeLocationIndex counts
+  // (src/parse/positions.ts): both call the shared nextLineBreak, so
+  // the two authorities cannot disagree; the agreement is pinned by
   // tests/parser/positions.test.ts. A byte-order mark carries no
-  // newline, so skipping it moves no line number.
+  // line break, so skipping it moves no line number.
   const lines: SourceLine[] = [];
   let offset = bomWidth(source);
   let line = FIRST_LINE;
   while (offset < source.length) {
-    const end = source.indexOf("\n", offset);
-    const stop = end === -1 ? source.length : end;
+    const stop = nextLineBreak(source, offset);
     const raw = source.slice(offset, stop);
     lines.push({ text: rstrip(raw), raw, offset, line });
     offset = stop + 1;

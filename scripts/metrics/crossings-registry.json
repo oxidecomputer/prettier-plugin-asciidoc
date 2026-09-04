@@ -1372,6 +1372,13 @@
     "reason": "builds the document's single offset index, called once per document"
   },
   {
+    "file": "src/parse/positions.ts",
+    "symbol": "nextLineBreak",
+    "importer": "src/parse/lines/split.ts",
+    "kind": "vocabulary",
+    "reason": "the one answer to where a line ends for the two document-level line-counting authorities (a newline, or a lone carriage return); splitLines and makeLocationIndex must count the same breaks or a SourceLine's line number and the index's answer at that offset disagree. Other call sites still slice on a bare indexOf(\"\\n\") (issue #159) and are not yet ported to this answer"
+  },
+  {
     "file": "src/print/printer.ts",
     "symbol": "default",
     "importer": "src/index.ts",

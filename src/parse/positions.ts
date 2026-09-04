@@ -27,6 +27,47 @@ export function makeLocation(
   return { offset, line, column };
 }
 
+/**
+ * Where a line ends, scanning from `from`: a `\n`, or a bare `\r`
+ * with no `\n` immediately after it. Shared by this module's own
+ * index and by splitLines (src/parse/lines/split.ts) so the two
+ * authorities that count lines cannot drift apart.
+ *
+ * The two Asciidoctors diverge here. MRI Ruby's
+ * `Helpers.prepare_source_string` (helpers.rb:116-133, not vendored,
+ * see docs/coding-standards.md's authority list) does no line-ending
+ * normalization at all: it strips a leading BOM, splits on `\n`
+ * alone, and rstrips each line, so a lone `\r` is trailing content to
+ * it rather than a break. `@asciidoctor/core` 4.0.11's own
+ * `prepareSourceString` (helpers.js l.80-82) adds a rewrite MRI does
+ * not have: every `\r\n`, then every remaining `\r`, becomes `\n`
+ * before the string is ever split. This codebase's tests run against
+ * the JS oracle, and it wins: a lone `\r` ends a line here exactly as
+ * `\n` does. A `\r` that is part of `\r\n` is not lone and does not
+ * end the line by itself (that CRLF's own `\n` does, one position
+ * later).
+ * @param source - the whole document
+ * @param from - offset to scan forward from
+ * @returns the offset of the line-ending character, or `source.length`
+ *   when none remains
+ */
+export function nextLineBreak(source: string, from: number): number {
+  // The `<=` mutant of this bound is undetectable: it reads one past
+  // the end, `source[source.length]` is `undefined`, and `undefined`
+  // is neither "\n" nor "\r", so the extra turn returns the same
+  // `source.length` the loop falling through would anyway.
+  for (let index = from; index < source.length; index += 1) {
+    const ch = source[index];
+    if (ch === "\n") {
+      return index;
+    }
+    if (ch === "\r" && source[index + 1] !== "\n") {
+      return index;
+    }
+  }
+  return source.length;
+}
+
 /** A span of source: its exact bytes and where they start. */
 export interface Fragment {
   /** The verbatim source bytes of the span. */
@@ -72,23 +113,19 @@ export interface LocationIndex {
  * what Prettier's locEnd, cursor tracking and range formatting read.
  *
  * The line numbers this index reports are the SAME ones splitLines
- * assigns (src/parse/lines/split.ts): both count every `\n` and
- * nothing else, so a SourceLine's `line` and the index's answer at
- * that line's offset agree by construction — pinned by
- * tests/parser/positions.test.ts.
+ * assigns (src/parse/lines/split.ts): both count every line break
+ * `nextLineBreak` finds and nothing else, so a SourceLine's `line`
+ * and the index's answer at that line's offset agree by construction,
+ * pinned by tests/parser/positions.test.ts.
  * @param source - the whole document
  * @returns the index
  */
 export function makeLocationIndex(source: string): LocationIndex {
-  // Scanning with indexOf rather than character by character keeps
-  // the loop free of a `offset < source.length` bound, whose `<=`
-  // mutant reads one past the end and is undetectable: `undefined`
-  // is not "\n", so the extra turn pushes nothing.
   const starts = [0];
   for (
-    let breakAt = source.indexOf("\n");
-    breakAt !== -1;
-    breakAt = source.indexOf("\n", breakAt + 1)
+    let breakAt = nextLineBreak(source, 0);
+    breakAt < source.length;
+    breakAt = nextLineBreak(source, breakAt + 1)
   ) {
     starts.push(breakAt + 1);
   }

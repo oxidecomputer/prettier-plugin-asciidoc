@@ -16,7 +16,14 @@ import {
   parseSectionTitle,
 } from "../../src/parse/lines/classify.js";
 
-describe("splitLines mirrors Helpers.prepare_source_string", () => {
+// `Helpers.prepare_source_string` names two behaviors that diverge
+// (see the JSDoc on nextLineBreak, src/parse/positions.ts): MRI
+// Ruby's does no line-ending normalization at all, and
+// `@asciidoctor/core` 4.0.11's rewrites `\r\n` and then a lone `\r`
+// to `\n` before splitting. This suite pins splitLines against the JS
+// oracle's version, the one every other test in this repository runs
+// against.
+describe("splitLines mirrors the JS oracle's Helpers.prepare_source_string", () => {
   test("rstrips text, keeps raw, tracks offsets and 1-based lines", () => {
     const lines = splitLines("a  \n\n  b\t\nc");
     expect(lines).toEqual([
@@ -32,23 +39,63 @@ describe("splitLines mirrors Helpers.prepare_source_string", () => {
   });
   // The oracle's rstrip is `line.replace(/[ \t\r\n\f\v]+$/, '')` —
   // the six ASCII whitespace characters, which is MRI's set less the
-  // NUL. The rows below are the ones that can reach a line end (a
-  // line never carries its own LF, and a CR only from CRLF input);
-  // the characters that SURVIVE have their own rows underneath, and
+  // NUL. The rows below are the ones that can reach a line end WITHOUT
+  // ending the line first: a line never carries its own LF, and a
+  // lone CR is now consumed as a line break of its own (issue #68)
+  // rather than surviving into raw content, so it has no row here
+  // (see "a lone carriage return ends the line" below instead). The
+  // characters that SURVIVE have their own rows underneath, and
   // tests/conformance/interruption.test.ts pins both halves against
   // the oracle itself.
   test.each([
     ["a space", "a "],
     ["a tab", "a\t"],
-    ["a carriage return", "a\r"],
     ["a form feed", "a\f"],
     ["a vertical tab", "a\v"],
-    ["a mixed run", "a \t\r\f\v "],
+    ["a mixed run", "a \t\f\v "],
   ])("rstrip removes %s", (_name, source) => {
     const [only] = splitLines(source);
     expect(only.text).toBe("a");
     expect(only.raw, "the author's bytes are kept alongside").toBe(source);
   });
+  // A CR that IS part of CRLF is not lone, so it does not end the
+  // line by itself: the `\n` does, one position later, and the `\r`
+  // lands in raw exactly like any other trailing byte the rstrip set
+  // covers.
+  test("a CRLF keeps its CR in raw, same as any other trailing byte", () => {
+    const [only] = splitLines("a\r\n");
+    expect(only).toEqual({ text: "a", raw: "a\r", offset: 0, line: 1 });
+  });
+  // Was one line here and two under the JS oracle's own
+  // `prepareSourceString` (issue #68; MRI's does no such rewrite, see
+  // the JSDoc on nextLineBreak, src/parse/positions.ts): a bare CR
+  // with no following `\n` is a LINE BREAK to it, consumed like a
+  // `\n` rather than kept as trailing content, so it never reaches
+  // rstrip and never survives into any line's `raw`.
+  test("a lone carriage return ends the line, like a newline", () => {
+    expect(splitLines("a\rb")).toEqual([
+      { text: "a", raw: "a", offset: 0, line: 1 },
+      { text: "b", raw: "b", offset: 2, line: 2 },
+    ]);
+  });
+  // A trailing lone CR does not open a phantom last line either,
+  // exactly like a trailing `\n` (see "a trailing newline does not
+  // create a phantom last line" above).
+  test("a trailing lone carriage return does not open a phantom last line", () => {
+    expect(splitLines("a\r")).toEqual([
+      { text: "a", raw: "a", offset: 0, line: 1 },
+    ]);
+  });
+  // There is no formatAdoc-level render-equivalence pin for a lone CR
+  // anywhere in this repository, and there cannot honestly be one:
+  // Prettier's own entry point rewrites `\r\n?` to `\n` before any
+  // plugin parser runs (prettier/index.mjs, normalizeEndOfLine), so a
+  // lone CR never reaches splitLines through formatAdoc or the plugin
+  // at all - only a direct parse call (the conformance harnesses that
+  // feed raw documents) can ever see one. splitLines-vs-the-JS-oracle,
+  // pinned by the rows above, is the reachable claim; a formatAdoc
+  // round trip has no document left to observe this fix on.
+
   // Narrower than `trimEnd()` at both ends of the code space: the NUL
   // sits below the ASCII set and every non-ASCII space above it, and
   // the oracle keeps all of them. A run stops at the first survivor,
