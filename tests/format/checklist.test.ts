@@ -81,6 +81,53 @@ describe("checklist formatting", () => {
     },
   );
 
+  // A marker is a checkbox only when the item's FIRST LINE carries
+  // something after it. Asciidoctor tests the prefix against that one
+  // line (`item_text` is group 2 of the marker row,
+  // parser.rb l.1316, and the test is
+  // `item_text.start_with?('[ ] ', '[x] ', '[*] ')`,
+  // parser.rb l.1330), and the reader has already taken that line's
+  // trailing whitespace off (`prepare_lines`, reader.rb l.582), so
+  // `* [*] ` is the literal text `[*]`
+  // and text that only arrives on a continuation line arrives too
+  // late. Before the first line was read this way, `* [*] ` formatted
+  // to `* [x]`, respelling literal text as a checkbox glyph.
+  test.each([
+    ["a checked marker alone on its line", "* [*] \n"],
+    ["an x marker alone on its line", "* [x] \n"],
+    ["an unchecked marker alone on its line", "* [ ] \n"],
+    ["a marker followed only by more spaces", "* [*]   \n"],
+    ["a marker followed only by a tab", "* [*] \t\n"],
+  ])("no checkbox for %s", async (_name, input) => {
+    const out = await formatAdoc(input);
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+
+  // The literal bytes matter for the checked spelling: `[*]` is only
+  // respelled `[x]` where it really is a checkbox, so a `[*]` the
+  // oracle reads as text must survive verbatim.
+  test("a marker the oracle reads as text keeps its spelling", async () => {
+    expect(await formatAdoc("* [*] \n")).toBe("* [*]\n");
+  });
+
+  // The checked marker's own `*` is a bold delimiter too, so where a
+  // second `*` stands later on the line the tokenizer pairs them and
+  // the item's leading text node holds only `[`. There is no
+  // four-character prefix to take off that node, so the item carries
+  // no checkbox and keeps every byte the author wrote. The oracle
+  // does read a checked item there, so this is a divergence, and the
+  // rows below prove it costs nothing: the bytes replay, and the
+  // replayed bytes read back as the same document.
+  test.each([
+    ["the text is one span", "* [*] *b*\n"],
+    ["a span follows a word", "* [*] a *b*\n"],
+  ])("the marker keeps its bytes when %s", async (_name, input) => {
+    const out = await formatAdoc(input);
+    expect(out).toBe(input);
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+  });
+
   // Continuation lines of a checklist item should align under
   // the text content, not under the checkbox bracket. The full
   // prefix is "* [x] " = 6 characters, so continuations need

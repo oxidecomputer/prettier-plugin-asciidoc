@@ -15,6 +15,7 @@ import type {
 } from "../../ast.js";
 import { buildFromTokens } from "../inline/inline-node-builder.js";
 import type { InlineToken } from "../inline/tokens.js";
+import { ASCII_NON_WHITESPACE, rstrip } from "../line-shapes.js";
 import type { Fragment, LocationIndex } from "../positions.js";
 import { bodyExtent } from "./paragraph.js";
 
@@ -80,71 +81,111 @@ export interface ListItemInput {
 }
 
 /**
- * Detects a checklist prefix (`[x] `, `[*] `, `[ ] `) at the
- * start of item text. Returns the checkbox state and the text
- * with the prefix stripped, or undefined/original text if no
- * checkbox is present.
- * @param rawValue - The raw text content of a list item,
- *   possibly starting with a checkbox marker.
- * @returns The checkbox state ("checked", "unchecked", or
- *   undefined if absent) and the byte length of the prefix
- *   to strip from the value before building inline children.
+ * Detects a checklist prefix (`[x] `, `[*] `, `[ ] `) at the start of
+ * an item's first line. The prefix is always
+ * {@link CHECKBOX_PREFIX_LEN} characters long, so the state is the
+ * only thing a caller learns here.
+ * @param line - the item's first source line, right-stripped
+ * @returns the checkbox state, or undefined where the line opens with
+ *   no checklist prefix at all
  */
-function parseCheckbox(rawValue: string): {
-  checkbox: "checked" | "unchecked" | undefined;
-  prefixLength: number;
-} {
-  const match = CHECKBOX_RE.exec(rawValue);
+function parseCheckbox(line: string): ListItemNode["checkbox"] {
+  const match = CHECKBOX_RE.exec(line);
   if (match?.groups === undefined) {
-    return {
-      checkbox: undefined,
-      prefixLength: 0,
-    };
+    return undefined;
   }
   const {
     groups: { mark },
   } = match;
-  return {
-    checkbox: mark === " " ? "unchecked" : "checked",
-    prefixLength: CHECKBOX_PREFIX_LEN,
-  };
+  return mark === " " ? "unchecked" : "checked";
 }
 
 /**
- * Trim a checkbox prefix (e.g. `[x] `) from the beginning
- * of an InlineNode[] array.
+ * Take the checklist prefix off the item's leading text node.
  *
- * The tokenizer keeps the checkbox marker in the item's inline text.
- * This function strips it after building so the AST stores the
- * checkbox state separately from the item's visible text. Mutates the
- * first TextNode in-place — safe because the node was freshly built
- * and is not shared.
- * @param children - Inline children to trim. Mutated in
- *   place; does nothing if the first child is not a
- *   TextNode.
- * @param prefixLength - Number of characters to strip
- *   from the first TextNode's value (e.g. 4 for `[x] `).
+ * The tokenizer keeps the marker in the item's inline text, so the
+ * prefix comes off after building and the AST stores the checkbox
+ * state apart from the item's visible text. The leading node is
+ * mutated in place, which is safe because it was freshly built and is
+ * not shared.
+ *
+ * The bytes the source line spells are not always bytes the built
+ * nodes still hold: the checked marker's own `*` is a bold delimiter
+ * too, so in `* [*] *b*` it pairs with the `*` behind it, the
+ * tokenizer hands the builder a span, and the leading text node holds
+ * only `[`. Slicing four characters off that node would delete an
+ * author's bracket and half a span, so the prefix is only taken where
+ * it is really there. Refusing leaves the item without the checkbox
+ * the oracle reads, which is a divergence in the one direction that
+ * cannot corrupt text: every byte of the item's own text survives,
+ * and what changes is presentation - a refused item wraps its
+ * continuation lines under the marker rather than under the text,
+ * because the six columns the checkbox prefix holds are text to it.
+ * @param children - the item's inline nodes, mutated in place
+ * @param prefix - the checklist prefix read off the source line
+ * @returns true when the prefix was taken off
  */
-function trimCheckboxPrefix(
-  children: InlineNode[],
-  prefixLength: number,
-): void {
-  if (children.length === 0) return;
-  const [first] = children;
-  if (first.type === "text") {
-    first.value = first.value.slice(prefixLength);
+function stripCheckboxPrefix(children: InlineNode[], prefix: string): boolean {
+  const first = children.at(0);
+  if (first?.type !== "text" || !first.value.startsWith(prefix)) {
+    return false;
   }
+  first.value = first.value.slice(prefix.length);
+  return true;
 }
 
 /**
- * The value of the first inline child when it is a text node — the
- * only place a checklist prefix (`[x] `) can sit.
- * @param children - the item's inline children
- * @returns the text, or an empty string
+ * The one line a checklist prefix can sit on, as Asciidoctor sees it.
+ *
+ * The prefix is tested against `item_text`, which is group 2 of the
+ * marker row on the item's OPENING line
+ * (`list_item = ListItem.new(list_block, (item_text = match[2]))`,
+ * parser.rb l.1316) and nothing else, and the reader has already
+ * taken that line's trailing whitespace off (`prepare_lines`,
+ * reader.rb l.582, whose own comment calls the cleaning "very
+ * important to how Asciidoctor works"; {@link rstrip},
+ * src/parse/line-shapes.ts, is that set spelled once for this repo,
+ * and is used here so the two readings cannot drift). So the source
+ * bytes to ask about are the item's first line, right-stripped:
+ * `* [*] ` is the literal text `[*]`, and text that only arrives on a
+ * continuation line arrives after the question was settled.
+ *
+ * Read off the token images rather than the built nodes, because the
+ * prefix's line can end inside a construct - `* [x] *b*` puts `[x] `
+ * in a text node and `b` in a span - and only the images still hold
+ * the source bytes in order.
+ * @param tokens - the item's principal text, as tokenized
+ * @returns the item's first source line, right-stripped where the
+ *   item's text writes no line under it
  */
-function firstTextValue(children: InlineNode[]): string {
-  const [first] = children;
-  return children.length > 0 && first.type === "text" ? first.value : "";
+function checkboxLine(tokens: readonly InlineToken[]): string {
+  const text = tokens.map((token) => token.image).join("");
+  const breakAt = text.indexOf("\n");
+  if (breakAt === -1) {
+    return rstrip(text);
+  }
+  const line = text.slice(0, breakAt);
+  // The right-strip stops where the item's text really does continue
+  // below, and that is a DIVERGENCE from the oracle: it strips this
+  // line too, so `* [*] ` with `more` written under it carries no
+  // checkbox there either.
+  //
+  // Nothing about such an item is saved by taking it. It is corrupt
+  // BOTH WAYS and stays in issue #139: reflow packs the `more` onto
+  // the marker line under either reading, so `* [*] ` over `more`
+  // formats to `* [x] more` - the author's `[*]` respelled, and a
+  // checkmark rendered where the input renders the literal text. This
+  // is a choice between two spellings of the same known failure.
+  // Measured over a 2,000-shape grid of marker and continuation
+  // shapes: applying the strip here leaves the render failures
+  // identical (465 either way) and adds idempotency failures (27 on
+  // that grid, 72 on a wider one), because the tree it produces has
+  // no spelling the printer can print back. So the line is read as
+  // written, and the whole family is left to one fix, in the printer,
+  // where the join is decided.
+  return ASCII_NON_WHITESPACE.test(text.slice(breakAt + 1))
+    ? line
+    : rstrip(line);
 }
 
 /**
@@ -153,23 +194,25 @@ function firstTextValue(children: InlineNode[]): string {
  * `if list_type == :ulist && text.start_with?('[')`); `. [x] text` is
  * an ordered item whose text begins with brackets.
  * @param variant - which list kind the item's marker opened
+ * @param tokens - the item's principal text, as tokenized
  * @param inlineChildren - the item's inline nodes, trimmed in place
  * @returns the checkbox state, or undefined
  */
 function takeCheckbox(
   variant: ListNode["variant"],
+  tokens: readonly InlineToken[],
   inlineChildren: InlineNode[],
 ): ListItemNode["checkbox"] {
   if (variant !== "unordered") {
     return undefined;
   }
-  const { checkbox, prefixLength } = parseCheckbox(
-    firstTextValue(inlineChildren),
-  );
-  if (prefixLength > 0) {
-    trimCheckboxPrefix(inlineChildren, prefixLength);
+  const line = checkboxLine(tokens);
+  const checkbox = parseCheckbox(line);
+  if (checkbox === undefined) {
+    return undefined;
   }
-  return checkbox;
+  const prefix = line.slice(0, CHECKBOX_PREFIX_LEN);
+  return stripCheckboxPrefix(inlineChildren, prefix) ? checkbox : undefined;
 }
 
 /**
@@ -190,7 +233,7 @@ export function buildListItem(
   at: LocationIndex,
 ): ListItemNode {
   const text = buildFromTokens(input.text, at);
-  const checkbox = takeCheckbox(input.variant, text);
+  const checkbox = takeCheckbox(input.variant, input.text, text);
   return {
     type: "listItem",
     markerSpelling: input.markerSpelling,

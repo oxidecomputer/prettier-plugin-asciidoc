@@ -457,6 +457,13 @@
   {
     "file": "src/parse/line-shapes.ts",
     "symbol": "ASCII_NON_WHITESPACE",
+    "importer": "src/parse/build/list.ts",
+    "kind": "vocabulary",
+    "reason": "Ruby's definition of blank content, so \"the item's text writes a line under its marker\" counts the same characters the reader's own rstrip leaves standing (issue #75)"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "ASCII_NON_WHITESPACE",
     "importer": "src/print/blocks.ts",
     "kind": "vocabulary",
     "reason": "Ruby's definition of blank content, so a comment or listing block holding only a no-break space is not read as empty the way JavaScript's wider trim() would read it (issue #75)"
@@ -880,6 +887,13 @@
     "importer": "src/parse/lines/classify.ts",
     "kind": "vocabulary",
     "reason": "the one answer to which context-free raw pattern a line matched, beside those patterns"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "rstrip",
+    "importer": "src/parse/build/list.ts",
+    "kind": "vocabulary",
+    "reason": "the one line-normalization helper; Ruby's reader rstrips, so every consumer must strip the same way"
   },
   {
     "file": "src/parse/line-shapes.ts",

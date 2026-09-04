@@ -264,7 +264,6 @@ export default defineConfig(
   // or shown unreachable and deleted.
   {
     files: [
-      "src/parse/build/list.ts", // :132 `if (children.length === 0) return;`
       "src/parse/inline/rules.ts", // :454 `if (start === -1) return undefined;`
       "src/parse/lines/list-item-node.ts", // :185 `if (last === undefined) return markerLine.line;`
       "src/print/span-edges.ts", // :319, :339 `if (!isSpanNode(neighbour)) return undefined;`
