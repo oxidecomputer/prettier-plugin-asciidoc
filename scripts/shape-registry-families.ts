@@ -13,13 +13,15 @@
  * A coordinate with NO family is expected byte-identical, and a diff
  * there STOPS the run. That is the point of naming coordinates rather
  * than blanketing a kind: the rows below are the ones the table print
- * rules move, and every other row in the grid is still pinned.
+ * rules and the shortest-safe delimiter speller move, and every other
+ * row in the grid is still pinned.
  *
  * A LIBRARY module, not a command, and the family strings are the
  * closed enumeration's (scripts/parity-ledger.ts) rather than this
  * file's own.
  */
 import {
+  BLOCK_DELIMITER_LENGTH_FAMILY,
   NO_OP_CONTINUATION_FAMILY,
   TABLE_DELIMITER_LENGTH_FAMILY,
   TABLE_LAYOUT_FAMILY,
@@ -71,6 +73,31 @@ const TABLE_PIPE_FAMILIES: ReadonlyMap<string, string> = new Map([
 const TRAILING_PLUS = "trailing-plus-after-close";
 
 /**
+ * The one coordinate where a delimited LEAF block's own fence moves:
+ * the perturbation writes a longer delimiter INSIDE the block, which
+ * constrains nothing, so the fence is spelled at its shortest safe
+ * length instead of growing past a line that was never a collision.
+ *
+ * Four kinds and not every kind, because it names the ones whose
+ * fence this speller reaches: the three verbatim leaves plus the
+ * comment block, whose delimiter is chosen off the interior it wraps.
+ * A parent block's wrapper is not here - its interior is a Doc rather
+ * than recorded text and its rows do not move at this coordinate -
+ * and `tablePipe` keeps {@link TABLE_DELIMITER_LENGTH_FAMILY} in the
+ * map below, which is the table's own delimiter rule and not this
+ * one.
+ */
+const LONGER_DELIMITER_INSIDE = "longer-delimiter-inside";
+
+/** The leaf kinds whose fence the shortest-safe speller respells. */
+const BLOCK_DELIMITER_KINDS: ReadonlySet<string> = new Set([
+  "listing",
+  "literal",
+  "pass",
+  "commentBlock",
+]);
+
+/**
  * The family a standing grid row takes, or undefined where the row is
  * expected byte-identical.
  * @param kind - the delimiter kind the row is built from
@@ -83,6 +110,12 @@ export function gridRowFamily(
 ): string | undefined {
   if (kind === TABLE_PIPE_KIND) {
     return TABLE_PIPE_FAMILIES.get(perturbationId);
+  }
+  if (
+    perturbationId === LONGER_DELIMITER_INSIDE &&
+    BLOCK_DELIMITER_KINDS.has(kind)
+  ) {
+    return BLOCK_DELIMITER_LENGTH_FAMILY;
   }
   return perturbationId === TRAILING_PLUS
     ? NO_OP_CONTINUATION_FAMILY

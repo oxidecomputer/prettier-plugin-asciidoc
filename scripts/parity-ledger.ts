@@ -453,6 +453,27 @@ const TABLE_NODE_FAMILY = "table-node";
 export const TABLE_DELIMITER_LENGTH_FAMILY = "table-delimiter-length";
 
 /**
+ * A delimited LEAF block's two fence lines take the shortest run that
+ * is at least four characters long and equals no line of the interior
+ * about to be written between them, read as the printer will emit it.
+ * A longer interior line constrains nothing, so a `-----` inside a
+ * `----` listing is content and the fence stays four; a comment
+ * block's `////` is spelled the same way, off the interior it wraps.
+ * FORMATTED-ONLY: the length is a property of the OUTPUT and neither
+ * tree records it, both holding the author's own delimiter images, so
+ * an AST diff at one of these ids is a real failure.
+ *
+ * GRID-ONLY, and that is the honest statement of its population
+ * rather than a gap in it: parity reports all 1,620 corpus and
+ * fixture cases identical, so no id cites this family and none is
+ * expected to. The corpus simply does not spell a longer delimiter
+ * inside a shorter block; the standing grid does, at one named
+ * coordinate per kind, which is the reason the grids exist. Exported
+ * for those rows (`gridRowFamily`, scripts/shape-registry-families.ts).
+ */
+export const BLOCK_DELIMITER_LENGTH_FAMILY = "block-delimiter-length";
+
+/**
  * Every table cell records the column it inherits its style from
  * (`TableCellNode.columnIndex`, src/ast.ts): its physical position in
  * its row after duplicate expansion, which a consumer would otherwise
@@ -550,6 +571,8 @@ const TABLE_UNREAD_ATTRLIST_FAMILY = "table-unread-attrlist";
  * gap-collapse, plus-run-tail-kept, trailing-continuation-kept,
  * continuation-keeps-line, table-delimiter-length (which respells a
  * table's two delimiter lines, a length neither tree records),
+ * block-delimiter-length (the same respelling on a delimited leaf
+ * block's fence, cited by the standing grid alone),
  * table-layout (which rewrites an accepted table's interior from
  * records both trees already hold) and table-width-layout (the same
  * interior, written one cell per line because the width chose):
@@ -606,6 +629,7 @@ export const LEDGER_FAMILIES: FamilySets = {
     SPAN_ROLE_NODE_FAMILY,
     TABLE_NODE_FAMILY,
     TABLE_DELIMITER_LENGTH_FAMILY,
+    BLOCK_DELIMITER_LENGTH_FAMILY,
     TABLE_CELL_COLUMN_INDEX_FAMILY,
     TABLE_LAYOUT_FAMILY,
     TABLE_WIDTH_LAYOUT_FAMILY,
@@ -623,6 +647,7 @@ export const LEDGER_FAMILIES: FamilySets = {
     PLUS_RUN_TAIL_KEPT_FAMILY,
     CONTINUATION_KEEPS_LINE_FAMILY,
     TABLE_DELIMITER_LENGTH_FAMILY,
+    BLOCK_DELIMITER_LENGTH_FAMILY,
     TABLE_LAYOUT_FAMILY,
     TABLE_WIDTH_LAYOUT_FAMILY,
   ]),

@@ -10,11 +10,13 @@
  * next differential run STOPS on rows that were meant to be explained,
  * far from the commit that broke it.
  *
- * Three claims, and each of them is a fact the differential run
+ * Four claims, and each of them is a fact the differential run
  * assumes rather than checks: every family the grid cites is in the
  * closed enumeration, every perturbation the table names is one the
- * grid really generates, and no coordinate outside the table's two
- * sets gained a family by accident.
+ * grid really generates, the four leaf kinds whose fence the
+ * shortest-safe speller respells answer for it at the one coordinate
+ * that moves them, and no coordinate outside those sets gained a
+ * family by accident.
  */
 import { describe, expect, test } from "vitest";
 import { LEDGER_FAMILIES } from "../../scripts/parity.js";
@@ -26,6 +28,12 @@ const TABLE_PIPE = "tablePipe";
 
 /** The one coordinate every OTHER kind is allowed to differ at. */
 const TRAILING_PLUS = "trailing-plus-after-close";
+
+/** The coordinate at which a delimited leaf block's own fence moves. */
+const LONGER_INSIDE = "longer-delimiter-inside";
+
+/** The leaf kinds whose fence the shortest-safe speller respells. */
+const BLOCK_DELIMITER_KINDS = ["listing", "literal", "pass", "commentBlock"];
 
 describe("the standing grid's family assignment", () => {
   // The enum is closed and `shape-diff` treats `Shape.family` as an
@@ -64,13 +72,41 @@ describe("the standing grid's family assignment", () => {
     ).toBe(5);
   });
 
-  // The other twelve kinds keep exactly the answer the perturbation
-  // table used to carry, which is what makes this a re-homing of the
-  // question rather than a change to it.
+  // The leaf-fence coordinate, asked of the map and of the realized
+  // grid. The kind list is the load-bearing half: a fifth kind added
+  // to it would excuse rows nothing measured, and a kind dropped from
+  // it stops excusing rows the speller really moves, which is the
+  // quiet failure this file exists to make loud.
+  test("the four leaf kinds answer for their fence's own coordinate", () => {
+    for (const kind of BLOCK_DELIMITER_KINDS) {
+      expect(gridRowFamily(kind, LONGER_INSIDE)).toBe("block-delimiter-length");
+    }
+    const rows = standingGrid().filter(
+      (shape) =>
+        shape.id.split("/")[2] === LONGER_INSIDE &&
+        BLOCK_DELIMITER_KINDS.includes(shape.id.split("/")[0]),
+    );
+    expect(rows.length).toBeGreaterThan(0);
+    for (const shape of rows) {
+      expect(shape.family).toBe("block-delimiter-length");
+    }
+  });
+
+  // The other kinds keep exactly the answer the perturbation table
+  // used to carry, which is what holds the leaf-fence entry to the
+  // four kinds and the one coordinate it was measured for: a parent
+  // wrapper answering it, or a leaf answering it at a second
+  // perturbation, shows up here.
   test("no other kind's coordinates changed their answer", () => {
     for (const shape of standingGrid()) {
       const [kind, , perturbation] = shape.id.split("/");
       if (kind === TABLE_PIPE) {
+        continue;
+      }
+      if (
+        perturbation === LONGER_INSIDE &&
+        BLOCK_DELIMITER_KINDS.includes(kind)
+      ) {
         continue;
       }
       expect(shape.family).toBe(
