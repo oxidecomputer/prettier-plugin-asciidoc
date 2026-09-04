@@ -305,7 +305,8 @@ async function printCensus(foreignRoot: boolean): Promise<void> {
     return;
   }
   const { censusPins } = await import("./metrics/shape-census.js");
-  const lines = censusPins().map(
+  const { inlineCensusPins } = await import("./inline-census.js");
+  const lines = [...censusPins(), ...inlineCensusPins()].map(
     ({ what, realized, pinned }) =>
       `  ${what.padEnd(NAME_WIDTH)}${String(realized).padStart(TAIL_WIDTH)}  ${realized === pinned ? "pin holds" : `pin moved (written down: ${String(pinned)})`}`,
   );
@@ -588,6 +589,8 @@ async function main(): Promise<void> {
     if (!options.foreignRoot) {
       const { shapeCensusFailures } = await import("./metrics/shape-census.js");
       failures.push(...shapeCensusFailures());
+      const { inlineCensusFailures } = await import("./inline-census.js");
+      failures.push(...inlineCensusFailures());
     }
     if (failures.length > ZERO) {
       process.stderr.write(`${failures.join("\n")}\n`);

@@ -51,6 +51,7 @@ import * as inlineRules from "../src/parse/inline/rules.js";
 import { INLINE_RULES } from "../src/parse/inline/rules.js";
 import { tokenizeInline } from "../src/parse/inline/tokenize.js";
 import type { InlineKind } from "../src/parse/inline/tokens.js";
+import type { CensusPin } from "./metrics/shape-census.js";
 import {
   CONTEXTS,
   FILLER_EDGE,
@@ -366,6 +367,26 @@ function gridSizeFailures(standing: number, pair: number): string[] {
     );
   }
   return failures;
+}
+
+/**
+ * The two realized grid sizes beside their pins, for the scorecard's
+ * census section (the same numbers rule (vi) fails on when they move).
+ * @returns one row per pinned grid
+ */
+export function inlineCensusPins(): CensusPin[] {
+  return [
+    {
+      what: "inline standing grid",
+      realized: inlineStandingGrid().length,
+      pinned: STANDING_GRID_SIZE,
+    },
+    {
+      what: "inline pair grid",
+      realized: inlinePairGrid().length,
+      pinned: PAIR_GRID_SIZE,
+    },
+  ];
 }
 
 /**
