@@ -1,40 +1,4 @@
 {
-  "commentBlock/dlist-desc/longer-delimiter-inside": {
-    "fails": ["idempotency"],
-    "issue": "UNTRIAGED"
-  },
-  "commentBlock/dlist-desc/longer-delimiter-inside@bom": {
-    "fails": ["idempotency"],
-    "issue": "UNTRIAGED"
-  },
-  "commentBlock/dlist-desc/longer-delimiter-inside@crlf": {
-    "fails": ["idempotency"],
-    "issue": "UNTRIAGED"
-  },
-  "commentBlock/dlist-desc/longer-delimiter-inside@no-final-newline": {
-    "fails": ["idempotency"],
-    "issue": "UNTRIAGED"
-  },
-  "commentBlock/dlist-desc/longer-delimiter-inside@trailing-ff": {
-    "fails": ["idempotency"],
-    "issue": "UNTRIAGED"
-  },
-  "commentBlock/dlist-desc/longer-delimiter-inside@trailing-space": {
-    "fails": ["idempotency"],
-    "issue": "UNTRIAGED"
-  },
-  "commentBlock/dlist-desc/longer-delimiter-inside@trailing-space-first-line": {
-    "fails": ["idempotency"],
-    "issue": "UNTRIAGED"
-  },
-  "commentBlock/dlist-desc/longer-delimiter-inside@trailing-tab": {
-    "fails": ["idempotency"],
-    "issue": "UNTRIAGED"
-  },
-  "commentBlock/dlist-desc/longer-delimiter-inside@trailing-vt": {
-    "fails": ["idempotency"],
-    "issue": "UNTRIAGED"
-  },
   "example/after-h0-adjacent/foreign-marker-inside": {
     "fails": ["fidelity"],
     "issue": "UNTRIAGED"
