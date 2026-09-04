@@ -641,6 +641,19 @@ function attrlistAllowsIt(
  * is an element and the `]` or `>` in front of its bracket is a
  * boundary character nothing has spent -
  * `[red]**c**[b]**d**` and `[red]**c**[b]_d_` both stay whole.
+ *
+ * An ESCAPE moves a span behind onto that same row. Only the
+ * unconstrained rows carry a `\\?` in front of their attributes group
+ * (`QUOTE_SUBS`, asciidoctor.rb l.446-468), so a span written
+ * `\[a]##c##` is matched by its own unconstrained row and handed back
+ * as literal text with the escape dropped (`convert_quoted_text`,
+ * substitutors.rb l.1419-1426); the row that then resolves it is the
+ * CONSTRAINED row of the same mark. The backslash is therefore not
+ * something standing between the two spans - the pass that removes it
+ * is the pass that would have read the group, which ends up flush
+ * behind the shortened match. Measured: `##a##\[ ]##c##` renders
+ * `<mark>a</mark>#c#` and `#a#\[ ]##c##` renders
+ * `<mark>a</mark>[ ]<mark>#c</mark>#`.
  * @param node - the span whose shortening is in question
  * @param behind - the siblings behind it, in source order
  * @returns true when the shortening would take that character
@@ -655,17 +668,19 @@ function stealsBoundaryBehind(
       between.push(printedText(sibling));
       continue;
     }
-    if (rowKeyOf(sibling) !== MARK_ROW_KEYS[node.type].constrained) {
-      return false;
-    }
     const run = between.join("");
+    const rows = MARK_ROW_KEYS[node.type];
     // A mark span's attrlist is PARSED and rides on the span as its
     // role, so its brackets stand among no siblings at all and
-    // flushness is the absence of anything between.
-    return (
-      FLUSH_ATTRLIST.test(run) ||
-      (run === "" && isMarkSpanNode(sibling) && sibling.role !== undefined)
-    );
+    // flushness is the absence of anything between - or, for the
+    // escaped spelling, of nothing but the escape the row eats.
+    const carriesRole = isMarkSpanNode(sibling) && sibling.role !== undefined;
+    if (rowKeyOf(sibling) === rows.constrained) {
+      return FLUSH_ATTRLIST.test(run) || (run === "" && carriesRole);
+    }
+    return rowKeyOf(sibling) === rows.unconstrained
+      ? run === ATTRLIST_ESCAPE && carriesRole
+      : false;
   }
   return false;
 }

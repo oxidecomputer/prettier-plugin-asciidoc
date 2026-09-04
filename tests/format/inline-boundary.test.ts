@@ -567,6 +567,70 @@ describe("the shortening reads the attrlist's own left context (issues #85, #88)
   });
 });
 
+describe("an escaped group behind is read by the constrained row", () => {
+  // The boundary-stealing hazard above turns on WHICH row resolves
+  // the span behind, and an ESCAPE moves it. Only the unconstrained
+  // rows carry a `\\?` in front of their attributes group
+  // (`QUOTE_SUBS`, asciidoctor.rb l.446-468), so a span written
+  // `\[a]##c##` is matched by its own unconstrained row and handed
+  // straight back as literal text with the escape dropped
+  // (`convert_quoted_text`, substitutors.rb l.1419-1426). What
+  // resolves it is the CONSTRAINED row of the same mark, which is the
+  // row the span in front would move onto - and that row's left
+  // clause consumes the character its group needs.
+  //
+  // So the escape does not merely sit between the two: the row that
+  // removes it is the one that would have read the group, and the
+  // group ends up flush behind a match that has already spent the
+  // byte in front of it.
+  //
+  // Before this was read that way, `##a##\[ ]##c##` formatted to
+  // `#a#\[ ]##c##`: the input renders `<mark>a</mark>#c#` and the
+  // output renders `<mark>a</mark>[ ]<mark>#c</mark>#`, the group
+  // gone and a mark invented around bytes the author wrote as text.
+  // It holds for every role, because what is lost is the group's
+  // place rather than its content.
+  test.each<[string, string]>([
+    [String.raw`##a##\[ ]##c##`, String.raw`#a#\[ ]##c##`],
+    [String.raw`##a##\[a]##c##`, String.raw`#a#\[a]##c##`],
+    [String.raw`##a##\[.r]##c##`, String.raw`#a#\[.r]##c##`],
+    [String.raw`**a**\[a]**c**`, String.raw`*a*\[a]**c**`],
+    [String.raw`__a__\[a]__c__`, String.raw`_a_\[a]__c__`],
+    ["``a``\\[a]``c``", "`a`\\[a]``c``"],
+    [String.raw`z ##a##\[a]##c## z`, String.raw`z #a#\[a]##c## z`],
+  ])(
+    "%s keeps both spellings, because %s reads differently",
+    async (source, shorter) => {
+      const input = `${source}\n`;
+      const out = await formatAdoc(input);
+      expect(out).toBe(input);
+      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+      expect(await formatAdoc(out)).toBe(out);
+      // The refusal is necessary: the shorter spelling is a different
+      // document to the oracle.
+      expect(await renderedHtml(`${shorter}\n`)).not.toBe(
+        await renderedHtml(input),
+      );
+    },
+  );
+
+  // The other side, so the refusal is not a blanket one: a group
+  // behind a span of ANOTHER mark is resolved in a pass of its own,
+  // and a group the escape does not stand flush in front of leaves a
+  // byte the match in front never spends.
+  test.each<string>([
+    String.raw`##a##\[a]**c**`,
+    String.raw`**a**\[a]##c##`,
+    String.raw`##a## \[a]##c##`,
+  ])("%s still shortens", async (source) => {
+    const input = `${source}\n`;
+    const out = await formatAdoc(input);
+    expect(out).not.toBe(input);
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+});
+
 describe("the attrlist scan stops at the LAST open bracket (issue #110)", () => {
   // Which `[` opens the attributes group decides which bytes the
   // refusals above get to read. The group is `QuoteAttributeListRxt`,
