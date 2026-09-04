@@ -325,3 +325,54 @@ describe("shortening may not open an attributes group the source has not", () =>
     },
   );
 });
+
+describe("a group may open at a bracket outside the enclosing span", () => {
+  // A row is a regex over the whole LINE and reads straight through an
+  // enclosing span's boundary: by the time a later row runs, the
+  // enclosing span's own delimiters are gone from the text and a `[`
+  // written in front of it stands as near to a nested span as any of
+  // that span's own siblings. What a nested span can see, though, ends
+  // at that boundary - its siblings, and the enclosing span's edge -
+  // so the bracket that opens the group is invisible to it.
+  //
+  // Both refusals that read the bytes in front were therefore blind
+  // one nesting level up. Measured before this: `[a[b]**__a__]__c__
+  // z**` formatted to `[a[b]**_a_]_c_ z**`, whose class holds the
+  // author's `_a_` where the input's holds an emphasis element - and
+  // shortening either inner span alone is enough to change it.
+  //
+  // The answer is conservative: standing inside a span, a `]` with no
+  // `[` of its own in front of it is treated as closing a group, and a
+  // front with no `]` in it is treated as standing inside one. Both
+  // only refuse, and the rows below the fixed ones record what that
+  // costs.
+  test.each<[string, string]>([
+    ["[a[b]**__a__]__c__ z**\n", "[a[b]**_a_]_c_ z**\n"],
+    ["[a[b]**__a__]__c__ z**\n", "[a[b]**__a__]_c_ z**\n"],
+    ["[a**__a__]__c__ z**\n", "[a**_a_]_c_ z**\n"],
+    ["[a[b]``__a__]__c__ z``\n", "[a[b]``_a_]_c_ z``\n"],
+    ["[a[b]**``a``]``c`` z**\n", "[a[b]**`a`]`c` z**\n"],
+  ])(
+    "%j keeps its doubled spelling, because %j reads differently",
+    async (input, shorter) => {
+      await expectRow(input, input);
+      expect(await renderedHtml(shorter)).not.toBe(await renderedHtml(input));
+    },
+  );
+
+  // What the conservatism costs. No `[` stands in front of the
+  // enclosing span in either row, so no group can open and the shorter
+  // spelling renders the same - but the bytes that would say so are
+  // outside what a nested span reads, and a refusal costs bytes and no
+  // meaning.
+  test.each<[string, string]>([
+    ["*__a__]__c__ z*\n", "*_a_]_c_ z*\n"],
+    ["x**__a__]__c__ z**\n", "x**_a_]_c_ z**\n"],
+  ])(
+    "%j is refused conservatively, and %j would have survived",
+    async (input, shorter) => {
+      await expectRow(input, input);
+      expect(await renderedHtml(shorter)).toBe(await renderedHtml(input));
+    },
+  );
+});

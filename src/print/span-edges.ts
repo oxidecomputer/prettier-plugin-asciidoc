@@ -368,6 +368,49 @@ function printedText(node: InlineNode): string {
 }
 
 /**
+ * What stands in front of a span's sibling list - and, just as much,
+ * whether anything stands in front of THAT which this tree cannot
+ * see.
+ *
+ * At the head of a block the answer is complete: nothing at all
+ * stands in front, and no clause can be surprised by bytes it did not
+ * read. Inside a span the list's own front is the enclosing span's
+ * edge, and the document goes on to the left of it - the enclosing
+ * span's siblings, its own attrlist, the text in front of those. The
+ * refusals read the bytes a ROW reads, and that row reads straight
+ * through an enclosing span's boundary, so the two cases are not the
+ * same fact with a different string in it: one is a whole answer and
+ * the other is a truncated one. See {@link closesGroupFromOutside}
+ * for the clause that turns on the difference.
+ */
+export type HeadContext =
+  | {
+      /** Nothing stands in front of the list, and nothing is hidden. */
+      readonly kind: "blockStart";
+    }
+  | {
+      /** An enclosing span's edge stands in front, and more beyond it. */
+      readonly kind: "spanEdge";
+      /**
+       * The enclosing span's own edge as the asking row reads it:
+       * the element boundary its rewrite wrote where that row has
+       * already run, and its literal opening delimiter where it has
+       * not (`headContext`, src/print/inline.ts).
+       */
+      readonly edge: string;
+    };
+
+/**
+ * The bytes a head context puts in front of the sibling list. The
+ * block head writes none.
+ * @param head - what stands in front of the list
+ * @returns those bytes
+ */
+export function headBytes(head: HeadContext): string {
+  return head.kind === "blockStart" ? "" : head.edge;
+}
+
+/**
  * The attrlist standing flush in front of a span: the run inside its
  * brackets, and the bytes in front of its `[`.
  *
@@ -431,7 +474,7 @@ interface AttrlistInFront {
  *   stands there
  */
 function attrlistInFront(
-  head: string,
+  head: HeadContext,
   inFront: readonly InlineNode[],
   role: string | undefined,
 ): AttrlistInFront | undefined {
@@ -450,13 +493,14 @@ function attrlistInFront(
  * @returns the whole run in front of the delimiter
  */
 function frontText(
-  head: string,
+  head: HeadContext,
   siblings: string,
   role: string | undefined,
 ): string {
+  const front = `${headBytes(head)}${siblings}`;
   return role === undefined
-    ? `${head}${siblings}`
-    : `${head}${siblings}${ATTRLIST_OPEN}${role}${ATTRLIST_CLOSE}`;
+    ? front
+    : `${front}${ATTRLIST_OPEN}${role}${ATTRLIST_CLOSE}`;
 }
 
 /**
@@ -542,13 +586,51 @@ function rowText(node: InlineNode, askingOrder: number): string {
  * @returns true when the shortening would open a group
  */
 function inventsAttrlistInFront(
-  head: string,
+  head: HeadContext,
   inFront: readonly InlineNode[],
   role: string | undefined,
   askingOrder: number,
 ): boolean {
   const rewritten = inFront.map((node) => rowText(node, askingOrder)).join("");
-  return attrlistEnding(frontText(head, rewritten, role)) !== undefined;
+  const text = frontText(head, rewritten, role);
+  return (
+    attrlistEnding(text) !== undefined || closesGroupFromOutside(head, text)
+  );
+}
+
+/**
+ * Whether a group could open at a `[` this tree cannot see.
+ *
+ * {@link attrlistEnding} answers over the bytes it was given, and
+ * inside a span those bytes stop at the enclosing span's edge while
+ * the row reading them does not: a `[` standing OUTSIDE the enclosing
+ * span reaches a `]` inside it just as readily, because the row is a
+ * regex over the whole line and an enclosing span's own delimiters
+ * are gone from the text by the time a later row runs. Where the
+ * visible bytes end in a `]` and hold no `[` of their own, the group
+ * that `]` would close can only have opened out there, so the
+ * shortening cannot be shown to be safe and the span keeps its
+ * bytes.
+ *
+ * CONSERVATIVE, deliberately: this answers true for a `]` whose `[`
+ * does not exist at all, where the shortening would in fact have been
+ * legal. The rows it costs are labelled in
+ * tests/format/inline-role-prefix.test.ts, under "a group may open at
+ * a bracket outside the enclosing span". The direction that corrupts
+ * is the other one, and the bytes that would rule it out do not reach
+ * this function; most of the cost is recoverable from bytes that DO
+ * reach the printer (the block's own nodes say whether the document
+ * writes any `[` at all), which is issue #141.
+ * @param head - what stands in front of the sibling list
+ * @param text - the bytes in front of the span's delimiter
+ * @returns true when a group may close here from outside
+ */
+function closesGroupFromOutside(head: HeadContext, text: string): boolean {
+  return (
+    head.kind === "spanEdge" &&
+    text.endsWith(ATTRLIST_CLOSE) &&
+    !text.includes(ATTRLIST_OPEN)
+  );
 }
 
 /**
@@ -698,28 +780,59 @@ function stealsBoundaryBehind(
  * `<strong class="<strong>a</strong>">c</strong>` and the shortened
  * `[*a*]*c*` renders `<strong class="*a*">c</strong>`.
  *
- * CONSERVATIVE, in two directions that both only refuse. The run is
+ * CONSERVATIVE, in three directions that all only refuse. The run is
  * treated as the following span's group without asking whether that
  * span's own row can still reach it, and without asking whether the
  * inner span's rows run early enough for the rewrite to be the same
- * either way. A refusal keeps the author's bytes, which costs bytes
- * and no meaning.
+ * either way; and where the span sits inside another one, a run this
+ * tree cannot see is treated as open ({@link runMayBeOpen}). A
+ * refusal keeps the author's bytes, which costs bytes and no meaning.
  * @param head - what stands in front of the sibling list itself
  * @param inFront - the siblings in front of the span, in source order
  * @param behind - the siblings behind the span, in source order
  * @returns true when the span's bytes stand inside such a run
  */
 function insideFollowingAttrlist(
-  head: string,
+  head: HeadContext,
   inFront: readonly InlineNode[],
   behind: readonly InlineNode[],
 ): boolean {
-  const front = head + inFront.map(printedText).join("");
-  if (!OPEN_BRACKET_RUN.test(front)) return false;
+  const front = headBytes(head) + inFront.map(printedText).join("");
+  if (!runMayBeOpen(head, front)) return false;
   const span = behind.findIndex((node) => isSpanNode(node));
   if (span === -1) return false;
   const between = behind.slice(0, span).map(printedText).join("");
   return CLOSES_FLUSH.test(between);
+}
+
+/**
+ * Whether a bracketed run may be standing open where the span does:
+ * one the visible bytes open, or one that opened at a `[` OUTSIDE an
+ * enclosing span, which this tree cannot see.
+ *
+ * A row is a regex over the whole line and reads straight through an
+ * enclosing span's boundary, so `[a` written in front of an enclosing
+ * `**...**` is as open inside it as it would be outside. What the
+ * visible bytes can still settle is the CLOSE: a `]` among them ends
+ * any run that reached this far, whatever opened it, so only a front
+ * with no `]` of its own leaves the question open.
+ *
+ * CONSERVATIVE in the second clause, on the same terms as
+ * {@link closesGroupFromOutside} and recoverable the same way (issue
+ * #141): a front with no `]` is treated as standing inside a run even
+ * where the document opens none. This is the clause that keeps
+ * `*__a__]__c__ z*` whole, and the rows it costs are labelled in
+ * tests/format/inline-role-prefix.test.ts, under "a group may open at
+ * a bracket outside the enclosing span".
+ * @param head - what stands in front of the sibling list
+ * @param front - the visible bytes in front of the span
+ * @returns true when a run may be open here
+ */
+function runMayBeOpen(head: HeadContext, front: string): boolean {
+  return (
+    OPEN_BRACKET_RUN.test(front) ||
+    (head.kind === "spanEdge" && !front.includes(ATTRLIST_CLOSE))
+  );
 }
 
 /**
@@ -858,7 +971,11 @@ function writesBareTextBehind(
  */
 export function bracketsAllowIt(
   node: MarkSpanNode,
-  where: { head: string; siblings: readonly InlineNode[]; index: number },
+  where: {
+    head: HeadContext;
+    siblings: readonly InlineNode[];
+    index: number;
+  },
   boundary: { mark: string; front: RegExp; behind: RegExp },
 ): boolean {
   const before = where.siblings.slice(0, where.index);

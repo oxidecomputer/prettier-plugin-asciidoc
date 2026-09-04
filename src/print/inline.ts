@@ -28,10 +28,12 @@ import {
   fixedSpanMarks,
   edgeHead,
   edgeTail,
+  headBytes,
   isMarkSpanNode,
   isSpanNode,
   rowKeyOf,
   spanMarks,
+  type HeadContext,
   type MarkSpanNode,
   type SpanNode,
 } from "./span-edges.js";
@@ -575,7 +577,7 @@ function neighboursAllowIt(node: MarkSpanNode, cursor: Cursor): boolean {
 function frontNeighbour(cursor: Cursor, order: number): string | undefined {
   return cursor.index > 0
     ? edgeTail(cursor.siblings[cursor.index - 1], order)
-    : headContext(cursor, order);
+    : headBytes(headContext(cursor, order));
 }
 
 /**
@@ -593,11 +595,14 @@ function frontNeighbour(cursor: Cursor, order: number): string | undefined {
  * @param order - the asking span's row index
  * @returns the text in front of the first sibling
  */
-function headContext(cursor: Cursor, order: number): string {
+function headContext(cursor: Cursor, order: number): HeadContext {
   const { enclosing } = cursor;
-  if (enclosing === undefined) return "";
+  if (enclosing === undefined) return { kind: "blockStart" };
   const row = QUOTE_ROW[rowKeyOf(enclosing)];
-  return row.order < order ? row.closesWith : delimitersOf(enclosing).open;
+  return {
+    kind: "spanEdge",
+    edge: row.order < order ? row.closesWith : delimitersOf(enclosing).open,
+  };
 }
 
 /**
