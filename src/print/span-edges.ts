@@ -350,6 +350,10 @@ export function edgeHead(
  * only nodes - a raw line prints the line it kept and a hard break its
  * own ` +`, and every other node answers through `verbatimText`, the
  * same function the printer writes it with.
+ *
+ * TWIN of {@link rowText}, which walks the same node shapes and
+ * differs only in how it renders a span whose row has already run.
+ * A node kind that needs a case here needs one there too.
  * @param node - an inline node standing beside a span
  * @returns its printed bytes
  */
@@ -431,11 +435,39 @@ function attrlistInFront(
   inFront: readonly InlineNode[],
   role: string | undefined,
 ): AttrlistInFront | undefined {
-  const siblings = head + inFront.map(printedText).join("");
-  const text =
-    role === undefined
-      ? siblings
-      : `${siblings}${ATTRLIST_OPEN}${role}${ATTRLIST_CLOSE}`;
+  return attrlistEnding(
+    frontText(head, inFront.map(printedText).join(""), role),
+  );
+}
+
+/**
+ * The bytes in front of a span's opening delimiter: what stands in
+ * front of the sibling list, then the siblings, then the brackets the
+ * printer writes for the span's own parsed role.
+ * @param head - what stands in front of the sibling list itself
+ * @param siblings - the siblings in front, already rendered to text
+ * @param role - the span's own parsed attrlist, when it has one
+ * @returns the whole run in front of the delimiter
+ */
+function frontText(
+  head: string,
+  siblings: string,
+  role: string | undefined,
+): string {
+  return role === undefined
+    ? `${head}${siblings}`
+    : `${head}${siblings}${ATTRLIST_OPEN}${role}${ATTRLIST_CLOSE}`;
+}
+
+/**
+ * The attributes group ENDING at the last byte of a run, or undefined
+ * when none does. The one scan, so the two views that ask it
+ * ({@link attrlistInFront} and {@link inventsAttrlistInFront}) cannot
+ * read a group differently.
+ * @param text - the bytes standing in front of a span's delimiter
+ * @returns the group and its left context, or undefined
+ */
+function attrlistEnding(text: string): AttrlistInFront | undefined {
   // The group's own `\]` has to be the last byte in front of the
   // delimiter; anything else and no group can end there.
   if (!text.endsWith(ATTRLIST_CLOSE)) return undefined;
@@ -449,6 +481,74 @@ function attrlistInFront(
   return interior === "" || interior.includes(ATTRLIST_CLOSE)
     ? undefined
     : { interior, before: body.slice(0, open) };
+}
+
+/**
+ * What a node standing in front of a span looks like to the row that
+ * would resolve the SHORTENED span - the bytes {@link printedText}
+ * gives, with every span an earlier row has already replaced written
+ * as the element that replaced it.
+ *
+ * The distinction only matters for the BRACKETS. A span's own
+ * delimiters and its role's own brackets are consumed by the row that
+ * resolves it: the role becomes an HTML attribute's value, so its `[`
+ * and `]` are gone from the text the next row reads, while the span's
+ * CONTENT stands on in the element between the tags. Which rows count
+ * as earlier is the shortening's own question: it moves the span onto
+ * its constrained row, and every row up to and including its own
+ * unconstrained row (`askingOrder`) runs in front of that one.
+ *
+ * TWIN of {@link printedText}, which walks the same node shapes and
+ * differs only in this one rendering. A node kind that needs a case
+ * there needs one here too.
+ * @param node - a node standing in front of the span
+ * @param askingOrder - the asking span's unconstrained row index
+ * @returns the bytes that row reads where this node stands
+ */
+function rowText(node: InlineNode, askingOrder: number): string {
+  if (!isSpanNode(node)) return printedText(node);
+  const row = QUOTE_ROW[rowKeyOf(node)];
+  if (row.order > askingOrder) return printedText(node);
+  const content = node.children
+    .map((child) => rowText(child, askingOrder))
+    .join("");
+  return `${row.opensWith}${content}${row.closesWith}`;
+}
+
+/**
+ * Whether shortening the span would hand it an attributes group it
+ * does not have - a group that opens only once the rows in front have
+ * rewritten the bytes it is made of.
+ *
+ * The unconstrained row reads the author's own bytes, where a `[`
+ * standing before another span's brackets opens nothing: the interior
+ * would have to cross them. The constrained row runs one row later,
+ * with that span already replaced by an element carrying no brackets
+ * at all, and the same `[` then reaches the `]` flush against our
+ * delimiter. Measured: `[a[b]**c**]**f**` renders
+ * `[a<strong class="b">c</strong>]<strong>f</strong>` and the
+ * shortened `[a[b]**c**]*f*` renders
+ * `<strong class="a<strong class="b">c</strong>">f</strong>` - the
+ * bracketed text swallowed into a class, and the `[a` and `]` gone
+ * from the document.
+ *
+ * Asked by {@link bracketsAllowIt} only where the author's own bytes
+ * open NO group: where they do, the group is the span's own and
+ * {@link attrlistAllowsIt} is the clause that answers for it.
+ * @param head - what stands in front of the sibling list itself
+ * @param inFront - the siblings in front of the span, in source order
+ * @param role - the span's own parsed attrlist, when it has one
+ * @param askingOrder - the asking span's unconstrained row index
+ * @returns true when the shortening would open a group
+ */
+function inventsAttrlistInFront(
+  head: string,
+  inFront: readonly InlineNode[],
+  role: string | undefined,
+  askingOrder: number,
+): boolean {
+  const rewritten = inFront.map((node) => rowText(node, askingOrder)).join("");
+  return attrlistEnding(frontText(head, rewritten, role)) !== undefined;
 }
 
 /**
@@ -713,20 +813,23 @@ function writesBareTextBehind(
 /**
  * Whether every bracketed run standing around a span leaves the
  * constrained spelling legal - the one entry point the printer asks,
- * over the four refusals above.
+ * over the five refusals above.
  *
  * A `[...]` run flush against a span is never just text: every
  * `QUOTE_SUBS` row carries an optional `(?:\[([^\]]+)\])?` group in
  * front of its opening delimiter (asciidoctor.rb l.446-468), so such a
  * run belongs to whichever row resolves the span it stands against.
- * Four runs can therefore answer for one shortening: the run in FRONT
- * of the span, which moves to the constrained row with it
- * ({@link attrlistAllowsIt}); a run the span stands INSIDE, which is
- * another span's attribute value ({@link insideFollowingAttrlist});
- * a run BEHIND, whose bracket loses the boundary character it
- * stands on ({@link stealsBoundaryBehind}); and a run behind that
- * names no attribute at all, which costs the span behind its element
- * and bares its text ({@link writesBareTextBehind}).
+ * Five questions can therefore answer for one shortening. Two are
+ * about the run in FRONT: whether the group standing there survives
+ * the move to the constrained row ({@link attrlistAllowsIt}), and
+ * whether the move OPENS a group the author's bytes do not
+ * ({@link inventsAttrlistInFront}). One is about the run the span
+ * stands INSIDE, which is another span's attribute value
+ * ({@link insideFollowingAttrlist}). Two are about what stands
+ * BEHIND: a bracket that loses the boundary character it stands on
+ * ({@link stealsBoundaryBehind}), and a run naming no attribute at
+ * all, which costs the span behind its element and bares its text
+ * ({@link writesBareTextBehind}).
  * @param node - the span whose shortening is in question
  * @param where - where the span sits among the bytes
  * @param where.head - what stands in front of the sibling list itself
@@ -746,9 +849,14 @@ export function bracketsAllowIt(
   const before = where.siblings.slice(0, where.index);
   const after = where.siblings.slice(where.index + 1);
   const attrlist = attrlistInFront(where.head, before, node.role);
+  const { order } = QUOTE_ROW[rowKeyOf(node)];
   return (
-    (attrlist === undefined ||
-      attrlistAllowsIt(attrlist, boundary.mark, boundary.front)) &&
+    // Exactly one of the two clauses answers for the run in FRONT: a
+    // group standing there is the span's own, and where none does the
+    // question is whether shortening opens one.
+    (attrlist === undefined
+      ? !inventsAttrlistInFront(where.head, before, node.role, order)
+      : attrlistAllowsIt(attrlist, boundary.mark, boundary.front)) &&
     !insideFollowingAttrlist(where.head, before, after) &&
     !stealsBoundaryBehind(node, after) &&
     !writesBareTextBehind(node, after, boundary.behind)

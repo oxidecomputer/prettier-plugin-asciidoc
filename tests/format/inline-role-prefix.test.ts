@@ -202,3 +202,126 @@ describe("the counterparts where the net stays out", () => {
     await expectRow("x [.path]_file_ y\n", "x [.path]_file_ y\n");
   });
 });
+
+describe("the role is the oracle's own group, not the widest run (issue #114)", () => {
+  // The group in front of a quoted span is `QuoteAttributeListRxt`,
+  // `\[([^\[\]]+)\]`
+  // (`node_modules/@asciidoctor/core/build/node/index.cjs` l.59), whose
+  // interior crosses NEITHER bracket. So the `[` that opens it is the
+  // LAST one standing in front of its `]`, and an earlier `[` opens
+  // nothing at all: `[a[b]**c**` renders
+  // `[a<strong class="b">c</strong>`, class `b`, with `[a` in front of
+  // the group as ordinary text.
+  //
+  // The Ruby this repo vendors spells the same group inline as
+  // `\[([^\]]+)\]` in each row (`QUOTE_SUBS`,
+  // asciidoctor.rb l.445-467), an interior that DOES cross an open
+  // bracket, and reading it that way recorded a role of `a[b` - a run
+  // no row ever takes. Nothing rendered wrong for it: the printer
+  // replays a role verbatim and the print-time scan re-reads the narrow
+  // group either way, so the divergence lived in the tree alone, where
+  // anything that starts consuming the field would have inherited it.
+  const NARROW = [
+    { mark: "bold", source: "[a[b]**c**\n", head: "[a", role: "b" },
+    { mark: "italic", source: "[a[b]__c__\n", head: "[a", role: "b" },
+    { mark: "monospace", source: "[a[b]``c``\n", head: "[a", role: "b" },
+    { mark: "highlight", source: "[a[b]##c##\n", head: "[a", role: "b" },
+    // The constrained spelling and the shorthand role syntax read the
+    // same group. The byte in front of it is a hyphen and not a
+    // letter on purpose: the constrained row's own left clause
+    // CONSUMES the character in front of the `[`, so a word character
+    // there leaves the oracle taking no group at all (`[a[.r]#c#`
+    // renders `[a[.r]<mark>c</mark>`, group and all as literal text)
+    // and the row would pin a role against a render that has none.
+    { mark: "highlight", source: "[-[.r]#c#\n", head: "[-", role: ".r" },
+    // The escaped form: the backslash stands in front of the group
+    // rather than inside a wider interior, which is what makes it an
+    // escape at all (the print-time twin is in
+    // tests/format/inline-boundary.test.ts, issue #110).
+    { mark: "bold", source: "[\\[a]**c**\n", head: "[\\", role: "a" },
+    // The earlier bracket need not be at the head of the line.
+    { mark: "bold", source: "a[b[c]**d**\n", head: "a[b", role: "c" },
+  ] as const;
+
+  test.each(NARROW)(
+    "$source records the role $role behind the text $head",
+    ({ mark, source, head, role }) => {
+      const [text, span] = asParagraph(parse(source).children[0]).children;
+      narrow(text, "text");
+      expect(text.value).toBe(head);
+      narrow(span, mark);
+      expect(span.role).toBe(role);
+    },
+  );
+
+  // The bytes do not move for any of them: a role prints inside its
+  // own brackets and the text in front prints itself, so the line
+  // comes back exactly as written and renders what it rendered.
+  test.each(NARROW)("$source is its own fixed point", async ({ source }) => {
+    await expectRow(source, source);
+  });
+});
+
+describe("shortening may not open an attributes group the source has not", () => {
+  // The group in front of a span is read from the text as the ROW
+  // that resolves it sees it, and the rows in front have rewritten
+  // that text. A span they resolved is an element by then: its own
+  // delimiters are gone and its role has become an attribute's value,
+  // so the `[` and `]` it was written with are gone with them. A `[`
+  // standing further back, which opened nothing while those brackets
+  // were in the way, then reaches the `]` flush against the next
+  // span's delimiter.
+  //
+  // The UNCONSTRAINED row runs before that rewrite and sees the
+  // author's own brackets, so a doubled span carries no such group.
+  // Shortening moves the span one row later, where the group is
+  // waiting: `[a[b]**c**]**f**` renders
+  // `[a<strong class="b">c</strong>]<strong>f</strong>` and
+  // `[a[b]**c**]*f*` renders
+  // `<strong class="a<strong class="b">c</strong>">f</strong>`, the
+  // bracketed text swallowed into a class and `[a` and `]` gone from
+  // the document.
+  test.each<[string, string]>([
+    ["[a[b]**c**]**f**\n", "[a[b]**c**]*f*\n"],
+    ["[[a]**c**]**f**\n", "[[a]**c**]*f*\n"],
+    ["[[.r]**c**]**f**\n", "[[.r]**c**]*f*\n"],
+    ["[[ ]**c**]**f**\n", "[[ ]**c**]*f*\n"],
+    // One row per mark: the group sits inside every `QUOTE_SUBS` row,
+    // so the hazard is the same for all four.
+    ["[a[b]__c__]__f__\n", "[a[b]__c__]_f_\n"],
+    ["[a[b]``c``]``f``\n", "[a[b]``c``]`f`\n"],
+    ["[a[b]##c##]##f##\n", "[a[b]##c##]#f#\n"],
+  ])(
+    "%j keeps its doubled spelling, because %j reads differently",
+    async (input, shorter) => {
+      await expectRow(input, input);
+      expect(await renderedHtml(shorter)).not.toBe(await renderedHtml(input));
+    },
+  );
+
+  // The other side. A run that opens no group after the rewrite -
+  // because no `[` survives it, or because the `]` is not flush
+  // against the delimiter - refuses nothing.
+  test.each<[string, string]>([
+    ["[a]**c**]**f**\n", "[a]*c*]*f*\n"],
+    ["[a[b]**c**] **f**\n", "[a[b]**c**] *f*\n"],
+  ])("%j still shortens to %j", async (input, expected) => {
+    await expectRow(input, expected);
+  });
+
+  // The conservative edge: the refusal asks whether a group OPENS,
+  // not whether the row would go on to take it. Here the row's own
+  // left clause reads a word character in front of the `[` and would
+  // not, so the shorter spelling would have survived - a refusal
+  // costs bytes and no meaning.
+  test.each<[string, string]>([
+    ["x[a[b]**c**]**f**\n", "x[a[b]**c**]*f*\n"],
+    ["[\\[a]**c**]**f**\n", "[\\[a]**c**]*f*\n"],
+  ])(
+    "%j is refused conservatively, and %j would have survived",
+    async (input, shorter) => {
+      await expectRow(input, input);
+      expect(await renderedHtml(shorter)).toBe(await renderedHtml(input));
+    },
+  );
+});

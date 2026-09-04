@@ -697,10 +697,20 @@ export const INLINE_RULES: readonly InlineRule[] = [
   // has to leave the reference alone.
   { type: "AttributeReference", match: pattern(/\{[\w:.\-][\w:.\-]*\}/v) },
   // `[role]` immediately before a bold, italic, monospace or highlight
-  // mark: the shorthand attrlist of the span that mark opens. Ruby has
-  // no constant for it: it is the optional `(?:\[([^\]]+)\])?` group
-  // inside every `QUOTE_SUBS` pattern (asciidoctor.rb l.445-467), and
-  // `[a]**c**` therefore renders `<strong class="a">c</strong>`.
+  // mark: the shorthand attrlist of the span that mark opens. The
+  // group is the oracle's `QuoteAttributeListRxt`, `\[([^\[\]]+)\]`
+  // (`node_modules/@asciidoctor/core/build/node/index.cjs` l.59),
+  // which every `QUOTE_SUBS` row carries in front of its opening
+  // delimiter, so `[a]**c**` renders `<strong class="a">c</strong>`.
+  //
+  // The interior crosses NEITHER bracket. The Ruby this repo vendors
+  // spells the same group inline as `\[([^\]]+)\]` in each row
+  // (`QUOTE_SUBS`, asciidoctor.rb l.445-467), an interior that DOES
+  // cross an open bracket; the two authorities diverge here and the
+  // oracle wins, which is why `[a[b]**c**` renders
+  // `[a<strong class="b">c</strong>` - class `b`, with `[a` standing
+  // in front of the group as literal text. Reading the wider run
+  // instead recorded a role of `a[b` that no row ever takes.
   //
   // FOUR of the twelve rows, not all twelve. The other eight - the two
   // curved pairs, superscript and subscript - carry the same group and
@@ -710,7 +720,7 @@ export const INLINE_RULES: readonly InlineRule[] = [
   // whether the mark it sees ever closes, so where none does the token
   // takes a bracketed run Ruby's own backtracking would have left
   // alone (pinned in tests/parser/doubled-marks.test.ts).
-  { type: "RoleAttribute", match: pattern(/\[[^\]]+\](?=[*_`#])/v) },
+  { type: "RoleAttribute", match: pattern(/\[[^\[\]]+\](?=[*_`#])/v) },
   // `name:target[attrlist]` — InlineMacroRx family, with the macro
   // names enumerated rather than `[a-z]+`: a generic name matches
   // mid-word (`Textfootnote:`) and collides with `https://url[text]`.
