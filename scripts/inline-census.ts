@@ -146,8 +146,25 @@ const PRINT_WIDTH = 80;
 // the `comment` join loses the same number of rows to - a first
 // member spelled `* b*` makes the `para` context spell the `item`
 // context of the member spelled `b*`.
-const STANDING_GRID_SIZE = 17_349;
-const PAIR_GRID_SIZE = 318_767;
+//
+// Both pins moved again for the header `attributeHeaderFor` prepends
+// to a realized document reaching the canonical `AttributeReference`
+// member (#151): a document that member reaches now carries a
+// leading `:attr: --` definition, which is present or absent by
+// COORDINATE rather than by content, so it un-collides a handful of
+// realizations that used to spell the same bytes as an unrelated
+// coordinate reaching the escaped form `\{attr}` with no header at
+// all. The standing grid gained the 8 contexts of
+// `AttributeReference-near-3/bare` (17,349 to 17,357): that near miss
+// spells `\{attr}`, which `AttributeReference`'s own `escaped`
+// neighbourhood also spelled before the header gave it different
+// bytes to hide behind. The pair grid gained the one `item`-context
+// realization of `InlineChar-near-1` (`\`) adjacent to
+// `AttributeReference` with no glue (318,767 to 318,768): the same
+// `\{attr}` collision, reached this time by a pair join instead of a
+// neighbourhood.
+const STANDING_GRID_SIZE = 17_357;
+const PAIR_GRID_SIZE = 318_768;
 
 /**
  * Rule (i): every construct dimension is still a row of the rule

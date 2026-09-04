@@ -404,6 +404,55 @@ export const CONTEXTS: readonly ContextEntry[] = [
 ];
 
 /**
+ * The header that gives {@link CANONICAL_ATTRIBUTE_REFERENCE_ID}'s
+ * spelling something to expand to.
+ *
+ * `--` is not a placeholder; it is the reproduction the #149 fix
+ * itself measured. `NORMAL_SUBS` substitutes attributes before it
+ * substitutes replacements, so a reference whose value is `--` puts
+ * two literal hyphens into the run at print time, no earlier - the
+ * text a whole-fragment scan (the em-dash replacement's own rule)
+ * reads never existed at parse time, only at render time, in a text
+ * node this tree does not hold. Ruby's em-dash rule reads exactly one
+ * ASCII space flanking a substituted `--`; a tab does not qualify, so
+ * a formatter that folds a whitespace run standing beside the
+ * reference into a plain space turns bytes that render literally into
+ * an actual dash. Every generated document a row of this alphabet
+ * member reaches gets this header, so the expansion is live wherever
+ * the construct's own boundary meets a neighbour - which is the axis
+ * `AttributeReference` exists to test and no other member can stand
+ * in for.
+ *
+ * The other two `AttributeReference` spellings need no header:
+ * `{counter:n}` is a self-initializing counter that expands with no
+ * definition at all, so it was never vacuous, and `{a.b-c}` is not a
+ * reference the oracle recognizes in the first place - Ruby's
+ * `AttributeReferenceRx` (rx.rb) takes a name of `\p{Word}` and
+ * hyphen only, no dot, so `{a.b-c}` reaches Asciidoctor as literal
+ * text regardless of what is defined. That spelling is this
+ * tokenizer's own regex accepting a dot Ruby's does not - a
+ * classification gap in `src/parse/inline/rules.ts`, not a definable
+ * one here.
+ */
+const ATTRIBUTE_REFERENCE_HEADER = ":attr: --\n\n";
+
+/** The alphabet id {@link ATTRIBUTE_REFERENCE_HEADER} answers. */
+const CANONICAL_ATTRIBUTE_REFERENCE_ID = "AttributeReference";
+
+/**
+ * The header to prepend for one alphabet member's realized document,
+ * or the empty string when the member's construct needs no
+ * definition to mean something.
+ * @param ids - the alphabet member id(s) landing in this document
+ * @returns the header text, or `""`
+ */
+function attributeHeaderFor(...ids: readonly string[]): string {
+  return ids.includes(CANONICAL_ATTRIBUTE_REFERENCE_ID)
+    ? ATTRIBUTE_REFERENCE_HEADER
+    : "";
+}
+
+/**
  * The standing grid: every alphabet member, in every neighbourhood,
  * in every context.
  *
@@ -419,9 +468,10 @@ export function inlineStandingGrid(): InlineShape[] {
   const shapes: InlineShape[] = [];
   const seen = new Set<string>();
   for (const member of inlineAlphabet()) {
+    const header = attributeHeaderFor(member.id);
     for (const neighbourhood of NEIGHBOURHOODS) {
       for (const context of CONTEXTS) {
-        const input = context.wrap(neighbourhood.wrap(member.body));
+        const input = header + context.wrap(neighbourhood.wrap(member.body));
         if (seen.has(input)) {
           continue;
         }
@@ -515,9 +565,11 @@ export function inlinePairGrid(): InlineShape[] {
   const seen = new Set<string>();
   for (const first of alphabet) {
     for (const second of alphabet) {
+      const header = attributeHeaderFor(first.id, second.id);
       for (const join of PAIR_JOINS) {
         for (const context of contexts) {
-          const input = context.wrap(first.body + join.glue + second.body);
+          const input =
+            header + context.wrap(first.body + join.glue + second.body);
           if (seen.has(input)) {
             continue;
           }
