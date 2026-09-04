@@ -48,6 +48,7 @@
     "migration-diff": "bun scripts/migration-diff.ts",
     "triage": "bun scripts/conformance-triage.ts",
     "registry-sweep-triage": "bun scripts/registry-sweep-triage.ts",
+    "inline-sweep-triage": "bun scripts/inline-sweep-triage.ts",
     "citation-check": "bun scripts/citation-check.ts",
     "internal-citations": "bun scripts/internal-citations.ts",
     "block-structure": "bun scripts/block-structure.ts",

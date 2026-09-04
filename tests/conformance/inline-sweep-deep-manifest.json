@@ -1,0 +1,270 @@
+{
+  "pair/HighlightMark/CharacterReference/comment/fidelity": {
+    "count": 1,
+    "examples": [
+      "pair/HighlightMark-near-1/CharacterReference-alt-6/comment/para"
+    ],
+    "sha256": "b4e19a0399ec54219f8f9b10849e6389ebbe129a92412ca968217828fb14d02a",
+    "issue": "UNTRIAGED"
+  },
+  "pair/HighlightMark/InlineChar/comment/fidelity": {
+    "count": 1,
+    "examples": ["pair/HighlightMark-near-1/InlineChar-alt-1/comment/para"],
+    "sha256": "d6c99df44625a8dd05a174ad0f3b132bd4a4091ca0ce77d2d2beaa6dac50d869",
+    "issue": "UNTRIAGED"
+  },
+  "pair/InlineChar/InlineAnchor/adjacent/fidelity": {
+    "count": 2,
+    "examples": [
+      "pair/InlineChar-near-1/InlineAnchor-alt-1/adjacent/item",
+      "pair/InlineChar-near-1/InlineAnchor-alt-1/adjacent/para"
+    ],
+    "sha256": "bd451322f4e70a7ed11764e7dfada92d359bd056127686a80f54b146c16356e5",
+    "issue": "UNTRIAGED"
+  },
+  "pair/InlineUrl/InlineAnchor/adjacent/fidelity": {
+    "count": 2,
+    "examples": [
+      "pair/InlineUrl-near-1/InlineAnchor-alt-1/adjacent/item",
+      "pair/InlineUrl-near-1/InlineAnchor-alt-1/adjacent/para"
+    ],
+    "sha256": "c0f73cc6efe362dba09e1ba960cc227578d876c3d9dda54bbaee2fc2ea7a8f76",
+    "issue": "UNTRIAGED"
+  },
+  "pair/InlineUrl/RoleAttribute/adjacent/fidelity": {
+    "count": 4,
+    "examples": [
+      "pair/InlineUrl-alt-2/RoleAttribute-near-1/adjacent/item",
+      "pair/InlineUrl-alt-2/RoleAttribute-near-1/adjacent/para",
+      "pair/InlineUrl/RoleAttribute-near-1/adjacent/item",
+      "pair/InlineUrl/RoleAttribute-near-1/adjacent/para"
+    ],
+    "sha256": "5e4fe835fa87585c370175ecfe348429da8d2851cb1edb9946362793a7b061da",
+    "issue": "UNTRIAGED"
+  },
+  "standing/CharacterReference/bare/fidelity": {
+    "count": 45,
+    "examples": [
+      "CharacterReference-near-4/bare/admonition",
+      "CharacterReference-near-4/bare/admonition@bom",
+      "CharacterReference-near-4/bare/admonition@crlf",
+      "CharacterReference-near-4/bare/admonition@no-final-newline",
+      "CharacterReference-near-4/bare/admonition@trailing-ff"
+    ],
+    "sha256": "6f6bf99bd0530ad2990490c82922cc0e7b2a32c25714d89d82076d185d60cef1",
+    "issue": "UNTRIAGED"
+  },
+  "standing/CharacterReference/bracket-backslash/fidelity": {
+    "count": 45,
+    "examples": [
+      "CharacterReference-near-4/bracket-backslash/admonition",
+      "CharacterReference-near-4/bracket-backslash/admonition@bom",
+      "CharacterReference-near-4/bracket-backslash/admonition@crlf",
+      "CharacterReference-near-4/bracket-backslash/admonition@no-final-newline",
+      "CharacterReference-near-4/bracket-backslash/admonition@trailing-ff"
+    ],
+    "sha256": "5bfcf8403a2c5f1595cdd1876d26a75e773a8f6426a3d59c0c9ed59f1a4899b3",
+    "issue": "UNTRIAGED"
+  },
+  "standing/CharacterReference/bracketed/fidelity": {
+    "count": 18,
+    "examples": [
+      "CharacterReference-near-4/bracketed/admonition",
+      "CharacterReference-near-4/bracketed/admonition@bom",
+      "CharacterReference-near-4/bracketed/admonition@crlf",
+      "CharacterReference-near-4/bracketed/admonition@no-final-newline",
+      "CharacterReference-near-4/bracketed/admonition@trailing-ff"
+    ],
+    "sha256": "8db59d88a02d9e591b3d1b6e81d9237a241295e24f36ee6905d402cea7546036",
+    "issue": "UNTRIAGED"
+  },
+  "standing/CharacterReference/close-bracket/fidelity": {
+    "count": 45,
+    "examples": [
+      "CharacterReference-near-4/close-bracket/admonition",
+      "CharacterReference-near-4/close-bracket/admonition@bom",
+      "CharacterReference-near-4/close-bracket/admonition@crlf",
+      "CharacterReference-near-4/close-bracket/admonition@no-final-newline",
+      "CharacterReference-near-4/close-bracket/admonition@trailing-ff"
+    ],
+    "sha256": "859a7b66f59d4ff82e93d437c6518001764ce123b5b8d6aa16751e4799f6f1b9",
+    "issue": "UNTRIAGED"
+  },
+  "standing/CharacterReference/escaped/fidelity": {
+    "count": 45,
+    "examples": [
+      "CharacterReference-near-4/escaped/admonition",
+      "CharacterReference-near-4/escaped/admonition@bom",
+      "CharacterReference-near-4/escaped/admonition@crlf",
+      "CharacterReference-near-4/escaped/admonition@no-final-newline",
+      "CharacterReference-near-4/escaped/admonition@trailing-ff"
+    ],
+    "sha256": "b731242f1e284dec729f8ecf9e790f0ac644f5019d61a7c6522a90c9d380b9e4",
+    "issue": "UNTRIAGED"
+  },
+  "standing/CharacterReference/in-bold/fidelity": {
+    "count": 45,
+    "examples": [
+      "CharacterReference-near-4/in-bold/admonition",
+      "CharacterReference-near-4/in-bold/admonition@bom",
+      "CharacterReference-near-4/in-bold/admonition@crlf",
+      "CharacterReference-near-4/in-bold/admonition@no-final-newline",
+      "CharacterReference-near-4/in-bold/admonition@trailing-ff"
+    ],
+    "sha256": "456ee5e9e332ede6c298a0b97ea126f53a838b33a37398bf5d3b98b4828e2a20",
+    "issue": "UNTRIAGED"
+  },
+  "standing/CharacterReference/in-word/fidelity": {
+    "count": 45,
+    "examples": [
+      "CharacterReference-near-4/in-word/admonition",
+      "CharacterReference-near-4/in-word/admonition@bom",
+      "CharacterReference-near-4/in-word/admonition@crlf",
+      "CharacterReference-near-4/in-word/admonition@no-final-newline",
+      "CharacterReference-near-4/in-word/admonition@trailing-ff"
+    ],
+    "sha256": "a6af1f58ad982b705c424859e30dd3d061e94288cad91fa345070afb6f985807",
+    "issue": "UNTRIAGED"
+  },
+  "standing/CharacterReference/open-bracket/fidelity": {
+    "count": 45,
+    "examples": [
+      "CharacterReference-near-4/open-bracket/admonition",
+      "CharacterReference-near-4/open-bracket/admonition@bom",
+      "CharacterReference-near-4/open-bracket/admonition@crlf",
+      "CharacterReference-near-4/open-bracket/admonition@no-final-newline",
+      "CharacterReference-near-4/open-bracket/admonition@trailing-ff"
+    ],
+    "sha256": "8b4c9f1d0208e1109f68bd2b4ece1507eec8b5d2a725fdf6ddadaf6bfeb04bfb",
+    "issue": "UNTRIAGED"
+  },
+  "standing/CharacterReference/reflow-edge/fidelity": {
+    "count": 45,
+    "examples": [
+      "CharacterReference-near-4/reflow-edge/admonition",
+      "CharacterReference-near-4/reflow-edge/admonition@bom",
+      "CharacterReference-near-4/reflow-edge/admonition@crlf",
+      "CharacterReference-near-4/reflow-edge/admonition@no-final-newline",
+      "CharacterReference-near-4/reflow-edge/admonition@trailing-ff"
+    ],
+    "sha256": "49660c7ff96e336ee7c907b9721f801a715c65123c6e90587c7749be00cf7974",
+    "issue": "UNTRIAGED"
+  },
+  "standing/CharacterReference/reflow/fidelity": {
+    "count": 45,
+    "examples": [
+      "CharacterReference-near-4/reflow/admonition",
+      "CharacterReference-near-4/reflow/admonition@bom",
+      "CharacterReference-near-4/reflow/admonition@crlf",
+      "CharacterReference-near-4/reflow/admonition@no-final-newline",
+      "CharacterReference-near-4/reflow/admonition@trailing-ff"
+    ],
+    "sha256": "5503705046caba214d64b86f8576c8b94153b02f36cd168b7fc1ead72351efda",
+    "issue": "UNTRIAGED"
+  },
+  "standing/CharacterReference/repeated/fidelity": {
+    "count": 54,
+    "examples": [
+      "CharacterReference-alt-6/repeated/para-tail",
+      "CharacterReference-alt-6/repeated/para-tail@bom",
+      "CharacterReference-alt-6/repeated/para-tail@crlf",
+      "CharacterReference-alt-6/repeated/para-tail@no-final-newline",
+      "CharacterReference-alt-6/repeated/para-tail@trailing-ff"
+    ],
+    "sha256": "b21b585e1c8800101b86c55217cb05d2fa4fef9a39c65a52584619baf372a99b",
+    "issue": "UNTRIAGED"
+  },
+  "standing/CharacterReference/role-head/fidelity": {
+    "count": 45,
+    "examples": [
+      "CharacterReference-near-4/role-head/admonition",
+      "CharacterReference-near-4/role-head/admonition@bom",
+      "CharacterReference-near-4/role-head/admonition@crlf",
+      "CharacterReference-near-4/role-head/admonition@no-final-newline",
+      "CharacterReference-near-4/role-head/admonition@trailing-ff"
+    ],
+    "sha256": "54a270d21642fcdbd153515f8b5dc3a8fce0dd0b1c47a32652a7b3a74f8f0d01",
+    "issue": "UNTRIAGED"
+  },
+  "standing/CharacterReference/spaced/fidelity": {
+    "count": 45,
+    "examples": [
+      "CharacterReference-near-4/spaced/admonition",
+      "CharacterReference-near-4/spaced/admonition@bom",
+      "CharacterReference-near-4/spaced/admonition@crlf",
+      "CharacterReference-near-4/spaced/admonition@no-final-newline",
+      "CharacterReference-near-4/spaced/admonition@trailing-ff"
+    ],
+    "sha256": "4eb6f9b95bf88c1887cbad862756326f926375ffa4f216483dc695bced708415",
+    "issue": "UNTRIAGED"
+  },
+  "standing/CharacterReference/trailing-mark/fidelity": {
+    "count": 45,
+    "examples": [
+      "CharacterReference-near-4/trailing-mark/admonition",
+      "CharacterReference-near-4/trailing-mark/admonition@bom",
+      "CharacterReference-near-4/trailing-mark/admonition@crlf",
+      "CharacterReference-near-4/trailing-mark/admonition@no-final-newline",
+      "CharacterReference-near-4/trailing-mark/admonition@trailing-ff"
+    ],
+    "sha256": "c591ed58aaf595da3499055c64df886ef483a394212c023693085644fa9b406c",
+    "issue": "UNTRIAGED"
+  },
+  "standing/InlineAnchor/bracket-backslash/fidelity": {
+    "count": 45,
+    "examples": [
+      "InlineAnchor-alt-1/bracket-backslash/admonition",
+      "InlineAnchor-alt-1/bracket-backslash/admonition@bom",
+      "InlineAnchor-alt-1/bracket-backslash/admonition@crlf",
+      "InlineAnchor-alt-1/bracket-backslash/admonition@no-final-newline",
+      "InlineAnchor-alt-1/bracket-backslash/admonition@trailing-ff"
+    ],
+    "sha256": "b90d82b71020e1b5ac6127ba5747a21aac97f8262bbc45cdcd4a9f42ce93b81c",
+    "issue": "UNTRIAGED"
+  },
+  "standing/InlineAnchor/escaped/fidelity": {
+    "count": 45,
+    "examples": [
+      "InlineAnchor-alt-1/escaped/admonition",
+      "InlineAnchor-alt-1/escaped/admonition@bom",
+      "InlineAnchor-alt-1/escaped/admonition@crlf",
+      "InlineAnchor-alt-1/escaped/admonition@no-final-newline",
+      "InlineAnchor-alt-1/escaped/admonition@trailing-ff"
+    ],
+    "sha256": "4e3b92d5543a4761618684fd1d13deca04f9a54ca010dc08f01d77b4cbbd44ce",
+    "issue": "UNTRIAGED"
+  },
+  "standing/InlineAnchor/reflow-edge/idempotency": {
+    "count": 9,
+    "examples": [
+      "InlineAnchor-near-0/reflow-edge/dlist-desc",
+      "InlineAnchor-near-0/reflow-edge/dlist-desc@bom",
+      "InlineAnchor-near-0/reflow-edge/dlist-desc@crlf",
+      "InlineAnchor-near-0/reflow-edge/dlist-desc@no-final-newline",
+      "InlineAnchor-near-0/reflow-edge/dlist-desc@trailing-ff"
+    ],
+    "sha256": "8c229e2f6cf98993d4a47aa0b38ee5522e9ee3336b9c0c761887ba71867ba337",
+    "issue": "UNTRIAGED"
+  },
+  "standing/InlineChar/bracketed/fidelity": {
+    "count": 2,
+    "examples": [
+      "InlineChar/bracketed/item@trailing-space",
+      "InlineChar/bracketed/item@trailing-space-first-line"
+    ],
+    "sha256": "217bbadf7a92b10d403c16d32a2efde529fe470a5228f5fa4ef78dbeffb5039c",
+    "issue": "UNTRIAGED"
+  },
+  "standing/InlineMacro/reflow-edge/idempotency": {
+    "count": 54,
+    "examples": [
+      "InlineMacro-alt-2/reflow-edge/dlist-desc",
+      "InlineMacro-alt-2/reflow-edge/dlist-desc@bom",
+      "InlineMacro-alt-2/reflow-edge/dlist-desc@crlf",
+      "InlineMacro-alt-2/reflow-edge/dlist-desc@no-final-newline",
+      "InlineMacro-alt-2/reflow-edge/dlist-desc@trailing-ff"
+    ],
+    "sha256": "44847bfd4cc4aa6a1b312f4ce88ef807bdbf5ae2efb977ee9662a1f72de5e43e",
+    "issue": "UNTRIAGED"
+  }
+}

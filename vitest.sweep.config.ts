@@ -3,8 +3,12 @@ import base from "./vitest.config.js";
 
 /**
  * The vitest entry for the DEEP sweeps — the `*.deep.test.ts` files,
- * today just the exhaustive depth-5 list-shape product, run by
- * `bun run test:deeply-nested-lists`.
+ * run by `bun run test:deeply-nested-lists`: the exhaustive depth-5
+ * list-shape product and its reflow re-classification ledger, the
+ * shape registry's deep tier, and the inline registry's deep tier.
+ * That script's own header says what each proves; the floor it holds
+ * the collected test count to is what makes a file dropped from the
+ * glob below an exit 2 rather than a green tick.
  *
  * It is the base config with one glob moved from `exclude` to
  * `include`: what `vitest.config.ts` refuses to collect is the only

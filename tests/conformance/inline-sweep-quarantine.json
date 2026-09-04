@@ -1,0 +1,342 @@
+{
+  "CharacterReference-alt-6/repeated/para-tail": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/bare/admonition": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/bare/dlist-desc": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/bare/item": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/bare/para": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/bare/para-tail": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/bracket-backslash/admonition": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/bracket-backslash/dlist-desc": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/bracket-backslash/item": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/bracket-backslash/para": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/bracket-backslash/para-tail": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/bracketed/admonition": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/bracketed/item": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/close-bracket/admonition": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/close-bracket/dlist-desc": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/close-bracket/item": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/close-bracket/para": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/close-bracket/para-tail": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/escaped/admonition": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/escaped/dlist-desc": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/escaped/item": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/escaped/para": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/escaped/para-tail": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/in-bold/admonition": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/in-bold/dlist-desc": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/in-bold/item": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/in-bold/para": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/in-bold/para-tail": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/in-word/admonition": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/in-word/dlist-desc": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/in-word/item": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/in-word/para": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/in-word/para-tail": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/open-bracket/admonition": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/open-bracket/dlist-desc": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/open-bracket/item": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/open-bracket/para": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/open-bracket/para-tail": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/reflow-edge/admonition": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/reflow-edge/dlist-desc": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/reflow-edge/item": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/reflow-edge/para": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/reflow-edge/para-tail": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/reflow/admonition": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/reflow/dlist-desc": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/reflow/item": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/reflow/para": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/reflow/para-tail": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/repeated/admonition": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/repeated/dlist-desc": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/repeated/item": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/repeated/para": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/repeated/para-tail": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/role-head/admonition": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/role-head/dlist-desc": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/role-head/item": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/role-head/para": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/role-head/para-tail": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/spaced/admonition": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/spaced/dlist-desc": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/spaced/item": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/spaced/para": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/spaced/para-tail": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/trailing-mark/admonition": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/trailing-mark/dlist-desc": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/trailing-mark/item": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/trailing-mark/para": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "CharacterReference-near-4/trailing-mark/para-tail": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "InlineAnchor-alt-1/bracket-backslash/admonition": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "InlineAnchor-alt-1/bracket-backslash/dlist-desc": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "InlineAnchor-alt-1/bracket-backslash/item": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "InlineAnchor-alt-1/bracket-backslash/para": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "InlineAnchor-alt-1/bracket-backslash/para-tail": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "InlineAnchor-alt-1/escaped/admonition": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "InlineAnchor-alt-1/escaped/dlist-desc": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "InlineAnchor-alt-1/escaped/item": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "InlineAnchor-alt-1/escaped/para": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "InlineAnchor-alt-1/escaped/para-tail": {
+    "fails": ["fidelity"],
+    "issue": "UNTRIAGED"
+  },
+  "InlineAnchor-near-0/reflow-edge/dlist-desc": {
+    "fails": ["idempotency"],
+    "issue": "UNTRIAGED"
+  },
+  "InlineMacro-alt-2/reflow-edge/dlist-desc": {
+    "fails": ["idempotency"],
+    "issue": "UNTRIAGED"
+  },
+  "InlineMacro-alt-3/reflow-edge/dlist-desc": {
+    "fails": ["idempotency"],
+    "issue": "UNTRIAGED"
+  },
+  "InlineMacro-near-0/reflow-edge/dlist-desc": {
+    "fails": ["idempotency"],
+    "issue": "UNTRIAGED"
+  },
+  "InlineMacro-near-2/reflow-edge/dlist-desc": {
+    "fails": ["idempotency"],
+    "issue": "UNTRIAGED"
+  },
+  "InlineMacro-near-3/reflow-edge/dlist-desc": {
+    "fails": ["idempotency"],
+    "issue": "UNTRIAGED"
+  },
+  "InlineMacro/reflow-edge/dlist-desc": {
+    "fails": ["idempotency"],
+    "issue": "UNTRIAGED"
+  }
+}

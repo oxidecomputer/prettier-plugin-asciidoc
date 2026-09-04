@@ -16,25 +16,27 @@
  * separate runs could disagree if anything nondeterministic ever
  * crept in.
  *
- * Issue tags survive a rewrite the way `scripts/conformance-triage.ts`
- * keeps them: a row or cluster that still fails keeps whatever it was
- * tagged with, a new one enters as UNTRIAGED, and one that stopped
- * failing simply leaves. That last case is the point of both
- * manifests - the gates read them as exact agreement, so a fix that
- * retires a coordinate turns the suite red until the entry goes.
+ * Issue tags survive a rewrite by the shared rule in
+ * `scripts/lib/sweep-manifest.ts`, on the terms
+ * `scripts/conformance-triage.ts` established: a row or cluster that
+ * still fails keeps its tag, a new one enters as UNTRIAGED, and one
+ * that stopped failing leaves.
  *
  * Exit codes (`scripts/lib/cli.ts`): 0 the sweep ran, 2 it could not
  * run. There is no 1: the failing set is the REPORT, not a gate - the
  * gates over it are the two manifests, which the suite checks.
  */
-import { writeFileSync } from "node:fs";
-import { format } from "prettier";
 import { cannotRun, printUsage, wantsHelp } from "./lib/cli.js";
+import {
+  clusterManifest,
+  printClusters,
+  rowManifest,
+  writeManifest,
+} from "./lib/sweep-manifest.js";
 import {
   clusterFacts,
   loadSweepClusters,
   SWEEP_DEEP_MANIFEST_PATH,
-  type ClusterEntry,
 } from "../tests/conformance/registry-sweep-clusters.js";
 import {
   defaultTierRows,
@@ -42,9 +44,7 @@ import {
   loadSweepQuarantine,
   sweepFailures,
   SWEEP_QUARANTINE_PATH,
-  type SweepFailure,
 } from "../tests/conformance/registry-sweep.js";
-import type { QuarantineEntry } from "../tests/conformance/quarantine.js";
 
 const USAGE = `usage: bun run registry-sweep-triage [--write]
 
@@ -90,77 +90,19 @@ console.log(
 );
 
 const clusters = clusterFacts(failures);
-const SAMPLE_SIZE = 5;
-for (const [key, facts] of clusters) {
-  console.log(`[${key}] ${String(facts.count)} rows`);
-  for (const id of facts.examples.slice(0, SAMPLE_SIZE)) {
-    console.log(`  ${id}`);
-  }
-  if (facts.count > facts.examples.length) {
-    console.log(`  ... ${String(facts.count - facts.examples.length)} more`);
-  }
-  console.log("");
-}
-
-/**
- * Writes a manifest in Prettier-normal form, so `fmt:check` passes
- * immediately after a --write instead of failing until someone runs
- * `bun run fmt`.
- * @param manifestPath - repo-relative file to write
- * @param manifest - the object to serialize
- */
-async function writeManifest(
-  manifestPath: string,
-  manifest: object,
-): Promise<void> {
-  writeFileSync(
-    manifestPath,
-    await format(JSON.stringify(manifest), { parser: "json" }),
-  );
-}
-
-/**
- * The default tier's per-row manifest: one entry per failing row, in
- * sorted id order.
- * @param failing - the default-tier failing rows
- * @returns the manifest object
- */
-function defaultManifest(
-  failing: readonly SweepFailure[],
-): Record<string, QuarantineEntry> {
-  const existing = loadSweepQuarantine();
-  const manifest: Record<string, QuarantineEntry> = {};
-  for (const failure of failing.toSorted((a, b) =>
-    a.id < b.id ? -1 : Number(a.id > b.id),
-  )) {
-    manifest[failure.id] = {
-      fails: failure.fails,
-      issue: existing.get(failure.id)?.issue ?? "UNTRIAGED",
-    };
-  }
-  return manifest;
-}
-
-/**
- * The deep tier's cluster manifest, carrying forward each surviving
- * cluster's issue tag.
- * @returns the manifest object
- */
-function deepManifest(): Record<string, ClusterEntry> {
-  const existing = loadSweepClusters();
-  const manifest: Record<string, ClusterEntry> = {};
-  for (const [key, facts] of clusters) {
-    manifest[key] = {
-      ...facts,
-      issue: existing.get(key)?.issue ?? "UNTRIAGED",
-    };
-  }
-  return manifest;
-}
+printClusters(clusters, (line) => {
+  console.log(line);
+});
 
 if (write) {
-  await writeManifest(SWEEP_QUARANTINE_PATH, defaultManifest(defaultFailures));
-  await writeManifest(SWEEP_DEEP_MANIFEST_PATH, deepManifest());
+  await writeManifest(
+    SWEEP_QUARANTINE_PATH,
+    rowManifest(defaultFailures, loadSweepQuarantine()),
+  );
+  await writeManifest(
+    SWEEP_DEEP_MANIFEST_PATH,
+    clusterManifest(clusters, loadSweepClusters()),
+  );
   console.log(
     `Wrote ${String(defaultFailures.length)} entries to ${SWEEP_QUARANTINE_PATH} and ${String(clusters.size)} clusters to ${SWEEP_DEEP_MANIFEST_PATH}.`,
   );

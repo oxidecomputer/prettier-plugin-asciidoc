@@ -245,8 +245,8 @@ the only harness that proves fidelity per difference.
 
 ### `bun run test:deeply-nested-lists` - the deep sweeps
 
-Runs every `*.deep.test.ts` under its own vitest config. Three tests today, and
-the runner's floor is exactly three, so one being renamed out of the glob or
+Runs every `*.deep.test.ts` under its own vitest config. Four tests today, and
+the runner's floor is exactly four, so one being renamed out of the glob or
 skipped is exit 2 rather than a green tick.
 
 `tests/format/list-shape-sweep.deep.test.ts`: every nested-list shape to depth
@@ -269,8 +269,11 @@ re-classification invariant, against `tests/format/reading-ledger.json`. See
 sweep's deep tier. See
 [the registry sweep](#bun-run-registry-sweep-triage---the-generated-conformance-sweep)
 for what it sweeps and why its manifest is written as clusters. It is the most
-expensive of the three, which is the reason it is here and not in
-`bun run test`.
+expensive of the four, which is the reason it is here and not in `bun run test`.
+
+`tests/conformance/inline-sweep.deep.test.ts` is the fourth: the inline sweep's
+deep tier, 407,618 documents in a little under two minutes. See
+[the inline sweep](#bun-run-inline-sweep-triage---the-generated-inline-sweep).
 
 Proves: no list shape regressed, no known-broken shape got quietly fixed without
 its allowlist entry (and issue) being retired, and no generated coordinate
@@ -521,6 +524,137 @@ because the failing set is the report and the manifests are the gate.
 
 Proves nothing by itself, the way `triage` does not; it writes the two files the
 sweep's gates hold the tree to.
+
+### `bun run inline-sweep-triage` - the generated inline sweep
+
+The same three properties again, over documents built from the INLINE rule table
+rather than from line shapes. The two generated sweeps do not overlap. The line
+registry varies which LINES a document is made of and never varies the text
+within one, so no row it mints reaches a mark boundary, an attrlist in front of
+a span, an escape, or a reflow that moves a delimiter away from its content.
+Those are where the inline reader's bugs have actually been found, and before
+this sweep each was found by a generator written during the fix and thrown away
+after it (issue #113).
+
+`scripts/inline-registry.ts` is the enumeration. Three dimension classes:
+
+- CONSTRUCTS, one per row of `src/parse/inline/rules.ts` plus the fallback kind
+  the table has no row for, each carrying the valid spellings of its construct
+  and the spellings that sit a character or so away from one. 146 alphabet
+  members in all. Only the SPELLINGS carry an invariant - the census holds each
+  to tokenizing as its own kind; a near miss is a neighbour in the alphabet, and
+  40 of the 65 of them do still tokenize as the kind they are filed under.
+- NEIGHBOURHOODS, what stands immediately around the construct inside one inline
+  run: nothing at all, in a word, spaced, escaped, bracketed, behind a role
+  attrlist, behind an open bracket, behind a bracket and a backslash, after a
+  closing bracket, repeated, inside a bold span, inside a monospace span, in
+  front of a trailing mark, and two reflow fillers. Fifteen of them, and this is
+  the axis the line registry has no dimension for at all.
+- CONTEXTS, which inline-bearing line the run belongs to: a paragraph's first
+  and second line, a list item, a description, a section title, a block title,
+  an admonition, a table cell. Eight.
+
+The second reflow neighbourhood is measured rather than decorative: its filler
+is 61 columns, so a body up to the eighteen-character budget still fits the
+80-column first line and the unbreakable word behind it cannot, which puts the
+LINE BOUNDARY immediately after the construct. The census pins both halves - the
+arithmetic, and that no alphabet member exceeds the budget - because a filler
+one column longer moves the boundary in FRONT of the longest bodies while
+changing no count any other rule watches. The placement is exact in the contexts
+that prefix nothing; a list marker or an admonition label shifts the run right,
+and those rows break earlier.
+
+Two gates over it, tiered by wall time:
+
+- DEFAULT tier, in `bun run test` (`tests/conformance/inline-sweep.test.ts`):
+  the standing grid clean, 17,349 rows in about three and a half seconds run on
+  its own. Inside the suite vitest reports it at nearer six seconds under
+  contention, while the suite's own wall time moves by under a second, because
+  the line registry's default tier is the longer pole; both figures move with
+  machine load. Pinned to `tests/conformance/inline-sweep-quarantine.json`, one
+  entry per failing row, 85 of them today.
+- DEEP tier, in `bun run test:deeply-nested-lists`
+  (`tests/conformance/inline-sweep.deep.test.ts`): that grid under every byte
+  operator, plus the whole pair product - any two alphabet members standing in
+  ONE inline run, joined adjacently, by a space, by a bracket pair or across a
+  kept comment line. 407,618 rows in about a minute and a half. Pinned to
+  `tests/conformance/inline-sweep-deep-manifest.json`, 777 failing rows in 24
+  clusters today.
+
+The byte operators are `scripts/shape-registry-byte-operators.ts`, not a second
+set: the ingest bytes Asciidoctor erases are one vocabulary. They are a
+deep-tier concern here because they multiply the row count by nine, and what the
+always-on budget buys instead is the whole inline alphabet at every
+neighbourhood and every context. The pair grid is not crossed with them at all;
+that product is two million rows for a dimension the standing grid already
+crosses with the same alphabet.
+
+The deep manifest is written as clusters for the reason the registry sweep's is,
+and its key differs for a measured reason. A registry-sweep cluster is keyed by
+grid, byte operator and failed properties; an inline cluster is keyed by the
+CONSTRUCT KINDS a row spells and the axis that placed them, with the operator
+deliberately left out. Inline, the operator does not discriminate: the classes
+span all nine uniformly, so keying on it turns 24 failure classes into 169
+clusters, each finding spelled nine times over. Nothing is given up by dropping
+it, because a cluster still records the count, five example ids and the sha256
+of its full sorted id list, all three recomputed by the gate - a failure that
+appeared under one operator only would move a count and a hash. The key is not
+parsed back out of the row id either: the registry knows the kind and the axis
+while it is building the shape, so `InlineShape.cluster` carries the answer
+forward.
+
+**What holds a new construct is the COMPILER.** The registry spells its
+dimensions as a `Record<InlineKind, ...>`, so a kind added to the inline
+vocabulary fails `bun run check` before any census rule runs. Saying that
+plainly matters, because it is also the bound: a second `INLINE_RULES` row for a
+kind that already has a dimension is invisible to everything here.
+
+**The census.** `scripts/inline-census.ts`, gated by
+`tests/conformance/inline-sweep-census.test.ts`, holds what a type cannot. Six
+rules: every construct dimension is still a rule-table row (the other direction
+is the compiler's, so there is no loop for it); every valid spelling TOKENIZES
+to the kind it is filed under; every runtime export of `rules.ts` is the
+enumeration source or carries a written exemption; the neighbourhood, context,
+pair-context and pair-join rosters match a written roster in both directions;
+every alphabet member reaches a realized row and fits the reflow-edge budget;
+and the two realized grid sizes are pinned.
+
+The tokenizing rule is what makes it more than a name comparison. A dimension
+can name a kind and spell it wrongly - a body no rule reads as the construct it
+claims to be still feeds the formatter a document, still passes every
+set-difference rule, and exercises nothing. The same honest bounds as the
+line-shape census apply otherwise: this is NAME coverage, not behavior coverage;
+CONSTRUCT coverage, not INTERACTION coverage; and MODULE-scoped to `rules.ts`,
+so a spelling the whole-fragment scans learn (`curved-quotes.ts`,
+`doubled-marks.ts`, `super-sub.ts`, `replacements.ts`) reaches the grid only
+when somebody writes it down.
+
+**The pair grid's one exclusion.** A member belongs in `PAIR_EXCLUSIONS` when
+its verdict is decided by something that is not the pairing: the pair grid asks
+whether two constructs in one run read differently than either does alone, and a
+member that fails on its own fails beside all 145 others as well, for a reason
+the standing grid has already recorded once. One member qualifies today, the
+tabbed em-dash spelling, measured at 2,189 of 2,199 pair failures before it was
+excluded. Two different guards hold the map, and it is worth knowing which is
+which: a STALE entry, naming a member the alphabet no longer has, is caught by
+name in the census; a NEW entry is caught by the pair grid-size pin, because
+excluding a member shrinks the realized grid. The census also reports an
+excluded member whose body still turns up in a realized pair input, but that is
+a substring test and it is vacuous for an entry no other member spells, which is
+the case for the one that exists.
+
+**The ratchet** extends here unchanged: an inline bug found by any other means
+is expressed as a row in this registry before it is fixed, and when the registry
+cannot spell it, extending the alphabet or the neighbourhood set IS the finding.
+The census's roster rules and size pins are what make that mechanical, and both
+manifests are regenerated in the same change.
+
+`--write` regenerates both manifests from one sweep, on the same terms
+`registry-sweep-triage` uses: the deep tier CONTAINS the default tier, so one
+sweep writes both. Exit 0 the sweep ran, 2 it could not run; there is no exit 1.
+
+Proves nothing by itself; it writes the two files the sweep's gates hold the
+tree to.
 
 ### `bun run block-structure` - block structure against the oracle
 

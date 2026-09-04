@@ -14,7 +14,7 @@ vitest — see the note below about bare `bun test`).
 ```bash
 bun run check          # TypeScript type checking (tsc --noEmit)
 bun run lint           # ESLint, zero warnings (--max-warnings=0)
-bun run test           # the whole vitest suite (~4s)
+bun run test           # the whole vitest suite (~10-17s, machine-dependent)
 bun run fmt            # format with Prettier
 bun run fmt:check      # check formatting (no writes)
 bun run build          # bundle src/ into dist/ (ESM + declarations)
@@ -39,10 +39,13 @@ bun run coverage
 bun run block-structure
 ```
 
-All eight must pass. They are fast (the slowest is the suite at ~4s;
-`block-structure` is about a second) and they are exactly what CI's blocking
-`gates` job runs, minus the deep list sweep (`bun run test:deeply-nested-lists`,
-~30s) — run that too when your change touches parsing or printing of lists.
+All eight must pass. They are fast (the slowest is the suite, ten to seventeen
+seconds depending on how loaded the machine is - two generated sweeps run inside
+it and both inflate under contention; `block-structure` is about a second) and
+they are exactly what CI's blocking `gates` job runs, minus the deep sweeps
+(`bun run test:deeply-nested-lists`, about three minutes); run those too when
+your change touches parsing or printing of lists, or the shape or inline
+registries.
 
 If THIS commit intentionally changes formatted output, declare every moved case
 id in its own commit message, one line each: `Parity-Diff: <family> <id>`. There

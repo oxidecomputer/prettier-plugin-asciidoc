@@ -37,12 +37,12 @@
  */
 
 import {
-  BYTE_OPERATORS,
   pairGrid,
   standingGrid,
   type Shape,
 } from "../../scripts/shape-registry.js";
 import { formatAdoc, renderedHtml } from "../helpers.js";
+import { crossByteOperators } from "./generated-sweep.js";
 import type { ConformanceProperty } from "./properties.js";
 import { loadQuarantine, type QuarantineEntry } from "./quarantine.js";
 
@@ -252,40 +252,21 @@ async function renderedHtmlSafe(document: string): Promise<string | undefined> {
 }
 
 /**
- * Crosses shapes with the byte-operator dimension: each shape clean,
- * then once per operator that actually changed it. An operator whose
- * `apply` returns undefined was a no-op on this document and mints no
- * row, so the sweep never runs the same bytes twice under two names.
+ * Crosses shapes with the byte-operator dimension, through the
+ * shared crossing in `generated-sweep.ts`.
+ *
+ * `family` is deliberately dropped on the way: it is shape-diff's
+ * base-vs-head vocabulary, and a row being an expected PARITY diff
+ * says nothing about whether it satisfies the properties.
+ * `renderBlind` is carried, because a perturbed row is blind exactly
+ * where the shape it came from was.
  * @param shapes - the realized grid to cross
  * @returns the clean and perturbed rows, in a stable order
  */
 function withOperators(shapes: readonly Shape[]): SweepRow[] {
-  const rows: SweepRow[] = [];
-  for (const shape of shapes) {
-    rows.push(toRow(shape));
-    for (const operator of BYTE_OPERATORS) {
-      const input = operator.apply(shape.input);
-      if (input === undefined) {
-        continue;
-      }
-      rows.push({
-        id: `${shape.id}@${operator.id}`,
-        input,
-        renderBlind: shape.renderBlind,
-      });
-    }
-  }
-  return rows;
-}
-
-/**
- * Narrows a registry shape to the fields the sweep reads. `family` is
- * deliberately dropped: it is shape-diff's base-vs-head vocabulary,
- * and a row being an expected PARITY diff says nothing about whether
- * it satisfies the properties.
- * @param shape - one realized registry shape
- * @returns the corresponding clean sweep row
- */
-function toRow(shape: Shape): SweepRow {
-  return { id: shape.id, input: shape.input, renderBlind: shape.renderBlind };
+  return crossByteOperators(shapes, (shape, id, input) => ({
+    id,
+    input,
+    renderBlind: shape.renderBlind,
+  }));
 }

@@ -16,42 +16,17 @@
  * it were free.
  */
 import { describe, expect, test } from "vitest";
+import { byId, expectedFailures } from "./generated-sweep.js";
 import {
   loadSweepQuarantine,
   defaultTierRows,
   sweepFailures,
-  type SweepFailure,
 } from "./registry-sweep.js";
-
-/**
- * The manifest as the sweep's own result shape, sorted by id, so the
- * two sides compare with `toEqual` and a mismatch reads as a row
- * diff rather than a map diff.
- * @returns the expected failing set
- */
-function expectedFailures(): SweepFailure[] {
-  return byId(
-    [...loadSweepQuarantine()].map(([id, entry]) => ({
-      id,
-      fails: entry.fails,
-    })),
-  );
-}
-
-/**
- * A failing set in the manifest's order: sorted by id, so the two
- * sides of the comparison cannot differ merely by sweep order.
- * @param failures - the rows to order
- * @returns the same rows, sorted
- */
-function byId(failures: readonly SweepFailure[]): SweepFailure[] {
-  return failures.toSorted((a, b) => (a.id < b.id ? -1 : Number(a.id > b.id)));
-}
 
 describe("registry sweep (default tier)", () => {
   test("the failing set is exactly the quarantine manifest", async () => {
     expect(byId(await sweepFailures(defaultTierRows()))).toEqual(
-      expectedFailures(),
+      expectedFailures(loadSweepQuarantine()),
     );
   }, 300_000);
 });

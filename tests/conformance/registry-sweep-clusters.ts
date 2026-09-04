@@ -122,6 +122,28 @@ export function clusterFacts(
     bucket.push(failure.id);
     ids.set(key, bucket);
   }
+  return factsOfBuckets(ids);
+}
+
+/**
+ * The three recomputed facts for each bucket of failing row ids.
+ *
+ * Split out from {@link clusterFacts} because the manifest FORMAT and
+ * the choice of cluster KEY are separate decisions: a generated sweep
+ * over a different id space keys its clusters its own way and still
+ * has to record count, examples and digest identically, and two
+ * spellings of "what a cluster records" could disagree about the
+ * hash.
+ *
+ * Keys come out in sorted order so the manifest's JSON is stable
+ * under rewriting: a triage run that changes one cluster must show a
+ * one-cluster diff.
+ * @param ids - the failing row ids, bucketed by cluster key
+ * @returns the clusters' facts, ordered by cluster key
+ */
+export function factsOfBuckets(
+  ids: ReadonlyMap<string, readonly string[]>,
+): Map<string, ClusterFacts> {
   const byKey = [...ids.entries()].toSorted(([a], [b]) =>
     a < b ? -1 : Number(a > b),
   );
