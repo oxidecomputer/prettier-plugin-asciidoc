@@ -272,7 +272,7 @@ for what it sweeps and why its manifest is written as clusters. It is the most
 expensive of the four, which is the reason it is here and not in `bun run test`.
 
 `tests/conformance/inline-sweep.deep.test.ts` is the fourth: the inline sweep's
-deep tier, 407,618 documents in a little under two minutes. See
+deep tier, 411,106 documents in a little under two minutes. See
 [the inline sweep](#bun-run-inline-sweep-triage---the-generated-inline-sweep).
 
 Proves: no list shape regressed, no known-broken shape got quietly fixed without
@@ -572,13 +572,13 @@ Two gates over it, tiered by wall time:
   contention, while the suite's own wall time moves by under a second, because
   the line registry's default tier is the longer pole; both figures move with
   machine load. Pinned to `tests/conformance/inline-sweep-quarantine.json`, one
-  entry per failing row, 85 of them today.
+  entry per failing row, 18 of them today.
 - DEEP tier, in `bun run test:deeply-nested-lists`
   (`tests/conformance/inline-sweep.deep.test.ts`): that grid under every byte
   operator, plus the whole pair product - any two alphabet members standing in
   ONE inline run, joined adjacently, by a space, by a bracket pair or across a
-  kept comment line. 407,618 rows in about a minute and a half. Pinned to
-  `tests/conformance/inline-sweep-deep-manifest.json`, 777 failing rows in 24
+  kept comment line. 411,106 rows in about a minute and a half. Pinned to
+  `tests/conformance/inline-sweep-deep-manifest.json`, 168 failing rows in 9
   clusters today.
 
 The byte operators are `scripts/shape-registry-byte-operators.ts`, not a second
@@ -629,19 +629,17 @@ so a spelling the whole-fragment scans learn (`curved-quotes.ts`,
 `doubled-marks.ts`, `super-sub.ts`, `replacements.ts`) reaches the grid only
 when somebody writes it down.
 
-**The pair grid's one exclusion.** A member belongs in `PAIR_EXCLUSIONS` when
-its verdict is decided by something that is not the pairing: the pair grid asks
-whether two constructs in one run read differently than either does alone, and a
-member that fails on its own fails beside all 145 others as well, for a reason
-the standing grid has already recorded once. One member qualifies today, the
-tabbed em-dash spelling, measured at 2,189 of 2,199 pair failures before it was
-excluded. Two different guards hold the map, and it is worth knowing which is
-which: a STALE entry, naming a member the alphabet no longer has, is caught by
-name in the census; a NEW entry is caught by the pair grid-size pin, because
-excluding a member shrinks the realized grid. The census also reports an
-excluded member whose body still turns up in a realized pair input, but that is
-a substring test and it is vacuous for an entry no other member spells, which is
-the case for the one that exists.
+**The pair grid takes the whole alphabet**, with no filter in front of it. There
+is a standing temptation to add one, because a member whose verdict is decided
+by something that is not the pairing fails beside all 145 others and can swamp
+the manifest; the tabbed em-dash spelling did exactly that, at 2,189 of 2,199
+pair failures, until the whitespace fold behind it was fixed. The cost of the
+filter is that it hides every OTHER row the excluded member would have found,
+which is what this grid exists for, so the answer is to fix the swamping
+mechanism rather than to stop measuring it. Two rules hold that: rule (v) fails
+when any member reaches no realized pair input, and the pair grid-size pin (rule
+(vi)) fails when the realized count moves at all, so a filter added here cannot
+pass silently.
 
 **The ratchet** extends here unchanged: an inline bug found by any other means
 is expressed as a row in this registry before it is fixed, and when the registry

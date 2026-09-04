@@ -31,7 +31,7 @@
  * - the DEFAULT tier is the standing grid, clean. 17,349 rows, about
  *   three and a half seconds run on its own.
  * - the DEEP tier is that grid crossed with every byte operator, plus
- *   the whole pair product. 407,618 rows, about a minute and a half.
+ *   the whole pair product. 411,106 rows, about a minute and a half.
  *
  * Both figures are WALL TIME on an idle machine and move with load:
  * inside `bun run test` vitest reports the default tier at nearer six

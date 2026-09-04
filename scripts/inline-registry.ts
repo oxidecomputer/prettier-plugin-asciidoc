@@ -478,34 +478,6 @@ export const PAIR_CONTEXT_IDS: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * Alphabet members the PAIR grid leaves out, each with the reason.
- *
- * A member belongs here when its verdict is decided by something that
- * is not the pairing: the pair grid asks whether two constructs
- * standing in one run read differently than either does alone, and a
- * member that fails on its own fails beside all 145 others as well,
- * for a reason the standing grid has already recorded once. Measured:
- * the tabbed em-dash spelling accounts for 2,189 of 2,199 pair
- * failures, all of them the same whitespace fold.
- *
- * TWO GUARDS, and they are not the same guard. A STALE entry - one
- * naming a member the alphabet no longer has - is caught by name, in
- * the census's rule (v). A NEW entry is caught by the pair grid-size
- * pin: excluding a member removes its rows, the realized count moves,
- * and rule (vi) fails until the pin is moved deliberately in the same
- * change. Rule (v) also reports an excluded member whose body still
- * appears in a realized pair input, but that is a SUBSTRING check and
- * it is vacuous for an entry whose body no other member contains (as
- * this one's does not), so the pin is what a reader should look for.
- */
-export const PAIR_EXCLUSIONS: ReadonlyMap<string, string> = new Map([
-  [
-    "CharacterReference-near-4",
-    "the tabbed em-dash spelling: its verdict is the tab-to-space fold, which the standing grid already records at every neighbourhood, and which would otherwise decide 99% of this grid's rows",
-  ],
-]);
-
-/**
  * The pair grid: any two alphabet members inside ONE inline run.
  *
  * This is the dimension that found the bidirectional mark corruption
@@ -514,12 +486,17 @@ export const PAIR_EXCLUSIONS: ReadonlyMap<string, string> = new Map([
  * span stands beside it, because the two answer to the same
  * whole-fragment scans. Nothing in the standing grid asks that
  * question, and nothing in the line registry can.
+ *
+ * EVERY alphabet member pairs: no filter stands in front of the
+ * alphabet, because a filter here hides rows this grid exists to
+ * find, and a member whose verdict is decided by something other than
+ * the pairing costs rows rather than hiding them. The pair grid-size
+ * pin in `scripts/inline-census.ts` is the guard: any filter added
+ * here shrinks the realized count and fails that pin.
  * @returns the realized rows, in a stable order
  */
 export function inlinePairGrid(): InlineShape[] {
-  const alphabet = inlineAlphabet().filter(
-    (member) => !PAIR_EXCLUSIONS.has(member.id),
-  );
+  const alphabet = inlineAlphabet();
   const contexts = CONTEXTS.filter((context) =>
     PAIR_CONTEXT_IDS.has(context.id),
   );

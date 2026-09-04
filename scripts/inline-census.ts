@@ -18,10 +18,9 @@
  * named in the exemption map below, and neither list may go stale.
  * (iv) The neighbourhood, context, pair-context and pair-join rosters
  * match the lists below in BOTH directions. (v) Every alphabet member
- * reaches a realized standing input, fits the reflow-edge body
- * budget, and reaches a realized pair input unless it is excluded -
- * with a STALE exclusion caught here and a NEW one caught by rule
- * (vi). (vi) The realized grids are exactly the sizes pinned below.
+ * reaches a realized standing input, reaches a realized pair input,
+ * and fits the reflow-edge body budget. (vi) The realized grids are
+ * exactly the sizes pinned below.
  *
  * Rule (ii) is what makes this census stronger than a name
  * comparison. A dimension can name a kind and spell it wrongly - a
@@ -61,7 +60,6 @@ import {
   inlineStandingGrid,
   NEIGHBOURHOODS,
   PAIR_CONTEXT_IDS,
-  PAIR_EXCLUSIONS,
   PAIR_JOIN_IDS,
   REFLOW_EDGE_BODY_BUDGET,
 } from "./inline-registry.js";
@@ -135,13 +133,12 @@ const PRINT_WIDTH = 80;
 // Rule (vi): the realized grid sizes, pinned. The standing grid is a
 // 146-member alphabet x 15 neighbourhoods x 8 contexts, less the
 // realizations two coordinates spell the same way; the pair grid is
-// the alphabet less its one pair exclusion, squared, x 4 joins x 3
-// contexts, less the same kind of collision. A grid extension moves
-// its pin DELIBERATELY, in the same change, to the count the new
-// source lists produce; it is not a number to discover from a red
-// gate and paste back.
+// that whole alphabet squared, x 4 joins x 3 contexts, less the same
+// kind of collision. A grid extension moves its pin DELIBERATELY, in
+// the same change, to the count the new source lists produce; it is
+// not a number to discover from a red gate and paste back.
 const STANDING_GRID_SIZE = 17_349;
-const PAIR_GRID_SIZE = 251_477;
+const PAIR_GRID_SIZE = 254_965;
 
 /**
  * Rule (i): every construct dimension is still a row of the rule
@@ -243,20 +240,17 @@ function rosterFailures(
 
 /**
  * Rule (v): every alphabet member reaches a realized standing input,
- * fits the reflow-edge body budget, and reaches a realized pair input
- * unless it is excluded; and no exclusion may name a member the
- * alphabet has lost.
+ * reaches a realized pair input, and fits the reflow-edge body
+ * budget.
  *
  * "Reaches" is the same test the line-shape census runs: the member's
  * body appears in a realized input. That says the net FEEDS the
  * spelling to the formatter, not that any row varies it.
  *
- * The excluded-but-reaching message is the WEAK half of the exclusion
- * map and says so where the map is declared: it fires only when some
- * OTHER member's realized pair input happens to contain the excluded
- * body, so it is vacuous for an exclusion nothing else spells. A new
- * exclusion is held by rule (vi) instead, which sees the pair grid
- * shrink.
+ * The pair half is unconditional because the pair grid takes the
+ * whole alphabet: every member pairs with every other, so an
+ * unreached one names a wrong body. A filter placed in front of that
+ * grid is caught by rule (vi), which sees the realized count shrink.
  * @param standingInputs - every realized standing-grid input
  * @param pairInputs - every realized pair-grid input
  * @returns one message per disagreement
@@ -266,7 +260,6 @@ function alphabetCoverageFailures(
   pairInputs: readonly string[],
 ): string[] {
   const failures: string[] = [];
-  const memberIds = new Set(inlineAlphabet().map((member) => member.id));
   for (const member of inlineAlphabet()) {
     if (!standingInputs.some((input) => input.includes(member.body))) {
       failures.push(
@@ -284,23 +277,9 @@ function alphabetCoverageFailures(
         `inline census: alphabet member ${member.id} is ${String(width)} characters, past the reflow-edge budget of ${String(REFLOW_EDGE_BODY_BUDGET)} (rule (v)): its reflow-edge rows put the line boundary in front of the construct instead of behind it; shorten the spelling, or shorten FILLER_EDGE and move both numbers together`,
       );
     }
-    const reachesPair = pairInputs.some((input) => input.includes(member.body));
-    const excluded = PAIR_EXCLUSIONS.get(member.id);
-    if (excluded === undefined && !reachesPair) {
+    if (!pairInputs.some((input) => input.includes(member.body))) {
       failures.push(
         `inline census: alphabet member ${member.id} reaches no realized pair input (rule (v)): every member pairs with every other, so an unreached one names a wrong body`,
-      );
-    }
-    if (excluded !== undefined && reachesPair) {
-      failures.push(
-        `inline census: alphabet member ${member.id} is excluded from the pair grid but reaches one anyway, so its reason is stale (rule (v)): ${excluded}`,
-      );
-    }
-  }
-  for (const id of PAIR_EXCLUSIONS.keys()) {
-    if (!memberIds.has(id)) {
-      failures.push(
-        `inline census: PAIR_EXCLUSIONS names ${id}, which the alphabet no longer has (stale exclusion)`,
       );
     }
   }
