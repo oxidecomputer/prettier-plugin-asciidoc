@@ -70,6 +70,18 @@ const ATTRLIST_CLOSE = "]";
 // (asciidoctor.rb l.446-468); see {@link attrlistAllowsIt}.
 const ATTRLIST_ESCAPE = "\\";
 
+// The two characters {@link resolvesToNoAttribute} reads a run with:
+// the separator that ends the first positional attribute, and the
+// marker that opens the shorthand role syntax.
+const POSITIONAL_SEPARATOR = ",";
+const SHORTHAND_ROLE = ".";
+
+// What an attribute reference opens with. A run holding one is
+// substituted before it is parsed, so what it names is not a fact this
+// tree holds; see {@link writesBareTextBehind}, which refuses on one
+// rather than reading it.
+const ATTRIBUTE_REFERENCE = "{";
+
 // A bracketed run the bytes in front of a span leave OPEN: a `[` with
 // no `]` after it. The group's interior crosses no `]`, so a group
 // standing there can only have opened at a `[` this run holds.
@@ -596,34 +608,140 @@ function insideFollowingAttrlist(
 }
 
 /**
+ * Whether an attrlist run resolves to NEITHER an id NOR a role - the
+ * one case in which the row that takes the run writes no element.
+ *
+ * `convertQuotedText` turns a `mark` into an `unquoted` the moment any
+ * attrlist stands in front of it
+ * (`node_modules/@asciidoctor/core/build/node/index.cjs` l.20922-20950),
+ * and an `unquoted` naming neither attribute converts to its own text
+ * and nothing more. So one span is spelled three ways with three
+ * different renders: `##c##` is `<mark>c</mark>`, `[a]##c##` is
+ * `<span class="a">c</span>`, and `[ ]##c##` is a bare `c`.
+ *
+ * `parseQuotedTextAttributes` (l.20981) reads only the FIRST
+ * positional attribute and trims it; a leading `.` then opens the
+ * shorthand role syntax (`Compliance.shorthandPropertySyntax`, on by
+ * default), where the dots separating the roles become spaces and the
+ * result is trimmed at its head. An empty run names nothing either
+ * way. Measured against the oracle, in front of `##c##`: `[ ]`,
+ * `[,]`, `[.]`, `[..]`, `[...]` and `[ ,a]` all render a bare `c`,
+ * while `[a]`, `[.r]`, `[.a.b]`, `[a,b]` and `[x.y]` all render an
+ * element.
+ *
+ * DOMAIN: a run holding no `#` and no attribute reference. Neither is
+ * modelled and neither can arrive. A `#` would open the shorthand ID
+ * syntax, and it is also the highlight mark, so a role holding one
+ * refuses the shortening a whole clause earlier, in the block-wide
+ * scan (`carriesMark`, src/print/inline.ts) - the only caller
+ * ({@link writesBareTextBehind}) is reached for a highlight and for
+ * nothing else. A reference is substituted before it is parsed, and
+ * that caller refuses on one without asking here.
+ * @param run - the interior of the attrlist's brackets, holding
+ *   neither a `#` nor an attribute reference
+ * @returns true when the run names neither attribute
+ */
+function resolvesToNoAttribute(run: string): boolean {
+  const comma = run.indexOf(POSITIONAL_SEPARATOR);
+  const positional = (comma === -1 ? run : run.slice(0, comma)).trim();
+  if (!positional.startsWith(SHORTHAND_ROLE)) return positional === "";
+  return positional.slice(1).split(SHORTHAND_ROLE).join(" ").trimStart() === "";
+}
+
+/**
+ * Whether the span BEHIND is one whose own row replaces it with BARE
+ * TEXT, putting that text's first character where the shortened
+ * closing mark needs a boundary.
+ *
+ * Only a HIGHLIGHT can be asking and only a highlight can be behind,
+ * and the rows are why. Shortening moves the asking span onto its
+ * constrained row, and the row that runs directly in front of it is
+ * the same mark's UNCONSTRAINED row - so a neighbour that row
+ * resolves is already its replacement where the constrained clause
+ * reads it, while a neighbour resolved by any other row is either
+ * still literal or an element either way. Highlight is the one mark
+ * whose replacement can be neither: an attrlist naming no attribute
+ * leaves the oracle writing the span's own text
+ * ({@link resolvesToNoAttribute}). Measured: `##a##[ ]##c##` renders
+ * `<mark>a</mark>c` and the shortened `#a#[ ]##c##` renders `#a#c`,
+ * the first span destroyed, because `[ ]##c##` has become `c` by the
+ * time the constrained row looks behind `#a#`.
+ *
+ * The BYTES the neighbour's content prints answer the boundary clause
+ * directly. Every row that runs before this one replaces what it
+ * matches with an element or an entity, whose first character is `<`
+ * or `&`, and leaves everything else standing - so no earlier row can
+ * turn a word character at the head of that content into anything
+ * else, or anything else into a word character, and the printed head
+ * is as good as the rewritten one for this one question.
+ *
+ * An ATTRIBUTE REFERENCE in the run is refused without being read:
+ * the run is substituted before it is parsed, so whether the element
+ * survives is not a fact this tree holds, and refusing costs bytes and
+ * no meaning.
+ *
+ * The mirror hazard - a bared neighbour in FRONT, putting a word
+ * character where the LEFT clause reads - needs no twin of this
+ * function, and the reason is worth writing down because it is not
+ * this rule's own. Such a neighbour flush in front presents its
+ * closing `##` (or `#`) to `edgeTail`, which the caller's
+ * "no same mark may abut either delimiter" clause refuses ahead of
+ * this one; with anything standing between, that something is the
+ * neighbour both models read. If that abutting clause is ever
+ * narrowed, the front side needs its own answer here.
+ * @param node - the span whose shortening is in question
+ * @param behind - the siblings behind it, in source order
+ * @param behindClass - the mark's own right-boundary class
+ * @returns true when the shortening would leave that text there
+ */
+function writesBareTextBehind(
+  node: MarkSpanNode,
+  behind: readonly InlineNode[],
+  behindClass: RegExp,
+): boolean {
+  if (node.type !== "highlight" || behind.length === 0) return false;
+  const [next] = behind;
+  if (next.type !== "highlight" || next.constrained) return false;
+  const { role } = next;
+  if (role === undefined) return false;
+  const bared =
+    role.includes(ATTRIBUTE_REFERENCE) || resolvesToNoAttribute(role);
+  if (!bared) return false;
+  return behindClass.test(next.children.map(printedText).join(""));
+}
+
+/**
  * Whether every bracketed run standing around a span leaves the
  * constrained spelling legal - the one entry point the printer asks,
- * over the three refusals above.
+ * over the four refusals above.
  *
  * A `[...]` run flush against a span is never just text: every
  * `QUOTE_SUBS` row carries an optional `(?:\[([^\]]+)\])?` group in
  * front of its opening delimiter (asciidoctor.rb l.446-468), so such a
  * run belongs to whichever row resolves the span it stands against.
- * Three runs can therefore answer for one shortening: the run in FRONT
+ * Four runs can therefore answer for one shortening: the run in FRONT
  * of the span, which moves to the constrained row with it
  * ({@link attrlistAllowsIt}); a run the span stands INSIDE, which is
  * another span's attribute value ({@link insideFollowingAttrlist});
- * and a run BEHIND, whose bracket loses the boundary character it
- * stands on ({@link stealsBoundaryBehind}).
+ * a run BEHIND, whose bracket loses the boundary character it
+ * stands on ({@link stealsBoundaryBehind}); and a run behind that
+ * names no attribute at all, which costs the span behind its element
+ * and bares its text ({@link writesBareTextBehind}).
  * @param node - the span whose shortening is in question
  * @param where - where the span sits among the bytes
  * @param where.head - what stands in front of the sibling list itself
  * @param where.siblings - the span's own sibling list
  * @param where.index - the span's position in it
- * @param boundary - the span's own mark and left-boundary class
+ * @param boundary - the span's own mark and boundary classes
  * @param boundary.mark - the single mark character it would print
  * @param boundary.front - the mark's left-boundary class
+ * @param boundary.behind - the mark's right-boundary class
  * @returns true when no run standing around the span refuses it
  */
 export function bracketsAllowIt(
   node: MarkSpanNode,
   where: { head: string; siblings: readonly InlineNode[]; index: number },
-  boundary: { mark: string; front: RegExp },
+  boundary: { mark: string; front: RegExp; behind: RegExp },
 ): boolean {
   const before = where.siblings.slice(0, where.index);
   const after = where.siblings.slice(where.index + 1);
@@ -632,6 +750,7 @@ export function bracketsAllowIt(
     (attrlist === undefined ||
       attrlistAllowsIt(attrlist, boundary.mark, boundary.front)) &&
     !insideFollowingAttrlist(where.head, before, after) &&
-    !stealsBoundaryBehind(node, after)
+    !stealsBoundaryBehind(node, after) &&
+    !writesBareTextBehind(node, after, boundary.behind)
   );
 }

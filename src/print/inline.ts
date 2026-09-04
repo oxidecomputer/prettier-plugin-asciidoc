@@ -543,7 +543,9 @@ function neighboursAllowIt(node: MarkSpanNode, cursor: Cursor): boolean {
   if (inFront.endsWith(mark) || behindIt.startsWith(mark)) return false;
   const head = headContext(cursor, order);
   const { siblings, index } = cursor;
-  if (!bracketsAllowIt(node, { head, siblings, index }, { mark, front }))
+  if (
+    !bracketsAllowIt(node, { head, siblings, index }, { mark, front, behind })
+  )
     return false;
   return !front.test(inFront) && !behind.test(behindIt);
 }
