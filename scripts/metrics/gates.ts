@@ -1,22 +1,24 @@
 /**
  * What makes `bun run metrics` fail.
  *
- * Thirteen ABSOLUTE gates, checked at HEAD with or without a base: an
+ * Fourteen ABSOLUTE gates, checked at HEAD with or without a base: an
  * import cycle (a cyclic group has no reading order), a relative import
  * that resolves to nothing (a hole in that graph, so the cycle gate
  * cannot see through it), an edge a LAYER RULE forbids (the direction
  * the stack is supposed to run in), an unused export under `src`,
  * `scripts` OR `tests` (the residue of
- * a half-finished deletion), a resident agreement harness (a test that
- * holds two of our own components in permanent agreement), a stale
- * interior-validation registry entry (a registry that has rotted is
- * worse than no registry, because it reads as an audit), a registry
- * that cannot be READ at all, a defense marker split across two
- * comment lines, an unregistered or stale cross-directory crossing,
- * a named seam that is missing or unmeasurable, a `src` export
- * with no `src` consumer that does not say so with `@internal`, a
- * quarantine manifest that has left its conformance pin, and a minimums
- * file that no longer describes the source tree.
+ * a half-finished deletion), a duplication ceiling exceeded (jscpd's
+ * clone percentage over the same three trees), a resident agreement
+ * harness (a test that holds two of our own components in permanent
+ * agreement), a stale interior-validation registry entry (a registry
+ * that has rotted is worse than no registry, because it reads as an
+ * audit), a registry that cannot be READ at all, a defense marker
+ * split across two comment lines, an unregistered or stale
+ * cross-directory crossing, a named seam that is missing or
+ * unmeasurable, a `src` export with no `src` consumer that does not
+ * say so with `@internal`, a quarantine manifest that has left its
+ * conformance pin, and a minimums file that no longer describes the
+ * source tree.
  *
  * Separately from all of them, {@link measuredNothing} is the floor:
  * a `src` too small to be this repository's is not a failing gate, it
@@ -66,6 +68,22 @@ const MINIMUM_SOURCE_FILES = 10;
 
 /** The exported-name floor; see {@link MINIMUM_SOURCE_FILES}. */
 const MINIMUM_EXPORTED_SYMBOLS = 40;
+
+/**
+ * The duplication CEILING: the highest jscpd duplicated-line
+ * percentage `src`, `scripts` and `tests` together may report.
+ *
+ * jscpd was widened from `src` alone to all three trees once a survey
+ * found duplication the narrower scan never saw: 84 hand-spelled
+ * copies of one format-assert trailer, eight hand-rolled recursive
+ * directory walkers, and more. Fixing that pile is its own body of
+ * work, so this pins where the tree stands TODAY (1.7%, rounded up
+ * for headroom) as a ceiling rather than leaving the number to drift
+ * upward unnoticed the way it did before anything read `tests` and
+ * `scripts` at all. Lowering it rides the commit that consolidates
+ * one of those copies away.
+ */
+const MAXIMUM_DUPLICATED_PERCENT = 1.8;
 
 // The escape-hatch rows, with the label each gets in a failure.
 const HATCHES = [
@@ -125,6 +143,30 @@ function deadCodeGates(head: Snapshot): string[] {
 }
 
 /**
+ * The duplication gate: jscpd's duplicated-line percentage over
+ * `src`, `scripts` and `tests` may not exceed {@link
+ * MAXIMUM_DUPLICATED_PERCENT}.
+ *
+ * jscpd is a devDependency and runs every time, the same as knip, so
+ * "it did not run" is a failure to report rather than a row to skip.
+ * @param head - the snapshot for this checkout
+ * @returns one message per failure, empty when the ceiling holds
+ */
+function duplicationGate(head: Snapshot): string[] {
+  const { duplicatedPercent } = head.dead;
+  if (duplicatedPercent === undefined) {
+    return [
+      "jscpd did not run, so the duplication ceiling could not be checked",
+    ];
+  }
+  return duplicatedPercent > MAXIMUM_DUPLICATED_PERCENT
+    ? [
+        `jscpd: ${String(duplicatedPercent)}% duplicated lines exceeds the ${String(MAXIMUM_DUPLICATED_PERCENT)}% ceiling`,
+      ]
+    : [];
+}
+
+/**
  * The gates that hold with or without a base.
  * @param head - the snapshot for this checkout
  * @returns one message per failure
@@ -149,7 +191,7 @@ function absoluteGates(head: Snapshot): string[] {
       `layer rule violated (see LAYER_RULES in scripts/metrics/graph.ts):\n  ${head.coupling.layerViolations.join("\n  ")}`,
     );
   }
-  failures.push(...deadCodeGates(head));
+  failures.push(...deadCodeGates(head), ...duplicationGate(head));
   // Not a ratchet: an agreement harness is the shape that makes two
   // implementations of one rule permanently affordable, so the budget
   // is zero and the fix is to delete the second component, never to

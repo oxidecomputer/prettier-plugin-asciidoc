@@ -1,14 +1,11 @@
 /**
  * Dead code (knip) and duplication (jscpd).
  *
- * knip is a devDependency and runs on EVERY invocation, because the
- * unused-exports gate is a HARD gate and a gate that is silent by
- * default is not a gate. If knip cannot run at all, that is
- * a failure to report, not a row to skip.
- *
- * jscpd stays optional and report-only, behind `--duplication`: it is
- * a one-off `bunx` fetch, it needs the network the first time, and
- * nothing gates on it.
+ * Both are devDependencies and both run on EVERY invocation: the
+ * unused-exports gate and the duplication ceiling are both HARD
+ * gates, and a gate that is silent by default is not a gate. If
+ * either tool cannot run at all, that is a failure to report, not a
+ * row to skip.
  */
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
@@ -34,21 +31,17 @@ const KNIP_SYMBOL_BUCKETS = [
 ];
 
 /**
- * Resolve a tool to a command line, preferring the installed binary.
+ * Resolve a tool to its installed binary. Both tools this file runs
+ * are devDependencies, so there is no download fallback: a missing
+ * binary means `bun install` was not run, and that is a failure to
+ * report, not a reason to fetch one over the network.
  * @param tool - npm binary name
- * @param allowDownload - fall back to `bunx`, which may fetch it
  * @returns the command and its leading arguments, or undefined when
- * the tool is neither installed nor allowed to be fetched
+ * the tool is not installed
  */
-function toolCommand(
-  tool: string,
-  allowDownload: boolean,
-): [string, string[]] | undefined {
+function toolCommand(tool: string): [string, string[]] | undefined {
   const local = path.join(REPO_ROOT, "node_modules/.bin", tool);
-  if (existsSync(local)) {
-    return [local, []];
-  }
-  return allowDownload ? ["bunx", [tool]] : undefined;
+  return existsSync(local) ? [local, []] : undefined;
 }
 
 /**
@@ -61,7 +54,7 @@ function toolCommand(
  * @returns knip's stdout, or undefined when it could not run at all
  */
 function runKnip(directory: string): string | undefined {
-  const command = toolCommand("knip", false);
+  const command = toolCommand("knip");
   if (command === undefined) {
     return undefined;
   }
@@ -126,17 +119,19 @@ export function countKnipExports(
   return count;
 }
 
+// The trees jscpd scans. A tree this checkout does not have (a
+// planted fixture with only `src/`) is not an error: jscpd reports
+// zero files found under it and moves on.
+const DUPLICATION_TREES = ["src", "scripts", "tests"];
+
 /**
- * Duplicated-line percentage over `src`, via jscpd.
+ * Duplicated-line percentage over `src`, `scripts` and `tests`, via
+ * jscpd.
  * @param directory - checkout root to analyse
- * @param allowDownload - allow a `bunx` fetch
  * @returns the percentage, or undefined when jscpd did not run
  */
-function runJscpd(
-  directory: string,
-  allowDownload: boolean,
-): number | undefined {
-  const command = toolCommand("jscpd", allowDownload);
+function runJscpd(directory: string): number | undefined {
+  const command = toolCommand("jscpd");
   if (command === undefined) {
     return undefined;
   }
@@ -147,7 +142,7 @@ function runJscpd(
       binary,
       [
         ...lead,
-        "src",
+        ...DUPLICATION_TREES,
         "--min-lines",
         MIN_LINES,
         "--min-tokens",
@@ -196,16 +191,12 @@ function readJscpdPercentage(file: string): number | undefined {
 }
 
 /**
- * Measure dead code always, and duplication on request.
+ * Measure dead code and duplication, always.
  * @param directory - checkout root to analyse
- * @param duplication - also run jscpd, fetching it with `bunx` if need be
- * @returns the counts; `undefined` for knip means it could not run,
- * which the gates treat as a failure rather than a pass
+ * @returns the counts; `undefined` for either tool means it could not
+ * run, which the gates treat as a failure rather than a pass
  */
-export function readDeadCode(
-  directory: string,
-  duplication: boolean,
-): DeadCode {
+export function readDeadCode(directory: string): DeadCode {
   const knip = runKnip(directory);
   return {
     unusedExports:
@@ -222,8 +213,6 @@ export function readDeadCode(
     // leaves behind.
     unusedTestExports:
       knip === undefined ? undefined : countKnipExports(knip, "tests/"),
-    duplicatedPercent: duplication
-      ? runJscpd(directory, duplication)
-      : undefined,
+    duplicatedPercent: runJscpd(directory),
   };
 }

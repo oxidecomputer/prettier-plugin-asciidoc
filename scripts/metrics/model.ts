@@ -151,7 +151,11 @@ export interface ComplexityTotals {
   over: number;
 }
 
-/** What the optional third-party tools found, where they ran. */
+/**
+ * What the third-party tools found. Both knip and jscpd are
+ * devDependencies and run on every measurement; `undefined` means the
+ * tool could not run, not that it was skipped.
+ */
 export interface DeadCode {
   /** knip unused exports, types and members under `src`. */
   unusedExports: number | undefined;
@@ -163,7 +167,7 @@ export interface DeadCode {
    * `*.test.ts` files themselves, which knip treats as entry points.
    */
   unusedTestExports: number | undefined;
-  /** jscpd duplicated-line percentage over `src`. */
+  /** jscpd duplicated-line percentage over `src`, `scripts` and `tests`. */
   duplicatedPercent: number | undefined;
 }
 

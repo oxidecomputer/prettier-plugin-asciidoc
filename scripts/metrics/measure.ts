@@ -129,8 +129,6 @@ export interface Measurement {
   label: string;
   /** Absolute path of the metrics eslint config. */
   configPath: string;
-  /** Also run jscpd (report-only). */
-  duplication: boolean;
   /**
    * Whether this checkout is THIS repository, and so the one the
    * hand-maintained design registries describe. See
@@ -149,7 +147,7 @@ export interface Measurement {
  * @returns the snapshot
  */
 export async function measure(measurement: Measurement): Promise<Snapshot> {
-  const { directory, label, configPath, duplication, repository } = measurement;
+  const { directory, label, configPath, repository } = measurement;
   const files = walkTypeScript(path.join(directory, "src")).toSorted();
   const scans = files.map((file) => scanFile(directory, file));
   const design = readDesign(directory);
@@ -205,6 +203,6 @@ export async function measure(measurement: Measurement): Promise<Snapshot> {
       directory,
       scans.map((scan) => scan.path),
     ),
-    dead: readDeadCode(directory, duplication),
+    dead: readDeadCode(directory),
   };
 }

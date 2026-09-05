@@ -411,6 +411,18 @@ describe("gates and ratchets", () => {
     ]);
   });
 
+  test("duplication over the recorded ceiling fails", () => {
+    const head = makeSnapshot({ duplicatedPercent: 5 });
+    expect(gateFailures(head)).toEqual([
+      "jscpd: 5% duplicated lines exceeds the 1.8% ceiling",
+    ]);
+  });
+
+  test("duplication at the recorded ceiling passes", () => {
+    const head = makeSnapshot({ duplicatedPercent: 1.8 });
+    expect(gateFailures(head)).toEqual([]);
+  });
+
   test("a layer that did not exist at the base cannot regress", () => {
     const base = makeSnapshot({ files: 0, cognitiveMax: 0 });
     const head = makeSnapshot({ files: 3, cognitiveMax: 12 });

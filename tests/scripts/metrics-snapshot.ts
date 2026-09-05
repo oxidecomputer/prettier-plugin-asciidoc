@@ -29,6 +29,7 @@ import {
  * @param options.unusedExports - knip unused exports under `src`
  * @param options.unusedScriptExports - knip unused exports under `scripts`
  * @param options.unusedTestExports - knip unused exports under `tests`
+ * @param options.duplicatedPercent - jscpd duplicated-line percentage
  * @param options.exportedSymbols - exported names under `src`
  * @param options.seams - seam widths; an absent seam has no members
  * @param options.totalFallback - `Total fallback:` marker count
@@ -65,6 +66,7 @@ export function makeSnapshot(options: {
   unusedExports?: number;
   unusedScriptExports?: number;
   unusedTestExports?: number;
+  duplicatedPercent?: number;
   exportedSymbols?: number;
   seams?: SeamWidth[];
   totalFallback?: number;
@@ -190,18 +192,20 @@ function makeInternal(options: {
  * @param options.unusedExports - knip unused exports under `src`
  * @param options.unusedScriptExports - knip unused exports under `scripts`
  * @param options.unusedTestExports - knip unused exports under `tests`
+ * @param options.duplicatedPercent - jscpd duplicated-line percentage
  * @returns a complete DeadCode
  */
 function makeDead(options: {
   unusedExports?: number;
   unusedScriptExports?: number;
   unusedTestExports?: number;
+  duplicatedPercent?: number;
 }): Snapshot["dead"] {
   return {
     unusedExports: options.unusedExports ?? 0,
     unusedScriptExports: options.unusedScriptExports ?? 0,
     unusedTestExports: options.unusedTestExports ?? 0,
-    duplicatedPercent: 0,
+    duplicatedPercent: options.duplicatedPercent ?? 0,
   };
 }
 

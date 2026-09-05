@@ -76,7 +76,6 @@ const USAGE = `usage: bun run metrics [-- <options>]
   --base <rev>     compare against a revision: base | head | delta
   --root <dir>     measure another checkout instead of this one
   --json           print the raw snapshots instead of the table
-  --duplication    also run jscpd (report-only; may fetch it with bunx)
   --help           this text
 
 exit: 0 gates held, 1 a gate or ratchet failed, 2 could not run`;
@@ -97,7 +96,7 @@ const VALUE_COLUMNS = 3;
 // Width of the value column in the offender list.
 const TAIL_WIDTH = 4;
 
-const FLAGS = new Set(["--json", "--duplication"]);
+const FLAGS = new Set(["--json"]);
 
 /**
  * Flatten a snapshot into the table's rows, in print order.
@@ -378,8 +377,6 @@ interface Options {
   base: string | undefined;
   /** Print the raw snapshots instead of the table. */
   json: boolean;
-  /** Also measure duplication, fetching jscpd with `bunx` if need be. */
-  duplication: boolean;
   /** The checkout to measure; this repository unless overridden. */
   root: string;
   /**
@@ -445,9 +442,6 @@ function applyOption(
     case "--json": {
       return { ...options, json: true };
     }
-    case "--duplication": {
-      return { ...options, duplication: true };
-    }
     default: {
       throw new Error(
         `unknown argument ${name} (known: --base <rev>, --root <dir>, ${[...FLAGS].join(", ")})`,
@@ -467,7 +461,6 @@ function parseArguments(argv: string[]): Options {
   let options: Options = {
     base: undefined,
     json: false,
-    duplication: false,
     root: REPO_ROOT,
     foreignRoot: false,
   };
@@ -523,7 +516,6 @@ async function main(): Promise<void> {
       directory: options.root,
       label: "head",
       configPath,
-      duplication: options.duplication,
       // `--root` points at somebody else's checkout, which the design
       // registries do not describe; without `--root` head IS this
       // repository. Tracked as a flag rather than compared as a path,
@@ -547,7 +539,6 @@ async function main(): Promise<void> {
         directory: baseDirectory,
         label: options.base,
         configPath,
-        duplication: options.duplication,
         // An archived revision predates whatever the registries say
         // today; it supplies the ratchets' left-hand column and
         // nothing else.

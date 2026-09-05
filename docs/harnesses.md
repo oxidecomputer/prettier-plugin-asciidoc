@@ -50,10 +50,10 @@ a passing comparison.
 ### `bun run metrics` — the simplicity scorecard
 
 Measures `src` and prints one table; `--base <rev>` adds comparison columns.
-Head-only it holds thirteen absolute gates plus the shape census; with `--base`
+Head-only it holds fourteen absolute gates plus the shape census; with `--base`
 it adds four ratchets. The full scorecard is [described below](#the-scorecard).
-Useful flags: `--json` (raw snapshots), `--duplication` (also run jscpd, fetched
-with `bunx`), `--root <dir>` (measure another checkout).
+Useful flags: `--json` (raw snapshots), `--root <dir>` (measure another
+checkout).
 
 Proves: the tree is well-formed (no cycles, no forbidden layer edges, no dead
 exports, no rotted registry, no stale minimums file, a quarantine manifest on
@@ -1452,34 +1452,35 @@ such a move.
 ## The scorecard
 
 `scripts/metrics.ts` (with `scripts/metrics/`) measures `src` for the layered
-rows below (lines, complexity, coupling, escape hatches); the dead-code row also
-measures `scripts` and `tests`, because that is where a half-finished deletion's
-residue collects too. Nothing is counted by hand: lines and escape hatches come
-from the TypeScript compiler's parser, complexity from eslint, coupling from
-`dependency-cruiser`, dead code from `knip`, duplication from `jscpd`. The
-layers reported are `src/parse/lines`, `src/parse`, `src/print`, and `src`
-overall.
+rows below (lines, complexity, coupling, escape hatches); the dead-code and
+duplication row measures `src`, `scripts` AND `tests` together, because that is
+where a half-finished deletion's residue collects too. Nothing is counted by
+hand: lines and escape hatches come from the TypeScript compiler's parser,
+complexity from eslint, coupling from `dependency-cruiser`, dead code from
+`knip`, duplication from `jscpd`. The layers reported are `src/parse/lines`,
+`src/parse`, `src/print`, and `src` overall.
 
-| #   | Metric                      | Definition                                                                                                         | Better                              | Gate                                                                       |
-| --- | --------------------------- | ------------------------------------------------------------------------------------------------------------------ | ----------------------------------- | -------------------------------------------------------------------------- |
-| 1   | **Cognitive complexity**    | SonarSource cognitive complexity per function: sum, max, count over 15                                             | down                                | Ratchet on max with `--base`; sum and tail reported                        |
-| 2   | **Code LoC + comment LoC**  | Lines carrying a real token, and comment-only lines, counted separately                                            | code down at a constant feature set | Report-only, always printed as a pair                                      |
-| 3   | **Cyclomatic complexity**   | eslint's `complexity` per function: sum, max, count over 10                                                        | down                                | Report-only — see below                                                    |
-| 4   | **Coupling**                | Unique intra-`src` import edges (type-only included), files in cycles, unresolved relative imports, exported names | edges and exports down              | Hard gates: cycles = 0, unresolved imports = 0                             |
-| 5   | **Escape hatches**          | `eslint-disable` comments, `as X` / `<X>` assertions (`as const` excluded), non-null `!`, `any`                    | down                                | Ratchet with `--base`                                                      |
-| 6   | **Dead code + duplication** | Unused exports under `src`, `scripts` and `tests`; `src` exports with no `src` consumer; duplication %             | zero unused                         | Hard gates: zero unused symbols, every test-only export tagged `@internal` |
+| #   | Metric                      | Definition                                                                                                                       | Better                              | Gate                                                                                                               |
+| --- | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| 1   | **Cognitive complexity**    | SonarSource cognitive complexity per function: sum, max, count over 15                                                           | down                                | Ratchet on max with `--base`; sum and tail reported                                                                |
+| 2   | **Code LoC + comment LoC**  | Lines carrying a real token, and comment-only lines, counted separately                                                          | code down at a constant feature set | Report-only, always printed as a pair                                                                              |
+| 3   | **Cyclomatic complexity**   | eslint's `complexity` per function: sum, max, count over 10                                                                      | down                                | Report-only — see below                                                                                            |
+| 4   | **Coupling**                | Unique intra-`src` import edges (type-only included), files in cycles, unresolved relative imports, exported names               | edges and exports down              | Hard gates: cycles = 0, unresolved imports = 0                                                                     |
+| 5   | **Escape hatches**          | `eslint-disable` comments, `as X` / `<X>` assertions (`as const` excluded), non-null `!`, `any`                                  | down                                | Ratchet with `--base`                                                                                              |
+| 6   | **Dead code + duplication** | Unused exports under `src`, `scripts` and `tests`; `src` exports with no `src` consumer; duplication % over the same three trees | zero unused, duplication down       | Hard gates: zero unused symbols, duplication under its recorded ceiling, every test-only export tagged `@internal` |
 
-The thirteen absolute gates (all in `scripts/metrics/gates.ts`) cover: import
-cycles, unresolved relative imports, layer-rule violations, unused exports,
-untagged test-only exports, a resident agreement harness, a stale or unreadable
-interior-validation registry, a split defense marker, a missing or unmeasurable
-named seam, an unregistered or stale crossing, a quarantine manifest off its
-pin, and a minimums file that no longer describes the source tree. The four
-ratchets (need `--base`): cognitive max per layer, each escape-hatch count, each
-named contract's width, each defense counter. None may rise; a layer, contract,
-or marker the base does not carry is skipped, since it cannot have regressed. A
-ratchet that fires is a question to answer in the task report — either the
-change is justified and the report says why, or the code goes back.
+The fourteen absolute gates (all in `scripts/metrics/gates.ts`) cover: import
+cycles, unresolved relative imports, layer-rule violations, unused exports, a
+duplication ceiling, untagged test-only exports, a resident agreement harness, a
+stale or unreadable interior-validation registry, a split defense marker, a
+missing or unmeasurable named seam, an unregistered or stale crossing, a
+quarantine manifest off its pin, and a minimums file that no longer describes
+the source tree. The four ratchets (need `--base`): cognitive max per layer,
+each escape-hatch count, each named contract's width, each defense counter. None
+may rise; a layer, contract, or marker the base does not carry is skipped, since
+it cannot have regressed. A ratchet that fires is a question to answer in the
+task report — either the change is justified and the report says why, or the
+code goes back.
 
 The gates that read this repository's own conventions and registries judge this
 repository only: a `--base` archive or `--root` checkout is measured, not judged
@@ -1543,8 +1544,8 @@ the standing hotspot).
   comparison.
 - Never compare across a feature addition without saying so: aggregates measured
   against a revision that lacks the behavior are not a simplicity comparison.
-- knip runs on every invocation and "knip could not run" is a failure, not a
-  skipped row; jscpd is the one optional, report-only tool.
+- knip and jscpd are both devDependencies and both run on every invocation; "the
+  tool could not run" is a failure for either one, not a skipped row.
 
 ## Design-quality budgets
 
