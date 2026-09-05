@@ -210,11 +210,18 @@ export function readDeadCode(
   return {
     unusedExports:
       knip === undefined ? undefined : countKnipExports(knip, "src/"),
-    // Reported next to `src` so the scorecard's own tooling is held to
-    // the standard it enforces, but never gated: a script IS an entry
-    // point, so knip's file-level findings there are expected.
+    // Gated the same as `src`: every script is declared as a knip
+    // entry point in knip.json, so an export inside one that nothing
+    // calls is residue, not an unused entry point.
     unusedScriptExports:
       knip === undefined ? undefined : countKnipExports(knip, "scripts/"),
+    // Gated the same way: the `.test.ts` files under `tests` are the
+    // declared entry points, so this counts residue in the harness's
+    // own shared modules (`tests/helpers.ts`, `tests/lib/*.ts`, and
+    // the rest), exactly the exports a half-finished consolidation
+    // leaves behind.
+    unusedTestExports:
+      knip === undefined ? undefined : countKnipExports(knip, "tests/"),
     duplicatedPercent: duplication
       ? runJscpd(directory, duplication)
       : undefined,

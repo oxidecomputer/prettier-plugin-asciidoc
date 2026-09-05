@@ -753,7 +753,7 @@ const ORACLE_TERM_DELIMITER =
  * `parse_list_item` builds for a dlist, `[[terms], description-or-nil]`
  * (parser.rb:1387).
  */
-export interface OracleDescriptionItem {
+interface OracleDescriptionItem {
   /**
    * Each term's own source text, before substitutions, in source
    * order. Never empty.

@@ -783,7 +783,7 @@ const ABOVE_HEADER = new Set([
  * style is involved.
  * @param root - the document node
  */
-export function expectDocumentHeaderShape(root: unknown): void {
+function expectDocumentHeaderShape(root: unknown): void {
   const document = isRecord(root) ? root : {};
   const { children } = document;
   const blocks = isArray(children) ? children : [];

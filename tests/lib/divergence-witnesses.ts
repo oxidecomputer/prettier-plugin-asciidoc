@@ -30,7 +30,7 @@ export const WITNESS_PATH = "tests/format/divergence-witnesses.json";
  * Where the two readers differed on a witness: in the bytes they
  * printed, in the reading they took, or in both.
  */
-export type WitnessScope = "bytes" | "readings" | "both";
+type WitnessScope = "bytes" | "readings" | "both";
 
 /** The scopes a row may name, for validation. */
 const SCOPES = new Set<string>(["bytes", "readings", "both"]);
@@ -40,7 +40,7 @@ const SCOPES = new Set<string>(["bytes", "readings", "both"]);
  * the divergence it shows, or spelled by the list-shape sweep's
  * product.
  */
-export interface WitnessDocument {
+interface WitnessDocument {
   /** Where the document came from. */
   readonly origin: "authored" | "generated";
   /** The witness's name, as the sealed revision recorded it. */
@@ -57,7 +57,7 @@ export interface WitnessDocument {
  * A witness that is a corpus case, named by id rather than copied.
  * Its bytes come from `vendor/asciidoctor-corpus` at load time.
  */
-export interface WitnessCorpusCase {
+interface WitnessCorpusCase {
   /** Where the document came from. */
   readonly origin: "corpus";
   /** `corpus/<group>/<case id>`, resolvable through `loadCorpus`. */
@@ -72,7 +72,7 @@ export interface WitnessCorpusCase {
  * One witness. The union is what keeps "a corpus row has no source"
  * unrepresentable rather than merely untrue.
  */
-export type Witness = WitnessDocument | WitnessCorpusCase;
+type Witness = WitnessDocument | WitnessCorpusCase;
 
 /**
  * One shape the sealed revision still failed at depth 5, with the
@@ -84,7 +84,7 @@ export type Witness = WitnessDocument | WitnessCorpusCase;
  * mechanism somebody has to name. Keeping the set is what makes that
  * distinction available at all - without it, both look alike.
  */
-export interface DepthFiveFailure {
+interface DepthFiveFailure {
   /** The sweep document, verbatim. */
   readonly document: string;
   /** The mechanism, as the sealed revision's allowlist grouped it. */

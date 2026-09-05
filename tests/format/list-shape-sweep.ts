@@ -295,7 +295,7 @@ export async function sweepVerdict(source: string): Promise<SweepVerdict> {
  * @param source - one generated document
  * @returns true when the document belongs in the failing set
  */
-export async function sweepFails(source: string): Promise<boolean> {
+async function sweepFails(source: string): Promise<boolean> {
   const pair = await formatTwice(source);
   if (pair === undefined) {
     return true;

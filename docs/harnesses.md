@@ -1451,8 +1451,10 @@ such a move.
 
 ## The scorecard
 
-`scripts/metrics.ts` (with `scripts/metrics/`) measures `src` only — the shipped
-code, not the tests. Nothing is counted by hand: lines and escape hatches come
+`scripts/metrics.ts` (with `scripts/metrics/`) measures `src` for the layered
+rows below (lines, complexity, coupling, escape hatches); the dead-code row also
+measures `scripts` and `tests`, because that is where a half-finished deletion's
+residue collects too. Nothing is counted by hand: lines and escape hatches come
 from the TypeScript compiler's parser, complexity from eslint, coupling from
 `dependency-cruiser`, dead code from `knip`, duplication from `jscpd`. The
 layers reported are `src/parse/lines`, `src/parse`, `src/print`, and `src`
@@ -1465,7 +1467,7 @@ overall.
 | 3   | **Cyclomatic complexity**   | eslint's `complexity` per function: sum, max, count over 10                                                        | down                                | Report-only — see below                                                    |
 | 4   | **Coupling**                | Unique intra-`src` import edges (type-only included), files in cycles, unresolved relative imports, exported names | edges and exports down              | Hard gates: cycles = 0, unresolved imports = 0                             |
 | 5   | **Escape hatches**          | `eslint-disable` comments, `as X` / `<X>` assertions (`as const` excluded), non-null `!`, `any`                    | down                                | Ratchet with `--base`                                                      |
-| 6   | **Dead code + duplication** | Unused exports under `src` and `scripts`; `src` exports with no `src` consumer; duplication %                      | zero unused                         | Hard gates: zero unused symbols, every test-only export tagged `@internal` |
+| 6   | **Dead code + duplication** | Unused exports under `src`, `scripts` and `tests`; `src` exports with no `src` consumer; duplication %             | zero unused                         | Hard gates: zero unused symbols, every test-only export tagged `@internal` |
 
 The thirteen absolute gates (all in `scripts/metrics/gates.ts`) cover: import
 cycles, unresolved relative imports, layer-rule violations, unused exports,

@@ -375,7 +375,7 @@ function establishedColumnCount(table: TableNode): number | undefined {
  *   undefined when the table has no rows to establish one
  * @returns whether this row's duplicate cell(s) split under the oracle
  */
-export function duplicateSplitsRow(
+function duplicateSplitsRow(
   row: TableRowNode,
   columnCount: number | undefined,
 ): boolean {

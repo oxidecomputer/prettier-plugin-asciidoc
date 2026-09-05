@@ -155,8 +155,14 @@ export interface ComplexityTotals {
 export interface DeadCode {
   /** knip unused exports, types and members under `src`. */
   unusedExports: number | undefined;
-  /** The same count over `scripts`, which is measured but not gated. */
+  /** The same count over `scripts`. */
   unusedScriptExports: number | undefined;
+  /**
+   * The same count over `tests`: the harness's own shared modules
+   * (`tests/helpers.ts`, `tests/lib/*.ts` and the rest), not the
+   * `*.test.ts` files themselves, which knip treats as entry points.
+   */
+  unusedTestExports: number | undefined;
   /** jscpd duplicated-line percentage over `src`. */
   duplicatedPercent: number | undefined;
 }

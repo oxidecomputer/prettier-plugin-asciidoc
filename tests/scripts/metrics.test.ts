@@ -211,6 +211,7 @@ describe("knip report parsing", () => {
         namespaceMembers: [{ name: "N" }],
       },
       { file: "scripts/b.ts", exports: [{ name: "y" }] },
+      { file: "tests/c.ts", exports: [{ name: "z" }] },
     ],
   });
 
@@ -220,6 +221,7 @@ describe("knip report parsing", () => {
 
   test("counts per directory", () => {
     expect(countKnipExports(report, "scripts/")).toBe(1);
+    expect(countKnipExports(report, "tests/")).toBe(1);
   });
 
   test("survives output that is not a report", () => {
@@ -399,6 +401,13 @@ describe("gates and ratchets", () => {
     const head = makeSnapshot({ unusedScriptExports: 3 });
     expect(gateFailures(head)).toEqual([
       "knip: 3 unused export(s) under scripts/",
+    ]);
+  });
+
+  test("an unused export under tests fails too", () => {
+    const head = makeSnapshot({ unusedTestExports: 5 });
+    expect(gateFailures(head)).toEqual([
+      "knip: 5 unused export(s) under tests/",
     ]);
   });
 

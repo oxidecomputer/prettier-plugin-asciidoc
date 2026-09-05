@@ -186,6 +186,7 @@ function rowsOf(snapshot: Snapshot): Array<[string, number | undefined]> {
     ["classified minimum exceptions", snapshot.minimums.exceptions],
     ["knip unused exports in src", snapshot.dead.unusedExports],
     ["knip unused exports in scripts", snapshot.dead.unusedScriptExports],
+    ["knip unused exports in tests", snapshot.dead.unusedTestExports],
     ["jscpd duplicated %", snapshot.dead.duplicatedPercent],
   );
   return rows;

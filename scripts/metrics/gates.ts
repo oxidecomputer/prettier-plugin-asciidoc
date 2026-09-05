@@ -5,8 +5,8 @@
  * import cycle (a cyclic group has no reading order), a relative import
  * that resolves to nothing (a hole in that graph, so the cycle gate
  * cannot see through it), an edge a LAYER RULE forbids (the direction
- * the stack is supposed to run in), an unused export under `src` OR
- * `scripts` (the residue of
+ * the stack is supposed to run in), an unused export under `src`,
+ * `scripts` OR `tests` (the residue of
  * a half-finished deletion), a resident agreement harness (a test that
  * holds two of our own components in permanent agreement), a stale
  * interior-validation registry entry (a registry that has rotted is
@@ -86,18 +86,23 @@ const DEFENSES = [
 ] as const;
 
 /**
- * The unused-export gate, over `src` AND `scripts`.
+ * The unused-export gate, over `src`, `scripts` AND `tests`.
  *
  * knip is a devDependency and runs every time, so "it did not run" is
  * a failure to report rather than a row to skip: a hard gate that goes
  * quiet when its tool is missing is not a gate.
  *
- * `scripts/` joined `src/` here in W8, when the harnesses became code
- * we maintain rather than scaffolding. It only became gateable once
- * every entry point was DECLARED in `knip.json` — a script is an
- * entry point, and until knip was told which ones, its findings there
- * were all false. The two counts stay separate rows on the table so a
- * reader can see which tree grew residue.
+ * `scripts/` joined `src/` here once the harnesses became code we
+ * maintain rather than scaffolding, and `tests/` joined both once the
+ * harness's own shared modules (`tests/helpers.ts`, `tests/lib/*.ts`,
+ * and the rest) grew large enough to leave the same kind of residue: a
+ * per-file helper's last consumer moves during a consolidation, and
+ * the export it left behind stays green forever with nothing counting
+ * it. All three trees became gateable only once every entry point was
+ * DECLARED in `knip.json` (every script, plus every `.test.ts` file
+ * under `tests`); until knip was told which files are entry points,
+ * its findings there were all false. The three counts stay separate
+ * rows on the table so a reader can see which tree grew residue.
  * @param head - the snapshot for this checkout
  * @returns one message per failure
  */
@@ -106,6 +111,7 @@ function deadCodeGates(head: Snapshot): string[] {
   for (const [count, where] of [
     [head.dead.unusedExports, "src/"],
     [head.dead.unusedScriptExports, "scripts/"],
+    [head.dead.unusedTestExports, "tests/"],
   ] as const) {
     if (count === undefined) {
       failures.push(

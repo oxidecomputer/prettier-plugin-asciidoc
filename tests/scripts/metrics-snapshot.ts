@@ -28,6 +28,7 @@ import {
  * @param options.layerViolations - edges a layer rule forbids
  * @param options.unusedExports - knip unused exports under `src`
  * @param options.unusedScriptExports - knip unused exports under `scripts`
+ * @param options.unusedTestExports - knip unused exports under `tests`
  * @param options.exportedSymbols - exported names under `src`
  * @param options.seams - seam widths; an absent seam has no members
  * @param options.totalFallback - `Total fallback:` marker count
@@ -63,6 +64,7 @@ export function makeSnapshot(options: {
   layerViolations?: string[];
   unusedExports?: number;
   unusedScriptExports?: number;
+  unusedTestExports?: number;
   exportedSymbols?: number;
   seams?: SeamWidth[];
   totalFallback?: number;
@@ -187,15 +189,18 @@ function makeInternal(options: {
  * @param options - the same options `makeSnapshot` took
  * @param options.unusedExports - knip unused exports under `src`
  * @param options.unusedScriptExports - knip unused exports under `scripts`
+ * @param options.unusedTestExports - knip unused exports under `tests`
  * @returns a complete DeadCode
  */
 function makeDead(options: {
   unusedExports?: number;
   unusedScriptExports?: number;
+  unusedTestExports?: number;
 }): Snapshot["dead"] {
   return {
     unusedExports: options.unusedExports ?? 0,
     unusedScriptExports: options.unusedScriptExports ?? 0,
+    unusedTestExports: options.unusedTestExports ?? 0,
     duplicatedPercent: 0,
   };
 }

@@ -39,7 +39,7 @@ function roleOf(node: InlineNode): string {
  * @param node - an inline node
  * @returns its shape, with children nested inside the brackets
  */
-export function shapeOf(node: InlineNode): string {
+function shapeOf(node: InlineNode): string {
   if (node.type === "text") {
     return JSON.stringify(node.value);
   }

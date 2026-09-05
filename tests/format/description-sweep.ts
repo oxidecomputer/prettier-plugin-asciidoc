@@ -682,7 +682,7 @@ export const EDGE_ROWS: readonly DescriptionRow[] = [
  * A row the formatter threw on carries no other answer: there is no
  * output to format again and none to render.
  */
-export type RowVerdict =
+type RowVerdict =
   | {
       /** The formatter threw on one of the two passes. */
       readonly kind: "threw";
@@ -728,7 +728,7 @@ async function formatTwice(
  * @param row - the row to judge
  * @returns its verdict
  */
-export async function rowVerdict(row: DescriptionRow): Promise<RowVerdict> {
+async function rowVerdict(row: DescriptionRow): Promise<RowVerdict> {
   const options = { printWidth: row.printWidth };
   const passes = await formatTwice(row, options);
   if (passes === undefined) {
