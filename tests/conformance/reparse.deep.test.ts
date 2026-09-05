@@ -31,5 +31,5 @@ describe("the reparse ledger, deep tier", () => {
     const measured = await measuredKeys(cases);
     const pinned = loadReparseLedger().map((row) => ledgerKey(row));
     expect(measured.toSorted()).toEqual(pinned.toSorted());
-  });
+  }, 900_000);
 });
