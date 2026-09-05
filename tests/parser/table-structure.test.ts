@@ -182,6 +182,20 @@ interface ComparableCase {
  * a test with no conditional of its own. Every branch below RETURNS
  * rather than falling through, so no later step ever runs after an
  * earlier one has already decided a table's fate.
+ *
+ * A preprocessor line (`hasPreprocessorLine`) is checked LAST, per
+ * table, rather than as a whole-case gate before the oracle even
+ * runs: `include::`, `ifdef::`, `ifndef::` and `ifeval::` reach the
+ * oracle's preprocessor whether or not this reader can follow them,
+ * and an unresolved `include::` or a directive gating a table's own
+ * content logs a message the oracle-logged family already catches
+ * (issue #131's own two known cases both do). Checking last means the
+ * more specific, already-informative family wins whenever one
+ * applies, and "preprocessor" is reserved for a table a preprocessor
+ * line has silently changed without the oracle logging anything about
+ * it - a backstop this corpus does not currently exercise, not a
+ * default answer for any case that merely mentions one of these
+ * directives.
  * @param entry - the corpus case
  * @returns one classification per table this reader and the oracle
  *   agree the case holds (or one whole-case exclusion, for the
@@ -191,17 +205,6 @@ async function classify(
   entry: TableCase,
 ): Promise<Array<ExcludedCase | ComparableCase>> {
   const { id, group, input } = entry;
-  if (hasPreprocessorLine(input)) {
-    return [
-      {
-        kind: "excluded",
-        id,
-        group,
-        family: "preprocessor",
-        reason: "preprocessor line anywhere in the case (issue #131)",
-      },
-    ];
-  }
   const oracle = await oracleTables(input);
   const scanned = labeledScans(entry);
   if (scanned.length === 0) {
@@ -257,6 +260,16 @@ async function classify(
         family: "duplicate-split",
         reason:
           "N* duplicate cell spec splits across oracle rows: groupRows counts a duplicate's visits all at once (its own documented divergence, src/parse/lines/table-reader.ts), so a row boundary inside this duplicate's own repetitions is not something this reader's one recorded cell can reproduce (issue #10)",
+      };
+    }
+    if (hasPreprocessorLine(input)) {
+      return {
+        kind: "excluded",
+        id: one.id,
+        group,
+        family: "preprocessor",
+        reason:
+          "preprocessor line anywhere in the case, unresolved by this reader, and the oracle logged nothing to explain the divergence some other way (issue #131)",
       };
     }
     return {
@@ -364,8 +377,8 @@ describe("table structure vs the oracle", () => {
   test("exclusion counts are pinned per family", () => {
     const counts = excludedCountsByFamily();
     expect(counts, JSON.stringify(counts, undefined, 2)).toEqual({
-      preprocessor: 2,
-      "oracle-logged": 11,
+      preprocessor: 0,
+      "oracle-logged": 13,
       "duplicate-split": 1,
       "no-table-scanned": 0,
       "no-table-oracle": 0,
