@@ -8,13 +8,17 @@
  * such a run as SYNTAX, though, and each of them spells its boundary
  * as the literal SPACE character rather than as `\s` - so folding a
  * tab there does not restyle a line, it turns text into a construct
- * the author never wrote.
+ * the author never wrote. A rule that fired takes its boundary
+ * character WITH it, so what the run is left with is a second thing
+ * the fold can get wrong, and a run of two characters is not the same
+ * run as one.
  *
  * This module holds those rules so the splitter that walks a value's
  * words (`splitWords`, src/print/reflow.ts) asks about a run rather
  * than deciding for itself, and so the printer can ask the same
- * question about the runs at a text node's EDGES, which no splitter
- * sees ({@link keptLeadingRun} and {@link keptTrailingRun}).
+ * question about runs no splitter sees: the ones at a text node's
+ * EDGES ({@link keptLeadingRun}, {@link keptTrailingRun}) and the one
+ * that IS a whole text node ({@link keptWholeRun}).
  */
 import type { InlineNode } from "../ast.js";
 import { ASCII_WHITESPACE } from "../parse/line-shapes.js";
@@ -23,10 +27,10 @@ import { ASCII_WHITESPACE } from "../parse/line-shapes.js";
 // (asciidoctor.rb l.498). Of what whitespace can spell, BOTH boundary
 // classes hold the literal space and the literal newline and nothing
 // else - never a tab - and each side matches ONE character, so it is
-// the character ADJACENT to the dashes that decides the row and never
-// the rest of the run. `--` is very nearly the only row in that table
-// whose boundary is spelled that way; the others bound themselves with
-// word characters or with nothing at all.
+// the character ADJACENT to the dashes that decides whether the row
+// MATCHES. `--` is very nearly the only row in that table whose
+// boundary is spelled that way; the others bound themselves with word
+// characters or with nothing at all.
 const EM_DASH = "--";
 
 // The same dashes behind the backslash the row's left class also
@@ -40,6 +44,29 @@ const ESCAPED_EM_DASH = String.raw`\--`;
 const ROW_BOUNDARY = new Set([" ", "\n"]);
 
 /**
+ * Whether the fold would rewrite this run's bytes at all.
+ *
+ * Asked where the DASHES ARE THE NEIGHBOUR'S, and there matching is
+ * not the whole question: the row is replaced whole, boundary
+ * characters included, so a two-character run leaves one character
+ * standing beside the em dash and a one-character run leaves none.
+ * `a  -- b` renders a space, a thin space, an em dash, a thin space
+ * and `b`, while the folded `a -- b` has lost that space with the
+ * character the row ate (issue #155).
+ *
+ * So a run beside such a neighbour is a fixed point only when it IS
+ * the one character the fold would write.
+ * @param run - the run, as the source wrote it.
+ * @returns true when the fold would not write the run back unchanged.
+ */
+function foldRewritesTheRun(run: string): boolean {
+  // Membership answers the WIDTH as well: the set holds two runs and
+  // each is one character, so a run it holds is already the run the
+  // fold would write and a run it does not hold is not.
+  return run !== "" && !ROW_BOUNDARY.has(run);
+}
+
+/**
  * Whether folding the run between `previous` and `next` would change
  * what the em-dash replacement matches.
  *
@@ -47,10 +74,12 @@ const ROW_BOUNDARY = new Set([" ", "\n"]);
  * it once folded: `a<TAB>--<TAB>b` renders the dashes literally and
  * `a -- b` renders a thin space, an em dash and a thin space. Which END
  * of the run is read depends on which side of it the dashes stand, and
- * only that one character matters - `a  --<TAB>` still folds to
- * `a --`, because what refused the row there was the tab at the line's
- * end, which is not part of any run BETWEEN two words and which
- * keeping the two spaces would not bring back.
+ * only that one character matters: what the row LEAVES cannot be at
+ * stake here, because dashes standing as a WORD are dashes no row
+ * matched - a row that fires becomes a character reference in the tree
+ * (src/parse/inline/replacements.ts) and its dashes are nobody's word.
+ * `a  --<TAB>b` therefore still folds to `a --<TAB>b`, whose literal
+ * dashes sit in whitespace HTML collapses either way.
  *
  * Only a `--` standing ALONE as a word can be reached from here.
  * Where the dashes sit inside a word the characters beside them
@@ -125,6 +154,32 @@ function hidesItsBytes(node: InlineNode | undefined): boolean {
   return node?.type === "attributeReference";
 }
 
+/**
+ * Whether the node IS the dashes the row already matched.
+ *
+ * A character reference whose own bytes are `--` is what the
+ * replacement scan (src/parse/inline/replacements.ts) leaves where the
+ * row fired, and the row's match is wider than the reference: it ate
+ * one boundary character on each side, and those bytes stayed in the
+ * text nodes beside it. So the run against such a reference is a run
+ * the row has already taken a character out of, and folding what is
+ * left to a single space spends that character a second time
+ * (issue #155).
+ * @param node - the neighbour, or undefined where there is none.
+ * @returns true for the reference the em-dash row wrote.
+ */
+function isEmDashReference(node: InlineNode | undefined): boolean {
+  return node?.type === "characterReference" && node.value === EM_DASH;
+}
+
+/** The inline nodes standing on either side of a text node. */
+export interface Neighbours {
+  /** The sibling in front of it, or undefined where there is none. */
+  readonly inFront: InlineNode | undefined;
+  /** The sibling behind it, or undefined where there is none. */
+  readonly behind: InlineNode | undefined;
+}
+
 // A text node's own EDGE runs: the whitespace in front of its first
 // word and the whitespace behind its last. `cutValue`
 // (src/print/reflow.ts) drops both, because neither stands BETWEEN
@@ -183,19 +238,18 @@ function edgeRun(value: string, edge: RegExp): string {
  * boundary are asked about here.
  *
  * The MIRRORED half of each edge is asked of the NEIGHBOUR, because
- * three nodes can spell the bare dashes and only two of them are
- * fixed points. A character reference whose value IS `--` (`a -- b`
- * reads as the text `a `, the reference, and the text ` b`) exists
- * only where the row ALREADY matched, and the row matches only over a
- * space or a newline - so the character the fold would rewrite on
- * that side is already one of them, and rewriting it can neither arm
- * the row nor disarm it. `a  --  b` keeps a two-character run whose
- * adjacent character is a space either way. A passthrough is the
- * second, and there Asciidoctor exempts its content from the
- * replacement pass (measured: `a<TAB>+++--+++<TAB>b` and
- * `a +++--+++ b` both render the dashes literally). The third is an
- * ATTRIBUTE REFERENCE, which is neither: its value is substituted
- * before the replacement pass runs and is not in this tree at all
+ * three nodes can spell the dashes the node's own words do not. A
+ * character reference whose value IS `--` (`a -- b` reads as the text
+ * `a `, the reference, and the text ` b`) is the row's own output, and
+ * the run against it is what the row LEFT: it already ate one
+ * character there, so `a --  b` keeps its two-character run and only a
+ * run that is already one space folds ({@link isEmDashReference},
+ * issue #155). A passthrough is the second, and there Asciidoctor
+ * exempts its content from the replacement pass (measured:
+ * `a<TAB>+++--+++<TAB>b` and `a +++--+++ b` both render the dashes
+ * literally), so it reads as no dashes at all. The third is an
+ * ATTRIBUTE REFERENCE, whose value is substituted before the
+ * replacement pass runs and is not in this tree at all
  * ({@link hidesItsBytes}, issue #149).
  * @param value - the node's raw source text.
  * @param words - its words, as `splitWords` produced them; non-empty.
@@ -207,9 +261,11 @@ function edgeRun(value: string, edge: RegExp): string {
  *   byte and this node's first atom, so the run can stand where the
  *   source put it; under any other join the printer writes its own
  *   space or its own break there and the bytes have nowhere to go.
- * @param inFront - the inline sibling standing in front of the node,
- *   or undefined where there is none. Read for the mirrored half
- *   above, and for nothing else.
+ * @param neighbours - the inline siblings on either side of the node.
+ *   The one in FRONT carries the mirrored half above; the one BEHIND
+ *   is read only where the node holds a single word, which is then
+ *   the word this run stands against AND the word the neighbour
+ *   fuses with.
  * @returns the bytes to keep, or the empty string where the fold is
  *   safe.
  */
@@ -217,7 +273,7 @@ export function keptLeadingRun(
   value: string,
   words: readonly string[],
   gluedInFront: boolean,
-  inFront: InlineNode | undefined,
+  neighbours: Neighbours,
 ): string {
   if (!gluedInFront) {
     return "";
@@ -225,7 +281,8 @@ export function keptLeadingRun(
   const run = edgeRun(value, LEADING_RUN);
   const kept =
     runOpensEmDash(run, words[0]) ||
-    (hidesItsBytes(inFront) && runClosesEmDash(EM_DASH, run));
+    (hidesItsBytes(neighbours.inFront) && runClosesEmDash(EM_DASH, run)) ||
+    (isEmDashReference(neighbours.inFront) && foldRewritesTheRun(run));
   return kept ? run : "";
 }
 
@@ -243,9 +300,8 @@ export function keptLeadingRun(
  *   the last line's trailing whitespace and the reader's own rstrip
  *   takes it (`prepare_lines`, reader.rb l.582), so the row reads `$`
  *   beside the dashes whether the run folds or not.
- * @param behind - the inline sibling standing behind the node, or
- *   undefined where there is none. Read for the mirrored half
- *   {@link keptLeadingRun} states, and for nothing else.
+ * @param neighbours - the inline siblings on either side of the node,
+ *   read the way {@link keptLeadingRun} states them, mirrored.
  * @returns the bytes to keep, or the empty string where the fold is
  *   safe.
  */
@@ -253,7 +309,7 @@ export function keptTrailingRun(
   value: string,
   words: readonly string[],
   followed: boolean,
-  behind: InlineNode | undefined,
+  neighbours: Neighbours,
 ): string {
   if (!followed) {
     return "";
@@ -262,8 +318,48 @@ export function keptTrailingRun(
   const run = edgeRun(value, TRAILING_RUN);
   const kept =
     runClosesEmDash(last, run) ||
-    (hidesItsBytes(behind) && runOpensEmDash(run, EM_DASH));
+    (hidesItsBytes(neighbours.behind) && runOpensEmDash(run, EM_DASH)) ||
+    (isEmDashReference(neighbours.behind) && foldRewritesTheRun(run));
   return kept ? run : "";
+}
+
+/**
+ * The bytes of an ALL-WHITESPACE text node the printer must keep.
+ *
+ * Such a node has no words, so it has no atom for an edge run to ride
+ * inside and neither {@link keptLeadingRun} nor
+ * {@link keptTrailingRun} can be asked about it - yet it is exactly a
+ * run standing between two siblings, and the dashes on either side of
+ * it are the same dashes those two rules read. `--  --  a` holds one:
+ * the two-space run between the two references the em-dash row wrote,
+ * and folding it to one space leaves the second reference without the
+ * boundary character its own row consumed.
+ *
+ * The whole value is the run, so the rules that read a word beside it
+ * have nothing to read: only the neighbours can spell the dashes here.
+ * @param value - the node's raw source text, all whitespace.
+ * @param glued - whether the run has anything to ride against, the
+ *   same fact {@link keptLeadingRun} calls `gluedInFront`.
+ * @param neighbours - the inline siblings on either side of the node.
+ * @returns the bytes to keep, or the empty string where the fold is
+ *   safe.
+ */
+export function keptWholeRun(
+  value: string,
+  glued: boolean,
+  neighbours: Neighbours,
+): string {
+  if (!glued || value.includes("\n")) {
+    return "";
+  }
+  const dashesWritten =
+    isEmDashReference(neighbours.inFront) ||
+    isEmDashReference(neighbours.behind);
+  const kept =
+    (hidesItsBytes(neighbours.inFront) && runClosesEmDash(EM_DASH, value)) ||
+    (hidesItsBytes(neighbours.behind) && runOpensEmDash(value, EM_DASH)) ||
+    (dashesWritten && foldRewritesTheRun(value));
+  return kept ? value : "";
 }
 
 // The bracket spellings a checklist prefix opens with that survive a

@@ -255,3 +255,111 @@ describe("a run beside an attribute reference keeps its bytes", () => {
     expect(await formatAdoc(output)).toBe(output);
   });
 });
+
+/**
+ * Issue #155: the character the row EATS.
+ *
+ * The em-dash row is replaced whole - `(?: |\n|^|\\)--(?: |\n|$)`
+ * becomes a thin space, an em dash and a thin space (asciidoctor.rb
+ * l.498) - so the boundary character it matched is gone from the
+ * output and whatever else the run held stands beside the em dash.
+ * A run of two characters therefore leaves one and a run of one leaves
+ * none, and folding the wider run to a single space spends that
+ * character a second time.
+ *
+ * Red before the fix, measured: `a  -- b` came out `a -- b`, whose
+ * render is `a&#8201;&#8212;&#8201;b` where the input's is
+ * `a &#8201;&#8212;&#8201;b` - a space short. `a<TAB> --` and
+ * `-- <TAB>a` lost theirs the same way.
+ *
+ * The runs here stand at NODE edges rather than between two words: a
+ * row that fired is a `characterReference` in the tree
+ * (src/parse/inline/replacements.ts), so the dashes are not a word any
+ * splitter sees and the run beside them is an edge run. That is also
+ * what bounds the rule - dashes standing as a WORD are dashes no row
+ * matched, and there the run only decides whether the fold ARMS one.
+ */
+describe("a run the em-dash row has already eaten from keeps the rest", () => {
+  test.each([
+    ["a two-space run in front of the dashes", "a  -- b\n"],
+    ["a two-space run behind them", "a --  b\n"],
+    ["a wide run at both ends", "a  --  b\n"],
+    // The tab is not what the row read - the space beside the dashes
+    // was - so this run is kept for its WIDTH alone.
+    ["a tab and a space in front", "a\t --\n"],
+    ["a space and a tab behind", "-- \ta\n"],
+  ])("%s", async (_name, input) => {
+    await expectByteFaithful(input);
+  });
+
+  // The narrowness: a run that is ALREADY the single character the
+  // fold writes is a fixed point on both counts, so `a -- b` still
+  // formats to itself rather than growing bytes.
+  test("a one-character run beside the dashes still folds", async () => {
+    expect(await formatAdoc("a -- b\n")).toBe("a -- b\n");
+    expect(await formatAdoc("a\tb -- c\td\n")).toBe("a b -- c d\n");
+  });
+});
+
+/**
+ * The same run, in a text node that is NOTHING but the run.
+ *
+ * Two inline siblings with only whitespace between them leave a text
+ * node with no words, so there is no atom for an edge run to ride
+ * inside and neither edge rule can be asked. `--  --  a` is one: the
+ * em-dash row fires twice, and the two-space run between the two
+ * references it wrote is a whole text node.
+ *
+ * Red before the fix, measured: the run folded to the printer's own
+ * single space, and the second reference then had no boundary
+ * character of its own left - `--  --  a` came out `-- --  a`, which
+ * renders ONE em dash and two literal dashes, and formatting that
+ * again moved it a second time.
+ */
+describe("a run with no word of its own to ride inside keeps its bytes", () => {
+  test.each([
+    ["two em dashes the row wrote, one run apart", ":d: --\n\n--  --  a\n"],
+    ["the same pair mid-line", "a --  -- b\n"],
+    // The reference whose value the printer cannot resolve, at a node
+    // with no words either: the run between a span and a reference is
+    // a whole text node the same way.
+    ["a run between a span and a reference", ":d: --\n\n`c`\t{d}\tx\n"],
+    [
+      "a run between a macro and a reference",
+      ":d: --\n\nhttps://e.com\t{d}\tsales@b.com\n",
+    ],
+  ])("%s", async (_name, input) => {
+    await expectByteFaithful(input);
+  });
+
+  // The narrowness: an all-whitespace node with no dashes anywhere
+  // beside it is still the break opportunity it always was.
+  test("a whitespace-only node with no dashes beside it still folds", async () => {
+    expect(await formatAdoc("`c`\t`d`\n")).toBe("`c` `d`\n");
+  });
+});
+
+/**
+ * A run the fold would write back UNCHANGED is not kept.
+ *
+ * The refusals above ride a run inside the atom beside it, which takes
+ * the break opportunity that run stood for away. Where the run is
+ * already the single character the fold writes, there is nothing to
+ * keep and the break must stay: the set membership answers both, since
+ * every run it holds is one character.
+ *
+ * The witness is a WRAP, because that is the only place a kept space
+ * differs from a folded one: the em dash below sits where the packer
+ * wants a line break, and keeping the space in front of it would fuse
+ * `a -- z...` into one unbreakable word and move the break to the
+ * front of `a`.
+ */
+describe("a run the fold writes back unchanged keeps no bytes", () => {
+  test("the break stays where the packer put it", async () => {
+    const input = `${"w".repeat(58)} a -- ${"z".repeat(30)}\n`;
+    const output = await formatAdoc(input);
+    expect(output).toBe(`${"w".repeat(58)} a --\n${"z".repeat(30)}\n`);
+    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(output)).toBe(output);
+  });
+});

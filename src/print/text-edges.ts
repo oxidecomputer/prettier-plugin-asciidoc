@@ -3,21 +3,27 @@
  * the printer - the counterpart of `span-edges.ts`, which answers the
  * same two questions for a span.
  *
- * Three answers live here. Whether a sibling that shares the block's
- * packing stands on either side of the node; the join its LEADING
- * whitespace asks for; and what has to happen to a trailing `+` so it
- * never lands bare at the end of an output line. All three are read
- * by `appendText` (inline.ts) at the moment it turns one text node
- * into atoms, and all three are facts about the node's NEIGHBOURS
- * rather than about its bytes, which is why they are one module and
- * not three.
+ * Four answers live here. Which nodes stand on either side of it and
+ * whether they share the block's packing; what a node of nothing but
+ * whitespace leaves behind; the join its LEADING whitespace asks for;
+ * and what has to happen to a trailing `+` so it never lands bare at
+ * the end of an output line. All four are read by `appendText`
+ * (inline.ts) at the moment it turns one text node into atoms, and all
+ * four are facts about the node's NEIGHBOURS rather than about its
+ * bytes, which is why they are one module and not four.
  *
  * Split out of inline.ts, whose `max-lines` ceiling the edge rules
  * issue #147 added left no room in.
  */
 import type { InlineNode } from "../ast.js";
-import { isBlockSyntaxAtLineStart } from "./reflow.js";
-import type { Boundary, Cursor } from "./atom-join.js";
+import { atomOf, isBlockSyntaxAtLineStart, type Atom } from "./reflow.js";
+import {
+  strongerBoundary,
+  withBoundary,
+  type Boundary,
+  type Cursor,
+} from "./atom-join.js";
+import { keptWholeRun, type Neighbours } from "./whitespace-fold.js";
 
 // Siblings that do NOT share the enclosing block's packing: a raw
 // line forces a break on both sides. The node before one still ENDS
@@ -34,12 +40,12 @@ const OWN_LINE_SIBLINGS = new Set(["rawLine"]);
  * The index guard is the whole function: `at(-1)` reads the LAST
  * element, so asking for "one before index 0" off a bare array
  * answers with the node at the other end of the run - which is a
- * neighbour of nothing. Spelled once, here, because two callers need
- * the node itself and a third needs only whether there is one.
+ * neighbour of nothing. Spelled once, here, because one caller needs
+ * the node itself and another needs only whether there is one.
  * @param cursor - where the node sits.
  * @returns the preceding sibling, or undefined when there is none.
  */
-export function precedingSibling(cursor: Cursor): InlineNode | undefined {
+function precedingSibling(cursor: Cursor): InlineNode | undefined {
   return cursor.index <= 0 ? undefined : cursor.siblings.at(cursor.index - 1);
 }
 
@@ -51,8 +57,86 @@ export function precedingSibling(cursor: Cursor): InlineNode | undefined {
  * @param cursor - where the node sits.
  * @returns the following sibling, or undefined when there is none.
  */
-export function followingSibling(cursor: Cursor): InlineNode | undefined {
+function followingSibling(cursor: Cursor): InlineNode | undefined {
   return cursor.siblings.at(cursor.index + 1);
+}
+
+/**
+ * Both siblings at once, for the rules that read one on each side.
+ *
+ * The whitespace-fold rules ask about BOTH neighbours of the same text
+ * node - one carries the dashes standing beyond an edge run, and the
+ * other can complete a lone dash the node's own bytes only half spell -
+ * so they take the pair rather than an argument per side.
+ * @param cursor - where the node sits.
+ * @returns the nodes on either side, each undefined where there is
+ *   none.
+ */
+export function neighboursOf(cursor: Cursor): Neighbours {
+  return {
+    inFront: precedingSibling(cursor),
+    behind: followingSibling(cursor),
+  };
+}
+
+/**
+ * Whether a run at the head of this text node has anything ALREADY
+ * WRITTEN to ride against.
+ *
+ * Keeping an edge run means riding inside the atom beside it, so the
+ * join in front has to be a glue AND something has to be there to
+ * fuse onto. At the head of a BLOCK there is nothing, and the bytes
+ * would open an output line instead of standing between two nodes. At
+ * the head of a SPAN's content there is one even though no atom has
+ * been emitted - the opening mark, which `appendSpan` (inline.ts)
+ * writes flush onto the first atom - so the enclosing span is what
+ * says the run has somewhere to go (issue #147).
+ * @param out - the block's atoms so far.
+ * @param boundary - the join standing in front of the node.
+ * @param cursor - where the node sits.
+ * @returns true when the run's bytes have somewhere to go.
+ */
+export function ridesOnWhatIsWritten(
+  out: readonly Atom[],
+  boundary: Boundary,
+  cursor: Cursor,
+): boolean {
+  return (
+    (out.length > 0 || cursor.enclosing !== undefined) && boundary === "glue"
+  );
+}
+
+/**
+ * Emit an ALL-WHITESPACE text node: the break opportunity its
+ * whitespace stands for, or the bytes themselves where a replacement
+ * row reads them.
+ *
+ * Such a node has no words and so no atom for an edge run to ride
+ * inside. Where the run is load-bearing it becomes an atom of its
+ * own, glued at both ends, so the printer writes the author's bytes
+ * there and nothing of its own. Everywhere else the node contributes
+ * no atom at all, only the join: dropping that would fuse adjacent
+ * siblings or collapse content whitespace inside formatting marks.
+ * @param out - the block's atoms so far (mutated).
+ * @param boundary - the join standing in front of the node.
+ * @param value - the node's raw source text, all whitespace.
+ * @param cursor - where the node sits, for its neighbours and for
+ *   whether the run has anything to ride against.
+ * @returns the join this node leaves behind.
+ */
+export function appendWholeRun(
+  out: Atom[],
+  boundary: Boundary,
+  value: string,
+  cursor: Cursor,
+): Boundary {
+  const glued = ridesOnWhatIsWritten(out, boundary, cursor);
+  const whole = keptWholeRun(value, glued, neighboursOf(cursor));
+  if (whole === "") {
+    return strongerBoundary(boundary, "break");
+  }
+  out.push(withBoundary(atomOf(whole), "glue"));
+  return "glue";
 }
 
 /**

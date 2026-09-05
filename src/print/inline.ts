@@ -59,11 +59,12 @@ import {
 import { appendLiteralText, spanIsFlush } from "./literal-span.js";
 import { keptLeadingRun, keptTrailingRun } from "./whitespace-fold.js";
 import {
-  followingSibling,
+  appendWholeRun,
   hasFollowingInlineSibling,
   hasPrecedingInlineSibling,
   leadingBoundary,
-  precedingSibling,
+  neighboursOf,
+  ridesOnWhatIsWritten,
   trailingPlusPolicy,
 } from "./text-edges.js";
 
@@ -265,32 +266,24 @@ function appendText(
   cursor: Cursor,
   node: TextNode,
 ): Boundary {
+  const neighbours = neighboursOf(cursor);
   const words = splitWords(node.value);
+  // A kept edge run rides inside the atom at its end, so the join
+  // there stays the glue it already was and the printer writes nothing
+  // of its own between the two nodes.
+  const gluedInFront = ridesOnWhatIsWritten(out, boundary, cursor);
   // All-whitespace text nodes (e.g. " " between adjacent formatting
   // marks, or " " as sole content of a formatting span like `** **`).
   // They contribute no atom, only the break opportunity their
   // whitespace stands for — dropping that would fuse adjacent siblings
-  // or collapse content whitespace inside formatting marks.
+  // or collapse content whitespace inside formatting marks. Where the
+  // run itself is what a replacement row reads, there is no atom for
+  // it to ride inside, so it becomes one: glued at both ends, so the
+  // printer writes the author's bytes there and nothing else.
   if (words.length === 0) {
-    return strongerBoundary(boundary, "break");
+    return appendWholeRun(out, boundary, node.value, cursor);
   }
-  // A kept edge run rides inside the atom at its end, so the join
-  // there stays the glue it already was and the printer writes nothing
-  // of its own between the two nodes. The leading run needs something
-  // ALREADY WRITTEN to ride against: at the head of a BLOCK there is
-  // none and the bytes would open an output line instead of standing
-  // between two nodes. At the head of a SPAN's content there is one
-  // even though `out` is empty - the opening mark, which appendSpan
-  // writes flush onto the first atom - so the enclosing span is what
-  // says the run has somewhere to go (issue #147).
-  const gluedInFront =
-    (out.length > 0 || cursor.enclosing !== undefined) && boundary === "glue";
-  const leading = keptLeadingRun(
-    node.value,
-    words,
-    gluedInFront,
-    precedingSibling(cursor),
-  );
+  const leading = keptLeadingRun(node.value, words, gluedInFront, neighbours);
   // The lead is computed BEFORE the atoms, because the trailing-`+`
   // policy reads it: a one-word node carrying a glue cannot reach a
   // line boundary, and a `+` that cannot reach one needs no escape.
@@ -312,7 +305,7 @@ function appendText(
     node.value,
     words,
     glueToSibling || cursor.enclosing !== undefined,
-    followingSibling(cursor),
+    neighbours,
   );
   const atoms = wordsToAtoms(words, {
     escapeTrailingPlus,
