@@ -9,9 +9,7 @@ import {
   type ReaderContext,
 } from "../../src/parse/line-shapes.js";
 import { interruptsParagraph } from "../../src/parse/line-shapes-interruption.js";
-import { classifyLine } from "../../src/parse/lines/classify.js";
 import {
-  continuesParagraph,
   CONSTRUCTS,
   oracleInterrupts,
   POSITIONS,
@@ -138,37 +136,13 @@ describe("line-shape registry matches the Asciidoctor oracle", () => {
   });
 });
 
-// The suite above pins `interruptsParagraph`, one predicate in the
-// registry. This one pins the function the READER will call, which
-// consults that registry but also orders every other line shape around
-// it — so an ordering mistake in classifyLine shows up here even when
-// the registry row it consults is right. Both line positions are
-// probed for the same reason the registry suite probes both: several
-// shapes only mean anything on a block's first line.
-describe("classifyLine matches the Asciidoctor oracle", () => {
-  describe.each(PROBES)("%s, %s", (context, _position, filler, firstLine) => {
-    test.each(CONSTRUCTS)("%s", async (_name, construct) => {
-      const [line] = construct.split("\n");
-      const reader: ReaderContext = {
-        openParagraph: context,
-        openList: CONTEXT_OPEN_LIST[context],
-        firstLineAfterStart: firstLine,
-        // Every probe here has a block OPEN above the construct, and
-        // the setext arm belongs to a section's block start alone.
-        nextLine: undefined,
-      };
-      const oracle = await oracleInterrupts(
-        construct,
-        CONTEXT_PREFIX[context],
-        filler,
-      );
-      expect(
-        continuesParagraph(classifyLine(line, reader)),
-        `classifier disagrees with oracle for ${JSON.stringify(line)} in ${context}`,
-      ).toBe(!oracle);
-    });
-  });
-});
+// `classifyLine` itself, the function the READER calls, is pinned by
+// the reader-context grid
+// (tests/conformance/reader-context-grid.test.ts): it crosses the same
+// oracle and the same CONSTRUCTS with every state the reader can
+// actually reach, rather than the fixed PROBES set above, most of
+// which stand at states the reader never hands the classifier. See
+// that file's header for what the grid does and does not cover.
 
 // The description-list terms are the one rule interruptsByLineShape
 // leaves out: they interrupt from any column of a list-item line and
