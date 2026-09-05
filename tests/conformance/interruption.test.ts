@@ -109,19 +109,36 @@ const CONSTRUCTS: Array<[string, string]> = [
 ];
 
 /**
- * Counts block-level elements the oracle emitted. An interrupting
- * line produces at least one more block (or list item) than the
- * baseline two-line paragraph / one-item list does, so comparing
- * counts is a construct-agnostic way to detect "did this interrupt".
+ * The block-level tags the oracle emitted, in document order.
+ *
+ * `dt`/`dd` are among them because a sibling description-list TERM is
+ * the one interruption that adds no other block: `term1::` /
+ * `term:: def` renders as two `<dt>` inside the same `<dl>`.
  * @param html - normalized HTML from {@link renderedHtml}
- * @returns the number of block-level tags found in the markup
+ * @returns the tag names, in order
  */
-function blockCount(html: string): number {
-  // `dt`/`dd` are counted because a sibling description-list TERM is
-  // the one interruption that adds no other block: `term1::` /
-  // `term:: def` renders as two `<dt>` inside the same `<dl>`.
-  return (html.match(/<(?:p|div|ul|ol|dl|dt|dd|pre|h\d|hr|li|table)\b/gv) ?? [])
-    .length;
+function blockTags(html: string): string[] {
+  return html.match(/<(?:p|div|ul|ol|dl|dt|dd|pre|h\d|hr|li|table)\b/gv) ?? [];
+}
+
+/**
+ * Whether `outer` holds every tag of `inner` in the same order - the
+ * question "did the baseline's own structure survive".
+ * @param inner - the baseline's tags
+ * @param outer - the tags of the document carrying the construct
+ * @returns true when the baseline's tags appear in order in `outer`
+ */
+function isSubsequence(
+  inner: readonly string[],
+  outer: readonly string[],
+): boolean {
+  let at = 0;
+  for (const tag of outer) {
+    if (at < inner.length && inner[at] === tag) {
+      at += 1;
+    }
+  }
+  return at === inner.length;
 }
 
 // The document shape each context is probed in. `listContinuation` is
@@ -145,6 +162,12 @@ const CONTEXT_PREFIX: Record<ParagraphContext, string> = {
   listItem: "* item\nimage::a.png[]\npara line",
   listContinuation: "* item\n+\npara line",
   dlistItem: "term1:: desc",
+  // The TEXTLESS term line, whose description Ruby reads with
+  // `text_only` set. There is no inline description for the block
+  // count to grow out of, and none is needed: the baseline
+  // renders one `dd` holding `last line`, and an interruption
+  // adds a block beside it.
+  dlistItemTextOnly: "term1::",
   literalParagraph: "  indented first",
   // The prefix must already contain the style line AND one content
   // line: probing from the style line alone would test the
@@ -163,6 +186,7 @@ const CONTEXT_LIST_STYLE: Record<ParagraphContext, string | undefined> = {
   listItem: undefined,
   listContinuation: "*",
   dlistItem: undefined,
+  dlistItemTextOnly: undefined,
   literalParagraph: undefined,
   verbatimStyled: undefined,
 };
@@ -198,11 +222,24 @@ async function oracleInterrupts(
   filler: string,
 ): Promise<boolean> {
   const { [context]: prefix } = CONTEXT_PREFIX;
-  const baseline = await renderedHtml(`${prefix}\n${filler}last line\n`);
-  const withConstruct = await renderedHtml(
-    `${prefix}\n${filler}${construct}\nlast line\n`,
+  const baseline = blockTags(
+    await renderedHtml(`${prefix}\n${filler}last line\n`),
   );
-  return blockCount(withConstruct) > blockCount(baseline);
+  const withConstruct = blockTags(
+    await renderedHtml(`${prefix}\n${filler}${construct}\nlast line\n`),
+  );
+  // TWO signals, because one of them is blind in a shape the other
+  // is not. GROWTH catches the ordinary case: a new block or item
+  // appears beside the ones the baseline had. The SUBSEQUENCE test
+  // catches the case where the interruption costs the baseline a tag
+  // and pays for it with another - a `++++` or `////` block on the
+  // first line under a bare `term1::` renders nothing of its own,
+  // ends the list, and swaps the item's `<dd>` for the paragraph's
+  // own `<div>`, so the count is unmoved while the structure is not.
+  return (
+    withConstruct.length > baseline.length ||
+    !isSubsequence(baseline, withConstruct)
+  );
 }
 
 // Every context a line can be classified in, in one place so the two
@@ -213,6 +250,7 @@ const ALL_CONTEXTS: ParagraphContext[] = [
   "listItem",
   "listContinuation",
   "dlistItem",
+  "dlistItemTextOnly",
   "literalParagraph",
   "verbatimStyled",
 ];

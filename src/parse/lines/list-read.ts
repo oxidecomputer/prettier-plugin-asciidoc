@@ -265,7 +265,14 @@ function interiorOfDescription(
     buffer,
     { style: delimiter, tailSafe: shape.tailSafe },
     {
-      context: "dlistItem",
+      // Ruby's `text_only: has_text ? nil : true` (parser.rb l.1367),
+      // as the context it decides: a term line carrying no text of
+      // its own gets the GATED ladder, where a break and an
+      // admonition label are description text (see ParagraphContext,
+      // src/parse/line-shapes.ts). The same fact picks the comment
+      // reading two lines down.
+      context:
+        descriptionStart === undefined ? "dlistItemTextOnly" : "dlistItem",
       text: {
         // Past the term line's own end where the term carried no
         // description, so the run opens empty and the description is

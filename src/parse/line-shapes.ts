@@ -70,6 +70,20 @@
  *   non-paragraph block (admonition, block macro, break, anchor)
  *   ends the description, while block metadata that a paragraph
  *   absorbs (a block title, an attribute entry) does not.
+ * - `dlistItemTextOnly` - the description of a term line that
+ *   carries NO text of its own (`term::`, the description on the
+ *   lines below). `parse_list_item` passes `text_only: has_text ?
+ *   nil : true` (parser.rb l.1367), and `text_only` GATES
+ *   `next_block`'s ladder: the layout-break arm is skipped
+ *   (`!textOnly && layoutBreakChars[ch0]`, index.cjs l.10988) and so
+ *   is the admonition arm, and `fold_first` merges the first block
+ *   back, which makes an `[[anchor]]` standing there that block's
+ *   own metadata. What is left is `dlistItem`'s ANY-LINE set with
+ *   the first-line set narrowed to the one shape the gating leaves
+ *   standing, a block macro. ORACLE, probed under `term1::`: a
+ *   block macro, a delimiter, a list marker, a sibling term and an
+ *   anchor end it; an admonition label, `'''`, `<<<` and a Markdown
+ *   rule do not.
  * - `literalParagraph` — the indented lines of a literal paragraph.
  *   `next_block`'s `indented && !style` branch calls
  *   `read_paragraph_lines reader, (skipped == 0 ? options[:list_type]
@@ -99,6 +113,7 @@ export type ParagraphContext =
   | "listItem"
   | "listContinuation"
   | "dlistItem"
+  | "dlistItemTextOnly"
   | "literalParagraph"
   | "verbatimStyled";
 
@@ -788,20 +803,6 @@ export const SECTION_TITLE =
   /^(?<markers>={1,6}|#{1,6})[ \t]+(?<title>.+?)(?:[ \t]+\k<markers>)?$/v;
 
 /**
- * The section-title shapes, for the ONE question no interrupting set
- * answers: may reflow put this line at the start of an output line?
- *
- * A LIST OF ONE since the two marker spellings became one pattern,
- * kept as a list because {@link startsSectionTitle} is the only
- * reader and the shape of that question - "any of these" - is what
- * a second title spelling would join. The measured corruptions are
- * `##\nb## c` packed to `## b## c` (an `<h2>`, the text behind the
- * marks eaten) and `=\nb= c` packed to `= b= c` (the document title,
- * lifted out of the body).
- */
-const SECTION_TITLE_SHAPES: readonly RegExp[] = [SECTION_TITLE];
-
-/**
  * `SETEXT_SECTION_LEVELS` (asciidoctor.rb l.262-268) as one string:
  * the underline mark of level N is the character at index N, so `=`
  * underlines a level-0 title and `+` a level-4 one.
@@ -1438,6 +1439,7 @@ const INTERRUPTERS_BY_CONTEXT: Record<ParagraphContext, readonly RegExp[]> = {
   listItem: LIST_ITEM_LATER_BLOCK_INTERRUPTERS,
   listContinuation: PARAGRAPH_INTERRUPTERS,
   dlistItem: DLIST_ITEM_ANY_LINE_INTERRUPTERS,
+  dlistItemTextOnly: DLIST_ITEM_ANY_LINE_INTERRUPTERS,
   // The literal-paragraph branch of `next_block` calls
   // `read_paragraph_lines` with a nil `break_at_list` at document
   // level, so its set is the plain-paragraph one exactly.
@@ -1464,6 +1466,7 @@ const FIRST_LINE_INTERRUPTERS: Record<ParagraphContext, readonly RegExp[]> = {
   listItem: NO_PATTERNS,
   listContinuation: NO_PATTERNS,
   dlistItem: DLIST_FIRST_LINE_INTERRUPTERS,
+  dlistItemTextOnly: LIST_ITEM_FIRST_LINE_INTERRUPTERS,
   literalParagraph: NO_PATTERNS,
   verbatimStyled: NO_PATTERNS,
 };
@@ -1483,6 +1486,7 @@ const LATER_LINE_INTERRUPTERS: Record<ParagraphContext, readonly RegExp[]> = {
   listItem: NO_PATTERNS,
   listContinuation: NO_PATTERNS,
   dlistItem: NO_PATTERNS,
+  dlistItemTextOnly: NO_PATTERNS,
   literalParagraph: NO_PATTERNS,
   verbatimStyled: NO_PATTERNS,
 };
@@ -1515,6 +1519,7 @@ const ENDED_BY_DLIST_TERM = new Set<ParagraphContext>([
   "listItemText",
   "listItem",
   "dlistItem",
+  "dlistItemTextOnly",
 ]);
 
 /**
@@ -1657,8 +1662,7 @@ export function interruptsByLineShape(line: string): boolean {
  * @internal
  */
 export function startsSectionTitle(line: string): boolean {
-  const text = rstrip(line);
-  return SECTION_TITLE_SHAPES.some((pattern) => pattern.test(text));
+  return SECTION_TITLE.test(rstrip(line));
 }
 
 /**

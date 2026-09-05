@@ -787,3 +787,46 @@ describe("the boundaries of the reflow verdict", () => {
     });
   });
 });
+
+// A term line that carries NO text of its own is read with Ruby's
+// `text_only` set (`text_only: has_text ? nil : true`,
+// parser.rb l.1367), which GATES `next_block`'s layout-break and
+// admonition arms. So a rule or a label on the description's first
+// rest line is that description's own text, where the same line under
+// a term that DOES carry text ends it.
+//
+// Red before the reader carried the distinction: `term::` / `---`
+// read the rule as a break, printed the canonical `'''`, and the
+// oracle rendered `''' x` where the source rendered `--- x`.
+describe("a textless term's description reads with text_only", () => {
+  test.each([
+    ["a markdown rule", "term::\n---\nx\n"],
+    ["the asterisk rule", "term::\n***\nx\n"],
+    ["the underscore rule", "term::\n___\nx\n"],
+    ["an indented rule", "term::\n  ---\nx\n"],
+    ["the asciidoc break", "term::\n'''\nx\n"],
+    ["a page break", "term::\n<<<\nx\n"],
+    ["an admonition label", "term::\nNOTE: x\n"],
+  ])("%s is description text", async (_name, input) => {
+    await expectStable(input);
+  });
+
+  // The shapes the gating leaves standing, which end the description
+  // there as they do anywhere: a block macro, a delimiter, a marker,
+  // a sibling term and an anchor. Their bytes move where the printer
+  // separates blocks, so the render is the assertion.
+  test.each([
+    ["a block macro", "term::\nimage::a.png[]\n"],
+    ["a list marker", "term::\n* i\n"],
+    ["a sibling term", "term::\nt2:: d\n"],
+  ])("%s still ends it", async (_name, input) => {
+    await expectStable(input);
+  });
+
+  // And the contrast that makes the distinction load-bearing: the
+  // same rule under a term that carries its own text ends the
+  // description, and comes back in the canonical spelling.
+  test("a term with text still ends at the rule", async () => {
+    await expectStable("term:: desc\n---\nx\n", "term:: desc\n'''\nx\n");
+  });
+});

@@ -63,7 +63,26 @@ type ParagraphMode = ParagraphContext | "continuationFold";
 const ITEM_TEXT_CONTEXTS = new Set<ParagraphContext>([
   "listItemText",
   "dlistItem",
+  "dlistItemTextOnly",
 ]);
+
+// The two contexts that read a DESCRIPTION's lines, whichever way the
+// term line spelled itself. Both are the same item to Ruby; they part
+// only over `text_only`, which decides the interrupting set and not
+// what the lines belong to.
+const DESCRIPTION_CONTEXTS = new Set<ParagraphContext>([
+  "dlistItem",
+  "dlistItemTextOnly",
+]);
+
+/**
+ * Whether a paragraph-shaped scan is reading a description's lines.
+ * @param context - the open context
+ * @returns true for either description context
+ */
+function isDescription(context: ParagraphMode): boolean {
+  return context !== "continuationFold" && DESCRIPTION_CONTEXTS.has(context);
+}
 
 /**
  * What one paragraph-shaped scan reads, beyond the index it starts
@@ -257,7 +276,7 @@ class Paragraph {
       this.pieces.push({ kind: "raw", line });
       return;
     }
-    if (context === "dlistItem" && line.text.startsWith(LINE_COMMENT_HEAD)) {
+    if (isDescription(context) && line.text.startsWith(LINE_COMMENT_HEAD)) {
       // A dlist term that begins with `//` (`///b::` — not a comment to
       // the classifier, which mirrors LineCommentRx) IS one to
       // `Reader#skip_line_comments`, which tests `start_with? '//'` and

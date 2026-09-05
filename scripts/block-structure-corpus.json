@@ -294,18 +294,6 @@
       "family": "oracle:manpage-doctype",
       "signature": "-heading; -paragraph"
     },
-    "lists_test.rb#folds text that looks like admonition offset by blank line#0": {
-      "family": "gap:dlist",
-      "signature": "-admonition"
-    },
-    "lists_test.rb#folds text that looks like ruler and the line following it offset by blank line#0": {
-      "family": "gap:dlist",
-      "signature": "-paragraph; -thematic_break"
-    },
-    "lists_test.rb#folds text that looks like ruler offset by blank line#0": {
-      "family": "gap:dlist",
-      "signature": "-thematic_break"
-    },
     "lists_test.rb#should continue to parse blocks attached by a list continuation after block is dropped#0": {
       "family": "oracle:comment-style",
       "signature": "-paragraph"
