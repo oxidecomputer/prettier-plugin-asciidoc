@@ -474,6 +474,49 @@ Every preservation site under case 2 is a normalization candidate. The question
 per construct is never "may we normalize?" but "what derivation preserves the
 meaning?" — decided per construct, landed with render-equality proofs.
 
+### The three properties, formally
+
+The policy above compresses to three properties of `format`, each with its
+standard name in the literature. Write `render(a)` for what the pinned oracle
+makes of input `a` (the abstract document it loads and converts — HTML is just
+the observable we compare), and `a ≈ b` for `render(a) = render(b)`.
+
+1. **Semantics preservation** — `render(format(a)) = render(a)`, for all input.
+   The safety condition: formatting never changes what a document renders as.
+   The name is the verified-compiler literature's (CompCert's correctness
+   theorem is exactly this shape, with "compile" for "format"). The sweeps call
+   their per-row instance _fidelity_ (`tests/conformance/properties.ts`); the
+   standing render-equality gate (`tests/conformance/list-item-composition.ts`)
+   and the render-equality proofs required at every conversion landing enforce
+   it by sampling.
+
+2. **Idempotence** — `format(format(a)) = format(a)`, for all input. One pass
+   reaches the fixed point; a second pass is the identity. The standard
+   universal-algebra term for `f ∘ f = f`. In rewriting vocabulary: every output
+   is already a normal form — formatting arrives in one step. The idempotency
+   property in the sweeps and the corpus battery enforce it by sampling; the
+   per-fact lemma program (`read(print(A)) = A` restricted to each recorded
+   fact, mutation-verified) is its modular proof strategy.
+
+3. **Canonicity** — `a ≈ b` implies `format(a) = format(b)`. Every
+   render-equivalence class collapses to one spelling: `format` computes a
+   canonical form for `≈`, in the sense of the decision-procedure literature's
+   canonizers and abstract rewriting's unique normal forms (Baader & Nipkow,
+   _Term Rewriting and All That_). Note that classical _confluence_ of a
+   rewriting relation is trivial for a deterministic function; what this
+   codebase's "confluence" gate (`tests/conformance/confluence.ts`) actually
+   measures is canonicity, axis by axis, over enumerated spelling pairs — and
+   its exception table is the property's measured complement: every row is a
+   render-equal pair we do not yet collapse. Canonicity is the mission
+   ("uniformity is the job") and is achieved per axis; the other two properties
+   are non-negotiable from the first commit.
+
+The three are not independent: preservation says `format(a) ≈ a`, so wherever
+canonicity holds on a class, applying it to the pair `(a, format(a))` forces
+`format(format(a)) = format(a)` — full canonicity plus preservation implies
+idempotence. Until canonicity is total, idempotence is enforced independently;
+that is why the harness gates it separately rather than as a corollary.
+
 ## Error handling
 
 There is no invalid AsciiDoc: any text file parses, and at worst an unrecognized
