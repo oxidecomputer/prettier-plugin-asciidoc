@@ -1,0 +1,274 @@
+{
+  "marker/listing/continuation/ordered": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "marker/listing/continuation/term3": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "marker/listing/continuation/text": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "marker/literal/continuation/ordered": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "marker/literal/continuation/term3": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "marker/literal/continuation/text": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "marker/source/continuation/ordered": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "marker/source/continuation/term3": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "marker/source/continuation/text": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "marker/verse/continuation/ordered": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "marker/verse/continuation/term3": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "marker/verse/continuation/text": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "ordered/listing/continuation/marker": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "ordered/listing/continuation/term3": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "ordered/listing/continuation/text": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "ordered/literal/continuation/marker": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "ordered/literal/continuation/term3": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "ordered/literal/continuation/text": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "ordered/source/continuation/marker": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "ordered/source/continuation/term3": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "ordered/source/continuation/text": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "ordered/verse/continuation/marker": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "ordered/verse/continuation/term3": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "ordered/verse/continuation/text": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "term-semi/listing/continuation/marker": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "term-semi/listing/continuation/ordered": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "term-semi/listing/continuation/term3": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "term-semi/listing/continuation/text": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "term-semi/literal/continuation/marker": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "term-semi/literal/continuation/ordered": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "term-semi/literal/continuation/term3": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "term-semi/literal/continuation/text": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "term-semi/source/continuation/marker": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "term-semi/source/continuation/ordered": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "term-semi/source/continuation/term3": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "term-semi/source/continuation/text": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "term-semi/verse/continuation/marker": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "term-semi/verse/continuation/ordered": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "term-semi/verse/continuation/term3": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "term-semi/verse/continuation/text": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "term2/listing/continuation/marker": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "term2/listing/continuation/ordered": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "term2/listing/continuation/term3": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "term2/listing/continuation/text": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "term2/literal/continuation/marker": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "term2/literal/continuation/ordered": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "term2/literal/continuation/term3": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "term2/literal/continuation/text": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "term2/source/continuation/marker": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "term2/source/continuation/ordered": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "term2/source/continuation/term3": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "term2/source/continuation/text": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "term2/verse/continuation/marker": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "term2/verse/continuation/ordered": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "term2/verse/continuation/term3": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "term2/verse/continuation/text": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "term3/listing/continuation/marker": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "term3/listing/continuation/ordered": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "term3/listing/continuation/text": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "term3/literal/continuation/marker": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "term3/literal/continuation/ordered": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "term3/literal/continuation/text": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "term3/source/continuation/marker": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "term3/source/continuation/ordered": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "term3/source/continuation/text": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "term3/verse/continuation/marker": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "term3/verse/continuation/ordered": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  },
+  "term3/verse/continuation/text": {
+    "fails": ["fidelity"],
+    "issue": "#201"
+  }
+}

@@ -1,7 +1,8 @@
 /**
- * The vocabulary two generated sweeps share: how a realized grid is
- * crossed with the byte operators, and how a per-row manifest is read
- * back as a failing set to compare against.
+ * The vocabulary the generated sweeps share: how a realized grid is
+ * crossed with the byte operators (the two registry sweeps), and how
+ * a per-row manifest is read back as a failing set to compare against
+ * (every gate that pins one).
  *
  * Both are DECISIONS, not conveniences, which is why they are here
  * once rather than in each sweep. "An operator that changed nothing
@@ -16,7 +17,9 @@
  * cluster keys, the manifest paths. Those differ on purpose.
  *
  * A LIBRARY module: `registry-sweep.ts` and `inline-sweep.ts` build
- * rows with it, and their default-tier gates compare with it.
+ * rows with it, and every gate that pins a per-row failing set
+ * compares with it - those two default tiers and
+ * `list-item-composition.test.ts`.
  */
 import { BYTE_OPERATORS } from "../../scripts/shape-registry-byte-operators.js";
 import type { QuarantineEntry } from "./quarantine.js";
