@@ -127,10 +127,16 @@ export const BLOCK_STRUCTURE_FAMILIES: ReadonlySet<string> = new Set([
   // `> quoted` blocks (#22).
   "gap:md-quote",
   // Markdown thematic breaks (#23). The tight spellings `---`, `***`
-  // and `___` are read now and no entry carries this family; what is
-  // left for it is the SPACED spelling (`- - -`), which collides with
-  // `UnorderedListRx` and is left as text on purpose (THEMATIC_BREAK,
-  // src/parse/line-shapes.ts).
+  // and `___` are read now, and so is the spaced `_ _ _`; no entry
+  // carries this family. What is left for it is the spaced `-` and
+  // `*` spellings (`- - -`, `* * *`), which are `UnorderedListRx`
+  // marker lines as well and are left to the list rules on purpose
+  // (#182; THEMATIC_BREAK, src/parse/line-shapes.ts). Two more things
+  // this family covers, both pre-existing and neither a reading the
+  // pattern can fix: an INDENTED rule as a list item's rest line is
+  // joined into the item text where the oracle puts an `<hr>` inside
+  // the item, and the whitespace fold synthesizes a rule out of a
+  // spaced marker run that was text (#179).
   "gap:md-thematic-break",
   // `## Section One`, `## Section One ##` (#63). The spelling is read
   // now and no entry carries this family; the name stays so that a

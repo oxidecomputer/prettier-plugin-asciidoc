@@ -356,6 +356,72 @@ const EMAIL_AUTOLINK_FAMILY = "email-autolink";
 const DOCUMENT_HEADER_FAMILY = "document-header";
 
 /**
+ * A bare `---`, `***` or `___` line is the thematic break the oracle
+ * reads there (issue #23), where the base read plain paragraph text
+ * and, next to prose, folded the run into it. Every declared case
+ * gains a `thematicBreak` node and loses the text that spelled it,
+ * and the printer writes the canonical `'''`, so the bytes move too:
+ * NOT formatted-only, and not a blanket family - no single-key strip
+ * makes the two dumps deep-equal when one tree has a node the other
+ * does not.
+ *
+ * Exported: the standing grid cites it (shape-registry-families.ts).
+ */
+export const MARKDOWN_THEMATIC_BREAK_FAMILY = "markdown-thematic-break";
+
+/**
+ * A title over a uniform run of `=`, `-`, `~`, `^` or `+` within one
+ * character of its length is the section title the oracle reads
+ * (issue #16), where the base read a paragraph and then a delimited
+ * block that swallowed what followed. Every declared case gains a
+ * `heading` - or a `documentHeader`, where the title is level 0 at
+ * the header position - and the printer writes the ATX spelling, so
+ * the bytes move with the tree.
+ *
+ * DISTINCT from {@link DOCUMENT_HEADER_FAMILY}, which is issue #18
+ * and scoped to a base that ALREADY read a level-0 heading and only
+ * lacked the header re-rooting. Here the base read no heading at all,
+ * so declaring these under it would say the header moved when what
+ * moved is that a heading exists.
+ *
+ * Exported: the standing grid cites it (shape-registry-families.ts).
+ */
+export const UNDERLINED_SECTION_TITLE_FAMILY = "underlined-section-title";
+
+/**
+ * A `#`-marked line is the section title the oracle reads (issue
+ * #63): `atx_section_title?` runs `ExtAtxSectionTitleRx` under
+ * `markdown_syntax`, whose marker group takes `#` beside `=` at the
+ * same levels. Two cases, both previously paragraph text.
+ *
+ * Its own family and not {@link UNDERLINED_SECTION_TITLE_FAMILY}'s,
+ * though both end in a heading the base did not read: the two are
+ * different spellings landing in different commits, and a family
+ * names the reason a case moved, not the shape of its result.
+ *
+ * Not exported: no grid row cites it - the standing grid spells no
+ * `#` title.
+ */
+const MARKDOWN_MARKER_SECTION_TITLE_FAMILY = "markdown-marker-section-title";
+
+/**
+ * A description whose TERM LINE carries no text of its own is read
+ * with Ruby's `text_only` set (`parse_list_item`, parser.rb
+ * l.1367-74), which gates `next_block`'s layout-break and admonition
+ * arms: a break or an admonition label on such a description's first
+ * rest line is that description's own text, where the base ended the
+ * description there. The formatted bytes do NOT move - the item
+ * replays its recorded lines either way - so every declared case
+ * differs in the AST alone. NOT formatted-only, which means the
+ * opposite: that set is for cases whose BYTES differ and whose trees
+ * agree.
+ *
+ * Not exported: no grid row cites it - no standing grid coordinate
+ * puts a break under a textless term.
+ */
+const TEXTLESS_DESCRIPTION_TEXT_FAMILY = "textless-description-text";
+
+/**
  * A `"\`...\`"` or `'\`...\`'` pair becomes a `curvedQuote` node
  * (issue #74). The formatted bytes do not move - the printer writes
  * the pair's own delimiters back - so every declared case differs in
@@ -677,6 +743,10 @@ export const LEDGER_FAMILIES: FamilySets = {
     TABLE_WIDTH_LAYOUT_FAMILY,
     TABLE_UNREAD_ATTRLIST_FAMILY,
     DESCRIPTION_LIST_ITEM_FAMILY,
+    MARKDOWN_THEMATIC_BREAK_FAMILY,
+    UNDERLINED_SECTION_TITLE_FAMILY,
+    MARKDOWN_MARKER_SECTION_TITLE_FAMILY,
+    TEXTLESS_DESCRIPTION_TEXT_FAMILY,
   ]),
   formattedOnly: new Set([
     AUTHOR_PLUS_FAMILY,

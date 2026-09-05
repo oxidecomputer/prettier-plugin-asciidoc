@@ -65,6 +65,8 @@ describe("markdown thematic break parsing", () => {
     ["three underscores", "___\n"],
     ["one leading space", " ---\n"],
     ["three leading spaces", "   ***\n"],
+    ["spaced underscores", "_ _ _\n"],
+    ["widely spaced underscores", "_  _  _\n"],
   ])("%s is a thematic break", (_name, input) => {
     const { children } = parse(input);
     expect(children).toHaveLength(1);
@@ -89,10 +91,17 @@ describe("markdown thematic break parsing", () => {
       "    ---\n",
       "delimitedBlock",
     ],
-    // The spaced spellings the registry deliberately leaves as text;
-    // see THEMATIC_BREAK's own note in src/parse/line-shapes.ts.
+    // The spaced `-` and `*` spellings the registry deliberately
+    // leaves to the list rules: both are `UnorderedListRx` marker
+    // lines, and the open list is what decides them. The spaced `_`
+    // form has no such collision and IS read, so it sits with the
+    // breaks above. See THEMATIC_BREAK's own note in
+    // src/parse/line-shapes.ts.
     ["spaced hyphens are a list item", "- - -\n", "list"],
-    ["spaced underscores are text", "_ _ _\n", "paragraph"],
+    ["spaced asterisks are a list item", "* * *\n", "list"],
+    // Unequal gaps are no rule in any spelling: `\1\2\1` wants the
+    // same run of spaces on both sides of the middle mark.
+    ["unevenly spaced underscores are text", "_ _  _\n", "paragraph"],
     // Mixed marks are neither rule nor delimiter.
     ["mixed marks are text", "-*-\n", "paragraph"],
   ])("%s", (_name, input, type) => {

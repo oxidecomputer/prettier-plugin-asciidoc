@@ -136,16 +136,67 @@ describe("the standing grid's family assignment", () => {
     }
   });
 
-  // Every coordinate outside those three sets keeps exactly the answer
+  // The two READING coordinate sets, named one by one rather than
+  // blanketed, so the test can state them the same way: exactly these
+  // ids answer the reading families and no sibling coordinate does.
+  // A prefix or perturbation match would show up here as one of the
+  // untouched kinds at the same perturbation answering a family.
+  const UNDERLINED_TITLE_IDS = [
+    "example/after-h0-adjacent/foreign-marker-inside",
+    "example/after-h0-adjacent/heading-inside",
+    "example/in-example/closed",
+    "example/in-example/closed-no-final-newline",
+    "example/in-example/closed-then-text-adjacent",
+    "example/in-example/heading-inside",
+    "example/in-example/longer-delimiter-inside",
+    "example/in-example/terminator-trailing-ws",
+    "example/in-example/unterminated",
+    "example/in-example/unterminated-then-blank-text",
+    "listing/after-h0-adjacent/foreign-marker-inside",
+    "listing/after-h0-adjacent/heading-inside",
+    "pass/after-h0-adjacent/foreign-marker-inside",
+    "pass/after-h0-adjacent/heading-inside",
+    "setext/trailing-underline/doc",
+    "setext/nested-listing/doc",
+    "setext/underlined-title/doc",
+  ];
+  const MARKDOWN_BREAK_IDS = [
+    "listing/after-h0-adjacent/near-miss-terminator-inside",
+    "openBlock/after-h0-adjacent/longer-delimiter-inside",
+    "quote/after-h0-adjacent/near-miss-terminator-inside",
+    "sidebar/after-h0-adjacent/near-miss-terminator-inside",
+  ];
+
+  test("the reading coordinates answer their families, and only they do", () => {
+    const byId = new Map(standingGrid().map((shape) => [shape.id, shape]));
+    for (const id of UNDERLINED_TITLE_IDS) {
+      expect(byId.get(id)?.family, id).toBe("underlined-section-title");
+    }
+    for (const id of MARKDOWN_BREAK_IDS) {
+      expect(byId.get(id)?.family, id).toBe("markdown-thematic-break");
+    }
+    // The same perturbation at a kind the reading does not reach:
+    // `example` is the one whose interior spells a title at
+    // `near-miss-terminator-inside`, and `sidebar` is not.
+    expect(
+      byId.get("sidebar/after-h0-adjacent/foreign-marker-inside")?.family,
+    ).toBeUndefined();
+  });
+
+  // Every coordinate outside those five sets keeps exactly the answer
   // the perturbation table used to carry, which is what holds the
   // blanket to its one container and the leaf-fence entry to its four
   // kinds and one perturbation: a prefix match would show up here as
   // `dlist-desc-line` answering the description family, and a parent
   // wrapper answering the fence family would show up the same way.
   test("no other kind or container changed its answer", () => {
+    const reading = new Set([...UNDERLINED_TITLE_IDS, ...MARKDOWN_BREAK_IDS]);
     for (const shape of standingGrid()) {
       const [kind, container, perturbation] = shape.id.split("/");
       if (kind === TABLE_PIPE || container === DESCRIPTION) {
+        continue;
+      }
+      if (reading.has(shape.id)) {
         continue;
       }
       if (
@@ -154,7 +205,7 @@ describe("the standing grid's family assignment", () => {
       ) {
         continue;
       }
-      expect(shape.family).toBe(
+      expect(shape.family, shape.id).toBe(
         perturbation === TRAILING_PLUS ? "no-op-continuation" : undefined,
       );
     }

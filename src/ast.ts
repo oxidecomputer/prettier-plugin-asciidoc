@@ -676,8 +676,39 @@ export type HeaderLineNode =
 export interface DocumentHeaderNode extends Node {
   /** Node discriminant. */
   type: "documentHeader";
-  /** The title text after the `=` marker, trimmed. */
+  /**
+   * The title line, rstripped: after the `=` marker, or the whole
+   * line when the title is underlined.
+   */
   title: string;
+  /**
+   * The UNDERLINE the title was written with, rstripped as every
+   * line is (`text: rstrip(raw)`, src/parse/lines/split.ts), and
+   * absent for the `= Title` spelling.
+   *
+   * The one spelling in this AST that may not be normalized away.
+   * `parse_document_header` sets `compat-mode` on the whole document
+   * unless the doctitle is ATX (`doc_attrs['compat-mode'] = '' unless
+   * atx || (document.attribute_locked? 'compat-mode')`,
+   * parser.rb l.160-61). The pinned oracle spells the same rule
+   * `if (!atx && !document.isAttributeLocked('compat-mode'))`
+   * (`@asciidoctor/core/build/node/index.cjs` l.10436-37). Under
+   * compat mode `+content+` renders as code and `'emphasis'` as
+   * emphasis document-wide. So an underlined doctitle respelled `=
+   * Title` changes what every paragraph below it renders as, which
+   * makes the FORM semantic here and nowhere else: a level-0
+   * underlined heading that is NOT the header sets no attribute
+   * (measured: `.Cap` over `Doc` / `===` renders an `h1` with no
+   * compat mode), and neither does an underlined section title at any
+   * level, so both of those normalize.
+   *
+   * Replayed rather than re-derived: the underline is within one
+   * character of the title by the rule that admitted the pair, and
+   * the title is replayed too, so the two lines read back as the same
+   * title. Trailing blanks are the one thing the replay drops, which
+   * the oracle drops as well before it compares the two lengths.
+   */
+  underline?: string;
   /**
    * The header's lines after the title, in source order. Named
    * `lines` rather than `children` on purpose: they are LINES, not

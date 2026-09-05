@@ -58,11 +58,11 @@ describe("an underlined title normalizes to the ATX spelling", () => {
   // A level-0 underlined title is the DOCUMENT HEADER, so its author
   // line stays attached: a blank line inserted between the two would
   // demote the author to body text (issue #18's rule, reached by the
-  // other spelling).
+  // other spelling). Its own SPELLING is kept - see the suite below.
   test("an underlined document title keeps its author line", async () => {
     await expectFormatted(
       "Doc\n===\nAuthor Name\n\nbody\n",
-      "= Doc\nAuthor Name\n\nbody\n",
+      "Doc\n===\nAuthor Name\n\nbody\n",
     );
   });
 
@@ -93,7 +93,11 @@ describe("an underlined title normalizes to the ATX spelling", () => {
 // literal-paragraph branch, which renders a `<pre>` block where the
 // oracle renders a heading - strictly further from the oracle than
 // the space.
-describe("an indented title line loses its indent, and settles", () => {
+//
+// LEVEL >= 1 AND THE DISCRETE FORM ONLY. The doctitle arm replays its
+// two lines instead of respelling them, so it keeps the indent; its
+// rows are in the suite above.
+describe("an indented SECTION title line loses its indent, and settles", () => {
   test.each([
     ["a two-space indent", "  lit\n----\nfoo\n----\n", "== lit\n\n== foo\n"],
     ["a deeper one", "   Title\n--------\n\nb\n", "== Title\n\nb\n"],
@@ -135,5 +139,110 @@ describe("what the underline rule refuses", () => {
       "Title\n\n----\nx\n----\n",
       "Title\n\n----\nx\n----\n",
     );
+  });
+});
+
+/**
+ * The one title this formatter may NOT respell: an underlined
+ * DOCTITLE. `parse_document_header` sets `compat-mode` on the whole
+ * document unless the doctitle is ATX (parser.rb l.160-61), and under
+ * compat mode `+content+` renders as code and `'emphasis'` as
+ * emphasis - so `= Title` written for a legacy `Title` / `=====`
+ * changes what every paragraph below it renders as.
+ *
+ * Red before the header carried the spelling: the first row formatted
+ * to `= Document Title` and its `+content+` lost its `<code>`.
+ */
+describe("an underlined doctitle keeps its underline", () => {
+  test.each([
+    ["the plus form", "Document Title\n==============\n\n+content+\n"],
+    ["the quote form", "Document Title\n==============\n\n'emphasis'\n"],
+    ["with an author line", "Doc\n===\nAuthor Name\n\n+c+\n"],
+    ["an anchor above it", "[[a]]\nDoc\n===\n\n+c+\n"],
+    // The underline may be one character off in either direction, and
+    // it is replayed as written rather than re-spelled.
+    ["an underline one short", "Doc\n==\n\n+c+\n"],
+    ["an underline one long", "Doc\n====\n\n+c+\n"],
+  ])("%s round-trips", async (_name, input) => {
+    await expectFormatted(input, input);
+  });
+
+  // An INDENTED doctitle, which is the shape the two arms part over.
+  // The section arm drops a title's leading whitespace because ATX
+  // cannot carry it; the header arm may NOT, because it replays the
+  // two source lines and the width rule that admitted the pair was
+  // applied to the line as written - trimming the text while
+  // replaying the underline pushes the pair outside the rule, and the
+  // title, the compat mode and the body all go (the `=====` becomes
+  // an unterminated example block).
+  //
+  // Red before the trim was scoped to the ATX arm: every row here
+  // formatted to an unindented title and lost its `<code>`.
+  test.each([
+    ["one space", " Doc\n=====\n\n+content+\n"],
+    ["two spaces", "  Doc\n=====\n\n+content+\n"],
+    ["three spaces", "   Doc\n=====\n\n+content+\n"],
+    // A WIDER underline, so the indent is not what the width rule is
+    // counting on: the pair is admitted either way and the replay
+    // still has to keep the line as written.
+    ["a wider underline", "  Doc\n======\n\n+content+\n"],
+    ["a longer title", "  Title\n=======\n\nbody\n"],
+    // With an author line, which the trim also swallowed.
+    ["an author line under it", "  Doc\n=====\nAuthor Name\n\n+content+\n"],
+  ])("%s round-trips", async (_name, input) => {
+    await expectFormatted(input, input);
+  });
+
+  // And the compat mode those rows are really about, asserted rather
+  // than left to the render comparison: an indented doctitle is still
+  // a setext doctitle, so `+content+` is code on both sides.
+  test("an indented doctitle still holds compat mode", async () => {
+    const input = " Doc\n=====\n\n+content+\n";
+    expect(await renderedHtml(await formatAdoc(input))).toContain(
+      "<code>content</code>",
+    );
+  });
+
+  // An attribute entry above the title gains a blank line under it,
+  // which the ATX spelling gains too and which the oracle reads
+  // through: the row is here for the UNDERLINE, which survives.
+  test("an attribute entry above it keeps the underline", async () => {
+    await expectFormatted(
+      ":x: y\nDoc\n===\n\n+c+\n",
+      ":x: y\n\nDoc\n===\n\n+c+\n",
+    );
+  });
+
+  // The compat attribute really is what the rows above are about: the
+  // same document with an ATX doctitle renders `+c+` as plain text.
+  test("the ATX spelling is a different document", async () => {
+    expect(await renderedHtml("Doc\n===\n\n+c+\n")).not.toBe(
+      await renderedHtml("= Doc\n\n+c+\n"),
+    );
+  });
+
+  // The rule is the DOCTITLE's alone. A level-0 underlined heading
+  // that is not the header sets no attribute (a block title above it
+  // demotes the header, and a paragraph above it retires it), and an
+  // underlined SECTION title never did, so both still normalize.
+  test.each([
+    [
+      "under a paragraph",
+      "para\n\nTitle\n=====\n\n+c+\n",
+      "para\n\n= Title\n\n+c+\n",
+    ],
+    ["under a block title", ".Cap\nDoc\n===\n\n+c+\n", ".Cap\n= Doc\n\n+c+\n"],
+    [
+      "a level-1 title under an ATX doctitle",
+      "= Doc\n\nTitle\n-----\n\nbody\n",
+      "= Doc\n\n== Title\n\nbody\n",
+    ],
+    [
+      "a level-1 title under a setext doctitle",
+      "Doc\n===\n\nTitle\n-----\n\n+c+\n",
+      "Doc\n===\n\n== Title\n\n+c+\n",
+    ],
+  ])("%s still normalizes", async (_name, input, expected) => {
+    await expectFormatted(input, expected);
   });
 });

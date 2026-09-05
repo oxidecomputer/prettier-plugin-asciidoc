@@ -211,6 +211,13 @@
   },
   {
     "file": "src/parse/build/header.ts",
+    "symbol": "DoctitleRead",
+    "importer": "src/parse/lines/header-reader.ts",
+    "kind": "vocabulary",
+    "reason": "the doctitle as the reader read it - text, span and the underline the `= Title` spelling has none of - carried as ONE value so the scan and the builder cannot disagree about which of the three a header is built from"
+  },
+  {
+    "file": "src/parse/build/header.ts",
     "symbol": "buildAuthorLine",
     "importer": "src/parse/lines/header-reader.ts",
     "kind": "vocabulary",

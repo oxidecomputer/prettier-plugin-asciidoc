@@ -20,6 +20,22 @@ import type {
 import type { Fragment, LocationIndex } from "../positions.js";
 
 /**
+ * The document title as the READER read it - the three facts a header
+ * needs about it, carried together because they are one reading: the
+ * text the printer replays, the span the node measures, and the
+ * underline the `= Title` spelling has none of (see
+ * {@link DocumentHeaderNode.underline}).
+ */
+export interface DoctitleRead {
+  /** The classifier's title text, rstripped. */
+  readonly text: string;
+  /** The title's own span, one line or two. */
+  readonly span: Fragment;
+  /** The underline line, rstripped, or undefined for `= Title`. */
+  readonly underline: string | undefined;
+}
+
+/**
  * Builds the author line's node - the first header line that is
  * neither an attribute entry nor a comment.
  *
@@ -78,26 +94,31 @@ export function buildRevisionLine(
  * lines, so a second parameter carrying it would be a second
  * derivation of one fact, free to drift from the children the same
  * call already has. With no children the header IS the title line.
- * @param title - the `= Title` line's span
- * @param text - the classifier's title text, already trimmed
+ * The UNDERLINE rides along when the title was written with one,
+ * because that spelling is not normalizable: see
+ * {@link DocumentHeaderNode.underline}, which carries the reason and
+ * its citation. Spread rather than assigned, so the `= Title`
+ * spelling carries no key at all.
+ * @param title - the doctitle as the reader read it
  * @param lines - the header's lines after the title, in source order
  * @param at - the document's location index
  * @returns the header node
  */
 export function buildDocumentHeader(
-  title: Fragment,
-  text: string,
+  title: DoctitleRead,
   lines: HeaderLineNode[],
   at: LocationIndex,
 ): DocumentHeaderNode {
   const last = lines.at(-1);
+  const { underline } = title;
   return {
     type: "documentHeader",
-    title: text,
+    title: title.text,
+    ...(underline === undefined ? {} : { underline }),
     lines,
     position: {
-      start: at.start(title),
-      end: last === undefined ? at.end(title) : last.position.end,
+      start: at.start(title.span),
+      end: last === undefined ? at.end(title.span) : last.position.end,
     },
   };
 }

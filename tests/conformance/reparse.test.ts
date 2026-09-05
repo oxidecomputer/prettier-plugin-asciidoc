@@ -339,6 +339,44 @@ describe("the family arms are told apart by what they say", () => {
       claims.some((one) => one.claimed.join("+") === OVERLAP.join("+")),
     ).toBe(true);
   });
+
+  // Documents no population spells, whose own TEXT holds the arrow
+  // the projection diff is written with. The arms that read a diff
+  // must split it at the last `] -> [` and not the first ` -> `, or
+  // a title like `.a -> b` sends them half a side: they ask about
+  // the START of a side, so a mis-split answers silently rather than
+  // loudly. Each row is the same mechanism as a ledgered twin whose
+  // text carries no arrow, and each must be CLAIMED - an allowlist
+  // would record the hole instead of closing it.
+  test.each([
+    [
+      "a block title carrying an arrow",
+      "[[3-blind-mice]]\n\n.a -> b\n------\n",
+    ],
+    [
+      "a block title that is only an arrow pair",
+      "[[3-blind-mice]]\n\n.x -> y\n",
+    ],
+    [
+      "a block macro whose attrlist holds one",
+      "[[3-blind-mice]]\n\nimage::a.png[a -> b]\n",
+    ],
+  ])("%s is claimed by an arm", async (_name, source) => {
+    const outcome = await reparseOutcomeOf(source);
+    // The row is a breach at all: a document that round-trips would
+    // make the claim below vacuous.
+    expect(outcome.breaches.length).toBeGreaterThan(0);
+    for (const breach of outcome.breaches) {
+      expect(
+        matchingFamilies({
+          source,
+          once: outcome.once,
+          signature: breach.signature,
+        }),
+        breach.signature,
+      ).not.toEqual([]);
+    }
+  });
 });
 
 describe("the reparse ledger, default tier", () => {

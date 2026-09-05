@@ -73,17 +73,32 @@
  * - `dlistItemTextOnly` - the description of a term line that
  *   carries NO text of its own (`term::`, the description on the
  *   lines below). `parse_list_item` passes `text_only: has_text ?
- *   nil : true` (parser.rb l.1367), and `text_only` GATES
- *   `next_block`'s ladder: the layout-break arm is skipped
- *   (`!textOnly && layoutBreakChars[ch0]`, index.cjs l.10988) and so
- *   is the admonition arm, and `fold_first` merges the first block
- *   back, which makes an `[[anchor]]` standing there that block's
- *   own metadata. What is left is `dlistItem`'s ANY-LINE set with
- *   the first-line set narrowed to the one shape the gating leaves
- *   standing, a block macro. ORACLE, probed under `term1::`: a
- *   block macro, a delimiter, a list marker, a sibling term and an
- *   anchor end it; an admonition label, `'''`, `<<<` and a Markdown
- *   rule do not.
+ *   nil : true` (parser.rb l.1367-74). `next_block` reads `text_only`
+ *   at FOUR points and TWO of them decide an interrupting set: the
+ *   layout-break arm is skipped (`!textOnly && layoutBreakChars[ch0]`,
+ *   index.cjs l.10991) and so is the admonition arm, which the
+ *   paragraph branch reaches only past `if (textOnly)` (index.cjs
+ *   l.11282). The other two do not reach this table. One chooses
+ *   whether an indented run's `//` lines are comments
+ *   (`skip_line_comments: !!textOnly`, index.cjs l.11260), which the
+ *   reader carries as the description's `comments` fact instead
+ *   (lines/list-read.ts). One chooses paragraph over literal for an
+ *   indented line (`textOnly || contentAdjacent === 'dlist'`,
+ *   index.cjs l.11263), and it cannot decide anything here because
+ *   `contentAdjacent` is already `'dlist'` whenever `textOnly`
+ *   survives to be read - `if (textOnly && skipped > 0)` nulls it
+ *   otherwise (index.cjs l.10878-81).
+ *   So what is left for the SETS is `dlistItem`'s ANY-LINE set with
+ *   its FIRST-LINE set narrowed to the one shape those two
+ *   exemptions leave standing, a block macro. ORACLE,
+ *   probed under `term1::`: a block macro, a delimiter, a list
+ *   marker, a sibling term and an `[[anchor]]` end it; an admonition
+ *   label, `'''`, `<<<` and a Markdown rule do not. The anchor ends
+ *   it because `parse_block_metadata_line` runs AHEAD of the ladder
+ *   and is gated by nothing: it takes the anchor as metadata for a
+ *   block of its own, and that block is outside the item (the
+ *   description's `<dd>` is gone and the paragraph below carries the
+ *   `id`).
  * - `literalParagraph` — the indented lines of a literal paragraph.
  *   `next_block`'s `indented && !style` branch calls
  *   `read_paragraph_lines reader, (skipped == 0 ? options[:list_type]
@@ -838,8 +853,9 @@ export const SETEXT_UNDERLINE = /^(?<mark>[=\-~^+])\k<mark>*$/v;
  * does not open with `.` and carries at least one alphanumeric.
  *
  * Ruby's group spans the WHOLE line, so the title text is the
- * rstripped line itself and no consumer slices it. `CG_ALNUM` is the
- * pinned oracle's `[\p{Alphabetic}\p{N}]` (index.cjs l.49).
+ * rstripped line itself and no consumer slices it. Its alphanumeric
+ * is `CC_ALNUM`, `\p{Alphabetic}\p{N}` in the pinned oracle
+ * (index.cjs l.49), which `CG_ALNUM` wraps in a class one line down.
  */
 export const SETEXT_TITLE_LINE = /^(?!\.).*[\p{Alphabetic}\p{N}].*$/v;
 
@@ -867,7 +883,8 @@ export const BLOCK_MACRO =
 
 /**
  * A thematic break, in both spellings `next_block` reads: the
- * AsciiDoc `'''` and the Markdown rules `---`, `***` and `___`.
+ * AsciiDoc `'''` and the Markdown rules `---`, `***`, `___` and
+ * `_ _ _`.
  *
  * The AsciiDoc arm mirrors `next_block`'s `LAYOUT_BREAK_CHARS` lookup
  * (asciidoctor.rb l.300-303) guarded by `uniform?` and a length
@@ -890,21 +907,40 @@ export const BLOCK_MACRO =
  * question; the AsciiDoc arm takes no indent at all, because the
  * indented arm only looks up `MARKDOWN_THEMATIC_BREAK_CHARS`.
  *
- * NARROWER THAN THE ORACLE, deliberately, in one place: the two rx
- * above also read the marks SEPARATED by equal runs of spaces
- * (`- - -`, `*  *  *`), and this pattern does not. A spaced `-` or
- * `*` form is simultaneously an `UnorderedListRx` marker line, and
- * which reading wins is not a question about the LINE: `next_block`
- * takes the break, but `parse_list`'s own loop (parser.rb l.1114)
- * never reaches `next_block` and keeps the line as a sibling item of
- * the open list. Reading it as a break here would turn `* a` /
- * `- - -` / `* b` into a list split by a rule, which renders
- * differently from the oracle's three items. The spelling therefore
- * stays paragraph text, exactly as it was before the tight spellings
- * were modelled, until the sibling rule can answer for it.
+ * SPACED MARKS, which the two rx above also read (`- - -`,
+ * `_  _  _`), are read HERE FOR `_` AND NOT FOR `-` OR `*`. The line
+ * is not what separates them; the open list is. A spaced `-` or `*`
+ * form is simultaneously an `UnorderedListRx` marker line, and
+ * `parse_list`'s own loop (parser.rb l.1119) never reaches
+ * `next_block`: it keeps the line inside the list, where the ORACLE
+ * gives `* a` / `- - -` / `* b` a NESTED `ul` holding the item `- -`
+ * and `* a` / `* * *` / `* b` three sibling items. Reading either as
+ * a break would split the list with a rule instead. `_` is no
+ * unordered marker, so no list can claim it: the oracle renders
+ * `* a` / `_ _ _` / `* b` as one item whose text is `a _ _ _`, which
+ * is what this parser already does with it, and at a block start it
+ * renders the `<hr>` this pattern now reads.
+ *
+ * WHAT THE TWO EXCLUDED SPELLINGS STILL COST is a live render loss,
+ * not a tidy gap: `- - -` or `* * *` above prose is reflow-joined
+ * into it and the `<hr>` leaves the render, exactly as `---` did.
+ * Closing it needs `parse_list`'s marker rule rather than this
+ * pattern, which is issue #182; the `gap:md-thematic-break` ledger
+ * family stands for it (scripts/block-structure-ledger.ts).
+ *
+ * THE `_` ARM IS THE FIRST ROW IN THIS REGISTRY WHOSE MATCH DEPENDS
+ * ON INTERIOR SPACING, and the printer's whitespace fold normalizes
+ * interior spacing. So a line the oracle reads as TEXT (`_ _  _`, an
+ * unequal gap) folds to one this reader reads as a break, and the
+ * second pass normalizes it to `'''`. The render already moved on
+ * the first pass and did so before this arm existed - the fold is
+ * what synthesizes the spelling - so what the arm adds is the
+ * idempotency half. Recorded as issue #179 with a pinned witness in
+ * tests/format/breaks.test.ts, not repaired here: the repair belongs
+ * to the fold.
  */
 export const THEMATIC_BREAK =
-  /^(?:'{3,}| {0,3}(?<mark>[\-*_])\k<mark>\k<mark>)$/v;
+  /^(?:'{3,}| {0,3}(?:(?<mark>[\-*])\k<mark>\k<mark>|_(?<gap> *)_\k<gap>_))$/v;
 
 /** A page break (`<<<`). Same `LAYOUT_BREAK_CHARS` rule. */
 export const PAGE_BREAK = /^<{3,}$/v;

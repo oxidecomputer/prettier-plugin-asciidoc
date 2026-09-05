@@ -40,11 +40,34 @@ describe("markdown thematic break formatting", () => {
     ["asterisks", "***\n"],
     ["underscores", "___\n"],
     ["an indented rule", "  ---\n"],
+    // The one SPACED spelling the registry reads: `_` is no
+    // unordered marker, so no open list can claim the line.
+    ["spaced underscores", "_ _ _\n"],
   ])("a rule of %s normalizes to the AsciiDoc break", async (_n, input) => {
     const out = await formatAdoc(input);
     expect(out).toBe("'''\n");
     expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
+  });
+
+  // RECORDED DIVERGENCE (#179), pinned here so the repair has a
+  // witness rather than a description. The whitespace fold collapses
+  // the interior run of a line whose words are three marks, and the
+  // collapsed spelling IS the rule - so the FIRST pass already moves
+  // the render, and it did so at 3802ad26 as well: the oracle reads
+  // `_ _  _` as a paragraph and `_ _ _` as an `<hr>`. What the break
+  // vocabulary added is the SECOND pass: `_ _ _` is a break to this
+  // reader now, so it normalizes to `'''` and the format stops being
+  // a fixed point. Both passes are pinned and NEITHER is asserted
+  // correct; delete this row when #179 is fixed.
+  test("a folded spaced rule is not a fixed point", async () => {
+    const first = await formatAdoc("_ _  _\n");
+    expect(first).toBe("_ _ _\n");
+    expect(await formatAdoc(first)).toBe("'''\n");
+    // The render moved on the first pass, which is the half #179 owns
+    // and the half that predates the break vocabulary.
+    expect(await renderedHtml("_ _  _\n")).toContain("<p>");
+    expect(await renderedHtml(first)).toContain("<hr>");
   });
 
   // The corruption the issue measured: the rule and the prose beside

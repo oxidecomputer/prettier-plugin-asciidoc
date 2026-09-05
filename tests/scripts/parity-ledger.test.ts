@@ -136,7 +136,7 @@ describe("expected-diff ledger", () => {
     expect(failures.some((line) => line.includes("formatted-only"))).toBe(true);
   });
 
-  test("the production enum: 35 families, the fifteen byte-only ones formatted-only", () => {
+  test("the production enum: 39 families, the fifteen byte-only ones formatted-only", () => {
     expect([...LEDGER_FAMILIES.families].toSorted()).toEqual([
       "attribute-continuation",
       "attribute-entry-spelling",
@@ -156,6 +156,8 @@ describe("expected-diff ledger", () => {
       "inline-boundary-set",
       "inline-passthrough",
       "inline-span-keeps-break",
+      "markdown-marker-section-title",
+      "markdown-thematic-break",
       "marker-indent-kept",
       "marker-spelling",
       "nesting-fidelity",
@@ -171,7 +173,9 @@ describe("expected-diff ledger", () => {
       "table-node",
       "table-unread-attrlist",
       "table-width-layout",
+      "textless-description-text",
       "trailing-continuation-kept",
+      "underlined-section-title",
       "xref-text-trim",
     ]);
     expect([...LEDGER_FAMILIES.formattedOnly].toSorted()).toEqual([

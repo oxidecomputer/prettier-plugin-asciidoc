@@ -176,6 +176,10 @@ export const REPARSE_FAMILIES: Readonly<Record<string, ReparseFamily>> = {
     issue: "#170",
     what: "the `[source]` line the fenced-block normalization emits lands where the item's region takes it rather than beside the listing block it annotates, so the re-read block carries no style",
   },
+  "heading-under-a-term": {
+    issue: "#186",
+    what: "a heading read directly under a description-list term whose term line carried no text of its own is printed where the oracle attaches it to that term as the item's description, so the heading is gone on the re-read; the position has no spelling that reads back as a heading, which is measurable with no reading vocabulary at all - `term::` over `= x` is the description's text to the oracle and to this reader alike",
+  },
   "xref-across-a-break": {
     issue: "#169",
     what: "a shorthand xref whose bracket text spans a source line break is invisible to our inline reader and visible to the oracle, so the reflow join that closes the break does not change the render but does change what we read; the breach is in the SOURCE reading, not in the output",
@@ -261,6 +265,86 @@ function droppedABlank(source: string, once: string): boolean {
   return (
     after < before &&
     contentLines(source).join("\n") === contentLines(once).join("\n")
+  );
+}
+
+/**
+ * The two sides of a projection diff.
+ *
+ * Split at the LAST `] -> [`, the idiom {@link mintedAfter} already
+ * uses, and not at the first ` -> `: a signature carries node VALUES,
+ * so a document whose own text holds an arrow (`.a -> b` as a block
+ * title) mis-splits and the predicates below read half a side. Both
+ * of them ask about the START of a side, where a mis-split is not
+ * merely a wrong answer but a silent one.
+ * @param signature - the projection diff, `before -> after`
+ * @returns the two sides, or undefined when there is no arrow
+ */
+function signatureSides(
+  signature: string,
+): { before: string; after: string } | undefined {
+  const arrow = signature.lastIndexOf("] -> [");
+  return arrow === -1
+    ? undefined
+    : {
+        before: signature.slice(0, arrow + 1),
+        after: signature.slice(arrow + " -> ".length + 1),
+      };
+}
+
+/**
+ * Does the diff say a heading that stood BELOW a description list is
+ * now inside its last item?
+ *
+ * Read off the projection, like {@link swallowedByTheParagraphAbove}
+ * and for the same reason: the bytes move for two reasons at once
+ * here (the heading is respelled ATX and the list gains the line),
+ * while the diff says the one thing that happened.
+ * @param signature - the projection diff, `before -> after`
+ * @returns whether a heading below a description list was swallowed
+ */
+function headingSwallowedByATerm(signature: string): boolean {
+  const sides = signatureSides(signature);
+  return (
+    sides !== undefined &&
+    sides.before.includes(">descriptionList heading(") &&
+    !sides.after.includes("heading(")
+  );
+}
+
+/**
+ * Does the DIFF say a block that stood below a paragraph is now
+ * inside it?
+ *
+ * The same mechanism {@link droppedABlank} names, read off the
+ * projection instead of off the bytes, and the ledger needs both
+ * because the byte test asks a question one step removed from it. The
+ * byte test says "a blank went and nothing else changed", which is
+ * true of the mechanism only while the printer leaves the swallowed
+ * block's own line alone; where the same pass ALSO respells that line
+ * (`---` printed `'''`) or completes it (an unterminated `------`
+ * printed as a closed `----` pair), the bytes move for a second
+ * reason and the row falls out of the arm with its mechanism
+ * unchanged.
+ *
+ * What the diff says is exactly the mechanism: a paragraph CLOSED
+ * where the block began, and now that block's opening text is a text
+ * node inside the paragraph with the join's space in front of it.
+ * Narrow by construction - the before side must open with a paragraph
+ * close and the after side with a space-led text node, which no other
+ * declared family's rows do (`indent-dropped` opens its BEFORE side
+ * with the space-led text node, the other way round, and
+ * `plus-respelled`'s text node carries the line's own words).
+ * @param signature - the projection diff, `before -> after`
+ * @returns whether the block below was swallowed by the paragraph
+ */
+function swallowedByTheParagraphAbove(signature: string): boolean {
+  const sides = signatureSides(signature);
+  return (
+    sides !== undefined &&
+    sides.before.startsWith("[>paragraph ") &&
+    sides.after.startsWith('[text(value=" ') &&
+    sides.after.includes(">paragraph")
   );
 }
 
@@ -403,7 +487,12 @@ const FAMILY_ARMS: readonly FamilyArm[] = [
   },
   {
     family: "blank-dropped",
-    matches: ({ source, once }) => droppedABlank(source, once),
+    matches: ({ source, once, signature }) =>
+      droppedABlank(source, once) || swallowedByTheParagraphAbove(signature),
+  },
+  {
+    family: "heading-under-a-term",
+    matches: ({ signature }) => headingSwallowedByATerm(signature),
   },
   {
     family: "join-changes-reading",
@@ -421,7 +510,16 @@ const FAMILY_ARMS: readonly FamilyArm[] = [
   },
   {
     family: "gap-line-lost",
-    matches: ({ source, once }) => lostALine(source, once),
+    // The exclusion is STATED rather than left to arm order, for the
+    // reason `join-changes-reading` states its own: a heading the
+    // term swallowed is also a document one line shorter, and a table
+    // whose rows are told apart by which line comes first is a table
+    // a reader cannot check. The two mechanisms are not the same - a
+    // `+` inside a term's gap goes unwritten there, a heading below
+    // the list has nowhere to be written here - so the row belongs to
+    // one of them and this says which.
+    matches: ({ source, once, signature }) =>
+      lostALine(source, once) && !headingSwallowedByATerm(signature),
   },
 ];
 

@@ -121,6 +121,10 @@ const DISCRETE_STYLE = "discrete";
 // header opens at (`is_next_line_doctitle?`, parser.rb).
 const DOCUMENT_TITLE_LEVEL = 0;
 
+// The title extent an UNDERLINED title spells; the ATX one spells 1.
+// Owned by the classifier's `extent` field (lines/classify.ts).
+const UNDERLINED_TITLE = 2;
+
 /**
  * Reads one line array into blocks. One instance per document — plus
  * one confined instance per list item, over the item's buffer, and
@@ -736,11 +740,21 @@ class BlockReader {
     }
     const end = this.index + kind.extent;
     const span = fragmentOfLines(this.source, line, this.lines[end - 1]);
+    // What an ATX-PRINTED heading can carry. An underlined title's
+    // text is the whole line, indent included (the classifier keeps
+    // Ruby's group), and the marker run this printer writes puts the
+    // title after `[ \t]+`, which the reader eats coming back: so
+    // `==   lit` re-reads as `lit` whatever was recorded, and keeping
+    // the indent only makes pass 1 emit a line pass 2 rewrites. The
+    // heading text loses a leading space, where refusing the line
+    // would lose the whole heading to the literal-paragraph branch.
+    // The HEADER arm below takes `kind.title` instead, because it
+    // replays the two source lines rather than respelling them and
+    // the width rule that admitted the pair was applied to the line
+    // as written.
+    const atxTitle = kind.title.trimStart();
     if (this.held.heldStyle() === DISCRETE_STYLE) {
-      this.leaf(
-        buildDiscreteHeading(span, kind.level, kind.title, this.at),
-        end,
-      );
+      this.leaf(buildDiscreteHeading(span, kind.level, atxTitle, this.at), end);
       return;
     }
     if (kind.level === DOCUMENT_TITLE_LEVEL && this.headerReachable) {
@@ -751,12 +765,22 @@ class BlockReader {
       // author line to body content (issue #18). Flush first, for the
       // reason readText states.
       this.flushMetadata();
-      const header = documentHeader(this.headerScan, end, kind.title, span);
+      // The underline rides into the header and nowhere else: it is
+      // the ONE spelling this AST may not normalize away, because a
+      // setext DOCTITLE turns compat mode on for the whole document
+      // (see DocumentHeaderNode.underline, src/ast.ts). Read off the
+      // classifier's extent, the same fact that spanned the node.
+      const underlined = kind.extent === UNDERLINED_TITLE;
+      const header = documentHeader(this.headerScan, end, {
+        text: kind.title,
+        span,
+        underline: underlined ? this.lines[end - 1].text : undefined,
+      });
       this.push(header.node);
       this.resume(header.end);
       return;
     }
-    this.leaf(buildHeading(span, kind.level, kind.title, this.at), end);
+    this.leaf(buildHeading(span, kind.level, atxTitle, this.at), end);
   }
 
   /**

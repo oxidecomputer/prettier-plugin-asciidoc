@@ -430,22 +430,16 @@ describe("descriptionPrinting, C: every rest line is ordinary text", () => {
 
   // The rows the LINE test is for, and the reason a per-word rule
   // cannot replace it: a hazard that spans WORDS is invisible to a
-  // word probe. TWO of these are rest lines the reader actually
-  // produces - `_ _ _`, a markdown rule written as three words, and
-  // `> quote`, whose head test is `'> '` (parser.rb:777). The other
-  // two are here as the predicate's own boundary and NOT as reachable
-  // runs: the reader records `- - -` and `* * *` as BLOCKS of the
-  // item, so no rest line ever spells them, and the rows say what the
-  // predicate answers if one ever did.
-  test.each(["_ _ _", "> quote"])(
+  // word probe. All three are rest lines the reader actually produces:
+  // `- - -` and `* * *` are Markdown rules written as three words,
+  // which the registry leaves to the list rules because both are
+  // marker lines too, and `> quote` is the Markdown blockquote, whose
+  // head test is `md_syntax && ch0 == '>' && this_line.start_with?
+  // '> '` (parser.rb l.777). The spaced `_` twin is NOT here: the
+  // classifier reads it as a break, so the reader records it as a
+  // BLOCK and no rest line spells it.
+  test.each(["- - -", "* * *", "> quote"])(
     "C refuses the multi-word block head %s, which a rest line spells",
-    (line) => {
-      expect(printingOf("term::", "", line)).toBe("replay");
-    },
-  );
-
-  test.each(["- - -", "* * *"])(
-    "C answers for %s too, though the reader records it as a block",
     (line) => {
       expect(printingOf("term::", "", line)).toBe("replay");
     },
@@ -457,12 +451,19 @@ describe("descriptionPrinting, C: every rest line is ordinary text", () => {
   // it: `---` and `___` were neither a marker nor a delimiter to this
   // classifier and joined away an `<hr>`, and `~~~~` joined away an
   // OPEN block.
-  test.each(["---", "___", "***", "--- ", "  ___", "~~~~", "~~~~~~", "...."])(
-    "the uniform run %s is refused",
-    (line) => {
-      expect(printingOf("term::", "", line)).toBe("replay");
-    },
-  );
+  test.each([
+    "---",
+    "___",
+    "***",
+    "--- ",
+    "  ___",
+    "_ _ _",
+    "~~~~",
+    "~~~~~~",
+    "....",
+  ])("the uniform run %s is refused", (line) => {
+    expect(printingOf("term::", "", line)).toBe("replay");
+  });
 
   // The MARKER half of the same class, which no shape rule reaches
   // because the line carries letters: `UnorderedListRx` (rx.rb:284)

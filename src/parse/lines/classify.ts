@@ -430,25 +430,14 @@ function parseSetextTitle(
   ) {
     return undefined;
   }
-  // The title is the line with its LEADING whitespace off, where
-  // Ruby's group keeps it (`SetextSectionTitleRx` spans the whole
-  // line, so the oracle's title for `  lit` over `----` is `  lit`).
-  // The narrowing is forced by the spelling this printer writes: ATX
-  // puts the title after `[ \t]+`, which the reader eats on the way
-  // back, so `==   lit` re-reads as `lit` whatever we record. Keeping
-  // the indent would make the FIRST pass emit a line the SECOND pass
-  // rewrites, and the render is the same `<h2>lit</h2>` either way -
-  // where the alternative, refusing an indented title line, gives it
-  // back to the literal-paragraph branch and renders a `<pre>` block
-  // instead of the heading the oracle reads. The one thing lost is
-  // the leading space inside the rendered heading text.
-  //
-  // The LENGTH RULE above is asked of the untrimmed line, because the
-  // oracle compares `line1.length` before anything is stripped.
-  return {
-    level: SETEXT_LEVEL_MARKS.indexOf(mark),
-    title: line.trimStart(),
-  };
+  // The title is the LINE, its leading whitespace included, which is
+  // what Ruby's group captures (`SetextSectionTitleRx` spans the
+  // whole line, so the oracle's title for `  lit` over `----` is
+  // `  lit`). Which spellings can carry that indent is the READER's
+  // question, not this one: an ATX-printed heading cannot, and drops
+  // it at the build site, while the document header replays the two
+  // source lines and must keep it (lines/reader.ts states both).
+  return { level: SETEXT_LEVEL_MARKS.indexOf(mark), title: line };
 }
 
 /**

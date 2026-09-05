@@ -265,7 +265,7 @@ function interiorOfDescription(
     buffer,
     { style: delimiter, tailSafe: shape.tailSafe },
     {
-      // Ruby's `text_only: has_text ? nil : true` (parser.rb l.1367),
+      // Ruby's `text_only: has_text ? nil : true` (parser.rb l.1367-74),
       // as the context it decides: a term line carrying no text of
       // its own gets the GATED ladder, where a break and an
       // admonition label are description text (see ParagraphContext,

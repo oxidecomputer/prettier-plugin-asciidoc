@@ -521,6 +521,14 @@ function continuationBelow(
 }
 
 /**
+ * The `extent` an UNDERLINED title spells; the ATX one spells 1. The
+ * field and its closed `1 | 2` type are the classifier's
+ * (`LineKind`'s sectionTitle arm, src/parse/lines/classify.ts); this
+ * is only the name this module reads it by.
+ */
+const UNDERLINED_EXTENT = 2;
+
+/**
  * Whether the line at this offset is an UNDERLINED section title, and
  * so claims the line below it as well. The reader classifies the
  * title line alone and resumes past both, so the underline never
@@ -537,9 +545,6 @@ function claimsLineBelow(
   const kind = events.get(offset);
   return kind?.kind === "sectionTitle" && kind.extent === UNDERLINED_EXTENT;
 }
-
-/** The extent a title spells when it is underlined rather than ATX. */
-const UNDERLINED_EXTENT = 2;
 
 /**
  * The TRACE-FIDELITY self-check: lines the reader consumed without

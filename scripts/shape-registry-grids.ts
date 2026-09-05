@@ -21,6 +21,7 @@
  */
 import { DELIMITER_KINDS } from "../src/parse/line-shapes.js";
 import { gridRowFamily } from "./shape-registry-families.js";
+import { UNDERLINED_SECTION_TITLE_FAMILY } from "./parity-ledger.js";
 import {
   CONTAINERS,
   DELIMITER_PARTS,
@@ -69,17 +70,21 @@ export function standingGrid(): Shape[] {
   // The setext-shaped spellings. All three are RENDER-VISIBLE like
   // any other row: the reader takes a two-line title now (issue #16),
   // so the reading that used to diverge from the oracle here is the
-  // oracle's. A differing row still has no family and STOPS the run.
+  // oracle's. All three also DIFFER from a base that read no title,
+  // so all three carry that reading's family - a differing row
+  // without one still stops the run.
   shapes.push(
     {
       id: "setext/trailing-underline/doc",
       input: "====\nfoo\n====\nbar\n====\n",
       renderBlind: false,
+      family: UNDERLINED_SECTION_TITLE_FAMILY,
     },
     {
       id: "setext/nested-listing/doc",
       input: "====\n----\nfoo\n====\nbar\n----\n",
       renderBlind: false,
+      family: UNDERLINED_SECTION_TITLE_FAMILY,
     },
     // The construct in its own right, which is what the
     // `setext-title` dimension's canonical spelling reaches
@@ -88,6 +93,7 @@ export function standingGrid(): Shape[] {
       id: "setext/underlined-title/doc",
       input: "Title\n-----\n\nbody\n",
       renderBlind: false,
+      family: UNDERLINED_SECTION_TITLE_FAMILY,
     },
   );
   return shapes;

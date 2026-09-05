@@ -44,6 +44,7 @@ import {
   buildAuthorLine,
   buildDocumentHeader,
   buildRevisionLine,
+  type DoctitleRead,
 } from "../build/header.js";
 import {
   buildAttributeEntry,
@@ -294,15 +295,14 @@ function headerMetadata(
  * it spans, and this scan holds no opinion about how it was written.
  * @param scan - the stream and the facts fixed over it
  * @param titleEnd - index of the first line PAST the title
- * @param title - the classifier's title text, already trimmed
- * @param span - the title's own span, one line or two
+ * @param title - the doctitle as the reader read it: its text, its
+ *   span, and the underline the `= Title` spelling has none of
  * @returns the header node and the index past it
  */
 export function documentHeader(
   scan: HeaderScan,
   titleEnd: number,
-  title: string,
-  span: Fragment,
+  title: DoctitleRead,
 ): DocumentHeaderRead {
   const { lines, at } = scan;
   const collected: HeaderLineNode[] = [];
@@ -328,7 +328,7 @@ export function documentHeader(
     index += 1;
   }
   return {
-    node: buildDocumentHeader(span, title, collected, at),
+    node: buildDocumentHeader(title, collected, at),
     end: index,
   };
 }

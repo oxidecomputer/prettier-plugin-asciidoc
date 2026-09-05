@@ -234,7 +234,7 @@ const PAYLOADS: readonly Payload[] = [
   // The two block heads a per-word probe cannot reach, because each
   // needs several words to be itself: a markdown thematic break
   // written with spaces, and a markdown blockquote.
-  { name: "markdown-rule", lines: (d) => `t${d} alpha bravo\n_ _ _` },
+  { name: "markdown-rule", lines: (d) => `t${d} alpha bravo\n- - -` },
   { name: "markdown-quote", lines: (d) => `t${d} alpha bravo\n> quote` },
 ];
 

@@ -43,17 +43,9 @@
     "fails": ["fidelity"],
     "issue": "UNTRIAGED"
   },
-  "document_test.rb#should enable compat mode for document with legacy doctitle#0": {
-    "fails": ["fidelity"],
-    "issue": "#16"
-  },
-  "document_test.rb#should not enable compat mode for document with legacy doctitle if compat mode is locked by API#0": {
-    "fails": ["fidelity"],
-    "issue": "#16"
-  },
   "lists_test.rb#consecutive list continuation lines are folded#0": {
     "fails": ["reading"],
-    "issue": "#16"
+    "issue": "#181"
   },
   "paragraphs_test.rb#should add a hardbreak at end of each line when hardbreaks option is set#0": {
     "fails": ["fidelity"],
@@ -82,6 +74,5 @@
   "test/fixtures/encoding.adoc": {
     "fails": ["fidelity"],
     "issue": "UNTRIAGED"
-  },
-  "test/fixtures/sample.adoc": { "fails": ["fidelity"], "issue": "#16" }
+  }
 }

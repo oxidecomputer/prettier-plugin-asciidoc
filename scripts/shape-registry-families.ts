@@ -27,9 +27,11 @@
 import {
   BLOCK_DELIMITER_LENGTH_FAMILY,
   DESCRIPTION_LIST_ITEM_FAMILY,
+  MARKDOWN_THEMATIC_BREAK_FAMILY,
   NO_OP_CONTINUATION_FAMILY,
   TABLE_DELIMITER_LENGTH_FAMILY,
   TABLE_LAYOUT_FAMILY,
+  UNDERLINED_SECTION_TITLE_FAMILY,
 } from "./parity-ledger.js";
 
 /** The delimiter kind whose rows the table print rules move. */
@@ -113,6 +115,64 @@ const BLOCK_DELIMITER_KINDS: ReadonlySet<string> = new Set([
 ]);
 
 /**
+ * The coordinates the two READING changes move, named one by one
+ * rather than blanketed over a kind, a container or a perturbation -
+ * which is this module's own rule, and it bites hardest here. Both
+ * mechanisms are about what a LINE INSIDE the grid's document says,
+ * and no coordinate of the triple carries that: `foreign-marker-inside`
+ * writes `* x` above the block's content line at every kind, and only
+ * where the interior that results puts a text line directly over a
+ * uniform run within one character of its length does a title appear.
+ * Blanketing the perturbation would blind the kinds where it does
+ * not.
+ *
+ * A TITLE the base did not read (issue #16). Each row's head output
+ * gains an ATX heading where the base kept prose and re-delimited a
+ * block around it: the interior the perturbation writes ends up with
+ * a text line over a delimiter run, and that pair is a section title
+ * to the oracle. The three `setext/*` rows are the same reading and
+ * carry the family at their own push site, where they are built
+ * (shape-registry-grids.ts).
+ */
+const UNDERLINED_TITLE_COORDINATES: ReadonlySet<string> = new Set([
+  "example/after-h0-adjacent/foreign-marker-inside",
+  "example/after-h0-adjacent/heading-inside",
+  "example/in-example/closed",
+  "example/in-example/closed-no-final-newline",
+  "example/in-example/closed-then-text-adjacent",
+  "example/in-example/heading-inside",
+  "example/in-example/longer-delimiter-inside",
+  "example/in-example/terminator-trailing-ws",
+  "example/in-example/unterminated",
+  "example/in-example/unterminated-then-blank-text",
+  "listing/after-h0-adjacent/foreign-marker-inside",
+  "listing/after-h0-adjacent/heading-inside",
+  "pass/after-h0-adjacent/foreign-marker-inside",
+  "pass/after-h0-adjacent/heading-inside",
+]);
+
+/**
+ * A BREAK the base did not read (issue #23). Four coordinates, each
+ * one where the perturbation writes a three-character run - `---`,
+ * `___`, `***` - inside a block whose own delimiter is one character
+ * longer, so the run is a near miss for the terminator and a
+ * Markdown thematic break to the oracle. The head output writes the
+ * canonical `'''` where the base kept the run as prose.
+ *
+ * `openBlock`'s row is at `longer-delimiter-inside` rather than
+ * `near-miss-terminator-inside` because its delimiter is two
+ * characters: the run that is one LONGER than `--` is the same `---`
+ * that is one shorter than `----`, so the perturbation that reaches
+ * the shape is the other one.
+ */
+const MARKDOWN_BREAK_COORDINATES: ReadonlySet<string> = new Set([
+  "listing/after-h0-adjacent/near-miss-terminator-inside",
+  "openBlock/after-h0-adjacent/longer-delimiter-inside",
+  "quote/after-h0-adjacent/near-miss-terminator-inside",
+  "sidebar/after-h0-adjacent/near-miss-terminator-inside",
+]);
+
+/**
  * The family a standing grid row takes, or undefined where the row is
  * expected byte-identical.
  *
@@ -143,6 +203,18 @@ export function gridRowFamily(
 ): string | undefined {
   if (containerId === DESCRIPTION_CONTAINER) {
     return DESCRIPTION_LIST_ITEM_FAMILY;
+  }
+  // The two reading changes are asked BEFORE the per-kind rules for
+  // the reason the description container is: at these coordinates a
+  // title or a break is what moved the row, and the leaf-fence or
+  // continuation family beside them would be excusing the right row
+  // for the wrong reason.
+  const coordinate = `${kind}/${containerId}/${perturbationId}`;
+  if (UNDERLINED_TITLE_COORDINATES.has(coordinate)) {
+    return UNDERLINED_SECTION_TITLE_FAMILY;
+  }
+  if (MARKDOWN_BREAK_COORDINATES.has(coordinate)) {
+    return MARKDOWN_THEMATIC_BREAK_FAMILY;
   }
   if (kind === TABLE_PIPE_KIND) {
     return TABLE_PIPE_FAMILIES.get(perturbationId);

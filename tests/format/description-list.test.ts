@@ -712,12 +712,12 @@ describe("the boundaries of the reflow verdict", () => {
   // Rest lines Asciidoctor opens a block on and this registry's
   // classifier reads as text, so no composition of the interrupting
   // sets can refuse them. Red before the registry carried the shape
-  // rule: `t:: def` / `_ _ _` joined and the `<hr>` went with it, and
+  // rule: `t:: def` / `- - -` joined and the `<hr>` went with it, and
   // `t:: def` / `~~~~` joined and the OPEN block went with it. The
   // first is also the row the whole-LINE test answers for alone,
   // since its hazard spans words.
   test.each([
-    ["a spaced markdown rule", "t:: def\n_ _ _\n"],
+    ["a spaced markdown rule", "t:: def\n- - -\n"],
     ["a markdown blockquote", "t:: def\n> quote\n"],
     ["a four-character fence", "t:: def\n~~~~\n"],
     // Nine tildes, not six: an underline within ONE character of the
@@ -735,6 +735,7 @@ describe("the boundaries of the reflow verdict", () => {
   test.each([
     ["a bare markdown rule", "t:: def\n---\n"],
     ["the underscore rule", "t:: def\n___\n"],
+    ["the spaced underscore rule", "t:: def\n_ _ _\n"],
   ])("%s becomes the canonical break", async (_n, input) => {
     await expectStable(input, "t:: def\n'''\n", { printWidth: 40 });
   });
@@ -790,7 +791,7 @@ describe("the boundaries of the reflow verdict", () => {
 
 // A term line that carries NO text of its own is read with Ruby's
 // `text_only` set (`text_only: has_text ? nil : true`,
-// parser.rb l.1367), which GATES `next_block`'s layout-break and
+// parser.rb l.1367-74), which GATES `next_block`'s layout-break and
 // admonition arms. So a rule or a label on the description's first
 // rest line is that description's own text, where the same line under
 // a term that DOES carry text ends it.

@@ -1,18 +1,4 @@
 {
-  "pair/HighlightMark/CharacterReference/comment/fidelity": {
-    "count": 1,
-    "examples": [
-      "pair/HighlightMark-near-1/CharacterReference-alt-6/comment/para"
-    ],
-    "sha256": "b4e19a0399ec54219f8f9b10849e6389ebbe129a92412ca968217828fb14d02a",
-    "issue": "UNTRIAGED"
-  },
-  "pair/HighlightMark/InlineChar/comment/fidelity": {
-    "count": 1,
-    "examples": ["pair/HighlightMark-near-1/InlineChar-alt-1/comment/para"],
-    "sha256": "d6c99df44625a8dd05a174ad0f3b132bd4a4091ca0ce77d2d2beaa6dac50d869",
-    "issue": "UNTRIAGED"
-  },
   "pair/InlineChar/InlineAnchor/adjacent/fidelity": {
     "count": 2,
     "examples": [
@@ -21,6 +7,12 @@
     ],
     "sha256": "bd451322f4e70a7ed11764e7dfada92d359bd056127686a80f54b146c16356e5",
     "issue": "UNTRIAGED"
+  },
+  "pair/InlineMacro/HighlightMark/comment/fidelity": {
+    "count": 1,
+    "examples": ["pair/InlineMacro-near-3/HighlightMark-near-1/comment/para"],
+    "sha256": "ae43f4c8d72914a85a01ebe0ad7161916895161737a19643b8557c2d823aa7a8",
+    "issue": "#183"
   },
   "pair/InlineUrl/InlineAnchor/adjacent/fidelity": {
     "count": 2,

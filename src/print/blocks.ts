@@ -683,17 +683,28 @@ function printHeaderLine(node: HeaderLineNode): Doc {
  * everything below to body content: the author line becomes the first
  * paragraph and every section boundary under it shifts. Owning the
  * lines is what leaves {@link joinBlocks} nothing to get wrong here.
+ *
+ * The title keeps the SPELLING it was written in, which every other
+ * heading in this printer does not. An underlined doctitle turns
+ * compat mode on for the whole document, so respelling it `= Title`
+ * changes what `+content+` and `'emphasis'` render as in every
+ * paragraph below it; the reason and its citation are at
+ * {@link DocumentHeaderNode.underline}. Underlined titles are the
+ * only ones this holds for - a level-0 underlined heading that is not
+ * the header, and an underlined section title at any level, both
+ * normalize to the ATX form.
  * @param node - the header node
  * @returns Doc IR for the whole header
  */
 export function printDocumentHeader(node: DocumentHeaderNode): Doc {
   return [
-    // The title is level 0 by construction - a header opens at no
-    // other level - so the marker is the same arithmetic the heading
-    // arm does, with the level folded out.
-    "=".repeat(MARKER_OFFSET),
-    " ",
-    node.title,
+    // The ATX arm's title is level 0 by construction - a header opens
+    // at no other level - so the marker is the same arithmetic the
+    // heading arm does, with the level folded out. The underlined arm
+    // writes the two lines the author wrote, in order.
+    ...(node.underline === undefined
+      ? ["=".repeat(MARKER_OFFSET), " ", node.title]
+      : [node.title, hardline, node.underline]),
     ...node.lines.map((child): Doc => [hardline, printHeaderLine(child)]),
   ];
 }

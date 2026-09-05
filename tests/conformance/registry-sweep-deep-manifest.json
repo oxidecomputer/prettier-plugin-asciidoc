@@ -1,6 +1,6 @@
 {
   "pair/bom/fidelity": {
-    "count": 140,
+    "count": 144,
     "examples": [
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/doc@bom",
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/item@bom",
@@ -8,11 +8,11 @@
       "pair/admonition-label-near-1/delimiter-openBlock-near-2/adjacent/item@bom",
       "pair/admonition-label/delimiter-openBlock-near-2/adjacent/doc@bom"
     ],
-    "sha256": "a3e2a8f9a2c71c7a9463a0de5e9f47f693737075a44573868028b6ee95bcabf3",
+    "sha256": "6d6f0c931304550f97c3b0d7685a8415b406652d99de68d847231bc89b8cc33f",
     "issue": "UNTRIAGED"
   },
   "pair/bom/idempotency": {
-    "count": 11,
+    "count": 9,
     "examples": [
       "pair/block-anchor-near-1/delimiter-commentBlock-near-2/blank/doc@bom",
       "pair/block-anchor-near-2/delimiter-commentBlock-near-2/blank/doc@bom",
@@ -20,11 +20,11 @@
       "pair/block-title-near-1/delimiter-commentBlock-near-2/adjacent/item@bom",
       "pair/continuation/delimiter-commentBlock-near-2/adjacent/doc@bom"
     ],
-    "sha256": "43cf7496b12fd4b265b3f060999e20cea295bed69477ab3fc7c3fcc328456ce3",
+    "sha256": "11475f2ab8e1636e3eaea5822d2ab92b40fc38f665c2fc04f80deeaf8e72610e",
     "issue": "UNTRIAGED"
   },
   "pair/bom/idempotency+fidelity": {
-    "count": 166,
+    "count": 162,
     "examples": [
       "pair/block-anchor-near-1/attribute-entry/blank/doc@bom",
       "pair/block-anchor-near-1/block-macro/blank/doc@bom",
@@ -32,11 +32,11 @@
       "pair/block-anchor-near-1/block-title/blank/doc@bom",
       "pair/block-anchor-near-1/callout-near-1/blank/doc@bom"
     ],
-    "sha256": "b05b693f753699579dac5d444095122ba660ca9fdc4b855dac0dde92ef9afe90",
+    "sha256": "2b874f6ff403803b236b6468692b26cdc049a3bbd697207088aa8b150afd0028",
     "issue": "UNTRIAGED"
   },
   "pair/clean/fidelity": {
-    "count": 140,
+    "count": 144,
     "examples": [
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/doc",
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/item",
@@ -44,11 +44,11 @@
       "pair/admonition-label-near-1/delimiter-openBlock-near-2/adjacent/item",
       "pair/admonition-label/delimiter-openBlock-near-2/adjacent/doc"
     ],
-    "sha256": "ad040f540be1f31cde6c932470d6f93068ab7110ccce4c84fffeb6e3c2ecd33c",
+    "sha256": "efd565b83bb94fe686d3d22b52ac4b2db18c1619bba919a1525d1900bc766495",
     "issue": "UNTRIAGED"
   },
   "pair/clean/idempotency": {
-    "count": 11,
+    "count": 9,
     "examples": [
       "pair/block-anchor-near-1/delimiter-commentBlock-near-2/blank/doc",
       "pair/block-anchor-near-2/delimiter-commentBlock-near-2/blank/doc",
@@ -56,11 +56,11 @@
       "pair/block-title-near-1/delimiter-commentBlock-near-2/adjacent/item",
       "pair/continuation/delimiter-commentBlock-near-2/adjacent/doc"
     ],
-    "sha256": "ac5e9563e13b40468279ad3f55f09eb4a690b802042bf097b81071af8ee03044",
+    "sha256": "48f3011dbda8d0f80679ebfb90af6000873811fceb3d6f09194609c28ecfe3d3",
     "issue": "UNTRIAGED"
   },
   "pair/clean/idempotency+fidelity": {
-    "count": 166,
+    "count": 162,
     "examples": [
       "pair/block-anchor-near-1/attribute-entry/blank/doc",
       "pair/block-anchor-near-1/block-macro/blank/doc",
@@ -68,11 +68,11 @@
       "pair/block-anchor-near-1/block-title/blank/doc",
       "pair/block-anchor-near-1/callout-near-1/blank/doc"
     ],
-    "sha256": "5d2cb5937589b993825d87fcfa29dde980a3743ee93a9c73e2e09bed702ed652",
+    "sha256": "bc2ea7e618699199b32272d7d6eeba926876edf7bb95e73c9875f6d604667536",
     "issue": "UNTRIAGED"
   },
   "pair/crlf/fidelity": {
-    "count": 140,
+    "count": 144,
     "examples": [
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/doc@crlf",
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/item@crlf",
@@ -80,11 +80,11 @@
       "pair/admonition-label-near-1/delimiter-openBlock-near-2/adjacent/item@crlf",
       "pair/admonition-label/delimiter-openBlock-near-2/adjacent/doc@crlf"
     ],
-    "sha256": "2d5dbda25618c54a2f5c69757fdadfcf5eaa54b0d9e093cdca36dc52c77be297",
+    "sha256": "0283119d7276854f93459e49a686b17ace28a8e5b7037cac61d710361fe498c4",
     "issue": "UNTRIAGED"
   },
   "pair/crlf/idempotency": {
-    "count": 11,
+    "count": 9,
     "examples": [
       "pair/block-anchor-near-1/delimiter-commentBlock-near-2/blank/doc@crlf",
       "pair/block-anchor-near-2/delimiter-commentBlock-near-2/blank/doc@crlf",
@@ -92,11 +92,11 @@
       "pair/block-title-near-1/delimiter-commentBlock-near-2/adjacent/item@crlf",
       "pair/continuation/delimiter-commentBlock-near-2/adjacent/doc@crlf"
     ],
-    "sha256": "6732119b594c9465b567d93bbe41c93f0e46d43c4191efceaed565f4827fb48e",
+    "sha256": "4e07b4ed4c10e9ba4350725d25816118f5e5ee79305cffe483175e609e3165d1",
     "issue": "UNTRIAGED"
   },
   "pair/crlf/idempotency+fidelity": {
-    "count": 166,
+    "count": 162,
     "examples": [
       "pair/block-anchor-near-1/attribute-entry/blank/doc@crlf",
       "pair/block-anchor-near-1/block-macro/blank/doc@crlf",
@@ -104,11 +104,11 @@
       "pair/block-anchor-near-1/block-title/blank/doc@crlf",
       "pair/block-anchor-near-1/callout-near-1/blank/doc@crlf"
     ],
-    "sha256": "219d5c17b6c59ed5b43f6d006b79b68ec45d92361b350335e735b7777d395d3f",
+    "sha256": "d5f57a2bc33cb53a3ca3cc0ae7e731c412368df6a8be15817abf242730e81219",
     "issue": "UNTRIAGED"
   },
   "pair/no-final-newline/fidelity": {
-    "count": 140,
+    "count": 144,
     "examples": [
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/doc@no-final-newline",
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/item@no-final-newline",
@@ -116,11 +116,11 @@
       "pair/admonition-label-near-1/delimiter-openBlock-near-2/adjacent/item@no-final-newline",
       "pair/admonition-label/delimiter-openBlock-near-2/adjacent/doc@no-final-newline"
     ],
-    "sha256": "b8ec83e53a7fc71a821d2509271903523064e0f45cbdec93902b7e17bd9c104f",
+    "sha256": "6ffc161e41dc3b220a59d77ab752d25412303cb808b16556dafa0314bc11249a",
     "issue": "UNTRIAGED"
   },
   "pair/no-final-newline/idempotency": {
-    "count": 11,
+    "count": 9,
     "examples": [
       "pair/block-anchor-near-1/delimiter-commentBlock-near-2/blank/doc@no-final-newline",
       "pair/block-anchor-near-2/delimiter-commentBlock-near-2/blank/doc@no-final-newline",
@@ -128,11 +128,11 @@
       "pair/block-title-near-1/delimiter-commentBlock-near-2/adjacent/item@no-final-newline",
       "pair/continuation/delimiter-commentBlock-near-2/adjacent/doc@no-final-newline"
     ],
-    "sha256": "fe37bacac88909a7bd5b0ac59d056d0c2f501200f69675aa1cd233acb2c9f8cc",
+    "sha256": "f2e0e53bcb0f79228222f05964a237cdc21d87784f0af335e076bcde983ef1f5",
     "issue": "UNTRIAGED"
   },
   "pair/no-final-newline/idempotency+fidelity": {
-    "count": 166,
+    "count": 162,
     "examples": [
       "pair/block-anchor-near-1/attribute-entry/blank/doc@no-final-newline",
       "pair/block-anchor-near-1/block-macro/blank/doc@no-final-newline",
@@ -140,11 +140,11 @@
       "pair/block-anchor-near-1/block-title/blank/doc@no-final-newline",
       "pair/block-anchor-near-1/callout-near-1/blank/doc@no-final-newline"
     ],
-    "sha256": "4b6ee181015a74c304d7ec13a9b80126f5deead9b2976d7778479e70492db31e",
+    "sha256": "dc0526c8b1c1503b5099aab51d34ef1c7dd62b0da562bc7bb0685ac007ec738e",
     "issue": "UNTRIAGED"
   },
   "pair/trailing-ff/fidelity": {
-    "count": 142,
+    "count": 146,
     "examples": [
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/doc@trailing-ff",
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/item@trailing-ff",
@@ -152,11 +152,11 @@
       "pair/admonition-label-near-1/delimiter-openBlock-near-2/adjacent/item@trailing-ff",
       "pair/admonition-label/delimiter-openBlock-near-2/adjacent/doc@trailing-ff"
     ],
-    "sha256": "b5ceeffc6d8409b3355fb44e0a5fa51ff05f3c3b20fe46944cecfe2a2cfcb559",
+    "sha256": "b4b66aad013c2cc16e4070cc132d1ece45fdb06d822f449767996f8e70eb994b",
     "issue": "UNTRIAGED"
   },
   "pair/trailing-ff/idempotency": {
-    "count": 10,
+    "count": 8,
     "examples": [
       "pair/block-anchor-near-1/delimiter-commentBlock-near-2/blank/doc@trailing-ff",
       "pair/block-anchor-near-2/delimiter-commentBlock-near-2/blank/doc@trailing-ff",
@@ -164,11 +164,11 @@
       "pair/block-title-near-1/delimiter-commentBlock-near-2/adjacent/item@trailing-ff",
       "pair/delimiter-example-near-0/delimiter-commentBlock-near-2/adjacent/doc@trailing-ff"
     ],
-    "sha256": "1f4e994e54f543ff4ae851139376081798fadd0e78df26a431865973d505d669",
+    "sha256": "1dc8e4b0cdfb419e5fe700353673dd933a77f516476702583273a9221e758624",
     "issue": "UNTRIAGED"
   },
   "pair/trailing-ff/idempotency+fidelity": {
-    "count": 154,
+    "count": 150,
     "examples": [
       "pair/block-anchor-near-1/attribute-entry/blank/doc@trailing-ff",
       "pair/block-anchor-near-1/block-macro/blank/doc@trailing-ff",
@@ -176,11 +176,11 @@
       "pair/block-anchor-near-1/block-title/blank/doc@trailing-ff",
       "pair/block-anchor-near-1/callout-near-1/blank/doc@trailing-ff"
     ],
-    "sha256": "e63de28b2d1cd6a6b37fe88ae927dc98a24f40b2247eef9a45f5bf97056b3d38",
+    "sha256": "20fe0e3051e862b7e2de62b1172dcba2a39e68bd773396587914f3e5fd9e8bb0",
     "issue": "UNTRIAGED"
   },
   "pair/trailing-space-first-line/fidelity": {
-    "count": 142,
+    "count": 146,
     "examples": [
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/doc@trailing-space-first-line",
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/item@trailing-space-first-line",
@@ -188,11 +188,11 @@
       "pair/admonition-label-near-1/delimiter-openBlock-near-2/adjacent/item@trailing-space-first-line",
       "pair/admonition-label/delimiter-openBlock-near-2/adjacent/doc@trailing-space-first-line"
     ],
-    "sha256": "4319270273e89bd12286a8c7bb91d0faa2ed457a482064da78b10a153d89bdd4",
+    "sha256": "012bfb36ec584a417fa6da7a29724d06cba015977aa86931c6e9492003e283f6",
     "issue": "UNTRIAGED"
   },
   "pair/trailing-space-first-line/idempotency": {
-    "count": 10,
+    "count": 8,
     "examples": [
       "pair/block-anchor-near-1/delimiter-commentBlock-near-2/blank/doc@trailing-space-first-line",
       "pair/block-anchor-near-2/delimiter-commentBlock-near-2/blank/doc@trailing-space-first-line",
@@ -200,11 +200,11 @@
       "pair/block-title-near-1/delimiter-commentBlock-near-2/adjacent/item@trailing-space-first-line",
       "pair/delimiter-example-near-0/delimiter-commentBlock-near-2/adjacent/doc@trailing-space-first-line"
     ],
-    "sha256": "17a90509c5b016c7495526bbee8b30c97a8b0d332b78dafa2d7d9a149ead3cb5",
+    "sha256": "0df7cdcad2fd304542bea312d292b20f13ae6a3a5ad6e85d426627ec22518643",
     "issue": "UNTRIAGED"
   },
   "pair/trailing-space-first-line/idempotency+fidelity": {
-    "count": 154,
+    "count": 150,
     "examples": [
       "pair/block-anchor-near-1/attribute-entry/blank/doc@trailing-space-first-line",
       "pair/block-anchor-near-1/block-macro/blank/doc@trailing-space-first-line",
@@ -212,11 +212,11 @@
       "pair/block-anchor-near-1/block-title/blank/doc@trailing-space-first-line",
       "pair/block-anchor-near-1/callout-near-1/blank/doc@trailing-space-first-line"
     ],
-    "sha256": "6ade03905c5a218001333b4508fb9d510338b2d8b1cb4be236c92e18d5a07e39",
+    "sha256": "28742b72699f3f1539959ea511b00c1b49ab62d46708a9c44e9ddaa845a92f62",
     "issue": "UNTRIAGED"
   },
   "pair/trailing-space/fidelity": {
-    "count": 142,
+    "count": 146,
     "examples": [
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/doc@trailing-space",
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/item@trailing-space",
@@ -224,11 +224,11 @@
       "pair/admonition-label-near-1/delimiter-openBlock-near-2/adjacent/item@trailing-space",
       "pair/admonition-label/delimiter-openBlock-near-2/adjacent/doc@trailing-space"
     ],
-    "sha256": "99c11dddddfc51cb77d8f0e9a2414913ebf3af46401e78378fade6ceefe3bc3e",
+    "sha256": "72672e951802e65772a50ed3edebcf06a4bfee827072e92839f5ab36419b4f37",
     "issue": "UNTRIAGED"
   },
   "pair/trailing-space/idempotency": {
-    "count": 10,
+    "count": 8,
     "examples": [
       "pair/block-anchor-near-1/delimiter-commentBlock-near-2/blank/doc@trailing-space",
       "pair/block-anchor-near-2/delimiter-commentBlock-near-2/blank/doc@trailing-space",
@@ -236,11 +236,11 @@
       "pair/block-title-near-1/delimiter-commentBlock-near-2/adjacent/item@trailing-space",
       "pair/delimiter-example-near-0/delimiter-commentBlock-near-2/adjacent/doc@trailing-space"
     ],
-    "sha256": "624e756a2f73e742c2e552590acd3d8d0b02094834477a254d25c93bb4be5382",
+    "sha256": "67c642cb00ee1e7c8656820c6044899537479d865d151036afbae5bf58b7da78",
     "issue": "UNTRIAGED"
   },
   "pair/trailing-space/idempotency+fidelity": {
-    "count": 154,
+    "count": 150,
     "examples": [
       "pair/block-anchor-near-1/attribute-entry/blank/doc@trailing-space",
       "pair/block-anchor-near-1/block-macro/blank/doc@trailing-space",
@@ -248,11 +248,11 @@
       "pair/block-anchor-near-1/block-title/blank/doc@trailing-space",
       "pair/block-anchor-near-1/callout-near-1/blank/doc@trailing-space"
     ],
-    "sha256": "9345d3632dabeb78837c9ca362eb0725690392e6e28aee1b41466523256b6e5a",
+    "sha256": "9a14a0277a3445d5fb55eae0ff3bcd15371386c5818a366e4be23e42ab1c049e",
     "issue": "UNTRIAGED"
   },
   "pair/trailing-tab/fidelity": {
-    "count": 142,
+    "count": 146,
     "examples": [
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/doc@trailing-tab",
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/item@trailing-tab",
@@ -260,11 +260,11 @@
       "pair/admonition-label-near-1/delimiter-openBlock-near-2/adjacent/item@trailing-tab",
       "pair/admonition-label/delimiter-openBlock-near-2/adjacent/doc@trailing-tab"
     ],
-    "sha256": "94938b5212f8ebfd16f9d77001474ba9f2ca576c2abc9e61ecdc15e2f71d0fa5",
+    "sha256": "fadc098917240852346ed3dfa1bcd73ef8db4604f8a6ec708a4f584d995828b7",
     "issue": "UNTRIAGED"
   },
   "pair/trailing-tab/idempotency": {
-    "count": 10,
+    "count": 8,
     "examples": [
       "pair/block-anchor-near-1/delimiter-commentBlock-near-2/blank/doc@trailing-tab",
       "pair/block-anchor-near-2/delimiter-commentBlock-near-2/blank/doc@trailing-tab",
@@ -272,11 +272,11 @@
       "pair/block-title-near-1/delimiter-commentBlock-near-2/adjacent/item@trailing-tab",
       "pair/delimiter-example-near-0/delimiter-commentBlock-near-2/adjacent/doc@trailing-tab"
     ],
-    "sha256": "ded99c060165bb820b96bbfbf9f36d07264866d67d4d4cc6d4d0eba1bb5e92bd",
+    "sha256": "bf9a0b9c55a06fde5c434770d270c336343b2baf638d6e080ee255100c4121cc",
     "issue": "UNTRIAGED"
   },
   "pair/trailing-tab/idempotency+fidelity": {
-    "count": 154,
+    "count": 150,
     "examples": [
       "pair/block-anchor-near-1/attribute-entry/blank/doc@trailing-tab",
       "pair/block-anchor-near-1/block-macro/blank/doc@trailing-tab",
@@ -284,11 +284,11 @@
       "pair/block-anchor-near-1/block-title/blank/doc@trailing-tab",
       "pair/block-anchor-near-1/callout-near-1/blank/doc@trailing-tab"
     ],
-    "sha256": "2aeb23fc491d4e10612741c6b56ea0ea1522e69b8fd142fa5633c676eb4df9ee",
+    "sha256": "1d6bd1588beea0be101bee30cd64fa84e85715b3a41d60b5169acdab997288c1",
     "issue": "UNTRIAGED"
   },
   "pair/trailing-vt/fidelity": {
-    "count": 142,
+    "count": 146,
     "examples": [
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/doc@trailing-vt",
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/item@trailing-vt",
@@ -296,11 +296,11 @@
       "pair/admonition-label-near-1/delimiter-openBlock-near-2/adjacent/item@trailing-vt",
       "pair/admonition-label/delimiter-openBlock-near-2/adjacent/doc@trailing-vt"
     ],
-    "sha256": "52022d833a9769a9b3a8b9404ba4a7d95affce020af5fe020d0f9d5f16c3ddeb",
+    "sha256": "068d8e982260e07409f775d2add6bf6b72e483bb76ff2161d0fbb206b4c4b7cc",
     "issue": "UNTRIAGED"
   },
   "pair/trailing-vt/idempotency": {
-    "count": 10,
+    "count": 8,
     "examples": [
       "pair/block-anchor-near-1/delimiter-commentBlock-near-2/blank/doc@trailing-vt",
       "pair/block-anchor-near-2/delimiter-commentBlock-near-2/blank/doc@trailing-vt",
@@ -308,11 +308,11 @@
       "pair/block-title-near-1/delimiter-commentBlock-near-2/adjacent/item@trailing-vt",
       "pair/delimiter-example-near-0/delimiter-commentBlock-near-2/adjacent/doc@trailing-vt"
     ],
-    "sha256": "54d224dc1f0a3b3209eb2dbf8fb28ad706bc4c1a8da25aa9a47dcc49aca7805b",
+    "sha256": "4baa432adf365107c5bcc4505bfef81b092084f2c6d76e5c17048f5a537ef65c",
     "issue": "UNTRIAGED"
   },
   "pair/trailing-vt/idempotency+fidelity": {
-    "count": 154,
+    "count": 150,
     "examples": [
       "pair/block-anchor-near-1/attribute-entry/blank/doc@trailing-vt",
       "pair/block-anchor-near-1/block-macro/blank/doc@trailing-vt",
@@ -320,7 +320,7 @@
       "pair/block-anchor-near-1/block-title/blank/doc@trailing-vt",
       "pair/block-anchor-near-1/callout-near-1/blank/doc@trailing-vt"
     ],
-    "sha256": "79d3b0e73e47aec5191ca0d2ffcaad8164076f109bdec5f2956794fef0f22809",
+    "sha256": "086d9cb6e4affca28a6ba78db18aac6ae06423e32ad3a0721ec16addcb4e67b2",
     "issue": "UNTRIAGED"
   }
 }
