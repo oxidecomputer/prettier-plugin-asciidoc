@@ -1327,6 +1327,33 @@ export interface ListItemNode extends Node, ItemBody {
    */
   markerSpelling: string;
   /**
+   * The whitespace between the start of the marker's line and the
+   * marker itself, verbatim - the `[ \t]*` a list rx opens with
+   * (`UnorderedListRx`, `OrderedListRx`, rx.rb l.294 and l.300), as
+   * the classifier matched it. `""` for a marker at column 0, which
+   * is most of them, and for every callout: `CalloutListRx` allows no
+   * leading whitespace at all.
+   *
+   * STRUCTURE, not decoration, which is why it travels instead of
+   * being normalized away. Under a live `+` an indented marker line
+   * matches `LiteralParagraphRx` before anything looks for a marker
+   * (parser.rb l.1488), so the item slurps it AND every line behind
+   * it up to the next blank (`read_lines_until break_on_blank_lines,
+   * break_on_list_continuation`, l.1495). `within_nested_list` is not
+   * raised, the sibling marker underneath never reaches
+   * `is_sibling_list_item?` (l.1430), and the list `next_block` reads
+   * out of the slurped run takes that line as a CHILD. Flush left the
+   * same marker takes the arm below it (l.1502-04) and the sibling
+   * ends the item instead. So `* a` / `+` / `␠␠** z` / `* a` nests the last
+   * item under `z`, while de-indenting it makes that item a sibling.
+   *
+   * The BYTES, not a width: a tab and two spaces are both "indented"
+   * to `LiteralParagraphRx`, but they are not the same line, and a
+   * width would have the printer choose a respelling nothing asked
+   * for.
+   */
+  markerIndent: string;
+  /**
    * Checkbox state for checklist items. `undefined` for normal items,
    * `"checked"` for `[x]` or `[*]`, `"unchecked"` for `[ ]`. Only
    * meaningful on unordered list items.

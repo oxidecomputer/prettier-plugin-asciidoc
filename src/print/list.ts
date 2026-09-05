@@ -418,9 +418,15 @@ export function printListItem(
   // forbid. The assertion states the boundary instead of hiding it.
   // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- an item's parent is its list by construction; narrowing here would add an unreachable branch with a silent wrong-marker degrade
   const parentList = path.getParentNode() as ListNode | undefined;
-  const marker = buildMarker(node, parentList);
+  // The marker's own leading whitespace goes back in front of it.
+  // Written rather than normalized to column 0 because it is what
+  // decides whether the line UNDER this item reads as its sibling or
+  // as its child (see ListItemNode.markerIndent), and it counts
+  // toward the continuation indent the way the marker does - the
+  // item's text still starts one column past the marker.
+  const indentedMarker = node.markerIndent + buildMarker(node, parentList);
   const checkboxPrefix = formatCheckbox(node.checkbox);
-  const markerWidth = marker.length + MARKER_OFFSET;
+  const markerWidth = indentedMarker.length + MARKER_OFFSET;
   // The width of the prefix the printer just wrote — "" for no
   // checkbox, `[x] `/`[ ] ` otherwise. It used to be the parser's
   // CHECKBOX_PREFIX_LEN, which made the printer reach into the
@@ -435,7 +441,7 @@ export function printListItem(
   // may not push leading metadata onto the first rest line.
   const guard = hazard(node);
   const item: Doc[] = [
-    marker,
+    indentedMarker,
     " ",
     checkboxPrefix,
     ...blockBody(

@@ -80,6 +80,40 @@ export interface SourceLine {
    * arbitrates.
    */
   readonly continuationTag?: "marker" | "erased";
+  /**
+   * Parse-internal: a LITERAL PARAGRAPH's slurp took the line
+   * (`read_lines_until preserve_last_line, break_on_blank_lines,
+   * break_on_list_continuation`, parser.rb l.1495 and l.1546) while
+   * `within_nested_list` was still DOWN.
+   *
+   * The three arms that RECOGNIZE a marker all raise that flag
+   * (l.1504, l.1532 and l.1563), so a marker line reaches the buffer
+   * with it still down only through an arm that never looked. Four
+   * arms buffer without raising it. Three of them cannot be holding a
+   * marker line: a delimited block's body arrives whole behind its
+   * delimiter (l.1455-61), block metadata under a live `+` is gated
+   * on the shapes a title, an attribute line or an attribute entry
+   * spell (l.1499-1501), and the detached arm buffers the `+` it
+   * matched (l.1522-24). The fourth, the dlist greedy arm
+   * (l.1551-56), CAN: `t::` / blank / `␠␠** z` puts the marker line
+   * in the buffer untagged. That path is outside this change and
+   * tracked as issue #178.
+   *
+   * The flag decides the fate of the next `+` the SAME item reads: up,
+   * the mark is kept for the nested list's own scan; down, it is
+   * blanked in place (l.1412-14, l.1439). It only ever goes up, so a
+   * slurp running under one an earlier line already raised leaves the
+   * `+` alone and tags nothing. Where the tag IS written, a `+`
+   * printed inside the list those marker lines opened re-reads ERASED
+   * rather than popped, and the item that popped it may not write it
+   * back ({@link ListItemNode.trailingContinuation}).
+   *
+   * Like {@link SourceLine.continuationTag} this exists only on COPIES
+   * inside item buffers: `splitLines` never writes it, and the scan
+   * that reads a nested list out of an enclosing item's buffer is the
+   * one that sees it.
+   */
+  readonly slurped?: true;
 }
 
 /**

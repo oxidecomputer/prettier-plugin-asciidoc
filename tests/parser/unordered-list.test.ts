@@ -293,3 +293,32 @@ describe("continuation line inline node positions", () => {
     expect(start.column).toBe(3);
   });
 });
+
+// The classifier already matched the `[ \t]*` a list rx opens with,
+// so the item carries those bytes rather than a width or a depth
+// (`ListItemNode.markerIndent`). It is what decides whether the line
+// under an indented marker is read as that marker's sibling or as its
+// child, so the spelling has to survive to the printer.
+describe("an item records the bytes its marker is indented by", () => {
+  test.each([
+    ["a flush-left marker records nothing", "* a\n", [""]],
+    ["a nested marker records its spaces", "* a\n  ** z\n", ["", "  "]],
+    ["a wider indent records all of it", "* a\n    ** z\n", ["", "    "]],
+    ["a tab records the tab", "* a\n\t** z\n", ["", "\t"]],
+    ["a top-level list records its own", "  * a\n  * b\n", ["  ", "  "]],
+  ])("%s", (_name, input, expected) => {
+    const indents: string[] = [];
+    const walk = (list: ReturnType<typeof firstList>): void => {
+      for (const item of list.children) {
+        indents.push(item.markerIndent);
+        for (const { block } of item.blocks) {
+          if (block.type === "list") {
+            walk(block);
+          }
+        }
+      }
+    };
+    walk(firstList(parse(input).children));
+    expect(indents).toEqual(expected);
+  });
+});

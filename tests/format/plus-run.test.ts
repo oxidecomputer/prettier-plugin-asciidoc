@@ -568,21 +568,74 @@ describe("the fold facts and the new-list marker keep their answers", () => {
 // Under the text test every row printed its two nested markers with
 // nothing between them - the `+` the author wrote there was dropped.
 // Under Ruby's own test the frozen marker survives. Both spellings render
-// what the source renders and both are fixed points, so the ORACLE
-// does not choose between them; what the identity test buys is one
-// answer to "is this cell a continuation marker" instead of two
-// inside a single scan.
+// what the source renders, so the ORACLE does not choose between them;
+// what the identity test buys is one answer to "is this cell a
+// continuation marker" instead of two inside a single scan.
+//
+// The BYTE between the two markers is gone from the first five
+// expectations, and the indent is what took it. The opening marker
+// keeps the indent the author wrote (`ListItemNode.markerIndent`), so
+// on re-read the slurp above still runs, nothing raises
+// `within_nested_list`, and a `+` printed between the markers is
+// blanked in place rather than popped - a spelling that survives one
+// format and not the next. A popped `+` renders nothing, so the item
+// withholds it and the rows are fixed points again
+// (`SourceLine.slurped`).
+//
+// The last three rows are the CONTROLS, and each one raises
+// `within_nested_list` before the slurp so that l.1439 keeps the `+`
+// and every byte stays: an indented marker offset by blank lines is
+// buffered as a marker (parser.rb l.1530-32) rather than slurped, and
+// a flush-left marker ABOVE the indented one raises the flag from the
+// arm at l.1502-04. The flag only ever goes up, so a slurp that runs
+// under one already raised tags nothing - the rows either side of
+// this line are what tell the narrow rule from a rule that keyed on
+// the indent alone.
 describe("an erased + is still a marker when the next line reads it", () => {
-  const nested = "* a\n+\n** z\n+\n** z\n";
   test.each([
-    ["adjacent markers", "* a\n+\n  ** z\n+\n+\n  ** z\n", nested],
-    ["a blank between them", "* a\n+\n  ** z\n+\n\n  ** z\n", nested],
-    ["a flush-left second marker", "* a\n+\n  ** z\n+\n+\n** z\n", nested],
-    ["flush left, a blank between", "* a\n+\n  ** z\n+\n\n** z\n", nested],
+    [
+      "adjacent markers",
+      "* a\n+\n  ** z\n+\n+\n  ** z\n",
+      "* a\n+\n  ** z\n  ** z\n",
+    ],
+    [
+      "a blank between them",
+      "* a\n+\n  ** z\n+\n\n  ** z\n",
+      "* a\n+\n  ** z\n  ** z\n",
+    ],
+    [
+      "a flush-left second marker",
+      "* a\n+\n  ** z\n+\n+\n** z\n",
+      "* a\n+\n  ** z\n** z\n",
+    ],
+    [
+      "flush left, a blank between",
+      "* a\n+\n  ** z\n+\n\n** z\n",
+      "* a\n+\n  ** z\n** z\n",
+    ],
     [
       "an ordered pair",
       ". a\n+\n  .. z\n+\n+\n.. z\n",
-      ". a\n+\n.. z\n+\n.. z\n",
+      ". a\n+\n  .. z\n.. z\n",
+    ],
+    [
+      "an indented marker offset by blanks keeps the pair",
+      "* a\n+\n\n\n  ** z\n+\n+\n",
+      "* a\n+\n\n\n  ** z\n+\n+\n",
+    ],
+    // Red before the tag was narrowed to the flag's own state: both
+    // of these printed the slurped list with nothing between its
+    // markers, exactly as the rows above, because the rule keyed on
+    // the indent instead of on what the indent DOES.
+    [
+      "a flush-left marker above raises the flag first",
+      "* a\n** b\n+\n  ** z\n+\n+\n  ** z\n",
+      "* a\n** b\n+\n  ** z\n+\n  ** z\n",
+    ],
+    [
+      "and it keeps a tail pair too",
+      "* a\n** b\n+\n  ** z\n+\n+\n",
+      "* a\n** b\n+\n  ** z\n+\n+\n",
     ],
   ])("%s", async (_name, input, expected) => {
     await expectFormatted(input, expected);

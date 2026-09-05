@@ -83,6 +83,12 @@ export interface ListItemInput extends ItemBodyInput {
    * the item's POSITION.
    */
   readonly markerSpelling: string;
+  /**
+   * The whitespace the marker line opens with, verbatim - the indent
+   * the Fragment beside it excludes (see
+   * {@link ListItemNode.markerIndent}).
+   */
+  readonly markerIndent: string;
   /** Which list kind the marker opened. */
   readonly variant: ListNode["variant"];
   /**
@@ -236,6 +242,7 @@ export function buildListItem(
   return {
     type: "listItem",
     markerSpelling: input.markerSpelling,
+    markerIndent: input.markerIndent,
     checkbox,
     calloutNumber: input.calloutNumber,
     text,

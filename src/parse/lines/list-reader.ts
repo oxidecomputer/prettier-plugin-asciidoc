@@ -1123,6 +1123,9 @@ class ExtentScan {
    * stopping line is left unread for whoever comes next.
    */
   private slurpLiteral(): void {
+    // Read ONCE: nothing in this loop recognizes a marker, so
+    // `within_nested_list` cannot move while the slurp runs.
+    const nested = this.withinNestedList;
     while (this.index < this.lines.length) {
       const line = this.lines[this.index];
       if (line.text === "" || isContinuationLine(line.text)) {
@@ -1131,7 +1134,14 @@ class ExtentScan {
       if (this.rule.trait.kind === "dlist" && this.endsTheItem(line.text)) {
         return;
       }
-      this.buffer.push({ current: line });
+      // The buffered copy carries the fact that a slurp took the line
+      // while `within_nested_list` was still DOWN - the state that
+      // leaves the item's next `+` free to be blanked in place
+      // (parser.rb l.1439). Under a flag an earlier line already
+      // raised the tag is not written: the mark is kept for the
+      // nested list's own scan there and a printed `+` pops again
+      // (SourceLine.slurped).
+      this.buffer.push({ current: nested ? line : { ...line, slurped: true } });
       this.index += 1;
     }
   }

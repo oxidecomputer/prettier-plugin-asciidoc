@@ -240,12 +240,13 @@ describe("what an item attaches", () => {
     await expectStable(input);
   });
 
-  // A nested list's own markers are printed at the item's column, the
-  // one spelling this file does not replay - and the one a marker
-  // item's blocks already have (src/print/list.ts). Render-equal:
-  // Asciidoctor nests by marker, never by indent.
-  test("a ulist inside a description is printed at column 0", async () => {
-    await expectStable("t:: d\n+\n  * one\n", "t:: d\n+\n* one\n");
+  // A nested list's markers print at the column the author wrote them
+  // at, the same as a marker item's blocks (src/print/list.ts). Under
+  // a `+` the indent is not decoration: it decides whether the line
+  // below the marker reads as that marker's sibling or as its child
+  // (`ListItemNode.markerIndent`), so it is replayed here too.
+  test("a ulist inside a description keeps its indent", async () => {
+    await expectStable("t:: d\n+\n  * one\n");
   });
 
   // The enclosing `::` list's sibling pattern would match the JOINED

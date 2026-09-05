@@ -123,6 +123,12 @@ export function listItemNode(
     {
       marker: fragmentOfLine(markerLine, marker.indent, marker.markerEnd),
       markerSpelling: marker.spelling,
+      // The bytes the Fragment above skips. The classifier already
+      // measured them, so this is a slice of the line in hand rather
+      // than a second match, and the printer writes them back in
+      // front of the marker - see ListItemNode.markerIndent for why
+      // the indent decides structure.
+      markerIndent: markerLine.raw.slice(0, marker.indent),
       variant: marker.variant,
       // The classifier captured the number when it matched the
       // marker; only a callout has one.
@@ -130,7 +136,19 @@ export function listItemNode(
         marker.variant === "callout" ? marker.calloutNumber : undefined,
       text,
       blocks: paired,
-      trailingContinuation: shape.trailingContinuation,
+      // The scan's answer, minus the one boundary it cannot see: an
+      // item whose MARKER LINE an enclosing scan took into a LITERAL
+      // PARAGRAPH's slurp stands inside a run that left
+      // `within_nested_list` down, so a `+` printed at this item's end
+      // is blanked in place on re-read rather than popped - that
+      // slurp is what `SourceLine.slurped` names. Writing the byte
+      // there costs the output its fixed point - it survives one
+      // format and not the next - and a popped `+` renders nothing,
+      // so it is withheld. Conjoined here for the reason
+      // `detachedTail` below is: the question is about the marker
+      // line, which the scan never reads.
+      trailingContinuation:
+        shape.trailingContinuation && markerLine.slurped !== true,
       detachedTail: shape.erasedTailContinuation && endsInPlusParagraph(blocks),
       activeTail: shape.activeTail,
       everyTextLineIndented: everyTextLineIndented(

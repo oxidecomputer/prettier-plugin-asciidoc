@@ -339,7 +339,7 @@
     },
     {
       "file": "src/parse/lines/list-item-node.ts",
-      "what": "list-item-node.ts:130 `marker.variant === \"callout\"` -> `true` in the calloutNumber ternary (the ternary #56 moved out of list-reader.ts:222 unchanged)",
+      "what": "list-item-node.ts:136 `marker.variant === \"callout\"` -> `true` in the calloutNumber ternary (the ternary #56 moved out of list-reader.ts:222 unchanged)",
       "formerly": ["list-reader.ts:222"],
       "class": "never",
       "reason": "EQUIVALENT. `parseListMarker` writes `calloutNumber` on the callout arm and nowhere else, so on an ordered or unordered marker `marker.calloutNumber` reads `undefined` - the very value the else arm supplies"
@@ -413,7 +413,7 @@
     },
     {
       "file": "src/print/list.ts",
-      "what": "list.ts:537 `gap.includes(\"+\")` -> `gap.includes(\"\")`",
+      "what": "list.ts:543 `gap.includes(\"+\")` -> `gap.includes(\"\")`",
       "class": "when",
       "reason": "The blank-run sweep class. The arm fires only when a nested list SHARES its parent's marker, and probing the reader for that shape shows it always arrives with an empty gap - a blank or a `+` in front of a same-marker line reads back as a SIBLING boundary (`* a\\n\\n  lit\\n[[anc]]\\n+\\n* a\\n` gives two items). With `gap === []` both spellings return `[]`. TRIGGER - the render-divergent sweep members are the distinguishing shapes; a byte+idempotence pin already guards the drop branch"
     },

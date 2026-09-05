@@ -164,6 +164,21 @@ const XREF_TEXT_TRIM_FAMILY = "xref-text-trim";
  */
 const GAP_COLLAPSE_FAMILY = "gap-collapse";
 /**
+ * A list marker keeps the indent the author wrote it at
+ * (`ListItemNode.markerIndent`, src/ast.ts), and an item whose marker
+ * line a literal paragraph's slurp took while `within_nested_list`
+ * was down no longer writes its popped `+` back - with the indent
+ * standing, that `+` re-reads erased (parser.rb l.1439) rather than
+ * popped. Formatted-only, and both halves of the byte-level claim
+ * rest on the same fact: neither `markerIndent` nor
+ * `trailingContinuation` is one of the seven fields
+ * `normalizeOneItem` keeps, so both are dropped from BOTH sides of
+ * the comparison and every id moves bytes with a normalized tree that
+ * is identical hash for hash. NOT exported: no grid row cites it, and
+ * knip holds dead exports at 0.
+ */
+const MARKER_INDENT_KEPT_FAMILY = "marker-indent-kept";
+/**
  * The erased tail behind a frozen `+` paragraph is printed back (one
  * blank and a `+` — the shield that absorbs the re-read's single
  * tagged pop, parser.rb l.1576/l.1580-82), and a list whose tail
@@ -568,7 +583,8 @@ const TABLE_UNREAD_ATTRLIST_FAMILY = "table-unread-attrlist";
  * identity-fixture id. The formatted-only subset is exactly
  * author-plus, pseudo-run-fold, no-op-continuation,
  * attribute-entry-spelling, attrlist-spacing, xref-text-trim,
- * gap-collapse, plus-run-tail-kept, trailing-continuation-kept,
+ * gap-collapse, marker-indent-kept, plus-run-tail-kept,
+ * trailing-continuation-kept,
  * continuation-keeps-line, table-delimiter-length (which respells a
  * table's two delimiter lines, a length neither tree records),
  * block-delimiter-length (the same respelling on a delimited leaf
@@ -640,6 +656,7 @@ export const LEDGER_FAMILIES: FamilySets = {
     ATTRLIST_SPACING_FAMILY,
     XREF_TEXT_TRIM_FAMILY,
     GAP_COLLAPSE_FAMILY,
+    MARKER_INDENT_KEPT_FAMILY,
     PLUS_RUN_TAIL_KEPT_FAMILY,
     PLUS_RUN_PARAGRAPH_FAMILY,
     BOM_DOCUMENT_HEAD_FAMILY,
@@ -670,6 +687,7 @@ export const LEDGER_FAMILIES: FamilySets = {
     ATTRLIST_SPACING_FAMILY,
     XREF_TEXT_TRIM_FAMILY,
     GAP_COLLAPSE_FAMILY,
+    MARKER_INDENT_KEPT_FAMILY,
     PLUS_RUN_TAIL_KEPT_FAMILY,
     CONTINUATION_KEEPS_LINE_FAMILY,
     TABLE_DELIMITER_LENGTH_FAMILY,
