@@ -4,26 +4,36 @@
  * same two questions for a span.
  *
  * Four answers live here. Which nodes stand on either side of it and
- * whether they share the block's packing; what a node of nothing but
- * whitespace leaves behind; the join its LEADING whitespace asks for;
- * and what has to happen to a trailing `+` so it never lands bare at
- * the end of an output line. All four are read by `appendText`
- * (inline.ts) at the moment it turns one text node into atoms, and all
- * four are facts about the node's NEIGHBOURS rather than about its
- * bytes, which is why they are one module and not four.
+ * whether they share the block's packing; the words it splits into,
+ * where a neighbour is what makes one of its runs load-bearing; the
+ * join its LEADING whitespace asks for; and what has to happen to a
+ * trailing `+` so it never lands bare at the end of an output line.
+ * All four are read by `appendText` (inline.ts) at the moment it turns
+ * one text node into atoms, and all four are facts about the node's
+ * NEIGHBOURS rather than about its bytes, which is why they are one
+ * module and not four.
  *
  * Split out of inline.ts, whose `max-lines` ceiling the edge rules
  * issue #147 added left no room in.
  */
 import type { InlineNode } from "../ast.js";
-import { atomOf, isBlockSyntaxAtLineStart, type Atom } from "./reflow.js";
+import {
+  atomOf,
+  isBlockSyntaxAtLineStart,
+  splitWords,
+  type Atom,
+} from "./reflow.js";
 import {
   strongerBoundary,
   withBoundary,
   type Boundary,
   type Cursor,
 } from "./atom-join.js";
-import { keptWholeRun, type Neighbours } from "./whitespace-fold.js";
+import {
+  fuseRunsBesideReferences,
+  keptWholeRun,
+  type Neighbours,
+} from "./whitespace-fold.js";
 
 // Siblings that do NOT share the enclosing block's packing: a raw
 // line forces a break on both sides. The node before one still ENDS
@@ -77,6 +87,25 @@ export function neighboursOf(cursor: Cursor): Neighbours {
     inFront: precedingSibling(cursor),
     behind: followingSibling(cursor),
   };
+}
+
+/**
+ * A text node's words, as the printer will write them.
+ *
+ * `splitWords` (src/print/reflow.ts) is asked about ONE value and
+ * cannot see the tree, so where a neighbour completes a run's meaning
+ * the split it returns is amended here - the one place that holds both
+ * the value and the nodes beside it.
+ * @param value - the node's raw source text.
+ * @param neighbours - the nodes on either side of it.
+ * @returns its words, in order, each carrying any run that must ride
+ *   inside it.
+ */
+export function wordsOfText(
+  value: string,
+  neighbours: Neighbours,
+): readonly string[] {
+  return fuseRunsBesideReferences(value, splitWords(value), neighbours);
 }
 
 /**

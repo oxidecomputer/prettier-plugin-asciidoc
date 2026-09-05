@@ -21,7 +21,10 @@
  * that IS a whole text node ({@link keptWholeRun}).
  */
 import type { InlineNode } from "../ast.js";
-import { ASCII_WHITESPACE } from "../parse/line-shapes.js";
+import {
+  ASCII_WHITESPACE,
+  DLIST_SEPARATOR_WORD,
+} from "../parse/line-shapes.js";
 
 // The em-dash replacement row, `(?: |\n|^|\\)--(?: |\n|$)`
 // (asciidoctor.rb l.498). Of what whitespace can spell, BOTH boundary
@@ -37,6 +40,16 @@ const EM_DASH = "--";
 // accepts. A word ENDING this way carries its own left boundary, so
 // only the run after it decides the match.
 const ESCAPED_EM_DASH = String.raw`\--`;
+
+// HALF the dashes. Where a lone dash stands FLUSH against an attribute
+// reference the other half can come from the reference's value, and
+// then the pattern is spelled by two things the tree holds apart:
+// `-{d}` with `:d: -`, or `-{d}-` with an empty `:d:`, both render an
+// em dash where the run beside them permits it. A word of one dash is
+// the only word that can do this, because the row wants the two dashes
+// flanked by boundaries and any other character in the word would
+// stand between the run and them (issue #154).
+const LONE_DASH = "-";
 
 // What the fold writes in a run's place: one space, or the line break
 // the packer puts there instead. The row accepts either, so a run whose
@@ -217,6 +230,64 @@ function edgeRun(value: string, edge: RegExp): string {
 }
 
 /**
+ * Whether the dashes the row reads are spelled ACROSS the node's
+ * trailing edge: the node's LAST word is a lone dash, nothing of the
+ * node stands behind it, and the neighbour there is a reference that
+ * can supply the other dash.
+ *
+ * The run at stake is then the one in FRONT of that dash - the node's
+ * leading edge run where the dash is its only word, and the run
+ * between its last two words otherwise.
+ * @param value - the node's raw source text.
+ * @param words - its words, as `splitWords` produced them.
+ * @param behind - the sibling behind the node.
+ * @returns true when the two spell the pattern between them.
+ */
+function dashesFuseBehind(
+  value: string,
+  words: readonly string[],
+  behind: InlineNode | undefined,
+): boolean {
+  return (
+    words.at(-1) === LONE_DASH &&
+    hidesItsBytes(behind) &&
+    !TRAILING_RUN.test(value)
+  );
+}
+
+/**
+ * The word the row reads beside a run: the author's own word, or the
+ * whole pattern where that word is a lone dash the reference beside it
+ * completes.
+ * @param word - the word the node holds there.
+ * @param fuses - whether it runs into a reference on its far side.
+ * @returns what the row reads there.
+ */
+function rowWord(word: string, fuses: boolean): string {
+  return fuses && word === LONE_DASH ? EM_DASH : word;
+}
+
+/**
+ * The mirror of {@link dashesFuseBehind}, across the node's LEADING
+ * edge.
+ * @param value - the node's raw source text.
+ * @param words - its words, as `splitWords` produced them.
+ * @param inFront - the sibling in front of the node.
+ * @returns true when the two spell the pattern between them.
+ */
+function dashesFuseInFront(
+  value: string,
+  words: readonly string[],
+  inFront: InlineNode | undefined,
+): boolean {
+  return (
+    words.at(0) === LONE_DASH &&
+    hidesItsBytes(inFront) &&
+    !LEADING_RUN.test(value)
+  );
+}
+
+/**
  * The bytes of a text node's LEADING run that the em-dash replacement
  * reads, and that the fold would therefore cost it.
  *
@@ -251,6 +322,10 @@ function edgeRun(value: string, edge: RegExp): string {
  * ATTRIBUTE REFERENCE, whose value is substituted before the
  * replacement pass runs and is not in this tree at all
  * ({@link hidesItsBytes}, issue #149).
+ *
+ * The node's own word at the edge is read through {@link rowWord} for
+ * the same reason: a lone dash flush against a reference is HALF the
+ * pattern, and the row reads the whole of it (issue #154).
  * @param value - the node's raw source text.
  * @param words - its words, as `splitWords` produced them; non-empty.
  * @param gluedInFront - whether the run has anything to ride against:
@@ -279,8 +354,12 @@ export function keptLeadingRun(
     return "";
   }
   const run = edgeRun(value, LEADING_RUN);
+  const behindTheRun = rowWord(
+    words[0],
+    words.length === 1 && dashesFuseBehind(value, words, neighbours.behind),
+  );
   const kept =
-    runOpensEmDash(run, words[0]) ||
+    runOpensEmDash(run, behindTheRun) ||
     (hidesItsBytes(neighbours.inFront) && runClosesEmDash(EM_DASH, run)) ||
     (isEmDashReference(neighbours.inFront) && foldRewritesTheRun(run));
   return kept ? run : "";
@@ -316,8 +395,12 @@ export function keptTrailingRun(
   }
   const [last] = words.slice(-1);
   const run = edgeRun(value, TRAILING_RUN);
+  const inFrontOfTheRun = rowWord(
+    last,
+    words.length === 1 && dashesFuseInFront(value, words, neighbours.inFront),
+  );
   const kept =
-    runClosesEmDash(last, run) ||
+    runClosesEmDash(inFrontOfTheRun, run) ||
     (hidesItsBytes(neighbours.behind) && runOpensEmDash(run, EM_DASH)) ||
     (isEmDashReference(neighbours.behind) && foldRewritesTheRun(run));
   return kept ? run : "";
@@ -360,6 +443,109 @@ export function keptWholeRun(
     (hidesItsBytes(neighbours.behind) && runOpensEmDash(value, EM_DASH)) ||
     (dashesWritten && foldRewritesTheRun(value));
   return kept ? value : "";
+}
+
+// The run standing in front of a value's final dash, and the one
+// standing behind its first. Read off the raw value because
+// `splitWords` returns only the words: the runs it folded are gone by
+// then, and the run this module has to see is one of them.
+const RUN_BEFORE_FINAL_DASH = new RegExp(
+  `(${ASCII_WHITESPACE.source}+)-$`,
+  "v",
+);
+const RUN_AFTER_OPENING_DASH = new RegExp(
+  `^${ASCII_WHITESPACE.source}*-(${ASCII_WHITESPACE.source}+)`,
+  "v",
+);
+
+// The two words a fuse replaces with one, counted from the end of the
+// word list: the dash itself and the word the run separates it from.
+const FUSED_PAIR = -2;
+
+/**
+ * The words with the run in front of a final lone dash riding inside
+ * the word before it.
+ *
+ * Two refusals ride along, both for the reason `runKeepsItsBytes`
+ * (src/print/reflow.ts) states: a run carrying a LINE BREAK cannot
+ * ride inside an atom, and nothing fuses across a description-list
+ * separator word, which the anchored `DLIST_SEPARATOR_WORD` would
+ * stop recognising once it stood inside a longer word.
+ * @param value - the node's raw source text.
+ * @param words - its words, as `splitWords` produced them.
+ * @returns the words, fused where the run is load-bearing.
+ */
+function fuseFinalDash(
+  value: string,
+  words: readonly string[],
+): readonly string[] {
+  const previous = words.at(FUSED_PAIR) ?? "";
+  const run = RUN_BEFORE_FINAL_DASH.exec(value)?.[1] ?? "";
+  const fuses =
+    !run.includes("\n") &&
+    !DLIST_SEPARATOR_WORD.test(previous) &&
+    runOpensEmDash(run, EM_DASH);
+  return fuses
+    ? [...words.slice(0, FUSED_PAIR), `${previous}${run}${LONE_DASH}`]
+    : words;
+}
+
+/**
+ * The mirror of {@link fuseFinalDash}: the run behind an opening lone
+ * dash rides inside the word after it.
+ * @param value - the node's raw source text.
+ * @param words - its words, as `splitWords` produced them.
+ * @returns the words, fused where the run is load-bearing.
+ */
+function fuseOpeningDash(
+  value: string,
+  words: readonly string[],
+): readonly string[] {
+  const next = words.at(1) ?? "";
+  const run = RUN_AFTER_OPENING_DASH.exec(value)?.[1] ?? "";
+  const fuses =
+    !run.includes("\n") &&
+    !DLIST_SEPARATOR_WORD.test(next) &&
+    runClosesEmDash(EM_DASH, run);
+  return fuses ? [`${LONE_DASH}${run}${next}`, ...words.slice(2)] : words;
+}
+
+/**
+ * The node's words, with the run beside a lone dash kept where the
+ * dash spells the row's pattern only because an attribute reference
+ * stands flush against it.
+ *
+ * `splitWords` (src/print/reflow.ts) is asked about ONE value and
+ * decides each run from the two words around it, which is enough
+ * wherever the pattern is spelled in the node's own bytes. It is not
+ * enough where the reference supplies half of it: `a<TAB>-{h} b` with
+ * `:h: -` renders an em dash once the tab folds, and the word the
+ * splitter saw beside the tab was a single dash. So the answer is
+ * amended here, where the neighbours are known, rather than inside a
+ * splitter that has no tree to look at.
+ *
+ * Both ends are asked, because either can be the flush one, and the
+ * two never contend: each fuses the run against a DIFFERENT end of the
+ * word list, and a one-word node has no run between two words at all.
+ * @param value - the node's raw source text.
+ * @param words - its words, as `splitWords` produced them.
+ * @param neighbours - the inline siblings on either side of the node.
+ * @returns the words the printer should write.
+ */
+export function fuseRunsBesideReferences(
+  value: string,
+  words: readonly string[],
+  neighbours: Neighbours,
+): readonly string[] {
+  if (words.length < 2) {
+    return words;
+  }
+  const afterBehind = dashesFuseBehind(value, words, neighbours.behind)
+    ? fuseFinalDash(value, words)
+    : words;
+  return dashesFuseInFront(value, afterBehind, neighbours.inFront)
+    ? fuseOpeningDash(value, afterBehind)
+    : afterBehind;
 }
 
 // The bracket spellings a checklist prefix opens with that survive a

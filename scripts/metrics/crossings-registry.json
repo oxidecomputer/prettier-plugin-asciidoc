@@ -743,6 +743,13 @@
   },
   {
     "file": "src/parse/line-shapes.ts",
+    "symbol": "DLIST_SEPARATOR_WORD",
+    "importer": "src/print/whitespace-fold.ts",
+    "kind": "vocabulary",
+    "reason": "registry vocabulary: the same word reflow may not fuse across, refused again where a run is fused after the split rather than during it"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
     "symbol": "DelimiterKind",
     "importer": "src/parse/lines/classify.ts",
     "kind": "vocabulary",

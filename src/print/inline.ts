@@ -66,6 +66,7 @@ import {
   neighboursOf,
   ridesOnWhatIsWritten,
   trailingPlusPolicy,
+  wordsOfText,
 } from "./text-edges.js";
 
 // Whether a text node's FIRST character is a source separator standing
@@ -267,7 +268,7 @@ function appendText(
   node: TextNode,
 ): Boundary {
   const neighbours = neighboursOf(cursor);
-  const words = splitWords(node.value);
+  const words = wordsOfText(node.value, neighbours);
   // A kept edge run rides inside the atom at its end, so the join
   // there stays the glue it already was and the printer writes nothing
   // of its own between the two nodes.

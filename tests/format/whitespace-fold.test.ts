@@ -363,3 +363,159 @@ describe("a run the fold writes back unchanged keeps no bytes", () => {
     expect(await formatAdoc(output)).toBe(output);
   });
 });
+
+/**
+ * Issue #154: HALF the dashes in the tree, half in a reference.
+ *
+ * The refusal above reads the node beside the run, which covers a
+ * reference standing where the whole pattern would. It does not cover
+ * a reference that FUSES with the author's own bytes to spell it:
+ * `a<TAB>-{h} b` with `:h: -` puts one dash in the text and one in the
+ * value, and the word the splitter saw beside the tab was a single
+ * dash - a word no rule over `--` can recognise.
+ *
+ * Red before the fix, measured: every row in the first group folded
+ * its tab and rendered an em dash the input had not got, where the
+ * input's own render keeps the two dashes literal. The dash beside a
+ * reference now reads as the pattern, and the run against it is kept
+ * exactly where the pattern's own bytes would have kept it.
+ */
+describe("a lone dash flush against a reference reads as the dashes", () => {
+  test.each([
+    // The issue's own three documents: the value supplies the second
+    // dash, an empty value lets two source dashes meet, and the same
+    // pair with the run on the other side.
+    ["the value is the other dash", ":h: -\n\na\t-{h} b\n"],
+    ["an empty value between two dashes", ":e:\n\na\t-{e}- b\n"],
+    ["the run behind the pair", ":e:\n\na -{e}-\tb\n"],
+    ["a run at both ends of the pair", ":e:\n\na\t-{e}-\tb\n"],
+    // The dash is the node's ONLY word, so the run against it is an
+    // EDGE run rather than one between two words of the node.
+    ["a span in front of the dash", ":h: -\n\nx *b*\t-{h} c\n"],
+    ["a span behind the pair", ":e:\n\nx -{e}-\t*b*\n"],
+    // The value spells no dashes at all and the bytes are kept anyway:
+    // the printer does not resolve attribute values, so the refusal
+    // reads the neighbour and stops.
+    ["a value that is not a dash", ":h: zz\n\na\t-{h} b\n"],
+    ["inside a list item", "* a\t-{h} b\n"],
+  ])("%s", async (_name, input) => {
+    await expectByteFaithful(input);
+  });
+});
+
+describe("the dashes a reference cannot complete", () => {
+  // The narrowness. A dash the source spaced away from the reference
+  // cannot fuse with it, a longer word carries characters between the
+  // run and any dashes the value adds, and a description-list
+  // separator is the one word nothing may fuse across (the anchored
+  // DLIST_SEPARATOR_WORD stops recognising it inside a longer word,
+  // and reflow could then pack a live term onto the first line).
+  test.each([
+    [
+      "a space between the dash and the reference",
+      ":h: -\n\na\t- {h} b\n",
+      ":h: -\n\na - {h} b\n",
+    ],
+    [
+      "a dash inside a longer word",
+      ":h: -\n\na\tax-{h} b\n",
+      ":h: -\n\na ax-{h} b\n",
+    ],
+    [
+      "a description-list separator in front of the run",
+      ":h: -\n\nz\n\nx::\t-{h} b\n",
+      ":h: -\n\nz\n\nx:: -{h} b\n",
+    ],
+  ])("%s", async (_name, input, expected) => {
+    const output = await formatAdoc(input);
+    expect(output).toBe(expected);
+    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(output)).toBe(output);
+  });
+});
+
+/**
+ * A load-bearing run the printer CANNOT keep: one carrying a line
+ * break.
+ *
+ * Keeping a run means riding inside the atom beside it, and an atom is
+ * newline-free by construction (src/print/reflow.ts). So every rule in
+ * src/print/whitespace-fold.ts that would otherwise keep a run stops
+ * at a break and lets the fold happen - the module says so at each
+ * site, and these rows are what hold the guards there. Without them a
+ * newline rides into a word and the packer writes it mid-line.
+ *
+ * The last row is the one that COSTS a render, and it costs the same
+ * one on main: the remedy for it is a break the printer HOLDS rather
+ * than bytes inside a word, which is a change to the packer and not to
+ * this module. It is pinned for its BYTES alone, so the guard cannot
+ * be deleted unnoticed.
+ */
+describe("a run carrying a line break folds, guard by guard", () => {
+  test.each([
+    // The node's own EDGE run, read by `edgeRun`.
+    [
+      "an edge run in front of the dashes",
+      ":d: --\n\na  \n-- b\n",
+      ":d: --\n\na -- b\n",
+    ],
+    // A node that is NOTHING but the run, read by `keptWholeRun`.
+    [
+      "a whole node between two references",
+      ":d: -\n\n{d}\t\n{d}\n",
+      ":d: -\n\n{d} {d}\n",
+    ],
+    // The run behind an opening lone dash, read by `fuseOpeningDash`.
+    [
+      "the run behind a fused dash",
+      ":e:\n\na -{e}-\t\nb\n",
+      ":e:\n\na -{e}- b\n",
+    ],
+  ])("%s", async (_name, input, expected) => {
+    const output = await formatAdoc(input);
+    expect(output).toBe(expected);
+    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(output)).toBe(output);
+  });
+
+  // The run in FRONT of a final lone dash, read by `fuseFinalDash`.
+  // Bytes only: the fold arms the row here, and no rule in this module
+  // can refuse it while the run carries the break.
+  test("the run in front of a fused dash", async () => {
+    expect(await formatAdoc(":h: -\n\na\n\t-{h}\n")).toBe(":h: -\n\na -{h}\n");
+  });
+
+  // The one word nothing fuses across, on the side `fuseOpeningDash`
+  // reads. Its mirror is pinned by "a description-list separator in
+  // front of the run" above; this is the other direction, where the
+  // separator stands BEHIND the run and the fused word would hide it
+  // from the anchored `DLIST_SEPARATOR_WORD` just the same.
+  //
+  // The separator has to arrive from a LATER source line for the fold
+  // to be asked about it at all, which is what this row spells. Fusing
+  // it would put `x::` on the first output line, and the paragraph
+  // would come back a DESCRIPTION LIST: measured, the fused spelling
+  // renders `<dt>a - x</dt><dd>y</dd>` where the input renders one
+  // paragraph.
+  test("a description-list separator behind the run", async () => {
+    const input = ":e:\n\na\n{e}-\tx:: y\n";
+    const output = await formatAdoc(input);
+    expect(output).toBe(":e:\n\na {e}-\nx:: y\n");
+    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(output)).toBe(output);
+  });
+
+  // The separator standing on a line the READER already records as a
+  // description list is nobody's fold to make: the term is the reader's
+  // (src/parse/lines/description-list.ts) and the printer writes it
+  // back, so every byte stands whatever this module would have said.
+  // This row held the fold before that reading existed, and it holds
+  // the bytes now.
+  test("a separator the reader records as a term keeps its bytes", async () => {
+    const input = ":e:\n\nz\n\n{e}-\tx::\n";
+    const output = await formatAdoc(input);
+    expect(output).toBe(input);
+    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(output)).toBe(output);
+  });
+});
