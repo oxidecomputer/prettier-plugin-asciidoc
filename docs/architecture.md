@@ -537,6 +537,15 @@ The obligations, each with its name in the literature:
    the review's interaction checks are its critical pairs. The table shrinking
    to empty is completion finishing.
 
+Completion, run deliberately, wants one artifact this codebase does not yet
+have: a _reduction order_ — a well-founded order on spellings that every rule
+strictly decreases. With one, orientation stops being taste ("native beats
+markdown") and termination stops being structural luck: a pair of rules that can
+undo each other is exactly a non-decreasing step, caught by checking the order
+instead of by a second format pass happening to differ. The order is tracked as
+its own issue; until it lands, rule orientation is argued per conversion and
+termination is guarded only indirectly, by the idempotency batteries.
+
 Implication structure: preservation + normalization give idempotence; SN + CR
 give uniqueness within `↔*`; completeness extends uniqueness to all of `≈`.
 Obligations 1 and 5 face the oracle and are enforced by measurement; 2-4 are
