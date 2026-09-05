@@ -17,6 +17,7 @@ import type {
   ParagraphNode,
   VerbatimVariant,
 } from "../../ast.js";
+import { loneAnchorChild } from "../../block-metadata.js";
 import { FIRST_COLUMN, FIRST_LINE } from "../../constants.js";
 import { annotation } from "./delimited.js";
 import { buildFromTokens } from "../inline/inline-node-builder.js";
@@ -110,18 +111,29 @@ function firstWordEndsItsLine(source: string, start: number): boolean {
  * @param tokens - the body's tokens, in source order
  * @param source - the whole document, for the block's own first line
  * @param at - the document's location index
+ * @param blankBelow - whether a blank line stands between this
+ *   paragraph's extent and the next block the reader will produce; it
+ *   reaches the tree only when the body is a lone anchor line, which
+ *   is the whole of `ParagraphNode.blankBelowAnchorLine` (src/ast.ts)
  * @returns the paragraph node
  */
 export function buildParagraph(
   tokens: readonly InlineToken[],
   source: string,
   at: LocationIndex,
+  blankBelow: boolean,
 ): ParagraphNode {
   const position = bodyExtent(tokens, at);
+  const children = buildFromTokens(tokens, at);
   return {
     type: "paragraph",
-    children: buildFromTokens(tokens, at),
+    children,
     firstWordEndsItsLine: firstWordEndsItsLine(source, position.start.offset),
+    // The anchor half of the conjunction is asked of the ONE record
+    // that owns it (loneAnchorChild, src/block-metadata.ts) and never
+    // re-derived here, so the reader cannot record a blank about a
+    // line the printer does not agree is an anchor line.
+    blankBelowAnchorLine: blankBelow && loneAnchorChild(children) !== undefined,
     position,
   };
 }
@@ -196,22 +208,42 @@ export type ParagraphOpening =
     };
 
 /**
+ * The paragraph body {@link buildParagraphNode} builds from - bundled
+ * because a fifth positional parameter would cross the project's
+ * max-params limit. NOT exported (knip's types bucket gates dead
+ * exported types at 0): the caller passes an object literal.
+ */
+interface ParagraphBuildInputs {
+  /** The body's tokens, in source order. */
+  readonly tokens: readonly InlineToken[];
+  /** The whole document, for the block's own first line. */
+  readonly source: string;
+  /** The document's location index. */
+  readonly at: LocationIndex;
+  /**
+   * Whether a blank line stands between this paragraph's extent and
+   * the next block; meaningful only for the "plain" case, since only
+   * `ParagraphNode` carries `blankBelowAnchorLine` (see
+   * {@link buildParagraph}).
+   */
+  readonly blankBelow: boolean;
+}
+
+/**
  * The block a paragraph's tokens become, once the held run has
  * spoken - the three shapes {@link ParagraphOpening} distinguishes,
  * resolved in one place so the reader pushes one node and names no
  * builder of its own.
  * @param opening - what the held run made of this paragraph
- * @param tokens - the body's tokens, in source order
- * @param source - the whole document, for the block's own first line
- * @param at - the document's location index
+ * @param body - the paragraph's tokens, source, location index, and
+ *   the blank-below fact (see {@link ParagraphBuildInputs})
  * @returns the admonition, the verbatim block, or the paragraph
  */
 export function buildParagraphNode(
   opening: ParagraphOpening,
-  tokens: readonly InlineToken[],
-  source: string,
-  at: LocationIndex,
+  body: ParagraphBuildInputs,
 ): BlockNode {
+  const { tokens, source, at, blankBelow } = body;
   switch (opening.kind) {
     case "admonition": {
       return admonitionOver(opening.style, tokens, at);
@@ -220,7 +252,7 @@ export function buildParagraphNode(
       return buildParagraphFormBlock(opening.held, tokens, source, at);
     }
     case "plain": {
-      return buildParagraph(tokens, source, at);
+      return buildParagraph(tokens, source, at, blankBelow);
     }
   }
 }
@@ -397,6 +429,9 @@ export function buildRawLineParagraph(
     // The fragment IS the whole line, so its image is the source slice
     // the question is about; offset 0 is that slice's own start.
     firstWordEndsItsLine: firstWordEndsItsLine(line.image, 0),
+    // A raw line is never an anchor line, so the conjunction is false
+    // by construction here rather than by measuring what follows.
+    blankBelowAnchorLine: false,
     position,
   };
 }

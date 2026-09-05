@@ -273,15 +273,20 @@ describe("the lens still sees the corruptions the printer can make", () => {
   // formatted output re-reads as something else, and every one of
   // them is a ledgered mechanism. If a future widening of the lens
   // silenced one, this file says so before the ledger does.
+  //
+  // #73 had a row here ("[[3-blind-mice]]\n\n ----\n") and no longer
+  // does: a paragraph whose whole line is a `[[...]]` anchor now records
+  // the separation the author wrote under it
+  // (`ParagraphNode.blankBelowAnchorLine`, src/ast.ts) and the printer
+  // writes that separation back, so the document round-trips and the
+  // family is empty in the ledger. A row asserting a breach that no
+  // longer happens would be red, and there is no second document with
+  // the mechanism to put in its place.
   test.each([
     ["a de-indented line becomes a block (#121)", "===\n ----\n"],
     [
       "a join closes a bracket and mints a macro (#124)",
       "image::a.png[\n[+1]\n",
-    ],
-    [
-      "a dropped blank stacks a rejected anchor as metadata (#73)",
-      "[[3-blind-mice]]\n\n ----\n",
     ],
     ["a folded lone + comes back as {plus} (#116)", ". T\n  +\n"],
     [
@@ -369,19 +374,20 @@ describe("the family arms are told apart by what they say", () => {
   // loudly. Each row is the same mechanism as a ledgered twin whose
   // text carries no arrow, and each must be CLAIMED - an allowlist
   // would record the hole instead of closing it.
+  //
+  // All three used to be spelt over the #73 mechanism (a rejected
+  // anchor line above a blank). That mechanism is fixed, so a
+  // document built on it round-trips and asserts nothing; these are
+  // its replacements, one per LIVE family, carrying the arrow in the
+  // same three places - a block title, a fence's language, a block
+  // macro's attrlist.
   test.each([
+    ["a block title carrying an arrow", "* item\n+\n// c\n```\n```\n.a -> b\n"],
     [
-      "a block title carrying an arrow",
-      "[[3-blind-mice]]\n\n.a -> b\n------\n",
+      "a fence language that is an arrow pair",
+      "* a\n+\n// c\n```x -> y\n```\n",
     ],
-    [
-      "a block title that is only an arrow pair",
-      "[[3-blind-mice]]\n\n.x -> y\n",
-    ],
-    [
-      "a block macro whose attrlist holds one",
-      "[[3-blind-mice]]\n\nimage::a.png[a -> b]\n",
-    ],
+    ["a block macro whose attrlist holds one", "image::a.png[a -> b\n[+1]\n"],
   ])("%s is claimed by an arm", async (_name, source) => {
     const outcome = await reparseOutcomeOf(source);
     // The row is a breach at all: a document that round-trips would

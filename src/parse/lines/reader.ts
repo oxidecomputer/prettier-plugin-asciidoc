@@ -96,6 +96,7 @@ import {
   type TextOpen,
 } from "./paragraph-reader.js";
 import {
+  blankSeparatesNextBlock,
   documentBom,
   fragmentOfLine,
   fragmentOfLines,
@@ -264,14 +265,6 @@ class BlockReader {
     return bodyContextIn(this.confinement, this.blanks);
   }
 
-  /**
-   * The next unread line.
-   * @returns the line, or undefined at end of input
-   */
-  private peek(): SourceLine | undefined {
-    return this.lines.at(this.index);
-  }
-
   // ── where a finished block goes ────────────────────────────────────
 
   /**
@@ -374,7 +367,15 @@ class BlockReader {
       admonitionLabelOpensABlock(context, this.blocks.at(-1)),
     );
     const tokens = this.readText(context, text);
-    this.push(buildParagraphNode(opening, tokens, this.source, this.at));
+    const blankBelow = blankSeparatesNextBlock(this.lines, this.index);
+    this.push(
+      buildParagraphNode(opening, {
+        tokens,
+        source: this.source,
+        at: this.at,
+        blankBelow,
+      }),
+    );
   }
 
   /**
@@ -427,7 +428,7 @@ class BlockReader {
    */
   run(): BlockNode[] {
     for (;;) {
-      const line = this.peek();
+      const line = this.lines.at(this.index);
       if (line === undefined) {
         break;
       }
@@ -661,7 +662,8 @@ class BlockReader {
       this.flushMetadata();
       const { tokens, end } = continuationFoldExtent(this.scan, this.index);
       this.resume(end);
-      this.push(buildParagraph(tokens, this.source, this.at));
+      const blankBelow = blankSeparatesNextBlock(this.lines, this.index);
+      this.push(buildParagraph(tokens, this.source, this.at, blankBelow));
       return;
     }
     this.transparentLeaf(buildRawBlockLine(fragmentOfLine(line), this.at));

@@ -171,22 +171,43 @@ function anchorOfLine(
   if (block.type === "blockAnchor") {
     return block;
   }
-  if (block.type !== "paragraph") {
-    return undefined;
-  }
-  const printed = block.children.filter((node) => !printsNothing(node));
+  return block.type === "paragraph"
+    ? loneAnchorChild(block.children)
+    : undefined;
+}
+
+/**
+ * The inline anchor a paragraph body prints as its WHOLE line, or
+ * undefined when the body prints anything else beside it.
+ *
+ * Exported because both ends of the pipeline ask it and neither may
+ * answer it for itself. The printer asks it through
+ * {@link anchorLineShape} to decide what the line it is about to emit
+ * re-reads as; the READER asks it to record
+ * `ParagraphNode.blankBelowAnchorLine` (src/ast.ts), the separation
+ * the author wrote under such a line. Two answers here would let the
+ * reader record a fact about a line the printer does not agree is one.
+ *
+ * A BIBLIOGRAPHY-form anchor is excluded on purpose: its printed line
+ * is `[[[id]]]`, three brackets, which the two-bracket `BLOCK_ANCHOR`
+ * grammar this record answers against can never match - testing it
+ * here would mean calling `anchorToSource` (the two-bracket
+ * serializer) on a node it was not built for. A paragraph whose sole
+ * content is a bibliography anchor is therefore ordinary text as far
+ * as this record is concerned, exactly like any other paragraph that
+ * opens with plain prose.
+ * @param children - the paragraph's inline body, in source order
+ * @returns the sole printing child when it is an inline-form anchor,
+ *   otherwise undefined
+ */
+export function loneAnchorChild(
+  children: readonly InlineNode[],
+): InlineAnchorNode | undefined {
+  const printed = children.filter((node) => !printsNothing(node));
   if (printed.length !== 1) {
     return undefined;
   }
   const [child] = printed;
-  // A BIBLIOGRAPHY-form anchor is excluded on purpose: its printed
-  // line is `[[[id]]]`, three brackets, which the two-bracket
-  // `BLOCK_ANCHOR` grammar this record answers against can never
-  // match - testing it here would mean calling `anchorToSource` (the
-  // two-bracket serializer) on a node it was not built for. A
-  // paragraph whose sole content is a bibliography anchor is
-  // therefore ordinary text as far as this record is concerned,
-  // exactly like any other paragraph that opens with plain prose.
   return child.type === "inlineAnchor" && child.form === "inline"
     ? child
     : undefined;
@@ -270,10 +291,20 @@ export function anchorLineShape(
  * this, not on the node kind — what breaks idempotency is the printed
  * LINE.
  *
- * The ONE spelling of the pseudo-anchor arm inside
+ * The ONE spelling of the anchor-line question inside
  * {@link stacksAsMetadata}: every clause of the rule that asks about
- * an anchor asks it here, so the first-class node and the
- * look-alike line can never take different exceptions.
+ * an anchor asks it here, so no two clauses can come to disagree
+ * about what an anchor line is.
+ *
+ * The clauses it guards now see only the FIRST-CLASS `blockAnchor`
+ * node. A paragraph printing a `[[...]]` line is answered earlier, by
+ * {@link recordedSeparation}, and never reaches them - so the node and
+ * the look-alike line take different paths by design, which is the
+ * asymmetry {@link recordedSeparation} argues for: only one of the two
+ * carries a recorded separation, and a recorded one beats a guess.
+ * This predicate stays the shared spelling for the clauses that
+ * remain, and would answer for a look-alike again the moment the
+ * recorded fact stopped governing one.
  * @param block - The block node to test.
  * @returns Whether the block prints as an anchor line.
  */
@@ -325,9 +356,64 @@ export function stacksAsMetadata(
   previous: BlockNode,
   current: BlockNode,
 ): boolean {
+  const recorded = recordedSeparation(previous);
+  if (recorded !== undefined) {
+    return !recorded;
+  }
   return (
     (isBlockMetadata(previous) || isAnchorLine(previous)) &&
     !(isAnchorLine(previous) && isAnchorLine(current)) &&
     (!isAnchorLine(previous) || !wouldMergeWithAnchor(current))
   );
+}
+
+/**
+ * The separation the AUTHOR wrote under a paragraph whose whole line
+ * is a `[[...]]` anchor: `ParagraphNode.blankBelowAnchorLine`
+ * (src/ast.ts), or undefined for every block the reader recorded no
+ * such separation for.
+ *
+ * Where it answers, it answers the WHOLE of {@link stacksAsMetadata},
+ * and the two exceptions below it are not consulted. That is not a
+ * shortcut past them: both exist to guess a separation nobody had
+ * recorded, and a recorded one is strictly better than either guess.
+ * With the pair ADJACENT in the source, stacking re-emits the two
+ * lines the author wrote, so the re-read is the read that produced
+ * this tree - `[[3-bad]]` above `[[id]]`, or above a lone `+`, comes
+ * back as the two blocks it went in as, where the guessing rule
+ * inserted a blank line neither author wrote and neither reading
+ * needed. With a blank RECORDED, the exceptions would have had to
+ * agree with it anyway.
+ *
+ * The CONSEQUENCE, stated because it is a deliberate exception to the
+ * maximal-formatting objective: blank and adjacent render alike for
+ * most of what can stand under an anchor line (a delimiter, a table,
+ * a comment block, a valid anchor, a lone `+`), and the formatter now
+ * keeps whichever the author wrote instead of normalizing to one. So
+ * these inputs have two normal forms rather than one, 44 of them
+ * over the 222 blank/adjacent pairs the line registry's own alphabet
+ * spells (both rejected ids x every alphabet member). What the trade
+ * buys is the other column of the same measurement: the four pairs the
+ * formatter used to map onto ONE output while the two inputs rendered
+ * differently - the stacked spelling swallowing the block below into
+ * the anchor's paragraph - go to zero. A spelling kept is recoverable;
+ * a reading destroyed is not.
+ *
+ * Only a paragraph carries the fact, so a first-class `blockAnchor`, a
+ * title or an attribute list still takes the rule below. That
+ * asymmetry is the reading, not an omission: metadata proper
+ * annotates the block under it across a blank line exactly as it does
+ * without one (`parse_block_metadata_lines` skips the blanks between,
+ * parser.rb l.2014-2021), so its separation carries no reading and is
+ * the formatter's to normalize. A REJECTED anchor line is prose, and
+ * prose swallows whatever is stacked under it.
+ * @param block - The preceding block node.
+ * @returns Whether a blank stood under its anchor line, or undefined
+ *   when the block is not a paragraph printing one.
+ */
+function recordedSeparation(block: BlockNode): boolean | undefined {
+  return block.type === "paragraph" &&
+    loneAnchorChild(block.children) !== undefined
+    ? block.blankBelowAnchorLine
+    : undefined;
 }

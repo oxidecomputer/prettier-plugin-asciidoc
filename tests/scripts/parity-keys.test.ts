@@ -379,11 +379,16 @@ describe("the production enum's blanket declaration", () => {
   test("each family owns exactly the recorded-fact key it named", () => {
     expect([...LEDGER_FAMILIES.blanketKeys.keys()]).toEqual([
       "block-start-line-fact",
+      "blank-below-anchor-line-fact",
       "table-cell-column-index",
     ]);
     expect([
       ...(LEDGER_FAMILIES.blanketKeys.get("block-start-line-fact") ?? []),
     ]).toEqual(["firstWordEndsItsLine"]);
+    expect([
+      ...(LEDGER_FAMILIES.blanketKeys.get("blank-below-anchor-line-fact") ??
+        []),
+    ]).toEqual(["blankBelowAnchorLine"]);
     expect([
       ...(LEDGER_FAMILIES.blanketKeys.get("table-cell-column-index") ?? []),
     ]).toEqual(["columnIndex"]);

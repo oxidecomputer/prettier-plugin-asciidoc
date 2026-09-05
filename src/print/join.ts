@@ -15,7 +15,6 @@ import type {
   ListItemNode,
 } from "../ast.js";
 import {
-  anchorLineShape,
   isLineComment,
   isReaderConsumedLine,
   stacksAsMetadata,
@@ -58,9 +57,9 @@ function isDocumentTitle(block: BlockNode): boolean {
   return block.type === "heading" && block.level === 0;
 }
 
-// Why headings split on level here, and why these two suppressions
-// exist (no section container is modeled, and these are the two
-// containment facts such a container would otherwise enforce
+// Why headings split on level here, and why the ONE suppression
+// below exists (no section container is modeled, and that
+// containment fact is one such a container would otherwise enforce
 // invisibly):
 //
 // - Level 0 is SEMANTIC. `= Title` opens the document HEADER, a
@@ -74,9 +73,17 @@ function isDocumentTitle(block: BlockNode): boolean {
 //   heading; blank-vs-adjacent is render-neutral there (measured),
 //   and the incumbent forced blank is preserved because the
 //   covenant here is byte identity.
-// - A pseudo-anchor line never stacks under a level >= 1 heading:
-//   the stacked pair re-parses as one joined line and the heading
-//   is destroyed.
+// - A pseudo-anchor line above a level >= 1 heading needs no rule
+//   here. The pair only ever reaches the printer as two siblings
+//   when the author wrote a blank between them - a section title
+//   does not interrupt a paragraph, so the adjacent spelling is one
+//   paragraph and no pair exists - and the blank the author wrote is
+//   a recorded fact the metadata arm replays
+//   (`ParagraphNode.blankBelowAnchorLine`, src/ast.ts). A second,
+//   level-keyed suppression stood here until the fact was recorded;
+//   it was deleted once measured inert (byte-identical output over
+//   every anchor-above-heading shape its own comment named, and over
+//   the whole deep battery).
 // - Aligning level >= 1 to the header's author-adjacency rule is a
 //   deliberate byte-change candidate for later work, not drift.
 //
@@ -86,11 +93,10 @@ function isDocumentTitle(block: BlockNode): boolean {
 
 /**
  * Tests whether a block is a heading below the document title —
- * level 1 (`==`) or deeper. The two suppressions in
- * {@link shouldStack} key on it: the reader-eaten arm on the
- * PREVIOUS element being one (ONE-SIDED — `// c` directly above
- * `== B` stacks today and must keep stacking), the metadata arm on
- * `current` being one with a pseudo-anchor line above.
+ * level 1 (`==`) or deeper. One suppression in {@link shouldStack}
+ * keys on it: the reader-eaten arm, on the PREVIOUS element being one
+ * (ONE-SIDED: `// c` directly above `== B` stacks today and must
+ * keep stacking).
  * @param block - The block node to test.
  * @returns Whether the block is a level >= 1 heading.
  */
@@ -120,12 +126,9 @@ function isSectionHeading(block: BlockNode): boolean {
  * - A document header and the block written on the very
  *   next line ({@link stacksUnderDocumentHeader})
  * - Block metadata and the block it annotates, per the one
- *   pairing rule and its anchor exceptions
- *   ({@link stacksAsMetadata}, block-metadata.ts) —
- *   suppressed for a pseudo-anchor line directly above a
- *   level >= 1 heading: the stacked pair re-parses joined
- *   and the heading is destroyed (the A1 row in
- *   tests/format/heading-adjacency.test.ts)
+ *   pairing rule, its anchor exceptions and the recorded
+ *   separation that overrides them
+ *   ({@link stacksAsMetadata}, block-metadata.ts)
  *
  * The comment-pair arm is the one that does NOT ask about source
  * adjacency, and that is the whole of what it adds: two line comments
@@ -159,8 +162,7 @@ function shouldStack(blocks: BlockNode[], index: number): boolean {
     stacksOntoAttributeEntry(previous, current) ||
     stacksUnderDocumentHeader(previous, current) ||
     stacksUnderFrontMatter(previous, current) ||
-    (stacksAsMetadata(previous, current) &&
-      !destroysHeadingWhenStacked(previous, current))
+    stacksAsMetadata(previous, current)
   );
 }
 
@@ -174,8 +176,7 @@ function shouldStack(blocks: BlockNode[], index: number): boolean {
  * The reverse (attribute entry before title) is intentionally absent:
  * in AsciiDoc, attributes follow the title - they never precede it.
  *
- * Named rather than inlined for the reason
- * {@link destroysHeadingWhenStacked} states: the ceiling counts
+ * Named rather than inlined because the ceiling counts
  * {@link shouldStack}'s operators.
  * @param previous - The preceding block node.
  * @param current - The current block node.
@@ -237,34 +238,6 @@ function stacksUnderDocumentHeader(
 ): boolean {
   return (
     previous.type === "documentHeader" && startsOnTheNextLine(previous, current)
-  );
-}
-
-/**
- * Whether stacking the pair would DESTROY a heading: a PARAGRAPH that
- * prints as a `[[…]]` line, directly above a level >= 1 heading,
- * re-parses as one joined line (a section title does not interrupt a
- * paragraph). The first-class `blockAnchor` node is excluded because
- * its line is metadata on re-read and the heading below it survives —
- * which is why the test is `anchorLineShape` answered on a paragraph,
- * not the anchor/lookalike split: a paragraph printing `[[id]]` for
- * the author's `[[id,]]` keeps its blank line here, exactly as it
- * always has. Named rather than inlined into {@link shouldStack}
- * because the ceiling counts that function's operators (see the level
- * comment above); the rule is one clause of the metadata arm's
- * suppression.
- * @param previous - The preceding block node.
- * @param current - The current block node.
- * @returns Whether the stacked spelling would re-parse joined.
- */
-function destroysHeadingWhenStacked(
-  previous: BlockNode,
-  current: BlockNode,
-): boolean {
-  return (
-    isSectionHeading(current) &&
-    previous.type === "paragraph" &&
-    anchorLineShape(previous) !== undefined
   );
 }
 

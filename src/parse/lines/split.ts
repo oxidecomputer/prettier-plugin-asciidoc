@@ -243,3 +243,33 @@ export function splitLines(source: string): SourceLine[] {
   }
   return lines;
 }
+
+/**
+ * Whether a blank line stands between `index` and the next line a
+ * reader will read as content: the separation the AUTHOR wrote under
+ * a block whose extent ends there, which is not the separation the
+ * printer would write for it.
+ *
+ * A blank line is a line whose rstripped text is empty, which is
+ * `classifyLine`'s own first arm (lines/classify.ts) and is
+ * context-free, so this lookahead cannot disagree with the walk that
+ * follows it.
+ *
+ * A blank run with NOTHING after it answers false: a document's
+ * trailing blanks do not survive printing, so a `true` there would be
+ * a fact the output could not carry. The one consumer is
+ * `ParagraphNode.blankBelowAnchorLine` (src/ast.ts).
+ * @param lines - the lines the reader walks
+ * @param index - the read position, past the block just measured
+ * @returns whether at least one blank line, and then content, follow
+ */
+export function blankSeparatesNextBlock(
+  lines: readonly SourceLine[],
+  index: number,
+): boolean {
+  let at = index;
+  while (lines.at(at)?.text === "") {
+    at += 1;
+  }
+  return at > index && lines.at(at) !== undefined;
+}

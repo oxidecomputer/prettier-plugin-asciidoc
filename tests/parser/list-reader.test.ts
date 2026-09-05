@@ -143,6 +143,7 @@ function blockAt(startLine: number, endLine: number): BlockNode {
     type: "paragraph",
     children: [],
     firstWordEndsItsLine: false,
+    blankBelowAnchorLine: false,
     position: {
       start: { offset: 0, line: startLine, column: 1 },
       end: { offset: 0, line: endLine, column: 1 },

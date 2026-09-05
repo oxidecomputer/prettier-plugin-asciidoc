@@ -40,10 +40,16 @@ describe("keep-blank rows: the post-heading blank is FROZEN SPELLING at level >=
   test("the A1 row: a pseudo-anchor paragraph blank-separated before a heading KEEPS its blank", async () => {
     // Section A's LAST CHILD is a pseudo-anchor paragraph
     // ([[3-blind-mice]] fails the id grammar); the flatten CREATES
-    // the sibling pair, and unguarded stacksAsMetadata would stack it
-    // — the stacked spelling re-parses as ONE line and section B is
-    // DESTROYED (render-inequal AND idempotence-broken). Byte-
-    // identical today; the pseudo-anchor suppression keeps it so.
+    // the sibling pair, and stacksAsMetadata would stack it if
+    // nothing said otherwise - the stacked spelling re-parses as ONE
+    // line and section B is DESTROYED (render-inequal AND
+    // idempotence-broken). What says otherwise is the blank the
+    // AUTHOR wrote, recorded on the paragraph
+    // (`ParagraphNode.blankBelowAnchorLine`, src/ast.ts) and printed
+    // back. A level-keyed suppression in src/print/join.ts used to
+    // keep these bytes and no longer exists: it was measured inert
+    // once the fact was recorded, because the only spelling that
+    // reaches this pair as two siblings is the one with the blank.
     const input = "== A\n\n[[3-blind-mice]]\n\n== B\n";
     await expectBytes(input, input);
     expect(await renderedHtml(await formatAdoc(input))).toBe(
@@ -85,14 +91,16 @@ describe("keep-stacking rows: level 0 is SEMANTIC (the document header) and genu
     await expectBytes(input, expected);
   });
 
-  test("a pseudo-anchor before `= T` still stacks (the guard is keyed level >= 1)", async () => {
-    // First-pass bytes only, deliberately: the stacked spelling's
-    // SECOND pass joins to "[[3-blind-mice]] = T" — a PRE-EXISTING
-    // non-idempotence at 594dc598, out of scope here. What
-    // this row pins is that the pseudo-anchor suppression does NOT
-    // fire at level 0.
+  test("a pseudo-anchor keeps the blank the author wrote before `= T`", async () => {
+    // Red before ParagraphNode.blankBelowAnchorLine (src/ast.ts): this
+    // printed "[[3-blind-mice]]\n= T\n", whose SECOND pass joined to
+    // "[[3-blind-mice]] = T" and destroyed the title. The level-keyed
+    // suppression still does not fire here - level 0 is not a section
+    // heading - so what keeps the pair apart is the author's own
+    // blank, recorded on the paragraph and printed back.
     const output = await formatAdoc("[[3-blind-mice]]\n\n= T\n");
-    expect(output).toBe("[[3-blind-mice]]\n= T\n");
+    expect(output).toBe("[[3-blind-mice]]\n\n= T\n");
+    expect(await formatAdoc(output)).toBe(output);
   });
 });
 
@@ -151,9 +159,9 @@ describe("recorded divergence R1: the TOP-LEVEL pseudo-anchor pair", () => {
     // At 594dc598 this pair — with NO preceding section — already
     // stacks and DESTROYS the heading: base output is
     // "[[3-blind-mice]]\n== B\n", whose second pass joins to
-    // "[[3-blind-mice]] == B\n". Post-flatten it is pairwise
-    // INDISTINGUISHABLE from the A1 row above, so the pseudo-anchor
-    // guard fires here too. The new bytes are a strict improvement —
+    // "[[3-blind-mice]] == B\n". It is pairwise INDISTINGUISHABLE
+    // from the A1 row above, so the same recorded blank keeps it
+    // apart. The new bytes are a strict improvement -
     // render fidelity AND idempotence newly hold — and this row is
     // the divergence's named net (it is excluded from the shape-diff
     // product; recorded divergence R1, reported as a conformance-gap

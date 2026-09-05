@@ -449,6 +449,27 @@ const CURVED_QUOTE_NODE_FAMILY = "curved-quote-node";
 const BLOCK_START_LINE_FACT_FAMILY = "block-start-line-fact";
 
 /**
+ * Every paragraph records whether the source wrote a blank line under
+ * it when its whole printed line is a grammar-rejected `[[...]]`
+ * anchor (`ParagraphNode.blankBelowAnchorLine`, src/ast.ts), the fact
+ * the block-metadata stacking rule reads in place of guessing the
+ * separation (issue #196). The formatted bytes do not move for a case
+ * where the field lands `false` - the overwhelming majority of the
+ * corpus, since the field answers a question only a rejected anchor
+ * line asks - so a case that differs in this key alone belongs here.
+ * NOT formatted-only: the key IS the difference for those cases.
+ *
+ * A case where the fix's own mechanism actually restores a dropped
+ * blank line differs in the FORMATTED bytes too and does not fold
+ * under this blanket strip; it takes its own per-id trailer instead
+ * (`differingCases`, scripts/parity.ts, puts an id in exactly one
+ * stream).
+ *
+ * Not exported: no grid row cites it.
+ */
+const BLANK_BELOW_ANCHOR_LINE_FACT_FAMILY = "blank-below-anchor-line-fact";
+
+/**
  * A `[role]` in front of any mark span is the span's own attrlist
  * rather than a text node beside it (issue #108). Every declared
  * case therefore loses a text node, moves the span's
@@ -809,6 +830,7 @@ export const LEDGER_FAMILIES: FamilySets = {
     EMAIL_AUTOLINK_FAMILY,
     DOCUMENT_HEADER_FAMILY,
     BLOCK_START_LINE_FACT_FAMILY,
+    BLANK_BELOW_ANCHOR_LINE_FACT_FAMILY,
     SPAN_ROLE_NODE_FAMILY,
     TABLE_NODE_FAMILY,
     TABLE_DELIMITER_LENGTH_FAMILY,
@@ -843,13 +865,15 @@ export const LEDGER_FAMILIES: FamilySets = {
     TABLE_LAYOUT_FAMILY,
     TABLE_WIDTH_LAYOUT_FAMILY,
   ]),
-  // Two families, and each owns exactly the field it named, as the
-  // dumper serializes it: `ParagraphNode.firstWordEndsItsLine` and
-  // `TableCellNode.columnIndex` (both src/ast.ts). Every other family
-  // names a change to what the tree MEANS at some ids; these two name
-  // a field every paragraph, or every table cell, gained.
+  // Three families, and each owns exactly the field it named, as the
+  // dumper serializes it: `ParagraphNode.firstWordEndsItsLine`,
+  // `ParagraphNode.blankBelowAnchorLine` and
+  // `TableCellNode.columnIndex` (all src/ast.ts). Every other family
+  // names a change to what the tree MEANS at some ids; these three
+  // name a field every paragraph, or every table cell, gained.
   blanketKeys: new Map([
     [BLOCK_START_LINE_FACT_FAMILY, new Set(["firstWordEndsItsLine"])],
+    [BLANK_BELOW_ANCHOR_LINE_FACT_FAMILY, new Set(["blankBelowAnchorLine"])],
     [TABLE_CELL_COLUMN_INDEX_FAMILY, new Set(["columnIndex"])],
   ]),
 };

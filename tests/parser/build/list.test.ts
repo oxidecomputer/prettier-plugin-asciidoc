@@ -85,6 +85,7 @@ function blockAt(type: "paragraph" | "list", end: number): BlockNode {
         type: "paragraph",
         children: [],
         firstWordEndsItsLine: false,
+        blankBelowAnchorLine: false,
         position,
       };
 }

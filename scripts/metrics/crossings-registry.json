@@ -2,13 +2,6 @@
   {
     "file": "src/block-metadata.ts",
     "symbol": "anchorLineShape",
-    "importer": "src/print/join.ts",
-    "kind": "vocabulary",
-    "reason": "the one spelling of what a block anchor line looks like once it is a node; the printer asks it instead of re-deriving the shape"
-  },
-  {
-    "file": "src/block-metadata.ts",
-    "symbol": "anchorLineShape",
     "importer": "src/print/list-hazard.ts",
     "kind": "vocabulary",
     "reason": "the one spelling of what a block anchor line looks like once it is a node; the printer asks it instead of re-deriving the shape"
@@ -54,6 +47,13 @@
     "importer": "src/print/join.ts",
     "kind": "vocabulary",
     "reason": "the one predicate for a line Ruby's reader consumes where it stands; both the reader and the join rules must agree on it"
+  },
+  {
+    "file": "src/block-metadata.ts",
+    "symbol": "loneAnchorChild",
+    "importer": "src/parse/build/paragraph.ts",
+    "kind": "vocabulary",
+    "reason": "the one test for 'this paragraph body prints as a whole [[...]] line', asked by the builder that records ParagraphNode.blankBelowAnchorLine so the reader cannot record a separation about a line the printer's own anchor record does not agree is one"
   },
   {
     "file": "src/block-metadata.ts",

@@ -105,6 +105,46 @@ export interface ParagraphNode extends Node {
    * inline fragments the line was split into.
    */
   firstWordEndsItsLine: boolean;
+  /**
+   * This paragraph's whole printed line is a `[[...]]` anchor, and
+   * SOURCE put a blank line between that line and the block below it.
+   *
+   * A CONJUNCTION, so the fact is TOTAL over paragraphs instead of
+   * meaningful on a few of them: a paragraph that is not a lone anchor
+   * line records `false` whatever stands under it, because the one
+   * decision that reads this fact is only ever asked about a paragraph
+   * that prints a `[[...]]` line (`stacksAsMetadata`,
+   * src/block-metadata.ts). Recording the blank on its own would be a
+   * fact the printer contradicts everywhere else: a blank line between
+   * two ordinary blocks is what the formatter WRITES whether or not
+   * the author did, so `para` directly above `----` would record
+   * `false` and re-read `true`.
+   *
+   * Why the printer needs it. A `[[...]]` line whose id the block-anchor
+   * grammar rejects (`[[3-blind-mice]]`, `[[illegal$id]]`) is not
+   * metadata at all: it is a paragraph, and its line is TEXT on
+   * re-read. The printer stacks metadata directly above the block it
+   * annotates, and it stacked such a paragraph too - the author's
+   * blank line came off, and the block below (a title, an attribute
+   * entry, a macro, a list, a delimiter) was swallowed into the
+   * paragraph the next read starts on that text line. Nothing in the
+   * tree said the blank had ever been there, so the printer could not
+   * put it back.
+   *
+   * Its DOMAIN, stated: the separation between a lone anchor line and
+   * the next SIBLING block. It says nothing about the separation under
+   * block metadata proper (a `.T` or a `[role]` line carries the same
+   * reading blank or adjacent, so stacking there is a normalization,
+   * not a lost byte), nothing about HOW MANY blank lines the author
+   * wrote (a run prints as one and re-reads as this same `true`), and
+   * nothing about the gap between an item's own two pieces, which
+   * {@link ItemBlock.gap} records.
+   *
+   * The ANSWER travels, not the line, exactly as
+   * {@link ParagraphNode.firstWordEndsItsLine} states: the reader
+   * holds the lines and hands the printer one yes/no.
+   */
+  blankBelowAnchorLine: boolean;
 }
 
 /** Raw text content. Lines within a paragraph are joined with \n in `value`. */

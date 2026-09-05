@@ -86,6 +86,7 @@ describe("buildParagraph", () => {
       [text("one", 0), newline(3), text("two", 4)],
       source,
       makeLocationIndex(source),
+      false,
     );
     expect(node.type).toBe("paragraph");
     expect(node.children).toEqual([
@@ -121,6 +122,9 @@ describe("buildRawLineParagraph", () => {
       // The line is one word, so the block-start hazard net's recorded
       // fact is true here (src/ast.ts).
       firstWordEndsItsLine: true,
+      // A raw line is never an anchor line, so the separation fact is
+      // false by construction (src/ast.ts).
+      blankBelowAnchorLine: false,
       position,
     });
   });
@@ -193,9 +197,7 @@ describe("paragraph-shaped annotations", () => {
       (a: string | undefined) =>
         buildParagraphNode(
           { kind: "styled", held: { variant: "listing", annotatedBy: a } },
-          [text("a", 2)],
-          "  a\n",
-          at,
+          { tokens: [text("a", 2)], source: "  a\n", at, blankBelow: false },
         ),
     ],
   ] as const;

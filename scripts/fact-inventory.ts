@@ -92,6 +92,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import ts from "typescript";
 import { EXEMPT, FACTS } from "./fact-inventory-classification.js";
+import { isArray, isObject, parseJson } from "./metrics/json.js";
 
 /** Where the AST types live; the enumeration's one source of truth. */
 const AST_FILE = "src/ast.ts";
@@ -239,4 +240,171 @@ export function factInventoryFailures(root: string): string[] {
 export function recordedFacts(root: string): string[] {
   const present = new Set(astFields(root).map(factKey));
   return [...FACTS.keys()].filter((key) => present.has(key)).toSorted();
+}
+
+/** Where the per-fact ledger lives; the checks below read it. */
+export const LEDGER_FILE = "scripts/fact-inventory-ledger.json";
+
+/** Where the reparse measurement writes the rows the ledger counts. */
+export const REPARSE_LEDGER_FILE = "tests/conformance/reparse-ledger.json";
+
+/**
+ * The legal values of a ledger row's `basis`: how strongly a fact is
+ * tied to the reparse family it names.
+ *
+ * "measured": the fact's own lemma is red-detectable, and re-running
+ * the reparse measurement over the whole population moves that
+ * family's rows and no others. "argued": the family's written
+ * mechanism and the fact's written purpose name the same thing, with
+ * nobody having traced a row. "argued-not-counted": a connection
+ * considered and rejected as too thematic, recorded rather than
+ * dropped silently, and worth nothing to the scoreboard.
+ *
+ * A CLOSED list because the scoreboard sums by it: a misspelt basis
+ * would be neither counted nor complained about, which is the one way
+ * that file can be wrong with nothing saying so. Module-private: the
+ * gate {@link ledgerFailures} is the whole of what a caller needs, and
+ * a second reader of the list would be a second place it could drift.
+ */
+const FACT_BASES = ["measured", "argued", "argued-not-counted"] as const;
+
+/**
+ * The string a JSON object holds at `key`, or undefined for anything
+ * else. The one narrowing the ledger checks need, spelled as a
+ * predicate rather than an `as` assertion (scripts/metrics/json.ts
+ * states why the measuring tools may not cheat on the thing they
+ * measure).
+ * @param value - anything, typically straight out of `JSON.parse`
+ * @param key - the property to read
+ * @returns the string value, or undefined
+ */
+function stringAt(value: unknown, key: string): string | undefined {
+  if (!isObject(value)) {
+    return undefined;
+  }
+  const held = value[key];
+  return typeof held === "string" ? held : undefined;
+}
+
+/**
+ * The parsed JSON object at a repo-relative path, or undefined when
+ * the file does not hold one.
+ * @param root - the repository root
+ * @param file - the repo-relative file to read
+ * @returns the object, or undefined
+ */
+function readJsonObject(
+  root: string,
+  file: string,
+): Record<string, unknown> | undefined {
+  const parsed = parseJson(readFileSync(path.join(root, file), "utf8"));
+  return isObject(parsed) && !isArray(parsed) ? parsed : undefined;
+}
+
+/**
+ * How many rows the reparse measurement currently holds per family.
+ * @param root - the repository root
+ * @returns family name to row count, over the rows actually in the file
+ */
+function measuredFamilySizes(root: string): Map<string, number> {
+  const sizes = new Map<string, number>();
+  const rows = readJsonObject(root, REPARSE_LEDGER_FILE)?.rows;
+  for (const row of isArray(rows) ? rows : []) {
+    const family = stringAt(row, "family");
+    if (family !== undefined) {
+      sizes.set(family, (sizes.get(family) ?? 0) + 1);
+    }
+  }
+  return sizes;
+}
+
+/**
+ * Every `basis` in the ledger that is not one of {@link FACT_BASES}.
+ * @param facts - the ledger's `facts` map, unnarrowed
+ * @returns one message per illegal basis
+ */
+function basisFailures(facts: unknown): string[] {
+  const legal: readonly string[] = FACT_BASES;
+  const failures: string[] = [];
+  for (const [key, row] of Object.entries(isObject(facts) ? facts : {})) {
+    const claims = isObject(row) ? row.reparseFamilies : undefined;
+    for (const claim of isArray(claims) ? claims : []) {
+      const basis = stringAt(claim, "basis");
+      if (basis !== undefined && !legal.includes(basis)) {
+        failures.push(
+          `fact inventory: ${key} claims a reparse family on basis "${basis}", which is not one of ${legal.join(", ")} (${LEDGER_FILE})`,
+        );
+      }
+    }
+  }
+  return failures;
+}
+
+/**
+ * Every disagreement between `reparseFamilySizes` and the rows it
+ * mirrors, in both directions.
+ *
+ * A family a fix has EMPTIED still has a name and still owes a zero:
+ * dropping its key would make the map silently smaller rather than
+ * visibly done, and a key naming no declared family is a typo nothing
+ * else in the tree would catch. Nothing validated this map before, and
+ * the number it held went stale the moment a fix emptied a family.
+ * @param recorded - the ledger's `reparseFamilySizes`, unnarrowed
+ * @param measured - the live per-family row counts
+ * @param declared - every family name the reparse ledger declares
+ * @returns one message per disagreement
+ */
+function familySizeFailures(
+  recorded: unknown,
+  measured: Map<string, number>,
+  declared: readonly string[],
+): string[] {
+  const sizes = isObject(recorded) ? recorded : {};
+  const failures = declared
+    .filter((family) => sizes[family] !== (measured.get(family) ?? 0))
+    .map(
+      (family) =>
+        `fact inventory: reparseFamilySizes.${family} records ${JSON.stringify(sizes[family])}, and ${REPARSE_LEDGER_FILE} holds ${String(measured.get(family) ?? 0)} row(s) in that family (${LEDGER_FILE})`,
+    );
+  return [
+    ...failures,
+    ...Object.keys(sizes)
+      .filter((family) => !declared.includes(family))
+      .map(
+        (family) =>
+          `fact inventory: reparseFamilySizes names ${family}, which ${REPARSE_LEDGER_FILE}'s own enumeration does not declare (${LEDGER_FILE})`,
+      ),
+  ];
+}
+
+/**
+ * Every way the ledger disagrees with what it counts: a `basis`
+ * outside the closed list, and a `reparseFamilySizes` entry that does
+ * not match the reparse ledger it mirrors.
+ *
+ * Separate from {@link factInventoryFailures}, which is about
+ * `src/ast.ts` and the classification map: this one is about the
+ * ledger file's own interior, and neither check can be answered from
+ * the AST at all.
+ * @param root - the repository root
+ * @param declared - every family name the reparse ledger declares
+ * @returns one message per disagreement; empty means the ledger agrees
+ *   with what it counts
+ */
+export function ledgerFailures(
+  root: string,
+  declared: readonly string[],
+): string[] {
+  const ledger = readJsonObject(root, LEDGER_FILE);
+  if (ledger === undefined) {
+    return [`fact inventory: ${LEDGER_FILE} does not hold a JSON object`];
+  }
+  return [
+    ...basisFailures(ledger.facts),
+    ...familySizeFailures(
+      ledger.reparseFamilySizes,
+      measuredFamilySizes(root),
+      declared,
+    ),
+  ];
 }

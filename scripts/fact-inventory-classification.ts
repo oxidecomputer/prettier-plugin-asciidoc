@@ -42,6 +42,10 @@ const CONTAINER = "container; its arm's fields are classified separately";
 export const FACTS: ReadonlyMap<string, string> = new Map([
   ["DocumentNode.byteOrderMark", "printer.ts replays it"],
   ["ParagraphNode.firstWordEndsItsLine", "block-start-hazard.ts's question"],
+  [
+    "ParagraphNode.blankBelowAnchorLine",
+    "block-metadata.ts's stacking rule reads it: the separation the author wrote under a lone `[[...]]` line",
+  ],
   ["BoldNode.constrained", "mark width choice"],
   ["ItalicNode.constrained", "mark width choice"],
   ["MonospaceNode.constrained", "mark width choice"],
