@@ -43,10 +43,6 @@
     "fails": ["fidelity"],
     "issue": "UNTRIAGED"
   },
-  "lists_test.rb#consecutive list continuation lines are folded#0": {
-    "fails": ["reading"],
-    "issue": "#181"
-  },
   "paragraphs_test.rb#should add a hardbreak at end of each line when hardbreaks option is set#0": {
     "fails": ["fidelity"],
     "issue": "UNTRIAGED"
@@ -71,8 +67,5 @@
     "fails": ["fidelity"],
     "issue": "#173"
   },
-  "test/fixtures/encoding.adoc": {
-    "fails": ["fidelity"],
-    "issue": "UNTRIAGED"
-  }
+  "test/fixtures/encoding.adoc": { "fails": ["fidelity"], "issue": "UNTRIAGED" }
 }

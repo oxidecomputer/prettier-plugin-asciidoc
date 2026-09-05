@@ -148,7 +148,7 @@ export function listItemNode(
       // `detachedTail` below is: the question is about the marker
       // line, which the scan never reads.
       trailingContinuation:
-        shape.trailingContinuation && markerLine.slurped !== true,
+        markerLine.slurped === true ? false : shape.trailingContinuation,
       detachedTail: shape.erasedTailContinuation && endsInPlusParagraph(blocks),
       activeTail: shape.activeTail,
       everyTextLineIndented: everyTextLineIndented(

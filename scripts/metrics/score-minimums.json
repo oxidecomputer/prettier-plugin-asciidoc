@@ -359,15 +359,15 @@
     },
     {
       "file": "src/parse/lines/list-reader.ts",
-      "what": "continuationArm's cell guard (list-reader.ts:650 `previous !== undefined`) -> `true`",
+      "what": "continuationArm's cell guard (list-reader.ts:655 `previous !== undefined`) -> `true`",
       "class": "never",
       "reason": "EQUIVALENT: the guard is the narrowing that lets the next conjunct read `previous.current` at all, so a mutant that drops it is a type error rather than a behavior. The redundant twin this row used to also cover (`previousText !== undefined`, one fact stated twice because `previousText` IS `previous?.current.text`) was deleted with the dead-branch sweep; the cell's line is now read past the guard"
     },
     {
       "file": "src/parse/lines/list-reader.ts",
-      "what": "the nine emptied step-arm string literals (list-reader.ts:609, :621, :627, :756, :909, :922, :934, :953, :961) - `return \"go\"` and two `return \"stop\"`s -> `return \"\"`",
+      "what": "the nine emptied step-arm string literals (list-reader.ts:614, :626, :632, :761, :914, :927, :939, :958, :966) - `return \"go\"` and two `return \"stop\"`s -> `return \"\"`",
       "class": "never",
-      "reason": "EQUIVALENT. `run` compares an arm's answer to `\"stop\"` and to nothing else, so a `\"go\"` spelled `\"\"` still means keep reading. The two `\"stop\"`s that survive are the two the loop RE-DERIVES: at EOF (:909) the while condition has already run out of lines, and at the after-blank sibling (:934) the arm unread the marker line, so the next turn's `endsTheItem` stops on it at the same index with the same buffer"
+      "reason": "EQUIVALENT. `run` compares an arm's answer to `\"stop\"` and to nothing else, so a `\"go\"` spelled `\"\"` still means keep reading. The two `\"stop\"`s that survive are the two the loop RE-DERIVES: at EOF (:914) the while condition has already run out of lines, and at the after-blank sibling (:939) the arm unread the marker line, so the next turn's `endsTheItem` stops on it at the same index with the same buffer"
     },
     {
       "file": "src/parse/lines/paragraph-reader.ts",
@@ -413,7 +413,7 @@
     },
     {
       "file": "src/print/list.ts",
-      "what": "list.ts:543 `gap.includes(\"+\")` -> `gap.includes(\"\")`",
+      "what": "list.ts:582 `gap.includes(\"+\")` -> `gap.includes(\"\")`",
       "class": "when",
       "reason": "The blank-run sweep class. The arm fires only when a nested list SHARES its parent's marker, and probing the reader for that shape shows it always arrives with an empty gap - a blank or a `+` in front of a same-marker line reads back as a SIBLING boundary (`* a\\n\\n  lit\\n[[anc]]\\n+\\n* a\\n` gives two items). With `gap === []` both spellings return `[]`. TRIGGER - the render-divergent sweep members are the distinguishing shapes; a byte+idempotence pin already guards the drop branch"
     },

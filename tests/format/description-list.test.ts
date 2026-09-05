@@ -19,6 +19,7 @@
  */
 import { describe, expect, test } from "vitest";
 import { formatAdoc, renderedHtml } from "../helpers.js";
+import { readingBreachesOf } from "../lib/reading.js";
 
 /**
  * Format an input and hold it to all three bars at once: the exact
@@ -284,6 +285,25 @@ describe("what an item attaches", () => {
   // joined, so nothing is destroyed.
   test("a nested sibling pattern is not given a line to match", async () => {
     await expectStable("a:: x\nb::: item\n  z\n// p:: q\n");
+  });
+});
+
+// Issue #181, the description-list side: `DescriptionListItemNode`
+// shares `ItemBody`'s `trailingContinuation` fact and `src/print/list.ts`'s
+// `tailParts` with a marker item (description-list-node.ts,
+// src/print/description-list.ts), so an item whose text is followed
+// by an adjacent pair of `+` with nothing left to attach must recover
+// the same second byte a marker item does
+// (tests/format/trailing-continuation.test.ts). Red before the fix:
+// only the pop's own byte printed, so the reformatted document
+// classified one continuation where the source held two.
+describe("a run of two adjacent + keeps both bytes (issue #181)", () => {
+  test.each([
+    ["at the item's own end", "a:: x\n+\n+\n"],
+    ["before a sibling term", "a:: x\n+\n+\nb:: y\n"],
+  ])("%s", async (_name, input) => {
+    expect(await readingBreachesOf(input)).toEqual([]);
+    await expectStable(input);
   });
 });
 

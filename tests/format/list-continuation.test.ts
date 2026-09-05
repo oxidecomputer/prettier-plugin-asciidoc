@@ -116,12 +116,15 @@ describe("list continuation formatting", () => {
   // `ListContinuationMarker`, where 2.0.20 wrote a plain `''`) and the
   // second is popped as the optional trailing continuation
   // (l.1580-82). Neither byte reaches the rendering, so the run
-  // leaves the item exactly as it found it, and the ONE byte the pop
-  // was about is written back, which a re-read pops again.
-  test("a trailing + run collapses to the one byte the pop took", async () => {
+  // leaves the item exactly as it found it. Both bytes are written
+  // back (issue #181): the erased byte stands right behind the popped
+  // one with nowhere else to print, so it rides along on the same
+  // fact, and a re-read pops the SECOND of the pair again and erases
+  // the first the same way.
+  test("a trailing + run writes both bytes the source held", async () => {
     const input = "* item\n+\n+\n";
     const first = await formatAdoc(input);
-    expect(first).toBe("* item\n+\n");
+    expect(first).toBe("* item\n+\n+\n");
     expect(await renderedHtml(first)).toBe(await renderedHtml(input));
     expect(await formatAdoc(first)).toBe(first);
   });

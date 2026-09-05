@@ -24,7 +24,7 @@
  * exhaustive switch, so a role added to the vocabulary cannot reach
  * the pop without an author saying what the pop does with it.
  */
-import type { GapLine } from "../../ast.js";
+import type { GapLine, TrailingContinuation } from "../../ast.js";
 import type { SourceLine } from "./split.js";
 
 /**
@@ -238,9 +238,11 @@ export interface ItemExtent {
    * tail it would be printed into re-reads inert
    * ({@link tailPrintsInert}) - so the byte the author wrote comes
    * back. `ListItemNode.trailingContinuation` (src/ast.ts) is this
-   * fact and nothing else.
+   * fact and nothing else - `"double"` when the pop took only half of
+   * an adjacent pair ({@link pairedContinuationLine}), `"single"`
+   * otherwise.
    */
-  readonly trailingContinuation: boolean;
+  readonly trailingContinuation: TrailingContinuation;
   /**
    * The cleanup wrote `ListContinuationPlaceholder` over the detached
    * `+` (parser.rb l.1576) and the tail walk's POP arm then took that
@@ -520,6 +522,70 @@ function walkBufferTail(
 }
 
 /**
+ * The line number of the OTHER HALF of an adjacent pair, when the tail
+ * walk's pop took only one of the two and the other stands recorded
+ * but never printed through any gap (issue #181).
+ *
+ * Two shapes reach the pop this way, both starting from the same fact:
+ * a `+` immediately behind an already-continuation-shaped cell runs
+ * through `afterContinuation` (list-reader.ts), which either ERASES
+ * the earlier cell and FREEZES this one (the pair's first meeting,
+ * `continuation` still `:inactive`) or, once `continuation` is ALREADY
+ * `:frozen` - which it stays for the rest of the item once ANY pair has
+ * met this way, however much ordinary content comes between - simply
+ * reads this `+` and DROPS it, leaving the cell it followed exactly as
+ * `pending` as it already was.
+ *
+ * - The popped line is `frozen`: its own pairing FIRST half sits
+ *   erased in the buffer's new last cell, immediately behind it -
+ *   `afterContinuation` buffers the two in one turn, so nothing can
+ *   ever come to stand between them, and an `erased` role is written
+ *   on exactly one cell per activation.
+ * - The popped line is `pending`: its pairing SECOND half was read
+ *   the very next source line and dropped without ever reaching a
+ *   cell - `afterContinuation`'s frozen branch runs only when the line
+ *   just read is itself a `+` immediately behind the cell this pop
+ *   just took, so a `dropped` role at exactly that next line number
+ *   can only be that line.
+ *
+ * Either way the lost byte spells the same character the popped one
+ * does, so the printer need not know which side it stood on to print
+ * it back (`ListItemNode.trailingContinuation`, src/ast.ts) - only the
+ * LINE matters here, so the record can be corrected before it is
+ * spelled into a gap a second time.
+ *
+ * `erased` and `detached` pops have other explanations (an enclosing
+ * scan's own erasure standing in a nested item's buffer, a
+ * blank-shielded detached `+`) and pair with neither shape.
+ *
+ * Called only where the caller has already proven a pop happened -
+ * `popped` is required rather than optional so that proof is a TYPE
+ * fact and this function carries no branch for the case its one call
+ * site already excludes.
+ * @param cells - the item's buffer, already shortened by the pop
+ * @param roles - what the scan made of each separator line
+ * @param popped - the line and role the tail walk just took
+ * @returns the other half's line number, or undefined when the pop
+ *   took a whole byte on its own
+ */
+function pairedContinuationLine(
+  cells: readonly Cell[],
+  roles: ReadonlyMap<number, GapRole>,
+  popped: PoppedLine,
+): number | undefined {
+  if (popped.role === "frozen") {
+    const previous = cells.at(-1);
+    return previous !== undefined &&
+      roles.get(previous.current.line) === "erased"
+      ? previous.current.line
+      : undefined;
+  }
+  return popped.role === "pending" && roles.get(popped.line + 1) === "dropped"
+    ? popped.line + 1
+    : undefined;
+}
+
+/**
  * Finish one item: the post-loop cleanup (parser.rb l.1574-89) run
  * on the scan's final state, in Ruby's own arm order - blank the
  * detached `+` (l.1576), then walk the buffer's tail
@@ -530,9 +596,10 @@ function walkBufferTail(
  * and it renders not one character. Two FACTS about the tail leave
  * here instead, and they are the pop arm's own two answers -
  * `trailingContinuation` (it took a marker the loop left live, and
- * the boundary the item closed on replays it inert) and
- * `erasedTailContinuation` (it took the cell parser.rb l.1576 had
- * blanked).
+ * the boundary the item closed on replays it inert - doubled when
+ * {@link pairedContinuationLine} finds the pop took only half of an
+ * adjacent pair) and `erasedTailContinuation` (it took the cell
+ * parser.rb l.1576 had blanked).
  * @param tail - the scan's final state, by value
  * @returns the item's extent, its gap writes and its tail facts
  */
@@ -594,6 +661,29 @@ export function finishItem(tail: ScanTail): ItemExtent {
   const erasedTail = popped?.role === "detached";
   const liveTail = popped !== undefined && !erasedTail;
   const inert = tailPrintsInert(tail.stop);
+  const printsTail = liveTail && inert;
+  // Only ask when the tail is actually going to print: a withheld
+  // tail (the boundary would arm it) drops its own byte, and doubling
+  // a byte that never comes back would print one this run does not
+  // own.
+  const pairedLine = printsTail
+    ? pairedContinuationLine(cells, roles, popped)
+    : undefined;
+  if (pairedLine !== undefined) {
+    // The other half's own role is folded into the doubled tail fact
+    // instead: left standing here it would still spell a "+" in
+    // `gapWrites` below, and nothing NEEDS it there (a trailing gap
+    // with no block behind it is never read - see `gapsOf`,
+    // list-item-node.ts) but a nested item's OWN half can still be
+    // read by an ENCLOSING gap that does have a block behind it,
+    // which would then print the byte a second time.
+    roles.delete(pairedLine);
+  }
+  const trailingContinuation: TrailingContinuation = printsTail
+    ? pairedLine === undefined
+      ? "single"
+      : "double"
+    : false;
   return {
     // The cells are unwrapped ONCE, here: nothing outside the scan and
     // this call holds one, so nothing else can rewrite a buffered line.
@@ -602,7 +692,7 @@ export function finishItem(tail: ScanTail): ItemExtent {
     gapWrites: [...roles].flatMap(([line, role]) =>
       gapSpelling(role).map((spelling) => ({ line, spelling })),
     ),
-    trailingContinuation: liveTail && inert,
+    trailingContinuation,
     erasedTailContinuation: erasedTail,
     activeTail: tail.armedTail === "printed",
     tailSafe: inert,

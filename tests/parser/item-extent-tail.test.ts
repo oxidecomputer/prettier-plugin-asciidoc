@@ -12,6 +12,7 @@ import { itemExtent, markerList } from "../../src/parse/lines/list-reader.js";
 import { splitLines } from "../../src/parse/lines/split.js";
 import { classifyLine } from "../../src/parse/lines/classify.js";
 import { BLOCK_START_CONTEXT } from "../../src/parse/line-shapes.js";
+import type { TrailingContinuation } from "../../src/ast.js";
 
 // The rule every row matches by: the unordered marker each document
 // opens with, read through the classifier so the rows and the reader
@@ -28,7 +29,7 @@ const MARKER_RULE = markerList(OPENING);
  * @returns the three facts `finishItem` reported
  */
 function tailFacts(source: string): {
-  trailing: boolean;
+  trailing: TrailingContinuation;
   erasedTail: boolean;
   activeTail: boolean;
 } {
@@ -61,7 +62,7 @@ function tailFacts(source: string): {
 // item BUFFERED and not about what came off its tail.
 describe("the tail facts finishItem reports", () => {
   // [name, source, trailingContinuation, erasedTail, activeTail]
-  test.each<[string, string, boolean, boolean, boolean]>([
+  test.each<[string, string, TrailingContinuation, boolean, boolean]>([
     [
       "a blanked detached + strips off the tail (l.1576 then l.1580-82)",
       "* a\nb\n\n+\n",
@@ -86,7 +87,7 @@ describe("the tail facts finishItem reports", () => {
     [
       "the marked pop fires instead when a live marker ends the buffer (l.1580-82)",
       "* a\nb\n+\n",
-      true,
+      "single",
       false,
       false,
     ],
@@ -108,7 +109,7 @@ describe("the tail facts finishItem reports", () => {
     [
       "a + a NESTED list will own arms nothing here: the mark was never erased (l.1412-14)",
       "* a\n** b\n+\n",
-      true,
+      "single",
       false,
       false,
     ],
@@ -123,6 +124,33 @@ describe("the tail facts finishItem reports", () => {
       "content consumes the continuation (l.1511), so the tail is not armed",
       "* a\n+\n[role]\n\npara\n",
       false,
+      false,
+      false,
+    ],
+    // #181 red-then-green: before this fix, an adjacent pair with
+    // nothing to attach reported "single" here (the popped `+`'s own
+    // fact), and the erased byte one turn behind it - which `gapsOf`
+    // (list-item-node.ts) has no block to hang a gap on - vanished
+    // silently. A re-read of the printed output then classified one
+    // continuation where the source read two.
+    [
+      "a bare run of two reports the erased predecessor too",
+      "* a\nb\n+\n+\n",
+      "double",
+      false,
+      false,
+    ],
+    [
+      "the same run before a sibling reports it too",
+      "* a\nb\n+\n+\n* c\n",
+      "double",
+      false,
+      false,
+    ],
+    [
+      "a run of three still reports only the pair the buffer ever held",
+      "* a\nb\n+\n+\n+\n",
+      "double",
       false,
       false,
     ],

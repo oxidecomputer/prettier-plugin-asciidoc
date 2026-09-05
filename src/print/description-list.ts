@@ -26,7 +26,7 @@ import type {
   TermGapLine,
 } from "../ast.js";
 import { inlineAtoms } from "./inline.js";
-import { gapParts } from "./list.js";
+import { gapParts, tailParts } from "./list.js";
 import { atomOf, blockBody } from "./reflow.js";
 import type { PrintFunction, PrintPath } from "./blocks.js";
 
@@ -262,11 +262,6 @@ function printedBlocks(
   for (const [index, block] of blocks.entries()) {
     parts.push(...gapParts(node.blocks[index].gap), block);
   }
-  if (node.trailingContinuation) {
-    parts.push(hardline, "+");
-  }
-  if (node.detachedTail) {
-    parts.push(hardline, hardline, "+");
-  }
+  parts.push(...tailParts(node));
   return parts;
 }

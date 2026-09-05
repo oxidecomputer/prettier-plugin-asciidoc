@@ -1210,6 +1210,16 @@ export interface PageBreakNode extends Node {
 }
 
 /**
+ * What a list item's tail prints of a popped `+`: nothing, the one
+ * byte the pop itself took, or that byte AND the adjacent one an
+ * erasure threw away the turn before. See {@link ItemBody}'s
+ * `trailingContinuation` for what each value means and why the pair
+ * exists; {@link finishItem} (src/parse/lines/item-tail.ts) is where
+ * it is decided.
+ */
+export type TrailingContinuation = false | "single" | "double";
+
+/**
  * The body every list-like item shares: principal inline text, then
  * blocks behind their recorded gaps. The document-order key contract
  * (`text` serialized before `blocks`) is owned by the BUILDER
@@ -1247,8 +1257,22 @@ interface ItemBody {
    * ({@link ListItemNode}'s builder decides which) and the printer
    * writes it back. `false` is the proven-inert case and the common
    * one: the byte does not come back.
+   *
+   * `"double"` is the one popped `+` standing beside a SECOND byte the
+   * pop never touches: an adjacent pair with nothing to attach (Ruby
+   * freezes the second of the two, parser.rb l.1443-46) closes the
+   * item instead of a block, so a gap - which only ever spells a role
+   * in front of a BLOCK - has nowhere to print the other half, and it
+   * was silently dropped. A re-read of the output then classified one
+   * continuation where the source read two (issue #181); printing
+   * both restores it. `"single"` is every other printed tail,
+   * including a popped `+` behind a run of three or more: the third
+   * and later of such a run are read and dropped without ever
+   * reaching the buffer (parser.rb l.1443-44), and nothing here can
+   * recover a byte that
+   * never stood in a cell to erase.
    */
-  trailingContinuation: boolean;
+  trailingContinuation: TrailingContinuation;
   /**
    * The item's source ended with a blank run and a DETACHED `+` — the
    * erased shield (`buffer[detached_continuation] =

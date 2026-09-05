@@ -102,8 +102,13 @@ export interface ListItemShape<Opening extends ListOpening = ListOpening> {
   readonly marker: Opening;
   /** Ruby's buffer: the item's lines, erasures applied (see {@link ItemExtent}). */
   readonly buffer: readonly SourceLine[];
-  /** Whether a `+` the pop took off the item's end must be printed back. */
-  readonly trailingContinuation: boolean;
+  /**
+   * What a `+` the pop took off the item's end must be printed back
+   * as - `ast.ts`'s `TrailingContinuation`, spelled out rather than
+   * imported: one more import line would push this file past its
+   * `max-lines` ceiling.
+   */
+  readonly trailingContinuation: false | "single" | "double";
   /** Whether the pop took the blanked detached `+` off the item's tail. */
   readonly erasedTailContinuation: boolean;
   /** Whether the item's printed tail still shows an armed `+`. */

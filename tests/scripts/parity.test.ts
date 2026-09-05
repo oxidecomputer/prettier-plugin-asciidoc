@@ -372,7 +372,7 @@ describe("normalizeTree folds both list-item shapes into one canonical form", ()
       { gap: ["+"], block: para(10) },
       { gap: [""], block: nestedList(30) },
     ],
-    trailingContinuation: true,
+    trailingContinuation: "single",
     position: span(0, 31),
   };
 

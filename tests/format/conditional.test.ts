@@ -130,17 +130,20 @@ describe("trailing whitespace on a directive line", () => {
 // either way:
 // `ListContinuationMarker === this_line` freezes it (parser.rb
 // l.1443-46), and frozen is the one state `is_delimited_block?` does
-// not attach under (parser.rb l.1453-56).
+// not attach under (parser.rb l.1453-56). The FIRST of the pair is
+// erased right behind it with nowhere else to print (issue #181), so
+// both bytes travel on the one fact and the source's own two `+`
+// lines come back unchanged.
 describe("a continuation inside a directive pair over an item's tail", () => {
   const input = "* a\nifdef::x[]\n+\n+\n----\nx\n----\nendif::[]\npara\n";
 
-  test("the + the pair holds is written back", async () => {
+  test("the +s the pair holds are written back", async () => {
     expect(await formatAdoc(input)).toBe(
-      "* a\nifdef::x[]\n+\n\n----\nx\n----\nendif::[]\npara\n",
+      "* a\nifdef::x[]\n+\n+\n\n----\nx\n----\nendif::[]\npara\n",
     );
   });
 
-  test("every pass renders as the source and pass 3 has converged", async () => {
+  test("every pass renders as the source, converged from the first", async () => {
     const pass1 = await formatAdoc(input);
     const pass2 = await formatAdoc(pass1);
     const pass3 = await formatAdoc(pass2);
@@ -148,6 +151,7 @@ describe("a continuation inside a directive pair over an item's tail", () => {
     expect(await renderedHtml(pass1)).toBe(source);
     expect(await renderedHtml(pass2)).toBe(source);
     expect(await renderedHtml(pass3)).toBe(source);
+    expect(pass2).toBe(pass1);
     expect(pass3).toBe(pass2);
   });
 });

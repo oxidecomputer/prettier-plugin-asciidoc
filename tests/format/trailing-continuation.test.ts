@@ -13,7 +13,8 @@
  * tests/format/list-continuation.test.ts.
  */
 import { describe, expect, test } from "vitest";
-import { formatAdoc, renderedHtml } from "../helpers.js";
+import { expectFormatted, formatAdoc, renderedHtml } from "../helpers.js";
+import { readingBreachesOf } from "../lib/reading.js";
 
 // One row per place the byte can stand. Each asserts the exact
 // output, that Asciidoctor renders that output as it renders the
@@ -29,12 +30,22 @@ describe("a popped + comes back where the tail re-reads inert", () => {
     ],
     ["at an ordered item's end", ". a\n+\n. b\n", ". a\n+\n. b\n"],
     ["at a callout item's end", "<1> a\n+\n", "<1> a\n+\n"],
-    // The run's SECOND `+` is the one buffered and popped; the third
-    // and later are read and dropped by Ruby's own gate (l.1444), so
-    // the run comes back as the one byte the pop was about.
-    ["a run of two", "* a\n+\n+\n", "* a\n+\n"],
-    ["a run of three", "* a\n+\n+\n+\n", "* a\n+\n"],
-    ["a run of three before a sibling", "* a\n+\n+\n+\n* b\n", "* a\n+\n* b\n"],
+    // The run's SECOND `+` is the one buffered and popped; the FIRST
+    // was erased in the same turn, one cell behind it, and the pop's
+    // own fact now carries both bytes back (issue #181: erasure alone
+    // throws the first one away, because `gapsOf` only ever spells a
+    // role in front of a BLOCK and this pair closes the item
+    // instead). The third and later of a longer run are read and
+    // dropped by Ruby's own gate before ever reaching a cell to erase
+    // (l.1444), so nothing past the pair comes back.
+    ["a run of two", "* a\n+\n+\n", "* a\n+\n+\n"],
+    ["a run of two before a sibling", "* a\n+\n+\n* b\n", "* a\n+\n+\n* b\n"],
+    ["a run of three", "* a\n+\n+\n+\n", "* a\n+\n+\n"],
+    [
+      "a run of three before a sibling",
+      "* a\n+\n+\n+\n* b\n",
+      "* a\n+\n+\n* b\n",
+    ],
     [
       "an item whose text wrapped onto a second line",
       "* a\nb\n+\n",
@@ -223,3 +234,33 @@ describe("a + a slurp carried in is block content, not the item's tail", () => {
 // a raw line (prose that already swallowed a line), and a nested list
 // (whose own re-read re-partitions the lines). Every row is a fixed
 // point that renders exactly as its source.
+
+// Issue #181: a run of exactly two adjacent `+` with nothing to
+// attach used to print only the byte the tail walk's pop reports,
+// because the OTHER half of the pair stands after every block the
+// item has, and a gap - which only ever spells a role in front of a
+// BLOCK - has nowhere to print it. A re-read of the formatted output
+// then classified one continuation where the source held two. Two
+// shapes reach the pop missing its other half: a `+` immediately
+// behind an already-erased one (the corpus witness's first item), and
+// a fresh `+` pair arriving after an EARLIER pair already froze the
+// item's own continuation state, however much ordinary content came
+// between (the corpus witness's second item; the minimal synthetic
+// below isolates it without the surrounding section and prose).
+describe("a run of two adjacent + keeps both bytes", () => {
+  test.each([
+    [
+      "the corpus witness (lists_test.rb#consecutive list continuation lines are folded#0)",
+      "Lists\n=====\n\n* Item one, paragraph one\n+\n+\nItem one, paragraph two\n+\n+\n* Item two\n+\n+\n",
+      "Lists\n=====\n\n* Item one, paragraph one\n+\n+\nItem one, paragraph two\n+\n+\n* Item two\n+\n+\n",
+    ],
+    [
+      "a minimal synthetic: a second pair after an earlier one froze",
+      "* a\nb\n+\n+\n* c\n",
+      "* a b\n+\n+\n* c\n",
+    ],
+  ])("%s", async (_name, input, expected) => {
+    expect(await readingBreachesOf(input)).toEqual([]);
+    await expectFormatted(input, expected);
+  });
+});

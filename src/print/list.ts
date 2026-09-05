@@ -5,7 +5,12 @@
  * same way. Split out of src/print/blocks.ts by responsibility.
  */
 import { doc, type Doc } from "prettier";
-import type { GapLine, ListItemNode, ListNode } from "../ast.js";
+import type {
+  GapLine,
+  ListItemNode,
+  ListNode,
+  TrailingContinuation,
+} from "../ast.js";
 import { MARKER_OFFSET } from "../constants.js";
 import {
   CONTINUATION_LINE,
@@ -462,26 +467,60 @@ export function printListItem(
     const adjusted = printedGap(node, parentList, index);
     parts.push(...gapParts(adjusted), printedBlock);
   }
-  if (node.trailingContinuation) {
-    // ONE hardline, unconditionally — including after a nested list.
-    // The trailing `+` of `* a\n** b\n+\n` belongs to the OUTER item
-    // (a's scan buffers it via the final else and pops it in
-    // finish(); b's buffer ends before it), and printing it back
-    // directly under the nested list re-parses to the SAME node. A
-    // blank line here would turn the `+` DETACHED on re-parse, l.1576
-    // would erase it, and the second format would drop it.
+  parts.push(...tailParts(node));
+  return parts;
+}
+
+/**
+ * The two TAIL FACTS every list-like item can print AFTER its blocks -
+ * shared by this file's own item printer and description-list.ts's,
+ * which read the same two facts off a different node kind
+ * ({@link ItemBody} in src/ast.ts, extended by both).
+ *
+ * `trailingContinuation`: ONE hardline, unconditionally (including
+ * after a nested list). The trailing `+` of `* a\n** b\n+\n` belongs to
+ * the OUTER item (a's scan buffers it via the final else and pops it
+ * in finish(); b's buffer ends before it), and printing it back
+ * directly under the nested list re-parses to the SAME node. A blank
+ * line here would turn the `+` DETACHED on re-parse, l.1576 would
+ * erase it, and the second format would drop it.
+ *
+ * `"double"` writes the SAME shape one more time, ADJACENT and ahead
+ * of the popped byte rather than behind it: the popped `+` is always
+ * the second of the pair the source wrote, and printing the erased
+ * first one behind it would freeze the wrong `+` on re-read (l.1443-46
+ * freezes whichever comes SECOND). Printing them in source order, both
+ * bare, reproduces the exact bytes an adjacent pair with nothing to
+ * attach was always going to collapse back to
+ * (`ListItemNode.trailingContinuation`, src/ast.ts).
+ *
+ * `detachedTail`: one blank line, then the `+` (the DETACHED
+ * spelling, and the only correct one): an ADJACENT `+` under the item's
+ * `+` paragraph would freeze onto it on re-read and the marked pop
+ * would take the paragraph (both arms test `ListContinuationMarker`,
+ * parser.rb l.1443-46 and l.1580-81). Detached, the `+` erases into
+ * the shield (l.1576) that absorbs the pop and keeps the paragraph
+ * alive ({@link ListItemNode.detachedTail}). Blank-run multiplicity
+ * collapses to the one blank, the same collapse gapParts applies
+ * before a `+`.
+ * @param node - the two tail facts, read off either item kind
+ * @param node.trailingContinuation - what a popped `+` prints back as
+ * @param node.detachedTail - whether an erased detached `+` shields a
+ *   frozen `+` paragraph
+ * @returns the Doc parts to push after the item's blocks
+ */
+export function tailParts(node: {
+  readonly trailingContinuation: TrailingContinuation;
+  readonly detachedTail: boolean;
+}): Doc[] {
+  const parts: Doc[] = [];
+  if (node.trailingContinuation !== false) {
+    if (node.trailingContinuation === "double") {
+      parts.push(hardline, "+");
+    }
     parts.push(hardline, "+");
   }
   if (node.detachedTail) {
-    // One blank line, then the `+` — the DETACHED spelling, and the
-    // only correct one: an ADJACENT `+` under the item's `+` paragraph
-    // would freeze onto it on re-read and the marked pop would take
-    // the paragraph (both arms test `ListContinuationMarker`,
-    // parser.rb l.1443-46 and l.1580-81). Detached, the
-    // `+` erases into the shield (l.1576) that absorbs the pop and
-    // keeps the paragraph alive ({@link ListItemNode.detachedTail}).
-    // Blank-run multiplicity collapses to the one blank, the same
-    // collapse gapParts applies before a `+`.
     parts.push(hardline, hardline, "+");
   }
   return parts;

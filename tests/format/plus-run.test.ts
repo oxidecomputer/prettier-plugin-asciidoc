@@ -401,7 +401,7 @@ describe("an erased tail behind an ordinary block stays dropped", () => {
 // item drops the `+` the source wrote.
 describe("an item that ends on an enclosing scan's erased +", () => {
   test.each([
-    ["the run alone", "* a\n** b\n+\n+\n\n+\n", "* a\n** b\n+\n"],
+    ["the run alone", "* a\n** b\n+\n+\n\n+\n", "* a\n** b\n+\n+\n"],
     [
       "with a block under the shield",
       "* a\n** b\n+\n+\n\n+\npara\n",
@@ -630,7 +630,7 @@ describe("an erased + is still a marker when the next line reads it", () => {
     [
       "a flush-left marker above raises the flag first",
       "* a\n** b\n+\n  ** z\n+\n+\n  ** z\n",
-      "* a\n** b\n+\n  ** z\n+\n  ** z\n",
+      "* a\n** b\n+\n  ** z\n+\n+\n  ** z\n",
     ],
     [
       "and it keeps a tail pair too",

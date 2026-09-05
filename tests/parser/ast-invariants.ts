@@ -542,7 +542,10 @@ function tailContinuations(block: AnyNode): number {
   const items = isArray(block.children) ? block.children : [];
   const last = items.at(-1);
   if (!isNode(last)) return 0;
-  const own = last.trailingContinuation === true ? 1 : 0;
+  // "double" (issue #181) is two `+` entries the gap above may omit,
+  // "single" one, `false` none.
+  const tail = last.trailingContinuation;
+  const own = tail === "double" ? 2 : tail === "single" ? 1 : 0;
   const inner = isArray(last.blocks) ? last.blocks.at(-1) : undefined;
   return (
     own +

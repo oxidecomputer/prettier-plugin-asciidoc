@@ -268,7 +268,7 @@ describe("AST invariants: (vii) allows a popped + out of the gap", () => {
                           },
                         ],
                         blocks: [],
-                        trailingContinuation: true,
+                        trailingContinuation: "single",
                         position: { start: at(4, 2), end: at(8, 2) },
                       },
                     ],

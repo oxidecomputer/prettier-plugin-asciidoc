@@ -134,7 +134,7 @@ describe("list continuation parsing", () => {
       type: "text",
       value: "item text",
     });
-    expect(item.trailingContinuation).toBe(true);
+    expect(item.trailingContinuation).toBe("single");
     const {
       children: [without],
     } = firstList(parse("* item text\n").children);

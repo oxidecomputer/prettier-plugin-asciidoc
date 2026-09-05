@@ -12,6 +12,7 @@ import type {
   ItemBlock,
   ListItemNode,
   ListNode,
+  TrailingContinuation,
 } from "../../ast.js";
 import { buildFromTokens } from "../inline/inline-node-builder.js";
 import type { InlineToken } from "../inline/tokens.js";
@@ -48,8 +49,8 @@ export interface ItemBodyInput {
   readonly text: readonly InlineToken[];
   /** Everything the item holds after its text, gaps attached. */
   readonly blocks: readonly ItemBlock[];
-  /** Whether a `+` off the item's end must be printed back. */
-  readonly trailingContinuation: boolean;
+  /** What a `+` off the item's end must be printed back as. */
+  readonly trailingContinuation: TrailingContinuation;
   /**
    * Whether the erased detached tail must be printed back (see
    * {@link ListItemNode}'s `detachedTail`).
