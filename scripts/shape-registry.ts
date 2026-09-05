@@ -458,6 +458,23 @@ export const PERTURBATIONS: readonly PerturbationEntry[] = [
       `${open}\n${content}\n${longer}\n${close}`,
   },
   {
+    id: "minimum-delimiter-inside",
+    // The reverse of the row above: the block opens at the LONGER
+    // length and an interior line is spelled at the minimum length
+    // instead. The minimum-length line matches no line the reader
+    // treats as this block's terminator (that terminator is the
+    // longer line the block actually opened with), so a correct
+    // reader keeps it as content and a correct printer, spelling the
+    // delimiter from that interior, is forced back up past the
+    // minimum to clear the collision. This is the direction a
+    // printer that assumes the minimum is always safe gets wrong: a
+    // delimiter written at the minimum length while the interior
+    // still carries a line of that exact length closes the block on
+    // its own content, spilling everything after onto the page.
+    block: ({ open, content, longer }) =>
+      `${longer}\n${content}\n${open}\n${longer}`,
+  },
+  {
     id: "near-miss-terminator-inside",
     block: ({ open, close, content, nearMiss }) =>
       `${open}\n${content}\n${nearMiss}\n${close}`,

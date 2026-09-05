@@ -233,6 +233,7 @@ const PERTURBATION_IDS: readonly string[] = [
   "heading-inside",
   "foreign-marker-inside",
   "longer-delimiter-inside",
+  "minimum-delimiter-inside",
   "near-miss-terminator-inside",
   "closed-no-final-newline",
 ];
@@ -293,10 +294,12 @@ const GRID_EXEMPT = new Map<string, string>([
 ]);
 
 // Rule (v): the realized grid sizes, pinned. The
-// standing grid is 14 kinds x 21 containers x 12 perturbations plus
+// standing grid is 14 kinds x 21 containers x 13 perturbations plus
 // the three setext pins (the roster grew by the dlist-desc and
 // dlist-desc-line containers, and by a fourteenth kind,
-// openBlockTilde, issue #64); the adjacency grid is 10 constructs x 7
+// openBlockTilde, issue #64; the thirteenth perturbation is
+// minimum-delimiter-inside, the reverse of longer-delimiter-inside,
+// issue #162); the adjacency grid is 10 constructs x 7
 // positions plus 9 named explicit rows (the original 4 + the 5 R2
 // rows); the
 // list-run grid is a standing selection (its arithmetic is
@@ -313,7 +316,7 @@ const GRID_EXEMPT = new Map<string, string>([
 // so a grid extension moves its pin DELIBERATELY, in the same commit,
 // to the count the new source list produces; it is not a number to
 // discover from a red gate and paste back.
-const STANDING_GRID_SIZE = 3531;
+const STANDING_GRID_SIZE = 3825;
 const HEADING_ADJACENCY_GRID_SIZE = 79;
 const LIST_RUN_GRID_SIZE = 104;
 const PAIR_GRID_SIZE = 73_926;
