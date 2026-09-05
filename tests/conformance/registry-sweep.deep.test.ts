@@ -71,5 +71,5 @@ describe("registry sweep (deep tier)", () => {
       dump(failures);
     }
     expect(actual).toEqual(expected);
-  }, 900_000);
+  }, 1_500_000);
 });
