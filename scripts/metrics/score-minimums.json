@@ -77,6 +77,10 @@
       "coverage": 100.0,
       "mutation": 89.7
     },
+    "src/parse/inline/optional-prefix.ts": {
+      "coverage": 100.0,
+      "mutation": 0
+    },
     "src/parse/inline/passthrough.ts": {
       "coverage": 100.0,
       "mutation": 84.0
@@ -472,6 +476,12 @@
       "what": "mutation minimum 0 - a PLACEHOLDER, not a file with nothing to measure",
       "class": "when",
       "reason": "TRIGGER: the next batched mutation run. This file is new (issue #14) and holds the superscript/subscript pair scan - the whitespace test over the rewritten neighbourhood, attrlistEnd, and the measured table of earlier QUOTE_SUBS rows whose attrlists defeat the pair - and nothing has measured it, because mutation runs at batched integration points and this file landed between two of them. Its coverage row is measured (100.00 lines, from a `bunx vitest run --coverage --exclude \"**/parity-trailers.test.ts\"` run of this tree, the same workaround every recent placeholder row used) and its behaviour is pinned by tests/parser/super-sub.test.ts (155 tests, including the 60 attrlist-divergence family rows) and tests/format/super-sub-printing.test.ts, all against @asciidoctor/core's own HTML. See docs/harnesses.md, the two reasons a zero is allowed"
+    },
+    {
+      "file": "src/parse/inline/optional-prefix.ts",
+      "what": "mutation minimum 0 - a PLACEHOLDER, not a file with nothing to measure",
+      "class": "when",
+      "reason": "TRIGGER: the next batched mutation run. This file is new and holds nextStart, attrlistEnd and delimiterFor - the optional-prefix walk (Ruby's `\\?(?:\\[([^\\]]+)\\])?`) that doubled-marks.ts and super-sub.ts each spelled out on their own until this consolidation gave it one home - none of which has been measured on its own, because mutation runs at batched integration points and this file landed between two of them. Its coverage row is measured (100.00 lines, 15 of 15, `bun run coverage`). Its behaviour is exercised by every test that already pinned the two callers: tests/parser/doubled-marks.test.ts, tests/parser/super-sub.test.ts, tests/format/inline-formatting.test.ts, tests/format/curved-quotes.test.ts and tests/format/super-sub-printing.test.ts, all against `@asciidoctor/core`'s own HTML. See docs/harnesses.md, the two reasons a zero is allowed"
     },
     {
       "file": "src/parse/inline/replacements.ts",
