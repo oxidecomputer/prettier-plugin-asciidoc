@@ -16,6 +16,10 @@
  * `endsWith` on the comment head): survives depth 3, dies at depth 4.
  * See {@link SHALLOW_DEPTH}.
  *
+ * This file's own rows are a strict subset of the depth-5 file's and
+ * run again there in CI's blocking job; kept here anyway, which is
+ * what keeps the mutation-kill claim above true.
+ *
  * The allowlist is DERIVED, not copied: `allowlistFor(4)` is the deep
  * sweep\'s 26-entry allowlist filtered to the documents this shallower
  * product spells: NONE of them today, so this entry asserts the

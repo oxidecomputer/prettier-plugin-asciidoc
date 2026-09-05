@@ -13,7 +13,10 @@
  *
  * The byte operators and the pair product are the DEEP tier
  * (`inline-sweep.deep.test.ts`): the split is wall time, measured, and
- * nothing else.
+ * nothing else. This file's own rows are a strict subset of the deep
+ * tier's and run again there in CI's blocking job. Kept here anyway:
+ * StrykerJS never sees the deep tier, so this file is the only
+ * inline-sweep coverage a mutation run gets.
  */
 import { describe, expect, test } from "vitest";
 import { byId, expectedFailures } from "./generated-sweep.js";

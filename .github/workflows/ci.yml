@@ -32,11 +32,17 @@ jobs:
         if: ${{ !cancelled() }}
       # The suite, under v8 line coverage, with each file's RECORDED
       # MINIMUM coverage checked afterwards — ONE suite run, not two.
-      # Measured at 2.8s plain against 4.0s with coverage on 8,577
-      # tests, so the check costs about a second and belongs in the
-      # blocking job rather than in a step of its own. The mutation
-      # half of the same minimums file is checked by `bun run mutate`,
-      # which is ~11 minutes and stays manual.
+      # The check costs about a second and belongs in the blocking job
+      # rather than in a step of its own. The mutation half of the same
+      # minimums file is checked by `bun run mutate`, which is ~11
+      # minutes and stays manual.
+      #
+      # This step and `bun run test:deeply-nested-lists` below both
+      # check three sweep entries whose rows are a strict subset of
+      # that step's (docs/harnesses.md): duplicated on purpose, because
+      # StrykerJS never sees a deep tier, so the default tier here is
+      # the only sweep coverage a mutation run gets. About 6s against
+      # that step's roughly 240s.
       - run: bun run coverage
         if: ${{ !cancelled() }}
       # The scorecard, head-only: thirteen absolute gates plus the shape

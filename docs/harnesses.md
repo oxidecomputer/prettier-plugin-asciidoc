@@ -260,7 +260,16 @@ direction; exit 2 when vitest collected nothing.
 
 The default suite runs the same product at depth 4, and that depth is
 load-bearing: Stryker runs the default suite, so a shallower default would let
-sweep-killed mutants survive.
+sweep-killed mutants survive. This default-tier entry, the registry sweep's and
+the inline sweep's, are each a strict subset of their deep-tier counterpart
+above, and all three run again in the same blocking CI job as the deep tier
+regardless: StrykerJS's own vitest config extends this repository's base
+`exclude` list and adds nothing back to it, so a mutation run never sees a deep
+tier, and the default tier is the only sweep coverage it has. The duplication in
+CI - both tiers checking the same rows, in the same job, on every push - is the
+accepted price of keeping that coverage, measured at about 6s against the
+roughly 240s `test:deeply-nested-lists` step beside it: not worth a second
+vitest config to save.
 
 Both entries carry a SECOND, parallel gate over the same product: the reflow
 re-classification invariant, against `tests/format/reading-ledger.json`. See
@@ -556,10 +565,12 @@ verdict. `tests/conformance/registry-sweep.ts` is the sweep itself; the two
 gates over it are tiered by wall time:
 
 - DEFAULT tier, in `bun run test` (`tests/conformance/registry-sweep.test.ts`):
-  the standing grid crossed with every byte operator, 29,229 rows in about 8 s,
-  which is roughly 2.5 s of added suite wall time because vitest runs it beside
-  everything else. Pinned to `tests/conformance/registry-sweep-quarantine.json`,
-  one entry per failing row.
+  the standing grid crossed with every byte operator (`defaultTierRows()`).
+  Pinned to `tests/conformance/registry-sweep-quarantine.json`, one entry per
+  failing row. Its rows are a strict subset of the deep tier below and run again
+  there in the same CI job; kept in `bun run test` anyway because a mutation run
+  never sees the deep tier (see
+  [the deep sweeps](#bun-run-test-deeply-nested-lists---the-deep-sweeps)).
 - DEEP tier, in `bun run test:deeply-nested-lists`
   (`tests/conformance/registry-sweep.deep.test.ts`): both grids under every byte
   operator, 613,293 rows in two minutes on its own and a little over three
@@ -669,12 +680,12 @@ and those rows break earlier.
 Two gates over it, tiered by wall time:
 
 - DEFAULT tier, in `bun run test` (`tests/conformance/inline-sweep.test.ts`):
-  the standing grid clean, 17,349 rows in about three and a half seconds run on
-  its own. Inside the suite vitest reports it at nearer six seconds under
-  contention, while the suite's own wall time moves by under a second, because
-  the line registry's default tier is the longer pole; both figures move with
-  machine load. Pinned to `tests/conformance/inline-sweep-quarantine.json`, one
-  entry per failing row.
+  the standing grid clean (`inlineDefaultTierRows()`). Pinned to
+  `tests/conformance/inline-sweep-quarantine.json`, one entry per failing row.
+  Its rows are a strict subset of the deep tier below and run again there in the
+  same CI job; kept in `bun run test` anyway for the same reason the registry
+  sweep's is (see
+  [the deep sweeps](#bun-run-test-deeply-nested-lists---the-deep-sweeps)).
 - DEEP tier, in `bun run test:deeply-nested-lists`
   (`tests/conformance/inline-sweep.deep.test.ts`): that grid under every byte
   operator, plus the whole pair product - any two alphabet members standing in

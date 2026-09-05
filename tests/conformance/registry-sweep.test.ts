@@ -13,7 +13,10 @@
  * The pair grid and its perturbations are the DEEP tier
  * (`registry-sweep.deep.test.ts`): the split is wall time, measured,
  * and nothing else. Every deep row is a row this entry would run if
- * it were free.
+ * it were free, which is also why this file's own rows are a strict
+ * subset of the deep tier's and run again there in CI's blocking job.
+ * Kept here anyway: StrykerJS never sees the deep tier, so this file
+ * is the only registry-sweep coverage a mutation run gets.
  */
 import { describe, expect, test } from "vitest";
 import { byId, expectedFailures } from "./generated-sweep.js";
