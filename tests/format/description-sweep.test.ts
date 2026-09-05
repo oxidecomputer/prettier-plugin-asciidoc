@@ -89,7 +89,12 @@ describe("the description reflow sweep", () => {
     expect(FOLLOWER_ROWS).toHaveLength(3456);
     expect(UNIFORM_ROWS).toHaveLength(160);
     expect(MARKER_ROWS).toHaveLength(180);
-    expect(GAP_FAMILY_ROWS).toHaveLength(216);
+    // 240 (three widths x four containers x two descriptions x ten
+    // families) less two 24-row families, each closed independently:
+    // gap:md-fence-edge (issue #64, `openBlockTilde`) and
+    // gap:block-macro-name (issue #183, the narrowed BLOCK_MACRO
+    // target-boundary rule).
+    expect(GAP_FAMILY_ROWS).toHaveLength(192);
     expect(EDGE_ROWS).toHaveLength(11);
   });
 

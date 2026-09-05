@@ -8,12 +8,6 @@
     "sha256": "bd451322f4e70a7ed11764e7dfada92d359bd056127686a80f54b146c16356e5",
     "issue": "UNTRIAGED"
   },
-  "pair/InlineMacro/HighlightMark/comment/fidelity": {
-    "count": 1,
-    "examples": ["pair/InlineMacro-near-3/HighlightMark-near-1/comment/para"],
-    "sha256": "ae43f4c8d72914a85a01ebe0ad7161916895161737a19643b8557c2d823aa7a8",
-    "issue": "#183"
-  },
   "pair/InlineUrl/InlineAnchor/adjacent/fidelity": {
     "count": 2,
     "examples": [

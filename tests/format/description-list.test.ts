@@ -557,16 +557,24 @@ describe("the boundaries of the reflow verdict", () => {
     await expectStable(input, undefined, { printWidth: 24 });
   });
 
-  // E: a wrap makes a line START and a line END at the same point, and
-  // safety at every start is not safety at every end. `t:: alpha bravo
-  // charlie x[]` is `name:: target[attrlist]`, so the wrapped TERM
-  // line classifies as a block macro, the item stops existing, and the
-  // second pass loses `y`. The pass-1 output was render-equal, which
-  // is why only a fixed-point bar could have caught it.
-  test("a run whose wrap would end the term line at a bracket replays", async () => {
-    await expectStable("t:: alpha bravo charlie x[] y\n", undefined, {
-      printWidth: 28,
-    });
+  // E used to refuse this wrap: before #183, `t:: alpha bravo charlie
+  // x[]` was `name:: target[attrlist]` under the old,
+  // unregistered-name-open BLOCK_MACRO, so the wrapped TERM line
+  // classified as a block macro, the item stopped existing, and the
+  // second pass lost `y`. #183 narrowed BLOCK_MACRO's target to
+  // require a non-whitespace first character right after `::`
+  // (measured against the oracle: a space there, as every term line's
+  // own ` desc` syntax carries, makes a dlist rather than a macro of
+  // any name), so this wrap is safe now and the run reflows to a
+  // fixed point instead of replaying.
+  test("a run whose wrap would end the term line at a bracket now reflows safely", async () => {
+    await expectStable(
+      "t:: alpha bravo charlie x[] y\n",
+      "t:: alpha bravo charlie x[]\ny\n",
+      {
+        printWidth: 28,
+      },
+    );
   });
 
   // The spelling E refuses is narrow and measured: an open bracket, a

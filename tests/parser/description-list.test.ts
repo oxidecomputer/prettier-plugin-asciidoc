@@ -565,13 +565,21 @@ describe("descriptionPrinting, B: every word is safe at a line start", () => {
 });
 
 describe("descriptionPrinting, E: every word is safe at a line end", () => {
-  // `t:: alpha bravo charlie x[] y` at width 28 is C-clean, S-clean
-  // and B-clean and is render-equal on pass 1; on pass 2 the
-  // description loses `y`, because the wrapped TERM line
-  // `t:: alpha bravo charlie x[]` is `name:: target[attrlist]` and
-  // classifies as a block macro.
-  test("E refuses a word closing a line that becomes a block macro", () => {
-    expect(printingOf("t::", "alpha bravo charlie x[] y")).toBe("replay");
+  // Before #183, `t:: alpha bravo charlie x[] y` at width 28 was
+  // C-clean, S-clean and B-clean and render-equal on pass 1; on pass
+  // 2 the description lost `y`, because the wrapped TERM line
+  // `t:: alpha bravo charlie x[]` was `name:: target[attrlist]` under
+  // the old, unregistered-name-open BLOCK_MACRO and classified as a
+  // block macro. #183 narrowed BLOCK_MACRO's target to require a
+  // NON-WHITESPACE first character right after `::` (measured against
+  // the oracle: `image:: a.png[]`, with a space, renders as a dlist,
+  // not an image block), and a wrapped term line always carries that
+  // space - `term::` is followed by ` desc`, never `desc` directly.
+  // So this hazard is unreachable now for EVERY name, registered or
+  // not, and the wrap is safe to take.
+  test("E no longer refuses a word closing a line, for any name", () => {
+    expect(printingOf("t::", "alpha bravo charlie x[] y")).toBe("reflow");
+    expect(printingOf("image::", "alpha bravo charlie x[] y")).toBe("reflow");
   });
 
   test.each(["x[", "x]", "x{}", "x()"])(
@@ -581,31 +589,29 @@ describe("descriptionPrinting, E: every word is safe at a line end", () => {
     },
   );
 
-  test("E's second spelling carries the term head", () => {
-    // interruptsByLineShape("t:: p x[]") is true and
-    // interruptsByLineShape("p x[]") is false, so the danger is
-    // visible only when the probe carries the item's own term head.
-    // Symmetrically interruptsByLineShape("t:: p x{}") is false, which
-    // is what keeps E from refusing the stable spellings. This row
-    // pins both readings of the registry, so a later change that drops
-    // the second spelling fails here and not in a width sweep.
-    expect(interruptsByLineShape("t:: p x[]")).toBe(true);
+  test("E's second spelling no longer carries a live block-macro hazard", () => {
+    // Before #183 interruptsByLineShape("t:: p x[]") was true: the
+    // probe's `${termHead} p ${word}` template always inserts a space
+    // right after `::` (`t::` + ` p x[]`), and the wrapped TERM line
+    // matched the old, unregistered-name-open BLOCK_MACRO. #183's
+    // target-boundary fix makes BLOCK_MACRO refuse a target whose
+    // first character is whitespace, so this probe's mandatory space
+    // means the second spelling can never match BLOCK_MACRO again,
+    // for `t::`, for a registered name, or for anything else - the
+    // row now pins that the hazard closed rather than that it lives.
+    expect(interruptsByLineShape("t:: p x[]")).toBe(false);
     expect(interruptsByLineShape("p x[]")).toBe(false);
     expect(interruptsByLineShape("t:: p x{}")).toBe(false);
+    expect(interruptsByLineShape("image:: p x[]")).toBe(false);
   });
 
-  test("E's refusals come from the TERM line, not from a continuation", () => {
-    // The same word in the same run under two term heads. `t::` makes
-    // the wrapped term line `name:: target[attrlist]` and E refuses;
-    // `a b::` cannot be a block macro (the name may hold no space),
-    // so nothing refuses and the run reflows. That locates the whole
-    // of E's measured surface in the term-line spelling: the
-    // continuation spelling refuses no word today, because every
-    // shape the registry tests is anchored at `^` and a line opening
-    // with the probe prefix matches none of them. The row is here so
-    // the inert half is a recorded fact rather than a guard a reader
-    // believes is live.
-    expect(printingOf("t::", "alpha bravo charlie x[] y")).toBe("replay");
+  test("E's former block-macro refusal is gone under both term heads", () => {
+    // The same word in the same run under two term heads, both now
+    // safe: `t::` no longer classifies its wrapped term line as a
+    // block macro (#183, the mandatory space after `::` in a term
+    // line's own syntax always defeats BLOCK_MACRO's target), and
+    // `a b::` never could (the name may hold no space). Both reflow.
+    expect(printingOf("t::", "alpha bravo charlie x[] y")).toBe("reflow");
     expect(printingOf("a b::", "alpha bravo charlie x[] y")).toBe("reflow");
   });
 

@@ -62,6 +62,5 @@
   "sections_test.rb#should preprocess second line of setext section title#0": {
     "fails": ["fidelity"],
     "issue": "#173"
-  },
-  "test/fixtures/encoding.adoc": { "fails": ["fidelity"], "issue": "UNTRIAGED" }
+  }
 }

@@ -525,8 +525,6 @@ export const GAP_FAMILY_CASES: Readonly<Record<string, GapFamilyCase>> = {
   // A setext title: the underline is what makes the line above it a
   // heading, so the pair goes in together.
   "gap:setext-title": { restLines: ["Title", "====="] },
-  // A block macro whose name no extension registered.
-  "gap:block-macro-name": { restLines: ["custom::target[]"] },
   // A quoted paragraph: the attribution line is the shape that
   // remodels the paragraph above it.
   "gap:quoted-paragraph": { restLines: ['"quoted"', "-- attribution"] },

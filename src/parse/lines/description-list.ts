@@ -586,8 +586,13 @@ function isOrdinaryDescriptionLine(line: string): boolean {
  * - `BLOCK_MACRO` (`image::y x[]`), the same closer with a different
  *   opener. Probed: `a b:: alpha image::y x[]` split after `alpha`
  *   renders an image block where the joined form renders text. The
- *   term-head spelling of `endsDescriptionLine` catches this only
- *   when the TERM is itself a legal macro name, which `a b` is not.
+ *   term-head spelling of `endsDescriptionLine` cannot catch this for
+ *   ANY term, `a b` included: since #183 BLOCK_MACRO's target must
+ *   start right after `::` with no whitespace, and a term line's own
+ *   syntax always inserts the mandatory space (`term:: desc`), so its
+ *   probe (`${termHead} p ${word}`) never matches BLOCK_MACRO whatever
+ *   the term is. This word inside the run (`image::y`, no space after
+ *   its own `::`) is what the per-word PAIR clause below still needs.
  * - `ATTRIBUTE_ENTRY` (`:a a:`), the colon pair below. Probed:
  *   `t:: alpha :a a: bravo` packed at width 9 puts `:a a:` on its own
  *   line, where the metadata loop drains it: the words are deleted
@@ -641,9 +646,14 @@ function closesAPairedLineShape(words: readonly string[]): boolean {
 // `[attrlist]` a later word closes: the macro's name class, its
 // delimiter, and a target that has not yet reached the `[` (the
 // target is barred from `[` and from nothing else). The name is left
-// open exactly as the registry leaves it, so an unregistered macro
-// name refuses where the oracle would not - the conservative
-// direction, and the one the registry already commits to.
+// open WIDER than BLOCK_MACRO's own registered-name set (issue
+// #183): this is a per-word probe with no closing bracket in view
+// yet, so it cannot know whether the word it is looking at will turn
+// out to be `image` or `custom` until a later word supplies the
+// close. Refusing on any `name::` word is the conservative direction
+// - it only declines a wrap this reader could otherwise take, never
+// misreads a render - so staying wide here costs nothing the way
+// BLOCK_MACRO's own wideness once did.
 const OPENS_BLOCK_MACRO = /^[A-Za-z]\w*::[^\[]*$/v;
 
 // A word that could be the `:name` head of an ATTRIBUTE_ENTRY whose

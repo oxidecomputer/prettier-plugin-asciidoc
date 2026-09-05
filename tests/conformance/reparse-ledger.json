@@ -128,6 +128,12 @@
       "family": "join-changes-reading"
     },
     {
+      "id": "line/pair/attrlist-near-0/delimiter-pass-near-1/adjacent/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[passthrough(value=\"+1]\\n++\")] -> [passthrough(value=\"+1] ++\")]",
+      "family": "join-changes-reading"
+    },
+    {
       "id": "line/pair/attrlist-near-0/delimiter-pass-near-1/adjacent/doc",
       "pass": "p1",
       "signature": "[passthrough(value=\"+1]\\n++\")] -> [passthrough(value=\"+1] ++\")]",

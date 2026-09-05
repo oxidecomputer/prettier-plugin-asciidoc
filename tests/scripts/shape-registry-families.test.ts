@@ -10,14 +10,16 @@
  * next differential run STOPS on rows that were meant to be explained,
  * far from the commit that broke it.
  *
- * Five claims, and each of them is a fact the differential run
+ * Six claims, and each of them is a fact the differential run
  * assumes rather than checks: every family the grid cites is in the
  * closed enumeration, every perturbation the table names is one the
  * grid really generates, the four leaf kinds whose fence the
  * shortest-safe speller respells answer for it at the one coordinate
  * that moves them, the description container answers its own family
- * for every row inside it, and no coordinate outside those sets and
- * the container blanket gained a family by accident.
+ * for every row inside it, `openBlockTilde` answers its own family at
+ * every coordinate because the base registry has no such kind at all,
+ * and no coordinate outside those sets and the two blankets gained a
+ * family by accident.
  */
 import { describe, expect, test } from "vitest";
 import { LEDGER_FAMILIES } from "../../scripts/parity.js";
@@ -38,6 +40,9 @@ const BLOCK_DELIMITER_KINDS = ["listing", "literal", "pass", "commentBlock"];
 
 /** The container every row of which the description read moved. */
 const DESCRIPTION = "dlist-desc";
+
+/** The kind whose base registry has no dimension at all (issue #64). */
+const OPEN_BLOCK_TILDE = "openBlockTilde";
 
 /**
  * A container the description blanket must not reach, used wherever a
@@ -136,6 +141,33 @@ describe("the standing grid's family assignment", () => {
     }
   });
 
+  // Whole-KIND, not one coordinate: unlike the four leaf kinds above,
+  // which already existed and only moved at their fence's own
+  // perturbation, `openBlockTilde` is a kind the base registry has no
+  // dimension for at all, so every container and every perturbation
+  // of it is a genuine diff from base and needs the family - there is
+  // no coordinate of this kind that is expected byte-identical.
+  test("openBlockTilde answers its own family at every coordinate", () => {
+    expect(gridRowFamily(OPEN_BLOCK_TILDE, PLAIN, "closed")).toBe(
+      "open-block-tilde",
+    );
+    expect(gridRowFamily(OPEN_BLOCK_TILDE, DESCRIPTION, "closed")).toBe(
+      "description-list-item",
+    );
+    const rows = standingGrid().filter(
+      (shape) => shape.id.split("/")[0] === OPEN_BLOCK_TILDE,
+    );
+    expect(rows.length).toBeGreaterThan(0);
+    for (const shape of rows) {
+      const [, container] = shape.id.split("/");
+      expect(shape.family).toBe(
+        container === DESCRIPTION
+          ? "description-list-item"
+          : "open-block-tilde",
+      );
+    }
+  });
+
   // The two READING coordinate sets, named one by one rather than
   // blanketed, so the test can state them the same way: exactly these
   // ids answer the reading families and no sibling coordinate does.
@@ -193,7 +225,11 @@ describe("the standing grid's family assignment", () => {
     const reading = new Set([...UNDERLINED_TITLE_IDS, ...MARKDOWN_BREAK_IDS]);
     for (const shape of standingGrid()) {
       const [kind, container, perturbation] = shape.id.split("/");
-      if (kind === TABLE_PIPE || container === DESCRIPTION) {
+      if (
+        kind === TABLE_PIPE ||
+        kind === OPEN_BLOCK_TILDE ||
+        container === DESCRIPTION
+      ) {
         continue;
       }
       if (reading.has(shape.id)) {

@@ -890,15 +890,38 @@ export const ADMONITION_LABEL =
   /^(?<prefix>(?<label>NOTE|TIP|IMPORTANT|WARNING|CAUTION):[ \t]+)/v;
 
 /**
- * A block macro line (`image::a.png[]`, `toc::[]`, `custom::t[a]`).
- * Mirrors `BlockMediaMacroRx` / `BlockTocMacroRx` /
- * `CustomBlockMacroRx`, which `next_block` only reaches for a line
- * that ends in `]` and contains `::`; the name is left open because
- * extensions may register any name and the formatter reprints the
- * line either way.
+ * A block macro line (`image::a.png[]`, `video::a.mp4[]`,
+ * `audio::a.mp3[]`, `toc::[]`): the four names `next_block` opens a
+ * block for BY DEFAULT. It reaches `BlockMediaMacroRx` (rx.rb l.421,
+ * `image|video|audio`) and `BlockTocMacroRx` (rx.rb l.430, `toc`)
+ * unconditionally for a line ending in `]` that contains `::`
+ * (parser.rb l.598-599, l.642); a fifth branch reaches
+ * `CustomBlockMacroRx` (rx.rb l.412, any name) but only when
+ * `extensions.block_macros?` holds, i.e. some extension registered a
+ * custom block macro (parser.rb l.647-649,
+ * `extensions.registered_for_block_macro? $1`), and this formatter
+ * (like the pinned oracle's own test harness) registers none, so an
+ * unregistered name never opens a block macro; what the line becomes
+ * instead depends on what else classifies it (issue #183; recorded
+ * and left unnarrowed at #51 before the ATX heading vocabulary in
+ * #63 made the gap visible: a false block start now hands its next
+ * line to a block-opening vocabulary that never used to see it).
+ *
+ * `toc` carries NO target: `BlockTocMacroRx` is `/^toc::\[...\]$/`,
+ * so `toc::x[]` matches neither rx and falls through as paragraph
+ * text (measured against the pinned oracle: 4.0.11 renders it as a
+ * `<p>`). The three media names require a NON-EMPTY target whose
+ * first and last characters are not whitespace (`\S|\S.*?\S`), so
+ * `image::[]` (an empty target) falls through the same way and is
+ * paragraph text too; `image:: a.png[]` (a space right after `::`)
+ * instead falls through to `DescriptionListRx` (parser.rb l.704,
+ * `this_line.include? '::'`), which reads it as a description-list
+ * term (`image`) and description (`a.png[]`), not as paragraph text.
+ * `[^\s\[\n]` here is that non-whitespace boundary read against the
+ * target's existing bracket exclusion, not a new restriction.
  */
 export const BLOCK_MACRO =
-  /^(?<name>[A-Za-z]\w*)::(?<target>[^\[\n]*)\[(?<attrlist>[^\]\n]*)\]$/v;
+  /^(?:(?<name>image|video|audio)::(?<target>[^\s\[\n](?:[^\[\n]*[^\s\[\n])?)|(?<name>toc)::(?<target>))\[(?<attrlist>[^\]\n]*)\]$/v;
 
 /**
  * A thematic break, in both spellings `next_block` reads: the
@@ -993,12 +1016,11 @@ export const LITERAL_LINE = /^[ \t]+\S/v;
 // context". Direct pins live in tests/parser/list-reader.test.ts and
 // tests/format/block-macro.test.ts.
 //
-// WIDER THAN THE ORACLE, knowingly: BLOCK_MACRO's name group is open
-// (see its doc), while `next_block` only opens a block for a macro
-// name that is registered, so `custom::t[b]` on this line is item text
-// to the oracle and an interrupter here. DLIST_FIRST_LINE_INTERRUPTERS
-// has carried the same looseness since it was written; both rows are
-// pinned with `image::a.png[]`, the shape that is always registered.
+// BLOCK_MACRO's name group now holds only the names `next_block`
+// opens a block for by default (see its doc), so `custom::t[b]` on
+// this line is item text to the oracle AND to this reader alike; both
+// this row and DLIST_FIRST_LINE_INTERRUPTERS are pinned with
+// `image::a.png[]`, one of the registered shapes.
 const LIST_ITEM_FIRST_LINE_INTERRUPTERS: readonly RegExp[] = [BLOCK_MACRO];
 
 // Shapes that end a dlist description ONLY on the first line after

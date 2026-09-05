@@ -706,6 +706,43 @@ const TABLE_UNREAD_ATTRLIST_FAMILY = "table-unread-attrlist";
  */
 export const DESCRIPTION_LIST_ITEM_FAMILY = "description-list-item";
 
+/**
+ * A run of four or more tildes is the OPEN block the oracle's
+ * `DELIMITED_BLOCKS['~~~~']` reads there (issue #64), where the base
+ * read the tildes as ordinary inline marks (subscript/monospace) and
+ * the mismatched trailing run as more text. Every declared case gains
+ * the `openParentBlock` tree the tilde spelling opens and loses the
+ * inline-span reading the base gave its bytes, and the printer
+ * replays the delimiter's own recorded length, so the bytes move too:
+ * NOT formatted-only, and not a blanket family - no single-key strip
+ * makes the two dumps deep-equal when one tree has a block the other
+ * spells as inline spans.
+ *
+ * EXPORTED: the standing grid cites it - every row whose kind is
+ * `openBlockTilde` takes this family, because the base's registry has
+ * no such kind at all, so no perturbation of it can be byte-identical
+ * (`gridRowFamily`, scripts/shape-registry-families.ts).
+ */
+export const OPEN_BLOCK_TILDE_FAMILY = "open-block-tilde";
+
+/**
+ * `BLOCK_MACRO` narrowed from any `name::target[attrlist]` to
+ * Asciidoctor's registered block-macro names - image, video, audio,
+ * toc - plus the media/toc target-boundary rules that come with them
+ * (issue #183). Every declared case loses the `blockMacro` node an
+ * unregistered name used to open and gains the `paragraph` its literal
+ * text now reads as; a term line whose reflow used to be refused for
+ * fear of that false read (the dlist-description cases) gains the
+ * joined line the refusal used to withhold, so the bytes move for
+ * those and stay put for the rest. NOT formatted-only: the node kind
+ * itself changes. Not a blanket family either: it does not name a
+ * field every node gained, it names ids whose block macro reading is
+ * simply gone.
+ *
+ * Not exported: no grid row cites it.
+ */
+const BLOCK_MACRO_NAME_FAMILY = "block-macro-name";
+
 export const LEDGER_FAMILIES: FamilySets = {
   families: new Set([
     ATTRIBUTE_CONTINUATION_FAMILY,
@@ -747,6 +784,8 @@ export const LEDGER_FAMILIES: FamilySets = {
     UNDERLINED_SECTION_TITLE_FAMILY,
     MARKDOWN_MARKER_SECTION_TITLE_FAMILY,
     TEXTLESS_DESCRIPTION_TEXT_FAMILY,
+    OPEN_BLOCK_TILDE_FAMILY,
+    BLOCK_MACRO_NAME_FAMILY,
   ]),
   formattedOnly: new Set([
     AUTHOR_PLUS_FAMILY,

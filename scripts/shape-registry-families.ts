@@ -29,10 +29,14 @@ import {
   DESCRIPTION_LIST_ITEM_FAMILY,
   MARKDOWN_THEMATIC_BREAK_FAMILY,
   NO_OP_CONTINUATION_FAMILY,
+  OPEN_BLOCK_TILDE_FAMILY,
   TABLE_DELIMITER_LENGTH_FAMILY,
   TABLE_LAYOUT_FAMILY,
   UNDERLINED_SECTION_TITLE_FAMILY,
 } from "./parity-ledger.js";
+
+/** The delimiter kind base's registry has no dimension for at all. */
+const OPEN_BLOCK_TILDE_KIND = "openBlockTilde";
 
 /** The delimiter kind whose rows the table print rules move. */
 const TABLE_PIPE_KIND = "tablePipe";
@@ -203,6 +207,14 @@ export function gridRowFamily(
 ): string | undefined {
   if (containerId === DESCRIPTION_CONTAINER) {
     return DESCRIPTION_LIST_ITEM_FAMILY;
+  }
+  // Asked before every other per-kind rule: the base registry has no
+  // `openBlockTilde` dimension at all (issue #64), so no perturbation
+  // of this kind, in any container, can be byte-identical against it -
+  // the whole kind takes its own family rather than one coordinate at
+  // a time.
+  if (kind === OPEN_BLOCK_TILDE_KIND) {
+    return OPEN_BLOCK_TILDE_FAMILY;
   }
   // The two reading changes are asked BEFORE the per-kind rules for
   // the reason the description container is: at these coordinates a

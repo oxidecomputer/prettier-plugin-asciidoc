@@ -266,26 +266,6 @@
       "family": "oracle:manpage-doctype",
       "signature": "-heading; -paragraph"
     },
-    "extensions_test.rb#create_section should set up all section properties#0": {
-      "family": "gap:block-macro-name",
-      "signature": "macro:sect=>paragraph"
-    },
-    "extensions_test.rb#should assign caption on image block if title is set on custom block macro#0": {
-      "family": "gap:block-macro-name",
-      "signature": "macro:cat_in_sink=>paragraph"
-    },
-    "extensions_test.rb#should be able to set header attribute in block macro processor#0": {
-      "family": "gap:block-macro-name",
-      "signature": "macro:attribute=>paragraph; macro:header_attribute=>paragraph"
-    },
-    "extensions_test.rb#should drop block macro line if target references missing attribute and attribute-missing is drop-line#0": {
-      "family": "gap:block-macro-name",
-      "signature": "+paragraph; -macro:snippet"
-    },
-    "extensions_test.rb#should ignore return value of custom block macro if value is parent#0": {
-      "family": "gap:block-macro-name",
-      "signature": "macro:para=>paragraph"
-    },
     "invoker_test.rb#should write page for each alternate manname#0": {
       "family": "oracle:manpage-doctype",
       "signature": "-heading; -paragraph"
@@ -481,10 +461,6 @@
     "sections_test.rb#subsections in preface and appendix should start at level 2#0": {
       "family": "oracle:book-partintro",
       "signature": "paragraph=>open"
-    },
-    "test/fixtures/encoding.adoc": {
-      "family": "gap:block-macro-name",
-      "signature": "-macro:tag"
     },
     "test/fixtures/include-alt-extension.asciidoc": {
       "family": "oracle:conditional",

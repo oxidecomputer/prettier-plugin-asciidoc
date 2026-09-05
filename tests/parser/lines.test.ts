@@ -463,19 +463,25 @@ describe("parseAttributeEntry", () => {
 });
 
 describe("parseBlockMacro", () => {
+  // Asciidoctor only opens a block macro for a REGISTERED name: image,
+  // video, audio, toc by default, and any other name only when an
+  // extension registers it (parser.rb l.647-649), and this formatter,
+  // like the pinned oracle's own test harness, registers none.
+  // `custom::t[a]` was wrongly accepted here before #183;
+  // `footnote::[n]` is the issue's own witness.
   test.each([
     ["image::a.png[Alt]", { name: "image", target: "a.png", attrlist: "Alt" }],
+    ["video::a.mp4[]", { name: "video", target: "a.mp4", attrlist: "" }],
     ["toc::[]", { name: "toc", target: "", attrlist: "" }],
-    ["custom::t[a,b=c]", { name: "custom", target: "t", attrlist: "a,b=c" }],
+    ["image::a.png[Alt] x", undefined],
+    ["image:a.png[]", undefined],
+    ["1mage::a[]", undefined],
+    ["text", undefined],
+    ["custom::t[a,b=c]", undefined],
+    ["footnote::[n]", undefined],
   ])("%j", (line, expected) => {
     expect(parseBlockMacro(line)).toEqual(expected);
   });
-  test.each(["image::a.png[Alt] x", "image:a.png[]", "1mage::a[]", "text"])(
-    "%j is no block macro",
-    (line) => {
-      expect(parseBlockMacro(line)).toBeUndefined();
-    },
-  );
 });
 
 describe("parseAdmonitionLabel", () => {

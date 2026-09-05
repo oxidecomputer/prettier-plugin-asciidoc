@@ -166,8 +166,12 @@ export const BLOCK_STRUCTURE_FAMILIES: ReadonlySet<string> = new Set([
   // A leading U+FEFF makes us read `= Title` as a paragraph; the
   // oracle's reader strips the BOM (#60).
   "gap:utf8-bom",
-  // `foo::bar[]` for a name Ruby registered as an extension and we
-  // accept generically (#51-adjacent).
+  // `foo::bar[]` for a name no extension registered, which BLOCK_MACRO
+  // used to accept generically (#51, left unnarrowed; #183 narrowed
+  // it to the four names `next_block` opens by default). No entry
+  // carries this family now - the name stays so that a genuinely
+  // registered extension name the corpus meets later (this formatter
+  // registers none) lands on it rather than as UNTRIAGED.
   "gap:block-macro-name",
   // A metadata run plus a tail at the end of an item is FOLDED INTO
   // THE ITEM'S PRINCIPAL TEXT by the oracle; we attach it as a child

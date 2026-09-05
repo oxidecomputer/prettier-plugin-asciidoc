@@ -143,7 +143,7 @@ describe("buildAttributeEntry", () => {
 describe("buildBlockMacro", () => {
   test.each([
     ["image::a.png[Alt]", "image", "a.png", "Alt"],
-    ["include::a.adoc[]", "include", "a.adoc", ""],
+    ["toc::[]", "toc", "", ""],
   ])("%j → %j::%j[%j]", (line, name, target, attrlist) => {
     const { span, at } = lineOf(line);
     const kind = parseBlockMacro(rstrip(line));

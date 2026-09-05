@@ -138,7 +138,7 @@
       "mutation": 0.0
     },
     "src/parse/lines/description-list.ts": {
-      "coverage": 100.0,
+      "coverage": 98.4,
       "mutation": 0.0
     },
     "src/parse/lines/frames.ts": {
@@ -575,9 +575,15 @@
     },
     {
       "file": "src/parse/lines/description-list.ts",
+      "what": "coverage minimum lowered 100 -> 98.4 (descriptionPrinting's `words.some((word) => endsDescriptionLine(word, run.termHead))` arm, line 509-510: 1 uncovered line of 65)",
+      "class": "never",
+      "reason": "issue #183 closed the only witness this arm ever had. `endsDescriptionLine` probes `${PROBE_PREFIX} ${word}` and `${termHead} ${PROBE_PREFIX} ${word}` (PROBE_PREFIX is the fixed string \"p\"), and a termHead always ends in a separator, so BOTH probe spellings put a mandatory space right after the last `::` a block-macro match could key on. Before #183, BLOCK_MACRO accepted a target whose first character was that space; #183 narrows BLOCK_MACRO to require a non-whitespace first character, which refuses every probe this call site can construct, for every name, registered or not (tests/parser/description-list.test.ts, \"descriptionPrinting, E: every word is safe at a line end\", already pins interruptsByLineShape false on every such probe). The other two disjuncts inside closesADescriptionLine (startsSectionTitle, isRawParagraphLine) were never witnessed here even before #183 (see the MEASURED comment beside closesADescriptionLine, src/parse/line-shapes.ts) - neither can match a line built from this fixed prefix shape either, since one needs a leading marker character the prefix never supplies and the other needs a leading indent the prefix never supplies. Checked empirically against the full CONSTRUCTS registry (55 constructs) crossed with every termHead separator spelling and both probe forms (issue #183's landing): zero hits. The arm is therefore unreachable through this call site as the code stands; deleting it is a question for whoever owns descriptionPrinting, not for a mechanical rebase landing #64 and #183 together."
+    },
+    {
+      "file": "src/parse/lines/description-list.ts",
       "what": "mutation minimum 0 - a PLACEHOLDER, not a file with nothing to measure",
       "class": "when",
-      "reason": "TRIGGER: the next batched mutation run. The file answers whether a line continues an OPEN description list, and the delimiter it is keyed on decides structure, so its one guard is worth mutating; nothing has measured it, because mutation runs at batched integration points and this file landed between two of them. Its coverage row is measured (100.00 lines, `bun run coverage`) and its behaviour is pinned by tests/parser/description-list.test.ts, whose near-miss rows are the boundaries Ruby's own term groups draw. What the zero costs is the RATCHET, which stays disengaged for this file alone until the run that reseeds it."
+      "reason": "TRIGGER: the next batched mutation run. The file answers whether a line continues an OPEN description list, and the delimiter it is keyed on decides structure, so its one guard is worth mutating; nothing has measured it, because mutation runs at batched integration points and this file landed between two of them. Its coverage row is measured (98.4 lines, `bun run coverage`, lowered from 100 by the separate exception above) and its behaviour is pinned by tests/parser/description-list.test.ts, whose near-miss rows are the boundaries Ruby's own term groups draw. What the zero costs is the RATCHET, which stays disengaged for this file alone until the run that reseeds it."
     },
     {
       "file": "src/parse/line-shapes-description.ts",
