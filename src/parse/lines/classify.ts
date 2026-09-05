@@ -516,6 +516,26 @@ export function attributeContinuation(
 }
 
 /**
+ * {@link BLOCK_MACRO}'s captures as the runtime actually carries them:
+ * one index signature types every named group as `string` no matter
+ * which alternative of the regex supplies it, which is wrong for the
+ * two groups only one branch declares. `attrlist` is the exception -
+ * both branches share it - so it keeps its definite `string`. Runtime
+ * behaviour of a non-participating group's key VALUE (not its
+ * presence: measured on the pinned runtime, the key itself is always
+ * there, holding `undefined` - `Object.hasOwn` cannot tell the
+ * branches apart) is `undefined`, per the exec() result the
+ * ECMAScript spec requires and every engine this formatter runs under
+ * agrees on.
+ */
+interface BlockMacroGroups {
+  readonly mediaName?: string;
+  readonly mediaTarget?: string;
+  readonly tocName?: string;
+  readonly attrlist: string;
+}
+
+/**
  * Parse a block macro line (`name::target[attrlist]`) into its three
  * fields — the ONE parse; the builder re-derives nothing.
  * @param line - one rstripped source line
@@ -527,10 +547,28 @@ export function attributeContinuation(
 export function parseBlockMacro(
   line: string,
 ): { name: string; target: string; attrlist: string } | undefined {
-  const groups = BLOCK_MACRO.exec(line)?.groups;
-  return groups === undefined
-    ? undefined
-    : { name: groups.name, target: groups.target, attrlist: groups.attrlist };
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- the exec() result's index-signature type widens every named group to `string`; BlockMacroGroups narrows two of them back to `string | undefined`, which is what the runtime actually returns for the branch that did not match
+  const groups = BLOCK_MACRO.exec(line)?.groups as BlockMacroGroups | undefined;
+  if (groups === undefined) {
+    return undefined;
+  }
+  // The regex's two branches carry their own group names
+  // (BLOCK_MACRO, line-shapes.ts) rather than one shared `name`/
+  // `target` pair, because a duplicate named group across alternatives
+  // measured fine against the oracle build but threw `SyntaxError:
+  // ... Duplicate capture group name` under the pinned CI runtime.
+  // Exactly one of `mediaName` and `tocName` matched, by construction
+  // of the regex's own top-level alternation - there is no third way
+  // to reach a defined `groups` - so the fallback asserts rather than
+  // branches: an `if` here would guard a line no input can reach, and
+  // `mediaTarget` is undefined on the `toc` branch, whose target is
+  // always empty.
+  return {
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- see the alternation argument above; BlockMacroGroups types both as optional because the runtime's index signature cannot express "exactly one of these two"
+    name: groups.mediaName ?? groups.tocName!,
+    target: groups.mediaTarget ?? "",
+    attrlist: groups.attrlist,
+  };
 }
 
 /**

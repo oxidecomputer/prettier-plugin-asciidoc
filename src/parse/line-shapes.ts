@@ -920,8 +920,16 @@ export const ADMONITION_LABEL =
  * `[^\s\[\n]` here is that non-whitespace boundary read against the
  * target's existing bracket exclusion, not a new restriction.
  */
+// `mediaName`/`mediaTarget` and `tocName` rather than one shared
+// `name`/`target` pair: engines vary on whether a named group may
+// repeat across alternatives of a disjunction (a duplicate that
+// measured fine against the oracle build threw `SyntaxError: ...
+// Duplicate capture group name` under the pinned CI runtime), so the
+// two branches get their own names and parseBlockMacro (classify.ts)
+// merges them - `target` reads as `""` on the branch with no group of
+// its own, which is exactly `toc`'s own empty target.
 export const BLOCK_MACRO =
-  /^(?:(?<name>image|video|audio)::(?<target>[^\s\[\n](?:[^\[\n]*[^\s\[\n])?)|(?<name>toc)::(?<target>))\[(?<attrlist>[^\]\n]*)\]$/v;
+  /^(?:(?<mediaName>image|video|audio)::(?<mediaTarget>[^\s\[\n](?:[^\[\n]*[^\s\[\n])?)|(?<tocName>toc)::)\[(?<attrlist>[^\]\n]*)\]$/v;
 
 /**
  * A thematic break, in both spellings `next_block` reads: the
