@@ -730,6 +730,45 @@ function textMatcher(source: string): InlineRule["match"] {
  * sentinel, which is why the `unicorn/no-null` suppression the
  * old custom matcher needed is gone.
  */
+// A bare URL, with or without an attrlist - InlineLinkRx. Its body is
+// every character that is neither whitespace nor a bracket, which is
+// what makes the match RUN ON through punctuation, marks and anything
+// else standing behind the scheme.
+const BARE_ADDRESS = /https?:\/\/[^\s\[\]]+(?:\[[^\]]*\])?/v;
+
+// The body class alone, anchored, for asking how far a match that has
+// already started would carry. Derived from {@link BARE_ADDRESS} by
+// spelling the same class once more would be a second source of
+// truth, so it is read OFF the pattern instead: the body is what the
+// match consumes after its scheme.
+const BARE_ADDRESS_BODY = new RegExp(
+  BARE_ADDRESS.source.replace(String.raw`https?:\/\/`, "^"),
+  "v",
+);
+
+/**
+ * How far a bare-address match already under way would carry from
+ * `from`.
+ *
+ * The printer needs this and cannot have the pattern: a span it is
+ * about to respell with the shorter mark loses that mark to the
+ * address in front of it wherever the match reaches it, and the two
+ * spellings are then not interchangeable (`constrainedIsLegal`,
+ * src/print/inline.ts). Asking HERE keeps the class in the one place
+ * that spells it, which is what the rule table is for.
+ *
+ * The answer is an offset, not a boolean, because the caller's own
+ * question is about a position: does the match cover the mark that
+ * stands at some later offset.
+ * @param text - the bytes standing behind the address's scheme
+ * @param from - where to start reading them
+ * @returns the offset one past the last character the match takes
+ */
+export function bareAddressRunsPast(text: string, from: number): number {
+  const body = BARE_ADDRESS_BODY.exec(text.slice(from));
+  return from + (body?.[0].length ?? 0);
+}
+
 export const INLINE_RULES: readonly InlineRule[] = [
   // `+text+`, `++text++`, `+++text+++`, `$$text$$`, each with an
   // optional `[attrlist]` in front: the forms `extract_passthroughs`
@@ -785,10 +824,13 @@ export const INLINE_RULES: readonly InlineRule[] = [
       new RegExp(String.raw`(?:${MACRO_NAMES}):[^\s\[]*\[[^\]]*\]`, "v"),
     ),
   },
-  // Bare URL, with or without an attrlist — InlineLinkRx.
+  // Bare URL, with or without an attrlist - InlineLinkRx. How far
+  // such a match RUNS, once it has started, is a question the printer
+  // asks as well ({@link bareAddressRunsPast}); the class below is the
+  // only place it is written.
   {
     type: "InlineUrl",
-    match: pattern(/https?:\/\/[^\s\[\]]+(?:\[[^\]]*\])?/v),
+    match: pattern(BARE_ADDRESS),
   },
   // Bare email address - InlineEmailRx ({@link EMAIL_ADDRESS}) read
   // through Ruby's own scan ({@link scanWord}). Behind InlineMacro and

@@ -132,6 +132,13 @@ export const MARK_SPAN_KINDS = {
   HighlightMark: "highlight",
 } as const satisfies Record<MarkSpanTokenKind, MarkKind>;
 
+/** One token in front of another, as an index delta. */
+const TOKEN_BEFORE = 1;
+
+/** The offset of a match's second character, and of its first. */
+const SECOND_CHARACTER = 1;
+const FIRST_CHARACTER = 0;
+
 /**
  * One resolved span, as indices into the token stream it was
  * resolved from.
@@ -213,29 +220,6 @@ export function mayEndOnDelimiter(type: InlineTokenType): boolean {
 }
 
 /**
- * The token a span's closing token leaves behind as CONTENT: the
- * match minus the delimiter at its end, or undefined when the whole
- * token is the delimiter (every ordinary mark).
- *
- * The offset is the match's own, so the head covers exactly the
- * source it always did minus its last `width` characters, and the
- * delimiter that follows it is what the span's node ends at.
- * @param token - the token a span closed on
- * @param width - the closing delimiter's width, which is the opening
- *   delimiter's own: a constrained mark never pairs with a doubled one
- * @returns the head token, or undefined when there is no head
- */
-export function delimiterHead(
-  token: InlineToken,
-  width: number,
-): InlineToken | undefined {
-  const type = TRAILING_DELIMITER_HEAD[token.type];
-  return type === undefined
-    ? undefined
-    : { type, image: token.image.slice(0, -width), offset: token.offset };
-}
-
-/**
  * Which character each row's delimiter is spelled with, for the four
  * kinds that have one.
  *
@@ -256,34 +240,300 @@ const MARK_CHARACTER: Partial<Record<MarkTokenKind, string>> =
   );
 
 /**
- * Whether the token at `scanIndex` can CLOSE this row: a mark of the
- * row's own kind and width, or a match that ENDS on that row's
- * delimiter ({@link TRAILING_DELIMITER_HEAD}). Either way it has to be
- * able to close where the delimiter stands, which is what `canClose`
- * records (`markFlags`, rules.ts).
- * @param candidate - the token being considered
- * @param row - the row being resolved
- * @returns true when this row may close here
+ * A row's delimiter and what a match that carries it leaves behind -
+ * gathered once per candidate so the arms below take one argument
+ * instead of three (the project's `max-params` ceiling is four).
  */
-function closesRow(
+interface CloseSpelling {
+  /** The mark token kind the row pairs. */
+  readonly type: MarkTokenKind;
+  /** The row's delimiter: its mark, repeated to its width. */
+  readonly delimiter: string;
+  /** The kind the match becomes once the delimiter leaves it. */
+  readonly headKind: InlineKind;
+}
+
+/**
+ * What a scan for a close found.
+ *
+ * A CUT is not a close: it says the row's delimiter stands inside a
+ * match, which the stream has to be cut at before it can carry a close
+ * there at all ({@link cutMatch}). The scan reports it and stops, and
+ * the search runs again over the cut stream.
+ */
+type CloseSearch =
+  | {
+      /** The stream carries a close here. */
+      readonly found: "close";
+      /** Index of the token the delimiter is. */
+      readonly close: number;
+    }
+  | {
+      /** The stream has to be cut before it can carry one. */
+      readonly found: "cut";
+      /** The match to cut. */
+      readonly index: number;
+      /** Where in it the row found its delimiter. */
+      readonly site: "interior" | "trailing";
+      /** The delimiter to cut at, and what the match leaves behind. */
+      readonly spelling: CloseSpelling;
+    }
+  | {
+      /** Nothing here. */
+      readonly found: "none";
+    };
+
+/** Nothing here. Spelled once so the arms below read as answers. */
+const NO_CLOSE: CloseSearch = { found: "none" };
+
+/**
+ * What a CONSTRAINED row finds on a match: its delimiter at the
+ * match's END, and nowhere else.
+ *
+ * The row's right lookahead `(?!\w)` has to be answered, and the only
+ * position a token answers it for is the delimiter at its own END:
+ * that is where `trailingDelimiterFlags` (rules.ts) measured
+ * `canClose`. So a constrained row reads the flag and takes the end,
+ * where an unconstrained row reads no flag and takes any offset.
+ * @param candidate - the match being considered
+ * @param index - its index in the stream
+ * @param spelling - the row's delimiter and head kind
+ * @returns what the scan found here
+ */
+function constrainedClose(
   candidate: InlineToken,
-  row: (typeof RESOLUTION_ORDER)[number],
-): boolean {
-  if (candidate.canClose !== true) {
-    return false;
-  }
-  if (candidate.type === row.type) {
-    return candidate.image.length === row.width;
-  }
-  const mark = MARK_CHARACTER[row.type];
+  index: number,
+  spelling: CloseSpelling,
+): CloseSearch {
+  const { delimiter } = spelling;
   // A head of at least one character, because every content group
   // demands one: the delimiter cannot be the whole match.
-  return (
-    mark !== undefined &&
-    mayEndOnDelimiter(candidate.type) &&
-    candidate.image.length > row.width &&
-    candidate.image.endsWith(mark.repeat(row.width))
-  );
+  return candidate.canClose === true &&
+    candidate.image.length > delimiter.length &&
+    candidate.image.endsWith(delimiter)
+    ? { found: "cut", index, site: "trailing", spelling }
+    : NO_CLOSE;
+}
+
+/**
+ * What an UNCONSTRAINED row finds on a match: its delimiter standing
+ * somewhere inside, or the seam behind it.
+ *
+ * The FIRST occurrence is the right one: Ruby's content group is
+ * non-greedy (`(.+?)`), so the nearest delimiter closes the row, and
+ * the doubled scan that decided our opener is a delimiter at all
+ * paired it with that same one (doubled-marks.ts replays the row's own
+ * gsub). Offset zero is not an occurrence: the content group demands a
+ * character, and no kind that reaches this function opens with the
+ * mark anyway - a URL opens with its scheme and an escape with its
+ * backslash.
+ * @param tokens - the stream being resolved
+ * @param index - the candidate's index in it
+ * @param spelling - the row's delimiter and head kind
+ * @returns what the scan found here
+ */
+function unconstrainedClose(
+  tokens: readonly InlineToken[],
+  index: number,
+  spelling: CloseSpelling,
+): CloseSearch {
+  const candidate = tokens[index];
+  const { delimiter } = spelling;
+  const at = candidate.image.indexOf(delimiter, SECOND_CHARACTER);
+  if (at <= FIRST_CHARACTER) {
+    return NO_CLOSE;
+  }
+  // The FIRST occurrence closes this row, and a close never asks what
+  // stands in front of it. Every occurrence BEHIND it would have to
+  // OPEN, and an escaped one cannot: Ruby hands those bytes back to
+  // the rows that run after ({@link escaped}), which read a span our
+  // tree has no second pass to find. Cutting anyway would leave what
+  // that span sheltered standing in prose, so the row falls back to
+  // the close it had before interior cuts existed - the delimiter at
+  // the match's END, or none, and the scan carries on either way.
+  return escapedBehind(candidate.image, at + delimiter.length, delimiter)
+    ? constrainedClose(candidate, index, spelling)
+    : { found: "cut", index, site: "interior", spelling };
+}
+
+/**
+ * Where the token at `scanIndex` CLOSES this row, if it does: a mark
+ * of the row's own kind and width, or a match carrying the row's
+ * delimiter in or beside it.
+ * @param tokens - the stream being resolved
+ * @param scanIndex - the position being considered
+ * @param row - the row being resolved
+ * @returns what the scan found here
+ */
+function closesRow(
+  tokens: readonly InlineToken[],
+  scanIndex: number,
+  row: (typeof RESOLUTION_ORDER)[number],
+): CloseSearch {
+  const candidate = tokens[scanIndex];
+  if (candidate.type === row.type) {
+    return candidate.canClose === true && candidate.image.length === row.width
+      ? { found: "close", close: scanIndex }
+      : NO_CLOSE;
+  }
+  const mark = MARK_CHARACTER[row.type];
+  const headKind = TRAILING_DELIMITER_HEAD[candidate.type];
+  if (mark === undefined || headKind === undefined) {
+    return NO_CLOSE;
+  }
+  const spelling = {
+    type: row.type,
+    delimiter: mark.repeat(row.width),
+    headKind,
+  };
+  return row.width === UNCONSTRAINED_WIDTH
+    ? unconstrainedClose(tokens, scanIndex, spelling)
+    : constrainedClose(candidate, scanIndex, spelling);
+}
+
+/** Ruby's `\\?`, and the one character it makes optional. */
+const ESCAPE = "\\";
+
+/**
+ * Whether the delimiter at `at` stands behind a backslash, which is
+ * what stops it OPENING a span.
+ *
+ * Every unconstrained `QUOTE_SUBS` row carries the escape inside its
+ * own pattern, a bare `\\?` in front of the opening delimiter
+ * (asciidoctor.rb l.446-468).
+ *
+ * A match whose first character is that backslash is written back with
+ * the backslash removed and no span made, and the bytes go on to the
+ * rows that run after (`convert_quoted_text`, substitutors.rb l.1420).
+ * Nothing looks at what stands in front of a CLOSER, so this is asked
+ * about opening alone.
+ *
+ * One character is the whole question. The row's `\\?` takes at most
+ * one backslash, so a doubled `\\\\` still puts a backslash first in
+ * the match and still escapes it.
+ * @param image - the match being cut
+ * @param at - where the delimiter starts inside it
+ * @returns true when the delimiter may not open a span
+ */
+function escaped(image: string, at: number): boolean {
+  return image.slice(FIRST_CHARACTER, at).endsWith(ESCAPE);
+}
+
+/**
+ * Whether any occurrence of the delimiter at or behind `from` stands
+ * behind a backslash.
+ *
+ * This is where the escape rule bites, and the only place it needs to:
+ * the delimiter a cut emits at the FIRST occurrence is the row's own
+ * close, and a close asks no escape (nothing looks at what stands in
+ * front of one), while every occurrence behind it could only OPEN.
+ * Refusing the cut when one of THOSE is escaped is therefore the whole
+ * of `convert_quoted_text`'s answer here, and no delimiter the cut
+ * emits ever needs its opening refused one at a time.
+ * @param image - the match being considered
+ * @param from - where to start looking
+ * @param delimiter - the row's delimiter
+ * @returns true when an escaped occurrence follows
+ */
+function escapedBehind(
+  image: string,
+  from: number,
+  delimiter: string,
+): boolean {
+  for (
+    let at = image.indexOf(delimiter, from);
+    at > FIRST_CHARACTER;
+    at = image.indexOf(delimiter, at + delimiter.length)
+  ) {
+    if (escaped(image, at)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Cut a match where the row's delimiter stands, so the stream carries
+ * it as a token.
+ *
+ * Ruby has no tokens: a delimiter is a delimiter wherever it stands,
+ * and its gsub resumes immediately behind the match it wrote, so a
+ * second delimiter in the same run OPENS the next span. Recording the
+ * close as an offset inside a token cannot express that - the row
+ * would have to resume inside a token it has already stepped over -
+ * so the stream is cut instead, and everything downstream goes on
+ * working in whole tokens.
+ *
+ * WHERE it cuts, and what the delimiter may then do, is the SITE's to
+ * say. An `interior` site is an unconstrained row's, which tests no
+ * boundary: every occurrence becomes a delimiter, and each may open a
+ * span as well as close one. A `trailing` site is a constrained row's,
+ * and there the only offset whose lookahead the match answered is its
+ * own end (`trailingDelimiterFlags`, rules.ts) - one cut, and the
+ * delimiter may only CLOSE, because a match read out of text
+ * `sub_quotes` has already paired cannot begin a span.
+ *
+ * The pieces between the delimiters are `InlineChar`, the kind for a
+ * position no rule claims. The cut is BYTE-NEUTRAL: a piece that pairs
+ * with nothing prints its own image back, exactly as it did inside the
+ * match.
+ * @param tokens - the stream being resolved, spliced in place
+ * @param index - the match to cut
+ * @param spelling - the delimiter to cut at, and what the match
+ *   leaves behind; the scan found both and hands them on rather than
+ *   letting this look them up a second time
+ * @param site - where in the match the row found its delimiter
+ * @returns how many tokens the cut added
+ */
+function cutMatch(
+  tokens: InlineToken[],
+  index: number,
+  spelling: CloseSpelling,
+  site: "interior" | "trailing",
+): number {
+  const match = tokens[index];
+  const { delimiter, headKind } = spelling;
+  const interior = site === "interior";
+  const pieces: InlineToken[] = [];
+  let cursor = FIRST_CHARACTER;
+  let at = interior
+    ? match.image.indexOf(delimiter, SECOND_CHARACTER)
+    : match.image.length - delimiter.length;
+  while (at > FIRST_CHARACTER) {
+    // Two delimiters that ABUT leave nothing between them, and an
+    // empty token is not a token: the stream carries characters.
+    if (cursor < at) {
+      pieces.push({
+        type: cursor === FIRST_CHARACTER ? headKind : "InlineChar",
+        image: match.image.slice(cursor, at),
+        offset: match.offset + cursor,
+      });
+    }
+    pieces.push({
+      type: spelling.type,
+      image: delimiter,
+      offset: match.offset + at,
+      canOpen: interior,
+      canClose: true,
+    });
+
+    cursor = at + delimiter.length;
+    // Resume AT the cursor, not one past it: Ruby's gsub carries on
+    // from the character behind the match it wrote, and the content
+    // the next match needs comes from whatever follows the delimiter -
+    // the rest of this image or the tokens behind it. Two delimiters
+    // that ABUT are two delimiters.
+    at = interior ? match.image.indexOf(delimiter, cursor) : FIRST_CHARACTER;
+  }
+  if (cursor < match.image.length) {
+    pieces.push({
+      type: "InlineChar",
+      image: match.image.slice(cursor),
+      offset: match.offset + cursor,
+    });
+  }
+  tokens.splice(index, TOKEN_BEFORE, ...pieces);
+  return pieces.length - TOKEN_BEFORE;
 }
 
 /**
@@ -301,23 +551,24 @@ function closesRow(
  * @param openIndex - position of the opening mark
  * @param row - the row being resolved, whose kind and width the close
  *   must match
- * @returns the closing token's index, or -1 when there is none
+ * @returns what the scan found
  */
 function findCloseMark(
   tokens: readonly InlineToken[],
   openIndex: number,
   row: (typeof RESOLUTION_ORDER)[number],
-): number {
+): CloseSearch {
   for (
-    let scanIndex = openIndex + 1;
+    let scanIndex = openIndex + TOKEN_BEFORE;
     scanIndex < tokens.length;
     scanIndex += 1
   ) {
-    if (closesRow(tokens[scanIndex], row)) {
-      return scanIndex;
+    const found = closesRow(tokens, scanIndex, row);
+    if (found.found !== "none") {
+      return found;
     }
   }
-  return -1;
+  return NO_CLOSE;
 }
 
 /**
@@ -343,18 +594,20 @@ function findCloseMark(
  * @param tokens - the stream being resolved
  * @param openIndex - position of the opening mark
  * @param row - the row being resolved
- * @returns the closing mark's index, or -1 when there is none
+ * @returns what the scan found
  */
 function closeForOpen(
   tokens: readonly InlineToken[],
   openIndex: number,
   row: (typeof RESOLUTION_ORDER)[number],
-): number {
-  const closeIndex = findCloseMark(tokens, openIndex, row);
-  return closeIndex === openIndex + 1 &&
-    delimiterHead(tokens[closeIndex], row.width) === undefined
-    ? findCloseMark(tokens, closeIndex, row)
-    : closeIndex;
+): CloseSearch {
+  const found = findCloseMark(tokens, openIndex, row);
+  if (found.found !== "close") {
+    return found;
+  }
+  return found.close === openIndex + TOKEN_BEFORE
+    ? findCloseMark(tokens, found.close, row)
+    : found;
 }
 
 /**
@@ -390,14 +643,41 @@ function crossesAccepted(
   accepted: readonly ResolvedSpan[],
 ): boolean {
   const start = spanStart(candidate);
+  const end = candidate.close;
   return accepted.some((span) => {
     const other = spanStart(span);
-    const disjoint = candidate.close < other || span.close < start;
+    const otherEnd = span.close;
+    const disjoint = end < other || otherEnd < start;
     const nested =
-      (start <= other && span.close <= candidate.close) ||
-      (other <= start && candidate.close <= span.close);
+      (start <= other && otherEnd <= end) ||
+      (other <= start && end <= otherEnd);
     return !disjoint && !nested;
   });
+}
+
+/**
+ * Shift every accepted span behind a cut, which made the stream
+ * longer.
+ * @param accepted - the spans resolved so far, rewritten in place
+ * @param from - the index of the token that was cut
+ * @param delta - how many tokens the cut added
+ */
+function shiftAccepted(
+  accepted: ResolvedSpan[],
+  from: number,
+  delta: number,
+): void {
+  for (const [at, span] of accepted.entries()) {
+    accepted[at] = {
+      type: span.type,
+      open: span.open > from ? span.open + delta : span.open,
+      close: span.close > from ? span.close + delta : span.close,
+      role:
+        span.role !== undefined && span.role > from
+          ? span.role + delta
+          : span.role,
+    };
+  }
 }
 
 /**
@@ -408,7 +688,7 @@ function crossesAccepted(
  * @param accepted - spans resolved so far (appended to)
  */
 function resolveRow(
-  tokens: readonly InlineToken[],
+  tokens: InlineToken[],
   row: (typeof RESOLUTION_ORDER)[number],
   accepted: ResolvedSpan[],
 ): void {
@@ -419,21 +699,32 @@ function resolveRow(
       token.type === row.type &&
       token.image.length === row.width &&
       token.canOpen === true;
-    const close = opens ? closeForOpen(tokens, index, row) : -1;
-    if (close === -1) {
+    const found = opens ? closeForOpen(tokens, index, row) : NO_CLOSE;
+    if (found.found === "cut") {
+      // The stream could not carry a close where the delimiter stands,
+      // so it is cut there and the SAME opener asks again - now over a
+      // stream whose tokens reach past the delimiter.
+      shiftAccepted(
+        accepted,
+        found.index,
+        cutMatch(tokens, found.index, found.spelling, found.site),
+      );
+      continue;
+    }
+    if (found.found === "none") {
       index += 1;
       continue;
     }
     const candidate = {
       type: row.type,
       open: index,
-      close,
+      close: found.close,
       role: roleBefore(tokens, index),
     };
     if (!crossesAccepted(candidate, accepted)) {
       accepted.push(candidate);
     }
-    index = close + 1;
+    index = found.close + TOKEN_BEFORE;
   }
 }
 
@@ -448,17 +739,32 @@ function resolveRow(
  * Called ONCE per block body, never per span: a row is a gsub over the
  * whole text, so which span a row wins cannot be decided a slice at a
  * time. The builder re-bases these indices when it descends.
+ *
+ * The STREAM comes back too, because resolving can CUT one: a
+ * delimiter standing in a match belongs to the span, not to the match,
+ * and the pieces on either side of it are tokens like any others
+ * ({@link cutMatch}). The cut is byte-neutral, but a caller that walks
+ * the spans has to walk the same stream they were resolved against.
  * @param tokens - one block body's tokens, in source order
- * @returns the spans, start-ascending
+ * @returns the stream the spans index, and the spans, start-ascending
  */
-export function resolveSpans(tokens: readonly InlineToken[]): ResolvedSpan[] {
+export function resolveSpans(tokens: readonly InlineToken[]): {
+  tokens: readonly InlineToken[];
+  spans: ResolvedSpan[];
+} {
+  const stream = [...tokens];
   const accepted: ResolvedSpan[] = [];
   for (const row of RESOLUTION_ORDER) {
-    resolveRow(tokens, row, accepted);
+    resolveRow(stream, row, accepted);
   }
   // Start alone orders them. No two spans can share a start - a mark
   // belongs to at most one span, and a `[role]` token is not a mark -
   // and properly nested intervals with distinct starts put every
   // enclosing span in front of the spans inside it.
-  return accepted.toSorted((left, right) => spanStart(left) - spanStart(right));
+  return {
+    tokens: stream,
+    spans: accepted.toSorted(
+      (left, right) => spanStart(left) - spanStart(right),
+    ),
+  };
 }

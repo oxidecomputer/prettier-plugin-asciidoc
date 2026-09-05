@@ -374,4 +374,21 @@ describe("a mark behind a backslash still closes a span", () => {
     expect(result.after).toBe(result.before);
     expect(result.again).toBe(result.formatted);
   });
+
+  // The narrowness, and it is the row's own lookahead that draws it.
+  // A CONSTRAINED row may not close where a word character follows
+  // (`(?!\w)`, asciidoctor.rb l.448), and the only offset a match
+  // measured that at is its own end (`trailingDelimiterFlags`,
+  // rules.ts). So the escape here closes nothing, the tab stands in
+  // ordinary prose, and the oracle writes no element at all - which is
+  // what the shape holds. Reading the delimiter without the flag
+  // invents `<code>a<TAB>b\</code>c` instead.
+  test("a word character behind the escape closes nothing", async () => {
+    const source = `${TICK}a\tb${BACKSLASH}${TICK}c`;
+    expect(shapes(source)).toEqual(['"`a\\tb"', "escapedMark", '"c"']);
+    expect(await oracleHtml(source)).not.toContain("<code>");
+    const result = await measure(source);
+    expect(result.after).toBe(result.before);
+    expect(result.again).toBe(result.formatted);
+  });
 });

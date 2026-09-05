@@ -34,7 +34,6 @@ import { DELIM_WIDTH } from "../../constants.js";
 import type { InlineToken, InlineTokenType } from "./tokens.js";
 import {
   MARK_SPAN_KINDS,
-  delimiterHead,
   resolveSpans,
   spanStart,
   type MarkSpanTokenKind,
@@ -238,22 +237,9 @@ function makeSpanNode(
   const base = span.open + 1;
   const openMark = tokens[span.open];
   const closeMark = tokens[span.close];
-  // A span can close on a match that ENDS with the delimiter - a bare
-  // URL, an escape's mark (span-pairing.ts says which and why). What
-  // stands in front of that delimiter is CONTENT, so the token is
-  // split and its head joins the content the recursion walks: the
-  // closing delimiter is the last `openMark.image.length` characters
-  // of it, a constrained mark never pairing with a doubled one. Every
-  // ordinary mark answers undefined here, and the slice is the whole
-  // content by itself.
-  const head = delimiterHead(closeMark, openMark.image.length);
   const content = tokens.slice(base, span.close);
   // Span content: no trailing-newline strip (see buildFromTokens).
-  const children = buildNodes(
-    head === undefined ? content : [...content, head],
-    innerSpans(spans, span, base),
-    at,
-  );
+  const children = buildNodes(content, innerSpans(spans, span, base), at);
   switch (span.type) {
     case "BoldMark":
     case "ItalicMark":
@@ -623,7 +609,8 @@ export function buildFromTokens(
   // ONE resolution for the whole body, before any recursion: a
   // `QUOTE_SUBS` row is a gsub over the whole text, so which spans a
   // row wins cannot be decided a slice at a time.
-  return buildNodes(body, resolveSpans(body), at);
+  const resolved = resolveSpans(body);
+  return buildNodes(resolved.tokens, resolved.spans, at);
 }
 
 /**

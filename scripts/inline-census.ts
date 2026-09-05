@@ -76,6 +76,10 @@ const TABLELESS_KIND: InlineKind = "InlineChar";
 // RULE TABLE may never be exempted here; it gets read.
 const EXEMPT = new Map<string, string>([
   [
+    "bareAddressRunsPast",
+    "how far the bare-address row's own match carries, asked by the printer about a construct that row already owns a dimension for, not a construct of its own",
+  ],
+  [
     "markFlags",
     "the open/close boundary facts a mark token carries, read by the tokenizer for a token an INLINE_RULES row has already matched, not a construct of its own",
   ],

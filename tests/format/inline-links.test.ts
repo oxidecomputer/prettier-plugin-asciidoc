@@ -315,3 +315,275 @@ describe("a URL stops at the delimiter that closes a span", () => {
     expect(await formatAdoc(formatted)).toBe(formatted);
   });
 });
+
+/**
+ * A delimiter standing INSIDE a bare URL's match still closes the
+ * span (issue #152).
+ *
+ * The section above pins the case where the delimiter is the match's
+ * LAST characters. The address does not stop there of its own accord,
+ * though - `InlineLinkRx` (rx.rb l.526) runs on for as long as its
+ * character class allows, so a URL followed by punctuation swallows
+ * the delimiter whole and ends somewhere behind it. The quote pass
+ * ran first all the same, and its row closes at the first delimiter
+ * after its content, wherever in the URL's match that lands.
+ *
+ * Red before the fix, measured: no span at all, because a close had
+ * to be the END of a token's image. The tab then stood in ordinary
+ * prose and folded to a space INSIDE what the oracle renders as
+ * `<code>`, which is whitespace-significant - the tier-1 shape #150
+ * was filed for, reached by the half of the family that fix left
+ * standing.
+ *
+ * Only an UNCONSTRAINED row reads a delimiter at an interior offset:
+ * those rows test no boundary, so where the characters stand is the
+ * whole question. A constrained row has a right lookahead to answer
+ * and the only offset the token measured it for is its own end,
+ * which is why `` `a https://e.com`, b` `` is not in this table.
+ */
+describe("a URL stops at a delimiter standing inside its match", () => {
+  const MONOSPACE = "``a\thttps://e.com``, b``";
+  const BOLD = "**a\thttps://e.com/x**, b**";
+
+  test.each([
+    [MONOSPACE, String.raw`monospaceu["a\t",link]`, '", b``"'],
+    [BOLD, String.raw`boldu["a\t",link]`, '", b**"'],
+  ])("%j is a span holding the address", (source, span, rest) => {
+    expect(shapes(source)).toEqual([span, rest]);
+  });
+
+  test.each([
+    [MONOSPACE, '<code>a\t<a href="https://e.com" class="bare">'],
+    [BOLD, '<strong>a\t<a href="https://e.com/x" class="bare">'],
+  ])("%j is what the oracle renders", async (source, html) => {
+    expect(await oracleHtml(source)).toContain(html);
+  });
+
+  // The bytes behind the delimiter are the URL match's own, and they
+  // belong OUTSIDE the span: the tail is text the printer writes back
+  // where the source put it.
+  test("the tail behind the delimiter is kept as text", async () => {
+    const formatted = await formatAdoc(MONOSPACE);
+    expect(formatted).toBe(`${MONOSPACE}\n`);
+    expect(await renderedHtml(formatted)).toBe(await renderedHtml(MONOSPACE));
+    expect(await formatAdoc(formatted)).toBe(formatted);
+  });
+
+  // The same close one level down, where the recursion has to rebase
+  // it: the bold row resolves first, so the code span and its
+  // interior close are INSIDE it and their indices are shifted by the
+  // slice the recursion walks.
+  test("an interior close survives being nested", async () => {
+    const source = "**x ``a\thttps://e.com``, b`` y**";
+    expect(shapes(source)).toEqual([
+      'boldu["x ",monospaceu["a\\t",link],", b`` y"]',
+    ]);
+    expect(await renderedHtml(await formatAdoc(source))).toBe(
+      await renderedHtml(source),
+    );
+  });
+
+  // The narrowness, stated as a row: the constrained spelling of the
+  // same document reads no interior delimiter at all, so its row runs
+  // on to the backtick at the very end and takes the URL match whole
+  // as content. That is the behaviour this document already had, and
+  // it is unchanged.
+  test("a constrained row reads no interior delimiter", async () => {
+    const source = "`a\thttps://e.com`, b`";
+    expect(shapes(source)).toEqual([String.raw`monospacec["a\t",link," b"]`]);
+    expect(await formatAdoc(source)).toBe(`${source}\n`);
+  });
+});
+
+/**
+ * A match carrying TWO delimiters, and the spans on either side of
+ * the cut (issue #152).
+ *
+ * `sub_quotes` runs over text and its gsub resumes immediately behind
+ * the match it just wrote, so a second delimiter in the same URL run
+ * OPENS the next span: `` ``a http://e.com``b``c<TAB>d`` `` is a code
+ * span around the address, a literal `b`, and a second code span
+ * around `c<TAB>d`. Reading the close as an offset inside a token
+ * could not say that - the row would have to resume inside a token it
+ * had already stepped over - so the stream is cut at the delimiter
+ * instead and both spans are ordinary token pairs.
+ *
+ * Red before the fix: one span and a text run holding the rest, whose
+ * tab then folded inside what the oracle renders as `<code>`.
+ *
+ * The rows below also hold the arithmetic a cut costs: every span
+ * already resolved keeps its own tokens, whether it stands in front of
+ * the cut, behind it, or carries a `[role]` of its own.
+ */
+describe("a match carrying two delimiters is cut at both", () => {
+  const TWO_SPANS = "``a http://e.com``b``c<TAB>d``".replace("<TAB>", "\t");
+
+  test("both spans are built, and the tab keeps its shelter", async () => {
+    const source = TWO_SPANS;
+    expect(shapes(source)).toEqual([
+      String.raw`monospaceu["a ",link]`,
+      '"b"',
+      String.raw`monospaceu["c\td"]`,
+    ]);
+    expect(await oracleHtml(source)).toContain("<code>c\td</code>");
+    const formatted = await formatAdoc(source);
+    expect(formatted).toBe(`${source}\n`);
+    expect(await renderedHtml(formatted)).toBe(await renderedHtml(source));
+    expect(await formatAdoc(formatted)).toBe(formatted);
+  });
+
+  test.each([
+    ["a span behind the cut", `${TWO_SPANS} **q**`, `${TWO_SPANS} *q*`],
+    ["a role behind the cut", `${TWO_SPANS} [r]**q**`, `${TWO_SPANS} [r]*q*`],
+    ["a span in front of the cut", `**q** ${TWO_SPANS}`, `*q* ${TWO_SPANS}`],
+    // A role in FRONT of the cut stays where it is. Its span's own
+    // tokens are all ahead of the splice, so shifting the role with
+    // the ones behind would point it at a token that is not its
+    // bracket group.
+    [
+      "a role in front of the cut",
+      `[r]**q** ${TWO_SPANS}`,
+      `[r]*q* ${TWO_SPANS}`,
+    ],
+  ])("%s", async (_name, input, expected) => {
+    const output = await formatAdoc(input);
+    expect(output).toBe(`${expected}\n`);
+    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(output)).toBe(output);
+  });
+});
+
+/**
+ * What the cut leaves for the row to go on reading (issues #150,
+ * #152).
+ *
+ * Ruby's gsub resumes at the character BEHIND the match it wrote, so
+ * two delimiters that abut are two delimiters and the content the next
+ * match needs comes from whatever follows - the rest of this match or
+ * the tokens behind it. Resuming one character further on made the
+ * abutting pair invisible and cost the second span the tab it
+ * sheltered.
+ *
+ * An ESCAPED delimiter is the other half. Every unconstrained row
+ * carries the escape inside its own pattern, and `convert_quoted_text`
+ * answers a match whose first character is that backslash by writing
+ * the match back without it (substitutors.rb l.1420): no span, and the
+ * bytes go on to the rows that run after. So an escaped delimiter may
+ * CLOSE - nothing looks at what stands in front of a closer - and may
+ * not OPEN, and a match whose later delimiters are escaped takes the
+ * close it had before interior cuts existed, because the span those
+ * bytes really carry is one a single pass cannot find.
+ */
+describe("the cut resumes where the gsub does", () => {
+  test.each([
+    // Two delimiters with nothing between them: the address stops at
+    // the first and the second opens the span behind it.
+    [
+      "delimiters that abut",
+      "``a http://e.com````b\t``",
+      [String.raw`monospaceu["a ",link]`, String.raw`monospaceu["b\t"]`],
+    ],
+    // Three pairs, so the middle one is content of the second span
+    // rather than a delimiter the scan re-reads.
+    [
+      "three pairs in one match",
+      "``a http://e.com``````b\t``",
+      [String.raw`monospaceu["a ",link]`, 'monospaceu["``b\\t"]'],
+    ],
+  ])("%s", async (_name, source, shape) => {
+    expect(shapes(source)).toEqual(shape);
+    const formatted = await formatAdoc(source);
+    expect(formatted).toBe(`${source}\n`);
+    expect(await renderedHtml(formatted)).toBe(await renderedHtml(source));
+    expect(await formatAdoc(formatted)).toBe(formatted);
+  });
+
+  // The escape neighbourhood. Every row keeps the author's bytes: the
+  // escaped delimiter behind the cut, the escaped delimiter AT the cut
+  // (which closes, because a closer answers no escape), a doubled
+  // backslash (the row's own `\\?` takes one, so the match still opens
+  // with a backslash), and an escape a character further on.
+  test.each([
+    "``a http://e.com``\\``b``",
+    "``a http://e.com\\``b``",
+    "``a http://e.com``\\\\``b``",
+    "``a http://e.com``x\\``b``",
+    "``a http://e.com``\\``b\t``",
+  ])("%j keeps its bytes around the escape", async (source) => {
+    const formatted = await formatAdoc(source);
+    expect(formatted).toBe(`${source}\n`);
+    expect(await renderedHtml(formatted)).toBe(await renderedHtml(source));
+    expect(await formatAdoc(formatted)).toBe(formatted);
+  });
+
+  // The printer's own half. A bare address at the end of a span's
+  // content would swallow a SHORTENED closing mark, so the span keeps
+  // its doubled spelling - without that, this document's second code
+  // span is gone on the next pass and the tab it sheltered folds.
+  // Asserted through TWO passes, because one pass looked right.
+  test("a span behind an address keeps its doubled spelling", async () => {
+    const source = "``a http://e.com``,``\t``";
+    const first = await formatAdoc(source);
+    expect(first).toBe(`${source}\n`);
+    expect(await renderedHtml(first)).toBe(await renderedHtml(source));
+    const second = await formatAdoc(first);
+    expect(second).toBe(first);
+  });
+});
+
+/**
+ * The mark a bare address would SWALLOW (issues #150, #152).
+ *
+ * A bare URL's match runs on through every character its class admits
+ * (`bareAddressRunsPast`, src/parse/inline/rules.ts), so a mark that
+ * stands inside it when the document is read again is one the reader
+ * has to cut the match at - and an unconstrained row is cut wherever
+ * the delimiter stands, a constrained one only at the match's end. So
+ * behind an address the two spellings are not interchangeable, and the
+ * span keeps the doubled one.
+ *
+ * Both marks are asked about. The CLOSING one stands in the match
+ * where the span's own content ends with an address; the OPENING one
+ * does where the address stands earlier and nothing between them
+ * writes whitespace or a bracket. Red before the fix, measured: the
+ * second row's span was shortened and its code span was gone on the
+ * next pass, taking the tab it sheltered with it.
+ */
+describe("a span keeps its doubled spelling behind an address", () => {
+  test.each([
+    ["the address ends the content", "See ``a http://e.com`` now."],
+    ["the address stands earlier in the block", "``a http://e.com``,``b\tb``"],
+    ["the address stands beside the mark", "See https://e.com``b`` now."],
+  ])("%s", async (_name, source) => {
+    const first = await formatAdoc(source);
+    expect(first).toBe(`${source}\n`);
+    expect(await renderedHtml(first)).toBe(await renderedHtml(source));
+    expect(await formatAdoc(first)).toBe(first);
+  });
+
+  // The narrowness, and it is the address's own class that draws it: a
+  // bracket ends the match, so a span behind one is shortened as any
+  // other is. The pin "an address with a span behind it still respells
+  // the span" (email-autolink.test.ts) is the same statement for
+  // whitespace.
+  test.each([
+    // Between the address and the mark.
+    [
+      "an anchor",
+      "See https://e.com[[a]]``b`` now.",
+      "See https://e.com[[a]]`b` now.",
+    ],
+    // The address's OWN bracket group, which ends its match at the `]`
+    // before the closing mark is reached at all.
+    [
+      "the address's own attrlist",
+      "See ``a https://e.com[t]`` now.",
+      "See `a https://e.com[t]` now.",
+    ],
+  ])("%s ends the match", async (_name, source, expected) => {
+    expect(await formatAdoc(source)).toBe(`${expected}\n`);
+    expect(await renderedHtml(await formatAdoc(source))).toBe(
+      await renderedHtml(source),
+    );
+  });
+});

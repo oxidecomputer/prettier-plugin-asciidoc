@@ -25,6 +25,7 @@ import { verbatimText } from "./serialize-inline.js";
 import {
   bracketsAllowIt,
   delimitersOf,
+  addressSwallowsAMark,
   fixedSpanMarks,
   edgeHead,
   edgeTail,
@@ -410,6 +411,16 @@ function constrainedIsLegal(
   }
   const mark = spanMarks(node, true).close;
   if (content.texts.some((text) => text.includes(mark))) {
+    return false;
+  }
+  // A bare address whose match reaches either mark answers no: that
+  // mark stands inside the address's own match when the document is
+  // read again, and only the doubled spelling is one the reader
+  // recovers there (`addressSwallowsAMark`, span-edges.ts says why).
+  // `` ``a http://e.com``,``<TAB>`` `` is the document that says so -
+  // shortened, its second code span is gone on the next pass and the
+  // tab it sheltered folds.
+  if (addressSwallowsAMark(node, cursor.siblings.slice(0, cursor.index))) {
     return false;
   }
   // The BLOCK, not the siblings: shortening a span exposes its marks to

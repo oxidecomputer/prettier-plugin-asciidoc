@@ -51,11 +51,11 @@ const LAYER_RULES: IForbiddenRuleType[] = [
     name: "print-imports-parse-off-address",
     severity: "error",
     comment:
-      "print/ reads parse/ at exactly three addresses — line-shapes.ts for what a re-parsed LINE means, attrlist.ts for where one attribute inside a bracket line ENDS, and inline/quote-boundaries.ts for what may stand beside a constrained formatting MARK. All three exist so the formatter and the parser cannot disagree about a spelling the printer has to reproduce; any other parse/ import is the printer reaching into the parser's interior.",
+      "print/ reads parse/ at exactly four addresses - line-shapes.ts for what a re-parsed LINE means, attrlist.ts for where one attribute inside a bracket line ENDS, inline/quote-boundaries.ts for what may stand beside a constrained formatting MARK, and inline/rules.ts for how far a bare ADDRESS's match carries (bareAddressRunsPast, which the respelling asks so the shorter mark is not one the address swallows). All four exist so the formatter and the parser cannot disagree about a spelling the printer has to reproduce; any other parse/ import is the printer reaching into the parser's interior.",
     from: { path: "(^|/)src/print/" },
     to: {
       path: "(^|/)src/parse/",
-      pathNot: String.raw`(^|/)src/parse/(line-shapes|attrlist|inline/quote-boundaries)\.ts$`,
+      pathNot: String.raw`(^|/)src/parse/(line-shapes|attrlist|inline/quote-boundaries|inline/rules)\.ts$`,
     },
   },
   {

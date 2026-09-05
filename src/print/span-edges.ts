@@ -31,6 +31,7 @@ import {
   type QuoteRowKey,
 } from "../parse/inline/quote-boundaries.js";
 import { verbatimText } from "./serialize-inline.js";
+import { bareAddressRunsPast } from "../parse/inline/rules.js";
 
 /**
  * A formatting span with a CONSTRAINED spelling to choose: its marks
@@ -196,6 +197,113 @@ export function isSpanNode(node: InlineNode): node is SpanNode {
     node.type === "curvedQuote" ||
     node.type === "superscript" ||
     node.type === "subscript"
+  );
+}
+
+/**
+ * Whether a node is a bare address - one the author wrote with no
+ * bracket group of its own, so its match ends only where its own
+ * character class does.
+ * @param node - the inline node to check
+ * @returns true for a bare URL or bare email address
+ */
+function isBareAddress(node: InlineNode): boolean {
+  return node.type === "link" && node.text === undefined;
+}
+
+/**
+ * What a node does to a bare address's match that is already running
+ * when the walk reaches it, read from the node's END backwards.
+ *
+ * `reaches` - the node carries an address whose match runs out of it.
+ * `blocked` - the node writes whitespace or a bracket behind any
+ * address it carries, so no match crosses it. `through` - it writes
+ * neither, and the walk carries on to what stands in front of it.
+ *
+ * A kind this cannot characterize answers `through`, which keeps the
+ * walk going and can only cost a shortening, never a rendering. The
+ * spans recurse because their own marks are neither whitespace nor
+ * brackets: what stops a match inside one is whatever its content
+ * writes.
+ */
+type Reach = "reaches" | "blocked" | "through";
+
+// The kinds whose every spelling carries a bracket: a macro's
+// attrlist, an anchor's own brackets, a bibliography anchor's three.
+// Named rather than recursed into, because the bracket is in the
+// spelling and not in any child.
+const BRACKETED_KINDS = new Set([
+  "inlineMacro",
+  "inlineAnchor",
+  "bibliographyAnchor",
+  "image",
+]);
+
+/**
+ * {@link Reach} for one node.
+ * @param node - the inline node to read
+ * @returns what it does to a match running back through it
+ */
+function reachOf(node: InlineNode): Reach {
+  if (isBareAddress(node)) {
+    return "reaches";
+  }
+  if (node.type === "link" || BRACKETED_KINDS.has(node.type)) {
+    return "blocked";
+  }
+  if (node.type === "text") {
+    return bareAddressRunsPast(node.value, 0) < node.value.length
+      ? "blocked"
+      : "through";
+  }
+  return "children" in node ? reachOfRun(node.children) : "through";
+}
+
+/**
+ * {@link Reach} for a run of nodes, read backwards from its end.
+ * @param nodes - the run, in source order
+ * @returns whether an address's match runs out of its end
+ */
+function reachOfRun(nodes: readonly InlineNode[]): Reach {
+  for (const node of nodes.toReversed()) {
+    const reach = reachOf(node);
+    if (reach !== "through") {
+      return reach;
+    }
+  }
+  return "through";
+}
+
+/**
+ * Whether a bare address's match would swallow one of the marks this
+ * span is about to be respelled with.
+ *
+ * A bare URL's match runs on through every character its class admits,
+ * the marks included, so a delimiter that stands inside that match
+ * when the document is read again is a delimiter the reader has to
+ * recover by CUTTING the match at it (`cutMatch`,
+ * src/parse/inline/span-pairing.ts) - and an UNCONSTRAINED row is cut
+ * wherever the delimiter stands, while a constrained one is cut only
+ * at the match's END, because that is the only offset the match
+ * answered the row's `(?!\w)` lookahead for. So behind an address the
+ * two spellings are not interchangeable: the doubled one reads back
+ * and the shorter one does not.
+ *
+ * BOTH marks are asked about, because both can stand in a match. The
+ * closing one does where the span's own content ends with an address;
+ * the opening one does where the address stands EARLIER in the block
+ * and nothing between the two writes whitespace or a bracket. They are
+ * one question asked of two runs of nodes.
+ * @param node - the span being considered
+ * @param before - the nodes standing in front of it, in order
+ * @returns true when the shorter spelling would not read back
+ */
+export function addressSwallowsAMark(
+  node: SpanNode,
+  before: readonly InlineNode[],
+): boolean {
+  return (
+    reachOfRun(node.children) === "reaches" || reachOfRun(before) === "reaches"
   );
 }
 

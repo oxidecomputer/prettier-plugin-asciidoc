@@ -469,6 +469,13 @@
     "reason": "the one spelling of the specialchars pre-image (sub_specialchars runs before the quote pass), applied to a span's left neighbour on both sides of the round trip"
   },
   {
+    "file": "src/parse/inline/rules.ts",
+    "symbol": "bareAddressRunsPast",
+    "importer": "src/print/span-edges.ts",
+    "kind": "vocabulary",
+    "reason": "registry reading: how far the bare-address row's own match carries, so the respelling and the reader cannot disagree about a mark the address swallows"
+  },
+  {
     "file": "src/parse/inline/tokenize.ts",
     "symbol": "tokenizeInline",
     "importer": "src/parse/lines/description-list-node.ts",
