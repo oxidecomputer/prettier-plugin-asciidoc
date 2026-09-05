@@ -324,31 +324,6 @@ describe("reader: a frozen + folds marker lines into its paragraph (#56)", () =>
   });
 });
 
-// Issue #29's seam, closed here: `read_lines_for_list_item` matches
-// siblings and nested markers with `ListRxMap`, whose `UnorderedListRx`
-// and `OrderedListRx` both open with `^[ \t]*` and take a `[ \t]+` gap.
-// The oracle agrees on all three rows below, so the interrupting set in
-// line-shapes.ts was widened to match and tests/parser/lines.test.ts's
-// seam suite now asserts the Ruby-true verdict.
-describe("reader: indented and tab-gapped markers (issue #29)", () => {
-  test.each([
-    [
-      "an indented DEEPER marker nests",
-      "* a\n  ** b\n* c\n",
-      "list(item(t list(item(t))) item(t))",
-    ],
-    [
-      "an indented SAME-STYLE marker is a sibling (indentation is not depth)",
-      "* a\n  * b\n",
-      "list(item(t) item(t))",
-    ],
-    ["a tab gap is a marker", "* a\n*\tb\n", "list(item(t) item(t))"],
-  ])("%s", async (_name, input, expected) => {
-    expect(astShape(input)).toBe(expected);
-    expect(itemCount(input)).toBe(await oracleItems(input));
-  });
-});
-
 describe("reader: list oracle surprises", () => {
   test("a comment after + consumes the continuation, so the block breaks the list", async () => {
     // Ruby's `let block metadata play out` test names BlockTitleRx,
@@ -508,62 +483,57 @@ describe("reader: a //-headed dlist term keeps its own line", () => {
   });
 });
 
-// `UnorderedListRx` (rx.rb l.284) is `/^[ \t]*(-|\*\**|•)[ \t]+(CC_ANY*)$/`:
-// U+2022 BULLET is a third marker alternative beside `-` and `*`, and
-// `AnyListRx` (l.274) carries it too. It is a SINGLE character where
-// `*` and `.` are runs, so `\u{2022}\u{2022}` is no marker, and
-// `resolve_list_marker` returns a ulist marker unchanged (parser.rb
-// l.2194-2195), so a bullet is its own sibling trait: a bullet under a
-// star nests, exactly as `-` under `*` does.
+// `has_text` gates the greedy after-blank arm on its own (parser.rb
+// l.1525), and it is lowered wherever a nested TEXTLESS term is met,
+// under no test of the enclosing list's kind (l.1507, l.1535, l.1566).
+// So a marker item whose last line opened such a term reads past the
+// blank under it, and the line there becomes that nested list's
+// description rather than a block of its own.
 //
-// Before the marker source carried it, every row below read as one
-// paragraph and reflowed its lines together, so a bare two-bullet
-// document formatted to a single line and rendered as text where the
-// oracle renders a list.
-describe("reader: the U+2022 bullet is an unordered marker", () => {
+// Read with the kind test the neighbouring comment at l.1525 suggests,
+// the item ended at the blank instead - and where a sibling marker
+// followed the text, the paragraph that text became swallowed the
+// marker line, so `* a` / `nested::` / blank / `text` / `* b` rendered
+// ONE item where the oracle renders two.
+describe("reader: a nested textless term makes a marker item greedy", () => {
   test.each([
     [
-      "two bullet lines are two items",
-      "\u{2022} a\n\u{2022} b\n",
-      "list(item(t) item(t))",
+      "the line past the blank is the nested description",
+      "* a\nnested::\n\ntext\n",
+      "list(item(t -descriptionList))",
     ],
     [
-      "a bullet under a star nests (different style)",
-      "* a\n\u{2022} b\n",
-      "list(item(t list(item(t))))",
+      "a sibling under that text keeps its own item",
+      "* a\nnested::\n\ntext\n* b\n",
+      "list(item(t -descriptionList) item(t))",
     ],
     [
-      "a star under a bullet nests too",
-      "\u{2022} a\n* b\n",
-      "list(item(t list(item(t))))",
+      "an ordered item reads greedily too",
+      ". a\nnested::\n\ntext\n",
+      "olist(item(t -descriptionList))",
     ],
     [
-      "a bullet item takes a + continuation",
-      "\u{2022} a\n+\npara\n\u{2022} b\n",
-      "list(item(t +p(t)) item(t))",
+      "a callout item reads greedily too",
+      "<1> a\nnested::\n\ntext\n",
+      "colist(item(t -descriptionList))",
     ],
-    ["an indented bullet is a marker", "  \u{2022} a\n", "list(item(t))"],
-    ["a tab gap is a marker", "\u{2022}\ta\n", "list(item(t))"],
+    [
+      "a NESTED marker item reads greedily too",
+      "* a\n** b\nnested::\n\ntext\n",
+      "list(item(t list(item(t -descriptionList))))",
+    ],
+    [
+      "a term that carries its own description is not greedy",
+      "* a\nnested:: d\n\ntext\n",
+      "list(item(t -descriptionList)) p(t)",
+    ],
   ])("%s", async (_name, input, expected) => {
     expect(astShape(input)).toBe(expected);
     expect(itemCount(input)).toBe(await oracleItems(input));
   });
 
-  // The boundary, held from the other side: the alternation holds ONE
-  // bullet and no run of them, and it holds no lookalike character.
-  test.each([
-    ["a doubled bullet is text", "\u{2022}\u{2022} x\n"],
-    ["a bullet with no gap is text", "\u{2022}x\n"],
-    ["U+2043 HYPHEN BULLET is text", "\u{2043} a\n"],
-    ["U+2219 BULLET OPERATOR is text", "\u{2219} a\n"],
-    ["U+00B7 MIDDLE DOT is text", "\u{00B7} a\n"],
-  ])("%s", async (_name, input) => {
-    expect(astShape(input)).toBe("p(t)");
-    expect(await oracleItems(input)).toBe(0);
-  });
-
-  test("a bullet list survives the round trip", async () => {
-    const input = "\u{2022} a\n\u{2022} b\n";
+  test("the sibling shape survives the round trip", async () => {
+    const input = "* a\nnested::\n\ntext\n* b\n";
     expect(await formatAdoc(input)).toBe(input);
     expect(await renderedHtml(await formatAdoc(input))).toBe(
       await renderedHtml(input),

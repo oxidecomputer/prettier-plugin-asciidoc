@@ -969,21 +969,27 @@ class ExtentScan {
    * Whether the item is still owed its text, which is what l.1525's
    * `elsif has_text` falls through on.
    *
-   * A KNOWN DIVERGENCE, stated where it is made. Ruby gates the
-   * greedy arm on `has_text` alone, and `has_text` is lowered with no
-   * test of the enclosing list's kind (l.1507, l.1535, l.1566), so a
-   * MARKER list reads greedily there too: the oracle renders `* a` /
-   * `nested::` / blank / `text` as one item whose description list
-   * carries `text`, where this reader ends the item at the blank.
+   * `has_text` ALONE, with no test of the enclosing list's kind, and
+   * the omission is Ruby's: `parse_list_item` raises the flag
+   * unconditionally for a marker item (l.1315) and only for a term
+   * that carried inline text for a description one (l.1304), and it
+   * is lowered wherever a nested textless term is met, at all three
+   * of Ruby's nested-list sites and under none of them a test of what
+   * encloses them (l.1507, l.1535, l.1566). So a MARKER item whose
+   * last line opened a textless nested term reads greedily too, and
+   * the oracle renders
+   * `* a` / `nested::` / blank / `text` as ONE item whose nested
+   * description list carries `text`.
+   *
    * l.1525's own comment ("has_text is always true for all other
-   * lists") is what the gate here follows, and it is wrong. The
-   * oracle wins, so this gate is a gap to close (#135) and not a
-   * decision; closing it moves marker-list bytes, which is why it is
-   * not closed in the change that ports the description arms.
+   * lists") describes the flag's usual value, not a guard, and
+   * reading it as one ended such an item at the blank - which cost a
+   * following sibling its own item, the item's text swallowing the
+   * marker line under it.
    * @returns true when the after-blank arm reads greedily
    */
   private stillOwedText(): boolean {
-    return this.rule.trait.kind === "dlist" && !this.hasText;
+    return !this.hasText;
   }
 
   /**

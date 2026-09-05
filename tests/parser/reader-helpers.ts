@@ -1,8 +1,9 @@
 /**
  * Shared helpers for the BlockReader characterization suites
- * (reader.test.ts and reader-lists.test.ts).
+ * (reader.test.ts, reader-lists.test.ts and
+ * reader-list-markers.test.ts).
  *
- * A module rather than a test file so both suites read the SAME
+ * A module rather than a test file so every suite reads the SAME
  * definition of "the shape of a document" — two spellings would be two
  * contracts.
  */
