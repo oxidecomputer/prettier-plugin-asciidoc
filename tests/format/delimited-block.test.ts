@@ -147,6 +147,39 @@ describe("listing block formatting", () => {
       '<div class="listingblock">\n<div class="content">\n<pre>foo\n----</pre>\n</div>\n</div>',
     );
   });
+
+  // The reading this coordinate turns on, measured rather than
+  // assumed: a level-0 title takes the two lines under it as the
+  // author line and the revision line, so the `----` directly beneath
+  // the title opens nothing. The block the oracle sees opens on the
+  // interior `-----`, never terminates, and its whole content is the
+  // one line the closing delimiter spells once rstripped.
+  test("a document title's author and revision lines swallow the opening delimiter", async () => {
+    expect(await oracleHtml("= T\n----\nfoo\n-----\n---- \n")).toBe(
+      '<div class="listingblock">\n<div class="content">\n<pre>----</pre>\n</div>\n</div>',
+    );
+  });
+
+  // The same widening rule, at the coordinate where the content that
+  // needs it is the CLOSING delimiter line rather than an interior
+  // one. Before the fence was spelled from the interior as pass one
+  // will print it, the block took the minimum 4-dash fence, its one
+  // content line printed as `----` with the trailing whitespace
+  // trimmed, and that line then read as the terminator: a block
+  // holding `----` came back as two empty blocks and the content was
+  // gone.
+  test.each([
+    ["a space", " "],
+    ["a tab", "\t"],
+  ])(
+    "a block under a document title keeps content past %s on the close",
+    async (_name, whitespace) => {
+      await expectFormatted(
+        `= T\n----\nfoo\n-----\n----${whitespace}\n`,
+        "= T\n----\nfoo\n-----\n----\n-----\n",
+      );
+    },
+  );
 });
 
 describe("literal block formatting", () => {
@@ -196,6 +229,16 @@ describe("literal block formatting", () => {
     expect(out).toBe("....\n....x\n....\n");
     expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
+  });
+
+  // The dot-delimiter half of the listing coordinate above: the
+  // delimiter character is not what decides the widening, so the same
+  // shape under a document title has to survive here too.
+  test("a block under a document title keeps content past a space on the close", async () => {
+    await expectFormatted(
+      "= T\n....\nfoo\n.....\n.... \n",
+      "= T\n....\nfoo\n.....\n....\n.....\n",
+    );
   });
 });
 

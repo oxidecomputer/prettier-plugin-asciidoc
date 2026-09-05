@@ -203,6 +203,17 @@ describe("header attribution lines", () => {
     expect(author.value).toBe("* item");
   });
 
+  // A block delimiter fills the slot the same way, which is the
+  // reading the fence-widening rows under a document title in
+  // tests/format/delimited-block.test.ts turn on: the `----` directly
+  // beneath the title opens no listing block at all, so the block
+  // those rows are about opens on a LATER line.
+  test("a block delimiter in the author slot is still the author", () => {
+    const [author] = header("= T\n----\nfoo\n-----\n----\n").lines;
+    narrow(author, "authorLine");
+    expect(author.value).toBe("----");
+  });
+
   // Same for a line that looks like block metadata.
   test("an attribute-list line in the author slot is still the author", () => {
     expect(astShape("= T\n[foo]\nAuthor Name\n\nbody\n")).toBe(
