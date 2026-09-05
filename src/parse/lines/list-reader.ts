@@ -1007,13 +1007,26 @@ class ExtentScan {
    * line and its text, and a role is what puts a byte back there;
    * dropping it from the BUFFER only keeps it out of what the item
    * re-reads, which is what Ruby's pop is for.
+   *
+   * The buffered copy carries `slurped` under the same guard as the
+   * pop, and for the same reason the literal-paragraph slurp's copy
+   * does ({@link slurpLiteral}): this arm can buffer a line that is
+   * itself a nested marker without ever calling {@link nestedList} on
+   * it (`has_text` is tested before the nested-list check, parser.rb
+   * l.1525-56, so the greedy `else` at l.1551-56 never reaches the
+   * nested-list arms at l.1530-36), which leaves `within_nested_list`
+   * down across the very read that made this line an item. A `+`
+   * printed at that item's end is then blanked in place on re-read
+   * rather than popped (l.1439), which costs the output its fixed
+   * point unless the byte is withheld the way a slurped marker's is.
    * @param line - the first content line after the blank run
    */
   private greedyText(line: SourceLine): void {
-    if (!this.withinNestedList) {
+    const nested = this.withinNestedList;
+    if (!nested) {
       this.buffer.pop();
     }
-    this.buffer.push({ current: line });
+    this.buffer.push({ current: nested ? line : { ...line, slurped: true } });
     this.hasText = true;
   }
 

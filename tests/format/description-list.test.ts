@@ -190,6 +190,35 @@ describe("the item's extent", () => {
     await expectStable("== Lists\n\nterm1::\n\n'''\ncontinued\n");
   });
 
+  // #178 red-then-green: `t::` / blank / `  ** z` / `+` / `+` /
+  // `  ** z` formatted to one `+` and then to none - not a fixed
+  // point. The greedy arm (parser.rb:1551-1556) can buffer a nested
+  // marker line as the item's text without ever reaching the
+  // nested-list check that raises `within_nested_list` - `has_text` is
+  // tested first (parser.rb:1525), and the greedy `else` at :1551-1556
+  // is reached only when it is false - so the item's next `+` was
+  // erased in place on re-read (parser.rb:1439) and printed back,
+  // where a literal-slurped marker's would have been withheld. Both
+  // spellings of the second marker line are pinned: an indent is not
+  // what triggers the arm.
+  test.each([
+    [
+      "an indented second marker",
+      "t::\n\n  ** z\n+\n+\n  ** z\n",
+      "t::\n\n  ** z\n  ** z\n",
+    ],
+    [
+      "a flush-left second marker",
+      "t::\n\n** z\n+\n+\n** z\n",
+      "t::\n\n** z\n** z\n",
+    ],
+  ])(
+    "#178 a greedy term's buffered marker line withholds its tail +, %s",
+    async (_name, input, want) => {
+      await expectStable(input, want);
+    },
+  );
+
   // parser.rb:1462-1482, both arms of the `[...]` look-ahead. A list
   // item behind the run concatenates it into the item; anything else
   // unshifts it and breaks the item in front of it - and there the
