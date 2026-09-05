@@ -416,6 +416,7 @@ describe("a URL stops at a delimiter standing inside its match", () => {
  * the cut, behind it, or carries a `[role]` of its own.
  */
 describe("a match carrying two delimiters is cut at both", () => {
+  const BACKSLASH = "\\";
   const TWO_SPANS = "``a http://e.com``b``c<TAB>d``".replace("<TAB>", "\t");
 
   test("both spans are built, and the tab keeps its shelter", async () => {
@@ -444,6 +445,14 @@ describe("a match carrying two delimiters is cut at both", () => {
       "a role in front of the cut",
       `[r]**q** ${TWO_SPANS}`,
       `[r]*q* ${TWO_SPANS}`,
+    ],
+    // A span behind the cut whose own close is spelled across a seam:
+    // the head that close keeps is an absolute fragment and stays put,
+    // while its index moves with everything else.
+    [
+      "a seam close behind the cut",
+      `${TWO_SPANS} **q b${BACKSLASH}**`,
+      `${TWO_SPANS} *q b${BACKSLASH}*`,
     ],
   ])("%s", async (_name, input, expected) => {
     const output = await formatAdoc(input);
@@ -585,5 +594,43 @@ describe("a span keeps its doubled spelling behind an address", () => {
     expect(await renderedHtml(await formatAdoc(source))).toBe(
       await renderedHtml(source),
     );
+  });
+});
+
+/**
+ * A CHARACTERIZATION of issue #189, not a fix. Delete this whole
+ * describe when #189 closes.
+ *
+ * Asciidoctor's rows run one after another over the whole text, so two
+ * of them can match over each other and the oracle emits overlapping
+ * elements. A tree holds no such thing: the pairing keeps the EARLIER
+ * row's span and drops the later row's candidate, and what that
+ * candidate sheltered is sheltered no longer. Monospace shelters
+ * whitespace, so the tab below stands inside `<code>` to the oracle
+ * and in prose to this tree, where reflow folds it.
+ *
+ * The cut this file pins enters that class at compositions six pieces
+ * deep: 20 documents of 117,649 on the alphabet
+ * `` ``a http://e.com`` `` + [`` `` ``, `` ` ``, b, TAB, `,`, `*`,
+ * escape]^6, against 2,975 the same alphabet heals. The class is
+ * #189's and pre-existing; the fix that moves it is #189's too.
+ *
+ * So the rows below assert what the formatter DOES, renders included -
+ * the output's render is the one that differs, and it is written down
+ * rather than asserted equal. What they hold is that the answer is
+ * STABLE: one pass reaches it and a second moves nothing.
+ */
+describe("a dropped candidate's shelter, as it stands today (#189)", () => {
+  const WITNESS = "``a http://e.com```b\t``````";
+
+  test("the fold takes a tab the oracle keeps inside code", async () => {
+    const output = await formatAdoc(WITNESS);
+    expect(output).toBe("``a http://e.com```b ``````\n");
+    // What the two renders ARE. The input's second code element holds
+    // the tab; the output's holds the space the fold wrote instead.
+    expect(await renderedHtml(WITNESS)).toContain("<code>b\t<code></code>");
+    expect(await renderedHtml(output)).toContain("<code>b <code></code>");
+    // Stable: the residual costs one rewriting, not an oscillation.
+    expect(await formatAdoc(output)).toBe(output);
   });
 });

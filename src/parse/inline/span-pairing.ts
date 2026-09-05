@@ -132,12 +132,132 @@ export const MARK_SPAN_KINDS = {
   HighlightMark: "highlight",
 } as const satisfies Record<MarkSpanTokenKind, MarkKind>;
 
+/**
+ * WHERE a span's closing delimiter stands.
+ *
+ * A mark token IS its delimiter, and for most spans that is the whole
+ * story. One spelling is not, and it follows from this fact:
+ * `sub_quotes` (substitutors.rb l.189-196) runs over TEXT, which has
+ * no tokens in it, so a delimiter can fall anywhere - including across
+ * the seam between two of our own tokens.
+ *
+ * ACROSS two tokens: an escape is two characters, so `` ``a b\`` ``
+ * spells its closing `` `` `` with the escape's own mark and the one
+ * behind it, and no single token carries the delimiter (issue #153).
+ * That arm is an UNCONSTRAINED row's alone, and the reason is the
+ * lookahead: a constrained row has one to answer and the only offset a
+ * match measured it for is its own end, where a cut serves instead.
+ *
+ * A delimiter standing IN a match is not an arm here at all. The
+ * stream is CUT there instead ({@link cutMatch}), so the delimiter
+ * becomes a token like any other: at the end of a bare URL run,
+ * because the address stops in front of a mark the quote pass already
+ * paired (issue #150), and in the MIDDLE of one, because Ruby's gsub
+ * resumes immediately behind the match it just wrote and a second
+ * delimiter in the same run opens the next span (issue #152).
+ *
+ * Not exported: every consumer reaches a close through the accessors
+ * below, which is what keeps the arm's payload this module's own.
+ */
+type SpanClose =
+  | {
+      /** The token at `index` is the delimiter and nothing else. */
+      readonly kind: "token";
+      /** Index of that token. */
+      readonly index: number;
+    }
+  | {
+      /**
+       * The delimiter's last characters are the whole token at
+       * `index`, and its first are the end of the token in front.
+       */
+      readonly kind: "across";
+      /** Index of the token the delimiter ends in. */
+      readonly index: number;
+      /** What the token in front leaves as the span's last content. */
+      readonly head: InlineToken;
+    };
+
 /** One token in front of another, as an index delta. */
 const TOKEN_BEFORE = 1;
 
 /** The offset of a match's second character, and of its first. */
 const SECOND_CHARACTER = 1;
 const FIRST_CHARACTER = 0;
+
+/**
+ * The last token index a span's extent reaches, which is where the
+ * walk outside it resumes.
+ *
+ * Both arms end AT the end of the token they name - an across close
+ * because the delimiter's last characters ARE that whole token - so
+ * this index answers for the node's position as well.
+ * @param close - where the span closed
+ * @returns the index of the token the delimiter ends in
+ */
+export function closeIndex(close: SpanClose): number {
+  return close.index;
+}
+
+/**
+ * One past the last token whose WHOLE image is the span's content.
+ *
+ * A delimiter split across two tokens leaves the first of them
+ * PARTLY content, so that token is not one of the whole ones and its
+ * head ({@link closeHead}) carries what it does contribute.
+ * @param close - where the span closed
+ * @returns the exclusive end of the whole-token content slice
+ */
+export function contentEnd(close: SpanClose): number {
+  return close.kind === "across" ? close.index - TOKEN_BEFORE : close.index;
+}
+
+/**
+ * The content a close leaves behind inside its own token, or
+ * undefined where the closing token is nothing but the delimiter.
+ * @param close - where the span closed
+ * @returns the head token, or undefined when there is none
+ */
+export function closeHead(close: SpanClose): InlineToken | undefined {
+  return close.kind === "across" ? close.head : undefined;
+}
+
+/**
+ * The same close against a stream shifted `base` tokens to the left -
+ * the recursion's own arithmetic, spelled here because only this
+ * module knows which arms carry an index.
+ * @param close - where the span closed
+ * @param base - how far the slice starts into the outer stream
+ * @returns the close, rebased
+ */
+export function rebaseClose(close: SpanClose, base: number): SpanClose {
+  // The across arm keeps its head: that is an absolute fragment, and
+  // only the index is relative to the stream.
+  return close.kind === "token"
+    ? { kind: "token", index: close.index - base }
+    : { ...close, index: close.index - base };
+}
+
+/**
+ * The same close against a stream a CUT has made longer.
+ *
+ * A cut replaces one token with several, so every index behind it
+ * moves. The cut token itself is never one a resolved span names -
+ * {@link closeSpelledWith} refuses that - so an index equal to the
+ * cut is not a case that arises.
+ * @param close - where the span closed
+ * @param from - the index of the token that was cut
+ * @param delta - how many tokens the cut added
+ * @returns the close, shifted
+ */
+function shiftClose(close: SpanClose, from: number, delta: number): SpanClose {
+  if (close.index <= from) {
+    return close;
+  }
+  return close.kind === "token"
+    ? { kind: "token", index: close.index + delta }
+    : { ...close, index: close.index + delta };
+}
 
 /**
  * One resolved span, as indices into the token stream it was
@@ -152,8 +272,8 @@ export interface ResolvedSpan {
   readonly type: MarkTokenKind;
   /** Index of the opening mark token. */
   readonly open: number;
-  /** Index of the closing mark token. */
-  readonly close: number;
+  /** Where the closing delimiter stands. */
+  readonly close: SpanClose;
   /**
    * Index of the `[role]` token in front of the opening mark, when the
    * source wrote one - Ruby's optional `(?:\[([^\]]+)\])?` group,
@@ -265,8 +385,8 @@ type CloseSearch =
   | {
       /** The stream carries a close here. */
       readonly found: "close";
-      /** Index of the token the delimiter is. */
-      readonly close: number;
+      /** Where it stands. */
+      readonly close: SpanClose;
     }
   | {
       /** The stream has to be cut before it can carry one. */
@@ -341,7 +461,7 @@ function unconstrainedClose(
   const { delimiter } = spelling;
   const at = candidate.image.indexOf(delimiter, SECOND_CHARACTER);
   if (at <= FIRST_CHARACTER) {
-    return NO_CLOSE;
+    return acrossClose(tokens, index, spelling);
   }
   // The FIRST occurrence closes this row, and a close never asks what
   // stands in front of it. Every occurrence BEHIND it would have to
@@ -354,6 +474,60 @@ function unconstrainedClose(
   return escapedBehind(candidate.image, at + delimiter.length, delimiter)
     ? constrainedClose(candidate, index, spelling)
     : { found: "cut", index, site: "interior", spelling };
+}
+
+/**
+ * The close whose delimiter is spelled across the seam between a
+ * match and the token behind it.
+ *
+ * What stands behind the match has to SPELL the delimiter's remaining
+ * characters and nothing else, which is the whole test: a lone mark
+ * reaches the stream as a mark token where a row could pair it there
+ * and as the plain character no rule claimed otherwise
+ * (`InlineChar`, tokens.ts), and both spell the same byte. Anything
+ * wider is another construct and closes nothing here.
+ *
+ * The head is never empty. A match that reaches this function opens
+ * with a backslash or with a URL scheme, never with the mark, so
+ * taking the delimiter's shared characters off its end always leaves
+ * the content group the character it demands.
+ * @param tokens - the stream being resolved
+ * @param index - the match's index in it
+ * @param spelling - the row's delimiter and head kind
+ * @returns what the scan found here
+ */
+function acrossClose(
+  tokens: readonly InlineToken[],
+  index: number,
+  spelling: CloseSpelling,
+): CloseSearch {
+  const { delimiter } = spelling;
+  const candidate = tokens[index];
+  // Nothing behind the match spells the whole delimiter, which is the
+  // same answer this arm gives a token that carries it whole: that is
+  // a close of its own, and the scan finds it when it reaches it.
+  const behind = tokens.at(index + TOKEN_BEFORE)?.image ?? delimiter;
+  // How many of the delimiter's characters the MATCH has to supply.
+  const shared = delimiter.length - behind.length;
+  return shared > FIRST_CHARACTER &&
+    behind === delimiter.slice(shared) &&
+    candidate.image.endsWith(delimiter.slice(FIRST_CHARACTER, shared))
+    ? {
+        found: "close",
+        close: {
+          kind: "across",
+          index: index + TOKEN_BEFORE,
+          head: {
+            type: spelling.headKind,
+            image: candidate.image.slice(
+              FIRST_CHARACTER,
+              candidate.image.length - shared,
+            ),
+            offset: candidate.offset,
+          },
+        },
+      }
+    : NO_CLOSE;
 }
 
 /**
@@ -373,7 +547,7 @@ function closesRow(
   const candidate = tokens[scanIndex];
   if (candidate.type === row.type) {
     return candidate.canClose === true && candidate.image.length === row.width
-      ? { found: "close", close: scanIndex }
+      ? { found: "close", close: { kind: "token", index: scanIndex } }
       : NO_CLOSE;
   }
   const mark = MARK_CHARACTER[row.type];
@@ -477,6 +651,15 @@ function escapedBehind(
  * position no rule claims. The cut is BYTE-NEUTRAL: a piece that pairs
  * with nothing prints its own image back, exactly as it did inside the
  * match.
+ *
+ * WHY THE SCAN TERMINATES. The stream gets LONGER at every cut, so its
+ * length is no measure. What decreases is the number of characters
+ * residing in tokens {@link TRAILING_DELIMITER_HEAD} names: a cut
+ * replaces one such match with a head of that kind, one mark token per
+ * delimiter, and `InlineChar` pieces between them, so every character
+ * behind the first delimiter leaves the class and the head is at least
+ * one character shorter than the match was. The scan only ever asks
+ * for a cut on a match, so it cannot ask forever.
  * @param tokens - the stream being resolved, spliced in place
  * @param index - the match to cut
  * @param spelling - the delimiter to cut at, and what the match
@@ -516,7 +699,6 @@ function cutMatch(
       canOpen: interior,
       canClose: true,
     });
-
     cursor = at + delimiter.length;
     // Resume AT the cursor, not one past it: Ruby's gsub carries on
     // from the character behind the match it wrote, and the content
@@ -534,6 +716,119 @@ function cutMatch(
   }
   tokens.splice(index, TOKEN_BEFORE, ...pieces);
   return pieces.length - TOKEN_BEFORE;
+}
+
+// Every kind {@link RESOLUTION_ORDER} pairs, as a set, so a content
+// walk can ask whether a token is some OTHER row's delimiter without
+// knowing which row.
+const PAIRING_KINDS: ReadonlySet<InlineTokenType> = new Set(
+  RESOLUTION_ORDER.map((row) => row.type),
+);
+
+/**
+ * Whether a mark of the same KIND stands openable in front of
+ * `openIndex`, which is what makes a delimiter inside the content a
+ * partner some other row will want.
+ *
+ * Kind and not WIDTH, deliberately. The printer respells an
+ * unconstrained span with the constrained mark wherever the two render
+ * alike (`constrainedIsLegal`, src/print/inline.ts), so the same
+ * document read a second time offers the same pairing in a narrower
+ * spelling. A guard that asked for the width would fire on the first
+ * reading and not on the second, and the two readings would disagree
+ * about which spans exist. Which ROW pairs the two is not the question
+ * here anyway: the question is whether anything in front of this
+ * opener could want the delimiter this span would enclose.
+ * @param tokens - the stream being resolved
+ * @param openIndex - position of the opening mark
+ * @param mark - the delimiter standing in the content
+ * @returns true when a row could pair the two across this span
+ */
+function opensInFrontOf(
+  tokens: readonly InlineToken[],
+  openIndex: number,
+  mark: InlineToken,
+): boolean {
+  for (let at = FIRST_CHARACTER; at < openIndex; at += 1) {
+    const token = tokens[at];
+    if (token.type === mark.type && token.canOpen === true) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Whether a delimiter in the content belongs to a row that has not run
+ * yet, and so may still want a partner of its own.
+ *
+ * A token of this row's OWN kind and width is this row's delimiter,
+ * and the scan has already decided what to do with it. Everything else
+ * {@link RESOLUTION_ORDER} pairs belongs to a row that runs later -
+ * including the same mark in the other WIDTH, because this question is
+ * only ever asked by an UNCONSTRAINED row and the constrained row of
+ * the same mark runs behind it. Reading the KIND alone hid exactly
+ * that case: a constrained monospace span holding an address and a
+ * tab, closed by the first mark of a THREE-mark run, loses its span
+ * outright when the doubled row pairs the rest of that run across the
+ * seam behind it - and the tab it sheltered folds inside code.
+ * @param token - the delimiter standing in the content
+ * @param row - the row being resolved
+ * @returns true when a later row could still want it
+ */
+function belongsToALaterRow(
+  token: InlineToken,
+  row: (typeof RESOLUTION_ORDER)[number],
+): boolean {
+  return (
+    PAIRING_KINDS.has(token.type) &&
+    !(token.type === row.type && token.image.length === row.width)
+  );
+}
+
+/**
+ * Whether the content an ACROSS close would enclose holds a delimiter
+ * that some other row would pair ACROSS this span.
+ *
+ * A close spelled across a seam is a close the stream does not carry
+ * as a token, so taking it can only ever ADD a span - and where the
+ * span it adds encloses a delimiter whose partner stands in FRONT of
+ * this opener, it COSTS one. That delimiter's own row runs later, the
+ * two spans cross, and a crossing candidate is dropped, taking with it
+ * whatever the lost span sheltered. Monospace shelters whitespace, so
+ * the loss is a rendering change and not a spelling one:
+ * `` ``a<TAB>**``\** `` renders its tab inside `<code>`, and pairing
+ * the bold across the seam would leave the tab in prose.
+ *
+ * So the arm declines exactly there, and nowhere else: a foreign
+ * delimiter with no partner in front of this opener crosses nothing,
+ * and the span is taken. What the refusal costs is the added span and
+ * nothing else - the bytes print back as the source wrote them, which
+ * is what they did before this arm existed at all.
+ * @param tokens - the stream being resolved
+ * @param openIndex - position of the opening mark
+ * @param close - the close being considered
+ * @param row - the row being resolved
+ * @returns true when the close must be declined
+ */
+function enclosesCrossingMark(
+  tokens: readonly InlineToken[],
+  openIndex: number,
+  close: SpanClose,
+  row: (typeof RESOLUTION_ORDER)[number],
+): boolean {
+  const end = contentEnd(close);
+  for (let at = openIndex + TOKEN_BEFORE; at < end; at += 1) {
+    const token = tokens[at];
+    if (
+      belongsToALaterRow(token, row) &&
+      token.canClose === true &&
+      opensInFrontOf(tokens, openIndex, token)
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /**
@@ -605,8 +900,18 @@ function closeForOpen(
   if (found.found !== "close") {
     return found;
   }
-  return found.close === openIndex + TOKEN_BEFORE
-    ? findCloseMark(tokens, found.close, row)
+  if (
+    found.close.kind === "across" &&
+    enclosesCrossingMark(tokens, openIndex, found.close, row)
+  ) {
+    return NO_CLOSE;
+  }
+  // A close whose delimiter is spelled ACROSS a seam is never empty
+  // either: the token in front of the bare mark keeps a head, and that
+  // head is the content group's own character.
+  return closeIndex(found.close) === openIndex + TOKEN_BEFORE &&
+    closeHead(found.close) === undefined
+    ? findCloseMark(tokens, closeIndex(found.close), row)
     : found;
 }
 
@@ -643,16 +948,40 @@ function crossesAccepted(
   accepted: readonly ResolvedSpan[],
 ): boolean {
   const start = spanStart(candidate);
-  const end = candidate.close;
+  const end = closeIndex(candidate.close);
   return accepted.some((span) => {
     const other = spanStart(span);
-    const otherEnd = span.close;
+    const otherEnd = closeIndex(span.close);
     const disjoint = end < other || otherEnd < start;
     const nested =
       (start <= other && otherEnd <= end) ||
       (other <= start && end <= otherEnd);
     return !disjoint && !nested;
   });
+}
+
+/**
+ * Whether a match is one an accepted span's own close is SPELLED
+ * with, which is the one place a cut is refused.
+ *
+ * An ACROSS close keeps part of the token in front of its mark as a
+ * head. Cutting that match would leave the span holding a head the
+ * pieces now repeat, so the row goes without its close there instead,
+ * which is the answer it had before the cut was possible at all. No
+ * other close can name a match: every one of them ends on a mark
+ * token, and a mark is never a match a cut falls in.
+ *
+ * A match inside a span's CONTENT is cut freely: nothing names it, and
+ * the indices behind it move with {@link shiftAccepted}.
+ * @param index - the match a cut would fall in
+ * @param accepted - the spans resolved by earlier rows
+ * @returns true when the cut must be refused
+ */
+function closeSpelledWith(
+  index: number,
+  accepted: readonly ResolvedSpan[],
+): boolean {
+  return accepted.some((span) => index === contentEnd(span.close));
 }
 
 /**
@@ -671,7 +1000,7 @@ function shiftAccepted(
     accepted[at] = {
       type: span.type,
       open: span.open > from ? span.open + delta : span.open,
-      close: span.close > from ? span.close + delta : span.close,
+      close: shiftClose(span.close, from, delta),
       role:
         span.role !== undefined && span.role > from
           ? span.role + delta
@@ -703,12 +1032,18 @@ function resolveRow(
     if (found.found === "cut") {
       // The stream could not carry a close where the delimiter stands,
       // so it is cut there and the SAME opener asks again - now over a
-      // stream whose tokens reach past the delimiter.
-      shiftAccepted(
-        accepted,
-        found.index,
-        cutMatch(tokens, found.index, found.spelling, found.site),
-      );
+      // stream whose tokens reach past the delimiter. The loop
+      // terminates because every cut strictly decreases the same
+      // measure ({@link cutMatch}), never because the stream shrinks:
+      // it grows.
+      const delta = closeSpelledWith(found.index, accepted)
+        ? 0
+        : cutMatch(tokens, found.index, found.spelling, found.site);
+      if (delta === 0) {
+        index += 1;
+        continue;
+      }
+      shiftAccepted(accepted, found.index, delta);
       continue;
     }
     if (found.found === "none") {
@@ -724,7 +1059,7 @@ function resolveRow(
     if (!crossesAccepted(candidate, accepted)) {
       accepted.push(candidate);
     }
-    index = found.close + TOKEN_BEFORE;
+    index = closeIndex(found.close) + TOKEN_BEFORE;
   }
 }
 

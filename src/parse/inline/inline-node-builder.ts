@@ -34,6 +34,10 @@ import { DELIM_WIDTH } from "../../constants.js";
 import type { InlineToken, InlineTokenType } from "./tokens.js";
 import {
   MARK_SPAN_KINDS,
+  closeHead,
+  closeIndex,
+  contentEnd,
+  rebaseClose,
   resolveSpans,
   spanStart,
   type MarkSpanTokenKind,
@@ -174,12 +178,13 @@ function innerSpans(
   outer: ResolvedSpan,
   base: number,
 ): ResolvedSpan[] {
+  const bound = contentEnd(outer.close);
   return spans
-    .filter((span) => spanStart(span) >= base && span.close < outer.close)
+    .filter((span) => spanStart(span) >= base && closeIndex(span.close) < bound)
     .map((span) => ({
       type: span.type,
       open: span.open - base,
-      close: span.close - base,
+      close: rebaseClose(span.close, base),
       role: span.role === undefined ? undefined : span.role - base,
     }));
 }
@@ -236,10 +241,23 @@ function makeSpanNode(
 ): InlineNode {
   const base = span.open + 1;
   const openMark = tokens[span.open];
-  const closeMark = tokens[span.close];
-  const content = tokens.slice(base, span.close);
+  // Every close ends AT the end of the token it names, whether that
+  // token IS the delimiter or merely ends with it (span-pairing.ts).
+  const closeMark = tokens[closeIndex(span.close)];
+  // A span can close on a match that CARRIES the delimiter rather
+  // than being it - a bare URL, an escape's mark. What stands in
+  // front of that delimiter is CONTENT, so the head the close
+  // recorded joins the content the recursion walks. Every ordinary
+  // mark answers undefined here, and the slice is the whole content
+  // by itself.
+  const head = closeHead(span.close);
+  const content = tokens.slice(base, contentEnd(span.close));
   // Span content: no trailing-newline strip (see buildFromTokens).
-  const children = buildNodes(content, innerSpans(spans, span, base), at);
+  const children = buildNodes(
+    head === undefined ? content : [...content, head],
+    innerSpans(spans, span, base),
+    at,
+  );
   switch (span.type) {
     case "BoldMark":
     case "ItalicMark":
@@ -324,7 +342,7 @@ function outermostSpans(spans: readonly ResolvedSpan[]): ResolvedSpan[] {
   for (const span of spans) {
     if (spanStart(span) > reach) {
       top.push(span);
-      reach = span.close;
+      reach = closeIndex(span.close);
     }
   }
   return top;
@@ -689,7 +707,7 @@ function buildNodes(
     if (span !== undefined && spanStart(span) === index) {
       flushText();
       nodes.push(makeSpanNode(tokens, spans, span, at));
-      index = span.close + 1;
+      index = closeIndex(span.close) + 1;
       spanIndex += 1;
       continue;
     }
