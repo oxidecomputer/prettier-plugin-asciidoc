@@ -259,6 +259,19 @@ const OTHER_CONSTRUCTS: readonly ConstructEntry[] = [
     body: "== T",
     nearMisses: ["==T", "======= T"],
   },
+  // The two-line spelling of the same construct. Its body is two
+  // lines because it IS two lines: `is_next_line_section?` reads the
+  // title and the underline together, so a one-line spelling would
+  // exercise neither half. The near misses are the two ways the pair
+  // fails - an underline two characters short of its title, and a
+  // title line opening with a `.`, which `SetextSectionTitleRx`
+  // refuses.
+  {
+    id: "setext-title",
+    covers: ["SETEXT_UNDERLINE", "SETEXT_TITLE_LINE", "SETEXT_LEVEL_MARKS"],
+    body: "Title\n-----",
+    nearMisses: ["Title\n---", ".Title\n------"],
+  },
   {
     id: "list-marker",
     covers: ["LIST_MARKER_LINE"],

@@ -720,7 +720,10 @@ describe("the boundaries of the reflow verdict", () => {
     ["a spaced markdown rule", "t:: def\n_ _ _\n"],
     ["a markdown blockquote", "t:: def\n> quote\n"],
     ["a four-character fence", "t:: def\n~~~~\n"],
-    ["a longer one", "t:: def\n~~~~~~\n"],
+    // Nine tildes, not six: an underline within ONE character of the
+    // term line's width is a setext title to the oracle, and this row
+    // is about the OPEN block a longer run opens.
+    ["a longer one", "t:: def\n~~~~~~~~~\n"],
   ])("%s replays", async (_n, input) => {
     await expectStable(input, undefined, { printWidth: 40 });
   });

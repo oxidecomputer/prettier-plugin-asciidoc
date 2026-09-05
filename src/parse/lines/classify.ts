@@ -41,6 +41,9 @@ import {
   LITERAL_LINE,
   PAGE_BREAK,
   SECTION_TITLE,
+  SETEXT_LEVEL_MARKS,
+  SETEXT_TITLE_LINE,
+  SETEXT_UNDERLINE,
   THEMATIC_BREAK,
   continuationMetadataKind,
   interruptsParagraph,
@@ -60,7 +63,11 @@ import type {
   DescriptionDelimiter,
   ListNode,
 } from "../../ast.js";
-import { AUTO_CALLOUT_NUMBER, MARKER_OFFSET } from "../../constants.js";
+import {
+  AUTO_CALLOUT_NUMBER,
+  MARKER_OFFSET,
+  SETEXT_LENGTH_SLACK,
+} from "../../constants.js";
 
 export type { DelimiterKind } from "../line-shapes.js";
 
@@ -193,12 +200,19 @@ export type LineKind =
       readonly kind: "attributeEntry";
     } & AttributeEntryFields)
   | {
-      /** An ATX section title (`== Section`). */
+      /** A section title, in the ATX or the underlined spelling. */
       readonly kind: "sectionTitle";
       /** Marker count minus one; 0 is the document title. */
       readonly level: number;
-      /** The title text after the markers, trimmed. */
+      /** The title text: after the markers, or the whole title line. */
       readonly title: string;
+      /**
+       * How many SOURCE LINES the title occupies: 2 for the
+       * underlined spelling, 1 for the ATX one. The reader resumes
+       * past exactly this many and spans the node over them, so the
+       * count is carried rather than re-derived from the spelling.
+       */
+      readonly extent: 1 | 2;
     }
   | ({
       /** The first line of a list item (`* item`, `. item`, `<1> item`). */
@@ -284,6 +298,18 @@ export type MarkerKind = Extract<LineKind, Record<"kind", "listMarker">>;
 export type DlistTermKind = Extract<LineKind, Record<"kind", "dlistTerm">>;
 
 /**
+ * A section-title line, as {@link LineKind} spells it. Beside the two
+ * above and for the same reason: the reader's title arm takes the
+ * whole parse - level, text and how many source lines it spelled -
+ * and a hand-written parameter type would be a second spelling of an
+ * arm that already exists.
+ */
+export type SectionTitleKind = Extract<
+  LineKind,
+  Record<"kind", "sectionTitle">
+>;
+
+/**
  * Parse a list marker line (`UnorderedListRx` / `OrderedListRx` /
  * `CalloutListRx`). Callouts are tried first because they are the one
  * shape that may not be indented, and `next_block` gates them on
@@ -365,6 +391,64 @@ export function parseSectionTitle(
   return groups === undefined
     ? undefined
     : { level: groups.markers.length - MARKER_OFFSET, title: groups.title };
+}
+
+/**
+ * Parse a two-line (setext) section title: `setext_section_title?`
+ * (parser.rb l.1722-25), which the pinned oracle spells the same way
+ * (`@asciidoctor/core/build/node/index.cjs` l.12650-58). Four tests,
+ * in Ruby's order: the underline opens with a level mark, it is
+ * uniform (both {@link SETEXT_UNDERLINE}), the line above is a title
+ * line ({@link SETEXT_TITLE_LINE}), and the two lengths differ by
+ * less than two.
+ *
+ * The LENGTH RULE is `< 2`, so an underline may be one character
+ * shorter or longer than its title and no more. The issue that asked
+ * for this construct said "within +/-2"; the Ruby and the oracle both
+ * say `.abs < 2` and the oracle is the arbiter.
+ *
+ * The title text is the whole rstripped title line, because Ruby's
+ * `SetextSectionTitleRx` group spans it.
+ * @param line - the candidate title, one rstripped source line
+ * @param nextLine - the line below it, or undefined where a two-line
+ *   construct may not be read (see {@link ReaderContext.nextLine})
+ * @returns the section level and title, or undefined
+ */
+function parseSetextTitle(
+  line: string,
+  nextLine: string | undefined,
+): { level: number; title: string } | undefined {
+  if (nextLine === undefined) {
+    return undefined;
+  }
+  const underline = rstrip(nextLine);
+  const mark = SETEXT_UNDERLINE.exec(underline)?.groups?.mark;
+  if (
+    mark === undefined ||
+    !SETEXT_TITLE_LINE.test(line) ||
+    Math.abs(line.length - underline.length) >= SETEXT_LENGTH_SLACK
+  ) {
+    return undefined;
+  }
+  // The title is the line with its LEADING whitespace off, where
+  // Ruby's group keeps it (`SetextSectionTitleRx` spans the whole
+  // line, so the oracle's title for `  lit` over `----` is `  lit`).
+  // The narrowing is forced by the spelling this printer writes: ATX
+  // puts the title after `[ \t]+`, which the reader eats on the way
+  // back, so `==   lit` re-reads as `lit` whatever we record. Keeping
+  // the indent would make the FIRST pass emit a line the SECOND pass
+  // rewrites, and the render is the same `<h2>lit</h2>` either way -
+  // where the alternative, refusing an indented title line, gives it
+  // back to the literal-paragraph branch and renders a `<pre>` block
+  // instead of the heading the oracle reads. The one thing lost is
+  // the leading space inside the rendered heading text.
+  //
+  // The LENGTH RULE above is asked of the untrimmed line, because the
+  // oracle compares `line1.length` before anything is stripped.
+  return {
+    level: SETEXT_LEVEL_MARKS.indexOf(mark),
+    title: line.trimStart(),
+  };
 }
 
 /**
@@ -628,10 +712,23 @@ export const metadataLineKind: (
  * Classify a line that is starting a block — `parse_block_metadata_line`
  * first (it runs before `next_block` even reads the line), then
  * `next_section`'s title test, then `next_block`'s own ladder.
+ *
+ * The title test is `is_next_line_section?` (parser.rb l.1667), which
+ * is `atx_section_title?(line1) || setext_section_title?(line1,
+ * line2)`. Both arms sit HERE, ahead of the delimiter test, because
+ * `next_section` asks them before it ever calls `next_block`: that
+ * ordering is why `Title` over `-----` is a heading and not a
+ * paragraph over a listing block, and why `x` over `--` is a heading
+ * and not an open block.
  * @param line - one rstripped source line
+ * @param nextLine - the line below it, or undefined where a two-line
+ *   construct may not be read (see {@link ReaderContext.nextLine})
  * @returns the line's kind; `text` when nothing else claims it
  */
-function classifyBlockStart(line: string): LineKind {
+function classifyBlockStart(
+  line: string,
+  nextLine: string | undefined,
+): LineKind {
   // parse_block_metadata_line tests `[[` before the attribute list.
   if (BLOCK_ANCHOR.test(line)) {
     return { kind: "anchor" };
@@ -648,7 +745,11 @@ function classifyBlockStart(line: string): LineKind {
   }
   const section = parseSectionTitle(line);
   if (section !== undefined) {
-    return { kind: "sectionTitle", ...section };
+    return { kind: "sectionTitle", extent: 1, ...section };
+  }
+  const underlined = parseSetextTitle(line, nextLine);
+  if (underlined !== undefined) {
+    return { kind: "sectionTitle", extent: 2, ...underlined };
   }
   // next_block asks `is_delimited_block?` before anything else, which
   // is why `****` is a sidebar and `* x` a list.
@@ -814,5 +915,5 @@ export function classifyLine(rawLine: string, reader: ReaderContext): LineKind {
     }
   }
   // 3. A block's first line.
-  return classifyBlockStart(line);
+  return classifyBlockStart(line, reader.nextLine);
 }

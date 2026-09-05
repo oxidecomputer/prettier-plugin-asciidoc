@@ -38,15 +38,20 @@ describe("verbatim-styled paragraph extents (issue #41)", () => {
     ).toBe("first content line\n----\nbar");
   });
 
-  test("the issue's original ---- shape: one styled paragraph on our side; the oracle reads setext", () => {
-    // Characterization, NOT an oracle claim: the oracle renders two
-    // setext sections here, with or without the style, and setext
-    // titles are out of scope. Our reader takes the whole
-    // extent, the formatter reproduces the input bytes, and rendering
-    // is preserved by identity (the format twin pins the bytes).
-    expect(firstStyled("[source]\nline1\n----\nline2\n----\n").content).toBe(
-      "line1\n----\nline2\n----",
-    );
+  // The issue's original shape opens no styled paragraph: an
+  // underline within one character of the line above is a SETEXT
+  // TITLE, and `is_next_line_section?` (parser.rb l.1667) is asked
+  // before `next_block` reads the style. The oracle renders two
+  // sections here and so do we now (issue #16); the format twin pins
+  // the bytes.
+  test("the issue's original ---- shape is two setext titles", () => {
+    expect(
+      parse("[source]\nline1\n----\nline2\n----\n").children,
+    ).toMatchObject([
+      { type: "blockAttributeList" },
+      { type: "heading", level: 1, title: "line1" },
+      { type: "heading", level: 1, title: "line2" },
+    ]);
   });
 
   test("an opening-line + is content (line_read still false in Ruby)", () => {

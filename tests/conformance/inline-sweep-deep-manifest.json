@@ -31,18 +31,6 @@
     "sha256": "c0f73cc6efe362dba09e1ba960cc227578d876c3d9dda54bbaee2fc2ea7a8f76",
     "issue": "UNTRIAGED"
   },
-  "standing/CharacterReference/repeated/fidelity": {
-    "count": 9,
-    "examples": [
-      "CharacterReference-alt-6/repeated/para-tail",
-      "CharacterReference-alt-6/repeated/para-tail@bom",
-      "CharacterReference-alt-6/repeated/para-tail@crlf",
-      "CharacterReference-alt-6/repeated/para-tail@no-final-newline",
-      "CharacterReference-alt-6/repeated/para-tail@trailing-ff"
-    ],
-    "sha256": "acc1985dd4dbd4d087fb862c75289d6440e29c3e29ffb351cc2690d27da86d91",
-    "issue": "UNTRIAGED"
-  },
   "standing/InlineAnchor/bracket-backslash/fidelity": {
     "count": 45,
     "examples": [

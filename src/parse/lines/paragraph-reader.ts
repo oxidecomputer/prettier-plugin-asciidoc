@@ -287,6 +287,10 @@ class Paragraph {
         openParagraph: this.context,
         openListStyle: this.scan.openListStyle,
         firstLineAfterStart: this.firstLineAfterStart,
+        // A paragraph is OPEN here, and the one two-line construct
+        // Asciidoctor reads is asked about a section's block start
+        // alone (`is_next_line_section?`, parser.rb l.374).
+        nextLine: undefined,
       });
       classifyTrace.observer?.(next.offset, kind);
       if (kind.kind !== "text" && kind.kind !== "raw") {
@@ -800,6 +804,9 @@ function verbatimRunExtent(
     openParagraph: context,
     openListStyle: scan.openListStyle,
     firstLineAfterStart: false,
+    // Same reason as the paragraph scan's: a block is open, and the
+    // setext arm belongs to a section's block start alone.
+    nextLine: undefined,
   };
   const lines: [SourceLine, ...SourceLine[]] = [scan.lines[at]];
   let index = at + 1;

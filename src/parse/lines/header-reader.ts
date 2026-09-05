@@ -71,6 +71,10 @@ const HEADER_CONTEXT: ReaderContext = {
   openParagraph: undefined,
   openListStyle: undefined,
   firstLineAfterStart: false,
+  // The title is read before this scan starts, so no line it walks
+  // can open a two-line construct: `parse_header_metadata` reads one
+  // line at a time and asks no question about the line below.
+  nextLine: undefined,
 };
 
 /**
@@ -276,25 +280,34 @@ function headerMetadata(
 }
 
 /**
- * Collect the document header opening at `titleIndex`.
+ * Collect the document header whose title ENDS at `titleEnd`.
  *
  * Called only where Asciidoctor builds a header - at the document
  * reader's first block, on a level-0 title (lines/reader.ts owns that
  * decision, because reachability is reader state).
+ *
+ * The title's extent arrives as DATA rather than as an index this
+ * scan adds one to: `is_next_line_doctitle?` reads a level-0 title in
+ * the ATX spelling (`= Doc`, one line) and in the underlined one
+ * (`Doc` over `===`, two), and everything below the title reads the
+ * same either way. So the caller says where the title ends and what
+ * it spans, and this scan holds no opinion about how it was written.
  * @param scan - the stream and the facts fixed over it
- * @param titleIndex - index of the `= Title` line
+ * @param titleEnd - index of the first line PAST the title
  * @param title - the classifier's title text, already trimmed
+ * @param span - the title's own span, one line or two
  * @returns the header node and the index past it
  */
 export function documentHeader(
   scan: HeaderScan,
-  titleIndex: number,
+  titleEnd: number,
   title: string,
+  span: Fragment,
 ): DocumentHeaderRead {
   const { lines, at } = scan;
   const collected: HeaderLineNode[] = [];
   let slot: OpenSlot | undefined = "author";
-  let index = titleIndex + 1;
+  let index = titleEnd;
   while (index < lines.length) {
     const kind = classifyLine(lines[index].text, HEADER_CONTEXT);
     classifyTrace.observer?.(lines[index].offset, kind);
@@ -315,12 +328,7 @@ export function documentHeader(
     index += 1;
   }
   return {
-    node: buildDocumentHeader(
-      fragmentOfLine(lines[titleIndex]),
-      title,
-      collected,
-      at,
-    ),
+    node: buildDocumentHeader(span, title, collected, at),
     end: index,
   };
 }

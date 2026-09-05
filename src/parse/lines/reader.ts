@@ -52,6 +52,7 @@ import {
   type DlistTermKind,
   type LineKind,
   type MarkerKind,
+  type SectionTitleKind,
 } from "./classify.js";
 import { blockExtentOf, delimitedExtent } from "./delimited-reader.js";
 import { readFrontMatter } from "./front-matter.js";
@@ -97,6 +98,7 @@ import {
 import {
   documentBom,
   fragmentOfLine,
+  fragmentOfLines,
   splitLines,
   type SourceLine,
 } from "./split.js";
@@ -435,7 +437,10 @@ class BlockReader {
       }
       const kind = classifyLine(
         line.text,
-        blockStartContextIn(this.confinement),
+        blockStartContextIn(
+          this.confinement,
+          this.lines.at(this.index + 1)?.text,
+        ),
       );
       classifyTrace.observer?.(line.offset, kind);
       this.directiveDepth = directiveDepthAfter(this.directiveDepth, line.text);
@@ -713,15 +718,15 @@ class BlockReader {
    * thing entirely — the physical line boundary of an interior
    * (parse_list_item l.1373; parse_blocks, parser.rb:1091-1092,
    * pinned by oracle rows P4/P5).
+   * A title takes ONE line in the ATX spelling and TWO in the
+   * underlined one, and the classifier carries which; every arm below
+   * spans the node over that many lines and resumes past them, so the
+   * two spellings differ nowhere else and the printer sees one kind
+   * of heading.
    * @param line - the title line
    * @param kind - the classifier's parse of the title line
-   * @param kind.level - the classifier's level; 0 is the document title
-   * @param kind.title - the title text after the markers
    */
-  private sectionTitle(
-    line: SourceLine,
-    kind: { level: number; title: string },
-  ): void {
+  private sectionTitle(line: SourceLine, kind: SectionTitleKind): void {
     if (this.confinement !== undefined) {
       // ONE arm for both flavors: bodyContext() already answers
       // "paragraph" for a block child, because directlyInItem() is
@@ -729,14 +734,12 @@ class BlockReader {
       this.paragraph(this.body, textAt(0));
       return;
     }
+    const end = this.index + kind.extent;
+    const span = fragmentOfLines(this.source, line, this.lines[end - 1]);
     if (this.held.heldStyle() === DISCRETE_STYLE) {
       this.leaf(
-        buildDiscreteHeading(
-          fragmentOfLine(line),
-          kind.level,
-          kind.title,
-          this.at,
-        ),
+        buildDiscreteHeading(span, kind.level, kind.title, this.at),
+        end,
       );
       return;
     }
@@ -748,14 +751,12 @@ class BlockReader {
       // author line to body content (issue #18). Flush first, for the
       // reason readText states.
       this.flushMetadata();
-      const header = documentHeader(this.headerScan, this.index, kind.title);
+      const header = documentHeader(this.headerScan, end, kind.title, span);
       this.push(header.node);
       this.resume(header.end);
       return;
     }
-    this.leaf(
-      buildHeading(fragmentOfLine(line), kind.level, kind.title, this.at),
-    );
+    this.leaf(buildHeading(span, kind.level, kind.title, this.at), end);
   }
 
   /**

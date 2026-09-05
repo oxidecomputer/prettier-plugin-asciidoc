@@ -2,25 +2,9 @@
   "oracle": "@asciidoctor/core 4.0.11",
   "regenerate": "Measured, not authored: regenerate with `bun run block-structure --write` whenever the oracle pin or the parser moves, then read the diff - it is the artifact that says what a change did to our conformance.",
   "cases": {
-    "api_test.rb#should load input IO#0": {
-      "family": "gap:setext-title",
-      "signature": "+heading; -example"
-    },
-    "api_test.rb#should load input string array#0": {
-      "family": "gap:setext-title",
-      "signature": "+heading; -example"
-    },
-    "api_test.rb#should load input string#0": {
-      "family": "gap:setext-title",
-      "signature": "+heading; -example"
-    },
     "api_test.rb#should return false when sections? is called on anything that is not a section#0": {
       "family": "gap:styled-block-remodel",
       "signature": "paragraph=>admonition"
-    },
-    "attributes_test.rb#collapses spaces in attribute names#0": {
-      "family": "gap:setext-title",
-      "signature": "+heading; -example"
     },
     "attributes_test.rb#id, role and options attributes can be specified on block style using shorthand syntax#0": {
       "family": "gap:styled-block-remodel",
@@ -238,14 +222,6 @@
       "family": "oracle:manpage-doctype",
       "signature": "-heading; -paragraph"
     },
-    "document_test.rb#attribute entry can appear before author line under document title#0": {
-      "family": "gap:setext-title",
-      "signature": "+heading; -example"
-    },
-    "document_test.rb#attribute entry can appear immediately after document title#0": {
-      "family": "gap:setext-title",
-      "signature": "+heading; -example"
-    },
     "document_test.rb#document with doctitle defined as attribute entry followed by block with title#0": {
       "family": "oracle:doctitle-attribute",
       "signature": "+heading"
@@ -262,21 +238,9 @@
       "family": "oracle:manpage-doctype",
       "signature": "-heading; -paragraph"
     },
-    "document_test.rb#should enable compat mode for document with legacy doctitle#0": {
-      "family": "gap:setext-title",
-      "signature": "+heading; -example"
-    },
     "document_test.rb#should mark synopsis as special section in manpage doctype#0": {
       "family": "oracle:manpage-doctype",
       "signature": "-heading; -paragraph"
-    },
-    "document_test.rb#should not enable compat mode for document with legacy doctitle if compat mode disable by header#0": {
-      "family": "gap:setext-title",
-      "signature": "+heading; -example"
-    },
-    "document_test.rb#should not enable compat mode for document with legacy doctitle if compat mode is locked by API#0": {
-      "family": "gap:setext-title",
-      "signature": "+heading; -example"
     },
     "document_test.rb#should output all mannames in name section in man page output#0": {
       "family": "oracle:manpage-doctype",
@@ -330,110 +294,6 @@
       "family": "oracle:manpage-doctype",
       "signature": "-heading; -paragraph"
     },
-    "lists_test.rb#a literal paragraph offset by a blank line in list content followed by line with continuation is appended as two blocks#0": {
-      "family": "gap:setext-title",
-      "signature": "example=>list:unordered; paragraph=>heading"
-    },
-    "lists_test.rb#a literal paragraph offset by blank lines in list content is appended as a literal block#0": {
-      "family": "gap:setext-title",
-      "signature": "example=>list:unordered; paragraph=>heading"
-    },
-    "lists_test.rb#a literal paragraph without a trailing blank line consumes following list items#0": {
-      "family": "gap:setext-title",
-      "signature": "example=>list:unordered; paragraph=>heading"
-    },
-    "lists_test.rb#a non-indented wrapped line is folded into text of list item#0": {
-      "family": "gap:setext-title",
-      "signature": "example=>list:unordered; paragraph=>heading"
-    },
-    "lists_test.rb#adjacent list continuation line attaches following block with block attributes#0": {
-      "family": "gap:setext-title",
-      "signature": "example=>list:unordered; paragraph=>heading"
-    },
-    "lists_test.rb#adjacent list continuation line attaches following block#0": {
-      "family": "gap:setext-title",
-      "signature": "example=>list:unordered; paragraph=>heading"
-    },
-    "lists_test.rb#adjacent list continuation line attaches following paragraph#0": {
-      "family": "gap:setext-title",
-      "signature": "example=>list:unordered; paragraph=>heading"
-    },
-    "lists_test.rb#an indented wrapped line is unindented and folded into text of list item#0": {
-      "family": "gap:setext-title",
-      "signature": "example=>list:unordered; paragraph=>heading"
-    },
-    "lists_test.rb#asterisk element mixed with dash elements should be nested#0": {
-      "family": "gap:setext-title",
-      "signature": "example=>list:unordered; paragraph=>heading"
-    },
-    "lists_test.rb#asterisk elements separated by a block title offset by a blank line should not merge lists#0": {
-      "family": "gap:setext-title",
-      "signature": "+list:unordered; example=>list:unordered; paragraph=>heading"
-    },
-    "lists_test.rb#asterisk elements separated by a line comment offset by blank lines should not merge lists#0": {
-      "family": "gap:setext-title",
-      "signature": "+list:unordered; example=>list:unordered; paragraph=>heading"
-    },
-    "lists_test.rb#asterisk elements separated by blank lines should merge lists#0": {
-      "family": "gap:setext-title",
-      "signature": "example=>list:unordered; paragraph=>heading"
-    },
-    "lists_test.rb#asterisk elements with no blank lines#0": {
-      "family": "gap:setext-title",
-      "signature": "example=>list:unordered; paragraph=>heading"
-    },
-    "lists_test.rb#attribute substitutions#0": {
-      "family": "gap:setext-title",
-      "signature": "example=>list:unordered; paragraph=>heading"
-    },
-    "lists_test.rb#consecutive blocks in list continuation attach to list item#0": {
-      "family": "gap:setext-title",
-      "signature": "example=>list:unordered; paragraph=>heading"
-    },
-    "lists_test.rb#consecutive list continuation lines are folded#0": {
-      "family": "gap:setext-title",
-      "signature": "example=>list:unordered; paragraph=>heading"
-    },
-    "lists_test.rb#consecutive literal paragraph offset by blank lines in list content are appended as a literal blocks#0": {
-      "family": "gap:setext-title",
-      "signature": "example=>list:unordered; paragraph=>heading"
-    },
-    "lists_test.rb#dash element mixed with asterisks elements should be nested#0": {
-      "family": "gap:setext-title",
-      "signature": "example=>list:unordered; paragraph=>heading"
-    },
-    "lists_test.rb#dash elements separated by a block title offset by a blank line should not merge lists#0": {
-      "family": "gap:setext-title",
-      "signature": "+list:unordered; example=>list:unordered; paragraph=>heading"
-    },
-    "lists_test.rb#dash elements separated by a line comment offset by blank lines should not merge lists#0": {
-      "family": "gap:setext-title",
-      "signature": "+list:unordered; example=>list:unordered; paragraph=>heading"
-    },
-    "lists_test.rb#dash elements separated by blank lines should merge lists#0": {
-      "family": "gap:setext-title",
-      "signature": "example=>list:unordered; paragraph=>heading"
-    },
-    "lists_test.rb#dash elements with no blank lines#0": {
-      "family": "gap:setext-title",
-      "signature": "example=>list:unordered; paragraph=>heading"
-    },
-    "lists_test.rb#dot elements separated by a block title offset by a blank line should not merge lists#0": {
-      "family": "gap:setext-title",
-      "signature": "+list:ordered; example=>list:ordered; paragraph=>heading"
-    },
-    "lists_test.rb#dot elements separated by blank lines should merge lists#0": {
-      "family": "gap:setext-title",
-      "signature": "example=>list:ordered; paragraph=>heading"
-    },
-    "lists_test.rb#dot elements separated by line comment offset by blank lines should not merge lists#0": {
-      "family": "gap:setext-title",
-      "signature": "+list:ordered; example=>list:ordered; paragraph=>heading"
-    },
-    "lists_test.rb#dot elements with no blank lines#0": {
-      "family": "gap:setext-title",
-      "signature": "example=>list:ordered; paragraph=>heading"
-    },
     "lists_test.rb#folds text that looks like admonition offset by blank line#0": {
       "family": "gap:dlist",
       "signature": "-admonition"
@@ -446,78 +306,6 @@
       "family": "gap:dlist",
       "signature": "-thematic_break"
     },
-    "lists_test.rb#lines prefixed with alternating list markers separated by blank lines should be nested#0": {
-      "family": "gap:setext-title",
-      "signature": "example=>list:unordered; paragraph=>heading"
-    },
-    "lists_test.rb#lines with alternating markers of bulleted and description list types separated by blank lines should be nested#0": {
-      "family": "gap:setext-title",
-      "signature": "example=>list:unordered; paragraph=>heading"
-    },
-    "lists_test.rb#lines with alternating markers of unordered and ordered list types separated by blank lines should be nested#0": {
-      "family": "gap:setext-title",
-      "signature": "example=>list:unordered; paragraph=>heading"
-    },
-    "lists_test.rb#list item with literal content should not consume nested list of different type#0": {
-      "family": "gap:setext-title",
-      "signature": "example=>list:unordered; paragraph=>heading"
-    },
-    "lists_test.rb#list should terminate before next lower section heading with implicit id#0": {
-      "family": "gap:setext-title",
-      "signature": "+heading; example=>list:unordered; paragraph=>heading"
-    },
-    "lists_test.rb#list should terminate before next lower section heading#0": {
-      "family": "gap:setext-title",
-      "signature": "+heading; example=>list:unordered; paragraph=>heading"
-    },
-    "lists_test.rb#nested elements (2) with asterisks#0": {
-      "family": "gap:setext-title",
-      "signature": "example=>list:unordered; paragraph=>heading"
-    },
-    "lists_test.rb#nested elements (3) with asterisks#0": {
-      "family": "gap:setext-title",
-      "signature": "example=>list:unordered; paragraph=>heading"
-    },
-    "lists_test.rb#nested elements (4) with asterisks#0": {
-      "family": "gap:setext-title",
-      "signature": "example=>list:unordered; paragraph=>heading"
-    },
-    "lists_test.rb#nested elements (5) with asterisks#0": {
-      "family": "gap:setext-title",
-      "signature": "example=>list:unordered; paragraph=>heading"
-    },
-    "lists_test.rb#nested list item does not eat the title of the following detached block#0": {
-      "family": "gap:setext-title",
-      "signature": "+literal; example=>list:unordered; paragraph=>heading"
-    },
-    "lists_test.rb#nested ordered elements (2)#0": {
-      "family": "gap:setext-title",
-      "signature": "example=>list:ordered; paragraph=>heading"
-    },
-    "lists_test.rb#nested ordered elements (3)#0": {
-      "family": "gap:setext-title",
-      "signature": "example=>list:ordered; paragraph=>heading"
-    },
-    "lists_test.rb#nested ordered inside unordered elements#0": {
-      "family": "gap:setext-title",
-      "signature": "example=>list:unordered; paragraph=>heading"
-    },
-    "lists_test.rb#nested ordered with attribute inside unordered elements#0": {
-      "family": "gap:setext-title",
-      "signature": "example=>list:unordered; paragraph=>heading"
-    },
-    "lists_test.rb#nested term with description does not consume following heading#0": {
-      "family": "gap:dlist",
-      "signature": "paragraph=>heading"
-    },
-    "lists_test.rb#nested unordered inside ordered elements#0": {
-      "family": "gap:setext-title",
-      "signature": "example=>list:ordered; paragraph=>heading"
-    },
-    "lists_test.rb#quoted text#0": {
-      "family": "gap:setext-title",
-      "signature": "example=>list:unordered; paragraph=>heading"
-    },
     "lists_test.rb#should continue to parse blocks attached by a list continuation after block is dropped#0": {
       "family": "oracle:comment-style",
       "signature": "-paragraph"
@@ -525,14 +313,6 @@
     "lists_test.rb#should continue to parse subsequent blocks attached to list item after first block is dropped#0": {
       "family": "gap:dlist",
       "signature": "-image"
-    },
-    "lists_test.rb#trailing block attribute line attached by continuation should not create block#0": {
-      "family": "gap:setext-title",
-      "signature": "example=>list:unordered; paragraph=>heading"
-    },
-    "lists_test.rb#trailing block title line attached by continuation should not create block#0": {
-      "family": "gap:setext-title",
-      "signature": "example=>list:unordered; paragraph=>heading"
     },
     "manpage_test.rb#(outside test)#0": {
       "family": "oracle:manpage-doctype",
@@ -674,18 +454,6 @@
       "family": "oracle:book-partintro",
       "signature": "paragraph=>open x2"
     },
-    "sections_test.rb#document title with multiline syntax and unicode characters#0": {
-      "family": "gap:setext-title",
-      "signature": "+heading; -example"
-    },
-    "sections_test.rb#explicit id can be defined using an embedded anchor when using setext section titles#0": {
-      "family": "gap:setext-title",
-      "signature": "-listing; paragraph=>heading"
-    },
-    "sections_test.rb#multiline syntax with only multibyte characters#0": {
-      "family": "gap:setext-title",
-      "signature": "+heading; +paragraph; open=>heading"
-    },
     "sections_test.rb#should add partintro style to child paragraph of part#0": {
       "family": "oracle:book-partintro",
       "signature": "paragraph=>open"
@@ -697,26 +465,6 @@
     "sections_test.rb#should create parts and chapters in docbook backend#0": {
       "family": "oracle:book-partintro",
       "signature": "paragraph=>open x2"
-    },
-    "sections_test.rb#should not interpret a listing block as a heading#0": {
-      "family": "gap:setext-title",
-      "signature": "+paragraph; paragraph=>heading"
-    },
-    "sections_test.rb#should not interpret an attribute list as a heading#0": {
-      "family": "gap:setext-title",
-      "signature": "+heading; example=>admonition"
-    },
-    "sections_test.rb#should not interpret an open block as a heading#0": {
-      "family": "gap:setext-title",
-      "signature": "+heading; +open; -listing"
-    },
-    "sections_test.rb#should not match a heading in a bulleted list#0": {
-      "family": "gap:setext-title",
-      "signature": "+heading; +list:unordered; -listing"
-    },
-    "sections_test.rb#should not match a heading in a description list#0": {
-      "family": "gap:dlist",
-      "signature": "+dlist; +heading; -listing"
     },
     "sections_test.rb#should not promote title on partintro defined as normal paragraph#0": {
       "family": "oracle:book-partintro",
@@ -765,10 +513,6 @@
     "test/fixtures/include-alt-extension.asciidoc": {
       "family": "oracle:conditional",
       "signature": "+paragraph"
-    },
-    "test/fixtures/sample.adoc": {
-      "family": "gap:setext-title",
-      "signature": "+heading x4; +list:unordered; +paragraph x3; +table; example=>admonition"
     },
     "test/fixtures/with-front-matter.adoc": {
       "family": "oracle:front-matter",

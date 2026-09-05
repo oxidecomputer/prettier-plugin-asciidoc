@@ -911,6 +911,27 @@
   },
   {
     "file": "src/parse/line-shapes.ts",
+    "symbol": "SETEXT_LEVEL_MARKS",
+    "importer": "src/parse/lines/classify.ts",
+    "kind": "vocabulary",
+    "reason": "registry vocabulary: the five underline marks in level order, so the level is looked up rather than respelled"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "SETEXT_TITLE_LINE",
+    "importer": "src/parse/lines/classify.ts",
+    "kind": "vocabulary",
+    "reason": "registry pattern: the line an underline may turn into a section title"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "SETEXT_UNDERLINE",
+    "importer": "src/parse/lines/classify.ts",
+    "kind": "vocabulary",
+    "reason": "registry pattern: the uniform mark run that underlines a two-line section title"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
     "symbol": "THEMATIC_BREAK",
     "importer": "src/parse/lines/classify.ts",
     "kind": "vocabulary",

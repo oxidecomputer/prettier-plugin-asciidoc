@@ -66,20 +66,28 @@ export function standingGrid(): Shape[] {
       }
     }
   }
-  // The setext-shaped spellings: our read already diverges from the
-  // oracle (recorded, out of scope — issues #16 and #18), so these
-  // rows are pinned by base-vs-head BYTE equality only; a differing
-  // row here has no family and STOPS the run.
+  // The setext-shaped spellings. All three are RENDER-VISIBLE like
+  // any other row: the reader takes a two-line title now (issue #16),
+  // so the reading that used to diverge from the oracle here is the
+  // oracle's. A differing row still has no family and STOPS the run.
   shapes.push(
     {
       id: "setext/trailing-underline/doc",
       input: "====\nfoo\n====\nbar\n====\n",
-      renderBlind: true,
+      renderBlind: false,
     },
     {
       id: "setext/nested-listing/doc",
       input: "====\n----\nfoo\n====\nbar\n----\n",
-      renderBlind: true,
+      renderBlind: false,
+    },
+    // The construct in its own right, which is what the
+    // `setext-title` dimension's canonical spelling reaches
+    // (scripts/shape-registry.ts, rule (iv)).
+    {
+      id: "setext/underlined-title/doc",
+      input: "Title\n-----\n\nbody\n",
+      renderBlind: false,
     },
   );
   return shapes;

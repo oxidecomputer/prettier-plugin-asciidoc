@@ -135,6 +135,27 @@ export function fragmentOfLine(
   return { image: line.raw.slice(from, to), offset: line.offset + from };
 }
 
+/**
+ * The span from the start of one line to the end of another, sliced
+ * out of the source so the line terminators between them ride along
+ * exactly as written (`\n` or `\r\n`). The one construct that needs
+ * it is the underlined section title, whose two lines are one node.
+ * @param source - the whole document
+ * @param first - the line the span opens on
+ * @param last - the line it closes on; `first` for a one-line span
+ * @returns the span
+ */
+export function fragmentOfLines(
+  source: string,
+  first: SourceLine,
+  last: SourceLine,
+): Fragment {
+  return {
+    image: source.slice(first.offset, last.offset + last.raw.length),
+    offset: first.offset,
+  };
+}
+
 /** The byte-order mark as one decoded character. */
 const BOM = "\u{FEFF}";
 

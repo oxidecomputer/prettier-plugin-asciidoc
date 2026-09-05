@@ -246,16 +246,28 @@ export function bodyContextIn(
  * scans, which build their own context from the same ancestry fact
  * ({@link openListStyleIn}): nothing open, and no line is "first
  * after the block started" until a block has started.
+ *
+ * The line BELOW is offered to an UNCONFINED reader alone, which is
+ * where Ruby asks its one two-line question: `is_next_line_section?`
+ * belongs to `next_section`'s loop (parser.rb l.374), and an item's
+ * buffer or a compound interior is parsed by `parse_blocks` ->
+ * `next_block`, which never reaches it. Deciding that here, at the
+ * one producer of a block-start context, keeps the setext arm out of
+ * every confined reader without a second test anywhere.
  * @param confinement - how the reader is confined, absent for the
  *   document reader
+ * @param nextLine - the line below the one being classified, or
+ *   undefined at the end of this reader's stream
  * @returns the read-only context view
  */
 export function blockStartContextIn(
   confinement: Confinement | undefined,
+  nextLine: string | undefined,
 ): ReaderContext {
   return {
     openParagraph: undefined,
     openListStyle: openListStyleIn(confinement),
     firstLineAfterStart: false,
+    nextLine: confinement === undefined ? nextLine : undefined,
   };
 }

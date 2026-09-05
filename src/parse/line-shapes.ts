@@ -140,6 +140,19 @@ export interface ReaderContext {
    * matching rule in {@link isRawParagraphLine}.
    */
   readonly firstLineAfterStart: boolean;
+  /**
+   * The line BELOW this one, where a two-line construct may be read,
+   * and undefined everywhere one may not. The only such construct is
+   * the setext section title, and the only position Asciidoctor reads
+   * one at is a SECTION's own block start: `is_next_line_section?`
+   * (parser.rb l.1667) is asked from `next_section`'s loop, while a
+   * list item's buffer and a compound block's interior go through
+   * `parse_blocks` -> `next_block`, which never asks. So a confined
+   * reader supplies undefined here and gets `next_block`'s ladder
+   * unchanged (scope.ts), and so does every position inside an open
+   * paragraph.
+   */
+  readonly nextLine: string | undefined;
 }
 
 /**
@@ -152,6 +165,7 @@ export const BLOCK_START_CONTEXT: ReaderContext = {
   openParagraph: undefined,
   openListStyle: undefined,
   firstLineAfterStart: false,
+  nextLine: undefined,
 };
 
 // The oracle's strip set, spelled out rather than as `\s`:
@@ -781,6 +795,47 @@ const SECTION_TITLE_SHAPES: readonly RegExp[] = [
   SECTION_TITLE,
   MARKDOWN_ATX_SECTION_TITLE,
 ];
+
+/**
+ * `SETEXT_SECTION_LEVELS` (asciidoctor.rb l.262-268) as one string:
+ * the underline mark of level N is the character at index N, so `=`
+ * underlines a level-0 title and `+` a level-4 one.
+ *
+ * ONE spelling of the five marks, read by {@link SETEXT_UNDERLINE}'s
+ * own doc and by the classifier's level lookup; the pattern below is
+ * held to it, mark by mark, in tests/parser/lines.test.ts.
+ */
+export const SETEXT_LEVEL_MARKS = "=-~^+";
+
+/**
+ * The UNDERLINE of a two-line (setext) section title: a uniform run
+ * of one {@link SETEXT_LEVEL_MARKS} character. Mirrors the first two
+ * tests of `setext_section_title?` (parser.rb l.1722-24) -
+ * `SETEXT_SECTION_LEVELS[line2.chr]` and `uniform? line2, line2_ch0,
+ * line2_len` - which the pinned oracle spells the same way
+ * (`@asciidoctor/core/build/node/index.cjs` l.12650-58).
+ *
+ * NOT A LINE SHAPE ON ITS OWN, and that is the point: an underline
+ * means nothing without the line above it, so the third and fourth
+ * tests (the title line, and a length within one character of it)
+ * live with the two-line parse in src/parse/lines/classify.ts. What
+ * this pattern answers alone is reflow's question - may a word be
+ * WRITTEN at the start of a line? - where the line above is whatever
+ * the packer already emitted and any such word could complete a
+ * heading the source never had.
+ */
+export const SETEXT_UNDERLINE = /^(?<mark>[=\-~^+])\k<mark>*$/v;
+
+/**
+ * The TITLE line of a two-line section title: `SetextSectionTitleRx`
+ * (rx.rb l.248, `/^((?!\.)CC_ANY*?CG_ALNUM CC_ANY*)$/`) - a line that
+ * does not open with `.` and carries at least one alphanumeric.
+ *
+ * Ruby's group spans the WHOLE line, so the title text is the
+ * rstripped line itself and no consumer slices it. `CG_ALNUM` is the
+ * pinned oracle's `[\p{Alphabetic}\p{N}]` (index.cjs l.49).
+ */
+export const SETEXT_TITLE_LINE = /^(?!\.).*[\p{Alphabetic}\p{N}].*$/v;
 
 /**
  * An admonition label (`NOTE: text`). Mirrors
@@ -1755,6 +1810,15 @@ const PROBE_PREFIX = "p";
  * section the author did not write, or by the preprocessor. So the
  * interrupting shapes, the SECTION TITLES and the RAW ones all count.
  *
+ * A SETEXT UNDERLINE counts for the same reason and from the other
+ * end: `----` or `~~~~` written alone on a line makes a heading out
+ * of whatever line the packer emitted ABOVE it, and the text of that
+ * line becomes a title. This is the one shape whose reading is
+ * decided by a neighbour, and the refusal is deliberately blind to
+ * that neighbour: it holds the word off a line start whatever stands
+ * above, which over-refuses (the length rule may not have been met)
+ * and costs a break rather than a heading nobody wrote.
+ *
  * Asked in both spellings a head can take, because the caller does not
  * know which kind of line it is building and the patterns here are
  * whole-LINE ones:
@@ -1786,6 +1850,7 @@ export function startsBlockAtLineStart(word: string): boolean {
     interruptsByLineShape(startingALine) ||
     startsSectionTitle(word) ||
     startsSectionTitle(startingALine) ||
+    SETEXT_UNDERLINE.test(rstrip(word)) ||
     isRawParagraphLine(word) ||
     isRawParagraphLine(startingALine)
   );

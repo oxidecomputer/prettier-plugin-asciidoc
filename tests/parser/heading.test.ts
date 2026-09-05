@@ -152,3 +152,98 @@ describe("heading metadata placement", () => {
     ]);
   });
 });
+
+/**
+ * The UNDERLINED (setext) spelling, issue #16. `is_next_line_section?`
+ * (parser.rb l.1667) reads a title from TWO lines - a title line and
+ * a uniform run of `=`, `-`, `~`, `^` or `+` under it, within one
+ * character of its length - and it is asked before `next_block`, so
+ * the underline wins over the delimiter it looks like.
+ *
+ * Red before the reader carried the shape: `Title` / `-----` parsed
+ * as a paragraph plus a listing block that swallowed the rest of the
+ * document, and `para` / `----` / `x` / `----` put prose inside a
+ * verbatim block.
+ */
+describe("underlined section titles", () => {
+  // One row per SETEXT_SECTION_LEVELS entry (asciidoctor.rb
+  // l.262-268), because the mark IS the level and a table is only
+  // pinned when every entry is. A paragraph stands above each pair so
+  // that the `=` row is a heading rather than the document header,
+  // which has rows of its own below.
+  test.each([
+    ["=", 0],
+    ["-", 1],
+    ["~", 2],
+    ["^", 3],
+    ["+", 4],
+  ])("an underline of %j is level %i", (mark, level) => {
+    const { children } = parse(`para\n\nTitle\n${mark.repeat(5)}\n\nbody\n`);
+    const [, heading] = children;
+    narrow(heading, "heading");
+    expect(heading.level).toBe(level);
+    expect(heading.title).toBe("Title");
+  });
+
+  // The node spans BOTH lines, so the paragraph under it starts where
+  // the source does and nothing between them is left unaccounted for.
+  test("the heading's position covers the underline", () => {
+    const source = "Title\n-----\n\nbody\n";
+    const [heading, body] = parse(source).children;
+    expect(heading.position.start.offset).toBe(0);
+    expect(heading.position.end.offset).toBe("Title\n-----".length);
+    expect(body.position.start.offset).toBe(source.indexOf("body"));
+  });
+
+  // The length rule is `.abs < 2` (parser.rb l.1724): one character
+  // either way and no more.
+  test.each([
+    ["four under a five-character title", "Title\n----\n", "heading"],
+    ["five under five", "Title\n-----\n", "heading"],
+    ["six under five", "Title\n------\n", "heading"],
+    // Three is two short, so the pair is a paragraph and the run is
+    // the Markdown rule that ends it.
+    ["three under five", "Title\n---\n", "paragraph"],
+    // Seven is two long, and four or more hyphens are a listing
+    // delimiter to `is_delimited_block?`.
+    ["seven under five", "Title\n-------\n", "paragraph"],
+  ])("%s reads as a %s", (_name, source, type) => {
+    expect(parse(source).children[0]?.type).toBe(type);
+  });
+
+  // `SetextSectionTitleRx` (rx.rb l.248) refuses a line that opens
+  // with `.` or carries no alphanumeric, which is what keeps a block
+  // title and a delimiter pair out.
+  test.each([
+    ["a line opening with a dot", ".Title\n------\n"],
+    ["a line with no alphanumeric", "!!!!!\n-----\n"],
+    // A blank line above the run leaves no title to underline.
+    ["a run with a blank line above it", "\n-----\n"],
+  ])("%s is no title", (_name, source) => {
+    expect(parse(source).children[0]?.type).not.toBe("heading");
+  });
+
+  // The confinement rule: `is_next_line_section?` belongs to
+  // `next_section`'s loop, and an item's buffer or a compound block's
+  // interior is parsed by `parse_blocks` -> `next_block`, which never
+  // asks. So the same two lines inside either are ordinary content.
+  test.each([
+    ["a list item", "* item\nTitle\n-----\n"],
+    ["an example block", "====\nTitle\n-----\n====\n"],
+  ])("inside %s the pair is not a title", (_name, source) => {
+    const shapes = parse(source).children.map((child) => child.type);
+    expect(shapes).not.toContain("heading");
+  });
+
+  // A level-0 underlined title opens the DOCUMENT HEADER, exactly as
+  // `= Doc` does: `is_next_line_doctitle?` asks the same predicate,
+  // and the author line under the underline fills the header's first
+  // slot rather than becoming body text.
+  test("an underlined level-0 title opens the document header", () => {
+    const { children } = parse("Doc\n===\nAuthor Name\n\nbody\n");
+    const [header] = children;
+    narrow(header, "documentHeader");
+    expect(header.title).toBe("Doc");
+    expect(header.lines.map((line) => line.type)).toEqual(["authorLine"]);
+  });
+});

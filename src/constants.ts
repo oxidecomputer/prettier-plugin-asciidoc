@@ -48,3 +48,9 @@ export const NEWLINE_LENGTH = 1;
 // Sentinel for auto-numbered callout markers (`<.>`). The
 // value 0 is distinct from any explicit callout number (1+).
 export const AUTO_CALLOUT_NUMBER = 0;
+
+// How far a setext underline's length may stray from its title's:
+// `setext_section_title?` accepts the pair when
+// `(line1.length - line2_len).abs < 2` (parser.rb l.1724), so one
+// character either way and no more.
+export const SETEXT_LENGTH_SLACK = 2;

@@ -18,10 +18,16 @@ describe("verbatim-styled paragraphs keep their extent (issues #41, #39)", () =>
     await expectByteFaithful("[source]\nfirst content line\n----\nbar\n");
   });
 
-  test("the issue's original ---- shape passes through byte-faithfully (oracle reads setext there; setext titles are out of scope)", async () => {
-    // renderedHtml(output) === await renderedHtml(input) holds by IDENTITY:
-    // the bytes do not move, whatever the oracle makes of them.
-    await expectByteFaithful("[source]\nline1\n----\nline2\n----\n");
+  // The issue's original shape is not a styled paragraph at all: an
+  // underline within one character of the line above it is a SETEXT
+  // TITLE, and `is_next_line_section?` decides that before the style
+  // gets a say. Both titles come back in the ATX spelling, and the
+  // render is the oracle's own two sections (issue #16).
+  test("the issue's original ---- shape is two setext titles", async () => {
+    await expectFormatted(
+      "[source]\nline1\n----\nline2\n----\n",
+      "[source]\n== line1\n\n== line2\n",
+    );
   });
 
   test("#39: stacked preprocessor lines gain no blank line", async () => {

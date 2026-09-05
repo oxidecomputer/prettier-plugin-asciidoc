@@ -77,6 +77,9 @@ describe("front matter formatting", () => {
   // which is the render loss issue #23 named; a lone `---` is the
   // Markdown thematic break the oracle reads there, so it comes back
   // as the canonical `'''` and the text below it keeps its own block.
+  // In the second, the SECOND fence is then an underline within one
+  // character of `a: 1`, which is a setext title (issue #16) - the
+  // reading the oracle has for that document too.
   // Expected output, not bytes, is the assertion: a read that
   // overreached here would preserve them instead, and the row would
   // fail rather than quietly improve.
@@ -89,13 +92,14 @@ describe("front matter formatting", () => {
     [
       "a paragraph stands above the fences",
       "para\n\n---\na: 1\n---\n",
-      "para\n\n'''\n\na: 1 ---\n",
+      "para\n\n'''\n\n== a: 1\n",
     ],
     ["the fence carries a word", "--- a\nb: 1\n---\n", "--- a b: 1 ---\n"],
   ])("%s is not front matter", async (_name, input, expected) => {
     const out = await formatAdoc(input);
     expect(out).toBe(expected);
     expect(await formatAdoc(out)).toBe(out);
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
   });
 
   // The reader rstrips every line before any rule sees it, as

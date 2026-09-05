@@ -521,6 +521,27 @@ function continuationBelow(
 }
 
 /**
+ * Whether the line at this offset is an UNDERLINED section title, and
+ * so claims the line below it as well. The reader classifies the
+ * title line alone and resumes past both, so the underline never
+ * reaches a verdict of its own: it is opaque with a reason, the way a
+ * delimited block's interior is.
+ * @param events - the trace, keyed by offset
+ * @param offset - the line's offset
+ * @returns whether the line below this one belongs to a title
+ */
+function claimsLineBelow(
+  events: ReadonlyMap<number, LineKind>,
+  offset: number,
+): boolean {
+  const kind = events.get(offset);
+  return kind?.kind === "sectionTitle" && kind.extent === UNDERLINED_EXTENT;
+}
+
+/** The extent a title spells when it is underlined rather than ATX. */
+const UNDERLINED_EXTENT = 2;
+
+/**
  * The TRACE-FIDELITY self-check: lines the reader consumed without
  * leaving a verdict, in a document where every line should have one.
  *
@@ -585,6 +606,8 @@ export function untracedLines(document: string): string[] {
   // so the lines its value runs onto are excused and the first line
   // past them is not.
   let openSuffix: string | undefined = undefined;
+  // Whether the line above claimed this one as its underline.
+  let underlined = false;
   // The document's front matter, in lines. Its `---` fences and the
   // YAML between them are read by the document reader before any line
   // is classified (src/parse/lines/front-matter.ts), so they are
@@ -600,12 +623,15 @@ export function untracedLines(document: string): string[] {
     // binding, so leaving it to inference asks the checker to type an
     // expression in terms of itself.
     const continued: string | undefined = openSuffix;
+    const claimed = underlined;
     openSuffix = continuationBelow(events, offset, line, continued);
+    underlined = claimsLineBelow(events, offset);
     offset += rawLine.length + 1;
     if (
       contribution.kind === "opaque" &&
       continued === undefined &&
-      !inFrontMatter
+      !inFrontMatter &&
+      !claimed
     ) {
       missed.push(line);
     }

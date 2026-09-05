@@ -432,15 +432,16 @@ const ALL_CASES: DescriptionCase[] = loadCorpus().flatMap((group) =>
  * The other two families are each pinned at their measured size, and
  * small enough that the pin names its members:
  *
- * - `no-list-read` is ONE, `sections_test.rb#should not match a
- *   heading in a description list`, whose `-------` is a setext
- *   section title the reader does not read (issue #16, where the case
- *   is quarantined on fidelity). It is read as a listing delimiter
- *   instead, so every term line below it stands inside a verbatim
- *   block. A setext gap reaching this suite, not a term-line
- *   disagreement - and 1 rather than 0 so that a SECOND member, which
- *   would be the regression an empty pin was watching for, fails
- *   here.
+ * - `no-list-read` is EMPTY. Its one member was
+ *   `sections_test.rb#should not match a heading in a description
+ *   list`, whose `-------` is a setext section title: the reader used
+ *   to take it for a listing delimiter, which put every term line
+ *   below it inside a verbatim block and left no list to compare.
+ *   The reader reads the setext title now (issue #16) and the case is
+ *   compared like any other. The family is KEPT with an empty pin
+ *   rather than deleted: a list this suite cannot read at all is the
+ *   regression the pin watches for, and 0 is the number that fails on
+ *   the first one.
  * - `oracle-line-not-a-term-line` is TWO, both lists inside another
  *   item. `sourcemap` reports such a list at the line its ENCLOSING
  *   item's buffer opens on, which is the blank or block-attribute
@@ -688,7 +689,7 @@ describe("description-list structure vs the oracle", () => {
       preprocessor: 11,
       "oracle-threw": 0,
       "oracle-logged": 2,
-      "no-list-read": 1,
+      "no-list-read": 0,
       "oracle-line-not-a-term-line": 2,
     });
   });
@@ -699,9 +700,7 @@ describe("description-list structure vs the oracle", () => {
   // a predicate to guess it. `preprocessor` and `oracle-logged` are
   // mechanical classes with no story and stay on counts above.
   test("the narrative families are pinned by member", () => {
-    expect(membersOf("no-list-read")).toEqual([
-      "sections_test.rb#should not match a heading in a description list#0",
-    ]);
+    expect(membersOf("no-list-read")).toEqual([]);
     expect(membersOf("oracle-line-not-a-term-line")).toEqual([
       "lists_test.rb#multiple block attribute lines separated by empty line above nested list does not break list#0#1",
       "lists_test.rb#nested dlist with attached block offset by empty line#0#1",

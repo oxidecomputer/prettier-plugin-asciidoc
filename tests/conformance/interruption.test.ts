@@ -255,6 +255,7 @@ describe("line-shape registry matches the Asciidoctor oracle", () => {
           openParagraph: context,
           openListStyle: CONTEXT_LIST_STYLE[context],
           firstLineAfterStart: firstLine,
+          nextLine: undefined,
         }),
         `registry disagrees with oracle for ${JSON.stringify(line)}`,
       ).toBe(oracle);
@@ -290,6 +291,9 @@ describe("classifyLine matches the Asciidoctor oracle", () => {
         openParagraph: context,
         openListStyle: CONTEXT_LIST_STYLE[context],
         firstLineAfterStart: firstLine,
+        // Every probe here has a block OPEN above the construct, and
+        // the setext arm belongs to a section's block start alone.
+        nextLine: undefined,
       };
       const oracle = await oracleInterrupts(construct, context, filler);
       expect(
@@ -549,6 +553,7 @@ describe("raw (non-text, non-interrupting) paragraph lines", () => {
       openParagraph: "listItemText",
       openListStyle: undefined,
       firstLineAfterStart: true,
+      nextLine: undefined,
     };
     expect(isRawParagraphLine("[[a]]", "listItemText", first)).toBe(true);
     expect(isRawParagraphLine("[[a]]", "listItemText")).toBe(false);

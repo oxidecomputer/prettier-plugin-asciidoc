@@ -28,8 +28,12 @@ describe("reader: paragraphs", () => {
   test("blank lines end a paragraph and leave no node of their own", () => {
     expect(astShape("a\n\n\nb\n")).toBe("p(t) p(t)");
   });
+  // The opening line is three characters wide on purpose: a `+` under
+  // a ONE-character line is a setext underline within the length rule,
+  // and the oracle reads `a` / `+` as a level-4 title rather than as a
+  // paragraph a continuation interrupts.
   test("a +-line interrupts a plain paragraph and opens the next as text (read_lines_until line_read guard)", () => {
-    expect(astShape("a\n+\nb\n")).toBe("p(t) p(t / t)");
+    expect(astShape("abc\n+\nb\n")).toBe("p(t) p(t / t)");
   });
   test("block-shaped lines mid-paragraph are text", () => {
     expect(astShape("a\n* item\n.Title\n== S\nNOTE: x\n")).toBe(

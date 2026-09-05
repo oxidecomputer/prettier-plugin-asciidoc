@@ -249,13 +249,16 @@ describe("the kinds that carry their parse", () => {
         unset: true,
       },
     ],
-    ["== Section", { kind: "sectionTitle", level: 1, title: "Section" }],
+    [
+      "== Section",
+      { kind: "sectionTitle", level: 1, title: "Section", extent: 1 },
+    ],
     // classifyLine rstrips first, so the title capture carries no
     // trailing whitespace — the same text the deleted slice-and-trim
     // in build/heading.ts produced.
     [
       "== trailing spaces   ",
-      { kind: "sectionTitle", level: 1, title: "trailing spaces" },
+      { kind: "sectionTitle", level: 1, title: "trailing spaces", extent: 1 },
     ],
     [
       "image::a.png[Alt]",

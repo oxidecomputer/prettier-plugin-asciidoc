@@ -116,11 +116,11 @@ export const BLOCK_STRUCTURE_FAMILIES: ReadonlySet<string> = new Set([
   // family, and that is the correct outcome - it makes #9's shape
   // claim explicit.
   "gap:dlist",
-  // `Title\n=====` two-line titles (#16): a heading plus a list to the
-  // oracle, while the `====` opens an EXAMPLE block for us that
-  // swallows the rest of the document. The bytes round-trip and the
-  // HTML matches, so the idempotency and fidelity properties see
-  // nothing.
+  // `Title\n=====` two-line titles. The pair itself is read now
+  // (#16); what is left for this family is #173, a PREPROCESSOR
+  // directive standing between the title and its underline, which
+  // Ruby's `peek_lines` runs off before the two are compared and our
+  // raw peek does not.
   "gap:setext-title",
   // `1.`, `A.`, `i)`, `IV)` explicit markers (#12).
   "gap:ordered-marker",

@@ -1,0 +1,139 @@
+/**
+ * Underlined (setext) section titles, end to end (issue #16).
+ *
+ * The formatter normalizes them to the ATX spelling, which costs
+ * nothing to say: the level is the whole of what the underline
+ * carries, and the printer already writes a level as a run of `=`.
+ * Every row proves the render is the oracle's own, because the
+ * corruption this issue names is a RENDER loss and not a lost
+ * structure - a `Title` over `-----` used to come back as a paragraph
+ * over a listing block, so prose landed inside `<pre>`.
+ */
+import { describe, expect, test } from "vitest";
+import { expectFormatted, formatAdoc, renderedHtml } from "../helpers.js";
+
+describe("an underlined title normalizes to the ATX spelling", () => {
+  // One row per SETEXT_SECTION_LEVELS mark: the mark IS the level, so
+  // the marker run the printer writes is the whole assertion.
+  test.each([
+    ["=", "= Title"],
+    ["-", "== Title"],
+    ["~", "=== Title"],
+    ["^", "==== Title"],
+    ["+", "===== Title"],
+  ])("%j underlines to %s", async (mark, expected) => {
+    await expectFormatted(
+      `para\n\nTitle\n${mark.repeat(5)}\n\nbody\n`,
+      `para\n\n${expected}\n\nbody\n`,
+    );
+  });
+
+  // The issue's own repro, and the tier-1 render loss behind it: the
+  // underline used to open a listing block, so `body` was rendered
+  // inside `<pre>` instead of under a heading.
+  test("the issue's repro no longer buries its body in a listing block", async () => {
+    await expectFormatted("Title\n-----\n\nbody\n", "== Title\n\nbody\n");
+  });
+
+  // The magnitude datum's shape: a `----` line tight under prose is a
+  // two-line title, and the formatter used to insert a blank between
+  // the two lines - which turns the heading back into a paragraph
+  // plus a listing block.
+  test("a run tight under prose keeps its heading", async () => {
+    await expectFormatted(
+      "para\n----\nx\n----\n",
+      "== para\n\nx\n\n----\n----\n",
+    );
+  });
+
+  // A title one character off in each direction, which is the whole
+  // of the length rule the underline has to satisfy.
+  test.each([
+    ["an underline one short", "Title\n----\n\nb\n"],
+    ["an underline one long", "Title\n------\n\nb\n"],
+  ])("%s is still a title", async (_name, input) => {
+    await expectFormatted(input, "== Title\n\nb\n");
+  });
+
+  // A level-0 underlined title is the DOCUMENT HEADER, so its author
+  // line stays attached: a blank line inserted between the two would
+  // demote the author to body text (issue #18's rule, reached by the
+  // other spelling).
+  test("an underlined document title keeps its author line", async () => {
+    await expectFormatted(
+      "Doc\n===\nAuthor Name\n\nbody\n",
+      "= Doc\nAuthor Name\n\nbody\n",
+    );
+  });
+
+  // A `[discrete]` above the pair opens no section, and the oracle
+  // reads the same two lines there (`next_block`'s float arm asks
+  // `is_section_title?` with the line below).
+  test("a discrete underlined title normalizes too", async () => {
+    await expectFormatted(
+      "[discrete]\nTitle\n-----\n\nb\n",
+      "[discrete]\n== Title\n\nb\n",
+    );
+  });
+});
+
+// An INDENTED title line. The oracle reads one (`SetextSectionTitleRx`
+// forbids a leading `.` and nothing else, so `  lit` over `----` is a
+// level-1 title whose text keeps the indent), and the ATX spelling
+// this printer writes cannot carry that indent: the gap after the
+// markers is `[ \t]+`, which the reader eats on the way back. So the
+// title is recorded without it.
+//
+// Red before the trim: the first pass emitted `==   lit`, which the
+// SECOND pass rewrote to `== lit` - a formatter that was not a fixed
+// point on its own output. What is left is one recorded difference,
+// pinned below rather than asserted correct: the oracle renders the
+// source's heading text with the leading space and the output's
+// without it. Refusing the line instead would hand it back to the
+// literal-paragraph branch, which renders a `<pre>` block where the
+// oracle renders a heading - strictly further from the oracle than
+// the space.
+describe("an indented title line loses its indent, and settles", () => {
+  test.each([
+    ["a two-space indent", "  lit\n----\nfoo\n----\n", "== lit\n\n== foo\n"],
+    ["a deeper one", "   Title\n--------\n\nb\n", "== Title\n\nb\n"],
+  ])("%s formats once and stays", async (_name, input, expected) => {
+    const first = await formatAdoc(input);
+    expect(first).toBe(expected);
+    expect(await formatAdoc(first)).toBe(first);
+  });
+
+  // The recorded difference itself, so that a change which closes it
+  // fails here rather than passing quietly.
+  test("the heading text differs from the source by the indent", async () => {
+    const out = await formatAdoc("  lit\n----\n");
+    expect(await renderedHtml("  lit\n----\n")).toContain("> lit<");
+    expect(await renderedHtml(out)).toContain(">lit<");
+  });
+});
+
+describe("what the underline rule refuses", () => {
+  // Two characters off in either direction: the pair is prose, and
+  // the run below it is read on its own terms - the Markdown rule
+  // when it is three marks, a listing delimiter when it is four or
+  // more.
+  test.each([
+    ["two short", "Title\n---\n"],
+    ["two long", "Title\n-------\n"],
+  ])("an underline %s is no title", async (_name, input) => {
+    const out = await formatAdoc(input);
+    expect(out.startsWith("==")).toBe(false);
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+
+  // A blank line between the two lines breaks the pair, which is why
+  // the formatter's own output - blocks always separated by a blank
+  // line - can never be re-read as a title it did not write.
+  test("a blank line between the lines leaves a listing block", async () => {
+    await expectFormatted(
+      "Title\n\n----\nx\n----\n",
+      "Title\n\n----\nx\n----\n",
+    );
+  });
+});

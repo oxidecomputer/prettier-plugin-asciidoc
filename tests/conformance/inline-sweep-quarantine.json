@@ -1,8 +1,4 @@
 {
-  "CharacterReference-alt-6/repeated/para-tail": {
-    "fails": ["fidelity"],
-    "issue": "UNTRIAGED"
-  },
   "InlineAnchor-alt-1/bracket-backslash/admonition": {
     "fails": ["fidelity"],
     "issue": "UNTRIAGED"
