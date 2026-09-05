@@ -203,7 +203,7 @@ export interface ProbeDomain {
 }
 
 /** How many distinct documents each domain spells. */
-const HARD_BREAK_SIZE = 2794;
+const HARD_BREAK_SIZE = 3612;
 const INLINE_OPENING_SIZE = 3626;
 const TWO_LINE_SIZE = 3628;
 const INDENTED_TWO_LINE_SIZE = 2122;

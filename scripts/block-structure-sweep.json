@@ -5,12 +5,12 @@
   "signatures": {
     "+list:unordered": {
       "family": "gap:nested-list-lost",
-      "count": 9,
+      "count": 16,
       "example": "* a\npara\n[[anc]]\n  lit\n** b\n"
     },
     "+list:unordered; literal=>paragraph": {
       "family": "gap:nested-list-lost",
-      "count": 3,
+      "count": 6,
       "example": "* a\npara\n[role]\n  lit\n** b\n"
     },
     "+paragraph; -literal": {
@@ -20,7 +20,7 @@
     },
     "-literal": {
       "family": "gap:lazy-continuation",
-      "count": 341,
+      "count": 384,
       "example": "* a\n* a\n* a\n[role]\n  lit\n"
     },
     "-literal; literal=>paragraph": {
@@ -30,22 +30,22 @@
     },
     "-paragraph": {
       "family": "gap:lazy-continuation",
-      "count": 406,
+      "count": 477,
       "example": "* a\n** b\n\n+\n\n+\npara\n"
     },
     "literal=>list:unordered": {
       "family": "gap:nested-list-lost",
-      "count": 32,
+      "count": 62,
       "example": "* a\n* a\n[role]\n  lit\n** b\n"
     },
     "literal=>paragraph": {
       "family": "gap:indent-literal-style",
-      "count": 136,
+      "count": 143,
       "example": "* a\n* a\n+\n[role]\n  lit\n"
     },
     "paragraph=>list:unordered": {
       "family": "gap:nested-list-lost",
-      "count": 4,
+      "count": 8,
       "example": "* a\n[role]\n+\n+\n** b\n"
     }
   }

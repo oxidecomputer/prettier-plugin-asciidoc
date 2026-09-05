@@ -1247,7 +1247,7 @@ family is a mechanism with an issue behind it, not "known to fail":
 | continuation-dropped  | the `+` lines go and the list structure beside them does not        | #17   |
 | tail-reading-flip     | a prose join flips the reading of the line after it                 | #65   |
 | admonition-colon-run  | an admonition label split re-reads as a description-list delimiter  | #45   |
-| prose-reads-as-marker | a line printed without its leading indent re-reads as a list marker | #121  |
+| prose-reads-as-marker | a line printed without its leading indent re-reads as a list marker | #161  |
 
 `#43` on the first row is PROVENANCE, not an open bug. What #43 tracked was the
 corrupting variant - a JOIN landing on a dlist-shaped line and manufacturing a
@@ -1255,7 +1255,9 @@ description list - and that is fixed and closed. What the family holds now is
 not joins at all: measured over a systematic sample of the rows, no output holds
 a `+` joined into a text line. Every remaining row DELETES the byte, by one of
 three routes. Classified by shape, each of the 2,893 rows counted once in the
-first class it matches:
+first class it matches (that count is the narrower alphabet's, from before #161
+widened it; the shape breakdown has not been re-measured at the current row
+count):
 
 - **253** carry a run of three or more `+`, whose third and later lines
   `read_lines_for_list_item` reads and drops without buffering (parser.rb
@@ -1287,18 +1289,25 @@ a `cont` lost beside an admonition, a marker or a delimiter got there by some
 other path, and it falls through to another family or to UNCLASSIFIED rather
 than inflating #43's row count with rows #43's fix will not remove.
 
-The measured breakdown, as of the ledger checked in beside this file: **2,897
-rows** over the depth-5 product - 2,893 lone-plus-join, 4 continuation-dropped,
-0 tail-reading-flip - all on pass 1.
+The measured breakdown, as of the ledger checked in beside this file: **3,818
+rows** over the depth-5 product - 3,752 lone-plus-join, 4 continuation-dropped,
+62 prose-reads-as-marker - all on pass 1 but one (a single pass-2 row in
+lone-plus-join).
 
-It was 2,945 one change earlier, and 48 rows went for one reason: the post-loop
-pop now recognises the `+` lines Ruby's own marker test recognises. A `+` an
-armed continuation attached as CONTENT (parser.rb l.1502-11) is the tagged
-String the swap at l.1432 made of it, so an activation that later blanks it
-(l.1439) leaves a Placeholder the pop takes at l.1580-82 - where a test on cell
-identity saw a line the loop had not marked, let the blank strip have it, and
-lost the byte. 6 of the 48 came from the erased-`+` route below and 42 from the
-`+`-above-a-blank route.
+It was 2,897 rows one change earlier, before #161 widened the sweep's alphabet
+with an indented nested marker (`"  ** z"`). The wider alphabet's larger depth-5
+product added 859 lone-plus-join rows, and, for the first time, put
+prose-reads-as-marker rows in the ledger at all: 62 of them, in the two
+signatures the family's mechanism produces (see below).
+
+It was 2,945 one change before THAT, and 48 rows went for one reason: the
+post-loop pop now recognises the `+` lines Ruby's own marker test recognises. A
+`+` an armed continuation attached as CONTENT (parser.rb l.1502-11) is the
+tagged String the swap at l.1432 made of it, so an activation that later blanks
+it (l.1439) leaves a Placeholder the pop takes at l.1580-82 - where a test on
+cell identity saw a line the loop had not marked, let the blank strip have it,
+and lost the byte. 6 of the 48 came from the erased-`+` route below and 42 from
+the `+`-above-a-blank route.
 
 Before that it was 10,508 rows - 10,190 / 312 / 6 - and three things took the
 difference. A `+` the item scan popped is now written back wherever the tail it
@@ -1319,27 +1328,29 @@ ten thousand of them.
 Every row is render-EQUAL and idempotent today, so the sweep beside them passes
 every one: that is the population issue #58 was filed to enumerate, and no other
 gate can see it. Read the size as a measurement of the instrument's reach, not
-as a regression - and note that "no growth" is now a bar over 2,897 rows rather
+as a regression - and note that "no growth" is now a bar over 3,818 rows rather
 than over 6. The numbers live here rather than in the two sweep files, so they
 go stale in one place.
 
 A family with no rows STAYS in the enumeration. It is what the classifier
 reaches for when the mechanism comes back, so deleting it would turn a
 regression into an unnamed signature the generator refuses to write rather than
-a row that names the issue. admonition-colon-run, tail-reading-flip and
-prose-reads-as-marker are empty today.
+a row that names the issue. admonition-colon-run and tail-reading-flip are empty
+today; prose-reads-as-marker is not (see below).
 
-prose-reads-as-marker is empty for a reason worth stating, because it is not the
-reason the other two are: the mechanism reproduces, and the sweep's alphabet is
-simply not able to spell it. Every symbol in `ALPHABET` starts at column 0
-except `  lit`, whose de-indented form is still prose, so no product document
-puts an INDENTED marker where the printer can drop its indent. Measured over an
-alphabet with `"  ** z"` added, the depth-5 product spells 63 rows of it, in
-three signatures: `[text] -> [textv]`, `[] -> [textv]` (the de-indented line
+prose-reads-as-marker held zero rows until #161 widened the sweep's alphabet,
+for a reason worth stating, because it is not the reason the other two families
+are empty: the mechanism reproduces, and the sweep's alphabet simply had nothing
+able to spell it. Every symbol in `ALPHABET` started at column 0 except `  lit`,
+whose de-indented form is still prose, so no product document put an INDENTED
+marker where the printer could drop its indent. With an indented marker
+(`"  ** z"`) added, the depth-5 product spells 62 rows of it, in two signatures:
+`[text] -> [textv]` (32 rows) and `[] -> [textv]` (30 rows, the de-indented line
 itself, inside a paragraph a `+` attached, where the empty left side is the
-folded prose line that had no token to lose) and
-`[text] -> [marker:unordered:*]` (the flip landing at a block start). Those rows
-join the ledger with the alphabet that spells them, not before.
+folded prose line that had no token to lose). No row lands on the third
+signature a block-start flip would produce (`[text] -> [marker:unordered:*]`) in
+the measured product. Those rows joined the ledger with the alphabet that spells
+them, not before.
 
 To refresh after a fix: `bun run reading-ledger --write`, then say in the commit
 which family shrank and why. Expect large generated diffs tied to one-line

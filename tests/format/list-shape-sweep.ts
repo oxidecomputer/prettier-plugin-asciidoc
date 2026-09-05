@@ -32,7 +32,7 @@ import {
 } from "../lib/reading-ledger.js";
 import { FAILING_TODAY } from "./list-shape-allowlist.js";
 
-/** The ten symbols every generated body is spelled from. */
+/** The eleven symbols every generated body is spelled from. */
 export const ALPHABET = [
   "* a",
   "** b",
@@ -40,6 +40,7 @@ export const ALPHABET = [
   "",
   "para",
   "  lit",
+  "  ** z",
   "// c",
   "[role]",
   "[[anc]]",
