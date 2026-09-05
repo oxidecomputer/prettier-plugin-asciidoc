@@ -250,13 +250,12 @@ Runs every `*.deep.test.ts` under its own vitest config. Five tests today, and
 the runner's floor is exactly five, so one being renamed out of the glob or
 skipped is exit 2 rather than a green tick.
 
-`tests/format/list-shape-sweep.deep.test.ts`: every nested-list shape to depth
-5, which is 111,121 documents, each formatted twice and rendered on both sides,
-against the allowlist of known-failing shapes in
-`tests/format/list-shape-allowlist.ts`, each entry tagged with its tracker
-issue. That allowlist is EMPTY today, so the gate asserts the whole product is
-clean. Exit 1 when the failing set does not match the allowlist in either
-direction; exit 2 when vitest collected nothing.
+`tests/format/list-shape-sweep.deep.test.ts`: every nested-list shape to
+`DEEP_DEPTH`, each formatted twice and rendered on both sides, against the
+known-failing shapes named in `tests/format/list-shape-allowlist.ts`
+(`FAILING_TODAY`), each entry tagged with its tracker issue. Exit 1 when the
+failing set does not match the allowlist in either direction; exit 2 when vitest
+collected nothing.
 
 The default suite runs the same product at depth 4, and that depth is
 load-bearing: Stryker runs the default suite, so a shallower default would let
@@ -282,11 +281,11 @@ for what it sweeps and why its manifest is written as clusters. It is the most
 expensive of the four, which is the reason it is here and not in `bun run test`.
 
 `tests/conformance/inline-sweep.deep.test.ts` is the fourth: the inline sweep's
-deep tier, 474,908 documents in about two minutes. See
+deep tier (`inlineDeepTierRows()`), in about two minutes. See
 [the inline sweep](#bun-run-inline-sweep-triage---the-generated-inline-sweep).
 
 `tests/conformance/reparse.deep.test.ts` is the fifth: the reparse ledger over
-its whole population, 87,145 documents. See
+its whole population (`deepTierCases()`, floored at `MINIMUM_POPULATION`). See
 [the reparse ledger](#bun-run-reparse-ledger---the-reparse-breach-inventory).
 
 Proves: no list shape regressed, no known-broken shape got quietly fixed without
@@ -573,7 +572,7 @@ gates over it are tiered by wall time:
   [the deep sweeps](#bun-run-test-deeply-nested-lists---the-deep-sweeps)).
 - DEEP tier, in `bun run test:deeply-nested-lists`
   (`tests/conformance/registry-sweep.deep.test.ts`): both grids under every byte
-  operator, 613,293 rows in two minutes on its own and a little over three
+  operator (`deepTierRows()`), in two minutes on its own and a little over three
   sharing the runner. Pinned to
   `tests/conformance/registry-sweep-deep-manifest.json`, failing rows grouped
   into clusters.
@@ -690,9 +689,10 @@ Two gates over it, tiered by wall time:
   (`tests/conformance/inline-sweep.deep.test.ts`): that grid under every byte
   operator, plus the whole pair product - any two alphabet members standing in
   ONE inline run, joined adjacently, by a space, by a bracket pair, across a
-  kept comment line or across a tabbed em-dash spelling. 474,908 rows in about
-  two minutes. Pinned to `tests/conformance/inline-sweep-deep-manifest.json`,
-  failing rows grouped into clusters.
+  kept comment line or across a tabbed em-dash spelling
+  (`inlineDeepTierRows()`), in about two minutes. Pinned to
+  `tests/conformance/inline-sweep-deep-manifest.json`, failing rows grouped into
+  clusters.
 
 `bun run inline-sweep-triage` (no `--write`) sweeps both tiers without touching
 either file and prints the current totals on its first line, the same way
@@ -858,10 +858,11 @@ the way one already had.
 stale entry, a case that no longer diverges, a signature that moved, a diverging
 case with no entry, a sweep count that moved. Exit 1 too when the MAPPING is out
 of date, reported under its own header so it is not read as a statement about
-the parse. Exit 2 for the measured-nothing conditions - fewer than 1,614 corpus
-cases loaded, fewer than 11,128 depth-4 sweep documents spelled, an oracle
-refusal other than the single pinned case, or a ledger header naming an oracle
-version other than the installed one.
+the parse. Exit 2 for the measured-nothing conditions - fewer than
+`MINIMUM_CASES` corpus cases loaded, fewer than `MINIMUM_SWEEP_DOCUMENTS`
+depth-4 sweep documents spelled (both `scripts/block-structure-ledger.ts`), an
+oracle refusal other than the single pinned case, or a ledger header naming an
+oracle version other than the installed one.
 
 The refused case is pinned BY ID (`ORACLE_REFUSES` in
 `scripts/block-structure-ledger.ts`: an `attributes_test.rb` case setting
@@ -1129,7 +1130,7 @@ repository is jj-managed with concurrent sessions and a worktree mutates `.git`.
 
 Issue #58. Formatting may move where a line breaks; it may never move what a
 line IS. The net that says so needs no oracle at all, which is what makes it
-affordable over 111,121 documents.
+affordable over the whole depth-5 list-shape product (`DEEP_DEPTH`).
 
 ### The invariant
 
@@ -1319,10 +1320,13 @@ a `cont` lost beside an admonition, a marker or a delimiter got there by some
 other path, and it falls through to another family or to UNCLASSIFIED rather
 than inflating #43's row count with rows #43's fix will not remove.
 
-The measured breakdown, as of the ledger checked in beside this file: **3,818
-rows** over the depth-5 product - 3,752 lone-plus-join, 4 continuation-dropped,
-62 prose-reads-as-marker - all on pass 1 but one (a single pass-2 row in
-lone-plus-join).
+The breakdown by family and by pass lives in the ledger itself,
+`tests/format/reading-ledger.json` (each row's `family` and `pass` fields);
+count it there rather than here, so the count goes stale in at most one place.
+The family NAMES are enumerated in `tests/lib/reading-ledger.ts`.
+`lone-plus-join` is the large majority of the ledger's rows;
+`continuation-dropped` is the rarest of the three families that currently hold
+any.
 
 It was 2,897 rows one change earlier, before #161 widened the sweep's alphabet
 with an indented nested marker (`"  ** z"`). The wider alphabet's larger depth-5
@@ -1357,10 +1361,10 @@ ten thousand of them.
 
 Every row is render-EQUAL and idempotent today, so the sweep beside them passes
 every one: that is the population issue #58 was filed to enumerate, and no other
-gate can see it. Read the size as a measurement of the instrument's reach, not
-as a regression - and note that "no growth" is now a bar over 3,818 rows rather
-than over 6. The numbers live here rather than in the two sweep files, so they
-go stale in one place.
+gate can see it. Read the ledger's size as a measurement of the instrument's
+reach, not as a regression: "no growth" is a bar over whatever
+`tests/format/reading-ledger.json` currently holds, which is where the count
+lives - not restated here, so it cannot go stale in a second place.
 
 A family with no rows STAYS in the enumeration. It is what the classifier
 reaches for when the mechanism comes back, so deleting it would turn a

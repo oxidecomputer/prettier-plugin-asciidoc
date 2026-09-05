@@ -52,14 +52,14 @@ jobs:
       # workstream that added it.
       - run: bun run metrics
         if: ${{ !cancelled() }}
-      # The exhaustive depth-5 list-shape sweep — 111,121 documents,
-      # each formatted twice and rendered on both sides against a
-      # 158-entry allowlist, ~30s. It used to ride inside `bun run
-      # test`, where it was 25.6s of a 26.1s suite; it left the default
-      # suite ON CONDITION that it became a blocking step here and the
-      # prelude to every mutation run, so nothing about what is
-      # enforced changed. Head-only and needs no base, so it belongs in
-      # this job.
+      # The exhaustive depth-5 list-shape sweep (DEEP_DEPTH), each
+      # document formatted twice and rendered on both sides against
+      # the known-failing shapes in list-shape-allowlist.ts
+      # (FAILING_TODAY), ~30s. It used to ride inside `bun run test`;
+      # it left the default suite ON CONDITION that it became a
+      # blocking step here and the prelude to every mutation run, so
+      # nothing about what is enforced changed. Head-only and needs no
+      # base, so it belongs in this job.
       - run: bun run test:deeply-nested-lists
         if: ${{ !cancelled() }}
       # Our AST's BLOCK STRUCTURE against the oracle's, over the

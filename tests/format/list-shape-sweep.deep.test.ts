@@ -1,6 +1,5 @@
 /**
- * The list-shape sweep at DEPTH 5 — the whole product, 111,121
- * documents, ~26 s.
+ * The list-shape sweep at DEPTH 5, the whole product, ~26 s.
  *
  * It is NOT in the default suite, and that is the only difference from
  * `list-shape-sweep.test.ts`: same alphabet, same named shapes, same
@@ -10,8 +9,8 @@
  * prelude to `bun run mutate` and `bun run mutate:full` so a mutation
  * baseline is never taken without it.
  *
- * This entry holds the FULL 26-entry assertion. A new failure is a
- * regression; a shape leaving the list is progress that must be moved
+ * This entry holds the FULL `FAILING_TODAY` assertion. A new failure is
+ * a regression; a shape leaving the list is progress that must be moved
  * out of `list-shape-allowlist.ts` deliberately, by the commit that
  * fixes its family, and named there. Nothing here samples.
  */

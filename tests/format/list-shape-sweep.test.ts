@@ -1,12 +1,11 @@
 /**
  * The list-shape sweep at DEPTH 4, in the default suite.
  *
- * Exhaustive over every body of length 1-4 the ten symbols spell, plus
- * the named shapes whose bodies are longer — 11,128 documents in 1.6s,
- * no sampling and no PRNG. Its deeper half lives in
- * `list-shape-sweep.deep.test.ts` and runs under `bun run test:deeply-nested-lists`;
- * the split is wall time and nothing else (the depth-5 product was
- * 25.6s of a 26.1s suite), and the machinery both entries sweep is one
+ * Exhaustive over every body of length 1 to `SHALLOW_DEPTH` the alphabet
+ * spells, plus the named shapes whose bodies are longer, no sampling
+ * and no PRNG. Its deeper half lives in `list-shape-sweep.deep.test.ts`
+ * and runs under `bun run test:deeply-nested-lists`; the split is wall
+ * time and nothing else, and the machinery both entries sweep is one
  * module so they cannot disagree about what a document is.
  *
  * WHY FOUR and not the three the split was specified at: the mutation
@@ -21,7 +20,7 @@
  * what keeps the mutation-kill claim above true.
  *
  * The allowlist is DERIVED, not copied: `allowlistFor(4)` is the deep
- * sweep\'s 26-entry allowlist filtered to the documents this shallower
+ * sweep's `FAILING_TODAY` filtered to the documents this shallower
  * product spells: NONE of them today, so this entry asserts the
  * depth-4 product is clean outright. A shape can never be allowlisted
  * here without being allowlisted in the deep sweep first, and a new
