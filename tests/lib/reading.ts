@@ -11,7 +11,7 @@
  *     readingOf(format^2(d))  == readingOf(format(d))   when bytes moved
  *
  * The oracle here is OUR OWN reader, traced through
- * `setClassifyObserver` (src/parse/lines/classify.ts) rather than
+ * `classifyTrace.observer` (src/parse/lines/classify.ts) rather than
  * re-derived: a test-owned context tracker would be a second reader
  * dialect that drifts, and the whole point is to assert against the
  * reader's own reading. Everything below is either a recorded verdict
@@ -38,10 +38,10 @@ import { formatAdoc } from "../helpers.js";
 import { LINE_COMMENT_HEAD, rstrip } from "../../src/parse/line-shapes.js";
 import {
   attributeContinuation,
+  classifyTrace,
   delimiterKind,
   isContinuationLine,
   parseListMarker,
-  setClassifyObserver,
   type LineKind,
 } from "../../src/parse/lines/classify.js";
 import { parseDescriptionListLine } from "../../src/parse/line-shapes-description.js";
@@ -62,13 +62,13 @@ import { parse } from "../../src/parser.js";
  */
 function traceOf(document: string): Map<number, LineKind> {
   const events = new Map<number, LineKind>();
-  setClassifyObserver((offset, kind) => {
+  classifyTrace.observer = (offset, kind) => {
     events.set(offset, kind);
-  });
+  };
   try {
     parse(document);
   } finally {
-    setClassifyObserver(undefined);
+    classifyTrace.observer = undefined;
   }
   return events;
 }

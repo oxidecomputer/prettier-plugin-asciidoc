@@ -750,9 +750,8 @@ function classifyInParagraph(
 /**
  * What a trace hook is handed: the source offset of the line the
  * reader just classified, and the verdict it acted on. Not exported:
- * the two spellings a caller needs are the hook variable's own type
- * and {@link setClassifyObserver}'s parameter, and both are named
- * here.
+ * the one spelling a caller needs is {@link classifyTrace}'s own
+ * field type, named here.
  */
 type ClassifyObserver = (offset: number, kind: LineKind) => void;
 
@@ -775,23 +774,6 @@ type ClassifyObserver = (offset: number, kind: LineKind) => void;
 export const classifyTrace: { observer: ClassifyObserver | undefined } = {
   observer: undefined,
 };
-
-/**
- * Install a trace hook, or clear it by passing undefined.
- *
- * Verification only: the reflow re-classification invariant
- * (tests/lib/reading.ts) installs a hook around one parse, collects
- * the verdict per source offset and clears it again. Nothing in `src`
- * calls this, and nothing in `src` may: a reader that consulted its
- * own trace would be deriving context instead of being told it.
- * @internal
- * @param observer - the hook to call per verdict, or undefined to clear
- */
-export function setClassifyObserver(
-  observer: ClassifyObserver | undefined,
-): void {
-  classifyTrace.observer = observer;
-}
 
 /**
  * Classify one line. See the module comment for the order and its Ruby.

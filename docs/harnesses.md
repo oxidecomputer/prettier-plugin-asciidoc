@@ -1043,7 +1043,7 @@ changed no bytes, because byte-equal implies reading-equal.
 
 The oracle is OUR OWN reader, traced rather than re-derived. `classifyLine`
 reports every verdict it hands back through a module-level hook
-(`setClassifyObserver`, `src/parse/lines/classify.ts`) that the reader calls
+(`classifyTrace.observer`, `src/parse/lines/classify.ts`) that the reader calls
 from its four classification sites; outside a harness the hook is undefined and
 each site is one undefined check. The hook is meant as a REPORT and never an
 input, and a row of `tests/parser/architecture.test.ts` guards the four

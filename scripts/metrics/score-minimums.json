@@ -333,7 +333,7 @@
     },
     {
       "file": "src/parse/lines/classify.ts",
-      "what": "classify.ts:775 the `classifyTrace` object literal -> `{}`",
+      "what": "classify.ts:774 the `classifyTrace` object literal -> `{}`",
       "class": "never",
       "reason": "EQUIVALENT: the slot's only read anywhere is `classifyTrace.observer`, which is `undefined` whether the property is declared with an `undefined` value or absent altogether. The property is spelled out because the lint rules want every binding initialized on declaration and refuse an `= undefined` initializer at module scope - not because any reader can tell the two apart"
     },
