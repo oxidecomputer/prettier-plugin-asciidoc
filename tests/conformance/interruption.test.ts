@@ -2,12 +2,13 @@ import { describe, test, expect } from "vitest";
 import { formatAdoc, renderedHtml } from "../helpers.js";
 import {
   interruptsByLineShape,
-  interruptsParagraph,
   isDelimiterLine,
   isRawParagraphLine,
+  type OpenList,
   type ParagraphContext,
   type ReaderContext,
 } from "../../src/parse/line-shapes.js";
+import { interruptsParagraph } from "../../src/parse/line-shapes-interruption.js";
 import { classifyLine } from "../../src/parse/lines/classify.js";
 import {
   continuesParagraph,
@@ -60,15 +61,14 @@ const CONTEXT_PREFIX: Record<ParagraphContext, string> = {
   verbatimStyled: "[source]\nfirst content line",
 };
 
-// The open list's marker style for each prefix, in the spelling
-// listMarkerStyle() produces. Only a marker belonging to a list that is
+// The list open around each prefix. Only a SIBLING of a list that is
 // actually OPEN ends a continuation paragraph, so the registry has to
-// be told which one that is.
-const CONTEXT_LIST_STYLE: Record<ParagraphContext, string | undefined> = {
+// be told which list that is.
+const CONTEXT_OPEN_LIST: Record<ParagraphContext, OpenList | undefined> = {
   paragraph: undefined,
   listItemText: undefined,
   listItem: undefined,
-  listContinuation: "*",
+  listContinuation: { kind: "marker", style: "*" },
   dlistItem: undefined,
   dlistItemTextOnly: undefined,
   literalParagraph: undefined,
@@ -128,7 +128,7 @@ describe("line-shape registry matches the Asciidoctor oracle", () => {
       expect(
         interruptsParagraph(line, context, {
           openParagraph: context,
-          openListStyle: CONTEXT_LIST_STYLE[context],
+          openList: CONTEXT_OPEN_LIST[context],
           firstLineAfterStart: firstLine,
           nextLine: undefined,
         }),
@@ -151,7 +151,7 @@ describe("classifyLine matches the Asciidoctor oracle", () => {
       const [line] = construct.split("\n");
       const reader: ReaderContext = {
         openParagraph: context,
-        openListStyle: CONTEXT_LIST_STYLE[context],
+        openList: CONTEXT_OPEN_LIST[context],
         firstLineAfterStart: firstLine,
         // Every probe here has a block OPEN above the construct, and
         // the setext arm belongs to a section's block start alone.
@@ -417,7 +417,7 @@ describe("raw (non-text, non-interrupting) paragraph lines", () => {
   test("a block anchor is raw only inside the item's first block", () => {
     const first: ReaderContext = {
       openParagraph: "listItemText",
-      openListStyle: undefined,
+      openList: undefined,
       firstLineAfterStart: true,
       nextLine: undefined,
     };
@@ -451,6 +451,103 @@ const KNOWN_GAPS = new Map<string, string>();
 function gapKey(context: ParagraphContext, name: string): string {
   return `${context}/${name}`;
 }
+
+// The rows above fix the enclosing list at one marker style for one
+// context. These pin the arms that READ that list, one row per
+// mechanism, each against the oracle as well as the registry - so a
+// row states the oracle's answer and the registry's agreement with
+// it, and cannot drift into pinning our own reading twice.
+//
+// RED BEFORE the sibling rules landed (issue #188), in the direction
+// each row's comment names; the exhaustive census they came from is
+// the latent count in tests/conformance/reader-context-grid.test.ts,
+// whose listContinuation and literalParagraph families stood at 12
+// and 6 cells and stand at none.
+//
+// The filler that puts the probed line past the block's first line,
+// which is where every row stands (a verbatim run never classifies a
+// first line at all).
+const LATER_LINE_FILLER = "mid line\n";
+
+/** One enclosing-list row: a probe document and the answer it pins. */
+interface EnclosingListRow {
+  /** What the row says, and the `test.each` title. */
+  readonly name: string;
+  /** Which paragraph the probe stands inside. */
+  readonly context: ParagraphContext;
+  /** The list open around it, or undefined at document level. */
+  readonly openList: OpenList | undefined;
+  /** The document lines that open the block, without a trailing newline. */
+  readonly prefix: string;
+  /** The probed construct, as an author would write it. */
+  readonly construct: string;
+  /** Whether Asciidoctor starts something new at the construct. */
+  readonly ends: boolean;
+}
+
+const ENCLOSING_LIST_ROWS: EnclosingListRow[] = [
+  // #188: the arm compared marker styles only, so a term line - which
+  // has no marker style - never ended a continuation paragraph.
+  {
+    name: "a sibling term ends a +-attached paragraph in a description item",
+    context: "listContinuation",
+    openList: { kind: "description", delimiter: "::" },
+    prefix: "term1:: desc\n+\npara line",
+    construct: "term:: definition",
+    ends: true,
+  },
+  // The sibling test is keyed on the DELIMITER, so a longer colon run
+  // opens a nested list instead of continuing this one.
+  {
+    name: "a ::: term does not end a +-attached paragraph in a :: item",
+    context: "listContinuation",
+    openList: { kind: "description", delimiter: "::" },
+    prefix: "term1:: desc\n+\npara line",
+    construct: "term::: definition",
+    ends: false,
+  },
+  // #188's second half: the indented run is slurped by a
+  // `read_lines_until` whose sibling break Ruby passes for a dlist.
+  {
+    name: "a sibling term ends an indented literal run in a description item",
+    context: "literalParagraph",
+    openList: { kind: "description", delimiter: "::" },
+    prefix: "term1:: desc\n+\n  indented first",
+    construct: "term:: definition",
+    ends: true,
+  },
+  // And for no other list type, which is why this row is false.
+  {
+    name: "a sibling marker does not end an indented literal run in a marker item",
+    context: "literalParagraph",
+    openList: { kind: "marker", style: "*" },
+    prefix: "* item\n+\n  indented first",
+    construct: "* item",
+    ends: false,
+  },
+];
+
+describe("the enclosing list decides what ends the block", () => {
+  test.each(ENCLOSING_LIST_ROWS)(
+    "$name",
+    async ({ context, openList, prefix, construct, ends }) => {
+      const [line] = construct.split("\n");
+      expect(
+        await oracleInterrupts(construct, prefix, LATER_LINE_FILLER),
+        `the oracle disagrees with this row for ${JSON.stringify(line)}`,
+      ).toBe(ends);
+      expect(
+        interruptsParagraph(line, context, {
+          openParagraph: context,
+          openList,
+          firstLineAfterStart: false,
+          nextLine: undefined,
+        }),
+        `the registry disagrees with the oracle for ${JSON.stringify(line)}`,
+      ).toBe(ends);
+    },
+  );
+});
 
 // The registry test above pins what the READER should decide. This
 // one pins what the FORMATTER actually does with the same documents:

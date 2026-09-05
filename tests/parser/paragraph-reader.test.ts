@@ -23,11 +23,18 @@ import { splitLines } from "../../src/parse/lines/split.js";
  * The scan a document reader would hand over: the whole source, its
  * lines, and no open list.
  * @param source - the whole document
- * @param openListStyle - the enclosing list's marker style, if any
+ * @param markerStyle - the enclosing marker list's style, if any
  * @returns the scan value
  */
-function scanOf(source: string, openListStyle?: string): ParagraphScan {
-  return { source, lines: splitLines(source), openListStyle };
+function scanOf(source: string, markerStyle?: string): ParagraphScan {
+  return {
+    source,
+    lines: splitLines(source),
+    openList:
+      markerStyle === undefined
+        ? undefined
+        : { kind: "marker", style: markerStyle },
+  };
 }
 
 // The reader's own answer for a block-level paragraph: text at column

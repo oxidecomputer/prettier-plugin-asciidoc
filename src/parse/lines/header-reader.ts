@@ -70,7 +70,7 @@ import { fragmentOfLine, type SourceLine } from "./split.js";
  */
 const HEADER_CONTEXT: ReaderContext = {
   openParagraph: undefined,
-  openListStyle: undefined,
+  openList: undefined,
   firstLineAfterStart: false,
   // The title is read before this scan starts, so no line it walks
   // can open a two-line construct: `parse_header_metadata` reads one

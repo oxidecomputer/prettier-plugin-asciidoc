@@ -47,9 +47,9 @@
  * `dlistItemTextOnly` are probed with none), and two because a
  * verbatim run never classifies a first line. Their answers are right
  * anyway, the classifier reading
- * `openListStyle` only in the `listContinuation` arm, but a probe
- * standing outside the reachable set is a sample rather than a claim
- * about the reader. The grid replaces the sample with the
+ * `openList` only in the arms that read the enclosing list, but a
+ * probe standing outside the reachable set is a sample rather than a
+ * claim about the reader. The grid replaces the sample with the
  * enumeration.
  *
  * `classifyLine` is the domain on purpose, and one pair sits outside
@@ -59,9 +59,10 @@
  * (`dlistItem`, no style, a later line) is a question the registry is
  * really asked and the reader never routes through the classifier.
  * The answer there cannot differ from the gridded `dlistItem` rows -
- * `openListStyle` is read in the `listContinuation` arm alone - but
- * a claim that named the whole registry rather than the classifier
- * would be one pair wider than what is measured here.
+ * `dlistItem`'s row of ENCLOSING_LIST_RULE is `nothing`, so the open
+ * list is not read for it at all - but a claim that named the whole
+ * registry rather than the classifier would be one pair wider than
+ * what is measured here.
  */
 import { describe, expect, test, vi } from "vitest";
 import type {
@@ -196,11 +197,9 @@ describe("classifyLine over the reachable grid", () => {
   // moves `asked`. Both are deliberate changes, and both should be
   // read before the number here is updated.
   //
-  // CONSTRUCTS grew by one row (`openBlockTilde`, issue #64): 188 new
-  // cells (one row x every reachable state), 26 of them asked and 22
-  // of the rest counted below as a `verbatimStyled` latent
-  // disagreement - the tilde spelling falls into the SAME issue #187
-  // family every other delimiter-opening construct already does.
+  // Both numbers held across the #188 fix: it closed 18 cells the
+  // reader was never asking about, so the reach is exactly what it
+  // was and the census below is what moved.
   test("is the size and reach the enumeration predicts", () => {
     const { cells, asked } = grid;
     expect(openParagraphProbes()).toHaveLength(188);
@@ -231,28 +230,18 @@ describe("classifyLine over the reachable grid", () => {
   // The cells the reader never asks about, where the registry's
   // answer and the oracle's differ anyway. Each is a model row that
   // is wrong in isolation and unreachable in practice, and the count
-  // is pinned so that neither half changes quietly. Two families,
-  // one issue each:
+  // is pinned so that neither half changes quietly. ONE family left,
+  // issue #187: a verbatim styled paragraph inside a list item, where
+  // the registry answers the document-level reading and the oracle
+  // ends the run at the item scan's own boundary.
   //
-  // - issue #187, 355 cells (was 333: `openBlockTilde`, a delimiter
-  //   like every other in this family, adds 22): a verbatim styled
-  //   paragraph inside a list item, where Ruby's read_lines_until
-  //   still ends at the item's own boundary. The registry's
-  //   `verbatimStyled` row is written for the document-level case, as
-  //   ParagraphContext says.
-  // - issue #188, 18 cells: a SIBLING description-list term inside a
-  //   description item, which ends a `+`-attached paragraph (12) and
-  //   an indented literal run (6) although `interruptsParagraph`'s
-  //   listContinuation arm compares marker styles only.
-  //
-  // Fixing either row moves its cells from this census to the asked
-  // side, so both numbers below change when the issue closes.
+  // The other family, issue #188's 18 cells, stood here until the
+  // sibling rules landed: a SIBLING description-list term inside a
+  // description item ends a `+`-attached paragraph (12) and an
+  // indented literal run (6), where the arm compared marker styles
+  // only and so never ended either.
   test("names the disagreements the reader keeps away from", () => {
     const { latent } = grid;
-    expect(Object.fromEntries(latent)).toEqual({
-      verbatimStyled: 355,
-      listContinuation: 12,
-      literalParagraph: 6,
-    });
+    expect(Object.fromEntries(latent)).toEqual({ verbatimStyled: 355 });
   });
 });

@@ -13,6 +13,7 @@
 import type { GapLine } from "../../ast.js";
 import {
   conditionalDirective,
+  type OpenList,
   type ParagraphContext,
   type ReaderContext,
 } from "../line-shapes.js";
@@ -29,8 +30,8 @@ export type Confinement =
        * parser.rb:1359.
        */
       readonly kind: "item";
-      /** The item's marker style - the one-style ancestry. */
-      readonly style: string;
+      /** The item's own list - the one-list ancestry. */
+      readonly list: OpenList;
       /** The item's own tail-safety (ItemExtent.tailSafe). */
       readonly tailSafe: boolean;
       /**
@@ -154,19 +155,19 @@ export function closeOffsetIn(
 /**
  * The list ancestry the classifier reads inside a reader. Lists are
  * read extent-first and a confined buffer is already truncated at
- * every ancestor list's boundary, so ONE style - the confined item's
+ * every ancestor list's boundary, so ONE list - the confined item's
  * own - is the whole ancestry the classifier can ever need (the
- * foreign-marker verbatim rule keys on it). A block child reports
+ * sibling rules and the foreign-marker verbatim rule key on it). A block child reports
  * undefined: fresh-reader behavior is Ruby's (build_block ->
  * Reader.new, no list_type).
  * @param confinement - how the reader is confined, absent for the
  *   document reader
- * @returns the open list's marker style, or undefined
+ * @returns the list open around a confined reader, or undefined
  */
-export function openListStyleIn(
+export function openListIn(
   confinement: Confinement | undefined,
-): string | undefined {
-  return confinement?.kind === "item" ? confinement.style : undefined;
+): OpenList | undefined {
+  return confinement?.kind === "item" ? confinement.list : undefined;
 }
 
 /**
@@ -244,7 +245,7 @@ export function bodyContextIn(
  * The reader's state as `classifyLine` consumes it AT A BLOCK START -
  * read, never derived. The other two positions belong to the extent
  * scans, which build their own context from the same ancestry fact
- * ({@link openListStyleIn}): nothing open, and no line is "first
+ * ({@link openListIn}): nothing open, and no line is "first
  * after the block started" until a block has started.
  *
  * The line BELOW is offered to an UNCONFINED reader alone, which is
@@ -266,7 +267,7 @@ export function blockStartContextIn(
 ): ReaderContext {
   return {
     openParagraph: undefined,
-    openListStyle: openListStyleIn(confinement),
+    openList: openListIn(confinement),
     firstLineAfterStart: false,
     nextLine: confinement === undefined ? nextLine : undefined,
   };

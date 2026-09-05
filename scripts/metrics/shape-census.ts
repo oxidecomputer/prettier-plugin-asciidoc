@@ -56,6 +56,7 @@
  */
 import * as lineShapes from "../../src/parse/line-shapes.js";
 import * as descriptionShapes from "../../src/parse/line-shapes-description.js";
+import * as interruptionShapes from "../../src/parse/line-shapes-interruption.js";
 import { DELIMITER_KINDS } from "../../src/parse/line-shapes.js";
 import { listRunGrid } from "../shape-registry-list-run.js";
 import { REGISTRY_DIRECTORY, registryModuleNames } from "./registry-modules.js";
@@ -84,7 +85,27 @@ import {
 const REGISTRY_MODULES: ReadonlyMap<string, readonly string[]> = new Map([
   ["line-shapes", Object.keys(lineShapes)],
   ["line-shapes-description", Object.keys(descriptionShapes)],
+  ["line-shapes-interruption", Object.keys(interruptionShapes)],
 ]);
+
+// The per-context interrupting sets, exported from the registry so
+// the tables in line-shapes-interruption.ts can be spelled FROM the
+// patterns instead of beside them. Each is a composition of patterns
+// that already have dimensions of their own (delimiter lines, block
+// attribute line, block anchor, continuation line, list markers,
+// block macro, admonition label, thematic break, page break), and a
+// composition of dimensions is not itself a line shape.
+const INTERRUPTER_SET_REASON =
+  "one context's interrupting set, a composition of covered patterns";
+
+const INTERRUPTER_SETS: ReadonlyArray<readonly [string, string]> = [
+  "PARAGRAPH_INTERRUPTERS",
+  "LIST_ITEM_INTERRUPTERS",
+  "LIST_ITEM_FIRST_LINE_INTERRUPTERS",
+  "LIST_ITEM_LATER_BLOCK_INTERRUPTERS",
+  "DLIST_FIRST_LINE_INTERRUPTERS",
+  "DLIST_ITEM_ANY_LINE_INTERRUPTERS",
+].map((name) => [name, INTERRUPTER_SET_REASON]);
 
 // Runtime export names that are deliberately NOT dimensions, each with
 // its reason. Helpers and enumeration sources only — a LINE SHAPE may
@@ -186,6 +207,11 @@ const EXEMPT = new Map<string, string>([
   [
     "LINE_COMMENT_HEAD",
     "string head shared by skip_line_comments consumers; the line-comment dimension covers the shape",
+  ],
+  ...INTERRUPTER_SETS,
+  [
+    "isDescriptionSiblingLine",
+    "pure predicate over the dlist SIBLING patterns, which are DescriptionListRx keyed by delimiter; the dlist-term dimension covers the shape",
   ],
   [
     "isSingleWordLine",

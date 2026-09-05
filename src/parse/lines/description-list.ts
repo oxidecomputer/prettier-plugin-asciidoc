@@ -14,10 +14,10 @@
  */
 import {
   endsDescriptionLine,
-  interruptsParagraph,
   isDescriptionListLine,
   startsItemBlockLine,
 } from "../line-shapes.js";
+import { interruptsParagraph } from "../line-shapes-interruption.js";
 import {
   parseDescriptionListLine,
   parseDescriptionSiblingLine,

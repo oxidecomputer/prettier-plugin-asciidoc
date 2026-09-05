@@ -132,6 +132,27 @@ const DESCRIPTION_SIBLING_LINE: Record<DescriptionDelimiter, RegExp> = {
 };
 
 /**
+ * Whether a line continues the description list that is already open
+ * - the predicate half of {@link parseDescriptionSiblingLine}, for
+ * the reader that only needs the verdict.
+ *
+ * The interruption model asks it (line-shapes-interruption.ts): a
+ * sibling term ends a `+`-attached paragraph and an indented run
+ * inside a description item, which is `is_sibling_list_item?`
+ * (parser.rb l.2280-2285) reached from the item scan.
+ * @param rawLine - one source line, without its trailing newline;
+ *   trailing whitespace is trimmed here (see rstrip)
+ * @param delimiter - the delimiter the open list's first term used
+ * @returns true when the line is the next item of that same list
+ */
+export function isDescriptionSiblingLine(
+  rawLine: string,
+  delimiter: DescriptionDelimiter,
+): boolean {
+  return DESCRIPTION_SIBLING_LINE[delimiter].test(rstrip(rawLine));
+}
+
+/**
  * Parse a line as a SIBLING of a description list that is already
  * open, which is a different reading from
  * {@link parseDescriptionListLine}: the delimiter is given, not

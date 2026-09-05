@@ -239,7 +239,7 @@ describe("the probe documents spell the styles they claim", () => {
     // is what an item confinement built from it will hold.
     const kind = classifyLine(opener ?? "", {
       openParagraph: undefined,
-      openListStyle: undefined,
+      openList: undefined,
       firstLineAfterStart: false,
       nextLine: undefined,
     });
@@ -254,7 +254,7 @@ describe("the probe documents spell the styles they claim", () => {
       expect(opener, `no text-only opener for ${style}`).toBeDefined();
       const kind = classifyLine(opener ?? "", {
         openParagraph: undefined,
-        openListStyle: undefined,
+        openList: undefined,
         firstLineAfterStart: false,
         nextLine: undefined,
       });

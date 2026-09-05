@@ -28,8 +28,9 @@ import {
 import type { InlineToken } from "../inline/tokens.js";
 import {
   LINE_COMMENT_HEAD,
-  rawLineForm,
+  type OpenList,
   type ParagraphContext,
+  rawLineForm,
   type ReaderContext,
 } from "../line-shapes.js";
 import {
@@ -106,12 +107,11 @@ export interface ParagraphScan {
    */
   readonly lines: readonly SourceLine[];
   /**
-   * Marker style of the list open around these lines, if any — the
-   * classifier's ancestry fact ({@link ReaderContext.openListStyle}).
-   * Fixed for the stream: a confined buffer carries exactly its own
-   * item's style.
+   * The list open around these lines, if any: the classifier's
+   * ancestry fact ({@link ReaderContext.openList}). Fixed for the
+   * stream, a confined buffer carrying exactly its own item's list.
    */
-  readonly openListStyle: string | undefined;
+  readonly openList: OpenList | undefined;
 }
 
 /**
@@ -341,7 +341,7 @@ class Paragraph {
       }
       const kind = classifyLine(next.text, {
         openParagraph: this.context,
-        openListStyle: this.scan.openListStyle,
+        openList: this.scan.openList,
         firstLineAfterStart: this.firstLineAfterStart,
         // A paragraph is OPEN here, and the one two-line construct
         // Asciidoctor reads is asked about a section's block start
@@ -855,7 +855,7 @@ function verbatimRunExtent(
 ): VerbatimRun {
   const reader: ReaderContext = {
     openParagraph: context,
-    openListStyle: scan.openListStyle,
+    openList: scan.openList,
     firstLineAfterStart: false,
     // Same reason as the paragraph scan's: a block is open, and the
     // setext arm belongs to a section's block start alone.

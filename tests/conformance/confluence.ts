@@ -59,6 +59,7 @@ import {
   contextKey,
   openerFor,
   openParagraphProbes,
+  spellingOf,
   textOnlyOpenerFor,
 } from "./reader-context-space.js";
 import {
@@ -136,10 +137,11 @@ interface Placement {
  */
 function blockPlacements(): Placement[] {
   return blockStartContexts().flatMap((reader): Placement[] => {
-    const { openListStyle: style } = reader;
-    if (style === undefined) {
+    const { openList } = reader;
+    if (openList === undefined) {
       return [{ id: "document", wrap: (fragment) => `${fragment}\n` }];
     }
+    const style = spellingOf(openList);
     // Every confinement style is a marker style or a description
     // delimiter, and reader-context-space.ts spells an opener for
     // each; a style with none would silently SHRINK the grid, so it

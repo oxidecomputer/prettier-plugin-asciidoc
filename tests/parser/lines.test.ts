@@ -294,7 +294,7 @@ describe("classifyLine inside an open paragraph", () => {
     const reader: ReaderContext = {
       ...BLOCK_START_CONTEXT,
       openParagraph: "listItem",
-      openListStyle: "*",
+      openList: { kind: "marker", style: "*" },
     };
     expect(classifyLine("* next", reader).kind).toBe("listMarker");
   });
@@ -302,7 +302,7 @@ describe("classifyLine inside an open paragraph", () => {
     const reader: ReaderContext = {
       ...BLOCK_START_CONTEXT,
       openParagraph: "listContinuation",
-      openListStyle: "*",
+      openList: { kind: "marker", style: "*" },
     };
     expect(classifyLine(". next", reader).kind).toBe("text");
     expect(classifyLine("* next", reader).kind).toBe("listMarker");
@@ -311,7 +311,7 @@ describe("classifyLine inside an open paragraph", () => {
     const reader: ReaderContext = {
       ...BLOCK_START_CONTEXT,
       openParagraph: "listContinuation",
-      openListStyle: "*",
+      openList: { kind: "marker", style: "*" },
     };
     // `. next` does not end the paragraph (only the OPEN list's marker
     // does), but its COLUMN is load-bearing: `read_lines_for_list_item`
@@ -376,7 +376,7 @@ describe("indented and tab-gapped markers (issue #29, closed)", () => {
   const inItem: ReaderContext = {
     ...BLOCK_START_CONTEXT,
     openParagraph: "listItem",
-    openListStyle: "*",
+    openList: { kind: "marker", style: "*" },
   };
   test.each([
     ["leading whitespace", "  ** item"],

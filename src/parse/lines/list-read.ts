@@ -22,12 +22,17 @@
  * Every Ruby line number cites parser.rb at Asciidoctor core 2.0.26,
  * the revision the oracle runs, exactly as list-reader.ts's do.
  */
-import type { DescriptionListNode, ListItemNode, ListNode } from "../../ast.js";
+import type {
+  DescriptionDelimiter,
+  DescriptionListNode,
+  ListItemNode,
+  ListNode,
+} from "../../ast.js";
 import { buildDescriptionList } from "../build/description-list.js";
 import type { DescriptionPair } from "../build/description-list.js";
 import { buildList } from "../build/list.js";
 import type { InlineToken } from "../inline/tokens.js";
-import type { ParagraphContext } from "../line-shapes.js";
+import type { OpenList, ParagraphContext } from "../line-shapes.js";
 import { LINE_COMMENT_HEAD } from "../line-shapes.js";
 import { descriptionItemNode } from "./description-list-node.js";
 import type { DlistTermKind, MarkerKind } from "./classify.js";
@@ -46,8 +51,8 @@ import type { TextOpen } from "./paragraph-reader.js";
 
 /** The two facts a confined reader is bounded by, per item. */
 interface ItemConfinement {
-  /** The one-style ancestry the confined reader sees. */
-  readonly style: string;
+  /** The one-list ancestry the confined reader sees. */
+  readonly list: OpenList;
   /** The item's own tail safety (ItemExtent.tailSafe). */
   readonly tailSafe: boolean;
 }
@@ -164,7 +169,7 @@ function interiorOfItem(
   return host.interiorOf(
     shape.markerLine,
     shape.buffer,
-    { style: marker.style, tailSafe: shape.tailSafe },
+    { list: { kind: "marker", style: marker.style }, tailSafe: shape.tailSafe },
     {
       context: "listItemText",
       text: { from: marker.markerEnd, comments: "skipped" },
@@ -246,24 +251,24 @@ function drainHeadComments(shape: ListItemShape<DlistTermKind>): {
  * @param host - what the reader hands the read
  * @param shape - what the extent scan decided about the sibling
  * @param buffer - the sibling's lines, the head drain applied
- * @param delimiter - the list's delimiter, which stands for the open
- *   list's marker style inside the confined reader: no marker line
- *   can spell it, so every marker line the buffer holds is foreign to
- *   the list that is open, which is what a description item's
- *   ancestry means
+ * @param delimiter - the list's delimiter, which IS the open list
+ *   inside the confined reader: a description confinement matches a
+ *   sibling by this delimiter, so every marker line the buffer holds
+ *   is foreign to the list that is open, which is what a description
+ *   item's ancestry means
  * @returns the description and blocks
  */
 function interiorOfDescription(
   host: ListHost,
   shape: ListItemShape<DlistTermKind>,
   buffer: readonly SourceLine[],
-  delimiter: string,
+  delimiter: DescriptionDelimiter,
 ): ItemInterior {
   const { descriptionStart } = shape.marker;
   const interior = host.interiorOf(
     shape.markerLine,
     buffer,
-    { style: delimiter, tailSafe: shape.tailSafe },
+    { list: { kind: "description", delimiter }, tailSafe: shape.tailSafe },
     {
       // Ruby's `text_only: has_text ? nil : true` (parser.rb l.1367-74),
       // as the context it decides: a term line carrying no text of

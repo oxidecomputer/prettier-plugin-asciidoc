@@ -121,6 +121,10 @@
       "coverage": 100.0,
       "mutation": 0.0
     },
+    "src/parse/line-shapes-interruption.ts": {
+      "coverage": 100.0,
+      "mutation": 0.0
+    },
     "src/parse/line-shapes.ts": {
       "coverage": 100.0,
       "mutation": 87.2

@@ -581,6 +581,20 @@
     "reason": "the one parse of a line against the pattern an OPEN description list is keyed to, beside the four patterns it chooses among"
   },
   {
+    "file": "src/parse/line-shapes-interruption.ts",
+    "symbol": "interruptsParagraph",
+    "importer": "src/parse/lines/classify.ts",
+    "kind": "vocabulary",
+    "reason": "the one answer to 'does this line interrupt this paragraph context', which is the registry's interrupting sets"
+  },
+  {
+    "file": "src/parse/line-shapes-interruption.ts",
+    "symbol": "interruptsParagraph",
+    "importer": "src/parse/lines/description-list.ts",
+    "kind": "vocabulary",
+    "reason": "the same answer, asked of the line a description's first block opens on: the shapes that end the description only on its first line are the ones a wrap costs their meaning"
+  },
+  {
     "file": "src/parse/line-shapes.ts",
     "symbol": "ADMONITION_LABEL",
     "importer": "src/parse/lines/classify.ts",
@@ -869,6 +883,34 @@
   },
   {
     "file": "src/parse/line-shapes.ts",
+    "symbol": "OpenList",
+    "importer": "src/parse/lines/list-read.ts",
+    "kind": "vocabulary",
+    "reason": "the one type for 'which list is open around this block', carried from the confinement that builds it to the sibling rules that read it, so no reader has to guess a marker style apart from a term delimiter"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "OpenList",
+    "importer": "src/parse/lines/paragraph-reader.ts",
+    "kind": "vocabulary",
+    "reason": "the one type for 'which list is open around this block', carried from the confinement that builds it to the sibling rules that read it, so no reader has to guess a marker style apart from a term delimiter"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "OpenList",
+    "importer": "src/parse/lines/reader.ts",
+    "kind": "vocabulary",
+    "reason": "the one type for 'which list is open around this block', carried from the confinement that builds it to the sibling rules that read it, so no reader has to guess a marker style apart from a term delimiter"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "OpenList",
+    "importer": "src/parse/lines/scope.ts",
+    "kind": "vocabulary",
+    "reason": "the one type for 'which list is open around this block', carried from the confinement that builds it to the sibling rules that read it, so no reader has to guess a marker style apart from a term delimiter"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
     "symbol": "PAGE_BREAK",
     "importer": "src/parse/lines/classify.ts",
     "kind": "vocabulary",
@@ -1013,20 +1055,6 @@
     "importer": "src/parse/lines/description-list.ts",
     "kind": "vocabulary",
     "reason": "the line-END half of the same answer, which needs the registry's whole-line patterns and the item's term head together and can therefore be spelled nowhere but beside them"
-  },
-  {
-    "file": "src/parse/line-shapes.ts",
-    "symbol": "interruptsParagraph",
-    "importer": "src/parse/lines/classify.ts",
-    "kind": "vocabulary",
-    "reason": "the one answer to 'does this line interrupt this paragraph context', which is the registry's interrupting sets"
-  },
-  {
-    "file": "src/parse/line-shapes.ts",
-    "symbol": "interruptsParagraph",
-    "importer": "src/parse/lines/description-list.ts",
-    "kind": "vocabulary",
-    "reason": "the same answer, asked of the line a description's first block opens on: the shapes that end the description only on its first line are the ones a wrap costs their meaning"
   },
   {
     "file": "src/parse/line-shapes.ts",

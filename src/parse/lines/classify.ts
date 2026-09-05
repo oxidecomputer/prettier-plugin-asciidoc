@@ -46,7 +46,6 @@ import {
   SETEXT_UNDERLINE,
   THEMATIC_BREAK,
   continuationMetadataKind,
-  interruptsParagraph,
   isRawParagraphLine,
   optionalGroup,
   orderedMarkerStyle,
@@ -57,6 +56,7 @@ import {
   type RawForm,
   type ReaderContext,
 } from "../line-shapes.js";
+import { interruptsParagraph } from "../line-shapes-interruption.js";
 import { parseDescriptionListLine } from "../line-shapes-description.js";
 import type {
   AttributeEntryFields,

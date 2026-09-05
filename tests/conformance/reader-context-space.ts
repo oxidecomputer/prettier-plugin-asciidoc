@@ -14,19 +14,19 @@
  * 2. `blockStartContextIn` (src/parse/lines/scope.ts) - what
  *    `BlockReader#run` classifies a block's opening line with:
  *    `openParagraph` undefined, `firstLineAfterStart` false, and the
- *    style from `openListStyleIn`.
+ *    style from `openListIn`.
  * 3. `HEADER_CONTEXT` (src/parse/lines/header-reader.ts) - the same
  *    three values as (1); a header line is a block start with no list
  *    around it.
  * 4. The `Paragraph` scan's per-line literal
  *    (src/parse/lines/paragraph-reader.ts) - a definite context, the
- *    scan's own `openListStyle`, and the flag that is true for the
+ *    scan's own `openList`, and the flag that is true for the
  *    line after the block's opening line and false afterwards.
  * 5. `verbatimRunExtent` (same file) - a definite context, the scan's
- *    `openListStyle`, and `firstLineAfterStart` fixed false, because
+ *    `openList`, and `firstLineAfterStart` fixed false, because
  *    a verbatim run's opening line is taken without being classified.
  *
- * The style half of (2), (4) and (5) is `openListStyleIn`, which is
+ * The style half of (2), (4) and (5) is `openListIn`, which is
  * the confinement's own style for an item-confined reader and
  * undefined for the document reader and for a compound block's
  * interior. Two callers construct an item confinement: `interiorOfItem`
@@ -40,6 +40,7 @@
 import type { DescriptionDelimiter } from "../../src/ast.js";
 import {
   CALLOUT_STYLE,
+  type OpenList,
   type ParagraphContext,
   type ReaderContext,
 } from "../../src/parse/line-shapes.js";
@@ -89,7 +90,7 @@ export const DESCRIPTION_DELIMITERS: readonly DescriptionDelimiter[] = [
 ];
 
 /**
- * Every value `openListStyleIn` can return besides undefined: the
+ * Every value `openListIn` can return besides undefined: the
  * union of the two confinement kinds' styles. Twenty-two, which is
  * why the unconstrained state space is 8 x 23 x 2 rather than the
  * 8 x 19 x 2 that counting marker styles alone gives.
@@ -98,6 +99,39 @@ export const CONFINEMENT_STYLES: readonly string[] = [
   ...LIST_MARKER_STYLES,
   ...DESCRIPTION_DELIMITERS,
 ];
+
+/**
+ * The eighteen marker lists, as the {@link OpenList} values a reader
+ * actually carries. The state axis is enumerated over these rather
+ * than over the bare spellings above, because the KIND is what the
+ * sibling rules read.
+ */
+const MARKER_LISTS: readonly OpenList[] = LIST_MARKER_STYLES.map(
+  (style) => ({ kind: "marker", style }) as const,
+);
+
+/** The four description lists, as the values a reader carries. */
+const DESCRIPTION_LISTS: readonly OpenList[] = DESCRIPTION_DELIMITERS.map(
+  (delimiter) => ({ kind: "description", delimiter }) as const,
+);
+
+/** Both kinds together, which is what `openListIn` can return. */
+const CONFINEMENT_LISTS: readonly OpenList[] = [
+  ...MARKER_LISTS,
+  ...DESCRIPTION_LISTS,
+];
+
+/**
+ * The spelling an open list is keyed by here: its marker style or its
+ * term delimiter. The inverse of {@link CONFINEMENT_LISTS}'
+ * construction, and what the opener tables, {@link contextKey} and
+ * the confluence gate's placements are keyed on.
+ * @param list - a member of {@link CONFINEMENT_LISTS}
+ * @returns the style or delimiter string
+ */
+export function spellingOf(list: OpenList): string {
+  return list.kind === "marker" ? list.style : list.delimiter;
+}
 
 // The line that opens a list of each marker style, in the spelling
 // `listMarkerStyle` resolves back to that same key (the reachability
@@ -239,18 +273,19 @@ const PARAGRAPH_BODY: Readonly<Record<ParagraphContext, string>> = {
  * a state with no style is opened at document level, so the opener
  * is left out.
  * @param context - the open paragraph's context
- * @param style - the enclosing list's style, or undefined
+ * @param openList - the enclosing list, or undefined
  * @returns the prefix lines, or undefined when no opener spells the
- *   style
+ *   list
  */
 function prefixFor(
   context: ParagraphContext,
-  style: string | undefined,
+  openList: OpenList | undefined,
 ): string | undefined {
   const { [context]: body } = PARAGRAPH_BODY;
-  if (style === undefined) {
+  if (openList === undefined) {
     return body;
   }
+  const style = spellingOf(openList);
   // `dlistItemTextOnly` needs the BARE term line, not `dlistItem`'s
   // own opener - the two contexts share a delimiter but not a
   // spelling, since only one of them carries an inline description.
@@ -298,7 +333,7 @@ const LATER_ONLY: readonly boolean[] = [false];
  * EXCLUSIONS, one write-site argument each:
  *
  * - `paragraph` with any style. `bodyContextIn` returns `"paragraph"`
- *   exactly when `directlyInItem` is false, and `openListStyleIn`
+ *   exactly when `directlyInItem` is false, and `openListIn`
  *   returns undefined on exactly that condition (scope.ts). The one
  *   other site that names the context, `continuationLine`'s top-level
  *   arm (reader.ts), stands behind the same `!directlyInItem` test.
@@ -333,26 +368,26 @@ const CONTEXT_DOMAIN: Readonly<
   Record<
     ParagraphContext,
     {
-      styles: ReadonlyArray<string | undefined>;
+      lists: ReadonlyArray<OpenList | undefined>;
       positions: readonly boolean[];
     }
   >
 > = {
-  paragraph: { styles: [undefined], positions: BOTH_POSITIONS },
-  listItemText: { styles: LIST_MARKER_STYLES, positions: BOTH_POSITIONS },
-  listItem: { styles: CONFINEMENT_STYLES, positions: BOTH_POSITIONS },
-  listContinuation: { styles: CONFINEMENT_STYLES, positions: BOTH_POSITIONS },
-  dlistItem: { styles: DESCRIPTION_DELIMITERS, positions: BOTH_POSITIONS },
+  paragraph: { lists: [undefined], positions: BOTH_POSITIONS },
+  listItemText: { lists: MARKER_LISTS, positions: BOTH_POSITIONS },
+  listItem: { lists: CONFINEMENT_LISTS, positions: BOTH_POSITIONS },
+  listContinuation: { lists: CONFINEMENT_LISTS, positions: BOTH_POSITIONS },
+  dlistItem: { lists: DESCRIPTION_LISTS, positions: BOTH_POSITIONS },
   dlistItemTextOnly: {
-    styles: DESCRIPTION_DELIMITERS,
+    lists: DESCRIPTION_LISTS,
     positions: BOTH_POSITIONS,
   },
   literalParagraph: {
-    styles: [undefined, ...CONFINEMENT_STYLES],
+    lists: [undefined, ...CONFINEMENT_LISTS],
     positions: LATER_ONLY,
   },
   verbatimStyled: {
-    styles: [undefined, ...CONFINEMENT_STYLES],
+    lists: [undefined, ...CONFINEMENT_LISTS],
     positions: LATER_ONLY,
   },
 };
@@ -372,8 +407,8 @@ export function openParagraphProbes(): ContextProbe[] {
   const probes: ContextProbe[] = [];
   for (const context of ALL_CONTEXTS) {
     const { [context]: domain } = CONTEXT_DOMAIN;
-    for (const openListStyle of domain.styles) {
-      const prefix = prefixFor(context, openListStyle);
+    for (const openList of domain.lists) {
+      const prefix = prefixFor(context, openList);
       if (prefix === undefined) {
         continue;
       }
@@ -381,7 +416,7 @@ export function openParagraphProbes(): ContextProbe[] {
         probes.push({
           reader: {
             openParagraph: context,
-            openListStyle,
+            openList,
             firstLineAfterStart,
             // Every open-paragraph state has it undefined - the
             // setext title is read only at a section's own block
@@ -398,7 +433,7 @@ export function openParagraphProbes(): ContextProbe[] {
 
 /**
  * The reachable states with NO open paragraph: one per style
- * `openListStyleIn` can return, all on a later line.
+ * `openListIn` can return, all on a later line.
  *
  * `classifyLine` reads neither of the other two fields once
  * `openParagraph` is undefined - it goes straight to
@@ -410,9 +445,9 @@ export function openParagraphProbes(): ContextProbe[] {
  * @returns the block-start states, in style order
  */
 export function blockStartContexts(): ReaderContext[] {
-  return [undefined, ...CONFINEMENT_STYLES].map((openListStyle) => ({
+  return [undefined, ...CONFINEMENT_LISTS].map((openList) => ({
     openParagraph: undefined,
-    openListStyle,
+    openList,
     firstLineAfterStart: false,
     // Real at a document-level block start (`nextLine` is read there
     // for the setext-title branch), but fixed undefined here: these
@@ -440,13 +475,14 @@ export function deriveReachableContexts(): ReaderContext[] {
  * compared and sorted without a deep-equality walk.
  *
  * `JSON.stringify` will not do: it drops a field whose value is
- * undefined, so `{openParagraph: undefined, openListStyle: "*"}` and
+ * undefined, so `{openParagraph: undefined, openList: {...}}` and
  * `{openParagraph: "*"...}` could collide on spelling. Each field is
  * spelled explicitly, with a sentinel for absent.
  * @param reader - the state
  * @returns a key unique to the state
  */
 export function contextKey(reader: ReaderContext): string {
-  const style = reader.openListStyle ?? "(none)";
+  const list = reader.openList;
+  const style = list === undefined ? "(none)" : spellingOf(list);
   return `${reader.openParagraph ?? "(none)"}|${style}|${String(reader.firstLineAfterStart)}`;
 }
