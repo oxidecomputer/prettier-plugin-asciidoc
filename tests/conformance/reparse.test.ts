@@ -120,9 +120,18 @@ describe("the lens licenses what the printer normalizes", () => {
       ["[source,ruby]\n----\nx\n----\n", "[source,perl]\n----\nx\n----\n"],
     ],
     [
+      // The blank tightened is the FIELD-separating one, outside the
+      // quotes: the comma inside `"1,1"` is data (it is what keeps
+      // `cols` reading as one two-column spec rather than two fields)
+      // and the printer never touches a quoted value's interior
+      // (tests/format/attrlist-whitespace.test.ts's own "interior
+      // whitespace is content" row states the same boundary).
       "blanks after a table attribute line's commas",
       ["table.annotatedBy"],
-      ['[cols="1, 1"]\n|===\n|a|b\n|===\n', '[cols="1,1"]\n|===\n|a|b\n|===\n'],
+      [
+        '[cols="1,1", format=csv]\n|===\n|a|b\n|===\n',
+        '[cols="1,1",format=csv]\n|===\n|a|b\n|===\n',
+      ],
       [
         '[cols="1,1"]\n|===\n|a|b\n|===\n',
         '[cols="1,1,1"]\n|===\n|a|b\n|===\n',

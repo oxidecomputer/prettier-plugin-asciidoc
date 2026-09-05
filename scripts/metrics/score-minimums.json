@@ -327,7 +327,7 @@
     },
     {
       "file": "src/parse/attrlist.ts",
-      "what": "attrlist.ts:334 `index < raw.length` -> `index <= raw.length` in closingQuote",
+      "what": "attrlist.ts:345 `index < raw.length` -> `index <= raw.length` in closingQuote",
       "class": "never",
       "reason": "EQUIVALENT. The extra iteration reads `raw[raw.length]`, which is `undefined` and matches neither the escape nor the quote, so the loop still falls through to `return undefined`. Its seven siblings in this file were survivors too until this commit; five new rows in tests/parser/attrlist.test.ts kill them. The one the rows could not have killed is this one"
     },

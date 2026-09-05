@@ -579,6 +579,56 @@ describe("an attrlist interior gets one spacing", () => {
       '[quote, "A B, c]\n____\nx\n____\n',
       '[quote, "A B, c]\n____\nx\n____\n',
     ],
+    // A double-quoted positional value unquotes when doing so changes
+    // no reading (confluence gate, `attributeSpelling/
+    // attrlist-quoted-positional`): the parsed style is `ruby` either
+    // way. Red before this fix: `[source,"ruby"]` printed unchanged.
+    [
+      "a double-quoted positional value unquotes",
+      '[source,"ruby"]\n----\nx\n----\n',
+      "[source,ruby]\n----\nx\n----\n",
+    ],
+    // DECLINED: a SINGLE-quoted value never unquotes, even carrying
+    // nothing the four structural hazards above catch - Ruby applies
+    // "normal substitutions" to a single-quoted attribute value and
+    // not to a bare or double-quoted one, so the bare address inside
+    // this one becomes a live link only when the quotes survive
+    // (measured: corpus/attributes_test.rb's "normal substitutions
+    // are performed on single-quoted positional attribute" broke here
+    // before this exclusion existed).
+    [
+      "a single-quoted value keeps its quotes",
+      "[quote,author,'http://x.example[s]']\n____\nx\n____\n",
+      "[quote,author,'http://x.example[s]']\n____\nx\n____\n",
+    ],
+    // DECLINED: the interior's first field keeps its quotes when the
+    // bare value would stop the whole line reading as an attribute
+    // line at all (ATTRLIST_LEADING_CHARACTER, src/parse/line-shapes.ts).
+    // Without this guard the line below would print `` [`d`] ``, which
+    // the oracle reads as an ordinary paragraph rather than metadata -
+    // measured directly.
+    [
+      "a first field kept quoted to stay an attribute line",
+      '["`d`"]\nSome text here.\n',
+      '["`d`"]\nSome text here.\n',
+    ],
+    // DECLINED: Ruby expands `{name}` INTO the attrlist string
+    // before AttributeList#parse ever runs, so the literal bytes
+    // `parseAttrlist` sees (`"{author}"`) trip none of the four
+    // value-level hazards above, but the EXPANDED value can. Red
+    // before `needsQuoting` declined on any `{`: formatAdoc printed
+    // `[quote,{author}]`, and the comma the expansion introduced
+    // split the attribution into attribution plus citetitle.
+    [
+      "an attribute reference is kept quoted (a comma the expansion introduces)",
+      ':author: Doe, John\n\n[quote,"{author}"]\n____\nA famous quote.\n____\n',
+      ':author: Doe, John\n\n[quote,"{author}"]\n____\nA famous quote.\n____\n',
+    ],
+    [
+      "an attribute reference is kept quoted (image alt)",
+      ':alt: a,b\n\nimage::x.png["{alt}"]\n',
+      ':alt: a,b\n\nimage::x.png["{alt}"]\n',
+    ],
   ])("%s", async (_name, input, expected) => {
     const out = await formatAdoc(input);
     expect(out).toBe(expected);

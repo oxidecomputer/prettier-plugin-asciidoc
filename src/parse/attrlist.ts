@@ -15,7 +15,7 @@
  * modeled - no substitution, no `attributes[N]` positional map - so
  * the values are what the interior spells and nothing more.
  */
-import { BLOCK_ANCHOR } from "./line-shapes.js";
+import { ATTRLIST_LEADING_CHARACTER, BLOCK_ANCHOR } from "./line-shapes.js";
 
 /**
  * The reader-side view of one `[…]` block-attribute line's interior.
@@ -99,6 +99,17 @@ export interface Attrlist {
 // header standing, exactly as `[foo=bar]` does - measured against the
 // oracle. Blanks on the VALUE side (`[foo= bar]`) are the same
 // attribute for the same reason and need no expression here.
+//
+// This constant is load-bearing for a SECOND, later decision too:
+// `needsQuoting` (below) reads it to ask whether a bare value would
+// misread as `name=value`, a PRINTING question rather than the style
+// question this comment was written for. The dot divergence above
+// still binds there and was re-measured for it independently, not
+// assumed to carry over: `[quote,"a.b=c"]` and `[quote,a.b=c]` render
+// identically (the entry names no attribute either way, since the
+// oracle's dot-free `NameRx` never lets `a.b` finish scanning a name),
+// while `[quote,"ab=c"]` and `[quote,ab=c]` do not (the bare spelling
+// names the attribute `ab`, changing what the block reads).
 const NAMED_ATTRIBUTE = /^\w[\w\-]*[ \t]*=/v;
 
 // The shorthand separators `parse_style_attribute` splits an entry
@@ -570,12 +581,123 @@ export function attrlistValues(raw: string): AttrlistValues {
 }
 
 /**
+ * Whether a bare (unquoted) value would read back as the same
+ * attribute a quoted field wrote it as - the guard
+ * {@link canonicalField} asks before dropping a field's quotes.
+ *
+ * Four ways a bare value's OWN bytes stop being the same reading,
+ * each a boundary {@link attrlistFields}' own scan draws: a comma
+ * inside the quotes is data there and a field separator once bare; a
+ * leading or trailing blank is data there and a trimmed boundary once
+ * bare (`trimBlank`, above); a leading quote character would reopen
+ * value scanning (the `atValue` guard in {@link attrlistFields}); and
+ * a `name = value` shape read from `attributes[N]` (positional)
+ * becomes a named attribute once nothing quotes it away from
+ * {@link NAMED_ATTRIBUTE}'s test. An empty value is excluded by the
+ * caller rather than here - see {@link canonicalField}.
+ *
+ * A fifth way is not about the value's OWN bytes at all: Ruby expands
+ * `{name}` attribute references INTO the attrlist string before
+ * `AttributeList#parse` ever runs (the parser's own scan never sees a
+ * `{` - substitution happens first), so a value's declared attribute
+ * could introduce any of the four hazards above at render time even
+ * though the literal bytes `parseAttrlist` sees today - `{author}` -
+ * trip none of them (measured: `:author: Doe, John` turns
+ * `[quote,"{author}"]` printed bare, `[quote,{author}]`, into an
+ * attribution that splits on the expanded comma; a single-quoted
+ * value, a `name=value` shape and a bare-word style are each
+ * reachable the same way from other attribute values). Declining on
+ * any `{` is the total, cheap version of asking "could this expand
+ * into one of the other four" - it costs nothing real, since a
+ * literal `{` in a positional value with no matching attribute is
+ * already a vanishingly rare shape to author, and it is the only
+ * version that does not require resolving the attribute's value at
+ * print time, which this printer does nowhere else.
+ * @param value - a field's value, already unquoted
+ * @returns whether the value's field must keep its quotes
+ */
+function needsQuoting(value: string): boolean {
+  return (
+    value.includes(",") ||
+    value !== trimBlank(value) ||
+    QUOTES.has(value[0]) ||
+    NAMED_ATTRIBUTE.test(value) ||
+    value.includes("{")
+  );
+}
+
+/**
+ * One attrlist field, respelled without its quotes when doing so
+ * changes no reading: a field that is not a bare DOUBLE-quoted value
+ * to begin with (a name=value pair, an unquoted positional, an entry
+ * with text outside its quotes) passes through unchanged, since
+ * {@link unquoteField} already recognizes the general shape and this
+ * narrows it further.
+ *
+ * SINGLE quotes are excluded on purpose, not merely left unproven:
+ * Ruby applies "normal substitutions" (macros, replacements,
+ * post-replacements) to a single-quoted positional value and does
+ * NOT to a double-quoted or bare one (measured directly -
+ * `[quote,author,'http://x[s]']` renders the address as a live link
+ * in the attribution, `[quote,author,"http://x[s]"]` and the bare
+ * spelling both render it as literal text). So single- and
+ * double-quoted are not one policy case with two spellings; only the
+ * double-quote row is proven render-equal to bare (confluence gate,
+ * `attributeSpelling/attrlist-quoted-positional`), and this function
+ * touches only that one.
+ *
+ * An empty quoted value (`""`) is left alone too - printing nothing
+ * between two commas is a spelling of its own, not this field's
+ * canonical form.
+ *
+ * `first` guards a hazard specific to the FIRST field: once it is the
+ * whole attrlist's leading bytes, its own leading character decides
+ * whether the enclosing `[...]` still reads as an attribute line AT
+ * ALL, not just which value it names ({@link ATTRLIST_LEADING_CHARACTER},
+ * measured directly - `` [`d`] `` and `[*bold*]` are ordinary text to
+ * the oracle, `["d"]` is metadata). A later field carries no such
+ * risk: nothing but the interior's own first byte is asked.
+ * @param field - one field from {@link attrlistFields}
+ * @param first - whether this is the interior's first field
+ * @returns the field to print
+ */
+function canonicalField(field: string, first: boolean): string {
+  if (field.length < 2 || !field.startsWith('"') || field.at(-1) !== '"') {
+    return field;
+  }
+  const value = unquoteField(field);
+  if (value === "" || needsQuoting(value)) {
+    return field;
+  }
+  return first && !ATTRLIST_LEADING_CHARACTER.test(value[0]) ? field : value;
+}
+
+/**
  * The canonical spelling of an attrlist interior: one attribute per
- * comma, no blanks around either. Returns the author's bytes
- * unchanged when {@link attrlistFields} declines the interior.
+ * comma, no blanks around either, and no quotes around a value a bare
+ * spelling would read back identically ({@link canonicalField}) - the
+ * attrlist re-derived from what it parses to, rather than the
+ * author's habit replayed. Returns the author's bytes unchanged when
+ * {@link attrlistFields} declines the interior.
+ *
+ * MEASURED DOMAIN, stated so a reader does not read more into it than
+ * is there: the confluence gate's own proof
+ * (`attributeSpelling/attrlist-quoted-positional`) is one word
+ * (`ruby`) crossed with the 23 confinement wrappers the gate
+ * enumerates - never a comma, a boundary blank, a leading quote, a
+ * `name=value` shape, or an attribute reference inside the value. The
+ * BROADER claim this function makes - safe for any value, not just
+ * that one word - rests on {@link needsQuoting}'s five hazards, each
+ * derived from Ruby's own grammar (`attribute_list.rb`, `rx.rb`) and
+ * measured independently against the oracle, not on the gate's own
+ * narrow probe.
  * @param raw - the text between the brackets, brackets excluded
  * @returns the interior to print
  */
 export function canonicalAttrlist(raw: string): string {
-  return attrlistFields(raw)?.join(",") ?? raw;
+  return (
+    attrlistFields(raw)
+      ?.map((field, index) => canonicalField(field, index === 0))
+      .join(",") ?? raw
+  );
 }

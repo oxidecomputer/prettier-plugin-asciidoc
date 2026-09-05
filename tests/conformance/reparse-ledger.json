@@ -616,169 +616,73 @@
     {
       "id": "line/pair/block-macro-near-0/attrlist-near-0/adjacent/doc",
       "pass": "p1",
-      "signature": "[<paragraph() .children inlineMacro(attrlist=\" [+1\",name=\"image\",target=\":a.png\") >paragraph] -> [blockMacro(attrlist=\" [+1\",name=\"image\",target=\"a.png\")]",
-      "family": "join-changes-reading"
-    },
-    {
-      "id": "line/pair/block-macro-near-0/attrlist-near-0/adjacent/doc",
-      "pass": "p2",
-      "signature": "[blockMacro(attrlist=\" [+1\",name=\"image\",target=\"a.png\")] -> [blockMacro(attrlist=\"[+1\",name=\"image\",target=\"a.png\")]",
+      "signature": "[<paragraph() .children inlineMacro(attrlist=\"[+1\",name=\"image\",target=\":a.png\") >paragraph] -> [blockMacro(attrlist=\"[+1\",name=\"image\",target=\"a.png\")]",
       "family": "join-changes-reading"
     },
     {
       "id": "line/pair/block-macro-near-0/attrlist-near-0/adjacent/item",
       "pass": "p1",
-      "signature": "[<paragraph() .children inlineMacro(attrlist=\" [+1\",name=\"image\",target=\":a.png\") >paragraph] -> [blockMacro(attrlist=\" [+1\",name=\"image\",target=\"a.png\")]",
-      "family": "join-changes-reading"
-    },
-    {
-      "id": "line/pair/block-macro-near-0/attrlist-near-0/adjacent/item",
-      "pass": "p2",
-      "signature": "[blockMacro(attrlist=\" [+1\",name=\"image\",target=\"a.png\")] -> [blockMacro(attrlist=\"[+1\",name=\"image\",target=\"a.png\")]",
+      "signature": "[<paragraph() .children inlineMacro(attrlist=\"[+1\",name=\"image\",target=\":a.png\") >paragraph] -> [blockMacro(attrlist=\"[+1\",name=\"image\",target=\"a.png\")]",
       "family": "join-changes-reading"
     },
     {
       "id": "line/pair/block-macro-near-0/attrlist-near-1/adjacent/doc",
       "pass": "p1",
-      "signature": "[<paragraph() .children inlineMacro(attrlist=\" [*bold*\",name=\"image\",target=\":a.png\") >paragraph] -> [blockMacro(attrlist=\" [*bold*\",name=\"image\",target=\"a.png\")]",
-      "family": "join-changes-reading"
-    },
-    {
-      "id": "line/pair/block-macro-near-0/attrlist-near-1/adjacent/doc",
-      "pass": "p2",
-      "signature": "[blockMacro(attrlist=\" [*bold*\",name=\"image\",target=\"a.png\")] -> [blockMacro(attrlist=\"[*bold*\",name=\"image\",target=\"a.png\")]",
+      "signature": "[<paragraph() .children inlineMacro(attrlist=\"[*bold*\",name=\"image\",target=\":a.png\") >paragraph] -> [blockMacro(attrlist=\"[*bold*\",name=\"image\",target=\"a.png\")]",
       "family": "join-changes-reading"
     },
     {
       "id": "line/pair/block-macro-near-0/attrlist-near-1/adjacent/item",
       "pass": "p1",
-      "signature": "[<paragraph() .children inlineMacro(attrlist=\" [*bold*\",name=\"image\",target=\":a.png\") >paragraph] -> [blockMacro(attrlist=\" [*bold*\",name=\"image\",target=\"a.png\")]",
-      "family": "join-changes-reading"
-    },
-    {
-      "id": "line/pair/block-macro-near-0/attrlist-near-1/adjacent/item",
-      "pass": "p2",
-      "signature": "[blockMacro(attrlist=\" [*bold*\",name=\"image\",target=\"a.png\")] -> [blockMacro(attrlist=\"[*bold*\",name=\"image\",target=\"a.png\")]",
-      "family": "join-changes-reading"
-    },
-    {
-      "id": "line/pair/block-macro-near-0/block-anchor-near-1/adjacent/doc",
-      "pass": "p2",
-      "signature": "[inlineMacro(attrlist=\" [[3-blind-mice\",name=\"image\",target=\":a.png\")] -> [inlineMacro(attrlist=\"[[3-blind-mice\",name=\"image\",target=\":a.png\")]",
-      "family": "join-changes-reading"
-    },
-    {
-      "id": "line/pair/block-macro-near-0/block-anchor-near-1/adjacent/item",
-      "pass": "p2",
-      "signature": "[inlineMacro(attrlist=\" [[3-blind-mice\",name=\"image\",target=\":a.png\")] -> [inlineMacro(attrlist=\"[[3-blind-mice\",name=\"image\",target=\":a.png\")]",
-      "family": "join-changes-reading"
-    },
-    {
-      "id": "line/pair/block-macro-near-0/block-anchor-near-2/adjacent/doc",
-      "pass": "p2",
-      "signature": "[inlineMacro(attrlist=\" [[illegal$id\",name=\"image\",target=\":a.png\")] -> [inlineMacro(attrlist=\"[[illegal$id\",name=\"image\",target=\":a.png\")]",
-      "family": "join-changes-reading"
-    },
-    {
-      "id": "line/pair/block-macro-near-0/block-anchor-near-2/adjacent/item",
-      "pass": "p2",
-      "signature": "[inlineMacro(attrlist=\" [[illegal$id\",name=\"image\",target=\":a.png\")] -> [inlineMacro(attrlist=\"[[illegal$id\",name=\"image\",target=\":a.png\")]",
+      "signature": "[<paragraph() .children inlineMacro(attrlist=\"[*bold*\",name=\"image\",target=\":a.png\") >paragraph] -> [blockMacro(attrlist=\"[*bold*\",name=\"image\",target=\"a.png\")]",
       "family": "join-changes-reading"
     },
     {
       "id": "line/pair/block-macro-near-0/block-macro-near-1/adjacent/doc",
       "pass": "p1",
-      "signature": "[<paragraph() .children inlineMacro(attrlist=\" image:a.png[\",name=\"image\",target=\":a.png\") >paragraph] -> [blockMacro(attrlist=\" image:a.png[\",name=\"image\",target=\"a.png\")]",
-      "family": "join-changes-reading"
-    },
-    {
-      "id": "line/pair/block-macro-near-0/block-macro-near-1/adjacent/doc",
-      "pass": "p2",
-      "signature": "[blockMacro(attrlist=\" image:a.png[\",name=\"image\",target=\"a.png\")] -> [blockMacro(attrlist=\"image:a.png[\",name=\"image\",target=\"a.png\")]",
+      "signature": "[<paragraph() .children inlineMacro(attrlist=\"image:a.png[\",name=\"image\",target=\":a.png\") >paragraph] -> [blockMacro(attrlist=\"image:a.png[\",name=\"image\",target=\"a.png\")]",
       "family": "join-changes-reading"
     },
     {
       "id": "line/pair/block-macro-near-0/block-macro-near-1/adjacent/item",
       "pass": "p1",
-      "signature": "[<paragraph() .children inlineMacro(attrlist=\" image:a.png[\",name=\"image\",target=\":a.png\") >paragraph] -> [blockMacro(attrlist=\" image:a.png[\",name=\"image\",target=\"a.png\")]",
-      "family": "join-changes-reading"
-    },
-    {
-      "id": "line/pair/block-macro-near-0/block-macro-near-1/adjacent/item",
-      "pass": "p2",
-      "signature": "[blockMacro(attrlist=\" image:a.png[\",name=\"image\",target=\"a.png\")] -> [blockMacro(attrlist=\"image:a.png[\",name=\"image\",target=\"a.png\")]",
+      "signature": "[<paragraph() .children inlineMacro(attrlist=\"image:a.png[\",name=\"image\",target=\":a.png\") >paragraph] -> [blockMacro(attrlist=\"image:a.png[\",name=\"image\",target=\"a.png\")]",
       "family": "join-changes-reading"
     },
     {
       "id": "line/pair/block-macro-near-0/block-macro/adjacent/doc",
       "pass": "p1",
-      "signature": "[<paragraph() .children inlineMacro(attrlist=\" image::a.png[\",name=\"image\",target=\":a.png\") >paragraph] -> [blockMacro(attrlist=\" image::a.png[\",name=\"image\",target=\"a.png\")]",
-      "family": "join-changes-reading"
-    },
-    {
-      "id": "line/pair/block-macro-near-0/block-macro/adjacent/doc",
-      "pass": "p2",
-      "signature": "[blockMacro(attrlist=\" image::a.png[\",name=\"image\",target=\"a.png\")] -> [blockMacro(attrlist=\"image::a.png[\",name=\"image\",target=\"a.png\")]",
+      "signature": "[<paragraph() .children inlineMacro(attrlist=\"image::a.png[\",name=\"image\",target=\":a.png\") >paragraph] -> [blockMacro(attrlist=\"image::a.png[\",name=\"image\",target=\"a.png\")]",
       "family": "join-changes-reading"
     },
     {
       "id": "line/pair/block-macro-near-0/block-macro/adjacent/item",
       "pass": "p1",
-      "signature": "[<paragraph() .children inlineMacro(attrlist=\" image::a.png[\",name=\"image\",target=\":a.png\") >paragraph] -> [blockMacro(attrlist=\" image::a.png[\",name=\"image\",target=\"a.png\")]",
-      "family": "join-changes-reading"
-    },
-    {
-      "id": "line/pair/block-macro-near-0/block-macro/adjacent/item",
-      "pass": "p2",
-      "signature": "[blockMacro(attrlist=\" image::a.png[\",name=\"image\",target=\"a.png\")] -> [blockMacro(attrlist=\"image::a.png[\",name=\"image\",target=\"a.png\")]",
+      "signature": "[<paragraph() .children inlineMacro(attrlist=\"image::a.png[\",name=\"image\",target=\":a.png\") >paragraph] -> [blockMacro(attrlist=\"image::a.png[\",name=\"image\",target=\"a.png\")]",
       "family": "join-changes-reading"
     },
     {
       "id": "line/pair/block-macro-near-0/conditional-near-0/adjacent/doc",
       "pass": "p1",
-      "signature": "[<paragraph() .children inlineMacro(attrlist=\" ifdef:x[\",name=\"image\",target=\":a.png\") >paragraph] -> [blockMacro(attrlist=\" ifdef:x[\",name=\"image\",target=\"a.png\")]",
-      "family": "join-changes-reading"
-    },
-    {
-      "id": "line/pair/block-macro-near-0/conditional-near-0/adjacent/doc",
-      "pass": "p2",
-      "signature": "[blockMacro(attrlist=\" ifdef:x[\",name=\"image\",target=\"a.png\")] -> [blockMacro(attrlist=\"ifdef:x[\",name=\"image\",target=\"a.png\")]",
+      "signature": "[<paragraph() .children inlineMacro(attrlist=\"ifdef:x[\",name=\"image\",target=\":a.png\") >paragraph] -> [blockMacro(attrlist=\"ifdef:x[\",name=\"image\",target=\"a.png\")]",
       "family": "join-changes-reading"
     },
     {
       "id": "line/pair/block-macro-near-0/conditional-near-0/adjacent/item",
       "pass": "p1",
-      "signature": "[<paragraph() .children inlineMacro(attrlist=\" ifdef:x[\",name=\"image\",target=\":a.png\") >paragraph] -> [blockMacro(attrlist=\" ifdef:x[\",name=\"image\",target=\"a.png\")]",
-      "family": "join-changes-reading"
-    },
-    {
-      "id": "line/pair/block-macro-near-0/conditional-near-0/adjacent/item",
-      "pass": "p2",
-      "signature": "[blockMacro(attrlist=\" ifdef:x[\",name=\"image\",target=\"a.png\")] -> [blockMacro(attrlist=\"ifdef:x[\",name=\"image\",target=\"a.png\")]",
+      "signature": "[<paragraph() .children inlineMacro(attrlist=\"ifdef:x[\",name=\"image\",target=\":a.png\") >paragraph] -> [blockMacro(attrlist=\"ifdef:x[\",name=\"image\",target=\"a.png\")]",
       "family": "join-changes-reading"
     },
     {
       "id": "line/pair/block-macro-near-0/include-near-0/adjacent/doc",
       "pass": "p1",
-      "signature": "[<paragraph() .children inlineMacro(attrlist=\" include:p[\",name=\"image\",target=\":a.png\") >paragraph] -> [blockMacro(attrlist=\" include:p[\",name=\"image\",target=\"a.png\")]",
-      "family": "join-changes-reading"
-    },
-    {
-      "id": "line/pair/block-macro-near-0/include-near-0/adjacent/doc",
-      "pass": "p2",
-      "signature": "[blockMacro(attrlist=\" include:p[\",name=\"image\",target=\"a.png\")] -> [blockMacro(attrlist=\"include:p[\",name=\"image\",target=\"a.png\")]",
+      "signature": "[<paragraph() .children inlineMacro(attrlist=\"include:p[\",name=\"image\",target=\":a.png\") >paragraph] -> [blockMacro(attrlist=\"include:p[\",name=\"image\",target=\"a.png\")]",
       "family": "join-changes-reading"
     },
     {
       "id": "line/pair/block-macro-near-0/include-near-0/adjacent/item",
       "pass": "p1",
-      "signature": "[<paragraph() .children inlineMacro(attrlist=\" include:p[\",name=\"image\",target=\":a.png\") >paragraph] -> [blockMacro(attrlist=\" include:p[\",name=\"image\",target=\"a.png\")]",
-      "family": "join-changes-reading"
-    },
-    {
-      "id": "line/pair/block-macro-near-0/include-near-0/adjacent/item",
-      "pass": "p2",
-      "signature": "[blockMacro(attrlist=\" include:p[\",name=\"image\",target=\"a.png\")] -> [blockMacro(attrlist=\"include:p[\",name=\"image\",target=\"a.png\")]",
+      "signature": "[<paragraph() .children inlineMacro(attrlist=\"include:p[\",name=\"image\",target=\":a.png\") >paragraph] -> [blockMacro(attrlist=\"include:p[\",name=\"image\",target=\"a.png\")]",
       "family": "join-changes-reading"
     },
     {

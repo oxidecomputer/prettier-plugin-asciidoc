@@ -145,6 +145,10 @@ const EXEMPT = new Map<string, string>([
     "the reader-state value every line rule is asked against at a block start, not a line shape",
   ],
   [
+    "ATTRLIST_LEADING_CHARACTER",
+    "the class BLOCK_ATTRIBUTE_LINE (its own dimension, covers: BLOCK_ATTRIBUTE_LINE) already requires of the byte right after `[` - re-exported for src/parse/attrlist.ts's printer-side canonicalField, which asks it before unquoting an interior's first field, never for reading a line; a helper shared across the boundary, not a second line shape",
+  ],
+  [
     "ATTRIBUTE_CONTINUATION",
     "matches the two-character suffix of an attribute entry's VALUE, not a line: it is the one export here that is not a whole-line rule, and the line it belongs to is covered by the attribute-entry dimension",
   ],

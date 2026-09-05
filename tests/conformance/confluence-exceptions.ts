@@ -40,7 +40,6 @@
 export type Mechanism =
   | "listMarkerSpelling"
   | "tildeOpenDelimiter"
-  | "attributeListReplay"
   | "passthroughContent"
   | "descriptionItemHeldBreak"
   | "listContinuationJoin"
@@ -63,12 +62,6 @@ export const MECHANISM_REASONS: Readonly<Record<Mechanism, string>> = {
   // Ruby entirely (issue #64).
   tildeOpenDelimiter:
     "a tilde-spelled open block has no canonical delimiter to normalize onto and replays its source (issue #64)",
-  // The attribute list is replayed as the author wrote it, so a
-  // quoted positional value keeps its quotes. Normalizing needs the
-  // attrlist re-derived from the parsed attributes, which no printer
-  // path does yet.
-  attributeListReplay:
-    "an attribute list is replayed rather than re-derived from its parsed attributes",
   // docs/architecture.md, formatting policy case 1: the bytes inside
   // an inline passthrough are content. `renderedHtml` (tests/helpers.ts)
   // folds a line break outside <pre>, and its own KNOWN COST note
@@ -163,11 +156,6 @@ export const CONFLUENCE_EXCEPTIONS: Readonly<
     mechanism: "tildeOpenDelimiter",
     pairs: 23,
     sha256: "9fd26ccda99d10efca39a52e17384d1b465db367b9a8a5069b8ec7c0033b34aa",
-  },
-  "attributeSpelling/attrlist-quoted-positional": {
-    mechanism: "attributeListReplay",
-    pairs: 23,
-    sha256: "52f2041e806310e9e74a6a650290027c90b49fb33e96a055702c988526b5c9d0",
   },
   // The break falls INSIDE `+++ pass +++`, so it diverges in every
   // reflowed state; the two rows are the two interior positions.

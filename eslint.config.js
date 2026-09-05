@@ -16,6 +16,10 @@ const EXPECT_MAX_ARGS = 2;
 // own override below needs; see that override for why.
 const AST_MAX_LINES = 460;
 
+// `max-lines`'s ordinary ceiling raised to 500 for
+// scripts/metrics/shape-census.ts; see that override for why.
+const SHAPE_CENSUS_MAX_LINES = 500;
+
 // -1/0/1/2 as index arithmetic (the last element, an empty check,
 // the next slot) is clearer written inline than behind a named
 // constant (readability judgment, agreed 2026-08-22). See the
@@ -290,6 +294,29 @@ export default defineConfig(
       "max-lines": [
         "error",
         { max: AST_MAX_LINES, skipBlankLines: true, skipComments: true },
+      ],
+    },
+  },
+
+  // `max-lines` raised for scripts/metrics/shape-census.ts alone (450 ->
+  // 500): the file's length is roster-driven, not logic-driven - it is an
+  // exemption/classification registry (EXEMPT, GRID_EXEMPT, the container
+  // and perturbation rosters) that grows a few lines per recorded entry
+  // while the functions that check the rosters stay small and fixed. The
+  // ordinary ceiling exists to force LOGIC files to split at a seam before
+  // they grow unreadable; that pressure does not serve a file whose growth
+  // is one more entry in a list, so 500 gives the roster headroom without
+  // licensing logic growth past the ordinary ceiling.
+  {
+    files: ["scripts/metrics/shape-census.ts"],
+    rules: {
+      "max-lines": [
+        "error",
+        {
+          max: SHAPE_CENSUS_MAX_LINES,
+          skipBlankLines: true,
+          skipComments: true,
+        },
       ],
     },
   },

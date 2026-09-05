@@ -217,6 +217,66 @@ describe("canonicalAttrlist — one spelling of the interior", () => {
     // A declined interior comes back byte for byte.
     ['quote, "A B, c', 'quote, "A B, c'],
     ["a,\nb", "a,\nb"],
+    // A quoted positional value that carries nothing a bare value
+    // would lose unquotes: the parsed style is `ruby` either way
+    // (parseAttrlist always unquotes fields[0]), so replaying the
+    // quotes was a spelling the printer chose to keep, not a reading
+    // it needed to (confluence gate, `attrlistSpelling/
+    // attrlist-quoted-positional`). Red before this fix: canonicalAttrlist
+    // joined attrlistFields' own field spans unchanged, quotes and all.
+    ['source,"ruby"', "source,ruby"],
+    // The same unquoting applies to any field, not just the first.
+    ['"quote",who,from', "quote,who,from"],
+    // A quoted value that NEEDS its quotes stays quoted: an internal
+    // comma would otherwise split the field (already pinned above by
+    // the "A, B" row); a leading/trailing blank is data a bare value
+    // would lose at the field boundary...
+    ['quote,"  x  "', 'quote,"  x  "'],
+    // ...a value that would be read as `name=value` once bare is not
+    // the positional value it was quoted to stay...
+    ['"a=b",c', '"a=b",c'],
+    // ...one starting with a quote character would reopen quote
+    // scanning if printed bare...
+    [`"'x",c`, `"'x",c`],
+    // ...and an empty quoted value is left alone rather than
+    // collapsed to nothing between the commas.
+    ['quote,""', 'quote,""'],
+    // SINGLE-quoted fields are never unquoted, even where the value
+    // itself carries none of the four hazards above: Ruby applies
+    // "normal substitutions" (macros, replacements) to a
+    // single-quoted positional value and does not to a bare or
+    // double-quoted one - measured directly against the oracle
+    // (tests/format/attrlist-whitespace.test.ts and
+    // tests/conformance corpus both carry a render-level pin; a
+    // corpus row broke here before this guard existed:
+    // attributes_test.rb's "normal substitutions are performed on
+    // single-quoted positional attribute"). Unquoting is a spelling
+    // decision only a DOUBLE quote's semantics make safe.
+    ["quote,author,'ruby'", "quote,author,'ruby'"],
+    // The interior's FIRST field keeps its quotes when the bare
+    // value's leading character would stop the WHOLE `[...]` line
+    // from reading as an attribute line at all
+    // (ATTRLIST_LEADING_CHARACTER, src/parse/line-shapes.ts): measured
+    // directly against the oracle, `` [`d`] `` and `[*bold*]` are
+    // ordinary paragraph text, not metadata. Red before this guard:
+    // canonicalAttrlist unquoted any field whose value needed no
+    // quoting by the four hazards above, with no leading-character
+    // check at all.
+    ['"*bold*"', '"*bold*"'],
+    // A LATER field carries no such risk - only the interior's own
+    // first byte decides whether the LINE is an attribute line.
+    ['a,"*bold*"', "a,*bold*"],
+    // Ruby expands `{name}` INTO the attrlist string before
+    // AttributeList#parse ever runs, so a value that carries none of
+    // the four hazards above in its OWN bytes can still expand into
+    // one of them at render time. Red before `needsQuoting` declined
+    // on any `{`: canonicalAttrlist unquoted `"{author}"` since none
+    // of comma / boundary blank / leading quote / name=value fired
+    // against the literal bytes - see
+    // tests/format/block-attributes.test.ts for the render-level pin
+    // (`:author: Doe, John` splitting the attribution once unquoted).
+    ['quote,"{author}"', 'quote,"{author}"'],
+    ['"{alt}"', '"{alt}"'],
   ])("%j prints %j", (raw, canonical) => {
     expect(canonicalAttrlist(raw)).toBe(canonical);
   });

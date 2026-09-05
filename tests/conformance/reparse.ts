@@ -35,6 +35,7 @@
  * a verify-and-retry printer would have, and the reason to measure it
  * before building on it.
  */
+import { canonicalAttrlist } from "../../src/parse/attrlist.js";
 import { rstrip } from "../../src/parse/line-shapes.js";
 import { parse } from "../../src/parser.js";
 import { formatAdoc } from "../helpers.js";
@@ -282,12 +283,30 @@ function verbatimOf(value: string): string {
 }
 
 /**
- * An attribute list, with the blanks the printer strips taken out.
+ * An attribute list, projected through the printer's own
+ * canonicalization ({@link canonicalAttrlist}, src/parse/attrlist.ts):
+ * squashed to one whitespace run first (the reflow-level licence
+ * every other field gets), then comma-tightened and unquoted wherever
+ * the printer would - a positional value's quotes are one of the
+ * bytes the printer chooses now, same as its blanks, so this lens
+ * follows the SAME function rather than a second implementation of
+ * "what the printer normalizes" that could drift from it.
+ *
+ * COST OF FOLLOWING THE PRINTER: a recorded `"a"` and a recorded `a`
+ * now project identically here, so this lens is structurally
+ * incapable of witnessing a bug where unquoting a value CHANGES what
+ * it renders as (a single-quoted value's Ruby substitutions, an
+ * attribute reference that only becomes unsafe once Ruby expands it -
+ * `needsQuoting`, src/parse/attrlist.ts, is what actually stands guard
+ * against those). A green reparse ledger says the printer's
+ * canonicalization is CONSISTENT across a parse/format/reparse round
+ * trip; it says nothing about whether that canonicalization was safe
+ * to make in the first place.
  * @param value - the recorded attrlist interior
- * @returns the interior with each comma comma-tight
+ * @returns the interior in the printer's own canonical spelling
  */
 function attrlistOf(value: string): string {
-  return squash(value).replaceAll(/ *, */gv, ",");
+  return canonicalAttrlist(squash(value));
 }
 
 /** One projected document: its token sequence. */

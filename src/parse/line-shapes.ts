@@ -395,6 +395,20 @@ const LINE_COMMENT_SOURCE = "//(?!/)";
 const BLOCK_ATTRIBUTE_LINE_SOURCE = String.raw`\[(?:|[\w.#%\{,"'][^\n]*)\]`;
 
 /**
+ * The class Ruby's `BlockAttributeLineRx` requires of the FIRST
+ * character inside a block-attribute line's brackets - kept in sync
+ * with {@link BLOCK_ATTRIBUTE_LINE_SOURCE} by hand rather than
+ * derived from it (that source is a whole line's pattern; this is
+ * only its head), because attrlist.ts asks the narrower question
+ * before printing a quoted first entry bare: unquoting it to a value
+ * starting outside this class would change whether the WHOLE LINE
+ * still reads as an attribute line, not just which value it names
+ * (measured: `` [`d`] `` and `[*bold*]` read as ordinary text,
+ * `["d"]` and `[.role]` do not).
+ */
+export const ATTRLIST_LEADING_CHARACTER = /[\w.#%\{,"']/v;
+
+/**
  * Every delimited-block kind, one per `DELIMITED_BLOCKS` key. Written
  * out rather than derived from {@link DELIMITER_SOURCES} so that the
  * two check each other: a kind missing from either side is a type
