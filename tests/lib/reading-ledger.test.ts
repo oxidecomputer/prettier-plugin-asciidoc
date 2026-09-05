@@ -34,6 +34,18 @@ describe("readingFamily", () => {
     ["[admon:NOTE] -> [dlist:::]", "admonition-colon-run"],
     ["[indented] -> [text]", "tail-reading-flip"],
     ["[title] -> [text]", "tail-reading-flip"],
+    // A de-indented line coming back as a marker, in the three
+    // spellings measured over the depth-5 product once the sweep's
+    // alphabet carries an indented nested marker. The first two are
+    // the de-indented line itself landing inside a paragraph a `+`
+    // attached, where the reader keeps a foreign marker as
+    // unreflowable `textv`; the empty left side is the case where the
+    // indented line FOLDED into the prose run above it and so had no
+    // token of its own to lose. The third is the flip landing at a
+    // block start, where a marker line is a marker line outright.
+    ["[text] -> [textv]", "prose-reads-as-marker"],
+    ["[] -> [textv]", "prose-reads-as-marker"],
+    ["[text] -> [marker:unordered:*]", "prose-reads-as-marker"],
   ])("%s is %s", (signature, family) => {
     expect(readingFamily(signature)).toBe(family);
   });
@@ -60,12 +72,27 @@ describe("readingFamily", () => {
   // mechanism is that the `+` and the prose beside it are all that
   // entered the join. A `cont` lost alongside anything else got there
   // some other way and must not be counted against #43 - it lands in
-  // another family or, failing all three, in UNCLASSIFIED, where the
-  // generator refuses to write it and asks for a name.
+  // another family or, matching none of them, in UNCLASSIFIED, where
+  // the generator refuses to write it and asks for a name.
   test("a cont lost beside an admonition is not lone-plus-join", () => {
     expect(readingFamily("[cont admon:NOTE] -> [dlist:::]")).toBe(
       "admonition-colon-run",
     );
+  });
+
+  // prose-reads-as-marker is disjoint from the four beside it the same
+  // way, and these are the two crossings a reader would doubt: a
+  // marker on the winning side is not enough when a `cont` is on the
+  // losing one, and a `text` on the winning side is not a marker
+  // reading however the losing side was spelled.
+  test("a marker won beside a dropped cont stays continuation-dropped", () => {
+    expect(
+      readingFamily("[cont marker:unordered:* cont] -> [marker:unordered:*]"),
+    ).toBe("continuation-dropped");
+  });
+
+  test("an indented line flipping to text stays tail-reading-flip", () => {
+    expect(readingFamily("[indented] -> [text]")).toBe("tail-reading-flip");
   });
 
   test.each([
@@ -74,6 +101,22 @@ describe("readingFamily", () => {
     ["a nesting flatten", "[marker:unordered:**] -> [marker:unordered:*]"],
     ["a section title swallowed", "[section:1] -> []"],
     ["an unparseable signature", "not a signature"],
+    // #121 drops leading indent from lines of every shape, and
+    // prose-reads-as-marker claims only the ones that come back as a
+    // MARKER. A de-indented line that comes back as a delimiter or a
+    // section title got there by the same byte change and still has to
+    // be named and counted on its own, so the family must not reach
+    // it.
+    ["a de-indented line read as a delimiter", "[text] -> [delim:listing]"],
+    ["a de-indented line read as a section title", "[text] -> [section:1]"],
+    // Nor may it reach a losing side that was already structural: the
+    // claim is that PROSE gained the marker reading.
+    ["an indented reading turned marker", "[indented] -> [textv]"],
+    ["a block title turned marker", "[title] -> [marker:unordered:*]"],
+    // Nor a winning side carrying anything beside the marker: a
+    // signature where more moved than the one line's reading is a
+    // wider mechanism than this one.
+    ["a marker won alongside prose", "[text] -> [textv text]"],
   ])("%s is unclassified", (_name, signature) => {
     expect(readingFamily(signature)).toBeUndefined();
   });

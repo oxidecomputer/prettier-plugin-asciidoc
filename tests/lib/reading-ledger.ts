@@ -43,9 +43,9 @@ export interface ReadingFamily {
 }
 
 /**
- * The closed family enumeration. Four mechanisms, not five issues'
- * worth of unknowns - which is the measurement issue #58 was filed to
- * produce.
+ * The closed family enumeration. Named mechanisms, each with an issue
+ * behind it, rather than issues' worth of unknowns - which is the
+ * measurement issue #58 was filed to produce.
  *
  * A signature that classifies to none of them is UNCLASSIFIED, and
  * the generator refuses to write it: a ledger row nobody can name a
@@ -67,6 +67,10 @@ export const READING_FAMILIES: Readonly<Record<string, ReadingFamily>> = {
   "admonition-colon-run": {
     issue: "#45",
     what: "an admonition label split keeps surplus whitespace, and the re-read takes the residue as a description-list delimiter",
+  },
+  "prose-reads-as-marker": {
+    issue: "#121",
+    what: "a line the printer emits without its leading indent re-reads as a LIST MARKER where the indented line read as prose. Two spellings of the one reading, and which one appears depends only on where the de-indented line lands: at a block start it is a marker line outright, and inside a paragraph an earlier `+` attached it is the unreflowable foreign-marker text this projection spells `textv` (src/parse/lines/classify.ts keeps its column because the column decides what a later `+` means). The flip lands on the de-indented line itself, or on a line below it whose enclosing block the de-indent changed. This is #121's reading face: the indent is not carried through the AST, so the printer cannot put it back",
   },
 };
 
@@ -179,6 +183,109 @@ function isLonePlusJoin(
 }
 
 /**
+ * Is this token a line the reader took for a LIST MARKER?
+ *
+ * Two spellings, one reading, which is why the predicate below asks
+ * for either. `marker:` is a marker line met at a block start.
+ * `textv` is the same shape met inside an open paragraph, where the
+ * reader keeps it as text it may not reflow because the column it
+ * stands in decides what a later `+` means
+ * (`classifyInParagraph`, src/parse/lines/classify.ts, and the
+ * `textv` note in tests/lib/reading.ts).
+ * @param token - one projected token
+ * @returns whether it reads as a list marker
+ */
+function isMarkerReading(token: string): boolean {
+  return token === "textv" || token.startsWith("marker:");
+}
+
+/**
+ * Is this side the prose a de-indented line displaces - nothing at
+ * all, or the single `text` token it read as?
+ *
+ * Nothing at all is not an absence of evidence here: a `text` line
+ * that FOLDS into the run above it (tests/lib/reading.ts, `append`)
+ * contributes no token of its own, so a folded prose line gaining a
+ * marker reading spells an empty left side.
+ * @param side - the earlier reading's differing tokens
+ * @returns whether it is prose, folded or not
+ */
+function isDisplacedProse(side: readonly string[]): boolean {
+  return side.length === 0 || (side.length === 1 && side[0] === "text");
+}
+
+/**
+ * Is this signature the prose-reads-as-marker mechanism?
+ *
+ * Prose on the losing side, one marker reading on the winning side,
+ * and nothing else on either. The narrowness is the claim: #121 drops
+ * leading indent from lines of every shape, and only the ones that
+ * come back as a MARKER are this family - a de-indented line that
+ * comes back as a delimiter or a section title reached that by the
+ * same byte change but re-reads as something else, and it must be
+ * named and counted separately rather than folded in here.
+ *
+ * Disjoint from the other four BY CONSTRUCTION rather than by arm
+ * order: both continuation families need a `cont` on the losing side
+ * and admonition-colon-run needs an `admon:` there, where this one
+ * allows only `text` or nothing; and tail-reading-flip's winning side
+ * is `text`, which is never a marker reading.
+ * @param before - the earlier reading's differing tokens
+ * @param after - the later reading's differing tokens
+ * @returns whether the signature is that mechanism
+ */
+function isProseReadAsMarker(
+  before: readonly string[],
+  after: readonly string[],
+): boolean {
+  return (
+    after.length === 1 && isMarkerReading(after[0]) && isDisplacedProse(before)
+  );
+}
+
+/**
+ * Is this signature the admonition-colon-run mechanism?
+ *
+ * An admonition label on the losing side and a description-list
+ * delimiter on the winning one: the surplus whitespace a label split
+ * leaves behind, read back as a term's `::`.
+ * @param before - the earlier reading's differing tokens
+ * @param after - the later reading's differing tokens
+ * @returns whether the signature is that mechanism
+ */
+function isAdmonitionColonRun(
+  before: readonly string[],
+  after: readonly string[],
+): boolean {
+  return (
+    before.some((token) => token.startsWith("admon:")) &&
+    after.some((token) => token.startsWith("dlist:"))
+  );
+}
+
+/**
+ * Is this signature the tail-reading-flip mechanism?
+ *
+ * One token each side: a block title or a literal-paragraph start
+ * that a prose join below it turns into ordinary text.
+ * @param before - the earlier reading's differing tokens
+ * @param after - the later reading's differing tokens
+ * @returns whether the signature is that mechanism
+ */
+function isTailReadingFlip(
+  before: readonly string[],
+  after: readonly string[],
+): boolean {
+  const [only] = before;
+  return (
+    before.length === 1 &&
+    after.length === 1 &&
+    after[0] === "text" &&
+    (only === "indented" || only === "title")
+  );
+}
+
+/**
  * The tokens of one bracketed side.
  * @param side - the text between the brackets
  * @returns its tokens, empty for an empty side
@@ -226,6 +333,14 @@ function sidesOf(signature: string): {
  * A signature where the surrounding structure also moved fails that
  * equality and falls through to UNCLASSIFIED, where the generator
  * refuses to write it and asks for a name.
+ *
+ * prose-reads-as-marker is the same kind of construction, and its
+ * position in this sequence carries no weight either: it allows the
+ * losing side only `text` or nothing, where the two continuation
+ * families need a `cont` there and admonition-colon-run needs an
+ * `admon:`, and it needs a marker on the winning side, where
+ * tail-reading-flip needs `text`. No signature can reach it and
+ * another arm both.
  * @param signature - the reading diff
  * @returns the family key, or undefined for an unclassified signature
  */
@@ -237,19 +352,13 @@ export function readingFamily(signature: string): string | undefined {
   if (isContinuationDropped(before, after)) {
     return "continuation-dropped";
   }
-  if (
-    before.some((token) => token.startsWith("admon:")) &&
-    after.some((token) => token.startsWith("dlist:"))
-  ) {
+  if (isAdmonitionColonRun(before, after)) {
     return "admonition-colon-run";
   }
-  const [only] = before;
-  if (
-    before.length === 1 &&
-    after.length === 1 &&
-    after[0] === "text" &&
-    (only === "indented" || only === "title")
-  ) {
+  if (isProseReadAsMarker(before, after)) {
+    return "prose-reads-as-marker";
+  }
+  if (isTailReadingFlip(before, after)) {
     return "tail-reading-flip";
   }
   return undefined;

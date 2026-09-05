@@ -1165,12 +1165,13 @@ asserts.
 row is `{ document, pass, signature, family }`, sorted by document, and the
 family is a mechanism with an issue behind it, not "known to fail":
 
-| family               | mechanism                                                          | issue |
-| -------------------- | ------------------------------------------------------------------ | ----- |
-| lone-plus-join       | a lone `+` leaves the reading, dissolving the continuation         | #43   |
-| continuation-dropped | the `+` lines go and the list structure beside them does not       | #17   |
-| tail-reading-flip    | a prose join flips the reading of the line after it                | #65   |
-| admonition-colon-run | an admonition label split re-reads as a description-list delimiter | #45   |
+| family                | mechanism                                                           | issue |
+| --------------------- | ------------------------------------------------------------------- | ----- |
+| lone-plus-join        | a lone `+` leaves the reading, dissolving the continuation          | #43   |
+| continuation-dropped  | the `+` lines go and the list structure beside them does not        | #17   |
+| tail-reading-flip     | a prose join flips the reading of the line after it                 | #65   |
+| admonition-colon-run  | an admonition label split re-reads as a description-list delimiter  | #45   |
+| prose-reads-as-marker | a line printed without its leading indent re-reads as a list marker | #121  |
 
 `#43` on the first row is PROVENANCE, not an open bug. What #43 tracked was the
 corrupting variant - a JOIN landing on a dlist-shaped line and manufacturing a
@@ -1249,8 +1250,20 @@ go stale in one place.
 A family with no rows STAYS in the enumeration. It is what the classifier
 reaches for when the mechanism comes back, so deleting it would turn a
 regression into an unnamed signature the generator refuses to write rather than
-a row that names the issue. admonition-colon-run and tail-reading-flip are empty
-today.
+a row that names the issue. admonition-colon-run, tail-reading-flip and
+prose-reads-as-marker are empty today.
+
+prose-reads-as-marker is empty for a reason worth stating, because it is not the
+reason the other two are: the mechanism reproduces, and the sweep's alphabet is
+simply not able to spell it. Every symbol in `ALPHABET` starts at column 0
+except `  lit`, whose de-indented form is still prose, so no product document
+puts an INDENTED marker where the printer can drop its indent. Measured over an
+alphabet with `"  ** z"` added, the depth-5 product spells 63 rows of it, in
+three signatures: `[text] -> [textv]`, `[] -> [textv]` (the de-indented line
+itself, inside a paragraph a `+` attached, where the empty left side is the
+folded prose line that had no token to lose) and
+`[text] -> [marker:unordered:*]` (the flip landing at a block start). Those rows
+join the ledger with the alphabet that spells them, not before.
 
 To refresh after a fix: `bun run reading-ledger --write`, then say in the commit
 which family shrank and why. Expect large generated diffs tied to one-line
