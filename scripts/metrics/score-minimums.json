@@ -258,7 +258,7 @@
       "mutation": 86.6
     },
     "src/print/printer.ts": {
-      "coverage": 96.1,
+      "coverage": 97.1,
       "mutation": 93.2
     },
     "src/print/reflow.ts": {
