@@ -180,6 +180,7 @@ function closingLines(
       const opening = openingImage(entry.term, node.text);
       const body = inlineAtoms(node.text, entry.term.position.start.line, {
         atColumnZero: false,
+        markInFront: undefined,
       });
       // Text nodes that are all whitespace produce no atoms, so a text
       // array with children can still yield none - and then the

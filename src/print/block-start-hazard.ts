@@ -34,6 +34,7 @@
  */
 import { ASCII_WHITESPACE } from "../parse/line-shapes.js";
 import { type Atom, isBlockSyntaxAtLineStart } from "./reflow.js";
+import type { MarkInFront } from "./whitespace-fold.js";
 
 /**
  * Where a block's first atom lands, and - only where that is column 0
@@ -44,11 +45,22 @@ import { type Atom, isBlockSyntaxAtLineStart } from "./reflow.js";
  * printed prefix (a list item's marker, an admonition's `NOTE: `
  * label) can put no block syntax at column 0 at all, so no source line
  * of it is ever traded for a break.
+ *
+ * The prefixed arm carries a fact of its own for the same reason,
+ * mirrored: only a prefix can put a THEMATIC BREAK's first mark on
+ * the line in front of the block's words, so what that prefix spells
+ * is a question only this arm makes answerable
+ * ({@link MarkInFront}, src/print/whitespace-fold.ts).
  */
 export type BlockStart =
   | {
       /** A prefix the printer writes holds the column. */
       readonly atColumnZero: false;
+      /**
+       * The break mark the prefix writes, where it writes one;
+       * undefined for every prefix that spells no part of a rule.
+       */
+      readonly markInFront: MarkInFront | undefined;
     }
   | {
       /** The block's first atom opens its output line at column 0. */

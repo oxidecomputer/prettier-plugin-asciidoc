@@ -787,3 +787,290 @@ export function manufacturedChecklistRun(
   }
   return spellsThePrefixSpace(runs[1]) ? undefined : 1;
 }
+
+// ── The thematic break a fold would spell ──────────────────
+
+// The marks a thematic break is spelled with, and how many of them
+// its line holds. Asciidoctor reads the spelling through two
+// patterns - `ExtLayoutBreakRx` (rx.rb l.650,
+// `/^(?:'{3,}|<{3,}|([-*_])( *)\1\2\1)$/`) at column 0 and
+// `MarkdownThematicBreakRx` (rx.rb l.638, `/^ {0,3}([-*_])( *)\1\2\1$/`)
+// behind an indent - and both want THREE identical marks with EQUAL
+// runs of spaces between them and nothing else on the line.
+const BREAK_MARKS = new Set(["-", "*", "_"]);
+const BREAK_MARK_COUNT = 3;
+
+// A gap either pattern accepts between two marks: SPACES, and at
+// least one of them. A tab there is not one, which is why a tab in an
+// interior run is a fold this module refuses rather than a rule the
+// source already had.
+const SPACE_RUN = /^ +$/v;
+
+/**
+ * The break MARK a prefix the printer writes puts at the head of a
+ * block's first line, and how wide the SOURCE's own gap behind it
+ * was.
+ *
+ * Only a `-` or `*` list marker spells one: an ordered marker, a
+ * callout, a `NOTE: ` label, a description term and a span's opening
+ * mark all write a word no rule reads. The gap travels with it
+ * because the printer writes ONE space after a marker whatever the
+ * source wrote, so the source's own line and the printed one differ
+ * there, and only the source's answers whether the author already
+ * had a rule.
+ *
+ * A WIDTH and not the bytes, which is the one thing this cannot ask
+ * the reader for: no node records the run between a marker and its
+ * text. A gap holding a TAB therefore reads here as a gap of spaces,
+ * and a source line whose marker gap is a tab as wide as the value's
+ * run is folded as though it already spelled the rule. That line is
+ * text to Asciidoctor and the fold's output is an `<hr>` - the same
+ * loss the fold already had there before this rule existed, left
+ * where it stood rather than widened.
+ */
+export interface MarkInFront {
+  /** The mark itself, as the printer will write it. */
+  readonly mark: string;
+  /** Columns between it and the block's first word in the SOURCE. */
+  readonly sourceGapWidth: number;
+}
+
+/**
+ * What of the output line a value holds, which is what decides
+ * whether a fold of its runs can spell a whole rule.
+ */
+export type LineShare =
+  | {
+      /**
+       * Nothing a fold of this value writes can be a rule's whole
+       * line: an inline sibling shares the line, or the prefix in
+       * front of it spells no mark.
+       */
+      readonly holds: "noRuleHere";
+    }
+  | {
+      /** The value is the whole line, opening it at column 0. */
+      readonly holds: "theWholeLine";
+    }
+  | ({
+      /** The value is the rest of a line a break's mark opens. */
+      readonly holds: "behindAMark";
+    } & MarkInFront);
+
+/** The one answer with no payload, built once. */
+export const NO_RULE_HERE: LineShare = { holds: "noRuleHere" };
+
+// The runs standing BETWEEN a value's words, which is the set
+// `cutValue` (src/print/reflow.ts) hands the splitter: a run at either
+// EDGE is not between two words and is dropped there, so it is
+// dropped here too.
+const INTERIOR_RUNS = new RegExp(`${ASCII_WHITESPACE.source}+`, "gv");
+
+/**
+ * The runs between a value's words, in order.
+ * @param value - the node's raw source text.
+ * @returns the runs; `runs[index]` stands between `words[index]` and
+ *   `words[index + 1]`.
+ */
+function interiorRuns(value: string): readonly string[] {
+  return (
+    value
+      .replace(LEADING_RUN, "")
+      .replace(TRAILING_RUN, "")
+      .match(INTERIOR_RUNS) ?? []
+  );
+}
+
+/**
+ * Whether a run would reach the packed line as anything but the one
+ * space the join writes.
+ *
+ * NARROWER THAN {@link foldRewritesTheRun}, which is asked beside
+ * dashes, where a break the packer writes bounds the row as well as a
+ * space does and so counts as writing the run back. The question here
+ * is about the LINE the marks would share, and a break does not put
+ * them on one at all: it is the run this rule most needs to see
+ * rewritten.
+ * @param run - the run, as the source wrote it.
+ * @returns true when the join would not write the run back unchanged.
+ */
+function joinRewritesTheRun(run: string): boolean {
+  return run !== " ";
+}
+
+/**
+ * Whether the words are a break's marks: identical, one character
+ * each, and as many as the line still wants.
+ * @param words - the value's words, in order.
+ * @param wanted - how many marks the value must supply.
+ * @param mark - the mark they must be, or undefined for any of the
+ *   three.
+ * @returns true when the words spell them.
+ */
+function areBreakMarks(
+  words: readonly string[],
+  wanted: number,
+  mark: string | undefined,
+): boolean {
+  return (
+    words.length === wanted &&
+    BREAK_MARKS.has(words[0]) &&
+    (mark === undefined || words[0] === mark) &&
+    words.every((word) => word === words[0])
+  );
+}
+
+/**
+ * Whether the source's own line already spelled the rule, so the fold
+ * has nothing to take away.
+ *
+ * Both patterns want gaps of SPACES and want them EQUAL, so the two
+ * runs on the line decide it. Behind a marker the first of those runs
+ * is the marker's own, which the printer replaces with a single space
+ * either way, and the source's width is the only record of it
+ * ({@link MarkInFront}).
+ * @param runs - the runs between the value's words.
+ * @param inFront - the mark the prefix writes, or undefined at column
+ *   0, where the value holds every run on the line.
+ * @returns true when the source line was already a rule.
+ */
+function sourceLineSpelledTheRule(
+  runs: readonly string[],
+  inFront: MarkInFront | undefined,
+): boolean {
+  const gaps =
+    inFront === undefined
+      ? runs
+      : [" ".repeat(inFront.sourceGapWidth), ...runs];
+  return gaps.every((gap) => gap === gaps[0] && SPACE_RUN.test(gap));
+}
+
+/**
+ * Whether folding this value's runs would spell a THEMATIC BREAK on a
+ * line that did not spell one in the source.
+ *
+ * The fold writes ONE SPACE in a run's place, so the only rule the
+ * fold can manufacture is the single-spaced one: a line whose words
+ * are the three marks. The source's own gaps therefore decide it - a
+ * line whose gaps are already equal spaces IS the rule and has
+ * nothing to lose here, and every other spelling of the same three
+ * marks is TEXT to Asciidoctor until the fold makes the gaps agree.
+ *
+ * WIDER THAN THIS READER'S OWN VOCABULARY, and the divergence is the
+ * point. `THEMATIC_BREAK` (src/parse/line-shapes.ts) reads the spaced
+ * form for `_` and refuses it for `-` and `*`, because a spaced `-`
+ * or `*` line is an `UnorderedListRx` marker line that `parse_list`
+ * keeps inside its open list (#182). Asciidoctor's own `<hr>` does
+ * not care: at a BLOCK START `- - -` and `* * *` are rules to it, so
+ * a fold that writes one where the source had item text moves the
+ * render. The oracle binds results, so the question asked here is the
+ * ORACLE's - all three marks - not this reader's.
+ * @param value - the node's raw source text.
+ * @param words - its words, as the splitter produced them.
+ * @param share - what of the output line the value holds.
+ * @returns true when a fold here would write a rule the source's own
+ *   line did not spell.
+ */
+function foldSpellsAThematicBreak(
+  value: string,
+  words: readonly string[],
+  share: LineShare,
+): boolean {
+  if (share.holds === "noRuleHere") {
+    return false;
+  }
+  const inFront = share.holds === "behindAMark" ? share : undefined;
+  const wanted =
+    inFront === undefined ? BREAK_MARK_COUNT : BREAK_MARK_COUNT - 1;
+  // The WORDS answer first, and they answer for every text node in
+  // every document: only a value of two or three lone marks reaches
+  // the runs, so the cut below is paid for by the handful of nodes
+  // that could spell a rule rather than by all of them.
+  if (!areBreakMarks(words, wanted, inFront?.mark)) {
+    return false;
+  }
+  const runs = interiorRuns(value);
+  return (
+    runs.some((run) => joinRewritesTheRun(run)) &&
+    !sourceLineSpelledTheRule(runs, inFront)
+  );
+}
+
+/**
+ * The value's words, with every run kept whose fold would help spell
+ * a thematic break the source's line did not.
+ *
+ * Keeping the bytes is the whole remedy and it is always available:
+ * an unequal gap, a tab or a longer run left where the author wrote
+ * it is a line Asciidoctor reads exactly as it read the source's. The
+ * runs it CANNOT keep this way are the ones carrying a line break,
+ * which no atom may hold ({@link runKeepsItsBytes},
+ * src/print/reflow.ts); those are {@link breakMarkHeldOnItsLine}'s.
+ *
+ * BEHIND A MARKER the kept bytes are the value's and not the LINE's:
+ * the printer writes one space after a marker whatever the source
+ * wrote, so a source line that spelled the rule with WIDER gaps
+ * (`-  -  -`) is folded rather than kept - keeping it there would
+ * write `- -  -`, which is neither the source's line nor a rule.
+ * {@link sourceLineSpelledTheRule} is what separates the two, and the
+ * cases it cannot reach are the ones whose FIRST gap the marker owns
+ * (`-  - -`): the printer narrows that gap on its own and no refusal
+ * of a fold can widen it back. Those are the same reading gap #182
+ * records and are unchanged here.
+ * @param value - the node's raw source text.
+ * @param words - its words, as the splitter produced them.
+ * @param share - what of the output line the value holds.
+ * @returns the words, fused where a run must keep its bytes.
+ */
+export function fuseRunsSpellingABreak(
+  value: string,
+  words: readonly string[],
+  share: LineShare,
+): readonly string[] {
+  if (!foldSpellsAThematicBreak(value, words, share)) {
+    return words;
+  }
+  const runs = interiorRuns(value);
+  const packed: string[] = [words[0]];
+  // The first word has no run in front of it to keep, so the walk
+  // starts at the second and reads the run behind its predecessor.
+  for (let index = 1; index < words.length; index += 1) {
+    const run = runs[index - 1];
+    if (joinRewritesTheRun(run) && !run.includes("\n")) {
+      packed[packed.length - 1] += run + words[index];
+    } else {
+      packed.push(words[index]);
+    }
+  }
+  return packed;
+}
+
+/** What {@link breakMarkHeldOnItsLine} answers where no word is held. */
+export const NO_HELD_MARK = -1;
+
+/**
+ * The word that must open an output line of its own, so the packer's
+ * space does not join two source lines into a thematic break.
+ *
+ * The run carrying the author's line break is the one run
+ * {@link fuseRunsSpellingABreak} may not keep inside a word, so this
+ * is the same refusal made with the other move the printer has: the
+ * break the source wrote stays where the source wrote it, and the
+ * marks never share a line. Asked AFTER the fuse, so a value whose
+ * other runs were kept no longer spells the marks and holds nothing.
+ * @param value - the node's raw source text.
+ * @param words - its words, as the fuse left them.
+ * @param share - what of the output line the value holds.
+ * @returns the word's index, or {@link NO_HELD_MARK}.
+ */
+export function breakMarkHeldOnItsLine(
+  value: string,
+  words: readonly string[],
+  share: LineShare,
+): number {
+  if (!foldSpellsAThematicBreak(value, words, share)) {
+    return NO_HELD_MARK;
+  }
+  const broken = interiorRuns(value).findIndex((run) => run.includes("\n"));
+  return broken === NO_HELD_MARK ? NO_HELD_MARK : broken + 1;
+}

@@ -131,12 +131,16 @@ export const BLOCK_STRUCTURE_FAMILIES: ReadonlySet<string> = new Set([
   // carries this family. What is left for it is the spaced `-` and
   // `*` spellings (`- - -`, `* * *`), which are `UnorderedListRx`
   // marker lines as well and are left to the list rules on purpose
-  // (#182; THEMATIC_BREAK, src/parse/line-shapes.ts). Two more things
-  // this family covers, both pre-existing and neither a reading the
-  // pattern can fix: an INDENTED rule as a list item's rest line is
-  // joined into the item text where the oracle puts an `<hr>` inside
-  // the item, and the whitespace fold synthesizes a rule out of a
-  // spaced marker run that was text (#179).
+  // (#182; THEMATIC_BREAK, src/parse/line-shapes.ts). One more thing
+  // this family covers, pre-existing and not a reading the pattern
+  // can fix: an INDENTED rule as a list item's rest line is joined
+  // into the item text where the oracle puts an `<hr>` inside the
+  // item. The fold no longer manufactures a rule out of a spaced
+  // marker run that was text (#179); what survives of that is the
+  // gap a MARKER's own run holds (`-  - -`), which the printer
+  // narrows to one space and no refusal of a fold can widen back,
+  // and which is issue #191 - closing it means replaying the
+  // marker's own gap BYTES rather than normalizing them.
   "gap:md-thematic-break",
   // `## Section One`, `## Section One ##` (#63). The spelling is read
   // now and no entry carries this family; the name stays so that a

@@ -43,7 +43,6 @@ import {
   type Atom,
   HARD_BREAK_IMAGE,
   isBlockSyntaxAtLineStart,
-  splitWords,
   wordsToAtoms,
 } from "./reflow.js";
 import {
@@ -61,9 +60,12 @@ import { appendLiteralText, spanIsFlush } from "./literal-span.js";
 import { keptLeadingRun, keptTrailingRun } from "./whitespace-fold.js";
 import {
   appendWholeRun,
+  firstSourceLineWordCount,
   hasFollowingInlineSibling,
   hasPrecedingInlineSibling,
+  keepBreakBetweenMarks,
   leadingBoundary,
+  lineShareOf,
   neighboursOf,
   ridesOnWhatFollows,
   ridesOnWhatIsWritten,
@@ -141,45 +143,6 @@ export function hardBreakOwnsItsLine(
   return (
     previous?.type === "text" && LINE_START_BEFORE_BREAK.test(previous.value)
   );
-}
-
-/**
- * How many leading words of this text node sit on the enclosing
- * BLOCK's first source line. Feeds wordsToAtoms' dlist guard: a
- * `term::` word from a later source line is plain text where it
- * stands, but would become a description-list term if reflow packed
- * it onto the block's first output line.
- *
- * Source positions rather than a scan of earlier siblings at every
- * level: `Node.position` is required on every AST node (see
- * src/ast.ts) and is accurate inside nested spans, so one line
- * comparison replaces a recursive sibling walk that would also have
- * to reason about each ancestor's own newlines. A hazard word nested in
- * `*…*` belongs to the paragraph's line numbering, not the span's, so
- * the line compared against is the BLOCK's — stopping at the span would
- * silently disable the guard for `a line\n*term:: x*`.
- * @param node - The text node being printed.
- * @param cursor - where the node sits, for the block's first line.
- * @param words - The node's whitespace-split words, so the "no line
- *   break anywhere" answer costs no second split.
- * @returns The count of leading words still on the block's first
- *   source line; `words.length` when the whole node is on it.
- */
-function firstSourceLineWordCount(
-  node: TextNode,
-  cursor: Cursor,
-  words: readonly string[],
-): number {
-  if (node.position.start.line !== cursor.blockStartLine) {
-    // The node itself begins on a later source line: none of its words
-    // are on the block's first line.
-    return 0;
-  }
-  const firstNewline = node.value.indexOf("\n");
-  if (firstNewline === -1) {
-    return words.length;
-  }
-  return splitWords(node.value.slice(0, firstNewline)).length;
 }
 
 // How a text node OPENS when a list continuation is its first line: a
@@ -270,7 +233,8 @@ function appendText(
   node: TextNode,
 ): Boundary {
   const neighbours = neighboursOf(cursor);
-  const words = wordsOfText(node.value, neighbours);
+  const share = lineShareOf(cursor, neighbours);
+  const words = wordsOfText(node.value, neighbours, share);
   // A kept edge run rides inside the atom at its end, so the join
   // there stays the glue it already was and the printer writes nothing
   // of its own between the two nodes.
@@ -311,6 +275,7 @@ function appendText(
     opensWithContinuationLine: opensWithContinuationLine(node),
     edgeRuns: { leading, trailing },
   });
+  keepBreakBetweenMarks(atoms, node.value, words, share);
   out.push(withBoundary(atoms[0], lead), ...atoms.slice(1));
   return trailingBoundary(node, words, glueToSibling, trailing);
 }
@@ -671,7 +636,7 @@ function appendSpan(
     blockNodes: cursor.blockNodes,
     // Content inside a span opens no block line of its own: the marks
     // around it hold the column whatever the block does.
-    blockStart: { atColumnZero: false },
+    blockStart: { atColumnZero: false, markInFront: undefined },
     literalInterior,
   });
   // The span's own whitespace lives INSIDE its marks: content whitespace

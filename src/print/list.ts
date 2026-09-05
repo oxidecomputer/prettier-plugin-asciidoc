@@ -11,7 +11,7 @@ import type {
   ListNode,
   TrailingContinuation,
 } from "../ast.js";
-import { MARKER_OFFSET } from "../constants.js";
+import { FIRST_COLUMN, MARKER_OFFSET } from "../constants.js";
 import {
   CONTINUATION_LINE,
   LITERAL_LINE,
@@ -33,10 +33,17 @@ import {
   type PrintOptions,
   type PrintPath,
 } from "./blocks.js";
+import type { MarkInFront } from "./whitespace-fold.js";
 
 const {
   builders: { hardline },
 } = doc;
+
+// The unordered markers that are also a thematic break's mark. `-`
+// and `*` are both; the nested spellings (`**`, `***`) are longer
+// than one character and so write no mark, and no ordered marker or
+// callout is one at all.
+const BREAK_MARKERS = new Set(["-", "*"]);
 
 /**
  * Prints a list node: items separated by hard line
@@ -385,6 +392,50 @@ function guardedAtoms(
 }
 
 /**
+ * The break MARK this item's marker line puts in front of the item's
+ * text, where it puts one ({@link MarkInFront},
+ * src/print/whitespace-fold.ts).
+ *
+ * `-` and `*` are the two unordered markers that are also a thematic
+ * break's mark, so a one-character marker of either kind writes the
+ * rule's first third and the item's own text can write the rest. A
+ * CHECKBOX rules the line out whatever the marker is: the four
+ * characters the printer writes behind the marker are not a mark.
+ * Every other marker - an ordered one, a callout, a nested `**` -
+ * writes a word no rule reads.
+ *
+ * The GAP is the source's, read off the columns: the printer writes
+ * one space after the marker whatever the author wrote, so the
+ * author's own width is what says whether the marker line was already
+ * a rule, and it is nowhere else in the tree. The text has to START on
+ * the marker's line for the columns to mean that; a text node opening
+ * on a later line is behind a marker with no text of its own, which is
+ * no marker line at all.
+ * @param node - the item node.
+ * @param indentedMarker - the marker as the printer will write it,
+ *   its own indent included.
+ * @returns the mark and the source's gap, or undefined.
+ */
+function markInFrontOfText(
+  node: ListItemNode,
+  indentedMarker: string,
+): MarkInFront | undefined {
+  const head = node.text.at(0);
+  if (
+    node.checkbox !== undefined ||
+    !BREAK_MARKERS.has(node.markerSpelling) ||
+    head?.position.start.line !== node.position.start.line
+  ) {
+    return undefined;
+  }
+  return {
+    mark: node.markerSpelling,
+    sourceGapWidth:
+      head.position.start.column - FIRST_COLUMN - indentedMarker.length,
+  };
+}
+
+/**
  * Prints a single list item to Doc IR.
  *
  * Produces marker + space + text content, with the text packed by THE
@@ -441,6 +492,7 @@ export function printListItem(
   // The marker written below holds column 0 of the item's first line.
   const atoms = inlineAtoms(node.text, node.position.start.line, {
     atColumnZero: false,
+    markInFront: markInFrontOfText(node, indentedMarker),
   });
   // The hazard, as a pure predicate over the finished node: reflow
   // may not push leading metadata onto the first rest line.

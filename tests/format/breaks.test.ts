@@ -50,25 +50,120 @@ describe("markdown thematic break formatting", () => {
     expect(await formatAdoc(out)).toBe(out);
   });
 
-  // RECORDED DIVERGENCE (#179), pinned here so the repair has a
-  // witness rather than a description. The whitespace fold collapses
-  // the interior run of a line whose words are three marks, and the
-  // collapsed spelling IS the rule - so the FIRST pass already moves
-  // the render, and it did so at 3802ad26 as well: the oracle reads
-  // `_ _  _` as a paragraph and `_ _ _` as an `<hr>`. What the break
-  // vocabulary added is the SECOND pass: `_ _ _` is a break to this
-  // reader now, so it normalizes to `'''` and the format stops being
-  // a fixed point. Both passes are pinned and NEITHER is asserted
-  // correct; delete this row when #179 is fixed.
-  test("a folded spaced rule is not a fixed point", async () => {
-    const first = await formatAdoc("_ _  _\n");
-    expect(first).toBe("_ _ _\n");
-    expect(await formatAdoc(first)).toBe("'''\n");
-    // The render moved on the first pass, which is the half #179 owns
-    // and the half that predates the break vocabulary.
-    expect(await renderedHtml("_ _  _\n")).toContain("<p>");
-    expect(await renderedHtml(first)).toContain("<hr>");
+  // The fold may not MANUFACTURE the rule out of text (#179). Every
+  // row below is a line of three marks the oracle reads as text
+  // because its gaps disagree; folding them to single spaces spells
+  // the rule, and the render moved on the first pass. Red before the
+  // fix: `- -   -` and `* *   *` printed `- - -` and `* * *`, and
+  // every `_` row printed `_ _ _` and then normalized to `'''` on a
+  // second pass. The remedy is the author's own bytes, so each row
+  // asserts them.
+  test.each([
+    // Behind a `-` or `*` marker the line is a list item to us and to
+    // the oracle both, and the marker writes the rule's first mark.
+    ["a dash marker's own text", "- -   -\n"],
+    ["a star marker's own text", "* *   *\n"],
+    // `_` is no marker, so these are paragraphs.
+    ["an interior run", "_ _  _\n"],
+    ["an interior run on the other side", "_  _ _\n"],
+    ["a longer interior run", "_ _   _\n"],
+    ["a tab, which no rule's gap may be", "_ _\t_\n"],
+    // Gaps that AGREE, so the equality half of the source's own
+    // reading says nothing and the SPACES-only half is what answers:
+    // both rx spell the gap `( *)`, so a line of uniform TABS is a
+    // paragraph to the oracle. Folding it would move the render and
+    // then normalize to `'''`; the row above never reaches that half,
+    // because its two gaps already differ.
+    ["uniform tabs, which agree and are still no rule", "_\t_\t_\n"],
+    // No interior run to keep at all: the fold JOINS two source
+    // lines, and the break the author wrote is what holds them apart.
+    ["a two-line join", "_ _\n_\n"],
+    ["a two-line join behind a marker", "- -\n-\n"],
+  ])("%s keeps its bytes rather than spelling a rule", async (_n, input) => {
+    const out = await formatAdoc(input);
+    expect(out).toBe(input);
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
   });
+
+  // The other side of the same rule: a line whose gaps AGREE is the
+  // author's own rule, and the fold still normalizes it. Red if the
+  // refusal above were written without the source's own gaps - the
+  // printer writes one space after a marker, so keeping `-  -` there
+  // would print `- -  -`, which is neither the source's line nor a
+  // rule.
+  test.each([
+    ["a spaced dash rule", "-  -  -\n", "- - -\n"],
+    ["a spaced star rule", "*  *  *\n", "* * *\n"],
+    ["a tight dash rule", "- - -\n", "- - -\n"],
+  ])("%s still normalizes", async (_n, input, expected) => {
+    const out = await formatAdoc(input);
+    expect(out).toBe(expected);
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+
+  // The marks are only a rule when they are the WHOLE line and there
+  // are exactly THREE of them, so a marker of another kind, a fourth
+  // mark, a word beside them or an inline sibling leaves the fold
+  // alone. Red the other way: an over-wide refusal would freeze the
+  // author's whitespace here for nothing.
+  test.each([
+    ["a marker of another mark", "* -  -\n", "* - -\n"],
+    ["an ordered marker", ". -  -\n", ". - -\n"],
+    ["a word behind the marks", "_ _  _ x\n", "_ _ _ x\n"],
+    ["a word in front of them", "x _ _  _\n", "x _ _ _\n"],
+    ["a marker line of three marks", "* _ _  _\n", "* _ _ _\n"],
+    // A FOURTH mark is not the spelling: both rx want three and stop.
+    // The rows above differ from the marks in what a word HOLDS; this
+    // one differs only in how many there are.
+    ["a fourth mark", "_ _  _ _\n", "_ _ _ _\n"],
+    // A real inline SIBLING on the line, which the rows above have
+    // not got - each of them is one text node whose word count
+    // already answers. Here the marks are the whole of their own
+    // node and the span beside them is what makes the line longer.
+    ["an inline sibling on the line", "*b*\n_ _  _\n", "*b* _ _ _\n"],
+  ])("%s folds as usual", async (_n, input, expected) => {
+    const out = await formatAdoc(input);
+    expect(out).toBe(expected);
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+
+  // The same fold, met at a block start that is not the document's:
+  // inside a list item's continuation and inside a delimited block.
+  test.each([
+    ["a list item's continuation", "* a\n+\n_ _  _\n"],
+    ["a list inside one", "* a\n+\n- -   -\n"],
+    ["a quote block", "[quote]\n____\n_ _  _\n____\n"],
+    ["an attribute line above it", ":attr: x\n\n_ _  _\n"],
+  ])("%s keeps its bytes too", async (_n, input) => {
+    const out = await formatAdoc(input);
+    expect(out).toBe(input);
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+
+  // WHAT THE KEPT BREAK COSTS when the item is nested, recorded
+  // rather than asserted correct: the break is rebuilt at COLUMN 0,
+  // so the author's indented rest line comes back flush left. The
+  // reading is unchanged and so is the render - a lone mark at column
+  // 0 is no marker, `UnorderedListRx` wanting whitespace AND text
+  // (rx.rb l.284), and the line is the item's text either way - and
+  // the output is a fixed point, so nothing walks it further. Pinned
+  // so the de-indent is a choice with a witness.
+  test.each([
+    ["one level", "* a\n  - -\n  -\n", "* a\n  - -\n-\n"],
+    ["two levels", "* a\n** b\n   - -\n   -\n", "* a\n** b\n   - -\n-\n"],
+  ])(
+    "a kept break under a nested item de-indents its line, %s",
+    async (_n, input, expected) => {
+      const out = await formatAdoc(input);
+      expect(out).toBe(expected);
+      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+      expect(await formatAdoc(out)).toBe(out);
+    },
+  );
 
   // The corruption the issue measured: the rule and the prose beside
   // it were one paragraph, so the break left the render and its

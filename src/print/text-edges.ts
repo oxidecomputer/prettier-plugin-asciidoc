@@ -1,22 +1,23 @@
 /**
- * What stands BESIDE a text node, and what its edges therefore ask of
- * the printer - the counterpart of `span-edges.ts`, which answers the
- * same two questions for a span.
+ * What stands BESIDE a text node, and what its surroundings therefore
+ * ask of the printer - the counterpart of `span-edges.ts`, which
+ * answers the same two questions for a span.
  *
- * Four answers live here. Which nodes stand on either side of it and
- * whether they share the block's packing; the words it splits into,
- * where a neighbour is what makes one of its runs load-bearing; the
- * join its LEADING whitespace asks for; and what has to happen to a
- * trailing `+` so it never lands bare at the end of an output line.
- * All four are read by `appendText` (inline.ts) at the moment it turns
- * one text node into atoms, and all four are facts about the node's
- * NEIGHBOURS rather than about its bytes, which is why they are one
- * module and not four.
+ * Which nodes stand on either side of it and whether they share the
+ * block's packing; the words it splits into, where a neighbour or the
+ * line it will be written on is what makes one of its runs
+ * load-bearing; how much of that line it holds; how many of its words
+ * were on the BLOCK's first source line; the join its LEADING
+ * whitespace asks for; and what has to happen to a trailing `+` so it
+ * never lands bare at the end of an output line. Every one of them is
+ * read by `appendText` (inline.ts) at the moment it turns one text
+ * node into atoms, and none is a fact about the node's bytes alone,
+ * which is why they are one module and not six.
  *
  * Split out of inline.ts, whose `max-lines` ceiling the edge rules
- * issue #147 added left no room in.
+ * issue #147 added left no room in, and which still has none.
  */
-import type { InlineNode } from "../ast.js";
+import type { InlineNode, TextNode } from "../ast.js";
 import {
   atomOf,
   isBlockSyntaxAtLineStart,
@@ -30,8 +31,13 @@ import {
   type Cursor,
 } from "./atom-join.js";
 import {
+  breakMarkHeldOnItsLine,
   fuseRunsBesideReferences,
+  fuseRunsSpellingABreak,
   keptWholeRun,
+  NO_HELD_MARK,
+  NO_RULE_HERE,
+  type LineShare,
   type Neighbours,
 } from "./whitespace-fold.js";
 
@@ -90,22 +96,145 @@ export function neighboursOf(cursor: Cursor): Neighbours {
 }
 
 /**
+ * How many leading words of this text node sit on the enclosing
+ * BLOCK's first source line. Feeds wordsToAtoms' dlist guard: a
+ * `term::` word from a later source line is plain text where it
+ * stands, but would become a description-list term if reflow packed
+ * it onto the block's first output line.
+ *
+ * Source positions rather than a scan of earlier siblings at every
+ * level: `Node.position` is required on every AST node (see
+ * src/ast.ts) and is accurate inside nested spans, so one line
+ * comparison replaces a recursive sibling walk that would also have
+ * to reason about each ancestor's own newlines. A hazard word nested in
+ * `*…*` belongs to the paragraph's line numbering, not the span's, so
+ * the line compared against is the BLOCK's — stopping at the span would
+ * silently disable the guard for `a line\n*term:: x*`.
+ * @param node - The text node being printed.
+ * @param cursor - where the node sits, for the block's first line.
+ * @param words - The node's whitespace-split words, so the "no line
+ *   break anywhere" answer costs no second split.
+ * @returns The count of leading words still on the block's first
+ *   source line; `words.length` when the whole node is on it.
+ */
+export function firstSourceLineWordCount(
+  node: TextNode,
+  cursor: Cursor,
+  words: readonly string[],
+): number {
+  if (node.position.start.line !== cursor.blockStartLine) {
+    // The node itself begins on a later source line: none of its words
+    // are on the block's first line.
+    return 0;
+  }
+  const firstNewline = node.value.indexOf("\n");
+  if (firstNewline === -1) {
+    return words.length;
+  }
+  return splitWords(node.value.slice(0, firstNewline)).length;
+}
+
+/**
+ * How much of its output line a text node's value holds - the fact
+ * the thematic-break rules read ({@link LineShare},
+ * src/print/whitespace-fold.ts).
+ *
+ * A node with an inline sibling on either side shares the line with
+ * it, so no fold of its runs writes a whole line. Alone, the block's
+ * own start says the rest: at column 0 the value IS the line, and
+ * behind a prefix only a mark that prefix writes can make a rule of
+ * it.
+ * @param cursor - where the node sits.
+ * @param neighbours - the nodes on either side of it.
+ * @returns what of the line the value holds.
+ */
+export function lineShareOf(cursor: Cursor, neighbours: Neighbours): LineShare {
+  if (neighbours.inFront !== undefined || neighbours.behind !== undefined) {
+    return NO_RULE_HERE;
+  }
+  const { blockStart } = cursor;
+  if (blockStart.atColumnZero) {
+    return { holds: "theWholeLine" };
+  }
+  return blockStart.markInFront === undefined
+    ? NO_RULE_HERE
+    : { holds: "behindAMark", ...blockStart.markInFront };
+}
+
+/**
  * A text node's words, as the printer will write them.
  *
  * `splitWords` (src/print/reflow.ts) is asked about ONE value and
  * cannot see the tree, so where a neighbour completes a run's meaning
  * the split it returns is amended here - the one place that holds both
  * the value and the nodes beside it.
+ *
+ * The two amendments never contend: the reference rule wants a
+ * neighbour beyond one of the node's edges, and the break rule wants
+ * the node to have no neighbour at all.
  * @param value - the node's raw source text.
  * @param neighbours - the nodes on either side of it.
+ * @param share - what of the output line the value holds.
  * @returns its words, in order, each carrying any run that must ride
  *   inside it.
  */
 export function wordsOfText(
   value: string,
   neighbours: Neighbours,
+  share: LineShare,
 ): readonly string[] {
-  return fuseRunsBesideReferences(value, splitWords(value), neighbours);
+  const words = fuseRunsBesideReferences(value, splitWords(value), neighbours);
+  return fuseRunsSpellingABreak(value, words, share);
+}
+
+/**
+ * Keep the author's line break between two of a thematic break's
+ * marks, so the packer's space cannot join them into one.
+ *
+ * The other half of the same refusal ({@link fuseRunsSpellingABreak},
+ * src/print/whitespace-fold.ts) keeps a run's bytes inside a word,
+ * which no run carrying a line break may do. This is the move that is
+ * left, and it is the same trade the block-start net makes
+ * (src/print/block-start-hazard.ts): the source's own break, put back
+ * where the source had it.
+ *
+ * A `"literal"` break rebuilds that line at COLUMN 0, which is not
+ * always the column the author used. Under a NESTED item it is not:
+ * `* a` then two spaces and `- -` then two spaces and `-` comes back
+ * with its last line flush left. What the choice keeps is the
+ * READING, which is what the trade is for - the line is the item's
+ * text at any indent, because a lone mark is no marker (the paragraph
+ * below), and it holds the render and the fixed point in every nested
+ * shape measured. The `"hard"` spelling would write the block's
+ * continuation indent instead, which is bytes the source never had
+ * wherever the author was already flush left. Pinned either way, as a
+ * characterization row in tests/format/breaks.test.ts.
+ *
+ * `noBreakBefore` is cleared for the reason the block-start net
+ * clears it: a lone `-` or `*` is fused backwards because it would be
+ * a list marker at a line start, and the line this puts it back on is
+ * the source's own, where a marker with no text after it is no marker
+ * at all (`UnorderedListRx` wants whitespace AND text, rx.rb l.284).
+ * @param atoms - the node's atoms (mutated).
+ * @param value - the node's raw source text.
+ * @param words - its words, as the fuse left them.
+ * @param share - what of the output line the value holds.
+ */
+export function keepBreakBetweenMarks(
+  atoms: Atom[],
+  value: string,
+  words: readonly string[],
+  share: LineShare,
+): void {
+  const held = breakMarkHeldOnItsLine(value, words, share);
+  if (held === NO_HELD_MARK) {
+    return;
+  }
+  atoms[held] = {
+    ...atoms[held],
+    breakBefore: "literal",
+    noBreakBefore: false,
+  };
 }
 
 /**

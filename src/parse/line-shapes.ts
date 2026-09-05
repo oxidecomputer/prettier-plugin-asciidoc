@@ -930,14 +930,14 @@ export const BLOCK_MACRO =
  *
  * THE `_` ARM IS THE FIRST ROW IN THIS REGISTRY WHOSE MATCH DEPENDS
  * ON INTERIOR SPACING, and the printer's whitespace fold normalizes
- * interior spacing. So a line the oracle reads as TEXT (`_ _  _`, an
- * unequal gap) folds to one this reader reads as a break, and the
- * second pass normalizes it to `'''`. The render already moved on
- * the first pass and did so before this arm existed - the fold is
- * what synthesizes the spelling - so what the arm adds is the
- * idempotency half. Recorded as issue #179 with a pinned witness in
- * tests/format/breaks.test.ts, not repaired here: the repair belongs
- * to the fold.
+ * interior spacing. A line the oracle reads as TEXT (`_ _  _`, an
+ * unequal gap) would fold to one this arm reads as a break, moving
+ * the render on the first pass and then normalizing to `'''` on the
+ * second. The refusal that stops it is the fold's, not this
+ * registry's: `fuseRunsSpellingABreak` (src/print/whitespace-fold.ts)
+ * keeps such a run's bytes, and asks the ORACLE's question - all
+ * three marks - rather than this pattern's, so it covers the `-` and
+ * `*` spellings this arm excludes as well.
  */
 export const THEMATIC_BREAK =
   /^(?:'{3,}| {0,3}(?:(?<mark>[\-*])\k<mark>\k<mark>|_(?<gap> *)_\k<gap>_))$/v;
