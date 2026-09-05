@@ -210,17 +210,29 @@ describe("the kept break is the SOURCE LINE's, not a fragment's", () => {
   );
 
   // The deeper marker runs, where the span the first line opens takes
-  // only PART of the run: `***` is the mark `**` and a `*` the span
-  // holds, `#####` the mark `##` and a `###`. The composed first atom
-  // is the whole run either way, so it is the packed LINE that is
-  // block syntax - a depth-3 list item, a `<h5>` - and the net puts
-  // the source's line back.
-  test.each(["***\nb c\n", "#####\nb c\n", "####\nb## c\n"])(
+  // only PART of the run: `#####` is the mark `##` and a `###` the
+  // span holds. The composed first atom is the whole run, so it is
+  // the packed LINE that is block syntax - a `<h5>` - and the net
+  // puts the source's line back.
+  //
+  // The `*` twin of these rows was `***`, and it left when the
+  // classifier learned the Markdown thematic break (issue #23): that
+  // line is a BREAK now, so no span opens on it and the net never
+  // gets the question. Its row stands below, on the reading.
+  test.each(["#####\nb c\n", "####\nb## c\n"])(
     "%j keeps the author's line under a longer marker run",
     async (input) => {
       await expectRow(input, input);
     },
   );
+
+  // `***` alone is the thematic break the oracle reads, not the head
+  // of a span: the reader takes it as a break and the text below it
+  // stays a block of its own, so the canonical `'''` comes back with
+  // a blank line under it.
+  test("a lone *** is read as the break it is", async () => {
+    await expectRow("***\nb c\n", "'''\n\nb c\n");
+  });
 
   // The control: the recorded fact is TRUE here too (`**a**` is one
   // word), and the line still packs, because the trade is made only

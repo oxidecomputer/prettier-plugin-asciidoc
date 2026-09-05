@@ -515,8 +515,6 @@ export type GapFamilyCase =
  * with every grid green.
  */
 export const GAP_FAMILY_CASES: Readonly<Record<string, GapFamilyCase>> = {
-  // A markdown rule, in the spellings the ledger's own examples use.
-  "gap:md-thematic-break": { restLines: ["---", "___", "_ _ _"] },
   // A markdown blockquote, lazy continuation included.
   "gap:md-quote": { restLines: ["> quoted", "> more"] },
   // A markdown ATX heading, with and without the closing marker.

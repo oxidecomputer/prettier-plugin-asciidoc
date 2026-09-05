@@ -96,6 +96,14 @@ const CONSTRUCTS: Array<[string, string]> = [
   ["dlist term (bare ::)", "x :: definition"],
   ["dlist term (multi-word)", "a multi word term:: definition"],
   ["thematic break", "'''"],
+  // The Markdown rules, one row per mark: each is its own alternative
+  // of `MARKDOWN_THEMATIC_BREAK_CHARS`, so a row per mark is a row per
+  // branch. The SPACED spellings are deliberately absent - the
+  // registry leaves them as text, and its own note says why
+  // (THEMATIC_BREAK, src/parse/line-shapes.ts).
+  ["markdown thematic break (hyphens)", "---"],
+  ["markdown thematic break (asterisks)", "***"],
+  ["markdown thematic break (underscores)", "___"],
   ["page break", "<<<"],
   ["section marker", "== Section"],
 ];

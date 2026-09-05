@@ -126,7 +126,11 @@ export const BLOCK_STRUCTURE_FAMILIES: ReadonlySet<string> = new Set([
   "gap:ordered-marker",
   // `> quoted` blocks (#22).
   "gap:md-quote",
-  // `---` / `***` Markdown thematic breaks (#23).
+  // Markdown thematic breaks (#23). The tight spellings `---`, `***`
+  // and `___` are read now and no entry carries this family; what is
+  // left for it is the SPACED spelling (`- - -`), which collides with
+  // `UnorderedListRx` and is left as text on purpose (THEMATIC_BREAK,
+  // src/parse/line-shapes.ts).
   "gap:md-thematic-break",
   // `## Section One`, `## Section One ##` (#63).
   "gap:md-atx-heading",

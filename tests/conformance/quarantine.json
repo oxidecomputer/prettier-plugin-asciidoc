@@ -276,10 +276,6 @@
     "fails": ["fidelity"],
     "issue": "UNTRIAGED"
   },
-  "reader_test.rb#should not skip front matter if ending delimiter is not found#0": {
-    "fails": ["fidelity"],
-    "issue": "#23"
-  },
   "sections_test.rb#document title with multiline syntax and unicode characters#0": {
     "fails": ["fidelity"],
     "issue": "#16"

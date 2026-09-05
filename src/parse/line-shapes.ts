@@ -805,11 +805,45 @@ export const BLOCK_MACRO =
   /^(?<name>[A-Za-z]\w*)::(?<target>[^\[\n]*)\[(?<attrlist>[^\]\n]*)\]$/v;
 
 /**
- * A thematic break (`'''`). Mirrors `next_block`'s
- * `LAYOUT_BREAK_CHARS` lookup guarded by `uniform?` and a length
- * greater than two.
+ * A thematic break, in both spellings `next_block` reads: the
+ * AsciiDoc `'''` and the Markdown rules `---`, `***` and `___`.
+ *
+ * The AsciiDoc arm mirrors `next_block`'s `LAYOUT_BREAK_CHARS` lookup
+ * (asciidoctor.rb l.300-303) guarded by `uniform?` and a length
+ * greater than two. The Markdown arm mirrors the other half of
+ * `HYBRID_LAYOUT_BREAK_CHARS` (l.305-311), which `next_block` reaches
+ * through `ExtLayoutBreakRx` (rx.rb l.650,
+ * `/^(?:'{3,}|<{3,}|([-*_])( *)\1\2\1)$/`) at column 0 and through
+ * `MarkdownThematicBreakRx` (rx.rb l.638, `/^ {0,3}([-*_])( *)\1\2\1$/`)
+ * from its `this_line.start_with? ' '` arm (parser.rb l.575-585). The
+ * page-break alternative of `ExtLayoutBreakRx` is {@link PAGE_BREAK}.
+ *
+ * THREE MARKS EXACTLY, where the AsciiDoc arm takes a run: a fourth
+ * `-`, `*` or `_` makes a `DELIMITED_BLOCKS` key (`----`, `****`,
+ * `____`), and `is_delimited_block?` runs ahead of the break arm.
+ * Three characters are below its tip length, so it refuses them
+ * (parser.rb l.985-1005) and the break arm gets the line.
+ *
+ * The Markdown arm's indent is SPACES ONLY, at most three, because a
+ * tab-led line takes `next_block`'s `TAB` arm, which never asks the
+ * question; the AsciiDoc arm takes no indent at all, because the
+ * indented arm only looks up `MARKDOWN_THEMATIC_BREAK_CHARS`.
+ *
+ * NARROWER THAN THE ORACLE, deliberately, in one place: the two rx
+ * above also read the marks SEPARATED by equal runs of spaces
+ * (`- - -`, `*  *  *`), and this pattern does not. A spaced `-` or
+ * `*` form is simultaneously an `UnorderedListRx` marker line, and
+ * which reading wins is not a question about the LINE: `next_block`
+ * takes the break, but `parse_list`'s own loop (parser.rb l.1114)
+ * never reaches `next_block` and keeps the line as a sibling item of
+ * the open list. Reading it as a break here would turn `* a` /
+ * `- - -` / `* b` into a list split by a rule, which renders
+ * differently from the oracle's three items. The spelling therefore
+ * stays paragraph text, exactly as it was before the tight spellings
+ * were modelled, until the sibling rule can answer for it.
  */
-export const THEMATIC_BREAK = /^'{3,}$/v;
+export const THEMATIC_BREAK =
+  /^(?:'{3,}| {0,3}(?<mark>[\-*_])\k<mark>\k<mark>)$/v;
 
 /** A page break (`<<<`). Same `LAYOUT_BREAK_CHARS` rule. */
 export const PAGE_BREAK = /^<{3,}$/v;

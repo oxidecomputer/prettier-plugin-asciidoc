@@ -72,22 +72,24 @@ describe("front matter formatting", () => {
   // ADVERSARIAL NEIGHBOURS: `---` opens front matter only at the top
   // of a document and only with a partner fence below it. These
   // documents hold the same three characters and are NOT front
-  // matter, and the pin is that the formatter goes on treating them
-  // exactly as it did - which for the first two is the paragraph
-  // reflow that the Markdown thematic break, unmodelled, still gets
-  // (issue #23). Expected output, not bytes, is the assertion: a read
-  // that overreached here would preserve them instead, and the row
-  // would fail rather than quietly improve.
+  // matter, and the pin is what the formatter makes of them instead.
+  // The first two used to reflow the fence into the prose beside it,
+  // which is the render loss issue #23 named; a lone `---` is the
+  // Markdown thematic break the oracle reads there, so it comes back
+  // as the canonical `'''` and the text below it keeps its own block.
+  // Expected output, not bytes, is the assertion: a read that
+  // overreached here would preserve them instead, and the row would
+  // fail rather than quietly improve.
   test.each([
     [
       "no closing fence",
       "---\nlayout: post\n\nBody.\n",
-      "--- layout: post\n\nBody.\n",
+      "'''\n\nlayout: post\n\nBody.\n",
     ],
     [
       "a paragraph stands above the fences",
       "para\n\n---\na: 1\n---\n",
-      "para\n\n--- a: 1 ---\n",
+      "para\n\n'''\n\na: 1 ---\n",
     ],
     ["the fence carries a word", "--- a\nb: 1\n---\n", "--- a b: 1 ---\n"],
   ])("%s is not front matter", async (_name, input, expected) => {

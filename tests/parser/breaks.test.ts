@@ -54,6 +54,53 @@ describe("thematic break parsing", () => {
   });
 });
 
+// The Markdown rules `next_block` reads through
+// `HYBRID_LAYOUT_BREAK_CHARS`. Red before the registry carried them:
+// every row below parsed as a paragraph, so `---` followed by prose
+// joined into one line and the `<hr>` left the render (issue #23).
+describe("markdown thematic break parsing", () => {
+  test.each([
+    ["three hyphens", "---\n"],
+    ["three asterisks", "***\n"],
+    ["three underscores", "___\n"],
+    ["one leading space", " ---\n"],
+    ["three leading spaces", "   ***\n"],
+  ])("%s is a thematic break", (_name, input) => {
+    const { children } = parse(input);
+    expect(children).toHaveLength(1);
+    expect(children[0].type).toBe("thematicBreak");
+  });
+
+  // The complement, spelling by spelling, because a break pattern is
+  // only pinned when what it refuses is pinned too.
+  test.each([
+    // A fourth mark is a `DELIMITED_BLOCKS` key, and
+    // `is_delimited_block?` runs ahead of the break arm.
+    ["four hyphens open a listing block", "----\nx\n----\n", "delimitedBlock"],
+    ["four asterisks open a sidebar", "****\nx\n****\n", "parentBlock"],
+    ["four underscores open a quote", "____\nx\n____\n", "parentBlock"],
+    // Two marks are the open-block delimiter, not a rule.
+    ["two hyphens open an open block", "--\nx\n--\n", "parentBlock"],
+    // A fourth leading space is `LiteralParagraphRx`'s territory:
+    // `MarkdownThematicBreakRx` allows at most three. A literal
+    // paragraph is a delimited block in paragraph form.
+    [
+      "four leading spaces are a literal paragraph",
+      "    ---\n",
+      "delimitedBlock",
+    ],
+    // The spaced spellings the registry deliberately leaves as text;
+    // see THEMATIC_BREAK's own note in src/parse/line-shapes.ts.
+    ["spaced hyphens are a list item", "- - -\n", "list"],
+    ["spaced underscores are text", "_ _ _\n", "paragraph"],
+    // Mixed marks are neither rule nor delimiter.
+    ["mixed marks are text", "-*-\n", "paragraph"],
+  ])("%s", (_name, input, type) => {
+    const { children } = parse(input);
+    expect(children[0]?.type).toBe(type);
+  });
+});
+
 describe("page break parsing", () => {
   // Basic page break: exactly three less-than signs.
   test("basic page break", () => {

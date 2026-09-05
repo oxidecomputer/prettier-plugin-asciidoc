@@ -28,6 +28,40 @@ describe("thematic break formatting", () => {
   });
 });
 
+// Issue #23. The three Markdown rules normalize to the AsciiDoc
+// spelling, which is what a break already does for its own run
+// (`''''` becomes `'''`), and the render is the same `<hr>` either
+// way. Red before the classifier read them: `---` next to prose was
+// reflow-joined into it and the `<hr>` left the render, and `***`
+// joined fabricated a list from the packed line.
+describe("markdown thematic break formatting", () => {
+  test.each([
+    ["hyphens", "---\n"],
+    ["asterisks", "***\n"],
+    ["underscores", "___\n"],
+    ["an indented rule", "  ---\n"],
+  ])("a rule of %s normalizes to the AsciiDoc break", async (_n, input) => {
+    const out = await formatAdoc(input);
+    expect(out).toBe("'''\n");
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+
+  // The corruption the issue measured: the rule and the prose beside
+  // it were one paragraph, so the break left the render and its
+  // characters became inline markup in the joined line.
+  test.each([
+    ["a rule above prose", "___\nb c\n", "'''\n\nb c\n"],
+    ["a rule below prose", "b c\n\n---\n", "b c\n\n'''\n"],
+    ["a rule between paragraphs", "a\n\n***\n\nb\n", "a\n\n'''\n\nb\n"],
+  ])("%s keeps its own block", async (_name, input, expected) => {
+    const out = await formatAdoc(input);
+    expect(out).toBe(expected);
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+});
+
 describe("page break formatting", () => {
   // Basic page break preserved.
   test("basic page break preserved", async () => {

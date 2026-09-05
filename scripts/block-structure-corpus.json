@@ -2,10 +2,6 @@
   "oracle": "@asciidoctor/core 4.0.11",
   "regenerate": "Measured, not authored: regenerate with `bun run block-structure --write` whenever the oracle pin or the parser moves, then read the diff - it is the artifact that says what a change did to our conformance.",
   "cases": {
-    "api_test.rb#find_by should return Array of blocks that match style criteria#0": {
-      "family": "gap:md-thematic-break",
-      "signature": "paragraph=>thematic_break"
-    },
     "api_test.rb#should load input IO#0": {
       "family": "gap:setext-title",
       "signature": "+heading; -example"
@@ -257,14 +253,6 @@
     "document_test.rb#document with doctitle defined as attribute entry#0": {
       "family": "oracle:doctitle-attribute",
       "signature": "+heading"
-    },
-    "document_test.rb#does not honor htmlsyntax attribute in document header if not followed by backend attribute#0": {
-      "family": "gap:md-thematic-break",
-      "signature": "paragraph=>thematic_break"
-    },
-    "document_test.rb#honor htmlsyntax attribute in document header if followed by backend attribute#0": {
-      "family": "gap:md-thematic-break",
-      "signature": "paragraph=>thematic_break"
     },
     "document_test.rb#should apply replacements substitution to value of mantitle attribute used in DocBook output#0": {
       "family": "oracle:manpage-doctype",
@@ -673,10 +661,6 @@
     "reader_test.rb#should not skip front matter by default#0": {
       "family": "oracle:front-matter",
       "signature": "+paragraph; heading=>thematic_break"
-    },
-    "reader_test.rb#should not skip front matter if ending delimiter is not found#0": {
-      "family": "gap:md-thematic-break",
-      "signature": "+thematic_break"
     },
     "sections_test.rb#atx section title with leading marker#0": {
       "family": "gap:md-atx-heading",

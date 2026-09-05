@@ -712,19 +712,28 @@ describe("the boundaries of the reflow verdict", () => {
   // Rest lines Asciidoctor opens a block on and this registry's
   // classifier reads as text, so no composition of the interrupting
   // sets can refuse them. Red before the registry carried the shape
-  // rule: `t:: def` / `---` joined and the `<hr>` went with it, and
+  // rule: `t:: def` / `_ _ _` joined and the `<hr>` went with it, and
   // `t:: def` / `~~~~` joined and the OPEN block went with it. The
-  // first two are also the two rows the whole-LINE test answers for
-  // alone, since their hazard spans words.
+  // first is also the row the whole-LINE test answers for alone,
+  // since its hazard spans words.
   test.each([
     ["a spaced markdown rule", "t:: def\n_ _ _\n"],
     ["a markdown blockquote", "t:: def\n> quote\n"],
-    ["a bare markdown rule", "t:: def\n---\n"],
-    ["the underscore rule", "t:: def\n___\n"],
     ["a four-character fence", "t:: def\n~~~~\n"],
     ["a longer one", "t:: def\n~~~~~~\n"],
   ])("%s replays", async (_n, input) => {
     await expectStable(input, undefined, { printWidth: 40 });
+  });
+
+  // The two rules the classifier now READS (issue #23): the same join
+  // is refused, and because the line is a break rather than an
+  // unmodelled head it comes back in the canonical `'''` spelling
+  // instead of its own bytes.
+  test.each([
+    ["a bare markdown rule", "t:: def\n---\n"],
+    ["the underscore rule", "t:: def\n___\n"],
+  ])("%s becomes the canonical break", async (_n, input) => {
+    await expectStable(input, "t:: def\n'''\n", { printWidth: 40 });
   });
 
   // A `\u{2022}` bullet is a third unordered marker to `UnorderedListRx`
