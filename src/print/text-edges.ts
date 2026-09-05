@@ -136,6 +136,26 @@ export function ridesOnWhatIsWritten(
 }
 
 /**
+ * Whether a run at the TAIL of this text node has anything to ride
+ * against - the mirror of {@link ridesOnWhatIsWritten}.
+ *
+ * An inline sibling in the same block packing is one such thing; the
+ * closing mark of an enclosing span is the other, and it stands
+ * behind the run whatever the siblings say (issue #147). A node with
+ * neither ENDS the block, where the reader's own rstrip takes the run
+ * (`prepare_lines`, reader.rb l.582).
+ *
+ * Read by every trailing-run rule, so it is spelled once: the whole
+ * of it is the two things that can carry the bytes, and a caller that
+ * re-derived it would be stating that list a second time.
+ * @param cursor - where the node sits.
+ * @returns true when the run's bytes have somewhere to go.
+ */
+export function ridesOnWhatFollows(cursor: Cursor): boolean {
+  return hasFollowingInlineSibling(cursor) || cursor.enclosing !== undefined;
+}
+
+/**
  * Emit an ALL-WHITESPACE text node: the break opportunity its
  * whitespace stands for, or the bytes themselves where a replacement
  * row reads them.
@@ -150,7 +170,7 @@ export function ridesOnWhatIsWritten(
  * @param boundary - the join standing in front of the node.
  * @param value - the node's raw source text, all whitespace.
  * @param cursor - where the node sits, for its neighbours and for
- *   whether the run has anything to ride against.
+ *   whether the run has anything to ride against on either side.
  * @returns the join this node leaves behind.
  */
 export function appendWholeRun(
@@ -160,7 +180,12 @@ export function appendWholeRun(
   cursor: Cursor,
 ): Boundary {
   const glued = ridesOnWhatIsWritten(out, boundary, cursor);
-  const whole = keptWholeRun(value, glued, neighboursOf(cursor));
+  const whole = keptWholeRun(
+    value,
+    glued,
+    ridesOnWhatFollows(cursor),
+    neighboursOf(cursor),
+  );
   if (whole === "") {
     return strongerBoundary(boundary, "break");
   }

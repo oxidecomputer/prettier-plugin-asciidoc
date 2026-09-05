@@ -65,6 +65,7 @@ import {
   hasPrecedingInlineSibling,
   leadingBoundary,
   neighboursOf,
+  ridesOnWhatFollows,
   ridesOnWhatIsWritten,
   trailingPlusPolicy,
   wordsOfText,
@@ -298,15 +299,10 @@ function appendText(
     words,
     lead,
   );
-  // `glueToSibling` carries the one fact the trailing run needs as
-  // well: whether an inline sibling follows in this block. The
-  // closing mark of an enclosing span is the other thing that can
-  // stand behind the run and carry its bytes, and it stands there
-  // whatever the siblings say (issue #147).
   const trailing = keptTrailingRun(
     node.value,
     words,
-    glueToSibling || cursor.enclosing !== undefined,
+    ridesOnWhatFollows(cursor),
     neighbours,
   );
   const atoms = wordsToAtoms(words, {

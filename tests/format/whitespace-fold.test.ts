@@ -19,7 +19,7 @@
  * moves nothing.
  */
 import { describe, expect, test } from "vitest";
-import { formatAdoc, renderedHtml } from "../helpers.js";
+import { expectFormatted, formatAdoc, renderedHtml } from "../helpers.js";
 
 /**
  * Byte-identical, render-equal, idempotent - the run survived.
@@ -517,5 +517,148 @@ describe("a run carrying a line break folds, guard by guard", () => {
     expect(output).toBe(input);
     expect(await renderedHtml(output)).toBe(await renderedHtml(input));
     expect(await formatAdoc(output)).toBe(output);
+  });
+});
+
+/**
+ * Issue #167: the character the row eats out of a run beside a
+ * REFERENCE.
+ *
+ * `sub_replacements` (substitutors.rb l.282-286) runs each row of the
+ * table as a gsub, and `do_replacement` (substitutors.rb l.1450-1457)
+ * answers a `:none` row with the replacement text alone - so the
+ * whole match is written over, boundary character included, and a run
+ * of two characters beside the dashes leaves one where a run of one
+ * leaves none.
+ *
+ * Where the dashes arrive by attribute expansion the printer cannot
+ * see them at all: `:attributes` runs before `:replacements` in
+ * `NORMAL_SUBS` (substitutors.rb l.16), so the row reads a value this
+ * tree does not hold. The refusal is therefore about the NEIGHBOUR,
+ * and the question asked of it is now whether the fold rewrites the
+ * run's bytes at all rather than only whether it changes what the row
+ * MATCHES.
+ *
+ * Red before the fix, measured: `See a  {d} b` formatted to
+ * `See a {d} b`, whose render is `See a&#8201;&#8212;&#8201;b` where
+ * the input's is `See a &#8201;&#8212;&#8201;b` - a space short.
+ * Every row of the first group lost its character the same way.
+ */
+describe("a run beside a reference keeps what the row would leave", () => {
+  // Both boundary classes of the em-dash row are non-capturing and its
+  // replacement is three bare entities and nothing else
+  // (`(?: |\n|^|\\)--(?: |\n|$)`, asciidoctor.rb l.498), which is what
+  // leaves the row nothing to write its boundary back from.
+  test.each([
+    ["a two-space run in front of the reference", ":d: --\n\nSee a  {d} b\n"],
+    ["a two-space run behind it", ":d: --\n\nSee a {d}  b\n"],
+    ["a wide run at both ends", ":d: --\n\nSee a  {d}  b\n"],
+    ["a three-space run", ":d: --\n\nSee a   {d} b\n"],
+    // The value spells only half the dashes and the author's own byte
+    // spells the other half, so the run stands against a word the
+    // splitter saw as a single dash (issue #154's fused spelling).
+    ["the reference supplies the second dash", ":h: -\n\na  -{h} b\n"],
+    ["the reference supplies the first", ":h: -\n\na  {h}- b\n"],
+    // A run with no word of its own to ride inside: the whole text
+    // node between two siblings is the run.
+    ["a run between two references", ":d: --\n\nx {d}  {d} y\n"],
+    ["a run between a span and a reference", ":d: --\n\nx `c`  {d} y\n"],
+    // The value spells no dashes at all and the bytes are kept anyway:
+    // the printer does not resolve attribute values.
+    ["a value that is not a dash", ":d: zz\n\nSee a  {d} b\n"],
+  ])("%s", async (_name, input) => {
+    await expectByteFaithful(input);
+  });
+
+  // The narrowness: a run that is ALREADY the single character the
+  // fold writes is a fixed point, so the common spellings do not grow
+  // bytes, and a run that ends the block is rstripped by the reader
+  // (`prepare_lines`, reader.rb l.582) before any row reads it.
+  test.each([
+    [
+      "one space on each side",
+      ":d: --\n\nSee a {d} b\n",
+      ":d: --\n\nSee a {d} b\n",
+    ],
+    [
+      "a run the reader strips off the end of the block",
+      ":d: --\n\nSee a {d}   \n",
+      ":d: --\n\nSee a {d}\n",
+    ],
+    [
+      "a tab away from any reference",
+      ":d: --\n\nSee a\tb {d} c\td\n",
+      ":d: --\n\nSee a b {d} c d\n",
+    ],
+  ])("%s", async (_name, input, expected) => {
+    await expectFormatted(input, expected);
+  });
+
+  // The block-end refusal costs bytes nowhere the printer would have
+  // written them, so only a WIDTH can tell it from keeping the run:
+  // the atom `{d}` and four spaces is seven wide and does not fit
+  // beside `aaaa bbbb`, while the reference alone does. Keeping the
+  // run therefore breaks the line, the printer strips the run off the
+  // end it now stands at, and the shorter line joins back on the next
+  // format - measured without the refusal: `aaaa bbbb\n{d}`, which
+  // formats to `aaaa bbbb {d}` and is no fixed point.
+  test("a run at the end of the block does not widen its atom", async () => {
+    await expectFormatted(
+      ":d: --\n\naaaa bbbb {d}    \n",
+      ":d: --\n\naaaa bbbb {d}\n",
+      { printWidth: 13 },
+    );
+  });
+});
+
+/**
+ * The break the packer writes is not the space the fold writes.
+ *
+ * A row CONSUMES the character it matches, so one space can bound one
+ * row and no more: in `w -- {d} y` with `:d: --` the first pair's
+ * match takes the space behind it and the second pair, left with a
+ * dash in front of its own, renders literally. A newline is consumed
+ * the same way - but the position behind it is a line start, and the
+ * row's `^` alternative (asciidoctor.rb l.498) bounds a row there
+ * while consuming nothing. So a break between two things that can
+ * each spell the dashes arms a row the author's space left disarmed.
+ *
+ * Red before the fix, measured at printWidth 10: `wwwwwwww -- {d} y`
+ * formatted to `wwwwwwww --` and `{d} y` on two lines, whose render
+ * carries TWO em dashes where the input's carries one and a literal
+ * pair. Keeping the run is what forbids the break; where the run is
+ * already one space that costs no bytes, only the break opportunity.
+ */
+describe("no break stands between two spellings of the dashes", () => {
+  // Each row carries the width at which the packer chose the break
+  // that armed the row; the shapes are otherwise the same document.
+  test.each([
+    [
+      "dashes the row wrote, then a reference",
+      ":d: --\n\nwwwwwwww -- {d} y\n",
+      10,
+    ],
+    ["two references", ":d: --\n\nwwwwwwwwwwww {d} {d} y\n", 16],
+    [
+      "an escaped pair, then a reference",
+      ":d: --\n\nwwwwwwww \\-- {d} y\n",
+      14,
+    ],
+    ["a word between them", ":d: --\n\nwwwwwwww a -- {d} y\n", 14],
+  ])("%s", async (_name, input, printWidth) => {
+    // No byte pin: what the rule owes is a render, and which line the
+    // packer moves the break to is its own business.
+    const output = await formatAdoc(input, { printWidth });
+    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(output, { printWidth })).toBe(output);
+  });
+
+  // The narrowness: a break in front of a lone reference is free,
+  // because the space it replaces was the boundary the row consumed
+  // and the newline is consumed in its place.
+  test("a break in front of a lone reference still happens", async () => {
+    expect(
+      await formatAdoc(":d: --\n\nwwwwwwwwww {d} y\n", { printWidth: 10 }),
+    ).toBe(":d: --\n\nwwwwwwwwww\n{d} y\n");
   });
 });

@@ -11,7 +11,21 @@
  * the author never wrote. A rule that fired takes its boundary
  * character WITH it, so what the run is left with is a second thing
  * the fold can get wrong, and a run of two characters is not the same
- * run as one.
+ * run as one. The BREAK the packer writes instead of a space is a
+ * third: a newline is a boundary the way a space is, but the position
+ * behind it is also a line start, which bounds a rule while consuming
+ * nothing at all, so a break bounds two rules where a space bounds
+ * one.
+ *
+ * Only one DIRECTION of that asymmetry is answered here. Writing a
+ * break where the source held a space is refused ({@link
+ * breakArmsARow}), because refusing means keeping bytes and keeping
+ * bytes is what this module does. REMOVING a break the source held
+ * loses the line start the second rule fired on, and that is open
+ * under issue #180: the remedy is a break the printer HOLDS rather
+ * than bytes inside an atom, which is the packer's to give and not
+ * this module's - the same answer the line-break limitation on
+ * {@link edgeRun} already gives.
  *
  * This module holds those rules so the splitter that walks a value's
  * words (`splitWords`, src/print/reflow.ts) asks about a run rather
@@ -183,6 +197,113 @@ function hidesItsBytes(node: InlineNode | undefined): boolean {
  */
 function isEmDashReference(node: InlineNode | undefined): boolean {
   return node?.type === "characterReference" && node.value === EM_DASH;
+}
+
+/**
+ * Whether this neighbour can stand the row's dashes hard against the
+ * run: the reference the row itself wrote ({@link isEmDashReference}),
+ * or a reference whose value the printer cannot read
+ * ({@link hidesItsBytes}). Either way the character beside the run is
+ * a dash, and what the row does with the run is the neighbour's
+ * business rather than the node's own words'.
+ * @param node - the neighbour, or undefined where there is none.
+ * @returns true when the dashes could stand at the run's edge.
+ */
+function neighbourSpellsTheDashes(node: InlineNode | undefined): boolean {
+  return isEmDashReference(node) || hidesItsBytes(node);
+}
+
+/**
+ * What stands at ONE edge of a run: a word of the text node's own
+ * value, or the sibling beyond the node's edge. The two rules below
+ * ask the same question of either, and a run has one of each kind at
+ * most - a node's leading run has a sibling in front and a word
+ * behind, its trailing run the mirror, and a node that is nothing but
+ * the run has a sibling on both sides.
+ */
+type RunEdge =
+  | {
+      /** A word of the node's own value stands here. */
+      readonly at: "word";
+      /** That word. */
+      readonly word: string;
+    }
+  | {
+      /** The run reaches the node's edge and a sibling stands here. */
+      readonly at: "sibling";
+      /** That sibling, or undefined where there is none. */
+      readonly node: InlineNode | undefined;
+    };
+
+/**
+ * Whether whatever stands at this edge has already EATEN the run's
+ * character there.
+ *
+ * A row consumes its boundary, so the character is gone from the
+ * render and cannot bound a second row: in `a -- -- b` the first
+ * pair's match takes the space behind it, and the second pair, left
+ * with a dash in front of its own, renders literally.
+ *
+ * The word arm answers on the SPELLING alone and so over-keeps by one
+ * shape: the escape row fires only where the character behind the
+ * dashes is a space, a newline or the line end, so a word ending
+ * `\--` in front of a TAB ate nothing and needs no refusal. Reading
+ * the run to tell the two apart would buy back bytes and no render,
+ * which is the trade this module makes the other way everywhere else.
+ * @param edge - what stands in front of the run.
+ * @returns true when a row on that side took the character.
+ */
+function eatsTheRunsCharacter(edge: RunEdge): boolean {
+  return edge.at === "word"
+    ? edge.word.endsWith(ESCAPED_EM_DASH)
+    : neighbourSpellsTheDashes(edge.node);
+}
+
+/**
+ * Whether the dashes at this edge still WANT a boundary - dashes
+ * whose row has not fired, and which a boundary appearing beside them
+ * would arm.
+ *
+ * The reference the row already wrote is not one of them: it fired,
+ * which means it had its boundary, and a break cannot give it a
+ * second. Only a value the printer cannot read and a `--` left
+ * standing as a word can be waiting for one.
+ * @param edge - what stands behind the run.
+ * @returns true when a boundary there would admit the replacement.
+ */
+function wantsTheRunsCharacter(edge: RunEdge): boolean {
+  return edge.at === "word" ? edge.word === EM_DASH : hidesItsBytes(edge.node);
+}
+
+/**
+ * Whether writing a LINE BREAK in this run's place would arm a row
+ * that the run's own bytes leave disarmed.
+ *
+ * The fold and the packer write different things, and only one of
+ * them is a character. A space is consumed by the row that matches
+ * it and can therefore bound ONE row and no more; a newline is
+ * consumed the same way, but the position BEHIND it is a line start,
+ * and the row's `^` alternative (asciidoctor.rb l.498) bounds a row
+ * there while consuming nothing. So dashes whose only candidate
+ * boundary is a character an earlier row already ate stand literal on
+ * one line and render an em dash on two: `w -- {d} y` with `:d: --`
+ * renders one em dash and two literal dashes, and the same words
+ * broken after the first pair render two em dashes.
+ *
+ * Keeping the run is what forbids the break, and where the run is
+ * already the single space the fold would write that costs no bytes
+ * at all - only the break opportunity, which is the whole point.
+ *
+ * This is the WRITING direction only. A break the source already
+ * held, which the fold removes, loses a line start the same way and
+ * is open under issue #180; the module docstring says why the remedy
+ * is not here.
+ * @param inFront - what stands in front of the run.
+ * @param behind - what stands behind it.
+ * @returns true when a break there would change the render.
+ */
+function breakArmsARow(inFront: RunEdge, behind: RunEdge): boolean {
+  return eatsTheRunsCharacter(inFront) && wantsTheRunsCharacter(behind);
 }
 
 /** The inline nodes standing on either side of a text node. */
@@ -358,10 +479,12 @@ export function keptLeadingRun(
     words[0],
     words.length === 1 && dashesFuseBehind(value, words, neighbours.behind),
   );
+  const inFront: RunEdge = { at: "sibling", node: neighbours.inFront };
+  const behind: RunEdge = { at: "word", word: behindTheRun };
   const kept =
     runOpensEmDash(run, behindTheRun) ||
-    (hidesItsBytes(neighbours.inFront) && runClosesEmDash(EM_DASH, run)) ||
-    (isEmDashReference(neighbours.inFront) && foldRewritesTheRun(run));
+    (neighbourSpellsTheDashes(neighbours.inFront) && foldRewritesTheRun(run)) ||
+    breakArmsARow(inFront, behind);
   return kept ? run : "";
 }
 
@@ -399,10 +522,12 @@ export function keptTrailingRun(
     last,
     words.length === 1 && dashesFuseInFront(value, words, neighbours.inFront),
   );
+  const inFront: RunEdge = { at: "word", word: inFrontOfTheRun };
+  const behind: RunEdge = { at: "sibling", node: neighbours.behind };
   const kept =
     runClosesEmDash(inFrontOfTheRun, run) ||
-    (hidesItsBytes(neighbours.behind) && runOpensEmDash(run, EM_DASH)) ||
-    (isEmDashReference(neighbours.behind) && foldRewritesTheRun(run));
+    (neighbourSpellsTheDashes(neighbours.behind) && foldRewritesTheRun(run)) ||
+    breakArmsARow(inFront, behind);
   return kept ? run : "";
 }
 
@@ -423,6 +548,12 @@ export function keptTrailingRun(
  * @param value - the node's raw source text, all whitespace.
  * @param glued - whether the run has anything to ride against, the
  *   same fact {@link keptLeadingRun} calls `gluedInFront`.
+ * @param followed - whether anything stands behind the run, the same
+ *   fact {@link keptTrailingRun} takes under that name. A run with
+ *   nothing behind it ENDS the block, where the reader's own rstrip
+ *   takes it (`prepare_lines`, reader.rb l.582) before any row reads
+ *   a boundary, so its bytes are in no render and keeping them only
+ *   widens an atom nothing can break.
  * @param neighbours - the inline siblings on either side of the node.
  * @returns the bytes to keep, or the empty string where the fold is
  *   safe.
@@ -430,18 +561,20 @@ export function keptTrailingRun(
 export function keptWholeRun(
   value: string,
   glued: boolean,
+  followed: boolean,
   neighbours: Neighbours,
 ): string {
-  if (!glued || value.includes("\n")) {
+  if (!glued || !followed || value.includes("\n")) {
     return "";
   }
-  const dashesWritten =
-    isEmDashReference(neighbours.inFront) ||
-    isEmDashReference(neighbours.behind);
+  const inFront: RunEdge = { at: "sibling", node: neighbours.inFront };
+  const behind: RunEdge = { at: "sibling", node: neighbours.behind };
+  const dashesBeside =
+    neighbourSpellsTheDashes(neighbours.inFront) ||
+    neighbourSpellsTheDashes(neighbours.behind);
   const kept =
-    (hidesItsBytes(neighbours.inFront) && runClosesEmDash(EM_DASH, value)) ||
-    (hidesItsBytes(neighbours.behind) && runOpensEmDash(value, EM_DASH)) ||
-    (dashesWritten && foldRewritesTheRun(value));
+    (dashesBeside && foldRewritesTheRun(value)) ||
+    breakArmsARow(inFront, behind);
   return kept ? value : "";
 }
 
@@ -484,7 +617,7 @@ function fuseFinalDash(
   const fuses =
     !run.includes("\n") &&
     !DLIST_SEPARATOR_WORD.test(previous) &&
-    runOpensEmDash(run, EM_DASH);
+    foldRewritesTheRun(run);
   return fuses
     ? [...words.slice(0, FUSED_PAIR), `${previous}${run}${LONE_DASH}`]
     : words;
@@ -506,7 +639,7 @@ function fuseOpeningDash(
   const fuses =
     !run.includes("\n") &&
     !DLIST_SEPARATOR_WORD.test(next) &&
-    runClosesEmDash(EM_DASH, run);
+    foldRewritesTheRun(run);
   return fuses ? [`${LONE_DASH}${run}${next}`, ...words.slice(2)] : words;
 }
 

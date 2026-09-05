@@ -466,15 +466,19 @@ export async function renderedHtml(input: string): Promise<string> {
  * @param input - AsciiDoc source text to format.
  * @param expected - the exact output the formatter must produce for
  *   `input`; pass `input` itself to assert the row is already stable.
+ * @param options - the same overrides {@link formatAdoc} takes,
+ *   applied to all three formats so the fixed point is measured at
+ *   the width the pin was written for. Omit for the defaults.
  */
 export async function expectFormatted(
   input: string,
   expected: string,
+  options?: FormatOverrides,
 ): Promise<void> {
-  const out = await formatAdoc(input);
+  const out = await formatAdoc(input, options);
   expect(out).toBe(expected);
   expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-  expect(await formatAdoc(out)).toBe(out);
+  expect(await formatAdoc(out, options)).toBe(out);
 }
 
 /**
