@@ -223,6 +223,15 @@ describe("one description item, built directly", () => {
  * and these rows are what keeps the two readings in agreement.
  */
 describe("a folded term run writes its own gap back", () => {
+  // A run of two or more blanks between two folded term lines. Inside
+  // a marker item's interior the enclosing read keeps ONE blank and
+  // lets `skip_blank_lines` eat the rest (parser.rb l.1515-17), so
+  // these lines reach the description scan only through the
+  // document-wide separator record; before that record was read here
+  // the gap said one line where the source wrote three, and the
+  // sibling spanned five source lines while writing three.
+  const SURPLUS_BLANKS: readonly string[] = ["", "", ""];
+
   const GAPS: ReadonlyArray<readonly string[]> = [
     [],
     [""],
@@ -235,19 +244,8 @@ describe("a folded term run writes its own gap back", () => {
     ["///c"],
     ["", "//c"],
     ["//c", "+"],
+    SURPLUS_BLANKS,
   ];
-
-  // EXCLUDED, with its reason and its own row below: a run of two or
-  // more blanks between two folded term lines. Inside a marker item's
-  // interior the enclosing read consumes the surplus blanks before
-  // the description scan is handed the lines - with the list attached
-  // by a `+` or standing adjacent, either way - so the gap RANGE
-  // records one where the source wrote three, and the item spans five
-  // lines while writing three. That is a range question and not a
-  // spelling one - the bytes are blanks, render-neutral, and the
-  // output is a fixed point - and the reader that consumes them is
-  // the marker item's, not this one's (#158).
-  const SURPLUS_BLANKS: readonly string[] = ["", "", ""];
 
   // One container per kind of read that can stand above the list. The
   // four marker kinds are separate rows because each has its own
@@ -278,18 +276,14 @@ describe("a folded term run writes its own gap back", () => {
     });
   }
 
-  // The excluded spelling, pinned from the other side so the
-  // exclusion is a measurement rather than a silence. At document
-  // level every blank is recorded; inside a marker item's interior
-  // the surplus ones are consumed above this reader and the gap keeps
-  // one. Both spellings render alike and both are fixed points.
+  // The same spelling read off the recorded gap rather than off the
+  // partition, so the row says WHAT is recorded and not only that the
+  // region writes back. Both containers keep every blank: at document
+  // level the scan is handed all of them, and inside a marker item's
+  // interior the ones it consumed come back off the separator record.
   test.each([
     ["at document level, every blank is kept", "", ["", "", ""]],
-    [
-      "inside a * item's +, the surplus blanks are consumed",
-      "* item\n+\n",
-      [""],
-    ],
+    ["inside a * item's +, every blank is kept", "* item\n+\n", ["", "", ""]],
   ])("%s", (_name, prefix, kept) => {
     const source = `${prefix}${["a::", ...SURPLUS_BLANKS, "b:: y"].join("\n")}\n`;
     const [item] = ourDescriptionList(source).children;

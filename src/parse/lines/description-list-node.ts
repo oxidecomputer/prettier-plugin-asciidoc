@@ -119,19 +119,64 @@ interface DescriptionBounds {
 /**
  * The lines strictly between two 1-based line numbers, spelled as gap
  * lines.
+ *
+ * TWO SOURCES, because one cannot see the whole range. The lines the
+ * list was read from are an enclosing item's BUFFER when the list
+ * stands inside one, and that buffer omits what the enclosing scan
+ * consumed without buffering: `read_lines_for_list_item` keeps one
+ * blank and lets `skip_blank_lines` eat the rest of a run
+ * (parser.rb l.1515-17), so a run of three blanks between two folded
+ * term lines reaches this call as one line. Reading only the buffer
+ * therefore recorded a gap of one where the author wrote three, and
+ * the sibling spanned five source lines while writing three. The
+ * skipped lines are exactly what the document-wide separator record
+ * holds - every scan hands back the separator lines it consumed
+ * (`ReaderScope.gaps`, scope.ts) - so the buffer answers for the lines it
+ * kept and the record answers for the lines it lost.
+ *
+ * The buffer wins where both know a line: its `raw` is the line as
+ * written, while the record holds a SPELLING an enclosing scan
+ * decided, and a `+` the outer scan erased is `""` to that scan and
+ * `"+"` in the source.
+ *
+ * A line NEITHER knows would have its bytes dropped, and the third
+ * branch below is unreachable only while one invariant holds: every
+ * `GapRole` whose `gapSpelling` is empty is a role whose line the
+ * buffer KEEPS (`pending`, `frozen`, `attached` - item-tail.ts
+ * l.370-386), so a line missing from the buffer always carries a
+ * spelling in the record. A role added to that union with an empty
+ * spelling and no buffering reopens the hole, and reopens it
+ * SILENTLY: the branch drops the line rather than failing. The
+ * standing alarm is the description partition invariant
+ * (tests/parser/ast-invariants-description.ts), which writes the
+ * whole region back from the SOURCE and reds when a line goes
+ * missing - but it only sees the shapes its rows reach, so the
+ * invariant above is what a new role has to be checked against.
  * @param lines - the lines the item was read from
+ * @param gaps - the document-wide separator record
  * @param from - the term line's own number, exclusive
  * @param to - the first number past the gap, exclusive
  * @returns one gap line per source line in between
  */
 function gapBetween(
   lines: readonly SourceLine[],
+  gaps: ReadonlyMap<number, GapLine>,
   from: number,
   to: number,
 ): TermGapLine[] {
-  return lines
-    .filter((line) => line.line > from && line.line < to)
-    .map(gapLineOf);
+  const buffered = new Map<number, TermGapLine>(
+    lines
+      .filter((line) => line.line > from && line.line < to)
+      .map((line) => [line.line, gapLineOf(line)]),
+  );
+  const gap: TermGapLine[] = [];
+  for (let line = from + 1; line < to; line += 1) {
+    const spelled = buffered.get(line) ?? gaps.get(line);
+    if (spelled !== undefined) {
+      gap.push(spelled);
+    }
+  }
+  return gap;
 }
 
 /**
@@ -283,7 +328,7 @@ export function descriptionItemNode(
   const gapEnd = bodyless
     ? (bounds.nextTermLine ?? bounds.drainedEnd)
     : Math.max(bounds.drainedEnd, recorded.at(0)?.line ?? markerLine.line);
-  const gap = gapBetween(bounds.lines, markerLine.line, gapEnd);
+  const gap = gapBetween(bounds.lines, bounds.gaps, markerLine.line, gapEnd);
   return {
     term: buildDescriptionTerm(
       // The term's own text, tokenized where it stands: a term
