@@ -1,0 +1,436 @@
+{
+  "note": "Maps each recorded fact scripts/fact-inventory.ts finds (71 today) to (a) an existing test file with round-trip coverage of it, and whether that coverage is a DEDICATED lemma test in the #178/#181 sense (landedLemma), and (b) the tests/conformance/reparse-ledger.json families it plausibly explains, with a basis: 'argued' counts toward the scoreboard (the family's own written mechanism and the fact's own written purpose name the same thing), 'argued-not-counted' is a connection considered and rejected as too thematic to count, honestly recorded rather than dropped silently. No row is 'measured': nobody has isolated individual ledger rows and traced each to this fact by diffing; that is later-lane work. See factlemmas-report.md for the scoreboard this file adds up to.",
+  "reparseFamilySizes": {
+    "indent-dropped": 101,
+    "join-changes-reading": 78,
+    "blank-dropped": 70,
+    "plus-respelled": 9,
+    "heading-under-a-term": 8,
+    "gap-line-lost": 5,
+    "fence-style-detached": 4,
+    "xref-across-a-break": 1
+  },
+  "deepManifestClusters": "no cluster manifest distinct from tests/conformance/reparse-ledger.json exists for family E today (searched tests/conformance/reparse*.ts for 'manifest'/'cluster': no hits, unlike registry-sweep-clusters.ts and inline-sweep-clusters.ts, which do). The ledger's own per-row `family` tag is the only clustering structure family E has, so the row-level percentage below is also the cluster-level percentage.",
+  "facts": {
+    "AdmonitionNode.form": {
+      "lemmaTest": "tests/format/admonition.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "AttributeEntryNode.unset": {
+      "lemmaTest": "tests/format/attribute-entry.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "BoldNode.constrained": {
+      "lemmaTest": "tests/format/inline-formatting.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "CommentNode.commentType": {
+      "lemmaTest": "tests/format/comment.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "CompoundParentBlockNode.variant": {
+      "lemmaTest": "tests/format/parent-block.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "CurvedQuoteNode.quote": {
+      "lemmaTest": "tests/format/curved-quotes.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "DescriptionListItemNode.printing": {
+      "lemmaTest": "tests/format/description-list.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": [
+        {
+          "basis": "argued",
+          "family": "heading-under-a-term",
+          "note": "see DescriptionTermNode.line"
+        },
+        {
+          "basis": "argued-not-counted",
+          "family": "join-changes-reading",
+          "note": "the reflow-vs-replay choice IS a join-safety question, but #124's own description names monospace spans, passthroughs and pass macros as its dominant cases, none of which this fact touches; too far from its own domain to count"
+        }
+      ]
+    },
+    "DescriptionTermNode.line": {
+      "lemmaTest": "tests/format/description-list.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": [
+        {
+          "basis": "argued",
+          "family": "heading-under-a-term",
+          "note": "#186 is specifically about a term whose own line carries no text; DescriptionTermNode.line is the record of that line's exact bytes, which is what a `printing` decision (below) then decides whether to reflow or replay; not verified against the 8 ledgered rows one by one"
+        }
+      ]
+    },
+    "DiscreteHeadingNode.level": {
+      "lemmaTest": "tests/format/discrete-heading.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "DocumentHeaderNode.underline": {
+      "lemmaTest": "tests/format/document-header.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "DocumentNode.byteOrderMark": {
+      "lemmaTest": "tests/format/identity.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "FencedCodeBlockNode.annotatedBy": {
+      "lemmaTest": "tests/parser/ast-invariants.ts (invariant xi)",
+      "landedLemma": false,
+      "reparseFamilies": [
+        {
+          "basis": "argued",
+          "family": "fence-style-detached",
+          "note": "#170's own description (\"the [source] line ... lands where the item's region takes it rather than beside the listing block it annotates\") is exactly annotatedBy's own question (was a style-setting attribute line directly above this block); not verified against the 4 ledgered rows one by one"
+        }
+      ]
+    },
+    "FencedCodeBlockNode.form": {
+      "lemmaTest": "tests/format/fenced-code.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "FencedCodeBlockNode.language": {
+      "lemmaTest": "tests/format/fenced-code.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "FencedCodeBlockNode.variant": {
+      "lemmaTest": "tests/format/fenced-code.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "HeadingNode.level": {
+      "lemmaTest": "tests/format/section.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "HighlightNode.constrained": {
+      "lemmaTest": "tests/format/inline-formatting.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "IndentedLiteralBlockNode.annotatedBy": {
+      "lemmaTest": "tests/parser/ast-invariants.ts (invariant xi)",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "IndentedLiteralBlockNode.form": {
+      "lemmaTest": "tests/format/literal-paragraph.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "IndentedLiteralBlockNode.variant": {
+      "lemmaTest": "tests/format/literal-paragraph.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "InlineAnchorNode.form": {
+      "lemmaTest": "tests/format/anchor-spelling.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "InlineAnchorNode.reftext": {
+      "lemmaTest": "tests/format/anchor-spelling.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "ItalicNode.constrained": {
+      "lemmaTest": "tests/format/inline-formatting.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "ItemBlock.gap": {
+      "lemmaTest": "tests/parser/ast-invariants.ts (invariant vii)",
+      "landedLemma": false,
+      "reparseFamilies": [
+        {
+          "basis": "argued-not-counted",
+          "family": "blank-dropped",
+          "note": "the gap alphabet answers \"is there a blank/continuation line between this item's own two pieces\"; #73's mechanism is a blank line between a METADATA line and an arbitrary following block, which is not scoped to list items and has no dedicated AST field today \u2014 too far from ItemBlock.gap's own domain to count"
+        }
+      ]
+    },
+    "ItemBody.activeTail": {
+      "lemmaTest": "tests/format/list-continuation.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "ItemBody.detachedTail": {
+      "lemmaTest": "tests/format/lone-plus-line.test.ts",
+      "landedLemma": true,
+      "reparseFamilies": [
+        {
+          "basis": "argued",
+          "family": "plus-respelled",
+          "note": "see ItemBody.trailingContinuation"
+        }
+      ]
+    },
+    "ItemBody.everyTextLineIndented": {
+      "lemmaTest": "tests/format/list-hazard.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": [
+        {
+          "basis": "argued",
+          "family": "indent-dropped",
+          "note": "#121's own description (\"a line's leading indentation is dropped, and the de-indented line reads as a block where the indented one was prose\") is exactly the yes/no everyTextLineIndented answers for a list item's own text lines; not verified against the 101 ledgered rows one by one"
+        }
+      ]
+    },
+    "ItemBody.trailingContinuation": {
+      "lemmaTest": "tests/format/trailing-continuation.test.ts",
+      "landedLemma": true,
+      "reparseFamilies": [
+        {
+          "basis": "argued",
+          "family": "plus-respelled",
+          "note": "#116's mechanism (a lone trailing `+` folded onto the line above and respelled `{plus}` on re-read) is inside the tail alphabet trailingContinuation/detachedTail record; not verified row by row"
+        }
+      ]
+    },
+    "LeafDelimitedBlockNode.annotatedBy": {
+      "lemmaTest": "tests/parser/ast-invariants.ts (invariant xi)",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "LeafDelimitedBlockNode.form": {
+      "lemmaTest": "tests/format/delimited-block.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "LeafDelimitedBlockNode.variant": {
+      "lemmaTest": "tests/format/delimited-block.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "LinkNode.text": {
+      "lemmaTest": "tests/format/inline-links.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "ListItemNode.calloutNumber": {
+      "lemmaTest": "tests/format/callout-list.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "ListItemNode.checkbox": {
+      "lemmaTest": "tests/format/checklist.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "ListItemNode.markerIndent": {
+      "lemmaTest": "tests/format/marker-indent.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": [
+        {
+          "basis": "argued",
+          "family": "indent-dropped",
+          "note": "the marker line's own indentation is the other half of #121's mechanism alongside everyTextLineIndented; not verified row by row"
+        }
+      ]
+    },
+    "ListItemNode.markerSpelling": {
+      "lemmaTest": "tests/format/marker-spelling.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "ListNode.marker": {
+      "lemmaTest": "tests/print/list.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": [
+        {
+          "basis": "argued-not-counted",
+          "family": "indent-dropped",
+          "note": "printedGap's marker comparison is about gap-folding between adjacent lists, not directly about whether a line's own indentation survives; too far from #121's own mechanism description to count"
+        }
+      ]
+    },
+    "ListNode.variant": {
+      "lemmaTest": "tests/format/callout-list.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "MasqueradedBlockNode.annotatedBy": {
+      "lemmaTest": "tests/parser/ast-invariants.ts (invariant xi)",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "MasqueradedBlockNode.form": {
+      "lemmaTest": "tests/format/block-masquerade.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "MasqueradedBlockNode.sourceDelimiter": {
+      "lemmaTest": "tests/parser/ast-invariants.ts (invariant xiii)",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "MasqueradedBlockNode.variant": {
+      "lemmaTest": "tests/format/block-masquerade.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "MonospaceNode.constrained": {
+      "lemmaTest": "tests/format/inline-formatting.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "OpenParentBlockNode.openDelimiter": {
+      "lemmaTest": "tests/parser/ast-invariants-blocks.ts (invariant xvi)",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "ParagraphFormBlockNode.annotatedBy": {
+      "lemmaTest": "tests/parser/ast-invariants.ts (invariant xi)",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "ParagraphFormBlockNode.form": {
+      "lemmaTest": "tests/format/paragraph-form-blocks.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "ParagraphFormBlockNode.variant": {
+      "lemmaTest": "tests/format/paragraph-form-blocks.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "ParagraphNode.firstWordEndsItsLine": {
+      "lemmaTest": "tests/format/breaks.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "TableCellNode.columnIndex": {
+      "lemmaTest": "tests/format/table.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "TableCellOpening#0.kind": {
+      "lemmaTest": "tests/format/table.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "TableCellOpening#1.kind": {
+      "lemmaTest": "tests/format/table.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "TableCellRepeat#0.kind": {
+      "lemmaTest": "tests/format/table.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "TableCellRepeat#1.colspan": {
+      "lemmaTest": "tests/format/table.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "TableCellRepeat#1.kind": {
+      "lemmaTest": "tests/format/table.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "TableCellRepeat#1.rowspan": {
+      "lemmaTest": "tests/format/table.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "TableCellRepeat#2.count": {
+      "lemmaTest": "tests/format/table.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "TableCellRepeat#2.kind": {
+      "lemmaTest": "tests/format/table.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "TableCellSpec.style": {
+      "lemmaTest": "tests/format/table.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "TableClose#0.kind": {
+      "lemmaTest": "tests/format/table.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "TableClose#1.kind": {
+      "lemmaTest": "tests/format/table.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "TableColumnSpec.style": {
+      "lemmaTest": "tests/format/table.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "TableCutting.format": {
+      "lemmaTest": "tests/format/table.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "TableCutting.separator": {
+      "lemmaTest": "tests/format/table.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "TableNode.annotatedBy": {
+      "lemmaTest": "tests/format/table.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "TableNode.attrlistUnread": {
+      "lemmaTest": "tests/format/table.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "TableNode.columns": {
+      "lemmaTest": "tests/format/table.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "TableNode.leadingRuns": {
+      "lemmaTest": "tests/format/table.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "TableNode.open": {
+      "lemmaTest": "tests/format/table.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "TableTextRun.image": {
+      "lemmaTest": "tests/format/table.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "TableTextRun.kind": {
+      "lemmaTest": "tests/format/table.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "TermEntry.gap": {
+      "lemmaTest": "tests/format/description-list.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": [
+        {
+          "basis": "argued",
+          "family": "gap-line-lost",
+          "note": "#171's own description (\"the + line inside a description item's term gap is not written back\") names this exact fact and this exact alphabet; not verified against the 5 ledgered rows one by one"
+        }
+      ]
+    }
+  }
+}
