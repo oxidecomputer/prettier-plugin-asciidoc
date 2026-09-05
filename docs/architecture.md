@@ -481,10 +481,16 @@ The policy above has an exact formalization in abstract rewriting theory (Baader
 oracle makes of input `a`, and `a ≈ b` for `render(a) = render(b)`. The
 rewriting system is `(A, →)`: documents, where `a → b` when ONE formatting rule
 respells ONE site (one attrlist value unquoted, one anchor form folded, one
-blank elided). `format` itself is not the relation; it is a _strategy_ over the
-relation, and the implementation (`print ∘ parse`) realizes that strategy. That
-decomposition — format's input/output diff splits into applications of the
-declared rules — is a modeling claim, checked per axis when a conversion lands.
+blank elided). `format` itself is not the relation: the relation is the
+_small-step_ semantics (one rule, one site — the form that induction and
+critical-pair analysis can grip), and `format` is the _big-step_ implementation
+(one call normalizes the whole document; nobody runs a million micro-rewrites).
+One bridging obligation connects them, _adequacy_: `format(a)` is the `→`-normal
+form of `a` — well-posed once termination and confluence make that normal form
+unique, and checked per axis when a conversion lands. Proofs live small-step,
+the implementation (`print ∘ parse`) lives big-step, and every small-step
+theorem transfers through adequacy: the standard split between structural
+operational semantics and natural semantics (Plotkin; Kahn).
 
 The obligations, each with its name in the literature:
 
