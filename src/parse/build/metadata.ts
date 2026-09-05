@@ -23,6 +23,7 @@ import type {
   PreprocessorDirectiveNode,
   ThematicBreakNode,
 } from "../../ast.js";
+import { attrlistAnchorId } from "../attrlist.js";
 import { makeInlineAnchor } from "../inline/inline-link-builder.js";
 import { rawLineForm, rstrip } from "../line-shapes.js";
 import type { Fragment, LocationIndex } from "../positions.js";
@@ -80,23 +81,84 @@ const BLOCK_ATTR_LIST_SUFFIX_LEN = 1;
  * @returns A block attribute list node with the inner content as its
  *   value.
  */
-export function buildBlockAttributeList(
+function buildBlockAttributeList(
   line: Fragment,
   at: LocationIndex,
 ): BlockAttributeListNode {
-  const value = line.image.slice(
-    BLOCK_ATTR_LIST_PREFIX_LEN,
-    // Negated to slice from the end: -1 drops the trailing `]`.
-    -BLOCK_ATTR_LIST_SUFFIX_LEN,
-  );
   return {
     type: "blockAttributeList",
-    value,
+    value: attributeLineInterior(line.image),
     position: {
       start: at.start(line),
       end: at.end(line),
     },
   };
+}
+
+/**
+ * The bytes between a block attribute line's brackets, taken off in
+ * ONE place, so the node's value and the id question below cannot
+ * come to disagree about where the interior starts.
+ * @param image - a block attribute line, bracket-delimited
+ * @returns the interior, brackets excluded
+ */
+function attributeLineInterior(image: string): string {
+  return image.slice(
+    BLOCK_ATTR_LIST_PREFIX_LEN,
+    // Negated to slice from the end: -1 drops the trailing `]`.
+    -BLOCK_ATTR_LIST_SUFFIX_LEN,
+  );
+}
+
+/**
+ * The id a block attribute LINE names when it names an id and nothing
+ * else. THE question, asked in one place by the two consumers that
+ * must agree on it: {@link buildAttributeLine} routes on it, and the
+ * reading net's projection folds `[#intro]` onto the anchor token
+ * because of it.
+ *
+ * Exported for that net (tests/lib/reading.ts), which must license
+ * exactly the respelling this routing makes and no wider one; asking
+ * the routing's own question is what keeps the licence from drifting
+ * into a second pattern. Its src caller is `buildAttributeLine`,
+ * below.
+ * @param image - a block attribute line, bracket-delimited
+ * @returns the id, or undefined when the line spells anything else
+ * @internal
+ */
+export function anchorIdOfAttributeLine(image: string): string | undefined {
+  return attrlistAnchorId(attributeLineInterior(image));
+}
+
+/**
+ * Builds the node a held `[...]` line becomes: a block anchor when the
+ * line names an id and nothing else, an attribute list otherwise.
+ *
+ * `[#intro]` and `[[intro]]` give the block below them the same id and
+ * render alike, so the bracket the author reached for is a spelling
+ * rather than structure. Both lines therefore build the SAME node, and
+ * the printer writes one anchor line for it, which is why the routing
+ * lives here rather than the attribute list being the attribute LINE's
+ * node kind. The CLASSIFIER still tells the two lines apart, and must:
+ * `BLOCK_ANCHOR` and `BLOCK_ATTRIBUTE_LINE` interrupt different
+ * contexts (line-shapes.ts), so a line's KIND is not ours to fold.
+ * @param line - A block attribute line, bracket-delimited.
+ * @param at - The document's location index.
+ * @returns The anchor node, or the attribute list node.
+ */
+export function buildAttributeLine(
+  line: Fragment,
+  at: LocationIndex,
+): BlockNode {
+  const id = anchorIdOfAttributeLine(line.image);
+  return id === undefined
+    ? buildBlockAttributeList(line, at)
+    : {
+        type: "blockAnchor",
+        id,
+        reftext: undefined,
+        position: { start: at.start(line), end: at.end(line) },
+      };
 }
 
 // Block title line is `.Title text`. The leading dot is syntactic —

@@ -79,10 +79,19 @@ describe("[#id + NBSP] keeps the no-break space as part of the id (issue #77)", 
     expect(await formatAdoc(output)).toBe(output);
   });
 
+  // The ASCII-space twin trims to a bare id and then, unlike its
+  // no-break sibling, spells that id as the anchor line: `[#id]` and
+  // `[[id]]` name one structure and the printer writes one of them
+  // (buildAttributeLine, src/parse/build/metadata.ts). Red before
+  // that routing, where the output was `[#id]` with no blank below.
+  // The trailing space is why `attrlistAnchorId` asks the CANONICAL
+  // interior: over the author's bytes this line answers no on pass
+  // one and yes on pass two, and the last assertion here is what
+  // catches that.
   test("the other direction: an ASCII trailing space trims to a bare id", async () => {
     const input = "[#id ]\nSome text here.\n";
     const output = await formatAdoc(input);
-    expect(output).toBe("[#id]\nSome text here.\n");
+    expect(output).toBe("[[id]]\n\nSome text here.\n");
     const html = await renderedHtml(output);
     expect(html).toContain('id="id"');
     expect(html).not.toContain('id="id\u00A0');

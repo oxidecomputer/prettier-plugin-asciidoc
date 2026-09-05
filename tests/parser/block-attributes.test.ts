@@ -35,14 +35,36 @@ describe("block attribute list parsing", () => {
   });
 
   // Shorthand ID syntax: [#myid] sets the block's ID.
-  test("[#myid] shorthand ID parses correctly", () => {
+  // The id-only shorthand is the anchor line spelled the other way,
+  // and reads as the anchor node: red before buildAttributeLine
+  // (src/parse/build/metadata.ts), where it was a blockAttributeList
+  // of value `#myid` and the printer replayed the author's bracket.
+  test("[#myid] shorthand ID reads as a block anchor", () => {
     const document = parse("[#myid]\n");
     expect(document.children).toHaveLength(1);
     const {
       children: [child0],
     } = document;
+    narrow(child0, "blockAnchor");
+    expect(child0.id).toBe("myid");
+    expect(child0.reftext).toBeUndefined();
+  });
+
+  // The rule's edge, from the other side: an interior that names
+  // anything past the id is an attribute list, because no anchor line
+  // can spell a role, a style beside the id, or an id the block-anchor
+  // grammar rejects.
+  test.each([
+    ["[#myid.role]", "#myid.role"],
+    ["[source#myid]", "source#myid"],
+    ["[#3bad]", "#3bad"],
+  ])("%j stays an attribute list", (line, value) => {
+    const document = parse(`${line}\n`);
+    const {
+      children: [child0],
+    } = document;
     narrow(child0, "blockAttributeList");
-    expect(child0.value).toBe("#myid");
+    expect(child0.value).toBe(value);
   });
 
   // Shorthand role syntax: [.role] sets the block's role.
@@ -106,7 +128,7 @@ describe("block attribute list parsing", () => {
     );
     expect(document.children).toHaveLength(3);
     expect(document.children[0].type).toBe("blockAttributeList");
-    expect(document.children[1].type).toBe("blockAttributeList");
+    expect(document.children[1].type).toBe("blockAnchor");
     expect(document.children[2].type).toBe("delimitedBlock");
   });
 
@@ -341,6 +363,36 @@ describe("the reader's annotation record", () => {
     narrow(block, "delimitedBlock");
     expect(attributes.value).toBe("source,ruby");
     expect(block.annotatedBy).toBe("source,ruby");
+  });
+
+  // An id-only bracket line does NOT overwrite the held style and
+  // does not count as an attribute line the run must account for,
+  // because it builds an anchor rather than an attribute list. That
+  // is Ruby's own accumulation: a shorthand-only entry restores the
+  // previous positional (`attributes[1] = (parse_style_attribute
+  // attributes, reader) || current_style`, parser.rb:2060) and writes
+  // no `attributes['style']` of its own (parser.rb:2599-2601).
+  //
+  // RED before an id-only line stopped building an attribute list:
+  // the held style became `#id`, `[discrete]` was lost and the
+  // heading came back an ordinary one, and the listing recorded
+  // `annotatedBy: "#id"`.
+  test("an id-only line leaves the style held above it standing", () => {
+    const [, anchor, heading] = parse("[discrete]\n[#id]\n== Sec\n").children;
+    expect(anchor.type).toBe("blockAnchor");
+    expect(heading.type).toBe("discreteHeading");
+  });
+
+  test("and it is not an attribute line the block must account for", () => {
+    const [, anchor, block] = parse(
+      "[source,ruby]\n[#myid]\n----\nputs 'x'\n----\n",
+    ).children;
+    expect(anchor.type).toBe("blockAnchor");
+    narrow(block, "delimitedBlock");
+    // Invariant (xi): the record pairs the IMMEDIATELY preceding
+    // sibling, which is the anchor, so there is nothing to record.
+    expect(block.annotatedBy).toBeUndefined();
+    expect(block.variant).toBe("listing");
   });
 });
 

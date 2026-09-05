@@ -225,7 +225,11 @@ describe("admonition edge cases", () => {
   test("[#myid] + example block is NOT an admonition", () => {
     const { children } = parse("[#myid]\n====\nContent.\n====\n");
     expect(children).toHaveLength(2);
-    expect(children[0].type).toBe("blockAttributeList");
+    // An id-only bracket line names the same structure `[[myid]]`
+    // does, so it builds the anchor node (buildAttributeLine,
+    // src/parse/build/metadata.ts) - and either way it names no
+    // style, which is what this row is about.
+    expect(children[0].type).toBe("blockAnchor");
     expect(children[1].type).toBe("parentBlock");
   });
 

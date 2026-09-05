@@ -80,21 +80,18 @@ export const MECHANISM_REASONS: Readonly<Record<Mechanism, string>> = {
   passthroughContent:
     "a line break inside an inline passthrough is content; renderedHtml folds it but the oracle's bytes keep it",
   // The block's authored FORM is replayed rather than derived from
-  // the block it opened: `[[id]]` keeps the double-bracket anchor
-  // where `[#id]` keeps the shorthand, and a `NOTE: ` label keeps the
-  // label where `[NOTE]` keeps the style line. Deriving one spelling
-  // needs the printer to write the form from the parsed block, which
-  // no path does yet (docs/architecture.md, formatting policy case 2).
-  // `[[id]]` and `[#id]` differ in more than bytes once replayed: the
-  // double-bracket form is a first-class sibling `BlockAnchorNode`
-  // (src/ast.ts) and takes ordinary block-to-block separation, so the
-  // printer writes a blank line between it and the paragraph it
-  // anchors, while the shorthand is an attribute line held against
-  // its target and is never separated from it. Deriving one spelling
-  // therefore has to decide the separation too, which is why this is
-  // policy case 2 and not a missing string rewrite.
+  // the block it opened: a `NOTE: ` label keeps the label where
+  // `[NOTE]` keeps the style line. Deriving one spelling needs the
+  // printer to write the form from the parsed block, which no path
+  // does yet (docs/architecture.md, formatting policy case 2).
+  //
+  // The ANCHOR spelling used to be the second member of this
+  // mechanism and no longer is: `[#id]` and `[[id]]` name the same
+  // structure, so both lines now build one `blockAnchor` node
+  // (`attrlistAnchorId`, src/parse/attrlist.ts) and the printer
+  // spells it one way, separation included.
   blockFormReplay:
-    "a block's authored form is replayed rather than derived from the block it opened, separation included",
+    "a block's authored form is replayed rather than derived from the block it opened",
   // Same shape one level down: a bare URL and `link:` around the same
   // address are one anchor, and the inline node replays the authored
   // spelling.
@@ -170,11 +167,6 @@ export const CONFLUENCE_EXCEPTIONS: Readonly<
     mechanism: "listMarkerSpelling",
     pairs: 23,
     sha256: "52ea7fcb2a5a4682f8027662ee9e771a0bc6cecadb0525e4f4554d6135f20213",
-  },
-  "blockFormSpelling/anchor-form": {
-    mechanism: "blockFormReplay",
-    pairs: 23,
-    sha256: "8680e064131d3f375f30461e1e2ac2e6c56433f92fc9b2b1c44f9660f27803cd",
   },
   "blockFormSpelling/admonition-form": {
     mechanism: "blockFormReplay",

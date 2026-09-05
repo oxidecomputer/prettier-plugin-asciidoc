@@ -10,8 +10,8 @@
 import { describe, expect, test } from "vitest";
 import {
   buildAttributeEntry,
+  buildAttributeLine,
   buildBlockAnchor,
-  buildBlockAttributeList,
   buildBlockMacro,
   buildBlockTitle,
   buildPageBreak,
@@ -83,19 +83,44 @@ describe("buildBlockAnchor", () => {
   });
 });
 
-describe("buildBlockAttributeList", () => {
+describe("buildAttributeLine", () => {
+  // The bracket line whose interior is an id and NOTHING else builds
+  // the anchor node instead, because `[#id]` and `[[id]]` name one
+  // structure: red before that routing existed, where `[#myid]` came
+  // back a blockAttributeList of value `#myid`. Every other interior
+  // - a style, a role beside the id, an id no anchor line can spell -
+  // keeps its own bytes in a blockAttributeList.
   test.each([
     ["[source,ruby]", "source,ruby"],
-    ["[#myid]", "#myid"],
     ["[]", ""],
-  ])("%j → value %j", (line, value) => {
+    ["[#myid.role]", "#myid.role"],
+    ["[#3bad]", "#3bad"],
+    ["[source#myid]", "source#myid"],
+  ])("%j reads as an attribute list of value %j", (line, value) => {
     const { span, at } = lineOf(line);
-    const node = buildBlockAttributeList(span, at);
-    expect(node.type).toBe("blockAttributeList");
-    expect(node.value).toBe(value);
+    const node = buildAttributeLine(span, at);
+    expect(node).toMatchObject({ type: "blockAttributeList", value });
     expect(node.position).toEqual({
       start: { offset: 0, line: 1, column: 1 },
       end: { offset: line.length, line: 1, column: line.length + 1 },
+    });
+  });
+
+  test.each([
+    ["[#myid]", "myid"],
+    ["[#my-id]", "my-id"],
+    ["[#a:b]", "a:b"],
+  ])("%j reads as an anchor of id %j", (line, id) => {
+    const { span, at } = lineOf(line);
+    const node = buildAttributeLine(span, at);
+    expect(node).toEqual({
+      type: "blockAnchor",
+      id,
+      reftext: undefined,
+      position: {
+        start: { offset: 0, line: 1, column: 1 },
+        end: { offset: line.length, line: 1, column: line.length + 1 },
+      },
     });
   });
 });

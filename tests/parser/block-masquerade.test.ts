@@ -226,7 +226,7 @@ describe("default behavior preserved (no masquerade)", () => {
   test("[#myid] on quote block does NOT masquerade", () => {
     const { children } = parse("[#myid]\n____\nContent.\n____\n");
     expect(children).toHaveLength(2);
-    expect(children[0].type).toBe("blockAttributeList");
+    expect(children[0].type).toBe("blockAnchor");
     const block = parentBlockAt(children, 1);
     expect(block.variant).toBe("quote");
   });
@@ -286,7 +286,7 @@ describe("held styles on delimiters the style does not re-model", () => {
   });
 
   test("[#id] on ==== stays a compound example (no style matches)", () => {
-    expect(astShape("[#id]\n====\nx\n====\n")).toBe("attrs example(p(t))");
+    expect(astShape("[#id]\n====\nx\n====\n")).toBe("anchor example(p(t))");
   });
 
   test("a held title after the attribute line disables the masquerade", () => {

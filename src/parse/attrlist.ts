@@ -15,6 +15,7 @@
  * modeled - no substitution, no `attributes[N]` positional map - so
  * the values are what the interior spells and nothing more.
  */
+import { BLOCK_ANCHOR } from "./line-shapes.js";
 
 /**
  * The reader-side view of one `[…]` block-attribute line's interior.
@@ -105,6 +106,18 @@ const NAMED_ATTRIBUTE = /^\w[\w\-]*[ \t]*=/v;
 // the first of them.
 const SHORTHAND = /[.#%]/v;
 
+// An interior that names an id and nothing else: the `#` sigil, then
+// at least one character that is none of the shorthand separators, no
+// comma opening a second entry, and no blank. Ruby reads shorthand off
+// the first positional entry only, and only when that entry carries no
+// space ("spaces are not allowed in shorthand", parse_style_attribute),
+// so any of those means the line spells more than the id and the
+// author's bytes have to stand. The ID CLASS is not restated here:
+// {@link attrlistAnchorId} asks BLOCK_ANCHOR whether the id can be
+// spelled as an anchor line, so there is one grammar for the id and
+// not a copy that can drift from it.
+const ID_SHORTHAND_ONLY = /^#[^ \t.,%#]+$/v;
+
 // Ruby's own blank set for attrlist scanning - NOT the six-character
 // {@link ASCII_WHITESPACE} class line-shapes.ts uses for a whole LINE
 // (issue #75). `skip_blank` runs `BlankRx`, which is `/[ \t]+/`
@@ -165,6 +178,48 @@ export function parseAttrlist(raw: string): Attrlist {
       ? trimBlank(raw.split(",")[0])
       : unquoteField(fields[0]);
   return { style: first, styleAttribute: styleAttributeOf(first) };
+}
+
+/**
+ * The id a block-attribute line names when it names an id and NOTHING
+ * else: `[#intro]` and no other shape.
+ *
+ * WHY IT IS ASKED. `[[intro]]` and `[#intro]` give the following block
+ * the same id and render the same, so which one the author typed is a
+ * spelling; the reader records the id and the printer writes the
+ * anchor line, rather than replaying the bracket the author reached
+ * for (docs/architecture.md, "Formatting policy": derive syntax from
+ * the recorded structure). Where this answers, the line's meaning is
+ * exactly the id, so nothing about the line is lost by recording it as
+ * one.
+ *
+ * The answer is deliberately narrow and every rejection keeps the
+ * author's bytes: a role, an option, a second entry, a blank or an
+ * id no block-anchor line can spell (`[#3bad]`, `[#a.b]`) all leave
+ * the line an attribute list. Soundness measured against the oracle:
+ * an accepted interior renders byte-identically in both spellings and
+ * every rejection is conservative, which the accepted and rejected
+ * rows of tests/parser/build/metadata.test.ts,
+ * tests/parser/block-attributes.test.ts and
+ * tests/format/block-attributes.test.ts carry between them. The
+ * grammar it defers to is ASCII where the oracle's is not, which
+ * makes it refuse ids the oracle accepts and never the other way
+ * (issue #203).
+ * @param raw - the text between the brackets, brackets excluded
+ * @returns the id, or undefined when the line spells anything else
+ */
+export function attrlistAnchorId(raw: string): string | undefined {
+  // Asked of the CANONICAL interior, not the author's: the printer
+  // writes `[#id ]` back as `[#id]` ({@link canonicalAttrlist}), so a
+  // test over the author's bytes would answer no on the first pass and
+  // yes on the second, and the two passes would print different
+  // documents. One interior, one answer.
+  const interior = canonicalAttrlist(raw);
+  if (!ID_SHORTHAND_ONLY.test(interior)) {
+    return undefined;
+  }
+  const id = interior.slice(1);
+  return BLOCK_ANCHOR.test(`[[${id}]]`) ? id : undefined;
 }
 
 /**

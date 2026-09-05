@@ -21,11 +21,21 @@ describe("block attribute list formatting", () => {
     expect(await formatAdoc(input)).toBe(input);
   });
 
-  // Shorthand ID preserved.
-  test("[#myid] preserved as-is", async () => {
-    const input = "[#myid]\n";
-    expect(await formatAdoc(input)).toBe(input);
+  // A bracket line that names an id and NOTHING else is the anchor
+  // line spelled the other way, so the printer writes the anchor.
+  // Red before that routing, where `[#myid]` came back unchanged.
+  test("[#myid] is spelled as the anchor line it is", async () => {
+    expect(await formatAdoc("[#myid]\n")).toBe("[[myid]]\n");
   });
+
+  // The narrowness of that rule, from the other side: an interior
+  // carrying anything past the id keeps the author's bytes.
+  test.each(["[#myid.role]\n", "[source#myid]\n", "[#3bad]\n"])(
+    "%j keeps its own spelling",
+    async (input) => {
+      expect(await formatAdoc(input)).toBe(input);
+    },
+  );
 
   // Shorthand role preserved.
   test("[.role] preserved as-is", async () => {
@@ -40,10 +50,14 @@ describe("block attribute list formatting", () => {
     expect(await formatAdoc(input)).toBe(input);
   });
 
-  // Multiple attribute lists stack together.
+  // Multiple attribute lists stack together. The id-only one is
+  // spelled as an anchor line, and an anchor stacks with the block
+  // below it exactly as the attribute line did.
   test("multiple attribute lists stack together", async () => {
     const input = "[source,ruby]\n[#myid]\n----\nputs 'hello'\n----\n";
-    expect(await formatAdoc(input)).toBe(input);
+    expect(await formatAdoc(input)).toBe(
+      "[source,ruby]\n[[myid]]\n----\nputs 'hello'\n----\n",
+    );
   });
 
   // Attribute list with blank line before a block should have
@@ -150,10 +164,14 @@ describe("combined block metadata formatting", () => {
     expect(await formatAdoc(input)).toBe(input);
   });
 
-  // Title + attribute list before a paragraph.
+  // Title + attribute list before a paragraph. The id-only bracket
+  // line is an anchor, and an anchor takes the blank line that keeps
+  // a paragraph from re-reading as its text.
   test("title + attribute list before paragraph stacks", async () => {
     const input = ".Important\n[#note]\nSome paragraph text.\n";
-    expect(await formatAdoc(input)).toBe(input);
+    expect(await formatAdoc(input)).toBe(
+      ".Important\n[[note]]\n\nSome paragraph text.\n",
+    );
   });
 
   // Attribute list before a section stacks.

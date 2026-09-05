@@ -363,9 +363,16 @@ function joinedLines(source: string, once: string): boolean {
 
 /**
  * Did a line go without its words arriving anywhere?
+ *
+ * DELIBERATELY LOOSE, and the loop above says how the looseness is
+ * paid for: "fewer lines, and the text no longer says the same
+ * words" also answers true for a document that merely respells a
+ * word while joining two lines, so this arm can claim a row another
+ * arm owns and the order of the arms is what settles it. Every such
+ * overlap is named in reparse.test.ts.
  * @param source - the document as written
  * @param once - the formatted output
- * @returns whether the output holds fewer lines AND fewer words
+ * @returns whether the output holds fewer lines AND different words
  */
 function lostALine(source: string, once: string): boolean {
   return (
@@ -465,11 +472,13 @@ interface FamilyArm {
  * table against the family text beside it without holding the six
  * lines above it in mind, and
  * tests/conformance/reparse.test.ts asserts that at most one arm
- * claims any ledgered row - with ONE documented exception. A respelt
- * `+` is also a shorter document, so `plus-respelled` and
- * `gap-line-lost` both claim those rows; order settles it, and the
- * test asserts that pair specifically rather than waving the overlap
- * through.
+ * claims any ledgered row - with the exceptions IT names, both of
+ * which come from `gap-line-lost`'s deliberately loose test. A
+ * respelt `+` is also a shorter document, and so is a reflow join in
+ * a document that also respells a bracket line, so `gap-line-lost`
+ * claims those rows alongside the arm that owns them; order settles
+ * it, and the test asserts each pair specifically rather than waving
+ * an overlap through. The over-breadth itself is issue #202.
  */
 const FAMILY_ARMS: readonly FamilyArm[] = [
   {

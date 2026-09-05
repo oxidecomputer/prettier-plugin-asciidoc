@@ -106,6 +106,13 @@
   },
   {
     "file": "src/parse/attrlist.ts",
+    "symbol": "attrlistAnchorId",
+    "importer": "src/parse/build/metadata.ts",
+    "kind": "vocabulary",
+    "reason": "the one test for a bracket line that names an id and nothing else, so the node the builder picks and the interior the parser reads rest on one answer"
+  },
+  {
+    "file": "src/parse/attrlist.ts",
     "symbol": "attrlistValues",
     "importer": "src/parse/lines/table-open.ts",
     "kind": "vocabulary",
@@ -281,14 +288,14 @@
   },
   {
     "file": "src/parse/build/metadata.ts",
-    "symbol": "buildBlockAnchor",
+    "symbol": "buildAttributeLine",
     "importer": "src/parse/lines/held-metadata.ts",
     "kind": "vocabulary",
     "reason": "pure (line, index) -> Node constructor, in the held-metadata builder table"
   },
   {
     "file": "src/parse/build/metadata.ts",
-    "symbol": "buildBlockAttributeList",
+    "symbol": "buildBlockAnchor",
     "importer": "src/parse/lines/held-metadata.ts",
     "kind": "vocabulary",
     "reason": "pure (line, index) -> Node constructor, in the held-metadata builder table"

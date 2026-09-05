@@ -14,8 +14,8 @@ import type { BlockNode } from "../../ast.js";
 import { isBlockMetadata, isReaderConsumedLine } from "../../block-metadata.js";
 import { parseAttrlist, type Attrlist } from "../attrlist.js";
 import {
+  buildAttributeLine,
   buildBlockAnchor,
-  buildBlockAttributeList,
   buildBlockTitle,
   buildRawBlockLine,
 } from "../build/metadata.js";
@@ -30,12 +30,18 @@ import { fragmentOfLine, type SourceLine } from "./split.js";
 // attribute where it stands, so it stays a leaf where it was
 // written. This table is the one source of truth for which line
 // kinds are held-back metadata.
+//
+// The table maps a kind to a BUILDER and not to a node kind: an
+// `attributeLine` that names an id and nothing else builds the same
+// blockAnchor node the `[[id]]` spelling does, because the two lines
+// carry the same structure and only the printer decides how it is
+// spelled back (buildAttributeLine, build/metadata.ts).
 const HELD_BUILDERS = new Map<
   LineKind["kind"],
   (line: Fragment, at: LocationIndex) => BlockNode
 >([
   ["anchor", buildBlockAnchor],
-  ["attributeLine", buildBlockAttributeList],
+  ["attributeLine", buildAttributeLine],
   ["blockTitle", buildBlockTitle],
   ["raw", buildRawBlockLine],
 ]);
@@ -104,8 +110,20 @@ export class HeldMetadata {
     // The interior is read back off the node just built, which holds
     // exactly the bytes between the brackets: the line is taken apart
     // in ONE place, and the record and the sibling node cannot come to
-    // spell it differently. Narrowed on the node, not on `kind`, so
-    // the pairing does not rest on the builder table's routing.
+    // spell it differently.
+    //
+    // Narrowed on the NODE, which is what makes the routing decide
+    // this too: a bracket line that names an id and nothing else
+    // builds a blockAnchor (`buildAttributeLine`, build/metadata.ts),
+    // so it neither overwrites the held style nor counts toward
+    // {@link unreadAttrlist}. That agrees with Ruby, which restores
+    // the previous positional for a shorthand-only entry
+    // (`attributes[1] = (parse_style_attribute attributes, reader) ||
+    // current_style`, parser.rb:2060) and writes `attributes['style']`
+    // only when the entry parsed one (parser.rb:2599-2601), so
+    // `[discrete]` / `[#id]` / `== Sec` keeps the discrete style where
+    // a line-kind test lost it. Pinned by the accumulation rows in
+    // tests/parser/block-attributes.test.ts.
     if (node.type === "blockAttributeList") {
       this.attrlist = parseAttrlist(node.value);
     }

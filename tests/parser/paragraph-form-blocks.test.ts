@@ -224,7 +224,9 @@ describe("paragraph-form block boundaries", () => {
   test("non-style attribute list remains standalone", () => {
     const { children } = parse("[#myid]\nSome text.\n");
     expect(children).toHaveLength(2);
-    expect(children[0].type).toBe("blockAttributeList");
+    // Standalone either way; the id-only spelling builds the anchor
+    // node it names (buildAttributeLine, src/parse/build/metadata.ts).
+    expect(children[0].type).toBe("blockAnchor");
     expect(children[1].type).toBe("paragraph");
   });
 

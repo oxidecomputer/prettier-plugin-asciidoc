@@ -289,11 +289,24 @@ describe("the lens still sees the corruptions the printer can make", () => {
 describe("the family arms are told apart by what they say", () => {
   // A table whose rows are distinguished by the ORDER of its lines is
   // a table a reader cannot check one line at a time. Every ledgered
-  // row must therefore be claimed by exactly one arm, with one
-  // exception the arm table documents and this asserts by name: a
-  // respelt `+` is also a document that lost a line, so
-  // `plus-respelled` and `gap-line-lost` both claim those rows.
-  const OVERLAP = ["plus-respelled", "gap-line-lost"];
+  // row must therefore be claimed by exactly one arm, with the
+  // exceptions the arm table documents and this asserts by name.
+  // Both come from `gap-line-lost`'s deliberately loose test ("fewer
+  // lines, and the text no longer says the same words"):
+  //
+  // - a respelt `+` is also a document that lost a line, so
+  //   `plus-respelled` and `gap-line-lost` both claim those rows;
+  // - a reflow join in a document that ALSO respells a bracket line
+  //   is fewer lines and different words for the same reason, so
+  //   `xref-across-a-break` and `gap-line-lost` both claim the row
+  //   whose `[#tigers]` prints as `[[tigers]]`.
+  //
+  // Each pair must be exercised, below, so an exception cannot
+  // outlive the overlap it excuses.
+  const OVERLAPS = [
+    ["plus-respelled", "gap-line-lost"],
+    ["xref-across-a-break", "gap-line-lost"],
+  ];
 
   test("every ledgered row is claimed by one arm, or the documented pair", async () => {
     const sources = new Map(deepTierCases().map((one) => [one.id, one.source]));
@@ -322,22 +335,21 @@ describe("the family arms are told apart by what they say", () => {
         .filter((one) => one.claimed[0] !== one.family)
         .map((one) => one.id),
     ).toEqual([]);
-    // No row is claimed twice, except by the documented pair.
+    // No row is claimed twice, except by a documented pair.
+    const documented = new Set(OVERLAPS.map((pair) => pair.join("+")));
     expect(
       claims
         .filter(
           (one) =>
-            one.claimed.length > 1 &&
-            one.claimed.join("+") !== OVERLAP.join("+"),
+            one.claimed.length > 1 && !documented.has(one.claimed.join("+")),
         )
         .map((one) => one.id),
     ).toEqual([]);
-    // The exception is USED, not merely allowed: an assertion that
+    // Each exception is USED, not merely allowed: an assertion that
     // tolerates an overlap nothing exercises would pass a table that
     // had quietly become disjoint and left the exception behind.
-    expect(
-      claims.some((one) => one.claimed.join("+") === OVERLAP.join("+")),
-    ).toBe(true);
+    const seen = new Set(claims.map((one) => one.claimed.join("+")));
+    expect([...documented].filter((pair) => !seen.has(pair))).toEqual([]);
   });
 
   // Documents no population spells, whose own TEXT holds the arrow

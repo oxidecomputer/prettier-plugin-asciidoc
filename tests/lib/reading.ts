@@ -44,6 +44,7 @@ import {
   parseListMarker,
   type LineKind,
 } from "../../src/parse/lines/classify.js";
+import { anchorIdOfAttributeLine } from "../../src/parse/build/metadata.js";
 import { parseDescriptionListLine } from "../../src/parse/line-shapes-description.js";
 import { frontMatterExtent } from "../../src/parse/lines/front-matter.js";
 import { documentBom, splitLines } from "../../src/parse/lines/split.js";
@@ -77,13 +78,21 @@ function traceOf(document: string): Map<number, LineKind> {
  * Project one recorded verdict to its token, or undefined for a blank.
  *
  * The token keeps the payload the reading depends on and drops the
- * spelling the formatter is licensed to change. Two folds happen
+ * spelling the formatter is licensed to change. Three folds happen
  * here, each with its license:
  *
  * - a `raw` anchor folds onto `anchor`: a `[[id]]` read as a raw line
  *   inside a paragraph and one read as block metadata are one reading
  *   for our purposes, and the serializer's spelling contract is
  *   pinned by tests/format/anchor-spelling.test.ts;
+ * - an ID-ONLY attribute line folds onto `anchor`: `[#intro]` and
+ *   `[[intro]]` give the block below them the same id, so both build
+ *   one blockAnchor node and the printer writes the anchor line for
+ *   both, pinned by tests/format/anchor-spelling.test.ts. The fold
+ *   asks the BUILDER's own question (`anchorIdOfAttributeLine`,
+ *   src/parse/build/metadata.ts) rather than a pattern of its own, so
+ *   an attribute line the builder leaves alone keeps its `attrline`
+ *   token and a respelling nobody licensed still moves the sequence;
  * - an attribute entry lowercases its name: the printer spells
  *   attribute names lowercase (Asciidoctor downcases them on the way
  *   in), pinned by tests/format/attribute-entry.test.ts.
@@ -106,9 +115,10 @@ function traceOf(document: string): Map<number, LineKind> {
  * load-bearing (it decides what the next `+` means), so its
  * disappearance has to move the sequence.
  * @param kind - one recorded verdict
+ * @param line - the line the verdict was recorded for, rstripped
  * @returns the token, or undefined when the line is blank
  */
-function tokenOf(kind: LineKind): string | undefined {
+function tokenOf(kind: LineKind, line: string): string | undefined {
   switch (kind.kind) {
     case "blank": {
       return undefined;
@@ -150,7 +160,9 @@ function tokenOf(kind: LineKind): string | undefined {
       return "anchor";
     }
     case "attributeLine": {
-      return "attrline";
+      return anchorIdOfAttributeLine(line) === undefined
+        ? "attrline"
+        : "anchor";
     }
     case "blockTitle": {
       return "title";
@@ -260,7 +272,7 @@ function contributionOf(
   }
   const kind = events.get(offset);
   if (kind !== undefined) {
-    const token = tokenOf(kind);
+    const token = tokenOf(kind, line);
     return token === undefined ? { kind: "blank" } : { kind: "token", token };
   }
   if (line.length === 0) {

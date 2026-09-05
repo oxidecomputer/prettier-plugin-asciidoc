@@ -128,7 +128,7 @@ describe("non-masquerade blocks unchanged", () => {
 
   test("[#myid] on quote block is not masqueraded", async () => {
     const input = "[#myid]\n____\nContent.\n____\n";
-    expect(await formatAdoc(input)).toBe(input);
+    expect(await formatAdoc(input)).toBe("[[myid]]\n____\nContent.\n____\n");
   });
 });
 

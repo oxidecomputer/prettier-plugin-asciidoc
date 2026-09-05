@@ -137,7 +137,7 @@ describe("paragraph-form block context formatting", () => {
   // Non-style attribute lists still stack normally.
   test("[#myid] before paragraph remains separate", async () => {
     const input = "[#myid]\nSome text.\n";
-    expect(await formatAdoc(input)).toBe(input);
+    expect(await formatAdoc(input)).toBe("[[myid]]\n\nSome text.\n");
   });
 });
 
