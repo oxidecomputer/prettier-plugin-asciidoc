@@ -13,12 +13,15 @@ import { describe, test, expect } from "vitest";
 import type { Location } from "../../src/ast.js";
 import { loadCorpus } from "../conformance/loader.js";
 import {
+  expectMasqueradeSourceDelimiter,
+  expectOpenDelimiterVariantOnly,
+} from "./ast-invariants-blocks.js";
+import {
   expectAnnotatedByPairing,
   expectAstInvariants,
   expectContainment,
   expectGapsVerbatim,
   expectItemSiblingMonotonicity,
-  expectMasqueradeSourceDelimiter,
 } from "./ast-invariants.js";
 import { preorder } from "./ast-walk.js";
 
@@ -145,6 +148,25 @@ describe("AST invariants: negative rows", () => {
     };
     expect(() => {
       expectMasqueradeSourceDelimiter(preorder(bad));
+    }).toThrow();
+  });
+
+  test("(xvi) bites: an example block carrying an openDelimiter fails", () => {
+    const bad = {
+      type: "document",
+      children: [
+        {
+          type: "parentBlock",
+          variant: "example",
+          openDelimiter: "~~~~",
+          children: [],
+          position: { start: at(0, 1), end: at(9, 3) },
+        },
+      ],
+      position: { start: at(0, 1), end: at(9, 3) },
+    };
+    expect(() => {
+      expectOpenDelimiterVariantOnly(preorder(bad));
     }).toThrow();
   });
 });

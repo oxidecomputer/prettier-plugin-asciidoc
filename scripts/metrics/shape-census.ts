@@ -293,25 +293,30 @@ const GRID_EXEMPT = new Map<string, string>([
 ]);
 
 // Rule (v): the realized grid sizes, pinned. The
-// standing grid is 13 kinds x 21 containers x 12 perturbations plus
+// standing grid is 14 kinds x 21 containers x 12 perturbations plus
 // the three setext pins (the roster grew by the dlist-desc and
-// dlist-desc-line containers); the adjacency grid is 10 constructs x 7
+// dlist-desc-line containers, and by a fourteenth kind,
+// openBlockTilde, issue #64); the adjacency grid is 10 constructs x 7
 // positions plus 9 named explicit rows (the original 4 + the 5 R2
 // rows); the
 // list-run grid is a standing selection (its arithmetic is
-// spelled at listRunGrid()); the pair grid is a 107-member alphabet
-// (every CONSTRUCTS body plus every near miss) squared, x 2 joins
-// (adjacent, blank) x 3 containers (doc, item, dlist-desc-line) =
-// 68,694, with no realized duplicates to dedupe away at that size. New
+// spelled at listRunGrid()); the pair grid is a 111-member alphabet
+// (every CONSTRUCTS body plus every near miss - a delimiter kind
+// contributes 4: its body and its three generic near misses) squared,
+// x 2 joins (adjacent, blank) x 3 containers (doc, item,
+// dlist-desc-line) = 73,926, with no realized duplicates to dedupe
+// away at that size (openBlockTilde's own 4 alphabet members, added
+// by issue #64, raised the 107-member alphabet this pin last measured
+// to 111). New
 // rows are realizable against any
 // base — shape-diff hands head-generated inputs to the base dumper —
 // so a grid extension moves its pin DELIBERATELY, in the same commit,
 // to the count the new source list produces; it is not a number to
 // discover from a red gate and paste back.
-const STANDING_GRID_SIZE = 3279;
+const STANDING_GRID_SIZE = 3531;
 const HEADING_ADJACENCY_GRID_SIZE = 79;
 const LIST_RUN_GRID_SIZE = 104;
-const PAIR_GRID_SIZE = 68_694;
+const PAIR_GRID_SIZE = 73_926;
 
 /**
  * Rule (i): every delimiter kind has a registry dimension.

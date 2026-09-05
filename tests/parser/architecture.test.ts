@@ -449,10 +449,18 @@ describe("parse-layer architecture", () => {
   // wire wherever a document spells a term line: what serialized as
   // one `paragraph` per term line now serializes as a
   // `descriptionList` with items, terms and a body.
-  test("the node-kind census is 50", () => {
+  // 51, moved up from 50 (issue #64): ParentBlockNode split into
+  // OpenParentBlockNode and CompoundParentBlockNode, one interface per
+  // variant group, so `openDelimiter` is a compile error on the three
+  // variants that may never carry it rather than a runtime-checked
+  // invariant alone - the same device the `delimitedBlock` kind's own
+  // five-way masquerade split already uses above, which is why this
+  // census counts interface declarations rather than distinct wire
+  // `type` values.
+  test("the node-kind census is 51", () => {
     const source = readFileSync("src/ast.ts", "utf8");
     const kinds = source.match(/^ {2}type: "[a-zA-Z]+";$/gmv) ?? [];
-    expect(kinds).toHaveLength(50);
+    expect(kinds).toHaveLength(51);
   });
 
   test("only the classification pass imports a pattern from the registry", () => {

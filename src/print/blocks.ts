@@ -450,6 +450,15 @@ export function printDelimitedBlock(
 interface WrappedBlocks {
   /** The delimiter variant the frame is spelled in. */
   readonly variant: ParentBlockNode["variant"];
+  /**
+   * The exact bytes to spell the frame in, when the source recorded
+   * one: `ParentBlockNode.openDelimiter` (src/ast.ts). Undefined for
+   * every admonition call (its `form` carries no such record) and for
+   * a conventionally-spelled parent block; `variant === "open"`
+   * whenever this is defined, since that is the only spelling the
+   * reader ever records (issue #64).
+   */
+  readonly openDelimiter?: string;
   /** The blocks between the two delimiter lines, in document order. */
   readonly children: BlockNode[];
 }
@@ -470,17 +479,28 @@ interface WrappedBlocks {
  * question about text, where the walk over descendant NODES this
  * replaces could only answer for the blocks it recognised.
  *
- * Open blocks are the exception and take the fixed two-dash spelling.
- * `is_delimited_block?` reaches its open-block arm only for a line of
- * exactly two characters (`parser.rb:980-983`), and a three-character
- * `tip_len` returns nothing at all (`parser.rb:1002-1003`), so `--`
- * has no longer spelling to move to. A `--` line in an open block's
- * printed interior therefore closes it early and no delimiter choice
- * can prevent that; issue #144 is open for the hole. The same fixed
- * spelling is written at the one other `--` site,
- * {@link computeMasqueradeDelimiter}'s open arm, for the same reason
- * and under the same issue.
- * @param wrapper - the delimiter variant and the blocks it wraps
+ * Open blocks are the exception and normally take the fixed two-dash
+ * spelling. `is_delimited_block?` reaches its open-block arm only for
+ * a line of exactly two characters (`parser.rb:980-983`), and a
+ * three-character `tip_len` returns nothing at all
+ * (`parser.rb:1002-1003`), so `--` has no longer spelling to move to.
+ * A run of four or more tildes opens the SAME content model to the
+ * pinned JS oracle and is absent from the vendored Ruby entirely
+ * (issue #64); `wrapper.openDelimiter` carries that recorded spelling
+ * when the source used it, and it is replayed VERBATIM rather than
+ * recomputed, so a longer tilde run stays exactly as long as the
+ * author wrote it, the same "print from the recorded fact, never
+ * re-derive" rule {@link computeMasqueradeDelimiter} follows for a
+ * masqueraded block's `sourceDelimiter`. A `--` (or a same-length
+ * tilde run) inside an open block's printed interior still closes it
+ * early and no delimiter choice can prevent that, whichever spelling
+ * is in force; issue #144 is open for the hole. The same fixed
+ * two-dash spelling is written at the one other open-block site,
+ * {@link computeMasqueradeDelimiter}'s open arm, reachable only from
+ * `--`, since resolveDelimitedOpen (lines/open-style.ts) never lets a
+ * style masquerade a tilde open into anything else.
+ * @param wrapper - the delimiter variant, its recorded spelling (if
+ *   any), and the blocks it wraps
  * @param path - Prettier's AST path
  * @param print - Prettier's recursive print callback
  * @param options - the print options in force, for rendering the
@@ -493,7 +513,7 @@ function printDelimitedParent(
   print: PrintFunction,
   options: PrintOptions,
 ): Doc {
-  const { variant, children } = wrapper;
+  const { variant, openDelimiter, children } = wrapper;
   const delimChar = PARENT_DELIMITER_CHARS[variant];
   // A childless wrapper has NO interior, which is a different thing
   // from an empty one: it writes a single line break between its two
@@ -505,14 +525,15 @@ function printDelimitedParent(
       ? undefined
       : joinBlocks(children, path.map(print, "children"));
   const delimiter =
-    variant === "open"
+    openDelimiter ??
+    (variant === "open"
       ? delimChar.repeat(OPEN_BLOCK_DELIMITER_LENGTH)
       : shortestSafeDelimiter(
           "",
           delimChar,
           MIN_DELIMITER_LENGTH,
           interior === undefined ? "" : printedText(interior, options),
-        );
+        ));
   return interior === undefined
     ? [delimiter, hardline, delimiter]
     : [delimiter, hardline, interior, hardline, delimiter];
@@ -540,7 +561,11 @@ export function printParentBlock(
   options: PrintOptions,
 ): Doc {
   return printDelimitedParent(
-    { variant: node.variant, children: node.children },
+    {
+      variant: node.variant,
+      openDelimiter: node.openDelimiter,
+      children: node.children,
+    },
     path,
     print,
     options,

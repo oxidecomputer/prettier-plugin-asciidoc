@@ -384,6 +384,17 @@ export const DELIMITER_KINDS = [
   "quote",
   "commentBlock",
   "openBlock",
+  // `~~~~`, a SECOND key that opens the same "open" content model as
+  // `openBlock` (`DELIMITED_BLOCKS['~~~~']`, masquerades `abstract`
+  // and `partintro`), absent from the vendored Ruby entirely: the
+  // oracle's semantics win over the missing entry (issue #64).
+  // Its own kind rather than a wider `openBlock` pattern because the
+  // registry is one row per `DELIMITED_BLOCKS` key (see this array's
+  // own doc comment), and `resolveDelimitedOpen`
+  // (lines/open-style.ts) reads which key matched to keep a style
+  // from masquerading a spelling the printer cannot replay at any
+  // length but its own.
+  "openBlockTilde",
   "fencedCode",
   "tablePipe", // |===   (psv; the hint char sets no format, parser.rb:874)
   "tableComma", // ,===   (csv, parser.rb:876)
@@ -418,6 +429,13 @@ const DELIMITER_SOURCES: Record<DelimiterKind, string> = {
   quote: String.raw`_{4,}`,
   commentBlock: String.raw`/{4,}`,
   openBlock: String.raw`--`,
+  // `DELIMITED_BLOCKS['~~~~']` (`@asciidoctor/core/build/node/index.cjs`
+  // l.1108) is absent from the vendored Ruby, so this row cites the
+  // bundle rather than parser.rb: `isDelimitedBlock` (index.cjs
+  // l.13262-13303) tail-matches a longer run the same uniform way
+  // `----` and the rest do, which is why this is `~{4,}` and not the
+  // fixed two-character spelling `openBlock` above is.
+  openBlockTilde: String.raw`~{4,}`,
   // Written as a quoted string rather than String.raw because the
   // pattern contains backticks, which no template literal can carry.
   fencedCode: "```(?!`)[^\\n]*",
@@ -507,6 +525,7 @@ export const DELIMITED_BLOCK_PATTERNS: Record<DelimiterKind, RegExp> = {
   quote: wholeLine(DELIMITER_SOURCES.quote),
   commentBlock: wholeLine(DELIMITER_SOURCES.commentBlock),
   openBlock: wholeLine(DELIMITER_SOURCES.openBlock),
+  openBlockTilde: wholeLine(DELIMITER_SOURCES.openBlockTilde),
   fencedCode: wholeLine(DELIMITER_SOURCES.fencedCode),
   tablePipe: wholeLine(DELIMITER_SOURCES.tablePipe),
   tableComma: wholeLine(DELIMITER_SOURCES.tableComma),
@@ -1925,9 +1944,12 @@ export function startsBlockAtLineStart(word: string): boolean {
  * one a later Asciidoctor adds, without naming any of them - which is
  * the property an enumeration of spellings does not have. Measured
  * over 32 punctuation characters at lengths two to six: of the 160
- * spellings this refuses, three are live render losses today (`~{4,}`
- * opens an OPEN block) and the rest are inert, and refusing all 160
- * costs the vendored corpus nothing.
+ * spellings this refuses, three WERE live render losses (`~{4,}` at
+ * lengths four through six, which opens an OPEN block), closed by
+ * naming `openBlockTilde` in {@link DELIMITER_KINDS} instead of
+ * leaving the shape to this blanket refusal (issue #64), and the
+ * rest are inert; refusing the remaining 157 costs the vendored
+ * corpus nothing.
  *
  * THE OTHER TWO ARE NAMED, because neither is a run:
  *

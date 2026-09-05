@@ -115,6 +115,123 @@ describe("open block parsing", () => {
     expect(block.variant).toBe("open");
     expect(block.children).toHaveLength(2);
   });
+
+  // The conventional spelling records no fact - the printer's fallback
+  // is what makes it conventional. Red before the field existed, since
+  // `openDelimiter` did not exist to read.
+  test("the conventional spelling carries no openDelimiter", () => {
+    const { children } = parse("--\nOpen content.\n--\n");
+    const block = firstParentBlock(children);
+    expect(block.openDelimiter).toBeUndefined();
+  });
+
+  // The opening line's own trailing whitespace is not recorded: a
+  // real, shipped-and-reverted bug (src/parse/build/delimited.ts's
+  // openDelimiterFact used the Fragment's raw span, which keeps
+  // trailing whitespace, instead of the rstripped text every other
+  // reading site compares against). Red before the rstrip fix: this
+  // built `openDelimiter: "--  "` (the trailing spaces kept), which
+  // is a bug the FORMATTED OUTPUT never shows (Prettier's own core
+  // printer trims trailing whitespace from every line regardless of
+  // what a plugin puts there), so only a fact-level check like this
+  // one, or the reparse-ledger's parse/format/reparse comparison,
+  // can see it at all.
+  test("the opening line's own trailing whitespace is not recorded", () => {
+    const { children } = parse("--  \nOpen content.\n--\n");
+    const block = firstParentBlock(children);
+    expect(block.openDelimiter).toBeUndefined();
+  });
+});
+
+// A run of four or more tildes opens the SAME "open" content model as
+// `--` (DELIMITED_BLOCKS['~~~~'], absent from the vendored Ruby
+// entirely) to the pinned JS oracle, measured directly against
+// @asciidoctor/core 4.0.11: MEASURED, the minimum length is four (a
+// three-tilde run is ordinary text, joined into whatever paragraph
+// precedes it); the terminator is EXACT-byte, so a longer opener
+// needs the SAME longer closer and stays open, unterminated to EOF,
+// when it does not meet one; a style tried against a tilde open,
+// matched member included, still returns `context: "open"` (never a
+// masquerade or an admonition rename); and `~~~~ javascript` is not a
+// delimiter line at all - trailing text after the tildes fails the
+// tail-uniform match Ruby's own tail-matching entry requires, so the
+// whole line reads as ordinary paragraph text and carries no
+// attribute the way a Markdown fence's language hint would. Red
+// before `openBlockTilde` existed: every row below built a paragraph
+// (or joined into one) with no ParentBlockNode at all.
+describe("open block parsing via tilde (issue #64)", () => {
+  test("a bare four-tilde run opens an open block", () => {
+    const { children } = parse("~~~~\nOpen content.\n~~~~\n");
+    expect(children).toHaveLength(1);
+    const block = firstParentBlock(children);
+    expect(block.variant).toBe("open");
+    expect(block.openDelimiter).toBe("~~~~");
+    expect(block.children).toHaveLength(1);
+    expect(block.children[0].type).toBe("paragraph");
+  });
+
+  // Empty tilde open block.
+  test("empty tilde open block", () => {
+    const { children } = parse("~~~~\n~~~~\n");
+    const block = firstParentBlock(children);
+    expect(block.variant).toBe("open");
+    expect(block.openDelimiter).toBe("~~~~");
+    expect(block.children).toHaveLength(0);
+  });
+
+  // A longer run records its OWN length, unlike `--` (which has no
+  // longer spelling to move to at all).
+  test("a longer tilde run records its own length", () => {
+    const { children } = parse("~~~~~~\nContent.\n~~~~~~\n");
+    const block = firstParentBlock(children);
+    expect(block.variant).toBe("open");
+    expect(block.openDelimiter).toBe("~~~~~~");
+    expect(block.children).toHaveLength(1);
+  });
+
+  // Below the minimum length, three tildes are not a delimiter at
+  // all: they join into an ordinary paragraph the way any other text
+  // line would (measured: the oracle produces one `paragraph` node
+  // over all three lines, not a heading and not a block).
+  test("three tildes do not open a block", () => {
+    const { children } = parse("~~~\nnot a block\n~~~\n");
+    expect(children).toHaveLength(1);
+    expect(children[0].type).toBe("paragraph");
+  });
+
+  // The corpus shape issue #64 tracks: a fenced-code-LOOKING opener
+  // with a trailing word carries no attribute and is ordinary
+  // paragraph text (measured against the oracle - see this describe
+  // block's own header), so it joins the paragraph above the trailing
+  // bare `~~~~` line, which is the one line that actually opens
+  // anything: an EMPTY open block, unterminated at EOF.
+  test("corpus/blocks_test.rb#should not recognize fenced code blocks with more than three delimiters", () => {
+    const { children } = parse(
+      'first paragraph.\n\n~~~~ javascript\nalert("Hello, World!")\n~~~~\n',
+    );
+    expect(children).toHaveLength(3);
+    expect(children[0].type).toBe("paragraph");
+    expect(children[1].type).toBe("paragraph");
+    const block = firstParentBlock(children.slice(2));
+    expect(block.variant).toBe("open");
+    expect(block.openDelimiter).toBe("~~~~");
+    expect(block.children).toHaveLength(0);
+  });
+
+  // A style is INERT on a tilde open: the oracle's own masquerade set
+  // for `~~~~` is narrower than `--`'s and neither member is a
+  // variant this parser models, so every style measures back to a
+  // plain "open" (this describe block's own header). The attribute
+  // list still parses as its own sibling node - dropping the style
+  // changes what the BLOCK models, not whether the line survives.
+  test("a style does not masquerade a tilde open", () => {
+    const { children } = parse("[quote]\n~~~~\nfoo\n~~~~\n");
+    expect(children).toHaveLength(2);
+    expect(children[0].type).toBe("blockAttributeList");
+    const block = firstParentBlock(children.slice(1));
+    expect(block.variant).toBe("open");
+    expect(block.openDelimiter).toBe("~~~~");
+  });
 });
 
 describe("quote block parsing", () => {

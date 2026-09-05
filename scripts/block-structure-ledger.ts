@@ -147,7 +147,13 @@ export const BLOCK_STRUCTURE_FAMILIES: ReadonlySet<string> = new Set([
   // Markdown-heading divergence arriving later lands on it rather
   // than as UNTRIAGED.
   "gap:md-atx-heading",
-  // `~~~~ javascript` - a fenced block to the oracle, not to us (#64).
+  // A run of four or more tildes: an OPEN block to the oracle (its
+  // `DELIMITED_BLOCKS['~~~~']`, absent from the vendored Ruby
+  // entirely), NOT a fenced one - the title's original "fenced
+  // block" reading was corrected in #64's own close-out. The shape is
+  // read now (`openBlockTilde`, src/parse/line-shapes.ts) and no
+  // entry carries this family; the name stays so that a tilde-open
+  // divergence arriving later lands on it rather than as UNTRIAGED.
   "gap:md-fence-edge",
   // A style RE-MODELS the block (#61): `[abstract]`/`[partintro]`/
   // `[sidebar]`/`[example]`/`[quote]` on a paragraph, `[NOTE]` on an

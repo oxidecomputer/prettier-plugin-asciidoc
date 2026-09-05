@@ -195,12 +195,18 @@ describe("classifyLine over the reachable grid", () => {
   // change in what the extent scans cut away before classification
   // moves `asked`. Both are deliberate changes, and both should be
   // read before the number here is updated.
+  //
+  // CONSTRUCTS grew by one row (`openBlockTilde`, issue #64): 188 new
+  // cells (one row x every reachable state), 26 of them asked and 22
+  // of the rest counted below as a `verbatimStyled` latent
+  // disagreement - the tilde spelling falls into the SAME issue #187
+  // family every other delimiter-opening construct already does.
   test("is the size and reach the enumeration predicts", () => {
     const { cells, asked } = grid;
     expect(openParagraphProbes()).toHaveLength(188);
-    expect(CONSTRUCTS).toHaveLength(54);
-    expect(cells).toBe(10_152);
-    expect(asked).toBe(7653);
+    expect(CONSTRUCTS).toHaveLength(55);
+    expect(cells).toBe(10_340);
+    expect(asked).toBe(7679);
   });
 
   // Why the 23 states with NO open paragraph are enumerated and not
@@ -228,10 +234,12 @@ describe("classifyLine over the reachable grid", () => {
   // is pinned so that neither half changes quietly. Two families,
   // one issue each:
   //
-  // - issue #187, 333 cells: a verbatim styled paragraph inside a
-  //   list item, where Ruby's read_lines_until still ends at the
-  //   item's own boundary. The registry's `verbatimStyled` row is
-  //   written for the document-level case, as ParagraphContext says.
+  // - issue #187, 355 cells (was 333: `openBlockTilde`, a delimiter
+  //   like every other in this family, adds 22): a verbatim styled
+  //   paragraph inside a list item, where Ruby's read_lines_until
+  //   still ends at the item's own boundary. The registry's
+  //   `verbatimStyled` row is written for the document-level case, as
+  //   ParagraphContext says.
   // - issue #188, 18 cells: a SIBLING description-list term inside a
   //   description item, which ends a `+`-attached paragraph (12) and
   //   an indented literal run (6) although `interruptsParagraph`'s
@@ -242,7 +250,7 @@ describe("classifyLine over the reachable grid", () => {
   test("names the disagreements the reader keeps away from", () => {
     const { latent } = grid;
     expect(Object.fromEntries(latent)).toEqual({
-      verbatimStyled: 333,
+      verbatimStyled: 355,
       listContinuation: 12,
       literalParagraph: 6,
     });

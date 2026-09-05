@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { expectFormatted, formatAdoc } from "../helpers.js";
+import { expectFormatted, formatAdoc, renderedHtml } from "../helpers.js";
 
 describe("example block formatting", () => {
   // Canonical example block passes through unchanged.
@@ -97,6 +97,53 @@ describe("open block formatting", () => {
   test("multiple inner paragraphs", async () => {
     const input = "--\nFirst.\n\nSecond.\n--\n";
     expect(await formatAdoc(input)).toBe(input);
+  });
+});
+
+// A tilde-opened block prints back its OWN recorded spelling rather
+// than the conventional `--` (issue #64): byte preservation, because
+// the two spellings are not interchangeable to the oracle
+// (ParentBlockNode.openDelimiter, src/ast.ts). Red before the field
+// existed: the printer had one fixed spelling for every "open"
+// variant and would have normalized every row below to `--`.
+describe("open block formatting via tilde (issue #64)", () => {
+  test("a four-tilde open block keeps its own spelling", async () => {
+    const input = "~~~~\nOpen content.\n~~~~\n";
+    await expectFormatted(input, input);
+  });
+
+  test("empty tilde open block preserved", async () => {
+    const input = "~~~~\n~~~~\n";
+    await expectFormatted(input, input);
+  });
+
+  // A longer run is NOT normalized down to the four-tilde minimum -
+  // unlike every OTHER compound delimiter, whose length the printer
+  // is free to shrink to (see "delimiter length normalized to 4"
+  // above for the same shape on `====`).
+  test("a longer tilde run keeps its own length, not normalized to 4", async () => {
+    const input = "~~~~~~~~\nContent.\n~~~~~~~~\n";
+    await expectFormatted(input, input);
+  });
+
+  // An unterminated tilde open block still gets an explicit close on
+  // reformat - the same synthesis an unterminated `--` block already
+  // gets (issue #64's own corpus shape).
+  test("an unterminated tilde open block gets an explicit close", async () => {
+    const input =
+      'first paragraph.\n\n~~~~ javascript\nalert("Hello, World!")\n~~~~\n';
+    // The paragraph's two lines reflow-join with a space (ordinary
+    // paragraph wrapping) - `~~~~ javascript` carries no attribute
+    // to break on, it is plain text (this describe block's header).
+    const expected =
+      'first paragraph.\n\n~~~~ javascript alert("Hello, World!")\n\n~~~~\n~~~~\n';
+    expect(await formatAdoc(input)).toBe(expected);
+    expect(await renderedHtml(await formatAdoc(input))).toBe(
+      await renderedHtml(input),
+    );
+    expect(await formatAdoc(await formatAdoc(input))).toBe(
+      await formatAdoc(input),
+    );
   });
 });
 

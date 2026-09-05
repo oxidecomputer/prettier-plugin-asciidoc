@@ -1082,15 +1082,67 @@ interface ParagraphFormBlockNode extends Node {
   annotatedBy?: string;
 }
 
-/** A parent block contains structured child blocks (parsed recursively). */
-export interface ParentBlockNode extends Node {
+/**
+ * A parent block contains structured child blocks (parsed
+ * recursively): a UNION, not one flat interface with a conditional
+ * field, and the split is the point: {@link OpenParentBlockNode.openDelimiter}
+ * means something only for the `"open"` variant, the one a tilde run
+ * can open with a spelling of its own (issue #64). The other three
+ * variants have exactly one delimiter character each and the printer
+ * already picks their length itself (shortestSafeDelimiter,
+ * src/print/blocks.ts), so nothing here ever records one for them.
+ * The same device `DelimitedBlockNode`'s masquerade split uses above:
+ * the field a caller must not set is typed `?: undefined` rather than
+ * left off, so a consumer holding the union can still READ it
+ * uniformly and only WRITING it where it is invalid is a compile
+ * error.
+ */
+export type ParentBlockNode = OpenParentBlockNode | CompoundParentBlockNode;
+
+/**
+ * An open block (`--`): the one parent-block variant a run of four
+ * or more tildes can open too, to the pinned JS oracle's own
+ * `DELIMITED_BLOCKS` table, an entry the vendored Ruby does not model
+ * at all (`openBlockTilde`, src/parse/line-shapes.ts). The oracle's
+ * semantics win over the absent Ruby entry (issue #64).
+ */
+interface OpenParentBlockNode extends Node {
   /** Node discriminant. */
   type: "parentBlock";
+  /** The one delimiter variant a tilde run can open. */
+  variant: "open";
   /**
-   * `"example"` (`====`), `"sidebar"` (`****`),
-   * `"open"` (`--`), or `"quote"` (`____`).
+   * The exact bytes that opened the block, when they were not the
+   * conventional `--`: today, a run of four or more tildes. The
+   * printer replays these bytes rather than the conventional
+   * spelling: the two are NOT interchangeable to the oracle, which
+   * never lets a style masquerade a tilde-opened block into anything
+   * but a plain OPEN (`resolveDelimitedOpen` keeps that reading
+   * total, lines/open-style.ts), so nothing here ever needs to record
+   * a length a masquerade would have chosen instead.
+   *
+   * Absent for a conventionally-spelled open block: the printer
+   * emits `--` when this is undefined (invariant (xvi),
+   * tests/parser/ast-invariants-blocks.ts).
    */
-  variant: "example" | "sidebar" | "open" | "quote";
+  openDelimiter?: string;
+  /** Nested block elements parsed recursively. */
+  children: BlockNode[];
+}
+
+/**
+ * The three parent-block variants whose delimiter is one fixed
+ * character with no alternate spelling to record: `"example"`
+ * (`====`), `"sidebar"` (`****`), `"quote"` (`____`). Never carries
+ * {@link OpenParentBlockNode.openDelimiter}.
+ */
+interface CompoundParentBlockNode extends Node {
+  /** Node discriminant. */
+  type: "parentBlock";
+  /** `"example"` (`====`), `"sidebar"` (`****`), or `"quote"` (`____`). */
+  variant: "example" | "sidebar" | "quote";
+  /** Never: only the open variant records an alternate spelling. */
+  openDelimiter?: undefined;
   /** Nested block elements parsed recursively. */
   children: BlockNode[];
 }

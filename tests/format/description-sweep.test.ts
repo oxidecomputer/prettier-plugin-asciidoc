@@ -89,7 +89,7 @@ describe("the description reflow sweep", () => {
     expect(FOLLOWER_ROWS).toHaveLength(3456);
     expect(UNIFORM_ROWS).toHaveLength(160);
     expect(MARKER_ROWS).toHaveLength(180);
-    expect(GAP_FAMILY_ROWS).toHaveLength(240);
+    expect(GAP_FAMILY_ROWS).toHaveLength(216);
     expect(EDGE_ROWS).toHaveLength(11);
   });
 

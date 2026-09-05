@@ -1,6 +1,6 @@
 {
   "pair/bom/fidelity": {
-    "count": 144,
+    "count": 152,
     "examples": [
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/doc@bom",
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/item@bom",
@@ -8,7 +8,7 @@
       "pair/admonition-label-near-1/delimiter-openBlock-near-2/adjacent/item@bom",
       "pair/admonition-label/delimiter-openBlock-near-2/adjacent/doc@bom"
     ],
-    "sha256": "6d6f0c931304550f97c3b0d7685a8415b406652d99de68d847231bc89b8cc33f",
+    "sha256": "ff56560810ddbc9a1faef463434dbbf224568fdd91a5a457ba9331db28cf61df",
     "issue": "UNTRIAGED"
   },
   "pair/bom/idempotency": {
@@ -24,7 +24,7 @@
     "issue": "UNTRIAGED"
   },
   "pair/bom/idempotency+fidelity": {
-    "count": 162,
+    "count": 171,
     "examples": [
       "pair/block-anchor-near-1/attribute-entry/blank/doc@bom",
       "pair/block-anchor-near-1/block-macro/blank/doc@bom",
@@ -32,11 +32,11 @@
       "pair/block-anchor-near-1/block-title/blank/doc@bom",
       "pair/block-anchor-near-1/callout-near-1/blank/doc@bom"
     ],
-    "sha256": "2b874f6ff403803b236b6468692b26cdc049a3bbd697207088aa8b150afd0028",
+    "sha256": "3def94f83af408f391ff66623c6c2042e000dee465c2ddebd7de71c51c3ebeba",
     "issue": "UNTRIAGED"
   },
   "pair/clean/fidelity": {
-    "count": 144,
+    "count": 152,
     "examples": [
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/doc",
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/item",
@@ -44,7 +44,7 @@
       "pair/admonition-label-near-1/delimiter-openBlock-near-2/adjacent/item",
       "pair/admonition-label/delimiter-openBlock-near-2/adjacent/doc"
     ],
-    "sha256": "efd565b83bb94fe686d3d22b52ac4b2db18c1619bba919a1525d1900bc766495",
+    "sha256": "3f9243c5d6014f939a8d22df89eeab4a6d9aba1ada6f59da5a2a1e6f53ec4590",
     "issue": "UNTRIAGED"
   },
   "pair/clean/idempotency": {
@@ -60,7 +60,7 @@
     "issue": "UNTRIAGED"
   },
   "pair/clean/idempotency+fidelity": {
-    "count": 162,
+    "count": 171,
     "examples": [
       "pair/block-anchor-near-1/attribute-entry/blank/doc",
       "pair/block-anchor-near-1/block-macro/blank/doc",
@@ -68,11 +68,11 @@
       "pair/block-anchor-near-1/block-title/blank/doc",
       "pair/block-anchor-near-1/callout-near-1/blank/doc"
     ],
-    "sha256": "bc2ea7e618699199b32272d7d6eeba926876edf7bb95e73c9875f6d604667536",
+    "sha256": "a8637390897091746b343bb644ee77193d3540ad932cc85ba243d49edea77763",
     "issue": "UNTRIAGED"
   },
   "pair/crlf/fidelity": {
-    "count": 144,
+    "count": 152,
     "examples": [
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/doc@crlf",
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/item@crlf",
@@ -80,7 +80,7 @@
       "pair/admonition-label-near-1/delimiter-openBlock-near-2/adjacent/item@crlf",
       "pair/admonition-label/delimiter-openBlock-near-2/adjacent/doc@crlf"
     ],
-    "sha256": "0283119d7276854f93459e49a686b17ace28a8e5b7037cac61d710361fe498c4",
+    "sha256": "2410df0ca1770860ab98baef5700539252e872bfa79927abd9c8a2c60d48f5e4",
     "issue": "UNTRIAGED"
   },
   "pair/crlf/idempotency": {
@@ -96,7 +96,7 @@
     "issue": "UNTRIAGED"
   },
   "pair/crlf/idempotency+fidelity": {
-    "count": 162,
+    "count": 171,
     "examples": [
       "pair/block-anchor-near-1/attribute-entry/blank/doc@crlf",
       "pair/block-anchor-near-1/block-macro/blank/doc@crlf",
@@ -104,11 +104,11 @@
       "pair/block-anchor-near-1/block-title/blank/doc@crlf",
       "pair/block-anchor-near-1/callout-near-1/blank/doc@crlf"
     ],
-    "sha256": "d5f57a2bc33cb53a3ca3cc0ae7e731c412368df6a8be15817abf242730e81219",
+    "sha256": "9c5342abf41532fd1b147545cd8df8c218d526fa6113111e9a0aa02696bee85f",
     "issue": "UNTRIAGED"
   },
   "pair/no-final-newline/fidelity": {
-    "count": 144,
+    "count": 152,
     "examples": [
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/doc@no-final-newline",
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/item@no-final-newline",
@@ -116,7 +116,7 @@
       "pair/admonition-label-near-1/delimiter-openBlock-near-2/adjacent/item@no-final-newline",
       "pair/admonition-label/delimiter-openBlock-near-2/adjacent/doc@no-final-newline"
     ],
-    "sha256": "6ffc161e41dc3b220a59d77ab752d25412303cb808b16556dafa0314bc11249a",
+    "sha256": "b7410d9c8fd21fc214ac42bac840c1ace79c626efd05d4dfffd5d6e08ff0b247",
     "issue": "UNTRIAGED"
   },
   "pair/no-final-newline/idempotency": {
@@ -132,7 +132,7 @@
     "issue": "UNTRIAGED"
   },
   "pair/no-final-newline/idempotency+fidelity": {
-    "count": 162,
+    "count": 171,
     "examples": [
       "pair/block-anchor-near-1/attribute-entry/blank/doc@no-final-newline",
       "pair/block-anchor-near-1/block-macro/blank/doc@no-final-newline",
@@ -140,11 +140,11 @@
       "pair/block-anchor-near-1/block-title/blank/doc@no-final-newline",
       "pair/block-anchor-near-1/callout-near-1/blank/doc@no-final-newline"
     ],
-    "sha256": "dc0526c8b1c1503b5099aab51d34ef1c7dd62b0da562bc7bb0685ac007ec738e",
+    "sha256": "33ec2be56af269638c1db8e1e705649688bc7dd526535f8742532b7d74d93812",
     "issue": "UNTRIAGED"
   },
   "pair/trailing-ff/fidelity": {
-    "count": 146,
+    "count": 154,
     "examples": [
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/doc@trailing-ff",
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/item@trailing-ff",
@@ -152,7 +152,7 @@
       "pair/admonition-label-near-1/delimiter-openBlock-near-2/adjacent/item@trailing-ff",
       "pair/admonition-label/delimiter-openBlock-near-2/adjacent/doc@trailing-ff"
     ],
-    "sha256": "b4b66aad013c2cc16e4070cc132d1ece45fdb06d822f449767996f8e70eb994b",
+    "sha256": "95383d7750548a955d3cfff033664e7e9afc84b83ff6e8c65c5be3fbf9f43929",
     "issue": "UNTRIAGED"
   },
   "pair/trailing-ff/idempotency": {
@@ -168,7 +168,7 @@
     "issue": "UNTRIAGED"
   },
   "pair/trailing-ff/idempotency+fidelity": {
-    "count": 150,
+    "count": 158,
     "examples": [
       "pair/block-anchor-near-1/attribute-entry/blank/doc@trailing-ff",
       "pair/block-anchor-near-1/block-macro/blank/doc@trailing-ff",
@@ -176,11 +176,11 @@
       "pair/block-anchor-near-1/block-title/blank/doc@trailing-ff",
       "pair/block-anchor-near-1/callout-near-1/blank/doc@trailing-ff"
     ],
-    "sha256": "20fe0e3051e862b7e2de62b1172dcba2a39e68bd773396587914f3e5fd9e8bb0",
+    "sha256": "2ba4761522820592a502516bc7628cd6f3bde59a186b6bd635b9a5dd57dfc392",
     "issue": "UNTRIAGED"
   },
   "pair/trailing-space-first-line/fidelity": {
-    "count": 146,
+    "count": 154,
     "examples": [
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/doc@trailing-space-first-line",
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/item@trailing-space-first-line",
@@ -188,7 +188,7 @@
       "pair/admonition-label-near-1/delimiter-openBlock-near-2/adjacent/item@trailing-space-first-line",
       "pair/admonition-label/delimiter-openBlock-near-2/adjacent/doc@trailing-space-first-line"
     ],
-    "sha256": "012bfb36ec584a417fa6da7a29724d06cba015977aa86931c6e9492003e283f6",
+    "sha256": "cb2c9fdacdd56073035d7227a8c375465da8c106c33745e1c294fb57c9429f06",
     "issue": "UNTRIAGED"
   },
   "pair/trailing-space-first-line/idempotency": {
@@ -204,7 +204,7 @@
     "issue": "UNTRIAGED"
   },
   "pair/trailing-space-first-line/idempotency+fidelity": {
-    "count": 150,
+    "count": 158,
     "examples": [
       "pair/block-anchor-near-1/attribute-entry/blank/doc@trailing-space-first-line",
       "pair/block-anchor-near-1/block-macro/blank/doc@trailing-space-first-line",
@@ -212,11 +212,11 @@
       "pair/block-anchor-near-1/block-title/blank/doc@trailing-space-first-line",
       "pair/block-anchor-near-1/callout-near-1/blank/doc@trailing-space-first-line"
     ],
-    "sha256": "28742b72699f3f1539959ea511b00c1b49ab62d46708a9c44e9ddaa845a92f62",
+    "sha256": "5db80a88212b92072f3b31511208b2fa340211b51e51fdbf5456a85b3c8691c7",
     "issue": "UNTRIAGED"
   },
   "pair/trailing-space/fidelity": {
-    "count": 146,
+    "count": 154,
     "examples": [
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/doc@trailing-space",
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/item@trailing-space",
@@ -224,7 +224,7 @@
       "pair/admonition-label-near-1/delimiter-openBlock-near-2/adjacent/item@trailing-space",
       "pair/admonition-label/delimiter-openBlock-near-2/adjacent/doc@trailing-space"
     ],
-    "sha256": "72672e951802e65772a50ed3edebcf06a4bfee827072e92839f5ab36419b4f37",
+    "sha256": "52a965fb30c2a972780beb208904aa5377f0c09970199303b7c51789e649f13e",
     "issue": "UNTRIAGED"
   },
   "pair/trailing-space/idempotency": {
@@ -240,7 +240,7 @@
     "issue": "UNTRIAGED"
   },
   "pair/trailing-space/idempotency+fidelity": {
-    "count": 150,
+    "count": 158,
     "examples": [
       "pair/block-anchor-near-1/attribute-entry/blank/doc@trailing-space",
       "pair/block-anchor-near-1/block-macro/blank/doc@trailing-space",
@@ -248,11 +248,11 @@
       "pair/block-anchor-near-1/block-title/blank/doc@trailing-space",
       "pair/block-anchor-near-1/callout-near-1/blank/doc@trailing-space"
     ],
-    "sha256": "9a14a0277a3445d5fb55eae0ff3bcd15371386c5818a366e4be23e42ab1c049e",
+    "sha256": "9628b49f1508a57f5ac9739c3d91380d14de5fe5fd14e9c03ba44adb9262d9d5",
     "issue": "UNTRIAGED"
   },
   "pair/trailing-tab/fidelity": {
-    "count": 146,
+    "count": 154,
     "examples": [
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/doc@trailing-tab",
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/item@trailing-tab",
@@ -260,7 +260,7 @@
       "pair/admonition-label-near-1/delimiter-openBlock-near-2/adjacent/item@trailing-tab",
       "pair/admonition-label/delimiter-openBlock-near-2/adjacent/doc@trailing-tab"
     ],
-    "sha256": "fadc098917240852346ed3dfa1bcd73ef8db4604f8a6ec708a4f584d995828b7",
+    "sha256": "a78296f3197b77bbc72b4ad9edf8cc9b27549a5d4e2377b8c685f1a474f9274d",
     "issue": "UNTRIAGED"
   },
   "pair/trailing-tab/idempotency": {
@@ -276,7 +276,7 @@
     "issue": "UNTRIAGED"
   },
   "pair/trailing-tab/idempotency+fidelity": {
-    "count": 150,
+    "count": 158,
     "examples": [
       "pair/block-anchor-near-1/attribute-entry/blank/doc@trailing-tab",
       "pair/block-anchor-near-1/block-macro/blank/doc@trailing-tab",
@@ -284,11 +284,11 @@
       "pair/block-anchor-near-1/block-title/blank/doc@trailing-tab",
       "pair/block-anchor-near-1/callout-near-1/blank/doc@trailing-tab"
     ],
-    "sha256": "1d6bd1588beea0be101bee30cd64fa84e85715b3a41d60b5169acdab997288c1",
+    "sha256": "454386436e18fdefe804519b8e43be6062e60cfc62fda5e561966be79a5cf475",
     "issue": "UNTRIAGED"
   },
   "pair/trailing-vt/fidelity": {
-    "count": 146,
+    "count": 154,
     "examples": [
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/doc@trailing-vt",
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/item@trailing-vt",
@@ -296,7 +296,7 @@
       "pair/admonition-label-near-1/delimiter-openBlock-near-2/adjacent/item@trailing-vt",
       "pair/admonition-label/delimiter-openBlock-near-2/adjacent/doc@trailing-vt"
     ],
-    "sha256": "068d8e982260e07409f775d2add6bf6b72e483bb76ff2161d0fbb206b4c4b7cc",
+    "sha256": "40c409006210de7e992bedd324169eb5ef1e6ab951528435e4ab88890983edeb",
     "issue": "UNTRIAGED"
   },
   "pair/trailing-vt/idempotency": {
@@ -312,7 +312,7 @@
     "issue": "UNTRIAGED"
   },
   "pair/trailing-vt/idempotency+fidelity": {
-    "count": 150,
+    "count": 158,
     "examples": [
       "pair/block-anchor-near-1/attribute-entry/blank/doc@trailing-vt",
       "pair/block-anchor-near-1/block-macro/blank/doc@trailing-vt",
@@ -320,7 +320,7 @@
       "pair/block-anchor-near-1/block-title/blank/doc@trailing-vt",
       "pair/block-anchor-near-1/callout-near-1/blank/doc@trailing-vt"
     ],
-    "sha256": "086d9cb6e4affca28a6ba78db18aac6ae06423e32ad3a0721ec16addcb4e67b2",
+    "sha256": "5b6051eb3719071a43a4dbdcf438feccbc650107e2f4564721be8d010ddf799c",
     "issue": "UNTRIAGED"
   }
 }

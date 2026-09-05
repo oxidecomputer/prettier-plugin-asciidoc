@@ -19,6 +19,10 @@ import { rstrip } from "../../src/parse/line-shapes.js";
 import type { DocumentNode } from "../../src/ast.js";
 import { parse } from "../../src/parser.js";
 import {
+  expectMasqueradeSourceDelimiter,
+  expectOpenDelimiterVariantOnly,
+} from "./ast-invariants-blocks.js";
+import {
   expectDescriptionPartition,
   expectFoldedItemsClosed,
 } from "./ast-invariants-description.js";
@@ -679,36 +683,6 @@ export function expectAnnotatedByPairing(root: unknown): void {
   visit(root);
 }
 
-// The delimited-block variants that only a masquerading style
-// produces — each rides on a recorded source delimiter.
-const MASQUERADE_VARIANTS = new Set<unknown>([
-  "verse",
-  "example",
-  "sidebar",
-  "quote",
-]);
-
-/**
- * (xiii) — a masquerade-variant delimited block always carries its
- * source delimiter: `form: "delimited"` with a variant
- * that has no leaf delimiter of its own can only arise from a style
- * re-modeling a parent block, and the open records the delimiter it
- * re-modeled. The printer's masquerade arm READS the field with no
- * fallback table; this row is what makes that read total. Exported
- * for its negative row in tests/parser/ast-invariants.test.ts.
- * @param nodes - every node, in document order
- */
-export function expectMasqueradeSourceDelimiter(nodes: AnyNode[]): void {
-  for (const node of nodes) {
-    if (node.type !== "delimitedBlock" || node.form !== "delimited") continue;
-    if (!MASQUERADE_VARIANTS.has(node.variant)) continue;
-    expect(
-      node.sourceDelimiter,
-      `masquerade ${String(node.variant)} block at line ${String(node.position.start.line)} carries no sourceDelimiter`,
-    ).toBeDefined();
-  }
-}
-
 /**
  * (ix) — body exclusivity: an admonition body lives in exactly one
  * place — `text` for the paragraph form, `children` for a delimited
@@ -892,6 +866,7 @@ export function expectAstInvariants(source: string): void {
   expectAnnotatedByPairing(document);
   expectAdmonitionBodyExclusive(nodes);
   expectMasqueradeSourceDelimiter(nodes);
+  expectOpenDelimiterVariantOnly(nodes);
   expectDocumentHeaderShape(document);
   expectTablePartition(source, document);
   expectFoldedItemsClosed(nodes);

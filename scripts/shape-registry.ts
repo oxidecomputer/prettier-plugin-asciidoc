@@ -153,6 +153,17 @@ export const DELIMITER_PARTS: Record<DelimiterKind, DelimiterParts> = {
     longer: "---",
     nearMiss: "-- x",
   },
+  // Unlike `openBlock` above, a longer run stays the SAME shape: the
+  // oracle's `~~~~` key tail-matches any longer uniform run exactly
+  // the way `----`/`====`/etc. do (issue #64), so `longer` here is a
+  // valid open block rather than a different construct entirely.
+  openBlockTilde: {
+    open: "~~~~",
+    close: "~~~~",
+    content: "inner",
+    longer: "~~~~~",
+    nearMiss: "~~~",
+  },
   fencedCode: {
     open: "```",
     close: "```",

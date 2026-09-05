@@ -447,10 +447,10 @@ function gapFamilyRows(
  * these (asciidoctor.rb's `DELIMITED_BLOCKS`, `LAYOUT_BREAK_CHARS`
  * and `MARKDOWN_THEMATIC_BREAK_CHARS`), so the grid is the shape
  * class rather than a list of the spellings that happen to be live:
- * three of its 160 rows are render losses today (`~{4,}`, which opens
- * an OPEN block) and the rest are inert, and a later Asciidoctor that
- * gives one of the inert ones a meaning finds this row already
- * written.
+ * three of its 160 rows WERE render losses (`~{4,}`, which opens an
+ * OPEN block) until `openBlockTilde` (src/parse/line-shapes.ts) named
+ * them (issue #64); the rest are inert, and a later Asciidoctor that
+ * gives one of them a meaning finds this row already written.
  */
 const RUN_CHARACTERS: readonly string[] =
   "~-_=*+.,;:!?/\\|<>'\"`^#@$%&()[]{}".match(/./gv) ?? [];
@@ -517,9 +517,11 @@ export type GapFamilyCase =
 export const GAP_FAMILY_CASES: Readonly<Record<string, GapFamilyCase>> = {
   // A markdown blockquote, lazy continuation included.
   "gap:md-quote": { restLines: ["> quoted", "> more"] },
-  // A fence with more than three delimiters, which is the shape that
-  // opens an OPEN block rather than a fenced one.
-  "gap:md-fence-edge": { restLines: ["~~~~", "````"] },
+  // gap:md-fence-edge closed (issue #64): `openBlockTilde`
+  // (line-shapes.ts) reads the shape now, so the ledgers carry no row
+  // for it and this map names none either - see the description-list
+  // rows this family's fix moved (tests/format/description-list.test.ts,
+  // "opens a trailing open block").
   // A setext title: the underline is what makes the line above it a
   // heading, so the pair goes in together.
   "gap:setext-title": { restLines: ["Title", "====="] },

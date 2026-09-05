@@ -11,7 +11,7 @@
       "id": "corpus/blocks_test/blocks_test.rb#should not recognize fenced code blocks with more than three delimiters#0",
       "pass": "p1",
       "signature": "[text(value=\"``ruby\\nputs \\\"Hello, World!\\\"\")] -> [text(value=\"``ruby puts \\\"Hello, World!\\\"\")]",
-      "family": "join-changes-reading"
+      "family": "gap-line-lost"
     },
     {
       "id": "corpus/links_test/links_test.rb#xref using angled bracket syntax with multi-line label inline with text#0",
@@ -272,6 +272,12 @@
       "family": "blank-dropped"
     },
     {
+      "id": "line/pair/block-anchor-near-1/delimiter-openBlockTilde-near-2/blank/doc",
+      "pass": "p1",
+      "signature": "[>paragraph delimitedBlock(content=\" ~~~~\",form=\"indented\",variant=\"literal\")] -> [text(value=\" \") <subscript() .children text(value=\"~\") >subscript text(value=\"~\") >paragraph]",
+      "family": "blank-dropped"
+    },
+    {
       "id": "line/pair/block-anchor-near-1/delimiter-pass-near-2/blank/doc",
       "pass": "p1",
       "signature": "[>paragraph delimitedBlock(content=\" ++++\",form=\"indented\",variant=\"literal\")] -> [text(value=\" \") passthrough(value=\"++++\") >paragraph]",
@@ -473,6 +479,12 @@
       "id": "line/pair/block-anchor-near-2/delimiter-openBlock-near-2/blank/doc",
       "pass": "p1",
       "signature": "[>paragraph delimitedBlock(content=\" --\",form=\"indented\",variant=\"literal\")] -> [text(value=\" \") characterReference(value=\"--\") >paragraph]",
+      "family": "blank-dropped"
+    },
+    {
+      "id": "line/pair/block-anchor-near-2/delimiter-openBlockTilde-near-2/blank/doc",
+      "pass": "p1",
+      "signature": "[>paragraph delimitedBlock(content=\" ~~~~\",form=\"indented\",variant=\"literal\")] -> [text(value=\" \") <subscript() .children text(value=\"~\") >subscript text(value=\"~\") >paragraph]",
       "family": "blank-dropped"
     },
     {
@@ -872,6 +884,18 @@
       "family": "indent-dropped"
     },
     {
+      "id": "line/pair/block-title-near-1/delimiter-openBlockTilde-near-2/adjacent/doc",
+      "pass": "p1",
+      "signature": "[text(value=\". \") <subscript() .children text(value=\"~\") >subscript text(value=\"~\") >paragraph] -> [text(value=\".\") >paragraph <parentBlock(openDelimiter=\"~~~~\",variant=\"open\") .children >parentBlock]",
+      "family": "indent-dropped"
+    },
+    {
+      "id": "line/pair/block-title-near-1/delimiter-openBlockTilde-near-2/adjacent/item",
+      "pass": "p1",
+      "signature": "[text(value=\". \") <subscript() .children text(value=\"~\") >subscript text(value=\"~\") >paragraph .text text(value=\"item\") >listItem >list] -> [text(value=\".\") >paragraph .text text(value=\"item\") >listItem >list <parentBlock(openDelimiter=\"~~~~\",variant=\"open\") .children >parentBlock]",
+      "family": "indent-dropped"
+    },
+    {
       "id": "line/pair/block-title-near-1/delimiter-pass-near-2/adjacent/doc",
       "pass": "p1",
       "signature": "[text(value=\". \") passthrough(value=\"++++\") >paragraph] -> [text(value=\".\") >paragraph delimitedBlock(content=\"\",form=\"delimited\",variant=\"pass\")]",
@@ -1082,6 +1106,12 @@
       "family": "indent-dropped"
     },
     {
+      "id": "line/pair/continuation/delimiter-openBlockTilde-near-2/adjacent/doc",
+      "pass": "p1",
+      "signature": "[text(value=\"+ \") <subscript() .children text(value=\"~\") >subscript text(value=\"~\") >paragraph] -> [text(value=\"+\") >paragraph <parentBlock(openDelimiter=\"~~~~\",variant=\"open\") .children >parentBlock]",
+      "family": "indent-dropped"
+    },
+    {
       "id": "line/pair/continuation/delimiter-pass-near-2/adjacent/doc",
       "pass": "p1",
       "signature": "[text(value=\"+ \") passthrough(value=\"++++\") >paragraph] -> [text(value=\"+\") >paragraph delimitedBlock(content=\"\",form=\"delimited\",variant=\"pass\")]",
@@ -1220,6 +1250,18 @@
       "family": "indent-dropped"
     },
     {
+      "id": "line/pair/delimiter-example-near-0/delimiter-openBlockTilde-near-2/adjacent/doc",
+      "pass": "p1",
+      "signature": "[text(value=\"=== \") <subscript() .children text(value=\"~\") >subscript text(value=\"~\") >paragraph] -> [text(value=\"===\") >paragraph <parentBlock(openDelimiter=\"~~~~\",variant=\"open\") .children >parentBlock]",
+      "family": "indent-dropped"
+    },
+    {
+      "id": "line/pair/delimiter-example-near-0/delimiter-openBlockTilde-near-2/adjacent/item",
+      "pass": "p1",
+      "signature": "[text(value=\"=== \") <subscript() .children text(value=\"~\") >subscript text(value=\"~\") >paragraph .text text(value=\"item\") >listItem >list] -> [text(value=\"===\") >paragraph .text text(value=\"item\") >listItem >list <parentBlock(openDelimiter=\"~~~~\",variant=\"open\") .children >parentBlock]",
+      "family": "indent-dropped"
+    },
+    {
       "id": "line/pair/delimiter-example-near-0/delimiter-pass-near-2/adjacent/doc",
       "pass": "p1",
       "signature": "[text(value=\"=== \") passthrough(value=\"++++\") >paragraph] -> [text(value=\"===\") >paragraph delimitedBlock(content=\"\",form=\"delimited\",variant=\"pass\")]",
@@ -1334,6 +1376,18 @@
       "family": "heading-under-a-term"
     },
     {
+      "id": "line/pair/delimiter-fencedCode-near-1/delimiter-openBlockTilde-near-0/adjacent/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList heading(level=2,title=\"```x\")] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" === ```x\") >descriptionListItem >descriptionList]",
+      "family": "heading-under-a-term"
+    },
+    {
+      "id": "line/pair/delimiter-fencedCode-near-1/delimiter-openBlockTilde/adjacent/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList heading(level=2,title=\"```x\")] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" === ```x\") >descriptionListItem >descriptionList]",
+      "family": "heading-under-a-term"
+    },
+    {
       "id": "line/pair/delimiter-fencedCode-near-1/delimiter-pass-near-0/adjacent/dlist-desc-line",
       "pass": "p1",
       "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList heading(level=4,title=\"```x\")] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" ===== ```x\") >descriptionListItem >descriptionList]",
@@ -1433,6 +1487,18 @@
       "id": "line/pair/delimiter-literal-near-0/delimiter-openBlock-near-2/adjacent/item",
       "pass": "p1",
       "signature": "[text(value=\" \") characterReference(value=\"--\") >paragraph .text text(value=\"item\") >listItem >list] -> [>paragraph .text text(value=\"item\") >listItem >list <parentBlock(variant=\"open\") .children >parentBlock]",
+      "family": "indent-dropped"
+    },
+    {
+      "id": "line/pair/delimiter-literal-near-0/delimiter-openBlockTilde-near-2/adjacent/doc",
+      "pass": "p1",
+      "signature": "[text(value=\" \") <subscript() .children text(value=\"~\") >subscript text(value=\"~\") >paragraph] -> [>paragraph <parentBlock(openDelimiter=\"~~~~\",variant=\"open\") .children >parentBlock]",
+      "family": "indent-dropped"
+    },
+    {
+      "id": "line/pair/delimiter-literal-near-0/delimiter-openBlockTilde-near-2/adjacent/item",
+      "pass": "p1",
+      "signature": "[text(value=\" \") <subscript() .children text(value=\"~\") >subscript text(value=\"~\") >paragraph .text text(value=\"item\") >listItem >list] -> [>paragraph .text text(value=\"item\") >listItem >list <parentBlock(openDelimiter=\"~~~~\",variant=\"open\") .children >parentBlock]",
       "family": "indent-dropped"
     },
     {

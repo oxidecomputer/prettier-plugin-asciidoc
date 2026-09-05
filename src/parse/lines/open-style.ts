@@ -33,6 +33,11 @@ const DELIMITER_MODELS: Record<
   quote: { compound: "quote" },
   commentBlock: { role: { builds: "comment" } },
   openBlock: { compound: "open" },
+  // The same content model as `openBlock` above; see this map's own
+  // doc comment for why the tilde spelling is still its own row, and
+  // resolveDelimitedOpen below for the one place that keys off `kind`
+  // itself rather than off this shared `compound` value.
+  openBlockTilde: { compound: "open" },
   // Fences imply the `source` style even without a language hint; the
   // reader completes the role with the hint parsed from the line.
   fencedCode: { role: { builds: "fencedBlock" } },
@@ -128,7 +133,8 @@ type DelimitedOpen =
  * which is Ruby's unknown-style downgrade (parser.rb:548-549) —
  * modulo the uppercase-word admonition rule above, which claims any
  * single alphabetic word first (tables are outside both: they cut
- * cells whatever the style says).
+ * cells whatever the style says, and a tilde-spelled open ignores
+ * style entirely: see the `kind === "openBlockTilde"` guard below).
  * @param kind - which delimiter opened
  * @param style - the held style, if the (c) guard released one
  * @returns what the opened block will build
@@ -149,6 +155,27 @@ export function resolveDelimitedOpen(
     return { model: "table", hint: model.cuts };
   }
   const { compound } = model;
+  // A tilde run's masquerade set is `{abstract, partintro}` to the
+  // oracle (`DELIMITED_BLOCKS['~~~~']`, index.cjs l.1108), narrower
+  // than the two-hyphen open's, and neither target is a variant this
+  // parser models (partintro is `oracle:book-partintro` territory;
+  // abstract has none at all): MEASURED, every style tried against a
+  // tilde open, matched member included, still returns `context:
+  // "open"` to the oracle (`getContext()`, probed against 4.0.11).
+  // So every style on a tilde open reverts to the bare compound
+  // exactly as an unrecognized one would, decided HERE and ahead of
+  // the masquerade and admonition tables below: those are keyed by
+  // the CONTENT variant ("open"), which cannot see which delimiter
+  // spelling asked, so letting them run would masquerade or rename a
+  // block the printer could only ever spell back as `--`
+  // (ParentBlockNode.openDelimiter, src/ast.ts), silently changing
+  // the author's bytes. The style still prints: its attribute list is
+  // a sibling node the reader flushes unconditionally, so the run
+  // through here changes only what this block models, not what a
+  // re-render of the formatted output sees.
+  if (kind === "openBlockTilde") {
+    return { model: "compound", variant: compound };
+  }
   if (style !== undefined) {
     const masquerade = VERBATIM_MASQUERADES.get(compound)?.get(style);
     if (masquerade !== undefined) {

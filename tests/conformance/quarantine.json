@@ -31,10 +31,6 @@
     "fails": ["fidelity"],
     "issue": "UNTRIAGED"
   },
-  "blocks_test.rb#should not recognize fenced code blocks with more than three delimiters#0": {
-    "fails": ["fidelity"],
-    "issue": "UNTRIAGED"
-  },
   "blocks_test.rb#should parse credit line in markdown-style quote block like positional block attributes#0": {
     "fails": ["fidelity"],
     "issue": "#22"

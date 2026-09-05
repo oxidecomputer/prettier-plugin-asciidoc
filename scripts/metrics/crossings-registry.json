@@ -1073,6 +1073,13 @@
   {
     "file": "src/parse/line-shapes.ts",
     "symbol": "rstrip",
+    "importer": "src/parse/build/delimited.ts",
+    "kind": "vocabulary",
+    "reason": "the one line-normalization helper; a parent block's opening Fragment carries the RAW line (trailing whitespace and all), and the recorded openDelimiter fact strips it the way the reader's own terminator match does"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "rstrip",
     "importer": "src/parse/build/list.ts",
     "kind": "vocabulary",
     "reason": "the one line-normalization helper; Ruby's reader rstrips, so every consumer must strip the same way"

@@ -78,6 +78,12 @@ export const CONSTRUCTS: Array<[string, string]> = [
   ["quote delimiter", "____\nq\n____"],
   ["comment block delimiter", "////\nc\n////"],
   ["open block delimiter", "--\nob\n--"],
+  // The tilde spelling of the SAME open-block content model
+  // (DELIMITED_BLOCKS['~~~~'], absent from the vendored Ruby, issue
+  // #64): interrupts everywhere `--` does, since both are read by the
+  // same interrupting-set machinery (SHARED_INTERRUPTERS,
+  // src/parse/line-shapes.ts).
+  ["open block delimiter (tilde)", "~~~~\nob\n~~~~"],
   ["fenced code", "```\nc\n```"],
   ["table delimiter (psv)", "|===\n|a\n|==="],
   ["table delimiter (csv)", ",===\na,b\n,==="],

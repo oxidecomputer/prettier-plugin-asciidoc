@@ -24,6 +24,7 @@ import type {
   VerbatimVariant,
 } from "../../ast.js";
 import { NEWLINE_LENGTH } from "../../constants.js";
+import { rstrip } from "../line-shapes.js";
 import type { Fragment, LocationIndex } from "../positions.js";
 
 /**
@@ -382,16 +383,75 @@ export function buildDelimitedAdmonition(
   };
 }
 
+// The open block's conventional spelling, `DELIMITED_BLOCKS['--']`.
+// The only other spelling that resolves to the SAME "open" content
+// model is a run of four or more tildes (`DELIMITED_BLOCKS['~~~~']`,
+// the `openBlockTilde` kind in line-shapes.ts), an entry the vendored
+// Ruby does not carry at all (issue #64). Comparing bytes rather than
+// threading the delimiter kind down to this builder is safe because
+// resolveDelimitedOpen (lines/open-style.ts) never lets any OTHER
+// route reach a compound "open": those two spellings are the whole
+// domain of what the RSTRIPPED opening line can hold here.
+const CONVENTIONAL_OPEN_DELIMITER = "--";
+
+/**
+ * The delimiter-spelling fact to spread into an open block's literal:
+ * present only when the opener was not the conventional `--`, `{}`
+ * otherwise, which is what lets the printer read `node.openDelimiter`
+ * with no fallback table and still be total (src/ast.ts). The caller
+ * has already narrowed to the "open" variant, so nothing here asks
+ * which variant this is.
+ *
+ * RSTRIPS the image before comparing and before recording: `open` is
+ * a {@link Fragment}, whose default span is the line's RAW spelling
+ * (fragmentOfLine, lines/split.ts), trailing whitespace and all,
+ * where the classifier and the terminator match both ran against the
+ * rstripped `text`. A `--` opener with trailing whitespace is still
+ * the conventional spelling to both of those, and recording it
+ * unstripped is a real bug this project shipped once and reverted:
+ * measured directly against the reparse-ledger sweep
+ * (`after-h0-adjacent`/`dlist-desc` containers over the
+ * `terminator-trailing-ws` perturbation), where a document title's
+ * own author/revision-line absorption repositions which physical line
+ * becomes the OPEN line of a later, unrelated block - so a
+ * perturbation written against a CLOSE line can still leave trailing
+ * whitespace on an OPEN one once an earlier line is swallowed
+ * elsewhere. Its printed OUTPUT looked clean regardless (Prettier's
+ * own core printer trims trailing whitespace from every line it
+ * emits, so `tests/format/list-continuation.test.ts`'s direct
+ * trailing-whitespace pin cannot see this class of bug at all); the
+ * reparse-ledger caught it because it compares the RECORDED FACT
+ * across a parse/format/reparse round trip, not the rendered bytes.
+ * Pinned directly now by "the opening line's own trailing whitespace
+ * is not recorded" in tests/parser/parent-block.test.ts.
+ * @param openImage - the opening line's own raw bytes
+ * @returns the key to spread, or `{}` when nothing needs recording
+ */
+function openDelimiterFact(openImage: string): { openDelimiter?: string } {
+  const spelling = rstrip(openImage);
+  return spelling === CONVENTIONAL_OPEN_DELIMITER
+    ? {}
+    : { openDelimiter: spelling };
+}
+
 /**
  * A delimited block whose content is parsed as blocks: example,
  * sidebar, open, quote.
  *
- * A parent block's own position ends where the extent it READ ends —
+ * A parent block's own position ends where the extent it READ ends,
  * on its terminator when it met one, at the start of the outer
  * terminator that took the line when it did not, and at the document
  * end at EOF. That is the same rule the verbatim blocks follow, and
  * the extent states it as one offset (`end`) rather than as a pair
  * of boundaries this builder would have to decode.
+ *
+ * The `variant === "open"` branch is what makes the return type total
+ * without a cast: `ParentBlockNode` is a union of `OpenParentBlockNode`
+ * (the only member `openDelimiter` may appear on) and
+ * `CompoundParentBlockNode` (src/ast.ts), and narrowing `variant`
+ * here is what tells the compiler which literal shape this call is
+ * building, the same way `resolveDelimitedOpen`'s masquerade branch
+ * narrows a style to know which `VerbatimRole` it is returning.
  * @param extent - where the block opened and where the node ends
  * @param variant - which parent block it is
  * @param children - the blocks the reader put inside it
@@ -404,10 +464,15 @@ export function buildParentBlock(
   children: BlockNode[],
   at: LocationIndex,
 ): ParentBlockNode {
-  return {
-    type: "parentBlock",
-    variant,
-    children,
-    position: { start: at.start(extent.open), end: at.at(extent.end) },
-  };
+  const position = { start: at.start(extent.open), end: at.at(extent.end) };
+  if (variant === "open") {
+    return {
+      type: "parentBlock",
+      variant,
+      ...openDelimiterFact(extent.open.image),
+      children,
+      position,
+    };
+  }
+  return { type: "parentBlock", variant, children, position };
 }

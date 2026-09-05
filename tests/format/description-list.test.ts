@@ -732,20 +732,37 @@ describe("the boundaries of the reflow verdict", () => {
   // Rest lines Asciidoctor opens a block on and this registry's
   // classifier reads as text, so no composition of the interrupting
   // sets can refuse them. Red before the registry carried the shape
-  // rule: `t:: def` / `- - -` joined and the `<hr>` went with it, and
-  // `t:: def` / `~~~~` joined and the OPEN block went with it. The
+  // rule: `t:: def` / `- - -` joins and the `<hr>` goes with it
+  // (issue #182, spaced markdown thematic break); `t:: def` /
+  // `> quote` joins and the blockquote goes with it (issue #22). The
   // first is also the row the whole-LINE test answers for alone,
-  // since its hazard spans words.
+  // since its hazard spans words. The four-tilde rows that used to
+  // stand here moved to the pair below: `openBlockTilde`
+  // (line-shapes.ts) closed that gap (issue #64), so the shape is
+  // READ now and a join test no longer answers for it.
   test.each([
     ["a spaced markdown rule", "t:: def\n- - -\n"],
     ["a markdown blockquote", "t:: def\n> quote\n"],
-    ["a four-character fence", "t:: def\n~~~~\n"],
-    // Nine tildes, not six: an underline within ONE character of the
-    // term line's width is a setext title to the oracle, and this row
-    // is about the OPEN block a longer run opens.
-    ["a longer one", "t:: def\n~~~~~~~~~\n"],
   ])("%s replays", async (_n, input) => {
     await expectStable(input, undefined, { printWidth: 40 });
+  });
+
+  // The tilde run's own gap closed (issue #64): a bare `~~~~` no
+  // longer joins into the description's text, it OPENS the same
+  // content model `--` does. The item's own text ends at `def`, and
+  // the run stands as its own EMPTY, UNTERMINATED open block after a
+  // blank line - the ordinary separator between two sibling blocks,
+  // not a join the reader owns. Nine tildes, not six: an underline
+  // within ONE character of the term line's width is a setext title
+  // to the oracle, and this row is about the OPEN block a longer run
+  // opens.
+  test.each([
+    ["a four-character fence", "t:: def\n~~~~\n", "~~~~"],
+    ["a longer one", "t:: def\n~~~~~~~~~\n", "~~~~~~~~~"],
+  ])("%s opens a trailing open block", async (_n, input, delimiter) => {
+    await expectStable(input, `t:: def\n\n${delimiter}\n${delimiter}\n`, {
+      printWidth: 40,
+    });
   });
 
   // The two rules the classifier now READS (issue #23): the same join
