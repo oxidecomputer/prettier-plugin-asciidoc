@@ -345,26 +345,25 @@ describe("the net also refuses to write a Markdown heading", () => {
   });
 
   // The break the net keeps is the one BEHIND THE BLOCK'S FIRST
-  // WORD, and nothing further along: `# b` is already the whole
-  // hazard on line one, so the break after `b` is an ordinary break
-  // and packs away like any other. Only an author's break in front
-  // of the second atom can be traded for.
-  test("a break past the first word is still packed away", async () => {
-    await expectRow("# b\nc\n", "# b c\n");
+  // WORD, and nothing further along. `# b` is a HEADING now (issue
+  // #63), so the line below it is a block of its own and the net
+  // never gets the question: the heading comes back in the `=`
+  // spelling and `c` keeps its own line.
+  test("a heading's own line ends at the heading", async () => {
+    await expectRow("# b\nc\n", "= b\nc\n");
   });
 
   // The other side of the same rule: a heading the AUTHOR wrote on
-  // one line is printed back as it stands. The classifier still
-  // reads it as paragraph text (issue #63, which tracks reading the
-  // Markdown spelling); breaking the line here would invent a line
-  // break the source never had and destroy the heading the oracle
-  // does read.
-  test.each(["## Section One\n\nblah\n", "# Title\n\nblah\n"])(
-    "%j keeps the author's own line",
-    async (input) => {
-      await expectRow(input, input);
-    },
-  );
+  // one line comes back as one line. The classifier reads the
+  // Markdown spelling now (issue #63) and the printer writes every
+  // level as a run of `=`, so the marks change and the heading does
+  // not.
+  test.each([
+    ["## Section One\n\nblah\n", "== Section One\n\nblah\n"],
+    ["# Title\n\nblah\n", "= Title\n\nblah\n"],
+  ])("%j keeps its own line", async (input, expected) => {
+    await expectRow(input, expected);
+  });
 });
 
 describe("the net covers the plain-text path", () => {

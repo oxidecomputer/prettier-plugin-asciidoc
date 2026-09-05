@@ -105,7 +105,7 @@ const EXEMPT = new Map<string, string>([
   ],
   [
     "startsSectionTitle",
-    "reflow's refusal predicate over the two section-title spellings; the AsciiDoc form's dimension already exists and the Markdown ATX form is not a parsed construct (issue #63)",
+    "reflow's refusal predicate over the section-title shapes, whose one pattern spells both marker forms and already has a dimension of its own; a composition of dimensions is not itself a line shape",
   ],
   [
     "startsBlockAtLineStart",

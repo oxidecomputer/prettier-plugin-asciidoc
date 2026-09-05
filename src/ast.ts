@@ -94,8 +94,8 @@ export interface ParagraphNode extends Node {
    * (src/print/block-start-hazard.ts): a marker alone on a line is no
    * marker. Where the fact is FALSE the trade would invent a line: a
    * paragraph the source spells `## b## c` on one line stays on one
-   * line, because the oracle reads a heading there (issue #63) that a
-   * break would destroy.
+   * line, because a heading is read there and a break would destroy
+   * it.
    *
    * The ANSWER travels, not the line, for the reason
    * {@link ListItemNode.everyTextLineIndented} states: the reader

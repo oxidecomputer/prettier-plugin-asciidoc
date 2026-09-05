@@ -442,14 +442,6 @@
       "family": "oracle:front-matter",
       "signature": "+paragraph; heading=>thematic_break"
     },
-    "sections_test.rb#atx section title with leading marker#0": {
-      "family": "gap:md-atx-heading",
-      "signature": "paragraph=>heading"
-    },
-    "sections_test.rb#atx section title with symmetric markers#0": {
-      "family": "gap:md-atx-heading",
-      "signature": "paragraph=>heading"
-    },
     "sections_test.rb#document title with level 0 headings#0": {
       "family": "oracle:book-partintro",
       "signature": "paragraph=>open x2"

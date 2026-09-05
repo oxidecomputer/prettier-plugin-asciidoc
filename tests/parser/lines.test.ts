@@ -403,14 +403,31 @@ describe("parseSectionTitle", () => {
     ["====== Deepest", 5, "Deepest"],
     ["==  padded", 1, "padded"],
     ["=   spaced doc", 0, "spaced doc"],
-    ["== T ==", 1, "T =="],
     ["==\ttabbed", 1, "tabbed"],
+    // The CLOSED form: the trailing run repeats the opening markers
+    // exactly, and Ruby's optional `\1` takes it off the title. A run
+    // that is NOT the opening one stays in the title, which the
+    // pattern decides by backtracking.
+    ["== T ==", 1, "T"],
+    ["== T ===", 1, "T ==="],
+    ["== T =", 1, "T ="],
+    // The MARKDOWN marker spelling, which `ExtAtxSectionTitleRx`
+    // accepts beside the `=` one at the same levels. The two do not
+    // mix: `\1` is the opening run, so an `=` closing run under `#`
+    // markers is title text.
+    ["# Doc", 0, "Doc"],
+    ["## Section", 1, "Section"],
+    ["###### Deepest", 5, "Deepest"],
+    ["## S ##", 1, "S"],
+    ["## S ==", 1, "S =="],
   ])("%j → level %i, title %j", (line, level, title) => {
     expect(parseSectionTitle(line)).toEqual({ level, title });
   });
-  // `AtxSectionTitleRx`'s marker group is `(=={0,5})` — one `=` plus up
-  // to five more — and the gap is mandatory.
-  test.each(["=Doc", "======= too deep", "= ", "===", "text"])(
+  // `ExtAtxSectionTitleRx`'s marker group is `(=={0,5}|##{0,5})`, one
+  // marker plus up to five more, and the gap is mandatory. The last
+  // row is why the two alternatives are not one class.
+  const notTitles = ["=Doc", "======= too deep", "= ", "===", "text"];
+  test.each([...notTitles, "#Doc", "####### too deep", "=# mixed"])(
     "%j is not a section title",
     (line) => {
       expect(parseSectionTitle(line)).toBeUndefined();

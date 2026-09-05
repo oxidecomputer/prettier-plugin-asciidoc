@@ -755,46 +755,51 @@ const LIST_ITEM_INTERRUPTERS: readonly RegExp[] = [
 ];
 
 /**
- * An ATX section title (`== Section`), the document title (`= Doc`)
- * included — its level is simply 0. Mirrors `AtxSectionTitleRx`
- * (`/^(=={0,5})[ \t]+(CC_ANY+?)(?:[ \t]+\1)?$/`), whose marker group
- * is one `=` followed by up to five more, so `level = markers.length
- * - 1`. Ruby's optional trailing `\1` (the closed form `== T ==`)
- * only shortens the TITLE, never decides whether the line is one, so
- * it is left out here where only the level is reported.
+ * A one-line (ATX) section title, in BOTH marker spellings the oracle
+ * accepts: the AsciiDoc `== Section` (the document title `= Doc`
+ * included, its level being 0) and the Markdown `## Section`.
+ *
+ * Mirrors `ExtAtxSectionTitleRx`
+ * (`/^(=={0,5}|##{0,5})[ \t]+(CC_ANY+?)(?:[ \t]+\1)?$/`, rx.rb l.244
+ * and `@asciidoctor/core/build/node/index.cjs` l.266), which is what
+ * `atx_section_title?` matches with under `markdown_syntax`
+ * (parser.rb l.1709-13; the pinned oracle has no other path,
+ * index.cjs l.12631-40). Each alternative is one marker character
+ * followed by up to five more, so `level = markers.length - 1`
+ * whichever one participated.
+ *
+ * ONE PATTERN for the two spellings, not two: the level arithmetic,
+ * the title capture and the closed form are the same rule, and a
+ * second pattern would be a second place for any of them to drift.
+ * The two alternatives are disjoint by first character, so exactly
+ * one ever participates.
+ *
+ * The CLOSED form (`== T ==`) is carried here where it used to be
+ * left out, because the TITLE is what the closing run changes and
+ * the printer replays the title: Ruby's optional trailing `\1` takes
+ * the closing run off `$2`, and a `# Doc #` whose title kept the
+ * trailing `#` would be reprinted `= Doc #` - a different heading
+ * from the one the author wrote. The run must repeat the OPENING
+ * markers exactly, so `== T ===` keeps all of `T ===` as its title,
+ * which the pattern decides by backtracking rather than by a rule of
+ * its own.
  */
-export const SECTION_TITLE = /^(?<markers>={1,6})[ \t]+(?<title>\S[^\n]*)$/v;
+export const SECTION_TITLE =
+  /^(?<markers>={1,6}|#{1,6})[ \t]+(?<title>.+?)(?:[ \t]+\k<markers>)?$/v;
 
 /**
- * The MARKDOWN spelling of a section title (`## Section`), which the
- * oracle also accepts: `ExtAtxSectionTitleRx`
- * (`/^(=={0,5}|##{0,5})[ \t]+(.+?)(?:[ \t]+\1)?$/`,
- * `@asciidoctor/core/build/node/index.cjs` l.266) is the pattern
- * `next_block` actually matches with, and its second alternative is
- * one `#` followed by up to five more.
+ * The section-title shapes, for the ONE question no interrupting set
+ * answers: may reflow put this line at the start of an output line?
  *
- * The CLASSIFIER does not read this spelling yet (a `## b` line
- * stays paragraph text here, which is issue #63), so it is not in
- * any interrupting set; it is asked only by
- * {@link startsSectionTitle}, see {@link SECTION_TITLE_SHAPES}.
+ * A LIST OF ONE since the two marker spellings became one pattern,
+ * kept as a list because {@link startsSectionTitle} is the only
+ * reader and the shape of that question - "any of these" - is what
+ * a second title spelling would join. The measured corruptions are
+ * `##\nb## c` packed to `## b## c` (an `<h2>`, the text behind the
+ * marks eaten) and `=\nb= c` packed to `= b= c` (the document title,
+ * lifted out of the body).
  */
-const MARKDOWN_ATX_SECTION_TITLE = /^#{1,6}[ \t]+\S[^\n]*$/v;
-
-/**
- * Both spellings of a section title, together, for the ONE question
- * no interrupting set answers: may reflow put this line at the start
- * of an output line?
- *
- * Two spellings, one question, so {@link startsSectionTitle} - the
- * only reader - cannot answer about one and forget the other. The
- * measured corruptions are `##\nb## c` packed to `## b## c` (an
- * `<h2>`, the text behind the marks eaten) and `=\nb= c` packed to
- * `= b= c` (the document title, lifted out of the body).
- */
-const SECTION_TITLE_SHAPES: readonly RegExp[] = [
-  SECTION_TITLE,
-  MARKDOWN_ATX_SECTION_TITLE,
-];
+const SECTION_TITLE_SHAPES: readonly RegExp[] = [SECTION_TITLE];
 
 /**
  * `SETEXT_SECTION_LEVELS` (asciidoctor.rb l.262-268) as one string:
@@ -1631,8 +1636,8 @@ export function interruptsByLineShape(line: string): boolean {
  * `<h2>` and eats the text behind the marks, and `=` packed the same
  * way writes the DOCUMENT TITLE, which the renderer lifts out of the
  * body entirely. Refusing to WRITE the shape is a different question
- * from reading it - the classifier still does not read the Markdown
- * spelling (issue #63), and this answers about neither reader.
+ * from reading it: the classifier reads both marker spellings, and
+ * this answers about neither reader.
  *
  * The printer's block-start hazard nets
  * (src/print/block-start-hazard.ts) trade a

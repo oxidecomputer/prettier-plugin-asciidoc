@@ -83,8 +83,5 @@
     "fails": ["fidelity"],
     "issue": "UNTRIAGED"
   },
-  "test/fixtures/sample.adoc": {
-    "fails": ["fidelity"],
-    "issue": "#16"
-  }
+  "test/fixtures/sample.adoc": { "fails": ["fidelity"], "issue": "#16" }
 }

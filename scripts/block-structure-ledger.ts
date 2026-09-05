@@ -132,7 +132,10 @@ export const BLOCK_STRUCTURE_FAMILIES: ReadonlySet<string> = new Set([
   // `UnorderedListRx` and is left as text on purpose (THEMATIC_BREAK,
   // src/parse/line-shapes.ts).
   "gap:md-thematic-break",
-  // `## Section One`, `## Section One ##` (#63).
+  // `## Section One`, `## Section One ##` (#63). The spelling is read
+  // now and no entry carries this family; the name stays so that a
+  // Markdown-heading divergence arriving later lands on it rather
+  // than as UNTRIAGED.
   "gap:md-atx-heading",
   // `~~~~ javascript` - a fenced block to the oracle, not to us (#64).
   "gap:md-fence-edge",

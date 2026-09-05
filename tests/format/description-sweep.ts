@@ -517,8 +517,6 @@ export type GapFamilyCase =
 export const GAP_FAMILY_CASES: Readonly<Record<string, GapFamilyCase>> = {
   // A markdown blockquote, lazy continuation included.
   "gap:md-quote": { restLines: ["> quoted", "> more"] },
-  // A markdown ATX heading, with and without the closing marker.
-  "gap:md-atx-heading": { restLines: ["# H", "## H ##"] },
   // A fence with more than three delimiters, which is the shape that
   // opens an OPEN block rather than a fenced one.
   "gap:md-fence-edge": { restLines: ["~~~~", "````"] },

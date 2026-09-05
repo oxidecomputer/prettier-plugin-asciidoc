@@ -154,6 +154,51 @@ describe("heading metadata placement", () => {
 });
 
 /**
+ * The MARKDOWN marker spelling, issue #63. `atx_section_title?` runs
+ * `ExtAtxSectionTitleRx` under `markdown_syntax` (parser.rb
+ * l.1709-13), whose marker group takes `#` beside `=` at the same
+ * levels, so `## S` is the section `== S` is. Red before the registry
+ * carried it: the line was paragraph text, so prose under it joined
+ * into the heading and the heading became the joined line.
+ */
+describe("markdown-marker section titles", () => {
+  test.each([
+    ["#", 0],
+    ["##", 1],
+    ["######", 5],
+  ])("%s opens a level-%i heading", (markers, level) => {
+    const { children } = parse(`para\n\n${markers} S\n\nbody\n`);
+    const [, heading] = children;
+    narrow(heading, "heading");
+    expect(heading.level).toBe(level);
+    expect(heading.title).toBe("S");
+  });
+
+  // The CLOSED form: Ruby's optional trailing `\1` takes the closing
+  // run off the title, so the title the printer replays is the one
+  // the oracle renders.
+  test("a closing marker run leaves the title", () => {
+    const [heading] = parse("## S ##\n").children;
+    narrow(heading, "heading");
+    expect(heading.title).toBe("S");
+  });
+
+  // Seven markers are past the group's five-repeat tail, and a
+  // missing gap is no title at all.
+  test.each(["####### S\n", "#S\n", "###\n"])("%j is no title", (source) => {
+    expect(parse(source).children[0]?.type).not.toBe("heading");
+  });
+
+  // A `#`-spelled level-0 title opens the document header, as `= Doc`
+  // does: `is_next_line_doctitle?` asks the same predicate.
+  test("a markdown document title opens the header", () => {
+    const [header] = parse("# Doc\nAuthor Name\n\nb\n").children;
+    narrow(header, "documentHeader");
+    expect(header.title).toBe("Doc");
+  });
+});
+
+/**
  * The UNDERLINED (setext) spelling, issue #16. `is_next_line_section?`
  * (parser.rb l.1667) reads a title from TWO lines - a title line and
  * a uniform run of `=`, `-`, `~`, `^` or `+` under it, within one

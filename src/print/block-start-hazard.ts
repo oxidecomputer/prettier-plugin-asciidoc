@@ -225,9 +225,9 @@ function packsIntoBlockSyntax(atoms: readonly Atom[]): boolean {
  * CALLED ONLY where the author wrote the break this keeps - the
  * caller's own guard, `firstWordEndsItsLine` on a block that opens at
  * column 0 (src/print/inline.ts) - because a block whose first source
- * line already reads `# Title` must be printed back as it stands: the
- * oracle reads a heading there that the classifier does not (issue
- * #63), and breaking a line the source never had would destroy it.
+ * line already reads `# Title` must be printed back as it stands: a
+ * heading is read there, and breaking a line the source never had
+ * would destroy it.
  *
  * The trade rebuilds that line as `atoms[0]` ALONE, so it is only
  * legitimate where `atoms[0]` IS the block's first source line - and
