@@ -246,8 +246,8 @@ the only harness that proves fidelity per difference.
 
 ### `bun run test:deeply-nested-lists` - the deep sweeps
 
-Runs every `*.deep.test.ts` under its own vitest config. Four tests today, and
-the runner's floor is exactly four, so one being renamed out of the glob or
+Runs every `*.deep.test.ts` under its own vitest config. Five tests today, and
+the runner's floor is exactly five, so one being renamed out of the glob or
 skipped is exit 2 rather than a green tick.
 
 `tests/format/list-shape-sweep.deep.test.ts`: every nested-list shape to depth
@@ -276,6 +276,10 @@ expensive of the four, which is the reason it is here and not in `bun run test`.
 deep tier, 474,908 documents in about two minutes. See
 [the inline sweep](#bun-run-inline-sweep-triage---the-generated-inline-sweep).
 
+`tests/conformance/reparse.deep.test.ts` is the fifth: the reparse ledger over
+its whole population, 87,145 documents. See
+[the reparse ledger](#bun-run-reparse-ledger---the-reparse-breach-inventory).
+
 Proves: no list shape regressed, no known-broken shape got quietly fixed without
 its allowlist entry (and issue) being retired, and no generated coordinate
 outside the default tier changed its verdict.
@@ -292,6 +296,78 @@ is the gate over it.
 
 Proves nothing by itself, exactly as `triage` does not; it writes the file the
 two sweep entries hold the tree to.
+
+### `bun run reparse-ledger` - the reparse breach inventory
+
+Formats every document in its population, hands the output back to the reader we
+already own, compares the two documents through a declared lens, and reports the
+breaches grouped by mechanism family; `--write` regenerates
+`tests/conformance/reparse-ledger.json`. It is the question `src/print` asks
+about bytes it has not written yet, asked instead about bytes it has, and it
+consults no predicate in `src/print` to ask it.
+
+The LENS is the whole design. Tree identity would fail on every document,
+because the printer deliberately rewrites whitespace runs, delimiter lengths,
+attribute-list spacing and span spellings; `REPARSE_LENS` in
+`tests/conformance/reparse.ts` enumerates exactly those intentions, one row per
+licensed difference, each naming the format test that declares it. Verbatim
+interiors - a listing block's content, a monospace span, a passthrough, a `pass`
+macro - are compared byte for byte, because a whitespace run inside one is
+content (issue #32). Every row, every verbatim context and every node rewrite
+owes a PAIR in `tests/conformance/reparse.test.ts`: two documents that must
+project alike and two that must project apart, so a widened license shows up as
+a failing pair rather than as a quieter gate.
+
+Exit 2 when the population spelled fewer documents than its floor, or when a
+breach matches no declared mechanism - a ledger row is a claim about a mechanism
+with an issue behind it, and a row nobody can name a mechanism for is an
+allowlist entry wearing a registry's clothes. There is no exit 1: the breaching
+set is the report, and the ledger is the gate over it.
+
+The ledger is gated at two tiers, the way the reading ledger is gated at two
+depths. `tests/conformance/reparse.test.ts` (in `bun run test`) measures the
+vendored corpus and holds it to the ledger's corpus rows;
+`tests/conformance/reparse.deep.test.ts` measures the corpus plus both
+registries' standing grids plus the line registry's pair grid, and holds the
+whole file. Each asserts its population floor BEFORE comparing, because set
+equality is green when both sides are empty and a population that failed to load
+would otherwise pass loudest of all.
+
+To refresh after a fix: `bun run reparse-ledger --write`, then say in the commit
+which family shrank and why. The file SHRINKS; a commit that grows it is adding
+a breach.
+
+Proves nothing by itself, exactly as `reading-ledger` does not; it writes the
+file the two tier entries hold the tree to.
+
+### `bun run rewrite-justification` - what licenses the rewrites we make
+
+A REPORT and not a gate: no pin, no exit 1, exit 2 only when the corpus did not
+load. It exists to answer one question with numbers - does preserving every
+line's classification license the rewrites the formatter actually performs? -
+and it is the measurement a decision about deleting printer predicates rests on.
+
+Every rewrite the formatter makes on the corpus is isolated (applied to the
+source on its own, with every other rewrite backed out) and asked both
+questions: the LOCAL one, does every line still classify as it did, answered by
+the classifier trace in `tests/lib/reading.ts`; and the GLOBAL one, does the
+document still re-read as the same document, answered by
+`tests/conformance/reparse.ts`. The four cells are licensed, lemma
+counterexample, unlicensed-but-safe, and unsafe.
+
+One rewrite is one top-level block, or the blank run in front of one. A
+line-level diff of a reflowed document anchors on whatever lines survive
+verbatim and then measures its own mis-attribution; splicing block i of the
+output over block i of the source replaces that with one stated assumption.
+Documents whose block count changed carry no rewrite and are excluded from every
+share.
+
+Read the LICENSED column carefully: it means the projection lens licenses the
+rewrite, not that the render is safe. The lens is bounded by our reader's
+vocabulary and is blind on both sides where the reader is, so a licensed splice
+can still change what Asciidoctor renders - measured, on the quarantined
+four-backtick document. Render safety is the fidelity property in
+`tests/conformance/properties.ts`, which is a different gate.
 
 ### `bun run migration-diff -- --domain <name>` - three trees, bytes and renders
 

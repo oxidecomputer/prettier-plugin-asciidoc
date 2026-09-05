@@ -42,6 +42,8 @@
     "gates": "bun run fmt && bun run check && bun run lint && bun run test && bun run build && bun run metrics && bun run coverage && bun run block-structure && bun run citation-check && bun run internal-citations",
     "parity": "bun scripts/parity.ts",
     "reading-ledger": "bun scripts/reading-ledger.ts",
+    "reparse-ledger": "bun scripts/reparse-ledger.ts",
+    "rewrite-justification": "bun scripts/rewrite-justification.ts",
     "shape-diff": "bun scripts/shape-diff.ts",
     "probe-domains": "bun scripts/probe-domains.ts",
     "mutate": "bun run test:deeply-nested-lists && bun run build && stryker run && bun scripts/score-minimums.ts --mutation",
