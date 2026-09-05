@@ -512,12 +512,13 @@ class Paragraph {
    * with `skip_line_comments`, so it never reaches
    * `adjust_indentation!`, and where it IS content
    * ({@link Paragraph.foldsCommentLine}) its indent counts like any
-   * other line's. A preprocessor line never counts: the reader that
-   * resolves it runs before `read_paragraph_lines` sees a line at
-   * all. KNOWN DIVERGENCE there, and the reason this says never: an
-   * UNRESOLVED include is a flush-left message line to the oracle, so
-   * `t:: item` / ` +` / `include::x[]` renders a break there and a
-   * literal plus here.
+   * other line's. A conditional directive never counts: the
+   * preprocessor removes it before either side's reader sees a
+   * paragraph at all, so there is no line left here to disagree about.
+   * An unresolved include DOES count, for the reason
+   * {@link Paragraph.adjustsIndentation} gives: `t:: item` / ` +` /
+   * `include::x[]` and the same shape under `*`, `.` and `<1>` all
+   * render a break, and this reads one too.
    * @param line - the line being added to the paragraph
    * @param kind - what the classifier made of it
    */
@@ -541,8 +542,9 @@ class Paragraph {
 
   /**
    * Whether `adjust_indentation!` takes the common indent over this
-   * line: every text line, and a COMMENT line in the one paragraph
-   * the oracle reads without skipping comments.
+   * line: every text line, a COMMENT line in the one paragraph the
+   * oracle reads without skipping comments, and an unresolved INCLUDE
+   * line.
    *
    * `read_paragraph_lines` passes `skip_line_comments: text_only`
    * (parser.rb l.754), and `parse_list_item` passes
@@ -555,12 +557,35 @@ class Paragraph {
    * takes the common indent to 0, which is what keeps the space on a
    * ` +` line above it and so keeps the break (issue #101; ORACLE:
    * `t:: item` / ` +` / `// c` renders `item <br> // c`).
+   *
+   * An `include::` line this reader leaves unresolved is a DIFFERENT
+   * route to the same zero: the oracle's preprocessor runs before
+   * `read_paragraph_lines` ever sees a line, and when the target does
+   * not resolve it does not drop the line, it REPLACES it with a
+   * flush-left message and hands that line on (`replace_next_line`,
+   * reader.rb l.258-262; the include-not-found arm that calls it,
+   * reader.rb l.1270-1277). `adjust_indentation!` then sees a line
+   * whose own indent is 0, and one such line anywhere in the buffer
+   * forces `block_indent` to `nil` for the whole scan, so nothing is
+   * stripped from any line in it (parser.rb l.2723-2732). That is what
+   * keeps the space, and so the break, on the ` +` line above an
+   * include the target cannot resolve (#107; issue #101's rule and
+   * this one land at the same zero by different Ruby paths). This
+   * reader never resolves an include, so it treats every `include::`
+   * line as if it were that unresolved case; it cannot be, since
+   * resolving one would mean reading a file this formatter has no
+   * business opening, and the oracle would not read this document's
+   * lines from that point on either way.
    * @param kind - what the classifier made of the line
    * @returns true when the line's indent is one the common indent is
    *   taken over
    */
   private adjustsIndentation(kind: LineKind): boolean {
-    return kind.kind === "text" || this.foldsCommentLine(kind);
+    return (
+      kind.kind === "text" ||
+      this.foldsCommentLine(kind) ||
+      (kind.kind === "raw" && kind.form === "include")
+    );
   }
 
   /**

@@ -167,14 +167,25 @@ comment that cites the wrong line is a failed gate.
 The divergences this formatter carries KNOWINGLY, each recorded at its code site
 as well as here, so a reader meets the list before meeting the shape:
 
-- **`include::` inside a description (#107).** The oracle preprocesses
-  `include::` before it parses, so the document it reads a description item from
-  is not the document our reader sees. Nothing inside a description reader can
-  be right about that in isolation, and this formatter replays the line where
-  the author wrote it rather than resolving it. The oracle wins, and it wins
-  here: the replayed bytes render exactly what the author's did, message line
-  included. What differs is a MODEL no render can show, and modelling the
-  preprocessor lines is what closes it.
+- **A resolving `include::` inside a description or marker item (#107).** The
+  oracle preprocesses `include::` before it parses, so when a target resolves
+  the parser reads real content from another file, and no reader here can replay
+  that without opening a file this formatter has no business reading. Nothing
+  inside a paragraph or description reader can be right about that in isolation.
+  The oracle wins, and this formatter replays the line where the author wrote it
+  rather than resolving it: the replayed bytes render exactly what the author's
+  did wherever the target does not actually resolve. An UNRESOLVED include is
+  narrower than that and is no longer a divergence: the oracle's preprocessor
+  does not drop such a line, `replace_next_line` hands the parser a flush-left
+  message line in its place (reader.rb l.258-262), and `adjust_indentation!`
+  takes one such line anywhere in its scan as reason to leave the whole buffer's
+  `block_indent` at `nil` (parser.rb l.2723-2732) - nothing in the block gets
+  dedented. That is what keeps the space, and so the break, on a marker item's
+  ` +` line above an unresolved include, and `Paragraph.adjustsIndentation` now
+  takes the same route: an unresolved raw include line counts toward the
+  common-indent scan exactly like the oracle's flush-left message would. What
+  still differs is a MODEL no render can show for a RESOLVING include, and
+  modelling the preprocessor lines is what would close that remainder.
 - **A comment carrying a term separator (#119).** A `//` line whose text holds a
   word ending in `::`, `:::`, `::::` or `;;` keeps the output line the author
   gave it, and the description it stands in is never joined onto its term line.

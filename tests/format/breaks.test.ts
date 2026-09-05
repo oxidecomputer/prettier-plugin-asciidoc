@@ -501,3 +501,69 @@ describe("a tab-indented `+` in a dlist description keeps its comment", () => {
     expect(html.includes("<br>")).toBe(true);
   });
 });
+
+// Issue #107, the marker-item witness. A dlist item REPLAYS its own
+// recorded lines (tests/format/description-list.test.ts:430), so the
+// divergence the issue first named there never reaches the output. A
+// MARKER item has no replay: its rest lines are read by this same
+// paragraph reader, and an unresolved `include::` line used to count
+// for nothing in `adjustsIndentation`, while to the oracle it is a
+// flush-left message line that takes `adjust_indentation!`'s common
+// indent to zero (parser.rb l.2723-2732; the message comes from
+// `replace_next_line`, reader.rb l.258-262). That kept the space, and
+// so the break, on the ` +` line above it for the oracle and lost
+// both here: the ` +` retyped to a literal `{plus}` and the include
+// line joined onto the item's own. RED before the fix: every row
+// below formatted to `* item {plus}` (or `.`/`<1>`) with no `<br>` in
+// its render.
+describe("an include under a marker item keeps its break (#107)", () => {
+  test.each([
+    ["a ulist item", "* item\n +\ninclude::x[]\n"],
+    ["an olist item", ". item\n +\ninclude::x[]\n"],
+    ["a callout item", "<1> item\n +\ninclude::x[]\n"],
+  ])("with %s, the include keeps the ` +` a break", async (_name, input) => {
+    const out = await formatAdoc(input);
+    expect(out).toBe(input);
+    const html = await renderedHtml(out);
+    expect(html).toBe(await renderedHtml(input));
+    expect(html.includes("<br>")).toBe(true);
+    expect(await formatAdoc(out)).toBe(out);
+  });
+
+  // Controls: the shapes the fix must leave exactly as they were.
+  //
+  // A plain paragraph's lines never reach `adjust_indentation!` at
+  // all (that call is `parse_list_item`'s alone, parser.rb l.755,
+  // l.1053-55), so an include below one was never inside this rule
+  // and keeps its break either way.
+  test("a plain paragraph's include keeps its break regardless", async () => {
+    const input = "para\n +\ninclude::x[]\n";
+    expect(await formatAdoc(input)).toBe(input);
+    const html = await renderedHtml(input);
+    expect(html.includes("<br>")).toBe(true);
+  });
+
+  // An INDENTED include never matches `INCLUDE_DIRECTIVE` (the
+  // pattern requires column 0), so the classifier never reads it as
+  // `raw`/`include`: it is ordinary text, already counted in
+  // `adjustsIndentation` before this fix, and this shape is
+  // unaffected by it.
+  test("an indented include is text, not a preprocessor line", async () => {
+    const input = "* item\n +\n  include::x[]\n";
+    const out = await formatAdoc(input);
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+
+  // An `ifdef::` line is a CONDITIONAL, not an include, and the
+  // preprocessor removes it (and the block it guards) before either
+  // reader ever sees a paragraph, so there is no flush-left line here
+  // for the two sides to disagree about: both read `* item` / ` +`
+  // with nothing after it and land on the same literal plus.
+  test("an ifdef line is gone before either side reads it", async () => {
+    const input = "* item\n +\nifdef::flag[]\nmore\nendif::[]\n";
+    const out = await formatAdoc(input);
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+});
