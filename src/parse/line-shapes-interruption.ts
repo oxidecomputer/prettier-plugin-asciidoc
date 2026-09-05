@@ -14,15 +14,15 @@
  * `src/parse/lines` and leaves the registry's own modules to spell
  * their tables from the patterns.
  *
- * THE ENCLOSING LIST, and why two contexts need it. A confined
+ * THE ENCLOSING LIST, and why three contexts need it. A confined
  * reader's lines have already been through the item scan
  * (`read_lines_for_list_item`, parser.rb l.1404) before any of them
  * is classified, so a shape that scan CUTS never reaches the block
- * reader inside the item. Two contexts answer differently inside a
+ * reader inside the item. Three contexts answer differently inside a
  * list item than at document level for exactly that reason, and
  * {@link ENCLOSING_LIST_RULE} is the per-context table of which
- * difference applies. The rest answer the same everywhere: the sets
- * they already carry hold every marker line, so a sibling adds
+ * difference applies. The other five answer the same everywhere: the
+ * sets they already carry hold every marker line, so a sibling adds
  * nothing to them.
  */
 import { isDescriptionSiblingLine } from "./line-shapes-description.js";
@@ -32,6 +32,7 @@ import {
   CONTINUATION_LINE,
   DLIST_FIRST_LINE_INTERRUPTERS,
   DLIST_ITEM_ANY_LINE_INTERRUPTERS,
+  isDelimiterLine,
   isDescriptionListLine,
   isRawParagraphLine,
   LIST_ITEM_FIRST_LINE_INTERRUPTERS,
@@ -63,11 +64,11 @@ const INTERRUPTERS_BY_CONTEXT: Record<ParagraphContext, readonly RegExp[]> = {
   // `read_paragraph_lines` with a nil `break_at_list` at document
   // level, so its set is the plain-paragraph one exactly.
   literalParagraph: PARAGRAPH_INTERRUPTERS,
-  // Ruby reads a styled verbatim run with `read_lines_until
-  // break_on_blank_lines: true, break_on_list_continuation: true`
-  // (parser.rb l.1028), so blank lines are structural to the reader
-  // and the lone `+` is the whole set.
-  verbatimStyled: [CONTINUATION_LINE],
+  // EMPTY, and not because nothing ends a styled verbatim paragraph:
+  // EVERY shape that ends one depends on what encloses the block, so
+  // the whole row is the `styledVerbatimRun` arm below rather than a
+  // list of patterns that would be wrong in one of the two settings.
+  verbatimStyled: NO_PATTERNS,
 };
 
 // Patterns that interrupt ONLY on the first line after the block
@@ -145,9 +146,11 @@ type EnclosingListRule =
   /** A sibling item of the open list ends the block. */
   | "siblingItem"
   /** A sibling term ends it, and only in a DESCRIPTION list. */
-  | "siblingDescriptionItem";
+  | "siblingDescriptionItem"
+  /** The whole styled-verbatim answer; see {@link enclosingListEnds}. */
+  | "styledVerbatimRun";
 
-// Which rule each context takes. The six `nothing` rows are the
+// Which rule each context takes. The five `nothing` rows are the
 // contexts whose own sets already hold every list marker line
 // (LIST_ITEM_INTERRUPTERS) or that stand outside a list entirely, so
 // the open list tells them nothing they do not already act on.
@@ -159,7 +162,7 @@ const ENCLOSING_LIST_RULE: Record<ParagraphContext, EnclosingListRule> = {
   dlistItem: "nothing",
   dlistItemTextOnly: "nothing",
   literalParagraph: "siblingDescriptionItem",
-  verbatimStyled: "nothing",
+  verbatimStyled: "styledVerbatimRun",
 };
 
 /**
@@ -176,6 +179,57 @@ function isSiblingItemLine(line: string, openList: OpenList): boolean {
   return openList.kind === "description"
     ? isDescriptionSiblingLine(line, openList.delimiter)
     : listMarkerStyle(line) === openList.style;
+}
+
+/**
+ * Whether the item scan would have CUT an item's buffer at this line
+ * - the question a line inside a `+`-attached run is really asked,
+ * because the scan runs to completion before the confined reader
+ * classifies anything.
+ *
+ * TWO of `read_lines_for_list_item`'s three cuts (parser.rb l.1404):
+ * a delimited block line (l.1455-1456) and a sibling item (l.1430).
+ *
+ * The THIRD, a block attribute line in a DESCRIPTION item
+ * (l.1462-1463), is deliberately NOT answered here, and the reason is
+ * that answering it wrong destroys bytes. Ruby does not decide at the
+ * attribute line: it reads FORWARD, consuming further attribute lines
+ * and blanks, and keeps the item open when the first line past them is
+ * a list item that is not a sibling of the open list (l.1464-1477,
+ * the `AnyListRx`-and-not-sibling branch at l.1471-1472). That is a
+ * lookahead over a RUN of following lines, and a reader classifying
+ * one line inside an open paragraph has none of them -
+ * `ReaderContext.nextLine` is undefined at every such position and
+ * carries one line even where it is not. Answering "ends"
+ * unconditionally cut the run at the attribute line, left the lines
+ * below it to be read as a nested item's text, and let the printer
+ * JOIN them - inside a listing block, where the newline between them
+ * is content: `term1:: desc` / `+` / `[source]` / `a` / `[note]` /
+ * `* n` / `b` lost the break between `* n` and `b` inside the oracle's
+ * own `<pre>`. So this row keeps the run open there instead. The
+ * oracle does end the run at those lines, so the eight cells it
+ * leaves are a MODEL remainder rather than a rendering one, counted
+ * by tests/conformance/reader-context-grid.test.ts and tracked by
+ * issue #187; closing them means supplying the run of following
+ * lines, not widening this test.
+ *
+ * KNOWN DIVERGENCE on the first cut, pre-existing and recorded rather
+ * than repaired here. Ruby breaks the list at a delimited block line
+ * only when no `+` stands directly in front of it (`break unless
+ * continuation == :active`, l.1456); with one in front it slurps the
+ * whole block into the item instead, and the oracle then reads the
+ * block's lines as part of the styled run. This row answers "ends"
+ * either way, because the `+` that decides it is erased from the
+ * item's buffer before any line is classified, so the condition is
+ * not observable at this position. The oracle wins, and the documents
+ * that show it diverge identically without this row - the residue is
+ * the reader's, not this row's.
+ * @param line - one rstripped source line
+ * @param openList - the list open around the block
+ * @returns true when the item's buffer stops at this line
+ */
+function endsItemBuffer(line: string, openList: OpenList): boolean {
+  return isDelimiterLine(line) || isSiblingItemLine(line, openList);
 }
 
 /**
@@ -214,6 +268,39 @@ function enclosingListEnds(
       return (
         openList?.kind === "description" && isSiblingItemLine(line, openList)
       );
+    }
+    case "styledVerbatimRun": {
+      // At document level the run is read by `read_lines_until
+      // break_on_blank_lines: true, break_on_list_continuation: true`
+      // (parser.rb l.1028) and nothing else, so a lone `+` ends it
+      // and a `----` inside it is content.
+      //
+      // Inside a list item the same lines come out of the item scan
+      // first, and the two answers swap: a shape that scan cuts at
+      // ends the run, and the `+` does not end it at all.
+      //
+      // ORACLE SURPRISE on the `+`, and one of the few places where
+      // the transpile and the Ruby part ways. The scan rewrites a
+      // continuation line to `ListContinuationPlaceholder` (parser.rb
+      // l.1439), which in Ruby is an empty String and so breaks
+      // `read_lines_until`'s own `line.empty?` (reader.rb l.414),
+      // while the transpile boxes it in a String subclass (`class
+      // ListContinuation extends String`, parser.js l.89-95) that
+      // `breakOnBlankLines`' own `line === ''` (reader.js l.529) does
+      // not match. So to the oracle the styled run swallows the
+      // continuation and everything under it (`* i` / `+` /
+      // `[source]` / `a` / `+` / `b` renders ONE listing block
+      // holding `a`, a blank line and `b`). The oracle wins.
+      //
+      // FOR THE NEXT ORACLE UPGRADE, the way
+      // LIST_ITEM_FIRST_LINE_INTERRUPTERS carries its own 2.0.20
+      // note: this row encodes a transpile defect rather than an
+      // AsciiDoc semantic, so a port that boxes the placeholder no
+      // longer, or compares it with `empty?`, flips it back to the
+      // Ruby reading. The probe is the arbiter either way.
+      return openList === undefined
+        ? CONTINUATION_LINE.test(line)
+        : endsItemBuffer(line, openList);
     }
   }
 }

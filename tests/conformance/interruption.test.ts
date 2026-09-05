@@ -458,11 +458,11 @@ function gapKey(context: ParagraphContext, name: string): string {
 // row states the oracle's answer and the registry's agreement with
 // it, and cannot drift into pinning our own reading twice.
 //
-// RED BEFORE the sibling rules landed (issue #188), in the direction
-// each row's comment names; the exhaustive census they came from is
-// the latent count in tests/conformance/reader-context-grid.test.ts,
-// whose listContinuation and literalParagraph families stood at 12
-// and 6 cells and stand at none.
+// RED BEFORE the enclosing-list rules landed (issues #187 and #188),
+// in the direction each row's comment names; the exhaustive census
+// they came from is the latent count in
+// tests/conformance/reader-context-grid.test.ts, which stood at 373
+// cells and stands at none.
 //
 // The filler that puts the probed line past the block's first line,
 // which is where every row stands (a verbatim run never classifies a
@@ -525,6 +525,62 @@ const ENCLOSING_LIST_ROWS: EnclosingListRow[] = [
     construct: "* item",
     ends: false,
   },
+  // #187: the row answered the document-level reading everywhere, so
+  // a delimiter line inside an item was content.
+  {
+    name: "a listing delimiter ends a styled verbatim run inside a marker item",
+    context: "verbatimStyled",
+    openList: { kind: "marker", style: "*" },
+    prefix: "* item\n+\n[source]\nfirst content line",
+    construct: "----\ncode\n----",
+    ends: true,
+  },
+  // The sibling cut reaches a styled run too: the item scan's own
+  // loop breaks at it before the run's lines are ever classified.
+  {
+    name: "a sibling term ends a styled verbatim run in a description item",
+    context: "verbatimStyled",
+    openList: { kind: "description", delimiter: "::" },
+    prefix: "term1:: desc\n+\n[source]\nfirst content line",
+    construct: "term:: definition",
+    ends: true,
+  },
+  {
+    name: "a block attribute line is content in a styled verbatim run in a marker item",
+    context: "verbatimStyled",
+    openList: { kind: "marker", style: "*" },
+    prefix: "* item\n+\n[source]\nfirst content line",
+    construct: "[source]",
+    ends: false,
+  },
+  // #187 in the other direction: the item scan rewrites the `+` to a
+  // placeholder the oracle's own break test does not match, so the
+  // run swallows it.
+  {
+    name: "a lone + does not end a styled verbatim run inside a list item",
+    context: "verbatimStyled",
+    openList: { kind: "marker", style: "*" },
+    prefix: "* item\n+\n[source]\nfirst content line",
+    construct: "+",
+    ends: false,
+  },
+  // At document level both answers are the ones the row always gave.
+  {
+    name: "a lone + ends a styled verbatim run at document level",
+    context: "verbatimStyled",
+    openList: undefined,
+    prefix: "[source]\nfirst content line",
+    construct: "+",
+    ends: true,
+  },
+  {
+    name: "a listing delimiter is content in a styled verbatim run at document level",
+    context: "verbatimStyled",
+    openList: undefined,
+    prefix: "[source]\nfirst content line",
+    construct: "----\ncode\n----",
+    ends: false,
+  },
 ];
 
 describe("the enclosing list decides what ends the block", () => {
@@ -547,6 +603,53 @@ describe("the enclosing list decides what ends the block", () => {
       ).toBe(ends);
     },
   );
+});
+
+// Issue #187's REMAINDER, pinned as a divergence rather than left
+// unsaid: the oracle ends a styled verbatim run at a block attribute
+// line inside a description item, and this reader does not.
+//
+// Ruby decides that cut by reading FORWARD past the attribute line
+// (parser.rb l.1464-1477) and keeps the item open when the first
+// line past the run of attribute lines and blanks is a non-sibling
+// list item. A reader classifying one line inside an open paragraph
+// has no such run, and answering "ends" without it is not a
+// harmless model gap: it cut the run early, the lines below were
+// read as a nested item's text, and the printer joined them INSIDE
+// the listing block. The witness below is that regression, and it is
+// pinned as a render-equality row so the trade cannot be made again
+// by accident.
+//
+// When the lookahead is supplied, this test goes red in the
+// classifier row and the grid census drops its last 8 cells.
+describe("the block attribute line inside a description item (#187)", () => {
+  const PREFIX = "term1:: desc\n+\n[source]\nfirst content line";
+  const READER: ReaderContext = {
+    openParagraph: "verbatimStyled",
+    openList: { kind: "description", delimiter: "::" },
+    firstLineAfterStart: false,
+    nextLine: undefined,
+  };
+
+  test.each([["[source]"], ["[[x]]"]])(
+    "%s ends the run for the oracle and not for the reader",
+    async (line) => {
+      expect(await oracleInterrupts(line, PREFIX, LATER_LINE_FILLER)).toBe(
+        true,
+      );
+      expect(interruptsParagraph(line, "verbatimStyled", READER)).toBe(false);
+    },
+  );
+
+  // The document the narrower answer exists for. Answering the
+  // oracle's way without the lookahead printed
+  // `...\n[note]\n* n b\n`, joining two lines whose newline the
+  // oracle keeps inside `<pre>`.
+  test("keeps the newline the joined answer destroyed", async () => {
+    const document = "term1:: desc\n+\n[source]\na\n[note]\n* n\nb\n";
+    const out = await formatAdoc(document);
+    expect(await renderedHtml(out)).toBe(await renderedHtml(document));
+  });
 });
 
 // The registry test above pins what the READER should decide. This

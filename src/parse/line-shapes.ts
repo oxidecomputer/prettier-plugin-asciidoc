@@ -116,16 +116,20 @@ import type { DescriptionDelimiter } from "../ast.js";
  * - `verbatimStyled` — a paragraph opened under a held VERBATIM
  *   style (`[source]`, `[listing]`, `[literal]`, `[verse]` —
  *   VERBATIM_STYLES, asciidoctor.rb:276; NOT `[pass]`, oracle-pinned).
- *   Behavior is `read_lines_until break_on_blank_lines: true,
- *   break_on_list_continuation: true` (parser.rb:1026-1028): blank
- *   lines are structural to the reader, so the pattern set carries
- *   only the lone `+`. The `+` sits in the ANY-LINE set because
- *   Ruby's `line_read` gate (reader.rb:414 and l.426) is false only
- *   for the styled block's OPENING line, which Ruby unshifts
- *   (parser.rb:565) and our reader consumes at open — every position
- *   this classifier sees corresponds to `line_read === true`. Pinned
- *   against the oracle, both positions, in
- *   tests/conformance/interruption.test.ts.
+ *   Behavior AT DOCUMENT LEVEL is `read_lines_until
+ *   break_on_blank_lines: true, break_on_list_continuation: true`
+ *   (parser.rb:1026-1028): blank lines are structural to the reader,
+ *   so the set is the lone `+` and nothing else. The `+` holds at
+ *   every position because Ruby's `line_read` gate (reader.rb:414 and
+ *   l.426) is false only for the styled block's OPENING line, which
+ *   Ruby unshifts (parser.rb:565) and our reader consumes at open, so
+ *   every position this classifier sees corresponds to `line_read ===
+ *   true`. INSIDE A LIST ITEM the answer is a different set entirely,
+ *   because the item scan has already cut the buffer; that reading
+ *   lives in line-shapes-interruption.ts. Pinned against the oracle
+ *   at document level, both positions, in
+ *   tests/conformance/interruption.test.ts, and in every reachable
+ *   state by tests/conformance/reader-context-grid.test.ts.
  */
 export type ParagraphContext =
   | "paragraph"
@@ -1552,9 +1556,12 @@ export function isDescriptionListLine(rawLine: string): boolean {
  * DLIST_ITEM_INTERRUPTERS: it already carries the plain-paragraph set,
  * the list markers a sibling item or a `+`-continuation breaks at, and
  * the block anchor, so no context contributes a pattern it lacks. The
- * sibling rules in line-shapes-interruption.ts add none either: a
- * sibling item is a list marker or a term line, both already members
- * here.
+ * enclosing-list rules in line-shapes-interruption.ts add no pattern
+ * either: what they test with a pattern is a delimiter line and a
+ * sibling MARKER line, both members already. A sibling TERM line is
+ * not a member and is not meant to be - it is the word-based rule the
+ * paragraph below excludes on purpose, and the sibling rules reach it
+ * through the description grammar rather than through this union.
  *
  * Exists for reflow (src/print/reflow.ts), which decides whether a word may
  * be placed at the start of an output line while knowing nothing about

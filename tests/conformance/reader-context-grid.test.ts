@@ -197,9 +197,9 @@ describe("classifyLine over the reachable grid", () => {
   // moves `asked`. Both are deliberate changes, and both should be
   // read before the number here is updated.
   //
-  // Both numbers held across the #188 fix: it closed 18 cells the
-  // reader was never asking about, so the reach is exactly what it
-  // was and the census below is what moved.
+  // Both numbers held across the #187/#188 fixes: those closed 365
+  // cells the reader was never asking about, so the reach is exactly
+  // what it was and the census below is what moved.
   test("is the size and reach the enumeration predicts", () => {
     const { cells, asked } = grid;
     expect(openParagraphProbes()).toHaveLength(188);
@@ -230,18 +230,36 @@ describe("classifyLine over the reachable grid", () => {
   // The cells the reader never asks about, where the registry's
   // answer and the oracle's differ anyway. Each is a model row that
   // is wrong in isolation and unreachable in practice, and the count
-  // is pinned so that neither half changes quietly. ONE family left,
-  // issue #187: a verbatim styled paragraph inside a list item, where
-  // the registry answers the document-level reading and the oracle
-  // ends the run at the item scan's own boundary.
+  // is pinned so that neither half changes quietly.
   //
-  // The other family, issue #188's 18 cells, stood here until the
-  // sibling rules landed: a SIBLING description-list term inside a
-  // description item ends a `+`-attached paragraph (12) and an
-  // indented literal run (6), where the arm compared marker styles
-  // only and so never ended either.
+  // EIGHT left, all issue #187's remainder: a block attribute line
+  // (`[source]`, `[[x]]`) inside a `+`-attached styled verbatim run
+  // in a description item, one per delimiter per spelling. The oracle
+  // ends the run there; this reader keeps it open, because deciding
+  // needs the RUN of lines below the attribute line (parser.rb
+  // l.1464-1477) and no reader supplies one at this position.
+  // Answering the oracle's way without that lookahead cut the run
+  // early and let the printer join the lines below it INSIDE a
+  // listing block, destroying a newline that is content there
+  // (endsItemBuffer, src/parse/line-shapes-interruption.ts, carries
+  // the witness). A model gap the render survives is the better of
+  // the two, and it is what these eight cells are.
+  //
+  // Two families closed and are gone from the census:
+  //
+  // - issue #187's other 347 cells: a delimited block line and a
+  //   sibling item inside a styled verbatim run in a list item, and
+  //   the lone `+` that does NOT end one there.
+  // - issue #188, 18 cells: a SIBLING description-list term inside a
+  //   description item, which ends a `+`-attached paragraph (12) and
+  //   an indented literal run (6) where the arm compared marker
+  //   styles only. Now every sibling rule asks
+  //   `is_sibling_list_item?`'s own question.
+  //
+  // A NEW entry here is a model row that answers one setting's
+  // question in another, which is what both issues were.
   test("names the disagreements the reader keeps away from", () => {
     const { latent } = grid;
-    expect(Object.fromEntries(latent)).toEqual({ verbatimStyled: 355 });
+    expect(Object.fromEntries(latent)).toEqual({ verbatimStyled: 8 });
   });
 });
