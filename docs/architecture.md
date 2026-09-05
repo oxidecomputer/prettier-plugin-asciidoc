@@ -474,48 +474,69 @@ Every preservation site under case 2 is a normalization candidate. The question
 per construct is never "may we normalize?" but "what derivation preserves the
 meaning?" — decided per construct, landed with render-equality proofs.
 
-### The three properties, formally
+### The formal model: an abstract rewriting system
 
-The policy above compresses to three properties of `format`, each with its
-standard name in the literature. Write `render(a)` for what the pinned oracle
-makes of input `a` (the abstract document it loads and converts — HTML is just
-the observable we compare), and `a ≈ b` for `render(a) = render(b)`.
+The policy above has an exact formalization in abstract rewriting theory (Baader
+& Nipkow, _Term Rewriting and All That_). Write `render(a)` for what the pinned
+oracle makes of input `a`, and `a ≈ b` for `render(a) = render(b)`. The
+rewriting system is `(A, →)`: documents, where `a → b` when ONE formatting rule
+respells ONE site (one attrlist value unquoted, one anchor form folded, one
+blank elided). `format` itself is not the relation; it is a _strategy_ over the
+relation, and the implementation (`print ∘ parse`) realizes that strategy. That
+decomposition — format's input/output diff splits into applications of the
+declared rules — is a modeling claim, checked per axis when a conversion lands.
 
-1. **Semantics preservation** — `render(format(a)) = render(a)`, for all input.
-   The safety condition: formatting never changes what a document renders as.
-   The name is the verified-compiler literature's (CompCert's correctness
-   theorem is exactly this shape, with "compile" for "format"). The sweeps call
-   their per-row instance _fidelity_ (`tests/conformance/properties.ts`); the
-   standing render-equality gate (`tests/conformance/list-item-composition.ts`)
-   and the render-equality proofs required at every conversion landing enforce
-   it by sampling.
+The obligations, each with its name in the literature:
 
-2. **Idempotence** — `format(format(a)) = format(a)`, for all input. One pass
-   reaches the fixed point; a second pass is the identity. The standard
-   universal-algebra term for `f ∘ f = f`. In rewriting vocabulary: every output
-   is already a normal form — formatting arrives in one step. The idempotency
-   property in the sweeps and the corpus battery enforce it by sampling; the
-   per-fact lemma program (`read(print(A)) = A` restricted to each recorded
-   fact, mutation-verified) is its modular proof strategy.
+1. **Meaning preservation** — `→ ⊆ ≈`: every rule, at every site, stays inside
+   the render-equivalence class; plus _strategy soundness_, `a →* format(a)`.
+   Per-rule render-equality proofs at every conversion landing are the rule
+   obligation; the sweeps call the composed per-document instance _fidelity_
+   (`tests/conformance/properties.ts`), and the standing render-equality gate
+   (`tests/conformance/list-item-composition.ts`) holds a bounded family of
+   compositions to it. This is the verified-compiler literature's semantic
+   preservation, stated rule by rule.
 
-3. **Canonicity** — `a ≈ b` implies `format(a) = format(b)`. Every
-   render-equivalence class collapses to one spelling: `format` computes a
-   canonical form for `≈`, in the sense of the decision-procedure literature's
-   canonizers and abstract rewriting's unique normal forms (Baader & Nipkow,
-   _Term Rewriting and All That_). Note that classical _confluence_ of a
-   rewriting relation is trivial for a deterministic function; what this
-   codebase's "confluence" gate (`tests/conformance/confluence.ts`) actually
-   measures is canonicity, axis by axis, over enumerated spelling pairs — and
-   its exception table is the property's measured complement: every row is a
-   render-equal pair we do not yet collapse. Canonicity is the mission
-   ("uniformity is the job") and is achieved per axis; the other two properties
-   are non-negotiable from the first commit.
+2. **Termination (SN)** — no infinite rewrite chains. Structural in a one-pass
+   design, but it is a real obligation, not a free one: any rule pair that can
+   re-enable each other is a loop. The idempotency batteries would surface a
+   loop as a pass-2 change; no gate names termination directly.
 
-The three are not independent: preservation says `format(a) ≈ a`, so wherever
-canonicity holds on a class, applying it to the pair `(a, format(a))` forces
-`format(format(a)) = format(a)` — full canonicity plus preservation implies
-idempotence. Until canonicity is total, idempotence is enforced independently;
-that is why the harness gates it separately rather than as a corollary.
+3. **Normalization** — `format(a)` is a `→`-normal form: no rule applies to the
+   output. With soundness this IS idempotence (`f(f(a)) = f(a)`, the
+   universal-algebra term): a second pass finds no rule to apply. Informally:
+   every input arrives at a normal form in one step. Enforced by the idempotency
+   property in the sweeps and corpus battery; the per-fact lemma program
+   (`read(print(A)) = A` restricted to each recorded fact, mutation-verified) is
+   its modular proof strategy.
+
+4. **Confluence (CR)** — where two rules apply to overlapping sites, the results
+   rejoin: by Newman's lemma, SN plus local confluence, and local confluence is
+   checked at _critical pairs_ — the overlaps. Every review question of the form
+   "these two mechanisms touch the same line; do they commute?" is a
+   critical-pair analysis; the literature's version is systematic where ours is
+   per-review. SN + CR yield **unique normal forms** per convertibility class:
+   `a ↔* b` implies `format(a) = format(b)`. This half of canonicity is internal
+   and provable.
+
+5. **Completeness** — `≈ ⊆ ↔*`: any two render-equal documents are connected by
+   the rules, so unique-normal-forms upgrades to full _canonicity_
+   (`a ≈ b ⇒ format(a) = format(b)`; `format` is a canonizer for `≈`, and
+   comparing normal forms decides render-equality). This is the empirical
+   frontier, and the program that pursues it has a name: **completion**
+   (Knuth–Bendix). The confluence gate's exception table
+   (`tests/conformance/confluence-exceptions.ts`) is the set of unoriented
+   equations pending completion — each row a measured render-equal pair the
+   rules do not yet join; landing a conversion orients the equation into a rule;
+   the review's interaction checks are its critical pairs. The table shrinking
+   to empty is completion finishing.
+
+Implication structure: preservation + normalization give idempotence; SN + CR
+give uniqueness within `↔*`; completeness extends uniqueness to all of `≈`.
+Obligations 1 and 5 face the oracle and are enforced by measurement; 2-4 are
+internal. "Confluence" in this codebase's gate names is, strictly, obligations
+4 + 5 together — the gate measures canonicity over enumerated axes, and this
+section is the exact accounting for that shorthand.
 
 ## Error handling
 
