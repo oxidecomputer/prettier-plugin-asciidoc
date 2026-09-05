@@ -1112,20 +1112,25 @@ interface OpenParentBlockNode extends Node {
   /** The one delimiter variant a tilde run can open. */
   variant: "open";
   /**
-   * The exact bytes that opened the block, when they were not the
-   * conventional `--`: today, a run of four or more tildes. The
-   * printer replays these bytes rather than the conventional
-   * spelling: the two are NOT interchangeable to the oracle, which
-   * never lets a style masquerade a tilde-opened block into anything
-   * but a plain OPEN (`resolveDelimitedOpen` keeps that reading
-   * total, lines/open-style.ts), so nothing here ever needs to record
-   * a length a masquerade would have chosen instead.
+   * The delimiter CHARACTER the opener used, when it was not the
+   * conventional `--`: today, always `"~"`. The character is
+   * structure-bearing and replayed - the two are NOT interchangeable
+   * to the oracle, which never lets a style masquerade a
+   * tilde-opened block into anything but a plain OPEN
+   * (`resolveDelimitedOpen` keeps that reading total,
+   * lines/open-style.ts) - but the RUN LENGTH is not: a tilde run
+   * admits any length of four or more (`openBlockTilde`,
+   * src/parse/line-shapes.ts), so the printer picks its own safe
+   * length the same way it does for every other compound delimiter
+   * (`shortestSafeDelimiter`, src/print/blocks.ts) rather than
+   * replaying the author's count (confluence gate,
+   * `delimiterLength/openBlockTilde`).
    *
    * Absent for a conventionally-spelled open block: the printer
    * emits `--` when this is undefined (invariant (xvi),
    * tests/parser/ast-invariants-blocks.ts).
    */
-  openDelimiter?: string;
+  openDelimiter?: "~";
   /** Nested block elements parsed recursively. */
   children: BlockNode[];
 }

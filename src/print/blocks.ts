@@ -451,14 +451,16 @@ interface WrappedBlocks {
   /** The delimiter variant the frame is spelled in. */
   readonly variant: ParentBlockNode["variant"];
   /**
-   * The exact bytes to spell the frame in, when the source recorded
-   * one: `ParentBlockNode.openDelimiter` (src/ast.ts). Undefined for
-   * every admonition call (its `form` carries no such record) and for
-   * a conventionally-spelled parent block; `variant === "open"`
-   * whenever this is defined, since that is the only spelling the
-   * reader ever records (issue #64).
+   * The delimiter character to spell the frame in, when the source
+   * recorded one: `ParentBlockNode.openDelimiter` (src/ast.ts).
+   * Undefined for every admonition call (its `form` carries no such
+   * record) and for a conventionally-spelled parent block;
+   * `variant === "open"` whenever this is defined, since that is the
+   * only spelling the reader ever records (issue #64). The RUN LENGTH
+   * is never carried here - {@link printDelimitedParent} derives it
+   * the same way it derives every other compound delimiter's.
    */
-  readonly openDelimiter?: string;
+  readonly openDelimiter?: "~";
   /** The blocks between the two delimiter lines, in document order. */
   readonly children: BlockNode[];
 }
@@ -479,27 +481,34 @@ interface WrappedBlocks {
  * question about text, where the walk over descendant NODES this
  * replaces could only answer for the blocks it recognised.
  *
- * Open blocks are the exception and normally take the fixed two-dash
- * spelling. `is_delimited_block?` reaches its open-block arm only for
- * a line of exactly two characters (`parser.rb:980-983`), and a
- * three-character `tip_len` returns nothing at all
- * (`parser.rb:1002-1003`), so `--` has no longer spelling to move to.
- * A run of four or more tildes opens the SAME content model to the
- * pinned JS oracle and is absent from the vendored Ruby entirely
- * (issue #64); `wrapper.openDelimiter` carries that recorded spelling
- * when the source used it, and it is replayed VERBATIM rather than
- * recomputed, so a longer tilde run stays exactly as long as the
- * author wrote it, the same "print from the recorded fact, never
- * re-derive" rule {@link computeMasqueradeDelimiter} follows for a
- * masqueraded block's `sourceDelimiter`. A `--` (or a same-length
- * tilde run) inside an open block's printed interior still closes it
- * early and no delimiter choice can prevent that, whichever spelling
- * is in force; issue #144 is open for the hole. The same fixed
- * two-dash spelling is written at the one other open-block site,
- * {@link computeMasqueradeDelimiter}'s open arm, reachable only from
- * `--`, since resolveDelimitedOpen (lines/open-style.ts) never lets a
- * style masquerade a tilde open into anything else.
- * @param wrapper - the delimiter variant, its recorded spelling (if
+ * A hyphen open block is the one exception with no room to choose a
+ * length at all: `is_delimited_block?` reaches its open-block arm
+ * only for a line of exactly two characters (`parser.rb:980-983`),
+ * and a three-character `tip_len` returns nothing at all
+ * (`parser.rb:1002-1003`), so `--` has no longer spelling to move to,
+ * and the fixed two-dash spelling is written unconditionally. A run
+ * of four or more tildes opens the SAME content model to the pinned
+ * JS oracle and is absent from the vendored Ruby entirely (issue
+ * #64), but - unlike `--` - admits any length past its minimum
+ * (`openBlockTilde`, src/parse/line-shapes.ts), so once
+ * `wrapper.openDelimiter` says the source used one, its LENGTH is
+ * chosen the same way every other compound delimiter's is
+ * ({@link shortestSafeDelimiter}): the shortest run that collides
+ * with no interior line, never the author's own count (confluence
+ * gate, `delimiterLength/openBlockTilde`). The recorded fact is only
+ * the character; contrast {@link computeMasqueradeDelimiter}'s
+ * `sourceDelimiter`, which prints from the recorded RUN because a
+ * masquerade's own delimiter length is not free to move (it is
+ * fixed by the style that chose it before this block was reached). A
+ * `--` (or a same-length tilde run) inside an open block's printed
+ * interior still closes it early and no delimiter choice can prevent
+ * that, whichever spelling is in force; issue #144 is open for the
+ * hole. The fixed two-dash spelling is written at the one other
+ * open-block site, {@link computeMasqueradeDelimiter}'s open arm,
+ * reachable only from `--`, since resolveDelimitedOpen
+ * (lines/open-style.ts) never lets a style masquerade a tilde open
+ * into anything else.
+ * @param wrapper - the delimiter variant, its recorded character (if
  *   any), and the blocks it wraps
  * @param path - Prettier's AST path
  * @param print - Prettier's recursive print callback
@@ -525,15 +534,14 @@ function printDelimitedParent(
       ? undefined
       : joinBlocks(children, path.map(print, "children"));
   const delimiter =
-    openDelimiter ??
-    (variant === "open"
+    variant === "open" && openDelimiter === undefined
       ? delimChar.repeat(OPEN_BLOCK_DELIMITER_LENGTH)
       : shortestSafeDelimiter(
           "",
-          delimChar,
+          openDelimiter ?? delimChar,
           MIN_DELIMITER_LENGTH,
           interior === undefined ? "" : printedText(interior, options),
-        ));
+        );
   return interior === undefined
     ? [delimiter, hardline, delimiter]
     : [delimiter, hardline, interior, hardline, delimiter];

@@ -100,12 +100,14 @@ describe("open block formatting", () => {
   });
 });
 
-// A tilde-opened block prints back its OWN recorded spelling rather
-// than the conventional `--` (issue #64): byte preservation, because
-// the two spellings are not interchangeable to the oracle
-// (ParentBlockNode.openDelimiter, src/ast.ts). Red before the field
-// existed: the printer had one fixed spelling for every "open"
-// variant and would have normalized every row below to `--`.
+// A tilde-opened block prints back the tilde CHARACTER rather than
+// the conventional `--` (issue #64): the two are not interchangeable
+// to the oracle (ParentBlockNode.openDelimiter, src/ast.ts). Red
+// before the field existed: the printer had one fixed spelling for
+// every "open" variant and would have normalized every row below to
+// `--`. The RUN LENGTH, unlike the character, is not replayed - see
+// "a longer tilde run normalizes to 4" below, the same shape as every
+// other compound delimiter.
 describe("open block formatting via tilde (issue #64)", () => {
   test("a four-tilde open block keeps its own spelling", async () => {
     const input = "~~~~\nOpen content.\n~~~~\n";
@@ -117,13 +119,18 @@ describe("open block formatting via tilde (issue #64)", () => {
     await expectFormatted(input, input);
   });
 
-  // A longer run is NOT normalized down to the four-tilde minimum -
-  // unlike every OTHER compound delimiter, whose length the printer
-  // is free to shrink to (see "delimiter length normalized to 4"
-  // above for the same shape on `====`).
-  test("a longer tilde run keeps its own length, not normalized to 4", async () => {
+  // A longer run IS normalized down to the four-tilde minimum, like
+  // every OTHER compound delimiter (see "delimiter length normalized
+  // to 4" above for the same shape on `====`) - the run length is
+  // render-irrelevant to the oracle (confluence gate,
+  // `delimiterLength/openBlockTilde`), so replaying the author's
+  // count was a spelling choice, not a reading one. Red before this
+  // fix: formatAdoc left the eight-tilde run exactly as long as
+  // written.
+  test("a longer tilde run normalizes to 4", async () => {
     const input = "~~~~~~~~\nContent.\n~~~~~~~~\n";
-    await expectFormatted(input, input);
+    const expected = "~~~~\nContent.\n~~~~\n";
+    await expectFormatted(input, expected);
   });
 
   // An unterminated tilde open block still gets an explicit close on

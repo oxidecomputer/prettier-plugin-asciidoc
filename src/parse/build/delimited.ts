@@ -383,24 +383,36 @@ export function buildDelimitedAdmonition(
   };
 }
 
-// The open block's conventional spelling, `DELIMITED_BLOCKS['--']`.
-// The only other spelling that resolves to the SAME "open" content
-// model is a run of four or more tildes (`DELIMITED_BLOCKS['~~~~']`,
-// the `openBlockTilde` kind in line-shapes.ts), an entry the vendored
-// Ruby does not carry at all (issue #64). Comparing bytes rather than
-// threading the delimiter kind down to this builder is safe because
-// resolveDelimitedOpen (lines/open-style.ts) never lets any OTHER
-// route reach a compound "open": those two spellings are the whole
-// domain of what the RSTRIPPED opening line can hold here.
-const CONVENTIONAL_OPEN_DELIMITER = "--";
-
 /**
- * The delimiter-spelling fact to spread into an open block's literal:
- * present only when the opener was not the conventional `--`, `{}`
- * otherwise, which is what lets the printer read `node.openDelimiter`
- * with no fallback table and still be total (src/ast.ts). The caller
- * has already narrowed to the "open" variant, so nothing here asks
- * which variant this is.
+ * The delimiter-character fact to spread into an open block's
+ * literal: present only when the opener's rstripped spelling starts
+ * with a tilde, `{}` otherwise, which is what lets the printer read
+ * `node.openDelimiter` with no fallback table and still be total
+ * (src/ast.ts). The caller has already narrowed to the "open"
+ * variant, so nothing here asks which variant this is.
+ *
+ * The two spellings that reach an "open" variant at all are `--`
+ * (`DELIMITED_BLOCKS['--']`) and a run of four or more tildes
+ * (`DELIMITED_BLOCKS['~~~~']`, the `openBlockTilde` kind in
+ * line-shapes.ts, an entry the vendored Ruby does not carry at all -
+ * issue #64): `resolveDelimitedOpen` (lines/open-style.ts) never lets
+ * any OTHER route reach a compound "open", so those two are the whole
+ * domain of what the rstripped opening line can hold here. Asking the
+ * spelling's own first byte, rather than treating "not `--`" as proof
+ * of tilde, keeps that domain a fact this function CHECKS instead of
+ * one only a comment elsewhere promises: a caller that changed
+ * underfoot gets the total, safe answer - `{}`, the conventional
+ * reading - not a `"~"` asserted from an image that never was one.
+ *
+ * Records the CHARACTER, not the run: the length is not a fact this
+ * builder owes the printer at all, since a tilde run's length is
+ * render-irrelevant to the oracle (confluence gate,
+ * `delimiterLength/openBlockTilde`) and the printer picks its own
+ * safe length the way it already does for every other compound
+ * delimiter (`shortestSafeDelimiter`, src/print/blocks.ts). Recording
+ * the exact run here and then choosing a different length to print
+ * would be a fact read in and thrown away; not recording the length
+ * at all is the corresponding subtraction.
  *
  * RSTRIPS the image before comparing and before recording: `open` is
  * a {@link Fragment}, whose default span is the line's RAW spelling
@@ -427,11 +439,8 @@ const CONVENTIONAL_OPEN_DELIMITER = "--";
  * @param openImage - the opening line's own raw bytes
  * @returns the key to spread, or `{}` when nothing needs recording
  */
-function openDelimiterFact(openImage: string): { openDelimiter?: string } {
-  const spelling = rstrip(openImage);
-  return spelling === CONVENTIONAL_OPEN_DELIMITER
-    ? {}
-    : { openDelimiter: spelling };
+function openDelimiterFact(openImage: string): { openDelimiter?: "~" } {
+  return rstrip(openImage).startsWith("~") ? { openDelimiter: "~" } : {};
 }
 
 /**

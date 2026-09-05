@@ -165,7 +165,7 @@ describe("open block parsing via tilde (issue #64)", () => {
     expect(children).toHaveLength(1);
     const block = firstParentBlock(children);
     expect(block.variant).toBe("open");
-    expect(block.openDelimiter).toBe("~~~~");
+    expect(block.openDelimiter).toBe("~");
     expect(block.children).toHaveLength(1);
     expect(block.children[0].type).toBe("paragraph");
   });
@@ -175,17 +175,21 @@ describe("open block parsing via tilde (issue #64)", () => {
     const { children } = parse("~~~~\n~~~~\n");
     const block = firstParentBlock(children);
     expect(block.variant).toBe("open");
-    expect(block.openDelimiter).toBe("~~~~");
+    expect(block.openDelimiter).toBe("~");
     expect(block.children).toHaveLength(0);
   });
 
-  // A longer run records its OWN length, unlike `--` (which has no
-  // longer spelling to move to at all).
-  test("a longer tilde run records its own length", () => {
+  // The recorded fact is the CHARACTER, not the run: a longer opener
+  // still records "~", the same as the four-tilde minimum, because
+  // the printer picks its own safe length rather than replaying the
+  // author's count (src/print/blocks.ts, confluence gate
+  // `delimiterLength/openBlockTilde`). tests/format/parent-block.test.ts
+  // pins what that length comes out to.
+  test("a longer tilde run records the same character fact", () => {
     const { children } = parse("~~~~~~\nContent.\n~~~~~~\n");
     const block = firstParentBlock(children);
     expect(block.variant).toBe("open");
-    expect(block.openDelimiter).toBe("~~~~~~");
+    expect(block.openDelimiter).toBe("~");
     expect(block.children).toHaveLength(1);
   });
 
@@ -214,7 +218,7 @@ describe("open block parsing via tilde (issue #64)", () => {
     expect(children[1].type).toBe("paragraph");
     const block = firstParentBlock(children.slice(2));
     expect(block.variant).toBe("open");
-    expect(block.openDelimiter).toBe("~~~~");
+    expect(block.openDelimiter).toBe("~");
     expect(block.children).toHaveLength(0);
   });
 
@@ -230,7 +234,7 @@ describe("open block parsing via tilde (issue #64)", () => {
     expect(children[0].type).toBe("blockAttributeList");
     const block = firstParentBlock(children.slice(1));
     expect(block.variant).toBe("open");
-    expect(block.openDelimiter).toBe("~~~~");
+    expect(block.openDelimiter).toBe("~");
   });
 });
 

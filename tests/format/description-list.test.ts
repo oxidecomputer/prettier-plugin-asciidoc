@@ -763,10 +763,13 @@ describe("the boundaries of the reflow verdict", () => {
   // not a join the reader owns. Nine tildes, not six: an underline
   // within ONE character of the term line's width is a setext title
   // to the oracle, and this row is about the OPEN block a longer run
-  // opens.
+  // opens. The longer run normalizes to the four-tilde minimum on
+  // print - the run length is not a fact the reader keeps (issue #64,
+  // confluence gate `delimiterLength/openBlockTilde`), unlike the
+  // character, which stays tilde.
   test.each([
     ["a four-character fence", "t:: def\n~~~~\n", "~~~~"],
-    ["a longer one", "t:: def\n~~~~~~~~~\n", "~~~~~~~~~"],
+    ["a longer one", "t:: def\n~~~~~~~~~\n", "~~~~"],
   ])("%s opens a trailing open block", async (_n, input, delimiter) => {
     await expectStable(input, `t:: def\n\n${delimiter}\n${delimiter}\n`, {
       printWidth: 40,

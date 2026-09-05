@@ -796,13 +796,13 @@
     {
       "id": "line/pair/block-title-near-1/delimiter-openBlockTilde-near-2/adjacent/doc",
       "pass": "p1",
-      "signature": "[text(value=\". \") <subscript() .children text(value=\"~\") >subscript text(value=\"~\") >paragraph] -> [text(value=\".\") >paragraph <parentBlock(openDelimiter=\"~~~~\",variant=\"open\") .children >parentBlock]",
+      "signature": "[text(value=\". \") <subscript() .children text(value=\"~\") >subscript text(value=\"~\") >paragraph] -> [text(value=\".\") >paragraph <parentBlock(openDelimiter=\"~\",variant=\"open\") .children >parentBlock]",
       "family": "indent-dropped"
     },
     {
       "id": "line/pair/block-title-near-1/delimiter-openBlockTilde-near-2/adjacent/item",
       "pass": "p1",
-      "signature": "[text(value=\". \") <subscript() .children text(value=\"~\") >subscript text(value=\"~\") >paragraph .text text(value=\"item\") >listItem >list] -> [text(value=\".\") >paragraph .text text(value=\"item\") >listItem >list <parentBlock(openDelimiter=\"~~~~\",variant=\"open\") .children >parentBlock]",
+      "signature": "[text(value=\". \") <subscript() .children text(value=\"~\") >subscript text(value=\"~\") >paragraph .text text(value=\"item\") >listItem >list] -> [text(value=\".\") >paragraph .text text(value=\"item\") >listItem >list <parentBlock(openDelimiter=\"~\",variant=\"open\") .children >parentBlock]",
       "family": "indent-dropped"
     },
     {
@@ -1018,7 +1018,7 @@
     {
       "id": "line/pair/continuation/delimiter-openBlockTilde-near-2/adjacent/doc",
       "pass": "p1",
-      "signature": "[text(value=\"+ \") <subscript() .children text(value=\"~\") >subscript text(value=\"~\") >paragraph] -> [text(value=\"+\") >paragraph <parentBlock(openDelimiter=\"~~~~\",variant=\"open\") .children >parentBlock]",
+      "signature": "[text(value=\"+ \") <subscript() .children text(value=\"~\") >subscript text(value=\"~\") >paragraph] -> [text(value=\"+\") >paragraph <parentBlock(openDelimiter=\"~\",variant=\"open\") .children >parentBlock]",
       "family": "indent-dropped"
     },
     {
@@ -1162,13 +1162,13 @@
     {
       "id": "line/pair/delimiter-example-near-0/delimiter-openBlockTilde-near-2/adjacent/doc",
       "pass": "p1",
-      "signature": "[text(value=\"=== \") <subscript() .children text(value=\"~\") >subscript text(value=\"~\") >paragraph] -> [text(value=\"===\") >paragraph <parentBlock(openDelimiter=\"~~~~\",variant=\"open\") .children >parentBlock]",
+      "signature": "[text(value=\"=== \") <subscript() .children text(value=\"~\") >subscript text(value=\"~\") >paragraph] -> [text(value=\"===\") >paragraph <parentBlock(openDelimiter=\"~\",variant=\"open\") .children >parentBlock]",
       "family": "indent-dropped"
     },
     {
       "id": "line/pair/delimiter-example-near-0/delimiter-openBlockTilde-near-2/adjacent/item",
       "pass": "p1",
-      "signature": "[text(value=\"=== \") <subscript() .children text(value=\"~\") >subscript text(value=\"~\") >paragraph .text text(value=\"item\") >listItem >list] -> [text(value=\"===\") >paragraph .text text(value=\"item\") >listItem >list <parentBlock(openDelimiter=\"~~~~\",variant=\"open\") .children >parentBlock]",
+      "signature": "[text(value=\"=== \") <subscript() .children text(value=\"~\") >subscript text(value=\"~\") >paragraph .text text(value=\"item\") >listItem >list] -> [text(value=\"===\") >paragraph .text text(value=\"item\") >listItem >list <parentBlock(openDelimiter=\"~\",variant=\"open\") .children >parentBlock]",
       "family": "indent-dropped"
     },
     {
@@ -1402,13 +1402,13 @@
     {
       "id": "line/pair/delimiter-literal-near-0/delimiter-openBlockTilde-near-2/adjacent/doc",
       "pass": "p1",
-      "signature": "[text(value=\" \") <subscript() .children text(value=\"~\") >subscript text(value=\"~\") >paragraph] -> [>paragraph <parentBlock(openDelimiter=\"~~~~\",variant=\"open\") .children >parentBlock]",
+      "signature": "[text(value=\" \") <subscript() .children text(value=\"~\") >subscript text(value=\"~\") >paragraph] -> [>paragraph <parentBlock(openDelimiter=\"~\",variant=\"open\") .children >parentBlock]",
       "family": "indent-dropped"
     },
     {
       "id": "line/pair/delimiter-literal-near-0/delimiter-openBlockTilde-near-2/adjacent/item",
       "pass": "p1",
-      "signature": "[text(value=\" \") <subscript() .children text(value=\"~\") >subscript text(value=\"~\") >paragraph .text text(value=\"item\") >listItem >list] -> [>paragraph .text text(value=\"item\") >listItem >list <parentBlock(openDelimiter=\"~~~~\",variant=\"open\") .children >parentBlock]",
+      "signature": "[text(value=\" \") <subscript() .children text(value=\"~\") >subscript text(value=\"~\") >paragraph .text text(value=\"item\") >listItem >list] -> [>paragraph .text text(value=\"item\") >listItem >list <parentBlock(openDelimiter=\"~\",variant=\"open\") .children >parentBlock]",
       "family": "indent-dropped"
     },
     {

@@ -39,7 +39,6 @@
  */
 export type Mechanism =
   | "listMarkerSpelling"
-  | "tildeOpenDelimiter"
   | "passthroughContent"
   | "descriptionItemHeldBreak"
   | "listContinuationJoin"
@@ -54,14 +53,6 @@ export const MECHANISM_REASONS: Readonly<Record<Mechanism, string>> = {
   // spelling here is a normalization candidate, not a settled policy.
   listMarkerSpelling:
     "a list marker's spelling is structure-bearing and no uniform respelling is proven yet (issue #42)",
-  // `~~~~` opens the same content model as `--` but the printer's
-  // open-block delimiter is exactly two dashes
-  // (OPEN_BLOCK_DELIMITER_LENGTH, src/print/blocks.ts), so a tilde
-  // open has no canonical spelling to normalize onto and its source
-  // delimiter is replayed. The spelling is absent from the vendored
-  // Ruby entirely (issue #64).
-  tildeOpenDelimiter:
-    "a tilde-spelled open block has no canonical delimiter to normalize onto and replays its source (issue #64)",
   // docs/architecture.md, formatting policy case 1: the bytes inside
   // an inline passthrough are content. `renderedHtml` (tests/helpers.ts)
   // folds a line break outside <pre>, and its own KNOWN COST note
@@ -151,11 +142,6 @@ export const CONFLUENCE_EXCEPTIONS: Readonly<
     mechanism: "inlineMacroReplay",
     pairs: 23,
     sha256: "93f4764b4c302c750f404f0bae7b7337d0171a4cbd3b84b093c8a6ec42a4d374",
-  },
-  "delimiterLength/openBlockTilde": {
-    mechanism: "tildeOpenDelimiter",
-    pairs: 23,
-    sha256: "9fd26ccda99d10efca39a52e17384d1b465db367b9a8a5069b8ec7c0033b34aa",
   },
   // The break falls INSIDE `+++ pass +++`, so it diverges in every
   // reflowed state; the two rows are the two interior positions.
