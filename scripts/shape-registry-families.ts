@@ -25,6 +25,7 @@
  * file's own.
  */
 import {
+  ADMONITION_LABEL_FOLD_FAMILY,
   BLOCK_DELIMITER_LENGTH_FAMILY,
   DESCRIPTION_LIST_ITEM_FAMILY,
   MARKDOWN_THEMATIC_BREAK_FAMILY,
@@ -34,6 +35,57 @@ import {
   TABLE_LAYOUT_FAMILY,
   UNDERLINED_SECTION_TITLE_FAMILY,
 } from "./parity-ledger.js";
+
+// Ruby's five admonition styles (ADMONITION_STYLES, parser.rb:730),
+// in the bracket spelling a style line carries before the fold.
+const ADMONITION_STYLES: readonly string[] = [
+  "NOTE",
+  "TIP",
+  "IMPORTANT",
+  "WARNING",
+  "CAUTION",
+];
+
+/**
+ * Whether a base/head pair differs by EXACTLY one admonition style
+ * line's fold to its label form: `[STYLE]\n` at the head of `baseOut`
+ * respelled `STYLE: ` at the head of `headOut`, with every byte after
+ * that line identical in both. Tested on the OUTPUTS a diff actually
+ * produced rather than claimed by the coordinate that happened to
+ * realize it first ({@link ADMONITION_LABEL_FOLD_FAMILY}'s own
+ * citation names why - issue #202's lesson): {@link gridRowFamily}
+ * answers by coordinate for the rows below it because each of THOSE
+ * mechanisms is a property of the coordinate itself (a kind the base
+ * registry has no dimension for, a container every row inside moves
+ * for), but the admonition fold is a property of what the printer
+ * wrote, realized at exactly one coordinate today and not chosen
+ * because of it.
+ * @param baseOut - the base revision's formatted output
+ * @param headOut - this checkout's formatted output
+ * @returns the family, or undefined when no admonition style line
+ *   explains the whole difference
+ */
+export function admonitionLabelFoldFamily(
+  baseOut: string,
+  headOut: string,
+): string | undefined {
+  for (const style of ADMONITION_STYLES) {
+    const bracketPrefix = `[${style}]\n`;
+    const labelPrefix = `${style}: `;
+    if (
+      !baseOut.startsWith(bracketPrefix) ||
+      !headOut.startsWith(labelPrefix)
+    ) {
+      continue;
+    }
+    if (
+      baseOut.slice(bracketPrefix.length) === headOut.slice(labelPrefix.length)
+    ) {
+      return ADMONITION_LABEL_FOLD_FAMILY;
+    }
+  }
+  return undefined;
+}
 
 /** The delimiter kind base's registry has no dimension for at all. */
 const OPEN_BLOCK_TILDE_KIND = "openBlockTilde";

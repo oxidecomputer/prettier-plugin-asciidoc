@@ -11,6 +11,7 @@
  */
 import type {
   AdmonitionNode,
+  BlockNode,
   DelimitedBlockNode,
   Location,
   ParagraphNode,
@@ -160,19 +161,112 @@ export function buildAdmonitionParagraph(
   tokens: readonly InlineToken[],
   at: LocationIndex,
 ): AdmonitionNode {
+  return admonitionOver(
+    {
+      label: label.image.slice(0, label.image.indexOf(LABEL_COLON)),
+      span: { start: at.start(label), end: at.end(label) },
+    },
+    tokens,
+    at,
+  );
+}
+
+/**
+ * What the held metadata run makes of the paragraph about to open -
+ * the whole answer as ONE value, so a paragraph cannot be both an
+ * admonition and a styled block, and the reader has one question to
+ * ask (`HeldMetadata.paragraphOpening`, lines/held-metadata.ts).
+ */
+export type ParagraphOpening =
+  | {
+      /** A bare admonition style line stands over it. */
+      readonly kind: "admonition";
+      /** The variant that line spells, and the line's own span. */
+      readonly style: AdmonitionOpening;
+    }
+  | {
+      /** A paragraph-form style line converts it to a verbatim block. */
+      readonly kind: "styled";
+      /** The style's target, and the annotation the reader recorded. */
+      readonly held: HeldStyle;
+    }
+  | {
+      /** Nothing the held run carried changes what it is. */
+      readonly kind: "plain";
+    };
+
+/**
+ * The block a paragraph's tokens become, once the held run has
+ * spoken - the three shapes {@link ParagraphOpening} distinguishes,
+ * resolved in one place so the reader pushes one node and names no
+ * builder of its own.
+ * @param opening - what the held run made of this paragraph
+ * @param tokens - the body's tokens, in source order
+ * @param source - the whole document, for the block's own first line
+ * @param at - the document's location index
+ * @returns the admonition, the verbatim block, or the paragraph
+ */
+export function buildParagraphNode(
+  opening: ParagraphOpening,
+  tokens: readonly InlineToken[],
+  source: string,
+  at: LocationIndex,
+): BlockNode {
+  switch (opening.kind) {
+    case "admonition": {
+      return admonitionOver(opening.style, tokens, at);
+    }
+    case "styled": {
+      return buildParagraphFormBlock(opening.held, tokens, source, at);
+    }
+    case "plain": {
+      return buildParagraph(tokens, source, at);
+    }
+  }
+}
+
+/**
+ * What a paragraph-form admonition's opening line contributes.
+ *
+ * ONE node for both spellings, which is the point: `[NOTE]` over a
+ * paragraph and `NOTE: ` in front of it are the same admonition to
+ * Asciidoctor (parser.rb:730, content_model :simple), so the reader
+ * records the admonition and the printer writes the label form for
+ * both. The style line's own node is not built at all - it is the
+ * admonition's opening bytes, which is why the span starts there.
+ */
+interface AdmonitionOpening {
+  /** The variant, as that line spells it (`NOTE`). */
+  readonly label: string;
+  /** The line's own span; the node starts here. */
+  readonly span: AdmonitionNode["position"];
+}
+
+/**
+ * The paragraph-form admonition both spellings build: the variant
+ * lowercased, the body as a paragraph's own inline children, and a
+ * span from the opening line to the last content token.
+ * @param opening - what the opening line contributes
+ * @param tokens - the body's tokens, in source order; may be empty
+ * @param at - the document's location index
+ * @returns the admonition node
+ */
+function admonitionOver(
+  opening: AdmonitionOpening,
+  tokens: readonly InlineToken[],
+  at: LocationIndex,
+): AdmonitionNode {
   const content = tokens.filter((t) => t.type !== "InlineNewline");
   const last = content.at(-1);
   return {
     type: "admonition",
-    variant: label.image
-      .slice(0, label.image.indexOf(LABEL_COLON))
-      .toLowerCase(),
+    variant: opening.label.toLowerCase(),
     form: "paragraph",
     text: buildFromTokens(tokens, at),
     children: [],
     position: {
-      start: at.start(label),
-      end: last === undefined ? at.end(label) : at.end(last),
+      start: opening.span.start,
+      end: last === undefined ? opening.span.end : at.end(last),
     },
   };
 }
@@ -262,7 +356,7 @@ export function buildStyledParagraph(
  * @param at - the document's location index
  * @returns a delimited block in paragraph form
  */
-export function buildParagraphFormBlock(
+function buildParagraphFormBlock(
   held: HeldStyle,
   tokens: readonly InlineToken[],
   source: string,

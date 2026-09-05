@@ -38,6 +38,7 @@ import path from "node:path";
 import { formatAdoc, renderedHtml } from "../tests/helpers.js";
 import { CHILD_MAX_BUFFER, materialize } from "./lib/checkout.js";
 import { cannotRun, GATE_FAILED, printUsage, wantsHelp } from "./lib/cli.js";
+import { admonitionLabelFoldFamily } from "./shape-registry-families.js";
 import { listRunGrid } from "./shape-registry-list-run.js";
 import {
   headingAdjacencyGrid,
@@ -234,9 +235,13 @@ async function reportRow(
   if (byteEqual) {
     return row;
   }
-  if (shape.family !== undefined) {
-    row.family = shape.family;
-  }
+  // The registry's family is a property of the COORDINATE, fixed
+  // before any diff exists; the admonition fold's family is a
+  // property of what the two outputs actually are, so it is tested
+  // here, on the bytes, rather than added to the registry as one more
+  // coordinate claim (issue #202's lesson - see
+  // scripts/shape-registry-families.ts).
+  row.family = shape.family ?? admonitionLabelFoldFamily(baseOut, headOut);
   try {
     row.headIdempotent = (await formatAdoc(headOut)) === headOut;
   } catch (error) {

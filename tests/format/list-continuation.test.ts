@@ -318,9 +318,12 @@ describe("continuations around delimited blocks (issue #6)", () => {
     expect(await formatAdoc(input)).toBe(input);
   });
 
+  // The style line and the paragraph under it are one admonition, and
+  // the printer writes the label form for it wherever it stands - an
+  // attached block included.
   test("+ before [NOTE] paragraph round-trips", async () => {
     const input = "* item:\n+\n[NOTE]\nnote paragraph\n";
-    expect(await formatAdoc(input)).toBe(input);
+    expect(await formatAdoc(input)).toBe("* item:\n+\nNOTE: note paragraph\n");
   });
 
   test("+ before a block macro round-trips", async () => {
@@ -345,13 +348,15 @@ describe("continuations around delimited blocks (issue #6)", () => {
   test("markers inside a metadata-anchored paragraph split off", async () => {
     const input = "* i\n+\n[NOTE]\npara one\n+\npara two\n";
     const first = await formatAdoc(input);
-    expect(first).toBe(input);
+    expect(first).toBe("* i\n+\nNOTE: para one\n+\npara two\n");
     expect(await formatAdoc(first)).toBe(first);
   });
 
   test("trailing marker after [NOTE] paragraph re-arms attachment", async () => {
     const input = "* i\n+\n[NOTE]\npara\n+\n----\nc\n----\n";
-    expect(await formatAdoc(input)).toBe(input);
+    expect(await formatAdoc(input)).toBe(
+      "* i\n+\nNOTE: para\n+\n----\nc\n----\n",
+    );
   });
 
   // A heading line after a `+` is attached paragraph TEXT (the

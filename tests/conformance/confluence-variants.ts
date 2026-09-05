@@ -390,7 +390,7 @@ const INLINE_VARIANTS: readonly Variant[] = [
  * an admonition is the `NOTE: ` label or the `[NOTE]` style over an
  * ordinary paragraph. Both pairs are one block to Asciidoctor.
  */
-const BLOCK_FORM_VARIANTS: readonly Variant[] = [
+export const BLOCK_FORM_VARIANTS: readonly Variant[] = [
   // A psv cell's leading whitespace is not cell text: `|a |b` and
   // `| a | b` are the same two cells.
   {

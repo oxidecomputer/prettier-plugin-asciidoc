@@ -37,7 +37,7 @@ import {
   buildAdmonitionParagraph,
   buildLiteralParagraph,
   buildParagraph,
-  buildParagraphFormBlock,
+  buildParagraphNode,
   buildStyledParagraph,
 } from "../build/paragraph.js";
 import { buildTable } from "../build/table.js";
@@ -82,7 +82,7 @@ import {
   type ListHost,
 } from "./list-read.js";
 import {
-  paragraphFormVariant,
+  admonitionLabelOpensABlock,
   resolveDelimitedOpen,
   verbatimStyledVariant,
   withFenceLanguage,
@@ -366,23 +366,15 @@ class BlockReader {
    *   (see {@link TextOpen})
    */
   private paragraph(context: ParagraphContext, text: TextOpen): void {
-    // The non-verbatim paragraph-form fold: only a line
-    // that opens a PARAGRAPH converts — today's observed shape,
-    // reproduced exactly. The style is read before readText flushes
-    // the run; the extent is the paragraph's own (unchanged context
-    // threading).
-    const variant = paragraphFormVariant(this.held.actionableStyle());
-    const annotatedBy = this.held.annotation();
+    // The held run is asked BEFORE readText flushes it, because the
+    // flush is what releases its nodes and the admonition arm takes
+    // one of them; the extent is the paragraph's own either way
+    // (unchanged context threading).
+    const opening = this.held.paragraphOpening(
+      admonitionLabelOpensABlock(context, this.blocks.at(-1)),
+    );
     const tokens = this.readText(context, text);
-    // A plain paragraph records no annotation: ParagraphNode declares
-    // no `annotatedBy` (src/ast.ts), which is what the type test that
-    // used to stand here was really asking.
-    if (variant === undefined) {
-      this.push(buildParagraph(tokens, this.source, this.at));
-      return;
-    }
-    const held = { variant, annotatedBy };
-    this.push(buildParagraphFormBlock(held, tokens, this.source, this.at));
+    this.push(buildParagraphNode(opening, tokens, this.source, this.at));
   }
 
   /**

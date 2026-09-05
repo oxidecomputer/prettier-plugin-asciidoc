@@ -495,7 +495,9 @@ describe("issue #79: trailing ASCII whitespace after a valid anchor id", () => {
 // ARE their stripped spellings.
 describe("a trailing-whitespace metadata line formats to its rstripped spelling", () => {
   test.each([
-    ["[NOTE] \npara\n", "[NOTE]\npara\n"],
+    // The rstripped `[NOTE]` is the admonition style, so the line and
+    // the paragraph under it print as the one label form.
+    ["[NOTE] \npara\n", "NOTE: para\n"],
     ["[role]  \npara\n", "[role]\npara\n"],
     ["[source,ruby]   \n----\nfoo\n----\n", "[source,ruby]\n----\nfoo\n----\n"],
     ["[[ok]]  \npara\n", "[[ok]]\n\npara\n"],

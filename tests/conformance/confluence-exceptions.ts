@@ -44,7 +44,6 @@ export type Mechanism =
   | "passthroughContent"
   | "descriptionItemHeldBreak"
   | "listContinuationJoin"
-  | "blockFormReplay"
   | "inlineMacroReplay";
 
 /** The cited reason each mechanism stands on. */
@@ -79,19 +78,6 @@ export const MECHANISM_REASONS: Readonly<Record<Mechanism, string>> = {
   // the document.
   passthroughContent:
     "a line break inside an inline passthrough is content; renderedHtml folds it but the oracle's bytes keep it",
-  // The block's authored FORM is replayed rather than derived from
-  // the block it opened: a `NOTE: ` label keeps the label where
-  // `[NOTE]` keeps the style line. Deriving one spelling needs the
-  // printer to write the form from the parsed block, which no path
-  // does yet (docs/architecture.md, formatting policy case 2).
-  //
-  // The ANCHOR spelling used to be the second member of this
-  // mechanism and no longer is: `[#id]` and `[[id]]` name the same
-  // structure, so both lines now build one `blockAnchor` node
-  // (`attrlistAnchorId`, src/parse/attrlist.ts) and the printer
-  // spells it one way, separation included.
-  blockFormReplay:
-    "a block's authored form is replayed rather than derived from the block it opened",
   // Same shape one level down: a bare URL and `link:` around the same
   // address are one anchor, and the inline node replays the authored
   // spelling.
@@ -167,11 +153,6 @@ export const CONFLUENCE_EXCEPTIONS: Readonly<
     mechanism: "listMarkerSpelling",
     pairs: 23,
     sha256: "52ea7fcb2a5a4682f8027662ee9e771a0bc6cecadb0525e4f4554d6135f20213",
-  },
-  "blockFormSpelling/admonition-form": {
-    mechanism: "blockFormReplay",
-    pairs: 23,
-    sha256: "f3ce73cc79ce77a363e3428d14e7e7bf4332f9f6207edcc7c137bf6aba6c1e36",
   },
   "inlineSpelling/url-macro": {
     mechanism: "inlineMacroReplay",
@@ -375,7 +356,7 @@ export interface OutsideDomain {
  * Pairs the generator emits that the oracle does NOT hold
  * render-equal, so they carry no claim about the formatter.
  *
- * Every row is a join-axis seed whose break puts a construct at the
+ * Three rows are join-axis seeds whose break puts a construct at the
  * head of a line, in the states where that construct INTERRUPTS the
  * open block: the break changes the reading rather than the layout,
  * so the two spellings are different documents and the formatter is
@@ -385,11 +366,29 @@ export interface OutsideDomain {
  * per-state fact, which is why the seed is generated everywhere and
  * excluded here rather than trimmed at the source.
  *
+ * The fourth is the same fact one axis over: in ITEM-TEXT position a
+ * bracket line and a label line are not two spellings of one
+ * admonition at all, because only the bracket line opens a block
+ * there. The row is why the reader refuses to respell one into the
+ * other in that position (`admonitionLabelOpensABlock`,
+ * src/parse/lines/open-style.ts), and the axis carries its own
+ * render-preservation check beside it, because a pair outside this
+ * property is exactly where a formatter can move a block and the
+ * property say nothing.
+ *
  * The counts are pinned for the same reason the divergence counts
  * are: a generator change that quietly moved pairs out of the claim
  * would otherwise look like progress.
  */
 export const OUTSIDE_DOMAIN: Readonly<Record<string, OutsideDomain>> = {
+  // Twenty-two: one per confinement style. The anchor and table-cell
+  // members of the same axis are absent because they DO render alike
+  // in item-text position and converge there.
+  "itemTextForm/admonition-form": {
+    reason:
+      "in item-text position only the `[NOTE]` bracket line opens a block; a `NOTE: ` label is more of the item's text",
+    pairs: 22,
+  },
   "lineJoin/dlist-separator@1": {
     reason: "`term:: def here` at a line head opens a description item",
     pairs: 98,

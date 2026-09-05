@@ -13,6 +13,7 @@
 import type { BlockNode } from "../../ast.js";
 import { isBlockMetadata, isReaderConsumedLine } from "../../block-metadata.js";
 import { parseAttrlist, type Attrlist } from "../attrlist.js";
+import type { ParagraphOpening } from "../build/paragraph.js";
 import {
   buildAttributeLine,
   buildBlockAnchor,
@@ -21,6 +22,7 @@ import {
 } from "../build/metadata.js";
 import type { Fragment, LocationIndex } from "../positions.js";
 import type { LineKind } from "./classify.js";
+import { admonitionStyleLabel, paragraphFormVariant } from "./open-style.js";
 import { fragmentOfLine, type SourceLine } from "./split.js";
 
 // Line kinds `parse_block_metadata_line` claims, and the node each
@@ -266,6 +268,60 @@ export class HeldMetadata {
   annotation(): string | undefined {
     const last = this.pending.at(-1);
     return last?.type === "blockAttributeList" ? last.value : undefined;
+  }
+
+  /**
+   * What this run makes of the paragraph about to open, and - for the
+   * admonition arm alone - the taking of the line that says so.
+   *
+   * A bare admonition style over a paragraph IS the `NOTE: ` label
+   * spelled the other way (parser.rb:730), so the paragraph becomes
+   * one admonition node and the style line stops being a node of its
+   * own: its bytes do not vanish, they become the admonition's opening
+   * span, and releasing the sibling too would print the style twice.
+   * That is why this both answers and MUTATES, in one place: an answer
+   * a caller could take without taking the line is an answer that can
+   * be wrong by half.
+   *
+   * Three conditions, and every rejection leaves the run untouched.
+   * The attribute line must be the run's LAST node ({@link annotation}'s
+   * own condition), so nothing stands between the style and the block
+   * it opens; no OTHER attribute line may be in the run
+   * ({@link unreadAttrlist}), because only the last is recorded while
+   * every one of them still prints, and a `[source]` left above a
+   * released `NOTE: ` label re-reads as a source block; and the
+   * caller must say that a label line written here would still OPEN a
+   * block, which is a fact about the position and so not this run's
+   * to know.
+   * @param labelOpensABlock - whether a `NAME: ` line written where
+   *   this paragraph opens is read as a block of its own rather than
+   *   as more of what stands above it
+   *   (`admonitionLabelOpensABlock`, lines/open-style.ts)
+   * @returns the opening, with the style line taken when it is one
+   */
+  paragraphOpening(labelOpensABlock: boolean): ParagraphOpening {
+    const last = this.pending.at(-1);
+    if (
+      labelOpensABlock &&
+      last?.type === "blockAttributeList" &&
+      !this.unreadAttrlist()
+    ) {
+      const label = admonitionStyleLabel(last.value);
+      if (label !== undefined) {
+        // The parsed view goes with the node: nothing may still read
+        // a style off a line this run no longer holds.
+        this.attrlist = undefined;
+        this.pending.pop();
+        return { kind: "admonition", style: { label, span: last.position } };
+      }
+    }
+    const variant = paragraphFormVariant(this.actionableStyle());
+    return variant === undefined
+      ? { kind: "plain" }
+      : {
+          kind: "styled",
+          held: { variant, annotatedBy: this.annotation() },
+        };
   }
 
   /**

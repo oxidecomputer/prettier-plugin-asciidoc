@@ -305,3 +305,42 @@ describe("one prose representation", () => {
     expect(serializedKeys(delimitedForm)).toEqual(order);
   });
 });
+
+// The style line is not a node of its own once its paragraph makes it
+// an admonition: its bytes are the admonition's opening span, and a
+// sibling attribute list would print the style a second time. RED
+// before `HeldMetadata.paragraphOpening` (src/parse/lines/held-metadata.ts),
+// where `[NOTE]\ntext` read as a blockAttributeList over a paragraph.
+describe("a bare admonition style over a paragraph reads as one node", () => {
+  test.each([
+    ["NOTE", "note"],
+    ["TIP", "tip"],
+    ["IMPORTANT", "important"],
+    ["WARNING", "warning"],
+    ["CAUTION", "caution"],
+  ])("[%s] over prose is an admonition of variant %s", (label, variant) => {
+    const { children } = parse(`[${label}]\ntext here\n`);
+    expect(children).toHaveLength(1);
+    expect(children[0]).toMatchObject({
+      type: "admonition",
+      variant,
+      form: "paragraph",
+    });
+  });
+
+  // The node spans the style line as well as its body, because the
+  // style line's bytes are now part of what it prints.
+  test("the node starts at the style line", () => {
+    const { children } = parse("[NOTE]\ntext here\n");
+    expect(children[0].position.start.offset).toBe(0);
+  });
+
+  test.each([
+    "[note]\ntext here\n",
+    "[NOTE,role=x]\ntext here\n",
+    "[source]\n[NOTE]\ntext here\n",
+    "[NOTE]\n// c\ntext here\n",
+  ])("%j keeps its attribute line", (input) => {
+    expect(parse(input).children[0].type).toBe("blockAttributeList");
+  });
+});

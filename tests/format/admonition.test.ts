@@ -321,3 +321,105 @@ describe("an admonition label keeps exactly one colon run", () => {
     expect(await formatAdoc(out)).toBe(out);
   });
 });
+
+// `[NOTE]` over a paragraph and `NOTE: ` in front of it are the same
+// admonition to Asciidoctor (ADMONITION_STYLES, parser.rb:730), so
+// which one the author typed is a spelling and the printer writes one
+// of them. RED before the reader folded the style line into the node
+// (buildParagraphNode, src/parse/build/paragraph.ts): the style
+// spelling came back as an attribute line over a plain paragraph, and
+// the two spellings of one admonition formatted to different bytes.
+describe("a bare admonition style over a paragraph is the label form", () => {
+  test.each(["NOTE", "TIP", "IMPORTANT", "WARNING", "CAUTION"])(
+    "[%s] over prose formats to the label",
+    async (label) => {
+      const styled = `[${label}]\ntext here\n`;
+      const labelled = `${label}: text here\n`;
+      expect(await formatAdoc(styled)).toBe(labelled);
+      expect(await formatAdoc(labelled)).toBe(labelled);
+      expect(await renderedHtml(styled)).toBe(await renderedHtml(labelled));
+    },
+  );
+
+  // The blank between the style line and its paragraph is not a
+  // boundary: Asciidoctor's metadata loop skips blank lines and goes
+  // on collecting (parser.rb:2018), so this is the same admonition.
+  test("a blank line under the style line changes nothing", async () => {
+    expect(await formatAdoc("[NOTE]\n\ntext here\n")).toBe("NOTE: text here\n");
+  });
+
+  // The narrowness, from the other side. Each of these keeps the
+  // author's bytes because folding it would change what renders: a
+  // style Ruby does not count as an admonition, a style carrying more
+  // than its own name, a second attribute line whose values would be
+  // left standing over a released label, and a style line whose block
+  // is not a paragraph at all.
+  test.each([
+    "[note]\ntext here\n",
+    "[Note]\ntext here\n",
+    "[NOTE,role=x]\ntext here\n",
+    "[NOTE#id]\ntext here\n",
+    "[source]\n[NOTE]\ntext here\n",
+    "[NOTE]\n// c\ntext here\n",
+    "[NOTE]\n* item\n",
+    "[NOTE]\n.a title\ntext here\n",
+    "[NOTE]\n====\ntext here\n====\n",
+  ])("%j keeps its own spelling", async (input) => {
+    await expectFormatted(input, input);
+  });
+});
+
+// WHERE the style line stands decides whether it may be respelled at
+// all. A `[NAME]` bracket line opens a block from any position; a
+// `NAME: ` label does not, so in item-TEXT position the label is more
+// of the item's text and the admonition is destroyed. RED before
+// `admonitionLabelOpensABlock` (src/parse/lines/open-style.ts): each of
+// these formatted to a label line, the render moved on the first pass,
+// and all but the last were not even idempotent afterwards.
+describe("a style line only becomes a label where a label opens a block", () => {
+  test.each([
+    ["ulist item text", "* item\n[NOTE]\nbody text\n"],
+    ["olist item text", ". item\n[NOTE]\nbody text\n"],
+    ["a dash item's text", "- item\n[NOTE]\nbody text\n"],
+    ["a nested item's text", "* a\n** b\n[NOTE]\nbody text\n"],
+    ["colist item text", "<1> c\n[NOTE]\nbody text\n"],
+    ["an item block reached with no marker", "* item\n+\npara\n[NOTE]\nbody\n"],
+    ["before a sibling marker", "* item\n[NOTE]\nbody\n* next\n"],
+    // The one that was already idempotent, and so the worst: a
+    // term-only item takes whatever is written under it as its
+    // description, so the blank the printer writes in the style
+    // line's place hands the admonition's text to the term.
+    ["under a term that spent no text", "term::\n[NOTE]\nbody text\n"],
+  ])("%s keeps the style line", async (_name, input) => {
+    const output = await formatAdoc(input);
+    expect(output).toContain("[NOTE]");
+    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(output)).toBe(output);
+  });
+
+  // The positions where a label DOES open a block still fold, so the
+  // guard is a position test and not a retreat from the mechanism.
+  test.each([
+    [
+      "a continuation inside an item",
+      "* item\n+\n[NOTE]\nbody\n",
+      "* item\n+\nNOTE: body\n",
+    ],
+    [
+      "a blank line below a list",
+      "* item\n\n[NOTE]\nbody\n",
+      "* item\n\nNOTE: body\n",
+    ],
+    [
+      "a term that spent its own text",
+      "term:: def\n[NOTE]\nbody\n",
+      "term:: def\n\nNOTE: body\n",
+    ],
+    ["document level", "[NOTE]\nbody\n", "NOTE: body\n"],
+  ])("%s still folds", async (_name, input, expected) => {
+    const output = await formatAdoc(input);
+    expect(output).toBe(expected);
+    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(output)).toBe(output);
+  });
+});

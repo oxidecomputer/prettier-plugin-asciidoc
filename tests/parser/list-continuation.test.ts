@@ -408,14 +408,21 @@ describe("continuations around delimited blocks (issue #6)", () => {
     });
   });
 
+  // ONE attached block, not two: the style line and the paragraph
+  // under it are one admonition, and the style line has no node of its
+  // own to attach (buildParagraphNode, src/parse/build/paragraph.ts).
   test("+ attaches metadata with a plain paragraph anchor", () => {
     const { children } = parse("* i:\n+\n[NOTE]\nnote para\n");
     expect(children).toHaveLength(1);
     const {
       children: [item],
     } = firstList(children);
-    expect(item.blocks).toHaveLength(2);
-    expect(item.blocks[1].block).toMatchObject({ type: "paragraph" });
+    expect(item.blocks).toHaveLength(1);
+    expect(item.blocks[0].block).toMatchObject({
+      type: "admonition",
+      variant: "note",
+      form: "paragraph",
+    });
   });
 
   test("+ attaches a block macro", () => {

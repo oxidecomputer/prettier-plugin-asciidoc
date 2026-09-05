@@ -13,7 +13,7 @@ import {
   buildAdmonitionParagraph,
   buildLiteralParagraph,
   buildParagraph,
-  buildParagraphFormBlock,
+  buildParagraphNode,
   buildRawLineParagraph,
   buildStyledParagraph,
 } from "../../../src/parse/build/paragraph.js";
@@ -189,10 +189,10 @@ describe("paragraph-shaped annotations", () => {
         ),
     ],
     [
-      "buildParagraphFormBlock",
+      "buildParagraphNode, styled",
       (a: string | undefined) =>
-        buildParagraphFormBlock(
-          { variant: "listing", annotatedBy: a },
+        buildParagraphNode(
+          { kind: "styled", held: { variant: "listing", annotatedBy: a } },
           [text("a", 2)],
           "  a\n",
           at,

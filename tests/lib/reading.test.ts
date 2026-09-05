@@ -36,7 +36,39 @@ describe("the reading of a document", () => {
     ],
     ["an ordered marker is its own variant", ". a\n", ["marker:ordered:."]],
     ["a delimiter carries its block kind", "----\n----\n", ["delim:listing"]],
-    ["an admonition carries its label", "NOTE: x\n", ["admon:NOTE"]],
+    // The label line projects to the admonition AND its body text,
+    // where the `[NOTE]` style line projects to the admonition alone:
+    // the two spellings of one admonition read alike only if the
+    // label's own text is a token of its own (tests/lib/reading.ts).
+    [
+      "an admonition carries its label, then its body",
+      "NOTE: x\n",
+      ["admon:NOTE", "text"],
+    ],
+    [
+      "the style spelling of the same admonition reads alike",
+      "[NOTE]\nx\n",
+      ["admon:NOTE", "text"],
+    ],
+    [
+      "a style line naming anything else is an attribute line",
+      "[note]\nx\n",
+      ["attrline", "text"],
+    ],
+    // The licence is no wider than the routing: the reader refuses to
+    // fold a style line that stands under another attribute line, so
+    // the projection refuses too. Before this the two read alike and
+    // a respelling that changes the render was invisible.
+    [
+      "a style line under another attribute line is an attribute line",
+      "[source]\n[NOTE]\nx\n",
+      ["attrline", "attrline", "text"],
+    ],
+    [
+      "and the label spelling under one is NOT the same reading",
+      "[source]\nNOTE: x\n",
+      ["attrline", "admon:NOTE", "text"],
+    ],
     ["a block macro carries its name", "image::a.png[]\n", ["macro:image"]],
     ["a thematic break is its own token", "'''\n", ["break:thematic"]],
     ["a page break is its own token", "<<<\n", ["break:page"]],
@@ -319,7 +351,7 @@ describe("the known-issue table, projection side", () => {
       "#45: the admonition label's surplus whitespace re-reads as a colon run",
       "NOTE:  : text\n",
       "NOTE:: : text\n",
-      "[admon:NOTE] -> [dlist:::]",
+      "[admon:NOTE text] -> [dlist:::]",
     ],
     [
       "#46 shape 1: an anchor that swallows the section title after it",

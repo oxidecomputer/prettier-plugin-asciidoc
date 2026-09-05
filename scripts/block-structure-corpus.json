@@ -2,10 +2,6 @@
   "oracle": "@asciidoctor/core 4.0.11",
   "regenerate": "Measured, not authored: regenerate with `bun run block-structure --write` whenever the oracle pin or the parser moves, then read the diff - it is the artifact that says what a change did to our conformance.",
   "cases": {
-    "api_test.rb#should return false when sections? is called on anything that is not a section#0": {
-      "family": "gap:styled-block-remodel",
-      "signature": "paragraph=>admonition"
-    },
     "attributes_test.rb#id, role and options attributes can be specified on block style using shorthand syntax#0": {
       "family": "gap:styled-block-remodel",
       "signature": "paragraph=>literal"
@@ -13,18 +9,6 @@
     "attributes_test.rb#id, role and options attributes can be specified using shorthand syntax on block style using multiple block attribute lines#0": {
       "family": "gap:styled-block-remodel",
       "signature": "paragraph=>literal"
-    },
-    "blocks_test.rb#can resolve icon relative to custom iconsdir#0": {
-      "family": "gap:styled-block-remodel",
-      "signature": "paragraph=>admonition"
-    },
-    "blocks_test.rb#can resolve icon relative to default iconsdir#0": {
-      "family": "gap:styled-block-remodel",
-      "signature": "paragraph=>admonition"
-    },
-    "blocks_test.rb#cleans reference to ancestor directories before reading icon if safe mode level is at least SAFE#0": {
-      "family": "gap:styled-block-remodel",
-      "signature": "paragraph=>admonition"
     },
     "blocks_test.rb#comment style on open block should only skip block#0": {
       "family": "oracle:comment-style",
@@ -38,10 +22,6 @@
       "family": "oracle:comment-style",
       "signature": "-paragraph"
     },
-    "blocks_test.rb#does not embed base64-encoded data uri of icon when safe mode level is SECURE or greater#0": {
-      "family": "gap:styled-block-remodel",
-      "signature": "paragraph=>admonition"
-    },
     "blocks_test.rb#dropped image does not break processing of following section and attribute-missing is drop-line#0": {
       "family": "oracle:attribute-missing",
       "signature": "-image"
@@ -49,10 +29,6 @@
     "blocks_test.rb#drops line if image target is missing attribute reference and attribute-missing is drop-line#0": {
       "family": "oracle:attribute-missing",
       "signature": "-image"
-    },
-    "blocks_test.rb#embeds base64-encoded data uri of icon when data-uri attribute is set and safe mode level is less than SECURE#0": {
-      "family": "gap:styled-block-remodel",
-      "signature": "paragraph=>admonition"
     },
     "blocks_test.rb#font-based icon should not override icon specified on admonition#0": {
       "family": "gap:styled-block-remodel",
@@ -125,10 +101,6 @@
     "blocks_test.rb#should exclude partintro if not a child of part#0": {
       "family": "oracle:book-partintro",
       "signature": "paragraph=>open"
-    },
-    "blocks_test.rb#should import Font Awesome and use font-based icons when value of icons attribute is font#0": {
-      "family": "gap:styled-block-remodel",
-      "signature": "paragraph=>admonition"
     },
     "blocks_test.rb#should not allow abstract as direct child of document if doctype is book converted to DocBook#0": {
       "family": "oracle:book-partintro",

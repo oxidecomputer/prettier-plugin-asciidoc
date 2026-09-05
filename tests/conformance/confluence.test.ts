@@ -22,7 +22,7 @@
  * quietly stopped asking cannot pass.
  */
 import { beforeAll, describe, expect, test } from "vitest";
-import { renderedHtml } from "../helpers.js";
+import { formatAdoc, renderedHtml } from "../helpers.js";
 import {
   DELIMITER_KINDS,
   type DelimiterKind,
@@ -32,6 +32,7 @@ import {
   describeDigestMoves,
   describeDivergence,
   divergenceFacts,
+  itemTextDocuments,
   runConfluence,
   type ConfluenceRun,
 } from "./confluence.js";
@@ -50,7 +51,7 @@ import {
 // reachable reader states. Pinned so that a placement set or a
 // variant table that silently shrank is a failure rather than a
 // quieter pass.
-const EXPECTED_PAIRS = 6286;
+const EXPECTED_PAIRS = 6352;
 
 // How many pairs of each key came out apart, as a plain object so a
 // failure prints the whole table diff rather than a Map's identity.
@@ -144,6 +145,31 @@ describe("confluence domain", () => {
       expect(await renderedHtml(left)).not.toBe(await renderedHtml(right));
     },
   );
+
+  // What the confluence property CANNOT say. A pair the oracle holds
+  // apart is dropped before the formatter is asked anything, so a
+  // respelling that moves one member's own render is invisible to
+  // every assertion above. In item-text position most of these pairs
+  // ARE held apart, which is precisely where a block-form respelling
+  // can move a block out of the position it was written in - so the
+  // axis that reaches that position asserts the weaker property
+  // directly, over each document rather than over the pair.
+  test("formatting an item-text document does not change what it renders", async () => {
+    const moved: string[] = [];
+    for (const source of itemTextDocuments()) {
+      // eslint-disable-next-line no-await-in-loop -- sequential on purpose: the renders exhaust memory in parallel, as runConfluence explains
+      const formatted = await formatAdoc(source);
+      // eslint-disable-next-line no-await-in-loop -- same reason
+      const [before, after] = await Promise.all([
+        renderedHtml(source),
+        renderedHtml(formatted),
+      ]);
+      if (before !== after) {
+        moved.push(`${JSON.stringify(source)} -> ${JSON.stringify(formatted)}`);
+      }
+    }
+    expect(moved, moved.join("\n")).toEqual([]);
+  });
 
   test("every delimiter kind either varies its length or declares itself fixed", () => {
     const { delimiterLength = [] } = BLOCK_VARIANTS;

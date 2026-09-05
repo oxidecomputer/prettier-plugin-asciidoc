@@ -97,37 +97,24 @@ function buildBlockAttributeList(
 
 /**
  * The bytes between a block attribute line's brackets, taken off in
- * ONE place, so the node's value and the id question below cannot
- * come to disagree about where the interior starts.
+ * ONE place, so every question asked of an interior is asked of the
+ * same bytes the node's value carries.
+ *
+ * Exported for the reading net (tests/lib/reading.ts), which licenses
+ * exactly the respellings {@link buildAttributeLine} and the reader
+ * make of such a line and must therefore ask the interior the same
+ * questions they do rather than cut the brackets its own way. Its src
+ * callers are the two builders below.
  * @param image - a block attribute line, bracket-delimited
  * @returns the interior, brackets excluded
+ * @internal
  */
-function attributeLineInterior(image: string): string {
+export function attributeLineInterior(image: string): string {
   return image.slice(
     BLOCK_ATTR_LIST_PREFIX_LEN,
     // Negated to slice from the end: -1 drops the trailing `]`.
     -BLOCK_ATTR_LIST_SUFFIX_LEN,
   );
-}
-
-/**
- * The id a block attribute LINE names when it names an id and nothing
- * else. THE question, asked in one place by the two consumers that
- * must agree on it: {@link buildAttributeLine} routes on it, and the
- * reading net's projection folds `[#intro]` onto the anchor token
- * because of it.
- *
- * Exported for that net (tests/lib/reading.ts), which must license
- * exactly the respelling this routing makes and no wider one; asking
- * the routing's own question is what keeps the licence from drifting
- * into a second pattern. Its src caller is `buildAttributeLine`,
- * below.
- * @param image - a block attribute line, bracket-delimited
- * @returns the id, or undefined when the line spells anything else
- * @internal
- */
-export function anchorIdOfAttributeLine(image: string): string | undefined {
-  return attrlistAnchorId(attributeLineInterior(image));
 }
 
 /**
@@ -150,7 +137,7 @@ export function buildAttributeLine(
   line: Fragment,
   at: LocationIndex,
 ): BlockNode {
-  const id = anchorIdOfAttributeLine(line.image);
+  const id = attrlistAnchorId(attributeLineInterior(line.image));
   return id === undefined
     ? buildBlockAttributeList(line, at)
     : {

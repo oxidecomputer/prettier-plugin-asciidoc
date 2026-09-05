@@ -56,6 +56,13 @@ describe("[NOTE + NBSP] does not become an admonition (issue #77)", () => {
     expect(await formatAdoc(output)).toBe(output);
   });
 
+  // The ASCII-blank twins ARE the NOTE style: the blank is not part of
+  // the interior to either authority, so the style line stands over a
+  // paragraph and the whole thing is the `NOTE: ` label spelled the
+  // long way. Red before `admonitionStyleLabel` (open-style.ts), where
+  // the output was `[NOTE]` over the paragraph - and the canonical
+  // interior it compares is what the last assertion here holds it to,
+  // since a raw comparison answers no on pass one and yes on pass two.
   test.each([
     ["ASCII space", "[NOTE ]\nSome text here.\n"],
     ["ASCII tab", "[NOTE\t]\nSome text here.\n"],
@@ -63,7 +70,7 @@ describe("[NOTE + NBSP] does not become an admonition (issue #77)", () => {
     "the other direction: a trailing %s is still blank and stays an admonition",
     async (_name, input) => {
       const output = await formatAdoc(input);
-      expect(output).toBe("[NOTE]\nSome text here.\n");
+      expect(output).toBe("NOTE: Some text here.\n");
       expect(await renderedHtml(output)).toContain("admonitionblock");
       expect(await formatAdoc(output)).toBe(output);
     },

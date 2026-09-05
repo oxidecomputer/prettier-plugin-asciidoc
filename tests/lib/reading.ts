@@ -44,9 +44,11 @@ import {
   parseListMarker,
   type LineKind,
 } from "../../src/parse/lines/classify.js";
-import { anchorIdOfAttributeLine } from "../../src/parse/build/metadata.js";
+import { attrlistAnchorId } from "../../src/parse/attrlist.js";
+import { attributeLineInterior } from "../../src/parse/build/metadata.js";
 import { parseDescriptionListLine } from "../../src/parse/line-shapes-description.js";
 import { frontMatterExtent } from "../../src/parse/lines/front-matter.js";
+import { admonitionStyleLabel } from "../../src/parse/lines/open-style.js";
 import { documentBom, splitLines } from "../../src/parse/lines/split.js";
 import { parse } from "../../src/parser.js";
 
@@ -74,11 +76,21 @@ function traceOf(document: string): Map<number, LineKind> {
   return events;
 }
 
+// The two spellings a paragraph-form admonition has, as two tokens
+// that {@link append} folds onto ONE reading. `[NOTE]` over a
+// paragraph carries the admonition and nothing else; `NOTE: text`
+// carries the admonition AND the first line of its body, so the label
+// token expands to the pair and the style token stands alone. The
+// reader builds one node from either (buildParagraphNode,
+// src/parse/build/paragraph.ts).
+const ADMONITION_TOKEN = "admon:";
+const ADMONITION_LABEL_TOKEN = "admonlabel:";
+
 /**
  * Project one recorded verdict to its token, or undefined for a blank.
  *
  * The token keeps the payload the reading depends on and drops the
- * spelling the formatter is licensed to change. Three folds happen
+ * spelling the formatter is licensed to change. Four folds happen
  * here, each with its license:
  *
  * - a `raw` anchor folds onto `anchor`: a `[[id]]` read as a raw line
@@ -93,6 +105,15 @@ function traceOf(document: string): Map<number, LineKind> {
  *   src/parse/build/metadata.ts) rather than a pattern of its own, so
  *   an attribute line the builder leaves alone keeps its `attrline`
  *   token and a respelling nobody licensed still moves the sequence;
+ * - an attribute line naming one of Ruby's five ADMONITION STYLES and
+ *   nothing else folds onto the admonition token: `[NOTE]` over a
+ *   paragraph and `NOTE: ` in front of it are one admonition, so the
+ *   reader builds one node and the printer writes the label form for
+ *   both, pinned by tests/format/admonition.test.ts. The style line
+ *   projects to the admonition ALONE and the label line to the
+ *   admonition plus its body text (see {@link append}), which is what
+ *   makes the two spellings equal without making a swallowed
+ *   paragraph invisible;
  * - an attribute entry lowercases its name: the printer spells
  *   attribute names lowercase (Asciidoctor downcases them on the way
  *   in), pinned by tests/format/attribute-entry.test.ts.
@@ -145,7 +166,7 @@ function tokenOf(kind: LineKind, line: string): string | undefined {
       return `delim:${kind.block}`;
     }
     case "admonitionLabel": {
-      return `admon:${kind.label}`;
+      return `${ADMONITION_LABEL_TOKEN}${kind.label}`;
     }
     case "attributeEntry": {
       return `attrentry:${kind.name.toLowerCase()}${kind.unset ? "!" : ""}`;
@@ -160,9 +181,12 @@ function tokenOf(kind: LineKind, line: string): string | undefined {
       return "anchor";
     }
     case "attributeLine": {
-      return anchorIdOfAttributeLine(line) === undefined
-        ? "attrline"
-        : "anchor";
+      const interior = attributeLineInterior(line);
+      const admonition = admonitionStyleLabel(interior);
+      if (admonition !== undefined) {
+        return `${ADMONITION_TOKEN}${admonition}`;
+      }
+      return attrlistAnchorId(interior) === undefined ? "attrline" : "anchor";
     }
     case "blockTitle": {
       return "title";
@@ -312,8 +336,15 @@ type FoldMode = "armed" | "textrun" | "indentedrun" | "none";
  *
  * `* a` / `X` formatting to `* a X` is ordinary reflow, not a reading
  * change (tests/format/unordered-list.test.ts, "short flush
- * continuation is reflowed"); the same is true of an admonition label
- * (tests/format/admonition.test.ts reflows a long `NOTE:`).
+ * continuation is reflowed").
+ *
+ * An ADMONITION LABEL is deliberately absent, though it carries text
+ * the same way: its own line's text is projected as an explicit token
+ * by {@link append}, so a following run folds into that instead. What
+ * absorbing would cost is the fold with the style spelling, which
+ * carries no text at all - `[NOTE]` over a paragraph would swallow the
+ * paragraph and `NOTE: text` would not, and the two would stop reading
+ * alike.
  *
  * The `dlist:` arm is kept and it is now CONDITIONAL in the formatter
  * rather than in this projection: a description item produces the
@@ -329,11 +360,7 @@ type FoldMode = "armed" | "textrun" | "indentedrun" | "none";
  * @returns whether a following text run is absorbed into it
  */
 function absorbsText(token: string): boolean {
-  return (
-    token.startsWith("marker:") ||
-    token.startsWith("dlist:") ||
-    token.startsWith("admon:")
-  );
+  return token.startsWith("marker:") || token.startsWith("dlist:");
 }
 
 /**
@@ -397,6 +424,23 @@ function emit(reading: ReadingBuilder, token: string): void {
  *   the printer emits one whatever precedes the fence, so a `[role]`
  *   line before it is a second attrline on both sides rather than the
  *   fence's.
+ * - a style line standing under ANOTHER attribute line projects as
+ *   the plain `attrline` it is, never as the admonition: the reader
+ *   refuses to fold there, because only the last attribute line of a
+ *   run is recorded while every one of them still prints
+ *   (`unreadAttrlist`, src/parse/lines/held-metadata.ts). Without this
+ *   the licence was wider than the routing, and `[source]` over a
+ *   `NOTE: ` label read the same as `[source]` over a `[NOTE]` style
+ *   line - a respelling that changes the render, waved through;
+ * - an admonition LABEL canonicalizes to the pair `admon:NAME text`,
+ *   because the label line carries the admonition and the head of its
+ *   body while the `[NOTE]` style line carries only the admonition,
+ *   and the printer writes one for the other
+ *   (tests/format/admonition.test.ts). The body token is emitted even
+ *   for `NOTE:` with nothing after it: what matters is that the two
+ *   spellings of one admonition project alike, and a bodyless label
+ *   has no spelling to be folded with. The NAME travels, so a label
+ *   the printer changed still moves the sequence.
  *
  * A blank line is handled by the caller and ends every fold. Blank
  * INSERTION and collapse are owned by the idempotence and
@@ -431,13 +475,53 @@ function append(
     emit(reading, token);
     return "indentedrun";
   }
+  const canonical = canonicalized(reading, token);
+  if (canonical !== undefined) {
+    return canonical;
+  }
+  emit(reading, token);
+  return absorbsText(token) ? "armed" : "none";
+}
+
+/**
+ * The three tokens whose LINE the printer respells, projected to what
+ * the output will read - each with its licence in {@link append}'s
+ * own comment, and undefined for every token that is spelled back as
+ * it was.
+ *
+ * Split from {@link append} because these arms are one kind of rule:
+ * they rewrite a token rather than fold it into a run, and the fold
+ * modes above answer for the folding.
+ * @param reading - the reading built so far, appended to in place
+ * @param token - the token this line projects to
+ * @returns the fold state after it, or undefined when no arm claims
+ *   the token
+ */
+function canonicalized(
+  reading: ReadingBuilder,
+  token: string,
+): FoldMode | undefined {
   if (token === "delim:fencedCode") {
     emit(reading, "attrline");
     emit(reading, "delim:listing");
     return "none";
   }
-  emit(reading, token);
-  return absorbsText(token) ? "armed" : "none";
+  if (
+    token.startsWith(ADMONITION_TOKEN) &&
+    reading.tokens.at(-1) === "attrline"
+  ) {
+    emit(reading, "attrline");
+    return "none";
+  }
+  if (token.startsWith(ADMONITION_LABEL_TOKEN)) {
+    emit(
+      reading,
+      `${ADMONITION_TOKEN}${token.slice(ADMONITION_LABEL_TOKEN.length)}`,
+    );
+    emit(reading, "text");
+    return "textrun";
+  }
+  return undefined;
 }
 
 /**

@@ -63,6 +63,7 @@ import {
   textOnlyOpenerFor,
 } from "./reader-context-space.js";
 import {
+  BLOCK_FORM_VARIANTS,
   BLOCK_VARIANTS,
   JOIN_SEEDS,
   type Variant,
@@ -234,6 +235,60 @@ function pairOf(
   };
 }
 
+/**
+ * The ADJACENT placements: the same confinements as
+ * {@link blockPlacements}, realized WITHOUT the continuation marker,
+ * so the fragment stands where an item's own text does.
+ *
+ * A block start inside an item is reachable two ways and the
+ * continuation is only one of them. `* item` / `[NOTE]` opens a block
+ * as surely as `* item` / `+` / `[NOTE]` does, and it is the position
+ * where the two realizations part company: a bracket line opens a
+ * block from anywhere, while a `NAME: ` label or a bare word is more
+ * of the item's text. A placement set that always wrote the `+` could
+ * not see that, which is what let a respelling move a block out of
+ * item-text position with every gate green.
+ * @returns one placement per confinement style, with no continuation
+ */
+function adjacentPlacements(): Placement[] {
+  return blockStartContexts().flatMap((reader): Placement[] => {
+    const { openList } = reader;
+    if (openList === undefined) {
+      return [];
+    }
+    const style = spellingOf(openList);
+    const opener = openerFor(style) ?? textOnlyOpenerFor(style);
+    if (opener === undefined) {
+      throw new Error(`no opener spells the confinement style ${style}`);
+    }
+    return [
+      {
+        id: `adjacent:${style}`,
+        wrap: (fragment) => `${opener}\n${fragment}\n`,
+      },
+    ];
+  });
+}
+
+// The axis the adjacent placements report and declare under. A
+// SIBLING of `blockFormSpelling` rather than more placements on it:
+// the block-form spellings are the ones whose two members can occupy
+// different block positions, and crossing every other axis with these
+// placements would restate rows that already hold without measuring
+// anything new about position.
+const ITEM_TEXT_AXIS = "itemTextForm";
+
+/**
+ * Every block-form pair placed where an item's own text stands.
+ * @returns the item-text pairs, in table order
+ */
+function itemTextPairs(): ConfluencePair[] {
+  const placements = adjacentPlacements();
+  return BLOCK_FORM_VARIANTS.flatMap((variant) =>
+    placements.map((placement) => pairOf(ITEM_TEXT_AXIS, variant, placement)),
+  );
+}
+
 // The axis name the join pairs report and declare under.
 const JOIN_AXIS = "lineJoin";
 
@@ -268,11 +323,27 @@ function joinPairs(): ConfluencePair[] {
 }
 
 /**
+ * Both members of every item-text pair, as whole documents.
+ *
+ * The confluence property is silent about a pair the oracle does not
+ * hold equal, and in item-text position most of these are not equal -
+ * which is the point of placing them there. What still has to hold of
+ * each DOCUMENT is that formatting it does not change what it
+ * renders, and that is the check the axis exists for
+ * (confluence.test.ts).
+ * @returns each pair's two sources, left then right
+ */
+export function itemTextDocuments(): string[] {
+  return itemTextPairs().flatMap((pair) => [pair.left, pair.right]);
+}
+
+/**
  * Every pair the gate checks.
- * @returns the block-axis pairs then the join-axis pairs
+ * @returns the block-axis pairs, the item-text pairs, then the join
+ *   pairs
  */
 export function confluencePairs(): ConfluencePair[] {
-  return [...blockPairs(), ...joinPairs()];
+  return [...blockPairs(), ...itemTextPairs(), ...joinPairs()];
 }
 
 /**

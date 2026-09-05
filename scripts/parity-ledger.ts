@@ -743,6 +743,44 @@ export const OPEN_BLOCK_TILDE_FAMILY = "open-block-tilde";
  */
 const BLOCK_MACRO_NAME_FAMILY = "block-macro-name";
 
+/**
+ * `[NOTE]`/`[TIP]`/`[IMPORTANT]`/`[WARNING]`/`[CAUTION]` over a
+ * paragraph and the bare `STYLE: ` label in front of it are the same
+ * admonition to Asciidoctor (`ADMONITION_STYLES`, parser.rb:730), so
+ * which one the author typed is a spelling; the fold that respells the
+ * bracket form to the label form is `admonitionLabelOpensABlock`
+ * (src/parse/lines/open-style.ts). Every declared case loses the
+ * `blockAttributeList` sibling the bracket style used to open and
+ * gains one admonition node whose opening bytes ARE the style line, so
+ * the bracket line's own bytes move to the label spelling and every
+ * byte after it is unchanged. NOT formatted-only: the node kind
+ * itself changes, the same way `BLOCK_MACRO_NAME_FAMILY` above does.
+ * Not a blanket family either: it does not name a field every node
+ * gained, it names a whole sibling node the fold removes.
+ *
+ * EXPORTED: the standing grid's `under-note-attrlist` container (its
+ * own comment, scripts/shape-registry.ts) puts this style line over
+ * every compound delimiter kind, and
+ * scripts/metrics/shape-census.ts's `admonition-label` GRID_EXEMPT
+ * entry names the same cell in advance as the one place the
+ * delimited-admonition path (`buildDelimitedAdmonition`,
+ * src/parse/build/delimited.ts) is grid-covered - both anticipated
+ * this family's first realized row before this fold existed to
+ * realize it. The witness row
+ * (`fencedCode/under-note-attrlist/minimum-delimiter-inside`) carries
+ * the measured proof rather than an assumption: the harness's own
+ * per-row instrumentation holds `headIdempotent`,
+ * `headRenderEqualsInput`, and `renderNeutral` all true there.
+ *
+ * Matched on the OUTPUTS, not claimed by coordinate
+ * (`admonitionLabelFoldFamily`, scripts/shape-registry-families.ts):
+ * a coordinate names where a shape is generated FROM, not what a
+ * diff there actually is, and a coordinate-only rule would excuse any
+ * future diff at that address rather than only this one mechanism -
+ * the over-broad shape is issue #202's lesson.
+ */
+export const ADMONITION_LABEL_FOLD_FAMILY = "admonition-label-fold";
+
 export const LEDGER_FAMILIES: FamilySets = {
   families: new Set([
     ATTRIBUTE_CONTINUATION_FAMILY,
@@ -786,6 +824,7 @@ export const LEDGER_FAMILIES: FamilySets = {
     TEXTLESS_DESCRIPTION_TEXT_FAMILY,
     OPEN_BLOCK_TILDE_FAMILY,
     BLOCK_MACRO_NAME_FAMILY,
+    ADMONITION_LABEL_FOLD_FAMILY,
   ]),
   formattedOnly: new Set([
     AUTHOR_PLUS_FAMILY,

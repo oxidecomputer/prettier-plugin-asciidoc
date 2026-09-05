@@ -9,8 +9,9 @@
  * through build_block — is a declared departure from Ruby's
  * mechanism, with its behavior unchanged.
  */
-import type { ParentBlockNode, VerbatimVariant } from "../../ast.js";
-import type { DelimiterKind } from "../line-shapes.js";
+import type { BlockNode, ParentBlockNode, VerbatimVariant } from "../../ast.js";
+import { canonicalAttrlist } from "../attrlist.js";
+import type { DelimiterKind, ParagraphContext } from "../line-shapes.js";
 import type { VerbatimRole } from "../build/delimited.js";
 import type { TableFormat } from "./table-reader.js";
 
@@ -229,6 +230,45 @@ export function paragraphFormVariant(
   return style === undefined ? undefined : PARAGRAPH_FORM_STYLES.get(style);
 }
 
+// Ruby's ADMONITION_STYLES (asciidoctor.rb:270), the five a style line
+// over a PARAGRAPH turns into an admonition (parser.rb:730).
+//
+// EXACT and case-sensitive, which the delimited-block rule above
+// (admonitionVariant, any uppercase word) deliberately is not. Two
+// separate reasons hold it here. Ruby tests set membership on the
+// style as written, so `[note]` and `[Note]` leave an ordinary
+// paragraph, measured against the oracle. And the printer spells this
+// form back as a `NAME: ` label, which only these five names read
+// back as (ADMONITION_LABEL, line-shapes.ts): widening the set would
+// print a label the re-reader takes for prose.
+const ADMONITION_STYLES: ReadonlySet<string> = new Set([
+  "NOTE",
+  "TIP",
+  "IMPORTANT",
+  "WARNING",
+  "CAUTION",
+]);
+
+/**
+ * The admonition a bracket line names when it names one of Ruby's
+ * five admonition styles and NOTHING else - `[NOTE]` and no other
+ * shape.
+ *
+ * The argument is the interior rather than a parsed style, because
+ * "and nothing else" is the whole condition: an interior that carries
+ * a role, an option or a second entry cannot be spelled as a `NOTE: `
+ * label, so it is not this. It is compared in the CANONICAL spelling
+ * the printer would write ({@link canonicalAttrlist}), or `[NOTE] `
+ * would answer no on the first pass and yes on the second, once its
+ * trailing blank had been printed away.
+ * @param interior - a held bracket line's interior
+ * @returns the label the printer writes (`NOTE`), or undefined
+ */
+export function admonitionStyleLabel(interior: string): string | undefined {
+  const canonical = canonicalAttrlist(interior);
+  return ADMONITION_STYLES.has(canonical) ? canonical : undefined;
+}
+
 // The styles that switch a paragraph's whole extent rule — Ruby's
 // VERBATIM_STYLES (asciidoctor.rb:276): source, listing, literal,
 // verse. NOT pass (oracle-pinned: `[pass]\nfoo\n[NOTE]\nbar` renders
@@ -282,4 +322,46 @@ export function withFenceLanguage(
   }
   const language = text.slice(BACKTICK_COUNT).trim();
   return language.length === 0 ? role : { ...role, language };
+}
+
+/**
+ * Whether a `NAME: ` label written where a paragraph is opening would
+ * still OPEN a block, rather than being read as more of what stands
+ * above it.
+ *
+ * A `[NAME]` bracket line opens a block from any position - it is a
+ * SHARED_INTERRUPTER (line-shapes.ts) - and an admonition label is
+ * not, so the two spell one admonition only where both start a block.
+ * Two positions where the label does not, each MEASURED against the
+ * oracle (tests/format/admonition.test.ts):
+ *
+ * - `listItem`: the paragraph opens directly under an item's own
+ *   principal text with no continuation between, so a label line
+ *   there is more of that text and the admonition is gone;
+ * - directly after a description item that spent NO description,
+ *   which takes whatever is written under it next - across a blank
+ *   line - as that description. A bracket line is refused there
+ *   because the item's own scan refuses an interrupter; a label line
+ *   is not refused, and the item swallows it.
+ *
+ * A function of the two facts the reader already holds, so the reader
+ * derives nothing of its own: the context it was handed, and the
+ * block it last pushed.
+ * @param context - which paragraph is opening
+ * @param previous - the block pushed before it, if any
+ * @returns whether a label line here opens a block
+ */
+export function admonitionLabelOpensABlock(
+  context: ParagraphContext,
+  previous: BlockNode | undefined,
+): boolean {
+  if (context === "listItem") {
+    return false;
+  }
+  return (
+    previous?.type !== "descriptionList" ||
+    !previous.children
+      .slice(-1)
+      .some((item) => item.text.length + item.blocks.length === 0)
+  );
 }

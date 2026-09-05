@@ -82,6 +82,31 @@ describe("the invariant holds on ordinary documents", () => {
       "a table holding a dropped comment line",
       "|===\n|* item\n// c\n|== heading\n|===\n",
     ],
+    // A bare admonition style line prints as a `NAME: ` label only
+    // where a label line still OPENS a block. These seven positions
+    // are the ones where it does not, and every one of them read as
+    // `[admon:NOTE text] -> []` at p1 - the admonition token gone -
+    // while the fold ignored where the style line stood.
+    ["an admonition style in ulist item text", "* item\n[NOTE]\nbody text\n"],
+    ["an admonition style in olist item text", ". item\n[NOTE]\nbody text\n"],
+    ["an admonition style in a nested item", "* a\n** b\n[NOTE]\nbody\n"],
+    ["an admonition style in colist item text", "<1> c\n[NOTE]\nbody text\n"],
+    [
+      "an admonition style in an item block reached with no marker",
+      "* item\n+\npara\n[NOTE]\nbody text\n",
+    ],
+    [
+      "an admonition style before a sibling marker",
+      "* item\n[NOTE]\nbody text\n* next\n",
+    ],
+    ["an admonition style under an empty term", "term::\n[NOTE]\nbody\n"],
+    // The positions where it DOES open a block, so the fold happens
+    // and must still read alike: a continuation inside an item, a
+    // blank line under a list, and a description item that spent its
+    // own text.
+    ["an admonition style behind a continuation", "* item\n+\n[NOTE]\nbody\n"],
+    ["an admonition style a blank below a list", "* item\n\n[NOTE]\nbody\n"],
+    ["an admonition style under a spent term", "term:: def\n[NOTE]\nbody\n"],
   ])("%s", async (_name, source) => {
     expect(await breachRows(source)).toEqual([]);
   });

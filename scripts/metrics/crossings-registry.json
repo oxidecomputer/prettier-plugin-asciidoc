@@ -121,6 +121,13 @@
   {
     "file": "src/parse/attrlist.ts",
     "symbol": "canonicalAttrlist",
+    "importer": "src/parse/lines/open-style.ts",
+    "kind": "vocabulary",
+    "reason": "the one answer to where one attribute inside a bracket line ends, asked here so the style an open acts on is the style the printer would write back"
+  },
+  {
+    "file": "src/parse/attrlist.ts",
+    "symbol": "canonicalAttrlist",
     "importer": "src/print/blocks.ts",
     "kind": "vocabulary",
     "reason": "the one answer to where one attribute inside a bracket line ends, so the printer's canonical spacing and the reader's parse cannot disagree about what a re-read interior means"
@@ -351,6 +358,13 @@
   },
   {
     "file": "src/parse/build/paragraph.ts",
+    "symbol": "ParagraphOpening",
+    "importer": "src/parse/lines/held-metadata.ts",
+    "kind": "vocabulary",
+    "reason": "the three shapes a held run can make of the paragraph about to open, decided once by the run and consumed by the builder that reads it"
+  },
+  {
+    "file": "src/parse/build/paragraph.ts",
     "symbol": "buildAdmonitionParagraph",
     "importer": "src/parse/lines/reader.ts",
     "kind": "vocabulary",
@@ -372,10 +386,10 @@
   },
   {
     "file": "src/parse/build/paragraph.ts",
-    "symbol": "buildParagraphFormBlock",
+    "symbol": "buildParagraphNode",
     "importer": "src/parse/lines/reader.ts",
     "kind": "vocabulary",
-    "reason": "pure (variant, tokens, source, index) -> Node constructor for a paragraph a style re-modelled"
+    "reason": "pure (opening, tokens, source, index) -> Node constructor for every paragraph shape, so the reader names no builder of its own"
   },
   {
     "file": "src/parse/build/paragraph.ts",
@@ -936,6 +950,13 @@
     "importer": "src/parse/lines/list-read.ts",
     "kind": "vocabulary",
     "reason": "registry reading: which interrupting set an item's own text is read under, named where the two list reads choose between them"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "ParagraphContext",
+    "importer": "src/parse/lines/open-style.ts",
+    "kind": "vocabulary",
+    "reason": "the registry's own name for which paragraph is open; the style rules read it rather than restating the set of positions"
   },
   {
     "file": "src/parse/line-shapes.ts",

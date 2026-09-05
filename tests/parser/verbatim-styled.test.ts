@@ -91,9 +91,12 @@ describe("verbatim-styled paragraph extents (issue #41)", () => {
     expect(firstStyled("[source]\nimage::x[]\n").content).toBe("image::x[]");
   });
 
+  // `[NOTE]` interrupts the styled paragraph, which is the point of
+  // the row; what stands after the interruption is the admonition the
+  // style line and its paragraph make together (open-style.ts).
   test("[pass] does NOT capture (not a VERBATIM_STYLES member)", () => {
     expect(astShape("[pass]\nfoo\n[NOTE]\nbar\n")).toBe(
-      "attrs pass[1] attrs p(t)",
+      "attrs pass[1] admonition(note)",
     );
   });
 
