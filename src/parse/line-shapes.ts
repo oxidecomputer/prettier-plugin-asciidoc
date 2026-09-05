@@ -654,7 +654,14 @@ const PARAGRAPH_INTERRUPTERS: readonly RegExp[] = [
 // capped at five (`*{1,5}`, `.{1,5}`) where Ruby's `\*\**` and
 // `\.\.*` are unbounded. That is a pre-existing gap tracked with
 // description lists, not a new claim about Asciidoctor.
-const UNORDERED_MARKER_SOURCE = String.raw`\*{1,5}|-`;
+//
+// The bullet is a SINGLE character, not a run: Ruby's alternative is
+// the bare `\u2022` where its neighbours are `\*\**` and `-`, so
+// `\u{2022}\u{2022}` is text. `resolve_list_marker` hands a ulist
+// marker back unchanged (parser.rb l.2194-2195), so the bullet is its
+// own sibling trait and nests against `*` and `-` the way those two
+// nest against each other.
+const UNORDERED_MARKER_SOURCE = String.raw`\*{1,5}|-|\u{2022}`;
 const ORDERED_MARKER_SOURCE = String.raw`\.{1,5}|\d+\.|[a-zA-Z]\.|[IVXivx]+\)`;
 // The interior is a NAMED group so the one match the classifier
 // already runs also reports the number, and no builder re-matches the
@@ -1785,17 +1792,18 @@ export function startsBlockAtLineStart(word: string): boolean {
  *   as its head test.
  * - U+2022 BULLET, which `UnorderedListRx` (rx.rb l.284) carries as a
  *   third marker alternative beside `-` and `*`, and `AnyListRx`
- *   (l.274) with it. The MARKER is what this registry does not model,
- *   which puts the shape in the same class as the two above and not
- *   in the marker sets. Anchored at the head and NOT at a following
- *   space, unlike Ruby's `[ \t]+`: this pattern is asked of a WORD as
- *   well as of a line, and a wrap that puts the bare word at a line
- *   start supplies the space itself. So a line whose bullet has no
- *   space behind it is refused where the oracle reads text, and a run
- *   carrying a bullet word anywhere replays - including at positions
- *   no width can move to a line start - which is the same whole-run
- *   posture the separator condition takes. Over-refusal, bytes only.
- *   The lookalikes the pattern does
+ *   (l.274) with it. {@link UNORDERED_MARKER_SOURCE} models the
+ *   marker, so a bullet line the join could reach is already a marker
+ *   line to the interrupting set; this entry answers the WORD probe
+ *   the marker sets cannot. Anchored at the head and NOT at a
+ *   following space, unlike Ruby's `[ \t]+`: this pattern is asked of
+ *   a WORD as well as of a line, and a wrap that puts the bare word
+ *   at a line start supplies the space itself. So a line whose bullet
+ *   has no space behind it is refused where the oracle reads text,
+ *   and a run carrying a bullet word anywhere replays - including at
+ *   positions no width can move to a line start - which is the same
+ *   whole-run posture the separator condition takes. Over-refusal,
+ *   bytes only. The lookalikes the pattern does
  *   NOT name stay text on both sides - U+2043 HYPHEN BULLET, U+2219
  *   BULLET OPERATOR and U+00B7 MIDDLE DOT among them - because this
  *   Asciidoctor's alternation holds one bullet and not a class.

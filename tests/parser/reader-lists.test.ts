@@ -507,3 +507,66 @@ describe("reader: a //-headed dlist term keeps its own line", () => {
     expect(await formatAdoc(input)).toBe(input);
   });
 });
+
+// `UnorderedListRx` (rx.rb l.284) is `/^[ \t]*(-|\*\**|•)[ \t]+(CC_ANY*)$/`:
+// U+2022 BULLET is a third marker alternative beside `-` and `*`, and
+// `AnyListRx` (l.274) carries it too. It is a SINGLE character where
+// `*` and `.` are runs, so `\u{2022}\u{2022}` is no marker, and
+// `resolve_list_marker` returns a ulist marker unchanged (parser.rb
+// l.2194-2195), so a bullet is its own sibling trait: a bullet under a
+// star nests, exactly as `-` under `*` does.
+//
+// Before the marker source carried it, every row below read as one
+// paragraph and reflowed its lines together, so a bare two-bullet
+// document formatted to a single line and rendered as text where the
+// oracle renders a list.
+describe("reader: the U+2022 bullet is an unordered marker", () => {
+  test.each([
+    [
+      "two bullet lines are two items",
+      "\u{2022} a\n\u{2022} b\n",
+      "list(item(t) item(t))",
+    ],
+    [
+      "a bullet under a star nests (different style)",
+      "* a\n\u{2022} b\n",
+      "list(item(t list(item(t))))",
+    ],
+    [
+      "a star under a bullet nests too",
+      "\u{2022} a\n* b\n",
+      "list(item(t list(item(t))))",
+    ],
+    [
+      "a bullet item takes a + continuation",
+      "\u{2022} a\n+\npara\n\u{2022} b\n",
+      "list(item(t +p(t)) item(t))",
+    ],
+    ["an indented bullet is a marker", "  \u{2022} a\n", "list(item(t))"],
+    ["a tab gap is a marker", "\u{2022}\ta\n", "list(item(t))"],
+  ])("%s", async (_name, input, expected) => {
+    expect(astShape(input)).toBe(expected);
+    expect(itemCount(input)).toBe(await oracleItems(input));
+  });
+
+  // The boundary, held from the other side: the alternation holds ONE
+  // bullet and no run of them, and it holds no lookalike character.
+  test.each([
+    ["a doubled bullet is text", "\u{2022}\u{2022} x\n"],
+    ["a bullet with no gap is text", "\u{2022}x\n"],
+    ["U+2043 HYPHEN BULLET is text", "\u{2043} a\n"],
+    ["U+2219 BULLET OPERATOR is text", "\u{2219} a\n"],
+    ["U+00B7 MIDDLE DOT is text", "\u{00B7} a\n"],
+  ])("%s", async (_name, input) => {
+    expect(astShape(input)).toBe("p(t)");
+    expect(await oracleItems(input)).toBe(0);
+  });
+
+  test("a bullet list survives the round trip", async () => {
+    const input = "\u{2022} a\n\u{2022} b\n";
+    expect(await formatAdoc(input)).toBe(input);
+    expect(await renderedHtml(await formatAdoc(input))).toBe(
+      await renderedHtml(input),
+    );
+  });
+});
