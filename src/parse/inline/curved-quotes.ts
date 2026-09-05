@@ -1,7 +1,7 @@
 /**
  * `QUOTE_SUBS` rows 3 and 4 - the curved double and single quote pairs
  * (asciidoctor.rb l.449-452) - and where they put their delimiters in
- * one fragment.
+ * one text.
  *
  * WHY THIS IS A SCAN AND NOT A RULE. Every other formatting mark is one
  * character and answers "am I a delimiter" from its neighbourhood
@@ -41,11 +41,10 @@ export const CURVED_WIDTH = DELIM_WIDTH + DELIM_WIDTH;
 
 /**
  * Which pair a delimiter belongs to, and which end of it it is.
- * Exported for its unit test (tests/parser/curved-quote-scan.test.ts);
- * no src consumer yet - `curvedMatcher` and `markFlags` (rules.ts) read
- * a delimiter's fields off {@link CurvedScan#delimiters} directly,
- * without naming this type.
- * @internal
+ * `curvedMatcher` and `markFlags` (rules.ts) read a delimiter's fields
+ * off {@link CurvedScan#delimiters} without naming the type;
+ * quote-pass.ts names it, because rebasing the map into a fragment's
+ * coordinates has to build a map of its own.
  */
 export interface CurvedDelimiter {
   /** Which pair this delimiter belongs to. */
@@ -54,7 +53,7 @@ export interface CurvedDelimiter {
   readonly side: "open" | "close";
 }
 
-/** What one fragment's curved-quote rows produce. */
+/** What the two curved-quote rows produce over one text. */
 export interface CurvedScan {
   /**
    * Offset of each delimiter's FIRST character. Every delimiter is
@@ -63,10 +62,10 @@ export interface CurvedScan {
    */
   readonly delimiters: ReadonlyMap<number, CurvedDelimiter>;
   /**
-   * The fragment as the rows AFTER these two read it: every curved
+   * The text as the rows AFTER these two read it: every curved
    * delimiter replaced by `&;`, which carries the first and last
    * character of the entity the row writes and the same width, so every
-   * offset is preserved. Equal to the fragment itself when no row
+   * offset is preserved. Equal to the text itself when no row
    * matched.
    */
   readonly view: string;
@@ -128,7 +127,7 @@ const ESCAPE = "\\";
  * first-character offset.
  * @param pattern - `CURVED_DOUBLE` or `CURVED_SINGLE`, its own `lastIndex` owned entirely by this call
  * @param quote - which pair `pattern` spells
- * @param text - the fragment, or an earlier row's masked view of it
+ * @param text - the pass text, or an earlier row's masked view of it
  * @param delimiters - the map being built, shared across both rows
  */
 function scanRow(
@@ -182,8 +181,8 @@ function maskDelimiters(
 }
 
 /**
- * Where the two curved-quote rows put their delimiters in this fragment,
- * and the fragment as the later rows read it.
+ * Where the two curved-quote rows put their delimiters in this text,
+ * and the text as the later rows read it.
  *
  * STAGED, because the single row's own left clause must see what the
  * double row already wrote (its `;` blocks a single open the same way

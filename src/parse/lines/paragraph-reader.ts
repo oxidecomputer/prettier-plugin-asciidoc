@@ -20,6 +20,11 @@
  * backwards or inspects a token history.
  */
 import { tokenizeInline } from "../inline/tokenize.js";
+import {
+  scanQuotePass,
+  windowOf,
+  type InlineScan,
+} from "../inline/quote-pass.js";
 import type { InlineToken } from "../inline/tokens.js";
 import {
   LINE_COMMENT_HEAD,
@@ -197,6 +202,38 @@ function firstUncommented(scan: ParagraphScan, at: number): string {
   return scan.lines.at(index)?.text ?? "";
 }
 
+/**
+ * Tokenize one run of reflowable lines.
+ *
+ * The literal-plus rule's other half: a hard break on the line the
+ * reader decided is literal is plain text: the tokenizer's output is
+ * retyped here because only the reader knows which line that is.
+ * @param run - where the run sits in the document
+ * @param fragment - the run's own text and the pass-wide scans in that
+ *   text's coordinates (quote-pass.ts)
+ * @param fragment.text - the run's text, as `Paragraph.runText` spells it
+ * @param fragment.scan - the run's window of the pass scans
+ * @param literalPlus - the line whose ` +` is literal text, if any
+ * @returns the run's tokens, in document coordinates
+ */
+function tokenizeRun(
+  run: InlineRun,
+  fragment: { text: string; scan: InlineScan },
+  literalPlus: SourceLine | undefined,
+): InlineToken[] {
+  const tokens = tokenizeInline(fragment.text, run.start, fragment.scan);
+  if (literalPlus === undefined) {
+    return tokens;
+  }
+  const { offset: from } = literalPlus;
+  const to = from + literalPlus.raw.length;
+  return tokens.map((token) =>
+    token.type === "HardLineBreak" && token.offset >= from && token.offset < to
+      ? { ...token, type: "InlineText" }
+      : token,
+  );
+}
+
 class Paragraph {
   // The pieces read so far, in source order.
   private readonly pieces: Piece[] = [];
@@ -371,7 +408,7 @@ class Paragraph {
    * own: the decision needs the whole paragraph and the fact that its
    * first line is an item's marker line, both of which only the reader
    * has. So the reader decides first and retypes that line's break
-   * (see {@link Paragraph.tokenizeRun}). Oracle: `. item` / ` +` /
+   * (see {@link tokenizeRun}). Oracle: `. item` / ` +` /
    * `  more` renders `item + more`; with `more` flush left it renders
    * `item <br> more` (the common indent is 0), and `text` / ` +` /
    * `  more` is a break too (a plain paragraph is never re-indented).
@@ -394,60 +431,57 @@ class Paragraph {
       this.minIndentAfterPlus >= indentOf(plusLine.text)
         ? plusLine
         : undefined;
+    // THE SUBSTITUTION PASS RUNS OVER THE RUNS JOINED, not over one
+    // run: the lines a raw piece holds are gone before `sub_quotes`
+    // ever runs, so the text its rows read is exactly the runs
+    // concatenated and a delimiter pairs across a raw line there
+    // (quote-pass.ts says which Ruby drops which line). Each run is
+    // still TOKENIZED on its own, so a token's image stays a verbatim
+    // source slice; only the four scans are pass-wide, and each run
+    // reads its own window of them.
+    const texts = this.pieces.map((piece) =>
+      piece.kind === "run" ? this.runText(piece.run) : "",
+    );
+    const pass = scanQuotePass(texts.join(""));
     const tokens: InlineToken[] = [];
-    for (const piece of this.pieces) {
+    let at = 0;
+    for (const [index, piece] of this.pieces.entries()) {
       if (piece.kind === "raw") {
         tokens.push({
           type: "RawLine",
           image: piece.line.raw,
           offset: piece.line.offset,
         });
-      } else {
-        tokens.push(...this.tokenizeRun(piece.run, literalPlus));
+        continue;
       }
+      const text = texts[index];
+      tokens.push(
+        ...tokenizeRun(
+          piece.run,
+          { text, scan: windowOf(pass, at, text.length) },
+          literalPlus,
+        ),
+      );
+      at += text.length;
     }
     return tokens;
   }
 
   /**
-   * Tokenize one run of reflowable lines.
+   * One run's text: the document slice plus the newline AT its end
+   * when the document really has one.
    *
-   * The document's newline AT the run's end is included when it is
-   * really there, so a trailing ` +` tokenizes as a hard break
-   * exactly as it would mid-document and every token's image is still
-   * a verbatim source slice. At EOF without a final newline nothing
-   * is appended: inventing one would give a token an image the source
-   * does not contain.
-   *
-   * The literal-plus rule's other half: a hard break on the line the
-   * reader decided is literal is plain text — the tokenizer's output
-   * is retyped here because only the reader knows which line that is.
+   * The newline is included so a trailing ` +` tokenizes as a hard
+   * break exactly as it would mid-document and every token's image is
+   * still a verbatim source slice. At EOF without a final newline
+   * nothing is appended: inventing one would give a token an image
+   * the source does not contain.
    * @param run - where the run sits in the document
-   * @param literalPlus - the line whose ` +` is literal text, if any
-   * @returns the run's tokens, in document coordinates
+   * @returns the run's own text, in source spelling
    */
-  private tokenizeRun(
-    run: InlineRun,
-    literalPlus: SourceLine | undefined,
-  ): InlineToken[] {
+  private runText(run: InlineRun): string {
     const { source } = this.scan;
-    const newline = source[run.end] === "\n" ? "\n" : "";
-    const tokens = tokenizeInline(
-      `${source.slice(run.start, run.end)}${newline}`,
-      run.start,
-    );
-    if (literalPlus === undefined) {
-      return tokens;
-    }
-    const { offset: from } = literalPlus;
-    const to = from + literalPlus.raw.length;
-    return tokens.map((token) =>
-      token.type === "HardLineBreak" &&
-      token.offset >= from &&
-      token.offset < to
-        ? { ...token, type: "InlineText" }
-        : token,
-    );
+    return `${source.slice(run.start, run.end)}${source[run.end] === "\n" ? "\n" : ""}`;
   }
 
   /**

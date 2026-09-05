@@ -28,50 +28,10 @@ import {
 } from "./quote-boundaries.js";
 import { CURVED_WIDTH, type CurvedScan } from "./curved-quotes.js";
 import { UNCONSTRAINED_WIDTH } from "./doubled-marks.js";
+import type { InlineScan } from "./quote-pass.js";
 import { matchPassthrough } from "./passthrough.js";
 import { ASCII_HORIZONTAL_WHITESPACE } from "../line-shapes.js";
 import { DELIM_WIDTH } from "../../constants.js";
-
-/**
- * The two whole-fragment scans every rule is handed, taken once per
- * fragment by `tokenizeInline`.
- *
- * Both exist because their construct is not decidable from a
- * neighbourhood: a curved-quote pair (curved-quotes.ts) and a doubled
- * mark (doubled-marks.ts) each answer to text arbitrarily far away.
- * Together they are a fact about the same fragment every rule already
- * has, not a history of what has been matched. Not exported: the one
- * caller (tokenize.ts) builds the object inline from the two scans it
- * has just taken, so nothing needs the type by name.
- */
-interface FragmentScan {
-  /**
-   * Where the two curved-quote rows matched. The two curved rules read
-   * it to find their own delimiters, and `InlineText`'s own rule reads
-   * it to cut its run before one, the way it already cuts before an
-   * email address.
-   */
-  readonly curved: CurvedScan;
-  /**
-   * Every offset where an unconstrained (doubled) delimiter BEGINS.
-   * {@link markMatcher} reads it to decide the doubled spelling; every
-   * other rule ignores it.
-   */
-  readonly doubled: ReadonlySet<number>;
-  /**
-   * Every offset where a superscript or subscript delimiter stands
-   * (super-sub.ts). {@link superSubMatcher} reads it, and
-   * `InlineText`'s own rule reads it to cut its run before one, the
-   * way it already cuts before a curved delimiter.
-   */
-  readonly superSub: ReadonlySet<number>;
-  /**
-   * Every character reference, by its first offset and its width
-   * (replacements.ts). The `CharacterReference` rule reads it, and
-   * `InlineText` cuts its run before one.
-   */
-  readonly replacements: ReadonlyMap<number, number>;
-}
 
 /** One entry of the ordered table. */
 interface InlineRule {
@@ -81,10 +41,11 @@ interface InlineRule {
    * How many characters match at `index`.
    * @param text - the fragment being tokenized
    * @param index - where to try, zero-based
-   * @param scan - the fragment's two whole-text scans
+   * @param scan - the pass-wide scans, in this fragment's own
+   *   coordinates (quote-pass.ts)
    * @returns the match length, or 0 when the rule does not apply
    */
-  readonly match: (text: string, index: number, scan: FragmentScan) => number;
+  readonly match: (text: string, index: number, scan: InlineScan) => number;
 }
 
 // The pairing table's mark map under the wider key this file asks with:
@@ -136,7 +97,7 @@ const MARK_KIND_BY_CHARACTER = new Map<string, MarkKind>(
  * @returns the rule's match function
  */
 function markMatcher(character: string, kind: MarkKind): InlineRule["match"] {
-  return (text: string, index: number, scan: FragmentScan): number => {
+  return (text: string, index: number, scan: InlineScan): number => {
     if (text.at(index) !== character) return 0;
     if (scan.doubled.has(index)) return UNCONSTRAINED_WIDTH;
     return canOpenAt(kind, text, index, scan.curved.view) ||
@@ -164,7 +125,7 @@ function markMatcher(character: string, kind: MarkKind): InlineRule["match"] {
  * @returns the rule's match function
  */
 function superSubMatcher(character: string): InlineRule["match"] {
-  return (text: string, index: number, scan: FragmentScan): number =>
+  return (text: string, index: number, scan: InlineScan): number =>
     text.at(index) === character && scan.superSub.has(index) ? DELIM_WIDTH : 0;
 }
 
@@ -176,7 +137,7 @@ function superSubMatcher(character: string): InlineRule["match"] {
  * @returns the rule's match function
  */
 function curvedMatcher(quote: CurvedQuoteSpelling): InlineRule["match"] {
-  return (text: string, index: number, scan: FragmentScan): number =>
+  return (text: string, index: number, scan: InlineScan): number =>
     scan.curved.delimiters.get(index)?.quote === quote ? CURVED_WIDTH : 0;
 }
 
@@ -701,7 +662,7 @@ function nearerCut(left: number, right: number): number {
  */
 function textMatcher(source: string): InlineRule["match"] {
   const sticky = new RegExp(source, "vy");
-  return (text: string, index: number, scan: FragmentScan): number => {
+  return (text: string, index: number, scan: InlineScan): number => {
     sticky.lastIndex = index;
     const found = sticky.exec(text);
     if (found === null) return 0;
@@ -917,7 +878,7 @@ export const INLINE_RULES: readonly InlineRule[] = [
   // pass order reaches.
   {
     type: "CharacterReference",
-    match: (text: string, index: number, scan: FragmentScan): number =>
+    match: (text: string, index: number, scan: InlineScan): number =>
       scan.replacements.get(index) ?? 0,
   },
   // ` +` at end of line - HardLineBreakRx, in the raw-run dialect

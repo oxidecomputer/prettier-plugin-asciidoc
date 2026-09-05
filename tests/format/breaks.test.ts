@@ -218,8 +218,10 @@ describe("hard line break formatting", () => {
 
   // A hard break as the block's FIRST inline node: there is nothing
   // in front of it to break away from, so it does not demand a
-  // leading break (ownsItsLine's first-node arm, src/print/inline.ts)
-  // and the paragraph round-trips byte-identically.
+  // leading break (`hardBreakOwnsItsLine`'s `index <= 0` arm,
+  // src/print/inline.ts) and the paragraph round-trips
+  // byte-identically. Spelled in full because `Atom.ownsItsLine`
+  // (src/print/reflow.ts) is a different fact about raw lines.
   test("a hard break opening the paragraph is preserved", async () => {
     const input = " +\nx\n";
     const out = await formatAdoc(input);

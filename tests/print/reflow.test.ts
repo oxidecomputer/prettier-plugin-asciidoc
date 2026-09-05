@@ -78,6 +78,7 @@ describe("the neutral atom", () => {
       noBreakBefore: false,
       noBreakAfter: false,
       breakBefore: "none",
+      ownsItsLine: false,
     });
   });
 });

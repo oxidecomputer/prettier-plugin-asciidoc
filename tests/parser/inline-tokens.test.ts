@@ -3,7 +3,7 @@
  *
  * tests/parser/fixtures/inline-tokens.jsonl is 1,808 rows of
  * `{ text, tokens }`: an input fragment and the exact token stream
- * `tokenizeInline` (src/parse/inline/) produces for it. The rows are an
+ * `tokenizeWholeText` (src/parse/inline/) produces for it. The rows are an
  * EQUALITY pin, not a sample — every one must match to the character,
  * and the tokens move only when someone deliberately regenerates the
  * file and reviews the result as a diff. An accidental change to the
@@ -15,11 +15,11 @@
  *
  * ```
  * bun -e 'import{readFileSync,writeFileSync}from"node:fs";
- * import{tokenizeInline}from"./src/parse/inline/tokenize.ts";
+ * import{tokenizeWholeText}from"./src/parse/inline/tokenize.ts";
  * const f="tests/parser/fixtures/inline-tokens.jsonl";
  * writeFileSync(f,readFileSync(f,"utf8").split("\n").filter(Boolean)
  * .map(l=>{const{text}=JSON.parse(l);return JSON.stringify({text,
- * tokens:tokenizeInline(text,0).map(({type,image,offset,canOpen,canClose})=>
+ * tokens:tokenizeWholeText(text,0).map(({type,image,offset,canOpen,canClose})=>
  * ({type,image,offset,canOpen,canClose}))})}).join("\n")+"\n")'
  * ```
  *
@@ -49,7 +49,7 @@
  */
 import { describe, expect, test } from "vitest";
 import { readFileSync } from "node:fs";
-import { tokenizeInline } from "../../src/parse/inline/tokenize.js";
+import { tokenizeWholeText } from "../../src/parse/inline/tokenize.js";
 import { INLINE_RULES } from "../../src/parse/inline/rules.js";
 import { INLINE_KINDS } from "../../src/parse/inline/tokens.js";
 
@@ -69,7 +69,7 @@ interface PinnedToken {
 
 /** One pinned row: an input and the tokens it must produce. */
 interface PinnedRow {
-  /** The exact text handed to `tokenizeInline`, newline included. */
+  /** The exact text handed to `tokenizeWholeText`, newline included. */
   text: string;
   /** The expected output: kind, image and fragment-relative offset. */
   tokens: PinnedToken[];
@@ -143,7 +143,7 @@ describe("inline tokenizer matches its golden file", () => {
   test.each(rows.map((row, index) => [index, row] as const))(
     "row %i",
     (_index, row) => {
-      const actual = tokenizeInline(row.text, 0).map((token) => ({
+      const actual = tokenizeWholeText(row.text, 0).map((token) => ({
         type: token.type,
         image: token.image,
         offset: token.offset,
@@ -155,8 +155,8 @@ describe("inline tokenizer matches its golden file", () => {
   );
 
   test("baseOffset shifts every offset and nothing else", () => {
-    const zero = tokenizeInline("a *b*\n", 0);
-    const shifted = tokenizeInline("a *b*\n", 17);
+    const zero = tokenizeWholeText("a *b*\n", 0);
+    const shifted = tokenizeWholeText("a *b*\n", 17);
     expect(shifted.map((t) => t.offset)).toEqual(
       zero.map((t) => t.offset + 17),
     );
@@ -282,7 +282,9 @@ describe("the rule table, by hand", () => {
       ["InlineChar", "InlineChar", "InlineText", "InlineNewline", "InlineText"],
     ],
   ])("%j", (text, kinds) => {
-    expect(tokenizeInline(text, 0).map((token) => token.type)).toEqual(kinds);
+    expect(tokenizeWholeText(text, 0).map((token) => token.type)).toEqual(
+      kinds,
+    );
   });
 });
 
@@ -343,7 +345,7 @@ describe("constrained marks and the boundary classes", () => {
   ])("%j before a mark opens it", (character) => {
     const [mark, kind] = probe(character);
     expect(
-      tokenizeInline(`x${character}${mark}b`, 0).map((t) => t.type),
+      tokenizeWholeText(`x${character}${mark}b`, 0).map((t) => t.type),
     ).toContain(kind);
   });
 
@@ -358,7 +360,7 @@ describe("constrained marks and the boundary classes", () => {
     (character) => {
       const [mark, kind] = probe(character);
       expect(
-        tokenizeInline(`x${character}${mark}b`, 0).map((t) => t.type),
+        tokenizeWholeText(`x${character}${mark}b`, 0).map((t) => t.type),
       ).not.toContain(kind);
     },
   );
@@ -369,16 +371,16 @@ describe("constrained marks and the boundary classes", () => {
   test.each([";", ":", "}", "-", "&", " ", "\\"])(
     "a closing mark stands before %j",
     (character) => {
-      expect(tokenizeInline(`a*${character}`, 0).map((t) => t.type)).toContain(
-        "BoldMark",
-      );
+      expect(
+        tokenizeWholeText(`a*${character}`, 0).map((t) => t.type),
+      ).toContain("BoldMark");
     },
   );
   test.each(["a", "0", "\u00E9", "_"])(
     "a closing mark does not stand before %j",
     (character) => {
       expect(
-        tokenizeInline(`a*${character}`, 0).map((t) => t.type),
+        tokenizeWholeText(`a*${character}`, 0).map((t) => t.type),
       ).not.toContain("BoldMark");
     },
   );
@@ -391,22 +393,22 @@ describe("constrained marks and the boundary classes", () => {
     "%j dissolves a monospace open, not a bold one",
     (character) => {
       expect(
-        tokenizeInline(`x${character}\`b`, 0).map((t) => t.type),
+        tokenizeWholeText(`x${character}\`b`, 0).map((t) => t.type),
       ).not.toContain("MonoMark");
-      expect(tokenizeInline(`x${character}*b`, 0).map((t) => t.type)).toContain(
-        "BoldMark",
-      );
+      expect(
+        tokenizeWholeText(`x${character}*b`, 0).map((t) => t.type),
+      ).toContain("BoldMark");
     },
   );
   test.each(['"', "'"])(
     "%j dissolves a monospace close, not a bold one",
     (character) => {
       expect(
-        tokenizeInline(`a\`${character}`, 0).map((t) => t.type),
+        tokenizeWholeText(`a\`${character}`, 0).map((t) => t.type),
       ).not.toContain("MonoMark");
-      expect(tokenizeInline(`a*${character}`, 0).map((t) => t.type)).toContain(
-        "BoldMark",
-      );
+      expect(
+        tokenizeWholeText(`a*${character}`, 0).map((t) => t.type),
+      ).toContain("BoldMark");
     },
   );
 
@@ -415,13 +417,13 @@ describe("constrained marks and the boundary classes", () => {
   // fragment edge facing whitespace — is no token in either
   // direction.
   test("a mark between spaces is no mark at all", () => {
-    expect(tokenizeInline("x * b", 0).map((t) => t.type)).not.toContain(
+    expect(tokenizeWholeText("x * b", 0).map((t) => t.type)).not.toContain(
       "BoldMark",
     );
   });
   test("a newline is whitespace to the content edge", () => {
-    expect(tokenizeInline("x\n* b\n* c\n", 0).map((t) => t.type)).not.toContain(
-      "BoldMark",
-    );
+    expect(
+      tokenizeWholeText("x\n* b\n* c\n", 0).map((t) => t.type),
+    ).not.toContain("BoldMark");
   });
 });

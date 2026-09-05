@@ -28,7 +28,7 @@ import { buildDescriptionTerm } from "../build/description-list.js";
 import type { DescriptionPair } from "../build/description-list.js";
 import { LINE_COMMENT_HEAD, rstrip } from "../line-shapes.js";
 import type { LocationIndex } from "../positions.js";
-import { tokenizeInline } from "../inline/tokenize.js";
+import { tokenizeWholeText } from "../inline/tokenize.js";
 import { isContinuationLine, type DlistTermKind } from "./classify.js";
 import { descriptionPrinting } from "./description-list.js";
 import {
@@ -333,8 +333,11 @@ export function descriptionItemNode(
     term: buildDescriptionTerm(
       // The term's own text, tokenized where it stands: a term
       // carries inline formatting (`*bold*:: d` renders a `<strong>`)
-      // and may open with an inline anchor (l.1301-1303).
-      tokenizeInline(term.image, term.offset),
+      // and may open with an inline anchor (l.1301-1303). A term is
+      // one line and the whole of its own pass text - the term line
+      // is not part of the description's block text, so no scan of
+      // it reaches past the term (quote-pass.ts).
+      tokenizeWholeText(term.image, term.offset),
       term,
       markerLine.text,
       at,

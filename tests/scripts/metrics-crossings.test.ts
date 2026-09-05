@@ -194,6 +194,50 @@ describe("the membership gate, in both directions", () => {
   });
 });
 
+// A `contract` row must name a seam a class actually satisfies. The
+// registry's own header has said so since it was written, and until a
+// review caught two pure functions filed as contracts nothing checked
+// it: the enum test alone lets the classification mean whatever the
+// row's author felt. Both directions are planted, because a gate that
+// only refuses is as useless here as a membership list that cannot
+// rot.
+describe("a contract row must name something implemented", () => {
+  test("a pure function filed as a contract is a fault", () => {
+    const facts = overCheckout(
+      TREE,
+      JSON.stringify([{ ...ROW, kind: "contract" }]),
+      readCrossings,
+    );
+    expect(facts.faults.length).toBe(1);
+    expect(facts.faults[0]).toContain("is filed as a contract");
+    expect(facts.faults[0]).toContain("src/a/one.ts X -> src/b/two.ts");
+    expect(facts.unregistered).toEqual([]);
+    expect(facts.stale).toEqual([]);
+  });
+
+  test("a seam a class implements is clean", () => {
+    const facts = overCheckout(
+      {
+        ...TREE,
+        "b/three.ts": [
+          'import type { X } from "../a/one.js";',
+          "export class Three implements X {",
+          "  x = 1;",
+          "}",
+        ].join("\n"),
+      },
+      JSON.stringify(
+        [
+          { ...ROW, kind: "contract" },
+          { ...ROW, importer: "src/b/three.ts", kind: "contract" },
+        ].toSorted((left, right) => (left.importer < right.importer ? -1 : 1)),
+      ),
+      readCrossings,
+    );
+    expect(facts.faults).toEqual([]);
+  });
+});
+
 describe("this repository's own crossings", () => {
   test("every crossing is registered and every row is live", () => {
     const facts = readCrossings(REPO_ROOT);

@@ -270,7 +270,7 @@ export default defineConfig(
   // or shown unreachable and deleted.
   {
     files: [
-      "src/parse/inline/rules.ts", // :508 `if (start === -1) return undefined;`
+      "src/parse/inline/rules.ts", // :469 `if (start === -1) return undefined;`
       "src/print/span-edges.ts", // :398, :418 `if (!isSpanNode(neighbour)) return undefined;`
     ],
     rules: { curly: "off" },

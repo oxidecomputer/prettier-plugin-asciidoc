@@ -98,12 +98,27 @@ export interface Atom {
    * breaks, the dlist first-line guard, keepTextOnFirstRestLine's kept break).
    */
   readonly breakBefore: BreakBefore;
+  /**
+   * The atom is a whole source line replayed verbatim - a comment or
+   * preprocessor line inside a paragraph - so nothing may be
+   * CONCATENATED onto either end of its text. The joins around it
+   * already keep other atoms off its output line; what this says is
+   * that a mark cannot be fused into the line itself, where the
+   * re-reader would take it as part of the comment. Set by
+   * `appendRawLine` (src/print/inline.ts) and read by `pushSpanAtoms`
+   * (src/print/span-marks.ts), which is the one place that fuses text
+   * onto an atom it did not build.
+   */
+  readonly ownsItsLine: boolean;
 }
 
 /**
  * An atom carrying `text` and no joins — the neutral construction every
- * caller starts from, so the five fields are spelled in ONE place and a
- * new field cannot be forgotten at a call site.
+ * caller starts from, so the six fields are spelled in ONE place and a
+ * new field cannot be forgotten at a call site. The count is
+ * load-bearing: it is what a reader auditing whether a newly added
+ * field is set everywhere counts against, so a field added to
+ * {@link Atom} is added here and to this sentence in the same edit.
  * @param text - the atom's text.
  * @returns the atom, joins unset.
  */
@@ -114,6 +129,7 @@ export function atomOf(text: string): Atom {
     noBreakBefore: false,
     noBreakAfter: false,
     breakBefore: "none",
+    ownsItsLine: false,
   };
 }
 

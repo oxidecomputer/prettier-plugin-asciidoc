@@ -37,6 +37,15 @@
  * classification because the day a seam is consumed across a
  * directory it must be named as one, `implements`-ed, and fakeable.
  *
+ * That last sentence is now a GATE and not a convention
+ * ({@link unimplementedContracts}): a row classified `contract` whose
+ * symbol no class under `src` implements is a fault. Without it the
+ * field stops discriminating, because a `contract` that means "this
+ * one felt important" is noise, and a reader of this header would be
+ * told the tree has no contracts while the registry beside it named
+ * some. It has already happened once: two pure functions were filed
+ * as contracts and only a review caught them.
+ *
  * CANONICAL ORDER. The rows are kept sorted by {@link keyOf}, and
  * {@link outOfOrder} makes that a fault rather than a convention: a
  * registry whose rows may sit anywhere turns a 3-row addition into a
@@ -503,6 +512,74 @@ function outOfOrder(entries: readonly CrossingEntry[]): string[] {
 }
 
 /**
+ * The names every `implements` clause under `src` mentions.
+ *
+ * A heritage clause and nothing else: an interface a class declares
+ * itself to satisfy is what the header means by a seam that is
+ * "`implements`-ed", and it is the one spelling a reader can find from
+ * the type's own name. A type merely used as an annotation is
+ * vocabulary, however important it feels.
+ * @param root - the measured checkout root
+ * @returns every implemented name, once each
+ */
+function implementedNames(root: string): Set<string> {
+  const names = new Set<string>();
+  for (const file of walk(root, "src")) {
+    const sourceFile = ts.createSourceFile(
+      file,
+      readFileSync(path.join(root, file), "utf8"),
+      ts.ScriptTarget.Latest,
+      /* setParentNodes */ false,
+      ts.ScriptKind.TS,
+    );
+    for (const statement of sourceFile.statements) {
+      if (!ts.isClassDeclaration(statement)) {
+        continue;
+      }
+      for (const clause of statement.heritageClauses ?? []) {
+        if (clause.token !== ts.SyntaxKind.ImplementsKeyword) {
+          continue;
+        }
+        for (const type of clause.types) {
+          names.add(type.expression.getText(sourceFile));
+        }
+      }
+    }
+  }
+  return names;
+}
+
+/**
+ * The `contract` rows whose symbol nothing under `src` implements.
+ *
+ * The registry's own header says a crossing may be filed as a contract
+ * only where the seam is named, `implements`-ed and fakeable. Only the
+ * middle of those three is mechanical, and it is enough to catch the
+ * mistake that actually occurs: filing a pure function as a contract
+ * because it felt like an important edge.
+ * @param root - the measured checkout root
+ * @param entries - the validated registry rows
+ * @returns one fault per misfiled row, empty when every contract is
+ *   implemented (which includes the case of no contract rows at all)
+ */
+function unimplementedContracts(
+  root: string,
+  entries: readonly CrossingEntry[],
+): string[] {
+  const contracts = entries.filter((entry) => entry.kind === "contract");
+  if (contracts.length === ZERO) {
+    return [];
+  }
+  const implemented = implementedNames(root);
+  return contracts
+    .filter((entry) => !implemented.has(entry.symbol))
+    .map(
+      (entry) =>
+        `${REGISTRY_FILE}: ${keyOf(entry)} is filed as a contract, but no class under src implements ${entry.symbol}: name the seam and \`implements\` it, or file the row as vocabulary`,
+    );
+}
+
+/**
  * Measure one checkout's crossings against its registry.
  *
  * Always reports what it finds, faults included. WHETHER a fault fails
@@ -525,6 +602,6 @@ export function readCrossings(root: string): CrossingFacts {
     registered: entries.length,
     unregistered: [...actual].filter((key) => !registered.has(key)).toSorted(),
     stale: [...registered].filter((key) => !actual.has(key)).toSorted(),
-    faults,
+    faults: [...faults, ...unimplementedContracts(root, entries)],
   };
 }

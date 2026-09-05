@@ -478,3 +478,87 @@ describe("references against the rest of the vocabulary", () => {
     },
   );
 });
+
+/**
+ * The spellings the eleven modelled rows answer to, one per row, plus
+ * the escaped forms whose match is consumed and whose site is
+ * `undefined`. Shared by the site-width guard below, which places each
+ * one at every position around a newline.
+ */
+const ROW_SPELLINGS = [
+  "(C)",
+  "(R)",
+  "(TM)",
+  "--",
+  "a--b",
+  "...",
+  "->",
+  "=>",
+  "<-",
+  "<=",
+  "&copy;",
+  String.raw`\(C\)`,
+  String.raw`\--`,
+  String.raw`\&copy;`,
+] as const;
+
+// Where a spelling can stand relative to a newline. `%s` is the
+// spelling; every arrangement puts a newline somewhere the em-dash
+// rows' own context clauses can reach, because those are the rows
+// whose MATCH spells `\n` (SPACED_EM_DASH, src/parse/inline/
+// replacements.ts) and so the rows a site-width mistake would show up
+// in first.
+const NEWLINE_ARRANGEMENTS = [
+  "x\n%s\ny",
+  "x %s\ny",
+  "x\n%s y",
+  "%s\ny",
+  "x\n%s",
+  "x\n\n%s\n\ny",
+  "x %s %s\ny",
+] as const;
+
+/**
+ * Every text the guard below scans: each spelling in each arrangement.
+ * @returns the corpus, deduplicated by construction of the product
+ */
+function newlineCorpus(): string[] {
+  return NEWLINE_ARRANGEMENTS.flatMap((shape) =>
+    ROW_SPELLINGS.map((spelling) => shape.replaceAll("%s", spelling)),
+  );
+}
+
+// THE WINDOW'S PRECONDITION (issue #112). The four scans are taken
+// over a block's kept lines joined, and each reflowable run reads its
+// own WINDOW of the result (`windowOf`, src/parse/inline/
+// quote-pass.ts), which keeps a recorded construct only where the
+// fragment spells the whole of it. A fragment ends with its own last
+// line's newline, so the only way a construct could straddle a window
+// edge - and be dropped silently, taking a node out of the tree while
+// the bytes still round-trip - is by spelling a newline itself.
+//
+// A row's MATCH may spell one: `SPACED_EM_DASH` is
+// `(?: |\n|^|\\)--(?: |\n|$)`, newlines on both sides. What the scan
+// RECORDS is the site, the reference's own characters, and no
+// reference spells a newline. That is the fact `windowOf` rests on, so
+// it is measured here rather than argued: a future row whose `site`
+// took its leading context (the word em dash's `:leading` restore is
+// the obvious candidate) fails this row the moment it lands.
+describe("every recorded site lies within one line", () => {
+  test.each(newlineCorpus())("%j records no newline", (text: string) => {
+    const sites = [...scanReplacements(text)].map(([offset, length]) =>
+      text.slice(offset, offset + length),
+    );
+    expect(sites.filter((site) => site.includes("\n"))).toEqual([]);
+  });
+
+  // The guard is only worth something if the corpus actually makes
+  // references: a corpus that recorded nothing would pass vacuously.
+  test("and the corpus records references at all", () => {
+    const found = newlineCorpus().reduce(
+      (total, text) => total + scanReplacements(text).size,
+      0,
+    );
+    expect(found).toBeGreaterThan(ROW_SPELLINGS.length);
+  });
+});

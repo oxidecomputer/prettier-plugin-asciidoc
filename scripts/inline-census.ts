@@ -48,7 +48,7 @@
  */
 import * as inlineRules from "../src/parse/inline/rules.js";
 import { INLINE_RULES } from "../src/parse/inline/rules.js";
-import { tokenizeInline } from "../src/parse/inline/tokenize.js";
+import { tokenizeWholeText } from "../src/parse/inline/tokenize.js";
 import type { InlineKind } from "../src/parse/inline/tokens.js";
 import type { CensusPin } from "./metrics/shape-census.js";
 import {
@@ -201,7 +201,7 @@ function ruleRowFailures(): string[] {
 function spellingFailures(): string[] {
   return INLINE_CONSTRUCTS.flatMap((entry) =>
     entry.spellings.flatMap((spelling) =>
-      tokenizeInline(spelling, 0).some((token) => token.type === entry.kind)
+      tokenizeWholeText(spelling, 0).some((token) => token.type === entry.kind)
         ? []
         : [
             `inline census: ${entry.kind}'s spelling ${JSON.stringify(spelling)} produces no ${entry.kind} token (rule (ii)) - the dimension names a construct it does not spell, so its rows exercise something else`,

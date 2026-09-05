@@ -469,6 +469,27 @@
     "reason": "the one spelling of the specialchars pre-image (sub_specialchars runs before the quote pass), applied to a span's left neighbour on both sides of the round trip"
   },
   {
+    "file": "src/parse/inline/quote-pass.ts",
+    "symbol": "InlineScan",
+    "importer": "src/parse/lines/paragraph-reader.ts",
+    "kind": "vocabulary",
+    "reason": "the scan value the reader carries from windowOf to tokenizeInline; named so the run's fragment argument cannot be built from anything else"
+  },
+  {
+    "file": "src/parse/inline/quote-pass.ts",
+    "symbol": "scanQuotePass",
+    "importer": "src/parse/lines/paragraph-reader.ts",
+    "kind": "vocabulary",
+    "reason": "the substitution pass's own text is the block's kept lines joined, which only the extent reader knows; it hands that text over so the four whole-text scans are taken once, across the raw lines the oracle drops"
+  },
+  {
+    "file": "src/parse/inline/quote-pass.ts",
+    "symbol": "windowOf",
+    "importer": "src/parse/lines/paragraph-reader.ts",
+    "kind": "vocabulary",
+    "reason": "the other half of the same agreement: each run reads its own window of the pass-wide scans, so a token's image stays a verbatim source slice while a pair may span a dropped line"
+  },
+  {
     "file": "src/parse/inline/rules.ts",
     "symbol": "bareAddressRunsPast",
     "importer": "src/print/span-edges.ts",
@@ -478,16 +499,16 @@
   {
     "file": "src/parse/inline/tokenize.ts",
     "symbol": "tokenizeInline",
-    "importer": "src/parse/lines/description-list-node.ts",
-    "kind": "vocabulary",
-    "reason": "the one source-to-token pass; a term's text is tokenized where it stands rather than by a second scanner"
-  },
-  {
-    "file": "src/parse/inline/tokenize.ts",
-    "symbol": "tokenizeInline",
     "importer": "src/parse/lines/paragraph-reader.ts",
     "kind": "vocabulary",
     "reason": "the one tokenization of a run of paragraph text, called where the run's extent is known"
+  },
+  {
+    "file": "src/parse/inline/tokenize.ts",
+    "symbol": "tokenizeWholeText",
+    "importer": "src/parse/lines/description-list-node.ts",
+    "kind": "vocabulary",
+    "reason": "the one source-to-token pass, in its whole-own-text spelling; a term's text is tokenized where it stands rather than by a second scanner"
   },
   {
     "file": "src/parse/inline/tokens.ts",

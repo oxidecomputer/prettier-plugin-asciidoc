@@ -45,11 +45,7 @@ import {
   isBlockSyntaxAtLineStart,
   wordsToAtoms,
 } from "./reflow.js";
-import {
-  keepBlockStartBreak,
-  openMarkStandsApart,
-  type BlockStart,
-} from "./block-start-hazard.js";
+import { keepBlockStartBreak, type BlockStart } from "./block-start-hazard.js";
 import {
   strongerBoundary,
   withBoundary,
@@ -57,6 +53,11 @@ import {
   type Cursor,
 } from "./atom-join.js";
 import { appendLiteralText, spanIsFlush } from "./literal-span.js";
+import {
+  appendWhitespaceOnlySpan,
+  markPlacement,
+  pushSpanAtoms,
+} from "./span-marks.js";
 import { keptLeadingRun, keptTrailingRun } from "./whitespace-fold.js";
 import {
   appendWholeRun,
@@ -281,6 +282,34 @@ function appendText(
 }
 
 /**
+ * Whether a raw line stands anywhere inside these nodes, at any depth.
+ *
+ * At ANY depth, because the fact the raw line stands for is about the
+ * span's EXTENT in the source and not about its child list: the oracle
+ * deletes the line before the quote pass, so every character of the
+ * joined text this span covers is shifted by it, however deeply the
+ * tree nests the line. A test of the direct children alone made the
+ * respell depend on tree DEPTH - `a **b` / `// c` / `d** e` kept its
+ * wide spelling while `**a __b` / `// c` / `c__ d** e` shortened the
+ * outer span, for no reason either document can show.
+ *
+ * It is deliberately CONSERVATIVE rather than exact: a mid-content raw
+ * line does not touch the content edges the constrained row tests, so
+ * some of these spans could legally shorten. Refusing costs bytes and
+ * no meaning, and the exact answer would need the joined text, which
+ * the printer does not have.
+ * @param nodes - a span's content, or a nested span's
+ * @returns true when any descendant is a raw line
+ */
+function holdsARawLine(nodes: readonly InlineNode[]): boolean {
+  return nodes.some(
+    (node) =>
+      node.type === "rawLine" ||
+      ("children" in node && holdsARawLine(node.children)),
+  );
+}
+
+/**
  * Whether an UNCONSTRAINED span may be respelled with the constrained
  * mark — the same question Ruby's constrained pattern asks, read off
  * the tree the printer is about to write.
@@ -327,25 +356,17 @@ function appendText(
  *   differently the moment the emphasis shortens, because the `_`
  *   inside the bibliography anchor becomes an opening mark.
  *
- * A RAW LINE among the children is not a fifth place, and the reason
- * is worth writing down because the oracle's own reading makes it
- * look like one. The oracle DELETES a kept comment line before the
- * quote pass runs, so the characters beside the marks in the rendered
- * text are not the ones a tree can see: `**a` / `// c` / `b** d`
- * renders `<strong>a\nb</strong>`, with the comment gone. But no span
- * that reaches this function holds one. A raw line is a piece of its
- * own, and each reflowable RUN between two pieces is tokenized on its
- * own (`tokenizeRun`, src/parse/lines/paragraph-reader.ts), while an
- * unconstrained delimiter comes from a scan of ONE such fragment
- * (`scanDoubledMarks`, src/parse/inline/doubled-marks.ts). The
- * pairing walk itself runs body-wide and does cross raw-line tokens
- * (`resolveSpans`, src/parse/inline/span-pairing.ts); what confines a
- * pair to its fragment is the scans, which record doubled and
- * super/sub delimiters in open-close PAIRS per fragment, so the
- * sequential pairing has even parity inside every fragment and never
- * straddles one. A span carrying a raw line is therefore already
- * the constrained spelling, and `node.constrained` answers ahead of
- * the call.
+ * - CONSERVATIVE: a RAW LINE among the children answers no. The
+ *   oracle DELETES such a line before the quote pass runs, so the
+ *   characters beside the marks in the RENDERED text are not the ones
+ *   this function can see, and the two spellings do not agree about
+ *   them: the unconstrained rows test no boundary at all, while the
+ *   constrained one demands `(\S|\S.*?\S)`, non-whitespace at both
+ *   content edges of the joined text. `a **b` / `// c` / `** d`
+ *   renders `a <strong>b\n</strong> d`, and the same span shortened
+ *   renders its marks literally - the content the constrained row
+ *   would read is `b\n`, whose last character is the newline the
+ *   comment line hid from the atoms this function is handed.
  * @param node - the unconstrained span
  * @param cursor - where it sits among its siblings
  * @param content - the span's own facts: whether its content is flush
@@ -360,6 +381,11 @@ function constrainedIsLegal(
   content: { flush: boolean; texts: readonly string[] },
 ): boolean {
   if (!content.flush) {
+    return false;
+  }
+  // A raw line anywhere inside answers no: the doc above says why the
+  // atoms cannot show what the constrained row would read.
+  if (holdsARawLine(node.children)) {
     return false;
   }
   // Content ENDING in a hard line break answers no: the closing mark
@@ -690,165 +716,6 @@ function appendSpan(
 }
 
 /**
- * Where a span's OPENING mark goes relative to the content atom beside
- * it.
- *
- * `"fused"` is the ordinary case: mark and first content atom become
- * one atom, which is what keeps them adjacent for AsciiDoc's
- * constrained formatting. `"apart"` keeps the mark as an atom of its
- * own with the space the fusion would have written behind it, and
- * leaves the break to the block-start hazard net.
- */
-type OpenMarkPlacement = "fused" | "apart";
-
-/**
- * Where a span's marks go: the opening one's placement, and whether
- * the closing one must stand alone against a literal break. Split from
- * {@link appendSpan} for the complexity ceiling.
- *
- * NEITHER EDGE CAN BE A RAW LINE, so neither answer guards one. A raw
- * line ends the reflowable run it follows and opens the next, and each
- * run is tokenized on its own (`tokenizeRun`,
- * src/parse/lines/paragraph-reader.ts): an unconstrained pair's two
- * marks come from a scan of a single such fragment (`scanDoubledMarks`,
- * src/parse/inline/doubled-marks.ts), and a constrained mark may not
- * open with whitespace behind it nor close with whitespace in front of
- * it (`canOpenAt`/`canCloseAt`,
- * src/parse/inline/quote-boundaries.ts), which is what a mark alone at
- * a fragment's end or start would be. A raw line INSIDE the content
- * still keeps every mark off itself, but that is its own line's doing
- * rather than a placement: it takes a literal join on both sides
- * ({@link appendRawLine}, `OWN_LINE_SIBLINGS`), so the marks fuse onto
- * text atoms and never onto the comment. They must not: fusing the
- * close onto a kept comment line writes `// c**`, which the re-reader
- * swallows into the comment, and the rendered text loses the mark and
- * everything behind it (measured on `para\n** b\n// c\n** b`).
- *
- * At a BLOCK START the mark comes apart from the content without a
- * break behind it (see {@link openMarkStandsApart}): the two atoms pack
- * into the same bytes the fusion would have written, and the net that
- * can see the whole packed line decides afterwards whether the space
- * becomes the author's break.
- *
- * A HARD LINE BREAK last in the content owns its line END the same
- * way: `LineBreakRx` is `^(.*)[ \t]\+$`, so the ` +` must stay at the
- * end of a line to be a break at all, and fusing the close mark
- * behind it writes `b +**` - literal text, the `<br>` gone (measured
- * on `a **b +\n** c`). Detaching puts the close on the next line and
- * leaves the break where the author had it. The OPEN side needs
- * nothing there: a break that is not last has an atom behind it
- * carrying the literal join (appendHardLineBreak), and a `+` pushed
- * to column 0 would be a list continuation.
- * @param cursor - where the span sits.
- * @param inner - the span's content atoms.
- * @returns the two placements {@link pushSpanAtoms} takes.
- */
-function markPlacement(
-  cursor: Cursor,
-  inner: readonly Atom[],
-): { openPlacement: OpenMarkPlacement; detachClose: boolean } {
-  return {
-    // `glueLeft` on the first content atom is where `openSpace` came
-    // from (see {@link appendSpan}), so its negation is exactly "the
-    // fusion writes a space the content's own whitespace stood for".
-    openPlacement: openMarkStandsApart(cursor, !inner[0].glueLeft)
-      ? "apart"
-      : "fused",
-    detachClose: inner.at(-1)?.text === HARD_BREAK_IMAGE,
-  };
-}
-
-/**
- * Push a span's atoms with its marks placed: fused onto the edge
- * content atoms in the ordinary case, or standing as atoms of their
- * own where fusing would corrupt or would hide a break the net may
- * need (the block start, a hard line break last in the content).
- * Split from {@link appendSpan} for the complexity ceiling.
- * @param out - the block's atoms so far (mutated).
- * @param boundary - the join standing in front of the span.
- * @param inner - the span's content atoms (mutated: marks fuse on).
- * @param marks - how to place the two marks.
- * @param marks.openText - the open mark plus the space the content's
- *   leading whitespace became.
- * @param marks.closeText - the space the content's trailing
- *   whitespace became, plus the close mark.
- * @param marks.openPlacement - where the open mark goes
- *   ({@link OpenMarkPlacement}).
- * @param marks.detachClose - emit the close mark on its own line at
- *   column 0 instead of fusing it onto the last atom.
- */
-function pushSpanAtoms(
-  out: Atom[],
-  boundary: Boundary,
-  inner: Atom[],
-  marks: {
-    openText: string;
-    closeText: string;
-    openPlacement: OpenMarkPlacement;
-    detachClose: boolean;
-  },
-): void {
-  const { openText, closeText, openPlacement, detachClose } = marks;
-  const last = inner.length - 1;
-  if (!detachClose) {
-    inner[last] = { ...inner[last], text: `${inner[last].text}${closeText}` };
-  }
-  if (openPlacement === "fused") {
-    inner[0] = { ...inner[0], text: `${openText}${inner[0].text}` };
-    out.push(withBoundary(inner[0], boundary), ...inner.slice(1));
-  } else {
-    // `"apart"` writes the SPACE the fusion would have written, so the
-    // packer measures and prints the same bytes and the net that reads
-    // the whole packed line decides afterwards whether that space
-    // becomes the author's break.
-    out.push(
-      withBoundary(atomOf(openText.trimEnd()), boundary),
-      withBoundary(inner[0], "space"),
-      ...inner.slice(1),
-    );
-  }
-  if (detachClose) {
-    out.push(withBoundary(atomOf(closeText.trimStart()), "literal"));
-  }
-}
-
-/**
- * Emit a span whose children produced NO atoms: bare marks around the
- * whitespace they stood for. Split from {@link appendSpan} for the
- * complexity ceiling. The block-start hazard net applies here too:
- * `**\n**` replayed as `** **` at column 0 is a ulist line, so at a
- * block start the two marks stay two atoms and the net puts the source
- * break between them.
- * @param out - the block's atoms so far (mutated).
- * @param boundary - the join standing in front of the span.
- * @param cursor - where the span sits.
- * @param parts - the marks and the space the content whitespace
- *   became.
- * @param parts.open - the opening mark.
- * @param parts.close - the closing mark.
- * @param parts.closeSpace - the space the whitespace-only content
- *   stands for ("" when there was none).
- */
-function appendWhitespaceOnlySpan(
-  out: Atom[],
-  boundary: Boundary,
-  cursor: Cursor,
-  parts: { open: string; close: string; closeSpace: string },
-): void {
-  const { open, close, closeSpace } = parts;
-  // The whitespace this span held is all there is between the two
-  // marks, so `closeSpace` is the whole fusion's space here.
-  if (openMarkStandsApart(cursor, closeSpace !== "")) {
-    out.push(
-      withBoundary(atomOf(open), boundary),
-      withBoundary(atomOf(close), "space"),
-    );
-    return;
-  }
-  out.push(withBoundary(atomOf(`${open}${closeSpace}${close}`), boundary));
-}
-
-/**
  * Append a raw line — a comment, preprocessor or otherwise verbatim line
  * kept inside a paragraph.
  *
@@ -876,7 +743,7 @@ function appendRawLine(
   node: RawLineNode,
 ): Boundary {
   const lead = cursor.index === 0 ? boundary : "literal";
-  out.push(withBoundary(atomOf(node.value), lead));
+  out.push({ ...withBoundary(atomOf(node.value), lead), ownsItsLine: true });
   return hasFollowingInlineSibling(cursor) ? "literal" : "glue";
 }
 

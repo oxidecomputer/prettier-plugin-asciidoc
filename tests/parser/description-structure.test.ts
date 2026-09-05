@@ -44,7 +44,7 @@ import type {
 } from "../../src/ast.js";
 import type { ItemBodyInput } from "../../src/parse/build/list.js";
 import { buildDescriptionListItem } from "../../src/parse/build/description-list.js";
-import { tokenizeInline } from "../../src/parse/inline/tokenize.js";
+import { tokenizeWholeText } from "../../src/parse/inline/tokenize.js";
 import { isDescriptionListLine } from "../../src/parse/line-shapes.js";
 import { makeLocationIndex } from "../../src/parse/positions.js";
 import { parse } from "../../src/parser.js";
@@ -188,7 +188,7 @@ describe("one description item, built directly", () => {
         terms: read.terms,
         body: {
           ...EMPTY_BODY,
-          text: tokenizeInline("x", source.indexOf("x")),
+          text: tokenizeWholeText("x", source.indexOf("x")),
         },
         textLines: read.textLines,
         printing: "reflow",

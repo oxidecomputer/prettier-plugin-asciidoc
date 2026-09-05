@@ -10,10 +10,7 @@
  */
 import { INLINE_RULES, markFlags } from "./rules.js";
 import type { InlineKind, InlineToken } from "./tokens.js";
-import { scanCurvedQuotes } from "./curved-quotes.js";
-import { scanDoubledMarks } from "./doubled-marks.js";
-import { scanSuperSubMarks } from "./super-sub.js";
-import { scanReplacements } from "./replacements.js";
+import { scanQuotePass, type InlineScan } from "./quote-pass.js";
 
 /**
  * Tokenize one fragment of paragraph text.
@@ -24,9 +21,17 @@ import { scanReplacements } from "./replacements.js";
  * bold. The caller therefore has to hand over a
  * fragment that starts where Asciidoctor's own substitution pass
  * would start.
+ *
+ * The four whole-text SCANS are the caller's too, and they are taken
+ * over more text than this: the pass text a block's kept lines make
+ * (quote-pass.ts), of which this fragment is one window. That is what
+ * lets a doubled pair span a line the reader dropped while every
+ * token's image stays a verbatim source slice.
  * @param text - the fragment, exactly as it appears in the source
  * @param baseOffset - document offset of `text[0]`, added to every
  *   token's offset so the result is in document coordinates
+ * @param scan - the pass-wide scans in this fragment's coordinates
+ *   (`windowOf`, quote-pass.ts)
  * @returns one token per matched run, in source order, covering the
  *   whole fragment with no gaps. `RawLine` is not among them: that
  *   kind is the paragraph reader's, not the tokenizer's.
@@ -34,35 +39,9 @@ import { scanReplacements } from "./replacements.js";
 export function tokenizeInline(
   text: string,
   baseOffset: number,
+  scan: InlineScan,
 ): Array<InlineToken<InlineKind>> {
   const tokens: Array<InlineToken<InlineKind>> = [];
-  // The two curved-quote rows are scanned ONCE for the whole fragment,
-  // because their delimiter is not decidable from a neighbourhood
-  // (curved-quotes.ts says why). Every rule is handed the result; the
-  // two curved rules read it to find their own delimiters, and
-  // InlineText's own rule reads it too, to cut its run before one
-  // (rules.ts's textMatcher/firstCurvedDelimiterIn) - the same reason
-  // it already cuts before an email address.
-  const curved = scanCurvedQuotes(text);
-  // The four unconstrained (doubled) rows are scanned ONCE for the same
-  // reason (doubled-marks.ts says why): `**a**` pairs and `**a*` does
-  // not, so whether two adjacent marks are one delimiter is a fact
-  // about the whole fragment. The doubled scan reads the curved scan's
-  // masked view where its own row runs later, so it is taken second.
-  // The last two QUOTE_SUBS rows and the REPLACEMENTS table are scanned
-  // once each, for the same reason and with the same shape: a
-  // superscript delimiter answers to text arbitrarily far away
-  // (`^a^b^` pairs the first two carets and leaves the third), and a
-  // character reference answers to the ROW ORDER and to what an earlier
-  // row already consumed (`<->` is one right arrow, `-- --` one em
-  // dash). Both read the source rather than a rewritten view; their
-  // modules' headers say why that is faithful.
-  const scan = {
-    curved,
-    doubled: scanDoubledMarks(text, curved),
-    superSub: scanSuperSubMarks(text),
-    replacements: scanReplacements(text),
-  };
   let index = 0;
   while (index < text.length) {
     let type: InlineKind = "InlineChar";
@@ -92,7 +71,7 @@ export function tokenizeInline(
       text,
       index,
       length,
-      curved,
+      curved: scan.curved,
       doubled: scan.doubled,
     });
     tokens.push({
@@ -104,4 +83,25 @@ export function tokenizeInline(
     index += length;
   }
   return tokens;
+}
+
+/**
+ * Tokenize a fragment that is the WHOLE of its own pass text.
+ *
+ * A description term is the case in src: the term stands on the
+ * marker line, which is not part of the description's block text, so
+ * nothing a scan could pair with reaches past it. The same holds for
+ * any caller that hands over a construct entire - the census's
+ * spellings, the tokenizer's own golden rows - and saying so at the
+ * call is what keeps {@link tokenizeInline}'s scan parameter meaning
+ * "this fragment's window of a wider pass".
+ * @param text - the fragment, which is also its own pass text
+ * @param baseOffset - document offset of `text[0]`
+ * @returns the same tokens {@link tokenizeInline} returns
+ */
+export function tokenizeWholeText(
+  text: string,
+  baseOffset: number,
+): Array<InlineToken<InlineKind>> {
+  return tokenizeInline(text, baseOffset, scanQuotePass(text));
 }
