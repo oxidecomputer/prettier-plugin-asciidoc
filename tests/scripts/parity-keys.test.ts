@@ -381,6 +381,7 @@ describe("the production enum's blanket declaration", () => {
       "block-start-line-fact",
       "blank-below-anchor-line-fact",
       "table-cell-column-index",
+      "second-line-indent-fact",
     ]);
     expect([
       ...(LEDGER_FAMILIES.blanketKeys.get("block-start-line-fact") ?? []),
@@ -392,6 +393,9 @@ describe("the production enum's blanket declaration", () => {
     expect([
       ...(LEDGER_FAMILIES.blanketKeys.get("table-cell-column-index") ?? []),
     ]).toEqual(["columnIndex"]);
+    expect([
+      ...(LEDGER_FAMILIES.blanketKeys.get("second-line-indent-fact") ?? []),
+    ]).toEqual(["secondLineIndent"]);
     // A blanket family may not also be formatted-only: the two claims
     // contradict (one says the bytes are identical, the other says the
     // bytes are the only thing that moved).

@@ -802,6 +802,58 @@ const BLOCK_MACRO_NAME_FAMILY = "block-macro-name";
  */
 export const ADMONITION_LABEL_FOLD_FAMILY = "admonition-label-fold";
 
+/**
+ * Every paragraph records the indent its SECOND source line opened
+ * with (`ParagraphNode.secondLineIndent`, src/ast.ts), the run the
+ * block-start hazard net writes back instead of rebuilding that
+ * stranded line at column 0 (issue #191, landed 7f548d81). The field
+ * is the fact Ruby reads there (`indented = this_line.start_with?
+ * ' ', TAB`, parser.rb l.572), so every paragraph that reached a
+ * second line carries it and the serialized tree moves at every such
+ * case while the bytes hold: measured against 5229e0f7, the landing's
+ * own base, 907 of the 908 differing cases over the 1,620-case corpus
+ * differ in this key and nothing else, which is what a bare trailer
+ * declares. NOT formatted-only: the key IS the difference, and a
+ * formatted-only family would fail the cross-check for every case.
+ *
+ * The 908th moved BYTES as well and so cannot fold under a blanket
+ * strip; it takes a per-id trailer under
+ * {@link MARKER_GAP_KEPT_FAMILY} below, the same way the
+ * blank-line-restoring case of {@link
+ * BLANK_BELOW_ANCHOR_LINE_FACT_FAMILY} takes its own.
+ *
+ * Not exported: no grid row cites it.
+ */
+const SECOND_LINE_INDENT_FACT_FAMILY = "second-line-indent-fact";
+
+/**
+ * A list marker keeps the `[ \t]+` run the author wrote behind it
+ * (`ListItemNode.markerGap`, src/ast.ts), where the printer used to
+ * normalize every gap to one space - which is how `-  - -` became the
+ * `- - -` that reads as a thematic break (UnorderedListRx rx.rb
+ * l.284, OrderedListRx l.300, CalloutListRx l.358; issue #121, landed
+ * 7f548d81). Measured against 5229e0f7, the landing's own base, ONE
+ * id over the 1,620-case corpus moves: `test/fixtures/lists.adoc`,
+ * whose source line `-     normal list item` was printed back as
+ * `- normal list item` and now prints as itself. That one line is the
+ * whole of the byte-level claim, and it moves the output TOWARD the
+ * source.
+ *
+ * NOT formatted-only, though `markerGap` is itself invisible here: it
+ * is not one of the seven fields `normalizeOneItem` keeps, so it is
+ * dropped from BOTH sides the way `markerIndent` is
+ * ({@link MARKER_INDENT_KEPT_FAMILY}). What moves this id's TREE is
+ * the sibling fact of the same landing - its two `secondLineIndent`
+ * keys, measured, and nothing else - which is exactly what
+ * {@link SECOND_LINE_INDENT_FACT_FAMILY}'s bare trailer proves of the
+ * other 907 cases and cannot prove here only because the blanket
+ * requires identical bytes. A case takes one family, and the family
+ * names why the BYTES moved.
+ *
+ * Not exported: no grid row cites it.
+ */
+const MARKER_GAP_KEPT_FAMILY = "marker-gap-kept";
+
 export const LEDGER_FAMILIES: FamilySets = {
   families: new Set([
     ATTRIBUTE_CONTINUATION_FAMILY,
@@ -847,6 +899,8 @@ export const LEDGER_FAMILIES: FamilySets = {
     OPEN_BLOCK_TILDE_FAMILY,
     BLOCK_MACRO_NAME_FAMILY,
     ADMONITION_LABEL_FOLD_FAMILY,
+    SECOND_LINE_INDENT_FACT_FAMILY,
+    MARKER_GAP_KEPT_FAMILY,
   ]),
   formattedOnly: new Set([
     AUTHOR_PLUS_FAMILY,
@@ -865,16 +919,18 @@ export const LEDGER_FAMILIES: FamilySets = {
     TABLE_LAYOUT_FAMILY,
     TABLE_WIDTH_LAYOUT_FAMILY,
   ]),
-  // Three families, and each owns exactly the field it named, as the
+  // Four families, and each owns exactly the field it named, as the
   // dumper serializes it: `ParagraphNode.firstWordEndsItsLine`,
-  // `ParagraphNode.blankBelowAnchorLine` and
-  // `TableCellNode.columnIndex` (all src/ast.ts). Every other family
-  // names a change to what the tree MEANS at some ids; these three
-  // name a field every paragraph, or every table cell, gained.
+  // `ParagraphNode.blankBelowAnchorLine`,
+  // `TableCellNode.columnIndex` and `ParagraphNode.secondLineIndent`
+  // (all src/ast.ts). Every other family names a change to what the
+  // tree MEANS at some ids; these four name a field every paragraph,
+  // or every table cell, gained.
   blanketKeys: new Map([
     [BLOCK_START_LINE_FACT_FAMILY, new Set(["firstWordEndsItsLine"])],
     [BLANK_BELOW_ANCHOR_LINE_FACT_FAMILY, new Set(["blankBelowAnchorLine"])],
     [TABLE_CELL_COLUMN_INDEX_FAMILY, new Set(["columnIndex"])],
+    [SECOND_LINE_INDENT_FACT_FAMILY, new Set(["secondLineIndent"])],
   ]),
 };
 
