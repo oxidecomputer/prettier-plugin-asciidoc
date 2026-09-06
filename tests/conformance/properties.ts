@@ -1,29 +1,33 @@
 /**
- * The differential properties from issue #7, plus the reflow
- * re-classification invariant from issue #58. For a formatter,
- * correctness is mechanical: it must not crash, it must be idempotent,
- * it must not change what Asciidoctor renders, and it must not change
- * what its own reader reads the document AS. `assessCase` runs all
- * four and reports the set of failures, which the harness compares
+ * The differential properties from issue #7, the reflow
+ * re-classification invariant from issue #58, and the reduction-order
+ * invariant from issue #220. For a formatter, correctness is
+ * mechanical: it must not crash, it must be idempotent, it must not
+ * change what Asciidoctor renders, it must not change what its own
+ * reader reads the document AS, and it must not spell the document
+ * further from canonical form than it found it. `assessCase` runs all
+ * five and reports the set of failures, which the harness compares
  * against the quarantine manifest.
  */
 
 import { formatAdoc, renderedHtml } from "../helpers.js";
 import { readingBreaches } from "../lib/reading.js";
+import { reductionBreach } from "./reduction-order.js";
 
-/** One of the four differential properties a case can fail. */
+/** One of the five differential properties a case can fail. */
 export type ConformanceProperty =
   | "crash"
   | "idempotency"
   | "fidelity"
-  | "reading";
+  | "reading"
+  | "reduction";
 
-/** Outcome of running one corpus case through all four properties. */
+/** Outcome of running one corpus case through all five properties. */
 export interface Assessment {
   /**
    * Failed properties in the fixed order crash, idempotency,
-   * fidelity, reading - a set with canonical ordering, so it compares
-   * with `toEqual` against manifest entries.
+   * fidelity, reading, reduction - a set with canonical ordering, so
+   * it compares with `toEqual` against manifest entries.
    */
   failures: ConformanceProperty[];
   /**
@@ -42,7 +46,7 @@ interface Verdict {
 }
 
 /**
- * Runs one corpus input through the four differential properties.
+ * Runs one corpus input through the five differential properties.
  * A crash short-circuits: the others are unassessable without a
  * formatted output, so `["crash"]` stands alone. If the HTML oracle
  * itself throws on the ORIGINAL input, fidelity is vacuous (there is
@@ -75,6 +79,11 @@ export async function assessCase(input: string): Promise<Assessment> {
   }
   if (reading.detail !== undefined) {
     details.push(reading.detail);
+  }
+  const reduction = reductionBreach(input, first);
+  if (reduction !== undefined) {
+    failures.push("reduction");
+    details.push(reduction);
   }
   return { failures, detail: details.join("; ") };
 }

@@ -15,10 +15,19 @@
  * changes what Asciidoctor renders is a red test rather than a stable
  * wrong answer.
  *
- * Three properties, not four. `reading`, the reflow
+ * Three properties, not five. `reading`, the reflow
  * re-classification invariant, stays a corpus-suite property, so a
- * sweep failure set is always a subset of the manifest's four-property
+ * sweep failure set is always a subset of the manifest's five-property
  * vocabulary rather than a different vocabulary of its own.
+ * `reduction` (issue #220) stays a corpus-suite property too. This grid
+ * is built OF near-miss delimiters, and the reduction order reads a
+ * delimiter's minimum as a constant where the printer derives it from
+ * the block's content, so the two disagree about which run is redundant
+ * on a slice of these rows. Part of that slice is real printer
+ * behaviour rather than a measure limit (issue #226), and the measure
+ * cannot separate the two here. The count, the classification and the
+ * extension that would fix it are in `reduction-order.ts` (its "WHERE
+ * IT IS NOT RUN" paragraph), which is the one place they are written.
  *
  * Failures are held by `registry-sweep-quarantine.json` on the same
  * exact-agreement terms as `quarantine.json`: a coordinate must fail

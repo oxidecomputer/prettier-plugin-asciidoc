@@ -32,6 +32,7 @@ const PROPERTIES = new Set<string>([
   "idempotency",
   "fidelity",
   "reading",
+  "reduction",
 ]);
 
 /**

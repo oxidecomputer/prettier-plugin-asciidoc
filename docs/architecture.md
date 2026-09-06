@@ -505,8 +505,11 @@ The obligations, each with its name in the literature:
 
 2. **Termination (SN)** — no infinite rewrite chains. Structural in a one-pass
    design, but it is a real obligation, not a free one: any rule pair that can
-   re-enable each other is a loop. The idempotency batteries would surface a
-   loop as a pass-2 change; no gate names termination directly.
+   re-enable each other is a loop. The idempotency batteries surface a loop as a
+   pass-2 change, and only when its two rules disagree about the bytes; the
+   reduction order below names the obligation directly, and its non-increase
+   check catches a non-decreasing PASS, comparing whole-document weights, so a
+   rise at one site and an equal fall at another still cancel.
 
 3. **Normalization** — `format(a)` is a `→`-normal form: no rule applies to the
    output. With soundness this IS idempotence (`f(f(a)) = f(a)`, the
@@ -537,14 +540,83 @@ The obligations, each with its name in the literature:
    the review's interaction checks are its critical pairs. The table shrinking
    to empty is completion finishing.
 
-Completion, run deliberately, wants one artifact this codebase does not yet
-have: a _reduction order_ — a well-founded order on spellings that every rule
-strictly decreases. With one, orientation stops being taste ("native beats
-markdown") and termination stops being structural luck: a pair of rules that can
-undo each other is exactly a non-decreasing step, caught by checking the order
-instead of by a second format pass happening to differ. The order is tracked as
-its own issue; until it lands, rule orientation is argued per conversion and
-termination is guarded only indirectly, by the idempotency batteries.
+### The spelling reduction order
+
+Completion, run deliberately, wants one artifact: a _reduction order_, a
+well-founded order on spellings that every rule strictly decreases. With one,
+orientation stops being taste ("native beats markdown") and termination stops
+being structural luck: a pair of rules that can undo each other is exactly a
+non-decreasing step, caught by checking the order instead of by a second format
+pass happening to differ.
+
+The order is five counts read left to right, so a count may rise only if one to
+its left fell (`tests/conformance/reduction-order.ts`, which is where the
+derivation, the domain and the limits are written in full):
+
+1. **Compatibility forms**: a construct spelled for compatibility with another
+   markup or with an older AsciiDoc, where the language's own syntax spells the
+   same thing. A Markdown fence formats to `[source,ruby]` over `----` (six
+   syntax bytes in, seventeen out, counting the syntax on both sides and the
+   `ruby` hint on neither), `---` to `'''` and `# T` to `= T` (both
+   byte-for-byte ties), and `Tit` over `^^^` to `==== Tit` (a byte longer). No
+   byte count orients those, and the fence it orients backwards.
+2. **General-purpose forms**: a construct said through a slot that says many
+   things, where the language gives that construct a spelling that says only it.
+   `[#id]` over a paragraph formats to `[[id]]` plus a blank line, and `[NOTE]`
+   over a paragraph to the `NOTE: ` label; the dedicated spelling wins although
+   the anchor's costs a byte and a newline.
+3. **Redundant syntax**: syntax past the shortest spelling of the same
+   construct. A delimiter run past its minimum, a heading's repeated closing
+   run, a page break past `<<<`, an unconstrained inline mark where the
+   constrained one suffices, the quotes around a positional attribute value.
+4. **Padding**: the same fact in whitespace. `[source, ruby]`, an attribute
+   entry's value run, a psv cell's leading pad, a blank run past one blank.
+5. **Non-preferred forms**: the losing member of an axis whose two spellings
+   cost the same in every count above. `:name!:` formats to `:!name:`: one
+   construct, two spellings, no cost between them.
+
+A component is added only for a LANDED conversion, without exception: an axis
+whose conversion is parked gets none, however settled its orientation looks.
+Landed evidence forces each component's existence; it does not force its RANK,
+because no landed conversion moves two components in opposite directions. The
+sequence is therefore a recorded choice, argued from the conversions that cost
+bytes at every lower component, and it stands until a conversion lands that
+moves two components apart. A constructed pair in
+`tests/conformance/reduction-order.test.ts` is what makes the sequence testable
+meanwhile: it is the only thing in the tree that fails if the comparison is read
+pointwise, as a sum, or reversed.
+
+Every component is a count floored at zero, so the lexicographic product is
+well-founded and a strictly decreasing chain is finite, which is termination
+(obligation 2) as something a test reads. **What the order deliberately does not
+rank** is layout: where lines break, how blocks are separated, and the syntax
+the reader supplies for the author. The printer joins short lines and splits
+long ones, and its normal form adds a blank line between adjacent blocks and a
+closing delimiter to an unterminated one; 169 of the 1,614 corpus cases format
+to more bytes than they were written with. No well-founded order can be
+decreased by a rewrite that runs in both directions, so no component counts
+bytes outright: each counts occurrences of a spelling some rule replaces, and
+supplying missing syntax mints no occurrence.
+
+The check has two halves, each with its domain. Non-increase is the `reduction`
+property in the corpus battery (`tests/conformance/properties.ts`), over all
+1,614 vendored cases. Strict decrease is measured over the confluence roster in
+`tests/conformance/reduction-order.test.ts`: every row the formatter converges
+is a landed conversion whose losing spelling must descend the order, and the
+rows the order does not separate are pinned there, today the six list-marker
+axes plus the parked bare-URL axis. The same file carries the perturbation
+proof: one rewrite per component, built in the test, that runs a landed
+conversion backwards, raises that component and no other, and must be caught.
+
+Two limits belong with the claim. The order is blind where no recognizer names a
+spelling, and it can be WRONG where its line scan misreads a line's role,
+because that scan is a delimiter stack and not the reader. And the check
+compares whole-document weights, so it catches a non-decreasing PASS rather than
+a non-decreasing step: a rise at one site and an equal fall at another cancel.
+
+**Every conversion states its orientation against this order**: one line in its
+issue and in its landing report, naming the component it strictly decreases, in
+place of a per-case argument that the target spelling is nicer.
 
 Implication structure: preservation + normalization give idempotence; SN + CR
 give uniqueness within `↔*`; completeness extends uniqueness to all of `≈`.
