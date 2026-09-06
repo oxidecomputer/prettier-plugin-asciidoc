@@ -838,8 +838,23 @@ export const INLINE_RULES: readonly InlineRule[] = [
     match: (text: string, index: number): number =>
       index === 0 ? biblioAnchorMatch(text, index) : 0,
   },
-  // `[[id]]` / `[[id, reftext]]` — InlineAnchorRx.
-  { type: "InlineAnchor", match: pattern(/\[\[[^\]\n]+\]\]/v) },
+  // `[[id]]` / `[[id, reftext]]` — InlineAnchorRx, whose own pattern
+  // (rx.rb l.443) is `(\\)?(?:\[\[...\]\]|anchor:...)`: a backslash
+  // directly in front of `[[` binds INTO the same match and makes the
+  // whole thing an ESCAPE, not an anchor - the oracle drops just the
+  // backslash and renders the brackets as literal text (`\[[a,R]]`
+  // renders `[[a,R]]`). The lookbehind is this rule's own half of that
+  // group: refusing the match here leaves the backslash and every
+  // byte behind it to InlineChar/InlineText, which already replay
+  // source verbatim, so no second node type is needed to keep them
+  // byte-for-byte. Binds however many backslashes stand in front (Ruby's
+  // own scan always binds the CLOSEST one, whatever precedes it), so
+  // `\\[[a,R]]` (two backslashes) is escaped exactly the same way.
+  // Without this, a printer that normalizes a live anchor's comma
+  // (anchorToSource, src/print/serialize-inline.ts) had no way to know
+  // this `[[...]]` was never live at all, and injected a space the
+  // oracle then rendered as literal text (issue #214).
+  { type: "InlineAnchor", match: pattern(/(?<!\\)\[\[[^\]\n]+\]\]/v) },
   { type: "BoldMark", match: markMatcher("*", "bold") },
   { type: "ItalicMark", match: markMatcher("_", "italic") },
   // "`double-quoted`" and '`single-quoted`' - QUOTE_SUBS rows 3 and 4

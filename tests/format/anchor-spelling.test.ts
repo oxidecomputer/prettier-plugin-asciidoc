@@ -105,6 +105,68 @@ describe("a whitespace-only reftext replays faithfully (issue #53)", () => {
   });
 });
 
+describe("an escaped [[ is not a live anchor (issue #214)", () => {
+  // `InlineAnchorRx` (rx.rb l.443) carries its own `(\\)?` group: a
+  // backslash directly in front of `[[` makes the WHOLE match text
+  // Ruby's escape drops the backslash and renders (oracle: `\[[a,R]]`
+  // renders `[[a,R]]`, not an anchor). Our tokenizer used to read the
+  // backslash and the anchor as two independent tokens, so the
+  // printer still normalized the comma inside a construct the oracle
+  // never treats as an attrlist at all - the printed `, ` became
+  // visible text (`\[[a, R]]` renders `[[a, R]]`, an extra byte no
+  // author wrote).
+  test.each([
+    ["with reftext", "\\[[a,R]]\n"],
+    ["id only, no comma to respell", "\\[[a]]\n"],
+    // A second backslash is STILL an escape to the oracle: the regex
+    // always binds the closest backslash to `[[`, whatever stands in
+    // front of it (measured: `\\[[a,R]]` renders `\[[a,R]]` literal,
+    // one backslash and the brackets, never a live anchor).
+    ["doubled backslash, still escaped", "\\\\[[a,R]]\n"],
+  ])("%s stays byte for byte", async (_name, input) => {
+    await expectFormatted(input, input);
+  });
+  test("the same shape in a marker item's text", async () => {
+    const input = "* \\[[a,R]]\n";
+    await expectFormatted(input, input);
+  });
+  // CONTROL: an anchor glued to ordinary text with NO backslash is a
+  // live anchor to the oracle regardless of the missing whitespace
+  // (measured: `word[[a,R]]` renders identically whether the comma
+  // carries a space or not), so the fix may not over-refuse this
+  // shape into a needless verbatim replay.
+  test("an anchor glued to plain text still normalizes (control)", async () => {
+    await expectFormatted("word[[a,R]]\n", "word[[a, R]]\n");
+  });
+  // A DISCLOSED SIDE EFFECT of the lookbehind, not a second bug:
+  // `InlineBiblioAnchor` only matches at index 0 (rules.ts), so a
+  // leading backslash already pushes it out of the running whether
+  // this fix exists or not. Before this fix, `InlineAnchor` matched
+  // at index 1 - `\[[[a,R]]]`'s SECOND character - consuming
+  // `[[a,R]]` (the "two-bracket misparse" its own doc comment names)
+  // and the printer replayed that verbatim. Now the lookbehind refuses
+  // index 1 too (still preceded by `\`), so the rule matches at index
+  // 2 instead: a plain, unescaped `[[a,R]]` one character later, which
+  // IS a live anchor to the oracle - `\[<a id="a"></a>]`, the same
+  // render as before - so `anchorToSource` normalizes its comma. The
+  // reftext is dead either way (`InlineAnchorScanRx` refuses a
+  // `[`-preceded anchor), so this is render-equal, not a regression.
+  test.each([
+    ["standalone", "\\[[[a,R]]]\n", "\\[[[a, R]]]\n"],
+    [
+      "with reftext prose",
+      "\\[[[Fowler_1997,1]]] x\n",
+      "\\[[[Fowler_1997, 1]]] x\n",
+    ],
+    ["in a marker item", "* \\[[[a,R]]] x\n", "* \\[[[a, R]]] x\n"],
+  ])(
+    "an escaped [[[ moves the live anchor to the inner pair, which still normalizes",
+    async (_name, input, expected) => {
+      await expectFormatted(input, expected);
+    },
+  );
+});
+
 describe("bibliography anchors print the author's interior verbatim", () => {
   // `[[[id,reftext]]]` keeps the author's interior even for a VALID
   // id — no `, ` is injected after the comma, unlike the

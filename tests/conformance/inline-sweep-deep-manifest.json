@@ -1,13 +1,4 @@
 {
-  "pair/InlineChar/InlineAnchor/adjacent/fidelity": {
-    "count": 2,
-    "examples": [
-      "pair/InlineChar-near-1/InlineAnchor-alt-1/adjacent/item",
-      "pair/InlineChar-near-1/InlineAnchor-alt-1/adjacent/para"
-    ],
-    "sha256": "bd451322f4e70a7ed11764e7dfada92d359bd056127686a80f54b146c16356e5",
-    "issue": "UNTRIAGED"
-  },
   "pair/InlineUrl/InlineAnchor/adjacent/fidelity": {
     "count": 2,
     "examples": [
@@ -15,30 +6,6 @@
       "pair/InlineUrl-near-1/InlineAnchor-alt-1/adjacent/para"
     ],
     "sha256": "c0f73cc6efe362dba09e1ba960cc227578d876c3d9dda54bbaee2fc2ea7a8f76",
-    "issue": "UNTRIAGED"
-  },
-  "standing/InlineAnchor/bracket-backslash/fidelity": {
-    "count": 45,
-    "examples": [
-      "InlineAnchor-alt-1/bracket-backslash/admonition",
-      "InlineAnchor-alt-1/bracket-backslash/admonition@bom",
-      "InlineAnchor-alt-1/bracket-backslash/admonition@crlf",
-      "InlineAnchor-alt-1/bracket-backslash/admonition@no-final-newline",
-      "InlineAnchor-alt-1/bracket-backslash/admonition@trailing-ff"
-    ],
-    "sha256": "b90d82b71020e1b5ac6127ba5747a21aac97f8262bbc45cdcd4a9f42ce93b81c",
-    "issue": "UNTRIAGED"
-  },
-  "standing/InlineAnchor/escaped/fidelity": {
-    "count": 45,
-    "examples": [
-      "InlineAnchor-alt-1/escaped/admonition",
-      "InlineAnchor-alt-1/escaped/admonition@bom",
-      "InlineAnchor-alt-1/escaped/admonition@crlf",
-      "InlineAnchor-alt-1/escaped/admonition@no-final-newline",
-      "InlineAnchor-alt-1/escaped/admonition@trailing-ff"
-    ],
-    "sha256": "4e3b92d5543a4761618684fd1d13deca04f9a54ca010dc08f01d77b4cbbd44ce",
     "issue": "UNTRIAGED"
   }
 }

@@ -157,6 +157,29 @@ export function readMarkerList(
  * `parse_list_item` clears `has_text` for a ulist or olist item whose
  * content is adjacent (parser.rb:1369), so the item's `//` lines are
  * the comments they look like.
+ *
+ * THE HEAD DRAIN applies here too, and unconditionally: `parse_list_item`
+ * peeks past a run of `//` lines before EVERY item's first block
+ * (parser.rb:1362-71), and the branch that picks a marker item's own
+ * text (l.1298) stands ABOVE that peek, not athwart it. Our two opening
+ * kinds used to read the peek in only one of them ({@link
+ * drainHeadComments}, built for a description sibling); a marker item's
+ * buffer never reached it, so a `//` run that reaches the buffer's end
+ * joined the item's own text as ordinary words instead of vanishing the
+ * way the drain says it must (issue #211: `* a` / `///c` renders `a`
+ * alone, and the un-drained reader joined `///c` onto it, which
+ * `wrap` was then free to pack onto `a`'s own printed line).
+ *
+ * The drained lines are not dropped from the OUTPUT. A description
+ * sibling replays them as a GAP, because its printer already reasons
+ * about the source between the term and the description
+ * (description-list-node.ts). A marker item has no such gap, so
+ * {@link drainedRawTokens} replays each drained line as its own {@link
+ * InlineToken} of type `RawLine` appended to the text {@link
+ * ListHost.interiorOf} read - the same shape a genuine `//` comment
+ * already keeps for itself inside an item's text (paragraph-reader.ts's
+ * own raw pieces), so the bytes stand on their own printed line and are
+ * never fused into a word stream `wrap` could join.
  * @param host - what the reader hands the read
  * @param shape - what the extent scan decided about the item
  * @returns the item's text and blocks
@@ -166,15 +189,43 @@ function interiorOfItem(
   shape: ListItemShape<MarkerKind>,
 ): ItemInterior {
   const { marker } = shape;
-  return host.interiorOf(
+  const drain = drainHeadComments(shape);
+  const interior = host.interiorOf(
     shape.markerLine,
-    shape.buffer,
+    drain.interior,
     { list: { kind: "marker", style: marker.style }, tailSafe: shape.tailSafe },
     {
       context: "listItemText",
       text: { from: marker.markerEnd, comments: "skipped" },
     },
   );
+  if (drain.drained.length === 0) {
+    // Nothing drained: either the buffer was empty already, or a
+    // non-comment (or blank) line stands behind the run, which is
+    // Ruby's own signal to leave every byte exactly where it read it.
+    return interior;
+  }
+  return {
+    text: [...interior.text, ...drainedRawTokens(drain.drained)],
+    blocks: interior.blocks,
+  };
+}
+
+/**
+ * Replay a run of drained comment lines as the item's own text would
+ * have kept them: one {@link InlineToken} of type `RawLine` per line,
+ * verbatim, in source order - `paragraph-reader.ts`'s own token for a
+ * line kept rather than reflowed, so the printer needs no new case to
+ * put each one on an output line of its own.
+ * @param lines - the lines a head drain took out of an item's buffer
+ * @returns one `RawLine` token per line
+ */
+function drainedRawTokens(lines: readonly SourceLine[]): InlineToken[] {
+  return lines.map((line) => ({
+    type: "RawLine",
+    image: line.raw,
+    offset: line.offset,
+  }));
 }
 
 /**
@@ -185,7 +236,10 @@ function interiorOfItem(
  * comment_lines unless comment_lines.empty?`, parser.rb:1363-1371). A
  * line after the run - a blank one included, which is truthy to Ruby
  * - puts every drained line back, so the peek drops a line only where
- * the run reaches the end of the item's buffer.
+ * the run reaches the end of the item's buffer. UNCONDITIONAL over
+ * `list_type`: the peek stands above the branch that reads a marker
+ * item's text differently from a dlist sibling's (l.1298), so both of
+ * {@link ListItemShape}'s opening kinds take it.
  *
  * The spelling is `Reader#skip_line_comments`'s own: a bare `//`
  * PREFIX, stopping at a blank line (reader.rb:332-345). NOT the
@@ -198,21 +252,30 @@ function interiorOfItem(
  * (:1387) and what lets the term fold roll on to `u`. Read the line
  * as text instead and the sibling has a body, the fold ends early,
  * and the list holds a non-last item with an empty body, which is
- * what the description-list AST invariant refuses.
+ * what the description-list AST invariant refuses. A MARKER item's
+ * own buffer answers the identical question - `* a` / `///c` renders
+ * `a` alone, the same drop (issue #211) - without a fold to protect,
+ * which is why only the caller's REPLAY of the drained bytes differs
+ * (see {@link interiorOfItem} and {@link interiorOfDescription}).
  *
- * The drained bytes are not dropped: they are the term's own gap
- * lines, replayed where the author wrote them. Moving one is not a
+ * The drained bytes are not dropped from either caller's OUTPUT: they
+ * are source the author wrote between the item's opening line and
+ * whatever follows, replayed where it stood. Moving one is not a
  * milder alternative - `parse_block_metadata_line` EXEMPTS `///`
  * (:2080) where `skip_line_comments` does not, so a `///` line lifted
  * above the term line stops being a comment and takes the whole list
  * with it.
- * @param shape - what the extent scan decided about the sibling
- * @returns the lines its interior is read from, and the first line
- *   number past what the drain took - the term line's own where it
- *   took nothing, which is a gap range holding no lines at all
+ * @param shape - what the extent scan decided about the item
+ * @returns the lines its interior is read from, the lines the drain
+ *   took (empty when it took nothing - a fact a caller may test
+ *   directly, rather than by comparing `interior`'s length back
+ *   against the shape's own buffer), and the first line number past
+ *   what the drain took - the item's own opening line where it took
+ *   nothing, which is a range holding no lines at all
  */
-function drainHeadComments(shape: ListItemShape<DlistTermKind>): {
+function drainHeadComments(shape: ListItemShape): {
   interior: readonly SourceLine[];
+  drained: readonly SourceLine[];
   drainedEnd: number;
 } {
   const { buffer } = shape;
@@ -232,9 +295,14 @@ function drainHeadComments(shape: ListItemShape<DlistTermKind>): {
   }
   const last = buffer.at(end - 1);
   if (end < buffer.length || last === undefined) {
-    return { interior: buffer, drainedEnd: shape.markerLine.line };
+    return { interior: buffer, drained: [], drainedEnd: shape.markerLine.line };
   }
-  return { interior: [], drainedEnd: last.line + 1 };
+  // The loop only reaches here having walked every line in `buffer`
+  // (the while condition's `end < buffer.length` is the other half of
+  // the disjunct above), so the run it took IS the whole buffer - not
+  // an invariant a caller must trust, but what `end === buffer.length`
+  // already says.
+  return { interior: [], drained: buffer, drainedEnd: last.line + 1 };
 }
 
 /**
