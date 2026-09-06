@@ -422,6 +422,12 @@ export function openParagraphProbes(): ContextProbe[] {
             // setext title is read only at a section's own block
             // start (see ReaderContext.nextLine).
             nextLine: undefined,
+            // False in every open-paragraph state for the reason the
+            // paragraph scan's own literal states: a line reaches the
+            // block-start ladder from here by INTERRUPTING, and a
+            // line that interrupts starts a block on Asciidoctor's
+            // reading too (see ReaderContext.includeAbove).
+            includeAbove: false,
           },
           prefix,
         });
@@ -454,6 +460,10 @@ export function blockStartContexts(): ReaderContext[] {
     // states pin the STYLE equivalence class, a claim `nextLine`
     // does not bear on.
     nextLine: undefined,
+    // Fixed false for the same reason, and pinned in its own right by
+    // the include rows in tests/format/include.test.ts: the style
+    // equivalence class is what these states are about.
+    includeAbove: false,
   }));
 }
 

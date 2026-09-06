@@ -748,15 +748,23 @@ export const metadataLineKind: (
  * ordering is why `Title` over `-----` is a heading and not a
  * paragraph over a listing block, and why `x` over `--` is a heading
  * and not an open block.
+ *
+ * TWO of the arms below are held off where the block start may not be
+ * one to Asciidoctor: the setext title here, and the layout break in
+ * {@link classifyBlockBody}. Both are read at a block boundary alone
+ * and both DESTROY the line's spelling when they fire, and an
+ * `include::` directive standing directly above is the one thing that
+ * can put content there without opening a paragraph this reader can
+ * see ({@link ReaderContext.includeAbove}, issues #210 and #213). The
+ * other arms keep their reading unconditionally: they respell nothing,
+ * so a wrong one costs a node kind and not the author's bytes.
  * @param line - one rstripped source line
- * @param nextLine - the line below it, or undefined where a two-line
- *   construct may not be read (see {@link ReaderContext.nextLine})
+ * @param reader - the reader's context view; the line below it (where
+ *   a two-line construct may be read at all) and whether an include
+ *   stands directly above are both read off it
  * @returns the line's kind; `text` when nothing else claims it
  */
-function classifyBlockStart(
-  line: string,
-  nextLine: string | undefined,
-): LineKind {
+function classifyBlockStart(line: string, reader: ReaderContext): LineKind {
   // parse_block_metadata_line tests `[[` before the attribute list.
   if (BLOCK_ANCHOR.test(line)) {
     return { kind: "anchor" };
@@ -775,7 +783,15 @@ function classifyBlockStart(
   if (section !== undefined) {
     return { kind: "sectionTitle", extent: 1, ...section };
   }
-  const underlined = parseSetextTitle(line, nextLine);
+  // Bound ONCE, here rather than at the top of the function: the arms
+  // above are the block metadata `parse_block_metadata_line` takes
+  // before `next_block`'s ladder starts, none of them asks, and the
+  // answer costs a backwards walk (blockStartContextIn supplies it as
+  // a getter for exactly that reason).
+  const { includeAbove } = reader;
+  const underlined = includeAbove
+    ? undefined
+    : parseSetextTitle(line, reader.nextLine);
   if (underlined !== undefined) {
     return { kind: "sectionTitle", extent: 2, ...underlined };
   }
@@ -788,7 +804,7 @@ function classifyBlockStart(
   if (isContinuationLine(line)) {
     return { kind: "continuation" };
   }
-  return classifyBlockBody(line);
+  return classifyBlockBody(line, includeAbove);
 }
 
 /**
@@ -802,14 +818,23 @@ function classifyBlockStart(
  * `[ \t]*` — so `␠␠* x` is a list. `CalloutListRx` does not, and
  * `next_block` gates it on `!indented`, which is why `␠␠<1> x` falls
  * through to the literal paragraph instead.
+ *
+ * The two LAYOUT BREAK arms - the two alternatives of one Ruby rule,
+ * `ExtLayoutBreakRx` - are the ones {@link classifyBlockStart}'s
+ * precondition holds off: both are read at a block boundary alone, and
+ * both print back a canonical spelling (`'''`, `<<<`) that is not the
+ * one they read.
  * @param line - one rstripped source line
+ * @param includeAbove - whether an include's substituted content
+ *   stands directly above the line, which is where a block start may
+ *   not be one (see {@link ReaderContext.includeAbove})
  * @returns the line's kind; `text` when nothing claims it
  */
-function classifyBlockBody(line: string): LineKind {
-  if (THEMATIC_BREAK.test(line)) {
+function classifyBlockBody(line: string, includeAbove: boolean): LineKind {
+  if (!includeAbove && THEMATIC_BREAK.test(line)) {
     return { kind: "thematicBreak" };
   }
-  if (PAGE_BREAK.test(line)) {
+  if (!includeAbove && PAGE_BREAK.test(line)) {
     return { kind: "pageBreak" };
   }
   const macro = parseBlockMacro(line);
@@ -943,5 +968,5 @@ export function classifyLine(rawLine: string, reader: ReaderContext): LineKind {
     }
   }
   // 3. A block's first line.
-  return classifyBlockStart(line, reader.nextLine);
+  return classifyBlockStart(line, reader);
 }

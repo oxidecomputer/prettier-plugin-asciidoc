@@ -434,10 +434,7 @@ class BlockReader {
       }
       const kind = classifyLine(
         line.text,
-        blockStartContextIn(
-          this.confinement,
-          this.lines.at(this.index + 1)?.text,
-        ),
+        blockStartContextIn(this.confinement, this.lines, this.index),
       );
       classifyTrace.observer?.(line.offset, kind);
       this.directiveDepth = directiveDepthAfter(this.directiveDepth, line.text);

@@ -169,7 +169,7 @@ export type OpenList =
 /**
  * The reader's state as every line rule reads it — exactly the facts
  * the old token patterns reconstructed by scanning backwards, handed
- * over instead of derived. Three fields and no more: the reader keeps
+ * over instead of derived. Five fields and no more: the reader keeps
  * no stack for anything else to read.
  *
  * ONE declaration, here rather than beside the classifier, because
@@ -181,9 +181,9 @@ export type OpenList =
  * that spanned them — a vocabulary that could drift and a rename that
  * had to be made twice.
  *
- * Every field is spelled `| undefined` rather than `?`: the producer
- * always supplies all three, so "absent" and "undefined" are not two
- * states to tell apart.
+ * Every optional field is spelled `| undefined` rather than `?`: the
+ * producer always supplies every field, so "absent" and "undefined"
+ * are not two states to tell apart.
  */
 export interface ReaderContext {
   /** The paragraph-shaped block being read, or undefined at a block start. */
@@ -216,6 +216,45 @@ export interface ReaderContext {
    * paragraph.
    */
   readonly nextLine: string | undefined;
+  /**
+   * Whether an `include::` directive stands directly above this line,
+   * with nothing but lines the preprocessor DELETES in between.
+   *
+   * A line that can put CONTENT immediately above a line this reader
+   * nevertheless reaches at a block start, and so a reason a block
+   * start here may not be one to Asciidoctor. A line that is content
+   * opens a paragraph the line below sits inside; a line the
+   * preprocessor deletes leaves a boundary above it a boundary below
+   * it. An include is neither: the preprocessor SUBSTITUTES lines for
+   * the directive (`preprocess_include_directive`, reader.rb l.1035),
+   * and a formatter cannot read the target, so whatever those lines
+   * end with is unknown. The one thing that IS known is that the
+   * substitution can be non-blank, which every unresolved arm
+   * demonstrates: each writes a paragraph line with
+   * `replace_next_line %(Unresolved directive in ...)`. The method
+   * itself holds four (l.1050, the blank-resolved-target arm, and
+   * l.1143, l.1207, l.1231), and the one the pinned oracle executes
+   * for an unreadable target is a FIFTH, one call down in
+   * `resolve_include_path` (l.1257): the `include file not found`
+   * arm at l.1277, whose answer reaches the caller through l.1070 and
+   * the boolean return at l.1078-1080.
+   *
+   * NOT the only such line, and this field does not claim to be: a
+   * single-line conditional carrying a body substitutes that body the
+   * same way ({@link rawLineForm}'s `conditional`, and
+   * `includeStandsAbove` in lines/scope.ts, which state the subset
+   * exactly). That gap is measurable, pre-existing, and filed from
+   * this lane's review rather than closed here.
+   *
+   * Two rules of `next_block`'s ladder are asked ONLY at a block
+   * boundary and DESTROY a spelling when they fire: the layout break
+   * (`ExtLayoutBreakRx`) and the setext section title
+   * (`is_next_line_section?`, asked from `next_section`). Both are
+   * held off while this is true, which leaves the line to the ladder's
+   * text fallback - the reading Asciidoctor gives it when the
+   * substituted content is a paragraph (issues #210, #213).
+   */
+  readonly includeAbove: boolean;
 }
 
 /**
@@ -229,6 +268,7 @@ export const BLOCK_START_CONTEXT: ReaderContext = {
   openList: undefined,
   firstLineAfterStart: false,
   nextLine: undefined,
+  includeAbove: false,
 };
 
 // The oracle's strip set, spelled out rather than as `\s`:

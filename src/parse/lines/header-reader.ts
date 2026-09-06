@@ -76,6 +76,10 @@ const HEADER_CONTEXT: ReaderContext = {
   // can open a two-line construct: `parse_header_metadata` reads one
   // line at a time and asks no question about the line below.
   nextLine: undefined,
+  // The document title is read before this scan starts, and a title
+  // is content: whatever an include put above it cannot reach the
+  // lines this scan walks (see ReaderContext.includeAbove).
+  includeAbove: false,
 };
 
 /**

@@ -129,6 +129,7 @@ describe("line-shape registry matches the Asciidoctor oracle", () => {
           openList: CONTEXT_OPEN_LIST[context],
           firstLineAfterStart: firstLine,
           nextLine: undefined,
+          includeAbove: false,
         }),
         `registry disagrees with oracle for ${JSON.stringify(line)}`,
       ).toBe(oracle);
@@ -394,6 +395,7 @@ describe("raw (non-text, non-interrupting) paragraph lines", () => {
       openList: undefined,
       firstLineAfterStart: true,
       nextLine: undefined,
+      includeAbove: false,
     };
     expect(isRawParagraphLine("[[a]]", "listItemText", first)).toBe(true);
     expect(isRawParagraphLine("[[a]]", "listItemText")).toBe(false);
@@ -572,6 +574,7 @@ describe("the enclosing list decides what ends the block", () => {
           openList,
           firstLineAfterStart: false,
           nextLine: undefined,
+          includeAbove: false,
         }),
         `the registry disagrees with the oracle for ${JSON.stringify(line)}`,
       ).toBe(ends);
@@ -603,6 +606,7 @@ describe("the block attribute line inside a description item (#187)", () => {
     openList: { kind: "description", delimiter: "::" },
     firstLineAfterStart: false,
     nextLine: undefined,
+    includeAbove: false,
   };
 
   test.each([["[source]"], ["[[x]]"]])(

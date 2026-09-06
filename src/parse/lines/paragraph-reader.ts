@@ -347,6 +347,12 @@ class Paragraph {
         // Asciidoctor reads is asked about a section's block start
         // alone (`is_next_line_section?`, parser.rb l.374).
         nextLine: undefined,
+        // A paragraph is OPEN here too, so a line this scan hands on
+        // to the block-start ladder got there by INTERRUPTING one -
+        // and a line that interrupts starts a block on Asciidoctor's
+        // reading as well, whatever an include put above it (see
+        // ReaderContext.includeAbove).
+        includeAbove: false,
       });
       classifyTrace.observer?.(next.offset, kind);
       if (kind.kind !== "text" && kind.kind !== "raw") {
@@ -860,6 +866,8 @@ function verbatimRunExtent(
     // Same reason as the paragraph scan's: a block is open, and the
     // setext arm belongs to a section's block start alone.
     nextLine: undefined,
+    // Same reason as the paragraph scan's, one field down.
+    includeAbove: false,
   };
   const lines: [SourceLine, ...SourceLine[]] = [scan.lines[at]];
   let index = at + 1;

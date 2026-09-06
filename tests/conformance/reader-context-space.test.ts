@@ -242,6 +242,7 @@ describe("the probe documents spell the styles they claim", () => {
       openList: undefined,
       firstLineAfterStart: false,
       nextLine: undefined,
+      includeAbove: false,
     });
     expect(kind.kind).toBe("dlistTerm");
     expect(kind.kind === "dlistTerm" ? kind.delimiter : undefined).toBe(style);
@@ -257,6 +258,7 @@ describe("the probe documents spell the styles they claim", () => {
         openList: undefined,
         firstLineAfterStart: false,
         nextLine: undefined,
+        includeAbove: false,
       });
       expect(kind.kind).toBe("dlistTerm");
       expect(kind.kind === "dlistTerm" ? kind.delimiter : undefined).toBe(
