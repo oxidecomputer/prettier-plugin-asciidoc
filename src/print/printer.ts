@@ -172,6 +172,7 @@ const printer: Printer<AnyNode> = {
           inlineAtoms(node.children, node.position.start.line, {
             atColumnZero: true,
             firstWordEndsItsLine: node.firstWordEndsItsLine,
+            secondLineIndent: node.secondLineIndent,
           }),
           options.printWidth,
           0,
@@ -214,6 +215,10 @@ const printer: Printer<AnyNode> = {
             // nothing: the block-start hazard net keeps a source break
             // only where a reader saw the author write it.
             firstWordEndsItsLine: false,
+            // Unreachable behind the `false` above, and spelled all
+            // the same: the arm is one value, so the empty run is
+            // what "no reader recorded this" looks like here too.
+            secondLineIndent: "",
           }),
           options.printWidth,
           0,

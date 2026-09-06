@@ -119,6 +119,7 @@ describe("listShape walks siblings and stops at anything else", () => {
         spelling: "*",
         indent: 0,
         markerEnd: 2,
+        gap: " ",
       },
       {
         kind: "listMarker",
@@ -127,6 +128,7 @@ describe("listShape walks siblings and stops at anything else", () => {
         spelling: "*",
         indent: 2,
         markerEnd: 4,
+        gap: " ",
       },
     ]);
   });
@@ -143,6 +145,7 @@ function blockAt(startLine: number, endLine: number): BlockNode {
     type: "paragraph",
     children: [],
     firstWordEndsItsLine: false,
+    secondLineIndent: "",
     blankBelowAnchorLine: false,
     position: {
       start: { offset: 0, line: startLine, column: 1 },

@@ -122,6 +122,7 @@ describe("buildRawLineParagraph", () => {
       // The line is one word, so the block-start hazard net's recorded
       // fact is true here (src/ast.ts).
       firstWordEndsItsLine: true,
+      secondLineIndent: "",
       // A raw line is never an anchor line, so the separation fact is
       // false by construction (src/ast.ts).
       blankBelowAnchorLine: false,

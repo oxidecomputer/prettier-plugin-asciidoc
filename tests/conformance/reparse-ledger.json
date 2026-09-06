@@ -284,201 +284,27 @@
       "family": "plus-respelled"
     },
     {
-      "id": "line/pair/block-title-near-1/callout-near-1/adjacent/item",
-      "pass": "p1",
-      "signature": "[text(value=\". <1> a\")] -> [text(value=\".\") rawLine(value=\"<1> a\")]",
-      "family": "indent-dropped"
-    },
-    {
       "id": "line/pair/block-title-near-1/continuation-near-0/adjacent/doc",
       "pass": "p1",
-      "signature": "[<paragraph(blankBelowAnchorLine=false) .children text(value=\". + x\") >paragraph] -> [<list(marker=\".\",variant=\"ordered\") .children <listItem(activeTail=false,detachedTail=false,markerIndent=\"\",markerSpelling=\".\",trailingContinuation=false) .blocks .text text(value=\"+ x\") >listItem >list]",
+      "signature": "[<paragraph(blankBelowAnchorLine=false) .children text(value=\". + x\") >paragraph] -> [<list(marker=\".\",variant=\"ordered\") .children <listItem(activeTail=false,detachedTail=false,markerGap=\" \",markerIndent=\"\",markerSpelling=\".\",trailingContinuation=false) .blocks .text text(value=\"+ x\") >listItem >list]",
       "family": "join-changes-reading"
     },
     {
       "id": "line/pair/block-title-near-1/continuation-near-0/adjacent/item",
       "pass": "p1",
-      "signature": "[<paragraph(blankBelowAnchorLine=false) .children text(value=\". + x\") >paragraph] -> [<list(marker=\".\",variant=\"ordered\") .children <listItem(activeTail=false,detachedTail=false,markerIndent=\"\",markerSpelling=\".\",trailingContinuation=false) .blocks .text text(value=\"+ x\") >listItem >list]",
+      "signature": "[<paragraph(blankBelowAnchorLine=false) .children text(value=\". + x\") >paragraph] -> [<list(marker=\".\",variant=\"ordered\") .children <listItem(activeTail=false,detachedTail=false,markerGap=\" \",markerIndent=\"\",markerSpelling=\".\",trailingContinuation=false) .blocks .text text(value=\"+ x\") >listItem >list]",
       "family": "join-changes-reading"
-    },
-    {
-      "id": "line/pair/block-title-near-1/delimiter-commentBlock-near-2/adjacent/doc",
-      "pass": "p1",
-      "signature": "[text(value=\". ////\") >paragraph] -> [text(value=\".\") >paragraph comment(commentType=\"block\",value=\"\")]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/block-title-near-1/delimiter-commentBlock-near-2/adjacent/item",
-      "pass": "p1",
-      "signature": "[text(value=\". ////\") >paragraph .text text(value=\"item\") >listItem >list] -> [text(value=\".\") >paragraph .text text(value=\"item\") >listItem >list comment(commentType=\"block\",value=\"\")]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/block-title-near-1/delimiter-example-near-2/adjacent/doc",
-      "pass": "p1",
-      "signature": "[text(value=\". ====\") >paragraph] -> [text(value=\".\") >paragraph <parentBlock(variant=\"example\") .children >parentBlock]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/block-title-near-1/delimiter-example-near-2/adjacent/item",
-      "pass": "p1",
-      "signature": "[text(value=\". ====\") >paragraph .text text(value=\"item\") >listItem >list] -> [text(value=\".\") >paragraph .text text(value=\"item\") >listItem >list <parentBlock(variant=\"example\") .children >parentBlock]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/block-title-near-1/delimiter-fencedCode-near-2/adjacent/doc",
-      "pass": "p1",
-      "signature": "[text(value=\". \") <monospace() .children text(value=\"`\") >monospace >paragraph] -> [text(value=\".\") >paragraph delimitedBlock(annotatedBy=\"source\",content=\"\",form=\"delimited\",variant=\"listing\")]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/block-title-near-1/delimiter-fencedCode-near-2/adjacent/item",
-      "pass": "p1",
-      "signature": "[text(value=\". \") <monospace() .children text(value=\"`\") >monospace >paragraph .text text(value=\"item\") >listItem >list] -> [text(value=\".\") >paragraph .text text(value=\"item\") >listItem >list delimitedBlock(annotatedBy=\"source\",content=\"\",form=\"delimited\",variant=\"listing\")]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/block-title-near-1/delimiter-listing-near-2/adjacent/doc",
-      "pass": "p1",
-      "signature": "[text(value=\". ----\") >paragraph] -> [text(value=\".\") >paragraph delimitedBlock(content=\"\",form=\"delimited\",variant=\"listing\")]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/block-title-near-1/delimiter-listing-near-2/adjacent/item",
-      "pass": "p1",
-      "signature": "[text(value=\". ----\") >paragraph .text text(value=\"item\") >listItem >list] -> [text(value=\".\") >paragraph .text text(value=\"item\") >listItem >list delimitedBlock(content=\"\",form=\"delimited\",variant=\"listing\")]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/block-title-near-1/delimiter-literal-near-2/adjacent/doc",
-      "pass": "p1",
-      "signature": "[text(value=\". \") characterReference(value=\"...\") text(value=\".\") >paragraph] -> [text(value=\".\") >paragraph delimitedBlock(content=\"\",form=\"delimited\",variant=\"literal\")]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/block-title-near-1/delimiter-literal-near-2/adjacent/item",
-      "pass": "p1",
-      "signature": "[text(value=\". \") characterReference(value=\"...\") text(value=\".\") >paragraph .text text(value=\"item\") >listItem >list] -> [text(value=\".\") >paragraph .text text(value=\"item\") >listItem >list delimitedBlock(content=\"\",form=\"delimited\",variant=\"literal\")]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/block-title-near-1/delimiter-openBlock-near-2/adjacent/doc",
-      "pass": "p1",
-      "signature": "[text(value=\". \") characterReference(value=\"--\") >paragraph] -> [text(value=\".\") >paragraph <parentBlock(variant=\"open\") .children >parentBlock]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/block-title-near-1/delimiter-openBlock-near-2/adjacent/item",
-      "pass": "p1",
-      "signature": "[text(value=\". \") characterReference(value=\"--\") >paragraph .text text(value=\"item\") >listItem >list] -> [text(value=\".\") >paragraph .text text(value=\"item\") >listItem >list <parentBlock(variant=\"open\") .children >parentBlock]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/block-title-near-1/delimiter-openBlockTilde-near-2/adjacent/doc",
-      "pass": "p1",
-      "signature": "[text(value=\". \") <subscript() .children text(value=\"~\") >subscript text(value=\"~\") >paragraph] -> [text(value=\".\") >paragraph <parentBlock(openDelimiter=\"~\",variant=\"open\") .children >parentBlock]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/block-title-near-1/delimiter-openBlockTilde-near-2/adjacent/item",
-      "pass": "p1",
-      "signature": "[text(value=\". \") <subscript() .children text(value=\"~\") >subscript text(value=\"~\") >paragraph .text text(value=\"item\") >listItem >list] -> [text(value=\".\") >paragraph .text text(value=\"item\") >listItem >list <parentBlock(openDelimiter=\"~\",variant=\"open\") .children >parentBlock]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/block-title-near-1/delimiter-pass-near-2/adjacent/doc",
-      "pass": "p1",
-      "signature": "[text(value=\". \") passthrough(value=\"++++\") >paragraph] -> [text(value=\".\") >paragraph delimitedBlock(content=\"\",form=\"delimited\",variant=\"pass\")]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/block-title-near-1/delimiter-pass-near-2/adjacent/item",
-      "pass": "p1",
-      "signature": "[text(value=\". \") passthrough(value=\"++++\") >paragraph .text text(value=\"item\") >listItem >list] -> [text(value=\".\") >paragraph .text text(value=\"item\") >listItem >list delimitedBlock(content=\"\",form=\"delimited\",variant=\"pass\")]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/block-title-near-1/delimiter-quote-near-2/adjacent/doc",
-      "pass": "p1",
-      "signature": "[text(value=\". \") <italic() .children text(value=\"__\") >italic >paragraph] -> [text(value=\".\") >paragraph <parentBlock(variant=\"quote\") .children >parentBlock]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/block-title-near-1/delimiter-quote-near-2/adjacent/item",
-      "pass": "p1",
-      "signature": "[text(value=\". \") <italic() .children text(value=\"__\") >italic >paragraph .text text(value=\"item\") >listItem >list] -> [text(value=\".\") >paragraph .text text(value=\"item\") >listItem >list <parentBlock(variant=\"quote\") .children >parentBlock]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/block-title-near-1/delimiter-sidebar-near-2/adjacent/doc",
-      "pass": "p1",
-      "signature": "[text(value=\". \") <bold() .children text(value=\"*\") >bold text(value=\"*\") >paragraph] -> [text(value=\".\") >paragraph <parentBlock(variant=\"sidebar\") .children >parentBlock]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/block-title-near-1/delimiter-sidebar-near-2/adjacent/item",
-      "pass": "p1",
-      "signature": "[text(value=\". \") <bold() .children text(value=\"*\") >bold text(value=\"*\") >paragraph .text text(value=\"item\") >listItem >list] -> [text(value=\".\") >paragraph .text text(value=\"item\") >listItem >list <parentBlock(variant=\"sidebar\") .children >parentBlock]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/block-title-near-1/delimiter-tableBang-near-2/adjacent/doc",
-      "pass": "p1",
-      "signature": "[text(value=\". !===\") >paragraph] -> [text(value=\".\") >paragraph <table(closedAt=\"endOfStream\",footer=false,header=\"none\") .children .cutting -(format=\"psv\",separator=\"|\") >table]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/block-title-near-1/delimiter-tableBang-near-2/adjacent/item",
-      "pass": "p1",
-      "signature": "[text(value=\". !===\") >paragraph .text text(value=\"item\") >listItem >list] -> [text(value=\".\") >paragraph .text text(value=\"item\") >listItem >list <table(closedAt=\"endOfStream\",footer=false,header=\"none\") .children .cutting -(format=\"psv\",separator=\"|\") >table]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/block-title-near-1/delimiter-tableColon-near-2/adjacent/doc",
-      "pass": "p1",
-      "signature": "[text(value=\". :===\") >paragraph] -> [text(value=\".\") >paragraph <table(closedAt=\"endOfStream\",footer=false,header=\"none\") .children .cutting -(format=\"dsv\",separator=\":\") >table]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/block-title-near-1/delimiter-tableColon-near-2/adjacent/item",
-      "pass": "p1",
-      "signature": "[text(value=\". :===\") >paragraph .text text(value=\"item\") >listItem >list] -> [text(value=\".\") >paragraph .text text(value=\"item\") >listItem >list <table(closedAt=\"endOfStream\",footer=false,header=\"none\") .children .cutting -(format=\"dsv\",separator=\":\") >table]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/block-title-near-1/delimiter-tableComma-near-2/adjacent/doc",
-      "pass": "p1",
-      "signature": "[text(value=\". ,===\") >paragraph] -> [text(value=\".\") >paragraph <table(closedAt=\"endOfStream\",footer=false,header=\"none\") .children .cutting -(format=\"csv\",separator=\",\") >table]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/block-title-near-1/delimiter-tableComma-near-2/adjacent/item",
-      "pass": "p1",
-      "signature": "[text(value=\". ,===\") >paragraph .text text(value=\"item\") >listItem >list] -> [text(value=\".\") >paragraph .text text(value=\"item\") >listItem >list <table(closedAt=\"endOfStream\",footer=false,header=\"none\") .children .cutting -(format=\"csv\",separator=\",\") >table]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/block-title-near-1/delimiter-tablePipe-near-2/adjacent/doc",
-      "pass": "p1",
-      "signature": "[text(value=\". |===\") >paragraph] -> [text(value=\".\") >paragraph <table(closedAt=\"endOfStream\",footer=false,header=\"none\") .children .cutting -(format=\"psv\",separator=\"|\") >table]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/block-title-near-1/delimiter-tablePipe-near-2/adjacent/item",
-      "pass": "p1",
-      "signature": "[text(value=\". |===\") >paragraph .text text(value=\"item\") >listItem >list] -> [text(value=\".\") >paragraph .text text(value=\"item\") >listItem >list <table(closedAt=\"endOfStream\",footer=false,header=\"none\") .children .cutting -(format=\"psv\",separator=\"|\") >table]",
-      "family": "indent-dropped"
     },
     {
       "id": "line/pair/block-title-near-1/indented-continuation-near-0/adjacent/doc",
       "pass": "p1",
-      "signature": "[<paragraph(blankBelowAnchorLine=false) .children text(value=\". + x\") >paragraph] -> [<list(marker=\".\",variant=\"ordered\") .children <listItem(activeTail=false,detachedTail=false,markerIndent=\"\",markerSpelling=\".\",trailingContinuation=false) .blocks .text text(value=\"+ x\") >listItem >list]",
+      "signature": "[<paragraph(blankBelowAnchorLine=false) .children text(value=\". + x\") >paragraph] -> [<list(marker=\".\",variant=\"ordered\") .children <listItem(activeTail=false,detachedTail=false,markerGap=\" \",markerIndent=\"\",markerSpelling=\".\",trailingContinuation=false) .blocks .text text(value=\"+ x\") >listItem >list]",
       "family": "join-changes-reading"
     },
     {
       "id": "line/pair/block-title-near-1/indented-continuation-near-0/adjacent/item",
       "pass": "p1",
-      "signature": "[<paragraph(blankBelowAnchorLine=false) .children text(value=\". + x\") >paragraph] -> [<list(marker=\".\",variant=\"ordered\") .children <listItem(activeTail=false,detachedTail=false,markerIndent=\"\",markerSpelling=\".\",trailingContinuation=false) .blocks .text text(value=\"+ x\") >listItem >list]",
+      "signature": "[<paragraph(blankBelowAnchorLine=false) .children text(value=\". + x\") >paragraph] -> [<list(marker=\".\",variant=\"ordered\") .children <listItem(activeTail=false,detachedTail=false,markerGap=\" \",markerIndent=\"\",markerSpelling=\".\",trailingContinuation=false) .blocks .text text(value=\"+ x\") >listItem >list]",
       "family": "join-changes-reading"
     },
     {
@@ -656,184 +482,10 @@
       "family": "gap-line-lost"
     },
     {
-      "id": "line/pair/delimiter-example-near-0/callout-near-1/adjacent/item",
-      "pass": "p1",
-      "signature": "[text(value=\"=== <1> a\")] -> [text(value=\"===\") rawLine(value=\"<1> a\")]",
-      "family": "indent-dropped"
-    },
-    {
       "id": "line/pair/delimiter-example-near-0/continuation-near-0/adjacent/doc",
       "pass": "p1",
       "signature": "[<paragraph(blankBelowAnchorLine=false) .children text(value=\"=== + x\") >paragraph] -> [heading(level=2,title=\"+ x\")]",
       "family": "join-changes-reading"
-    },
-    {
-      "id": "line/pair/delimiter-example-near-0/delimiter-commentBlock-near-2/adjacent/doc",
-      "pass": "p1",
-      "signature": "[text(value=\"=== ////\") >paragraph] -> [text(value=\"===\") >paragraph comment(commentType=\"block\",value=\"\")]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-example-near-0/delimiter-commentBlock-near-2/adjacent/item",
-      "pass": "p1",
-      "signature": "[text(value=\"=== ////\") >paragraph .text text(value=\"item\") >listItem >list] -> [text(value=\"===\") >paragraph .text text(value=\"item\") >listItem >list comment(commentType=\"block\",value=\"\")]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-example-near-0/delimiter-example-near-2/adjacent/doc",
-      "pass": "p1",
-      "signature": "[text(value=\"=== ====\") >paragraph] -> [text(value=\"===\") >paragraph <parentBlock(variant=\"example\") .children >parentBlock]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-example-near-0/delimiter-example-near-2/adjacent/item",
-      "pass": "p1",
-      "signature": "[text(value=\"=== ====\") >paragraph .text text(value=\"item\") >listItem >list] -> [text(value=\"===\") >paragraph .text text(value=\"item\") >listItem >list <parentBlock(variant=\"example\") .children >parentBlock]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-example-near-0/delimiter-fencedCode-near-2/adjacent/doc",
-      "pass": "p1",
-      "signature": "[text(value=\"=== \") <monospace() .children text(value=\"`\") >monospace >paragraph] -> [text(value=\"===\") >paragraph delimitedBlock(annotatedBy=\"source\",content=\"\",form=\"delimited\",variant=\"listing\")]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-example-near-0/delimiter-fencedCode-near-2/adjacent/item",
-      "pass": "p1",
-      "signature": "[text(value=\"=== \") <monospace() .children text(value=\"`\") >monospace >paragraph .text text(value=\"item\") >listItem >list] -> [text(value=\"===\") >paragraph .text text(value=\"item\") >listItem >list delimitedBlock(annotatedBy=\"source\",content=\"\",form=\"delimited\",variant=\"listing\")]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-example-near-0/delimiter-listing-near-2/adjacent/doc",
-      "pass": "p1",
-      "signature": "[text(value=\"=== ----\") >paragraph] -> [text(value=\"===\") >paragraph delimitedBlock(content=\"\",form=\"delimited\",variant=\"listing\")]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-example-near-0/delimiter-listing-near-2/adjacent/item",
-      "pass": "p1",
-      "signature": "[text(value=\"=== ----\") >paragraph .text text(value=\"item\") >listItem >list] -> [text(value=\"===\") >paragraph .text text(value=\"item\") >listItem >list delimitedBlock(content=\"\",form=\"delimited\",variant=\"listing\")]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-example-near-0/delimiter-literal-near-2/adjacent/doc",
-      "pass": "p1",
-      "signature": "[text(value=\"=== \") characterReference(value=\"...\") text(value=\".\") >paragraph] -> [text(value=\"===\") >paragraph delimitedBlock(content=\"\",form=\"delimited\",variant=\"literal\")]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-example-near-0/delimiter-literal-near-2/adjacent/item",
-      "pass": "p1",
-      "signature": "[text(value=\"=== \") characterReference(value=\"...\") text(value=\".\") >paragraph .text text(value=\"item\") >listItem >list] -> [text(value=\"===\") >paragraph .text text(value=\"item\") >listItem >list delimitedBlock(content=\"\",form=\"delimited\",variant=\"literal\")]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-example-near-0/delimiter-openBlock-near-2/adjacent/doc",
-      "pass": "p1",
-      "signature": "[text(value=\"=== \") characterReference(value=\"--\") >paragraph] -> [text(value=\"===\") >paragraph <parentBlock(variant=\"open\") .children >parentBlock]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-example-near-0/delimiter-openBlock-near-2/adjacent/item",
-      "pass": "p1",
-      "signature": "[text(value=\"=== \") characterReference(value=\"--\") >paragraph .text text(value=\"item\") >listItem >list] -> [text(value=\"===\") >paragraph .text text(value=\"item\") >listItem >list <parentBlock(variant=\"open\") .children >parentBlock]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-example-near-0/delimiter-openBlockTilde-near-2/adjacent/doc",
-      "pass": "p1",
-      "signature": "[text(value=\"=== \") <subscript() .children text(value=\"~\") >subscript text(value=\"~\") >paragraph] -> [text(value=\"===\") >paragraph <parentBlock(openDelimiter=\"~\",variant=\"open\") .children >parentBlock]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-example-near-0/delimiter-openBlockTilde-near-2/adjacent/item",
-      "pass": "p1",
-      "signature": "[text(value=\"=== \") <subscript() .children text(value=\"~\") >subscript text(value=\"~\") >paragraph .text text(value=\"item\") >listItem >list] -> [text(value=\"===\") >paragraph .text text(value=\"item\") >listItem >list <parentBlock(openDelimiter=\"~\",variant=\"open\") .children >parentBlock]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-example-near-0/delimiter-pass-near-2/adjacent/doc",
-      "pass": "p1",
-      "signature": "[text(value=\"=== \") passthrough(value=\"++++\") >paragraph] -> [text(value=\"===\") >paragraph delimitedBlock(content=\"\",form=\"delimited\",variant=\"pass\")]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-example-near-0/delimiter-pass-near-2/adjacent/item",
-      "pass": "p1",
-      "signature": "[text(value=\"=== \") passthrough(value=\"++++\") >paragraph .text text(value=\"item\") >listItem >list] -> [text(value=\"===\") >paragraph .text text(value=\"item\") >listItem >list delimitedBlock(content=\"\",form=\"delimited\",variant=\"pass\")]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-example-near-0/delimiter-quote-near-2/adjacent/doc",
-      "pass": "p1",
-      "signature": "[text(value=\"=== \") <italic() .children text(value=\"__\") >italic >paragraph] -> [text(value=\"===\") >paragraph <parentBlock(variant=\"quote\") .children >parentBlock]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-example-near-0/delimiter-quote-near-2/adjacent/item",
-      "pass": "p1",
-      "signature": "[text(value=\"=== \") <italic() .children text(value=\"__\") >italic >paragraph .text text(value=\"item\") >listItem >list] -> [text(value=\"===\") >paragraph .text text(value=\"item\") >listItem >list <parentBlock(variant=\"quote\") .children >parentBlock]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-example-near-0/delimiter-sidebar-near-2/adjacent/doc",
-      "pass": "p1",
-      "signature": "[text(value=\"=== \") <bold() .children text(value=\"*\") >bold text(value=\"*\") >paragraph] -> [text(value=\"===\") >paragraph <parentBlock(variant=\"sidebar\") .children >parentBlock]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-example-near-0/delimiter-sidebar-near-2/adjacent/item",
-      "pass": "p1",
-      "signature": "[text(value=\"=== \") <bold() .children text(value=\"*\") >bold text(value=\"*\") >paragraph .text text(value=\"item\") >listItem >list] -> [text(value=\"===\") >paragraph .text text(value=\"item\") >listItem >list <parentBlock(variant=\"sidebar\") .children >parentBlock]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-example-near-0/delimiter-tableBang-near-2/adjacent/doc",
-      "pass": "p1",
-      "signature": "[text(value=\"=== !===\") >paragraph] -> [text(value=\"===\") >paragraph <table(closedAt=\"endOfStream\",footer=false,header=\"none\") .children .cutting -(format=\"psv\",separator=\"|\") >table]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-example-near-0/delimiter-tableBang-near-2/adjacent/item",
-      "pass": "p1",
-      "signature": "[text(value=\"=== !===\") >paragraph .text text(value=\"item\") >listItem >list] -> [text(value=\"===\") >paragraph .text text(value=\"item\") >listItem >list <table(closedAt=\"endOfStream\",footer=false,header=\"none\") .children .cutting -(format=\"psv\",separator=\"|\") >table]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-example-near-0/delimiter-tableColon-near-2/adjacent/doc",
-      "pass": "p1",
-      "signature": "[text(value=\"=== :===\") >paragraph] -> [text(value=\"===\") >paragraph <table(closedAt=\"endOfStream\",footer=false,header=\"none\") .children .cutting -(format=\"dsv\",separator=\":\") >table]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-example-near-0/delimiter-tableColon-near-2/adjacent/item",
-      "pass": "p1",
-      "signature": "[text(value=\"=== :===\") >paragraph .text text(value=\"item\") >listItem >list] -> [text(value=\"===\") >paragraph .text text(value=\"item\") >listItem >list <table(closedAt=\"endOfStream\",footer=false,header=\"none\") .children .cutting -(format=\"dsv\",separator=\":\") >table]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-example-near-0/delimiter-tableComma-near-2/adjacent/doc",
-      "pass": "p1",
-      "signature": "[text(value=\"=== ,===\") >paragraph] -> [text(value=\"===\") >paragraph <table(closedAt=\"endOfStream\",footer=false,header=\"none\") .children .cutting -(format=\"csv\",separator=\",\") >table]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-example-near-0/delimiter-tableComma-near-2/adjacent/item",
-      "pass": "p1",
-      "signature": "[text(value=\"=== ,===\") >paragraph .text text(value=\"item\") >listItem >list] -> [text(value=\"===\") >paragraph .text text(value=\"item\") >listItem >list <table(closedAt=\"endOfStream\",footer=false,header=\"none\") .children .cutting -(format=\"csv\",separator=\",\") >table]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-example-near-0/delimiter-tablePipe-near-2/adjacent/doc",
-      "pass": "p1",
-      "signature": "[text(value=\"=== |===\") >paragraph] -> [text(value=\"===\") >paragraph <table(closedAt=\"endOfStream\",footer=false,header=\"none\") .children .cutting -(format=\"psv\",separator=\"|\") >table]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-example-near-0/delimiter-tablePipe-near-2/adjacent/item",
-      "pass": "p1",
-      "signature": "[text(value=\"=== |===\") >paragraph .text text(value=\"item\") >listItem >list] -> [text(value=\"===\") >paragraph .text text(value=\"item\") >listItem >list <table(closedAt=\"endOfStream\",footer=false,header=\"none\") .children .cutting -(format=\"psv\",separator=\"|\") >table]",
-      "family": "indent-dropped"
     },
     {
       "id": "line/pair/delimiter-example-near-0/indented-continuation-near-0/adjacent/doc",
@@ -890,201 +542,27 @@
       "family": "heading-under-a-term"
     },
     {
-      "id": "line/pair/delimiter-literal-near-0/callout-near-1/adjacent/item",
-      "pass": "p1",
-      "signature": "[text(value=\" <1> a\")] -> [rawLine(value=\"<1> a\")]",
-      "family": "indent-dropped"
-    },
-    {
       "id": "line/pair/delimiter-literal-near-0/continuation-near-0/adjacent/doc",
       "pass": "p1",
-      "signature": "[<paragraph(blankBelowAnchorLine=false) .children characterReference(value=\"...\") text(value=\" + x\") >paragraph] -> [<list(marker=\"...\",variant=\"ordered\") .children <listItem(activeTail=false,detachedTail=false,markerIndent=\"\",markerSpelling=\"...\",trailingContinuation=false) .blocks .text text(value=\"+ x\") >listItem >list]",
+      "signature": "[<paragraph(blankBelowAnchorLine=false) .children characterReference(value=\"...\") text(value=\" + x\") >paragraph] -> [<list(marker=\"...\",variant=\"ordered\") .children <listItem(activeTail=false,detachedTail=false,markerGap=\" \",markerIndent=\"\",markerSpelling=\"...\",trailingContinuation=false) .blocks .text text(value=\"+ x\") >listItem >list]",
       "family": "join-changes-reading"
     },
     {
       "id": "line/pair/delimiter-literal-near-0/continuation-near-0/adjacent/item",
       "pass": "p1",
-      "signature": "[<paragraph(blankBelowAnchorLine=false) .children characterReference(value=\"...\") text(value=\" + x\") >paragraph] -> [<list(marker=\"...\",variant=\"ordered\") .children <listItem(activeTail=false,detachedTail=false,markerIndent=\"\",markerSpelling=\"...\",trailingContinuation=false) .blocks .text text(value=\"+ x\") >listItem >list]",
+      "signature": "[<paragraph(blankBelowAnchorLine=false) .children characterReference(value=\"...\") text(value=\" + x\") >paragraph] -> [<list(marker=\"...\",variant=\"ordered\") .children <listItem(activeTail=false,detachedTail=false,markerGap=\" \",markerIndent=\"\",markerSpelling=\"...\",trailingContinuation=false) .blocks .text text(value=\"+ x\") >listItem >list]",
       "family": "join-changes-reading"
-    },
-    {
-      "id": "line/pair/delimiter-literal-near-0/delimiter-commentBlock-near-2/adjacent/doc",
-      "pass": "p1",
-      "signature": "[text(value=\" ////\") >paragraph] -> [>paragraph comment(commentType=\"block\",value=\"\")]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-literal-near-0/delimiter-commentBlock-near-2/adjacent/item",
-      "pass": "p1",
-      "signature": "[text(value=\" ////\") >paragraph .text text(value=\"item\") >listItem >list] -> [>paragraph .text text(value=\"item\") >listItem >list comment(commentType=\"block\",value=\"\")]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-literal-near-0/delimiter-example-near-2/adjacent/doc",
-      "pass": "p1",
-      "signature": "[text(value=\" ====\") >paragraph] -> [>paragraph <parentBlock(variant=\"example\") .children >parentBlock]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-literal-near-0/delimiter-example-near-2/adjacent/item",
-      "pass": "p1",
-      "signature": "[text(value=\" ====\") >paragraph .text text(value=\"item\") >listItem >list] -> [>paragraph .text text(value=\"item\") >listItem >list <parentBlock(variant=\"example\") .children >parentBlock]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-literal-near-0/delimiter-fencedCode-near-2/adjacent/doc",
-      "pass": "p1",
-      "signature": "[text(value=\" \") <monospace() .children text(value=\"`\") >monospace >paragraph] -> [>paragraph delimitedBlock(annotatedBy=\"source\",content=\"\",form=\"delimited\",variant=\"listing\")]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-literal-near-0/delimiter-fencedCode-near-2/adjacent/item",
-      "pass": "p1",
-      "signature": "[text(value=\" \") <monospace() .children text(value=\"`\") >monospace >paragraph .text text(value=\"item\") >listItem >list] -> [>paragraph .text text(value=\"item\") >listItem >list delimitedBlock(annotatedBy=\"source\",content=\"\",form=\"delimited\",variant=\"listing\")]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-literal-near-0/delimiter-listing-near-2/adjacent/doc",
-      "pass": "p1",
-      "signature": "[text(value=\" ----\") >paragraph] -> [>paragraph delimitedBlock(content=\"\",form=\"delimited\",variant=\"listing\")]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-literal-near-0/delimiter-listing-near-2/adjacent/item",
-      "pass": "p1",
-      "signature": "[text(value=\" ----\") >paragraph .text text(value=\"item\") >listItem >list] -> [>paragraph .text text(value=\"item\") >listItem >list delimitedBlock(content=\"\",form=\"delimited\",variant=\"listing\")]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-literal-near-0/delimiter-literal-near-2/adjacent/doc",
-      "pass": "p1",
-      "signature": "[text(value=\" \") characterReference(value=\"...\") text(value=\".\") >paragraph] -> [>paragraph delimitedBlock(content=\"\",form=\"delimited\",variant=\"literal\")]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-literal-near-0/delimiter-literal-near-2/adjacent/item",
-      "pass": "p1",
-      "signature": "[text(value=\" \") characterReference(value=\"...\") text(value=\".\") >paragraph .text text(value=\"item\") >listItem >list] -> [>paragraph .text text(value=\"item\") >listItem >list delimitedBlock(content=\"\",form=\"delimited\",variant=\"literal\")]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-literal-near-0/delimiter-openBlock-near-2/adjacent/doc",
-      "pass": "p1",
-      "signature": "[text(value=\" \") characterReference(value=\"--\") >paragraph] -> [>paragraph <parentBlock(variant=\"open\") .children >parentBlock]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-literal-near-0/delimiter-openBlock-near-2/adjacent/item",
-      "pass": "p1",
-      "signature": "[text(value=\" \") characterReference(value=\"--\") >paragraph .text text(value=\"item\") >listItem >list] -> [>paragraph .text text(value=\"item\") >listItem >list <parentBlock(variant=\"open\") .children >parentBlock]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-literal-near-0/delimiter-openBlockTilde-near-2/adjacent/doc",
-      "pass": "p1",
-      "signature": "[text(value=\" \") <subscript() .children text(value=\"~\") >subscript text(value=\"~\") >paragraph] -> [>paragraph <parentBlock(openDelimiter=\"~\",variant=\"open\") .children >parentBlock]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-literal-near-0/delimiter-openBlockTilde-near-2/adjacent/item",
-      "pass": "p1",
-      "signature": "[text(value=\" \") <subscript() .children text(value=\"~\") >subscript text(value=\"~\") >paragraph .text text(value=\"item\") >listItem >list] -> [>paragraph .text text(value=\"item\") >listItem >list <parentBlock(openDelimiter=\"~\",variant=\"open\") .children >parentBlock]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-literal-near-0/delimiter-pass-near-2/adjacent/doc",
-      "pass": "p1",
-      "signature": "[text(value=\" \") passthrough(value=\"++++\") >paragraph] -> [>paragraph delimitedBlock(content=\"\",form=\"delimited\",variant=\"pass\")]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-literal-near-0/delimiter-pass-near-2/adjacent/item",
-      "pass": "p1",
-      "signature": "[text(value=\" \") passthrough(value=\"++++\") >paragraph .text text(value=\"item\") >listItem >list] -> [>paragraph .text text(value=\"item\") >listItem >list delimitedBlock(content=\"\",form=\"delimited\",variant=\"pass\")]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-literal-near-0/delimiter-quote-near-2/adjacent/doc",
-      "pass": "p1",
-      "signature": "[text(value=\" \") <italic() .children text(value=\"__\") >italic >paragraph] -> [>paragraph <parentBlock(variant=\"quote\") .children >parentBlock]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-literal-near-0/delimiter-quote-near-2/adjacent/item",
-      "pass": "p1",
-      "signature": "[text(value=\" \") <italic() .children text(value=\"__\") >italic >paragraph .text text(value=\"item\") >listItem >list] -> [>paragraph .text text(value=\"item\") >listItem >list <parentBlock(variant=\"quote\") .children >parentBlock]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-literal-near-0/delimiter-sidebar-near-2/adjacent/doc",
-      "pass": "p1",
-      "signature": "[text(value=\" \") <bold() .children text(value=\"*\") >bold text(value=\"*\") >paragraph] -> [>paragraph <parentBlock(variant=\"sidebar\") .children >parentBlock]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-literal-near-0/delimiter-sidebar-near-2/adjacent/item",
-      "pass": "p1",
-      "signature": "[text(value=\" \") <bold() .children text(value=\"*\") >bold text(value=\"*\") >paragraph .text text(value=\"item\") >listItem >list] -> [>paragraph .text text(value=\"item\") >listItem >list <parentBlock(variant=\"sidebar\") .children >parentBlock]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-literal-near-0/delimiter-tableBang-near-2/adjacent/doc",
-      "pass": "p1",
-      "signature": "[text(value=\" !===\") >paragraph] -> [>paragraph <table(closedAt=\"endOfStream\",footer=false,header=\"none\") .children .cutting -(format=\"psv\",separator=\"|\") >table]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-literal-near-0/delimiter-tableBang-near-2/adjacent/item",
-      "pass": "p1",
-      "signature": "[text(value=\" !===\") >paragraph .text text(value=\"item\") >listItem >list] -> [>paragraph .text text(value=\"item\") >listItem >list <table(closedAt=\"endOfStream\",footer=false,header=\"none\") .children .cutting -(format=\"psv\",separator=\"|\") >table]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-literal-near-0/delimiter-tableColon-near-2/adjacent/doc",
-      "pass": "p1",
-      "signature": "[text(value=\" :===\") >paragraph] -> [>paragraph <table(closedAt=\"endOfStream\",footer=false,header=\"none\") .children .cutting -(format=\"dsv\",separator=\":\") >table]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-literal-near-0/delimiter-tableColon-near-2/adjacent/item",
-      "pass": "p1",
-      "signature": "[text(value=\" :===\") >paragraph .text text(value=\"item\") >listItem >list] -> [>paragraph .text text(value=\"item\") >listItem >list <table(closedAt=\"endOfStream\",footer=false,header=\"none\") .children .cutting -(format=\"dsv\",separator=\":\") >table]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-literal-near-0/delimiter-tableComma-near-2/adjacent/doc",
-      "pass": "p1",
-      "signature": "[text(value=\" ,===\") >paragraph] -> [>paragraph <table(closedAt=\"endOfStream\",footer=false,header=\"none\") .children .cutting -(format=\"csv\",separator=\",\") >table]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-literal-near-0/delimiter-tableComma-near-2/adjacent/item",
-      "pass": "p1",
-      "signature": "[text(value=\" ,===\") >paragraph .text text(value=\"item\") >listItem >list] -> [>paragraph .text text(value=\"item\") >listItem >list <table(closedAt=\"endOfStream\",footer=false,header=\"none\") .children .cutting -(format=\"csv\",separator=\",\") >table]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-literal-near-0/delimiter-tablePipe-near-2/adjacent/doc",
-      "pass": "p1",
-      "signature": "[text(value=\" |===\") >paragraph] -> [>paragraph <table(closedAt=\"endOfStream\",footer=false,header=\"none\") .children .cutting -(format=\"psv\",separator=\"|\") >table]",
-      "family": "indent-dropped"
-    },
-    {
-      "id": "line/pair/delimiter-literal-near-0/delimiter-tablePipe-near-2/adjacent/item",
-      "pass": "p1",
-      "signature": "[text(value=\" |===\") >paragraph .text text(value=\"item\") >listItem >list] -> [>paragraph .text text(value=\"item\") >listItem >list <table(closedAt=\"endOfStream\",footer=false,header=\"none\") .children .cutting -(format=\"psv\",separator=\"|\") >table]",
-      "family": "indent-dropped"
     },
     {
       "id": "line/pair/delimiter-literal-near-0/indented-continuation-near-0/adjacent/doc",
       "pass": "p1",
-      "signature": "[<paragraph(blankBelowAnchorLine=false) .children characterReference(value=\"...\") text(value=\" + x\") >paragraph] -> [<list(marker=\"...\",variant=\"ordered\") .children <listItem(activeTail=false,detachedTail=false,markerIndent=\"\",markerSpelling=\"...\",trailingContinuation=false) .blocks .text text(value=\"+ x\") >listItem >list]",
+      "signature": "[<paragraph(blankBelowAnchorLine=false) .children characterReference(value=\"...\") text(value=\" + x\") >paragraph] -> [<list(marker=\"...\",variant=\"ordered\") .children <listItem(activeTail=false,detachedTail=false,markerGap=\" \",markerIndent=\"\",markerSpelling=\"...\",trailingContinuation=false) .blocks .text text(value=\"+ x\") >listItem >list]",
       "family": "join-changes-reading"
     },
     {
       "id": "line/pair/delimiter-literal-near-0/indented-continuation-near-0/adjacent/item",
       "pass": "p1",
-      "signature": "[<paragraph(blankBelowAnchorLine=false) .children characterReference(value=\"...\") text(value=\" + x\") >paragraph] -> [<list(marker=\"...\",variant=\"ordered\") .children <listItem(activeTail=false,detachedTail=false,markerIndent=\"\",markerSpelling=\"...\",trailingContinuation=false) .blocks .text text(value=\"+ x\") >listItem >list]",
+      "signature": "[<paragraph(blankBelowAnchorLine=false) .children characterReference(value=\"...\") text(value=\" + x\") >paragraph] -> [<list(marker=\"...\",variant=\"ordered\") .children <listItem(activeTail=false,detachedTail=false,markerGap=\" \",markerIndent=\"\",markerSpelling=\"...\",trailingContinuation=false) .blocks .text text(value=\"+ x\") >listItem >list]",
       "family": "join-changes-reading"
     },
     {

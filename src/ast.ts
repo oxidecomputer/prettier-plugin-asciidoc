@@ -106,6 +106,53 @@ export interface ParagraphNode extends Node {
    */
   firstWordEndsItsLine: boolean;
   /**
+   * The leading whitespace of the source line directly UNDER the one
+   * the paragraph opens on, verbatim - `""` when the paragraph is one
+   * line, when that second line starts at column 0, or when the
+   * paragraph itself does not open at column 0.
+   *
+   * The SAME LINE {@link ParagraphNode.firstWordEndsItsLine} is about,
+   * one line down, and the same consumer: the block-start hazard net
+   * (src/print/block-start-hazard.ts). The net's whole move is to keep
+   * the source's break instead of the packer's space, which strands
+   * the block's second atom on a line of its own - and that atom is
+   * the head of THIS line. Without the run the net rebuilt that line
+   * at column 0, which is not the line the author wrote.
+   *
+   * STRUCTURE, not decoration, because `next_block` decides a line's
+   * shape from the line INCLUDING its leading run: `indented =
+   * this_line.start_with? ' ', TAB` (parser.rb l.572) sends an
+   * indented line down the literal-paragraph arm, while every
+   * delimiter, table and comment-block opener is matched against a
+   * line with no leading run at all (`is_delimited_block?` keys on
+   * `line.slice 0, 2`, parser.rb l.976-978). So
+   * ` ----` is paragraph text and `----` opens a listing block,
+   * ` |===` is text and `|===` opens a table, ` [x]` is text and `[x]`
+   * is a block attribute list. The de-indented line is a DIFFERENT
+   * line (issue #121).
+   *
+   * The BYTES, not a width, for {@link ListItemNode.markerIndent}'s
+   * reason: a tab and two spaces are both `indented` to parser.rb
+   * l.572 and are not the same line, and a width would have the
+   * printer choose a respelling nothing asked for.
+   *
+   * A CONJUNCTION, so the fact is TOTAL over paragraphs rather than
+   * meaningful on some of them. The run is the run of a line the
+   * printer will write at column 0, and it is that only where the
+   * block's own first line stood at column 0 too: a paragraph the
+   * reader took out of an indented run is reprinted at a column the
+   * source never had, so its source run is not the run of the line the
+   * printer would open, and `""` is recorded instead. Same discipline
+   * as {@link ParagraphNode.blankBelowAnchorLine} - one fact the
+   * printer acts on unconditionally, not two it has to recombine.
+   *
+   * The BYTES travel here where the ANSWER travels for
+   * `firstWordEndsItsLine`, and the difference is what the printer
+   * needs: the net asks one yes/no about the first line and WRITES the
+   * second one back.
+   */
+  secondLineIndent: string;
+  /**
    * This paragraph's whole printed line is a `[[...]]` anchor, and
    * SOURCE put a blank line between that line and the block below it.
    *
@@ -1505,6 +1552,44 @@ export interface ListItemNode extends Node, ItemBody {
    * for.
    */
   markerIndent: string;
+  /**
+   * The whitespace between the marker and the item's TEXT, verbatim -
+   * the `[ \t]+` every marker rx spells after the marker
+   * (`UnorderedListRx` rx.rb l.284, `OrderedListRx` l.300,
+   * `CalloutListRx` l.358), as the classifier matched it. Never empty:
+   * all three rx want at least one, so a marker with no gap behind it
+   * is not a marker at all.
+   *
+   * STRUCTURE, not decoration, for the reason
+   * {@link ListItemNode.markerIndent} is, one field over: what the
+   * marks on the line spell can be READ. A thematic break is
+   * `ExtLayoutBreakRx` (rx.rb l.650,
+   * `/^(?:'{3,}|<{3,}|([-*_])( *)\1\2\1)$/`) and
+   * `MarkdownThematicBreakRx` (l.638, `/^ {0,3}([-*_])( *)\1\2\1$/`),
+   * and both want three identical marks with EQUAL runs of spaces
+   * between them. `-  - -` is not that - the runs are two columns then
+   * one - so `UnorderedListRx` reads it as a one-item list whose text
+   * is `- -`; normalized to `- - -` it is an `<hr>` and the list is
+   * gone (issue #191).
+   *
+   * The BYTES, not a width, and here that is not only about
+   * respelling. Both break patterns accept SPACES alone, so ` \t`
+   * measures two columns and spells no rule, while two spaces measure
+   * two columns and spell one. Handed a width, the printer's fold
+   * guard ({@link fuseRunsSpellingABreak}, src/print/whitespace-fold.ts)
+   * cannot tell those apart and concludes the author already wrote the
+   * rule - #191's second sub-mechanism, which closes on the bytes
+   * alone.
+   *
+   * WHAT IT COSTS, stated: a wide or tabbed gap is no longer collapsed
+   * to one space. That collapse was a normalization the reduction
+   * order never charged for (`padding`, tests/conformance/
+   * reduction-order.ts, counts blank runs, cell pads and attrlist
+   * pads, not marker gaps), so nothing is un-oriented by keeping the
+   * author's bytes - and the marker gap is the one run on the line
+   * whose narrowing no refusal of a FOLD could ever undo.
+   */
+  markerGap: string;
   /**
    * Checkbox state for checklist items. `undefined` for normal items,
    * `"checked"` for `[x]` or `[*]`, `"unchecked"` for `[ ]`. Only

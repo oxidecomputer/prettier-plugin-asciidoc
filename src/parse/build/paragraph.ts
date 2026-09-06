@@ -104,6 +104,46 @@ function firstWordEndsItsLine(source: string, start: number): boolean {
   );
 }
 
+// The leading run `indented = this_line.start_with? ' ', TAB`
+// (parser.rb l.572) is the whole of: SPACE and TAB, and nothing else.
+// A line opening with any other whitespace is not indented to
+// Asciidoctor, so its run is not the fact this measures.
+const LEADING_INDENT = /^[ \t]*/v;
+
+/**
+ * The leading whitespace of the source line directly UNDER the one a
+ * paragraph opens on - `ParagraphNode.secondLineIndent` (src/ast.ts
+ * carries the whole argument and the printer that reads it).
+ *
+ * Measured off the SOURCE, like {@link firstWordEndsItsLine}, and
+ * conjoined with the two conditions that make the run the printer's to
+ * write: the paragraph reaches a second line at all, and it opened at
+ * column 0, where the line the printer would rebuild is the line the
+ * source had.
+ * @param source - the whole document
+ * @param position - the paragraph's own content extent
+ * @param position.start - where its content begins
+ * @param position.end - where its content ends
+ * @returns the run's bytes, or `""` where the conjunction fails
+ */
+function secondLineIndent(
+  source: string,
+  position: { start: Location; end: Location },
+): string {
+  const newline = source.indexOf("\n", position.start.offset);
+  if (
+    position.start.column !== FIRST_COLUMN ||
+    position.end.line === position.start.line ||
+    newline === -1
+  ) {
+    return "";
+  }
+  // The `*` quantifier matches at any offset, so the match is total
+  // and the run is empty exactly where the second line starts flush
+  // left.
+  return LEADING_INDENT.exec(source.slice(newline + 1))?.[0] ?? "";
+}
+
 /**
  * A plain paragraph: its inline body, positioned over the CONTENT
  * tokens — newlines are separators, not content, so a paragraph does
@@ -129,6 +169,7 @@ export function buildParagraph(
     type: "paragraph",
     children,
     firstWordEndsItsLine: firstWordEndsItsLine(source, position.start.offset),
+    secondLineIndent: secondLineIndent(source, position),
     // The anchor half of the conjunction is asked of the ONE record
     // that owns it (loneAnchorChild, src/block-metadata.ts) and never
     // re-derived here, so the reader cannot record a blank about a
@@ -429,6 +470,10 @@ export function buildRawLineParagraph(
     // The fragment IS the whole line, so its image is the source slice
     // the question is about; offset 0 is that slice's own start.
     firstWordEndsItsLine: firstWordEndsItsLine(line.image, 0),
+    // ONE line, so there is no line under it to measure and the
+    // conjunction is empty by construction rather than by a slice of
+    // a fragment that holds no second line anyway.
+    secondLineIndent: "",
     // A raw line is never an anchor line, so the conjunction is false
     // by construction here rather than by measuring what follows.
     blankBelowAnchorLine: false,

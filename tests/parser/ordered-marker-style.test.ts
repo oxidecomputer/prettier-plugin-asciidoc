@@ -28,6 +28,7 @@ describe("parseListMarker", () => {
         spelling: "*",
         indent: 0,
         markerEnd: 2,
+        gap: " ",
       },
     ],
     [
@@ -38,6 +39,7 @@ describe("parseListMarker", () => {
         spelling: "**",
         indent: 2,
         markerEnd: 6,
+        gap: "  ",
       },
     ],
     [
@@ -48,6 +50,7 @@ describe("parseListMarker", () => {
         spelling: "-",
         indent: 0,
         markerEnd: 2,
+        gap: " ",
       },
     ],
     [
@@ -58,6 +61,7 @@ describe("parseListMarker", () => {
         spelling: "..",
         indent: 0,
         markerEnd: 3,
+        gap: " ",
       },
     ],
     // The callout arm reports the marker's own number - the group its
@@ -71,6 +75,7 @@ describe("parseListMarker", () => {
         spelling: "<.>",
         indent: 0,
         markerEnd: 4,
+        gap: " ",
         calloutNumber: 0,
       },
     ],
@@ -82,6 +87,7 @@ describe("parseListMarker", () => {
         spelling: "<1>",
         indent: 0,
         markerEnd: 4,
+        gap: " ",
         calloutNumber: 1,
       },
     ],
@@ -93,6 +99,7 @@ describe("parseListMarker", () => {
         spelling: "<12>",
         indent: 0,
         markerEnd: 5,
+        gap: " ",
         calloutNumber: 12,
       },
     ],
@@ -155,6 +162,7 @@ describe("explicit ordered markers resolve to a style and keep their spelling", 
       spelling,
       indent: 0,
       markerEnd: spelling.length + 1,
+      gap: " ",
     });
   });
 

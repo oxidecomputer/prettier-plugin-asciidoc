@@ -136,6 +136,14 @@ type ParsedMarker =
       readonly indent: number;
       /** Offset within the line where the item's text starts. */
       readonly markerEnd: number;
+      /**
+       * The whitespace between the marker and the item's text,
+       * verbatim - the `[ \t]+` of `UnorderedListRx` (rx.rb l.284) and
+       * `OrderedListRx` (rx.rb l.300). The BYTES, because what the
+       * marks around them spell can be read: see
+       * `ListItemNode.markerGap` (src/ast.ts).
+       */
+      readonly gap: string;
     }
   | {
       /** Which list kind the marker opens. */
@@ -148,6 +156,12 @@ type ParsedMarker =
       readonly indent: number;
       /** Offset within the line where the item's text starts. */
       readonly markerEnd: number;
+      /**
+       * The whitespace between the marker and the item's text,
+       * verbatim - the `[ \t]+` of `CalloutListRx` (rx.rb l.358). The
+       * BYTES, for `ListItemNode.markerGap`'s reason (src/ast.ts).
+       */
+      readonly gap: string;
       /**
        * The number the marker spells (`<3>` → 3), or
        * `AUTO_CALLOUT_NUMBER` for the auto-numbering `<.>`.
@@ -339,6 +353,7 @@ export function parseListMarker(line: string): ParsedMarker | undefined {
       spelling: callout.marker,
       indent: 0,
       markerEnd: callout.marker.length + callout.gap.length,
+      gap: callout.gap,
       calloutNumber:
         callout.callout === "."
           ? AUTO_CALLOUT_NUMBER
@@ -350,9 +365,12 @@ export function parseListMarker(line: string): ParsedMarker | undefined {
     return undefined;
   }
   const { indent, gap } = groups;
-  const extent = (marker: string): { indent: number; markerEnd: number } => ({
+  const extent = (
+    marker: string,
+  ): { indent: number; markerEnd: number; gap: string } => ({
     indent: indent.length,
     markerEnd: indent.length + marker.length + gap.length,
+    gap,
   });
   // The ordered branch is the OPTIONAL one read through the widening;
   // when it did not participate the unordered one did, so the fall

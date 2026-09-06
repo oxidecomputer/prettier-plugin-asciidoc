@@ -320,6 +320,7 @@ const para = (from: number): ParagraphNode => ({
   type: "paragraph",
   children: [],
   firstWordEndsItsLine: false,
+  secondLineIndent: "",
   blankBelowAnchorLine: false,
   position: span(from, from + 1),
 });

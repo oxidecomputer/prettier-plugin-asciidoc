@@ -53,11 +53,14 @@ describe("nesting-fidelity: the oracle reads the output nested where it read the
       "- parent\n* child\n** grandchild\n",
       "- parent\n* child\n** grandchild\n",
     ],
-    ["gP10 tab-gapped nesting (#42)", "* a\n**\tb\n", "* a\n** b\n"],
+    // The GAP is the author's now too (`ListItemNode.markerGap`,
+    // src/ast.ts): the depth these rows are about is the marker's,
+    // and the tab behind it is replayed rather than respelled.
+    ["gP10 tab-gapped nesting (#42)", "* a\n**\tb\n", "* a\n**\tb\n"],
     [
       "gP38 tab-gapped chain (#42)",
       "* a\n**\tb\n***\tc\n",
-      "* a\n** b\n*** c\n",
+      "* a\n**\tb\n***\tc\n",
     ],
   ])("%s", async (_name, input, expected) => {
     await expectFormatted(input, expected);

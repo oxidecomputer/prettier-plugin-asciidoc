@@ -86,20 +86,40 @@ describe("markdown thematic break formatting", () => {
     expect(await formatAdoc(out)).toBe(out);
   });
 
-  // The other side of the same rule: a line whose gaps AGREE is the
-  // author's own rule, and the fold still normalizes it. Red if the
-  // refusal above were written without the source's own gaps - the
-  // printer writes one space after a marker, so keeping `-  -` there
-  // would print `- -  -`, which is neither the source's line nor a
-  // rule.
+  // The other side of the same rule, and what it costs. A line whose
+  // gaps AGREE is the author's own rule; at COLUMN 0 the fold still
+  // normalizes it to the single-spaced spelling, and BEHIND A MARKER
+  // it now comes back byte for byte, because the marker's own gap is
+  // written back too (`ListItemNode.markerGap`, src/ast.ts).
+  //
+  // These rows were green before the gap was recorded and are green
+  // after, for different reasons, and the change is what they now pin.
+  // The old printer narrowed BOTH halves of the line at once, so
+  // `-  -  -` came out `- - -` - a different spelling of the same
+  // `<hr>`. The replay makes the halves independent, and folding the
+  // value's half alone would print `-  - -`, whose gaps no longer
+  // agree and which is no rule at all; refusing that fold is why the
+  // author's own line is what comes back (#191).
   test.each([
-    ["a spaced dash rule", "-  -  -\n", "- - -\n"],
-    ["a spaced star rule", "*  *  *\n", "* * *\n"],
-    ["a tight dash rule", "- - -\n", "- - -\n"],
-  ])("%s still normalizes", async (_n, input, expected) => {
+    ["a spaced dash rule", "-  -  -\n"],
+    ["a spaced star rule", "*  *  *\n"],
+    ["a tight dash rule", "- - -\n"],
+    ["a tab-gapped dash rule, which is no rule", "-\t-\t-\n"],
+  ])("%s comes back as the author wrote it", async (_n, input) => {
     const out = await formatAdoc(input);
-    expect(out).toBe(expected);
+    expect(out).toBe(input);
     expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(out)).toBe(out);
+  });
+
+  // The column-0 half of the same claim, where the fold DOES decide
+  // the whole line: `_` is no marker, so nothing stands in front of
+  // the value and a rule the author spelled with wider gaps still
+  // normalizes - through the `_ _ _` form and on to `'''`.
+  test("a spaced underscore rule still normalizes", async () => {
+    const out = await formatAdoc("_  _  _\n");
+    expect(out).toBe("'''\n");
+    expect(await renderedHtml(out)).toBe(await renderedHtml("_  _  _\n"));
     expect(await formatAdoc(out)).toBe(out);
   });
 

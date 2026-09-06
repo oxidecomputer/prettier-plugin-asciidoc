@@ -808,31 +808,23 @@ const SPACE_RUN = /^ +$/v;
 
 /**
  * The break MARK a prefix the printer writes puts at the head of a
- * block's first line, and how wide the SOURCE's own gap behind it
- * was.
+ * block's first line.
  *
  * Only a `-` or `*` list marker spells one: an ordered marker, a
  * callout, a `NOTE: ` label, a description term and a span's opening
- * mark all write a word no rule reads. The gap travels with it
- * because the printer writes ONE space after a marker whatever the
- * source wrote, so the source's own line and the printed one differ
- * there, and only the source's answers whether the author already
- * had a rule.
+ * mark all write a word no rule reads.
  *
- * A WIDTH and not the bytes, which is the one thing this cannot ask
- * the reader for: no node records the run between a marker and its
- * text. A gap holding a TAB therefore reads here as a gap of spaces,
- * and a source line whose marker gap is a tab as wide as the value's
- * run is folded as though it already spelled the rule. That line is
- * text to Asciidoctor and the fold's output is an `<hr>` - the same
- * loss the fold already had there before this rule existed, left
- * where it stood rather than widened.
+ * ONE FIELD, and it used to be two: the source's gap behind the mark
+ * travelled here as a WIDTH, because the printer normalized that gap
+ * to one space and only the source's own record could say what the
+ * author's line had spelled. `ListItemNode.markerGap` (src/ast.ts) is
+ * that record, and the printer writes it back, so the gap on the
+ * printed line IS the gap on the source line and the question this
+ * value existed to answer has no asker left (#191).
  */
 export interface MarkInFront {
   /** The mark itself, as the printer will write it. */
   readonly mark: string;
-  /** Columns between it and the block's first word in the SOURCE. */
-  readonly sourceGapWidth: number;
 }
 
 /**
@@ -924,25 +916,19 @@ function areBreakMarks(
  * Whether the source's own line already spelled the rule, so the fold
  * has nothing to take away.
  *
- * Both patterns want gaps of SPACES and want them EQUAL, so the two
- * runs on the line decide it. Behind a marker the first of those runs
- * is the marker's own, which the printer replaces with a single space
- * either way, and the source's width is the only record of it
- * ({@link MarkInFront}).
+ * Both patterns want gaps of SPACES and want them EQUAL, so the runs
+ * on the line decide it. Asked at COLUMN 0 only, where the value holds
+ * every run the line has and the fold therefore decides the whole
+ * spelling. Behind a MARK the line has one run the value does not hold
+ * - the marker's own - and the printer writes that one back verbatim
+ * ({@link ListItemNode.markerGap}, src/ast.ts), so there the answer
+ * that keeps the reading is not "was it a rule" but "write the line
+ * the author wrote"; see {@link foldSpellsAThematicBreak}.
  * @param runs - the runs between the value's words.
- * @param inFront - the mark the prefix writes, or undefined at column
- *   0, where the value holds every run on the line.
  * @returns true when the source line was already a rule.
  */
-function sourceLineSpelledTheRule(
-  runs: readonly string[],
-  inFront: MarkInFront | undefined,
-): boolean {
-  const gaps =
-    inFront === undefined
-      ? runs
-      : [" ".repeat(inFront.sourceGapWidth), ...runs];
-  return gaps.every((gap) => gap === gaps[0] && SPACE_RUN.test(gap));
+function sourceLineSpelledTheRule(runs: readonly string[]): boolean {
+  return runs.every((gap) => gap === runs[0] && SPACE_RUN.test(gap));
 }
 
 /**
@@ -951,10 +937,28 @@ function sourceLineSpelledTheRule(
  *
  * The fold writes ONE SPACE in a run's place, so the only rule the
  * fold can manufacture is the single-spaced one: a line whose words
- * are the three marks. The source's own gaps therefore decide it - a
+ * are the three marks. AT COLUMN 0 the source's own gaps decide it - a
  * line whose gaps are already equal spaces IS the rule and has
  * nothing to lose here, and every other spelling of the same three
  * marks is TEXT to Asciidoctor until the fold makes the gaps agree.
+ *
+ * BEHIND A MARK the answer is simply YES, and that is the narrower
+ * question paying for itself. The line there is the marker's gap plus
+ * the value's runs, and the printer writes the gap back verbatim
+ * (`ListItemNode.markerGap`, src/ast.ts): keeping the value's runs too
+ * reproduces the author's line exactly, which is a rule when it was
+ * one and prose when it was not.
+ *
+ * WHY NOT weigh the two halves, which is what this asked before the
+ * gap was replayed. A PROSPECTIVE argument about the design as it now
+ * stands, not a bug that was ever observed: with the gap written back,
+ * answering "the source already spelled the rule, so there is nothing
+ * to lose" would let the fold narrow the VALUE's half alone, and
+ * `-  -  -` would print `-  - -`, whose gaps no longer agree and which
+ * is therefore no rule. The old spelling never printed that, because
+ * it narrowed both halves at once (`-  -  -` printed `- - -`, still an
+ * `<hr>`); it is the replay that makes the two halves independent, and
+ * this is the answer that keeps them in step.
  *
  * WIDER THAN THIS READER'S OWN VOCABULARY, and the divergence is the
  * point. `THEMATIC_BREAK` (src/parse/line-shapes.ts) reads the spaced
@@ -992,7 +996,7 @@ function foldSpellsAThematicBreak(
   const runs = interiorRuns(value);
   return (
     runs.some((run) => joinRewritesTheRun(run)) &&
-    !sourceLineSpelledTheRule(runs, inFront)
+    (inFront !== undefined || !sourceLineSpelledTheRule(runs))
   );
 }
 
@@ -1007,16 +1011,16 @@ function foldSpellsAThematicBreak(
  * which no atom may hold ({@link runKeepsItsBytes},
  * src/print/reflow.ts); those are {@link breakMarkHeldOnItsLine}'s.
  *
- * BEHIND A MARKER the kept bytes are the value's and not the LINE's:
- * the printer writes one space after a marker whatever the source
- * wrote, so a source line that spelled the rule with WIDER gaps
- * (`-  -  -`) is folded rather than kept - keeping it there would
- * write `- -  -`, which is neither the source's line nor a rule.
- * {@link sourceLineSpelledTheRule} is what separates the two, and the
- * cases it cannot reach are the ones whose FIRST gap the marker owns
- * (`-  - -`): the printer narrows that gap on its own and no refusal
- * of a fold can widen it back. Those are the same reading gap #182
- * records and are unchanged here.
+ * BEHIND A MARKER the kept bytes are now the LINE's, because the other
+ * run on that line - the marker's own gap - is written back verbatim
+ * too (`ListItemNode.markerGap`, src/ast.ts). Keeping both halves
+ * reproduces the author's line, so `-  -  -` comes back as itself
+ * (a rule) and `-  - -` comes back as itself (a one-item list). The
+ * case this rule could never have reached while the printer narrowed
+ * the gap on its own is the second of those: the value's single run
+ * was already one space, so no fold was refused or taken, and the
+ * narrowing alone turned the line into a rule. That one is closed by
+ * the replay rather than by anything here (#191, sub-mechanism A).
  * @param value - the node's raw source text.
  * @param words - its words, as the splitter produced them.
  * @param share - what of the output line the value holds.

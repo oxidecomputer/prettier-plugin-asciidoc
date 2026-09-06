@@ -926,7 +926,7 @@ export function inlineAtoms(
   // re-checks nothing: it runs only over a block that opens at column
   // 0 on a source line its first word ended.
   if (blockStart.atColumnZero && blockStart.firstWordEndsItsLine) {
-    keepBlockStartBreak(atoms);
+    keepBlockStartBreak(atoms, blockStart.secondLineIndent);
   }
   return atoms;
 }

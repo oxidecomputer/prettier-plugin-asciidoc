@@ -335,24 +335,26 @@ and a `revisionLine`, up to the first blank line. Owning them is the point: the
 header prints as one run of lines, so no separator rule can insert the blank
 line that would end the header early and demote its lines to body content (issue
 #18). Paragraphs hold inline children. Lists hold items; each item holds its
-marker spelling, its text, and its blocks, each block behind its recorded `gap`.
-Delimited blocks carry their variant (listing, literal, pass, verse, example,
-sidebar, quote) and form (delimited, indented, paragraph); parent blocks hold
-parsed children; admonitions unify the paragraph and delimited forms. A table is
-a node of its own rather than a delimited block, because its delimiter lines
-frame recorded structure instead of bracketing one slice of content: it holds
-its opening and closing lines, how its cells are cut, and its rows, each row
-holding the cells the cut produced. Those records PARTITION the table's extent -
-opening line, leading runs, every cell's opening and runs, closing line - which
-is what lets the printer replay it byte for byte while the tree carries the
-structure a later normalization will act on. Beyond those, the
-formatter-specific nodes are the ones a semantic model would discard: comments,
-preprocessor directives (`include::`, `ifdef`/`ifndef`/`ifeval`/ `endif`, kept
-as verbatim lines), block attribute lists, block titles, block anchors, and
-`rawLine` (a verbatim line inside a paragraph, so a comment between two text
-lines survives reflow). Inline nodes cover the formatting marks (constrained and
-unconstrained), attribute references, anchors, links and xrefs, inline macros,
-and hard line breaks.
+marker spelling, the whitespace on either side of it (both load-bearing: an
+indent decides whether the line under an item is its child, and the gap is half
+of the line a thematic break would be spelled on), its text, and its blocks,
+each block behind its recorded `gap`. Delimited blocks carry their variant
+(listing, literal, pass, verse, example, sidebar, quote) and form (delimited,
+indented, paragraph); parent blocks hold parsed children; admonitions unify the
+paragraph and delimited forms. A table is a node of its own rather than a
+delimited block, because its delimiter lines frame recorded structure instead of
+bracketing one slice of content: it holds its opening and closing lines, how its
+cells are cut, and its rows, each row holding the cells the cut produced. Those
+records PARTITION the table's extent - opening line, leading runs, every cell's
+opening and runs, closing line - which is what lets the printer replay it byte
+for byte while the tree carries the structure a later normalization will act on.
+Beyond those, the formatter-specific nodes are the ones a semantic model would
+discard: comments, preprocessor directives (`include::`,
+`ifdef`/`ifndef`/`ifeval`/ `endif`, kept as verbatim lines), block attribute
+lists, block titles, block anchors, and `rawLine` (a verbatim line inside a
+paragraph, so a comment between two text lines survives reflow). Inline nodes
+cover the formatting marks (constrained and unconstrained), attribute
+references, anchors, links and xrefs, inline macros, and hard line breaks.
 
 One deliberate gap, tracked as an issue rather than modeled halfway: description
 lists have no node, and their source is carried as paragraph text (#9). A table

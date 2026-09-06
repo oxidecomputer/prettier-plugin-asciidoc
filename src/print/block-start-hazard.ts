@@ -71,6 +71,14 @@ export type BlockStart =
        * reader recorded it.
        */
       readonly firstWordEndsItsLine: boolean;
+      /**
+       * The leading whitespace of the source line UNDER that one -
+       * `ParagraphNode.secondLineIndent` (src/ast.ts), as the reader
+       * recorded it. It rides on THIS arm because the break the net
+       * keeps is the break that opens that line, and only a block
+       * whose atoms land at column 0 opens it where the source did.
+       */
+      readonly secondLineIndent: string;
     };
 
 /**
@@ -272,9 +280,25 @@ function packsIntoBlockSyntax(atoms: readonly Atom[]): boolean {
  * opened. Firing therefore clears the fuse, because a `noBreakBefore`
  * left standing beside a demanded break is two atoms giving the
  * packer opposite orders.
+ *
+ * The line the break OPENS is put back whole, not just started: the
+ * source's own leading run goes in front of `atoms[1]`
+ * (`ParagraphNode.secondLineIndent`, src/ast.ts). Without it the trade
+ * trades one corruption for another - `.` then ` [x]` is a paragraph
+ * whose single space is the whole of what keeps `[x]` from being a
+ * block attribute list, and stranding the atom at column 0 is exactly
+ * the line the author avoided (issue #121). The run rides in the
+ * atom's TEXT because that is where the packer will write it: a
+ * `literal` break opens the line at column 0, and the atom is that
+ * line's whole head.
  * @param atoms - the block's atoms (mutated).
+ * @param secondLineIndent - the leading run of the source line the
+ *   kept break opens, as the reader recorded it.
  */
-export function keepBlockStartBreak(atoms: Atom[]): void {
+export function keepBlockStartBreak(
+  atoms: Atom[],
+  secondLineIndent: string,
+): void {
   const second = atoms.at(1);
   if (second === undefined) {
     return;
@@ -297,5 +321,10 @@ export function keepBlockStartBreak(atoms: Atom[]): void {
   ) {
     return;
   }
-  atoms[1] = { ...second, breakBefore: "literal", noBreakBefore: false };
+  atoms[1] = {
+    ...second,
+    text: secondLineIndent + second.text,
+    breakBefore: "literal",
+    noBreakBefore: false,
+  };
 }

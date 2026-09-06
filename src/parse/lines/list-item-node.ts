@@ -129,6 +129,11 @@ export function listItemNode(
       // front of the marker - see ListItemNode.markerIndent for why
       // the indent decides structure.
       markerIndent: markerLine.raw.slice(0, marker.indent),
+      // The other half of what the Fragment above spans, and the same
+      // deal: the classifier already matched the run, so this is the
+      // group it captured rather than a second match - see
+      // ListItemNode.markerGap for what the bytes decide.
+      markerGap: marker.gap,
       variant: marker.variant,
       // The classifier captured the number when it matched the
       // marker; only a callout has one.

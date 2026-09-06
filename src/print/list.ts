@@ -11,7 +11,6 @@ import type {
   ListNode,
   TrailingContinuation,
 } from "../ast.js";
-import { FIRST_COLUMN, MARKER_OFFSET } from "../constants.js";
 import {
   CONTINUATION_LINE,
   LITERAL_LINE,
@@ -404,22 +403,19 @@ function guardedAtoms(
  * Every other marker - an ordered one, a callout, a nested `**` -
  * writes a word no rule reads.
  *
- * The GAP is the source's, read off the columns: the printer writes
- * one space after the marker whatever the author wrote, so the
- * author's own width is what says whether the marker line was already
- * a rule, and it is nowhere else in the tree. The text has to START on
- * the marker's line for the columns to mean that; a text node opening
- * on a later line is behind a marker with no text of its own, which is
- * no marker line at all.
+ * The text has to START on the marker's line: a text node opening on a
+ * later line is behind a marker with no text of its own, which is no
+ * marker line at all and shares no line with the item's words.
+ *
+ * The source's own GAP used to travel with the mark, as a width read
+ * off these same columns, because the printer normalized it away and
+ * nothing else in the tree remembered it. `ListItemNode.markerGap`
+ * (src/ast.ts) remembers it and the printer writes it back, so the
+ * mark alone is what the fold rule still needs (#191).
  * @param node - the item node.
- * @param indentedMarker - the marker as the printer will write it,
- *   its own indent included.
- * @returns the mark and the source's gap, or undefined.
+ * @returns the mark, or undefined where the marker line spells none.
  */
-function markInFrontOfText(
-  node: ListItemNode,
-  indentedMarker: string,
-): MarkInFront | undefined {
+function markInFrontOfText(node: ListItemNode): MarkInFront | undefined {
   const head = node.text.at(0);
   if (
     node.checkbox !== undefined ||
@@ -428,20 +424,16 @@ function markInFrontOfText(
   ) {
     return undefined;
   }
-  return {
-    mark: node.markerSpelling,
-    sourceGapWidth:
-      head.position.start.column - FIRST_COLUMN - indentedMarker.length,
-  };
+  return { mark: node.markerSpelling };
 }
 
 /**
  * Prints a single list item to Doc IR.
  *
- * Produces marker + space + text content, with the text packed by THE
- * block-body engine. The marker's columns are the item's continuation
- * indent, so wrapped text lines up under the text start rather than the
- * marker. The item's blocks — nested lists and `+`-attached blocks
+ * Produces marker + the author's own gap ({@link ListItemNode.markerGap})
+ * + text content, with the text packed by THE block-body engine. Those
+ * columns are the item's continuation indent, so wrapped text lines up
+ * under the text start rather than the marker. The item's blocks — nested lists and `+`-attached blocks
  * alike — follow in source order, each behind its gap replayed
  * VERBATIM ({@link gapParts}); the only spelling the printer decides
  * itself is the hazard's kept break (`hazard()`) — it
@@ -482,7 +474,12 @@ export function printListItem(
   // item's text still starts one column past the marker.
   const indentedMarker = node.markerIndent + buildMarker(node, parentList);
   const checkboxPrefix = formatCheckbox(node.checkbox);
-  const markerWidth = indentedMarker.length + MARKER_OFFSET;
+  // The gap the author wrote between the marker and the text, not the
+  // one space this used to normalize to: what the marks on the line
+  // spell can be read, and `-  - -` is a one-item list where `- - -`
+  // is an `<hr>` (see ListItemNode.markerGap). Never empty, so the
+  // marker and the text can never run together.
+  const markerWidth = indentedMarker.length + node.markerGap.length;
   // The width of the prefix the printer just wrote — "" for no
   // checkbox, `[x] `/`[ ] ` otherwise. It used to be the parser's
   // CHECKBOX_PREFIX_LEN, which made the printer reach into the
@@ -492,14 +489,14 @@ export function printListItem(
   // The marker written below holds column 0 of the item's first line.
   const atoms = inlineAtoms(node.text, node.position.start.line, {
     atColumnZero: false,
-    markInFront: markInFrontOfText(node, indentedMarker),
+    markInFront: markInFrontOfText(node),
   });
   // The hazard, as a pure predicate over the finished node: reflow
   // may not push leading metadata onto the first rest line.
   const guard = hazard(node);
   const item: Doc[] = [
     indentedMarker,
-    " ",
+    node.markerGap,
     checkboxPrefix,
     ...blockBody(
       guardedAtoms(node, parentList, atoms, guard),

@@ -90,6 +90,16 @@ describe("the lens licenses what the printer normalizes", () => {
       ["a\nb c\n", "a b d\n"],
     ],
     [
+      // The ALIKE pair is the JOIN: two source lines become one, so
+      // the output has no second line to carry a run and records `""`
+      // whatever the author wrote. The APART pair differs in the same
+      // field AND in a word, which is what no license may launder.
+      "the indent a paragraph's second source line carried",
+      ["paragraph.secondLineIndent"],
+      ["a\n b c\n", "a\nb c\n"],
+      ["a\n b c\n", "a b d\n"],
+    ],
+    [
       "whether an item's text lines were indented",
       ["*.everyTextLineIndented"],
       ["* a\n  b\n", "* a\nb\n"],
@@ -283,7 +293,13 @@ describe("the lens still sees the corruptions the printer can make", () => {
   // longer happens would be red, and there is no second document with
   // the mechanism to put in its place.
   test.each([
-    ["a de-indented line becomes a block (#121)", "===\n ----\n"],
+    // `===\n ----\n` used to stand here and no longer does: the
+    // block-start hazard net writes the second line's own indent back
+    // (`ParagraphNode.secondLineIndent`, src/ast.ts), so that document
+    // round-trips. The family's other arm is still live - the net
+    // bails on a first atom that may not end a line, and a lone `+`
+    // is exactly that, so the indent under it is still dropped.
+    ["a de-indented line becomes a block (#121)", "+\n ----\n"],
     [
       "a join closes a bracket and mints a macro (#124)",
       "image::a.png[\n[+1]\n",

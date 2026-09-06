@@ -43,6 +43,10 @@ export const FACTS: ReadonlyMap<string, string> = new Map([
   ["DocumentNode.byteOrderMark", "printer.ts replays it"],
   ["ParagraphNode.firstWordEndsItsLine", "block-start-hazard.ts's question"],
   [
+    "ParagraphNode.secondLineIndent",
+    "the line block-start-hazard.ts's kept break opens, written back",
+  ],
+  [
     "ParagraphNode.blankBelowAnchorLine",
     "block-metadata.ts's stacking rule reads it: the separation the author wrote under a lone `[[...]]` line",
   ],
@@ -87,6 +91,7 @@ export const FACTS: ReadonlyMap<string, string> = new Map([
   ["ItemBody.everyTextLineIndented", "reflow-guard input"],
   ["ListItemNode.markerSpelling", "printed marker bytes"],
   ["ListItemNode.markerIndent", "structure, not decoration"],
+  ["ListItemNode.markerGap", "half the line a thematic break is spelled on"],
   ["ListItemNode.checkbox", "checklist marker bytes"],
   ["ListItemNode.calloutNumber", "callout marker bytes"],
   ["ItemBlock.gap", "the brief's own gap example"],
