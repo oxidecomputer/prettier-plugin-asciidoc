@@ -241,7 +241,15 @@
       "coverage": 98.4,
       "mutation": 88.8
     },
+    "src/print/declared-rules.ts": {
+      "coverage": 100.0,
+      "mutation": 0.0
+    },
     "src/print/description-list.ts": {
+      "coverage": 100.0,
+      "mutation": 0.0
+    },
+    "src/print/emission.ts": {
       "coverage": 100.0,
       "mutation": 0.0
     },
@@ -404,6 +412,24 @@
       "what": "reader.ts:661 `line.continuationTag === \"marker\"` -> `true` in continuationLine's fold arm (#56's new code)",
       "class": "never",
       "reason": "EQUIVALENT, and worth writing down because the guard IS reached with an untagged `+`. Every `+` that enters an item buffer goes through `pushMarker` and carries the tag, with ONE exception: the `+` that `activeContent` buffers as the attached block's own first line when it stands one blank under an active continuation (`* a` / `+` / blank / `+` is the smallest such document). That untagged cell is only ever the buffer's LAST line, because any line after it takes the `+` arm that blanks it, so the fold the mutant opens there reads exactly the one raw line the leaf arm builds and stops on the same index. Measured: byte-identical output AND byte-identical ASTs over all 111,110 depth-5 sweep documents, byte-identical output over 66,429 delimiter-bearing documents, and an instrumented build reaches the untagged case MID-buffer zero times in either product"
+    },
+    {
+      "file": "src/print/declared-rules.ts",
+      "what": "mutation minimum 0 - a PLACEHOLDER, not a file with nothing to measure",
+      "class": "when",
+      "reason": "TRIGGER: the next batched mutation run. This file is new (issue #221) and holds the printer's declared rules behind the emission chokepoint - `constrainedIsLegal` and its predicates (`holdsARawLine`, `neighboursAllowIt`, `frontNeighbour`, `headContext`, `behindNeighbour`, `carriesMark`), moved unchanged out of src/print/inline.ts, plus the doubled-mark respell's declaration and `spanDelimiters`. Nothing has measured it, because mutation runs at batched integration points and this file landed between two of them; its behaviour is unchanged code exercised by every test that reaches a formatting span, and the corpus formats to identical bytes across the move. Its coverage row is measured (100.00 lines, 57 of 57, from the `bun run coverage` run of this tree). The mutants src/print/inline.ts recorded for this code move with it, so that file's own recorded mutation minimum is re-seeded by the same run. See docs/harnesses.md, the two reasons a zero is allowed"
+    },
+    {
+      "file": "src/print/emission.ts",
+      "what": "mutation minimum 0 - a PLACEHOLDER, not a file with nothing to measure",
+      "class": "when",
+      "reason": "TRIGGER: the next batched mutation run. This file is new (issue #221) and is the capability type behind which bytes may change: `replay`, `declareRule`, and the `#private` field that makes the type nominal, so a spread cannot copy the capability off a genuine emission. Nothing has measured it; its statements run on every span the printer writes, tests/print/declared-rules.test.ts holds both arms, and tests/print/emission-forgery.test.ts compiles the file against eight forgery attempts and pins which four the type refuses - a check no mutant of this file can pass, since it reads the source rather than the behaviour. Its coverage row is measured by the `bun run coverage` run of this tree. See docs/harnesses.md, the two reasons a zero is allowed"
+    },
+    {
+      "file": "src/print/inline.ts",
+      "what": "mutation minimum 84.5 - measured over a body that has since shrunk",
+      "class": "when",
+      "reason": "TRIGGER: the same batched mutation run. The 84.5 was measured when this file also held the doubled-mark respell's decision procedure (`constrainedIsLegal` and its six predicates); that family moved to src/print/declared-rules.ts behind the emission chokepoint (issue #221) and the file is now 563 lines, down from 932. The row is LEFT where it is rather than lowered or raised, because neither direction is knowable without a run: a smaller body can score either way once the surviving mutants are redistributed. It is recorded here so nobody reads 84.5 as a live measurement of what the file holds today, and so the re-seed checks this file still clears it"
     },
     {
       "file": "src/print/join.ts",

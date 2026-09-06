@@ -6,7 +6,7 @@
  * Which `QUOTE_SUBS` row resolves a span decides both what bytes it
  * prints and what bytes stand next to it once the rows that ran before
  * it have already rewritten the text - so the printer's own
- * constrained-vs-unconstrained choice (src/print/inline.ts) and the
+ * constrained-vs-unconstrained choice (declared-rules.ts) and the
  * block-wide stray-mark scan it also runs both read off the same row
  * facts. Collected here, out of src/print/inline.ts, to keep that file
  * under its line ceiling.
@@ -36,8 +36,8 @@ import { bareAddressRunsPast } from "../parse/inline/rules.js";
 /**
  * A formatting span with a CONSTRAINED spelling to choose: its marks
  * ride on the atoms they touch, and `constrainedIsLegal`
- * (src/print/inline.ts) decides whether the shorter spelling carries
- * the same meaning.
+ * (src/print/declared-rules.ts) decides whether the shorter
+ * spelling carries the same meaning.
  */
 export type MarkSpanNode =
   | BoldNode
@@ -110,7 +110,7 @@ const HARD_BREAK = " +";
  * Constrained marks (`*bold*`) require word boundaries; unconstrained
  * (`**bold**`) work anywhere, including mid-word - and where BOTH are
  * legal they render identically, so the printer writes the
- * constrained one (`constrainedIsLegal` (src/print/inline.ts) decides). A role
+ * constrained one (`constrainedIsLegal`, declared-rules.ts). A role
  * attribute gives a span semantic meaning used by CSS, e.g.
  * `[.red]#text#` or `[.path]_file_`: it is written as an inline
  * attribute list immediately before the mark, not as a block attribute
@@ -156,7 +156,7 @@ const SUPER_SUB_MARKS = {
  * @param node - the curved-quote, superscript or subscript span
  * @returns its opening and closing delimiters
  */
-export function fixedSpanMarks(node: FixedSpanNode): {
+function fixedSpanMarks(node: FixedSpanNode): {
   open: string;
   close: string;
 } {

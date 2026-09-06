@@ -732,7 +732,7 @@ const PAIRING_KINDS: ReadonlySet<InlineTokenType> = new Set(
  *
  * Kind and not WIDTH, deliberately. The printer respells an
  * unconstrained span with the constrained mark wherever the two render
- * alike (`constrainedIsLegal`, src/print/inline.ts), so the same
+ * alike (`constrainedIsLegal`, src/print/declared-rules.ts), so the same
  * document read a second time offers the same pairing in a narrower
  * spelling. A guard that asked for the width would fire on the first
  * reading and not on the second, and the two readings would disagree

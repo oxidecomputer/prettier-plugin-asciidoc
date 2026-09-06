@@ -85,7 +85,7 @@ function edgeIsWhitespace(text: string, end: "start" | "end"): boolean {
 
 /**
  * Whether a span's content is FLUSH against both marks - the question
- * `constrainedIsLegal` (inline.ts) asks before it will shorten an
+ * `constrainedIsLegal` (declared-rules.ts) asks before it will shorten an
  * unconstrained span, since the constrained pattern refuses whitespace
  * at either boundary. Split from `appendSpan` (inline.ts) for that
  * file's complexity ceiling.

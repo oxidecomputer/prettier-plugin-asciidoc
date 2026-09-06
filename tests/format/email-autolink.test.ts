@@ -353,7 +353,8 @@ describe("an address behind a tag an earlier pass wrote", () => {
   // Nothing a reader can see moves: the printer writes an address node
   // as its own source bytes, and an address begins and ends with a word
   // character, so every span-respelling clause that asks about a
-  // neighbour (constrainedIsLegal, src/print/inline.ts) answers exactly
+  // neighbour (constrainedIsLegal, src/print/declared-rules.ts) answers
+  // exactly
   // as it did when the address was text.
   test.each([
     ["monospace", "Mail `user@example.com` now.\n"],

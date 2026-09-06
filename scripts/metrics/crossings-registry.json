@@ -450,9 +450,9 @@
   {
     "file": "src/parse/inline/quote-boundaries.ts",
     "symbol": "MARK_BOUNDARY",
-    "importer": "src/print/inline.ts",
+    "importer": "src/print/declared-rules.ts",
     "kind": "vocabulary",
-    "reason": "the one transcription of Ruby's constrained-quote boundary classes; the printer asks it before respelling an unconstrained span so parse and print read the same classes"
+    "reason": "the one transcription of Ruby's constrained-quote boundary classes; the doubled-mark respell asks it before shortening an unconstrained span so parse and print read the same classes"
   },
   {
     "file": "src/parse/inline/quote-boundaries.ts",
@@ -464,9 +464,9 @@
   {
     "file": "src/parse/inline/quote-boundaries.ts",
     "symbol": "QUOTE_ROW",
-    "importer": "src/print/inline.ts",
+    "importer": "src/print/declared-rules.ts",
     "kind": "vocabulary",
-    "reason": "the one table of QUOTE_SUBS row order and edge characters; the printer reads a row's order to know whether an enclosing or sibling span's row has already resolved"
+    "reason": "the one table of QUOTE_SUBS row order and edge characters; the doubled-mark respell reads a row's order to know whether an enclosing or sibling span's row has already resolved"
   },
   {
     "file": "src/parse/inline/quote-boundaries.ts",
