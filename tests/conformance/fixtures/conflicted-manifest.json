@@ -1,0 +1,17 @@
+{
+<<<<<<< HEAD
+  "standing/clean/fidelity": {
+    "count": 3,
+    "examples": ["standing/a", "standing/b", "standing/c"],
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "issue": "#10"
+  }
+=======
+  "standing/clean/fidelity": {
+    "count": 4,
+    "examples": ["standing/a", "standing/b", "standing/c", "standing/d"],
+    "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "issue": "#10"
+  }
+>>>>>>> other
+}

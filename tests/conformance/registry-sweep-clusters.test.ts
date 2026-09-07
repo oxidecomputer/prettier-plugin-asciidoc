@@ -11,12 +11,19 @@
  */
 import { rmSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, test, expect, onTestFinished } from "vitest";
 import { loadSweepClusters } from "./registry-sweep-clusters.js";
 import { plantCheckout } from "../lib/checkout.js";
 
 /** A hex sha256 of the right width, for the well-formed fields. */
 const DIGEST = "a".repeat(64);
+
+/** The committed manifest fixtures, from this file's own path. */
+const FIXTURES = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "fixtures",
+);
 
 /**
  * Writes a scratch manifest holding the given text and hands back its
@@ -95,6 +102,23 @@ describe("loadSweepClusters", () => {
     const manifest = scratchManifest("[]\n");
     expect(() => loadSweepClusters(manifest)).toThrowError(
       `${manifest}: expected an object`,
+    );
+  });
+
+  test("names the file and the way out when the manifest is not JSON", () => {
+    // Red before the parse guard: the bare JSON.parse threw
+    // "Expected property name or '}' in JSON at position 2", naming
+    // neither the file nor the way out, from deep in the import chain
+    // of whichever triage script was running. The fixture is committed
+    // rather than planted because the bytes under test are exactly
+    // what a merge tool leaves behind.
+    const manifest = path.join(FIXTURES, "conflicted-manifest.json");
+    expect(() => loadSweepClusters(manifest)).toThrowError(manifest);
+    expect(() => loadSweepClusters(manifest)).toThrowError(
+      "Unresolved conflict markers",
+    );
+    expect(() => loadSweepClusters(manifest)).toThrowError(
+      "resolve the file or delete it",
     );
   });
 

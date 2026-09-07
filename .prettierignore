@@ -1,5 +1,6 @@
 vendor/
 tests/parser/fixtures/
 tests/integration/configs/not-json.json
+tests/conformance/fixtures/conflicted-manifest.json
 .superpowers/
 docs/superpowers/

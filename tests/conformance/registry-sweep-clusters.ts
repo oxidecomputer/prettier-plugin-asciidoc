@@ -208,6 +208,36 @@ function isClusterEntry(value: unknown): value is ClusterEntry {
 }
 
 /**
+ * `JSON.parse` with the syntax error reported as what it is: a
+ * manifest that cannot be read at all, named by path.
+ *
+ * The realistic cause is a workspace collision leaving conflict
+ * markers in the file, and the raw `SyntaxError` names neither the
+ * file nor the way out. It reaches a reader from deep inside a triage
+ * script's import chain, at the moment the run they wanted was the one
+ * that REGENERATES the file, so the message says that regenerating
+ * still needs a readable starting point and what deleting costs.
+ *
+ * Reading is outside the `try` on purpose: a missing or unreadable
+ * FILE is a different fault and keeps its own error.
+ * @param manifestPath - manifest file to read
+ * @returns the parsed value
+ * @throws {Error} when the file's bytes are not JSON
+ */
+function parsedManifest(manifestPath: string): unknown {
+  const text = readFileSync(manifestPath, "utf8");
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      `${manifestPath}: not valid JSON (${detail}). Unresolved conflict markers are the usual cause, and a triage --write run cannot start from an unreadable manifest: resolve the file or delete it first, which loses only the carry-forward issue tags.`,
+      { cause: error },
+    );
+  }
+}
+
+/**
  * Reads and validates the deep tier's manifest.
  * @param manifestPath - manifest file to read; defaults to the deep
  *   tier's. Tests point it at scratch files to exercise validation.
@@ -216,7 +246,7 @@ function isClusterEntry(value: unknown): value is ClusterEntry {
 export function loadSweepClusters(
   manifestPath: string = SWEEP_DEEP_MANIFEST_PATH,
 ): Map<string, ClusterEntry> {
-  const parsed: unknown = JSON.parse(readFileSync(manifestPath, "utf8"));
+  const parsed: unknown = parsedManifest(manifestPath);
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
     throw new Error(`${manifestPath}: expected an object`);
   }
