@@ -67,6 +67,54 @@ describe("block attribute list parsing", () => {
     expect(child0.value).toBe(value);
   });
 
+  // The lead class is UNICODE, not ASCII (issue #257). Red before
+  // BLOCK_ATTRIBUTE_LINE_SOURCE stopped approximating it with `\w`:
+  // every row whose interior LEADS outside ASCII parsed as a
+  // PARAGRAPH, and the paragraph under such a line then joined onto
+  // it, which destroyed the metadata and the paragraph's first line
+  // together. Only the FIRST character is held to the class, which is
+  // why `[café]` read correctly all along and why `[ün icode]`, whose
+  // space sits in the unconstrained tail, reads now. `[.ünicode]` was
+  // green already for the same reason and stands as the control that
+  // the widening left the shorthand routes where they were.
+  //
+  // The last row is the class edge the two authorities part ways at:
+  // U+00BD is in the oracle's `\p{N}` and outside Ruby's
+  // `\p{Digit}`, and the registry follows the oracle.
+  test.each([
+    ["[ünicode]", "ünicode"],
+    ["[日本]", "日本"],
+    ["[ün icode]", "ün icode"],
+    ["[.ünicode]", ".ünicode"],
+    ["[½x]", "½x"],
+    ["[𐐀x]", "𐐀x"],
+  ])("%j parses as a block attribute list", (line, value) => {
+    const document = parse(`${line}\npara\n`);
+    expect(document.children).toHaveLength(2);
+    const {
+      children: [child0],
+    } = document;
+    narrow(child0, "blockAttributeList");
+    expect(child0.value).toBe(value);
+  });
+
+  // The negatives, in both directions the class can be got wrong. A
+  // blank lead is outside it to both authorities, and a combining
+  // mark is inside Ruby's `\p{Word}` and outside the oracle's
+  // `\p{Alphabetic}`; the registry follows the oracle, so both lines
+  // are ordinary text and the paragraph under them is one block.
+  test.each([["[ ünicode]"], ["[\u0301x]"]])(
+    "%j stays ordinary text",
+    (line) => {
+      const document = parse(`${line}\npara\n`);
+      expect(document.children).toHaveLength(1);
+      const {
+        children: [child0],
+      } = document;
+      narrow(child0, "paragraph");
+    },
+  );
+
   // Shorthand role syntax: [.role] sets the block's role.
   test("[.role] shorthand role parses correctly", () => {
     const document = parse("[.role]\n");

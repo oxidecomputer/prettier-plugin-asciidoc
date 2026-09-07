@@ -588,32 +588,78 @@ const LINE_COMMENT_SOURCE = "//(?!/)";
  * Pattern source for a block attribute list line (`[source,ruby]`,
  * `[.role]`, `[]`), unanchored like the anchor source above. Mirrors
  * `BlockAttributeLineRx`
- * (`/^\[(?:|[\w.#%{,"']CC_ANY*|\[…\])\]$/`) minus its third
- * alternative, the `[[anchor]]` form, which is
+ * (`/^\[(?:|[CC_WORD.#%{,"']CC_ANY*|\[…\])\]$/`, rx.rb l.184) minus
+ * its third alternative, the `[[anchor]]` form, which is
  * {@link BLOCK_ANCHOR_SOURCE} (the two are kept apart because the
  * list-item context treats them differently).
  *
  * Two details are easy to get wrong and both are load-bearing: the
- * FIRST character inside the brackets must come from Ruby's narrow
- * class, so `[+1]` and `[*bold*]` are ordinary text; and `CC_ANY`
- * matches `]`, so `[a]b]` IS an attribute line. The oracle confirms
- * both (see the rows in tests/conformance/interruption.test.ts).
+ * FIRST character inside the brackets must come from a narrow class,
+ * so `[+1]` and `[*bold*]` are ordinary text; and `CC_ANY` matches
+ * `]`, so `[a]b]` IS an attribute line. The oracle confirms both (see
+ * the rows in tests/conformance/interruption.test.ts).
+ *
+ * That first character's class is UNICODE, and reading it as ASCII
+ * corrupts the render: `[ünicode]` and `[日本]` open an attribute
+ * line to both authorities, and a reader that sees prose there joins
+ * the paragraph below onto the line, so the metadata and the
+ * paragraph's first line are destroyed together (issue #257). Only
+ * the FIRST character is held to the class, which is why `[café]`
+ * reads as an attribute line under any spelling of it. The class is
+ * spelled here the way the ORACLE spells `CC_WORD` (`index.cjs`
+ * l.54):
+ * `\p{Alphabetic}\p{N}\p{Pc}`, the same class {@link ATTRIBUTE_ENTRY}
+ * holds its name lead to.
+ *
+ * The authorities diverge at the edges of that class. Ruby's
+ * `\p{Word}` (asciidoctor.rb l.436) is alphabetics plus MARKS plus
+ * DECIMAL digits plus connectors plus the two Join_Control
+ * characters, so an interior led by a combining mark (U+0301 then
+ * `x`) is an attribute line to the Ruby and prose to the oracle, and
+ * one led by a non-decimal number (U+00BD then `x`) is prose to the
+ * Ruby and an attribute line to the oracle. Those two directions
+ * are the WHOLE difference, swept code point by code point through
+ * both engines. Both readings measured through both programs; the
+ * oracle wins, because it is the program every render assertion here
+ * runs, and the two agree on every interior a document outside those
+ * two edges can write.
  */
-const BLOCK_ATTRIBUTE_LINE_SOURCE = String.raw`\[(?:|[\w.#%\{,"'][^\n]*)\]`;
+const BLOCK_ATTRIBUTE_LINE_SOURCE = String.raw`\[(?:|[\p{Alphabetic}\p{N}\p{Pc}.#%\{,"'][^\n]*)\]`;
 
 /**
- * The class Ruby's `BlockAttributeLineRx` requires of the FIRST
- * character inside a block-attribute line's brackets - kept in sync
- * with {@link BLOCK_ATTRIBUTE_LINE_SOURCE} by hand rather than
- * derived from it (that source is a whole line's pattern; this is
- * only its head), because attrlist.ts asks the narrower question
- * before printing a quoted first entry bare: unquoting it to a value
- * starting outside this class would change whether the WHOLE LINE
- * still reads as an attribute line, not just which value it names
- * (measured: `` [`d`] `` and `[*bold*]` read as ordinary text,
- * `["d"]` and `[.role]` do not).
+ * The class BOTH authorities require of the FIRST character inside a
+ * block-attribute line's brackets - kept in sync with
+ * {@link BLOCK_ATTRIBUTE_LINE_SOURCE} by hand rather than derived
+ * from it (that source is a whole line's pattern; this is only its
+ * head), because src/parse/attrlist.ts asks the narrower question
+ * before it respells anything. Its two askers are `canonicalField`,
+ * which unquotes a first entry and so writes the line's own leading
+ * character (a value starting outside this class would change
+ * whether the WHOLE LINE still reads as an attribute line, not just
+ * which value it names - measured: `` [`d`] `` and `[*bold*]` read
+ * as ordinary text, `["d"]` and `[.role]` do not), and
+ * `canonicalAttrlist`, which asks it of the interior it is about to
+ * rewrite, because respacing a comma inside a line only ONE
+ * authority reads as metadata rewrites the other's prose.
+ *
+ * Narrower than the reader's class ON PURPOSE, and that is the whole
+ * reason the two are separate rather than one export. Reading is
+ * about a line the author already wrote, so it follows the oracle
+ * over the class edges above and the author's bytes come back either
+ * way. RESPELLING creates a line neither author nor oracle wrote,
+ * and a respelling that fires where the two engines read the result
+ * differently moves the render of whichever one this test suite does
+ * not run: a quoted value led by U+00BD opens an attribute line to
+ * both, and the same value bare opens one to the oracle and a
+ * paragraph to the Ruby, so dropping those quotes would flip the
+ * reference implementation's reading (measured through both
+ * programs). So the numbers here are the DECIMAL ones both classes
+ * hold (`\p{Nd}`, the intersection of the oracle's `\p{N}` with
+ * Ruby's `\p{Digit}`), and marks - Ruby-only - are absent for the
+ * same reason.
  */
-export const ATTRLIST_LEADING_CHARACTER = /[\w.#%\{,"']/v;
+export const ATTRLIST_LEADING_CHARACTER =
+  /[\p{Alphabetic}\p{Nd}\p{Pc}.#%\{,"']/v;
 
 /**
  * Every delimited-block kind, one per `DELIMITED_BLOCKS` key. Written
@@ -775,13 +821,6 @@ export const BLOCK_TITLE = /^\.\.?[^ \t.][^\n]*$/v;
 // them. Both measured through both programs; the oracle wins, because
 // it is the program every render assertion here runs, and the two
 // agree on every name a document outside those two edges can write.
-//
-// Two rows above approximate the same `CC_WORD` by `\w` rather than
-// spelling it in full: BLOCK_ATTRIBUTE_LINE_SOURCE's leading
-// character and ATTRLIST_LEADING_CHARACTER beside it, where
-// `[ünicode]` and `[日本]` are attribute lines to both authorities and
-// prose to this reader. The block anchor's id class is NOT one of
-// them: it is spelled in full at BLOCK_ANCHOR_ID_TAIL_ORACLE.
 //
 // Named groups carry the parse out through the classifier — the ONE
 // parse; the accepted line set is IDENTICAL to the ungrouped spelling

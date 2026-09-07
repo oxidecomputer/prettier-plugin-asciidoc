@@ -228,12 +228,20 @@ describe("classifyLine over the reachable grid", () => {
   // column: `cells` rose from 11,468 to 12,032 and `asked` from 8,765
   // to 9,329. No cell of any of the three disagrees with the oracle,
   // so the reach is what grew and the verdicts did not move.
+  //
+  // Two bracketed-text spellings joined it with the block attribute
+  // line's own lead class (issue #257), for `cells` 12,032 to 12,408
+  // and `asked` 9,329 to 9,705, which is both columns asked in every
+  // state. Both are TEXT rows: the spellings that ARE attribute lines
+  // cannot ride this roster, because the oracle's block count cannot
+  // see one inside a list item (interruption-probes.ts says why, and
+  // interruption.test.ts pins them by paragraph count instead).
   test("is the size and reach the enumeration predicts", () => {
     const { cells, asked } = grid;
     expect(openParagraphProbes()).toHaveLength(188);
-    expect(CONSTRUCTS).toHaveLength(64);
-    expect(cells).toBe(12_032);
-    expect(asked).toBe(9329);
+    expect(CONSTRUCTS).toHaveLength(66);
+    expect(cells).toBe(12_408);
+    expect(asked).toBe(9705);
   });
 
   // Why the 23 states with NO open paragraph are enumerated and not

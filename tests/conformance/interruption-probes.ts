@@ -78,6 +78,20 @@ export const CONSTRUCTS: Array<[string, string]> = [
   // merges the block they open straight back into the item text).
   ["bracketed text (leading +)", "[+1]"],
   ["bracketed text (leading *)", "[*bold*]"],
+  // The same narrowness read at the UNICODE edge of the lead class
+  // (`CC_WORD`, rx.rb l.184), which is a Unicode class and not `\w`.
+  // Both rows are ordinary TEXT, which is why they can stand here at
+  // all: the spellings that ARE attribute lines hit the blind spot
+  // the comment above names, and are pinned in the paragraph-count
+  // table below instead. A blank lead is outside the class to both
+  // authorities; a combining mark is inside Ruby's `\p{Word}` and
+  // outside the oracle's `\p{Alphabetic}`, and this suite measures
+  // the oracle, which the registry follows.
+  ["bracketed text (leading blank)", "[ ünicode]"],
+  // Written as an escape because a lone combining mark after `[` has
+  // nothing to combine with and renders as a stray accent on the
+  // bracket in most editors.
+  ["bracketed text (combining mark lead)", "[\u0301x]"],
   ["block anchor", "[[anchor]]"],
   // The same shape at the three edges of the id class
   // (BLOCK_ANCHOR_ID_TAIL_ORACLE, src/parse/line-shapes.ts). The two

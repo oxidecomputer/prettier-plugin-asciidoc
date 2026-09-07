@@ -146,7 +146,7 @@ const EXEMPT = new Map<string, string>([
   ],
   [
     "ATTRLIST_LEADING_CHARACTER",
-    "the class BLOCK_ATTRIBUTE_LINE (its own dimension, covers: BLOCK_ATTRIBUTE_LINE) already requires of the byte right after `[` - re-exported for src/parse/attrlist.ts's printer-side canonicalField, which asks it before unquoting an interior's first field, never for reading a line; a helper shared across the boundary, not a second line shape",
+    "the class BOTH authorities require of the byte right after `[`, which is what BLOCK_ATTRIBUTE_LINE (its own dimension, covers: BLOCK_ATTRIBUTE_LINE) requires minus the two class edges the engines read differently - re-exported for src/parse/attrlist.ts's printer-side canonicalField, which asks it before unquoting an interior's first field, never for reading a line; a helper shared across the boundary, not a second line shape",
   ],
   [
     "ATTRIBUTE_CONTINUATION",

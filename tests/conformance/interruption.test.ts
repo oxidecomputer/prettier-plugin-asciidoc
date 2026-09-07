@@ -195,11 +195,12 @@ describe("the line-shape union reflow consumes", () => {
   });
 });
 
-// `BlockAttributeLineRx` is `^\[(?:|[\w.#%{,"']CC_ANY*|\[…\])\]$`.
-// Two halves of that are easy to lose: the FIRST character class,
-// and `CC_ANY` matching `]`. The oracle shows both — an attribute
-// line is consumed as metadata and its text vanishes, while ordinary
-// bracketed text stays in the paragraph and keeps it whole.
+// `BlockAttributeLineRx` is `^\[(?:|[CC_WORD.#%{,"']CC_ANY*|\[…\])\]$`
+// (rx.rb l.184). Two halves of that are easy to lose: the FIRST
+// character class, and `CC_ANY` matching `]`. The oracle shows both,
+// since an attribute line is consumed as metadata and its text
+// vanishes while ordinary bracketed text stays in the paragraph and
+// keeps it whole.
 /**
  * Counts the `<p>` elements the oracle emitted.
  * @param html - normalized HTML from {@link renderedHtml}
@@ -209,6 +210,25 @@ function paragraphCount(html: string): number {
   return (html.match(/<p>/gv) ?? []).length;
 }
 
+// The rows that are attribute lines cannot ride in CONSTRUCTS: in a
+// list item the oracle's block count cannot see them, because
+// `fold_first` merges the paragraph they open straight back into the
+// item text (see the note on the bracketed-text rows in
+// interruption-probes.ts). Counting the paragraphs one context
+// produces is the instrument that does see them, so the positive
+// spellings of the lead class live here.
+//
+// Red before the lead class stopped being `\w` (issue #257): every
+// row whose interior LEADS outside ASCII answered `false` to the
+// registry and `2` to the oracle, and a reader that reads prose
+// where the oracle reads metadata folds the line into the paragraph
+// and destroys both. The `#` and `.` rows were green already, since
+// their lead is ASCII and only the payload behind it is not; they
+// stand here so the shorthand routes off that first character are
+// each measured with a non-ASCII payload. U+00BD leads the one row
+// the two authorities disagree about, in the direction that says the
+// registry follows the oracle: it is in the oracle's `\p{N}` and
+// outside Ruby's `\p{Digit}`.
 describe("the block attribute line's exact shape", () => {
   test.each([
     ["[]", true],
@@ -217,6 +237,15 @@ describe("the block attribute line's exact shape", () => {
     ["[+1]", false],
     ["[*bold*]", false],
     ["[ ]", false],
+    ["[ünicode]", true],
+    ["[日本]", true],
+    ["[ün icode]", true],
+    ["[#ünicode]", true],
+    ["[.ünicode]", true],
+    ["[ünicode, role=x]", true],
+    ["[½x]", true],
+    ["[ ünicode]", false],
+    ["[\u0301x]", false],
   ])("%s", async (line, isAttributeLine) => {
     expect(interruptsParagraph(line, "paragraph")).toBe(isAttributeLine);
     // An attribute line splits the paragraph in two; text keeps it

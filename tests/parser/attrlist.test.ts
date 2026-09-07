@@ -263,9 +263,38 @@ describe("canonicalAttrlist — one spelling of the interior", () => {
     // quoting by the four hazards above, with no leading-character
     // check at all.
     ['"*bold*"', '"*bold*"'],
-    // A LATER field carries no such risk - only the interior's own
-    // first byte decides whether the LINE is an attribute line.
+    // A LATER field carries no such risk of its own - only the
+    // interior's own first byte decides whether the LINE is an
+    // attribute line, and the gate below has already held that byte
+    // to the class both authorities accept.
     ['a,"*bold*"', "a,*bold*"],
+    // THE DISAGREEMENT GATE. A lead the two authorities read
+    // differently makes the whole interior unrespellable, because the
+    // bracketed line is metadata to one program and prose to the
+    // other, and rewriting prose moves what that program renders.
+    // U+00BD is in the oracle's `\p{N}` and outside Ruby's
+    // `\p{Digit}`, so both rows come back byte for byte. Red before
+    // canonicalAttrlist grew the gate: the first printed
+    // `½x,role=y`, the second `½x,b c`.
+    ["½x, role=y", "½x, role=y"],
+    ['½x, "b c"', '½x, "b c"'],
+    // The gate asks TWO questions, and each control below turns off
+    // one of them. A lead both authorities accept is respelled as
+    // ever (日 is alphabetic to both), and a leading BLANK reaches no
+    // lead class at all: no `[...]` line begins with one, so this
+    // interior can only have come from a macro's brackets, where the
+    // blanks are the boundary blanks Ruby drops (the ` source , ruby `
+    // row above is the same control, from before the gate existed).
+    ["日本, role=y", "日本,role=y"],
+    [" ½x , role=y ", "½x,role=y"],
+    // An ASTRAL lead is in the agreed class like any other letter,
+    // and both questions read a CODE POINT to see that. Red before
+    // they did: U+10400 is a surrogate PAIR, its leading unit is a
+    // lone surrogate in no Unicode class, so indexing answered
+    // "outside" and the gate refused the respacing while the
+    // first-field guard kept the quotes.
+    ["𐐀x, role=y", "𐐀x,role=y"],
+    ['"𐐀x"', "𐐀x"],
     // Ruby expands `{name}` INTO the attrlist string before
     // AttributeList#parse ever runs, so a value that carries none of
     // the four hazards above in its OWN bytes can still expand into
