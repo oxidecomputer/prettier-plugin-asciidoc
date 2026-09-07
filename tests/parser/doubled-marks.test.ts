@@ -346,7 +346,7 @@ describe("an attrlist in front of a doubled mark (issue #72)", () => {
       // match instead of writing into the class
       // (span-edges.ts's attrlistAllowsIt). The FIRST has no run in
       // front of it at all, and is refused by the block-wide scan
-      // (`carriesMark`, src/print/inline.ts) precisely because the
+      // (`carriesMark`, src/print/declared-rules.ts) precisely because the
       // role BEHIND it puts `**` on the line: shortened, those bytes
       // pair with the single marks left standing and the render moves.
       formatted: "**a**[b**c]**d**",

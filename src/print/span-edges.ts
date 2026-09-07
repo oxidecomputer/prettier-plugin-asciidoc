@@ -474,7 +474,7 @@ export type HeadContext =
        * The enclosing span's own edge as the asking row reads it:
        * the element boundary its rewrite wrote where that row has
        * already run, and its literal opening delimiter where it has
-       * not (`headContext`, src/print/inline.ts).
+       * not (`headContext`, src/print/declared-rules.ts).
        */
       readonly edge: string;
     };
@@ -500,7 +500,8 @@ export function headBytes(head: HeadContext): string {
  * from it, and they answer two different questions
  * ({@link attrlistAllowsIt}). Not exported: the value travels from
  * {@link attrlistInFront} to that predicate, and its one caller
- * (`neighboursAllowIt`, src/print/inline.ts) never names the type.
+ * (`neighboursAllowIt`, src/print/declared-rules.ts) never names the
+ * type.
  */
 interface AttrlistInFront {
   /** The run between the `[` and the `]`, never empty. */
@@ -927,7 +928,7 @@ function runMayBeOpen(head: HeadContext, front: string): boolean {
  * modelled and neither can arrive. A `#` would open the shorthand ID
  * syntax, and it is also the highlight mark, so a role holding one
  * refuses the shortening a whole clause earlier, in the block-wide
- * scan (`carriesMark`, src/print/inline.ts) - the only caller
+ * scan (`carriesMark`, src/print/declared-rules.ts) - the only caller
  * ({@link writesBareTextBehind}) is reached for a highlight and for
  * nothing else. A reference is substituted before it is parsed, and
  * that caller refuses on one without asking here.

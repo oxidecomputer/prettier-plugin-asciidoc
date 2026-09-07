@@ -43,6 +43,7 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { cannotRun, GATE_FAILED, printUsage, wantsHelp } from "./lib/cli.js";
+import { checkSymbol, namesIn, symbolCitations } from "./internal-symbols.js";
 import { isArray, isObject, strictJson } from "./metrics/json.js";
 
 const ARGUMENT_START = 2;
@@ -68,15 +69,21 @@ export const SOURCE_ROOT = "src";
 export const NAMED_ROOTS = ["src", "tests", "scripts"];
 
 /**
- * The floor below which the scan proved nothing. The two scanned files
- * carry over fifty citations between them; a run that finds a handful
+ * The floor below which the scan proved nothing, over the line
+ * citations and the symbol citations together. The two scanned files
+ * carry over fifty line citations between them and the three trees
+ * carry over two hundred symbol citations; a run that finds a handful
  * has lost its roots rather than its citations, and that is a 2.
+ *
+ * Raised from 30 when the symbol scan landed: the old floor was set
+ * against the line citations alone, and a symbol scan that resolved
+ * nothing at all would have cleared it without a word.
  *
  * Exported so the floor has a test at its boundary
  * (tests/scripts/internal-citations.test.ts); no other consumer.
  * @internal
  */
-export const MINIMUM_CITATIONS = 30;
+export const MINIMUM_CITATIONS = 200;
 
 /** How both files spell "and the mutant put this in its place". */
 const REPLACED_BY = "->";
@@ -111,6 +118,14 @@ export interface Tree {
    * resolution set could only add wrong answers.
    */
   readonly files: ReadonlySet<string>;
+  /**
+   * Every `.ts` file under {@link NAMED_ROOTS}, as written. The symbol
+   * scan reads comments and declarations from ALL THREE trees, where
+   * the path scan reads comments from `src` alone: a test's comment
+   * names the function it pins as freely as a module names its
+   * neighbour, and a rename rots both.
+   */
+  readonly texts: ReadonlyMap<string, string>;
 }
 
 /**
@@ -291,11 +306,16 @@ export function readTree(root: string): Tree {
   for (const relative of walk(root, SOURCE_ROOT)) {
     sources.set(relative, sourceLines(bytes(relative)));
   }
+  const texts = new Map<string, string>();
+  for (const relative of files) {
+    texts.set(relative, bytes(relative));
+  }
   return {
     minimums: bytes(MINIMUMS_FILE),
     lintConfig: bytes(ESLINT_FILE),
     sources,
     files,
+    texts,
   };
 }
 
@@ -415,6 +435,8 @@ export interface Report {
   exempt: number;
   /** Repo paths named in a `src` file and held to existing. */
   paths: number;
+  /** Symbols named beside a repo path and held to that file. */
+  symbols: number;
   /** Line references nothing in their scope named a file for. */
   contextless: string[];
   /** One line per failure, ready to print. */
@@ -630,6 +652,38 @@ function checkRepoPaths(report: Report, tree: Tree): void {
 }
 
 /**
+ * Hold every symbol a comment names beside a repo path to a name that
+ * file declares or imports.
+ *
+ * The names of every read file are collected FIRST, so one parse per
+ * file answers however many citations name it. A citation naming a
+ * file this gate has no text for is skipped: see
+ * `scripts/internal-symbols.ts` for why that is not this half's
+ * question.
+ * @param report - the run's report, added to in place
+ * @param tree - the checkout
+ */
+function checkSymbols(report: Report, tree: Tree): void {
+  const names = new Map<string, ReadonlySet<string>>();
+  for (const [relative, text] of tree.texts) {
+    names.set(relative, namesIn(relative, text));
+  }
+  for (const [relative, text] of tree.texts) {
+    for (const citation of symbolCitations(relative, text)) {
+      const held = names.get(citation.file);
+      if (held === undefined) {
+        continue;
+      }
+      report.symbols += 1;
+      report.listing.push(
+        `${citation.at}\t\`${citation.named}\`\t${citation.file}`,
+      );
+      report.failures.push(...checkSymbol(citation, held));
+    }
+  }
+}
+
+/**
  * Check a whole checkout.
  *
  * All of the run's decisions, and none of its IO, so a test can run the
@@ -647,6 +701,7 @@ export function run(tree: Tree): Report {
     quoted: 0,
     exempt: 0,
     paths: 0,
+    symbols: 0,
     contextless: [],
     failures: [],
     listing: [],
@@ -654,6 +709,7 @@ export function run(tree: Tree): Report {
   checkMinimums(report, tree);
   checkLintConfig(report, tree);
   checkRepoPaths(report, tree);
+  checkSymbols(report, tree);
   return report;
 }
 
@@ -700,7 +756,8 @@ export type Verdict =
  * @returns what to print, and which exit code the run earned
  */
 export function verdict(report: Report): Verdict {
-  const total = report.checked + report.exempt + report.failures.length;
+  const total =
+    report.checked + report.exempt + report.symbols + report.failures.length;
   if (total < MINIMUM_CITATIONS) {
     return {
       kind: "cannot-run",
@@ -715,7 +772,7 @@ export function verdict(report: Report): Verdict {
     return { kind: "failed", lines };
   }
   lines.push(
-    `internal-citations: ${String(report.checked)} citations hold (${String(report.quoted)} quoting source, ${String(report.exempt)} naming a former tree), ${String(report.paths)} repo paths exist`,
+    `internal-citations: ${String(report.checked)} citations hold (${String(report.quoted)} quoting source, ${String(report.exempt)} naming a former tree), ${String(report.symbols)} symbols resolve, ${String(report.paths)} repo paths exist`,
   );
   return { kind: "clean", lines };
 }

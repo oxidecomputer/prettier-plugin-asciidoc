@@ -1031,25 +1031,69 @@ in a `src` file to a file that exists. No line, so no quotation check. It caught
 three rotted paths across the two rounds that built it, two of them in the test
 and harness trees a `src` comment names as freely as it names another module.
 
+A fourth scan holds the SYMBOLS, which is the half that survives a comment
+dropping its line number: a path says which file, and only the name says what in
+it. A symbol citation is a backtick-quoted, identifier-shaped run written
+immediately before a repository `.ts` path, across all three trees. Four
+spellings are claimed, and they are the ones the repo writes:
+
+- ``(`isSingleWordLine`, src/parse/line-shapes.ts)`` - a comma and a
+  parenthesis;
+- `` `delimitedExtent` in src/parse/lines/delimited-reader.ts `` - one of the
+  prepositions `in`, `of`, `from`, `at`;
+- ``(`stacksAsMetadata`,`` then the path on the next comment line - the
+  80-column rule breaks the aside as often as not;
+- `` `ParagraphNode.secondLineIndent` (src/ast.ts) `` - a qualified name, whose
+  every segment must be there.
+
+The file must DECLARE the name (function, class, interface, type, enum,
+variable, property or method) or IMPORT it; the walk is the TypeScript
+compiler's, so a name that appears only in a comment does not count. What is
+deliberately NOT claimed: a name with any other word between it and the path
+(``the `BackslashEscape` rule in src/parse/inline/rules.ts`` is prose about a
+rule, not a citation of one), a run that is not identifier-shaped, a name whose
+first segment is a runtime global (`Promise.all`), and a citation whose path
+this gate has no text for - whether the PATH exists is the third scan's
+question, and answering it here would fail every fixture path a gate's own tests
+write. Adjacency and not "any path in the paragraph": this repository's comments
+quote Ruby method names and AsciiDoc spellings in backticks as freely as they
+name their own functions, and the wider rule reports mostly those.
+
 Exit codes: 0 every citation held, 1 a citation FAILED, 2 could not run - a bad
-argument, a missing scanned file, or fewer than thirty citations, which means
-the scan lost its roots. `--list` prints every citation with the file it
-resolved to and the runs it will look for. `scripts/internal-citations.ts`, unit
-tested in `tests/scripts/internal-citations.test.ts`.
+argument, a missing scanned file, or fewer than two hundred citations, which
+means the scan lost its roots. The floor counts line citations and symbol
+citations together, because the symbols are most of the surface: a floor set
+against the line citations alone would clear on a symbol scan that resolved
+nothing at all. Exactly what it counts: every line citation checked, every one
+exempted as naming a former tree, every symbol resolved, and every FAILURE of
+any of the four scans, the third one's dead paths included. A path that holds is
+the one thing not counted - there are hundreds of them and they would carry the
+floor on their own. `--list` prints every citation with the file it resolved to
+and the runs it will look for. `scripts/internal-citations.ts` and
+`scripts/internal-symbols.ts`, unit tested in
+`tests/scripts/internal-citations.test.ts` and
+`tests/scripts/internal-symbols.test.ts`.
 
 A citation that quotes nothing is checkable for its line and no further, and a
 row in that state is one a human has to correct unaided, which is where a wrong
-hand correction went undetected once. Every scanned citation quotes source today
-(56 of 56), so the class is empty rather than merely small; keep it that way by
-quoting one identifier from the cited region whenever a row is written.
+hand correction went undetected once. Every scanned citation quotes source
+today, so the class is empty rather than merely small; keep it that way by
+quoting one identifier from the cited region whenever a row is written. The run
+prints the two counts side by side, so a row that stops quoting shows up as a
+gap between them.
 
 Proves: every repo-internal citation names a line that exists and still carries
-what it quotes. It does NOT read the `reason` field (free prose, where the next
-quoted run is as likely to be a function named three clauses later), it does not
-resolve a citation outside `src` (the two scanned files cite nothing else, and
-letting a bare basename reach the test tree would make half of them ambiguous),
-and it does not check that the quoted line still MEANS what the row says about
-it - which is the failure mode a re-cite has to be reviewed for, not gated on.
+what it quotes, and every symbol a comment names beside one of this repository's
+files is a name that file has. It does NOT read the `reason` field (free prose,
+where the next quoted run is as likely to be a function named three clauses
+later); the LINE half does not resolve a citation outside `src` (the two scanned
+files cite nothing else, and letting a bare basename reach the test tree would
+make half of them ambiguous), though the SYMBOL half reads all three trees,
+since a test's comment names the function it pins as freely as a module names
+its neighbour; it does not hold a name with no path beside it, so a comment that
+drops its path drops its check with it; and it does not check that the quoted
+line still MEANS what the row says about it - which is the failure mode a
+re-cite has to be reviewed for, not gated on.
 
 ### `bun run local-docs <dir>` - the formatter against real documents
 

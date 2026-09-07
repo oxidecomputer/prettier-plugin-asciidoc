@@ -70,7 +70,7 @@ export const READING_FAMILIES: Readonly<Record<string, ReadingFamily>> = {
   },
   "prose-reads-as-marker": {
     issue: "#161",
-    what: "a line the printer emits without its leading indent re-reads as a LIST MARKER where the indented line read as prose. Two spellings of the one reading, and which one appears depends only on where the de-indented line lands: at a block start it is a marker line outright, and inside a paragraph an earlier `+` attached it is the unreflowable foreign-marker text this projection spells `textv` (src/parse/lines/classify.ts keeps its column because the column decides what a later `+` means). The flip lands on the de-indented line itself, or on a line below it whose enclosing block the de-indent changed. This is #121's reading face: the indent is not carried through the AST, so the printer cannot put it back",
+    what: 'a line the printer emits without its leading indent re-reads as a LIST MARKER where the indented line read as prose. Two spellings of the one reading, and which one appears depends only on where the de-indented line lands: at a block start it is a marker line outright, and inside a paragraph an earlier `+` attached it is the unreflowable foreign-marker text this projection spells `"textv"` (tests/lib/reading.ts); the classifier keeps its column because the column decides what a later `+` means (src/parse/lines/classify.ts). The flip lands on the de-indented line itself, or on a line below it whose enclosing block the de-indent changed. This is #121\'s reading face: the indent is not carried through the AST, so the printer cannot put it back',
   },
 };
 

@@ -143,7 +143,8 @@ const ROWS: readonly Row[] = [
     // NESTED: the raw line sits inside the INNER span, so the outer
     // span's direct children hold none. Both keep the wide spelling,
     // because the refusal is about the span's EXTENT in the source and
-    // not about its child list (`holdsARawLine`, src/print/inline.ts).
+    // not about its child list (`holdsARawLine`,
+    // src/print/declared-rules.ts).
     // A direct-children test shortened the outer span here and not in
     // row 1, which is the same document one level down.
     name: "a raw line inside a nested span keeps both wide spellings",

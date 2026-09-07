@@ -101,7 +101,7 @@ const ADMONITION_LABEL_TOKEN = "admonlabel:";
  *   `[[intro]]` give the block below them the same id, so both build
  *   one blockAnchor node and the printer writes the anchor line for
  *   both, pinned by tests/format/anchor-spelling.test.ts. The fold
- *   asks the BUILDER's own question (`anchorIdOfAttributeLine`,
+ *   asks the BUILDER's own question (`attributeLineInterior`,
  *   src/parse/build/metadata.ts) rather than a pattern of its own, so
  *   an attribute line the builder leaves alone keeps its `attrline`
  *   token and a respelling nobody licensed still moves the sequence;
@@ -348,7 +348,7 @@ type FoldMode = "armed" | "textrun" | "indentedrun" | "none";
  *
  * The `dlist:` arm is kept and it is now CONDITIONAL in the formatter
  * rather than in this projection: a description item produces the
- * join only where the scan called its run `reflow`
+ * join only where the scan called its run `"reflow"`
  * (src/parse/lines/description-list.ts), and replays its recorded
  * lines otherwise. Absorbing unconditionally here is the right
  * direction for a net: it licenses the join wherever the formatter

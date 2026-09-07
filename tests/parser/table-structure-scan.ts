@@ -5,7 +5,8 @@
  * tests/parser/ast-walk.ts split out of ast-invariants.ts for the
  * identical reason.
  *
- * The tables themselves come from `parse()` (tests/parser/table-nodes.ts):
+ * The tables themselves come from the parse that `tableNodes`
+ * (tests/parser/table-nodes.ts) is handed:
  * the reader resolves a table's open and drives the scan, so nothing
  * here re-decides a cutting scheme or re-cuts a cell. What this file
  * owns is the READING of a built cell that the comparison needs and

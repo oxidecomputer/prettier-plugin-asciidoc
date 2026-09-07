@@ -78,8 +78,8 @@ describe("fenced code block parsing", () => {
 
   // AsciiDoc-style delimiters (e.g. `----`) inside a fenced block
   // are treated as plain content, not block openers. A verbatim
-  // block's extent is read by `readVerbatim` in
-  // src/parse/lines/reader.ts, which looks only for its OWN
+  // block's extent is read by `delimitedExtent` in
+  // src/parse/lines/delimited-reader.ts, which looks only for its OWN
   // terminator, so nothing between the fences is classified at all.
   test("asciidoc delimiters inside fenced block are content", () => {
     const { children } = parse("```\n----\ncode\n----\n```\n");

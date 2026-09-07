@@ -3,13 +3,14 @@
  * the quotation rule, the provenance exemption, the exit-code decision,
  * and the gate run end to end over a checkout written out here.
  *
- * The fixture checkout is the point. Every arm the brief asked for -
+ * The fixture checkout is the point. Every arm the gate can take -
  * an entry that holds, one whose line has drifted, one whose quoted
- * text is not there, one that names a tree the move already left -
- * is a row of {@link FIXTURE}, so the failure messages are asserted on
- * rather than described. The real tree is run once at the end, which is
- * the only assertion in this file that can go red because somebody
- * moved code rather than because they changed this gate.
+ * text is not there, one that names a tree the move already left, a
+ * symbol its file has and one it does not - is a row of
+ * {@link FIXTURE}, so the failure messages are asserted on rather than
+ * described. The real tree is run once at the end, which is the only
+ * assertion in this file that can go red because somebody moved code
+ * rather than because they changed this gate.
  */
 import path from "node:path";
 import { describe, expect, test } from "vitest";
@@ -43,6 +44,7 @@ function emptyReport(): Report {
     quoted: 0,
     exempt: 0,
     paths: 0,
+    symbols: 0,
     contextless: [],
     failures: [],
     listing: [],
@@ -205,6 +207,8 @@ const ALPHA = [
   "}",
   "// see src/alpha.ts and src/gone.ts",
   "// pinned by tests/alpha.test.ts, measured by scripts/nowhere.ts",
+  "// the counter (`alpha`, src/alpha.ts) and the one that moved",
+  "// (`beta`, src/alpha.ts)",
 ].join("\n");
 
 const FIXTURE: Tree = {
@@ -252,6 +256,7 @@ const FIXTURE: Tree = {
   lintConfig: ['      "src/alpha.ts", // :3 `return xs.length;`'].join("\n"),
   sources: new Map([["src/alpha.ts", sourceLines(ALPHA)]]),
   files: new Set(["src/alpha.ts", "tests/alpha.test.ts"]),
+  texts: new Map([["src/alpha.ts", ALPHA]]),
 };
 
 describe("the gate over a whole checkout", () => {
@@ -262,6 +267,18 @@ describe("the gate over a whole checkout", () => {
     // the lint config's one.
     expect(report.checked).toBe(6);
     expect(report.quoted).toBe(6);
+  });
+
+  test("a symbol the cited file has resolves, and one it lacks fails", () => {
+    // Red before the symbol scan: `beta` is written beside a file that
+    // declares no such thing, and every gate in the tree passed it.
+    expect(report.symbols).toBe(2);
+    expect(report.failures).toContainEqual(
+      expect.stringContaining(
+        "`beta` names src/alpha.ts, which declares and imports no beta",
+      ),
+    );
+    expect(report.failures.join("\n")).not.toContain("`alpha` names");
   });
 
   test("every failure opens with the line it is written on", () => {
@@ -321,7 +338,7 @@ describe("the gate over a whole checkout", () => {
     // A `src` comment names the test that pins it and the harness that
     // measures it as freely as it names another module, and a renamed
     // file rots all three the same way.
-    expect(report.paths).toBe(4);
+    expect(report.paths).toBe(6);
     expect(report.failures).toContain(
       "src/alpha.ts:6: names scripts/nowhere.ts, which does not exist",
     );
@@ -329,7 +346,7 @@ describe("the gate over a whole checkout", () => {
   });
 
   test("and nothing else failed", () => {
-    expect(report.failures).toHaveLength(5);
+    expect(report.failures).toHaveLength(6);
   });
 });
 
@@ -354,12 +371,22 @@ describe("what a run earns", () => {
     expect(verdict(report).kind).toBe("cannot-run");
   });
 
-  test("the floor counts exempt and failed citations too", () => {
+  test("the floor counts exempt, failed and symbol citations too", () => {
     const report = emptyReport();
-    report.checked = MINIMUM_CITATIONS - 2;
+    report.checked = MINIMUM_CITATIONS - 3;
     report.exempt = 1;
+    report.symbols = 1;
     report.failures = ["one"];
     expect(verdict(report).kind).toBe("failed");
+  });
+
+  test("symbols alone can carry the floor", () => {
+    // Which the floor's height assumes: the symbol citations are most
+    // of the surface, so a floor the symbols could not reach on their
+    // own would be a floor nothing could pass.
+    const report = emptyReport();
+    report.symbols = MINIMUM_CITATIONS;
+    expect(verdict(report).kind).toBe("clean");
   });
 
   test("one failure is a 1, and the count is printed", () => {
@@ -429,7 +456,13 @@ describe("this repository", () => {
   });
 
   test("and there are enough of them for the run to have proved anything", () => {
-    expect(report.checked).toBeGreaterThanOrEqual(MINIMUM_CITATIONS);
+    // The floor is over line citations and symbol citations together:
+    // most of the surface is symbols, and a floor set against the
+    // line citations alone would clear on a symbol scan that resolved
+    // nothing at all.
+    expect(report.checked + report.symbols).toBeGreaterThanOrEqual(
+      MINIMUM_CITATIONS,
+    );
     expect(verdict(report).kind).toBe("clean");
   });
 });

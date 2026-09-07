@@ -884,7 +884,7 @@ function verbatimRunExtent(
     // rather than about the blank written over it. The row it
     // answers from is where the two Asciidoctors are recorded as
     // parting over that `+`
-    // (`styledVerbatimRun`, src/parse/line-shapes-interruption.ts):
+    // (`enclosingListEnds`, src/parse/line-shapes-interruption.ts):
     // Ruby ends a styled run at the placeholder and the transpile
     // keeps it open. Neither reading binds where they part, so this
     // one keeps the BYTES - with nothing under the `+` reflowed the

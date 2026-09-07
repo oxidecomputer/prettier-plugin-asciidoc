@@ -154,8 +154,8 @@ describe("an unconstrained span beside or inside a pair still shortens", () => {
   // already run when a super/sub delimiter is read - and what stands
   // beside it is the caret or tilde itself, which no boundary class
   // excludes. Both directions and both nestings are asked, because
-  // `edgeTail`, `edgeHead` and `headContext` (src/print/inline.ts,
-  // src/print/span-edges.ts) are three call sites of the same row
+  // `edgeTail`, `edgeHead` (src/print/span-edges.ts) and `headContext`
+  // (src/print/declared-rules.ts) are three call sites of the same row
   // lookup and a pair that went opaque to one of them would keep the
   // wide spelling on that side alone.
   test.each([

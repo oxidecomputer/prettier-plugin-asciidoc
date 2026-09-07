@@ -117,7 +117,8 @@ describe("a role's own bytes count on the line", () => {
   // and that corruption is a FIXED POINT, so nothing walks it back.
   //
   // The refusal is the block-wide scan's (`carriesMark`,
-  // src/print/inline.ts), which reads every OTHER node on the line;
+  // src/print/declared-rules.ts), which reads every OTHER node on the
+  // line;
   // the role-carrying span's own run is a different question, asked
   // by `attrlistAllowsIt` (src/print/span-edges.ts).
   test.each([
