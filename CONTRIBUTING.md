@@ -38,9 +38,10 @@ instrumented, at ten to seventeen seconds each depending on how loaded the
 machine is - two generated sweeps run inside the suite and both inflate under
 contention - and the rest are a few seconds or less. Together they are exactly
 what CI's blocking `gates` job runs, minus the deep sweeps
-(`bun run test:deeply-nested-lists`, about three minutes); run those too when
-your change touches parsing or printing of lists, or the shape or inline
-registries.
+(`bun run test:deeply-nested-lists`, about fifteen seconds); run those too when
+your change touches parsing or printing of lists, or the shape registry. The
+inline registry's deep tier is not in that command: it is
+`bun run test:batched-sweeps`, listed with the heavier checks below.
 
 Run `bun run gates` rather than the eleven commands by hand: two lanes in one
 night each ran a partial local battery that skipped `citation-check` and shipped
@@ -60,8 +61,13 @@ gained the fields of two declared families is covered by neither. The syntax,
 the verification command and the failure messages are in
 [docs/harnesses.md](docs/harnesses.md).
 
-Two heavier checks run on a slower cadence:
+Three heavier checks run on a slower cadence:
 
+- **The inline sweep's deep tier** (`bun run test:batched-sweeps`, about two
+  minutes): batched, not per-commit, because it costs more than every other deep
+  gate put together. Run it before a push that changes the inline registry or
+  inline printing, and at integration points. It exits 2 rather than 0 when its
+  config collects nothing, so a run that swept nothing cannot be read as a pass.
 - **Mutation testing** (`bun run mutate`, ~11 minutes): batched, not per-commit.
   Run it before a push that meaningfully changes `src/`, or when deliberately
   moving a recorded minimum. It checks every `src` file against its recorded

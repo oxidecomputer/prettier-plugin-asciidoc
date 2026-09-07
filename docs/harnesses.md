@@ -256,9 +256,13 @@ the only harness that proves fidelity per difference.
 
 ### `bun run test:deeply-nested-lists` - the deep sweeps
 
-Runs every `*.deep.test.ts` under its own vitest config. Five tests today, and
-the runner's floor is exactly five, so one being renamed out of the glob or
-skipped is exit 2 rather than a green tick.
+Runs the per-push half of the `*.deep.test.ts` files under its own vitest
+config, `vitest.sweep.config.ts`. Four tests today, and the runner's floor is
+exactly four, so one being renamed out of the glob or skipped is exit 2 rather
+than a green tick.
+
+The other half is `bun run test:batched-sweeps`, below: same runner script, same
+floor discipline, a different cadence.
 
 `tests/format/list-shape-sweep.deep.test.ts`: every nested-list shape to
 `DEEP_DEPTH`, each formatted twice and rendered on both sides, against the
@@ -281,15 +285,15 @@ leaves SWEEP coverage only: it stays pinned, with its signature, by
 that reading. #17 is where the shape came from and is closed; no open issue owns
 the mechanism today, so the pin stands until the mechanism itself is fixed.
 
-The default-tier entries, the registry sweep's and the inline sweep's, run again
-in the same blocking CI job as the deep tier regardless: StrykerJS's own vitest
+The default-tier entries, the registry sweep's and the inline sweep's, are in
+`bun run test` regardless of what their deep tiers do: StrykerJS's own vitest
 config extends this repository's base `exclude` list and adds nothing back to
 it, so a mutation run never sees a deep tier, and the default tier is the only
-sweep coverage it has. The duplication in CI - both tiers checking the same
-rows, in the same job, on every push - is the accepted price of keeping that
-coverage: what the second run costs is printed by vitest in the same job, beside
-the `test:deeply-nested-lists` step it repeats work from, and it is not worth a
-second vitest config to save.
+sweep coverage it has. For the registry sweep that means the same rows are
+checked twice in the same CI job, by both tiers, on every push, which is the
+accepted price of that coverage. For the inline sweep the default tier is now
+the only tier the job runs at all, its deep tier having moved to the batched
+entry.
 
 Both entries carry a SECOND, parallel gate over the same product: the reflow
 re-classification invariant, against `tests/format/reading-ledger.json`. See
@@ -299,19 +303,47 @@ re-classification invariant, against `tests/format/reading-ledger.json`. See
 sweep's deep tier. See
 [the registry sweep](#bun-run-registry-sweep-triage---the-generated-conformance-sweep)
 for what it sweeps and why its manifest is written as clusters. It is the most
-expensive of the four, which is the reason it is here and not in `bun run test`.
+expensive of the three, which is the reason it is here and not in
+`bun run test`.
 
-`tests/conformance/inline-sweep.deep.test.ts` is the fourth: the inline sweep's
-deep tier (`inlineDeepTierRows()`), in about two minutes. See
-[the inline sweep](#bun-run-inline-sweep-triage---the-generated-inline-sweep).
-
-`tests/conformance/reparse.deep.test.ts` is the fifth: the reparse ledger over
+`tests/conformance/reparse.deep.test.ts` is the fourth: the reparse ledger over
 its whole population (`deepTierCases()`, floored at `MINIMUM_POPULATION`). See
 [the reparse ledger](#bun-run-reparse-ledger---the-reparse-breach-inventory).
 
 Proves: no list shape regressed, no known-broken shape got quietly fixed without
 its allowlist entry (and issue) being retired, and no generated coordinate
 outside the default tier changed its verdict.
+
+### `bun run test:batched-sweeps` - the deep sweeps that run batched
+
+Runs the batched half of the `*.deep.test.ts` files under
+`vitest.batched-sweep.config.ts`, which is one file today:
+`tests/conformance/inline-sweep.deep.test.ts`, the inline sweep's deep tier
+(`inlineDeepTierRows()`). See
+[the inline sweep](#bun-run-inline-sweep-triage---the-generated-inline-sweep)
+for what it sweeps and why its manifest is written as clusters.
+
+Same runner script as the entry above, behind `--batched`, so the floor
+discipline is the same: one test today, the floor is exactly one, and a config
+that collects nothing is exit 2 rather than the green tick `passWithNoTests`
+would otherwise hand it. The floor earns more here than it does per push, since
+a batched entry is asked for by hand and rarely, so nothing else would notice it
+going quiet.
+
+Why it is batched: it cost more wall time than the three per-push deep products
+put together and was the whole critical path of CI's blocking job on its own. So
+it runs at integration points, the way mutation testing, the whitespace battery
+and the reference diff do, and not on every push. Nothing about what it proves
+changed, and its own file carries the wall times its ceiling is set from, in the
+comment beside the ceiling.
+
+The partition is one definition, not two: `vitest.batched-sweep.config.ts`
+exports the list of files it claims and `vitest.sweep.config.ts` imports that
+list to exclude them, so a deep file cannot be collected by both entries or by
+neither.
+
+Proves: what the inline sweep's deep tier proved when it ran per push, at a
+cadence a push does not pay for.
 
 ### `bun run reading-ledger` - the reading-violation inventory
 
@@ -458,7 +490,7 @@ gates over it are tiered by wall time:
   failing row. Its rows are a strict subset of the deep tier below and run again
   there in the same CI job; kept in `bun run test` anyway because a mutation run
   never sees the deep tier (see
-  [the deep sweeps](#bun-run-test-deeply-nested-lists---the-deep-sweeps)).
+  [the deep sweeps](#bun-run-testdeeply-nested-lists---the-deep-sweeps)).
 - DEEP tier, in `bun run test:deeply-nested-lists`
   (`tests/conformance/registry-sweep.deep.test.ts`): both grids, each crossed
   with the operator set it declares (`deepTierRows()`) - the standing grid with
@@ -585,23 +617,24 @@ changing no count any other rule watches. The placement is exact in the contexts
 that prefix nothing; a list marker or an admonition label shifts the run right,
 and those rows break earlier.
 
-Two gates over it, tiered by wall time:
+Two gates over it, tiered by wall time, and the tiers run at different cadences:
 
 - DEFAULT tier, in `bun run test` (`tests/conformance/inline-sweep.test.ts`):
   the standing grid clean (`inlineDefaultTierRows()`). Pinned to
   `tests/conformance/inline-sweep-quarantine.json`, one entry per failing row.
-  Its rows are a strict subset of the deep tier below and run again there in the
-  same CI job; kept in `bun run test` anyway for the same reason the registry
-  sweep's is (see
-  [the deep sweeps](#bun-run-test-deeply-nested-lists---the-deep-sweeps)).
-- DEEP tier, in `bun run test:deeply-nested-lists`
+  Its rows are a strict subset of the deep tier below, and since that tier left
+  the per-push job this is the only inline sweep a push runs (see
+  [the deep sweeps](#bun-run-testdeeply-nested-lists---the-deep-sweeps)).
+- DEEP tier, in `bun run test:batched-sweeps`
   (`tests/conformance/inline-sweep.deep.test.ts`): that grid under every byte
   operator, plus the whole pair product - any two alphabet members standing in
   ONE inline run, joined adjacently, by a space, by a bracket pair, across a
   kept comment line or across a tabbed em-dash spelling
-  (`inlineDeepTierRows()`), in about two minutes. Pinned to
+  (`inlineDeepTierRows()`). Pinned to
   `tests/conformance/inline-sweep-deep-manifest.json`, failing rows grouped into
-  clusters.
+  clusters. Batched rather than per push because it costs minutes where the
+  other deep gates cost seconds (see
+  [the batched deep sweeps](#bun-run-testbatched-sweeps---the-deep-sweeps-that-run-batched)).
 
 `bun run inline-sweep-triage` (no `--write`) sweeps both tiers without touching
 either file and prints the current totals on its first line, the same way
@@ -1954,11 +1987,13 @@ is a generator, not a gate.
 base), and `deletion-gate` rides `differential` (it needs the base revision,
 which only that job checks out deeply enough to archive).
 
-Two harnesses run at neither job: `whitespace-battery` and `reference-diff` need
-Asciidoctor's Ruby gem, which is a developer prerequisite rather than a CI
+Three harnesses run at neither job. `whitespace-battery` and `reference-diff`
+need Asciidoctor's Ruby gem, which is a developer prerequisite rather than a CI
 dependency, so they are batched at integration points the way mutation testing
 is. Both exit 2 on a machine without the gem, so a batched run that skipped them
-is never mistaken for one that passed.
+is never mistaken for one that passed. `test:batched-sweeps` needs nothing
+special and is batched for cost alone: it was a step of the `gates` job and was
+that job's critical path by itself.
 
 **`differential`** — needs a base, and is `continue-on-error` for its first
 iteration; flipping it to blocking is a one-line change once it has proved

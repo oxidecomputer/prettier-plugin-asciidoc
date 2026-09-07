@@ -17,6 +17,7 @@
     "vitest.config.ts",
     "vitest.stryker.config.ts",
     "vitest.sweep.config.ts",
+    "vitest.batched-sweep.config.ts",
     "eslint.config.js"
   ]
 }

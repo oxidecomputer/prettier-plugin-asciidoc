@@ -1,21 +1,25 @@
 import { defineConfig } from "vitest/config";
+import { BATCHED_SWEEPS } from "./vitest.batched-sweep.config.js";
 import base from "./vitest.config.js";
 
 /**
- * The vitest entry for the DEEP sweeps — the `*.deep.test.ts` files,
- * run by `bun run test:deeply-nested-lists`: the exhaustive
- * list-shape product and its reflow re-classification ledger, the
- * shape registry's deep tier, and the inline registry's deep tier.
- * That script's own header says what each proves; the floor it holds
- * the collected test count to is what makes a file dropped from the
- * glob below an exit 2 rather than a green tick.
+ * The vitest entry for the PER-PUSH deep sweeps: the
+ * `*.deep.test.ts` files other than the batched ones, run by
+ * `bun run test:deeply-nested-lists`. The exhaustive list-shape
+ * product and its reflow re-classification ledger, the shape
+ * registry's deep tier, and the reparse ledger. That script's own
+ * header says what each proves; the floor it holds the collected test
+ * count to is what makes a file dropped from the glob below an exit 2
+ * rather than a green tick.
  *
  * It is the base config with one glob moved from `exclude` to
- * `include`: what `vitest.config.ts` refuses to collect is the only
- * thing this collects. Derived from the base rather than written out
- * so the two entries cannot drift on anything else — the
- * `.stryker-tmp` exclusion, the timeout and the coverage block are one
- * definition.
+ * `include`, minus the sweeps `vitest.batched-sweep.config.ts` claims:
+ * what `vitest.config.ts` refuses to collect is the only thing this
+ * collects, and the batched entry's list is imported rather than
+ * restated, so the two deep entries partition the deep files exactly.
+ * Derived from the base rather than written out so the entries cannot
+ * drift on anything else: the `.stryker-tmp` exclusion, the timeout
+ * and the coverage block are one definition.
  *
  * SPREAD, not `mergeConfig`. Vite's merge CONCATENATES arrays, so
  * inheriting the base's `exclude` would exclude the very files this
@@ -29,6 +33,6 @@ export default defineConfig({
   test: {
     ...base.test,
     include: ["tests/**/*.deep.test.ts"],
-    exclude: ["node_modules/**", ".stryker-tmp/**"],
+    exclude: ["node_modules/**", ".stryker-tmp/**", ...BATCHED_SWEEPS],
   },
 });

@@ -33,6 +33,7 @@
     "lint": "eslint . --max-warnings=0",
     "test": "vitest run",
     "test:deeply-nested-lists": "bun scripts/test-deeply-nested-lists.ts",
+    "test:batched-sweeps": "bun scripts/test-deeply-nested-lists.ts --batched",
     "check": "tsc --noEmit",
     "vendor": "bun scripts/vendor.ts",
     "fmt": "prettier --write .",

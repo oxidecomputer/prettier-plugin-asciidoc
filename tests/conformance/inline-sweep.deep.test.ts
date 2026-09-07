@@ -1,5 +1,5 @@
 /**
- * The inline sweep's DEEP tier, behind `bun run test:deeply-nested-lists`.
+ * The inline sweep's DEEP tier, behind `bun run test:batched-sweeps`.
  *
  * The standing grid under every byte operator, plus the whole pair
  * product: any two alphabet members standing in ONE inline run. That
@@ -8,8 +8,10 @@
  * right on its own stops being right when a second span shares the
  * fragment, because the two answer to the same whole-fragment scans.
  *
- * It costs about a minute and a half where the default tier costs
- * three and a half seconds, which is the whole reason for the split.
+ * It costs about two minutes where the default tier costs three and a
+ * half seconds, which is the whole reason for the split, and more than
+ * every other deep gate put together, which is why this one is the
+ * batched entry and the others stay per push.
  *
  * The pin is `inline-sweep-deep-manifest.json`, exact in both
  * directions the way the default tier's per-row manifest is. What
