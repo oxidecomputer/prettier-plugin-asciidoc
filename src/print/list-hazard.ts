@@ -638,14 +638,14 @@ function ruleSpelledByTheMarkerLine(
  * is one whose first line did not spell one - so the marker line the
  * printer writes must not spell one either.
  *
- * Only a packed line break can put it there. Every other run that
- * would spell the prefix keeps its bytes at the split
- * ({@link manufacturedChecklistRun}), and a run that IS a single space
- * already spelled the prefix in the source, where the reader would
- * have read the checkbox. What is left is the source's own line break,
- * folded to a space by the packer, and the remedy is to hold it: `*
- * [x]` over `more` prints as two lines again, and the re-reader sees
- * `[x]` alone on the marker line exactly as the author wrote it.
+ * A run holding a TAB keeps its bytes on its own account (the
+ * whitespace record's tab row, `factOfRun`, src/whitespace-fact.ts),
+ * and a run that IS a single space already spelled the prefix in the
+ * source, where the reader would have read the checkbox. What is left
+ * is the source's own line break, folded to a space by the packer,
+ * and the remedy is to hold it: `* [x]` over `more` prints as two
+ * lines again, and the re-reader sees `[x]` alone on the marker line
+ * exactly as the author wrote it.
  *
  * Where the break may not be held ({@link refusesTheBreak}) the line
  * keeps its packing and DOES read as a checklist item - a failure the

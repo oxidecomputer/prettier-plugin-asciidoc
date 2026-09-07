@@ -70,65 +70,6 @@ export function checklistHead(
   return undefined;
 }
 
-/**
- * Whether keeping this run's bytes would spell the prefix's own space
- * anyway.
- *
- * Ruby tests the prefix against `item_text`, which is the item's FIRST
- * line and which the reader has already right-stripped
- * (`prepare_lines`, reader.rb l.582). So a run that opens with a space
- * and stays on the line still reads as the prefix's space whatever
- * stands behind it, while a run carrying a LINE BREAK ends the line,
- * and the strip takes every blank it left in front of the break.
- * @param run - the run, as the source wrote it.
- * @returns true when the prefix's space survives the run's own bytes.
- */
-function spellsThePrefixSpace(run: string): boolean {
-  return run.startsWith(" ") && !run.includes("\n");
-}
-
-/**
- * The one run at a value's head whose fold would spell a checklist
- * prefix the source did not write.
- *
- * At most one run in either head shape needs its bytes: the first run
- * that is not already the prefix's own space is the one that breaks
- * the spelling, and a run after it would only hold bytes nothing
- * reads.
- *
- * The question is asked of every block's text, not only a list item's,
- * because the splitter has no block. Everywhere else the answer costs
- * the author's own bytes and no meaning: a paragraph opening
- * `[x]<TAB>a` keeps its tab instead of folding it, and nothing reads a
- * checklist prefix there.
- * @param words - the value's source words, in order.
- * @param runs - the runs between them: `runs[index]` stands between
- *   `words[index]` and `words[index + 1]`.
- * @returns the index in `runs` of the run that must keep its bytes, or
- *   undefined where no fold at this head spells a prefix.
- */
-function manufacturedChecklistRun(
-  words: readonly string[],
-  runs: readonly string[],
-): number | undefined {
-  const head = checklistHead(words);
-  if (head === undefined) {
-    return undefined;
-  }
-  // `[x]` or `[*]`, then anything: the fold writes the prefix's space
-  // straight after the bracket, and that one run is the whole story.
-  if (head === "markedBracket") {
-    return spellsThePrefixSpace(runs[0]) ? undefined : 0;
-  }
-  // `[`, `]`, then anything: the first run spells the prefix's inner
-  // space and the second its trailing one, so whichever of the two is
-  // not already a lone space is the one to keep.
-  if (runs[0] !== " ") {
-    return 0;
-  }
-  return spellsThePrefixSpace(runs[1]) ? undefined : 1;
-}
-
 // ── The thematic break a fold would spell ──────────────────
 
 // A gap the rule accepts between two marks: SPACES, and at
@@ -317,16 +258,10 @@ function foldSpellsAThematicBreak(
  * The interior runs whose BYTES the printed line reads, so the packer
  * may not write its own space in their place.
  *
- * Two rules, one answer, because both are about the LINE and both
- * have the same remedy: keeping the run's bytes inside the word
- * beside it reproduces the author's line, which Asciidoctor reads
- * exactly as it read the source's.
- *
- * The CHECKLIST rule holds the one run at the value's head whose fold
- * would spell a prefix the source did not write. The THEMATIC BREAK
- * rule holds every run of a line whose fold would spell a rule. The
- * two never contend: a checklist prefix is four characters of an
- * item's text and a rule is a line of two or three lone marks.
+ * The rule is about the LINE, and keeping a run's bytes inside the
+ * word beside it reproduces the author's line, which Asciidoctor
+ * reads exactly as it read the source's: every run of a line whose
+ * fold would spell a thematic break is held.
  *
  * The runs it CANNOT hold this way are the ones carrying a LINE
  * BREAK, which no atom may hold; those are
@@ -344,10 +279,6 @@ export function runsTheLineReads(
   share: LineShare,
 ): ReadonlySet<number> {
   const held = new Set<number>();
-  const checklist = manufacturedChecklistRun(words, runs);
-  if (checklist !== undefined) {
-    held.add(checklist);
-  }
   if (foldSpellsAThematicBreak(value, words, share)) {
     for (const [index, run] of runs.entries()) {
       if (joinRewritesTheRun(run)) {

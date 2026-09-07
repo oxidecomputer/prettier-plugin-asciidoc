@@ -147,12 +147,13 @@ describe("checklist formatting", () => {
   // The fourth character of each prefix is a literal SPACE, so a
   // bracket the source separated from its text by anything else is
   // TEXT to the oracle and the run that separates them is syntax.
-  // Red before the fold refusal (issue #140): every row here formatted
-  // its run to one space and the output rendered a checkbox glyph
-  // where the input rendered the bracket - `* [x]<TAB>a` came out
-  // `* [x] a`. The run keeps its bytes now
-  // (src/print/whitespace-fold.ts), so the bytes, the render and a
-  // second format all hold.
+  // Red before the tab row (issue #140): every row here formatted its
+  // run to one space and the output rendered a checkbox glyph where
+  // the input rendered the bracket - `* [x]<TAB>a` came out
+  // `* [x] a`. A run holding a TAB keeps its bytes now (`factOfRun`,
+  // src/whitespace-fact.ts, which reads the run alone and asks nothing
+  // about the head), so the bytes, the render and a second format all
+  // hold.
   test.each([
     ["a tab after the bracket", "* [x]\ta\n"],
     ["a tab after an unchecked bracket", "* [ ]\ta\n"],
@@ -162,7 +163,6 @@ describe("checklist formatting", () => {
     // INSIDE it is the one that decides the spelling here.
     ["a tab inside the bracket", "* [\t] a\n"],
     ["two tabs after the bracket", "* [ ]\t\ta\n"],
-    ["a wider bracket than the prefix spells", "* [  ] a\n"],
     ["more text after the first word", "* [ ]\ta b\n"],
     ["a nested item", "** [x]\ta\n"],
     ["the other unordered marker", "- [x]\ta\n"],
@@ -175,6 +175,49 @@ describe("checklist formatting", () => {
     ["a paragraph, which has no checkbox", "[x]\ta\n"],
   ])("the run keeps its bytes with %s", async (_name, input) => {
     await expectFormatted(input, input);
+  });
+
+  // NOT PROTECTED BY DESIGN: a run at the head of an item's text that
+  // is neither a tab nor a single space. A rule of its own used to
+  // hold such a run's bytes so the fold could not spell a prefix the
+  // source had not written. What is left once the tab row and the
+  // marker-line guard have taken their share is a run of two or more
+  // SPACES inside an unchecked bracket, and the two control
+  // characters: no editor and no export from Word, Markdown, HTML or
+  // a wiki writes a U+000B or a U+000C into a text file.
+  //
+  // The spaces row is render-equal, and the marker-line guard is why:
+  // the fold writes `[ ]` alone on the marker line, where the four
+  // character prefix has no trailing space to match, so the re-read
+  // finds no checkbox and the text folds back in. Only the author's
+  // bytes move.
+  test("a wider bracket than the prefix spells loses its width", async () => {
+    await expectFormatted("* [  ] a\n", "* [ ]\n  a\n");
+  });
+
+  // The control characters DO cost the render, which is what makes
+  // this a characterization row and not a pin. What is lost is the
+  // RUN's own bytes and not the reading: the marker-line guard holds
+  // the break here as it does for the spaces row above, so `[x]` ends
+  // up alone on the marker line, the four-character prefix has no
+  // trailing space to match, and NEITHER program reads the output as
+  // a checkbox. Measured on `* [x]<VT>more text`, whose output is
+  // `* [x]` over an indented `more text`: `@asciidoctor/core` 4.0.11
+  // renders `<p>[x]more text</p>` for the input and
+  // `<p>[x] more text</p>` for the output, folding the control
+  // character to a space, and Ruby 2.0.26 renders
+  // `<p>[x]more text</p>` and `<p>[x]\nmore text</p>`, keeping the
+  // line break. Both agree the item is not a checkbox on either side.
+  // Nobody writes the input: no editor and no export from Word,
+  // Markdown, HTML or a wiki puts a U+000B or a U+000C in a text
+  // file.
+  test.each([
+    ["a vertical tab", "\u000B"],
+    ["a form feed", "\u000C"],
+  ])("%s after the bracket folds to a space", async (_name, control) => {
+    expect(await formatAdoc(`* [x]${control}more text\n`)).toBe(
+      "* [x]\n  more text\n",
+    );
   });
 
   // A tab elsewhere in an item's text is kept as well, but by a
