@@ -126,18 +126,16 @@ describe("what a change has to say before it deletes a fact", () => {
   });
 
   test("the committed declarations parse and name this revision's deletions", () => {
-    // The file is scoped to the change in flight: the gate derives
-    // the deleted set from base-to-head, so an entry left behind
-    // after its change is IN the base declares a symbol the diff no
-    // longer removes, which the stale check fails. This revision
-    // removes three published names, so three entries stand and the
-    // pin names them; both leave with the next change measured
-    // against a base that already carries the deletion.
-    expect(loadDeletions().map((entry) => entry.symbol)).toEqual([
-      "src/print/block-start-hazard.ts:openMarkStandsApart",
-      "src/print/block-start-hazard.ts:BlockStartCursor",
-      "src/print/literal-span.ts:spanIsFlush",
-    ]);
+    // The file is scoped to the change CI measures, which is the
+    // revision it checks out against that revision's parent: the gate
+    // derives the deleted set from base-to-head, so an entry whose
+    // deletion is already IN the base declares a symbol the diff no
+    // longer removes, and the stale check fails it as loudly as a
+    // missing one. This revision removes no published name, so the
+    // file is empty and the pin says so. A revision that removes one
+    // carries exactly its own rows, and the next revision empties the
+    // file again.
+    expect(loadDeletions().map((entry) => entry.symbol)).toEqual([]);
   });
 });
 

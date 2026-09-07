@@ -1521,6 +1521,22 @@ A stale declaration fails as loudly as a missing one, on the parity ledger's
 reasoning: a declaration nothing checks outlives the change it described, and
 the next reader takes it for a live one.
 
+So `scripts/deletions.json` is per-change and its resting state is `[]`. Its
+rows describe the deletions of the one change being landed and nothing else, and
+ON A PUSH they survive exactly one measurement: the gate reads the DIFF for what
+went, never the file, so the change after them is measured against a base that
+already carries their deletions, its diff removes nothing, and that change
+empties the file again. Which change a push measures is its own tip against that
+tip's parent (`git rev-parse HEAD^`, the second arm of the base step in
+`.github/workflows/ci.yml`), which is what a batch push has to plan for: a
+deletion made in any commit but the last is already in the base by the time the
+gate runs, so its rows read as stale, and the only push that can see it is one
+whose final commit is the one that deletes. A `pull_request` run measures the
+MERGE BASE instead, and there the emptying belongs to the landing rather than to
+any commit on the branch: every deletion the branch makes stays in the diff for
+as long as the branch lives, so all of its rows have to stand together until it
+lands, and a mid-branch commit empties nothing.
+
 Exit codes: 0 every deletion is declared, 1 one is not (or a declaration is
 stale or unusable), 2 it could not run - a bad argument, no `--base`, a `--base`
 with no revision after it, an unknown revision, or a base checkout whose `src`
