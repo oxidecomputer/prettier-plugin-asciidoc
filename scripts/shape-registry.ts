@@ -496,11 +496,15 @@ export const PERTURBATIONS: readonly PerturbationEntry[] = [
 
 // The byte-operator dimension lives in its own module, on the same
 // "split rather than condense" terms as shape-registry-list-run.ts:
-// this file is at its max-lines ceiling. `BYTE_OPERATORS` is
-// re-exported here so it still reads as this registry's vocabulary;
-// `ByteOperatorEntry` stays declared where it is used (no consumer
-// needs the type by name, only the value).
-export { BYTE_OPERATORS } from "./shape-registry-byte-operators.js";
+// this file is at its max-lines ceiling. `BYTE_OPERATORS` and the
+// shorter set the pair grid crosses with are re-exported here so they
+// still read as this registry's vocabulary; `ByteOperatorEntry` stays
+// declared where it is used (no consumer needs the type by name, only
+// the value).
+export {
+  BYTE_OPERATORS,
+  PAIR_BYTE_OPERATORS,
+} from "./shape-registry-byte-operators.js";
 
 // The width-2 pair grid lives in its own module for the same
 // max-lines reason. `pairGrid` and `pairAlphabet` are re-exported here

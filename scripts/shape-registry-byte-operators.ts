@@ -14,6 +14,12 @@
  * seen one in a fixture. Bare CR is the recorded gap #68 and stays out
  * until that issue closes.
  *
+ * TWO sets are declared, not one. `BYTE_OPERATORS` is the whole
+ * dimension, for the grids that are linear in the construct alphabet;
+ * `PAIR_BYTE_OPERATORS` is the shorter set the quadratic pair grid
+ * crosses with, and its own comment says what was measured to shorten
+ * it.
+ *
  * A LIBRARY module, not a command, on the same terms as
  * `scripts/shape-registry.ts`.
  */
@@ -57,13 +63,21 @@ const trailingByteOperator = (id: string, byte: string): ByteOperatorEntry => ({
 });
 
 /**
- * The byte-operator dimension. `trailing-space-first-line` exists
- * because the all-lines operators above can mask a position-dependent
- * bug; one positional probe at the document's first line is the cheap
+ * A trailing space on every non-empty line. Named on its own because
+ * both operator sets below list it, and two spellings of one operator
+ * could drift apart.
+ */
+const TRAILING_SPACE = trailingByteOperator("trailing-space", " ");
+
+/**
+ * The byte-operator dimension, for the grids that are linear in the
+ * construct alphabet. `trailing-space-first-line` exists because the
+ * all-lines operators can mask a position-dependent bug; one
+ * positional probe at the document's first line is the cheap
  * insurance.
  */
 export const BYTE_OPERATORS: readonly ByteOperatorEntry[] = [
-  trailingByteOperator("trailing-space", " "),
+  TRAILING_SPACE,
   trailingByteOperator("trailing-tab", "\t"),
   trailingByteOperator("trailing-vt", "\v"),
   trailingByteOperator("trailing-ff", "\f"),
@@ -88,4 +102,35 @@ export const BYTE_OPERATORS: readonly ByteOperatorEntry[] = [
       document.endsWith("\n") ? document.slice(0, -1) : undefined,
   },
   { id: "bom", apply: (document) => `\u{FEFF}${document}` },
+];
+
+/**
+ * The operators the width-2 PAIR grid crosses with: the trailing
+ * whitespace class, represented by `trailing-space`, and nothing else.
+ *
+ * WHY IT IS SHORTER THAN THE DIMENSION ABOVE. The pair grid is
+ * quadratic in the alphabet where the other grids are linear, so one
+ * operator costs it two orders of magnitude more rows than it costs
+ * the standing grid. Each of the eight was measured over the whole
+ * pair product, verdict by verdict, against the operator whose rows
+ * would stand in its place: `bom`, `crlf` and `no-final-newline`
+ * change no row's verdict relative to the unperturbed document, and
+ * `trailing-tab`, `trailing-vt`, `trailing-ff` and
+ * `trailing-space-first-line` change none relative to
+ * `trailing-space`. `trailing-space` itself does change verdicts, and
+ * one coordinate (`pair/continuation/dlist-term/adjacent/doc`) fails
+ * under it and under nothing else, so the class is represented rather
+ * than dropped in favour of the unperturbed row alone.
+ *
+ * The seven cut operators mint bytes the oracle erases at ingest and
+ * the formatter reads through, so agreeing with a kept operator is a
+ * property of that erasure rather than an accident of sampling; the
+ * measurement over the whole product is what checks the formatter
+ * really does read through them.
+ *
+ * A DECLARED list and not a filter over `BYTE_OPERATORS`, so an entry
+ * added above cannot silently multiply this product.
+ */
+export const PAIR_BYTE_OPERATORS: readonly ByteOperatorEntry[] = [
+  TRAILING_SPACE,
 ];

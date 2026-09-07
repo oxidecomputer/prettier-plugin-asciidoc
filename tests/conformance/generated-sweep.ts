@@ -21,7 +21,7 @@
  * compares with it - those two default tiers and
  * `list-item-composition.test.ts`.
  */
-import { BYTE_OPERATORS } from "../../scripts/shape-registry-byte-operators.js";
+import type { ByteOperatorEntry } from "../../scripts/shape-registry-byte-operators.js";
 import type { QuarantineEntry } from "./quarantine.js";
 import type { SweepFailure } from "./registry-sweep.js";
 
@@ -34,15 +34,22 @@ interface RealizedShape {
 }
 
 /**
- * Crosses realized shapes with the byte-operator dimension: each
- * shape clean, then once per operator that actually changed it.
+ * Crosses realized shapes with a byte-operator set: each shape clean,
+ * then once per operator that actually changed it.
  *
  * An operator whose `apply` returns undefined was a no-op on this
  * document and mints no row, so the sweep never runs the same bytes
  * twice under two names. A perturbed row's id is the shape's id with
  * `@<operatorId>` behind it, which is what lets a manifest name the
  * perturbed row and the clean one separately.
+ *
+ * The set is a PARAMETER rather than the whole dimension read from
+ * the registry, because a grid quadratic in the construct alphabet
+ * cannot afford the set a linear grid crosses with, and which
+ * operators a grid pays for is that grid's decision to declare. The
+ * sets themselves are in `scripts/shape-registry-byte-operators.ts`.
  * @param shapes - the realized grid to cross
+ * @param operators - the operator set this grid crosses with
  * @param makeRow - builds one row from its shape, id and bytes; each
  *   sweep supplies the fields its own rows carry
  * @returns the clean and perturbed rows, in a stable order
@@ -51,12 +58,13 @@ interface RealizedShape {
  */
 export function crossByteOperators<Shape extends RealizedShape, Row>(
   shapes: readonly Shape[],
+  operators: readonly ByteOperatorEntry[],
   makeRow: (shape: Shape, id: string, input: string) => Row,
 ): Row[] {
   const rows: Row[] = [];
   for (const shape of shapes) {
     rows.push(makeRow(shape, shape.id, shape.input));
-    for (const operator of BYTE_OPERATORS) {
+    for (const operator of operators) {
       const input = operator.apply(shape.input);
       if (input === undefined) {
         continue;

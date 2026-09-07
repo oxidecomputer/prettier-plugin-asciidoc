@@ -34,9 +34,9 @@
  * exactly the properties its entry names, so a fixed gap turns the
  * row red until the entry is deleted.
  *
- * The row sets are TIERED because the full product is six hundred
- * thousand documents. `defaultTierRows()` is what an always-on suite
- * can afford; `deepTierRows()` is the whole product and belongs to a
+ * The row sets are TIERED because the pair grid is quadratic in the
+ * construct alphabet. `defaultTierRows()` is what an always-on suite
+ * can afford; `deepTierRows()` is both grids and belongs to a
  * `.deep.test.ts` entry (see vitest.sweep.config.ts). The split is a
  * budget ruling, not a coverage claim: every deep row is a row the
  * default tier would run if it were free.
@@ -45,7 +45,10 @@
  * consume them living in their own test files.
  */
 
+import type { ByteOperatorEntry } from "../../scripts/shape-registry-byte-operators.js";
 import {
+  BYTE_OPERATORS,
+  PAIR_BYTE_OPERATORS,
   pairGrid,
   standingGrid,
   type Shape,
@@ -108,25 +111,36 @@ export function loadSweepQuarantine(): Map<string, QuarantineEntry> {
  *
  * The pair grid is entirely a deep-tier concern. The standing grid
  * crossed with the operators already spends the whole budget on its
- * own (29,229 rows, measured just over five seconds); the pair grid's
- * narrowest useful slice, its unperturbed `doc`-container rows, would
- * roughly double that, and the full pair product is an order of
- * magnitude past it again. What the standing grid buys with the room
- * is the byte operators, the one dimension no other gate reaches at
- * all.
+ * own; the pair grid's narrowest useful slice, its unperturbed
+ * `doc`-container rows, would roughly double that, and the full pair
+ * product is orders of magnitude past it again. What the standing
+ * grid buys with the room is the byte operators, the one dimension no
+ * other gate reaches at all.
  * @returns the default-tier rows, in a stable order
  */
 export function defaultTierRows(): SweepRow[] {
-  return withOperators(standingGrid());
+  return crossed(standingGrid(), BYTE_OPERATORS);
 }
 
 /**
- * Every row the registry can mint for this sweep: both grids, clean
- * and under every byte operator.
+ * Every row this sweep consumes: the standing grid under the whole
+ * byte-operator dimension, then the pair grid under the shorter set
+ * that grid declares.
+ *
+ * The two grids cross with DIFFERENT operator sets, which is the pair
+ * grid's own decision and written down at `PAIR_BYTE_OPERATORS`: the
+ * pair product is quadratic in the construct alphabet, and the seven
+ * operators it does not carry were measured to change no row's
+ * verdict there. `registry-sweep.test.ts` pins how many rows this
+ * yields, so a grid dropped from the list is a red test rather than a
+ * faster run.
  * @returns the deep-tier rows, in a stable order
  */
 export function deepTierRows(): SweepRow[] {
-  return [...withOperators(standingGrid()), ...withOperators(pairGrid())];
+  return [
+    ...crossed(standingGrid(), BYTE_OPERATORS),
+    ...crossed(pairGrid(), PAIR_BYTE_OPERATORS),
+  ];
 }
 
 /**
@@ -261,8 +275,8 @@ async function renderedHtmlSafe(document: string): Promise<string | undefined> {
 }
 
 /**
- * Crosses shapes with the byte-operator dimension, through the
- * shared crossing in `generated-sweep.ts`.
+ * Crosses shapes with one byte-operator set, through the shared
+ * crossing in `generated-sweep.ts`.
  *
  * `family` is deliberately dropped on the way: it is shape-diff's
  * base-vs-head vocabulary, and a row being an expected PARITY diff
@@ -270,10 +284,14 @@ async function renderedHtmlSafe(document: string): Promise<string | undefined> {
  * `renderBlind` is carried, because a perturbed row is blind exactly
  * where the shape it came from was.
  * @param shapes - the realized grid to cross
+ * @param operators - the operator set that grid crosses with
  * @returns the clean and perturbed rows, in a stable order
  */
-function withOperators(shapes: readonly Shape[]): SweepRow[] {
-  return crossByteOperators(shapes, (shape, id, input) => ({
+function crossed(
+  shapes: readonly Shape[],
+  operators: readonly ByteOperatorEntry[],
+): SweepRow[] {
+  return crossByteOperators(shapes, operators, (shape, id, input) => ({
     id,
     input,
     renderBlind: shape.renderBlind,

@@ -12,8 +12,9 @@
  * reflow re-classification entry (issue #58) re-reads each document's
  * output and pins the violating set to
  * `tests/format/reading-ledger.json` the same way. The registry
- * sweep's deep tier is the third: both shape-registry grids, clean
- * and under every byte operator, pinned to the cluster manifest in
+ * sweep's deep tier is the third: both shape-registry grids, each
+ * under the byte operators it declares, pinned to the cluster
+ * manifest in
  * `tests/conformance/registry-sweep-deep-manifest.json`. The inline
  * sweep's deep tier is the fourth: the inline registry's standing
  * grid under every byte operator plus its whole pair product, pinned
@@ -62,7 +63,8 @@ const USAGE = `usage: bun run test:deeply-nested-lists
 Runs every *.deep.test.ts under vitest.sweep.config.ts: the exhaustive
 depth-5 list-shape sweep, the reflow
 re-classification ledger over the same product, the registry sweep's
-deep tier (both shape-registry grids under every byte operator), the
+deep tier (both shape-registry grids, each under the byte operators
+it declares), the
 inline sweep's deep tier (the inline standing grid under every byte
 operator, plus its pair product), and the reparse ledger over the
 corpus, both standing grids and the line pair grid.

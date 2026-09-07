@@ -62,6 +62,7 @@ import {
   inlineStandingGrid,
   type InlineShape,
 } from "../../scripts/inline-registry.js";
+import { BYTE_OPERATORS } from "../../scripts/shape-registry-byte-operators.js";
 import { crossByteOperators } from "./generated-sweep.js";
 import { loadQuarantine, type QuarantineEntry } from "./quarantine.js";
 import type { SweepRow } from "./registry-sweep.js";
@@ -141,7 +142,7 @@ export function inlineDeepTierRows(): InlineSweepRow[] {
  * @returns the clean and perturbed rows, in a stable order
  */
 function withOperators(shapes: readonly InlineShape[]): InlineSweepRow[] {
-  return crossByteOperators(shapes, toRow);
+  return crossByteOperators(shapes, BYTE_OPERATORS, toRow);
 }
 
 /**

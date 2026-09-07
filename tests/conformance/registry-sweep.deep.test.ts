@@ -1,10 +1,10 @@
 /**
  * The registry sweep's DEEP tier, behind `bun run test:deeply-nested-lists`.
  *
- * Both grids, clean and under every byte operator, run through the
- * crash/idempotency/fidelity properties. It costs minutes where the
- * default tier costs seconds, which is the whole reason for the
- * split: the always-on suite gets the standing grid and this entry
+ * Both grids, each crossed with the operator set it declares, run
+ * through the crash/idempotency/fidelity properties. It costs minutes
+ * where the default tier costs seconds, which is the whole reason for
+ * the split: the always-on suite gets the standing grid and this entry
  * gets the pair product on top.
  *
  * The pin is `registry-sweep-deep-manifest.json`, and it is exact in
@@ -80,8 +80,12 @@ describe("registry sweep (deep tier)", () => {
     // the other four deep gates passed: the runner had crossed 25
     // minutes with nothing about the swept rows changed. 60 minutes is
     // about 2.4x the measured runner time, far enough clear that
-    // runner-to-runner variance cannot decide the gate. Bringing it
-    // back down means sharding or speeding up the sweep, not trimming
-    // this number, which would only re-arm the same failure.
+    // runner-to-runner variance cannot decide the gate.
+    //
+    // Both figures are an UPPER BOUND on this tree: they were measured
+    // over a pair crossing of nine operators, and the pair grid now
+    // declares two. The ceiling stays where measurement put it until a
+    // runner measures the shorter population; trimming it against a
+    // developer machine's number would only re-arm the same failure.
   }, 3_600_000);
 });

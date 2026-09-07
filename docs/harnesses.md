@@ -505,11 +505,14 @@ gates over it are tiered by wall time:
   never sees the deep tier (see
   [the deep sweeps](#bun-run-test-deeply-nested-lists---the-deep-sweeps)).
 - DEEP tier, in `bun run test:deeply-nested-lists`
-  (`tests/conformance/registry-sweep.deep.test.ts`): both grids under every byte
-  operator (`deepTierRows()`), in two minutes on its own and a little over three
-  sharing the runner. Pinned to
+  (`tests/conformance/registry-sweep.deep.test.ts`): both grids, each crossed
+  with the operator set it declares (`deepTierRows()`) - the standing grid with
+  `BYTE_OPERATORS`, the pair grid with the shorter `PAIR_BYTE_OPERATORS`, for
+  the reason written at that constant. Pinned to
   `tests/conformance/registry-sweep-deep-manifest.json`, failing rows grouped
-  into clusters.
+  into clusters, and to the row count in
+  `tests/conformance/registry-sweep.test.ts`, which is what makes a grid dropped
+  from `deepTierRows()` a red test rather than a faster run.
 
 `bun run registry-sweep-triage` (no `--write`) sweeps both tiers without
 touching either file and prints the current totals on its first line - rows
@@ -545,22 +548,33 @@ tab or form feed on every non-empty line; a trailing space on the first line
 alone, because an all-lines operator masks a position-dependent bug; CRLF; no
 final newline; a BOM. Bare CR is out while #68 is open.
 
+Which operators a grid CROSSES with is that grid's own decision, and there are
+two sets. `BYTE_OPERATORS` is the whole dimension, for the grids that are linear
+in the construct alphabet. `PAIR_BYTE_OPERATORS` is what the quadratic pair grid
+carries, and it is shorter because seven of the eight were measured, verdict by
+verdict over the whole pair product, to change no row's verdict relative to an
+operator that is kept: the three that alter no line's own bytes agree with the
+unperturbed row, and the four remaining trailing-whitespace spellings agree with
+the trailing space. The whole set of base coordinates the nine-way crossing
+reached survives the two-way one. That measurement is restated at the constant,
+which is where to move it if the reader ever needs re-running.
+
 **The ratchet.** A bug in a shape these grids can reach is expressed as a sweep
 row before it is fixed, whatever found it: a real document, a review reading, an
 oracle disagreement someone hit by hand. The row comes first because a fix
 pinned only by the case that exposed it holds one coordinate, where a row holds
-every coordinate the grids reach around it, each under every byte operator that
-changes its bytes. When the registry cannot spell the bug, that is the finding:
-the same change extends whichever dimension is missing, the construct alphabet,
-the container set or the byte operators, until it can. The census pins move with
-the extension, and they are what makes this mechanical rather than a promise:
-rule (iii) of `scripts/metrics/shape-census.ts` matches each roster against the
-registry in both directions and rule (v) pins the realized grid sizes, so a new
-container or operator fails `bun run metrics` until its numbers are moved
-deliberately, and both manifests here are regenerated in the same commit. A
-change that fixes a grid-reachable bug while the row counts and both manifests
-stand still has not been ratcheted, and the next bug of its family arrives
-unpinned.
+every coordinate the grids reach around it, each under every byte operator its
+own grid crosses with that changes its bytes. When the registry cannot spell the
+bug, that is the finding: the same change extends whichever dimension is
+missing, the construct alphabet, the container set or the byte operators, until
+it can. The census pins move with the extension, and they are what makes this
+mechanical rather than a promise: rule (iii) of
+`scripts/metrics/shape-census.ts` matches each roster against the registry in
+both directions and rule (v) pins the realized grid sizes, so a new container or
+operator fails `bun run metrics` until its numbers are moved deliberately, and
+both manifests here are regenerated in the same commit. A change that fixes a
+grid-reachable bug while the row counts and both manifests stand still has not
+been ratcheted, and the next bug of its family arrives unpinned.
 
 `--write` regenerates both manifests from one sweep, on the terms
 `bun run triage` uses: still-failing entries keep their issue tag, new ones are
