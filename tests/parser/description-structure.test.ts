@@ -151,6 +151,7 @@ const EMPTY_BODY: ItemBodyInput = {
   detachedTail: false,
   activeTail: false,
   everyTextLineIndented: false,
+  headDrain: { kind: "none" },
 };
 
 describe("one description item, built directly", () => {

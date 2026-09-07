@@ -507,6 +507,50 @@ the document itself sets. That is a CONTRACT, not a limitation to fix: a
 formatter whose output depended on a flag it cannot see would have no fixed
 point.
 
+### The head-drain record
+
+The same shape, one construct along. `parse_list_item` peeks past a run of
+`//`-headed lines before it reads a list item's first block and puts them back
+only when a line FOLLOWS the run (`parser.rb` l.1362-71, over
+`Reader#skip_line_comments`, `reader.rb` l.332-345, whose spelling is the bare
+`//` prefix and so wider than `CommentLineRx`). What that peek did is recorded
+on the item (`headDrain`, `HeadDrainFact` in `src/head-drain-record.ts`, a leaf
+for the reason the whitespace record is one), constructed at the one site where
+the drain runs (`src/parse/lines/list-read.ts`), and READ by the printer's
+separator rule (`printsDrainShield`, `src/print/join.ts`).
+
+Why the reader, again. An item whose whole body is such a run keeps that body
+only while a `+` stands under it: without the byte the next read's drain reaches
+the buffer's end, the run is lost and its paragraph leaves the render. Asking
+the PRINTED WORDS whether the drain would take them is a different question and
+gives a different answer - a run whose paragraph carries a second word or an
+inline node (`///c x`, `/// +`, `///*b*`) is one the drain takes by its line's
+head and the words say it does not - so two printer predicates that asked it
+withheld the shield from every such run.
+
+Two arms, not the peek's three, and the merge is what makes the record a fixed
+point. `dropped` (the run reached the buffer's end and the reference lost it)
+protects no rendering the printer can act on, and one corpus document moves
+between it and `kept` when the item's own text reflows over a `// c` line, with
+no byte and no rendering changing; a record that told them apart would be a fact
+the printed bytes do not carry. So both are `none`, and the surviving `detached`
+arm is held still by the item's own reflow guard (`nextLineNeedsItsPosition`),
+which keeps the item's opening line exactly as the source spelled it wherever a
+run was detached: move the text down over the run and the next read's peek stops
+on the moved line instead, so the arm the shield was written from would be gone
+by the pass after.
+
+The arm carries NO payload, and the two questions one might have carried are
+both answered without it. Whether a `+` stood under the run is implied: for the
+drain to have left a detached run as an item's WHOLE body, a blank had to follow
+the run inside the item's own buffer, and a trailing blank survives Ruby's
+`last_line.empty?` strip only where the marker pop broke the walk one line under
+it (`parser.rb` l.1580-82 against l.1584-85). Whether the run RENDERS is not
+asked at all: a line the next read's drain loses is a line lost whatever it
+renders, so the shield is written over a run of true `//` comments too. Asking
+it cost 41 documents of the reading-invariant sweep their `cont` token and 7
+more one of two, for a rendering both programs agree is unchanged.
+
 ### Joins between blocks
 
 Blank-line policy between siblings lives in `src/print/join.ts` as named rules,
@@ -538,52 +582,43 @@ ITEMS of one list has a home rather than being destroyed for want of one (issue
 Above that default the printer holds separator decisions of its own, each a
 named arm whose function comment carries the reasoning and the Ruby citation:
 `printedGap`, `hazard`, `tailSwallowsMarker` and `separatorBefore` in
-`src/print/list.ts` and `src/print/list-hazard.ts`, and `drainTakesWholeBody`
-and `drainTakesItemBody` in `src/print/join.ts`. They are named rather than
-counted because the set grows with the shapes that need one, and every member is
-there for the same reason: verbatim replay would not re-parse to the same tree.
-`hazard` answers a reflow that would move the item's first rest line up (the
-line Ruby reads three ways: the metadata drain, the blank count, and the indent
-strip); `printedGap` answers a nested list sharing its parent's marker spelling;
-`tailSwallowsMarker` answers a previous item's tail whose literal slurp would
-swallow the next marker line; `drainTakesWholeBody` answers a description every
-line of which the head drain would take (`skip_line_comments`, reader.rb
-l.329-346), which deletes the description and its `<dd>` unless the `+` the
-author wrote under it comes back where the pop can absorb it;
-`drainTakesItemBody` answers a marker item every printed line of whose body that
-same drain would take, which deletes the paragraph that body renders; and
-`separatorBefore` answers the gap in front of a sibling item, replaying the `+`
-it holds unless the item above already prints that byte through its own tail.
-`separatorBefore` also makes the one erasure a gap replay is allowed: a LEADING
-gap prints through its last `+` and drops the blank lines behind it, because a
-marker line follows rather than a block, so those blanks decide nothing that
-survives.
+`src/print/list.ts` and `src/print/list-hazard.ts`, and `printsDrainShield` in
+`src/print/join.ts`. They are named rather than counted because the set grows
+with the shapes that need one, and every member is there for the same reason:
+verbatim replay would not re-parse to the same tree. `hazard` answers a reflow
+that would move the item's first rest line up (the line Ruby reads three ways:
+the metadata drain, the blank count, and the indent strip); `printedGap` answers
+a nested list sharing its parent's marker spelling; `tailSwallowsMarker` answers
+a previous item's tail whose literal slurp would swallow the next marker line;
+`printsDrainShield` answers a list-like item whose whole body is a run the head
+drain would take again (`skip_line_comments`, reader.rb l.329-346), which
+deletes that body - a description and its `<dd>`, or the paragraph a marker
+item's run renders - unless the `+` the author wrote under it comes back where
+the pop can absorb it; and `separatorBefore` answers the gap in front of a
+sibling item, replaying the `+` it holds unless the item above already prints
+that byte through its own tail. `separatorBefore` also makes the one erasure a
+gap replay is allowed: a LEADING gap prints through its last `+` and drops the
+blank lines behind it, because a marker line follows rather than a block, so
+those blanks decide nothing that survives.
 
-The two drain arms place a byte whose MEANING is decided under it, so neither
-owns the decision alone: one blank line under a live `+` arms it and attaches
-the next block (parser.rb l.1483), two detach it (l.1549), and the blank count
-between a list and the block after it belongs to `joinBlocks`. An item either
-arm closes is reported as an armed tail instead, through the same
+`printsDrainShield` places a byte whose MEANING is decided under it, so it does
+not own the decision alone: one blank line under a live `+` arms it and attaches
+the next block (`parser.rb` l.1483), two detach it (l.1549), and the blank count
+between a list and the block after it belongs to `joinBlocks`. An item the arm
+closes is reported as an armed tail instead, through the same
 `listTailContinuationActive` that reads `ListItemNode.activeTail`, so the writer
-and the separator rule ask one predicate rather than two. Both are still a
-replay rather than an invention: the only way such a description reaches a node,
-or such a body reaches a BLOCK, is a source that already carried that `+`,
-because a run reaching the buffer's end is one Ruby drains at parse time (issue
-#171, issue #212, issues #262 and #259). What the drained run would have
-RENDERED does not enter for a description: the byte is the author's, and a line
-the re-read loses is lost whether it was a `///` paragraph or a `// c` comment.
-A narrower arm that asked for a rendering body was measured against that one
-over the drainable-description grid and moved no row either way.
-`listTailContinuationActive` that reads `ListItemNode.activeTail`, so the writer
-and the separator rule ask one predicate rather than two. Both are still a
-replay rather than an invention: the only way such a description reaches a node,
-or such a body reaches a BLOCK, is a source that already carried that `+`,
-because a run reaching the buffer's end is one Ruby drains at parse time (issue
-#171, issue #212, issues #262 and #259). What the drained run would have
-RENDERED does not enter for a description: the byte is the author's, and a line
-the re-read loses is lost whether it was a `///` paragraph or a `// c` comment.
-A narrower arm that asked for a rendering body was measured against that one
-over the drainable-description grid and moved no row either way.
+and the separator rule ask one predicate rather than two. It is a replay rather
+than an invention: the only way such a description reaches a node, or such a
+body reaches a BLOCK, is a source that already carried that `+`, because a run
+reaching the buffer's end is one Ruby drains at parse time (issue #171, issue
+#212, issues #262 and #259). It is also ONE arm rather than two, because it
+reads a recorded fact (`ItemBody.headDrain`, see
+[the head-drain record](#the-head-drain-record)) instead of asking the printed
+words what the drain would make of them - the question two earlier arms asked,
+and the reason a run carrying a second word or an inline node lost its paragraph
+(issue #267). What the drained run would have RENDERED does not enter on either
+side: the byte is the author's, and a line the re-read loses is lost whether it
+was a `///` paragraph or a `// c` comment.
 
 `tailSwallowsMarker` is the one decision that cannot be made from the AST at
 all, and it is the printer's only reader of its own output: what a re-read makes

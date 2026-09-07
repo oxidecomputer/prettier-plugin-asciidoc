@@ -26,7 +26,6 @@ import type {
   TermGapLine,
 } from "../ast.js";
 import { inlineAtoms } from "./inline.js";
-import { drainTakesWholeBody } from "./join.js";
 import { gapParts, tailParts } from "./list.js";
 import { atomOf, blockBody } from "./reflow.js";
 import type { PrintFunction, PrintPath } from "./blocks.js";
@@ -270,18 +269,5 @@ function printedBlocks(
     parts.push(...gapParts(node.blocks[index].gap), block);
   }
   parts.push(...tailParts(node));
-  if (drainTakesWholeBody(node)) {
-    // The DETACHED spelling, and the only one that works: an adjacent
-    // `+` is popped off the buffer's end (parser.rb l.1580-82) and
-    // leaves the run reaching the end again, while a blank under the
-    // run is erased into the shield the pop takes instead.
-    //
-    // What stands UNDER the byte is not written here. The item ends on
-    // a live `+`, so it is an ARMED TAIL, and the block-join rules
-    // read it as one ({@link listTailContinuationActive}): they own
-    // the blank count that decides whether the next block attaches,
-    // and they ask the same predicate this arm did.
-    parts.push(hardline, hardline, "+");
-  }
   return parts;
 }

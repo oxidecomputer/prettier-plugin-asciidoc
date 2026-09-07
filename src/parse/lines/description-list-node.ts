@@ -24,6 +24,7 @@ import type {
   GapLine,
   TermGapLine,
 } from "../../ast.js";
+import type { HeadDrainFact } from "../../head-drain-record.js";
 import { buildDescriptionTerm } from "../build/description-list.js";
 import type { DescriptionPair } from "../build/description-list.js";
 import { LINE_COMMENT_HEAD, rstrip } from "../line-shapes.js";
@@ -122,6 +123,12 @@ interface DescriptionBounds {
    * formatter may not.
    */
   readonly drainedEnd: number;
+  /**
+   * Which of the peek's three answers this sibling's buffer gave
+   * ({@link DescriptionListItemNode}'s `headDrain`), decided at the
+   * drain's own site (list-read.ts).
+   */
+  readonly headDrain: HeadDrainFact;
 }
 
 /**
@@ -397,6 +404,7 @@ export function descriptionItemNode(
         endsInPlusParagraph(blocks),
       activeTail: !bodyless && shape.activeTail,
       everyTextLineIndented: everyTextLineIndented(textLines),
+      headDrain: bounds.headDrain,
     },
     textLines,
     printing: siblingPrinting(marker, markerLine, gap, {

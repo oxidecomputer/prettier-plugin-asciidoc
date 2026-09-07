@@ -10,6 +10,7 @@
  * to match Prettier's conventions.
  */
 
+import type { HeadDrainFact } from "./head-drain-record.js";
 import type { BlockWhitespace } from "./whitespace-record.js";
 import type { SpanMarks } from "./mark-record.js";
 
@@ -1568,6 +1569,20 @@ interface ItemBody {
    * from this boolean or from the inline fragments.
    */
   everyTextLineIndented: boolean;
+  /**
+   * What the head drain did with the run of `//`-headed lines at the
+   * item's head ({@link HeadDrainFact}). Recorded where the peek runs
+   * (src/parse/lines/list-read.ts) and read by the printer's
+   * separator rule: a body that IS such a run survives a re-read only
+   * while a `+` stands under it, because the drain that took the run
+   * once takes it again.
+   *
+   * SURVIVING BYTES: the carrying bytes are re-emitted, and the
+   * answer is written where the fact is CONSTRUCTED (`headDrainFact`,
+   * src/parse/lines/list-read.ts), which is the canonical place for
+   * it.
+   */
+  headDrain: HeadDrainFact;
 }
 
 /**

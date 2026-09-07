@@ -7,9 +7,9 @@
 import { doc, type Doc } from "prettier";
 import type {
   GapLine,
+  DescriptionListItemNode,
   ListItemNode,
   ListNode,
-  TrailingContinuation,
 } from "../ast.js";
 import {
   CONTINUATION_LINE,
@@ -19,7 +19,7 @@ import {
   rstrip,
 } from "../parse/line-shapes.js";
 import { inlineAtoms } from "./inline.js";
-import { drainTakesItemBody } from "./join.js";
+import { printsDrainShield } from "./join.js";
 import { hazard, markerLineGuard, type TextGuard } from "./list-hazard.js";
 import {
   type Atom,
@@ -717,28 +717,19 @@ export function printListItem(
     parts.push(...gapParts(adjusted), printedBlock);
   }
   parts.push(...tailParts(node));
-  if (drainTakesItemBody(node)) {
-    // The DETACHED spelling, and the only one that works: an adjacent
-    // `+` would be popped off the buffer's end (parser.rb l.1580-82)
-    // and leave the run reaching that end again, while a blank under
-    // the run is erased into the shield the pop takes instead
-    // (l.1576), which is what keeps the run's own block alive.
-    //
-    // What stands UNDER the byte is not written here. The item ends on
-    // a live `+`, so it is an ARMED TAIL, and the block-join rules
-    // read it as one ({@link listTailContinuationActive}): they own
-    // the blank count that decides whether the next block attaches,
-    // and they ask the same predicate this arm did.
-    parts.push(hardline, hardline, "+");
-  }
   return parts;
 }
 
 /**
- * The two TAIL FACTS every list-like item can print AFTER its blocks -
+ * The TAIL every list-like item prints AFTER its blocks -
  * shared by this file's own item printer and description-list.ts's,
- * which read the same two facts off a different node kind
+ * which read the same facts off a different node kind
  * ({@link ItemBody} in src/ast.ts, extended by both).
+ *
+ * THE DRAIN'S SHIELD comes first, and it is the tail of an item that
+ * has no tail of its own: the predicate that decides it is false
+ * wherever either fact below would write a byte
+ * ({@link printsDrainShield}).
  *
  * `trailingContinuation`: ONE hardline, unconditionally (including
  * after a nested list). The trailing `+` of `* a\n** b\n+\n` belongs to
@@ -766,16 +757,32 @@ export function printListItem(
  * alive ({@link ListItemNode.detachedTail}). Blank-run multiplicity
  * collapses to the one blank, the same collapse gapParts applies
  * before a `+`.
- * @param node - the two tail facts, read off either item kind
- * @param node.trailingContinuation - what a popped `+` prints back as
- * @param node.detachedTail - whether an erased detached `+` shields a
- *   frozen `+` paragraph
+ * @param node - the item whose tail facts are read; either kind
  * @returns the Doc parts to push after the item's blocks
  */
-export function tailParts(node: {
-  readonly trailingContinuation: TrailingContinuation;
-  readonly detachedTail: boolean;
-}): Doc[] {
+export function tailParts(node: ListItemNode | DescriptionListItemNode): Doc[] {
+  if (printsDrainShield(node)) {
+    // The DETACHED spelling, and the only one that works: an adjacent
+    // `+` is popped off the buffer's end (parser.rb l.1580-82) and
+    // leaves the run reaching that end again, while a blank under the
+    // run is erased into the shield the pop takes instead (l.1576),
+    // which is what keeps the run's own block alive.
+    //
+    // An EARLY RETURN that replaces nothing. `printsDrainShield` is
+    // true only where `trailingContinuation` is false and
+    // `detachedTail` is false, so the two arms below would have
+    // written no byte at all: this is the tail of an item that has no
+    // tail of its own, and an item that HAS one keeps it - the byte
+    // it writes ends the item on a live `+` exactly as this one
+    // would.
+    //
+    // What stands UNDER the byte is not written here. The item ends on
+    // a live `+`, so it is an ARMED TAIL, and the block-join rules
+    // read it as one ({@link listTailContinuationActive}): they own
+    // the blank count that decides whether the next block attaches,
+    // and they ask the same predicate this arm did.
+    return [hardline, hardline, "+"];
+  }
   const parts: Doc[] = [];
   if (node.trailingContinuation !== false) {
     if (node.trailingContinuation === "double") {

@@ -149,6 +149,25 @@ describe("a marker item's drainable body keeps the + that shields it", () => {
       "a block attribute line inside the item",
       "* a\n///c\n\n+\n[role]\npara\n",
     ],
+    // Issue #267. RED until the shield read the RECORDED drain fact:
+    // the two predicates it replaced asked whether every word of the
+    // run's paragraph carried a `//` head, and each of these four
+    // bodies carries something else - a second word, a hard break, a
+    // formatting span, a macro - so the shield was withheld and every
+    // one of them lost its paragraph from the render. The drain takes
+    // all four by their LINE's head, which is the question the fact
+    // records.
+    ["a second word on the run's line", "* a\n///c x\n\n+\n"],
+    ["a hard break in the run", "* a\n/// +\n\n+\n"],
+    ["a formatting span in the run", "* a\n///*b*\n\n+\n"],
+    ["a macro in the run", "* a\n///https://x[y]\n\n+\n"],
+    ["a second word under an ordered marker", ". a\n///c x\n\n+\n"],
+    ["a second word above a sibling", "* a\n///c x\n\n+\n* b\n"],
+    ["a second word and a detached paragraph", "* a\n///c x\n\n+\n\n\npara\n"],
+    [
+      "a hard break and a detached section title",
+      "* a\n/// +\n\n+\n\n\n== S\n",
+    ],
   ])("%s stays byte for byte", async (_name, input) => {
     await expectFormatted(input, input);
   });
@@ -177,24 +196,71 @@ describe("a marker item's drainable body keeps the + that shields it", () => {
       "* a\n///c\n\n+\n\n\npara\n",
     );
   });
-  // The shield is written for a body the render would MISS. A run of
-  // true `//` lines renders nothing under either reading, so the byte
-  // would buy no render while costing the next block its detachment;
-  // a run with a line under it was never drained at all.
+  // Issue #268: the same pair BEHIND the blank. Both bytes come back,
+  // adjacent, which is the shape the source wrote and the shape the
+  // re-read collapses back to - the second `+` freezes on the first
+  // (parser.rb l.1443-46) and the pop takes it, leaving the erased
+  // one standing over the run. The item wrote ONE `+` here until the
+  // reader reported the pair, and one adjacent `+` is no shield at
+  // all: the pop took it and the run reached the buffer's end again,
+  // so the paragraph left the render. The shield stands DOWN for a
+  // tail the item already prints, because that tail ends the item on
+  // a live `+` just as the shield would.
   test.each([
+    ["a near miss with text", "* a\n///c\n\n+\n+\n", "* a\n///c\n+\n+\n"],
+    ["a bare ///", "* a\n///\n\n+\n+\n", "* a\n///\n+\n+\n"],
     [
-      "a comment run renders nothing either way",
-      "* a\n// c\n\n+\n",
-      "* a\n// c\n",
+      "a second word on the run's line",
+      "* a\n///c x\n\n+\n+\n",
+      "* a\n///c x\n+\n+\n",
     ],
-    [
-      "a run of comments renders nothing either way",
-      "* a\n// c\n// d\n\n+\n",
-      "* a\n// c\n// d\n",
-    ],
-    ["a line follows the run, so it folds", "* a\n///c\nb\n", "* a ///c b\n"],
-  ])("%s (control)", async (_name, input, expected) => {
+  ])("%s under a + pair keeps both bytes", async (_name, input, expected) => {
     await expectFormatted(input, expected);
+  });
+  // NO BYTE IS INVENTED, and no record says so: the property is held
+  // by the two clauses these rows pin between them.
+  //
+  // The SIBLING rows record `none`, hence `none` writes nothing: the
+  // marker line under the run ends the item, so the trailing blank is
+  // popped at parser.rb l.1584-85, the run reaches the buffer's end,
+  // and the peek loses it (the `dropped` answer, merged into `none`).
+  //
+  // The NESTED-MARKER row records `detached` and is held by the other
+  // clause: `** b` is the item's own second block, so the run's block
+  // does not stand behind an empty gap and `bodyIsTheDrainedRun` says
+  // no. That is also why a `detached` whole-body run needs no
+  // recorded `+`: the trailing blank the peek stops on survives that
+  // same strip only where the marker pop at l.1580-82 broke the walk
+  // one line under it.
+  test.each([
+    ["a sibling ends the item", "* a\n///c\n\n* b\n", "* a\n///c\n* b\n"],
+    ["a nested marker ends it", "* a\n///c\n\n** b\n", "* a\n///c\n\n** b\n"],
+    [
+      "a run of two, and a sibling",
+      "* a\n///c\n///d\n\n* b\n",
+      "* a\n///c\n///d\n* b\n",
+    ],
+  ])("%s and no + is written", async (_name, input, expected) => {
+    await expectFormatted(input, expected);
+  });
+  // WHAT THE RUN RENDERS DOES NOT ENTER. A run of true `//` lines
+  // renders nothing under either reading, and the byte over it is the
+  // author's all the same: a line the re-read loses is a line lost
+  // whatever it renders. These rows came back WITHOUT their `+` while
+  // the fact carried a `renders` field, which cost 41 documents of
+  // the reading-invariant sweep their `cont` token and 7 more one of
+  // two, for a rendering both programs agree is unchanged.
+  test.each([
+    ["a comment run renders nothing", "* a\n// c\n\n+\n"],
+    ["a run of two comments renders nothing", "* a\n// c\n// d\n\n+\n"],
+    ["a comment run above a detached block", "* a\n// c\n\n+\n\n\npara\n"],
+  ])("%s and the byte comes back", async (_name, input) => {
+    await expectFormatted(input, input);
+  });
+  // A run with a line under it was never drained at all, so nothing
+  // shields it and the fold is what the source asked for.
+  test("a line follows the run, so it folds", async () => {
+    await expectFormatted("* a\n///c\nb\n", "* a ///c b\n");
   });
   // The item's own opening line keeps the words the source put on it,
   // for the reason the drop arm's rows keep theirs
@@ -202,12 +268,27 @@ describe("a marker item's drainable body keeps the + that shields it", () => {
   // width break that pushed a word down would stand between the
   // marker line and the run, the drain would stop on THAT line, and
   // the run would fold into the item's text instead of standing as
-  // its first block. The line below is 90 columns, past the 80 the
+  // its first block. Each line below is 90 columns, past the 80 the
   // default width allows, and without the guard the item came back
   // wrapped, shielded, and no longer a fixed point.
-  test("a wide item text is not wrapped over the run", async () => {
-    const wide =
-      "* aaaaaaaaaa bbbbbbbbbb cccccccccc dddddddddd eeeeeeeeee ffffffffff gggggggggg hhhhhhhhhh\n///c\n\n+\n";
-    await expectFormatted(wide, wide);
+  //
+  // The two rows take DIFFERENT clauses of that guard, which is why
+  // both are here. A `///` near miss is a line the two readers
+  // disagree about, so the drained-lines clause answers it. A `// c`
+  // line they agree on, and only the DETACHED arm answers: with that
+  // clause gone the text wraps, the next read finds the run one line
+  // lower and records `none`, and the shield's `+` is dropped on the
+  // pass after.
+  test.each([
+    [
+      "a near miss",
+      "* aaaaaaaaaa bbbbbbbbbb cccccccccc dddddddddd eeeeeeeeee ffffffffff gggggggggg hhhhhhhhhh\n///c\n\n+\n",
+    ],
+    [
+      "a comment the two readers agree on",
+      "* aaaaaaaaaa bbbbbbbbbb cccccccccc dddddddddd eeeeeeeeee ffffffffff gggggggggg hhhhhhhhhh\n// c\n\n+\n",
+    ],
+  ])("a wide item text is not wrapped over %s", async (_name, input) => {
+    await expectFormatted(input, input);
   });
 });

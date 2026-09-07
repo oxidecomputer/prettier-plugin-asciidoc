@@ -1,5 +1,5 @@
 {
-  "note": "Maps each recorded fact scripts/fact-inventory.ts finds (88 today) to (a) the reason it is a fact rather than exempt, which is the CLASSIFICATION itself and not a gloss on one: the key set of this object IS the FACTS map scripts/fact-inventory.ts gates with, so a fact is recorded in one file and not two, and (b) an existing test file with round-trip coverage of it, and whether that coverage is a DEDICATED lemma test (the printer writes bytes from which the reader re-derives the fact, and reverting the recording reds that test) rather than an ordinary round-trip that happens to exercise it (landedLemma), and (c) the tests/conformance/reparse-ledger.json families it explains, with a basis. 'measured' is the strongest and the rarest: the fact's own lemma is red-detectable AND re-running the reparse measurement over the whole population moves that family's rows and no others. 'argued' means the family's written mechanism and the fact's written purpose name the same thing, with nobody having traced a row; it counts toward the scoreboard. 'argued-not-counted' is a connection considered and rejected as too thematic to count, recorded rather than dropped silently. The legal values are the closed list in scripts/fact-inventory.ts (FACT_BASES), and ledgerFailures there rejects any other. reparseFamilySizes MIRRORS the live reparse ledger, family by family, and ledgerFailures holds it there in both directions - so a family a fix has EMPTIED reads 0 rather than losing its key. Read the scoreboard with that in mind: the attribution percentage the 50% retirement gate was pre-registered against was taken over the population as it stood when the census landed (276 rows, of which blank-dropped held 70), and a fact whose family now reads 0 is a fact that did its job rather than one that explains nothing. Node.position, Location.line and Location.column (issue #204) carry no COUNTED family, and being dropped by REPARSE_LENS is not the reason: attribution here is by argued MECHANISM, not by what the lens can compare, and descriptionTerm.line and descriptionListItem.printing are 'drop' rows of that same lens whose facts carry families all the same. The lens goes on dropping '*.position' for its own reason, which is that an absolute source coordinate is re-derived by the reader from whatever bytes were printed and so is not comparable across a reformat; what the printer consumes is a predicate over two coordinates, and the byte that carries the predicate is re-emitted. All seven families were considered against the three rows. The two that share a mechanism are recorded at the rows as argued-not-counted: blank-dropped, which holds zero rows today so there is nothing to explain, and plus-respelled, whose guard is a read no test reaches. The other five name mechanisms these three take no part in. One caveat a reader of the Location.column row cannot see from the row itself: it has two read sites and only one is pinned. tests/format/description-list.test.ts reds on 76 of its 122 cases when openingImage's cut (src/print/description-list.ts:127) is mutated, while the column-1 test in opensWithContinuationLine (src/print/inline.ts:163) can be replaced with true and the whole suite stays green (195 files, 14372 tests), so that half of the fact is asserted by the census and exercised by nothing. A family reading 0 is not always a fix: issues #284 and #285 shrank the populations the reparse measurement sweeps, so indent-dropped, heading-under-a-term and blank-content-emptied went to 0 because the near-miss pair documents that held their only rows are no longer generated, and the remaining families lost their near-miss rows the same way. Those mechanisms are unfixed; what changed is what is measured. The reverse happened for join-changes-reading (17 rows to 67) and plus-respelled (6 to 7) when the inline registry's context axis gained a nested item and an item's indented continuation lines: every arriving row sits in one of those two contexts, and the mechanisms are the same ones, newly reachable.",
+  "note": "Maps each recorded fact scripts/fact-inventory.ts finds (89 today) to (a) the reason it is a fact rather than exempt, which is the CLASSIFICATION itself and not a gloss on one: the key set of this object IS the FACTS map scripts/fact-inventory.ts gates with, so a fact is recorded in one file and not two, and (b) an existing test file with round-trip coverage of it, and whether that coverage is a DEDICATED lemma test (the printer writes bytes from which the reader re-derives the fact, and reverting the recording reds that test) rather than an ordinary round-trip that happens to exercise it (landedLemma), and (c) the tests/conformance/reparse-ledger.json families it explains, with a basis. 'measured' is the strongest and the rarest: the fact's own lemma is red-detectable AND re-running the reparse measurement over the whole population moves that family's rows and no others. 'argued' means the family's written mechanism and the fact's written purpose name the same thing, with nobody having traced a row; it counts toward the scoreboard. 'argued-not-counted' is a connection considered and rejected as too thematic to count, recorded rather than dropped silently. The legal values are the closed list in scripts/fact-inventory.ts (FACT_BASES), and ledgerFailures there rejects any other. reparseFamilySizes MIRRORS the live reparse ledger, family by family, and ledgerFailures holds it there in both directions - so a family a fix has EMPTIED reads 0 rather than losing its key. Read the scoreboard with that in mind: the attribution percentage the 50% retirement gate was pre-registered against was taken over the population as it stood when the census landed (276 rows, of which blank-dropped held 70), and a fact whose family now reads 0 is a fact that did its job rather than one that explains nothing. Node.position, Location.line and Location.column (issue #204) carry no COUNTED family, and being dropped by REPARSE_LENS is not the reason: attribution here is by argued MECHANISM, not by what the lens can compare, and descriptionTerm.line and descriptionListItem.printing are 'drop' rows of that same lens whose facts carry families all the same. The lens goes on dropping '*.position' for its own reason, which is that an absolute source coordinate is re-derived by the reader from whatever bytes were printed and so is not comparable across a reformat; what the printer consumes is a predicate over two coordinates, and the byte that carries the predicate is re-emitted. All seven families were considered against the three rows. The two that share a mechanism are recorded at the rows as argued-not-counted: blank-dropped, which holds zero rows today so there is nothing to explain, and plus-respelled, whose guard is a read no test reaches. The other five name mechanisms these three take no part in. One caveat a reader of the Location.column row cannot see from the row itself: it has two read sites and only one is pinned. tests/format/description-list.test.ts reds on 76 of its 122 cases when openingImage's cut (src/print/description-list.ts:127) is mutated, while the column-1 test in opensWithContinuationLine (src/print/inline.ts:163) can be replaced with true and the whole suite stays green (195 files, 14372 tests), so that half of the fact is asserted by the census and exercised by nothing. A family reading 0 is not always a fix: issues #284 and #285 shrank the populations the reparse measurement sweeps, so indent-dropped, heading-under-a-term and blank-content-emptied went to 0 because the near-miss pair documents that held their only rows are no longer generated, and the remaining families lost their near-miss rows the same way. Those mechanisms are unfixed; what changed is what is measured. The reverse happened for join-changes-reading (17 rows to 67) and plus-respelled (6 to 7) when the inline registry's context axis gained a nested item and an item's indented continuation lines: every arriving row sits in one of those two contexts, and the mechanisms are the same ones, newly reachable.",
   "reparseFamilySizes": {
     "indent-dropped": 0,
     "join-changes-reading": 67,
@@ -20,6 +20,18 @@
       "landedLemma": false,
       "reparseFamilies": []
     },
+    "AdmonitionNode.whitespace": {
+      "reason": "what one whitespace run of the block may be respelled as, decided over the source the printer no longer holds",
+      "lemmaTest": "tests/format/whitespace-fold.test.ts",
+      "landedLemma": true,
+      "reparseFamilies": [
+        {
+          "basis": "measured",
+          "family": "join-changes-reading",
+          "note": "the same eight rows, reached through this carrier: see ParagraphNode.whitespace for the mechanism and the measured reason."
+        }
+      ]
+    },
     "AttributeEntryNode.unset": {
       "reason": "collapses two spellings",
       "lemmaTest": "tests/format/attribute-entry.test.ts",
@@ -36,6 +48,12 @@
       "reason": "mark width choice",
       "lemmaTest": "tests/format/inline-formatting.test.ts",
       "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "BoldNode.marks": {
+      "reason": "what each of the span's two marks stands against, decided over the source at pairing time and read by the printer's constrained respell and its block-start mark placement",
+      "lemmaTest": "tests/parser/inline-marks.test.ts",
+      "landedLemma": true,
       "reparseFamilies": []
     },
     "CommentNode.commentType": {
@@ -145,6 +163,12 @@
       "landedLemma": false,
       "reparseFamilies": []
     },
+    "HighlightNode.marks": {
+      "reason": "what each of the span's two marks stands against, decided over the source at pairing time and read by the printer's constrained respell and its block-start mark placement",
+      "lemmaTest": "tests/parser/inline-marks.test.ts",
+      "landedLemma": true,
+      "reparseFamilies": []
+    },
     "IndentedLiteralBlockNode.annotatedBy": {
       "reason": "invariant (xi)",
       "lemmaTest": "tests/parser/ast-invariants.ts (invariant xi)",
@@ -179,6 +203,12 @@
       "reason": "mark width choice",
       "lemmaTest": "tests/format/inline-formatting.test.ts",
       "landedLemma": false,
+      "reparseFamilies": []
+    },
+    "ItalicNode.marks": {
+      "reason": "what each of the span's two marks stands against, decided over the source at pairing time and read by the printer's constrained respell and its block-start mark placement",
+      "lemmaTest": "tests/parser/inline-marks.test.ts",
+      "landedLemma": true,
       "reparseFamilies": []
     },
     "ItemBlock.gap": {
@@ -223,6 +253,18 @@
         }
       ]
     },
+    "ItemBody.headDrain": {
+      "reason": "what the head drain did with the run of //-headed lines at an item's head, decided over the source lines the printer no longer holds",
+      "lemmaTest": "tests/format/list-item-trailing-comment.test.ts",
+      "landedLemma": true,
+      "reparseFamilies": [
+        {
+          "basis": "argued-not-counted",
+          "family": "gap-line-lost",
+          "note": "the family #171 named is the shield this fact now decides, and it holds zero rows today, so there is nothing left for the fact to explain; the rows it would have claimed round-trip already"
+        }
+      ]
+    },
     "ItemBody.trailingContinuation": {
       "reason": "issue #181's landed lemma",
       "lemmaTest": "tests/format/trailing-continuation.test.ts",
@@ -232,6 +274,18 @@
           "basis": "argued",
           "family": "plus-respelled",
           "note": "#116's mechanism (a lone trailing `+` folded onto the line above and respelled `{plus}` on re-read) is inside the tail alphabet trailingContinuation/detachedTail record; not verified row by row"
+        }
+      ]
+    },
+    "ItemBody.whitespace": {
+      "reason": "what one whitespace run of the block may be respelled as, decided over the source the printer no longer holds",
+      "lemmaTest": "tests/format/whitespace-fold.test.ts",
+      "landedLemma": true,
+      "reparseFamilies": [
+        {
+          "basis": "measured",
+          "family": "join-changes-reading",
+          "note": "the same eight rows, reached through this carrier: see ParagraphNode.whitespace for the mechanism and the measured reason."
         }
       ]
     },
@@ -283,6 +337,12 @@
         }
       ]
     },
+    "ListItemNode.markerGap": {
+      "reason": "half the line a thematic break is spelled on",
+      "lemmaTest": "tests/format/marker-gap.test.ts",
+      "landedLemma": true,
+      "reparseFamilies": []
+    },
     "ListItemNode.markerIndent": {
       "reason": "structure, not decoration",
       "lemmaTest": "tests/format/marker-indent.test.ts",
@@ -294,12 +354,6 @@
           "note": "the marker line's own indentation is the other half of #121's mechanism alongside everyTextLineIndented; not verified row by row"
         }
       ]
-    },
-    "ListItemNode.markerGap": {
-      "reason": "half the line a thematic break is spelled on",
-      "lemmaTest": "tests/format/marker-gap.test.ts",
-      "landedLemma": true,
-      "reparseFamilies": []
     },
     "ListItemNode.markerSpelling": {
       "reason": "printed marker bytes",
@@ -392,6 +446,12 @@
       "landedLemma": false,
       "reparseFamilies": []
     },
+    "MonospaceNode.marks": {
+      "reason": "what each of the span's two marks stands against, decided over the source at pairing time and read by the printer's constrained respell and its block-start mark placement",
+      "lemmaTest": "tests/parser/inline-marks.test.ts",
+      "landedLemma": true,
+      "reparseFamilies": []
+    },
     "Node.position": {
       "reason": "join.ts's startsOnTheNextLine, and every block edge",
       "lemmaTest": "tests/format/heading-adjacency.test.ts",
@@ -455,6 +515,18 @@
           "basis": "measured",
           "family": "indent-dropped",
           "note": "the family's own mechanism on a paragraph's SECOND line: the block-start hazard net kept the author's break and rebuilt the line at column 0, where the leading space that had kept `----`, `|===`, `////` or `[x]` from opening its construct was gone. Measured, not argued: the 20 rows of the lemma test are byte-red without the fact, and `bun run reparse-ledger` over the same 96,722 documents reports indent-dropped at 14 where it read 101, with every other family byte-identical and no row added. The 87 that left are exactly the `pair/<construct>/delimiter-<X>/adjacent` coordinates the issue's reopen comment named. Attribution to THIS fact and not to `ListItemNode.markerGap`, which landed beside it: markerGap's own rows are render-only and idempotent, so they were never in this ledger, and its replay changes no projection (the printer writes the gap back, so input and output agree on it). What remains is the arm the net cannot reach - it bails on a first atom that may not end a line, and a lone `+` is one - so all 14 survivors are `line/pair/continuation/delimiter-<X>-near-2/adjacent/doc`"
+        }
+      ]
+    },
+    "ParagraphNode.whitespace": {
+      "reason": "what one whitespace run of the block may be respelled as, decided over the source the printer no longer holds",
+      "lemmaTest": "tests/format/whitespace-fold.test.ts",
+      "landedLemma": true,
+      "reparseFamilies": [
+        {
+          "basis": "measured",
+          "family": "join-changes-reading",
+          "note": "the eight rows the record ADDS to the family, measured by regenerating over the whole population (main measures 349 breaches, this tree 357). Each is a run the record binds to a NEWLINE in front of a word the printer refuses to open a line with, so the break is not written and the next read binds the space it finds instead. The refusal is `isBlockSyntaxAtLineStart` (src/print/reflow.ts), asked of the WORD alone through `wordAtom` and `withBoundary` (src/print/atom-join.ts): it reads `---`, `----` and `--` as delimiters wherever they would open a line, and cannot see that the reader read them as paragraph TEXT at that position. It is not the column - four of the eight rows (`Title\\n---\\n---` and `Title\\n---\\n-- x`, in their doc and item forms) have the word at column 0, where a held break would have reproduced the source exactly; the other four (`Title\\n---\\n ----`, `Title\\n---\\n --`) have it at column 1. The row is what the refusal costs, written down: the record's obligation and the block-start hazard disagree, and the hazard wins because a wrongly opened delimiter destroys the block where a folded break loses a boundary. Closing it needs a held break that carries the source's column AND glues the word to its successor, which is the packer's, not the record's. No row DEPARTS; 309 signatures are re-pinned, which is what a new field on a carrier node does to every signature that holds one."
         }
       ]
     },
@@ -598,69 +670,9 @@
         {
           "basis": "argued-not-counted",
           "family": "gap-line-lost",
-          "note": "#171's own description named this fact, and measuring its four rows showed the lost bytes were the item's TAIL rather than a term gap: every one of them had an empty gap and a description the head drain took. All four are gone (the printer writes the detached + back, drainTakesWholeBody in src/print/join.ts), and the one row the family still holds is a corpus reflow join with no description in it, so this fact explains none of what is left"
+          "note": "#171's own description named this fact, and measuring its four rows showed the lost bytes were the item's TAIL rather than a term gap: every one of them had an empty gap and a description the head drain took. All four are gone (the printer writes the detached + back, printsDrainShield in src/print/join.ts, reading ItemBody.headDrain), and the one row the family still holds is a corpus reflow join with no description in it, so this fact explains none of what is left"
         }
       ]
-    },
-    "ParagraphNode.whitespace": {
-      "reason": "what one whitespace run of the block may be respelled as, decided over the source the printer no longer holds",
-      "lemmaTest": "tests/format/whitespace-fold.test.ts",
-      "landedLemma": true,
-      "reparseFamilies": [
-        {
-          "basis": "measured",
-          "family": "join-changes-reading",
-          "note": "the eight rows the record ADDS to the family, measured by regenerating over the whole population (main measures 349 breaches, this tree 357). Each is a run the record binds to a NEWLINE in front of a word the printer refuses to open a line with, so the break is not written and the next read binds the space it finds instead. The refusal is `isBlockSyntaxAtLineStart` (src/print/reflow.ts), asked of the WORD alone through `wordAtom` and `withBoundary` (src/print/atom-join.ts): it reads `---`, `----` and `--` as delimiters wherever they would open a line, and cannot see that the reader read them as paragraph TEXT at that position. It is not the column - four of the eight rows (`Title\\n---\\n---` and `Title\\n---\\n-- x`, in their doc and item forms) have the word at column 0, where a held break would have reproduced the source exactly; the other four (`Title\\n---\\n ----`, `Title\\n---\\n --`) have it at column 1. The row is what the refusal costs, written down: the record's obligation and the block-start hazard disagree, and the hazard wins because a wrongly opened delimiter destroys the block where a folded break loses a boundary. Closing it needs a held break that carries the source's column AND glues the word to its successor, which is the packer's, not the record's. No row DEPARTS; 309 signatures are re-pinned, which is what a new field on a carrier node does to every signature that holds one."
-        }
-      ]
-    },
-    "AdmonitionNode.whitespace": {
-      "reason": "what one whitespace run of the block may be respelled as, decided over the source the printer no longer holds",
-      "lemmaTest": "tests/format/whitespace-fold.test.ts",
-      "landedLemma": true,
-      "reparseFamilies": [
-        {
-          "basis": "measured",
-          "family": "join-changes-reading",
-          "note": "the same eight rows, reached through this carrier: see ParagraphNode.whitespace for the mechanism and the measured reason."
-        }
-      ]
-    },
-    "ItemBody.whitespace": {
-      "reason": "what one whitespace run of the block may be respelled as, decided over the source the printer no longer holds",
-      "lemmaTest": "tests/format/whitespace-fold.test.ts",
-      "landedLemma": true,
-      "reparseFamilies": [
-        {
-          "basis": "measured",
-          "family": "join-changes-reading",
-          "note": "the same eight rows, reached through this carrier: see ParagraphNode.whitespace for the mechanism and the measured reason."
-        }
-      ]
-    },
-    "BoldNode.marks": {
-      "reason": "what each of the span's two marks stands against, decided over the source at pairing time and read by the printer's constrained respell and its block-start mark placement",
-      "lemmaTest": "tests/parser/inline-marks.test.ts",
-      "landedLemma": true,
-      "reparseFamilies": []
-    },
-    "ItalicNode.marks": {
-      "reason": "what each of the span's two marks stands against, decided over the source at pairing time and read by the printer's constrained respell and its block-start mark placement",
-      "lemmaTest": "tests/parser/inline-marks.test.ts",
-      "landedLemma": true,
-      "reparseFamilies": []
-    },
-    "MonospaceNode.marks": {
-      "reason": "what each of the span's two marks stands against, decided over the source at pairing time and read by the printer's constrained respell and its block-start mark placement",
-      "lemmaTest": "tests/parser/inline-marks.test.ts",
-      "landedLemma": true,
-      "reparseFamilies": []
-    },
-    "HighlightNode.marks": {
-      "reason": "what each of the span's two marks stands against, decided over the source at pairing time and read by the printer's constrained respell and its block-start mark placement",
-      "lemmaTest": "tests/parser/inline-marks.test.ts",
-      "landedLemma": true,
-      "reparseFamilies": []
     }
   }
 }

@@ -121,6 +121,7 @@ export function buildDescriptionListItem(
     detachedTail: body.detachedTail,
     activeTail: body.activeTail,
     everyTextLineIndented: body.everyTextLineIndented,
+    headDrain: body.headDrain,
     textLines: [...textLines],
     printing,
     position: {

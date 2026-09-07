@@ -12,13 +12,17 @@ import vitest from "@vitest/eslint-plugin";
 // signature.
 const EXPECT_MAX_ARGS = 2;
 
-// `max-lines`'s ordinary ceiling (450) plus the 20 lines src/ast.ts's
+// `max-lines`'s ordinary ceiling (450) plus the 22 lines src/ast.ts's
 // own override below needs; see that override for why.
-const AST_MAX_LINES = 470;
+const AST_MAX_LINES = 472;
 
 // `max-lines`'s ordinary ceiling raised to 500 for
 // scripts/metrics/shape-census.ts; see that override for why.
 const SHAPE_CENSUS_MAX_LINES = 500;
+
+// The same ceiling, and the same reason, for scripts/parity-ledger.ts;
+// see that override for why.
+const PARITY_LEDGER_MAX_LINES = 500;
 
 // -1/0/1/2 as index arithmetic (the last element, an empty check,
 // the next slot) is clearer written inline than behind a named
@@ -537,7 +541,7 @@ export default defineConfig(
     rules: { curly: "off" },
   },
 
-  // `max-lines` raised for src/ast.ts alone (450 -> 470): the AST is
+  // `max-lines` raised for src/ast.ts alone (450 -> 472): the AST is
   // one module by the cycle gate's own design (ParentBlockNode needs
   // BlockNode and BlockNode's union names ParentBlockNode back, so
   // splitting the file would create the cross-file cycle
@@ -545,12 +549,14 @@ export default defineConfig(
   // catches even for type-only imports), and the discriminated-union
   // split that keeps `openDelimiter` unrepresentable outside the open
   // variant (issue #64) costs the 2 lines past the ordinary ceiling.
-  // The other 9 are FIELD declarations that have nowhere else to go:
+  // The other 11 are FIELD declarations that have nowhere else to go:
   // a node's field is declared on the node, and the four prose-block
   // carriers each name the whitespace record while the four mark
   // spans each name the mark record (both types leaf modules for the
   // same cycle reason, src/whitespace-record.ts and
-  // src/mark-record.ts).
+  // src/mark-record.ts); the body both list-like items share names
+  // the head-drain record, a leaf for that same reason
+  // (src/head-drain-record.ts), and costs its import line too.
   // The ceiling is a MEASURED number, re-measured whenever a recorded
   // fact is added: one declaration line per fact, and the file may
   // not be split.
@@ -580,6 +586,27 @@ export default defineConfig(
         "error",
         {
           max: SHAPE_CENSUS_MAX_LINES,
+          skipBlankLines: true,
+          skipComments: true,
+        },
+      ],
+    },
+  },
+
+  // `max-lines` raised for scripts/parity-ledger.ts alone (450 -> 500),
+  // for the reason above: the file is the expected-diff FAMILY registry,
+  // and it grows by three lines per family (the name, its place in the
+  // closed enum, and for a schema change the key it owns) while the
+  // functions that check the ledger stay fixed. It measures 453 today,
+  // and each of those three lines is what a reviewer looks up when a
+  // trailer names a family.
+  {
+    files: ["scripts/parity-ledger.ts"],
+    rules: {
+      "max-lines": [
+        "error",
+        {
+          max: PARITY_LEDGER_MAX_LINES,
           skipBlankLines: true,
           skipComments: true,
         },

@@ -386,12 +386,6 @@
       "family": "lone-plus-join"
     },
     {
-      "document": "* a\n\n* a\n// c\n\n+\n",
-      "pass": "p1",
-      "signature": "[cont] -> []",
-      "family": "lone-plus-join"
-    },
-    {
       "document": "* a\n\n* a\n[[anc]]\n\n+\n",
       "pass": "p1",
       "signature": "[cont] -> []",
@@ -2072,12 +2066,6 @@
       "family": "lone-plus-join"
     },
     {
-      "document": "* a\n  ** z\n* a\n// c\n\n+\n",
-      "pass": "p1",
-      "signature": "[cont] -> []",
-      "family": "lone-plus-join"
-    },
-    {
       "document": "* a\n  ** z\n* a\n[[anc]]\n\n+\n",
       "pass": "p1",
       "signature": "[cont] -> []",
@@ -3188,12 +3176,6 @@
       "family": "lone-plus-join"
     },
     {
-      "document": "* a\n  lit\n* a\n// c\n\n+\n",
-      "pass": "p1",
-      "signature": "[cont] -> []",
-      "family": "lone-plus-join"
-    },
-    {
       "document": "* a\n  lit\n* a\n[[anc]]\n\n+\n",
       "pass": "p1",
       "signature": "[cont] -> []",
@@ -4292,12 +4274,6 @@
       "family": "lone-plus-join"
     },
     {
-      "document": "* a\n* a\n* a\n// c\n\n+\n",
-      "pass": "p1",
-      "signature": "[cont] -> []",
-      "family": "lone-plus-join"
-    },
-    {
       "document": "* a\n* a\n* a\n[[anc]]\n\n+\n",
       "pass": "p1",
       "signature": "[cont] -> []",
@@ -4676,30 +4652,6 @@
       "family": "lone-plus-join"
     },
     {
-      "document": "* a\n* a\n// c\n\n\n+\n",
-      "pass": "p1",
-      "signature": "[cont] -> []",
-      "family": "lone-plus-join"
-    },
-    {
-      "document": "* a\n* a\n// c\n\n+\n",
-      "pass": "p1",
-      "signature": "[cont] -> []",
-      "family": "lone-plus-join"
-    },
-    {
-      "document": "* a\n* a\n// c\n\n+\n\n",
-      "pass": "p1",
-      "signature": "[cont] -> []",
-      "family": "lone-plus-join"
-    },
-    {
-      "document": "* a\n* a\n// c\n\n+\n* a\n",
-      "pass": "p1",
-      "signature": "[cont] -> []",
-      "family": "lone-plus-join"
-    },
-    {
       "document": "* a\n* a\n// c\n  ** z\n\n+\n",
       "pass": "p1",
       "signature": "[cont] -> []",
@@ -4731,12 +4683,6 @@
     },
     {
       "document": "* a\n* a\n// c\n.T\n\n+\n",
-      "pass": "p1",
-      "signature": "[cont] -> []",
-      "family": "lone-plus-join"
-    },
-    {
-      "document": "* a\n* a\n// c\n// c\n\n+\n",
       "pass": "p1",
       "signature": "[cont] -> []",
       "family": "lone-plus-join"
@@ -5427,12 +5373,6 @@
     },
     {
       "document": "* a\n** b\n* a\n.T\n\n+\n",
-      "pass": "p1",
-      "signature": "[cont] -> []",
-      "family": "lone-plus-join"
-    },
-    {
-      "document": "* a\n** b\n* a\n// c\n\n+\n",
       "pass": "p1",
       "signature": "[cont] -> []",
       "family": "lone-plus-join"
@@ -6939,12 +6879,6 @@
     },
     {
       "document": "* a\n+\n* a\n.T\n\n+\n",
-      "pass": "p1",
-      "signature": "[cont] -> []",
-      "family": "lone-plus-join"
-    },
-    {
-      "document": "* a\n+\n* a\n// c\n\n+\n",
       "pass": "p1",
       "signature": "[cont] -> []",
       "family": "lone-plus-join"
@@ -9098,12 +9032,6 @@
       "family": "lone-plus-join"
     },
     {
-      "document": "* a\n.T\n* a\n// c\n\n+\n",
-      "pass": "p1",
-      "signature": "[cont] -> []",
-      "family": "lone-plus-join"
-    },
-    {
       "document": "* a\n.T\n* a\n[[anc]]\n\n+\n",
       "pass": "p1",
       "signature": "[cont] -> []",
@@ -9818,30 +9746,6 @@
       "family": "lone-plus-join"
     },
     {
-      "document": "* a\n// c\n\n\n\n+\n",
-      "pass": "p1",
-      "signature": "[cont] -> []",
-      "family": "lone-plus-join"
-    },
-    {
-      "document": "* a\n// c\n\n\n+\n",
-      "pass": "p1",
-      "signature": "[cont] -> []",
-      "family": "lone-plus-join"
-    },
-    {
-      "document": "* a\n// c\n\n\n+\n\n",
-      "pass": "p1",
-      "signature": "[cont] -> []",
-      "family": "lone-plus-join"
-    },
-    {
-      "document": "* a\n// c\n\n\n+\n* a\n",
-      "pass": "p1",
-      "signature": "[cont] -> []",
-      "family": "lone-plus-join"
-    },
-    {
       "document": "* a\n// c\n\n  ** z\n\n+\n",
       "pass": "p1",
       "signature": "[cont] -> []",
@@ -9861,102 +9765,6 @@
     },
     {
       "document": "* a\n// c\n\n** b\n\n+\n",
-      "pass": "p1",
-      "signature": "[cont] -> []",
-      "family": "lone-plus-join"
-    },
-    {
-      "document": "* a\n// c\n\n+\n",
-      "pass": "p1",
-      "signature": "[cont] -> []",
-      "family": "lone-plus-join"
-    },
-    {
-      "document": "* a\n// c\n\n+\n\n",
-      "pass": "p1",
-      "signature": "[cont] -> []",
-      "family": "lone-plus-join"
-    },
-    {
-      "document": "* a\n// c\n\n+\n\n\n",
-      "pass": "p1",
-      "signature": "[cont] -> []",
-      "family": "lone-plus-join"
-    },
-    {
-      "document": "* a\n// c\n\n+\n\n* a\n",
-      "pass": "p1",
-      "signature": "[cont] -> []",
-      "family": "lone-plus-join"
-    },
-    {
-      "document": "* a\n// c\n\n+\n* a\n",
-      "pass": "p1",
-      "signature": "[cont] -> []",
-      "family": "lone-plus-join"
-    },
-    {
-      "document": "* a\n// c\n\n+\n* a\n\n",
-      "pass": "p1",
-      "signature": "[cont] -> []",
-      "family": "lone-plus-join"
-    },
-    {
-      "document": "* a\n// c\n\n+\n* a\n  ** z\n",
-      "pass": "p1",
-      "signature": "[cont] -> []",
-      "family": "lone-plus-join"
-    },
-    {
-      "document": "* a\n// c\n\n+\n* a\n  lit\n",
-      "pass": "p1",
-      "signature": "[cont] -> []",
-      "family": "lone-plus-join"
-    },
-    {
-      "document": "* a\n// c\n\n+\n* a\n* a\n",
-      "pass": "p1",
-      "signature": "[cont] -> []",
-      "family": "lone-plus-join"
-    },
-    {
-      "document": "* a\n// c\n\n+\n* a\n** b\n",
-      "pass": "p1",
-      "signature": "[cont] -> []",
-      "family": "lone-plus-join"
-    },
-    {
-      "document": "* a\n// c\n\n+\n* a\n+\n",
-      "pass": "p1",
-      "signature": "[cont] -> []",
-      "family": "lone-plus-join"
-    },
-    {
-      "document": "* a\n// c\n\n+\n* a\n.T\n",
-      "pass": "p1",
-      "signature": "[cont] -> []",
-      "family": "lone-plus-join"
-    },
-    {
-      "document": "* a\n// c\n\n+\n* a\n// c\n",
-      "pass": "p1",
-      "signature": "[cont] -> []",
-      "family": "lone-plus-join"
-    },
-    {
-      "document": "* a\n// c\n\n+\n* a\n[[anc]]\n",
-      "pass": "p1",
-      "signature": "[cont] -> []",
-      "family": "lone-plus-join"
-    },
-    {
-      "document": "* a\n// c\n\n+\n* a\n[role]\n",
-      "pass": "p1",
-      "signature": "[cont] -> []",
-      "family": "lone-plus-join"
-    },
-    {
-      "document": "* a\n// c\n\n+\n* a\npara\n",
       "pass": "p1",
       "signature": "[cont] -> []",
       "family": "lone-plus-join"
@@ -10202,12 +10010,6 @@
       "family": "lone-plus-join"
     },
     {
-      "document": "* a\n// c\n* a\n// c\n\n+\n",
-      "pass": "p1",
-      "signature": "[cont] -> []",
-      "family": "lone-plus-join"
-    },
-    {
       "document": "* a\n// c\n* a\n[[anc]]\n\n+\n",
       "pass": "p1",
       "signature": "[cont] -> []",
@@ -10318,7 +10120,7 @@
     {
       "document": "* a\n// c\n+\n\n\n+\n",
       "pass": "p1",
-      "signature": "[cont cont] -> []",
+      "signature": "[cont] -> []",
       "family": "lone-plus-join"
     },
     {
@@ -10390,31 +10192,31 @@
     {
       "document": "* a\n// c\n+\n+\n\n.T\n",
       "pass": "p1",
-      "signature": "[cont cont] -> []",
+      "signature": "[cont] -> []",
       "family": "lone-plus-join"
     },
     {
       "document": "* a\n// c\n+\n+\n\n// c\n",
       "pass": "p1",
-      "signature": "[cont cont] -> []",
+      "signature": "[cont] -> []",
       "family": "lone-plus-join"
     },
     {
       "document": "* a\n// c\n+\n+\n\n[[anc]]\n",
       "pass": "p1",
-      "signature": "[cont cont] -> []",
+      "signature": "[cont] -> []",
       "family": "lone-plus-join"
     },
     {
       "document": "* a\n// c\n+\n+\n\n[role]\n",
       "pass": "p1",
-      "signature": "[cont cont] -> []",
+      "signature": "[cont] -> []",
       "family": "lone-plus-join"
     },
     {
       "document": "* a\n// c\n+\n+\n\npara\n",
       "pass": "p1",
-      "signature": "[cont cont] -> []",
+      "signature": "[cont] -> []",
       "family": "lone-plus-join"
     },
     {
@@ -10432,7 +10234,7 @@
     {
       "document": "* a\n// c\n+\n+\n+\n\npara\n",
       "pass": "p1",
-      "signature": "[cont cont cont] -> []",
+      "signature": "[cont cont] -> []",
       "family": "lone-plus-join"
     },
     {
@@ -10592,30 +10394,6 @@
       "family": "lone-plus-join"
     },
     {
-      "document": "* a\n// c\n// c\n\n\n+\n",
-      "pass": "p1",
-      "signature": "[cont] -> []",
-      "family": "lone-plus-join"
-    },
-    {
-      "document": "* a\n// c\n// c\n\n+\n",
-      "pass": "p1",
-      "signature": "[cont] -> []",
-      "family": "lone-plus-join"
-    },
-    {
-      "document": "* a\n// c\n// c\n\n+\n\n",
-      "pass": "p1",
-      "signature": "[cont] -> []",
-      "family": "lone-plus-join"
-    },
-    {
-      "document": "* a\n// c\n// c\n\n+\n* a\n",
-      "pass": "p1",
-      "signature": "[cont] -> []",
-      "family": "lone-plus-join"
-    },
-    {
       "document": "* a\n// c\n// c\n  ** z\n\n+\n",
       "pass": "p1",
       "signature": "[cont] -> []",
@@ -10647,12 +10425,6 @@
     },
     {
       "document": "* a\n// c\n// c\n.T\n\n+\n",
-      "pass": "p1",
-      "signature": "[cont] -> []",
-      "family": "lone-plus-join"
-    },
-    {
-      "document": "* a\n// c\n// c\n// c\n\n+\n",
       "pass": "p1",
       "signature": "[cont] -> []",
       "family": "lone-plus-join"
@@ -11307,12 +11079,6 @@
     },
     {
       "document": "* a\n[[anc]]\n* a\n.T\n\n+\n",
-      "pass": "p1",
-      "signature": "[cont] -> []",
-      "family": "lone-plus-join"
-    },
-    {
-      "document": "* a\n[[anc]]\n* a\n// c\n\n+\n",
       "pass": "p1",
       "signature": "[cont] -> []",
       "family": "lone-plus-join"
@@ -12416,12 +12182,6 @@
       "family": "lone-plus-join"
     },
     {
-      "document": "* a\n[role]\n* a\n// c\n\n+\n",
-      "pass": "p1",
-      "signature": "[cont] -> []",
-      "family": "lone-plus-join"
-    },
-    {
       "document": "* a\n[role]\n* a\n[[anc]]\n\n+\n",
       "pass": "p1",
       "signature": "[cont] -> []",
@@ -13515,12 +13275,6 @@
     },
     {
       "document": "* a\npara\n* a\n.T\n\n+\n",
-      "pass": "p1",
-      "signature": "[cont] -> []",
-      "family": "lone-plus-join"
-    },
-    {
-      "document": "* a\npara\n* a\n// c\n\n+\n",
       "pass": "p1",
       "signature": "[cont] -> []",
       "family": "lone-plus-join"

@@ -862,6 +862,29 @@ const MARKER_GAP_KEPT_FAMILY = "marker-gap-kept";
  */
 const SPAN_MARK_RECORD_FAMILY = "span-mark-record";
 
+/**
+ * Every list-like item's body records what `parse_list_item`'s head
+ * drain did with the run of `//`-headed lines at the item's head
+ * ({@link HeadDrainFact}, src/head-drain-record.ts): `detached` where
+ * a blank stopped the peek and the run is the item's own first block,
+ * `none` for the peek's other two answers. That is the fact the
+ * printer's shield reads, which it used to answer from the words the
+ * item was about to write - a different question, and one that
+ * withheld the shield from every run carrying a second word or an
+ * inline node. No formatted byte moves over this corpus: the two
+ * reads part only where a near miss carries something a word test
+ * cannot see, and no corpus case spells one, so every differing case
+ * differs in the `headDrain` key and nothing else, which is what a
+ * bare trailer declares. Measured against 319451d6, the landing's own
+ * base: 170 of the 1,620 cases differ, all 170 in the AST alone (30
+ * corpus documents, 140 fixtures). NOT formatted-only: the key IS the
+ * difference, and a formatted-only family would fail the cross-check
+ * for every case.
+ *
+ * Not exported: no grid row cites it.
+ */
+const HEAD_DRAIN_RECORD_FAMILY = "head-drain-record";
+
 export const LEDGER_FAMILIES: FamilySets = {
   families: new Set([
     ATTRIBUTE_CONTINUATION_FAMILY,
@@ -910,6 +933,7 @@ export const LEDGER_FAMILIES: FamilySets = {
     SECOND_LINE_INDENT_FACT_FAMILY,
     MARKER_GAP_KEPT_FAMILY,
     SPAN_MARK_RECORD_FAMILY,
+    HEAD_DRAIN_RECORD_FAMILY,
   ]),
   formattedOnly: new Set([
     AUTHOR_PLUS_FAMILY,
@@ -928,20 +952,22 @@ export const LEDGER_FAMILIES: FamilySets = {
     TABLE_LAYOUT_FAMILY,
     TABLE_WIDTH_LAYOUT_FAMILY,
   ]),
-  // Five families, and each owns exactly the field it named, as the
+  // Six families, and each owns exactly the field it named, as the
   // dumper serializes it: `ParagraphNode.firstWordEndsItsLine`,
   // `ParagraphNode.blankBelowAnchorLine`,
-  // `TableCellNode.columnIndex`, `ParagraphNode.secondLineIndent` and
-  // the `marks` record on the four mark spans (all src/ast.ts). Every
-  // other family names a change to what the tree MEANS at some ids;
-  // these five name a field every paragraph, every table cell, or
-  // every mark span gained.
+  // `TableCellNode.columnIndex`, `ParagraphNode.secondLineIndent`,
+  // the `marks` record on the four mark spans, and the `headDrain`
+  // record on the body both list-like items share (all src/ast.ts).
+  // Every other family names a change to what the tree MEANS at some
+  // ids; these six name a field every paragraph, every table cell,
+  // every mark span or every list item gained.
   blanketKeys: new Map([
     [BLOCK_START_LINE_FACT_FAMILY, new Set(["firstWordEndsItsLine"])],
     [BLANK_BELOW_ANCHOR_LINE_FACT_FAMILY, new Set(["blankBelowAnchorLine"])],
     [TABLE_CELL_COLUMN_INDEX_FAMILY, new Set(["columnIndex"])],
     [SECOND_LINE_INDENT_FACT_FAMILY, new Set(["secondLineIndent"])],
     [SPAN_MARK_RECORD_FAMILY, new Set(["marks"])],
+    [HEAD_DRAIN_RECORD_FAMILY, new Set(["headDrain"])],
   ]),
 };
 

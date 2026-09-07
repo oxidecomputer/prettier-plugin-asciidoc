@@ -446,7 +446,7 @@ describe("the lens sees each corruption, and one arm names it", () => {
     // A fence's `[source]` line is now the block's FIRST printed line,
     // so it no longer detaches ({@link printsSourceAttributeLine}),
     // and a description the head drain would take now keeps the
-    // detached `+` that stops it ({@link drainTakesWholeBody}), as
+    // detached `+` that stops it ({@link printsDrainShield}), as
     // does the `// c` body whose deleted line rendered nothing. Both
     // families round-trip every document that used to be spelled here,
     // so neither has a row to put in its place.

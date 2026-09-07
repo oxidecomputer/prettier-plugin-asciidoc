@@ -28,6 +28,7 @@ import type {
   ListItemNode,
   ListNode,
 } from "../../ast.js";
+import type { HeadDrainFact } from "../../head-drain-record.js";
 import { buildDescriptionList } from "../build/description-list.js";
 import type { DescriptionPair } from "../build/description-list.js";
 import { buildList } from "../build/list.js";
@@ -166,6 +167,7 @@ export function readMarkerList(
       // no guard.
       drained: drain.kind === "kept" ? [] : drain.run,
       previousItemEnd,
+      headDrain: headDrainFact(drain),
     });
   };
   const [opening, ...rest] = shape.items;
@@ -450,6 +452,51 @@ function drainHeadComments(shape: ListItemShape): HeadDrain {
 }
 
 /**
+ * The RECORDED fact of one head drain: whether a run stands at the
+ * item's head that the next read's drain would take away from it
+ * ({@link HeadDrainFact}, src/head-drain-record.ts).
+ *
+ * THE ONE CONSTRUCTION SITE, and an exhaustive switch over the arm
+ * {@link drainHeadComments} returned, so the printer never asks the
+ * item's printed words what the drain would do with them - a question
+ * with a different answer for every run carrying a second word or an
+ * inline node (issue #267).
+ *
+ * SURVIVING BYTES, at the site that decides them. The fact is the
+ * READING of the run's position - at the buffer's head the run is the
+ * item's own first block, one line lower it is the tail of the item's
+ * text - and the bytes that carry it are all written back: the item's
+ * opening line keeps the words the source put on it
+ * ({@link ListItemNode}'s `nextLineNeedsItsPosition`, whose drain
+ * half is exactly this arm), the run's own lines are printed where
+ * they stood, and the `+` under them is the shield the printer writes
+ * ({@link printsDrainShield}, src/print/join.ts). A second read runs
+ * the same peek over the same lines in the same order and reaches
+ * this arm again.
+ * @param drain - what the head drain took out of the item's buffer
+ * @returns the arm the item records
+ */
+function headDrainFact(drain: HeadDrain): HeadDrainFact {
+  switch (drain.kind) {
+    case "kept": {
+      return { kind: "none" };
+    }
+    case "dropped": {
+      // The run reached the buffer's end and the reference lost it,
+      // which changes no rendering the printer can protect: the lines
+      // come back as a replay where they stood, and whether the next
+      // read loses them again is a question about that read's own
+      // buffer. Telling this apart from `kept` would record a fact
+      // the printed bytes do not carry (see HeadDrainFact).
+      return { kind: "none" };
+    }
+    case "detached": {
+      return { kind: "detached" };
+    }
+  }
+}
+
+/**
  * One description sibling's interior: the description that follows
  * the delimiter, then the blocks under it.
  *
@@ -581,6 +628,7 @@ export function readDescriptionList(
         nextTermLine: shape.items.at(position + 1)?.markerLine.line,
         whitespace: host.scope.whitespace,
         drainedEnd: dropped ? drain.drainedEnd : item.markerLine.line,
+        headDrain: headDrainFact(drain),
       },
     );
   };

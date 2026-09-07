@@ -13,6 +13,10 @@
       "coverage": 100.0,
       "mutation": 0.0
     },
+    "src/head-drain-record.ts": {
+      "coverage": 100.0,
+      "mutation": 0.0
+    },
     "src/index.ts": {
       "coverage": 100.0,
       "mutation": 100.0
@@ -889,6 +893,12 @@
       "what": "mutation minimum 0 - the file is new and no cleared-cache mutation run has measured it",
       "class": "when",
       "reason": "a minimum of 0 says NOT MEASURED, not 'nothing survives': the file lands with the mark record and the next batched `bun run mutate:full` is what seeds its number. Its coverage minimum is measured and recorded (100), and tests/parser/inline-marks.test.ts is the dedicated lemma test the seeding will score against"
+    },
+    {
+      "file": "src/head-drain-record.ts",
+      "what": "mutation minimum 0 - Stryker writes no row for this file",
+      "class": "never",
+      "reason": "the head-drain record is interface and union declarations and nothing else, so there is no expression to mutate; the same reading src/ast.ts's own row states"
     }
   ]
 }

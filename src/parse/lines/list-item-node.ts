@@ -22,6 +22,7 @@
  * reference, exactly as list-reader.ts's do.
  */
 import type { BlockNode, GapLine, ListItemNode } from "../../ast.js";
+import type { HeadDrainFact } from "../../head-drain-record.js";
 import { buildListItem } from "../build/list.js";
 import type { WhitespaceContext } from "../../whitespace-fact.js";
 import type { LocationIndex } from "../positions.js";
@@ -149,6 +150,9 @@ export function gapsOf(
  *   whitespace context (`WhitespaceContext`, src/whitespace-fact.ts)
  * @param bounds.drained - the lines the head drain took, in source
  *   order; read by the caller, which needs them for the interior too
+ * @param bounds.headDrain - which of the peek's three answers this
+ *   item's buffer gave ({@link ListItemNode}'s `headDrain`), decided
+ *   at the drain's own site
  * @param bounds.previousItemEnd - the last line the item BEFORE this
  *   one occupies, or this item's own marker line where it opens the
  *   list ({@link gapsOf})
@@ -163,6 +167,7 @@ export function listItemNode(
     whitespace: WhitespaceContext;
     drained: readonly SourceLine[];
     previousItemEnd: number;
+    headDrain: HeadDrainFact;
   },
 ): ListItemNode {
   const { at } = bounds;
@@ -222,9 +227,11 @@ export function listItemNode(
           (line) => line.text,
         ),
       ),
+      headDrain: bounds.headDrain,
       nextLineNeedsItsPosition: nextLineNeedsItsPosition(
         shape.buffer,
         markerLine.line,
+        bounds.headDrain,
         bounds.drained,
       ),
     },
@@ -317,16 +324,27 @@ export function endsInPlusParagraph(blocks: readonly BlockNode[]): boolean {
  * peek lost the run, the item's own first block where a blank stopped
  * the peek - while one line lower it is the text's own last words
  * either way, measured the same in BOTH programs. Both of those arms
- * hand their run here for that reason. A `//` line the two readers
- * AGREE on is dropped at either position and needs no guard, which is
- * why the test is the disagreement rather than the drain having
- * fired.
+ * hand their run here for that reason.
+ *
+ * A DETACHED run is guarded whatever its lines render, and that is
+ * the second clause. Its arm is what the printer's shield reads
+ * ({@link HeadDrainFact}, `printsDrainShield`), so the arm has to
+ * survive the item's own reflow: move the item's text down over the
+ * run and the next read's peek stops on the moved line instead, the
+ * run is no longer detached, and the `+` the shield wrote is dropped
+ * on the pass after that. Measured: a 90-column item text over a
+ * `// c` run and a `+` came back wrapped, shielded, and not a fixed
+ * point. Where the run was only DROPPED there is no shield to keep,
+ * so the older test stands: a `//` line the two readers agree on is
+ * dropped at either position and needs no guard.
  *
  * A DESCRIPTION sibling needs no drain half: its drained bytes are
  * replayed as the term's GAP, and a non-empty gap already forbids the
  * join ({@link siblingPrinting}).
  * @param buffer - the item's lines, in document order
  * @param openingLine - the 1-based marker line, excluded
+ * @param drain - what the head drain left the item with
+ *   ({@link HeadDrainFact})
  * @param drained - the lines the head drain took, in source order
  * @returns true when reflow may not change how many lines stand
  *   between the item's opening line and the line under it
@@ -334,6 +352,7 @@ export function endsInPlusParagraph(blocks: readonly BlockNode[]): boolean {
 function nextLineNeedsItsPosition(
   buffer: readonly SourceLine[],
   openingLine: number,
+  drain: HeadDrainFact,
   drained: readonly SourceLine[],
 ): boolean {
   const decides = buffer.find(
@@ -342,6 +361,7 @@ function nextLineNeedsItsPosition(
   return (
     (decides !== undefined &&
       positionDecidesTheReading(decides.text, "listItemText")) ||
+    drain.kind === "detached" ||
     drained.some((line) => !isDroppedCommentLine(line.text))
   );
 }

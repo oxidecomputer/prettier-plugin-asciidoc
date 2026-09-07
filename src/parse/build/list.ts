@@ -15,6 +15,7 @@ import type {
   ListNode,
   TrailingContinuation,
 } from "../../ast.js";
+import type { HeadDrainFact } from "../../head-drain-record.js";
 import { buildFromTokens } from "../inline/inline-node-builder.js";
 import type { InlineToken } from "../inline/tokens.js";
 import { rstrip } from "../line-shapes.js";
@@ -71,6 +72,11 @@ export interface ItemBodyInput {
    * indented (see {@link ListItemNode}'s `everyTextLineIndented`).
    */
   readonly everyTextLineIndented: boolean;
+  /**
+   * What the head drain did with the run at the item's head (see
+   * {@link ListItemNode}'s `headDrain`).
+   */
+  readonly headDrain: HeadDrainFact;
   /**
    * The whole-block facts the item TEXT's whitespace record reads
    * ({@link WhitespaceContext}, src/whitespace-fact.ts).
@@ -297,6 +303,7 @@ export function buildListItem(
     detachedTail: input.detachedTail,
     activeTail: input.activeTail,
     everyTextLineIndented: input.everyTextLineIndented,
+    headDrain: input.headDrain,
     position: {
       start: at.start(input.marker),
       end:

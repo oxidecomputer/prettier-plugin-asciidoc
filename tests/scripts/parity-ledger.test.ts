@@ -179,6 +179,7 @@ describe("expected-diff ledger", () => {
       "explicit-ordered-marker",
       "front-matter",
       "gap-collapse",
+      "head-drain-record",
       "inline-boundary-set",
       "inline-passthrough",
       "inline-span-keeps-break",

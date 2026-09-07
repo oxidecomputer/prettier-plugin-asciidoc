@@ -49,6 +49,7 @@ function itemInput(overrides: Partial<ListItemInput>): ListItemInput {
     text: [],
     context: PLAIN_WHITESPACE_CONTEXT,
     blocks: [],
+    headDrain: { kind: "none" },
     trailingContinuation: false,
     detachedTail: false,
     activeTail: false,

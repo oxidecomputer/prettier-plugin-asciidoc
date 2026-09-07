@@ -98,6 +98,34 @@
     "reason": "the one predicate for metadata that stacks onto the block below it, read by the printer's join rules"
   },
   {
+    "file": "src/head-drain-record.ts",
+    "symbol": "HeadDrainFact",
+    "importer": "src/parse/build/list.ts",
+    "kind": "vocabulary",
+    "reason": "the head-drain record's own type. Declared in a leaf module for the reason src/whitespace-record.ts is one: src/ast.ts names it on the body both item kinds share and the module that constructs it names the AST's node types back, which would be the cross-file cycle the graph gate refuses even for type-only imports"
+  },
+  {
+    "file": "src/head-drain-record.ts",
+    "symbol": "HeadDrainFact",
+    "importer": "src/parse/lines/description-list-node.ts",
+    "kind": "vocabulary",
+    "reason": "the head-drain record's own type. Declared in a leaf module for the reason src/whitespace-record.ts is one: src/ast.ts names it on the body both item kinds share and the module that constructs it names the AST's node types back, which would be the cross-file cycle the graph gate refuses even for type-only imports"
+  },
+  {
+    "file": "src/head-drain-record.ts",
+    "symbol": "HeadDrainFact",
+    "importer": "src/parse/lines/list-item-node.ts",
+    "kind": "vocabulary",
+    "reason": "the head-drain record's own type. Declared in a leaf module for the reason src/whitespace-record.ts is one: src/ast.ts names it on the body both item kinds share and the module that constructs it names the AST's node types back, which would be the cross-file cycle the graph gate refuses even for type-only imports"
+  },
+  {
+    "file": "src/head-drain-record.ts",
+    "symbol": "HeadDrainFact",
+    "importer": "src/parse/lines/list-read.ts",
+    "kind": "vocabulary",
+    "reason": "the head-drain record's own type. Declared in a leaf module for the reason src/whitespace-record.ts is one: src/ast.ts names it on the body both item kinds share and the module that constructs it names the AST's node types back, which would be the cross-file cycle the graph gate refuses even for type-only imports"
+  },
+  {
     "file": "src/mark-record.ts",
     "symbol": "MarkFact",
     "importer": "src/parse/inline/mark-facts.ts",
@@ -954,13 +982,6 @@
   {
     "file": "src/parse/line-shapes.ts",
     "symbol": "LINE_COMMENT_HEAD",
-    "importer": "src/print/join.ts",
-    "kind": "vocabulary",
-    "reason": "the two characters `skip_line_comments` tests for - the printer asks whether the head drain would take the whole of the body a marker item or a description writes, in the drain's own spelling rather than the classifier's narrower one"
-  },
-  {
-    "file": "src/parse/line-shapes.ts",
-    "symbol": "LINE_COMMENT_HEAD",
     "importer": "src/print/list-hazard.ts",
     "kind": "vocabulary",
     "reason": "the two characters `skip_line_comments` tests for - the scan side's one spelling of 'line comment', deliberately wider than the parse-side pattern"
@@ -1804,13 +1825,6 @@
     "importer": "src/print/inline.ts",
     "kind": "vocabulary",
     "reason": "the ONE cut of a value into its words and the runs around them, so the reader's runs and the printer's words are the same partition of the same bytes"
-  },
-  {
-    "file": "src/whitespace-runs.ts",
-    "symbol": "cutValue",
-    "importer": "src/print/join.ts",
-    "kind": "vocabulary",
-    "reason": "the ONE cut of a value into its words, asked where the head drain decides whether every word of a text node carries a `//` head: the words the drain reads have to be the words the packer writes, or the two disagree about where a word ends"
   },
   {
     "file": "src/whitespace-runs.ts",
