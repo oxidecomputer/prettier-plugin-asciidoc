@@ -6,19 +6,21 @@
  * One module rather than a field on the perturbation table, because
  * the answer is not a property of the perturbation alone: the same
  * termination moves a `tablePipe` row for a reason no other kind's row
- * moves for, and every row inside a description moves for a reason no
- * kind or perturbation names, so the question needs all three
- * coordinates and the tables that answer it need them too. Splitting
- * it out is also what keeps scripts/shape-registry-grids.ts, which
- * asks the question, from carrying the tables that answer it.
+ * moves for, and a reading change moves one kind inside one container
+ * and leaves the same perturbation's siblings alone, so the question
+ * needs all three coordinates and the tables that answer it need them
+ * too. Splitting it out is also what keeps
+ * scripts/shape-registry-grids.ts, which asks the question, from
+ * carrying the tables that answer it.
  *
  * A coordinate with NO family is expected byte-identical, and a diff
- * there STOPS the run. That is the point of naming coordinates rather
- * than blanketing a kind: the rows below are the ones the table print
- * rules and the shortest-safe delimiter speller move, and every other
- * row in the grid is still pinned. The one blanket, over the
- * description container, states at its own arm why it is there and
- * which issue removes it.
+ * there STOPS the run. So every excuse below names the MECHANISM that
+ * moves its rows, and no CONTAINER is excused wholesale: a
+ * container-wide arm would excuse every kind and every perturbation
+ * inside it, including rows that move for a reason nothing has
+ * measured, which is the blindness this map exists to refuse. The one
+ * whole-kind arm (`openBlockTilde`) states at its own site why no
+ * coordinate of that kind can be byte-identical against the base.
  *
  * A LIBRARY module, not a command, and the family strings are the
  * closed enumeration's (scripts/parity-ledger.ts) rather than this
@@ -27,7 +29,6 @@
 import {
   ADMONITION_LABEL_FOLD_FAMILY,
   BLOCK_DELIMITER_LENGTH_FAMILY,
-  DESCRIPTION_LIST_ITEM_FAMILY,
   MARKDOWN_THEMATIC_BREAK_FAMILY,
   NO_OP_CONTINUATION_FAMILY,
   OPEN_BLOCK_TILDE_FAMILY,
@@ -56,10 +57,10 @@ const ADMONITION_STYLES: readonly string[] = [
  * citation names why - issue #202's lesson): {@link gridRowFamily}
  * answers by coordinate for the rows below it because each of THOSE
  * mechanisms is a property of the coordinate itself (a kind the base
- * registry has no dimension for, a container every row inside moves
- * for), but the admonition fold is a property of what the printer
- * wrote, realized at exactly one coordinate today and not chosen
- * because of it.
+ * registry has no dimension for, a perturbation that writes a longer
+ * delimiter inside the block), but the admonition fold is a property
+ * of what the printer wrote, realized at exactly one coordinate today
+ * and not chosen because of it.
  * @param baseOut - the base revision's formatted output
  * @param headOut - this checkout's formatted output
  * @returns the family, or undefined when no admonition style line
@@ -136,15 +137,6 @@ const TABLE_PIPE_FAMILIES: ReadonlyMap<string, string> = new Map([
 const TRAILING_PLUS = "trailing-plus-after-close";
 
 /**
- * The container whose every row moved when a term line began opening
- * a description list: the body it wraps used to fold onto the term
- * line as paragraph text and now stays on the lines the author wrote.
- * `dlist-desc-line` is NOT here and must not be: its body already
- * stood on its own line, and not one of its rows moved.
- */
-const DESCRIPTION_CONTAINER = "dlist-desc";
-
-/**
  * The one coordinate where a delimited LEAF block's own fence moves:
  * the perturbation writes a longer delimiter INSIDE the block, which
  * constrains nothing, so the fence is spelled at its shortest safe
@@ -157,8 +149,7 @@ const DESCRIPTION_CONTAINER = "dlist-desc";
  * than recorded text and its rows do not move at this coordinate -
  * and `tablePipe` keeps {@link TABLE_DELIMITER_LENGTH_FAMILY} in the
  * map below, which is the table's own delimiter rule and not this
- * one. Inside a description the container is answered first, so a
- * leaf fence there takes the container's family rather than this one.
+ * one.
  */
 const LONGER_DELIMITER_INSIDE = "longer-delimiter-inside";
 
@@ -232,21 +223,12 @@ const MARKDOWN_BREAK_COORDINATES: ReadonlySet<string> = new Set([
  * The family a standing grid row takes, or undefined where the row is
  * expected byte-identical.
  *
- * The description container is answered FIRST, and it answers for
- * every kind and every perturbation inside it. That ordering is what
- * the measurement says: all 155 rows that moved sit in this one
- * container, and the twenty-four of them the two per-kind rules below
- * would have claimed are byte-identical at every other container, so
- * the description read is what moved them and a table, a continuation
- * or a leaf-fence family would be excusing the right row for the
- * wrong reason.
- *
- * TRANSIENT, and issue #160 is the removal. A blanket over a
- * container blinds every coordinate inside it, which is the cost this
- * module otherwise refuses to pay; it is paid here only until the
- * landing that moved these rows is the base of every gated
- * differential run, after which they are byte-identical again and the
- * arm has nothing left to excuse.
+ * The container is one THIRD of a coordinate here and never an
+ * answer on its own: an arm keyed on it alone would excuse every kind
+ * and perturbation inside it. Where two arms reach the same
+ * coordinate, the one naming the mechanism that actually moved the
+ * row is asked first, so that a row is never excused for the wrong
+ * reason.
  * @param kind - the delimiter kind the row is built from
  * @param containerId - the container the construct is embedded in
  * @param perturbationId - the perturbation's stable name
@@ -257,9 +239,6 @@ export function gridRowFamily(
   containerId: string,
   perturbationId: string,
 ): string | undefined {
-  if (containerId === DESCRIPTION_CONTAINER) {
-    return DESCRIPTION_LIST_ITEM_FAMILY;
-  }
   // Asked before every other per-kind rule: the base registry has no
   // `openBlockTilde` dimension at all (issue #64), so no perturbation
   // of this kind, in any container, can be byte-identical against it -
@@ -268,11 +247,10 @@ export function gridRowFamily(
   if (kind === OPEN_BLOCK_TILDE_KIND) {
     return OPEN_BLOCK_TILDE_FAMILY;
   }
-  // The two reading changes are asked BEFORE the per-kind rules for
-  // the reason the description container is: at these coordinates a
-  // title or a break is what moved the row, and the leaf-fence or
-  // continuation family beside them would be excusing the right row
-  // for the wrong reason.
+  // The two reading changes are asked BEFORE the per-kind rules: at
+  // these coordinates a title or a break is what moved the row, and
+  // the leaf-fence or continuation family beside them would be
+  // excusing the right row for the wrong reason.
   const coordinate = `${kind}/${containerId}/${perturbationId}`;
   if (UNDERLINED_TITLE_COORDINATES.has(coordinate)) {
     return UNDERLINED_SECTION_TITLE_FAMILY;

@@ -250,7 +250,6 @@ export default defineConfig(
       "src/parse/lines/reader.ts", // 450 -> 462
       "scripts/parity.ts", // 449 -> 469
       "tests/parser/ast-invariants.ts", // 436 -> 459
-      "tests/scripts/metrics-design.test.ts", // 433 -> 435
       "tests/scripts/parity.test.ts", // 442 -> 444
     ],
     rules: { curly: "off" },

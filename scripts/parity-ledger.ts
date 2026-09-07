@@ -713,11 +713,7 @@ const TABLE_UNREAD_ATTRLIST_FAMILY = "table-unread-attrlist";
  * blanket family either: it does not name a field every node gained,
  * it names ids whose whole subtree is a different shape, and the
  * blanket form would excuse arbitrary tree changes on every case that
- * happens to carry a `::`. EXPORTED because the standing grid cites
- * it: every row built inside the `dlist-desc` container moved when
- * the reader began opening a list on a term line, and
- * `gridRowFamily` (scripts/shape-registry-families.ts) names that
- * family for them.
+ * happens to carry a `::`.
  *
  * The SAME reader also records on that tree the verdict that decides
  * how the item prints (`printing`, src/ast.ts), so an id whose tree
@@ -725,7 +721,7 @@ const TABLE_UNREAD_ATTRLIST_FAMILY = "table-unread-attrlist";
  * verdict's value and the description bytes it licenses belongs to
  * this family too: one meaning change, landed in two commits.
  */
-export const DESCRIPTION_LIST_ITEM_FAMILY = "description-list-item";
+const DESCRIPTION_LIST_ITEM_FAMILY = "description-list-item";
 
 /**
  * A run of four or more tildes is the OPEN block the oracle's

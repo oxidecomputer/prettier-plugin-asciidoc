@@ -41,7 +41,9 @@ function scan(text: string): ReturnType<typeof scanSource> {
 function sourceFilesUnder(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const full = path.join(directory, entry.name);
-    if (entry.isDirectory()) return sourceFilesUnder(full);
+    if (entry.isDirectory()) {
+      return sourceFilesUnder(full);
+    }
     return entry.name.endsWith(".ts") ? [full] : [];
   });
 }

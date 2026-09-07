@@ -54,10 +54,11 @@ export function standingGrid(): Shape[] {
         // family, is answered in one place
         // (scripts/shape-registry-families.ts) because the answer
         // needs ALL THREE coordinates: a `tablePipe` row moves for a
-        // reason its perturbation does not name, and a row inside a
-        // description moves for a reason neither of the other two
-        // names. Every coordinate that map does not name is expected
-        // byte-identical and a diff there fails the run.
+        // reason its perturbation does not name, and a reading change
+        // moves one kind inside one container while leaving the same
+        // perturbation's siblings alone. Every coordinate that map
+        // does not name is expected byte-identical and a diff there
+        // fails the run.
         shapes.push({
           id: `${kind}/${container.id}/${perturbation.id}`,
           input,
