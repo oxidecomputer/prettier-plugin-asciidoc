@@ -162,6 +162,58 @@ export function factsOfBuckets(
   );
 }
 
+/** A row that already knows which failure class it belongs to. */
+export interface ClusteredRow {
+  /** The row's id, as it appears in a cluster's example list. */
+  readonly id: string;
+  /**
+   * The failure class the row joins, WITHOUT the properties it
+   * failed: {@link clusterFactsOfRows} appends those.
+   */
+  readonly cluster: string;
+}
+
+/**
+ * Compresses a failing set into its clusters for a sweep whose rows
+ * CARRY their cluster, keying each by that class and the properties
+ * the row failed.
+ *
+ * The alternative, reading the class back off the row id, is what
+ * {@link clusterFacts} has to do because a line-registry id is the
+ * only witness of the grid it came from. A sweep that knows the class
+ * while it is building the row should not spell it into an id and
+ * parse it out again: carrying it forward is total, and immune to an
+ * id-spelling change.
+ *
+ * Takes the ROWS as well as the failures, because the cluster
+ * coordinate lives on the row: walking the rows and looking each one's
+ * verdict up is total, where looking a failure's row up would have to
+ * answer for an id that names no row.
+ * @param rows - every row the sweep ran, in sweep order
+ * @param failures - the failing ones, in any order
+ * @returns the clusters, keyed and ordered by cluster key
+ */
+export function clusterFactsOfRows(
+  rows: readonly ClusteredRow[],
+  failures: readonly SweepFailure[],
+): Map<string, ClusterFacts> {
+  const verdicts = new Map(
+    failures.map((failure) => [failure.id, failure.fails]),
+  );
+  const ids = new Map<string, string[]>();
+  for (const row of rows) {
+    const fails = verdicts.get(row.id);
+    if (fails === undefined) {
+      continue;
+    }
+    const key = `${row.cluster}/${fails.join("+")}`;
+    const bucket = ids.get(key) ?? [];
+    bucket.push(row.id);
+    ids.set(key, bucket);
+  }
+  return factsOfBuckets(ids);
+}
+
 /** A hex sha256 digest and nothing else. */
 const DIGEST = /^[0-9a-f]{64}$/v;
 

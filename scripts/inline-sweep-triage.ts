@@ -30,17 +30,17 @@ import {
   printClusters,
   rowManifest,
 } from "./lib/sweep-manifest.js";
-import {
-  inlineClusterFacts,
-  INLINE_SWEEP_DEEP_MANIFEST_PATH,
-} from "../tests/conformance/inline-sweep-clusters.js";
+import { INLINE_SWEEP_DEEP_MANIFEST_PATH } from "../tests/conformance/inline-sweep-clusters.js";
 import {
   inlineDefaultTierRows,
   inlineDeepTierRows,
   INLINE_SWEEP_QUARANTINE_PATH,
   loadInlineQuarantine,
 } from "../tests/conformance/inline-sweep.js";
-import { loadSweepClusters } from "../tests/conformance/registry-sweep-clusters.js";
+import {
+  clusterFactsOfRows,
+  loadSweepClusters,
+} from "../tests/conformance/registry-sweep-clusters.js";
 import { sweepFailures } from "../tests/conformance/registry-sweep.js";
 
 const USAGE = `usage: bun run inline-sweep-triage [--write]
@@ -83,7 +83,7 @@ const defaultFailures = failures.filter((failure) =>
   defaultIds.has(failure.id),
 );
 
-const clusters = inlineClusterFacts(rows, failures);
+const clusters = clusterFactsOfRows(rows, failures);
 
 // The counts docs/harnesses.md points readers at instead of printing
 // its own copy: rows.length/failures.length are the deep manifest's

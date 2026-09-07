@@ -664,6 +664,81 @@ sweep writes both. Exit 0 the sweep ran, 2 it could not run; there is no exit 1.
 Proves nothing by itself; it writes the two files the sweep's gates hold the
 tree to.
 
+### `bun run reflow-line-sweep-triage` - the reflow-line sweep
+
+The same three properties again, over list items whose body is a product over
+the two LINE KINDS that decide whether a line break survives a reflow: a hard
+break (` +` on a line of its own), and an inline construct whose interior spans
+two INDENTED source lines. Neither exists in any other enumeration's alphabet.
+The line registry, the inline registry and the list-shape sweep spell no
+document of either class between them (measured at 576,343 distinct documents
+when this landed), because the list-shape alphabet has no hard-break line and no
+symbol occupying two lines, and the inline registry wraps one inline run in one
+context line, which is a different document shape entirely. Those are the lines
+the printer's reflow decisions are made about, so an absolute pin over them is
+worth its wall time.
+
+`tests/conformance/reflow-line-sweep.ts` is the enumeration, and it is a
+DECLARED TABLE of two classes rather than a filter over anybody else's
+population:
+
+- `hard-break`, the list-shape sweep's own eleven symbols with a hard-break line
+  added.
+- `indented-two-line`, a plain line, a blank, a comment and a hard break beside
+  six constructs broken across two lines with BOTH lines indented - the
+  combination where the two directions of error meet, since a reader that takes
+  the continuation for a column-0 line cancels a block's indent strip and one
+  that takes an unindented continuation for an indented line applies a strip the
+  source did not ask for. It carries sixteen witnesses beside its product:
+  documents whose reading depends on a line no alphabet here contains, an
+  escaped mark, an attribute or character reference, a construct nested inside
+  another across a line break.
+
+Each class is the depth-1-to-3 product over its alphabet under two prefixes, a
+one-line item and the same item with a second text line, the shorter of the two
+shapes reflow can move. The hard-break alphabet RESTATES the eleven list-shape
+symbols rather than importing them, deliberately: the pinned population counts
+are counts of this table, and importing would let another module move what this
+one spells without moving anything a reader of the file can see.
+
+The two alphabets share four symbols, so both classes spell some of the same
+documents. The first class in the table that spells one mints it and the second
+does not, on the rule `crossByteOperators` follows in `generated-sweep.ts` - the
+same bytes are never assessed twice under two names - and the class that minted
+a row is the row's cluster. A row id is the DOCUMENT itself with its newlines
+escaped, not an index into the product: an index moves the moment an alphabet
+does, which would let a manifest example silently name a document it was not
+written for, and a cluster digest is taken over ids joined by newlines, so an id
+carrying one would make two different id lists digest the same.
+
+ONE TIER, in `bun run test` (`tests/conformance/reflow-line-sweep.test.ts`),
+because the whole population runs there in a few seconds, which vitest prints
+beside the file on every run. Pinned to
+`tests/conformance/reflow-line-sweep-manifest.json`, failing rows grouped into
+clusters keyed by class and failed properties, exact in both directions the way
+every other sweep manifest is: a document that starts failing fails the gate AND
+a pinned document that gets fixed fails it too, until the cluster's count and
+digest are rewritten. When the gate disagrees it writes the whole failing list
+to `reports/reflow-line-sweep-failures.json` (gitignored) and prints the path,
+because the manifest names only five ids per cluster.
+
+That same file pins the POPULATION, per class and in total, which is the one
+thing a failure manifest cannot say: a class dropped from the table takes its
+failures with it, and the manifest would then agree with itself over whatever is
+left. The counts are directionless, like the other census pins, and they move in
+the same commit as the change that earns them. Run
+`bun run reflow-line-sweep-triage` with no `--write` to read today's row,
+failure and cluster totals off its first line; a number copied into this prose
+would go stale the next time the manifest regenerates.
+
+`--write` regenerates the manifest on the terms `bun run triage` uses:
+still-failing clusters keep their issue tag, new ones are tagged `UNTRIAGED`,
+and clusters that now pass are dropped. Exit 0 the sweep ran, 2 it could not run
+(a table that spelled no rows); there is no exit 1, because the failing set is
+the report and the manifest is the gate.
+
+Proves nothing by itself; it writes the file the sweep's gate holds the tree to.
+
 ### `bun run block-structure` - block structure against the oracle
 
 The three differential properties (issue #7) ask whether formatting crashes,

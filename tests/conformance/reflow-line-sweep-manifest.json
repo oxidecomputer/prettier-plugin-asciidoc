@@ -1,0 +1,74 @@
+{
+  "hard-break/fidelity": {
+    "count": 5,
+    "examples": [
+      "* a\\n +\\n +\\n  lit\\n",
+      "* a\\n// c\\n  lit\\n +\\n",
+      "* a\\n// c\\n +\\n  lit\\n",
+      "* a\\n[[anc]]\\n  lit\\n +\\n",
+      "* a\\n[[anc]]\\n +\\n  lit\\n"
+    ],
+    "sha256": "dcaa2c0b15dbf7a544a9b7abeda3064cb4737e1d25ca630b82a3044dfd61a98e",
+    "issue": "#304"
+  },
+  "hard-break/idempotency": {
+    "count": 18,
+    "examples": [
+      "* a\\n  ** z\\n  lit\\n +\\n",
+      "* a\\n  lit\\n  lit\\n +\\n",
+      "* a\\n  lit\\n +\\n",
+      "* a\\n  lit\\n +\\n  ** z\\n",
+      "* a\\n  lit\\n +\\n +\\n"
+    ],
+    "sha256": "fae145700074dc3768dfde5c2869f8fe9f3a12a836751434bf53916a723043e6",
+    "issue": "#301"
+  },
+  "hard-break/idempotency+fidelity": {
+    "count": 17,
+    "examples": [
+      "* a\\n  ** z\\n +\\n +\\n",
+      "* a\\n  lit\\n +\\n  lit\\n",
+      "* a\\n +\\n +\\n",
+      "* a\\n +\\n +\\n  ** z\\n",
+      "* a\\n +\\n +\\n +\\n"
+    ],
+    "sha256": "4e5711f9bc57117ecf2c01db354e47583c91eba3f5b8c5621f84585c80d7f8c8",
+    "issue": "#304"
+  },
+  "indented-two-line/fidelity": {
+    "count": 19,
+    "examples": [
+      "* a\\n  {attr} b\\nc d\\n +\\n",
+      "* a\\n +\\n +\\n  #b\\n  c# d\\n",
+      "* a\\n +\\n +\\n  *b\\n  c* d\\n",
+      "* a\\n +\\n +\\n  +++b\\n  c+++ d\\n",
+      "* a\\n +\\n +\\n  `b\\n  c` d\\n"
+    ],
+    "sha256": "23c230a5e76f950b3ddaeaedd3139f7baa2e3833fd6d29c39936e66399763621",
+    "issue": "#304"
+  },
+  "indented-two-line/idempotency": {
+    "count": 45,
+    "examples": [
+      "* a\\n  #b\\n  c# d\\n  #b\\n  c# d\\n +\\n",
+      "* a\\n  #b\\n  c# d\\n  *b\\n  c* d\\n +\\n",
+      "* a\\n  #b\\n  c# d\\n  `b\\n  c` d\\n +\\n",
+      "* a\\n  #b\\n  c# d\\n  https://e.com[b\\n  c] d\\n +\\n",
+      "* a\\n  #b\\n  c# d\\n  mailto:a@b.c[b\\n  c] d\\n +\\n"
+    ],
+    "sha256": "e1530b933b79b524f34e4d315924aa35a294f9bb105658ac9ff7a898d075650d",
+    "issue": "#301"
+  },
+  "indented-two-line/idempotency+fidelity": {
+    "count": 96,
+    "examples": [
+      "* a\\n  #b\\n  c# d\\n +\\n  #b\\n  c# d\\n",
+      "* a\\n  #b\\n  c# d\\n +\\n  *b\\n  c* d\\n",
+      "* a\\n  #b\\n  c# d\\n +\\n  +++b\\n  c+++ d\\n",
+      "* a\\n  #b\\n  c# d\\n +\\n  `b\\n  c` d\\n",
+      "* a\\n  #b\\n  c# d\\n +\\n  https://e.com[b\\n  c] d\\n"
+    ],
+    "sha256": "2a7be72455dc54ca82ed513c1ff2cf165a0349b60793d5b2445dabc765d385d2",
+    "issue": "#304"
+  }
+}

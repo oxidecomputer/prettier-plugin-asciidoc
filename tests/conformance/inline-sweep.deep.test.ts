@@ -26,12 +26,12 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
 import {
-  inlineClusterFacts,
   INLINE_SWEEP_DEEP_DUMP_PATH,
   INLINE_SWEEP_DEEP_MANIFEST_PATH,
 } from "./inline-sweep-clusters.js";
 import { inlineDeepTierRows } from "./inline-sweep.js";
 import {
+  clusterFactsOfRows,
   dumpText,
   factsOf,
   loadSweepClusters,
@@ -69,7 +69,7 @@ describe("inline sweep (deep tier)", () => {
   test("the failing clusters are exactly the deep manifest", async () => {
     const rows = inlineDeepTierRows();
     const failures = await sweepFailures(rows);
-    const actual = asObject(inlineClusterFacts(rows, failures));
+    const actual = asObject(clusterFactsOfRows(rows, failures));
     const expected = asObject(
       factsOf(loadSweepClusters(INLINE_SWEEP_DEEP_MANIFEST_PATH)),
     );
