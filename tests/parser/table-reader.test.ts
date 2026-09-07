@@ -40,11 +40,11 @@ const DSV = cutting("dsv", ":");
 const CONTENT: TableRunKind = "content";
 
 /**
- * The two characters a line can end on: what `nextLineBreak`
- * (src/parse/positions.ts) stops at, a `\n` or a lone `\r`. Read only
- * as the LAST character of an interior, where "lone" is free.
+ * The one character a line can end on: what `nextLineBreak`
+ * (src/parse/positions.ts) stops at. Read only as the LAST character
+ * of an interior.
  */
-const LINE_BREAKS = new Set(["\n", "\r"]);
+const LINE_BREAKS = new Set(["\n"]);
 
 /**
  * The bytes an opening wrote: the spec and separator, or nothing at
@@ -132,12 +132,9 @@ function expectRunFaithful(interior: string, cutting: TableCutting): TableCut {
   // the break in front of a table's closing delimiter belongs to the
   // close. Everything before it is the cut's to account for.
   //
-  // A BREAK, not a newline: the last character of an interior ends its
-  // line exactly when `nextLineBreak` (src/parse/positions.ts) would
-  // stop on it, and nothing follows a final character, so a trailing
-  // `\r` is as lone as one gets. Testing for `\n` alone would hold a
-  // lone-CR interior against a byte the cut never claimed and fail it
-  // for the wrong reason.
+  // A BREAK: the last character of an interior ends its line exactly
+  // when `nextLineBreak` (src/parse/positions.ts) would stop on it,
+  // which is the same set this reads.
   const covered = LINE_BREAKS.has(interior.slice(-1))
     ? interior.slice(0, -1)
     : interior;
@@ -583,33 +580,26 @@ describe("groupRows over a cut with no cells", () => {
 // Where a run's bytes end
 // ---------------------------------------------------------------------------
 
-// A lone `\r` is a LINE BREAK to `@asciidoctor/core` 4.0.11's
-// `prepareSourceString` (see the JSDoc on nextLineBreak,
-// src/parse/positions.ts), and splitLines has cut a line there since
-// issue #68. What `imageBetween` appends for a line's TERMINATOR was
-// a `"\n"` of its own until issue #272, so a run past the first line
-// of a lone-CR table was not the span of the source its offset names:
-// the cut of `|a\rb` replayed `|a\nb`, and the printer that writes
+// What `imageBetween` appends for a line's TERMINATOR was a `"\n"` of
+// its own until issue #272, so a run past a table's first line was not
+// the span of the source its offset names, and the printer that writes
 // run images back verbatim (src/print/table.ts) would have rewritten
-// the author's byte.
-//
-// Only a DIRECT parse can witness this - Prettier rewrites `\r\n?` to
-// `\n` before any plugin parser runs (prettier/index.mjs,
-// normalizeEndOfLine) - which is why these are cut pins and not
-// format rows. Each row carries the `\n` twin of the same table to
-// show that the two spellings are read alike, and the CRLF row is
-// there because that `\r` is NOT lone: it stays inside the line's raw
+// the author's bytes. It slices the document at the run's own offsets
+// now, so every terminator spelling arrives as itself; the CRLF row is
+// where that is measured, since its `\r` stays inside the line's raw
 // text and the `\n` alone is the terminator.
+//
+// NOT PROTECTED BY DESIGN: a bare `\r`. The two programs disagree
+// about whether it ends a line (see the JSDoc on nextLineBreak,
+// src/parse/positions.ts), so neither reading binds and the reader
+// calls it content: `|a\rb` is ONE line and one run, with the byte
+// travelling inside the image. Only a direct parse could witness it
+// anyway - Prettier rewrites `\r\n?` to `\n` before any plugin parser
+// runs (prettier/index.mjs, normalizeEndOfLine).
 describe("a run's image is the source span its offset names", () => {
   test.each([
-    ["a lone carriage return", "|a\rb", "a\r"],
     ["a newline", "|a\nb", "a\n"],
     ["a carriage return and newline", "|a\r\nb", "a\r\n"],
-    // The interior's own last break belongs to the closing delimiter
-    // and no run claims it, in this spelling as in the `\n` one: the
-    // row is here so that {@link expectRunFaithful}'s trailing-break
-    // test is measured on a CR and not only on a newline.
-    ["a lone carriage return at each line end", "|a\rb\r", "a\r"],
   ])("%s ends the run's first line", (_name, interior, first) => {
     const result = expectRunFaithful(interior, PSV);
     expect(result.cells.map((cell) => cell.runs.map(describeRun))).toEqual([
@@ -617,16 +607,32 @@ describe("a run's image is the source span its offset names", () => {
     ]);
   });
 
+  test.each([
+    ["a lone carriage return", "|a\rb", "a\rb"],
+    ["a lone carriage return at each line end", "|a\rb\r", "a\rb\r"],
+  ])("%s ends nothing: one run, byte intact", (_name, interior, image) => {
+    const result = expectRunFaithful(interior, PSV);
+    expect(result.cells.map((cell) => cell.runs.map(describeRun))).toEqual([
+      [`content:${JSON.stringify(image)}`],
+    ]);
+  });
+
   // The whole-line runs the reader's own deletions push take the same
   // route, and a `//` line is the one that can carry a terminator
   // without any cell being open to claim it.
-  test.each([
-    ["a lone carriage return", "//x\r|a", "//x\r"],
-    ["a newline", "//x\n|a", "//x\n"],
-  ])("%s ends a dropped comment's run", (_name, interior, image) => {
-    const result = expectRunFaithful(interior, PSV);
+  test("a newline ends a dropped comment's run", () => {
+    const result = expectRunFaithful("//x\n|a", PSV);
     expect(result.leadingRuns.map(describeRun)).toEqual([
-      `droppedComment:${JSON.stringify(image)}`,
+      String.raw`droppedComment:"//x\n"`,
+    ]);
+  });
+
+  // With no break in it the whole interior is the comment line, so
+  // the cell behind the CR is swallowed by it.
+  test("a lone carriage return leaves the comment run running", () => {
+    const result = expectRunFaithful("//x\r|a", PSV);
+    expect(result.leadingRuns.map(describeRun)).toEqual([
+      String.raw`droppedComment:"//x\r|a"`,
     ]);
   });
 });

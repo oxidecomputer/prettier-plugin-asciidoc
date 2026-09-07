@@ -582,78 +582,70 @@ describe("the trims between a cell's buffer and its document", () => {
 // Where a run's lines end
 // ---------------------------------------------------------------------------
 
-// A lone `\r` is a LINE BREAK to `@asciidoctor/core` 4.0.11's
-// `prepareSourceString` (see the JSDoc on nextLineBreak,
-// src/parse/positions.ts), so splitLines cuts a line there and the
-// index numbers the next line one higher. This module used to cut its
-// buffer's lines with a `\n` scan of its own, which made it a THIRD
-// authority on where a line ends and left it able to answer `one\rtwo`
-// as one line where the document it is a span of has two (issue #159).
+// This module used to cut its buffer's lines with a `\n` scan of its
+// own, which made it a THIRD authority on where a line ends and let
+// it disagree with the document it is a span of (issue #159). It cuts
+// by document POSITION now, so the two spellings of one span are read
+// alike because the document's own line ends decide, not because any
+// reader normalized one into the other.
 //
-// The run a lone-CR cell reaches this module with carries the
-// AUTHOR'S terminator: `imageBetween` (table-reader.ts) slices the
-// document at the run's own offsets, so a `\r` line end arrives as a
-// `\r` (issue #272). Cutting by document POSITION is what makes that
-// safe here - the two spellings of one span are read alike because
-// the document's own line ends decide, not because any reader
-// normalized one into the other.
-//
-// The first two rows call the function directly so that both
-// spellings of the same cell can be put in front of it side by side,
-// including the `\n` spelling no reader produces for these bytes any
-// more. The third goes end to end through the reader that does
-// produce them.
-//
-// Only a direct parse could ever put a CR in front of this anyway:
+// NOT PROTECTED BY DESIGN: a bare `\r` inside a cell. The two
+// programs disagree about whether the byte ends a line (see the JSDoc
+// on nextLineBreak, src/parse/positions.ts), so neither reading binds
+// and the reader calls it content. A lone-CR cell is therefore ONE
+// line here, and the CR travels inside it: `imageBetween`
+// (table-reader.ts) slices the document at the run's own offsets, so
+// the author's byte is still what the printer writes back (issue
+// #272). Only a direct parse could put a CR in front of this anyway -
 // Prettier rewrites `\r\n?` to `\n` before any plugin parser runs
-// (prettier/index.mjs, normalizeEndOfLine).
+// (prettier/index.mjs, normalizeEndOfLine) - and no editor has
+// written a CR-terminated text file since Mac OS 9.
 describe("a buffer's lines end where the document's lines end", () => {
-  // `a|one` opens at offset 5, so the cell's text starts at 7 and the
-  // second line of it at 11.
-  const source = "|===\na|one\rtwo\n|===\n";
+  // `a|one` opens at offset 5, so the cell's text starts at 7 and a
+  // second line of it would start at 11.
+  const source = "|===\na|one\ntwo\n|===\n";
+  const crSource = "|===\na|one\rtwo\n|===\n";
   const psv: TableCutting = { format: "psv", separator: "|" };
   const expected = [
     { text: "one", raw: "one", offset: 7, line: 2 },
     { text: "two", raw: "two", offset: 11, line: 3 },
   ];
 
-  test.each([
-    [
-      "the source's own bytes",
-      [{ kind: "content", image: "one\rtwo", offset: 7 }],
-    ],
-    [
-      "a newline in the same place",
-      [
-        { kind: "content", image: "one\n", offset: 7 },
-        { kind: "content", image: "two", offset: 11 },
-      ],
-    ],
-  ] as ReadonlyArray<[string, readonly TableTextRun[]]>)(
-    "runs spelled with %s hold two lines",
-    (_name, runs) => {
-      const document = tableCellDocument(runs, psv, makeLocationIndex(source));
-      expect(document).toEqual({ kind: "lines", lines: expected });
-    },
-  );
+  test("runs spelled with a newline hold two lines", () => {
+    const runs: readonly TableTextRun[] = [
+      { kind: "content", image: "one\n", offset: 7 },
+      { kind: "content", image: "two", offset: 11 },
+    ];
+    const document = tableCellDocument(runs, psv, makeLocationIndex(source));
+    expect(document).toEqual({ kind: "lines", lines: expected });
+  });
 
-  // End to end, because the two halves are only right TOGETHER. The
-  // reader records the author's `\r` (issue #272) and this module cuts
-  // at document positions (issue #159); with the first alone the run
-  // is `one\rtwo` and this reads it as ONE line, and with the second
-  // alone the run is `one\n` and the `\r` is gone from the bytes. The
-  // interior lines are the document's own, delimiters dropped, so the
-  // offsets here are the offsets the whole parse would carry.
-  test("the reader's own runs for a lone-CR cell hold two lines", () => {
-    const at = makeLocationIndex(source);
-    const interior = splitLines(source).slice(1, -1);
-    const { cells } = cutCells(source, interior, psv);
+  test("a run spelled with a lone carriage return holds one", () => {
+    const runs: readonly TableTextRun[] = [
+      { kind: "content", image: "one\rtwo", offset: 7 },
+    ];
+    const document = tableCellDocument(runs, psv, makeLocationIndex(crSource));
+    expect(document).toEqual({
+      kind: "lines",
+      lines: [{ text: "one\rtwo", raw: "one\rtwo", offset: 7, line: 2 }],
+    });
+  });
+
+  // End to end, because the two halves are only right TOGETHER: the
+  // reader records the author's bytes and this module cuts at document
+  // positions. The interior lines are the document's own, delimiters
+  // dropped, so the offsets here are the offsets the whole parse would
+  // carry.
+  test("the reader's own runs for a lone-CR cell hold one line", () => {
+    const at = makeLocationIndex(crSource);
+    const interior = splitLines(crSource).slice(1, -1);
+    const { cells } = cutCells(crSource, interior, psv);
     expect(cells).toHaveLength(1);
     const [cell] = cells;
-    expect(cell.runs.map((run) => run.image)).toEqual(["one\r", "two"]);
+    expect(cell.runs.map((run) => run.image)).toEqual(["one\rtwo"]);
     expect(tableCellDocument(cell.runs, psv, at)).toEqual({
       kind: "lines",
-      lines: expected,
+      lines: [{ text: "one\rtwo", raw: "one\rtwo", offset: 7, line: 2 }],
     });
   });
 });

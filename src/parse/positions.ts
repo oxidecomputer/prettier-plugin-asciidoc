@@ -28,24 +28,27 @@ export function makeLocation(
 }
 
 /**
- * Where a line ends, scanning from `from`: a `\n`, or a bare `\r`
- * with no `\n` immediately after it. Shared by this module's own
- * index and by splitLines (src/parse/lines/split.ts) so the two
- * authorities that count lines cannot drift apart.
+ * Where a line ends, scanning from `from`: a `\n`. Shared by this
+ * module's own index and by splitLines (src/parse/lines/split.ts) so
+ * the two authorities that count lines cannot drift apart.
  *
- * The two Asciidoctors diverge here. MRI Ruby's
+ * A BARE `\r` is not a line end here, and the two Asciidoctors
+ * disagree about whether it is one anywhere. MRI Ruby's
  * `Helpers.prepare_source_string` (helpers.rb:116-133, not vendored,
  * see docs/coding-standards.md's authority list) does no line-ending
  * normalization at all: it strips a leading BOM, splits on `\n`
  * alone, and rstrips each line, so a lone `\r` is trailing content to
  * it rather than a break. `@asciidoctor/core` 4.0.11's own
- * `prepareSourceString` (helpers.js l.80-82) adds a rewrite MRI does
- * not have: every `\r\n`, then every remaining `\r`, becomes `\n`
- * before the string is ever split. This codebase's tests run against
- * the JS oracle, and it wins: a lone `\r` ends a line here exactly as
- * `\n` does. A `\r` that is part of `\r\n` is not lone and does not
- * end the line by itself (that CRLF's own `\n` does, one position
- * later).
+ * `prepareSourceString` (helpers.js l.80-82) rewrites every `\r\n`,
+ * then every remaining `\r`, to `\n` before the string is ever
+ * split, which makes it one. Neither reading binds where the two
+ * disagree, so the scan takes the simpler rule. Nothing formats
+ * through here with a bare `\r` in any case: Prettier's own entry
+ * point rewrites `\r\n?` to `\n` before a plugin parser runs
+ * (prettier/index.mjs, normalizeEndOfLine), so only a direct `parse`
+ * call can put one in front of this at all. A `\r` that is part of
+ * `\r\n` lands at a line end, where the per-line rstrip covers it
+ * like any other trailing byte.
  * @param source - the whole document
  * @param from - offset to scan forward from
  * @returns the offset of the line-ending character, or `source.length`
@@ -54,14 +57,10 @@ export function makeLocation(
 export function nextLineBreak(source: string, from: number): number {
   // The `<=` mutant of this bound is undetectable: it reads one past
   // the end, `source[source.length]` is `undefined`, and `undefined`
-  // is neither "\n" nor "\r", so the extra turn returns the same
-  // `source.length` the loop falling through would anyway.
+  // is not "\n", so the extra turn returns the same `source.length`
+  // the loop falling through would anyway.
   for (let index = from; index < source.length; index += 1) {
-    const ch = source[index];
-    if (ch === "\n") {
-      return index;
-    }
-    if (ch === "\r" && source[index + 1] !== "\n") {
+    if (source[index] === "\n") {
       return index;
     }
   }

@@ -128,29 +128,17 @@ describe("splitLines and LocationIndex share one line numbering", () => {
     }
     expect(at.at(lines[0].offset)).toEqual({ offset: 1, line: 1, column: 2 });
   });
-  // The mix that actually exercises the divergence a `\n`-only scan
-  // would miss: a CRLF (its `\r` is not lone, so it does not end the
-  // line by itself), a lone CR, and a plain `\n`, all in one
-  // document. Regressing makeLocationIndex alone back to a bare
-  // `source.indexOf("\n")` scan - leaving splitLines's nextLineBreak
-  // call untouched - breaks this row without touching splitLines at
-  // all, which is exactly the drift the two "pinned by
-  // tests/parser/positions.test.ts" comments (src/parse/lines/split.ts
-  // and the JSDoc on makeLocationIndex) claim is caught.
+  // Both carriage-return spellings in one document, so the row would
+  // catch either authority deciding on its own that one of them ends
+  // a line: a CRLF, whose `\n` is the terminator and whose `\r` the
+  // per-line rstrip takes, and a bare CR, which ends nothing (see the
+  // JSDoc on nextLineBreak, src/parse/positions.ts).
   test("a mixed-terminator document keeps both authorities in step", () => {
     const source = "a\r\nb\rc\nd";
     const at = makeLocationIndex(source);
-    for (const line of splitLines(source)) {
-      expect(at.at(line.offset).line).toBe(line.line);
-    }
-  });
-  // A run of lone CRs, each ending its own (empty) line: cheap to add
-  // alongside the row above, and it stresses the same agreement where
-  // several breaks land back to back rather than spaced out.
-  test("a run of lone carriage returns keeps both authorities in step", () => {
-    const source = "a\r\r\rb";
-    const at = makeLocationIndex(source);
-    for (const line of splitLines(source)) {
+    const lines = splitLines(source);
+    expect(lines.map((line) => line.text)).toEqual(["a", "b\rc", "d"]);
+    for (const line of lines) {
       expect(at.at(line.offset).line).toBe(line.line);
     }
   });

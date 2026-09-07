@@ -6,16 +6,21 @@
  * 116-133, not vendored, see docs/coding-standards.md's authority
  * list) does no line-ending normalization at all: BOM strip, split on
  * `\n` alone, per-line rstrip, nothing else. `@asciidoctor/core`
- * 4.0.11's `prepareSourceString` (helpers.js l.80-82) adds a third
- * normalization MRI does not have: it rewrites `\r\n` and then a bare
- * `\r` to `\n` before ever splitting. This codebase's tests run
- * against the JS oracle, and it wins, so all three of ITS
- * normalizations happen here: the byte-order-mark strip, line-ending
- * normalization ({@link nextLineBreak}), and the per-line rstrip. A
- * bare CR is a LINE BREAK under the JS oracle, and an old-Mac document
- * that is several lines to it is several lines here too (issue #68).
- * CRLF is unaffected by the bare-CR rule, because its `\r` is not
- * lone; it still lands at a line end where the rstrip set covers it.
+ * 4.0.11's `prepareSourceString` (helpers.js l.80-82) adds one MRI
+ * does not have: it rewrites `\r\n` and then a bare `\r` to `\n`
+ * before ever splitting. Two of the three normalizations happen here,
+ * the byte-order-mark strip and the per-line rstrip, and lines end at
+ * a `\n` ({@link nextLineBreak}).
+ *
+ * A BARE CR is ordinary content, which is the MRI reading. It is the
+ * simpler rule, and it is licensed because the two programs disagree
+ * about the byte, so neither binds. Nothing formats through here with
+ * one either way: Prettier's entry point rewrites `\r\n?` to `\n`
+ * before a plugin parser runs (prettier/index.mjs,
+ * normalizeEndOfLine), so a document that is several lines to an
+ * old Mac OS editor never reaches this module as one. CRLF lands at a
+ * line end where the rstrip set covers its `\r` like any other
+ * trailing byte.
  *
  * A leading BYTE-ORDER MARK is not part of the first line. The oracle
  * drops one U+FEFF from the head of the whole document, and failing

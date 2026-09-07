@@ -66,35 +66,29 @@ describe("splitLines mirrors the JS oracle's Helpers.prepare_source_string", () 
     const [only] = splitLines("a\r\n");
     expect(only).toEqual({ text: "a", raw: "a\r", offset: 0, line: 1 });
   });
-  // Was one line here and two under the JS oracle's own
-  // `prepareSourceString` (issue #68; MRI's does no such rewrite, see
-  // the JSDoc on nextLineBreak, src/parse/positions.ts): a bare CR
-  // with no following `\n` is a LINE BREAK to it, consumed like a
-  // `\n` rather than kept as trailing content, so it never reaches
-  // rstrip and never survives into any line's `raw`.
-  test("a lone carriage return ends the line, like a newline", () => {
+  // NOT PROTECTED BY DESIGN: a bare CR ends no line. The two
+  // programs disagree about the byte - MRI's `prepare_source_string`
+  // splits on `\n` alone and leaves a lone `\r` as content, while
+  // `@asciidoctor/core` 4.0.11 rewrites it to `\n` before splitting -
+  // so neither reading binds and the reader takes the simpler one.
+  // Nothing formats through with a bare CR either way: Prettier's own
+  // entry point rewrites `\r\n?` to `\n` before any plugin parser
+  // runs (prettier/index.mjs, normalizeEndOfLine), so only a direct
+  // parse call can put one in front of splitLines, and no editor has
+  // written a CR-terminated text file since Mac OS 9. These two rows
+  // say what the reader does with the byte; they do not protect it.
+  test("a lone carriage return is content, not a break", () => {
     expect(splitLines("a\rb")).toEqual([
-      { text: "a", raw: "a", offset: 0, line: 1 },
-      { text: "b", raw: "b", offset: 2, line: 2 },
+      { text: "a\rb", raw: "a\rb", offset: 0, line: 1 },
     ]);
   });
-  // A trailing lone CR does not open a phantom last line either,
-  // exactly like a trailing `\n` (see "a trailing newline does not
-  // create a phantom last line" above).
-  test("a trailing lone carriage return does not open a phantom last line", () => {
+  // At a line's END the rstrip set covers it, exactly as it covers a
+  // CRLF's own `\r` in the row above.
+  test("a trailing lone carriage return is rstripped off the text", () => {
     expect(splitLines("a\r")).toEqual([
-      { text: "a", raw: "a", offset: 0, line: 1 },
+      { text: "a", raw: "a\r", offset: 0, line: 1 },
     ]);
   });
-  // There is no formatAdoc-level render-equivalence pin for a lone CR
-  // anywhere in this repository, and there cannot honestly be one:
-  // Prettier's own entry point rewrites `\r\n?` to `\n` before any
-  // plugin parser runs (prettier/index.mjs, normalizeEndOfLine), so a
-  // lone CR never reaches splitLines through formatAdoc or the plugin
-  // at all - only a direct parse call (the conformance harnesses that
-  // feed raw documents) can ever see one. splitLines-vs-the-JS-oracle,
-  // pinned by the rows above, is the reachable claim; a formatAdoc
-  // round trip has no document left to observe this fix on.
 
   // Narrower than `trimEnd()` at both ends of the code space: the NUL
   // sits below the ASCII set and every non-ASCII space above it, and

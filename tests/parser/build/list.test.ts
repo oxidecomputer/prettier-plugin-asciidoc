@@ -185,29 +185,31 @@ describe("checklist prefix", () => {
   });
 });
 
-// A lone `\r` is a LINE BREAK to `@asciidoctor/core` 4.0.11's
-// `prepareSourceString` (see the JSDoc on nextLineBreak,
-// src/parse/positions.ts), and splitLines has cut a line there since
-// issue #68. `checkboxLine` answered where the item's first line ends
-// with a `\n` scan of its own until issue #272, so the prefix was
-// tested against a string that ran on past the break: `* [x] \rmore`
-// carried a checkbox and lost its `[x] ` where the `\n` twin of the
-// same item, whose trailing space the reader's rstrip takes off
-// before the prefix is tested, carries none.
+// `checkboxLine` answers where the item's first line ends by asking
+// the same scan splitLines asks, rather than with a `\n` scan of its
+// own (issue #272): the prefix must be tested against the first line
+// and not against a string that runs on past its end.
 //
-// Only a DIRECT parse can witness this - Prettier rewrites `\r\n?` to
-// `\n` before any plugin parser runs (prettier/index.mjs,
-// normalizeEndOfLine) - which is why these are tree pins and not
-// format rows. The `\n` twin of each row is there to show that the
-// two spellings answer alike.
-describe("a lone carriage return ends the line a checklist is read off", () => {
-  test.each([
-    ["a lone carriage return", "* [x] \rmore\n"],
-    ["a newline", "* [x] \nmore\n"],
-  ])("%s: a prefix left open by the rstrip is no checkbox", (_name, source) => {
-    const [list] = parse(source).children;
+// NOT PROTECTED BY DESIGN: a bare `\r`. The two programs disagree
+// about whether it ends a line (see the JSDoc on nextLineBreak,
+// src/parse/positions.ts), so neither reading binds and the reader
+// calls it content. `* [x] \rmore` is therefore one line whose
+// prefix the CR does not leave open, so it IS a checkbox where the
+// `\n` spelling, whose trailing space the rstrip takes off before the
+// prefix is tested, carries none. Only a direct parse could witness
+// the byte anyway: Prettier rewrites `\r\n?` to `\n` before any
+// plugin parser runs (prettier/index.mjs, normalizeEndOfLine).
+describe("the line a checklist is read off", () => {
+  test("a newline leaves the prefix open, so there is no checkbox", () => {
+    const [list] = parse("* [x] \nmore\n").children;
     narrow(list, "list");
     expect(list.children[0].checkbox).toBeUndefined();
+  });
+
+  test("a lone carriage return leaves it closed, so there is one", () => {
+    const [list] = parse("* [x] \rmore\n").children;
+    narrow(list, "list");
+    expect(list.children[0].checkbox).toBe("checked");
   });
 
   test.each([

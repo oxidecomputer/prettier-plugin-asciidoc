@@ -149,37 +149,39 @@ describe("paragraph parsing", () => {
   });
 });
 
-// A lone `\r` is a LINE BREAK to `@asciidoctor/core` 4.0.11's
-// `prepareSourceString` (see the JSDoc on nextLineBreak,
-// src/parse/positions.ts), and splitLines has read it as one since
-// issue #68. The two facts the paragraph builder measures off the
-// SOURCE rather than off the lines it was handed answered with a
-// `\n` scan of their own until issue #159, so a paragraph whose
-// first line ended in a lone CR was read as one long line:
-// `firstWordEndsItsLine` was false where the line really does end
-// after its first word, and `secondLineIndent` was empty where a
-// second line really does stand under it with an indent of its own.
+// The two facts the paragraph builder measures off the SOURCE rather
+// than off the lines it was handed, pinned against the lines the
+// reader cut: a `\n` ends the first line and the builder must agree
+// with splitLines about that (issue #159).
 //
-// Only a DIRECT parse can witness this - Prettier's own entry point
-// rewrites `\r\n?` to `\n` before any plugin parser runs
-// (prettier/index.mjs, normalizeEndOfLine), so no formatAdoc round
-// trip has a CR left to observe - which is why these are tree pins
-// and not format rows. The `\n` twin of each row is there to show
-// that the two spellings answer alike.
-describe("a lone carriage return ends the line the builder measures", () => {
-  test.each([
-    ["a lone CR", "word\rmore\n"],
-    ["a newline", "word\nmore\n"],
-  ])("%s: the first line ends after its first word", (_name, source) => {
-    expect(asParagraph(parse(source).children[0]).firstWordEndsItsLine).toBe(
-      true,
-    );
+// NOT PROTECTED BY DESIGN: a bare `\r`. The two programs disagree
+// about whether it ends a line at all (see the JSDoc on nextLineBreak,
+// src/parse/positions.ts), so neither reading binds, and the reader
+// takes the simpler one and calls it content. `word\rmore` is one
+// line, so its first word does NOT end its line and there is no
+// second line to carry an indent, which is what the CR rows here
+// record. Only a direct parse could witness the byte either way:
+// Prettier's own entry point rewrites `\r\n?` to `\n` before any
+// plugin parser runs (prettier/index.mjs, normalizeEndOfLine), so no
+// formatAdoc round trip has a CR left to observe.
+describe("the line the paragraph builder measures", () => {
+  test("a newline ends the first line after its first word", () => {
+    expect(
+      asParagraph(parse("word\nmore\n").children[0]).firstWordEndsItsLine,
+    ).toBe(true);
   });
 
-  test.each([
-    ["a lone CR", "word\r  more\n"],
-    ["a newline", "word\n  more\n"],
-  ])("%s: the second line keeps its indent", (_name, source) => {
-    expect(asParagraph(parse(source).children[0]).secondLineIndent).toBe("  ");
+  test("a newline opens a second line that keeps its indent", () => {
+    expect(
+      asParagraph(parse("word\n  more\n").children[0]).secondLineIndent,
+    ).toBe("  ");
+  });
+
+  test("a lone carriage return ends nothing: one line, no indent", () => {
+    const oneLine = asParagraph(parse("word\rmore\n").children[0]);
+    expect(oneLine.firstWordEndsItsLine).toBe(false);
+    expect(
+      asParagraph(parse("word\r  more\n").children[0]).secondLineIndent,
+    ).toBe("");
   });
 });
