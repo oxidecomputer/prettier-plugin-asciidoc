@@ -219,6 +219,19 @@ describe("the rule table, by hand", () => {
     // A macro and a URL own the position outright.
     ["mailto:a@b.com[x]", ["InlineMacro"]],
     ["https://x/a@b.com", ["InlineUrl"]],
+    // The other three schemes InlineLinkRx opens a bare URL with
+    // (BARE_ADDRESS_SCHEME, src/parse/inline/rules.ts). Red before
+    // that alternation carried them: the run stopped at the `[`, the
+    // bracket behind the address became a live InlineAnchor, and the
+    // printer respelled its comma (issue #214). The bracket is the
+    // ADDRESS's own attrlist here, one token with it.
+    ["ftp://e.com[[a,R]]", ["InlineUrl", "InlineText"]],
+    ["irc://e.com[[a,R]]", ["InlineUrl", "InlineText"]],
+    ["file://e.com[[a,R]]", ["InlineUrl", "InlineText"]],
+    ["see ftp://e.com[label]", ["InlineText", "InlineUrl"]],
+    // A scheme neither authority knows stays ordinary text, and the
+    // bracket behind it is the live anchor it looks like.
+    ["gopher://e.com[[a,R]]", ["InlineText", "InlineAnchor"]],
     // `**` is tried before `*`: unconstrained wins on a double mark.
     ["**b**", ["BoldMark", "InlineText", "BoldMark"]],
     // Constrained at fragment offset 0: index -1 is out of range and

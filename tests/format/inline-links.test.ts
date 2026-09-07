@@ -4,7 +4,12 @@
  * and that these constructs round-trip cleanly.
  */
 import { describe, test, expect } from "vitest";
-import { formatAdoc, oracleHtml, renderedHtml } from "../helpers.js";
+import {
+  expectFormatted,
+  formatAdoc,
+  oracleHtml,
+  renderedHtml,
+} from "../helpers.js";
 import { shapes } from "../parser/inline-shape.js";
 
 describe("inline links — format output", () => {
@@ -111,6 +116,55 @@ describe("inline anchors — format output", () => {
     expect(await formatAdoc(input)).toBe(
       "This is [[anchor-here]]some anchored text.\n",
     );
+  });
+});
+
+describe("every scheme that opens a bare URL", () => {
+  // A bracket standing behind a bare URL is the URL's own attrlist,
+  // not a live inline anchor. Red for `ftp`, `irc` and `file` before
+  // BARE_ADDRESS_SCHEME carried the whole of InlineLinkRx's list
+  // (src/parse/inline/rules.ts): the reader saw an anchor there, and
+  // the printer respelled the anchor's comma with a space that the
+  // oracle then rendered as link text the author never wrote
+  // (issue #214). Every row was measured through both programs first,
+  // and both read every one of them the same way.
+  test.each([
+    "http://e.com[[a,R]]\n",
+    "https://e.com[[a,R]]\n",
+    "ftp://e.com[[a,R]]\n",
+    "irc://e.com[[a,R]]\n",
+    "file://e.com[[a,R]]\n",
+    "* ftp://e.com[[a,R]]\n",
+  ])("%j keeps the bracket's bytes", async (input) => {
+    await expectFormatted(input, input);
+  });
+
+  // The plain autolink and the ordinary attrlist for the three
+  // schemes the widening added, so the row set covers what the
+  // pattern now claims and not just the bracket collision.
+  test.each([
+    "see ftp://e.com/x and more\n",
+    "see irc://e.com[label] here\n",
+    "see file://e.com[label] here\n",
+    "see ftp://e.com/a, then\n",
+  ])("%j round-trips", async (input) => {
+    await expectFormatted(input, input);
+  });
+
+  // The negative controls. `gopher://` is a scheme NEITHER authority
+  // opens an autolink for, so the bracket behind it really is a live
+  // anchor and the comma respelling is correct there. `mailto:` is
+  // read by InlineLinkMacroRx instead, so it stays a macro. And a
+  // scheme without its `//` opens nothing at all.
+  test.each([
+    ["gopher://e.com[[a,R]]\n", "gopher://e.com[[a, R]]\n"],
+    [
+      "see mailto:a@b.com[Mail, Me] here\n",
+      "see mailto:a@b.com[Mail, Me] here\n",
+    ],
+    ["ftp:e.com[label] here\n", "ftp:e.com[label] here\n"],
+  ])("%j formats to %j", async (input, expected) => {
+    await expectFormatted(input, expected);
   });
 });
 

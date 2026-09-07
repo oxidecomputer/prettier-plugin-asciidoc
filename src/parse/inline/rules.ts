@@ -691,21 +691,41 @@ function textMatcher(source: string): InlineRule["match"] {
  * sentinel, which is why the `unicorn/no-null` suppression the
  * old custom matcher needed is gone.
  */
-// A bare URL, with or without an attrlist - InlineLinkRx. Its body is
-// every character that is neither whitespace nor a bracket, which is
-// what makes the match RUN ON through punctuation, marks and anything
-// else standing behind the scheme.
-const BARE_ADDRESS = /https?:\/\/[^\s\[\]]+(?:\[[^\]]*\])?/v;
+// The schemes that open a bare URL, spelled ONCE: the rule below
+// matches them and InlineText's stop lookahead has to refuse the very
+// same set, the way {@link MACRO_NAMES} is shared for the same reason.
+//
+// The list is InlineLinkRx's own, `(?:https?|file|ftp|irc)://`
+// (rx.rb l.526, and the same five in the oracle at
+// `index.cjs` l.592). Reading only `http` and `https` here left the
+// other three unrecognized, and a bracket behind one of them was then
+// read as a live inline anchor rather than as the link's own text:
+// `ftp://e.com[[a,R]]` had its comma respelled and the rendered text
+// gained a space the author never wrote (issue #214).
+//
+// `mailto:` is deliberately absent. Asciidoctor reads it with
+// InlineLinkMacroRx (rx.rb l.537), not with InlineLinkRx, so it is a
+// macro name here too ({@link MACRO_NAMES}) and reaching it through
+// this alternation as well would give one shape two rules.
+const BARE_ADDRESS_SCHEME = String.raw`(?:https?|file|ftp|irc):\/\/`;
 
-// The body class alone, anchored, for asking how far a match that has
-// already started would carry. Derived from {@link BARE_ADDRESS} by
-// spelling the same class once more would be a second source of
-// truth, so it is read OFF the pattern instead: the body is what the
-// match consumes after its scheme.
-const BARE_ADDRESS_BODY = new RegExp(
-  BARE_ADDRESS.source.replace(String.raw`https?:\/\/`, "^"),
+// What a bare URL's match consumes after its scheme: every character
+// that is neither whitespace nor a bracket, which is what makes the
+// match RUN ON through punctuation, marks and anything else standing
+// behind the scheme, plus the optional attrlist that ends it.
+const BARE_ADDRESS_BODY_SOURCE = String.raw`[^\s\[\]]+(?:\[[^\]]*\])?`;
+
+// A bare URL, with or without an attrlist - InlineLinkRx.
+const BARE_ADDRESS = new RegExp(
+  `${BARE_ADDRESS_SCHEME}${BARE_ADDRESS_BODY_SOURCE}`,
   "v",
 );
+
+// The body class alone, anchored, for asking how far a match that has
+// already started would carry. Built from the same source the rule's
+// own pattern is built from, so the two can never spell different
+// bodies.
+const BARE_ADDRESS_BODY = new RegExp(`^${BARE_ADDRESS_BODY_SOURCE}`, "v");
 
 /**
  * How far a bare-address match already under way would carry from
@@ -939,7 +959,7 @@ export const INLINE_RULES: readonly InlineRule[] = [
   {
     type: "InlineText",
     match: textMatcher(
-      `(?:(?!https?://|(?:${MACRO_NAMES}):|${HARD_BREAK}|\\$\\$)[^\\n*_\`#\\\\\\{\\[<+])+`,
+      `(?:(?!${BARE_ADDRESS_SCHEME}|(?:${MACRO_NAMES}):|${HARD_BREAK}|\\$\\$)[^\\n*_\`#\\\\\\{\\[<+])+`,
     ),
   },
 ];

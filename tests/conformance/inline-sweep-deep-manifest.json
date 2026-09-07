@@ -1,11 +1,1 @@
-{
-  "pair/InlineUrl/InlineAnchor/adjacent/fidelity": {
-    "count": 2,
-    "examples": [
-      "pair/InlineUrl-near-1/InlineAnchor-alt-1/adjacent/item",
-      "pair/InlineUrl-near-1/InlineAnchor-alt-1/adjacent/para"
-    ],
-    "sha256": "c0f73cc6efe362dba09e1ba960cc227578d876c3d9dda54bbaee2fc2ea7a8f76",
-    "issue": "UNTRIAGED"
-  }
-}
+{}

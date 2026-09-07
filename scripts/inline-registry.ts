@@ -177,8 +177,21 @@ const INLINE_SPELLINGS: Record<InlineKind, InlineSpelling> = {
     nearMisses: ["foo:[n]", "footnote:[n", "footnote[n]", "footnote::[n]"],
   },
   InlineUrl: {
-    spellings: ["https://e.com", "https://e.com[t]", "http://e.com/a_b_c"],
-    nearMisses: ["http:/e.com", "ftp://e.com", "https://e.com[t"],
+    // `ftp://e.com` is a SPELLING, not a near miss: the rule opens a
+    // bare URL on every scheme InlineLinkRx does (BARE_ADDRESS_SCHEME,
+    // src/parse/inline/rules.ts). One of the four non-http schemes
+    // stands for all of them here, because they differ only in the
+    // scheme's letters and a vocabulary entry per scheme would
+    // multiply the sweep without reaching a new shape. `ftps://e.com`
+    // takes the vacated near-miss slot: one letter off a scheme the
+    // rule takes, and an autolink to neither authority.
+    spellings: [
+      "https://e.com",
+      "https://e.com[t]",
+      "http://e.com/a_b_c",
+      "ftp://e.com",
+    ],
+    nearMisses: ["http:/e.com", "ftps://e.com", "https://e.com[t"],
   },
   InlineEmail: {
     spellings: ["a@b.com", "a&b@c.com"],

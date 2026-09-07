@@ -167,8 +167,16 @@ const PRINT_WIDTH = 80;
 // `AttributeReference` with no glue (318,767 to 318,768): the same
 // `\{attr}` collision, reached this time by a pair join instead of a
 // neighbourhood.
-const STANDING_GRID_SIZE = 17_357;
-const PAIR_GRID_SIZE = 318_768;
+//
+// Both pins moved again for `InlineUrl`'s fourth spelling,
+// `ftp://e.com`: the rule opens a bare URL on every scheme
+// InlineLinkRx does, so the vocabulary carries one non-http scheme
+// (issue #214, scripts/inline-registry.ts says why one and not four).
+// A spelling is a member in every context and every join, which is
+// what makes one entry worth 120 standing shapes (17,357 to 17,477)
+// and 4,390 pair shapes (318,768 to 323,158).
+const STANDING_GRID_SIZE = 17_477;
+const PAIR_GRID_SIZE = 323_158;
 
 /**
  * Rule (i): every construct dimension is still a row of the rule
