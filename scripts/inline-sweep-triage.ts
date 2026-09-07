@@ -24,11 +24,11 @@
  * gates over it are the two manifests, which the suite checks.
  */
 import { cannotRun, printUsage, wantsHelp } from "./lib/cli.js";
+import { writeLedgerFile } from "./lib/ledger-file.js";
 import {
   clusterManifest,
   printClusters,
   rowManifest,
-  writeManifest,
 } from "./lib/sweep-manifest.js";
 import {
   inlineClusterFacts,
@@ -99,11 +99,11 @@ printClusters(clusters, (line) => {
 });
 
 if (write) {
-  await writeManifest(
+  await writeLedgerFile(
     INLINE_SWEEP_QUARANTINE_PATH,
     rowManifest(defaultFailures, loadInlineQuarantine()),
   );
-  await writeManifest(
+  await writeLedgerFile(
     INLINE_SWEEP_DEEP_MANIFEST_PATH,
     clusterManifest(
       clusters,

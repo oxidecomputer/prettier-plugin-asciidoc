@@ -20,8 +20,6 @@
  * sets nor the cluster keys live here - those are each sweep's own
  * vocabulary, and this module is deliberately blind to them.
  */
-import { writeFileSync } from "node:fs";
-import { format } from "prettier";
 import type {
   ClusterEntry,
   ClusterFacts,
@@ -34,23 +32,6 @@ const UNTRIAGED = "UNTRIAGED";
 
 /** How many ids a cluster names in the printed report. */
 const SAMPLE_SIZE = 5;
-
-/**
- * Writes a manifest in Prettier-normal form, so `fmt:check` passes
- * immediately after a rewrite instead of failing until someone runs
- * `bun run fmt`.
- * @param manifestPath - repo-relative file to write
- * @param manifest - the object to serialize
- */
-export async function writeManifest(
-  manifestPath: string,
-  manifest: object,
-): Promise<void> {
-  writeFileSync(
-    manifestPath,
-    await format(JSON.stringify(manifest), { parser: "json" }),
-  );
-}
 
 /**
  * A per-ROW manifest: one entry per failing coordinate, in sorted id

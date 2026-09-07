@@ -36,9 +36,10 @@
  * missing Ruby gem, a program at a version the ledger was not
  * measured against, or a population that measured nothing.
  */
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { oracleVersion } from "./block-structure-ledger.js";
 import { cannotRun, GATE_FAILED, printUsage, wantsHelp } from "./lib/cli.js";
+import { writeLedgerFile } from "./lib/ledger-file.js";
 import {
   referenceRenders,
   referenceVersion,
@@ -314,15 +315,12 @@ async function measureAll(
  * @param ledger - the ledger as it was read
  * @param fresh - what this run measured
  */
-function write(
+async function write(
   ledger: Ledger,
   fresh: Readonly<Record<string, PopulationLedger>>,
-): void {
+): Promise<void> {
   const populations = { ...ledger.populations, ...fresh };
-  writeFileSync(
-    LEDGER_PATH,
-    `${JSON.stringify({ ...ledger, populations }, undefined, 2)}\n`,
-  );
+  await writeLedgerFile(LEDGER_PATH, { ...ledger, populations });
   console.log(`wrote ${LEDGER_PATH}`);
 }
 
@@ -334,8 +332,9 @@ function write(
  * cut, in the tree, so the snapshot can be taken again when the
  * issues it came from move.
  * @param file - a `gh issue list --json number,body` dump
+ * @returns nothing, once the fixture is on disk
  */
-function harvest(file: string): void {
+async function harvest(file: string): Promise<void> {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- a tracker dump this run was pointed at; a file that is not one fails the emptiness check below
   const issues = JSON.parse(readFileSync(file, "utf8")) as IssueBody[];
   const witnesses = harvestWitnesses(issues);
@@ -345,7 +344,7 @@ function harvest(file: string): void {
     );
     return;
   }
-  writeFileSync(WITNESSES_PATH, `${JSON.stringify(witnesses, undefined, 2)}\n`);
+  await writeLedgerFile(WITNESSES_PATH, witnesses);
   const issueCount = new Set(witnesses.map((one) => one.issue)).size;
   console.log(
     `wrote ${WITNESSES_PATH}: ${String(witnesses.length)} documents from ${String(issueCount)} issues`,
@@ -359,7 +358,7 @@ switch (parsed.kind) {
     break;
   }
   case "harvest": {
-    harvest(parsed.file);
+    await harvest(parsed.file);
     break;
   }
   case "measure": {
@@ -370,7 +369,7 @@ switch (parsed.kind) {
       if (typeof measured === "string") {
         cannotRun(measured);
       } else if (parsed.write) {
-        write(ledger, measured);
+        await write(ledger, measured);
       } else {
         compare(measured, ledger, parsed.names);
       }

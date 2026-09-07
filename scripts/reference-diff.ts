@@ -30,9 +30,9 @@
  * missing gem, a program at a version the ledger was not measured
  * against, or a corpus that did not load.
  */
-import { writeFileSync } from "node:fs";
 import { oracleVersion } from "./block-structure-ledger.js";
 import { cannotRun, GATE_FAILED, printUsage, wantsHelp } from "./lib/cli.js";
+import { writeLedgerFile } from "./lib/ledger-file.js";
 import {
   familyOf,
   isReadingFamily,
@@ -300,10 +300,7 @@ if (unknown === undefined) {
         console.log(`${String(unjudged)} reading difference(s) unjudged`);
       }
       if (write) {
-        writeFileSync(
-          REFERENCE_DIFF_LEDGER_PATH,
-          `${JSON.stringify(fresh, undefined, 2)}\n`,
-        );
+        await writeLedgerFile(REFERENCE_DIFF_LEDGER_PATH, fresh);
         console.log(`wrote ${REFERENCE_DIFF_LEDGER_PATH}`);
       } else {
         compare(fresh, ledger);

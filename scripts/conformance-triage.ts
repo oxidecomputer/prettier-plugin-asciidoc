@@ -14,9 +14,8 @@
  * run. There is no 1: the failing set is the REPORT, not a gate — the
  * gate over it is the quarantine manifest, which the suite checks.
  */
-import { writeFileSync } from "node:fs";
-import { format } from "prettier";
 import { cannotRun, printUsage, wantsHelp } from "./lib/cli.js";
+import { writeLedgerFile } from "./lib/ledger-file.js";
 import { compareIds, loadCorpus } from "../tests/conformance/loader.js";
 import {
   assessCase,
@@ -113,11 +112,6 @@ if (write) {
       issue: existing.get(id)?.issue ?? "UNTRIAGED",
     };
   }
-  // Emit Prettier-normal form so `fmt:check` passes immediately after
-  // a --write, instead of failing until someone runs `bun run fmt`.
-  writeFileSync(
-    QUARANTINE_PATH,
-    await format(JSON.stringify(manifest), { parser: "json" }),
-  );
+  await writeLedgerFile(QUARANTINE_PATH, manifest);
   console.log(`Wrote ${String(failing.size)} entries to ${QUARANTINE_PATH}.`);
 }

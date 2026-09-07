@@ -21,7 +21,8 @@
  * and `scripts/parity-ledger.ts` are split. Nothing here imports from
  * `block-structure.ts`, so the pair stays acyclic.
  */
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
+import { writeLedgerFile } from "./lib/ledger-file.js";
 
 /** Where the per-id corpus ledger lives. */
 export const CORPUS_LEDGER_PATH = "scripts/block-structure-corpus.json";
@@ -573,12 +574,13 @@ export function sweepFailures(
  * @param file - path to the ledger
  * @param observed - the signature every diverging case actually has
  * @param previous - the ledger as it stands
+ * @returns nothing, once the ledger is on disk
  */
-export function writeCorpusLedger(
+export async function writeCorpusLedger(
   file: string,
   observed: ReadonlyMap<string, string>,
   previous: CorpusLedger,
-): void {
+): Promise<void> {
   const named = new Map(Object.entries(previous.cases));
   const cases: Record<string, CorpusEntry> = {};
   for (const [id, sign] of [...observed].toSorted((a, b) =>
@@ -591,7 +593,7 @@ export function writeCorpusLedger(
     regenerate: REGENERATE_POLICY,
     cases,
   };
-  writeFileSync(file, `${JSON.stringify(ledger, undefined, 2)}\n`);
+  await writeLedgerFile(file, ledger);
 }
 
 /**
@@ -600,13 +602,14 @@ export function writeCorpusLedger(
  * @param observed - what the run measured, per signature
  * @param depth - the sweep depth the counts were measured at
  * @param previous - the ledger as it stands
+ * @returns nothing, once the ledger is on disk
  */
-export function writeSweepLedger(
+export async function writeSweepLedger(
   file: string,
   observed: ReadonlyMap<string, SweepObservation>,
   depth: number,
   previous: SweepLedger,
-): void {
+): Promise<void> {
   const named = new Map(Object.entries(previous.signatures));
   const signatures: Record<string, SweepRow> = {};
   for (const [sign, seen] of [...observed].toSorted((a, b) =>
@@ -624,5 +627,5 @@ export function writeSweepLedger(
     regenerate: REGENERATE_POLICY,
     signatures,
   };
-  writeFileSync(file, `${JSON.stringify(ledger, undefined, 2)}\n`);
+  await writeLedgerFile(file, ledger);
 }

@@ -27,11 +27,11 @@
  * gates over it are the two manifests, which the suite checks.
  */
 import { cannotRun, printUsage, wantsHelp } from "./lib/cli.js";
+import { writeLedgerFile } from "./lib/ledger-file.js";
 import {
   clusterManifest,
   printClusters,
   rowManifest,
-  writeManifest,
 } from "./lib/sweep-manifest.js";
 import {
   clusterFacts,
@@ -101,11 +101,11 @@ printClusters(clusters, (line) => {
 });
 
 if (write) {
-  await writeManifest(
+  await writeLedgerFile(
     SWEEP_QUARANTINE_PATH,
     rowManifest(defaultFailures, loadSweepQuarantine()),
   );
-  await writeManifest(
+  await writeLedgerFile(
     SWEEP_DEEP_MANIFEST_PATH,
     clusterManifest(clusters, loadSweepClusters()),
   );

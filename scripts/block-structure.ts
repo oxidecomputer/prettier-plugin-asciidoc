@@ -504,15 +504,16 @@ function reportClean(
  * @param previous - the ledgers as they stand, for their named families
  * @param previous.corpus - the corpus ledger as it stands
  * @param previous.sweep - the sweep ledger as it stands
+ * @returns nothing, once both ledgers are on disk
  */
-function write(
+async function write(
   options: Options,
   corpus: CorpusRun,
   sweep: SweepRun,
   previous: { corpus: CorpusLedger; sweep: SweepLedger },
-): void {
-  writeCorpusLedger(CORPUS_LEDGER_PATH, corpus.observed, previous.corpus);
-  writeSweepLedger(
+): Promise<void> {
+  await writeCorpusLedger(CORPUS_LEDGER_PATH, corpus.observed, previous.corpus);
+  await writeSweepLedger(
     SWEEP_LEDGER_PATH,
     sweep.observed,
     options.depth,
@@ -572,7 +573,10 @@ async function main(options: Options): Promise<void> {
       );
       return;
     }
-    write(options, corpus, sweep, { corpus: corpusLedger, sweep: sweepLedger });
+    await write(options, corpus, sweep, {
+      corpus: corpusLedger,
+      sweep: sweepLedger,
+    });
     return;
   }
   const gated = gatedHalves(options, sweepLedger.depth);
