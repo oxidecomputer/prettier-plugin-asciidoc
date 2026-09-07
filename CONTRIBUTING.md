@@ -64,12 +64,11 @@ Two heavier checks run on a slower cadence:
   Run it before a push that meaningfully changes `src/`, or when deliberately
   moving a recorded minimum. It checks every `src` file against its recorded
   mutation minimum in `scripts/metrics/score-minimums.json`.
-- **Differential harnesses** (`bun run parity`, `bun run shape-diff`,
-  `bun run probe-domains`, each with `-- --base <rev>`): prove a change against
-  a base revision. CI runs them against the merge base on every PR; run locally
-  when you want the answer before pushing. See
-  [docs/harnesses.md](docs/harnesses.md) for what each one proves and how a
-  commit declares an expected diff.
+- **Differential harnesses** (`bun run parity`, `bun run shape-diff`, each with
+  `-- --base <rev>`): prove a change against a base revision. CI runs them
+  against the merge base on every PR; run locally when you want the answer
+  before pushing. See [docs/harnesses.md](docs/harnesses.md) for what each one
+  proves and how a commit declares an expected diff.
 
 ## The verification model
 
