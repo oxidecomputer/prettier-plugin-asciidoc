@@ -15,6 +15,7 @@
  * this module's differ on exactly one word.
  */
 import { describe, expect, test } from "vitest";
+import { cutValue } from "../../src/whitespace-runs.js";
 import { startsBlockAtLineStart } from "../../src/parse/line-shapes.js";
 import {
   atomOf,
@@ -22,7 +23,6 @@ import {
   isBlockSyntaxAtLineStart,
   isFused,
   keepTextOnFirstRestLine,
-  splitWords,
   wordsToAtoms,
   wrap,
   type Atom,
@@ -108,8 +108,8 @@ describe("what a word is", () => {
     // A node that is ENTIRELY a no-break space is one word, not zero:
     // it is content Asciidoctor renders, not whitespace it collapses.
     ["\u00A0", ["\u00A0"]],
-  ])("splitWords(%j) is %j", (value, words) => {
-    expect(splitWords(value)).toEqual(words);
+  ])("the cut of %j is %j", (value, words) => {
+    expect(cutValue(value).words).toEqual(words);
   });
 });
 

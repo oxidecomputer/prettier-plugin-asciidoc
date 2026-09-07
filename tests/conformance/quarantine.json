@@ -39,14 +39,6 @@
     "fails": ["fidelity"],
     "issue": "UNTRIAGED"
   },
-  "paragraphs_test.rb#should add a hardbreak at end of each line when hardbreaks option is set#0": {
-    "fails": ["fidelity"],
-    "issue": "UNTRIAGED"
-  },
-  "paragraphs_test.rb#should be able to toggle hardbreaks by setting hardbreaks-option on document#0": {
-    "fails": ["fidelity"],
-    "issue": "UNTRIAGED"
-  },
   "reader_test.rb#escaped ifdef is unescaped and ignored#0": {
     "fails": ["fidelity"],
     "issue": "UNTRIAGED"

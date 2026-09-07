@@ -24,6 +24,10 @@
  * thing the module exists to remove, and an unused builder would be
  * exactly that.
  */
+import {
+  blockWhitespace,
+  PLAIN_WHITESPACE_CONTEXT,
+} from "../../src/whitespace-fact.js";
 import type { ListNode, Location, ParagraphNode } from "../../src/ast.js";
 
 /**
@@ -91,6 +95,10 @@ export function paragraphNode(
     firstWordEndsItsLine: false,
     secondLineIndent: "",
     blankBelowAnchorLine: false,
+    whitespace: blockWhitespace(
+      fields.children ?? [],
+      PLAIN_WHITESPACE_CONTEXT,
+    ),
     position: nowhere(),
     ...fields,
   };

@@ -40,6 +40,7 @@ import {
 import { endsInPlusParagraph, gapsOf } from "./list-item-node.js";
 import type { ListItemShape } from "./list-reader.js";
 import { fragmentOfLine, type SourceLine } from "./split.js";
+import type { WhitespaceContext } from "../../whitespace-fact.js";
 
 /**
  * What one source line inside a term's GAP spells.
@@ -102,6 +103,13 @@ interface DescriptionBounds {
    * what the item's blocks and its `+` facts already answer for.
    */
   readonly nextTermLine: number | undefined;
+  /**
+   * The document's half of the item's whitespace context
+   * ({@link WhitespaceContext}, src/whitespace-fact.ts). A
+   * description item's own text carries no attribute line of its own,
+   * so the document's half is the whole of it.
+   */
+  readonly whitespace: WhitespaceContext;
   /**
    * 1-based line number one past the last line the head drain took
    * (list-read.ts), or the term line's own number where it took none.
@@ -373,6 +381,7 @@ export function descriptionItemNode(
     gap,
     body: {
       text,
+      context: bounds.whitespace,
       blocks: blocks.map((block, index) => ({ gap: gaps[index], block })),
       // The three tail facts belong to a body, and a bodyless sibling
       // has none: its `+` bytes are in the gap above where the fold

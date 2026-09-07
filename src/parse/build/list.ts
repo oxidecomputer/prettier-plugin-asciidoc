@@ -20,6 +20,10 @@ import { rstrip } from "../line-shapes.js";
 import { nextLineBreak } from "../positions.js";
 import type { Fragment, LocationIndex } from "../positions.js";
 import { bodyExtent } from "./paragraph.js";
+import {
+  blockWhitespace,
+  type WhitespaceContext,
+} from "../../whitespace-fact.js";
 
 // Checklist marker: `[x] `, `[*] `, or `[ ] ` at the start
 // of an unordered list item's text. The named group captures the
@@ -66,6 +70,11 @@ export interface ItemBodyInput {
    * indented (see {@link ListItemNode}'s `everyTextLineIndented`).
    */
   readonly everyTextLineIndented: boolean;
+  /**
+   * The whole-block facts the item TEXT's whitespace record reads
+   * ({@link WhitespaceContext}, src/whitespace-fact.ts).
+   */
+  readonly context: WhitespaceContext;
 }
 
 /**
@@ -275,6 +284,7 @@ export function buildListItem(
     calloutNumber: input.calloutNumber,
     nextLineNeedsItsPosition: input.nextLineNeedsItsPosition,
     text,
+    whitespace: blockWhitespace(text, input.context),
     blocks: [...input.blocks],
     trailingContinuation: input.trailingContinuation,
     detachedTail: input.detachedTail,

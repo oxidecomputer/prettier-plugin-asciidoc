@@ -22,6 +22,7 @@ import { declaredKeyOrder, serializedKeys } from "../reader-helpers.js";
 import { listNode, paragraphNode } from "../../lib/nodes.js";
 import type { InlineToken } from "../../../src/parse/inline/tokens.js";
 import { makeLocationIndex } from "../../../src/parse/positions.js";
+import { PLAIN_WHITESPACE_CONTEXT } from "../../../src/whitespace-fact.js";
 import type {
   BlockNode,
   GapLine,
@@ -45,6 +46,7 @@ function itemInput(overrides: Partial<ListItemInput>): ListItemInput {
     variant: "unordered",
     calloutNumber: undefined,
     text: [],
+    context: PLAIN_WHITESPACE_CONTEXT,
     blocks: [],
     trailingContinuation: false,
     detachedTail: false,

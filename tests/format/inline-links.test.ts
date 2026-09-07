@@ -9,7 +9,6 @@ import {
   expectStableRender,
   formatAdoc,
   oracleHtml,
-  renderedHtml,
 } from "../helpers.js";
 import { shapes } from "../parser/inline-shape.js";
 
@@ -639,19 +638,20 @@ describe("a span keeps its doubled spelling behind an address", () => {
 describe("a dropped candidate's shelter, as it stands today (#189)", () => {
   const WITNESS = "``a http://e.com```b\t``````";
 
-  test("the fold takes a tab the oracle keeps inside code", async () => {
-    const output = await formatAdoc(WITNESS);
-    expect(output).toBe("``a http://e.com```b ``````\n");
-    // What the two renders ARE. The input's second code element holds
-    // the tab; the output's holds the space the fold wrote instead.
-    expect(await renderedHtml(WITNESS)).toContain("<code>b\t<code></code>");
-    expect(await renderedHtml(output)).toContain("<code>b <code></code>");
-    // Stable: the residual costs one rewriting, not an oscillation.
-    // The output's render is the one that DIFFERS here, written down
-    // two lines up rather than asserted equal, so neither helper fits:
-    // both carry the render-equality this row is recording the absence
-    // of.
-    // eslint-disable-next-line test-assertions/no-hand-spelled-format-trailer -- the row records unequal renders, so only the fixed point can be asserted
-    expect(await formatAdoc(output)).toBe(output);
+  // The SHELTER is still lost - the tab stands in prose to this tree
+  // and inside `<code>` to the oracle - but nothing folds it away
+  // any more: the whitespace record's tab row keeps a tab wherever it
+  // stands (`factOfRun`, src/whitespace-fact.ts), so the bytes come
+  // back and the two renders agree.
+  //
+  // Red before that row: this formatted to `` ``a http://e.com```b
+  // `````` `` and the output's second code element held a space where
+  // the input's held the tab.
+  test("the tab the oracle keeps inside code comes back", async () => {
+    // The helper is what fits now: the row asserts the exact bytes,
+    // that both programs render the output as they render the input,
+    // and that a second pass moves nothing. Before the tab row the
+    // renders DIFFERED and only the fixed point could be asserted.
+    await expectFormatted(WITNESS, "``a http://e.com```b\t``````\n");
   });
 });

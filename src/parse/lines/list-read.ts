@@ -149,6 +149,7 @@ export function readMarkerList(
     return listItemNode(shape, interiorOfItem(host, shape, drain), {
       gaps: host.scope.gaps,
       at: host.scope.at,
+      whitespace: host.scope.whitespace,
       // BOTH arms that took a run are that guard's
       // (`nextLineNeedsItsPosition`, list-item-node.ts), because both
       // read the run only from where it STANDS: dropped, it renders
@@ -563,6 +564,7 @@ export function readDescriptionList(
         gaps: host.scope.gaps,
         at: host.scope.at,
         nextTermLine: shape.items.at(position + 1)?.markerLine.line,
+        whitespace: host.scope.whitespace,
         drainedEnd: dropped ? drain.drainedEnd : item.markerLine.line,
       },
     );

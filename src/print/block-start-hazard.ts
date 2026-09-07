@@ -264,9 +264,17 @@ function packsIntoBlockSyntax(atoms: readonly Atom[]): boolean {
  * The break is kept only where one may land: an atom GLUED to the
  * first (no space between them at all) is one the packer may not
  * break from, an atom that may not end a line has to keep its
- * successor, and an atom already demanding a break needs nothing - a
- * span whose own net fired arrives that way, so the two nets cannot
- * fight.
+ * successor, and an atom already demanding a LITERAL break needs
+ * nothing - a span whose own net fired arrives that way, so the two
+ * nets cannot fight.
+ *
+ * A `"hard"` break is REFINED rather than left alone: it is a break
+ * the whitespace record demanded (a run bound to a newline,
+ * src/whitespace-record.ts) or the dlist guard did, and both want the
+ * atom off the first output line. What this adds is where that line
+ * OPENS - the author's own column, indent and all - which is the
+ * answer neither of them holds, and without it a `hard` break writes
+ * the block's continuation indent where the source wrote its own.
  *
  * `noBreakBefore` is NOT such a bail, and that is the one asymmetry
  * here. It marks a word `wordsToAtoms` fused backwards because the
@@ -312,7 +320,7 @@ export function keepBlockStartBreak(
   if (
     second.glueLeft ||
     second.noBreakAfter ||
-    second.breakBefore !== "none" ||
+    second.breakBefore === "literal" ||
     atoms[0].noBreakAfter ||
     // ASCII whitespace only (issue #75): a no-break space is content
     // the atom holds, not a run a source line break stood for.

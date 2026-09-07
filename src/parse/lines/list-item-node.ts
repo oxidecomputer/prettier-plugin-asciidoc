@@ -23,6 +23,7 @@
  */
 import type { BlockNode, GapLine, ListItemNode } from "../../ast.js";
 import { buildListItem } from "../build/list.js";
+import type { WhitespaceContext } from "../../whitespace-fact.js";
 import type { LocationIndex } from "../positions.js";
 import {
   isContinuationLine,
@@ -109,6 +110,8 @@ export function gapsOf(
  *   item by now: its own scan and every descendant scan ran before
  *   this call
  * @param lines.at - the document's offset→Location index
+ * @param lines.whitespace - the document's half of the item text's
+ *   whitespace context (`WhitespaceContext`, src/whitespace-fact.ts)
  * @param lines.drained - the lines the head drain took, in source
  *   order; read by the caller, which needs them for the interior too
  * @returns the item node
@@ -119,6 +122,7 @@ export function listItemNode(
   lines: {
     gaps: ReadonlyMap<number, GapLine>;
     at: LocationIndex;
+    whitespace: WhitespaceContext;
     drained: readonly SourceLine[];
   },
 ): ListItemNode {
@@ -149,6 +153,7 @@ export function listItemNode(
       calloutNumber:
         marker.variant === "callout" ? marker.calloutNumber : undefined,
       text,
+      context: lines.whitespace,
       blocks: paired,
       // The scan's answer, minus the one boundary it cannot see: an
       // item whose MARKER LINE an enclosing scan took into a LITERAL

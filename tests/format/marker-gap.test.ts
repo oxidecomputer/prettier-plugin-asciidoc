@@ -17,7 +17,7 @@
  * space and there is nothing left to fold).
  *
  * The same fact closes sub-mechanism B. The guard that refuses the
- * fold ({@link fuseRunsSpellingABreak}) has to know whether the
+ * fold ({@link runsTheLineReads}) has to know whether the
  * SOURCE's line already spelled the rule, and the gap in front of the
  * value is half of that line. It used to be handed a WIDTH, so ` \t`
  * measured equal to a two-space run and the guard concluded the author

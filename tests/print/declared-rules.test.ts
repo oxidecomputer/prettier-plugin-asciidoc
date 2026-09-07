@@ -136,6 +136,7 @@ function spanEmissionOf(
     blockNodes: siblings,
     blockStart: { atColumnZero: false, markInFront: undefined },
     literalInterior: false,
+    facts: new Map(),
   };
   return spanDelimiters({ node, cursor, flush: true, texts });
 }

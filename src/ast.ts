@@ -10,6 +10,8 @@
  * to match Prettier's conventions.
  */
 
+import type { BlockWhitespace } from "./whitespace-record.js";
+
 /**
  * A point in the source text.
  * Line and column are 1-based; offset is 0-based.
@@ -220,6 +222,11 @@ export interface ParagraphNode extends BlockNodeBase {
    * holds the lines and hands the printer one yes/no.
    */
   blankBelowAnchorLine: boolean;
+  /**
+   * How this block's whitespace may be respelled, recorded once at
+   * read time. See {@link BlockWhitespace}.
+   */
+  whitespace: BlockWhitespace;
 }
 
 /** Raw text content. Lines within a paragraph are joined with \n in `value`. */
@@ -1298,6 +1305,12 @@ export interface AdmonitionNode extends BlockNodeBase {
    * (`NOTE:` with no text).
    */
   text: InlineNode[];
+  /**
+   * How the paragraph-form body's whitespace may be respelled,
+   * recorded once at read time. See {@link BlockWhitespace}. The
+   * delimited form's blocks carry their own records.
+   */
+  whitespace: BlockWhitespace;
   /** Delimited-form body blocks. Empty for the paragraph form. */
   children: BlockNode[];
 }
@@ -1409,6 +1422,12 @@ export type TrailingContinuation = false | "single" | "double";
 interface ItemBody {
   /** The principal text — inline nodes only. */
   text: InlineNode[];
+  /**
+   * How the item's TEXT may be respelled, recorded once at read time.
+   * See {@link BlockWhitespace}. The item's other blocks carry their
+   * own records; this one is about `text` alone.
+   */
+  whitespace: BlockWhitespace;
   /**
    * Everything the item holds after its text, in source order: nested
    * lists and blocks alike, each behind the separator lines the
@@ -1604,7 +1623,7 @@ export interface ListItemNode extends Node, ItemBody {
    * respelling. Both break patterns accept SPACES alone, so ` \t`
    * measures two columns and spells no rule, while two spaces measure
    * two columns and spell one. Handed a width, the printer's fold
-   * guard ({@link fuseRunsSpellingABreak}, src/print/whitespace-fold.ts)
+   * guard (`runsTheLineReads`, src/print/whitespace-fold.ts)
    * cannot tell those apart and concludes the author already wrote the
    * rule - #191's second sub-mechanism, which closes on the bytes
    * alone.

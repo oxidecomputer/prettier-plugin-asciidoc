@@ -28,19 +28,16 @@
  * byte one, measured below.
  *
  * `[%hardbreaks]` is deliberately NOT exercised here across a
- * multi-line body: this plugin does not read the `hardbreaks` option
- * at all (`grep -rn hardbreaks src` finds nothing outside this
- * comment), so an ordinary paragraph's line breaks are reflow-joined
- * regardless of whether the option is spelled correctly or corrupted
- * - measured on current main, with no NBSP in sight:
- * `formatAdoc("[%hardbreaks]\nLine one\nLine two\n")` prints
- * `"[%hardbreaks]\nLine one Line two\n"`, and the oracle's `<br>`
- * disappears from that output regardless of this issue. That gap is
- * real but belongs to whatever issue tracks hardbreaks awareness, not
- * this one; testing it here would pin the unrelated gap under this
- * issue's name. attrlist.test.ts's `.role%hardbreaks\u00A0` rows are
- * the option's coverage; the one-line-body row below stays inside
- * this issue's boundary (attrlistFields' trim, not paragraph reflow).
+ * multi-line body, and the reason is a boundary rather than a gap.
+ * The option IS read now - the whitespace record's hardbreaks row
+ * binds every run of such a block to its source spelling
+ * (src/whitespace-fact.ts), pinned in tests/format/hardbreaks.test.ts
+ * - but what THIS issue is about is the trim a held style gets, and a
+ * multi-line body here would pin the option's own behaviour under
+ * this issue's name. attrlist.test.ts's `.role%hardbreaks\u00A0` rows
+ * are the trim's coverage of the option's spelling; the one-line-body
+ * row below stays inside this issue's boundary (attrlistFields' trim,
+ * not paragraph reflow).
  */
 import { describe, expect, test } from "vitest";
 import {

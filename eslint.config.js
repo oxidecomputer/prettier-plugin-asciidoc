@@ -12,9 +12,9 @@ import vitest from "@vitest/eslint-plugin";
 // signature.
 const EXPECT_MAX_ARGS = 2;
 
-// `max-lines`'s ordinary ceiling (450) plus the 10 lines src/ast.ts's
+// `max-lines`'s ordinary ceiling (450) plus the 15 lines src/ast.ts's
 // own override below needs; see that override for why.
-const AST_MAX_LINES = 460;
+const AST_MAX_LINES = 465;
 
 // `max-lines`'s ordinary ceiling raised to 500 for
 // scripts/metrics/shape-census.ts; see that override for why.
@@ -544,6 +544,10 @@ export default defineConfig(
   // catches even for type-only imports), and the discriminated-union
   // split that keeps `openDelimiter` unrepresentable outside the open
   // variant (issue #64) costs the 2 lines past the ordinary ceiling.
+  // The other 5 are FIELD declarations that have nowhere else to go:
+  // a node's field is declared on the node, and the four prose-block
+  // carriers each name the whitespace record (whose own type is a
+  // leaf module for the same cycle reason, src/whitespace-record.ts).
   {
     files: ["src/ast.ts"],
     rules: {

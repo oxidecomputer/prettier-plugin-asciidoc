@@ -73,6 +73,8 @@ import {
   directlyInItem,
   openListIn,
   tailSafeIn,
+  blockWhitespaceContext,
+  documentScope,
   type Confinement,
   type ReaderScope,
 } from "./scope.js";
@@ -382,14 +384,9 @@ class BlockReader {
     );
     const tokens = this.readText(context, text);
     const blankBelow = blankSeparatesNextBlock(this.lines, this.index);
-    this.push(
-      buildParagraphNode(opening, {
-        tokens,
-        source: this.source,
-        at: this.at,
-        blankBelow,
-      }),
-    );
+    const whitespace = blockWhitespaceContext(this.scope, this.blocks);
+    const body = { source: this.source, blankBelow, context: whitespace };
+    this.push(buildParagraphNode(opening, tokens, this.at, body));
   }
 
   /**
@@ -411,6 +408,7 @@ class BlockReader {
         fragmentOfLine(line, 0, labelEnd),
         tokens,
         this.at,
+        blockWhitespaceContext(this.scope, this.blocks),
       ),
     );
   }
@@ -683,7 +681,9 @@ class BlockReader {
       const { tokens, end } = continuationFoldExtent(this.scan, this.index);
       this.resume(end);
       const blankBelow = blankSeparatesNextBlock(this.lines, this.index);
-      this.push(buildParagraph(tokens, this.source, this.at, blankBelow));
+      const context = blockWhitespaceContext(this.scope, this.blocks);
+      const body = { source: this.source, blankBelow, context };
+      this.push(buildParagraph(tokens, this.at, body));
       return;
     }
     this.transparentLeaf(buildRawBlockLine(fragmentOfLine(line), this.at));
@@ -943,8 +943,7 @@ class BlockReader {
 export function readDocument(source: string): DocumentNode {
   const documentLines = splitLines(source);
   const at = makeLocationIndex(source);
-  // One gap record per document — see ReaderScope.gaps.
-  const scope: ReaderScope = { source, at, gaps: new Map() };
+  const scope = documentScope(source, at);
   // Front matter comes OFF the stream before the reader walks it, as
   // it does for Asciidoctor's own reader (front-matter.ts): it is a
   // question about the document's first lines, and the BlockReader

@@ -314,7 +314,7 @@ const ONE_TEXT_NODE = 1;
  * node is a second word and the line is an ordinary item. The value
  * goes in as it stands rather than word-split, and that is the bytes
  * the printer writes too: a run inside a line that spells a break
- * keeps its own spacing ({@link fuseRunsSpellingABreak}), so the fold
+ * keeps its own spacing ({@link runsTheLineReads}), so the fold
  * cannot turn `- -` into `- -` under this answer.
  *
  * RSTRIPPED, because that is the one way the source spelling and the

@@ -584,10 +584,15 @@ export function printListItem(
   const checkboxWidth = checkboxPrefix.length;
 
   // The marker written below holds column 0 of the item's first line.
-  const atoms = inlineAtoms(node.text, node.position.start.line, {
-    atColumnZero: false,
-    markInFront: markInFrontOfText(node),
-  });
+  const atoms = inlineAtoms(
+    node.text,
+    node.whitespace,
+    node.position.start.line,
+    {
+      atColumnZero: false,
+      markInFront: markInFrontOfText(node),
+    },
+  );
   // The hazard, as a pure predicate over the finished node: reflow
   // may not push leading metadata onto the first rest line.
   const guard = hazard(node);

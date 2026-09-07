@@ -573,10 +573,15 @@ export function printAdmonition(
     // must measure them. The join after it is the syntax's own space,
     // which may never become a break.
     // The label below holds column 0 of the first line.
-    const body = inlineAtoms(node.text, node.position.start.line, {
-      atColumnZero: false,
-      markInFront: undefined,
-    });
+    const body = inlineAtoms(
+      node.text,
+      node.whitespace,
+      node.position.start.line,
+      {
+        atColumnZero: false,
+        markInFront: undefined,
+      },
+    );
     // Text nodes that are all whitespace produce no atoms, so a text
     // array with children can still yield none — and then the label is
     // the whole line. ONE test for both: an empty text array yields no

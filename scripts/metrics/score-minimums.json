@@ -316,6 +316,18 @@
     "src/print/whitespace-fold.ts": {
       "coverage": 100.0,
       "mutation": 0.0
+    },
+    "src/whitespace-fact.ts": {
+      "coverage": 100.0,
+      "mutation": 0.0
+    },
+    "src/whitespace-record.ts": {
+      "coverage": 100.0,
+      "mutation": 0.0
+    },
+    "src/whitespace-runs.ts": {
+      "coverage": 100.0,
+      "mutation": 0.0
     }
   },
   "exceptions": [
@@ -363,7 +375,7 @@
     },
     {
       "file": "src/parse/lines/list-item-node.ts",
-      "what": "list-item-node.ts:150 `marker.variant === \"callout\"` -> `true` in the calloutNumber ternary (the ternary #56 moved out of list-reader.ts:222 unchanged)",
+      "what": "list-item-node.ts:154 `marker.variant === \"callout\"` -> `true` in the calloutNumber ternary (the ternary #56 moved out of list-reader.ts:222 unchanged)",
       "formerly": ["list-reader.ts:222"],
       "class": "never",
       "reason": "EQUIVALENT. `parseListMarker` writes `calloutNumber` on the callout arm and nowhere else, so on an ordered or unordered marker `marker.calloutNumber` reads `undefined` - the very value the else arm supplies"
@@ -413,7 +425,7 @@
     },
     {
       "file": "src/parse/lines/reader.ts",
-      "what": "reader.ts:681 `line.continuationTag === \"marker\"` -> `true` in continuationLine's fold arm (#56's new code)",
+      "what": "reader.ts:679 `line.continuationTag === \"marker\"` -> `true` in continuationLine's fold arm (#56's new code)",
       "class": "never",
       "reason": "EQUIVALENT, and worth writing down because the guard IS reached with an untagged `+`. Every `+` that enters an item buffer goes through `pushMarker` and carries the tag, with ONE exception: the `+` that `activeContent` buffers as the attached block's own first line when it stands one blank under an active continuation (`* a` / `+` / blank / `+` is the smallest such document). That untagged cell is only ever the buffer's LAST line, because any line after it takes the `+` arm that blanks it, so the fold the mutant opens there reads exactly the one raw line the leaf arm builds and stops on the same index. Measured: byte-identical output AND byte-identical ASTs over all 111,110 depth-5 sweep documents, byte-identical output over 66,429 delimiter-bearing documents, and an instrumented build reaches the untagged case MID-buffer zero times in either product"
     },
@@ -455,37 +467,37 @@
     },
     {
       "file": "src/print/list.ts",
-      "what": "list.ts:742 `gap.includes(\"+\")` -> `gap.includes(\"\")`",
+      "what": "list.ts:747 `gap.includes(\"+\")` -> `gap.includes(\"\")`",
       "class": "when",
       "reason": "The blank-run sweep class. The arm fires only when a nested list SHARES its parent's marker, and probing the reader for that shape shows it always arrives with an empty gap - a blank or a `+` in front of a same-marker line reads back as a SIBLING boundary (`* a\\n\\n  lit\\n[[anc]]\\n+\\n* a\\n` gives two items). With `gap === []` both spellings return `[]`. TRIGGER - the render-divergent sweep members are the distinguishing shapes; a byte+idempotence pin already guards the drop branch"
     },
     {
       "file": "src/print/printer.ts",
-      "what": "the default arm of the node dispatch (printer.ts:268-281, `inlineAtoms([node], node.position.start.line, {`) - 4 NoCoverage mutants",
+      "what": "the default arm of the node dispatch (printer.ts:278-306, `inlineAtoms(`) - 4 NoCoverage mutants",
       "class": "never",
       "reason": "an EQUIVALENT arm forced by the type system: Prettier's AstPath is invariant, so the printer's node union must admit the inline nodes a paragraph's children array is typed with. Every block that owns inline content builds its atoms itself, so no path reaches this arm; deleting it is a type error"
     },
     {
       "file": "src/print/reflow.ts",
-      "what": "reflow.ts:784 `let glueNext = false` -> `true` in wordsToAtoms",
+      "what": "reflow.ts:667 `let glueNext = false` -> `true` in wordsToAtoms",
       "class": "never",
       "reason": "The initializer is read only on the first iteration, and there `fuseBackwards = index > 0 && (glueNext || ...)` short-circuits on `index > 0` before `glueNext` is looked at. Every later read sees the value the previous iteration assigned"
     },
     {
       "file": "src/print/reflow.ts",
-      "what": "keepContinuationLine's two entry guards (reflow.ts:639 `atoms.length === 0` -> `false`, reflow.ts:640 `atoms[0].text !== CONTINUATION_WORD` -> `false`)",
+      "what": "keepContinuationLine's two entry guards (reflow.ts:454 `atoms.length === 0` -> `false`, reflow.ts:455 `atoms[0].text !== CONTINUATION_WORD` -> `false`)",
       "class": "never",
       "reason": "EQUIVALENT by the caller's contract. `opensWithOne` is `opensWithContinuationLine(node)` (src/print/inline.ts), which is true only when the node starts at column 1 and its value STARTS with `\"+\\n\"` - so the word list is non-empty and its first word is exactly `+`, which is what the two guards re-check. The same fact is why the caller can push `atoms[0]` unconditionally one line later. Measured: 36,960 nodes the printer reads as continuation openers over 319,216 documents, 0 of them with a first word other than `+`"
     },
     {
       "file": "src/print/reflow.ts",
-      "what": "reflow.ts:646 `breakBefore: \"hard\"` -> `\"\"` in keepContinuationLine",
+      "what": "reflow.ts:461 `breakBefore: \"hard\"` -> `\"\"` in keepContinuationLine",
       "class": "never",
       "reason": "EQUIVALENT: `wrap` reads the field exactly twice, once as `!== \"none\"` (is there a forced break) and once as `=== \"literal\"` (does the line start at column 0 instead of the continuation indent). `\"\"` answers both questions the way `\"hard\"` does, so only the `\"literal\"` spelling is distinguishable at all"
     },
     {
       "file": "src/print/block-start-hazard.ts",
-      "what": "block-start-hazard.ts:327 `breakBefore: \"literal\"` -> `\"\"`, and block-start-hazard.ts:315 `second.breakBefore !== \"none\"` -> `false` (2 mutants)",
+      "what": "block-start-hazard.ts:335 `breakBefore: \"literal\"` -> `\"\"`, and block-start-hazard.ts:323 `second.breakBefore === \"literal\"` -> `false` (2 mutants)",
       "class": "never",
       "reason": "EQUIVALENT, both for the indent. `wrap` distinguishes `\"none\"` from everything else, and then `\"literal\"` from everything else only to pick the line's indent (`lineIndent = run.breakBefore === \"literal\" ? 0 : indent`). The net runs only where `atColumnZero` holds, which is the printer's paragraph and standalone-inline arms, and both call `blockBody(..., 0)` - so the indent the other spelling selects is 0, the number `\"literal\"` names. The `!== \"none\"` guard is the same fact from the other side: past it the atom already carries a forced break with no fuse flag set, so the write can change only the break's KIND"
     },
@@ -674,6 +686,24 @@
       "what": "mutation minimum 0 - a PLACEHOLDER, not a file with nothing to measure",
       "class": "when",
       "reason": "TRIGGER: the next batched mutation run. The file has a fold to mutate (the pragma test, the pass-it-on conjunction, the empty-sequence guard), and none of it has been measured, because mutation runs at batched integration points and this file (issue #175) landed between two of them. Its coverage row is measured (100.00 lines and 100.00 branches, `bun run coverage`) and its behaviour is pinned by tests/format/ignore-pragma.test.ts, whose sixteen rows cover every arm through the formatter's public entry point."
+    },
+    {
+      "file": "src/whitespace-record.ts",
+      "what": "mutation minimum 0 - Stryker writes no row for this file",
+      "class": "never",
+      "reason": "the whitespace record is interface and union declarations and nothing else, so there is no expression to mutate; the same reading src/ast.ts's own row states"
+    },
+    {
+      "file": "src/whitespace-fact.ts",
+      "what": "mutation minimum 0 - the file is new and no cleared-cache mutation run has measured it",
+      "class": "when",
+      "reason": "a minimum of 0 says NOT MEASURED, not 'nothing survives': the file lands with the whitespace record and the next batched `bun run mutate:full` is what seeds its number. Its coverage minimum is measured and recorded (100), and tests/print/whitespace-fact.test.ts is the dedicated lemma test the seeding will score against"
+    },
+    {
+      "file": "src/whitespace-runs.ts",
+      "what": "mutation minimum 0 - the file is new and no cleared-cache mutation run has measured it",
+      "class": "when",
+      "reason": "a minimum of 0 says NOT MEASURED, not 'nothing survives': the file lands with the whitespace record and the next batched `bun run mutate:full` is what seeds its number. Its coverage minimum is measured and recorded (100), and tests/print/whitespace-fact.test.ts is the dedicated lemma test the seeding will score against"
     }
   ]
 }

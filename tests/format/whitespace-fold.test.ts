@@ -70,12 +70,20 @@ describe("the spellings the refusal must not touch", () => {
     await expectByteFaithful(input);
   });
 
-  // The narrowness of the refusal, stated as a row. An ordinary tab
-  // between two words is still folded: reflowing prose is what the
-  // formatter is for, and nothing reads that run as syntax. The rows
-  // above are the exception, not a new policy for tabs.
-  test("an ordinary tab between two words still folds", async () => {
-    expect(await formatAdoc("a\tb\n")).toBe("a b\n");
+  // A TAB is now kept wherever it stands, not only beside the
+  // dashes: the whitespace record's tab row (`factOfRun`,
+  // src/whitespace-fact.ts) is deliberately wider than its authority,
+  // because the em-dash row, the hard-break row and the macro targets
+  // all spell their boundary as the literal SPACE and none of them
+  // has a neighbour test that could tell a tab it reads from a tab it
+  // does not.
+  //
+  // Red before that row: `a<TAB>b` formatted to `a b`. The render is
+  // the same either way (HTML collapses both), so what the row buys
+  // is the author's own bytes and a rule with no neighbour test; what
+  // it costs is 2 of 5,175 corpus prose lines.
+  test("an ordinary tab between two words is kept", async () => {
+    expect(await formatAdoc("a\tb\n")).toBe("a\tb\n");
   });
 });
 
@@ -135,22 +143,24 @@ describe("the node edges the refusal must not touch", () => {
   // These three kept today's behaviour through the fix; the pins are
   // here so a wider rule cannot land unnoticed.
   test.each([
+    // Every tab is kept now, on the macro side as well as the dash
+    // side: the record's tab row reads the run alone and asks no
+    // neighbour. Red before it, these three folded the macro-side tab
+    // to a space.
     [
       "a macro on the left only",
       "See https://e.com\t--\tword for more.\n",
-      "See https://e.com --\tword for more.\n",
+      "See https://e.com\t--\tword for more.\n",
     ],
     [
       "a macro on the right only",
       "See word\t--\tsales@b.com for more.\n",
-      "See word\t-- sales@b.com for more.\n",
+      "See word\t--\tsales@b.com for more.\n",
     ],
-    // An edge run with no dashes beside it at all: a tab against a
-    // macro is prose to reflow, the same as anywhere else.
     [
       "an ordinary tab against a macro",
       "See https://e.com\tword now.\n",
-      "See https://e.com word now.\n",
+      "See https://e.com\tword now.\n",
     ],
   ])("%s", async (_name, input, expected) => {
     const output = await formatAdoc(input);
@@ -238,7 +248,11 @@ describe("a run beside an attribute reference keeps its bytes", () => {
   test("a reference behind the run is not the node in front of it", async () => {
     const input = ":d: --\n\n__\tx {d}__\n";
     const output = await formatAdoc(input);
-    expect(output).toBe(":d: --\n\n__ x {d}__\n");
+    // The tab is kept by the record's TAB row, which reads the run
+    // alone; what this pins is that the REFERENCE rule stayed silent
+    // here, which the byte-faithful rows above would not distinguish.
+    // Red before that row, the run folded to a single space.
+    expect(output).toBe(":d: --\n\n__\tx {d}__\n");
     expect(await renderedHtml(output)).toBe(await renderedHtml(input));
     expect(await formatAdoc(output)).toBe(output);
   });
@@ -294,10 +308,12 @@ describe("a run the em-dash row has already eaten from keeps the rest", () => {
 
   // The narrowness: a run that is ALREADY the single character the
   // fold writes is a fixed point on both counts, so `a -- b` still
-  // formats to itself rather than growing bytes.
+  // formats to itself rather than growing bytes. The tabs away from
+  // the dashes are kept by the record's tab row, not by this one (red
+  // before it: they folded to spaces).
   test("a one-character run beside the dashes still folds", async () => {
     expect(await formatAdoc("a -- b\n")).toBe("a -- b\n");
-    expect(await formatAdoc("a\tb -- c\td\n")).toBe("a b -- c d\n");
+    expect(await formatAdoc("a\tb -- c\td\n")).toBe("a\tb -- c\td\n");
   });
 });
 
@@ -333,9 +349,12 @@ describe("a run with no word of its own to ride inside keeps its bytes", () => {
   });
 
   // The narrowness: an all-whitespace node with no dashes anywhere
-  // beside it is still the break opportunity it always was.
-  test("a whitespace-only node with no dashes beside it still folds", async () => {
-    expect(await formatAdoc("`c`\t`d`\n")).toBe("`c` `d`\n");
+  // beside it is still the break opportunity it always was - the
+  // TAB's own bytes aside, which the record's tab row keeps (red
+  // before that row: the node folded to a single space).
+  test("a whitespace-only node with no dashes beside it keeps only its tab", async () => {
+    expect(await formatAdoc("`c`\t`d`\n")).toBe("`c`\t`d`\n");
+    expect(await formatAdoc("`c` `d`\n")).toBe("`c` `d`\n");
   });
 });
 
@@ -411,15 +430,20 @@ describe("the dashes a reference cannot complete", () => {
   // DLIST_SEPARATOR_WORD stops recognising it inside a longer word,
   // and reflow could then pack a live term onto the first line).
   test.each([
+    // The tab in each of these is kept by the record's TAB row rather
+    // than by the fused-dash clause, which is what these rows are
+    // about: the dash cannot reach the reference, so the clause is
+    // silent and the run is not fused into a word. Red before the tab
+    // row, both folded to a space.
     [
       "a space between the dash and the reference",
       ":h: -\n\na\t- {h} b\n",
-      ":h: -\n\na - {h} b\n",
+      ":h: -\n\na\t- {h} b\n",
     ],
     [
       "a dash inside a longer word",
       ":h: -\n\na\tax-{h} b\n",
-      ":h: -\n\na ax-{h} b\n",
+      ":h: -\n\na\tax-{h} b\n",
     ],
     [
       "a description-list separator in front of the run",
@@ -435,41 +459,47 @@ describe("the dashes a reference cannot complete", () => {
 });
 
 /**
- * A load-bearing run the printer CANNOT keep: one carrying a line
- * break.
+ * A load-bearing run carrying a LINE BREAK: the break is what the
+ * printer holds in its place.
  *
- * Keeping a run means riding inside the atom beside it, and an atom is
- * newline-free by construction (src/print/reflow.ts). So every rule in
- * src/print/whitespace-fold.ts that would otherwise keep a run stops
- * at a break and lets the fold happen - the module says so at each
- * site, and these rows are what hold the guards there. Without them a
- * newline rides into a word and the packer writes it mid-line.
+ * Bytes cannot ride inside an atom here - an atom is newline-free by
+ * construction (src/print/reflow.ts) - so what is left of the run is
+ * its SPELLING, and the record says so: a run carrying a break can
+ * take no arm stronger than `bound` to a newline
+ * (`noWidthToRead`, src/whitespace-fact.ts). The packer then writes
+ * the author's own break back rather than a space.
  *
- * The last row is the one that COSTS a render, and it costs the same
- * one on main: the remedy for it is a break the printer HOLDS rather
- * than bytes inside a word, which is a change to the packer and not to
- * this module. It is pinned for its BYTES alone, so the guard cannot
- * be deleted unnoticed.
+ * Red before that reading (issue #180's join half): every row here
+ * folded its break to a space, and a break between two edges that can
+ * each spell the dashes is what arms the em-dash row twice - the
+ * folded spelling renders one em dash where the input renders two.
+ *
+ * That the reduction is to the BREAK and not to the bytes is also
+ * what makes the record a fixed point: the run the next read sees is
+ * the one newline this wrote, and it takes the same row and the same
+ * arm.
  */
-describe("a run carrying a line break folds, guard by guard", () => {
+describe("a run carrying a line break keeps the break", () => {
   test.each([
-    // The node's own EDGE run, read by `edgeRun`.
+    // A node's own EDGE run, where the em-dash row has already
+    // consumed the source's newline: what is left is two spaces, and
+    // those DO ride inside the atom.
     [
       "an edge run in front of the dashes",
       ":d: --\n\na  \n-- b\n",
       ":d: --\n\na -- b\n",
     ],
-    // A node that is NOTHING but the run, read by `keptWholeRun`.
+    // A node that is NOTHING but the run, between two references.
     [
       "a whole node between two references",
       ":d: -\n\n{d}\t\n{d}\n",
-      ":d: -\n\n{d} {d}\n",
+      ":d: -\n\n{d}\n{d}\n",
     ],
-    // The run behind an opening lone dash, read by `fuseOpeningDash`.
+    // The run behind a lone dash fused to a reference.
     [
       "the run behind a fused dash",
       ":e:\n\na -{e}-\t\nb\n",
-      ":e:\n\na -{e}- b\n",
+      ":e:\n\na -{e}-\nb\n",
     ],
   ])("%s", async (_name, input, expected) => {
     const output = await formatAdoc(input);
@@ -478,9 +508,12 @@ describe("a run carrying a line break folds, guard by guard", () => {
     expect(await formatAdoc(output)).toBe(output);
   });
 
-  // The run in FRONT of a final lone dash, read by `fuseFinalDash`.
-  // Bytes only: the fold arms the row here, and no rule in this module
-  // can refuse it while the run carries the break.
+  // The run in FRONT of a final lone dash. The break the record holds
+  // is DROPPED here, and deliberately: the word behind it is a lone
+  // `-`, which is a list marker at a line start, so the packer fuses
+  // it backwards and the block-start net is what decides whether the
+  // author's line comes back (src/print/block-start-hazard.ts). Bytes
+  // only, because what the record asked for is not what is written.
   test("the run in front of a fused dash", async () => {
     expect(await formatAdoc(":h: -\n\na\n\t-{h}\n")).toBe(":h: -\n\na -{h}\n");
   });
@@ -500,7 +533,10 @@ describe("a run carrying a line break folds, guard by guard", () => {
   test("a description-list separator behind the run", async () => {
     const input = ":e:\n\na\n{e}-\tx:: y\n";
     const output = await formatAdoc(input);
-    expect(output).toBe(":e:\n\na {e}-\nx:: y\n");
+    // The break in front of `{e}-` is now HELD (the reference clause),
+    // so the separator's own line is the second one rather than the
+    // first. Red before it, the first line read `a {e}-`.
+    expect(output).toBe(":e:\n\na\n{e}-\nx:: y\n");
     expect(await renderedHtml(output)).toBe(await renderedHtml(input));
     expect(await formatAdoc(output)).toBe(output);
   });
@@ -585,10 +621,13 @@ describe("a run beside a reference keeps what the row would leave", () => {
       ":d: --\n\nSee a {d}   \n",
       ":d: --\n\nSee a {d}\n",
     ],
+    // Kept by the record's TAB row rather than by this one, which is
+    // what the row pins: the reference rule is silent this far away.
+    // Red before that row, both tabs folded to spaces.
     [
       "a tab away from any reference",
       ":d: --\n\nSee a\tb {d} c\td\n",
-      ":d: --\n\nSee a b {d} c d\n",
+      ":d: --\n\nSee a\tb {d} c\td\n",
     ],
   ])("%s", async (_name, input, expected) => {
     await expectFormatted(input, expected);
@@ -653,12 +692,19 @@ describe("no break stands between two spellings of the dashes", () => {
     expect(await formatAdoc(output, { printWidth })).toBe(output);
   });
 
-  // The narrowness: a break in front of a lone reference is free,
-  // because the space it replaces was the boundary the row consumed
-  // and the newline is consumed in its place.
-  test("a break in front of a lone reference still happens", async () => {
+  // A break in front of a lone reference is refused too, and that is
+  // the record's reference clause paying its stated cost: the value
+  // is not resolved, so a reference on ONE side binds the run to the
+  // spelling the source gave it and the packer may not write a break
+  // there. Red before the clause, this formatted to two lines.
+  //
+  // What the clause buys is the shape above it: a break beside a
+  // reference whose value spells the dashes arms the row twice. What
+  // it costs is measured - 141 of 38,110 corpus prose runs stand
+  // beside a reference, and each loses a break opportunity.
+  test("a break in front of a lone reference is refused too", async () => {
     expect(
       await formatAdoc(":d: --\n\nwwwwwwwwww {d} y\n", { printWidth: 10 }),
-    ).toBe(":d: --\n\nwwwwwwwwww\n{d} y\n");
+    ).toBe(":d: --\n\nwwwwwwwwww {d} y\n");
   });
 });

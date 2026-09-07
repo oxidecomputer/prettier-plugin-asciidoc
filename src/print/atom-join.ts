@@ -13,8 +13,13 @@
  * adjacent atoms) that happened to share the same word before this
  * file was renamed.
  */
-import type { InlineNode } from "../ast.js";
-import type { Atom, BreakBefore } from "./reflow.js";
+import type { InlineNode, TextNode } from "../ast.js";
+import type { NodeFacts } from "../whitespace-runs.js";
+import {
+  isBlockSyntaxAtLineStart,
+  type Atom,
+  type BreakBefore,
+} from "./reflow.js";
 import type { SpanNode } from "./span-edges.js";
 import type { BlockStartCursor } from "./block-start-hazard.js";
 
@@ -22,19 +27,27 @@ import type { BlockStartCursor } from "./block-start-hazard.js";
  * The join between the atom just emitted and the next one.
  *
  * `"glue"` fuses with no space, `"space"` puts a space there but forbids
- * a break, `"break"` is an ordinary breakable space, and `"literal"` is
- * a mandatory break that opens its line at column 0. They are RANKED:
- * when two nodes each ask for a join, the stronger one stands - which is
- * how a raw line's mandatory break survives a neighbour's whitespace
- * asking only for a breakable space.
+ * a break, `"break"` is an ordinary breakable space, `"hardBreak"` is a
+ * mandatory break at the block's continuation indent, and `"literal"`
+ * is a mandatory break that opens its line at column 0. They are
+ * RANKED: when two nodes each ask for a join, the stronger one stands -
+ * which is how a raw line's mandatory break survives a neighbour's
+ * whitespace asking only for a breakable space.
+ *
+ * `"hardBreak"` is what a whitespace run BOUND to a newline asks for
+ * (`WhitespaceFact`, src/whitespace-record.ts): the source wrote a
+ * line break there and a row of the record reads it, so the packer may
+ * not write a space instead - but the line it opens is the same
+ * block's, so it takes the block's indent rather than column 0.
  */
-export type Boundary = "glue" | "space" | "break" | "literal";
+export type Boundary = "glue" | "space" | "break" | "hardBreak" | "literal";
 
 // Weakest join first: a later index outranks an earlier one.
 const BOUNDARY_ORDER: readonly Boundary[] = [
   "glue",
   "space",
   "break",
+  "hardBreak",
   "literal",
 ];
 
@@ -50,6 +63,14 @@ export function strongerBoundary(left: Boundary, right: Boundary): Boundary {
     : left;
 }
 
+// The break each MANDATORY join writes. A literal break opens its
+// line at column 0; a hard break opens it at the block's own
+// continuation indent (see BreakBefore, src/print/reflow.ts).
+const BOUNDARY_BREAK = {
+  hardBreak: "hard",
+  literal: "literal",
+} as const satisfies Record<string, BreakBefore>;
+
 /**
  * Stamp a join onto an atom. The atom's OWN break demand survives a
  * non-breaking join: a description-list hazard word that opens a
@@ -61,12 +82,26 @@ export function strongerBoundary(left: Boundary, right: Boundary): Boundary {
  * @returns the atom carrying it.
  */
 export function withBoundary(atom: Atom, boundary: Boundary): Atom {
+  // A `hardBreak` in front of a construct that would OPEN A BLOCK at a
+  // line start is refused, and the join falls back to the space that
+  // forbids a break. The line such a break opens is at the block's
+  // continuation indent, which is column 0 for a paragraph, and the
+  // source's own column is not the printer's to reconstruct here - so
+  // what the record asked for cannot be written without writing a
+  // delimiter the author did not. The same trade `wordAtom`
+  // (src/print/reflow.ts) makes for a WORD the packer fuses backwards.
+  const join =
+    boundary === "hardBreak" && isBlockSyntaxAtLineStart(atom.text)
+      ? "space"
+      : boundary;
   const breakBefore: BreakBefore =
-    boundary === "literal" ? "literal" : atom.breakBefore;
+    join === "literal" || join === "hardBreak"
+      ? BOUNDARY_BREAK[join]
+      : atom.breakBefore;
   return {
     ...atom,
-    glueLeft: boundary === "glue",
-    noBreakBefore: boundary === "space",
+    glueLeft: join === "glue",
+    noBreakBefore: join === "space",
     breakBefore,
   };
 }
@@ -103,8 +138,16 @@ export interface Cursor extends BlockStartCursor {
    * nesting (a mark span inside a monospace span still answers true)
    * because Asciidoctor renders the whole code span's text - nested
    * formatting included - exactly as written. src/print/inline.ts's
-   * `appendText` reads it to choose between src/print/reflow.ts's
-   * `splitWords` and `splitPreservingSpaces`.
+   * `appendText` reads it to choose between the block's whitespace
+   * record and `splitPreservingSpaces` (src/whitespace-runs.ts).
    */
   readonly literalInterior: boolean;
+  /**
+   * The block's whitespace record, indexed by the text node each fact
+   * belongs to ({@link NodeFacts}, src/whitespace-runs.ts). The
+   * printer READS this and may not re-derive it: what a run of the
+   * block's whitespace may be respelled as was decided once, at read
+   * time, over the source the printer no longer holds.
+   */
+  readonly facts: ReadonlyMap<TextNode, NodeFacts>;
 }

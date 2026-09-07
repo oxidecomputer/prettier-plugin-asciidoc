@@ -11,13 +11,12 @@
  */
 import type { TextNode } from "../ast.js";
 import { ASCII_WHITESPACE } from "../parse/line-shapes.js";
+import { wordsToAtoms, type Atom } from "./reflow.js";
 import {
   leadsWithLineBreak,
   splitPreservingSpaces,
   trailsWithLineBreak,
-  wordsToAtoms,
-  type Atom,
-} from "./reflow.js";
+} from "../whitespace-runs.js";
 import {
   strongerBoundary,
   withBoundary,

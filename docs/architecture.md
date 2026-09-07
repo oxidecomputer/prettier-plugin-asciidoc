@@ -291,6 +291,13 @@ safety) and `parse/` never importing `print/`. Every cross-directory symbol is
 additionally named and given a reason in
 `scripts/metrics/crossings-registry.json`, gated in both directions.
 
+A few modules sit at the ROOT of `src/` and belong to neither side:
+`block-metadata.ts` (the metadata vocabulary) and the three whitespace modules
+below. They are not a fifth address into the parser: nothing about the reader's
+interior leaks through them. They are one answer both halves need and neither
+may spell twice, which is exactly what a shared home is for, and each of their
+symbols carries a registry row like any other crossing.
+
 ## The inline tokenizer
 
 Inline content — bold, links, macros — lives within paragraph text and is
@@ -399,8 +406,11 @@ newline-free text unit plus the local break facts about the join in front of it:
 `glueLeft` (fuse, no space), `noBreakBefore`, `noBreakAfter`, and a three-valued
 `breakBefore` (`"none" | "hard" | "literal"`, because a literal break opens its
 line at column 0 while a hard break opens at the block's continuation indent).
-Break decisions live where atoms are built; breaks exist only between atoms,
-never inside a fused run.
+The whitespace record below is what SETS those facts for a run of source
+whitespace: `verbatim` bytes ride inside the atom beside them, `bound` to a
+space is `noBreakBefore`, `bound` to a newline is a hard break, and `free`
+leaves the packer its choice. Break decisions live where atoms are built; breaks
+exist only between atoms, never inside a fused run.
 
 `blockBody(atoms, width, indent)` is the one greedy packer. The paragraph
 printer, the paragraph-form admonition body, and a list item's text all go
@@ -411,6 +421,54 @@ construct) and measures in columns via Prettier's own `getStringWidth`, so a
 full-width character costs two and a combining mark costs none. Reflow safety
 (see [Line classification](#line-classification)) keeps the packer from placing
 a word where it would re-parse as block syntax.
+
+### The whitespace record
+
+Whether one run of a block's whitespace may be respelled is decided ONCE, by the
+reader, and recorded on the block: `paragraph.whitespace`, and the same field on
+a list item's, a description item's and a paragraph-form admonition's text
+(`BlockWhitespace`, `src/whitespace-record.ts`). The printer READS it and may
+not re-derive it.
+
+Why the reader. A whitespace run is syntax wherever a rule of Asciidoctor spells
+its boundary as the literal space or the literal newline: the em-dash
+replacement, the hard line break, an `image:` target, an anchor's reftext.
+Asking that of the printed words means re-deriving, one predicate per rule, what
+the reader already knew when it tokenized the line, and the predicates then
+drift from the reader about what a construct even is. The record is the reader's
+answer, and it is a fact about the SOURCE, so two records that agree describe
+blocks Asciidoctor reads alike.
+
+Three modules, split by what each answers:
+
+- `src/whitespace-record.ts`, the record's TYPE and nothing else. A leaf,
+  because `src/ast.ts` names it on four node types and the two modules below
+  name the AST's node types back; declaring it in either would be the cross-file
+  cycle the metrics graph gate refuses even for type-only imports.
+- `src/whitespace-runs.ts`, WHERE the runs are: the cut of a value into its
+  words and the runs around them, the walk that puts a block's runs in one
+  order, and the index that hands each fact back to the printer. That order is
+  the one thing the two halves must agree on, so there is one walk and both call
+  it.
+- `src/whitespace-fact.ts`, WHAT each run means: one function with an ordered
+  walk of the rows, first match assigning.
+
+The arms are `free` (no rule reads it; the packer writes a space or a break),
+`bound` to the run's own spelling (a rule reads whether it was a space or a
+newline, but not its width), and `verbatim` (a rule reads its bytes, so they are
+written back). `free` carries no bytes at all, which is what makes the packer's
+access to a free run checkable: two records differing only at free runs are
+indistinguishable to it. A whole block can also be `replayed`, for the rows
+whose reading is about which LINE a byte is on.
+
+**Attributes supplied from outside the document are out of scope.**
+`-a hardbreaks` on a command line, an editor's own defaults, an include's
+caller: none of them is the formatter's concern. The formatter reads the
+document's own text and nothing else, so a block is a hardbreaks block here only
+when the document itself says so, and a reference resolves only against entries
+the document itself sets. That is a CONTRACT, not a limitation to fix: a
+formatter whose output depended on a flag it cannot see would have no fixed
+point.
 
 ### Joins between blocks
 

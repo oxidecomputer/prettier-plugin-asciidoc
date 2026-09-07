@@ -18,6 +18,11 @@ import type {
   VerbatimVariant,
 } from "../../ast.js";
 import { loneAnchorChild } from "../../block-metadata.js";
+import {
+  blockWhitespace,
+  PLAIN_WHITESPACE_CONTEXT,
+  type WhitespaceContext,
+} from "../../whitespace-fact.js";
 import { FIRST_COLUMN, FIRST_LINE } from "../../constants.js";
 import { annotation } from "./delimited.js";
 import { buildFromTokens } from "../inline/inline-node-builder.js";
@@ -170,25 +175,23 @@ function secondLineIndent(
  * tokens — newlines are separators, not content, so a paragraph does
  * not end on the line break that ended it.
  * @param tokens - the body's tokens, in source order
- * @param source - the whole document, for the block's own first line
  * @param at - the document's location index
- * @param blankBelow - whether a blank line stands between this
- *   paragraph's extent and the next block the reader will produce; it
- *   reaches the tree only when the body is a lone anchor line, which
- *   is the whole of {@link ParagraphNode.blankBelowAnchorLine}
+ * @param body - the source, the blank-below fact and the whitespace
+ *   context (see {@link ParagraphBody})
  * @returns the paragraph node
  */
 export function buildParagraph(
   tokens: readonly InlineToken[],
-  source: string,
   at: LocationIndex,
-  blankBelow: boolean,
+  body: ParagraphBody,
 ): ParagraphNode {
+  const { source, blankBelow, context } = body;
   const position = bodyExtent(tokens, at);
   const children = buildFromTokens(tokens, at);
   return {
     type: "paragraph",
     children,
+    whitespace: blockWhitespace(children, context),
     firstWordEndsItsLine: firstWordEndsItsLine(source, position.start.offset),
     secondLineIndent: secondLineIndent(source, position),
     // The anchor half of the conjunction is asked of the ONE record
@@ -228,12 +231,14 @@ const LABEL_COLON = ":";
  *   variant a character short rather than throw.
  * @param tokens - The body's tokens, in source order. May be empty.
  * @param at - The document's location index.
+ * @param context - the whole-block facts the whitespace record reads.
  * @returns An AdmonitionNode in paragraph form.
  */
 export function buildAdmonitionParagraph(
   label: Fragment,
   tokens: readonly InlineToken[],
   at: LocationIndex,
+  context: WhitespaceContext,
 ): AdmonitionNode {
   return admonitionOver(
     {
@@ -242,6 +247,7 @@ export function buildAdmonitionParagraph(
     },
     tokens,
     at,
+    context,
   );
 }
 
@@ -275,13 +281,14 @@ export type ParagraphOpening =
  * max-params limit. NOT exported (knip's types bucket gates dead
  * exported types at 0): the caller passes an object literal.
  */
-interface ParagraphBuildInputs {
-  /** The body's tokens, in source order. */
-  readonly tokens: readonly InlineToken[];
+/**
+ * Exported for its unit test (tests/parser/build/paragraph.test.ts),
+ * which passes one; src callers pass an object literal.
+ * @internal
+ */
+export interface ParagraphBody {
   /** The whole document, for the block's own first line. */
   readonly source: string;
-  /** The document's location index. */
-  readonly at: LocationIndex;
   /**
    * Whether a blank line stands between this paragraph's extent and
    * the next block; meaningful only for the "plain" case, since only
@@ -289,6 +296,12 @@ interface ParagraphBuildInputs {
    * {@link buildParagraph}).
    */
   readonly blankBelow: boolean;
+  /**
+   * The whole-block facts the whitespace record's block rows read
+   * (`WhitespaceContext`, src/whitespace-fact.ts): what the block's
+   * own attribute line and the document's own attribute entries say.
+   */
+  readonly context: WhitespaceContext;
 }
 
 /**
@@ -297,24 +310,27 @@ interface ParagraphBuildInputs {
  * resolved in one place so the reader pushes one node and names no
  * builder of its own.
  * @param opening - what the held run made of this paragraph
- * @param body - the paragraph's tokens, source, location index, and
- *   the blank-below fact (see {@link ParagraphBuildInputs})
+ * @param tokens - the body's tokens, in source order
+ * @param at - the document's location index
+ * @param body - the source, the blank-below fact and the whitespace
+ *   context (see {@link ParagraphBody})
  * @returns the admonition, the verbatim block, or the paragraph
  */
 export function buildParagraphNode(
   opening: ParagraphOpening,
-  body: ParagraphBuildInputs,
+  tokens: readonly InlineToken[],
+  at: LocationIndex,
+  body: ParagraphBody,
 ): BlockNode {
-  const { tokens, source, at, blankBelow } = body;
   switch (opening.kind) {
     case "admonition": {
-      return admonitionOver(opening.style, tokens, at);
+      return admonitionOver(opening.style, tokens, at, body.context);
     }
     case "styled": {
-      return buildParagraphFormBlock(opening.held, tokens, source, at);
+      return buildParagraphFormBlock(opening.held, tokens, body.source, at);
     }
     case "plain": {
-      return buildParagraph(tokens, source, at, blankBelow);
+      return buildParagraph(tokens, at, body);
     }
   }
 }
@@ -343,20 +359,24 @@ interface AdmonitionOpening {
  * @param opening - what the opening line contributes
  * @param tokens - the body's tokens, in source order; may be empty
  * @param at - the document's location index
+ * @param context - the whole-block facts the whitespace record reads
  * @returns the admonition node
  */
 function admonitionOver(
   opening: AdmonitionOpening,
   tokens: readonly InlineToken[],
   at: LocationIndex,
+  context: WhitespaceContext,
 ): AdmonitionNode {
   const content = tokens.filter((t) => t.type !== "InlineNewline");
   const last = content.at(-1);
+  const text = buildFromTokens(tokens, at);
   return {
     type: "admonition",
     variant: opening.label.toLowerCase(),
     form: "paragraph",
-    text: buildFromTokens(tokens, at),
+    text,
+    whitespace: blockWhitespace(text, context),
     children: [],
     position: {
       start: opening.span.start,
@@ -485,9 +505,16 @@ export function buildRawLineParagraph(
   at: LocationIndex,
 ): ParagraphNode {
   const position = { start: at.start(line), end: at.end(line) };
+  const children: ParagraphNode["children"] = [
+    { type: "rawLine", value: line.image, position },
+  ];
   return {
     type: "paragraph",
-    children: [{ type: "rawLine", value: line.image, position }],
+    children,
+    // ONE raw line and nothing else: the block has no text node, so
+    // it holds no whitespace run for any row to bind, and the record
+    // is the same empty one under every context.
+    whitespace: blockWhitespace(children, PLAIN_WHITESPACE_CONTEXT),
     // The fragment IS the whole line, so its image is the source slice
     // the question is about; offset 0 is that slice's own start.
     firstWordEndsItsLine: firstWordEndsItsLine(line.image, 0),

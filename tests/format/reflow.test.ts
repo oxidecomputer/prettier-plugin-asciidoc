@@ -87,13 +87,18 @@ describe("paragraph reflow", () => {
     expect(await formatAdoc(input, { printWidth: 10 })).toBe(expected);
   });
 
-  // Tabs in paragraph text are treated as whitespace by the reflow
-  // logic (`split(/\s+/)`). This guards against regressions where
-  // tab-separated words might be collapsed incorrectly or left
-  // un-split during reflow.
-  test("tabs between words are treated as whitespace", async () => {
+  // Tabs SEPARATE words the way any other whitespace run does - they
+  // are still word boundaries, and the words on either side are still
+  // packed - but the run itself is written back as the author wrote
+  // it, because the whitespace record's tab row keeps a tab wherever
+  // it stands (`factOfRun`, src/whitespace-fact.ts).
+  //
+  // Red before that row: this formatted to `one two three`, folding
+  // three runs the record now holds. The render is the same either
+  // way; what the row buys is a rule that needs no neighbour test.
+  test("tabs between words separate them and keep their bytes", async () => {
     const input = "one\ttwo\tthree\n";
-    expect(await formatAdoc(input)).toBe("one two three\n");
+    expect(await formatAdoc(input)).toBe("one\ttwo\tthree\n");
   });
 
   // A paragraph containing only whitespace (spaces and tabs) should

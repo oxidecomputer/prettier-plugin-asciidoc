@@ -143,15 +143,22 @@ describe("inline formatting — reflow with inline marks", () => {
   });
 
   test("attribute reference is not broken by reflow", async () => {
-    // Attribute references are emitted as a single Doc string
-    // token ({...}), not split into fill words. Reflow can place
-    // a line break before or after the reference at a word
-    // boundary, but never inside it.
+    // Attribute references are emitted as a single atom ({...}), not
+    // split into words, so no break lands inside one. The runs on
+    // either SIDE of one are bound as well: the whitespace record's
+    // reference clause (`factOfRun`, src/whitespace-fact.ts) does not
+    // resolve the value, and a value spelling `--` reads a break
+    // beside it as a boundary the space did not give. So the packer
+    // breaks earlier instead.
+    //
+    // Red before that clause: the same input broke directly in front
+    // of the reference, `...paragraph with` / `{attribute-name} in
+    // the middle` / `of it.`.
     const input =
       "This is a long paragraph with {attribute-name} in the middle of it.\n";
     const result = await formatAdoc(input, { printWidth: 30 });
     expect(result).toBe(
-      "This is a long paragraph with\n{attribute-name} in the middle\nof it.\n",
+      "This is a long paragraph\nwith {attribute-name} in the\nmiddle of it.\n",
     );
   });
 });

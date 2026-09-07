@@ -36,29 +36,43 @@
  */
 import { doc, util, type Doc } from "prettier";
 import {
-  ASCII_WHITESPACE,
   DLIST_SEPARATOR_WORD,
   LINE_COMMENT_HEAD,
   startsBlockAtLineStart,
 } from "../parse/line-shapes.js";
-import {
-  foldChangesEmDash,
-  manufacturedChecklistRun,
-  type KeptEdgeRuns,
-} from "./whitespace-fold.js";
+
+/**
+ * The bytes of a text node's EDGE runs the printer must write back:
+ * the run in front of its first word and the one behind its last.
+ * Each stands between the node and the sibling beside it, so neither
+ * is a run BETWEEN two words and neither has an atom of its own -
+ * they ride inside the atom at each end ({@link withEdgeRuns}).
+ *
+ * Exported because it names an option of {@link wordsToAtoms}; every
+ * caller passes an object literal, and tests/print/reflow.test.ts
+ * exercises the option.
+ * @internal
+ */
+export interface KeptEdgeRuns {
+  /** In front of the first word; empty where the run may fold. */
+  readonly leading: string;
+  /** Behind the last word; empty where the run may fold. */
+  readonly trailing: string;
+}
+
+/**
+ * What the whitespace record holds against the join in FRONT of a
+ * word: nothing, a space the packer may not turn into a break, or a
+ * break the packer may not turn into a space.
+ */
+export type HeldJoin = "none" | "space" | "newline";
+
+/** The join a run the record does not hold asks for: no join at all. */
+const NO_HELD_JOIN: HeldJoin = "none";
 
 // A text node with no edge run to keep, which is every caller but the
 // text case in src/print/inline.ts.
 const NO_EDGE_RUNS: KeptEdgeRuns = { leading: "", trailing: "" };
-
-// The `+` quantified form of ASCII_WHITESPACE, CAPTURED, so a split on
-// it keeps the run beside the words it separated: whether a run may
-// fold to a space is a question about its own bytes
-// (src/print/whitespace-fold.ts).
-const ASCII_WHITESPACE_RUN_KEPT = new RegExp(
-  `(${ASCII_WHITESPACE.source}+)`,
-  "v",
-);
 
 const {
   builders: { hardline },
@@ -270,205 +284,6 @@ export function wrap(
   return lines;
 }
 
-// ── Word splitting ─────────────────────────────────────────
-
-/** A value cut into its words and the whitespace runs between them. */
-interface CutValue {
-  /** The non-empty words, in order. */
-  readonly words: readonly string[];
-  /** `runs[index]` is the run between `words[index]` and its successor. */
-  readonly runs: readonly string[];
-}
-
-/**
- * Cut a value into its words and the runs that separate them, keeping
- * the runs' bytes so {@link splitWords} can ask what a fold would cost.
- *
- * A run at either EDGE of the value is not between two words and is
- * dropped: the join in front of the value and the one behind it belong
- * to the boundary between inline nodes, which src/print/inline.ts
- * decides.
- * @param value - Raw source text, or a prefix of it.
- * @returns the words and the runs between them.
- */
-function cutValue(value: string): CutValue {
-  // The capturing form keeps every separator in the result, so the
-  // pieces alternate word, run, word, run - starting and ending with a
-  // word, which is empty exactly where the value opens or closes with
-  // whitespace.
-  const pieces = value.split(ASCII_WHITESPACE_RUN_KEPT);
-  const words: string[] = [];
-  const runs: string[] = [];
-  for (let index = 0; index < pieces.length; index += 2) {
-    if (pieces[index].length === 0) {
-      continue;
-    }
-    if (words.length > 0) {
-      runs.push(pieces[index - 1]);
-    }
-    words.push(pieces[index]);
-  }
-  return { words, runs };
-}
-
-/**
- * Whether the run between two words must keep its own bytes - fusing
- * the two into one word rather than letting the packer write a space
- * where the source wrote something else.
- * @param previous - the word in front of the run.
- * @param run - the run, as the source wrote it.
- * @param next - the word behind the run.
- * @param spellsAChecklistPrefix - what the value's head already
- *   answered about this run: folding it would spell a checklist prefix
- *   the source did not write. Asked once, about the whole head, and
- *   passed in rather than re-derived here, where the head is out of
- *   reach.
- * @returns true when the fold would change what Asciidoctor reads.
- */
-function runKeepsItsBytes(
-  previous: string,
-  run: string,
-  next: string,
-  spellsAChecklistPrefix: boolean,
-): boolean {
-  // A fused word carries interior whitespace, and {@link wordsToAtoms}'
-  // dlist guard reads a WHOLE word (DLIST_SEPARATOR_WORD is anchored
-  // `^\S*(?:::|;;)$`), so a separator word fused inside another one
-  // would escape it - and reflow could then put `x::<TAB>--` on the
-  // block's first output line, where it re-reads as a description-list
-  // term. Nothing fuses across such a word.
-  if (DLIST_SEPARATOR_WORD.test(previous) || DLIST_SEPARATOR_WORD.test(next)) {
-    return false;
-  }
-  // A run carrying a LINE BREAK cannot ride inside an atom, which is
-  // newline-free by construction. Where such a run is load-bearing the
-  // remedy is a break the printer HOLDS, not a fused word.
-  if (run.includes("\n")) {
-    return false;
-  }
-  return spellsAChecklistPrefix || foldChangesEmDash(previous, run, next);
-}
-
-/**
- * Split raw block text into the words wordsToAtoms expects: non-empty,
- * line-break-free, and carrying interior whitespace only where the
- * source's own run is load-bearing. Shared so every caller - the text
- * case and the first-source-line counting that feeds the dlist guard -
- * agrees on what a word is; a mismatch would misplace the guard by a
- * word. Fusing never crosses a line break, so a value and any prefix of
- * it still agree about the words on the first line.
- *
- * Splits on {@link ASCII_WHITESPACE} - Ruby's `\s`, `[ \t\r\n\f\v]` -
- * not JavaScript's wider `\s`, which also takes a no-break space, every
- * Unicode space separator, the line/paragraph separators and a
- * byte-order mark. Asciidoctor never treats any of those as a word
- * separator (`Reader#rstrip`'s own strip set is the same six
- * characters; see ASCII_WHITESPACE's citation), so a word containing
- * one is ONE word here too, and the character rides inside the atom's
- * text instead of being read as a break and rewritten to a plain space
- * by {@link wrap}'s join. Issue #75.
- *
- * A run the packer's space would MISREAD rides inside the word the
- * same way ({@link runKeepsItsBytes}, src/print/whitespace-fold.ts).
- * The two words it separates become one, because a break has no slot
- * inside a word and the run's bytes have to survive the join.
- * @param value - Raw source text, or a prefix of it.
- * @returns The words, in order.
- */
-export function splitWords(value: string): string[] {
-  const { words, runs } = cutValue(value);
-  // The checklist prefix is anchored at the head of the value, so it is
-  // ONE question about the whole word list rather than a question the
-  // walk below could ask of each run in turn.
-  const checklistRun = manufacturedChecklistRun(words, runs);
-  const packed: string[] = [];
-  for (const [index, word] of words.entries()) {
-    if (
-      index > 0 &&
-      runKeepsItsBytes(
-        words[index - 1],
-        runs[index - 1],
-        word,
-        index - 1 === checklistRun,
-      )
-    ) {
-      packed[packed.length - 1] += runs[index - 1] + word;
-    } else {
-      packed.push(word);
-    }
-  }
-  return packed;
-}
-
-// A run of whitespace containing at least one LINE BREAK - the
-// boundary splitPreservingSpaces cuts on, as opposed to splitWords'
-// ASCII_WHITESPACE_RUN_KEPT, which cuts on ANY whitespace run. `\n` is
-// itself inside ASCII_WHITESPACE, so the trailing quantifier already
-// absorbs a run of several newlines and the spaces between them; only
-// the leading quantifier is needed to reach back over indentation
-// BEFORE the break.
-const LINE_BREAK_RUN = new RegExp(
-  String.raw`${ASCII_WHITESPACE.source}*\n${ASCII_WHITESPACE.source}*`,
-  "v",
-);
-
-// The front and back halves of LINE_BREAK_RUN, anchored, for
-// leadsWithLineBreak/trailsWithLineBreak: whether a text node's OWN
-// edge run (as opposed to the run between two nodes) contains the
-// break rather than plain horizontal whitespace.
-const LEADING_LINE_BREAK = new RegExp(
-  String.raw`^${ASCII_WHITESPACE.source}*\n`,
-  "v",
-);
-const TRAILING_LINE_BREAK = new RegExp(
-  String.raw`\n${ASCII_WHITESPACE.source}*$`,
-  "v",
-);
-
-/**
- * Split raw text into byte-preserving chunks: cut only where a LINE
- * BREAK stood, never on an interior run of plain spaces or tabs. The
- * byte-preserving counterpart to {@link splitWords}, for content
- * Asciidoctor renders exactly as written - a monospace span's
- * interior spacing is content, not prose to reflow (issue #32,
- * measured: `` `a  b` `` renders `<code>a  b</code>`, both spaces
- * kept). A line break still folds to one breakable join, same as
- * ordinary reflowed text: Asciidoctor copies a line break inside an
- * inline code span into the rendered element just as it does outside
- * one, so moving it is not a meaning change - only an interior SPACE
- * RUN is.
- * @param value - Raw source text, or a prefix of it.
- * @returns The chunks, in order; empty only where `value` held
- *   nothing but a line-break run.
- */
-export function splitPreservingSpaces(value: string): string[] {
-  return value.split(LINE_BREAK_RUN).filter((chunk) => chunk.length > 0);
-}
-
-/**
- * Whether `value`'s LEADING whitespace run - if any - contains a line
- * break. Pure leading spaces or tabs answer false: splitPreservingSpaces
- * bakes them into its first chunk instead of treating them as a join,
- * so the caller must not also ask the packer to insert one there.
- * @param value - Raw source text.
- * @returns Whether the run splitPreservingSpaces would cut at the
- *   front of `value` contains a line break.
- */
-export function leadsWithLineBreak(value: string): boolean {
-  return LEADING_LINE_BREAK.test(value);
-}
-
-/**
- * Whether `value`'s TRAILING whitespace run - if any - contains a line
- * break. Mirrors {@link leadsWithLineBreak} at the trailing edge.
- * @param value - Raw source text.
- * @returns Whether the run splitPreservingSpaces would cut at the end
- *   of `value` contains a line break.
- */
-export function trailsWithLineBreak(value: string): boolean {
-  return TRAILING_LINE_BREAK.test(value);
-}
-
 // ── Detection ──────────────────────────────────────────────
 
 // The lone `+`. Both reflow safety rules name it: at column 0 it is a
@@ -653,14 +468,30 @@ function keepContinuationLine(atoms: Atom[], opensWithOne: boolean): void {
  * @param fuseBackwards - whether it must share its predecessor's line.
  * @param hazard - whether it is a dlist term off the block's first
  *   source line, and so may not reach the first output line.
+ * @param held - what the whitespace record holds against the join in
+ *   front of it ({@link HeldJoin}).
  * @returns the atom.
  */
-function wordAtom(word: string, fuseBackwards: boolean, hazard: boolean): Atom {
+function wordAtom(
+  word: string,
+  fuseBackwards: boolean,
+  hazard: boolean,
+  held: HeldJoin,
+): Atom {
+  // A word FUSED BACKWARDS is one that would be block syntax at a
+  // line start, and the break the record holds in front of it is
+  // exactly the break the block-start net weighs (`keepBlockStartBreak`,
+  // src/print/block-start-hazard.ts): the net puts the AUTHOR's line
+  // back, indent and all, where doing so is safe. Demanding one here
+  // as well would be two atoms giving the packer opposite orders, and
+  // the demand would be lifted to the front of the fused run - in
+  // front of the wrong word. So the net decides, and this yields.
+  const demanded = hazard || (held === "newline" && !fuseBackwards);
   return {
     ...atomOf(word),
-    noBreakBefore: fuseBackwards,
+    noBreakBefore: fuseBackwards || held === "space",
     noBreakAfter: isDangerousAtLineEnd(word),
-    breakBefore: hazard ? "hard" : "none",
+    breakBefore: demanded ? "hard" : "none",
   };
 }
 
@@ -714,6 +545,44 @@ function withEdgeRuns(atoms: Atom[], runs: KeptEdgeRuns): Atom[] {
 }
 
 /**
+ * Whether this word is a description-list separator that reflow must
+ * not move onto the block's FIRST output line.
+ *
+ * A word ending in a separator (`term::`, `term;;`) is plain text
+ * mid-paragraph but IS a dlist term on the first line of a block.
+ * When it came from a later source line, packing it onto the first
+ * output line would silently turn the paragraph into a description
+ * list.
+ *
+ * THIS GUARD ANSWERS FOR A PLAIN PARAGRAPH, and for no other
+ * construct. On a paragraph's later line the word really is text
+ * (oracle-pinned at src/parse/lines/paragraph-reader.ts), so what is
+ * dangerous is the MOVE onto the first line, and a per-word,
+ * per-line guard is the right size for it. Inside a DESCRIPTION the
+ * same word is a sibling term on EVERY line of the item
+ * (`is_sibling_list_item?`, parser.rb:1430, :2281), so no break the
+ * packer could place is safe and no guard here would be the right
+ * size: that construct is answered whole-run by
+ * `descriptionPrinting`'s separator condition
+ * (src/parse/lines/description-list.ts), which replays the item
+ * instead of packing it. Two guards for one hazard word, named at
+ * both sites, so a later change cannot widen either into the other's
+ * job.
+ * @param word - the word.
+ * @param index - its position among the node's words.
+ * @param firstLineWordCount - how many of them came from the block's
+ *   first source line.
+ * @returns true when the word may not reach the first output line.
+ */
+function dlistHazard(
+  word: string,
+  index: number,
+  firstLineWordCount: number,
+): boolean {
+  return index >= firstLineWordCount && DLIST_SEPARATOR_WORD.test(word);
+}
+
+/**
  * Convert a text node's word list into atoms. Three safety mechanisms
  * prevent reflow from creating syntax:
  * 1. Words dangerous at line START are fused onto their
@@ -732,7 +601,8 @@ function withEdgeRuns(atoms: Atom[], runs: KeptEdgeRuns): Atom[] {
  * @param words - Array of whitespace-delimited tokens already
  *   split from the paragraph text. Each element is non-empty and
  *   holds no LINE BREAK; it holds interior whitespace only where
- *   {@link splitWords} kept a load-bearing run, or where the caller
+ *   the block's whitespace record kept a load-bearing run
+ *   (`wordsOfText`, src/print/text-edges.ts), or where the caller
  *   splits on line breaks alone (src/print/literal-span.ts). The
  *   array itself may be empty, in which case no atoms are produced.
  * @param options - Reflow safety switches.
@@ -761,8 +631,14 @@ function withEdgeRuns(atoms: Atom[], runs: KeptEdgeRuns): Atom[] {
  * @param options.edgeRuns - The bytes of the node's own EDGE runs that
  *   may not fold, which stand outside every word and so ride on the
  *   first and last atom instead ({@link KeptEdgeRuns},
- *   src/print/whitespace-fold.ts). Defaults to none, the answer for
+ *   {@link KeptEdgeRuns}). Defaults to none, the answer for
  *   every caller that has no node edges to speak of.
+ * @param options.held - What the block's whitespace record holds
+ *   against the join in front of each word ({@link HeldJoin}), one
+ *   entry per word. Defaults to one `"none"` per word, which holds
+ *   nothing anywhere: the answer for every caller whose words are not
+ *   a prose block's runs (a monospace span's chunks, a test's word
+ *   list).
  * @returns The node's atoms, in order.
  */
 export function wordsToAtoms(
@@ -772,6 +648,7 @@ export function wordsToAtoms(
     firstLineWordCount?: number;
     opensWithContinuationLine?: boolean;
     edgeRuns?: KeptEdgeRuns;
+    held?: readonly HeldJoin[];
   },
 ): Atom[] {
   const {
@@ -779,6 +656,12 @@ export function wordsToAtoms(
     firstLineWordCount = words.length,
     opensWithContinuationLine = false,
     edgeRuns = NO_EDGE_RUNS,
+    // TOTAL over the words by construction: a caller whose words are
+    // not a prose block's runs (a monospace span's chunks, a test's
+    // word list) holds nothing anywhere, and saying that as one join
+    // per word is what keeps `held[index]` from handing `wordAtom` an
+    // index past the end.
+    held = words.map(() => NO_HELD_JOIN),
   } = options ?? {};
   const atoms: Atom[] = [];
   let glueNext = false;
@@ -803,15 +686,14 @@ export function wordsToAtoms(
     // instead of packing it. Two guards for one hazard word, named at
     // both sites, so a later change cannot widen either into the
     // other's job.
-    const hazard =
-      index >= firstLineWordCount && DLIST_SEPARATOR_WORD.test(word);
+    const hazard = dlistHazard(word, index, firstLineWordCount);
     // Rules 1 and 2 both fuse `word` backwards: the previous word is
     // dangerous at line end (a bare `+`), or this word is dangerous at
     // line start. Either way the two must share a line, with the
     // whitespace the source had between them.
     const fuseBackwards =
       index > 0 && (glueNext || isBlockSyntaxAtLineStart(word));
-    atoms.push(wordAtom(word, fuseBackwards, hazard));
+    atoms.push(wordAtom(word, fuseBackwards, hazard, held[index]));
     glueNext = isDangerousAtLineEnd(word);
   }
   keepContinuationLine(atoms, opensWithContinuationLine);

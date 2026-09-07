@@ -29,6 +29,7 @@ import {
   HARD_BREAK_IMAGE,
   isBlockSyntaxAtLineStart,
   wordsToAtoms,
+  type HeldJoin,
 } from "./reflow.js";
 import { keepBlockStartBreak, type BlockStart } from "./block-start-hazard.js";
 import {
@@ -43,21 +44,28 @@ import {
   markPlacement,
   pushSpanAtoms,
 } from "./span-marks.js";
-import { keptLeadingRun, keptTrailingRun } from "./whitespace-fold.js";
 import {
   appendWholeRun,
   firstSourceLineWordCount,
   hasFollowingInlineSibling,
   hasPrecedingInlineSibling,
+  HELD_BOUNDARY,
+  joinOfFact,
   keepBreakBetweenMarks,
   leadingBoundary,
   lineShareOf,
-  neighboursOf,
   ridesOnWhatFollows,
   ridesOnWhatIsWritten,
   trailingPlusPolicy,
   wordsOfText,
 } from "./text-edges.js";
+import {
+  cutValue,
+  factsByNode,
+  factsOf,
+  type NodeFacts,
+} from "../whitespace-runs.js";
+import type { BlockWhitespace } from "../whitespace-record.js";
 
 // Whether a text node's FIRST character is a source separator standing
 // between it and the previous inline sibling. ASCII only (see
@@ -181,22 +189,29 @@ function opensWithContinuationLine(node: TextNode): boolean {
  * @param node - the text node.
  * @param words - its whitespace-split words, non-empty.
  * @param glueToSibling - whether a trailing `+` must fuse forward.
- * @param keptRun - the node's trailing run where its bytes ride inside
- *   the last atom instead of folding, which leaves the printer nothing
- *   to write between the two nodes.
+ * @param tail - what the record left at the node's trailing edge.
+ * @param tail.keptRun - the run whose bytes ride inside the last atom
+ *   instead of folding, which leaves the printer nothing to write
+ *   between the two nodes; empty where they do not ride.
+ * @param tail.held - what the record holds against the run, where its
+ *   bytes do not ride.
  * @returns the join.
  */
 function trailingBoundary(
   node: TextNode,
   words: readonly string[],
   glueToSibling: boolean,
-  keptRun: string,
+  tail: { readonly keptRun: string; readonly held: HeldJoin },
 ): Boundary {
+  const { keptRun, held } = tail;
   if (keptRun !== "" || !TRAILS_WITH_ASCII_WHITESPACE.test(node.value)) {
     return "glue";
   }
   if (words.length === 1 && opensWithContinuationLine(node)) {
     return "literal";
+  }
+  if (held !== "none") {
+    return HELD_BOUNDARY[held];
   }
   // A trailing `+` with a sibling after it keeps the source's space but
   // forbids the break, so no break can land after the `+` (where ` +`
@@ -206,6 +221,13 @@ function trailingBoundary(
 
 /**
  * Append a text node's atoms.
+ *
+ * Every whitespace decision here READS the block's record and none
+ * re-derives it: the two edge runs and every run between the node's
+ * words were given a fact at read time, and this only spells each
+ * fact in the atom vocabulary - bytes riding inside an atom for a run
+ * whose own bytes are read, a non-breaking join for one whose spelling
+ * is, an ordinary breakable space for a free one.
  * @param out - the block's atoms so far (mutated).
  * @param boundary - the join standing in front of this node.
  * @param cursor - where the node sits.
@@ -218,52 +240,70 @@ function appendText(
   cursor: Cursor,
   node: TextNode,
 ): Boundary {
-  const neighbours = neighboursOf(cursor);
-  const share = lineShareOf(cursor, neighbours);
-  const words = wordsOfText(node.value, neighbours, share);
-  // A kept edge run rides inside the atom at its end, so the join
-  // there stays the glue it already was and the printer writes nothing
-  // of its own between the two nodes.
-  const gluedInFront = ridesOnWhatIsWritten(out, boundary, cursor);
+  const facts = factsOf(cursor.facts, node);
+  const share = lineShareOf(cursor);
+  const { words, held } = wordsOfText(node.value, facts, share);
   // All-whitespace text nodes (e.g. " " between adjacent formatting
   // marks, or " " as sole content of a formatting span like `** **`).
   // They contribute no atom, only the break opportunity their
-  // whitespace stands for — dropping that would fuse adjacent siblings
-  // or collapse content whitespace inside formatting marks. Where the
-  // run itself is what a replacement row reads, there is no atom for
-  // it to ride inside, so it becomes one: glued at both ends, so the
-  // printer writes the author's bytes there and nothing else.
+  // whitespace stands for - dropping that would fuse adjacent siblings
+  // or collapse content whitespace inside formatting marks.
   if (words.length === 0) {
-    return appendWholeRun(out, boundary, node.value, cursor);
+    return appendWholeRun(out, boundary, node, cursor);
   }
-  const leading = keptLeadingRun(node.value, words, gluedInFront, neighbours);
+  const cut = cutValue(node.value);
+  // A kept edge run rides inside the atom at its end, so the join
+  // there stays the glue it already was and the printer writes nothing
+  // of its own between the two nodes.
+  const front = joinOfFact(facts.leading, cut.leading);
+  const back = joinOfFact(facts.trailing, cut.trailing);
+  const leading =
+    front.rides && ridesOnWhatIsWritten(out, boundary, cursor)
+      ? cut.leading
+      : "";
   // The lead is computed BEFORE the atoms, because the trailing-`+`
   // policy reads it: a one-word node carrying a glue cannot reach a
   // line boundary, and a `+` that cannot reach one needs no escape.
   const lead =
     leading === "" && LEADS_WITH_ASCII_WHITESPACE.test(node.value)
-      ? strongerBoundary(boundary, leadingBoundary(cursor, words))
+      ? strongerBoundary(boundary, leadingJoin(cursor, words, front.held))
       : boundary;
   const { escapeTrailingPlus, glueToSibling } = trailingPlusPolicy(
     cursor,
     words,
     lead,
   );
-  const trailing = keptTrailingRun(
-    node.value,
-    words,
-    ridesOnWhatFollows(cursor),
-    neighbours,
-  );
+  const trailing = back.rides && ridesOnWhatFollows(cursor) ? cut.trailing : "";
   const atoms = wordsToAtoms(words, {
     escapeTrailingPlus,
     firstLineWordCount: firstSourceLineWordCount(node, cursor, words),
     opensWithContinuationLine: opensWithContinuationLine(node),
     edgeRuns: { leading, trailing },
+    held,
   });
   keepBreakBetweenMarks(atoms, node.value, words, share);
   out.push(withBoundary(atoms[0], lead), ...atoms.slice(1));
-  return trailingBoundary(node, words, glueToSibling, trailing);
+  return trailingBoundary(node, words, glueToSibling, {
+    keptRun: trailing,
+    held: back.held,
+  });
+}
+
+/**
+ * The join a text node's LEADING run asks for: what the record holds
+ * against it, or the block-syntax net's answer where the record holds
+ * nothing.
+ * @param cursor - where the node sits.
+ * @param words - the node's words.
+ * @param held - what the record holds against the leading run.
+ * @returns the join.
+ */
+function leadingJoin(
+  cursor: Cursor,
+  words: readonly string[],
+  held: HeldJoin,
+): Boundary {
+  return held === "none" ? leadingBoundary(cursor, words) : HELD_BOUNDARY[held];
 }
 
 /**
@@ -290,6 +330,7 @@ function appendSpan(
     blockStartLine: cursor.blockStartLine,
     enclosing: node,
     blockNodes: cursor.blockNodes,
+    facts: cursor.facts,
     // Content inside a span opens no block line of its own: the marks
     // around it hold the column whatever the block does.
     blockStart: { atColumnZero: false, markInFront: undefined },
@@ -505,6 +546,8 @@ interface RunContext {
   readonly blockStart: BlockStart;
   /** See {@link Cursor.literalInterior}; carried into every cursor the run builds. */
   readonly literalInterior: boolean;
+  /** The block's whitespace record, indexed by node (see {@link Cursor.facts}). */
+  readonly facts: ReadonlyMap<TextNode, NodeFacts>;
 }
 
 /**
@@ -535,6 +578,9 @@ function collectAtoms(
 /**
  * Convert a block's inline content to atoms.
  * @param nodes - the block's inline children, in order.
+ * @param whitespace - the record the reader put on the block: what
+ *   each of its whitespace runs may be respelled as
+ *   ({@link BlockWhitespace}, src/whitespace-record.ts).
  * @param blockStartLine - 1-based source line the block starts on.
  * @param blockStart - where the block's first atom lands, and where
  *   that is column 0, whether the source line under it ended after
@@ -543,6 +589,7 @@ function collectAtoms(
  */
 export function inlineAtoms(
   nodes: readonly InlineNode[],
+  whitespace: BlockWhitespace,
   blockStartLine: number,
   blockStart: BlockStart,
 ): Atom[] {
@@ -552,6 +599,7 @@ export function inlineAtoms(
     blockNodes: nodes,
     blockStart,
     literalInterior: false,
+    facts: factsByNode(nodes, whitespace),
   });
   // The net's precondition is the caller's to establish, so the callee
   // re-checks nothing: it runs only over a block that opens at column

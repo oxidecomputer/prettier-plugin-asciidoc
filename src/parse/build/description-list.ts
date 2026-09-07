@@ -27,6 +27,7 @@ import { buildFromTokens } from "../inline/inline-node-builder.js";
 import type { InlineToken } from "../inline/tokens.js";
 import type { Fragment, LocationIndex } from "../positions.js";
 import type { ItemBodyInput } from "./list.js";
+import { blockWhitespace } from "../../whitespace-fact.js";
 import { bodyExtent } from "./paragraph.js";
 
 /**
@@ -105,6 +106,7 @@ export function buildDescriptionListItem(
   at: LocationIndex,
 ): DescriptionListItemNode {
   const { body, printing, textLines } = input;
+  const text = buildFromTokens(body.text, at);
   const [opening, ...rest] = input.terms;
   // Total, not a guard: `rest` really is empty for a one-term item,
   // exactly as it is for a one-item list in buildList.
@@ -112,7 +114,8 @@ export function buildDescriptionListItem(
   return {
     type: "descriptionListItem",
     terms: [opening, ...rest],
-    text: buildFromTokens(body.text, at),
+    text,
+    whitespace: blockWhitespace(text, body.context),
     blocks: [...body.blocks],
     trailingContinuation: body.trailingContinuation,
     detachedTail: body.detachedTail,

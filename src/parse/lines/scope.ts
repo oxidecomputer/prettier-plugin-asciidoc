@@ -10,7 +10,12 @@
  * than what it does, and the three readings below are pure functions
  * of {@link Confinement}, which is declared here.
  */
-import type { GapLine } from "../../ast.js";
+import type { BlockNode, GapLine } from "../../ast.js";
+import {
+  contextAbove,
+  documentWhitespaceContext,
+  type WhitespaceContext,
+} from "../../whitespace-fact.js";
 import {
   conditionalDirective,
   isDelimiterLine,
@@ -97,6 +102,36 @@ export interface ReaderScope {
    * record of them.
    */
   readonly gaps: GapRecord;
+  /**
+   * The document's half of every prose block's whitespace context
+   * ({@link WhitespaceContext}, src/whitespace-fact.ts): what the
+   * document's own attribute entries set. Built once, beside `at`,
+   * because it is a fact about the whole source and every confined
+   * read needs it.
+   */
+  readonly whitespace: WhitespaceContext;
+}
+
+/**
+ * The scope one document's readers share, built once at the top of
+ * the read.
+ *
+ * Here rather than at the call because every field is a fact about
+ * the WHOLE source, and this is the module that says what a reader is
+ * given: a second caller building the record by hand is a second
+ * chance to leave one of them out.
+ * @param source - the whole document
+ * @param at - the document's offset-to-Location index
+ * @returns the scope
+ */
+export function documentScope(source: string, at: LocationIndex): ReaderScope {
+  return {
+    source,
+    at,
+    // One gap record per document - see ReaderScope.gaps.
+    gaps: new Map(),
+    whitespace: documentWhitespaceContext(source),
+  };
 }
 
 /**
@@ -434,4 +469,24 @@ export function blockStartContextIn(
       return substitutedContentStandsAbove(lines, at);
     },
   };
+}
+
+/**
+ * The whitespace context of the prose block a reader is about to
+ * build: the document's own attribute entries, plus every attribute
+ * line of the metadata run standing over the block
+ * ({@link contextAbove}, src/whitespace-fact.ts).
+ *
+ * Read at the BUILD, which is where the block's own annotation is
+ * knowable: the held metadata run is flushed before the body is
+ * read, so the run is already the tail of the block sequence.
+ * @param scope - the document-wide facts, for its half of the answer
+ * @param blocks - the block sequence so far; the run stands at its end
+ * @returns the context the block's whole-block rows read
+ */
+export function blockWhitespaceContext(
+  scope: ReaderScope,
+  blocks: readonly BlockNode[],
+): WhitespaceContext {
+  return contextAbove(scope.whitespace, blocks);
 }

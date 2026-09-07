@@ -107,8 +107,18 @@ function keysRead(files: Record<string, string>): string[] {
  */
 const EXEMPT_ROWS_READ = 126;
 
-/** How many of those are read at a line that resolved to one row. */
-const EXEMPT_ROWS_READ_UNAMBIGUOUSLY = 35;
+/**
+ * How many of those are read at a line that resolved to one row.
+ *
+ * 35 -> 37 when the whitespace record landed, and neither arrival is
+ * a new READ: `ParagraphNode.children` and `AdmonitionNode.text` were
+ * already read at the `inlineAtoms` call sites, on a line that also
+ * carried `node.position.start.line` and so resolved to two rows. The
+ * record adds an argument, the call breaks across lines, and the
+ * carrier field now sits on a line of its own. `EXEMPT_ROWS_READ` is
+ * unmoved at 126, which is what says no row started being read.
+ */
+const EXEMPT_ROWS_READ_UNAMBIGUOUSLY = 37;
 
 describe("the real checkout", () => {
   test("realizes the pinned exempt-rows-read counts", () => {

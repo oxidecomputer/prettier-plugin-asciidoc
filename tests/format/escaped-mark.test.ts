@@ -668,12 +668,17 @@ describe("a same-kind delimiter of the other width declines the close", () => {
  * it, the first pass already reaches it. That boundary is the whole
  * shape of the issue, and a tree that moved it either way would fail
  * one of these rows.
+ *
+ * The TAB inside each source comes back as itself: the whitespace
+ * record's tab row keeps a tab wherever it stands
+ * (`factOfRun`, src/whitespace-fact.ts). Red before that row, each
+ * row's first pass wrote a space there.
  */
 describe("a doubled span in front of a seam close, as it settles (#190)", () => {
   test("the trailing pair defers the fixed point to the second pass", async () => {
     const source = `${TICK}${TICK}x${TICK}${TICK} **a\t${TICK}${TICK}${BACKSLASH}**${TICK}${TICK}`;
     const first = await formatAdoc(source);
-    expect(first).toBe(`${TICK}x${TICK} **a ${TICK}${BACKSLASH}**${TICK}\n`);
+    expect(first).toBe(`${TICK}x${TICK} **a\t${TICK}${BACKSLASH}**${TICK}\n`);
     // The helpers assert render-equality and a one-pass fixed point
     // together. This document reaches its fixed point on the SECOND
     // pass, which is the row's whole subject, so each pass is asserted
@@ -682,7 +687,7 @@ describe("a doubled span in front of a seam close, as it settles (#190)", () => 
     // eslint-disable-next-line test-assertions/no-hand-spelled-format-trailer -- the fixed point is one pass later than either helper asserts
     expect(await renderedHtml(first)).toBe(await renderedHtml(source));
     const second = await formatAdoc(first);
-    expect(second).toBe(`${TICK}x${TICK} *a ${TICK}${BACKSLASH}*${TICK}\n`);
+    expect(second).toBe(`${TICK}x${TICK} *a\t${TICK}${BACKSLASH}*${TICK}\n`);
     // eslint-disable-next-line test-assertions/no-hand-spelled-format-trailer -- as above
     expect(await renderedHtml(second)).toBe(await renderedHtml(first));
     // The true fixed point: the third pass moves nothing.
@@ -696,7 +701,7 @@ describe("a doubled span in front of a seam close, as it settles (#190)", () => 
     const source = `${TICK}${TICK}x${TICK}${TICK} **a\t${TICK}${TICK}${BACKSLASH}**`;
     await expectFormatted(
       source,
-      `${TICK}${TICK}x${TICK}${TICK} **a ${TICK}${TICK}${BACKSLASH}**\n`,
+      `${TICK}${TICK}x${TICK}${TICK} **a\t${TICK}${TICK}${BACKSLASH}**\n`,
     );
   });
 });

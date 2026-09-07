@@ -29,8 +29,8 @@
  * itself, and TWO of them are print-side: the grammar
  * (`BLOCK_ANCHOR`, parse/line-shapes.ts) says what a line means on
  * re-read, while the printer's own serializer (`anchorToSource`,
- * print/serialize-inline.ts) and its own word split (`splitWords`,
- * print/reflow.ts) say which line the printer will emit. A question
+ * print/serialize-inline.ts) and the shared word split (`cutValue`,
+ * whitespace-runs.ts) say which line the printer will emit. A question
  * about the PRINTED line cannot be answered without asking the
  * printer, and asking it here is what keeps one answer where two
  * consumers need it. Read the neutrality claim above with that in
@@ -47,7 +47,7 @@ import type {
   InlineNode,
 } from "./ast.js";
 import { BLOCK_ANCHOR } from "./parse/line-shapes.js";
-import { splitWords } from "./print/reflow.js";
+import { cutValue } from "./whitespace-runs.js";
 import { anchorToSource } from "./print/serialize-inline.js";
 
 /**
@@ -201,11 +201,11 @@ export function printsSourceAttributeLine(block: BlockNode): boolean {
  * it is not on the printed line however much source it covers.
  *
  * Only text can vanish, and the test is the PACKER's own word split
- * (`splitWords`, print/reflow.ts): every atom a text node becomes is
+ * (`cutValue`, whitespace-runs.ts): every atom a text node becomes is
  * one of those words, so a value they find no word in reaches no
  * output line. Asking the packer rather than restating a whitespace
  * class is what keeps the two from drifting - and since issue #75,
- * splitWords' set IS the reader's rstrip set (both are Ruby's ASCII-only
+ * the cut's set IS the reader's rstrip set (both are Ruby's ASCII-only
  * `\s`), so a no-break space is content to both or neither; the printed
  * line is what this module's records are about.
  *
@@ -221,7 +221,7 @@ export function printsSourceAttributeLine(block: BlockNode): boolean {
  * @returns Whether the printer emits nothing for it.
  */
 function printsNothing(node: InlineNode): boolean {
-  return node.type === "text" && splitWords(node.value).length === 0;
+  return node.type === "text" && cutValue(node.value).words.length === 0;
 }
 
 /**
@@ -340,7 +340,7 @@ export function loneAnchorChild(
  * reader kept (a no-break space, a thin space, an ideographic space, a
  * byte-order mark) used to leave a line the reader refused to classify
  * as an anchor while the printer nonetheless emitted one - the one
- * shape where a paragraph answered `"anchor"`. splitWords is ASCII-only
+ * shape where a paragraph answered `"anchor"`. The cut is ASCII-only
  * now, so that second arm is gone: every such tail is content to BOTH
  * the reader and the packer, and the block-attributes suites'
  * "a trailing %s answers undefined" (tests/parser/block-attributes.test.ts)

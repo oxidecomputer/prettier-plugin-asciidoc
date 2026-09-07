@@ -22,7 +22,7 @@ import {
   stacksAsMetadata,
 } from "../block-metadata.js";
 import { LINE_COMMENT_HEAD } from "../parse/line-shapes.js";
-import { splitWords } from "./reflow.js";
+import { cutValue } from "../whitespace-runs.js";
 
 const {
   builders: { hardline },
@@ -521,7 +521,10 @@ function drainTakesBlock(block: BlockNode): boolean {
  *
  * A `rawLine` owns its output line whole, so its own text is what the
  * drain reads. A `text` node is packed, so every word in it is a
- * candidate first word and each one must carry the head. Any other
+ * candidate first word and each one must carry the head. The words
+ * are the SHARED cut's (`cutValue`, src/whitespace-runs.ts), which is
+ * the one the packer's own words come from, so this cannot come to
+ * disagree with the line the printer writes about where a word ends. Any other
  * inline kind prints marks of its own that no `//` head could cover.
  * @param node - one inline child of a paragraph
  * @returns true when no line this piece writes can lack a `//` head
@@ -532,7 +535,9 @@ function drainTakesInline(node: InlineNode): boolean {
   }
   return (
     node.type === "text" &&
-    splitWords(node.value).every((word) => word.startsWith(LINE_COMMENT_HEAD))
+    cutValue(node.value).words.every((word) =>
+      word.startsWith(LINE_COMMENT_HEAD),
+    )
   );
 }
 

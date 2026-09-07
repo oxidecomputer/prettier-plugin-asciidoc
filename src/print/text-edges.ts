@@ -21,9 +21,12 @@ import type { InlineNode, TextNode } from "../ast.js";
 import {
   atomOf,
   isBlockSyntaxAtLineStart,
-  splitWords,
   type Atom,
+  type HeldJoin,
 } from "./reflow.js";
+import { cutValue, factsOf, type NodeFacts } from "../whitespace-runs.js";
+import { DLIST_SEPARATOR_WORD } from "../parse/line-shapes.js";
+import type { WhitespaceFact } from "../whitespace-record.js";
 import {
   strongerBoundary,
   withBoundary,
@@ -32,13 +35,10 @@ import {
 } from "./atom-join.js";
 import {
   breakMarkHeldOnItsLine,
-  fuseRunsBesideReferences,
-  fuseRunsSpellingABreak,
-  keptWholeRun,
   NO_HELD_MARK,
   NO_RULE_HERE,
+  runsTheLineReads,
   type LineShare,
-  type Neighbours,
 } from "./whitespace-fold.js";
 
 // Siblings that do NOT share the enclosing block's packing: a raw
@@ -78,21 +78,21 @@ function followingSibling(cursor: Cursor): InlineNode | undefined {
 }
 
 /**
- * Both siblings at once, for the rules that read one on each side.
+ * Whether ANY inline node stands beside this one - a raw line
+ * included, which is what makes this wider than
+ * {@link hasPrecedingInlineSibling} and its mirror.
  *
- * The whitespace-fold rules ask about BOTH neighbours of the same text
- * node - one carries the dashes standing beyond an edge run, and the
- * other can complete a lone dash the node's own bytes only half spell -
- * so they take the pair rather than an argument per side.
+ * The rule that reads it is about the LINE: a value with a sibling on
+ * either side does not hold the whole of one, so no fold of its runs
+ * can write a line the reader reads as a rule.
  * @param cursor - where the node sits.
- * @returns the nodes on either side, each undefined where there is
- *   none.
+ * @returns true when the node has a neighbour on either side.
  */
-export function neighboursOf(cursor: Cursor): Neighbours {
-  return {
-    inFront: precedingSibling(cursor),
-    behind: followingSibling(cursor),
-  };
+function hasAnySibling(cursor: Cursor): boolean {
+  return (
+    precedingSibling(cursor) !== undefined ||
+    followingSibling(cursor) !== undefined
+  );
 }
 
 /**
@@ -112,8 +112,8 @@ export function neighboursOf(cursor: Cursor): Neighbours {
  * silently disable the guard for `a line\n*term:: x*`.
  * @param node - The text node being printed.
  * @param cursor - where the node sits, for the block's first line.
- * @param words - The node's whitespace-split words, so the "no line
- *   break anywhere" answer costs no second split.
+ * @param words - The node's words, as {@link wordsOfText} packed
+ *   them, so the "no line break anywhere" answer costs no second cut.
  * @returns The count of leading words still on the block's first
  *   source line; `words.length` when the whole node is on it.
  */
@@ -131,7 +131,19 @@ export function firstSourceLineWordCount(
   if (firstNewline === -1) {
     return words.length;
   }
-  return splitWords(node.value.slice(0, firstNewline)).length;
+  // Every word is a contiguous slice of the value, in order, and no
+  // word spans a line break (a run carrying one never rides inside
+  // an atom), so walking the value once counts them exactly.
+  let at = 0;
+  let count = 0;
+  for (const word of words) {
+    at = node.value.indexOf(word, at) + word.length;
+    if (at > firstNewline) {
+      break;
+    }
+    count += 1;
+  }
+  return count;
 }
 
 /**
@@ -145,11 +157,10 @@ export function firstSourceLineWordCount(
  * behind a prefix only a mark that prefix writes can make a rule of
  * it.
  * @param cursor - where the node sits.
- * @param neighbours - the nodes on either side of it.
  * @returns what of the line the value holds.
  */
-export function lineShareOf(cursor: Cursor, neighbours: Neighbours): LineShare {
-  if (neighbours.inFront !== undefined || neighbours.behind !== undefined) {
+export function lineShareOf(cursor: Cursor): LineShare {
+  if (hasAnySibling(cursor)) {
     return NO_RULE_HERE;
   }
   const { blockStart } = cursor;
@@ -162,36 +173,117 @@ export function lineShareOf(cursor: Cursor, neighbours: Neighbours): LineShare {
 }
 
 /**
+ * What the whitespace record makes of one run: whether its bytes must
+ * ride inside the word beside it, and what the packer must write in
+ * its place where they need not.
+ *
+ * An atom is NEWLINE-FREE by construction, so a run whose bytes carry
+ * a line break cannot ride inside a word however exactly the record
+ * reads it. What is left is the break itself, held where the source
+ * put it: the same bytes are not written back, but the line boundary
+ * the row reads is. A one-space `verbatim` run needs no ride either -
+ * the packer's own space IS those bytes - and asks only that no break
+ * land there.
+ * @param fact - the run's fact, or undefined for a run the record
+ *   does not hold (a run inside byte-preserved content, or one at the
+ *   block's own edge).
+ * @param run - the run, as the source wrote it.
+ * @returns whether the bytes ride, and what the join must be.
+ */
+export function joinOfFact(
+  fact: WhitespaceFact | undefined,
+  run: string,
+): { readonly rides: boolean; readonly held: HeldJoin } {
+  if (fact === undefined || fact.kind === "free") {
+    return { rides: false, held: "none" };
+  }
+  if (fact.kind === "bound") {
+    return { rides: false, held: fact.to === "newline" ? "newline" : "space" };
+  }
+  if (run.includes("\n")) {
+    return { rides: false, held: "newline" };
+  }
+  return run === " "
+    ? { rides: false, held: "space" }
+    : { rides: true, held: "none" };
+}
+
+/**
+ * A text node's words, and what the record holds against each join.
+ *
+ * Exported because it names {@link wordsOfText}'s result; its one src
+ * caller destructures it, and tests/format/whitespace-fold.test.ts
+ * is what reaches it.
+ * @internal
+ */
+export interface TextWords {
+  /** The words, with every run that must ride fused inside one. */
+  readonly words: readonly string[];
+  /** `held[index]` is the join held in front of `words[index]`. */
+  readonly held: readonly HeldJoin[];
+}
+
+/**
  * A text node's words, as the printer will write them.
  *
- * `splitWords` (src/print/reflow.ts) is asked about ONE value and
- * cannot see the tree, so where a neighbour completes a run's meaning
- * the split it returns is amended here - the one place that holds both
- * the value and the nodes beside it.
- *
- * The two amendments never contend: the reference rule wants a
- * neighbour beyond one of the node's edges, and the break rule wants
- * the node to have no neighbour at all.
+ * ONE walk of the value's runs, reading two sources that cannot be
+ * merged: the whitespace record, which says what each run MEANS where
+ * the source wrote it, and the two whole-LINE rules
+ * ({@link runsTheLineReads}), which say what the packed line would
+ * spell. The record is read and never re-derived - the words this
+ * returns carry a run's bytes only where a row of the record, or one
+ * of those two line rules, put them there.
  * @param value - the node's raw source text.
- * @param neighbours - the nodes on either side of it.
+ * @param facts - the record's facts for this node's runs.
  * @param share - what of the output line the value holds.
- * @returns its words, in order, each carrying any run that must ride
- *   inside it.
+ * @returns its words and the joins between them.
  */
 export function wordsOfText(
   value: string,
-  neighbours: Neighbours,
+  facts: NodeFacts,
   share: LineShare,
-): readonly string[] {
-  const words = fuseRunsBesideReferences(value, splitWords(value), neighbours);
-  return fuseRunsSpellingABreak(value, words, share);
+): TextWords {
+  const { words, runs } = cutValue(value);
+  const lineRuns = runsTheLineReads(value, words, runs, share);
+  const packed: string[] = [];
+  const held: HeldJoin[] = [];
+  for (const [index, word] of words.entries()) {
+    if (index === 0) {
+      packed.push(word);
+      held.push("none");
+      continue;
+    }
+    const run = runs[index - 1];
+    const join = joinOfFact(facts.interior[index - 1], run);
+    // A run the LINE reads rides for the same reason a `verbatim` run
+    // does, and under the same refusal: no atom may hold a newline.
+    const rides =
+      (join.rides || (lineRuns.has(index - 1) && !run.includes("\n"))) &&
+      // NOTHING FUSES ACROSS A DESCRIPTION-LIST SEPARATOR WORD. The
+      // packer's own dlist guard reads a WHOLE word
+      // (`DLIST_SEPARATOR_WORD` is anchored `^\S*(?:::|;;)$`), so a
+      // separator fused inside a longer word escapes it, and reflow
+      // could then put `x::<TAB>--` on the block's first output line,
+      // where it re-reads as a term. The run's bytes are lost there,
+      // which is a loss the record cannot express: it says what the
+      // run MEANS, and this says where the printer can put it.
+      !DLIST_SEPARATOR_WORD.test(words[index - 1]) &&
+      !DLIST_SEPARATOR_WORD.test(word);
+    if (rides) {
+      packed[packed.length - 1] += run + word;
+      continue;
+    }
+    packed.push(word);
+    held.push(join.held);
+  }
+  return { words: packed, held };
 }
 
 /**
  * Keep the author's line break between two of a thematic break's
  * marks, so the packer's space cannot join them into one.
  *
- * The other half of the same refusal ({@link fuseRunsSpellingABreak},
+ * The other half of the same refusal ({@link runsTheLineReads},
  * src/print/whitespace-fold.ts) keeps a run's bytes inside a word,
  * which no run carrying a line break may do. This is the move that is
  * left, and it is the same trade the block-start net makes
@@ -286,41 +378,52 @@ export function ridesOnWhatFollows(cursor: Cursor): boolean {
 
 /**
  * Emit an ALL-WHITESPACE text node: the break opportunity its
- * whitespace stands for, or the bytes themselves where a replacement
- * row reads them.
+ * whitespace stands for, or the bytes themselves where the record
+ * reads them.
  *
- * Such a node has no words and so no atom for an edge run to ride
- * inside. Where the run is load-bearing it becomes an atom of its
- * own, glued at both ends, so the printer writes the author's bytes
- * there and nothing of its own. Everywhere else the node contributes
- * no atom at all, only the join: dropping that would fuse adjacent
- * siblings or collapse content whitespace inside formatting marks.
+ * Such a node has no words and so no atom for the run to ride inside.
+ * Where the record holds its bytes it becomes an atom of its own,
+ * glued at both ends, so the printer writes the author's bytes there
+ * and nothing of its own. Where the record holds only its SPELLING
+ * the join carries the answer instead. Everywhere else the node
+ * contributes no atom at all, only the join: dropping that would fuse
+ * adjacent siblings or collapse content whitespace inside formatting
+ * marks.
  * @param out - the block's atoms so far (mutated).
  * @param boundary - the join standing in front of the node.
- * @param value - the node's raw source text, all whitespace.
- * @param cursor - where the node sits, for its neighbours and for
- *   whether the run has anything to ride against on either side.
+ * @param node - the text node, whose value is all whitespace.
+ * @param cursor - where the node sits, for whether the run has
+ *   anything to ride against on either side.
  * @returns the join this node leaves behind.
  */
 export function appendWholeRun(
   out: Atom[],
   boundary: Boundary,
-  value: string,
+  node: TextNode,
   cursor: Cursor,
 ): Boundary {
-  const glued = ridesOnWhatIsWritten(out, boundary, cursor);
-  const whole = keptWholeRun(
-    value,
-    glued,
-    ridesOnWhatFollows(cursor),
-    neighboursOf(cursor),
-  );
-  if (whole === "") {
-    return strongerBoundary(boundary, "break");
+  const { value } = node;
+  const join = joinOfFact(factsOf(cursor.facts, node).whole, value);
+  const carried =
+    ridesOnWhatIsWritten(out, boundary, cursor) && ridesOnWhatFollows(cursor);
+  if (!join.rides || !carried) {
+    return strongerBoundary(boundary, HELD_BOUNDARY[join.held]);
   }
-  out.push(withBoundary(atomOf(whole), "glue"));
+  out.push(withBoundary(atomOf(value), "glue"));
   return "glue";
 }
+
+/**
+ * The join a held run asks for. A run bound to a SPACE forbids the
+ * break the packer would otherwise be free to write; one bound to a
+ * NEWLINE demands it; a run the record does not hold asks for the
+ * ordinary breakable space.
+ */
+export const HELD_BOUNDARY = {
+  none: "break",
+  space: "space",
+  newline: "hardBreak",
+} as const satisfies Record<HeldJoin, Boundary>;
 
 /**
  * Check whether the node at `cursor` is followed by a sibling

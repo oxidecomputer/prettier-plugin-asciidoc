@@ -709,13 +709,6 @@
   {
     "file": "src/parse/line-shapes.ts",
     "symbol": "ASCII_WHITESPACE",
-    "importer": "src/print/reflow.ts",
-    "kind": "vocabulary",
-    "reason": "Ruby's `\\s`, so splitWords cannot read a no-break space as a word separator the way JavaScript's wider `\\s` would (issue #75)"
-  },
-  {
-    "file": "src/parse/line-shapes.ts",
-    "symbol": "ASCII_WHITESPACE",
     "importer": "src/print/serialize-inline.ts",
     "kind": "vocabulary",
     "reason": "Ruby's `\\s`, so joining a multi-line macro or link text's source lines cannot swallow a no-break space past the join as if it were more indentation (issue #75)"
@@ -723,9 +716,9 @@
   {
     "file": "src/parse/line-shapes.ts",
     "symbol": "ASCII_WHITESPACE",
-    "importer": "src/print/whitespace-fold.ts",
+    "importer": "src/whitespace-runs.ts",
     "kind": "vocabulary",
-    "reason": "Ruby's `\\s`, so the run at a text node's EDGE is cut in the same dialect splitWords cuts the runs inside it; a no-break space there is content, and the em-dash row never reads one as its boundary (issue #75)"
+    "reason": "Ruby's `\\s` and not JavaScript's wider one, so the cut that finds a block's whitespace runs agrees with the reader's own rstrip set about what a word separator is (issue #75)"
   },
   {
     "file": "src/parse/line-shapes.ts",
@@ -849,9 +842,9 @@
   {
     "file": "src/parse/line-shapes.ts",
     "symbol": "DLIST_SEPARATOR_WORD",
-    "importer": "src/print/whitespace-fold.ts",
+    "importer": "src/print/text-edges.ts",
     "kind": "vocabulary",
-    "reason": "registry vocabulary: the same word reflow may not fuse across, refused again where a run is fused after the split rather than during it"
+    "reason": "the one spelling of a description-list separator word, asked where the printer decides whether a run's bytes may ride inside a word: a separator fused inside a longer word escapes the packer's anchored guard, so nothing fuses across one"
   },
   {
     "file": "src/parse/line-shapes.ts",
@@ -1111,6 +1104,13 @@
     "importer": "src/print/list-hazard.ts",
     "kind": "vocabulary",
     "reason": "registry pattern: the printer asks the same row the reader does whether the marker line it is about to write spells a rule, so the two cannot disagree about what one is"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "THEMATIC_BREAK",
+    "importer": "src/print/whitespace-fold.ts",
+    "kind": "vocabulary",
+    "reason": "the one spelling of what a thematic break line looks like, asked of the LINE the fold would write so the printer cannot come to disagree with the reader about which marks, how many, and which gaps make a rule"
   },
   {
     "file": "src/parse/line-shapes.ts",
@@ -1610,17 +1610,220 @@
     "reason": "the Prettier printer object the plugin publishes; index.ts is the process-static composition root"
   },
   {
-    "file": "src/print/reflow.ts",
-    "symbol": "splitWords",
-    "importer": "src/block-metadata.ts",
-    "kind": "vocabulary",
-    "reason": "the one split that decides what a text node contributes to a printed line, so the metadata predicates and the packer cannot disagree about which children reach the output"
-  },
-  {
     "file": "src/print/serialize-inline.ts",
     "symbol": "anchorToSource",
     "importer": "src/block-metadata.ts",
     "kind": "vocabulary",
     "reason": "the one serialization of an inline anchor back to source, so the metadata predicates and the printer cannot disagree about its spelling"
+  },
+  {
+    "file": "src/whitespace-fact.ts",
+    "symbol": "PLAIN_WHITESPACE_CONTEXT",
+    "importer": "src/parse/build/delimited.ts",
+    "kind": "vocabulary",
+    "reason": "the context of a block the source annotated with nothing, named once so a caller with no annotation to read cannot spell a different empty"
+  },
+  {
+    "file": "src/whitespace-fact.ts",
+    "symbol": "PLAIN_WHITESPACE_CONTEXT",
+    "importer": "src/parse/build/paragraph.ts",
+    "kind": "vocabulary",
+    "reason": "the context of a block the source annotated with nothing, named once so a caller with no annotation to read cannot spell a different empty"
+  },
+  {
+    "file": "src/whitespace-fact.ts",
+    "symbol": "PLAIN_WHITESPACE_CONTEXT",
+    "importer": "src/print/printer.ts",
+    "kind": "vocabulary",
+    "reason": "the context of a block the source annotated with nothing, named once so a caller with no annotation to read cannot spell a different empty"
+  },
+  {
+    "file": "src/whitespace-fact.ts",
+    "symbol": "WhitespaceContext",
+    "importer": "src/parse/build/list.ts",
+    "kind": "vocabulary",
+    "reason": "the whole-block facts the record's block rows read, threaded from the reader that holds the document to the builder that records the block"
+  },
+  {
+    "file": "src/whitespace-fact.ts",
+    "symbol": "WhitespaceContext",
+    "importer": "src/parse/build/paragraph.ts",
+    "kind": "vocabulary",
+    "reason": "the whole-block facts the record's block rows read, threaded from the reader that holds the document to the builder that records the block"
+  },
+  {
+    "file": "src/whitespace-fact.ts",
+    "symbol": "WhitespaceContext",
+    "importer": "src/parse/lines/description-list-node.ts",
+    "kind": "vocabulary",
+    "reason": "the whole-block facts the record's block rows read, threaded from the reader that holds the document to the builder that records the block"
+  },
+  {
+    "file": "src/whitespace-fact.ts",
+    "symbol": "WhitespaceContext",
+    "importer": "src/parse/lines/list-item-node.ts",
+    "kind": "vocabulary",
+    "reason": "the whole-block facts the record's block rows read, threaded from the reader that holds the document to the builder that records the block"
+  },
+  {
+    "file": "src/whitespace-fact.ts",
+    "symbol": "WhitespaceContext",
+    "importer": "src/parse/lines/scope.ts",
+    "kind": "vocabulary",
+    "reason": "the whole-block facts the record's block rows read, threaded from the reader that holds the document to the builder that records the block"
+  },
+  {
+    "file": "src/whitespace-fact.ts",
+    "symbol": "blockWhitespace",
+    "importer": "src/parse/build/delimited.ts",
+    "kind": "vocabulary",
+    "reason": "the whitespace record's verdict, in the shared module both halves read. The reader records it; the printer READS it and may not re-derive it, which is only checkable while there is one function to point at"
+  },
+  {
+    "file": "src/whitespace-fact.ts",
+    "symbol": "blockWhitespace",
+    "importer": "src/parse/build/description-list.ts",
+    "kind": "vocabulary",
+    "reason": "the whitespace record's verdict, in the shared module both halves read. The reader records it; the printer READS it and may not re-derive it, which is only checkable while there is one function to point at"
+  },
+  {
+    "file": "src/whitespace-fact.ts",
+    "symbol": "blockWhitespace",
+    "importer": "src/parse/build/list.ts",
+    "kind": "vocabulary",
+    "reason": "the whitespace record's verdict, in the shared module both halves read. The reader records it; the printer READS it and may not re-derive it, which is only checkable while there is one function to point at"
+  },
+  {
+    "file": "src/whitespace-fact.ts",
+    "symbol": "blockWhitespace",
+    "importer": "src/parse/build/paragraph.ts",
+    "kind": "vocabulary",
+    "reason": "the whitespace record's verdict, in the shared module both halves read. The reader records it; the printer READS it and may not re-derive it, which is only checkable while there is one function to point at"
+  },
+  {
+    "file": "src/whitespace-fact.ts",
+    "symbol": "blockWhitespace",
+    "importer": "src/print/printer.ts",
+    "kind": "vocabulary",
+    "reason": "the whitespace record's verdict, in the shared module both halves read. The reader records it; the printer READS it and may not re-derive it, which is only checkable while there is one function to point at"
+  },
+  {
+    "file": "src/whitespace-fact.ts",
+    "symbol": "contextAbove",
+    "importer": "src/parse/lines/scope.ts",
+    "kind": "vocabulary",
+    "reason": "what the metadata run standing over a block makes of it, spelled where the rows are so the module that says what a reader is GIVEN does not restate which attribute line arms which row"
+  },
+  {
+    "file": "src/whitespace-fact.ts",
+    "symbol": "documentWhitespaceContext",
+    "importer": "src/parse/lines/scope.ts",
+    "kind": "vocabulary",
+    "reason": "the document's own half of every block's context, read once beside the location index because it is a fact about the whole source"
+  },
+  {
+    "file": "src/whitespace-record.ts",
+    "symbol": "BlockWhitespace",
+    "importer": "src/print/inline.ts",
+    "kind": "vocabulary",
+    "reason": "the whitespace record's own type. Declared in a leaf module because src/ast.ts names it on four node types and the two modules that build and index it name the AST's node types back, which would be the cross-file cycle the graph gate refuses even for type-only imports"
+  },
+  {
+    "file": "src/whitespace-record.ts",
+    "symbol": "WhitespaceFact",
+    "importer": "src/print/text-edges.ts",
+    "kind": "vocabulary",
+    "reason": "the whitespace record's own type. Declared in a leaf module because src/ast.ts names it on four node types and the two modules that build and index it name the AST's node types back, which would be the cross-file cycle the graph gate refuses even for type-only imports"
+  },
+  {
+    "file": "src/whitespace-runs.ts",
+    "symbol": "NodeFacts",
+    "importer": "src/print/atom-join.ts",
+    "kind": "vocabulary",
+    "reason": "the ONE enumeration of a block's whitespace runs. The reader records a fact per run in this order and the printer reads them back by asking the same walk, so a second copy in either half would be a place the two could drift"
+  },
+  {
+    "file": "src/whitespace-runs.ts",
+    "symbol": "NodeFacts",
+    "importer": "src/print/inline.ts",
+    "kind": "vocabulary",
+    "reason": "the ONE enumeration of a block's whitespace runs. The reader records a fact per run in this order and the printer reads them back by asking the same walk, so a second copy in either half would be a place the two could drift"
+  },
+  {
+    "file": "src/whitespace-runs.ts",
+    "symbol": "NodeFacts",
+    "importer": "src/print/text-edges.ts",
+    "kind": "vocabulary",
+    "reason": "the ONE enumeration of a block's whitespace runs. The reader records a fact per run in this order and the printer reads them back by asking the same walk, so a second copy in either half would be a place the two could drift"
+  },
+  {
+    "file": "src/whitespace-runs.ts",
+    "symbol": "cutValue",
+    "importer": "src/print/inline.ts",
+    "kind": "vocabulary",
+    "reason": "the ONE cut of a value into its words and the runs around them, so the reader's runs and the printer's words are the same partition of the same bytes"
+  },
+  {
+    "file": "src/whitespace-runs.ts",
+    "symbol": "cutValue",
+    "importer": "src/print/join.ts",
+    "kind": "vocabulary",
+    "reason": "the ONE cut of a value into its words, asked where the head drain decides whether every word of a text node carries a `//` head: the words the drain reads have to be the words the packer writes, or the two disagree about where a word ends"
+  },
+  {
+    "file": "src/whitespace-runs.ts",
+    "symbol": "cutValue",
+    "importer": "src/print/text-edges.ts",
+    "kind": "vocabulary",
+    "reason": "the ONE cut of a value into its words and the runs around them, so the reader's runs and the printer's words are the same partition of the same bytes"
+  },
+  {
+    "file": "src/whitespace-runs.ts",
+    "symbol": "cutValue",
+    "importer": "src/print/whitespace-fold.ts",
+    "kind": "vocabulary",
+    "reason": "the ONE cut of a value into its words and the runs around them, so the reader's runs and the printer's words are the same partition of the same bytes"
+  },
+  {
+    "file": "src/whitespace-runs.ts",
+    "symbol": "factsByNode",
+    "importer": "src/print/inline.ts",
+    "kind": "vocabulary",
+    "reason": "the ONE enumeration of a block's whitespace runs. The reader records a fact per run in this order and the printer reads them back by asking the same walk, so a second copy in either half would be a place the two could drift"
+  },
+  {
+    "file": "src/whitespace-runs.ts",
+    "symbol": "factsOf",
+    "importer": "src/print/inline.ts",
+    "kind": "vocabulary",
+    "reason": "the ONE enumeration of a block's whitespace runs. The reader records a fact per run in this order and the printer reads them back by asking the same walk, so a second copy in either half would be a place the two could drift"
+  },
+  {
+    "file": "src/whitespace-runs.ts",
+    "symbol": "factsOf",
+    "importer": "src/print/text-edges.ts",
+    "kind": "vocabulary",
+    "reason": "the ONE enumeration of a block's whitespace runs. The reader records a fact per run in this order and the printer reads them back by asking the same walk, so a second copy in either half would be a place the two could drift"
+  },
+  {
+    "file": "src/whitespace-runs.ts",
+    "symbol": "leadsWithLineBreak",
+    "importer": "src/print/literal-span.ts",
+    "kind": "vocabulary",
+    "reason": "the cut for the content the run walk EXCLUDES: a monospace span's interior has no run of the block, because no row may respell it, and the line break inside one is still a join"
+  },
+  {
+    "file": "src/whitespace-runs.ts",
+    "symbol": "splitPreservingSpaces",
+    "importer": "src/print/literal-span.ts",
+    "kind": "vocabulary",
+    "reason": "the cut for the content the run walk EXCLUDES: a monospace span's interior has no run of the block, because no row may respell it, and the line break inside one is still a join"
+  },
+  {
+    "file": "src/whitespace-runs.ts",
+    "symbol": "trailsWithLineBreak",
+    "importer": "src/print/literal-span.ts",
+    "kind": "vocabulary",
+    "reason": "the cut for the content the run walk EXCLUDES: a monospace span's interior has no run of the block, because no row may respell it, and the line break inside one is still a join"
   }
 ]

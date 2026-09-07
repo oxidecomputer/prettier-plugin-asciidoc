@@ -139,11 +139,14 @@ describe("checklist formatting", () => {
     await expectFormatted(input, input);
   });
 
-  // The narrowness of that refusal. A tab anywhere else in an item's
-  // text still folds: reflowing prose is what the formatter is for,
-  // and only the run the prefix is spelled across is syntax.
-  test("a tab elsewhere in the item text still folds", async () => {
-    expect(await formatAdoc("* a\tb\n")).toBe("* a b\n");
+  // A tab elsewhere in an item's text is kept as well, but by a
+  // different rule: the whitespace record's tab row
+  // (`factOfRun`, src/whitespace-fact.ts) reads the run alone and
+  // asks nothing about the head. What the checklist rule adds is the
+  // rows above, where the run is a SPACE and only the prefix reads
+  // it. Red before the tab row, this formatted to `* a b`.
+  test("a tab elsewhere in the item text is kept by the record", async () => {
+    await expectFormatted("* a\tb\n", "* a\tb\n");
   });
 
   // The one run the fold refusal cannot keep is a LINE BREAK: an atom

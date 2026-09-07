@@ -1333,7 +1333,7 @@ export const BLOCK_MACRO =
  * as TEXT (`_ _ _`, an unequal gap) would fold to one this row reads
  * as a break, moving the render on the first pass and then normalizing
  * to `'''` on the second. The refusal that stops it is the fold's, not
- * this registry's: {@link fuseRunsSpellingABreak} keeps such a run's
+ * this registry's: {@link runsTheLineReads} keeps such a run's
  * bytes, and asks the same question over the same three marks.
  */
 export const THEMATIC_BREAK =

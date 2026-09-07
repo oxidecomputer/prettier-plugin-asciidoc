@@ -48,6 +48,7 @@ import { tokenizeWholeText } from "../../src/parse/inline/tokenize.js";
 import { isDescriptionListLine } from "../../src/parse/line-shapes.js";
 import { makeLocationIndex } from "../../src/parse/positions.js";
 import { parse } from "../../src/parser.js";
+import { PLAIN_WHITESPACE_CONTEXT } from "../../src/whitespace-fact.js";
 import { expectAstInvariants } from "./ast-invariants.js";
 import { preorder } from "./ast-walk.js";
 import { loadCorpus, type CorpusCase } from "../conformance/loader.js";
@@ -144,6 +145,7 @@ function ourDescriptionList(source: string): DescriptionListNode {
 /** A body with nothing in it, for the builder rows below. */
 const EMPTY_BODY: ItemBodyInput = {
   text: [],
+  context: PLAIN_WHITESPACE_CONTEXT,
   blocks: [],
   trailingContinuation: false,
   detachedTail: false,
