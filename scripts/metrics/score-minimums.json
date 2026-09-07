@@ -655,22 +655,6 @@
       "reason": "EQUIVALENT: `wrap` reads the field exactly twice, once as `!== \"none\"` (is there a forced break) and once as `=== \"literal\"` (does the line start at column 0 instead of the continuation indent). `\"\"` answers both questions the way `\"hard\"` does, so only the `\"literal\"` spelling is distinguishable at all"
     },
     {
-      "file": "src/print/block-start-hazard.ts",
-      "what": "keepBlockStartBreak's `breakBefore: \"literal\"` -> `\"\"`, and its `second.breakBefore === \"literal\"` -> `false` (2 mutants)",
-      "cites": [
-        {
-          "symbol": "keepBlockStartBreak",
-          "quotes": "breakBefore: \"literal\""
-        },
-        {
-          "symbol": "keepBlockStartBreak",
-          "quotes": "second.breakBefore === \"literal\""
-        }
-      ],
-      "class": "never",
-      "reason": "EQUIVALENT, both for the indent. `wrap` distinguishes `\"none\"` from everything else, and then `\"literal\"` from everything else only to pick the line's indent (`lineIndent = run.breakBefore === \"literal\" ? 0 : indent`). The net runs only where `atColumnZero` holds, which is the printer's paragraph and standalone-inline arms, and both call `blockBody(..., 0)` - so the indent the other spelling selects is 0, the number `\"literal\"` names. The `!== \"none\"` guard is the same fact from the other side: past it the atom already carries a forced break with no fuse flag set, so the write can change only the break's KIND"
-    },
-    {
       "file": "src/print/span-edges.ts",
       "what": "mutation minimum 0 - a PLACEHOLDER, not a file with nothing to measure",
       "class": "when",

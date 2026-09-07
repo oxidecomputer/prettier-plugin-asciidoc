@@ -28,11 +28,10 @@ import {
   atomOf,
   type Atom,
   HARD_BREAK_IMAGE,
-  isBlockSyntaxAtLineStart,
   wordsToAtoms,
   type HeldJoin,
 } from "./reflow.js";
-import { keepBlockStartBreak, type BlockStart } from "./block-start-hazard.js";
+import type { BlockStart } from "./block-start-hazard.js";
 import {
   strongerBoundary,
   withBoundary,
@@ -50,7 +49,6 @@ import {
   hardBreakOwnsItsLine,
   firstSourceLineWordCount,
   hasFollowingInlineSibling,
-  hasPrecedingInlineSibling,
   HELD_BOUNDARY,
   joinOfFact,
   keepBreakBetweenMarks,
@@ -251,7 +249,7 @@ function leadingJoin(
   words: readonly string[],
   held: HeldJoin,
 ): Boundary {
-  return held === "none" ? leadingBoundary(cursor, words) : HELD_BOUNDARY[held];
+  return held === "none" ? leadingBoundary() : HELD_BOUNDARY[held];
 }
 
 /**
@@ -331,12 +329,7 @@ function appendSpan(
   //   its patterns test no boundary - which is the shape that gets
   //   here, and only here.
   if (inner.length === 0) {
-    appendWhitespaceOnlySpan(out, boundary, cursor, {
-      open,
-      close,
-      marks,
-      closeSpace,
-    });
+    appendWhitespaceOnlySpan(out, boundary, { open, close, closeSpace });
     return "glue";
   }
   pushSpanAtoms(out, boundary, inner, {
@@ -411,40 +404,6 @@ function appendHardLineBreak(
 }
 
 /**
- * The join in front of a VERBATIM node's one atom.
- *
- * The cross-node half of {@link leadingBoundary}, for the nodes whose
- * atom text is not words: a construct that would become block syntax
- * at column 0 may not be handed a breakable join, or the packer can
- * open a line with it. The passthrough `++++` is the shape that made
- * this necessary — it is a passthrough with empty content to
- * Asciidoctor, and a delimited-block delimiter at the head of a line —
- * and the same net covers an inline anchor, whose `[[id]]` is a block
- * anchor there.
- *
- * A node with nothing before it in the block keeps its join: it
- * already opens the block's first output line, exactly where the
- * source put it, and fusing it backwards onto nothing would change
- * nothing.
- * @param boundary - the join standing in front of the node.
- * @param cursor - where the node sits.
- * @param image - the text its atom will carry.
- * @returns the join, downgraded to a non-breaking space where a break
- *   would be unsafe.
- */
-function verbatimBoundary(
-  boundary: Boundary,
-  cursor: Cursor,
-  image: string,
-): Boundary {
-  return boundary === "break" &&
-    isBlockSyntaxAtLineStart(image) &&
-    hasPrecedingInlineSibling(cursor)
-    ? "space"
-    : boundary;
-}
-
-/**
  * Append one inline node's atoms to the block's list.
  * @param out - the block's atoms so far (mutated).
  * @param boundary - the join standing in front of this node.
@@ -475,10 +434,11 @@ function appendNode(out: Atom[], boundary: Boundary, cursor: Cursor): Boundary {
       return appendHardLineBreak(out, boundary, cursor);
     }
     default: {
-      const image = verbatimText(node);
-      out.push(
-        withBoundary(atomOf(image), verbatimBoundary(boundary, cursor, image)),
-      );
+      // A construct that would open a block at column 0 keeps its
+      // breakable join: what the line the packer opens with it reads
+      // as is the reader's question about the finished layout, and a
+      // layout it refuses writes the block's own source lines back.
+      out.push(withBoundary(atomOf(verbatimText(node)), boundary));
       return "glue";
     }
   }
@@ -542,9 +502,8 @@ function collectAtoms(
  *   each of its whitespace runs may be respelled as
  *   ({@link BlockWhitespace}, src/whitespace-record.ts).
  * @param blockStartLine - 1-based source line the block starts on.
- * @param blockStart - where the block's first atom lands, and where
- *   that is column 0, whether the source line under it ended after
- *   its first word (block-start-hazard.ts).
+ * @param blockStart - where the block's first atom lands
+ *   (block-start-hazard.ts).
  * @returns the block's atoms, ready for `wrap` (src/print/reflow.ts).
  */
 export function inlineAtoms(
@@ -561,11 +520,5 @@ export function inlineAtoms(
     literalInterior: false,
     facts: factsByNode(nodes, whitespace),
   });
-  // The net's precondition is the caller's to establish, so the callee
-  // re-checks nothing: it runs only over a block that opens at column
-  // 0 on a source line its first word ended.
-  if (blockStart.atColumnZero && blockStart.firstWordEndsItsLine) {
-    keepBlockStartBreak(atoms, blockStart.secondLineIndent);
-  }
   return atoms;
 }

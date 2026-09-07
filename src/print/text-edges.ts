@@ -18,12 +18,7 @@
  * issue #147 added left no room in, and which still has none.
  */
 import type { InlineNode, TextNode } from "../ast.js";
-import {
-  atomOf,
-  isBlockSyntaxAtLineStart,
-  type Atom,
-  type HeldJoin,
-} from "./reflow.js";
+import { atomOf, type Atom, type HeldJoin } from "./reflow.js";
 import { cutValue, factsOf, type NodeFacts } from "../whitespace-runs.js";
 import { ASCII_HORIZONTAL_WHITESPACE } from "../parse/line-shapes.js";
 import type { WhitespaceFact } from "../whitespace-record.js";
@@ -286,9 +281,7 @@ export function wordsOfText(
  * The other half of the same refusal ({@link runsTheLineReads},
  * src/print/whitespace-fold.ts) keeps a run's bytes inside a word,
  * which no run carrying a line break may do. This is the move that is
- * left, and it is the same trade the block-start net makes
- * (src/print/block-start-hazard.ts): the source's own break, put back
- * where the source had it.
+ * left: the source's own break, put back where the source had it.
  *
  * A `"literal"` break rebuilds that line at COLUMN 0, which is not
  * always the column the author used. Under a NESTED item it is not:
@@ -546,7 +539,7 @@ function followerOpensItsOwnLine(cursor: Cursor): boolean {
  * @param cursor - where the node sits.
  * @returns True when an inline sibling directly precedes.
  */
-export function hasPrecedingInlineSibling(cursor: Cursor): boolean {
+function hasPrecedingInlineSibling(cursor: Cursor): boolean {
   const previous = precedingSibling(cursor);
   return previous !== undefined && !OWN_LINE_SIBLINGS.has(previous.type);
 }
@@ -617,23 +610,16 @@ export function trailingPlusPolicy(
 }
 
 /**
- * The join a text node's LEADING whitespace asks for.
+ * The join a text node's LEADING whitespace asks for: a breakable
+ * space, whatever the word behind it would spell at a line start.
  *
- * Normally a breakable space. But when the node's FIRST word would
- * become block syntax at column 0 (a fenced-code prefix, `----`,
- * `.Title`) and an inline sibling precedes it, a break there is unsafe:
- * wordsToAtoms fuses such a word onto its predecessor WITHIN a node, and
- * the same must hold ACROSS the node boundary — so the join is a space
- * that forbids a break, and the word travels in the preceding run.
- * @param cursor - where the text node sits.
- * @param words - The node's whitespace-split words.
+ * What the line the packer opens with that word reads as is the
+ * reader's question about the finished layout (`accepts` and
+ * `opensTheSameBlock`, src/line-verdict.ts), and a layout it refuses
+ * writes the block's own source lines back. A per-word downgrade here
+ * would answer for a word rather than for the line it opens.
  * @returns the join asked for.
  */
-export function leadingBoundary(
-  cursor: Cursor,
-  words: readonly string[],
-): Boundary {
-  return isBlockSyntaxAtLineStart(words[0]) && hasPrecedingInlineSibling(cursor)
-    ? "space"
-    : "break";
+export function leadingBoundary(): Boundary {
+  return "break";
 }

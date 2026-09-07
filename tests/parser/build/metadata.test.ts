@@ -246,11 +246,6 @@ describe("buildRawBlockLine", () => {
     expect(node).toEqual(
       paragraphNode({
         children: [{ type: "rawLine", value: "+", position }],
-        // The line is one word, so the block-start hazard net's
-        // recorded fact is true here (src/ast.ts). Written out rather
-        // than left to the builder because it is what the row is
-        // about; the two fields that stay defaulted are not.
-        firstWordEndsItsLine: true,
         position,
       }),
     );

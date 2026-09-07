@@ -238,8 +238,6 @@ const printer: Printer<AnyNode> = {
             node.position.start.line,
             {
               atColumnZero: true,
-              firstWordEndsItsLine: node.firstWordEndsItsLine,
-              secondLineIndent: node.secondLineIndent,
             },
           ),
           options.printWidth,
@@ -305,18 +303,7 @@ const printer: Printer<AnyNode> = {
             // and no document to read attributes from.
             blockWhitespace([node], PLAIN_WHITESPACE_CONTEXT),
             node.position.start.line,
-            {
-              atColumnZero: true,
-              // No reader builds such a block, so no reader recorded
-              // this fact for one. False is the answer that trades
-              // nothing: the block-start hazard net keeps a source break
-              // only where a reader saw the author write it.
-              firstWordEndsItsLine: false,
-              // Unreachable behind the `false` above, and spelled all
-              // the same: the arm is one value, so the empty run is
-              // what "no reader recorded this" looks like here too.
-              secondLineIndent: "",
-            },
+            { atColumnZero: true },
           ),
           options.printWidth,
           0,

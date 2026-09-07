@@ -389,10 +389,9 @@ describe("the production enum's blanket declaration", () => {
         ...keys,
       ]),
     ).toEqual([
-      ["block-start-line-fact", "firstWordEndsItsLine"],
+      ["block-start-line-facts", "firstWordEndsItsLine", "secondLineIndent"],
       ["blank-below-anchor-line-fact", "blankBelowAnchorLine"],
       ["table-cell-column-index", "columnIndex"],
-      ["second-line-indent-fact", "secondLineIndent"],
       ["whitespace-record", "whitespace"],
       ["span-mark-record", "marks"],
       ["head-drain-record", "headDrain"],
@@ -423,7 +422,7 @@ describe("end to end: a bare trailer over the PRODUCTION enum", () => {
     "Every paragraph records one boolean, so every paragraph's",
     "serialized AST gains one key and no formatted byte moves.",
     "",
-    "Parity-Diff: block-start-line-fact",
+    "Parity-Diff: block-start-line-facts",
     "",
   ].join("\n");
 
@@ -459,7 +458,7 @@ describe("end to end: a bare trailer over the PRODUCTION enum", () => {
   test("the bare line is scanned as a family declaration", () => {
     const scan = parseExpectedDiffTrailers(message);
     expect(scan.entries).toEqual([]);
-    expect(scan.blanket).toEqual(["block-start-line-fact"]);
+    expect(scan.blanket).toEqual(["block-start-line-facts"]);
     expect(scan.failures).toEqual([]);
   });
 

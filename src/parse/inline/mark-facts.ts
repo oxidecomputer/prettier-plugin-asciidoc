@@ -70,7 +70,7 @@ function facingCharacter(
  * are re-emitted and a second read re-derives the arm. `isolated` is
  * carried by the whitespace between them, and the printer writes at
  * least one whitespace byte there (the fusion's space, a run whose
- * bytes it replays, or the break the block-start net keeps), so its
+ * bytes it replays, or a break the whitespace record holds), so its
  * carrying bytes are re-emitted too. Neither arm consumes the
  * whitespace's SPELLING, which is the one thing here that a fold
  * would destroy.

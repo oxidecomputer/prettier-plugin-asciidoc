@@ -18,7 +18,7 @@
  *
  * THE PATH SPELLING is deliberately narrow: a backtick-quoted,
  * identifier-shaped run written IMMEDIATELY before a repository `.ts`
- * path, as in (`isSingleWordLine`, src/parse/line-shapes.ts).
+ * path, as in (`optionalGroup`, src/parse/line-shapes.ts).
  * Adjacency and not scope, because this repository's comments quote
  * Ruby methods (`next_block`, `parse_list`) and AsciiDoc spellings in
  * backticks as freely as they name their own functions, so a rule

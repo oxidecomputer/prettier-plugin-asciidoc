@@ -207,6 +207,13 @@ function sourceLineSpelledTheRule(runs: readonly string[]): boolean {
  * reproduces the author's line exactly, which is a rule when it was
  * one and prose when it was not.
  *
+ * THIS ARM IS BYTE PRESERVATION STANDING IN FOR A READING WE GET
+ * WRONG, which is issue #313: both programs read `t:: d` over
+ * `-  -  -` as an `<hr>` inside the description and our reader reads
+ * a nested one-item list, so the line's own verdict cannot be asked
+ * about it. Keeping the bytes keeps the render; the reading is #313's
+ * to fix, and this arm leaves with it.
+ *
  * WHY NOT weigh the two halves, which is what this asked before the
  * gap was replayed. A PROSPECTIVE argument about the design as it now
  * stands, not a bug that was ever observed: with the gap written back,

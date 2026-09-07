@@ -112,8 +112,8 @@ describe("the column-zero question", () => {
   // with "`\"" or "`'" - the closing mark cannot reach column 0 by
   // width pressure alone, only detachedMarks's raw-line/hard-break
   // paths ever put a mark alone at the head of a line, and neither
-  // applies here. This is why no block-start-hazard.ts change is
-  // needed: the module never sees a bare delimiter at a line head.
+  // applies here. This is why the opening question never sees a bare
+  // delimiter at a line head.
   // The symmetric direction rides the same sweep: the OPEN mark is
   // fused as a PREFIX onto the first content atom, so a line can
   // never end with a bare open mark either.

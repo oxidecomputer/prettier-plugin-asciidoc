@@ -15,12 +15,11 @@
  * below hold it at widths far below the construct's own length, where
  * a packer with any freedom left would take it.
  *
- * THE BLOCK-START NET. `...` is a level-3 ordered-list marker at
- * column 0, and before this vocabulary it was the first WORD of the
- * block's first text node, where {@link keepBlockStartBreak} read it.
- * Carving those three bytes into a node of their own had to leave the
- * net's reach exactly where it was, or `...` then `b c` packs to `...
- * b c` - an ordered list the source never had.
+ * THE BLOCK START. `...` is a level-3 ordered-list marker at column
+ * 0, and before this vocabulary it was the first WORD of the block's
+ * first text node. Carving those three bytes into a node of their own
+ * had to leave the reader's reach exactly where it was, or `...` then
+ * `b c` packs to `... b c` - an ordered list the source never had.
  *
  * THE DERIVED EDGE. An unconstrained span decides its spelling from
  * what stands beside it AS ITS OWN `QUOTE_SUBS` ROW SEES IT
@@ -112,13 +111,13 @@ describe("the spaced em dash survives the break reflow may put beside it", () =>
   });
 });
 
-describe("the block-start hazard net still reaches a reference", () => {
-  // `... b c` at column 0 is an ordered list item, so the net keeps
-  // the source's own break behind the block's first word rather than
-  // packing the two onto one line. The bytes are pinned here, not just
-  // the render: what the net buys IS the break, and a render assertion
-  // alone would not see it (a list and a paragraph render differently,
-  // so this would fail either way - the byte pin is what says WHICH
+describe("the opening question still reaches a reference", () => {
+  // `... b c` at column 0 is an ordered list item, so the packed line
+  // does not open the paragraph the reader opened and the block's own
+  // lines come back. The bytes are pinned here, not just the render:
+  // what the refusal buys IS the break, and a render assertion alone
+  // would not see it (a list and a paragraph render differently, so
+  // this would fail either way - the byte pin is what says WHICH
   // repair happened).
   test("`...` keeps the break the source put behind it", async () => {
     const input = "...\nb c\n";

@@ -17,12 +17,10 @@
  */
 import { describe, expect, test } from "vitest";
 import { cutValue } from "../../src/whitespace-runs.js";
-import { startsBlockAtLineStart } from "../../src/parse/line-shapes.js";
 import {
   atomOf,
   blockBody,
   blockLayout,
-  isBlockSyntaxAtLineStart,
   isFused,
   keepTextOnFirstRestLine,
   replayLines,
@@ -534,63 +532,5 @@ describe("the kept break", () => {
     expect(spell(keepTextOnFirstRestLine(atoms, "literal"))).toEqual(
       spell(atoms),
     );
-  });
-});
-
-describe("the line-start refusal, registry answer against caller answer", () => {
-  // One row per dimension the registry composes, in both spellings it
-  // probes: the head ALONE on a line (`----`, `[source]`, `[[a]]`)
-  // and the head STARTING one, which only matches once a successor
-  // follows it (`*`, `<1>`, `NOTE:`). The last four rows are the
-  // negative controls that mark where this question stops - a `///`
-  // head, an attribute entry and a block title are metadata that no
-  // interrupting set carries, and a `term::` separator is guarded by
-  // DLIST_SEPARATOR_WORD instead, so answering true here would fight
-  // that guard.
-  const rows: Array<[word: string, refused: boolean]> = [
-    ["alpha", false],
-    ["----", true],
-    ["====", true],
-    ["....", true],
-    ["--", true],
-    ["```", true],
-    ["*", true],
-    [".", true],
-    ["-", true],
-    ["1.", true],
-    ["<1>", true],
-    ["NOTE:", true],
-    ["[source]", true],
-    ["[[a]]", true],
-    ["image::a.png[]", true],
-    ["'''", true],
-    ["<<<", true],
-    ["=", true],
-    ["##", true],
-    ["//", true],
-    ["ifdef::x[]", true],
-    ["include::a.adoc[]", true],
-    // The composed heads reflow also asks about: a span-opening atom
-    // and a whole fused run, each carrying interior whitespace.
-    ["** b", true],
-    ["[a@b.com] and", false],
-    ["///", false],
-    [":name:", false],
-    [".title", false],
-    ["term::", false],
-  ];
-
-  test.each(rows)("%s refused: %s", (word, refused) => {
-    expect(startsBlockAtLineStart(word)).toBe(refused);
-    expect(isBlockSyntaxAtLineStart(word)).toBe(refused);
-  });
-
-  // The exemption is the printer's, not the registry's: a lone `+` is
-  // handled by the line-end rule and by escapeDanglingPlus, and fusing
-  // it backwards would put ` +` at the end of a line instead, which is
-  // a hard line break. So the two answers differ on exactly that word.
-  test("the lone + is exempted by the caller, not by the registry", () => {
-    expect(startsBlockAtLineStart("+")).toBe(true);
-    expect(isBlockSyntaxAtLineStart("+")).toBe(false);
   });
 });

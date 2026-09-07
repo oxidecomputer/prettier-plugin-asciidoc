@@ -18,8 +18,7 @@
  *
  * WHY A POSITION AND NOT A WORD. The printer's older questions were
  * all about a WORD at a line start, because a word is what a packer
- * has in hand ({@link isBlockSyntaxAtLineStart} and its kin,
- * src/print/reflow.ts). The reader's tables are whole-LINE patterns
+ * has in hand. The reader's tables are whole-LINE patterns
  * keyed on the block's context and on the line's distance from the
  * block start, so a word probe can only ever approximate them: it
  * answers for a line one word longer than the caller would write

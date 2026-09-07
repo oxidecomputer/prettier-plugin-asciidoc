@@ -66,8 +66,9 @@ describe("a packed line the reader would read as something else", () => {
   // Issue #121. The `+` opens a paragraph whose second source line is
   // an INDENTED `----`. Written back at column 0 the line opens a
   // listing block, and the space that kept it prose is gone; the
-  // block-start net could not trade the break away because it bails
-  // on a first atom that may not end a line, and a lone `+` is one.
+  // No per-word probe could trade the break away: the `----` is a
+  // delimiter only once its indent is gone, which is a fact about the
+  // LINE the packer would write and not about a word.
   test("a de-indented delimiter under a lone plus is not written", async () => {
     await expectFormatted("+\n ----\n", "+\n ----\n");
   });

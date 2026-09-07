@@ -117,8 +117,9 @@ const HARD_BREAK = " +";
  * list, so it is emitted here and not through the block printer. All
  * four mark kinds take one - Ruby's group sits inside all twelve quote
  * rows - and the prefix belongs to the OPEN mark, which is what puts
- * its `[` at the head of the atom the block-start hazard net reads
- * (src/print/block-start-hazard.ts).
+ * its `[` at the head of the atom a packed first line opens with,
+ * which is the line the reader is asked about
+ * (`opensTheSameBlock`, src/line-verdict.ts).
  * @param node - the span node.
  * @param constrained - whether to spell it with the single mark.
  * @returns its opening and closing marks.

@@ -864,48 +864,6 @@ export const CONTINUATION_LINE = /^\+$/v;
  */
 export const INDENTED_PLUS = /^[ \t]+\+$/v;
 
-// A line carrying ONE word and nothing else. It names no Asciidoctor
-// construct: it is a question ABOUT a line, the way INDENTED_PLUS is,
-// and it is spelled here because the registry owns every pattern that
-// reads a source line.
-//
-// The word run is {@link ASCII_NON_WHITESPACE}, Ruby's `\S`, not
-// JavaScript's: a no-break space is CONTENT inside a word to
-// Asciidoctor, and `\S` would end the run at one and call a one-word
-// line two words (issue #75). The trailing anchor is exact because the
-// reader rstrips every line before any rule runs (see {@link rstrip}),
-// so a line's trailing whitespace cannot change the answer.
-const SINGLE_WORD_LINE = new RegExp(
-  `^${ASCII_HORIZONTAL_WHITESPACE.source}*${ASCII_NON_WHITESPACE.source}+$`,
-  "v",
-);
-
-/**
- * Whether a line holds ONE word: its indent, one run of non-whitespace,
- * and nothing more.
- *
- * A PREDICATE rather than an arm of `LineKind`
- * (src/parse/lines/classify.ts), the second route
- * docs/coding-standards.md's line-shape recipe describes: the shape
- * neither opens nor ends a block, so the classifier's verdict for such
- * a line is unchanged and an interruption row for it would pin a grid
- * of identical answers. It sits HERE rather than beside
- * `isIndentedContinuationLine` in lines/classify.ts because the
- * paragraph BUILDERS ask it (src/parse/build/paragraph.ts) and a
- * builder may not import lines/ (the `build-imports-lines` layer rule,
- * scripts/metrics/graph.ts).
- *
- * What reads the answer is the printer's block-start hazard net,
- * through {@link ParagraphNode.firstWordEndsItsLine}; why ONE word is
- * the condition it trades on is stated at the net itself
- * ({@link keepBlockStartBreak}).
- * @param line - one rstripped source line
- * @returns true when the line is one word between its edges
- */
-export function isSingleWordLine(line: string): boolean {
-  return SINGLE_WORD_LINE.test(line);
-}
-
 /**
  * Which shape of block metadata a line is, for the ONE reader rule
  * that lets metadata "play out until we find the block"
@@ -1904,12 +1862,12 @@ export function interruptsByLineShape(line: string): boolean {
  * from reading it: the classifier reads both marker spellings, and
  * this answers about neither reader.
  *
- * The printer's block-start hazard nets
- * (src/print/block-start-hazard.ts) trade a
- * replayed space for a break only where the AUTHOR's source already
- * broke the line, so a title written on one line is printed back as
- * it stands and a lone `=` or `##` word in reflowed prose only ever
- * fuses backwards.
+ * The printer never WRITES the shape either, and by a different
+ * route: the reader is asked what it makes of each line the packer
+ * composes (`opensTheSameBlock` and `accepts`, src/line-verdict.ts),
+ * and a layout holding a line that reads as a title where the block
+ * did not is refused for the block's own source lines. So a title
+ * written on one line is printed back as it stands.
  * @param line - one source line, without its trailing newline
  * @returns true when the line is a section title in either spelling
  *
@@ -2195,12 +2153,16 @@ const PROBE_PREFIX = "p";
  * write. It can therefore only over-refuse, never under-refuse, and
  * over-refusing costs a break the output did not need rather than a
  * document the reader loses.
+ * NOT EXPORTED any more: the printer used to ask it of a WORD, and
+ * that question is gone - what a line the packer commits reads as is
+ * the reader's own verdict on the whole line (src/line-verdict.ts).
+ * Its one reader now is {@link interruptsParagraph} in this file.
  * @param word - the head of a line: a single whitespace-delimited
  *   token, or several words with the spaces between them
  * @returns true when the head would start a block, start a section, or
  *   be eaten by the preprocessor at line start
  */
-export function startsBlockAtLineStart(word: string): boolean {
+function startsBlockAtLineStart(word: string): boolean {
   // The head alone, then the head with a successor after it - the two
   // lines a caller can produce from it. A head that is already several
   // words makes the second probe conservative rather than exact; see

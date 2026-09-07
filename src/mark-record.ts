@@ -50,8 +50,8 @@ export interface SpanMarks {
  * those two adjacent, so a second read re-derives the arm from bytes
  * the output holds. `isolated` is carried by the whitespace between
  * them, and the printer writes at least one whitespace byte there
- * (the fusion's space, a run whose bytes it replays, or the break the
- * block-start net keeps), so a second read re-derives that arm too.
+ * (the fusion's space, a run whose bytes it replays, or a break the
+ * whitespace record holds), so a second read re-derives that arm too.
  * Neither arm records WHICH whitespace: the spelling does not survive
  * a fold, and a fact the printer destroys is not one it may consume.
  */

@@ -15,10 +15,10 @@
  * and layout-independent (the precedent is issue #1's
  * collapseSourceNewlines).
  *
- * The one exception is the BLOCK-START HAZARD NET
- * (hazardAtBlockStart, src/print/block-start-hazard.ts): where the space
- * spelling would put block syntax at column 0, the source break is
- * kept.
+ * The one exception is the BLOCK'S FIRST OUTPUT LINE
+ * (`opensTheSameBlock`, src/line-verdict.ts): where the space
+ * spelling would put block syntax at column 0, the layout is refused
+ * and the block's own source lines come back.
  */
 import { describe, expect, test } from "vitest";
 import { expectFormatted, expectStableRender, formatAdoc } from "../helpers.js";
@@ -77,40 +77,43 @@ describe("the #55 sweep shapes, re-asserted as named rows", () => {
   });
 });
 
-describe("the block-start hazard net keeps the source break", () => {
+describe("the block's own lines come back where a join opens a list", () => {
   // `**\nb** c` replayed as `** b** c` would open the paragraph with
   // a ulist marker line - a measured corruption (the oracle re-reads
-  // the output as a LIST). The net emits the open mark on its own
-  // line and the content at column 0: the source's own bytes.
+  // the output as a LIST). The reader refuses that first output line
+  // and the block goes back as its own source lines.
   test("** / b** c round-trips byte-identically", async () => {
     await expectFormatted("**\nb** c\n", "**\nb** c\n");
   });
 
   // The whitespace-only span at block start: `**\n**` would replay
-  // as `** **`, which is a ulist line too. The net keeps the break.
+  // as `** **`, which is a ulist line too, and the same refusal
+  // writes the author's two lines back.
   test("** / ** round-trips byte-identically", async () => {
     await expectFormatted("**\n**\n", "**\n**\n");
   });
 
-  // The corrupted spelling must never come back: whatever the net
-  // does, the first output line may not re-read as a list.
+  // The corrupted spelling must never come back: the first output
+  // line may not re-read as a list.
   test("the output never opens with a marker line", async () => {
     const out = await formatAdoc("**\nb** c\n");
     expect(out.startsWith("** ")).toBe(false);
   });
 
-  // Only the block's FIRST node is guarded. A second span further
-  // along the same paragraph cannot reach column 0 however the packer
-  // arranges it - the words in front of it hold the line - so its
-  // source break is replayed as the ordinary space while the first
-  // span's is kept.
-  test("a later span's break is still replayed as a space", async () => {
-    await expectFormatted("**\nb** c **\nd** e\n", "**\nb** c ** d** e\n");
+  // A REFUSAL IS WHOLE-BLOCK. A second span further along the same
+  // paragraph cannot reach column 0 however the packer arranges it,
+  // and on its own its break would be replayed as the ordinary space;
+  // but the block's first line is the one the reader refuses, and
+  // what comes back then is every line the author wrote, not one of
+  // them. Before the refusal was whole-block a net traded exactly one
+  // space for one break and packed the rest.
+  test("a later span's break comes back with the block's own lines", async () => {
+    await expectFormatted("**\nb** c **\nd** e\n", "**\nb** c **\nd** e\n");
   });
 
-  // Where a printed prefix holds column 0 the net stays out: a list
-  // item's marker and an admonition's label protect the line, and
-  // the space replay is byte-stable.
+  // Where a printed prefix holds column 0 the joined line is an item
+  // line or a label line, which is what the source's own first line
+  // was, so the join stands and the space replay is byte-stable.
   test("a list item's span is not the block's column 0", async () => {
     await expectFormatted("* ** b** c\n", "* ** b** c\n");
   });
@@ -166,17 +169,15 @@ describe("a raw line at a span edge keeps its line and the marks stay off it", (
   });
 });
 
-describe("the kept break is the SOURCE LINE's, not a fragment's", () => {
-  // The break the net trades for lives INSIDE a span here, which is
-  // the shape no inline fragment can answer for: `**` then `*b* c` is
-  // ONE bold span whose content is `*\n*b`, so the block's first node
-  // holds the break in the middle of its own bytes and the break
-  // behind the block's first WORD is in no node's value at all. The
-  // question is therefore asked of the SOURCE LINE, through the
-  // reader's recorded answer
-  // ({@link ParagraphNode.firstWordEndsItsLine}). Each row's two lines
+describe("the refused line is the OUTPUT LINE, not a fragment", () => {
+  // The break lives INSIDE a span here, which is the shape no inline
+  // fragment can answer for: `**` then `*b* c` is ONE bold span whose
+  // content is `*\n*b`, so the block's first node holds the break in
+  // the middle of its own bytes and the break behind the block's
+  // first WORD is in no node's value at all. The question is asked of
+  // the LINE the packer would write instead. Each row's two lines
   // joined is block syntax the author did not write - `** *b* c` is a
-  // depth-2 list item - so the author's own line stands.
+  // depth-2 list item - so the author's own lines stand.
   test.each(["**\n*b* c\n", "**\nb* c\n", "**\nb c*\n"])(
     "%j keeps the author's line instead of writing a ulist",
     async (input) => {
@@ -266,50 +267,41 @@ describe("the kept break is the SOURCE LINE's, not a fragment's", () => {
     await expectFormatted("[.role]##\nb## c] d\n", "[.role]## b## c] d\n");
   });
 
-  // The NEAR MISS: the same span with a word in FRONT of it. The block's
-  // first atom is `x`, so the span can never reach column 0 however the
-  // packer arranges it, the recorded fact is false, and the net stays
-  // out - the source break inside the span replays as the ordinary
-  // space.
+  // The NEAR MISS: the same span with a word in FRONT of it. The
+  // block's first atom is `x`, so the span can never reach column 0
+  // however the packer arranges it, and the source break inside the
+  // span replays as the ordinary space.
   test("the same span mid-paragraph still packs", async () => {
     await expectFormatted("x [.role]##\nb## c]\n", "x [.role]## b## c]\n");
   });
 
   // The other near miss: the author already wrote the packed line, so
-  // there is no break to keep and the net invents none.
+  // there is nothing to keep and nothing is invented.
   test("the packed spelling with a trailing word is a fixed point", async () => {
     await expectFormatted("[.role]## b## c] d\n", "[.role]## b## c] d\n");
   });
 
   // The same role prefix where the opening atom is its whole first
-  // source line on its own (the content's `#` is glued to the mark, so
-  // nothing crossed the break into it). Here the PAIR is already the
-  // block attribute line - `[.role]### b]` - so this row held the net
-  // before the whole-line probe existed and holds it still.
-  test("a role-prefixed opener that is its whole line keeps the break", async () => {
-    await expectFormatted("[.role]###\nb] c##\n", "[.role]###\nb] c##\n");
+  // source line on its own (the content's `#` is glued to the mark,
+  // so nothing crossed the break into it). The PAIR `[.role]### b]`
+  // is a block attribute line and the LINE `[.role]### b] c##` is
+  // not, so a net reading the pair kept the break here and the reader
+  // reading the line does not: the paragraph packs, renders the same
+  // and is a fixed point.
+  test("a role-prefixed opener packs where its whole line is prose", async () => {
+    await expectFormatted("[.role]###\nb] c##\n", "[.role]### b] c##\n");
   });
 
-  // THE WITNESS for the net's one remaining precondition: content
-  // inside a span opens no block line, so it is collected with
-  // `blockStart: { atColumnZero: false }` (appendSpan,
-  // src/print/inline.ts). Here the outer `*` span's content holds an
-  // INNER `##` span whose own opening mark stands at the end of a
-  // source line, and nothing about it is a block start - the block
-  // starts at `w`. The atoms pack onto one line.
-  //
-  // Drop that claim and the net fires on the inner mark, keeping a
-  // break the block-start argument does not justify: the output
-  // becomes `w *##\nb c##* d`, whose first source line no longer
-  // ends after its first word, so a SECOND pass packs it back and
-  // the format is not idempotent. `expectRow`'s third assertion is
-  // what catches that, which is why this row goes through it.
+  // An INNER span's opening mark at the end of a source line is no
+  // block start either: the block starts at `w` and the packed line
+  // is prose from end to end, so the atoms pack onto one line and
+  // the format is a fixed point.
   test("a break at an inner span's mark is not a block start", async () => {
     await expectFormatted("w\n*##\nb c##* d\n", "w *## b c##* d\n");
   });
 });
 
-describe("the net also refuses to write a Markdown heading", () => {
+describe("a Markdown heading is refused the same way", () => {
   // The oracle's own section-title pattern is ExtAtxSectionTitleRx
   // (`/^(=={0,5}|##{0,5})[ \t]+(.+?)(?:[ \t]+\1)?$/`,
   // `@asciidoctor/core/build/node/index.cjs` l.266), so the `#`
@@ -329,10 +321,10 @@ describe("the net also refuses to write a Markdown heading", () => {
     await expectFormatted("#\nb# c\n", "#\nb# c\n");
   });
 
-  // The break the net keeps is the one BEHIND THE BLOCK'S FIRST
-  // WORD, and nothing further along. `# b` is a HEADING now (issue
-  // #63), so the line below it is a block of its own and the net
-  // never gets the question: the heading comes back in the `=`
+  // The refusal is about the block's FIRST OUTPUT LINE and nothing
+  // further along. `# b` is a HEADING now (issue
+  // #63), so the line below it is a block of its own and the
+  // question is never asked: the heading comes back in the `=`
   // spelling and `c` keeps its own line.
   test("a heading's own line ends at the heading", async () => {
     await expectFormatted("# b\nc\n", "= b\nc\n");

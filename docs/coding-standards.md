@@ -134,11 +134,10 @@ The predicate's home is `classify.ts` **while a reader is the only asker**.
 Where a BUILDER asks it too, it goes in `line-shapes.ts` beside its pattern
 instead, because `build/` may not import `lines/` - the `build-imports-lines`
 layer rule in `scripts/metrics/graph.ts`, which is an error-severity gate, not a
-preference. `isSingleWordLine` is that case ("does this line hold one word",
-read by the paragraph builders so `ParagraphNode.firstWordEndsItsLine` can be
-recorded at parse time), and `isRawParagraphLine` is the older one (reflow asks
-it from `src/print`). Either way the registry still owns the pattern and the
-predicate still says at its declaration which route it took and why.
+preference. `isRawParagraphLine` is that case ("must this line stay verbatim
+inside a paragraph", read by reflow from `src/print` as well as by the reader).
+Either way the registry still owns the pattern and the predicate still says at
+its declaration which route it took and why.
 
 A new INLINE construct is added the same way: a rule in
 `src/parse/inline/rules.ts` citing the Asciidoctor source that decides it

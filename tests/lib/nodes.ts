@@ -82,7 +82,7 @@ function nowhere(): { start: Location; end: Location } {
  * A paragraph node with every field defaulted.
  *
  * The defaults are the values a paragraph of ordinary prose carries:
- * no children, all three recorded line-layout facts false or empty,
+ * no children, the recorded anchor-blank fact false,
  * and the reading of a block holding no line the packer composes,
  * which is what a childless paragraph is. A test about one of those
  * facts overrides it.
@@ -95,8 +95,6 @@ export function paragraphNode(
   return {
     type: "paragraph",
     children: [],
-    firstWordEndsItsLine: false,
-    secondLineIndent: "",
     blankBelowAnchorLine: false,
     reading: NO_PACKED_TEXT,
     whitespace: blockWhitespace(

@@ -66,22 +66,24 @@ export const MECHANISM_REASONS: Readonly<Record<Mechanism, string>> = {
   // spelling.
   inlineMacroReplay:
     "a bare URL and its link macro are one anchor, and the authored spelling is replayed",
-  // Issue #192: a description item's text holds a break so the line
-  // Ruby re-reads stays a text line (keepTextOnFirstRestLine,
-  // src/print/reflow.ts, driven by hazard, src/print/list-hazard.ts).
-  // The guard fires only where the SOURCE split the text, so the
-  // joined spelling never asks the question and the output is a
-  // function of where the author broke lines.
+  // Issue #192: the item is REPLAYED, so the author's own lines are
+  // the output. `descriptionPrinting` (src/parse/lines/description-list.ts)
+  // probes the description's words and refuses to reflow an item any
+  // of them could turn into a block line, and a replayed item keeps
+  // whatever line breaks the source wrote. Measured over all 416
+  // divergent placements: both spellings are identity on both sides
+  // and `printing` is `replay` on both.
   descriptionItemHeldBreak:
-    "a description item's held break fires only where the source split the text (issue #192)",
+    "a description item the printer replays keeps the lines the source wrote (issues #192, #321)",
   // Issue #192, the same source-dependence from the other side: a
-  // paragraph attached to a list item keeps the author's break in
-  // front of a run the block-start hazard net refuses to strand
-  // (keepBlockStartBreak, src/print/block-start-hazard.ts, reading
-  // ParagraphNode.firstWordEndsItsLine), and the joined spelling has
-  // no break to keep.
+  // foreign marker line inside a `+`-attached paragraph is `text`
+  // carrying `verbatim`, which the reader keeps on a line of its own
+  // (isBlockText, src/line-verdict.ts), so the output holds whichever
+  // words the author put on that line. Measured over all 210
+  // divergent placements: the two spellings read differently under
+  // our reader in every one.
   listContinuationJoin:
-    "an attached paragraph's block-start hazard trades a break the source wrote (issue #192)",
+    "a foreign marker line in an attached paragraph keeps the words the source put on it (issues #192, #322)",
 };
 
 /** One declared exception: its mechanism and which pairs it covers. */

@@ -1,9 +1,10 @@
 /**
- * The indent a paragraph's SECOND source line carries is DATA, the way
- * `ParagraphNode.firstWordEndsItsLine` is: the reader measured the
- * line, `ParagraphNode.secondLineIndent` carries the run's bytes, and
- * the block-start hazard net writes them back in front of the atom
- * whose break it keeps.
+ * The indent a paragraph's SECOND source line carries survives the
+ * format, and it survives because nothing rebuilds that line: a
+ * layout whose first output line does not open the block the reader
+ * opened is dropped for the block's OWN source lines, indents and
+ * all (`opensTheSameBlock`, src/line-verdict.ts, and `wrap`,
+ * src/print/reflow.ts).
  *
  * The indent is load-bearing because of where Ruby tests it.
  * `next_block` decides a line's shape from the line INCLUDING its
@@ -16,21 +17,22 @@
  * and `|===` opens a table, ` ////` is text and `////` opens a
  * comment block.
  *
- * The net (src/print/block-start-hazard.ts) is what exposes them. It
- * fires exactly where the packed line `atoms[0] atoms[1]` would
- * re-read as block syntax - `.` then `[x]` packs to `. [x]`, an
- * ordered list item; `===` then `====` packs to `=== ====`, a section
- * title - and its remedy is to put the source's own break back. Before
- * the indent was recorded the net had nothing to write in front of the
- * atom it stranded, so it traded one corruption for another: the
- * second line went to column 0 and became the very block the author's
- * single space had kept it from opening (issue #121).
+ * The PACKED LINE is what exposes them: `.` then `[x]` packs to
+ * `. [x]`, an ordered list item; `===` then `====` packs to
+ * `=== ====`, a section title. A per-atom net used to trade that join
+ * for one break and had to carry a recorded indent to write in front
+ * of the line it stranded; without it the second line went to column
+ * 0 and became the very block the author's single space had kept it
+ * from opening (issue #121). The whole-block replay writes every one
+ * of the author's lines instead, so no indent has to be recorded for
+ * it and the rows below are byte pins on that.
  */
 import { describe, test } from "vitest";
 import { expectFormatted } from "../helpers.js";
 
 describe("a paragraph's indented second line keeps its indent", () => {
-  // Red before `secondLineIndent`: all twenty rows printed their second
+  // Red before the line the author wrote came back whole: all twenty
+  // rows printed their second
   // line at column 0. SEVENTEEN of the twenty changed what the document
   // renders as - the three exceptions are the group labelled
   // "Render-equal today" below, and they are named there - and sixteen

@@ -117,84 +117,6 @@ export interface ParagraphNode extends BlockNodeBase {
   /** Inline content: text, emphasis, links, etc. */
   children: InlineNode[];
   /**
-   * The paragraph's FIRST SOURCE LINE ends after its first word: from
-   * where the block starts, that line holds one run of non-whitespace
-   * and nothing else (`isSingleWordLine`, src/parse/line-shapes.ts,
-   * carries the whitespace dialect and the `$` anchor's warrant).
-   *
-   * The printer's block-start hazard net
-   * (src/print/block-start-hazard.ts) is the one consumer, and this is
-   * the whole question it asks of the source. Reflow packs the block's
-   * words into lines, and a line it packs is read back by the same
-   * classifier that read the source, where `*`, `.`, `NOTE:`, `##` and
-   * their kin at column 0 are BLOCK syntax: `**` then `*b* c` packed
-   * to `** *b* c` is a nested list item the author never wrote. The
-   * net's answer is to keep the SOURCE's break instead of the space,
-   * and it may only do that where the author wrote one - which is
-   * exactly this fact. Why one word is the condition is the net's own
-   * argument, stated once at `keepBlockStartBreak`
-   * (src/print/block-start-hazard.ts): a marker alone on a line is no
-   * marker. Where the fact is FALSE the trade would invent a line: a
-   * paragraph the source spells `## b## c` on one line stays on one
-   * line, because a heading is read there and a break would destroy
-   * it.
-   *
-   * The ANSWER travels, not the line, for the reason
-   * {@link ListItemNode.everyTextLineIndented} states: the reader
-   * holds the source and the printer asks one yes/no of it. A second
-   * question about this line gets a second recorded fact from the
-   * reader, never a re-derivation from this boolean or from the
-   * inline fragments the line was split into.
-   */
-  firstWordEndsItsLine: boolean;
-  /**
-   * The leading whitespace of the source line directly UNDER the one
-   * the paragraph opens on, verbatim - `""` when the paragraph is one
-   * line, when that second line starts at column 0, or when the
-   * paragraph itself does not open at column 0.
-   *
-   * The SAME LINE {@link ParagraphNode.firstWordEndsItsLine} is about,
-   * one line down, and the same consumer: the block-start hazard net
-   * (src/print/block-start-hazard.ts). The net's whole move is to keep
-   * the source's break instead of the packer's space, which strands
-   * the block's second atom on a line of its own - and that atom is
-   * the head of THIS line. Without the run the net rebuilt that line
-   * at column 0, which is not the line the author wrote.
-   *
-   * STRUCTURE, not decoration, because `next_block` decides a line's
-   * shape from the line INCLUDING its leading run: `indented =
-   * this_line.start_with? ' ', TAB` (parser.rb l.572) sends an
-   * indented line down the literal-paragraph arm, while every
-   * delimiter, table and comment-block opener is matched against a
-   * line with no leading run at all (`is_delimited_block?` keys on
-   * `line.slice 0, 2`, parser.rb l.976-978). So
-   * ` ----` is paragraph text and `----` opens a listing block,
-   * ` |===` is text and `|===` opens a table, ` [x]` is text and `[x]`
-   * is a block attribute list. The de-indented line is a DIFFERENT
-   * line (issue #121).
-   *
-   * The BYTES, not a width, for {@link ListItemNode.markerIndent}'s
-   * reason: a tab and two spaces are both `indented` to parser.rb
-   * l.572 and are not the same line, and a width would have the
-   * printer choose a respelling nothing asked for.
-   *
-   * A CONJUNCTION, so the fact is TOTAL over paragraphs rather than
-   * meaningful on some of them. The run is the run of a line the
-   * printer will write at column 0, and it is that only where the
-   * block's own first line stood at column 0 too: a paragraph the
-   * reader took out of an indented run is reprinted at a column the
-   * source never had, so its source run is not the run of the line the
-   * printer would open, and `""` is recorded instead. Same discipline
-   * as {@link ParagraphNode.blankBelowAnchorLine} - one fact the
-   * printer acts on unconditionally, not two it has to recombine.
-   *
-   * The BYTES travel here where the ANSWER travels for
-   * `firstWordEndsItsLine`, and the difference is what the printer
-   * needs: the net asks one yes/no about the first line and WRITES the
-   * second one back.
-   */
-  secondLineIndent: string;
-  /**
    * This paragraph's whole printed line is a `[[...]]` anchor, and
    * SOURCE put a blank line between that line and the block below it.
    *
@@ -229,8 +151,8 @@ export interface ParagraphNode extends BlockNodeBase {
    * nothing about the gap between an item's own two pieces, which
    * {@link ItemBlock.gap} records.
    *
-   * The ANSWER travels, not the line, exactly as
-   * {@link ParagraphNode.firstWordEndsItsLine} states: the reader
+   * The ANSWER travels, not the line, for the reason
+   * {@link ListItemNode.everyTextLineIndented} states: the reader
    * holds the lines and hands the printer one yes/no.
    */
   blankBelowAnchorLine: boolean;

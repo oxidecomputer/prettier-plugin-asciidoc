@@ -73,15 +73,12 @@ type FieldLens =
  *   (tests/format/inline-formatting.test.ts).
  * - `delimitedBlock.sourceDelimiter`: a delimiter run normalizes to
  *   the shortest safe length (tests/format/delimited-block.test.ts).
- * - `paragraph.firstWordEndsItsLine`, `paragraph.secondLineIndent`,
- *   `*.everyTextLineIndented`: bits about the SOURCE's line layout,
+ * - `*.everyTextLineIndented`: a bit about the SOURCE's line layout,
  *   recorded for the printer's hazard predicates. Reflow rewrites the
- *   layout by design (tests/format/reflow.test.ts) - a paragraph whose
- *   two source lines JOIN has one line afterwards, and so no second
- *   line to carry a run at all. What the run MEANT is which construct
- *   the printed line opens, and that is projected by the nodes the
- *   re-read produces rather than by this field
- *   (tests/format/second-line-indent.test.ts).
+ *   layout by design (tests/format/reflow.test.ts). What the bit
+ *   MEANT is which construct the printed line opens, and that is
+ *   projected by the nodes the re-read produces rather than by the
+ *   field (tests/format/second-line-indent.test.ts).
  * - `descriptionTerm.line`, `descriptionListItem.textLines`,
  *   `descriptionListItem.printing`: the source LINES a description
  *   item is replayed from, and the reader's decision about whether it
@@ -120,8 +117,6 @@ export const REPARSE_LENS: Readonly<Record<string, FieldLens>> = {
   "*.offset": "drop",
   "*.constrained": "drop",
   "delimitedBlock.sourceDelimiter": "drop",
-  "paragraph.firstWordEndsItsLine": "drop",
-  "paragraph.secondLineIndent": "drop",
   "*.everyTextLineIndented": "drop",
   "listItem.leadingGap": "drop",
   "descriptionTerm.line": "drop",

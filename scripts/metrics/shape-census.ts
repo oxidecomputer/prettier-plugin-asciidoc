@@ -129,10 +129,6 @@ const EXEMPT = new Map<string, string>([
     "reflow's refusal predicate over the section-title shapes, whose one pattern spells both marker forms and already has a dimension of its own; a composition of dimensions is not itself a line shape",
   ],
   [
-    "startsBlockAtLineStart",
-    "the line-start refusal that composes three existing dimensions (interruptsByLineShape, startsSectionTitle, isRawParagraphLine) over two probe spellings; every shape it asks about already has a dimension of its own, and a composition of dimensions is not itself a line shape",
-  ],
-  [
     "startsItemBlockLine",
     "the line-START refusal a description's item asks: startsBlockAtLineStart widened by the three shapes an item's confined read drains (block title, attribute entry, line comment), so six shape questions in all; every shape it asks about already has a dimension of its own, and a composition of dimensions is not itself a line shape",
   ],
@@ -224,10 +220,6 @@ const EXEMPT = new Map<string, string>([
   [
     "isDescriptionSiblingLine",
     "pure predicate over the dlist SIBLING patterns, which are DescriptionListRx keyed by delimiter; the dlist-term dimension covers the shape",
-  ],
-  [
-    "isSingleWordLine",
-    "whitespace-classification predicate in the ASCII_* family's dialect - 'this line holds one word' names no AsciiDoc construct, and the shapes a one-word line can spell (a marker, a delimiter, a section title) each have their own dimension already",
   ],
 ]);
 

@@ -129,22 +129,6 @@ describe("the lens licenses what the printer normalizes", () => {
       ["====\nx\n====\n", "----\nx\n----\n"],
     ],
     [
-      "where the first word of a paragraph ended its line",
-      ["paragraph.firstWordEndsItsLine"],
-      ["a\nb c\n", "a b c\n"],
-      ["a\nb c\n", "a b d\n"],
-    ],
-    [
-      // The ALIKE pair is the JOIN: two source lines become one, so
-      // the output has no second line to carry a run and records `""`
-      // whatever the author wrote. The APART pair differs in the same
-      // field AND in a word, which is what no license may launder.
-      "the indent a paragraph's second source line carried",
-      ["paragraph.secondLineIndent"],
-      ["a\n b c\n", "a\nb c\n"],
-      ["a\n b c\n", "a b d\n"],
-    ],
-    [
       "whether an item's text lines were indented",
       ["*.everyTextLineIndented"],
       ["* a\n  b\n", "* a\nb\n"],
@@ -377,13 +361,11 @@ describe("the lens sees each corruption, and one arm names it", () => {
   // either - every spelling of it was the same emission.
   test.each([
     // `===\n ----\n`, `+\n ----\n` and `+\n ```x -> y\n```\n` used to
-    // stand here and no longer do. The first went when the
-    // block-start hazard net began writing the second line's own
-    // indent back ({@link ParagraphNode.secondLineIndent}); the other
-    // two went when the packer began asking the reader whether the
-    // line it is about to write is still the block's own text, which
-    // is what the net could not see from a first atom that may not
-    // end a line. `indent-dropped` has no document left.
+    // stand here and no longer do. All three went when the packer
+    // began asking the reader whether the line it is about to write
+    // is still the block's own text: a layout the reader refuses
+    // sends the block back as its own source lines, indents and all.
+    // `indent-dropped` has no document left.
     [
       // TWO changes inside one diff: a hard break keeps the item's
       // second line from joining, so its indent goes AND the `+`
@@ -404,7 +386,7 @@ describe("the lens sees each corruption, and one arm names it", () => {
       // became one because the tokenizer let an image target start
       // with a colon, which `InlineImageMacroRx` refuses
       // (inline/rules.ts); the run is ordinary text now, so the
-      // block-start hazard net sees the join it would have made, and
+      // reader is asked about the line the join would have made, and
       // no ledgered document mints a block macro any more. The
       // document here is one of the rows the family keeps: the join
       // happens inside a monospace span, where the text it changes is

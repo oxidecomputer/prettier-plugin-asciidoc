@@ -232,13 +232,6 @@
   },
   {
     "file": "src/mark-record.ts",
-    "symbol": "MarkFact",
-    "importer": "src/print/span-marks.ts",
-    "kind": "vocabulary",
-    "reason": "the mark record's own type. Declared in a leaf module because src/ast.ts names it on the four mark span types and the module that builds it names the token vocabulary back, which would be the cross-file cycle the graph gate refuses even for type-only imports"
-  },
-  {
-    "file": "src/mark-record.ts",
     "symbol": "SpanMarks",
     "importer": "src/parse/inline/inline-node-builder.ts",
     "kind": "vocabulary",
@@ -877,13 +870,6 @@
   {
     "file": "src/parse/line-shapes.ts",
     "symbol": "ASCII_WHITESPACE",
-    "importer": "src/print/block-start-hazard.ts",
-    "kind": "vocabulary",
-    "reason": "Ruby's `\\s` as one class; the block-start net asks whether an atom carries whitespace in the same dialect every word-segmentation test in src/print uses"
-  },
-  {
-    "file": "src/parse/line-shapes.ts",
-    "symbol": "ASCII_WHITESPACE",
     "importer": "src/print/inline.ts",
     "kind": "vocabulary",
     "reason": "Ruby's `\\s`, so a text node's leading/trailing join to its inline siblings cannot read a no-break space as the source's own separator whitespace (issue #75)"
@@ -1345,13 +1331,6 @@
   },
   {
     "file": "src/parse/line-shapes.ts",
-    "symbol": "isSingleWordLine",
-    "importer": "src/parse/build/paragraph.ts",
-    "kind": "vocabulary",
-    "reason": "the one answer to 'does this line hold one word and nothing else'; the paragraph builders record it for the printer's block-start hazard net, and a second spelling would be a second whitespace dialect"
-  },
-  {
-    "file": "src/parse/line-shapes.ts",
     "symbol": "optionalGroup",
     "importer": "src/parse/lines/classify.ts",
     "kind": "vocabulary",
@@ -1416,13 +1395,6 @@
   {
     "file": "src/parse/line-shapes.ts",
     "symbol": "rstrip",
-    "importer": "src/parse/build/paragraph.ts",
-    "kind": "vocabulary",
-    "reason": "the one line-normalization helper; Ruby's reader rstrips, so every consumer must strip the same way"
-  },
-  {
-    "file": "src/parse/line-shapes.ts",
-    "symbol": "rstrip",
     "importer": "src/parse/lines/classify.ts",
     "kind": "vocabulary",
     "reason": "the one line-normalization helper; Ruby's reader rstrips, so every consumer must strip the same way"
@@ -1475,13 +1447,6 @@
     "importer": "src/print/table-layout.ts",
     "kind": "vocabulary",
     "reason": "the one spelling of the per-line trailing-whitespace strip the reader applies before a table is parsed, so the multi-line-cell predicate reads a cell's lines exactly as the parse handed them over"
-  },
-  {
-    "file": "src/parse/line-shapes.ts",
-    "symbol": "startsBlockAtLineStart",
-    "importer": "src/print/reflow.ts",
-    "kind": "vocabulary",
-    "reason": "the one answer to 'may this word begin a line', in both spellings, asked by reflow at the one documented parse address so the packer cannot write a block, a section or a preprocessor line the source never had"
   },
   {
     "file": "src/parse/line-shapes.ts",
@@ -1769,13 +1734,6 @@
     "importer": "src/parse/build/list.ts",
     "kind": "vocabulary",
     "reason": "the same one answer, for the one fact the list builder measures off an item's own token images rather than off the lines it was handed (checkboxLine): a checklist prefix is tested against the item's FIRST line, and that line has to end where splitLines and the location index already ended it, a lone carriage return included"
-  },
-  {
-    "file": "src/parse/positions.ts",
-    "symbol": "nextLineBreak",
-    "importer": "src/parse/build/paragraph.ts",
-    "kind": "vocabulary",
-    "reason": "the same one answer, for the two facts the paragraph builder measures off the document source rather than off the lines it was handed (firstWordEndsItsLine and secondLineIndent): they cut the block's first line where splitLines and the location index cut it, a lone carriage return included"
   },
   {
     "file": "src/parse/positions.ts",

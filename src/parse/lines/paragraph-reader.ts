@@ -597,10 +597,10 @@ class Paragraph {
    * source already wrote, which binds first because Ruby's term group
    * is non-greedy. Folding keeps the second and spends the first: the
    * words become ordinary words of the paragraph, and reflow may put
-   * one at the HEAD of an output line. `term::` is the one block shape
-   * the packer's line-start rule deliberately does not refuse
-   * ({@link isBlockSyntaxAtLineStart}), because on a plain paragraph's
-   * later line such a word is text (ORACLE: `para one` / `x:: y`
+   * one at the HEAD of an output line. `term::` is the one block
+   * shape the reader's own verdict does not refuse on a plain
+   * paragraph's later line, because there such a word is text
+   * (ORACLE: `para one` / `x:: y`
    * renders one `<p>`); on a DESCRIPTION's rest line it is a sibling
    * term that ends the item (ORACLE: `t:: item` / `x // x:: y` renders
    * a second `<dt>`). So such a line keeps the output line of its own

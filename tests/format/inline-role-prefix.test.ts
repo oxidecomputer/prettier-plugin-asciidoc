@@ -9,14 +9,13 @@
  * the HIGHLIGHT row alone; in front of the other three marks the
  * brackets were plain text, which put them in a node of their OWN.
  *
- * That placement is what corrupted documents. The block-start hazard
- * net (src/print/block-start-hazard.ts) trades a join for the author's
- * line break when the packed line re-reads as block syntax, and it can
- * only see the hazard when the span's opening atom carries the run's
- * `[` at its head. With the brackets in a sibling text node the mark
- * atom was glued to that sibling, the net's guard on a glued successor
- * bailed, and `"[.role]__\nb__ c]\n"` packed to `[.role]__ b__ c]` - a
- * BLOCK ATTRIBUTE LINE, whose paragraph renders EMPTY.
+ * That placement is what corrupted documents. What the printer asks
+ * of a packed first line is what the READER makes of it
+ * (`opensTheSameBlock`, src/line-verdict.ts), and the line it asks
+ * about is the one the atoms make: with the brackets in a sibling
+ * text node the `[` reached that line all the same, and
+ * `"[.role]__\nb__ c]\n"` packed to `[.role]__ b__ c]` - a BLOCK
+ * ATTRIBUTE LINE, whose paragraph renders EMPTY.
  *
  * These rows are the one-per-mark record that the modeling fix closed
  * that, and the mid-line counterparts that hold it to firing only

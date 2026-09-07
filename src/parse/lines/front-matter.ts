@@ -28,11 +28,11 @@
  * KNOWN AND NOT CLOSED HERE: reflow may still MANUFACTURE an opening
  * fence, by breaking a document's first paragraph line right after a
  * leading `---` when the word behind it does not fit. The
- * block-start hazard net (src/print/block-start-hazard.ts) is the
- * mechanism for that class, and it cannot carry this one: it asks
- * whether a line START reads as block syntax, position-blind, so
- * teaching it this shape would refuse `---` at the head of EVERY
- * reflowed line rather than at the one place a fence can exist. A
+ * reader's own verdict on each composed line (`accepts`,
+ * src/line-verdict.ts) is the mechanism for that class, and it cannot
+ * carry this one: it asks what a line reads as INSIDE the block it
+ * belongs to, and a front-matter fence is read before any block
+ * exists, so no block's verdict has an opinion about it. A
  * document whose first line already IS `---` with a partner below is
  * read here before any paragraph exists, so the hazard needs a first
  * line that begins `--- ` and a lone `---` somewhere under it.

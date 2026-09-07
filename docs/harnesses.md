@@ -1056,14 +1056,13 @@ symbol citation is a backtick-quoted, identifier-shaped run written immediately
 before a repository `.ts` path, across all three trees. Four spellings are
 claimed, and they are the ones the repo writes:
 
-- ``(`isSingleWordLine`, src/parse/line-shapes.ts)`` - a comma and a
-  parenthesis;
+- ``(`optionalGroup`, src/parse/line-shapes.ts)`` - a comma and a parenthesis;
 - `` `delimitedExtent` in src/parse/lines/delimited-reader.ts `` - one of the
   prepositions `in`, `of`, `from`, `at`;
 - ``(`stacksAsMetadata`,`` then the path on the next comment line - the
   80-column rule breaks the aside as often as not;
-- `` `ParagraphNode.secondLineIndent` (src/ast.ts) `` - a qualified name, whose
-  every segment must be there.
+- `` `ParagraphNode.blankBelowAnchorLine` (src/ast.ts) `` - a qualified name,
+  whose every segment must be there.
 
 The file must DECLARE the name (function, class, interface, type, enum,
 variable, property, accessor or method) or IMPORT it; the walk is the TypeScript

@@ -374,45 +374,49 @@ test("the oracle receives the interior byte for byte", async () => {
 });
 
 /**
- * A verbatim construct that would be BLOCK syntax at column 0 travels
- * in its predecessor's run rather than opening an output line
- * ({@link verbatimBoundary}).
+ * A verbatim construct that would be BLOCK syntax at column 0 never
+ * reaches column 0 as one, and the reader is what says so.
  *
- * `++++` is what made the net necessary: Asciidoctor reads it as a
- * passthrough with empty content, and reads it at the head of a line
- * as a delimited-block delimiter - so the packer opening a line with
- * it deletes the rest of the paragraph. The INLINE ANCHOR row is the
- * same hazard, and was live before the passthrough existed: a
- * trailing `[[anc]]` pushed to column 0 becomes a BLOCK anchor and
- * the rendered `<a id="anc">` disappears from the paragraph
- * altogether.
+ * `++++` is the shape: Asciidoctor reads it as a passthrough with
+ * empty content, and reads it at the head of a line as a
+ * delimited-block delimiter - so a packer opening a line with it
+ * would delete the rest of the paragraph. The INLINE ANCHOR row is
+ * the same hazard: a trailing `[[anc]]` pushed to column 0 becomes a
+ * BLOCK anchor and the rendered `<a id="anc">` disappears.
+ *
+ * A per-node probe used to fuse such a construct onto its
+ * predecessor, so the paragraph wrapped one word earlier. The reader
+ * answers about the LINE instead: where the line it would open reads
+ * as block syntax the layout is refused and the block's own source
+ * lines come back (the first two rows, which are one line either
+ * way), and where the line is prose the packer wraps like any other
+ * (`++++ tail` is no delimiter). Every row renders as its input and
+ * is a fixed point.
  */
 describe("block syntax never opens an output line", () => {
   const PAD = "wordword ".repeat(9).trim();
-  test.each([`${PAD} ++++`, `${PAD} ++++ tail`, `${PAD} [[anc]]`])(
-    "%j",
-    async (source) => {
-      const result = await measure(source);
-      expect(result.formatted.split("\n").at(1)).toMatch(/^wordword /v);
-      expect(result.after).toBe(result.before);
-      expect(result.again).toBe(result.formatted);
-    },
-  );
+  test.each([
+    [`${PAD} ++++`, `${PAD} ++++\n`],
+    [`${PAD} ++++ tail`, `${PAD}\n++++ tail\n`],
+    [`${PAD} [[anc]]`, `${PAD} [[anc]]\n`],
+  ])("%j", async (source, want) => {
+    const result = await measure(source);
+    expect(result.formatted).toBe(want);
+    expect(result.after).toBe(result.before);
+    expect(result.again).toBe(result.formatted);
+  });
 });
 
 /**
- * The block's own SECOND line keeps the break the author wrote, even
- * when the word-level net has already fused its first word backwards
- * ({@link keepBlockStartBreak}).
+ * The block's own lines come back where the packed first line would
+ * be block syntax.
  *
  * A paragraph whose first line is a bare `*` and whose second opens
  * with another one packs to `* *...` at column 0, which the reader
- * takes for a list item and the oracle does not. Both nets see that
- * hazard: `wordsToAtoms` fuses the second `*` backwards because a
- * lone `*` is block syntax at a line start, and the block-start net
- * wants the author's break instead. Fusing protects nothing at the
- * head of a block - there is no earlier atom for the break to land
- * in front of - so the net owns the decision and clears the fuse.
+ * takes for a list item and the oracle does not. The reader sees the
+ * hazard where it is: the packed first line reads as a marker line
+ * where the block opened as prose, so the layout is refused and the
+ * author's own two lines come back.
  *
  * The `+a+` rows reach that shape because a passthrough is its own
  * node, which splits `*+a+` into two atoms where it used to be one

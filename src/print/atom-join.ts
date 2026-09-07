@@ -15,11 +15,7 @@
  */
 import type { InlineNode, TextNode } from "../ast.js";
 import type { NodeFacts } from "../whitespace-runs.js";
-import {
-  isBlockSyntaxAtLineStart,
-  type Atom,
-  type BreakBefore,
-} from "./reflow.js";
+import type { Atom, BreakBefore } from "./reflow.js";
 import type { SpanNode } from "./span-edges.js";
 import type { BlockStart } from "./block-start-hazard.js";
 
@@ -82,18 +78,7 @@ const BOUNDARY_BREAK = {
  * @returns the atom carrying it.
  */
 export function withBoundary(atom: Atom, boundary: Boundary): Atom {
-  // A `hardBreak` in front of a construct that would OPEN A BLOCK at a
-  // line start is refused, and the join falls back to the space that
-  // forbids a break. The line such a break opens is at the block's
-  // continuation indent, which is column 0 for a paragraph, and the
-  // source's own column is not the printer's to reconstruct here - so
-  // what the record asked for cannot be written without writing a
-  // delimiter the author did not. The same trade `wordAtom`
-  // (src/print/reflow.ts) makes for a WORD the packer fuses backwards.
-  const join =
-    boundary === "hardBreak" && isBlockSyntaxAtLineStart(atom.text)
-      ? "space"
-      : boundary;
+  const join = boundary;
   const breakBefore: BreakBefore =
     join === "literal" || join === "hardBreak"
       ? BOUNDARY_BREAK[join]
@@ -109,8 +94,8 @@ export function withBoundary(atom: Atom, boundary: Boundary): Atom {
 /**
  * Where a node sits among its inline siblings, and in which block.
  *
- * The first two fields are what the block-start hazard net's callers
- * read before they call it; the rest is what only the printer asks -
+ * The first two fields are what a caller reads about the block's
+ * start; the rest is what only the printer asks -
  * the siblings themselves, the enclosing span, and the block's source
  * start line the dlist first-line guard reads.
  */

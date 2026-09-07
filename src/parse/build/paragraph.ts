@@ -28,11 +28,9 @@ import { FIRST_COLUMN, FIRST_LINE } from "../../constants.js";
 import { NO_PACKED_TEXT } from "../../line-verdict.js";
 import { annotation } from "./delimited.js";
 import { buildFromTokens } from "../inline/inline-node-builder.js";
-import { isSingleWordLine, rstrip } from "../line-shapes.js";
 import type { InlineToken } from "../inline/tokens.js";
 import {
   makeLocation,
-  nextLineBreak,
   type Fragment,
   type LocationIndex,
 } from "../positions.js";
@@ -92,87 +90,6 @@ export function bodyExtent(
 }
 
 /**
- * Whether the source line a block OPENS ON ends after its first word -
- * {@link ParagraphNode.firstWordEndsItsLine} carries the whole argument
- * and the printer that reads it.
- *
- * Measured off the SOURCE from the block's own start offset, so the
- * indentation and any prefix in front of the block (a description
- * list's term column) are outside the question, and rstripped before
- * the test the way every registry rule is matched.
- *
- * Where the line ENDS is {@link nextLineBreak}'s answer and not a
- * `\n` scan of its own, so this and the lines the reader was handed
- * cannot disagree: a lone `\r` ends a line to `@asciidoctor/core`
- * 4.0.11's `prepareSourceString`, so `word\rmore` is a line of one
- * word and not a line of two (issue #159). Reachable only by a direct
- * parse - Prettier rewrites `\r\n?` to `\n` before any plugin parser
- * runs (prettier/index.mjs, normalizeEndOfLine) - which is why the
- * pins for it are tree pins in tests/parser/paragraph.test.ts.
- * @param source - the whole document
- * @param start - the block's start offset
- * @returns true when one word stands between that offset and the end
- *   of its line
- */
-function firstWordEndsItsLine(source: string, start: number): boolean {
-  return isSingleWordLine(
-    rstrip(source.slice(start, nextLineBreak(source, start))),
-  );
-}
-
-// The leading run `indented = this_line.start_with? ' ', TAB`
-// (parser.rb l.572) is the whole of: SPACE and TAB, and nothing else.
-// A line opening with any other whitespace is not indented to
-// Asciidoctor, so its run is not the fact this measures.
-const LEADING_INDENT = /^[ \t]*/v;
-
-/**
- * The leading whitespace of the source line directly UNDER the one a
- * paragraph opens on - {@link ParagraphNode.secondLineIndent} carries
- * the whole argument and the printer that reads it.
- *
- * Measured off the SOURCE, like {@link firstWordEndsItsLine}, and
- * conjoined with the two conditions that make the run the printer's to
- * write: the paragraph reaches a second line at all, and it opened at
- * column 0, where the line the printer would rebuild is the line the
- * source had.
- *
- * Where the first line ends is {@link nextLineBreak}'s answer, for
- * the same reason it is in {@link firstWordEndsItsLine}: a lone `\r`
- * ends a line, so the run under `word\r  more` is the two spaces and
- * not nothing (issue #159). The break is a SINGLE character in both
- * spellings - a CRLF's break is its `\n`, one position past the `\r`
- * that is not lone - so the line under it opens one past it.
- *
- * The second condition is also what makes the break exist: a
- * paragraph whose content ends on a later line than it starts on has
- * a line break inside it, and the index that numbered those lines
- * counts the same breaks this scan finds. So there is no "no break
- * found" arm to write; there is no such state.
- * @param source - the whole document
- * @param position - the paragraph's own content extent
- * @param position.start - where its content begins
- * @param position.end - where its content ends
- * @returns the run's bytes, or `""` where the conjunction fails
- */
-function secondLineIndent(
-  source: string,
-  position: { start: Location; end: Location },
-): string {
-  if (
-    position.start.column !== FIRST_COLUMN ||
-    position.end.line === position.start.line
-  ) {
-    return "";
-  }
-  const lineEnd = nextLineBreak(source, position.start.offset);
-  // The `*` quantifier matches at any offset, so the match is total
-  // and the run is empty exactly where the second line starts flush
-  // left.
-  return LEADING_INDENT.exec(source.slice(lineEnd + 1))?.[0] ?? "";
-}
-
-/**
  * A plain paragraph: its inline body, positioned over the CONTENT
  * tokens — newlines are separators, not content, so a paragraph does
  * not end on the line break that ended it.
@@ -189,7 +106,7 @@ export function buildParagraph(
   body: ParagraphBody,
 ): ParagraphNode {
   const { tokens, reading } = read;
-  const { source, blankBelow, context } = body;
+  const { blankBelow, context } = body;
   const position = bodyExtent(tokens, at);
   const children = buildFromTokens(tokens, at);
   return {
@@ -197,8 +114,6 @@ export function buildParagraph(
     children,
     whitespace: blockWhitespace(children, context),
     reading,
-    firstWordEndsItsLine: firstWordEndsItsLine(source, position.start.offset),
-    secondLineIndent: secondLineIndent(source, position),
     // The anchor half of the conjunction is asked of the ONE record
     // that owns it (loneAnchorChild, src/block-metadata.ts) and never
     // re-derived here, so the reader cannot record a blank about a
@@ -552,13 +467,6 @@ export function buildRawLineParagraph(
     // The printer keeps the raw line on an output line of its own, so
     // no line of this block is one the packer composed.
     reading: NO_PACKED_TEXT,
-    // The fragment IS the whole line, so its image is the source slice
-    // the question is about; offset 0 is that slice's own start.
-    firstWordEndsItsLine: firstWordEndsItsLine(line.image, 0),
-    // ONE line, so there is no line under it to measure and the
-    // conjunction is empty by construction rather than by a slice of
-    // a fragment that holds no second line anyway.
-    secondLineIndent: "",
     // A raw line is never an anchor line, so the conjunction is false
     // by construction here rather than by measuring what follows.
     blankBelowAnchorLine: false,

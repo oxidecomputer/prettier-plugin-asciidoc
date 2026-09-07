@@ -193,10 +193,10 @@ describe("reflow may not MANUFACTURE an ordered list", () => {
     );
   });
 
-  // The block-start net, on the plain-text path: `.` alone on a line
-  // is not a marker, but `.` with anything after it is. The break the
-  // author wrote behind it is kept even though the word after it is
-  // itself fused backwards as block syntax.
+  // The opening question, on the plain-text path: `.` alone on a
+  // line is not a marker, but `. 1.` is, so the packed first line
+  // does not open the paragraph the reader opened and the author's
+  // own two lines come back.
   test("a lone dot keeps the break the author wrote behind it", async () => {
     await expectRow(".\n1. c\n", ".\n1. c\n");
   });

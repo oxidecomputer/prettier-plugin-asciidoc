@@ -49,7 +49,6 @@ import type { BlockReading } from "../reader-context.js";
 import {
   holdsDescriptionSeparatorWord,
   LINE_COMMENT_HEAD,
-  startsBlockAtLineStart,
 } from "../parse/line-shapes.js";
 
 /**
@@ -654,43 +653,6 @@ const CONTINUATION_WORD = "+";
 export const HARD_BREAK_IMAGE = " +";
 
 /**
- * Detect words that must not begin an output line, because
- * AsciiDoc would re-parse them there as the start of a new block
- * or list item. Such a word is fused onto its predecessor — within a
- * text node by wordsToAtoms, and across a node boundary by the leading
- * boundary in src/print/inline.ts's text case.
- *
- * The answer comes entirely from the line-shape registry.
- * {@link startsBlockAtLineStart} answers whether the head would be
- * re-read as syntax where it stands; this adds the one word the
- * PRINTER must answer differently, the lone `+`.
- * @param word - The head of an output line, in one of three
- *   spellings: a single non-empty whitespace-delimited token from the
- *   paragraph text, as produced by String.split on whitespace; a
- *   span-opening atom's COMPOSED text (mark, edge space, first word:
- *   `** b`, the block-start hazard net,
- *   src/print/block-start-hazard.ts); or a whole FUSED RUN as
- *   {@link wrap} joins it, which may hold any number of atoms and the
- *   spaces between them (`[a@b.com] and`). The last two carry interior
- *   whitespace, which the registry's probes spell either way.
- * @returns True when the head would start a block, start a section,
- *   or be eaten by the preprocessor, at line start
- */
-export function isBlockSyntaxAtLineStart(word: string): boolean {
-  // A lone `+` is the one interrupter this rule must NOT act on: it
-  // is handled by the line-END rule (isDangerousAtLineEnd) and by
-  // escapeDanglingPlus, and fusing it backwards here would put ` +`
-  // at the end of a line instead, a hard line break. That is a rule
-  // about where a BREAK may land, which is the printer's question and
-  // not the registry's about what a line shape means, so it lives
-  // here rather than in the registry.
-  if (word === CONTINUATION_WORD) {
-    return false;
-  }
-  return startsBlockAtLineStart(word);
-}
-
-/**
  * Detect words that would become AsciiDoc syntax when
  * placed at end of a line (before a break). Such
  * words are fused to their successor so the break lands
@@ -840,14 +802,11 @@ function wordAtom(
   hazard: boolean,
   held: HeldJoin,
 ): Atom {
-  // A word FUSED BACKWARDS is one that would be block syntax at a
-  // line start, and the break the record holds in front of it is
-  // exactly the break the block-start net weighs (`keepBlockStartBreak`,
-  // src/print/block-start-hazard.ts): the net puts the AUTHOR's line
-  // back, indent and all, where doing so is safe. Demanding one here
-  // as well would be two atoms giving the packer opposite orders, and
-  // the demand would be lifted to the front of the fused run - in
-  // front of the wrong word. So the net decides, and this yields.
+  // A word FUSED BACKWARDS shares its predecessor's line by the join
+  // in front of it, so demanding a BREAK there as well would be two
+  // atoms giving the packer opposite orders, and the demand would be
+  // lifted to the front of the fused run - in front of the wrong
+  // word. The join wins, and the record's break is dropped.
   const demanded = hazard || (held === "newline" && !fuseBackwards);
   return {
     ...atomOf(word),

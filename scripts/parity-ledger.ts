@@ -428,20 +428,31 @@ const TEXTLESS_DESCRIPTION_TEXT_FAMILY = "textless-description-text";
 const CURVED_QUOTE_NODE_FAMILY = "curved-quote-node";
 
 /**
- * Every paragraph records whether its first source line ends after its
- * first word ({@link ParagraphNode.firstWordEndsItsLine}), the fact
- * the printer's block-start hazard net reads in place of re-deriving
- * it from inline fragment values. The formatted bytes do not move over
- * this corpus - the net's answer changes only for a paragraph whose
- * first source line holds one marker-shaped word, which no corpus case
- * spells - so every declared case differs in the AST alone, by that
- * one key and nothing else. NOT formatted-only: the key IS the
- * difference, and a formatted-only family would fail the cross-check
- * for every case.
+ * Every paragraph recorded TWO facts for the printer's block-start
+ * hazard net: whether its first source line ended after its first
+ * word, and the indent the line under it opened with (issue #191,
+ * landed 7f548d81). Both are GONE with the net that read them - what
+ * a packed line spells is the reader's question about the finished
+ * layout, and a layout the reader refuses writes every one of the
+ * block's own lines back, indent and all - so both are departed keys
+ * (see {@link DEPARTED_BLANKET_KEYS}).
+ *
+ * ONE FAMILY OWNING BOTH, because they leave in one commit and
+ * `blanketCoverage` (scripts/parity-keys.ts) tests a case against ONE
+ * family's key set at a time: two families owning one key each would
+ * cover no case at all, since every paragraph that reached a second
+ * line lost both. #308 is the union-coverage gap that would let the
+ * two stand apart; until it lands the field pair is the unit, which
+ * is what a family names. The coverage test strips a family's keys
+ * from BOTH dumps, so a field arriving and a field leaving are one
+ * claim about which keys the difference is in.
+ *
+ * NOT formatted-only: the keys ARE the difference, and a
+ * formatted-only family would fail the cross-check for every case.
  *
  * Not exported: no grid row cites it.
  */
-const BLOCK_START_LINE_FACT_FAMILY = "block-start-line-fact";
+const BLOCK_START_LINE_FACTS_FAMILY = "block-start-line-facts";
 
 /**
  * Every paragraph records whether the source wrote a blank line under
@@ -815,30 +826,6 @@ const BLOCK_MACRO_NAME_FAMILY = "block-macro-name";
 export const ADMONITION_LABEL_FOLD_FAMILY = "admonition-label-fold";
 
 /**
- * Every paragraph records the indent its SECOND source line opened
- * with ({@link ParagraphNode.secondLineIndent}), the run the
- * block-start hazard net writes back instead of rebuilding that
- * stranded line at column 0 (issue #191, landed 7f548d81). The field
- * is the fact Ruby reads there (`indented = this_line.start_with? ' ',
- * TAB`, parser.rb l.572), so every paragraph that reached a second
- * line carries it and the serialized tree moves at every such case
- * while the bytes hold: measured against 5229e0f7, the landing's own
- * base, 907 of the 908 differing cases over the 1,620-case corpus
- * differ in this key and nothing else, which is what a bare trailer
- * declares. NOT formatted-only: the key IS the difference, and a
- * formatted-only family would fail the cross-check for every case.
- *
- * The 908th moved BYTES as well and so cannot fold under a blanket
- * strip; it takes a per-id trailer under
- * {@link MARKER_GAP_KEPT_FAMILY} below, the same way the
- * blank-line-restoring case of {@link
- * BLANK_BELOW_ANCHOR_LINE_FACT_FAMILY} takes its own.
- *
- * Not exported: no grid row cites it.
- */
-const SECOND_LINE_INDENT_FACT_FAMILY = "second-line-indent-fact";
-
-/**
  * A list marker keeps the `[ \t]+` run the author wrote behind it
  * ({@link ListItemNode.markerGap}), where the printer used to
  * normalize every gap to one space - which is how `- - -` became the
@@ -853,13 +840,11 @@ const SECOND_LINE_INDENT_FACT_FAMILY = "second-line-indent-fact";
  * NOT formatted-only, though `markerGap` is itself invisible here: it
  * is not one of the seven fields `normalizeOneItem` keeps, so it is
  * dropped from BOTH sides the way `markerIndent` is
- * ({@link MARKER_INDENT_KEPT_FAMILY}). What moves this id's TREE is
- * the sibling fact of the same landing - its two `secondLineIndent`
- * keys, measured, and nothing else - which is exactly what
- * {@link SECOND_LINE_INDENT_FACT_FAMILY}'s bare trailer proves of the
- * other 907 cases and cannot prove here only because the blanket
- * requires identical bytes. A case takes one family, and the family
- * names why the BYTES moved.
+ * ({@link MARKER_INDENT_KEPT_FAMILY}). What moved this id's TREE at
+ * that landing was the sibling fact beside it, a recorded second-line
+ * indent the tree no longer carries at all
+ * ({@link BLOCK_START_LINE_FACTS_FAMILY} owns its departure). A case
+ * takes one family, and the family names why the BYTES moved.
  *
  * Not exported: no grid row cites it.
  */
@@ -1069,7 +1054,7 @@ export const LEDGER_FAMILIES: FamilySets = {
     INLINE_PASSTHROUGH_FAMILY,
     EMAIL_AUTOLINK_FAMILY,
     DOCUMENT_HEADER_FAMILY,
-    BLOCK_START_LINE_FACT_FAMILY,
+    BLOCK_START_LINE_FACTS_FAMILY,
     BLANK_BELOW_ANCHOR_LINE_FACT_FAMILY,
     SPAN_ROLE_NODE_FAMILY,
     CHECKBOX_TEXT_POSITION_FAMILY,
@@ -1088,7 +1073,6 @@ export const LEDGER_FAMILIES: FamilySets = {
     OPEN_BLOCK_TILDE_FAMILY,
     BLOCK_MACRO_NAME_FAMILY,
     ADMONITION_LABEL_FOLD_FAMILY,
-    SECOND_LINE_INDENT_FACT_FAMILY,
     MARKER_GAP_KEPT_FAMILY,
     WIDTH_BREAK_BEFORE_A_MARKER_WORD_FAMILY,
     WHITESPACE_RECORD_FAMILY,
@@ -1114,26 +1098,35 @@ export const LEDGER_FAMILIES: FamilySets = {
     TABLE_LAYOUT_FAMILY,
     TABLE_WIDTH_LAYOUT_FAMILY,
   ]),
-  // Nine families, and each owns exactly the field it named, as the
-  // dumper serializes it: `ParagraphNode.firstWordEndsItsLine`,
-  // `ParagraphNode.blankBelowAnchorLine`,
-  // `TableCellNode.columnIndex`, `ParagraphNode.secondLineIndent`,
-  // the `whitespace` record on every prose-block carrier, the `marks`
-  // record on the four mark spans, the `headDrain` record on the body
-  // both list-like items share, the `reading` on the same three
-  // carriers `whitespace` sits on, and the `detachedTail` that body
-  // used to carry (all src/ast.ts). Every other family names a change
-  // to what the tree MEANS at some ids; these nine name a field every
-  // paragraph, every table cell, every mark span, every list item or
-  // every prose block gained - or, for the last, LOST. The mechanism
-  // does not distinguish the two: it strips the keys from both dumps
-  // before comparing, so a field arriving and a field leaving are one
-  // claim about which key the difference is in.
+  // Eight families, each owning exactly the fields it named, as the
+  // dumper serializes them: the paragraph's two block-start line
+  // facts that LEFT together, `ParagraphNode.blankBelowAnchorLine`,
+  // `TableCellNode.columnIndex`, the `whitespace` record on every
+  // prose-block carrier, the `marks` record on the four mark spans,
+  // the `headDrain` record on the body both list-like items share,
+  // the `reading` on the same three carriers `whitespace` sits on,
+  // and the `detachedTail` that body used to carry (all src/ast.ts).
+  // Every other family names a change to what the tree MEANS at some
+  // ids; these eight name a field every paragraph, every table cell,
+  // every mark span, every list item or every prose block gained -
+  // or, for two of them, LOST. The mechanism does not distinguish the
+  // two: it strips the keys from both dumps before comparing, so a
+  // field arriving and a field leaving are one claim about which keys
+  // the difference is in.
+  //
+  // ONE FAMILY OWNS TWO KEYS, and that is the shape a landing needs
+  // where two fields leave together: `blanketCoverage`
+  // (scripts/parity-keys.ts) tests a case against ONE family's key
+  // set at a time, so two families owning one key each would cover no
+  // case whose tree lost both. #308 is the union-coverage gap that
+  // would let them stand apart.
   blanketKeys: new Map([
-    [BLOCK_START_LINE_FACT_FAMILY, new Set(["firstWordEndsItsLine"])],
+    [
+      BLOCK_START_LINE_FACTS_FAMILY,
+      new Set(["firstWordEndsItsLine", "secondLineIndent"]),
+    ],
     [BLANK_BELOW_ANCHOR_LINE_FACT_FAMILY, new Set(["blankBelowAnchorLine"])],
     [TABLE_CELL_COLUMN_INDEX_FAMILY, new Set(["columnIndex"])],
-    [SECOND_LINE_INDENT_FACT_FAMILY, new Set(["secondLineIndent"])],
     [WHITESPACE_RECORD_FAMILY, new Set(["whitespace"])],
     [SPAN_MARK_RECORD_FAMILY, new Set(["marks"])],
     [HEAD_DRAIN_RECORD_FAMILY, new Set(["headDrain"])],
@@ -1162,6 +1155,8 @@ export const LEDGER_FAMILIES: FamilySets = {
  */
 export const DEPARTED_BLANKET_KEYS: ReadonlySet<string> = new Set([
   "detachedTail",
+  "firstWordEndsItsLine",
+  "secondLineIndent",
 ]);
 
 /** One expected-diff ledger entry: a case allowed to differ, and why. */

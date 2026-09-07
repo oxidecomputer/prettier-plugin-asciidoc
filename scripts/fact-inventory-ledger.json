@@ -502,12 +502,6 @@
         }
       ]
     },
-    "ParagraphNode.firstWordEndsItsLine": {
-      "reason": "block-start-hazard.ts's question",
-      "lemmaTest": "tests/format/breaks.test.ts",
-      "landedLemma": false,
-      "reparseFamilies": []
-    },
     "ParagraphNode.reading": {
       "reason": "the context the packer asks its own question in",
       "lemmaTest": "tests/format/packed-line-reading.test.ts",
@@ -517,18 +511,6 @@
           "basis": "measured",
           "family": "indent-dropped",
           "note": "the family's own mechanism, from the other end: the printer packed a block's words into a line the reader reads as something else, and the recorded reading is what makes that question answerable at all - a line means one thing inside a paragraph and another inside a list item's text. Measured, not argued: `bun run reparse-ledger` reports indent-dropped empty with the fact recorded and the accept check reading it, and tests/conformance/reparse.test.ts's two `+`-headed positive controls round-trip where they used to breach. The reading ledger moves with it, `bun run reading-ledger` reporting prose-reads-as-marker at 0 where it read 62, with no row arriving in any family"
-        }
-      ]
-    },
-    "ParagraphNode.secondLineIndent": {
-      "reason": "the line block-start-hazard.ts's kept break opens, written back",
-      "lemmaTest": "tests/format/second-line-indent.test.ts",
-      "landedLemma": true,
-      "reparseFamilies": [
-        {
-          "basis": "measured",
-          "family": "indent-dropped",
-          "note": "the family's own mechanism on a paragraph's SECOND line: the block-start hazard net kept the author's break and rebuilt the line at column 0, where the leading space that had kept `----`, `|===`, `////` or `[x]` from opening its construct was gone. Measured, not argued: the 20 rows of the lemma test are byte-red without the fact, and `bun run reparse-ledger` over the same 96,722 documents reports indent-dropped at 14 where it read 101, with every other family byte-identical and no row added. The 87 that left are exactly the `pair/<construct>/delimiter-<X>/adjacent` coordinates the issue's reopen comment named. Attribution to THIS fact and not to `ListItemNode.markerGap`, which landed beside it: markerGap's own rows are render-only and idempotent, so they were never in this ledger, and its replay changes no projection (the printer writes the gap back, so input and output agree on it). What remains is the arm the net cannot reach - it bails on a first atom that may not end a line, and a lone `+` is one - so all 14 survivors are `line/pair/continuation/delimiter-<X>-near-2/adjacent/doc`"
         }
       ]
     },
