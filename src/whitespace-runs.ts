@@ -238,9 +238,9 @@ export interface RunSite {
   /** What faces it behind. */
   readonly after: RunSide;
   /**
-   * The run lies inside the reach of a macro whose target or reftext
-   * the converter reads as one string (rows A10 to A12), and which of
-   * the three that is.
+   * The run lies inside the reach of a macro whose target the
+   * converter reads as one string (rows A10 and A11), and which of
+   * the two that is.
    */
   readonly reach: MacroReach;
 }
@@ -250,10 +250,10 @@ export interface RunSite {
  * a run inside it is not prose. `"none"` for a run outside every
  * reach.
  */
-type MacroReach = "none" | "urlTarget" | "plainTarget" | "reftext";
+type MacroReach = "none" | "urlTarget" | "plainTarget";
 
 // The reach of a macro target: the rows whose run lies inside a
-// bracketed target or reftext.
+// bracketed target.
 
 // `image:`/`icon:` and `menu:` reach from the macro name to the `[`
 // that opens its attribute list. The target class here is WIDER than
@@ -265,14 +265,6 @@ type MacroReach = "none" | "urlTarget" | "plainTarget" | "reftext";
 const URL_TARGET_MACRO =
   /(?<![\p{L}\p{N}_:])(?:image|icon):(?<reach>[^\[\n]*)\[/dgv;
 const PLAIN_TARGET_MACRO = /(?<![\p{L}\p{N}_:])menu:(?<reach>[^\[\n]*)\[/dgv;
-
-// An anchor's REFTEXT: the bracketed half of `anchor:id[reftext]` and
-// the comma half of `[[id,reftext]]`. `InlineAnchorRx` spells the
-// reftext with `.` and no `/m` (rx.rb l.443), so a newline there ends
-// the match and the anchor is not an anchor.
-const ANCHOR_REFTEXT =
-  /(?<![\p{L}\p{N}_:])anchor:[^\[\n]*\[(?<reach>[^\]\n]*)\]/dgv;
-const INLINE_ANCHOR_REFTEXT = /\[\[[^\],\n]*,(?<reach>[^\]\n]*)\]\]/dgv;
 
 /** One half-open span of a value, and what reads it. */
 interface Reach {
@@ -301,8 +293,6 @@ function reachesOf(value: string): readonly Reach[] {
   const patterns: ReadonlyArray<readonly [RegExp, MacroReach]> = [
     [URL_TARGET_MACRO, "urlTarget"],
     [PLAIN_TARGET_MACRO, "plainTarget"],
-    [ANCHOR_REFTEXT, "reftext"],
-    [INLINE_ANCHOR_REFTEXT, "reftext"],
   ];
   for (const [pattern, kind] of patterns) {
     pattern.lastIndex = 0;

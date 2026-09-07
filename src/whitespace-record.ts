@@ -19,7 +19,7 @@
  * WHY THE READER AND NOT THE PRINTER. A whitespace run is syntax
  * wherever a rule of the reference spells its boundary as the literal
  * space or the literal newline: the em-dash replacement, the hard
- * line break, a macro target, an anchor's reftext. Deciding that from
+ * line break, a macro target. Deciding that from
  * the printed words means re-deriving, one predicate per rule, what
  * the reader already knew when it tokenized the line - and the
  * predicates then disagree with the reader about what a construct is.
@@ -153,8 +153,6 @@ type BindingRule =
   | "lonePlusAhead"
   /** A run inside an `image:`, `icon:` or `menu:` target. */
   | "macroTarget"
-  /** A run inside an anchor's reftext. */
-  | "anchorReftext"
   /**
    * A run of a REPLAYED block. The whole-block rows read which LINE a
    * byte of the block is on, so every run of one keeps the spelling

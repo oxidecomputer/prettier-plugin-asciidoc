@@ -426,10 +426,6 @@ function boundRow(
   if (site.reach === "plainTarget") {
     return { kind: "bound", to, by: "macroTarget" };
   }
-  // A12: an anchor's reftext, whose pattern has no `/m`.
-  if (site.reach === "reftext") {
-    return { kind: "bound", to, by: "anchorReftext" };
-  }
   // A7's bound outcome.
   const dashes = dashRow(site);
   return dashes?.kind === "bound" ? dashes : undefined;

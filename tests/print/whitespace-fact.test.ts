@@ -205,6 +205,30 @@ describe("the rows, one witness each", () => {
       { kind: "bound", to: "newline", by: "dashOrReferenceEdge" },
     ]);
   });
+
+  // NOT PROTECTED BY DESIGN: a run inside an anchor's reftext. A row
+  // once bound such a run to its spelling, which kept a width break
+  // out of the brackets. No author writes a reftext long enough to
+  // reach the print width, and the two programs disagree about what a
+  // break there would mean: Ruby 2.0.26 spells `InlineAnchorRx`'s
+  // reftext with `.` and no `/m` (rx.rb l.443), so a newline inside
+  // the brackets ends the match and the anchor stops being an anchor,
+  // while `@asciidoctor/core` 4.0.11 forms the anchor across the
+  // break and renders both spellings alike. Neither reading binds
+  // where they disagree, so the run is free and the packer may break
+  // there. These rows characterize what the tree prints; they do not
+  // protect it.
+  test("a run inside an anchor reftext is free", async () => {
+    expect(runsOf("anchor:id[a  b] x\n")).toEqual([
+      { kind: "free" },
+      { kind: "free" },
+    ]);
+    await expectFormatted(
+      "anchor:id[some ref text] tail words here now\n",
+      "anchor:id[some ref\ntext] tail words\nhere now\n",
+      { printWidth: 20 },
+    );
+  });
 });
 
 describe("the whole-block rows", () => {
