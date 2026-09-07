@@ -106,13 +106,18 @@ import {
 } from "./split.js";
 import { readTable } from "./table-open.js";
 
-// Text starting at `from` whose `//` lines are the comments they look
-// like, which is every paragraph but one: `read_paragraph_lines`
-// passes `skip_line_comments` on every path except the literal branch
-// of an item whose `text_only` is unset, and a dlist item carrying its
-// own text is the only item that leaves it unset (parser.rb l.754,
-// l.1367-74).
-const textAt = (from: number): TextOpen => ({ from, comments: "skipped" });
+// The reading every ordinary paragraph opens under. Its text RUNS ON
+// into the lines below its own, which is every paragraph but a marker
+// item's whose first block is detached, and list-read.ts spells that
+// one itself (`TextOpen.extent`); its `//` lines are the comments they
+// look like, which is every paragraph but one, because
+// `read_paragraph_lines` passes `skip_line_comments` on every path
+// except the literal branch of an item whose `text_only` is unset, and
+// a dlist item carrying its own text is the only item that leaves it
+// unset (parser.rb l.754, l.1367-74).
+const ORDINARY_READING = { extent: "runsOn", comments: "skipped" } as const;
+// Text under that reading, starting at raw column index `from`.
+const textAt = (from: number): TextOpen => ({ from, ...ORDINARY_READING });
 
 // The one block-attribute style the reader itself acts on: it turns the
 // heading that follows into a discreteHeading leaf instead of an

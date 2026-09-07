@@ -115,16 +115,38 @@ export interface ParagraphScan {
 }
 
 /**
- * Where a paragraph-shaped extent's TEXT starts, and how a `//` line
- * inside it reads. Both are the caller's to fix before the first line
- * is read, and neither can be recovered from the lines alone: the
- * start sits past a marker or a label the reader parsed, and the
- * comment reading follows from WHICH construct the paragraph belongs
- * to.
+ * Where a paragraph-shaped extent's TEXT starts, how a `//` line
+ * inside it reads, and how far down it runs. None of the three can be
+ * recovered from the lines alone, and all three are the caller's to
+ * fix before the first line is read: the start sits past a marker or a
+ * label the reader parsed, the comment reading follows from WHICH
+ * construct the paragraph belongs to, and the extent is the caller's
+ * answer about the line UNDER the opening one.
  */
 export interface TextOpen {
   /** Raw column index where the paragraph's text starts. */
   readonly from: number;
+  /**
+   * How far the text runs - for a list item, Ruby's
+   * `content_adjacent` (parser.rb l.1366-67) under another name.
+   *
+   * `runsOn` - the text continues into the lines below its own, which
+   * is what a paragraph does everywhere and what a marker item does
+   * when a NON-EMPTY line stands under its opening line: `has_text`
+   * is cleared there (l.1369) and `fold_first` merges the first block
+   * into the item's text (l.1384), so the block the text ran over
+   * stops being one.
+   *
+   * `ownLine` - the text is its opening line's own and stops at that
+   * line's end. Where nothing is folded, Ruby's two halves stay
+   * apart: `list_item.text` comes from the marker line's own MATCH
+   * (`ListItem.new(list_block, (item_text = match[2]))`, l.1316) and
+   * the buffer goes to `next_block` whole (l.1373-80),
+   * so the buffer's first line opens a BLOCK. Reading it as the
+   * text's own last words instead is what deletes that block from the
+   * render (issue #262).
+   */
+  readonly extent: "runsOn" | "ownLine";
   /**
    * The caller's answer for `read_paragraph_lines`'s
    * `skip_line_comments` argument: `skipped` drops a `//` line before
@@ -332,8 +354,18 @@ class Paragraph {
   /**
    * Consume lines until one ends the paragraph. The ending line is left
    * unread — `read_lines_until` with `preserve_last_line: true`.
+   *
+   * A text the caller opened as its own line's ({@link TextOpen.extent})
+   * consumes none: the constructor already took the opening line, and
+   * the next line is the caller's to read as whatever it is. That is
+   * the loop's ONE early exit, and it is the caller's answer rather
+   * than a shape this scan could find - the line below looks the same
+   * under both readings.
    */
   read(): void {
+    if (this.text.extent === "ownLine") {
+      return;
+    }
     for (;;) {
       const next = this.scan.lines.at(this.index);
       if (next === undefined) {
@@ -785,6 +817,9 @@ export function continuationFoldExtent(
   // literal branch's).
   const paragraph = new Paragraph(scan, at, "continuationFold", {
     from: 0,
+    // The fold is the attached block's own body, so it runs on
+    // through the lines under the `+` exactly as a paragraph does.
+    extent: "runsOn",
     comments: "skipped",
   });
   paragraph.read();

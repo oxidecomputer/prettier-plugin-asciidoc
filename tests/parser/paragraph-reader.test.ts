@@ -39,7 +39,7 @@ function scanOf(source: string, markerStyle?: string): ParagraphScan {
 
 // The reader's own answer for a block-level paragraph: text at column
 // 0, and a `//` line inside it is the comment it looks like.
-const PLAIN_TEXT: TextOpen = { from: 0, comments: "skipped" };
+const PLAIN_TEXT: TextOpen = { from: 0, extent: "runsOn", comments: "skipped" };
 
 describe("paragraphExtent", () => {
   test("runs on through plain lines and stops at the blank, unread", () => {
@@ -55,6 +55,7 @@ describe("paragraphExtent", () => {
     const scan = scanOf("* item\n", "*");
     const { tokens } = paragraphExtent(scan, 0, "listItem", {
       from: 2,
+      extent: "runsOn",
       comments: "skipped",
     });
     expect(tokens.map((token) => token.image).join("")).toBe("item\n");
@@ -79,6 +80,29 @@ describe("paragraphExtent", () => {
     expect(paragraphExtent(scan, 0, "paragraph", PLAIN_TEXT).end).toBe(1);
   });
 
+  // Issue #262. `TextOpen.extent` is the caller's answer about the
+  // line UNDER the opening one, and no shape in the lines can stand
+  // in for it: these two documents are the same three lines, and what
+  // parts them is only whether `parse_list_item` found a blank behind
+  // its comment peek (parser.rb l.1366-67). With the text stopped on
+  // its own line the run below is left for the block loop, which is
+  // what makes it a block; with the text running on it is the text's
+  // own last words.
+  test.each([
+    ["runsOn" as const, "a\n///c\n", 2],
+    ["ownLine" as const, "a\n///c\n", 1],
+  ])("a %s text reads %#: the run is left or taken", (extent, source, end) => {
+    const body = paragraphExtent(scanOf(source), 0, "listItemText", {
+      from: 0,
+      extent,
+      comments: "skipped",
+    });
+    expect(body.end).toBe(end);
+    expect(body.tokens.map((token) => token.image).join("")).toBe(
+      end === 1 ? "a\n" : "a\n///c\n",
+    );
+  });
+
   // Issue #101. `TextOpen.comments` is the reader's answer to
   // `read_paragraph_lines`'s `skip_line_comments:` argument, and the
   // literal-plus rule is where it shows: with the comment counted,
@@ -91,6 +115,7 @@ describe("paragraphExtent", () => {
     const breaks = (comments: "content" | "skipped"): number =>
       paragraphExtent(scan, 0, "dlistItem", {
         from: 0,
+        extent: "runsOn",
         comments,
       }).tokens.filter((token) => token.type === "HardLineBreak").length;
     expect(breaks("content")).toBe(1);
@@ -111,6 +136,7 @@ describe("paragraphExtent", () => {
   ])("%s, whatever the caller said", (_name, source, rawLines) => {
     const { tokens } = paragraphExtent(scanOf(source), 0, "dlistItem", {
       from: 0,
+      extent: "runsOn",
       comments: "content",
     });
     expect(tokens.filter((token) => token.type === "RawLine")).toHaveLength(

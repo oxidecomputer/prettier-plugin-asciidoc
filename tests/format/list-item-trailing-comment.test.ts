@@ -81,7 +81,6 @@ describe("a //-headed run above a blank is a marker item's own block", () => {
     ["an item nested behind its own +", "* a\n+\n** b\n///c\n+\nd\n"],
     ["four slashes", "* a\n////c\n+\nb\n"],
     ["a bare ///", "* a\n///\n+\nb\n"],
-    ["two near-miss comments in the run", "* a\n///c\n///d\n+\nb\n"],
     ["a real comment behind the near miss", "* a\n///d\n//c\n+\nb\n"],
     ["a second continuation behind the run", "* a\n///c\n+\nb\n+\nd\n"],
     ["adjacent continuations behind the run", "* a\n///c\n+\n+\nb\n"],
@@ -93,14 +92,34 @@ describe("a //-headed run above a blank is a marker item's own block", () => {
   ])("%s stays byte for byte, not joined", async (_name, input) => {
     await expectFormatted(input, input);
   });
-  // ONE CONTROL, for the edge this arm could over-refuse: a REAL `//`
-  // run above the same `+` takes the same arm, and its lines must
-  // still print where they stood rather than move or vanish. The
-  // other edge - no marker item over the run at all, where the
-  // classifier governs and `///c` is ordinary text - is the `a plain
-  // paragraph` row of the describe above, and adding it here again
-  // would be the same input under a second name.
-  test("a real comment run above the + stays where it stood (control)", async () => {
-    await expectFormatted("* a\n//c\n+\nb\n", "* a\n//c\n+\nb\n");
+  // TWO ROWS WHOSE BYTES MOVED with issue #262, and one reason moves
+  // both: the run is the item's first BLOCK now, so the ordinary
+  // block printer writes it where a replay of raw text tokens used
+  // to. Neither RENDER changes - a paragraph's two lines join with
+  // the space the render puts between them anyway, and a line comment
+  // renders nothing at all - and both spellings are the ones every
+  // other paragraph and every other line comment in the tree already
+  // gets, so what moved is the run onto the same footing as its
+  // neighbours.
+  //
+  // The second is also the control for the edge this arm could
+  // over-refuse: a REAL `//` run above the same `+` takes the same
+  // arm, and its line must still print where it stood rather than
+  // move or vanish. The other edge - no marker item over the run at
+  // all, where the classifier governs and `///c` is ordinary text -
+  // is the `a plain paragraph` row of the describe above.
+  test.each([
+    [
+      "two near-miss comments pack as the one paragraph they are",
+      "* a\n///c\n///d\n+\nb\n",
+      "* a\n///c ///d\n+\nb\n",
+    ],
+    [
+      "a real comment run above the + stays where it stood (control)",
+      "* a\n//c\n+\nb\n",
+      "* a\n// c\n+\nb\n",
+    ],
+  ])("%s", async (_name, input, expected) => {
+    await expectFormatted(input, expected);
   });
 });

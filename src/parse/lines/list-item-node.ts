@@ -263,12 +263,15 @@ export function endsInPlusParagraph(blocks: readonly BlockNode[]): boolean {
  * is which reader met it. The head drain took it
  * (`Reader#skip_line_comments`'s bare `//` prefix) and
  * `read_paragraph_lines` would keep it one line lower
- * ({@link isDroppedCommentLine}), so it renders as nothing where it
- * stands and as the text's own last words below, measured the same
- * way in BOTH programs. A `//` line the two readers AGREE on is
- * dropped at either position and needs no guard,
- * which is why the test is the disagreement rather than the drain
- * having fired.
+ * ({@link isDroppedCommentLine}), so the reading it has at the
+ * buffer's HEAD is one it has only there - nothing at all where the
+ * peek lost the run, the item's own first block where a blank stopped
+ * the peek - while one line lower it is the text's own last words
+ * either way, measured the same in BOTH programs. Both of those arms
+ * hand their run here for that reason. A `//` line the two readers
+ * AGREE on is dropped at either position and needs no guard, which is
+ * why the test is the disagreement rather than the drain having
+ * fired.
  *
  * A DESCRIPTION sibling needs no drain half: its drained bytes are
  * replayed as the term's GAP, and a non-empty gap already forbids the

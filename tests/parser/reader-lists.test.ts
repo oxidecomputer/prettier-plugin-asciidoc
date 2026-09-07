@@ -477,18 +477,38 @@ describe("reader: a //-headed run above a blank is the item's first block", () =
   // which showed as `list(item(t / t +p(t)))`, one text node
   // spanning both lines, and the printer was then free to pack the
   // run onto the marker line (issue #234).
+  //
+  // These shapes were `list(item(t raw +p(t)))` until issue #262: the
+  // run was kept out of the fold, but by REPLAYING its lines as raw
+  // tokens of the item's own text, which is the reading a run the
+  // peek LOST gets. The two readings differ in what renders - nothing
+  // at all, against the item's first `<p>` - and a tree that spells
+  // them alike leaves the printer no way to tell a body it may write
+  // back bare from one that needs the `+` under it. The block a
+  // stacked `-p` names IS that `<p>`, and its empty gap is the run
+  // standing directly under the item's opening line.
+  //
+  // The BYTES these three come back as are pinned where the rest of
+  // the family's are, in tests/format/list-item-trailing-comment.ts,
+  // which carries all three inputs; asserting them here as well was
+  // one copy of that answer too many.
   test.each([
-    ["one near miss", "* a\n///c\n+\nb\n", "list(item(t raw +p(t)))"],
-    ["a run of two", "* a\n///c\n///d\n+\nb\n", "list(item(t raw raw +p(t)))"],
+    ["one near miss", "* a\n///c\n+\nb\n", "list(item(t -p(t) +p(t)))"],
+    [
+      "a run of two",
+      "* a\n///c\n///d\n+\nb\n",
+      // ONE paragraph over both lines, so the printer packs them the
+      // way it packs any other paragraph's.
+      "list(item(t -p(t / t) +p(t)))",
+    ],
     [
       "nested, the outer item unaffected",
       "* a\n** b\n///c\n+\nd\n",
-      "list(item(t list(item(t raw +p(t)))))",
+      "list(item(t list(item(t -p(t) +p(t)))))",
     ],
   ])("%s", async (_name, input, shape) => {
     expect(astShape(input)).toBe(shape);
     expect(itemCount(input)).toBe(await oracleItems(input));
-    expect(await formatAdoc(input)).toBe(input);
   });
 });
 
