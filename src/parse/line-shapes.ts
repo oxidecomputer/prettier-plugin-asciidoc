@@ -749,23 +749,46 @@ export const BLOCK_ATTRIBUTE_LINE = wholeLine(BLOCK_ATTRIBUTE_LINE_SOURCE);
 export const BLOCK_TITLE = /^\.\.?[^ \t.][^\n]*$/v;
 
 // An attribute entry (`:name: value`, `:name!:`). Mirrors
-// `AttributeEntryRx` (`/^:(!?CG_WORD[^:]*):(?:[ \t]+(CC_ANY*))?$/`),
-// with Ruby's unicode word class approximated by `\w`: only the
-// name's FIRST character is held to it, so an ASCII-led name with any
-// tail (`:café:`) is read, and a name LED by a letter outside ASCII
-// (`:ünicode:`) is not (issue #246). Two rows above approximate the
-// same `CC_WORD` the same way and are tracked separately:
-// BLOCK_ATTRIBUTE_LINE_SOURCE's leading character and
-// ATTRLIST_LEADING_CHARACTER beside it, where `[ünicode]` and `[日本]`
-// are attribute lines to both authorities and prose to this reader.
-// The block anchor's id class is NOT one of them: it is spelled in
-// full at BLOCK_ANCHOR_ID_TAIL_ORACLE.
+// `AttributeEntryRx` (`/^:(!?CG_WORD[^:]*):(?:[ \t]+(CC_ANY*))?$/`,
+// rx.rb l.124): only the name's FIRST character is held to the word
+// class, the tail being `[^:]*`, so `:a b: v` is one entry written as
+// two words.
+//
+// That first character's class is UNICODE, and reading it as ASCII
+// corrupts the render: `:ünicode: v` opens an entry to both
+// authorities, and a reader that sees prose there joins the paragraph
+// below it onto the line, at which point the joined line IS an entry
+// whose value swallows the text (issue #246). The class is spelled
+// here the way the ORACLE spells it (`CG_WORD`, `index.cjs` l.55):
+// `[\p{Alphabetic}\p{N}\p{Pc}]`.
+//
+// The authorities diverge at the edges of that class. Ruby's
+// `\p{Word}` (asciidoctor.rb l.436) is alphabetics plus MARKS plus
+// DECIMAL digits plus connectors plus the two Join_Control
+// characters, so a name led by a combining mark (U+0301 then `x`) is
+// a live entry to the Ruby and prose to the oracle, and one led by a
+// non-decimal number (U+00BD then `x`) is prose to the Ruby and a
+// live entry to the oracle. Those two directions are the WHOLE
+// difference, swept code point by code point through both engines:
+// the Ruby side is the marks and the two Join_Control characters, the
+// oracle side is the non-decimal numbers, and nothing else separates
+// them. Both measured through both programs; the oracle wins, because
+// it is the program every render assertion here runs, and the two
+// agree on every name a document outside those two edges can write.
+//
+// Two rows above approximate the same `CC_WORD` by `\w` rather than
+// spelling it in full: BLOCK_ATTRIBUTE_LINE_SOURCE's leading
+// character and ATTRLIST_LEADING_CHARACTER beside it, where
+// `[ünicode]` and `[日本]` are attribute lines to both authorities and
+// prose to this reader. The block anchor's id class is NOT one of
+// them: it is spelled in full at BLOCK_ANCHOR_ID_TAIL_ORACLE.
+//
 // Named groups carry the parse out through the classifier — the ONE
 // parse; the accepted line set is IDENTICAL to the ungrouped spelling
 // (`!` is a `[^:]` character, so a trailing bang splits off the lazy
 // name exactly where the old builder regex split it).
 export const ATTRIBUTE_ENTRY =
-  /^:(?<prefixBang>!?)(?<name>\w[^:]*?)(?<suffixBang>!?):(?:[ \t]+(?<value>[^\n]*))?$/v;
+  /^:(?<prefixBang>!?)(?<name>[\p{Alphabetic}\p{N}\p{Pc}][^:]*?)(?<suffixBang>!?):(?:[ \t]+(?<value>[^\n]*))?$/v;
 
 // The suffix that carries an attribute entry's VALUE onto the line
 // below: `LINE_CONTINUATION` (` \`) or the legacy spelling ` +` it

@@ -60,6 +60,15 @@ export const CONSTRUCTS: Array<[string, string]> = [
   ["block title", ".A title"],
   ["line comment", "// a comment"],
   ["attribute entry", ":name: value"],
+  // AttributeEntryRx's name class (`CG_WORD`, rx.rb l.124) is Ruby's
+  // UNICODE word class, held to the FIRST character only, and reading
+  // it as ASCII cost the render (issue #246). The three spellings
+  // that fix which class the registry carries: a name led outside
+  // ASCII, a name whose `[^:]*` tail holds a space, and the shape
+  // that is not an entry because a name is at least one character.
+  ["attribute entry, non-ASCII name", ":ünicode: v"],
+  ["attribute entry, space in the name", ":a b: v"],
+  ["empty attribute name, not an entry", ":: v"],
   ["block attribute list", "[source]"],
   // BlockAttributeLineRx is narrow about the FIRST character inside
   // the brackets: `[+1]` and `[*bold*]` are ordinary text, which a

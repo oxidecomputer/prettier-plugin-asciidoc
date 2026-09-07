@@ -222,12 +222,18 @@ describe("classifyLine over the reachable grid", () => {
   // reach was unchanged. Three anchor id-class rows (issue #203) moved
   // both, because a row is 188 cells of grid whether or not any of
   // them disagrees.
+  //
+  // Three attribute-entry spellings then joined the roster with the
+  // registry's name class (issue #246), each a whole 188-state
+  // column: `cells` rose from 11,468 to 12,032 and `asked` from 8,765
+  // to 9,329. No cell of any of the three disagrees with the oracle,
+  // so the reach is what grew and the verdicts did not move.
   test("is the size and reach the enumeration predicts", () => {
     const { cells, asked } = grid;
     expect(openParagraphProbes()).toHaveLength(188);
-    expect(CONSTRUCTS).toHaveLength(61);
-    expect(cells).toBe(11_468);
-    expect(asked).toBe(8765);
+    expect(CONSTRUCTS).toHaveLength(64);
+    expect(cells).toBe(12_032);
+    expect(asked).toBe(9329);
   });
 
   // Why the 23 states with NO open paragraph are enumerated and not

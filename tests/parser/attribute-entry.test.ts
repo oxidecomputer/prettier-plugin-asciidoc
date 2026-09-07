@@ -292,3 +292,83 @@ describe("a continued attribute entry", () => {
     expect(author.value).toBe("Doc Writer");
   });
 });
+
+// The NAME CLASS (issue #246). Red before ATTRIBUTE_ENTRY stopped
+// approximating Ruby's word class with `\w`
+// (src/parse/line-shapes.ts): a name led by a letter outside ASCII
+// was ordinary prose to the reader, so `:ünicode: v` parsed as a
+// paragraph and the text under it joined onto the same line.
+describe("an attribute entry name outside ASCII", () => {
+  test.each([
+    [":ünicode: v\n", "ünicode", "v"],
+    [":日本: v\n", "日本", "v"],
+    [":Ωmega: v\n", "Ωmega", "v"],
+    [":ключ: v\n", "ключ", "v"],
+    [":café: v\n", "café", "v"],
+    [":a-b: v\n", "a-b", "v"],
+    [":1x: v\n", "1x", "v"],
+    [":_x: v\n", "_x", "v"],
+  ])("%j parses to an entry named %j", (source, name, value) => {
+    const { children } = parse(source);
+    expect(children).toHaveLength(1);
+    const [child0] = children;
+    narrow(child0, "attributeEntry");
+    expect(child0.name).toBe(name);
+    expect(child0.value).toBe(value);
+    expect(child0.unset).toBe(false);
+  });
+
+  // The unset spellings carry the class on either side of the name,
+  // so a non-ASCII name reaches the `unset` fact by both routes.
+  test.each([
+    [":ünicode!:\n", "ünicode"],
+    [":!ünicode:\n", "ünicode"],
+  ])("%j parses to an unset entry named %j", (source, name) => {
+    const { children } = parse(source);
+    const [child0] = children;
+    narrow(child0, "attributeEntry");
+    expect(child0.name).toBe(name);
+    expect(child0.unset).toBe(true);
+  });
+
+  // Both authorities agree on these two, and they are the class edges
+  // in the direction of prose. A name is at least one character, so
+  // `:: v` is not an entry; a space is outside the class, but only
+  // the FIRST character is held to it (the tail is `[^:]*`), so
+  // `:a b: v` IS an entry. Asciidoctor drops the space when it
+  // sanitizes the name, which no byte here has to replay.
+  test(":: v is a paragraph, not an entry", () => {
+    const { children } = parse(":: v\n");
+    const [child0] = children;
+    expect(child0.type).toBe("paragraph");
+  });
+
+  test(":a b: v is an entry whose name holds the space", () => {
+    const { children } = parse(":a b: v\n");
+    const [child0] = children;
+    narrow(child0, "attributeEntry");
+    expect(child0.name).toBe("a b");
+  });
+
+  // WHERE THE TWO AUTHORITIES DISAGREE, both measured. The oracle's
+  // class is `\p{Alphabetic}\p{N}\p{Pc}` and Ruby's `\p{Word}` is
+  // alphabetics plus MARKS plus DECIMAL digits plus connectors, so a
+  // name led by a combining mark is an entry to the Ruby and prose to
+  // the oracle, and one led by a non-decimal number (U+00BD VULGAR
+  // FRACTION ONE HALF) is prose to the Ruby and an entry to the
+  // oracle. The oracle wins, for the reason src/parse/line-shapes.ts
+  // gives at the pattern; these two rows pin which way, so a later
+  // change to the class has to say so here.
+  test("a combining-mark-led name is prose", () => {
+    const { children } = parse(":́x: v\n");
+    const [child0] = children;
+    expect(child0.type).toBe("paragraph");
+  });
+
+  test("a non-decimal-number-led name is an entry", () => {
+    const { children } = parse(":½x: v\n");
+    const [child0] = children;
+    narrow(child0, "attributeEntry");
+    expect(child0.name).toBe("½x");
+  });
+});

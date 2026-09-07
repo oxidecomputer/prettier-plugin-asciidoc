@@ -234,3 +234,69 @@ describe("a continued value keeps the author's split points", () => {
     expect(await formatAdoc(out)).toBe(out);
   });
 });
+
+// The NAME CLASS (issue #246). Red before ATTRIBUTE_ENTRY stopped
+// approximating Ruby's word class with `\w`
+// (src/parse/line-shapes.ts): `:ünicode: v` was prose to the reader,
+// the paragraph under it reflow-joined onto the same line, and the
+// joined line then WAS an entry whose value swallowed the text, so
+// the render lost it. Every row was measured through both programs
+// before it was written, and both read every one of them the same
+// way.
+//
+// The trailing rows are the class edges the two authorities agree on:
+// a name is at least one character, so `:: v` stays prose and its
+// paragraph joins; a space is outside the class but only the FIRST
+// character is held to it, so `:a b: v` is an entry; and an ASCII name
+// is untouched by the widening.
+//
+// A non-ASCII name keeps the author's CASE, which is what `:Ωmega:`
+// and `:ΤΙΤΛΟΣ:` pin. An ASCII name still prints downcased
+// (`sanitize_attribute_name`, parser.rb l.2770-71, reaches the same
+// spelling), but outside ASCII the two programs lowercase differently
+// and the respelling is not licensed - see printAttributeEntry in
+// src/print/blocks.ts.
+describe("attribute entry names outside ASCII", () => {
+  test.each([
+    [":ünicode: v\nmore text\n", ":ünicode: v\n\nmore text\n"],
+    [":日本: v\nmore text\n", ":日本: v\n\nmore text\n"],
+    [":Ωmega: v\nmore text\n", ":Ωmega: v\n\nmore text\n"],
+    [":ключ: v\nmore text\n", ":ключ: v\n\nmore text\n"],
+    [":ünicode!:\nmore text\n", ":!ünicode:\n\nmore text\n"],
+    [":!ünicode:\nmore text\n", ":!ünicode:\n\nmore text\n"],
+    [":café: v\nmore text\n", ":café: v\n\nmore text\n"],
+    [":a-b: v\nmore text\n", ":a-b: v\n\nmore text\n"],
+    [":1x: v\nmore text\n", ":1x: v\n\nmore text\n"],
+    [":_x: v\nmore text\n", ":_x: v\n\nmore text\n"],
+    [":a b: v\nmore text\n", ":a b: v\n\nmore text\n"],
+    [":: v\nmore text\n", ":: v more text\n"],
+  ])("%j formats to %j", async (input, expected) => {
+    await expectFormatted(input, expected);
+  });
+
+  // The value has to survive as a value, not just as bytes on the
+  // line: an entry the reader missed set nothing, so a reference to
+  // it rendered as the literal `{name}`. The reference is what makes
+  // the render assertion inside expectFormatted able to see that.
+  //
+  // The last row is the one that made the printer's downcase a
+  // defect. Both programs resolve `{ΤΙΤΛΟΣ}` against `:ΤΙΤΛΟΣ:` as
+  // the author wrote it; lowercasing the name here does not reach the
+  // same string the reference implementation reaches, because JS
+  // applies the Unicode Final_Sigma rule to a trailing capital sigma
+  // and Ruby does not, so the respelled name is one no reference
+  // resolves and the value leaves the render. Red before
+  // printAttributeEntry gated the respelling on ASCII: the output was
+  // `:τιτλος:` with a FINAL sigma.
+  test.each([
+    [":ünicode: v\n\n{ünicode}\n", ":ünicode: v\n\n{ünicode}\n"],
+    [
+      ":ΤΙΤΛΟΣ: Οδηγός\n\nΤο {ΤΙΤΛΟΣ} λέει.\n",
+      ":ΤΙΤΛΟΣ: Οδηγός\n\nΤο {ΤΙΤΛΟΣ} λέει.\n",
+    ],
+    [":ключ: v\n\n{ключ}\n", ":ключ: v\n\n{ключ}\n"],
+    [":Ünicode: v\n\n{Ünicode}\n", ":Ünicode: v\n\n{Ünicode}\n"],
+  ])("%j sets an attribute a reference can read", async (input, expected) => {
+    await expectFormatted(input, expected);
+  });
+});

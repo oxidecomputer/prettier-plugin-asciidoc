@@ -557,6 +557,29 @@ describe("the boundaries of the reflow verdict", () => {
     await expectStable(input, undefined, { printWidth: 24 });
   });
 
+  // The same guard, with the entry head's name written outside ASCII
+  // (issue #246). Red before OPENS_ATTRIBUTE_ENTRY carried the
+  // registry's own name class: the word pair `:ü a:` was invisible to
+  // the guard, the wrap put it alone on a line, and both programs
+  // then read that line as an attribute entry, so `alpha :ü a: bravo`
+  // rendered as `alpha bravo`.
+  //
+  // Three widths, because the defect is a WRAP and a single column
+  // budget would leave which columns reach it unsaid: 6 and 10 both
+  // wrapped the pair onto its own line before the fix, 40 never
+  // wrapped at all, and the ASCII control is stable at all three. The
+  // corrupting range measured 6 to 11 for `:ü` and 6 to 12 for `:日`;
+  // these rows stand at one end of it, inside it, and outside it.
+  describe.each([6, 10, 40])("at printWidth %i", (printWidth) => {
+    test.each([
+      ["a non-ASCII entry head", "t:: alpha :ü a: bravo\n"],
+      ["a CJK entry head", "t:: alpha :日 a: bravo\n"],
+      ["the ASCII control", "t:: alpha :a a: bravo\n"],
+    ])("a description carrying %s replays", async (_n, input) => {
+      await expectStable(input, undefined, { printWidth });
+    });
+  });
+
   // E used to refuse this wrap: before #183, `t:: alpha bravo charlie
   // x[]` was `name:: target[attrlist]` under the old,
   // unregistered-name-open BLOCK_MACRO, so the wrapped TERM line

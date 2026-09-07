@@ -661,7 +661,15 @@ const OPENS_BLOCK_MACRO = /^[A-Za-z]\w*::[^\[]*$/v;
 // optional leading bang, and then a name that has not yet reached its
 // own closing colon. `ATTRIBUTE_ENTRY`'s name group is `[^:]*?`, so
 // the head word may hold no second colon.
-const OPENS_ATTRIBUTE_ENTRY = /^:!?\w[^:]*$/v;
+//
+// The lead character carries the SAME class the registry's own
+// pattern does (`CG_WORD` in `AttributeEntryRx`, rx.rb l.124, spelled
+// `[\p{Alphabetic}\p{N}\p{Pc}]` at index.cjs l.55). Reading it as
+// ASCII here loses the guard for exactly the names the widened
+// registry gained: a run holding `:ü a:` wraps so that the two words
+// land on a line of their own, and both programs then read that line
+// as an attribute entry and delete the text.
+const OPENS_ATTRIBUTE_ENTRY = /^:!?[\p{Alphabetic}\p{N}\p{Pc}][^:]*$/v;
 
 // A word that could carry that entry's closing `:`, optional trailing
 // bang included: a colon at the end and none before it, for the same

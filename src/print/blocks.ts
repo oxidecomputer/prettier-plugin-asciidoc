@@ -635,6 +635,10 @@ export function printAdmonition(
   );
 }
 
+// The names {@link printAttributeEntry} may respell. Its own comment
+// says why the line is drawn here and not at the divergence itself.
+const ASCII_ONLY = /^\p{ASCII}*$/v;
+
 /**
  * Prints an attribute entry node to Doc IR: `:name: value`, `:name:`,
  * or `:!name:`.
@@ -643,13 +647,35 @@ export function printAdmonition(
  * Asciidoctor cannot see them. The `!` goes in FRONT: `store_attribute`
  * (parser.rb l.2131, the chop at l.2133-40) chops it off whichever end carries it and
  * reaches the same unset either way, and `:!name:` is the form the
- * AsciiDoc documentation leads with. And the NAME goes down:
- * `sanitize_attribute_name` (parser.rb l.2770-71) is
- * `name.gsub(InvalidAttributeNameCharsRx, '').downcase`, so the case
- * an author typed reaches neither the attribute table nor any
- * reference to it. The character-stripping half of that sanitize is
- * NOT copied — `:Foo Bar:` prints `:foo bar:`, which Asciidoctor
- * sanitizes to the same `foobar` the original did.
+ * AsciiDoc documentation leads with. And an ASCII NAME goes down:
+ * both programs sanitize it the same way, `sanitize_attribute_name`
+ * (parser.rb l.2770-71) as
+ * `name.gsub(InvalidAttributeNameCharsRx, '').downcase` and
+ * `Parser.sanitizeAttributeName` (index.cjs l.13876-79) as the same
+ * strip followed by `toLowerCase`, so the case an author typed
+ * reaches neither program's attribute table nor any reference to it.
+ * The character-stripping half of that sanitize is NOT copied:
+ * `:Foo Bar:` prints `:foo bar:`, which both sanitize to the same
+ * `foobar` the original did.
+ *
+ * OUTSIDE ASCII the name keeps the author's bytes, because the two
+ * programs do not lowercase the same string there. JS
+ * `String#toLowerCase` applies the Unicode Final_Sigma rule and
+ * Ruby's `String#downcase` does not, so `ΤΙΤΛΟΣ` goes to `τιτλος`
+ * with a FINAL sigma (U+03C2) here and with a medial one (U+03C3) in
+ * the reference implementation. Respelling `:ΤΙΤΛΟΣ:` that way puts
+ * the attribute under a name `{ΤΙΤΛΟΣ}` no longer resolves to, and
+ * the value leaves the render. A respelling may fire only where both
+ * programs read the result the same way; identity always does, so
+ * that is what a non-ASCII name gets. Sigma has the widest reach of
+ * the disagreements but it is not the only one: the two engines also
+ * lowercase from their own Unicode tables, which are of different
+ * vintages, so a letter one of them has a case mapping for and the
+ * other does not diverges as well, and WHICH letters those are moves
+ * with either engine's version. ASCII is the rule the code carries
+ * for that reason: it is checkable from the name alone, and no
+ * sweep of a class either engine enumerates has to stay true for it
+ * to hold.
  *
  * A value the author CONTINUED onto the lines below carries those
  * lines in its own text, separated by newlines, and they are written
@@ -671,7 +697,7 @@ export function printAttributeEntry(node: {
   unset: boolean;
 }): Doc {
   const bang = node.unset ? "!" : "";
-  const name = node.name.toLowerCase();
+  const name = ASCII_ONLY.test(node.name) ? node.name.toLowerCase() : node.name;
   if (node.value !== undefined) {
     return [":", bang, name, ": ", join(hardline, node.value.split("\n"))];
   }
