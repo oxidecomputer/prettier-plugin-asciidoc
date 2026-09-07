@@ -126,6 +126,35 @@ describe("insurance rows", () => {
     await expectFormatted(input, input);
   });
 
+  // The `[float]` TWIN of the row above, and the two other shapes the
+  // second name used to spell differently. `float` and `discrete` are
+  // one style, so all three take the discreteHeading rules now: a
+  // comment and a directive stack under the title where they used to
+  // be blank-separated, and a level-0 float title's attribute entry
+  // takes the blank it used to stack across (a floating title is not
+  // the document header whose adjacency is meaning-preserving).
+  // Red before the reader read `float` as well as `discrete`: each of
+  // these came back with the ordinary heading's spelling.
+  test.each([
+    [
+      "a comment after it stacks",
+      "[float]\n== D\n// c\n",
+      "[float]\n== D\n// c\n",
+    ],
+    [
+      "a directive after it stacks",
+      "[float]\n== D\nifdef::x[]\n",
+      "[float]\n== D\nifdef::x[]\n",
+    ],
+    [
+      "a level-0 title does not hold an attribute entry",
+      "[float]\n= D\n:a: 1\n",
+      "[float]\n= D\n\n:a: 1\n",
+    ],
+  ])("a float title is a discrete one: %s", async (_name, input, expected) => {
+    await expectFormatted(input, expected);
+  });
+
   test("the level jump is CARRIED, not interpreted: `= D` then `=== C`", async () => {
     const input = "= D\n\n=== C\n";
     await expectFormatted(input, input);

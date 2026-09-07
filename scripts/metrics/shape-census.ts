@@ -344,7 +344,7 @@ const GRID_EXEMPT = new Map<string, string>([
 // to the count the new source list produces; it is not a number to
 // discover from a red gate and paste back.
 const STANDING_GRID_SIZE = 3825;
-const HEADING_ADJACENCY_GRID_SIZE = 79;
+const HEADING_ADJACENCY_GRID_SIZE = 81;
 const LIST_RUN_GRID_SIZE = 104;
 const PAIR_GRID_SIZE = 11_025;
 

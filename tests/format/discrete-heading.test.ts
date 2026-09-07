@@ -93,4 +93,112 @@ describe("discrete heading formatting", () => {
     const input = "[[my-id]]\n[discrete]\n== Heading\n";
     await expectFormatted(input, input);
   });
+
+  // `[float]` is the SAME style under a second name (parser.rb l.709
+  // reads the pair with one test), so it builds the same node.
+  // Red before the reader read both names: `[float]` fell through to
+  // the ordinary heading arm, and the level >= 1 heading that made
+  // carries a section's stacking rules.
+  test("[float] names the same style as [discrete]", async () => {
+    const input = "[float]\n== Heading\n";
+    await expectFormatted(input, input);
+    const { children } = parse(input);
+    const [, child1] = children;
+    narrow(child1, "discreteHeading");
+    expect(child1.level).toBe(1);
+    expect(child1.title).toBe("Heading");
+  });
+});
+
+// Sections do not nest in a block, so a PLAIN title inside a
+// container is paragraph text to both programs. A floating title is
+// not: `next_block` owns its branch (parser.rb l.709) and
+// `next_block` is exactly what reads an item's buffer and a compound
+// interior, so both programs read a heading there.
+describe("a floating title inside a container", () => {
+  // Red before the reader ordered the style test ahead of its
+  // confinement arm (issue #315): every row here folded the title
+  // onto the line below (`== T para`), one paragraph where both
+  // programs render a heading and a paragraph.
+  test.each([
+    [
+      "an example block",
+      "====\n[discrete]\n== T\npara\n====\n",
+      "====\n[discrete]\n== T\n\npara\n====\n",
+    ],
+    [
+      "an example block, [float]",
+      "====\n[float]\n== T\npara\n====\n",
+      "====\n[float]\n== T\n\npara\n====\n",
+    ],
+    [
+      "a sidebar",
+      "****\n[discrete]\n== T\npara\n****\n",
+      "****\n[discrete]\n== T\n\npara\n****\n",
+    ],
+    [
+      "an attached block in a list item",
+      "* item\n+\n[discrete]\n== T\npara\n",
+      "* item\n+\n[discrete]\n== T\npara\n",
+    ],
+    [
+      "an attached block in a list item, [float]",
+      "* item\n+\n[float]\n== T\npara\n",
+      "* item\n+\n[float]\n== T\npara\n",
+    ],
+  ])("%s keeps the heading", async (_name, input, expected) => {
+    await expectFormatted(input, expected);
+  });
+
+  // SHORTHAND spells the same style. `next_block`'s branch (parser.rb
+  // l.709) reads the style `parse_style_attribute` stored (l.2060,
+  // l.2600), so the role, id and option shorthands ride along on it
+  // and `[discrete.myrole]` names `discrete`. Red while the gate read
+  // the raw first positional: every row here folded, and
+  // `[float.independent#first]` is a shape the vendored corpus
+  // carries.
+  test.each([
+    [
+      "a role",
+      "====\n[discrete.myrole]\n== T\npara\n====\n",
+      "====\n[discrete.myrole]\n== T\n\npara\n====\n",
+    ],
+    [
+      "an id",
+      "====\n[discrete#tid]\n== T\npara\n====\n",
+      "====\n[discrete#tid]\n== T\n\npara\n====\n",
+    ],
+    [
+      "an option, [float]",
+      "====\n[float%opt]\n== T\npara\n====\n",
+      "====\n[float%opt]\n== T\n\npara\n====\n",
+    ],
+    [
+      "a role and an id together, [float]",
+      "====\n[float.independent#first]\n== T\npara\n====\n",
+      "====\n[float.independent#first]\n== T\n\npara\n====\n",
+    ],
+  ])("%s on the style still names it", async (_name, input, expected) => {
+    await expectFormatted(input, expected);
+  });
+
+  // The CONTROLS. A plain title inside a container has no branch in
+  // `next_block`, so it is paragraph text that runs on into the line
+  // below and the packer folds it - the reading issue #293 settled,
+  // which the reorder above must leave standing. A bracket line whose
+  // first entry is shorthand ALONE names no style at all, to Ruby and
+  // to us, so it folds for the same reason.
+  test.each([
+    ["a plain title", "====\n== T\npara\n====\n", "====\n== T para\n====\n"],
+    [
+      "a title under a role-only line",
+      "====\n[.myrole]\n== T\npara\n====\n",
+      "====\n[.myrole]\n== T para\n====\n",
+    ],
+  ])(
+    "%s inside a container is still folded",
+    async (_name, input, expected) => {
+      await expectFormatted(input, expected);
+    },
+  );
 });

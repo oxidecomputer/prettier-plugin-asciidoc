@@ -189,14 +189,28 @@ export class HeldMetadata {
   }
 
   /**
-   * The held `[…]` line's style, RAW — no transparency guard. The one
-   * consumer is the discrete-heading gate, which Ruby drains through
-   * `parse_block_metadata_lines` before `next_section` reads the
-   * title, attribute position notwithstanding.
-   * @returns the style, or undefined when no attribute line is held
+   * Whether the held `[...]` line styles the heading below it as a
+   * FLOATING TITLE. `discrete` and `float` are one style under two
+   * names, read with one test (`style == 'float' || style ==
+   * 'discrete'`, next_block, parser.rb l.709).
+   *
+   * The STORED style, not the raw positional: Ruby's branch reads
+   * `attributes[1]` after `parse_style_attribute` has split the
+   * shorthand off it (parser.rb l.2060, l.2596-2601), so
+   * `[discrete.myrole]` and `[float#tid]` name the style too. That is
+   * {@link Attrlist.styleAttribute}, whose own comment says the open
+   * decisions read the raw field instead because their oracle rows
+   * pin them there; this branch has no such pin and follows the
+   * reference.
+   *
+   * No transparency guard on top of it, because Ruby drains the
+   * metadata through `parse_block_metadata_lines` before the title is
+   * read, attribute position notwithstanding.
+   * @returns whether a floating title opens at the heading below
    */
-  heldStyle(): string | undefined {
-    return this.attrlist?.style;
+  holdsFloatingTitleStyle(): boolean {
+    const style = this.attrlist?.styleAttribute;
+    return style === "discrete" || style === "float";
   }
 
   /**

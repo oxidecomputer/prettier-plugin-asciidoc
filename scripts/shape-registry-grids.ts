@@ -21,7 +21,10 @@
  */
 import { DELIMITER_KINDS } from "../src/parse/line-shapes.js";
 import { gridRowFamily } from "./shape-registry-families.js";
-import { UNDERLINED_SECTION_TITLE_FAMILY } from "./parity-ledger.js";
+import {
+  FLOATING_TITLE_NODE_FAMILY,
+  UNDERLINED_SECTION_TITLE_FAMILY,
+} from "./parity-ledger.js";
 import {
   CONTAINERS,
   DELIMITER_PARTS,
@@ -156,6 +159,22 @@ export function headingAdjacencyGrid(): Shape[] {
     {
       id: "adjacency/discrete/comment-after",
       input: "[discrete]\n== D\n// c\n",
+      renderBlind: false,
+    },
+    // The `[float]` TWIN of the row above, and the level-0 shape
+    // beside it. `discrete` and `float` are one style under two names
+    // to both programs, so a base that reads them apart differs HERE
+    // where the `[discrete]` row alone shows nothing.
+    {
+      id: "adjacency/float/comment-after",
+      input: "[float]\n== D\n// c\n",
+      family: FLOATING_TITLE_NODE_FAMILY,
+      renderBlind: false,
+    },
+    {
+      id: "adjacency/float/attribute-entry-after-h0",
+      input: "[float]\n= D\n:a: 1\n",
+      family: FLOATING_TITLE_NODE_FAMILY,
       renderBlind: false,
     },
     {

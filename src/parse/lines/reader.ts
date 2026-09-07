@@ -121,11 +121,6 @@ const ORDINARY_READING = { extent: "runsOn", comments: "skipped" } as const;
 // Text under that reading, starting at raw column index `from`.
 const textAt = (from: number): TextOpen => ({ from, ...ORDINARY_READING });
 
-// The one block-attribute style the reader itself acts on: it turns the
-// heading that follows into a discreteHeading leaf instead of an
-// ordinary one.
-const DISCRETE_STYLE = "discrete";
-
 // The heading level `= Title` spells - the only level a document
 // header opens at (`is_next_line_doctitle?`, parser.rb).
 const DOCUMENT_TITLE_LEVEL = 0;
@@ -197,9 +192,9 @@ class BlockReader {
    * `parse_document_header` ({@link BEFORE_HEADER},
    * {@link BEFORE_HEADER_HELD}), including the header itself - there
    * is exactly one per document. A confined reader never reads it:
-   * `sectionTitle` sends every title inside an item buffer or a
-   * compound interior to the paragraph arm before the question is
-   * asked.
+   * `sectionTitle` answers a title inside an item buffer or a
+   * compound interior before the question is asked, as a floating
+   * title where one is styled and as a paragraph otherwise.
    */
   private headerReachable = true;
 
@@ -746,13 +741,6 @@ class BlockReader {
    * @param kind - the classifier's parse of the title line
    */
   private sectionTitle(line: SourceLine, kind: SectionTitleKind): void {
-    if (this.confinement !== undefined) {
-      // ONE arm for both flavors: bodyContext() already answers
-      // "paragraph" for a block child, because directlyInItem() is
-      // false there.
-      this.paragraph(this.body, textAt(0));
-      return;
-    }
     const end = this.index + kind.extent;
     const span = fragmentOfLines(this.source, line, this.lines[end - 1]);
     // What an ATX-PRINTED heading can carry. An underlined title's
@@ -768,8 +756,21 @@ class BlockReader {
     // the width rule that admitted the pair was applied to the line
     // as written.
     const atxTitle = kind.title.trimStart();
-    if (this.held.heldStyle() === DISCRETE_STYLE) {
+    // AHEAD of the confinement arm, because a floating title is read
+    // at every depth: `next_block` owns the branch (parser.rb l.709),
+    // and `next_block` is what parses an item's buffer and a compound
+    // interior. A PLAIN title has no branch there and falls to the
+    // paragraph below, which is the whole of why the two orders
+    // differ.
+    if (this.held.holdsFloatingTitleStyle()) {
       this.leaf(buildDiscreteHeading(span, kind.level, atxTitle, this.at), end);
+      return;
+    }
+    if (this.confinement !== undefined) {
+      // ONE arm for both flavors: bodyContext() already answers
+      // "paragraph" for a block child, because directlyInItem() is
+      // false there.
+      this.paragraph(this.body, textAt(0));
       return;
     }
     if (kind.level === DOCUMENT_TITLE_LEVEL && this.headerReachable) {

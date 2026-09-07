@@ -508,7 +508,7 @@ export default defineConfig(
   // excluded); the fix would put it where the second number says.
   {
     files: [
-      "src/parse/lines/reader.ts", // 450 -> 462
+      "src/parse/lines/reader.ts", // 449 -> 461
       "scripts/parity.ts", // 449 -> 469
       "tests/parser/ast-invariants.ts", // 436 -> 459
       "tests/scripts/parity.test.ts", // 442 -> 444

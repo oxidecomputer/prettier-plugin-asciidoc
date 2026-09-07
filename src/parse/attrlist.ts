@@ -65,13 +65,18 @@ export interface Attrlist {
    * - An EMPTY entry names no style: `[]` and `[,bar]` are undefined,
    *   where `style` is `""`.
    *
-   * WHAT CONSUMES IT is a rule the pinned oracle has and Ruby does
-   * not, so do not read this field's existence as Ruby semantics: the
-   * one reader is the document header's reachability, and there a
-   * style above the title demotes it to a section only because
-   * `@asciidoctor/core` 4.0.11 tests `blockAttrs.style`
-   * (src/parser.js:180). Ruby 2.0.26 bails on `block_attrs['title']`
-   * alone (parser.rb:132) and builds a header under `[foo]`.
+   * ITS TWO READERS want it for opposite reasons, so do not read the
+   * field's existence as Ruby semantics throughout. The
+   * floating-title gate (`holdsFloatingTitleStyle`,
+   * lines/held-metadata.ts) wants the STORED style because Ruby's own
+   * branch reads it: `[discrete.role]` names `discrete` to
+   * `next_block` (parser.rb l.709). The document header's
+   * reachability wants it for a rule the pinned oracle has and Ruby
+   * does not: a style above the title demotes it to a section only
+   * because `@asciidoctor/core` 4.0.11 tests `blockAttrs.style`
+   * (src/parser.js:180), where Ruby 2.0.26 bails on
+   * `block_attrs['title']` alone (parser.rb:132) and builds a header
+   * under `[foo]`.
    */
   readonly styleAttribute: string | undefined;
 }

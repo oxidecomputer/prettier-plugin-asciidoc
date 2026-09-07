@@ -490,6 +490,28 @@ const BLANK_BELOW_ANCHOR_LINE_FACT_FAMILY = "blank-below-anchor-line-fact";
 const SPAN_ROLE_NODE_FAMILY = "span-role-node";
 
 /**
+ * A title under `[float]`, or under either style with shorthand on
+ * it, is a `discreteHeading` where the base read an ordinary
+ * `heading` (issue #315). `float` and `discrete` are one style under
+ * two names to both programs (`next_block`, parser.rb l.709), and the
+ * style that branch reads is the one `parse_style_attribute` stored
+ * (l.2600), so the shorthand spellings name it too; the base read
+ * only the bare `discrete` spelling and built a section heading for
+ * the rest.
+ *
+ * A node TYPE change, not a field arriving, so NOT a blanket family:
+ * the discriminant is what differs and stripping it would strip the
+ * one key that says which node this is. The per-id trailers carry
+ * the declaration. Not formatted-only either - some declared cases
+ * move their bytes as well, because a discrete heading and a section
+ * heading stack their neighbours by different rules.
+ *
+ * Exported: the heading-adjacency grid's two `[float]` rows cite it
+ * (shape-registry-grids.ts).
+ */
+export const FLOATING_TITLE_NODE_FAMILY = "floating-title-node";
+
+/**
  * A checklist item's first text node loses the four columns the
  * checkbox prefix held from its VALUE at read time
  * (`stripCheckboxPrefix`, src/parse/build/list.ts), and its
@@ -1057,6 +1079,7 @@ export const LEDGER_FAMILIES: FamilySets = {
     BLOCK_START_LINE_FACTS_FAMILY,
     BLANK_BELOW_ANCHOR_LINE_FACT_FAMILY,
     SPAN_ROLE_NODE_FAMILY,
+    FLOATING_TITLE_NODE_FAMILY,
     CHECKBOX_TEXT_POSITION_FAMILY,
     TABLE_NODE_FAMILY,
     TABLE_DELIMITER_LENGTH_FAMILY,

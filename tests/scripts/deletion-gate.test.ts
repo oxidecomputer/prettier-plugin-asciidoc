@@ -131,18 +131,12 @@ describe("what a change has to say before it deletes a fact", () => {
     // derives the deleted set from base-to-head, so an entry whose
     // deletion is already IN the base declares a symbol the diff no
     // longer removes, and the stale check fails it as loudly as a
-    // missing one. This revision removes six published names - four
-    // functions and two that only stopped being exported - so the
-    // file carries exactly their rows and the pin names them; the
-    // next revision empties the file again.
-    expect(loadDeletions().map((entry) => entry.symbol)).toEqual([
-      "src/line-verdict.ts:BlockOpening",
-      "src/print/block-start-hazard.ts:keepBlockStartBreak",
-      "src/parse/line-shapes.ts:isSingleWordLine",
-      "src/print/reflow.ts:isBlockSyntaxAtLineStart",
-      "src/parse/line-shapes.ts:startsBlockAtLineStart",
-      "src/print/text-edges.ts:hasPrecedingInlineSibling",
-    ]);
+    // missing one. This revision removes no published name - the
+    // reader's floating-title gate is renamed, and neither the old
+    // name nor the constant that went with it was exported - so the
+    // file is empty and the pin says so. The revision that next
+    // deletes one fills the file and moves this pin with it.
+    expect(loadDeletions().map((entry) => entry.symbol)).toEqual([]);
   });
 });
 
