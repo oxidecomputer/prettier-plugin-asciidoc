@@ -349,35 +349,6 @@ a breach.
 Proves nothing by itself, exactly as `reading-ledger` does not; it writes the
 file the two tier entries hold the tree to.
 
-### `bun run rewrite-justification` - what licenses the rewrites we make
-
-A REPORT and not a gate: no pin, no exit 1, exit 2 only when the corpus did not
-load. It exists to answer one question with numbers - does preserving every
-line's classification license the rewrites the formatter actually performs? -
-and it is the measurement a decision about deleting printer predicates rests on.
-
-Every rewrite the formatter makes on the corpus is isolated (applied to the
-source on its own, with every other rewrite backed out) and asked both
-questions: the LOCAL one, does every line still classify as it did, answered by
-the classifier trace in `tests/lib/reading.ts`; and the GLOBAL one, does the
-document still re-read as the same document, answered by
-`tests/conformance/reparse.ts`. The four cells are licensed, lemma
-counterexample, unlicensed-but-safe, and unsafe.
-
-One rewrite is one top-level block, or the blank run in front of one. A
-line-level diff of a reflowed document anchors on whatever lines survive
-verbatim and then measures its own mis-attribution; splicing block i of the
-output over block i of the source replaces that with one stated assumption.
-Documents whose block count changed carry no rewrite and are excluded from every
-share.
-
-Read the LICENSED column carefully: it means the projection lens licenses the
-rewrite, not that the render is safe. The lens is bounded by our reader's
-vocabulary and is blind on both sides where the reader is, so a licensed splice
-can still change what Asciidoctor renders - measured, on the quarantined
-four-backtick document. Render safety is the fidelity property in
-`tests/conformance/properties.ts`, which is a different gate.
-
 ### `bun run probe-domains` - four domains the sweep cannot spell
 
 Sweeps four exhaustively generated document domains under this checkout and,
