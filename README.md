@@ -61,6 +61,47 @@ In VS Code, the Prettier extension needs to be told about the extension:
 }
 ```
 
+## Turning the formatter off for one block
+
+A `// prettier-ignore` comment line tells the plugin to leave the block below it
+exactly as written, children included:
+
+```asciidoc
+// prettier-ignore
+| Key   | Meaning
+| ----- | -------
+| a     | the first
+```
+
+The pragma is an ordinary AsciiDoc line comment, so it renders as nothing. It
+covers one block: the next one under it, plus anything nested inside that block.
+Block metadata lines may stand between the two, and they are written back
+unchanged as well:
+
+```asciidoc
+// prettier-ignore
+[cols="1, 2"]
+.A   deliberately   spaced   title
+|===
+| a |   b
+|===
+```
+
+Four limits worth knowing.
+
+- Headings are blocks in their own right, not section containers, so a pragma
+  above `== Title` covers the heading line and not the section under it.
+- A list ITEM cannot be ignored. A pragma written between two items is read into
+  the item above it, as part of that item's own text, so it names no block and
+  the item below still reflows. A pragma INSIDE an item, under a `+`
+  continuation, does cover the block it attaches.
+- The run from the pragma to the block it names crosses block metadata, other
+  comment lines, preprocessor directives, and blank lines. It ends at anything
+  else, an attribute entry (`:name: value`) and a `////` comment block included,
+  and that line is then the block the pragma covers.
+- Prettier strips trailing whitespace from every line it writes, an ignored
+  block's lines included.
+
 ## Options
 
 Two options, resolved by Prettier like any other: set them in a Prettier config,

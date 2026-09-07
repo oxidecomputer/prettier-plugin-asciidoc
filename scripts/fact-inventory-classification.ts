@@ -70,7 +70,6 @@ export const UNREAD_CLAIMS: ReadonlySet<string> = new Set([POSITION, UNREAD]);
  * the rest).
  */
 export const EXEMPT: ReadonlyMap<string, string> = new Map([
-  ["Location.offset", POSITION],
   ["Node.type", TYPE_DISCRIMINANT],
   ["DocumentNode.type", TYPE_DISCRIMINANT],
   ["DocumentNode.children", STRUCTURAL],

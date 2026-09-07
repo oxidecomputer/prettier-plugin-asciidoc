@@ -29,6 +29,7 @@ import { blockBody } from "./reflow.js";
 import { joinBlocks } from "./join.js";
 import {
   type AnyNode,
+  type PrintOptions,
   hasPrecedingLanguageAttribute,
   printAdmonition,
   printAttributeEntry,
@@ -50,6 +51,56 @@ const {
   builders: { hardline, join },
 } = doc;
 
+/**
+ * The bytes to write for a block the author marked with a
+ * `// prettier-ignore` line, or undefined for every other node.
+ *
+ * The ONE licensed byte-preserving path through this printer, and it
+ * is a spelling choice rather than an analysis: the reader already
+ * recorded which block the pragma names (`ignoredByPragma`,
+ * src/ast.ts) and every node already carries the extent of everything
+ * it contains, so the whole implementation is a slice of the text
+ * Prettier parsed. Nesting needs no special case for the same reason -
+ * a delimited block's extent runs from its opening delimiter to its
+ * closing one, so its children come along inside the slice and are
+ * never visited.
+ *
+ * The slice is split into lines rather than emitted as one string
+ * because a Doc string holding a newline breaks Prettier's own width
+ * accounting; hardlines are how every other multi-line block here
+ * writes its lines. Prettier trims trailing whitespace off each line
+ * it writes, so "byte for byte" means the same modulo that trim -
+ * which every other block in this printer is subject to as well.
+ *
+ * THE RULE, exactly: the block's bytes come back, all of them. The ONE
+ * newline taken off is the one the CALLER writes - the document
+ * printer ends every document with a hardline, and a block whose
+ * extent runs to end of input carries that same newline inside the
+ * slice, so replaying it too wrote a line nobody asked for. Left on,
+ * it split into a trailing empty string that went out as a blank line,
+ * and since that blank landed inside the next read's extent the output
+ * grew one more of them on every pass, without limit.
+ *
+ * Exactly one, never the run: a block the author left OPEN is
+ * force-closed at end of input, so the blank lines above that point
+ * are its verbatim INTERIOR - block bytes, which this path exists to
+ * preserve - and only the last newline of all is the document's.
+ * Pinned for zero, one, two and three trailing blanks in
+ * tests/format/ignore-pragma.test.ts.
+ * @param node - the node about to be printed
+ * @param options - the print options, read for the parsed source text
+ * @returns the node's own source bytes, or undefined when it carries
+ *   no pragma
+ */
+function ignoredSource(node: AnyNode, options: PrintOptions): Doc | undefined {
+  if (!("ignoredByPragma" in node) || node.ignoredByPragma !== true) {
+    return undefined;
+  }
+  const { start, end } = node.position;
+  const source = options.originalText.slice(start.offset, end.offset);
+  return join(hardline, source.replace(/\n$/v, "").split("\n"));
+}
+
 const printer: Printer<AnyNode> = {
   // Printing asks for the children it wants by name; the walk Prettier
   // makes over our AST on its own is generic and reads this table
@@ -62,6 +113,15 @@ const printer: Printer<AnyNode> = {
 
   print(path, options, print): Doc {
     const { node } = path;
+
+    // Asked of every node before anything else, so the pragma reaches
+    // every sequence a reader builds - the document's blocks, a
+    // delimited interior's, a list item's attached blocks - without
+    // each printing site having to ask for itself.
+    const ignored = ignoredSource(node, options);
+    if (ignored !== undefined) {
+      return ignored;
+    }
 
     switch (node.type) {
       case "document": {

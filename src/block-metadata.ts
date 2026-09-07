@@ -40,7 +40,12 @@
  * module. What keeps that honest is that none of the printed-line
  * records is on the parse layer's side of the module.
  */
-import type { BlockNode, InlineAnchorNode, InlineNode } from "./ast.js";
+import type {
+  BlockNode,
+  CommentNode,
+  InlineAnchorNode,
+  InlineNode,
+} from "./ast.js";
 import { BLOCK_ANCHOR } from "./parse/line-shapes.js";
 import { splitWords } from "./print/reflow.js";
 import { anchorToSource } from "./print/serialize-inline.js";
@@ -60,8 +65,39 @@ import { anchorToSource } from "./print/serialize-inline.js";
  * @param block - The block node to test.
  * @returns Whether the block is a line comment.
  */
-export function isLineComment(block: BlockNode): boolean {
+export function isLineComment(block: BlockNode): block is CommentNode {
   return block.type === "comment" && block.commentType === "line";
+}
+
+// The comment TEXT that turns formatting off for the block below,
+// matched against `CommentNode.value`, the line's own bytes minus the
+// `//`, as the reader recorded them. Not a line-shape registry row
+// (docs/coding-standards.md): the line is already classified as a
+// comment before this is asked, so no reader consults it to decide
+// what a line IS, and no paragraph context can change the answer.
+// The permitted padding is the reader's own strip set restricted to
+// what can survive in front of the text (the trailing side is already
+// rstripped off the recorded value), so `//   prettier-ignore` counts
+// and `// prettier-ignore please` does not.
+const IGNORE_PRAGMA = /^[ \t]*prettier-ignore[ \t]*$/v;
+
+/**
+ * Whether this block is the ignore pragma: the AsciiDoc line comment
+ * `// prettier-ignore`, which asks the printer to write the block
+ * BELOW it back from the source instead of formatting it.
+ *
+ * Lives beside the other node-level comment classifications for the
+ * reason the module header gives: the parse layer asks it (the reader
+ * marks the block the pragma names as it joins the sequence) and the
+ * user-facing behaviour it names is the printer's, so one definition
+ * has to serve both ends. An exact match, following Prettier's own
+ * convention in every other language: a comment that merely mentions
+ * the pragma is an ordinary comment.
+ * @param block - The block node to test.
+ * @returns Whether the block is a `// prettier-ignore` line.
+ */
+export function isIgnorePragma(block: BlockNode): boolean {
+  return isLineComment(block) && IGNORE_PRAGMA.test(block.value);
 }
 
 /**

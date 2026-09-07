@@ -476,6 +476,30 @@ Every preservation site under case 2 is a normalization candidate. The question
 per construct is never "may we normalize?" but "what derivation preserves the
 meaning?" — decided per construct, landed with render-equality proofs.
 
+Outside those two cases there is exactly one licensed byte-preserving path, and
+it is the AUTHOR's to open, never the formatter's: the `// prettier-ignore`
+pragma (issue #175). A line comment spelling exactly that, written above a
+block, tells the printer to write that block's own source bytes back instead of
+formatting it: the block plus everything nested inside it, and the block
+metadata lines standing between the pragma and the block:
+
+```asciidoc
+// prettier-ignore
+[cols="1, 2"]
+| a |   b
+```
+
+The pragma is recorded where the block joins its sibling sequence
+(`carryIgnorePragma`, `src/parse/lines/ignore-pragma.ts`) and spelled at the
+printer's one entry point, as a slice of the parsed source over the extent the
+node already carries. It is a spelling choice, not an analysis, which is why
+nesting needs no case of its own. The formatter's own behavior stays total and
+maximal: this is user intent recorded in the document, not a fallback the
+printer reaches for, and nothing in this repository may write the pragma to
+sidestep a formatting defect. Both properties above still hold across it: the
+pragma line renders nothing, and it survives into the output, so a second pass
+re-derives the mark from the same comment and finds the same normal form.
+
 ### The formal model: an abstract rewriting system
 
 The policy above has an exact formalization in abstract rewriting theory (Baader

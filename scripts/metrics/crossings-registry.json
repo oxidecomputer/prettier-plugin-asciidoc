@@ -16,9 +16,23 @@
   {
     "file": "src/block-metadata.ts",
     "symbol": "isBlockMetadata",
+    "importer": "src/parse/lines/ignore-pragma.ts",
+    "kind": "vocabulary",
+    "reason": "the one predicate for 'this node is block metadata', asked where the ignore pragma's run decides which block it names, so the run reaches exactly the blocks the printer stacks under the pragma"
+  },
+  {
+    "file": "src/block-metadata.ts",
+    "symbol": "isBlockMetadata",
     "importer": "src/print/list-hazard.ts",
     "kind": "vocabulary",
     "reason": "the one predicate for 'this node is block metadata', so the hazard rule and the reader agree by construction rather than by two lists"
+  },
+  {
+    "file": "src/block-metadata.ts",
+    "symbol": "isIgnorePragma",
+    "importer": "src/parse/lines/ignore-pragma.ts",
+    "kind": "vocabulary",
+    "reason": "the one spelling of the `// prettier-ignore` line; the reader marks the block it names, and the user-facing behaviour it names is the printer's, so the definition has to be shared rather than restated at either end"
   },
   {
     "file": "src/block-metadata.ts",
@@ -40,6 +54,13 @@
     "importer": "src/parse/lines/held-metadata.ts",
     "kind": "vocabulary",
     "reason": "the one predicate for a line Ruby's reader consumes where it stands; both the reader and the join rules must agree on it"
+  },
+  {
+    "file": "src/block-metadata.ts",
+    "symbol": "isReaderConsumedLine",
+    "importer": "src/parse/lines/ignore-pragma.ts",
+    "kind": "vocabulary",
+    "reason": "the one predicate for 'the reader eats this line', asked where the ignore pragma's run decides which block it names, so the run reads through a comment or a directive exactly as the parser does"
   },
   {
     "file": "src/block-metadata.ts",

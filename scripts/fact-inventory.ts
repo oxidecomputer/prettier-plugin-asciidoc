@@ -3,10 +3,13 @@
  * classified as either a recorded fact the printer prints bytes FROM
  * (the proof shape the decision-cells record names: "the printer
  * writes bytes from which the reader re-derives this fact", landed
- * twice already — #181's continuation count at
- * `ItemBody.trailingContinuation` (`tests/format/trailing-continuation.test.ts`)
- * and #178's withheld tail at the `.detachedTail`-shaped case in
- * `tests/format/description-list.test.ts`; see the ledger's two
+ * three times already: #181's continuation count at
+ * `ItemBody.trailingContinuation` (`tests/format/trailing-continuation.test.ts`),
+ * #178's withheld tail at the `.detachedTail`-shaped case in
+ * `tests/format/description-list.test.ts`, and #175's ignore pragma at
+ * `BlockNodeBase.ignoredByPragma` (`tests/format/ignore-pragma.test.ts`,
+ * where the pragma COMMENT is the surviving line a second read
+ * re-derives the mark from); see the ledger's three
  * `landedLemma: true` rows for the exact citations) or EXEMPT, with a
  * reason. The shape is `scripts/metrics/shape-census.ts`'s: enumerate every
  * property mechanically, classify every one of them by hand, and fail

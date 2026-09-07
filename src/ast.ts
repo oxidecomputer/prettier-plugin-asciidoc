@@ -47,6 +47,34 @@ interface Node {
 }
 
 /**
+ * The base every BLOCK node extends, carrying the one fact a block can
+ * hold about how its own bytes are written. Not exported and named by
+ * nothing outside this module, exactly like {@link Node}: it exists so
+ * the fact is declared ONCE rather than repeated on every interface
+ * {@link BlockNode} unions, and so an INLINE node cannot carry it - a
+ * pragma names a block, and nothing smaller.
+ */
+interface BlockNodeBase extends Node {
+  /**
+   * Set when the author wrote a `// prettier-ignore` line above this
+   * block (block metadata and other reader-eaten lines may stand
+   * between the two, and carry the mark as well). The printer then
+   * writes this node's own source bytes back instead of formatting
+   * it, children included - the one path by which authored bytes
+   * reach the output unrespelled on request.
+   *
+   * Absent, not `false`: the mark is the exception, so an ordinary
+   * tree serializes exactly as it did before the field existed, and
+   * "not ignored" has one spelling rather than two. Written in one
+   * place, `carryIgnorePragma` (src/parse/lines/ignore-pragma.ts),
+   * from the reader's own push site: the one place that sees a block
+   * together with the run of lines already standing above it. That
+   * module states exactly which lines the run crosses.
+   */
+  ignoredByPragma?: true;
+}
+
+/**
  * Root node. Prettier requires a single root; children are block-level
  * elements.
  */
@@ -69,7 +97,7 @@ export interface DocumentNode extends Node {
 }
 
 /** A paragraph contains inline nodes (text, emphasis, links, etc.). */
-export interface ParagraphNode extends Node {
+export interface ParagraphNode extends BlockNodeBase {
   /** Node discriminant. */
   type: "paragraph";
   /** Inline content: text, emphasis, links, etc. */
@@ -646,7 +674,7 @@ export type InlineNode =
  * `type, level, title, position` (pinned by the serializedKeys row in
  * tests/parser/heading.test.ts).
  */
-export interface HeadingNode extends Node {
+export interface HeadingNode extends BlockNodeBase {
   /** Node discriminant. */
   type: "heading";
   /** Marker count minus one: `=` is 0, `==` is 1. */
@@ -760,7 +788,7 @@ export type HeaderLineNode =
  * checked - along with "at most one author line, at most one revision
  * line, and never a revision without an author".
  */
-export interface DocumentHeaderNode extends Node {
+export interface DocumentHeaderNode extends BlockNodeBase {
   /** Node discriminant. */
   type: "documentHeader";
   /**
@@ -814,7 +842,7 @@ export interface DocumentHeaderNode extends Node {
  * opens no section, so `[discrete]` is outside the heading flatten
  * entirely.
  */
-export interface DiscreteHeadingNode extends Node {
+export interface DiscreteHeadingNode extends BlockNodeBase {
   /** Node discriminant. */
   type: "discreteHeading";
   /**
@@ -835,7 +863,7 @@ export interface DiscreteHeadingNode extends Node {
  * Comments are discarded by the ASG, but our AST preserves them so the
  * formatter can reproduce them faithfully.
  */
-export interface CommentNode extends Node {
+export interface CommentNode extends BlockNodeBase {
   /** Node discriminant. */
   type: "comment";
   /**
@@ -866,7 +894,7 @@ export interface CommentNode extends Node {
  * way in, so case reaches neither the attribute table nor a
  * reference.
  */
-export interface AttributeEntryNode extends Node {
+export interface AttributeEntryNode extends BlockNodeBase {
   /** Node discriminant. */
   type: "attributeEntry";
   /** Clean attribute name without `!` prefix/suffix. */
@@ -913,7 +941,7 @@ export type AttributeEntryFields = Readonly<
  * represented by ListItemNode children that themselves contain a
  * nested ListNode.
  */
-export interface ListNode extends Node {
+export interface ListNode extends BlockNodeBase {
   /** Node discriminant. */
   type: "list";
   /**
@@ -1040,7 +1068,7 @@ export type DelimitedBlockNode =
  * Nothing re-modeled it and no fence produced it, so it carries none
  * of the three spelling records.
  */
-interface LeafDelimitedBlockNode extends Node {
+interface LeafDelimitedBlockNode extends BlockNodeBase {
   /** Node discriminant. */
   type: "delimitedBlock";
   /** Which leaf delimiter opened it. */
@@ -1067,7 +1095,7 @@ interface LeafDelimitedBlockNode extends Node {
  * This is the one spelling that carries a language hint, which is why
  * `language` lives here and nowhere else.
  */
-interface FencedCodeBlockNode extends Node {
+interface FencedCodeBlockNode extends BlockNodeBase {
   /** Node discriminant. */
   type: "delimitedBlock";
   /** A fence always builds a listing. */
@@ -1100,7 +1128,7 @@ interface FencedCodeBlockNode extends Node {
  * Invariant (xiii) in tests/parser/ast-invariants.ts is the runtime
  * witness that the parser never builds one of these without it.
  */
-interface MasqueradedBlockNode extends Node {
+interface MasqueradedBlockNode extends BlockNodeBase {
   /** Node discriminant. */
   type: "delimitedBlock";
   /** The variant the style re-modeled the block to. */
@@ -1125,7 +1153,7 @@ interface MasqueradedBlockNode extends Node {
  * produces one, and it always produces a literal, so both facts are
  * the type's rather than a combination it happens to allow.
  */
-interface IndentedLiteralBlockNode extends Node {
+interface IndentedLiteralBlockNode extends BlockNodeBase {
   /** Node discriminant. */
   type: "delimitedBlock";
   /** Indentation spells a literal and nothing else. */
@@ -1150,7 +1178,7 @@ interface IndentedLiteralBlockNode extends Node {
  * delimiters of its own. The sibling BlockAttributeListNode carries
  * the `[...]` spelling.
  */
-interface ParagraphFormBlockNode extends Node {
+interface ParagraphFormBlockNode extends BlockNodeBase {
   /** Node discriminant. */
   type: "delimitedBlock";
   /** The variant the held style named. */
@@ -1193,7 +1221,7 @@ export type ParentBlockNode = OpenParentBlockNode | CompoundParentBlockNode;
  * at all (`openBlockTilde`, src/parse/line-shapes.ts). The oracle's
  * semantics win over the absent Ruby entry (issue #64).
  */
-interface OpenParentBlockNode extends Node {
+interface OpenParentBlockNode extends BlockNodeBase {
   /** Node discriminant. */
   type: "parentBlock";
   /** The one delimiter variant a tilde run can open. */
@@ -1228,7 +1256,7 @@ interface OpenParentBlockNode extends Node {
  * (`====`), `"sidebar"` (`****`), `"quote"` (`____`). Never carries
  * {@link OpenParentBlockNode.openDelimiter}.
  */
-interface CompoundParentBlockNode extends Node {
+interface CompoundParentBlockNode extends BlockNodeBase {
   /** Node discriminant. */
   type: "parentBlock";
   /** `"example"` (`====`), `"sidebar"` (`****`), or `"quote"` (`____`). */
@@ -1251,7 +1279,7 @@ interface CompoundParentBlockNode extends Node {
  * (parser.rb:772-776, content_model :simple), pinned by the
  * admonition render-equality suites.
  */
-export interface AdmonitionNode extends Node {
+export interface AdmonitionNode extends BlockNodeBase {
   /** Node discriminant. */
   type: "admonition";
   /** Admonition label, lowercase (`"note"`, `"tip"`, …; custom allowed). */
@@ -1275,7 +1303,7 @@ export interface AdmonitionNode extends Node {
 }
 
 /** A thematic break: `'''` (three or more single quotes). */
-export interface ThematicBreakNode extends Node {
+export interface ThematicBreakNode extends BlockNodeBase {
   /** Node discriminant. */
   type: "thematicBreak";
 }
@@ -1286,7 +1314,7 @@ export interface ThematicBreakNode extends Node {
  * formatter does not interpret their attributes or resolve
  * targets.
  */
-export interface BlockMacroNode extends Node {
+export interface BlockMacroNode extends BlockNodeBase {
   /** Node discriminant. */
   type: "blockMacro";
   /** Macro name (e.g. `"image"`, `"video"`, `"toc"`). */
@@ -1319,7 +1347,7 @@ export interface BlockMacroNode extends Node {
  * end of input first), so nothing decides it from a line's shape
  * alone - see src/parse/lines/front-matter.ts.
  */
-export interface FrontMatterNode extends Node {
+export interface FrontMatterNode extends BlockNodeBase {
   /** Node discriminant. */
   type: "frontMatter";
   /** The block's source lines, fences included, joined with newlines. */
@@ -1340,7 +1368,7 @@ export interface FrontMatterNode extends Node {
  * section's metadata all reach across it. Inside a paragraph the same
  * line is a {@link RawLineNode}.
  */
-export interface PreprocessorDirectiveNode extends Node {
+export interface PreprocessorDirectiveNode extends BlockNodeBase {
   /** Node discriminant. */
   type: "preprocessorDirective";
   /** The whole source line, verbatim. */
@@ -1348,7 +1376,7 @@ export interface PreprocessorDirectiveNode extends Node {
 }
 
 /** A page break: `<<<` (three or more less-than signs). */
-export interface PageBreakNode extends Node {
+export interface PageBreakNode extends BlockNodeBase {
   /** Node discriminant. */
   type: "pageBreak";
 }
@@ -1678,7 +1706,7 @@ export type GapLine = "" | "+";
  * item body, and that is shared by extending the body interface above
  * rather than by copying fields.
  */
-export interface DescriptionListNode extends Node {
+export interface DescriptionListNode extends BlockNodeBase {
   /** Node discriminant. */
   type: "descriptionList";
   /**
@@ -1887,7 +1915,7 @@ export type DescriptionPrinting = "replay" | "reflow";
  * (e.g. `"source,ruby"` for `[source,ruby]`). We preserve the raw
  * text so the printer can reproduce the original syntax faithfully.
  */
-export interface BlockAttributeListNode extends Node {
+export interface BlockAttributeListNode extends BlockNodeBase {
   /** Node discriminant. */
   type: "blockAttributeList";
   /**
@@ -1905,7 +1933,7 @@ export interface BlockAttributeListNode extends Node {
  * and set the block's title. The leading dot is syntactic (not stored
  * in `title`). The `title` field contains the text after the dot.
  */
-export interface BlockTitleNode extends Node {
+export interface BlockTitleNode extends BlockNodeBase {
   /** Node discriminant. */
   type: "blockTitle";
   /** Title text after the leading `.` (dot not stored). */
@@ -1916,7 +1944,7 @@ export interface BlockTitleNode extends Node {
  * A block anchor: `[[id]]` or `[[id,reftext]]` alone on a line,
  * metadata for the block that follows.
  */
-export interface BlockAnchorNode extends Node {
+export interface BlockAnchorNode extends BlockNodeBase {
   /** Node discriminant. */
   type: "blockAnchor";
   /** The anchor id. */
@@ -1958,7 +1986,7 @@ export interface BlockAnchorNode extends Node {
  * That is what makes a byte-replaying printer possible and what a
  * later normalization gives up one span class at a time.
  */
-export interface TableNode extends Node {
+export interface TableNode extends BlockNodeBase {
   /** Node discriminant. */
   type: "table";
   /**

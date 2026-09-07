@@ -57,6 +57,7 @@ import {
 import { blockExtentOf, delimitedExtent } from "./delimited-reader.js";
 import { readFrontMatter } from "./front-matter.js";
 import { isLeafKind, leafBuilder } from "./frames.js";
+import { carryIgnorePragma } from "./ignore-pragma.js";
 import {
   documentHeader,
   headerSurvivesBlock,
@@ -278,11 +279,19 @@ class BlockReader {
    * an attribute entry and a comment block are pushed as blocks of
    * their own and Ruby's own metadata loop reads through both, so the
    * question cannot be answered from what is still held.
+   *
+   * An ignore pragma reaches the block it names here for the same
+   * reason: this is the one place that sees a block together with
+   * everything already standing above it in this reader's sequence
+   * (`carryIgnorePragma`, lines/ignore-pragma.ts). It is a recording,
+   * not a repair pass - no reading of any line changes, and nothing is
+   * read a second time.
    * @param node - the block just built
    */
   private push(node: BlockNode): void {
     this.headerReachable &&= headerSurvivesBlock(node.type);
     this.held.blockJoined(node);
+    carryIgnorePragma(this.blocks, node);
     this.blocks.push(node);
   }
 
