@@ -315,60 +315,31 @@ async function printCensus(foreignRoot: boolean): Promise<void> {
   );
 }
 
-/** The unread-field check's two outputs: what to print, and what fails. */
-interface UnreadGate {
-  /** The printable block, empty under a foreign `--root`. */
-  readonly report: string;
-  /** One line per unread published field; empty means the gate holds. */
-  readonly failures: readonly string[];
-}
-
 /**
- * Measure the unread published fields: the report, and what it GATES.
+ * Gate the unread published fields: a field published across a
+ * directory boundary and read by nobody.
  *
- * ARMED, 2026-08-24. It landed report-only under the maintainer's
- * ruling — "a precision check that fires on the tree it was written
- * against teaches reviewers to ignore it" — and the condition for
- * arming it was that it be observed QUIET. It has one candidate left
- * to spend, `Attrlist.raw`, and the commit that arms this deletes it,
- * so the report reads `none` and every candidate from here on is a
- * NEW one: a field published across a directory boundary and read by
- * nobody. The serialized-types exemption (`unread-fields.ts`'s
- * `SERIALIZED`) is unchanged and stays a CLASS, not a name list.
+ * A CANDIDATE IS A FAILURE, with nothing printed when there are none:
+ * a check that reports and cannot fail is a print statement. The
+ * serialized-types exemption (`unread-fields.ts`'s `SERIALIZED`) is a
+ * CLASS, not a name list.
  *
- * `unscanned` stays a printed diagnostic rather than a gate. It says
- * the check did not run for a registered type, which is a 2-shaped
- * condition and not a 1-shaped one, and the only way it can happen at
- * any scale — a `src` that did not load — is already the scorecard's
- * `measuredNothing` floor, which exits 2 before this runs.
+ * A registered type the scan cannot open THROWS, which the CLI's own
+ * catch turns into the 2 it is: the scan could not run, which is a
+ * different claim from the code being clean.
  * @param foreignRoot - whether `--root` pointed somewhere else, in
  *   which case neither the registry nor the exemption describes it
- * @returns the printable report and one gate failure per unread field
+ * @returns one gate failure per unread published field
  */
-async function unreadFields(foreignRoot: boolean): Promise<UnreadGate> {
+async function unreadFields(foreignRoot: boolean): Promise<readonly string[]> {
   if (foreignRoot) {
-    return { report: "", failures: [] };
+    return [];
   }
   const { unreadPublishedFields } = await import("./metrics/unread-fields.js");
-  const { candidates, unscanned, examined } = unreadPublishedFields(REPO_ROOT);
-  const lines = candidates.map(
-    (field) => `  ${field.type}.${field.property} (${field.where})`,
+  return unreadPublishedFields(REPO_ROOT).map(
+    (field) =>
+      `unread published field: ${field.type}.${field.property} (${field.where}) is published across a directory boundary and read by nobody`,
   );
-  const body =
-    lines.length === ZERO
-      ? "  none"
-      : `${lines.join("\n")}\n  a published field NOTHING reads: delete it, or give it a reader, or say here why it stays`;
-  const notExamined =
-    unscanned.length === ZERO
-      ? ""
-      : `  not examined:\n    ${unscanned.join("\n    ")}\n`;
-  return {
-    report: `\nunread published fields, ${String(examined)} examined (a field on a registered crossing that NOTHING reads):\n${body}\n${notExamined}`,
-    failures: candidates.map(
-      (field) =>
-        `unread published field: ${field.type}.${field.property} (${field.where}) is published across a directory boundary and read by nobody`,
-    ),
-  };
 }
 
 /** What the command line asked for. */
@@ -545,10 +516,10 @@ async function main(): Promise<void> {
         repository: false,
       });
     }
-    // Measured BEFORE the report/JSON fork, and gated after it: the
+    // Measured BEFORE the printing fork and gated after it: the
     // scorecard's gates do not depend on which way it was asked to
-    // print, and `--json` must not be a way to skip one. Printing is
-    // the caller's, so `--json` stays machine-readable.
+    // print, so `--json` cannot be a way to skip one, and a scan that
+    // could not run throws before anything is printed.
     const unread = await unreadFields(options.foreignRoot);
     if (options.json) {
       process.stdout.write(
@@ -563,9 +534,8 @@ async function main(): Promise<void> {
       // `src/parse/line-shapes.js`, so an emptied `src` would make the
       // whole scorecard fail to LOAD.
       await printCensus(options.foreignRoot);
-      process.stdout.write(unread.report);
     }
-    const failures = [...gateFailures(head, base), ...unread.failures];
+    const failures = [...gateFailures(head, base), ...unread];
     // The shape census reads THIS repository's registry and
     // line-shapes module (live imports), so a foreign --root checkout
     // is measured and not judged by it — same stance as the other

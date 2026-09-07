@@ -1,5 +1,5 @@
 /**
- * The UNREAD PUBLISHED FIELD report: a field on a type that crosses a
+ * The UNREAD PUBLISHED FIELD gate: a field on a type that crosses a
  * directory boundary, which NOTHING ever reads.
  *
  * This is the precision half of the vocabulary rule made mechanical.
@@ -11,19 +11,14 @@
  * `ListHost.source`, read by nobody, and `LineKind`'s `raw` arm
  * carrying `form`, published, discarded, and then RE-DERIVED by the
  * builder that needed it. Both are fixed, and so is the third this
- * report found for itself, `Attrlist.raw`; this is the net that would
+ * check found for itself, `Attrlist.raw`; this is the net that would
  * have caught all three.
  *
- * ARMED as a gate on 2026-08-24, on the condition the maintainer's
- * ruling set: it landed report-only, "armed as a gate only once it has
- * been observed QUIET", because a precision check that fires on the
- * tree it was written against teaches reviewers to ignore it. It had
- * one candidate left, `Attrlist.raw`; the commit that arms it deletes
- * that field, so the report reads `none` and every candidate from here
- * on is a NEW one. `bun run metrics` now exits 1 and names it.
- * Planted positive and negative controls live in
+ * A CANDIDATE IS A FAILURE: `bun run metrics` exits 1 and names it.
+ * There is no report half, because a check that is not allowed to fail
+ * is a print statement. Planted positive and negative controls live in
  * `tests/scripts/metrics-unread-fields.test.ts` — a gate whose only
- * evidence is its own tree saying "none" is a gate that could equally
+ * evidence is its own tree saying nothing is a gate that could equally
  * be broken.
  *
  * ONE EXEMPT CLASS, and it is a class rather than a list of names:
@@ -98,16 +93,6 @@ interface UnreadField {
   readonly property: string;
   /** `file:line` of the declaration, for a human to open. */
   readonly where: string;
-}
-
-/** What the report has to say. */
-export interface UnreadReport {
-  /** The candidates, in declaration order. */
-  readonly candidates: readonly UnreadField[];
-  /** Types the registry names that this scan could not read. */
-  readonly unscanned: readonly string[];
-  /** How many fields were examined, so a zero can be told from a no-op. */
-  readonly examined: number;
 }
 
 /** One type the registry publishes across a directory boundary. */
@@ -373,40 +358,39 @@ function openProject(root: string): Project | undefined {
 
 /**
  * Every published field nothing outside its declaring file reads.
+ *
+ * A registered type this scan cannot open is a THROW rather than a
+ * skipped row, and that is the exit-code contract: a scan that
+ * silently passed over the type it was asked about would report fewer
+ * candidates, and fewer reads as a pass. The caller turns it into the
+ * 2 it is.
  * @param root - the repository root; THIS repository, since the
  *   registry and the exemption class describe it
- * @returns the candidates, the types that could not be scanned, and
- *   how many fields were examined
+ * @returns the candidates, in declaration order
+ * @throws {Error} when the project did not parse, or when a
+ *   registered type's declaring file is not in it
  */
-export function unreadPublishedFields(root: string): UnreadReport {
+export function unreadPublishedFields(root: string): readonly UnreadField[] {
   const types = registeredTypes(root);
   const project = openProject(root);
   if (project === undefined) {
-    return {
-      candidates: [],
-      unscanned: [
-        `${TSCONFIG_FILE}: the project did not parse, so no field was examined`,
-      ],
-      examined: ZERO,
-    };
+    throw new Error(
+      `${TSCONFIG_FILE}: the project did not parse, so no field was examined`,
+    );
   }
   const { program, service } = project;
-  const unscanned: string[] = [];
   const candidates: UnreadField[] = [];
-  let examined = ZERO;
   for (const type of types) {
     if (SERIALIZED.has(type.file)) {
       continue;
     }
     const source = program.getSourceFile(path.join(root, type.file));
     if (source === undefined) {
-      unscanned.push(
+      throw new Error(
         `${type.file}: not in ${TSCONFIG_FILE}'s project, so ${type.name} could not be examined`,
       );
-      continue;
     }
     for (const member of propertiesOf(source, type.name)) {
-      examined += ONE;
       const at = member.name.getStart();
       const references =
         service.getReferencesAtPosition(source.fileName, at) ?? [];
@@ -426,5 +410,5 @@ export function unreadPublishedFields(root: string): UnreadReport {
       });
     }
   }
-  return { candidates, unscanned, examined };
+  return candidates;
 }

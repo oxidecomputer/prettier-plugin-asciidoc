@@ -58,7 +58,14 @@ checkout).
 
 Proves: the tree is well-formed (no cycles, no forbidden layer edges, no dead
 exports, no rotted registry, no stale minimums file, a quarantine manifest on
-its pin) and no maintained budget rose.
+its pin, no published field nothing reads) and no maintained budget rose.
+
+The unread-published-field gate (`scripts/metrics/unread-fields.ts`) is the
+precision half of the vocabulary rule: a field on a registered crossing that
+nothing ever reads fails the run and is named. It prints nothing when there are
+none, and a registered type its reference scan cannot open exits 2 rather than
+reporting a clean tree it never examined. Its planted positive and negative
+controls are in `tests/scripts/metrics-unread-fields.test.ts`.
 
 ### `bun run coverage` — the suite, against the recorded minimums
 
@@ -1993,9 +2000,8 @@ opposite way when it is gamed, printed on the same table:
 | Tests          | Add assertion-free tests                                    | Mutation score (see below)                                                        |
 
 Report-only extras the scorecard prints: the census pins, the functions over the
-cyclomatic tail, the unread-published-field candidates, and the hotspot
-diagnostic (churn × cognitive complexity per file — `src/print/printer.ts` is
-the standing hotspot).
+cyclomatic tail, and the hotspot diagnostic (churn × cognitive complexity per
+file — `src/print/printer.ts` is the standing hotspot).
 
 **Method notes that bite:**
 

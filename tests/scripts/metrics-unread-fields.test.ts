@@ -36,37 +36,58 @@ function scan(
   rows: readonly PlantedRow[],
   files: Record<string, string>,
 ): string[] {
-  return inCheckout(
-    {
-      "scripts/metrics/crossings-registry.json": JSON.stringify(
-        rows.map((row) => ({
-          ...row,
-          importer: "src/other.ts",
-          kind: "vocabulary",
-          reason: "planted",
-        })),
-      ),
-      "tsconfig.json": JSON.stringify({
-        compilerOptions: {
-          module: "ES2022",
-          moduleResolution: "bundler",
-          strict: true,
-          noEmit: true,
-        },
-        include: ["src/**/*.ts"],
-      }),
-      ...Object.fromEntries(
-        Object.entries(files).map(([name, contents]) => [
-          `src/${name}`,
-          contents,
-        ]),
-      ),
-    },
-    (root) =>
-      unreadPublishedFields(root).candidates.map(
-        (field) => `${field.type}.${field.property}`,
-      ),
+  return inCheckout(plantedTree(rows, files), (root) =>
+    unreadPublishedFields(root).map(
+      (field) => `${field.type}.${field.property}`,
+    ),
   );
+}
+
+/**
+ * The files one planted checkout holds: the registry, a project the
+ * scan can open, and the sources under `src`.
+ * @param rows - the crossings registry to write
+ * @param files - `src`-relative file name to contents
+ * @returns the checkout's files, keyed by root-relative path
+ */
+function plantedTree(
+  rows: readonly PlantedRow[],
+  files: Record<string, string>,
+): Record<string, string> {
+  return {
+    "scripts/metrics/crossings-registry.json": JSON.stringify(
+      rows.map((row) => ({
+        ...row,
+        importer: "src/other.ts",
+        kind: "vocabulary",
+        reason: "planted",
+      })),
+    ),
+    "tsconfig.json": JSON.stringify({
+      compilerOptions: {
+        module: "ES2022",
+        moduleResolution: "bundler",
+        strict: true,
+        noEmit: true,
+      },
+      include: ["src/**/*.ts"],
+    }),
+    ...Object.fromEntries(
+      Object.entries(files).map(([name, contents]) => [
+        `src/${name}`,
+        contents,
+      ]),
+    ),
+  };
+}
+
+/**
+ * Run the scan over a planted checkout, for the calls that are
+ * expected to refuse. Its answer is not what those rows are about.
+ * @param files - the checkout's files, keyed by root-relative path
+ */
+function scanning(files: Record<string, string>): void {
+  inCheckout(files, (root) => unreadPublishedFields(root));
 }
 
 const DECLARATION =
@@ -131,5 +152,28 @@ describe("the unread published field check", () => {
           'import type { Held } from "./ast.js";\nexport const make = (): Held => ({ kept: "a", dropped: "b" });\n',
       }),
     ).toEqual([]);
+  });
+
+  // The measured-nothing floor, and it is the whole reason the check
+  // is allowed to be silent when it passes: a registered type whose
+  // declaring file the project does not hold used to be a printed
+  // diagnostic beside a clean report, which reads as a pass. It
+  // THROWS, and the CLI turns that into exit 2.
+  test("refuses a registered type its project does not hold", () => {
+    const files = plantedTree([{ file: "scripts/held.ts", symbol: "Held" }], {
+      "other.ts": "export const x = 1;\n",
+    });
+    expect(() => {
+      scanning(files);
+    }).toThrow(/scripts\/held\.ts: not in tsconfig\.json's project/v);
+  });
+
+  // The same floor on the project itself: no `tsconfig.json` means no
+  // field was examined, which is not the same claim as no field being
+  // unread.
+  test("refuses a tree whose project does not parse", () => {
+    expect(() => {
+      scanning({ "src/held.ts": DECLARATION });
+    }).toThrow(/tsconfig\.json: the project did not parse/v);
   });
 });
