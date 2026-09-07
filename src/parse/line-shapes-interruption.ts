@@ -27,6 +27,7 @@
  */
 import { isDescriptionSiblingLine } from "./line-shapes-description.js";
 import {
+  type AttributeRunReading,
   BLOCK_ANCHOR,
   BLOCK_START_CONTEXT,
   CONTINUATION_LINE,
@@ -187,31 +188,27 @@ function isSiblingItemLine(line: string, openList: OpenList): boolean {
  * because the scan runs to completion before the confined reader
  * classifies anything.
  *
- * TWO of `read_lines_for_list_item`'s three cuts (parser.rb l.1404):
- * a delimited block line (l.1455-1456) and a sibling item (l.1430).
+ * All THREE of `read_lines_for_list_item`'s cuts (parser.rb l.1404),
+ * from two different places because they are two different kinds of
+ * fact. A delimited block line (l.1455-1456) and a sibling item
+ * (l.1430) are SHAPES, read off the line here. A block attribute line
+ * in a DESCRIPTION item (l.1462-1482) is not: Ruby reads FORWARD over
+ * the run of further attribute lines and blanks before deciding, so
+ * the verdict is a fact about the lines BELOW and arrives as the
+ * asker's own reading ({@link AttributeRunReading}) rather than as a
+ * fourth pattern.
  *
- * The THIRD, a block attribute line in a DESCRIPTION item
- * (l.1462-1463), is deliberately NOT answered here, and the reason is
- * that answering it wrong destroys bytes. Ruby does not decide at the
- * attribute line: it reads FORWARD, consuming further attribute lines
- * and blanks, and keeps the item open when the first line past them is
- * a list item that is not a sibling of the open list (l.1464-1477,
- * the `AnyListRx`-and-not-sibling branch at l.1471-1472). That is a
- * lookahead over a RUN of following lines, and a reader classifying
- * one line inside an open paragraph has none of them -
- * `ReaderContext.nextLine` is undefined at every such position and
- * carries one line even where it is not. Answering "ends"
- * unconditionally cut the run at the attribute line, left the lines
- * below it to be read as a nested item's text, and let the printer
- * JOIN them - inside a listing block, where the newline between them
- * is content: `term1:: desc` / `+` / `[source]` / `a` / `[note]` /
- * `* n` / `b` lost the break between `* n` and `b` inside the oracle's
- * own `<pre>`. So this row keeps the run open there instead. The
- * oracle does end the run at those lines, so the eight cells it
- * leaves are a MODEL remainder rather than a rendering one, counted
- * by tests/conformance/reader-context-grid.test.ts and tracked by
- * issue #187; closing them means supplying the run of following
- * lines, not widening this test.
+ * WHY IT MAY NOT BE GUESSED FROM THE LINE. Answering "ends" for every
+ * attribute line cut the run at it, left the lines below to be read
+ * as a nested item's text, and let the printer JOIN them - inside a
+ * listing block, where the newline between them is content:
+ * `term1:: desc` / `+` / `[source]` / `a` / `[note]` / `* n` / `b`
+ * lost the break between `* n` and `b` inside the oracle's own
+ * `<pre>`. Answering "continues" for every one of them is right
+ * wherever a CONFINED READER asks, since a line the scan cut at is
+ * not in the buffer it reads, and wrong for an asker holding the
+ * lines below instead. The reading is what tells those two apart;
+ * both programs agree on the answer it carries.
  *
  * KNOWN DIVERGENCE on the first cut, pre-existing and recorded rather
  * than repaired here. Ruby breaks the list at a delimited block line
@@ -226,25 +223,37 @@ function isSiblingItemLine(line: string, openList: OpenList): boolean {
  * the residue is the reader's, not this row's.
  * @param line - one rstripped source line
  * @param openList - the list open around the block
+ * @param attributeRun - what the item scan did at the block attribute
+ *   run this line heads ({@link ReaderContext.attributeRun})
  * @returns true when the item's buffer stops at this line
  */
-function endsItemBuffer(line: string, openList: OpenList): boolean {
-  return isDelimiterLine(line) || isSiblingItemLine(line, openList);
+function endsItemBuffer(
+  line: string,
+  openList: OpenList,
+  attributeRun: AttributeRunReading,
+): boolean {
+  return (
+    isDelimiterLine(line) ||
+    isSiblingItemLine(line, openList) ||
+    attributeRun === "runEndsTheItem"
+  );
 }
 
 /**
  * Whether the list open around the block ends it at this line.
  * @param line - one rstripped source line
  * @param rule - the context's row of {@link ENCLOSING_LIST_RULE}
- * @param openList - the list open around the block, or undefined at
- *   document level
+ * @param reader - the enclosing list and the item scan's reading of
+ *   this line's block attribute run, the two halves of the answer no
+ *   pattern carries
  * @returns true when Asciidoctor would start something new here
  */
 function enclosingListEnds(
   line: string,
   rule: EnclosingListRule,
-  openList: OpenList | undefined,
+  reader: ReaderContext,
 ): boolean {
+  const { openList } = reader;
   switch (rule) {
     case "nothing": {
       return false;
@@ -302,7 +311,7 @@ function enclosingListEnds(
       // reading. The probe is what says which, either way.
       return openList === undefined
         ? CONTINUATION_LINE.test(line)
-        : endsItemBuffer(line, openList);
+        : endsItemBuffer(line, openList, reader.attributeRun);
     }
   }
 }
@@ -350,7 +359,7 @@ export function interruptsParagraph(
   if (matchesInterrupter(line, context, reader.firstLineAfterStart)) {
     return true;
   }
-  if (enclosingListEnds(line, ENCLOSING_LIST_RULE[context], reader.openList)) {
+  if (enclosingListEnds(line, ENCLOSING_LIST_RULE[context], reader)) {
     return true;
   }
   // A dlist term interrupts a LIST ITEM's text (the oracle nests a

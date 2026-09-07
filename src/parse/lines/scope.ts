@@ -465,6 +465,11 @@ export function blockStartContextIn(
     firstLineAfterStart: false,
     nextLine: confinement === undefined ? lines.at(at + 1)?.text : undefined,
     markerLineWins: markerLineWinsAt(confinement, lines, at),
+    // A BLOCK START, where the reading is never read: the one row
+    // that consults it belongs to an open styled verbatim run (see
+    // ReaderContext.attributeRun). The item scan read past this line
+    // either way, which is what the value says.
+    attributeRun: "runIsInTheItem",
     get substitutedContentAbove(): boolean {
       return substitutedContentStandsAbove(lines, at);
     },

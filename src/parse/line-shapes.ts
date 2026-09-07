@@ -175,9 +175,42 @@ export type OpenList =
     };
 
 /**
+ * What a DESCRIPTION item's own scan did at the run of block
+ * attribute lines a line heads - the third of
+ * `read_lines_for_list_item`'s cuts (parser.rb l.1462-1482) and the
+ * only one that is not a fact about the line.
+ *
+ * Ruby does not decide at the `[...]` line. It reads FORWARD over the
+ * run of further attribute lines and blanks (l.1464-1470) and lets
+ * the first line PAST the run decide: a list item that is not a
+ * sibling of the open list keeps the run inside the item
+ * (l.1471-1472), and a delimited block line, an ordinary line or a
+ * sibling ends the item in front of the whole run (l.1466-1467,
+ * l.1473-1474, unshifted at l.1478-1481). `[a]` / `[b]` / `* n` and
+ * `[a]` / `[b]` / `x` differ only past their second line, so no
+ * single following line decides it and
+ * {@link ReaderContext.nextLine} cannot carry it.
+ *
+ * A READING rather than a shape test, because the asker is what
+ * knows: a confined reader's lines are the item scan's own output and
+ * every one of them was read past, while an asker holding the lines
+ * BELOW a line - the printer deciding what its next output line may
+ * be - reads the run for itself.
+ */
+export type AttributeRunReading =
+  /**
+   * The scan read past the run: it kept the run in the item, or it
+   * never looked at all (the line heads no attribute run, no
+   * description list is open, or another arm buffered the line).
+   */
+  | "runIsInTheItem"
+  /** The scan ended the item in front of the run. */
+  | "runEndsTheItem";
+
+/**
  * The reader's state as every line rule reads it — exactly the facts
  * the old token patterns reconstructed by scanning backwards, handed
- * over instead of derived. Five fields and no more: the reader keeps
+ * over instead of derived. Seven fields and no more: the reader keeps
  * no stack for anything else to read.
  *
  * ONE declaration, here rather than beside the classifier, because
@@ -398,6 +431,28 @@ export interface ReaderContext {
    * be spelled, which is the pair above and no more.
    */
   readonly markerLineWins: boolean;
+  /**
+   * What the enclosing DESCRIPTION item's scan did at the block
+   * attribute run this line heads - see
+   * {@link AttributeRunReading}, which carries the Ruby.
+   *
+   * READ BY ONE ROW, `verbatimStyled`'s enclosing-list arm, and only
+   * inside a list item: a styled verbatim run at document level is
+   * bounded by `read_lines_until` (parser.rb l.1028) and no item scan
+   * stands over it, while inside an item the run's lines came out of
+   * one and a shape that scan CUT at ends the run.
+   *
+   * `runIsInTheItem` AT EVERY READER POSITION, which is a fact about
+   * the confined reader rather than a default: its lines ARE what
+   * `read_lines_for_list_item` read past, so the third cut cannot
+   * fall on one of them. The other reading belongs to an asker
+   * holding the lines below a line rather than an item's buffer, and
+   * it is what keeps this row from being right only by never being
+   * asked. Answering the cut WITHOUT it destroys bytes; the witness
+   * is at the row itself (`endsItemBuffer`,
+   * src/parse/line-shapes-interruption.ts).
+   */
+  readonly attributeRun: AttributeRunReading;
 }
 
 /**
@@ -413,6 +468,7 @@ export const BLOCK_START_CONTEXT: ReaderContext = {
   nextLine: undefined,
   substitutedContentAbove: false,
   markerLineWins: false,
+  attributeRun: "runIsInTheItem",
 };
 
 // The oracle's strip set, spelled out rather than as `\s`:

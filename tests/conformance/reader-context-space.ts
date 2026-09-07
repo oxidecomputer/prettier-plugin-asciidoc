@@ -26,6 +26,17 @@
  *    `openList`, and `firstLineAfterStart` fixed false, because
  *    a verbatim run's opening line is taken without being classified.
  *
+ * A FOURTH field does not widen that arithmetic. `attributeRun`
+ * (ReaderContext) takes one reading at every reader position, because
+ * a confined reader's lines are what the item scan read PAST; the
+ * other reading is a fact about the lines below a classified line, so
+ * it belongs to a measured cell rather than to a state a prefix
+ * opens. {@link cellKey} is where it is named, and
+ * reader-context-grid.test.ts derives it per cell - there rather than
+ * here for a mechanical reason, since the hoisted classifier mock in
+ * both suites awaits an import of THIS module and a src import that
+ * reaches the classifier from here deadlocks the factory.
+ *
  * The style half of (2), (4) and (5) is `openListIn`, which is
  * the confinement's own style for an item-confined reader and
  * undefined for the document reader and for a compound block's
@@ -433,6 +444,13 @@ export function openParagraphProbes(): ContextProbe[] {
             // classifies the interrupting line (see
             // ReaderContext.markerLineWins).
             markerLineWins: false,
+            // The one reading a confined reader ever carries: its
+            // lines are what the item scan read past. The OTHER
+            // reading is not a state a prefix opens at all - it is a
+            // fact about the lines BELOW the classified line, so it
+            // belongs to a cell rather than to a probe (see
+            // {@link cellKey}).
+            attributeRun: "runIsInTheItem",
           },
           prefix,
         });
@@ -472,6 +490,10 @@ export function blockStartContexts(): ReaderContext[] {
     // Fixed false for the same reason again, and pinned in its own
     // right by the in-list rows in tests/format/breaks.test.ts.
     markerLineWins: false,
+    // Fixed for the reason above it: `classifyBlockStart` reads no
+    // field of this context, and the row that would read this one
+    // needs a styled verbatim run open to be asked at all.
+    attributeRun: "runIsInTheItem",
   }));
 }
 
@@ -503,4 +525,23 @@ export function contextKey(reader: ReaderContext): string {
   const list = reader.openList;
   const style = list === undefined ? "(none)" : spellingOf(list);
   return `${reader.openParagraph ?? "(none)"}|${style}|${String(reader.firstLineAfterStart)}`;
+}
+
+/**
+ * A state as the CLASSIFICATION GRID keys it: {@link contextKey} plus
+ * the item scan's verdict at the line being classified.
+ *
+ * TWO KEYS, because the two callers name different things.
+ * {@link contextKey} names a state a probe's prefix opens, and every
+ * reachable one carries the same reading, so the reading would be a
+ * constant suffix there - it names placements in the confluence gate
+ * as well, where a constant suffix is only churn. The grid keys a
+ * CELL, and a cell's reading is the one its own document realizes
+ * (reader-context-grid.test.ts derives it), so there the reading is
+ * what separates a question the reader asked from one it did not.
+ * @param reader - the state
+ * @returns a key unique to the state and its reading
+ */
+export function cellKey(reader: ReaderContext): string {
+  return `${contextKey(reader)}|${reader.attributeRun}`;
 }

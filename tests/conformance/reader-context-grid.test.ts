@@ -66,6 +66,7 @@
  */
 import { describe, expect, test, vi } from "vitest";
 import type {
+  AttributeRunReading,
   ParagraphContext,
   ReaderContext,
 } from "../../src/parse/line-shapes.js";
@@ -76,9 +77,12 @@ import {
 } from "./interruption-probes.js";
 import {
   blockStartContexts,
+  cellKey,
   contextKey,
   openParagraphProbes,
 } from "./reader-context-space.js";
+import { attributeRunAhead } from "../../src/parse/lines/description-list.js";
+import { splitLines } from "../../src/parse/lines/split.js";
 // Type-only, so it is erased before the hoisted mock factory below runs.
 import type * as ClassifyModule from "../../src/parse/lines/classify.js";
 
@@ -95,7 +99,7 @@ vi.mock("../../src/parse/lines/classify.js", async () => {
   const actual = await vi.importActual<typeof ClassifyModule>(
     "../../src/parse/lines/classify.js",
   );
-  const { contextKey: keyOf } = await import("./reader-context-space.js");
+  const { cellKey: keyOf } = await import("./reader-context-space.js");
   return {
     ...actual,
     classifyLine: (line: string, reader: ReaderContext) => {
@@ -111,9 +115,71 @@ vi.mock("../../src/parse/lines/classify.js", async () => {
 const { parse } = await import("../../src/parser.js");
 const { classifyLine } = await import("../../src/parse/lines/classify.js");
 
+/**
+ * The item scan's verdict at one document position - the one
+ * {@link ReaderContext} field a probe cannot carry, because it is a
+ * fact about the lines BELOW the classified line rather than about
+ * the prefix that opens the state.
+ *
+ * The scan's own question, asked through the scan's own function
+ * ({@link attributeRunAhead}), so this cannot drift from what the
+ * reader does with the same document. Three conditions narrow it to
+ * the cells the scan really decides that way, and each is one Ruby
+ * writes:
+ *
+ * - the cut is DLIST-only (parser.rb l.1463), which is the
+ *   `description` test below;
+ * - it is skipped while a `+` stands directly above the line
+ *   (`continuation != :active`, l.1463), which no probe document
+ *   spells: every prefix carrying a continuation puts at least one
+ *   content line between it and the construct;
+ * - the scan has to READ the line to ask at all, and an INDENTED
+ *   line above it hands the rest of the item to `read_lines_until`
+ *   instead (l.1488-1496), so the arm never sees what that slurp
+ *   swallowed.
+ *
+ * The third is why the context is read here. `literalParagraph` is
+ * exactly the state an indented line opens, and its probe's whole
+ * tail is slurped: `term1:: desc` / `+` / `  indented first` /
+ * `mid line` / `[source]` really does classify that `[source]` inside
+ * the item. It is also the state where the reading changes no answer,
+ * because `ENCLOSING_LIST_RULE`'s `styledVerbatimRun` row
+ * (src/parse/line-shapes-interruption.ts) is the only one that reads
+ * the field, and that row is `verbatimStyled`'s. So outside
+ * `verbatimStyled` the two readings are ONE state to `classifyLine`,
+ * the way the twenty-three block-start states are one, and naming
+ * them apart in {@link cellKey} would only lose cells the reader does
+ * ask about.
+ *
+ * It lives here rather than beside the rest of the state derivation
+ * for a mechanical reason: the hoisted mock factory below awaits an
+ * import of reader-context-space.ts, so a src import that reaches the
+ * classifier from that module would deadlock the factory.
+ * @param document - the document the cell is measured on
+ * @param at - index of the classified line within it
+ * @param reader - the probe's state, for the enclosing list and the
+ *   open paragraph
+ * @returns which reading the reader would carry at that line
+ */
+function attributeRunIn(
+  document: string,
+  at: number,
+  reader: ReaderContext,
+): AttributeRunReading {
+  const { openList } = reader;
+  if (
+    reader.openParagraph !== "verbatimStyled" ||
+    openList?.kind !== "description"
+  ) {
+    return "runIsInTheItem";
+  }
+  const run = attributeRunAhead(splitLines(document), at, openList.delimiter);
+  return run !== undefined && !run.concat ? "runEndsTheItem" : "runIsInTheItem";
+}
+
 /** One cell where the classifier and the oracle disagreed. */
 interface Disagreement {
-  /** The reader state, as {@link contextKey} spells it. */
+  /** The reader state, as {@link cellKey} spells it. */
   readonly state: string;
   /** The construct's row name. */
   readonly construct: string;
@@ -152,10 +218,24 @@ async function sweepGrid(): Promise<GridRun> {
   let asked = 0;
   for (const { reader, prefix } of openParagraphProbes()) {
     const filler = reader.firstLineAfterStart ? "" : LATER_LINE_FILLER;
-    const state = contextKey(reader);
+    // Where the construct's first line lands in the document below:
+    // the prefix's own lines, then the filler line where there is
+    // one. Read off the two strings the document is built from, so it
+    // cannot drift from them.
+    const constructAt = prefix.split("\n").length + (filler === "" ? 0 : 1);
     for (const [construct, text] of CONSTRUCTS) {
       const [line] = text.split("\n");
       const document = `${prefix}\n${filler}${text}\nlast line\n`;
+      // The state is the PROBE's for five of its fields and the
+      // CELL's for the sixth: the item scan's verdict at a block
+      // attribute run is a fact about the lines below the construct,
+      // so it varies with the construct rather than with the prefix
+      // (see ReaderContext.attributeRun).
+      const cell: ReaderContext = {
+        ...reader,
+        attributeRun: attributeRunIn(document, constructAt, reader),
+      };
+      const state = cellKey(cell);
       cells += 1;
       trace.asked = new Set<string>();
       trace.on = true;
@@ -167,7 +247,7 @@ async function sweepGrid(): Promise<GridRun> {
       }
       // eslint-disable-next-line no-await-in-loop -- sequential on purpose: nine thousand concurrent renders exhaust memory
       const oracleEnded = await oracleInterrupts(text, prefix, filler);
-      const classifierEnded = !continuesParagraph(classifyLine(line, reader));
+      const classifierEnded = !continuesParagraph(classifyLine(line, cell));
       if (classifierEnded === oracleEnded) {
         continue;
       }
@@ -236,6 +316,13 @@ describe("classifyLine over the reachable grid", () => {
   // cannot ride this roster, because the oracle's block count cannot
   // see one inside a list item (interruption-probes.ts says why, and
   // interruption.test.ts pins them by paragraph count instead).
+  //
+  // Neither number moved when the cell key gained the item scan's
+  // verdict (issue #245, {@link cellKey}). The reading is a state
+  // distinction in one context only ({@link attributeRunIn} says
+  // which and why), and the sixteen cells it changes the ANSWER for
+  // are cells the reader never asked: they left the latent census
+  // below rather than joining `asked`.
   test("is the size and reach the enumeration predicts", () => {
     const { cells, asked } = grid;
     expect(openParagraphProbes()).toHaveLength(188);
@@ -264,43 +351,45 @@ describe("classifyLine over the reachable grid", () => {
   });
 
   // The cells the reader never asks about, where the registry's
-  // answer and the oracle's differ anyway. Each is a model row that
-  // is wrong in isolation and unreachable in practice, and the count
-  // is pinned so that neither half changes quietly.
+  // answer and the oracle's differ anyway. Each would be a model row
+  // that is wrong in isolation and unreachable in practice, and the
+  // census is pinned so that neither half changes quietly.
   //
-  // SIXTEEN left, all issue #187's remainder, now tracked as #245: a
-  // block attribute line (`[source]`, `[[x]]`, and the three id-class
-  // spellings of the anchor beside it) inside a `+`-attached styled
-  // verbatim run in a description item, one per delimiter per
-  // spelling. Four spellings reach it, so widening the anchor's id
-  // class (issue #203) doubled the count without adding a family: the
-  // non-ASCII ids are the same cells the ASCII one already had, and
-  // the digit-led row is ordinary text and reaches none. The oracle
-  // ends the run there; this reader keeps it open, because deciding
-  // needs the RUN of lines below the attribute line (parser.rb
-  // l.1464-1477) and no reader supplies one at this position.
-  // Answering the oracle's way without that lookahead cut the run
-  // early and let the printer join the lines below it INSIDE a
-  // listing block, destroying a newline that is content there
-  // (endsItemBuffer, src/parse/line-shapes-interruption.ts, carries
-  // the witness). A model gap the render survives is the better of
-  // the two, and it is what these eight cells are.
+  // EMPTY, and it is the empty case that carries the claim: every
+  // cell of the grid now agrees with the oracle, whether or not the
+  // reader asks it. Three families closed and are gone from the
+  // census:
   //
-  // Two families closed and are gone from the census:
-  //
-  // - issue #187's other 347 cells: a delimited block line and a
-  //   sibling item inside a styled verbatim run in a list item, and
-  //   the lone `+` that does NOT end one there.
+  // - issue #187's 347 cells: a delimited block line and a sibling
+  //   item inside a styled verbatim run in a list item, and the lone
+  //   `+` that does NOT end one there.
   // - issue #188, 18 cells: a SIBLING description-list term inside a
   //   description item, which ends a `+`-attached paragraph (12) and
   //   an indented literal run (6) where the arm compared marker
   //   styles only. Now every sibling rule asks
   //   `is_sibling_list_item?`'s own question.
+  // - issue #245, 16 cells: a block attribute line (`[source]`,
+  //   `[[x]]`, and the two non-ASCII id spellings of the anchor
+  //   beside it) inside a `+`-attached styled verbatim run in a
+  //   description item, one per delimiter per spelling. The oracle
+  //   ends the run there because the ITEM SCAN cut in front of the
+  //   line (parser.rb l.1462-1482), which is a fact about the lines
+  //   BELOW it and so not one the classifier could read off the line
+  //   - answering it from the line alone cut the run early and let
+  //   the printer join the lines under it inside a listing block.
+  //   The verdict now arrives as `ReaderContext.attributeRun` and
+  //   {@link attributeRunIn} gives each cell the reading its own
+  //   document realizes. These sixteen are still cells the reader
+  //   does not ask, because a line the scan cut at is not in the
+  //   buffer it reads; what changed is that the answer no longer
+  //   depends on their never being asked. The reading's own two
+  //   verdicts are crossed against the oracle in
+  //   tests/conformance/attribute-run-cut.test.ts.
   //
   // A NEW entry here is a model row that answers one setting's
-  // question in another, which is what both issues were.
+  // question in another, which is what all three issues were.
   test("names the disagreements the reader keeps away from", () => {
     const { latent } = grid;
-    expect(Object.fromEntries(latent)).toEqual({ verbatimStyled: 16 });
+    expect(Object.fromEntries(latent)).toEqual({});
   });
 });

@@ -244,6 +244,7 @@ describe("the probe documents spell the styles they claim", () => {
       nextLine: undefined,
       substitutedContentAbove: false,
       markerLineWins: false,
+      attributeRun: "runIsInTheItem",
     });
     expect(kind.kind).toBe("dlistTerm");
     expect(kind.kind === "dlistTerm" ? kind.delimiter : undefined).toBe(style);
@@ -261,6 +262,7 @@ describe("the probe documents spell the styles they claim", () => {
         nextLine: undefined,
         substitutedContentAbove: false,
         markerLineWins: false,
+        attributeRun: "runIsInTheItem",
       });
       expect(kind.kind).toBe("dlistTerm");
       expect(kind.kind === "dlistTerm" ? kind.delimiter : undefined).toBe(

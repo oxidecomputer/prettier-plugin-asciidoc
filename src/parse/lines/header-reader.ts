@@ -85,6 +85,10 @@ const HEADER_CONTEXT: ReaderContext = {
   // layout-break arm is reached here (see
   // ReaderContext.markerLineWins).
   markerLineWins: false,
+  // No item scan stands over a header line at all, and the row that
+  // reads this needs a list open to be asked (see
+  // ReaderContext.attributeRun).
+  attributeRun: "runIsInTheItem",
 };
 
 /**

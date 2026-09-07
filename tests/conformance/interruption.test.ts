@@ -132,6 +132,11 @@ describe("line-shape registry matches the Asciidoctor oracle", () => {
           nextLine: undefined,
           substitutedContentAbove: false,
           markerLineWins: false,
+          // Every construct here is asked in a document whose lines
+          // below it end no item, so the item scan read past this
+          // line; the cut that does NOT is the table further down
+          // (see ReaderContext.attributeRun).
+          attributeRun: "runIsInTheItem",
         }),
         `registry disagrees with oracle for ${JSON.stringify(line)}`,
       ).toBe(oracle);
@@ -428,6 +433,7 @@ describe("raw (non-text, non-interrupting) paragraph lines", () => {
       nextLine: undefined,
       substitutedContentAbove: false,
       markerLineWins: false,
+      attributeRun: "runIsInTheItem",
     };
     expect(isRawParagraphLine("[[a]]", "listItemText", first)).toBe(true);
     expect(isRawParagraphLine("[[a]]", "listItemText")).toBe(false);
@@ -644,60 +650,14 @@ describe("the enclosing list decides what ends the block", () => {
           nextLine: undefined,
           substitutedContentAbove: false,
           markerLineWins: false,
+          // Not one of these rows stands on a block attribute line,
+          // so no item scan cut in front of it.
+          attributeRun: "runIsInTheItem",
         }),
         `the registry disagrees with the oracle for ${JSON.stringify(line)}`,
       ).toBe(ends);
     },
   );
-});
-
-// Issue #187's REMAINDER, pinned as a divergence rather than left
-// unsaid: the oracle ends a styled verbatim run at a block attribute
-// line inside a description item, and this reader does not.
-//
-// Ruby decides that cut by reading FORWARD past the attribute line
-// (parser.rb l.1464-1477) and keeps the item open when the first
-// line past the run of attribute lines and blanks is a non-sibling
-// list item. A reader classifying one line inside an open paragraph
-// has no such run, and answering "ends" without it is not a
-// harmless model gap: it cut the run early, the lines below were
-// read as a nested item's text, and the printer joined them INSIDE
-// the listing block. The witness below is that regression, and it is
-// pinned as a render-equality row so the trade cannot be made again
-// by accident.
-//
-// When the lookahead is supplied, this test goes red in the
-// classifier row and the grid census drops its last 8 cells.
-describe("the block attribute line inside a description item (#187)", () => {
-  const PREFIX = "term1:: desc\n+\n[source]\nfirst content line";
-  const READER: ReaderContext = {
-    openParagraph: "verbatimStyled",
-    openList: { kind: "description", delimiter: "::" },
-    firstLineAfterStart: false,
-    nextLine: undefined,
-    substitutedContentAbove: false,
-    markerLineWins: false,
-  };
-
-  test.each([["[source]"], ["[[x]]"]])(
-    "%s ends the run for the oracle and not for the reader",
-    async (line) => {
-      expect(await oracleInterrupts(line, PREFIX, LATER_LINE_FILLER)).toBe(
-        true,
-      );
-      expect(interruptsParagraph(line, "verbatimStyled", READER)).toBe(false);
-    },
-  );
-
-  // The document the narrower answer exists for. Answering the
-  // oracle's way without the lookahead printed
-  // `...\n[note]\n* n b\n`, joining two lines whose newline the
-  // oracle keeps inside `<pre>`.
-  test("keeps the newline the joined answer destroyed", async () => {
-    const document = "term1:: desc\n+\n[source]\na\n[note]\n* n\nb\n";
-    const out = await formatAdoc(document);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(document));
-  });
 });
 
 // The registry test above pins what the READER should decide. This

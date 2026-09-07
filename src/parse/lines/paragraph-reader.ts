@@ -389,6 +389,12 @@ class Paragraph {
         // interrupting line ends this scan and the READER classifies
         // it, with its own answer (see ReaderContext.markerLineWins).
         markerLineWins: false,
+        // Every line this scan walks came out of the enclosing item's
+        // own `read_lines_for_list_item`, so the third cut cannot
+        // fall on one of them (see ReaderContext.attributeRun). No
+        // row this context reaches reads it in any case: the reading
+        // belongs to `verbatimStyled`'s enclosing-list arm alone.
+        attributeRun: "runIsInTheItem",
       });
       classifyTrace.observer?.(next.offset, kind);
       if (kind.kind !== "text" && kind.kind !== "raw") {
@@ -911,6 +917,15 @@ function verbatimRunExtent(
     substitutedContentAbove: false,
     // Same reason as the paragraph scan's, one field down again.
     markerLineWins: false,
+    // THE READING THIS RUN'S OWN ROW ASKS FOR, and a fact about the
+    // buffer rather than a default: `scan.lines` is what the
+    // enclosing item's `read_lines_for_list_item` read PAST, so the
+    // block-attribute cut (parser.rb l.1462-1482) cannot fall on any
+    // line this loop classifies - the scan would have kept the line
+    // out of the buffer instead. An asker holding the lines BELOW a
+    // line rather than an item's buffer reads the run for itself and
+    // supplies the other reading (see ReaderContext.attributeRun).
+    attributeRun: "runIsInTheItem",
   };
   const lines: [SourceLine, ...SourceLine[]] = [scan.lines[at]];
   let index = at + 1;
