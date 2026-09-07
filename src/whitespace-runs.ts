@@ -624,6 +624,34 @@ const NO_FACTS: NodeFacts = {
 };
 
 /**
+ * The fact of the run at `index`.
+ *
+ * A REPLAYED block has no per-run facts, and needs none: its rows read
+ * which LINE a byte of the block is on, and every run keeps the
+ * spelling the source gave it. That is the whole of what the printer
+ * can write back - a byte-exact replay would need the block's source
+ * slice, which the tree does not hold for a prose block - and it is
+ * exactly the reading those rows are about.
+ * @param whitespace - the block's record.
+ * @param index - the run's position in the enumeration.
+ * @param bytes - the run, as the source wrote it.
+ * @returns the fact.
+ */
+function factAt(
+  whitespace: BlockWhitespace,
+  index: number,
+  bytes: string,
+): WhitespaceFact {
+  return whitespace.kind === "reflowable"
+    ? whitespace.runs[index]
+    : {
+        kind: "bound",
+        to: bytes.includes("\n") ? "newline" : "space",
+        by: "blockReplay",
+      };
+}
+
+/**
  * The record, indexed by the text node each fact belongs to.
  *
  * The printer walks the same nodes the reader recorded over, so the
@@ -640,12 +668,9 @@ export function factsByNode(
   whitespace: BlockWhitespace,
 ): ReadonlyMap<TextNode, NodeFacts> {
   const byNode = new Map<TextNode, NodeFacts>();
-  if (whitespace.kind === "replayed") {
-    return byNode;
-  }
   const sites = whitespaceRuns(children);
   for (const [index, site] of sites.entries()) {
-    const fact = whitespace.runs[index];
+    const fact = factAt(whitespace, index, site.bytes);
     const held = byNode.get(site.node) ?? NO_FACTS;
     byNode.set(site.node, {
       ...held,

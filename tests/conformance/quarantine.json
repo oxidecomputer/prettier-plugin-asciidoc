@@ -1,16 +1,4 @@
 {
-  "attributes_test.rb#ignores lines with bad attributes if attribute-missing is drop-line#0": {
-    "fails": ["fidelity"],
-    "issue": "UNTRIAGED"
-  },
-  "attributes_test.rb#should drop line with attribute unassignment by default#0": {
-    "fails": ["fidelity"],
-    "issue": "UNTRIAGED"
-  },
-  "attributes_test.rb#should drop line with reference to missing attribute if attribute-missing attribute is drop-line#0": {
-    "fails": ["fidelity"],
-    "issue": "UNTRIAGED"
-  },
   "blocks_test.rb#markdown-style quote block with multiple blocks and no attribution#0": {
     "fails": ["fidelity"],
     "issue": "#22"

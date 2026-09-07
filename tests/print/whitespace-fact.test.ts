@@ -26,7 +26,7 @@ import {
 } from "../../src/whitespace-fact.js";
 import { cutValue, whitespaceRuns } from "../../src/whitespace-runs.js";
 import { joinOfFact } from "../../src/print/text-edges.js";
-import { narrow } from "../helpers.js";
+import { expectFormatted, narrow } from "../helpers.js";
 
 /**
  * The record the reader put on the document's first paragraph.
@@ -254,6 +254,22 @@ describe("the whole-block rows", () => {
       kind: "replayed",
       why: "nonDefaultSubs",
     });
+  });
+
+  // What a REPLAYED block asks of the printer. Its rows read which
+  // LINE a byte is on, so every run keeps the spelling the source
+  // gave it and no byte changes line - which is what the printer can
+  // write back, a byte-exact replay needing a source slice the tree
+  // does not hold for a prose block.
+  //
+  // Red before the printer read the arm: the record said `replayed`
+  // and the packer joined the lines anyway, so `aaaa` / `{set:x!}
+  // bbbb` came out on one line and rendered as nothing at all.
+  test("a replayed block keeps every run's spelling", async () => {
+    await expectFormatted("aaaa\n{set:x!} bbbb\n", "aaaa\n{set:x!} bbbb\n");
+    // The WIDTH still folds: the rows read which line a byte is on,
+    // never how wide the run beside it was.
+    await expectFormatted("aaaa  {set:x!}  bbbb\n", "aaaa {set:x!} bbbb\n");
   });
 
   // A1 has no arm at all: a verbatim style over a paragraph builds a

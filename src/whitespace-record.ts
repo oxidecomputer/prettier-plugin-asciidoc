@@ -154,4 +154,10 @@ type BindingRule =
   /** A run inside an `image:`, `icon:` or `menu:` target. */
   | "macroTarget"
   /** A run inside an anchor's reftext. */
-  | "anchorReftext";
+  | "anchorReftext"
+  /**
+   * A run of a REPLAYED block. The whole-block rows read which LINE a
+   * byte of the block is on, so every run of one keeps the spelling
+   * the source gave it and no byte changes line.
+   */
+  | "blockReplay";
