@@ -201,6 +201,10 @@ const EXEMPT = new Map<string, string>([
     "names which of the three context-free raw patterns matched; each has its own dimension",
   ],
   [
+    "preprocessorLineEffect",
+    "reading over the same three raw patterns rawLineForm names, each of which already has its own dimension; this one answers what the preprocessor LEAVES where the line stood, not what shape the line is",
+  ],
+  [
     "DELIMITER_KINDS",
     "enumeration source consumed by rule (i), not a rule of its own",
   ],

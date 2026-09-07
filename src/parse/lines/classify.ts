@@ -741,27 +741,24 @@ export const metadataLineKind: (
  * first (it runs before `next_block` even reads the line), then
  * `next_section`'s title test, then `next_block`'s own ladder.
  *
- * The title test is `is_next_line_section?` (parser.rb l.1667), which
- * is `atx_section_title?(line1) || setext_section_title?(line1,
- * line2)`. Both arms sit HERE, ahead of the delimiter test, because
- * `next_section` asks them before it ever calls `next_block`: that
- * ordering is why `Title` over `-----` is a heading and not a
- * paragraph over a listing block, and why `x` over `--` is a heading
- * and not an open block.
+ * SIX of the arms below are held off where the block start may not be
+ * one to Asciidoctor: the four in {@link blockMetadataOrTitleKind}
+ * and the two layout breaks in {@link classifyBlockBody}. Each is
+ * read at a block boundary alone, and each turns into bytes that MOVE
+ * when it fires below content the preprocessor substituted - the
+ * spelling itself for a break or a setext title, and the blank line
+ * the printer puts between blocks for the other three
+ * ({@link ReaderContext.substitutedContentAbove}, which names the
+ * issue each row carries). Held off, they leave the line to the
+ * ladder's text fallback, which is the reading Asciidoctor gives it.
  *
- * TWO of the arms below are held off where the block start may not be
- * one to Asciidoctor: the setext title here, and the layout break in
- * {@link classifyBlockBody}. Both are read at a block boundary alone
- * and both DESTROY the line's spelling when they fire, and an
- * `include::` directive standing directly above is the one thing that
- * can put content there without opening a paragraph this reader can
- * see ({@link ReaderContext.includeAbove}, issues #210 and #213). The
- * other arms keep their reading unconditionally: they respell nothing,
- * so a wrong one costs a node kind and not the author's bytes.
+ * The arms that stay are the ones that would stand at a boundary
+ * anyway: an anchor and an attribute list END the oracle's paragraph
+ * (`StartOfBlockProc`), and so do a delimiter and a `+`.
  * @param line - one rstripped source line
  * @param reader - the reader's context view; the line below it (where
- *   a two-line construct may be read at all) and whether an include
- *   stands directly above are both read off it
+ *   a two-line construct may be read at all) and whether substituted
+ *   content stands directly above are both read off it
  * @returns the line's kind; `text` when nothing else claims it
  */
 function classifyBlockStart(line: string, reader: ReaderContext): LineKind {
@@ -772,6 +769,58 @@ function classifyBlockStart(line: string, reader: ReaderContext): LineKind {
   if (BLOCK_ATTRIBUTE_LINE.test(line)) {
     return { kind: "attributeLine" };
   }
+  // Bound ONCE, here rather than at the top of the function: the two
+  // arms above are the ones that keep their reading either way, and
+  // the answer costs a backwards walk (blockStartContextIn supplies
+  // it as a getter for exactly that reason).
+  const { substitutedContentAbove } = reader;
+  const metadata = substitutedContentAbove
+    ? undefined
+    : blockMetadataOrTitleKind(line, reader.nextLine);
+  if (metadata !== undefined) {
+    return metadata;
+  }
+  // next_block asks `is_delimited_block?` before anything else, which
+  // is why `****` is a sidebar and `* x` a list.
+  const block = delimiterKind(line);
+  if (block !== undefined) {
+    return { kind: "delimiterOpen", block };
+  }
+  if (isContinuationLine(line)) {
+    return { kind: "continuation" };
+  }
+  return classifyBlockBody(line, substitutedContentAbove);
+}
+
+/**
+ * The rest of `parse_block_metadata_line` and both spellings of a
+ * section title - the four arms {@link classifyBlockStart} asks only
+ * where the block start is one Asciidoctor also sees.
+ * `is_next_line_section?` (parser.rb l.1666) peeks two lines and
+ * hands them to `is_section_title?`, whose body is
+ * `atx_section_title?(line1) || (line2.nil_or_empty? ? nil :
+ * setext_section_title?(line1, line2))` (l.1699): the underline arm
+ * is asked only where there IS a line below, which is the same
+ * absence {@link ReaderContext.nextLine} spells as undefined.
+ *
+ * Together here because they are held off together and for one
+ * reason, not because Ruby groups them: below substituted content
+ * every one of these lines is paragraph text to the oracle, and each
+ * of the four costs the author's bytes when it fires there anyway.
+ * The two title arms sit ahead of the delimiter test their caller
+ * makes next, because `next_section` asks them before it ever calls
+ * `next_block`: that ordering is why `Title` over `-----` is a
+ * heading and not a paragraph over a listing block, and why `x` over
+ * `--` is a heading and not an open block.
+ * @param line - one rstripped source line
+ * @param nextLine - the line below it, or undefined where a two-line
+ *   construct may not be read (see {@link ReaderContext.nextLine})
+ * @returns the line's kind, or undefined when no arm claims it
+ */
+function blockMetadataOrTitleKind(
+  line: string,
+  nextLine: string | undefined,
+): LineKind | undefined {
   if (BLOCK_TITLE.test(line)) {
     return { kind: "blockTitle" };
   }
@@ -783,28 +832,10 @@ function classifyBlockStart(line: string, reader: ReaderContext): LineKind {
   if (section !== undefined) {
     return { kind: "sectionTitle", extent: 1, ...section };
   }
-  // Bound ONCE, here rather than at the top of the function: the arms
-  // above are the block metadata `parse_block_metadata_line` takes
-  // before `next_block`'s ladder starts, none of them asks, and the
-  // answer costs a backwards walk (blockStartContextIn supplies it as
-  // a getter for exactly that reason).
-  const { includeAbove } = reader;
-  const underlined = includeAbove
+  const underlined = parseSetextTitle(line, nextLine);
+  return underlined === undefined
     ? undefined
-    : parseSetextTitle(line, reader.nextLine);
-  if (underlined !== undefined) {
-    return { kind: "sectionTitle", extent: 2, ...underlined };
-  }
-  // next_block asks `is_delimited_block?` before anything else, which
-  // is why `****` is a sidebar and `* x` a list.
-  const block = delimiterKind(line);
-  if (block !== undefined) {
-    return { kind: "delimiterOpen", block };
-  }
-  if (isContinuationLine(line)) {
-    return { kind: "continuation" };
-  }
-  return classifyBlockBody(line, includeAbove);
+    : { kind: "sectionTitle", extent: 2, ...underlined };
 }
 
 /**
@@ -825,16 +856,20 @@ function classifyBlockStart(line: string, reader: ReaderContext): LineKind {
  * both print back a canonical spelling (`'''`, `<<<`) that is not the
  * one they read.
  * @param line - one rstripped source line
- * @param includeAbove - whether an include's substituted content
- *   stands directly above the line, which is where a block start may
- *   not be one (see {@link ReaderContext.includeAbove})
+ * @param substitutedContentAbove - whether content the preprocessor
+ *   substituted stands directly above the line, which is where a
+ *   block start may not be one (see
+ *   {@link ReaderContext.substitutedContentAbove})
  * @returns the line's kind; `text` when nothing claims it
  */
-function classifyBlockBody(line: string, includeAbove: boolean): LineKind {
-  if (!includeAbove && THEMATIC_BREAK.test(line)) {
+function classifyBlockBody(
+  line: string,
+  substitutedContentAbove: boolean,
+): LineKind {
+  if (!substitutedContentAbove && THEMATIC_BREAK.test(line)) {
     return { kind: "thematicBreak" };
   }
-  if (!includeAbove && PAGE_BREAK.test(line)) {
+  if (!substitutedContentAbove && PAGE_BREAK.test(line)) {
     return { kind: "pageBreak" };
   }
   const macro = parseBlockMacro(line);

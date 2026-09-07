@@ -15,7 +15,7 @@ import {
   conditionalDirective,
   type OpenList,
   type ParagraphContext,
-  rawLineForm,
+  preprocessorLineEffect,
   type ReaderContext,
 } from "../line-shapes.js";
 import type { LocationIndex } from "../positions.js";
@@ -199,45 +199,23 @@ export function directiveDepthAfter(depth: number, line: string): number {
 }
 
 /**
- * Whether an include's substituted content stands directly above one
- * line - the reading behind {@link ReaderContext.includeAbove}, which
- * states what the answer means and which lines can put content there
- * without opening a paragraph this reader can see.
+ * Whether substituted content stands directly above one line - the
+ * reading behind {@link ReaderContext.substitutedContentAbove}, which
+ * states what the answer means and what the classifier does with it.
  *
  * Read BACKWARDS off the reader's own lines, one step in the ordinary
- * case and further only through the raw forms the preprocessor
- * DELETES, so that whatever was above one of those is above the line
- * under it too. Everything else stops the walk - a blank line
- * included, which is no raw form at all and is a line of its own
- * between the include and this one.
- *
- * WHICH FORMS ARE DELETED, exactly, because the walk overclaims on
- * one of them and the overclaim is measurable. A `//` comment is
- * dropped while reading (`Reader#skip_line_comments`), always. A
- * conditional directive is dropped in three of its four arms:
- * `endif::` pops `@conditional_stack` and returns (reader.rb
- * l.913-924), `ifeval::[]` and a BODYLESS `ifdef::`/`ifndef::` push
- * onto it (l.988-1006), and a body-bearing one whose condition FAILS
- * is dropped by the `unless \@skipping || skip` guard between those
- * two pushes. The fourth arm is NOT deleted: a single-line
- * `ifdef::x[body]` or `ifndef::x[body]` whose condition HOLDS runs
- * `replace_next_line text.rstrip` and `unshift ''` (l.993-997),
- * which substitutes the body exactly as an include substitutes a
- * file - so `ifndef::zz[body]` over `___` has the very defect
- * {@link ReaderContext.includeAbove} exists to stop, under the
- * pinned oracle and with no setup.
- *
- * This walk treats that fourth arm as deleted, which is the wrong
- * reading for it, and it is left wrong here rather than closed
- * because closing it belongs to the issue that carries the shape
- * (#231), not to this precondition. The line does not say whether
- * its condition holds - the formatter never resolves one - so the
- * only available fix is to stop walking through EVERY body-bearing
- * conditional. Measured on the review's own probe, that would be
- * byte-identical everywhere except where a foldable text line
- * follows the target, so what it costs is a missed normalization
- * rather than a divergence; #231 records that. Pre-existing on main
- * and unchanged by this fix.
+ * case and further only through the lines the preprocessor DELETES,
+ * so that whatever was above one of those is above the line under it
+ * too. Everything else stops the walk, with the answer this one line
+ * gives: a directive that SUBSTITUTES ends it true, and any other
+ * line ends it false. A blank line is one of those others, and so is
+ * every line the classifier would go on to hold as block metadata -
+ * a `.Title`, an attribute entry - because the classifier answers
+ * those with this very field and reads them as paragraph text while
+ * it is true, which leaves the line below them inside a paragraph
+ * rather than at a block start this ever runs for.
+ * {@link preprocessorLineEffect} names the two effects and cites the
+ * arms of each.
  *
  * A reading rather than a fold the reader carries, and that is what
  * makes it exact: the answer is about the line PHYSICALLY above, so it
@@ -245,13 +223,16 @@ export function directiveDepthAfter(depth: number, line: string): number {
  * resumed to past a whole extent, with no state to keep in step.
  * @param lines - the lines this reader walks
  * @param at - the index of the line being classified
- * @returns true when an include stands directly above that line
+ * @returns true when a substituting directive stands above that line
  */
-function includeStandsAbove(lines: readonly SourceLine[], at: number): boolean {
+function substitutedContentStandsAbove(
+  lines: readonly SourceLine[],
+  at: number,
+): boolean {
   for (let index = at - 1; index >= 0; index -= 1) {
-    const form = rawLineForm(lines[index].text);
-    if (form !== "comment" && form !== "conditional") {
-      return form === "include";
+    const effect = preprocessorLineEffect(lines[index].text);
+    if (effect !== "deleted") {
+      return effect === "substitutes";
     }
   }
   return false;
@@ -316,17 +297,18 @@ export function bodyContextIn(
  * `next_block`, which never reaches it. Deciding that here, at the
  * one producer of a block-start context, keeps the setext arm out of
  * every confined reader without a second test anywhere.
- * `includeAbove` is a GETTER and the only field that is, because it
- * is the only one whose answer costs more than a lookup: the walk it
- * runs is as long as the run of deleted lines above. This producer is
- * called for EVERY line the reader classifies, and most of them never
- * ask - a `//` comment is answered by `classifyLine`'s own raw test
- * before the ladder is reached at all - so an eager walk here makes a
- * run of N comment lines cost N walks over itself. Measured on a
- * document of 8,000 `//` lines and one paragraph: 555 ms with the
- * walk eager, 15 ms with it asked for. The value is the same either
- * way; `includeStandsAbove` reads the reader's lines and nothing
- * else, and this view is handed on and never stored.
+ * `substitutedContentAbove` is a GETTER and the only field that is,
+ * because it is the only one whose answer costs more than a lookup:
+ * the walk it runs is as long as the run of deleted lines above. This
+ * producer is called for EVERY line the reader classifies, and most
+ * of them never ask - a `//` comment is answered by `classifyLine`'s
+ * own raw test before the ladder is reached at all - so an eager walk
+ * here makes a run of N comment lines cost N walks over itself.
+ * Measured on a document of 8,000 `//` lines and one paragraph:
+ * 555 ms with the walk eager, 15 ms with it asked for. The value is
+ * the same either way; `substitutedContentStandsAbove` reads the
+ * reader's lines and nothing else, and this view is handed on and
+ * never stored.
  * @param confinement - how the reader is confined, absent for the
  *   document reader
  * @param lines - the lines this reader walks
@@ -344,8 +326,8 @@ export function blockStartContextIn(
     openList: openListIn(confinement),
     firstLineAfterStart: false,
     nextLine: confinement === undefined ? lines.at(at + 1)?.text : undefined,
-    get includeAbove(): boolean {
-      return includeStandsAbove(lines, at);
+    get substitutedContentAbove(): boolean {
+      return substitutedContentStandsAbove(lines, at);
     },
   };
 }

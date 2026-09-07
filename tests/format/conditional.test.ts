@@ -155,3 +155,130 @@ describe("a continuation inside a directive pair over an item's tail", () => {
     expect(pass3).toBe(pass2);
   });
 });
+
+/**
+ * Issue #231: a single-line conditional carrying a body is not
+ * deleted from the stream, it SUBSTITUTES that body into it -
+ * `replace_next_line text.rstrip` then `unshift ''` (reader.rb
+ * l.993-997), the same pair of calls an include's unresolved arm
+ * makes. So a rule read at a block boundary alone has the same
+ * missing precondition under one of these as under an `include::`,
+ * and unlike the include rows it needs no missing file and no
+ * attribute set to show it: `ifndef::zz[body]` over `___` printed
+ * `'''` where the oracle renders `body <em>_</em>`, with `zz`
+ * undefined in every configuration the harness runs.
+ *
+ * The formatter never resolves the condition, so the answer has to
+ * hold whichever way it goes, and holding the rules off is the arm
+ * that does: the bytes are written back as they stand, and bytes that
+ * stand still render the same under both readings.
+ */
+describe("a block-boundary construct under a body-bearing conditional", () => {
+  test.each([
+    ["a layout break", "ifndef::zz[body]\n___\n"],
+    ["a page break near miss", "ifndef::zz[body]\n<<<\n"],
+    ["a comma-delimited target", "ifndef::a,b[body]\n___\n"],
+    ["a plus-delimited target", "ifndef::a+b[body]\n___\n"],
+    ["an ifdef spelling", "ifdef::zz[body]\n___\n"],
+  ])("%s keeps its bytes", async (_name, input) => {
+    await expectFormatted(input, input);
+  });
+
+  test.each([
+    [
+      "a setext pair",
+      "ifndef::zz[body]\nTitle\n-----\n",
+      "ifndef::zz[body]\nTitle\n\n----\n----\n",
+    ],
+    [
+      "a heading over text",
+      "ifndef::zz[body]\n== T\nmore\n",
+      "ifndef::zz[body]\n== T more\n",
+    ],
+    [
+      "a block title over a break",
+      "ifndef::zz[body]\n.Title\n___\n",
+      "ifndef::zz[body]\n.Title ___\n",
+    ],
+    [
+      "a break over text",
+      "ifndef::zz[body]\n___\nmore\n",
+      "ifndef::zz[body]\n___ more\n",
+    ],
+  ])("%s reads as the paragraph the body opened", async (_n, input, out) => {
+    await expectFormatted(input, out);
+  });
+
+  // The arms that are DELETED rather than substituted keep the
+  // boundary, so the break below one canonicalizes as it does with
+  // nothing above it at all. Every malformed spelling is deleted too:
+  // the log-and-return each takes sits above the substituting arm.
+  test.each([
+    ["a bodyless ifdef", "ifdef::zz[]\n___\n", "ifdef::zz[]\n'''\n"],
+    ["an ifeval region", "ifeval::[1==1]\n___\n", "ifeval::[1==1]\n'''\n"],
+    ["a targetless ifdef", "ifdef::[body]\n___\n", "ifdef::[body]\n'''\n"],
+    ["an ifeval with a target", "ifeval::t[x]\n___\n", "ifeval::t[x]\n'''\n"],
+    ["an endif with text", "endif::x[t]\n___\n", "endif::x[t]\n'''\n"],
+  ])("%s restores the boundary", async (_name, input, out) => {
+    await expectFormatted(input, out);
+  });
+
+  // A blank line restores it too, from the substituting arm as well.
+  test("a blank line restores the canonical spelling", async () => {
+    await expectFormatted(
+      "ifndef::zz[body]\n\n___\n",
+      "ifndef::zz[body]\n\n'''\n",
+    );
+  });
+
+  // A body of nothing but whitespace substitutes `text.rstrip`, which
+  // is the EMPTY string, so with the `unshift ''` under it the
+  // directive leaves TWO BLANK LINES and the boundary is restored -
+  // the same answer as a bodyless spelling, reached one arm further
+  // down. Every row here printed the FOLDED spelling when the rstrip
+  // was missing from the test, and the first of them rendered nothing
+  // at all: `.Title ___` is a block title over no block, where the
+  // input renders `<hr>`.
+  test.each([
+    [
+      "a block title over a break",
+      "ifdef::backend[ ]\n.Title\n___\n",
+      "ifdef::backend[ ]\n.Title\n'''\n",
+    ],
+    [
+      "a heading over text",
+      "ifdef::backend[ ]\n== T\nmore\n",
+      "ifdef::backend[ ]\n== T\n\nmore\n",
+    ],
+    [
+      "a heading over text, ifndef",
+      "ifndef::zz[ ]\n== T\nmore\n",
+      "ifndef::zz[ ]\n== T\n\nmore\n",
+    ],
+    [
+      "a heading over text, tab body",
+      "ifdef::backend[\t]\n== T\nmore\n",
+      "ifdef::backend[\t]\n== T\n\nmore\n",
+    ],
+    [
+      "a setext pair",
+      "ifdef::backend[  ]\nTitle\n-----\n",
+      "ifdef::backend[  ]\n== Title\n",
+    ],
+    ["a layout break", "ifdef::backend[ ]\n___\n", "ifdef::backend[ ]\n'''\n"],
+  ])(
+    "a whitespace body restores the boundary over %s",
+    async (_n, input, out) => {
+      await expectFormatted(input, out);
+    },
+  );
+
+  // The rstrip trims the TAIL alone, so a body with anything else in
+  // it still substitutes.
+  test("a body with trailing whitespace still substitutes", async () => {
+    await expectFormatted(
+      "ifdef::backend[x ]\n___\n",
+      "ifdef::backend[x ]\n___\n",
+    );
+  });
+});

@@ -9,7 +9,10 @@
  * that says "a line the reader would have eaten".
  */
 import { describe, test, expect } from "vitest";
-import { conditionalDirective } from "../../src/parse/line-shapes.js";
+import {
+  conditionalDirective,
+  preprocessorLineEffect,
+} from "../../src/parse/line-shapes.js";
 import { parse } from "../../src/parser.js";
 import { asParagraph, narrow } from "../helpers.js";
 
@@ -116,5 +119,65 @@ describe("what a conditional directive line does to the stack", () => {
     ["// c", undefined],
   ])("%j is %s", (line, expected) => {
     expect(conditionalDirective(line)).toBe(expected);
+  });
+});
+
+// The OTHER question about the same lines, and the one the stack
+// answer cannot stand in for: what the preprocessor leaves in the
+// stream where the line stood. A single-line `ifdef`/`ifndef` with a
+// body is `inert` to the stack above and `substitutes` here, which is
+// the whole of issue #231 - the walk that reads the block boundary
+// above a line counted them as deleted, and `ifndef::zz[body]` over
+// `___` printed `'''` where the oracle renders an italic underscore,
+// with no attribute defined and no include in the document.
+//
+// The two answers do NOT pair off, and the whitespace-body rows are
+// where they part: `ifdef::backend[ ]` is `inert` to the stack and
+// `deleted` here. It reaches l.995 like any other body-bearing
+// spelling and substitutes `text.rstrip`, which for a body of spaces
+// or tabs is the EMPTY string, so with the `unshift ''` on l.997 it
+// leaves two blank lines and restores the boundary. Reading it as
+// `substitutes` folded `ifdef::backend[ ]` over `.Title` over `___`
+// into one line that renders NOTHING, where the input renders `<hr>`.
+//
+// A malformed spelling is `deleted` and not `substitutes` even where
+// it carries text, because the arm that would substitute is below the
+// log-and-return each of them takes: a targetless `ifdef`/`ifndef`
+// (reader.rb l.936-939, l.952-954), an `ifeval` with a target
+// (l.981-984), an `endif` with text (l.914-915).
+describe("what the preprocessor leaves where a line stood", () => {
+  test.each<[string, "deleted" | "substitutes" | undefined]>([
+    ["include::a.adoc[]", "substitutes"],
+    ["include::a.adoc[lines=1..2]", "substitutes"],
+    ["ifdef::backend[Content here]", "substitutes"],
+    ["ifndef::attr[text]", "substitutes"],
+    ["ifdef::attr1,attr2[text]", "substitutes"],
+    ["ifdef::attr1+attr2[text]", "substitutes"],
+    // A body that survives the rstrip only at its head still does.
+    ["ifdef::backend[x ]", "substitutes"],
+    ["ifdef::backend[ x]", "substitutes"],
+    // A body that does not survive it at all.
+    ["ifdef::backend[ ]", "deleted"],
+    ["ifdef::backend[   ]", "deleted"],
+    ["ifndef::zz[\t]", "deleted"],
+    ["ifndef::zz[ \t ]", "deleted"],
+    ["ifdef::backend[]", "deleted"],
+    ["ifndef::attr[]", "deleted"],
+    ["endif::[]", "deleted"],
+    ["endif::backend[]", "deleted"],
+    ["ifeval::[{version} > 1]", "deleted"],
+    ["ifdef::[text]", "deleted"],
+    ["ifndef::[text]", "deleted"],
+    ["ifeval::target[expr]", "deleted"],
+    ["endif::[text]", "deleted"],
+    ["// c", "deleted"],
+    ["//", "deleted"],
+    ["para", undefined],
+    ["", undefined],
+    [".Title", undefined],
+    [":name: v", undefined],
+    ["[NOTE]", undefined],
+  ])("%j is %s", (line, expected) => {
+    expect(preprocessorLineEffect(line)).toBe(expected);
   });
 });

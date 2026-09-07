@@ -426,8 +426,8 @@ export function openParagraphProbes(): ContextProbe[] {
             // paragraph scan's own literal states: a line reaches the
             // block-start ladder from here by INTERRUPTING, and a
             // line that interrupts starts a block on Asciidoctor's
-            // reading too (see ReaderContext.includeAbove).
-            includeAbove: false,
+            // reading too (see ReaderContext.substitutedContentAbove).
+            substitutedContentAbove: false,
           },
           prefix,
         });
@@ -463,7 +463,7 @@ export function blockStartContexts(): ReaderContext[] {
     // Fixed false for the same reason, and pinned in its own right by
     // the include rows in tests/format/include.test.ts: the style
     // equivalence class is what these states are about.
-    includeAbove: false,
+    substitutedContentAbove: false,
   }));
 }
 

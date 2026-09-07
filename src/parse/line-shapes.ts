@@ -217,44 +217,66 @@ export interface ReaderContext {
    */
   readonly nextLine: string | undefined;
   /**
-   * Whether an `include::` directive stands directly above this line,
-   * with nothing but lines the preprocessor DELETES in between.
+   * Whether a directive the preprocessor SUBSTITUTES CONTENT for
+   * stands directly above this line, with nothing but lines it
+   * DELETES in between ({@link preprocessorLineEffect} is the test,
+   * `substitutedContentStandsAbove` in lines/scope.ts the walk).
    *
-   * A line that can put CONTENT immediately above a line this reader
+   * A line that can put content immediately above a line this reader
    * nevertheless reaches at a block start, and so a reason a block
    * start here may not be one to Asciidoctor. A line that is content
    * opens a paragraph the line below sits inside; a line the
    * preprocessor deletes leaves a boundary above it a boundary below
-   * it. An include is neither: the preprocessor SUBSTITUTES lines for
-   * the directive (`preprocess_include_directive`, reader.rb l.1035),
-   * and a formatter cannot read the target, so whatever those lines
-   * end with is unknown. The one thing that IS known is that the
-   * substitution can be non-blank, which every unresolved arm
-   * demonstrates: each writes a paragraph line with
-   * `replace_next_line %(Unresolved directive in ...)`. The method
-   * itself holds four (l.1050, the blank-resolved-target arm, and
-   * l.1143, l.1207, l.1231), and the one the pinned oracle executes
-   * for an unreadable target is a FIFTH, one call down in
-   * `resolve_include_path` (l.1257): the `include file not found`
-   * arm at l.1277, whose answer reaches the caller through l.1070 and
-   * the boolean return at l.1078-1080.
+   * it. A substituting directive is neither, and a formatter cannot
+   * read what it substitutes, so whatever those lines end with is
+   * unknown. The one thing that IS known is that the substitution can
+   * be non-blank.
    *
-   * NOT the only such line, and this field does not claim to be: a
-   * single-line conditional carrying a body substitutes that body the
-   * same way ({@link rawLineForm}'s `conditional`, and
-   * `includeStandsAbove` in lines/scope.ts, which state the subset
-   * exactly). That gap is measurable, pre-existing, and filed from
-   * this lane's review rather than closed here.
+   * An include substitutes the target's lines for the directive
+   * (`preprocess_include_directive`, reader.rb l.1035), and every
+   * unresolved arm demonstrates a non-blank one: each writes a
+   * paragraph line with `replace_next_line %(Unresolved directive in
+   * ...)`. The method itself holds four (l.1050, the
+   * blank-resolved-target arm, and l.1143, l.1207, l.1231), and the
+   * one the pinned oracle executes for an unreadable target is a
+   * FIFTH, one call down in `resolve_include_path` (l.1257): the
+   * `include file not found` arm at l.1277, whose answer reaches the
+   * caller through l.1070 and the boolean return at l.1078-1080. A
+   * single-line `ifdef::x[body]` or `ifndef::x[body]` substitutes its
+   * own body by the same two calls (`replace_next_line text.rstrip`
+   * then `unshift ''`, reader.rb l.993-997), and needs no missing
+   * file to do it (issue #231).
    *
-   * Two rules of `next_block`'s ladder are asked ONLY at a block
-   * boundary and DESTROY a spelling when they fire: the layout break
-   * (`ExtLayoutBreakRx`) and the setext section title
-   * (`is_next_line_section?`, asked from `next_section`). Both are
-   * held off while this is true, which leaves the line to the ladder's
-   * text fallback - the reading Asciidoctor gives it when the
-   * substituted content is a paragraph (issues #210, #213).
+   * SIX rules are held off while this is true, and they are the ones
+   * whose reading the printer turns into bytes that move. Four are in
+   * `classifyBlockStart` (lines/classify.ts): the block title and the
+   * attribute entry, each of which becomes a block of its own that
+   * the printer separates from the next with a blank line, splitting
+   * the one paragraph the oracle reads (issue #230), and the two
+   * section-title spellings, the setext one respelled as an ATX
+   * heading and the ATX one given the same heading spacing (issues
+   * #213, #229). The other two are the layout break's alternatives
+   * (`ExtLayoutBreakRx`), reprinted as the canonical break or page
+   * break (issue #210). Held off, each line drops to the ladder's
+   * text fallback, which is Asciidoctor's own reading once the
+   * substituted content opens a paragraph.
+   *
+   * The arms NOT held off are the ones a paragraph does not swallow.
+   * `read_paragraph_lines` (parser.rb l.962-970) breaks on a blank
+   * line, on a `+` continuation, and through `StartOfBlockProc`
+   * (l.36) on a delimited block line or a `BlockAttributeLineRx`
+   * line, so a block anchor, an attribute list, a delimiter and a
+   * continuation all stand at a boundary whatever is above them.
+   * (`StartOfBlockOrListProc`, the arm a list item's own reader
+   * takes, adds the list markers to that set; the document reader's
+   * arm does not, which is why a marker below a substitution is
+   * paragraph text to the oracle.) The rest of
+   * `next_block`'s ladder is read below the substitution too, and
+   * wrongly, but each of those arms prints its line back where it
+   * stands; the one measured exception is the block macro's attrlist
+   * (issue #232).
    */
-  readonly includeAbove: boolean;
+  readonly substitutedContentAbove: boolean;
 }
 
 /**
@@ -268,7 +290,7 @@ export const BLOCK_START_CONTEXT: ReaderContext = {
   openList: undefined,
   firstLineAfterStart: false,
   nextLine: undefined,
-  includeAbove: false,
+  substitutedContentAbove: false,
 };
 
 // The oracle's strip set, spelled out rather than as `\s`:
@@ -1730,6 +1752,91 @@ export function rawLineForm(
     return "conditional";
   }
   return INCLUDE_DIRECTIVE.test(line) ? "include" : undefined;
+}
+
+/**
+ * What the preprocessor leaves in the stream where one of the lines
+ * it consumes stood - the distinction {@link RawForm} does not draw,
+ * because a raw line's NODE is the same either way and only block
+ * structure below it turns on this.
+ *
+ * - `deleted` - nothing is left, so a boundary above the line is
+ *   still a boundary below it. A `//` comment, always
+ *   (`Reader#skip_line_comments`). A conditional directive in every
+ *   arm that moves the conditional stack or is refused: `endif::`
+ *   pops it and returns (reader.rb l.913-924), `ifeval::[expr]` and
+ *   a BODYLESS `ifdef::`/`ifndef::` push onto it (l.988-1006), a
+ *   body-bearing one whose condition FAILS is dropped by the
+ *   `unless \@skipping || skip` guard between those two pushes, and
+ *   each malformed spelling logs and returns before any of that.
+ *   `preprocess_conditional_directive` holds all four of those: a
+ *   targetless `ifdef`/`ifndef` at l.936-939 and l.952-954, an
+ *   `ifeval` carrying a target at l.981-984 or missing its
+ *   expression at l.977-979, an `endif` carrying text at l.914-915.
+ * - `substitutes` - CONTENT is left, of a shape no formatter can
+ *   read. An `include::` (`preprocess_include_directive`, reader.rb
+ *   l.1035), and a single-line `ifdef::x[body]`/`ifndef::x[body]`,
+ *   which runs `replace_next_line text.rstrip` and `unshift ''`
+ *   (l.993-997) exactly as the include's unresolved arm does.
+ *   RSTRIP, and it decides the answer rather than decorating it: a
+ *   body that is all spaces or tabs rstrips to the empty string, so
+ *   those two calls leave TWO BLANK LINES where the directive stood
+ *   and the boundary below is restored after all. `ifdef::x[ ]` is
+ *   `deleted`, alongside the arms above it.
+ *
+ * The condition a body-bearing conditional turns on is NOT resolved
+ * here, and cannot be: the attributes are a property of the build,
+ * not of the bytes on the page. So the answer is the one that holds
+ * whichever way it goes. `substitutes` costs a normalization that
+ * the deleted arm would have allowed; `deleted` would cost the
+ * author's bytes on the substituting arm, which is the reading the
+ * pinned oracle takes for `ifndef::zz[body]` with no setup at all
+ * (issue #231).
+ * @param line - one rstripped source line
+ * @returns what the preprocessor leaves, or undefined when the line
+ *   is not one it consumes
+ */
+export function preprocessorLineEffect(
+  line: string,
+): "deleted" | "substitutes" | undefined {
+  // {@link rawLineForm}'s ladder, in its order, spelled out for the
+  // conditional arm alone: that arm needs the directive's GROUPS, and
+  // asking `rawLineForm` first would match the same pattern twice for
+  // every conditional line the backwards walk steps over.
+  if (LINE_COMMENT.test(line)) {
+    return "deleted";
+  }
+  const conditional = CONDITIONAL_DIRECTIVE.exec(line)?.groups;
+  if (conditional !== undefined) {
+    return substitutesConditionalBody(conditional) ? "substitutes" : "deleted";
+  }
+  return INCLUDE_DIRECTIVE.test(line) ? "substitutes" : undefined;
+}
+
+/**
+ * Whether a conditional directive line carries a body that reaches
+ * the stream: an `ifdef` or `ifndef` (the two names l.993's `elsif
+ * text` is reachable under) with a target, and with text between its
+ * brackets that survives `text.rstrip` (l.995). A targetless one
+ * returns at the `missing target` log above that branch, and
+ * `ifeval`/`endif` never reach it.
+ *
+ * The rstrip is the whole of the second test. `ifdef::x[ ]` reaches
+ * l.995 like any other body-bearing spelling and substitutes the
+ * EMPTY string, which with the `unshift ''` on l.997 is two blank
+ * lines: nothing stands above the next line, and a boundary there is
+ * a boundary to Asciidoctor too.
+ * @param groups - the directive's `name`, `target` and `text`, from
+ *   {@link CONDITIONAL_DIRECTIVE}
+ * @returns true when the line's own body can reach the stream
+ */
+function substitutesConditionalBody(groups: Record<string, string>): boolean {
+  const { name, target, text } = groups;
+  return (
+    (name === "ifdef" || name === "ifndef") &&
+    target !== "" &&
+    rstrip(text) !== ""
+  );
 }
 
 /**

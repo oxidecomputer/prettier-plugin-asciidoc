@@ -350,9 +350,9 @@ class Paragraph {
         // A paragraph is OPEN here too, so a line this scan hands on
         // to the block-start ladder got there by INTERRUPTING one -
         // and a line that interrupts starts a block on Asciidoctor's
-        // reading as well, whatever an include put above it (see
-        // ReaderContext.includeAbove).
-        includeAbove: false,
+        // reading as well, whatever a directive substituted above it
+        // (see ReaderContext.substitutedContentAbove).
+        substitutedContentAbove: false,
       });
       classifyTrace.observer?.(next.offset, kind);
       if (kind.kind !== "text" && kind.kind !== "raw") {
@@ -869,7 +869,7 @@ function verbatimRunExtent(
     // setext arm belongs to a section's block start alone.
     nextLine: undefined,
     // Same reason as the paragraph scan's, one field down.
-    includeAbove: false,
+    substitutedContentAbove: false,
   };
   const lines: [SourceLine, ...SourceLine[]] = [scan.lines[at]];
   let index = at + 1;

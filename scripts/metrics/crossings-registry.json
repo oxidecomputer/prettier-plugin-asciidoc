@@ -1128,6 +1128,13 @@
   },
   {
     "file": "src/parse/line-shapes.ts",
+    "symbol": "preprocessorLineEffect",
+    "importer": "src/parse/lines/scope.ts",
+    "kind": "vocabulary",
+    "reason": "the one answer to what the preprocessor leaves where a line it consumes stood, which tells the directives that SUBSTITUTE content (an `include::`, a body-bearing single-line conditional) from the lines it DELETES, and so whether a block start below one is a block start to Asciidoctor at all (issues #210, #213, #231)"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
     "symbol": "rawLineForm",
     "importer": "src/parse/build/metadata.ts",
     "kind": "vocabulary",
@@ -1146,13 +1153,6 @@
     "importer": "src/parse/lines/paragraph-reader.ts",
     "kind": "vocabulary",
     "reason": "registry reading: whether a rest line is a comment `next_block`'s metadata loop drains, which is what decides the arm a description folds down"
-  },
-  {
-    "file": "src/parse/line-shapes.ts",
-    "symbol": "rawLineForm",
-    "importer": "src/parse/lines/scope.ts",
-    "kind": "vocabulary",
-    "reason": "the one answer to which context-free raw pattern a line matched, which is what tells an `include::` line (the preprocessor SUBSTITUTES lines for it) from the two forms it DELETES, and so whether a block start below one is a block start to Asciidoctor at all (issues #210, #213)"
   },
   {
     "file": "src/parse/line-shapes.ts",
