@@ -722,10 +722,10 @@
   },
   {
     "file": "src/parse/line-shapes.ts",
-    "symbol": "BLOCK_ANCHOR",
+    "symbol": "BLOCK_ANCHOR_BOTH_PROGRAMS",
     "importer": "src/print/serialize-inline.ts",
     "kind": "vocabulary",
-    "reason": "registry pattern: a whole-line `[[id]]` anchor. The printer reads it at the one documented parse address, so the formatter and the parser cannot disagree about what a re-parsed anchor line means"
+    "reason": "registry pattern: a whole-line `[[id]]` anchor over the id characters BOTH authorities read. The printer reads it at the one documented parse address, so the formatter and the parser cannot disagree about what a re-parsed anchor line means; the narrower class is what licenses the comma padding, which moves an id into a spelling the printer chose"
   },
   {
     "file": "src/parse/line-shapes.ts",

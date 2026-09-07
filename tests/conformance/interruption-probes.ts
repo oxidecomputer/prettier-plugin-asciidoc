@@ -70,6 +70,17 @@ export const CONSTRUCTS: Array<[string, string]> = [
   ["bracketed text (leading +)", "[+1]"],
   ["bracketed text (leading *)", "[*bold*]"],
   ["block anchor", "[[anchor]]"],
+  // The same shape at the three edges of the id class
+  // (BLOCK_ANCHOR_ID_TAIL_ORACLE, src/parse/line-shapes.ts). The two
+  // non-ASCII rows read as ordinary text until that class was widened
+  // (issue #203); the digit-led row is the other edge, where the id's
+  // FIRST character is outside the class in both authorities. Same
+  // KIND as the two rows they sit beside, like the negative controls
+  // and the marker spellings above: the list is a roster of shapes,
+  // not of kinds.
+  ["block anchor (non-ASCII id)", "[[café]]"],
+  ["block anchor (non-ASCII id, reftext)", "[[naïve, Réf]]"],
+  ["bracketed text (digit-led id)", "[[1abc]]"],
   ["listing delimiter", "----\ncode\n----"],
   ["literal delimiter", "....\nlit\n...."],
   ["pass delimiter", "++++\np\n++++"],

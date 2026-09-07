@@ -11,7 +11,7 @@
  * bracket interior gets ONE spacing: `[a,b,c]`.
  */
 import { describe, test, expect } from "vitest";
-import { formatAdoc, renderedHtml } from "../helpers.js";
+import { expectFormatted, formatAdoc, renderedHtml } from "../helpers.js";
 
 describe("block attribute list formatting", () => {
   // A canonical attribute list must pass through
@@ -116,6 +116,66 @@ describe("standalone anchor formatting", () => {
   test("anchor with reftext round-trips with space", async () => {
     const input = "[[my-id, My Reference Text]]\n";
     expect(await formatAdoc(input)).toBe(input);
+  });
+});
+
+describe("anchor ids outside ASCII", () => {
+  // Red before BLOCK_ANCHOR_SOURCE's id class was widened from ASCII
+  // to the oracle's own class (src/parse/line-shapes.ts):
+  // `[[café]]` was ordinary prose to the reader, so the anchor line
+  // folded into the paragraph below it and the block lost its `id`
+  // (issue #203). Each row was measured through both programs before
+  // it was written, and both read every one of them the same way.
+  //
+  // The negative controls are the two halves of the class: the FIRST
+  // character must be alphabetic, `_` or `:`, so a digit-led id is
+  // prose; a hyphen and an underscore are body characters, so an id
+  // carrying them is an anchor.
+  test.each([
+    ["[[café]]\nSome text.\n", "[[café]]\n\nSome text.\n"],
+    ["[[naïve,Ref]]\nSome text.\n", "[[naïve, Ref]]\n\nSome text.\n"],
+    ["[[日本]]\nSome text.\n", "[[日本]]\n\nSome text.\n"],
+    ["[[Ωmega]]\nSome text.\n", "[[Ωmega]]\n\nSome text.\n"],
+    ["[[ключ, Ссылка]]\nSome text.\n", "[[ключ, Ссылка]]\n\nSome text.\n"],
+    ["[[1abc]]\nSome text.\n", "[[1abc]] Some text.\n"],
+    ["[[a-b_c]]\nSome text.\n", "[[a-b_c]]\n\nSome text.\n"],
+  ])("%j formats to %j", async (input, expected) => {
+    await expectFormatted(input, expected);
+  });
+
+  // The `[#id]` shorthand, which the printer RESPELLS as the anchor
+  // line. Both authorities read `[#café]` as carrying `id="café"` and
+  // read `[[café]]` the same way, so the respelling is free.
+  test("[#café] is spelled as the anchor line it is", async () => {
+    await expectFormatted("[#café]\nText here.\n", "[[café]]\n\nText here.\n");
+  });
+
+  // The gate on that respelling is the INTERSECTION of the two id
+  // classes (BLOCK_ANCHOR_BOTH_PROGRAMS, src/parse/line-shapes.ts).
+  // Red for the first row before it: `a` then U+2460 is a non-decimal
+  // number, so both programs read `id="a①"` off `[#a①]` while only
+  // the oracle reads it off `[[a①]]`, and respelling would lose the
+  // id under the reference. The second row is the mark edge from the
+  // other side, where NEITHER class reaches: `café` with a combining
+  // acute is an id to the Ruby alone, and it has never been respelled.
+  test.each(["[#a①]\nText here.\n", "[#café]\nText here.\n"])(
+    "%j keeps its own spelling",
+    async (input) => {
+      await expectFormatted(input, input);
+    },
+  );
+
+  // The INLINE spellings of the same ids, which never needed the
+  // widening: the inline anchor rule's interior is `[^\]\n]+` and the
+  // `anchor:` macro's bytes are replayed by the text run
+  // (src/parse/inline/rules.ts). Pinned so a later narrowing of either
+  // has to say so here.
+  test.each([
+    "para [[café]] tail\n",
+    "text anchor:日本[] more\n",
+    "[[[café]]] entry\n",
+  ])("%j keeps its bytes inline", async (input) => {
+    await expectFormatted(input, input);
   });
 });
 

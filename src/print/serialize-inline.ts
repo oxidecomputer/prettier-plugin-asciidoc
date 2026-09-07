@@ -26,7 +26,7 @@ import { canonicalAttrlist } from "../parse/attrlist.js";
 import {
   ASCII_HORIZONTAL_WHITESPACE,
   ASCII_WHITESPACE,
-  BLOCK_ANCHOR,
+  BLOCK_ANCHOR_BOTH_PROGRAMS,
 } from "../parse/line-shapes.js";
 
 /**
@@ -121,10 +121,19 @@ function xrefToSource(node: XrefNode): string {
  * EMPTY reftext (`[[id,]]`) fails verbatim while its normalized
  * respell `[[id, ]]` would pass - and render as a live anchor where
  * the author's bytes render literal, so the verbatim test must win
- * (the grammar home is the registry's BLOCK_ANCHOR - behavior is
- * Ruby's BlockAnchorRx, rx.rb:164 - pinned by
- * tests/format/anchor-spelling.test.ts). Accepts any id/reftext
- * pair so the block-anchor printer shares this one spelling.
+ * (the grammar home is the registry's
+ * BLOCK_ANCHOR_BOTH_PROGRAMS - behavior is Ruby's BlockAnchorRx,
+ * rx.rb:164 - pinned by tests/format/anchor-spelling.test.ts).
+ * Accepts any id/reftext pair so the block-anchor printer shares this
+ * one spelling.
+ *
+ * The grammar asked is the INTERSECTION of the two authorities' id
+ * classes, not the reader's own class. Padding the comma moves the
+ * id into a spelling this function chose, and an id only one program
+ * reads there is lost under the other: `[[a①,R]]` is a live anchor to
+ * the oracle and literal text to the Ruby, which renders the injected
+ * space. The two classes and the reason they differ are at
+ * BLOCK_ANCHOR_ID_TAIL_ORACLE (src/parse/line-shapes.ts).
  * @param node - The parsed anchor with an id and optional verbatim
  *   reftext.
  * @returns AsciiDoc source string for the anchor.
@@ -136,11 +145,11 @@ export function anchorToSource(
     return `[[${node.id}]]`;
   }
   const verbatim = `[[${node.id},${node.reftext}]]`;
-  if (!BLOCK_ANCHOR.test(verbatim)) {
+  if (!BLOCK_ANCHOR_BOTH_PROGRAMS.test(verbatim)) {
     return verbatim;
   }
   const normalized = `[[${node.id}, ${node.reftext.trimStart()}]]`;
-  return BLOCK_ANCHOR.test(normalized) ? normalized : verbatim;
+  return BLOCK_ANCHOR_BOTH_PROGRAMS.test(normalized) ? normalized : verbatim;
 }
 
 /**

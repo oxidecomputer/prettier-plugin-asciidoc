@@ -511,14 +511,69 @@ export function optionalGroup(group: string): string | undefined {
 }
 
 /**
- * Pattern source for a block anchor line — unanchored, so
- * {@link BLOCK_ANCHOR} can wrap it and the prose below can point at
- * the shape by name. Mirrors `BlockAnchorRx`
- * (`/^\[\[(?:|([\p{Alpha}_:][\w\-:.]*)(?:, *(.+))?)\]\]$/`), empty
- * `[[]]` form included; the capture groups are dropped because
- * nothing here reads them.
+ * The characters an anchor id may carry after its first, as the two
+ * authorities read them. Ruby's `CC_WORD` is `\p{Word}`
+ * (asciidoctor.rb l.436): alphabetics plus MARKS plus DECIMAL digits
+ * plus connectors. The oracle's transcription of the same name
+ * (`index.cjs` l.54) is alphabetics plus ALL numbers plus connectors.
+ * They therefore differ at two edges, both measured through both
+ * programs: a combining mark inside an id (`cafe` then U+0301) is a
+ * live anchor to the Ruby and prose to the oracle, and a non-decimal
+ * number (`a` then U+2460) is prose to the Ruby and a live anchor to
+ * the oracle.
+ *
+ * Two classes, because a READER and an EMITTER want different answers
+ * at the NUMBER edge:
+ *
+ * - {@link BLOCK_ANCHOR} is the ORACLE's class, copied from
+ *   `index.cjs` rather than reasoned out. On the number edge that
+ *   makes it wider than either program's own reading is safe to
+ *   assume, which is the point: a line the oracle reads as an anchor
+ *   is never folded into the prose below it, and every render
+ *   assertion in this tree runs through the oracle, so a narrower
+ *   class would fail them. It is NOT the union of the two: Ruby's
+ *   `\p{Word}` also takes MARKS, and this class deliberately does not,
+ *   so the decomposed `cafe` + U+0301 above is a live anchor to the
+ *   Ruby and prose here. Widening to the mark edge would break the
+ *   same assertions from the other side.
+ * - {@link BLOCK_ANCHOR_BOTH_PROGRAMS} is the INTERSECTION of the two,
+ *   and it is what licenses a RESPELLING. Rewriting `[#id]` into
+ *   `[[id]]` (`attrlistAnchorId`, src/parse/attrlist.ts) or padding an
+ *   anchor's comma (`anchorToSource`, src/print/serialize-inline.ts)
+ *   moves the id into a spelling this formatter chose, so both
+ *   programs have to carry the id THERE; where only one does, the
+ *   author's bytes stay as written.
  */
-const BLOCK_ANCHOR_SOURCE = String.raw`\[\[(?:|[A-Za-z_:][\w\-:.]*(?:, *[^\n]+)?)\]\]`;
+const BLOCK_ANCHOR_ID_TAIL_ORACLE = String.raw`\p{Alphabetic}\p{N}\p{Pc}\-:.`;
+const BLOCK_ANCHOR_ID_TAIL_BOTH = String.raw`\p{Alphabetic}\p{Nd}\p{Pc}\-:.`;
+
+/**
+ * Pattern source for a block anchor line, unanchored, so the two
+ * wrappers below can anchor it and the prose can point at the shape
+ * by name. Mirrors `BlockAnchorRx`
+ * (`/^\[\[(?:|([CC_ALPHA_:][CC_WORD\-:.]*)(?:, *(CC_ANY+))?)\]\]$/`,
+ * rx.rb l.164), empty `[[]]` form included; the capture groups are
+ * dropped because nothing here reads them. `CC_ALPHA` is
+ * `\p{Alphabetic}` in the oracle (`index.cjs` l.45), and `CC_WORD`
+ * is the tail class the caller passes.
+ *
+ * The id class is UNICODE, and reading it as ASCII corrupted the
+ * render: `[[café]]` opens a block to both authorities, and a reader
+ * that saw prose there folded the anchor into the paragraph below it
+ * (issue #203).
+ * @param tail - the characters the id may carry after its first, one
+ *   of the two classes above
+ * @returns the unanchored pattern source
+ */
+function blockAnchorSource(tail: string): string {
+  return (
+    String.raw`\[\[(?:|[\p{Alphabetic}_:][` +
+    tail +
+    String.raw`]*(?:, *[^\n]+)?)\]\]`
+  );
+}
+
+const BLOCK_ANCHOR_SOURCE = blockAnchorSource(BLOCK_ANCHOR_ID_TAIL_ORACLE);
 
 /**
  * Pattern source for a line comment — a PREFIX, so {@link LINE_COMMENT}
@@ -660,6 +715,27 @@ const DELIMITER_SOURCES: Record<DelimiterKind, string> = {
 // see LATER_LINE_INTERRUPTERS.
 export const BLOCK_ANCHOR = wholeLine(BLOCK_ANCHOR_SOURCE);
 
+/**
+ * The same line shape over the id characters BOTH authorities read
+ * (`BLOCK_ANCHOR_ID_TAIL_BOTH`), for the two sites that RESPELL an
+ * anchor rather than read one: `attrlistAnchorId`
+ * (src/parse/attrlist.ts), which rewrites `[#id]` as `[[id]]`, and
+ * `anchorToSource` (src/print/serialize-inline.ts), which pads an
+ * anchor's comma. Both move an id into a spelling this formatter
+ * chose, and a spelling only one program reads as an anchor loses the
+ * id under the other: `[#a①]` carries `id="a①"` to Ruby and to the
+ * oracle alike, while the `[[a①]]` this would otherwise print is an
+ * anchor to the oracle and literal text to the Ruby. Where the two
+ * classes differ, the author's bytes stay as written.
+ *
+ * {@link BLOCK_ANCHOR} stays the READER's question, and is wider on
+ * the number edge on purpose; the class comment above says why the
+ * reader takes the oracle's class rather than either program's.
+ */
+export const BLOCK_ANCHOR_BOTH_PROGRAMS = wholeLine(
+  blockAnchorSource(BLOCK_ANCHOR_ID_TAIL_BOTH),
+);
+
 // A block attribute list alone on a line: `StartOfBlockProc` tests
 // BlockAttributeLineRx, of which this is every alternative but the
 // anchor one. See BLOCK_ATTRIBUTE_LINE_SOURCE.
@@ -674,8 +750,16 @@ export const BLOCK_TITLE = /^\.\.?[^ \t.][^\n]*$/v;
 
 // An attribute entry (`:name: value`, `:name!:`). Mirrors
 // `AttributeEntryRx` (`/^:(!?CG_WORD[^:]*):(?:[ \t]+(CC_ANY*))?$/`),
-// with Ruby's unicode word class approximated by `\w` the same way
-// BLOCK_ANCHOR_SOURCE approximates its id class.
+// with Ruby's unicode word class approximated by `\w`: only the
+// name's FIRST character is held to it, so an ASCII-led name with any
+// tail (`:café:`) is read, and a name LED by a letter outside ASCII
+// (`:ünicode:`) is not (issue #246). Two rows above approximate the
+// same `CC_WORD` the same way and are tracked separately:
+// BLOCK_ATTRIBUTE_LINE_SOURCE's leading character and
+// ATTRLIST_LEADING_CHARACTER beside it, where `[ünicode]` and `[日本]`
+// are attribute lines to both authorities and prose to this reader.
+// The block anchor's id class is NOT one of them: it is spelled in
+// full at BLOCK_ANCHOR_ID_TAIL_ORACLE.
 // Named groups carry the parse out through the classifier — the ONE
 // parse; the accepted line set is IDENTICAL to the ungrouped spelling
 // (`!` is a `[^:]` character, so a trailing bang splits off the lazy

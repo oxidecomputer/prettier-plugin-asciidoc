@@ -15,7 +15,10 @@
  * modeled - no substitution, no `attributes[N]` positional map - so
  * the values are what the interior spells and nothing more.
  */
-import { ATTRLIST_LEADING_CHARACTER, BLOCK_ANCHOR } from "./line-shapes.js";
+import {
+  ATTRLIST_LEADING_CHARACTER,
+  BLOCK_ANCHOR_BOTH_PROGRAMS,
+} from "./line-shapes.js";
 
 /**
  * The reader-side view of one `[…]` block-attribute line's interior.
@@ -124,9 +127,9 @@ const SHORTHAND = /[.#%]/v;
 // space ("spaces are not allowed in shorthand", parse_style_attribute),
 // so any of those means the line spells more than the id and the
 // author's bytes have to stand. The ID CLASS is not restated here:
-// {@link attrlistAnchorId} asks BLOCK_ANCHOR whether the id can be
-// spelled as an anchor line, so there is one grammar for the id and
-// not a copy that can drift from it.
+// {@link attrlistAnchorId} asks BLOCK_ANCHOR_BOTH_PROGRAMS whether
+// the id can be spelled as an anchor line, so there is one grammar
+// for the id and not a copy that can drift from it.
 const ID_SHORTHAND_ONLY = /^#[^ \t.,%#]+$/v;
 
 // Ruby's own blank set for attrlist scanning - NOT the six-character
@@ -212,10 +215,16 @@ export function parseAttrlist(raw: string): Attrlist {
  * every rejection is conservative, which the accepted and rejected
  * rows of tests/parser/build/metadata.test.ts,
  * tests/parser/block-attributes.test.ts and
- * tests/format/block-attributes.test.ts carry between them. The
- * grammar it defers to is ASCII where the oracle's is not, which
- * makes it refuse ids the oracle accepts and never the other way
- * (issue #203).
+ * tests/format/block-attributes.test.ts carry between them.
+ *
+ * The grammar it defers to is the INTERSECTION of the two
+ * authorities' id classes, not the reader's own class. Accepting
+ * here rewrites the author's `[#id]` into `[[id]]`, so an id only ONE
+ * program reads in the target spelling would be lost under the other:
+ * `[#a①]` carries `id="a①"` to both, and the `[[a①]]` this would
+ * otherwise print carries it only to the oracle. The two classes and
+ * the reason they differ are at BLOCK_ANCHOR_ID_TAIL_ORACLE
+ * (line-shapes.ts, issue #203).
  * @param raw - the text between the brackets, brackets excluded
  * @returns the id, or undefined when the line spells anything else
  */
@@ -230,7 +239,7 @@ export function attrlistAnchorId(raw: string): string | undefined {
     return undefined;
   }
   const id = interior.slice(1);
-  return BLOCK_ANCHOR.test(`[[${id}]]`) ? id : undefined;
+  return BLOCK_ANCHOR_BOTH_PROGRAMS.test(`[[${id}]]`) ? id : undefined;
 }
 
 /**

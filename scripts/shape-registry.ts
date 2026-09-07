@@ -241,8 +241,15 @@ const DELIMITER_CONSTRUCTS: readonly ConstructEntry[] = DELIMITER_KINDS.map(
  */
 const OTHER_CONSTRUCTS: readonly ConstructEntry[] = [
   {
+    // Two exports, one construct: the shape is the same whole-line
+    // `[[id]]`, and the second spells the id over the characters BOTH
+    // authorities read rather than over the oracle's own class (see
+    // BLOCK_ANCHOR_ID_TAIL_ORACLE, src/parse/line-shapes.ts). The
+    // narrower one gates the printer's respellings, so it is never a
+    // dimension of its own: nothing reads it that does not first read
+    // the wider one.
     id: "block-anchor",
-    covers: ["BLOCK_ANCHOR"],
+    covers: ["BLOCK_ANCHOR", "BLOCK_ANCHOR_BOTH_PROGRAMS"],
     body: "[[id]]",
     nearMisses: ["[[id", "[[3-blind-mice]]", "[[illegal$id]]"],
   },

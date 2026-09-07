@@ -200,6 +200,67 @@ describe("anchor parsing", () => {
     expect(para.children[0].type).toBe("text");
   });
 
+  // A UNICODE id is an anchor line, not prose. Red before
+  // BLOCK_ANCHOR_SOURCE's id class was widened to the oracle's own
+  // class (src/parse/line-shapes.ts): this parsed to one
+  // paragraph holding the brackets as text, and the render lost the
+  // block's `id` (issue #203).
+  test.each([
+    ["[[café]]\n", "café"],
+    ["[[日本]]\n", "日本"],
+    ["[[Ωmega]]\n", "Ωmega"],
+    ["[[ключ]]\n", "ключ"],
+  ])("%j parses to a block anchor with id %j", (source, id) => {
+    const document = parse(source);
+    expect(document.children).toHaveLength(1);
+    const {
+      children: [child0],
+    } = document;
+    narrow(child0, "blockAnchor");
+    expect(child0.id).toBe(id);
+    expect(child0.reftext).toBeUndefined();
+  });
+
+  // The reftext arm of the same widening: everything after the first
+  // comma is the reftext, whatever alphabet either half is written in.
+  test("[[naïve,Réf]] keeps its id and its reftext", () => {
+    const document = parse("[[naïve,Réf]]\n");
+    const {
+      children: [child0],
+    } = document;
+    narrow(child0, "blockAnchor");
+    expect(child0.id).toBe("naïve");
+    expect(child0.reftext).toBe("Réf");
+  });
+
+  // The class's two edges. The FIRST character must be alphabetic,
+  // `_` or `:`, so a digit-led id is ordinary text.
+  test("[[1abc]] is a paragraph, not an anchor", () => {
+    const document = parse("[[1abc]]\n");
+    const {
+      children: [child0],
+    } = document;
+    expect(child0.type).toBe("paragraph");
+  });
+
+  // The other edge, where the two authorities disagree: `a` then
+  // U+2460 is a non-decimal number, an id character to the oracle
+  // (`\p{N}`) and not to Ruby, whose `\p{Word}` takes only decimals.
+  // The READER follows the oracle, so this is an anchor here
+  // (BLOCK_ANCHOR_ID_TAIL_ORACLE, src/parse/line-shapes.ts). Narrowing
+  // that class to `\p{Nd}` breaks this row, which is what makes the
+  // comment beside the class load-bearing; the printer's own gate is
+  // the narrower class and is pinned in
+  // tests/format/anchor-spelling.test.ts.
+  test("[[a①]] is an anchor to the reader", () => {
+    const document = parse("[[a①]]\n");
+    const {
+      children: [child0],
+    } = document;
+    narrow(child0, "blockAnchor");
+    expect(child0.id).toBe("a①");
+  });
+
   // Anchor position tracking — the node spans the whole anchor
   // line, no padding of its own.
   test("standalone anchor has correct position", () => {

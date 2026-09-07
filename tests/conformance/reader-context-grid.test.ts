@@ -211,17 +211,23 @@ describe("classifyLine over the reachable grid", () => {
   // being consulted where it was previously only correct: the same
   // answer, now measured.
   //
-  // Three of the 58 construct rows are the SPACED Markdown rules,
+  // Three of the 61 construct rows are the SPACED Markdown rules,
   // which carry rows of their own because each is also a marker line
   // and so answers the interruption question differently from the
   // tight spelling: 3 x 188 of the cells and 550 of the asked ones
   // are theirs.
+  //
+  // A fix that only closes cells the reader never asks about moves
+  // neither number: the #187/#188 fixes closed 365 such cells and the
+  // reach was unchanged. Three anchor id-class rows (issue #203) moved
+  // both, because a row is 188 cells of grid whether or not any of
+  // them disagrees.
   test("is the size and reach the enumeration predicts", () => {
     const { cells, asked } = grid;
     expect(openParagraphProbes()).toHaveLength(188);
-    expect(CONSTRUCTS).toHaveLength(58);
-    expect(cells).toBe(10_904);
-    expect(asked).toBe(8273);
+    expect(CONSTRUCTS).toHaveLength(61);
+    expect(cells).toBe(11_468);
+    expect(asked).toBe(8765);
   });
 
   // Why the 23 states with NO open paragraph are enumerated and not
@@ -248,9 +254,14 @@ describe("classifyLine over the reachable grid", () => {
   // is wrong in isolation and unreachable in practice, and the count
   // is pinned so that neither half changes quietly.
   //
-  // EIGHT left, all issue #187's remainder: a block attribute line
-  // (`[source]`, `[[x]]`) inside a `+`-attached styled verbatim run
-  // in a description item, one per delimiter per spelling. The oracle
+  // SIXTEEN left, all issue #187's remainder, now tracked as #245: a
+  // block attribute line (`[source]`, `[[x]]`, and the three id-class
+  // spellings of the anchor beside it) inside a `+`-attached styled
+  // verbatim run in a description item, one per delimiter per
+  // spelling. Four spellings reach it, so widening the anchor's id
+  // class (issue #203) doubled the count without adding a family: the
+  // non-ASCII ids are the same cells the ASCII one already had, and
+  // the digit-led row is ordinary text and reaches none. The oracle
   // ends the run there; this reader keeps it open, because deciding
   // needs the RUN of lines below the attribute line (parser.rb
   // l.1464-1477) and no reader supplies one at this position.
@@ -276,6 +287,6 @@ describe("classifyLine over the reachable grid", () => {
   // question in another, which is what both issues were.
   test("names the disagreements the reader keeps away from", () => {
     const { latent } = grid;
-    expect(Object.fromEntries(latent)).toEqual({ verbatimStyled: 8 });
+    expect(Object.fromEntries(latent)).toEqual({ verbatimStyled: 16 });
   });
 });

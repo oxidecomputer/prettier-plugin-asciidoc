@@ -167,6 +167,38 @@ describe("an escaped [[ is not a live anchor (issue #214)", () => {
   );
 });
 
+describe("the comma pads only where both authorities read the id", () => {
+  // The serializer's grammar is the INTERSECTION of the two
+  // authorities' id classes (BLOCK_ANCHOR_BOTH_PROGRAMS,
+  // src/parse/line-shapes.ts), not the reader's own class, because
+  // padding the comma moves the id into a spelling this printer
+  // chose. Where both read it, the pad is the normalization above and
+  // costs nothing: the reftext feeds `xreflabel` and never the HTML.
+  test.each([
+    ["inline", "para [[café,Réf]] tail\n", "para [[café, Réf]] tail\n"],
+    ["block", "[[café,Réf]]\npara\n", "[[café, Réf]]\n\npara\n"],
+  ])(
+    "a non-ASCII id both programs read pads: %s",
+    async (_name, input, out) => {
+      await expectFormatted(input, out);
+    },
+  );
+
+  // Red before that gate: the serializer asked the reader's own
+  // class and padded here too, which injects a space into text the
+  // reference renders literally. `a` then U+2460 is a non-decimal
+  // number: an id character to the oracle, prose to the Ruby, so
+  // `[[a①,R]]` is a live anchor to one program and visible text to
+  // the other. Only the author's bytes are safe.
+  test.each([
+    "para [[a①,R]] tail\n",
+    "para [[a①, R]] tail\n",
+    "[[a①,R]]\n\npara\n",
+  ])("%j keeps the author's interior", async (input) => {
+    await expectFormatted(input, input);
+  });
+});
+
 describe("bibliography anchors print the author's interior verbatim", () => {
   // `[[[id,reftext]]]` keeps the author's interior even for a VALID
   // id — no `, ` is injected after the comma, unlike the
