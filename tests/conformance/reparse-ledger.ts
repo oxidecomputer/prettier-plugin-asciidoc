@@ -230,26 +230,39 @@ function words(text: string): string {
 
 /**
  * Did the printer take the indent off a line it otherwise kept?
+ *
+ * Read as a PREFIX: every content line above the first changed one
+ * stands byte for byte, and that first changed line differs from its
+ * counterpart only in the whitespace in front of it.
+ *
+ * WHY NOT THE WHOLE DOCUMENT. The obvious spelling - the two line
+ * counts agree, and every line either stands or lost only its indent
+ * - reads the lines BELOW the de-indent as evidence about it, and
+ * they are not: the de-indented line opens a block on the re-read,
+ * and swallowing the rest of the document is the corruption itself.
+ * The line count moves with it. A one-space-indented backtick fence
+ * under a continuation is the shape that showed it (issue #248): the
+ * fence respelling writes `[source]` over a `----` pair, three output
+ * lines where the source spelled one, so a document whose only defect
+ * is the dropped indent counts five content lines out against three
+ * in and escapes an arm that compares the counts.
+ *
+ * HALF THE ARM. This is the byte half, and it is about the DOCUMENT
+ * while a row is about one BREACH; {@link openedABlockOnTheReRead} is
+ * the other half, and it is what the arm asks of the breach itself.
  * @param source - the document as written
  * @param once - the formatted output
- * @returns whether some line lost its leading whitespace and nothing else
+ * @returns whether the first changed line lost only its leading whitespace
  */
 function droppedAnIndent(source: string, once: string): boolean {
   const before = contentLines(source);
   const after = contentLines(once);
-  if (before.length !== after.length) {
-    return false;
-  }
-  // "and nothing else", spelled out: every line either stands byte
-  // for byte or differs ONLY in its leading whitespace, and at least
-  // one does the second. A `some` alone would claim the mechanism for
-  // a document that also rewrote a line's words.
-  const shifted = before.filter(
-    (line, index) =>
-      line !== after[index] && line.trimStart() === after[index].trimStart(),
+  const at = before.findIndex((line, index) => line !== after[index]);
+  return (
+    at !== -1 &&
+    at < after.length &&
+    before[at].trimStart() === after[at].trimStart()
   );
-  const kept = before.filter((line, index) => line === after[index]);
-  return shifted.length > 0 && shifted.length + kept.length === before.length;
 }
 
 /**
@@ -345,6 +358,47 @@ function swallowedByTheParagraphAbove(signature: string): boolean {
     sides.before.startsWith("[>paragraph ") &&
     sides.after.startsWith('[text(value=" ') &&
     sides.after.includes(">paragraph")
+  );
+}
+
+/**
+ * What a de-indented line opens on the re-read. A closed set, and the
+ * whole of it: every one of the ledgered `indent-dropped` rows and the
+ * fence witness of issue #248 shows one of these four on the after
+ * side, and nothing else.
+ */
+const BLOCK_OPENINGS = [
+  "delimitedBlock(",
+  "parentBlock(",
+  "table(",
+  "comment(",
+];
+
+/**
+ * Does the DIFF show a block standing where the source read prose?
+ *
+ * The other half of the `indent-dropped` arm, paired with
+ * {@link droppedAnIndent} for the reason
+ * {@link swallowedByTheParagraphAbove} gives, and for a second reason
+ * of its own: the byte test answers about the DOCUMENT, so without
+ * this the arm would give the same answer for every breach of a
+ * document that de-indented one line anywhere, whatever the breach
+ * under evaluation actually was. The family text names a block, and
+ * this is where the block is asked for.
+ *
+ * The after side SHOWS one of the openings rather than MINTING it.
+ * Where the de-indented line is a fence, the source's own closing
+ * fence line already reads as an empty block of the same kind, so both
+ * sides name it and what moved is which lines the block holds (issue
+ * #248); a minting test would drop that row back out.
+ * @param signature - the projection diff, `before -> after`
+ * @returns whether the re-read stands a block at the divergence
+ */
+function openedABlockOnTheReRead(signature: string): boolean {
+  const sides = signatureSides(signature);
+  return (
+    sides !== undefined &&
+    BLOCK_OPENINGS.some((opening) => sides.after.includes(opening))
   );
 }
 
@@ -603,7 +657,8 @@ const FAMILY_ARMS: readonly FamilyArm[] = [
   },
   {
     family: "indent-dropped",
-    matches: ({ source, once }) => droppedAnIndent(source, once),
+    matches: ({ source, once, signature }) =>
+      droppedAnIndent(source, once) && openedABlockOnTheReRead(signature),
   },
   {
     family: "blank-dropped",

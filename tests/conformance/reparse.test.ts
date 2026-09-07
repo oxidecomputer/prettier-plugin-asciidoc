@@ -370,6 +370,29 @@ describe("the lens sees each corruption, and one arm names it", () => {
       "indent-dropped",
     ],
     [
+      // The same mechanism, one respelling later, and the row no arm
+      // claimed until the arm stopped comparing whole line counts
+      // (issue #248): the de-indented line here is a fence, so the
+      // output spells it `[source]` over a `----` pair and comes out
+      // longer than the source it corrupted.
+      "the de-indented line is a fence (#121)",
+      "+\n ```x -> y\n```\n",
+      "indent-dropped",
+    ],
+    [
+      // TWO changes inside one diff: a hard break keeps the item's
+      // second line from joining, so its indent goes AND the `+`
+      // under the ordered list is respelled, and the divergence
+      // window spans both. Red until the arm asked the breach's own
+      // diff for the block its family text names: a de-indent that
+      // opens nothing is not this mechanism, and the byte test alone
+      // answers about the document rather than about the breach, so
+      // it claimed this alongside `plus-respelled`.
+      "a de-indent that opens no block is not this (#116)",
+      "* a +\n  b\n\n. T\n  +\n",
+      "plus-respelled",
+    ],
+    [
       "a join closes a bracket and mints a macro (#124)",
       "image::a.png[\n[+1]\n",
       "join-changes-reading",
@@ -502,12 +525,15 @@ describe("the family arms are told apart by what they say", () => {
       "term::\n```x -> y\n---------\n",
     ],
     ["a block macro whose attrlist holds one", "image::a.png[a -> b\n[+1]\n"],
-  ])("%s is claimed by an arm", async (_name, source) => {
+  ])("%s is claimed by exactly one arm", async (_name, source) => {
     const outcome = await reparseOutcomeOf(source);
     // The row is a breach at all: a document that round-trips would
     // make the claim below vacuous.
     expect(outcome.breaches.length).toBeGreaterThan(0);
     for (const breach of outcome.breaches) {
+      // One arm, the same rule the ledger's own rows are held to: a
+      // mis-split that let a second arm through would otherwise read
+      // as a claim.
       expect(
         matchingFamilies({
           source,
@@ -515,7 +541,7 @@ describe("the family arms are told apart by what they say", () => {
           signature: breach.signature,
         }),
         breach.signature,
-      ).not.toEqual([]);
+      ).toHaveLength(1);
     }
   });
 });
