@@ -1,17 +1,19 @@
 /**
- * Unit tests for `scripts/internal-citations.ts`: the citation grammar,
- * the quotation rule, the provenance exemption, the exit-code decision,
- * and the gate run end to end over a checkout written out here.
+ * Unit tests for `scripts/internal-citations.ts`: the pin shape, the
+ * quotation rule, the ordinal rule, the exit-code decision, and the
+ * gate run end to end over a checkout written out here.
  *
- * The fixture checkout is the point. Every arm the gate can take -
- * an entry that holds, one whose line has drifted, one whose quoted
- * text is not there, one that names a tree the move already left, a
- * symbol its file has and one it does not, a link tag that resolves
- * and two that cannot - is a row of {@link FIXTURE}, so the failure
- * messages are asserted on rather than described. The real tree is run
- * once at the end, which is the only assertion in this file that can
- * go red because somebody moved code rather than because they changed
- * this gate.
+ * The fixture checkout is the point. Every arm the gate can take - a
+ * pin that holds, one naming a symbol the file does not declare, one
+ * quoting text the symbol's body does not carry, one whose quotation
+ * is not unique and says nothing more, one naming an occurrence past
+ * the last, one that names the right occurrence, an entry that does
+ * not read as a pin at all, a symbol its file has and one it does
+ * not, a link tag that resolves and two that cannot - is a row of
+ * {@link FIXTURE}, so the failure messages are asserted on rather
+ * than described. The real tree is run once at the end, which is the
+ * only assertion in this file that can go red because somebody moved
+ * code rather than because they changed this gate.
  *
  * The link tags in the fixture are FIXTURES, and the scan does not
  * read this file's own (`LINKS_NOT_SCANNED`,
@@ -23,16 +25,16 @@ import { describe, expect, test } from "vitest";
 import {
   MINIMUM_CITATIONS,
   NAMED_ROOTS,
-  checkCitation,
+  checkPin,
   exceptionRows,
-  fragmentsAfter,
+  lintPins,
   parseArguments,
+  readPin,
   readTree,
   run,
-  scanScope,
   sourceLines,
   verdict,
-  type Citation,
+  type Pin,
   type Report,
   type Tree,
 } from "../../scripts/internal-citations.js";
@@ -46,23 +48,19 @@ const ROOT = path.resolve(import.meta.dirname, "../..");
  */
 function emptyReport(): Report {
   return {
-    checked: 0,
-    quoted: 0,
-    exempt: 0,
+    pins: 0,
     paths: 0,
     symbols: 0,
     links: 0,
-    contextless: [],
     failures: [],
     listing: [],
   };
 }
 
-describe("splitting a file into the lines a citation can name", () => {
+describe("splitting a file into the lines the scans read", () => {
   test("the final newline does not open a line", () => {
-    // The whole range check rests on this: counting the empty string
-    // after the last newline would let a citation name one line past
-    // the end of the file and pass.
+    // The whole line-by-line scan rests on this: counting the empty
+    // string after the last newline would add a line no file has.
     expect(sourceLines("a\nb\n")).toEqual(["a", "b"]);
   });
 
@@ -75,142 +73,177 @@ describe("splitting a file into the lines a citation can name", () => {
   });
 });
 
-describe("the quoted runs a citation claims are on its line", () => {
-  test("the run before the first `->` is the source", () => {
-    expect(fragmentsAfter("x `a === b` -> `true` y", 1)).toEqual(["a === b"]);
+describe("reading one `cites` entry", () => {
+  test("a symbol and a quotation read as a pin with no ordinal", () => {
+    expect(readPin("at", "src/a.ts", { symbol: "f", quotes: "x" })).toEqual({
+      kind: "pin",
+      pin: {
+        kind: "sole",
+        at: "at",
+        file: "src/a.ts",
+        symbol: "f",
+        quotes: "x",
+      },
+    });
   });
 
-  test("several runs before a `->` are all the source", () => {
-    // Nine cited lines, two things written on them.
+  test("an ordinal reads as the other variant", () => {
     expect(
-      fragmentsAfter('x `return "go"` and `return "stop"`s -> `""`', 1),
-    ).toEqual(['return "go"', 'return "stop"']);
-  });
-
-  test("a run that only appears past a `->` is a replacement, not source", () => {
-    expect(fragmentsAfter("x each conjunct -> `true`", 1)).toEqual([]);
-  });
-
-  test("an unterminated run is dropped rather than run to the end", () => {
-    expect(fragmentsAfter("x `a === b", 1)).toEqual([]);
-  });
-});
-
-describe("the citation grammar", () => {
-  test("a file name binds every reference after it in the scope", () => {
-    const { citations } = scanScope("at", "(a.ts:5, :7, :9) `x`");
-    expect(citations.map((one) => one.spelling)).toEqual([
-      "a.ts:5",
-      "a.ts:7",
-      "a.ts:9",
-    ]);
-    expect(citations.every((one) => one.named === "a.ts")).toBe(true);
-  });
-
-  test("all three take the same quoted runs, which is how a list reads", () => {
-    const { citations } = scanScope("at", "(a.ts:5, :7, :9) `x` -> `y`");
-    expect(citations.map((one) => one.fragments)).toEqual([
-      ["x"],
-      ["x"],
-      ["x"],
-    ]);
-  });
-
-  test("a range is one citation over a span", () => {
-    const { citations } = scanScope("at", "b.ts:12-20 `x`");
-    expect(citations).toHaveLength(1);
-    expect(citations[0]).toMatchObject({
-      spelling: "b.ts:12-20",
-      from: 12,
-      to: 20,
+      readPin("at", "src/a.ts", { symbol: "f", quotes: "x", ordinal: 2 }),
+    ).toEqual({
+      kind: "pin",
+      pin: {
+        kind: "nth",
+        at: "at",
+        file: "src/a.ts",
+        symbol: "f",
+        quotes: "x",
+        ordinal: 2,
+      },
     });
   });
 
-  test("a later name rebinds, so a row can cite two files", () => {
-    const { citations } = scanScope("at", "a.ts:1 and b.ts:2");
-    expect(citations.map((one) => one.spelling)).toEqual(["a.ts:1", "b.ts:2"]);
-  });
-
-  test("the file the scope is about binds a reference that opens it", () => {
-    const { citations } = scanScope("at", "at EOF (:786)", "a.ts");
-    expect(citations.map((one) => one.spelling)).toEqual(["a.ts:786"]);
-  });
-
-  test("a reference with nothing to bind it is reported, not guessed at", () => {
-    const scan = scanScope("at", "at EOF (:786)");
-    expect(scan.citations).toEqual([]);
-    expect(scan.contextless).toEqual(["at: `:786` names no file"]);
-  });
-
-  test("a file name with no line after it claims nothing", () => {
-    expect(scanScope("at", "see a.ts, it walks the buffer")).toEqual({
-      citations: [],
-      contextless: [],
+  test("an entry quoting nothing is a fault, not a pin with no check", () => {
+    // A pin nothing quotes would resolve its symbol and stop, which is
+    // the state a wrong hand correction once hid in.
+    expect(readPin("at", "src/a.ts", { symbol: "f" })).toEqual({
+      kind: "fault",
+      fault: "at: `f` quotes nothing, and a pin nothing quotes is unreviewable",
     });
+  });
+
+  test("an entry naming no symbol is a fault", () => {
+    expect(readPin("at", "src/a.ts", { quotes: "x" })).toEqual({
+      kind: "fault",
+      fault: "at: a `cites` entry names no `symbol`",
+    });
+  });
+
+  test("an unknown key is a fault, never a silently dropped field", () => {
+    expect(
+      readPin("at", "src/a.ts", { symbol: "f", quotes: "x", line: 5 }),
+    ).toEqual({
+      kind: "fault",
+      fault: "at: a `cites` entry carries unknown key(s) line",
+    });
+  });
+
+  test("an ordinal that is not a whole number from 1 is a fault", () => {
+    expect(
+      readPin("at", "src/a.ts", { symbol: "f", quotes: "x", ordinal: 0 }),
+    ).toEqual({
+      kind: "fault",
+      fault: "at: `f` names ordinal 0, which is not a whole number from 1",
+    });
+  });
+
+  test("an entry that is not an object is a fault", () => {
+    expect(readPin("at", "src/a.ts", "f").kind).toBe("fault");
   });
 });
 
 /**
- * A citation of `a.ts`, spelled the way the scanner spells one.
- * @param from - the first cited line
- * @param to - the last cited line
- * @param fragments - the quoted runs it claims are on them
- * @returns the citation
+ * A pin of `f` in `src/a.ts`, spelled the way a row spells one.
+ * @param quotes - the run it claims that body carries
+ * @param ordinal - which occurrence, where it names one
+ * @returns the pin
  */
-function cite(from: number, to: number, fragments: string[]): Citation {
-  return {
-    at: "at",
-    spelling: `a.ts:${String(from)}`,
-    named: "a.ts",
-    from,
-    to,
-    fragments,
-  };
+function pin(quotes: string, ordinal?: number): Pin {
+  const site = { at: "at", file: "src/a.ts", symbol: "f", quotes };
+  return ordinal === undefined
+    ? { kind: "sole", ...site }
+    : { kind: "nth", ...site, ordinal };
 }
 
-describe("holding a citation to the file it names", () => {
-  const lines = ["one", "  const two = 2;", "three"];
+describe("holding a pin to the symbol it names", () => {
+  const bodies = new Map([
+    [
+      "f",
+      ['function f() {\n  return "go";\n  return "go";\n  return "stop";\n}'],
+    ],
+  ]);
 
-  test("a quoted run on the cited line holds", () => {
-    expect(checkCitation(cite(2, 2, ["const two"]), "a.ts", lines)).toEqual([]);
+  test("a run the body carries once holds", () => {
+    expect(checkPin(pin('return "stop"'), bodies)).toEqual([]);
   });
 
-  test("a quoted run anywhere in a cited RANGE holds", () => {
-    expect(checkCitation(cite(1, 3, ["const two"]), "a.ts", lines)).toEqual([]);
-  });
-
-  test("one of several quoted runs is enough", () => {
-    const failures = checkCitation(
-      cite(2, 2, ["nope", "const two"]),
-      "a.ts",
-      lines,
-    );
-    expect(failures).toEqual([]);
-  });
-
-  test("a citation quoting nothing is checked for its line and no further", () => {
-    expect(checkCitation(cite(2, 2, []), "a.ts", lines)).toEqual([]);
-  });
-
-  test("a line past the end of the file fails, and says how long it is", () => {
-    expect(checkCitation(cite(9, 9, []), "a.ts", lines)).toEqual([
-      "at: `a.ts:9` names line 9 of a.ts, which has 3 lines",
+  test("a symbol the file does not declare fails, and says so", () => {
+    expect(checkPin({ ...pin("x"), symbol: "g" }, bodies)).toEqual([
+      "at: src/a.ts declares no `g`",
     ]);
   });
 
-  test("a quoted run that is not there fails, and prints what is", () => {
-    expect(checkCitation(cite(3, 3, ["const two"]), "a.ts", lines)).toEqual([
-      "at: `a.ts:3` quotes `const two`, none of which is on a.ts:3, which reads `three`",
+  test("a run the body does not carry fails, and prints the run", () => {
+    expect(checkPin(pin('return "halt"'), bodies)).toEqual([
+      'at: `f` in src/a.ts does not carry `return "halt"`',
+    ]);
+  });
+
+  test("a run the body carries twice needs an ordinal", () => {
+    // Otherwise the pin points at both of them and at neither, which
+    // is the ambiguity a line number used to resolve by accident.
+    expect(checkPin(pin('return "go"'), bodies)).toEqual([
+      'at: `f` in src/a.ts carries `return "go"` 2 times: name the ordinal',
+    ]);
+  });
+
+  test("an ordinal inside the count holds", () => {
+    expect(checkPin(pin('return "go"', 2), bodies)).toEqual([]);
+  });
+
+  test("an ordinal past the last occurrence fails, and says how many", () => {
+    expect(checkPin(pin('return "go"', 3), bodies)).toEqual([
+      'at: `f` in src/a.ts carries `return "go"` 2 times, so there is no 3',
     ]);
   });
 });
 
+describe("the pins a lint-config line writes", () => {
+  test("one symbol and one quotation is one pin", () => {
+    expect(lintPins("at", '      "src/a.ts", // `f`: `return "go";`')).toEqual([
+      {
+        kind: "sole",
+        at: "at",
+        file: "src/a.ts",
+        symbol: "f",
+        quotes: 'return "go";',
+      },
+    ]);
+  });
+
+  test("two symbols sharing one guard is two pins", () => {
+    // Which is what one guard written the same way in two functions
+    // needs, and the shape the span-edges entry is in.
+    const pins = lintPins("at", '  "src/a.ts", // `f`, `g`: `if (x) return;`');
+    expect(pins.map((one) => one.symbol)).toEqual(["f", "g"]);
+    expect(pins.every((one) => one.quotes === "if (x) return;")).toBe(true);
+  });
+
+  test("a deferral quoting nothing claims nothing", () => {
+    // The `max-lines` entries beside these write line counts, not code.
+    expect(lintPins("at", '      "src/a.ts", // 450 -> 462')).toEqual([]);
+  });
+
+  test("a line that is not an entry claims nothing", () => {
+    // Nothing binds across lines, so a quoted name in the paragraph
+    // above an entry cannot adopt its path.
+    expect(lintPins("at", "  // `f` guards src/a.ts with `return;`")).toEqual(
+      [],
+    );
+  });
+});
+
 // A checkout with one of each arm in it. `alpha.ts` is what every row
-// cites; `former.ts` stands in for the tree a move has already left.
+// cites; `twice` is the body that carries one run more than once.
 const ALPHA = [
   "export function alpha(xs: readonly string[]): number {",
   "  if (xs.length === 0) return 0;",
   "  return xs.length;",
+  "}",
+  "export function twice(n: number): string {",
+  '  if (n === 0) return "go";',
+  '  if (n === 1) return "go";',
+  '  return "stop";',
   "}",
   "// see src/alpha.ts and src/gone.ts",
   "// pinned by tests/alpha.test.ts, measured by scripts/nowhere.ts",
@@ -225,49 +258,44 @@ const ALPHA = [
 const HERE = "export const shared = 1;\n";
 const THERE = "const shared = 2;\n";
 
+/**
+ * One exception row of the fixture minimums.
+ * @param what - the row's prose, which is also where it is found
+ * @param cites - the pins it writes
+ * @returns the row
+ */
+function row(what: string, cites: unknown[]): Record<string, unknown> {
+  return { file: "src/alpha.ts", what, cites, class: "never", reason: what };
+}
+
 const FIXTURE: Tree = {
   minimums: JSON.stringify(
     {
       files: {},
       exceptions: [
-        {
-          file: "src/alpha.ts",
-          what: "alpha.ts:2 `xs.length === 0` -> `true` in the empty guard",
-          class: "never",
-          reason: "holds",
-        },
-        {
-          file: "src/alpha.ts",
-          what: "alpha.ts:4 `xs.length === 0` -> `true` in the empty guard",
-          class: "never",
-          reason: "the line drifted",
-        },
-        {
-          file: "src/alpha.ts",
-          what: "alpha.ts:2 `xs.size === 0` -> `true` in the empty guard",
-          class: "never",
-          reason: "the quoted text is not what is there",
-        },
-        {
-          file: "src/alpha.ts",
-          what: "alpha.ts:2 `xs.length === 0` (moved here from former.ts:40) -> `true`",
-          formerly: ["former.ts:40"],
-          class: "never",
-          reason: "the former tree is not this one",
-        },
-        {
-          file: "src/alpha.ts",
-          what: "alpha.ts:2 `xs.length === 0` -> `true`",
-          formerly: ["former.ts:99"],
-          class: "never",
-          reason: "an exemption for a citation the row does not write",
-        },
+        row("holds", [{ symbol: "alpha", quotes: "xs.length === 0" }]),
+        row("the symbol is not there", [
+          { symbol: "beta", quotes: "xs.length === 0" },
+        ]),
+        row("the quoted text is not there", [
+          { symbol: "alpha", quotes: "xs.size === 0" },
+        ]),
+        row("the quotation is not unique", [
+          { symbol: "twice", quotes: 'return "go"' },
+        ]),
+        row("the ordinal is past the last", [
+          { symbol: "twice", quotes: 'return "go"', ordinal: 3 },
+        ]),
+        row("the ordinal picks the second", [
+          { symbol: "twice", quotes: 'return "go"', ordinal: 2 },
+        ]),
+        row("the entry does not read as a pin", [{ symbol: "alpha" }]),
       ],
     },
     undefined,
     2,
   ),
-  lintConfig: ['      "src/alpha.ts", // :3 `return xs.length;`'].join("\n"),
+  lintConfig: ['      "src/alpha.ts", // `twice`: `return "stop";`'].join("\n"),
   sources: new Map([["src/alpha.ts", sourceLines(ALPHA)]]),
   files: new Set(["src/alpha.ts", "tests/alpha.test.ts", "scripts/alpha.ts"]),
   texts: new Map([
@@ -280,16 +308,68 @@ const FIXTURE: Tree = {
 describe("the gate over a whole checkout", () => {
   const report = run(FIXTURE);
 
-  test("an entry whose line and quoted text are both right holds", () => {
-    // Five rows' live citations - the exempt row still has one - plus
-    // the lint config's one.
-    expect(report.checked).toBe(6);
-    expect(report.quoted).toBe(6);
+  test("every pin whose file was read is counted, held or not", () => {
+    // Six rows write a pin; the seventh writes an entry that is not
+    // one. The lint config's entry is the seventh pin.
+    expect(report.pins).toBe(7);
+  });
+
+  test("a pin naming a symbol the file does not declare fails", () => {
+    // Red before the pins: the row used to name a LINE, so a rename of
+    // `beta` moved nothing and the row went on citing a live line.
+    expect(report.failures).toContainEqual(
+      expect.stringContaining("src/alpha.ts declares no `beta`"),
+    );
+  });
+
+  test("a pin quoting text the symbol's body lacks fails", () => {
+    expect(report.failures).toContainEqual(
+      expect.stringContaining(
+        "`alpha` in src/alpha.ts does not carry `xs.size === 0`",
+      ),
+    );
+  });
+
+  test("a pin whose quotation is not unique is told to name the ordinal", () => {
+    expect(report.failures).toContainEqual(
+      expect.stringContaining(
+        '`twice` in src/alpha.ts carries `return "go"` 2 times: name the ordinal',
+      ),
+    );
+  });
+
+  test("a pin naming an occurrence past the last fails", () => {
+    expect(report.failures).toContainEqual(
+      expect.stringContaining(
+        '`twice` in src/alpha.ts carries `return "go"` 2 times, so there is no 3',
+      ),
+    );
+  });
+
+  test("a `cites` entry that is not a pin is a failure, not a skipped check", () => {
+    expect(report.failures).toContainEqual(
+      expect.stringContaining(
+        "`alpha` quotes nothing, and a pin nothing quotes is unreviewable",
+      ),
+    );
+  });
+
+  test("every failure opens with the line it is written on", () => {
+    // Which is the whole point of the message: the citing file and the
+    // line an editor opens, not just the file that was cited.
+    const written = report.failures.filter((one) =>
+      one.startsWith("scripts/metrics/score-minimums.json:"),
+    );
+    expect(written).toHaveLength(5);
+  });
+
+  test("the lint config's deferral comments are checked too", () => {
+    expect(report.listing).toContain(
+      'eslint.config.js:1\tsrc/alpha.ts\t`twice`\treturn "stop";',
+    );
   });
 
   test("a symbol the cited file has resolves, and one it lacks fails", () => {
-    // Red before the symbol scan: `beta` is written beside a file that
-    // declares no such thing, and every gate in the tree passed it.
     expect(report.symbols).toBe(2);
     expect(report.failures).toContainEqual(
       expect.stringContaining(
@@ -300,16 +380,12 @@ describe("the gate over a whole checkout", () => {
   });
 
   test("a link tag naming nothing in the tree fails", () => {
-    // Red before the link scan: a tag is a claim with no path to
-    // check, so until the index existed nothing held it at all.
     expect(report.failures).toContainEqual(
       expect.stringContaining("`{@link gone}` names no gone anything declares"),
     );
   });
 
   test("a link tag naming what two files declare fails", () => {
-    // The other half of the migration's rule: a path-less spelling is
-    // for names that resolve, and this one resolves twice.
     expect(report.failures).toContainEqual(
       expect.stringContaining(
         "`{@link shared}` is declared in 2 files (scripts/alpha.ts, tests/alpha.test.ts), so write the name with its path beside it instead",
@@ -322,56 +398,9 @@ describe("the gate over a whole checkout", () => {
     expect(report.failures.join("\n")).not.toContain("{@link alpha}");
   });
 
-  test("every failure opens with the line it is written on", () => {
-    // Which is the whole point of the message: the citing file and the
-    // line an editor opens, not just the file that was cited.
-    const written = report.failures.filter((one) =>
-      one.startsWith("scripts/metrics/score-minimums.json:"),
-    );
-    expect(written).toHaveLength(3);
-  });
-
-  test("an entry whose line has drifted fails, and prints what is there", () => {
-    expect(report.failures).toContainEqual(
-      expect.stringContaining(
-        "`alpha.ts:4` quotes `xs.length === 0`, none of which is on src/alpha.ts:4, which reads `}`",
-      ),
-    );
-  });
-
-  test("an entry whose quoted text is not there fails", () => {
-    expect(report.failures).toContainEqual(
-      expect.stringContaining(
-        "`alpha.ts:2` quotes `xs.size === 0`, none of which is on src/alpha.ts:2, which reads `if (xs.length === 0) return 0;`",
-      ),
-    );
-  });
-
-  test("a citation the row marks as a former tree is counted, not checked", () => {
-    // former.ts is in no tree at all; without the exemption it would
-    // be a failure, and the row's live citation is checked regardless.
-    expect(report.exempt).toBe(1);
-    expect(report.failures.join("\n")).not.toContain("former.ts:40");
-  });
-
-  test("a `formerly` naming a citation the row does not write is a failure", () => {
-    // Which is what stops the field growing into an allowlist.
-    expect(report.failures).toContainEqual(
-      expect.stringContaining(
-        "`formerly` names `former.ts:99`, which this row's `what` does not cite",
-      ),
-    );
-  });
-
-  test("the lint config's deferral comments are checked too", () => {
-    expect(report.listing).toContain(
-      "eslint.config.js:1\tsrc/alpha.ts:3\tsrc/alpha.ts\treturn xs.length;",
-    );
-  });
-
   test("a repo path naming no file fails, wherever it is written", () => {
     expect(report.failures).toContain(
-      "src/alpha.ts:5: names src/gone.ts, which does not exist",
+      "src/alpha.ts:10: names src/gone.ts, which does not exist",
     );
   });
 
@@ -381,7 +410,7 @@ describe("the gate over a whole checkout", () => {
     // file rots all three the same way.
     expect(report.paths).toBe(6);
     expect(report.failures).toContain(
-      "src/alpha.ts:6: names scripts/nowhere.ts, which does not exist",
+      "src/alpha.ts:11: names scripts/nowhere.ts, which does not exist",
     );
     expect(report.failures.join("\n")).not.toContain(
       "names tests/alpha.test.ts, which does not exist",
@@ -389,16 +418,39 @@ describe("the gate over a whole checkout", () => {
   });
 
   test("and nothing else failed", () => {
-    expect(report.failures).toHaveLength(8);
+    expect(report.failures).toHaveLength(10);
   });
 });
 
 describe("reading the exception rows", () => {
-  test("`formerly` is optional and defaults to nothing", () => {
-    const rows = exceptionRows(FIXTURE.minimums);
-    expect(rows).toHaveLength(5);
-    expect(rows[0].formerly).toEqual([]);
-    expect(rows[3].formerly).toEqual(["former.ts:40"]);
+  const rows = exceptionRows(FIXTURE.minimums);
+
+  test("`cites` is optional and defaults to no pins", () => {
+    expect(
+      exceptionRows(JSON.stringify({ exceptions: [{ file: "a", what: "b" }] })),
+    ).toEqual([
+      {
+        at: "scripts/metrics/score-minimums.json:1",
+        file: "a",
+        pins: [],
+        faults: [],
+      },
+    ]);
+  });
+
+  test("a row's pins carry the row's file and where it is written", () => {
+    expect(rows[0].pins).toHaveLength(1);
+    expect(rows[0].pins[0]).toMatchObject({
+      file: "src/alpha.ts",
+      symbol: "alpha",
+      quotes: "xs.length === 0",
+    });
+    expect(rows[0].at).toMatch(/^scripts\/metrics\/score-minimums\.json:\d+$/v);
+  });
+
+  test("an entry that is not a pin lands in the row's faults", () => {
+    expect(rows[6].pins).toEqual([]);
+    expect(rows[6].faults).toHaveLength(1);
   });
 
   test("a file that is not a minimums file reads as no rows, not a throw", () => {
@@ -410,14 +462,13 @@ describe("reading the exception rows", () => {
 describe("what a run earns", () => {
   test("too few citations is a 2: the scan lost its roots", () => {
     const report = emptyReport();
-    report.checked = MINIMUM_CITATIONS - 1;
+    report.pins = MINIMUM_CITATIONS - 1;
     expect(verdict(report).kind).toBe("cannot-run");
   });
 
-  test("the floor counts exempt, failed, symbol and link citations", () => {
+  test("the floor counts pins, symbols, link tags and failures", () => {
     const report = emptyReport();
-    report.checked = MINIMUM_CITATIONS - 4;
-    report.exempt = 1;
+    report.pins = MINIMUM_CITATIONS - 3;
     report.symbols = 1;
     report.links = 1;
     report.failures = ["one"];
@@ -435,7 +486,7 @@ describe("what a run earns", () => {
 
   test("one failure is a 1, and the count is printed", () => {
     const report = emptyReport();
-    report.checked = MINIMUM_CITATIONS;
+    report.pins = MINIMUM_CITATIONS;
     report.failures = ["one"];
     const said = verdict(report);
     expect(said.kind).toBe("failed");
@@ -444,14 +495,14 @@ describe("what a run earns", () => {
     );
   });
 
-  test("a contextless reference is printed and is neither", () => {
+  test("a clean run prints what each scan resolved", () => {
     const report = emptyReport();
-    report.checked = MINIMUM_CITATIONS;
-    report.contextless = ["somewhere: `:5` names no file"];
+    report.pins = MINIMUM_CITATIONS;
+    report.paths = 2;
     const said = verdict(report);
     expect(said.kind).toBe("clean");
-    expect(said.kind === "clean" ? said.lines[0] : "").toBe(
-      "somewhere: `:5` names no file",
+    expect(said.kind === "clean" ? said.lines.at(-1) : "").toBe(
+      `internal-citations: ${String(MINIMUM_CITATIONS)} symbol pins hold, 0 symbols and 0 link tags resolve, 2 repo paths exist`,
     );
   });
 });
@@ -483,7 +534,7 @@ describe("this repository", () => {
       true,
     );
     expect(tree.files.has("scripts/internal-citations.ts")).toBe(true);
-    // Citations still resolve against `src` alone.
+    // The path scan still reads `src` alone.
     expect(tree.sources.has("tests/scripts/internal-citations.test.ts")).toBe(
       false,
     );
@@ -499,13 +550,19 @@ describe("this repository", () => {
     expect(report.failures).toEqual([]);
   });
 
+  test("every mutation-exception row that quotes source writes a pin", () => {
+    // The rows this gate was built for: a row anchored to a symbol
+    // rather than to a coordinate no edit above it can move.
+    expect(report.pins).toBeGreaterThanOrEqual(30);
+  });
+
   test("and there are enough of them for the run to have proved anything", () => {
     // The floor is over all three surfaces together: most of it is
-    // link tags, and a floor set against the line citations alone
-    // would clear on a name scan that resolved nothing at all.
-    expect(
-      report.checked + report.symbols + report.links,
-    ).toBeGreaterThanOrEqual(MINIMUM_CITATIONS);
+    // link tags, and a floor set against the pins alone would clear on
+    // a name scan that resolved nothing at all.
+    expect(report.pins + report.symbols + report.links).toBeGreaterThanOrEqual(
+      MINIMUM_CITATIONS,
+    );
     expect(verdict(report).kind).toBe("clean");
   });
 });

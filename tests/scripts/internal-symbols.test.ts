@@ -21,6 +21,7 @@
 import { describe, expect, test } from "vitest";
 import {
   LINKS_NOT_SCANNED,
+  bodiesIn,
   checkLink,
   checkSymbol,
   linkCitations,
@@ -152,6 +153,42 @@ describe("what counts as a file having a name", () => {
     const names = namesIn("src/a.ts", "// alpha counts things\n");
     expect(names.declared.has("alpha")).toBe(false);
     expect(names.imported.has("alpha")).toBe(false);
+  });
+});
+
+describe("what a name is written as", () => {
+  test("a declaration's own text is what the name holds", () => {
+    const bodies = bodiesIn("src/a.ts", "function alpha(): void {\n  go();\n}");
+    expect(bodies.get("alpha")).toEqual([
+      "function alpha(): void {\n  go();\n}",
+    ]);
+  });
+
+  test("a member is held under its own name, not its owner's", () => {
+    // Which is what lets a pin name the method a mutant sits in
+    // rather than the class around it.
+    const bodies = bodiesIn("src/a.ts", "class Held { alpha(): void {} }");
+    expect(bodies.get("alpha")).toEqual(["alpha(): void {}"]);
+    expect(bodies.has("Held")).toBe(true);
+  });
+
+  test("a name written twice holds both texts, in source order", () => {
+    // Never one of them: picking would be a guess, and the count of a
+    // quoted run inside them is what an ordinal is counted against.
+    const bodies = bodiesIn(
+      "src/a.ts",
+      "function alpha(): void {}\nclass Held { alpha = 2; }",
+    );
+    expect(bodies.get("alpha")).toEqual([
+      "function alpha(): void {}",
+      "alpha = 2;",
+    ]);
+  });
+
+  test("an import carries no text of its own", () => {
+    expect(
+      bodiesIn("src/a.ts", 'import { alpha } from "./b.js";').has("alpha"),
+    ).toBe(false);
   });
 });
 

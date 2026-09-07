@@ -103,8 +103,14 @@ export const LINKS_NOT_SCANNED = new Set([
  * optional empty call suffix. Anything else in backticks is prose, a
  * value or a foreign spelling, and anything else in a link tag is a
  * URL or an interpolation; neither is claimed as a symbol.
+ *
+ * Exported because the pin scan tells a symbol from a quotation by the
+ * same shape (`lintPins`, scripts/internal-citations.ts), and two
+ * spellings of "is this a name" would drift apart.
+ * @internal
  */
-const SYMBOL_SHAPE = /^[A-Za-z_$][\w$]*(?:[.#][A-Za-z_$][\w$]*)*(?:\(\))?$/v;
+export const SYMBOL_SHAPE =
+  /^[A-Za-z_$][\w$]*(?:[.#][A-Za-z_$][\w$]*)*(?:\(\))?$/v;
 
 /** Splits a qualified name into the segments each file must have. */
 const SEGMENT = /[.#]/v;
@@ -141,6 +147,16 @@ export interface LinkCitation {
  * @internal
  */
 export type SymbolIndex = ReadonlyMap<string, ReadonlySet<string>>;
+
+/**
+ * What each name a file declares is WRITTEN as: the source text of
+ * every declaration carrying that name, in source order.
+ *
+ * Exported for the gate and its unit tests
+ * (tests/scripts/internal-symbols.test.ts); no other consumer.
+ * @internal
+ */
+export type DeclaredBodies = ReadonlyMap<string, readonly string[]>;
 
 /**
  * The names one file has, split by whether the file declares them.
@@ -180,16 +196,68 @@ export interface FileNames {
 export function namesIn(file: string, text: string): FileNames {
   const declared = new Set<string>();
   const imported = new Set<string>();
+  eachDeclaration(file, text, (named, imports) => {
+    (imports ? imported : declared).add(named);
+  });
+  return { declared, imported };
+}
+
+/**
+ * The source text every name a file DECLARES is written as, by name.
+ *
+ * An array per name, because a name a file writes twice (an overload,
+ * a local shadowing a module-level one) is two texts and picking one
+ * of them would be a guess. Imports carry no text of their own and
+ * are not in it.
+ *
+ * Exported for the gate and its unit tests
+ * (tests/scripts/internal-symbols.test.ts); no other consumer.
+ * @internal
+ * @param file - the repo-relative path, for the parser's diagnostics
+ * @param text - the file's contents
+ * @returns each declared name's declarations, in source order
+ */
+export function bodiesIn(file: string, text: string): DeclaredBodies {
+  const bodies = new Map<string, string[]>();
+  eachDeclaration(file, text, (named, imports, node) => {
+    if (imports) {
+      return;
+    }
+    const written = bodies.get(named);
+    if (written === undefined) {
+      bodies.set(named, [node.getText()]);
+    } else {
+      written.push(node.getText());
+    }
+  });
+  return bodies;
+}
+
+/**
+ * Walk one file's tree and hand every name it introduces to a caller.
+ *
+ * One walk for the two readings of a file - which names it has, and
+ * what each name is written as - so the narrowing in {@link namedBy}
+ * is stated once.
+ * @param file - the repo-relative path, for the parser's diagnostics
+ * @param text - the file's contents
+ * @param take - called with each name, whether the name comes from
+ *   another file, and the node introducing it
+ */
+function eachDeclaration(
+  file: string,
+  text: string,
+  take: (named: string, imports: boolean, node: ts.Node) => void,
+): void {
   const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true);
   const visit = (node: ts.Node): void => {
     const named = namedBy(node);
     if (named !== undefined) {
-      (isImported(node) ? imported : declared).add(named);
+      take(named, isImported(node), node);
     }
     ts.forEachChild(node, visit);
   };
   visit(source);
-  return { declared, imported };
 }
 
 /**

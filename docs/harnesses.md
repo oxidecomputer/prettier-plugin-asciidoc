@@ -988,56 +988,80 @@ about.
 
 ### `bun run internal-citations` - the citations we write about ourselves
 
-The other direction from the gate above: a `<file>:<line>` naming a file in this
-repository. Two places keep them by hand. A
-`scripts/metrics/score-minimums.json` exception's `what` field names the
-surviving mutant and quotes it, in the form "attrlist.ts:279
-`index < raw.length` -> `index <= raw.length` in closingQuote", and the
-coverage-deferral comments in `eslint.config.js` name the guard a brace would
-uncover, quoted beside the path they defer. Both rot the moment an edit moves
-the code, and three review rounds running found rotted ones; the manual remedy
-was always the same mechanical thing, so it is a check.
+The other direction from the gate above: a claim this repository writes about
+its own code. Two places keep them by hand. A
+`scripts/metrics/score-minimums.json` exception row names a surviving mutant and
+quotes it, and the coverage-deferral comments in `eslint.config.js` name the
+guard a brace would uncover, quoted beside the path they defer. Both rot the
+moment an edit moves the code, and three review rounds running found rotted
+ones; the manual remedy was always the same mechanical thing, so it is a check.
 
-One grammar covers both files. Inside a SCOPE - one exception's `what`, or one
-line of `eslint.config.js` - a `.ts` name binds every `:<line>` and
-`:<from>-<to>` after it, so `list-reader.ts:558, :572` is two citations of one
-file. An exception's own `file` binds a reference that opens the scope. A bare
-basename resolves against `src`, with the row's own file breaking the one tie
-the tree has (`list.ts`). Two checks per citation:
+Both used to write a `<file>:<line>`, and that is what this gate no longer
+reads. A line number is not a fact about the code: every commit adding or
+removing a line above one moved it, so nearly every landing re-anchored two to
+six rows by hand, and those rows were the commonest rebase conflict in the tree.
+What an excused mutant sits in is a SYMBOL, which survives the lines around it
+moving and survives the function moving file.
 
-- **the range check** - the cited file resolves to exactly one path and the
-  cited line is inside it;
-- **the quotation check** - the backtick-quoted runs between the citation and
-  the next `->` must include one that is on the cited line, or somewhere inside
-  the cited range. `->` is where the quoting stops because it is how both files
-  spell "and the mutant put this in its place", and a replacement is by
-  construction not in the source. The runs are held DISJUNCTIVELY: a citation of
-  nine lines quotes the several things that sit on them (a `return "go"` and two
-  `return "stop"`s), and no one line carries them all.
+**A pin** is what both files write now: the symbol the excused code sits in, the
+source text quoted from that symbol's body, and - where the body carries that
+text more than once - which occurrence is meant. The quotation is what makes an
+exception reviewable, so it stays; only the coordinate goes. Three checks per
+pin:
 
-**Provenance.** Two rows deliberately name coordinates in a tree that no longer
-exists, where a mutant sat BEFORE issue #56 moved it, and they say so in a
-`formerly` field listing the exact citations they mean, beside the `what` that
-writes them. Those are counted, not checked. Be exact about what that buys: it
-is an UNCONDITIONAL suppression, and nothing mechanical tells a citation whose
-tree is gone from one that simply rotted. Its three guarantees are that the
-suppression is VISIBLE at the entry rather than hidden in the checker, that it
-is per citation rather than per row (every other citation in the row is still
-checked, and both of these rows carry one that is), and that it is DEAD-ENTRY
-PROOF: a `formerly` naming a citation the row's `what` does not write is itself
-a failure, which is also what makes a drift of an exempt citation fail, since
-the array still names the undrifted spelling.
+- **the symbol check** - the file the row is about DECLARES the named symbol.
+  The walk is the TypeScript compiler's, so a name that appears only in a
+  comment is not a declaration, and a member is held under its own name rather
+  than its owner's (a mutant sits in `afterBlank`, not in `ExtentScan`).
+- **the quotation check** - the named symbol's own text carries the quoted run.
+  Not the file's text: a run that moved out of the function the row is about is
+  a rot the file-wide search would miss.
+- **the ordinal check** - a run the body carries ONCE is pinned by being the
+  only one there. A run it carries several times is not, so the pin says which
+  occurrence it means, counting from 1, and a pin that quoted a repeated run and
+  said nothing more FAILS rather than silently taking the first. An ordinal past
+  the last occurrence fails too, and says how many there are.
 
-A third, weaker scan holds every `src/`, `tests/` or `scripts/` `.ts` path named
-in a `src` file to a file that exists. No line, so no quotation check. It caught
-three rotted paths across the two rounds that built it, two of them in the test
-and harness trees a `src` comment names as freely as it names another module.
+An exception row spells its pins in a `cites` array beside its `what`, which is
+the one key a row may carry on top of the four `bun run metrics` requires. That
+gate allows the key and stops there; the pins' shape is this gate's, so an entry
+that does not read as one - an unknown key, a missing `symbol`, a `quotes` that
+quotes nothing, an ordinal that is not a whole number from 1 - is a failure here
+rather than a check that silently stopped happening.
 
-A fourth scan holds the SYMBOLS, which is the half that survives a comment
-dropping its line number: a path says which file, and only the name says what in
-it. A symbol citation is a backtick-quoted, identifier-shaped run written
-immediately before a repository `.ts` path, across all three trees. Four
-spellings are claimed, and they are the ones the repo writes:
+A lint-config deferral spells its pins on its own entry line, in the comment
+beside the path:
+
+```js
+"src/print/span-edges.ts", // `edgeTail`, `edgeHead`: `if (!isSpanNode(neighbour)) return undefined;`
+```
+
+One LINE is one entry, so nothing binds across lines and a quoted name in the
+paragraph above cannot adopt a path. The comment's backtick-quoted runs split by
+SHAPE - an identifier-shaped run is a symbol, anything else is source text - and
+every symbol is held to every quotation, which is what one guard written the
+same way in two functions needs. A deferral quoting nothing claims nothing and
+is read no further, which is what the `max-lines` entries beside these are: line
+counts, not code. There is no ordinal in this spelling and none is needed; a
+quotation its function carries twice is lengthened until it does not.
+
+The `formerly` field is gone with the line numbers. It existed because a row
+could deliberately name coordinates in a tree a move had already left, which was
+an unconditional suppression nothing mechanical could tell from rot. A symbol
+that moves file keeps its name, so the rows that needed it now simply name the
+symbol and say in prose where it used to live.
+
+A second, weaker scan holds every `src/`, `tests/` or `scripts/` `.ts` path
+named in a `src` file to a file that exists. No symbol, so no quotation check.
+It caught three rotted paths across the two rounds that built it, two of them in
+the test and harness trees a `src` comment names as freely as it names another
+module.
+
+A third scan holds the SYMBOLS a comment names in prose, which is the same fact
+one step out: a path says which file, and only the name says what in it. A
+symbol citation is a backtick-quoted, identifier-shaped run written immediately
+before a repository `.ts` path, across all three trees. Four spellings are
+claimed, and they are the ones the repo writes:
 
 - ``(`isSingleWordLine`, src/parse/line-shapes.ts)`` - a comma and a
   parenthesis;
@@ -1058,20 +1082,20 @@ whose first segment is a runtime global (`Promise.all`).
 
 **The no-text skip.** A symbol beside a path this gate has no text for is
 SKIPPED, not failed. "Does this file have this name" is unanswerable without the
-file, and whether the PATH exists is the third scan's question; answering it
+file, and whether the PATH exists is the second scan's question; answering it
 here would fail every fixture path a gate's own tests write about a checkout of
 their own. The skip is silent by design - a path that names nothing real is
-already a failure of the third scan, so nothing gets through both.
+already a failure of the second scan, so nothing gets through both.
 
 Adjacency and not "any path in the paragraph": this repository's comments quote
 Ruby method names and AsciiDoc spellings in backticks as freely as they name
 their own functions, and the wider rule reports mostly those.
 
-A fifth scan holds the LINK TAGS, which is the spelling for a name that needs no
-path. `{@link cutMatch}` is a claim where a bare backticked identifier is not:
-in a comment, a quoted name is indistinguishable from a quoted value or a Ruby
-method, and the tag is the marker that says which it is. A tag carries no path,
-so it resolves against an INDEX: the union of the declarations over `src`,
+A fourth scan holds the LINK TAGS, which is the spelling for a name that needs
+no path. `{@link cutMatch}` is a claim where a bare backticked identifier is
+not: in a comment, a quoted name is indistinguishable from a quoted value or a
+Ruby method, and the tag is the marker that says which it is. A tag carries no
+path, so it resolves against an INDEX: the union of the declarations over `src`,
 `tests` and `scripts`, one entry per name holding the files that declare it.
 Imports are not in the index, because an imported name is declared somewhere and
 where is what the index answers.
@@ -1094,44 +1118,37 @@ fail on them.
 
 Exit codes: 0 every citation held, 1 a citation FAILED, 2 could not run - a bad
 argument, a missing scanned file, or fewer than `MINIMUM_CITATIONS`, which means
-the scan lost its roots. The floor counts line citations, symbol citations and
-link tags together, because the tags are most of the surface: a floor set
-against the line citations alone would clear on a name scan that resolved
-nothing at all. It is set from what losing a TREE costs rather than from a round
-number under the total: the tree carries 1,428 today (33 line citations, 3
-exempt, 88 symbols, 1,304 tags), and the smallest of the three trees carries 184
-of them, so a run that stopped walking any one of the three lands at 1,244 or
-below, and the floor of 1,250 sits in that gap. Exactly what it counts: every
-line citation checked, every one exempted as naming a former tree, every symbol
-and every tag resolved, and every FAILURE of any of the five scans, the third
-one's dead paths included. A path that holds is the one thing not counted -
-there are hundreds of them and they would carry the floor on their own. `--list`
-prints every citation with the file it resolved to and the runs it will look
+the scan lost its roots. The floor counts pins, symbol citations and link tags
+together, because the tags are most of the surface: a floor set against the pins
+alone would clear on a name scan that resolved nothing at all. It is set from
+what losing a TREE costs rather than from a round number under the total: the
+tree carries 1,494 today (33 pins, 114 symbols, 1,347 tags), and the smallest of
+the three trees carries 217 of them, so a run that stopped walking any one of
+the three lands at 1,277 or below, and the floor of 1,280 sits in that gap.
+Exactly what it counts: every pin whose file was read, every symbol and every
+tag resolved, and every FAILURE of any of the four scans, the path scan's dead
+paths included. A path that holds is the one thing not counted - there are
+hundreds of them and they would carry the floor on their own. `--list` prints
+every citation with the file and symbol it resolved to and the run it will look
 for. `scripts/internal-citations.ts` and `scripts/internal-symbols.ts`, unit
 tested in `tests/scripts/internal-citations.test.ts` and
 `tests/scripts/internal-symbols.test.ts`.
 
-A citation that quotes nothing is checkable for its line and no further, and a
-row in that state is one a human has to correct unaided, which is where a wrong
-hand correction went undetected once. Every scanned citation quotes source
-today, so the class is empty rather than merely small; keep it that way by
-quoting one identifier from the cited region whenever a row is written. The run
-prints the two counts side by side, so a row that stops quoting shows up as a
-gap between them.
+A pin that quoted nothing would resolve its symbol and stop, and a row in that
+state is one a human has to correct unaided, which is where a wrong hand
+correction went undetected once. That state is now unrepresentable rather than
+merely rare: an entry with no `quotes` does not read as a pin at all, and the
+gate says so.
 
-Proves: every repo-internal citation names a line that exists and still carries
-what it quotes, every symbol a comment names beside one of this repository's
-files is a name that file has, and every link tag names one place in the tree.
-It does NOT read the `reason` field (free prose, where the next quoted run is as
-likely to be a function named three clauses later); the LINE half does not
-resolve a citation outside `src` (the two scanned files cite nothing else, and
-letting a bare basename reach the test tree would make half of them ambiguous),
-though the SYMBOL and LINK halves read all three trees, since a test's comment
-names the function it pins as freely as a module names its neighbour; it does
-not hold a backticked name written with neither a path nor a tag, so prose that
-drops both drops its check with them; and it does not check that the quoted line
-still MEANS what the row says about it - which is the failure mode a re-cite has
-to be reviewed for, not gated on.
+Proves: every mutation exception and every coverage deferral names a symbol this
+repository declares and quotes source that symbol still carries, every symbol a
+comment names beside one of this repository's files is a name that file has, and
+every link tag names one place in the tree. It does NOT read the `reason` field
+(free prose, where the next quoted run is as likely to be a function named three
+clauses later); it does not hold a backticked name written with neither a path
+nor a tag, so prose that drops both drops its check with them; and it does not
+check that the quoted code still MEANS what the row says about it - which is the
+failure mode a re-cite has to be reviewed for, not gated on.
 
 ### `bun run printer-reads` - the census's unread claims, held to the printer
 
@@ -2308,19 +2325,16 @@ The rules that keep the file honest:
   instruction.
 - **Raising a minimum rides the commit that earns it** — that is the whole
   ratchet.
-- **A `what` field's `<file>:<line>` is checked**, by
-  `bun run internal-citations`, against the line it names: the code quoted
-  beside the citation has to still be there. A row whose citation deliberately
-  names a tree that no longer exists, where a mutant sat before a move, lists
-  that exact citation in an optional `formerly` array beside its `what`. It is
-  the only key an exception row may carry on top of the four above, and it is an
-  UNCONDITIONAL suppression of the citations it names: nothing mechanical tells
-  "the tree is gone" from "it rotted and I did not fix it", because both are
-  citations that no longer hold. What it does guarantee is that the suppression
-  is visible at the entry rather than in the checker, that it is per citation
-  rather than per row, and that it fails if it names a citation the row's `what`
-  does not write, so it cannot outlive or outgrow that citation. Reviewing one
-  is reviewing a claim, not a checkbox.
+- **A row that excuses a mutant names the symbol it sits in**, in a `cites`
+  array beside its `what`: the symbol, the source text quoted from that symbol's
+  body, and - where the body carries that text more than once - the `ordinal`
+  saying which occurrence. `bun run internal-citations` holds every one of them,
+  and it is the only key an exception row may carry on top of the four above.
+  The rows used to write the mutant's `<file>:<line>` instead, and every commit
+  that added or removed a line above one moved it; a symbol survives that, and
+  survives the function moving file. Reviewing one is reviewing a claim, not a
+  checkbox: the gate says the quoted code is still in that function, not that
+  the row's reading of it is still right.
 - **A minimum of 0 means the file has not been measured**, for one of two
   reasons, and the file's `exceptions` row says which. Either Stryker writes no
   row for it at all (a declaration-only file), or it is a NEW file whose

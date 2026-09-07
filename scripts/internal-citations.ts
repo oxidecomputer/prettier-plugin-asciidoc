@@ -1,34 +1,34 @@
 #!/usr/bin/env bun
 /**
- * The repo-internal citation gate: every `<file>:<line>` this
- * repository writes about ITSELF names a file that exists, a line that
- * exists in it, and a line that still carries the code quoted beside
- * the citation.
+ * The repo-internal citation gate: every claim this repository writes
+ * about ITSELF - the symbol a mutation exception excuses code inside,
+ * the path a comment names, the name a comment writes beside one - is
+ * held to the tree.
  *
  * Three review rounds running turned up hand-maintained citations that
  * had rotted when an edit moved the code out from under them, in the
- * two places this repository keeps them: the `what` field of a
- * `scripts/metrics/score-minimums.json` exception, which names the
- * surviving mutant and quotes it, and the coverage-deferral comments in
+ * two places this repository keeps them: the exception rows of
+ * `scripts/metrics/score-minimums.json`, which name a surviving mutant
+ * and quote it, and the coverage-deferral comments in
  * `eslint.config.js`, which name the guard a brace would uncover and
- * quote it. The manual remedy was always mechanical - find the quoted
- * text, look at the cited line - so it is a check rather than a review
- * habit. A third, weaker scan holds every `src/...ts` path named in a
- * `src` file to a file that exists; those carry no line to check.
+ * quote it. Both used to write the mutant's `file:line`, and a line
+ * number is not a fact about the code: every commit adding or removing
+ * a line above one moved it, so nearly every landing re-anchored
+ * several by hand and they were the commonest rebase conflict in the
+ * tree. What an excused mutant sits in is a SYMBOL, which survives the
+ * lines around it moving and survives the function moving file.
  *
  * This is the repo-INTERNAL half. `bun run citation-check` is the other
  * half and reads the other direction: citations of the Asciidoctor Ruby
  * and of the oracle build, which are sources we do not edit.
  *
- * What a citation looks like here, and it is one grammar for both
- * files: within one SCOPE - one exception's `what` string, or one line
- * of `eslint.config.js` - a `.ts` file name binds every `:<line>` and
- * `:<from>-<to>` reference after it, so `list-reader.ts:558, :572` is
- * two citations of one file and `"src/print/span-edges.ts", // :254,
- * :274` is two more. The FRAGMENTS a citation must be holding are the
- * backtick-quoted runs between it and the next `->`, because `->` is
- * how both files spell "and the mutant replaced it with", and a
- * replacement is by construction not in the source.
+ * A PIN is what both files write: the symbol the excused code sits in,
+ * the source text quoted from that symbol's body, and - where the body
+ * carries that text more than once - which occurrence is meant. The
+ * quotation is what makes an exception reviewable, so it stays; only
+ * the coordinate goes. An exception row spells its pins in a `cites`
+ * array, and a lint-config deferral spells them in the comment beside
+ * the path, one entry line at a time.
  *
  * The run splits into {@link readTree}, which is all the IO, and
  * {@link run}, which is all the decisions, so the gate can be driven
@@ -44,12 +44,15 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { cannotRun, GATE_FAILED, printUsage, wantsHelp } from "./lib/cli.js";
 import {
+  SYMBOL_SHAPE,
+  bodiesIn,
   checkLink,
   checkSymbol,
   linkCitations,
   namesIn,
   symbolCitations,
   symbolIndex,
+  type DeclaredBodies,
 } from "./internal-symbols.js";
 import { isArray, isObject, strictJson } from "./metrics/json.js";
 
@@ -58,13 +61,13 @@ const ARGUMENT_START = 2;
 /** What `indexOf` answers when it did not find the thing. */
 const NOT_FOUND = -1;
 
-/** The exceptions file, whose `what` fields carry citations. */
+/** The exceptions file, whose rows carry symbol pins. */
 export const MINIMUMS_FILE = "scripts/metrics/score-minimums.json";
 
-/** The lint config, whose deferral comments carry citations. */
+/** The lint config, whose deferral comments carry symbol pins. */
 export const ESLINT_FILE = "eslint.config.js";
 
-/** The one tree the citations name, and the one whose comments are read. */
+/** The tree whose files are read line by line, for the paths they name. */
 export const SOURCE_ROOT = "src";
 
 /**
@@ -76,27 +79,24 @@ export const SOURCE_ROOT = "src";
 export const NAMED_ROOTS = ["src", "tests", "scripts"];
 
 /**
- * The floor below which the scan proved nothing, over the line
- * citations, the symbol citations and the link tags together. A run
- * that finds a handful has lost its roots rather than its citations,
- * and that is a 2.
+ * The floor below which the scan proved nothing, over the symbol
+ * pins, the symbol citations and the link tags together. A run that
+ * finds a handful has lost its roots rather than its citations, and
+ * that is a 2.
  *
- * Set from what the tree carries: 1,428, of which 33 are line
- * citations, 3 are exempt, 88 are symbols beside a path and 1,304 are
- * link tags. The number to clear is what LOSING A TREE costs, and the
- * smallest of the three carries 184 of them, so a run that stopped
- * walking any one of the three lands at 1,244 or below; this floor
- * sits in that gap. Raised from 200, which was set when the tags
- * carried no check and most of this surface did not exist.
+ * Set from what the tree carries: 1,494, of which 33 are pins, 114
+ * are symbols beside a path and 1,347 are link tags. The number to
+ * clear is what LOSING A TREE costs, and the smallest of the three
+ * carries 217 of them, so a run that stopped walking any one of the
+ * three lands at 1,277 or below; this floor sits in that gap. Raised
+ * from 1,250, which was the same gap over a smaller surface, and from
+ * 200 before that, when the tags carried no check at all.
  *
  * Exported so the floor has a test at its boundary
  * (tests/scripts/internal-citations.test.ts); no other consumer.
  * @internal
  */
-export const MINIMUM_CITATIONS = 1250;
-
-/** How both files spell "and the mutant put this in its place". */
-const REPLACED_BY = "->";
+export const MINIMUM_CITATIONS = 1280;
 
 /** What `--help` prints. */
 const USAGE = `usage: bun run internal-citations [options]
@@ -123,9 +123,7 @@ export interface Tree {
   readonly sources: ReadonlyMap<string, readonly string[]>;
   /**
    * Every `.ts` path under {@link NAMED_ROOTS}, for the existence
-   * question alone. A citation still resolves against `sources`: the
-   * two scanned files cite `src` and nothing else, so a wider
-   * resolution set could only add wrong answers.
+   * question the path scan asks and for nothing else.
    */
   readonly files: ReadonlySet<string>;
   /**
@@ -138,143 +136,177 @@ export interface Tree {
   readonly texts: ReadonlyMap<string, string>;
 }
 
+/** What every pin says, whichever variant it is. */
+interface PinSite {
+  /** Where the pin is written, as `path:line`. */
+  readonly at: string;
+  /** The repo-relative file whose symbol it names. */
+  readonly file: string;
+  /** The symbol whose body must carry the quoted run. */
+  readonly symbol: string;
+  /** The source text quoted from that body. */
+  readonly quotes: string;
+}
+
+/** A pin whose quoted run is the only one the symbol's body carries. */
+interface SolePin extends PinSite {
+  /** Which variant this is. */
+  readonly kind: "sole";
+}
+
+/** A pin whose quoted run is one of several, saying which. */
+interface NthPin extends PinSite {
+  /** Which variant this is. */
+  readonly kind: "nth";
+  /** The occurrence it means, counting from 1. */
+  readonly ordinal: number;
+}
+
 /**
- * One repo-internal citation: where it is written, what it names, and
- * the source text it claims is there.
+ * One symbol pin: the symbol an excused mutant or a deferred guard
+ * sits in, and the source text quoted from that symbol's body.
  *
- * Exported so the scanner can be driven from fixture text in the tests
+ * Two variants, because a run a body carries ONCE and a run it carries
+ * several times are different claims. The first names its place by
+ * being the only one there; the second cannot, so it says which. A pin
+ * that quoted a repeated run and said nothing more would point at all
+ * of them and at none of them, so that spelling FAILS rather than
+ * silently taking the first.
+ *
+ * Exported so a test can build pins without writing JSON
  * (tests/scripts/internal-citations.test.ts); no other consumer.
  * @internal
  */
-export interface Citation {
-  /** Where it is written, as `path:line` or `path <file>`. */
-  readonly at: string;
-  /** The citation as written, `<name>:<from>` or `<name>:<from>-<to>`. */
-  readonly spelling: string;
-  /** The cited file as NAMED - a basename, or a repo-relative path. */
-  readonly named: string;
-  /** The first cited line, 1-based. */
-  readonly from: number;
-  /** The last cited line, 1-based; equal to `from` for a single line. */
-  readonly to: number;
-  /** The quoted source text that must be on those lines, possibly none. */
-  readonly fragments: readonly string[];
+export type Pin = SolePin | NthPin;
+
+/** A `cites` entry that read as a pin. */
+interface PinHeld {
+  /** Which variant this is. */
+  readonly kind: "pin";
+  /** What it read as. */
+  readonly pin: Pin;
 }
 
-/** What one scope's scan found. */
-interface Scan {
-  /** The citations, in the order they are written. */
-  readonly citations: readonly Citation[];
-  /** References written before any file name bound them. */
-  readonly contextless: readonly string[];
+/** A `cites` entry that did not read as a pin, and why. */
+interface PinFault {
+  /** Which variant this is. */
+  readonly kind: "fault";
+  /** What is wrong with it, ready to print. */
+  readonly fault: string;
 }
-
-// A `.ts` file name, or a line reference. One alternation rather than
-// two passes, because the binding rule is positional: a reference takes
-// the file name most recently matched before it.
-const TOKEN = /(?<name>[\w.\/\-]+\.ts)|:(?<from>\d+)(?:-(?<to>\d+))?/gv;
 
 /**
- * Read every citation in one scope of text.
+ * What reading one `cites` entry produced: a pin, or the reason it is
+ * not one. Total, so a mistyped entry is a message rather than a check
+ * that silently stopped happening.
  *
- * A `:line` reference takes the file name most recently written before
- * it IN THE SAME SCOPE, or, where nothing has named one yet, the file
- * the scope is already ABOUT - an exception row's own `file`. A
- * reference with neither is contextless: reported, and not a failure.
- * Nothing outside the scope binds anything, so a path five lines up in
- * `eslint.config.js` cannot silently adopt a stray number.
- *
- * Exported for its unit tests (tests/scripts/internal-citations.test.ts):
- * the binding rule and the fragment rule are the whole grammar. No
- * other consumer.
+ * Exported with {@link readPin}
+ * (tests/scripts/internal-citations.test.ts); no other consumer.
  * @internal
- * @param at - where the scope is written, for the message
- * @param scope - the text to read
- * @param about - the file the scope is about, where there is one
- * @returns the citations, and the references nothing bound
  */
-export function scanScope(at: string, scope: string, about?: string): Scan {
-  const citations: Citation[] = [];
-  const contextless: string[] = [];
-  let bound = about;
-  for (const match of scope.matchAll(TOKEN)) {
-    // TypeScript types a match's `groups` as every name PRESENT, which
-    // an alternation makes false: exactly one side of TOKEN matched.
-    const groups: Record<string, string | undefined> = match.groups ?? {};
-    const { name, from, to } = groups;
-    if (name !== undefined) {
-      bound = name;
-      continue;
-    }
-    if (from === undefined) {
-      continue;
-    }
-    if (bound === undefined) {
-      contextless.push(`${at}: \`:${from}\` names no file`);
-      continue;
-    }
-    const first = Number(from);
-    const last = to === undefined ? first : Number(to);
-    citations.push({
-      at,
-      spelling:
-        first === last
-          ? `${bound}:${from}`
-          : `${bound}:${from}-${String(last)}`,
-      named: bound,
-      from: first,
-      to: last,
-      fragments: fragmentsAfter(scope, match.index + match[0].length),
-    });
-  }
-  return { citations, contextless };
-}
+export type PinRead = PinHeld | PinFault;
+
+/** Exactly the keys a `cites` entry may carry. */
+const PIN_KEYS = new Set(["symbol", "quotes", "ordinal"]);
+
+/** The lowest occurrence a pin may name. */
+const FIRST_OCCURRENCE = 1;
 
 /**
- * The backtick-quoted runs between a citation and the next `->`.
- *
- * The stop rule is the whole point. Both scanned files write a mutant
- * as `` `source` -> `replacement` ``, and the replacement is by
- * construction NOT in the source; a checker that took it would fail
- * every correctly-cited mutant. A citation whose first quoted run is
- * already past a `->` (`each conjunct -> \`true\``) quotes no source at
- * all, and comes back with no fragments - checkable for its line
- * number, and no further.
+ * Read one `cites` entry as a pin.
  *
  * Exported for its unit tests (tests/scripts/internal-citations.test.ts);
- * no other consumer.
+ * {@link exceptionRows} is the only other consumer.
  * @internal
- * @param scope - the text the citation is written in
- * @param from - the offset just past the citation
- * @returns the quoted runs, in order, possibly none
+ * @param at - where the row it belongs to is written
+ * @param file - the file that row is about
+ * @param raw - one element of the row's `cites` array
+ * @returns the pin, or the reason it is not one
  */
-export function fragmentsAfter(scope: string, from: number): string[] {
-  const fragments: string[] = [];
-  let at = from;
-  let open = scope.indexOf("`", at);
-  while (open !== NOT_FOUND) {
-    const replaced = scope.indexOf(REPLACED_BY, at);
-    if (replaced !== NOT_FOUND && replaced < open) {
-      return fragments;
-    }
-    const close = scope.indexOf("`", open + 1);
-    if (close === NOT_FOUND) {
-      return fragments;
-    }
-    fragments.push(scope.slice(open + 1, close));
-    at = close + 1;
-    open = scope.indexOf("`", at);
+export function readPin(at: string, file: string, raw: unknown): PinRead {
+  if (!isObject(raw) || isArray(raw)) {
+    return {
+      kind: "fault",
+      fault: `${at}: a \`cites\` entry is not an object`,
+    };
   }
-  return fragments;
+  const unknown = Object.keys(raw).filter((key) => !PIN_KEYS.has(key));
+  if (unknown.length > 0) {
+    return {
+      kind: "fault",
+      fault: `${at}: a \`cites\` entry carries unknown key(s) ${unknown.join(", ")}`,
+    };
+  }
+  const { symbol, quotes, ordinal } = raw;
+  if (typeof symbol !== "string" || symbol === "") {
+    return {
+      kind: "fault",
+      fault: `${at}: a \`cites\` entry names no \`symbol\``,
+    };
+  }
+  if (typeof quotes !== "string" || quotes === "") {
+    return {
+      kind: "fault",
+      fault: `${at}: \`${symbol}\` quotes nothing, and a pin nothing quotes is unreviewable`,
+    };
+  }
+  return readOrdinal({ at, file, symbol, quotes }, ordinal);
 }
 
 /**
- * Split a file into the lines a citation can name.
+ * Read a pin's ordinal, which is what tells the two variants apart.
+ *
+ * Split from {@link readPin} because the two questions are separate -
+ * is this an entry at all, and which occurrence does it mean - and
+ * because one function asking both stands over the complexity ceiling.
+ * @param site - what the entry has already read as
+ * @param ordinal - its `ordinal` field, however it is spelled
+ * @returns the pin, or the reason the ordinal is not one
+ */
+function readOrdinal(site: PinSite, ordinal: unknown): PinRead {
+  if (ordinal === undefined) {
+    return { kind: "pin", pin: { kind: "sole", ...site } };
+  }
+  if (
+    typeof ordinal !== "number" ||
+    !Number.isInteger(ordinal) ||
+    ordinal < FIRST_OCCURRENCE
+  ) {
+    return {
+      kind: "fault",
+      fault: `${site.at}: \`${site.symbol}\` names ordinal ${JSON.stringify(ordinal)}, which is not a whole number from ${String(FIRST_OCCURRENCE)}`,
+    };
+  }
+  return { kind: "pin", pin: { kind: "nth", ...site, ordinal } };
+}
+
+/**
+ * How many times one run of text is written in another.
+ *
+ * Counted WITHOUT overlaps, because the runs a pin quotes are whole
+ * expressions and a run that overlapped itself would be counted twice
+ * for one place in the source.
+ * @param text - the text to look in
+ * @param run - the run to look for
+ * @returns how many times it is written there, possibly none
+ */
+function occurrencesOf(text: string, run: string): number {
+  let found = 0;
+  let at = text.indexOf(run);
+  while (at !== NOT_FOUND) {
+    found += 1;
+    at = text.indexOf(run, at + run.length);
+  }
+  return found;
+}
+
+/**
+ * Split a file into the lines the line-by-line scans read.
  *
  * The final newline does not open a line: counting the empty string
- * after it would let a citation name one line past the end of the file
- * and still pass, which is the off-by-one the range check exists to
- * catch.
+ * after it would add a line the file does not have, and both callers
+ * number what they find, so an editor's line and this one's have to
+ * agree.
  *
  * Exported for its unit test (tests/scripts/internal-citations.test.ts);
  * no other consumer.
@@ -347,88 +379,6 @@ function walk(root: string, tree: string): string[] {
 }
 
 /**
- * Resolve the file a citation names to one path in the tree.
- *
- * A citation that spells a path is that path; a bare basename is looked
- * up, with the row's own file breaking the one tie this tree has
- * (`list.ts`, which is both a build and a print module).
- * @param citation - the citation
- * @param about - the file its scope is about, when there is one
- * @param tree - the checkout
- * @returns the path, or the reason there is not exactly one
- */
-function resolve(
-  citation: Citation,
-  about: string | undefined,
-  tree: Tree,
-): { file: string | undefined; fault: string | undefined } {
-  const { named } = citation;
-  if (about !== undefined && path.basename(about) === named) {
-    return { file: about, fault: undefined };
-  }
-  if (tree.sources.has(named)) {
-    return { file: named, fault: undefined };
-  }
-  const found = [...tree.sources.keys()].filter(
-    (file) => path.basename(file) === named,
-  );
-  if (found.length === 0) {
-    return {
-      file: undefined,
-      fault: `names no file under ${SOURCE_ROOT}/, which is the only tree this gate reads`,
-    };
-  }
-  if (found.length > 1) {
-    return { file: undefined, fault: `is ambiguous: ${found.join(", ")}` };
-  }
-  return { file: found[0], fault: undefined };
-}
-
-/**
- * Hold one citation to the file it names.
- *
- * The quoted runs are held DISJUNCTIVELY - the cited span must carry at
- * least one of them - because a citation of several lines quotes the
- * several things that sit on them (a `return "go"` and two
- * `return "stop"`s, over nine lines), and no one line carries them all.
- * With one quoted run, which is the ordinary case, the disjunction and
- * the conjunction are the same check.
- *
- * Exported for its unit tests (tests/scripts/internal-citations.test.ts),
- * which drive it against literal file contents; no other consumer.
- * @internal
- * @param citation - the citation
- * @param file - the resolved repo-relative path of the cited file
- * @param lines - that file's lines, in order
- * @returns one message per failure, empty when the citation held
- */
-export function checkCitation(
-  citation: Citation,
-  file: string,
-  lines: readonly string[],
-): string[] {
-  const { at, spelling, from, to, fragments } = citation;
-  const where = `${at}: \`${spelling}\``;
-  if (from < 1 || to < from || to > lines.length) {
-    return [
-      `${where} names line ${String(to)} of ${file}, which has ${String(lines.length)} lines`,
-    ];
-  }
-  const span = lines.slice(from - 1, to);
-  const held = fragments.some((fragment) =>
-    span.some((line) => line.includes(fragment)),
-  );
-  if (fragments.length === 0 || held) {
-    return [];
-  }
-  const quoted = fragments.map((fragment) => `\`${fragment}\``).join(", ");
-  const named = from === to ? String(from) : `${String(from)}-${String(to)}`;
-  return [
-    `${where} quotes ${quoted}, none of which is on ${file}:${named}, which reads \`${span[0].trim()}\``,
-  ];
-}
-
-/**
  * What one run measured.
  *
  * Exported so {@link verdict} can be driven with a literal report
@@ -437,69 +387,98 @@ export function checkCitation(
  * @internal
  */
 export interface Report {
-  /** Citations whose file resolved and whose lines were read. */
-  checked: number;
-  /** Of those, the ones that also quoted source text. */
-  quoted: number;
-  /** Citations exempted as naming a tree that no longer exists. */
-  exempt: number;
+  /** Symbol pins whose file was read and whose quotation was looked for. */
+  pins: number;
   /** Repo paths named in a `src` file and held to existing. */
   paths: number;
   /** Symbols named beside a repo path and held to that file. */
   symbols: number;
   /** Symbols named in a link tag and held to the tree's index. */
   links: number;
-  /** Line references nothing in their scope named a file for. */
-  contextless: string[];
   /** One line per failure, ready to print. */
   failures: string[];
   /** Every citation read, for `--list`. */
   listing: string[];
 }
 
-/** What a scope's citations are checked against. */
-interface ScopeContext {
-  /** The checkout. */
-  readonly tree: Tree;
-  /** The file the scope is about, where there is one. */
-  readonly about: string | undefined;
-  /** Spellings the scope declared as naming a tree that is gone. */
-  readonly exempt: ReadonlySet<string>;
+/** A lookup from repo path to that file's declarations. */
+type Bodies = (file: string) => DeclaredBodies | undefined;
+
+/**
+ * The declarations of every file a pin names, parsed on demand and
+ * once each.
+ *
+ * On demand because the pins name a dozen files where the tree holds
+ * hundreds, and once each because a file's pins are checked together.
+ * @param tree - the checkout
+ * @returns the lookup, or undefined for a file the gate read no text for
+ */
+function bodiesOf(tree: Tree): Bodies {
+  const parsed = new Map<string, DeclaredBodies>();
+  return (file) => {
+    const held = parsed.get(file);
+    if (held !== undefined) {
+      return held;
+    }
+    const text = tree.texts.get(file);
+    const bodies = text === undefined ? undefined : bodiesIn(file, text);
+    if (bodies !== undefined) {
+      parsed.set(file, bodies);
+    }
+    return bodies;
+  };
 }
 
 /**
- * Check every citation in one scope, and record what happened.
+ * Hold one pin to the symbol it names, and record what happened.
  * @param report - the run's report, added to in place
- * @param scan - the scope's citations
- * @param context - the checkout, the file the scope is about, and the
- *   spellings it has declared as naming a tree that no longer exists
+ * @param bodies - the declaration lookup
+ * @param pin - the pin
  */
-function checkScope(report: Report, scan: Scan, context: ScopeContext): void {
-  const { tree, about, exempt } = context;
-  report.contextless.push(...scan.contextless);
-  for (const citation of scan.citations) {
-    if (exempt.has(citation.spelling)) {
-      report.exempt += 1;
-      report.listing.push(
-        `${citation.at}\t${citation.spelling}\t(former tree)`,
-      );
-      continue;
-    }
-    const { file, fault } = resolve(citation, about, tree);
-    const lines = file === undefined ? undefined : tree.sources.get(file);
-    if (file === undefined || lines === undefined) {
-      report.failures.push(
-        `${citation.at}: \`${citation.spelling}\` ${fault ?? "names no file this gate read"}`,
-      );
-      continue;
-    }
-    report.checked += 1;
-    report.quoted += citation.fragments.length > 0 ? 1 : 0;
-    report.listing.push(
-      `${citation.at}\t${citation.spelling}\t${file}\t${citation.fragments.join(" | ")}`,
+function holdPin(report: Report, bodies: Bodies, pin: Pin): void {
+  const held = bodies(pin.file);
+  if (held === undefined) {
+    report.failures.push(
+      `${pin.at}: names ${pin.file}, which this gate read no text for`,
     );
-    report.failures.push(...checkCitation(citation, file, lines));
+    return;
   }
+  report.pins += 1;
+  const which = pin.kind === "nth" ? ` #${String(pin.ordinal)}` : "";
+  report.listing.push(
+    `${pin.at}\t${pin.file}\t\`${pin.symbol}\`${which}\t${pin.quotes}`,
+  );
+  report.failures.push(...checkPin(pin, held));
+}
+
+/**
+ * Hold one pin to the symbol it names.
+ *
+ * Exported for its unit tests (tests/scripts/internal-citations.test.ts),
+ * which drive it against literal declaration texts; {@link holdPin} is
+ * the only other consumer.
+ * @internal
+ * @param pin - the pin
+ * @param bodies - the declarations of the file it names
+ * @returns one message per failure, empty when the pin held
+ */
+export function checkPin(pin: Pin, bodies: DeclaredBodies): string[] {
+  const written = bodies.get(pin.symbol);
+  if (written === undefined) {
+    return [`${pin.at}: ${pin.file} declares no \`${pin.symbol}\``];
+  }
+  const where = `${pin.at}: \`${pin.symbol}\` in ${pin.file}`;
+  const carried = occurrencesOf(written.join("\n"), pin.quotes);
+  if (carried === 0) {
+    return [`${where} does not carry \`${pin.quotes}\``];
+  }
+  const times = `carries \`${pin.quotes}\` ${String(carried)} times`;
+  if (pin.kind === "sole") {
+    return carried === 1 ? [] : [`${where} ${times}: name the ordinal`];
+  }
+  return pin.ordinal <= carried
+    ? []
+    : [`${where} ${times}, so there is no ${String(pin.ordinal)}`];
 }
 
 /**
@@ -510,12 +489,14 @@ function checkScope(report: Report, scan: Scan, context: ScopeContext): void {
  * @internal
  */
 export interface ExceptionRow {
+  /** Where the row is written, as `path:line`. */
+  readonly at: string;
   /** The file the row is about, relative to the checkout root. */
   readonly file: string;
-  /** The mutant or region, which is where the citations are. */
-  readonly what: string;
-  /** The row's citations that name a tree that no longer exists. */
-  readonly formerly: readonly string[];
+  /** The pins its `cites` array writes, in order. */
+  readonly pins: readonly Pin[];
+  /** One message per `cites` entry that did not read as a pin. */
+  readonly faults: readonly string[];
 }
 
 /**
@@ -523,7 +504,10 @@ export interface ExceptionRow {
  *
  * A row that does not read as one is skipped rather than failed:
  * `bun run metrics` validates that file's shape and says so in its own
- * words, and two gates reporting the same malformed row is noise.
+ * words, and two gates reporting the same malformed row is noise. What
+ * that gate does not read is the PINS - it allows the key and stops
+ * there - so a `cites` entry that does not read as one is this gate's
+ * failure to report.
  *
  * Exported for its unit tests (tests/scripts/internal-citations.test.ts);
  * no other consumer.
@@ -545,18 +529,41 @@ export function exceptionRows(text: string): ExceptionRow[] {
     if (!isObject(raw)) {
       continue;
     }
-    const { file, what, formerly } = raw;
+    const { file, what, cites } = raw;
     if (typeof file !== "string" || typeof what !== "string") {
       continue;
     }
-    const listed = isArray(formerly) ? formerly : [];
-    rows.push({
-      file,
-      what,
-      formerly: listed.filter((one) => typeof one === "string"),
-    });
+    rows.push(readRow(whereWritten(text, what, file), file, cites));
   }
   return rows;
+}
+
+/**
+ * Read one row's `cites` field into the pins it writes and the faults
+ * it carries.
+ * @param at - where the row is written
+ * @param file - the file the row is about
+ * @param cites - the row's `cites` field, however it is spelled
+ * @returns the row
+ */
+function readRow(at: string, file: string, cites: unknown): ExceptionRow {
+  if (cites === undefined) {
+    return { at, file, pins: [], faults: [] };
+  }
+  if (!isArray(cites)) {
+    return { at, file, pins: [], faults: [`${at}: \`cites\` is not an array`] };
+  }
+  const pins: Pin[] = [];
+  const faults: string[] = [];
+  for (const entry of cites) {
+    const read = readPin(at, file, entry);
+    if (read.kind === "pin") {
+      pins.push(read.pin);
+    } else {
+      faults.push(read.fault);
+    }
+  }
+  return { at, file, pins, faults };
 }
 
 /**
@@ -566,69 +573,100 @@ export function exceptionRows(text: string): ExceptionRow[] {
  * own bytes give a line number an editor can open; the row's file name
  * is the fallback for a file some other formatter has rewrapped.
  * @param text - the minimums file's bytes
- * @param row - the row
+ * @param what - the row's `what` field
+ * @param file - the file the row is about
  * @returns `path:line`, or the file and the row's own file name
  */
-function whereWritten(text: string, row: ExceptionRow): string {
-  const at = text.indexOf(JSON.stringify(row.what));
+function whereWritten(text: string, what: string, file: string): string {
+  const at = text.indexOf(JSON.stringify(what));
   if (at === NOT_FOUND) {
-    return `${MINIMUMS_FILE} ${row.file}`;
+    return `${MINIMUMS_FILE} ${file}`;
   }
   return `${MINIMUMS_FILE}:${String(text.slice(0, at).split("\n").length)}`;
 }
 
 /**
- * Check the exception rows' citations.
+ * Check the exception rows' pins.
  * @param report - the run's report, added to in place
+ * @param bodies - the declaration lookup
  * @param tree - the checkout
  */
-function checkMinimums(report: Report, tree: Tree): void {
+function checkMinimums(report: Report, bodies: Bodies, tree: Tree): void {
   for (const row of exceptionRows(tree.minimums)) {
-    const at = whereWritten(tree.minimums, row);
-    // `what` and NOT `reason`, though both carry citations. `what` is
-    // written in the mutant grammar - a citation, then the source it
-    // quotes, then `->` and the replacement - so a quoted run beside a
-    // citation there IS a claim about that line. `reason` is free
-    // prose, where the next quoted run is as likely to be a function
-    // named three clauses later, and the only check that survives the
-    // difference (does the line exist?) would have caught none of the
-    // rot this gate was built for.
-    const scan = scanScope(at, row.what, path.basename(row.file));
-    const spellings = new Set(scan.citations.map((one) => one.spelling));
-    for (const former of row.formerly) {
-      if (!spellings.has(former)) {
-        report.failures.push(
-          `${at}: \`formerly\` names \`${former}\`, which this row's \`what\` does not cite`,
-        );
-      }
+    report.failures.push(...row.faults);
+    for (const pin of row.pins) {
+      holdPin(report, bodies, pin);
     }
-    checkScope(report, scan, {
-      tree,
-      about: row.file,
-      exempt: new Set(row.formerly),
-    });
   }
+}
+
+// One entry of a per-file lint exemption: the quoted repository path
+// that opens the line, and whatever comment stands beside it.
+const DEFERRAL =
+  /^\s*"(?<file>(?:src|tests|scripts)\/[\w.\/\-]*\.ts)",(?<note>.*)$/v;
+
+/** A backtick-quoted run of a deferral's comment. */
+const QUOTED = /`(?<run>[^`\n]+)`/gv;
+
+/**
+ * The pins one line of the lint config writes.
+ *
+ * ONE LINE is one entry: a deferral names the file it defers on the
+ * same line as the guard it is about, so nothing binds across lines and
+ * a quoted run in the paragraph above cannot adopt a path.
+ *
+ * The comment's quoted runs split by SHAPE. An identifier-shaped run is
+ * a symbol the guard sits in; anything else is source text quoted from
+ * it. Both may repeat, and every symbol is held to every quotation,
+ * which is what one guard written the same way in two functions needs
+ * (`edgeTail` and `edgeHead` share theirs). A deferral quoting nothing
+ * claims nothing and is read no further: the `max-lines` entries beside
+ * these write line counts and no code.
+ *
+ * There is no ordinal in this spelling and none is needed. A quotation
+ * its function carries twice is lengthened until it does not, which is
+ * open to a comment in a way it is not to a mutant's own line.
+ *
+ * Exported for its unit tests (tests/scripts/internal-citations.test.ts);
+ * no other consumer.
+ * @internal
+ * @param at - where the line is, for the message
+ * @param line - the line
+ * @returns the pins it writes, possibly none
+ */
+export function lintPins(at: string, line: string): Pin[] {
+  const entry = DEFERRAL.exec(line);
+  if (entry === null) {
+    return [];
+  }
+  const named: Record<string, string | undefined> = entry.groups ?? {};
+  const file = named.file ?? "";
+  const symbols: string[] = [];
+  const quotations: string[] = [];
+  for (const match of (named.note ?? "").matchAll(QUOTED)) {
+    const groups: Record<string, string | undefined> = match.groups ?? {};
+    const run = groups.run ?? "";
+    (SYMBOL_SHAPE.test(run) ? symbols : quotations).push(run);
+  }
+  return symbols.flatMap((symbol) =>
+    quotations.map(
+      (quotes): Pin => ({ kind: "sole", at, file, symbol, quotes }),
+    ),
+  );
 }
 
 /**
  * Check the lint config's deferral comments.
- *
- * One LINE is one scope: the path a deferral defers is written on the
- * same line as the `:line` that cites into it, and nothing may bind
- * across lines, or a stray number would adopt a path from a paragraph
- * above it.
  * @param report - the run's report, added to in place
+ * @param bodies - the declaration lookup
  * @param tree - the checkout
  */
-function checkLintConfig(report: Report, tree: Tree): void {
-  const context: ScopeContext = {
-    tree,
-    about: undefined,
-    exempt: new Set<string>(),
-  };
+function checkLintConfig(report: Report, bodies: Bodies, tree: Tree): void {
   for (const [offset, line] of sourceLines(tree.lintConfig).entries()) {
     const at = `${ESLINT_FILE}:${String(offset + 1)}`;
-    checkScope(report, scanScope(at, line), context);
+    for (const pin of lintPins(at, line)) {
+      holdPin(report, bodies, pin);
+    }
   }
 }
 
@@ -717,18 +755,16 @@ function checkNames(report: Report, tree: Tree): void {
  */
 export function run(tree: Tree): Report {
   const report: Report = {
-    checked: 0,
-    quoted: 0,
-    exempt: 0,
+    pins: 0,
     paths: 0,
     symbols: 0,
     links: 0,
-    contextless: [],
     failures: [],
     listing: [],
   };
-  checkMinimums(report, tree);
-  checkLintConfig(report, tree);
+  const bodies = bodiesOf(tree);
+  checkMinimums(report, bodies, tree);
+  checkLintConfig(report, bodies, tree);
   checkRepoPaths(report, tree);
   checkNames(report, tree);
   return report;
@@ -767,8 +803,7 @@ export type Verdict =
  *
  * Pure, and separate from `main`, because the things worth pinning here
  * are decisions rather than IO: that the measured-nothing floor is a 2
- * and not a 0, that one failure is a 1, and that a contextless
- * reference is neither.
+ * and not a 0, and that one failure is a 1.
  *
  * Exported for those tests (tests/scripts/internal-citations.test.ts);
  * no other consumer.
@@ -777,27 +812,23 @@ export type Verdict =
  * @returns what to print, and which exit code the run earned
  */
 export function verdict(report: Report): Verdict {
-  const total =
-    report.checked +
-    report.exempt +
-    report.symbols +
-    report.links +
-    report.failures.length;
+  const held = report.pins + report.symbols + report.links;
+  const total = held + report.failures.length;
   if (total < MINIMUM_CITATIONS) {
     return {
       kind: "cannot-run",
       message: `internal-citations: found only ${String(total)} citations, below the floor of ${String(MINIMUM_CITATIONS)}: the scan lost its roots`,
     };
   }
-  const lines = [...report.contextless, ...report.failures];
+  const lines = [...report.failures];
   if (report.failures.length > 0) {
     lines.push(
-      `internal-citations: ${String(report.failures.length)} FAILED of ${String(report.checked)} checked`,
+      `internal-citations: ${String(report.failures.length)} FAILED of ${String(held)} checked`,
     );
     return { kind: "failed", lines };
   }
   lines.push(
-    `internal-citations: ${String(report.checked)} citations hold (${String(report.quoted)} quoting source, ${String(report.exempt)} naming a former tree), ${String(report.symbols)} symbols and ${String(report.links)} link tags resolve, ${String(report.paths)} repo paths exist`,
+    `internal-citations: ${String(report.pins)} symbol pins hold, ${String(report.symbols)} symbols and ${String(report.links)} link tags resolve, ${String(report.paths)} repo paths exist`,
   );
   return { kind: "clean", lines };
 }

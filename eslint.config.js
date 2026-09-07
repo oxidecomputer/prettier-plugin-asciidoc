@@ -524,14 +524,15 @@ export default defineConfig(
   // either way, and these guards were always among the branches it
   // does not take. The rule here is the repo's: a number that moves
   // the wrong way is a question, not a target, so neither the floor
-  // was lowered nor a test written to chase the line. The guards and
-  // the line each sits on are recorded in the task report for the
-  // owners of these files; the entry leaves when the guard is tested
-  // or shown unreachable and deleted.
+  // was lowered nor a test written to chase the line. Each entry names
+  // the function the guard sits in and quotes the guard, which
+  // `bun run internal-citations` holds to that function's body; the
+  // entry leaves when the guard is tested or shown unreachable and
+  // deleted.
   {
     files: [
-      "src/parse/inline/rules.ts", // :479 `if (start === -1) return undefined;`
-      "src/print/span-edges.ts", // :396, :416 `if (!isSpanNode(neighbour)) return undefined;`
+      "src/parse/inline/rules.ts", // `matchOn`: `if (start === -1) return undefined;`
+      "src/print/span-edges.ts", // `edgeTail`, `edgeHead`: `if (!isSpanNode(neighbour)) return undefined;`
     ],
     rules: { curly: "off" },
   },

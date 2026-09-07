@@ -67,12 +67,12 @@ const ROW_KEYS = new Set(["coverage", "mutation"]);
 const EXCEPTION_KEYS = ["file", "what", "class", "reason"];
 
 // The one key an exception row MAY carry on top of those four:
-// `formerly`, the citations in its `what` that name a tree the move
-// this row records has already left. `bun run internal-citations`
-// reads it and exempts exactly those from the line check; nothing
-// here reads it, and it is listed only so a row carrying one is not
-// rejected as a typo.
-const OPTIONAL_EXCEPTION_KEYS = new Set(["formerly"]);
+// `cites`, the symbol pins that say where the excused mutant sits and
+// quote it. `bun run internal-citations` owns their shape and holds
+// each one to the named symbol's body; nothing here reads them, and
+// the key is listed only so a row carrying one is not rejected as a
+// typo.
+const OPTIONAL_EXCEPTION_KEYS = new Set(["cites"]);
 
 /** The three ways a gap between the minimum and 100% is classified. */
 const CLASSES = ["now", "when", "never"];
