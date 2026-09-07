@@ -169,6 +169,13 @@
   },
   {
     "file": "src/line-verdict.ts",
+    "symbol": "OpeningReading",
+    "importer": "src/print/reflow.ts",
+    "kind": "vocabulary",
+    "reason": "the verdict discriminant a printer site knows its block's first line is, so the site names the reading in the reader's own vocabulary rather than in one of the printer's"
+  },
+  {
+    "file": "src/line-verdict.ts",
     "symbol": "accepts",
     "importer": "src/print/reflow.ts",
     "kind": "vocabulary",
@@ -208,6 +215,13 @@
     "importer": "src/print/reflow.ts",
     "kind": "vocabulary",
     "reason": "the position of a block's OPENING line, so the packer asks what its first output line opens in the same context the reader classified that line in"
+  },
+  {
+    "file": "src/line-verdict.ts",
+    "symbol": "opensTheSameBlock",
+    "importer": "src/print/reflow.ts",
+    "kind": "vocabulary",
+    "reason": "the reader's own verdict on a block's FIRST output line, held against the reading the reader recorded for the line that stood there; the packer asks it rather than approximating the block start with a predicate over a word"
   },
   {
     "file": "src/mark-record.ts",

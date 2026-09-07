@@ -1,1 +1,12 @@
-[]
+[
+  {
+    "symbol": "src/line-verdict.ts:BlockOpening",
+    "issue": 109,
+    "witness": "\"[x] wwww x14 yy] zzzz zzzz\\n\" wraps so its first line is \"[x] ... yy]\", which the second read takes as metadata and the render loses the line. \"aaa\\n[x]\\nbbb\" confirms the oracle terminates a paragraph at such a line.",
+    "bindingRow": "The two verdicts opensTheSameBlock (src/print/reflow.ts) now compares: what the reader makes of the block's own first source line, and what it makes of the line the packer would write there. This type carried a DECLARED reading with the one parameter a re-read could lose, the marker style; the style is read off the source line's own verdict instead (readsTheSameOpening, src/line-verdict.ts), which is the same fact from the place that already holds it. NARROWER: the declared reading was only ever built as `text`, so the question was asked at the document-paragraph site alone, and the comparison asks it at every site the packer writes a first line.",
+    "redTest": "tests/format/packed-line-reading.test.ts",
+    "mutant": "readsTheSameOpening (src/line-verdict.ts) returns true for every pair of verdicts, so no first output line is ever refused. Measured: 5 test files and 28 tests red, tests/format/packed-line-reading.test.ts among them.",
+    "direction": "narrower",
+    "hold": "none"
+  }
+]

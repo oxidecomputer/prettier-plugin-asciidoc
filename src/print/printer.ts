@@ -258,8 +258,10 @@ const printer: Printer<AnyNode> = {
             // paragraph's own text ({@link FirstLineStart},
             // src/print/reflow.ts).
             path.getParentNode()?.type === "document"
-              ? "documentBlockStart"
-              : "confinedBlockStart",
+              ? { at: "documentBlockStart" }
+              : { at: "confinedBlockStart" },
+            // The block's first line is the prose it holds.
+            "text",
           ),
         );
       }

@@ -181,23 +181,28 @@ classifying a whole line in the context where it appears.
   before adding a pattern; a row whose probe disagrees with the Ruby says so and
   says which of the two readings it follows.
 - **Reflow safety consumes the same registry, and the packer asks it of whole
-  LINES.** `accepts(line, next, position)` (`src/line-verdict.ts`, a shared
-  module both halves import) is the reader's own verdict on one line at one
-  position in a block, and the packer asks it of every continuation line it
-  composes before it commits the layout. The position carries the block's
-  recorded reading (`BlockReading`, `src/reader-context.ts`) and the line's
-  ordinal, saturated at two, which is what a per-word question could not carry:
-  a word probe unions every context's patterns, cannot see a shape anchored at
-  both ends (a block attribute line needs its `]`), and answers for a line one
-  word longer than the caller would write. Where no line of the layout reads
-  back as the block's own text the block is written back from its own source
-  lines, never retreated to one of the author's breaks. The block's FIRST output
-  line is a different question, asked at a block start: where the packer owns
-  the column (a paragraph at document level) it asks whether that line opens the
-  block the reader recorded, and where a marker, a label or a term line holds
-  the column the older per-word nets answer instead (`isBlockSyntaxAtLineStart`,
-  `src/print/reflow.ts`, over the registry's `startsBlockAtLineStart`,
-  `src/parse/line-shapes.ts`, plus one printer-side exemption for a lone `+`).
+  LINES.** `accepts(line, position)` (`src/line-verdict.ts`, a shared module
+  both halves import) is the reader's own verdict on one line at one position in
+  a block, and the packer asks it of every continuation line it composes before
+  it commits the layout. The position carries the block's recorded reading
+  (`BlockReading`, `src/reader-context.ts`) and the line's ordinal, saturated at
+  two, which is what a per-word question could not carry: a word probe unions
+  every context's patterns, cannot see a shape anchored at both ends (a block
+  attribute line needs its `]`), and answers for a line one word longer than the
+  caller would write. Where no line of the layout reads back as the block's own
+  text the block is written back from its own source lines, never retreated to
+  one of the author's breaks. The block's FIRST output line is a different
+  question, `opensTheSameBlock(line, next, position)`, asked at a block start
+  and asked at every site the packer writes one: the reader is asked what it
+  makes of the line the packer would write, and that answer is held against what
+  the reader RECORDED for the line that stood there - the reading the site
+  writes and, for a marker line, the style of the list the block sits in. No
+  pass re-reads the source's bytes for it. Where the caller writes a prefix in
+  front of that line (a list item's marker, its gap and any checkbox) the prefix
+  is part of the line asked about. The context the question builds is the WIDEST
+  block start, so the accepted set is a subset of the reader's: a paragraph
+  whose first line a substituting directive held off from opening a block comes
+  back as the author's own lines rather than joined.
 
 Lines are rstripped before classification, exactly as Asciidoctor's
 `Helpers.prepare_source_string` does, and the registry's patterns assume that.
@@ -434,8 +439,9 @@ full-width character costs two and a combining mark costs none. Reflow safety
 a word where it would re-parse as block syntax, and the layout it produces is
 then asked, line by line, whether the reader reads it back as the block it came
 from; a layout that fails is dropped for the block's own source lines, which the
-`layout` argument carries. The first line is asked the block-start question and
-only where `opensItsOwnLine` says the packer holds that column. A line the
+`layout` argument carries. The first line is asked the block-start question
+instead, at every site the packer writes one, with the bytes the caller writes
+in front of it (`FirstLineStart`) part of the line asked about. A line the
 packer REPLAYED rather than composed (a comment or a preprocessor directive
 standing inside the block) is not asked, because the reader consumes such a line
 before block structure exists rather than reading it as the block's text.

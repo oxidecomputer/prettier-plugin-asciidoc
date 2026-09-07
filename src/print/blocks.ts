@@ -615,9 +615,11 @@ export function printAdmonition(
           node.position.start.offset,
         ),
         node.reading,
-        // The label holds the column, so what the first line opens is
-        // not the packer's to answer.
-        "prefixed",
+        // The label is an atom of the packed run, so nothing stands
+        // in front of the line the opening question asks about.
+        { at: "behindAPrefix", prefix: "" },
+        // The label line the printer writes.
+        "admonitionLabel",
       ),
     );
   }

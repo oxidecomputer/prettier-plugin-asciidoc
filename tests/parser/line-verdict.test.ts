@@ -29,8 +29,10 @@ import {
   lineVerdict,
   NO_PACKED_TEXT,
   OPENING_LINE,
-  type BlockOpening,
-  type BlockPosition,
+  opensTheSameBlock,
+  type ContinuationPosition,
+  type OpeningPosition,
+  type OpeningReading,
 } from "../../src/line-verdict.js";
 import type { BlockReading } from "../../src/reader-context.js";
 import { parse } from "../../src/parser.js";
@@ -91,7 +93,7 @@ function readingOf(source: string, at = 0): BlockReading {
 function inside(
   context: ParagraphContext,
   ordinal: 1 | 2 = LATER_CONTINUATION,
-): BlockPosition {
+): ContinuationPosition {
   return {
     ordinal,
     reader: { ...BLOCK_START_CONTEXT, openParagraph: context },
@@ -102,20 +104,22 @@ function inside(
  * The block's own opening line, at document level: the reader that
  * read the block was the document's, so a section title there is a
  * heading rather than the paragraph's text.
- * @param opens - what the reader read that line as
+ * @param opens - what the site writes that line as
+ * @param style - the marker style a written marker line must keep
  * @returns the position
  */
-function opening(opens: BlockOpening): BlockPosition {
+function opening(opens: OpeningReading, style?: string): OpeningPosition {
   return {
     ordinal: OPENING_LINE,
     reader: BLOCK_START_CONTEXT,
     confined: false,
     opens,
+    style,
   };
 }
 
-/** What a plain paragraph's first line was read as. */
-const OPENS_AS_TEXT: BlockOpening = { reading: "text" };
+/** What a site that writes a plain paragraph's first line records. */
+const OPENS_AS_TEXT = "text";
 
 /** The three spellings of a thematic break the reader knows. */
 const THEMATIC_BREAKS = ["'''", "---", "- - -"] as const;
@@ -134,7 +138,7 @@ describe("what a plain paragraph's continuation refuses", () => {
   ] as const;
   for (const [what, line] of refused) {
     test(`${what} is not a paragraph's own text`, () => {
-      expect(accepts(line, undefined, inside("paragraph"))).toBe(false);
+      expect(accepts(line, inside("paragraph"))).toBe(false);
     });
   }
   // Kept by the reader (the preprocessor eats them before block
@@ -146,7 +150,7 @@ describe("what a plain paragraph's continuation refuses", () => {
   ] as const;
   for (const [what, line] of raw) {
     test(`${what} is not a line the packer may compose`, () => {
-      expect(accepts(line, undefined, inside("paragraph"))).toBe(false);
+      expect(accepts(line, inside("paragraph"))).toBe(false);
     });
   }
 });
@@ -185,12 +189,12 @@ describe("what a plain paragraph's continuation keeps", () => {
   ] as const;
   for (const [what, line] of kept) {
     test(`${what} is a paragraph's own text`, () => {
-      expect(accepts(line, undefined, inside("paragraph"))).toBe(true);
+      expect(accepts(line, inside("paragraph"))).toBe(true);
     });
   }
   for (const line of THEMATIC_BREAKS) {
     test(`the thematic break ${line} is a paragraph's own text`, () => {
-      expect(accepts(line, undefined, inside("paragraph"))).toBe(true);
+      expect(accepts(line, inside("paragraph"))).toBe(true);
     });
   }
 });
@@ -212,7 +216,7 @@ describe("a list item's text refuses what its own set holds", () => {
   ] as const;
   for (const [what, line] of refused) {
     test(`${what} ends a list item's text`, () => {
-      expect(accepts(line, undefined, inside("listItemText"))).toBe(false);
+      expect(accepts(line, inside("listItemText"))).toBe(false);
     });
   }
 });
@@ -225,12 +229,12 @@ describe("the position inside the block", () => {
   // which `fold_first` merges into the item text, id and all, and it
   // opens a second block below that (parser.rb l.1384).
   test("an anchor under a list item's text is refused at both positions", () => {
-    expect(
-      accepts("[[a]]", undefined, inside("listItemText", FIRST_CONTINUATION)),
-    ).toBe(false);
-    expect(
-      accepts("[[a]]", undefined, inside("listItemText", LATER_CONTINUATION)),
-    ).toBe(false);
+    expect(accepts("[[a]]", inside("listItemText", FIRST_CONTINUATION))).toBe(
+      false,
+    );
+    expect(accepts("[[a]]", inside("listItemText", LATER_CONTINUATION))).toBe(
+      false,
+    );
   });
   // Both refuse, for two different readings, which is why this row
   // reads the VERDICT rather than the predicate: the first position
@@ -260,13 +264,15 @@ describe("the position inside the block", () => {
   test("a block title on a description's first line is kept, not composed", () => {
     const position = inside("dlistItem", FIRST_CONTINUATION);
     expect(keepsTheLine(lineVerdict(".Title", undefined, position))).toBe(true);
-    expect(accepts(".Title", undefined, position)).toBe(false);
+    expect(accepts(".Title", position)).toBe(false);
   });
 });
 
 describe("the opening line is asked against the recorded reading", () => {
   test("a paragraph that still opens as text is accepted", () => {
-    expect(accepts("just words", undefined, opening(OPENS_AS_TEXT))).toBe(true);
+    expect(
+      opensTheSameBlock("just words", undefined, opening(OPENS_AS_TEXT)),
+    ).toBe(true);
   });
   // The whole vocabulary, at the one position where all of it counts:
   // the reader picks the block's context off this line, so every
@@ -293,31 +299,48 @@ describe("the opening line is asked against the recorded reading", () => {
   ] as const;
   for (const [what, line] of refused) {
     test(`${what} is not a paragraph's opening line`, () => {
-      expect(accepts(line, undefined, opening(OPENS_AS_TEXT))).toBe(false);
+      expect(opensTheSameBlock(line, undefined, opening(OPENS_AS_TEXT))).toBe(
+        false,
+      );
     });
   }
   for (const line of THEMATIC_BREAKS) {
     test(`the thematic break ${line} is not a paragraph's opening line`, () => {
-      expect(accepts(line, undefined, opening(OPENS_AS_TEXT))).toBe(false);
+      expect(opensTheSameBlock(line, undefined, opening(OPENS_AS_TEXT))).toBe(
+        false,
+      );
     });
   }
   test("a list item's opening line has to keep its marker style", () => {
-    const item: BlockOpening = { reading: "listMarker", style: "*" };
-    expect(accepts("* the item", undefined, opening(item))).toBe(true);
-    expect(accepts("- the item", undefined, opening(item))).toBe(false);
+    const item = opening("listMarker", "*");
+    expect(opensTheSameBlock("* the item", undefined, item)).toBe(true);
+    expect(opensTheSameBlock("- the item", undefined, item)).toBe(false);
+  });
+
+  // No marker list around a block whose site writes a marker line is
+  // a pair no site builds; the answer where it arrived is the
+  // block's own lines written back.
+  test("a marker line with no recorded style opens nothing", () => {
+    expect(
+      opensTheSameBlock("* the item", undefined, opening("listMarker")),
+    ).toBe(false);
   });
   // The neighbour, and the only construct that reads one: the
   // underlined section title's test is a joint function of both
   // lines' lengths (`setext_section_title?`, parser.rb l.1722-1727).
   // The three rows are the reason `accepts` takes `next` at all.
   test("a neighbour of the right length makes the opening line a title", () => {
-    expect(accepts("Title", "=====", opening(OPENS_AS_TEXT))).toBe(false);
+    expect(opensTheSameBlock("Title", "=====", opening(OPENS_AS_TEXT))).toBe(
+      false,
+    );
   });
   test("and one of the wrong length leaves it text", () => {
-    expect(accepts("Title", "==", opening(OPENS_AS_TEXT))).toBe(true);
+    expect(opensTheSameBlock("Title", "==", opening(OPENS_AS_TEXT))).toBe(true);
   });
   test("no neighbour at all leaves it text", () => {
-    expect(accepts("Title", undefined, opening(OPENS_AS_TEXT))).toBe(true);
+    expect(opensTheSameBlock("Title", undefined, opening(OPENS_AS_TEXT))).toBe(
+      true,
+    );
   });
 });
 
@@ -330,10 +353,10 @@ describe("the two askers part on exactly two readings", () => {
     expect(keepsTheLine(lineVerdict("// note", undefined, position))).toBe(
       true,
     );
-    expect(accepts("// note", undefined, position)).toBe(false);
+    expect(accepts("// note", position)).toBe(false);
   });
   test("a foreign marker line inside a plus-attached paragraph likewise", () => {
-    const position: BlockPosition = {
+    const position: ContinuationPosition = {
       ordinal: LATER_CONTINUATION,
       reader: {
         ...BLOCK_START_CONTEXT,
@@ -344,12 +367,12 @@ describe("the two askers part on exactly two readings", () => {
     expect(keepsTheLine(lineVerdict("- other", undefined, position))).toBe(
       true,
     );
-    expect(accepts("- other", undefined, position)).toBe(false);
+    expect(accepts("- other", position)).toBe(false);
   });
   test("and ordinary text is accepted by both", () => {
     const position = inside("paragraph");
     expect(keepsTheLine(lineVerdict("words", undefined, position))).toBe(true);
-    expect(accepts("words", undefined, position)).toBe(true);
+    expect(accepts("words", position)).toBe(true);
   });
 });
 
@@ -414,8 +437,8 @@ describe("the reading a prose node records", () => {
       readingOf("some words\nmore words\n"),
       LATER_CONTINUATION,
     );
-    expect(accepts("- other", undefined, item)).toBe(false);
-    expect(accepts("- other", undefined, para)).toBe(true);
+    expect(accepts("- other", item)).toBe(false);
+    expect(accepts("- other", para)).toBe(true);
   });
 });
 
@@ -441,14 +464,14 @@ describe("a description item records the reading its OUTPUT has", () => {
         { context: "dlistItemTextOnly", openList },
         FIRST_CONTINUATION,
       );
-      expect(accepts(line, undefined, position)).toBe(true);
+      expect(accepts(line, position)).toBe(true);
     });
     test(`${line} ends the item under the ungated one`, () => {
       const position = continuationPosition(
         { context: "dlistItem", openList },
         FIRST_CONTINUATION,
       );
-      expect(accepts(line, undefined, position)).toBe(false);
+      expect(accepts(line, position)).toBe(false);
     });
   }
 

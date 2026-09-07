@@ -719,8 +719,16 @@ export function printListItem(
         // opens where the text does.
         replayLines(node.text, options.originalText),
         node.reading,
-        // The marker holds the column of the first output line.
-        "prefixed",
+        // The marker, its gap and any checkbox stand in front of the
+        // item's first output line and decide its reading together
+        // with the packed words, so the question is asked of the
+        // whole line.
+        {
+          at: "behindAPrefix",
+          prefix: indentedMarker + node.markerGap + checkboxPrefix,
+        },
+        // The item's own marker line.
+        "listMarker",
       ),
     ),
   ];

@@ -278,9 +278,9 @@ describe("a block with no node to replay", () => {
   test("has no lines, so the packer's own layout stands", () => {
     const empty = replayLines([], "alpha\n");
     expect(empty).toEqual([]);
-    expect(blockLayout(empty, ANY_READING, "documentBlockStart")).toEqual({
-      replay: "none",
-    });
+    expect(
+      blockLayout(empty, ANY_READING, { at: "documentBlockStart" }, "text"),
+    ).toEqual({ replay: "none" });
   });
 });
 

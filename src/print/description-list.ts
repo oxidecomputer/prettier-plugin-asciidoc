@@ -211,8 +211,12 @@ function closingLines(
           // term's gap is EMPTY.
           [entry.term.line, ...node.textLines],
           node.reading,
-          // The term holds the column of the first output line.
-          "prefixed",
+          // The term line is an atom of the packed run, so nothing
+          // stands in front of the line the opening question asks
+          // about.
+          { at: "behindAPrefix", prefix: "" },
+          // The item's own term line.
+          "dlistTerm",
         ),
       );
     }

@@ -82,78 +82,88 @@ export const FIRST_CONTINUATION = 1;
 export const LATER_CONTINUATION = 2;
 
 /**
- * What the block's opening line was read as, in the two parts a
- * re-read can be compared against: the verdict's own discriminant,
- * and - for the one reading with a parameter the printer can change -
- * the marker style `is_sibling_list_item?` compares (parser.rb
- * l.2280-2285).
+ * What a printer site knows its block's opening line is, without
+ * reading a byte of it: the verdict's own discriminant.
  *
- * THE OTHER PARAMETERS OF THE VERDICT NEED NO ENTRY HERE, because the
+ * The printer writes a paragraph's first line as prose, a list item's
+ * as a marker line, an admonition's as a label line and a description
+ * item's as a term line, and that is a fact about the SITE rather
+ * than about the bytes it came from. Holding a re-read line against
+ * it is what says the block still opens what it opened.
+ *
+ * THE OTHER PARAMETERS OF THE VERDICT NEED NO ENTRY, because the
  * printer writes them back verbatim rather than composing them: a
  * description item replays its whole term line
  * (`DescriptionTermNode.line`, src/ast.ts), an admonition its label,
  * an anchor its own bytes. Only the marker is assembled from a
  * recorded style and a recorded gap, so only the marker can come back
- * as a different one.
+ * as a different one, and the style it must keep is on the block's
+ * own reading ({@link BlockReading.openList}).
+ */
+export type OpeningReading = LineKind["kind"];
+
+/**
+ * The block's OPENING line: the ordinal, the block's recorded reader
+ * context, which reader read it, and the two recorded facts a line
+ * written there is held against.
  *
  * Named by {@link openingPosition}'s signature, which is how src
  * builds one; imported by name only from the verdict's unit rows
  * (tests/parser/line-verdict.test.ts).
  * @internal
  */
-export type BlockOpening =
-  | {
-      /** The verdict's discriminant, for every reading but a marker. */
-      readonly reading: Exclude<LineKind["kind"], "listMarker">;
-    }
-  | {
-      /** A list item's marker line. */
-      readonly reading: "listMarker";
-      /** The style its marker resolves to. */
-      readonly style: string;
-    };
+export interface OpeningPosition {
+  /** The block's opening line. */
+  readonly ordinal: 0;
+  /** The context the reader classified that line in. */
+  readonly reader: ReaderContext;
+  /**
+   * Whether the reader that read this block was CONFINED - a
+   * compound block's interior or a list item's buffer. A section
+   * title cannot open there: the reader sends every title inside one
+   * to its paragraph arm (`sectionTitle`, src/parse/lines/reader.ts),
+   * so a line the classifier reads as a title is that paragraph's own
+   * text, and a packer asking about a line it would write has to
+   * answer the same way.
+   */
+  readonly confined: boolean;
+  /** What the site writes this line as ({@link OpeningReading}). */
+  readonly opens: OpeningReading;
+  /**
+   * The marker style a written marker line has to keep, taken from
+   * the list the reader recorded around the block. `undefined`
+   * wherever the site writes no marker line, and wherever no marker
+   * list was recorded around one - it equals no verdict's style
+   * there, so the layout is refused and the block's own lines go
+   * back, which is the safe half rather than a silently wrong marker.
+   */
+  readonly style: string | undefined;
+}
 
 /**
- * Where a line stands: the ordinal, the block's recorded reader
- * context, and - at the opening line alone - what that line was read
- * as when the reader read it.
+ * A line below the block's first.
  *
- * TWO ARMS rather than one shape with an optional reading, because
- * the reading is meaningless at a continuation position: there the
- * question is whether the line is the block's own text, and no
- * recorded verdict enters it.
- *
- * Named by {@link continuationPosition}'s and
- * {@link openingPosition}'s signatures, which is how src builds one;
- * imported by name only from the verdict's unit rows
+ * Named by {@link continuationPosition}'s signature; imported by name
+ * only from the verdict's unit rows
  * (tests/parser/line-verdict.test.ts).
  * @internal
  */
-export type BlockPosition =
-  | {
-      /** The block's opening line. */
-      readonly ordinal: 0;
-      /** The context the reader classified that line in. */
-      readonly reader: ReaderContext;
-      /**
-       * Whether the reader that read this block was CONFINED - a
-       * compound block's interior or a list item's buffer. A section
-       * title cannot open there: the reader sends every title inside
-       * one to its paragraph arm (`sectionTitle`,
-       * src/parse/lines/reader.ts), so a line the classifier reads as
-       * a title is that paragraph's own text, and a packer asking
-       * about a line it would write has to answer the same way.
-       */
-      readonly confined: boolean;
-      /** What it made of it. */
-      readonly opens: BlockOpening;
-    }
-  | {
-      /** A continuation line. */
-      readonly ordinal: 1 | 2;
-      /** The context the reader classifies the block's later lines in. */
-      readonly reader: ReaderContext;
-    };
+export interface ContinuationPosition {
+  /** Which continuation line: the first one, or a later one. */
+  readonly ordinal: 1 | 2;
+  /** The context the reader classifies the block's later lines in. */
+  readonly reader: ReaderContext;
+}
+
+/**
+ * Where a line stands inside a block the reader read.
+ *
+ * Named by {@link lineVerdict}'s signature, which is the one function
+ * both positions reach; imported by name only from the verdict's unit
+ * rows (tests/parser/line-verdict.test.ts).
+ * @internal
+ */
+export type BlockPosition = OpeningPosition | ContinuationPosition;
 
 /**
  * THE ONE PRODUCER of the context a block's continuation lines are
@@ -221,16 +231,16 @@ function continuationContext(reading: BlockReading): ReaderContext {
  *   decides between two block-start readings of a marker line, and
  *   the wider reading refuses more.
  * @param reading - what the reader recorded about the block
- * @param opens - what its opening line was read as
+ * @param opens - what the site writes its opening line as
  * @param confined - whether the reader that read it was confined; see
- *   {@link BlockPosition}
- * @returns the position {@link accepts} takes
+ *   {@link OpeningPosition}
+ * @returns the position {@link opensTheSameBlock} takes
  */
 export function openingPosition(
   reading: BlockReading,
-  opens: BlockOpening,
+  opens: OpeningReading,
   confined: boolean,
-): BlockPosition {
+): OpeningPosition {
   return {
     ordinal: OPENING_LINE,
     confined,
@@ -244,6 +254,8 @@ export function openingPosition(
       attributeRun: "runIsInTheItem",
     },
     opens,
+    style:
+      reading.openList?.kind === "marker" ? reading.openList.style : undefined,
   };
 }
 
@@ -257,7 +269,7 @@ export function openingPosition(
 export function continuationPosition(
   reading: BlockReading,
   ordinal: 1 | 2,
-): BlockPosition {
+): ContinuationPosition {
   return { ordinal, reader: continuationContext(reading) };
 }
 
@@ -379,46 +391,67 @@ function insideAConfinedReader(verdict: LineKind): LineKind {
 }
 
 /**
- * Whether a re-read verdict opens the SAME block the reader opened.
- * @param verdict - what the candidate opening line was read as
- * @param opening - what the reader read the block's opening line as
- * @returns true when the two are the same reading
+ * WOULD OUR READER READ `line`, with `next` below it, as the block
+ * this site OPENS - the printer's question about a block's first
+ * output line.
+ *
+ * ASKED OF RECORDED FACTS AND ONE VERDICT. The reader's own answer is
+ * not re-derived from the source's bytes: what it said is already on
+ * the position, as the reading the SITE writes and, for the one
+ * reading with a parameter the printer could change, as the style of
+ * the list the block sits in ({@link OpeningPosition}). Classifying
+ * the source line again at print time would be a second reading of
+ * bytes the reader already read, and its answers would not be the
+ * reader's - the context a printer can build at a block start is the
+ * widest one, so a line read under a substituting directive comes
+ * back differently.
+ *
+ * THAT WIDTH IS WHY THE ACCEPTED SET IS A SUBSET of the reader's,
+ * never a superset: `substitutedContentAbove` and `markerLineWins`
+ * are false here, which lets every rule they hold off fire, so a
+ * paragraph whose first line a directive kept from opening a block is
+ * replayed rather than joined.
+ * @param line - the candidate first output line, the caller's prefix
+ *   included and without its newline
+ * @param next - the line the printer will write directly below it
+ * @param position - where the line stands; see
+ *   {@link OpeningPosition}
+ * @returns true when the line opens the block the reader opened
  */
-function opensTheSameBlock(verdict: LineKind, opening: BlockOpening): boolean {
-  if (opening.reading === "listMarker") {
-    return verdict.kind === "listMarker" && verdict.style === opening.style;
+export function opensTheSameBlock(
+  line: string,
+  next: string | undefined,
+  position: OpeningPosition,
+): boolean {
+  const read = lineVerdict(line, next, position);
+  const verdict = position.confined ? insideAConfinedReader(read) : read;
+  if (verdict.kind !== position.opens) {
+    return false;
   }
-  return verdict.kind === opening.reading;
+  return verdict.kind !== "listMarker" || verdict.style === position.style;
 }
 
 /**
- * WOULD OUR READER READ `line`, with `next` below it, as the block at
- * `position` - opening it with the recorded reading at ordinal 0, or
- * continuing it as its own text below that.
+ * WOULD OUR READER READ `line` as a CONTINUATION of the block at
+ * `position` - its own reflowable text, rather than something that
+ * ends it.
  *
- * The printer's question, and the whole of what a packer has to ask
- * before it commits an output line: every shape that would make the
- * line something else is one of the reader's own table entries, so
- * there is nothing left for a print-side predicate to know.
+ * The printer's question about every output line below a block's
+ * first, and the whole of what a packer has to ask before it commits
+ * one: every shape that would make the line something else is one of
+ * the reader's own table entries, so there is nothing left for a
+ * print-side predicate to know. The block's FIRST output line is the
+ * other question ({@link opensTheSameBlock}).
+ *
+ * NO NEIGHBOUR, because a continuation position reads none: the one
+ * two-line construct is the underlined section title and it is asked
+ * at a block start alone (see {@link lineVerdict}).
  * @param line - the candidate output line, indentation included and
  *   without its newline
- * @param next - the line the printer will write directly below it
- *   (the block's next output line, the blank or delimiter that closes
- *   the block, or undefined at the end of the document)
- * @param position - where the line stands; see {@link BlockPosition}
- * @returns true when the reader reads the line as this block
+ * @param position - where the line stands; see
+ *   {@link ContinuationPosition}
+ * @returns true when the reader reads the line as this block's text
  */
-export function accepts(
-  line: string,
-  next: string | undefined,
-  position: BlockPosition,
-): boolean {
-  const verdict = lineVerdict(line, next, position);
-  if (position.ordinal !== OPENING_LINE) {
-    return isBlockText(verdict);
-  }
-  return opensTheSameBlock(
-    position.confined ? insideAConfinedReader(verdict) : verdict,
-    position.opens,
-  );
+export function accepts(line: string, position: ContinuationPosition): boolean {
+  return isBlockText(lineVerdict(line, undefined, position));
 }

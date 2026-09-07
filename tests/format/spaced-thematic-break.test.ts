@@ -231,45 +231,26 @@ describe("spaced markdown thematic break formatting", () => {
   // break in front of that word leaves `- - -` alone on the marker
   // line, which both programs read as an `<hr>`.
   //
-  // NOT PROTECTED BY DESIGN. A guard used to keep that first word on
-  // the marker line, over budget, so the item survived. Such an item
-  // has to open with two more copies of its own marker AND run past
-  // the print width before the guard can fire, and no author writes
-  // one: the spaced rule itself is documented (CommonMark spells it),
-  // but a rule with an item's worth of text behind it is a shape
-  // somebody would have to build on purpose. These rows record what
-  // the tree prints instead, and it is not a small loss: the item is
-  // destroyed, the render moves, and the FIRST output is not a fixed
-  // point. `- - - alpha` at width 10 prints `- - -` over an indented
-  // `alpha`, which both programs read as an `<hr>` and a literal
-  // block where the input was one list item.
-  //
-  // No generated population reaches the shape, so there is no
-  // allowlist row to carry it: neither sweep alphabet spells `- - -`
-  // and both sweep at the default width, where the guard could not
-  // fire anyway. These rows and the convergence row under them are
-  // the whole record.
+  // THE ITEM SURVIVES, and no guard over the marker line says so. The
+  // reader is asked what the block's first output line opens: `- - -`
+  // is a thematic break where the item's own first line was a marker
+  // line, so the layout is refused and the item goes back as the one
+  // line the author wrote, over budget the way any unbreakable run
+  // is. A guard that kept the first word on the marker line used to
+  // buy the same result by naming the shape; the reading buys it
+  // without one.
   test.each([
-    ["a dash rule and a short word", "- - - alpha\n", 10, "- - -\n  alpha\n"],
-    ["a star rule and a short word", "* * * alpha\n", 10, "* * *\n  alpha\n"],
-    [
-      "more words behind it",
-      "- - - alpha beta gamma\n",
-      10,
-      "- - -\n  alpha\n  beta\n  gamma\n",
-    ],
+    ["a dash rule and a short word", "- - - alpha\n", 10],
+    ["a star rule and a short word", "* * * alpha\n", 10],
+    ["more words behind it", "- - - alpha beta gamma\n", 10],
     [
       "a long word at the ordinary width",
       `- - - https://example.com/${"a".repeat(80)}\n`,
       80,
-      `- - -\n  https://example.com/${"a".repeat(80)}\n`,
     ],
-  ])(
-    "%s loses the item to the rule",
-    async (_name, input, printWidth, expected) => {
-      expect(await formatAdoc(input, { printWidth })).toBe(expected);
-    },
-  );
+  ])("%s keeps the item's own line", async (_name, input, printWidth) => {
+    await expectFormatted(input, input, { printWidth });
+  });
 
   // WHERE IT SETTLES, pinned with the exact intermediate rather than
   // described. Formatting the output above again respells the rule
