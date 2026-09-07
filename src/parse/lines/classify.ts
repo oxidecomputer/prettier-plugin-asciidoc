@@ -778,10 +778,16 @@ export const metadataLineKind: (
  * The arms that stay are the ones that would stand at a boundary
  * anyway: an anchor and an attribute list END the oracle's paragraph
  * (`StartOfBlockProc`), and so do a delimiter and a `+`.
+ *
+ * The LAYOUT BREAK has a second reason to be held off, which none of
+ * the arms above share because no `=====` run and no `[` line is also
+ * a list-marker line: inside an open list a spaced `- - -` is an item
+ * line, not a break ({@link reachesLayoutBreak}, #182).
  * @param line - one rstripped source line
  * @param reader - the reader's context view; the line below it (where
- *   a two-line construct may be read at all) and whether substituted
- *   content stands directly above are both read off it
+ *   a two-line construct may be read at all), whether substituted
+ *   content stands directly above, and whether a marker line outranks
+ *   the break rows are all read off it
  * @returns the line's kind; `text` when nothing else claims it
  */
 function classifyBlockStart(line: string, reader: ReaderContext): LineKind {
@@ -812,7 +818,54 @@ function classifyBlockStart(line: string, reader: ReaderContext): LineKind {
   if (isContinuationLine(line)) {
     return { kind: "continuation" };
   }
-  return classifyBlockBody(line, substitutedContentAbove);
+  return classifyBlockBody(
+    line,
+    reachesLayoutBreak(line, substitutedContentAbove, reader),
+  );
+}
+
+/**
+ * Whether `next_block` reaches its layout-break arm at this line -
+ * the two rows' whole precondition, asked at the one site that has
+ * both of its reasons.
+ *
+ * CONTENT THE PREPROCESSOR SUBSTITUTED directly above makes a block
+ * start here not one to Asciidoctor at all, so a rule that destroys
+ * the line's spelling may not fire
+ * ({@link ReaderContext.substitutedContentAbove}, issues #210 and
+ * #213). A MARKER LINE inside a list item keeps the reading the
+ * item's own scan gave it, which is the reading Asciidoctor gives it
+ * too at the position `text_only` covers and this reader's knowing
+ * divergence at the others ({@link ReaderContext.markerLineWins},
+ * #182 and #242). The second reason is the only one that reads the
+ * line, because it is the only one about a collision between two
+ * rows.
+ *
+ * ORDER IS COST. `substitutedContentAbove` is PASSED rather than read
+ * off the context because it is a getter over a backwards walk and
+ * the caller has already bound it once for the arms above.
+ * `markerLineWins` is read off the context and read LAST, because its
+ * answer only ever matters for a line that is a marker line - which
+ * the middle test settles for every other line in the document
+ * without asking.
+ * @param line - one rstripped source line
+ * @param substitutedContentAbove - see
+ *   {@link ReaderContext.substitutedContentAbove}
+ * @param reader - the reader's context view, for `markerLineWins`
+ * @returns true when the two break rows may claim the line
+ */
+function reachesLayoutBreak(
+  line: string,
+  substitutedContentAbove: boolean,
+  reader: ReaderContext,
+): boolean {
+  if (substitutedContentAbove) {
+    return false;
+  }
+  if (parseListMarker(line) === undefined) {
+    return true;
+  }
+  return !reader.markerLineWins;
 }
 
 /**
@@ -874,25 +927,24 @@ function blockMetadataOrTitleKind(
  * through to the literal paragraph instead.
  *
  * The two LAYOUT BREAK arms - the two alternatives of one Ruby rule,
- * `ExtLayoutBreakRx` - are the ones {@link classifyBlockStart}'s
- * precondition holds off: both are read at a block boundary alone, and
- * both print back a canonical spelling (`'''`, `<<<`) that is not the
- * one they read.
+ * `ExtLayoutBreakRx` - are the ones the caller can hold off: both are
+ * read at a block boundary alone, and both print back a canonical
+ * spelling (`'''`, `<<<`) that is not the one they read. Ruby skips
+ * the pair together (one `layout_break_chars.key? ch0` test decides
+ * both, parser.rb l.585-590), so they take ONE flag here
+ * ({@link reachesLayoutBreak}) rather than two tests of the caller's
+ * two reasons.
  * @param line - one rstripped source line
- * @param substitutedContentAbove - whether content the preprocessor
- *   substituted stands directly above the line, which is where a
- *   block start may not be one (see
- *   {@link ReaderContext.substitutedContentAbove})
+ * @param layoutBreak - whether `next_block` reaches its layout-break
+ *   arm at this line ({@link classifyBlockStart} states the two
+ *   reasons it may not)
  * @returns the line's kind; `text` when nothing claims it
  */
-function classifyBlockBody(
-  line: string,
-  substitutedContentAbove: boolean,
-): LineKind {
-  if (!substitutedContentAbove && THEMATIC_BREAK.test(line)) {
+function classifyBlockBody(line: string, layoutBreak: boolean): LineKind {
+  if (layoutBreak && THEMATIC_BREAK.test(line)) {
     return { kind: "thematicBreak" };
   }
-  if (!substitutedContentAbove && PAGE_BREAK.test(line)) {
+  if (layoutBreak && PAGE_BREAK.test(line)) {
     return { kind: "pageBreak" };
   }
   const macro = parseBlockMacro(line);

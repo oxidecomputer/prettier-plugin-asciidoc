@@ -277,6 +277,92 @@ export interface ReaderContext {
    * (issue #232).
    */
   readonly substitutedContentAbove: boolean;
+  /**
+   * Whether a line that is ALSO a list-marker line keeps that reading
+   * here rather than being read as a layout break - the ONE thing
+   * `THEMATIC_BREAK` and `PAGE_BREAK` are held off by besides
+   * {@link ReaderContext.substitutedContentAbove}, and the only rows that read
+   * it.
+   *
+   * The collision is `- - -` and `* * *`: each is a thematic break to
+   * `ExtLayoutBreakRx` and an item line to `UnorderedListRx`, and
+   * which reading a position gives it is not the line's to say.
+   * `'''` and `<<<` match no marker pattern, so this field never
+   * touches them.
+   *
+   * TRUE AT EVERY BLOCK START INSIDE A LIST ITEM'S CONFINED READ, and
+   * false everywhere else, which is what `markerLineWinsAt`
+   * (lines/scope.ts) says in one test.
+   *
+   * ASCIIDOCTOR AGREES OVER THE ITEM'S FIRST `next_block` CALL, which
+   * it makes with `text_only` set (`parse_list_item`, parser.rb
+   * l.1367-74; the option skips the whole layout-break arm at l.591).
+   * That is why the oracle gives `* a` / `- - -` / `* b` a NESTED `ul`
+   * holding the item `- -` and `* a` / `* * *` / `* b` three sibling
+   * items.
+   *
+   * PAST THAT CALL THE READING IS A KNOWING DIVERGENCE. Asciidoctor
+   * reads a break at every other in-item position - across a blank
+   * run (its item scan buffers the line on `AnyListRx`, parser.rb
+   * l.1530, and `next_block` then nulls `text_only` on the skipped
+   * blank, l.511), under a multi-line item text, and past the item's
+   * first block. This reader keeps the marker reading at all of them,
+   * because the break it would have to PRINT does not read back as
+   * one: the printer spells every break `'''`, and `'''` is absorbed
+   * by any text standing above it inside an item
+   * (`StartOfBlockOrListProc`, parser.rb l.40, matches no break).
+   *
+   * AND WHICH TEXT STANDS ABOVE IT IS NOT A FACT THE READER HAS. The
+   * printer JOINS a description onto its term line and then WRAPS the
+   * result at a print width that is the printer's option, so a line
+   * the source put above the break may not be there in the output and
+   * lines the source never wrote may be. That is why this field is
+   * one test on the confinement and not a predicate over the lines: a
+   * predicate would be reading bytes that do not survive printing.
+   *
+   * THE CONSTRAINT ANY WIDENING MUST MEET, for #242 and #195: a break
+   * may be read inside an item only where the line the printer writes
+   * DIRECTLY ABOVE it is one the printer replays byte for byte and
+   * after which Ruby's `text_only` is dead - a `+` the reader read as
+   * the item's continuation, or a delimited-block terminator - never
+   * where that line is item text. Both of those positions are real
+   * (`* a` / `+` / `'''` and `* a` / `+` / `----` / `x` / `----` /
+   * `'''` re-read as the break in both programs), and taking them is
+   * a printer change, so #242 owns them.
+   *
+   * WHAT THE DIVERGENCE COSTS, stated without softening it: at a
+   * position where nothing follows the rule the author's bytes come
+   * back and only the node kind is lost, but where a TEXT LINE
+   * follows, the marker reading takes that line as its item text and
+   * the reflow joins the two. Both programs render `* a` / blank /
+   * `- - -` / `last` as an `<hr>` and a paragraph inside the item;
+   * this formatter writes `* a` / blank / `- - - last`, which renders
+   * a fabricated nested item and loses both. The same holds after a
+   * `+`, after a `+`-attached delimited block, under `t:: d` and
+   * under `. a`. Pinned in tests/format/spaced-thematic-break.test.ts.
+   *
+   * REUSE (#195): this is NOT Ruby's `text_only`, and a second
+   * consumer must not read it as one. `text_only` switches off a
+   * whole set of `next_block` arms - the layout break at l.591, the
+   * block macro and `toc` arms, the admonition arm, and the `.title`
+   * and `:attr:` metadata lines at l.2045 - and a row that reused
+   * this field for any of those would skip them at positions Ruby
+   * does not, because this field is TRUE across the whole item where
+   * `text_only` is live for one call. The Ruby fact is narrower and
+   * is a POSITION fact: the item's FIRST `next_block`, with no blank
+   * skipped (l.510-512), and with `has_text` clear - which for a
+   * MARKER item means its content is adjacent (`has_text = nil unless
+   * dlist`, l.1369) and for a DESCRIPTION item means the term line
+   * carries no description of its own (l.1304), with no adjacency
+   * clause at all, so `t:: d` / `x` runs its first call without
+   * `text_only` though `x` is adjacent. Recording it needs the
+   * reader's own block count and blank run, so it is not derivable
+   * from the lines alone; that is what #195 needs, and splitting it
+   * out of this field is safe only once the printer can spell a break
+   * at the positions the divergence above covers, so #242 comes
+   * first.
+   */
+  readonly markerLineWins: boolean;
 }
 
 /**
@@ -291,6 +377,7 @@ export const BLOCK_START_CONTEXT: ReaderContext = {
   firstLineAfterStart: false,
   nextLine: undefined,
   substitutedContentAbove: false,
+  markerLineWins: false,
 };
 
 // The oracle's strip set, spelled out rather than as `\s`:
@@ -1043,8 +1130,8 @@ export const BLOCK_MACRO =
 
 /**
  * A thematic break, in both spellings `next_block` reads: the
- * AsciiDoc `'''` and the Markdown rules `---`, `***`, `___` and
- * `_ _ _`.
+ * AsciiDoc `'''` and the Markdown rules `---`, `***`, `___` and their
+ * spaced forms `- - -`, `* * *`, `_ _ _`.
  *
  * The AsciiDoc arm mirrors `next_block`'s `LAYOUT_BREAK_CHARS` lookup
  * (asciidoctor.rb l.300-303) guarded by `uniform?` and a length
@@ -1055,6 +1142,9 @@ export const BLOCK_MACRO =
  * `MarkdownThematicBreakRx` (rx.rb l.638, `/^ {0,3}([-*_])( *)\1\2\1$/`)
  * from its `this_line.start_with? ' '` arm (parser.rb l.575-585). The
  * page-break alternative of `ExtLayoutBreakRx` is {@link PAGE_BREAK}.
+ * `\k<mark>\k<gap>\k<mark>` is those two `\1\2\1` tails spelled once:
+ * the gap group is `( *)` in both, so a tab between the marks is no
+ * rule and neither is a line whose two gaps differ.
  *
  * THREE MARKS EXACTLY, where the AsciiDoc arm takes a run: a fourth
  * `-`, `*` or `_` makes a `DELIMITED_BLOCKS` key (`----`, `****`,
@@ -1067,40 +1157,32 @@ export const BLOCK_MACRO =
  * question; the AsciiDoc arm takes no indent at all, because the
  * indented arm only looks up `MARKDOWN_THEMATIC_BREAK_CHARS`.
  *
- * SPACED MARKS, which the two rx above also read (`- - -`,
- * `_  _  _`), are read HERE FOR `_` AND NOT FOR `-` OR `*`. The line
- * is not what separates them; the open list is. A spaced `-` or `*`
- * form is simultaneously an `UnorderedListRx` marker line, and
- * `parse_list`'s own loop (parser.rb l.1119) never reaches
- * `next_block`: it keeps the line inside the list, where the ORACLE
- * gives `* a` / `- - -` / `* b` a NESTED `ul` holding the item `- -`
- * and `* a` / `* * *` / `* b` three sibling items. Reading either as
- * a break would split the list with a rule instead. `_` is no
- * unordered marker, so no list can claim it: the oracle renders
- * `* a` / `_ _ _` / `* b` as one item whose text is `a _ _ _`, which
- * is what this parser already does with it, and at a block start it
- * renders the `<hr>` this pattern now reads.
+ * A SPACED `-` OR `*` LINE IS SIMULTANEOUSLY AN `UnorderedListRx`
+ * MARKER LINE, and which reading it gets is not the line's to decide.
+ * At a block start the layout-break arm runs first, so the oracle
+ * renders `- - -` and `* * *` as `<hr>` and this row reads them.
+ * Inside an open list neither arm is reached: `parse_list`'s own loop
+ * (parser.rb l.1119) never calls `next_block`, and an item's blocks
+ * are read with `text_only` set (`parse_list_item`, parser.rb
+ * l.1367-74), which is the option `next_block` skips the whole
+ * layout-break arm for. There the oracle gives `* a` / `- - -` / `* b`
+ * a NESTED `ul` holding the item `- -` and `* a` / `* * *` / `* b`
+ * three sibling items. The classifier holds this row off at those
+ * positions and says exactly which
+ * ({@link ReaderContext.markerLineWins}); nothing about the line
+ * itself distinguishes them.
  *
- * WHAT THE TWO EXCLUDED SPELLINGS STILL COST is a live render loss,
- * not a tidy gap: `- - -` or `* * *` above prose is reflow-joined
- * into it and the `<hr>` leaves the render, exactly as `---` did.
- * Closing it needs `parse_list`'s marker rule rather than this
- * pattern, which is issue #182; the `gap:md-thematic-break` ledger
- * family stands for it (scripts/block-structure-ledger.ts).
- *
- * THE `_` ARM IS THE FIRST ROW IN THIS REGISTRY WHOSE MATCH DEPENDS
- * ON INTERIOR SPACING, and the printer's whitespace fold normalizes
- * interior spacing. A line the oracle reads as TEXT (`_ _  _`, an
- * unequal gap) would fold to one this arm reads as a break, moving
- * the render on the first pass and then normalizing to `'''` on the
- * second. The refusal that stops it is the fold's, not this
- * registry's: `fuseRunsSpellingABreak` (src/print/whitespace-fold.ts)
- * keeps such a run's bytes, and asks the ORACLE's question - all
- * three marks - rather than this pattern's, so it covers the `-` and
- * `*` spellings this arm excludes as well.
+ * THIS ROW'S MATCH DEPENDS ON INTERIOR SPACING, and the printer's
+ * whitespace fold normalizes interior spacing. A line the oracle
+ * reads as TEXT (`_ _  _`, an unequal gap) would fold to one this row
+ * reads as a break, moving the render on the first pass and then
+ * normalizing to `'''` on the second. The refusal that stops it is
+ * the fold's, not this registry's: `fuseRunsSpellingABreak`
+ * (src/print/whitespace-fold.ts) keeps such a run's bytes, and asks
+ * the same question over the same three marks.
  */
 export const THEMATIC_BREAK =
-  /^(?:'{3,}| {0,3}(?:(?<mark>[\-*])\k<mark>\k<mark>|_(?<gap> *)_\k<gap>_))$/v;
+  /^(?:'{3,}| {0,3}(?<mark>[\-*_])(?<gap> *)\k<mark>\k<gap>\k<mark>)$/v;
 
 /** A page break (`<<<`). Same `LAYOUT_BREAK_CHARS` rule. */
 export const PAGE_BREAK = /^<{3,}$/v;

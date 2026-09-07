@@ -741,13 +741,15 @@ describe("the boundaries of the reflow verdict", () => {
   // classifier reads as text, so no composition of the interrupting
   // sets can refuse them. Red before the registry carried the shape
   // rule: `t:: def` / `- - -` joins and the `<hr>` goes with it
-  // (issue #182, spaced markdown thematic break); `t:: def` /
-  // `> quote` joins and the blockquote goes with it (issue #22). The
-  // first is also the row the whole-LINE test answers for alone,
-  // since its hazard spans words. The four-tilde rows that used to
-  // stand here moved to the pair below: `openBlockTilde`
-  // (line-shapes.ts) closed that gap (issue #64), so the shape is
-  // READ now and a join test no longer answers for it.
+  // (issue #182, spaced markdown thematic break, whose LINE the
+  // registry reads now but which inside a list item is an
+  // `UnorderedListRx` item line and replays); `t:: def` / `> quote`
+  // joins and the blockquote goes with it (issue #22). The first is
+  // also the row the whole-LINE test answers for alone, since its
+  // hazard spans words. The four-tilde rows that used to stand here
+  // moved to the pair below: `openBlockTilde` (line-shapes.ts) closed
+  // that gap (issue #64), so the shape is READ now and a join test no
+  // longer answers for it.
   test.each([
     ["a spaced markdown rule", "t:: def\n- - -\n"],
     ["a markdown blockquote", "t:: def\n> quote\n"],
@@ -776,10 +778,14 @@ describe("the boundaries of the reflow verdict", () => {
     });
   });
 
-  // The two rules the classifier now READS (issue #23): the same join
-  // is refused, and because the line is a break rather than an
+  // The rules the classifier READS (issue #23): the same join is
+  // refused, and because the line is a break rather than an
   // unmodelled head it comes back in the canonical `'''` spelling
-  // instead of its own bytes.
+  // instead of its own bytes. The two SPACED marker spellings are NOT
+  // here: they are `UnorderedListRx` marker lines as well, and inside
+  // a list item that is the reading (#182), so they replay with the
+  // row above (tests/format/spaced-thematic-break.test.ts states
+  // why).
   test.each([
     ["a bare markdown rule", "t:: def\n---\n"],
     ["the underscore rule", "t:: def\n___\n"],

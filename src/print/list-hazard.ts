@@ -108,6 +108,7 @@ import {
 import {
   DLIST_SEPARATOR_WORD,
   LINE_COMMENT_HEAD,
+  THEMATIC_BREAK,
 } from "../parse/line-shapes.js";
 import { hardBreakOwnsItsLine } from "./inline.js";
 import { type Atom, type BreakBefore, isFused } from "./reflow.js";
@@ -361,10 +362,24 @@ type MarkerLineGuard =
        * must be spelled the way the re-read writes that prefix back.
        */
       readonly kind: "canonicalHead";
+    }
+  | {
+      /**
+       * Hold the atom at `at` ON the marker line: a break in front of
+       * it would leave a line that spells a thematic break.
+       */
+      readonly kind: "keepOnMarkerLine";
+      /** The atom that may not open a line. */
+      readonly at: number;
     };
 
 /** The one answer with no payload, built once. */
 const AS_PACKED: MarkerLineGuard = { kind: "asPacked" };
+
+// The atom a spaced rule's marker line must keep: the two marks the
+// item's text opens with are atoms 0 and 1, so the first word that is
+// not a mark is atom 2.
+const MARKER_LINE_RULE_WORD = 2;
 
 /**
  * Whether a break demanded in front of the atom at `index` would land
@@ -401,6 +416,61 @@ const AS_PACKED: MarkerLineGuard = { kind: "asPacked" };
  */
 function refusesTheBreak(atoms: readonly Atom[], index: number): boolean {
   return isFused(atoms, index) || DLIST_SEPARATOR_WORD.test(atoms[index].text);
+}
+
+/**
+ * Where the item's first NON-MARK word must stay on the marker line,
+ * because the line the packer would otherwise write spells a thematic
+ * break.
+ *
+ * `- - - word` is an unordered item whose text opens with two more
+ * copies of its own marker, and every one of those three marks is a
+ * character `ExtLayoutBreakRx` reads (rx.rb l.650). While the word
+ * shares their line the line is an item line; break in front of it and
+ * the marker line left behind is `- - -`, which the oracle reads as an
+ * `<hr>` and the next format writes back as `'''`. The author's item
+ * is gone and the bytes keep moving.
+ *
+ * The question is put to the registry over the LINE the printer would
+ * write - the item's own indent, marker and gap, then the two mark
+ * words with the single space the packer joins them by - so this and
+ * the reader cannot disagree about what spells a rule
+ * ({@link THEMATIC_BREAK}, src/parse/line-shapes.ts). Three atoms are
+ * needed: with only the two marks the line IS the item's whole text,
+ * the author wrote those bytes, and holding a word that does not exist
+ * is not a move.
+ *
+ * DISJOINT FROM THE CHECKLIST QUESTION below it, by the first word: a
+ * checklist head is `[x]` or a bare `[`, neither of which is a break
+ * mark. A demanded break at either mark says the line already ends
+ * before the rule is spelled, and a demanded break at the word is the
+ * author's own line boundary, which this may not overrule - the loss
+ * there is the base tree's.
+ * @param item - the finished item node, for the bytes the printer
+ *   writes in front of the atoms.
+ * @param atoms - the item's atoms, in the order the packer places them.
+ * @returns the atom that must not open a line, or undefined where the
+ *   marker line spells no rule.
+ */
+function ruleSpelledByTheMarkerLine(
+  item: ListItemNode,
+  atoms: readonly Atom[],
+): number | undefined {
+  if (atoms.length <= MARKER_LINE_RULE_WORD) {
+    return undefined;
+  }
+  const [first, second, third] = atoms;
+  if (
+    first.breakBefore !== "none" ||
+    second.breakBefore !== "none" ||
+    second.glueLeft ||
+    third.glueLeft ||
+    third.breakBefore !== "none"
+  ) {
+    return undefined;
+  }
+  const line = `${item.markerIndent}${item.markerSpelling}${item.markerGap}${first.text} ${second.text}`;
+  return THEMATIC_BREAK.test(line) ? MARKER_LINE_RULE_WORD : undefined;
 }
 
 /**
@@ -456,6 +526,10 @@ export function markerLineGuard(
 ): MarkerLineGuard {
   if (parentList?.variant !== "unordered" || item.checkbox !== undefined) {
     return AS_PACKED;
+  }
+  const ruleWord = ruleSpelledByTheMarkerLine(item, atoms);
+  if (ruleWord !== undefined) {
+    return { kind: "keepOnMarkerLine", at: ruleWord };
   }
   const head = checklistHead(atoms.map((atom) => atom.text));
   if (head === undefined) {

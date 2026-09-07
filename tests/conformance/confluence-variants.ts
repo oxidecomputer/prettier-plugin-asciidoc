@@ -297,9 +297,13 @@ const ATTRIBUTE_VARIANTS: readonly Variant[] = [
  *
  * A blank run between blocks is a separator whatever its length, and
  * the four thematic-break spellings (`'''` and the three Markdown
- * marks) all render one `<hr>`. The spaced Markdown forms (`- - -`)
- * are absent because the registry leaves them as text (THEMATIC_BREAK,
- * src/parse/line-shapes.ts) - a conformance question, not this one.
+ * marks) all render one `<hr>`. The SPACED Markdown forms (`- - -`)
+ * are absent for a different reason since #182: they are read now,
+ * but only where `next_block` reaches its layout-break arm, and
+ * inside a list item they are marker lines instead (THEMATIC_BREAK
+ * and ReaderContext.markerLineWins, src/parse/line-shapes.ts). No
+ * variant of them holds at EVERY block start, which is what these
+ * rows claim.
  */
 const COLLAPSE_VARIANTS: readonly Variant[] = [
   {

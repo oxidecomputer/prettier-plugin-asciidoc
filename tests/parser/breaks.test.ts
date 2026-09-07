@@ -1,6 +1,6 @@
 import { describe, test, expect } from "vitest";
 import { parse } from "../../src/parser.js";
-import { asParagraph } from "../helpers.js";
+import { asParagraph, firstList, narrow } from "../helpers.js";
 
 describe("thematic break parsing", () => {
   // Basic thematic break: exactly three single quotes.
@@ -67,6 +67,15 @@ describe("markdown thematic break parsing", () => {
     ["three leading spaces", "   ***\n"],
     ["spaced underscores", "_ _ _\n"],
     ["widely spaced underscores", "_  _  _\n"],
+    // The spaced `-` and `*` spellings, read at a block start since
+    // #182. The line alone does not settle them - each is also an
+    // `UnorderedListRx` marker line - but at a block start
+    // `next_block` reaches the layout-break arm first.
+    ["spaced hyphens", "- - -\n"],
+    ["spaced asterisks", "* * *\n"],
+    ["widely spaced hyphens", "-  -  -\n"],
+    ["widely spaced asterisks", "*  *  *\n"],
+    ["an indented spaced rule", "   - - -\n"],
   ])("%s is a thematic break", (_name, input) => {
     const { children } = parse(input);
     expect(children).toHaveLength(1);
@@ -91,14 +100,10 @@ describe("markdown thematic break parsing", () => {
       "    ---\n",
       "delimitedBlock",
     ],
-    // The spaced `-` and `*` spellings the registry deliberately
-    // leaves to the list rules: both are `UnorderedListRx` marker
-    // lines, and the open list is what decides them. The spaced `_`
-    // form has no such collision and IS read, so it sits with the
-    // breaks above. See THEMATIC_BREAK's own note in
-    // src/parse/line-shapes.ts.
-    ["spaced hyphens are a list item", "- - -\n", "list"],
-    ["spaced asterisks are a list item", "* * *\n", "list"],
+    // A TAB is no gap either pattern accepts (`( *)` in both), so a
+    // tab-gapped run of marks is a list item, not a rule.
+    ["tab-gapped hyphens are a list item", "-\t-\t-\n", "list"],
+    ["tab-gapped asterisks are a list item", "*\t*\t*\n", "list"],
     // Unequal gaps are no rule in any spelling: `\1\2\1` wants the
     // same run of spaces on both sides of the middle mark.
     ["unevenly spaced underscores are text", "_ _  _\n", "paragraph"],
@@ -107,6 +112,94 @@ describe("markdown thematic break parsing", () => {
   ])("%s", (_name, input, type) => {
     const { children } = parse(input);
     expect(children[0]?.type).toBe(type);
+  });
+});
+
+// Inside an OPEN list the two spaced spellings are marker lines, not
+// breaks: `parse_list`'s own loop (parser.rb l.1119) never reaches
+// `next_block`, and an item's first block is read with `text_only`
+// set (`parse_list_item`, parser.rb l.1367-74), which holds the
+// layout-break arm off. One in-item position reads the break anyway,
+// and it is the one a printed `'''` re-reads at
+// ({@link ReaderContext.markerLineWins}, src/parse/line-shapes.ts).
+// These pin the SHAPE the oracle renders; the bytes are pinned in
+// tests/format/spaced-thematic-break.test.ts.
+describe("a spaced marker line inside an open list", () => {
+  // `* a` / `- - -` / `* b`: the foreign `-` marker opens a NESTED
+  // list holding one item whose text is `- -`, and `* b` is the outer
+  // list's second item.
+  test("a foreign marker opens a nested list", () => {
+    const list = firstList(parse("* a\n- - -\n* b\n").children);
+    expect(list.marker).toBe("*");
+    expect(list.children).toHaveLength(2);
+    const [first] = list.children;
+    expect(first.blocks).toHaveLength(1);
+    const nested = first.blocks[0].block;
+    narrow(nested, "list");
+    expect(nested.marker).toBe("-");
+    expect(nested.children).toHaveLength(1);
+    expect(nested.children[0].text[0]).toMatchObject({ value: "- -" });
+  });
+
+  // `* a` / `* * *` / `* b`: the same style, so the middle line is a
+  // SIBLING item whose text is `* *` - three items, no nesting.
+  test("a sibling marker is an item of the open list", () => {
+    const list = firstList(parse("* a\n* * *\n* b\n").children);
+    expect(list.children).toHaveLength(3);
+    expect(list.children[1].text[0]).toMatchObject({ value: "* *" });
+    expect(list.children[1].blocks).toHaveLength(0);
+  });
+
+  // A blank line above it puts `next_block`'s `skipped` above zero,
+  // which nulls `text_only` - and Asciidoctor reads the line as an
+  // `<hr>` inside the item there. This reader keeps the marker
+  // reading instead, the knowing divergence
+  // ({@link ReaderContext.markerLineWins}, src/parse/line-shapes.ts):
+  // no break it could print reads back at that position.
+  test("a blank line above it keeps the marker reading", () => {
+    const list = firstList(parse("* a\n\n- - -\n").children);
+    expect(list.children).toHaveLength(1);
+    const [only] = list.children;
+    expect(only.blocks).toHaveLength(1);
+    const nested = only.blocks[0].block;
+    narrow(nested, "list");
+    expect(nested.children[0].text[0]).toMatchObject({ value: "- -" });
+  });
+
+  // A `'''` in the same position is no marker line, so nothing
+  // collides and the break is read.
+  test("a break that is no marker line is read after a blank", () => {
+    const list = firstList(parse("* a\n+\n'''\n").children);
+    const [only] = list.children;
+    expect(only.blocks[0].block.type).toBe("thematicBreak");
+  });
+
+  // A DESCRIPTION item is no different: `text_only` is dead there
+  // past the term line (`has_text = true if (item_text = match[3])`,
+  // parser.rb l.1304, and no adjacency clause, l.1369), so
+  // Asciidoctor reads the break, and this reader still keeps the
+  // marker reading. The line the printed `'''` would land under is
+  // not a fact the reader has - the printer joins the description
+  // onto the term line and then wraps it - so the rule holds at every
+  // in-item position and #242 owns the widening.
+  test("a term with its own text keeps the marker reading", () => {
+    const [node] = parse("t:: d\n- - -\n").children;
+    narrow(node, "descriptionList");
+    const nested = node.children[0].blocks[0].block;
+    narrow(nested, "list");
+    expect(nested.children[0].text[0]).toMatchObject({ value: "- -" });
+  });
+
+  // The same where the printer JOINS the description onto the term
+  // line, which is the shape that made a source-side answer unsound:
+  // a reading that turned on the term line carrying text read one way
+  // on the first pass and the other on the second.
+  test("a description the printer joins keeps the marker reading", () => {
+    const [node] = parse("t::\nd\n- - -\n").children;
+    narrow(node, "descriptionList");
+    const nested = node.children[0].blocks[0].block;
+    narrow(nested, "list");
+    expect(nested.children[0].text[0]).toMatchObject({ value: "- -" });
   });
 });
 

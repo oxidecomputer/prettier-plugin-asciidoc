@@ -428,6 +428,12 @@ export function openParagraphProbes(): ContextProbe[] {
             // line that interrupts starts a block on Asciidoctor's
             // reading too (see ReaderContext.substitutedContentAbove).
             substitutedContentAbove: false,
+            // False for the same reason, one field down: the ladder
+            // is not reached from an open paragraph at all, so the
+            // reader answers this question for itself when it
+            // classifies the interrupting line (see
+            // ReaderContext.markerLineWins).
+            markerLineWins: false,
           },
           prefix,
         });
@@ -464,6 +470,9 @@ export function blockStartContexts(): ReaderContext[] {
     // the include rows in tests/format/include.test.ts: the style
     // equivalence class is what these states are about.
     substitutedContentAbove: false,
+    // Fixed false for the same reason again, and pinned in its own
+    // right by the in-list rows in tests/format/breaks.test.ts.
+    markerLineWins: false,
   }));
 }
 

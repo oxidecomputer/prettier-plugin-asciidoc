@@ -182,17 +182,33 @@ function gapBetween(
 /**
  * The line the item's FIRST block opens on, when the source wrote
  * nothing between that block and the description
- * ({@link DescriptionRun}'s `follower`).
+ * ({@link DescriptionRun}'s `follower`) - and as the PRINTER will
+ * write it, not as the source spelled it.
  *
  * A LOOK-UP, not a re-read: the block's own start line is on the node
  * the confined reader already built, and the lines it indexes are the
  * ones this sibling was read from. Nothing here classifies anything;
  * the shape question is the predicate's.
+ *
+ * THE RESPELLING is what makes the answer a fact about bytes that
+ * SURVIVE. `descriptionPrinting`'s follower condition asks whether
+ * this line would still end the description's paragraph once the
+ * description has been joined onto the term line, and the line it has
+ * to ask about is the one the OUTPUT will carry. Every other block
+ * kind is replayed from its own source lines, so the two are the same
+ * bytes; a layout break is not, because the printer normalizes every
+ * run to `'''` or `<<<`. Today both spellings answer the condition the
+ * same way - no break shape ends a description's paragraph past its
+ * first line - so this moves no output; it is the fact's provenance
+ * that is wrong without it, and a source spelling that answered
+ * differently would send the whole run through a join the printed
+ * bytes do not support.
  * @param lines - the lines the list is being read from
  * @param blocks - the item's blocks, in source order
  * @param gaps - the gap recorded in front of each of them, parallel
- * @returns the first block's opening line, or undefined where there is
- *   no block or the source wrote a separator in front of it
+ * @returns the first block's opening line as the printer will write
+ *   it, or undefined where there is no block or the source wrote a
+ *   separator in front of it
  */
 function followerLine(
   lines: readonly SourceLine[],
@@ -202,6 +218,18 @@ function followerLine(
   const first = blocks.at(0);
   if (first === undefined || gaps[0].length > 0) {
     return undefined;
+  }
+  // The two LAYOUT BREAK leaves are the whole of what the printer
+  // respells, and it writes them as `'''` and `<<<` whatever run the
+  // source spelled them with (`printer.ts`, the two arms). Spelled
+  // again here rather than imported because src/parse may not reach
+  // into src/print; the pair is pinned by the normalizing rows in
+  // tests/format/breaks.test.ts, which go red if either side moves.
+  if (first.type === "thematicBreak") {
+    return "'''";
+  }
+  if (first.type === "pageBreak") {
+    return "<<<";
   }
   return lines.find((line) => line.line === first.position.start.line)?.text;
 }

@@ -81,6 +81,10 @@ const HEADER_CONTEXT: ReaderContext = {
   // reach the lines this scan walks (see
   // ReaderContext.substitutedContentAbove).
   substitutedContentAbove: false,
+  // A document header stands in no list item at all, so the
+  // layout-break arm is reached here (see
+  // ReaderContext.markerLineWins).
+  markerLineWins: false,
 };
 
 /**

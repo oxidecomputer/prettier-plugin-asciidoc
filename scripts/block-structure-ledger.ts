@@ -126,21 +126,25 @@ export const BLOCK_STRUCTURE_FAMILIES: ReadonlySet<string> = new Set([
   "gap:ordered-marker",
   // `> quoted` blocks (#22).
   "gap:md-quote",
-  // Markdown thematic breaks (#23). The tight spellings `---`, `***`
-  // and `___` are read now, and so is the spaced `_ _ _`; no entry
-  // carries this family. What is left for it is the spaced `-` and
-  // `*` spellings (`- - -`, `* * *`), which are `UnorderedListRx`
-  // marker lines as well and are left to the list rules on purpose
-  // (#182; THEMATIC_BREAK, src/parse/line-shapes.ts). One more thing
-  // this family covers, pre-existing and not a reading the pattern
-  // can fix: an INDENTED rule as a list item's rest line is joined
-  // into the item text where the oracle puts an `<hr>` inside the
-  // item. The fold no longer manufactures a rule out of a spaced
-  // marker run that was text (#179); what survives of that is the
-  // gap a MARKER's own run holds (`-  - -`), which the printer
-  // narrows to one space and no refusal of a fold can widen back,
-  // and which is issue #191 - closing it means replaying the
-  // marker's own gap BYTES rather than normalizing them.
+  // Markdown thematic breaks (#23). Every spelling is read now: the
+  // tight `---`, `***` and `___`, and the spaced `_ _ _`, `- - -` and
+  // `* * *` that #182 closed. No entry carries this family, and the
+  // name stays so that a rule divergence arriving later lands on it
+  // rather than as UNTRIAGED. What is left for it is one position the
+  // pattern cannot reach: an INDENTED rule as a list item's rest line
+  // is joined into the item text where the oracle puts an `<hr>`
+  // inside the item, and a spaced marker line INSIDE a list item
+  // keeps its marker reading at every position, because the
+  // canonical `'''` the printer writes for a break is absorbed by
+  // whatever text stands above it there. That costs the `<hr>` and,
+  // where a text line follows the rule, the paragraph with it (#242,
+  // a printer change). The fold no longer manufactures a
+  // rule out of a spaced marker run that was text (#179); what
+  // survives of that is the gap a MARKER's own run holds (`-  - -`),
+  // which the printer narrows to one space and no refusal of a fold
+  // can widen back, and which is issue #191 - closing it means
+  // replaying the marker's own gap BYTES rather than normalizing
+  // them.
   "gap:md-thematic-break",
   // `## Section One`, `## Section One ##` (#63). The spelling is read
   // now and no entry carries this family; the name stays so that a

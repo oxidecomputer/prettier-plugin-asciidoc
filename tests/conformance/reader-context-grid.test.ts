@@ -210,12 +210,18 @@ describe("classifyLine over the reachable grid", () => {
   // src/parse/lines/paragraph-reader.ts). The 44 cells are the row
   // being consulted where it was previously only correct: the same
   // answer, now measured.
+  //
+  // Three of the 58 construct rows are the SPACED Markdown rules,
+  // which carry rows of their own because each is also a marker line
+  // and so answers the interruption question differently from the
+  // tight spelling: 3 x 188 of the cells and 550 of the asked ones
+  // are theirs.
   test("is the size and reach the enumeration predicts", () => {
     const { cells, asked } = grid;
     expect(openParagraphProbes()).toHaveLength(188);
-    expect(CONSTRUCTS).toHaveLength(55);
-    expect(cells).toBe(10_340);
-    expect(asked).toBe(7723);
+    expect(CONSTRUCTS).toHaveLength(58);
+    expect(cells).toBe(10_904);
+    expect(asked).toBe(8273);
   });
 
   // Why the 23 states with NO open paragraph are enumerated and not

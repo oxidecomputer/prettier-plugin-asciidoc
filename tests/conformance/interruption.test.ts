@@ -130,6 +130,7 @@ describe("line-shape registry matches the Asciidoctor oracle", () => {
           firstLineAfterStart: firstLine,
           nextLine: undefined,
           substitutedContentAbove: false,
+          markerLineWins: false,
         }),
         `registry disagrees with oracle for ${JSON.stringify(line)}`,
       ).toBe(oracle);
@@ -396,6 +397,7 @@ describe("raw (non-text, non-interrupting) paragraph lines", () => {
       firstLineAfterStart: true,
       nextLine: undefined,
       substitutedContentAbove: false,
+      markerLineWins: false,
     };
     expect(isRawParagraphLine("[[a]]", "listItemText", first)).toBe(true);
     expect(isRawParagraphLine("[[a]]", "listItemText")).toBe(false);
@@ -410,13 +412,41 @@ describe("raw (non-text, non-interrupting) paragraph lines", () => {
 // that tracks it. A row here is a promise, not an excuse: when the
 // issue is fixed the entry must be deleted, and the test below fails
 // loudly if a listed row starts passing.
-// EMPTY, and it stays a map rather than becoming a boolean: the
-// `dlistItem` rows that were its last five entries are gone - each was
-// a line a `term::` line owned being emitted at the top level or
-// reflowed into the term's text, and a description is an ITEM now, so
-// its recorded lines are written back where the author wrote them and
-// each construct keeps the line and the column that decide what it is.
-const KNOWN_GAPS = new Map<string, string>();
+//
+// THREE ROWS, one position: inside a list item a spaced `- - -` or
+// `* * *` keeps its marker reading past the item's first `next_block`
+// call, where Asciidoctor reads a break. What stops the reader taking
+// that position is that
+// the break it would have to PRINT does not read back as one: the
+// canonical `'''` is absorbed by whatever text stands above it
+// (`StartOfBlockOrListProc`, parser.rb l.40, matches no break), and
+// which text that is the reader cannot know, because the printer
+// joins a description onto its term line and then wraps the result at
+// its own print width. The AUTHOR's own spelling does read back, so
+// what closes these rows is the printer replaying it (#242).
+//
+// What each row measures is the `<hr>`, and the paragraph with it:
+// these probes put a line under the rule, so the marker reading takes
+// that line as its item text and the reflow joins the two.
+//
+// No `dlistItem` row is here for the older shape a `term::` line's
+// own lines used to reach: a description is an ITEM, so its recorded
+// lines are written back where the author wrote them and each
+// construct keeps the line and the column that decide what it is.
+const KNOWN_GAPS = new Map<string, string>([
+  [
+    "listItem/spaced markdown thematic break (hyphens)",
+    "#242 (the canonical break is absorbed here; the printer must replay the author's)",
+  ],
+  [
+    "dlistItem/spaced markdown thematic break (hyphens)",
+    "#242 (the canonical break is absorbed here; the printer must replay the author's)",
+  ],
+  [
+    "dlistItem/spaced markdown thematic break (asterisks)",
+    "#242 (the canonical break is absorbed here; the printer must replay the author's)",
+  ],
+]);
 
 /**
  * Key for the KNOWN_GAPS map.
@@ -575,6 +605,7 @@ describe("the enclosing list decides what ends the block", () => {
           firstLineAfterStart: false,
           nextLine: undefined,
           substitutedContentAbove: false,
+          markerLineWins: false,
         }),
         `the registry disagrees with the oracle for ${JSON.stringify(line)}`,
       ).toBe(ends);
@@ -607,6 +638,7 @@ describe("the block attribute line inside a description item (#187)", () => {
     firstLineAfterStart: false,
     nextLine: undefined,
     substitutedContentAbove: false,
+    markerLineWins: false,
   };
 
   test.each([["[source]"], ["[[x]]"]])(

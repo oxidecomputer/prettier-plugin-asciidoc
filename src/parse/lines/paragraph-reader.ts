@@ -353,6 +353,10 @@ class Paragraph {
         // reading as well, whatever a directive substituted above it
         // (see ReaderContext.substitutedContentAbove).
         substitutedContentAbove: false,
+        // The block-start ladder is not reached from here at all: an
+        // interrupting line ends this scan and the READER classifies
+        // it, with its own answer (see ReaderContext.markerLineWins).
+        markerLineWins: false,
       });
       classifyTrace.observer?.(next.offset, kind);
       if (kind.kind !== "text" && kind.kind !== "raw") {
@@ -870,6 +874,8 @@ function verbatimRunExtent(
     nextLine: undefined,
     // Same reason as the paragraph scan's, one field down.
     substitutedContentAbove: false,
+    // Same reason as the paragraph scan's, one field down again.
+    markerLineWins: false,
   };
   const lines: [SourceLine, ...SourceLine[]] = [scan.lines[at]];
   let index = at + 1;

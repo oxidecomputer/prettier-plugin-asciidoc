@@ -1065,6 +1065,13 @@
   },
   {
     "file": "src/parse/line-shapes.ts",
+    "symbol": "THEMATIC_BREAK",
+    "importer": "src/print/list-hazard.ts",
+    "kind": "vocabulary",
+    "reason": "registry pattern: the printer asks the same row the reader does whether the marker line it is about to write spells a rule, so the two cannot disagree about what one is"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
     "symbol": "conditionalDirective",
     "importer": "src/parse/lines/list-reader.ts",
     "kind": "vocabulary",

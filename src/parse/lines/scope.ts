@@ -284,6 +284,35 @@ export function bodyContextIn(
 }
 
 /**
+ * Whether a marker line keeps its marker reading at this block start
+ * rather than being read as a layout break -
+ * {@link ReaderContext.markerLineWins}, which states what that costs
+ * and which of the two readings Asciidoctor gives.
+ *
+ * INSIDE AN ITEM, ALWAYS. Not because Asciidoctor reads it that way
+ * everywhere - past the item's first `next_block` call it reads the
+ * break - but because no break this printer can write reads back as
+ * one at any in-item position it could reach: the canonical `'''` is
+ * absorbed by whatever text stands above it, and which text that is
+ * the reader cannot know, since the printer both JOINS a description
+ * onto its term line and WRAPS the result at a width that belongs to
+ * the printer. Opening the positions where the printed line above is
+ * one the printer replays byte for byte is #242's, and it is a
+ * printer change.
+ *
+ * Read off the confinement rather than folded forward, for
+ * {@link blockStartContextIn}'s reason: the answer is about the
+ * position, so it is the same at a block start the reader walked to
+ * and at one it resumed to past a whole extent.
+ * @param confinement - how the reader is confined, absent for the
+ *   document reader
+ * @returns true where a marker line is not offered to the break rows
+ */
+function markerLineWinsAt(confinement: Confinement | undefined): boolean {
+  return confinement?.kind === "item";
+}
+
+/**
  * The reader's state as `classifyLine` consumes it AT A BLOCK START -
  * read, never derived. The other two positions belong to the extent
  * scans, which build their own context from the same ancestry fact
@@ -326,6 +355,7 @@ export function blockStartContextIn(
     openList: openListIn(confinement),
     firstLineAfterStart: false,
     nextLine: confinement === undefined ? lines.at(at + 1)?.text : undefined,
+    markerLineWins: markerLineWinsAt(confinement),
     get substitutedContentAbove(): boolean {
       return substitutedContentStandsAbove(lines, at);
     },

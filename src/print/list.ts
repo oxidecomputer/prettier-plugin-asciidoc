@@ -417,6 +417,12 @@ function markedAtoms(
     case "canonicalHead": {
       return canonicalChecklistHead(held);
     }
+    case "keepOnMarkerLine": {
+      return held.with(marker.at, {
+        ...held[marker.at],
+        noBreakBefore: true,
+      });
+    }
   }
 }
 

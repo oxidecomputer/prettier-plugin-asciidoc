@@ -40,9 +40,15 @@ describe("markdown thematic break formatting", () => {
     ["asterisks", "***\n"],
     ["underscores", "___\n"],
     ["an indented rule", "  ---\n"],
-    // The one SPACED spelling the registry reads: `_` is no
-    // unordered marker, so no open list can claim the line.
     ["spaced underscores", "_ _ _\n"],
+    // The three SPACED spellings, all read at a block start (#182).
+    // Red before the fix: each was an `UnorderedListRx` marker line
+    // to this reader and came back as the author wrote it.
+    ["spaced hyphens", "- - -\n"],
+    ["spaced asterisks", "* * *\n"],
+    ["widely spaced hyphens", "-  -  -\n"],
+    ["widely spaced asterisks", "*  *  *\n"],
+    ["an indented spaced rule", "   - - -\n"],
   ])("a rule of %s normalizes to the AsciiDoc break", async (_n, input) => {
     const out = await formatAdoc(input);
     expect(out).toBe("'''\n");
@@ -100,17 +106,15 @@ describe("markdown thematic break formatting", () => {
   // value's half alone would print `-  - -`, whose gaps no longer
   // agree and which is no rule at all; refusing that fold is why the
   // author's own line is what comes back (#191).
-  test.each([
-    ["a spaced dash rule", "-  -  -\n"],
-    ["a spaced star rule", "*  *  *\n"],
-    ["a tight dash rule", "- - -\n"],
-    ["a tab-gapped dash rule, which is no rule", "-\t-\t-\n"],
-  ])("%s comes back as the author wrote it", async (_n, input) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
-  });
+  test.each([["a tab-gapped dash rule, which is no rule", "-\t-\t-\n"]])(
+    "%s comes back as the author wrote it",
+    async (_n, input) => {
+      const out = await formatAdoc(input);
+      expect(out).toBe(input);
+      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+      expect(await formatAdoc(out)).toBe(out);
+    },
+  );
 
   // The column-0 half of the same claim, where the fold DOES decide
   // the whole line: `_` is no marker, so nothing stands in front of

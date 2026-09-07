@@ -108,12 +108,16 @@ export const CONSTRUCTS: Array<[string, string]> = [
   ["thematic break", "'''"],
   // The Markdown rules, one row per mark: each is its own alternative
   // of `MARKDOWN_THEMATIC_BREAK_CHARS`, so a row per mark is a row per
-  // branch. The SPACED spellings are deliberately absent - the
-  // registry leaves them as text, and its own note says why
-  // (THEMATIC_BREAK, src/parse/line-shapes.ts).
+  // branch. The SPACED spellings are rows of their own since #182: a
+  // spaced `-` or `*` line is an `UnorderedListRx` marker line as
+  // well, so what it does to an open paragraph is not what the tight
+  // spelling does and the oracle has to answer for it separately.
   ["markdown thematic break (hyphens)", "---"],
   ["markdown thematic break (asterisks)", "***"],
   ["markdown thematic break (underscores)", "___"],
+  ["spaced markdown thematic break (hyphens)", "- - -"],
+  ["spaced markdown thematic break (asterisks)", "* * *"],
+  ["spaced markdown thematic break (underscores)", "_ _ _"],
   ["page break", "<<<"],
   ["section marker", "== Section"],
 ];
