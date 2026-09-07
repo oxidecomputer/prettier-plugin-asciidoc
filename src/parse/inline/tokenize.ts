@@ -22,11 +22,12 @@ import { scanQuotePass, type InlineScan } from "./quote-pass.js";
  * fragment that starts where Asciidoctor's own substitution pass
  * would start.
  *
- * The four whole-text SCANS are the caller's too, and they are taken
+ * The five whole-text SCANS are the caller's too, and they are taken
  * over more text than this: the pass text a block's kept lines make
  * (quote-pass.ts), of which this fragment is one window. That is what
- * lets a doubled pair span a line the reader dropped while every
- * token's image stays a verbatim source slice.
+ * lets a doubled pair span a line the reader dropped, and a
+ * passthrough swallow one, while every token's image stays a verbatim
+ * source slice.
  * @param text - the fragment, exactly as it appears in the source
  * @param baseOffset - document offset of `text[0]`, added to every
  *   token's offset so the result is in document coordinates

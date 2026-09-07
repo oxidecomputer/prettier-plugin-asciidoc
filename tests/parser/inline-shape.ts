@@ -29,10 +29,35 @@ function roleOf(node: InlineNode): string {
 }
 
 /**
+ * The two leaves that carry the author's own bytes and no children,
+ * spelled with those bytes: `ref("...")` for a character reference,
+ * `pass("...")` for a passthrough.
+ *
+ * Their bytes are the whole row wherever one of them is what a suite
+ * is about - a passthrough a dropped line cuts in two shows as two
+ * `pass(...)` with the raw line between them, and the bare type would
+ * not tell those halves from any other pair. Split out of
+ * {@link shapeOf} to keep that function's branch count under the lint
+ * ceiling rather than for any reason of meaning.
+ * @param node - an inline node
+ * @returns its shape, or undefined when it is not one of the two
+ */
+function valueLeaf(node: InlineNode): string | undefined {
+  if (node.type === "characterReference") {
+    return `ref(${JSON.stringify(node.value)})`;
+  }
+  if (node.type === "passthrough") {
+    return `pass(${JSON.stringify(node.value)})`;
+  }
+  return undefined;
+}
+
+/**
  * A one-line spelling of an inline tree: `bold[...]` for a span,
  * `"..."` for a text run, `u`/`c` for unconstrained/constrained,
  * `(role)` for the attrlist a span carries,
- * `ref("...")` for a character reference. Tests
+ * `ref("...")` for a character reference and `pass("...")` for a
+ * passthrough. Tests
  * compare whole shapes rather than probing node by node, because what
  * a resolution change moves is which span exists at all, not one field
  * of one node.
@@ -54,8 +79,9 @@ function shapeOf(node: InlineNode): string {
   if (node.type === "superscript" || node.type === "subscript") {
     return `${node.type}[${node.children.map(shapeOf).join(",")}]`;
   }
-  if (node.type === "characterReference") {
-    return `ref(${JSON.stringify(node.value)})`;
+  const leaf = valueLeaf(node);
+  if (leaf !== undefined) {
+    return leaf;
   }
   if (!("children" in node)) {
     return node.type;

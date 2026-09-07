@@ -443,8 +443,10 @@ class Paragraph {
     // concatenated and a delimiter pairs across a raw line there
     // (quote-pass.ts says which Ruby drops which line). Each run is
     // still TOKENIZED on its own, so a token's image stays a verbatim
-    // source slice; only the four scans are pass-wide, and each run
-    // reads its own window of them.
+    // source slice; only the five scans are pass-wide, and each run
+    // reads its own window of them. A passthrough that spans a raw
+    // line is the one construct that window CLIPS rather than drops,
+    // so the halves reach the tokenizer as bytes on either side.
     const texts = this.pieces.map((piece) =>
       piece.kind === "run" ? this.runText(piece.run) : "",
     );

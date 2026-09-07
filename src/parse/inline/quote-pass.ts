@@ -18,17 +18,24 @@
  * dropped lines' bytes are missing from it, so a token cut out of it
  * across a join would have an image no source range spells. The
  * tokenizer therefore still walks one fragment at a time, and only
- * the SCANS - the four whole-text questions no neighbourhood can
+ * the SCANS - the five whole-text questions no neighbourhood can
  * answer - move to the joined text. Each fragment reads its own
  * window of the result, which is the same set of answers it would
  * have computed alone plus the pairs that reach past it.
  *
- * The window is a plain shift because every scan is offset-preserving:
- * the curved rows' masked view replaces a delimiter with `&;`, the
- * same width, and the other three record offsets into the text they
- * were handed.
+ * Every scan is offset-preserving - the curved rows' masked view
+ * replaces a delimiter with `&;`, the passthrough mask replaces one
+ * character with one character, and the rest record offsets into the
+ * text they were handed - so a window is a plain SHIFT for four of
+ * the five. The passthrough scan is the exception: its spans are
+ * CLIPPED to the window ({@link clippedPassthroughs}), because a
+ * passthrough is the one construct a fragment can hold half of and
+ * still owe a token for.
  *
- * NOTHING STRADDLES A WINDOW EDGE, and the reason is about what each
+ * NOTHING STRADDLES A WINDOW EDGE except a passthrough, which is
+ * CLIPPED to the window instead ({@link clippedPassthroughs}) because
+ * half a passthrough is still bytes the substitution pass never
+ * looked at. For the other four the reason is about what each
  * scan RECORDS rather than about what its rows MATCH. A fragment ends
  * with the newline of its own last line, so a construct can only
  * straddle an edge by spelling a newline. The three delimiter scans
@@ -54,23 +61,38 @@ import {
   type CurvedScan,
 } from "./curved-quotes.js";
 import { scanDoubledMarks, UNCONSTRAINED_WIDTH } from "./doubled-marks.js";
+import {
+  scanPassthroughs,
+  maskPassthroughs,
+  type PassthroughSpan,
+} from "./passthrough.js";
 import { scanSuperSubMarks } from "./super-sub.js";
 import { scanReplacements } from "./replacements.js";
 import { DELIM_WIDTH } from "../../constants.js";
 
 /**
- * The four whole-text scans every inline rule is handed.
+ * The five whole-text scans every inline rule is handed.
  *
- * All four exist because their construct is not decidable from a
- * neighbourhood: a curved-quote pair (curved-quotes.ts), a doubled
- * mark (doubled-marks.ts), a super/sub pair (super-sub.ts) and a
- * character reference (replacements.ts) each answer to text
- * arbitrarily far away. Taken over the pass text by
- * {@link scanQuotePass} and read through {@link windowOf}, so what a
- * rule sees is a fact about its own fragment's offsets while the
+ * All five exist because their construct is not decidable from a
+ * neighbourhood: a passthrough (passthrough.ts), a curved-quote pair
+ * (curved-quotes.ts), a doubled mark (doubled-marks.ts), a super/sub
+ * pair (super-sub.ts) and a character reference (replacements.ts)
+ * each answer to text arbitrarily far away. Taken over the pass text
+ * by {@link scanQuotePass} and read through {@link windowOf}, so what
+ * a rule sees is a fact about its own fragment's offsets while the
  * pairing behind it is the whole block's.
  */
 export interface InlineScan {
+  /**
+   * Where the passthroughs are (passthrough.ts). FIRST among the
+   * five, because the other four read a text this one has masked:
+   * `extract_passthroughs` pulls every passthrough out before any
+   * substitution runs (substitutors.rb l.1018), so no delimiter
+   * inside one may pair with a delimiter outside it. The
+   * `Passthrough` rule (rules.ts) reads it for the bytes it owes a
+   * token; every other rule ignores it.
+   */
+  readonly passthroughs: readonly PassthroughSpan[];
   /**
    * Where the two curved-quote rows matched. The two curved rules read
    * it to find their own delimiters, and `InlineText`'s own rule reads
@@ -100,9 +122,19 @@ export interface InlineScan {
 }
 
 /**
- * Run the four scans over one block's pass text.
+ * Run the five scans over one block's pass text.
  *
- * The curved rows are taken FIRST and handed to the doubled scan,
+ * The PASSTHROUGH scan runs before the other four and its spans are
+ * masked out of the text they read, which is the oracle's own order:
+ * `extract_passthroughs` (substitutors.rb l.1018) takes every
+ * passthrough out of the text first, and the quote and replacement
+ * rows then run over what is left. Masking is what stops
+ * `**a +**b+ c** d` from pairing the opening `**` with the one inside
+ * the passthrough - a pairing that consumed both and left the span
+ * the oracle really makes unformed.
+ *
+ * The curved rows are taken FIRST of the remaining four and handed to
+ * the doubled scan,
  * because three of the four doubled rows run after them and read what
  * they wrote (`seesCurvedRewrite`, quote-boundaries.ts): in that view
  * a backtick the curved rows took is the `;` of the entity they write,
@@ -120,15 +152,18 @@ export interface InlineScan {
  * em dash).
  * @param text - the block's kept lines joined, exactly as the source
  *   spells them
- * @returns the four scans, in that text's coordinates
+ * @returns the five scans, in that text's coordinates
  */
 export function scanQuotePass(text: string): InlineScan {
-  const curved = scanCurvedQuotes(text);
+  const passthroughs = scanPassthroughs(text);
+  const masked = maskPassthroughs(text, passthroughs);
+  const curved = scanCurvedQuotes(masked);
   return {
+    passthroughs,
     curved,
-    doubled: scanDoubledMarks(text, curved),
-    superSub: scanSuperSubMarks(text),
-    replacements: scanReplacements(text),
+    doubled: scanDoubledMarks(masked, curved),
+    superSub: scanSuperSubMarks(masked),
+    replacements: scanReplacements(masked),
   };
 }
 
@@ -221,6 +256,49 @@ function shiftedReferences(
 }
 
 /**
+ * The passthroughs this window holds any bytes of, CLIPPED to it and
+ * rebased.
+ *
+ * Clipped rather than dropped, which is the one place a scan's answer
+ * is not simply shifted: a passthrough is the only construct here
+ * that survives its own truncation. A pair of marks cut in half is
+ * two marks and no span, so {@link inside} refuses it; a passthrough
+ * cut in half is still bytes the quote pass never looked at, and each
+ * half must reach the tokenizer as bytes or its delimiters go back to
+ * pairing with whatever stands beyond the raw line.
+ *
+ * A clipped span always emits a token, whatever it emitted whole.
+ * That is what a truncated `pass:[]` reduces to: the `InlineMacro`
+ * row needs the closing bracket, which is in another fragment, so
+ * the bytes are all this half can honestly be. Where the half ENDS
+ * is `passthroughTokenWidth`'s (passthrough.ts): a token that ends
+ * with the fragment's own line break would print that break twice.
+ * @param spans - the pass text's passthroughs
+ * @param window - the fragment's range
+ * @returns the surviving spans, in the fragment's coordinates
+ */
+function clippedPassthroughs(
+  spans: readonly PassthroughSpan[],
+  window: Window,
+): PassthroughSpan[] {
+  const kept: PassthroughSpan[] = [];
+  for (const span of spans) {
+    const start = Math.max(span.start, window.start);
+    const end = Math.min(span.end, window.end);
+    if (start >= end) {
+      continue;
+    }
+    const whole = start === span.start && end === span.end;
+    kept.push({
+      start: start - window.start,
+      end: end - window.start,
+      emit: whole ? span.emit : "token",
+    });
+  }
+  return kept;
+}
+
+/**
  * One fragment's view of a pass-wide scan: the answers that fall
  * inside it, in its own coordinates.
  *
@@ -233,7 +311,7 @@ function shiftedReferences(
  * @param pass - the scans over the whole pass text
  * @param start - where this fragment begins in the pass text
  * @param length - how many characters it spells
- * @returns the same four scans, restricted and rebased
+ * @returns the same five scans, restricted and rebased
  */
 export function windowOf(
   pass: InlineScan,
@@ -242,6 +320,7 @@ export function windowOf(
 ): InlineScan {
   const window = { start, end: start + length };
   return {
+    passthroughs: clippedPassthroughs(pass.passthroughs, window),
     curved: {
       delimiters: shiftedCurved(pass.curved.delimiters, window),
       view: pass.curved.view.slice(window.start, window.end),

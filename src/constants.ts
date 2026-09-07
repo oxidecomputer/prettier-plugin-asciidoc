@@ -40,9 +40,12 @@ export const MIN_TABLE_DELIMITER_LENGTH = 3;
 export const FIRST_LINE = 1;
 export const FIRST_COLUMN = 1;
 
-// A single newline character (`\n`). Used when computing content
-// boundaries inside delimited blocks — the newline after the open
-// delimiter and before the close delimiter is not part of the content.
+// A single newline character (`\n`). Used wherever a boundary falls
+// on one: inside a delimited block, where the newline after the open
+// delimiter and before the close delimiter is not part of the
+// content, and at the end of a clipped passthrough, whose trailing
+// newline belongs to the fragment rather than to the token
+// (`passthroughTokenWidth`, src/parse/inline/passthrough.ts).
 export const NEWLINE_LENGTH = 1;
 
 // Sentinel for auto-numbered callout markers (`<.>`). The

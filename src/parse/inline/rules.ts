@@ -29,7 +29,7 @@ import {
 import { CURVED_WIDTH, type CurvedScan } from "./curved-quotes.js";
 import { UNCONSTRAINED_WIDTH } from "./doubled-marks.js";
 import type { InlineScan } from "./quote-pass.js";
-import { matchPassthrough } from "./passthrough.js";
+import { passthroughTokenWidth } from "./passthrough.js";
 import { ASCII_HORIZONTAL_WHITESPACE } from "../line-shapes.js";
 import { DELIM_WIDTH } from "../../constants.js";
 
@@ -732,13 +732,22 @@ export function bareAddressRunsPast(text: string, from: number): number {
 
 export const INLINE_RULES: readonly InlineRule[] = [
   // `+text+`, `++text++`, `+++text+++`, `$$text$$`, each with an
-  // optional `[attrlist]` in front: the forms `extract_passthroughs`
+  // optional `[attrlist]` in front, and the half of a `pass:[text]`
+  // that a dropped line cuts off: the forms `extract_passthroughs`
   // pulls out of the line BEFORE any other substitution runs
   // (substitutors.rb l.1018), which is why this is the first row: what
-  // the oracle removes first, nothing else may claim. The two patterns
-  // and the boundary they need live in passthrough.ts, the way the
-  // constrained MARK boundaries live in quote-boundaries.ts.
-  { type: "Passthrough", match: matchPassthrough },
+  // the oracle removes first, nothing else may claim. WHERE those
+  // bytes are is the pass-wide scan's answer (passthrough.ts) rather
+  // than a pattern tried here, because a passthrough closes wherever
+  // it closes and that can be past a line the reader dropped, which
+  // no neighbourhood shows. The patterns and the boundary they need
+  // are still passthrough.ts's, the way the constrained MARK
+  // boundaries are quote-boundaries.ts's.
+  {
+    type: "Passthrough",
+    match: (text: string, index: number, scan: InlineScan): number =>
+      passthroughTokenWidth(text, index, scan.passthroughs),
+  },
   // Escaped inline formatting mark: `\*`, `\_`, `` \` ``, `\#`
   // (substitutors.rb strips the backslash when it applies quotes).
   // FOUR of the six marks a `QUOTE_SUBS` unconstrained row can escape:

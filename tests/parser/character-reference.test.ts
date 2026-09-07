@@ -417,7 +417,7 @@ describe("references against the rest of the vocabulary", () => {
     );
     expect(shapes(source)).toEqual([
       '"x "',
-      "passthrough",
+      'pass("+a -- b+")',
       '" c "',
       'ref("--")',
       '" d y"',
@@ -528,11 +528,15 @@ function newlineCorpus(): string[] {
   );
 }
 
-// THE WINDOW'S PRECONDITION (issue #112). The four scans are taken
+// THE WINDOW'S PRECONDITION (issue #112). The five scans are taken
 // over a block's kept lines joined, and each reflowable run reads its
 // own WINDOW of the result (`windowOf`, src/parse/inline/
 // quote-pass.ts), which keeps a recorded construct only where the
-// fragment spells the whole of it. A fragment ends with its own last
+// fragment spells the whole of it. A PASSTHROUGH is the one exception
+// and is clipped rather than dropped, because half of one is still
+// bytes no substitution looked at; everything below is about the
+// other four, the reference scan among them. A fragment ends with its
+// own last
 // line's newline, so the only way a construct could straddle a window
 // edge - and be dropped silently, taking a node out of the tree while
 // the bytes still round-trip - is by spelling a newline itself.
