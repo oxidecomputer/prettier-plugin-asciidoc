@@ -50,6 +50,7 @@ function itemInput(overrides: Partial<ListItemInput>): ListItemInput {
     detachedTail: false,
     activeTail: false,
     everyTextLineIndented: false,
+    nextLineNeedsItsPosition: false,
     ...overrides,
   };
 }

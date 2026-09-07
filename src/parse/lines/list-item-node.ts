@@ -24,7 +24,12 @@
 import type { BlockNode, GapLine, ListItemNode } from "../../ast.js";
 import { buildListItem } from "../build/list.js";
 import type { LocationIndex } from "../positions.js";
-import { isContinuationLine, type MarkerKind } from "./classify.js";
+import {
+  isContinuationLine,
+  isDroppedCommentLine,
+  type MarkerKind,
+} from "./classify.js";
+import { positionDecidesTheReading } from "../line-shapes-interruption.js";
 import {
   everyTextLineIndented,
   recordedTextLines,
@@ -32,7 +37,7 @@ import {
   type ItemInterior,
 } from "./item-body.js";
 import type { ListItemShape } from "./list-reader.js";
-import { fragmentOfLine } from "./split.js";
+import { fragmentOfLine, type SourceLine } from "./split.js";
 
 /**
  * Each block's gap: the recorded separator lines strictly between the
@@ -98,11 +103,14 @@ export function gapsOf(
  * the GAP that precedes it.
  * @param shape - what the extent scan decided about the item
  * @param interior - the text and blocks the caller read from the buffer
- * @param lines - the document's gap record and offset index
+ * @param lines - the document's gap record and offset index, and what
+ *   the head drain took out of this item's buffer
  * @param lines.gaps - the document-wide gap record, complete for this
  *   item by now: its own scan and every descendant scan ran before
  *   this call
  * @param lines.at - the document's offset→Location index
+ * @param lines.drained - the lines the head drain took, in source
+ *   order; read by the caller, which needs them for the interior too
  * @returns the item node
  */
 export function listItemNode(
@@ -111,6 +119,7 @@ export function listItemNode(
   lines: {
     gaps: ReadonlyMap<number, GapLine>;
     at: LocationIndex;
+    drained: readonly SourceLine[];
   },
 ): ListItemNode {
   const { at } = lines;
@@ -161,6 +170,11 @@ export function listItemNode(
           (line) => line.text,
         ),
       ),
+      nextLineNeedsItsPosition: nextLineNeedsItsPosition(
+        shape.buffer,
+        markerLine.line,
+        lines.drained,
+      ),
     },
     at,
   );
@@ -203,4 +217,79 @@ export function endsInPlusParagraph(blocks: readonly BlockNode[]): boolean {
   }
   const child = last.children.at(-1);
   return child?.type === "rawLine" && isContinuationLine(child.value);
+}
+
+/**
+ * Whether the source line directly UNDER the item's opening line is
+ * read as what it is only because it stands there
+ * ({@link ListItemNode}'s `nextLineNeedsItsPosition`, src/ast.ts,
+ * carries the two Ruby arguments).
+ *
+ * TWO readings, ONE answer, because the printer's move is the same
+ * for both: the item's opening line keeps exactly the words the
+ * source put on it. Asking them separately would put two facts on
+ * every item to serve one guard.
+ *
+ * The SHAPE half is the registry's own question
+ * (`positionDecidesTheReading`,
+ * src/parse/line-shapes-interruption.ts), the same tables the
+ * description join's condition F reads, so a shape added to either
+ * position table is answered for here without being written down
+ * again. WHICH shapes those are is that predicate's business, not
+ * this one's, and for `listItemText` they are two: a block anchor,
+ * which the two programs read alike, and a block macro, which they do
+ * not. The Ruby gem 2.0.26 reads a macro under an item's text as
+ * prose at BOTH positions (`parse_list_item` hands the first block to
+ * `next_block` with `text_only`, parser.rb l.1368-1374); the pinned
+ * instrument opens a block at the first position and reads prose
+ * below it. The oracle wins on results, and the divergence is
+ * recorded at `LIST_ITEM_FIRST_LINE_INTERRUPTERS`
+ * (src/parse/line-shapes.ts), so a change to that row changes this
+ * fact with it.
+ *
+ * The question is asked of the first line under the item's opening
+ * line that a COMMENT does not stand on: `next_block`'s metadata loop
+ * (parser.rb l.519-523) shifts a `//` line away before it reads a
+ * block context, because `parse_block_metadata_line` answers for one
+ * (l.2076-2081), and `read_paragraph_lines` drops one at every later
+ * position (`skip_line_comments`, l.754 and l.764), so both readings
+ * skip the same lines and the line after them is the one either of
+ * them decides on. INSTRUMENT: `* a` / `// c` / `image::a.png[]` is
+ * an image block inside the item, and the same three lines with a
+ * text line wrapped in front of the comment are one paragraph.
+ *
+ * The DRAIN half is the one the registry cannot answer: a `///` line
+ * is ordinary text to every pattern in it, and what decides its fate
+ * is which reader met it. The head drain took it
+ * (`Reader#skip_line_comments`'s bare `//` prefix) and
+ * `read_paragraph_lines` would keep it one line lower
+ * ({@link isDroppedCommentLine}), so it renders as nothing where it
+ * stands and as the text's own last words below, measured the same
+ * way in BOTH programs. A `//` line the two readers AGREE on is
+ * dropped at either position and needs no guard,
+ * which is why the test is the disagreement rather than the drain
+ * having fired.
+ *
+ * A DESCRIPTION sibling needs no drain half: its drained bytes are
+ * replayed as the term's GAP, and a non-empty gap already forbids the
+ * join (`siblingPrinting`, src/parse/lines/description-list-node.ts).
+ * @param buffer - the item's lines, in document order
+ * @param openingLine - the 1-based marker line, excluded
+ * @param drained - the lines the head drain took, in source order
+ * @returns true when reflow may not change how many lines stand
+ *   between the item's opening line and the line under it
+ */
+function nextLineNeedsItsPosition(
+  buffer: readonly SourceLine[],
+  openingLine: number,
+  drained: readonly SourceLine[],
+): boolean {
+  const decides = buffer.find(
+    (line) => line.line > openingLine && !isDroppedCommentLine(line.text),
+  );
+  return (
+    (decides !== undefined &&
+      positionDecidesTheReading(decides.text, "listItemText")) ||
+    drained.some((line) => !isDroppedCommentLine(line.text))
+  );
 }

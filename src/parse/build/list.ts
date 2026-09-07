@@ -78,6 +78,12 @@ export interface ListItemInput extends ItemBodyInput {
   /** The item's marker as written, leading indent excluded. */
   readonly marker: Fragment;
   /**
+   * Whether the source line directly under the item's opening line is
+   * read as what it is only because it stands there (see
+   * {@link ListItemNode}'s `nextLineNeedsItsPosition`).
+   */
+  readonly nextLineNeedsItsPosition: boolean;
+  /**
    * The marker's own spelling - what the printer replays (see
    * {@link ListItemNode.markerSpelling}). Separate from the Fragment
    * beside it, which spans the marker AND its gap because it measures
@@ -253,6 +259,7 @@ export function buildListItem(
     markerGap: input.markerGap,
     checkbox,
     calloutNumber: input.calloutNumber,
+    nextLineNeedsItsPosition: input.nextLineNeedsItsPosition,
     text,
     blocks: [...input.blocks],
     trailingContinuation: input.trailingContinuation,

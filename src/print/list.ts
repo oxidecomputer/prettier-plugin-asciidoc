@@ -24,6 +24,7 @@ import {
   type Atom,
   type BreakBefore,
   blockBody,
+  keepFirstSourceLineWhole,
   keepTextOnFirstRestLine,
 } from "./reflow.js";
 import {
@@ -351,8 +352,8 @@ function canonicalChecklistHead(atoms: readonly Atom[]): readonly Atom[] {
 }
 
 /**
- * The item's atoms with both reflow guards applied, in the order the
- * two questions are answered.
+ * The item's atoms with every reflow guard applied, in the order the
+ * three questions are answered.
  *
  * The first-rest-line guard runs first because it chooses which run
  * opens the line UNDER the marker line, and it chooses the LAST one it
@@ -360,6 +361,16 @@ function canonicalChecklistHead(atoms: readonly Atom[]): readonly Atom[] {
  * reads the atoms it produced: a break already demanded at the atom it
  * would name means the line already ends there, and the guard says
  * nothing further.
+ *
+ * The WIDTH refusal runs last, over the atoms the other two settled,
+ * because it is the only one that reads a break they may still add:
+ * it refuses the joins up to the first DEMANDED break, so a break
+ * either of them held is the one it stops at rather than one it
+ * fuses past. It fires on the recorded fact alone
+ * (`ListItemNode.nextLineNeedsItsPosition`, src/ast.ts, which carries
+ * the two Ruby arguments) - there is nothing left for the printer to
+ * decide, and the line the fact is about is one the printer never
+ * sees.
  * @param node - the item node.
  * @param parentList - the list the item belongs to.
  * @param atoms - the item's atoms, straight from the inline printer.
@@ -373,6 +384,25 @@ function guardedAtoms(
   guard: BreakBefore,
 ): readonly Atom[] {
   const held = guard === "none" ? atoms : keepTextOnFirstRestLine(atoms, guard);
+  const marked = markedAtoms(node, parentList, held);
+  return node.nextLineNeedsItsPosition
+    ? keepFirstSourceLineWhole(marked)
+    : marked;
+}
+
+/**
+ * The item's atoms with the MARKER-LINE guard applied - see
+ * {@link markerLineGuard} for the three moves it chooses between.
+ * @param node - the item node.
+ * @param parentList - the list the item belongs to.
+ * @param held - the atoms the first-rest-line guard settled.
+ * @returns the atoms, marker line guarded.
+ */
+function markedAtoms(
+  node: ListItemNode,
+  parentList: ListNode | undefined,
+  held: readonly Atom[],
+): readonly Atom[] {
   const marker = markerLineGuard(node, parentList, held);
   switch (marker.kind) {
     case "asPacked": {

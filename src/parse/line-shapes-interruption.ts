@@ -359,3 +359,78 @@ export function interruptsParagraph(
   // than being a strict superset/subset relationship.
   return ENDED_BY_DLIST_TERM.has(context) && isDescriptionListLine(line);
 }
+
+/**
+ * Whether a line's READING turns on its standing directly under the
+ * block's opening line - the question a reflow that moves the line up
+ * or down by one has to ask before it moves anything.
+ *
+ * The two position tables above are the whole answer, so this asks
+ * {@link interruptsParagraph} twice and compares. A line in neither
+ * table reads the same wherever it stands, and reflow may pass over
+ * it; a line in one of them is a block on one side of that boundary
+ * and prose on the other, and the source's own line count between it
+ * and the block's opening line is what decides which.
+ *
+ * BOTH DIRECTIONS, because the tables run both ways. For
+ * `listItemText` a block ANCHOR is in the later table: `fold_first`
+ * merges it into the item text on the first line, id and all, and it
+ * annotates a block of its own further down (parser.rb l.1384). A
+ * block MACRO is in the first-line table, and there the two programs
+ * DISAGREE: the Ruby gem 2.0.26 reads `* a b c` / `image::a.png[]` as
+ * one paragraph at BOTH positions, because `parse_list_item` hands
+ * the item's first block to `next_block` with `text_only` set
+ * (parser.rb l.1368-1374), while the pinned instrument (the
+ * `@asciidoctor/core` transpile the tests render through) opens an
+ * image block at the first position and reads prose below it
+ * (`read_paragraph_lines`'s break condition knows no macro, parser.rb
+ * l.764). The oracle wins on results, and which way the macro is read
+ * is {@link LIST_ITEM_FIRST_LINE_INTERRUPTERS}'s own decision
+ * (src/parse/line-shapes.ts, where the divergence is recorded); this
+ * predicate inherits it rather than carrying a case for it. Either
+ * move changes the render under the reading its table declares, so
+ * the question is asked as a difference rather than as one table's
+ * membership.
+ *
+ * ONE HOME, here rather than at the join that asks: the tables are
+ * the registry's, so a shape added to either of them is answered for
+ * without being written down again anywhere else, and a later change
+ * that asks the reader per line deletes this in one place.
+ *
+ * The DESCRIPTION join asks the neighbouring question of the same
+ * tables and keeps its own spelling
+ * (`descriptionPrinting`'s condition F,
+ * src/parse/lines/description-list.ts, refuses a follower that
+ * interrupts at no LATER position). The two agree wherever the line
+ * asked about is one the reader already opened a block on, which is
+ * every follower either join can be handed; they are not merged
+ * because that premise is a claim about the READER rather than about
+ * the tables, and the difference, where it exists at all, would make
+ * that guard narrower.
+ *
+ * NO READER STATE is taken, because none of it can change the answer:
+ * the position is the thing being varied, and every context whose
+ * {@link ENCLOSING_LIST_RULE} row is not `nothing` reads the open list
+ * the same way at both positions, so an enclosing list cancels out of
+ * the difference. A caller with one asks {@link interruptsParagraph}
+ * directly.
+ * @param rawLine - one source line, without its trailing newline
+ * @param context - which kind of paragraph is open
+ * @returns true when the line is read as one thing directly under the
+ *   block's opening line and as another below it
+ */
+export function positionDecidesTheReading(
+  rawLine: string,
+  context: ParagraphContext,
+): boolean {
+  return (
+    interruptsParagraph(rawLine, context, {
+      ...BLOCK_START_CONTEXT,
+      firstLineAfterStart: true,
+    }) !==
+    interruptsParagraph(rawLine, context, {
+      ...BLOCK_START_CONTEXT,
+      firstLineAfterStart: false,
+    })
+  );
+}

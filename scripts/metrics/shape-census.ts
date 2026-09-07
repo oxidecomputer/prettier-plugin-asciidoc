@@ -189,6 +189,10 @@ const EXEMPT = new Map<string, string>([
     "context dispatcher over the interrupting sets, not a shape",
   ],
   [
+    "positionDecidesTheReading",
+    "a difference between two interruptsParagraph answers, not a shape; the shapes it separates are the position tables' own, each already carrying a dimension",
+  ],
+  [
     "interruptsByLineShape",
     "context dispatcher over the interrupting sets, not a shape",
   ],

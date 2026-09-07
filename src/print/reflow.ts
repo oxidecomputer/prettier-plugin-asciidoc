@@ -925,6 +925,45 @@ export function keepTextOnFirstRestLine(
 }
 
 /**
+ * Keep the block's FIRST OUTPUT LINE holding exactly what its first
+ * SOURCE line held: no width break may fall before the first break
+ * the atoms already demand.
+ *
+ * The opposite trade from {@link keepTextOnFirstRestLine}, and the
+ * other half of the same question. That one holds a break so a text
+ * line stands directly under the block's opening line; this one
+ * refuses every break in front of that position, so whatever the
+ * source put directly under the opening line is still what stands
+ * there. A list item whose next source line is read as what it is
+ * only because it stands there needs the second
+ * (`ListItemNode.nextLineNeedsItsPosition`, src/ast.ts): a block
+ * macro one line lower is prose, a `///` comment one line lower is
+ * text the render keeps, and the wrap that moved it wrote no byte of
+ * its own.
+ *
+ * The refusal is spelled as `noBreakBefore`, which is the join fact
+ * the packer already reads (`runAt`), so the atoms pack as ONE run
+ * and overrun the width the way a fused run does. It stops at the
+ * first DEMANDED break because that break is the author's own line
+ * boundary: fusing past one would lift it to the front of the run
+ * (`runBreak`) and move every word behind it onto a line the source
+ * never wrote.
+ * @param atoms - the block's atoms, in order.
+ * @returns the same atoms, with the joins up to the first demanded
+ *   break refused.
+ */
+export function keepFirstSourceLineWhole(atoms: readonly Atom[]): Atom[] {
+  const held = [...atoms];
+  for (let index = 1; index < held.length; index += 1) {
+    if (held[index].breakBefore !== "none") {
+      break;
+    }
+    held[index] = { ...held[index], noBreakBefore: true };
+  }
+  return held;
+}
+
+/**
  * Whether the run at `index` may open the line a kept break would give
  * it.
  *

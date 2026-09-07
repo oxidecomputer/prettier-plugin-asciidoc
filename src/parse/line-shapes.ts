@@ -1471,8 +1471,9 @@ export const INCLUDE_DIRECTIVE = /^include::[^\[]*\[[^\]]*\]$/v;
  * deciding whether a line is a comment to the parser reaches for this
  * constant.
  * Exported for the shape registry's coverage census
- * (scripts/shape-registry.ts); no src consumer.
- * @internal
+ * (scripts/shape-registry.ts) and for the classification pass, which
+ * asks it as {@link isDroppedCommentLine}
+ * (src/parse/lines/classify.ts).
  */
 export const LINE_COMMENT = new RegExp(`^${LINE_COMMENT_SOURCE}`, "v");
 

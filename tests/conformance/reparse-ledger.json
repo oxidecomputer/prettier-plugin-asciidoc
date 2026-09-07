@@ -286,25 +286,25 @@
     {
       "id": "line/pair/block-title-near-1/continuation-near-0/adjacent/doc",
       "pass": "p1",
-      "signature": "[<paragraph(blankBelowAnchorLine=false) .children text(value=\". + x\") >paragraph] -> [<list(marker=\".\",variant=\"ordered\") .children <listItem(activeTail=false,detachedTail=false,markerGap=\" \",markerIndent=\"\",markerSpelling=\".\",trailingContinuation=false) .blocks .text text(value=\"+ x\") >listItem >list]",
+      "signature": "[<paragraph(blankBelowAnchorLine=false) .children text(value=\". + x\") >paragraph] -> [<list(marker=\".\",variant=\"ordered\") .children <listItem(activeTail=false,detachedTail=false,markerGap=\" \",markerIndent=\"\",markerSpelling=\".\",nextLineNeedsItsPosition=false,trailingContinuation=false) .blocks .text text(value=\"+ x\") >listItem >list]",
       "family": "join-changes-reading"
     },
     {
       "id": "line/pair/block-title-near-1/continuation-near-0/adjacent/item",
       "pass": "p1",
-      "signature": "[<paragraph(blankBelowAnchorLine=false) .children text(value=\". + x\") >paragraph] -> [<list(marker=\".\",variant=\"ordered\") .children <listItem(activeTail=false,detachedTail=false,markerGap=\" \",markerIndent=\"\",markerSpelling=\".\",trailingContinuation=false) .blocks .text text(value=\"+ x\") >listItem >list]",
+      "signature": "[<paragraph(blankBelowAnchorLine=false) .children text(value=\". + x\") >paragraph] -> [<list(marker=\".\",variant=\"ordered\") .children <listItem(activeTail=false,detachedTail=false,markerGap=\" \",markerIndent=\"\",markerSpelling=\".\",nextLineNeedsItsPosition=false,trailingContinuation=false) .blocks .text text(value=\"+ x\") >listItem >list]",
       "family": "join-changes-reading"
     },
     {
       "id": "line/pair/block-title-near-1/indented-continuation-near-0/adjacent/doc",
       "pass": "p1",
-      "signature": "[<paragraph(blankBelowAnchorLine=false) .children text(value=\". + x\") >paragraph] -> [<list(marker=\".\",variant=\"ordered\") .children <listItem(activeTail=false,detachedTail=false,markerGap=\" \",markerIndent=\"\",markerSpelling=\".\",trailingContinuation=false) .blocks .text text(value=\"+ x\") >listItem >list]",
+      "signature": "[<paragraph(blankBelowAnchorLine=false) .children text(value=\". + x\") >paragraph] -> [<list(marker=\".\",variant=\"ordered\") .children <listItem(activeTail=false,detachedTail=false,markerGap=\" \",markerIndent=\"\",markerSpelling=\".\",nextLineNeedsItsPosition=false,trailingContinuation=false) .blocks .text text(value=\"+ x\") >listItem >list]",
       "family": "join-changes-reading"
     },
     {
       "id": "line/pair/block-title-near-1/indented-continuation-near-0/adjacent/item",
       "pass": "p1",
-      "signature": "[<paragraph(blankBelowAnchorLine=false) .children text(value=\". + x\") >paragraph] -> [<list(marker=\".\",variant=\"ordered\") .children <listItem(activeTail=false,detachedTail=false,markerGap=\" \",markerIndent=\"\",markerSpelling=\".\",trailingContinuation=false) .blocks .text text(value=\"+ x\") >listItem >list]",
+      "signature": "[<paragraph(blankBelowAnchorLine=false) .children text(value=\". + x\") >paragraph] -> [<list(marker=\".\",variant=\"ordered\") .children <listItem(activeTail=false,detachedTail=false,markerGap=\" \",markerIndent=\"\",markerSpelling=\".\",nextLineNeedsItsPosition=false,trailingContinuation=false) .blocks .text text(value=\"+ x\") >listItem >list]",
       "family": "join-changes-reading"
     },
     {
@@ -544,25 +544,25 @@
     {
       "id": "line/pair/delimiter-literal-near-0/continuation-near-0/adjacent/doc",
       "pass": "p1",
-      "signature": "[<paragraph(blankBelowAnchorLine=false) .children characterReference(value=\"...\") text(value=\" + x\") >paragraph] -> [<list(marker=\"...\",variant=\"ordered\") .children <listItem(activeTail=false,detachedTail=false,markerGap=\" \",markerIndent=\"\",markerSpelling=\"...\",trailingContinuation=false) .blocks .text text(value=\"+ x\") >listItem >list]",
+      "signature": "[<paragraph(blankBelowAnchorLine=false) .children characterReference(value=\"...\") text(value=\" + x\") >paragraph] -> [<list(marker=\"...\",variant=\"ordered\") .children <listItem(activeTail=false,detachedTail=false,markerGap=\" \",markerIndent=\"\",markerSpelling=\"...\",nextLineNeedsItsPosition=false,trailingContinuation=false) .blocks .text text(value=\"+ x\") >listItem >list]",
       "family": "join-changes-reading"
     },
     {
       "id": "line/pair/delimiter-literal-near-0/continuation-near-0/adjacent/item",
       "pass": "p1",
-      "signature": "[<paragraph(blankBelowAnchorLine=false) .children characterReference(value=\"...\") text(value=\" + x\") >paragraph] -> [<list(marker=\"...\",variant=\"ordered\") .children <listItem(activeTail=false,detachedTail=false,markerGap=\" \",markerIndent=\"\",markerSpelling=\"...\",trailingContinuation=false) .blocks .text text(value=\"+ x\") >listItem >list]",
+      "signature": "[<paragraph(blankBelowAnchorLine=false) .children characterReference(value=\"...\") text(value=\" + x\") >paragraph] -> [<list(marker=\"...\",variant=\"ordered\") .children <listItem(activeTail=false,detachedTail=false,markerGap=\" \",markerIndent=\"\",markerSpelling=\"...\",nextLineNeedsItsPosition=false,trailingContinuation=false) .blocks .text text(value=\"+ x\") >listItem >list]",
       "family": "join-changes-reading"
     },
     {
       "id": "line/pair/delimiter-literal-near-0/indented-continuation-near-0/adjacent/doc",
       "pass": "p1",
-      "signature": "[<paragraph(blankBelowAnchorLine=false) .children characterReference(value=\"...\") text(value=\" + x\") >paragraph] -> [<list(marker=\"...\",variant=\"ordered\") .children <listItem(activeTail=false,detachedTail=false,markerGap=\" \",markerIndent=\"\",markerSpelling=\"...\",trailingContinuation=false) .blocks .text text(value=\"+ x\") >listItem >list]",
+      "signature": "[<paragraph(blankBelowAnchorLine=false) .children characterReference(value=\"...\") text(value=\" + x\") >paragraph] -> [<list(marker=\"...\",variant=\"ordered\") .children <listItem(activeTail=false,detachedTail=false,markerGap=\" \",markerIndent=\"\",markerSpelling=\"...\",nextLineNeedsItsPosition=false,trailingContinuation=false) .blocks .text text(value=\"+ x\") >listItem >list]",
       "family": "join-changes-reading"
     },
     {
       "id": "line/pair/delimiter-literal-near-0/indented-continuation-near-0/adjacent/item",
       "pass": "p1",
-      "signature": "[<paragraph(blankBelowAnchorLine=false) .children characterReference(value=\"...\") text(value=\" + x\") >paragraph] -> [<list(marker=\"...\",variant=\"ordered\") .children <listItem(activeTail=false,detachedTail=false,markerGap=\" \",markerIndent=\"\",markerSpelling=\"...\",trailingContinuation=false) .blocks .text text(value=\"+ x\") >listItem >list]",
+      "signature": "[<paragraph(blankBelowAnchorLine=false) .children characterReference(value=\"...\") text(value=\" + x\") >paragraph] -> [<list(marker=\"...\",variant=\"ordered\") .children <listItem(activeTail=false,detachedTail=false,markerGap=\" \",markerIndent=\"\",markerSpelling=\"...\",nextLineNeedsItsPosition=false,trailingContinuation=false) .blocks .text text(value=\"+ x\") >listItem >list]",
       "family": "join-changes-reading"
     },
     {

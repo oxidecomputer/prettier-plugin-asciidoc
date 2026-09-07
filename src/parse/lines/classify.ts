@@ -37,6 +37,7 @@ import {
   DELIMITER_KINDS,
   DLIST_SEPARATOR_WORD,
   INDENTED_PLUS,
+  LINE_COMMENT,
   LIST_MARKER_LINE,
   LITERAL_LINE,
   PAGE_BREAK,
@@ -614,6 +615,28 @@ export function delimiterKind(line: string): DelimiterKind | undefined {
  */
 export function isContinuationLine(line: string): boolean {
   return CONTINUATION_LINE.test(rstrip(line));
+}
+
+/**
+ * Whether a line is a comment the PARAGRAPH reader drops wherever it
+ * stands - the rule `read_paragraph_lines` runs `skip_line_comments`
+ * with at every position (parser.rb:754 and :764). Spelled live at
+ * reader.rb:424 (`(line.start_with? '//') && !(line.start_with?
+ * '///')`); `CommentLineRx` (`%r(^//(?=[^/]|$))`) is the same
+ * semantics and is commented out in the vendored source at
+ * rx.rb:227, so the reader line is the one to check against.
+ *
+ * NARROWER than the two characters `Reader#skip_line_comments` tests
+ * for (`LINE_COMMENT_HEAD`, src/parse/line-shapes.ts), and the
+ * difference is the whole reason this is a question: a `///` line is
+ * taken by the head drain and kept by the paragraph reader, so where
+ * it stands decides whether it renders at all. Everything the two
+ * agree on renders the same at either position.
+ * @param line - one rstripped source line
+ * @returns true when the paragraph reader drops the line
+ */
+export function isDroppedCommentLine(line: string): boolean {
+  return LINE_COMMENT.test(line);
 }
 
 /**

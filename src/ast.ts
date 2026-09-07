@@ -1601,6 +1601,49 @@ export interface ListItemNode extends Node, ItemBody {
    * `undefined` for non-callout items; 0 for auto-numbered (`<.>`).
    */
   calloutNumber: number | undefined;
+  /**
+   * The source line directly UNDER the item's opening line is read as
+   * what it is only because it stands there - so reflow may neither
+   * wrap a text line into that position nor fold the line already in
+   * it away.
+   *
+   * TWO readings turn on the position, and the reader records their
+   * disjunction because the printer's move is the same for both: the
+   * item's opening line keeps exactly the words the source put on it.
+   *
+   * - A BLOCK the item holds at a zero gap whose opening line is read
+   *   one way there and another below it
+   *   (`positionDecidesTheReading`,
+   *   src/parse/line-shapes-interruption.ts). A block ANCHOR is the
+   *   one the two programs agree on: `fold_first` merges it into the
+   *   item text on that line, id and all, and one line lower it
+   *   annotates a block of its own (parser.rb l.1384). A block MACRO
+   *   is one they disagree on - the Ruby gem 2.0.26 reads it as prose
+   *   at both positions (`text_only`, parser.rb l.1368-1374), the
+   *   pinned instrument opens a block at the first and reads prose
+   *   below it - and the oracle wins on results. The macro's row is
+   *   `LIST_ITEM_FIRST_LINE_INTERRUPTERS` (src/parse/line-shapes.ts,
+   *   which records the divergence); this fact inherits whichever way
+   *   that row is decided rather than carrying a case for it.
+   * - A `///` line the item's HEAD DRAIN took, which both programs
+   *   read alike. `skip_line_comments` tests `start_with? '//'`
+   *   (reader.rb l.337-339) and `parse_list_item` unshifts what it
+   *   took only when a line follows the run (parser.rb l.1363-1371),
+   *   while `read_paragraph_lines` drops a `//` line at any position
+   *   and a `///` line at none (reader.rb l.424, the live rule;
+   *   `CommentLineRx` is commented out at rx.rb l.227). So a `///`
+   *   line renders as nothing directly under the item's text and as
+   *   the text's own last words one line lower.
+   *
+   * The ANSWER travels, not the lines, for the reason
+   * {@link ListItemNode.everyTextLineIndented} gives: the scan holds
+   * the raw spelling, the printer asks exactly this yes/no of it
+   * (`guardedAtoms`, src/print/list.ts, which hands the atoms to
+   * `keepFirstSourceLineWhole`, src/print/reflow.ts), and a further
+   * question about the same lines takes a further recorded fact
+   * rather than a re-derivation from this one.
+   */
+  nextLineNeedsItsPosition: boolean;
 }
 
 /** One thing an item holds after its text, with how the source led into it. */

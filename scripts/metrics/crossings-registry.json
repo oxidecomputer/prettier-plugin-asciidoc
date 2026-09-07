@@ -616,6 +616,13 @@
     "reason": "the same answer, asked of the line a description's first block opens on: the shapes that end the description only on its first line are the ones a wrap costs their meaning"
   },
   {
+    "file": "src/parse/line-shapes-interruption.ts",
+    "symbol": "positionDecidesTheReading",
+    "importer": "src/parse/lines/list-item-node.ts",
+    "kind": "vocabulary",
+    "reason": "the same answer as the description join's, asked of the line directly under a marker item's opening line: the shapes the registry reads one way there and another below it are the ones a wrap or a fold costs their meaning"
+  },
+  {
     "file": "src/parse/line-shapes.ts",
     "symbol": "ADMONITION_LABEL",
     "importer": "src/parse/lines/classify.ts",
@@ -838,6 +845,13 @@
     "importer": "src/parse/lines/classify.ts",
     "kind": "vocabulary",
     "reason": "registry pattern: a line of nothing but indentation and a `+`, whose meaning an item-text dedent can change"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "LINE_COMMENT",
+    "importer": "src/parse/lines/classify.ts",
+    "kind": "vocabulary",
+    "reason": "registry pattern: the comment line `read_paragraph_lines` drops at any position, narrower than the head drain's bare `//` prefix"
   },
   {
     "file": "src/parse/line-shapes.ts",

@@ -136,11 +136,18 @@ export function readMarkerList(
 ): { node: ListNode; end: number } {
   const shape = listShape(host.lines, host.at, markerList(kind), host);
   applyGapWrites(host.scope, shape.gapWrites);
-  const item = (shape: ListItemShape<MarkerKind>): ListItemNode =>
-    listItemNode(shape, interiorOfItem(host, shape), {
+  const item = (shape: ListItemShape<MarkerKind>): ListItemNode => {
+    // Read ONCE and handed to both halves: the drain decides what the
+    // item's interior is read from AND whether the line under the
+    // item's text is one the drain alone drops, and asking it twice
+    // would be two places for that to be answered differently.
+    const drain = drainHeadComments(shape);
+    return listItemNode(shape, interiorOfItem(host, shape, drain), {
       gaps: host.scope.gaps,
       at: host.scope.at,
+      drained: drain.drained,
     });
+  };
   const [opening, ...rest] = shape.items;
   // The opening item is read into its own local, not inlined into the
   // call, so the items are read in SOURCE ORDER on the page as well
@@ -182,14 +189,15 @@ export function readMarkerList(
  * never fused into a word stream `wrap` could join.
  * @param host - what the reader hands the read
  * @param shape - what the extent scan decided about the item
+ * @param drain - what the head drain took, read by the caller
  * @returns the item's text and blocks
  */
 function interiorOfItem(
   host: ListHost,
   shape: ListItemShape<MarkerKind>,
+  drain: HeadDrain,
 ): ItemInterior {
   const { marker } = shape;
-  const drain = drainHeadComments(shape);
   const interior = host.interiorOf(
     shape.markerLine,
     drain.interior,
@@ -226,6 +234,20 @@ function drainedRawTokens(lines: readonly SourceLine[]): InlineToken[] {
     image: line.raw,
     offset: line.offset,
   }));
+}
+
+/** What the head drain took out of one item's buffer. */
+interface HeadDrain {
+  /** The lines left for the item's interior to be read from. */
+  readonly interior: readonly SourceLine[];
+  /** The lines the drain took, in source order; empty when it took none. */
+  readonly drained: readonly SourceLine[];
+  /**
+   * The first line number past what the drain took - the item's own
+   * opening line where it took nothing, which is a range holding no
+   * lines at all.
+   */
+  readonly drainedEnd: number;
 }
 
 /**
@@ -266,18 +288,12 @@ function drainedRawTokens(lines: readonly SourceLine[]): InlineToken[] {
  * above the term line stops being a comment and takes the whole list
  * with it.
  * @param shape - what the extent scan decided about the item
- * @returns the lines its interior is read from, the lines the drain
- *   took (empty when it took nothing - a fact a caller may test
- *   directly, rather than by comparing `interior`'s length back
- *   against the shape's own buffer), and the first line number past
- *   what the drain took - the item's own opening line where it took
- *   nothing, which is a range holding no lines at all
+ * @returns what the drain took and what it left ({@link HeadDrain});
+ *   `drained` is empty when it took nothing, a fact a caller may test
+ *   directly rather than by comparing `interior`'s length back
+ *   against the shape's own buffer
  */
-function drainHeadComments(shape: ListItemShape): {
-  interior: readonly SourceLine[];
-  drained: readonly SourceLine[];
-  drainedEnd: number;
-} {
+function drainHeadComments(shape: ListItemShape): HeadDrain {
   const { buffer } = shape;
   let end = 0;
   while (
