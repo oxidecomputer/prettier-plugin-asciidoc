@@ -377,44 +377,28 @@ describe("a family declared BOTH ways in one range", () => {
 
 describe("the production enum's blanket declaration", () => {
   test("each family owns exactly the recorded-fact key it named", () => {
-    expect([...LEDGER_FAMILIES.blanketKeys.keys()]).toEqual([
-      "block-start-line-fact",
-      "blank-below-anchor-line-fact",
-      "table-cell-column-index",
-      "second-line-indent-fact",
-      "span-mark-record",
-      "head-drain-record",
-      "reading-record",
-      "detached-tail-record",
+    // One row per family, in declaration order, each flattened to the
+    // family and the keys it owns - so a family that owned a second
+    // key, or none, would fail on the row's own length. The last row
+    // names a field the tree LOST rather than gained, and it is the
+    // same shape: the coverage test strips the family's keys from both
+    // dumps, so which side carried the key is not a question it asks.
+    expect(
+      [...LEDGER_FAMILIES.blanketKeys].map(([family, keys]) => [
+        family,
+        ...keys,
+      ]),
+    ).toEqual([
+      ["block-start-line-fact", "firstWordEndsItsLine"],
+      ["blank-below-anchor-line-fact", "blankBelowAnchorLine"],
+      ["table-cell-column-index", "columnIndex"],
+      ["second-line-indent-fact", "secondLineIndent"],
+      ["whitespace-record", "whitespace"],
+      ["span-mark-record", "marks"],
+      ["head-drain-record", "headDrain"],
+      ["reading-record", "reading"],
+      ["detached-tail-record", "detachedTail"],
     ]);
-    expect([
-      ...(LEDGER_FAMILIES.blanketKeys.get("block-start-line-fact") ?? []),
-    ]).toEqual(["firstWordEndsItsLine"]);
-    expect([
-      ...(LEDGER_FAMILIES.blanketKeys.get("blank-below-anchor-line-fact") ??
-        []),
-    ]).toEqual(["blankBelowAnchorLine"]);
-    expect([
-      ...(LEDGER_FAMILIES.blanketKeys.get("table-cell-column-index") ?? []),
-    ]).toEqual(["columnIndex"]);
-    expect([
-      ...(LEDGER_FAMILIES.blanketKeys.get("second-line-indent-fact") ?? []),
-    ]).toEqual(["secondLineIndent"]);
-    expect([
-      ...(LEDGER_FAMILIES.blanketKeys.get("span-mark-record") ?? []),
-    ]).toEqual(["marks"]);
-    expect([
-      ...(LEDGER_FAMILIES.blanketKeys.get("head-drain-record") ?? []),
-    ]).toEqual(["headDrain"]);
-    expect([
-      ...(LEDGER_FAMILIES.blanketKeys.get("reading-record") ?? []),
-    ]).toEqual(["reading"]);
-    // A field the tree LOST rather than gained, and the same shape:
-    // the coverage test strips the family's keys from both dumps, so
-    // which side carried the key is not a question it asks.
-    expect([
-      ...(LEDGER_FAMILIES.blanketKeys.get("detached-tail-record") ?? []),
-    ]).toEqual(["detachedTail"]);
     // A blanket family may not also be formatted-only: the two claims
     // contradict (one says the bytes are identical, the other says the
     // bytes are the only thing that moved).

@@ -839,6 +839,52 @@ const SECOND_LINE_INDENT_FACT_FAMILY = "second-line-indent-fact";
 const MARKER_GAP_KEPT_FAMILY = "marker-gap-kept";
 
 /**
+ * Every PROSE block - a paragraph, a paragraph-form admonition's
+ * body, a list item's text - records how its own whitespace may be
+ * respelled ({@link BlockWhitespace}, src/whitespace-record.ts): a
+ * `replayed` block keeps every run's source spelling, and a
+ * `reflowable` one carries one fact per whitespace run, in the order
+ * `whitespaceRuns` (src/whitespace-runs.ts) enumerates them. That is
+ * the question asked by every rule of the reference that spells a
+ * boundary as the literal space or the literal newline - the em-dash
+ * replacement, the hard line break, a macro target - and the packer
+ * used to re-derive it from the printed words, one predicate per rule.
+ *
+ * DECLARED AFTER ITS OWN LANDING, and the only family here that is.
+ * The field arrived in edbfc055 with no bare trailer, because the push
+ * carrying that commit was compared at its tip alone and the gate
+ * never saw the diff. A trailer states what the commit it sits on did,
+ * and edbfc055 is pushed, so the measurement is written down here
+ * instead of declared.
+ *
+ * A bare trailer on some LATER commit would sit in the scanned range,
+ * and it would still excuse nothing across that base:
+ * {@link blanketCoverage} covers a case under exactly one family's
+ * keys, and every case that gained `whitespace` had gained `reading`
+ * as well before any base a trailer of ours can reach, so stripping
+ * either key alone leaves the other standing. Measured with the family
+ * declared and every bare trailer already in 205a535a..HEAD: 1,011
+ * cases are still reported undeclared, the same 1,011.
+ *
+ * Measured against 205a535a, the landing's own base, over both commits
+ * the landing pushed: 1,011 of the 1,620 cases differ. 978 of them
+ * have identical formatted bytes and differ in the `whitespace` key
+ * and nothing else, which is what a bare trailer declares. The other
+ * 33 moved BYTES as well - the printer reads this record, so the
+ * landing was never byte-neutral - and no blanket can cover a byte
+ * mover; those take a per-id trailer, and what they did is in the two
+ * commit bodies. The 609 that do not differ at all are the cases
+ * holding no prose block, the same 609
+ * {@link READING_RECORD_FAMILY} counts over the same three carriers.
+ *
+ * NOT formatted-only: the key IS the difference, and a
+ * formatted-only family would fail the cross-check for every case.
+ *
+ * Not exported: no grid row cites it.
+ */
+const WHITESPACE_RECORD_FAMILY = "whitespace-record";
+
+/**
  * Every MARK span - bold, italic, monospace, highlight - records what
  * each of its two marks stands against ({@link SpanMarks},
  * src/mark-record.ts): `entangled` when the content is flush against
@@ -861,8 +907,9 @@ const SPAN_MARK_RECORD_FAMILY = "span-mark-record";
 
 /**
  * Every PROSE block - a paragraph, a paragraph-form admonition's
- * body, a list item's text, a description item's description -
- * records the context its lines were read in ({@link BlockReading},
+ * body, a list item's text, the same three carriers
+ * {@link WHITESPACE_RECORD_FAMILY} names - records the context its
+ * lines were read in ({@link BlockReading},
  * src/reader-context.ts): which interrupting set is open, and which
  * list stands around the block. Neither is a function of the block's
  * own bytes, and the printer's packer has to ask the reader's own
@@ -990,6 +1037,7 @@ export const LEDGER_FAMILIES: FamilySets = {
     ADMONITION_LABEL_FOLD_FAMILY,
     SECOND_LINE_INDENT_FACT_FAMILY,
     MARKER_GAP_KEPT_FAMILY,
+    WHITESPACE_RECORD_FAMILY,
     SPAN_MARK_RECORD_FAMILY,
     HEAD_DRAIN_RECORD_FAMILY,
     READING_RECORD_FAMILY,
@@ -1012,15 +1060,16 @@ export const LEDGER_FAMILIES: FamilySets = {
     TABLE_LAYOUT_FAMILY,
     TABLE_WIDTH_LAYOUT_FAMILY,
   ]),
-  // Eight families, and each owns exactly the field it named, as the
+  // Nine families, and each owns exactly the field it named, as the
   // dumper serializes it: `ParagraphNode.firstWordEndsItsLine`,
   // `ParagraphNode.blankBelowAnchorLine`,
   // `TableCellNode.columnIndex`, `ParagraphNode.secondLineIndent`,
-  // the `marks` record on the four mark spans, the `headDrain` record
-  // on the body both list-like items share, the `reading` on every
-  // prose-block carrier, and the `detachedTail` that body used to
-  // carry (all src/ast.ts). Every other family names a change to what
-  // the tree MEANS at some ids; these eight name a field every
+  // the `whitespace` record on every prose-block carrier, the `marks`
+  // record on the four mark spans, the `headDrain` record on the body
+  // both list-like items share, the `reading` on the same three
+  // carriers `whitespace` sits on, and the `detachedTail` that body
+  // used to carry (all src/ast.ts). Every other family names a change
+  // to what the tree MEANS at some ids; these nine name a field every
   // paragraph, every table cell, every mark span, every list item or
   // every prose block gained - or, for the last, LOST. The mechanism
   // does not distinguish the two: it strips the keys from both dumps
@@ -1031,6 +1080,7 @@ export const LEDGER_FAMILIES: FamilySets = {
     [BLANK_BELOW_ANCHOR_LINE_FACT_FAMILY, new Set(["blankBelowAnchorLine"])],
     [TABLE_CELL_COLUMN_INDEX_FAMILY, new Set(["columnIndex"])],
     [SECOND_LINE_INDENT_FACT_FAMILY, new Set(["secondLineIndent"])],
+    [WHITESPACE_RECORD_FAMILY, new Set(["whitespace"])],
     [SPAN_MARK_RECORD_FAMILY, new Set(["marks"])],
     [HEAD_DRAIN_RECORD_FAMILY, new Set(["headDrain"])],
     [READING_RECORD_FAMILY, new Set(["reading"])],
