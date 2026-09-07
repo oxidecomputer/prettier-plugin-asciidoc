@@ -843,7 +843,7 @@ class BlockReader {
     if (resolved.model === "table") {
       // The confined-reader branch below is not reachable for a table:
       // its interior is cells, never blocks.
-      const scan = readTable(extent.interior, resolved.hint, annotatedBy);
+      const scan = readTable(this.source, extent, resolved.hint, annotatedBy);
       this.push(buildTable(blockExtent, scan, this.at, held));
     } else if (resolved.model === "verbatim") {
       const node = buildVerbatimBlock(

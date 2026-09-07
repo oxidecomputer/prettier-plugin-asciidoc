@@ -179,6 +179,41 @@ describe("checklist prefix", () => {
   });
 });
 
+// A lone `\r` is a LINE BREAK to `@asciidoctor/core` 4.0.11's
+// `prepareSourceString` (see the JSDoc on nextLineBreak,
+// src/parse/positions.ts), and splitLines has cut a line there since
+// issue #68. `checkboxLine` answered where the item's first line ends
+// with a `\n` scan of its own until issue #272, so the prefix was
+// tested against a string that ran on past the break: `* [x] \rmore`
+// carried a checkbox and lost its `[x] ` where the `\n` twin of the
+// same item, whose trailing space the reader's rstrip takes off
+// before the prefix is tested, carries none.
+//
+// Only a DIRECT parse can witness this - Prettier rewrites `\r\n?` to
+// `\n` before any plugin parser runs (prettier/index.mjs,
+// normalizeEndOfLine) - which is why these are tree pins and not
+// format rows. The `\n` twin of each row is there to show that the
+// two spellings answer alike.
+describe("a lone carriage return ends the line a checklist is read off", () => {
+  test.each([
+    ["a lone carriage return", "* [x] \rmore\n"],
+    ["a newline", "* [x] \nmore\n"],
+  ])("%s: a prefix left open by the rstrip is no checkbox", (_name, source) => {
+    const [list] = parse(source).children;
+    narrow(list, "list");
+    expect(list.children[0].checkbox).toBeUndefined();
+  });
+
+  test.each([
+    ["a lone carriage return", "* [x] done\rmore\n"],
+    ["a newline", "* [x] done\nmore\n"],
+  ])("%s: a prefix the first line closes is a checkbox", (_name, source) => {
+    const [list] = parse(source).children;
+    narrow(list, "list");
+    expect(list.children[0].checkbox).toBe("checked");
+  });
+});
+
 describe("the blocks an item took", () => {
   test("blocks stay in source order, nested lists among them", () => {
     const nested = blockAt("list", 9);

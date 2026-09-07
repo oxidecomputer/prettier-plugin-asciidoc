@@ -1584,6 +1584,13 @@
   {
     "file": "src/parse/positions.ts",
     "symbol": "nextLineBreak",
+    "importer": "src/parse/build/list.ts",
+    "kind": "vocabulary",
+    "reason": "the same one answer, for the one fact the list builder measures off an item's own token images rather than off the lines it was handed (checkboxLine): a checklist prefix is tested against the item's FIRST line, and that line has to end where splitLines and the location index already ended it, a lone carriage return included"
+  },
+  {
+    "file": "src/parse/positions.ts",
+    "symbol": "nextLineBreak",
     "importer": "src/parse/build/paragraph.ts",
     "kind": "vocabulary",
     "reason": "the same one answer, for the two facts the paragraph builder measures off the document source rather than off the lines it was handed (firstWordEndsItsLine and secondLineIndent): they cut the block's first line where splitLines and the location index cut it, a lone carriage return included"

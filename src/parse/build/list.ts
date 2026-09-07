@@ -17,6 +17,7 @@ import type {
 import { buildFromTokens } from "../inline/inline-node-builder.js";
 import type { InlineToken } from "../inline/tokens.js";
 import { rstrip } from "../line-shapes.js";
+import { nextLineBreak } from "../positions.js";
 import type { Fragment, LocationIndex } from "../positions.js";
 import { bodyExtent } from "./paragraph.js";
 
@@ -196,13 +197,27 @@ function stripCheckboxPrefix(children: InlineNode[], prefix: string): boolean {
  * prefix's line can end inside a construct - `* [x] *b*` puts `[x] `
  * in a text node and `b` in a span - and only the images still hold
  * the source bytes in order.
+ *
+ * Where that first line ENDS is {@link nextLineBreak}'s answer and not
+ * a `\n` scan of its own, so this cut and the cut the reader already
+ * made cannot disagree: a lone `\r` ends a line to `@asciidoctor/core`
+ * 4.0.11's `prepareSourceString`, so the item text of `* [x] \rmore`
+ * is `[x]` after the rstrip - no checkbox, exactly as its `\n` twin
+ * reads - and not the whole `[x] \rmore` a `\n` scan runs to. The
+ * images are a contiguous span of the source, so asking the shared
+ * definition of them asks it of the document's own bytes.
+ *
+ * Reachable only by a DIRECT parse: Prettier rewrites `\r\n?` to `\n`
+ * before any plugin parser runs (prettier/index.mjs,
+ * normalizeEndOfLine), so `prettier.format` never hands this a CR,
+ * which is why the pin for it is a tree pin in
+ * tests/parser/build/list.test.ts.
  * @param tokens - the item's principal text, as tokenized
  * @returns the item's first source line, right-stripped
  */
 function checkboxLine(tokens: readonly InlineToken[]): string {
   const text = tokens.map((token) => token.image).join("");
-  const breakAt = text.indexOf("\n");
-  return rstrip(breakAt === -1 ? text : text.slice(0, breakAt));
+  return rstrip(text.slice(0, nextLineBreak(text, 0)));
 }
 
 /**

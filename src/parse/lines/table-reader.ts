@@ -224,6 +224,12 @@ interface LineScan {
   readonly line: SourceLine;
   /** Absolute offset the line's region ends at, terminator included. */
   readonly end: number;
+  /**
+   * The whole document, which every offset here indexes into. Carried
+   * because a run's image is a SPAN of it and nothing else, including
+   * the terminator `SourceLine.raw` stops in front of (split.ts).
+   */
+  readonly source: string;
   /** The table's cutting. */
   readonly cutting: TableCutting;
 }
@@ -318,22 +324,27 @@ function regionEnd(lines: readonly SourceLine[], index: number): number {
 }
 
 /**
- * The bytes of one line between two absolute offsets, taken from the
- * RAW spelling so that trailing whitespace the reader's rstrip dropped
- * is still reproduced, and carrying the line's terminator when the
- * range reaches past its last character.
- * @param line - the line to slice
+ * The bytes between two absolute offsets, read off the DOCUMENT.
+ *
+ * Every offset the cut hands out is a document offset, so a run's
+ * image is the document's own slice at it and never a respelling: the
+ * trailing whitespace the reader's rstrip dropped is still there, and
+ * so is the line's terminator when the range reaches past the line's
+ * last character. Slicing the line's `raw` instead would answer the
+ * same for everything but that terminator, which `raw` stops in front
+ * of (split.ts) and which a scan of the line alone can only guess at:
+ * a document whose lines end in a lone `\r` would get a `"\n"` it
+ * never wrote, and the printer that replays run images verbatim
+ * (src/print/table.ts) would write that byte back. Reachable only by
+ * a direct parse, since Prettier rewrites `\r\n?` to `\n` before any
+ * plugin parser runs (prettier/index.mjs, normalizeEndOfLine).
+ * @param scan - the line being read
  * @param from - absolute offset of the first character
  * @param to - absolute offset just past the last
  * @returns the bytes
  */
-function imageBetween(line: SourceLine, from: number, to: number): string {
-  const rawEnd = line.offset + line.raw.length;
-  const head = line.raw.slice(
-    from - line.offset,
-    Math.min(to, rawEnd) - line.offset,
-  );
-  return to > rawEnd ? `${head}\n` : head;
+function imageBetween(scan: LineScan, from: number, to: number): string {
+  return scan.source.slice(from, to);
 }
 
 /**
@@ -360,7 +371,7 @@ function appendRun(state: CutState, run: TableTextRun): void {
 function appendContent(scan: LineScan, from: number, to: number): void {
   appendRun(scan.state, {
     kind: "content",
-    image: imageBetween(scan.line, from, to),
+    image: imageBetween(scan, from, to),
     offset: from,
   });
 }
@@ -382,7 +393,7 @@ function appendContent(scan: LineScan, from: number, to: number): void {
 function appendWholeLine(scan: LineScan, kind: TableRunKind): void {
   scan.state.region.runs.push({
     kind,
-    image: imageBetween(scan.line, scan.line.offset, scan.end),
+    image: imageBetween(scan, scan.line.offset, scan.end),
     offset: scan.line.offset,
   });
 }
@@ -623,7 +634,7 @@ function cutAtSeparator(
   closeCell(scan.state, false);
   beginCell(scan.state, {
     kind: "separator",
-    spec: imageBetween(scan.line, specStart, separatorStart),
+    spec: imageBetween(scan, specStart, separatorStart),
     parsed,
     separator,
     offset: specStart,
@@ -654,19 +665,10 @@ function cutLine(scan: LineScan, start: number): void {
 
 /**
  * Read one line into the fold.
- * @param state - the fold's state
- * @param lines - the extent's interior lines
- * @param index - which line
- * @param cutting - the table's cutting
+ * @param scan - the line being read
  */
-function readLine(
-  state: CutState,
-  lines: readonly SourceLine[],
-  index: number,
-  cutting: TableCutting,
-): void {
-  const line = lines[index];
-  const scan: LineScan = { state, line, end: regionEnd(lines, index), cutting };
+function readLine(scan: LineScan): void {
+  const { line } = scan;
   if (isDroppedComment(line.text)) {
     appendWholeLine(scan, "droppedComment");
     return;
@@ -682,7 +684,7 @@ function readLine(
     // END a dsv cell there. Probed: a dsv cell held open by an escaped
     // separator swallows the blank line after it, and the line after
     // that, as one cell. This reader follows the oracle.
-    if (state.cellOpen) {
+    if (scan.state.cellOpen) {
       appendContent(scan, line.offset, scan.end);
       appendToBuffer(scan, "\n");
       return;
@@ -731,12 +733,19 @@ function assignRepeats(cells: readonly PositionalCell[]): TableScanCell[] {
  *
  * Driven by a table's open (lines/table-open.ts) and by
  * tests/parser/table-reader.test.ts.
+ *
+ * The whole document is taken alongside the lines because a run's
+ * image is a span of it ({@link imageBetween}): the lines carry every
+ * byte of their own text but not the terminator between them, which
+ * `SourceLine.raw` stops in front of (split.ts).
+ * @param source - the whole document, which the lines are spans of
  * @param lines - the extent's interior lines, with their offsets in
  *   the whole document
  * @param cutting - the format and separator the table resolved to
  * @returns the cells, and whatever came before the first of them
  */
 export function cutCells(
+  source: string,
   lines: readonly SourceLine[],
   cutting: TableCutting,
 ): TableCut {
@@ -748,7 +757,13 @@ export function cutCells(
     csvBuffer: "",
   };
   for (let index = 0; index < lines.length; index += 1) {
-    readLine(state, lines, index, cutting);
+    readLine({
+      state,
+      line: lines[index],
+      end: regionEnd(lines, index),
+      source,
+      cutting,
+    });
   }
   if (state.cellOpen) {
     closeCell(state, true);

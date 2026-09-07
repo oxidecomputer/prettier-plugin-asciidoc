@@ -203,13 +203,19 @@ function withColumnIndexes(
  * is the only place holding both the grouping's output and the
  * columns those indexes point into: the grouping is handed a column
  * COUNT and never sees the columns themselves.
- * @param lines - the extent's interior lines
+ * @param source - the whole document, which the extent's lines are
+ *   spans of and which the cut slices each run's image out of
+ * @param extent - the delimited extent the table opened
+ * @param extent.interior - its interior lines, the only part of it the
+ *   scan reads, which is why the parameter is typed as the record that
+ *   carries them and not as the whole extent
  * @param hint - the format the delimiter's hint character contributed
  * @param annotatedBy - the held attribute line's interior, if any
  * @returns the scan a table's builder takes
  */
 export function readTable(
-  lines: readonly SourceLine[],
+  source: string,
+  extent: { readonly interior: readonly SourceLine[] },
   hint: TableFormat,
   annotatedBy: string | undefined,
 ): TableScan {
@@ -219,12 +225,13 @@ export function readTable(
       : attrlistValues(annotatedBy);
   const cutting = resolveCutting(hint, values);
   const columns = resolveColumns(values);
-  const cut = cutCells(lines, cutting);
+  const { interior } = extent;
+  const cut = cutCells(source, interior, cutting);
   return {
     cutting,
     leadingRuns: cut.leadingRuns,
     rows: withColumnIndexes(groupRows(cut.cells, columns?.length)),
-    header: readHeaderDecision(lines, cut.cells, cutting, {
+    header: readHeaderDecision(interior, cut.cells, cutting, {
       header: values.options.has("header"),
       noheader: values.options.has("noheader"),
     }),
