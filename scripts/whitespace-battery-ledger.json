@@ -5,12 +5,12 @@
     "templates": {
       "shape": "positions",
       "counts": {
-        "positions": 198,
-        "cases": 792,
-        "free": 162,
+        "positions": 210,
+        "cases": 840,
+        "free": 168,
         "freeButInstrumentBound": 0,
-        "lengthBound": 24,
-        "tabBound": 25,
+        "lengthBound": 28,
+        "tabBound": 31,
         "newlineBound": 23,
         "programsDiffer": 1,
         "referenceOnly": 2
@@ -318,6 +318,54 @@
           "class": "FREE",
           "partition": "0000",
           "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "attr-hyphen-fused/s0",
+          "group": "attrref",
+          "class": "LENGTH+TAB",
+          "partition": "0120",
+          "oracle": "0120",
+          "programs": "agree"
+        },
+        {
+          "id": "attr-hyphen-fused/s1",
+          "group": "attrref",
+          "class": "LENGTH+TAB",
+          "partition": "0120",
+          "oracle": "0120",
+          "programs": "agree"
+        },
+        {
+          "id": "attr-hyphen-fused-dashdash/s0",
+          "group": "attrref",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "attr-hyphen-fused-dashdash/s1",
+          "group": "attrref",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "attr-hyphen-fused-right/s0",
+          "group": "attrref",
+          "class": "LENGTH+TAB",
+          "partition": "0120",
+          "oracle": "0120",
+          "programs": "agree"
+        },
+        {
+          "id": "attr-hyphen-fused-right/s1",
+          "group": "attrref",
+          "class": "LENGTH+TAB",
+          "partition": "0120",
+          "oracle": "0120",
           "programs": "agree"
         },
         {
@@ -889,6 +937,22 @@
           "programs": "agree"
         },
         {
+          "id": "bare-url-left-boundary/s0",
+          "group": "link",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "bare-url-left-boundary/s1",
+          "group": "link",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
           "id": "mailto/s0",
           "group": "link",
           "class": "FREE",
@@ -1026,6 +1090,38 @@
         },
         {
           "id": "menu-target/s2",
+          "group": "macro",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "menu-implicit/s0",
+          "group": "macro",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "menu-implicit/s1",
+          "group": "macro",
+          "class": "TAB",
+          "partition": "0010",
+          "oracle": "0010",
+          "programs": "agree"
+        },
+        {
+          "id": "menu-implicit/s2",
+          "group": "macro",
+          "class": "TAB",
+          "partition": "0010",
+          "oracle": "0010",
+          "programs": "agree"
+        },
+        {
+          "id": "menu-implicit/s3",
           "group": "macro",
           "class": "FREE",
           "partition": "0000",

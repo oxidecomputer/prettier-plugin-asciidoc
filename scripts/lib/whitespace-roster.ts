@@ -186,6 +186,26 @@ export const TEMPLATES: readonly Template[] = [
     ["aaaa", SLOT, "{nope}", SLOT, "bbbb"],
     { header: ":attribute-missing: warn" },
   ),
+  // A hyphen fused to a reference: the em-dash row's pattern reads
+  // the character on each side of the dashes, and a dash pair that
+  // arrives half from the source and half from an attribute value is
+  // still a dash pair by the time the replacement pass runs.
+  template("attr-hyphen-fused", "attrref", ["aa", SLOT, "-{d}", SLOT, "bb"], {
+    header: ":d: -",
+    note: "one hyphen in the source, one in the value",
+  }),
+  template(
+    "attr-hyphen-fused-dashdash",
+    "attrref",
+    ["aa", SLOT, "-{d}", SLOT, "bb"],
+    { header: ":d: --", note: "three hyphens once the value expands" },
+  ),
+  template(
+    "attr-hyphen-fused-right",
+    "attrref",
+    ["aa", SLOT, "{d}-", SLOT, "bb"],
+    { header: ":d: -", note: "the fused hyphen on the other side" },
+  ),
 
   // The directive references, which have effects the run can move.
   template("set-unset", "setref", ["aaaa", SLOT, "{set:x!}", SLOT, "bbbb"]),
@@ -305,6 +325,18 @@ export const TEMPLATES: readonly Template[] = [
     "yy",
   ]),
   template("bare-url", "link", ["xx", SLOT, "https://e.com", SLOT, "yy"]),
+  // The left boundary of a bare URL is a character class, not a
+  // whitespace rule: it holds a line start, a blank, and each of
+  // `>()[];"'` (rx.rb:526, InlineLinkRx). A run in front of a URL
+  // that already stands after a bracket is the position where those
+  // two ways of qualifying meet.
+  template("bare-url-left-boundary", "link", [
+    "xx(",
+    SLOT,
+    "https://e.com",
+    SLOT,
+    "yy",
+  ]),
   template("mailto", "link", ["xx", SLOT, "mailto:a@b.c[]", SLOT, "yy"]),
   template("bare-email", "link", ["xx", SLOT, "a@b.c", SLOT, "yy"]),
 
@@ -341,6 +373,16 @@ export const TEMPLATES: readonly Template[] = [
     "macro",
     ["xx", SLOT, "menu:File", SLOT, "Edit[Save]", SLOT, "yy"],
     { header: ":experimental:" },
+  ),
+  // The implicit menu form has no macro name at all: what makes it a
+  // menu is a quoted string with an angle bracket inside it, and the
+  // whitespace around that bracket is part of the pattern
+  // (rx.rb:570, InlineMenuRx).
+  template(
+    "menu-implicit",
+    "macro",
+    ["xx", SLOT, '"File', SLOT, ">", SLOT, 'New"', SLOT, "yy"],
+    { header: ":experimental:", note: "the implicit menu form" },
   ),
   template("kbd", "macro", ["xx", SLOT, "kbd:[Ctrl+A]", SLOT, "yy"], {
     header: ":experimental:",
