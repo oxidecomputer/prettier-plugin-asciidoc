@@ -876,7 +876,21 @@ function verbatimRunExtent(
     if (next === undefined) {
       break;
     }
-    const kind = classifyLine(next.text, reader);
+    // An erased cell is the item scan's continuation placeholder
+    // (SourceLine.continuationTag), which spells a blank and is not
+    // one, so the registry is asked about the `+` the author wrote
+    // rather than about the blank written over it. The row it
+    // answers from is where the two Asciidoctors are recorded as
+    // parting over that `+`
+    // (`styledVerbatimRun`, src/parse/line-shapes-interruption.ts):
+    // Ruby ends a styled run at the placeholder and the transpile
+    // keeps it open. Neither reading binds where they part, so this
+    // one keeps the BYTES - with nothing under the `+` reflowed the
+    // document formats to itself, and both renders survive.
+    const kind = classifyLine(
+      next.continuationTag === "erased" ? next.raw : next.text,
+      reader,
+    );
     classifyTrace.observer?.(next.offset, kind);
     if (kind.kind !== "text" && kind.kind !== "raw") {
       break;

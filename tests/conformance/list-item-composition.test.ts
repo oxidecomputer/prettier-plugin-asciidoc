@@ -38,9 +38,12 @@
  * The pin is `list-item-composition-quarantine.json`, exact in both
  * directions on the same terms as the registry sweep's manifest: a
  * row that starts diverging fails, and a quarantined row that gets
- * fixed fails too until its entry is deleted. It is not empty: 68
- * rows carry the same defect class live today (issue #201), which is
- * what the family found on the tree it was added to.
+ * fixed fails too until its entry is deleted. It is EMPTY: the 68
+ * rows it held when the family was added were the one live defect
+ * class it found (issue #201, a lone `+` inside a `+`-attached
+ * styled verbatim run), and those rows render the same on both sides
+ * now. So this file is a pure regression gate, which is the state its
+ * second test says it spends the rest of its life in.
  */
 import { describe, expect, test } from "vitest";
 import { byId, expectedFailures } from "./generated-sweep.js";
@@ -79,15 +82,13 @@ describe("list-item composition family", () => {
   // The manifest gate above compares a failing set against a failing
   // set, so it is blind to the family itself: a template that stopped
   // composing list items would sweep 700 documents that prove nothing
-  // and agree with the manifest about them. That is not hypothetical
-  // - inserting a blank line after the opener's `+` leaves all 68
-  // manifest rows failing and nothing else, so it passes today. And
-  // the variants that DO go red today (dropping the style line,
-  // dropping the trailing `b`) go red only because the manifest is
-  // non-empty: once #201 closes they compare empty against empty and
-  // pass. This test is what the family stands on for the rest of its
-  // life, when the manifest is empty and the gate above is a pure
-  // regression gate.
+  // and agree with the manifest about them. That is not hypothetical:
+  // with the manifest empty, EVERY perturbation of the template that
+  // keeps the sweep green above - inserting a blank line after the
+  // opener's `+`, dropping the style line, dropping the trailing `b` -
+  // compares empty against empty and passes there. This test is what
+  // the family stands on now that the gate above is a pure regression
+  // gate.
   test("the family realizes list-item compositions", () => {
     const rows = listItemCompositionRows();
     expect(rows).toHaveLength(700);

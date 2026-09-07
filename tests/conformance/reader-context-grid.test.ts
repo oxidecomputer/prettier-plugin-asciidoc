@@ -197,15 +197,25 @@ describe("classifyLine over the reachable grid", () => {
   // moves `asked`. Both are deliberate changes, and both should be
   // read before the number here is updated.
   //
-  // Both numbers held across the #187/#188 fixes: those closed 365
-  // cells the reader was never asking about, so the reach is exactly
-  // what it was and the census below is what moved.
+  // Both numbers held across the #188 fix and the registry half of
+  // #187: those closed 365 cells the reader was never asking about,
+  // so the reach was exactly what it was and the census below is what
+  // moved.
+  //
+  // `asked` then rose from 7,679 to 7,723 with the READER half. A
+  // styled verbatim run inside a list item reaches the item scan's
+  // continuation placeholder, a cell blanked in place over the
+  // author's `+`, and it now asks the registry about that `+` rather
+  // than about the blank written over it (verbatimRunExtent,
+  // src/parse/lines/paragraph-reader.ts). The 44 cells are the row
+  // being consulted where it was previously only correct: the same
+  // answer, now measured.
   test("is the size and reach the enumeration predicts", () => {
     const { cells, asked } = grid;
     expect(openParagraphProbes()).toHaveLength(188);
     expect(CONSTRUCTS).toHaveLength(55);
     expect(cells).toBe(10_340);
-    expect(asked).toBe(7679);
+    expect(asked).toBe(7723);
   });
 
   // Why the 23 states with NO open paragraph are enumerated and not

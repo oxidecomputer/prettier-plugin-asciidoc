@@ -127,12 +127,45 @@ describe("paragraphExtent", () => {
   });
 });
 
+/**
+ * The scan an ITEM reader hands over: the item's buffer, with the
+ * `+` lines blanked and tagged the way the item scan blanks them
+ * (`continuationTag: "erased"`, Ruby's `ListContinuationPlaceholder`).
+ * Written here rather than parsed out of a document because the
+ * extent scans are pure functions over the buffer, so the buffer is
+ * the input a row is written against.
+ * @param source - the item's buffer, as the author wrote it
+ * @param markerStyle - the enclosing marker list's style
+ * @returns the scan value, every lone `+` line erased in place
+ */
+function itemScanOf(source: string, markerStyle: string): ParagraphScan {
+  const scan = scanOf(source, markerStyle);
+  return {
+    ...scan,
+    lines: scan.lines.map((line) =>
+      line.text === "+"
+        ? { ...line, text: "", continuationTag: "erased" }
+        : line,
+    ),
+  };
+}
+
 describe("literalParagraphExtent", () => {
   test("keeps the indented lines, comments included, and stops at the blank", () => {
     const scan = scanOf("  lit\n// c\n  more\n\nafter\n");
     const { lines, end } = literalParagraphExtent(scan, 0);
     expect(lines.map((line) => line.text)).toEqual(["  lit", "// c", "  more"]);
     expect(end).toBe(3);
+  });
+
+  // The placeholder ENDS this run, where it is content to a styled
+  // one: neither Asciidoctor ever carries a placeholder inside an
+  // indented literal run, because the item scan slurped the run
+  // before the `+` under it was read (parser.rb l.1495), and both
+  // render the lines below it as a paragraph.
+  test("stops at the item scan's continuation placeholder", () => {
+    const scan = itemScanOf("  lit\n+\n  more\n", "*");
+    expect(literalParagraphExtent(scan, 0).end).toBe(1);
   });
 });
 
@@ -146,6 +179,29 @@ describe("verbatimStyledExtent", () => {
 
   test("a blank line is structural to the reader here", () => {
     const scan = scanOf("code\n\nmore\n");
+    expect(verbatimStyledExtent(scan, 0).end).toBe(1);
+  });
+
+  // Inside an item the `+` reaching this scan is already the item
+  // scan's placeholder, and the run takes it as content: the two
+  // Asciidoctors disagree about whether it ends the run (Ruby's empty
+  // String breaks the read, the transpile's boxed one does not), so
+  // the reading that keeps every line of the run keeps the bytes both
+  // would need. Before this, the run ended at the placeholder and the
+  // lines under it were reflowed as a paragraph (issue #201).
+  test("takes the item scan's continuation placeholder as content", () => {
+    const scan = itemScanOf("code\n+\nmore\n", "*");
+    const { lines, end } = verbatimStyledExtent(scan, 0);
+    // The placeholder's own line keeps its raw `+`; only `text` was
+    // blanked, which is what lets the printer write it back.
+    expect(lines.map((line) => line.raw)).toEqual(["code", "+", "more"]);
+    expect(end).toBe(3);
+  });
+
+  // A REAL blank line still ends it inside an item: the placeholder
+  // rule reads the tag, not the emptiness.
+  test("a blank line inside an item still ends the run", () => {
+    const scan = itemScanOf("code\n\nmore\n", "*");
     expect(verbatimStyledExtent(scan, 0).end).toBe(1);
   });
 });
