@@ -12,9 +12,9 @@ import vitest from "@vitest/eslint-plugin";
 // signature.
 const EXPECT_MAX_ARGS = 2;
 
-// `max-lines`'s ordinary ceiling (450) plus the 15 lines src/ast.ts's
+// `max-lines`'s ordinary ceiling (450) plus the 16 lines src/ast.ts's
 // own override below needs; see that override for why.
-const AST_MAX_LINES = 465;
+const AST_MAX_LINES = 466;
 
 // `max-lines`'s ordinary ceiling raised to 500 for
 // scripts/metrics/shape-census.ts; see that override for why.
@@ -536,7 +536,7 @@ export default defineConfig(
     rules: { curly: "off" },
   },
 
-  // `max-lines` raised for src/ast.ts alone (450 -> 460): the AST is
+  // `max-lines` raised for src/ast.ts alone (450 -> 466): the AST is
   // one module by the cycle gate's own design (ParentBlockNode needs
   // BlockNode and BlockNode's union names ParentBlockNode back, so
   // splitting the file would create the cross-file cycle
@@ -548,6 +548,9 @@ export default defineConfig(
   // a node's field is declared on the node, and the four prose-block
   // carriers each name the whitespace record (whose own type is a
   // leaf module for the same cycle reason, src/whitespace-record.ts).
+  // The ceiling is a MEASURED number, re-measured whenever a recorded
+  // fact is added: one declaration line per fact, and the file may
+  // not be split.
   {
     files: ["src/ast.ts"],
     rules: {

@@ -325,10 +325,16 @@ describe("an erased + run between nested items", () => {
       "* a\n** b\n\n+\n+\npara\n",
       "* a\n** b\n\n+\n+\npara\n",
     ],
+    // The single `+` used to be EATEN where the run of two above it
+    // survives, and the asymmetry was the missing home rather than a
+    // reading: a lone detached `+` between two items is spelled by no
+    // block's gap, so nothing wrote it back. It has a home now
+    // (`ListItemNode.leadingGap`, src/ast.ts) and the three rows are
+    // one rule again - verbatim, render-equal and a fixed point.
     [
-      "a SINGLE detached + between siblings is still eaten",
+      "a SINGLE detached + between siblings survives too",
       "* a\n** b\n\n+\n** b\n",
-      "* a\n** b\n** b\n",
+      "* a\n** b\n\n+\n** b\n",
     ],
   ])("%s", async (_name, input, expected) => {
     await expectFormatted(input, expected);
@@ -572,15 +578,23 @@ describe("the fold facts and the new-list marker keep their answers", () => {
 // what the identity test buys is one answer to "is this cell a
 // continuation marker" instead of two inside a single scan.
 //
-// The BYTE between the two markers is gone from the first five
-// expectations, and the indent is what took it. The opening marker
-// keeps the indent the author wrote (`ListItemNode.markerIndent`), so
-// on re-read the slurp above still runs, nothing raises
-// `within_nested_list`, and a `+` printed between the markers is
-// blanked in place rather than popped - a spelling that survives one
-// format and not the next. A popped `+` renders nothing, so the item
-// withholds it and the rows are fixed points again
-// (`SourceLine.slurped`).
+// The BYTE between the two markers comes back in the first five
+// expectations, and NOT through the item's own tail. The opening
+// marker keeps the indent the author wrote
+// (`ListItemNode.markerIndent`), so on re-read the slurp above still
+// runs, nothing raises `within_nested_list`, and a `+` printed
+// between the markers is blanked in place rather than popped. A
+// popped `+` renders nothing, so the item's tail withholds it
+// (`SourceLine.slurped`) - but the blanking RECORDS the byte, the gap
+// in front of the next item replays it (`ListItemNode.leadingGap`,
+// src/ast.ts), and the re-read records it the same way again, so
+// those rows are fixed points with the author's byte kept rather than
+// without it. A run of two collapses to one `+`, for the reason every
+// gap collapses a run before its first `+`: the second of the pair is
+// frozen and buffered as content, so no gap spells it. The two rows
+// with a BLANK between the `+` and the second marker keep the byte
+// too and lose the blank: a leading gap prints through its last `+`
+// and drops the run behind it (`separatorBefore`, src/print/list.ts).
 //
 // The last three rows are the CONTROLS, and each one raises
 // `within_nested_list` before the slurp so that l.1439 keeps the `+`
@@ -596,27 +610,27 @@ describe("an erased + is still a marker when the next line reads it", () => {
     [
       "adjacent markers",
       "* a\n+\n  ** z\n+\n+\n  ** z\n",
-      "* a\n+\n  ** z\n  ** z\n",
+      "* a\n+\n  ** z\n+\n  ** z\n",
     ],
     [
       "a blank between them",
       "* a\n+\n  ** z\n+\n\n  ** z\n",
-      "* a\n+\n  ** z\n  ** z\n",
+      "* a\n+\n  ** z\n+\n  ** z\n",
     ],
     [
       "a flush-left second marker",
       "* a\n+\n  ** z\n+\n+\n** z\n",
-      "* a\n+\n  ** z\n** z\n",
+      "* a\n+\n  ** z\n+\n** z\n",
     ],
     [
       "flush left, a blank between",
       "* a\n+\n  ** z\n+\n\n** z\n",
-      "* a\n+\n  ** z\n** z\n",
+      "* a\n+\n  ** z\n+\n** z\n",
     ],
     [
       "an ordered pair",
       ". a\n+\n  .. z\n+\n+\n.. z\n",
-      ". a\n+\n  .. z\n.. z\n",
+      ". a\n+\n  .. z\n+\n.. z\n",
     ],
     [
       "an indented marker offset by blanks keeps the pair",

@@ -202,16 +202,23 @@ describe("the item's extent", () => {
   // where a literal-slurped marker's would have been withheld. Both
   // spellings of the second marker line are pinned: an indent is not
   // what triggers the arm.
+  //
+  // The fixed point KEEPS one of the two bytes now. The item's own
+  // tail still withholds its `+`, and what changed is that the
+  // erasure's record has a home in front of the next nested item
+  // (`ListItemNode.leadingGap`, src/ast.ts): the run collapses to one
+  // `+` the way a gap before any block does, the re-read records the
+  // same one, and the second pass writes it again.
   test.each([
     [
       "an indented second marker",
       "t::\n\n  ** z\n+\n+\n  ** z\n",
-      "t::\n\n  ** z\n  ** z\n",
+      "t::\n\n  ** z\n+\n  ** z\n",
     ],
     [
       "a flush-left second marker",
       "t::\n\n** z\n+\n+\n** z\n",
-      "t::\n\n** z\n** z\n",
+      "t::\n\n** z\n+\n** z\n",
     ],
   ])(
     "#178 a greedy term's buffered marker line withholds its tail +, %s",

@@ -247,7 +247,7 @@ const printer: Printer<AnyNode> = {
         );
       }
       case "list": {
-        return printList(path, print, options);
+        return printList(node, path, print, options);
       }
       case "listItem": {
         return printListItem(node, path, print, options.printWidth);

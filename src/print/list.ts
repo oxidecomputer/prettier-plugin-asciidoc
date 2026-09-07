@@ -52,6 +52,8 @@ const BREAK_MARKERS = new Set(["-", "*"]);
  * Items at different depths are handled by the nested
  * ListNode structure — each ListItemNode prints its own
  * nested children recursively.
+ * @param node - the list, for each sibling's recorded leading gap
+ *   ({@link separatorBefore})
  * @param path - Prettier's AST path, used to recurse
  *   into list items via `path.map(print, "children")`.
  * @param print - Prettier's recursive print callback.
@@ -61,6 +63,7 @@ const BREAK_MARKERS = new Set(["-", "*"]);
  * @returns Doc IR for the formatted list.
  */
 export function printList(
+  node: ListNode,
   path: PrintPath,
   print: PrintFunction,
   options: PrintOptions,
@@ -69,24 +72,119 @@ export function printList(
   const parts: Doc[] = [];
   for (const [index, item] of items.entries()) {
     if (index > 0) {
-      // Siblings print ADJACENT, and the blank a source wrote between
-      // two items is not replayed — except where adjacency would stop
-      // spelling "sibling". A marker line ends the previous item only
-      // if the reader's loop SEES it (`is_sibling_list_item?`,
-      // parser.rb l.1430 and l.1519); a line the previous item's tail
-      // slurps up first reaches neither check. So the blank is
-      // DERIVED, not recorded: it is printed exactly where the tail
-      // would swallow this marker, whatever the author typed, and
-      // nowhere else.
+      // `path.map` walked `children`, so the printed docs are that
+      // array's parallel: the index is the item's own.
       parts.push(
-        tailSwallowsMarker(printedLines(items[index - 1], options))
-          ? [hardline, hardline]
-          : hardline,
+        ...separatorBefore(
+          node.children[index],
+          node.children[index - 1],
+          items[index - 1],
+          options,
+        ),
       );
     }
     parts.push(item);
   }
   return parts;
+}
+
+/**
+ * The lines printed between one item and the sibling under it. The
+ * RECORDED gap wins wherever it holds a `+` the item above has not
+ * already spelled itself; everywhere else the derived rule at the
+ * bottom of this comment decides.
+ *
+ * A `+` decides what the item under it attaches to, exactly as a `+`
+ * in front of a BLOCK does, so it is replayed
+ * ({@link ListItemNode.leadingGap}, through {@link gapParts}, which
+ * collapses a blank RUN to one blank up to the first `+` the way
+ * every other gap does). `* a` / `** b` / blank / `+` / a two-space
+ * indented `** z` / `* a` makes the trailing item a child of `z`;
+ * printed adjacent, the same trailing marker rejoins the OUTER list
+ * and the item moves a level (issue #184).
+ *
+ * The gap is replayed THROUGH ITS LAST `+`, and the blank lines
+ * behind that `+` are dropped. That is an erasure this arm makes and
+ * a BLOCK gap may not: a blank run under a lone `+` erases it
+ * (`buffer[detached_continuation] = ListContinuationPlaceholder`,
+ * parser.rb l.1576), so in front of a BLOCK the run decides whether
+ * the block attaches and every line of it has to come back. In front
+ * of a MARKER line there is no such choice to preserve - the marker
+ * ends the item whether the `+` above it is live or erased
+ * (`is_sibling_list_item?` at parser.rb l.1430 and l.1519 is reached
+ * either way) - and what the byte still decides is the nesting the
+ * marker under it opens, which it decides from wherever in the run it
+ * stands. Writing the blanks back instead is what does not survive:
+ * `* a` / `+` / blank / blank / `+` / `* a` would come back with its
+ * own trailing run and then lose the byte on the next pass, because a
+ * `+` written above blanks re-reads as the item above's popped tail
+ * and that prints ADJACENT.
+ *
+ * THE DOMAIN THE ERASURE WAS MEASURED OVER, because it is an erasure
+ * and not a replay. First the depth-5 list-shape product
+ * (tests/format/list-shape-sweep.deep.test.ts, render-equality and
+ * idempotence): its failing set is unchanged, and six of its
+ * documents leave the reading ledger. Then 540 hand-built documents
+ * whose LEADING gap carries blanks behind a `+` - the population this
+ * arm shortens - rendered in Ruby 2.0.26 and in the JS rewrite the
+ * harness runs, alike: over the 359 of those the two programs read
+ * the same way, no document renders differently under the truncation
+ * that did not already, and none is unstable. Outside both: 15 of the
+ * 540 lose their render under the truncation AND under dropping the
+ * run whole, every one of them a nested list with a PARAGRAPH under
+ * it that leaves the item either way; that is a mechanism of its own
+ * and no leading-gap spelling reaches it.
+ *
+ * NOT where the item ABOVE prints a tail of its own
+ * ({@link tailParts}: a popped `+`, or an erased shield). That byte
+ * is the last thing the item writes and it carries no line number, so
+ * anything this gap adds is a byte Ruby's own pop already threw away
+ * - `* a` / `+` / `+` / `+` / `* b` reaches the pop with two of the
+ * three (the third is read and dropped before it ever reaches a cell,
+ * parser.rb l.1444), the tail writes those two back, and the third's
+ * record entry lands here. The item's own tail is what comes back
+ * there, exactly as before.
+ *
+ * A gap holding no `+` at all is blank lines, and those are
+ * normalized away the way every leading gap always was: siblings
+ * print ADJACENT, because a blank line between two items of one list
+ * separates nothing (`parse_list`'s `skip_blank_lines` runs before it
+ * reads the next marker, parser.rb l.1125). The one exception is
+ * where adjacency would stop spelling "sibling". A marker line ends
+ * the previous item only if the reader's loop SEES it
+ * (`is_sibling_list_item?`, parser.rb l.1430 and l.1519); a line the
+ * previous item's tail slurps up first reaches neither check. So THAT
+ * blank is DERIVED, not recorded: it is printed exactly where the
+ * tail would swallow this marker, whatever the author typed, and
+ * nowhere else. A replayed gap needs no such probe of its own - both
+ * its bytes stop a slurp, a blank at l.1495's `break_on_blank_lines`
+ * and the `+` at its `break_on_list_continuation`.
+ * @param item - the sibling about to print
+ * @param previous - the item above it, for its tail facts
+ * @param previousDocument - that item's finished Doc, for the slurp probe
+ * @param options - the print options in force ({@link printedLines})
+ * @returns the Doc parts to put in front of the sibling
+ */
+function separatorBefore(
+  item: ListItemNode,
+  previous: ListItemNode,
+  previousDocument: Doc,
+  options: PrintOptions,
+): Doc[] {
+  // `lastIndexOf` + 1 is the length of the run through the last `+`,
+  // and 0 for a gap holding none - one expression for "does it hold
+  // one" and "how much of it is printed", so the two cannot disagree.
+  const through = item.leadingGap.lastIndexOf("+") + 1;
+  // The tail condition is asked of the tail PARTS rather than of the
+  // two facts behind them, so "the item above writes a byte after its
+  // blocks" has one definition and cannot come to disagree with what
+  // is printed.
+  if (through > 0 && tailParts(previous).length === 0) {
+    return gapParts(item.leadingGap.slice(0, through));
+  }
+  return tailSwallowsMarker(printedLines(previousDocument, options))
+    ? [hardline, hardline]
+    : [hardline];
 }
 
 /**

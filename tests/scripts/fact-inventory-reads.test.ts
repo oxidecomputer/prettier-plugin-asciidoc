@@ -102,7 +102,7 @@ function keysRead(files: Record<string, string>): string[] {
  * READS is the count of rows, not of read sites: a property shared
  * across a union's arms resolves to one symbol with several
  * declarations and is recorded against every arm, which is most of
- * the distance between this number and the 35 rows that are read at
+ * the distance between this number and the 36 rows that are read at
  * a source line resolving to exactly one row.
  */
 const EXEMPT_ROWS_READ = 126;
@@ -117,8 +117,13 @@ const EXEMPT_ROWS_READ = 126;
  * record adds an argument, the call breaks across lines, and the
  * carrier field now sits on a line of its own. `EXEMPT_ROWS_READ` is
  * unmoved at 126, which is what says no row started being read.
+ *
+ * 37 -> 38 with `ListItemNode.leadingGap`, and that arrival is not a
+ * new read either: `printList` reads `ListNode.children` for the item
+ * the separator rule needs, on a line that carries nothing else.
+ * `EXEMPT_ROWS_READ` is unmoved at 126 again.
  */
-const EXEMPT_ROWS_READ_UNAMBIGUOUSLY = 37;
+const EXEMPT_ROWS_READ_UNAMBIGUOUSLY = 38;
 
 describe("the real checkout", () => {
   test("realizes the pinned exempt-rows-read counts", () => {

@@ -18,7 +18,12 @@
  *
  * A shape LEAVING this file is progress and must be deliberate: the
  * commit that fixes one of the families takes its block out and says
- * so. The families that have left, newest first: **#121, the
+ * so. The families that have left, newest first: **#184, the
+ * continuation between two ITEMS of one list** (2 shapes: the `+` is
+ * recorded in front of the item it leads and printed back, so the
+ * marker under it opens the list the source opened - the field is
+ * `leadingGap` in `src/ast.ts` and the printer's arm is
+ * `separatorBefore` in `src/print/list.ts`); **#121, the
  * indented-marker-under-continuation indent drop** (735 of the 827
  * shapes the alphabet's "  ** z" member spelled once #161 added it,
  * now that the marker's own indent threads through `src/ast.ts` and
@@ -45,10 +50,10 @@
  * Every document the sweep's alphabet spells, at both depths, that
  * fails render-equality or idempotence today, grouped by mechanism.
  *
- * The last family to leave was **#121, the indented-marker-under-
- * continuation indent drop** (735 shapes, see the file comment above).
- * Two mechanisms remain, both found by the same alphabet member
- * (issue #161's "  ** z"):
+ * The last family to leave was **#184, the continuation between two
+ * ITEMS of one list** (2 shapes, see the file comment above). One
+ * mechanism remains, found by the same alphabet member (issue #161's
+ * "  ** z"):
  *
  * - **#157, PARAGRAPH_REFLOW_SWALLOWS_TRAILING_MARKER** (90 shapes): a
  *   paragraph reflow-joins its own trailing lines onto one output
@@ -58,13 +63,6 @@
  *   already covers this class for the delimiter-line case; these rows
  *   are its list-marker witnesses. EXPIRES when #157's paragraph-join
  *   guard also refuses a following list-marker line.
- * - **#184, the continuation-drop's "or the reverse" case** (2
- *   shapes): #121 fixed the direct witness, but when the continuation
- *   attaches to an ALREADY-OPEN nested item rather than the top-level
- *   item, dropping the continuation's blank line and `+` still changes
- *   which open list a later same-depth marker rejoins, and the item
- *   that followed it in the source renests onto the wrong list.
- *   EXPIRES when #184 is fixed.
  */
 export const FAILING_TODAY: readonly string[] = [
   // #157: a paragraph reflow-joins its trailing lines onto one output
@@ -160,11 +158,4 @@ export const FAILING_TODAY: readonly string[] = [
   "* a\n[role]\n[role]\n+\npara\n  ** z\n",
   "* a\npara\n[[anc]]\n+\npara\n  ** z\n",
   "* a\npara\n[role]\n+\npara\n  ** z\n",
-  // #184: a continuation that attaches to an already-open nested item
-  // (rather than the top-level item) still misnests the item that
-  // follows it once the continuation's blank line and `+` are
-  // dropped, even though the marker itself keeps its indentation. See
-  // the file comment above.
-  "* a\n  ** z\n\n+\n  ** z\n* a\n",
-  "* a\n** b\n\n+\n  ** z\n* a\n",
 ];

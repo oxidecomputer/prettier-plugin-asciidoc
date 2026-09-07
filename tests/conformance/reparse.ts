@@ -123,6 +123,7 @@ export const REPARSE_LENS: Readonly<Record<string, FieldLens>> = {
   "paragraph.firstWordEndsItsLine": "drop",
   "paragraph.secondLineIndent": "drop",
   "*.everyTextLineIndented": "drop",
+  "listItem.leadingGap": "drop",
   "descriptionTerm.line": "drop",
   "descriptionListItem.textLines": "drop",
   "descriptionListItem.printing": "drop",

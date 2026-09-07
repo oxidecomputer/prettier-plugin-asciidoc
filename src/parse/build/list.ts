@@ -8,6 +8,7 @@
  * These only take it apart.
  */
 import type {
+  GapLine,
   InlineNode,
   ItemBlock,
   ListItemNode,
@@ -92,6 +93,11 @@ export interface ListItemInput extends ItemBodyInput {
    * {@link ListItemNode}'s `nextLineNeedsItsPosition`).
    */
   readonly nextLineNeedsItsPosition: boolean;
+  /**
+   * The separator lines between the previous item of this list and
+   * this item's marker line (see {@link ListItemNode.leadingGap}).
+   */
+  readonly leadingGap: readonly GapLine[];
   /**
    * The marker's own spelling - what the printer replays (see
    * {@link ListItemNode.markerSpelling}). Separate from the Fragment
@@ -283,6 +289,7 @@ export function buildListItem(
     checkbox,
     calloutNumber: input.calloutNumber,
     nextLineNeedsItsPosition: input.nextLineNeedsItsPosition,
+    leadingGap: input.leadingGap,
     text,
     whitespace: blockWhitespace(text, input.context),
     blocks: [...input.blocks],

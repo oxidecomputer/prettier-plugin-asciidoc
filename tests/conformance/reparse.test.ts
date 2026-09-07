@@ -292,6 +292,16 @@ describe("the lens licenses what the printer normalizes", () => {
       ["* a\n+\npara\n", "* a\n+\n\npara\n"],
       ["* a\n+\npara\n", "* a\n\npara\n"],
     ],
+    [
+      // The ALIKE pair is the blank the printer drops between two
+      // siblings; the APART pair is the `+` it keeps, which moves the
+      // trailing item a level (issue #184). Same field both times, so
+      // the row cannot pass on some other difference.
+      "the gap spelling in front of a sibling item, and not the attachment",
+      ["listItem.leadingGap"],
+      ["* a\n** b\n\n** z\n", "* a\n** b\n** z\n"],
+      ["* a\n** b\n\n+\n  ** z\n* a\n", "* a\n** b\n  ** z\n* a\n"],
+    ],
   ];
   test.each(rows)("%s", (_what, _covers, alike, apart) => {
     expect(projected(alike[0])).toBe(projected(alike[1]));

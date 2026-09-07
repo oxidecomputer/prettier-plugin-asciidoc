@@ -41,56 +41,90 @@ import type { ListItemShape } from "./list-reader.js";
 import { fragmentOfLine, type SourceLine } from "./split.js";
 
 /**
- * Each block's gap: the recorded separator lines strictly between the
- * previous piece of the item and the block. A partition of the
- * document-wide gap record (GapRecord, scope.ts) by block positions.
- * Nothing here reads line text, so a non-gap line in a gap is
- * unrepresentable. Every line between two of an item's blocks was
- * consumed by a recording arm of some scan (comments and metadata are
- * blocks), so the record covers these ranges but for the one a scan's
- * own pop took off an item's tail and the item prints back itself
- * (`finishItem`, item-tail.ts) - the exception invariant (vii) states.
- * @param record - the document-wide gap record
- * @param textEnd - the text's last line number
- * @param blocks - the item's blocks, in source order
- * @returns one gap per block
- * Lives here, beside its one caller, because list-reader.ts has no
- * room for it under `max-lines` and this is the assembly step it is
- * part of.
+ * One PIECE of an item, as the source lines it occupies: the item's
+ * own text, or one of its blocks. Line numbers and nothing else,
+ * because line numbers are all {@link gapsOf} ever read off a block -
+ * and because the piece in FRONT of an item's text is a boundary, not
+ * a node, so there would be no block to hand it.
  *
- * Its src consumers are {@link listItemNode} above and
+ * Exported for the unit table that spells pieces directly
+ * (tests/parser/list-reader.test.ts); src reaches the shape through
+ * {@link blockPiece} and {@link gapsOf} instead.
+ * @internal
+ */
+export interface ItemPiece {
+  /** 1-based line the piece starts on. */
+  readonly start: number;
+  /** 1-based line the piece ends on. */
+  readonly end: number;
+}
+
+/**
+ * The lines one block occupies.
+ * @param block - a block an item holds
+ * @returns its line range, as {@link gapsOf} partitions by
+ *
+ * Its src consumers are {@link listItemNode} below and
  * description-list-node.ts, which partitions a description item's
  * blocks by the same rule.
  */
+export function blockPiece(block: BlockNode): ItemPiece {
+  return { start: block.position.start.line, end: block.position.end.line };
+}
+
+/**
+ * Each piece's gap: the recorded separator lines strictly between the
+ * previous piece and this one. A partition of the document-wide gap
+ * record (GapRecord, scope.ts) by piece positions. Nothing here reads
+ * line text, so a non-gap line in a gap is unrepresentable. Every line
+ * between two of an item's pieces was consumed by a recording arm of
+ * some scan (comments and metadata are blocks), so the record covers
+ * these ranges but for the one a scan's own pop took off an item's
+ * tail and the item prints back itself (`finishItem`, item-tail.ts) -
+ * the exception invariant (vii) states.
+ *
+ * The partition is EXCLUSIVE, and that is what makes it a partition
+ * rather than a set of overlapping windows: the caller cuts at ITEM
+ * boundaries as well as block boundaries, handing the item's own text
+ * as the piece behind its leading gap, so a `+` standing between two
+ * ITEMS of one list has exactly one home instead of none
+ * ({@link ListItemNode.leadingGap}, src/ast.ts).
+ * @param record - the document-wide gap record
+ * @param previousEnd - the last line of the piece before the first
+ *   one here: the previous item's end for a leading gap, the item's
+ *   own marker line where nothing of the list stands in front of it
+ * @param pieces - the item's pieces, in source order
+ * @returns one gap per piece, in the same order
+ * Lives here, beside its one caller, because list-reader.ts has no
+ * room for it under `max-lines` and this is the assembly step it is
+ * part of.
+ */
 export function gapsOf(
   record: ReadonlyMap<number, GapLine>,
-  textEnd: number,
-  blocks: readonly BlockNode[],
+  previousEnd: number,
+  pieces: readonly ItemPiece[],
 ): GapLine[][] {
   // Sorted ONCE for the whole call, then walked with a single cursor:
-  // block ranges are disjoint and increasing, so no entry a later
-  // block needs can sit before an entry an earlier block already
+  // piece ranges are disjoint and increasing, so no entry a later
+  // piece needs can sit before an entry an earlier piece already
   // consumed.
   const entries = [...record].toSorted(([a], [b]) => a - b);
   let cursor = 0;
-  let previousEnd = textEnd;
-  return blocks.map((block) => {
+  let previous = previousEnd;
+  return pieces.map((piece) => {
     // Boundaries are 1-based line numbers, both ends exclusive: the
-    // previous piece ends ON previousEnd, the block starts ON its
-    // start line.
-    const start = previousEnd;
-    previousEnd = block.position.end.line;
+    // previous piece ends ON `previous`, this one starts ON its start
+    // line.
+    const start = previous;
+    previous = piece.end;
     // Advance past entries at or before this gap's start, which
-    // skips both the previous block's own gap and any entry inside
-    // the previous block's own span, before collecting this one.
+    // skips both the previous piece's own gap and any entry inside
+    // the previous piece's own span, before collecting this one.
     while (cursor < entries.length && entries[cursor][0] <= start) {
       cursor += 1;
     }
     const gap: GapLine[] = [];
-    while (
-      cursor < entries.length &&
-      entries[cursor][0] < block.position.start.line
-    ) {
+    while (cursor < entries.length && entries[cursor][0] < piece.start) {
       gap.push(entries[cursor][1]);
       cursor += 1;
     }
@@ -104,38 +138,51 @@ export function gapsOf(
  * the GAP that precedes it.
  * @param shape - what the extent scan decided about the item
  * @param interior - the text and blocks the caller read from the buffer
- * @param lines - the document's gap record and offset index, and what
- *   the head drain took out of this item's buffer
- * @param lines.gaps - the document-wide gap record, complete for this
+ * @param bounds - the document's gap record and offset index, what
+ *   the head drain took out of this item's buffer, and the line the
+ *   item's own leading gap is cut at
+ * @param bounds.gaps - the document-wide gap record, complete for this
  *   item by now: its own scan and every descendant scan ran before
  *   this call
- * @param lines.at - the document's offset→Location index
- * @param lines.whitespace - the document's half of the item text's
+ * @param bounds.at - the document's offset-to-Location index
+ * @param bounds.whitespace - the document's half of the item text's
  *   whitespace context (`WhitespaceContext`, src/whitespace-fact.ts)
- * @param lines.drained - the lines the head drain took, in source
+ * @param bounds.drained - the lines the head drain took, in source
  *   order; read by the caller, which needs them for the interior too
+ * @param bounds.previousItemEnd - the last line the item BEFORE this
+ *   one occupies, or this item's own marker line where it opens the
+ *   list ({@link gapsOf})
  * @returns the item node
  */
 export function listItemNode(
   shape: ListItemShape<MarkerKind>,
   interior: ItemInterior,
-  lines: {
+  bounds: {
     gaps: ReadonlyMap<number, GapLine>;
     at: LocationIndex;
     whitespace: WhitespaceContext;
     drained: readonly SourceLine[];
+    previousItemEnd: number;
   },
 ): ListItemNode {
-  const { at } = lines;
+  const { at } = bounds;
   const { markerLine, marker } = shape;
   const { text, blocks } = interior;
   const textEnd = textEndLine(at, text, markerLine);
-  const gaps = gapsOf(lines.gaps, textEnd, blocks);
+  // The item's pieces, in source order, with its own TEXT at the
+  // front: the gap that comes back for it is the one standing before
+  // the marker line, which is the only place a `+` between two items
+  // of one list can be recorded.
+  const [leadingGap, ...gaps] = gapsOf(bounds.gaps, bounds.previousItemEnd, [
+    { start: markerLine.line, end: textEnd },
+    ...blocks.map(blockPiece),
+  ]);
   const paired = blocks.map((block, index) => ({ gap: gaps[index], block }));
   return buildListItem(
     {
       marker: fragmentOfLine(markerLine, marker.indent, marker.markerEnd),
       markerSpelling: marker.spelling,
+      leadingGap,
       // The bytes the Fragment above skips. The classifier already
       // measured them, so this is a slice of the line in hand rather
       // than a second match, and the printer writes them back in
@@ -153,7 +200,7 @@ export function listItemNode(
       calloutNumber:
         marker.variant === "callout" ? marker.calloutNumber : undefined,
       text,
-      context: lines.whitespace,
+      context: bounds.whitespace,
       blocks: paired,
       // The scan's answer, minus the one boundary it cannot see: an
       // item whose MARKER LINE an enclosing scan took into a LITERAL
@@ -178,7 +225,7 @@ export function listItemNode(
       nextLineNeedsItsPosition: nextLineNeedsItsPosition(
         shape.buffer,
         markerLine.line,
-        lines.drained,
+        bounds.drained,
       ),
     },
     at,

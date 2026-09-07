@@ -140,13 +140,16 @@ export function readMarkerList(
 ): { node: ListNode; end: number } {
   const shape = listShape(host.lines, host.at, markerList(kind), host);
   applyGapWrites(host.scope, shape.gapWrites);
-  const item = (shape: ListItemShape<MarkerKind>): ListItemNode => {
+  const item = (
+    itemShape: ListItemShape<MarkerKind>,
+    previousItemEnd: number,
+  ): ListItemNode => {
     // Read ONCE and handed to both halves: the drain decides what the
     // item's interior is read from AND whether the line under the
     // item's text is one the drain alone drops, and asking it twice
     // would be two places for that to be answered differently.
-    const drain = drainHeadComments(shape);
-    return listItemNode(shape, interiorOfItem(host, shape, drain), {
+    const drain = drainHeadComments(itemShape);
+    return listItemNode(itemShape, interiorOfItem(host, itemShape, drain), {
       gaps: host.scope.gaps,
       at: host.scope.at,
       whitespace: host.scope.whitespace,
@@ -162,15 +165,27 @@ export function readMarkerList(
       // moving. A KEPT run reads as text at both positions and needs
       // no guard.
       drained: drain.kind === "kept" ? [] : drain.run,
+      previousItemEnd,
     });
   };
   const [opening, ...rest] = shape.items;
   // The opening item is read into its own local, not inlined into the
   // call, so the items are read in SOURCE ORDER on the page as well
-  // as at run time.
-  const first = item(opening);
+  // as at run time - and the order is load-bearing as well as legible
+  // now: each sibling's LEADING gap is cut at the item before it
+  // (`ListItemNode.leadingGap`, src/ast.ts), which is a line number
+  // only the finished node has. The OPENING item is cut at its own
+  // marker line, where no line of this list can stand in front of it,
+  // so its gap is empty by construction rather than by a branch.
+  const first = item(opening, opening.markerLine.line);
+  const siblings: ListItemNode[] = [];
+  let previous = first;
+  for (const sibling of rest) {
+    previous = item(sibling, previous.position.end.line);
+    siblings.push(previous);
+  }
   return {
-    node: buildList(kind.variant, kind.style, first, rest.map(item)),
+    node: buildList(kind.variant, kind.style, first, siblings),
     end: shape.end,
   };
 }

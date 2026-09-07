@@ -37,7 +37,7 @@ import {
   textEndLine,
   type ItemInterior,
 } from "./item-body.js";
-import { endsInPlusParagraph, gapsOf } from "./list-item-node.js";
+import { blockPiece, endsInPlusParagraph, gapsOf } from "./list-item-node.js";
 import type { ListItemShape } from "./list-reader.js";
 import { fragmentOfLine, type SourceLine } from "./split.js";
 import type { WhitespaceContext } from "../../whitespace-fact.js";
@@ -351,7 +351,7 @@ export function descriptionItemNode(
   const textEnd = textEndLine(at, text, markerLine);
   const recorded = recordedTextLines(shape.buffer, markerLine.line, textEnd);
   const textLines = recorded.map((line) => line.text);
-  const gaps = gapsOf(bounds.gaps, textEnd, blocks);
+  const gaps = gapsOf(bounds.gaps, textEnd, blocks.map(blockPiece));
   const bodyless = text.length === 0 && blocks.length === 0;
   // Where this term's gap stops. A sibling with a body owes the
   // source between its term line and its description - the blank the

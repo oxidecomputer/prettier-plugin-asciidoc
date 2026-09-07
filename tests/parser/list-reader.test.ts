@@ -11,13 +11,15 @@
  * format suites.
  */
 import { describe, expect, test } from "vitest";
-import type { BlockNode, GapLine } from "../../src/ast.js";
+import type { GapLine } from "../../src/ast.js";
 import { BLOCK_START_CONTEXT } from "../../src/parse/line-shapes.js";
 import { classifyLine } from "../../src/parse/lines/classify.js";
-import { gapsOf } from "../../src/parse/lines/list-item-node.js";
+import {
+  gapsOf,
+  type ItemPiece,
+} from "../../src/parse/lines/list-item-node.js";
 import { listShape, markerList } from "../../src/parse/lines/list-reader.js";
 import { splitLines, type SourceLine } from "../../src/parse/lines/split.js";
-import { paragraphNode } from "../lib/nodes.js";
 import { gapGlyph } from "./reader-helpers.js";
 
 /**
@@ -136,18 +138,13 @@ describe("listShape walks siblings and stops at anything else", () => {
 });
 
 /**
- * A minimal positioned block for gapsOf (only positions are read).
- * @param startLine - the 1-based line the block starts on
+ * One piece for gapsOf, spelled as the line range it partitions by.
+ * @param startLine - the 1-based line the piece starts on
  * @param endLine - the 1-based line it ends on
- * @returns the block
+ * @returns the piece
  */
-function blockAt(startLine: number, endLine: number): BlockNode {
-  return paragraphNode({
-    position: {
-      start: { offset: 0, line: startLine, column: 1 },
-      end: { offset: 0, line: endLine, column: 1 },
-    },
-  });
+function pieceAt(startLine: number, endLine: number): ItemPiece {
+  return { start: startLine, end: endLine };
 }
 
 describe("gapsOf", () => {
@@ -158,20 +155,30 @@ describe("gapsOf", () => {
     [3, ""],
     [5, ""],
   ]);
-  test.each<[string, number, BlockNode[], GapLine[][]]>([
-    ["adjacent block: empty gap", 1, [blockAt(2, 2)], [[]]],
-    ["+ then blank before the block", 1, [blockAt(4, 4)], [["+", ""]]],
+  test.each<[string, number, ItemPiece[], GapLine[][]]>([
+    ["adjacent piece: empty gap", 1, [pieceAt(2, 2)], [[]]],
+    ["+ then blank before the piece", 1, [pieceAt(4, 4)], [["+", ""]]],
     [
-      "two blocks: each gap counts from the previous block's end",
+      "two pieces: each gap counts from the previous piece's end",
       1,
-      [blockAt(4, 4), blockAt(6, 6)],
+      [pieceAt(4, 4), pieceAt(6, 6)],
       [["+", ""], [""]],
     ],
     // Both ends exclusive: a line recorded ON the previous piece's last
     // line is that piece's own, so it opens no gap.
-    ["an entry ON the boundary is in no gap", 2, [blockAt(4, 4)], [[""]]],
-  ])("%s", (_name, textEnd, blocks, expected) => {
-    expect(gapsOf(record, textEnd, blocks)).toEqual(expected);
+    ["an entry ON the boundary is in no gap", 2, [pieceAt(4, 4)], [[""]]],
+    // The ITEM cut: the piece in front is the item's own marker line
+    // and text, so the lines above the marker are its LEADING gap and
+    // the lines under the text are the first block's
+    // (`ListItemNode.leadingGap`, src/ast.ts).
+    [
+      "a leading piece takes the entries above it",
+      1,
+      [pieceAt(2, 2), pieceAt(6, 6)],
+      [[], ["", ""]],
+    ],
+  ])("%s", (_name, previousEnd, pieces, expected) => {
+    expect(gapsOf(record, previousEnd, pieces)).toEqual(expected);
   });
 
   test("entries come back in line order whatever order they were recorded", () => {
@@ -179,14 +186,14 @@ describe("gapsOf", () => {
       [3, ""],
       [2, "+"],
     ]);
-    expect(gapsOf(outOfOrder, 1, [blockAt(4, 4)])).toEqual([["+", ""]]);
+    expect(gapsOf(outOfOrder, 1, [pieceAt(4, 4)])).toEqual([["+", ""]]);
   });
 
   test("a line nothing recorded is not in any gap", () => {
     // A hole in the record shortens the gap silently — the degrade
     // gapsOf documents; parity and idempotence are the nets for it.
     const holey = new Map<number, GapLine>([[2, "+"]]);
-    expect(gapsOf(holey, 1, [blockAt(4, 4)])).toEqual([["+"]]);
+    expect(gapsOf(holey, 1, [pieceAt(4, 4)])).toEqual([["+"]]);
   });
 });
 

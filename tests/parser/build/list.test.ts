@@ -45,6 +45,7 @@ function itemInput(overrides: Partial<ListItemInput>): ListItemInput {
     markerGap: " ",
     variant: "unordered",
     calloutNumber: undefined,
+    leadingGap: [],
     text: [],
     context: PLAIN_WHITESPACE_CONTEXT,
     blocks: [],

@@ -1691,6 +1691,44 @@ export interface ListItemNode extends Node, ItemBody {
    * rather than a re-derivation from this one.
    */
   nextLineNeedsItsPosition: boolean;
+  /**
+   * The lines strictly between the previous ITEM of this list and
+   * this item's marker line, verbatim - {@link ItemBlock.gap}'s
+   * alphabet and rule, one level out. Empty for a list's FIRST item,
+   * where no line of the list can stand in front of the marker, and
+   * empty for most others, because two adjacent markers have nothing
+   * between them.
+   *
+   * Recorded because a `+` can stand there and the byte is
+   * STRUCTURE. `* a` / `** b` / blank / `+` / a two-space indented
+   * `** z` / `* a` makes `z` a continuation-attached sibling of `b`,
+   * and the trailing item `z`'s child; print the two nested items
+   * adjacent and that same trailing marker rejoins the OUTER list
+   * instead, so an item moves a level (issue #184). One record holds
+   * every separator line an
+   * item's scans read, and the partition that hands each line to a
+   * gap cuts at item boundaries as well as block boundaries
+   * (`gapsOf`, src/parse/lines/list-item-node.ts) - which is why a
+   * `+` in front of a nested list that is a BLOCK of its item lands
+   * in that block's `gap`, and one in front of a nested list's own
+   * sibling lands here. Where the reader put the marker line decides
+   * which of the two homes a line takes; the printer replays both the
+   * same way.
+   *
+   * WHAT THE PRINTER SPENDS, stated because it is less than what is
+   * recorded, and both halves live in `separatorBefore`
+   * (src/print/list.ts). First, a gap is replayed only THROUGH ITS
+   * LAST `+`: blank lines alone separate nothing (`parse_list` skips
+   * the run before it reads the next marker, parser.rb l.1125), and
+   * the blanks BEHIND the last `+` are dropped as well, an erasure a
+   * BLOCK gap may not make and this one may because a marker line
+   * follows rather than a block. Second, the whole gap stands down
+   * where the item ABOVE prints a tail of its own
+   * (`trailingContinuation`, `detachedTail`): that item already
+   * writes the bytes the pop left it, and this gap holds only what
+   * Ruby's own read threw away.
+   */
+  leadingGap: readonly GapLine[];
 }
 
 /** One thing an item holds after its text, with how the source led into it. */

@@ -482,31 +482,45 @@ shape-diff `heading-adjacency` grid.
 ### List separators
 
 Inside a list, the separators are the AST's, not the printer's invention. The
-default in `src/print/list.ts` is to print each recorded `gap` line for line —
-which is what makes list formatting idempotent by construction — normalizing
-only a blank run down to one blank, up to the gap's first `+` (the same rule
+default in `src/print/list.ts` is to print each recorded gap line for line,
+which is what makes list formatting idempotent by construction, normalizing only
+a blank run down to one blank, up to the gap's first `+` (the same rule
 `joinBlocks` holds between blocks; a blank run after a `+` is what erases the
 `+`, so shortening that one would change attachment). Every `+` the printer
 emits is a replay of one the author wrote; a `+` at an item's end is not
 replayed, because Ruby pops it and it renders nothing.
 
+There are two recorded gaps, and the reader's own partition decides which one a
+line lands in: an `ItemBlock.gap` in front of each block an item holds, and a
+`ListItemNode.leadingGap` in front of each item after a list's first. One
+document-wide record feeds both, cut at block boundaries and item boundaries
+alike (`gapsOf`, `src/parse/lines/list-item-node.ts`), so a `+` between two
+ITEMS of one list has a home rather than being destroyed for want of one (issue
+#184).
+
 Above that default the printer holds separator decisions of its own, each a
 named arm whose function comment carries the reasoning and the Ruby citation:
-`printedGap`, `hazard` and `tailSwallowsMarker` in `src/print/list.ts` and
-`src/print/list-hazard.ts`, and `drainTakesWholeBody` and `drainTakesItemBody`
-in `src/print/join.ts`. They are named rather than counted because the set grows
-with the shapes that need one, and every member is there for the same reason:
-verbatim replay would not re-parse to the same tree. `hazard` answers a reflow
-that would move the item's first rest line up (the line Ruby reads three ways:
-the metadata drain, the blank count, and the indent strip); `printedGap` answers
-a nested list sharing its parent's marker spelling; `tailSwallowsMarker` answers
-a previous item's tail whose literal slurp would swallow the next marker line;
-`drainTakesWholeBody` answers a description every line of which the head drain
-would take (`skip_line_comments`, reader.rb l.329-346), which deletes the
-description and its `<dd>` unless the `+` the author wrote under it comes back
-where the pop can absorb it; and `drainTakesItemBody` answers a marker item
-every printed line of whose body that same drain would take, which deletes the
-paragraph that body renders.
+`printedGap`, `hazard`, `tailSwallowsMarker` and `separatorBefore` in
+`src/print/list.ts` and `src/print/list-hazard.ts`, and `drainTakesWholeBody`
+and `drainTakesItemBody` in `src/print/join.ts`. They are named rather than
+counted because the set grows with the shapes that need one, and every member is
+there for the same reason: verbatim replay would not re-parse to the same tree.
+`hazard` answers a reflow that would move the item's first rest line up (the
+line Ruby reads three ways: the metadata drain, the blank count, and the indent
+strip); `printedGap` answers a nested list sharing its parent's marker spelling;
+`tailSwallowsMarker` answers a previous item's tail whose literal slurp would
+swallow the next marker line; `drainTakesWholeBody` answers a description every
+line of which the head drain would take (`skip_line_comments`, reader.rb
+l.329-346), which deletes the description and its `<dd>` unless the `+` the
+author wrote under it comes back where the pop can absorb it;
+`drainTakesItemBody` answers a marker item every printed line of whose body that
+same drain would take, which deletes the paragraph that body renders; and
+`separatorBefore` answers the gap in front of a sibling item, replaying the `+`
+it holds unless the item above already prints that byte through its own tail.
+`separatorBefore` also makes the one erasure a gap replay is allowed: a LEADING
+gap prints through its last `+` and drops the blank lines behind it, because a
+marker line follows rather than a block, so those blanks decide nothing that
+survives.
 
 The two drain arms place a byte whose MEANING is decided under it, so neither
 owns the decision alone: one blank line under a live `+` arms it and attaches
