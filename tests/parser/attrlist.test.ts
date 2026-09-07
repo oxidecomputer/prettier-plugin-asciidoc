@@ -268,31 +268,32 @@ describe("canonicalAttrlist — one spelling of the interior", () => {
     // attribute line, and the gate below has already held that byte
     // to the class both authorities accept.
     ['a,"*bold*"', "a,*bold*"],
-    // THE DISAGREEMENT GATE. A lead the two authorities read
-    // differently makes the whole interior unrespellable, because the
-    // bracketed line is metadata to one program and prose to the
-    // other, and rewriting prose moves what that program renders.
-    // U+00BD is in the oracle's `\p{N}` and outside Ruby's
-    // `\p{Digit}`, so both rows come back byte for byte. Red before
-    // canonicalAttrlist grew the gate: the first printed
-    // `½x,role=y`, the second `½x,b c`.
-    ["½x, role=y", "½x, role=y"],
-    ['½x, "b c"', '½x, "b c"'],
-    // The gate asks TWO questions, and each control below turns off
-    // one of them. A lead both authorities accept is respelled as
-    // ever (日 is alphabetic to both), and a leading BLANK reaches no
-    // lead class at all: no `[...]` line begins with one, so this
-    // interior can only have come from a macro's brackets, where the
-    // blanks are the boundary blanks Ruby drops (the ` source , ruby `
-    // row above is the same control, from before the gate existed).
+    // NOT PROTECTED BY DESIGN: an interior whose own lead only ONE
+    // authority reads as metadata. A gate used to return such an
+    // interior unchanged; there is nothing to preserve where the two
+    // programs disagree about what the line is, so it is respelled
+    // like any other. U+00BD is in the oracle's `\p{N}` and outside
+    // Ruby's `\p{Digit}`, so these two are exactly that case: the
+    // oracle renders the same attribute line under both spellings,
+    // and Ruby, which renders the line as prose, renders the new
+    // bytes. Note the contrast with `"*bold*"` above, which survives:
+    // there the two programs AGREE that the bare spelling is prose,
+    // so the shared reading binds.
+    ["½x, role=y", "½x,role=y"],
+    ['½x, "b c"', "½x,b c"],
+    // A lead both authorities accept was never in question (日 is
+    // alphabetic to both), and a leading BLANK reaches no lead class
+    // at all: no `[...]` line begins with one, so this interior can
+    // only have come from a macro's brackets, where the blanks are the
+    // boundary blanks Ruby drops (the ` source , ruby ` row above is
+    // the same control).
     ["日本, role=y", "日本,role=y"],
     [" ½x , role=y ", "½x,role=y"],
     // An ASTRAL lead is in the agreed class like any other letter,
-    // and both questions read a CODE POINT to see that. Red before
-    // they did: U+10400 is a surrogate PAIR, its leading unit is a
-    // lone surrogate in no Unicode class, so indexing answered
-    // "outside" and the gate refused the respacing while the
-    // first-field guard kept the quotes.
+    // and the first-field guard reads a CODE POINT to see that. Red
+    // before it did: U+10400 is a surrogate PAIR, its leading unit is
+    // a lone surrogate in no Unicode class, so indexing answered
+    // "outside" and the guard kept the quotes.
     ["𐐀x, role=y", "𐐀x,role=y"],
     ['"𐐀x"', "𐐀x"],
     // Ruby expands `{name}` INTO the attrlist string before

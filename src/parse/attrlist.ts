@@ -18,7 +18,6 @@
 import {
   ATTRLIST_LEADING_CHARACTER,
   BLOCK_ANCHOR_BOTH_PROGRAMS,
-  BLOCK_ATTRIBUTE_LINE,
 } from "./line-shapes.js";
 
 /**
@@ -640,9 +639,8 @@ function needsQuoting(value: string): boolean {
 /**
  * Whether a text's FIRST character is one both authorities accept at
  * the head of a `[...]` line ({@link ATTRLIST_LEADING_CHARACTER}) -
- * the one question {@link canonicalField} and
- * {@link canonicalAttrlist} both have to answer before they respell
- * anything.
+ * the question {@link canonicalField} has to answer before it drops
+ * a first field's quotes.
  *
  * It reads a CODE POINT, not a code unit. An astral lead (`\u{10400}`,
  * DESERET CAPITAL LETTER LONG I) is a surrogate PAIR in a JavaScript
@@ -654,8 +652,8 @@ function needsQuoting(value: string): boolean {
  * here is what keeps the two answers the same.
  *
  * Total, and the empty text is the reason to say so: nothing has no
- * lead to disagree about, and `[]` is an attribute line to both
- * programs whose canonical form is itself.
+ * lead to argue about, and `[]` is an attribute line to both programs
+ * whose canonical form is itself.
  * @param text - an attrlist interior, or one field's unquoted value
  * @returns true when the first character is in the agreed class, or
  *   when there is no first character
@@ -698,9 +696,18 @@ function leadsWithAgreedCharacter(text: string): boolean {
  * ALL, not just which value it names ({@link ATTRLIST_LEADING_CHARACTER},
  * measured directly - `` [`d`] `` and `[*bold*]` are ordinary text to
  * the oracle, `["d"]` is metadata). A later field carries no such
- * risk of its OWN: nothing but the interior's own first character is
- * asked, and that character is the one {@link canonicalAttrlist} has
- * already held to the same class before calling here at all.
+ * risk of its OWN: only the interior's first character can turn the
+ * line into prose, and a later field is not it.
+ *
+ * IT IS THE ONE ASKER of that class, and the only lead question the
+ * printer still asks. {@link canonicalAttrlist} used to ask it of the
+ * whole interior too and does not: it is a bare map over this
+ * function now. The two questions are not the same one. Where the
+ * INTERIOR's own lead is outside the class the two programs disagree
+ * about whether the line is metadata at all, so there is no shared
+ * reading for a respelling to break. Here they AGREE - `["*bold*"]`
+ * is metadata to both and `[*bold*]` is prose to both - so a shared
+ * reading exists and this guard is what preserves it.
  *
  * The class asked here is narrower than the one the READER holds a
  * block attribute line to, and its own declaration says why: a
@@ -728,42 +735,19 @@ function canonicalField(field: string, first: boolean): string {
  * spelling would read back identically ({@link canonicalField}) - the
  * attrlist re-derived from what it parses to, rather than the
  * author's habit replayed. Returns the author's bytes unchanged when
- * {@link attrlistFields} declines the interior, and when the interior
- * itself is one only one of the two authorities reads.
+ * {@link attrlistFields} declines the interior.
  *
- * THE DISAGREEMENT GATE, which is the second of those two refusals,
- * and it asks TWO questions because only their conjunction is a
- * hazard. Would these bytes, wrapped in brackets, be a block
- * attribute LINE ({@link BLOCK_ATTRIBUTE_LINE})? And is the lead one
- * the two authorities read the same way
- * ({@link ATTRLIST_LEADING_CHARACTER})? The reader takes the oracle's
- * lead class and the reference implementation's is a different set at
- * two edges, so a lead only ONE of them accepts leaves the line prose
- * to the other, and respelling it moves that program's rendered TEXT:
+ * AN INTERIOR ONLY ONE AUTHORITY READS AS METADATA is respelled like
+ * any other. The reader takes the oracle's lead class and the
+ * reference implementation's is a different set at two edges, so
  * `[½x, role=y]` (U+00BD, a `\p{No}`) is an attribute line to the
- * oracle and a paragraph to the reference implementation, so printing
- * `[½x,role=y]` changes what the reference implementation renders,
- * and `[½x, "b c"]` printed bare destroys two quotes and a blank that
- * survive into its output.
- *
- * The first question separates exactly one thing, and the comment
- * says which so that nobody reads a caller test into it: interiors
- * whose own BYTES could not open a block attribute line whatever
- * bracketed them. A leading blank is that case and the reason the
- * question is here - no `[...]` line begins with one to either
- * program, so the blanks around `image::a.png[ alt , 10 ]` and
- * `[ source , ruby ]` are the boundary blanks Ruby drops and
- * trimming them is the canonical spelling this function exists to
- * write.
- *
- * It is a byte sniff and not a caller test, so an interior that
- * WOULD open such a line is held to the line's class no matter where
- * it came from: `image::a.png[½x, 10 ]` keeps its boundary blanks
- * even though a macro's brackets are not a line and nothing there
- * could have flipped. That over-refusal costs a canonical spelling
- * and never a byte, which is the direction to be wrong in; the
- * alternative is passing the caller down, and no caller has any
- * other use for the fact.
+ * oracle and a paragraph to the reference implementation, and
+ * printing `[½x,role=y]` moves the text the latter renders. Neither
+ * reading binds where the two disagree, which is what licenses the
+ * respelling: what the formatter must preserve is a reading the two
+ * programs share, and here there is none. The FIRST FIELD's own guard
+ * is a different question and stays ({@link canonicalField}): it
+ * fires where both programs agree that the bare spelling is prose.
  *
  * MEASURED DOMAIN, stated so a reader does not read more into it than
  * is there: the confluence gate's own proof
@@ -780,9 +764,6 @@ function canonicalField(field: string, first: boolean): string {
  * @returns the interior to print
  */
 export function canonicalAttrlist(raw: string): string {
-  if (BLOCK_ATTRIBUTE_LINE.test(`[${raw}]`) && !leadsWithAgreedCharacter(raw)) {
-    return raw;
-  }
   return (
     attrlistFields(raw)
       ?.map((field, index) => canonicalField(field, index === 0))

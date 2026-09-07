@@ -79,20 +79,26 @@ describe("a block attribute line's lead outside ASCII", () => {
     await expectFormatted(input, expected);
   });
 
-  // The INTERIOR of a line only one authority reads is not respelled
-  // either, which is the whole-interior half of the same rule: comma
-  // respacing and a later field's quote drop rewrite bytes the
-  // reference implementation renders as prose. Red before
-  // canonicalAttrlist gated on the interior's lead
-  // (src/parse/attrlist.ts): the first row printed `[½x,role=y]`,
-  // moving text the reference implementation renders, and the second
-  // printed `[½x,b c]`, destroying two quotes and a blank that
-  // survive into its output. `[日本, role=y]` is the control that
-  // says the gate refuses only the disagreement: 日 is in both
-  // classes, so the respelling stands.
+  // NOT PROTECTED BY DESIGN: the INTERIOR of a line only ONE
+  // authority reads as metadata. `canonicalAttrlist` used to return
+  // such an interior unchanged, so that comma respacing and a later
+  // field's quote drop could not rewrite bytes the reference
+  // implementation renders as prose. It respells them now. There is
+  // nothing to preserve where the two programs disagree about what
+  // the line even is, and a lead outside their agreement is one they
+  // disagree about by construction: U+00BD is `\p{No}`, which the
+  // oracle's `\p{N}` takes and Ruby's `\p{Digit}` does not.
+  //
+  // Measured on the first row. To the oracle both spellings are the
+  // same attribute line and render `<div class="paragraph y">
+  // <p>para</p></div>`. To Ruby 2.0.26 both are prose, and the
+  // rendered text moves from `[½x, role=y]` to `[½x,role=y]`; on the
+  // second row it moves from `[½x, "b c"]` to `[½x,b c]`, losing two
+  // quotes and a blank. `[日本, role=y]` is the control: 日 is in
+  // both classes, so its respelling was never in question.
   test.each([
-    ["[½x, role=y]\npara\n", "[½x, role=y]\npara\n"],
-    ['[½x, "b c"]\npara\n', '[½x, "b c"]\npara\n'],
+    ["[½x, role=y]\npara\n", "[½x,role=y]\npara\n"],
+    ['[½x, "b c"]\npara\n', "[½x,b c]\npara\n"],
     ["[日本, role=y]\npara\n", "[日本,role=y]\npara\n"],
   ])("%j formats to %j", async (input, expected) => {
     await expectFormatted(input, expected);
@@ -124,9 +130,10 @@ describe("a block attribute line's lead outside ASCII", () => {
   // the quotes stayed on, because an ASCII `\w` refused a lead the
   // oracle and the Ruby both accept. The third row is the reason the
   // guard is NARROWER than the reader's class rather than equal to
-  // it: `["½x"]` is an attribute line to both programs and `[½x]` is
-  // one to the oracle and a paragraph to the Ruby, so unquoting it
-  // would flip the reference implementation's reading of the line.
+  // it, and the reason this half survives where the whole-interior
+  // half above did not: `["½x"]` is an attribute line to both
+  // programs, so there IS a shared reading to preserve, and `[½x]` is
+  // one to the oracle and a paragraph to the Ruby.
   test.each([
     ['["ünicode"]\npara\n', "[ünicode]\npara\n"],
     ['["日本"]\npara\n', "[日本]\npara\n"],

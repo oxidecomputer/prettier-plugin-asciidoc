@@ -567,15 +567,12 @@ const BLOCK_ATTRIBUTE_LINE_SOURCE = String.raw`\[(?:|[\p{Alphabetic}\p{N}\p{Pc}.
  * {@link BLOCK_ATTRIBUTE_LINE_SOURCE} by hand rather than derived
  * from it (that source is a whole line's pattern; this is only its
  * head), because src/parse/attrlist.ts asks the narrower question
- * before it respells anything. Its two askers are `canonicalField`,
+ * before it respells anything. Its one asker is `canonicalField`,
  * which unquotes a first entry and so writes the line's own leading
- * character (a value starting outside this class would change
+ * character: a value starting outside this class would change
  * whether the WHOLE LINE still reads as an attribute line, not just
  * which value it names - measured: `` [`d`] `` and `[*bold*]` read
- * as ordinary text, `["d"]` and `[.role]` do not), and
- * `canonicalAttrlist`, which asks it of the interior it is about to
- * rewrite, because respacing a comma inside a line only ONE
- * authority reads as metadata rewrites the other's prose.
+ * as ordinary text, `["d"]` and `[.role]` do not.
  *
  * Narrower than the reader's class ON PURPOSE, and that is the whole
  * reason the two are separate rather than one export. Reading is
@@ -588,7 +585,11 @@ const BLOCK_ATTRIBUTE_LINE_SOURCE = String.raw`\[(?:|[\p{Alphabetic}\p{N}\p{Pc}.
  * both, and the same value bare opens one to the oracle and a
  * paragraph to the Ruby, so dropping those quotes would flip the
  * reference implementation's reading (measured through both
- * programs). So the numbers here are the DECIMAL ones both classes
+ * programs). An interior whose OWN lead is outside the class is a
+ * different case and no longer asked here: the two programs disagree
+ * about whether its line is metadata at all, so there is no shared
+ * reading for a respelling to break. So the numbers here are the
+ * DECIMAL ones both classes
  * hold (`\p{Nd}`, the intersection of the oracle's `\p{N}` with
  * Ruby's `\p{Digit}`), and marks - Ruby-only - are absent for the
  * same reason.
