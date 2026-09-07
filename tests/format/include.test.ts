@@ -456,3 +456,125 @@ describe("a block macro directly under an include", () => {
     await expectFormatted(input, out);
   });
 });
+
+/**
+ * Issue #261: the list arms, whose cost is neither a respelling nor a
+ * blank line UNDER the block but the blank line BETWEEN two items.
+ * `read_paragraph_lines` takes `StartOfBlockProc` at document level
+ * (parser.rb l.36) and that proc holds no marker, so below
+ * substituted content the oracle reads `* a` as the paragraph's own
+ * text and only `* b` as a list of one. Read as one list over both,
+ * the printer's list normalization dropped the author's blank line
+ * and the whole `<ul>` left the render: `include::p[]\n* a\n\n* b\n`
+ * came back as `include::p[]\n* a\n* b\n` under Asciidoctor 2.0.26
+ * and `@asciidoctor/core` 4.0.11 alike.
+ *
+ * What each of the 21 rows below was BEFORE the precondition reached
+ * these arms, measured against a build without it rather than
+ * assumed: the groups were red for two different reasons, and six
+ * rows were not red at all.
+ *
+ * - The TWELVE rows carrying a blank line between the items - the
+ *   six marker shapes, the four under a body-bearing conditional and
+ *   the two in a container - were RENDER-EQUALITY failures. The
+ *   blank was dropped and a whole list left the render.
+ * - The THREE adjacent rows were BYTE failures and nothing more.
+ *   The formatter printed them back unchanged and the render matched
+ *   either way; what is new is the fold the pin now demands, which
+ *   both programs license because all three lines are one paragraph
+ *   to them.
+ * - `include::p[]\n* a\nmore\n` and the five CONTROLS - past a blank
+ *   line, at document top, after a paragraph, the admonition label
+ *   and the indented line - were already green, bytes and render
+ *   alike. They pin what must NOT move: the admonition and indented
+ *   arms are the two this ladder does not hold off, and the other
+ *   three are positions where a marker is a list to both programs
+ *   and the list normalization runs as it always did.
+ */
+describe("a list marker directly under an include", () => {
+  // One row per marker shape the two held-off arms cover, each with
+  // the blank line between the items that carries the divergence.
+  test.each([
+    ["an unordered marker", "include::p[]\n* a\n\n* b\n"],
+    ["an ordered marker", "include::p[]\n. a\n\n. b\n"],
+    ["a callout marker", "include::p[]\n<1> a\n\n<2> b\n"],
+    ["a checklist marker", "include::p[]\n* [ ] a\n\n* [x] b\n"],
+    ["a description term", "include::p[]\nt:: d\n\nu:: e\n"],
+    ["a nested marker", "include::p[]\n**** deep\n\n**** deeper\n"],
+  ])("%s keeps the blank line between the items", async (_name, input) => {
+    await expectFormatted(input, input);
+  });
+
+  // The same under the other substituting directive, which needs no
+  // missing file to show it (issue #231).
+  test.each([
+    ["an unordered marker", "ifndef::zz[body]\n* a\n\n* b\n"],
+    ["an ordered marker", "ifndef::zz[body]\n. a\n\n. b\n"],
+    ["a callout marker", "ifndef::zz[body]\n<1> a\n\n<2> b\n"],
+    ["a description term", "ifndef::zz[body]\nt:: d\n\nu:: e\n"],
+  ])("%s under a body-bearing conditional keeps it", async (_name, input) => {
+    await expectFormatted(input, input);
+  });
+
+  // The two other containers the held-off arms are measured in.
+  test.each([
+    ["an open block", "--\ninclude::p[]\n* a\n\n* b\n--\n"],
+    ["a document body", "before\n\ninclude::p[]\n* a\n\n* b\n"],
+  ])("a marker under an include in %s keeps it", async (_n, input) => {
+    await expectFormatted(input, input);
+  });
+
+  // ADJACENT markers, where the oracle reads every line as the one
+  // paragraph's text: they fold into it, the trade every other
+  // held-off arm makes. The directive line itself never folds, which
+  // is what leaves `substitutedContentAbove` re-derivable from the
+  // output.
+  test.each([
+    [
+      "adjacent unordered markers",
+      "include::p[]\n* a\n* b\n",
+      "include::p[]\n* a * b\n",
+    ],
+    [
+      "adjacent ordered markers",
+      "include::p[]\n. a\n. b\n",
+      "include::p[]\n. a . b\n",
+    ],
+    [
+      "adjacent callout markers",
+      "include::p[]\n<1> a\n<2> b\n",
+      "include::p[]\n<1> a <2> b\n",
+    ],
+    [
+      "a marker over ordinary text",
+      "include::p[]\n* a\nmore\n",
+      "include::p[]\n* a more\n",
+    ],
+  ])("the paragraph swallows %s", async (_n, input, out) => {
+    await expectFormatted(input, out);
+  });
+
+  // The negative shapes: with no substituted content above, a marker
+  // opens a list and the list normalization runs as it always did.
+  test.each([
+    [
+      "past a blank line",
+      "include::p[]\n\n* a\n\n* b\n",
+      "include::p[]\n\n* a\n* b\n",
+    ],
+    ["at document top", "* a\n\n* b\n", "* a\n* b\n"],
+    ["after a paragraph", "para\n\n* a\n\n* b\n", "para\n\n* a\n* b\n"],
+  ])("a marker %s is a list", async (_n, input, out) => {
+    await expectFormatted(input, out);
+  });
+
+  // The arms NOT held off, measured in the same position: neither
+  // moves a byte below a substitution, which is why neither joined
+  // the nine.
+  test.each([
+    ["an admonition label", "include::p[]\nNOTE: a\n\nNOTE: b\n"],
+    ["an indented line", "include::p[]\n  x\n\nmore\n"],
+  ])("%s below an include still keeps its bytes", async (_n, input) => {
+    await expectFormatted(input, input);
+  });
+});

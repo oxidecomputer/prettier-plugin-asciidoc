@@ -255,7 +255,7 @@ export interface ReaderContext {
    * then `unshift ''`, reader.rb l.993-997), and needs no missing
    * file to do it (issue #231).
    *
-   * SEVEN rules are held off while this is true, and they are the
+   * NINE rules are held off while this is true, and they are the
    * ones whose reading the printer turns into bytes that move. Four
    * are in `classifyBlockStart` (lines/classify.ts): the block title
    * and the attribute entry, each of which becomes a block of its own
@@ -268,10 +268,13 @@ export interface ReaderContext {
    * break (issue #210). The seventh is the block macro
    * (`BlockMacroRx`), which carries both of those costs at once: its
    * brackets are an attribute list the printer respells, and it is a
-   * block of its own with a blank line under it (issue #232). Held
-   * off, each line drops to the ladder's text fallback, which is
-   * Asciidoctor's own reading once the substituted content opens a
-   * paragraph.
+   * block of its own with a blank line under it (issue #232). The
+   * last two are the list arms, the marker (`UnorderedListRx`,
+   * `OrderedListRx`, `CalloutListRx`) and the description-list term
+   * (`DescriptionListRx`), whose cost is neither of those (issue
+   * #261, below). Held off, each line drops to the ladder's text
+   * fallback, which is Asciidoctor's own reading once the
+   * substituted content opens a paragraph.
    *
    * The arms NOT held off are the ones a paragraph does not swallow.
    * `read_paragraph_lines` (parser.rb l.962-970) breaks on a blank
@@ -285,21 +288,25 @@ export interface ReaderContext {
    * paragraph text to the oracle.) The rest of
    * `next_block`'s ladder is read below the substitution too, and
    * wrongly, and each of those arms prints its LINE back where it
-   * stands. The seven above are the ones held off, and the claim
-   * this field carries covers those seven and no more: printing a
-   * line back where it stands is not the same as printing the
-   * DOCUMENT back, and the LIST-MARKER arm is the measured case
-   * where it is not enough. Below a substitution the oracle reads
-   * `* a` as the paragraph's own text and only a later `* b` as a
-   * list; this reader reads one list over both, and the printer's
-   * list normalization then drops the blank line the author wrote
-   * between them, so `include::p[]` over `* a`, a blank line and
-   * `* b` prints the two markers adjacent and a whole `<ul>` leaves
-   * the render under Asciidoctor 2.0.26 and `@asciidoctor/core`
-   * 4.0.11 alike. Every marker's own line is intact; the blank
-   * line BETWEEN items is what moves, which is why holding the arm
-   * off would not be the fix. Open as #261, and not this field's to
-   * answer.
+   * stands - which is not the same as printing the DOCUMENT back,
+   * and the two LIST arms were the measured case where it is not
+   * enough. Below a substitution the oracle reads `* a` as the
+   * paragraph's own text and only a later `* b` as a list; read as
+   * one list over both, the printer's list normalization dropped the
+   * blank line the author wrote between them, so `include::p[]` over
+   * `* a`, a blank line and `* b` printed the two markers adjacent
+   * and a whole `<ul>` left the render under Asciidoctor 2.0.26 and
+   * `@asciidoctor/core` 4.0.11 alike. Every marker's own line was
+   * intact and the blank line BETWEEN items was what moved, which is
+   * why the cost is stated in the DOCUMENT's bytes rather than the
+   * line's, and why the two arms join the seven rather than needing
+   * a mechanism of their own.
+   *
+   * What is left is the admonition label and the indented fallback,
+   * and they stay because their bytes hold still: `NOTE: a` below a
+   * substitution prints back as itself whether it is read as a
+   * paragraph's style or as that paragraph's first words, measured
+   * in both programs.
    */
   readonly substitutedContentAbove: boolean;
   /**

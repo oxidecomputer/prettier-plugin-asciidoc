@@ -764,14 +764,15 @@ export const metadataLineKind: (
  * first (it runs before `next_block` even reads the line), then
  * `next_section`'s title test, then `next_block`'s own ladder.
  *
- * SEVEN of the arms below are held off where the block start may not
+ * NINE of the arms below are held off where the block start may not
  * be one to Asciidoctor: the four in {@link blockMetadataOrTitleKind}
- * and the three in {@link blockBoundaryOnlyKind}, one group per
+ * and the five in {@link blockBoundaryOnlyKind}, one group per
  * function. Each is read at a block boundary alone, and each turns
  * into bytes that MOVE when it fires below content the preprocessor
  * substituted - the spelling itself for a break or a setext title,
- * the blank line the printer puts between blocks for the other three,
- * and BOTH for the macro
+ * the blank line the printer puts between blocks for the title, the
+ * attribute entry and the ATX title, BOTH for the macro, and the
+ * blank line between two list items for the two list arms
  * ({@link ReaderContext.substitutedContentAbove}, which names the
  * issue each row carries). Held off, they leave the line to the
  * ladder's text fallback, which is the reading Asciidoctor gives it.
@@ -945,7 +946,13 @@ function blockMetadataOrTitleKind(
  * `OrderedListRx` and `DescriptionListRx` all accept Ruby's leading
  * `[ \t]*` — so `␠␠* x` is a list. `CalloutListRx` does not, and
  * `next_block` gates it on `!indented`, which is why `␠␠<1> x` falls
- * through to the literal paragraph instead.
+ * through to the literal paragraph instead. The list arms sit inside
+ * {@link blockBoundaryOnlyKind} rather than here, and that ordering
+ * is unchanged by it: the five arms that group there are the first
+ * five of this ladder, in the order Ruby asks them -
+ * `ExtLayoutBreakRx` at parser.rb l.591-592, `BlockMediaMacroRx` at
+ * l.597-599, `CalloutListRx` at l.686, `UnorderedListRx` at l.692,
+ * `OrderedListRx` at l.698 and `DescriptionListRx` at l.704.
  *
  * The arms this ladder holds off below substituted content are
  * grouped into {@link blockBoundaryOnlyKind}, the way
@@ -955,6 +962,12 @@ function blockMetadataOrTitleKind(
  * be held off that the rest of the group does not, so what the group
  * takes is which of its arms may claim the line
  * ({@link BlockBoundaryReach}).
+ *
+ * What is LEFT here is what a paragraph below a substitution reaches
+ * anyway. The admonition label is one of them because its bytes do
+ * not move: `NOTE: a` prints back as itself whether it is read as a
+ * paragraph's style or as the paragraph's first words, measured in
+ * both programs. The indented fallback is the other.
  * @param line - one rstripped source line
  * @param reach - which of {@link blockBoundaryOnlyKind}'s arms may
  *   claim this line ({@link classifyBlockStart} states the two
@@ -966,18 +979,6 @@ function classifyBlockBody(line: string, reach: BlockBoundaryReach): LineKind {
   if (atBoundary !== undefined) {
     return atBoundary;
   }
-  const marker = parseListMarker(line);
-  if (marker !== undefined) {
-    return { kind: "listMarker", ...marker };
-  }
-  const term = parseDescriptionListLine(line);
-  if (term !== undefined) {
-    return {
-      kind: "dlistTerm",
-      indent: line.length - line.trimStart().length,
-      ...term,
-    };
-  }
   const label = parseAdmonitionLabel(line);
   if (label !== undefined) {
     return { kind: "admonitionLabel", ...label };
@@ -986,7 +987,7 @@ function classifyBlockBody(line: string, reach: BlockBoundaryReach): LineKind {
 }
 
 /**
- * The THREE arms of `next_block`'s ladder that are read at a block
+ * The FIVE arms of `next_block`'s ladder that are read at a block
  * boundary and nowhere else, and so are the ones
  * {@link classifyBlockStart}'s preconditions hold off.
  *
@@ -1001,11 +1002,43 @@ function classifyBlockBody(line: string, reach: BlockBoundaryReach): LineKind {
  * lost its padding, and `image::a.png[]` over `more` was split into
  * two blocks where the oracle reads one paragraph (issue #232).
  *
- * The two breaks are held off by a SECOND reason the macro is not,
- * which is why `reach` says which arms may claim the line rather than
- * whether any may: a spaced `- - -` inside an open list is that
- * item's own marker line, while `image::a.png[]` is a macro wherever
- * it stands ({@link BlockBoundaryReach}).
+ * The two breaks are held off by a SECOND reason the other three are
+ * not, which is why `reach` says WHICH arms may claim the line rather
+ * than whether any may. That reason and the LIST arms below are one
+ * question asked twice, and {@link blockBoundaryReach} asks
+ * `parseListMarker` once for both: a marker line under substituted
+ * content is prose, because no arm here is reached at all; a marker
+ * line anywhere else is a marker; and the layout break is left to
+ * decide the lines that are NOT marker lines, plus the marker lines
+ * the reader does not let win
+ * ({@link ReaderContext.markerLineWins}). A spaced `- - -` inside an
+ * open list is that item's own marker line, and `image::a.png[]`,
+ * which matches no marker pattern, is a macro wherever it stands.
+ *
+ * The LIST MARKER (`UnorderedListRx`, `OrderedListRx` and
+ * `CalloutListRx`, one parse in {@link parseListMarker}) and the
+ * DESCRIPTION-LIST TERM (`DescriptionListRx`) spend the author's
+ * bytes a third way: not on the line's own spelling but on the blank
+ * line BETWEEN two items. At document level `read_paragraph_lines`
+ * takes `StartOfBlockProc` (parser.rb l.36), which holds no marker,
+ * so below a substitution the oracle reads `* a` as the paragraph's
+ * own text and only a later `* b` as a list of one. Read as one list
+ * over both here, the printer's list normalization then dropped the
+ * blank line the author wrote between them and a whole `<ul>` left
+ * the render under Asciidoctor 2.0.26 and `@asciidoctor/core` 4.0.11
+ * alike (issue #261). Held off, both lines are paragraph text, the
+ * blank is a paragraph boundary and the author's bytes stand.
+ * Measured the same way in both programs for `. a`, `<1> a`,
+ * `* [ ] a` and `t:: d`, under a body-bearing conditional as well as
+ * an include, which is why the two arms move together with the other
+ * three rather than one shape at a time.
+ *
+ * SURVIVING BYTES: the fact all five consume is
+ * `substitutedContentAbove`, and its carrier is the directive line
+ * itself, which every one of these readings re-emits verbatim - a
+ * held-off line joins the paragraph the directive opened, so the
+ * directive stays a line of its own above it and pass 2 reads the
+ * same answer off the same bytes.
  * @param line - one rstripped source line
  * @param reach - which of these arms may claim the line
  * @returns the line's kind, or undefined when no arm claims it
@@ -1026,7 +1059,21 @@ function blockBoundaryOnlyKind(
     }
   }
   const macro = parseBlockMacro(line);
-  return macro === undefined ? undefined : { kind: "blockMacro", ...macro };
+  if (macro !== undefined) {
+    return { kind: "blockMacro", ...macro };
+  }
+  const marker = parseListMarker(line);
+  if (marker !== undefined) {
+    return { kind: "listMarker", ...marker };
+  }
+  const term = parseDescriptionListLine(line);
+  return term === undefined
+    ? undefined
+    : {
+        kind: "dlistTerm",
+        indent: line.length - line.trimStart().length,
+        ...term,
+      };
 }
 
 /**

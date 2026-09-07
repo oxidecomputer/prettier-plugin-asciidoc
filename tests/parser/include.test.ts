@@ -93,3 +93,40 @@ describe("a block macro under an include", () => {
     expect(children[1].attrlist).toBe(" alt ");
   });
 });
+
+// Issue #261: a list marker and a description-list term are read at a
+// block boundary and nowhere else. `read_paragraph_lines` takes
+// `StartOfBlockProc` at document level (parser.rb l.36), which holds
+// no marker, so under an include's substituted content the marker
+// line is the paragraph's own text and only a marker past the blank
+// line opens a list. Before this reading the whole document was one
+// two-item list, and the printer's list normalization then dropped
+// the blank line between the items.
+describe("a list marker under an include", () => {
+  test.each([
+    ["an unordered marker", "include::p[]\n* a\n\n* b\n", "list"],
+    ["an ordered marker", "include::p[]\n. a\n\n. b\n", "list"],
+    ["a callout marker", "include::p[]\n<1> a\n\n<2> b\n", "list"],
+    ["a description term", "include::p[]\nt:: d\n\nu:: e\n", "descriptionList"],
+  ])(
+    "%s is paragraph text and the line past the blank is the list",
+    (_name, source, listType) => {
+      const { children } = parse(source);
+      expect(children).toHaveLength(3);
+      narrow(children[0], "preprocessorDirective");
+      expect(asParagraph(children[1]).children.map((c) => c.type)).toEqual([
+        "text",
+      ]);
+      expect(children[2].type).toBe(listType);
+    },
+  );
+
+  // A blank line puts the marker back at a boundary, where it opens
+  // a list of two the way it does with no include in the document.
+  test("is a list again past a blank line", () => {
+    const { children } = parse("include::p[]\n\n* a\n\n* b\n");
+    expect(children).toHaveLength(2);
+    narrow(children[1], "list");
+    expect(children[1].children).toHaveLength(2);
+  });
+});
