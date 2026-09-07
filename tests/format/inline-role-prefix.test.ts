@@ -353,16 +353,40 @@ describe("a group may open at a bracket outside the enclosing span", () => {
     },
   );
 
-  // What the conservatism costs. No `[` stands in front of the
-  // enclosing span in either row, so no group can open and the shorter
-  // spelling renders the same - but the bytes that would say so are
-  // outside what a nested span reads, and a refusal costs bytes and no
-  // meaning.
+  // What the conservatism used to cost, and no longer does. No `[`
+  // stands ANYWHERE in either block, so no group can be open in the
+  // bytes a nested span cannot read either - which is a whole answer
+  // rather than a truncated one, and the shortening happens
+  // (`blockWritesABracket`, src/print/span-edges.ts, issue #141).
+  //
+  // These rows were pinned as REFUSALS before this: `expectFormatted`
+  // held each input against itself and a second assertion measured
+  // the shorter spelling as render-equal. The refusal is gone and the
+  // shorter spelling is the output, so `expectFormatted` now holds
+  // the two apart and its own render assertion is the one that
+  // measures them equal.
   test.each<[string, string]>([
     ["*__a__]__c__ z*\n", "*_a_]_c_ z*\n"],
     ["x**__a__]__c__ z**\n", "x**_a_]_c_ z**\n"],
   ])(
-    "%j is refused conservatively, and %j would have survived",
+    "%j shortens to %j, because no bracket can be open",
+    async (input, shorter) => {
+      await expectFormatted(input, shorter);
+    },
+  );
+
+  // The DISCRIMINATOR for the recovery: the same shapes with a `[`
+  // somewhere else in the block. The bracket is not in front of the
+  // enclosing span here - it stands behind the whole span, where no
+  // group it opens can reach the nested one - but the block-wide test
+  // cannot tell those apart, so the refusal stands. This is the half
+  // of the cost the block's own nodes do not settle, and it is what
+  // the enclosing chain's front bytes would.
+  test.each<[string, string]>([
+    ["*__a__]__c__ z* [k\n", "*_a_]_c_ z* [k\n"],
+    ["x**__a__]__c__ z** [k\n", "x**_a_]_c_ z** [k\n"],
+  ])(
+    "%j is still refused conservatively, and %j would have survived",
     async (input, shorter) => {
       await expectFormatted(input, input);
       // The shorter spelling the refusal gave up, measured against the

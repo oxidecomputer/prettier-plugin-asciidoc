@@ -503,6 +503,21 @@ export type HeadContext =
        * ({@link headContext}).
        */
       readonly edge: string;
+      /**
+       * Whether the BLOCK writes an attrlist `[` anywhere at all
+       * ({@link blockWritesABracket}).
+       *
+       * The two clauses that read this arm are conservative about a
+       * group opened in bytes the sibling list cannot see, and a block
+       * with no `[` in it writes no such group ANYWHERE - not outside
+       * the enclosing span, not outside the one enclosing that. So a
+       * false here is a whole answer where the truncated front was
+       * only a partial one, and the refusal lifts (issue #141). The
+       * exact answer still wants the enclosing chain's own front
+       * bytes, which no cursor carries; this is the half the block's
+       * own nodes settle.
+       */
+      readonly blockWritesABracket: boolean;
     };
 
 /**
@@ -733,6 +748,7 @@ function inventsAttrlistInFront(
 function closesGroupFromOutside(head: HeadContext, text: string): boolean {
   return (
     head.kind === "spanEdge" &&
+    head.blockWritesABracket &&
     text.endsWith(ATTRLIST_CLOSE) &&
     !text.includes(ATTRLIST_OPEN)
   );
@@ -898,6 +914,23 @@ function insideFollowingAttrlist(
 }
 
 /**
+ * Whether the block writes an attrlist `[` anywhere in its own
+ * printed bytes.
+ *
+ * The BLOCK and not the sibling list, because a `QUOTE_SUBS` row is a
+ * regex over the whole text and reads straight through every span
+ * boundary in it - the same scope {@link constrainedIsLegal}'s
+ * stray-mark scan uses, and for the same reason.
+ * @param blockNodes - the block's top-level inline children
+ * @returns true when one of them prints a `[`
+ */
+export function blockWritesABracket(
+  blockNodes: readonly InlineNode[],
+): boolean {
+  return blockNodes.some((node) => printedText(node).includes(ATTRLIST_OPEN));
+}
+
+/**
  * Whether a bracketed run may be standing open where the span does:
  * one the visible bytes open, or one that opened at a `[` OUTSIDE an
  * enclosing span, which this tree cannot see.
@@ -923,7 +956,9 @@ function insideFollowingAttrlist(
 function runMayBeOpen(head: HeadContext, front: string): boolean {
   return (
     OPEN_BRACKET_RUN.test(front) ||
-    (head.kind === "spanEdge" && !front.includes(ATTRLIST_CLOSE))
+    (head.kind === "spanEdge" &&
+      head.blockWritesABracket &&
+      !front.includes(ATTRLIST_CLOSE))
   );
 }
 

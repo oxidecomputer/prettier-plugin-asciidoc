@@ -20,6 +20,7 @@ import { MARK_BOUNDARY, QUOTE_ROW } from "../parse/inline/quote-boundaries.js";
 import { verbatimText } from "./serialize-inline.js";
 import {
   addressSwallowsAMark,
+  blockWritesABracket,
   bracketsAllowIt,
   delimitersOf,
   edgeHead,
@@ -372,6 +373,7 @@ function headContext(cursor: Cursor, order: number): HeadContext {
   return {
     kind: "spanEdge",
     edge: row.order < order ? row.closesWith : delimitersOf(enclosing).open,
+    blockWritesABracket: blockWritesABracket(cursor.blockNodes),
   };
 }
 
