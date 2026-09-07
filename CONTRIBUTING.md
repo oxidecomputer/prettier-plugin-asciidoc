@@ -53,9 +53,11 @@ id in its own commit message, one line each: `Parity-Diff: <family> <id>`. There
 is nothing to reset afterwards - CI reads the trailers of the commits it is
 gating, so a declaration expires with the commit that carried it. The one
 exception is a family that declares its AST keys: it may be declared once, bare
-(`Parity-Diff: <family>`), which covers exactly the cases whose bytes are
-identical and whose tree diff is confined to those keys. The syntax, the
-verification command and the failure messages are in
+(`Parity-Diff: <family>`), which covers, once #308 lands, exactly the cases
+whose bytes are identical and whose tree diff is confined to those keys. Today
+each case is tested against one declared family's keys at a time, so a case that
+gained the fields of two declared families is covered by neither. The syntax,
+the verification command and the failure messages are in
 [docs/harnesses.md](docs/harnesses.md).
 
 Two heavier checks run on a slower cadence:

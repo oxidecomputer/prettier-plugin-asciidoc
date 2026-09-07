@@ -138,14 +138,36 @@ jobs:
       # nothing may key on one; and the PR event's base sha is the base
       # branch's TIP, not the merge base, so a long-lived branch would
       # be diffed against commits it never contained.
+      #
+      # On a push the base is the ref's PREVIOUS TIP, `github.event.before`,
+      # so a push carrying several commits is measured whole. `HEAD^` was
+      # measuring the tip commit against its own parent, which left every
+      # earlier commit of a batch push unchecked by every step below: a
+      # recorded fact added in a non-tip commit was never declared, and a
+      # deletion made in one was already in the base, so its rows read as
+      # stale and the deletion itself went unmeasured.
+      #
+      # It falls back to `HEAD^` when `before` names no commit this
+      # checkout contains: the all-zero sha a push creating the ref
+      # carries, and the sha a force push leaves behind. `--is-ancestor`
+      # refuses both the same way, one as a non-ancestor and one as an
+      # unknown object, and neither gives a push a range to measure; the
+      # tip's own parent is the largest range derivable without a usable
+      # `before`. An empty value takes the same path, since
+      # `--is-ancestor ""` is an unknown object too.
       - name: Resolve the base revision
         id: base
+        env:
+          BEFORE: ${{ github.event.before }}
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             git fetch --no-tags origin "${{ github.base_ref }}"
             base=$(git merge-base FETCH_HEAD HEAD)
           else
-            base=$(git rev-parse HEAD^)
+            base="$BEFORE"
+            if ! git merge-base --is-ancestor "$base" HEAD 2>/dev/null; then
+              base=$(git rev-parse HEAD^)
+            fi
           fi
           echo "sha=$base" >> "$GITHUB_OUTPUT"
           echo "base is $base"

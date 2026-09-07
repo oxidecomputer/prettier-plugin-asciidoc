@@ -205,8 +205,8 @@ function git(arguments_: readonly string[]): string {
  * and every declared id is then reported as undeclared. Measuring
  * nothing is the cannot-run case, so this throws like an unknown
  * revision does and the caller exits 2. CI cannot reach it: a push
- * range is `HEAD^..HEAD` and a pull-request range contains the
- * request's own commits.
+ * range runs from the ref's previous tip to the commits the push
+ * added, and a pull-request range contains the request's own commits.
  * @param base - the baseline revision, the gate's `--base`
  * @param head - the revision being gated
  * @returns the declared entries, and the declarations that failed

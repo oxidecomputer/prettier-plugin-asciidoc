@@ -168,23 +168,25 @@ removing the pasted line, not declaring a family.
 There is exactly one rule: **a commit that intentionally moves formatted output
 declares each moved id with a `Parity-Diff:` trailer in its OWN message.**
 Nothing has to be reset afterwards. CI resolves a base (the merge base on a pull
-request, the pushed commit's parent on a push to `main`), unions the trailers of
-every commit in `base..HEAD`, and gates the head against that union. A
-declaration therefore stops being read the moment the base advances past the
-commit carrying it, which is the same moment its diff stops being a diff. (The
-file this replaced, `scripts/parity-expected-diffs.json`, had to be reset to
-`[]` by the next commit, whatever that commit was about; CI run 32916094459
-failed on exactly that.)
+request, the ref's previous tip on a push to `main`, so a push carrying several
+commits is gated whole), unions the trailers of every commit in `base..HEAD`,
+and gates the head against that union. A declaration therefore stops being read
+the moment the base advances past the commit carrying it, which is the same
+moment its diff stops being a diff. (The file this replaced,
+`scripts/parity-expected-diffs.json`, had to be reset to `[]` by the next
+commit, whatever that commit was about; CI run 32916094459 failed on exactly
+that.)
 
 **A declaration goes stale the moment its diff is gone, including mid-range.**
-Inside one pull request, a later commit that reverts or supersedes an earlier
-one leaves the earlier commit's trailer in the scanned range with nothing left
-to excuse, and the run fails as a stale entry. The same trap in its other
-flavor: an id declared under a formatted-only family by one commit, whose AST a
-later commit in the same range also moves, fails the cross-check. Nothing in the
-working tree is the cure in either case - the fix is editing the DECLARING
-commit's message (`jj describe -r <that change>`; a git contributor amends or
-rebases that commit), not adding a trailer to the tip.
+Inside one pull request, or inside one push carrying several commits, a later
+commit that reverts or supersedes an earlier one leaves the earlier commit's
+trailer in the scanned range with nothing left to excuse, and the run fails as a
+stale entry. The same trap in its other flavor: an id declared under a
+formatted-only family by one commit, whose AST a later commit in the same range
+also moves, fails the cross-check. Nothing in the working tree is the cure in
+either case - the fix is editing the DECLARING commit's message
+(`jj describe -r <that change>`; a git contributor amends or rebases that
+commit), not adding a trailer to the tip.
 
 Before describing a commit, verify with CI's own gate:
 
@@ -195,9 +197,11 @@ bun run parity -- --base $(jj log -r @- --no-graph -T commit_id) \
 
 Both arguments are git revisions, not revsets (`--base` feeds `git archive` and
 the trailer range feeds `git log`), which is why the shas come out of `jj log`.
-The working-copy commit works as the head: jj stores it in the colocated git
-store, so `git log` can read it even though no git ref points at it. The run
-takes a few seconds. To get the ids in the first place, run
+`@-` is CI's base only for a single-commit push; when the push will carry
+several commits, pass `main`'s previous tip on origin instead, which is the
+range CI will scan. The working-copy commit works as the head: jj stores it in
+the colocated git store, so `git log` can read it even though no git ref points
+at it. The run takes a few seconds. To get the ids in the first place, run
 `bun run parity -- --base <parent sha> --formatted-ledger`, paste its
 `Parity-Diff:` lines into the message and replace each `<family>` (adding to the
 enum in `parity-ledger.ts` first if no existing family names the change); prove
@@ -1524,18 +1528,19 @@ the next reader takes it for a live one.
 So `scripts/deletions.json` is per-change and its resting state is `[]`. Its
 rows describe the deletions of the one change being landed and nothing else, and
 ON A PUSH they survive exactly one measurement: the gate reads the DIFF for what
-went, never the file, so the change after them is measured against a base that
-already carries their deletions, its diff removes nothing, and that change
-empties the file again. Which change a push measures is its own tip against that
-tip's parent (`git rev-parse HEAD^`, the second arm of the base step in
-`.github/workflows/ci.yml`), which is what a batch push has to plan for: a
-deletion made in any commit but the last is already in the base by the time the
-gate runs, so its rows read as stale, and the only push that can see it is one
-whose final commit is the one that deletes. A `pull_request` run measures the
-MERGE BASE instead, and there the emptying belongs to the landing rather than to
-any commit on the branch: every deletion the branch makes stays in the diff for
-as long as the branch lives, so all of its rows have to stand together until it
-lands, and a mid-branch commit empties nothing.
+went, never the file, so the push after them is measured against a base that
+already carries their deletions, its diff removes nothing, and that push empties
+the file again. What a push measures is the whole range from the ref's previous
+tip (`github.event.before`, the second arm of the base step in
+`.github/workflows/ci.yml`), so a deletion made in ANY commit of the push is in
+the diff and its rows stand, wherever in the stack the commit sits; where
+several commits of one push delete, all of their rows stand together, as they do
+on a branch. Only the fallback arm, `HEAD^` on a ref's first push or after a
+force push, measures the tip alone. A `pull_request` run measures the MERGE BASE
+instead, and there the emptying belongs to the landing rather than to any commit
+on the branch: every deletion the branch makes stays in the diff for as long as
+the branch lives, so all of its rows have to stand together until it lands, and
+a mid-branch commit empties nothing.
 
 Exit codes: 0 every deletion is declared, 1 one is not (or a declaration is
 stale or unusable), 2 it could not run - a bad argument, no `--base`, a `--base`
@@ -1943,10 +1948,14 @@ because each step materializes the base into `$TMPDIR` and parallel steps would
 pay that concurrently.
 
 The base is a SHA the workflow computes: `git merge-base` against the PR's base
-ref, or `HEAD^` on a push to `main`. Never a branch name — the repo is routinely
-on no branch — and never `github.event.pull_request.base.sha`, which is the base
-branch's tip, not the merge base. `fetch-depth: 0`, because a shallow clone has
-no base revision to archive.
+ref, or the ref's previous tip (`github.event.before`) on a push to `main`, so
+every commit of a multi-commit push is measured and not just its tip. That arm
+falls back to `HEAD^` when the event names no usable previous tip: an empty
+value, the all-zero sha of a ref's first push, or a sha a force push left off
+this history. Never a branch name, because the repo is routinely on no branch,
+and never `github.event.pull_request.base.sha`, which is the base branch's tip,
+not the merge base. `fetch-depth: 0`, because a shallow clone has no base
+revision to archive.
 
 `HEAD` there is CI's spelling, not a local one: a GitHub checkout's `HEAD` is
 the tree being tested, while in this jj-managed repo `HEAD` resolves to the
