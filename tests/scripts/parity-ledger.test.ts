@@ -236,6 +236,7 @@ describe("expected-diff ledger", () => {
       "trailing-continuation-kept",
       "underlined-section-title",
       "whitespace-record",
+      "width-break-before-a-marker-word",
       "xref-text-trim",
     ]);
     expect([...LEDGER_FAMILIES.formattedOnly].toSorted()).toEqual([

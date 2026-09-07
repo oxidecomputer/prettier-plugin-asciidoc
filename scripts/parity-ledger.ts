@@ -866,6 +866,31 @@ const SECOND_LINE_INDENT_FACT_FAMILY = "second-line-indent-fact";
 const MARKER_GAP_KEPT_FAMILY = "marker-gap-kept";
 
 /**
+ * A WIDTH BREAK lands in front of a word the packer used to fuse onto
+ * its predecessor. The per-word line-start probe refused a break in
+ * front of any word that would be block syntax at column 0, which was
+ * WIDER than the reader in every context but a list item's: a plain
+ * paragraph breaks on `StartOfBlockProc` alone (parser.rb l.36), so a
+ * marker-shaped or ordered-marker-shaped word is the paragraph's own
+ * text wherever the packer puts it, and the reader says so of the
+ * finished line.
+ *
+ * TWO ids over the 1,620-case corpus, and both move BYTES, so neither
+ * folds under a blanket strip and each takes its own trailer -
+ * {@link MARKER_GAP_KEPT_FAMILY} above is the precedent.
+ * `syntax-highlighting/pages/pygments.adoc` wraps `2.x with Python` /
+ * `3.` where it wrapped `2.x with` / `Python 3.`, and the bibliography
+ * list case wraps `Static Times, 54. August` / `2016.` where it
+ * wrapped `Static Times, 54.` / `August 2016.`. Both are fixed points,
+ * both render the same under both programs, and both re-read to the
+ * same tree: the word that moved is prose on either line.
+ *
+ * Not exported: no grid row cites it.
+ */
+const WIDTH_BREAK_BEFORE_A_MARKER_WORD_FAMILY =
+  "width-break-before-a-marker-word";
+
+/**
  * Every PROSE block - a paragraph, a paragraph-form admonition's
  * body, a list item's text - records how its own whitespace may be
  * respelled ({@link BlockWhitespace}, src/whitespace-record.ts): a
@@ -1065,6 +1090,7 @@ export const LEDGER_FAMILIES: FamilySets = {
     ADMONITION_LABEL_FOLD_FAMILY,
     SECOND_LINE_INDENT_FACT_FAMILY,
     MARKER_GAP_KEPT_FAMILY,
+    WIDTH_BREAK_BEFORE_A_MARKER_WORD_FAMILY,
     WHITESPACE_RECORD_FAMILY,
     SPAN_MARK_RECORD_FAMILY,
     HEAD_DRAIN_RECORD_FAMILY,

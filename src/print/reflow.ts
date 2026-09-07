@@ -525,27 +525,15 @@ interface PackedLine {
  * lines carry `indent` spaces, except a line opened by a literal break,
  * which starts at column 0.
  *
- * A WIDTH break is refused where the run it would start is block
- * syntax at column 0 ({@link isBlockSyntaxAtLineStart}); the run
- * overruns the current line instead. {@link wordsToAtoms} fuses such a
- * word backwards while the atoms are being built, but only WITHIN one
- * text node: a run the packer FUSES out of several nodes
- * (`[` + an address atom + `]`, which no single node ever holds as one
- * word) reaches this loop unprotected, and a break in front of it
- * writes a block attribute line where the source had prose.
- *
- * A DEMANDED break still stands, and three of the four sources of one
- * - a raw line, a hard line break, and the dlist first-line guard -
- * are the AUTHOR's own line boundary, which the packer may not move
- * whatever stands behind it. The fourth,
- * {@link keepTextOnFirstRestLine}'s kept break, is not exempt from the
- * hazard above: it weighs it itself. It lands in front of some run
- * past the block's first, and where the line that run would open is
- * COLUMN 0 it asks this same question of the run and walks left until
- * a run answers no - so a fused run reaching that line is refused
- * there rather than written. A kept break that opens its line at the
- * block's continuation indent asks nothing, because at a non-zero
- * column none of these shapes is read.
+ * WHAT A LINE SPELLS IS NOT ASKED HERE. The packer lays out the
+ * greedy layout and the reader is asked about the finished lines
+ * ({@link readsBackAsTheBlock}, {@link opensTheSameBlock}); a layout
+ * holding a line the reader does not read as this block sends the
+ * whole block back to its own source lines. A per-word refusal here
+ * could only ever approximate that question - it answers for a word
+ * rather than for the line the word opens, it cannot see a shape
+ * anchored at both ends, and a run the packer fuses out of several
+ * nodes reaches this loop as no single node's word at all.
  *
  * Width is COLUMNS, not characters: `getStringWidth` is Prettier's own
  * measure, so a full-width CJK character costs two and a combining mark
@@ -630,7 +618,7 @@ function packLines(
         1 +
         util.getStringWidth(run.text) <=
       width;
-    const widthBreak = !fits && !isBlockSyntaxAtLineStart(run.text);
+    const widthBreak = !fits;
     if (line !== "" && (run.breakBefore !== "none" || widthBreak)) {
       flush();
       lineIndent = run.breakBefore === "literal" ? 0 : indent;
@@ -789,18 +777,16 @@ function escapeDanglingPlus(atoms: Atom[], escape: boolean): void {
  * its own again.
  *
  * Such a line is a list continuation, and the reader reads it as one
- * (`cont`) before it reads anything after it. The two ordinary `+`
- * rules both destroy that reading: {@link isDangerousAtLineEnd} fuses
- * the FOLLOWING word onto the `+` so no break can land after it, and
- * {@link isBlockSyntaxAtLineStart} exempts the `+` so no break lands
- * before it either — between them the `+` can only ever come out
- * joined to its neighbours as prose. One alphabet symbol away the same
- * join does visible damage: `+` then `term:: def` comes out as
- * `+ term:: def`, which reads back as a description-list term the
- * source never had.
+ * (`cont`) before it reads anything after it.
+ * {@link isDangerousAtLineEnd} destroys that reading: it fuses the
+ * FOLLOWING word onto the `+` so no break can land after it, and the
+ * `+` can only ever come out joined to its neighbour as prose. One
+ * alphabet symbol away the same join does visible damage: `+` then
+ * `term:: def` comes out as `+ term:: def`, which reads back as a
+ * description-list term the source never had.
  *
- * Both rules exist to keep a MID-LINE `+` from drifting to a line
- * boundary it was never at, so neither applies to a `+` that was
+ * That rule exists to keep a MID-LINE `+` from drifting to a line
+ * boundary it was never at, so it does not apply to a `+` that was
  * already alone on a line: nothing joins it from the left (it opens
  * the block, so the packer has an empty line in front of it) and the
  * word after it takes the break the source wrote. A `+` alone on a
@@ -967,21 +953,23 @@ function dlistHazard(
 }
 
 /**
- * Convert a text node's word list into atoms. Three safety mechanisms
+ * Convert a text node's word list into atoms. Two safety mechanisms
  * prevent reflow from creating syntax:
- * 1. Words dangerous at line START are fused onto their
- *    predecessor (`noBreakBefore`) so the break lands before the pair.
- * 2. Words dangerous at line END (`+`) are fused to
+ * 1. Words dangerous at line END (`+`) are fused to
  *    their successor (`noBreakAfter`) so the break lands before them.
- * 3. Words dangerous only on the FIRST line of a block (a
+ * 2. Words dangerous only on the FIRST line of a block (a
  *    `term::` description-list separator) demand a break in front of
  *    them (`breakBefore`), which no amount of packing can undo — and
- *    which {@link wrap} lifts to the front of the whole run when rules 1
- *    and 2 have fused the word into one.
+ *    which {@link wrap} lifts to the front of the whole run when rule 1
+ *    has fused the word into one.
  *
- * Rule 2 has one exemption, {@link keepContinuationLine}: a `+` the
+ * Rule 1 has one exemption, {@link keepContinuationLine}: a `+` the
  * source already gave a line of its own is a reading the join would
  * delete rather than a hazard the join would create.
+ *
+ * WHAT A WORD WOULD SPELL AT A LINE START is not among them: that is
+ * a question about the LINE the packer writes, and the reader answers
+ * it of the finished layout ({@link readsBackAsTheBlock}).
  * @param words - Array of whitespace-delimited tokens already
  *   split from the paragraph text. Each element is non-empty and
  *   holds no LINE BREAK; it holds interior whitespace only where
@@ -1071,12 +1059,10 @@ export function wordsToAtoms(
     // both sites, so a later change cannot widen either into the
     // other's job.
     const hazard = dlistHazard(word, index, firstLineWordCount);
-    // Rules 1 and 2 both fuse `word` backwards: the previous word is
-    // dangerous at line end (a bare `+`), or this word is dangerous at
-    // line start. Either way the two must share a line, with the
-    // whitespace the source had between them.
-    const fuseBackwards =
-      index > 0 && (glueNext || isBlockSyntaxAtLineStart(word));
+    // The previous word is dangerous at line end (a bare `+`), so the
+    // two must share a line, with the whitespace the source had
+    // between them.
+    const fuseBackwards = index > 0 && glueNext;
     atoms.push(wordAtom(word, fuseBackwards, hazard, held[index]));
     glueNext = isDangerousAtLineEnd(word);
   }
@@ -1148,11 +1134,13 @@ function opensOrdinaryTextLine(atoms: readonly Atom[], run: Run): boolean {
  * has no earlier text to hold, which is the source's own reading
  * anyway.
  *
- * The candidate still has to be a run that MAY open the line it would
- * be given ({@link canOpenLine}), and where it may not the search walks
- * on to its left. {@link wrap} honours a demanded break without asking
- * about the line it opens, so this is the place the question gets
- * asked.
+ * WHAT THE LINE THE CANDIDATE OPENS SPELLS is not asked here. A
+ * demanded break makes a line like any other, and the one question
+ * about it is the reader's, asked of the finished layout
+ * ({@link readsBackAsTheBlock}): a held break whose line the reader
+ * does not read as this block's text sends the block back to its own
+ * source lines, which is the same answer this rule was reaching for
+ * and one the packer cannot get wrong by walking left.
  * @param atoms - the block's atoms.
  * @param kept - which break to demand: `"hard"` opens the line at the
  *   block's continuation indent, `"literal"` at column 0. The caller
@@ -1176,12 +1164,11 @@ export function keepTextOnFirstRestLine(
   if (opener !== -1 && opensOrdinaryTextLine(atoms, runs[opener])) {
     return [...atoms];
   }
-  const held = heldRun(
-    runs,
-    opener === -1 ? runs.length - 1 : opener - 1,
-    kept,
-  );
-  if (held === -1) {
+  // Never the block's FIRST run: the break in front of that one is
+  // not this block's to make, and a block whose only text run opens
+  // the line has no earlier text to hold.
+  const held = opener === -1 ? runs.length - 1 : opener - 1;
+  if (held < 1) {
     return [...atoms];
   }
   return atoms.with(runs[held].start, {
@@ -1227,64 +1214,6 @@ export function keepFirstSourceLineWhole(atoms: readonly Atom[]): Atom[] {
     held[index] = { ...held[index], noBreakBefore: true };
   }
   return held;
-}
-
-/**
- * Whether the run at `index` may open the line a kept break would give
- * it.
- *
- * At the block's continuation indent it always may, and the reason is
- * narrower than "nothing is read there": a list MARKER is read at any
- * column (the registry's own patterns are anchored `^[ \t]*`), so an
- * indented `** b` is still a marker line. What a HELD run can carry is
- * what makes it safe - the run is a text run past the block's first,
- * whose own words `wordsToAtoms` has already fused backwards if any of
- * them is block syntax at a line start - and the claim is measured
- * rather than derived: 0 of 112,610 population documents move a byte
- * on this path. At COLUMN 0 it is the same question
- * {@link isBlockSyntaxAtLineStart} answers for a width break, and it
- * has to be asked for the same reason: `wordsToAtoms` fuses a
- * block-syntax WORD backwards, so no single word a run past the first
- * starts with is one - but a run the packer FUSES out of several nodes
- * (`[` + an address atom + `]`, which no single node ever holds as one
- * word) is the exception {@link wrap}'s own comment records, and a
- * break held in front of one at column 0 writes a block attribute line
- * where the source had prose.
- * @param runs - the block's runs, in order.
- * @param index - the run being considered.
- * @param kept - the break the caller would demand.
- * @returns Whether that run may take it.
- */
-function canOpenLine(
-  runs: readonly Run[],
-  index: number,
-  kept: "hard" | "literal",
-): boolean {
-  return kept === "hard" || !isBlockSyntaxAtLineStart(runs[index].text);
-}
-
-/**
- * The run whose join the kept break lands in front of: the candidate,
- * or the nearest run to its left that may open the line
- * ({@link canOpenLine}). `-1` when none can - the block's first run is
- * never held, because the break in front of it is not this block's to
- * make.
- * @param runs - the block's runs, in order.
- * @param from - the candidate index the search starts at.
- * @param kept - the break the caller would demand.
- * @returns The run's index, or -1.
- */
-function heldRun(
-  runs: readonly Run[],
-  from: number,
-  kept: "hard" | "literal",
-): number {
-  for (let index = from; index >= 1; index -= 1) {
-    if (canOpenLine(runs, index, kept)) {
-      return index;
-    }
-  }
-  return -1;
 }
 
 // ── The block body ─────────────────────────────────────────

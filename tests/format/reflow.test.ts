@@ -130,16 +130,17 @@ describe("paragraph reflow", () => {
     await expectFormatted(input, "aaa .foo\n.bar\n", options);
   });
 
-  // Delimiter-char words like `*` and `-` are dangerous at line
-  // start (unordered list markers). The reflow must keep them
-  // off column 0.
-  test("reflow prevents list marker words at line start", async () => {
-    const input = "result is 10 - 5\n";
-    const result = await formatAdoc(input, { printWidth: 12 });
-    for (const line of result.split("\n")) {
-      // Line must not start with `- ` (list marker) or `* `.
-      expect(line).not.toMatch(/^[*\u002D] /v);
-    }
+  // A marker-shaped word MAY open a later line of a plain paragraph:
+  // `read_paragraph_lines` at document level breaks on
+  // `StartOfBlockProc` alone (parser.rb l.36), which holds a
+  // delimited-block line and a block attribute line and no marker, so
+  // Asciidoctor reads `- 5` there as the paragraph's own text. Before
+  // the reader answered for the line, a print-side probe over the
+  // WORD unioned every context's markers and refused the break here.
+  test("a marker-shaped word may open a later paragraph line", async () => {
+    await expectFormatted("result is 10 - 5\n", "result is 10\n- 5\n", {
+      printWidth: 12,
+    });
   });
 
   // An attribute entry is block metadata only where a block can
@@ -467,19 +468,28 @@ describe("reflow safety is driven by the line-shape registry", () => {
     });
   });
 
-  test("an interrupting shape is still glued away from column 0", async () => {
-    const input = "aaaa bbbb cccc dddd [x] eeee\n";
-    const out = await formatAdoc(input, { printWidth: 20 });
-    expect(out.split("\n").some((l) => l.startsWith("[x]"))).toBe(false);
-    await expectStableRender(input, { printWidth: 20 });
+  // A BLOCK ATTRIBUTE LINE is decided by a `[` at its head AND a `]`
+  // at its end, so `[x] eeee` is not one and the line the packer
+  // opens with it is the paragraph's own text. The word probe could
+  // not see the end of the line and refused the break for the head
+  // alone.
+  test("a bracket that does not end its line opens one like any word", async () => {
+    await expectFormatted(
+      "aaaa bbbb cccc dddd [x] eeee\n",
+      "aaaa bbbb cccc dddd\n[x] eeee\n",
+      { printWidth: 20 },
+    );
   });
 
   // A bare list-marker word carries no trailing text, so the registry's
   // marker patterns (`^\* `, `^\. `, `^<1> `) do not match it on its
-  // own. Reflow must still keep it off column 0 inside a list item,
-  // where the very next word would supply that trailing text and split
-  // the item into two. Hence the word-plus-text probe in
-  // isBlockSyntaxAtLineStart.
+  // own. It must still not open a line inside a list item, where the
+  // very next word supplies that trailing text and splits the item in
+  // two - and the reader is what says so, because the question is
+  // about the whole LINE the packer would write and not about the
+  // word: `accepts` (src/line-verdict.ts) refuses the composed line
+  // in the item's own context, and no layout of the item is accepted,
+  // so the item's own source lines come back.
   test.each([
     ["an unordered marker", "*"],
     ["a dash marker", "-"],
@@ -496,21 +506,34 @@ describe("reflow safety is driven by the line-shape registry", () => {
     await expectStableRender(input, options);
   });
 
-  // A raw line is not an interrupter — the reader consumes a comment
-  // or preprocessor directive before block structure exists — but it
-  // is every bit as destructive at column 0, where it swallows the
-  // words fill() packed after it. Reflow therefore asks the registry
-  // for these shapes too (see isBlockSyntaxAtLineStart).
+  // A raw line is not an interrupter - the reader consumes a comment
+  // before block structure exists - but it is every bit as
+  // destructive at column 0, where it swallows the words the packer
+  // put after it. The reader refuses such a line as the block's own
+  // text (`accepts`, src/line-verdict.ts, is narrower than
+  // `keepsTheLine` at exactly this reading), and the block goes back
+  // as its own source lines.
   test.each([
     ["a bare comment marker", "//"],
     ["a comment", "//foo"],
-    ["a conditional directive", "ifdef::x[]"],
   ])("never starts a line with %s", async (_name, hazard) => {
     const input = `aaaa bbbb cccc dddd ${hazard} eeee ffff\n`;
     const options = { printWidth: 20 };
     const out = await formatAdoc(input, options);
     expect(out.split("\n").some((l) => l.startsWith(hazard))).toBe(false);
     await expectStableRender(input, options);
+  });
+
+  // A CONDITIONAL DIRECTIVE is anchored at both ends
+  // (`ConditionalDirectiveRx`, rx.rb l.75), so `ifdef::x[] eeee` is
+  // not one and the line the packer opens with it is the paragraph's
+  // own text. The word probe saw the head alone.
+  test("a directive head with words behind it opens a line", async () => {
+    await expectFormatted(
+      "aaaa bbbb cccc dddd ifdef::x[] eeee ffff\n",
+      "aaaa bbbb cccc dddd\nifdef::x[] eeee ffff\n",
+      { printWidth: 20 },
+    );
   });
 
   // A `term::` word is NOT part of this rule, and the omission is

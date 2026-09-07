@@ -150,34 +150,35 @@ describe("shapes one character away from a marker stay prose", () => {
 describe("reflow may not MANUFACTURE an ordered list", () => {
   // A paragraph is greedy, so a year mid-paragraph is prose wherever
   // the packer puts it EXCEPT at a line start inside a list item,
-  // where `read_lines_for_list_item` reads a nested marker. Reflow
-  // does not know which kind of paragraph it is printing, so the word
-  // is fused backwards in both - a line longer by one word where the
-  // hazard was not real, and the source's own structure where it was.
-  test("a year fused backwards inside a nested item", async () => {
+  // where `read_lines_for_list_item` reads a nested marker. The
+  // reader knows which kind of paragraph it is, so the two answers
+  // are different: inside the item no layout puts the marker at a
+  // line start and the item's own line comes back, at document level
+  // the line is prose and the packer breaks in front of it.
+  test("a year inside a nested item keeps the item's own line", async () => {
     await expectRow(
       "* a\n** bbb ccc ddd eee fff ggg hhh iii jjj 2020. was notable and words\n",
-      "* a\n** bbb ccc ddd eee fff ggg hhh iii\n   jjj 2020. was notable and words\n",
+      "* a\n** bbb ccc ddd eee fff ggg hhh iii jjj 2020. was notable and words\n",
       40,
     );
   });
 
-  test("a year fused backwards in a plain paragraph", async () => {
+  test("a year may open a line of a plain paragraph", async () => {
     await expectRow(
       "aaa bbb ccc ddd eee fff ggg hhh iii jjj 2020. was notable and more\n",
-      "aaa bbb ccc ddd eee fff ggg hhh iii\njjj 2020. was notable and more\n",
+      "aaa bbb ccc ddd eee fff ggg hhh iii jjj\n2020. was notable and more\n",
       40,
     );
   });
 
   // A `+`-attached paragraph breaks at the OPEN list's own style, so
   // inside an explicit arabic list a `2020.` line at column 0 ends the
-  // paragraph and starts a sibling ITEM. Fusing it backwards is what
-  // keeps the continuation whole.
-  test("a year fused backwards in a continuation paragraph", async () => {
+  // paragraph and starts a sibling ITEM. No layout of the paragraph
+  // puts it there, so the paragraph's own line comes back whole.
+  test("a year in a continuation paragraph keeps its own line", async () => {
     await expectRow(
       "1. one\n+\naaa bbb ccc ddd eee fff ggg hhh iii 2020. was notable\n",
-      "1. one\n+\naaa bbb ccc ddd eee fff ggg hhh\niii 2020. was notable\n",
+      "1. one\n+\naaa bbb ccc ddd eee fff ggg hhh iii 2020. was notable\n",
       40,
     );
   });

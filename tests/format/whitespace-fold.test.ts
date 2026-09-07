@@ -509,13 +509,17 @@ describe("a run carrying a line break keeps the break", () => {
   });
 
   // The run in FRONT of a final lone dash. The break the record holds
-  // is DROPPED here, and deliberately: the word behind it is a lone
-  // `-`, which is a list marker at a line start, so the packer fuses
-  // it backwards and the block-start net is what decides whether the
-  // author's line comes back (src/print/block-start-hazard.ts). Bytes
-  // only, because what the record asked for is not what is written.
-  test("the run in front of a fused dash", async () => {
-    expect(await formatAdoc(":h: -\n\na\n\t-{h}\n")).toBe(":h: -\n\na -{h}\n");
+  // is now WRITTEN: a lone `-` is a list marker at a line start, and
+  // the packer used to fuse it backwards over the record's answer,
+  // dropping the break; nothing fuses it now, because what a line
+  // spells is the reader's question about the finished layout. Bytes
+  // only either way, and for a reason neither spelling can fix: the
+  // run carries a TAB as well as the newline, `a --` at the head of a
+  // line is an em-dash to Asciidoctor and `\t--` is not, and no atom
+  // can hold the tab (an atom is newline-free, so the run cannot ride
+  // inside the word beside it).
+  test("the run in front of a lone dash", async () => {
+    expect(await formatAdoc(":h: -\n\na\n\t-{h}\n")).toBe(":h: -\n\na\n-{h}\n");
   });
 
   // A separator standing BEHIND the run, where the fused word holds it

@@ -170,17 +170,13 @@ describe("the atoms a word list becomes", () => {
     ]);
   });
 
-  test("a word AsciiDoc would re-read as block syntax shares its predecessor's line", () => {
+  // A word that would be block syntax at a line start carries no join
+  // of its own: which line it lands on is the packer's, and what that
+  // line reads as is the reader's question about the finished layout.
+  test("a word AsciiDoc would re-read as block syntax carries no join", () => {
     expect(spell(wordsToAtoms(["text", "----"]))).toEqual([
       "text glueLeft=false noBreakBefore=false noBreakAfter=false break=none",
-      "---- glueLeft=false noBreakBefore=true noBreakAfter=false break=none",
-    ]);
-  });
-
-  test("the same word FIRST has no predecessor, so it is not fused", () => {
-    expect(spell(wordsToAtoms(["----", "text"]))).toEqual([
       "---- glueLeft=false noBreakBefore=false noBreakAfter=false break=none",
-      "text glueLeft=false noBreakBefore=false noBreakAfter=false break=none",
     ]);
   });
 
@@ -380,14 +376,13 @@ describe("packing atoms into lines", () => {
     expect(wrap(atoms, 5, 3, ANY_LAYOUT)).toEqual(["a", "b c"]);
   });
 
-  // wordsToAtoms fuses a block-syntax word backwards, but only within
-  // one text node. A run the PACKER fuses out of several nodes -
-  // `[`, an atomic construct, `]` - reaches this loop unprotected, so
-  // the width break in front of it is refused here instead and the run
-  // overruns the line it is already on.
-  test("a width break is refused where the run would be block syntax", () => {
+  // A run that would be block syntax at a line start takes the width
+  // break like any other: what the line it opens spells is the
+  // reader's question, asked of the finished layout, and a block
+  // whose answer changes is written back from its own source lines.
+  test("a run that would be block syntax takes the width break", () => {
     const atoms = [atom("aaa"), atom("[b@c.com]")];
-    expect(wrap(atoms, 5, 0, ANY_LAYOUT)).toEqual(["aaa [b@c.com]"]);
+    expect(wrap(atoms, 5, 0, ANY_LAYOUT)).toEqual(["aaa", "[b@c.com]"]);
   });
 
   test("an ordinary run of the same width still takes the break", () => {
@@ -501,7 +496,10 @@ describe("the kept break", () => {
     expect(keepTextOnFirstRestLine([], "hard")).toEqual([]);
   });
 
-  test("a column-0 hold refuses a run that would be block syntax there, and moves left", () => {
+  // The hold lands on the candidate run whatever that run would spell
+  // at column 0: the line it opens is one of the finished layout's,
+  // and the reader is asked about all of them at once.
+  test("a column-0 hold lands on the candidate run", () => {
     const atoms = [
       atom("a"),
       atom("x"),
@@ -510,13 +508,13 @@ describe("the kept break", () => {
     ];
     expect(breaks(keepTextOnFirstRestLine(atoms, "literal"))).toEqual([
       "none",
-      "literal",
       "none",
+      "literal",
       "literal",
     ]);
   });
 
-  test("the same run takes the hold at the continuation indent, where no block shape is read", () => {
+  test("the same run takes the hold at the continuation indent too", () => {
     const atoms = [
       atom("a"),
       atom("x"),
@@ -531,12 +529,8 @@ describe("the kept break", () => {
     ]);
   });
 
-  test("a column-0 hold with no run that may open the line holds nothing", () => {
-    const atoms = [
-      atom("a"),
-      atom("[b@c.de]"),
-      atom(" +", { breakBefore: "literal" }),
-    ];
+  test("a column-0 hold with only the block's first run holds nothing", () => {
+    const atoms = [atom("a"), atom(" +", { breakBefore: "literal" })];
     expect(spell(keepTextOnFirstRestLine(atoms, "literal"))).toEqual(
       spell(atoms),
     );

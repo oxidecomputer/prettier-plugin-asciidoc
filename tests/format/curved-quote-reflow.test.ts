@@ -192,7 +192,7 @@ describe("the corpus lines did not move", () => {
     ],
     [
       CORPUS_LINES[5],
-      '$ "`\\which apt-get || \\which dnf || \\which yum || \\which brew`" install\npython # <.>\n',
+      '$ "`\\which apt-get || \\which dnf || \\which yum || \\which brew`" install python #\n<.>\n',
     ],
   ])("%s", async (source, expected) => {
     await expectFixedBytes(source, expected);

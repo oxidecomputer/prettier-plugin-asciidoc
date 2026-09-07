@@ -291,47 +291,34 @@ describe("checklist formatting", () => {
     await expectFormatted(input, input);
   });
 
-  // A REFUSAL, recorded rather than hidden, in the one shape that
-  // reaches it: BLOCK SYNTAX under the bracket. Reflow has already
-  // fused the word backwards because it would open a block at the
-  // start of a line (a section title, an admonition label, a bracketed
-  // attribute line), and a break demanded in front of a fused atom is
-  // lifted to the front of its whole run - in front of the bracket,
-  // which spells the same marker line again.
+  // BLOCK SYNTAX under the bracket used to be a REFUSAL, recorded
+  // rather than hidden: reflow fused the word backwards because it
+  // would open a block at the start of a line (a section title, an
+  // admonition label, a bracketed attribute line), and a break
+  // demanded in front of a fused atom is lifted to the front of its
+  // whole run - in front of the bracket, which spells the same marker
+  // line again, so the output rendered a checkbox its input did not.
   //
-  // Every row is the bytes the base tree wrote, so nothing here is a
-  // regression, and every row is a fixed point: where the packed line
-  // is going to read as a CHECKED item, the head is written the way
-  // that reading is written back, which is why the `[*]` rows come out
-  // `[x]`. Before the head was canonicalised, `* [*] ` over `== h`
-  // printed `* [*] == h` and the NEXT format moved it to `* [x] == h`.
-  //
-  // The rows assert bytes and idempotence only: these documents still
-  // render a checkbox their input does not, and saying so out loud is
-  // what makes the refusal visible instead of silent. Widening the
-  // hold to clear the fusion is a separate question: the item's
-  // continuation indent is stripped back off by `adjust_indentation!`
-  // (parser.rb l.753-755), so an admonition label held one line down
-  // can still arrive at column 0.
+  // With no fuse the break lands where the guard asks for it, the
+  // item's own second line comes back, and the document renders what
+  // it rendered: what a line spells is the reader's question about
+  // the finished layout, not a print-side probe over a word. The
+  // `[*]` heads stay `[*]` because nothing canonicalizes a head no
+  // packed line will read as a checkbox.
   test.each([
-    ["a section title under the bracket", "* [x]\n== h\n", "* [x] == h\n"],
-    ["an admonition label under it", "* [x]\nNOTE: a\n", "* [x] NOTE: a\n"],
-    ["a bracketed line under it", "* [x]\n[x] b\n", "* [x] [x] b\n"],
-    ["a section title under `[*]`", "* [*] \n== h\n", "* [x] == h\n"],
-    ["a label under `[*]`", "* [*] \nNOTE: a\n", "* [x] NOTE: a\n"],
-    ["a bracketed line under `[*]`", "* [*] \n[x] b\n", "* [x] [x] b\n"],
-    ["`[*]` with no trailing space", "* [*]\n== h\n", "* [x] == h\n"],
-  ])("the marker line keeps its packing for %s", async (_name, input, want) => {
-    // Bytes and the fixed point, no render-equality: packing the word
-    // onto the marker line is what MAKES the item a checkbox, so the
-    // output renders a checklist where the two-line input renders a
-    // plain list. That difference is the refusal these rows record,
-    // and expectFormatted would assert it away.
-    const out = await formatAdoc(input);
-    expect(out).toBe(want);
-    // eslint-disable-next-line test-assertions/no-hand-spelled-format-trailer -- the row's subject is a render the formatter deliberately changes
-    expect(await formatAdoc(out)).toBe(out);
-  });
+    ["a section title under the bracket", "* [x]\n== h\n", "* [x]\n  == h\n"],
+    ["an admonition label under it", "* [x]\nNOTE: a\n", "* [x]\n  NOTE: a\n"],
+    ["a bracketed line under it", "* [x]\n[x] b\n", "* [x]\n  [x] b\n"],
+    ["a section title under `[*]`", "* [*] \n== h\n", "* [*]\n  == h\n"],
+    ["a label under `[*]`", "* [*] \nNOTE: a\n", "* [*]\n  NOTE: a\n"],
+    ["a bracketed line under `[*]`", "* [*] \n[x] b\n", "* [*]\n  [x] b\n"],
+    ["`[*]` with no trailing space", "* [*]\n== h\n", "* [*]\n  == h\n"],
+  ])(
+    "the held break clears the manufactured checkbox for %s",
+    async (_name, input, want) => {
+      await expectFormatted(input, want);
+    },
+  );
 
   // A DESCRIPTION-LIST separator on the item's own first line. Ruby's
   // checkbox prefix is `item_text.start_with?('[ ] ', '[x] ', '[*] ')`

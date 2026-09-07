@@ -419,12 +419,17 @@ describe("the same net covers the `=` section-title spelling", () => {
     await expectFormatted("a\n= b\n", "a = b\n");
   });
 
-  // The reflow rule, seen at a wrap: a lone `=` word may not START
-  // an output line, so it travels with the word in front of it.
-  test("a wrapped = word fuses backwards", async () => {
+  // A LATER line is not the block's start, and a paragraph at
+  // document level breaks on `StartOfBlockProc` alone (parser.rb
+  // l.36), which holds no section title, so a lone `=` may open one:
+  // the reader reads the line as
+  // the paragraph's own text and the packer takes the width break.
+  // The net above is about the block's FIRST line, where the whole
+  // ladder is live.
+  test("a wrapped = word may open a later line", async () => {
     await expectFormatted(
       "aaaa bbbb cccc dddd eeee ffff gggg hhhh iiii jjjj kkkk llll mmmm nnnn oooo pppp = qqqq rrrr\n",
-      "aaaa bbbb cccc dddd eeee ffff gggg hhhh iiii jjjj kkkk llll mmmm nnnn oooo\npppp = qqqq rrrr\n",
+      "aaaa bbbb cccc dddd eeee ffff gggg hhhh iiii jjjj kkkk llll mmmm nnnn oooo pppp\n= qqqq rrrr\n",
     );
   });
 });
