@@ -57,6 +57,7 @@ import {
   oracleDescriptionList,
   type OracleDescriptionList,
 } from "../helpers.js";
+import { NO_PACKED_TEXT } from "../../src/line-verdict.js";
 
 /**
  * Every description list the document holds, in document order, the
@@ -146,6 +147,7 @@ function ourDescriptionList(source: string): DescriptionListNode {
 const EMPTY_BODY: ItemBodyInput = {
   text: [],
   context: PLAIN_WHITESPACE_CONTEXT,
+  reading: NO_PACKED_TEXT,
   blocks: [],
   trailingContinuation: false,
   detachedTail: false,

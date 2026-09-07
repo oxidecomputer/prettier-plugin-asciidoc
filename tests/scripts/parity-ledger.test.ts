@@ -195,6 +195,7 @@ describe("expected-diff ledger", () => {
       "plus-run-paragraph",
       "plus-run-tail-kept",
       "pseudo-run-fold",
+      "reading-record",
       "second-line-indent-fact",
       "span-mark-record",
       "span-role-node",

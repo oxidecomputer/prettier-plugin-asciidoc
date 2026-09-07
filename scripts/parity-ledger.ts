@@ -863,6 +863,31 @@ const MARKER_GAP_KEPT_FAMILY = "marker-gap-kept";
 const SPAN_MARK_RECORD_FAMILY = "span-mark-record";
 
 /**
+ * Every PROSE block - a paragraph, a paragraph-form admonition's
+ * body, a list item's text, a description item's description -
+ * records the context its lines were read in ({@link BlockReading},
+ * src/reader-context.ts): which interrupting set is open, and which
+ * list stands around the block. Neither is a function of the block's
+ * own bytes, and the printer's packer has to ask the reader's own
+ * question in that context before it commits an output line.
+ *
+ * NOTHING READS IT YET, so no formatted byte can move: the field is
+ * written by the reader and consumed by nobody until the packer asks.
+ * Every differing case therefore differs in the `reading` key and
+ * nothing else, which is what a bare trailer declares. Measured
+ * against c074cadb, the landing's own base, by dumping each case's
+ * `normalizeTree` with the key and with it stripped: 1,011 of the
+ * 1,620 cases differ, all 1,011 in the AST alone. The 609 that do not
+ * are the cases holding no prose block at all - a bare section title,
+ * a delimited block of verbatim lines, a table of cells.
+ *
+ * NOT formatted-only: the key IS the difference, and a
+ * formatted-only family would fail the cross-check for every case.
+ *
+ * Not exported: no grid row cites it.
+ */
+const READING_RECORD_FAMILY = "reading-record";
+/**
  * Every list-like item's body records what `parse_list_item`'s head
  * drain did with the run of `//`-headed lines at the item's head
  * ({@link HeadDrainFact}, src/head-drain-record.ts): `detached` where
@@ -884,7 +909,6 @@ const SPAN_MARK_RECORD_FAMILY = "span-mark-record";
  * Not exported: no grid row cites it.
  */
 const HEAD_DRAIN_RECORD_FAMILY = "head-drain-record";
-
 export const LEDGER_FAMILIES: FamilySets = {
   families: new Set([
     ATTRIBUTE_CONTINUATION_FAMILY,
@@ -934,6 +958,7 @@ export const LEDGER_FAMILIES: FamilySets = {
     MARKER_GAP_KEPT_FAMILY,
     SPAN_MARK_RECORD_FAMILY,
     HEAD_DRAIN_RECORD_FAMILY,
+    READING_RECORD_FAMILY,
   ]),
   formattedOnly: new Set([
     AUTHOR_PLUS_FAMILY,
@@ -952,15 +977,16 @@ export const LEDGER_FAMILIES: FamilySets = {
     TABLE_LAYOUT_FAMILY,
     TABLE_WIDTH_LAYOUT_FAMILY,
   ]),
-  // Six families, and each owns exactly the field it named, as the
+  // Seven families, and each owns exactly the field it named, as the
   // dumper serializes it: `ParagraphNode.firstWordEndsItsLine`,
   // `ParagraphNode.blankBelowAnchorLine`,
   // `TableCellNode.columnIndex`, `ParagraphNode.secondLineIndent`,
-  // the `marks` record on the four mark spans, and the `headDrain`
-  // record on the body both list-like items share (all src/ast.ts).
-  // Every other family names a change to what the tree MEANS at some
-  // ids; these six name a field every paragraph, every table cell,
-  // every mark span or every list item gained.
+  // the `marks` record on the four mark spans, the `headDrain` record
+  // on the body both list-like items share, and the `reading` on
+  // every prose-block carrier (all src/ast.ts). Every other family
+  // names a change to what the tree MEANS at some ids; these seven
+  // name a field every paragraph, every table cell, every mark span,
+  // every list item or every prose block gained.
   blanketKeys: new Map([
     [BLOCK_START_LINE_FACT_FAMILY, new Set(["firstWordEndsItsLine"])],
     [BLANK_BELOW_ANCHOR_LINE_FACT_FAMILY, new Set(["blankBelowAnchorLine"])],
@@ -968,6 +994,7 @@ export const LEDGER_FAMILIES: FamilySets = {
     [SECOND_LINE_INDENT_FACT_FAMILY, new Set(["secondLineIndent"])],
     [SPAN_MARK_RECORD_FAMILY, new Set(["marks"])],
     [HEAD_DRAIN_RECORD_FAMILY, new Set(["headDrain"])],
+    [READING_RECORD_FAMILY, new Set(["reading"])],
   ]),
 };
 

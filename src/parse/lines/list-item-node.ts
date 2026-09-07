@@ -206,6 +206,7 @@ export function listItemNode(
         marker.variant === "callout" ? marker.calloutNumber : undefined,
       text,
       context: bounds.whitespace,
+      reading: interior.reading,
       blocks: paired,
       // The scan's answer, minus the one boundary it cannot see: an
       // item whose MARKER LINE an enclosing scan took into a LITERAL

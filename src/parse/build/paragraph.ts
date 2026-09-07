@@ -17,6 +17,7 @@ import type {
   ParagraphNode,
   VerbatimVariant,
 } from "../../ast.js";
+import type { BlockReading } from "../../reader-context.js";
 import { loneAnchorChild } from "../../block-metadata.js";
 import {
   blockWhitespace,
@@ -24,6 +25,7 @@ import {
   type WhitespaceContext,
 } from "../../whitespace-fact.js";
 import { FIRST_COLUMN, FIRST_LINE } from "../../constants.js";
+import { NO_PACKED_TEXT } from "../../line-verdict.js";
 import { annotation } from "./delimited.js";
 import { buildFromTokens } from "../inline/inline-node-builder.js";
 import { isSingleWordLine, rstrip } from "../line-shapes.js";
@@ -174,17 +176,19 @@ function secondLineIndent(
  * A plain paragraph: its inline body, positioned over the CONTENT
  * tokens — newlines are separators, not content, so a paragraph does
  * not end on the line break that ended it.
- * @param tokens - the body's tokens, in source order
+ * @param read - the body's tokens and the reading the scan took them
+ *   in (see {@link ProseText}, src/parse/lines/paragraph-reader.ts)
  * @param at - the document's location index
  * @param body - the source, the blank-below fact and the whitespace
  *   context (see {@link ParagraphBody})
  * @returns the paragraph node
  */
 export function buildParagraph(
-  tokens: readonly InlineToken[],
+  read: ProseText,
   at: LocationIndex,
   body: ParagraphBody,
 ): ParagraphNode {
+  const { tokens, reading } = read;
   const { source, blankBelow, context } = body;
   const position = bodyExtent(tokens, at);
   const children = buildFromTokens(tokens, at);
@@ -192,6 +196,7 @@ export function buildParagraph(
     type: "paragraph",
     children,
     whitespace: blockWhitespace(children, context),
+    reading,
     firstWordEndsItsLine: firstWordEndsItsLine(source, position.start.offset),
     secondLineIndent: secondLineIndent(source, position),
     // The anchor half of the conjunction is asked of the ONE record
@@ -229,14 +234,15 @@ const LABEL_COLON = ":";
  *   matched prefix group (src/parse/lines/reader.ts), whose pattern
  *   requires it. A hand-built Fragment without one would cut the
  *   variant a character short rather than throw.
- * @param tokens - The body's tokens, in source order. May be empty.
+ * @param read - The body's tokens, in source order (may be empty),
+ *   and the reading the scan took them in ({@link ProseText}).
  * @param at - The document's location index.
  * @param context - the whole-block facts the whitespace record reads.
  * @returns An AdmonitionNode in paragraph form.
  */
 export function buildAdmonitionParagraph(
   label: Fragment,
-  tokens: readonly InlineToken[],
+  read: ProseText,
   at: LocationIndex,
   context: WhitespaceContext,
 ): AdmonitionNode {
@@ -245,7 +251,7 @@ export function buildAdmonitionParagraph(
       label: label.image.slice(0, label.image.indexOf(LABEL_COLON)),
       span: { start: at.start(label), end: at.end(label) },
     },
-    tokens,
+    read,
     at,
     context,
   );
@@ -305,12 +311,32 @@ export interface ParagraphBody {
 }
 
 /**
+ * A prose block's tokens and the reading the scan took them in - the
+ * two halves that travel together from the reader to the builder,
+ * because every consumer of one wants the other: the tokens are what
+ * the printer packs, and the reading is the context it has to ask its
+ * question in ({@link BlockReading}, src/reader-context.ts).
+ *
+ * Declared HERE, in the builder, rather than beside the scan that
+ * produces one: `src/parse/build/` sits below `src/parse/lines/` and
+ * the layer rule forbids the edge back up (scripts/metrics/graph.ts,
+ * `build-imports-lines`).
+ */
+export interface ProseText {
+  /** The body's tokens, in source order. */
+  readonly tokens: InlineToken[];
+  /** The context the scan read the lines below the first one in. */
+  readonly reading: BlockReading;
+}
+
+/**
  * The block a paragraph's tokens become, once the held run has
  * spoken - the three shapes {@link ParagraphOpening} distinguishes,
  * resolved in one place so the reader pushes one node and names no
  * builder of its own.
  * @param opening - what the held run made of this paragraph
- * @param tokens - the body's tokens, in source order
+ * @param read - the body's tokens and the reading the scan took them
+ *   in (see {@link ProseText}, src/parse/lines/paragraph-reader.ts)
  * @param at - the document's location index
  * @param body - the source, the blank-below fact and the whitespace
  *   context (see {@link ParagraphBody})
@@ -318,19 +344,24 @@ export interface ParagraphBody {
  */
 export function buildParagraphNode(
   opening: ParagraphOpening,
-  tokens: readonly InlineToken[],
+  read: ProseText,
   at: LocationIndex,
   body: ParagraphBody,
 ): BlockNode {
   switch (opening.kind) {
     case "admonition": {
-      return admonitionOver(opening.style, tokens, at, body.context);
+      return admonitionOver(opening.style, read, at, body.context);
     }
     case "styled": {
-      return buildParagraphFormBlock(opening.held, tokens, body.source, at);
+      return buildParagraphFormBlock(
+        opening.held,
+        read.tokens,
+        body.source,
+        at,
+      );
     }
     case "plain": {
-      return buildParagraph(tokens, at, body);
+      return buildParagraph(read, at, body);
     }
   }
 }
@@ -357,17 +388,19 @@ interface AdmonitionOpening {
  * lowercased, the body as a paragraph's own inline children, and a
  * span from the opening line to the last content token.
  * @param opening - what the opening line contributes
- * @param tokens - the body's tokens, in source order; may be empty
+ * @param read - the body's tokens (may be empty) and the reading the
+ *   scan took them in ({@link ProseText})
  * @param at - the document's location index
  * @param context - the whole-block facts the whitespace record reads
  * @returns the admonition node
  */
 function admonitionOver(
   opening: AdmonitionOpening,
-  tokens: readonly InlineToken[],
+  read: ProseText,
   at: LocationIndex,
   context: WhitespaceContext,
 ): AdmonitionNode {
+  const { tokens, reading } = read;
   const content = tokens.filter((t) => t.type !== "InlineNewline");
   const last = content.at(-1);
   const text = buildFromTokens(tokens, at);
@@ -377,6 +410,7 @@ function admonitionOver(
     form: "paragraph",
     text,
     whitespace: blockWhitespace(text, context),
+    reading,
     children: [],
     position: {
       start: opening.span.start,
@@ -515,6 +549,9 @@ export function buildRawLineParagraph(
     // it holds no whitespace run for any row to bind, and the record
     // is the same empty one under every context.
     whitespace: blockWhitespace(children, PLAIN_WHITESPACE_CONTEXT),
+    // The printer keeps the raw line on an output line of its own, so
+    // no line of this block is one the packer composed.
+    reading: NO_PACKED_TEXT,
     // The fragment IS the whole line, so its image is the source slice
     // the question is about; offset 0 is that slice's own start.
     firstWordEndsItsLine: firstWordEndsItsLine(line.image, 0),

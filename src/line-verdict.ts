@@ -58,6 +58,7 @@
  * continuation lines of the source block, which is a function of k
  * alone, and the ordinal above is the whole of it.
  */
+import type { BlockReading } from "./reader-context.js";
 import type { ReaderContext } from "./parse/line-shapes.js";
 import { classifyLine, type LineKind } from "./parse/lines/classify.js";
 
@@ -140,6 +141,80 @@ export type BlockPosition =
       /** The context the reader classifies the block's later lines in. */
       readonly reader: ReaderContext;
     };
+
+/**
+ * THE ONE PRODUCER of the context a block's continuation lines are
+ * classified in, from the two facts the reader recorded about the
+ * block ({@link BlockReading}, src/ast.ts) and the five that are
+ * fixed at any position inside an open block.
+ *
+ * Both of the reader's prose scans call it and so does the printer's
+ * packer, which is what the recording is for: the printer asks the
+ * reader's own question, in the reader's own context, instead of
+ * approximating it with a predicate over a word.
+ *
+ * WHY THE FIVE ARE FIXED, field by field, at a position where a block
+ * is already open:
+ *
+ * - `firstLineAfterStart` and `nextLine` are the LINE's, not the
+ *   block's, and {@link lineVerdict} supplies both from the position.
+ * - `substitutedContentAbove` holds off nine block-START rules
+ *   (lines/classify.ts); a line inside an open paragraph reaches
+ *   none of them, and a line that leaves the paragraph got there by
+ *   interrupting, which is a block start on Asciidoctor's reading
+ *   whatever a directive substituted above it.
+ * - `markerLineWins` likewise decides between two block-START
+ *   readings of one marker line, and the ladder is not reached from
+ *   inside an open block at all.
+ * - `attributeRun` is read by one row, `verbatimStyled`'s
+ *   enclosing-list arm, and its answer is `runIsInTheItem` for every
+ *   line of every prose block: those lines ARE what an enclosing
+ *   `read_lines_for_list_item` read past, so its third cut (parser.rb
+ *   l.1462-1482) cannot fall on one of them.
+ * @param reading - what the reader recorded about the block
+ * @returns the context every line below the block's first is read in
+ */
+function continuationContext(reading: BlockReading): ReaderContext {
+  return {
+    openParagraph: reading.context,
+    openList: reading.openList,
+    firstLineAfterStart: false,
+    nextLine: undefined,
+    substitutedContentAbove: false,
+    markerLineWins: false,
+    attributeRun: "runIsInTheItem",
+  };
+}
+
+/**
+ * A continuation position inside a block the reader read.
+ * @param reading - what the reader recorded about the block
+ * @param ordinal - the line directly under the block's first, or any
+ *   line below that
+ * @returns the position {@link lineVerdict} takes
+ */
+export function continuationPosition(
+  reading: BlockReading,
+  ordinal: 1 | 2,
+): BlockPosition {
+  return { ordinal, reader: continuationContext(reading) };
+}
+
+/**
+ * The reading of a block that holds no line the packer ever
+ * composes: a delimited-form admonition, whose body is its own
+ * blocks, and the paragraph built over a single raw line, which the
+ * printer replays where it stands.
+ *
+ * Document level and no open list, which is what a block with no text
+ * of its own is read in. Nothing asks it - the packer asks only about
+ * a line it assembled out of words - and the constant exists so the
+ * two builders spell that same nothing once.
+ */
+export const NO_PACKED_TEXT: BlockReading = {
+  context: "paragraph",
+  openList: undefined,
+};
 
 /**
  * THE verdict: what our reader makes of `line` standing at

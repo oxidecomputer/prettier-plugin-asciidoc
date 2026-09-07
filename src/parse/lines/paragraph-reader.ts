@@ -31,7 +31,6 @@ import {
   type OpenList,
   type ParagraphContext,
   rawLineForm,
-  type ReaderContext,
 } from "../line-shapes.js";
 import {
   classifyTrace,
@@ -42,7 +41,9 @@ import {
   type LineKind,
 } from "./classify.js";
 import type { SourceLine } from "./split.js";
+import type { ProseText } from "../build/paragraph.js";
 import {
+  continuationPosition,
   FIRST_CONTINUATION,
   keepsTheLine,
   LATER_CONTINUATION,
@@ -378,41 +379,18 @@ class Paragraph {
       if (next === undefined) {
         return;
       }
-      const kind = lineVerdict(next.text, undefined, {
-        ordinal: this.ordinal,
-        reader: {
-          openParagraph: this.context,
-          openList: this.scan.openList,
-          // Supplied by the position, not by this literal: see
-          // {@link lineVerdict}.
-          firstLineAfterStart: false,
-          // A paragraph is OPEN here, and the one two-line construct
-          // Asciidoctor reads is asked about a section's block start
-          // alone (`is_next_line_section?`, parser.rb l.374), which
-          // is why the verdict takes no neighbour at a continuation
-          // position.
-          nextLine: undefined,
-          // A paragraph is OPEN here too, so a line this scan hands
-          // on to the block-start ladder got there by INTERRUPTING
-          // one - and a line that interrupts starts a block on
-          // Asciidoctor's reading as well, whatever a directive
-          // substituted above it (see
-          // ReaderContext.substitutedContentAbove).
-          substitutedContentAbove: false,
-          // The block-start ladder is not reached from here at all:
-          // an interrupting line ends this scan and the READER
-          // classifies it, with its own answer (see
-          // ReaderContext.markerLineWins).
-          markerLineWins: false,
-          // Every line this scan walks came out of the enclosing
-          // item's own `read_lines_for_list_item`, so the third cut
-          // cannot fall on one of them (see
-          // ReaderContext.attributeRun). No row this context reaches
-          // reads it in any case: the reading belongs to
-          // `verbatimStyled`'s enclosing-list arm alone.
-          attributeRun: "runIsInTheItem",
-        },
-      });
+      // The block's own two facts, and the five a position inside an
+      // open block fixes, from the one producer both this scan and
+      // the printer's packer read ({@link continuationPosition},
+      // src/line-verdict.ts).
+      const kind = lineVerdict(
+        next.text,
+        undefined,
+        continuationPosition(
+          { context: this.context, openList: this.scan.openList },
+          this.ordinal,
+        ),
+      );
       classifyTrace.observer?.(next.offset, kind);
       if (!keepsTheLine(kind)) {
         if (!this.foldsThrough(next)) {
@@ -768,13 +746,11 @@ class Paragraph {
 }
 
 /**
- * The tokens a paragraph-shaped extent holds, and where it ends.
- * NOT exported (knip's types bucket gates dead exported types at 0):
- * the caller destructures the function's result.
+ * A prose extent: its text and where it ends. NOT exported (knip's
+ * types bucket gates dead exported types at 0): the caller
+ * destructures the function's result.
  */
-interface ParagraphBody {
-  /** The body's tokens, in source order. */
-  readonly tokens: InlineToken[];
+interface ParagraphBody extends ProseText {
   /** Index (into the scan's lines) after everything the extent held. */
   readonly end: number;
 }
@@ -804,7 +780,8 @@ interface VerbatimRun {
  * @param context - which interrupting set applies (see ParagraphContext)
  * @param text - where the paragraph's text starts and how its `//`
  *   lines read (see {@link TextOpen})
- * @returns the body's tokens and the resume index
+ * @returns the body's tokens, the reading they were taken in, and
+ *   the resume index
  */
 export function paragraphExtent(
   scan: ParagraphScan,
@@ -814,7 +791,11 @@ export function paragraphExtent(
 ): ParagraphBody {
   const paragraph = new Paragraph(scan, at, context, text);
   paragraph.read();
-  return { tokens: paragraph.finish(), end: paragraph.end };
+  return {
+    tokens: paragraph.finish(),
+    reading: { context, openList: scan.openList },
+    end: paragraph.end,
+  };
 }
 
 /**
@@ -828,7 +809,8 @@ export function paragraphExtent(
  * plain-paragraph set (see {@link ParagraphMode}).
  * @param scan - the lines and the stream-wide facts
  * @param at - index of the tagged `+` line
- * @returns the body's tokens and the resume index
+ * @returns the body's tokens, the reading they were taken in, and
+ *   the resume index
  */
 export function continuationFoldExtent(
   scan: ParagraphScan,
@@ -846,7 +828,14 @@ export function continuationFoldExtent(
     comments: "skipped",
   });
   paragraph.read();
-  return { tokens: paragraph.finish(), end: paragraph.end };
+  return {
+    tokens: paragraph.finish(),
+    // The fold is read against the plain-paragraph set plus the open
+    // list's siblings, which is what `listContinuation` names; the
+    // scan itself carries the same context under its own mode name.
+    reading: { context: "listContinuation", openList: scan.openList },
+    end: paragraph.end,
+  };
 }
 
 /**
@@ -932,29 +921,10 @@ function verbatimRunExtent(
   at: number,
   context: ParagraphContext,
 ): VerbatimRun {
-  const reader: ReaderContext = {
-    openParagraph: context,
-    openList: scan.openList,
-    // Supplied by the position, not by this literal.
-    firstLineAfterStart: false,
-    // A block is open, and the setext arm belongs to a section's
-    // block start alone, which is why the verdict takes no neighbour
-    // at a continuation position.
-    nextLine: undefined,
-    // Same reason as the paragraph scan's, one field down.
-    substitutedContentAbove: false,
-    // Same reason as the paragraph scan's, one field down again.
-    markerLineWins: false,
-    // THE READING THIS RUN'S OWN ROW ASKS FOR, and a fact about the
-    // buffer rather than a default: `scan.lines` is what the
-    // enclosing item's `read_lines_for_list_item` read PAST, so the
-    // block-attribute cut (parser.rb l.1462-1482) cannot fall on any
-    // line this loop classifies - the scan would have kept the line
-    // out of the buffer instead. An asker holding the lines BELOW a
-    // line rather than an item's buffer reads the run for itself and
-    // supplies the other reading (see ReaderContext.attributeRun).
-    attributeRun: "runIsInTheItem",
-  };
+  const position = continuationPosition(
+    { context, openList: scan.openList },
+    LATER_CONTINUATION,
+  );
   const lines: [SourceLine, ...SourceLine[]] = [scan.lines[at]];
   let index = at + 1;
   for (;;) {
@@ -975,7 +945,7 @@ function verbatimRunExtent(
     const kind = lineVerdict(
       next.continuationTag === "erased" ? next.raw : next.text,
       undefined,
-      { ordinal: LATER_CONTINUATION, reader },
+      position,
     );
     classifyTrace.observer?.(next.offset, kind);
     if (!keepsTheLine(kind)) {

@@ -24,6 +24,7 @@ import type {
   VerbatimVariant,
 } from "../../ast.js";
 import { NEWLINE_LENGTH } from "../../constants.js";
+import { NO_PACKED_TEXT } from "../../line-verdict.js";
 import {
   blockWhitespace,
   PLAIN_WHITESPACE_CONTEXT,
@@ -386,6 +387,9 @@ export function buildDelimitedAdmonition(
     // blocks carry their own records, and this one is about `text`,
     // which is empty here by construction.
     whitespace: blockWhitespace([], PLAIN_WHITESPACE_CONTEXT),
+    // Empty `text` for the same reason, so no line of this node is
+    // ever one the packer composed.
+    reading: NO_PACKED_TEXT,
     children,
     position: { start: at.start(extent.open), end: at.at(extent.end) },
   };

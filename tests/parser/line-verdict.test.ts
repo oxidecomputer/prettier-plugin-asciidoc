@@ -22,18 +22,64 @@
 import { describe, expect, test } from "vitest";
 import {
   accepts,
+  continuationPosition,
   FIRST_CONTINUATION,
   keepsTheLine,
   LATER_CONTINUATION,
   lineVerdict,
+  NO_PACKED_TEXT,
   OPENING_LINE,
   type BlockOpening,
   type BlockPosition,
 } from "../../src/line-verdict.js";
+import type { BlockReading } from "../../src/reader-context.js";
+import { parse } from "../../src/parser.js";
 import {
   BLOCK_START_CONTEXT,
   type ParagraphContext,
 } from "../../src/parse/line-shapes.js";
+
+/**
+ * Whether a walked value is a recorded reading.
+ * @param value - the value under a node's `reading` key
+ * @returns true when it has the shape a reading has
+ */
+function isReading(value: unknown): value is BlockReading {
+  return typeof value === "object" && value !== null && "context" in value;
+}
+
+/**
+ * Every recorded reading under a node, in document order.
+ * @param node - the node to walk
+ * @returns the readings its prose nodes carry
+ */
+function proseReadings(node: unknown): BlockReading[] {
+  if (typeof node !== "object" || node === null) {
+    return [];
+  }
+  const record: Record<string, unknown> = { ...node };
+  const own = isReading(record.reading) ? [record.reading] : [];
+  const under = Object.entries(record).flatMap(([key, value]) =>
+    key === "reading" ? [] : proseReadings(value),
+  );
+  return [...own, ...under];
+}
+
+/**
+ * The reading the reader put on one prose node of a document.
+ * @param source - the document
+ * @param at - which prose node, in document order; the first by
+ *   default
+ * @returns the recorded reading
+ */
+function readingOf(source: string, at = 0): BlockReading {
+  const found = proseReadings(parse(source)).at(at);
+  expect(found).toBeDefined();
+  // Narrowed for the assertions the rows make; the `expect` above is
+  // the failure a reader should see when a fixture stops holding a
+  // prose node at all.
+  return found ?? NO_PACKED_TEXT;
+}
 
 /**
  * A continuation position inside an open block.
@@ -297,5 +343,114 @@ describe("the two askers part on exactly two readings", () => {
     const position = inside("paragraph");
     expect(keepsTheLine(lineVerdict("words", undefined, position))).toBe(true);
     expect(accepts("words", undefined, position)).toBe(true);
+  });
+});
+
+describe("the reading a prose node records", () => {
+  // Red before the recording: every one of these fields was absent.
+  // The rows are written as a table of CONTEXTS rather than of
+  // spellings, because the context is the whole of what the printer
+  // cannot recover from the tree - the same words are a paragraph's
+  // own text at document level and a nested list's at a `+`-attached
+  // one.
+  const rows = [
+    ["a document-level paragraph", "some words\nmore words\n", "paragraph"],
+    ["a list item's own text", "* some words\n  more words\n", "listItemText"],
+
+    ["a description item's body", "term:: some words\n", "dlistItem"],
+    [
+      // The gated ladder, kept because the printer REPLAYS this item:
+      // the run between the term line and its description is not
+      // empty, so the description stays where the author wrote it and
+      // the source's context is the output's too.
+      "a description item the printer replays",
+      "term::\n\n\n  some words\n",
+      "dlistItemTextOnly",
+    ],
+    ["an admonition's paragraph body", "NOTE: some words\n", "paragraph"],
+  ] as const;
+  for (const [what, source, context] of rows) {
+    test(`${what} records ${context}`, () => {
+      expect(readingOf(source).context).toBe(context);
+    });
+  }
+
+  // The item's own text comes first in document order, so the
+  // attached paragraph is the SECOND reading of this document, and
+  // the two rows together are what the field is for: one item, two
+  // prose blocks, two different interrupting sets.
+  test("a paragraph attached to an item records listContinuation", () => {
+    const source = "* item\n+\nsome words\nmore words\n";
+    expect(readingOf(source).context).toBe("listItemText");
+    expect(readingOf(source, 1).context).toBe("listContinuation");
+  });
+
+  test("and an item's text carries the list open around it", () => {
+    expect(readingOf("* some words\n  more words\n").openList).toEqual({
+      kind: "marker",
+      style: "*",
+    });
+  });
+  test("while a document-level paragraph has none", () => {
+    expect(readingOf("some words\n").openList).toBeUndefined();
+  });
+  // The recorded reading is what `continuationContext` is asked with,
+  // so the two are pinned together: a marker line ends an item's text
+  // and is a plain paragraph's own words, and the SAME line changes
+  // answer only because the recorded context did.
+  test("the recorded reading is what the verdict is asked in", () => {
+    const item = continuationPosition(
+      readingOf("* some words\n  more words\n"),
+      LATER_CONTINUATION,
+    );
+    const para = continuationPosition(
+      readingOf("some words\nmore words\n"),
+      LATER_CONTINUATION,
+    );
+    expect(accepts("- other", undefined, item)).toBe(false);
+    expect(accepts("- other", undefined, para)).toBe(true);
+  });
+});
+
+describe("a description item records the reading its OUTPUT has", () => {
+  // The five lines the two description contexts disagree about at the
+  // FIRST continuation position, and the whole reason a term-only
+  // item may not record the context its source lines were read in.
+  //
+  // A term line carrying no description of its own is read under the
+  // gated ladder (`text_only: has_text ? nil : true`, parser.rb
+  // l.1367-74): a layout break, an admonition label, a block title
+  // and an attribute entry are the description's own text there. The
+  // printer's reflow arm writes the description ONTO the term line,
+  // and a term line that carries one is read under the ungated
+  // ladder, where the same five end the item. Recording the source's
+  // context would have the packer ask its question in a context the
+  // output does not have.
+  const disputed = ["NOTE: bbb", "<<<", "'''", ".T b", ":a: v"] as const;
+  const openList = { kind: "description", delimiter: "::" } as const;
+  for (const line of disputed) {
+    test(`${line} is the description's own text under the gated ladder`, () => {
+      const position = continuationPosition(
+        { context: "dlistItemTextOnly", openList },
+        FIRST_CONTINUATION,
+      );
+      expect(accepts(line, undefined, position)).toBe(true);
+    });
+    test(`${line} ends the item under the ungated one`, () => {
+      const position = continuationPosition(
+        { context: "dlistItem", openList },
+        FIRST_CONTINUATION,
+      );
+      expect(accepts(line, undefined, position)).toBe(false);
+    });
+  }
+
+  // The recording, red before the change: a term-only item whose
+  // description the printer joins onto the term line records the
+  // reading the joined line has. The `"replay"` arm keeps the term
+  // line as the author wrote it, so there the source's context IS the
+  // output's.
+  test("a term-only item the printer joins records the ungated ladder", () => {
+    expect(readingOf("term::\nsome words\n").context).toBe("dlistItem");
   });
 });

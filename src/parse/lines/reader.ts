@@ -39,9 +39,9 @@ import {
   buildParagraph,
   buildParagraphNode,
   buildStyledParagraph,
+  type ProseText,
 } from "../build/paragraph.js";
 import { buildTable } from "../build/table.js";
-import type { InlineToken } from "../inline/tokens.js";
 import type { OpenList, ParagraphContext } from "../line-shapes.js";
 import { makeLocationIndex, type LocationIndex } from "../positions.js";
 import { readAttributeEntry } from "./attribute-entry.js";
@@ -358,13 +358,14 @@ class BlockReader {
    * @param context - which interrupting set applies
    * @param text - where the text starts and how its `//` lines read
    *   (see {@link TextOpen})
-   * @returns the body's tokens
+   * @returns the body's tokens and the reading the printer asks its
+   *   own question in ({@link BlockReading}, src/ast.ts)
    */
-  private readText(context: ParagraphContext, text: TextOpen): InlineToken[] {
+  private readText(context: ParagraphContext, text: TextOpen): ProseText {
     this.flushMetadata();
     const body = paragraphExtent(this.scan, this.index, context, text);
     this.resume(body.end);
-    return body.tokens;
+    return body;
   }
 
   /**
@@ -382,11 +383,11 @@ class BlockReader {
     const opening = this.held.paragraphOpening(
       admonitionLabelOpensABlock(context, this.blocks.at(-1)),
     );
-    const tokens = this.readText(context, text);
+    const read = this.readText(context, text);
     const blankBelow = blankSeparatesNextBlock(this.lines, this.index);
     const whitespace = blockWhitespaceContext(this.scope, this.blocks);
     const body = { source: this.source, blankBelow, context: whitespace };
-    this.push(buildParagraphNode(opening, tokens, this.at, body));
+    this.push(buildParagraphNode(opening, read, this.at, body));
   }
 
   /**
@@ -402,11 +403,11 @@ class BlockReader {
     line: SourceLine,
     labelEnd: number,
   ): void {
-    const tokens = this.readText(context, textAt(labelEnd));
+    const read = this.readText(context, textAt(labelEnd));
     this.push(
       buildAdmonitionParagraph(
         fragmentOfLine(line, 0, labelEnd),
-        tokens,
+        read,
         this.at,
         blockWhitespaceContext(this.scope, this.blocks),
       ),
@@ -567,8 +568,8 @@ class BlockReader {
       directiveDepth: this.directiveDepth,
       closeOffset: last.offset + last.raw.length,
     });
-    const text = inner.readText(open.context, open.text);
-    return { text, blocks: inner.run() };
+    const read = inner.readText(open.context, open.text);
+    return { text: read.tokens, reading: read.reading, blocks: inner.run() };
   }
 
   /**
@@ -678,12 +679,12 @@ class BlockReader {
     }
     if (this.blanks > 0 && line.continuationTag === "marker") {
       this.flushMetadata();
-      const { tokens, end } = continuationFoldExtent(this.scan, this.index);
-      this.resume(end);
+      const read = continuationFoldExtent(this.scan, this.index);
+      this.resume(read.end);
       const blankBelow = blankSeparatesNextBlock(this.lines, this.index);
       const context = blockWhitespaceContext(this.scope, this.blocks);
       const body = { source: this.source, blankBelow, context };
-      this.push(buildParagraph(tokens, this.at, body));
+      this.push(buildParagraph(read, this.at, body));
       return;
     }
     this.transparentLeaf(buildRawBlockLine(fragmentOfLine(line), this.at));

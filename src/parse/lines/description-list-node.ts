@@ -25,6 +25,7 @@ import type {
   TermGapLine,
 } from "../../ast.js";
 import type { HeadDrainFact } from "../../head-drain-record.js";
+import type { BlockReading } from "../../reader-context.js";
 import { buildDescriptionTerm } from "../build/description-list.js";
 import type { DescriptionPair } from "../build/description-list.js";
 import { LINE_COMMENT_HEAD, rstrip } from "../line-shapes.js";
@@ -324,6 +325,43 @@ function siblingPrinting(
 }
 
 /**
+ * The reading the item's description lines have IN THE OUTPUT, which
+ * is the one the printer's packer has to ask its own question in.
+ *
+ * A term line carrying no description of its own is read under the
+ * GATED ladder (`text_only: has_text ? nil : true`, parser.rb
+ * l.1367-74), which `dlistItemTextOnly` names: a layout break, an
+ * admonition label, a block title and an attribute entry are all the
+ * description's own text there. The printer's `"reflow"` arm writes
+ * the description ONTO the term line, and a term line that carries
+ * one is read under the UNGATED ladder, where those same four shapes
+ * end the item. So the source's context is a fact about a newline
+ * after `::` that the reflow deletes, and recording it would be
+ * recording something the output does not have.
+ *
+ * The `"replay"` arm keeps the term line as it stands, newline
+ * included, so there the source's context is the output's too.
+ *
+ * ORACLE, `term::` over `aaaa bbb ccc ddd` at width 11: the printer
+ * writes `term:: aaaa` and `bbb ccc ddd`, and Asciidoctor reads the
+ * result as one description item under the ungated ladder. The five
+ * lines the two contexts disagree about are pinned in
+ * tests/parser/line-verdict.test.ts.
+ * @param reading - the context the confined read took the lines in
+ * @param printing - what the scan decided the printer does with them
+ * @returns the reading the output's own lines carry
+ */
+function readingOfThePrintedItem(
+  reading: BlockReading,
+  printing: DescriptionPrinting,
+): BlockReading {
+  if (printing === "replay" || reading.context !== "dlistItemTextOnly") {
+    return reading;
+  }
+  return { ...reading, context: "dlistItem" };
+}
+
+/**
  * Assemble one parsed sibling of a description list, once its
  * interior has been read: the term the line carried, the source
  * between that line and the item's description, the description
@@ -372,6 +410,10 @@ export function descriptionItemNode(
     ? (bounds.nextTermLine ?? bounds.drainedEnd)
     : Math.max(bounds.drainedEnd, recorded.at(0)?.line ?? markerLine.line);
   const gap = gapBetween(bounds.lines, bounds.gaps, markerLine.line, gapEnd);
+  const printing = siblingPrinting(marker, markerLine, gap, {
+    restLines: textLines,
+    follower: followerLine(bounds.lines, blocks, gaps),
+  });
   return {
     term: buildDescriptionTerm(
       // The term's own text, tokenized where it stands: a term
@@ -389,6 +431,7 @@ export function descriptionItemNode(
     body: {
       text,
       context: bounds.whitespace,
+      reading: readingOfThePrintedItem(interior.reading, printing),
       blocks: blocks.map((block, index) => ({ gap: gaps[index], block })),
       // The three tail facts belong to a body, and a bodyless sibling
       // has none: its `+` bytes are in the gap above where the fold
@@ -407,9 +450,6 @@ export function descriptionItemNode(
       headDrain: bounds.headDrain,
     },
     textLines,
-    printing: siblingPrinting(marker, markerLine, gap, {
-      restLines: textLines,
-      follower: followerLine(bounds.lines, blocks, gaps),
-    }),
+    printing,
   };
 }

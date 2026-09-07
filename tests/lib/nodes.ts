@@ -29,6 +29,7 @@ import {
   PLAIN_WHITESPACE_CONTEXT,
 } from "../../src/whitespace-fact.js";
 import type { ListNode, Location, ParagraphNode } from "../../src/ast.js";
+import { NO_PACKED_TEXT } from "../../src/line-verdict.js";
 
 /**
  * The fields a builder's caller may set: every field of the node
@@ -81,8 +82,10 @@ function nowhere(): { start: Location; end: Location } {
  * A paragraph node with every field defaulted.
  *
  * The defaults are the values a paragraph of ordinary prose carries:
- * no children, and all three recorded facts false or empty. A test
- * about one of those facts overrides it.
+ * no children, all three recorded line-layout facts false or empty,
+ * and the reading of a block holding no line the packer composes,
+ * which is what a childless paragraph is. A test about one of those
+ * facts overrides it.
  * @param fields - the fields this caller's assertion is about
  * @returns the node
  */
@@ -95,6 +98,7 @@ export function paragraphNode(
     firstWordEndsItsLine: false,
     secondLineIndent: "",
     blankBelowAnchorLine: false,
+    reading: NO_PACKED_TEXT,
     whitespace: blockWhitespace(
       fields.children ?? [],
       PLAIN_WHITESPACE_CONTEXT,

@@ -17,6 +17,7 @@
  * the vendored reference.
  */
 import type { BlockNode } from "../../ast.js";
+import type { BlockReading } from "../../reader-context.js";
 import type { InlineToken } from "../inline/tokens.js";
 import { LINE_COMMENT_HEAD } from "../line-shapes.js";
 import type { LocationIndex } from "../positions.js";
@@ -30,6 +31,12 @@ import type { SourceLine } from "./split.js";
 export interface ItemInterior {
   /** The item's principal text, as tokens. */
   readonly text: InlineToken[];
+  /**
+   * How the reader read that text, for the printer's own question
+   * about a line it is about to write ({@link BlockReading},
+   * src/ast.ts).
+   */
+  readonly reading: BlockReading;
   /** The item's blocks, in source order. */
   readonly blocks: BlockNode[];
 }

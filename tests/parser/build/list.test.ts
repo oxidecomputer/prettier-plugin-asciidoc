@@ -29,6 +29,7 @@ import type {
   ItemBlock,
   ListItemNode,
 } from "../../../src/ast.js";
+import { NO_PACKED_TEXT } from "../../../src/line-verdict.js";
 
 const at = makeLocationIndex("* one\n* two\n* three\n* four\n");
 
@@ -48,6 +49,7 @@ function itemInput(overrides: Partial<ListItemInput>): ListItemInput {
     leadingGap: [],
     text: [],
     context: PLAIN_WHITESPACE_CONTEXT,
+    reading: NO_PACKED_TEXT,
     blocks: [],
     headDrain: { kind: "none" },
     trailingContinuation: false,

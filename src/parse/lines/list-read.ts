@@ -282,6 +282,7 @@ function interiorOfItem(
       const interior = readInterior([], "runsOn");
       return {
         text: [...interior.text, ...drainedRawTokens(drain.run)],
+        reading: interior.reading,
         blocks: interior.blocks,
       };
     }
@@ -567,7 +568,11 @@ function interiorOfDescription(
   // description holding one newline and nothing else answers the
   // question the wrong way for every term-only item there is.
   return descriptionStart === undefined
-    ? { text: withoutTermLineBreak(interior.text), blocks: interior.blocks }
+    ? {
+        text: withoutTermLineBreak(interior.text),
+        reading: interior.reading,
+        blocks: interior.blocks,
+      }
     : interior;
 }
 

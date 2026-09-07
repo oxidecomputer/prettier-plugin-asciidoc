@@ -16,6 +16,7 @@ import type {
   TrailingContinuation,
 } from "../../ast.js";
 import type { HeadDrainFact } from "../../head-drain-record.js";
+import type { BlockReading } from "../../reader-context.js";
 import { buildFromTokens } from "../inline/inline-node-builder.js";
 import type { InlineToken } from "../inline/tokens.js";
 import { rstrip } from "../line-shapes.js";
@@ -82,6 +83,12 @@ export interface ItemBodyInput {
    * ({@link WhitespaceContext}, src/whitespace-fact.ts).
    */
   readonly context: WhitespaceContext;
+  /**
+   * How the reader read the item's TEXT, for the printer's own
+   * question about a line it is about to write
+   * ({@link BlockReading}, src/ast.ts).
+   */
+  readonly reading: BlockReading;
 }
 
 /**
@@ -298,6 +305,7 @@ export function buildListItem(
     leadingGap: input.leadingGap,
     text,
     whitespace: blockWhitespace(text, input.context),
+    reading: input.reading,
     blocks: [...input.blocks],
     trailingContinuation: input.trailingContinuation,
     detachedTail: input.detachedTail,

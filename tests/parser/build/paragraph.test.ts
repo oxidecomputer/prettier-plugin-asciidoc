@@ -21,6 +21,7 @@ import type { InlineToken } from "../../../src/parse/inline/tokens.js";
 import { makeLocationIndex } from "../../../src/parse/positions.js";
 import { PLAIN_WHITESPACE_CONTEXT } from "../../../src/whitespace-fact.js";
 import { paragraphNode } from "../../lib/nodes.js";
+import { NO_PACKED_TEXT } from "../../../src/line-verdict.js";
 
 // What the reader hands a builder when no block-attribute line stood
 // above the block (`HeldMetadata.annotation` answered nothing).
@@ -85,7 +86,10 @@ describe("buildParagraph", () => {
   test("joins its children and is positioned over the content", () => {
     const source = "one\ntwo\n";
     const node = buildParagraph(
-      [text("one", 0), newline(3), text("two", 4)],
+      {
+        tokens: [text("one", 0), newline(3), text("two", 4)],
+        reading: NO_PACKED_TEXT,
+      },
       makeLocationIndex(source),
       { source, blankBelow: false, context: PLAIN_WHITESPACE_CONTEXT },
     );
@@ -198,7 +202,7 @@ describe("paragraph-shaped annotations", () => {
       (a: string | undefined) =>
         buildParagraphNode(
           { kind: "styled", held: { variant: "listing", annotatedBy: a } },
-          [text("a", 2)],
+          { tokens: [text("a", 2)], reading: NO_PACKED_TEXT },
           at,
           {
             source: "  a\n",
@@ -228,7 +232,10 @@ describe("buildAdmonitionParagraph", () => {
   test("takes its variant from the label and keeps the body inline", () => {
     const node = buildAdmonitionParagraph(
       label,
-      [text("one", 6), newline(9), text("two", 10)],
+      {
+        tokens: [text("one", 6), newline(9), text("two", 10)],
+        reading: NO_PACKED_TEXT,
+      },
       at,
       PLAIN_WHITESPACE_CONTEXT,
     );
@@ -250,6 +257,7 @@ describe("buildAdmonitionParagraph", () => {
       ],
       // ONE run, between the two source lines, and no row reads it.
       whitespace: { kind: "reflowable", runs: [{ kind: "free" }] },
+      reading: NO_PACKED_TEXT,
       children: [],
       position: {
         start: { offset: 0, line: 1, column: 1 },
@@ -267,7 +275,7 @@ describe("buildAdmonitionParagraph", () => {
     expect(
       buildAdmonitionParagraph(
         { image, offset: 0 },
-        [],
+        { tokens: [], reading: NO_PACKED_TEXT },
         at,
         PLAIN_WHITESPACE_CONTEXT,
       ).variant,
@@ -276,7 +284,12 @@ describe("buildAdmonitionParagraph", () => {
 
   test("an empty body has no inline children and ends at the label's end", () => {
     expect(
-      buildAdmonitionParagraph(label, [], at, PLAIN_WHITESPACE_CONTEXT),
+      buildAdmonitionParagraph(
+        label,
+        { tokens: [], reading: NO_PACKED_TEXT },
+        at,
+        PLAIN_WHITESPACE_CONTEXT,
+      ),
     ).toMatchObject({
       text: [],
       children: [],

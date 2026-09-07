@@ -333,6 +333,10 @@
       "coverage": 100.0,
       "mutation": 0.0
     },
+    "src/reader-context.ts": {
+      "coverage": 100.0,
+      "mutation": 0.0
+    },
     "src/whitespace-fact.ts": {
       "coverage": 100.0,
       "mutation": 0.0

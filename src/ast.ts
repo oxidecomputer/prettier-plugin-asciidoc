@@ -13,6 +13,16 @@
 import type { HeadDrainFact } from "./head-drain-record.js";
 import type { BlockWhitespace } from "./whitespace-record.js";
 import type { SpanMarks } from "./mark-record.js";
+import type { BlockReading, DescriptionDelimiter } from "./reader-context.js";
+
+// The reader's context vocabulary and the reading a prose node
+// records live in a leaf of their own, because three layers declare
+// against them and no one of them can own the type without closing a
+// cycle (src/reader-context.ts says which three). One name is
+// re-exported: `DescriptionDelimiter` was declared here and is
+// imported by twenty files, and moving its address would be a rename
+// this change has no reason to make.
+export type { DescriptionDelimiter } from "./reader-context.js";
 
 /**
  * A point in the source text.
@@ -229,6 +239,12 @@ export interface ParagraphNode extends BlockNodeBase {
    * read time. See {@link BlockWhitespace}.
    */
   whitespace: BlockWhitespace;
+  /**
+   * How the reader read this block, so the printer can ask the
+   * reader's own question of a line it is about to write. See
+   * {@link BlockReading}.
+   */
+  reading: BlockReading;
 }
 
 /** Raw text content. Lines within a paragraph are joined with \n in `value`. */
@@ -1021,25 +1037,6 @@ export interface ListNode extends BlockNodeBase {
 }
 
 /**
- * The four delimiters a description-list term may carry
- * (`DescriptionListRx`, rx.rb:336).
- *
- * It decides STRUCTURE, not spelling: `DescriptionListSiblingRx` is
- * keyed on it (parser.rb:1225, rx.rb:340-345), so a `:::` term inside
- * a `::` list opens a nested list rather than continuing the one it
- * sits in.
- *
- * Declared here, in the AST, and IMPORTED by src/parse/line-shapes.ts
- * so that `parseDescriptionListLine` returns the narrowed value at the
- * pattern that already knows it: the delimiter group is `;;|:{2,4}`,
- * which is exactly these four spellings. Narrowing later instead would
- * make a builder assert what the pattern proved, and would leave the
- * classifier's `dlistTerm.delimiter` a bare string every consumer
- * re-checks.
- */
-export type DescriptionDelimiter = "::" | ":::" | "::::" | ";;";
-
-/**
  * The block kinds a verbatim delimited block carries: the three that
  * own a leaf delimiter, plus the parent-block variants a style can
  * re-model into verbatim content. A table is not among them: its
@@ -1353,6 +1350,13 @@ export interface AdmonitionNode extends BlockNodeBase {
    * delimited form's blocks carry their own records.
    */
   whitespace: BlockWhitespace;
+  /**
+   * How the reader read the paragraph-form body, so the printer can
+   * ask the reader's own question of a line it is about to write. See
+   * {@link BlockReading}. The delimited form's blocks carry their
+   * own, for the reason the record above states.
+   */
+  reading: BlockReading;
   /** Delimited-form body blocks. Empty for the paragraph form. */
   children: BlockNode[];
 }
@@ -1470,6 +1474,13 @@ interface ItemBody {
    * own records; this one is about `text` alone.
    */
   whitespace: BlockWhitespace;
+  /**
+   * How the reader read the item's TEXT, so the printer can ask the
+   * reader's own question of a line it is about to write. See
+   * {@link BlockReading}. About `text` alone, for the reason the
+   * record above states.
+   */
+  reading: BlockReading;
   /**
    * Everything the item holds after its text, in source order: nested
    * lists and blocks alike, each behind the separator lines the

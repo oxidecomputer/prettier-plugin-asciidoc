@@ -116,6 +116,7 @@ export function buildDescriptionListItem(
     terms: [opening, ...rest],
     text,
     whitespace: blockWhitespace(text, body.context),
+    reading: body.reading,
     blocks: [...body.blocks],
     trailingContinuation: body.trailingContinuation,
     detachedTail: body.detachedTail,

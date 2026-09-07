@@ -12,9 +12,9 @@ import vitest from "@vitest/eslint-plugin";
 // signature.
 const EXPECT_MAX_ARGS = 2;
 
-// `max-lines`'s ordinary ceiling (450) plus the 22 lines src/ast.ts's
+// `max-lines`'s ordinary ceiling (450) plus the 26 lines src/ast.ts's
 // own override below needs; see that override for why.
-const AST_MAX_LINES = 472;
+const AST_MAX_LINES = 476;
 
 // `max-lines`'s ordinary ceiling raised to 500 for
 // scripts/metrics/shape-census.ts; see that override for why.
@@ -549,17 +549,22 @@ export default defineConfig(
   // catches even for type-only imports), and the discriminated-union
   // split that keeps `openDelimiter` unrepresentable outside the open
   // variant (issue #64) costs the 2 lines past the ordinary ceiling.
-  // The other 11 are FIELD declarations that have nowhere else to go:
+  // The other 13 are FIELD declarations that have nowhere else to go:
   // a node's field is declared on the node, and the four prose-block
   // carriers each name the whitespace record while the four mark
   // spans each name the mark record (both types leaf modules for the
   // same cycle reason, src/whitespace-record.ts and
   // src/mark-record.ts); the body both list-like items share names
-  // the head-drain record, a leaf for that same reason
-  // (src/head-drain-record.ts), and costs its import line too.
-  // The ceiling is a MEASURED number, re-measured whenever a recorded
-  // fact is added: one declaration line per fact, and the file may
-  // not be split.
+  // the head-drain record (src/head-drain-record.ts) for the same
+  // reason again; and the prose-block carriers name the reader's
+  // context vocabulary (src/reader-context.ts) as well. Three of the
+  // thirteen are the recorded READING, one declaration on each
+  // prose-block carrier (`ParagraphNode`, `AdmonitionNode`,
+  // `ItemBody`); two more are the import and the
+  // `DescriptionDelimiter` re-export the context vocabulary's move to
+  // its own leaf costs. The ceiling is a MEASURED number, re-measured
+  // whenever a recorded fact is added: one declaration line per fact,
+  // and the file may not be split.
   {
     files: ["src/ast.ts"],
     rules: {

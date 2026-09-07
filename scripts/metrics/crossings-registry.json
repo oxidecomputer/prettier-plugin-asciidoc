@@ -141,6 +141,27 @@
   },
   {
     "file": "src/line-verdict.ts",
+    "symbol": "NO_PACKED_TEXT",
+    "importer": "src/parse/build/delimited.ts",
+    "kind": "vocabulary",
+    "reason": "the reading of a block holding no line the packer composes, named once so the two builders that make one cannot spell a different nothing"
+  },
+  {
+    "file": "src/line-verdict.ts",
+    "symbol": "NO_PACKED_TEXT",
+    "importer": "src/parse/build/paragraph.ts",
+    "kind": "vocabulary",
+    "reason": "the same named nothing, for the paragraph built over a single raw line the printer replays where it stands"
+  },
+  {
+    "file": "src/line-verdict.ts",
+    "symbol": "continuationPosition",
+    "importer": "src/parse/lines/paragraph-reader.ts",
+    "kind": "vocabulary",
+    "reason": "the one producer of the context a block's continuation lines are read in; the scan and the printer's packer call it so the five fixed fields have one spelling"
+  },
+  {
+    "file": "src/line-verdict.ts",
     "symbol": "keepsTheLine",
     "importer": "src/parse/lines/paragraph-reader.ts",
     "kind": "vocabulary",
@@ -498,6 +519,20 @@
   },
   {
     "file": "src/parse/build/paragraph.ts",
+    "symbol": "ProseText",
+    "importer": "src/parse/lines/paragraph-reader.ts",
+    "kind": "vocabulary",
+    "reason": "a prose block's tokens and the reading the scan took them in, declared at the builder because the layer rule forbids build/ importing lines/"
+  },
+  {
+    "file": "src/parse/build/paragraph.ts",
+    "symbol": "ProseText",
+    "importer": "src/parse/lines/reader.ts",
+    "kind": "vocabulary",
+    "reason": "the same pair, as the reader hands it from the scan to the builder"
+  },
+  {
+    "file": "src/parse/build/paragraph.ts",
     "symbol": "buildAdmonitionParagraph",
     "importer": "src/parse/lines/reader.ts",
     "kind": "vocabulary",
@@ -703,13 +738,6 @@
     "file": "src/parse/inline/tokens.ts",
     "symbol": "InlineToken",
     "importer": "src/parse/lines/paragraph-reader.ts",
-    "kind": "vocabulary",
-    "reason": "the inline token vocabulary the tokenizer produces and every holder of inline content carries"
-  },
-  {
-    "file": "src/parse/inline/tokens.ts",
-    "symbol": "InlineToken",
-    "importer": "src/parse/lines/reader.ts",
     "kind": "vocabulary",
     "reason": "the inline token vocabulary the tokenizer produces and every holder of inline content carries"
   },
@@ -1146,13 +1174,6 @@
     "importer": "src/parse/lines/header-reader.ts",
     "kind": "vocabulary",
     "reason": "the classifier's context view; the header scan classifies its lines at a block start, like the reader"
-  },
-  {
-    "file": "src/parse/line-shapes.ts",
-    "symbol": "ReaderContext",
-    "importer": "src/parse/lines/paragraph-reader.ts",
-    "kind": "vocabulary",
-    "reason": "the ONE declaration of the reader's state every line rule reads, declared beside the interrupting-set registry because both consumers - those rules and the classifier - sit at or below it; a second declaration up in the classifier is what `InterruptionOptions` was"
   },
   {
     "file": "src/parse/line-shapes.ts",
@@ -1727,6 +1748,55 @@
     "importer": "src/block-metadata.ts",
     "kind": "vocabulary",
     "reason": "the one serialization of an inline anchor back to source, so the metadata predicates and the printer cannot disagree about its spelling"
+  },
+  {
+    "file": "src/reader-context.ts",
+    "symbol": "AttributeRunReading",
+    "importer": "src/parse/line-shapes.ts",
+    "kind": "vocabulary",
+    "reason": "what an enclosing description item's scan did at a block attribute run; a leaf because the AST, the registry and the shared verdict all declare against it"
+  },
+  {
+    "file": "src/reader-context.ts",
+    "symbol": "BlockReading",
+    "importer": "src/parse/build/list.ts",
+    "kind": "vocabulary",
+    "reason": "the reading a prose node records, as the item builder declares its input"
+  },
+  {
+    "file": "src/reader-context.ts",
+    "symbol": "BlockReading",
+    "importer": "src/parse/build/paragraph.ts",
+    "kind": "vocabulary",
+    "reason": "the reading a prose node records, as the paragraph builder declares its input"
+  },
+  {
+    "file": "src/reader-context.ts",
+    "symbol": "BlockReading",
+    "importer": "src/parse/lines/description-list-node.ts",
+    "kind": "vocabulary",
+    "reason": "the reading a prose node records, as the description item decides which of the two term ladders its OUTPUT lines are read under"
+  },
+  {
+    "file": "src/reader-context.ts",
+    "symbol": "BlockReading",
+    "importer": "src/parse/lines/item-body.ts",
+    "kind": "vocabulary",
+    "reason": "the reading a prose node records, as an item's interior carries it from the confined read to the builder"
+  },
+  {
+    "file": "src/reader-context.ts",
+    "symbol": "OpenList",
+    "importer": "src/parse/line-shapes.ts",
+    "kind": "vocabulary",
+    "reason": "the list open around a block, in the two kinds `is_sibling_list_item?` tells apart; a leaf for the reason above"
+  },
+  {
+    "file": "src/reader-context.ts",
+    "symbol": "ParagraphContext",
+    "importer": "src/parse/line-shapes.ts",
+    "kind": "vocabulary",
+    "reason": "which kind of paragraph is open, the key the interrupting tables are indexed by and the one fact a prose node records about its own lines"
   },
   {
     "file": "src/whitespace-fact.ts",

@@ -36,176 +36,24 @@
  * it follows, or that it follows neither.
  */
 
-import type { DescriptionDelimiter } from "../ast.js";
+import type {
+  AttributeRunReading,
+  OpenList,
+  ParagraphContext,
+} from "../reader-context.js";
 
-/**
- * Which kind of paragraph is open. Each value names the Ruby path
- * that reads those lines:
- *
- * - `paragraph` — `read_paragraph_lines` with a falsey `break_at_list`,
- *   i.e. `StartOfBlockProc`: only a delimited block or a block
- *   attribute line (which includes `[[anchor]]`) ends it.
- * - `listItemText` is the lines that go into a ulist/olist/colist
- *   item's FIRST block, the one `parse_list_item` may fold back into
- *   the item's own text (`list_item.fold_first` fires on `blocks[0]`
- *   alone, parser.rb l.1384). Where it stops is `listItem`'s answer
- *   MINUS the block anchor: an `[[anchor]]` standing here is
- *   `BlockAttributeLineRx` metadata for the very block `fold_first`
- *   merges away, id and all, so the oracle emits no id (see
- *   RAW_BLOCK_ANCHOR_CONTEXTS).
- * - `listItem` is a LATER block of the same item, read with
- *   `read_paragraph_lines reader, skipped == 0 && options[:list_type]`
- *   (parser.rb l.764). A first block exists by then, so an
- *   `[[anchor]]` opens a SECOND one and keeps its id, and the anchor
- *   ends this paragraph from any position.
- *   Both stop at a sibling or nested marker (`AnyListRx`,
- *   `is_sibling_list_item?`) and at a description-list term. For
- *   `listItem` that is the `skipped == 0` half of the cited line and
- *   not an unconditional claim about later blocks: a block opened
- *   ACROSS a blank line gets a falsey `break_at_list` and is
- *   `listContinuation` instead, which is the choice `bodyContext`
- *   makes (src/parse/lines/reader.ts).
- * - `listContinuation` — a paragraph a `+` attached to a list item.
- *   It is NOT a blend of the other two: `parse_list_item` parses it
- *   with `read_paragraph_lines` and NO `break_at_list`, so it takes
- *   the plain-paragraph set; the only markers that end it are the
- *   ones `read_lines_for_list_item` already stopped at, i.e. the
- *   OPEN list's own marker style (`is_sibling_list_item?`), which
- *   the caller supplies as `openListStyle`.
- * - `dlistItem` — the description of a `term:: desc` item. Widest
- *   set: `parse_list_item` parses the lines after the term with
- *   `text_only: nil` — a full `next_block` — and then `fold_first`
- *   merges the result back into the item text ONLY when it is a
- *   plain paragraph. So every shape `next_block` turns into a
- *   non-paragraph block (admonition, block macro, break, anchor)
- *   ends the description, while block metadata that a paragraph
- *   absorbs (a block title, an attribute entry) does not.
- * - `dlistItemTextOnly` - the description of a term line that
- *   carries NO text of its own (`term::`, the description on the
- *   lines below). `parse_list_item` passes `text_only: has_text ?
- *   nil : true` (parser.rb l.1367-74). `next_block` reads `text_only`
- *   at FOUR points and TWO of them decide an interrupting set: the
- *   layout-break arm is skipped (`!textOnly && layoutBreakChars[ch0]`,
- *   index.cjs l.10991) and so is the admonition arm, which the
- *   paragraph branch reaches only past `if (textOnly)` (index.cjs
- *   l.11282). The other two do not reach this table. One chooses
- *   whether an indented run's `//` lines are comments
- *   (`skip_line_comments: !!textOnly`, index.cjs l.11260), which the
- *   reader carries as the description's `comments` fact instead
- *   (lines/list-read.ts). One chooses paragraph over literal for an
- *   indented line (`textOnly || contentAdjacent === 'dlist'`,
- *   index.cjs l.11263), and it cannot decide anything here because
- *   `contentAdjacent` is already `'dlist'` whenever `textOnly`
- *   survives to be read - `if (textOnly && skipped > 0)` nulls it
- *   otherwise (index.cjs l.10878-81).
- *   So what is left for the SETS is `dlistItem`'s ANY-LINE set with
- *   its FIRST-LINE set narrowed to the one shape those two
- *   exemptions leave standing, a block macro. ORACLE,
- *   probed under `term1::`: a block macro, a delimiter, a list
- *   marker, a sibling term and an `[[anchor]]` end it; an admonition
- *   label, `'''`, `<<<` and a Markdown rule do not. The anchor ends
- *   it because `parse_block_metadata_line` runs AHEAD of the ladder
- *   and is gated by nothing: it takes the anchor as metadata for a
- *   block of its own, and that block is outside the item (the
- *   description's `<dd>` is gone and the paragraph below carries the
- *   `id`).
- * - `literalParagraph` — the indented lines of a literal paragraph.
- *   `next_block`'s `indented && !style` branch calls
- *   `read_paragraph_lines reader, (skipped == 0 ? options[:list_type]
- *   : nil)`, so at document level `break_at_list` is nil and the set
- *   is exactly the plain-paragraph one (`StartOfBlockProc`). It is a
- *   context of its own rather than an alias for `paragraph` because
- *   the READER treats the lines differently (verbatim, not reflowed)
- *   and because inside a DESCRIPTION item one more line ends it: the
- *   item scan slurps an indented run through a `read_lines_until`
- *   that breaks at a sibling term, and passes that break for a dlist
- *   alone (parser.rb l.1490-1495). That half of the row lives in
- *   line-shapes-interruption.ts, where the enclosing list is read.
- * - `verbatimStyled` — a paragraph opened under a held VERBATIM
- *   style (`[source]`, `[listing]`, `[literal]`, `[verse]` —
- *   VERBATIM_STYLES, asciidoctor.rb:276; NOT `[pass]`, oracle-pinned).
- *   Behavior AT DOCUMENT LEVEL is `read_lines_until
- *   break_on_blank_lines: true, break_on_list_continuation: true`
- *   (parser.rb:1026-1028): blank lines are structural to the reader,
- *   so the set is the lone `+` and nothing else. The `+` holds at
- *   every position because Ruby's `line_read` gate (reader.rb:414 and
- *   l.426) is false only for the styled block's OPENING line, which
- *   Ruby unshifts (parser.rb:565) and our reader consumes at open, so
- *   every position this classifier sees corresponds to `line_read ===
- *   true`. INSIDE A LIST ITEM the answer is a different set entirely,
- *   because the item scan has already cut the buffer; that reading
- *   lives in line-shapes-interruption.ts. Pinned against the oracle
- *   at document level, both positions, in
- *   tests/conformance/interruption.test.ts, and in every reachable
- *   state by tests/conformance/reader-context-grid.test.ts.
- */
-export type ParagraphContext =
-  | "paragraph"
-  | "listItemText"
-  | "listItem"
-  | "listContinuation"
-  | "dlistItem"
-  | "dlistItemTextOnly"
-  | "literalParagraph"
-  | "verbatimStyled";
-
-/**
- * The list a confined reader is inside, in the two kinds Asciidoctor
- * tells apart when it asks whether a line is a sibling of it
- * (`is_sibling_list_item?`, parser.rb l.2280-2285): a marker list
- * carries the marker STYLE its items share, and a description list
- * carries the term DELIMITER its items share. The two are matched by
- * different grammars - `ListRxMap` plus `resolve_list_marker` for a
- * marker, `DescriptionListSiblingRx` keyed on the delimiter for a
- * term (rx.rb l.340-345) - so the kind has to travel with the value
- * rather than be guessed back out of it.
- */
-export type OpenList =
-  | {
-      /** A ulist, olist or colist. */
-      readonly kind: "marker";
-      /** The style its items share (see {@link listMarkerStyle}). */
-      readonly style: string;
-    }
-  | {
-      /** A description list. */
-      readonly kind: "description";
-      /** The term delimiter its items share. */
-      readonly delimiter: DescriptionDelimiter;
-    };
-
-/**
- * What a DESCRIPTION item's own scan did at the run of block
- * attribute lines a line heads - the third of
- * `read_lines_for_list_item`'s cuts (parser.rb l.1462-1482) and the
- * only one that is not a fact about the line.
- *
- * Ruby does not decide at the `[...]` line. It reads FORWARD over the
- * run of further attribute lines and blanks (l.1464-1470) and lets
- * the first line PAST the run decide: a list item that is not a
- * sibling of the open list keeps the run inside the item
- * (l.1471-1472), and a delimited block line, an ordinary line or a
- * sibling ends the item in front of the whole run (l.1466-1467,
- * l.1473-1474, unshifted at l.1478-1481). `[a]` / `[b]` / `* n` and
- * `[a]` / `[b]` / `x` differ only past their second line, so no
- * single following line decides it and
- * {@link ReaderContext.nextLine} cannot carry it.
- *
- * A READING rather than a shape test, because the asker is what
- * knows: a confined reader's lines are the item scan's own output and
- * every one of them was read past, while an asker holding the lines
- * BELOW a line - the printer deciding what its next output line may
- * be - reads the run for itself.
- */
-export type AttributeRunReading =
-  /**
-   * The scan read past the run: it kept the run in the item, or it
-   * never looked at all (the line heads no attribute run, no
-   * description list is open, or another arm buffered the line).
-   */
-  | "runIsInTheItem"
-  /** The scan ended the item in front of the run. */
-  | "runEndsTheItem";
+// The reader's context vocabulary is declared in a leaf of its own,
+// because a PROSE NODE RECORDS IT: `BlockReading`
+// (src/reader-context.ts) carries the context a block's continuation
+// lines are classified in, and a type a node's field is declared with
+// cannot live above the node. Re-exported here, where the tables that
+// read it are, so the rules below and every existing importer keep
+// one address for it.
+export type {
+  AttributeRunReading,
+  OpenList,
+  ParagraphContext,
+} from "../reader-context.js";
 
 /**
  * The reader's state as every line rule reads it — exactly the facts
