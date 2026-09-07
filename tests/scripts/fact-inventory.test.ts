@@ -19,10 +19,18 @@
  * asserted here, not assumed — and green only once the classification
  * catches up (a ledger row, or an `EXEMPT` row, whichever the field
  * is).
+ *
+ * One row here is about a different kind of correctness: an EXEMPT
+ * reason that CLAIMS the printer does not read the field is the one
+ * part of the classification a compiler can settle, and
+ * `scripts/fact-inventory-reads.ts` settles it. The planted controls
+ * for that scan are `tests/scripts/fact-inventory-reads.test.ts`'s.
  */
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
+import { EXEMPT } from "../../scripts/fact-inventory-classification.js";
+import { unreadClaimFailures } from "../../scripts/fact-inventory-reads.js";
 import {
   LEDGER_FILE,
   REPARSE_LEDGER_FILE,
@@ -46,7 +54,7 @@ import { inCheckout } from "../lib/checkout.js";
 const DECLARED_FAMILIES = Object.keys(REPARSE_FAMILIES);
 
 /** The real checkout's fact count, as of this commit. */
-const PINNED_FACT_COUNT = 75;
+const PINNED_FACT_COUNT = 78;
 
 /**
  * The checked-in ledger's own bytes, for planting beside a planted
@@ -115,6 +123,17 @@ describe("the real checkout", () => {
 
   test("the ledger agrees with what it counts", () => {
     expect(ledgerFailures(REPO_ROOT, DECLARED_FAMILIES)).toEqual([]);
+  });
+
+  // Red before the reclassification this test ships with, which is the
+  // whole of issue #204: it reported Node.position (15 reads),
+  // Location.line (14) and Location.column (2), every one of them
+  // carrying a reason that said the printer did not read it. Those
+  // three are FACTS now, so the claim the remaining rows make is true
+  // and this reads empty. It fails again the moment a row asserts
+  // something about reads that the compiler can see is false.
+  test("no exempt row claims a read the printer makes", () => {
+    expect(unreadClaimFailures(REPO_ROOT, EXEMPT)).toEqual([]);
   });
 });
 
@@ -199,9 +218,16 @@ describe("factInventoryFailures on a planted tree", () => {
  * way a real one would.
  * @param basis - the basis the single row claims
  * @param sizes - the `reparseFamilySizes` map to record
+ * @param family - the family the single row claims, defaulting to a
+ *   declared one so a test perturbing the BASIS does not perturb the
+ *   family at the same time
  * @returns the file's text
  */
-function plantedLedger(basis: string, sizes: Record<string, number>): string {
+function plantedLedger(
+  basis: string,
+  sizes: Record<string, number>,
+  family = "indent-dropped",
+): string {
   return JSON.stringify({
     note: "planted",
     reparseFamilySizes: sizes,
@@ -209,7 +235,7 @@ function plantedLedger(basis: string, sizes: Record<string, number>): string {
       "PlantedNode.field": {
         lemmaTest: "tests/planted.test.ts",
         landedLemma: false,
-        reparseFamilies: [{ basis, family: "indent-dropped", note: "planted" }],
+        reparseFamilies: [{ basis, family, note: "planted" }],
       },
     },
   });
@@ -273,6 +299,32 @@ describe("ledgerFailures on a planted tree", () => {
     expect(failures.some((message) => message.includes('"mesured"'))).toBe(
       true,
     );
+  });
+
+  test("catches a claimed family the reparse ledger does not declare", () => {
+    // The sizes map was already held to the declared names; the
+    // per-fact claims that SPEND those names were not, so a misspelt
+    // family read as attribution while naming a mechanism no row can
+    // ever be tagged with.
+    const failures = inCheckout(
+      {
+        [LEDGER_FILE]: plantedLedger(
+          "argued",
+          { "indent-dropped": 2, "blank-dropped": 0 },
+          "indent-droped",
+        ),
+        [REPARSE_LEDGER_FILE]: plantedRows([
+          "indent-dropped",
+          "indent-dropped",
+        ]),
+      },
+      (root) => ledgerFailures(root, DECLARED),
+    );
+    expect(
+      failures.some((message) =>
+        message.includes('claims the family "indent-droped"'),
+      ),
+    ).toBe(true);
   });
 
   test("catches a size that has gone stale against the rows", () => {

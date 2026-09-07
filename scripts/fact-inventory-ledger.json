@@ -1,5 +1,5 @@
 {
-  "note": "Maps each recorded fact scripts/fact-inventory.ts finds (75 today) to (a) the reason it is a fact rather than exempt, which is the CLASSIFICATION itself and not a gloss on one: the key set of this object IS the FACTS map scripts/fact-inventory.ts gates with, so a fact is recorded in one file and not two, and (b) an existing test file with round-trip coverage of it, and whether that coverage is a DEDICATED lemma test (the printer writes bytes from which the reader re-derives the fact, and reverting the recording reds that test) rather than an ordinary round-trip that happens to exercise it (landedLemma), and (c) the tests/conformance/reparse-ledger.json families it explains, with a basis. 'measured' is the strongest and the rarest: the fact's own lemma is red-detectable AND re-running the reparse measurement over the whole population moves that family's rows and no others. 'argued' means the family's written mechanism and the fact's written purpose name the same thing, with nobody having traced a row; it counts toward the scoreboard. 'argued-not-counted' is a connection considered and rejected as too thematic to count, recorded rather than dropped silently. The legal values are the closed list in scripts/fact-inventory.ts (FACT_BASES), and ledgerFailures there rejects any other. reparseFamilySizes MIRRORS the live reparse ledger, family by family, and ledgerFailures holds it there in both directions - so a family a fix has EMPTIED reads 0 rather than losing its key. Read the scoreboard with that in mind: the attribution percentage the 50% retirement gate was pre-registered against was taken over the population as it stood when the census landed (276 rows, of which blank-dropped held 70), and a fact whose family now reads 0 is a fact that did its job rather than one that explains nothing.",
+  "note": "Maps each recorded fact scripts/fact-inventory.ts finds (78 today) to (a) the reason it is a fact rather than exempt, which is the CLASSIFICATION itself and not a gloss on one: the key set of this object IS the FACTS map scripts/fact-inventory.ts gates with, so a fact is recorded in one file and not two, and (b) an existing test file with round-trip coverage of it, and whether that coverage is a DEDICATED lemma test (the printer writes bytes from which the reader re-derives the fact, and reverting the recording reds that test) rather than an ordinary round-trip that happens to exercise it (landedLemma), and (c) the tests/conformance/reparse-ledger.json families it explains, with a basis. 'measured' is the strongest and the rarest: the fact's own lemma is red-detectable AND re-running the reparse measurement over the whole population moves that family's rows and no others. 'argued' means the family's written mechanism and the fact's written purpose name the same thing, with nobody having traced a row; it counts toward the scoreboard. 'argued-not-counted' is a connection considered and rejected as too thematic to count, recorded rather than dropped silently. The legal values are the closed list in scripts/fact-inventory.ts (FACT_BASES), and ledgerFailures there rejects any other. reparseFamilySizes MIRRORS the live reparse ledger, family by family, and ledgerFailures holds it there in both directions - so a family a fix has EMPTIED reads 0 rather than losing its key. Read the scoreboard with that in mind: the attribution percentage the 50% retirement gate was pre-registered against was taken over the population as it stood when the census landed (276 rows, of which blank-dropped held 70), and a fact whose family now reads 0 is a fact that did its job rather than one that explains nothing. Node.position, Location.line and Location.column (issue #204) carry no COUNTED family, and being dropped by REPARSE_LENS is not the reason: attribution here is by argued MECHANISM, not by what the lens can compare, and descriptionTerm.line and descriptionListItem.printing are 'drop' rows of that same lens whose facts carry families all the same. The lens goes on dropping '*.position' for its own reason, which is that an absolute source coordinate is re-derived by the reader from whatever bytes were printed and so is not comparable across a reformat; what the printer consumes is a predicate over two coordinates, and the byte that carries the predicate is re-emitted. All seven families were considered against the three rows. The two that share a mechanism are recorded at the rows as argued-not-counted: blank-dropped, which holds zero rows today so there is nothing to explain, and plus-respelled, whose guard is a read no test reaches. The other five name mechanisms these three take no part in. One caveat a reader of the Location.column row cannot see from the row itself: it has two read sites and only one is pinned. tests/format/description-list.test.ts reds on 76 of its 122 cases when openingImage's cut (src/print/description-list.ts:127) is mutated, while the column-1 test in opensWithContinuationLine (src/print/inline.ts:163) can be replaced with true and the whole suite stays green (195 files, 14372 tests), so that half of the fact is asserted by the census and exercised by nothing.",
   "reparseFamilySizes": {
     "indent-dropped": 14,
     "join-changes-reading": 62,
@@ -312,6 +312,30 @@
       "landedLemma": false,
       "reparseFamilies": []
     },
+    "Location.column": {
+      "reason": "where a description's opening image is cut",
+      "lemmaTest": "tests/format/description-list.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": [
+        {
+          "basis": "argued-not-counted",
+          "family": "plus-respelled",
+          "note": "opensWithContinuationLine (src/print/inline.ts:163) reads the column to tell a lone '+' at column 1, which opens a continuation line, from a '+' after a space, which is a hard break; #116's mechanism is exactly a lone '+' line folding onto the line above and coming back spelled {plus}. Not counted because that read is pinned by nothing: replacing the column test with true leaves the whole suite green, so it is evidence for nothing. The row's lemmaTest pins the OTHER read, openingImage's cut."
+        }
+      ]
+    },
+    "Location.line": {
+      "reason": "the adjacency comparison itself",
+      "lemmaTest": "tests/format/heading-adjacency.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": [
+        {
+          "basis": "argued-not-counted",
+          "family": "blank-dropped",
+          "note": "the same comparison as Node.position, read one level down as position.start.line, and not counted for the same reason"
+        }
+      ]
+    },
     "MasqueradedBlockNode.annotatedBy": {
       "reason": "invariant (xi)",
       "lemmaTest": "tests/parser/ast-invariants.ts (invariant xi)",
@@ -341,6 +365,18 @@
       "lemmaTest": "tests/format/inline-formatting.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
+    },
+    "Node.position": {
+      "reason": "join.ts's startsOnTheNextLine, and every block edge",
+      "lemmaTest": "tests/format/heading-adjacency.test.ts",
+      "landedLemma": false,
+      "reparseFamilies": [
+        {
+          "basis": "argued-not-counted",
+          "family": "blank-dropped",
+          "note": "startsOnTheNextLine (src/print/join.ts) reads this to decide whether two blocks were adjacent in the source, which is the question #73's mechanism turns on: whether the blank line between a metadata-shaped line and the block under it survives. Not counted because that family holds zero rows today, so there is nothing for it to explain; if a later change repopulates it, this is the first row to look at."
+        }
+      ]
     },
     "OpenParentBlockNode.openDelimiter": {
       "reason": "tilde spelling, issue #64",

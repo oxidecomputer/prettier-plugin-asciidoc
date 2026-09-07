@@ -22,18 +22,47 @@
 /** Selects which printer function runs; carries no spelling of its own. */
 const TYPE_DISCRIMINANT =
   "type discriminant, not a print-shape choice of its own";
-/** The printer's byte output never reads this. */
-const POSITION = "position bookkeeping, not read by the printer";
+/**
+ * Nothing under `src/print/` reads this coordinate.
+ *
+ * A CLAIM ABOUT READS rather than a judgement, and so held to the
+ * compiler by `scripts/fact-inventory-reads.ts`. It read "not read by
+ * the printer" while three rows carrying it were read in eight
+ * printer files (issue #204); those rows are FACTS now, and the
+ * wording names the directory the claim is about, because a claim
+ * whose domain is unstated is one nobody can check.
+ */
+const POSITION = "position bookkeeping, not read under src/print";
 /** Walked by Prettier's path.map or the printer's own recursive print. */
 const STRUCTURAL = "structural containment, not a shape choice of its own";
 /** Copied into the output unconditionally; no branch on its own value. */
 const CONTENT = "verbatim leaf content, copied unconditionally";
-/** Constructed at parse time; no `src/print/*.ts` reference found. */
-const UNREAD = "recorded but unread under src/print (verified by grep)";
+/**
+ * Constructed at parse time, and read by nothing under `src/print/`.
+ *
+ * The other claim about reads, and held the same way. It used to say
+ * "verified by grep", which was true when it was written and is the
+ * kind of thing that stops being true without anything saying so.
+ */
+const UNREAD = "recorded but unread under src/print";
 /** `?: undefined`; never holds a runtime value. */
 const SENTINEL = "type-level sentinel, never holds a value";
 /** A record/union pointer whose own arms are classified separately. */
 const CONTAINER = "container; its arm's fields are classified separately";
+
+/**
+ * The two EXEMPT reasons that assert the printer does not read the
+ * field, as opposed to the five that judge WHY a read is not a
+ * shape choice.
+ *
+ * The set exists so the assertion can be checked: an assertion about
+ * reads is the only kind of reason a compiler can settle, and
+ * `scripts/fact-inventory-reads.ts` settles exactly these. Keyed by
+ * the reason STRING rather than by a second list of field names,
+ * because the reason is the whole of what a row asserts and a
+ * parallel list would be one more thing to keep in step.
+ */
+export const UNREAD_CLAIMS: ReadonlySet<string> = new Set([POSITION, UNREAD]);
 
 /**
  * Fields that are NOT recorded facts, each with a reason (shared
@@ -42,10 +71,7 @@ const CONTAINER = "container; its arm's fields are classified separately";
  */
 export const EXEMPT: ReadonlyMap<string, string> = new Map([
   ["Location.offset", POSITION],
-  ["Location.line", POSITION],
-  ["Location.column", POSITION],
   ["Node.type", TYPE_DISCRIMINANT],
-  ["Node.position", POSITION],
   ["DocumentNode.type", TYPE_DISCRIMINANT],
   ["DocumentNode.children", STRUCTURAL],
   ["ParagraphNode.type", TYPE_DISCRIMINANT],

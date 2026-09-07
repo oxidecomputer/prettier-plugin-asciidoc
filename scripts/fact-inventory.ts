@@ -84,16 +84,43 @@
  *   criterion. The one field that DOES gate a branch (whether the
  *   opening is `"separator"` at all) is `.kind`, classified FACT
  *   correctly from the start.
+ * - `Node.position`, `Location.line` and `Location.column` were the
+ *   surprise that broke the hand method (issue #204). All three were
+ *   EXEMPT under a reason that said the printer did not read them,
+ *   and all three are read in eight printer files: adjacency
+ *   (`startsOnTheNextLine`, `src/print/join.ts`), the dlist reflow
+ *   guard (`firstSourceLineWordCount`, `src/print/text-edges.ts`),
+ *   the cut that makes a description's opening image
+ *   (`openingImage`, `src/print/description-list.ts`) and the
+ *   column-1 test that keeps a lone `+` from folding
+ *   (`opensWithContinuationLine`, `src/print/inline.ts`).
+ *
+ *   WHAT SURVIVES INTO THE OUTPUT, since a decision made from bytes
+ *   that do not survive is the one shape this project outlaws: what
+ *   these three feed is never the coordinate but a PREDICATE over
+ *   two of them - were these blocks adjacent, does this text begin
+ *   at column 1, where on the term's line does the description
+ *   start. The byte that carries the predicate is the blank line's
+ *   presence, or the indentation, and the printer re-emits it, so
+ *   pass 2 re-derives the same predicate from different absolute
+ *   coordinates. That is also exactly why the reparse lens must go
+ *   on dropping `*.position` while the fields stay FACTS: an
+ *   absolute coordinate is not comparable across a reformat, and the
+ *   predicate over it is.
  *
  * HONEST BOUNDS. This is a snapshot of a manual classification,
  * mechanically checked for completeness (every field is somewhere)
- * and currency (no row names a field that is gone) but not for the
- * classification's own correctness — a FACT wrongly called EXEMPT, or
- * the reverse, passes this gate silently. The `grep` verification
- * narrows that risk; it does not close it. A field read through a
- * computed property, a spread, or `Object.entries` is invisible to
- * the grep the same way `scripts/metrics/unread-fields.ts` says a
- * hand-rolled reference scan is.
+ * and currency (no row names a field that is gone) but not, in
+ * general, for the classification's own correctness: a FACT wrongly
+ * called EXEMPT, or the reverse, passes this gate silently. The one
+ * part that IS checked is the part that is a claim rather than a
+ * judgement: an EXEMPT reason asserting that nothing under
+ * `src/print/` reads the field is held to the compiler by
+ * `scripts/fact-inventory-reads.ts`, which is what #204 cost. A field
+ * read through a computed property, a spread, or `Object.entries` is
+ * invisible to that scan the same way
+ * `scripts/metrics/unread-fields.ts` says a hand-rolled reference
+ * scan is.
  */
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
@@ -112,6 +139,16 @@ export interface AstField {
   readonly property: string;
   /** One-based source line, for a human to open. */
   readonly line: number;
+  /**
+   * Character offset of the property NAME in `src/ast.ts`.
+   *
+   * The one coordinate a resolved symbol hands back, so it is what
+   * `scripts/fact-inventory-reads.ts` matches a printer's read
+   * against. Recorded here rather than re-walked there: a second walk
+   * could accept a shape this one does not and key a read to a row
+   * the census never made.
+   */
+  readonly offset: number;
 }
 
 /**
@@ -129,10 +166,9 @@ function collectMembers(
 ): void {
   for (const member of members) {
     if (ts.isPropertySignature(member) && ts.isIdentifier(member.name)) {
-      const { line } = source.getLineAndCharacterOfPosition(
-        member.name.getStart(),
-      );
-      out.push({ owner, property: member.name.text, line: line + 1 });
+      const offset = member.name.getStart();
+      const { line } = source.getLineAndCharacterOfPosition(offset);
+      out.push({ owner, property: member.name.text, line: line + 1, offset });
     }
   }
 }
@@ -387,11 +423,22 @@ function measuredFamilySizes(root: string): Map<string, number> {
 }
 
 /**
- * Every `basis` in the ledger that is not one of {@link FACT_BASES}.
+ * Every claim in the ledger naming a `basis` outside
+ * {@link FACT_BASES} or a `family` the reparse ledger does not
+ * declare.
+ *
+ * Both halves fail the same way and so are checked together: a
+ * misspelt basis is summed by nothing and complained about by
+ * nothing, and a misspelt family names a mechanism that does not
+ * exist, so the claim reads as attribution while explaining a family
+ * no row can ever be tagged with. `reparseFamilySizes` was already
+ * held to the declared names; the per-fact claims that spend those
+ * names were not.
  * @param facts - the ledger's `facts` map, unnarrowed
- * @returns one message per illegal basis
+ * @param declared - every family name the reparse ledger declares
+ * @returns one message per illegal basis or undeclared family
  */
-function basisFailures(facts: unknown): string[] {
+function claimFailures(facts: unknown, declared: readonly string[]): string[] {
   const legal: readonly string[] = FACT_BASES;
   const failures: string[] = [];
   for (const [key, row] of Object.entries(isObject(facts) ? facts : {})) {
@@ -401,6 +448,12 @@ function basisFailures(facts: unknown): string[] {
       if (basis !== undefined && !legal.includes(basis)) {
         failures.push(
           `fact inventory: ${key} claims a reparse family on basis "${basis}", which is not one of ${legal.join(", ")} (${LEDGER_FILE})`,
+        );
+      }
+      const family = stringAt(claim, "family");
+      if (family !== undefined && !declared.includes(family)) {
+        failures.push(
+          `fact inventory: ${key} claims the family "${family}", which ${REPARSE_LEDGER_FILE}'s own enumeration does not declare (${LEDGER_FILE})`,
         );
       }
     }
@@ -447,8 +500,9 @@ function familySizeFailures(
 
 /**
  * Every way the ledger disagrees with what it counts: a `basis`
- * outside the closed list, and a `reparseFamilySizes` entry that does
- * not match the reparse ledger it mirrors.
+ * outside the closed list, a claimed `family` the reparse ledger does
+ * not declare, and a `reparseFamilySizes` entry that does not match
+ * the reparse ledger it mirrors.
  *
  * Separate from {@link factInventoryFailures}, which is about
  * `src/ast.ts` and the classification map: this one is about the
@@ -468,7 +522,7 @@ export function ledgerFailures(
     return [`fact inventory: ${LEDGER_FILE} does not hold a JSON object`];
   }
   return [
-    ...basisFailures(ledger.facts),
+    ...claimFailures(ledger.facts, declared),
     ...familySizeFailures(
       ledger.reparseFamilySizes,
       measuredFamilySizes(root),
