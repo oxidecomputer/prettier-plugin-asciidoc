@@ -570,12 +570,19 @@ describe("the family arms are told apart by what they say", () => {
   // All three used to be spelt over the #73 mechanism (a rejected
   // anchor line above a blank), and two of them were then respelt
   // over #170's. Both mechanisms are fixed, so a document built on
-  // either round-trips and asserts nothing; these are the second
-  // replacements, one per LIVE family, each carrying the arrow
-  // somewhere the projection diff reproduces it - a comment line's
-  // text, a fence line's language token, a block macro's attrlist.
+  // either round-trips and asserts nothing. The first row was respelt
+  // once more for the same reason: its #170 replacement was spelt over
+  // `gap-line-lost`, which issue #171 emptied, so it too round-tripped
+  // and asserted nothing. It is spelt over the `blank-dropped`
+  // mechanism now, which is live with 104 rows in the ledger. Each row
+  // carries the arrow somewhere the projection diff reproduces it - an
+  // admonition label's text, a fence line's language token, a block
+  // macro's attrlist.
   test.each([
-    ["a comment line carrying an arrow", "term::\n/// a -> b\n\n+\n"],
+    [
+      "an admonition label line carrying an arrow",
+      "term::\nNOTE: a -> b\n\n\n[.role]\n",
+    ],
     [
       "a fence language that is an arrow pair",
       "term::\n```x -> y\n---------\n",

@@ -333,7 +333,7 @@
     },
     {
       "file": "src/block-metadata.ts",
-      "what": "block-metadata.ts:336 `\"anchor\"` -> `\"\"` in anchorLineShape's ternary",
+      "what": "block-metadata.ts:372 `\"anchor\"` -> `\"\"` in anchorLineShape's ternary",
       "class": "now",
       "reason": "RETIRED by issue #46 shape 2, and the twin of the list-hazard.ts:116 row below is reworded with it. The old classification was UNREACHABLE, on the argument that the ternary is reached only for a PARAGRAPH whose sole child is an inline anchor and that such a paragraph exists only where the source line FAILED the block-anchor grammar - a line that passes being held back as a `blockAnchor` node that returned before the ternary. Both halves of that argument are now false. The record counts out the children the PRINTER emits nothing for, so a line whose tail is in the packer's word split but NOT in the reader's rstrip set (a no-break space, a thin space, an ideographic space, a byte-order mark - issue #67's set) stays a paragraph the reader refused and reaches the output as a live anchor; and the `blockAnchor` arm no longer short-circuits, so every valid anchor line reaches the ternary too. The `\"anchor\"` answer is now taken by tests at both levels: `tests/parser/block-attributes.test.ts` asserts it for `[[anc]]` plus each of those four tails and for the whole anchor-spelling table, and `tests/format/block-attributes.test.ts` pins the byte/idempotence pair. STALE MEASUREMENT, kept for the record: 0 paragraphs answering `\"anchor\"` against 83,644 answering `\"lookalike\"`, over 319,216 documents (the depth-5 list-shape sweep, a depth-5 product over `* a`, `[[anc]]`, `[[id,]]`, `[[id, ]]`, `[[3-bad]]`, `[[3-bad,Ref]]`, `[[9]]`, `para`, `+`, blank and `[role]`, and a depth-4 inline-mark product). That count predates this change, and its generator carries no exotic whitespace, so it measured a population the new shape is not in. The row is classified `now` because the mutant should already be killed; it stays until a cleared-cache mutation run says so, and that run removes it."
     },
@@ -395,25 +395,25 @@
     },
     {
       "file": "src/parse/lines/paragraph-reader.ts",
-      "what": "paragraph-reader.ts:400 `this.firstLineAfterStart = false` -> the flag left true in the fold's tagged-`+` arm (#56's new code; the field was a line COUNT and the `+= 1` this row was first written against until the dead-branch sweep made it the boolean its two readers asked for)",
+      "what": "paragraph-reader.ts:404 `this.firstLineAfterStart = false` -> the flag left true in the fold's tagged-`+` arm (#56's new code; the field was a line COUNT and the `+= 1` this row was first written against until the dead-branch sweep made it the boolean its two readers asked for)",
       "class": "never",
       "reason": "EQUIVALENT: nothing reads the flag in fold mode, so the arm writes a fact no one asks for. Its two readers are `firstLineAfterStart`, which for the fold's context (always `listContinuation`, set in the constructor) picks between two EMPTY pattern lists in FIRST_LINE_INTERRUPTERS and LATER_LINE_INTERRUPTERS and a RAW_BLOCK_ANCHOR_CONTEXTS set that context is not a member of; and trackLiteralPlus's literal-plus candidate, gated on ITEM_TEXT_CONTEXTS (`listItem` and `dlistItem`), which the fold is not in either. Confirmed by differential: identical bytes and identical ASTs over the 111,110 depth-5 sweep documents and over 335,922 depth-7 documents spelled from `* a`, `** b`, `+`, blank, `para` and `  lit`. The three OTHER mutants of this arm are killed by the fold rows in tests/format/plus-run.test.ts"
     },
     {
       "file": "src/parse/lines/paragraph-reader.ts",
-      "what": "paragraph-reader.ts:419 `line.continuationTag === \"marker\"` -> `true` in foldsThrough (#56's new code)",
+      "what": "paragraph-reader.ts:423 `line.continuationTag === \"marker\"` -> `true` in foldsThrough (#56's new code)",
       "class": "never",
       "reason": "UNREACHABLE: a fold only ever MEETS tagged `+` lines, so dropping the tag test changes nothing it can see. The single untagged `+` an item buffer can hold is the one `activeContent` buffers (see the reader.ts row above), and it is always that buffer's last line, which no fold running inside the buffer can reach. Measured: an instrumented build logs the difference zero times over four products totalling 2,520,988 documents (the depth-5 ten-symbol sweep, plus three deeper products that add `[role]`, `----` and `--`). The left conjunct of the same expression is live in three spellings, all killed by tests/format/plus-run.test.ts's \"only a fold runs a tagged + through\" rows"
     },
     {
       "file": "src/parse/lines/reader.ts",
-      "what": "the LEFT disjunct of the child reader's tailSafe (reader.ts:845 `tailSafe: extent.close !== undefined || tailSafeIn(this.confinement)`) - 3 mutants: -> `true`, -> `false`, and `!==` -> `===`",
+      "what": "the LEFT disjunct of the child reader's tailSafe (reader.ts:859 `tailSafe: extent.close !== undefined || tailSafeIn(this.confinement)`) - 3 mutants: -> `true`, -> `false`, and `!==` -> `===`",
       "class": "never",
       "reason": "EQUIVALENT, measured rather than assumed: all three produce byte-identical output over 66,429 documents (a depth-5 product over `----`, `====`, `--`, `****`, `* a`, `** b`, `+`, blank and `para`). That product REACHES the expression, which is what makes the identity evidence: a throw put in the branch it stands in fails 47,163 of those 66,429 documents. Whenever a block CLOSED, the reader's own `tailSafe` is already true, so the left disjunct never decides. The list-shape sweep is no evidence either way and is not counted here: by the same throw, none of its 177,166 documents reaches the branch at all, because its alphabet spells no delimited block. The RIGHT disjunct is live and pinned in tests/format/trailing-continuation.test.ts (a trailing `+` at the end of an unclosed `====` or `--` block comes back), which is what took this file from 93.6 to 94.2"
     },
     {
       "file": "src/parse/lines/reader.ts",
-      "what": "reader.ts:667 `line.continuationTag === \"marker\"` -> `true` in continuationLine's fold arm (#56's new code)",
+      "what": "reader.ts:681 `line.continuationTag === \"marker\"` -> `true` in continuationLine's fold arm (#56's new code)",
       "class": "never",
       "reason": "EQUIVALENT, and worth writing down because the guard IS reached with an untagged `+`. Every `+` that enters an item buffer goes through `pushMarker` and carries the tag, with ONE exception: the `+` that `activeContent` buffers as the attached block's own first line when it stands one blank under an active continuation (`* a` / `+` / blank / `+` is the smallest such document). That untagged cell is only ever the buffer's LAST line, because any line after it takes the `+` arm that blanks it, so the fold the mutant opens there reads exactly the one raw line the leaf arm builds and stops on the same index. Measured: byte-identical output AND byte-identical ASTs over all 111,110 depth-5 sweep documents, byte-identical output over 66,429 delimiter-bearing documents, and an instrumented build reaches the untagged case MID-buffer zero times in either product"
     },
@@ -455,7 +455,7 @@
     },
     {
       "file": "src/print/list.ts",
-      "what": "list.ts:676 `gap.includes(\"+\")` -> `gap.includes(\"\")`",
+      "what": "list.ts:742 `gap.includes(\"+\")` -> `gap.includes(\"\")`",
       "class": "when",
       "reason": "The blank-run sweep class. The arm fires only when a nested list SHARES its parent's marker, and probing the reader for that shape shows it always arrives with an empty gap - a blank or a `+` in front of a same-marker line reads back as a SIBLING boundary (`* a\\n\\n  lit\\n[[anc]]\\n+\\n* a\\n` gives two items). With `gap === []` both spellings return `[]`. TRIGGER - the render-divergent sweep members are the distinguishing shapes; a byte+idempotence pin already guards the drop branch"
     },
