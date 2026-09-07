@@ -20,6 +20,102 @@
       "family": "xref-across-a-break"
     },
     {
+      "id": "inline/HardLineBreak-alt-2/bare/indented-continuation",
+      "pass": "p1",
+      "signature": "[text(value=\" x\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"newline\") -(kind=\"free\")] -> [text(value=\"x\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"newline\")]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "inline/HardLineBreak-alt-2/bracket-backslash/indented-continuation",
+      "pass": "p1",
+      "signature": "[text(value=\" x\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"newline\") -(kind=\"free\")] -> [text(value=\"x\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"newline\")]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "inline/HardLineBreak-alt-2/bracketed/indented-continuation",
+      "pass": "p1",
+      "signature": "[text(value=\" x]\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"newline\") -(kind=\"free\")] -> [text(value=\"x]\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"newline\")]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "inline/HardLineBreak-alt-2/close-bracket/indented-continuation",
+      "pass": "p1",
+      "signature": "[text(value=\" x\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"newline\") -(kind=\"free\")] -> [text(value=\"x\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"newline\")]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "inline/HardLineBreak-alt-2/escaped/indented-continuation",
+      "pass": "p1",
+      "signature": "[text(value=\" x\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"newline\") -(kind=\"free\")] -> [text(value=\"x\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"newline\")]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "inline/HardLineBreak-alt-2/in-bold/indented-continuation",
+      "pass": "p1",
+      "signature": "[text(value=\" x\") .marks <-() .close -(kind=\"entangled\") .open -(kind=\"entangled\") >- >bold .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"newline\") -(kind=\"free\")] -> [text(value=\"x\") .marks <-() .close -(kind=\"entangled\") .open -(kind=\"entangled\") >- >bold .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"newline\")]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "inline/HardLineBreak-alt-2/in-mono/indented-continuation",
+      "pass": "p1",
+      "signature": "[text(value=\"w\\n\") hardLineBreak() text(value=\"  x\")] -> [text(value=\"w\\n +\\n  x\")]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "inline/HardLineBreak-alt-2/in-mono/indented-continuation",
+      "pass": "p2",
+      "signature": "[text(value=\"w\\n +\\n  x\")] -> [text(value=\"w + x\")]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "inline/HardLineBreak-alt-2/in-word/indented-continuation",
+      "pass": "p1",
+      "signature": "[text(value=\" xb\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"newline\") -(kind=\"free\")] -> [text(value=\"xb\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"newline\")]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "inline/HardLineBreak-alt-2/open-bracket/indented-continuation",
+      "pass": "p1",
+      "signature": "[text(value=\" x\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"newline\") -(kind=\"free\")] -> [text(value=\"x\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"newline\")]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "inline/HardLineBreak-alt-2/reflow-edge/indented-continuation",
+      "pass": "p1",
+      "signature": "[text(value=\" x kilo-lima-mike-november-oscar-papa-quebec\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"newline\") -(kind=\"free\")] -> [text(value=\"x kilo-lima-mike-november-oscar-papa-quebec\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"newline\")]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "inline/HardLineBreak-alt-2/reflow/indented-continuation",
+      "pass": "p1",
+      "signature": "[text(value=\" x india juliett kilo lima mike november oscar papa quebec\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"newline\") -(kind=\"free\")] -> [text(value=\"x india juliett kilo lima mike november oscar papa quebec\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"newline\")]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "inline/HardLineBreak-alt-2/repeated/indented-continuation",
+      "pass": "p1",
+      "signature": "[text(value=\" xw \") hardLineBreak() text(value=\" x\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"newline\") -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"newline\") -(kind=\"free\")] -> [text(value=\"xw \") hardLineBreak() text(value=\"x\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"newline\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"newline\")]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "inline/HardLineBreak-alt-2/role-head/indented-continuation",
+      "pass": "p1",
+      "signature": "[text(value=\" x\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"newline\") -(kind=\"free\")] -> [text(value=\"x\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"newline\")]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "inline/HardLineBreak-alt-2/spaced/indented-continuation",
+      "pass": "p1",
+      "signature": "[text(value=\" x b\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"newline\") -(kind=\"free\")] -> [text(value=\"x b\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"newline\")]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "inline/HardLineBreak-alt-2/trailing-mark/indented-continuation",
+      "pass": "p1",
+      "signature": "[text(value=\" x *\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"newline\") -(kind=\"free\")] -> [text(value=\"x *\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"newline\")]",
+      "family": "join-changes-reading"
+    },
+    {
       "id": "inline/HardLineBreak-near-1/in-mono/admonition",
       "pass": "p1",
       "signature": "[text(value=\"w+\\nx\")] -> [text(value=\"w+ x\")]",
@@ -32,7 +128,19 @@
       "family": "join-changes-reading"
     },
     {
+      "id": "inline/HardLineBreak-near-1/in-mono/indented-continuation",
+      "pass": "p1",
+      "signature": "[text(value=\"w+\\n  x\")] -> [text(value=\"w+ x\")]",
+      "family": "join-changes-reading"
+    },
+    {
       "id": "inline/HardLineBreak-near-1/in-mono/item",
+      "pass": "p1",
+      "signature": "[text(value=\"w+\\nx\")] -> [text(value=\"w+ x\")]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "inline/HardLineBreak-near-1/in-mono/nested-item",
       "pass": "p1",
       "signature": "[text(value=\"w+\\nx\")] -> [text(value=\"w+ x\")]",
       "family": "join-changes-reading"
@@ -50,6 +158,180 @@
       "family": "join-changes-reading"
     },
     {
+      "id": "inline/HardLineBreak-near-2/bare/indented-continuation",
+      "pass": "p1",
+      "signature": "[text(value=\" x\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"space\") -(kind=\"free\")] -> [text(value=\"x\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"space\")]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "inline/HardLineBreak-near-2/bracket-backslash/indented-continuation",
+      "pass": "p1",
+      "signature": "[text(value=\" x\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"space\") -(kind=\"free\")] -> [text(value=\"x\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"space\")]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "inline/HardLineBreak-near-2/bracketed/indented-continuation",
+      "pass": "p1",
+      "signature": "[text(value=\" x]\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"space\") -(kind=\"free\")] -> [text(value=\"x]\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"space\")]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "inline/HardLineBreak-near-2/close-bracket/indented-continuation",
+      "pass": "p1",
+      "signature": "[text(value=\" x\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"space\") -(kind=\"free\")] -> [text(value=\"x\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"space\")]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "inline/HardLineBreak-near-2/escaped/indented-continuation",
+      "pass": "p1",
+      "signature": "[text(value=\" x\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"space\") -(kind=\"free\")] -> [text(value=\"x\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"space\")]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "inline/HardLineBreak-near-2/in-bold/indented-continuation",
+      "pass": "p1",
+      "signature": "[text(value=\" x\") .marks <-() .close -(kind=\"entangled\") .open -(kind=\"entangled\") >- >bold .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"space\") -(kind=\"free\")] -> [text(value=\"x\") .marks <-() .close -(kind=\"entangled\") .open -(kind=\"entangled\") >- >bold .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"space\")]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "inline/HardLineBreak-near-2/in-word/indented-continuation",
+      "pass": "p1",
+      "signature": "[text(value=\" xb\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"space\") -(kind=\"free\")] -> [text(value=\"xb\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"space\")]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "inline/HardLineBreak-near-2/open-bracket/indented-continuation",
+      "pass": "p1",
+      "signature": "[text(value=\" x\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"space\") -(kind=\"free\")] -> [text(value=\"x\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"space\")]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "inline/HardLineBreak-near-2/reflow-edge/indented-continuation",
+      "pass": "p1",
+      "signature": "[text(value=\" x kilo-lima-mike-november-oscar-papa-quebec\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"space\") -(kind=\"free\")] -> [text(value=\"x kilo-lima-mike-november-oscar-papa-quebec\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"space\")]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "inline/HardLineBreak-near-2/reflow/indented-continuation",
+      "pass": "p1",
+      "signature": "[text(value=\" x india juliett kilo lima mike november oscar papa quebec\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"space\") -(kind=\"free\")] -> [text(value=\"x india juliett kilo lima mike november oscar papa quebec\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"space\")]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "inline/HardLineBreak-near-2/repeated/indented-continuation",
+      "pass": "p1",
+      "signature": "[text(value=\" xw \") hardLineBreak() text(value=\" x\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"space\") -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"space\") -(kind=\"free\")] -> [text(value=\"xw \") hardLineBreak() text(value=\"x\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"space\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"space\")]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "inline/HardLineBreak-near-2/role-head/indented-continuation",
+      "pass": "p1",
+      "signature": "[text(value=\" x\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"space\") -(kind=\"free\")] -> [text(value=\"x\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"space\")]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "inline/HardLineBreak-near-2/spaced/indented-continuation",
+      "pass": "p1",
+      "signature": "[text(value=\" x b\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"space\") -(kind=\"free\")] -> [text(value=\"x b\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"space\")]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "inline/HardLineBreak-near-2/trailing-mark/indented-continuation",
+      "pass": "p1",
+      "signature": "[text(value=\" x *\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"space\") -(kind=\"free\")] -> [text(value=\"x *\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(by=\"hardBreakRun\",kind=\"bound\",to=\"space\")]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "inline/HardLineBreak/bare/indented-continuation",
+      "pass": "p1",
+      "signature": "[text(value=\" x\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\")] -> [text(value=\"x\") .whitespace <-(kind=\"reflowable\") .runs]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "inline/HardLineBreak/bracket-backslash/indented-continuation",
+      "pass": "p1",
+      "signature": "[text(value=\" x\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\")] -> [text(value=\"x\") .whitespace <-(kind=\"reflowable\") .runs]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "inline/HardLineBreak/bracketed/indented-continuation",
+      "pass": "p1",
+      "signature": "[text(value=\" x]\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\")] -> [text(value=\"x]\") .whitespace <-(kind=\"reflowable\") .runs]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "inline/HardLineBreak/close-bracket/indented-continuation",
+      "pass": "p1",
+      "signature": "[text(value=\" x\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\")] -> [text(value=\"x\") .whitespace <-(kind=\"reflowable\") .runs]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "inline/HardLineBreak/escaped/indented-continuation",
+      "pass": "p1",
+      "signature": "[text(value=\" x\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\")] -> [text(value=\"x\") .whitespace <-(kind=\"reflowable\") .runs]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "inline/HardLineBreak/in-bold/indented-continuation",
+      "pass": "p1",
+      "signature": "[text(value=\" x\") .marks <-() .close -(kind=\"entangled\") .open -(kind=\"entangled\") >- >bold .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\")] -> [text(value=\"x\") .marks <-() .close -(kind=\"entangled\") .open -(kind=\"entangled\") >- >bold .whitespace <-(kind=\"reflowable\") .runs]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "inline/HardLineBreak/in-word/indented-continuation",
+      "pass": "p1",
+      "signature": "[text(value=\" xb\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\")] -> [text(value=\"xb\") .whitespace <-(kind=\"reflowable\") .runs]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "inline/HardLineBreak/open-bracket/indented-continuation",
+      "pass": "p1",
+      "signature": "[text(value=\" x\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\")] -> [text(value=\"x\") .whitespace <-(kind=\"reflowable\") .runs]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "inline/HardLineBreak/reflow-edge/indented-continuation",
+      "pass": "p1",
+      "signature": "[text(value=\" x kilo-lima-mike-november-oscar-papa-quebec\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\")] -> [text(value=\"x kilo-lima-mike-november-oscar-papa-quebec\") .whitespace <-(kind=\"reflowable\") .runs]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "inline/HardLineBreak/reflow/indented-continuation",
+      "pass": "p1",
+      "signature": "[text(value=\" x india juliett kilo lima mike november oscar papa quebec\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\")] -> [text(value=\"x india juliett kilo lima mike november oscar papa quebec\") .whitespace <-(kind=\"reflowable\") .runs]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "inline/HardLineBreak/repeated/indented-continuation",
+      "pass": "p1",
+      "signature": "[text(value=\" xw\") hardLineBreak() text(value=\" x\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\") -(kind=\"free\")] -> [text(value=\"xw\") hardLineBreak() text(value=\"x\") .whitespace <-(kind=\"reflowable\") .runs]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "inline/HardLineBreak/role-head/indented-continuation",
+      "pass": "p1",
+      "signature": "[text(value=\" x\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\")] -> [text(value=\"x\") .whitespace <-(kind=\"reflowable\") .runs]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "inline/HardLineBreak/spaced/indented-continuation",
+      "pass": "p1",
+      "signature": "[text(value=\" x b\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\")] -> [text(value=\"x b\") .whitespace <-(kind=\"reflowable\") .runs]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "inline/HardLineBreak/trailing-mark/indented-continuation",
+      "pass": "p1",
+      "signature": "[text(value=\" x *\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\")] -> [text(value=\"x *\") .whitespace <-(kind=\"reflowable\") .runs]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "inline/InlineChar-alt-1/bare/indented-continuation",
+      "pass": "p1",
+      "signature": "[text(value=\"a +\") .whitespace <-(kind=\"reflowable\") .runs -(kind=\"free\")] -> [text(value=\"a \") attributeReference(name=\"plus\") .whitespace <-(kind=\"reflowable\") .runs -(by=\"dashOrReferenceEdge\",kind=\"bound\",to=\"space\")]",
+      "family": "plus-respelled"
+    },
+    {
       "id": "inline/InlineNewline-near-0/in-mono/admonition",
       "pass": "p1",
       "signature": "[text(value=\"w\\nx\")] -> [text(value=\"w x\")]",
@@ -62,7 +344,19 @@
       "family": "join-changes-reading"
     },
     {
+      "id": "inline/InlineNewline-near-0/in-mono/indented-continuation",
+      "pass": "p1",
+      "signature": "[text(value=\"w\\n  x\")] -> [text(value=\"w x\")]",
+      "family": "join-changes-reading"
+    },
+    {
       "id": "inline/InlineNewline-near-0/in-mono/item",
+      "pass": "p1",
+      "signature": "[text(value=\"w\\nx\")] -> [text(value=\"w x\")]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "inline/InlineNewline-near-0/in-mono/nested-item",
       "pass": "p1",
       "signature": "[text(value=\"w\\nx\")] -> [text(value=\"w x\")]",
       "family": "join-changes-reading"
@@ -92,7 +386,19 @@
       "family": "join-changes-reading"
     },
     {
+      "id": "inline/InlineNewline/in-mono/indented-continuation",
+      "pass": "p1",
+      "signature": "[text(value=\"w\\n  x\")] -> [text(value=\"w x\")]",
+      "family": "join-changes-reading"
+    },
+    {
       "id": "inline/InlineNewline/in-mono/item",
+      "pass": "p1",
+      "signature": "[text(value=\"w\\nx\")] -> [text(value=\"w x\")]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "inline/InlineNewline/in-mono/nested-item",
       "pass": "p1",
       "signature": "[text(value=\"w\\nx\")] -> [text(value=\"w x\")]",
       "family": "join-changes-reading"

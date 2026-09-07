@@ -397,6 +397,22 @@ export const NEIGHBOURHOODS: readonly NeighbourhoodEntry[] = [
 ];
 
 /**
+ * Indents every non-empty line of a run by two columns.
+ *
+ * A blank line inside a run stays blank: indenting it would mint
+ * trailing whitespace, which is the byte-operator dimension's
+ * subject and not this context's.
+ * @param run - the inline run
+ * @returns the run with each non-empty line indented
+ */
+function indentLines(run: string): string {
+  return run
+    .split("\n")
+    .map((line) => (line === "" ? line : `  ${line}`))
+    .join("\n");
+}
+
+/**
  * The context dimensions: which inline-bearing line the run sits on.
  *
  * `para-tail` is not decoration. A rule that reads its own offset
@@ -404,11 +420,26 @@ export const NEIGHBOURHOODS: readonly NeighbourhoodEntry[] = [
  * every constrained mark's left boundary - answers differently on a
  * paragraph's second line, and no other dimension moves the run off
  * offset zero.
+ *
+ * `nested-item` and `indented-continuation` are the two lines that
+ * carry an inline run under a list marker that is not the run's own.
+ * A nested marker puts the run one level deeper than the block the
+ * printer indents against, and an item's continuation lines carry
+ * their own leading blanks, so a run that spans two source lines
+ * spans two INDENTED source lines there - the one placement where a
+ * reader that takes a continuation for a column-0 line cancels a
+ * block's indent strip, and one that takes an unindented
+ * continuation for an indented line applies a strip the source never
+ * asked for. Both render: the nested item is its own list item, and
+ * an item's indented continuation is part of that item's principal
+ * text.
  */
 export const CONTEXTS: readonly ContextEntry[] = [
   { id: "para", wrap: (run) => `${run}\n` },
   { id: "para-tail", wrap: (run) => `lead\n${run}\n` },
   { id: "item", wrap: (run) => `* ${run}\n` },
+  { id: "nested-item", wrap: (run) => `* a\n** ${run}\n` },
+  { id: "indented-continuation", wrap: (run) => `* a\n${indentLines(run)}\n` },
   { id: "dlist-desc", wrap: (run) => `t:: ${run}\n` },
   { id: "section-title", wrap: (run) => `== ${run}\n` },
   { id: "block-title", wrap: (run) => `.${run}\npara\n` },

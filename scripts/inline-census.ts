@@ -112,6 +112,8 @@ const CONTEXT_IDS: readonly string[] = [
   "para",
   "para-tail",
   "item",
+  "nested-item",
+  "indented-continuation",
   "dlist-desc",
   "section-title",
   "block-title",
@@ -136,7 +138,7 @@ const PAIR_CONTEXTS: readonly string[] = ["para", "item", "cell"];
 const PRINT_WIDTH = 80;
 
 // Rule (vi): the realized grid sizes, pinned. The standing grid is a
-// 146-member alphabet x 15 neighbourhoods x 8 contexts, less the
+// 147-member alphabet x 15 neighbourhoods x 10 contexts, less the
 // realizations two coordinates spell the same way; the pair grid is
 // that whole alphabet squared, x 5 joins x 3 contexts, less the same
 // kind of collision. A grid extension moves its pin DELIBERATELY, in
@@ -175,7 +177,20 @@ const PRINT_WIDTH = 80;
 // A spelling is a member in every context and every join, which is
 // what makes one entry worth 120 standing shapes (17,357 to 17,477)
 // and 4,390 pair shapes (318,768 to 323,158).
-const STANDING_GRID_SIZE = 17_477;
+//
+// The standing pin moved once more for the two contexts that put a
+// run under a list marker that is not its own, `nested-item` and
+// `indented-continuation` (17,477 to 21,847): the 147-member
+// alphabet in 15 neighbourhoods is 2,205 realizations per context,
+// so two contexts spell 4,410, less the 20 a context loses to two of
+// its OWN coordinates spelling the same bytes. Every context loses
+// exactly those 20, old and new alike; the three further
+// realizations the grid drops all fall in `para`, to a coordinate
+// another context reached earlier in the product, and neither new
+// context reaches one. The pair pin does not move: the pair grid
+// runs in the three contexts `PAIR_CONTEXT_IDS` names and neither
+// new context is one of them.
+const STANDING_GRID_SIZE = 21_847;
 const PAIR_GRID_SIZE = 323_158;
 
 /**

@@ -600,7 +600,7 @@ after it (issue #113).
 
 - CONSTRUCTS, one per row of `src/parse/inline/rules.ts` plus the fallback kind
   the table has no row for, each carrying the valid spellings of its construct
-  and the spellings that sit a character or so away from one. 146 alphabet
+  and the spellings that sit a character or so away from one. 147 alphabet
   members in all. Only the SPELLINGS carry an invariant - the census holds each
   to tokenizing as its own kind; a near miss is a neighbour in the alphabet, and
   40 of the 65 of them do still tokenize as the kind they are filed under.
@@ -611,8 +611,12 @@ after it (issue #113).
   front of a trailing mark, and two reflow fillers. Fifteen of them, and this is
   the axis the line registry has no dimension for at all.
 - CONTEXTS, which inline-bearing line the run belongs to: a paragraph's first
-  and second line, a list item, a description, a section title, a block title,
-  an admonition, a table cell. Eight.
+  and second line, a list item, a nested list item, a list item's indented
+  continuation lines, a description, a section title, a block title, an
+  admonition, a table cell. Ten. The last two of those put the run under a
+  marker that is not its own, which is where a run spanning two source lines
+  spans two INDENTED source lines - the placement a reader that takes a
+  continuation for a column-0 line, or the reverse, gets wrong.
 
 The second reflow neighbourhood is measured rather than decorative: its filler
 is 61 columns, so a body up to the eighteen-character budget still fits the

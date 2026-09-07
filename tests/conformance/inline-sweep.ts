@@ -28,17 +28,20 @@
  * The row sets are TIERED, and the split is wall time and nothing
  * else:
  *
- * - the DEFAULT tier is the standing grid, clean. 17,349 rows, about
- *   three and a half seconds run on its own.
+ * - the DEFAULT tier is the standing grid, clean.
  * - the DEEP tier is that grid crossed with every byte operator, plus
- *   the whole pair product. 474,908 rows, about two minutes.
+ *   the whole pair product, which is more than an order of magnitude
+ *   more rows.
  *
- * Both figures are WALL TIME on an idle machine and move with load:
- * inside `bun run test` vitest reports the default tier at nearer six
- * seconds, while the suite's own wall time moves by under a second,
- * because the line registry's default tier is the longer pole. Treat
- * them as the order of magnitude the split was decided on, not as
- * pins.
+ * Neither a row count nor a wall time is quoted here. The realized
+ * sizes are PINNED in `scripts/inline-census.ts`, which is where a
+ * change that moves them has to move a number, and every figure of
+ * wall time moves with the alphabet, the machine and the load, so
+ * vitest's own per-file duration is the only reading of it worth
+ * having. The one wall time that had to be decided rather than
+ * observed is the deep tier's timeout, and
+ * `inline-sweep.deep.test.ts` carries it beside the runs it was set
+ * from.
  *
  * The byte operators are entirely a deep-tier concern, which is a
  * budget ruling and not a claim that they do not matter inline: they
