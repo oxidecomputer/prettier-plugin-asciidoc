@@ -630,6 +630,16 @@ describe("a span keeps its doubled spelling behind an address", () => {
  * escape]^6, against 2,975 the same alphabet heals. The class is
  * #189's and pre-existing; the fix that moves it is #189's too.
  *
+ * NOT PROTECTED BY DESIGN, which is a decision and not an omission.
+ * A tab in that run comes back because the whitespace record freezes
+ * a tab wherever it stands (`factOfRun`, src/whitespace-fact.ts);
+ * a SPACE run folds to one space, and the render changes. Refusing
+ * that fold means freezing every multi-space run flush against a
+ * monospace delimiter, which is a shape real prose writes (a double
+ * space after a sentence in front of a code span: 8 of 262 documents
+ * in one local corpus). The formatter normalizes there, and the shape
+ * this class needs is reachable only through the alphabet above.
+ *
  * So the rows below assert what the formatter DOES, renders included -
  * the output's render is the one that differs, and it is written down
  * rather than asserted equal. What they hold is that the answer is

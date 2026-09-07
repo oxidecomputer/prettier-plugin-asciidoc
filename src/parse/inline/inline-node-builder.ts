@@ -29,6 +29,8 @@ import type {
   EscapedMarkNode,
   AttributeReferenceNode,
 } from "../../ast.js";
+import type { SpanMarks } from "../../mark-record.js";
+import { spanMarkFacts } from "./mark-facts.js";
 import type { Fragment, LocationIndex } from "../positions.js";
 import { DELIM_WIDTH } from "../../constants.js";
 import type { InlineToken, InlineTokenType } from "./tokens.js";
@@ -84,6 +86,7 @@ interface FormattingNodeOptions {
   markType: MarkSpanTokenKind;
   constrained: boolean;
   role: string | undefined;
+  marks: SpanMarks;
   children: InlineNode[];
   start: Fragment;
   closeMark: Fragment;
@@ -114,11 +117,11 @@ interface FormattingNodeOptions {
 function makeFormattingNode(
   options: FormattingNodeOptions,
 ): BoldNode | ItalicNode | MonospaceNode | HighlightNode {
-  const { markType, constrained, role, children, start, closeMark, at } =
+  const { markType, constrained, role, marks, children, start, closeMark, at } =
     options;
   const type = MARK_SPAN_KINDS[markType];
   const position = { start: at.start(start), end: at.end(closeMark) };
-  const base = { constrained, role, children, position };
+  const base = { constrained, role, marks, children, position };
   switch (type) {
     case "bold": {
       return { type, ...base };
@@ -252,12 +255,9 @@ function makeSpanNode(
   // by itself.
   const head = closeHead(span.close);
   const content = tokens.slice(base, contentEnd(span.close));
+  const inside = head === undefined ? content : [...content, head];
   // Span content: no trailing-newline strip (see buildFromTokens).
-  const children = buildNodes(
-    head === undefined ? content : [...content, head],
-    innerSpans(spans, span, base),
-    at,
-  );
+  const children = buildNodes(inside, innerSpans(spans, span, base), at);
   switch (span.type) {
     case "BoldMark":
     case "ItalicMark":
@@ -282,6 +282,7 @@ function makeSpanNode(
         markType: span.type,
         constrained: openMark.image.length === DELIM_WIDTH,
         ...roleAndStart(tokens, span, openMark),
+        marks: spanMarkFacts(inside),
         children,
         closeMark,
         at,

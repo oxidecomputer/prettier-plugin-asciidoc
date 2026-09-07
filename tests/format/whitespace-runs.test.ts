@@ -107,13 +107,12 @@ describe("a run inside a monospace span keeps its bytes", () => {
     //
     // The trailing byte matters: `` a ``\n``b `` (no space before `b`)
     // is refused constrained-respelling on its OWN, by the trailing
-    // lookahead `(?!\w)` alone, regardless of spanIsFlush - a
-    // constrained span may not be followed by a word character. That
-    // masks whatever spanIsFlush answers, so it is not a witness for
-    // the empty-content branch (`inner.length === 0`,
-    // src/print/literal-span.ts). A SPACE before `b` removes that
-    // separate refusal, so this row is what actually exercises the
-    // branch.
+    // lookahead `(?!\w)` alone, whatever the span's mark record says -
+    // a constrained span may not be followed by a word character. That
+    // masks the record's own answer, so it is not a witness for the
+    // empty-content branch (`inner.length === 0`, `appendSpan`,
+    // src/print/inline.ts). A SPACE before `b` removes that separate
+    // refusal, so this row is what actually exercises the branch.
     await expectRunFaithful("a ``\n`` b\n", "a `` `` b\n");
   });
 
@@ -122,14 +121,17 @@ describe("a run inside a monospace span keeps its bytes", () => {
   // edge atom's own bytes look flush even though appendLiteralText
   // still returns a "break" JOIN there - a line break itself still
   // folds to one space (the same fold every reflowed line break
-  // gets), so these rows are NOT byte-identical to their input; what
-  // spanIsFlush must not do is read the folded, flush-looking BYTE as
-  // license to also shorten the span to constrained, which
-  // Asciidoctor then refuses beside the leading/trailing space the
-  // fold left behind and reads as literal text instead (measured
-  // against the oracle below) - and left the leading-edge case
-  // non-idempotent pre-fix (a second pass saw plain reflowable prose
-  // where the first pass had destroyed the span).
+  // gets), so these rows are NOT byte-identical to their input. What
+  // may not happen is the folded, flush-looking BYTE licensing the
+  // shorter constrained spelling, which Asciidoctor then refuses
+  // beside the leading/trailing space the fold left behind and reads
+  // as literal text instead (measured against the oracle below) -
+  // and which left the leading-edge case non-idempotent once (a
+  // second pass saw plain reflowable prose where the first pass had
+  // destroyed the span). The span's mark record is what refuses it:
+  // the source put whitespace at that edge, so the mark is `isolated`
+  // and no atom read is consulted at all ({@link SpanMarks},
+  // src/mark-record.ts).
   describe("a line break at a monospace edge does not fool the flush test", () => {
     test("leading edge", async () => {
       // Oracle: convert("a ``\nxy`` b") -> <p>a <code> xy</code> b</p>;

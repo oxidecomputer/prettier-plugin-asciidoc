@@ -103,6 +103,8 @@ describe("line comment parsing", () => {
       {
         type: "bold",
         constrained: true,
+        role: undefined,
+        marks: { open: { kind: "entangled" }, close: { kind: "entangled" } },
         children: [
           {
             type: "text",

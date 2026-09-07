@@ -21,7 +21,7 @@ import {
   type BreakBefore,
 } from "./reflow.js";
 import type { SpanNode } from "./span-edges.js";
-import type { BlockStartCursor } from "./block-start-hazard.js";
+import type { BlockStart } from "./block-start-hazard.js";
 
 /**
  * The join between the atom just emitted and the next one.
@@ -107,13 +107,23 @@ export function withBoundary(atom: Atom, boundary: Boundary): Atom {
 }
 
 /**
- * Where a node sits among its inline siblings, and in which block:
- * what the block-start hazard net reads ({@link BlockStartCursor}),
- * plus everything only the printer asks - the siblings themselves,
- * the enclosing span, and the block's source start line the dlist
- * first-line guard reads.
+ * Where a node sits among its inline siblings, and in which block.
+ *
+ * The first two fields are what the block-start hazard net's callers
+ * read before they call it; the rest is what only the printer asks -
+ * the siblings themselves, the enclosing span, and the block's source
+ * start line the dlist first-line guard reads.
  */
-export interface Cursor extends BlockStartCursor {
+export interface Cursor {
+  /** The node's index among its inline siblings. */
+  readonly index: number;
+  /**
+   * Where the block's FIRST atom lands and what stood on its source
+   * line ({@link BlockStart}, src/print/block-start-hazard.ts). Only
+   * an atom that actually lands at column 0 can be re-read as block
+   * syntax there.
+   */
+  readonly blockStart: BlockStart;
   /** The inline siblings the node sits among. */
   readonly siblings: readonly InlineNode[];
   /** 1-based source line the enclosing BLOCK starts on. */

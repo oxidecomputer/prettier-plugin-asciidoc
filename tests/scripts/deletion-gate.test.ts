@@ -125,11 +125,19 @@ describe("what a change has to say before it deletes a fact", () => {
     ]);
   });
 
-  test("the committed declarations parse and declare nothing stale here", () => {
-    // Nothing is declared deleted on this revision, and the gate's
-    // stale check is what keeps that true: an entry left behind after
-    // its change landed fails the next run.
-    expect(loadDeletions()).toEqual([]);
+  test("the committed declarations parse and name this revision's deletions", () => {
+    // The file is scoped to the change in flight: the gate derives
+    // the deleted set from base-to-head, so an entry left behind
+    // after its change is IN the base declares a symbol the diff no
+    // longer removes, which the stale check fails. This revision
+    // removes three published names, so three entries stand and the
+    // pin names them; both leave with the next change measured
+    // against a base that already carries the deletion.
+    expect(loadDeletions().map((entry) => entry.symbol)).toEqual([
+      "src/print/block-start-hazard.ts:openMarkStandsApart",
+      "src/print/block-start-hazard.ts:BlockStartCursor",
+      "src/print/literal-span.ts:spanIsFlush",
+    ]);
   });
 });
 

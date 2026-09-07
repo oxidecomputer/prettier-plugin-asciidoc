@@ -841,6 +841,27 @@ const SECOND_LINE_INDENT_FACT_FAMILY = "second-line-indent-fact";
  */
 const MARKER_GAP_KEPT_FAMILY = "marker-gap-kept";
 
+/**
+ * Every MARK span - bold, italic, monospace, highlight - records what
+ * each of its two marks stands against ({@link SpanMarks},
+ * src/mark-record.ts): `entangled` when the content is flush against
+ * the mark, `isolated` when the source put whitespace between them.
+ * That is the fact every constrained row of `QUOTE_SUBS` reads of a
+ * span's content (`(\S|\S#{CC_ALL}*?\S)`, asciidoctor.rb l.448-464),
+ * which the printer used to answer from the atoms it had already
+ * built. No formatted byte moves over this corpus - the two reads
+ * agree everywhere it reaches, and the shapes where they part are the
+ * kept runs and edge padding no corpus case spells - so every
+ * differing case differs in the `marks` key and nothing else, which
+ * is what a bare trailer declares. Measured against ce181be1, the
+ * landing's own base: 97 of the 1,620 cases differ, all 97 in the AST
+ * alone. NOT formatted-only: the key IS the difference, and a
+ * formatted-only family would fail the cross-check for every case.
+ *
+ * Not exported: no grid row cites it.
+ */
+const SPAN_MARK_RECORD_FAMILY = "span-mark-record";
+
 export const LEDGER_FAMILIES: FamilySets = {
   families: new Set([
     ATTRIBUTE_CONTINUATION_FAMILY,
@@ -888,6 +909,7 @@ export const LEDGER_FAMILIES: FamilySets = {
     ADMONITION_LABEL_FOLD_FAMILY,
     SECOND_LINE_INDENT_FACT_FAMILY,
     MARKER_GAP_KEPT_FAMILY,
+    SPAN_MARK_RECORD_FAMILY,
   ]),
   formattedOnly: new Set([
     AUTHOR_PLUS_FAMILY,
@@ -906,18 +928,20 @@ export const LEDGER_FAMILIES: FamilySets = {
     TABLE_LAYOUT_FAMILY,
     TABLE_WIDTH_LAYOUT_FAMILY,
   ]),
-  // Four families, and each owns exactly the field it named, as the
+  // Five families, and each owns exactly the field it named, as the
   // dumper serializes it: `ParagraphNode.firstWordEndsItsLine`,
   // `ParagraphNode.blankBelowAnchorLine`,
-  // `TableCellNode.columnIndex` and `ParagraphNode.secondLineIndent`
-  // (all src/ast.ts). Every other family names a change to what the
-  // tree MEANS at some ids; these four name a field every paragraph,
-  // or every table cell, gained.
+  // `TableCellNode.columnIndex`, `ParagraphNode.secondLineIndent` and
+  // the `marks` record on the four mark spans (all src/ast.ts). Every
+  // other family names a change to what the tree MEANS at some ids;
+  // these five name a field every paragraph, every table cell, or
+  // every mark span gained.
   blanketKeys: new Map([
     [BLOCK_START_LINE_FACT_FAMILY, new Set(["firstWordEndsItsLine"])],
     [BLANK_BELOW_ANCHOR_LINE_FACT_FAMILY, new Set(["blankBelowAnchorLine"])],
     [TABLE_CELL_COLUMN_INDEX_FAMILY, new Set(["columnIndex"])],
     [SECOND_LINE_INDENT_FACT_FAMILY, new Set(["secondLineIndent"])],
+    [SPAN_MARK_RECORD_FAMILY, new Set(["marks"])],
   ]),
 };
 

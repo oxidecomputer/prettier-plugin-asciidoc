@@ -256,13 +256,13 @@
     {
       "id": "line/pair/attrlist-near-1/attrlist/two-blank/dlist-desc-line",
       "pass": "p1",
-      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"[\") <bold() .children text(value=\"bold\") >bold text(value=\"]\") .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"[\") <bold() .children text(value=\"bold\") >bold text(value=\"]\") .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList]",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"[\") <bold() .children text(value=\"bold\") .marks <-() .close -(kind=\"entangled\") .open -(kind=\"entangled\") >- >bold text(value=\"]\") .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"[\") <bold() .children text(value=\"bold\") .marks <-() .close -(kind=\"entangled\") .open -(kind=\"entangled\") >- >bold text(value=\"]\") .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList]",
       "family": "join-changes-reading"
     },
     {
       "id": "line/pair/attrlist-near-1/block-anchor/two-blank/dlist-desc-line",
       "pass": "p1",
-      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"[\") <bold() .children text(value=\"bold\") >bold text(value=\"]\") .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"[\") <bold() .children text(value=\"bold\") >bold text(value=\"]\") .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList]",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"[\") <bold() .children text(value=\"bold\") .marks <-() .close -(kind=\"entangled\") .open -(kind=\"entangled\") >- >bold text(value=\"]\") .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"[\") <bold() .children text(value=\"bold\") .marks <-() .close -(kind=\"entangled\") .open -(kind=\"entangled\") >- >bold text(value=\"]\") .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList]",
       "family": "join-changes-reading"
     },
     {
@@ -658,7 +658,7 @@
     {
       "id": "line/pair/continuation/attrlist-near-1/two-blank/dlist-desc-line",
       "pass": "p1",
-      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList <paragraph(blankBelowAnchorLine=false) .children text(value=\"[\") <bold() .children text(value=\"bold\") >bold text(value=\"]\") .whitespace <-(kind=\"reflowable\") .runs >- >paragraph] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" [\") <bold() .children text(value=\"bold\") >bold text(value=\"]\") .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList]",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList <paragraph(blankBelowAnchorLine=false) .children text(value=\"[\") <bold() .children text(value=\"bold\") .marks <-() .close -(kind=\"entangled\") .open -(kind=\"entangled\") >- >bold text(value=\"]\") .whitespace <-(kind=\"reflowable\") .runs >- >paragraph] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" [\") <bold() .children text(value=\"bold\") .marks <-() .close -(kind=\"entangled\") .open -(kind=\"entangled\") >- >bold text(value=\"]\") .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList]",
       "family": "separator-collapsed"
     },
     {
@@ -808,7 +808,7 @@
     {
       "id": "line/pair/continuation/delimiter-fencedCode-near-2/adjacent/doc",
       "pass": "p1",
-      "signature": "[text(value=\"+ \") <monospace() .children text(value=\"`\") >monospace .whitespace <-(kind=\"reflowable\") .runs -(by=\"lonePlusAhead\",kind=\"bound\",to=\"newline\") >- >paragraph] -> [text(value=\"+\") .whitespace <-(kind=\"reflowable\") .runs >- >paragraph delimitedBlock(annotatedBy=\"source\",content=\"\",form=\"delimited\",variant=\"listing\")]",
+      "signature": "[text(value=\"+ \") <monospace() .children text(value=\"`\") .marks <-() .close -(kind=\"entangled\") .open -(kind=\"entangled\") >- >monospace .whitespace <-(kind=\"reflowable\") .runs -(by=\"lonePlusAhead\",kind=\"bound\",to=\"newline\") >- >paragraph] -> [text(value=\"+\") .whitespace <-(kind=\"reflowable\") .runs >- >paragraph delimitedBlock(annotatedBy=\"source\",content=\"\",form=\"delimited\",variant=\"listing\")]",
       "family": "indent-dropped"
     },
     {
@@ -916,7 +916,7 @@
     {
       "id": "line/pair/continuation/delimiter-quote-near-2/adjacent/doc",
       "pass": "p1",
-      "signature": "[text(value=\"+ \") <italic() .children text(value=\"__\") >italic .whitespace <-(kind=\"reflowable\") .runs -(by=\"lonePlusAhead\",kind=\"bound\",to=\"newline\") >- >paragraph] -> [text(value=\"+\") .whitespace <-(kind=\"reflowable\") .runs >- >paragraph <parentBlock(variant=\"quote\") .children >parentBlock]",
+      "signature": "[text(value=\"+ \") <italic() .children text(value=\"__\") .marks <-() .close -(kind=\"entangled\") .open -(kind=\"entangled\") >- >italic .whitespace <-(kind=\"reflowable\") .runs -(by=\"lonePlusAhead\",kind=\"bound\",to=\"newline\") >- >paragraph] -> [text(value=\"+\") .whitespace <-(kind=\"reflowable\") .runs >- >paragraph <parentBlock(variant=\"quote\") .children >parentBlock]",
       "family": "indent-dropped"
     },
     {
@@ -928,13 +928,13 @@
     {
       "id": "line/pair/continuation/delimiter-sidebar-near-1/two-blank/dlist-desc-line",
       "pass": "p1",
-      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList <paragraph(blankBelowAnchorLine=false) .children <bold() .children text(value=\"*\") >bold text(value=\"*x\") .whitespace <-(kind=\"reflowable\") .runs >- >paragraph] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" \") <bold() .children text(value=\"*\") >bold text(value=\"*x\") .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList]",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList <paragraph(blankBelowAnchorLine=false) .children <bold() .children text(value=\"*\") .marks <-() .close -(kind=\"entangled\") .open -(kind=\"entangled\") >- >bold text(value=\"*x\") .whitespace <-(kind=\"reflowable\") .runs >- >paragraph] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" \") <bold() .children text(value=\"*\") .marks <-() .close -(kind=\"entangled\") .open -(kind=\"entangled\") >- >bold text(value=\"*x\") .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList]",
       "family": "separator-collapsed"
     },
     {
       "id": "line/pair/continuation/delimiter-sidebar-near-2/adjacent/doc",
       "pass": "p1",
-      "signature": "[text(value=\"+ \") <bold() .children text(value=\"*\") >bold text(value=\"*\") .whitespace <-(kind=\"reflowable\") .runs -(by=\"lonePlusAhead\",kind=\"bound\",to=\"newline\") >- >paragraph] -> [text(value=\"+\") .whitespace <-(kind=\"reflowable\") .runs >- >paragraph <parentBlock(variant=\"sidebar\") .children >parentBlock]",
+      "signature": "[text(value=\"+ \") <bold() .children text(value=\"*\") .marks <-() .close -(kind=\"entangled\") .open -(kind=\"entangled\") >- >bold text(value=\"*\") .whitespace <-(kind=\"reflowable\") .runs -(by=\"lonePlusAhead\",kind=\"bound\",to=\"newline\") >- >paragraph] -> [text(value=\"+\") .whitespace <-(kind=\"reflowable\") .runs >- >paragraph <parentBlock(variant=\"sidebar\") .children >parentBlock]",
       "family": "indent-dropped"
     },
     {
@@ -1288,13 +1288,13 @@
     {
       "id": "line/pair/delimiter-fencedCode-near-2/attrlist/two-blank/dlist-desc-line",
       "pass": "p1",
-      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" \") <monospace() .children text(value=\"`\") >monospace .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" \") <monospace() .children text(value=\"`\") >monospace .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList]",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" \") <monospace() .children text(value=\"`\") .marks <-() .close -(kind=\"entangled\") .open -(kind=\"entangled\") >- >monospace .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" \") <monospace() .children text(value=\"`\") .marks <-() .close -(kind=\"entangled\") .open -(kind=\"entangled\") >- >monospace .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList]",
       "family": "blank-dropped"
     },
     {
       "id": "line/pair/delimiter-fencedCode-near-2/block-anchor/two-blank/dlist-desc-line",
       "pass": "p1",
-      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" \") <monospace() .children text(value=\"`\") >monospace .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" \") <monospace() .children text(value=\"`\") >monospace .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList]",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" \") <monospace() .children text(value=\"`\") .marks <-() .close -(kind=\"entangled\") .open -(kind=\"entangled\") >- >monospace .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" \") <monospace() .children text(value=\"`\") .marks <-() .close -(kind=\"entangled\") .open -(kind=\"entangled\") >- >monospace .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList]",
       "family": "blank-dropped"
     },
     {
@@ -1504,13 +1504,13 @@
     {
       "id": "line/pair/delimiter-quote-near-0/attrlist/two-blank/dlist-desc-line",
       "pass": "p1",
-      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text <italic() .children text(value=\"_\") >italic .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text <italic() .children text(value=\"_\") >italic .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList]",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text <italic() .children text(value=\"_\") .marks <-() .close -(kind=\"entangled\") .open -(kind=\"entangled\") >- >italic .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text <italic() .children text(value=\"_\") .marks <-() .close -(kind=\"entangled\") .open -(kind=\"entangled\") >- >italic .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList]",
       "family": "blank-dropped"
     },
     {
       "id": "line/pair/delimiter-quote-near-0/block-anchor/two-blank/dlist-desc-line",
       "pass": "p1",
-      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text <italic() .children text(value=\"_\") >italic .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text <italic() .children text(value=\"_\") >italic .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList]",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text <italic() .children text(value=\"_\") .marks <-() .close -(kind=\"entangled\") .open -(kind=\"entangled\") >- >italic .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text <italic() .children text(value=\"_\") .marks <-() .close -(kind=\"entangled\") .open -(kind=\"entangled\") >- >italic .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList]",
       "family": "blank-dropped"
     },
     {
@@ -1528,49 +1528,49 @@
     {
       "id": "line/pair/delimiter-quote-near-2/attrlist/two-blank/dlist-desc-line",
       "pass": "p1",
-      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" \") <italic() .children text(value=\"__\") >italic .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" \") <italic() .children text(value=\"__\") >italic .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList]",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" \") <italic() .children text(value=\"__\") .marks <-() .close -(kind=\"entangled\") .open -(kind=\"entangled\") >- >italic .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" \") <italic() .children text(value=\"__\") .marks <-() .close -(kind=\"entangled\") .open -(kind=\"entangled\") >- >italic .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList]",
       "family": "blank-dropped"
     },
     {
       "id": "line/pair/delimiter-quote-near-2/block-anchor/two-blank/dlist-desc-line",
       "pass": "p1",
-      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" \") <italic() .children text(value=\"__\") >italic .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" \") <italic() .children text(value=\"__\") >italic .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList]",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" \") <italic() .children text(value=\"__\") .marks <-() .close -(kind=\"entangled\") .open -(kind=\"entangled\") >- >italic .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" \") <italic() .children text(value=\"__\") .marks <-() .close -(kind=\"entangled\") .open -(kind=\"entangled\") >- >italic .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList]",
       "family": "blank-dropped"
     },
     {
       "id": "line/pair/delimiter-sidebar-near-0/attrlist/two-blank/dlist-desc-line",
       "pass": "p1",
-      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text <bold() .children text(value=\"*\") >bold .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text <bold() .children text(value=\"*\") >bold .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList]",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text <bold() .children text(value=\"*\") .marks <-() .close -(kind=\"entangled\") .open -(kind=\"entangled\") >- >bold .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text <bold() .children text(value=\"*\") .marks <-() .close -(kind=\"entangled\") .open -(kind=\"entangled\") >- >bold .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList]",
       "family": "blank-dropped"
     },
     {
       "id": "line/pair/delimiter-sidebar-near-0/block-anchor/two-blank/dlist-desc-line",
       "pass": "p1",
-      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text <bold() .children text(value=\"*\") >bold .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text <bold() .children text(value=\"*\") >bold .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList]",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text <bold() .children text(value=\"*\") .marks <-() .close -(kind=\"entangled\") .open -(kind=\"entangled\") >- >bold .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text <bold() .children text(value=\"*\") .marks <-() .close -(kind=\"entangled\") .open -(kind=\"entangled\") >- >bold .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList]",
       "family": "blank-dropped"
     },
     {
       "id": "line/pair/delimiter-sidebar-near-1/attrlist/two-blank/dlist-desc-line",
       "pass": "p1",
-      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text <bold() .children text(value=\"*\") >bold text(value=\"*x\") .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text <bold() .children text(value=\"*\") >bold text(value=\"*x\") .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList]",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text <bold() .children text(value=\"*\") .marks <-() .close -(kind=\"entangled\") .open -(kind=\"entangled\") >- >bold text(value=\"*x\") .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text <bold() .children text(value=\"*\") .marks <-() .close -(kind=\"entangled\") .open -(kind=\"entangled\") >- >bold text(value=\"*x\") .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList]",
       "family": "join-changes-reading"
     },
     {
       "id": "line/pair/delimiter-sidebar-near-1/block-anchor/two-blank/dlist-desc-line",
       "pass": "p1",
-      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text <bold() .children text(value=\"*\") >bold text(value=\"*x\") .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text <bold() .children text(value=\"*\") >bold text(value=\"*x\") .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList]",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text <bold() .children text(value=\"*\") .marks <-() .close -(kind=\"entangled\") .open -(kind=\"entangled\") >- >bold text(value=\"*x\") .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text <bold() .children text(value=\"*\") .marks <-() .close -(kind=\"entangled\") .open -(kind=\"entangled\") >- >bold text(value=\"*x\") .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList]",
       "family": "join-changes-reading"
     },
     {
       "id": "line/pair/delimiter-sidebar-near-2/attrlist/two-blank/dlist-desc-line",
       "pass": "p1",
-      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" \") <bold() .children text(value=\"*\") >bold text(value=\"*\") .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" \") <bold() .children text(value=\"*\") >bold text(value=\"*\") .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList]",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" \") <bold() .children text(value=\"*\") .marks <-() .close -(kind=\"entangled\") .open -(kind=\"entangled\") >- >bold text(value=\"*\") .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" \") <bold() .children text(value=\"*\") .marks <-() .close -(kind=\"entangled\") .open -(kind=\"entangled\") >- >bold text(value=\"*\") .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList]",
       "family": "blank-dropped"
     },
     {
       "id": "line/pair/delimiter-sidebar-near-2/block-anchor/two-blank/dlist-desc-line",
       "pass": "p1",
-      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" \") <bold() .children text(value=\"*\") >bold text(value=\"*\") .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" \") <bold() .children text(value=\"*\") >bold text(value=\"*\") .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList]",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" \") <bold() .children text(value=\"*\") .marks <-() .close -(kind=\"entangled\") .open -(kind=\"entangled\") >- >bold text(value=\"*\") .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" \") <bold() .children text(value=\"*\") .marks <-() .close -(kind=\"entangled\") .open -(kind=\"entangled\") >- >bold text(value=\"*\") .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList]",
       "family": "blank-dropped"
     },
     {

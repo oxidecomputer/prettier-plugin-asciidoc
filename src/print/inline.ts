@@ -23,6 +23,7 @@ import { ASCII_WHITESPACE } from "../parse/line-shapes.js";
 import { verbatimText } from "./serialize-inline.js";
 import type { SpanNode } from "./span-edges.js";
 import { spanDelimiters, type SpanSite } from "./declared-rules.js";
+import { marksOf } from "./span-edges.js";
 import {
   atomOf,
   type Atom,
@@ -38,7 +39,7 @@ import {
   type Boundary,
   type Cursor,
 } from "./atom-join.js";
-import { appendLiteralText, spanIsFlush } from "./literal-span.js";
+import { appendLiteralText } from "./literal-span.js";
 import {
   appendWhitespaceOnlySpan,
   markPlacement,
@@ -343,7 +344,18 @@ function appendSpan(
   // asked for, and `trailing` is the join the last one left behind.
   const openSpace = inner.length > 0 && inner[0].glueLeft ? "" : " ";
   const closeSpace = trailing === "glue" ? "" : " ";
-  const flush = spanIsFlush(inner, openSpace, closeSpace);
+  // The two spaces are about the printed ATOMS - what the fusion
+  // writes between the mark and the content it fuses onto. `flush` is
+  // a different question with a different owner: the constrained rows'
+  // content group reads the SOURCE, and the source is the reader's.
+  // Neither atom read answers it on its own - a fold turns the
+  // source's whitespace into a join and a kept run rides inside the
+  // atom's own bytes, so a decision here would need both and would
+  // still be a second opinion about what the reader already paired
+  // (issue #147 is the run beside a lone `--` that shape lost).
+  const marks = marksOf(node);
+  const flush =
+    marks.open.kind === "entangled" && marks.close.kind === "entangled";
   // The delimiters are ASKED FOR, not chosen here: `spanDelimiters`
   // answers with the source's own spelling or with the one a declared
   // rule licensed (src/print/declared-rules.ts), and this function has
@@ -375,6 +387,7 @@ function appendSpan(
     appendWhitespaceOnlySpan(out, boundary, cursor, {
       open,
       close,
+      marks,
       closeSpace,
     });
     return "glue";
@@ -382,7 +395,7 @@ function appendSpan(
   pushSpanAtoms(out, boundary, inner, {
     openText: `${open}${openSpace}`,
     closeText: `${closeSpace}${close}`,
-    ...markPlacement(cursor, inner),
+    ...markPlacement(cursor, marks, inner),
   });
   return "glue";
 }

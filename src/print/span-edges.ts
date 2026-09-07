@@ -30,6 +30,7 @@ import {
   afterSpecialchars,
   type QuoteRowKey,
 } from "../parse/inline/quote-boundaries.js";
+import type { SpanMarks } from "../mark-record.js";
 import { verbatimText } from "./serialize-inline.js";
 import { bareAddressRunsPast } from "../parse/inline/rules.js";
 
@@ -337,6 +338,33 @@ export function rowKeyOf(node: SpanNode): QuoteRowKey {
   }
   const { constrained, unconstrained } = MARK_ROW[node.type];
   return node.constrained ? constrained : unconstrained;
+}
+
+/**
+ * The mark record of a span with a FIXED spelling.
+ *
+ * Those three rows spell their content `(\S|\S#{CC_ALL}*?\S)` for
+ * the curved pair (asciidoctor.rb l.449-452) and `(\S+?)` for
+ * superscript and subscript (l.465-468), so neither of their marks
+ * can face whitespace and neither node records a state that cannot
+ * occur. Pinned by tests/parser/inline-marks.test.ts, which reads the
+ * three shapes back and finds no span.
+ */
+const FIXED_SPAN_MARKS: SpanMarks = {
+  open: { kind: "entangled" },
+  close: { kind: "entangled" },
+};
+
+/**
+ * What each of a span's marks stands against, whichever kind it is
+ * ({@link SpanMarks}, src/mark-record.ts): the reader's own record on
+ * the four MARK spans, and the fixed rows' construction guarantee on
+ * the other three.
+ * @param node - a span node
+ * @returns its mark record
+ */
+export function marksOf(node: SpanNode): SpanMarks {
+  return isMarkSpanNode(node) ? node.marks : FIXED_SPAN_MARKS;
 }
 
 /**

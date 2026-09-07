@@ -33,7 +33,6 @@ import {
   type MarkSpanNode,
   type SpanNode,
 } from "./span-edges.js";
-import { HARD_BREAK_IMAGE } from "./reflow.js";
 import type { Cursor } from "./atom-join.js";
 import { declareRule, replay, type Emission } from "./emission.js";
 
@@ -222,17 +221,19 @@ function constrainedIsLegal(
   if (!content.flush) {
     return false;
   }
+  // Content ENDING in a hard line break is refused BY THAT READ, and
+  // needs no clause of its own: `HardLineBreakRx` is `^(.*) \+$`
+  // (rx.rb l.627; the rewrite spells it `/^(.*) \+$/m`, index.cjs
+  // l.765), a literal SPACE before the `+` and the `+` at a line END,
+  // so the newline behind a break is whitespace against the closing
+  // mark - which is what makes that mark isolated and the span
+  // unflush. (`a **b +\n** c` is the witness the clause named; it is
+  // pinned by tests/format/inline-span-break.test.ts, which keeps the
+  // break and the doubled spelling, because a SINGLE mark alone at
+  // column 0 with text behind it would be a list marker.)
   // A raw line anywhere inside answers no: the doc above says why the
   // atoms cannot show what the constrained row would read.
   if (holdsARawLine(node.children)) {
-    return false;
-  }
-  // Content ENDING in a hard line break answers no: the closing mark
-  // detaches onto its own line (appendSpan) so the ` +` keeps the line
-  // end that makes it a break, and a SINGLE mark alone at column 0
-  // with text behind it is a list marker - `a **b +\n** c` respelled
-  // constrained would write `* c`. The doubled mark is no marker.
-  if (content.texts.at(-1) === HARD_BREAK_IMAGE) {
     return false;
   }
   const mark = spanMarks(node, true).close;

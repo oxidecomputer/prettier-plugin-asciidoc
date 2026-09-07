@@ -369,8 +369,8 @@ describe("the net covers the plain-text path", () => {
 });
 
 describe("a hard line break at a span's trailing edge keeps its line", () => {
-  // `LineBreakRx` is `^(.*)[ \t]\+$`: the ` +` must END a line to be
-  // a break. Fusing the closing mark behind it writes `b +**`, where
+  // `HardLineBreakRx` is `^(.*) \+$` (rx.rb l.627): the ` +` must END
+  // a line to be a break. Fusing the closing mark behind it writes `b +**`, where
   // the `+` is literal text and the `<br>` is gone. The close mark
   // detaches onto its own line instead - the same rule the raw-line
   // edge follows, and the span stays unconstrained because a single

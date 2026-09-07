@@ -461,6 +461,43 @@ access to a free run checkable: two records differing only at free runs are
 indistinguishable to it. A whole block can also be `replayed`, for the rows
 whose reading is about which LINE a byte is on.
 
+### The mark record
+
+The same shape, one construct along. Whether a span's mark stands FLUSH against
+the content it delimits, or with whitespace between, is decided once by the
+reader at pairing time and recorded on the span: `bold.marks`, and the same
+field on the italic, monospace and highlight nodes (`SpanMarks`,
+`src/mark-record.ts`, a leaf for the reason `src/whitespace-record.ts` is one).
+Its one construction site is `spanMarkFacts` (`src/parse/inline/mark-facts.ts`),
+which reads the same token slice the span's children are built from.
+
+Why the reader, again by the same argument. Every constrained row of
+`QUOTE_SUBS` spells its content `(\S|\S#{CC_ALL}*?\S)` (asciidoctor.rb
+l.448-464), non-whitespace at both ends, so the question decides whether a
+doubled span has a shorter spelling at all and whether the printer may put a
+break beside its opening mark. The printer holds atoms rather than source, and
+there the same whitespace is in one of two places depending on how it folded (a
+JOIN when it became one, the atom's own BYTES when it rode inside one), so no
+single atom read answers the rows' question.
+
+The arms are `entangled` (flush) and `isolated` (whitespace stands there), and
+neither carries a payload. Not recording WHICH whitespace is the record's own
+version of the free arm's no-bytes property: a run's spelling does not survive
+the packer's fold, so a fact keyed to it would be one the printer destroys,
+while "at least one whitespace byte is written there" survives every layout. Not
+naming the construct a mark is entangled WITH is a deviation from the shape the
+record was asked for, and the reason is at `EntangledMark`: nothing reads it,
+because the fusion writes mark and content adjacent unconditionally and every
+remaining refusal is read over other bytes.
+
+Only the four MARK spans carry the record. The curved, superscript and subscript
+rows spell their own content `(\S|\S#{CC_ALL}*?\S)` and `(\S+?)` (asciidoctor.rb
+l.449-452, l.465-468), which refuses whitespace at either edge, so neither of
+those marks can be isolated and there is no state to record; `marksOf`
+(`src/print/span-edges.ts`) answers for them, and
+`tests/parser/inline-marks.test.ts` pins the reader building no span at all for
+the shapes that would need it.
+
 **Attributes supplied from outside the document are out of scope.**
 `-a hardbreaks` on a command line, an editor's own defaults, an include's
 caller: none of them is the formatter's concern. The formatter reads the

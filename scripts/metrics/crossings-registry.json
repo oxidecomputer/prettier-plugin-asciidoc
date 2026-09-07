@@ -98,6 +98,48 @@
     "reason": "the one predicate for metadata that stacks onto the block below it, read by the printer's join rules"
   },
   {
+    "file": "src/mark-record.ts",
+    "symbol": "MarkFact",
+    "importer": "src/parse/inline/mark-facts.ts",
+    "kind": "vocabulary",
+    "reason": "the mark record's own type. Declared in a leaf module because src/ast.ts names it on the four mark span types and the module that builds it names the token vocabulary back, which would be the cross-file cycle the graph gate refuses even for type-only imports"
+  },
+  {
+    "file": "src/mark-record.ts",
+    "symbol": "MarkFact",
+    "importer": "src/print/span-marks.ts",
+    "kind": "vocabulary",
+    "reason": "the mark record's own type. Declared in a leaf module because src/ast.ts names it on the four mark span types and the module that builds it names the token vocabulary back, which would be the cross-file cycle the graph gate refuses even for type-only imports"
+  },
+  {
+    "file": "src/mark-record.ts",
+    "symbol": "SpanMarks",
+    "importer": "src/parse/inline/inline-node-builder.ts",
+    "kind": "vocabulary",
+    "reason": "the mark record's own type. Declared in a leaf module because src/ast.ts names it on the four mark span types and the module that builds it names the token vocabulary back, which would be the cross-file cycle the graph gate refuses even for type-only imports"
+  },
+  {
+    "file": "src/mark-record.ts",
+    "symbol": "SpanMarks",
+    "importer": "src/parse/inline/mark-facts.ts",
+    "kind": "vocabulary",
+    "reason": "the mark record's own type. Declared in a leaf module because src/ast.ts names it on the four mark span types and the module that builds it names the token vocabulary back, which would be the cross-file cycle the graph gate refuses even for type-only imports"
+  },
+  {
+    "file": "src/mark-record.ts",
+    "symbol": "SpanMarks",
+    "importer": "src/print/span-edges.ts",
+    "kind": "vocabulary",
+    "reason": "the mark record's own type. Declared in a leaf module because src/ast.ts names it on the four mark span types and the module that builds it names the token vocabulary back, which would be the cross-file cycle the graph gate refuses even for type-only imports"
+  },
+  {
+    "file": "src/mark-record.ts",
+    "symbol": "SpanMarks",
+    "importer": "src/print/span-marks.ts",
+    "kind": "vocabulary",
+    "reason": "the mark record's own type. Declared in a leaf module because src/ast.ts names it on the four mark span types and the module that builds it names the token vocabulary back, which would be the cross-file cycle the graph gate refuses even for type-only imports"
+  },
+  {
     "file": "src/options.ts",
     "symbol": "TableStyle",
     "importer": "src/print/table-layout.ts",
@@ -688,6 +730,13 @@
   {
     "file": "src/parse/line-shapes.ts",
     "symbol": "ASCII_WHITESPACE",
+    "importer": "src/parse/inline/mark-facts.ts",
+    "kind": "vocabulary",
+    "reason": "Ruby's `\\s` and not JavaScript's wider one, so the character a span's mark faces is judged whitespace by the same class the constrained rows' `\\S` complements (issue #75)"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "ASCII_WHITESPACE",
     "importer": "src/print/block-start-hazard.ts",
     "kind": "vocabulary",
     "reason": "Ruby's `\\s` as one class; the block-start net asks whether an atom carries whitespace in the same dialect every word-segmentation test in src/print uses"
@@ -698,13 +747,6 @@
     "importer": "src/print/inline.ts",
     "kind": "vocabulary",
     "reason": "Ruby's `\\s`, so a text node's leading/trailing join to its inline siblings cannot read a no-break space as the source's own separator whitespace (issue #75)"
-  },
-  {
-    "file": "src/parse/line-shapes.ts",
-    "symbol": "ASCII_WHITESPACE",
-    "importer": "src/print/literal-span.ts",
-    "kind": "vocabulary",
-    "reason": "Vocabulary consistency with splitWords/wordsToAtoms (reflow.ts), which the monospace byte-level flush test (edgeIsWhitespace, issue #32) sits beside and shares an ASCII-only whitespace definition with - NOT a correctness benefit for this specific question. Measured: a no-break space (U+00A0) at a span's edge IS whitespace under the pinned oracle's own `\\S` (Asciidoctor.js is a JavaScript rewrite, so its constrained content group runs on JavaScript's wider `\\s`), so the ASCII-only read at this one call site under-detects it - `` A ``<nbsp>ab`` in it. `` wrongly shortens to `` A `<nbsp>ab` in it. ``, which the oracle then refuses beside the mark and reads as literal text. NOT a regression: the same divergence already exists on the ordinary (non-monospace) mark-span path, unaffected by this crossing, so it is a pre-existing whole-family gap (issue #75 territory) this one crossing does not introduce and is not the place to fix"
   },
   {
     "file": "src/parse/line-shapes.ts",

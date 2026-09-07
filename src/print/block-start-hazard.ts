@@ -25,12 +25,12 @@
  * otherwise be invisible to it - the mark fuses onto the content atom
  * beside it, and the fused atom carries a space where the source had
  * the break, which is not a line the net may strand. So the span hands
- * the net the pieces instead: {@link openMarkStandsApart} keeps the
- * mark as its OWN atom, joined to the content over a space that packs
- * exactly as the fusion did, wherever the recorded fact says the
- * author's line ended right there. The net then trades that space for
- * the break, or leaves it alone, from the one place that can see the
- * whole line.
+ * the net the pieces instead, keeping the mark as its OWN atom joined
+ * to the content over a space that packs exactly as the fusion did
+ * (`markStandsApart`, src/print/span-marks.ts, which reads the
+ * reader's mark record rather than the atoms). The net then trades
+ * that space for the break, or leaves it alone, from the one place
+ * that can see the whole line.
  */
 import { ASCII_WHITESPACE } from "../parse/line-shapes.js";
 import { type Atom, isBlockSyntaxAtLineStart } from "./reflow.js";
@@ -80,88 +80,6 @@ export type BlockStart =
        */
       readonly secondLineIndent: string;
     };
-
-/**
- * Where a node sits, as far as the net reads it - TWO facts, which is
- * all the net reads. The printer's `Cursor` (src/print/inline.ts)
- * extends this with the siblings, the enclosing span and the block's
- * source start line, none of which the net asks about.
- */
-export interface BlockStartCursor {
-  /** The node's index among its inline siblings. */
-  readonly index: number;
-  /**
-   * Where the block's FIRST atom lands and what stood on its source
-   * line. Only an atom that actually lands at column 0 can be re-read
-   * as block syntax there, so both {@link openMarkStandsApart} and
-   * {@link keepBlockStartBreak} start from this.
-   */
-  readonly blockStart: BlockStart;
-}
-
-/**
- * Whether a span's opening mark must stay its OWN atom instead of
- * fusing onto the content atom beside it.
- *
- * A span whose content begins with whitespace (a source break or a
- * space against the opening mark) would otherwise fuse to an atom like
- * `** b`, and at the head of a paragraph that atom opens the output's
- * first line, where the reader sees a ulist marker: `**\nb** c`
- * replayed as `** b** c` re-reads as a LIST, a measured corruption.
- * Putting the source's break back means printing the mark alone on the
- * first line - and no fused atom can be cut there afterwards, because
- * nothing in the atom says which of its spaces the source wrote. So the
- * cut is made HERE, while the mark and the content are still two
- * things, and the two atoms are joined over the same space the fusion
- * would have written: identical bytes, identical packing, one atom
- * boundary the net can trade for a break.
- *
- * Which is why this asks nothing about block SYNTAX. The whole-line
- * question belongs to {@link keepBlockStartBreak}, which is the only
- * place that can see the line the atoms pack into; this one answers
- * only "is the space between these two atoms a break the author
- * wrote", which is exactly three facts: first node of the run it is
- * asked about, the block's content opens at column 0 on a source line
- * its first word ended, and the fusion's space is whitespace the SOURCE
- * had (`fusesOverSpace`).
- *
- * A span's own CONTENT is refused by the column-0 fact, not by a
- * second test here: content inside a span is collected with
- * `blockStart: { atColumnZero: false }` (src/print/inline.ts's
- * `appendSpan`), because the marks around it hold the column. That
- * one claim covers all three prefixes the printer writes - a list
- * marker, a `NOTE: ` label and a span's marks - so the net needs no
- * span-shaped guard of its own. Removing BOTH is what breaks:
- * `w` / `*##` / `b c##* d` then keeps a break at an INNER span's
- * mark, and the output no longer answers `firstWordEndsItsLine`, so
- * a second pass walks it back (pinned in
- * tests/format/inline-span-break.test.ts).
- *
- * `fusesOverSpace` is what makes the recorded fact the RIGHT fact for
- * this path. Standing the mark apart puts it alone on the first line
- * if the net fires, so it may only be done where the mark is the whole
- * word that line ended with; the mark is that word exactly when the
- * content behind it opened with whitespace, since anything else it
- * opened with would be more of the same word (`**` then `*b* c` is the
- * mark `*` and a content `*` the author wrote against it - there the
- * block's first ATOM is the word already, and no cut is needed).
- * @param cursor - where the span sits.
- * @param fusesOverSpace - whether the fusion writes a space between
- *   the mark and the content, standing for whitespace the span's
- *   content began with.
- * @returns true when the mark stays a separate atom.
- */
-export function openMarkStandsApart(
-  cursor: BlockStartCursor,
-  fusesOverSpace: boolean,
-): boolean {
-  return (
-    cursor.index === 0 &&
-    cursor.blockStart.atColumnZero &&
-    cursor.blockStart.firstWordEndsItsLine &&
-    fusesOverSpace
-  );
-}
 
 /**
  * Whether the line the block's atoms pack into re-reads as BLOCK
@@ -258,8 +176,8 @@ function packsIntoBlockSyntax(atoms: readonly Atom[]): boolean {
  * author never wrote at column 0, which is the one thing this module
  * promises not to do. A span's opening mark is the case where the
  * break is worth keeping anyway, and it never reaches here fused:
- * {@link openMarkStandsApart} left it as its own atom precisely so
- * this test would pass.
+ * `markStandsApart` (src/print/span-marks.ts) left it as its own atom
+ * precisely so this test would pass.
  *
  * The break is kept only where one may land: an atom GLUED to the
  * first (no space between them at all) is one the packer may not

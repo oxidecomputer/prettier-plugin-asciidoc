@@ -11,6 +11,7 @@
  */
 
 import type { BlockWhitespace } from "./whitespace-record.js";
+import type { SpanMarks } from "./mark-record.js";
 
 /**
  * A point in the source text.
@@ -251,6 +252,16 @@ export interface BoldNode extends Node {
    * Undefined when no role is specified.
    */
   role: string | undefined;
+  /**
+   * What each of the span's two marks stands against, recorded once
+   * at read time. See {@link SpanMarks}. Only the four MARK spans
+   * carry it: the curved, superscript and subscript rows spell their
+   * content `(\S|\S#{CC_ALL}*?\S)` and `(\S+?)`
+   * (asciidoctor.rb l.449-452, l.465-468), which refuses whitespace
+   * at either edge, so neither of those marks can be isolated and
+   * there is no state to record.
+   */
+  marks: SpanMarks;
   /** Inline content within the bold span. */
   children: InlineNode[];
 }
@@ -269,6 +280,16 @@ export interface ItalicNode extends Node {
    * Undefined when no role is specified.
    */
   role: string | undefined;
+  /**
+   * What each of the span's two marks stands against, recorded once
+   * at read time. See {@link SpanMarks}. Only the four MARK spans
+   * carry it: the curved, superscript and subscript rows spell their
+   * content `(\S|\S#{CC_ALL}*?\S)` and `(\S+?)`
+   * (asciidoctor.rb l.449-452, l.465-468), which refuses whitespace
+   * at either edge, so neither of those marks can be isolated and
+   * there is no state to record.
+   */
+  marks: SpanMarks;
   /** Inline content within the italic span. */
   children: InlineNode[];
 }
@@ -287,6 +308,16 @@ export interface MonospaceNode extends Node {
    * Undefined when no role is specified.
    */
   role: string | undefined;
+  /**
+   * What each of the span's two marks stands against, recorded once
+   * at read time. See {@link SpanMarks}. Only the four MARK spans
+   * carry it: the curved, superscript and subscript rows spell their
+   * content `(\S|\S#{CC_ALL}*?\S)` and `(\S+?)`
+   * (asciidoctor.rb l.449-452, l.465-468), which refuses whitespace
+   * at either edge, so neither of those marks can be isolated and
+   * there is no state to record.
+   */
+  marks: SpanMarks;
   /** Inline content within the monospace span. */
   children: InlineNode[];
 }
@@ -309,6 +340,16 @@ export interface HighlightNode extends Node {
    * Undefined when no role is specified.
    */
   role: string | undefined;
+  /**
+   * What each of the span's two marks stands against, recorded once
+   * at read time. See {@link SpanMarks}. Only the four MARK spans
+   * carry it: the curved, superscript and subscript rows spell their
+   * content `(\S|\S#{CC_ALL}*?\S)` and `(\S+?)`
+   * (asciidoctor.rb l.449-452, l.465-468), which refuses whitespace
+   * at either edge, so neither of those marks can be isolated and
+   * there is no state to record.
+   */
+  marks: SpanMarks;
   /** Inline content within the highlight span. */
   children: InlineNode[];
 }
