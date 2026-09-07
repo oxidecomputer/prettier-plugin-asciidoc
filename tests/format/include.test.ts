@@ -176,28 +176,42 @@ describe("a block-boundary construct directly under an include", () => {
  * split one paragraph into a paragraph and a section.
  *
  * Held off, the title line drops to the ladder's text fallback and
- * joins the paragraph the substituted content opened, which is what
- * the fold below is: the bytes move by a newline turning into a
- * space, and that is the trade the layout-break rows already make one
- * line up ("a break under an include folds with the text below it").
+ * joins the paragraph the substituted content opened. Its LINE still
+ * stands: a packed `== Title more` reads back as a section title
+ * rather than as the paragraph's own text, so the packer refuses that
+ * layout and the block is written back from its own lines (issue
+ * #293), which is the output safe whichever way the preprocessor
+ * goes.
+ *
+ * The refusal reaches the shapes whose PACKED line still reads as
+ * syntax, and no further: `include::p[]` over `___` over `para`
+ * folds to `___ para`, because a run of underscores plus a word is
+ * prose. That fold survives an unresolved include, which really does
+ * substitute, and not a conditional whose condition turns out false.
  */
 describe("a heading directly under an include", () => {
   test.each([
     ["a level 1 heading", "include::p[]\n== Title\nmore\n"],
     ["a level 0 heading", "include::p[]\n= Title\nmore\n"],
     ["a level 5 heading", "include::p[]\n====== Title\nmore\n"],
-  ])("%s folds with the text below it", async (_name, input) => {
-    await expectFormatted(input, input.replace(/\n(?=more)/v, " "));
+  ])("%s keeps its own line", async (_name, input) => {
+    await expectFormatted(input, input);
   });
 
-  // Mid-document and in the two containers, the same three shapes the
-  // layout-break rows are measured in.
+  // Mid-document, where the reader is still the document's own.
+  test("a heading under an include in a document body keeps its bytes", async () => {
+    const input = "before\n\ninclude::p[]\n== Title\nmore\n";
+    await expectFormatted(input, input);
+  });
+
+  // Inside a CONTAINER the same two lines fold, and that is not the
+  // refusal failing: a compound block's interior and a list item's
+  // buffer are read through `next_block`, where no section opens at
+  // all, so `== Title` is that paragraph's text whichever way the
+  // preprocessor goes and the packed line reads back as the same
+  // paragraph. The refusal asks as the reader that read the block
+  // ({@link FirstLineStart}, src/print/reflow.ts).
   test.each([
-    [
-      "a document body",
-      "before\n\ninclude::p[]\n== Title\nmore\n",
-      "before\n\ninclude::p[]\n== Title more\n",
-    ],
     [
       "an open block",
       "--\ninclude::p[]\n== Title\nmore\n--\n",
@@ -208,7 +222,7 @@ describe("a heading directly under an include", () => {
       "* item\n+\ninclude::p[]\n== Title\nmore\n",
       "* item\n+\ninclude::p[]\n== Title more\n",
     ],
-  ])("a heading under an include in %s folds", async (_name, input, out) => {
+  ])("a heading under an include in %s folds", async (_n, input, out) => {
     await expectFormatted(input, out);
   });
 
@@ -238,7 +252,7 @@ describe("a heading directly under an include", () => {
   test("a later heading past a blank line is still a section", async () => {
     await expectFormatted(
       "include::p[]\n== A\nmore\n\n== B\nbody\n",
-      "include::p[]\n== A more\n\n== B\n\nbody\n",
+      "include::p[]\n== A\nmore\n\n== B\n\nbody\n",
     );
   });
 });
@@ -260,38 +274,26 @@ describe("a heading directly under an include", () => {
  */
 describe("block metadata between an include and the construct", () => {
   test.each([
-    [
-      "a block title",
-      "include::p[]\n.Title\n___\n",
-      "include::p[]\n.Title ___\n",
-    ],
-    [
-      "an attribute entry",
-      "include::p[]\n:name: v\n___\n",
-      "include::p[]\n:name: v ___\n",
-    ],
-    [
-      "two attribute entries",
-      "include::p[]\n:a: 1\n:b: 2\n___\n",
-      "include::p[]\n:a: 1 :b: 2 ___\n",
-    ],
+    ["a block title", "include::p[]\n.Title\n___\n", undefined],
+    ["an attribute entry", "include::p[]\n:name: v\n___\n", undefined],
+    ["two attribute entries", "include::p[]\n:a: 1\n:b: 2\n___\n", undefined],
     [
       "a comment and a block title",
       "include::p[]\n// c\n.Title\n___\n",
-      "include::p[]\n// c\n.Title ___\n",
+      undefined,
     ],
     [
       "a block title over a setext pair",
       "include::p[]\n.Title\nTitle\n-----\n",
-      "include::p[]\n.Title Title\n\n----\n----\n",
+      "include::p[]\n.Title\nTitle\n\n----\n----\n",
     ],
     [
       "a block title over a heading",
       "include::p[]\n.Title\n== T\nmore\n",
-      "include::p[]\n.Title == T more\n",
+      undefined,
     ],
   ])("%s does not restore the boundary", async (_name, input, out) => {
-    await expectFormatted(input, out);
+    await expectFormatted(input, out ?? input);
   });
 
   // The two that END the oracle's paragraph put the break back at a
@@ -369,24 +371,12 @@ describe("a block macro directly under an include", () => {
   // and neither does the block metadata the oracle's paragraph
   // swallows (issue #230).
   test.each([
-    ["a comment", "include::p[]\n// c\nimage::a.png[ alt ]\n", undefined],
-    [
-      "a conditional",
-      "include::p[]\nifdef::x[]\nimage::a.png[ alt ]\n",
-      undefined,
-    ],
-    [
-      "a block title",
-      "include::p[]\n.Title\nimage::a.png[ alt ]\n",
-      "include::p[]\n.Title image::a.png[ alt ]\n",
-    ],
-    [
-      "an attribute entry",
-      "include::p[]\n:name: v\nimage::a.png[ alt ]\n",
-      "include::p[]\n:name: v image::a.png[ alt ]\n",
-    ],
-  ])("%s between does not restore the boundary", async (_n, input, out) => {
-    await expectFormatted(input, out ?? input);
+    ["a comment", "include::p[]\n// c\nimage::a.png[ alt ]\n"],
+    ["a conditional", "include::p[]\nifdef::x[]\nimage::a.png[ alt ]\n"],
+    ["a block title", "include::p[]\n.Title\nimage::a.png[ alt ]\n"],
+    ["an attribute entry", "include::p[]\n:name: v\nimage::a.png[ alt ]\n"],
+  ])("%s between does not restore the boundary", async (_n, input) => {
+    await expectFormatted(input, input);
   });
 
   // A blank line, an attribute list and a block anchor each put the
@@ -480,9 +470,9 @@ describe("a block macro directly under an include", () => {
  *   blank was dropped and a whole list left the render.
  * - The THREE adjacent rows were BYTE failures and nothing more.
  *   The formatter printed them back unchanged and the render matched
- *   either way; what is new is the fold the pin now demands, which
- *   both programs license because all three lines are one paragraph
- *   to them.
+ *   either way, and unchanged is what they print again: the packer
+ *   refuses a layout whose first line reads back as a marker line
+ *   rather than as the paragraph's text (issue #293).
  * - `include::p[]\n* a\nmore\n` and the five CONTROLS - past a blank
  *   line, at document top, after a paragraph, the admonition label
  *   and the indented line - were already green, bytes and render
@@ -525,33 +515,20 @@ describe("a list marker directly under an include", () => {
   });
 
   // ADJACENT markers, where the oracle reads every line as the one
-  // paragraph's text: they fold into it, the trade every other
-  // held-off arm makes. The directive line itself never folds, which
+  // paragraph's text. They are that paragraph's text here too, and
+  // their LINES stand: a packed `* a * b` reads back as a list marker
+  // rather than as the paragraph's own text, so the packer refuses
+  // the layout and the block is written back from its own lines
+  // (issue #293). The directive line itself never folds either, which
   // is what leaves `substitutedContentAbove` re-derivable from the
   // output.
   test.each([
-    [
-      "adjacent unordered markers",
-      "include::p[]\n* a\n* b\n",
-      "include::p[]\n* a * b\n",
-    ],
-    [
-      "adjacent ordered markers",
-      "include::p[]\n. a\n. b\n",
-      "include::p[]\n. a . b\n",
-    ],
-    [
-      "adjacent callout markers",
-      "include::p[]\n<1> a\n<2> b\n",
-      "include::p[]\n<1> a <2> b\n",
-    ],
-    [
-      "a marker over ordinary text",
-      "include::p[]\n* a\nmore\n",
-      "include::p[]\n* a more\n",
-    ],
-  ])("the paragraph swallows %s", async (_n, input, out) => {
-    await expectFormatted(input, out);
+    ["adjacent unordered markers", "include::p[]\n* a\n* b\n"],
+    ["adjacent ordered markers", "include::p[]\n. a\n. b\n"],
+    ["adjacent callout markers", "include::p[]\n<1> a\n<2> b\n"],
+    ["a marker over ordinary text", "include::p[]\n* a\nmore\n"],
+  ])("the paragraph swallows %s", async (_n, input) => {
+    await expectFormatted(input, input);
   });
 
   // The negative shapes: with no substituted content above, a marker

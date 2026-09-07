@@ -250,37 +250,48 @@ export type BlockLayout =
       readonly replay: readonly [string, ...string[]];
       /** How the reader read this block. */
       readonly reading: BlockReading;
-      /**
-       * Whether the block's FIRST output line stands at column 0 with
-       * nothing written in front of it, so the reader classifies it
-       * at a block start and the packer may ask what it opens.
-       *
-       * False for every block whose caller writes a prefix there (a
-       * list item's marker, an admonition's label, a description
-       * item's term): what that line opens is decided partly by bytes
-       * the packer did not lay out, and the nets that answer for it
-       * are the atom-level ones (src/print/block-start-hazard.ts,
-       * src/print/list-hazard.ts).
-       */
-      readonly opensItsOwnLine: boolean;
+      /** Where the block's first output line stands. */
+      readonly firstLineStart: FirstLineStart;
     };
+
+/**
+ * Where a block's FIRST output line stands, which decides both
+ * whether the packer may ask what that line opens and, when it may,
+ * which reader it has to ask as.
+ *
+ * `prefixed` is every block whose caller writes bytes in front of
+ * that line (a list item's marker, an admonition's label, a
+ * description item's term): what the line opens is decided partly by
+ * bytes the packer did not lay out, and the nets that answer for it
+ * are the atom-level ones (src/print/block-start-hazard.ts,
+ * src/print/list-hazard.ts).
+ *
+ * The other two both stand at column 0 with nothing in front, and
+ * they differ by the reader that read the block. A CONFINED one - a
+ * compound block's interior, a list item's buffer - reads a section
+ * title as the paragraph's own text, so a packed line that spells one
+ * is still this block ({@link BlockPosition}, src/line-verdict.ts,
+ * carries the citation). At document level it is a heading, and a
+ * layout that spells one is refused.
+ */
+type FirstLineStart = "documentBlockStart" | "confinedBlockStart" | "prefixed";
 
 /**
  * A block's layout input, from the lines it would be replayed from.
  * @param replay - the block's own source lines, or none
  * @param reading - how the reader read the block
- * @param opensItsOwnLine - see {@link BlockLayout}
+ * @param firstLineStart - see {@link FirstLineStart}
  * @returns the layout the packer takes
  */
 export function blockLayout(
   replay: readonly string[],
   reading: BlockReading,
-  opensItsOwnLine: boolean,
+  firstLineStart: FirstLineStart,
 ): BlockLayout {
   const [first, ...rest] = replay;
   return replay.length === 0
     ? { replay: "none" }
-    : { replay: [first, ...rest], reading, opensItsOwnLine };
+    : { replay: [first, ...rest], reading, firstLineStart };
 }
 
 /**
@@ -388,32 +399,47 @@ function readsBackAsTheBlock(
  * A DIFFERENT QUESTION from the one every line below it is asked: the
  * reader classified this line at a block START, where the whole
  * ladder is live and where every shape it knows is a reading the
- * paragraph could lose. So the question is asked TWICE, of the
- * block's own first source line and of the line the packer would
- * write, and the layout is refused only where the second answer
- * differs from the first. Asking it of the source's line is not a
- * guess about destroyed bytes: those bytes are exactly the ones the
- * packer writes back when this returns false.
+ * paragraph could lose. It is asked of the line the PACKER would
+ * write and of nothing else, and the bytes the refusal writes back
+ * are the block's own source lines.
  *
- * ASKED ONLY WHERE THE PACKER OWNS THE COLUMN. Where a marker, a
- * label or a term line stands in front of the first output line, what
- * that line opens is decided partly by bytes the packer did not lay
- * out, and the atom-level nets answer for it instead
- * (src/print/block-start-hazard.ts, src/print/list-hazard.ts).
+ * ASKED ONLY WHERE THE PACKER OWNS THE COLUMN, and asked AS THE
+ * READER THAT READ THE BLOCK. Where a marker, a label or a term line
+ * stands in front of the first output line, what that line opens is
+ * decided partly by bytes the packer did not lay out, and the
+ * atom-level nets answer for it instead
+ * (src/print/block-start-hazard.ts, src/print/list-hazard.ts). Where
+ * the packer does own it, a CONFINED reader read the block through
+ * `next_block` and no section can open there, so a packed `== T` line
+ * is still that paragraph's text ({@link FirstLineStart}).
  *
- * ITS DOMAIN, and why the first answer is a guard rather than a
- * comparison. The block-start context this can build is the widest
- * one: `substitutedContentAbove` and `markerLineWins` are the two
- * facts a block start turns on that the recorded reading does not
- * carry, and false is the reading under which every rule they hold
- * off fires. A block whose own first line is NOT read as text under
- * that widest reading is one whose opening the printer cannot answer
- * for - a paragraph under an `include::` whose first line is a block
- * macro the substitution held off, or the paragraph a lone `+` opens
- * at document level - and the layout stands there, exactly as it did
- * before this question existed. Refusing on a first answer we know to
- * be wider than the reader's would replay blocks the reader never had
- * a quarrel with.
+ * ITS DOMAIN, and why ONE answer settles it. The block-start context
+ * this can build is the widest one: `substitutedContentAbove` and
+ * `markerLineWins` are the two facts a block start turns on that the
+ * recorded reading does not carry, and false is the reading under
+ * which every rule they hold off fires. So the question is wider than
+ * the reader's, and a wider question can only turn an accepted layout
+ * into a refused one - which writes back lines the reader itself
+ * read.
+ *
+ * WHAT IT REFUSES IS A PACKED LINE, and the source's own first line
+ * is not asked about at all. A layout whose first line reads back as
+ * a title, a heading, a marker or an attribute entry is refused and
+ * the block's own lines are written instead, which is the output safe
+ * under BOTH readings a substituting directive leaves open: either
+ * the preprocessor puts content above it and every line here is the
+ * prose of one paragraph, or it deletes the directive and the line
+ * stands at a block start.
+ *
+ * ITS LIMIT, stated because the domain above is not the mechanism's.
+ * Where the packed line reads back as TEXT nothing is refused and the
+ * fold stands, whatever the block's own first source line was. A
+ * `'''`, `___`, `<<<`, `image::` or `toc::` line under a substituting
+ * directive is one of those: each is a block only on a line of its
+ * own, so the packed line carrying the words below it is prose, and a
+ * directive whose condition turns out FALSE leaves the source's two
+ * lines rendering differently from the one this writes. This question
+ * cannot reach that; a per-word or per-atom net would have to.
  *
  * THE NEIGHBOUR is the block's own second output line where it has
  * one, and the blank line the join writes under it where it does not.
@@ -430,14 +456,18 @@ function opensTheSameBlock(
   layout: Extract<BlockLayout, { readonly reading: BlockReading }>,
 ): boolean {
   const first = lines.at(0);
-  if (!layout.opensItsOwnLine || first?.composed !== true) {
+  if (layout.firstLineStart === "prefixed" || first?.composed !== true) {
     return true;
   }
-  const position = openingPosition(layout.reading, OPENS_AS_TEXT);
   const below = lines.at(1)?.text ?? BLANK_LINE_BELOW;
-  return (
-    !accepts(layout.replay[0], layout.replay.at(1), position) ||
-    accepts(first.text, below, position)
+  return accepts(
+    first.text,
+    below,
+    openingPosition(
+      layout.reading,
+      OPENS_AS_TEXT,
+      layout.firstLineStart === "confinedBlockStart",
+    ),
   );
 }
 

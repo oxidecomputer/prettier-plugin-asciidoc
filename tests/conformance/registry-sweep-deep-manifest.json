@@ -12,7 +12,7 @@
     "issue": "UNTRIAGED"
   },
   "pair/trailing-space/fidelity": {
-    "count": 16,
+    "count": 15,
     "examples": [
       "pair/continuation/admonition-label/two-blank/dlist-desc-line@trailing-space",
       "pair/continuation/attribute-entry/two-blank/dlist-desc-line@trailing-space",
@@ -20,7 +20,7 @@
       "pair/continuation/block-title/two-blank/dlist-desc-line@trailing-space",
       "pair/continuation/callout/two-blank/dlist-desc-line@trailing-space"
     ],
-    "sha256": "6ad8dddc4c209051af11934f026ca439a4009ee778d2fbae5bf3fb1a408d9488",
+    "sha256": "96f66c4708dd52b597cbd4df5ec045a8d9d93f119ed0e9ec48ee47dee1bb7684",
     "issue": "UNTRIAGED"
   }
 }

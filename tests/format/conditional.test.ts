@@ -193,6 +193,15 @@ describe("a block-boundary construct under a body-bearing conditional", () => {
     await expectFormatted(input, input);
   });
 
+  // The paragraph is the reading; whether its lines JOIN is a second
+  // question, and the packer asks it of the line it would write. A
+  // packed line that reads back as a heading or a block title is
+  // refused and the block's own lines are written back, because the
+  // condition may go the other way: deleted, the directive leaves
+  // `.Title` standing at a block start, where a folded `.Title ___`
+  // is a block title over nothing (issue #293). Where the packed line
+  // reads back as text - `___ more` is a break only on a line of its
+  // own - the join stands.
   test.each([
     [
       "a setext pair",
@@ -202,12 +211,12 @@ describe("a block-boundary construct under a body-bearing conditional", () => {
     [
       "a heading over text",
       "ifndef::zz[body]\n== T\nmore\n",
-      "ifndef::zz[body]\n== T more\n",
+      "ifndef::zz[body]\n== T\nmore\n",
     ],
     [
       "a block title over a break",
       "ifndef::zz[body]\n.Title\n___\n",
-      "ifndef::zz[body]\n.Title ___\n",
+      "ifndef::zz[body]\n.Title\n___\n",
     ],
     [
       "a break over text",
@@ -289,5 +298,120 @@ describe("a block-boundary construct under a body-bearing conditional", () => {
       "ifdef::backend[x ]\n___\n",
       "ifdef::backend[x ]\n___\n",
     );
+  });
+});
+
+/**
+ * Issue #293: the condition goes either way and the formatter
+ * resolves neither, so the only safe output is the author's own
+ * lines.
+ *
+ * `ifdef::x[body]` with `x` undefined is DELETED from the stream, so
+ * the `.Title` under it stands at a block start and is a block title
+ * to both programs; with `x` defined the same line SUBSTITUTES
+ * `body`, and `.Title` is prose inside the paragraph that body
+ * opened. Held off, our reader reads it as prose either way, which
+ * costs nothing while the line keeps its own line.
+ *
+ * What used to cost the render is the packer: it exempted a block
+ * whose own first source line reads as a block start, so `.Title` and
+ * the line under it were folded into `.Title para`, which is a block
+ * title over nothing wherever the directive was deleted. Every row
+ * here printed a folded line before that exemption came out, and both
+ * programs read the folded line differently from the two.
+ */
+describe("a block title under a substituting directive", () => {
+  test.each([
+    ["a conditional with a body", "ifdef::x[body]\n.Title\npara\n"],
+    ["an ifndef spelling", "ifndef::x[body]\n.Title\npara\n"],
+    ["an include", "include::p[]\n.Title\npara\n"],
+    ["a comment between", "ifdef::x[body]\n// c\n.Title\npara\n"],
+    ["an endif between", "ifdef::x[body]\nendif::x[]\n.Title\npara\n"],
+    [
+      "a second conditional between",
+      "ifdef::x[body]\nifdef::y[m]\n.Title\npara\n",
+    ],
+    ["two titles", "ifdef::x[body]\n.T1\n.T2\npara\n"],
+    ["a title over a list", "ifdef::x[body]\n.Title\n* a\n* b\n"],
+    ["a title holding a span", "ifdef::x[body]\n.Title with *bold*\npara\n"],
+    [
+      "a title over two paragraphs",
+      "ifdef::x[body]\n.Title\npara one\n\npara two\n",
+    ],
+    ["a title inside a list item", "* a\n+\ninclude::p[]\n.Title\npara\n"],
+    ["a document header above", "= Doc\n\nifdef::x[body]\n.Title\npara\n"],
+    [
+      "a title wider than the print width",
+      "ifdef::x[body]\n.A very long block title that goes on and on and on past the print width limit for sure yes\npara here\n",
+    ],
+  ])("%s keeps every line the author wrote", async (_name, input) => {
+    await expectFormatted(input, input);
+  });
+
+  // A BLANK line under the title is the author's separation and the
+  // printer keeps it: the title line is prose to our reader here, so
+  // the blank ends its paragraph rather than being the separation
+  // under block metadata that the printer normalizes away.
+  test.each([
+    ["a paragraph below", "ifdef::x[body]\n.Title\n\npara\n"],
+    ["a list below", "ifdef::x[body]\n.Title\n\n* a\n* b\n"],
+    [
+      "a wide title over a paragraph",
+      "ifdef::x[body]\n.A very long block title that goes on and on and on past the print width limit for sure yes\n\npara here\n",
+    ],
+  ])("a blank line under the title with %s stands", async (_n, input) => {
+    await expectFormatted(input, input);
+  });
+
+  // The control: with nothing substituting above it, a block title is
+  // metadata and the printer stacks it onto the block it annotates.
+  test("a block title at document level stacks onto its block", async () => {
+    await expectFormatted(".Title\n\npara\n", ".Title\npara\n");
+  });
+
+  // A block title inside a CONTAINER keeps the refusal, because a
+  // title is metadata wherever it stands. A section title is not: a
+  // compound block's interior and a list item's buffer are read
+  // through `next_block`, which reaches no section arm, so `== T` is
+  // that paragraph's text under every reading and the two lines fold.
+  // Red the other way before the refusal asked as the reader that
+  // read the block: every row here printed its lines apart, which is
+  // a normalization the render never asked for.
+  test.each([
+    [
+      "an example block",
+      "====\n== T\ninner\n====\n",
+      "====\n== T inner\n====\n",
+    ],
+    ["a sidebar", "****\n== T\ninner\n****\n", "****\n== T inner\n****\n"],
+    ["a quote block", "____\n== T\ninner\n____\n", "____\n== T inner\n____\n"],
+    ["an open block", "--\n== T\ninner\n--\n", "--\n== T inner\n--\n"],
+    [
+      "an example block in an item",
+      "* item\n+\n====\n== T\ninner\n====\n",
+      "* item\n+\n====\n== T inner\n====\n",
+    ],
+    [
+      "an example block under a conditional",
+      "ifdef::x[body]\n====\n== T\ninner\n====\n",
+      "ifdef::x[body]\n====\n== T inner\n====\n",
+    ],
+  ])(
+    "a heading line inside %s is the paragraph's text",
+    async (_name, input, out) => {
+      await expectFormatted(input, out);
+    },
+  );
+
+  // The same containers with a block TITLE, which stays refused: the
+  // title annotates the block under it wherever it stands, so a
+  // packed `.Title para` is a title over nothing on the branch that
+  // deletes the directive.
+  test.each([
+    ["an open block", "--\nifdef::x[body]\n.Title\npara\n--\n"],
+    ["an example block", "====\nifdef::x[body]\n.Title\npara\n====\n"],
+    ["a list item", "* item\n+\nifdef::x[body]\n.Title\npara\n"],
+  ])("a block title inside %s keeps its lines", async (_n, input) => {
+    await expectFormatted(input, input);
   });
 });

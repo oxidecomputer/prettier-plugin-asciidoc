@@ -212,7 +212,7 @@ function closingLines(
           [entry.term.line, ...node.textLines],
           node.reading,
           // The term holds the column of the first output line.
-          false,
+          "prefixed",
         ),
       );
     }

@@ -247,11 +247,19 @@ const printer: Printer<AnyNode> = {
           blockLayout(
             replayLines(node.children, options.originalText),
             node.reading,
-            // A paragraph at document level: nothing stands in front
-            // of its first output line, so that line is one the
-            // reader classifies at a block start and the packer is
-            // the only thing that can answer for it.
-            true,
+            // Nothing stands in front of a paragraph's first output
+            // line, so that line is one a reader classifies at a
+            // block start and the packer is the only thing that can
+            // answer for it. WHICH reader is the parent: a paragraph
+            // the document holds was read by the document's own
+            // reader, and one held by anything else - a compound
+            // block's interior, a list item's attached blocks - by a
+            // confined one, which reads a section title as the
+            // paragraph's own text ({@link FirstLineStart},
+            // src/print/reflow.ts).
+            path.getParentNode()?.type === "document"
+              ? "documentBlockStart"
+              : "confinedBlockStart",
           ),
         );
       }

@@ -12,7 +12,7 @@
  * renders the same on both sides.
  */
 import { describe, test, expect } from "vitest";
-import { expectFormatted, expectStableRender, formatAdoc } from "../helpers.js";
+import { expectFormatted } from "../helpers.js";
 import { readingBreachesOf } from "../lib/reading.js";
 
 // Issue #43. A `+` alone on a source line is a list continuation, and
@@ -41,26 +41,25 @@ describe("a lone + keeps the line the source gave it", () => {
   // The `+` is the text node's ONLY word here - the two marker lines
   // after it parse as a bold span - so the join it has to survive is
   // the one between two inline siblings, not the one between two
-  // words. The span's inner break replays as one space (the same
-  // rule that fixed #55), which keeps this document render-equal to
-  // its source, and the `+` still gets its line.
+  // words. The `+` gets its line, and the lines under it keep theirs:
+  // a first output line that reads back as a continuation rather than
+  // as the paragraph's own text refuses the layout, and the block is
+  // written back from its own lines (issue #293).
   test("before content that opens an inline span", async () => {
     const input = "+\n* a\n* a\n";
-    const out = await formatAdoc(input);
-    expect(out).toBe("+\n* a * a\n");
+    await expectFormatted(input, input);
     expect(await readingBreachesOf(input)).toEqual([]);
-    await expectStableRender(input);
   });
 
   // The cross-node arm alone decides this shape: the span leaves the
   // text node as just "+\n", so the within-node exemption never sees
   // the join, and only the trailing boundary keeps the + on its line.
+  // The rest of the block is written back for the reason the row
+  // above states (issue #293).
   test("a bare span after the + exercises the cross-node arm", async () => {
     const input = "+\n*a*\ntail\n";
-    const out = await formatAdoc(input);
-    expect(out).toBe("+\n*a* tail\n");
+    await expectFormatted(input, input);
     expect(await readingBreachesOf(input)).toEqual([]);
-    await expectStableRender(input);
   });
 
   // The rule is about the line the `+` HAD, not about the character.

@@ -193,12 +193,11 @@ classifying a whole line in the context where it appears.
   back as the block's own text the block is written back from its own source
   lines, never retreated to one of the author's breaks. The block's FIRST output
   line is a different question, asked at a block start: where the packer owns
-  the column (a paragraph at document level) it asks whether that line still
-  opens what the block's own first source line opened, and where a marker, a
-  label or a term line holds the column the older per-word nets answer instead
-  (`isBlockSyntaxAtLineStart`, `src/print/reflow.ts`, over the registry's
-  `startsBlockAtLineStart`, `src/parse/line-shapes.ts`, plus one printer-side
-  exemption for a lone `+`).
+  the column (a paragraph at document level) it asks whether that line opens the
+  block the reader recorded, and where a marker, a label or a term line holds
+  the column the older per-word nets answer instead (`isBlockSyntaxAtLineStart`,
+  `src/print/reflow.ts`, over the registry's `startsBlockAtLineStart`,
+  `src/parse/line-shapes.ts`, plus one printer-side exemption for a lone `+`).
 
 Lines are rstripped before classification, exactly as Asciidoctor's
 `Helpers.prepare_source_string` does, and the registry's patterns assume that.

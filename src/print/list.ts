@@ -710,7 +710,7 @@ export function printListItem(
         replayLines(node.text, options.originalText),
         node.reading,
         // The marker holds the column of the first output line.
-        false,
+        "prefixed",
       ),
     ),
   ];

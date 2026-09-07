@@ -135,6 +135,16 @@ export type BlockPosition =
       readonly ordinal: 0;
       /** The context the reader classified that line in. */
       readonly reader: ReaderContext;
+      /**
+       * Whether the reader that read this block was CONFINED - a
+       * compound block's interior or a list item's buffer. A section
+       * title cannot open there: the reader sends every title inside
+       * one to its paragraph arm (`sectionTitle`,
+       * src/parse/lines/reader.ts), so a line the classifier reads as
+       * a title is that paragraph's own text, and a packer asking
+       * about a line it would write has to answer the same way.
+       */
+      readonly confined: boolean;
       /** What it made of it. */
       readonly opens: BlockOpening;
     }
@@ -212,14 +222,18 @@ function continuationContext(reading: BlockReading): ReaderContext {
  *   the wider reading refuses more.
  * @param reading - what the reader recorded about the block
  * @param opens - what its opening line was read as
+ * @param confined - whether the reader that read it was confined; see
+ *   {@link BlockPosition}
  * @returns the position {@link accepts} takes
  */
 export function openingPosition(
   reading: BlockReading,
   opens: BlockOpening,
+  confined: boolean,
 ): BlockPosition {
   return {
     ordinal: OPENING_LINE,
+    confined,
     reader: {
       openParagraph: undefined,
       openList: reading.openList,
@@ -344,6 +358,27 @@ function isBlockText(verdict: LineKind): boolean {
 }
 
 /**
+ * The reading a CONFINED reader gives a verdict, which differs from
+ * the classifier's for one shape.
+ *
+ * A section title cannot open inside a compound block's interior or a
+ * list item's buffer: Asciidoctor reaches those through `parse_blocks`
+ * -> `next_block`, never through `next_section`, and our reader spells
+ * the same thing by sending every title a confined reader classifies
+ * to its paragraph arm (`sectionTitle`, src/parse/lines/reader.ts).
+ * Both title spellings take that arm, so both are answered here.
+ *
+ * Every other verdict is the same in both readers: a block title, an
+ * attribute entry, a list marker and a block macro all open what they
+ * open wherever they stand.
+ * @param verdict - what the classifier made of the line
+ * @returns the verdict the confined reader acts on
+ */
+function insideAConfinedReader(verdict: LineKind): LineKind {
+  return verdict.kind === "sectionTitle" ? { kind: "text" } : verdict;
+}
+
+/**
  * Whether a re-read verdict opens the SAME block the reader opened.
  * @param verdict - what the candidate opening line was read as
  * @param opening - what the reader read the block's opening line as
@@ -379,7 +414,11 @@ export function accepts(
   position: BlockPosition,
 ): boolean {
   const verdict = lineVerdict(line, next, position);
-  return position.ordinal === OPENING_LINE
-    ? opensTheSameBlock(verdict, position.opens)
-    : isBlockText(verdict);
+  if (position.ordinal !== OPENING_LINE) {
+    return isBlockText(verdict);
+  }
+  return opensTheSameBlock(
+    position.confined ? insideAConfinedReader(verdict) : verdict,
+    position.opens,
+  );
 }

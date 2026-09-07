@@ -99,12 +99,19 @@ function inside(
 }
 
 /**
- * The block's own opening line, at document level.
+ * The block's own opening line, at document level: the reader that
+ * read the block was the document's, so a section title there is a
+ * heading rather than the paragraph's text.
  * @param opens - what the reader read that line as
  * @returns the position
  */
 function opening(opens: BlockOpening): BlockPosition {
-  return { ordinal: OPENING_LINE, reader: BLOCK_START_CONTEXT, opens };
+  return {
+    ordinal: OPENING_LINE,
+    reader: BLOCK_START_CONTEXT,
+    confined: false,
+    opens,
+  };
 }
 
 /** What a plain paragraph's first line was read as. */

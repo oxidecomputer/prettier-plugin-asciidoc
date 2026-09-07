@@ -617,7 +617,7 @@ export function printAdmonition(
         node.reading,
         // The label holds the column, so what the first line opens is
         // not the packer's to answer.
-        false,
+        "prefixed",
       ),
     );
   }

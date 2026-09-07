@@ -272,8 +272,9 @@ const ANY_READING: BlockReading = { context: "paragraph", openList: undefined };
 // says what the written-back lines have to be.
 describe("a block with no node to replay", () => {
   test("has no lines, so the packer's own layout stands", () => {
-    expect(replayLines([], "alpha\n")).toEqual([]);
-    expect(blockLayout(replayLines([], "alpha\n"), ANY_READING, true)).toEqual({
+    const empty = replayLines([], "alpha\n");
+    expect(empty).toEqual([]);
+    expect(blockLayout(empty, ANY_READING, "documentBlockStart")).toEqual({
       replay: "none",
     });
   });
