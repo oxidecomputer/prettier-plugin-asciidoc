@@ -75,12 +75,17 @@ const TRAILING_SPACE = trailingByteOperator("trailing-space", " ");
  * all-lines operators can mask a position-dependent bug; one
  * positional probe at the document's first line is the cheap
  * insurance.
+ *
+ * A VERTICAL TAB and a FORM FEED are not here. They belong to the
+ * same trailing-whitespace class as the tab, they changed no verdict
+ * anywhere either grid reaches, and no editor and no export writes
+ * either byte into a text file. The bytes are still read: the reader
+ * rstrips both, and tests/format/delimited-block.test.ts pins the
+ * pair the reader calls whitespace where Prettier's trim does not.
  */
 export const BYTE_OPERATORS: readonly ByteOperatorEntry[] = [
   TRAILING_SPACE,
   trailingByteOperator("trailing-tab", "\t"),
-  trailingByteOperator("trailing-vt", "\v"),
-  trailingByteOperator("trailing-ff", "\f"),
   {
     id: "trailing-space-first-line",
     apply: (document) => {
@@ -111,18 +116,17 @@ export const BYTE_OPERATORS: readonly ByteOperatorEntry[] = [
  * WHY IT IS SHORTER THAN THE DIMENSION ABOVE. The pair grid is
  * quadratic in the alphabet where the other grids are linear, so one
  * operator costs it two orders of magnitude more rows than it costs
- * the standing grid. Each of the eight was measured over the whole
- * pair product, verdict by verdict, against the operator whose rows
- * would stand in its place: `bom`, `crlf` and `no-final-newline`
- * change no row's verdict relative to the unperturbed document, and
- * `trailing-tab`, `trailing-vt`, `trailing-ff` and
- * `trailing-space-first-line` change none relative to
- * `trailing-space`. `trailing-space` itself does change verdicts, and
+ * the standing grid. Each operator was measured over the whole pair
+ * product, verdict by verdict, against the operator whose rows would
+ * stand in its place: `bom`, `crlf` and `no-final-newline` change no
+ * row's verdict relative to the unperturbed document, and
+ * `trailing-tab` and `trailing-space-first-line` change none relative
+ * to `trailing-space`. `trailing-space` itself does change verdicts, and
  * one coordinate (`pair/continuation/dlist-term/adjacent/doc`) fails
  * under it and under nothing else, so the class is represented rather
  * than dropped in favour of the unperturbed row alone.
  *
- * The seven cut operators mint bytes the oracle erases at ingest and
+ * The cut operators mint bytes the oracle erases at ingest and
  * the formatter reads through, so agreeing with a kept operator is a
  * property of that erasure rather than an accident of sampling; the
  * measurement over the whole product is what checks the formatter

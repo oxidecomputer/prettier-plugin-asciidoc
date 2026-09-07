@@ -1,182 +1,182 @@
 {
   "standing/HardLineBreak/bare/idempotency": {
-    "count": 9,
+    "count": 7,
     "examples": [
       "HardLineBreak-alt-2/bare/indented-continuation",
       "HardLineBreak-alt-2/bare/indented-continuation@bom",
       "HardLineBreak-alt-2/bare/indented-continuation@crlf",
       "HardLineBreak-alt-2/bare/indented-continuation@no-final-newline",
-      "HardLineBreak-alt-2/bare/indented-continuation@trailing-ff"
+      "HardLineBreak-alt-2/bare/indented-continuation@trailing-space"
     ],
-    "sha256": "c2291c5e789ca05d12b0b767a868e49c4cf722abfb7b46c9f21ea101179a305e",
+    "sha256": "975662219a04ce26b7444ebf56248eb85fdec9e5bed7fdbfe22205edcc0f6cad",
     "issue": "UNTRIAGED"
   },
   "standing/HardLineBreak/bracket-backslash/idempotency": {
-    "count": 9,
+    "count": 7,
     "examples": [
       "HardLineBreak-alt-2/bracket-backslash/indented-continuation",
       "HardLineBreak-alt-2/bracket-backslash/indented-continuation@bom",
       "HardLineBreak-alt-2/bracket-backslash/indented-continuation@crlf",
       "HardLineBreak-alt-2/bracket-backslash/indented-continuation@no-final-newline",
-      "HardLineBreak-alt-2/bracket-backslash/indented-continuation@trailing-ff"
+      "HardLineBreak-alt-2/bracket-backslash/indented-continuation@trailing-space"
     ],
-    "sha256": "c76b7a7bc1696faf1a2527decbe5bb3aa2e7936b71ae246fdfc631ac3a491045",
+    "sha256": "83927531f8719af252a53b56003715c9a036a18af3a2e57777f56ab9054ec4d8",
     "issue": "UNTRIAGED"
   },
   "standing/HardLineBreak/bracketed/idempotency": {
-    "count": 9,
+    "count": 7,
     "examples": [
       "HardLineBreak-alt-2/bracketed/indented-continuation",
       "HardLineBreak-alt-2/bracketed/indented-continuation@bom",
       "HardLineBreak-alt-2/bracketed/indented-continuation@crlf",
       "HardLineBreak-alt-2/bracketed/indented-continuation@no-final-newline",
-      "HardLineBreak-alt-2/bracketed/indented-continuation@trailing-ff"
+      "HardLineBreak-alt-2/bracketed/indented-continuation@trailing-space"
     ],
-    "sha256": "c019719ffd8914b18c8f229ebc8701d2c6b634f0beadd0b9ff6d80f8b0f64655",
+    "sha256": "23c850f79f3e8edeaddb8951829cb8b1a0ff19d891a138feb3e4bf61d5457303",
     "issue": "UNTRIAGED"
   },
   "standing/HardLineBreak/close-bracket/idempotency": {
-    "count": 9,
+    "count": 7,
     "examples": [
       "HardLineBreak-alt-2/close-bracket/indented-continuation",
       "HardLineBreak-alt-2/close-bracket/indented-continuation@bom",
       "HardLineBreak-alt-2/close-bracket/indented-continuation@crlf",
       "HardLineBreak-alt-2/close-bracket/indented-continuation@no-final-newline",
-      "HardLineBreak-alt-2/close-bracket/indented-continuation@trailing-ff"
+      "HardLineBreak-alt-2/close-bracket/indented-continuation@trailing-space"
     ],
-    "sha256": "54480fdd93516af717f29964c42037bf4e30a4c59f9ca4cc724c2b7327b13255",
+    "sha256": "f0007f776562e886e9fa480d48517d8c237022e9ef1a4593331eae45f9bb7f8b",
     "issue": "UNTRIAGED"
   },
   "standing/HardLineBreak/escaped/idempotency": {
-    "count": 9,
+    "count": 7,
     "examples": [
       "HardLineBreak-alt-2/escaped/indented-continuation",
       "HardLineBreak-alt-2/escaped/indented-continuation@bom",
       "HardLineBreak-alt-2/escaped/indented-continuation@crlf",
       "HardLineBreak-alt-2/escaped/indented-continuation@no-final-newline",
-      "HardLineBreak-alt-2/escaped/indented-continuation@trailing-ff"
+      "HardLineBreak-alt-2/escaped/indented-continuation@trailing-space"
     ],
-    "sha256": "40ce72768e3de93a6d22560940dfd32da041f92a93a75a8e1c5ac6772fd1a6c8",
+    "sha256": "bc6948401609bfcfd734df5320b8f5f9f556c07e62f58d66bef4cf11d7280d4e",
     "issue": "UNTRIAGED"
   },
   "standing/HardLineBreak/in-mono/idempotency+fidelity": {
-    "count": 9,
+    "count": 7,
     "examples": [
       "HardLineBreak-alt-2/in-mono/indented-continuation",
       "HardLineBreak-alt-2/in-mono/indented-continuation@bom",
       "HardLineBreak-alt-2/in-mono/indented-continuation@crlf",
       "HardLineBreak-alt-2/in-mono/indented-continuation@no-final-newline",
-      "HardLineBreak-alt-2/in-mono/indented-continuation@trailing-ff"
+      "HardLineBreak-alt-2/in-mono/indented-continuation@trailing-space"
     ],
-    "sha256": "eb5f87334df57519355eb5be76993ae60d636eedca68ef53bcf63d747ed4d88d",
+    "sha256": "1895b3d7253a300245ea7973532dd5d42d7d0a681961f48f5e5209acf3ee78c9",
     "issue": "UNTRIAGED"
   },
   "standing/HardLineBreak/in-word/idempotency": {
-    "count": 9,
+    "count": 7,
     "examples": [
       "HardLineBreak-alt-2/in-word/indented-continuation",
       "HardLineBreak-alt-2/in-word/indented-continuation@bom",
       "HardLineBreak-alt-2/in-word/indented-continuation@crlf",
       "HardLineBreak-alt-2/in-word/indented-continuation@no-final-newline",
-      "HardLineBreak-alt-2/in-word/indented-continuation@trailing-ff"
+      "HardLineBreak-alt-2/in-word/indented-continuation@trailing-space"
     ],
-    "sha256": "8be440aff0b8b9a27483053b62adc713ed81f7baa0d3ebd83327ab8dca95bb8f",
+    "sha256": "d7787b7b029364232028cef42072aa3df14b4f433aa5f8e2096dacf48efd2db5",
     "issue": "UNTRIAGED"
   },
   "standing/HardLineBreak/open-bracket/idempotency": {
-    "count": 9,
+    "count": 7,
     "examples": [
       "HardLineBreak-alt-2/open-bracket/indented-continuation",
       "HardLineBreak-alt-2/open-bracket/indented-continuation@bom",
       "HardLineBreak-alt-2/open-bracket/indented-continuation@crlf",
       "HardLineBreak-alt-2/open-bracket/indented-continuation@no-final-newline",
-      "HardLineBreak-alt-2/open-bracket/indented-continuation@trailing-ff"
+      "HardLineBreak-alt-2/open-bracket/indented-continuation@trailing-space"
     ],
-    "sha256": "c74a5ca20354d57c9da21a88752c57f1721581a598e03249f97dee354d0c75fc",
+    "sha256": "bb2eafa394bbab982ba13322cfc074564d22c83fc6188b4301498440c53f74e0",
     "issue": "UNTRIAGED"
   },
   "standing/HardLineBreak/reflow-edge/idempotency": {
-    "count": 9,
+    "count": 7,
     "examples": [
       "HardLineBreak-alt-2/reflow-edge/indented-continuation",
       "HardLineBreak-alt-2/reflow-edge/indented-continuation@bom",
       "HardLineBreak-alt-2/reflow-edge/indented-continuation@crlf",
       "HardLineBreak-alt-2/reflow-edge/indented-continuation@no-final-newline",
-      "HardLineBreak-alt-2/reflow-edge/indented-continuation@trailing-ff"
+      "HardLineBreak-alt-2/reflow-edge/indented-continuation@trailing-space"
     ],
-    "sha256": "7617dc6db25a0190f4878f2a21f9db05fa8727cf665df0f73bebe9ac61b8da24",
+    "sha256": "b1f910469d564f2aa283d9a47f211dfd2f41780a8f278d281d0b5089b5d425c5",
     "issue": "UNTRIAGED"
   },
   "standing/HardLineBreak/reflow/idempotency": {
-    "count": 9,
+    "count": 7,
     "examples": [
       "HardLineBreak-alt-2/reflow/indented-continuation",
       "HardLineBreak-alt-2/reflow/indented-continuation@bom",
       "HardLineBreak-alt-2/reflow/indented-continuation@crlf",
       "HardLineBreak-alt-2/reflow/indented-continuation@no-final-newline",
-      "HardLineBreak-alt-2/reflow/indented-continuation@trailing-ff"
+      "HardLineBreak-alt-2/reflow/indented-continuation@trailing-space"
     ],
-    "sha256": "1fcb3e6b9c317877a669cb25dc7767c2bf16ca6033e62f0c34379ac335576869",
+    "sha256": "0957df4f8b4dd4236f44005c66569852c4390208f780effe671eb272a3857e90",
     "issue": "UNTRIAGED"
   },
   "standing/HardLineBreak/repeated/idempotency": {
-    "count": 9,
+    "count": 7,
     "examples": [
       "HardLineBreak-alt-2/repeated/indented-continuation",
       "HardLineBreak-alt-2/repeated/indented-continuation@bom",
       "HardLineBreak-alt-2/repeated/indented-continuation@crlf",
       "HardLineBreak-alt-2/repeated/indented-continuation@no-final-newline",
-      "HardLineBreak-alt-2/repeated/indented-continuation@trailing-ff"
+      "HardLineBreak-alt-2/repeated/indented-continuation@trailing-space"
     ],
-    "sha256": "a6be6afe66bd65cd04f2cc686660719d1affb5d1a9f0c48477f80f901105fcc5",
+    "sha256": "e5eee403213a8dfd19981e9b1ae9624a18cb70b6e4873d429dcebf1c74b818eb",
     "issue": "UNTRIAGED"
   },
   "standing/HardLineBreak/role-head/idempotency": {
-    "count": 9,
+    "count": 7,
     "examples": [
       "HardLineBreak-alt-2/role-head/indented-continuation",
       "HardLineBreak-alt-2/role-head/indented-continuation@bom",
       "HardLineBreak-alt-2/role-head/indented-continuation@crlf",
       "HardLineBreak-alt-2/role-head/indented-continuation@no-final-newline",
-      "HardLineBreak-alt-2/role-head/indented-continuation@trailing-ff"
+      "HardLineBreak-alt-2/role-head/indented-continuation@trailing-space"
     ],
-    "sha256": "6ca572ad9bcbf0b0106ff679508c77d73a19124c625e8b888ed3b70f0e48ce92",
+    "sha256": "0d85e3b45c92eaff0cc23d9f96ffe3ea0e4812e5c727f5bbf1bbf9d67c7a213b",
     "issue": "UNTRIAGED"
   },
   "standing/HardLineBreak/spaced/idempotency": {
-    "count": 9,
+    "count": 7,
     "examples": [
       "HardLineBreak-alt-2/spaced/indented-continuation",
       "HardLineBreak-alt-2/spaced/indented-continuation@bom",
       "HardLineBreak-alt-2/spaced/indented-continuation@crlf",
       "HardLineBreak-alt-2/spaced/indented-continuation@no-final-newline",
-      "HardLineBreak-alt-2/spaced/indented-continuation@trailing-ff"
+      "HardLineBreak-alt-2/spaced/indented-continuation@trailing-space"
     ],
-    "sha256": "c50be3dcaeba4978ffdf1012e922b9f8956e87ae826219c5f1b14954623cf00c",
+    "sha256": "1dc3c4cfce8664fbb44794ab2b573e225ce13e00993abce63a2f8e47aba7c4a1",
     "issue": "UNTRIAGED"
   },
   "standing/HardLineBreak/trailing-mark/idempotency": {
-    "count": 9,
+    "count": 7,
     "examples": [
       "HardLineBreak-alt-2/trailing-mark/indented-continuation",
       "HardLineBreak-alt-2/trailing-mark/indented-continuation@bom",
       "HardLineBreak-alt-2/trailing-mark/indented-continuation@crlf",
       "HardLineBreak-alt-2/trailing-mark/indented-continuation@no-final-newline",
-      "HardLineBreak-alt-2/trailing-mark/indented-continuation@trailing-ff"
+      "HardLineBreak-alt-2/trailing-mark/indented-continuation@trailing-space"
     ],
-    "sha256": "cb0e03cc4a69826ca35f4504e228dd46577341b3eef545ea1f3d6bd7d046615d",
+    "sha256": "c51b4a8282b2736dfe71d42ef6f92bee89fe99d827240110884cc88d8208e226",
     "issue": "UNTRIAGED"
   },
   "standing/InlineChar/in-bold/fidelity": {
-    "count": 9,
+    "count": 7,
     "examples": [
       "InlineChar/in-bold/indented-continuation",
       "InlineChar/in-bold/indented-continuation@bom",
       "InlineChar/in-bold/indented-continuation@crlf",
       "InlineChar/in-bold/indented-continuation@no-final-newline",
-      "InlineChar/in-bold/indented-continuation@trailing-ff"
+      "InlineChar/in-bold/indented-continuation@trailing-space"
     ],
-    "sha256": "152833358c4c1e20803c1cf5b1b1fa82addd093d1c8e11cb23e40f2b7bc6d1e7",
+    "sha256": "342d7b1a51cac32f79d16575b3120ba42c5f9f62a02bc23281e49d2cef7103cb",
     "issue": "UNTRIAGED"
   }
 }

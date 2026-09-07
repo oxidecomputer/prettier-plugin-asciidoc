@@ -142,9 +142,17 @@ describe("listing block formatting", () => {
   // terminator. So the collision is real even though the emitted bytes
   // differ from the fence, and the interior keeps its own bytes while
   // the fence clears them. Reading the interior through Prettier's
-  // narrower trim missed this pair entirely (12 registry-sweep rows
-  // under the trailing-vt and trailing-ff operators, which the wider
-  // rstrip closes).
+  // narrower trim missed this pair entirely, which is why the rstrip
+  // is the wide one.
+  //
+  // These two rows are all that hold the pair. NOT PROTECTED BY
+  // DESIGN beyond them: the shape grids used to cross every
+  // coordinate with a trailing vertical tab and a trailing form feed,
+  // and those two operators are gone. They changed no verdict
+  // anywhere either grid reaches, and no editor and no export writes
+  // either byte into a text file, so the systematic crossing was
+  // paying 6.6 s of every default suite run for a shape nobody
+  // types.
   test.each([
     ["a vertical tab", "\v"],
     ["a form feed", "\f"],

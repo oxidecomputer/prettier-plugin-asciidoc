@@ -482,22 +482,24 @@ trailing whitespace, one carries a BOM, and none carries a CRLF or a missing
 final newline. Our formatter sits on the other side of that erasure, working on
 the author's bytes, so a delimiter line with a trailing space is a line it has
 to classify as a delimiter and print without the space. Minting the bytes is the
-only way to test that, which is what the eight operators in
-`scripts/shape-registry-byte-operators.ts` do: a trailing space, tab, vertical
-tab or form feed on every non-empty line; a trailing space on the first line
-alone, because an all-lines operator masks a position-dependent bug; CRLF; no
-final newline; a BOM. Bare CR is out while #68 is open.
+only way to test that, which is what the six operators in
+`scripts/shape-registry-byte-operators.ts` do: a trailing space or tab on every
+non-empty line; a trailing space on the first line alone, because an all-lines
+operator masks a position-dependent bug; CRLF; no final newline; a BOM. A
+vertical tab and a form feed were two more spellings of the trailing-whitespace
+class and are gone: they changed no verdict anywhere either grid reaches, and no
+editor writes either byte into a text file. Bare CR is out while #68 is open.
 
 Which operators a grid CROSSES with is that grid's own decision, and there are
 two sets. `BYTE_OPERATORS` is the whole dimension, for the grids that are linear
 in the construct alphabet. `PAIR_BYTE_OPERATORS` is what the quadratic pair grid
-carries, and it is shorter because seven of the eight were measured, verdict by
+carries, and it is shorter because every other operator was measured, verdict by
 verdict over the whole pair product, to change no row's verdict relative to an
 operator that is kept: the three that alter no line's own bytes agree with the
-unperturbed row, and the four remaining trailing-whitespace spellings agree with
-the trailing space. The whole set of base coordinates the nine-way crossing
-reached survives the two-way one. That measurement is restated at the constant,
-which is where to move it if the reader ever needs re-running.
+unperturbed row, and the remaining trailing-whitespace spellings agree with the
+trailing space. The whole set of base coordinates the wider crossing reached
+survives the two-way one. That measurement is restated at the constant, which is
+where to move it if the reader ever needs re-running.
 
 **The ratchet.** A bug in a shape these grids can reach is expressed as a sweep
 row before it is fixed, whatever found it: a real document, a review reading, an

@@ -77,10 +77,10 @@ export function defaultTierCases(): ReparseCase[] {
  * would measure if it were free.
  *
  * Two products are deliberately out. The BYTE OPERATORS multiply the
- * row count by nine for a dimension this measurement does not vary
- * along: a trailing form feed does not change what a line re-reads
- * as, and the sweep quarantines already carry the crossing for the
- * properties that do. The INLINE pair grid is a budget ruling and
+ * row count for a dimension this measurement does not vary along: a
+ * trailing space does not change what a line re-reads as, and the
+ * sweep quarantines already carry the crossing for the properties
+ * that do. The INLINE pair grid is a budget ruling and
  * nothing else - it is an order of magnitude past the line pair grid,
  * for the dimension the inline standing grid already crosses.
  * @returns the deep-tier cases, in a stable order

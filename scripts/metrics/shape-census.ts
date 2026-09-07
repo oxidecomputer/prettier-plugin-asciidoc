@@ -279,8 +279,6 @@ const PERTURBATION_IDS: readonly string[] = [
 const BYTE_OPERATOR_IDS: readonly string[] = [
   "trailing-space",
   "trailing-tab",
-  "trailing-vt",
-  "trailing-ff",
   "trailing-space-first-line",
   "crlf",
   "no-final-newline",
