@@ -27,10 +27,10 @@ import { tableStyle } from "../options.js";
 import { inlineAtoms } from "./inline.js";
 import { blockBody } from "./reflow.js";
 import { joinBlocks } from "./join.js";
+import { printsSourceAttributeLine } from "../block-metadata.js";
 import {
   type AnyNode,
   type PrintOptions,
-  hasPrecedingLanguageAttribute,
   printAdmonition,
   printAttributeEntry,
   printComment,
@@ -165,7 +165,7 @@ const printer: Printer<AnyNode> = {
         return [".", node.title];
       }
       case "delimitedBlock": {
-        return printDelimitedBlock(node, hasPrecedingLanguageAttribute(node));
+        return printDelimitedBlock(node, printsSourceAttributeLine(node));
       }
       // A table takes one normal form when its facts are fully
       // recorded and replays its own interior bytes otherwise

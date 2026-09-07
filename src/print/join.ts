@@ -17,6 +17,7 @@ import type {
 import {
   isLineComment,
   isReaderConsumedLine,
+  printsSourceAttributeLine,
   stacksAsMetadata,
 } from "../block-metadata.js";
 
@@ -158,12 +159,52 @@ function shouldStack(blocks: BlockNode[], index: number): boolean {
   return (
     (isLineComment(previous) && isLineComment(current)) ||
     (stacksWithReaderEatenLine(previous, current) &&
-      !isSectionHeading(previous)) ||
+      !isSectionHeading(previous) &&
+      !sourceLineWouldJoinTheItem(previous, current)) ||
     stacksOntoAttributeEntry(previous, current) ||
     stacksUnderDocumentHeader(previous, current) ||
     stacksUnderFrontMatter(previous, current) ||
     stacksAsMetadata(previous, current)
   );
+}
+
+/**
+ * Whether stacking would hand the LIST above `current` the
+ * `[source]` line the printer writes for it
+ * ({@link printsSourceAttributeLine}, src/block-metadata.ts).
+ *
+ * A fence respelled with `----` puts its attribute line FIRST, so the
+ * line that lands against the item is the annotation, not the
+ * delimiter, and the two are read differently there. A delimiter ENDS
+ * the item's read outright (`read_lines_for_list_item`, parser.rb
+ * l.1453-1456: a delimited block breaks the list unless a
+ * continuation is active), which is why every other block may stack
+ * under the reader-eaten line. An attribute line does not end it:
+ * Ruby takes the line into the item, the delimited block below opens
+ * outside the item carrying no style at all, and the source
+ * highlighting and the language hint are gone from the render. One
+ * blank line is what puts the annotation back on its own block
+ * (the after-blank break, parser.rb l.1549).
+ *
+ * ONLY under a `list`. A description list has an escape the marker
+ * kinds do not (parser.rb l.1462-1481): a block attribute line whose
+ * next line is not a list item is unshifted straight back out of the
+ * item, so the annotation reaches its block there without a blank.
+ * The kind that answers is the OUTERMOST one, which is exactly what
+ * `previous.type` is - Ruby's `dlist` flag is the type of the list
+ * whose item read is running, and a nested list's lines are buffered
+ * by that read rather than read by one of their own (measured both
+ * ways: a description list holding a nested marker list keeps the
+ * escape, a marker list holding a nested description list does not).
+ * @param previous - The preceding block node.
+ * @param current - The current block node.
+ * @returns Whether a blank line must separate the two.
+ */
+function sourceLineWouldJoinTheItem(
+  previous: BlockNode,
+  current: BlockNode,
+): boolean {
+  return previous.type === "list" && printsSourceAttributeLine(current);
 }
 
 /**

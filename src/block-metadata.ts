@@ -146,6 +146,57 @@ export function isBlockMetadata(block: BlockNode): boolean {
 }
 
 /**
+ * Whether the printer writes a `[source]`/`[source,lang]` line of its
+ * OWN above this block: the attribute line a Markdown fence needs
+ * once it is respelled with `----` delimiters, because the fence
+ * carried the `source` style in its own three characters and `----`
+ * does not.
+ *
+ * TWO consumers, and that is why the question lives here rather than
+ * beside the emission. The printer asks it to decide whether to write
+ * the line (src/print/blocks.ts); the block separator asks it because
+ * that line, not the delimiter, is then the block's FIRST printed
+ * line, and what a block's first line is decides what may stand
+ * directly above it (src/print/join.ts).
+ *
+ * The fence test is LOAD-BEARING and not a restatement of the
+ * annotation test: it is what keeps every OTHER verbatim block from
+ * being handed a style it never carried. Removed, a bare `----` block
+ * comes back as `[source]` over `----`, a `....` block as `[source]`
+ * over `....`, and a `[literal]` / `----` block gains a second,
+ * contrary attribute line; inside a list item the separator takes a
+ * blank line for that invented line as well (measured, one document
+ * each). A DELIMITED `[source]` / `----` block is the one shape the
+ * fence test does NOT decide - the annotation half already answers
+ * false there - so it is no witness for this line. A fence is also
+ * the ONLY member carrying a language hint, which the node types say
+ * (src/ast.ts).
+ *
+ * The annotation half is a FIELD READ of the reader's own record,
+ * which is what lets it see inside a list item: a `[source,x]` the
+ * author wrote DIRECTLY above the fence is not printed a second time.
+ * It closes that case and not the general one. With a line the reader
+ * eats standing between the author's attribute line and the fence
+ * (`* item` / `+` / `// c` / `[source,x]` / fence), the reader leaves
+ * `annotatedBy` unset and both lines go out; that output renders the
+ * same and is a fixed point, so it is a spelling cost rather than a
+ * defect, but nothing here rules it out. A fence with no language
+ * hint still implies `source`, so a bare `[source]` annotation
+ * counts.
+ * @param block - The block node to test.
+ * @returns Whether the printer synthesizes a source attribute line
+ *   above this block.
+ */
+export function printsSourceAttributeLine(block: BlockNode): boolean {
+  if (block.type !== "delimitedBlock" || block.fenced !== true) {
+    return false;
+  }
+  const covered =
+    block.language === undefined ? "source" : `source,${block.language}`;
+  return block.annotatedBy !== covered;
+}
+
+/**
  * Whether the printer emits nothing at all for this inline child, so
  * it is not on the printed line however much source it covers.
  *

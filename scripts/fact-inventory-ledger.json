@@ -7,7 +7,7 @@
     "plus-respelled": 9,
     "heading-under-a-term": 8,
     "gap-line-lost": 5,
-    "fence-style-detached": 4,
+    "fence-style-detached": 0,
     "xref-across-a-break": 1
   },
   "deepManifestClusters": "no cluster manifest distinct from tests/conformance/reparse-ledger.json exists for family E today (searched tests/conformance/reparse*.ts for 'manifest'/'cluster': no hits, unlike registry-sweep-clusters.ts and inline-sweep-clusters.ts, which do). The ledger's own per-row `family` tag is the only clustering structure family E has, so the row-level percentage below is also the cluster-level percentage.",

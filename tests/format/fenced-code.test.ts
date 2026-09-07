@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { formatAdoc, renderedHtml } from "../helpers.js";
+import { expectFormatted, formatAdoc, renderedHtml } from "../helpers.js";
 
 describe("fenced code block formatting", () => {
   // Fenced block with language normalizes to [source,lang] + ----
@@ -124,5 +124,90 @@ describe("fence annotation is the reader's own record", () => {
     // The fence-annotation proofs, re-run at execution:
     expect(await renderedHtml(output)).toBe(await renderedHtml(input));
     expect(await formatAdoc(output)).toBe(output);
+  });
+});
+
+// The line the normalization emits is the block's FIRST printed line,
+// and a marker list's item read swallows an attribute line where it
+// would break on a delimiter (`read_lines_for_list_item`, parser.rb
+// l.1453-1456 against the after-blank break at l.1549). So a fence
+// whose neighbour above is a line Asciidoctor's reader eats - a `//`
+// comment, an unresolved `include::` - cannot stack under it the way
+// a bare `----` block can: the annotation would land inside the item
+// and the listing would open below with no style at all, losing
+// `<pre class="highlight">` and the language hint from the render
+// (issues #170 and #209).
+//
+// Every row below printed WITHOUT the blank line before the change,
+// and each was measured against Asciidoctor 2.0.26 and the pinned
+// oracle alike: the two agree that the blank-separated spelling
+// renders what the fence rendered and that the stacked one does not.
+describe("a fence under a line the reader eats", () => {
+  test.each([
+    [
+      "a comment above a fence with content (#170)",
+      "* item\n+\n// c\n```\nfoo\n```\n",
+      "* item\n+\n// c\n\n[source]\n----\nfoo\n----\n",
+    ],
+    [
+      "an include above a fence with content (#170)",
+      "* item\n+\ninclude::x[]\n```\nfoo\n```\n",
+      "* item\n+\ninclude::x[]\n\n[source]\n----\nfoo\n----\n",
+    ],
+    [
+      "a comment above a fence carrying a language (#209)",
+      "* item\n+\n// c\n```x\n",
+      "* item\n+\n// c\n\n[source,x]\n----\n----\n",
+    ],
+    [
+      "an include above a fence carrying a language (#209)",
+      "* item\n+\ninclude::p[]\n```x\n",
+      "* item\n+\ninclude::p[]\n\n[source,x]\n----\n----\n",
+    ],
+    [
+      "no continuation between the item and the comment",
+      "* item\n// c\n```x\nfoo\n```\n",
+      "* item\n// c\n\n[source,x]\n----\nfoo\n----\n",
+    ],
+    [
+      "an ordered list, which reads its items the same way",
+      ". item\n+\n// c\n```x\nfoo\n```\n",
+      ". item\n+\n// c\n\n[source,x]\n----\nfoo\n----\n",
+    ],
+    [
+      "a description list nested inside the marker item",
+      "* a\n+\nt:: d\n+\n// c\n```x\nfoo\n```\n",
+      "* a\n+\nt:: d\n+\n// c\n\n[source,x]\n----\nfoo\n----\n",
+    ],
+  ])("%s", async (_name, input, expected) => {
+    await expectFormatted(input, expected);
+  });
+
+  // The controls: a blank line here would be a byte nobody licensed,
+  // so the separation is only taken where the annotation would
+  // otherwise be swallowed.
+  test.each([
+    [
+      "a listing block, whose delimiter ends the item read itself",
+      "* item\n+\n// c\n----\nfoo\n----\n",
+      "* item\n+\n// c\n----\nfoo\n----\n",
+    ],
+    [
+      "a fence at the top level, where no item is reading",
+      "// c\n```x\nfoo\n```\n",
+      "// c\n[source,x]\n----\nfoo\n----\n",
+    ],
+    [
+      "a description list, which unshifts the attribute line back out",
+      "t:: d\n+\n// c\n```x\nfoo\n```\n",
+      "t:: d\n+\n// c\n[source,x]\n----\nfoo\n----\n",
+    ],
+    [
+      "a marker list nested inside the description item",
+      "t:: d\n+\n* a\n+\n// c\n```x\nfoo\n```\n",
+      "t:: d\n+\n* a\n+\n// c\n[source,x]\n----\nfoo\n----\n",
+    ],
+  ])("%s stacks as it did", async (_name, input, expected) => {
+    await expectFormatted(input, expected);
   });
 });

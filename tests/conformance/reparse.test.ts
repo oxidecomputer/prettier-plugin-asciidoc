@@ -338,6 +338,13 @@ describe("the lens still sees the corruptions the printer can make", () => {
   // family is empty in the ledger. A row asserting a breach that no
   // longer happens would be red, and there is no second document with
   // the mechanism to put in its place.
+  //
+  // #170 had one too ("* item\n+\n// c\n```\nfoo\n```\n") for the same
+  // reason: a fence's `[source]` line is the block's FIRST printed
+  // line, so the separator no longer stacks it under the line a list
+  // item's region takes, and the whole `fence-style-detached` family
+  // is empty in the ledger. That mechanism has no second document
+  // either - every spelling of it was the same emission.
   test.each([
     // `===\n ----\n` used to stand here and no longer does: the
     // block-start hazard net writes the second line's own indent back
@@ -351,10 +358,6 @@ describe("the lens still sees the corruptions the printer can make", () => {
       "image::a.png[\n[+1]\n",
     ],
     ["a folded lone + comes back as {plus} (#116)", ". T\n  +\n"],
-    [
-      "a fence's style line detaches from its block (#170)",
-      "* item\n+\n// c\n```\nfoo\n```\n",
-    ],
     ["a term gap's + is not written back (#171)", "term::\n///\n\n+\n"],
   ])("%s", async (_what, document) => {
     const breaches = await reparseBreachesOf(document);
@@ -438,16 +441,17 @@ describe("the family arms are told apart by what they say", () => {
   // would record the hole instead of closing it.
   //
   // All three used to be spelt over the #73 mechanism (a rejected
-  // anchor line above a blank). That mechanism is fixed, so a
-  // document built on it round-trips and asserts nothing; these are
-  // its replacements, one per LIVE family, carrying the arrow in the
-  // same three places - a block title, a fence's language, a block
-  // macro's attrlist.
+  // anchor line above a blank), and two of them were then respelt
+  // over #170's. Both mechanisms are fixed, so a document built on
+  // either round-trips and asserts nothing; these are the second
+  // replacements, one per LIVE family, each carrying the arrow
+  // somewhere the projection diff reproduces it - a comment line's
+  // text, a fence line's language token, a block macro's attrlist.
   test.each([
-    ["a block title carrying an arrow", "* item\n+\n// c\n```\n```\n.a -> b\n"],
+    ["a comment line carrying an arrow", "term::\n/// a -> b\n\n+\n"],
     [
       "a fence language that is an arrow pair",
-      "* a\n+\n// c\n```x -> y\n```\n",
+      "term::\n```x -> y\n---------\n",
     ],
     ["a block macro whose attrlist holds one", "image::a.png[a -> b\n[+1]\n"],
   ])("%s is claimed by an arm", async (_name, source) => {

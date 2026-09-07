@@ -78,6 +78,20 @@
   },
   {
     "file": "src/block-metadata.ts",
+    "symbol": "printsSourceAttributeLine",
+    "importer": "src/print/join.ts",
+    "kind": "vocabulary",
+    "reason": "the one test for 'the printer writes a source attribute line above this block', asked by the join rules because that line, not the delimiter, is then the block's first printed line and decides what may stand directly above it"
+  },
+  {
+    "file": "src/block-metadata.ts",
+    "symbol": "printsSourceAttributeLine",
+    "importer": "src/print/printer.ts",
+    "kind": "vocabulary",
+    "reason": "the one test for 'the printer writes a source attribute line above this block', asked at the emission site so the writer and the separator cannot disagree about whether the line exists"
+  },
+  {
+    "file": "src/block-metadata.ts",
     "symbol": "stacksAsMetadata",
     "importer": "src/print/join.ts",
     "kind": "vocabulary",

@@ -566,18 +566,6 @@
       "family": "join-changes-reading"
     },
     {
-      "id": "line/pair/include/delimiter-fencedCode-near-1/adjacent/item",
-      "pass": "p1",
-      "signature": "[.text text(value=\"item\") >listItem >list delimitedBlock(annotatedBy=\"source,x\",content=\"\",form=\"delimited\",variant=\"listing\")] -> [blockAttributeList(value=\"source,x\") .text text(value=\"item\") >listItem >list delimitedBlock(content=\"\",form=\"delimited\",variant=\"listing\")]",
-      "family": "fence-style-detached"
-    },
-    {
-      "id": "line/pair/include/delimiter-fencedCode/adjacent/item",
-      "pass": "p1",
-      "signature": "[.text text(value=\"item\") >listItem >list delimitedBlock(annotatedBy=\"source\",content=\"foo\",form=\"delimited\",variant=\"listing\")] -> [blockAttributeList(value=\"source\") .text text(value=\"item\") >listItem >list delimitedBlock(content=\"foo\",form=\"delimited\",variant=\"listing\")]",
-      "family": "fence-style-detached"
-    },
-    {
       "id": "line/pair/line-comment-near-0/continuation/blank/dlist-desc-line",
       "pass": "p1",
       "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"///c\")] -> [-(comment=\"///c\") .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text]",
@@ -588,18 +576,6 @@
       "pass": "p1",
       "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text rawLine(value=\"// c\")] -> [-(comment=\"// c\") .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text]",
       "family": "gap-line-lost"
-    },
-    {
-      "id": "line/pair/line-comment/delimiter-fencedCode-near-1/adjacent/item",
-      "pass": "p1",
-      "signature": "[.text text(value=\"item\") >listItem >list delimitedBlock(annotatedBy=\"source,x\",content=\"\",form=\"delimited\",variant=\"listing\")] -> [blockAttributeList(value=\"source,x\") .text text(value=\"item\") >listItem >list delimitedBlock(content=\"\",form=\"delimited\",variant=\"listing\")]",
-      "family": "fence-style-detached"
-    },
-    {
-      "id": "line/pair/line-comment/delimiter-fencedCode/adjacent/item",
-      "pass": "p1",
-      "signature": "[.text text(value=\"item\") >listItem >list delimitedBlock(annotatedBy=\"source\",content=\"foo\",form=\"delimited\",variant=\"listing\")] -> [blockAttributeList(value=\"source\") .text text(value=\"item\") >listItem >list delimitedBlock(content=\"foo\",form=\"delimited\",variant=\"listing\")]",
-      "family": "fence-style-detached"
     },
     {
       "id": "line/pair/list-marker/indented-continuation/adjacent/dlist-desc-line",

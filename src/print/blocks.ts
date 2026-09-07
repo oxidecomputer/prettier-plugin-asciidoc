@@ -325,40 +325,6 @@ function computeMasqueradeDelimiter(
 }
 
 /**
- * Whether the reader recorded a `[source]`/`[source,lang]` annotation
- * that already covers this block's implicit source style — a FIELD
- * READ of the reader's own record, replacing a
- * getParentNode() cast and sibling scan that structurally could not
- * see inside list items (the measured duplicated prefix, ledger
- * family fence-annotation). A fence with no language hint still
- * implies `source`, so a bare `[source]` annotation counts.
- *
- * A fence is the ONLY member carrying a language hint, which the node
- * types now say (src/ast.ts): the "or it has a language" half of this
- * test used to be spelled beside the fence test and is gone with the
- * combination it covered, not with any behavior.
- *
- * The fence test itself is LOAD-BEARING and not a restatement of it.
- * A DELIMITED `[source]` / `----` block is not fenced and carries
- * exactly the annotation `source`, so without this line it would
- * report covered and the printer would drop the author's `[source]`
- * line (8 corpus documents measured).
- * @param node - The delimited block to check.
- * @returns True when the annotation already covers the source
- *   attribute this block would otherwise emit.
- */
-export function hasPrecedingLanguageAttribute(
-  node: DelimitedBlockNode,
-): boolean {
-  if (node.fenced !== true) {
-    return false;
-  }
-  const expectedValue =
-    node.language === undefined ? "source" : `source,${node.language}`;
-  return node.annotatedBy === expectedValue;
-}
-
-/**
  * Prints a delimited leaf block to Doc IR.
  *
  * Produces delimiter, content lines (verbatim), delimiter.
@@ -368,17 +334,17 @@ export function hasPrecedingLanguageAttribute(
  * paragraphs (form: "indented") and paragraph-form blocks are printed
  * verbatim without delimiters.
  * @param node - The delimited block AST node.
- * @param skipSourcePrefix - When true, suppress the
- *   `[source]`/`[source,lang]` prefix normally emitted for
- *   fenced code blocks. Set when the preceding sibling
- *   already has a matching attribute list — which for a bare
- *   fence is the bare `[source]` the printer would otherwise
- *   add a second time.
+ * @param emitSourcePrefix - Whether to write the
+ *   `[source]`/`[source,lang]` line a fence implies above the
+ *   delimiter. The decision is `printsSourceAttributeLine`
+ *   (src/block-metadata.ts), which the block SEPARATOR reads too:
+ *   that line, not the delimiter, is what lands against whatever
+ *   stands above.
  * @returns Doc IR for the formatted block.
  */
 export function printDelimitedBlock(
   node: DelimitedBlockNode,
-  skipSourcePrefix: boolean,
+  emitSourcePrefix: boolean,
 ): Doc {
   // Indented literal paragraphs and paragraph-form blocks: print
   // content verbatim without delimiters. The preceding attribute
@@ -399,13 +365,13 @@ export function printDelimitedBlock(
   // language hint — Asciidoctor renders it as `<pre class="highlight">`,
   // not a plain listing. Emit [source] (or [source,lang] when a
   // language hint is present) before the delimiter to preserve that
-  // semantics when normalizing to AsciiDoc-native `----` syntax. Skip
-  // when the preceding sibling already has a matching attribute list
-  // to avoid emitting it twice.
-  // Only a fence carries a language hint, so "wants a source prefix"
-  // and "is a fence" are one test (src/ast.ts's node types).
+  // semantics when normalizing to AsciiDoc-native `----` syntax.
+  // Whether this block is one, and whether an annotation the reader
+  // already recorded covers it, are the caller's flag: one home
+  // (`printsSourceAttributeLine`, src/block-metadata.ts) for a
+  // question the separator asks as well.
   let prefix: Doc[] = [];
-  if (node.fenced === true && !skipSourcePrefix) {
+  if (emitSourcePrefix) {
     // The synthesized list goes through the SAME spacing rule an
     // authored one does: a fence's info string is the author's
     // (` javascript, numbered`), and leaving it alone here printed a
