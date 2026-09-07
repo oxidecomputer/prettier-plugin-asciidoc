@@ -499,7 +499,7 @@ class ExtentScan {
    * l.1404), the ONE state the after-blank arm's greedy branch is
    * gated on (l.1525) and the only thing anything reads it for.
    * Seeded by the line that opened the item and lowered only by
-   * {@link lowersHasText}, so Ruby's assignments scattered down the
+   * {@link nestedList}, so Ruby's assignments scattered down the
    * loop are arms of one fold here.
    */
   private hasText: boolean;

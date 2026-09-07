@@ -6,11 +6,17 @@
  * The fixture checkout is the point. Every arm the gate can take -
  * an entry that holds, one whose line has drifted, one whose quoted
  * text is not there, one that names a tree the move already left, a
- * symbol its file has and one it does not - is a row of
- * {@link FIXTURE}, so the failure messages are asserted on rather than
- * described. The real tree is run once at the end, which is the only
- * assertion in this file that can go red because somebody moved code
- * rather than because they changed this gate.
+ * symbol its file has and one it does not, a link tag that resolves
+ * and two that cannot - is a row of {@link FIXTURE}, so the failure
+ * messages are asserted on rather than described. The real tree is run
+ * once at the end, which is the only assertion in this file that can
+ * go red because somebody moved code rather than because they changed
+ * this gate.
+ *
+ * The link tags in the fixture are FIXTURES, and the scan does not
+ * read this file's own (`LINKS_NOT_SCANNED`,
+ * scripts/internal-symbols.ts): two of them have to resolve nowhere,
+ * and a gate reading them would fail on its own fixtures.
  */
 import path from "node:path";
 import { describe, expect, test } from "vitest";
@@ -45,6 +51,7 @@ function emptyReport(): Report {
     exempt: 0,
     paths: 0,
     symbols: 0,
+    links: 0,
     contextless: [],
     failures: [],
     listing: [],
@@ -209,7 +216,14 @@ const ALPHA = [
   "// pinned by tests/alpha.test.ts, measured by scripts/nowhere.ts",
   "// the counter (`alpha`, src/alpha.ts) and the one that moved",
   "// (`beta`, src/alpha.ts)",
+  "// {@link alpha} counts, {@link gone} is nowhere, and",
+  "// {@link shared} is in two files",
 ].join("\n");
+
+// The two other files the fixture tree declares names in, which is
+// what makes `shared` a name no path-less tag can resolve.
+const HERE = "export const shared = 1;\n";
+const THERE = "const shared = 2;\n";
 
 const FIXTURE: Tree = {
   minimums: JSON.stringify(
@@ -255,8 +269,12 @@ const FIXTURE: Tree = {
   ),
   lintConfig: ['      "src/alpha.ts", // :3 `return xs.length;`'].join("\n"),
   sources: new Map([["src/alpha.ts", sourceLines(ALPHA)]]),
-  files: new Set(["src/alpha.ts", "tests/alpha.test.ts"]),
-  texts: new Map([["src/alpha.ts", ALPHA]]),
+  files: new Set(["src/alpha.ts", "tests/alpha.test.ts", "scripts/alpha.ts"]),
+  texts: new Map([
+    ["src/alpha.ts", ALPHA],
+    ["tests/alpha.test.ts", HERE],
+    ["scripts/alpha.ts", THERE],
+  ]),
 };
 
 describe("the gate over a whole checkout", () => {
@@ -279,6 +297,29 @@ describe("the gate over a whole checkout", () => {
       ),
     );
     expect(report.failures.join("\n")).not.toContain("`alpha` names");
+  });
+
+  test("a link tag naming nothing in the tree fails", () => {
+    // Red before the link scan: a tag is a claim with no path to
+    // check, so until the index existed nothing held it at all.
+    expect(report.failures).toContainEqual(
+      expect.stringContaining("`{@link gone}` names no gone anything declares"),
+    );
+  });
+
+  test("a link tag naming what two files declare fails", () => {
+    // The other half of the migration's rule: a path-less spelling is
+    // for names that resolve, and this one resolves twice.
+    expect(report.failures).toContainEqual(
+      expect.stringContaining(
+        "`{@link shared}` is declared in 2 files (scripts/alpha.ts, tests/alpha.test.ts), so write the name with its path beside it instead",
+      ),
+    );
+  });
+
+  test("a link tag the citing file declares holds, and all three count", () => {
+    expect(report.links).toBe(3);
+    expect(report.failures.join("\n")).not.toContain("{@link alpha}");
   });
 
   test("every failure opens with the line it is written on", () => {
@@ -342,11 +383,13 @@ describe("the gate over a whole checkout", () => {
     expect(report.failures).toContain(
       "src/alpha.ts:6: names scripts/nowhere.ts, which does not exist",
     );
-    expect(report.failures.join("\n")).not.toContain("tests/alpha.test.ts");
+    expect(report.failures.join("\n")).not.toContain(
+      "names tests/alpha.test.ts, which does not exist",
+    );
   });
 
   test("and nothing else failed", () => {
-    expect(report.failures).toHaveLength(6);
+    expect(report.failures).toHaveLength(8);
   });
 });
 
@@ -371,21 +414,22 @@ describe("what a run earns", () => {
     expect(verdict(report).kind).toBe("cannot-run");
   });
 
-  test("the floor counts exempt, failed and symbol citations too", () => {
+  test("the floor counts exempt, failed, symbol and link citations", () => {
     const report = emptyReport();
-    report.checked = MINIMUM_CITATIONS - 3;
+    report.checked = MINIMUM_CITATIONS - 4;
     report.exempt = 1;
     report.symbols = 1;
+    report.links = 1;
     report.failures = ["one"];
     expect(verdict(report).kind).toBe("failed");
   });
 
-  test("symbols alone can carry the floor", () => {
-    // Which the floor's height assumes: the symbol citations are most
-    // of the surface, so a floor the symbols could not reach on their
-    // own would be a floor nothing could pass.
+  test("link tags alone can carry the floor", () => {
+    // Which the floor's height assumes: the link tags are most of the
+    // surface, so a floor they could not reach on their own would be
+    // a floor nothing could pass.
     const report = emptyReport();
-    report.symbols = MINIMUM_CITATIONS;
+    report.links = MINIMUM_CITATIONS;
     expect(verdict(report).kind).toBe("clean");
   });
 
@@ -456,13 +500,12 @@ describe("this repository", () => {
   });
 
   test("and there are enough of them for the run to have proved anything", () => {
-    // The floor is over line citations and symbol citations together:
-    // most of the surface is symbols, and a floor set against the
-    // line citations alone would clear on a symbol scan that resolved
-    // nothing at all.
-    expect(report.checked + report.symbols).toBeGreaterThanOrEqual(
-      MINIMUM_CITATIONS,
-    );
+    // The floor is over all three surfaces together: most of it is
+    // link tags, and a floor set against the line citations alone
+    // would clear on a name scan that resolved nothing at all.
+    expect(
+      report.checked + report.symbols + report.links,
+    ).toBeGreaterThanOrEqual(MINIMUM_CITATIONS);
     expect(verdict(report).kind).toBe("clean");
   });
 });

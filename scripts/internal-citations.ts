@@ -43,7 +43,14 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { cannotRun, GATE_FAILED, printUsage, wantsHelp } from "./lib/cli.js";
-import { checkSymbol, namesIn, symbolCitations } from "./internal-symbols.js";
+import {
+  checkLink,
+  checkSymbol,
+  linkCitations,
+  namesIn,
+  symbolCitations,
+  symbolIndex,
+} from "./internal-symbols.js";
 import { isArray, isObject, strictJson } from "./metrics/json.js";
 
 const ARGUMENT_START = 2;
@@ -437,6 +444,8 @@ export interface Report {
   paths: number;
   /** Symbols named beside a repo path and held to that file. */
   symbols: number;
+  /** Symbols named in a link tag and held to the tree's index. */
+  links: number;
   /** Line references nothing in their scope named a file for. */
   contextless: string[];
   /** One line per failure, ready to print. */
@@ -652,33 +661,41 @@ function checkRepoPaths(report: Report, tree: Tree): void {
 }
 
 /**
- * Hold every symbol a comment names beside a repo path to a name that
- * file declares or imports.
+ * Hold every name the prose claims: a symbol beside a repo path to a
+ * name that file has, and a link tag to one file in the whole tree.
  *
- * The names of every read file are collected FIRST, so one parse per
- * file answers however many citations name it. A citation naming a
- * file this gate has no text for is skipped: see
- * `scripts/internal-symbols.ts` for why that is not this half's
- * question.
+ * The names of every read file are parsed FIRST, so one parse per file
+ * answers however many citations name it and builds the index both
+ * halves are resolved against. A symbol citation naming a file this
+ * gate has no text for is skipped: see `scripts/internal-symbols.ts`
+ * for why that is not this half's question.
  * @param report - the run's report, added to in place
  * @param tree - the checkout
  */
-function checkSymbols(report: Report, tree: Tree): void {
-  const names = new Map<string, ReadonlySet<string>>();
-  for (const [relative, text] of tree.texts) {
-    names.set(relative, namesIn(relative, text));
-  }
-  for (const [relative, text] of tree.texts) {
-    for (const citation of symbolCitations(relative, text)) {
-      const held = names.get(citation.file);
-      if (held === undefined) {
+function checkNames(report: Report, tree: Tree): void {
+  const read = [...tree.texts].map(([file, text]) => ({
+    file,
+    text,
+    names: namesIn(file, text),
+  }));
+  const held = new Map(read.map((one) => [one.file, one.names]));
+  const index = symbolIndex(held);
+  for (const { file, text, names } of read) {
+    for (const citation of symbolCitations(file, text)) {
+      const cited = held.get(citation.file);
+      if (cited === undefined) {
         continue;
       }
       report.symbols += 1;
       report.listing.push(
         `${citation.at}\t\`${citation.named}\`\t${citation.file}`,
       );
-      report.failures.push(...checkSymbol(citation, held));
+      report.failures.push(...checkSymbol(citation, cited));
+    }
+    for (const citation of linkCitations(file, text)) {
+      report.links += 1;
+      report.listing.push(`${citation.at}\t${citation.named}\t(link)`);
+      report.failures.push(...checkLink(citation, names, index));
     }
   }
 }
@@ -702,6 +719,7 @@ export function run(tree: Tree): Report {
     exempt: 0,
     paths: 0,
     symbols: 0,
+    links: 0,
     contextless: [],
     failures: [],
     listing: [],
@@ -709,7 +727,7 @@ export function run(tree: Tree): Report {
   checkMinimums(report, tree);
   checkLintConfig(report, tree);
   checkRepoPaths(report, tree);
-  checkSymbols(report, tree);
+  checkNames(report, tree);
   return report;
 }
 
@@ -757,7 +775,11 @@ export type Verdict =
  */
 export function verdict(report: Report): Verdict {
   const total =
-    report.checked + report.exempt + report.symbols + report.failures.length;
+    report.checked +
+    report.exempt +
+    report.symbols +
+    report.links +
+    report.failures.length;
   if (total < MINIMUM_CITATIONS) {
     return {
       kind: "cannot-run",
@@ -772,7 +794,7 @@ export function verdict(report: Report): Verdict {
     return { kind: "failed", lines };
   }
   lines.push(
-    `internal-citations: ${String(report.checked)} citations hold (${String(report.quoted)} quoting source, ${String(report.exempt)} naming a former tree), ${String(report.symbols)} symbols resolve, ${String(report.paths)} repo paths exist`,
+    `internal-citations: ${String(report.checked)} citations hold (${String(report.quoted)} quoting source, ${String(report.exempt)} naming a former tree), ${String(report.symbols)} symbols and ${String(report.links)} link tags resolve, ${String(report.paths)} repo paths exist`,
   );
   return { kind: "clean", lines };
 }

@@ -239,7 +239,8 @@ export function factKey(field: AstField): string {
  * key set: fact key to the reason it is a fact.
  *
  * ONE FILE PER FACT is the whole point. The reasons used to live in a
- * map beside {@link EXEMPT} whose 74 keys were the ledger's 74 keys,
+ * map beside `EXEMPT` (scripts/fact-inventory-classification.ts) whose
+ * 74 keys were the ledger's 74 keys,
  * so a landing fact was written in two files and the two could
  * disagree - one of them silently, because nothing compared them.
  * Reading the ledger makes the key set the same set by construction.

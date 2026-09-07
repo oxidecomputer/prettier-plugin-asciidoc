@@ -1,32 +1,48 @@
 /**
- * The SYMBOL half of the repo-internal citation gate: every symbol a
- * comment names beside one of this repository's files is held to a
- * name that file really has.
+ * The SYMBOL half of the repo-internal citation gate: every name this
+ * repository's prose claims is held to a name the repository has.
  *
  * WHY. The path half (`scripts/internal-citations.ts`) holds a
  * comment's `file:line` and its quoted source; what it cannot hold is
  * the NAME written beside the path, and a name is what the prose is
  * actually about. A function that moves between two modules leaves
- * every comment naming its old one both readable and wrong. Until a
- * symbol is checkable, dropping the paths out of prose would delete
- * the only check those comments have.
+ * every comment naming its old one both readable and wrong.
  *
- * THE GRAMMAR, and it is deliberately narrow. A symbol citation is a
- * backtick-quoted, identifier-shaped run written IMMEDIATELY before a
- * repository `.ts` path: `` (`isSingleWordLine`,
- * src/parse/line-shapes.ts) ``. Adjacency and not scope, because this
- * repository's comments quote Ruby methods (`next_block`,
- * `parse_list`) and AsciiDoc spellings in backticks as freely as they
- * name their own functions, so a rule that let any path in a
- * paragraph bind any quoted run in it reports mostly those.
+ * TWO SPELLINGS, and the prose picks by what a reader needs. A link
+ * tag claims a symbol and nothing else, which is the marker a bare
+ * backticked identifier lacks: a quoted name in a comment is
+ * otherwise indistinguishable from a quoted value or a Ruby method.
+ * A name written beside a repository path claims a symbol AND says
+ * which file to open, which is what a name several files declare
+ * still needs.
+ *
+ * THE PATH SPELLING is deliberately narrow: a backtick-quoted,
+ * identifier-shaped run written IMMEDIATELY before a repository `.ts`
+ * path, as in (`isSingleWordLine`, src/parse/line-shapes.ts).
+ * Adjacency and not scope, because this repository's comments quote
+ * Ruby methods (`next_block`, `parse_list`) and AsciiDoc spellings in
+ * backticks as freely as they name their own functions, so a rule
+ * that let any path in a paragraph bind any quoted run in it reports
+ * mostly those.
  *
  * WHAT COUNTS AS HAVING THE NAME: the file DECLARES it (a function,
- * class, interface, type, enum, variable, property or method) or
- * IMPORTS it. Imports count because a comment that says "the printer's
- * `Cursor` (src/print/inline.ts)" is telling a reader where to look,
- * and the file that uses the name is a place a reader finds it. A run
- * whose first segment is one of the runtime's own globals is not this
- * repository's to hold, and is skipped.
+ * class, interface, type, enum, variable, property, accessor or
+ * method) or IMPORTS it. Imports count because a comment that says
+ * "the printer's `Cursor` (src/print/inline.ts)" is telling a reader
+ * where to look, and the file that uses the name is a place a reader
+ * finds it. A run whose first segment is one of the runtime's own
+ * globals is not this repository's to hold, and is skipped.
+ *
+ * THE INDEX is the union of the DECLARATIONS over `src`, `tests` and
+ * `scripts`: one entry per name, holding the files that declare it.
+ * Imports are not in it, because an imported name is declared
+ * somewhere and where is the question the index answers. A tag
+ * carries no path, so it is held against the citing file's own names
+ * first, which is what TypeScript itself resolves it against, and
+ * against the index only when the name is not one of those. There it
+ * must name exactly ONE file: a name several files declare sends a
+ * reader nowhere in particular, and that case is what a path beside
+ * the name is for.
  *
  * A CITATION NAMING A FILE THE GATE HAS NO TEXT FOR IS SKIPPED, not
  * failed. "Does this file have this name" is unanswerable without the
@@ -50,9 +66,43 @@ const CITED =
   /`(?<named>[^`\n]+)`(?:[\s,]|\/\/|\*)*(?:(?:in|of|from|at)\b)?(?:[\s,]|\/\/|\*)*\(?(?<file>(?:src|tests|scripts)\/[\w.\/\-]*\.ts)/gv;
 
 /**
+ * A link tag, with the wrap a long one takes: the 80-column rule
+ * breaks a tag after `{@link` as readily as it breaks an aside, and
+ * the comment prefix the next line opens with is part of neither the
+ * tag nor the name. The name runs to the closing brace, because this
+ * repository writes no display text and TSDoc's `|` form would need
+ * one.
+ */
+const LINKED = /\{@link(?:\s|\/\/|\*)+(?<named>[^\s\}]+)\s*\}/gv;
+
+/**
+ * The files where link-shaped text is DATA rather than a claim, whose
+ * tags this scan does not read.
+ *
+ * Both are the gate's own tests, and both have to write a tag the tree
+ * cannot resolve: one that names nothing, and one that names a name
+ * several files declare. Reading them would fail the gate on its own
+ * fixtures, and the alternative - hiding a fixture from the scan by
+ * splitting the tag across a concatenation - would hide a real rot the
+ * same way. The skip lives HERE rather than at the call site so that a
+ * second caller cannot forget it. The other direction's scan keeps a
+ * list of its own for the same reason (`NOT_SCANNED`,
+ * scripts/citation-check.ts).
+ *
+ * Exported so the exemption is pinned and visible
+ * (tests/scripts/internal-symbols.test.ts); no other consumer.
+ * @internal
+ */
+export const LINKS_NOT_SCANNED = new Set([
+  "tests/scripts/internal-citations.test.ts",
+  "tests/scripts/internal-symbols.test.ts",
+]);
+
+/**
  * An identifier, or a dotted or `#`-qualified path of them, with an
  * optional empty call suffix. Anything else in backticks is prose, a
- * value or a foreign spelling, and is not claimed as a symbol.
+ * value or a foreign spelling, and anything else in a link tag is a
+ * URL or an interpolation; neither is claimed as a symbol.
  */
 const SYMBOL_SHAPE = /^[A-Za-z_$][\w$]*(?:[.#][A-Za-z_$][\w$]*)*(?:\(\))?$/v;
 
@@ -70,6 +120,48 @@ export interface SymbolCitation {
 }
 
 /**
+ * One symbol a comment names in a link tag, which carries no path.
+ *
+ * Exported for the gate and its unit tests
+ * (tests/scripts/internal-symbols.test.ts); no other consumer.
+ * @internal
+ */
+export interface LinkCitation {
+  /** Where it is written, as `path:line`. */
+  readonly at: string;
+  /** The name as written, braces and tag stripped. */
+  readonly named: string;
+}
+
+/**
+ * Which files declare each name, over every tree the gate reads.
+ *
+ * Exported for the gate and its unit tests
+ * (tests/scripts/internal-symbols.test.ts); no other consumer.
+ * @internal
+ */
+export type SymbolIndex = ReadonlyMap<string, ReadonlySet<string>>;
+
+/**
+ * The names one file has, split by whether the file declares them.
+ *
+ * Two sets rather than one, because the two questions differ: a
+ * citation beside a path asks whether a reader opening THAT file
+ * finds the name, which an import answers, and the index asks which
+ * file declares it, which an import does not.
+ *
+ * Exported for the gate and its unit tests
+ * (tests/scripts/internal-symbols.test.ts); no other consumer.
+ * @internal
+ */
+export interface FileNames {
+  /** What the file introduces itself. */
+  readonly declared: ReadonlySet<string>;
+  /** What it brings in, and some other file declares. */
+  readonly imported: ReadonlySet<string>;
+}
+
+/**
  * Every name a file declares or imports.
  *
  * The TypeScript compiler rather than a regex, for the reason
@@ -83,20 +175,57 @@ export interface SymbolCitation {
  * @internal
  * @param file - the repo-relative path, for the parser's diagnostics
  * @param text - the file's contents
- * @returns every declared or imported name, in no particular order
+ * @returns its declared and its imported names, in no particular order
  */
-export function namesIn(file: string, text: string): ReadonlySet<string> {
-  const names = new Set<string>();
+export function namesIn(file: string, text: string): FileNames {
+  const declared = new Set<string>();
+  const imported = new Set<string>();
   const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true);
   const visit = (node: ts.Node): void => {
     const named = namedBy(node);
     if (named !== undefined) {
-      names.add(named);
+      (isImported(node) ? imported : declared).add(named);
     }
     ts.forEachChild(node, visit);
   };
   visit(source);
-  return names;
+  return { declared, imported };
+}
+
+/**
+ * The index a path-less citation is resolved against: which files
+ * declare each name.
+ *
+ * Exported for the gate and its unit tests
+ * (tests/scripts/internal-symbols.test.ts); no other consumer.
+ * @internal
+ * @param names - every read file's names, by repo-relative path
+ * @returns the files declaring each declared name
+ */
+export function symbolIndex(
+  names: ReadonlyMap<string, FileNames>,
+): SymbolIndex {
+  const index = new Map<string, Set<string>>();
+  for (const [file, held] of names) {
+    for (const name of held.declared) {
+      const declaring = index.get(name);
+      if (declaring === undefined) {
+        index.set(name, new Set([file]));
+      } else {
+        declaring.add(file);
+      }
+    }
+  }
+  return index;
+}
+
+/**
+ * Does this node bring a name in rather than introduce it?
+ * @param node - a node that introduces a name
+ * @returns whether the name comes from another file
+ */
+function isImported(node: ts.Node): boolean {
+  return ts.isImportSpecifier(node) || ts.isImportClause(node);
 }
 
 /**
@@ -137,8 +266,28 @@ function declarationNameOf(node: ts.Node): ts.Node | undefined {
 }
 
 /**
+ * The segments of a qualified name, which one file must have all of.
+ * @param named - the name as written
+ * @returns its segments, in order, at least one
+ */
+function segmentsOf(named: string): string[] {
+  return named.replace("()", "").split(SEGMENT);
+}
+
+/**
+ * Does one file have this name, however it got there?
+ * @param names - that file's names
+ * @param segment - one segment of a cited name
+ * @returns whether the file declares or imports it
+ */
+function hasName(names: FileNames, segment: string): boolean {
+  return names.declared.has(segment) || names.imported.has(segment);
+}
+
+/**
  * The name a member of a shape introduces: an interface's or class's
- * properties and methods, an object literal's keys, an enum's members.
+ * properties, accessors and methods, an object literal's keys, an
+ * enum's members.
  * @param node - any node of the file's tree
  * @returns the name node it introduces, if it introduces one
  */
@@ -147,6 +296,9 @@ function memberNameOf(node: ts.Node): ts.Node | undefined {
     return node.name;
   }
   if (ts.isPropertyDeclaration(node) || ts.isMethodDeclaration(node)) {
+    return node.name;
+  }
+  if (ts.isGetAccessorDeclaration(node) || ts.isSetAccessorDeclaration(node)) {
     return node.name;
   }
   if (ts.isPropertyAssignment(node)) {
@@ -203,6 +355,39 @@ export function symbolCitations(file: string, text: string): SymbolCitation[] {
 }
 
 /**
+ * Every link tag written in one file, or none where the file's tags
+ * are fixtures ({@link LINKS_NOT_SCANNED}).
+ *
+ * Scanned over the whole text for the reason the citation scan gives,
+ * and filtered by the same two rules: a tag whose target is not
+ * identifier-shaped is a URL or a template hole rather than a claim,
+ * and a name the runtime owns is nobody here's to hold.
+ *
+ * Exported for its unit tests (tests/scripts/internal-symbols.test.ts);
+ * the gate is the only other consumer.
+ * @internal
+ * @param file - the repo-relative path the comments are written in
+ * @param text - that file's contents
+ * @returns the citations, in the order they are written
+ */
+export function linkCitations(file: string, text: string): LinkCitation[] {
+  const citations: LinkCitation[] = [];
+  if (LINKS_NOT_SCANNED.has(file)) {
+    return citations;
+  }
+  for (const match of text.matchAll(LINKED)) {
+    const groups: Record<string, string | undefined> = match.groups ?? {};
+    const named = groups.named ?? "";
+    if (!SYMBOL_SHAPE.test(named) || isRuntimeGlobal(named)) {
+      continue;
+    }
+    const line = text.slice(0, match.index).split("\n").length;
+    citations.push({ at: `${file}:${String(line)}`, named });
+  }
+  return citations;
+}
+
+/**
  * Does this name belong to the JavaScript runtime rather than to this
  * repository? `` `Promise.all` (tests/conformance/interruption.test.ts) ``
  * names the pattern a file uses, not a name that file has, and no
@@ -230,14 +415,88 @@ function isRuntimeGlobal(named: string): boolean {
  */
 export function checkSymbol(
   citation: SymbolCitation,
-  names: ReadonlySet<string>,
+  names: FileNames,
 ): string[] {
-  const segments = citation.named.replace("()", "").split(SEGMENT);
-  const absent = segments.filter((segment) => !names.has(segment));
+  const segments = segmentsOf(citation.named);
+  const absent = segments.filter((segment) => !hasName(names, segment));
   if (absent.length === 0) {
     return [];
   }
   return [
     `${citation.at}: \`${citation.named}\` names ${citation.file}, which declares and imports no ${absent.join(" and no ")}`,
   ];
+}
+
+/**
+ * Hold one link tag to the index, and to the file it is written in.
+ *
+ * THE CITING FILE'S OWN DECLARATIONS FIRST: a name the file declares
+ * is the one a reader lands on, whatever else in the tree shares its
+ * spelling. An IMPORT does not answer it, and that is the whole
+ * difference from the path spelling: an imported name is declared
+ * somewhere else, and where is exactly the question here, so a name
+ * nothing in these trees declares - one imported from a package - is
+ * not a name this repository can hold a tag to. Everything the citing
+ * file does not declare is a question about the tree, and there the
+ * answer has to be exactly one file. Both other answers are failures,
+ * and they are different failures: no file at all is a name that has
+ * moved, was never there, or was never this repository's, and several
+ * files is a name whose reader needs the path this spelling cannot
+ * carry.
+ *
+ * Exported for its unit tests (tests/scripts/internal-symbols.test.ts);
+ * no other consumer.
+ * @internal
+ * @param citation - the citation
+ * @param own - the names of the file it is written in
+ * @param index - which files declare each name in the tree
+ * @returns one message per failure, empty when the citation held
+ */
+export function checkLink(
+  citation: LinkCitation,
+  own: FileNames,
+  index: SymbolIndex,
+): string[] {
+  const segments = segmentsOf(citation.named);
+  if (segments.every((segment) => own.declared.has(segment))) {
+    return [];
+  }
+  const declaring = declaringFiles(index, segments);
+  if (declaring.size === 1) {
+    return [];
+  }
+  const where = `${citation.at}: \`{@link ${citation.named}}\``;
+  if (declaring.size > 1) {
+    return [
+      `${where} is declared in ${String(declaring.size)} files (${[...declaring].toSorted().join(", ")}), so write the name with its path beside it instead`,
+    ];
+  }
+  const absent = segments.filter((segment) => !index.has(segment));
+  if (absent.length > 0) {
+    return [`${where} names no ${absent.join(" and no ")} anything declares`];
+  }
+  return [`${where} names no ONE file declaring ${segments.join(" and ")}`];
+}
+
+/**
+ * The files that declare every segment of a qualified name.
+ *
+ * The intersection and not a lookup of the first segment, so a name
+ * whose halves are declared in different files resolves nowhere: it
+ * would otherwise send a reader to a member of something that is not
+ * there, which is the failure the path spelling checks for too.
+ * @param index - which files declare each name in the tree
+ * @param segments - the segments of one cited name
+ * @returns the files holding all of them, possibly none
+ */
+function declaringFiles(
+  index: SymbolIndex,
+  segments: readonly string[],
+): ReadonlySet<string> {
+  let held = new Set(index.get(segments[0]));
+  for (const segment of segments.slice(1)) {
+    const declaring = index.get(segment) ?? new Set<string>();
+    held = new Set([...held].filter((file) => declaring.has(file)));
+  }
+  return held;
 }

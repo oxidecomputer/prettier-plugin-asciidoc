@@ -957,7 +957,8 @@ const SINGLE_WORD_LINE = new RegExp(
  * Whether a line holds ONE word: its indent, one run of non-whitespace,
  * and nothing more.
  *
- * A PREDICATE rather than a {@link LineKind} arm, the second route
+ * A PREDICATE rather than an arm of `LineKind`
+ * (src/parse/lines/classify.ts), the second route
  * docs/coding-standards.md's line-shape recipe describes: the shape
  * neither opens nor ends a block, so the classifier's verdict for such
  * a line is unchanged and an interruption row for it would pin a grid

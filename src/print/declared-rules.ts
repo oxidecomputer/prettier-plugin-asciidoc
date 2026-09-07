@@ -7,9 +7,9 @@
  * the reader's decisions are an index: one row per line shape, cited
  * to the Ruby that decides it, so nothing classifies a line off to the
  * side. Here the printer's byte CHANGES are the index: one entry per
- * rule, and {@link Emission} is what keeps the index honest, because a
- * respelling that is not one of these entries cannot be expressed
- * (src/print/emission.ts says how).
+ * rule, and `Emission` (src/print/emission.ts) is what keeps the index
+ * honest, because a respelling that is not one of these entries cannot
+ * be expressed.
  *
  * ONE rule lives here so far - the doubled-mark respell. Every other
  * emission path still writes its bytes directly and joins as its axis

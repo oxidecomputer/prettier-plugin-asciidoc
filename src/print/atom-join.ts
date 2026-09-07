@@ -53,8 +53,9 @@ export function strongerBoundary(left: Boundary, right: Boundary): Boundary {
 /**
  * Stamp a join onto an atom. The atom's OWN break demand survives a
  * non-breaking join: a description-list hazard word that opens a
- * formatting span still demands its break, and {@link wrap} lifts the
- * demand to the front of the run the span belongs to.
+ * formatting span still demands its break, and `wrap`
+ * (src/print/reflow.ts) lifts the demand to the front of the run the
+ * span belongs to.
  * @param atom - the atom the join lands on.
  * @param boundary - the join.
  * @returns the atom carrying it.

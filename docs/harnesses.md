@@ -1049,30 +1049,61 @@ spellings are claimed, and they are the ones the repo writes:
   every segment must be there.
 
 The file must DECLARE the name (function, class, interface, type, enum,
-variable, property or method) or IMPORT it; the walk is the TypeScript
+variable, property, accessor or method) or IMPORT it; the walk is the TypeScript
 compiler's, so a name that appears only in a comment does not count. What is
 deliberately NOT claimed: a name with any other word between it and the path
 (``the `BackslashEscape` rule in src/parse/inline/rules.ts`` is prose about a
-rule, not a citation of one), a run that is not identifier-shaped, a name whose
-first segment is a runtime global (`Promise.all`), and a citation whose path
-this gate has no text for - whether the PATH exists is the third scan's
-question, and answering it here would fail every fixture path a gate's own tests
-write. Adjacency and not "any path in the paragraph": this repository's comments
-quote Ruby method names and AsciiDoc spellings in backticks as freely as they
-name their own functions, and the wider rule reports mostly those.
+rule, not a citation of one), a run that is not identifier-shaped, and a name
+whose first segment is a runtime global (`Promise.all`).
+
+**The no-text skip.** A symbol beside a path this gate has no text for is
+SKIPPED, not failed. "Does this file have this name" is unanswerable without the
+file, and whether the PATH exists is the third scan's question; answering it
+here would fail every fixture path a gate's own tests write about a checkout of
+their own. The skip is silent by design - a path that names nothing real is
+already a failure of the third scan, so nothing gets through both.
+
+Adjacency and not "any path in the paragraph": this repository's comments quote
+Ruby method names and AsciiDoc spellings in backticks as freely as they name
+their own functions, and the wider rule reports mostly those.
+
+A fifth scan holds the LINK TAGS, which is the spelling for a name that needs no
+path. `{@link cutMatch}` is a claim where a bare backticked identifier is not:
+in a comment, a quoted name is indistinguishable from a quoted value or a Ruby
+method, and the tag is the marker that says which it is. A tag carries no path,
+so it resolves against an INDEX: the union of the declarations over `src`,
+`tests` and `scripts`, one entry per name holding the files that declare it.
+Imports are not in the index, because an imported name is declared somewhere and
+where is what the index answers.
+
+A tag holds when the file it is written in declares every segment of the name -
+which is what TypeScript resolves a tag against, so whatever else in the tree
+shares the spelling is not that reader's problem - or, failing that, when
+exactly ONE file in the index declares every segment. The two other answers are
+the two failures, and they are different: no file at all is a name that has
+moved or was never there (`{@link lowersHasText}`), and several files is a name
+whose reader needs a path, which is what the other spelling carries
+(``(`printedText`, src/print/blocks.ts)``, where `printedText` is also declared
+in `src/print/span-edges.ts`). A qualified name is held to ONE file declaring
+every segment, so a tag whose halves live in different files resolves nowhere.
+Not claimed: a target that is not identifier-shaped (a URL), and one whose first
+segment is a runtime global. The two files whose link tags are FIXTURES are
+exempt and listed at `LINKS_NOT_SCANNED`: they have to write a tag that resolves
+nowhere and one that resolves twice, and a gate reading its own fixtures would
+fail on them.
 
 Exit codes: 0 every citation held, 1 a citation FAILED, 2 could not run - a bad
-argument, a missing scanned file, or fewer than two hundred citations, which
-means the scan lost its roots. The floor counts line citations and symbol
-citations together, because the symbols are most of the surface: a floor set
-against the line citations alone would clear on a symbol scan that resolved
+argument, a missing scanned file, or fewer citations than the floor, which means
+the scan lost its roots. The floor counts line citations, symbol citations and
+link tags together, because the tags are most of the surface: a floor set
+against the line citations alone would clear on a name scan that resolved
 nothing at all. Exactly what it counts: every line citation checked, every one
-exempted as naming a former tree, every symbol resolved, and every FAILURE of
-any of the four scans, the third one's dead paths included. A path that holds is
-the one thing not counted - there are hundreds of them and they would carry the
-floor on their own. `--list` prints every citation with the file it resolved to
-and the runs it will look for. `scripts/internal-citations.ts` and
-`scripts/internal-symbols.ts`, unit tested in
+exempted as naming a former tree, every symbol and every tag resolved, and every
+FAILURE of any of the five scans, the third one's dead paths included. A path
+that holds is the one thing not counted - there are hundreds of them and they
+would carry the floor on their own. `--list` prints every citation with the file
+it resolved to and the runs it will look for. `scripts/internal-citations.ts`
+and `scripts/internal-symbols.ts`, unit tested in
 `tests/scripts/internal-citations.test.ts` and
 `tests/scripts/internal-symbols.test.ts`.
 
@@ -1085,17 +1116,18 @@ prints the two counts side by side, so a row that stops quoting shows up as a
 gap between them.
 
 Proves: every repo-internal citation names a line that exists and still carries
-what it quotes, and every symbol a comment names beside one of this repository's
-files is a name that file has. It does NOT read the `reason` field (free prose,
-where the next quoted run is as likely to be a function named three clauses
-later); the LINE half does not resolve a citation outside `src` (the two scanned
-files cite nothing else, and letting a bare basename reach the test tree would
-make half of them ambiguous), though the SYMBOL half reads all three trees,
-since a test's comment names the function it pins as freely as a module names
-its neighbour; it does not hold a name with no path beside it, so a comment that
-drops its path drops its check with it; and it does not check that the quoted
-line still MEANS what the row says about it - which is the failure mode a
-re-cite has to be reviewed for, not gated on.
+what it quotes, every symbol a comment names beside one of this repository's
+files is a name that file has, and every link tag names one place in the tree.
+It does NOT read the `reason` field (free prose, where the next quoted run is as
+likely to be a function named three clauses later); the LINE half does not
+resolve a citation outside `src` (the two scanned files cite nothing else, and
+letting a bare basename reach the test tree would make half of them ambiguous),
+though the SYMBOL and LINK halves read all three trees, since a test's comment
+names the function it pins as freely as a module names its neighbour; it does
+not hold a backticked name written with neither a path nor a tag, so prose that
+drops both drops its check with them; and it does not check that the quoted line
+still MEANS what the row says about it - which is the failure mode a re-cite has
+to be reviewed for, not gated on.
 
 ### `bun run printer-reads` - the census's unread claims, held to the printer
 

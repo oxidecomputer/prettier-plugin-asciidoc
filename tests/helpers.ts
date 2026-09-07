@@ -699,7 +699,7 @@ function oracleTableOf(
  * `input`, in document order, via `load` rather than `convert`:
  * `load` reaches the parsed model (`doc.findBy({ context: "table" })`,
  * `table.rows`, each cell's `source()`/`colspan`/`rowspan`/
- * `getAttributes()`), which {@link convert}'s rendered HTML does not
+ * `getAttributes()`), which `convert`'s rendered HTML does not
  * expose (issue #10). Empty, not thrown, when `input` holds no table
  * context at all.
  *
@@ -895,7 +895,7 @@ function oracleDescriptionListOf(
 /**
  * The oracle's own structural read of every description list `findBy`
  * meets in `input`, in document order, via `load` rather than
- * {@link convert}: `load` reaches the parsed model, where a dlist item
+ * `convert`: `load` reaches the parsed model, where a dlist item
  * is the `[[terms], description]` pair `parse_list_item` returns
  * (parser.rb:1387) and the rendered HTML is only its `<dt>`/`<dd>`
  * shadow. Empty, not thrown, when `input` holds no dlist at all.

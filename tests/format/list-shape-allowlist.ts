@@ -32,7 +32,7 @@
  * the item's principal text onto the marker line and a `// c` moved
  * up into the first buffer line, where the metadata loop eats it and
  * leaves `next_block`'s blank count at zero, parser.rb l.505 read at
- * l.764; the item's text now holds a break there, {@link hazard} in
+ * l.764; the item's text now holds a break there, `hazard` in
  * src/print/list-hazard.ts); and the 33 whose failing tail hung on a
  * block anchor standing in a list item's SECOND block, which the
  * classifier read as that block's own metadata and reflowed the line

@@ -165,7 +165,7 @@ class BlockReader {
    * Blank lines seen since the last line the reader CONSUMED — Ruby's
    * `skipped` count in `next_block` (parser.rb l.505): a confined
    * reader picks an in-item paragraph's interrupting set by it (see
-   * {@link BlockReader.bodyContext}). An erased `+` in an item's buffer
+   * {@link BlockReader.body}). An erased `+` in an item's buffer
    * reads as a blank here, exactly as it does to Ruby.
    */
   private blanks = 0;
@@ -878,7 +878,7 @@ class BlockReader {
   /**
    * `next_block`'s verbatim-styled branch (parser.rb:561-567): with a
    * held VERBATIM_STYLES style actionable (the transparency guard in
-   * {@link BlockReader.actionableStyle}), every line
+   * {@link HeldMetadata.actionableStyle}), every line
    * except a section title, a delimiter and an attribute entry opens
    * the styled paragraph AT that line — list markers, macros, breaks,
    * admonition labels, dlist terms, indented lines, a lone `+`, plain

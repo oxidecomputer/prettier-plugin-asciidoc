@@ -3,8 +3,8 @@
  * italic, monospace, highlight, curved quotes, super/subscripts,
  * character references, attribute references, links, xrefs,
  * inline anchors, inline images, UI macros, footnotes, passthroughs,
- * raw lines and hard line breaks) into the flat atom list
- * {@link wrap} packs into output lines.
+ * raw lines and hard line breaks) into the flat atom list `wrap`
+ * (src/print/reflow.ts) packs into output lines.
  *
  * The join between two neighbouring nodes is the whole protocol here,
  * and it is decided in ONE place: a running {@link Boundary} that each
@@ -539,7 +539,7 @@ function collectAtoms(
  * @param blockStart - where the block's first atom lands, and where
  *   that is column 0, whether the source line under it ended after
  *   its first word (block-start-hazard.ts).
- * @returns the block's atoms, ready for {@link wrap}.
+ * @returns the block's atoms, ready for `wrap` (src/print/reflow.ts).
  */
 export function inlineAtoms(
   nodes: readonly InlineNode[],

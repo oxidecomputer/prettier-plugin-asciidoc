@@ -208,7 +208,7 @@ export const UNCLASSIFIED = "unclassified";
 
 /** One ledgered document: what breached, on which pass, and why. */
 export interface ReparseLedgerRow {
-  /** The case id, as {@link reparsePopulation} spells it. */
+  /** The case id, as {@link ReparseCase} spells it. */
   readonly id: string;
   /** `p1` is source versus once-formatted; `p2` is once versus twice. */
   readonly pass: "p1" | "p2";

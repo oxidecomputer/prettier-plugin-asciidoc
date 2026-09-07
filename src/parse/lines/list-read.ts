@@ -296,7 +296,7 @@ function drainedRawTokens(lines: readonly SourceLine[]): InlineToken[] {
  * different things: only `dropped` has a line range Ruby lost and a
  * run its caller REPLAYS, and only `kept` has no run at all. What
  * separates `dropped` from `detached` is the READING their caller
- * applies ({@link ItemBodyReading}); what they share is a run whose
+ * applies ({@link interiorOfItem}); what they share is a run whose
  * meaning is its position, which is the one thing both hand on.
  */
 type HeadDrain =

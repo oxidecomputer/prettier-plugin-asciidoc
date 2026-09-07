@@ -10,8 +10,9 @@
  * are exactly the ones a hand-written tree states plainly.
  *
  * The fixture documents are TINY and synthetic, and they are expected
- * to pass every check. The failure PATHS are driven through
- * {@link verdicts} with literal values, because a fixture that fails
+ * to pass every check. The failure PATHS are driven through `verdicts`
+ * (scripts/local-documents-checks.ts) with literal values, because a
+ * fixture that fails
  * a check today is a fixture that starts failing this test the day
  * the bug behind it is fixed - and because a formatter crash needs a
  * formatter bug to reproduce at all.

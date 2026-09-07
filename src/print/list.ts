@@ -91,7 +91,7 @@ export function printList(
 
 /**
  * The lines one item will actually be written as: THE Doc renderer
- * ({@link printedText}, src/print/blocks.ts) split at its line breaks.
+ * (`printedText`, src/print/blocks.ts) split at its line breaks.
  *
  * An item's Doc carries its indentation as literal spaces (the packer
  * writes them, src/print/reflow.ts) and no enclosing `indent`, so
@@ -386,7 +386,7 @@ function canonicalChecklistHead(atoms: readonly Atom[]): readonly Atom[] {
  * @param node - the item node.
  * @param parentList - the list the item belongs to.
  * @param atoms - the item's atoms, straight from the inline printer.
- * @param guard - what {@link hazard} answered for this item.
+ * @param guard - what `hazard` (src/print/list-hazard.ts) answered.
  * @returns the atoms the block body is packed from.
  */
 function guardedAtoms(
