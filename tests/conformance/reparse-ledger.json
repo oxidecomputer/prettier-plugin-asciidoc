@@ -470,18 +470,6 @@
       "family": "indent-dropped"
     },
     {
-      "id": "line/pair/delimiter-commentBlock-near-0/continuation/blank/dlist-desc-line",
-      "pass": "p1",
-      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"///\")] -> [-(comment=\"///\") .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text]",
-      "family": "gap-line-lost"
-    },
-    {
-      "id": "line/pair/delimiter-commentBlock-near-1/continuation/blank/dlist-desc-line",
-      "pass": "p1",
-      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"////x\")] -> [-(comment=\"////x\") .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text]",
-      "family": "gap-line-lost"
-    },
-    {
       "id": "line/pair/delimiter-example-near-0/continuation-near-0/adjacent/doc",
       "pass": "p1",
       "signature": "[<paragraph(blankBelowAnchorLine=false) .children text(value=\"=== + x\") >paragraph] -> [heading(level=2,title=\"+ x\")]",

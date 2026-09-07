@@ -582,9 +582,9 @@
       "landedLemma": false,
       "reparseFamilies": [
         {
-          "basis": "argued",
+          "basis": "argued-not-counted",
           "family": "gap-line-lost",
-          "note": "#171's own description (\"the + line inside a description item's term gap is not written back\") names this exact fact and this exact alphabet; not verified against the 5 ledgered rows one by one"
+          "note": "#171's own description named this fact, and measuring its four rows showed the lost bytes were the item's TAIL rather than a term gap: every one of them had an empty gap and a description the head drain took. All four are gone (the printer writes the detached + back, drainTakesWholeBody in src/print/join.ts), and the one row the family still holds is a corpus reflow join with no description in it, so this fact explains none of what is left"
         }
       ]
     }

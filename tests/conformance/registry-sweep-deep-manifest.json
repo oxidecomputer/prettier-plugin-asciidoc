@@ -1,6 +1,6 @@
 {
   "pair/bom/fidelity": {
-    "count": 132,
+    "count": 131,
     "examples": [
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/doc@bom",
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/item@bom",
@@ -8,7 +8,7 @@
       "pair/admonition-label-near-1/delimiter-openBlock-near-2/adjacent/item@bom",
       "pair/admonition-label/delimiter-openBlock-near-2/adjacent/doc@bom"
     ],
-    "sha256": "8345e3fa61d47c7d4872227bd8de91d23febd0ce31a660a9e1e769f3a062bca8",
+    "sha256": "42c012597478484f54b18922f7f2928cae107feb93a8e3b74fa486f7dd4a8bac",
     "issue": "UNTRIAGED"
   },
   "pair/bom/idempotency": {
@@ -32,7 +32,7 @@
     "issue": "UNTRIAGED"
   },
   "pair/clean/fidelity": {
-    "count": 132,
+    "count": 131,
     "examples": [
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/doc",
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/item",
@@ -40,7 +40,7 @@
       "pair/admonition-label-near-1/delimiter-openBlock-near-2/adjacent/item",
       "pair/admonition-label/delimiter-openBlock-near-2/adjacent/doc"
     ],
-    "sha256": "96af98aea9d1e3002a10f3c26941a4dadd15ad42555261bd1c08da5e5a00c6df",
+    "sha256": "85e0c816d04bafcd8fbfbe2e57958608ad96242b17ec4985cec2143af7ccca42",
     "issue": "UNTRIAGED"
   },
   "pair/clean/idempotency": {
@@ -64,7 +64,7 @@
     "issue": "UNTRIAGED"
   },
   "pair/crlf/fidelity": {
-    "count": 132,
+    "count": 131,
     "examples": [
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/doc@crlf",
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/item@crlf",
@@ -72,7 +72,7 @@
       "pair/admonition-label-near-1/delimiter-openBlock-near-2/adjacent/item@crlf",
       "pair/admonition-label/delimiter-openBlock-near-2/adjacent/doc@crlf"
     ],
-    "sha256": "d58197370be902e817c1261a9b9635698df4b20bd6b00a05adab101d5609a8a6",
+    "sha256": "30258954af64f5e722943c2050049665461cff9ac3a9acb683520d2bf79f03b9",
     "issue": "UNTRIAGED"
   },
   "pair/crlf/idempotency": {
@@ -96,7 +96,7 @@
     "issue": "UNTRIAGED"
   },
   "pair/no-final-newline/fidelity": {
-    "count": 132,
+    "count": 131,
     "examples": [
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/doc@no-final-newline",
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/item@no-final-newline",
@@ -104,7 +104,7 @@
       "pair/admonition-label-near-1/delimiter-openBlock-near-2/adjacent/item@no-final-newline",
       "pair/admonition-label/delimiter-openBlock-near-2/adjacent/doc@no-final-newline"
     ],
-    "sha256": "e9ca0de34c2d20883087cab56270978f4912cd5de4a8fe74570b69b9332ce7cd",
+    "sha256": "a1ba0d9d8cbf8cf78795815c447e31b925885283e606d8177a0a7f52293d744e",
     "issue": "UNTRIAGED"
   },
   "pair/no-final-newline/idempotency": {
@@ -128,7 +128,7 @@
     "issue": "UNTRIAGED"
   },
   "pair/trailing-ff/fidelity": {
-    "count": 134,
+    "count": 133,
     "examples": [
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/doc@trailing-ff",
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/item@trailing-ff",
@@ -136,7 +136,7 @@
       "pair/admonition-label-near-1/delimiter-openBlock-near-2/adjacent/item@trailing-ff",
       "pair/admonition-label/delimiter-openBlock-near-2/adjacent/doc@trailing-ff"
     ],
-    "sha256": "5154e7e2c51ee370f73923eff681c386b54eeb877443606bb10379c21b46d91e",
+    "sha256": "ad6aa900eaffe5d4b71bfd19036d55bb442d46852aff065cf783a1ddd84447ce",
     "issue": "UNTRIAGED"
   },
   "pair/trailing-ff/idempotency+fidelity": {
@@ -152,7 +152,7 @@
     "issue": "UNTRIAGED"
   },
   "pair/trailing-space-first-line/fidelity": {
-    "count": 134,
+    "count": 133,
     "examples": [
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/doc@trailing-space-first-line",
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/item@trailing-space-first-line",
@@ -160,7 +160,7 @@
       "pair/admonition-label-near-1/delimiter-openBlock-near-2/adjacent/item@trailing-space-first-line",
       "pair/admonition-label/delimiter-openBlock-near-2/adjacent/doc@trailing-space-first-line"
     ],
-    "sha256": "03004e2983b248608985c8631d3fa4e05ddcdf48847c34ca7262c76e2081aedd",
+    "sha256": "02679f53161c46b1f23fe5a83308af18b331cea31707234c3abd595a41d9b9c4",
     "issue": "UNTRIAGED"
   },
   "pair/trailing-space-first-line/idempotency+fidelity": {
@@ -176,7 +176,7 @@
     "issue": "UNTRIAGED"
   },
   "pair/trailing-space/fidelity": {
-    "count": 134,
+    "count": 133,
     "examples": [
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/doc@trailing-space",
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/item@trailing-space",
@@ -184,7 +184,7 @@
       "pair/admonition-label-near-1/delimiter-openBlock-near-2/adjacent/item@trailing-space",
       "pair/admonition-label/delimiter-openBlock-near-2/adjacent/doc@trailing-space"
     ],
-    "sha256": "795e9b7c6dcccb3b3aa66668af2be334f01f4dd1157983ba9f16a39177ad2e62",
+    "sha256": "5d781a9781988db9fe5405360789595ac1b8f6c9fcb04d24cfb00b5666de13a6",
     "issue": "UNTRIAGED"
   },
   "pair/trailing-space/idempotency+fidelity": {
@@ -200,7 +200,7 @@
     "issue": "UNTRIAGED"
   },
   "pair/trailing-tab/fidelity": {
-    "count": 134,
+    "count": 133,
     "examples": [
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/doc@trailing-tab",
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/item@trailing-tab",
@@ -208,7 +208,7 @@
       "pair/admonition-label-near-1/delimiter-openBlock-near-2/adjacent/item@trailing-tab",
       "pair/admonition-label/delimiter-openBlock-near-2/adjacent/doc@trailing-tab"
     ],
-    "sha256": "8bd616b5ca823a64a593064138ebf0eb74281a2a463b5c75bc5c98649be587c6",
+    "sha256": "52ecc0c37f4ac3fe1406c69c25deeb74694536b032db6694e6bd4f778d3a3120",
     "issue": "UNTRIAGED"
   },
   "pair/trailing-tab/idempotency+fidelity": {
@@ -224,7 +224,7 @@
     "issue": "UNTRIAGED"
   },
   "pair/trailing-vt/fidelity": {
-    "count": 134,
+    "count": 133,
     "examples": [
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/doc@trailing-vt",
       "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/item@trailing-vt",
@@ -232,7 +232,7 @@
       "pair/admonition-label-near-1/delimiter-openBlock-near-2/adjacent/item@trailing-vt",
       "pair/admonition-label/delimiter-openBlock-near-2/adjacent/doc@trailing-vt"
     ],
-    "sha256": "edd51292001215b4c52b18b206dbbff25bad2d726635a75226d296ea7a791beb",
+    "sha256": "e310bac7aec691de313949af02039b07f7c98c908e13d49a5aeb5462b01f91f2",
     "issue": "UNTRIAGED"
   },
   "pair/trailing-vt/idempotency+fidelity": {

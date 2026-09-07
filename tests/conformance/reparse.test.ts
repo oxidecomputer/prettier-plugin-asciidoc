@@ -358,7 +358,14 @@ describe("the lens still sees the corruptions the printer can make", () => {
       "image::a.png[\n[+1]\n",
     ],
     ["a folded lone + comes back as {plus} (#116)", ". T\n  +\n"],
-    ["a term gap's + is not written back (#171)", "term::\n///\n\n+\n"],
+    // #171 had a row here ("term::\n///\n\n+\n") and no longer does: a
+    // description the head drain would take now keeps the detached `+`
+    // that stops it (`drainTakesWholeBody`, src/print/join.ts), and so
+    // does the `// c` body whose deleted line rendered nothing. All
+    // four of the issue's coordinates round-trip, so the family holds
+    // no description document at all now and there is none to put in
+    // this row's place. What keeps `gap-line-lost` live is a corpus
+    // reflow join with no description in it.
   ])("%s", async (_what, document) => {
     const breaches = await reparseBreachesOf(document);
     expect(breaches.length).toBeGreaterThan(0);

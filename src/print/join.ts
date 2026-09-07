@@ -20,6 +20,7 @@ import {
   printsSourceAttributeLine,
   stacksAsMetadata,
 } from "../block-metadata.js";
+import { LINE_COMMENT_HEAD } from "../parse/line-shapes.js";
 
 const {
   builders: { hardline },
@@ -385,6 +386,107 @@ function startsOnTheNextLine(previous: BlockNode, current: BlockNode): boolean {
 }
 
 /**
+ * Whether the head drain would take the whole of what this item writes
+ * under its term line, so the `+` the author wrote under that body has
+ * to come back.
+ *
+ * `parse_list_item` peeks past a run of `//`-headed lines before it
+ * reads an item's first block, and unshifts the run only when a line
+ * FOLLOWS it (`comment_lines = list_item_reader.skip_line_comments`,
+ * parser.rb l.1362-71, over `Reader#skip_line_comments`, reader.rb
+ * l.329-346, which takes any line whose head is `//` and stops at a
+ * blank). A run reaching the buffer's end is dropped outright, and the
+ * description goes with it.
+ *
+ * WHETHER THE RUN RENDERS DOES NOT ENTER. The byte is the AUTHOR'S,
+ * and a line the re-read loses is a line lost whatever it renders: a
+ * `///` run takes its `<dd>` down with it and a `// c` run takes only
+ * the source line, and both are the same deletion. The narrower rule
+ * that asked for a rendering body was measured against the wider one
+ * over the drainable-description grid and moved no row in either
+ * direction, so what it bought was two fewer bytes and one more
+ * concept; the blanks under the byte are the armed-tail rule's either
+ * way ({@link listTailContinuationActive}), which is what makes the
+ * wider rule safe.
+ *
+ * IT LIVES HERE, in the separator rules, rather than beside the arm in
+ * src/print/description-list.ts that writes the byte. What a `+` on an
+ * item's last line MEANS is decided UNDER it - one blank arms it and
+ * attaches the next block, two detach it - and that blank count is
+ * this file's ({@link listTailContinuationActive},
+ * {@link separatorAfter}). One predicate, read by the writer and by
+ * the rule that finishes the line, is what keeps the two from
+ * disagreeing about one item.
+ *
+ * The spelling of "comment" is the DRAIN's ({@link LINE_COMMENT_HEAD},
+ * the reader's bare `//` prefix), which is wider than the classifier's
+ * `CommentLineRx`: `///`, `///c` and `////x` are paragraphs to the
+ * parser and lines the drain deletes just the same, and it is the
+ * drain's reading that decides this question.
+ *
+ * NOT AN INVENTED BYTE, though the printer decides where it goes. This
+ * shape can only be read from a source that already carried the `+`.
+ * For the drain to have left these lines in the description at parse
+ * time, a line had to follow the run in the item's own buffer: a
+ * non-comment line would stand in the recorded lines and a blank with
+ * content under it would leave a BLOCK, and both tests below say no to
+ * those. What is left is a buffer ending in a blank, and a trailing
+ * blank survives Ruby's own strip (`buffer.pop` under the
+ * `last_line.empty?` arm, parser.rb l.1584-85) only where the pop
+ * broke the walk on a marker directly under it
+ * (`ListContinuationMarker === buffer[-1]`, l.1580-82).
+ *
+ * The two other tail bytes `tailParts` (src/print/list.ts) writes are
+ * excluded here rather than merely unlikely. `detachedTail` needs a
+ * last block, so the empty-blocks test rules it out; a live
+ * `trailingContinuation` prints its own `+` DIRECTLY under the run,
+ * which stops the drain on its own and makes a second byte
+ * unnecessary.
+ *
+ * The reflow arm writes no body lines at all - the description is
+ * joined onto the term line, and the item's buffer re-reads empty - so
+ * the drain has nothing to reach there.
+ * @param node - the description item being printed
+ * @returns true when the item writes a detached `+` under its body
+ */
+export function drainTakesWholeBody(node: DescriptionListItemNode): boolean {
+  switch (node.printing) {
+    case "reflow": {
+      return false;
+    }
+    case "replay": {
+      return (
+        node.blocks.length === 0 &&
+        node.trailingContinuation === false &&
+        node.textLines.length > 0 &&
+        node.textLines.every((line) => line.startsWith(LINE_COMMENT_HEAD))
+      );
+    }
+  }
+}
+
+/**
+ * Whether an item ends on a `+` the PRINTER writes rather than one the
+ * reader recorded as armed: a description whose whole body the head
+ * drain would take is closed with a detached `+`
+ * ({@link drainTakesWholeBody}, written by
+ * src/print/description-list.ts).
+ * The printed lines end on a live `+` either way, so the separator
+ * question is the same one, and asking the writer's own predicate is
+ * what keeps the two from disagreeing about one item.
+ *
+ * A MARKER item never writes that byte - the arm is the description
+ * printer's - which is what the type test says.
+ * @param item - the last item of a list-like block
+ * @returns whether the item's own printed tail is a live `+`
+ */
+function printsDrainShield(
+  item: ListItemNode | DescriptionListItemNode,
+): boolean {
+  return item.type === "descriptionListItem" && drainTakesWholeBody(item);
+}
+
+/**
  * Whether a list's last printed line stands under a still-ARMED `+` —
  * the tail {@link ListItemNode.activeTail} records: a continuation
  * whose activation ran through block metadata only and never met its
@@ -395,6 +497,14 @@ function startsOnTheNextLine(previous: BlockNode, current: BlockNode): boolean {
  * nested list's own last item is what the printed lines actually end
  * on, so the innermost item's flag is the one that answers, and
  * {@link lastItemOf} is what makes both reach a description list.
+ *
+ * TWO SOURCES for one question, because a live `+` at an item's end
+ * has two origins: one the reader recorded and one the printer writes
+ * ({@link printsDrainShield}). The `||` is no widening - both arms
+ * name the same printed shape, a `+` on the item's last line - and
+ * leaving the second out is what let a `term::` / `///` / blank / `+`
+ * item take one blank line where it needs two, pulling the block under
+ * it into the `<dd>`.
  * @param block - The preceding block node.
  * @returns Whether its tail continuation is still armed.
  */
@@ -409,7 +519,7 @@ function listTailContinuationActive(block: BlockNode): boolean {
   if (last !== undefined && lastItemOf(last) !== undefined) {
     return listTailContinuationActive(last);
   }
-  return item.activeTail;
+  return item.activeTail || printsDrainShield(item);
 }
 
 /**
