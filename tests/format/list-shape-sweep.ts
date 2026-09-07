@@ -12,8 +12,9 @@
  * ONE module because the two must not disagree about what a sweep
  * document IS. A shape the deep entry pins and the default entry
  * spells differently is a shape neither pins, and the split exists
- * only to move wall time — 25.6 s of a 26.1 s suite lived in the
- * depth-5 product — not to weaken what is checked.
+ * only to move wall time (vitest prints each entry's, and the depth-5
+ * product's dwarfed the rest of the default suite), not to weaken what
+ * is checked.
  *
  * NOTHING HERE SAMPLES, at either depth. The sweep used to grow
  * exhaustively and then DRAW 5,000 of the 100,000 length-5 documents,
@@ -147,8 +148,8 @@ export function sweepDocuments(depth: number): string[] {
 /**
  * The allowlist RESTRICTED to one depth's product — a derivation, not
  * a second hand-kept list. The default suite pins a subset of the same
- * 26 entries, and deriving it here means a shape can never be
- * allowlisted at one depth and not the other.
+ * `FAILING_TODAY` entries, and deriving it here means a shape can never
+ * be allowlisted at one depth and not the other.
  * @param depth - the depth whose product the caller sweeps
  * @returns the allowlisted documents that product actually spells
  */

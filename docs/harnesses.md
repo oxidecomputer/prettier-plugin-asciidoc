@@ -272,9 +272,9 @@ regardless: StrykerJS's own vitest config extends this repository's base
 `exclude` list and adds nothing back to it, so a mutation run never sees a deep
 tier, and the default tier is the only sweep coverage it has. The duplication in
 CI - both tiers checking the same rows, in the same job, on every push - is the
-accepted price of keeping that coverage, measured at about 6s against the
-roughly 240s `test:deeply-nested-lists` step beside it: not worth a second
-vitest config to save.
+accepted price of keeping that coverage: what the second run costs is printed by
+vitest in the same job, beside the `test:deeply-nested-lists` step it repeats
+work from, and it is not worth a second vitest config to save.
 
 Both entries carry a SECOND, parallel gate over the same product: the reflow
 re-classification invariant, against `tests/format/reading-ledger.json`. See

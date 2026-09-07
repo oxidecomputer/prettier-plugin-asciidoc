@@ -19,12 +19,14 @@
  * run again there in CI's blocking job; kept here anyway, which is
  * what keeps the mutation-kill claim above true.
  *
- * The allowlist is DERIVED, not copied: `allowlistFor(4)` is the deep
- * sweep's `FAILING_TODAY` filtered to the documents this shallower
- * product spells: NONE of them today, so this entry asserts the
- * depth-4 product is clean outright. A shape can never be allowlisted
- * here without being allowlisted in the deep sweep first, and a new
- * failure at any depth ≤ 4 fails `bun run test`.
+ * The allowlist is DERIVED, not copied: `allowlistFor(SHALLOW_DEPTH)`
+ * is the deep sweep's `FAILING_TODAY` filtered to the documents this
+ * shallower product spells, and this entry asserts set equality against
+ * exactly that. WHICH entries survive the filter is read off
+ * `list-shape-allowlist.ts` rather than restated here, so the two
+ * cannot drift apart. A shape can never be allowlisted here without
+ * being allowlisted in the deep sweep first, and a new failure at any
+ * depth up to SHALLOW_DEPTH fails `bun run test`.
  */
 import { describe, expect, test } from "vitest";
 import {

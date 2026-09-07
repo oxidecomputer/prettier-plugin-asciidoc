@@ -1,5 +1,5 @@
 /**
- * The list-shape sweep at DEPTH 5, the whole product, ~26 s.
+ * The list-shape sweep at DEPTH 5, the whole product.
  *
  * It is NOT in the default suite, and that is the only difference from
  * `list-shape-sweep.test.ts`: same alphabet, same named shapes, same

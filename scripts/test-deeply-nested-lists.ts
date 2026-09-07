@@ -26,17 +26,18 @@
  *
  *   bun run test:deeply-nested-lists
  *
- * WHY IT IS NOT IN `bun run test`. It was, and it cost 25.6 s of a
- * 26.1 s suite: one test owned the whole wall time, and a suite nobody
- * can run on every save is a suite that stops being run. Moving it out
- * would weaken it if nothing else changed, so two things did: it is a
- * step in CI's BLOCKING `gates` job, and it is the prelude to
- * `bun run mutate` and `bun run mutate:full`, so no mutation baseline
- * is ever taken over a tree it has not passed. The default suite keeps
- * the same sweep at DEPTH 4 against a derived subset of the same
- * allowlist — four rather than three because the mutation harness runs
- * the default suite and not this script, and a mutant the sweep used to
- * kill has to die at the shallow depth or not at all. Neither samples.
+ * WHY IT IS NOT IN `bun run test`. It was, and one test owned nearly
+ * the whole suite's wall time, which vitest prints on the run it now
+ * has to itself; a suite nobody can run on every save is a suite that
+ * stops being run. Moving it out would weaken it if nothing else
+ * changed, so two things did: it is a step in CI's BLOCKING `gates`
+ * job, and it is the prelude to `bun run mutate` and
+ * `bun run mutate:full`, so no mutation baseline is ever taken over a
+ * tree it has not passed. The default suite keeps the same sweep at
+ * DEPTH 4 against a derived subset of the same allowlist, four rather
+ * than three because the mutation harness runs the default suite and
+ * not this script, and a mutant the sweep used to kill has to die at
+ * the shallow depth or not at all. Neither samples.
  *
  * Exit codes (`scripts/lib/cli.ts`): 0 the sweeps ran and their
  * failing sets matched the allowlist, the two ledgers and the two

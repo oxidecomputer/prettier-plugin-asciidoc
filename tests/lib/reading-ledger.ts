@@ -5,10 +5,10 @@
  * the fix.
  *
  * WHY A GENERATED FILE rather than a hand-kept string list like
- * `tests/format/list-shape-allowlist.ts`. There are 716 of them at
- * depth 5, which is past what a person maintains by hand and well
- * inside what a person REVIEWS as a diff. The ledger keeps that
- * file's two virtues:
+ * `tests/format/list-shape-allowlist.ts`. How many there are at depth 5
+ * is whatever `tests/format/reading-ledger.json` holds, which is past
+ * what a person maintains by hand and well inside what a person REVIEWS
+ * as a diff. The ledger keeps that file's two virtues:
  *
  * - LEAVING IS DELIBERATE. Both sweep entries assert set equality
  *   against it, so the commit that fixes a mechanism shrinks the
