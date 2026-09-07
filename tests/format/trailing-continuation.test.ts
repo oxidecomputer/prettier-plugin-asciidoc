@@ -13,7 +13,7 @@
  * tests/format/list-continuation.test.ts.
  */
 import { describe, expect, test } from "vitest";
-import { expectFormatted, formatAdoc, renderedHtml } from "../helpers.js";
+import { expectFormatted } from "../helpers.js";
 import { readingBreachesOf } from "../lib/reading.js";
 
 // One row per place the byte can stand. Each asserts the exact
@@ -135,10 +135,7 @@ describe("a popped + comes back where the tail re-reads inert", () => {
       "* a\n[role]\n  lit\n** b\n+\n+\n",
     ],
   ])("%s", async (_name, input, expected) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(expected);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, expected);
   });
 });
 
@@ -148,10 +145,7 @@ describe("an erased shield is the enclosing item's, not the inner one's", () => 
   test.each([["a shield above a nested item", "* a\n+\n+\n** b\n"]])(
     "%s",
     async (_name, input) => {
-      const out = await formatAdoc(input);
-      expect(out).toBe(input);
-      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-      expect(await formatAdoc(out)).toBe(out);
+      await expectFormatted(input, input);
     },
   );
 
@@ -174,10 +168,7 @@ describe("an erased shield is the enclosing item's, not the inner one's", () => 
     ],
     ["an unclosed open block", "--\n* a\n** b\n+\n", "--\n* a\n** b\n+\n--\n"],
   ])("a + at the end of %s comes back", async (_name, input, expected) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(expected);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, expected);
   });
 
   // NOT kept: a blank run follows the `+` in the output, and a `+`
@@ -190,10 +181,7 @@ describe("an erased shield is the enclosing item's, not the inner one's", () => 
   ])(
     "a + a following blank run would erase is dropped, %s",
     async (_name, input, expected) => {
-      const out = await formatAdoc(input);
-      expect(out).toBe(expected);
-      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-      expect(await formatAdoc(out)).toBe(out);
+      await expectFormatted(input, expected);
     },
   );
 });
@@ -219,10 +207,7 @@ describe("a + a slurp carried in is block content, not the item's tail", () => {
       "* i\n+\n====\n----\nfoo\n----\n\n+\n====\n",
     ],
   ])("%s", async (_name, input, expected) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(expected);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, expected);
   });
 });
 

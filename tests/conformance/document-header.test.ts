@@ -16,7 +16,7 @@
  */
 import { describe, test, expect } from "vitest";
 import { LoggerManager, NullLogger, load } from "@asciidoctor/core";
-import { formatAdoc, renderedHtml } from "../helpers.js";
+import { expectFormatted, expectStableRender, formatAdoc } from "../helpers.js";
 
 const nullLogger = NullLogger.create();
 LoggerManager.setLogger(nullLogger);
@@ -437,14 +437,12 @@ describe("what we print for a header", () => {
   test.each(READINGS)(
     "%s renders the same after formatting",
     async (_name, source) => {
-      const formatted = await formatAdoc(source);
-      expect(await renderedHtml(formatted)).toBe(await renderedHtml(source));
+      await expectStableRender(source);
     },
   );
 
   test.each(READINGS)("%s settles in one pass", async (_name, source) => {
-    const once = await formatAdoc(source);
-    expect(await formatAdoc(once)).toBe(once);
+    await expectStableRender(source);
   });
 
   // The minimal repro from the issue, spelled out: the blank line the
@@ -452,7 +450,7 @@ describe("what we print for a header", () => {
   // what demoted the author line to the first body paragraph.
   test("the repro round-trips byte for byte", async () => {
     const input = "= T\nAuthor Name <a@b.c>\n\nbody\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // A header line is never reflowed: it is line syntax, and a wrapped
@@ -461,14 +459,14 @@ describe("what we print for a header", () => {
     const long =
       "A Very Long Author Name Indeed That Runs Past Eighty Columns All By Itself <a@b.c>";
     const input = `= T\n${long}\n\nbody\n`;
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Inline marks in a header line stay bytes: the line is not
   // tokenized, so nothing re-serializes it.
   test("inline marks in an author line are not re-serialized", async () => {
     const input = "= T\nA *B* C <a@b.c>\n\nbody\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // A header attribute entry is normalized exactly like a body one -
@@ -485,9 +483,6 @@ describe("what we print for a header", () => {
   // be one paragraph to Asciidoctor.
   test("a rejected revision line keeps its paragraph", async () => {
     const input = "= T\nA\n: rem\nmore\n\nbody\n";
-    expect(await formatAdoc(input)).toBe(input);
-    expect(await renderedHtml(await formatAdoc(input))).toBe(
-      await renderedHtml(input),
-    );
+    await expectFormatted(input, input);
   });
 });

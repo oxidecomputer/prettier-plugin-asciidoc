@@ -26,7 +26,13 @@
  * point.
  */
 import { describe, expect, test } from "vitest";
-import { formatAdoc, oracleHtml, renderedHtml } from "../helpers.js";
+import {
+  expectFormatted,
+  expectStableRender,
+  formatAdoc,
+  oracleHtml,
+  renderedHtml,
+} from "../helpers.js";
 import { parse } from "../../src/parser.js";
 
 /**
@@ -298,7 +304,7 @@ test("a passthrough is not broken across the wrap", async () => {
   const source = `word word word word word word word word +a b c d e f g h i+`;
   const formatted = await formatAdoc(source);
   expect(formatted).toContain("+a b c d e f g h i+");
-  expect(await renderedHtml(formatted)).toBe(await renderedHtml(source));
+  await expectStableRender(source);
 });
 
 /**
@@ -348,8 +354,7 @@ describe("the construct's bytes survive the reflow", () => {
   ])("%j keeps %j at width %i", async (source, construct, printWidth) => {
     const formatted = await formatAdoc(source, { printWidth });
     expect(formatted).toContain(construct);
-    expect(await renderedHtml(formatted)).toBe(await renderedHtml(source));
-    expect(await formatAdoc(formatted, { printWidth })).toBe(formatted);
+    await expectStableRender(source, { printWidth });
   });
 });
 
@@ -364,7 +369,7 @@ describe("the construct's bytes survive the reflow", () => {
 test("the oracle receives the interior byte for byte", async () => {
   const source = "before $$a  *b*$$ after\n";
   const formatted = await formatAdoc(source);
-  expect(formatted).toBe(source);
+  await expectFormatted(source, source);
   expect(await oracleHtml(formatted)).toBe(await oracleHtml(source));
 });
 

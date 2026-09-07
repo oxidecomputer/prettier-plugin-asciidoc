@@ -29,7 +29,7 @@
  * tests/parser/inline-resolution-order.test.ts.
  */
 import { describe, expect, test } from "vitest";
-import { formatAdoc, oracleHtml, renderedHtml } from "../helpers.js";
+import { expectFormatted, oracleHtml, renderedHtml } from "../helpers.js";
 import { shapes } from "./inline-shape.js";
 import { scanSuperSubMarks } from "../../src/parse/inline/super-sub.js";
 
@@ -97,10 +97,7 @@ function checkRow(row: Row): void {
   });
 
   test("the bytes are pinned, render-equal and idempotent", async () => {
-    const out = await formatAdoc(row.source);
-    expect(out).toBe(`${row.source}\n`);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(row.source));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(row.source, `${row.source}\n`);
   });
 }
 
@@ -199,10 +196,7 @@ describe("the superscript and subscript rows", () => {
     expect(await oracleHtml(source)).toContain("x ^a\nb^ y");
     expect(superSubOffsets(source)).toEqual([]);
     expect(shapes(source)).toEqual([String.raw`"x ^a\nb^ y"`]);
-    const out = await formatAdoc(source);
-    expect(out).toBe("x ^a b^ y\n");
-    expect(await renderedHtml(out)).toBe(await renderedHtml(source));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(source, "x ^a b^ y\n");
   });
 });
 
@@ -351,9 +345,7 @@ describe("the two rows against the rest of the vocabulary", () => {
     );
     expect(superSubOffsets(source)).toEqual([2, 4, 6, 8]);
     expect(shapes(source)).toEqual(['"x "', 'superscript["a~b"]', '"c~ y"']);
-    const out = await formatAdoc(source);
-    expect(out).toBe(`${source}\n`);
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(source, `${source}\n`);
   });
 
   // The DIVERGENCE the rule table declares: `sub_quotes` runs before
@@ -365,10 +357,7 @@ describe("the two rows against the rest of the vocabulary", () => {
     const source = "https://a.com/~u~/p and x";
     expect(await renderedHtml(source)).toContain("<sub>u</sub>");
     expect(shapes(source)).toEqual(["link", '" and x"']);
-    const out = await formatAdoc(source);
-    expect(out).toBe(`${source}\n`);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(source));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(source, `${source}\n`);
   });
 });
 
@@ -425,10 +414,7 @@ function checkDivergence(row: DivergenceRow, oraclePairs: boolean): void {
   });
 
   test("the bytes hold, the render is equal, the format is stable", async () => {
-    const out = await formatAdoc(row.source);
-    expect(out).toBe(`${row.formatted ?? row.source}\n`);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(row.source));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(row.source, `${row.formatted ?? row.source}\n`);
   });
 }
 
@@ -571,10 +557,7 @@ describe("the same divergence the other way round", () => {
     });
 
     test("the agreeing row's bytes, render and second format", async () => {
-      const out = await formatAdoc(row.source);
-      expect(out).toBe(`${row.formatted ?? row.source}\n`);
-      expect(await renderedHtml(out)).toBe(await renderedHtml(row.source));
-      expect(await formatAdoc(out)).toBe(out);
+      await expectFormatted(row.source, `${row.formatted ?? row.source}\n`);
     });
   });
 });
@@ -625,10 +608,7 @@ describe("where no attrlist is taken, the scan and the oracle agree", () => {
     });
 
     test("the control's bytes, render and second format", async () => {
-      const out = await formatAdoc(row.source);
-      expect(out).toBe(`${row.formatted ?? row.source}\n`);
-      expect(await renderedHtml(out)).toBe(await renderedHtml(row.source));
-      expect(await formatAdoc(out)).toBe(out);
+      await expectFormatted(row.source, `${row.formatted ?? row.source}\n`);
     });
   });
 
@@ -647,9 +627,6 @@ describe("where no attrlist is taken, the scan and the oracle agree", () => {
       'superscript[highlightc(red)["c"]]',
       '"a^ y"',
     ]);
-    const out = await formatAdoc(source);
-    expect(out).toBe(`${source}\n`);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(source));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(source, `${source}\n`);
   });
 });

@@ -266,11 +266,10 @@ describe("blank lines at end of file", () => {
   // difference. Every interior byte, the two blank lines included, is
   // the same either way.
   test("without a pragma the same block differs only by its closing delimiter", async () => {
-    const ignored = await formatAdoc(
-      "// prettier-ignore\n----\ninner    text\n\n\n",
-    );
+    const source = "// prettier-ignore\n----\ninner    text\n\n\n";
+    const ignored = await formatAdoc(source);
     const plain = await formatAdoc("----\ninner    text\n\n\n");
-    expect(ignored).toBe("// prettier-ignore\n----\ninner    text\n\n\n");
+    await expectFormatted(source, source);
     const interior = ignored.slice("// prettier-ignore\n".length);
     expect(plain).toBe(`${interior}----\n`);
   });
@@ -335,6 +334,9 @@ describe("the pragma line itself", () => {
   // nothing for it: adding one to a document cannot change what the
   // document means.
   test("renders as nothing", async () => {
+    // The document with the pragma line against the document without
+    // it: two documents, which neither helper compares.
+    // eslint-disable-next-line test-assertions/no-hand-spelled-format-trailer -- two documents, not a format row's own input and output
     expect(await renderedHtml("// prettier-ignore\nsome text\n")).toBe(
       await renderedHtml("some text\n"),
     );

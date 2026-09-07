@@ -26,7 +26,7 @@
  * tests/parser/inline-resolution-order.test.ts asks it.
  */
 import { describe, expect, test } from "vitest";
-import { formatAdoc, renderedHtml } from "../helpers.js";
+import { expectFormatted, renderedHtml } from "../helpers.js";
 import { shapes } from "./inline-shape.js";
 import { scanCurvedQuotes } from "../../src/parse/inline/curved-quotes.js";
 import { scanDoubledMarks } from "../../src/parse/inline/doubled-marks.js";
@@ -193,10 +193,7 @@ describe("doubled marks inside a run of marks (issue #72)", () => {
     });
 
     test("the bytes are pinned, render-equal and idempotent", async () => {
-      const out = await formatAdoc(row.source);
-      expect(out).toBe(`${row.source}\n`);
-      expect(await renderedHtml(out)).toBe(await renderedHtml(row.source));
-      expect(await formatAdoc(out)).toBe(out);
+      await expectFormatted(row.source, `${row.source}\n`);
     });
   });
 });
@@ -394,10 +391,7 @@ describe("an attrlist in front of a doubled mark (issue #72)", () => {
     });
 
     test("the bytes are pinned, render-equal and idempotent", async () => {
-      const out = await formatAdoc(row.source);
-      expect(out).toBe(`${row.formatted}\n`);
-      expect(await renderedHtml(out)).toBe(await renderedHtml(row.source));
-      expect(await formatAdoc(out)).toBe(out);
+      await expectFormatted(row.source, `${row.formatted}\n`);
     });
   });
 });

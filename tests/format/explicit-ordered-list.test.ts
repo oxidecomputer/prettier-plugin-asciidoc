@@ -45,7 +45,7 @@
  *   into that item's text, rendering literal asterisks.
  */
 import { describe, expect, test } from "vitest";
-import { formatAdoc, renderedHtml } from "../helpers.js";
+import { expectFormatted, formatAdoc, renderedHtml } from "../helpers.js";
 
 /**
  * The three assertions every row makes: the exact bytes, the oracle's
@@ -60,10 +60,7 @@ async function expectRow(
   printWidth?: number,
 ): Promise<void> {
   const options = printWidth === undefined ? undefined : { printWidth };
-  const out = await formatAdoc(input, options);
-  expect(out).toBe(expected);
-  expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-  expect(await formatAdoc(out, options)).toBe(out);
+  await expectFormatted(input, expected, options);
 }
 
 describe("an explicit ordered list is a LIST, and round-trips byte for byte", () => {

@@ -15,7 +15,7 @@
  * two files pin one contract.
  */
 import { describe, expect, test } from "vitest";
-import { expectFormatted, formatAdoc, renderedHtml } from "../helpers.js";
+import { expectFormatted, formatAdoc } from "../helpers.js";
 
 describe("the pseudo-run fold classes render like the input", () => {
   // Corruption fixes: the base FOLDED these (metadata onto the first
@@ -160,10 +160,7 @@ describe("byte-stable controls (the two-answer hazard must NOT move these)", () 
   // text) holds.
   test("the [[id,]] lookalike ends the run, verbatim", async () => {
     const input = "* a\npara\n[role]\n[[id,]]\n";
-    const out = await formatAdoc(input);
-    expect(out).toBe("* a\n  para\n[role]\n[[id,]]\n");
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, "* a\n  para\n[role]\n[[id,]]\n");
   });
 });
 
@@ -172,12 +169,14 @@ describe("the wrap-direction idempotence repair", () => {
     const input =
       "* aaaaaaaa bbbbbbbb cccccccc dddddddd eeeeeeee ffffffff gggggggg hhhhhhhh iiiiiiii\n[role]\npara\n";
     const p1 = await formatAdoc(input);
-    const p2 = await formatAdoc(p1);
     // The render half of this class (pass 1 reads unlike the input,
     // because the width-wrap moved the author's first-rest-line
     // metadata) is a recorded pre-existing divergence — deliberately
-    // NOT asserted here.
-    expect(p2).toBe(p1);
+    // NOT asserted here. Which is why the helper is handed PASS 1 and
+    // not the input: the render it compares is pass 1's against its
+    // own, and the assertion left standing is that pass 2 moves
+    // nothing.
+    await expectFormatted(p1, p1);
     expect(p1).not.toContain("\n+\n");
   });
 });
@@ -191,9 +190,6 @@ describe("the whitespace-reftext lookalike keeps the author's bytes", () => {
   // before now holds.
   test("* a/para/[role]/[[3-bad, ]] keeps break and its bytes", async () => {
     const input = "* a\npara\n[role]\n[[3-bad, ]]\n";
-    const out = await formatAdoc(input);
-    expect(out).toBe("* a\n  para\n[role]\n[[3-bad, ]]\n");
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, "* a\n  para\n[role]\n[[3-bad, ]]\n");
   });
 });

@@ -1,3 +1,9 @@
+/* eslint-disable test-assertions/no-hand-spelled-format-trailer --
+   every render comparison in this file is between two DOCUMENTS, which
+   is what the file measures: renderedHtml's own normalizer, not a
+   format row's output against its own input. The helpers that hold the
+   format trailer format a document and read what comes back, so none
+   of them can stand in for a row here. */
 import { describe, expect, test } from "vitest";
 import { oracleHtml, renderedHtml } from "./helpers.js";
 

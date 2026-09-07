@@ -19,7 +19,7 @@
 import { describe, test, expect } from "vitest";
 import { parse } from "../../src/parser.js";
 import type { DelimitedBlockNode, ParentBlockNode } from "../../src/ast.js";
-import { formatAdoc, narrow, renderedHtml } from "../helpers.js";
+import { expectFormatted, narrow } from "../helpers.js";
 import { astShape, serializedKeys } from "./reader-helpers.js";
 
 /**
@@ -271,10 +271,7 @@ describe("held styles on delimiters the style does not re-model", () => {
       "attrs admonition(source)",
     );
     const input = "[source]\n====\nx\n====\n";
-    expect(await formatAdoc(input)).toBe(input);
-    expect(await renderedHtml(await formatAdoc(input))).toBe(
-      await renderedHtml(input),
-    );
+    await expectFormatted(input, input);
   });
 
   test("[source] on **** keeps today's tree and bytes", async () => {
@@ -282,7 +279,7 @@ describe("held styles on delimiters the style does not re-model", () => {
       "attrs admonition(source)",
     );
     const input = "[source]\n****\nx\n****\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   test("[#id] on ==== stays a compound example (no style matches)", () => {

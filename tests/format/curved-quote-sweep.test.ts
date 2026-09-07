@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { formatAdoc, renderedHtml } from "../helpers.js";
+import { expectStableRender, formatAdoc, renderedHtml } from "../helpers.js";
 import { CURVED_SHAPES } from "./curved-quote-sweep.js";
 
 /**
@@ -26,7 +26,7 @@ describe("the curved-quote shape matrix (issue #74)", () => {
     async (id, source) => {
       const formatted = await formatAdoc(source);
       expect(await rendered(formatted)).toBe(await rendered(source));
-      expect(await formatAdoc(formatted)).toBe(formatted);
+      await expectStableRender(source);
     },
   );
 });

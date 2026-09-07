@@ -21,6 +21,7 @@ import { describe, expect, test } from "vitest";
 import {
   asParagraph,
   expectFormatted,
+  expectStableRender,
   formatAdoc,
   renderedHtml,
 } from "../helpers.js";
@@ -259,7 +260,7 @@ describe("an address is one construct, not a stretch of text", () => {
         renderedHtml(out),
       ]);
       expect(after).toBe(before);
-      expect(await formatAdoc(out, { printWidth })).toBe(out);
+      await expectStableRender(source, { printWidth });
     },
   );
 
@@ -280,7 +281,7 @@ describe("an address is one construct, not a stretch of text", () => {
         renderedHtml(out),
       ]);
       expect(got).toBe(want);
-      expect(await formatAdoc(out, { printWidth })).toBe(out);
+      await expectStableRender(source, { printWidth });
     },
   );
 
@@ -380,8 +381,6 @@ describe("an address behind a tag an earlier pass wrote", () => {
     expect(await formatAdoc(source)).toBe(
       "Mail user@example.com and *b* now.\n",
     );
-    expect(await renderedHtml(await formatAdoc(source))).toBe(
-      await renderedHtml(source),
-    );
+    await expectStableRender(source);
   });
 });

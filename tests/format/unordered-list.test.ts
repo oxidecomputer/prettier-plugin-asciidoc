@@ -1,35 +1,40 @@
 import { describe, test, expect } from "vitest";
-import { formatAdoc, renderedHtml } from "../helpers.js";
+import {
+  expectFormatted,
+  expectStableRender,
+  formatAdoc,
+  renderedHtml,
+} from "../helpers.js";
 
 describe("unordered list formatting", () => {
   // Canonical single-item list passes through unchanged.
   test("single item preserved", async () => {
     const input = "* Item one\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Multi-item list preserved.
   test("multi-item list preserved", async () => {
     const input = "* First\n* Second\n* Third\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Nested list preserved with correct markers.
   test("nested list preserved", async () => {
     const input = "* Parent\n** Child\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // One blank line before a list when preceded by a paragraph.
   test("blank line between paragraph and list", async () => {
     const input = "Some text.\n\n* Item\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // One blank line after a list when followed by a paragraph.
   test("blank line between list and paragraph", async () => {
     const input = "* Item\n\nSome text.\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Multiple blank lines between a paragraph and list are collapsed.
@@ -42,31 +47,31 @@ describe("unordered list formatting", () => {
   // Three-level nesting preserved.
   test("three-level nesting preserved", async () => {
     const input = "* Level 1\n** Level 2\n*** Level 3\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // All 5 nesting levels preserved through formatting.
   test("five-level nesting preserved", async () => {
     const input = "* L1\n** L2\n*** L3\n**** L4\n***** L5\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Multiple siblings at nested level.
   test("sibling items at nested level", async () => {
     const input = "* Parent\n** Child A\n** Child B\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Back to parent level after nesting.
   test("return to parent level after nesting", async () => {
     const input = "* First\n** Nested\n* Second\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Multi-level collapse: depth 3 back to depth 1 in one step.
   test("return to root after deep nesting", async () => {
     const input = "* First\n** Nested\n*** Deep\n* Second\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // List item text is reflowed within printWidth.
@@ -88,13 +93,13 @@ describe("unordered list formatting", () => {
   // tests/format/marker-spelling.test.ts.
   test("hyphen marker replays verbatim", async () => {
     const input = "- Item\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Every item of one `-` list shares the list's marker.
   test("multiple hyphen items keep their marker", async () => {
     const input = "- First\n- Second\n- Third\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // An ordered item after an unordered item — even across a blank
@@ -106,34 +111,32 @@ describe("unordered list formatting", () => {
   test("unordered list followed by ordered list", async () => {
     const input = "* Unordered\n\n. Ordered\n";
     expect(await renderedHtml(input)).toMatch(/<li>.*<ol.*<\/li>/v);
-    const out = await formatAdoc(input);
-    expect(out).toBe(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    await expectFormatted(input, input);
   });
 
   // A list immediately after a section heading gets a blank-line
   // separator.
   test("list after section heading", async () => {
     const input = "== Section\n\n* Item\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // A list immediately after a comment gets a blank-line separator.
   test("list after comment", async () => {
     const input = "// A comment\n\n* Item\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // A list after a document title and header attributes.
   test("list after document header", async () => {
     const input = "= Title\n:toc:\n\n* Item\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // A list after a standalone attribute entry.
   test("list after attribute entry", async () => {
     const input = ":key: value\n\n* Item\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Short indented continuation lines are reflowed into one
@@ -219,14 +222,12 @@ describe("list item continuation lines parse like first-line content", () => {
 
   test("anchor + long link formats idempotently (joined input)", async () => {
     const first = await formatAdoc(joined);
-    const second = await formatAdoc(first);
-    expect(second).toBe(first);
+    await expectFormatted(first, first);
   });
 
   test("anchor + long link formats idempotently (split input)", async () => {
     const first = await formatAdoc(split);
-    const second = await formatAdoc(first);
-    expect(second).toBe(first);
+    await expectFormatted(first, first);
   });
 
   test("joined and split inputs converge to the same output", async () => {
@@ -256,9 +257,7 @@ describe("trailing hard break is layout independent", () => {
 
   test("hard break on continuation line is preserved", async () => {
     const input = "* a\n  b +\n  more\n\npara\n";
-    const first = await formatAdoc(input);
-    expect(first).toBe("* a b +\nmore\n\npara\n");
-    expect(await formatAdoc(first)).toBe(first);
+    await expectFormatted(input, "* a b +\nmore\n\npara\n");
   });
 });
 
@@ -269,14 +268,11 @@ describe("trailing hard break is layout independent", () => {
 describe("list item continuation (contextual classification)", () => {
   test("indented continuation lines are item text", async () => {
     const input = "* item\n  continued here\n* next\n";
-    const out = await formatAdoc(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectStableRender(input);
   });
   test("a block-title-shaped line inside an item is item text", async () => {
     const input = "* item\n.not a title\n* next\n";
-    const out = await formatAdoc(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    await expectStableRender(input);
   });
   test("a sibling marker still starts a new item", async () => {
     const input = "* one\n* two\n";
@@ -294,9 +290,7 @@ describe("block anchor inside a list item", () => {
   test("stays verbatim on its own line", async () => {
     const input = "* item\n[[anchor]]\npara\n* next\n";
     const out = await formatAdoc(input);
-    expect(out).toBe(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, input);
     // The oracle drops it, so it must not appear in the rendering.
     const html = await renderedHtml(out);
     expect(html.includes('id="anchor"')).toBe(false);

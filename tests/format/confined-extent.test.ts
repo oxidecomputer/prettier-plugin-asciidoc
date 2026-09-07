@@ -3,41 +3,15 @@
  * fixed spelling is asserted exactly, is IDEMPOTENT, and — proof
  * direction for a CORRUPTION FIX — renders equal to the ORIGINAL
  * INPUT (comparing against the base's output would prove nothing: the
- * base was wrong). EXCEPTION, the taxonomy's third arm: comment
- * blocks render nothing, so render equality is vacuous there
- * (review-measured: the base's BROKEN output also render-equals the
- * input) — those rows prove bytes + idempotence here and content/(xii)
- * at the AST level (tests/parser/confined-extent.test.ts).
+ * base was wrong). On the taxonomy's third arm, comment blocks, that
+ * render equality is VACUOUS - a comment block renders nothing, and
+ * the base's BROKEN output render-equals the input too - so what
+ * those rows rest on is the bytes and content/(xii) at the AST level
+ * (tests/parser/confined-extent.test.ts). Vacuous costs nothing to
+ * assert, so they take the same shared check as the rest.
  */
-import { describe, expect, test } from "vitest";
-import { formatAdoc, renderedHtml } from "../helpers.js";
-
-/**
- * Assert the fixed spelling, its idempotence, and render fidelity to
- * the ORIGINAL input.
- * @param input - the corrupting shape
- * @param expected - the fixed bytes
- */
-async function expectFixed(input: string, expected: string): Promise<void> {
-  const output = await formatAdoc(input);
-  expect(output).toBe(expected);
-  expect(await formatAdoc(output)).toBe(output);
-  expect(await renderedHtml(output)).toBe(await renderedHtml(input));
-}
-
-/**
- * The render-vacuous variant (comment blocks): bytes + idempotence.
- * @param input - the corrupting shape
- * @param expected - the fixed bytes
- */
-async function expectFixedBytes(
-  input: string,
-  expected: string,
-): Promise<void> {
-  const output = await formatAdoc(input);
-  expect(output).toBe(expected);
-  expect(await formatAdoc(output)).toBe(output);
-}
+import { describe, test } from "vitest";
+import { expectFormatted } from "../helpers.js";
 
 describe("confined-extent: every measured shape is byte-lossless", () => {
   test.each([
@@ -117,7 +91,7 @@ describe("confined-extent: every measured shape is byte-lossless", () => {
       "* item\n+\n====\n|===\n|a\n====\n",
     ],
   ])("%s", async (_name, input, expected) => {
-    await expectFixed(input, expected);
+    await expectFormatted(input, expected);
   });
 
   test.each([
@@ -137,7 +111,7 @@ describe("confined-extent: every measured shape is byte-lossless", () => {
       "* item\n+\n====\n////\nx\n////\n====\n",
     ],
   ])("%s (render-vacuous, third arm)", async (_name, input, expected) => {
-    await expectFixedBytes(input, expected);
+    await expectFormatted(input, expected);
   });
 
   // The FOURTH coordinate, deliberately in the family: the three
@@ -148,7 +122,7 @@ describe("confined-extent: every measured shape is byte-lossless", () => {
   // and its content survives (594dc598 emitted `----\n----`, losing
   // the line).
   test("closed example -> item -> unterminated verbatim keeps its content", async () => {
-    await expectFixed(
+    await expectFormatted(
       "====\n* a\n+\n----\nu\n====\n",
       "====\n* a\n+\n----\nu\n----\n====\n",
     );
@@ -168,6 +142,6 @@ describe("confined-extent: every measured shape is byte-lossless", () => {
       "====\n|===\n|a\n====\n",
     ],
   ])("%s keeps the base bytes", async (_name, input, expected) => {
-    await expectFixed(input, expected);
+    await expectFormatted(input, expected);
   });
 });

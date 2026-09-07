@@ -4,20 +4,8 @@
  * Confinement record must reproduce them exactly; a change here means
  * a flavor or flush-order regression, never a row to update.
  */
-import { describe, expect, test } from "vitest";
-import { formatAdoc, renderedHtml } from "../helpers.js";
-
-/**
- * Assert exact bytes, idempotence, and render equality to the input.
- * @param input - the source document
- * @param expected - the expected formatted bytes
- */
-async function expectBytes(input: string, expected: string): Promise<void> {
-  const output = await formatAdoc(input);
-  expect(output).toBe(expected);
-  expect(await formatAdoc(output)).toBe(output);
-  expect(await renderedHtml(output)).toBe(await renderedHtml(input));
-}
+import { describe, test } from "vitest";
+import { expectFormatted } from "../helpers.js";
 
 describe("the confinement flavor bit", () => {
   test("a compound interior inside an item is NOT an item interior", async () => {
@@ -27,7 +15,7 @@ describe("the confinement flavor bit", () => {
     // neither interrupts nor keeps its own line — `para . other`
     // reflow into ONE line. An item-flavored context would keep
     // `. other` on its own line instead.
-    await expectBytes(
+    await expectFormatted(
       "* item\n+\n====\npara\n. other\n====\n",
       "* item\n+\n====\npara . other\n====\n",
     );
@@ -39,10 +27,13 @@ describe("metadata flush order inside interiors", () => {
     // The title lands inside the EXAMPLE (the child reader's own
     // closeAll releases it into the child's root), and the example's
     // synthesized terminator follows it.
-    await expectBytes("--\n====\n.Title\n--\n", "--\n====\n.Title\n====\n--\n");
+    await expectFormatted(
+      "--\n====\n.Title\n--\n",
+      "--\n====\n.Title\n====\n--\n",
+    );
   });
   test("a dangling title before the terminator stays inside (P8)", async () => {
-    await expectBytes(
+    await expectFormatted(
       "====\nfoo\n\n.Title\n====\n",
       "====\nfoo\n\n.Title\n====\n",
     );
@@ -70,6 +61,6 @@ describe("a trailing + inside a confined interior", () => {
     ],
     ["a deeper inner marker", "* outer\n+\n====\n** inner\n+\n====\n\npara\n"],
   ])("%s keeps the inner item's trailing +", async (_name, source) => {
-    await expectBytes(source, source);
+    await expectFormatted(source, source);
   });
 });

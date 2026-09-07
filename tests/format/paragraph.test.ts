@@ -1,10 +1,10 @@
 import { describe, test, expect } from "vitest";
-import { formatAdoc, renderedHtml } from "../helpers.js";
+import { expectFormatted, expectStableRender, formatAdoc } from "../helpers.js";
 
 describe("paragraph formatting", () => {
   // Round-trip baseline: well-formed input should not be changed.
   test("single paragraph preserved", async () => {
-    expect(await formatAdoc("Hello world.\n")).toBe("Hello world.\n");
+    await expectFormatted("Hello world.\n", "Hello world.\n");
   });
 
   // AsciiDoc uses exactly one blank line to separate blocks. Multiple
@@ -39,7 +39,7 @@ describe("paragraph formatting", () => {
   // reaching that arm at all -- Prettier's own coreFormat answers ""
   // for any whitespace-only input before the parser is called.
   test("an empty document formats to empty output", async () => {
-    expect(await formatAdoc("")).toBe("");
+    await expectFormatted("", "");
   });
 
   test("a document of nothing but blank lines formats to empty output", async () => {
@@ -65,14 +65,14 @@ describe("paragraph formatting", () => {
   // oracle renders `<p>` around the same NUL; deleting it here would
   // be the formatter dropping a byte the input had.
   test("a document of nothing but a NUL byte keeps the byte", async () => {
-    expect(await formatAdoc("\u{0}\n")).toBe("\u{0}\n");
+    await expectFormatted("\u{0}\n", "\u{0}\n");
   });
 
   // Complement to the "collapsed" test: verify that a single blank line
   // between paragraphs is already canonical and is preserved unchanged.
   test("two paragraphs separated by single blank line", async () => {
     const input = "First.\n\nSecond.\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Line breaks within a paragraph are reflowed — the formatter joins
@@ -96,7 +96,7 @@ describe("paragraph formatting", () => {
   // Edge case: empty input must produce empty output, not a lone newline.
   // The document printer returns "" when there are no children.
   test("empty input stays empty", async () => {
-    expect(await formatAdoc("")).toBe("");
+    await expectFormatted("", "");
   });
 
   // Regression: a whitespace-only first line opened a paragraph of its
@@ -138,24 +138,19 @@ describe("paragraph continuation (contextual classification)", () => {
       expect(out.includes("\n\n"), "must not split into two blocks").toBe(
         false,
       );
-      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-      expect(await formatAdoc(out)).toBe(out);
+      await expectStableRender(input);
     });
   }
 
   test("a comment line inside a paragraph stays verbatim on its own line", async () => {
     const input = "first line\n// a comment\nlast line\n";
-    const out = await formatAdoc(input);
-    expect(out).toBe("first line\n// a comment\nlast line\n");
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    await expectFormatted(input, "first line\n// a comment\nlast line\n");
   });
 
   test("a conditional directive inside a paragraph stays verbatim", async () => {
     const input =
       "first line\nifdef::flag[]\nconditional text\nendif::[]\nlast line\n";
-    const out = await formatAdoc(input);
-    expect(out).toBe(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    await expectFormatted(input, input);
   });
 
   test.each([
@@ -163,8 +158,7 @@ describe("paragraph continuation (contextual classification)", () => {
     ["a block anchor", "first line\n[[anchor]]\nlast line\n"],
     ["an example delimiter", "first line\n====\nex\n====\n"],
   ])("%s still interrupts", async (_name, input) => {
-    const out = await formatAdoc(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    await expectStableRender(input);
   });
 });
 
@@ -175,17 +169,12 @@ describe("paragraph continuation (contextual classification)", () => {
 // document.
 describe("delimiter lines are whole lines", () => {
   test("a delimiter-prefixed line does not open a block", async () => {
-    const out = await formatAdoc("====text\n");
-    expect(out).toBe("====text\n");
-    expect(await renderedHtml(out)).toBe(await renderedHtml("====text\n"));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted("====text\n", "====text\n");
   });
 
   test("a real delimiter still opens a block", async () => {
     const input = "----\ncode\n----\n";
-    const out = await formatAdoc(input);
-    expect(out).toBe(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    await expectFormatted(input, input);
   });
 
   test("a delimiter-prefixed dlist term in a list item is not a block", async () => {
@@ -197,6 +186,6 @@ describe("delimiter lines are whole lines", () => {
     // (#9) and on the reflow guard narrowing (#4): the term word is
     // currently glued to the item text instead of keeping its line.
     expect(out.includes("\n----\n")).toBe(false);
-    expect(await formatAdoc(out)).toBe(out);
+    await expectStableRender(input);
   });
 });

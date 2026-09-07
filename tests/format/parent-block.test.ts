@@ -1,17 +1,17 @@
 import { describe, test, expect } from "vitest";
-import { expectFormatted, formatAdoc, renderedHtml } from "../helpers.js";
+import { expectFormatted, expectStableRender, formatAdoc } from "../helpers.js";
 
 describe("example block formatting", () => {
   // Canonical example block passes through unchanged.
   test("basic example block preserved", async () => {
     const input = "====\nSome content.\n====\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Empty example block preserved.
   test("empty example block preserved", async () => {
     const input = "====\n====\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Extended example delimiters are normalized to 4 characters.
@@ -24,13 +24,13 @@ describe("example block formatting", () => {
   // Multiple inner paragraphs separated by blank lines.
   test("multiple inner paragraphs", async () => {
     const input = "====\nFirst paragraph.\n\nSecond paragraph.\n====\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Example block between paragraphs.
   test("between paragraphs", async () => {
     const input = "Before.\n\n====\nInside.\n====\n\nAfter.\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Inner paragraph text is reflowed.
@@ -51,13 +51,13 @@ describe("sidebar block formatting", () => {
   // Canonical sidebar block passes through unchanged.
   test("basic sidebar block preserved", async () => {
     const input = "****\nSidebar content.\n****\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Empty sidebar block preserved.
   test("empty sidebar block preserved", async () => {
     const input = "****\n****\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Extended sidebar delimiters normalized to 4.
@@ -70,7 +70,7 @@ describe("sidebar block formatting", () => {
   // Multiple inner paragraphs preserved.
   test("multiple inner paragraphs", async () => {
     const input = "****\nFirst.\n\nSecond.\n****\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 });
 
@@ -78,25 +78,25 @@ describe("open block formatting", () => {
   // Canonical open block passes through unchanged.
   test("basic open block preserved", async () => {
     const input = "--\nOpen content.\n--\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Empty open block preserved.
   test("empty open block preserved", async () => {
     const input = "--\n--\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Open block delimiter is always exactly `--` (2 dashes).
   test("open block always uses 2 dashes", async () => {
     const input = "--\nContent.\n--\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Multiple inner paragraphs preserved.
   test("multiple inner paragraphs", async () => {
     const input = "--\nFirst.\n\nSecond.\n--\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 });
 
@@ -145,12 +145,8 @@ describe("open block formatting via tilde (issue #64)", () => {
     const expected =
       'first paragraph.\n\n~~~~ javascript alert("Hello, World!")\n\n~~~~\n~~~~\n';
     expect(await formatAdoc(input)).toBe(expected);
-    expect(await renderedHtml(await formatAdoc(input))).toBe(
-      await renderedHtml(input),
-    );
-    expect(await formatAdoc(await formatAdoc(input))).toBe(
-      await formatAdoc(input),
-    );
+    await expectStableRender(input);
+    await expectFormatted(await formatAdoc(input), await formatAdoc(input));
   });
 });
 
@@ -158,13 +154,13 @@ describe("quote block formatting", () => {
   // Canonical quote block passes through unchanged.
   test("basic quote block preserved", async () => {
     const input = "____\nQuoted text.\n____\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Empty quote block preserved.
   test("empty quote block preserved", async () => {
     const input = "____\n____\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Extended quote delimiters normalized to 4.
@@ -177,7 +173,7 @@ describe("quote block formatting", () => {
   // Multiple inner paragraphs preserved.
   test("multiple inner paragraphs", async () => {
     const input = "____\nFirst.\n\nSecond.\n____\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 });
 
@@ -186,13 +182,13 @@ describe("nested parent block formatting", () => {
   // and content; the delimiter is framing, not a block separator.
   test("example inside sidebar", async () => {
     const input = "****\n====\nNested content.\n====\n****\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Listing block (leaf) inside example block.
   test("leaf block inside parent block", async () => {
     const input = "====\n----\ncode\n----\n====\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Nested same-type blocks: outer delimiter must be longer

@@ -6,7 +6,7 @@
  * with how the formatter treats other block elements.
  */
 import { describe, test, expect } from "vitest";
-import { formatAdoc, renderedHtml } from "../helpers.js";
+import { expectFormatted, formatAdoc } from "../helpers.js";
 
 describe("line comment formatting", () => {
   // A canonical line comment must pass through unchanged.
@@ -14,7 +14,7 @@ describe("line comment formatting", () => {
   // comments rather than preserving them.
   test("line comment preserved as-is", async () => {
     const input = "// this is a comment\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Empty comments (`//`) are valid and common as section dividers.
@@ -22,7 +22,7 @@ describe("line comment formatting", () => {
   // would add invisible whitespace that linters flag.
   test("empty line comment preserved", async () => {
     const input = "//\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Comments between paragraphs get the same blank-line treatment as
@@ -30,7 +30,7 @@ describe("line comment formatting", () => {
   // verifies the canonical form is already stable.
   test("comment between paragraphs has normalized blank lines", async () => {
     const input = "Before.\n\n// comment\n\nAfter.\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // The formatter's core blank-line-collapsing opinion applies equally
@@ -47,14 +47,14 @@ describe("line comment formatting", () => {
   // stacked `//` lines that form a logical comment block.
   test("consecutive line comments", async () => {
     const input = "// first\n// second\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Comments inside sections must be separated from the heading and
   // from sibling blocks by blank lines, just like paragraphs are.
   test("comment inside a section", async () => {
     const input = "== Title\n\n// remark\n\nText.\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 });
 
@@ -64,14 +64,14 @@ describe("block comment formatting", () => {
   // and must never be reflowed or trimmed.
   test("block comment preserved as-is", async () => {
     const input = "////\nblock content\n////\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Empty block comments are valid (authors use them as placeholders).
   // The printer must emit both delimiters with nothing between them.
   test("empty block comment preserved", async () => {
     const input = "////\n////\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Internal newlines within block comment content must be preserved
@@ -79,14 +79,14 @@ describe("block comment formatting", () => {
   // inside a verbatim block.
   test("multi-line block comment preserved", async () => {
     const input = "////\nline one\nline two\n////\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Block comments between paragraphs follow the same blank-line
   // normalization as all other block types.
   test("block comment between paragraphs", async () => {
     const input = "Before.\n\n////\nhidden\n////\n\nAfter.\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // AsciiDoc allows extended delimiters (`//////`), but the formatter
@@ -103,7 +103,7 @@ describe("block comment formatting", () => {
   // must not collapse or remove internal blank lines.
   test("block comment with internal blank lines preserved", async () => {
     const input = "////\nline one\n\nline three\n////\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Same collapsing behavior as line comments: extra blank lines
@@ -131,10 +131,7 @@ describe("block comment formatting", () => {
       "/////\n////\nsecret\n////\n/////\n",
     ],
   ])("%j keeps its interior inside the comment", async (input, expected) => {
-    const out = await formatAdoc(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(out).toBe(expected);
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, expected);
   });
 
   // The minimum spelling is kept where nothing collides: an interior
@@ -143,7 +140,7 @@ describe("block comment formatting", () => {
   // it constrains nothing.
   test("an interior line longer than the delimiter leaves it at four", async () => {
     const input = "////\ncontent\n//////\n////\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Regression: whitespace-only content in a block comment is
@@ -163,10 +160,7 @@ describe("block comment formatting", () => {
 // terminator, not content).
 test("an unterminated comment block closes directly after its content", async () => {
   const input = "////\ncontent\n//////\n";
-  const out = await formatAdoc(input);
-  expect(out).toBe("////\ncontent\n//////\n////\n");
-  expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-  expect(await formatAdoc(out)).toBe(out);
+  await expectFormatted(input, "////\ncontent\n//////\n////\n");
 });
 
 // A reader-eaten line directly after a block keeps its place: the
@@ -182,6 +176,6 @@ describe("a reader-eaten line directly after a block", () => {
     "[NOTE]\n====\ntext\n====\n// c\n",
     "* a\n* b\n// c\n",
   ])("%j round-trips byte for byte", async (input) => {
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 });

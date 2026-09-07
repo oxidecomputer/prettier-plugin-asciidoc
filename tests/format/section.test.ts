@@ -1,11 +1,11 @@
 import { describe, test, expect } from "vitest";
-import { formatAdoc } from "../helpers.js";
+import { expectFormatted, formatAdoc } from "../helpers.js";
 
 describe("section formatting", () => {
   // A canonical heading should pass through unchanged.
   test("heading preserved as-is", async () => {
     const input = "== Title\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // The formatter normalizes heading whitespace: extra spaces between
@@ -20,20 +20,20 @@ describe("section formatting", () => {
   // Heading and its body content are separated by exactly one blank line.
   test("one blank line between heading and paragraph", async () => {
     const input = "== Title\n\nSome text.\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Adjacent sections are separated by exactly one blank line.
   test("one blank line between sections", async () => {
     const input = "== First\n\n== Second\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Full scenario: section with content followed by another section.
   // Validates that the blank-line join works across the section boundary.
   test("section with paragraph and next section", async () => {
     const input = "== First\n\nParagraph.\n\n== Second\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Multiple blank lines between sections are collapsed, same as paragraphs.
@@ -47,7 +47,7 @@ describe("section formatting", () => {
   // semantics. We only normalize whitespace, not structure.
   test("heading levels are not changed", async () => {
     const input = "=== Level 2\n\n==== Level 3\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 });
 
@@ -80,7 +80,7 @@ describe("block anchors on section headings", () => {
       "=== Third\n" +
       "\n" +
       "Body text three.\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Asciidoctor attaches a block anchor to the following section
@@ -92,27 +92,25 @@ describe("block anchors on section headings", () => {
       "== First\n\nBody one.\n\n[[second]]\n\n== Second\n\nBody two.\n";
     const expected =
       "== First\n\nBody one.\n\n[[second]]\n== Second\n\nBody two.\n";
-    const first = await formatAdoc(input);
-    expect(first).toBe(expected);
-    expect(await formatAdoc(first)).toBe(first);
+    await expectFormatted(input, expected);
   });
 
   test("block attribute list stays attached to sibling section", async () => {
     const input =
       "== First\n\nBody one.\n\n[appendix]\n== Second\n\nBody two.\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   test("anchor stays attached to deeper sibling section", async () => {
     const input = "== First\n\nBody one.\n\n[[sub]]\n=== Sub\n\nBody sub.\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // An anchor not followed by a section stays where it is — it
   // is not section metadata.
   test("dangling anchor at section end is preserved", async () => {
     const input = "== First\n\nBody one.\n\n[[dangling]]\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 });
 
@@ -124,15 +122,13 @@ describe("section metadata chains", () => {
   test("anchor + attribute list chain stays attached", async () => {
     const input =
       "== First\n\nBody one.\n\n[[second]]\n[appendix]\n== Second\n\nBody two.\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   test("anchor + block title + attribute chain stays attached", async () => {
     const input =
       "== First\n\nBody one.\n\n[[second]]\n.A title\n[appendix]\n== Second\n\nBody two.\n";
-    const first = await formatAdoc(input);
-    expect(first).toBe(input);
-    expect(await formatAdoc(first)).toBe(first);
+    await expectFormatted(input, input);
   });
 
   // A comment inside a metadata run travels WITH the metadata to the
@@ -144,8 +140,6 @@ describe("section metadata chains", () => {
   test("comment-interleaved metadata stays with its heading", async () => {
     const input =
       "== First\n\nBody one.\n\n[[c]]\n// note\n== Second\n\nBody two.\n";
-    const first = await formatAdoc(input);
-    expect(first).toBe(input);
-    expect(await formatAdoc(first)).toBe(first);
+    await expectFormatted(input, input);
   });
 });

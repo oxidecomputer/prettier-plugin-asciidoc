@@ -30,7 +30,7 @@ import {
   tableStyle,
   type TableStyle,
 } from "../src/options.js";
-import { formatAdoc } from "./helpers.js";
+import { expectFormatted } from "./helpers.js";
 
 describe("the SupportLanguage descriptor", () => {
   test("names the language, its parser, and the files it claims", () => {
@@ -139,9 +139,9 @@ describe("the plugin's own options", () => {
     // (the first row is never split): what this row owns is that
     // Prettier resolves the name, which a misspelled `name` field or a
     // missing registration breaks.
-    await expect(
-      formatAdoc("|===\n|a\n|===\n", { asciidocTableLayout: "cell" }),
-    ).resolves.toBe("|===\n|a\n|===\n");
+    await expectFormatted("|===\n|a\n|===\n", "|===\n|a\n|===\n", {
+      asciidocTableLayout: "cell",
+    });
   });
 });
 

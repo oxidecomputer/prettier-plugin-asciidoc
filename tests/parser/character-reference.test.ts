@@ -29,7 +29,12 @@
  * where no fold of the lens's can reach it.
  */
 import { describe, expect, test } from "vitest";
-import { formatAdoc, oracleHtml, renderedHtml } from "../helpers.js";
+import {
+  expectFormatted,
+  formatAdoc,
+  oracleHtml,
+  renderedHtml,
+} from "../helpers.js";
 import { shapes } from "./inline-shape.js";
 import { scanReplacements } from "../../src/parse/inline/replacements.js";
 
@@ -96,10 +101,7 @@ function checkRow(row: Row): void {
   });
 
   test("the bytes are pinned, render-equal and idempotent", async () => {
-    const out = await formatAdoc(row.source);
-    expect(out).toBe(`${row.source}\n`);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(row.source));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(row.source, `${row.source}\n`);
   });
 }
 
@@ -422,9 +424,7 @@ describe("references against the rest of the vocabulary", () => {
       'ref("--")',
       '" d y"',
     ]);
-    const out = await formatAdoc(source);
-    expect(out).toBe(`${source}\n`);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(source));
+    await expectFormatted(source, `${source}\n`);
   });
 
   test("a bare URL keeps its own dashes, and the oracle replaces them", async () => {
@@ -433,9 +433,7 @@ describe("references against the rest of the vocabulary", () => {
       "https://a.com/x\u2014\u200By",
     );
     expect(shapes(source)).toEqual(["link", '" and "', 'ref("--")', '" z"']);
-    const out = await formatAdoc(source);
-    expect(out).toBe(`${source}\n`);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(source));
+    await expectFormatted(source, `${source}\n`);
   });
 
   // The one row here whose expectation keeps the reference spelling:
@@ -452,9 +450,7 @@ describe("references against the rest of the vocabulary", () => {
       'monospacec["a",ref("--"),"b"]',
       '" c"',
     ]);
-    const out = await formatAdoc(source);
-    expect(out).toBe(`${source}\n`);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(source));
+    await expectFormatted(source, `${source}\n`);
   });
 
   // The neighbour question the printer asks before shortening an
@@ -471,10 +467,7 @@ describe("references against the rest of the vocabulary", () => {
   ])(
     "a reference %s leaves its respelling alone",
     async (_side, source, expected) => {
-      const out = await formatAdoc(source);
-      expect(out).toBe(`${expected}\n`);
-      expect(await renderedHtml(out)).toBe(await renderedHtml(source));
-      expect(await formatAdoc(out)).toBe(out);
+      await expectFormatted(source, `${expected}\n`);
     },
   );
 });

@@ -7,14 +7,14 @@
  * A blank line separates the header from the document body.
  */
 import { describe, test, expect } from "vitest";
-import { formatAdoc } from "../helpers.js";
+import { expectFormatted, expectStableRender, formatAdoc } from "../helpers.js";
 import { parse } from "../../src/parser.js";
 
 describe("document title formatting", () => {
   // A canonical document title should pass through unchanged.
   test("document title preserved as-is", async () => {
     const input = "= My Document\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Extra whitespace between the `=` marker and the title, and trailing
@@ -30,14 +30,14 @@ describe("document title formatting", () => {
   // line between them. This is the idiomatic AsciiDoc header style.
   test("title and attribute entries have no blank line between them", async () => {
     const input = "= My Document\n:toc:\n:source-highlighter: rouge\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // A blank line separates the header from the body. The formatter
   // should preserve this separation.
   test("blank line between title and body paragraph", async () => {
     const input = "= My Document\n\nBody text.\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Full header (title + attributes) followed by body content. The
@@ -45,7 +45,7 @@ describe("document title formatting", () => {
   // body, not between the title and the attributes.
   test("full header then body", async () => {
     const input = "= My Document\n:toc:\n\nBody text.\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Multiple blank lines between header and body should be collapsed
@@ -60,14 +60,14 @@ describe("document title formatting", () => {
   // should be preserved.
   test("title then section separated by blank line", async () => {
     const input = "= My Document\n\n== First Section\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Document title with attributes, then a section. Attributes are
   // stacked with the title, then a blank line before the section.
   test("title with attributes then section", async () => {
     const input = "= My Document\n:toc:\n\n== First Section\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // A blank line between the title and an attribute entry is the
@@ -79,14 +79,14 @@ describe("document title formatting", () => {
   // documents change bytes on this, all render-equal.
   test("a blank line between title and attribute entry survives", async () => {
     const input = "= My Document\n\n:!numbered:\n\n== First Section\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // The same blank, with a header attribute entry ABOVE it: the
   // header keeps `:toc:` adjacent and the body entry keeps its blank.
   test("a header entry stacks while a body entry keeps its blank", async () => {
     const input = "= My Document\n:toc:\n\n:!numbered:\n\nBody.\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 });
 
@@ -133,30 +133,29 @@ describe("a leading byte-order mark", () => {
   });
 
   test("the misdecoded spelling comes back on the output", async () => {
-    expect(await formatAdoc(`${MISDECODED_BOM}${document}`)).toBe(
+    await expectFormatted(
+      `${MISDECODED_BOM}${document}`,
       `${MISDECODED_BOM}${document}`,
     );
   });
 
   test("a doubled misdecoded spelling comes back doubled", async () => {
-    expect(await formatAdoc(`${MISDECODED_BOM}${MISDECODED_BOM}${title}`)).toBe(
+    await expectFormatted(
+      `${MISDECODED_BOM}${MISDECODED_BOM}${title}`,
       `${MISDECODED_BOM}${MISDECODED_BOM}${title}`,
     );
   });
 
   test("Prettier hands its own mark back on the output", async () => {
-    expect(await formatAdoc(`${BOM}${document}`)).toBe(`${BOM}${document}`);
+    await expectFormatted(`${BOM}${document}`, `${BOM}${document}`);
   });
 
   test("a doubled mark comes back doubled", async () => {
-    expect(await formatAdoc(`${BOM}${BOM}${title}`)).toBe(
-      `${BOM}${BOM}${title}`,
-    );
+    await expectFormatted(`${BOM}${BOM}${title}`, `${BOM}${BOM}${title}`);
   });
 
   test("formatting a marked document is idempotent", async () => {
-    const once = await formatAdoc(`${BOM}${document}`);
-    expect(await formatAdoc(once)).toBe(once);
+    await expectStableRender(`${BOM}${document}`);
   });
 
   test("the mark costs the title one column and nothing else", () => {

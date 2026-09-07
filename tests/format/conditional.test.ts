@@ -1,47 +1,52 @@
 import { describe, test, expect } from "vitest";
-import { expectFormatted, formatAdoc, renderedHtml } from "../helpers.js";
+import {
+  expectFormatted,
+  expectStableRender,
+  formatAdoc,
+  renderedHtml,
+} from "../helpers.js";
 
 describe("conditional directive formatting", () => {
   // ifdef preserved as-is.
   test("ifdef preserved", async () => {
     const input = "ifdef::backend[]\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // ifdef with content preserved.
   test("ifdef with content preserved", async () => {
     const input = "ifdef::backend[Content here]\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // ifndef preserved.
   test("ifndef preserved", async () => {
     const input = "ifndef::attr[]\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // ifeval preserved.
   test("ifeval preserved", async () => {
     const input = "ifeval::[{version} > 1]\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // endif preserved.
   test("endif preserved", async () => {
     const input = "endif::[]\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Comma-separated attributes preserved.
   test("comma-separated attributes preserved", async () => {
     const input = "ifdef::attr1,attr2[]\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Between paragraphs with blank line separation.
   test("between paragraphs", async () => {
     const input = "Before.\n\nifdef::backend[]\n\nAfter.\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 });
 
@@ -83,9 +88,7 @@ describe("preprocessor lines are transparent to attachment (#28)", () => {
       "[sidebar]\ninclude::x.adoc[]\nFirst line.\n",
     ],
   ])("%s round-trips render-equal and idempotent", async (_name, input) => {
-    const out = await formatAdoc(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectStableRender(input);
   });
 
   test.each([
@@ -93,7 +96,7 @@ describe("preprocessor lines are transparent to attachment (#28)", () => {
     "include::a.adoc[]\ninclude::b.adoc[]\n\npara\n",
     "// c\nifdef::a[]\n// d\nendif::[]\n\npara\n",
   ])("consecutive raw lines stack without blank lines: %j", async (input) => {
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 });
 
@@ -143,6 +146,11 @@ describe("a continuation inside a directive pair over an item's tail", () => {
     );
   });
 
+  // The row's subject is the SEQUENCE: three passes, each rendering as
+  // the source, and the last two moving no byte. The shared helpers
+  // assert exactly one pass, so folding any line into one would leave
+  // the rest hand-spelled and say less than the row does.
+  /* eslint-disable test-assertions/no-hand-spelled-format-trailer -- a three-pass convergence, which no one-pass helper states */
   test("every pass renders as the source, converged from the first", async () => {
     const pass1 = await formatAdoc(input);
     const pass2 = await formatAdoc(pass1);
@@ -154,6 +162,7 @@ describe("a continuation inside a directive pair over an item's tail", () => {
     expect(pass2).toBe(pass1);
     expect(pass3).toBe(pass2);
   });
+  /* eslint-enable test-assertions/no-hand-spelled-format-trailer */
 });
 
 /**

@@ -33,7 +33,13 @@
  * (`@asciidoctor/core`) rather than imagined.
  */
 import { describe, expect, test } from "vitest";
-import { formatAdoc, oracleHtml, renderedHtml } from "../helpers.js";
+import {
+  expectFormatted,
+  expectStableRender,
+  formatAdoc,
+  oracleHtml,
+  renderedHtml,
+} from "../helpers.js";
 import { parse } from "../../src/parser.js";
 import { shapes } from "../parser/inline-shape.js";
 
@@ -267,8 +273,7 @@ describe("a wrap never falls between the escape and its mark", () => {
     async (printWidth) => {
       const formatted = await formatAdoc(SOURCE, { printWidth });
       expect(formatted).toContain(String.raw`\*alphabet`);
-      expect(await renderedHtml(formatted)).toBe(await renderedHtml(SOURCE));
-      expect(await formatAdoc(formatted, { printWidth })).toBe(formatted);
+      await expectStableRender(SOURCE, { printWidth });
     },
   );
 });
@@ -285,8 +290,7 @@ describe("a wrap inside the escaped run keeps the reading", () => {
   test.each([12, 20, 24, 30])("at width %i", async (printWidth) => {
     const formatted = await formatAdoc(SOURCE, { printWidth });
     expect(formatted.split("\n").length).toBeGreaterThan(2);
-    expect(await renderedHtml(formatted)).toBe(await renderedHtml(SOURCE));
-    expect(await formatAdoc(formatted, { printWidth })).toBe(formatted);
+    await expectStableRender(SOURCE, { printWidth });
   });
 });
 
@@ -608,8 +612,7 @@ describe("the crossing guard survives a respelling", () => {
     async (source) => {
       const first = await formatAdoc(source);
       expect(first).toContain("**");
-      expect(await renderedHtml(first)).toBe(await renderedHtml(source));
-      expect(await formatAdoc(first)).toBe(first);
+      await expectStableRender(source);
     },
   );
 });
@@ -671,11 +674,19 @@ describe("a doubled span in front of a seam close, as it settles (#190)", () => 
     const source = `${TICK}${TICK}x${TICK}${TICK} **a\t${TICK}${TICK}${BACKSLASH}**${TICK}${TICK}`;
     const first = await formatAdoc(source);
     expect(first).toBe(`${TICK}x${TICK} **a ${TICK}${BACKSLASH}**${TICK}\n`);
+    // The helpers assert render-equality and a one-pass fixed point
+    // together. This document reaches its fixed point on the SECOND
+    // pass, which is the row's whole subject, so each pass is asserted
+    // render-equal on its own and the fixed point is asserted where it
+    // actually lands.
+    // eslint-disable-next-line test-assertions/no-hand-spelled-format-trailer -- the fixed point is one pass later than either helper asserts
     expect(await renderedHtml(first)).toBe(await renderedHtml(source));
     const second = await formatAdoc(first);
     expect(second).toBe(`${TICK}x${TICK} *a ${TICK}${BACKSLASH}*${TICK}\n`);
+    // eslint-disable-next-line test-assertions/no-hand-spelled-format-trailer -- as above
     expect(await renderedHtml(second)).toBe(await renderedHtml(first));
     // The true fixed point: the third pass moves nothing.
+    // eslint-disable-next-line test-assertions/no-hand-spelled-format-trailer -- as above
     expect(await formatAdoc(second)).toBe(second);
   });
 
@@ -683,11 +694,9 @@ describe("a doubled span in front of a seam close, as it settles (#190)", () => 
   // the trailing pair settles on the FIRST pass.
   test("without the trailing pair the first pass reaches it", async () => {
     const source = `${TICK}${TICK}x${TICK}${TICK} **a\t${TICK}${TICK}${BACKSLASH}**`;
-    const first = await formatAdoc(source);
-    expect(first).toBe(
+    await expectFormatted(
+      source,
       `${TICK}${TICK}x${TICK}${TICK} **a ${TICK}${TICK}${BACKSLASH}**\n`,
     );
-    expect(await renderedHtml(first)).toBe(await renderedHtml(source));
-    expect(await formatAdoc(first)).toBe(first);
   });
 });

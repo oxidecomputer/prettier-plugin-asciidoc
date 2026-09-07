@@ -7,13 +7,13 @@
  * stacked with the heading (no blank line between them).
  */
 import { describe, test, expect } from "vitest";
-import { formatAdoc } from "../helpers.js";
+import { expectFormatted, formatAdoc } from "../helpers.js";
 
 describe("discrete heading formatting", () => {
   // Canonical discrete heading passes through unchanged.
   test("discrete heading preserved as-is", async () => {
     const input = "[discrete]\n== Heading\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // The heading marker spacing is normalized, just like sections.
@@ -27,18 +27,18 @@ describe("discrete heading formatting", () => {
   // blank line separator, not section-style nesting.
   test("paragraph after discrete heading gets blank line", async () => {
     const input = "[discrete]\n== Heading\n\nSome text.\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Discrete headings at various levels.
   test("discrete heading at level 2", async () => {
     const input = "[discrete]\n=== Subtitle\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   test("discrete heading at level 3", async () => {
     const input = "[discrete]\n==== Deep Heading\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Level 0 is valid for a discrete heading: `=` is a depth here,
@@ -46,27 +46,25 @@ describe("discrete heading formatting", () => {
   // structure. The whole marker range round-trips byte-stably.
   test("discrete heading at level 0", async () => {
     const input = "[discrete]\n= T\n";
-    const output = await formatAdoc(input);
-    expect(output).toBe(input);
-    expect(await formatAdoc(output)).toBe(output);
+    await expectFormatted(input, input);
   });
 
   // Discrete heading inside a section.
   test("discrete heading inside a section", async () => {
     const input = "== Section\n\n[discrete]\n=== Standalone\n\nParagraph.\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Multiple discrete headings in sequence.
   test("consecutive discrete headings", async () => {
     const input = "[discrete]\n== First\n\n[discrete]\n== Second\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // A block anchor stacks with following metadata ([discrete]
   // attribute list), which itself stacks with the heading.
   test("anchor + discrete + heading", async () => {
     const input = "[[my-id]]\n[discrete]\n== Heading\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 });

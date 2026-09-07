@@ -23,7 +23,13 @@
  * mutants of the OTHER clause of each predicate.
  */
 import { describe, expect, test } from "vitest";
-import { asParagraph, formatAdoc, renderedHtml } from "../helpers.js";
+import {
+  asParagraph,
+  expectFormatted,
+  expectStableRender,
+  formatAdoc,
+  renderedHtml,
+} from "../helpers.js";
 import { parse } from "../../src/parser.js";
 import type { InlineNode } from "../../src/ast.js";
 
@@ -145,10 +151,7 @@ async function expectRow(
   spans: boolean,
 ): Promise<void> {
   expect(hasSpan(paragraphInline(input), type)).toBe(spans);
-  const out = await formatAdoc(input);
-  expect(out).toBe(input);
-  expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-  expect(await formatAdoc(out)).toBe(out);
+  await expectFormatted(input, input);
 }
 
 for (const [mark, type] of MARKS) {
@@ -256,10 +259,7 @@ describe("the backslash escape stays an escape", () => {
   test("an escaped open mark makes no span", async () => {
     const input = "x \\*b* y\n";
     expect(hasSpan(paragraphInline(input), "bold")).toBe(false);
-    const out = await formatAdoc(input);
-    expect(out).toBe(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, input);
   });
 });
 
@@ -283,10 +283,7 @@ describe("direction rows: open and close are different questions", () => {
     const input = "*a*#b# y\n";
     expect(hasSpan(paragraphInline(input), "bold")).toBe(true);
     expect(hasSpan(paragraphInline(input), "highlight")).toBe(true);
-    const out = await formatAdoc(input);
-    expect(out).toBe(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, input);
   });
 });
 
@@ -302,19 +299,13 @@ describe("the word class is the oracle's, not Ruby's", () => {
     "%s in front keeps the doubled marks",
     async (character) => {
       const input = `x${character}**b c** y\n`;
-      const out = await formatAdoc(input);
-      expect(out).toBe(input);
-      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-      expect(await formatAdoc(out)).toBe(out);
+      await expectFormatted(input, input);
     },
   );
 
   test("a superscript behind keeps the doubled marks", async () => {
     const input = "x **b c**\u00B2y\n";
-    const out = await formatAdoc(input);
-    expect(out).toBe(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, input);
   });
 });
 
@@ -336,10 +327,7 @@ describe("the derived boundary at print time: a mark reading a SPAN sibling", ()
   ])("%s shortens to %s", async (source, expected) => {
     const input = `${source}\n`;
     const expectedOut = `${expected}\n`;
-    const out = await formatAdoc(input);
-    expect(out).toBe(expectedOut);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, expectedOut);
   });
 });
 
@@ -401,10 +389,7 @@ describe("the shortening is refused where it would move a same mark (issue #72)"
     "%s keeps its bytes, because %s reads differently",
     async (source, shorter) => {
       const input = `${source}\n`;
-      const out = await formatAdoc(input);
-      expect(out).toBe(input);
-      expect(await formatAdoc(out)).toBe(out);
-      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+      await expectFormatted(input, input);
       // The refusal is necessary: the spelling the printer would
       // otherwise have written is a different document to the oracle.
       expect(await renderedHtml(`${shorter}\n`)).not.toBe(
@@ -426,10 +411,7 @@ describe("the shortening is refused where it would move a same mark (issue #72)"
     ["**a**##b## c", "*a*#b# c"],
   ])("%s still shortens to %s", async (source, expected) => {
     const input = `${source}\n`;
-    const out = await formatAdoc(input);
-    expect(out).toBe(`${expected}\n`);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, `${expected}\n`);
   });
 
   // The conservative edge of the same two clauses: shapes where the
@@ -445,10 +427,10 @@ describe("the shortening is refused where it would move a same mark (issue #72)"
     "%s is refused conservatively, and the shorter spelling %s would have survived",
     async (source, shorter) => {
       const input = `${source}\n`;
-      const out = await formatAdoc(input);
-      expect(out).toBe(input);
-      expect(await formatAdoc(out)).toBe(out);
-      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+      await expectFormatted(input, input);
+      // The shorter spelling the refusal gave up, measured against the
+      // one kept: two documents, which neither helper compares.
+      // eslint-disable-next-line test-assertions/no-hand-spelled-format-trailer -- two documents, not a format row's own input and output
       expect(await renderedHtml(`${shorter}\n`)).toBe(
         await renderedHtml(input),
       );
@@ -462,10 +444,7 @@ describe("the shortening is refused where it would move a same mark (issue #72)"
   // a space. Render-equal either way; the bytes are now the input's.
   test("a newly-found span keeps the author's line break", async () => {
     const input = "[a\n]***\n";
-    const out = await formatAdoc(input);
-    expect(out).toBe(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, input);
   });
 });
 
@@ -536,10 +515,7 @@ describe("the shortening reads the attrlist's own left context (issues #85, #88)
     "%s formats to %s, because %s reads differently",
     async (source, expected, shorter) => {
       const input = `${source}\n`;
-      const out = await formatAdoc(input);
-      expect(out).toBe(`${expected}\n`);
-      expect(await formatAdoc(out)).toBe(out);
-      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+      await expectFormatted(input, `${expected}\n`);
       // The refusal is necessary: the spelling the printer would
       // otherwise have written is a different document to the oracle.
       expect(await renderedHtml(`${shorter}\n`)).not.toBe(
@@ -560,10 +536,7 @@ describe("the shortening reads the attrlist's own left context (issues #85, #88)
     ["x [red]**c** y", "x [red]*c* y"],
   ])("%s still shortens to %s", async (source, expected) => {
     const input = `${source}\n`;
-    const out = await formatAdoc(input);
-    expect(out).toBe(`${expected}\n`);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, `${expected}\n`);
   });
 });
 
@@ -602,10 +575,7 @@ describe("an escaped group behind is read by the constrained row", () => {
     "%s keeps both spellings, because %s reads differently",
     async (source, shorter) => {
       const input = `${source}\n`;
-      const out = await formatAdoc(input);
-      expect(out).toBe(input);
-      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-      expect(await formatAdoc(out)).toBe(out);
+      await expectFormatted(input, input);
       // The refusal is necessary: the shorter spelling is a different
       // document to the oracle.
       expect(await renderedHtml(`${shorter}\n`)).not.toBe(
@@ -626,8 +596,7 @@ describe("an escaped group behind is read by the constrained row", () => {
     const input = `${source}\n`;
     const out = await formatAdoc(input);
     expect(out).not.toBe(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectStableRender(input);
   });
 });
 
@@ -672,10 +641,7 @@ describe("the attrlist scan stops at the LAST open bracket (issue #110)", () => 
     "%s keeps its bytes, because %s reads differently",
     async (source, shorter) => {
       const input = `${source}\n`;
-      const out = await formatAdoc(input);
-      expect(out).toBe(input);
-      expect(await formatAdoc(out)).toBe(out);
-      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+      await expectFormatted(input, input);
       expect(await renderedHtml(`${shorter}\n`)).not.toBe(
         await renderedHtml(input),
       );
@@ -696,10 +662,7 @@ describe("the attrlist scan stops at the LAST open bracket (issue #110)", () => 
     ["[[a]##c##", "[[a]#c#"],
   ])("%s still shortens to %s", async (source, expected) => {
     const input = `${source}\n`;
-    const out = await formatAdoc(input);
-    expect(out).toBe(`${expected}\n`);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, `${expected}\n`);
   });
 });
 
@@ -720,10 +683,7 @@ describe("a span inside another span's attrlist keeps its spelling (issue #86)",
     "%s keeps its bytes, because %s reads differently",
     async (source, shorter) => {
       const input = `${source}\n`;
-      const out = await formatAdoc(input);
-      expect(out).toBe(input);
-      expect(await formatAdoc(out)).toBe(out);
-      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+      await expectFormatted(input, input);
       expect(await renderedHtml(`${shorter}\n`)).not.toBe(
         await renderedHtml(input),
       );
@@ -738,10 +698,7 @@ describe("a span inside another span's attrlist keeps its spelling (issue #86)",
     ["[**a**]x", "[*a*]x"],
   ])("%s still shortens to %s", async (source, expected) => {
     const input = `${source}\n`;
-    const out = await formatAdoc(input);
-    expect(out).toBe(`${expected}\n`);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, `${expected}\n`);
   });
 
   // The conservative edge: the run in these shapes is not the inner
@@ -757,10 +714,10 @@ describe("a span inside another span's attrlist keeps its spelling (issue #86)",
     "%s is refused conservatively, and the shorter spelling %s would have survived",
     async (source, shorter) => {
       const input = `${source}\n`;
-      const out = await formatAdoc(input);
-      expect(out).toBe(input);
-      expect(await formatAdoc(out)).toBe(out);
-      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+      await expectFormatted(input, input);
+      // The shorter spelling the refusal gave up, measured against the
+      // one kept: two documents, which neither helper compares.
+      // eslint-disable-next-line test-assertions/no-hand-spelled-format-trailer -- two documents, not a format row's own input and output
       expect(await renderedHtml(`${shorter}\n`)).toBe(
         await renderedHtml(input),
       );

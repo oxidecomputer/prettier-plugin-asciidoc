@@ -20,7 +20,7 @@
  */
 import { describe, test, expect } from "vitest";
 import { convert } from "@asciidoctor/core";
-import { formatAdoc, renderedHtml } from "../helpers.js";
+import { expectFormatted, expectStableRender, formatAdoc } from "../helpers.js";
 
 /**
  * The document as Asciidoctor renders it with `skip-front-matter`
@@ -61,9 +61,7 @@ describe("front matter formatting", () => {
     ],
   ])("%s comes back byte for byte", async (_name, input) => {
     const out = await formatAdoc(input);
-    expect(out).toBe(input);
-    expect(await formatAdoc(out)).toBe(out);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    await expectFormatted(input, input);
     expect(await skippingFrontMatter(out)).toBe(
       await skippingFrontMatter(input),
     );
@@ -96,10 +94,7 @@ describe("front matter formatting", () => {
     ],
     ["the fence carries a word", "--- a\nb: 1\n---\n", "--- a b: 1 ---\n"],
   ])("%s is not front matter", async (_name, input, expected) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(expected);
-    expect(await formatAdoc(out)).toBe(out);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    await expectFormatted(input, expected);
   });
 
   // The reader rstrips every line before any rule sees it, as
@@ -110,8 +105,7 @@ describe("front matter formatting", () => {
     const input = "---  \na: 1\n---\t\n\nbody\n";
     const out = await formatAdoc(input);
     expect(out).toBe("---\na: 1\n---\n\nbody\n");
-    expect(await formatAdoc(out)).toBe(out);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    await expectStableRender(input);
     expect(await skippingFrontMatter(out)).toBe(
       await skippingFrontMatter(input),
     );
@@ -122,15 +116,13 @@ describe("front matter formatting", () => {
   // rather than a separator before something.
   test("a document that is only front matter", async () => {
     const input = "---\na: 1\n---\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Four hyphens are a listing block, which is the neighbour whose
   // bytes and rendering both hold today.
   test("four hyphens keep their block", async () => {
     const input = "----\na: 1\n----\n\nbody\n";
-    const out = await formatAdoc(input);
-    expect(out).toBe(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    await expectFormatted(input, input);
   });
 });

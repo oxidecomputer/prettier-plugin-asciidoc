@@ -10,7 +10,12 @@
  * characters).
  */
 import { describe, test, expect } from "vitest";
-import { expectFormatted, formatAdoc, renderedHtml } from "../helpers.js";
+import {
+  expectFormatted,
+  expectStableRender,
+  formatAdoc,
+  renderedHtml,
+} from "../helpers.js";
 
 describe("list continuation formatting", () => {
   // The blank line before the second item is dropped: a blank line
@@ -26,10 +31,7 @@ describe("list continuation formatting", () => {
       "Second continuation paragraph.\n" +
       "\n" +
       "* second item.\n";
-    const first = await formatAdoc(input);
-    expect(first).toBe(input.replace("\n\n* second", "\n* second"));
-    expect(await renderedHtml(first)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(first)).toBe(first);
+    await expectFormatted(input, input.replace("\n\n* second", "\n* second"));
   });
 
   test("issue #2 repro is preserved and idempotent", async () => {
@@ -48,8 +50,7 @@ describe("list continuation formatting", () => {
     // lines, with the attached paragraphs flush left. The blank
     // line before the second item goes (same list, see above).
     expect(first).toBe(input.replace("\n\n* second", "\n* second"));
-    expect(await renderedHtml(first)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(first)).toBe(first);
+    await expectStableRender(input);
   });
 
   test("attached paragraph reflows flush left", async () => {
@@ -67,27 +68,27 @@ describe("list continuation formatting", () => {
     for (const line of lines.slice(2)) {
       expect(line).toMatch(/^\S/v);
     }
-    expect(await formatAdoc(result)).toBe(result);
+    await expectStableRender(input);
   });
 
   test("continuation works on ordered list items", async () => {
     const input = ". item text.\n+\nAttached paragraph.\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   test("continuation attaches to a nested item", async () => {
     const input = "* parent\n** nested item.\n+\nAttached to nested.\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   test("inline code span containing + is not escaped", async () => {
     const input = "* item with a `+` code span.\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   test("plus code span in continuation paragraph is not escaped", async () => {
     const input = "* item text.\n+\nAttached with a `+` span.\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // A `+` line at the very end of an item (no block follows
@@ -97,16 +98,13 @@ describe("list continuation formatting", () => {
   // the rendered document is unchanged.
   test("a + reaches across one blank line and attaches the paragraph", async () => {
     const input = "* item text\n+\n\nA separate paragraph.\n";
-    const first = await formatAdoc(input);
     // `read_lines_for_list_item` buffers ONE blank line after a `+`
     // as content, so the paragraph attaches (the oracle puts it
     // inside the item); the printer replays the recorded gap
     // VERBATIM — collapsing the blank could change what a
     // later `+` means, and the byte round-trip is idempotent by
     // construction. Two blank lines would end the list.
-    expect(first).toBe(input);
-    expect(await renderedHtml(first)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(first)).toBe(first);
+    await expectFormatted(input, input);
   });
 
   // Asciidoctor renders `+` after `+` at the end of an item as
@@ -123,10 +121,7 @@ describe("list continuation formatting", () => {
   // the first the same way.
   test("a trailing + run writes both bytes the source held", async () => {
     const input = "* item\n+\n+\n";
-    const first = await formatAdoc(input);
-    expect(first).toBe("* item\n+\n+\n");
-    expect(await renderedHtml(first)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(first)).toBe(first);
+    await expectFormatted(input, "* item\n+\n+\n");
   });
 
   // A lone `+` line inside a plain (non-list) paragraph terminates
@@ -143,10 +138,7 @@ describe("list continuation formatting", () => {
   // description-list term.
   test("plus line between plain paragraphs splits the paragraph", async () => {
     const input = "para one\n+\npara two\n";
-    const first = await formatAdoc(input);
-    expect(first).toBe("para one\n\n+\npara two\n");
-    expect(await renderedHtml(first)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(first)).toBe(first);
+    await expectFormatted(input, "para one\n\n+\npara two\n");
   });
 
   // Asciidoctor right-trims lines before matching the
@@ -154,9 +146,7 @@ describe("list continuation formatting", () => {
   // exactly like `+`. The output normalizes it to a bare `+`.
   test("+ line with trailing whitespace attaches", async () => {
     const input = "* item text.\n+ \nAttached paragraph.\n";
-    const first = await formatAdoc(input);
-    expect(first).toBe("* item text.\n+\nAttached paragraph.\n");
-    expect(await formatAdoc(first)).toBe(first);
+    await expectFormatted(input, "* item text.\n+\nAttached paragraph.\n");
   });
 
   // A `+` line directly after a marker is content of the
@@ -164,15 +154,12 @@ describe("list continuation formatting", () => {
   // must not be swallowed as a second marker.
   test("consecutive + lines do not delete content", async () => {
     const input = "* item\n+\n+\nAttached\n";
-    const first = await formatAdoc(input);
     // The second `+` is content (Asciidoctor renders `+ Attached`);
     // it is kept on its own line rather than folded into the
     // paragraph text, because a `+` that lands at the end of an
     // output line would become a hard break and one folded into a
     // `{plus}` would render new text.
-    expect(first).toBe(input);
-    expect(await renderedHtml(first)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(first)).toBe(first);
+    await expectFormatted(input, input);
   });
 
   // Indented content after `+` is a literal block: whitespace
@@ -180,19 +167,17 @@ describe("list continuation formatting", () => {
   // no re-indentation — a tab must stay a tab).
   test("indented content after + is preserved as a literal block", async () => {
     const input = "* item\n+\n  literal line\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   test("tab-indented content after + is preserved and idempotent", async () => {
     const input = "* item\n+\n\tliteral tab line\n";
-    const first = await formatAdoc(input);
-    expect(first).toBe(input);
-    expect(await formatAdoc(first)).toBe(first);
+    await expectFormatted(input, input);
   });
 
   test("continuation works on callout list items", async () => {
     const input = "<1> note text.\n+\nAttached paragraph.\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Reflow must never break directly after a `+` inside a
@@ -206,7 +191,7 @@ describe("list continuation formatting", () => {
     for (const outputLine of result.trimEnd().split("\n")) {
       expect(outputLine).not.toMatch(/ \+$/v);
     }
-    expect(await formatAdoc(result, { printWidth: 14 })).toBe(result);
+    await expectStableRender(input, { printWidth: 14 });
   });
 
   // The same rule OUTSIDE a monospace span, on the ordinary
@@ -222,7 +207,7 @@ describe("list continuation formatting", () => {
     for (const outputLine of result.trimEnd().split("\n")) {
       expect(outputLine).not.toMatch(/ \+$/v);
     }
-    expect(await formatAdoc(result, { printWidth: 14 })).toBe(result);
+    await expectStableRender(input, { printWidth: 14 });
   });
 
   // A bare `+` word inside an attached paragraph must survive
@@ -243,7 +228,7 @@ describe("list continuation formatting", () => {
       .split("\n")
       .filter((outputLine) => outputLine === "+");
     expect(bareMarkers).toHaveLength(1);
-    expect(await formatAdoc(result, { printWidth: 20 })).toBe(result);
+    await expectStableRender(input, { printWidth: 20 });
   });
 });
 
@@ -266,30 +251,27 @@ describe("continuations around delimited blocks (issue #6)", () => {
     // Item two is the second item of the same list, so the blank line
     // before it goes (see "continuation paragraphs survive round-trip").
     expect(first).toBe(input.replace("\n\n* item two", "\n* item two"));
-    expect(await renderedHtml(first)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(first)).toBe(first);
+    await expectStableRender(input);
   });
 
   test("+ before a listing block stays attached", async () => {
     const input = "* item:\n+\n----\ncode here\n----\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   test("+ before a parent block stays attached", async () => {
     const input = "* item:\n+\n====\nexample text\n====\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   test("marker lines after the block are never merged into text", async () => {
     const input = "* item:\n+\n----\ncode\n----\n+\npara one\n+\npara two\n";
-    const first = await formatAdoc(input);
-    expect(first).toBe(input);
-    expect(await formatAdoc(first)).toBe(first);
+    await expectFormatted(input, input);
   });
 
   test("chain of block, paragraph, block round-trips", async () => {
     const input = "* item:\n+\n----\none\n----\n+\npara\n+\n----\ntwo\n----\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Metadata lines group with the block they annotate and
@@ -298,24 +280,22 @@ describe("continuations around delimited blocks (issue #6)", () => {
   test("+ before [NOTE] admonition block round-trips", async () => {
     const input =
       "** {empty}\n+\n[NOTE]\n====\nAre these examples sufficient?\n====\n";
-    const first = await formatAdoc(input);
-    expect(first).toBe(input);
-    expect(await formatAdoc(first)).toBe(first);
+    await expectFormatted(input, input);
   });
 
   test("+ before [source] listing round-trips", async () => {
     const input = "* item:\n+\n[source,ruby]\n----\ncode\n----\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   test("+ before titled block round-trips", async () => {
     const input = "* item:\n+\n.Title\n----\ncode\n----\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   test("+ before anchored block round-trips", async () => {
     const input = "* item:\n+\n[[id]]\n----\ncode\n----\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // The style line and the paragraph under it are one admonition, and
@@ -328,17 +308,17 @@ describe("continuations around delimited blocks (issue #6)", () => {
 
   test("+ before a block macro round-trips", async () => {
     const input = "* item:\n+\nimage::diagram.png[]\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   test("+ before a thematic break round-trips", async () => {
     const input = "* item:\n+\n'''\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   test("metadata block chain continues with + paragraphs", async () => {
     const input = "* i:\n+\n[source]\n----\na\n----\n+\nafter para\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // An attached [NOTE] paragraph can itself carry `+` marker
@@ -347,9 +327,7 @@ describe("continuations around delimited blocks (issue #6)", () => {
   // would even turn into a hard line break).
   test("markers inside a metadata-anchored paragraph split off", async () => {
     const input = "* i\n+\n[NOTE]\npara one\n+\npara two\n";
-    const first = await formatAdoc(input);
-    expect(first).toBe("* i\n+\nNOTE: para one\n+\npara two\n");
-    expect(await formatAdoc(first)).toBe(first);
+    await expectFormatted(input, "* i\n+\nNOTE: para one\n+\npara two\n");
   });
 
   test("trailing marker after [NOTE] paragraph re-arms attachment", async () => {
@@ -366,9 +344,7 @@ describe("continuations around delimited blocks (issue #6)", () => {
   test("+ before a section heading attaches it as text", async () => {
     const input = "* i:\n+\n== Heading\n";
     expect(await renderedHtml(input)).toContain("<p>== Heading</p>");
-    const first = await formatAdoc(input);
-    expect(first).toBe(input);
-    expect(await formatAdoc(first)).toBe(first);
+    await expectFormatted(input, input);
   });
 
   // One blank line between the `+` and the block: the block still
@@ -439,8 +415,7 @@ describe("list continuation formatting preserves rendered HTML", () => {
 
   for (const [name, input] of Object.entries(corpus)) {
     test(`renders identically: ${name}`, async () => {
-      const formatted = await formatAdoc(input);
-      expect(await renderedHtml(formatted)).toBe(await renderedHtml(input));
+      await expectStableRender(input);
     });
   }
 });
@@ -474,9 +449,7 @@ describe("whether a list is still open at a + line", () => {
   ];
   for (const [name, input] of cases) {
     test(`${name} round-trips`, async () => {
-      const out = await formatAdoc(input);
-      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-      expect(await formatAdoc(out)).toBe(out);
+      await expectStableRender(input);
     });
   }
 });
@@ -507,9 +480,7 @@ describe("a + chain resumes after any delimited block", () => {
   for (const [name, block] of blocks) {
     test(`${name} keeps the list ancestry`, async () => {
       const input = `* item\n+\n${block}\n+\npara\n* next\n`;
-      const out = await formatAdoc(input);
-      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-      expect(await formatAdoc(out)).toBe(out);
+      await expectStableRender(input);
     });
   }
 
@@ -521,11 +492,10 @@ describe("a + chain resumes after any delimited block", () => {
   test("a fence with no language hint keeps the list structure", async () => {
     const input = "* item\n+\n```\ncode\n```\n+\npara\n* next\n";
     const out = await formatAdoc(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    await expectStableRender(input);
     expect(listItemCount(await renderedHtml(out))).toBe(
       listItemCount(await renderedHtml(input)),
     );
-    expect(await formatAdoc(out)).toBe(out);
   });
 });
 
@@ -544,8 +514,7 @@ describe("delimiters with trailing whitespace", () => {
   for (const [name, input] of cases) {
     test(`${name} is still a delimiter`, async () => {
       const out = await formatAdoc(input);
-      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-      expect(await formatAdoc(out)).toBe(out);
+      await expectStableRender(input);
       expect(out.includes("  \n")).toBe(false);
     });
   }
@@ -573,9 +542,7 @@ describe("a + continuation reaches across block metadata", () => {
   ];
   for (const [name, input] of cases) {
     test(`${name} keeps the sibling item`, async () => {
-      const out = await formatAdoc(input);
-      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-      expect(await formatAdoc(out)).toBe(out);
+      await expectStableRender(input);
     });
   }
 
@@ -599,9 +566,7 @@ describe("a + continuation reaches across block metadata", () => {
   ];
   for (const [name, input] of orders) {
     test(`${name} matches the oracle`, async () => {
-      const out = await formatAdoc(input);
-      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-      expect(await formatAdoc(out)).toBe(out);
+      await expectStableRender(input);
     });
   }
 
@@ -613,9 +578,7 @@ describe("a + continuation reaches across block metadata", () => {
   // item with the block the `+` attached.
   test("a conditional then blank keeps the item", async () => {
     const input = "* a\n+\nifdef::x[]\nendif::[]\n\npara\n* b\n";
-    const out = await formatAdoc(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectStableRender(input);
   });
 
   // TWO blank lines DO end the list: `read_lines_for_list_item`
@@ -623,9 +586,7 @@ describe("a + continuation reaches across block metadata", () => {
   // sibling and `* b` starts a brand new list.
   test("two blank lines end the list", async () => {
     const input = "* a\n+\n\n\npara\n* b\n";
-    const out = await formatAdoc(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectStableRender(input);
   });
 
   // …and when what follows the two blanks is a NESTED MARKER, the
@@ -637,15 +598,12 @@ describe("a + continuation reaches across block metadata", () => {
   // own (tests/parser/reader-lists.test.ts).
   test("two blanks then a nested marker keeps the dead + verbatim", async () => {
     const input = "* a\n+\n\n\n** b\n* c\n";
-    const out = await formatAdoc(input);
     // The `+` is dead to Ruby (two blanks erased it) and the old
     // printer dropped the whole run; the gap is now replayed VERBATIM
     // (the bytes are the author's), and the byte
     // round-trip is idempotent by construction. Rendering unchanged
     // either way.
-    expect(out).toBe(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, input);
   });
 });
 
@@ -673,9 +631,7 @@ describe("a foreign list marker keeps its own line", () => {
   ];
   for (const [name, input] of cases) {
     test(`${name} round-trips`, async () => {
-      const out = await formatAdoc(input);
-      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-      expect(await formatAdoc(out)).toBe(out);
+      await expectStableRender(input);
     });
   }
 });
@@ -703,8 +659,6 @@ describe("a tab-gapped marker line is seen like a space-gapped one", () => {
     ["a foreign explicit marker in a star list", "* a\n+\npara\n1.\tnext\n"],
     ["a callout sibling", "<1> a\n+\npara\n<2>\tnext\n"],
   ])("%s round-trips", async (_name, input) => {
-    const out = await formatAdoc(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectStableRender(input);
   });
 });

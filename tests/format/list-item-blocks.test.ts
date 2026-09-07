@@ -5,7 +5,12 @@
  * `+`). Split from list-continuation.test.ts for size.
  */
 import { describe, test, expect } from "vitest";
-import { expectFormatted, formatAdoc, renderedHtml } from "../helpers.js";
+import {
+  expectFormatted,
+  expectStableRender,
+  formatAdoc,
+  renderedHtml,
+} from "../helpers.js";
 
 // A detached `+` inside a nested list belongs to the OUTERMOST item, but
 // once the inner item keeps the line after it (a sibling or nested
@@ -33,9 +38,7 @@ describe("a detached + taken by an outer item is released by the inner item", ()
   ];
   for (const [name, input] of cases) {
     test(`${name} keeps the block outside the list`, async () => {
-      const out = await formatAdoc(input);
-      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-      expect(await formatAdoc(out)).toBe(out);
+      await expectStableRender(input);
     });
   }
 });
@@ -65,9 +68,7 @@ describe("blocks an item keeps without a + keep the source spelling", () => {
   ];
   for (const [name, input] of cases) {
     test(`${name} round-trips byte for byte`, async () => {
-      const out = await formatAdoc(input);
-      expect(out).toBe(input);
-      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+      await expectFormatted(input, input);
     });
   }
 });
@@ -98,18 +99,14 @@ describe("metadata directly after reflowable item text keeps the break", () => {
   // Asciidoctor (`.T` does not interrupt an item's text), so it reflows.
   test("a block title on a later text line is text and reflows", async () => {
     const input = "* a\npara\n.T\npara\n";
-    const out = await formatAdoc(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectStableRender(input);
   });
   // On the FIRST line after the marker line the metadata folds the
   // paragraph into the item text (parse_block_metadata_lines runs
   // before the text is read), so no `+` may be invented there.
   test("metadata on the first line after the marker keeps its spelling", async () => {
     const input = "* a\n[role]\npara\n";
-    const out = await formatAdoc(input);
-    expect(out).toBe(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    await expectFormatted(input, input);
   });
 });
 
@@ -124,9 +121,7 @@ describe("a + between metadata and its block is kept where it was", () => {
     ["in a later item", "* a\n* b\n[role]\n+\n----\nx\n----\n"],
     ["+, metadata, block", "* a\n+\n[role]\n----\nx\n----\n"],
   ])("%s round-trips byte for byte", async (_name, input) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    await expectFormatted(input, input);
   });
 });
 
@@ -146,9 +141,7 @@ describe("stacked detached continuations in a nested list", () => {
     expect(await renderedHtml(input)).toMatch(
       /<li>.*<p>b<\/p>.*<\/li>.*<p>\+ para<\/p>.*<\/li>/v,
     );
-    const out = await formatAdoc(input);
-    expect(out).toBe(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    await expectFormatted(input, input);
   });
 });
 
@@ -166,9 +159,7 @@ describe("comment lines are transparent to the first-rest-line count", () => {
     "* a\n// c\n[role]\nNOTE: x\n",
     "* a\n// c\n// d\n[[anc]]\nNOTE: x\n",
   ])("%j round-trips byte for byte", async (input) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    await expectFormatted(input, input);
   });
 });
 
@@ -185,8 +176,7 @@ describe("a metadata group that ended multi-line text keeps off the first rest l
     // nothing above the run. Counterfactual: the old bytes were
     // "* a para\n+\n[role]\n+\npara\n", with an invented first `+`.
     expect(out).toBe("* a\n  para\n[role]\n+\npara\n");
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectStableRender(input);
   });
   test.each([
     "* a\npara\n[role]\n.T\n",
@@ -198,9 +188,7 @@ describe("a metadata group that ended multi-line text keeps off the first rest l
     "* a\n.T\n[role]\n.T\n",
     "* a\n  lit\n[role]\n.T\n",
   ])("trailing group %j renders the same and is idempotent", async (input) => {
-    const out = await formatAdoc(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectStableRender(input);
   });
   // A single trailing metadata line folds harmlessly (it annotates
   // nothing either way), and a `+` before it would pull a block after the
@@ -209,9 +197,7 @@ describe("a metadata group that ended multi-line text keeps off the first rest l
     "* a\npara\n[role]\n\n----\nx\n----\n",
     "* a\npara\n[role]\n\npara\n",
   ])("a single trailing metadata line %j keeps its spelling", async (input) => {
-    const out = await formatAdoc(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectStableRender(input);
   });
 });
 
@@ -226,10 +212,7 @@ describe("a metadata group that ended multi-line text keeps off the first rest l
 describe("a trailing titled run keeps the text's last line break", () => {
   test("the kept break is the source's own", async () => {
     const input = "* a\npara\n[role]\n.T\n";
-    const out = await formatAdoc(input);
-    expect(out).toBe("* a\n  para\n[role]\n.T\n");
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, "* a\n  para\n[role]\n.T\n");
   });
   test.each([
     "* a\npara\n[role]\n.T\n\n== T\n\npara\n",
@@ -241,9 +224,7 @@ describe("a trailing titled run keeps the text's last line break", () => {
     "* a\n.T\n[role]\n.T\n\npara\n",
     "* a\n  lit\n[role]\n.T\n\n== T\n\npara\n",
   ])("%j renders the same and is idempotent", async (input) => {
-    const out = await formatAdoc(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectStableRender(input);
   });
   test("a following section survives", async () => {
     const input = "* a\npara\n[role]\n.T\n\n== T\n\npara\n";
@@ -253,7 +234,7 @@ describe("a trailing titled run keeps the text's last line break", () => {
   });
   test("single-line item text is untouched", async () => {
     const input = "* a\n[role]\n.T\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 });
 
@@ -263,9 +244,7 @@ describe("a trailing titled run keeps the text's last line break", () => {
 describe("a paragraph after a comment-consumed + is read as a continuation", () => {
   test("a foreign marker in it stays text", async () => {
     const input = "* a\n+\n// c\npara\n** n\n";
-    const out = await formatAdoc(input);
-    expect(out).toBe(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    await expectFormatted(input, input);
   });
 });
 
@@ -281,9 +260,7 @@ describe("the kept break holds whatever begins the text's last line", () => {
     "* a\n*b* c\n[role]\n.T\n",
     "* a\n_i_ t\n[[anc]]\n.T\n",
   ])("%j renders the same and is idempotent", async (input) => {
-    const out = await formatAdoc(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectStableRender(input);
   });
 });
 
@@ -294,9 +271,7 @@ describe("a hard line break ending the item text", () => {
   test.each(["* a\npara +\n[role]\n.T\n", "* a\npara +\n", "text +\n\nnext\n"])(
     "%j renders the same and is idempotent",
     async (input) => {
-      const out = await formatAdoc(input);
-      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-      expect(await formatAdoc(out)).toBe(out);
+      await expectStableRender(input);
     },
   );
 });
@@ -332,9 +307,7 @@ describe("a text line ending in whitespace still keeps a break with content afte
   test.each(cases)(
     "trailing %s before %j, then %s, renders the same and is idempotent",
     async (_ws, _meta, _what, input) => {
-      const out = await formatAdoc(input);
-      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-      expect(await formatAdoc(out)).toBe(out);
+      await expectStableRender(input);
     },
   );
 });
@@ -353,9 +326,7 @@ describe("a reader-eaten line ending a list item", () => {
     "* a\n// c\n....\nlit\n....\n",
     ". a\n+\n// c\n....\nlit\n....\n",
   ])("%j round-trips byte for byte", async (input) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    await expectFormatted(input, input);
   });
 });
 
@@ -368,9 +339,7 @@ describe("a reader-eaten line ending a list item", () => {
 describe("F1: suspended continuations reach the nested item", () => {
   test("* a / ** b / + / blank / + / para round-trips and renders like the source", async () => {
     const input = "* a\n** b\n+\n\n+\npara\n";
-    const out = await formatAdoc(input);
-    expect(out).toBe(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    await expectFormatted(input, input);
   });
 });
 // Blockers B1 and B2: the spelling the printer emits
@@ -407,10 +376,7 @@ describe("trailing +-run spellings are fixed points (B1/B2)", () => {
     ["B2: triple + after a comment line", "* a\n// c\n+\n+\n+\n\npara\n"],
     ["B2's one-pass collapse", "* a\n+\n+\n\npara\n"],
   ])("%s", async (_name, input) => {
-    const once = await formatAdoc(input);
-    const twice = await formatAdoc(once);
-    expect(twice).toBe(once);
-    expect(await renderedHtml(once)).toBe(await renderedHtml(input));
+    await expectStableRender(input);
   });
 });
 
@@ -596,9 +562,7 @@ describe("a pseudo-anchor line ends an item's metadata run", () => {
     ],
   ];
   test.each(cases)("%s", async (_name, input, expected) => {
-    const once = await formatAdoc(input);
-    expect(once).toBe(expected);
-    expect(await formatAdoc(once)).toBe(once);
+    await expectFormatted(input, expected);
   });
 
   // The lookalike rows are a CORRUPTION fix, so their proof direction
@@ -608,9 +572,7 @@ describe("a pseudo-anchor line ends an item's metadata run", () => {
   // narrowing (the old printed `[[id]]` was a live anchor where the
   // author's `[[id,]]` was literal text).
   test.each(cases)("%s renders like its input", async (_name, input) => {
-    expect(await renderedHtml(await formatAdoc(input))).toBe(
-      await renderedHtml(input),
-    );
+    await expectStableRender(input);
   });
 });
 
@@ -641,10 +603,7 @@ describe("a block macro after a marker line keeps its own line", () => {
     ],
   ];
   test.each(cases)("%s", async (_name, input, expected) => {
-    const once = await formatAdoc(input);
-    expect(once).toBe(expected);
-    expect(await formatAdoc(once)).toBe(once);
-    expect(await renderedHtml(once)).toBe(await renderedHtml(input));
+    await expectFormatted(input, expected);
   });
 });
 

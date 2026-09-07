@@ -17,7 +17,12 @@ import { describe, expect, test } from "vitest";
 import type { ListItemNode } from "../../src/ast.js";
 import { hazard } from "../../src/print/list-hazard.js";
 import { parse } from "../../src/parser.js";
-import { expectFormatted, formatAdoc, renderedHtml } from "../helpers.js";
+import {
+  expectFormatted,
+  expectStableRender,
+  formatAdoc,
+  renderedHtml,
+} from "../helpers.js";
 
 /**
  * The first list item of a parsed document.
@@ -238,10 +243,7 @@ describe("a reflowed list item keeps a text line on its first rest line", () => 
   // and the oracle renders a nested list the source never had.
   test("a comment reaching the first rest line is refused", async () => {
     const input = "* a\nX\n// c\n+\npara\n** b\n";
-    const out = await formatAdoc(input);
-    expect(out).toBe("* a\n  X\n// c\n+\npara\n** b\n");
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, "* a\n  X\n// c\n+\npara\n** b\n");
   });
 
   // Issue #33. Joined, the ` +` lands there instead, and an indented
@@ -261,10 +263,7 @@ describe("a reflowed list item keeps a text line on its first rest line", () => 
   // stands and the paragraph reflows.
   test("a trailing anchor and indented line keep their reading, and the join stands", async () => {
     const input = "* a\n[role]\npara\npara\n[[anc]]\n  lit\n";
-    const out = await formatAdoc(input);
-    expect(out).toBe("* a\n[role]\npara para\n[[anc]]\n  lit\n");
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, "* a\n[role]\npara para\n[[anc]]\n  lit\n");
   });
 
   // The reader DRAINS a `//` line before any of the three decisions is
@@ -314,9 +313,7 @@ describe("a reflowed list item keeps a text line on its first rest line", () => 
     ],
     ["a monospace span above an indented tail", "* a\n`c` tail\n +\n  lit\n"],
   ])("a line OPENED by %s starts at column 0", async (_name, input) => {
-    const out = await formatAdoc(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectStableRender(input);
   });
 
   // A construct that SPANS two source lines closes one and opens
@@ -330,9 +327,7 @@ describe("a reflowed list item keeps a text line on its first rest line", () => 
     ["a link macro", "* a\n  https://e.com[b\nc] d\n +\n"],
     ["a span under an indented line", "* a\n  x\n  *b\nc* d\n +\n"],
   ])("a continuation line of %s starts at column 0", async (_name, input) => {
-    const out = await formatAdoc(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectStableRender(input);
   });
 
   // ...and the same construct with the continuation line the AUTHOR
@@ -344,10 +339,7 @@ describe("a reflowed list item keeps a text line on its first rest line", () => 
   // because this shape is a fixed point as well.
   test("a passthrough across two indented lines keeps its reading", async () => {
     const input = "* a\n  +++b\n  c+++ d\n// c\n +\n";
-    const out = await formatAdoc(input);
-    expect(out).toBe("* a +++b\n  c+++ d\n// c\n +\n");
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, "* a +++b\n  c+++ d\n// c\n +\n");
   });
 
   // The rest of that class, by construct and by what surrounds it.
@@ -380,8 +372,14 @@ describe("a reflowed list item keeps a text line on its first rest line", () => 
   ])(
     "an indented continuation line of %s keeps its reading",
     async (_name, input) => {
-      const out = await formatAdoc(input);
-      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+      // Render-equality alone. These rows are NOT a fixed point: the
+      // second pass rewrites the held ` +` line as `{plus}`, so the
+      // helpers, which assert the fixed point as well, cannot express
+      // what this row measures.
+      // eslint-disable-next-line test-assertions/no-hand-spelled-format-trailer -- a second pass moves these rows, so only the render can be asserted
+      expect(await renderedHtml(await formatAdoc(input))).toBe(
+        await renderedHtml(input),
+      );
     },
   );
 
@@ -403,9 +401,6 @@ describe("a reflowed list item keeps a text line on its first rest line", () => 
   // join stands.
   test("a comment above an ADJACENT block leaves the join alone", async () => {
     const input = "* a\nX\n// c\npara\n** b\n";
-    const out = await formatAdoc(input);
-    expect(out).toBe("* a X\n// c\npara\n** b\n");
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, "* a X\n// c\npara\n** b\n");
   });
 });

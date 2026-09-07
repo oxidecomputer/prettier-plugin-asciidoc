@@ -11,7 +11,7 @@
  * count must equal Asciidoctor's `<li>` count.
  */
 import { describe, expect, test } from "vitest";
-import { formatAdoc, renderedHtml } from "../helpers.js";
+import { expectFormatted } from "../helpers.js";
 import { astShape, itemCount, oracleItems } from "./reader-helpers.js";
 
 // Issue #29's seam, closed here: `read_lines_for_list_item` matches
@@ -96,9 +96,6 @@ describe("reader: the U+2022 bullet is an unordered marker", () => {
 
   test("a bullet list survives the round trip", async () => {
     const input = "\u{2022} a\n\u{2022} b\n";
-    expect(await formatAdoc(input)).toBe(input);
-    expect(await renderedHtml(await formatAdoc(input))).toBe(
-      await renderedHtml(input),
-    );
+    await expectFormatted(input, input);
   });
 });

@@ -25,21 +25,13 @@
  * pinned.
  */
 import { describe, expect, test } from "vitest";
-import { asParagraph, formatAdoc, narrow, renderedHtml } from "../helpers.js";
+import {
+  asParagraph,
+  expectFormatted,
+  narrow,
+  renderedHtml,
+} from "../helpers.js";
 import { parse } from "../../src/parser.js";
-
-/**
- * Format once, pin the bytes, and prove render equality and
- * idempotence.
- * @param input - the row's document
- * @param expected - the exact formatted bytes
- */
-async function expectRow(input: string, expected: string): Promise<void> {
-  const out = await formatAdoc(input);
-  expect(out).toBe(expected);
-  expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-  expect(await formatAdoc(out)).toBe(out);
-}
 
 describe("the role rides on the span, one row per mark", () => {
   // One document per mark kind, each asserting the node type AND the
@@ -89,7 +81,7 @@ describe("a role-prefixed span at a block start keeps the author's line", () => 
     "[.a]``\nb`` c]\n",
     "[.role]##\nb## c]\n",
   ])("%j is its own fixed point", async (input) => {
-    await expectRow(input, input);
+    await expectFormatted(input, input);
   });
 
   // The `]` glued to the closing mark instead of standing a word
@@ -98,7 +90,7 @@ describe("a role-prefixed span at a block start keeps the author's line", () => 
   test.each(["[.a.b]**\nb**]\n", "[.role]__\nb__]\n", "[.a]``\nb``]\n"])(
     "%j is its own fixed point with the bracket glued",
     async (input) => {
-      await expectRow(input, input);
+      await expectFormatted(input, input);
     },
   );
 });
@@ -127,13 +119,13 @@ describe("a role's own bytes count on the line", () => {
     "[b`c]``d`` ``a``\n",
     "[b##c]##d## ##a##\n",
   ])("%j keeps both doubled spellings", async (input) => {
-    await expectRow(input, input);
+    await expectFormatted(input, input);
   });
 
   // The same shape written across a source line break: the reflow
   // joins the two lines and the refusal is the same one.
   test("the pair written on two lines joins without shortening", async () => {
-    await expectRow("[b**c]**d**\n**a**\n", "[b**c]**d** **a**\n");
+    await expectFormatted("[b**c]**d**\n**a**\n", "[b**c]**d** **a**\n");
   });
 
   // THE DISCRIMINATOR. A role holding no mark character refuses
@@ -141,14 +133,14 @@ describe("a role's own bytes count on the line", () => {
   // is the same document. Without this row the rule above would read
   // as "a role refuses", which is not what the oracle does.
   test("a role holding no mark leaves both shortenings legal", async () => {
-    await expectRow("[bc]**d** **a**\n", "[bc]*d* *a*\n");
+    await expectFormatted("[bc]**d** **a**\n", "[bc]*d* *a*\n");
   });
 
   // The other discriminator: a role holding a mark of a DIFFERENT
   // kind. Ruby's rows are one gsub each, so a `**` in the run is
   // nothing to the emphasis row, and the emphasis still shortens.
   test("a role holding another kind's mark refuses nothing", async () => {
-    await expectRow("[b**c]**d** __a__\n", "[b**c]**d** _a_\n");
+    await expectFormatted("[b**c]**d** __a__\n", "[b**c]**d** _a_\n");
   });
 });
 
@@ -162,7 +154,7 @@ describe("the counterparts where the net stays out", () => {
     ["x [.role]__\nb__ c]\n", "x [.role]__ b__ c]\n"],
     ["x [.a]``\nb`` c]\n", "x [.a]`` b`` c]\n"],
   ])("%j packs mid-paragraph", async (input, expected) => {
-    await expectRow(input, expected);
+    await expectFormatted(input, expected);
   });
 
   // THE DISCRIMINATOR. The same span at a block start with a word past
@@ -171,7 +163,7 @@ describe("the counterparts where the net stays out", () => {
   // a paragraph. The net reads the whole line, not the `[` at its
   // head.
   test("a word past the ] lets the line pack", async () => {
-    await expectRow("[.role]__\nb__ c] d\n", "[.role]__ b__ c] d\n");
+    await expectFormatted("[.role]__\nb__ c] d\n", "[.role]__ b__ c] d\n");
   });
 
   // The already-packed spellings are fixed points: there is no break
@@ -181,7 +173,7 @@ describe("the counterparts where the net stays out", () => {
     "x [.role]__ b__ c]\n",
     "x [.a]`` b`` c]\n",
   ])("%j is a fixed point", async (input) => {
-    await expectRow(input, input);
+    await expectFormatted(input, input);
   });
 
   // The CONSTRAINED twin, which is no span at all: a constrained mark
@@ -190,14 +182,14 @@ describe("the counterparts where the net stays out", () => {
   // stay literal text and no role token claims them either. The line
   // is still kept, by the plain-text half of the same net.
   test("the constrained spelling opens no span and is still kept", async () => {
-    await expectRow("[.role]_\nb_ c]\n", "[.role]_\nb_ c]\n");
+    await expectFormatted("[.role]_\nb_ c]\n", "[.role]_\nb_ c]\n");
   });
 
   // The idiom the golden token file is full of: a role-prefixed
   // italic mid-sentence, which has no hazard anywhere near it and must
   // come back byte for byte.
   test("a role-prefixed path in running text is untouched", async () => {
-    await expectRow("x [.path]_file_ y\n", "x [.path]_file_ y\n");
+    await expectFormatted("x [.path]_file_ y\n", "x [.path]_file_ y\n");
   });
 });
 
@@ -256,7 +248,7 @@ describe("the role is the oracle's own group, not the widest run (issue #114)", 
   // own brackets and the text in front prints itself, so the line
   // comes back exactly as written and renders what it rendered.
   test.each(NARROW)("$source is its own fixed point", async ({ source }) => {
-    await expectRow(source, source);
+    await expectFormatted(source, source);
   });
 });
 
@@ -292,7 +284,7 @@ describe("shortening may not open an attributes group the source has not", () =>
   ])(
     "%j keeps its doubled spelling, because %j reads differently",
     async (input, shorter) => {
-      await expectRow(input, input);
+      await expectFormatted(input, input);
       expect(await renderedHtml(shorter)).not.toBe(await renderedHtml(input));
     },
   );
@@ -304,7 +296,7 @@ describe("shortening may not open an attributes group the source has not", () =>
     ["[a]**c**]**f**\n", "[a]*c*]*f*\n"],
     ["[a[b]**c**] **f**\n", "[a[b]**c**] *f*\n"],
   ])("%j still shortens to %j", async (input, expected) => {
-    await expectRow(input, expected);
+    await expectFormatted(input, expected);
   });
 
   // The conservative edge: the refusal asks whether a group OPENS,
@@ -318,7 +310,10 @@ describe("shortening may not open an attributes group the source has not", () =>
   ])(
     "%j is refused conservatively, and %j would have survived",
     async (input, shorter) => {
-      await expectRow(input, input);
+      await expectFormatted(input, input);
+      // The shorter spelling the refusal gave up, measured against the
+      // one kept: two documents, which neither helper compares.
+      // eslint-disable-next-line test-assertions/no-hand-spelled-format-trailer -- two documents, not a format row's own input and output
       expect(await renderedHtml(shorter)).toBe(await renderedHtml(input));
     },
   );
@@ -353,7 +348,7 @@ describe("a group may open at a bracket outside the enclosing span", () => {
   ])(
     "%j keeps its doubled spelling, because %j reads differently",
     async (input, shorter) => {
-      await expectRow(input, input);
+      await expectFormatted(input, input);
       expect(await renderedHtml(shorter)).not.toBe(await renderedHtml(input));
     },
   );
@@ -369,7 +364,10 @@ describe("a group may open at a bracket outside the enclosing span", () => {
   ])(
     "%j is refused conservatively, and %j would have survived",
     async (input, shorter) => {
-      await expectRow(input, input);
+      await expectFormatted(input, input);
+      // The shorter spelling the refusal gave up, measured against the
+      // one kept: two documents, which neither helper compares.
+      // eslint-disable-next-line test-assertions/no-hand-spelled-format-trailer -- two documents, not a format row's own input and output
       expect(await renderedHtml(shorter)).toBe(await renderedHtml(input));
     },
   );

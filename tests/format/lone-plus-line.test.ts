@@ -12,7 +12,7 @@
  * renders the same on both sides.
  */
 import { describe, test, expect } from "vitest";
-import { expectFormatted, formatAdoc, renderedHtml } from "../helpers.js";
+import { expectFormatted, expectStableRender, formatAdoc } from "../helpers.js";
 import { readingBreachesOf } from "../lib/reading.js";
 
 // Issue #43. A `+` alone on a source line is a list continuation, and
@@ -50,8 +50,7 @@ describe("a lone + keeps the line the source gave it", () => {
     const out = await formatAdoc(input);
     expect(out).toBe("+\n* a * a\n");
     expect(await readingBreachesOf(input)).toEqual([]);
-    expect(await formatAdoc(out)).toBe(out);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    await expectStableRender(input);
   });
 
   // The cross-node arm alone decides this shape: the span leaves the
@@ -62,8 +61,7 @@ describe("a lone + keeps the line the source gave it", () => {
     const out = await formatAdoc(input);
     expect(out).toBe("+\n*a* tail\n");
     expect(await readingBreachesOf(input)).toEqual([]);
-    expect(await formatAdoc(out)).toBe(out);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    await expectStableRender(input);
   });
 
   // The rule is about the line the `+` HAD, not about the character.
@@ -73,10 +71,7 @@ describe("a lone + keeps the line the source gave it", () => {
   test("a mid-line + is still fused to the word after it", async () => {
     const input = "alpha + beta\n";
     const narrow = { printWidth: 8 };
-    const out = await formatAdoc(input, narrow);
-    expect(out).toBe("alpha\n+ beta\n");
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out, narrow)).toBe(out);
+    await expectFormatted(input, "alpha\n+ beta\n", narrow);
   });
 
   // And where no output line can be kept for it, the `+` escapes as
@@ -85,8 +80,6 @@ describe("a lone + keeps the line the source gave it", () => {
   // there it would end an output line as a hard line break.
   test("a + that cannot keep a line escapes as {plus}", async () => {
     const input = ". item\n +\n// c\n";
-    const out = await formatAdoc(input);
-    expect(out).toBe(". item {plus}\n// c\n");
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, ". item {plus}\n// c\n");
   });
 });

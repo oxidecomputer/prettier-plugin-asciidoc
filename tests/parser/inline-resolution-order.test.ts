@@ -32,7 +32,7 @@
  * readings tied together.
  */
 import { describe, expect, test } from "vitest";
-import { formatAdoc, renderedHtml } from "../helpers.js";
+import { expectFormatted, renderedHtml } from "../helpers.js";
 import { shapes } from "./inline-shape.js";
 
 /**
@@ -180,10 +180,7 @@ describe.each(OVERLAPS)("crossed marks: $source", (overlap) => {
   });
 
   test("the bytes are pinned, render-equal and idempotent", async () => {
-    const out = await formatAdoc(source);
-    expect(out).toBe(`${formatted ?? source}\n`);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(source));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(source, `${formatted ?? source}\n`);
   });
 });
 
@@ -322,10 +319,7 @@ describe("curved-quote spans (issue #74)", () => {
     });
 
     test("the bytes are pinned, render-equal and idempotent", async () => {
-      const out = await formatAdoc(row.source);
-      expect(out).toBe(`${row.source}\n`);
-      expect(await renderedHtml(out)).toBe(await renderedHtml(row.source));
-      expect(await formatAdoc(out)).toBe(out);
+      await expectFormatted(row.source, `${row.source}\n`);
     });
   });
 });

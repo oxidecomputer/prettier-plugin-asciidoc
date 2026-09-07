@@ -35,7 +35,7 @@
  * checked in and inlined, never generated.
  */
 import { describe, expect, test } from "vitest";
-import { expectFormatted, formatAdoc, renderedHtml } from "../helpers.js";
+import { expectFormatted, expectStableRender, formatAdoc } from "../helpers.js";
 
 // The widths every atomicity row is packed at. The narrowest is below
 // the length of every construct here, which is the point: a packer
@@ -57,8 +57,7 @@ async function expectAtomic(
 ): Promise<void> {
   const input = `${source}\n`;
   const out = await formatAdoc(input, { printWidth });
-  expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-  expect(await formatAdoc(out, { printWidth })).toBe(out);
+  await expectStableRender(input, { printWidth });
   expect(out.split("\n").some((line) => line.includes(atom))).toBe(true);
 }
 
@@ -107,9 +106,7 @@ describe("the spaced em dash survives the break reflow may put beside it", () =>
       "at width %i",
       async (printWidth) => {
         const input = `${source}\n`;
-        const out = await formatAdoc(input, { printWidth });
-        expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-        expect(await formatAdoc(out, { printWidth })).toBe(out);
+        await expectStableRender(input, { printWidth });
       },
     );
   });
@@ -125,10 +122,7 @@ describe("the block-start hazard net still reaches a reference", () => {
   // repair happened).
   test("`...` keeps the break the source put behind it", async () => {
     const input = "...\nb c\n";
-    const out = await formatAdoc(input);
-    expect(out).toBe("...\nb c\n");
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, "...\nb c\n");
   });
 
   test("and does so inside a list item's attached paragraph", async () => {
@@ -141,10 +135,7 @@ describe("the block-start hazard net still reaches a reference", () => {
   // to keep, and the two lines join like any other prose.
   test("a reference that is no marker joins its next line", async () => {
     const input = "(C)\nb c\n";
-    const out = await formatAdoc(input);
-    expect(out).toBe("(C) b c\n");
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, "(C) b c\n");
   });
 });
 
@@ -164,9 +155,6 @@ describe("an unconstrained span beside or inside a pair still shortens", () => {
     ["a subscript in front", "x ~a~__b__ y", "x ~a~_b_ y"],
   ])("%s", async (_where, source, expected) => {
     const input = `${source}\n`;
-    const out = await formatAdoc(input);
-    expect(out).toBe(`${expected}\n`);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, `${expected}\n`);
   });
 });

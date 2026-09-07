@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { expectFormatted, formatAdoc, renderedHtml } from "../helpers.js";
+import { expectFormatted, expectStableRender, formatAdoc } from "../helpers.js";
 
 describe("fenced code block formatting", () => {
   // Fenced block with language normalizes to [source,lang] + ----
@@ -14,9 +14,7 @@ describe("fenced code block formatting", () => {
   // not a plain listing. Normalizing to bare `----` would lose that.
   test("a fence without a language normalizes to [source] + listing", async () => {
     const input = "first line\n\n```\ncode\n```\n";
-    const out = await formatAdoc(input);
-    expect(out).toBe("first line\n\n[source]\n----\ncode\n----\n");
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    await expectFormatted(input, "first line\n\n[source]\n----\ncode\n----\n");
   });
 
   // Multi-line content is preserved verbatim.
@@ -53,7 +51,7 @@ describe("fenced code block formatting", () => {
   // Normalized output reformats to itself.
   test("normalized output round-trips", async () => {
     const normalized = "[source,rust]\n----\nfn main() {}\n----\n";
-    expect(await formatAdoc(normalized)).toBe(normalized);
+    await expectFormatted(normalized, normalized);
   });
 
   // When [source,python] precedes ```python, the printer
@@ -71,10 +69,7 @@ describe("fenced code block formatting", () => {
   // regress when the fenced-implies-source behavior is added.
   test("a fence with a language still emits [source,lang] + listing", async () => {
     const input = "```rust\nfn main() {}\n```\n";
-    const out = await formatAdoc(input);
-    expect(out).toBe("[source,rust]\n----\nfn main() {}\n----\n");
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, "[source,rust]\n----\nfn main() {}\n----\n");
   });
 
   // Metadata ORDER: a block title belongs above the attribute list
@@ -85,10 +80,7 @@ describe("fenced code block formatting", () => {
     ["without a language", ".T\n```\ncode\n```\n", ".T\n[source]\n"],
     ["with a language", ".T\n```js\ncode\n```\n", ".T\n[source,js]\n"],
   ])("a titled fence %s keeps the title first", async (_name, input, head) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(`${head}----\ncode\n----\n`);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, `${head}----\ncode\n----\n`);
   });
 
   // A fence without a language, preceded by an explicit bare
@@ -97,10 +89,7 @@ describe("fenced code block formatting", () => {
   // [source,lang].
   test("a fence preceded by an explicit [source] line does not duplicate the attribute", async () => {
     const input = "[source]\n```\ncode\n```\n";
-    const out = await formatAdoc(input);
-    expect(out).toBe("[source]\n----\ncode\n----\n");
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, "[source]\n----\ncode\n----\n");
   });
 });
 
@@ -122,8 +111,7 @@ describe("fence annotation is the reader's own record", () => {
     const output = await formatAdoc(input);
     expect(output).toBe("* item\n+\n[source,ruby]\n----\nfoo\n----\n");
     // The fence-annotation proofs, re-run at execution:
-    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(output)).toBe(output);
+    await expectStableRender(input);
   });
 });
 

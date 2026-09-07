@@ -10,7 +10,12 @@
  * over a listing block, so prose landed inside `<pre>`.
  */
 import { describe, expect, test } from "vitest";
-import { expectFormatted, formatAdoc, renderedHtml } from "../helpers.js";
+import {
+  expectFormatted,
+  expectStableRender,
+  formatAdoc,
+  renderedHtml,
+} from "../helpers.js";
 
 describe("an underlined title normalizes to the ATX spelling", () => {
   // One row per SETEXT_SECTION_LEVELS mark: the mark IS the level, so
@@ -102,8 +107,13 @@ describe("an indented SECTION title line loses its indent, and settles", () => {
     ["a two-space indent", "  lit\n----\nfoo\n----\n", "== lit\n\n== foo\n"],
     ["a deeper one", "   Title\n--------\n\nb\n", "== Title\n\nb\n"],
   ])("%s formats once and stays", async (_name, input, expected) => {
+    // Bytes and the fixed point, no render-equality: dropping the
+    // indent is exactly what the heading text loses, so the two
+    // renders differ by that space. The comment above this suite is
+    // the record of it, and the next row pins the difference.
     const first = await formatAdoc(input);
     expect(first).toBe(expected);
+    // eslint-disable-next-line test-assertions/no-hand-spelled-format-trailer -- the row's subject is a render the formatter deliberately changes
     expect(await formatAdoc(first)).toBe(first);
   });
 
@@ -127,8 +137,7 @@ describe("what the underline rule refuses", () => {
   ])("an underline %s is no title", async (_name, input) => {
     const out = await formatAdoc(input);
     expect(out.startsWith("==")).toBe(false);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectStableRender(input);
   });
 
   // A blank line between the two lines breaks the pair, which is why

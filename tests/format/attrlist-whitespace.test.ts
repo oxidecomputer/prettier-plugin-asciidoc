@@ -43,17 +43,21 @@
  * this issue's boundary (attrlistFields' trim, not paragraph reflow).
  */
 import { describe, expect, test } from "vitest";
-import { formatAdoc, renderedHtml } from "../helpers.js";
+import {
+  expectFormatted,
+  expectStableRender,
+  formatAdoc,
+  renderedHtml,
+} from "../helpers.js";
 
 describe("[NOTE + NBSP] does not become an admonition (issue #77)", () => {
   test("a trailing NBSP survives and the block stays a plain paragraph", async () => {
     const input = "[NOTE\u00A0]\nSome text here.\n";
     const output = await formatAdoc(input);
-    expect(output).toBe(input);
+    await expectFormatted(input, input);
     const html = await renderedHtml(output);
     expect(html).toContain('<div class="paragraph">');
     expect(html).not.toContain("admonitionblock");
-    expect(await formatAdoc(output)).toBe(output);
   });
 
   // The ASCII-blank twins ARE the NOTE style: the blank is not part of
@@ -72,7 +76,7 @@ describe("[NOTE + NBSP] does not become an admonition (issue #77)", () => {
       const output = await formatAdoc(input);
       expect(output).toBe("NOTE: Some text here.\n");
       expect(await renderedHtml(output)).toContain("admonitionblock");
-      expect(await formatAdoc(output)).toBe(output);
+      await expectStableRender(input);
     },
   );
 });
@@ -81,9 +85,8 @@ describe("[#id + NBSP] keeps the no-break space as part of the id (issue #77)", 
   test("byte preserved, and the oracle's id attribute carries the NBSP", async () => {
     const input = "[#id\u00A0]\nSome text here.\n";
     const output = await formatAdoc(input);
-    expect(output).toBe(input);
+    await expectFormatted(input, input);
     expect(await renderedHtml(output)).toContain('id="id\u00A0"');
-    expect(await formatAdoc(output)).toBe(output);
   });
 
   // The ASCII-space twin trims to a bare id and then, unlike its
@@ -102,7 +105,7 @@ describe("[#id + NBSP] keeps the no-break space as part of the id (issue #77)", 
     const html = await renderedHtml(output);
     expect(html).toContain('id="id"');
     expect(html).not.toContain('id="id\u00A0');
-    expect(await formatAdoc(output)).toBe(output);
+    await expectStableRender(input);
   });
 });
 
@@ -110,9 +113,8 @@ describe("[source,ruby + NBSP] keeps the no-break space as part of the language 
   test("byte preserved, and the oracle's data-lang carries the NBSP", async () => {
     const input = "[source,ruby\u00A0]\n----\nputs 1\n----\n";
     const output = await formatAdoc(input);
-    expect(output).toBe(input);
+    await expectFormatted(input, input);
     expect(await renderedHtml(output)).toContain('data-lang="ruby\u00A0"');
-    expect(await formatAdoc(output)).toBe(output);
   });
 
   test("the other direction: an ASCII trailing space trims to a bare language", async () => {
@@ -122,7 +124,7 @@ describe("[source,ruby + NBSP] keeps the no-break space as part of the language 
     const html = await renderedHtml(output);
     expect(html).toContain('data-lang="ruby"');
     expect(html).not.toContain('data-lang="ruby\u00A0"');
-    expect(await formatAdoc(output)).toBe(output);
+    await expectStableRender(input);
   });
 });
 
@@ -135,16 +137,12 @@ describe("[%hardbreaks + NBSP], a one-line body (issue #77's own boundary only)"
   // trim itself.
   test("byte preserved with a trailing NBSP", async () => {
     const input = "[%hardbreaks\u00A0]\nSome text here.\n";
-    const output = await formatAdoc(input);
-    expect(output).toBe(input);
-    expect(await formatAdoc(output)).toBe(output);
+    await expectFormatted(input, input);
   });
 
   test("the other direction: an ASCII trailing space trims away", async () => {
     const input = "[%hardbreaks ]\nSome text here.\n";
-    const output = await formatAdoc(input);
-    expect(output).toBe("[%hardbreaks]\nSome text here.\n");
-    expect(await formatAdoc(output)).toBe(output);
+    await expectFormatted(input, "[%hardbreaks]\nSome text here.\n");
   });
 });
 
@@ -160,7 +158,7 @@ describe("interior whitespace is content, not a trim boundary (issue #77)", () =
     // tests/format/block-attributes.test.ts.
     expect(output).toBe("[quote,Author\u00A0Name]\nSome quoted text.\n");
     expect(await renderedHtml(output)).toContain("Author\u00A0Name");
-    expect(await formatAdoc(output)).toBe(output);
+    await expectStableRender(input);
   });
 });
 
@@ -178,12 +176,11 @@ describe("a held style with a trailing NBSP is not a recognized paragraph-form s
   test("the body stays an ordinary paragraph and reflows at the print width", async () => {
     const input =
       "[source\u00A0]\nword1 word2 word3 word4 word5 word6 word7 word8\n";
-    const output = await formatAdoc(input, { printWidth: 20 });
-    expect(output).toBe(
+    await expectFormatted(
+      input,
       "[source\u00A0]\nword1 word2 word3\nword4 word5 word6\nword7 word8\n",
+      { printWidth: 20 },
     );
-    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(output, { printWidth: 20 })).toBe(output);
   });
 
   test.each([
@@ -193,11 +190,11 @@ describe("a held style with a trailing NBSP is not a recognized paragraph-form s
     "the other direction: a trailing %s still selects the verbatim listing style, unwrapped",
     async (_name, opener) => {
       const input = `${opener}word1 word2 word3 word4 word5 word6 word7 word8\n`;
-      const output = await formatAdoc(input, { printWidth: 20 });
-      expect(output).toBe(
+      await expectFormatted(
+        input,
         "[source]\nword1 word2 word3 word4 word5 word6 word7 word8\n",
+        { printWidth: 20 },
       );
-      expect(await formatAdoc(output, { printWidth: 20 })).toBe(output);
     },
   );
 });

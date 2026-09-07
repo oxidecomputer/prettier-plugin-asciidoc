@@ -14,7 +14,7 @@
  */
 import { describe, expect, test } from "vitest";
 import { parse } from "../../src/parser.js";
-import { formatAdoc, narrow, renderedHtml } from "../helpers.js";
+import { expectFormatted, narrow, renderedHtml } from "../helpers.js";
 import { expectAstInvariants } from "./ast-invariants.js";
 import { astShape, itemCount, oracleItems } from "./reader-helpers.js";
 
@@ -525,7 +525,7 @@ describe("reader: a //-headed dlist term keeps its own line", () => {
     expect(await renderedHtml(input)).toContain("///b</dt>");
     expect(await renderedHtml("* a\n///b:: c\n")).not.toContain("///b");
     expect(astShape(input)).toBe("list(item(t -descriptionList))");
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 });
 
@@ -580,9 +580,6 @@ describe("reader: a nested textless term makes a marker item greedy", () => {
 
   test("the sibling shape survives the round trip", async () => {
     const input = "* a\nnested::\n\ntext\n* b\n";
-    expect(await formatAdoc(input)).toBe(input);
-    expect(await renderedHtml(await formatAdoc(input))).toBe(
-      await renderedHtml(input),
-    );
+    await expectFormatted(input, input);
   });
 });

@@ -1,6 +1,8 @@
 import { describe, test, expect } from "vitest";
 import {
   asParagraph,
+  expectFormatted,
+  expectStableRender,
   firstList,
   formatAdoc,
   renderedHtml,
@@ -11,7 +13,7 @@ describe("thematic break formatting", () => {
   // Basic thematic break preserved.
   test("basic thematic break preserved", async () => {
     const input = "'''\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Extended thematic break normalized to three quotes.
@@ -24,7 +26,7 @@ describe("thematic break formatting", () => {
   // line separation.
   test("thematic break between paragraphs", async () => {
     const input = "Before.\n\n'''\n\nAfter.\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 });
 
@@ -50,10 +52,7 @@ describe("markdown thematic break formatting", () => {
     ["widely spaced asterisks", "*  *  *\n"],
     ["an indented spaced rule", "   - - -\n"],
   ])("a rule of %s normalizes to the AsciiDoc break", async (_n, input) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe("'''\n");
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, "'''\n");
   });
 
   // The fold may not MANUFACTURE the rule out of text (#179). Every
@@ -86,10 +85,7 @@ describe("markdown thematic break formatting", () => {
     ["a two-line join", "_ _\n_\n"],
     ["a two-line join behind a marker", "- -\n-\n"],
   ])("%s keeps its bytes rather than spelling a rule", async (_n, input) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, input);
   });
 
   // The other side of the same rule, and what it costs. A line whose
@@ -109,10 +105,7 @@ describe("markdown thematic break formatting", () => {
   test.each([["a tab-gapped dash rule, which is no rule", "-\t-\t-\n"]])(
     "%s comes back as the author wrote it",
     async (_n, input) => {
-      const out = await formatAdoc(input);
-      expect(out).toBe(input);
-      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-      expect(await formatAdoc(out)).toBe(out);
+      await expectFormatted(input, input);
     },
   );
 
@@ -121,10 +114,7 @@ describe("markdown thematic break formatting", () => {
   // the value and a rule the author spelled with wider gaps still
   // normalizes - through the `_ _ _` form and on to `'''`.
   test("a spaced underscore rule still normalizes", async () => {
-    const out = await formatAdoc("_  _  _\n");
-    expect(out).toBe("'''\n");
-    expect(await renderedHtml(out)).toBe(await renderedHtml("_  _  _\n"));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted("_  _  _\n", "'''\n");
   });
 
   // The marks are only a rule when they are the WHOLE line and there
@@ -148,10 +138,7 @@ describe("markdown thematic break formatting", () => {
     // node and the span beside them is what makes the line longer.
     ["an inline sibling on the line", "*b*\n_ _  _\n", "*b* _ _ _\n"],
   ])("%s folds as usual", async (_n, input, expected) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(expected);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, expected);
   });
 
   // The same fold, met at a block start that is not the document's:
@@ -162,10 +149,7 @@ describe("markdown thematic break formatting", () => {
     ["a quote block", "[quote]\n____\n_ _  _\n____\n"],
     ["an attribute line above it", ":attr: x\n\n_ _  _\n"],
   ])("%s keeps its bytes too", async (_n, input) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, input);
   });
 
   // WHAT THE KEPT BREAK COSTS when the item is nested, recorded
@@ -182,10 +166,7 @@ describe("markdown thematic break formatting", () => {
   ])(
     "a kept break under a nested item de-indents its line, %s",
     async (_n, input, expected) => {
-      const out = await formatAdoc(input);
-      expect(out).toBe(expected);
-      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-      expect(await formatAdoc(out)).toBe(out);
+      await expectFormatted(input, expected);
     },
   );
 
@@ -197,10 +178,7 @@ describe("markdown thematic break formatting", () => {
     ["a rule below prose", "b c\n\n---\n", "b c\n\n'''\n"],
     ["a rule between paragraphs", "a\n\n***\n\nb\n", "a\n\n'''\n\nb\n"],
   ])("%s keeps its own block", async (_name, input, expected) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(expected);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, expected);
   });
 });
 
@@ -208,7 +186,7 @@ describe("page break formatting", () => {
   // Basic page break preserved.
   test("basic page break preserved", async () => {
     const input = "<<<\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Extended page break normalized to three less-than signs.
@@ -221,7 +199,7 @@ describe("page break formatting", () => {
   // line separation.
   test("page break between paragraphs", async () => {
     const input = "Before.\n\n<<<\n\nAfter.\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 });
 
@@ -231,13 +209,13 @@ describe("hard line break formatting", () => {
   // forces a line break in the rendered output.
   test("hard line break in paragraph is preserved", async () => {
     const input = "First line +\nsecond line.\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Hard line break in a list item must also be preserved.
   test("hard line break in list item is preserved", async () => {
     const input = "* First line +\nsecond line.\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // A hard break as the block's FIRST inline node: there is nothing in
@@ -248,15 +226,13 @@ describe("hard line break formatting", () => {
   // is a different fact about raw lines.
   test("a hard break opening the paragraph is preserved", async () => {
     const input = " +\nx\n";
-    const out = await formatAdoc(input);
-    expect(out).toBe(input);
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, input);
   });
 
   // Multiple hard line breaks in sequence.
   test("multiple hard line breaks preserved", async () => {
     const input = "Line one +\nline two +\nline three.\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // A ` +` ALONE on its line is still a hard line break:
@@ -272,9 +248,8 @@ describe("hard line break formatting", () => {
     ["the block's last line", "text\nfoo\n +\nbar\n"],
   ])("a ` +` alone on its line breaks in %s", async (_name, input) => {
     const out = await formatAdoc(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    await expectStableRender(input);
     expect(out.includes(" +\n")).toBe(true);
-    expect(await formatAdoc(out)).toBe(out);
   });
 
   // "Alone on its line" is a WHITESPACE-only prefix, not column 1:
@@ -289,9 +264,8 @@ describe("hard line break formatting", () => {
     ["a preceding formatting span", "*b*\n +\nmore\n"],
   ])("a ` +` after %s owns its line", async (_name, input) => {
     const out = await formatAdoc(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    await expectStableRender(input);
     expect(out.split("\n")).toContain(" +");
-    expect(await formatAdoc(out)).toBe(out);
   });
 
   // Where it is NOT a break: `adjust_indentation!` strips the common
@@ -317,10 +291,9 @@ describe("hard line break formatting", () => {
     // `{plus}` is the formatter's escape for a trailing literal `+`,
     // and Asciidoctor renders it as the numeric reference for the very
     // same character, which `renderedHtml` reads as that character.
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    await expectStableRender(input);
     const html = await renderedHtml(out);
     expect(html.includes("<br>")).toBe(!literal);
-    expect(await formatAdoc(out)).toBe(out);
   });
 
   // The reader's literal-plus decision retypes the ` +` token as
@@ -390,9 +363,7 @@ describe("a hard break survives trailing whitespace and EOF", () => {
   test.each(["a +  \nb\n", "a +"])(
     "%j renders the same formatted",
     async (input) => {
-      expect(await renderedHtml(await formatAdoc(input))).toBe(
-        await renderedHtml(input),
-      );
+      await expectStableRender(input);
     },
   );
 });
@@ -419,9 +390,7 @@ describe("a lone indented ` +` is the literal the oracle reads", () => {
     // the blanks change nothing and the oracle agrees.
     ["trailing blanks and nothing else", ". item\n +  \n"],
   ])("with %s, the ` +` reads as a literal plus", async (_name, input) => {
-    const out = await formatAdoc(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectStableRender(input);
   });
 
   // The two faces of the family that keep their bytes: a ` +` on a
@@ -434,10 +403,7 @@ describe("a lone indented ` +` is the literal the oracle reads", () => {
     ["a later line of an item's text", "* a\na\n +\n"],
     ["the first line of a literal block", " +\nmore\n"],
   ])("%s keeps its bytes", async (_name, input) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, input);
   });
 
   // The retype reaches the ` +` LINE and no other break in the
@@ -446,10 +412,7 @@ describe("a lone indented ` +` is the literal the oracle reads", () => {
   // must survive while the ` +` between them goes literal.
   test("the retype reaches the ` +` line and no break outside it", async () => {
     const input = ". item +\n +\n  more +\n  tail\n";
-    const out = await formatAdoc(input);
-    expect(out).toBe(". item +\n+ more +\ntail\n");
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, ". item +\n+ more +\ntail\n");
   });
 
   // And the reading belongs to ITEM TEXT alone. The same shape in a
@@ -458,10 +421,7 @@ describe("a lone indented ` +` is the literal the oracle reads", () => {
   // past it.
   test("the same shape in a plain paragraph keeps its break", async () => {
     const input = "text\n +\n  more\n";
-    const out = await formatAdoc(input);
-    expect(out).toBe("text\n +\nmore\n");
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, "text\n +\nmore\n");
   });
 });
 
@@ -488,10 +448,9 @@ describe("a comment line inside a dlist description is content", () => {
   ])("with %s, the break and the comment both survive", async (_n, input) => {
     const out = await formatAdoc(input);
     const html = await renderedHtml(out);
-    expect(html).toBe(await renderedHtml(input));
     expect(html.includes("<br>")).toBe(true);
     expect(out.includes("//")).toBe(true);
-    expect(await formatAdoc(out)).toBe(out);
+    await expectStableRender(input);
   });
 
   // The issue's own repro, byte for byte: both lines stand where the
@@ -500,7 +459,7 @@ describe("a comment line inside a dlist description is content", () => {
   // with it, the reading that makes the comment line content).
   test("the repro keeps its bytes", async () => {
     const input = "t:: item\n +\n// c\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // The reading is the dlist's alone, and only where the item carries
@@ -518,9 +477,8 @@ describe("a comment line inside a dlist description is content", () => {
   ])("in %s the comment is a comment", async (_name, input) => {
     const out = await formatAdoc(input);
     const html = await renderedHtml(out);
-    expect(html).toBe(await renderedHtml(input));
     expect(html.includes("<br>")).toBe(false);
-    expect(await formatAdoc(out)).toBe(out);
+    await expectStableRender(input);
   });
 });
 
@@ -548,13 +506,10 @@ describe("a content comment line stays inside the description", () => {
     ["the item nested in a list item", "* a\nt:: item\n  x\n// c\n"],
     ["a paragraph after the item", "t:: item\n  x\n// c\n\nafter\n"],
   ])("with %s the comment stays inside", async (_name, input) => {
-    const out = await formatAdoc(input);
     // A ROUND TRIP: the item replays, so the comment keeps the line
     // and the column the author gave it, which is the one position
     // whose reading the render already agrees with.
-    expect(out).toBe(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, input);
   });
 
   // The indented arm is the only one whose `//` lines the oracle reads
@@ -574,9 +529,8 @@ describe("a content comment line stays inside the description", () => {
     ["a ulist item, whose `text_only` is set", "* item\n  x\n// c\n"],
   ])("where %s, the comment keeps its own line", async (_name, input) => {
     const out = await formatAdoc(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    await expectStableRender(input);
     expect(out.split("\n").some((line) => line.startsWith("//"))).toBe(true);
-    expect(await formatAdoc(out)).toBe(out);
   });
 });
 
@@ -609,13 +563,12 @@ describe("a comment carrying a dlist separator is not folded", () => {
     ["the `;;` separator", "t:: item\n  x\n// x;; y\n"],
   ])("with %s, the comment keeps its line", async (_name, source) => {
     const out = await formatAdoc(source);
-    expect(out).toBe(source);
+    await expectFormatted(source, source);
     // Nothing invented: the reformatted document carries exactly the
     // terms the source's own render does.
     const before = await renderedHtml(source);
     const after = await renderedHtml(out);
     expect(termCount(after)).toBe(termCount(before));
-    expect(await formatAdoc(out)).toBe(out);
   });
 
   // Where the separator ends no word the line is ordinary text and
@@ -628,10 +581,7 @@ describe("a comment carrying a dlist separator is not folded", () => {
     ["a `::` inside a word", "t:: item\n  x\n// a x::y\n"],
     ["a ` +` above it", "t:: item\n +\n// x:: y\n"],
   ])("with %s the render is unchanged", async (_name, source) => {
-    const out = await formatAdoc(source);
-    expect(out).toBe(source);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(source));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(source, source);
   });
 });
 
@@ -658,13 +608,11 @@ describe("a tab-indented `+` in a dlist description keeps its comment", () => {
     ["a text line after the comment", "t:: item\n\t+\n// c\n  b\n"],
   ])("with %s, the plus is text and so is the comment", async (_n, source) => {
     const out = await formatAdoc(source);
-    expect(out).toBe(source);
+    await expectFormatted(source, source);
     const html = await renderedHtml(out);
-    expect(html).toBe(await renderedHtml(source));
     // The oracle's own answer, and the reason the output may spell the
     // plus inline: no break was ever there to keep.
     expect(html.includes("<br>")).toBe(false);
-    expect(await formatAdoc(out)).toBe(out);
   });
 
   // The contrast the issue rests on, and the #101 rows it must not
@@ -674,7 +622,7 @@ describe("a tab-indented `+` in a dlist description keeps its comment", () => {
   // reflowing into it.
   test("a space in the same position is still a break", async () => {
     const input = "t:: item\n +\n// c\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
     const html = await renderedHtml(input);
     expect(html.includes("<br>")).toBe(true);
   });
@@ -701,11 +649,9 @@ describe("an include under a marker item keeps its break (#107)", () => {
     ["a callout item", "<1> item\n +\ninclude::x[]\n"],
   ])("with %s, the include keeps the ` +` a break", async (_name, input) => {
     const out = await formatAdoc(input);
-    expect(out).toBe(input);
+    await expectFormatted(input, input);
     const html = await renderedHtml(out);
-    expect(html).toBe(await renderedHtml(input));
     expect(html.includes("<br>")).toBe(true);
-    expect(await formatAdoc(out)).toBe(out);
   });
 
   // Controls: the shapes the fix must leave exactly as they were.
@@ -716,7 +662,7 @@ describe("an include under a marker item keeps its break (#107)", () => {
   // and keeps its break either way.
   test("a plain paragraph's include keeps its break regardless", async () => {
     const input = "para\n +\ninclude::x[]\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
     const html = await renderedHtml(input);
     expect(html.includes("<br>")).toBe(true);
   });
@@ -728,9 +674,7 @@ describe("an include under a marker item keeps its break (#107)", () => {
   // unaffected by it.
   test("an indented include is text, not a preprocessor line", async () => {
     const input = "* item\n +\n  include::x[]\n";
-    const out = await formatAdoc(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectStableRender(input);
   });
 
   // An `ifdef::` line is a CONDITIONAL, not an include, and the
@@ -740,8 +684,6 @@ describe("an include under a marker item keeps its break (#107)", () => {
   // with nothing after it and land on the same literal plus.
   test("an ifdef line is gone before either side reads it", async () => {
     const input = "* item\n +\nifdef::flag[]\nmore\nendif::[]\n";
-    const out = await formatAdoc(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectStableRender(input);
   });
 });

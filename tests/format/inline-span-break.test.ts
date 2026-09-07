@@ -21,17 +21,7 @@
  * kept.
  */
 import { describe, expect, test } from "vitest";
-import { expectFormatted, formatAdoc, renderedHtml } from "../helpers.js";
-
-/**
- * Format once, pin the bytes, and prove render equality and
- * idempotence.
- * @param input - the row's document
- * @param expected - the exact formatted bytes
- */
-async function expectRow(input: string, expected: string): Promise<void> {
-  await expectFormatted(input, expected);
-}
+import { expectFormatted, expectStableRender, formatAdoc } from "../helpers.js";
 
 describe("an in-span source break replays as one space", () => {
   // The issue's own example: the trailing `\n` of the span content
@@ -40,7 +30,7 @@ describe("an in-span source break replays as one space", () => {
   // like the broken spelling (`<strong> b </strong>`, whitespace on
   // both edges).
   test("x / ** b / ** c", async () => {
-    await expectRow("x\n** b\n** c\n", "x ** b ** c\n");
+    await expectFormatted("x\n** b\n** c\n", "x ** b ** c\n");
   });
 
   // The constrained twin, fixed at the tokenizer (#36):
@@ -48,28 +38,28 @@ describe("an in-span source break replays as one space", () => {
   // opening mark, so `* b` after a break is no span at all - the
   // marks are literal text and the join is an ordinary space.
   test("x / * b / * c stays literal", async () => {
-    await expectRow("x\n* b\n* c\n", "x * b * c\n");
+    await expectFormatted("x\n* b\n* c\n", "x * b * c\n");
   });
 
   // Mid-content breaks were already kept; promoted to a named
   // regression row so the strip fix cannot overshoot.
   test("a **b / c** d keeps its mid-content break", async () => {
-    await expectRow("a **b\nc** d\n", "a *b c* d\n");
+    await expectFormatted("a **b\nc** d\n", "a *b c* d\n");
   });
 
   // A nested span inside the broken content rides along.
   test("nested span before the trailing break", async () => {
-    await expectRow("x\n** a *b*\n** c\n", "x ** a *b* ** c\n");
+    await expectFormatted("x\n** a *b*\n** c\n", "x ** a *b* ** c\n");
   });
 
   // A real constrained span broken mid-content still reflows.
   test("x *b / c* d", async () => {
-    await expectRow("x *b\nc* d\n", "x *b c* d\n");
+    await expectFormatted("x *b\nc* d\n", "x *b c* d\n");
   });
 
   // The one-line spelling is the fixed point the broken ones land on.
   test("x ** b ** c is a fixed point", async () => {
-    await expectRow("x ** b ** c\n", "x ** b ** c\n");
+    await expectFormatted("x ** b ** c\n", "x ** b ** c\n");
   });
 });
 
@@ -83,9 +73,7 @@ describe("the #55 sweep shapes, re-asserted as named rows", () => {
     "* a\n\npara\n* a\n* a\n",
     "* a\n\n.T\n+\n** b\n** b\n",
   ])("%j formats render-equal and idempotent", async (input) => {
-    const out = await formatAdoc(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectStableRender(input);
   });
 });
 
@@ -95,13 +83,13 @@ describe("the block-start hazard net keeps the source break", () => {
   // the output as a LIST). The net emits the open mark on its own
   // line and the content at column 0: the source's own bytes.
   test("** / b** c round-trips byte-identically", async () => {
-    await expectRow("**\nb** c\n", "**\nb** c\n");
+    await expectFormatted("**\nb** c\n", "**\nb** c\n");
   });
 
   // The whitespace-only span at block start: `**\n**` would replay
   // as `** **`, which is a ulist line too. The net keeps the break.
   test("** / ** round-trips byte-identically", async () => {
-    await expectRow("**\n**\n", "**\n**\n");
+    await expectFormatted("**\n**\n", "**\n**\n");
   });
 
   // The corrupted spelling must never come back: whatever the net
@@ -117,17 +105,17 @@ describe("the block-start hazard net keeps the source break", () => {
   // source break is replayed as the ordinary space while the first
   // span's is kept.
   test("a later span's break is still replayed as a space", async () => {
-    await expectRow("**\nb** c **\nd** e\n", "**\nb** c ** d** e\n");
+    await expectFormatted("**\nb** c **\nd** e\n", "**\nb** c ** d** e\n");
   });
 
   // Where a printed prefix holds column 0 the net stays out: a list
   // item's marker and an admonition's label protect the line, and
   // the space replay is byte-stable.
   test("a list item's span is not the block's column 0", async () => {
-    await expectRow("* ** b** c\n", "* ** b** c\n");
+    await expectFormatted("* ** b** c\n", "* ** b** c\n");
   });
   test("an admonition label holds column 0", async () => {
-    await expectRow("NOTE: ** b** c\n", "NOTE: ** b** c\n");
+    await expectFormatted("NOTE: ** b** c\n", "NOTE: ** b** c\n");
   });
 
   // The same two prefixes with the source break the net trades for.
@@ -138,17 +126,17 @@ describe("the block-start hazard net keeps the source break", () => {
   // the item's own text and the label's own text, which is what the
   // source said.
   test("a list item's marker holds column 0 across a break", async () => {
-    await expectRow("* **\nb** c\n", "* ** b** c\n");
+    await expectFormatted("* **\nb** c\n", "* ** b** c\n");
   });
   test("an admonition label holds column 0 across a break", async () => {
-    await expectRow("NOTE: *\nb* c\n", "NOTE: * b* c\n");
+    await expectFormatted("NOTE: *\nb* c\n", "NOTE: * b* c\n");
   });
 
   // The plain-TEXT path of the same rule: a lone `*` against a break
   // is no mark at all, so the item's text is `*` then `b* c`, and the
   // marker in front of it is why joining them is safe.
   test("a list item's marker holds column 0 on the text path", async () => {
-    await expectRow("* *\nb* c\n", "* * b* c\n");
+    await expectFormatted("* *\nb* c\n", "* * b* c\n");
   });
 });
 
@@ -162,22 +150,19 @@ describe("a raw line at a span edge keeps its line and the marks stay off it", (
   // family.
   test("the depth-5 sweep shape: close mark after the comment", async () => {
     const input = "* a\n\npara\n** b\n// c\n** b\n";
-    const out = await formatAdoc(input);
-    expect(out).toBe("* a\n\npara ** b\n// c\n** b\n");
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, "* a\n\npara ** b\n// c\n** b\n");
   });
 
   // A raw line at the OPEN edge detaches the open mark the same way.
   test("open mark before the comment", async () => {
-    await expectRow("**\n// c\nb** c\n", "**\n// c\nb** c\n");
+    await expectFormatted("**\n// c\nb** c\n", "**\n// c\nb** c\n");
   });
 
   // A raw line MID-content never carried a mark; the span around it
   // stays unconstrained (the respell would read the comment's
   // neighbours, which the oracle deletes before the quote pass).
   test("mid-content comment keeps the unconstrained spelling", async () => {
-    await expectRow("a **b\n// c\nd** e\n", "a **b\n// c\nd** e\n");
+    await expectFormatted("a **b\n// c\nd** e\n", "a **b\n// c\nd** e\n");
   });
 });
 
@@ -195,7 +180,7 @@ describe("the kept break is the SOURCE LINE's, not a fragment's", () => {
   test.each(["**\n*b* c\n", "**\nb* c\n", "**\nb c*\n"])(
     "%j keeps the author's line instead of writing a ulist",
     async (input) => {
-      await expectRow(input, input);
+      await expectFormatted(input, input);
     },
   );
 
@@ -205,7 +190,7 @@ describe("the kept break is the SOURCE LINE's, not a fragment's", () => {
   test.each(["##\n#b# c\n", "##\nb# c\n", "##\nb c#\n"])(
     "%j keeps the author's line instead of writing a heading",
     async (input) => {
-      await expectRow(input, input);
+      await expectFormatted(input, input);
     },
   );
 
@@ -222,7 +207,7 @@ describe("the kept break is the SOURCE LINE's, not a fragment's", () => {
   test.each(["#####\nb c\n", "####\nb## c\n"])(
     "%j keeps the author's line under a longer marker run",
     async (input) => {
-      await expectRow(input, input);
+      await expectFormatted(input, input);
     },
   );
 
@@ -231,7 +216,7 @@ describe("the kept break is the SOURCE LINE's, not a fragment's", () => {
   // stays a block of its own, so the canonical `'''` comes back with
   // a blank line under it.
   test("a lone *** is read as the break it is", async () => {
-    await expectRow("***\nb c\n", "'''\n\nb c\n");
+    await expectFormatted("***\nb c\n", "'''\n\nb c\n");
   });
 
   // The control: the recorded fact is TRUE here too (`**a**` is one
@@ -239,7 +224,7 @@ describe("the kept break is the SOURCE LINE's, not a fragment's", () => {
   // where the packed line would be block syntax. A fact on its own
   // buys no break.
   test("a one-word first line that packs harmlessly still packs", async () => {
-    await expectRow("**a**\nb c\n", "*a* b c\n");
+    await expectFormatted("**a**\nb c\n", "*a* b c\n");
   });
 
   // A HIGHLIGHT span's role prefix is the shape that made the net's
@@ -252,14 +237,14 @@ describe("the kept break is the SOURCE LINE's, not a fragment's", () => {
   // - and the paragraph packed into it re-read as block METADATA and
   // rendered EMPTY. The net keeps the author's line instead.
   test("[.role]## / b## c] keeps the author's line", async () => {
-    await expectRow("[.role]##\nb## c]\n", "[.role]##\nb## c]\n");
+    await expectFormatted("[.role]##\nb## c]\n", "[.role]##\nb## c]\n");
   });
 
   // The `]` glued to the closing mark, so the packed line is
   // `[.role]## b##]` and the last atom fuses rather than joining over a
   // space. The line is a block attribute list either way.
   test("[.role]## / b##] keeps the author's line", async () => {
-    await expectRow("[.role]##\nb##]\n", "[.role]##\nb##]\n");
+    await expectFormatted("[.role]##\nb##]\n", "[.role]##\nb##]\n");
   });
 
   // The plain-TEXT twin of the same hazard: a constrained `#` against a
@@ -268,7 +253,7 @@ describe("the kept break is the SOURCE LINE's, not a fragment's", () => {
   // involved. The pair `[.role]# b#` is no block shape and the packed
   // line `[.role]# b# c]` is one, which is the same under-refusal.
   test("[.role]# / b# c] keeps the author's line", async () => {
-    await expectRow("[.role]#\nb# c]\n", "[.role]#\nb# c]\n");
+    await expectFormatted("[.role]#\nb# c]\n", "[.role]#\nb# c]\n");
   });
 
   // The DISCRIMINATOR for the whole-line question: the same span with a
@@ -278,7 +263,7 @@ describe("the kept break is the SOURCE LINE's, not a fragment's", () => {
   // paragraph and the atoms pack. The net reads the line, not the `[`
   // at its head.
   test("[.role]## / b## c] d packs, render-equal and a fixed point", async () => {
-    await expectRow("[.role]##\nb## c] d\n", "[.role]## b## c] d\n");
+    await expectFormatted("[.role]##\nb## c] d\n", "[.role]## b## c] d\n");
   });
 
   // The NEAR MISS: the same span with a word in FRONT of it. The block's
@@ -287,13 +272,13 @@ describe("the kept break is the SOURCE LINE's, not a fragment's", () => {
   // out - the source break inside the span replays as the ordinary
   // space.
   test("the same span mid-paragraph still packs", async () => {
-    await expectRow("x [.role]##\nb## c]\n", "x [.role]## b## c]\n");
+    await expectFormatted("x [.role]##\nb## c]\n", "x [.role]## b## c]\n");
   });
 
   // The other near miss: the author already wrote the packed line, so
   // there is no break to keep and the net invents none.
   test("the packed spelling with a trailing word is a fixed point", async () => {
-    await expectRow("[.role]## b## c] d\n", "[.role]## b## c] d\n");
+    await expectFormatted("[.role]## b## c] d\n", "[.role]## b## c] d\n");
   });
 
   // The same role prefix where the opening atom is its whole first
@@ -302,7 +287,7 @@ describe("the kept break is the SOURCE LINE's, not a fragment's", () => {
   // block attribute line - `[.role]### b]` - so this row held the net
   // before the whole-line probe existed and holds it still.
   test("a role-prefixed opener that is its whole line keeps the break", async () => {
-    await expectRow("[.role]###\nb] c##\n", "[.role]###\nb] c##\n");
+    await expectFormatted("[.role]###\nb] c##\n", "[.role]###\nb] c##\n");
   });
 
   // THE WITNESS for the net's one remaining precondition: content
@@ -320,7 +305,7 @@ describe("the kept break is the SOURCE LINE's, not a fragment's", () => {
   // the format is not idempotent. `expectRow`'s third assertion is
   // what catches that, which is why this row goes through it.
   test("a break at an inner span's mark is not a block start", async () => {
-    await expectRow("w\n*##\nb c##* d\n", "w *## b c##* d\n");
+    await expectFormatted("w\n*##\nb c##* d\n", "w *## b c##* d\n");
   });
 });
 
@@ -333,7 +318,7 @@ describe("the net also refuses to write a Markdown heading", () => {
   // the text behind the marks - the same corruption as the ulist
   // one, in the shape the registry did not yet carry.
   test("## / b## c round-trips byte-identically", async () => {
-    await expectRow("##\nb## c\n", "##\nb## c\n");
+    await expectFormatted("##\nb## c\n", "##\nb## c\n");
   });
 
   // The single-`#` twin goes through the plain-TEXT path (a lone `#`
@@ -341,7 +326,7 @@ describe("the net also refuses to write a Markdown heading", () => {
   // joined line is the DOCUMENT TITLE - the whole paragraph
   // disappears from the rendering.
   test("# / b# c round-trips byte-identically", async () => {
-    await expectRow("#\nb# c\n", "#\nb# c\n");
+    await expectFormatted("#\nb# c\n", "#\nb# c\n");
   });
 
   // The break the net keeps is the one BEHIND THE BLOCK'S FIRST
@@ -350,7 +335,7 @@ describe("the net also refuses to write a Markdown heading", () => {
   // never gets the question: the heading comes back in the `=`
   // spelling and `c` keeps its own line.
   test("a heading's own line ends at the heading", async () => {
-    await expectRow("# b\nc\n", "= b\nc\n");
+    await expectFormatted("# b\nc\n", "= b\nc\n");
   });
 
   // The other side of the same rule: a heading the AUTHOR wrote on
@@ -362,7 +347,7 @@ describe("the net also refuses to write a Markdown heading", () => {
     ["## Section One\n\nblah\n", "== Section One\n\nblah\n"],
     ["# Title\n\nblah\n", "= Title\n\nblah\n"],
   ])("%j keeps its own line", async (input, expected) => {
-    await expectRow(input, expected);
+    await expectFormatted(input, expected);
   });
 });
 
@@ -374,12 +359,12 @@ describe("the net covers the plain-text path", () => {
   // backwards - there is nothing behind it - so the break is kept
   // instead: `* b* c` re-reads as a LIST.
   test("* / b* c round-trips byte-identically", async () => {
-    await expectRow("*\nb* c\n", "*\nb* c\n");
+    await expectFormatted("*\nb* c\n", "*\nb* c\n");
   });
 
   // The ordered-list twin, same path.
   test(". / b. c round-trips byte-identically", async () => {
-    await expectRow(".\nb. c\n", ".\nb. c\n");
+    await expectFormatted(".\nb. c\n", ".\nb. c\n");
   });
 });
 
@@ -391,19 +376,19 @@ describe("a hard line break at a span's trailing edge keeps its line", () => {
   // edge follows, and the span stays unconstrained because a single
   // mark at column 0 with text behind it would be a list marker.
   test("a **b + / ** c keeps the break", async () => {
-    await expectRow("a **b +\n** c\n", "a **b +\n** c\n");
+    await expectFormatted("a **b +\n** c\n", "a **b +\n** c\n");
   });
 
   // The whole content is the break.
   test("a ** + / ** c keeps the break", async () => {
-    await expectRow("a ** +\n** c\n", "a ** +\n** c\n");
+    await expectFormatted("a ** +\n** c\n", "a ** +\n** c\n");
   });
 
   // MID-content the break is not at the span's edge: the atom behind
   // it carries the literal join, nothing detaches, and the respell
   // stays legal.
   test("a **b + / c** d reflows and respells", async () => {
-    await expectRow("a **b +\nc** d\n", "a *b +\nc* d\n");
+    await expectFormatted("a **b +\nc** d\n", "a *b +\nc* d\n");
   });
 });
 
@@ -416,7 +401,7 @@ describe("the same net covers the `=` section-title spelling", () => {
   test.each(["=\nb= c\n", "==\nb== c\n"])(
     "%j round-trips byte-identically",
     async (input) => {
-      await expectRow(input, input);
+      await expectFormatted(input, input);
     },
   );
 
@@ -424,20 +409,20 @@ describe("the same net covers the `=` section-title spelling", () => {
   // of it, reflows exactly as before. The net preserves a break the
   // AUTHOR wrote; it invents none.
   test("a lone = mid-line is a fixed point", async () => {
-    await expectRow("x = y and more\n", "x = y and more\n");
+    await expectFormatted("x = y and more\n", "x = y and more\n");
   });
 
   // A break that is NOT the block's start is still reflowed away:
   // this net guards the first output line only, and the `=` fuses
   // backwards the way every other block-syntax word does.
   test("a later break is still packed away", async () => {
-    await expectRow("a\n= b\n", "a = b\n");
+    await expectFormatted("a\n= b\n", "a = b\n");
   });
 
   // The reflow rule, seen at a wrap: a lone `=` word may not START
   // an output line, so it travels with the word in front of it.
   test("a wrapped = word fuses backwards", async () => {
-    await expectRow(
+    await expectFormatted(
       "aaaa bbbb cccc dddd eeee ffff gggg hhhh iiii jjjj kkkk llll mmmm nnnn oooo pppp = qqqq rrrr\n",
       "aaaa bbbb cccc dddd eeee ffff gggg hhhh iiii jjjj kkkk llll mmmm nnnn oooo\npppp = qqqq rrrr\n",
     );

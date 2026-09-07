@@ -7,7 +7,12 @@
  * Block-form admonitions preserve their delimiter structure.
  */
 import { describe, test, expect } from "vitest";
-import { expectFormatted, formatAdoc, renderedHtml } from "../helpers.js";
+import {
+  expectFormatted,
+  expectStableRender,
+  formatAdoc,
+  renderedHtml,
+} from "../helpers.js";
 import { astShape } from "../parser/reader-helpers.js";
 
 describe("paragraph-form admonition formatting", () => {
@@ -17,34 +22,32 @@ describe("paragraph-form admonition formatting", () => {
   // a description list instead of the admonition.
   test("keeps a `::` word off the first line", async () => {
     const input = "NOTE: a line\nterm:: x\n";
-    const out = await formatAdoc(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectStableRender(input);
   });
 
   test("NOTE: text round-trips", async () => {
     const input = "NOTE: This is a note.\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   test("TIP: text round-trips", async () => {
     const input = "TIP: Here is a tip.\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   test("IMPORTANT: text round-trips", async () => {
     const input = "IMPORTANT: Do not forget.\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   test("CAUTION: text round-trips", async () => {
     const input = "CAUTION: Watch out.\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   test("WARNING: text round-trips", async () => {
     const input = "WARNING: Be careful.\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   test("long text reflows to printWidth", async () => {
@@ -82,87 +85,84 @@ describe("paragraph-form admonition formatting", () => {
   test("admonition reflow may wrap before a .word", async () => {
     const input = "NOTE: aaa bbb .title\n";
     const options = { printWidth: 16 };
-    const out = await formatAdoc(input, options);
-    expect(out).toBe("NOTE: aaa bbb\n.title\n");
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out, options)).toBe(out);
+    await expectFormatted(input, "NOTE: aaa bbb\n.title\n", options);
   });
 });
 
 describe("block-form admonition formatting (example block)", () => {
   test("[NOTE] + example block round-trips", async () => {
     const input = "[NOTE]\n====\nContent.\n====\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   test("[TIP] + example block round-trips", async () => {
     const input = "[TIP]\n====\nA tip.\n====\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   test("[IMPORTANT] + example block round-trips", async () => {
     const input = "[IMPORTANT]\n====\nDo not forget.\n====\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   test("[CAUTION] + example block round-trips", async () => {
     const input = "[CAUTION]\n====\nWatch out.\n====\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   test("[WARNING] + example block round-trips", async () => {
     const input = "[WARNING]\n====\nBe careful.\n====\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   test("block-form with multiple paragraphs round-trips", async () => {
     const input = "[NOTE]\n====\nFirst paragraph.\n\nSecond paragraph.\n====\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 });
 
 describe("block-form admonition formatting (open block)", () => {
   test("[CAUTION] + open block round-trips", async () => {
     const input = "[CAUTION]\n--\nContent.\n--\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   test("[NOTE] + open block round-trips", async () => {
     const input = "[NOTE]\n--\nA note in an open block.\n--\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   test("open block with multiple paragraphs round-trips", async () => {
     const input = "[WARNING]\n--\nFirst.\n\nSecond.\n--\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 });
 
 describe("admonition formatting in context", () => {
   test("paragraph-form admonition between paragraphs", async () => {
     const input = "Before.\n\nNOTE: A note.\n\nAfter.\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   test("block-form admonition between paragraphs", async () => {
     const input = "Before.\n\n[NOTE]\n====\nA note.\n====\n\nAfter.\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   test("block title + block-form admonition stacks", async () => {
     const input = ".My Note\n[NOTE]\n====\nContent.\n====\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   test("anchor + block-form admonition", async () => {
     const input = "[[my-note]]\n[TIP]\n====\nContent.\n====\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Block title stacks with paragraph-form admonition.
   test("block title + paragraph-form admonition", async () => {
     const input = ".My Note\nNOTE: This is a note.\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // A block anchor gets blank-line separation from a paragraph-form
@@ -177,7 +177,7 @@ describe("admonition formatting in context", () => {
   // Custom admonition type round-trips.
   test("custom admonition [EXERCISE] round-trips", async () => {
     const input = "[EXERCISE]\n====\nDo this exercise.\n====\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Regression: a delimited admonition wrapping a same-variant
@@ -191,10 +191,10 @@ describe("admonition formatting in context", () => {
     // against the opening delimiter, so only `//////` closes it. The
     // comment block normalises to `////`, which its content cannot
     // close either.
-    const out = await formatAdoc(input);
-    expect(out).toBe("[M]\n*****\n****\n////\n///////\n////\n****\n*****\n");
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(
+      input,
+      "[M]\n*****\n****\n////\n///////\n////\n****\n*****\n",
+    );
   });
 });
 
@@ -229,8 +229,7 @@ describe("raw lines inside a paragraph-form admonition", () => {
     const lines = out.split("\n");
     expect(lines).toContain("// c");
     expect(lines.filter((l) => l.length > 0).length).toBeGreaterThan(3);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectStableRender(input);
   });
 });
 
@@ -263,17 +262,13 @@ describe("a [source] paragraph keeps a [NOTE] line as content", () => {
 describe("the admonition body rides the paragraph engine", () => {
   test("a body reflows exactly as a paragraph body does", async () => {
     const input = `NOTE: ${"word ".repeat(30)}end\n`;
-    const output = await formatAdoc(input);
-    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(output)).toBe(output);
+    await expectStableRender(input);
   });
 
   test("the dlist first-line guard has one home and still holds", async () => {
     const input = "NOTE: a line\nterm:: x\n";
-    const output = await formatAdoc(input);
     // The `term::` word must not land at the start of an output line.
-    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(output)).toBe(output);
+    await expectStableRender(input);
   });
 
   test("raw lines keep their own output lines through the shared engine", async () => {
@@ -317,8 +312,7 @@ describe("an admonition label keeps exactly one colon run", () => {
   ])("%s", async (_name, input) => {
     const out = await formatAdoc(input);
     expect(out.split(":").length - 1).toBe(1);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectStableRender(input);
   });
 });
 
@@ -336,7 +330,10 @@ describe("a bare admonition style over a paragraph is the label form", () => {
       const styled = `[${label}]\ntext here\n`;
       const labelled = `${label}: text here\n`;
       expect(await formatAdoc(styled)).toBe(labelled);
-      expect(await formatAdoc(labelled)).toBe(labelled);
+      await expectFormatted(labelled, labelled);
+      // The two SPELLINGS of one admonition, not an output against its
+      // own input: neither helper compares two documents.
+      // eslint-disable-next-line test-assertions/no-hand-spelled-format-trailer -- two documents, not a format row's own input and output
       expect(await renderedHtml(styled)).toBe(await renderedHtml(labelled));
     },
   );
@@ -393,8 +390,7 @@ describe("a style line only becomes a label where a label opens a block", () => 
   ])("%s keeps the style line", async (_name, input) => {
     const output = await formatAdoc(input);
     expect(output).toContain("[NOTE]");
-    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(output)).toBe(output);
+    await expectStableRender(input);
   });
 
   // The positions where a label DOES open a block still fold, so the
@@ -417,9 +413,6 @@ describe("a style line only becomes a label where a label opens a block", () => 
     ],
     ["document level", "[NOTE]\nbody\n", "NOTE: body\n"],
   ])("%s still folds", async (_name, input, expected) => {
-    const output = await formatAdoc(input);
-    expect(output).toBe(expected);
-    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(output)).toBe(output);
+    await expectFormatted(input, expected);
   });
 });

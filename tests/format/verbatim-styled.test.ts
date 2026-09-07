@@ -1,5 +1,5 @@
-import { describe, expect, test } from "vitest";
-import { expectFormatted, formatAdoc, renderedHtml } from "../helpers.js";
+import { describe, test } from "vitest";
+import { expectFormatted } from "../helpers.js";
 
 /**
  * Byte-identical, render-equal, idempotent — the passthrough triple.
@@ -52,10 +52,7 @@ describe("verbatim-styled paragraphs keep their extent (issues #41, #39)", () =>
 
   test("the (c)-guard characterization: a held anchor keeps today's bytes", async () => {
     const input = "[source]\n[[a]]\nfoo\n";
-    const output = await formatAdoc(input);
-    expect(output).toBe("[source]\n[[a]]\n\nfoo\n");
-    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(output)).toBe(output);
+    await expectFormatted(input, "[source]\n[[a]]\n\nfoo\n");
   });
 });
 

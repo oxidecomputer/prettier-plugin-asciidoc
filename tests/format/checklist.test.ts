@@ -1,17 +1,17 @@
 import { describe, test, expect } from "vitest";
-import { formatAdoc, renderedHtml } from "../helpers.js";
+import { expectFormatted, expectStableRender, formatAdoc } from "../helpers.js";
 
 describe("checklist formatting", () => {
   // Canonical checked marker passes through unchanged.
   test("checked item preserved", async () => {
     const input = "* [x] Done\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Unchecked marker passes through unchanged.
   test("unchecked item preserved", async () => {
     const input = "* [ ] Not done\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // `[*]` is normalized to `[x]` (both mean checked, `[x]` is
@@ -25,19 +25,19 @@ describe("checklist formatting", () => {
   // Mixed checklist and normal items are all preserved.
   test("mixed checklist items preserved", async () => {
     const input = "* [x] Done\n* Normal\n* [ ] Todo\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Nested checklists preserved with correct markers.
   test("nested checklist preserved", async () => {
     const input = "* [x] Parent\n** [ ] Child\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // A checklist after a paragraph has one blank line separator.
   test("checklist after paragraph", async () => {
     const input = "Some text.\n\n* [x] Done\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Long checklist item text is reflowed like regular list items.
@@ -54,7 +54,7 @@ describe("checklist formatting", () => {
   // as checklists — the text is preserved verbatim.
   test("ordered list [x] is not treated as checkbox", async () => {
     const input = ". [x] Not a checkbox\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // ONE printed space after the checkbox, whatever the item's text
@@ -74,10 +74,7 @@ describe("checklist formatting", () => {
   ])(
     "one space after the checkbox when the text opens with %s",
     async (_name, input) => {
-      const out = await formatAdoc(input);
-      expect(out).toBe(input);
-      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-      expect(await formatAdoc(out)).toBe(out);
+      await expectFormatted(input, input);
     },
   );
 
@@ -99,9 +96,7 @@ describe("checklist formatting", () => {
     ["a marker followed only by more spaces", "* [*]   \n"],
     ["a marker followed only by a tab", "* [*] \t\n"],
   ])("no checkbox for %s", async (_name, input) => {
-    const out = await formatAdoc(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectStableRender(input);
   });
 
   // The literal bytes matter for the checked spelling: `[*]` is only
@@ -141,10 +136,7 @@ describe("checklist formatting", () => {
     ["an ordered item, which has no checkbox", ". [x]\ta\n"],
     ["a paragraph, which has no checkbox", "[x]\ta\n"],
   ])("the run keeps its bytes with %s", async (_name, input) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, input);
   });
 
   // The narrowness of that refusal. A tab anywhere else in an item's
@@ -184,10 +176,7 @@ describe("checklist formatting", () => {
     ["a nested item", "** [ ] \nmore\n", "** [ ]\n   more\n"],
     ["the other unordered marker", "- [x]\nmore\n", "- [x]\n  more\n"],
   ])("the marker line keeps the break with %s", async (_name, input, want) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(want);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, want);
   });
 
   // The narrowness of the held break, one row per reason the marker
@@ -203,10 +192,7 @@ describe("checklist formatting", () => {
       "* [x] a more\n",
     ],
   ])("the continuation still packs up for %s", async (_name, input, want) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(want);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, want);
   });
 
   // Where the line under the bracket already keeps a line of its own
@@ -218,10 +204,7 @@ describe("checklist formatting", () => {
     ["a line comment under the bracket", "* [x]\n// c\nmore\n"],
     ["a block attribute line under it", "* [x]\n[role]\nmore\n"],
   ])("nothing is held for %s", async (_name, input) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, input);
   });
 
   // A REFUSAL, recorded rather than hidden, in the two shapes that
@@ -273,8 +256,14 @@ describe("checklist formatting", () => {
     ["a nested item", "** [ ]\t\ta:: b\n", "** [ ] a:: b\n"],
     ["the other unordered marker", "- [x]\t a:: b\n", "- [x] a:: b\n"],
   ])("the marker line keeps its packing for %s", async (_name, input, want) => {
+    // Bytes and the fixed point, no render-equality: packing the word
+    // onto the marker line is what MAKES the item a checkbox, so the
+    // output renders a checklist where the two-line input renders a
+    // plain list. That difference is the refusal these rows record,
+    // and expectFormatted would assert it away.
     const out = await formatAdoc(input);
     expect(out).toBe(want);
+    // eslint-disable-next-line test-assertions/no-hand-spelled-format-trailer -- the row's subject is a render the formatter deliberately changes
     expect(await formatAdoc(out)).toBe(out);
   });
 
@@ -288,10 +277,7 @@ describe("checklist formatting", () => {
     ["a separator alone under the bracket", "* [x]\na:: b\n"],
     ["a separator later on that line", "* [x]\nb a:: c\n"],
   ])("nothing is manufactured for %s", async (_name, input) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, input);
   });
 
   // A DIVERGENCE the printer accepts, recorded here as a row because
@@ -303,10 +289,7 @@ describe("checklist formatting", () => {
   // frozen: the render is unchanged and the document is a fixed point.
   test("a bibliography list holds a break it does not need", async () => {
     const input = "[bibliography]\n* [x]\nmore\n";
-    const out = await formatAdoc(input);
-    expect(out).toBe("[bibliography]\n* [x]\n  more\n");
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, "[bibliography]\n* [x]\n  more\n");
   });
 
   // The checked marker's own `*` is a bold delimiter too, so where a
@@ -321,9 +304,7 @@ describe("checklist formatting", () => {
     ["the text is one span", "* [*] *b*\n"],
     ["a span follows a word", "* [*] a *b*\n"],
   ])("the marker keeps its bytes when %s", async (_name, input) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    await expectFormatted(input, input);
   });
 
   // Continuation lines of a checklist item should align under

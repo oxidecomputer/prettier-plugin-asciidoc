@@ -13,7 +13,12 @@
  * breaks.test.ts.
  */
 import { describe, test, expect } from "vitest";
-import { expectFormatted, formatAdoc, renderedHtml } from "../helpers.js";
+import {
+  expectFormatted,
+  expectStableRender,
+  formatAdoc,
+  renderedHtml,
+} from "../helpers.js";
 
 describe("spaced markdown thematic break formatting", () => {
   // Issue #182's own witnesses, in both spellings the line-shape
@@ -33,10 +38,7 @@ describe("spaced markdown thematic break formatting", () => {
       "--\n'''\n\nb c\n--\n",
     ],
   ])("%s keeps its own block too", async (_name, input, expected) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(expected);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, expected);
   });
 
   // The other half of #182: inside an OPEN list the same two
@@ -66,10 +68,7 @@ describe("spaced markdown thematic break formatting", () => {
     ["a blank line and a sibling below", "* a\n\n- - -\n* b\n"],
     ["a later block of a marker item", "* a\nimage::t.png[]\n- - -\n"],
   ])("%s inside an open list", async (_name, input) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, input);
   });
 
   // THE TWO IN-ITEM POSITIONS THE BREAK IS READ AT (#242): the two
@@ -150,9 +149,7 @@ describe("spaced markdown thematic break formatting", () => {
       ),
     ),
   )("%s keeps its render", async (_name, input, printWidth) => {
-    const out = await formatAdoc(input, { printWidth });
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out, { printWidth })).toBe(out);
+    await expectStableRender(input, { printWidth });
   });
 
   // A SIBLING marker behind a `+` is NOT one of the two positions,
@@ -180,10 +177,7 @@ describe("spaced markdown thematic break formatting", () => {
       "t:: d more\n- - -\n",
     ],
   ])("%s keeps the rule on its own line", async (_name, input, expected) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(expected);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, expected);
   });
 
   // THE WIDTH ROWS, and they are why the reading is the marker's at
@@ -228,9 +222,7 @@ describe("spaced markdown thematic break formatting", () => {
       ),
     ),
   )("%s keeps its render", async (_name, input, printWidth) => {
-    const out = await formatAdoc(input, { printWidth });
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out, { printWidth })).toBe(out);
+    await expectStableRender(input, { printWidth });
   });
 
   // The other direction the width can move a rule: an item whose text
@@ -255,9 +247,7 @@ describe("spaced markdown thematic break formatting", () => {
   ])(
     "%s keeps the word on the marker line",
     async (_name, input, printWidth) => {
-      const out = await formatAdoc(input, { printWidth });
-      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-      expect(await formatAdoc(out, { printWidth })).toBe(out);
+      await expectStableRender(input, { printWidth });
     },
   );
 
@@ -323,6 +313,10 @@ describe("spaced markdown thematic break formatting", () => {
     async (_name, input, expected) => {
       const out = await formatAdoc(input);
       expect(out).toBe(expected);
+      // Bytes and the fixed point, no render-equality: the two
+      // renders DIFFER here, which is the loss the row exists to
+      // pin, and the shared helper asserts them equal.
+      // eslint-disable-next-line test-assertions/no-hand-spelled-format-trailer -- the row's subject is a render the formatter changes, asserted unequal below
       expect(await formatAdoc(out)).toBe(out);
       // The loss itself, asserted rather than described: the two
       // renders differ, and the row goes red the day a printer change

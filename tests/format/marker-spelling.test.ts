@@ -41,7 +41,12 @@
  *   the verdict.
  */
 import { describe, expect, test } from "vitest";
-import { expectFormatted, formatAdoc, renderedHtml } from "../helpers.js";
+import {
+  expectFormatted,
+  expectStableRender,
+  formatAdoc,
+  renderedHtml,
+} from "../helpers.js";
 
 describe("nesting-fidelity: the oracle reads the output nested where it read the input nested", () => {
   // Corruption fixes — proof: head output vs the ORIGINAL INPUT (the
@@ -192,10 +197,7 @@ describe("a sibling boundary the re-read would swallow gets its blank", () => {
   // boundary needs.
   test("a blank run at a swallowing boundary prints as one blank", async () => {
     const input = "* a\n\n  lit\n[[anc]]\n\n\n* b\n";
-    const out = await formatAdoc(input);
-    expect(out).toBe("* a\n\n  lit\n[[anc]]\n\n* b\n");
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, "* a\n\n  lit\n[[anc]]\n\n* b\n");
   });
 
   // An indented line reached by neither a blank nor a live `+` opens
@@ -349,6 +351,10 @@ describe("the boundary survives a non-LF line terminator", () => {
     // The bytes are the LF output with these terminators - blank line
     // and all - so the boundary held.
     expect(normalized).toBe(input);
+    // The subject is the output with its terminators rewritten, not the
+    // output itself, so neither helper can stand in: both format the
+    // input again and read what comes back.
+    // eslint-disable-next-line test-assertions/no-hand-spelled-format-trailer -- the render is measured on a rewritten copy of the output
     expect(await renderedHtml(normalized)).toBe(await renderedHtml(input));
   });
 
@@ -372,7 +378,6 @@ describe("the boundary survives a non-LF line terminator", () => {
       ),
     ),
   )("%s is a byte-level fixed point", async (_name, input, endOfLine) => {
-    const out = await formatAdoc(input, { endOfLine });
-    expect(await formatAdoc(out, { endOfLine })).toBe(out);
+    await expectStableRender(input, { endOfLine });
   });
 });

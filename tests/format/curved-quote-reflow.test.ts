@@ -18,7 +18,7 @@
  * are reproduced here verbatim.
  */
 import { describe, expect, test } from "vitest";
-import { expectFormatted, formatAdoc, renderedHtml } from "../helpers.js";
+import { expectFormatted, expectStableRender, formatAdoc } from "../helpers.js";
 
 /**
  * One row's verdict at one width: the formatted output renders
@@ -29,9 +29,7 @@ import { expectFormatted, formatAdoc, renderedHtml } from "../helpers.js";
  */
 async function expectRow(source: string, printWidth: number): Promise<void> {
   const input = `${source}\n`;
-  const out = await formatAdoc(input, { printWidth });
-  expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-  expect(await formatAdoc(out, { printWidth })).toBe(out);
+  await expectStableRender(input, { printWidth });
 }
 
 /**

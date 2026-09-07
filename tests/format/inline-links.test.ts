@@ -6,6 +6,7 @@
 import { describe, test, expect } from "vitest";
 import {
   expectFormatted,
+  expectStableRender,
   formatAdoc,
   oracleHtml,
   renderedHtml,
@@ -183,7 +184,7 @@ describe("inline links — mixed formatting round-trips", () => {
 
   test("formatting round-trips", async () => {
     const input = "See https://example.com[here] and <<ref,text>>.\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 });
 
@@ -208,15 +209,13 @@ describe("inline links — edge cases", () => {
   test("triple angle bracket xref", async () => {
     const input = "see <<a, >>\nsee <<<a,>>\n";
     const first = await formatAdoc(input);
-    const second = await formatAdoc(first);
-    expect(second).toBe(first);
+    await expectFormatted(first, first);
   });
 
   test("inline url with special chars", async () => {
     const input = "see https://a.example.com for info\nsee xref:a[text]\n";
     const first = await formatAdoc(input);
-    const second = await formatAdoc(first);
-    expect(second).toBe(first);
+    await expectFormatted(first, first);
   });
 
   // An EMPTY attrlist is what ENDS a bare URL. InlineLinkRx (rx.rb
@@ -235,10 +234,7 @@ describe("inline links — edge cases", () => {
     ["another bracket group", "https://e.com[][c]\n"],
     ["nothing at all", "https://e.com[]\n"],
   ])("the empty attrlist survives in front of %s", async (_name, input) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, input);
   });
 });
 
@@ -272,9 +268,7 @@ describe("inline links — source newlines normalized on output", () => {
   // (dropping the <br>), so such links keep their source layout.
   test("hard line break inside link text is preserved", async () => {
     const input = "See https://example.com[text +\nmore] end.\n";
-    const first = await formatAdoc(input);
-    expect(first).toBe(input);
-    expect(await formatAdoc(first)).toBe(first);
+    await expectFormatted(input, input);
   });
 
   test("macro attrlist spanning source lines is joined", async () => {
@@ -314,10 +308,7 @@ describe("a shorthand xref's text loses its leading blank, not its trailing one"
       "<<a>> x\n\n[[a]]y\n",
     ],
   ])("%s", async (_name, input, expected) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(expected);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, expected);
   });
 });
 
@@ -363,10 +354,7 @@ describe("a URL stops at the delimiter that closes a span", () => {
   // (tests/helpers.ts), so the bold row's tab is invisible to it and
   // the row above is what holds that span's extent.
   test("the sheltered tab survives the round trip", async () => {
-    const formatted = await formatAdoc(MONOSPACE);
-    expect(formatted).toBe(`${MONOSPACE}\n`);
-    expect(await renderedHtml(formatted)).toBe(await renderedHtml(MONOSPACE));
-    expect(await formatAdoc(formatted)).toBe(formatted);
+    await expectFormatted(MONOSPACE, `${MONOSPACE}\n`);
   });
 });
 
@@ -417,10 +405,7 @@ describe("a URL stops at a delimiter standing inside its match", () => {
   // belong OUTSIDE the span: the tail is text the printer writes back
   // where the source put it.
   test("the tail behind the delimiter is kept as text", async () => {
-    const formatted = await formatAdoc(MONOSPACE);
-    expect(formatted).toBe(`${MONOSPACE}\n`);
-    expect(await renderedHtml(formatted)).toBe(await renderedHtml(MONOSPACE));
-    expect(await formatAdoc(formatted)).toBe(formatted);
+    await expectFormatted(MONOSPACE, `${MONOSPACE}\n`);
   });
 
   // The same close one level down, where the recursion has to rebase
@@ -432,9 +417,7 @@ describe("a URL stops at a delimiter standing inside its match", () => {
     expect(shapes(source)).toEqual([
       'boldu["x ",monospaceu["a\\t",link],", b`` y"]',
     ]);
-    expect(await renderedHtml(await formatAdoc(source))).toBe(
-      await renderedHtml(source),
-    );
+    await expectStableRender(source);
   });
 
   // The narrowness, stated as a row: the constrained spelling of the
@@ -481,10 +464,7 @@ describe("a match carrying two delimiters is cut at both", () => {
       String.raw`monospaceu["c\td"]`,
     ]);
     expect(await oracleHtml(source)).toContain("<code>c\td</code>");
-    const formatted = await formatAdoc(source);
-    expect(formatted).toBe(`${source}\n`);
-    expect(await renderedHtml(formatted)).toBe(await renderedHtml(source));
-    expect(await formatAdoc(formatted)).toBe(formatted);
+    await expectFormatted(source, `${source}\n`);
   });
 
   test.each([
@@ -509,10 +489,7 @@ describe("a match carrying two delimiters is cut at both", () => {
       `${TWO_SPANS} *q b${BACKSLASH}*`,
     ],
   ])("%s", async (_name, input, expected) => {
-    const output = await formatAdoc(input);
-    expect(output).toBe(`${expected}\n`);
-    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(output)).toBe(output);
+    await expectFormatted(input, `${expected}\n`);
   });
 });
 
@@ -555,10 +532,7 @@ describe("the cut resumes where the gsub does", () => {
     ],
   ])("%s", async (_name, source, shape) => {
     expect(shapes(source)).toEqual(shape);
-    const formatted = await formatAdoc(source);
-    expect(formatted).toBe(`${source}\n`);
-    expect(await renderedHtml(formatted)).toBe(await renderedHtml(source));
-    expect(await formatAdoc(formatted)).toBe(formatted);
+    await expectFormatted(source, `${source}\n`);
   });
 
   // The escape neighbourhood. Every row keeps the author's bytes: the
@@ -573,10 +547,7 @@ describe("the cut resumes where the gsub does", () => {
     "``a http://e.com``x\\``b``",
     "``a http://e.com``\\``b\t``",
   ])("%j keeps its bytes around the escape", async (source) => {
-    const formatted = await formatAdoc(source);
-    expect(formatted).toBe(`${source}\n`);
-    expect(await renderedHtml(formatted)).toBe(await renderedHtml(source));
-    expect(await formatAdoc(formatted)).toBe(formatted);
+    await expectFormatted(source, `${source}\n`);
   });
 
   // The printer's own half. A bare address at the end of a span's
@@ -586,11 +557,7 @@ describe("the cut resumes where the gsub does", () => {
   // Asserted through TWO passes, because one pass looked right.
   test("a span behind an address keeps its doubled spelling", async () => {
     const source = "``a http://e.com``,``\t``";
-    const first = await formatAdoc(source);
-    expect(first).toBe(`${source}\n`);
-    expect(await renderedHtml(first)).toBe(await renderedHtml(source));
-    const second = await formatAdoc(first);
-    expect(second).toBe(first);
+    await expectFormatted(source, `${source}\n`);
   });
 });
 
@@ -618,10 +585,7 @@ describe("a span keeps its doubled spelling behind an address", () => {
     ["the address stands earlier in the block", "``a http://e.com``,``b\tb``"],
     ["the address stands beside the mark", "See https://e.com``b`` now."],
   ])("%s", async (_name, source) => {
-    const first = await formatAdoc(source);
-    expect(first).toBe(`${source}\n`);
-    expect(await renderedHtml(first)).toBe(await renderedHtml(source));
-    expect(await formatAdoc(first)).toBe(first);
+    await expectFormatted(source, `${source}\n`);
   });
 
   // The narrowness, and it is the address's own class that draws it: a
@@ -645,9 +609,7 @@ describe("a span keeps its doubled spelling behind an address", () => {
     ],
   ])("%s ends the match", async (_name, source, expected) => {
     expect(await formatAdoc(source)).toBe(`${expected}\n`);
-    expect(await renderedHtml(await formatAdoc(source))).toBe(
-      await renderedHtml(source),
-    );
+    await expectStableRender(source);
   });
 });
 
@@ -685,6 +647,11 @@ describe("a dropped candidate's shelter, as it stands today (#189)", () => {
     expect(await renderedHtml(WITNESS)).toContain("<code>b\t<code></code>");
     expect(await renderedHtml(output)).toContain("<code>b <code></code>");
     // Stable: the residual costs one rewriting, not an oscillation.
+    // The output's render is the one that DIFFERS here, written down
+    // two lines up rather than asserted equal, so neither helper fits:
+    // both carry the render-equality this row is recording the absence
+    // of.
+    // eslint-disable-next-line test-assertions/no-hand-spelled-format-trailer -- the row records unequal renders, so only the fixed point can be asserted
     expect(await formatAdoc(output)).toBe(output);
   });
 });

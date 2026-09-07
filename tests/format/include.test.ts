@@ -1,35 +1,35 @@
-import { describe, test, expect } from "vitest";
-import { expectFormatted, formatAdoc } from "../helpers.js";
+import { describe, test } from "vitest";
+import { expectFormatted } from "../helpers.js";
 
 describe("include directive formatting", () => {
   // Basic include preserved as-is.
   test("basic include preserved", async () => {
     const input = "include::path/to/file.adoc[]\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Include with lines option preserved.
   test("include with lines option preserved", async () => {
     const input = "include::file.txt[lines=5..10]\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Include with tag option preserved.
   test("include with tag option preserved", async () => {
     const input = "include::file.txt[tag=section-name]\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Include with leveloffset preserved.
   test("include with leveloffset preserved", async () => {
     const input = "include::file.adoc[leveloffset=+1]\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 
   // Include between paragraphs has blank line separation.
   test("include between paragraphs", async () => {
     const input = "Before.\n\ninclude::chapter.adoc[]\n\nAfter.\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 });
 

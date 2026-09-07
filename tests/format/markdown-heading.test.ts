@@ -9,7 +9,7 @@
  * reflow-joined into it.
  */
 import { describe, expect, test } from "vitest";
-import { expectFormatted, formatAdoc, renderedHtml } from "../helpers.js";
+import { expectFormatted, expectStableRender, formatAdoc } from "../helpers.js";
 
 describe("a markdown-marker title normalizes to the = spelling", () => {
   test.each([
@@ -65,7 +65,6 @@ describe("what the markdown marker refuses", () => {
   ])("%s is not a heading", async (_name, input) => {
     const out = await formatAdoc(input);
     expect(out.startsWith("=")).toBe(input.startsWith("="));
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectStableRender(input);
   });
 });

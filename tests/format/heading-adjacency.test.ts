@@ -9,19 +9,8 @@
  * two recorded divergences (R1, R2), whose comments carry the
  * rulings.
  */
-import { describe, expect, test } from "vitest";
-import { formatAdoc, renderedHtml } from "../helpers.js";
-
-/**
- * Assert exact bytes and idempotence.
- * @param input - the source document
- * @param expected - the expected formatted bytes
- */
-async function expectBytes(input: string, expected: string): Promise<void> {
-  const output = await formatAdoc(input);
-  expect(output).toBe(expected);
-  expect(await formatAdoc(output)).toBe(output);
-}
+import { describe, test } from "vitest";
+import { expectFormatted } from "../helpers.js";
 
 describe("keep-blank rows: the post-heading blank is FROZEN SPELLING at level >= 1", () => {
   // The old section printer forced a blank between the heading and
@@ -34,7 +23,7 @@ describe("keep-blank rows: the post-heading blank is FROZEN SPELLING at level >=
     ["attribute entry after a heading", "== T\n:a: 1\n", "== T\n\n:a: 1\n"],
     ["heading directly after a heading", "== A\n== B\n", "== A\n\n== B\n"],
   ])("%s", async (_name, input, expected) => {
-    await expectBytes(input, expected);
+    await expectFormatted(input, expected);
   });
 
   test("the A1 row: a pseudo-anchor paragraph blank-separated before a heading KEEPS its blank", async () => {
@@ -50,10 +39,7 @@ describe("keep-blank rows: the post-heading blank is FROZEN SPELLING at level >=
     // inert once the fact was recorded, because the only spelling that
     // reaches this pair as two siblings is the one with the blank.
     const input = "== A\n\n[[3-blind-mice]]\n\n== B\n";
-    await expectBytes(input, input);
-    expect(await renderedHtml(await formatAdoc(input))).toBe(
-      await renderedHtml(input),
-    );
+    await expectFormatted(input, input);
   });
 });
 
@@ -87,7 +73,7 @@ describe("keep-stacking rows: level 0 is SEMANTIC (the document header) and genu
       "= T\n:a: 1\n\npara\n",
     ],
   ])("%s", async (_name, input, expected) => {
-    await expectBytes(input, expected);
+    await expectFormatted(input, expected);
   });
 
   test("a pseudo-anchor keeps the blank the author wrote before `= T`", async () => {
@@ -97,9 +83,10 @@ describe("keep-stacking rows: level 0 is SEMANTIC (the document header) and genu
     // suppression still does not fire here - level 0 is not a section
     // heading - so what keeps the pair apart is the author's own
     // blank, recorded on the paragraph and printed back.
-    const output = await formatAdoc("[[3-blind-mice]]\n\n= T\n");
-    expect(output).toBe("[[3-blind-mice]]\n\n= T\n");
-    expect(await formatAdoc(output)).toBe(output);
+    await expectFormatted(
+      "[[3-blind-mice]]\n\n= T\n",
+      "[[3-blind-mice]]\n\n= T\n",
+    );
   });
 });
 
@@ -129,19 +116,19 @@ describe("STILL-STACK rows: the reader-eaten suppression is ONE-SIDED (previous-
       "== A\n\npara\n\nifdef::x[]\n== B\n",
     ],
   ])("%s", async (_name, input, expected) => {
-    await expectBytes(input, expected);
+    await expectFormatted(input, expected);
   });
 });
 
 describe("insurance rows", () => {
   test("discreteHeading is untouched: its comment still stacks", async () => {
     const input = "[discrete]\n== D\n// c\n";
-    await expectBytes(input, input);
+    await expectFormatted(input, input);
   });
 
   test("the level jump is CARRIED, not interpreted: `= D` then `=== C`", async () => {
     const input = "= D\n\n=== C\n";
-    await expectBytes(input, input);
+    await expectFormatted(input, input);
   });
 
   test("a list ending in a reader-eaten line ABSORBS the next heading (no pair arises)", async () => {
@@ -149,7 +136,7 @@ describe("insurance rows", () => {
     // Asciidoctor, because the reader never sees the directive — so
     // no list-boundary pair exists in either direction.
     const input = "== A\n* a\n+\nifdef::x[]\n== B\n";
-    await expectBytes(input, "== A\n\n* a\n+\nifdef::x[]\n== B\n");
+    await expectFormatted(input, "== A\n\n* a\n+\nifdef::x[]\n== B\n");
   });
 });
 
@@ -166,10 +153,7 @@ describe("recorded divergence R1: the TOP-LEVEL pseudo-anchor pair", () => {
     // product; recorded divergence R1, reported as a conformance-gap
     // finding).
     const input = "[[3-blind-mice]]\n\n== B\n";
-    await expectBytes(input, input);
-    expect(await renderedHtml(await formatAdoc(input))).toBe(
-      await renderedHtml(input),
-    );
+    await expectFormatted(input, input);
   });
 });
 
@@ -216,10 +200,7 @@ describe("recorded divergence R2: the HOISTED-RAW-LINE heading pair", () => {
       "=== T\n\n// c\n== U\n",
     ],
   ])("%s gains the separating blank", async (_name, input, expected) => {
-    await expectBytes(input, expected);
-    expect(await renderedHtml(await formatAdoc(input))).toBe(
-      await renderedHtml(input),
-    );
+    await expectFormatted(input, expected);
   });
 
   test.each([
@@ -234,9 +215,6 @@ describe("recorded divergence R2: the HOISTED-RAW-LINE heading pair", () => {
       "= T\n// c\n= U\n",
     ],
   ])("%s keeps the base bytes", async (_name, input, expected) => {
-    await expectBytes(input, expected);
-    expect(await renderedHtml(await formatAdoc(input))).toBe(
-      await renderedHtml(input),
-    );
+    await expectFormatted(input, expected);
   });
 });

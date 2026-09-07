@@ -1,5 +1,10 @@
 import { describe, expect, test } from "vitest";
-import { formatAdoc, renderedHtml, type FormatOverrides } from "../helpers.js";
+import {
+  expectFormatted,
+  expectStableRender,
+  formatAdoc,
+  type FormatOverrides,
+} from "../helpers.js";
 
 /**
  * The table contract: the exact bytes, render-equal against the INPUT
@@ -21,10 +26,7 @@ async function expectTableFormat(
   expected: string,
   overrides?: FormatOverrides,
 ): Promise<void> {
-  const output = await formatAdoc(input, overrides);
-  expect(output).toBe(expected);
-  expect(await renderedHtml(output)).toBe(await renderedHtml(input));
-  expect(await formatAdoc(output, overrides)).toBe(output);
+  await expectFormatted(input, expected, overrides);
 }
 
 describe("the shapes issue #10 was filed for", () => {
@@ -126,8 +128,7 @@ describe("the shapes issue #10 was filed for", () => {
     // column 0 (the registry union guard, src/print/reflow.ts).
     const input = `${"word ".repeat(15)}|=== tail\n`;
     const output = await formatAdoc(input);
-    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(output)).toBe(output);
+    await expectStableRender(input);
     expect(
       // `\|` is not a useless escape: under `v` a bare `|` inside a
       // character class is reserved syntax (a SyntaxError).

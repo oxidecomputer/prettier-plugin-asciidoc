@@ -19,7 +19,7 @@
  * `max-lines` ceiling.
  */
 import { describe, expect, test } from "vitest";
-import { formatAdoc, renderedHtml } from "../helpers.js";
+import { expectFormatted, renderedHtml } from "../helpers.js";
 
 describe("a blank attrlist behind bares the span behind (issue #118)", () => {
   // An attrlist naming NO attribute is not a role, and on a highlight
@@ -54,10 +54,7 @@ describe("a blank attrlist behind bares the span behind (issue #118)", () => {
     "%s keeps its bytes, because %s reads differently",
     async (source, shorter) => {
       const input = `${source}\n`;
-      const out = await formatAdoc(input);
-      expect(out).toBe(input);
-      expect(await formatAdoc(out)).toBe(out);
-      expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+      await expectFormatted(input, input);
       expect(await renderedHtml(`${shorter}\n`)).not.toBe(
         await renderedHtml(input),
       );
@@ -82,10 +79,7 @@ describe("a blank attrlist behind bares the span behind (issue #118)", () => {
     ["##a##[ ]##.c##", "#a#[ ]##.c##"],
   ])("%s still shortens to %s", async (source, expected) => {
     const input = `${source}\n`;
-    const out = await formatAdoc(input);
-    expect(out).toBe(`${expected}\n`);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, `${expected}\n`);
   });
 
   // The conservative edge: an attribute reference is substituted
@@ -96,10 +90,10 @@ describe("a blank attrlist behind bares the span behind (issue #118)", () => {
   // meaning.
   test("an attrlist holding an attribute reference is refused unread", async () => {
     const input = "##a##[{x}]##c##\n";
-    const out = await formatAdoc(input);
-    expect(out).toBe(input);
-    expect(await formatAdoc(out)).toBe(out);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    await expectFormatted(input, input);
+    // The shorter spelling the refusal gave up, measured against the
+    // one kept: two documents, which neither helper compares.
+    // eslint-disable-next-line test-assertions/no-hand-spelled-format-trailer -- two documents, not a format row's own input and output
     expect(await renderedHtml("#a#[{x}]##c##\n")).toBe(
       await renderedHtml(input),
     );

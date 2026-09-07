@@ -4,7 +4,7 @@
  * cleanly through the formatter.
  */
 import { describe, test, expect } from "vitest";
-import { expectFormatted, formatAdoc, renderedHtml } from "../helpers.js";
+import { expectFormatted, formatAdoc } from "../helpers.js";
 
 // ── Inline image ────────────────────────────────────────────
 
@@ -119,8 +119,7 @@ describe("icon macro - format output", () => {
   test("icon output is stable across a second format pass", async () => {
     const input = "Click the icon:heart[] to save it.\n";
     const once = await formatAdoc(input);
-    const twice = await formatAdoc(once);
-    expect(twice).toBe(once);
+    await expectFormatted(once, once);
   });
 });
 
@@ -169,8 +168,7 @@ describe("stem macro - format output", () => {
   test("stem output is stable across a second format pass", async () => {
     const input = "Given the equation stem:[x < y] we conclude.\n";
     const once = await formatAdoc(input);
-    const twice = await formatAdoc(once);
-    expect(twice).toBe(once);
+    await expectFormatted(once, once);
   });
 });
 
@@ -245,8 +243,7 @@ describe("asciimath macro - format output", () => {
   test("asciimath output is stable across a second format pass", async () => {
     const input = "Given the equation asciimath:[x < y] we conclude.\n";
     const once = await formatAdoc(input);
-    const twice = await formatAdoc(once);
-    expect(twice).toBe(once);
+    await expectFormatted(once, once);
   });
 });
 
@@ -277,10 +274,7 @@ describe("asciimath macro - format output", () => {
 describe("bracket text - source newline collapses to a space", () => {
   test("link macro bracket text", async () => {
     const input = "See link:http://x[a\nb] here.\n";
-    const output = await formatAdoc(input);
-    expect(output).toBe("See link:http://x[a b] here.\n");
-    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(output)).toBe(output);
+    await expectFormatted(input, "See link:http://x[a b] here.\n");
   });
 
   // The continuation line's own indentation is part of the run
@@ -288,33 +282,21 @@ describe("bracket text - source newline collapses to a space", () => {
   // and `a\nb` both print as `a b`.
   test("link macro bracket text, indented continuation", async () => {
     const input = "See link:http://x[a\n  b] here.\n";
-    const output = await formatAdoc(input);
-    expect(output).toBe("See link:http://x[a b] here.\n");
-    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(output)).toBe(output);
+    await expectFormatted(input, "See link:http://x[a b] here.\n");
   });
 
   test("xref macro bracket text", async () => {
     const input = "[[t]]Target.\n\nSee xref:t[a\nb] here.\n";
-    const output = await formatAdoc(input);
-    expect(output).toBe("[[t]]Target.\n\nSee xref:t[a b] here.\n");
-    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(output)).toBe(output);
+    await expectFormatted(input, "[[t]]Target.\n\nSee xref:t[a b] here.\n");
   });
 
   test("image macro alt text", async () => {
     const input = "See image:a.png[a\nb] here.\n";
-    const output = await formatAdoc(input);
-    expect(output).toBe("See image:a.png[a b] here.\n");
-    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(output)).toBe(output);
+    await expectFormatted(input, "See image:a.png[a b] here.\n");
   });
 
   test("footnote macro text", async () => {
     const input = "This is textfootnote:[a\nb] here.\n";
-    const output = await formatAdoc(input);
-    expect(output).toBe("This is textfootnote:[a b] here.\n");
-    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(output)).toBe(output);
+    await expectFormatted(input, "This is textfootnote:[a b] here.\n");
   });
 });

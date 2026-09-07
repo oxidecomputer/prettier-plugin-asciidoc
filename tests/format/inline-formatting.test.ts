@@ -16,7 +16,7 @@
  *     the source semantics.
  */
 import { describe, test, expect } from "vitest";
-import { expectFormatted, formatAdoc, renderedHtml } from "../helpers.js";
+import { expectFormatted, expectStableRender, formatAdoc } from "../helpers.js";
 
 // Basic preservation: each constrained and unconstrained form of
 // every formatting mark must survive a format round-trip unchanged
@@ -111,7 +111,7 @@ describe("inline formatting — format output", () => {
   // pass, causing an infinite diff loop.
   test("formatting round-trips", async () => {
     const input = "This is *bold* and _italic_ with `mono` and {attr}.\n";
-    expect(await formatAdoc(input)).toBe(input);
+    await expectFormatted(input, input);
   });
 });
 
@@ -180,10 +180,7 @@ describe("inline formatting — edge case round-trips", () => {
   // one is what comes back.
   test("[role]##text## shortens to [role]#text#", async () => {
     const input = "[role]##text##\n";
-    const out = await formatAdoc(input);
-    expect(out).toBe("[role]#text#\n");
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, "[role]#text#\n");
   });
 
   test("backslash-escaped unconstrained bold is preserved", async () => {
@@ -261,9 +258,7 @@ describe("inline formatting — odd-count marks", () => {
   test("a whitespace-only unconstrained span keeps its space", async () => {
     const input = "x ** ** y\n";
     expect(await formatAdoc(input)).toBe("x ** ** y\n");
-    expect(await renderedHtml(await formatAdoc(input))).toBe(
-      await renderedHtml(input),
-    );
+    await expectStableRender(input);
   });
 });
 
@@ -360,8 +355,6 @@ describe("an unconstrained span shortens where the constrained one is legal", ()
     ["a NON-ASCII word character behind", "p **b c**\u00E9q\n"],
     ["a non-ASCII word character in front", "p\u00E9**b c** q\n"],
   ])("%s keeps the author's marks", async (_name, input) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    await expectFormatted(input, input);
   });
 });

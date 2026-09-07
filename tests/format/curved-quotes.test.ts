@@ -23,7 +23,7 @@
  *     points with their renders.
  */
 import { describe, expect, test } from "vitest";
-import { asParagraph, formatAdoc, renderedHtml } from "../helpers.js";
+import { asParagraph, expectFormatted, renderedHtml } from "../helpers.js";
 import { parse } from "../../src/parser.js";
 import { declaredKeyOrder, serializedKeys } from "../parser/reader-helpers.js";
 
@@ -46,10 +46,8 @@ async function expectFixedPoint(
   oracleElement: string,
 ): Promise<void> {
   const input = `${source}\n`;
-  const out = await formatAdoc(input);
-  expect(out).toBe(input);
+  await expectFormatted(input, input);
   expect(await renderedHtml(input)).toContain(oracleElement);
-  expect(await formatAdoc(out)).toBe(out);
 }
 
 describe("the twelve corruption witnesses", () => {
@@ -93,10 +91,7 @@ describe("the twelve corruption witnesses", () => {
     const input = `${source}\n`;
     const oracleElement = "<p>x \u201C<em>a</em> and <em>b</em>\u201D y</p>";
     expect(await renderedHtml(input)).toContain(oracleElement);
-    const out = await formatAdoc(input);
-    expect(out).toBe('x "`__a__ and _b_`" y\n');
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, 'x "`__a__ and _b_`" y\n');
   });
 });
 
@@ -113,10 +108,7 @@ describe("shapes an over-broad refusal used to lengthen", () => {
   ])("%s shortens to %s", async (source, expected) => {
     const input = `${source}\n`;
     const expectedOut = `${expected}\n`;
-    const out = await formatAdoc(input);
-    expect(out).toBe(expectedOut);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(out)).toBe(out);
+    await expectFormatted(input, expectedOut);
   });
 });
 
@@ -129,12 +121,10 @@ describe("the stray-mark witness: a block-wide scan, not a sibling scan", () => 
   // must refuse.
   test("a bibliography anchor's mark survives a nested span's shortening decision", async () => {
     const input = 'x [[[_a]]] "`b __c__`" y\n';
-    const out = await formatAdoc(input);
-    expect(out).toBe(input);
+    await expectFormatted(input, input);
     expect(await renderedHtml(input)).toContain(
       '<p>x [<a id="_a"></a>] \u201Cb <em>c</em>\u201D y</p>',
     );
-    expect(await formatAdoc(out)).toBe(out);
   });
 });
 

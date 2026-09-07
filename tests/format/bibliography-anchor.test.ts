@@ -20,7 +20,7 @@
  * that suite does not cover.
  */
 import { describe, expect, test } from "vitest";
-import { expectFormatted, formatAdoc, renderedHtml } from "../helpers.js";
+import { expectFormatted, expectStableRender, formatAdoc } from "../helpers.js";
 
 describe("bibliography anchors - verbatim round-trip, every comma spelling", () => {
   test.each([
@@ -88,7 +88,7 @@ describe("bibliography anchors - the atom never breaks under reflow", () => {
         line.includes("[[[a-very-long-bibliography-anchor-id]]]"),
       );
     expect(anchorLine).toBe("* [[[a-very-long-bibliography-anchor-id]]]");
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    await expectStableRender(input, { printWidth: 20 });
   });
 });
 
@@ -108,8 +108,6 @@ describe("bibliography anchors - a paragraph of only the anchor is not an anchor
     ["a list follows", "[[[x]]]\n\n* item\n"],
     ["a listing block follows", "[[[x]]]\n\n----\ncode\n----\n"],
   ])("%s: the blank line survives", async (_name, input) => {
-    const out = await formatAdoc(input);
-    expect(out).toBe(input);
-    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    await expectFormatted(input, input);
   });
 });

@@ -513,6 +513,28 @@ export async function expectFormatted(
 }
 
 /**
+ * {@link expectFormatted} without the byte pin: the output renders
+ * the same as the input, and formatting it again is a fixed point.
+ * For a row whose exact output is not the point - one that asserts
+ * some property of the output separately, or one measuring only that
+ * the formatter did not change meaning - so that such a row still
+ * gets both surviving assertions from one place instead of spelling
+ * them again.
+ * @param input - AsciiDoc source text to format.
+ * @param options - the same overrides {@link formatAdoc} takes,
+ *   applied to both formats so the fixed point is measured at the
+ *   width the row was written for. Omit for the defaults.
+ */
+export async function expectStableRender(
+  input: string,
+  options?: FormatOverrides,
+): Promise<void> {
+  const out = await formatAdoc(input, options);
+  expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+  expect(await formatAdoc(out, options)).toBe(out);
+}
+
+/**
  * One cell's structural facts, read from the oracle's own
  * `Table::Cell`: its colspan, rowspan and the alignment/style
  * `getAttributes()` carries. Text is read separately, into
