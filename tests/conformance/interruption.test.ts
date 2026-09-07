@@ -107,9 +107,10 @@ const PROBES: Array<[ParagraphContext, string, string, boolean]> =
   );
 
 // Every row below is expected to agree with the oracle exactly. There
-// is no divergence escape hatch on purpose: the last one — a block
-// macro on a list item's first text line, which core 2.0.20 folded
-// into the item text and core 2.0.26 opens a block for — was closed by
+// is no divergence escape hatch on purpose. The last one was a block
+// macro on a list item's first text line, which a former
+// `@asciidoctor/core` (3.0.4, reporting core 2.0.20) folded into the
+// item text and the pinned oracle opens a block for; it was closed by
 // conforming the registry (issue #48), not by recording it. A new
 // disagreement is a src/ change, not a row here.
 describe("line-shape registry matches the Asciidoctor oracle", () => {

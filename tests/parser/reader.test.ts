@@ -6,9 +6,10 @@
  * pinned as `astShape(input)` over the AST `parse()` builds, so the
  * rows survive the reader's move off the token stream unchanged. Where
  * a shape is surprising, the oracle (`renderedHtml`) is asserted
- * alongside it — the oracle is Asciidoctor Ruby transpiled by Opal and
- * wins over any reading of parser.rb. Position exactness over the
- * whole corpus lives in tests/parser/ast-invariants.test.ts.
+ * alongside it. The oracle is a native JavaScript implementation of
+ * Asciidoctor whose reference is Ruby 2.0.26, and what it renders is
+ * what the row pins, not a reading of parser.rb. Position exactness
+ * over the whole corpus lives in tests/parser/ast-invariants.test.ts.
  */
 import { describe, expect, test } from "vitest";
 import { parse } from "../../src/parser.js";

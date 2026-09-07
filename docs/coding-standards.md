@@ -95,8 +95,9 @@ block-attribute-looking line, …) is added in three steps, in this order:
    the new `LineKind`. The classifier is a pure function over the registry; it
    is the only thing that turns a line into a kind.
 3. **An oracle row in `tests/conformance/interruption.test.ts`**, pinning the
-   shape against `@asciidoctor/core` in every `ParagraphContext`. The oracle
-   wins if it disagrees with your reading of the Ruby.
+   shape against `@asciidoctor/core` in every `ParagraphContext`. If the row
+   disagrees with your reading of the Ruby, say so in the row and say which of
+   the two readings the registry follows.
 
 Steps 2 and 3 are about a line that ENDS or OPENS a block. A shape that does
 neither - one only a reader consults about a line it has already claimed, the
@@ -137,14 +138,26 @@ delimiter is a fact about the whole fragment, and
 answer it. Reach for a scan only when a rule genuinely cannot decide locally,
 the way these two could not.
 
-**The two authorities.** Cite the one you MEASURED. `@asciidoctor/core` is the
-behavioral authority: cite `build/node/index.cjs`, or the `src/*.js` it is
-bundled from, for anything you verified by running the oracle. The Ruby is the
-design spec it was transpiled from; cite `parser.rb`, `rx.rb`, `reader.rb`,
-`substitutors.rb`, `attribute_list.rb` or `asciidoctor.rb` by line only when you
-opened the source and it agrees, and it lives in the tree at
-`vendor/asciidoctor-ruby/` (tag `v2.0.26`) so that opening it is a `Read`, not a
-download. The two do diverge: the transpile spells Ruby's `\p{Word}`
+**The two authorities.** They are two different programs, not one program and
+its source. `@asciidoctor/core` 4.0.11 is, its own README says, "a native
+JavaScript implementation of Asciidoctor" whose "code was generated from the
+Ruby source using Claude Code (claude-sonnet-4-6) and reviewed by a human". It
+is what the harness renders through, so it is the program the render assertions
+measure: cite `build/node/index.cjs`, or the `src/*.js` it is bundled from, for
+anything you verified by running it. Asciidoctor Ruby 2.0.26 is the reference
+its behaviour tracks; cite `parser.rb`, `rx.rb`, `reader.rb`, `substitutors.rb`,
+`attribute_list.rb` or `asciidoctor.rb` by line only when you opened the source
+and it agrees, and it lives in the tree at `vendor/asciidoctor-ruby/` (tag
+`v2.0.26`) so that opening it is a `Read`, not a download. Cite the one you
+MEASURED.
+
+Where the two AGREE, that result binds: formatted output has to render the same
+as the input did. Where they DISAGREE, neither binds, and the simplest behaviour
+is ours to choose - it need not match either program. A harness renders the
+corpus through both and pins the disagreements it finds in a ledger, so a
+disagreement is a recorded fact rather than a surprise.
+
+The two do diverge: the rewrite spells Ruby's `\p{Word}`
 (`asciidoctor.rb l.436`) as `\p{Alphabetic}\p{N}\p{Pc}` (`index.cjs l.54`), and
 it resolves an ordered list's `start` attribute
 (`Parser.resolveOrderedListStart`, `index.cjs l.12154`) where 2.0.26 has no such
@@ -158,11 +171,12 @@ blanks the line and lets it fall through to the arm a line with no separator
 takes (`parser.rb l.2315-2316`), which would end a dsv cell there, so a dsv cell
 held open by an escaped separator swallows the blank line after it to the oracle
 and closes at it to a reader of the vendored rows. Where they diverge, the
-comment names BOTH, states the divergence, and says the oracle wins.
-`bun run citation-check` holds every citation that names its file to that file,
-that line and the names the comment puts beside it, and reports the bare
-references that name none; a comment that cites nothing checkable is fine, a
-comment that cites the wrong line is a failed gate.
+comment names BOTH readings, states the divergence, and says which reading the
+code follows, or that it follows neither, and why. There is no rule that one
+program always wins. `bun run citation-check` holds every citation that names
+its file to that file, that line and the names the comment puts beside it, and
+reports the bare references that name none; a comment that cites nothing
+checkable is fine, a comment that cites the wrong line is a failed gate.
 
 The divergences this formatter carries KNOWINGLY, each recorded at its code site
 as well as here, so a reader meets the list before meeting the shape:
@@ -172,28 +186,29 @@ as well as here, so a reader meets the list before meeting the shape:
   the parser reads real content from another file, and no reader here can replay
   that without opening a file this formatter has no business reading. Nothing
   inside a paragraph or description reader can be right about that in isolation.
-  The oracle wins, and this formatter replays the line where the author wrote it
-  rather than resolving it: the replayed bytes render exactly what the author's
-  did wherever the target does not actually resolve. An UNRESOLVED include is
-  narrower than that and is no longer a divergence: the oracle's preprocessor
-  does not drop such a line, `replace_next_line` hands the parser a flush-left
-  message line in its place (reader.rb l.258-262), and `adjust_indentation!`
-  takes one such line anywhere in its scan as reason to leave the whole buffer's
-  `block_indent` at `nil` (parser.rb l.2723-2732) - nothing in the block gets
-  dedented. That is what keeps the space, and so the break, on a marker item's
-  ` +` line above an unresolved include, and `Paragraph.adjustsIndentation` now
-  takes the same route: an unresolved raw include line counts toward the
-  common-indent scan exactly like the oracle's flush-left message would. What
-  still differs is a MODEL no render can show for a RESOLVING include, and
-  modelling the preprocessor lines is what would close that remainder.
+  Both programs resolve the target and this formatter cannot, so it replays the
+  line where the author wrote it instead: the replayed bytes render exactly what
+  the author's did wherever the target does not actually resolve. An UNRESOLVED
+  include is narrower than that and is no longer a divergence: the oracle's
+  preprocessor does not drop such a line, `replace_next_line` hands the parser a
+  flush-left message line in its place (reader.rb l.258-262), and
+  `adjust_indentation!` takes one such line anywhere in its scan as reason to
+  leave the whole buffer's `block_indent` at `nil` (parser.rb l.2723-2732) -
+  nothing in the block gets dedented. That is what keeps the space, and so the
+  break, on a marker item's ` +` line above an unresolved include, and
+  `Paragraph.adjustsIndentation` now takes the same route: an unresolved raw
+  include line counts toward the common-indent scan exactly like the oracle's
+  flush-left message would. What still differs is a MODEL no render can show for
+  a RESOLVING include, and modelling the preprocessor lines is what would close
+  that remainder.
 - **A comment carrying a term separator (#119).** A `//` line whose text holds a
   word ending in `::`, `:::`, `::::` or `;;` keeps the output line the author
   gave it, and the description it stands in is never joined onto its term line.
   Joining it would hand the ENCLOSING list's sibling pattern a line to match
   (`is_sibling_list_item?`, parser.rb l.1430 and l.2281), which destroys a
-  nested list and mangles its term. The oracle wins on RESULTS - the replayed
-  bytes render exactly what the author's did - and what is given up is the
-  joined spelling, not a byte.
+  nested list and mangles its term. Both programs are answered on RESULTS - the
+  replayed bytes render exactly what the author's did - and what is given up is
+  the joined spelling, not a byte.
 
 **Never a token pattern.** Block-level context comes from the BlockReader and
 from nowhere else, and `tests/parser/architecture.test.ts` is the mechanical

@@ -3,7 +3,7 @@
  * them against the sources they name.
  *
  * The comments in `src`, `tests` and `scripts` cite two authorities:
- * Asciidoctor's Ruby (the design spec, vendored at
+ * Asciidoctor's Ruby (the reference, vendored at
  * `vendor/asciidoctor-ruby/`) and the oracle the tests actually measure
  * against (`@asciidoctor/core`'s `build/node/index.cjs` and the
  * `src/*.js` it is bundled from). A citation is a claim about a file
@@ -65,7 +65,7 @@ export const RUBY_FILES = [
  * Two layers, and the comments cite both. `index.cjs` is the BUILD -
  * the single bundled file every render assertion actually executes -
  * and `src/*.js` are the sources it is bundled from, which is where a
- * reader goes to see the transpiled logic laid out. Only the files
+ * reader goes to see the rewrite's logic laid out. Only the files
  * this repository's comments actually name are here; a citation of any
  * other is a name the grammar does not know.
  */
@@ -676,7 +676,7 @@ function describe(candidates: readonly string[]): string {
 }
 
 // The line that OPENS the thing a cited line is inside: a Ruby method,
-// class or module, a Ruby constant assignment, or the transpile's
+// class or module, a Ruby constant assignment, or the JavaScript
 // equivalents (`const X =`, `$def(self, '$name'`). Most citations point
 // at a line in the middle of a method, and the name that anchors them
 // is the method's own, so the window has to reach the header, not just

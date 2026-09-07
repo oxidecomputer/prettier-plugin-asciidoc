@@ -35,12 +35,13 @@
  * one value, and derives nothing per line.
  *
  * {@link itemExtent} is the pure port of `read_lines_for_list_item`
- * (parser.rb l.1404-1592, Asciidoctor core 2.0.26 — the revision
- * `@asciidoctor/core` 4.0.11 bundles, which is the oracle these tests
- * run; EVERY Ruby line number in this file is against it) for all
- * four list contexts, returning Ruby's BUFFER (the item's lines, with
- * every line Ruby blanks rewritten to `text: ""` and offsets and raw
- * spelling intact) plus where the item ends.
+ * (parser.rb l.1404-1592, Asciidoctor core 2.0.26, the vendored
+ * reference `@asciidoctor/core` 4.0.11 tracks; 4.0.11 is the oracle
+ * these tests run, and EVERY Ruby line number in this file is
+ * against 2.0.26) for all four list contexts, returning Ruby's
+ * BUFFER (the item's lines, with every line Ruby blanks rewritten to
+ * `text: ""` and offsets and raw spelling intact) plus where the
+ * item ends.
  * Every branch cites its parser.rb line. Three of them ask which kind
  * of list is open: the greedy no-text arm (l.1551-56), the
  * `BlockAttributeLineRx` look-ahead (l.1462-82) and the sibling guard

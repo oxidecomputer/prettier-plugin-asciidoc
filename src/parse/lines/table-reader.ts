@@ -681,7 +681,7 @@ function readLine(
     // through to the arm a line with no separator takes, which would
     // END a dsv cell there. Probed: a dsv cell held open by an escaped
     // separator swallows the blank line after it, and the line after
-    // that, as one cell. The oracle wins.
+    // that, as one cell. This reader follows the oracle.
     if (state.cellOpen) {
       appendContent(scan, line.offset, scan.end);
       appendToBuffer(scan, "\n");

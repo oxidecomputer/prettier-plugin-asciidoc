@@ -18,8 +18,8 @@
  * travels rather than the lines. The question itself, and the two
  * others every item body is assembled from, live in item-body.ts,
  * where a description item asks them too. Every Ruby line
- * number cites parser.rb at Asciidoctor core 2.0.26, the revision
- * the oracle runs, exactly as list-reader.ts's do.
+ * number cites parser.rb at Asciidoctor core 2.0.26, the vendored
+ * reference, exactly as list-reader.ts's do.
  */
 import type { BlockNode, GapLine, ListItemNode } from "../../ast.js";
 import { buildListItem } from "../build/list.js";

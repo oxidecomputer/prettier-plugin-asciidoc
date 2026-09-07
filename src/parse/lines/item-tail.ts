@@ -4,8 +4,8 @@
  * order. Its sibling file list-reader.ts carries the LOOP
  * (l.1404-1572); one Ruby region each, so a reader following an arm
  * never leaves the range the file cites. Every Ruby line number here
- * is against Asciidoctor core 2.0.26, the revision `@asciidoctor/core`
- * 4.0.11 bundles, exactly as list-reader.ts's are.
+ * is against Asciidoctor core 2.0.26, the vendored reference
+ * `@asciidoctor/core` 4.0.11 tracks, exactly as list-reader.ts's are.
  *
  * THE SEAM RULE, stated in both files: {@link finishItem} receives
  * the scan's FINAL state ONCE, as one value ({@link ScanTail}), and

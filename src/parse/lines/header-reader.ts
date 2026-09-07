@@ -161,7 +161,8 @@ interface HeaderMetadata {
 // 2.0.26's parse_document_header bails on `block_attrs['title']` alone
 // (parser.rb:132), so `[foo]` above the title still builds a header
 // there; the oracle we are pinned to adds `|| blockAttrs.style`
-// (@asciidoctor/core 4.0.11, src/parser.js:180). The oracle wins, and
+// (@asciidoctor/core 4.0.11, src/parser.js:180). This reader follows
+// the oracle, because that is what the render assertions measure, and
 // this comment exists so the next reader does not "fix" the code back
 // to the Ruby.
 //

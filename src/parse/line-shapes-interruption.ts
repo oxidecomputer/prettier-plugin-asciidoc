@@ -221,9 +221,9 @@ function isSiblingItemLine(line: string, openList: OpenList): boolean {
  * block's lines as part of the styled run. This row answers "ends"
  * either way, because the `+` that decides it is erased from the
  * item's buffer before any line is classified, so the condition is
- * not observable at this position. The oracle wins, and the documents
- * that show it diverge identically without this row - the residue is
- * the reader's, not this row's.
+ * not observable at this position. This row follows the oracle, and
+ * the documents that show it diverge identically without this row -
+ * the residue is the reader's, not this row's.
  * @param line - one rstripped source line
  * @param openList - the list open around the block
  * @returns true when the item's buffer stops at this line
@@ -280,24 +280,26 @@ function enclosingListEnds(
       // ends the run, and the `+` does not end it at all.
       //
       // ORACLE SURPRISE on the `+`, and one of the few places where
-      // the transpile and the Ruby part ways. The scan rewrites a
+      // the rewrite and the Ruby part ways. The scan rewrites a
       // continuation line to `ListContinuationPlaceholder` (parser.rb
       // l.1439), which in Ruby is an empty String and so breaks
       // `read_lines_until`'s own `line.empty?` (reader.rb l.414),
-      // while the transpile boxes it in a String subclass (`class
+      // while the rewrite boxes it in a String subclass (`class
       // ListContinuation extends String`, parser.js l.89-95) that
       // `breakOnBlankLines`' own `line === ''` (reader.js l.529) does
       // not match. So to the oracle the styled run swallows the
       // continuation and everything under it (`* i` / `+` /
       // `[source]` / `a` / `+` / `b` renders ONE listing block
-      // holding `a`, a blank line and `b`). The oracle wins.
+      // holding `a`, a blank line and `b`). This row follows the
+      // oracle.
       //
       // FOR THE NEXT ORACLE UPGRADE, the way
-      // LIST_ITEM_FIRST_LINE_INTERRUPTERS carries its own 2.0.20
-      // note: this row encodes a transpile defect rather than an
-      // AsciiDoc semantic, so a port that boxes the placeholder no
-      // longer, or compares it with `empty?`, flips it back to the
-      // Ruby reading. The probe is the arbiter either way.
+      // LIST_ITEM_FIRST_LINE_INTERRUPTERS carries its own note about
+      // a former `@asciidoctor/core` (3.0.4): this row encodes the
+      // JavaScript program's own reading rather than an AsciiDoc
+      // semantic, so a version that boxes the placeholder no longer,
+      // or compares it with `empty?`, flips it back to the Ruby
+      // reading. The probe is what says which, either way.
       return openList === undefined
         ? CONTINUATION_LINE.test(line)
         : endsItemBuffer(line, openList);

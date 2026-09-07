@@ -12,7 +12,8 @@
  *
  * Every rule cites the Asciidoctor 2.0.26 source it mirrors
  * (`lib/asciidoctor/asciidoctor.rb`, `substitutors.rb`, `rx.rb`) — the
- * Ruby the oracle (`@asciidoctor/core` 4.0.11) is transpiled from.
+ * Ruby reference whose behaviour the oracle (`@asciidoctor/core`
+ * 4.0.11, a native JavaScript implementation of Asciidoctor) tracks.
  * Where our shape is deliberately narrower or wider than Ruby's, the
  * comment says so: the formatter only has to recognise the construct,
  * not resolve it.
@@ -337,15 +338,15 @@ const HARD_BREAK = String.raw` \+${ASCII_HORIZONTAL_WHITESPACE.source}*(?=\n|$)`
 //   @CG_ALNUM[CC_ALNUM_\-.]*\.[a-zA-Z]{2,5}\b
 //
 // with `sub_macros`' email arm at l.19882-19897. The classes are the
-// TRANSPILE's (`index.cjs` l.49-55): `CC_WORD` is
+// REWRITE's (`index.cjs` l.49-55): `CC_WORD` is
 // `\p{Alphabetic}\p{N}\p{Pc}` and `CC_ALNUM` is `\p{Alphabetic}\p{N}`.
 // Ruby itself says something slightly different - asciidoctor.rb l.434
 // and l.436 are `CC_ALNUM = CG_ALNUM = '\p{Alnum}'` and
 // `CC_WORD = CG_WORD = '\p{Word}'`, and Onigmo's `\p{Word}` is
 // Alphabetic + M + Nd + Pc while `\p{Alnum}` is Alphabetic + Nd - so
-// the transpile drops `\p{M}` and widens `Nd` to `\p{N}`. The
-// transpile is what is transcribed here, because the transpile is the
-// oracle these tests measure against.
+// the rewrite drops `\p{M}` and widens `Nd` to `\p{N}`. The rewrite
+// is what is transcribed here, because the rewrite is the oracle
+// these tests measure against.
 //
 // One substitution, in the LOCAL part: Ruby's `&amp;` alternative
 // becomes a bare `&`. The email arm runs inside `sub_macros`, after
@@ -789,8 +790,8 @@ export const INLINE_RULES: readonly InlineRule[] = [
   // The interior crosses NEITHER bracket. The Ruby this repo vendors
   // spells the same group inline as `\[([^\]]+)\]` in each row
   // (`QUOTE_SUBS`, asciidoctor.rb l.445-467), an interior that DOES
-  // cross an open bracket; the two authorities diverge here and the
-  // oracle wins, which is why `[a[b]**c**` renders
+  // cross an open bracket; the two programs diverge here and this
+  // reader follows the oracle, which is why `[a[b]**c**` renders
   // `[a<strong class="b">c</strong>` - class `b`, with `[a` standing
   // in front of the group as literal text. Reading the wider run
   // instead recorded a role of `a[b` that no row ever takes.

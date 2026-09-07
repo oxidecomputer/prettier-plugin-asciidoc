@@ -185,7 +185,7 @@ describe("verbatimStyledExtent", () => {
   // Inside an item the `+` reaching this scan is already the item
   // scan's placeholder, and the run takes it as content: the two
   // Asciidoctors disagree about whether it ends the run (Ruby's empty
-  // String breaks the read, the transpile's boxed one does not), so
+  // String breaks the read, the rewrite's boxed one does not), so
   // the reading that keeps every line of the run keeps the bytes both
   // would need. Before this, the run ended at the placeholder and the
   // lines under it were reflowed as a paragraph (issue #201).

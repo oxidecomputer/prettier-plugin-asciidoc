@@ -15,7 +15,7 @@
  * by the machinery it shares with a marker item.
  *
  * Ruby line numbers cite parser.rb at Asciidoctor core 2.0.26, the
- * revision the oracle runs.
+ * vendored reference.
  */
 import { describe, expect, test } from "vitest";
 import { formatAdoc, renderedHtml } from "../helpers.js";

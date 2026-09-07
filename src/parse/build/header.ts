@@ -8,8 +8,8 @@
  * every other line goes through. These only take the result apart.
  *
  * The header is Asciidoctor's `parse_document_header` ->
- * `parse_header_metadata` (parser.rb, Asciidoctor core 2.0.26 - the
- * revision the oracle runs).
+ * `parse_header_metadata` (parser.rb, Asciidoctor core 2.0.26, the
+ * vendored reference).
  */
 import type {
   AuthorLineNode,

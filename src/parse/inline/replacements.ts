@@ -160,7 +160,7 @@ const SPACED_EM_DASH: ReplacementRow = {
 // `/(#{CG_WORD})\\?--(?=#{CG_WORD})/`, whose `:leading` restore writes
 // the captured word character back in front of the em dash. The word
 // class is the ORACLE's ({@link ORACLE_WORD_CLASS}), for the reason
-// quote-boundaries.ts gives: the transpile the render assertions
+// quote-boundaries.ts gives: the rewrite the render assertions
 // measure against spells Ruby's `\p{Word}` as
 // `\p{Alphabetic}\p{N}\p{Pc}`.
 //

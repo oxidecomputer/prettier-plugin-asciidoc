@@ -14,7 +14,7 @@
  * a shape declared there without a cycle.
  *
  * Every Ruby line number cites parser.rb at Asciidoctor core 2.0.26,
- * the revision the oracle runs.
+ * the vendored reference.
  */
 import type { BlockNode } from "../../ast.js";
 import type { InlineToken } from "../inline/tokens.js";

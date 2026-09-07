@@ -131,13 +131,15 @@ describe("a + between metadata and its block is kept where it was", () => {
 });
 
 // Two detached `+` in a row inside a nested list. The reader spells
-// core 2.0.20's reading: the outer item erases only the LAST
+// the reading of a former `@asciidoctor/core` (3.0.4, reporting core
+// 2.0.20): the outer item erases only the LAST
 // (`read_lines_for_list_item`'s scalar `detached_continuation`), so the
 // inner item re-reads the first as its own and takes the block. The
-// PINNED oracle (core 2.0.26) no longer reads it that way — the
-// paragraph lands in the OUTER item and the surviving `+` renders as
-// text — so the row below records where 2.0.26 puts it. Either way
-// both `+` lines are written back, which is what the formatter owes.
+// PINNED oracle (`@asciidoctor/core` 4.0.11) no longer reads it that
+// way: the paragraph lands in the OUTER item and the surviving `+`
+// renders as text, so the row below records where the oracle puts it.
+// Either way both `+` lines are written back, which is what the
+// formatter owes.
 describe("stacked detached continuations in a nested list", () => {
   test("both + lines survive and the document round-trips", async () => {
     const input = "* a\n** b\n\n+\n\n+\npara\n";

@@ -9,7 +9,7 @@
  * The two are pinned separately and deliberately. The corpus is
  * pinned to a COMMIT because the case ids extracted from it key the
  * quarantine manifest; the Ruby is pinned to the RELEASE TAG the
- * oracle was transpiled from, because a citation that says 2.0.26 has
+ * oracle's behaviour tracks, because a citation that says 2.0.26 has
  * to mean it. `bun run citation-check` reads what this writes.
  *
  * Exit codes (`scripts/lib/cli.ts`): 0 fetched, 2 it could not fetch
@@ -141,8 +141,8 @@ try {
   );
   console.log(`Extracted ${fixtureCases.length} fixture documents.`);
 
-  // --- Asciidoctor Ruby sources (the design spec our comments cite) ---
-  // Pinned to the RELEASE TAG @asciidoctor/core 4.0.11 transpiles, so
+  // --- Asciidoctor Ruby sources (the reference our comments cite) ---
+  // Pinned to the RELEASE TAG @asciidoctor/core 4.0.11 tracks, so
   // that `parser.rb l.1404-1592` in a comment names lines somebody can
   // open. `bun run citation-check` checks every such citation against
   // these files; bumping the tag will move line numbers, and that run

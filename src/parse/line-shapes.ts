@@ -16,16 +16,24 @@
  *
  * ## Where these rules come from
  *
- * The oracle (`@asciidoctor/core` 4.0.11) is Asciidoctor Ruby 2.0.26
- * transpiled by Opal, so the Ruby source IS the spec it executes.
+ * Two programs decide what these shapes mean. The harness renders
+ * through `@asciidoctor/core` 4.0.11, which its own README calls "a
+ * native JavaScript implementation of Asciidoctor" whose "code was
+ * generated from the Ruby source using Claude Code (claude-sonnet-4-6)
+ * and reviewed by a human". Asciidoctor Ruby 2.0.26 is the reference
+ * that program's behaviour tracks, and it is vendored at
+ * `vendor/asciidoctor-ruby/`, which is why a row can name a Ruby line.
  * Every row below names the Ruby constant or method it mirrors —
  * `lib/asciidoctor/parser.rb` (`read_paragraph_lines`,
  * `read_lines_for_list_item`, `parse_list_item`, `is_delimited_block?`,
  * `is_sibling_list_item?`, `StartOfBlockProc`) and
  * `lib/asciidoctor/rx.rb` (`BlockAttributeLineRx`, `BlockAnchorRx`,
- * `CommentLineRx`, `AnyListRx`, `DescriptionListRx`). The oracle is
- * still the arbiter: where a probe disagrees with a reading of the
- * Ruby, the probe wins and the row is marked.
+ * `CommentLineRx`, `AnyListRx`, `DescriptionListRx`). Where the two
+ * programs agree, that result binds. Where a probe of the JavaScript
+ * program disagrees with a reading of the Ruby, neither reading
+ * binds: the row takes whichever answer is simplest, which need not
+ * be either, and it is marked with both readings and with which one
+ * it follows, or that it follows neither.
  */
 
 import type { DescriptionDelimiter } from "../ast.js";
@@ -1356,10 +1364,11 @@ export const LITERAL_LINE = /^[ \t]+\S/v;
  * block already and the macro line is just paragraph text, the same
  * first-line/later split BLOCK_ANCHOR has, mirrored.
  *
- * Core 2.0.20 folded the macro in at BOTH positions; core 2.0.26 (the
- * `@asciidoctor/core` 4.0.11 transpile, the pinned oracle) splits at
- * the first. The probe is the arbiter for which Ruby line moved, and
- * it is pinned in tests/conformance/interruption.test.ts: the
+ * A former `@asciidoctor/core` (3.0.4, which reported core 2.0.20)
+ * folded the macro in at BOTH positions; the pinned oracle
+ * (`@asciidoctor/core` 4.0.11, whose reference is Ruby 2.0.26) splits
+ * at the first. The probe is the arbiter for which Ruby line moved,
+ * and it is pinned in tests/conformance/interruption.test.ts: the
  * `listItem, first line` / `block macro` row of "line-shape registry
  * matches the Asciidoctor oracle", plus the round-trip row of the
  * same name in "the formatter round-trips every construct in every

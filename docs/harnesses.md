@@ -931,7 +931,7 @@ ledgers do not say otherwise.
 ### `bun run citation-check` - the source citations in our comments
 
 The comments here cite two authorities by file and line: Asciidoctor's Ruby (the
-design spec, vendored at `vendor/asciidoctor-ruby/` at tag `v2.0.26`) and the
+reference, vendored at `vendor/asciidoctor-ruby/` at tag `v2.0.26`) and the
 oracle the tests measure against (`@asciidoctor/core`'s `build/node/index.cjs`
 and the `src/*.js` it is bundled from, read from `node_modules`). A citation is
 the one part of a comment a reader cannot check by reading, and it rots two

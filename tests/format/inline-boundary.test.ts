@@ -643,10 +643,11 @@ describe("the attrlist scan stops at the LAST open bracket (issue #110)", () => 
   // backslash between the two brackets stopped being a backslash in
   // front of the group.
   //
-  // The Ruby the oracle was transpiled from spells the same group
-  // inline as `\[([^\]]+)\]` (`QUOTE_SUBS`,
+  // The Ruby the oracle tracks spells the same group inline as
+  // `\[([^\]]+)\]` (`QUOTE_SUBS`,
   // asciidoctor.rb l.446-468), whose interior does cross a `[`. The
-  // two authorities diverge here and the oracle wins: it renders
+  // two programs diverge here and the formatter follows the oracle,
+  // which renders
   // `[\[a]**c**` as `[<strong class="a">*c</strong>*`, the narrow
   // reading, with the escape spent on the group `[a]`.
   test.each<[string, string]>([

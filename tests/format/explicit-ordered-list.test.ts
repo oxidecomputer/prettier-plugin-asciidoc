@@ -22,17 +22,18 @@
  *    one. Facts 2 and 3 hold under Ruby 2.0.26 as well.
  *
  * DIVERGENCE, recorded because a design decision turns on it: the
- * project's spec of record is Asciidoctor Ruby 2.0.26, but the oracle
- * this suite renders through is `@asciidoctor/core` 4.0.11, which
- * self-reports `2.0.26` (`ASCIIDOCTOR_CORE_VERSION`, `index.cjs`
- * l.23734) and is not it. Ruby
- * 2.0.26's own olist branch (`parser.rb` l.1337-1348) never sets
+ * reference is Asciidoctor Ruby 2.0.26, vendored, but the oracle this
+ * suite renders through is `@asciidoctor/core` 4.0.11, a native
+ * JavaScript implementation of Asciidoctor that self-reports `2.0.26`
+ * (`ASCIIDOCTOR_CORE_VERSION`, `index.cjs` l.23734) and is not it.
+ * Ruby 2.0.26's own olist branch (`parser.rb` l.1337-1348) never sets
  * `list_block.attributes['start']`, and the 2.0.26 binary renders
  * `5. five` / `6. six` as a bare `<ol class="arabic">` with no
- * `start`. Fact 1 above is therefore the oracle's behavior, not
- * Ruby's. We follow the oracle - it is what this suite, the
- * conformance corpus and the sweeps all compare against - and the
- * decision would stand on facts 2 and 3 alone in any case.
+ * `start`. Fact 1 above is therefore the rewrite's behavior, not
+ * Ruby's. Where the two disagree neither binds, and this suite takes
+ * the rewrite because it is what the suite, the conformance corpus
+ * and the sweeps all compare against - and the decision would stand
+ * on facts 2 and 3 alone in any case.
  *
  * Three failure modes are pinned, and all three are the same root
  * cause, a marker line the classifier did not know:

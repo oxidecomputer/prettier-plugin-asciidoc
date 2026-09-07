@@ -9,8 +9,8 @@
  * does not fit under the ceiling there. The split follows item-tail.ts:
  * one Ruby region per file, so a reader following an arm never leaves
  * the range the file cites. Every Ruby line number here is against
- * Asciidoctor core 2.0.26, the revision `@asciidoctor/core` 4.0.11
- * bundles, exactly as list-reader.ts's are.
+ * Asciidoctor core 2.0.26, the vendored reference `@asciidoctor/core`
+ * 4.0.11 tracks, exactly as list-reader.ts's are.
  */
 import {
   endsDescriptionLine,
@@ -163,11 +163,11 @@ export type AttributeRun =
  * nothing else). A formatter may not drop bytes, so the run is kept
  * where Ruby's reader position leaves it, inside the item.
  *
- * The oracle wins, and it does here: the oracle binds RESULTS, and
- * the kept run renders exactly what Ruby's dropped one did, which is
- * nothing - it opens no block at the end of an item. What differs is
- * an EXTENT no render can show. If a render ever disagreed the oracle
- * would decide and the bytes would have to go; the rows in
+ * Nothing observable is given up: the two programs agree on the
+ * RESULT, and the kept run renders exactly what Ruby's dropped one
+ * did, which is nothing - it opens no block at the end of an item.
+ * What differs is an EXTENT no render can show. If a render ever
+ * disagreed the bytes would have to go; the rows in
  * tests/parser/description-list.test.ts pin the shape so that a
  * later change to it is a decision and not a slip.
  * The walk indexes `lines` where Ruby peeks through a

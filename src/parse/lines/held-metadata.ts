@@ -211,7 +211,8 @@ export class HeldMetadata {
    * That demotion is the PINNED ORACLE's rule and not Ruby's: Ruby
    * 2.0.26 builds a header under `[foo]` too (parser.rb:132 bails on
    * a block title alone), and it is `@asciidoctor/core` 4.0.11 that
-   * adds `|| blockAttrs.style` (src/parser.js:180). The oracle wins;
+   * adds `|| blockAttrs.style` (src/parser.js:180). This code follows
+   * the oracle, because that is what the render assertions measure;
    * the sentence is here so the next reader does not align the code
    * to the Ruby and re-open issue #18.
    * @returns whether a style is held

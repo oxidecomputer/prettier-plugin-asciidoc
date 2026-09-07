@@ -542,10 +542,10 @@ interface AttrlistInFront {
  * The Ruby this repo vendors (tag v2.0.26) spells the same group inline
  * as `\[([^\]]+)\]` in each row (`QUOTE_SUBS`,
  * asciidoctor.rb l.446-468), an interior that DOES cross a `[`. The
- * two authorities diverge here and the oracle wins: it renders
- * `[\[a]**c**` as `[<strong class="a">*c</strong>*`, the narrow
- * reading, with the escape spent on the group `[a]` and the first `[`
- * left as text.
+ * two programs diverge here and the printer follows the oracle,
+ * which renders `[\[a]**c**` as `[<strong class="a">*c</strong>*`,
+ * the narrow reading, with the escape spent on the group `[a]` and
+ * the first `[` left as text.
  * @param head - what stands in front of the sibling list itself
  * @param inFront - the siblings in front of the span, in source order
  * @param role - the span's own parsed attrlist, for the one mark that

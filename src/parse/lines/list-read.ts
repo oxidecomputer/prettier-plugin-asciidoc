@@ -20,7 +20,7 @@
  * place a node.
  *
  * Every Ruby line number cites parser.rb at Asciidoctor core 2.0.26,
- * the revision the oracle runs, exactly as list-reader.ts's do.
+ * the vendored reference, exactly as list-reader.ts's do.
  */
 import type {
   DescriptionDelimiter,

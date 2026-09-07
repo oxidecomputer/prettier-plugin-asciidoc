@@ -125,10 +125,20 @@ question there. That Ruby is vendored at `vendor/asciidoctor-ruby/`, so a cited
 line is one `Read` away. `bun run citation-check` reads every line reference in
 those comments and holds the ones that name a file (207 of the 292 it reads) to
 that file and line; the other 85 are bare references in comments that name none,
-and it reports them unchecked rather than guessing which file they meant. When
-our reading of the Ruby and the oracle disagree, the oracle wins; "The two
-authorities" in `docs/coding-standards.md` says what the comment then has to
-say.
+and it reports them unchecked rather than guessing which file they meant.
+
+The oracle is not that Ruby. `@asciidoctor/core` 4.0.11 is, its own README says,
+"a native JavaScript implementation of Asciidoctor" whose "code was generated
+from the Ruby source using Claude Code (claude-sonnet-4-6) and reviewed by a
+human", and Ruby 2.0.26 is the reference its behaviour tracks. Where the two
+programs agree, that result binds. Where they disagree, neither binds and the
+simplest behaviour is ours to choose, recorded in a comment that names both
+readings and says which reading the code follows, or that it follows neither,
+and why: `5. five` / `6. six` is one such place, because the JavaScript program
+resolves an ordered list's `start` attribute and Ruby 2.0.26 sets none. "The two
+authorities" in `docs/coding-standards.md` says what that comment has to say. A
+harness renders the corpus through both programs and pins the disagreements it
+finds.
 
 Citing the Ruby is not mirroring it: only the semantics bind, and the code's own
 structure, data, and policy are decided here. The tree models no sections,
@@ -168,7 +178,8 @@ classifying a whole line in the context where it appears.
   checks every pattern against Asciidoctor in all four contexts and in both line
   positions (the block's first line, where `next_block` still gets to choose a
   context, and a later line, where it does not). Read the Ruby and add a row
-  before adding a pattern; the oracle wins on disagreement.
+  before adding a pattern; a row whose probe disagrees with the Ruby says so and
+  says which of the two readings it follows.
 - **Reflow safety consumes the same registry.** The printer's word-wrapping asks
   `isBlockSyntaxAtLineStart` (`src/print/reflow.ts`) about every word it might
   place at a line start, unioned over every context — so the parser and the
@@ -691,7 +702,7 @@ Two halves, split by what a test may reach:
 
 On top of the suite sits the differential net: `tests/conformance/` runs three
 properties over 1,614 vendored corpus cases (no crash, idempotency, and render
-fidelity against the `@asciidoctor/core` oracle, pinned at 2.0.26), with known
+fidelity against the `@asciidoctor/core` oracle, pinned at 4.0.11), with known
 failures quarantined by issue in `quarantine.json`; the shape grids verify
 constructs the corpus is blind to; and `scripts/parity.ts` proves a refactor
 changed no output byte. [harnesses.md](harnesses.md) covers all of it — what

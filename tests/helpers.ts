@@ -612,8 +612,8 @@ interface OracleRubyDocument {
 
 /**
  * The oracle's own `Table` shape, restated for the same reason as
- * {@link OracleRubyCell}: `table.rows` is a live property (an Opal
- * accessor, not a `getRows()` method), and `getAttribute("colcount")`
+ * {@link OracleRubyCell}: `table.rows` is a live property, not a
+ * `getRows()` method, and `getAttribute("colcount")`
  * answers the resolved column count.
  */
 interface OracleRubyTable {

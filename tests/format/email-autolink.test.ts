@@ -3,9 +3,9 @@
  * the oracle rather than imagined.
  *
  * Ruby recognises a bare address in `sub_macros`' email arm
- * (`substitutors.rb`; the `@asciidoctor/core` 4.0.11 transpile spells
+ * (`substitutors.rb`; the `@asciidoctor/core` 4.0.11 rewrite spells
  * the arm at `build/node/index.cjs` l.19882-19897) using
- * `InlineEmailRx` (`rx.rb`, transpiled at l.518). The tokenizer's
+ * `InlineEmailRx` (`rx.rb`, spelled at l.518). The tokenizer's
  * `InlineEmail` rule (src/parse/inline/rules.ts) transcribes that
  * pattern, so the address becomes ONE atomic inline node - the same
  * protection class a bare URL has - instead of a stretch of plain

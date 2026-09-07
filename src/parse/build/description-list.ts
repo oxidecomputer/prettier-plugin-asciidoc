@@ -12,7 +12,7 @@
  * thing here: Ruby appends a term-only sibling to the pair already
  * open instead of starting a new one, so the list is what decides how
  * many items its siblings make. Ruby line numbers cite parser.rb at
- * Asciidoctor core 2.0.26, the revision the oracle runs.
+ * Asciidoctor core 2.0.26, the vendored reference.
  */
 import type {
   DescriptionDelimiter,

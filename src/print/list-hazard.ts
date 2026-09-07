@@ -667,8 +667,8 @@ function ruleSpelledByTheMarkerLine(
  * is deliberate and one-directional: the reader records no list style
  * for the printer to ask about, and the cost of asking anyway is a
  * break held where none was needed - bytes frozen, the render
- * unchanged, and the document still idempotent. The oracle wins on
- * results, and the result is the same either way.
+ * unchanged, and the document still idempotent. The two programs
+ * agree on the result, and the result is the same either way.
  * @param item - the finished item node.
  * @param parentList - the list the item belongs to, as the printer
  *   holds it; only an unordered list reads a checkbox at all.
