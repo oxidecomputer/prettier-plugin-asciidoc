@@ -148,3 +148,38 @@ describe("paragraph parsing", () => {
     );
   });
 });
+
+// A lone `\r` is a LINE BREAK to `@asciidoctor/core` 4.0.11's
+// `prepareSourceString` (see the JSDoc on nextLineBreak,
+// src/parse/positions.ts), and splitLines has read it as one since
+// issue #68. The two facts the paragraph builder measures off the
+// SOURCE rather than off the lines it was handed answered with a
+// `\n` scan of their own until issue #159, so a paragraph whose
+// first line ended in a lone CR was read as one long line:
+// `firstWordEndsItsLine` was false where the line really does end
+// after its first word, and `secondLineIndent` was empty where a
+// second line really does stand under it with an indent of its own.
+//
+// Only a DIRECT parse can witness this - Prettier's own entry point
+// rewrites `\r\n?` to `\n` before any plugin parser runs
+// (prettier/index.mjs, normalizeEndOfLine), so no formatAdoc round
+// trip has a CR left to observe - which is why these are tree pins
+// and not format rows. The `\n` twin of each row is there to show
+// that the two spellings answer alike.
+describe("a lone carriage return ends the line the builder measures", () => {
+  test.each([
+    ["a lone CR", "word\rmore\n"],
+    ["a newline", "word\nmore\n"],
+  ])("%s: the first line ends after its first word", (_name, source) => {
+    expect(asParagraph(parse(source).children[0]).firstWordEndsItsLine).toBe(
+      true,
+    );
+  });
+
+  test.each([
+    ["a lone CR", "word\r  more\n"],
+    ["a newline", "word\n  more\n"],
+  ])("%s: the second line keeps its indent", (_name, source) => {
+    expect(asParagraph(parse(source).children[0]).secondLineIndent).toBe("  ");
+  });
+});

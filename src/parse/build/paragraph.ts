@@ -25,6 +25,7 @@ import { isSingleWordLine, rstrip } from "../line-shapes.js";
 import type { InlineToken } from "../inline/tokens.js";
 import {
   makeLocation,
+  nextLineBreak,
   type Fragment,
   type LocationIndex,
 } from "../positions.js";
@@ -92,15 +93,23 @@ export function bodyExtent(
  * indentation and any prefix in front of the block (a description
  * list's term column) are outside the question, and rstripped before
  * the test the way every registry rule is matched.
+ *
+ * Where the line ENDS is {@link nextLineBreak}'s answer and not a
+ * `\n` scan of its own, so this and the lines the reader was handed
+ * cannot disagree: a lone `\r` ends a line to `@asciidoctor/core`
+ * 4.0.11's `prepareSourceString`, so `word\rmore` is a line of one
+ * word and not a line of two (issue #159). Reachable only by a direct
+ * parse - Prettier rewrites `\r\n?` to `\n` before any plugin parser
+ * runs (prettier/index.mjs, normalizeEndOfLine) - which is why the
+ * pins for it are tree pins in tests/parser/paragraph.test.ts.
  * @param source - the whole document
  * @param start - the block's start offset
  * @returns true when one word stands between that offset and the end
  *   of its line
  */
 function firstWordEndsItsLine(source: string, start: number): boolean {
-  const newline = source.indexOf("\n", start);
   return isSingleWordLine(
-    rstrip(source.slice(start, newline === -1 ? source.length : newline)),
+    rstrip(source.slice(start, nextLineBreak(source, start))),
   );
 }
 
@@ -120,6 +129,19 @@ const LEADING_INDENT = /^[ \t]*/v;
  * write: the paragraph reaches a second line at all, and it opened at
  * column 0, where the line the printer would rebuild is the line the
  * source had.
+ *
+ * Where the first line ends is {@link nextLineBreak}'s answer, for
+ * the same reason it is in {@link firstWordEndsItsLine}: a lone `\r`
+ * ends a line, so the run under `word\r  more` is the two spaces and
+ * not nothing (issue #159). The break is a SINGLE character in both
+ * spellings - a CRLF's break is its `\n`, one position past the `\r`
+ * that is not lone - so the line under it opens one past it.
+ *
+ * The second condition is also what makes the break exist: a
+ * paragraph whose content ends on a later line than it starts on has
+ * a line break inside it, and the index that numbered those lines
+ * counts the same breaks this scan finds. So there is no "no break
+ * found" arm to write; there is no such state.
  * @param source - the whole document
  * @param position - the paragraph's own content extent
  * @param position.start - where its content begins
@@ -130,18 +152,17 @@ function secondLineIndent(
   source: string,
   position: { start: Location; end: Location },
 ): string {
-  const newline = source.indexOf("\n", position.start.offset);
   if (
     position.start.column !== FIRST_COLUMN ||
-    position.end.line === position.start.line ||
-    newline === -1
+    position.end.line === position.start.line
   ) {
     return "";
   }
+  const lineEnd = nextLineBreak(source, position.start.offset);
   // The `*` quantifier matches at any offset, so the match is total
   // and the run is empty exactly where the second line starts flush
   // left.
-  return LEADING_INDENT.exec(source.slice(newline + 1))?.[0] ?? "";
+  return LEADING_INDENT.exec(source.slice(lineEnd + 1))?.[0] ?? "";
 }
 
 /**

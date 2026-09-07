@@ -1584,9 +1584,16 @@
   {
     "file": "src/parse/positions.ts",
     "symbol": "nextLineBreak",
+    "importer": "src/parse/build/paragraph.ts",
+    "kind": "vocabulary",
+    "reason": "the same one answer, for the two facts the paragraph builder measures off the document source rather than off the lines it was handed (firstWordEndsItsLine and secondLineIndent): they cut the block's first line where splitLines and the location index cut it, a lone carriage return included"
+  },
+  {
+    "file": "src/parse/positions.ts",
+    "symbol": "nextLineBreak",
     "importer": "src/parse/lines/split.ts",
     "kind": "vocabulary",
-    "reason": "the one answer to where a line ends for the two document-level line-counting authorities (a newline, or a lone carriage return); splitLines and makeLocationIndex must count the same breaks or a SourceLine's line number and the index's answer at that offset disagree. Other call sites still slice on a bare indexOf(\"\\n\") (issue #159) and are not yet ported to this answer"
+    "reason": "the one answer to where a line ends for the two document-level line-counting authorities (a newline, or a lone carriage return); splitLines and makeLocationIndex must count the same breaks or a SourceLine's line number and the index's answer at that offset disagree"
   },
   {
     "file": "src/print/printer.ts",

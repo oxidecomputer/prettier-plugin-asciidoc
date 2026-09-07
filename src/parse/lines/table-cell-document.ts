@@ -45,6 +45,7 @@
  * byte-order mark.
  */
 import type { TableCutting, TableTextRun } from "../../ast.js";
+import { FIRST_COLUMN } from "../../constants.js";
 import { rstrip } from "../line-shapes.js";
 import type { LocationIndex } from "../positions.js";
 import type { SourceLine } from "./split.js";
@@ -155,6 +156,31 @@ function extend(
 }
 
 /**
+ * Whether the character at `offset` is the one that ends its line.
+ *
+ * Asked of the document's own index rather than of the run's bytes,
+ * which is what keeps this module from being a THIRD authority on
+ * where a line ends (issue #159). The index counts the breaks
+ * `nextLineBreak` counts (src/parse/positions.ts) and splitLines
+ * counts the same ones, so a `\n`, and a `\r` with no `\n` behind it,
+ * both end a line here exactly as they do there - and a CRLF's `\r`,
+ * which is not lone, does not.
+ *
+ * The test is the NEXT offset's column: an offset opens a line
+ * exactly when it is a line's first character, and the character in
+ * front of a line's first character is the break that ended the one
+ * above. Past the end of the document no line opens, so the last
+ * character of a document with no terminator ends no line, which is
+ * `splitLines`'s convention too.
+ * @param at - the document's offset to Location index
+ * @param offset - the character to ask about
+ * @returns whether a line begins one character later
+ */
+function endsLine(at: LocationIndex, offset: number): boolean {
+  return at.at(offset + 1).column === FIRST_COLUMN;
+}
+
+/**
  * The cell's buffer as lines. Only `content` runs: the `//` lines and
  * the blank lines a reader consumed never reached the table, so they
  * are not in Asciidoctor's buffer either.
@@ -162,10 +188,21 @@ function extend(
  * A trailing newline ENDS the last line rather than opening an empty
  * one, `splitLines`'s own convention and the reason a buffer of
  * `"one\n"` is one line here and rstrips to one line there.
+ *
+ * Every run is a span of the document at a known offset, so the lines
+ * are cut by {@link endsLine} at DOCUMENT positions and never by the
+ * run image's own bytes. The two only ever disagree about a lone
+ * `\r`, and only because `imageBetween` (lines/table-reader.ts)
+ * spells every terminator it appends `\n`; cutting by position means
+ * this module reads both spellings alike and owes that reader nothing.
  * @param runs - the cell's recorded runs, in document order
+ * @param at - the document's offset to Location index
  * @returns the buffer's lines, in order
  */
-function bufferLines(runs: readonly TableTextRun[]): BufferLine[] {
+function bufferLines(
+  runs: readonly TableTextRun[],
+  at: LocationIndex,
+): BufferLine[] {
   const lines: BufferLine[] = [];
   let open: BufferLine | undefined = undefined;
   for (const run of runs) {
@@ -173,16 +210,13 @@ function bufferLines(runs: readonly TableTextRun[]): BufferLine[] {
       continue;
     }
     let from = 0;
-    for (
-      let breakAt = run.image.indexOf("\n");
-      breakAt !== -1;
-      breakAt = run.image.indexOf("\n", from)
-    ) {
-      lines.push(
-        extend(open, run.image.slice(from, breakAt), run.offset + from),
-      );
+    for (let index = 0; index < run.image.length; index += 1) {
+      if (!endsLine(at, run.offset + index)) {
+        continue;
+      }
+      lines.push(extend(open, run.image.slice(from, index), run.offset + from));
       open = undefined;
-      from = breakAt + 1;
+      from = index + 1;
     }
     const tail = run.image.slice(from);
     if (tail !== "") {
@@ -448,7 +482,7 @@ export function tableCellDocument(
   at: LocationIndex,
 ): TableCellDocument {
   const lines = trimmed(
-    bufferLines(runs).map((line) => sourceLineOf(line, cutting, at)),
+    bufferLines(runs, at).map((line) => sourceLineOf(line, cutting, at)),
     cutting.format,
   );
   return csvRewrites(lines, cutting.format)

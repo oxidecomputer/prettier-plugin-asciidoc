@@ -33,6 +33,7 @@ import {
 } from "../../src/parse/lines/table-cell-document.js";
 import { makeLocationIndex } from "../../src/parse/positions.js";
 import type { SourceLine } from "../../src/parse/lines/split.js";
+import type { TableCutting, TableTextRun } from "../../src/ast.js";
 import { nestedDocumentCells } from "./table-structure-scan.js";
 import { tableNodes } from "./table-nodes.js";
 import { oracleCellDocuments } from "../helpers.js";
@@ -576,4 +577,60 @@ describe("the trims between a cell's buffer and its document", () => {
       "rewritten",
     ]);
   });
+});
+
+// ---------------------------------------------------------------------------
+// Where a run's lines end
+// ---------------------------------------------------------------------------
+
+// A lone `\r` is a LINE BREAK to `@asciidoctor/core` 4.0.11's
+// `prepareSourceString` (see the JSDoc on nextLineBreak,
+// src/parse/positions.ts), so splitLines cuts a line there and the
+// index numbers the next line one higher. This module used to cut its
+// buffer's lines with a `\n` scan of its own, which made it a THIRD
+// authority on where a line ends and left it able to answer `one\rtwo`
+// as one line where the document it is a span of has two (issue #159).
+//
+// The runs the table reader records cannot carry a lone CR TODAY:
+// every run image is built by `imageBetween` (table-reader.ts), which
+// takes the line's raw bytes and appends a `\n` of its own for the
+// terminator, so a lone CR is already spelled `\n` by the time this
+// module sees it. That is why the rows here call the function
+// directly, and why they carry BOTH spellings of the same cell: the
+// answer is now read off the document's own line ends, so the two
+// spellings of one span agree by construction rather than by the
+// reader's normalization.
+//
+// Only a direct parse could ever put a CR in front of this anyway:
+// Prettier rewrites `\r\n?` to `\n` before any plugin parser runs
+// (prettier/index.mjs, normalizeEndOfLine).
+describe("a buffer's lines end where the document's lines end", () => {
+  // `a|one` opens at offset 5, so the cell's text starts at 7 and the
+  // second line of it at 11.
+  const source = "|===\na|one\rtwo\n|===\n";
+  const psv: TableCutting = { format: "psv", separator: "|" };
+  const expected = [
+    { text: "one", raw: "one", offset: 7, line: 2 },
+    { text: "two", raw: "two", offset: 11, line: 3 },
+  ];
+
+  test.each([
+    [
+      "the source's own bytes",
+      [{ kind: "content", image: "one\rtwo", offset: 7 }],
+    ],
+    [
+      "the terminator the reader normalizes it to",
+      [
+        { kind: "content", image: "one\n", offset: 7 },
+        { kind: "content", image: "two", offset: 11 },
+      ],
+    ],
+  ] as ReadonlyArray<[string, readonly TableTextRun[]]>)(
+    "runs spelled with %s hold two lines",
+    (_name, runs) => {
+      const document = tableCellDocument(runs, psv, makeLocationIndex(source));
+      expect(document).toEqual({ kind: "lines", lines: expected });
+    },
+  );
 });
