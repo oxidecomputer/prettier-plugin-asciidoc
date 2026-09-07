@@ -102,6 +102,15 @@ jobs:
       # two declarations drifting apart.
       - run: bun run parse-print-addresses
         if: ${{ !cancelled() }}
+      # The fact census sorts every AST field into recorded facts and
+      # exempt ones, and two of the exempt reasons ASSERT that nothing
+      # under src/print reads the field. This holds those assertions to
+      # the TypeScript compiler; one of them was false for three fields
+      # that eight printer files read. Opens src/ast.ts and src/print as
+      # one program, takes a second or two, needs no base: a head-only
+      # gate beside the two above, with its own exit-code contract.
+      - run: bun run printer-reads
+        if: ${{ !cancelled() }}
 
   differential:
     name: Differential (vs base)

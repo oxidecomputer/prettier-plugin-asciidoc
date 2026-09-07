@@ -32,14 +32,15 @@ bun run gates
 
 runs, in order: `fmt`, `check`, `lint`, `test`, `build`, `metrics`, `coverage`,
 `block-structure`, `citation-check`, `internal-citations`,
-`parse-print-addresses`. All eleven must pass. They are fast but not instant:
-the slowest are the suite and `coverage`, which re-runs it instrumented, at ten
-to seventeen seconds each depending on how loaded the machine is - two generated
-sweeps run inside the suite and both inflate under contention - and the rest are
-a few seconds or less. Together they are exactly what CI's blocking `gates` job
-runs, minus the deep sweeps (`bun run test:deeply-nested-lists`, about three
-minutes); run those too when your change touches parsing or printing of lists,
-or the shape or inline registries.
+`parse-print-addresses`, `printer-reads`. All twelve must pass. They are fast
+but not instant: the slowest are the suite and `coverage`, which re-runs it
+instrumented, at ten to seventeen seconds each depending on how loaded the
+machine is - two generated sweeps run inside the suite and both inflate under
+contention - and the rest are a few seconds or less. Together they are exactly
+what CI's blocking `gates` job runs, minus the deep sweeps
+(`bun run test:deeply-nested-lists`, about three minutes); run those too when
+your change touches parsing or printing of lists, or the shape or inline
+registries.
 
 Run `bun run gates` rather than the eleven commands by hand: two lanes in one
 night each ran a partial local battery that skipped `citation-check` and shipped

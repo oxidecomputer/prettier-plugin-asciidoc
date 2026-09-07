@@ -34,12 +34,14 @@ refuses a corpus with no groups, `block-structure` refuses a short corpus, a
 short sweep product, an oracle refusal other than the one document it pins by
 id, and ledgers whose header names an oracle other than the installed one,
 `local-docs` refuses a directory with no documents in it, `citation-check`
-refuses a tree with fewer than a hundred citations in it, `probe-domains`
-refuses a generated domain that spelled a different number of documents than it
-is pinned at and a base revision that threw on every document of one, and
-`metrics` refuses a `src` too small to be this repository's. Without the split,
-an empty `src` would score a perfect card — no files means no cycles, no unused
-exports, and no escape hatches, all vacuously true.
+refuses a tree with fewer than a hundred citations in it, `printer-reads`
+refuses a scan that resolved too few reads to have opened the printer at all and
+a classification that asserts nothing for it to check, `probe-domains` refuses a
+generated domain that spelled a different number of documents than it is pinned
+at and a base revision that threw on every document of one, and `metrics`
+refuses a `src` too small to be this repository's. Without the split, an empty
+`src` would score a perfect card: no files means no cycles, no unused exports,
+and no escape hatches, all vacuously true.
 
 Every script takes `--help`, and an unrecognized argument is an error, not a
 shrug: a silently dropped `--base` would print a head-only table that looks like
@@ -1095,6 +1097,64 @@ drops its path drops its check with it; and it does not check that the quoted
 line still MEANS what the row says about it - which is the failure mode a
 re-cite has to be reviewed for, not gated on.
 
+### `bun run printer-reads` - the census's unread claims, held to the printer
+
+Issue #222. The recorded-fact census (`scripts/fact-inventory.ts`, exercised by
+`tests/scripts/fact-inventory.test.ts`) sorts every `src/ast.ts` field into
+FACTS and EXEMPT, and idempotence holds only if the printer respects that sort:
+a printing decision made from a field the round trip is free to perturb is a
+decision pass 2 can make differently. Nothing checked the sort, and one row was
+wrong - `Node.position` was EXEMPT under "not read by the printer" while eight
+files under `src/print/` read it (issue #204, fixed with `Location.line` and
+`Location.column` beside it).
+
+The gate is deliberately narrower than "the printer must not read an EXEMPT
+field", because that check is not sound: 129 of the tree's 156 EXEMPT rows are
+read under `src/print/`, and legitimately so. That count is `printerReads`'s own
+answer over the shipped classification, and most of it is union fan-out - a
+property shared across a union's arms is recorded against every arm, and 34 of
+the 129 are read at a source line that resolved to exactly one row. Both figures
+are pinned in `tests/scripts/fact-inventory-reads.test.ts`, so re-deriving them
+is running that test; an earlier hand measurement here said 68 of 159, taken
+against a resolver that stopped at the first matching declaration. Five of the
+census's seven exempt reasons JUDGE what a read means - a discriminant selects a
+printer function, a leaf string is copied out unconditionally, a container's
+arms carry the choice - and no scan can settle a judgement. The other two ASSERT
+that no read happens ("position bookkeeping, not read under src/print" and
+"recorded but unread under src/print"), and an assertion about reads is exactly
+what a compiler can settle. Those are the twelve rows this gate holds.
+
+It opens `src/ast.ts` and every file under `src/print/` as one TypeScript
+program and resolves each property access and destructuring binding to the
+`PropertySignature` it was declared by, keyed by the census's own enumeration so
+a read lands on the row it belongs to and not on a row with the same field name
+(`Location.line` against `DescriptionTermNode.line` is the collision that rules
+a text search out). The left side of an assignment and an object literal's keys
+are not reads. A second check NARROWS, without closing, the shape of the claims:
+a reason that denies a read in its own words rather than in one of the two
+shared spellings would be a claim the gate cannot recognize, which is the state
+the census was already in, so it fails too. It matches four spellings and no
+others - "unread", "not read", "never read", "no read" - so a row saying
+"nothing looks at it" or "constructed only" still passes it.
+
+Exit codes: 0 every claim held, 1 a claim is false or a reason makes one the
+gate cannot hold, 2 could not run - a bad argument, an unreadable tree, a scan
+that resolved fewer than `MINIMUM_READS` (200 against the 1,286 this tree has,
+so a run that lost its program rather than its reads), or a classification with
+no claim in it to check. `--list` prints every resolved read.
+`scripts/printer-reads.ts` over `scripts/fact-inventory-reads.ts`, unit tested
+in `tests/scripts/printer-reads.test.ts` (the exit-code decisions, against the
+real tree under a perturbed classification) and
+`tests/scripts/fact-inventory-reads.test.ts` (the scan itself, against planted
+trees).
+
+Proves: no exempt row denies, in one of four spellings, a read the printer
+makes. It does NOT prove the other five exempt reasons right, it does not catch
+a denial worded some other way, it does not prove a FACT is read
+(`scripts/metrics/unread-fields.ts` says why a reference scan cannot answer that
+for a serialized type), and a field reached through `Object.entries`, a computed
+key or a spread is invisible to it.
+
 ### `bun run local-docs <dir>` - the formatter against real documents
 
 Issue #13. Walks a directory for `.adoc` files, recursively, and runs four
@@ -1842,9 +1902,9 @@ the dedicated regression test its issue calls for.
 **`gates`** — blocking, needs no other revision: `check`, `lint`, `fmt:check`,
 `build`, `coverage` (the suite runs under it), `metrics`,
 `test:deeply-nested-lists`, `block-structure`, `citation-check`,
-`internal-citations`, `parse-print-addresses`. Every step carries
-`if: ${{ !cancelled() }}`, so one failing gate never hides the others. The
-reflow re-classification invariant needs no step of its own: its three gates
+`internal-citations`, `parse-print-addresses`, `printer-reads`. Every step
+carries `if: ${{ !cancelled() }}`, so one failing gate never hides the others.
+The reflow re-classification invariant needs no step of its own: its three gates
 ride the suite and the deep sweep that are already there, and `reading-ledger`
 is a generator, not a gate.
 

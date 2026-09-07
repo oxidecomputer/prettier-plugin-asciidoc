@@ -103,7 +103,7 @@ export const EXEMPT: ReadonlyMap<string, string> = new Map([
   ["AttributeReferenceNode.type", TYPE_DISCRIMINANT],
   ["AttributeReferenceNode.name", CONTENT],
   ["LinkNode.type", TYPE_DISCRIMINANT],
-  ["LinkNode.form", "own doc: unread"],
+  ["LinkNode.form", UNREAD],
   ["LinkNode.target", CONTENT],
   ["XrefNode.type", TYPE_DISCRIMINANT],
   ["XrefNode.form", 'fixed "shorthand"'],

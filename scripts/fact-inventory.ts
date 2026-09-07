@@ -69,7 +69,8 @@
  *   `halign`/`valign` field are the opposite surprise: constructed at
  *   parse time and never read under `src/print` at all, so they are
  *   EXEMPT as unread rather than FACT, the same status `LinkNode.form`
- *   already carries by its own doc comment.
+ *   carries (by its own doc comment first, and by the shared reason
+ *   `scripts/printer-reads.ts` holds since).
  * - `TableNode.header` is EXEMPT despite being read
  *   (`blankAfterFirstRow`): its own doc calls it "a total predicate
  *   over facts the reader already recorded", so its reparse safety is

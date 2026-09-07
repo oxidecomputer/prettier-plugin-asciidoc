@@ -320,8 +320,27 @@ export function unreadClaimFailures(
   root: string,
   exempt: ReadonlyMap<string, string>,
 ): string[] {
+  return falseUnreadClaims(printerReads(root), exempt);
+}
+
+/**
+ * {@link unreadClaimFailures} over reads somebody else already
+ * resolved.
+ *
+ * The scan takes a second or so, and `scripts/printer-reads.ts` needs
+ * the reads themselves (for its measured-nothing floor and its
+ * `--list`) as well as the failures; without this split it would pay
+ * for two scans of the same tree to get them.
+ * @param reads - what {@link printerReads} found
+ * @param exempt - the census's EXEMPT map, key to reason
+ * @returns one message per false claim; empty means every claim held
+ */
+export function falseUnreadClaims(
+  reads: readonly FieldRead[],
+  exempt: ReadonlyMap<string, string>,
+): string[] {
   const sites = new Map<string, string[]>();
-  for (const read of printerReads(root)) {
+  for (const read of reads) {
     sites.set(read.key, [...(sites.get(read.key) ?? []), read.where]);
   }
   const failures: string[] = [];
@@ -333,6 +352,55 @@ export function unreadClaimFailures(
     failures.push(
       `printer reads: ${key} is classified "${reason}", and ${PRINT_DIRECTORY} reads it at ${where.join(", ")} - reclassify it or fix the code that reads it`,
     );
+  }
+  return failures;
+}
+
+/**
+ * The phrases that make a reason an assertion about reads rather than
+ * a judgement about what a read means, lower-cased for the match.
+ *
+ * Only assertions of NON-reading: a reason that says a field IS read
+ * (and then says why the read is not a shape choice) asserts nothing
+ * a scan can refute.
+ */
+const NON_READING_PHRASES = ["unread", "not read", "never read", "no read"];
+
+/**
+ * Every EXEMPT reason that asserts the printer does not read the
+ * field in a spelling {@link UNREAD_CLAIMS} does not name.
+ *
+ * The hole this NARROWS, and does not close:
+ * {@link unreadClaimFailures} recognizes a claim by its exact reason
+ * string, so a row that made the same assertion in its own words
+ * would be a claim nothing checked - which is how the census got into
+ * the state issue #204 records. A bespoke reason saying "unread" is
+ * either a claim, in which case it should carry the shared spelling
+ * and be checked, or it is not, in which case it should not say so.
+ *
+ * WHAT IT CATCHES is the four spellings in
+ * {@link NON_READING_PHRASES} and nothing else. A row reading
+ * "nothing looks at it", "not consumed by the printer" or
+ * "constructed only" denies a read in words this misses, so what a
+ * green run means is that no reason denies a read in one of four
+ * ways, not that no reason denies a read.
+ * @param exempt - the census's EXEMPT map, key to reason
+ * @returns one message per unheld assertion; empty means every reason
+ *   that talks about reads is one the gate holds
+ */
+export function claimShapeFailures(
+  exempt: ReadonlyMap<string, string>,
+): string[] {
+  const failures: string[] = [];
+  for (const [key, reason] of exempt) {
+    const asserts = NON_READING_PHRASES.some((phrase) =>
+      reason.toLowerCase().includes(phrase),
+    );
+    if (asserts && !UNREAD_CLAIMS.has(reason)) {
+      failures.push(
+        `printer reads: ${key} is classified "${reason}", which says the printer does not read it in a spelling this gate cannot hold - use one of the shared reasons (UNREAD_CLAIMS in scripts/fact-inventory-classification.ts) or say something else`,
+      );
+    }
   }
   return failures;
 }
