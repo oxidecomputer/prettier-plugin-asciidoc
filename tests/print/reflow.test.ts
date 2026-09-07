@@ -213,12 +213,16 @@ describe("the atoms a word list becomes", () => {
       rewritten: ["a", "{plus}"],
     },
     { rule: "a `+` alone is rewritten", words: ["+"], rewritten: ["{plus}"] },
-    // Fused into its predecessor's run, the `+` cannot reach the end
-    // of a line, so it is left exactly as written.
+    // Fusing joins the `+` to what stands BEFORE it and leaves it at
+    // the end of the line all the same, so the trailing one is
+    // rewritten here too. Red before the fix: the pair came out
+    // `+ +`, and `* a` / ` +` / ` +` (whose two pluses are literal,
+    // both stripped of their indent) formatted to `* a + +`, a hard
+    // break the source did not write.
     {
-      rule: "a trailing `+` inside a run is left alone",
+      rule: "a trailing `+` behind another is rewritten as well",
       words: ["+", "+"],
-      rewritten: ["+", "+"],
+      rewritten: ["+", "{plus}"],
     },
   ];
 

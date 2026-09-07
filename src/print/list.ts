@@ -20,7 +20,12 @@ import {
 } from "../parse/line-shapes.js";
 import { inlineAtoms } from "./inline.js";
 import { printsDrainShield } from "./join.js";
-import { hazard, markerLineGuard, type TextGuard } from "./list-hazard.js";
+import {
+  continuationIndent,
+  hazard,
+  markerLineGuard,
+  type TextGuard,
+} from "./list-hazard.js";
 import {
   type Atom,
   blockBody,
@@ -700,13 +705,17 @@ export function printListItem(
     ...blockBody(
       guardedAtoms(node, parentList, atoms, guard),
       printWidth,
-      markerWidth + checkboxWidth,
+      continuationIndent(node, markerWidth + checkboxWidth),
       blockLayout(
         // The item's TEXT, from its first inline node to its last:
         // the marker, its gap and any checkbox stand in front of the
         // first of those lines and are written by this function
         // rather than by the packer, so they are not part of what a
-        // replay writes back.
+        // replay writes back. The checkbox is not part of the text's
+        // own bytes either - `stripCheckboxPrefix`
+        // (src/parse/build/list.ts) moves the first node's start past
+        // the prefix it took off that node's value - so the replay
+        // opens where the text does.
         replayLines(node.text, options.originalText),
         node.reading,
         // The marker holds the column of the first output line.

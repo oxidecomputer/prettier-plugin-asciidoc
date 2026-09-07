@@ -241,22 +241,23 @@ function firstUncommented(scan: ParagraphScan, at: number): string {
  *   text's coordinates (quote-pass.ts)
  * @param fragment.text - the run's text, as `Paragraph.runText` spells it
  * @param fragment.scan - the run's window of the pass scans
- * @param literalPlus - the line whose ` +` is literal text, if any
+ * @param literalPlus - the lines whose ` +` is literal text
  * @returns the run's tokens, in document coordinates
  */
 function tokenizeRun(
   run: InlineRun,
   fragment: { text: string; scan: InlineScan },
-  literalPlus: SourceLine | undefined,
+  literalPlus: readonly SourceLine[],
 ): InlineToken[] {
   const tokens = tokenizeInline(fragment.text, run.start, fragment.scan);
-  if (literalPlus === undefined) {
+  if (literalPlus.length === 0) {
     return tokens;
   }
-  const { offset: from } = literalPlus;
-  const to = from + literalPlus.raw.length;
+  const holds = (line: SourceLine, offset: number): boolean =>
+    offset >= line.offset && offset < line.offset + line.raw.length;
   return tokens.map((token) =>
-    token.type === "HardLineBreak" && token.offset >= from && token.offset < to
+    token.type === "HardLineBreak" &&
+    literalPlus.some((line) => holds(line, token.offset))
       ? { ...token, type: "InlineText" }
       : token,
   );
@@ -279,12 +280,15 @@ class Paragraph {
   // because nothing in the per-line reading counts further - see
   // src/line-verdict.ts.
   private ordinal: 1 | 2 = FIRST_CONTINUATION;
-  // The literal-plus rule's state: the candidate ` +` line (the first
-  // line after an item's marker line, when it is indentation and a `+`
-  // and nothing else) and the smallest indent of any content line
-  // after it. See {@link Paragraph.finish}.
-  private plusLine: SourceLine | undefined = undefined;
-  private minIndentAfterPlus = Number.POSITIVE_INFINITY;
+  // The literal-plus rule's state, all three read off the lines
+  // `adjust_indentation!` walks ({@link Paragraph.adjustsIndentation}):
+  // every line that is indentation and a `+` and nothing else, the
+  // least indent any of the walked lines stands at, and the indent of
+  // the FIRST of them, which is the gate on the strip running at all.
+  // See {@link Paragraph.finish}.
+  private readonly plusLines: SourceLine[] = [];
+  private commonIndent = Number.POSITIVE_INFINITY;
+  private firstIndent: number | undefined = undefined;
   // Index of the next unread line. The paragraph's own first line is
   // consumed here, at construction — `read_paragraph_lines` is called
   // on a reader whose first line the caller already took.
@@ -442,38 +446,52 @@ class Paragraph {
    * THE LITERAL-PLUS RULE. `parse_list_item` re-reads an item's lines
    * through `next_block` with `text_only`, and when the first line
    * after the marker line is indented that is the literal-paragraph
-   * branch (`indented && !style`): `read_paragraph_lines` then
-   * `adjust_indentation!`, folded back into the item's text. The
-   * common indent of those lines is stripped BEFORE `HardLineBreakRx`
-   * (`^(.*) \+$`) ever runs, so a ` +` line no less indented than
-   * every content line after it loses its space and is a bare `+` —
-   * plain text, not a break. The tokenizer cannot know this on its
-   * own: the decision needs the whole paragraph and the fact that its
-   * first line is an item's marker line, both of which only the reader
-   * has. So the reader decides first and retypes that line's break
-   * (see {@link tokenizeRun}). Oracle: `. item` / ` +` /
-   * `  more` renders `item + more`; with `more` flush left it renders
-   * `item <br> more` (the common indent is 0), and `text` / ` +` /
-   * `  more` is a break too (a plain paragraph is never re-indented).
+   * branch (`indented && !style`, parser.rb l.572 and l.753):
+   * `read_paragraph_lines` then `adjust_indentation!` (l.755), folded
+   * back into the item's text. The strip runs BEFORE
+   * `HardLineBreakRx` (`^(.*) \+$`, rx.rb l.627) ever sees a line, so
+   * a ` +` line that comes out of it as a bare `+` is plain text and
+   * not a break. The tokenizer cannot know this on its own: the
+   * decision needs the whole paragraph and the fact that its first
+   * line is an item's marker line, both of which only the reader has.
+   * So the reader decides first and retypes those lines' breaks (see
+   * {@link tokenizeRun}). Oracle: `. item` / ` +` / `  more` renders
+   * `item + more`; with `more` flush left it renders `item <br> more`
+   * (the common indent is 0), and `text` / ` +` / `  more` is a break
+   * too (a plain paragraph is never re-indented).
    *
-   * The indent is common to ALL of the item's rest lines, the ` +`
-   * line included. So a ` +` with NO content line after it is the
-   * only line that indent is taken over: its own indent IS the
-   * common one, the space always goes, and the plus is literal.
-   * That is what `minIndentAfterPlus` starting at `+Infinity` says,
-   * and it is the reading the oracle gives rather than a vacuous
-   * comparison to guard against - `. item` / ` +` / `. next` renders
-   * `item +`, with no break anywhere.
+   * WHAT THE STRIP TAKES, transcribed from parser.rb l.2721-2733: the
+   * walk skips empty lines, gives up the moment one line stands at
+   * indent 0 (`block_indent = nil`, nothing is stripped from
+   * anything), and otherwise takes the LEAST indent any line stands
+   * at. So a ` +` line survives as a break exactly when its own
+   * indent exceeds what the walk takes, which is what the comparison
+   * below spells. Two consequences worth naming, because both are
+   * oracle readings rather than guards: a ` +` line no other walked
+   * line stands beside is the only line the walk sees, its own indent
+   * IS the common one, and the plus is literal (`. item` / ` +` /
+   * `. next` renders `item +`); and where a line at indent 0 cancels
+   * the strip, every ` +` line of the block keeps its space.
+   *
+   * The GATE is the first walked line's own indent, which is the line
+   * `next_block` reads to pick its arm (parser.rb l.572). It is the
+   * first WALKED line and not simply the line under the marker,
+   * because the lines the walk does not see are the lines that never
+   * reach the arm either: `parse_block_metadata_line` shifts an
+   * anchor, a title or an attribute line away before the arm is
+   * chosen (l.519-523), and `read_paragraph_lines` drops a `//` line
+   * where the caller asked it to (l.754).
    * @returns the body's tokens
    */
   finish(): InlineToken[] {
     this.closeRun();
-    const { plusLine } = this;
-    const literalPlus =
-      plusLine !== undefined &&
-      this.minIndentAfterPlus >= indentOf(plusLine.text)
-        ? plusLine
-        : undefined;
+    const stripped =
+      this.firstIndent !== undefined && this.firstIndent > 0
+        ? this.commonIndent
+        : 0;
+    const literalPlus = this.plusLines.filter(
+      (line) => indentOf(line.text) <= stripped,
+    );
     // THE SUBSTITUTION PASS RUNS OVER THE RUNS JOINED, not over one
     // run: the lines a raw piece holds are gone before `sub_quotes`
     // ever runs, so the text its rows read is exactly the runs
@@ -607,12 +625,15 @@ class Paragraph {
 
   /**
    * Feed one consumed line to the literal-plus rule (see
-   * {@link Paragraph.finish}): the first line after an item's own line
-   * is the candidate when it is indentation and a `+`; every line the
-   * indent is taken over after it lowers the common indent. A comment
-   * line usually is not one of those: `read_paragraph_lines` runs
-   * with `skip_line_comments`, so it never reaches
-   * `adjust_indentation!`, and where it IS content
+   * {@link Paragraph.finish}): every line the strip walks lowers the
+   * common indent, the first of them fixes the gate, and every one of
+   * them that is indentation and a `+` and nothing else is a line
+   * whose reading the strip can change.
+   *
+   * WHICH LINES THE WALK SEES is {@link Paragraph.adjustsIndentation}.
+   * A comment line usually is not one of them:
+   * `read_paragraph_lines` runs with `skip_line_comments`, so it
+   * never reaches `adjust_indentation!`, and where it IS content
    * ({@link Paragraph.foldsCommentLine}) its indent counts like any
    * other line's. A conditional directive never counts: the
    * preprocessor removes it before either side's reader sees a
@@ -621,6 +642,15 @@ class Paragraph {
    * {@link Paragraph.adjustsIndentation} gives: `t:: item` / ` +` /
    * `include::x[]` and the same shape under `*`, `.` and `<1>` all
    * render a break, and this reads one too.
+   *
+   * EVERY ` +` line of the block, not the first line alone. The strip
+   * is taken over the whole buffer and applied to the whole buffer,
+   * so a ` +` standing anywhere in it is decided by the same walk
+   * (ORACLE: `* a` / ` +` / ` +` renders `a + +`, both pluses
+   * literal). Only an item's own text is in the domain
+   * ({@link ITEM_TEXT_CONTEXTS}): a plain paragraph's indented first
+   * line opens a LITERAL block instead, which is not this reader's
+   * paragraph at all.
    * @param line - the line being added to the paragraph
    * @param kind - what the classifier made of it
    */
@@ -628,17 +658,14 @@ class Paragraph {
     if (!this.adjustsIndentation(kind)) {
       return;
     }
-    if (this.plusLine !== undefined) {
-      this.minIndentAfterPlus = Math.min(
-        this.minIndentAfterPlus,
-        indentOf(line.text),
-      );
-    } else if (
-      this.ordinal === FIRST_CONTINUATION &&
+    const indent = indentOf(line.text);
+    this.firstIndent ??= indent;
+    this.commonIndent = Math.min(this.commonIndent, indent);
+    if (
       ITEM_TEXT_CONTEXTS.has(this.context) &&
       isIndentedContinuationLine(line.text)
     ) {
-      this.plusLine = line;
+      this.plusLines.push(line);
     }
   }
 

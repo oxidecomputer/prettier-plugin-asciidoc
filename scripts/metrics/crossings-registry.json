@@ -841,6 +841,13 @@
   },
   {
     "file": "src/parse/line-shapes.ts",
+    "symbol": "ASCII_HORIZONTAL_WHITESPACE",
+    "importer": "src/print/text-edges.ts",
+    "kind": "vocabulary",
+    "reason": "the ASCII horizontal-whitespace class a `[^\\\\S\\\\n]`-shaped pattern means, so the walk that asks whether a hard break stands at a line start reads through the same indent bytes the line shapes rstrip by, rather than a second class of its own (issue #75)"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
     "symbol": "ASCII_NON_WHITESPACE",
     "importer": "src/print/blocks.ts",
     "kind": "vocabulary",
@@ -1972,6 +1979,13 @@
     "importer": "src/print/text-edges.ts",
     "kind": "vocabulary",
     "reason": "the ONE enumeration of a block's whitespace runs. The reader records a fact per run in this order and the printer reads them back by asking the same walk, so a second copy in either half would be a place the two could drift"
+  },
+  {
+    "file": "src/whitespace-runs.ts",
+    "symbol": "childrenOf",
+    "importer": "src/print/list-hazard.ts",
+    "kind": "vocabulary",
+    "reason": "the one answer to 'which children does a walk over a block's inline nodes descend into', so the indent guard reaches a hard break inside a span exactly where the reader's own walks do"
   },
   {
     "file": "src/whitespace-runs.ts",

@@ -730,28 +730,40 @@ export function isFused(atoms: readonly Atom[], index: number): boolean {
 }
 
 /**
- * Rewrite a dangling `+` atom. A `+` that ends the word list and starts
- * a run of its own has no successor to fuse to, so it will always appear
- * at end of an output line, where AsciiDoc would re-parse ` +\n` as a
- * hard line break (or a lone `+` line as a list continuation). The
- * replacement is the `{plus}` built-in attribute reference, which
- * renders as `+` — backslash is NOT a recognized escape for `+` in
- * Asciidoctor (` \+` renders a literal backslash), so the previously
- * used `\+` changed the rendered text.
+ * Rewrite a dangling `+` atom. A `+` that ends the word list has no
+ * successor to fuse to, so it will always appear at end of an output
+ * line, where AsciiDoc would re-parse ` +\n` as a hard line break (or
+ * a lone `+` line as a list continuation). The replacement is the
+ * `{plus}` built-in attribute reference, which renders as `+`;
+ * backslash is NOT a recognized escape for `+` in Asciidoctor
+ * (` \+` renders a literal backslash), so the previously used `\+`
+ * changed the rendered text.
+ *
+ * FUSING DOES NOT SAVE IT. A join fuses the atom to what stands
+ * BEFORE it, which decides where a break may land and never whether
+ * the packer writes the space in front of it; the atom is still the
+ * last thing on its line. So every trailing `+` this is asked about
+ * is rewritten. Asking {@link isFused} here instead is what let
+ * `* a` / ` +` / ` +` come out as `* a + +`, a hard break the source
+ * did not write. The one `+` that needs no rewriting is the one whose
+ * join CONCATENATES it, where `HardLineBreakRx` (`^(.*) \+$`, rx.rb
+ * l.627) finds no space and reads text; that join is not on the atom
+ * yet, and `trailingPlusPolicy` (src/print/text-edges.ts) reads it
+ * from the boundary and clears `escape`.
  * @param atoms - the finished atoms (mutated). NON-EMPTY:
  *   {@link endNodeAtoms} is the only caller and it returns on an
  *   empty list two statements before this call.
  * @param escape - Whether escaping is enabled for this text
- *   (disabled when a sibling follows in the same block, or
- *   inside a formatting span whose closing mark follows the
- *   word in the output).
+ *   (disabled when a sibling follows in the same block, when the join
+ *   in front concatenates, or inside a formatting span whose closing
+ *   mark follows the word in the output).
  */
 function escapeDanglingPlus(atoms: Atom[], escape: boolean): void {
   const last = atoms.length - 1;
   if (!escape) {
     return;
   }
-  if (atoms[last].text === CONTINUATION_WORD && !isFused(atoms, last)) {
+  if (atoms[last].text === CONTINUATION_WORD) {
     atoms[last] = { ...atoms[last], text: "{plus}" };
   }
 }

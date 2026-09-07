@@ -76,11 +76,14 @@
  *   not merely a smaller indent: a line at indent 0 sets
  *   `block_indent = nil` (parser.rb l.2727-2729) and the strip is
  *   skipped altogether. Where the item's text carries such a break the
- *   held line has to stand there, as the source wrote it. Whether the
- *   strip ALREADY fired on the input is not measured here: the item's
- *   text children are FRAGMENTS of source lines, and the reader that
- *   held the lines themselves answered it once
- *   ({@link ListItemNode.everyTextLineIndented}, src/ast.ts).
+ *   held line has to stand there. WHETHER it is a break is not asked
+ *   again here: the reader read the item's own lines, applied that
+ *   walk to them and retyped every ` +` the strip turned into a plain
+ *   plus (src/parse/lines/paragraph-reader.ts, the literal-plus
+ *   rule), so a `hardLineBreak` child IS a break and needs the line
+ *   whatever the source's columns were. {@link continuationIndent}
+ *   writes the item's other text lines at column 0 for the same
+ *   reason.
  * - `"none"` — everything else; the gap is replayed verbatim.
  *
  * The FOLD direction is what the three decisions' argument covers.
@@ -106,7 +109,7 @@
  * verbatim), so a `+`-attached block is simply a FOLLOWER: it ends
  * the run and counts toward "a block follows".
  */
-import type { BlockNode, ListItemNode, ListNode } from "../ast.js";
+import type { BlockNode, InlineNode, ListItemNode, ListNode } from "../ast.js";
 import {
   anchorLineShape,
   isBlockMetadata,
@@ -117,9 +120,10 @@ import {
   THEMATIC_BREAK,
   rstrip,
 } from "../parse/line-shapes.js";
-import { hardBreakOwnsItsLine } from "./inline.js";
+import { hardBreakOwnsItsLine } from "./text-edges.js";
 import { type Atom, type BreakBefore, isFused } from "./reflow.js";
 import { checklistHead } from "./whitespace-fold.js";
+import { childrenOf } from "../whitespace-runs.js";
 
 /**
  * Whether a block is metadata a held-back run is made of: block
@@ -210,22 +214,45 @@ function leadingMetadataRun(blocks: readonly HeldBlock[]): {
  * line and a ` +` already has the ` +` in the deciding position, and
  * holding a break there would put a line the source never wrote in
  * front of it.
+ *
+ * The walk therefore STOPS at the first break that writes a line of
+ * its own: a text line BELOW such a break is something reflow could
+ * move onto the break's line, never onto the marker's, and a held
+ * break has to land in front of a run, so with no reflowable text
+ * above the break every candidate run stands on the marker line
+ * itself and holding one cuts that line in two. Red before the stop:
+ * `* [ ] +` / `   +` / `  z` came out `* [\n] +\n +\nz\n`, whose
+ * first line is the marker and a bare `[`, and the checklist reading
+ * went with it.
+ *
+ * A text node of nothing but horizontal whitespace is not reflowable
+ * either. It is the indent a break's dropped newline leaves behind
+ * (`skipNewlineAfterHardBreak`,
+ * src/parse/inline/inline-node-builder.ts), it writes no atom, and
+ * counting it would say reflow reaches a line no word of the item
+ * stands on.
  * @param item - the item node
  * @returns true when reflow would reach the first rest line
  */
 function reflowReachesFirstRestLine(item: ListItemNode): boolean {
   const markerLine = item.position.start.line;
   let sawReflowable = false;
-  for (const child of item.text) {
+  for (const [index, child] of item.text.entries()) {
     if (child.type === "rawLine") {
       if (child.value.startsWith(LINE_COMMENT_HEAD)) {
         continue;
       }
       return false; // keeps its own line - reflow never reaches
     }
+    if (child.type === "hardLineBreak") {
+      if (hardBreakOwnsItsLine(item.text, index)) {
+        return sawReflowable;
+      }
+      continue;
+    }
     if (
-      child.type !== "hardLineBreak" &&
-      child.position.end.line > markerLine
+      child.position.end.line > markerLine &&
+      !(child.type === "text" && child.value.trim() === "")
     ) {
       sawReflowable = true;
     }
@@ -257,20 +284,70 @@ function reflowReachesFirstRestLine(item: ListItemNode): boolean {
  *   item's text writes no line of its own
  */
 function firstOwnLine(item: ListItemNode): "comment" | "hardBreak" | undefined {
-  let drained = false;
-  for (const [index, child] of item.text.entries()) {
-    if (child.type === "rawLine") {
-      drained = true;
-      continue;
-    }
-    if (
-      child.type === "hardLineBreak" &&
-      hardBreakOwnsItsLine(item.text, index)
-    ) {
-      return "hardBreak";
-    }
+  if (holdsOwnLineHardBreak(item.text)) {
+    return "hardBreak";
   }
-  return drained ? "comment" : undefined;
+  return item.text.some((child) => child.type === "rawLine")
+    ? "comment"
+    : undefined;
+}
+
+/**
+ * Whether the item's text carries a ` +` the printer will write on a
+ * line of its OWN ({@link hardBreakOwnsItsLine}) - the one shape whose
+ * reading the item's own indentation decides.
+ *
+ * The walk DESCENDS, because the indent question is about output
+ * LINES and a span puts no line of its own between the break and the
+ * item: `* a` / `` `w `` / `   +` / `` x` `` is a break inside a
+ * monospace span, written on a line of the item all the same, and the
+ * strip reads that line beside the item's others.
+ * @param nodes - the item's text, or the children of one of its nodes
+ * @returns true when such a break stands anywhere under them
+ */
+function holdsOwnLineHardBreak(nodes: readonly InlineNode[]): boolean {
+  return nodes.some((child, index) => {
+    if (child.type === "hardLineBreak") {
+      return hardBreakOwnsItsLine(nodes, index);
+    }
+    const nested = childrenOf(child);
+    return nested !== undefined && holdsOwnLineHardBreak(nested);
+  });
+}
+
+/**
+ * The column an item's WRAPPED text lines open at.
+ *
+ * Normally under the text the marker line starts, which is where a
+ * reader expects a continued item to line up. COLUMN 0 where the
+ * item's text carries a hard break on a line of its own, and that is
+ * decision 3 answered in the only vocabulary that settles it: the
+ * strip takes the LEAST indent of the whole buffer and applies it to
+ * every line (`adjust_indentation!`, parser.rb l.2721-2733), so a
+ * ` +` line written at column 0 - one space and a plus - is the least
+ * indented line of an item whose other lines stand under the marker
+ * text, and the strip eats exactly the space that makes it a break
+ * (`HardLineBreakRx`, rx.rb l.627). One line at indent 0 sets
+ * `block_indent = nil` and cancels the strip for the whole buffer
+ * (l.2727-2729), so writing the item's text there is what keeps every
+ * ` +` of it reading as the break the reader recorded. A held break
+ * puts a text line under the marker line where the packer would
+ * otherwise have taken it up ({@link packedBreak}); this decides the
+ * column that line and every line after it stands at.
+ *
+ * The two answers cannot be merged into always-0: an item with no
+ * such break reads the same at either column, and column 0 would
+ * throw away the alignment for every wrapped list item in a document.
+ * @param item - the item node
+ * @param underTheText - the column the item's own text starts at, past
+ *   its indent, marker, gap and checkbox
+ * @returns the column the packer opens continuation lines at
+ */
+export function continuationIndent(
+  item: ListItemNode,
+  underTheText: number,
+): number {
+  return holdsOwnLineHardBreak(item.text) ? 0 : underTheText;
 }
 
 /**
@@ -452,7 +529,7 @@ function packedBreak(item: ListItemNode): BreakBefore {
   }
   const own = firstOwnLine(item);
   if (own === "hardBreak") {
-    return item.everyTextLineIndented ? "none" : "literal";
+    return "literal";
   }
   if (own === "comment" && separatedFirstBlock(item)) {
     return "hard";

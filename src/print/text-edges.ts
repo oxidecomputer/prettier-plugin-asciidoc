@@ -25,6 +25,7 @@ import {
   type HeldJoin,
 } from "./reflow.js";
 import { cutValue, factsOf, type NodeFacts } from "../whitespace-runs.js";
+import { ASCII_HORIZONTAL_WHITESPACE } from "../parse/line-shapes.js";
 import type { WhitespaceFact } from "../whitespace-record.js";
 import {
   strongerBoundary,
@@ -424,6 +425,84 @@ export const HELD_BOUNDARY = {
   newline: "hardBreak",
 } as const satisfies Record<HeldJoin, Boundary>;
 
+// A hard line break OWNS its line when nothing but whitespace
+// precedes it there, which in AST terms means the text node in front
+// of it ends with the newline that opened the line (plus any further
+// indentation the token did not take).
+const LINE_START_BEFORE_BREAK = /\n[ \t]*$/v;
+
+// A text node that is nothing but horizontal whitespace, which the
+// walk below reads THROUGH: the newline that opened its line is not
+// in it, because the node in front of it took that newline
+// (`skipNewlineAfterHardBreak`, src/parse/inline/inline-node-builder.ts)
+// and left the next line's indent behind as a node of its own.
+const HORIZONTAL_WHITESPACE_ONLY = new RegExp(
+  `^${ASCII_HORIZONTAL_WHITESPACE.source}+$`,
+  "v",
+);
+
+/**
+ * Whether the source gave the hard line break at `index` a line of
+ * its own.
+ *
+ * A break that opens the block's inline content is NOT counted:
+ * there is nothing in front of it to break away from, and emitting
+ * a leading break would open the block with a blank line.
+ *
+ * Two shapes of predecessor answer yes. A TEXT node answers from its
+ * own bytes, ending with the newline that opened the break's line. A
+ * node that ENDS the line it stands on answers by construction,
+ * whatever its bytes: a raw line IS a whole source line, and another
+ * hard break's ` +` closes one, so in both cases the break at `index`
+ * can only stand on the next line. Those two are the same nodes the
+ * printer hands a `"literal"` join anyway, so reading them here moves
+ * no byte - it makes the predicate answer for the lines the printer
+ * actually writes.
+ *
+ * A WALK and not one look back, because the newline is not always in
+ * the node holding the indent under it: a hard break's own newline is
+ * dropped when the node is built (`skipNewlineAfterHardBreak`,
+ * src/parse/inline/inline-node-builder.ts), so the next line's indent
+ * reaches here as a text node of nothing but horizontal whitespace
+ * with no newline in it. The walk reads through such a node to what
+ * ended the line in front of it and stops at anything else, which is
+ * what keeps a SAME-LINE space out: `*a*  +` puts one space between
+ * the span and the break's image, and the span is not a node that
+ * ends a line.
+ *
+ * Over the SIBLINGS rather than over a `Cursor`, because the item's
+ * reflow hazard (src/print/list-hazard.ts) asks the same question of
+ * a finished node and the two must not answer it differently: which
+ * breaks print a ` +` of their own is what puts an indented line on a
+ * list item's first rest line.
+ * The arms below are exhaustive because the tokenizer materializes
+ * inter-sibling whitespace - a newline included - as a text node: a
+ * break's predecessor either is that text node, or is a node that
+ * ended with no newline behind it, so no other node kind can put
+ * line-opening whitespace in front of the break.
+ * @param siblings - the inline nodes the break sits among.
+ * @param index - the break's index among them.
+ * @returns True when only whitespace precedes it on its line.
+ */
+export function hardBreakOwnsItsLine(
+  siblings: readonly InlineNode[],
+  index: number,
+): boolean {
+  for (let at = index - 1; at >= 0; at -= 1) {
+    const previous = siblings[at];
+    if (previous.type === "rawLine" || previous.type === "hardLineBreak") {
+      return true;
+    }
+    if (previous.type !== "text") {
+      return false;
+    }
+    if (!HORIZONTAL_WHITESPACE_ONLY.test(previous.value)) {
+      return LINE_START_BEFORE_BREAK.test(previous.value);
+    }
+  }
+  return false;
+}
+
 /**
  * Check whether the node at `cursor` is followed by a sibling
  * that participates in the same block packing.
@@ -433,6 +512,30 @@ export const HELD_BOUNDARY = {
 export function hasFollowingInlineSibling(cursor: Cursor): boolean {
   const next = followingSibling(cursor);
   return next !== undefined && !OWN_LINE_SIBLINGS.has(next.type);
+}
+
+/**
+ * Whether the sibling standing after the node at `cursor` opens an
+ * output line of its own, so nothing follows this node on ITS line.
+ *
+ * A NARROWER question than {@link hasFollowingInlineSibling}, and it
+ * has to be its own: that one answers whether a following node shares
+ * the packing, which a hard break's own join reads to decide what it
+ * leaves behind, and a break whose predecessor ends the line still
+ * needs that answer. This one answers whether the node at `cursor`
+ * ends an output line, which is what a trailing `+` must know: a
+ * break the source gave a line of its own opens one here too
+ * ({@link hardBreakOwnsItsLine}), so the ` +` such a `+` would close
+ * its line with is a hard line break the source did not write.
+ * @param cursor - where the node sits.
+ * @returns true when the node's own output line ends with it.
+ */
+function followerOpensItsOwnLine(cursor: Cursor): boolean {
+  const next = followingSibling(cursor);
+  return (
+    next?.type === "hardLineBreak" &&
+    hardBreakOwnsItsLine(cursor.siblings, cursor.index + 1)
+  );
 }
 
 /**
@@ -498,7 +601,8 @@ export function trailingPlusPolicy(
   escapeTrailingPlus: boolean;
   glueToSibling: boolean;
 } {
-  const followedInBlock = hasFollowingInlineSibling(cursor);
+  const followedInBlock =
+    hasFollowingInlineSibling(cursor) && !followerOpensItsOwnLine(cursor);
   const startsItsOwnLine =
     words.length === 1 && !hasPrecedingInlineSibling(cursor);
   const gluedToPredecessor = words.length === 1 && lead === "glue";

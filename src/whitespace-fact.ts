@@ -343,7 +343,9 @@ function beforeHardBreak(site: RunSite): boolean {
 /**
  * Whether the run stands directly behind a lone `+` token. A newline
  * there would put ` +` at the end of an output line, where it is a
- * hard line break the source never wrote (issues #43, #45).
+ * hard line break the source never wrote (issues #43, #45), so the
+ * row that reads this writes a SPACE whatever the source spelled -
+ * see its arm in {@link boundRow}.
  * @param site - the run.
  * @returns true for the run after a lone `+`.
  */
@@ -418,9 +420,19 @@ function boundRow(
   if (beforeHardBreak(site)) {
     return { kind: "bound", to, by: "hardBreakRun" };
   }
-  // A9: the run after a lone `+`.
+  // A9: the run after a lone `+`, bound to the SPACE and not to the
+  // source's own spelling - the one row here whose two answers are
+  // not the two spellings. What it reads is the `+` in front of it,
+  // whose byte the printer re-emits; the run's own newline is read by
+  // nothing, because every newline outside a hardbreaks block renders
+  // as the space this writes. Writing that newline back is what
+  // WOULD be read: it closes an output line with ` +`, which
+  // `HardLineBreakRx` (rx.rb l.627) takes as a break the source did
+  // not spell. The hardbreaks block, where the newline IS read, never
+  // reaches here - row A5 stands above this one and binds every run
+  // of such a block to its spelling.
   if (afterLonePlus(site)) {
-    return { kind: "bound", to, by: "lonePlusAhead" };
+    return { kind: "bound", to: "space", by: "lonePlusAhead" };
   }
   // A11: a `menu:` target admits no newline.
   if (site.reach === "plainTarget") {
@@ -446,7 +458,9 @@ function boundRow(
  * read, so the decision's input survives into the output. `bound`
  * re-emits a byte of the same class (a space for a space, a newline
  * for a newline), which is the whole of what the rows that produce it
- * read. `free` is the absence of a decision: nothing is consumed, so
+ * read - except row A9, whose fact is about the `+` STANDING BEFORE
+ * the run, a byte the printer re-emits, and not about the run at all.
+ * `free` is the absence of a decision: nothing is consumed, so
  * nothing can be destroyed.
  * @param site - the run and everything the rows read.
  * @param context - the block-level facts (row A5).

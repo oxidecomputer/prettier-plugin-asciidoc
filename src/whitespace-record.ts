@@ -91,9 +91,11 @@ type ReplayReason =
  *
  * `free` carries NO bytes: the packer reads a free run only through
  * its fact, so two records differing only at free runs are
- * indistinguishable to it. `bound.to` is the run's SOURCE spelling,
- * which the packer keeps (a space stays a space, a newline stays a
- * newline) without keeping the run's width. `verbatim` is the only
+ * indistinguishable to it. `bound.to` is the spelling the packer
+ * writes, without the run's width: the run's SOURCE spelling for
+ * every row but one (a space stays a space, a newline stays a
+ * newline), and the space for the row that reads the lone `+` in
+ * front of the run rather than the run itself. `verbatim` is the only
  * arm that carries bytes, and they are written back as they stand.
  */
 export type WhitespaceFact = FreeRun | BoundRun | VerbatimRun;
@@ -112,7 +114,7 @@ interface FreeRun {
 interface BoundRun {
   /** Arm discriminant. */
   readonly kind: "bound";
-  /** The source's own spelling, which the packer writes back. */
+  /** The spelling the packer writes back (see the union's doc). */
   readonly to: "space" | "newline";
   /** The row that bound it. */
   readonly by: BindingRule;

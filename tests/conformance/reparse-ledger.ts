@@ -193,10 +193,9 @@ export function familyTag(family: ReparseFamily): string {
  * green on. Two of those five arrived when the pair grid learned to
  * spell two blank lines between its members (#264): the separator
  * WIDTH after a description could not be asked before, so nothing
- * generated the documents whose answer is wrong. The last member is
- * not a gap at all: `plus-shield-dropped` records a shape the
- * formatter deliberately stopped protecting, so its rows expire with
- * nothing.
+ * generated the documents whose answer is wrong. One member is not a
+ * gap at all: `plus-shield-dropped` records a shape the formatter
+ * deliberately stopped protecting, so its rows expire with nothing.
  */
 export const REPARSE_FAMILIES: Readonly<Record<string, ReparseFamily>> = {
   "indent-dropped": {
@@ -242,6 +241,10 @@ export const REPARSE_FAMILIES: Readonly<Record<string, ReparseFamily>> = {
   "plus-shield-dropped": {
     standing: { kind: "abandoned", ruling: "#296" },
     what: "an item ending in a paragraph that holds a frozen `+` is written back without the detached `+` that shielded it, so the re-read's single tagged pop takes the paragraph and the `+` it rendered is gone. NOT A GAP: the shield needs three lone `+` lines with nothing between them and a blank in the middle, which no author writes on purpose, and the ruling that abandoned the fact is what these rows record. They do not expire",
+  },
+  "indent-dropped-for-a-break": {
+    standing: { kind: "open", issue: "#312" },
+    what: "a list item whose text carries a ` +` on a line of its own is written with that text at column 0, so a line the source indented comes back a few bytes shorter. The printer writes the break's line as the bare image, at column 1, and an item whose other lines stood under the marker text would then make that line the least indented of the buffer, where `adjust_indentation!` (parser.rb l.2721-2733) eats the space that spells the break; a line at indent 0 cancels the strip for the whole buffer (l.2727-2729) and is what keeps it. Keeping the indent instead is possible for an item's OWN lines, by writing the break's line one column past them, and was measured: it costs the indent of a byte-preserved span's interior, which the continuation indent is copied into and which then grows on every pass (63 rows of `standing/HardLineBreak/in-mono/idempotency`), and it takes the reparse population from 121 breaches to 182. So the loss is the printer's choice of column and not Asciidoctor's, and the issue owns the choice",
   },
 };
 
@@ -460,6 +463,15 @@ function openedABlockOnTheReRead(signature: string): boolean {
     BLOCK_OPENINGS.some((opening) => sides.after.includes(opening))
   );
 }
+
+// The hard-break image alone on a line, which the printer writes for
+// a ` +` the source gave a line of its own (`HARD_BREAK_IMAGE`,
+// src/print/reflow.ts). The column is exact, and it is what makes the
+// line evidence: such a break is written at column 0 only where the
+// item's whole text is (`continuationIndent`,
+// src/print/list-hazard.ts), so a line spelled this way says the
+// printer flattened an item.
+const HARD_BREAK_LINE = " +";
 
 /**
  * Did the printer join two lines, keeping every word?
@@ -891,6 +903,24 @@ const FAMILY_ARMS: readonly FamilyArm[] = [
   {
     family: "plus-shield-dropped",
     matches: ({ signature }) => plusParagraphTradedForATail(signature),
+  },
+  {
+    family: "indent-dropped-for-a-break",
+    // Read from the two TEXTS: the output stands a flattened item's
+    // hard break ({@link HARD_BREAK_LINE}) and the source indented a
+    // line. Neither {@link droppedAnIndent} nor {@link joinedLines}
+    // sees this one, because the held break that puts a line under
+    // the marker line lands on whichever run can take it, so a word
+    // of the source's second line can stand on the marker line and
+    // the line under it hold the rest - a word moved with no two
+    // lines joined and no line changed only in its indent. The
+    // signature half says the cost is a spelling and not a block,
+    // which is what tells this apart from `indent-dropped`, whose
+    // de-indented line opens one.
+    matches: ({ source, once, signature }) =>
+      contentLines(once).includes(HARD_BREAK_LINE) &&
+      contentLines(source).some((line) => line !== line.trimStart()) &&
+      !openedABlockOnTheReRead(signature),
   },
   {
     family: "gap-line-lost",

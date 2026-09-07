@@ -479,6 +479,33 @@ const BLANK_BELOW_ANCHOR_LINE_FACT_FAMILY = "blank-below-anchor-line-fact";
 const SPAN_ROLE_NODE_FAMILY = "span-role-node";
 
 /**
+ * A checklist item's first text node loses the four columns the
+ * checkbox prefix held from its VALUE at read time
+ * (`stripCheckboxPrefix`, src/parse/build/list.ts), and its
+ * `position.start` now moves with them, so the position spans what
+ * the value carries. Every declared case moves by exactly that: the
+ * `offset` and the `column` of one text node per checklist item, by
+ * four, and nothing else - no node arrives or leaves, no other field
+ * moves, and the FORMATTED BYTES are identical on every id (the gate
+ * puts an id in one stream or the other, and all eight are in the AST
+ * one).
+ *
+ * PER-ID and not blanket, for {@link SPAN_ROLE_NODE_FAMILY}'s reason
+ * read the other way round: the only serialized key a blanket strip
+ * could name here is `position`, which every node of every document
+ * carries, so the strip would excuse any position change anywhere
+ * rather than this one. The dump compares `position.start` on
+ * purpose - `parity.ts` blanks a `position.end` for a forced-closed
+ * parentBlock and for the list or item that inherited it, and
+ * normalizes no start at all, because Prettier's range and cursor
+ * tracking read those offsets - so the ids are what carries the
+ * declaration.
+ *
+ * Not exported: no grid row cites it.
+ */
+const CHECKBOX_TEXT_POSITION_FAMILY = "checkbox-text-position";
+
+/**
  * A continued attribute entry (a value ending in ` \\`) is ONE entry
  * whose value reaches over the lines the continuation claims (issue
  * #24): the base tree read each continued line as its own block, the
@@ -1020,6 +1047,7 @@ export const LEDGER_FAMILIES: FamilySets = {
     BLOCK_START_LINE_FACT_FAMILY,
     BLANK_BELOW_ANCHOR_LINE_FACT_FAMILY,
     SPAN_ROLE_NODE_FAMILY,
+    CHECKBOX_TEXT_POSITION_FAMILY,
     TABLE_NODE_FAMILY,
     TABLE_DELIMITER_LENGTH_FAMILY,
     BLOCK_DELIMITER_LENGTH_FAMILY,

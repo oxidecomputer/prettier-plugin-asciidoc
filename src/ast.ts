@@ -1538,8 +1538,13 @@ interface ItemBody {
    * `adjust_indentation!` tests before it strips a block. The walk
    * takes the least indented line (parser.rb l.2723-31), and one line
    * at indent 0 sets `block_indent = nil` and cancels the strip for
-   * the whole block (l.2727-29), which leaves the space that makes a
-   * ` +` line under such text a hard break rather than a literal plus.
+   * the whole block (l.2727-29).
+   *
+   * WHAT READS IT is the column of a held break, and that alone: what
+   * the strip does to a ` +` line is decided where the lines are
+   * (src/parse/lines/paragraph-reader.ts, the literal-plus rule),
+   * which retypes the break rather than leaving the printer to infer
+   * it from this yes/no.
    *
    * Two line kinds do not count against it, neither of them in the
    * block the walk sees: a blank line, which the walk itself skips
@@ -1552,8 +1557,9 @@ interface ItemBody {
    * The ANSWER travels, not the lines. The scan that reads the item
    * holds its buffer with every line's raw spelling intact
    * (src/parse/lines/list-reader.ts), and the one consumer - the
-   * printer's reflow guard (src/print/list-hazard.ts) - asks exactly
-   * this yes/no of those lines, so the yes/no is what is recorded.
+   * printer's rule-marker guard (`keptRuleBreak`,
+   * src/print/list-hazard.ts) - asks exactly this yes/no of those
+   * lines, so the yes/no is what is recorded.
    * Carrying the lines themselves would copy a slice of the source
    * onto every item and leave the next question about them to be
    * answered by re-deriving. A second question about these lines

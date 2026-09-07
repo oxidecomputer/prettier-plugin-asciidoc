@@ -278,8 +278,16 @@ describe("a reflowed list item keeps a text line on its first rest line", () => 
   // The strip decision 3 fires is all-or-nothing over the block: an
   // unindented line anywhere nils the block indent, so the ` +` keeps
   // its space on both sides and the join is still refused; a text
-  // whose every line is indented was stripped already, and holding a
-  // line at column 0 would flip the reading the other way.
+  // whose every line is indented was stripped already, and the ` +`
+  // the reader hands the printer is a literal plus rather than a
+  // break.
+  //
+  // The second row's bytes moved with that reading (its ` +` used to
+  // reach the printer as a break, and the item joined to
+  // `* a lit\n// c\n +\n`): a literal plus at the head of what the
+  // packer would write is a lone `+` at column 0, which the reader
+  // reads as a list continuation, so the packer refuses the layout
+  // and writes the item's own lines back.
   test.each([
     [
       "an unindented line nils the strip",
@@ -289,7 +297,7 @@ describe("a reflowed list item keeps a text line on its first rest line", () => 
     [
       "every line indented, stripped already",
       "* a\n  lit\n// c\n +\n",
-      "* a lit\n// c\n +\n",
+      "* a\n  lit\n// c\n +\n",
     ],
   ])("the strip is all-or-nothing: %s", async (_name, input, expected) => {
     await expectFormatted(input, expected);
@@ -332,14 +340,14 @@ describe("a reflowed list item keeps a text line on its first rest line", () => 
 
   // ...and the same construct with the continuation line the AUTHOR
   // indented is the other side of it: every line of that text IS
-  // indented, the strip already fired on the source, and refusing the
-  // join writes a line at column 0 that CANCELS the strip the source
-  // had (parser.rb l.2727-2729) - so over-refusing loses the reading
-  // just as surely as under-refusing does. The bytes are pinned here
-  // because this shape is a fixed point as well.
+  // indented, so the strip already fired on the source and its ` +`
+  // is a literal plus. The bytes are pinned here because this shape
+  // is a fixed point as well. Red before the reader decided the plus:
+  // the item joined to `* a +++b\n  c+++ d\n// c\n +\n`, whose ` +`
+  // is the break the source did not have.
   test("a passthrough across two indented lines keeps its reading", async () => {
     const input = "* a\n  +++b\n  c+++ d\n// c\n +\n";
-    await expectFormatted(input, "* a +++b\n  c+++ d\n// c\n +\n");
+    await expectFormatted(input, input);
   });
 
   // The rest of that class, by construct and by what surrounds it.

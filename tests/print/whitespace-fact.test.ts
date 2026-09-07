@@ -120,10 +120,23 @@ describe("the rows, one witness each", () => {
       "a   +\nb\n",
       [{ kind: "verbatim", bytes: "  ", by: "hardBreakRun" }],
     ],
-    // A9: a newline there would put ` +` at a line end.
+    // A9: the run after a lone `+` is bound to the SPACE whatever the
+    // source spelled, because a newline there would close a line with
+    // ` +` and make a break the source did not write. The row's two
+    // inputs are the two spellings, and the second is what tells the
+    // row from one that wrote the source's own: it spells a NEWLINE
+    // and the fact still says space.
     [
-      "the run after a lone plus is bound to its spelling",
+      "the run after a lone plus is bound to the space",
       "a\t+ b\n",
+      [
+        { kind: "verbatim", bytes: "\t", by: "tabInRun" },
+        { kind: "bound", to: "space", by: "lonePlusAhead" },
+      ],
+    ],
+    [
+      "a newline after a lone plus is bound to the space too",
+      "a\t+\nb\n",
       [
         { kind: "verbatim", bytes: "\t", by: "tabInRun" },
         { kind: "bound", to: "space", by: "lonePlusAhead" },

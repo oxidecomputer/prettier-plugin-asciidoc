@@ -464,6 +464,169 @@ describe("a lone indented ` +` is the literal the oracle reads", () => {
   });
 });
 
+// The strip is taken over the WHOLE of an item's text and applied to
+// the whole of it, so which ` +` lines of that text are breaks is one
+// question about all of them at once: `adjust_indentation!` (parser.rb
+// l.755, walking the lines at l.2721-2733) takes the least indent of
+// the buffer, gives up the moment a line stands at indent 0, and
+// strips what it took from every line, all before `HardLineBreakRx`
+// (rx.rb l.627) reads a line. A ` +` line is a break exactly when its
+// own indent survives that.
+//
+// The printer's half is the item's own columns. The break's line is
+// written as the image and nothing else, so it stands at indent 1;
+// where the item's other text lines stand under the marker text, that
+// makes the break's line the least indented of the buffer and the
+// strip eats the very space that spells it. Writing the item's text
+// at column 0 is what stops the strip (`continuationIndent`,
+// src/print/list-hazard.ts), and the item's own indent is a spelling
+// no render reads.
+describe("an item's text indent decides which ` +` lines are breaks", () => {
+  // The three witnesses. Red before the rule was taken over the whole
+  // buffer: the first formatted to `* a +\n +\n`, a break where both
+  // pluses are literal; the second to `* a\n  {attr} b c d\n +\n`,
+  // whose indented text line made the ` +` the least indented line
+  // and lost the break; the third to `* a lit\n +\n`, the same loss
+  // with nothing but the ` +` left in the buffer.
+  test.each([
+    ["two ` +` lines, both literal", "* a\n +\n +\n", "* a + {plus}\n"],
+    [
+      "a flush-left line cancels the strip",
+      "* a\n  {attr} b\nc d\n +\n",
+      "* a\n{attr} b c d\n +\n",
+    ],
+    ["a break the strip would eat", "* a\n  lit\n   +\n", "* a\nlit\n +\n"],
+  ])("%s", async (_name, input, expected) => {
+    await expectFormatted(input, expected);
+  });
+
+  // The oracle's own pair, one column apart: at the common indent the
+  // plus is literal, one past it the space survives the strip and the
+  // line is a break.
+  test.each([
+    [
+      "at the common indent, a literal plus",
+      "* a\n  x\n  +\n",
+      "* a x {plus}\n",
+    ],
+    ["one column past it, a break", "* a\n  x\n   +\n", "* a\nx\n +\n"],
+  ])("%s", async (_name, input, expected) => {
+    await expectFormatted(input, expected);
+  });
+
+  // The same question asked of the shapes around the two witnesses:
+  // a third ` +` line, a break with text under it, a text line the
+  // source already wrote at column 0, the other two marker kinds, a
+  // TAB indent (`adjust_indentation!` counts a tab as one character;
+  // this call site, parser.rb l.755, passes it no tab size at all, so
+  // the document's `tabsize` never applies here), and a break inside
+  // a span, where the line is the item's all the same.
+  test.each([
+    ["a run of three", "* a\n +\n +\n +\n", "* a + + {plus}\n"],
+    ["a break with text under it", "* a\n  x\n   +\n  y\n", "* a\nx\n +\ny\n"],
+    ["a source line already at column 0", "* a\npara\n +\n", "* a\npara\n +\n"],
+    ["an ordered item", ". a\n  x\n   +\n", ". a\nx\n +\n"],
+    ["a description item", "t:: a\n  x\n   +\n", "t:: a\n  x\n   +\n"],
+    ["a tab-indented plus", "* a\n  x\n\t+\n", "* a x {plus}\n"],
+    [
+      "a break inside a monospace span",
+      "* a\n  `w\n   +\n  x`\n",
+      "* a\n`w\n +\n  x`\n",
+    ],
+  ])("%s", async (_name, input, expected) => {
+    await expectFormatted(input, expected);
+  });
+});
+
+// A ` +` line is only ever a line of the ITEM, whatever inline node
+// the reader hung it on, and both halves of the printer have to see
+// it there. The predicate that answers it walks back over a text node
+// of nothing but horizontal whitespace, because a hard break's own
+// newline is dropped when the node is built
+// (`skipNewlineAfterHardBreak`, src/parse/inline/inline-node-builder.ts)
+// and the next line's indent reaches the printer as a node with no
+// newline in it. And a literal `+` that stands directly in front of
+// such a line is escaped, because the break opens a line of its own
+// and leaves the `+` closing the line above it.
+describe("a ` +` under another closing line is still the item's own", () => {
+  test.each([
+    // Red before the walk: `* a b +\n +\n`, whose lone ` +` is the
+    // least indented line of the item and loses its space to the
+    // strip, so the second break left the render.
+    ["under a line that ends in one", "* a\n  b +\n   +\n", "* a\nb +\n +\n"],
+    [
+      "the same with text under it",
+      "* a\n  b +\n   +\n  c\n",
+      "* a\nb +\n +\nc\n",
+    ],
+    // Red before the escape: `* a\n+ +\n +\n`, whose second literal
+    // plus closed its line with ` +` and became a break the source
+    // did not write.
+    [
+      "two literal pluses above it",
+      "* a\n +\n +\n   +\n",
+      "* a\n+ {plus}\n +\n",
+    ],
+    ["the same one column in", "* a\n  +\n  +\n   +\n", "* a\n+ {plus}\n +\n"],
+  ])("%s", async (_name, input, expected) => {
+    await expectFormatted(input, expected);
+  });
+
+  // The walk stops at a node that is not a line of its own, so a
+  // SAME-LINE space in front of a break is not a line start: the
+  // second space of `*a*  +` is a run between the span and the
+  // break's image, and the break does not own that line.
+  test("a same-line space in front of a break is not a line start", async () => {
+    await expectFormatted("*a*  +\n", "*a*  +\n");
+  });
+
+  // ONE ROW FOR BOTH ARMS of the walk `reflowReachesFirstRestLine`
+  // makes (src/print/list-hazard.ts). Between this item's marker line
+  // and its own-line break stands nothing but the second line's
+  // indent, which the builder left as a text node of its own when it
+  // dropped the first break's newline. Count that node and reflow
+  // looks as though it reaches a rest line; walk past the break and
+  // the `z` on the third line says the same. Either way a break is
+  // held, and the only runs left of the break stand on the marker
+  // line, so the hold cuts that line: both mutations give
+  // `* a\nb +\n +\nz\n` where the packer's own layout is right.
+  test("nothing but an indent above a break holds no line", async () => {
+    await expectFormatted("* a b +\n   +\n  z\n", "* a b +\n +\nz\n");
+  });
+});
+
+// A CHECKLIST item's two halves are written by different hands: the
+// prefix `[x] ` is the printer's, respelled from the recorded
+// checkbox, while the reader took those four columns off the first
+// text node's VALUE and left that node's POSITION where they started
+// (`stripCheckboxPrefix`, src/parse/build/list.ts). So the replay the
+// packer falls back to has to open four columns in, and the item's
+// own hard-break question has to be asked without cutting the marker
+// line the checkbox stands on.
+describe("a checklist item keeps its checkbox around a hard break", () => {
+  test.each([
+    // Red before the replay offset: `* [ ] [ ] a\n// c\n +\n`, whose
+    // second copy of the prefix rendered as the literal text `[ ] `.
+    ["unchecked, a comment", "* [ ] a\n// c\n +\n", "* [ ] a\n// c\n +\n"],
+    ["checked, a comment", "* [x] a\n// c\n +\n", "* [x] a\n// c\n +\n"],
+    // Red before the walk stopped at the first own-line break:
+    // `* [\n] +\n +\nz\n`, whose first line was the marker and a
+    // bare `[`, so the list stopped being a checklist at all.
+    ["a lone plus for text", "* [ ] +\n   +\n  z\n", "* [ ] +\n +\nz\n"],
+    // An indented text line under the checkbox, with a break the
+    // strip leaves standing: the item flattens to column 0 like any
+    // other and the prefix is written once.
+    ["an indented text line", "* [ ] a\n  b\n   +\n", "* [ ] a\nb\n +\n"],
+    ["the same, checked", "* [x] a\n  b\n   +\n", "* [x] a\nb\n +\n"],
+    // `[*]` is the third spelling Asciidoctor reads as checked, and
+    // the printer writes every checked box back as `[x]`.
+    ["the `[*]` spelling", "* [*] a\n  b\n   +\n", "* [x] a\nb\n +\n"],
+    ["`[*]` with a lone plus", "* [*] +\n   +\n  z\n", "* [x] +\n +\nz\n"],
+  ])("%s", async (_name, input, expected) => {
+    await expectFormatted(input, expected);
+  });
+});
+
 // Issue #101. A description-list item that carries its own text is
 // the one item whose folded first block Asciidoctor reads WITHOUT
 // skipping line comments: `parse_list_item` passes

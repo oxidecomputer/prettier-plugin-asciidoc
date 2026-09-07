@@ -178,6 +178,16 @@ function parseCheckbox(line: string): ListItemNode["checkbox"] {
  * and what changes is presentation - a refused item wraps its
  * continuation lines under the marker rather than under the text,
  * because the six columns the checkbox prefix holds are text to it.
+ * THE POSITION MOVES WITH THE VALUE. A node's position names the
+ * bytes its value came from, and the prefix is bytes the value no
+ * longer holds, so leaving the start where it was would make the node
+ * name four characters it does not carry - and the printer replays a
+ * block from exactly that offset (`replayLines`, src/print/reflow.ts),
+ * which wrote the prefix a second time (`* [ ] a` / `// c` / ` +` came
+ * out `* [ ] [ ] a`, the second copy rendered as text). The prefix
+ * never holds a newline (`CHECKBOX_RE` is anchored to one line), so
+ * the column moves by the same count as the offset and the line does
+ * not move at all.
  * @param children - the item's inline nodes, mutated in place
  * @param prefix - the checklist prefix read off the source line
  * @returns true when the prefix was taken off
@@ -188,6 +198,15 @@ function stripCheckboxPrefix(children: InlineNode[], prefix: string): boolean {
     return false;
   }
   first.value = first.value.slice(prefix.length);
+  const { start } = first.position;
+  first.position = {
+    ...first.position,
+    start: {
+      ...start,
+      offset: start.offset + prefix.length,
+      column: start.column + prefix.length,
+    },
+  };
   return true;
 }
 
