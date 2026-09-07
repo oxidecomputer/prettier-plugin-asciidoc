@@ -319,11 +319,6 @@ describe("spaced markdown thematic break formatting", () => {
       "* a\n+\n// c\n- - -\nlast\n",
       "* a\n+\n// c\n- - - last\n",
     ],
-    // The line ABOVE the rule does it too, and by a second mechanism
-    // (#243): the item's own text lines are joined onto the marker
-    // line, which moves the rule from `next_block`'s second call to
-    // its first, where `text_only` holds the break arm off.
-    ["a multi-line item text", "* a\nb\n- - -\n", "* a b\n- - -\n"],
   ])(
     "%s moves the render, not just the node kind",
     async (_name, input, expected) => {
@@ -336,4 +331,110 @@ describe("spaced markdown thematic break formatting", () => {
       expect(await renderedHtml(out)).not.toBe(await renderedHtml(input));
     },
   );
+});
+
+/**
+ * The PACKER moving the rule between `next_block`'s two calls (#243),
+ * which is a different mechanism from the reading above: the reader
+ * gives one tree at both positions, and what moves is the position.
+ *
+ * The item's first call carries `text_only` (`parse_list_item`,
+ * parser.rb l.1367-74) and skips the layout-break arm; every later
+ * call reaches it. So a spaced marker line directly under the marker
+ * line is a nested `ulist` holding the item `- -`, and the same line
+ * one text line lower is an `<hr>`. A reflow JOIN lifts the item's
+ * text onto the marker line and moves the rule up into the first
+ * call; a width WRAP pushes a second line under the marker line and
+ * moves it down out of it. Both are refused: a break is held so a
+ * text line stands directly under the marker line where the source
+ * wrote one, and the packer writes no line of its own either way
+ * (`hazard`, src/print/list-hazard.ts). A text of three lines still
+ * folds to two, because one held break is all the rule's position
+ * asks for; the row below says so.
+ */
+describe("a spaced rule under a list item's own text", () => {
+  // THE JOIN. Red before the refusal: each row formatted to a joined
+  // marker line and a rule that then read as a nested item, losing
+  // the `<hr>` both programs render.
+  test.each([
+    ["an unordered item", "* a\nb\n- - -\n"],
+    ["a dash list and a star rule", "- a\nb\n* * *\n"],
+    ["an ordered item", ". a\nb\n- - -\n"],
+    ["a nested item", "* x\n** a\nb\n- - -\n"],
+    ["an indented rest line", "* a\n  b\n- - -\n"],
+    ["a sibling item under the rule", "* a\nb\n- - -\n* c\n"],
+  ])("%s keeps its own lines", async (_name, input) => {
+    await expectFormatted(input, input);
+  });
+
+  // TRAILING WHITESPACE on the rule line, the one place the source
+  // spelling and the printed one differ: the reader's text node keeps
+  // the bytes and the printer writes the line rstripped, so the
+  // refusal has to ask its question of the STRIPPED line. Red before
+  // the strip: each row joined, and the `- - -` the printer then
+  // wrote read as a nested item where the input rendered an `<hr>`.
+  // The expected bytes are the input less its trailing run, which is
+  // the whole of what the printer changes.
+  test.each([
+    ["a trailing space", "* a\nb\n- - - \n", "* a\nb\n- - -\n"],
+    ["a trailing tab", "* a\nb\n- - -\t\n", "* a\nb\n- - -\n"],
+    [
+      "a trailing space with no rest line",
+      "* one two three\n- - - \n",
+      "* one two three\n- - -\n",
+    ],
+  ])("%s is stripped and still keeps its lines", async (_n, input, out) => {
+    await expectFormatted(input, out);
+    await expectFormatted(input, out, { printWidth: 10 });
+  });
+
+  // A text whose lines outnumber the one the rule's position turns on
+  // is joined down to two: the held break puts a text line directly
+  // under the marker line, which is all the rule's position asks, and
+  // the packer may still fold what stands above it. The render is the
+  // source's, and that is what the row claims.
+  test("a text of three lines keeps one rest line", async () => {
+    await expectFormatted("* a\nb\nc\n- - -\n", "* a b\nc\n- - -\n");
+  });
+
+  // THE WRAP, at a width the marker line cannot hold. Red before the
+  // refusal: `* one two three` wrapped to `* one two` over `  three`
+  // at width 10, and the rule then read as the `<hr>` the source did
+  // not have. The marker line over budget is the honest output.
+  test.each([
+    ["an unordered item", "* one two three\n- - -\n"],
+    ["a dash list and a star rule", "- one two three\n* * *\n"],
+    ["an ordered item", ". one two three\n- - -\n"],
+    ["a nested item", "* x\n** one two three\n- - -\n"],
+    ["a text of two lines", "* one two three\nfour\n- - -\n"],
+  ])("%s refuses the wrap", async (_name, input) => {
+    await expectFormatted(input, input, { printWidth: 10 });
+    await expectFormatted(input, input, { printWidth: 20 });
+    await expectFormatted(input, input, { printWidth: 80 });
+  });
+
+  // THE DESCRIPTION TWIN needs no refusal, and the row stands so the
+  // refusal is not widened to it: a marker line ends a description's
+  // paragraph at ANY position, so the join that moves it is
+  // render-equal in both programs and the description is written onto
+  // its term line as always.
+  test.each([
+    ["a textless term", "t::\nd\n- - -\n", "t:: d\n- - -\n"],
+    ["a term with its own text", "t:: d\ne\n- - -\n", "t:: d e\n- - -\n"],
+  ])("%s joins as always", async (_name, input, expected) => {
+    await expectFormatted(input, expected);
+  });
+
+  // NOT the shape, because the marker line under the text is an
+  // ordinary item line: a word past the two marks makes it one, and
+  // the packer is free again. Render-equal either way - both programs
+  // read a nested item at both positions - and the row exists so the
+  // refusal is not read as "any nested list under an item's text".
+  test("a marker line carrying a word is packed as always", async () => {
+    await expectFormatted(
+      "* one two three\n- - - last\n",
+      "* one two\n  three\n- - - last\n",
+      { printWidth: 10 },
+    );
+  });
 });

@@ -19,10 +19,9 @@ import {
   rstrip,
 } from "../parse/line-shapes.js";
 import { inlineAtoms } from "./inline.js";
-import { hazard, markerLineGuard } from "./list-hazard.js";
+import { hazard, markerLineGuard, type TextGuard } from "./list-hazard.js";
 import {
   type Atom,
-  type BreakBefore,
   blockBody,
   keepFirstSourceLineWhole,
   keepTextOnFirstRestLine,
@@ -353,7 +352,7 @@ function canonicalChecklistHead(atoms: readonly Atom[]): readonly Atom[] {
 
 /**
  * The item's atoms with every reflow guard applied, in the order the
- * three questions are answered.
+ * four questions are answered.
  *
  * The first-rest-line guard runs first because it chooses which run
  * opens the line UNDER the marker line, and it chooses the LAST one it
@@ -362,15 +361,27 @@ function canonicalChecklistHead(atoms: readonly Atom[]): readonly Atom[] {
  * would name means the line already ends there, and the guard says
  * nothing further.
  *
- * The WIDTH refusal runs last, over the atoms the other two settled,
- * because it is the only one that reads a break they may still add:
- * it refuses the joins up to the first DEMANDED break, so a break
- * either of them held is the one it stops at rather than one it
- * fuses past. It fires on the recorded fact alone
- * (`ListItemNode.nextLineNeedsItsPosition`, src/ast.ts, which carries
- * the two Ruby arguments) - there is nothing left for the printer to
- * decide, and the line the fact is about is one the printer never
- * sees.
+ * TWO WIDTH REFUSALS RUN LAST, over the atoms the other two settled,
+ * because each is the only kind that reads a break the others may
+ * still add: both refuse joins only where no break is DEMANDED, so a
+ * break either of the first two held is one they stop at rather than
+ * one they fuse past. They differ in REACH and in what asks for them:
+ *
+ * - `keepFirstSourceLineWhole` refuses the joins up to the first
+ *   demanded break, so the item's first source line stays whole. It
+ *   fires on the recorded fact alone
+ *   (`ListItemNode.nextLineNeedsItsPosition`, src/ast.ts, which
+ *   carries the two Ruby arguments) - there is nothing left for the
+ *   printer to decide, and the line the fact is about is one the
+ *   printer never sees.
+ * - {@link refuseTheWidthBreaks} refuses them over the WHOLE text,
+ *   for the item whose first block start is a marker line spelling a
+ *   rule ({@link TextGuard}'s `noWidthBreaks` arm), where any line the
+ *   packer writes moves that rule between `next_block`'s two calls.
+ *
+ * The second subsumes the first where both fire, and running them in
+ * this order is what makes that harmless: each only ever sets
+ * `noBreakBefore` on an atom that demands no break.
  * @param node - the item node.
  * @param parentList - the list the item belongs to.
  * @param atoms - the item's atoms, straight from the inline printer.
@@ -381,13 +392,22 @@ function guardedAtoms(
   node: ListItemNode,
   parentList: ListNode | undefined,
   atoms: readonly Atom[],
-  guard: BreakBefore,
+  guard: TextGuard,
 ): readonly Atom[] {
-  const held = guard === "none" ? atoms : keepTextOnFirstRestLine(atoms, guard);
+  const held =
+    guard.kept === "none" ? atoms : keepTextOnFirstRestLine(atoms, guard.kept);
   const marked = markedAtoms(node, parentList, held);
-  return node.nextLineNeedsItsPosition
+  const firstLine = node.nextLineNeedsItsPosition
     ? keepFirstSourceLineWhole(marked)
     : marked;
+  switch (guard.kind) {
+    case "packed": {
+      return firstLine;
+    }
+    case "noWidthBreaks": {
+      return refuseTheWidthBreaks(firstLine);
+    }
+  }
 }
 
 /**
@@ -424,6 +444,46 @@ function markedAtoms(
       });
     }
   }
+}
+
+/**
+ * Take the PACKER's own breaks away: every atom that demands no break
+ * of its own joins the one in front of it with a space and never with
+ * a line end, so the text runs out to whatever width its lines need
+ * and only the breaks ALREADY demanded end a line.
+ *
+ * WHAT SURVIVES IS THE DEMANDED BREAKS, not the source's own lines. A
+ * text of three lines still folds down to two, because only one break
+ * is held; what this adds is that the packer writes no FURTHER line,
+ * which is the half the rule's position turns on.
+ *
+ * The WHOLE text, where `keepFirstSourceLineWhole` (src/print/reflow.ts)
+ * stops at the first demanded break: that one keeps the item's first
+ * source line, this one refuses a packer line anywhere, because a rule
+ * standing under the item's LAST text line is moved by a break written
+ * anywhere above it.
+ *
+ * `noBreakBefore` rather than `glueLeft` because the words still want
+ * their spaces. `runAt` (src/print/reflow.ts) fuses on either, and a
+ * fused run longer than the budget overruns its line rather than
+ * being split, which is exactly the refusal this is.
+ *
+ * AN ATOM THAT DEMANDS A BREAK IS LEFT ALONE, and that is what keeps
+ * the held line boundary rather than erasing it: gluing such an atom
+ * would fold it into the run in front of it, and `runBreak` lifts a
+ * fused atom's break to that run's head, moving the very line this
+ * exists to keep. The atoms carrying one are the author's own
+ * boundaries - a raw line, a hard line break - and the break
+ * {@link guardedAtoms} has just held for the first rest line.
+ * @param atoms - the item's atoms, both guards applied.
+ * @returns the same atoms with every width break refused.
+ */
+function refuseTheWidthBreaks(atoms: readonly Atom[]): readonly Atom[] {
+  return atoms.map((atom) =>
+    atom.breakBefore === "none" && !atom.glueLeft
+      ? { ...atom, noBreakBefore: true }
+      : atom,
+  );
 }
 
 /**

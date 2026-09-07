@@ -8,9 +8,11 @@
  * vocabularies:
  *
  * - {@link hazard} - what stands on the item's FIRST REST LINE. A PURE
- *   predicate over the finished node; three answers, and none of them
- *   an invented continuation line. Everything from here down to that
- *   function is about this question.
+ *   predicate over the finished node; three break answers, and none of
+ *   them an invented continuation line. Everything from here down to
+ *   that function is about this question. It carries a second fact
+ *   ({@link TextGuard}) for the one shape where the WRAP direction is
+ *   a hazard too.
  * - {@link markerLineGuard} - whether the MARKER line itself would
  *   read back as a checklist item the source did not write. It reads
  *   the finished ATOMS rather than the node, because what the line
@@ -81,11 +83,16 @@
  *   ({@link ListItemNode.everyTextLineIndented}, src/ast.ts).
  * - `"none"` — everything else; the gap is replayed verbatim.
  *
- * The FOLD direction is what the argument covers; the WRAP direction
- * (a width-wrap pushing first-rest-line metadata later) is a recorded
- * pre-existing divergence the predicate cannot see
- * (`reflowReachesFirstRestLine` needs a text child beyond the marker
- * line).
+ * The FOLD direction is what the three decisions' argument covers.
+ * The WRAP direction - the packer pushing words down onto a rest line
+ * the source never wrote - is a hazard of its own, and one the three
+ * break answers cannot express, since a held break MAKES a line and
+ * cannot forbid one. It is answered for the one shape where a rest
+ * line the packer wrote changes a reading rather than only a column
+ * ({@link opensOnARuleMarkerLine}); the older divergence, a width
+ * wrap pushing first-rest-line metadata later, remains outside what
+ * the predicate can see (`reflowReachesFirstRestLine` needs a text
+ * child beyond the marker line).
  *
  * No answer invents bytes: the two that fire hold a break the SOURCE
  * already wrote, and the printer NEVER invents a continuation line.
@@ -109,6 +116,7 @@ import {
   DLIST_SEPARATOR_WORD,
   LINE_COMMENT_HEAD,
   THEMATIC_BREAK,
+  rstrip,
 } from "../parse/line-shapes.js";
 import { hardBreakOwnsItsLine } from "./inline.js";
 import { type Atom, type BreakBefore, isFused } from "./reflow.js";
@@ -287,15 +295,164 @@ function separatedFirstBlock(item: ListItemNode): boolean {
   return gap !== undefined && gap.length > 0;
 }
 
+// The whole of a rule line's text: the two marks the item's own
+// marker leaves behind, which the reader records as ONE text node.
+// Any second node is a further word, and the line is an ordinary item
+// line rather than a rule.
+const ONE_TEXT_NODE = 1;
+
 /**
- * The item's reflow hazard - see the module comment for the one
+ * Whether a nested item's whole MARKER LINE spells a thematic break -
+ * the `- - -` and `* * *` an item's own scan reads as a one-item
+ * nested list, and nothing else.
+ *
+ * Asked of the NODE and answered from the bytes the printer will
+ * write: the marker line is the item's indent, marker and gap, all
+ * replayed ({@link ListItemNode.markerSpelling} and `markerGap`,
+ * src/ast.ts), and then its text. The text has to be ONE text node,
+ * because a rule line carries two marks and nothing else - any
+ * further node is a second word and the line is an ordinary item. The
+ * value goes in as it stands rather than word-split, and that is the
+ * bytes the printer writes too: a run inside a line that spells a
+ * break keeps its own spacing (`fuseRunsSpellingABreak`,
+ * src/print/whitespace-fold.ts), so the fold cannot turn `-  -` into
+ * `- -` under this answer.
+ *
+ * RSTRIPPED, because that is the one way the source spelling and the
+ * printed one differ here: the reader's text node keeps the trailing
+ * whitespace the author wrote and the printer writes none, so a
+ * `- - - ` would answer no to a pattern with no trailing tolerance
+ * and then be written as the `- - -` both programs read as a rule.
+ * The same strip is the READER's own dialect ({@link rstrip},
+ * src/parse/line-shapes.ts), so the two cannot disagree about where a
+ * line ends.
+ * @param item - the nested list's first item
+ * @returns true where the whole line reads as a rule
+ */
+function markerLineSpellsARule(item: ListItemNode): boolean {
+  const [only] = item.text;
+  // The length test comes first and is what makes the read of `only`
+  // total: an item with no text at all has none to read.
+  if (item.text.length !== ONE_TEXT_NODE || only.type !== "text") {
+    return false;
+  }
+  const line = `${item.markerIndent}${item.markerSpelling}${item.markerGap}${only.value}`;
+  return THEMATIC_BREAK.test(rstrip(line));
+}
+
+/**
+ * Whether the item's FIRST block start is a spaced marker line that
+ * both programs read as a rule at one position and as a nested list
+ * at the other - the shape whose text may not be repacked at all.
+ *
+ * Asciidoctor reads the item's first `next_block` call with
+ * `text_only` set (`parse_list_item`, parser.rb l.1367-74), which
+ * skips the layout-break arm, and every later call without it. So a
+ * `- - -` standing under the item's SECOND text line is an `<hr>` and
+ * the same line standing directly under the marker line is a nested
+ * `ulist` holding the item `- -`. The packer moves the line between
+ * those two positions in BOTH directions: a join lifts the item's
+ * text onto the marker line and the rule becomes the first call's,
+ * and a width wrap pushes a second line under the marker line and the
+ * rule becomes a later call's. Neither is a reading this printer can
+ * fix by reading differently - the reader gives one tree at both
+ * positions - so the printer keeps the item's own lines instead.
+ *
+ * ADJACENCY IS THE WHOLE PRECONDITION besides the line's spelling: a
+ * gap carrying a blank or a `+` already puts a line of its own
+ * between the text and the rule, and that line is replayed, so
+ * nothing the packer does to the text can reach the rule's position.
+ * @param item - the finished item node
+ * @returns true where the item's text must keep its own lines
+ */
+function opensOnARuleMarkerLine(item: ListItemNode): boolean {
+  const first = item.blocks.at(0);
+  if (
+    first === undefined ||
+    first.gap.length > 0 ||
+    first.block.type !== "list"
+  ) {
+    return false;
+  }
+  return markerLineSpellsARule(first.block.children[0]);
+}
+
+/**
+ * What the printer must do about a list item's TEXT.
+ *
+ * TWO ARMS, one per hazard, because the two move the item's lines in
+ * opposite directions and only one of them is a break. `kept` answers
+ * the FOLD - reflow packing the source's rest line up onto the marker
+ * line - and is the module comment's three-decision question, so both
+ * arms carry it. The ARM answers the WRAP - the packer pushing words
+ * down onto a rest line the source never wrote - which no kept break
+ * can express, since a held break makes a line and cannot forbid one.
+ *
+ * A DISCRIMINANT rather than a flag beside `kept`, so the shape that
+ * decided the answer is recoverable from the value and a third hazard
+ * arrives as a third arm rather than as a second boolean.
+ */
+export type TextGuard =
+  | {
+      /** The packer places the text as it likes, within the width. */
+      readonly kind: "packed";
+      /** The break the text must keep on its first rest line. */
+      readonly kept: BreakBefore;
+    }
+  | {
+      /**
+       * The packer may write no break of its own: the item's first
+       * block start is a marker line spelling a rule
+       * ({@link opensOnARuleMarkerLine}), and a rest line the packer
+       * wrote would move it between `next_block`'s two calls.
+       */
+      readonly kind: "noWidthBreaks";
+      /** The break the text must keep on its first rest line. */
+      readonly kept: BreakBefore;
+    };
+
+/**
+ * The item's reflow hazard - see the module comment for the fold
  * question, the three Ruby decisions that read its answer, and the
  * sufficiency argument, stated there once and pinned by the suite
  * rows, never re-derived here.
+ *
+ * The RULE shape is answered first and answers both halves at once,
+ * because it is the one shape where a width wrap is a hazard too
+ * ({@link opensOnARuleMarkerLine}). Its kept break is the item's own
+ * rest line where the source wrote one, at the column the source put
+ * it at ({@link ListItemNode.everyTextLineIndented} says which), and
+ * `"none"` where the source wrote no rest line at all - holding a
+ * break there would MAKE the second line the wrap hazard is about.
  * @param item - the finished item node
  * @returns how the printer must guard the text
  */
-export function hazard(item: ListItemNode): BreakBefore {
+export function hazard(item: ListItemNode): TextGuard {
+  if (opensOnARuleMarkerLine(item)) {
+    return { kind: "noWidthBreaks", kept: keptRuleBreak(item) };
+  }
+  return { kind: "packed", kept: packedBreak(item) };
+}
+
+/**
+ * The break the rule shape keeps: the item's own first rest line,
+ * written back at the column the source wrote it at.
+ * @param item - the finished item node
+ * @returns the break to hold, `"none"` where the text is one line
+ */
+function keptRuleBreak(item: ListItemNode): BreakBefore {
+  if (!reflowReachesFirstRestLine(item)) {
+    return "none";
+  }
+  return item.everyTextLineIndented ? "hard" : "literal";
+}
+
+/**
+ * The fold question alone, for an item the packer may still wrap.
+ * @param item - the finished item node
+ * @returns the break to hold in front of the first rest line
+ */
+function packedBreak(item: ListItemNode): BreakBefore {
   if (!reflowReachesFirstRestLine(item)) {
     return "none";
   }

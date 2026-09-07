@@ -1,11 +1,13 @@
 /**
  * hazard(item) - a pure predicate over the finished node, answering
- * with the BREAK the item's text must keep so the item's first rest
- * line reads as the author's own did: `"hard"` (a held break at the
- * item's continuation indent), `"literal"` (the same break at column
- * 0, where a ` +` in the text would otherwise lose the space that
- * makes it one) and `"none"` (replay the gap verbatim). The printer
- * never invents a continuation line. The rows below mirror
+ * with two facts about the item's text. `kept` is the BREAK the text
+ * must keep so the item's first rest line reads as the author's own
+ * did: `"hard"` (a held break at the item's continuation indent),
+ * `"literal"` (the same break at column 0, where a ` +` in the text
+ * would otherwise lose the space that makes it one) and `"none"`
+ * (replay the gap verbatim). `kind` is whether the packer may break
+ * the text on its own, and only the rule shape answers
+ * `"noWidthBreaks"`. The printer never invents a continuation line. The rows below mirror
  * tests/format/list-item-blocks.test.ts and list-continuation.test.ts,
  * which pin the same facts as bytes. The argument for the answers is
  * stated once, in src/print/list-hazard.ts's module comment; it is not
@@ -162,7 +164,59 @@ describe("hazard", () => {
     // ...or at column 0.
     ["* a\n  +++b\nc+++ d\n +\n", "literal"],
   ])("%j → %s", (source, expected) => {
-    expect(hazard(firstItem(source))).toBe(expected);
+    expect(hazard(firstItem(source))).toEqual({
+      kind: "packed",
+      kept: expected,
+    });
+  });
+
+  // THE RULE SHAPE, the one answer that turns the width wrap off as
+  // well (#243). The item's first block start is a spaced marker line
+  // that both programs read as an `<hr>` where it stands and as a
+  // nested `ulist` one line higher, so neither a join nor a wrap may
+  // move it: the text keeps the lines the source gave it. Red before
+  // the change - every row answered `{ kind: "packed", kept: "none" }`
+  // and the bytes moved with it.
+  test.each([
+    // A rest line the packer would fold up onto the marker line: the
+    // break is held, at the column the source wrote the line at.
+    ["* a\nb\n- - -\n", "literal"],
+    ["* a\n  b\n- - -\n", "hard"],
+    // TRAILING WHITESPACE on the rule line is the one place the
+    // source spelling and the printed one differ: the reader's text
+    // node keeps it and the printer writes none, so the question is
+    // asked of the rstripped line. Red before that strip - both rows
+    // answered `{ kind: "packed" }` and lost the `<hr>`.
+    ["* a\nb\n- - - \n", "literal"],
+    ["* a\nb\n- - -\t\n", "literal"],
+    // No rest line at all, so no break to hold - what the answer
+    // carries here is the wrap refusal alone.
+    ["* one two three\n- - -\n", "none"],
+    ["- one two three\n* * *\n", "none"],
+  ])("%j keeps its own lines → %s", (source, expected) => {
+    expect(hazard(firstItem(source))).toEqual({
+      kind: "noWidthBreaks",
+      kept: expected,
+    });
+  });
+
+  // NOT the rule shape, one row per clause of the predicate, so a
+  // clause dropped from it goes red here rather than in a byte pin
+  // three files away.
+  test.each([
+    // The nested item's line carries a word past the two marks, so it
+    // is an item line at every position and no rule anywhere.
+    ["* a\nb\n- - - word\n"],
+    // A separator line already stands between the text and the rule,
+    // so the packer cannot reach the rule's position.
+    ["* a\nb\n\n- - -\n"],
+    ["* a\nb\n+\n- - -\n"],
+    // The first block is not a list at all.
+    ["* a\nb\nimage::t.png[]\n"],
+    // A nested list whose marker line is an ordinary item.
+    ["* a\nb\n- c\n"],
+  ])("%j is packed like any other item", (source) => {
+    expect(hazard(firstItem(source)).kind).toBe("packed");
   });
 });
 

@@ -1248,6 +1248,13 @@
   {
     "file": "src/parse/line-shapes.ts",
     "symbol": "rstrip",
+    "importer": "src/print/list-hazard.ts",
+    "kind": "vocabulary",
+    "reason": "the oracle's own per-line rstrip (`prepare_source_string`); the item-text refusal builds a marker line out of a recorded text node, which keeps the trailing whitespace the printer will not write, so it has to end the line where the reader ends one or a rule with a trailing space escapes the refusal"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "rstrip",
     "importer": "src/print/list.ts",
     "kind": "vocabulary",
     "reason": "the oracle's own per-line rstrip (`prepare_source_string`); the item-boundary rule reads the printer's output lines and must hand them to the registry in the same dialect the reader hands it source lines, or a CRLF terminator makes every shape test fail open"
