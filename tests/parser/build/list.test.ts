@@ -19,6 +19,7 @@ import {
 import { parse } from "../../../src/parser.js";
 import { narrow } from "../../helpers.js";
 import { serializedKeys } from "../reader-helpers.js";
+import { listNode, paragraphNode } from "../../lib/nodes.js";
 import type { InlineToken } from "../../../src/parse/inline/tokens.js";
 import { makeLocationIndex } from "../../../src/parse/positions.js";
 import type {
@@ -74,22 +75,7 @@ function blockAt(type: "paragraph" | "list", end: number): BlockNode {
     start: { offset: 0, line: 1, column: 1 },
     end: { offset: end, line: 1, column: end + 1 },
   };
-  return type === "list"
-    ? {
-        type: "list",
-        variant: "unordered",
-        marker: "*",
-        children: [],
-        position,
-      }
-    : {
-        type: "paragraph",
-        children: [],
-        firstWordEndsItsLine: false,
-        secondLineIndent: "",
-        blankBelowAnchorLine: false,
-        position,
-      };
+  return type === "list" ? listNode({ position }) : paragraphNode({ position });
 }
 
 /**

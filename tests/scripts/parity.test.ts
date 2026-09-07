@@ -10,7 +10,7 @@
 import { describe, expect, test } from "vitest";
 import { createHash } from "node:crypto";
 import { readdirSync } from "node:fs";
-import type { ListNode, Location, ParagraphNode } from "../../src/ast.js";
+import type { ListNode, ParagraphNode } from "../../src/ast.js";
 import type { Row } from "../../scripts/parity.js";
 import {
   describeDifference,
@@ -25,6 +25,7 @@ import {
 import { loadCorpus } from "../conformance/loader.js";
 import { formatAdoc } from "../helpers.js";
 import { parse } from "../../src/parser.js";
+import { listNode, paragraphNode, span } from "../lib/nodes.js";
 
 /**
  * Hash a string the way the dumper does.
@@ -307,30 +308,10 @@ describe("verdict — which differing cases fail the gate", () => {
 // Position helpers for hand-built nodes. Annotated with the real AST
 // types, so a row that stops being a node the parser could produce
 // fails to compile rather than being silently normalized as junk.
-const at = (offset: number): Location => ({
-  offset,
-  line: 1,
-  column: offset + 1,
-});
-const span = (
-  from: number,
-  to: number,
-): { start: Location; end: Location } => ({ start: at(from), end: at(to) });
-const para = (from: number): ParagraphNode => ({
-  type: "paragraph",
-  children: [],
-  firstWordEndsItsLine: false,
-  secondLineIndent: "",
-  blankBelowAnchorLine: false,
-  position: span(from, from + 1),
-});
-const nestedList = (from: number): ListNode => ({
-  type: "list",
-  variant: "unordered",
-  marker: "*",
-  children: [],
-  position: span(from, from + 1),
-});
+const para = (from: number): ParagraphNode =>
+  paragraphNode({ position: span(from, from + 1) });
+const nestedList = (from: number): ListNode =>
+  listNode({ position: span(from, from + 1) });
 // The same list as the gamma fold (foldMarkerAndReftextShapes) leaves it: `marker` dropped, so the two
 // AST generations spell one string. Its items would carry a re-derived
 // `depth`; this one has none to carry.

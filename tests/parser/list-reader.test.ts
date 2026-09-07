@@ -17,6 +17,7 @@ import { classifyLine } from "../../src/parse/lines/classify.js";
 import { gapsOf } from "../../src/parse/lines/list-item-node.js";
 import { listShape, markerList } from "../../src/parse/lines/list-reader.js";
 import { splitLines, type SourceLine } from "../../src/parse/lines/split.js";
+import { paragraphNode } from "../lib/nodes.js";
 import { gapGlyph } from "./reader-helpers.js";
 
 /**
@@ -141,17 +142,12 @@ describe("listShape walks siblings and stops at anything else", () => {
  * @returns the block
  */
 function blockAt(startLine: number, endLine: number): BlockNode {
-  return {
-    type: "paragraph",
-    children: [],
-    firstWordEndsItsLine: false,
-    secondLineIndent: "",
-    blankBelowAnchorLine: false,
+  return paragraphNode({
     position: {
       start: { offset: 0, line: startLine, column: 1 },
       end: { offset: 0, line: endLine, column: 1 },
     },
-  };
+  });
 }
 
 describe("gapsOf", () => {

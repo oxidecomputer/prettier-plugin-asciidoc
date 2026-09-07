@@ -19,6 +19,7 @@ import {
 } from "../../../src/parse/build/paragraph.js";
 import type { InlineToken } from "../../../src/parse/inline/tokens.js";
 import { makeLocationIndex } from "../../../src/parse/positions.js";
+import { paragraphNode } from "../../lib/nodes.js";
 
 // What the reader hands a builder when no block-attribute line stood
 // above the block (`HeldMetadata.annotation` answered nothing).
@@ -116,18 +117,17 @@ describe("buildRawLineParagraph", () => {
       start: { offset: 2, line: 2, column: 1 },
       end: { offset: 3, line: 2, column: 2 },
     };
-    expect(node).toEqual({
-      type: "paragraph",
-      children: [{ type: "rawLine", value: "+", position }],
-      // The line is one word, so the block-start hazard net's recorded
-      // fact is true here (src/ast.ts).
-      firstWordEndsItsLine: true,
-      secondLineIndent: "",
-      // A raw line is never an anchor line, so the separation fact is
-      // false by construction (src/ast.ts).
-      blankBelowAnchorLine: false,
-      position,
-    });
+    expect(node).toEqual(
+      paragraphNode({
+        children: [{ type: "rawLine", value: "+", position }],
+        // The line is one word, so the block-start hazard net's
+        // recorded fact is true here (src/ast.ts). Written out rather
+        // than left to the builder because it is what the row is
+        // about; the two fields that stay defaulted are not.
+        firstWordEndsItsLine: true,
+        position,
+      }),
+    );
   });
 });
 
