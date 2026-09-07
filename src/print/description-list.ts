@@ -53,8 +53,7 @@ const {
  * item ({@link TermGapLine}: there it is an author's byte and it is
  * replayed). The two are different bytes. A `+` behind a blank
  * attaches to nothing - it is not the first item's trailing
- * continuation, which needs no blank, and it heads no paragraph, so
- * `detachedTail` is false by construction - and Ruby erases it where
+ * continuation, which needs no blank - and Ruby erases it where
  * it stands (`buffer[detached_continuation] = ListContinuationPlaceholder`,
  * :1576). It reaches no node, renders nothing, and writing none is a
  * fixed point. Measured: `a:: d` / blank / `+` / `b:: y` prints

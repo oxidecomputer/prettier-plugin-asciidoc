@@ -26,11 +26,10 @@ const MARKER_RULE = markerList(OPENING);
 /**
  * Scan a document and read back only the tail facts.
  * @param source - the whole document; its first line is the marker
- * @returns the three facts `finishItem` reported
+ * @returns the two facts `finishItem` reported
  */
 function tailFacts(source: string): {
   trailing: TrailingContinuation;
-  erasedTail: boolean;
   activeTail: boolean;
 } {
   const extent = itemExtent(splitLines(source), 1, MARKER_RULE, {
@@ -40,12 +39,11 @@ function tailFacts(source: string): {
   });
   return {
     trailing: extent.trailingContinuation,
-    erasedTail: extent.erasedTailContinuation,
     activeTail: extent.activeTail,
   };
 }
 
-// The three facts `finishItem` reports beside the buffer - Ruby's
+// The two facts `finishItem` reports beside the buffer - Ruby's
 // post-loop, from `reader.unshift_line this_line` to the `buffer.pop`
 // walk (parser.rb l.1574-89) - each finished
 // rather than raw: what the pop TOOK is conjoined here with the
@@ -53,34 +51,31 @@ function tailFacts(source: string): {
 // buffered behind the `+`, so a reader of ItemExtent sees the answer
 // the node carries and not a half of it.
 //
-// The first two are structurally mutually exclusive: the pop takes
-// exactly one cell and breaks, and the role of the cell it took is
-// what says which fact to report - `detached` for the shield
-// `detached_continuation` names (parser.rb l.1576), any other marker
-// role for a `+` the item may print back.
-// The third is the armed continuation, which is a fact about what the
-// item BUFFERED and not about what came off its tail.
+// A pop that took the cell `detached_continuation` names (parser.rb
+// l.1576) reports NO trailing continuation: the shield is a byte the
+// printer does not write back, so the rows whose pop took one answer
+// false. NOT PROTECTED BY DESIGN: the printer used to write that
+// shield back as a blank line and a `+`, and the fact that told it to
+// is gone. See tests/format/plus-run.test.ts for what the shape
+// prints now.
 describe("the tail facts finishItem reports", () => {
-  // [name, source, trailingContinuation, erasedTail, activeTail]
-  test.each<[string, string, TrailingContinuation, boolean, boolean]>([
+  // [name, source, trailingContinuation, activeTail]
+  test.each<[string, string, TrailingContinuation, boolean]>([
     [
       "a blanked detached + strips off the tail (l.1576 then l.1580-82)",
       "* a\nb\n\n+\n",
       false,
-      true,
       false,
     ],
     [
-      "the same strip behind a surviving frozen + — the pair the printer re-emits",
+      "the same strip behind a surviving frozen + reports no tail either",
       "* a\n+\n+\n\n+\n",
       false,
-      true,
       false,
     ],
     [
       "content after the detached + shields it from the pop",
       "* a\n\n+\npara\n* b\n",
-      false,
       false,
       false,
     ],
@@ -89,20 +84,17 @@ describe("the tail facts finishItem reports", () => {
       "* a\nb\n+\n",
       "single",
       false,
-      false,
     ],
-    ["no + at all: every fact false", "* a\nb\n", false, false, false],
+    ["no + at all: both facts false", "* a\nb\n", false, false],
     [
       "a + whose activation ran through metadata only is still armed (l.1499-1501)",
       "* a\n+\n[role]\n\n\npara\n",
-      false,
       false,
       true,
     ],
     [
       "one buffered blank keeps the armed tail armed (the final else touches no continuation)",
       "* a\n+\n.T\n",
-      false,
       false,
       true,
     ],
@@ -111,19 +103,16 @@ describe("the tail facts finishItem reports", () => {
       "* a\n** b\n+\n",
       "single",
       false,
-      false,
     ],
     [
       "and the same shape stopping on content prints no byte back: the tail is not inert",
       "* a\n** b\n+\n\n\npara\n",
       false,
       false,
-      false,
     ],
     [
       "content consumes the continuation (l.1511), so the tail is not armed",
       "* a\n+\n[role]\n\npara\n",
-      false,
       false,
       false,
     ],
@@ -138,20 +127,17 @@ describe("the tail facts finishItem reports", () => {
       "* a\nb\n+\n+\n",
       "double",
       false,
-      false,
     ],
     [
       "the same run before a sibling reports it too",
       "* a\nb\n+\n+\n* c\n",
       "double",
       false,
-      false,
     ],
     [
       "a run of three still reports only the pair the buffer ever held",
       "* a\nb\n+\n+\n+\n",
       "double",
-      false,
       false,
     ],
     // #263 red-then-green: the pair's first half here is the DETACHED
@@ -168,20 +154,17 @@ describe("the tail facts finishItem reports", () => {
       "* a\nb\n\n+\n+\n",
       "double",
       false,
-      false,
     ],
     [
       "the same pair before a sibling reports it too",
       "* a\nb\n\n+\n+\n* c\n",
       "double",
       false,
-      false,
     ],
     [
       "three over a blank still report only the pair the buffer held",
       "* a\nb\n\n+\n+\n+\n",
       "double",
-      false,
       false,
     ],
     // The control the fix must NOT move: inside a nested list the
@@ -193,11 +176,10 @@ describe("the tail facts finishItem reports", () => {
       "* a\n** b\n\n+\n+\n",
       "single",
       false,
-      false,
     ],
   ])("%s", (...row) => {
-    const [, source, trailing, erasedTail, activeTail] = row;
-    expect(tailFacts(source)).toEqual({ trailing, erasedTail, activeTail });
+    const [, source, trailing, activeTail] = row;
+    expect(tailFacts(source)).toEqual({ trailing, activeTail });
   });
 });
 

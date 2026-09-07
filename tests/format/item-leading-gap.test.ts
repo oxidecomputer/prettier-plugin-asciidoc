@@ -132,11 +132,10 @@ describe("a + the record no longer holds cannot be replayed", () => {
   // `detached_continuation` Ruby overwrites with a
   // ListContinuationPlaceholder (parser.rb l.1576), so the tail walk
   // pops it and its line leaves the separator record with the buffer
-  // (`finishItem`, src/parse/lines/item-tail.ts). The one fact that
-  // could print it back, `ListItemNode.detachedTail`, shields a
-  // trailing `+` paragraph, and this item holds no block at all - so
-  // the byte has no home either way, which is what keeps this document
-  // a `lone-plus-join` row of tests/format/reading-ledger.json. What
+  // (`finishItem`, src/parse/lines/item-tail.ts). Nothing prints a
+  // popped `+` back, so the byte has no home, which is what keeps this
+  // document a `lone-plus-join` row of
+  // tests/format/reading-ledger.json. What
   // the record still holds is the FIRST `+` and the blanks under it,
   // and the replay writes that `+` back. Red before `leadingGap`: the
   // whole gap was destroyed and the row printed `"* a\n* a\n"`,

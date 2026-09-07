@@ -119,7 +119,6 @@ export function buildDescriptionListItem(
     reading: body.reading,
     blocks: [...body.blocks],
     trailingContinuation: body.trailingContinuation,
-    detachedTail: body.detachedTail,
     activeTail: body.activeTail,
     everyTextLineIndented: body.everyTextLineIndented,
     headDrain: body.headDrain,
@@ -215,13 +214,13 @@ function entryOf(pair: DescriptionPair): TermEntry {
  * item's body is replaced WHOLESALE, so everything the absorbed
  * sibling's body carried is gone. That is lossless only because a
  * sibling {@link hasNoBody} admits carries nothing: no text, no
- * blocks, and none of the three tail facts either. The tail facts are
+ * blocks, and none of the two tail facts either. The tail facts are
  * ours rather than Ruby's, so `list_item.text? || list_item.blocks?`
  * (parser.rb:1387) does not rule them out on its own, and the reader
  * that builds a pair owes this the way it owes the term itself:
  *
- * - `trailingContinuation` and `detachedTail` are the `+` bytes a
- *   sibling's read consumed. Between two term lines a `+` is buffered
+ * - `trailingContinuation` is the `+` byte a sibling's read
+ *   consumed. Between two term lines a `+` is buffered
  *   by the read loop's `ListContinuationMarker` arm
  *   (parser.rb:1557-1559) and dropped by the post-loop pop of that
  *   same marker (parser.rb:1580-1582), so it gives the sibling no

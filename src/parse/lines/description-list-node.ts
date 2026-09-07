@@ -39,7 +39,7 @@ import {
   textEndLine,
   type ItemInterior,
 } from "./item-body.js";
-import { blockPiece, endsInPlusParagraph, gapsOf } from "./list-item-node.js";
+import { blockPiece, gapsOf } from "./list-item-node.js";
 import type { ListItemShape } from "./list-reader.js";
 import { fragmentOfLine, type SourceLine } from "./split.js";
 import type { WhitespaceContext } from "../../whitespace-fact.js";
@@ -441,10 +441,6 @@ export function descriptionItemNode(
       // for good - it attaches nothing and renders nothing
       // (l.1580-1582).
       trailingContinuation: !bodyless && shape.trailingContinuation,
-      detachedTail:
-        !bodyless &&
-        shape.erasedTailContinuation &&
-        endsInPlusParagraph(blocks),
       activeTail: !bodyless && shape.activeTail,
       everyTextLineIndented: everyTextLineIndented(textLines),
       headDrain: bounds.headDrain,

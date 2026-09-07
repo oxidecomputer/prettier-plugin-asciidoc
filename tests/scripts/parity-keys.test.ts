@@ -385,6 +385,7 @@ describe("the production enum's blanket declaration", () => {
       "span-mark-record",
       "head-drain-record",
       "reading-record",
+      "detached-tail-record",
     ]);
     expect([
       ...(LEDGER_FAMILIES.blanketKeys.get("block-start-line-fact") ?? []),
@@ -408,6 +409,12 @@ describe("the production enum's blanket declaration", () => {
     expect([
       ...(LEDGER_FAMILIES.blanketKeys.get("reading-record") ?? []),
     ]).toEqual(["reading"]);
+    // A field the tree LOST rather than gained, and the same shape:
+    // the coverage test strips the family's keys from both dumps, so
+    // which side carried the key is not a question it asks.
+    expect([
+      ...(LEDGER_FAMILIES.blanketKeys.get("detached-tail-record") ?? []),
+    ]).toEqual(["detachedTail"]);
     // A blanket family may not also be formatted-only: the two claims
     // contradict (one says the bytes are identical, the other says the
     // bytes are the only thing that moved).

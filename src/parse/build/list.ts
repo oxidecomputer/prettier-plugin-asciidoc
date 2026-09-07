@@ -59,11 +59,6 @@ export interface ItemBodyInput {
   /** What a `+` off the item's end must be printed back as. */
   readonly trailingContinuation: TrailingContinuation;
   /**
-   * Whether the erased detached tail must be printed back (see
-   * {@link ListItemNode}'s `detachedTail`).
-   */
-  readonly detachedTail: boolean;
-  /**
    * Whether the item ends with its continuation still armed (see
    * {@link ListItemNode}'s `activeTail`).
    */
@@ -308,7 +303,6 @@ export function buildListItem(
     reading: input.reading,
     blocks: [...input.blocks],
     trailingContinuation: input.trailingContinuation,
-    detachedTail: input.detachedTail,
     activeTail: input.activeTail,
     everyTextLineIndented: input.everyTextLineIndented,
     headDrain: input.headDrain,

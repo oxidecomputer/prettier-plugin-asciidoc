@@ -532,12 +532,6 @@ function expectItemGaps(lines: readonly string[], node: AnyNode): void {
  * Only a list can print one, and only at the end of its last item, so
  * the count is a walk down the last-item/last-block chain: an item
  * whose own last block is another list can have a tail under a tail.
- *
- * `detachedTail` is NOT counted. Its `+` is written under a blank
- * line the printer adds, and no measured document puts one inside an
- * enclosing gap; if one ever does, this invariant fires rather than
- * waving it through, which is the right direction for a fact nothing
- * has established.
  * @param block - the block standing above the gap
  * @returns how many `+` entries that gap may omit
  */

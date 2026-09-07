@@ -5,7 +5,7 @@
  * writes bytes from which the reader re-derives this fact", landed
  * three times already: #181's continuation count at
  * `ItemBody.trailingContinuation` (`tests/format/trailing-continuation.test.ts`),
- * #178's withheld tail at the `.detachedTail`-shaped case in
+ * #178's withheld tail in
  * `tests/format/description-list.test.ts`, and #175's ignore pragma at
  * `BlockNodeBase.ignoredByPragma` (`tests/format/ignore-pragma.test.ts`,
  * where the pragma COMMENT is the surviving line a second read

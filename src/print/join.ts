@@ -446,20 +446,15 @@ export function printsDrainShield(
       return false;
     }
     case "detached": {
-      // The two tail bytes the item can print for itself are excluded
-      // rather than overridden: each writes a `+` on the item's own
-      // last line, which stops the next read's drain exactly as this
-      // one would. `detachedTail` writes the very shape this arm
-      // would; a live `trailingContinuation` writes the pair the
+      // The tail byte the item can print for itself is excluded
+      // rather than overridden: it writes a `+` on the item's own last
+      // line, which stops the next read's drain exactly as this one
+      // would. A live `trailingContinuation` writes the pair the
       // source spelled, and an adjacent PAIR is no adjacent single -
       // the second `+` freezes on re-read (parser.rb l.1443-46), the
       // pop takes it, and the erased first one is still standing over
       // the run (issues #263, #268).
-      return (
-        item.trailingContinuation === false &&
-        !item.detachedTail &&
-        bodyIsTheDrainedRun(item)
-      );
+      return item.trailingContinuation === false && bodyIsTheDrainedRun(item);
     }
   }
 }

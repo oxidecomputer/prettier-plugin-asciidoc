@@ -5,79 +5,79 @@
  * l.1435-46); the post-loop cleanup pops AT MOST ONE tagged line
  * (l.1580-82), so a trailing detached `+` — blanked into the erased
  * shield by l.1576 — absorbs that pop and keeps the frozen `+`
- * paragraph alive on re-read. The printer therefore writes the erased
- * tail back (one blank, one `+`) exactly when the item ends in such a
- * paragraph, and separates a still-armed metadata tail from the next
- * block with the two blanks that keep it detached. The single `+`
- * that attaches or pops cleanly lives in
+ * paragraph alive on re-read. This file pins what the printer does
+ * about a still-armed metadata tail, which is separated from the next
+ * block by the two blanks that keep it detached. The single `+` that
+ * attaches or pops cleanly lives in
  * tests/format/list-continuation.test.ts and
  * tests/format/trailing-continuation.test.ts.
  */
-import { describe, test } from "vitest";
-import { expectFormatted } from "../helpers.js";
+import { describe, expect, test } from "vitest";
+import { expectFormatted, formatAdoc } from "../helpers.js";
 
-// Every row asserts the exact output, that Asciidoctor renders the
-// output as it renders the input, and that a second pass is a fixed
-// point.
-describe("a frozen + paragraph keeps its erased shield", () => {
+// NOT PROTECTED BY DESIGN: the erased shield behind a frozen `+`
+// paragraph. The printer used to write it back as one blank line and
+// a `+` whenever an item ended in such a paragraph, on a fact the
+// reader carried for that one purpose. Reaching the shape means
+// writing three lone `+` lines with nothing between them and a blank
+// in the middle - it is what an author leaves behind by editing a
+// continuation down to nothing and not deleting the punctuation, and
+// nobody writes it on purpose.
+//
+// What it costs, and these rows are the record of it: the frozen `+`
+// paragraph does not survive. `* a` / `+` / `+` / blank / `+` prints
+// `* a` / `+` / `+`, and both programs render the input with a
+// `<p>+</p>` inside the item and the output without it. Only the
+// first row also loses its fixed point, and it converges on the
+// second pass to the same bytes every other row prints.
+describe("a frozen + paragraph loses its erased shield", () => {
   test.each([
-    ["the issue's flat shape", "* a\n\n+\n+\n\n+\n", "* a\n\n+\n+\n\n+\n"],
-    ["the canonical adjacent run", "* a\n+\n+\n\n+\n", "* a\n+\n+\n\n+\n"],
-    ["on a second sibling", "* a\n* a\n+\n+\n\n+\n", "* a\n* a\n+\n+\n\n+\n"],
-    [
-      "before a sibling marker",
-      "* a\n+\n+\n\n+\n* a\n",
-      "* a\n+\n+\n\n+\n* a\n",
-    ],
-    [
-      "under a comment line",
-      "* a\n// c\n+\n+\n\n+\n",
-      "* a\n// c\n+\n+\n\n+\n",
-    ],
+    ["the flat shape", "* a\n\n+\n+\n\n+\n", "* a\n\n+\n+\n"],
+    ["the canonical adjacent run", "* a\n+\n+\n\n+\n", "* a\n+\n+\n"],
+    ["on a second sibling", "* a\n* a\n+\n+\n\n+\n", "* a\n* a\n+\n+\n"],
+    ["before a sibling marker", "* a\n+\n+\n\n+\n* a\n", "* a\n+\n+\n* a\n"],
+    ["under a comment line", "* a\n// c\n+\n+\n\n+\n", "* a\n// c\n+\n+\n"],
     [
       "under a block anchor",
       "* a\n[[anc]]\n+\n+\n\n+\n",
-      "* a\n[[anc]]\n+\n+\n\n+\n",
+      "* a\n[[anc]]\n+\n+\n",
     ],
     [
       "under a block attribute line",
       "* a\n[role]\n+\n+\n\n+\n",
-      "* a\n[role]\n+\n+\n\n+\n",
+      "* a\n[role]\n+\n+\n",
     ],
-    // The principal text reflows; the run and its shield are untouched.
+    // The principal text reflows; the run behind it is untouched.
     [
       "an indented literal folded into the text",
       "* a\n  lit\n+\n+\n\n+\n",
-      "* a lit\n+\n+\n\n+\n",
+      "* a lit\n+\n+\n",
     ],
     [
       "a block title folded into the text",
       "* a\n.T\n+\n+\n\n+\n",
-      "* a .T\n+\n+\n\n+\n",
+      "* a .T\n+\n+\n",
     ],
     [
       "a second text line folded in",
       "* a\npara\n+\n+\n\n+\n",
-      "* a para\n+\n+\n\n+\n",
+      "* a para\n+\n+\n",
     ],
-    // Byte-inert variations normalize to the canonical spelling: the
-    // shield's blank run collapses to one blank, the third `+` of a
-    // run and a junk `+` behind the shield are read and dropped, a
-    // trailing document blank goes.
-    ["a two-blank shield", "* a\n+\n+\n\n\n+\n", "* a\n+\n+\n\n+\n"],
-    [
-      "a document blank after the shield",
-      "* a\n+\n+\n\n+\n\n",
-      "* a\n+\n+\n\n+\n",
-    ],
-    [
-      "a junk + adjacent to the shield",
-      "* a\n+\n+\n\n+\n+\n",
-      "* a\n+\n+\n\n+\n",
-    ],
-    ["a run of three", "* a\n+\n+\n+\n\n+\n", "* a\n+\n+\n\n+\n"],
+    ["a two-blank shield", "* a\n+\n+\n\n\n+\n", "* a\n+\n+\n"],
+    ["a document blank after the shield", "* a\n+\n+\n\n+\n\n", "* a\n+\n+\n"],
+    ["a junk + adjacent to the shield", "* a\n+\n+\n\n+\n+\n", "* a\n+\n+\n"],
+    ["a run of three", "* a\n+\n+\n+\n\n+\n", "* a\n+\n+\n"],
   ])("%s", async (_name, input, expected) => {
-    await expectFormatted(input, expected);
+    expect(await formatAdoc(input)).toBe(expected);
+  });
+
+  // The one row above whose output is not a fixed point: the blank
+  // between the item's text and its run goes on the second pass, and
+  // the third is stable. `expectFormatted` asserts that stability
+  // along with the bytes and the render, so the second pass's own
+  // output is what it is given.
+  test("the flat shape converges on the second pass", async () => {
+    await expectFormatted("* a\n\n+\n+\n", "* a\n+\n+\n");
   });
 });
 
@@ -116,25 +116,12 @@ describe("a live metadata tail keeps its two-blank detachment", () => {
   });
 });
 
-// Where the SCAN's half of `detachedTail` comes from: the pop, over
-// the buffer's tail, and not the item's separator roles read flat.
-//
-// In both rows the record holds a blank and a `detached` `+`, so a
-// rule reading the last `+` of that record answers TRUE - but the run
-// is CLOSED, by a line the item read after it, and flattening the
-// runs is exactly what loses that. The pop walks the BUFFER instead,
-// breaks on the content cell the block became, and reports nothing
-// (`ItemExtent.erasedTailContinuation` is false here). The `+` stands
-// between the item's text and that block, where the gap already
-// replays it; a flat rule would have the item write the erased tail
-// back as well and print a second `+` the source never had - measured
-// at 4 characters of difference on the first row.
-//
-// What these rows do NOT pin is the block-shape conjunct
-// ({@link endsInPlusParagraph}): with the scan's half already false,
-// the conjunct changes nothing here. The row that holds it is "behind
-// an attached paragraph" below.
-describe("a detached + a block closed is not a detached TAIL", () => {
+// A detached `+` that a block CLOSED is replayed where it stands, out
+// of the item's gap record, and the item writes no tail of its own
+// behind it. In both rows the record holds a blank and a `detached`
+// `+`; the `+` stands between the item's text and the block below it,
+// which is where the gap replays it.
+describe("a detached + a block closed is replayed in the gap", () => {
   test.each([
     ["a comment closes the run", "* a\n\n+\n// c\n", "* a\n\n+\n// c\n"],
     [
@@ -377,18 +364,11 @@ describe("a +-headed paragraph folds marker lines", () => {
   });
 });
 
-// The erased tail is dropped everywhere it shields nothing: behind an
-// ordinary attached block the re-read pops nothing that renders, so
-// the bytes stay gone.
-//
-// This row is where `endsInPlusParagraph` earns its keep, and it is
-// the one the conjunct decides: the pop DID take the erased shield
-// here (`ItemExtent.erasedTailContinuation` is true), and dropping
-// the conjunct alone makes the item print the tail back -
-// `"* a\n+\npara\n\n+\n"` instead of `"* a\n+\npara\n"`, measured.
-// Render-equal either way, which is why the guarantee it carries is
-// byte fidelity: the item does not write back a shield with nothing
-// to shield.
+// The erased tail is dropped: the pop takes the blanked cell and the
+// item writes nothing back for it, so a trailing detached `+` behind
+// an ordinary attached block leaves no bytes. Render-equal, which is
+// what makes the drop safe here: the re-read pops nothing that
+// renders.
 describe("an erased tail behind an ordinary block stays dropped", () => {
   test.each([
     ["behind an attached paragraph", "* a\n+\npara\n\n+\n", "* a\n+\npara\n"],

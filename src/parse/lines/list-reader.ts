@@ -110,8 +110,6 @@ export interface ListItemShape<Opening extends ListOpening = ListOpening> {
    * `max-lines` ceiling.
    */
   readonly trailingContinuation: false | "single" | "double";
-  /** Whether the pop took the blanked detached `+` off the item's tail. */
-  readonly erasedTailContinuation: boolean;
   /** Whether the item's printed tail still shows an armed `+`. */
   readonly activeTail: boolean;
   /** Whether a `+` printed at the very end of THIS ITEM re-reads inert. */
@@ -282,7 +280,6 @@ export function listShape<Opening extends ListOpening>(
         marker,
         buffer: extent.buffer,
         trailingContinuation: extent.trailingContinuation,
-        erasedTailContinuation: extent.erasedTailContinuation,
         activeTail: extent.activeTail,
         tailSafe: extent.tailSafe,
       },

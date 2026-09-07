@@ -1,6 +1,6 @@
 {
   "pair/clean/fidelity": {
-    "count": 13,
+    "count": 15,
     "examples": [
       "pair/continuation/admonition-label/two-blank/dlist-desc-line",
       "pair/continuation/attribute-entry/two-blank/dlist-desc-line",
@@ -8,11 +8,11 @@
       "pair/continuation/block-title/two-blank/dlist-desc-line",
       "pair/continuation/callout/two-blank/dlist-desc-line"
     ],
-    "sha256": "944336159b1ad405dd35dbf6bec56fd8897ed53e9c1cb2ddd47f36f4af7942e4",
+    "sha256": "6ee32f32e7f09e53a01d07687697407b3c47ab6fa26d411a67bfdd21641388c9",
     "issue": "UNTRIAGED"
   },
   "pair/trailing-space/fidelity": {
-    "count": 14,
+    "count": 16,
     "examples": [
       "pair/continuation/admonition-label/two-blank/dlist-desc-line@trailing-space",
       "pair/continuation/attribute-entry/two-blank/dlist-desc-line@trailing-space",
@@ -20,7 +20,7 @@
       "pair/continuation/block-title/two-blank/dlist-desc-line@trailing-space",
       "pair/continuation/callout/two-blank/dlist-desc-line@trailing-space"
     ],
-    "sha256": "3486d856e85165689e9832f898eb99e8e08a1e355d120c4b25d5f4c6eca34cac",
+    "sha256": "6ad8dddc4c209051af11934f026ca439a4009ee778d2fbae5bf3fb1a408d9488",
     "issue": "UNTRIAGED"
   }
 }

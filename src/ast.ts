@@ -1518,25 +1518,6 @@ interface ItemBody {
    */
   trailingContinuation: TrailingContinuation;
   /**
-   * The item's source ended with a blank run and a DETACHED `+` — the
-   * erased shield (`buffer[detached_continuation] =
-   * ListContinuationPlaceholder`, parser.rb l.1576) — behind a
-   * paragraph that is a frozen `+` kept as prose. The shield renders
-   * nothing in place, but it is what absorbs the single tagged pop of
-   * the re-read's cleanup (l.1580-82): without it the pop takes the
-   * `+` paragraph instead and a rendered character disappears. So the
-   * printer writes the tail back as one blank line and a `+`
-   * (printListItem's detachedTail arm). Set only when the last block
-   * IS such a `+` paragraph — behind any other block the erased tail
-   * changes no re-read and is dropped as always.
-   *
-   * Mutually exclusive with `trailingContinuation` by construction:
-   * the post-loop's tail walk reports one pop or the other, never both
-   * (see ItemExtent.erasedTailContinuation,
-   * src/parse/lines/item-tail.ts).
-   */
-  detachedTail: boolean;
-  /**
    * The item PRINTS a tail whose continuation is still ARMED: a `+`
    * whose activation ran through block metadata only (a title, an
    * attribute line, an anchor, an attribute entry keep `:active`,
@@ -1791,7 +1772,7 @@ export interface ListItemNode extends Node, ItemBody {
    * BLOCK gap may not make and this one may because a marker line
    * follows rather than a block. Second, the whole gap stands down
    * where the item ABOVE prints a tail of its own
-   * (`trailingContinuation`, `detachedTail`): that item already
+   * (`trailingContinuation`): that item already
    * writes the bytes the pop left it, and this gap holds only what
    * Ruby's own read threw away.
    */

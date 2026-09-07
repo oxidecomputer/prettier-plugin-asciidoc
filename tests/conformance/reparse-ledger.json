@@ -544,7 +544,7 @@
     {
       "id": "line/pair/continuation/callout/two-blank/dlist-desc-line",
       "pass": "p1",
-      "signature": "[.headDrain -(kind=\"none\") .reading <-(context=\"dlistItem\") .openList -(delimiter=\"::\",kind=\"description\") >- .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList <list(marker=\"<>\",variant=\"callout\") .children <listItem(activeTail=false,calloutNumber=1,detachedTail=false,markerGap=\" \",markerIndent=\"\",markerSpelling=\"<1>\",nextLineNeedsItsPosition=false,trailingContinuation=false) .blocks .headDrain -(kind=\"none\") .reading <-(context=\"listItemText\") .openList -(kind=\"marker\",style=\"<>\") >- .text text(value=\"a\") .whitespace <-(kind=\"reflowable\") .runs >- >listItem >list] -> [<list(marker=\"<>\",variant=\"callout\") .children <listItem(activeTail=false,calloutNumber=1,detachedTail=false,markerGap=\" \",markerIndent=\"\",markerSpelling=\"<1>\",nextLineNeedsItsPosition=false,trailingContinuation=false) .blocks .headDrain -(kind=\"none\") .reading <-(context=\"listItemText\") .openList -(kind=\"marker\",style=\"<>\") >- .text text(value=\"a\") .whitespace <-(kind=\"reflowable\") .runs >- >listItem >list .headDrain -(kind=\"none\") .reading <-(context=\"dlistItem\") .openList -(delimiter=\"::\",kind=\"description\") >- .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList]",
+      "signature": "[.headDrain -(kind=\"none\") .reading <-(context=\"dlistItem\") .openList -(delimiter=\"::\",kind=\"description\") >- .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList <list(marker=\"<>\",variant=\"callout\") .children <listItem(activeTail=false,calloutNumber=1,markerGap=\" \",markerIndent=\"\",markerSpelling=\"<1>\",nextLineNeedsItsPosition=false,trailingContinuation=false) .blocks .headDrain -(kind=\"none\") .reading <-(context=\"listItemText\") .openList -(kind=\"marker\",style=\"<>\") >- .text text(value=\"a\") .whitespace <-(kind=\"reflowable\") .runs >- >listItem >list] -> [<list(marker=\"<>\",variant=\"callout\") .children <listItem(activeTail=false,calloutNumber=1,markerGap=\" \",markerIndent=\"\",markerSpelling=\"<1>\",nextLineNeedsItsPosition=false,trailingContinuation=false) .blocks .headDrain -(kind=\"none\") .reading <-(context=\"listItemText\") .openList -(kind=\"marker\",style=\"<>\") >- .text text(value=\"a\") .whitespace <-(kind=\"reflowable\") .runs >- >listItem >list .headDrain -(kind=\"none\") .reading <-(context=\"dlistItem\") .openList -(delimiter=\"::\",kind=\"description\") >- .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList]",
       "family": "separator-collapsed"
     },
     {
@@ -552,6 +552,18 @@
       "pass": "p1",
       "signature": "[<-(context=\"dlistItem\") .openList -(delimiter=\"::\",kind=\"description\") >- .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList preprocessorDirective(value=\"ifdef::x[]\")] -> [<-(context=\"dlistItemTextOnly\") .openList -(delimiter=\"::\",kind=\"description\") >- .terms <-() .gap \"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text rawLine(value=\"ifdef::x[]\") .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList]",
       "family": "separator-collapsed"
+    },
+    {
+      "id": "line/pair/continuation/continuation/blank/item",
+      "pass": "p1",
+      "signature": "[<listItem(activeTail=false,markerGap=\" \",markerIndent=\"\",markerSpelling=\"*\",nextLineNeedsItsPosition=false,trailingContinuation=false) .blocks <paragraph(blankBelowAnchorLine=false) .children rawLine(value=\"+\") .reading <-(context=\"listContinuation\") .openList -(kind=\"marker\",style=\"*\") >- .whitespace <-(kind=\"reflowable\") .runs >- >paragraph] -> [<listItem(activeTail=false,markerGap=\" \",markerIndent=\"\",markerSpelling=\"*\",nextLineNeedsItsPosition=false,trailingContinuation=\"double\") .blocks]",
+      "family": "plus-shield-dropped"
+    },
+    {
+      "id": "line/pair/continuation/continuation/two-blank/item",
+      "pass": "p1",
+      "signature": "[<listItem(activeTail=false,markerGap=\" \",markerIndent=\"\",markerSpelling=\"*\",nextLineNeedsItsPosition=false,trailingContinuation=false) .blocks <paragraph(blankBelowAnchorLine=false) .children rawLine(value=\"+\") .reading <-(context=\"listContinuation\") .openList -(kind=\"marker\",style=\"*\") >- .whitespace <-(kind=\"reflowable\") .runs >- >paragraph] -> [<listItem(activeTail=false,markerGap=\" \",markerIndent=\"\",markerSpelling=\"*\",nextLineNeedsItsPosition=false,trailingContinuation=\"double\") .blocks]",
+      "family": "plus-shield-dropped"
     },
     {
       "id": "line/pair/continuation/include/two-blank/dlist-desc-line",

@@ -53,7 +53,6 @@ function itemInput(overrides: Partial<ListItemInput>): ListItemInput {
     blocks: [],
     headDrain: { kind: "none" },
     trailingContinuation: false,
-    detachedTail: false,
     activeTail: false,
     everyTextLineIndented: false,
     nextLineNeedsItsPosition: false,

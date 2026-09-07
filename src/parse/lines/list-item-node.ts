@@ -6,12 +6,9 @@
  * pure over its inputs: the recursion that produced the interior
  * happened in the caller, and nothing in this file can start another.
  *
- * ONE of the three tail FACTS is finished here: `detachedTail`, whose
- * scan half (the pop took the erased shield) is conjoined with the
- * block shape that makes the byte load-bearing
- * ({@link endsInPlusParagraph}). The other two arrive decided -
- * `trailingContinuation` and `activeTail` are the scan's own,
- * finished in item-tail.ts, and nothing here re-derives them. The
+ * BOTH tail FACTS arrive decided: `trailingContinuation` and
+ * `activeTail` are the scan's own, finished in item-tail.ts, and
+ * nothing here re-derives them. The
  * all-or-nothing indent answer the printer's reflow guard reads
  * (`everyTextLineIndented`) is asked here of the extent's own buffer,
  * for the same reason: the source lines are in hand, and the ANSWER
@@ -26,11 +23,7 @@ import type { HeadDrainFact } from "../../head-drain-record.js";
 import { buildListItem } from "../build/list.js";
 import type { WhitespaceContext } from "../../whitespace-fact.js";
 import type { LocationIndex } from "../positions.js";
-import {
-  isContinuationLine,
-  isDroppedCommentLine,
-  type MarkerKind,
-} from "./classify.js";
+import { isDroppedCommentLine, type MarkerKind } from "./classify.js";
 import { positionDecidesTheReading } from "../line-shapes-interruption.js";
 import {
   everyTextLineIndented,
@@ -216,12 +209,10 @@ export function listItemNode(
       // slurp is what `SourceLine.slurped` names. Writing the byte
       // there costs the output its fixed point - it survives one
       // format and not the next - and a popped `+` renders nothing,
-      // so it is withheld. Conjoined here for the reason
-      // `detachedTail` below is: the question is about the marker
-      // line, which the scan never reads.
+      // so it is withheld. Conjoined here because the question is
+      // about the marker line, which the scan never reads.
       trailingContinuation:
         markerLine.slurped === true ? false : shape.trailingContinuation,
-      detachedTail: shape.erasedTailContinuation && endsInPlusParagraph(blocks),
       activeTail: shape.activeTail,
       everyTextLineIndented: everyTextLineIndented(
         recordedTextLines(shape.buffer, markerLine.line, textEnd).map(
@@ -238,44 +229,6 @@ export function listItemNode(
     },
     at,
   );
-}
-
-/**
- * Whether the item's last block is a paragraph holding a frozen `+` as
- * its final raw line: the block that only stays alive on re-read while
- * a detached `+` shields it (see {@link ListItemNode.detachedTail}).
- * The shape is exactly what the confined reader makes of a surviving
- * frozen `+`: it heads a paragraph whose raw line spells the byte.
- *
- * This conjunct STAYS here, and it is the one tail question the scan
- * cannot take over. The other two moved because the scan already
- * knows both their halves; this one asks what the item's BLOCKS
- * turned out to be, which is decided after every scan has run.
- *
- * The committed row that holds it is
- * `"* a\n+\npara\n\n+\n"` ("behind an attached paragraph",
- * tests/format/plus-run.test.ts): the pop really did take the erased
- * shield, so the scan's half is TRUE, and with this conjunct gone the
- * item writes the tail back - `"* a\n+\npara\n\n+\n"` where the
- * landed answer is `"* a\n+\npara\n"`, measured. The same shape is
- * a plurality of the reading ledger's lone-plus-join rows
- * (docs/harnesses.md): an erased `+` that attached nothing has one
- * route back, the shield, and an item with nothing to shield does not
- * get to take it.
- * @param blocks - the item's blocks, in source order
- * @returns true when the last block ends in a `+` raw line
- *
- * Exported for description-list-node.ts, which asks the same question
- * of a description item's blocks: the shape is the item body's, not
- * the marker's.
- */
-export function endsInPlusParagraph(blocks: readonly BlockNode[]): boolean {
-  const last = blocks.at(-1);
-  if (last?.type !== "paragraph") {
-    return false;
-  }
-  const child = last.children.at(-1);
-  return child?.type === "rawLine" && isContinuationLine(child.value);
 }
 
 /**

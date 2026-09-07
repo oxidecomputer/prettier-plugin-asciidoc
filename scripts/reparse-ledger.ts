@@ -29,6 +29,7 @@ import { writeLedgerFile } from "./lib/ledger-file.js";
 import { reparseOutcomeOf } from "../tests/conformance/reparse.js";
 import {
   MINIMUM_POPULATION,
+  familyTag,
   REPARSE_FAMILIES,
   REPARSE_LEDGER_PATH,
   UNCLASSIFIED,
@@ -103,10 +104,10 @@ console.log(
 for (const [family, found] of [...byFamily].toSorted(([left], [right]) =>
   left < right ? -1 : Number(left > right),
 )) {
-  const issue = Object.hasOwn(REPARSE_FAMILIES, family)
-    ? REPARSE_FAMILIES[family].issue
+  const tag = Object.hasOwn(REPARSE_FAMILIES, family)
+    ? familyTag(REPARSE_FAMILIES[family])
     : "UNDECLARED";
-  console.log(`[${family} ${issue}] ${String(found.length)} row(s)`);
+  console.log(`[${family} ${tag}] ${String(found.length)} row(s)`);
   for (const row of found.slice(0, SAMPLE_SIZE)) {
     console.log(`  ${row.pass} ${row.id}`);
     console.log(`    ${elide(row.signature)}`);

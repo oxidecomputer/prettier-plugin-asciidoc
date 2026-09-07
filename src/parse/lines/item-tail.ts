@@ -258,29 +258,6 @@ export interface ItemExtent {
    */
   readonly trailingContinuation: TrailingContinuation;
   /**
-   * The cleanup wrote `ListContinuationPlaceholder` over the detached
-   * `+` (parser.rb l.1576) and the tail walk's POP arm then took that
-   * cell
-   * off the buffer's end (l.1580-82): the item's source ended with the
-   * erased shield and nothing after it. The POP is the arm that takes
-   * it, not the `last_line.empty?` strip at l.1584, because l.1576
-   * writes a cell that still carries the marker module, and the walk
-   * asks about the module - here, the role - before it asks about
-   * emptiness.
-   *
-   * The scan's half of `ListItemNode.detachedTail`; the block-shape
-   * half stays in list-item-node.ts, where the item's blocks exist
-   * (endsInPlusParagraph, and the witness that keeps it there).
-   *
-   * Structurally mutually exclusive with `trailingContinuation`'s
-   * first half, by construction rather than by argument: both facts
-   * are reported by the SAME arm, which pops exactly one cell and
-   * breaks, and the if/else inside it asks whether the LINE it took
-   * is the one l.1576 blanked ({@link ScanTail.detached}). One pop,
-   * one flag, never both.
-   */
-  readonly erasedTailContinuation: boolean;
-  /**
    * The item PRINTS a tail whose continuation is still armed - the
    * scan's own fold, read off {@link ScanTail.armedTail}.
    *
@@ -369,9 +346,8 @@ function popTakes(role: GapRole | undefined): role is GapRole {
  * guess.
  *
  * The line the POP took is out of this switch's reach, and
- * deliberately: the byte comes back through the item's TAIL FACTS
- * ({@link ItemExtent.trailingContinuation},
- * {@link ItemExtent.erasedTailContinuation}) rather than through any
+ * deliberately: the byte comes back through the item's TAIL FACT
+ * ({@link ItemExtent.trailingContinuation}) rather than through any
  * gap, so {@link finishItem} drops it from the record before spelling
  * what is left. No role means "the pop took this line" - the arm that
  * records a role cannot know yet, because the pop is decided lines
@@ -588,7 +564,7 @@ function walkBufferTail(
  * scan's own erasure standing in a nested item's buffer, a
  * blank-shielded detached `+`) and pair with neither shape. A pop
  * that took the shield itself never arrives here at all: the caller
- * reports that as `erasedTailContinuation` and asks nothing further.
+ * has already answered "no live tail" for it and asks nothing further.
  *
  * Called only where the caller has already proven a pop happened -
  * `popped` is required rather than optional so that proof is a TYPE
@@ -625,13 +601,12 @@ function pairedContinuationLine(
  *
  * The popped `+`'s BYTES are not reported anywhere, because nothing
  * downstream may spend them: the line attached nothing, Ruby drops it
- * and it renders not one character. Two FACTS about the tail leave
- * here instead, and they are the pop arm's own two answers -
- * `trailingContinuation` (it took a marker the loop left live, and
- * the boundary the item closed on replays it inert - doubled when
- * {@link pairedContinuationLine} finds the pop took only half of an
- * adjacent pair) and `erasedTailContinuation` (it took the cell
- * parser.rb l.1576 had blanked).
+ * and it renders not one character. ONE FACT about the tail leaves
+ * here instead: `trailingContinuation`, which the pop reports when it
+ * took a marker the loop left live and the boundary the item closed
+ * on replays it inert - doubled when {@link pairedContinuationLine}
+ * finds the pop took only half of an adjacent pair. A pop that took
+ * the cell parser.rb l.1576 had blanked reports nothing at all.
  * @param tail - the scan's final state, by value
  * @returns the item's extent, its gap writes and its tail facts
  */
@@ -688,14 +663,12 @@ export function finishItem(tail: ScanTail): ItemExtent {
     // trailing `+`, and a popped `+` renders not one character.
     roles.delete(popped.line);
   }
-  // WHICH LINE came off is the whole difference between the two
-  // reports: the shield l.1576 blanks prints back as a blank and a
-  // `+` (`ListItemNode.detachedTail`), any other marker as the `+`
-  // alone (`trailingContinuation`). Both are read off the one pop,
-  // which takes exactly one cell and breaks, so the exclusion the two
-  // facts claim cannot come apart. The comparison is by LINE because
-  // that is what the walk reports and what the record is keyed by;
-  // the scan reads each of its lines once, so a line names one cell.
+  // WHICH LINE came off decides whether there is a tail to report at
+  // all: the shield l.1576 blanks is a byte nothing prints back, and
+  // any other marker is the `+` `trailingContinuation` replays. The
+  // comparison is by LINE because that is what the walk reports and
+  // what the record is keyed by; the scan reads each of its lines
+  // once, so a line names one cell.
   const erasedTail =
     popped !== undefined && popped.line === detached?.current.line;
   const liveTail = popped !== undefined && !erasedTail;
@@ -732,7 +705,6 @@ export function finishItem(tail: ScanTail): ItemExtent {
       gapSpelling(role).map((spelling) => ({ line, spelling })),
     ),
     trailingContinuation,
-    erasedTailContinuation: erasedTail,
     activeTail: tail.armedTail === "printed",
     tailSafe: inert,
   };

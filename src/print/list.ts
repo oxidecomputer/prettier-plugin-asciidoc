@@ -280,7 +280,7 @@ type SlurpState =
  * An item ending on a blank or a `+` has nothing after it to open a
  * slurp, which is how a printed trailing continuation
  * ({@link ListItemNode.trailingContinuation}) and a detached tail
- * ({@link ListItemNode.detachedTail}) answer: both write a `+` last.
+ * answer: it writes a `+` last.
  *
  * KNOWN CONSERVATIVE in one place: a `+` that is the second of an
  * adjacent run is FROZEN (parser.rb l.1443-49) and starts no
@@ -736,7 +736,7 @@ export function printListItem(
  *
  * THE DRAIN'S SHIELD comes first, and it is the tail of an item that
  * has no tail of its own: the predicate that decides it is false
- * wherever either fact below would write a byte
+ * wherever the fact below would write a byte
  * ({@link printsDrainShield}).
  *
  * `trailingContinuation`: ONE hardline, unconditionally (including
@@ -755,16 +755,6 @@ export function printListItem(
  * bare, reproduces the exact bytes an adjacent pair with nothing to
  * attach was always going to collapse back to
  * ({@link ListItemNode.trailingContinuation}).
- *
- * `detachedTail`: one blank line, then the `+` (the DETACHED
- * spelling, and the only correct one): an ADJACENT `+` under the item's
- * `+` paragraph would freeze onto it on re-read and the marked pop
- * would take the paragraph (both arms test `ListContinuationMarker`,
- * parser.rb l.1443-46 and l.1580-81). Detached, the `+` erases into
- * the shield (l.1576) that absorbs the pop and keeps the paragraph
- * alive ({@link ListItemNode.detachedTail}). Blank-run multiplicity
- * collapses to the one blank, the same collapse gapParts applies
- * before a `+`.
  * @param node - the item whose tail facts are read; either kind
  * @returns the Doc parts to push after the item's blocks
  */
@@ -777,12 +767,11 @@ export function tailParts(node: ListItemNode | DescriptionListItemNode): Doc[] {
     // which is what keeps the run's own block alive.
     //
     // An EARLY RETURN that replaces nothing. `printsDrainShield` is
-    // true only where `trailingContinuation` is false and
-    // `detachedTail` is false, so the two arms below would have
-    // written no byte at all: this is the tail of an item that has no
-    // tail of its own, and an item that HAS one keeps it - the byte
-    // it writes ends the item on a live `+` exactly as this one
-    // would.
+    // true only where `trailingContinuation` is false, so the arm
+    // below would have written no byte at all: this is the tail of an
+    // item that has no tail of its own, and an item that HAS one
+    // keeps it - the byte it writes ends the item on a live `+`
+    // exactly as this one would.
     //
     // What stands UNDER the byte is not written here. The item ends on
     // a live `+`, so it is an ARMED TAIL, and the block-join rules
@@ -797,9 +786,6 @@ export function tailParts(node: ListItemNode | DescriptionListItemNode): Doc[] {
       parts.push(hardline, "+");
     }
     parts.push(hardline, "+");
-  }
-  if (node.detachedTail) {
-    parts.push(hardline, hardline, "+");
   }
   return parts;
 }

@@ -19,7 +19,10 @@ import {
   normalizeTree,
   parseArguments,
 } from "../../scripts/parity.js";
-import { foldMarkerAndReftextShapes } from "../../scripts/parity-ledger.js";
+import {
+  DEPARTED_BLANKET_KEYS,
+  foldMarkerAndReftextShapes,
+} from "../../scripts/parity-ledger.js";
 import { astFields } from "../../scripts/fact-inventory.js";
 import { REPO_ROOT } from "../../scripts/metrics/model.js";
 
@@ -52,6 +55,16 @@ describe("the blanket families name fields src/ast.ts declares", () => {
   //
   // Red before this row: `firstWordEndsItLine` (one letter short)
   // passed every gate in the repo.
+  //
+  // A key the tree LOST inverts the question instead of escaping it.
+  // A blanket family can own the field a landing DELETED - the
+  // coverage test strips the family's keys from both dumps, so it
+  // cannot tell an arrival from a departure and does not need to - and
+  // for such a key the field must be absent from `src/ast.ts`, since
+  // finding it would mean the deletion did not happen. Which absences
+  // were meant is `DEPARTED_BLANKET_KEYS`, written down rather than
+  // inferred: a misspelled ARRIVAL key is absent too, and without the
+  // list the two would be the same observation.
   const declared = new Set(astFields(REPO_ROOT).map((field) => field.property));
 
   test.each(
@@ -59,7 +72,19 @@ describe("the blanket families name fields src/ast.ts declares", () => {
       [...keys].map((key) => [family, key] as const),
     ),
   )("%s owns %s", (_family, key) => {
-    expect(declared.has(key)).toBe(true);
+    expect(declared.has(key)).toBe(!DEPARTED_BLANKET_KEYS.has(key));
+  });
+
+  // The list itself is held to the map: a key nobody claims would sit
+  // here excusing nothing, and its family's landing would be
+  // unrecorded.
+  test("every departed key is owned by a blanket family", () => {
+    const owned = new Set(
+      [...LEDGER_FAMILIES.blanketKeys.values()].flatMap((keys) => [...keys]),
+    );
+    for (const key of DEPARTED_BLANKET_KEYS) {
+      expect(owned.has(key)).toBe(true);
+    }
   });
 });
 
@@ -174,6 +199,7 @@ describe("expected-diff ledger", () => {
       "continuation-keeps-line",
       "curved-quote-node",
       "description-list-item",
+      "detached-tail-record",
       "document-header",
       "email-autolink",
       "explicit-ordered-marker",

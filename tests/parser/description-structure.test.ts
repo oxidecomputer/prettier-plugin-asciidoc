@@ -150,7 +150,6 @@ const EMPTY_BODY: ItemBodyInput = {
   reading: NO_PACKED_TEXT,
   blocks: [],
   trailingContinuation: false,
-  detachedTail: false,
   activeTail: false,
   everyTextLineIndented: false,
   headDrain: { kind: "none" },
@@ -358,7 +357,6 @@ describe("the term fold, against the oracle's pairs", () => {
       // The byte is in the gap and NOT on the body, which is what lets
       // the fold replace an absorbed sibling's body wholesale.
       expect(item.trailingContinuation).toBe(false);
-      expect(item.detachedTail).toBe(false);
       expect(item.activeTail).toBe(false);
     },
   );

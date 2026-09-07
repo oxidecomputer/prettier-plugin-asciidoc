@@ -178,12 +178,9 @@ const GAP_COLLAPSE_FAMILY = "gap-collapse";
  */
 const MARKER_INDENT_KEPT_FAMILY = "marker-indent-kept";
 /**
- * The erased tail behind a frozen `+` paragraph is printed back (one
- * blank and a `+` — the shield that absorbs the re-read's single
- * tagged pop, parser.rb l.1576/l.1580-82), and a list whose tail
- * keeps a `+` armed through metadata is separated from the next block
- * by TWO blanks (one attaches, l.1483). Formatted-only: the item
- * fields carrying the two facts (`detachedTail`, `activeTail`) are
+ * A list whose tail keeps a `+` armed through metadata is separated
+ * from the next block by TWO blanks (one attaches, parser.rb l.1483).
+ * Formatted-only: the item field carrying the fact (`activeTail`) is
  * dropped by the item canonicalization the way `trailingContinuation`
  * is, so only bytes move. Not exported: no grid row cites it.
  */
@@ -909,6 +906,43 @@ const READING_RECORD_FAMILY = "reading-record";
  * Not exported: no grid row cites it.
  */
 const HEAD_DRAIN_RECORD_FAMILY = "head-drain-record";
+
+/**
+ * Every list-like item's body used to record whether the item ended on
+ * the erased detached `+` that shields a frozen `+` paragraph
+ * (`detachedTail` on the body both item kinds share, src/ast.ts), and
+ * the printer wrote that shield back. The fact and its whole
+ * derivation are gone: the shape needs three lone `+` lines with
+ * nothing between them and a blank in the middle, which no author
+ * writes on purpose.
+ *
+ * A FIELD LEAVING, where the four families above are fields arriving,
+ * and the mechanism is the same one either way: {@link blanketCoverage}
+ * strips the family's keys from BOTH dumps before comparing, so it
+ * cannot tell which side carried the key and does not need to. What a
+ * bare trailer claims is therefore unchanged - every differing case
+ * differs in the `detachedTail` key and nothing else.
+ *
+ * No formatted byte moves over this corpus. The printer wrote the
+ * shield only for an item whose last block is a paragraph holding a
+ * frozen `+`, and no corpus case spells one; what the deletion costs
+ * is measured on hand-written witnesses instead
+ * (tests/format/plus-run.test.ts and tests/format/description-list.test.ts).
+ * Measured against c9ded690, the landing's own base: 170 of the 1,620
+ * cases differ, all 170 in the AST alone and 0 in formatted bytes -
+ * 133 lists_test.rb, 29 docs pages, 4 api_test.rb, 2 sections_test.rb,
+ * 1 document_test.rb and test/fixtures/lists.adoc. Every one of the
+ * detailed pairs the gate printed is equal once the key is stripped
+ * from both sides, and in every one the key stood on the BASE side
+ * alone. The 1,450 that do not differ are the cases holding no
+ * list-like item at all.
+ *
+ * NOT formatted-only: the key IS the difference, and a formatted-only
+ * family would fail the cross-check for every case.
+ *
+ * Not exported: no grid row cites it.
+ */
+const DETACHED_TAIL_RECORD_FAMILY = "detached-tail-record";
 export const LEDGER_FAMILIES: FamilySets = {
   families: new Set([
     ATTRIBUTE_CONTINUATION_FAMILY,
@@ -959,6 +993,7 @@ export const LEDGER_FAMILIES: FamilySets = {
     SPAN_MARK_RECORD_FAMILY,
     HEAD_DRAIN_RECORD_FAMILY,
     READING_RECORD_FAMILY,
+    DETACHED_TAIL_RECORD_FAMILY,
   ]),
   formattedOnly: new Set([
     AUTHOR_PLUS_FAMILY,
@@ -977,16 +1012,20 @@ export const LEDGER_FAMILIES: FamilySets = {
     TABLE_LAYOUT_FAMILY,
     TABLE_WIDTH_LAYOUT_FAMILY,
   ]),
-  // Seven families, and each owns exactly the field it named, as the
+  // Eight families, and each owns exactly the field it named, as the
   // dumper serializes it: `ParagraphNode.firstWordEndsItsLine`,
   // `ParagraphNode.blankBelowAnchorLine`,
   // `TableCellNode.columnIndex`, `ParagraphNode.secondLineIndent`,
   // the `marks` record on the four mark spans, the `headDrain` record
-  // on the body both list-like items share, and the `reading` on
-  // every prose-block carrier (all src/ast.ts). Every other family
-  // names a change to what the tree MEANS at some ids; these seven
-  // name a field every paragraph, every table cell, every mark span,
-  // every list item or every prose block gained.
+  // on the body both list-like items share, the `reading` on every
+  // prose-block carrier, and the `detachedTail` that body used to
+  // carry (all src/ast.ts). Every other family names a change to what
+  // the tree MEANS at some ids; these eight name a field every
+  // paragraph, every table cell, every mark span, every list item or
+  // every prose block gained - or, for the last, LOST. The mechanism
+  // does not distinguish the two: it strips the keys from both dumps
+  // before comparing, so a field arriving and a field leaving are one
+  // claim about which key the difference is in.
   blanketKeys: new Map([
     [BLOCK_START_LINE_FACT_FAMILY, new Set(["firstWordEndsItsLine"])],
     [BLANK_BELOW_ANCHOR_LINE_FACT_FAMILY, new Set(["blankBelowAnchorLine"])],
@@ -995,8 +1034,31 @@ export const LEDGER_FAMILIES: FamilySets = {
     [SPAN_MARK_RECORD_FAMILY, new Set(["marks"])],
     [HEAD_DRAIN_RECORD_FAMILY, new Set(["headDrain"])],
     [READING_RECORD_FAMILY, new Set(["reading"])],
+    [DETACHED_TAIL_RECORD_FAMILY, new Set(["detachedTail"])],
   ]),
 };
+
+/**
+ * The blanket keys that name a field `src/ast.ts` no longer declares,
+ * because the landing that owns the family DELETED it.
+ *
+ * Every other blanket key names a field the tree gained, and
+ * tests/scripts/parity-ledger.test.ts holds it to `astFields`: a key
+ * that names nothing strips nothing from either side, so a typo would
+ * excuse the very diff the family was written to bound. A departure
+ * inverts that check rather than escaping it - the key must name
+ * nothing at HEAD, and naming something would mean the field is still
+ * there and the family is describing a landing that did not happen.
+ *
+ * Written down here rather than inferred from the absence, so the two
+ * directions cannot be confused by a typo: an arrival key spelled
+ * wrong is absent from `astFields` too, and only this list says which
+ * absences were meant.
+ * @internal
+ */
+export const DEPARTED_BLANKET_KEYS: ReadonlySet<string> = new Set([
+  "detachedTail",
+]);
 
 /** One expected-diff ledger entry: a case allowed to differ, and why. */
 export interface ExpectedDiff {

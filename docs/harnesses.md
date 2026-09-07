@@ -1747,11 +1747,9 @@ count):
   pair (l.1439) or one standing under a blank line (l.1576). Erasure alone does
   not lose the byte: where such a `+` ATTACHED a block it comes back as that
   block's gap, which is why `"* a\n+\npara\n"` keeps its byte. In every row of
-  this class it attached nothing, and there its one route back is the shield
-  `ListItemNode.detachedTail` writes, which needs a trailing `+`-paragraph to
-  shield; an item with nothing to shield loses the byte. This is the plurality,
-  and the pair that isolates it has the same inert tail and opposite outcomes:
-  `"* a\n+\n"` keeps the byte, `"* a\n\n+\n"` drops it.
+  this class it attached nothing, and there it has no route back at all. This is
+  the plurality, and the pair that isolates it has the same inert tail and
+  opposite outcomes: `"* a\n+\n"` keeps the byte, `"* a\n\n+\n"` drops it.
 - the remaining **100** carry a `+` above a blank line. The pop takes it, but a
   `+` printed there ERASES and arms on re-read instead of popping, so the byte
   is dropped rather than made to mean something the source did not.
