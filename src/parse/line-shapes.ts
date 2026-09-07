@@ -255,19 +255,23 @@ export interface ReaderContext {
    * then `unshift ''`, reader.rb l.993-997), and needs no missing
    * file to do it (issue #231).
    *
-   * SIX rules are held off while this is true, and they are the ones
-   * whose reading the printer turns into bytes that move. Four are in
-   * `classifyBlockStart` (lines/classify.ts): the block title and the
-   * attribute entry, each of which becomes a block of its own that
-   * the printer separates from the next with a blank line, splitting
-   * the one paragraph the oracle reads (issue #230), and the two
-   * section-title spellings, the setext one respelled as an ATX
-   * heading and the ATX one given the same heading spacing (issues
-   * #213, #229). The other two are the layout break's alternatives
+   * SEVEN rules are held off while this is true, and they are the
+   * ones whose reading the printer turns into bytes that move. Four
+   * are in `classifyBlockStart` (lines/classify.ts): the block title
+   * and the attribute entry, each of which becomes a block of its own
+   * that the printer separates from the next with a blank line,
+   * splitting the one paragraph the oracle reads (issue #230), and
+   * the two section-title spellings, the setext one respelled as an
+   * ATX heading and the ATX one given the same heading spacing
+   * (issues #213, #229). Two more are the layout break's alternatives
    * (`ExtLayoutBreakRx`), reprinted as the canonical break or page
-   * break (issue #210). Held off, each line drops to the ladder's
-   * text fallback, which is Asciidoctor's own reading once the
-   * substituted content opens a paragraph.
+   * break (issue #210). The seventh is the block macro
+   * (`BlockMacroRx`), which carries both of those costs at once: its
+   * brackets are an attribute list the printer respells, and it is a
+   * block of its own with a blank line under it (issue #232). Held
+   * off, each line drops to the ladder's text fallback, which is
+   * Asciidoctor's own reading once the substituted content opens a
+   * paragraph.
    *
    * The arms NOT held off are the ones a paragraph does not swallow.
    * `read_paragraph_lines` (parser.rb l.962-970) breaks on a blank
@@ -280,9 +284,22 @@ export interface ReaderContext {
    * arm does not, which is why a marker below a substitution is
    * paragraph text to the oracle.) The rest of
    * `next_block`'s ladder is read below the substitution too, and
-   * wrongly, but each of those arms prints its line back where it
-   * stands; the one measured exception is the block macro's attrlist
-   * (issue #232).
+   * wrongly, and each of those arms prints its LINE back where it
+   * stands. The seven above are the ones held off, and the claim
+   * this field carries covers those seven and no more: printing a
+   * line back where it stands is not the same as printing the
+   * DOCUMENT back, and the LIST-MARKER arm is the measured case
+   * where it is not enough. Below a substitution the oracle reads
+   * `* a` as the paragraph's own text and only a later `* b` as a
+   * list; this reader reads one list over both, and the printer's
+   * list normalization then drops the blank line the author wrote
+   * between them, so `include::p[]` over `* a`, a blank line and
+   * `* b` prints the two markers adjacent and a whole `<ul>` leaves
+   * the render under Asciidoctor 2.0.26 and `@asciidoctor/core`
+   * 4.0.11 alike. Every marker's own line is intact; the blank
+   * line BETWEEN items is what moves, which is why holding the arm
+   * off would not be the fix. Open as #261, and not this field's to
+   * answer.
    */
   readonly substitutedContentAbove: boolean;
   /**

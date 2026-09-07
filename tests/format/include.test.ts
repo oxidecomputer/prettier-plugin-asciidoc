@@ -321,3 +321,138 @@ describe("block metadata between an include and the construct", () => {
     );
   });
 });
+
+/**
+ * Issue #232: the block macro, which carries BOTH mechanisms at once.
+ * Its brackets are respelled (`canonicalAttrlist`, printer.ts) the way
+ * a layout break's characters are, and it is a block of its own, so
+ * the printer puts a blank line under it the way it does under a
+ * heading. `include::p[]` over `image::a.png[ alt ]` came back with
+ * the padding stripped, where the oracle reads the second line as
+ * prose inside the paragraph the substituted content opened and
+ * renders the brackets as text.
+ *
+ * `BlockMacroRx` is read at a block boundary and nowhere else, and
+ * `read_paragraph_lines` does not break on it, so under substituted
+ * content the line is paragraph text to Asciidoctor. Held off, it is
+ * paragraph text here too and the bytes stand.
+ */
+describe("a block macro directly under an include", () => {
+  // One row per name BLOCK_MACRO admits, each with padding inside the
+  // brackets so the respelling is visible in the bytes.
+  test.each([
+    ["an image", "include::p[]\nimage::a.png[ alt ]\n"],
+    ["a video", "include::p[]\nvideo::a.mp4[ alt ]\n"],
+    ["an audio", "include::p[]\naudio::a.mp3[ alt ]\n"],
+    ["a toc", "include::p[]\ntoc::[ levels=2 ]\n"],
+  ])("%s keeps its bytes", async (_name, input) => {
+    await expectFormatted(input, input);
+  });
+
+  // The same under the other substituting directive, which needs no
+  // missing file to show it (issue #231).
+  test("a macro under a body-bearing conditional keeps its bytes", async () => {
+    const input = "ifndef::zz[body]\nimage::a.png[ alt ]\n";
+    await expectFormatted(input, input);
+  });
+
+  // The two containers the layout-break rows are measured in.
+  test.each([
+    ["a list item", "* item\n+\ninclude::p[]\nimage::a.png[ alt ]\n"],
+    ["an open block", "--\ninclude::p[]\nimage::a.png[ alt ]\n--\n"],
+    ["a document body", "before\n\ninclude::p[]\nimage::a.png[ alt ]\n"],
+  ])("a macro under an include in %s keeps its bytes", async (_n, input) => {
+    await expectFormatted(input, input);
+  });
+
+  // The lines the preprocessor deletes do not restore the boundary,
+  // and neither does the block metadata the oracle's paragraph
+  // swallows (issue #230).
+  test.each([
+    ["a comment", "include::p[]\n// c\nimage::a.png[ alt ]\n", undefined],
+    [
+      "a conditional",
+      "include::p[]\nifdef::x[]\nimage::a.png[ alt ]\n",
+      undefined,
+    ],
+    [
+      "a block title",
+      "include::p[]\n.Title\nimage::a.png[ alt ]\n",
+      "include::p[]\n.Title image::a.png[ alt ]\n",
+    ],
+    [
+      "an attribute entry",
+      "include::p[]\n:name: v\nimage::a.png[ alt ]\n",
+      "include::p[]\n:name: v image::a.png[ alt ]\n",
+    ],
+  ])("%s between does not restore the boundary", async (_n, input, out) => {
+    await expectFormatted(input, out ?? input);
+  });
+
+  // A blank line, an attribute list and a block anchor each put the
+  // macro back at a boundary, where the attrlist canonicalizes as it
+  // does with no include in the document at all.
+  test.each([
+    [
+      "a blank line",
+      "include::p[]\n\nimage::a.png[ alt ]\n",
+      "include::p[]\n\nimage::a.png[alt]\n",
+    ],
+    [
+      "an attribute list",
+      "include::p[]\n[NOTE]\nimage::a.png[ alt ]\n",
+      "include::p[]\n[NOTE]\nimage::a.png[alt]\n",
+    ],
+    [
+      "a block anchor",
+      "include::p[]\n[[a]]\nimage::a.png[ alt ]\n",
+      "include::p[]\n[[a]]\nimage::a.png[alt]\n",
+    ],
+    [
+      "a deleted conditional with no body",
+      "ifdef::zz[]\nimage::a.png[ alt ]\n",
+      "ifdef::zz[]\nimage::a.png[alt]\n",
+    ],
+  ])("%s restores the canonical spelling", async (_n, input, out) => {
+    await expectFormatted(input, out);
+  });
+
+  // Text below folds into the same paragraph, the trade every other
+  // held-off arm makes.
+  test.each([
+    [
+      "a padded attrlist",
+      "include::p[]\nimage::a.png[ alt ]\nmore\n",
+      "include::p[]\nimage::a.png[ alt ] more\n",
+    ],
+    // The BLANK LINE mechanism on its own: nothing here is respelled,
+    // and the blank the printer put under the macro block still split
+    // the one paragraph the oracle reads into two blocks.
+    [
+      "an empty attrlist",
+      "include::p[]\nimage::a.png[]\nmore\n",
+      "include::p[]\nimage::a.png[] more\n",
+    ],
+    ["a toc", "include::p[]\ntoc::[]\nmore\n", "include::p[]\ntoc::[] more\n"],
+  ])("a macro with %s folds with the text below it", async (_n, input, out) => {
+    await expectFormatted(input, out);
+  });
+
+  // The negative shapes: with no substituted content above, the macro
+  // is a block and prints as one.
+  test.each([
+    ["at document top", "image::a.png[ alt ]\n", "image::a.png[alt]\n"],
+    [
+      "under a heading",
+      "== H\nimage::a.png[ alt ]\n",
+      "== H\n\nimage::a.png[alt]\n",
+    ],
+    [
+      "after a paragraph",
+      "text\n\nimage::a.png[ alt ]\n",
+      "text\n\nimage::a.png[alt]\n",
+    ],
+  ])("a macro %s canonicalizes", async (_n, input, out) => {
+    await expectFormatted(input, out);
+  });
+});

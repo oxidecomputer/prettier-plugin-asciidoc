@@ -326,30 +326,6 @@
       "family": "join-changes-reading"
     },
     {
-      "id": "line/pair/block-macro-near-0/attrlist-near-0/adjacent/doc",
-      "pass": "p1",
-      "signature": "[<paragraph(blankBelowAnchorLine=false) .children inlineMacro(attrlist=\"[+1\",name=\"image\",target=\":a.png\") .whitespace <-(kind=\"reflowable\") .runs >- >paragraph] -> [blockMacro(attrlist=\"[+1\",name=\"image\",target=\"a.png\")]",
-      "family": "join-changes-reading"
-    },
-    {
-      "id": "line/pair/block-macro-near-0/attrlist-near-0/adjacent/item",
-      "pass": "p1",
-      "signature": "[<paragraph(blankBelowAnchorLine=false) .children inlineMacro(attrlist=\"[+1\",name=\"image\",target=\":a.png\") .whitespace <-(kind=\"reflowable\") .runs >- >paragraph] -> [blockMacro(attrlist=\"[+1\",name=\"image\",target=\"a.png\")]",
-      "family": "join-changes-reading"
-    },
-    {
-      "id": "line/pair/block-macro-near-0/attrlist-near-1/adjacent/doc",
-      "pass": "p1",
-      "signature": "[<paragraph(blankBelowAnchorLine=false) .children inlineMacro(attrlist=\"[*bold*\",name=\"image\",target=\":a.png\") .whitespace <-(kind=\"reflowable\") .runs >- >paragraph] -> [blockMacro(attrlist=\"[*bold*\",name=\"image\",target=\"a.png\")]",
-      "family": "join-changes-reading"
-    },
-    {
-      "id": "line/pair/block-macro-near-0/attrlist-near-1/adjacent/item",
-      "pass": "p1",
-      "signature": "[<paragraph(blankBelowAnchorLine=false) .children inlineMacro(attrlist=\"[*bold*\",name=\"image\",target=\":a.png\") .whitespace <-(kind=\"reflowable\") .runs >- >paragraph] -> [blockMacro(attrlist=\"[*bold*\",name=\"image\",target=\"a.png\")]",
-      "family": "join-changes-reading"
-    },
-    {
       "id": "line/pair/block-macro-near-0/attrlist/two-blank/dlist-desc-line",
       "pass": "p1",
       "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"image::a.png[\") .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"image::a.png[\") .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList]",
@@ -359,54 +335,6 @@
       "id": "line/pair/block-macro-near-0/block-anchor/two-blank/dlist-desc-line",
       "pass": "p1",
       "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"image::a.png[\") .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"image::a.png[\") .whitespace <-(kind=\"reflowable\") .runs >- >descriptionListItem >descriptionList]",
-      "family": "join-changes-reading"
-    },
-    {
-      "id": "line/pair/block-macro-near-0/block-macro-near-1/adjacent/doc",
-      "pass": "p1",
-      "signature": "[<paragraph(blankBelowAnchorLine=false) .children inlineMacro(attrlist=\"image:a.png[\",name=\"image\",target=\":a.png\") .whitespace <-(kind=\"reflowable\") .runs >- >paragraph] -> [blockMacro(attrlist=\"image:a.png[\",name=\"image\",target=\"a.png\")]",
-      "family": "join-changes-reading"
-    },
-    {
-      "id": "line/pair/block-macro-near-0/block-macro-near-1/adjacent/item",
-      "pass": "p1",
-      "signature": "[<paragraph(blankBelowAnchorLine=false) .children inlineMacro(attrlist=\"image:a.png[\",name=\"image\",target=\":a.png\") .whitespace <-(kind=\"reflowable\") .runs >- >paragraph] -> [blockMacro(attrlist=\"image:a.png[\",name=\"image\",target=\"a.png\")]",
-      "family": "join-changes-reading"
-    },
-    {
-      "id": "line/pair/block-macro-near-0/block-macro/adjacent/doc",
-      "pass": "p1",
-      "signature": "[<paragraph(blankBelowAnchorLine=false) .children inlineMacro(attrlist=\"image::a.png[\",name=\"image\",target=\":a.png\") .whitespace <-(kind=\"reflowable\") .runs >- >paragraph] -> [blockMacro(attrlist=\"image::a.png[\",name=\"image\",target=\"a.png\")]",
-      "family": "join-changes-reading"
-    },
-    {
-      "id": "line/pair/block-macro-near-0/block-macro/adjacent/item",
-      "pass": "p1",
-      "signature": "[<paragraph(blankBelowAnchorLine=false) .children inlineMacro(attrlist=\"image::a.png[\",name=\"image\",target=\":a.png\") .whitespace <-(kind=\"reflowable\") .runs >- >paragraph] -> [blockMacro(attrlist=\"image::a.png[\",name=\"image\",target=\"a.png\")]",
-      "family": "join-changes-reading"
-    },
-    {
-      "id": "line/pair/block-macro-near-0/conditional-near-0/adjacent/doc",
-      "pass": "p1",
-      "signature": "[<paragraph(blankBelowAnchorLine=false) .children inlineMacro(attrlist=\"ifdef:x[\",name=\"image\",target=\":a.png\") .whitespace <-(kind=\"reflowable\") .runs >- >paragraph] -> [blockMacro(attrlist=\"ifdef:x[\",name=\"image\",target=\"a.png\")]",
-      "family": "join-changes-reading"
-    },
-    {
-      "id": "line/pair/block-macro-near-0/conditional-near-0/adjacent/item",
-      "pass": "p1",
-      "signature": "[<paragraph(blankBelowAnchorLine=false) .children inlineMacro(attrlist=\"ifdef:x[\",name=\"image\",target=\":a.png\") .whitespace <-(kind=\"reflowable\") .runs >- >paragraph] -> [blockMacro(attrlist=\"ifdef:x[\",name=\"image\",target=\"a.png\")]",
-      "family": "join-changes-reading"
-    },
-    {
-      "id": "line/pair/block-macro-near-0/include-near-0/adjacent/doc",
-      "pass": "p1",
-      "signature": "[<paragraph(blankBelowAnchorLine=false) .children inlineMacro(attrlist=\"include:p[\",name=\"image\",target=\":a.png\") .whitespace <-(kind=\"reflowable\") .runs >- >paragraph] -> [blockMacro(attrlist=\"include:p[\",name=\"image\",target=\"a.png\")]",
-      "family": "join-changes-reading"
-    },
-    {
-      "id": "line/pair/block-macro-near-0/include-near-0/adjacent/item",
-      "pass": "p1",
-      "signature": "[<paragraph(blankBelowAnchorLine=false) .children inlineMacro(attrlist=\"include:p[\",name=\"image\",target=\":a.png\") .whitespace <-(kind=\"reflowable\") .runs >- >paragraph] -> [blockMacro(attrlist=\"include:p[\",name=\"image\",target=\"a.png\")]",
       "family": "join-changes-reading"
     },
     {

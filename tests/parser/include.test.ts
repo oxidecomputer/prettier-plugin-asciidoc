@@ -70,3 +70,26 @@ describe("include directive lines at block level", () => {
     ).toBe(true);
   });
 });
+
+// Issue #232: a block macro is read at a block boundary and nowhere
+// else, and `read_paragraph_lines` does not break on one, so under an
+// include's substituted content the line is paragraph text. The node
+// says so: a paragraph beside the directive, with no blockMacro
+// anywhere in the document.
+describe("a block macro under an include", () => {
+  test("is paragraph text, not a blockMacro node", () => {
+    const { children } = parse("include::p[]\nimage::a.png[ alt ]\n");
+    expect(children).toHaveLength(2);
+    narrow(children[0], "preprocessorDirective");
+    const paragraph = asParagraph(children[1]);
+    expect(paragraph.children.map((child) => child.type)).toEqual(["text"]);
+  });
+
+  // A blank line puts it back at a boundary, where it is a block.
+  test("is a blockMacro again past a blank line", () => {
+    const { children } = parse("include::p[]\n\nimage::a.png[ alt ]\n");
+    expect(children).toHaveLength(2);
+    narrow(children[1], "blockMacro");
+    expect(children[1].attrlist).toBe(" alt ");
+  });
+});

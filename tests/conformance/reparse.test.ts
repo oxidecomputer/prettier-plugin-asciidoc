@@ -401,8 +401,19 @@ describe("the lens sees each corruption, and one arm names it", () => {
       "plus-respelled",
     ],
     [
-      "a join closes a bracket and mints a macro (#124)",
-      "image::a.png[\n[+1]\n",
+      // `image::a.png[\n[+1]\n` stood here and no longer does, with
+      // the twelve ledger rows that carried its shape. The join needed
+      // an inline macro token to span the newline, and that line only
+      // became one because the tokenizer let an image target start
+      // with a colon, which `InlineImageMacroRx` refuses
+      // (inline/rules.ts); the run is ordinary text now, so the
+      // block-start hazard net sees the join it would have made, and
+      // no ledgered document mints a block macro any more. The
+      // document here is one of the rows the family keeps: the join
+      // happens inside a monospace span, where the text it changes is
+      // the span's own.
+      "a join changes a mono span's text (#124)",
+      "`w\nx`\n",
       "join-changes-reading",
     ],
     [

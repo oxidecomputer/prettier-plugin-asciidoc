@@ -295,10 +295,12 @@ const biblioAnchorMatch = pattern(/\[\[\[[^\]\n]+\]\]\]/v);
 // `footnoteref` precedes `footnote` so the longer name wins.
 //
 // `icon` sits beside `image`: rx.rb l.476-486's InlineImageMacroRx is
-// `i(?:mage|con):...`, one pattern for both names, and its target
-// group has no leading boundary either - `microicon:x[]` matches from
-// the `icon:` onward the same way `Textfootnote:[x]` matches from the
-// `footnote:` onward (verified against the oracle).
+// `i(?:mage|con):...`, one pattern for both names, and the NAME has
+// no leading boundary either - `microicon:x[]` matches from the
+// `icon:` onward the same way `Textfootnote:[x]` matches from the
+// `footnote:` onward (verified against the oracle). Their TARGET is
+// narrower than every other name's, which is what the two groups
+// below are for.
 //
 // `stem`, `latexmath` and `asciimath` are one pattern in Ruby,
 // InlineStemMacroRx (rx.rb l.551):
@@ -310,8 +312,15 @@ const biblioAnchorMatch = pattern(/\[\[\[[^\]\n]+\]\]\]/v);
 // bare macro's empty target does, through the generic
 // `name:target[attrlist]` split every row in this table already gets
 // (inline-node-builder.ts's `makeInlineMacro`).
-const MACRO_NAMES =
-  "link|mailto|xref|image|icon|kbd|btn|menu|footnoteref|footnote|pass|stem|latexmath|asciimath";
+//
+// TWO groups, because `image`/`icon` take a narrower TARGET than the
+// rest and the InlineMacro rule below spells each group's own class.
+// The names themselves are still enumerated once: {@link MACRO_NAMES}
+// is the union, and InlineText's stop lookahead reads that.
+const IMAGE_MACRO_NAMES = "image|icon";
+const OTHER_MACRO_NAMES =
+  "link|mailto|xref|kbd|btn|menu|footnoteref|footnote|pass|stem|latexmath|asciimath";
+const MACRO_NAMES = `${IMAGE_MACRO_NAMES}|${OTHER_MACRO_NAMES}`;
 
 // A hard line break, enumerated ONCE for the same reason MACRO_NAMES
 // is: the HardLineBreak rule matches it and InlineText's stop
@@ -809,10 +818,37 @@ export const INLINE_RULES: readonly InlineRule[] = [
   // names enumerated rather than `[a-z]+`: a generic name matches
   // mid-word (`Textfootnote:`) and collides with `https://url[text]`.
   // The names and their order come from {@link MACRO_NAMES}.
+  //
+  // The image names take one more character of target than the rest,
+  // and it is the character that decides: InlineImageMacroRx (rx.rb
+  // l.486) opens its target group with `[^:\s\[]`, so a target that
+  // is EMPTY or starts with a COLON matches no macro at all and the
+  // run stays literal text. `image::a.png[ alt ]` is that shape, and
+  // read as a macro with the target `:a.png` its brackets went
+  // through `canonicalAttrlist` and lost their padding, where both
+  // programs render the line as prose with the padding intact (issue
+  // #232). Every other name keeps the shared class, which admits an
+  // empty target because `footnote:[x]`, `kbd:[x]`, `pass:[x]` and
+  // `stem:[x]` are all spelled with one.
+  //
+  // THAT FIRST CHARACTER IS ALL OF l.486 THIS FOLLOWS. Its target
+  // group is `[^:\s\[](?:[^\n\[]*[^\s\[])?` and the tail there admits
+  // interior SPACES, which the shared `[^\s\[]*` kept below does not,
+  // so `image:a b.png[x]` is an image macro to Asciidoctor 2.0.26 and
+  // @asciidoctor/core 4.0.11 and is prose here. The gap is older than
+  // this class split and is left alone on purpose: widening the tail
+  // is a reflow question, because what the narrow reading costs is a
+  // wrap INSIDE such a target (at printWidth 40 the run breaks after
+  // `image:a` and the `<img>` leaves the render in both programs).
+  // Issue #224 owns it, join direction and wrap direction alike.
   {
     type: "InlineMacro",
     match: pattern(
-      new RegExp(String.raw`(?:${MACRO_NAMES}):[^\s\[]*\[[^\]]*\]`, "v"),
+      new RegExp(
+        String.raw`(?:(?:${IMAGE_MACRO_NAMES}):[^:\s\[]|(?:${OTHER_MACRO_NAMES}):)` +
+          String.raw`[^\s\[]*\[[^\]]*\]`,
+        "v",
+      ),
     ),
   },
   // Bare URL, with or without an attrlist - InlineLinkRx. How far

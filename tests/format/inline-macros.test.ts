@@ -300,3 +300,46 @@ describe("bracket text - source newline collapses to a space", () => {
     await expectFormatted(input, "This is textfootnote:[a b] here.\n");
   });
 });
+
+/**
+ * The inline image macro's TARGET, whose first character
+ * `InlineImageMacroRx` excludes a colon from (rx.rb l.486,
+ * `i(?:mage|con):([^:\s\[](?:[^\n\[]*[^\s\[])?)\[`). A target that is
+ * empty or begins with a colon leaves the whole run as literal text,
+ * so `image::a.png[ alt ]` inside a paragraph is prose and its
+ * brackets are not an attribute list. Read as a macro, the printer
+ * respelled them and the render moved: both programs render
+ * `image::a.png[ alt ]` with the padding intact.
+ *
+ * The same run reaches a paragraph from two directions, and both are
+ * pinned here: a second line of an open paragraph, and a line under
+ * substituted content that the block-macro arm is held off for
+ * (issue #232, tests/format/include.test.ts).
+ */
+describe("an inline image macro whose target starts with a colon", () => {
+  test.each([
+    ["a doubled colon", "para image::a.png[ alt ]\n"],
+    ["a tripled colon", "para image:::a.png[ alt ]\n"],
+    ["an empty target", "para image:[ alt ]\n"],
+    ["an empty target and colon", "para image::[ alt ]\n"],
+    ["a name it ends", "para myimage::a.png[ alt ]\n"],
+    ["a second line", "para\nimage::a.png[ alt ]\n"],
+  ])("%s is literal text", async (_name, input) => {
+    await expectFormatted(input, input.replace("\nimage", " image"));
+  });
+
+  // The macro spellings the same pattern still admits: one colon and
+  // a target whose first character is not one. Unchanged by the
+  // target class, and canonicalized as every macro attrlist is.
+  test.each([
+    ["a plain target", "para image:a.png[ alt ]\n", "para image:a.png[alt]\n"],
+    ["an empty attrlist", "para image:a.png[]\n", "para image:a.png[]\n"],
+    [
+      "a name it ends",
+      "para Textimage:a.png[ alt ]\n",
+      "para Textimage:a.png[alt]\n",
+    ],
+  ])("%s is still a macro", async (_name, input, out) => {
+    await expectFormatted(input, out);
+  });
+});

@@ -764,13 +764,14 @@ export const metadataLineKind: (
  * first (it runs before `next_block` even reads the line), then
  * `next_section`'s title test, then `next_block`'s own ladder.
  *
- * SIX of the arms below are held off where the block start may not be
- * one to Asciidoctor: the four in {@link blockMetadataOrTitleKind}
- * and the two layout breaks in {@link classifyBlockBody}. Each is
- * read at a block boundary alone, and each turns into bytes that MOVE
- * when it fires below content the preprocessor substituted - the
- * spelling itself for a break or a setext title, and the blank line
- * the printer puts between blocks for the other three
+ * SEVEN of the arms below are held off where the block start may not
+ * be one to Asciidoctor: the four in {@link blockMetadataOrTitleKind}
+ * and the three in {@link blockBoundaryOnlyKind}, one group per
+ * function. Each is read at a block boundary alone, and each turns
+ * into bytes that MOVE when it fires below content the preprocessor
+ * substituted - the spelling itself for a break or a setext title,
+ * the blank line the printer puts between blocks for the other three,
+ * and BOTH for the macro
  * ({@link ReaderContext.substitutedContentAbove}, which names the
  * issue each row carries). Held off, they leave the line to the
  * ladder's text fallback, which is the reading Asciidoctor gives it.
@@ -782,7 +783,9 @@ export const metadataLineKind: (
  * The LAYOUT BREAK has a second reason to be held off, which none of
  * the arms above share because no `=====` run and no `[` line is also
  * a list-marker line: inside an open list a spaced `- - -` is an item
- * line, not a break ({@link reachesLayoutBreak}, #182).
+ * line, not a break (#182). The second group's arms therefore do not
+ * share one precondition, and what it is asked is which of them may
+ * claim the line ({@link blockBoundaryReach}).
  * @param line - one rstripped source line
  * @param reader - the reader's context view; the line below it (where
  *   a two-line construct may be read at all), whether substituted
@@ -820,26 +823,44 @@ function classifyBlockStart(line: string, reader: ReaderContext): LineKind {
   }
   return classifyBlockBody(
     line,
-    reachesLayoutBreak(line, substitutedContentAbove, reader),
+    blockBoundaryReach(line, substitutedContentAbove, reader),
   );
 }
 
 /**
- * Whether `next_block` reaches its layout-break arm at this line -
- * the two rows' whole precondition, asked at the one site that has
- * both of its reasons.
+ * Which of {@link blockBoundaryOnlyKind}'s arms may claim a line.
+ *
+ * The two reasons an arm is held off there do not cover the same
+ * arms, but they NEST, and these three states are the whole of what
+ * that leaves. Substituted content above holds off the entire group;
+ * a marker line holds off the two layout breaks and nothing else. So
+ * a line reaches no arm, or every arm but the two breaks, or all of
+ * them, and "reaches a break but not the macro" is not a state that
+ * can be spelled.
+ *
+ * The two breaks move as a PAIR because Ruby decides both with one
+ * test (`layout_break_chars.key? ch0`, parser.rb l.585-590), which is
+ * why the middle state names them together rather than one row at a
+ * time.
+ */
+type BlockBoundaryReach = "none" | "exceptLayoutBreaks" | "all";
+
+/**
+ * How far down that group a line reaches, asked at the one site that
+ * has both of the reasons an arm is held off.
  *
  * CONTENT THE PREPROCESSOR SUBSTITUTED directly above makes a block
- * start here not one to Asciidoctor at all, so a rule that destroys
- * the line's spelling may not fire
- * ({@link ReaderContext.substitutedContentAbove}, issues #210 and
- * #213). A MARKER LINE inside a list item keeps the reading the
+ * start here not one to Asciidoctor at all, so no arm whose reading
+ * costs the author's bytes may fire
+ * ({@link ReaderContext.substitutedContentAbove}, issues #210, #213
+ * and #232). A MARKER LINE inside a list item keeps the reading the
  * item's own scan gave it, except at the two positions a break can be
  * spelled at; that is Asciidoctor's own reading where `text_only`
  * covers it and this reader's knowing divergence at the rest
  * ({@link ReaderContext.markerLineWins}, #182 and #242). The second
  * reason is the only one that reads the line, because it is the only
- * one about a collision between two rows.
+ * one about a collision between two rows, and it is why the answer is
+ * three-valued rather than a yes or a no.
  *
  * ORDER IS COST. `substitutedContentAbove` is PASSED rather than read
  * off the context because it is a getter over a backwards walk and
@@ -852,20 +873,20 @@ function classifyBlockStart(line: string, reader: ReaderContext): LineKind {
  * @param substitutedContentAbove - see
  *   {@link ReaderContext.substitutedContentAbove}
  * @param reader - the reader's context view, for `markerLineWins`
- * @returns true when the two break rows may claim the line
+ * @returns which of the group's arms may claim the line
  */
-function reachesLayoutBreak(
+function blockBoundaryReach(
   line: string,
   substitutedContentAbove: boolean,
   reader: ReaderContext,
-): boolean {
+): BlockBoundaryReach {
   if (substitutedContentAbove) {
-    return false;
+    return "none";
   }
   if (parseListMarker(line) === undefined) {
-    return true;
+    return "all";
   }
-  return !reader.markerLineWins;
+  return reader.markerLineWins ? "exceptLayoutBreaks" : "all";
 }
 
 /**
@@ -926,30 +947,24 @@ function blockMetadataOrTitleKind(
  * `next_block` gates it on `!indented`, which is why `␠␠<1> x` falls
  * through to the literal paragraph instead.
  *
- * The two LAYOUT BREAK arms - the two alternatives of one Ruby rule,
- * `ExtLayoutBreakRx` - are the ones the caller can hold off: both are
- * read at a block boundary alone, and both print back a canonical
- * spelling (`'''`, `<<<`) that is not the one they read. Ruby skips
- * the pair together (one `layout_break_chars.key? ch0` test decides
- * both, parser.rb l.585-590), so they take ONE flag here
- * ({@link reachesLayoutBreak}) rather than two tests of the caller's
- * two reasons.
+ * The arms this ladder holds off below substituted content are
+ * grouped into {@link blockBoundaryOnlyKind}, the way
+ * {@link classifyBlockStart}'s four are grouped into
+ * {@link blockMetadataOrTitleKind}. The group is asked ONCE, but not
+ * with one flag: the two LAYOUT BREAK arms carry a second reason to
+ * be held off that the rest of the group does not, so what the group
+ * takes is which of its arms may claim the line
+ * ({@link BlockBoundaryReach}).
  * @param line - one rstripped source line
- * @param layoutBreak - whether `next_block` reaches its layout-break
- *   arm at this line ({@link classifyBlockStart} states the two
- *   reasons it may not)
+ * @param reach - which of {@link blockBoundaryOnlyKind}'s arms may
+ *   claim this line ({@link classifyBlockStart} states the two
+ *   reasons an arm may not)
  * @returns the line's kind; `text` when nothing claims it
  */
-function classifyBlockBody(line: string, layoutBreak: boolean): LineKind {
-  if (layoutBreak && THEMATIC_BREAK.test(line)) {
-    return { kind: "thematicBreak" };
-  }
-  if (layoutBreak && PAGE_BREAK.test(line)) {
-    return { kind: "pageBreak" };
-  }
-  const macro = parseBlockMacro(line);
-  if (macro !== undefined) {
-    return { kind: "blockMacro", ...macro };
+function classifyBlockBody(line: string, reach: BlockBoundaryReach): LineKind {
+  const atBoundary = blockBoundaryOnlyKind(line, reach);
+  if (atBoundary !== undefined) {
+    return atBoundary;
   }
   const marker = parseListMarker(line);
   if (marker !== undefined) {
@@ -968,6 +983,50 @@ function classifyBlockBody(line: string, layoutBreak: boolean): LineKind {
     return { kind: "admonitionLabel", ...label };
   }
   return isLiteralLine(line) ? { kind: "indented" } : { kind: "text" };
+}
+
+/**
+ * The THREE arms of `next_block`'s ladder that are read at a block
+ * boundary and nowhere else, and so are the ones
+ * {@link classifyBlockStart}'s preconditions hold off.
+ *
+ * The two LAYOUT BREAKS are the two alternatives of one Ruby rule,
+ * `ExtLayoutBreakRx`, and each prints back a canonical spelling
+ * (`'''`, `<<<`) that is not the one it read. The BLOCK MACRO carries
+ * that cost and the blank line at once: its brackets are always an
+ * attribute list and the printer respells them (`canonicalAttrlist`,
+ * print/printer.ts), and it is a block of its own, so the printer
+ * puts a blank line under it. Below substituted content both moved
+ * the render, and neither needs the other to: `image::a.png[ alt ]`
+ * lost its padding, and `image::a.png[]` over `more` was split into
+ * two blocks where the oracle reads one paragraph (issue #232).
+ *
+ * The two breaks are held off by a SECOND reason the macro is not,
+ * which is why `reach` says which arms may claim the line rather than
+ * whether any may: a spaced `- - -` inside an open list is that
+ * item's own marker line, while `image::a.png[]` is a macro wherever
+ * it stands ({@link BlockBoundaryReach}).
+ * @param line - one rstripped source line
+ * @param reach - which of these arms may claim the line
+ * @returns the line's kind, or undefined when no arm claims it
+ */
+function blockBoundaryOnlyKind(
+  line: string,
+  reach: BlockBoundaryReach,
+): LineKind | undefined {
+  if (reach === "none") {
+    return undefined;
+  }
+  if (reach === "all") {
+    if (THEMATIC_BREAK.test(line)) {
+      return { kind: "thematicBreak" };
+    }
+    if (PAGE_BREAK.test(line)) {
+      return { kind: "pageBreak" };
+    }
+  }
+  const macro = parseBlockMacro(line);
+  return macro === undefined ? undefined : { kind: "blockMacro", ...macro };
 }
 
 /**

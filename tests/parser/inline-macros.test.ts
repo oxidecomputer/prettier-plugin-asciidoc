@@ -469,3 +469,31 @@ describe("asciimath macro", () => {
     expect(node0.value).toBe("asciimath: not a macro");
   });
 });
+
+// `InlineImageMacroRx` (rx.rb l.486) opens its target group with
+// `[^:\s\[]`, so a target that is empty or starts with a colon leaves
+// the run as text. Read as a macro it became one with the target
+// `:a.png`, which no oracle reading has.
+describe("an inline image target that starts with a colon", () => {
+  test.each(["image::a.png[ alt ]", "image:[ alt ]", "image::[ alt ]"])(
+    "%s carries no inlineMacro node",
+    (body) => {
+      const { children } = parse(`para ${body}\n`);
+      expect(children).toHaveLength(1);
+      expect(
+        asParagraph(children[0]).children.some(
+          (child) => child.type === "inlineMacro",
+        ),
+      ).toBe(false);
+    },
+  );
+
+  test("a single colon and a plain target is still a macro", () => {
+    const { children } = parse("para image:a.png[ alt ]\n");
+    const macro = asParagraph(children[0]).children.find(
+      (child) => child.type === "inlineMacro",
+    );
+    narrow(macro, "inlineMacro");
+    expect(macro.target).toBe("a.png");
+  });
+});
