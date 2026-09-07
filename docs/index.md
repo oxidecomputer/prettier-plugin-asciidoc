@@ -10,8 +10,8 @@ Start here. One line on what each document is for, so you read the right one.
   policy, error handling, and the design decisions (hand-written parser, no
   runtime dependencies).
 - [coding-standards.md](coding-standards.md) — lint rules, comment and JSDoc
-  conventions, and the three-step recipe for adding a line-shaped or inline
-  construct.
+  conventions, what a test may assert, and the three-step recipe for adding a
+  line-shaped or inline construct.
 - [harnesses.md](harnesses.md) — what each tool under `scripts/` proves, the
   exit-code contract, the CI jobs, and the measurement discipline: the metrics
   scorecard, the design-quality budgets, mutation testing, and the recorded

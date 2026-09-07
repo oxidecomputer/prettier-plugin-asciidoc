@@ -657,8 +657,8 @@ export function printListItem(
   // that would delete this assertion (`p?.type === "list" ? p :
   // undefined`) buys nothing: it writes a branch whose false arm
   // cannot be reached and whose degrade is a silently wrong marker,
-  // which is the shape the interior-validation registry existed to
-  // forbid. The assertion states the boundary instead of hiding it.
+  // which is the branch docs/coding-standards.md forbids. The
+  // assertion states the boundary instead of hiding it.
   // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- an item's parent is its list by construction; narrowing here would add an unreachable branch with a silent wrong-marker degrade
   const parentList = path.getParentNode() as ListNode | undefined;
   // The marker's own leading whitespace goes back in front of it.

@@ -89,6 +89,17 @@ Make invalid states unrepresentable, and make every function total.
   disagree with the first - and that disagreement is where invalid states come
   from. Pass the fact down, carried in a type that makes it unforgeable.
 
+## Tests
+
+A test asserts a property of ONE implementation's output. A test whose assertion
+is that two of our own components agree is not accepted: the second component is
+the problem, and a test holding the two in agreement makes the duplication read
+as covered rather than as debt, so the fix is to delete one component and check
+the survivor against pinned bytes or the oracle. The oracle suite and
+`bun run parity` are not that shape - they compare against an external authority
+and against a prior checkout of this code, neither of which is a second
+component of ours.
+
 ## Line-Shaped Constructs
 
 A new construct that can appear as a whole line (a delimiter, a marker, a

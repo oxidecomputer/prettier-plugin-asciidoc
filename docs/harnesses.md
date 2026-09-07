@@ -1954,10 +1954,9 @@ complexity from eslint, coupling from `dependency-cruiser`, dead code from
 | 5   | **Escape hatches**          | `eslint-disable` comments, `as X` / `<X>` assertions (`as const` excluded), non-null `!`, `any`                                  | down                                | Ratchet with `--base`                                                                                              |
 | 6   | **Dead code + duplication** | Unused exports under `src`, `scripts` and `tests`; `src` exports with no `src` consumer; duplication % over the same three trees | zero unused, duplication down       | Hard gates: zero unused symbols, duplication under its recorded ceiling, every test-only export tagged `@internal` |
 
-The fourteen absolute gates (all in `scripts/metrics/gates.ts`) cover: import
+The eleven absolute gates (all in `scripts/metrics/gates.ts`) cover: import
 cycles, unresolved relative imports, layer-rule violations, unused exports, a
-duplication ceiling, untagged test-only exports, a resident agreement harness, a
-stale or unreadable interior-validation registry, a split defense marker, a
+duplication ceiling, untagged test-only exports, a split defense marker, a
 missing or unmeasurable named seam, an unregistered or stale crossing, a
 quarantine manifest off its pin, and a minimums file that no longer describes
 the source tree. The four ratchets (need `--base`): cognitive max per layer,
@@ -2033,24 +2032,23 @@ file — `src/print/printer.ts` is the standing hotspot).
 
 ## Design-quality budgets
 
-Three more families sit on the same table, measured by
+Two more families sit on the same table; the seam list is measured by
 `scripts/metrics/design.ts`:
 
-> These are budgets we maintain, not numbers a tool discovers. The seam list,
-> the interior-validation registry, and the harness list are each written by
-> hand and reviewed. What the tooling does is hold them to a ratchet and refuse
-> to let them rot.
+> The seam list is a budget we maintain, not a set of names a tool discovers: it
+> is written by hand and reviewed. What the tooling does is hold each row to a
+> ratchet and refuse to let the list rot.
 
-Two caveats apply to all three: **absence is unmeasurable** (we cannot count the
+Two caveats apply to both: **absence is unmeasurable** (we cannot count the
 defenses a better type made unnecessary — only the ones that remain), and **a
 defense may only be deleted with its need** (deleting a guard without removing
 the state it guarded moves the number and makes the code worse).
 
 One structural consequence shapes every gate here: because these ratchets fire
-on rise, the family can never detect an undercount — a deleted registry, a
-wrapped marker, and a renamed seam all report less, and less reads as progress.
-That is why a missing registry or seam is a hard failure rather than `n/a`, and
-why a split marker has its own detector.
+on rise, the family can never detect an undercount: a wrapped marker and a
+renamed seam both report less, and less reads as progress. That is why a missing
+seam is a hard failure rather than `n/a`, and why a split marker has its own
+detector.
 
 ### Seams: contracts and vocabulary
 
@@ -2086,9 +2084,10 @@ The layer DAG described in
 dependency-cruiser's rule engine on the same cruise the cycle gate reads. Every
 rule is a direction, not a symbol list, so it cannot be satisfied by moving a
 name. eslint's `no-restricted-imports` is deliberately not used as a second
-enforcer — that would be an agreement harness (below). Barrel files are refused
-for the same family of reasons: they defeat the unused-export gate and erase the
-module address a reader needs.
+enforcer, because that would be a test asserting that two of our own components
+agree, which [coding-standards.md](coding-standards.md#tests) does not accept.
+Barrel files are refused for the same family of reasons: they defeat the
+unused-export gate and erase the module address a reader needs.
 
 ### Defense inventory
 
@@ -2096,19 +2095,12 @@ Counts of code that defends against states the types still permit — the
 operational shadow of "make invalid states unrepresentable". Each category is a
 ratchet:
 
-| Category                   | What it counts                                                                 |
-| -------------------------- | ------------------------------------------------------------------------------ |
-| `unreachable()` sites      | Throwing can't-happen guards under `src` (currently zero)                      |
-| `Caller contract:` markers | A precondition the caller carries, stated in JSDoc                             |
-| `Total fallback:` markers  | A can't-happen branch that silently degrades instead of throwing               |
-| `Valid only when` markers  | A field whose validity depends on a sibling discriminant                       |
-| interior validation sites  | A validating conditional whose false branch can't happen, outside the boundary |
+| Category                  | What it counts                                                   |
+| ------------------------- | ---------------------------------------------------------------- |
+| `unreachable()` sites     | Throwing can't-happen guards under `src` (currently zero)        |
+| `Total fallback:` markers | A can't-happen branch that silently degrades instead of throwing |
 
-The registry (`defense-registry.json`) is disjoint from the marker counts: it is
-for the sites no marker can catch — a plain `if` or `??` that reads as ordinary
-code — which is why it is a list of judgements with a reason per site rather
-than a text search. Its own hard gate: every entry must still name a function
-that exists. Sanctioned validation boundary: `src/parse/line-shapes.ts`,
+Sanctioned validation boundary: `src/parse/line-shapes.ts`,
 `src/parse/lines/classify.ts`, and `tests/`; everything else in `src` is
 interior ("parse, don't validate").
 
@@ -2116,20 +2108,8 @@ Markers must stay on one comment line where written — the count is over commen
 text, and a wrap that splits a marker hides the defense. A counter that is zero
 at the base is skipped (a marker's introduction must not read as a regression);
 the cost is that a category driven to zero loses its gate until something
-re-enters it.
-
-### Agreement harnesses
-
-An absolute gate: **this must be 0.** An agreement harness is a resident test
-whose assertion compares the outputs of two of our own components against each
-other — the shape that makes two implementations of one rule permanently
-affordable, with a test holding the duplication in place so it reads as covered
-rather than as debt. Not harnesses, and fine: tests against pinned bytes, tests
-against the oracle (an external authority), `parity` (this checkout against a
-prior checkout), and property tests over one component's output. The gate is a
-declared list (currently empty) that must stay empty; the fix for a would-be
-harness is never to register it — it is to delete one of the two components and
-check the survivor against bytes or the oracle.
+re-enters it, which is why `Caller contract:` and `Valid only when` are no
+longer counted at all: both stood at zero, so no rise could ever fail them.
 
 ## The `@internal` split
 
@@ -2317,6 +2297,6 @@ Hotspots are Tornhill's churn × complexity (_Your Code as a Crime Scene_). Seam
 width is Henry–Kafura information flow and Parnas leakage, counted where
 declared; deep modules are Ousterhout's (_A Philosophy of Software Design_). The
 defense inventory descends from Meyer's Design by Contract and Alexis King's
-["Parse, don't validate"](https://lexi-lambda.github.io/blog/2019/11/05/parse-don-t-validate/);
-agreement harnesses are Page-Jones's connascence of algorithm with a test
-holding it in place.
+["Parse, don't validate"](https://lexi-lambda.github.io/blog/2019/11/05/parse-don-t-validate/).
+The rule against a test that asserts two of our own components agree is
+Page-Jones's connascence of algorithm with a test holding it in place.

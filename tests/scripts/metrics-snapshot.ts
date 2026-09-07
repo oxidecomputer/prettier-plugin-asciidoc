@@ -18,7 +18,7 @@ import {
  * @param options - the fields under test
  * @param options.label - the column label
  * @param options.repository - whether this checkout is the one the
- *   design registries describe; defaults to true
+ *   hand-maintained registries describe; defaults to true
  * @param options.files - files per layer; 0 means the layer is absent
  * @param options.cognitiveMax - cognitive MAX for every layer
  * @param options.cyclomaticOverCount - functions over the cyclomatic tail
@@ -33,16 +33,11 @@ import {
  * @param options.exportedSymbols - exported names under `src`
  * @param options.seams - seam widths; an absent seam has no members
  * @param options.totalFallback - `Total fallback:` marker count
- * @param options.interiorValidation - registry length; omitted means
- *   the revision has no registry at all
- * @param options.staleEntries - registry entries whose site is gone
- * @param options.registryFaults - why the registry could not be read
  * @param options.nearMisses - markers a line wrap has hidden
  * @param options.crossings - crossings-registry length
  * @param options.unregisteredCrossings - crossings no row names
  * @param options.staleCrossings - rows whose crossing is gone
  * @param options.crossingFaults - why the crossings registry is unreadable
- * @param options.harnesses - declared agreement harnesses
  * @param options.untaggedInternal - src exports with no src consumer
  *   and no `@internal` tag
  * @param options.staleInternalTags - `@internal` tags on exports src
@@ -70,15 +65,11 @@ export function makeSnapshot(options: {
   exportedSymbols?: number;
   seams?: SeamWidth[];
   totalFallback?: number;
-  interiorValidation?: number;
-  staleEntries?: string[];
-  registryFaults?: string[];
   nearMisses?: string[];
   crossings?: number;
   unregisteredCrossings?: string[];
   staleCrossings?: string[];
   crossingFaults?: string[];
-  harnesses?: string[];
   untaggedInternal?: string[];
   staleInternalTags?: string[];
   conformanceFaults?: string[];
@@ -128,7 +119,6 @@ export function makeSnapshot(options: {
     seams: options.seams ?? [],
     defense: makeDefense(options),
     crossings: makeCrossings(options),
-    harnesses: options.harnesses ?? [],
     internal: makeInternal(options),
     ...makePins(options),
     dead: makeDead(options),
@@ -239,27 +229,16 @@ function makeCrossings(options: {
  * a passing default.
  * @param options - the same options `makeSnapshot` took
  * @param options.totalFallback - `Total fallback:` marker count
- * @param options.interiorValidation - registry length, or absent
- * @param options.staleEntries - entries whose site is gone
- * @param options.registryFaults - why the registry could not be read
  * @param options.nearMisses - markers a line wrap has hidden
  * @returns a complete Defense
  */
 function makeDefense(options: {
   totalFallback?: number;
-  interiorValidation?: number;
-  staleEntries?: string[];
-  registryFaults?: string[];
   nearMisses?: string[];
 }): Snapshot["defense"] {
   return {
     unreachableCalls: 0,
-    callerContract: 0,
     totalFallback: options.totalFallback ?? 0,
-    validOnlyWhen: 0,
-    interiorValidation: options.interiorValidation,
-    staleEntries: options.staleEntries ?? [],
-    registryFaults: options.registryFaults ?? [],
     markerNearMisses: options.nearMisses ?? [],
   };
 }

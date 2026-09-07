@@ -21,9 +21,8 @@
  * Gates (non-zero exit) live in `metrics/gates.ts`, which is where the
  * policy is stated and tested: an import cycle, an unresolved relative
  * import, a knip unused export under `src` or `scripts`, a `src`
- * export with no `src` consumer that does not carry `@internal`, a
- * resident agreement
- * harness, a stale interior-validation registry entry, an edge a layer
+ * export with no `src` consumer that does not carry `@internal`, an
+ * edge a layer
  * rule forbids, an unregistered or stale cross-directory crossing, a
  * quarantine manifest that has left its conformance pin, a minimums file
  * that no longer describes the source tree,
@@ -42,10 +41,9 @@
  * runs the suite. `bun run coverage` checks the coverage half and
  * `bun run mutate` the mutation half; see `scripts/metrics/score-minimums.ts`.
  *
- * The seam, defense and harness rows are BUDGETS WE MAINTAIN, not
- * numbers a tool discovers: the seam list, the interior-validation
- * registry and the harness list are written by hand in
- * `metrics/design.ts` and reviewed. See `docs/harnesses.md`.
+ * The seam rows are a BUDGET WE MAINTAIN, not a set of names a tool
+ * discovers: the seam list is written by hand in `metrics/design.ts`
+ * and reviewed. See `docs/harnesses.md`.
  *
  * This file is the command line only: argument parsing, materializing
  * the base revision, running the measurement, printing. The measuring
@@ -152,18 +150,11 @@ function rowsOf(snapshot: Snapshot): Array<[string, number | undefined]> {
   }
   rows.push(
     ["unreachable() sites", snapshot.defense.unreachableCalls],
-    ["Caller contract: markers", snapshot.defense.callerContract],
     ["Total fallback: markers", snapshot.defense.totalFallback],
-    ["Valid only when markers", snapshot.defense.validOnlyWhen],
-    ["interior validation sites", snapshot.defense.interiorValidation],
     // The registry's LENGTH, not a coupling score: it rises when the
     // tree gains a crossing somebody argued for, and that is not a
     // regression. What gates is membership, in both directions.
     ["registered crossings", snapshot.crossings.registered],
-    // "(declared)" because nothing scans `tests/`: this row is the
-    // length of a hand-written list, and a row that reads as measured
-    // when it is not is the one thing this scorecard must not print.
-    ["agreement harnesses (declared)", snapshot.harnesses.length],
     // The other half of the unused-export count. knip reads a test as
     // a consumer, so its zero says "nothing is orphaned", not
     // "everything is used by the parser". This row is the difference,

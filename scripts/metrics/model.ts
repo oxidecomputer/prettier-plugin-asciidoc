@@ -38,24 +38,23 @@ export const ONE = 1;
 export const NOT_FOUND = -1;
 
 /**
- * The comment markers the defense inventory counts, keyed by the
- * {@link Defense} field each one feeds.
+ * The comment marker the defense inventory counts.
  *
- * They live here, in the shared vocabulary, because two modules read
- * them: `scan.ts` counts them out of each file's comment trivia, and
- * `gates.ts` names them in a ratchet failure. Each marker must stay on
- * ONE line where it is written — the count is over comment text, and an
- * 80-column wrap that splits a marker in two hides the defense from the
- * inventory. `docs/harnesses.md` defines what each one means.
+ * It lives here, in the shared vocabulary, because two modules read
+ * it: `scan.ts` counts it out of each file's comment trivia, and
+ * `gates.ts` names it in a ratchet failure. The marker must stay on
+ * ONE line where it is written - the count is over comment text, and an
+ * 80-column wrap that splits it in two hides the defense from the
+ * inventory. `docs/harnesses.md` defines what it means.
+ *
+ * ONE marker, not a family. `Caller contract:` and `Valid only when`
+ * were the other two spellings and both stood at zero occurrences,
+ * where the ratchet's zero-at-base tolerance means no rise can ever
+ * fail: a counter that cannot fail is not a gate. They were removed
+ * rather than held at zero; the convention comes back with a counter
+ * only if a site does.
  */
-export const DEFENSE_MARKERS = {
-  callerContract: "Caller contract:",
-  totalFallback: "Total fallback:",
-  validOnlyWhen: "Valid only when",
-} as const;
-
-/** Which {@link Defense} counter one comment marker feeds. */
-export type MarkerKey = keyof typeof DEFENSE_MARKERS;
+export const TOTAL_FALLBACK_MARKER = "Total fallback:";
 
 /**
  * The function whose call sites count as a thrown can't-happen guard.
@@ -111,8 +110,8 @@ export interface FileScan {
   starExports: number;
   /** `unreachable(…)` call sites, as AST call expressions. */
   unreachableCalls: number;
-  /** Defense-marker occurrences in this file's comments. */
-  markers: Record<MarkerKey, number>;
+  /** `Total fallback:` occurrences in this file's comments. */
+  totalFallback: number;
   /** Markers a line wrap has hidden, as `line: marker`. */
   markerNearMisses: string[];
 }
@@ -246,31 +245,8 @@ export interface SeamWidth {
 interface Defense {
   /** `unreachable(…)` call sites under `src`. */
   unreachableCalls: number;
-  /** `Caller contract:` marker occurrences under `src`. */
-  callerContract: number;
   /** `Total fallback:` marker occurrences under `src`. */
   totalFallback: number;
-  /** `Valid only when` marker occurrences under `src`. */
-  validOnlyWhen: number;
-  /**
-   * Hand-audited interior-validation sites: the length of
-   * `scripts/metrics/defense-registry.json`, or undefined at a
-   * revision that has no registry to read.
-   */
-  interiorValidation: number | undefined;
-  /**
-   * Registry entries whose site is gone from the code, as
-   * `file: function`. Non-empty means the registry has rotted, which
-   * is a hard gate rather than a row.
-   */
-  staleEntries: string[];
-  /**
-   * Why the registry could not be read as one: missing, unparseable,
-   * or holding a malformed entry. A hard gate at HEAD; at an archived
-   * base nothing reads it, which is what keeps a historical revision
-   * with no registry reporting `n/a` instead of failing.
-   */
-  registryFaults: string[];
   /**
    * Markers a line wrap has hidden from the counts, as
    * `file:line: marker`. A hard gate: the marker counters can only
@@ -317,8 +293,8 @@ export interface Snapshot {
    *
    * False for an archived `--base` revision and for a `--root <dir>`
    * checkout. Those are measured — every number on the table is real —
-   * but not JUDGED by the seam list, the interior-validation registry
-   * or the marker convention, none of which is a fact about them. See
+   * but not JUDGED by the seam list, the crossings registry or the
+   * marker convention, none of which is a fact about them. See
    * `gates.ts`.
    */
   repository: boolean;
@@ -344,13 +320,6 @@ export interface Snapshot {
   defense: Defense;
   /** The crossings registry's length and both staleness directions. */
   crossings: Crossings;
-  /**
-   * Resident AGREEMENT HARNESSES, by test path — the category
-   * `scripts/metrics/design.ts` defines. The gate is that this stays
-   * empty, so a non-empty list is always a failure to read, never a
-   * number to compare.
-   */
-  harnesses: string[];
   /**
    * The `@internal` split of the `src` export surface: how much of it
    * exists for tests alone, and whether the tags are honest. See

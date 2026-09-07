@@ -1,18 +1,14 @@
 /**
  * What makes `bun run metrics` fail.
  *
- * Fourteen ABSOLUTE gates, checked at HEAD with or without a base: an
+ * Eleven ABSOLUTE gates, checked at HEAD with or without a base: an
  * import cycle (a cyclic group has no reading order), a relative import
  * that resolves to nothing (a hole in that graph, so the cycle gate
  * cannot see through it), an edge a LAYER RULE forbids (the direction
  * the stack is supposed to run in), an unused export under `src`,
  * `scripts` OR `tests` (the residue of
  * a half-finished deletion), a duplication ceiling exceeded (jscpd's
- * clone percentage over the same three trees), a resident agreement
- * harness (a test that holds two of our own components in permanent
- * agreement), a stale interior-validation registry entry (a registry
- * that has rotted is worse than no registry, because it reads as an
- * audit), a registry that cannot be READ at all, a defense marker
+ * clone percentage over the same three trees), a defense marker
  * split across two comment lines, an unregistered or stale
  * cross-directory crossing, a named seam that is missing or
  * unmeasurable, a `src` export with no `src` consumer that does not
@@ -24,14 +20,14 @@
  * a `src` too small to be this repository's is not a failing gate, it
  * is a scorecard that measured nothing, and the caller exits 2 for it.
  *
- * The last five exist because of one property of this family: every
+ * Four of them exist because of one property of this family: every
  * ratchet in it fires on RISE, so it can never see an UNDERCOUNT. A
- * deleted registry, a wrapped marker, a renamed seam, a shrinking
- * minimums file and a quarantine manifest that grew all report FEWER
+ * wrapped marker, a renamed seam, a shrinking minimums file and a
+ * quarantine manifest that grew all report FEWER
  * PROBLEMS, which a rise-only ratchet reads as progress. They are absolute
  * gates rather than ratchets for that reason, and they run on the head
- * snapshot only — an archived base with no registry and no marker
- * convention is measured, not judged.
+ * snapshot only, so an archived base with no marker convention is
+ * measured, not judged.
  *
  * Four RATCHETS, checked only against a `--base`: cognitive MAX per
  * layer, the escape hatches, each named CONTRACT's width, and each
@@ -110,13 +106,10 @@ const HATCHES = [
 ] as const;
 
 // The defense-inventory counters that ratchet, with the label each
-// gets in a failure. `interiorValidation` is not here: it is
-// `number | undefined` and gets its own check below.
+// gets in a failure.
 const DEFENSES = [
   ["unreachable() sites", "unreachableCalls"],
-  ["Caller contract: markers", "callerContract"],
   ["Total fallback: markers", "totalFallback"],
-  ["Valid only when markers", "validOnlyWhen"],
 ] as const;
 
 /**
@@ -207,25 +200,11 @@ function absoluteGates(head: Snapshot): string[] {
       `layer rule violated (see LAYER_RULES in scripts/metrics/graph.ts):\n  ${head.coupling.layerViolations.join("\n  ")}`,
     );
   }
-  failures.push(...deadCodeGates(head), ...duplicationGate(head));
-  // Not a ratchet: an agreement harness is the shape that makes two
-  // implementations of one rule permanently affordable, so the budget
-  // is zero and the fix is to delete the second component, never to
-  // hold the count steady. See `scripts/metrics/design.ts`.
-  if (head.harnesses.length > ZERO) {
-    failures.push(
-      `agreement harness (a test holding two of OUR components in agreement — delete one component, or check the survivor against the oracle or pinned bytes):\n  ${head.harnesses.join("\n  ")}`,
-    );
-  }
-  // A registry entry whose site is gone makes the registry read as an
-  // audit of code that no longer exists, which is worse than no
-  // registry at all.
-  if (head.defense.staleEntries.length > ZERO) {
-    failures.push(
-      `stale interior-validation registry entry (the site is gone — delete the entry from scripts/metrics/defense-registry.json):\n  ${head.defense.staleEntries.join("\n  ")}`,
-    );
-  }
-  failures.push(...undercountGates(head));
+  failures.push(
+    ...deadCodeGates(head),
+    ...duplicationGate(head),
+    ...undercountGates(head),
+  );
   return failures;
 }
 
@@ -233,14 +212,14 @@ function absoluteGates(head: Snapshot): string[] {
  * The checks that can see an UNDERCOUNT.
  *
  * Every ratchet in the design family fires on RISE, so it is blind in
- * exactly one direction: a deleted registry, a wrapped marker and a
- * renamed seam all report LESS, and less reads as progress. These are
+ * exactly one direction: a wrapped marker and a renamed seam both
+ * report LESS, and less reads as progress. These are
  * absolute gates for that reason — the only place the family can catch
  * itself being switched off.
  *
- * They run against THIS repository only. All three read hand-maintained
- * registries that describe it — the seam names, the audited sites,
- * the crossings rows, three marker spellings — so an archived
+ * They run against THIS repository only. All of them read
+ * hand-maintained registries that describe it (the seam names,
+ * the crossings rows, the marker spelling), so an archived
  * `--base` revision or a
  * `--root <dir>` checkout is measured by them and not judged: neither
  * has our registry, and failing a stranger's tree for not being us
@@ -254,15 +233,6 @@ function undercountGates(head: Snapshot): string[] {
     return [];
   }
   const failures: string[] = [];
-  // "A hard gate that goes quiet when its tool is missing is not a
-  // gate" applies to a registry as much as to knip: a
-  // deleted or corrupted registry file would otherwise disable the
-  // whole interior-validation family with a green build.
-  if (head.defense.registryFaults.length > ZERO) {
-    failures.push(
-      `the interior-validation registry could not be read, so the family could not be measured:\n  ${head.defense.registryFaults.join("\n  ")}`,
-    );
-  }
   if (head.defense.markerNearMisses.length > ZERO) {
     failures.push(
       `defense marker split across two comment lines, so it is not counted (rejoin it onto one line):\n  ${head.defense.markerNearMisses.join("\n  ")}`,
@@ -339,8 +309,8 @@ function crossingFaults(head: Snapshot): string[] {
 /**
  * The seam registry's own freshness.
  *
- * `CONTRACTS` + `VOCABULARY` is a hand-maintained list exactly as
- * `defense-registry.json` is, so it gets the same treatment: a named
+ * `CONTRACTS` + `VOCABULARY` is a hand-maintained list exactly as the
+ * crossings registry is, so it gets the same treatment: a named
  * seam that is not declared where the list says has left the budget,
  * and a rise-only ratchet reads its disappearance as nothing at all.
  * The flatness faults ride along here because they mean the same
@@ -425,17 +395,6 @@ function defenseRatchets(head: Snapshot, base: Snapshot): string[] {
     if (after > before) {
       failures.push(`${name}: ${String(before)} -> ${String(after)}`);
     }
-  }
-  const { interiorValidation: registryBefore } = was;
-  const { interiorValidation: registryAfter } = now;
-  if (
-    registryBefore !== undefined &&
-    registryAfter !== undefined &&
-    registryAfter > registryBefore
-  ) {
-    failures.push(
-      `interior validation sites: ${String(registryBefore)} -> ${String(registryAfter)}`,
-    );
   }
   return failures;
 }

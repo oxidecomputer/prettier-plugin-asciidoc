@@ -1,28 +1,22 @@
 /**
- * The three design-quality budgets: seam width, the defense inventory,
- * and agreement harnesses.
+ * The two design-quality budgets: seam width and the defense
+ * inventory.
  *
  * These are budgets the repository MAINTAINS, not numbers a tool
  * discovers, so what needs pinning is different in kind from the rest
  * of the scorecard: the COUNTING RULE (which interface members are
  * shared vocabulary, which mentions of a marker are defenses), the
- * registry's own freshness, and each gate's direction. See
+ * seam list's own freshness, and each gate's direction. See
  * `docs/harnesses.md`, "Design-quality budgets".
  */
 import { describe, test, expect } from "vitest";
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
-import {
-  readDesign,
-  readRegistry,
-  scanSeam,
-  staleEntries,
-} from "../../scripts/metrics/design.js";
+import { readSeams, scanSeam } from "../../scripts/metrics/design.js";
 import { gateFailures } from "../../scripts/metrics/gates.js";
 import { REPO_ROOT } from "../../scripts/metrics/model.js";
 import { scanSource } from "../../scripts/metrics/scan.js";
 import { makeSnapshot, seam, vocabulary } from "./metrics-snapshot.js";
-import { inCheckout } from "../lib/checkout.js";
 
 /**
  * Scan a snippet as if it were a source file.
@@ -64,23 +58,6 @@ function wrappedMarkersInSource(): string[] {
     }
   }
   return found;
-}
-
-/**
- * Read a registry out of a throwaway checkout holding exactly the given
- * file contents, or holding no registry at all.
- * @param contents - the registry file's bytes; omitted omits the file
- * @returns what `readRegistry` made of it
- */
-function readFixtureRegistry(
-  contents?: string,
-): ReturnType<typeof readRegistry> {
-  return inCheckout(
-    contents === undefined
-      ? {}
-      : { "scripts/metrics/defense-registry.json": contents },
-    readRegistry,
-  );
 }
 
 describe("seam width", () => {
@@ -163,7 +140,7 @@ describe("seam width", () => {
 
   // The shipped seams have to satisfy the flatness rule they impose.
   test("every named seam is flat, single, and declared where the registry says", () => {
-    for (const shipped of readDesign(REPO_ROOT).seams) {
+    for (const shipped of readSeams(REPO_ROOT)) {
       expect(shipped.fault, shipped.name).toBeUndefined();
       expect(shipped.members, shipped.name).toBeGreaterThan(0);
     }
@@ -171,38 +148,23 @@ describe("seam width", () => {
 });
 
 describe("defense marker counting", () => {
-  const none = { callerContract: 0, totalFallback: 0, validOnlyWhen: 0 };
-
   test.each([
-    [
-      "a line comment",
-      "// Total fallback: why\ncode();\n",
-      { ...none, totalFallback: 1 },
-    ],
-    [
-      "a JSDoc block",
-      "/** Valid only when `x` is set. */\nlet a: number;\n",
-      { ...none, validOnlyWhen: 1 },
-    ],
-    [
-      "a precondition marker",
-      "/**\n * Caller contract: `x` is non-empty.\n */\nfunction f(): void {}\n",
-      { ...none, callerContract: 1 },
-    ],
+    ["a line comment", "// Total fallback: why\ncode();\n", 1],
+    ["a JSDoc block", "/** Total fallback: why. */\nlet a: number;\n", 1],
     [
       "two markers in one comment, since each is a defended site",
-      "/**\n * Valid only when `f` is a.\n * Valid only when `f` is b.\n */\nlet a: number;\n",
-      { ...none, validOnlyWhen: 2 },
+      "/**\n * Total fallback: a.\n * Total fallback: b.\n */\nlet a: number;\n",
+      2,
     ],
     [
       "no marker at all",
       "// an ordinary comment about a fallback\ncode();\n",
-      none,
+      0,
     ],
     [
       "a marker spelled in a string literal, which is not a comment",
       'const s = "Total fallback: not a comment";\n',
-      none,
+      0,
     ],
     // The marker has to be on ONE line: the count is over comment
     // text, so an 80-column wrap that splits it hides the defense.
@@ -210,24 +172,23 @@ describe("defense marker counting", () => {
     // without deciding to.
     [
       "a marker broken across two comment lines, which is invisible",
-      "/**\n * Valid only\n * when `f` is a.\n */\nlet a: number;\n",
-      none,
+      "/**\n * Total\n * fallback: why.\n */\nlet a: number;\n",
+      0,
     ],
   ])("counts %s", (_name, text, expected) => {
-    expect(scan(text).markers).toEqual(expected);
+    expect(scan(text).totalFallback).toBe(expected);
   });
 
   // The near-miss detector. The counting hazard it closes is
   // one-directional and therefore silent: the ratchet fires on RISE, so
   // a marker that STOPS being counted reads as progress. Detection is a
-  // comparison — count the marker as written, then again with the
-  // comment's line breaks collapsed — so it needs no second pattern to
-  // keep in step with DEFENSE_MARKERS.
+  // comparison: count the marker as written, then again with the
+  // comment's line breaks collapsed, so it needs no second pattern.
   test.each([
     [
       "a JSDoc wrap, asterisk and all",
-      "/**\n * Valid only\n * when `f` is a.\n */\nlet a: number;\n",
-      ["1: Valid only when"],
+      "/**\n * Total\n * fallback: why.\n */\nlet a: number;\n",
+      ["1: Total fallback:"],
     ],
     [
       "a line-comment wrap with no asterisk",
@@ -236,8 +197,8 @@ describe("defense marker counting", () => {
     ],
     [
       "a wrap in a comment that also holds an intact marker",
-      "/**\n * Valid only when `f` is a.\n * Valid only\n * when `f` is b.\n */\nlet a: number;\n",
-      ["1: Valid only when"],
+      "/**\n * Total fallback: a.\n * Total\n * fallback: b.\n */\nlet a: number;\n",
+      ["1: Total fallback:"],
     ],
   ])("catches %s", (_name, text, expected) => {
     expect(scan(text).markerNearMisses).toEqual(expected);
@@ -252,7 +213,7 @@ describe("defense marker counting", () => {
     ],
     [
       "a marker at a line end followed by unrelated prose",
-      "/**\n * Valid only when `f` is a.\n * Something else entirely.\n */\nlet a: number;\n",
+      "/**\n * Total fallback: why.\n * Something else entirely.\n */\nlet a: number;\n",
     ],
   ])("does not fire on %s", (_name, text) => {
     expect(scan(text).markerNearMisses).toEqual([]);
@@ -260,9 +221,7 @@ describe("defense marker counting", () => {
 
   // Zero false positives over the shipped tree is what makes this a
   // hard gate rather than a warning, and this is the assertion that
-  // fails the day someone rewraps one of the shipped markers. Two of
-  // the five `Valid only when` markers sit flush at their line end, so
-  // the slack is nil.
+  // fails the day someone rewraps the shipped marker.
   test("no marker under src is wrapped today", () => {
     expect(wrappedMarkersInSource()).toEqual([]);
   });
@@ -279,157 +238,6 @@ describe("defense marker counting", () => {
     ["an import of it", 'import { unreachable } from "./u.js";\n', 0],
   ])("counts %s", (_name, text, expected) => {
     expect(scan(text).unreachableCalls).toBe(expected);
-  });
-});
-
-describe("the interior-validation registry", () => {
-  const reason = "why it is interior validation";
-
-  // The audited count, as a LITERAL. Comparing it to
-  // `readRegistry(...).length` would restate `readDesign`'s own
-  // definition and pass with no registry at all, which is exactly the
-  // hole this replaces: the number has to be changed BY HAND, as part
-  // of deciding that a site was added or designed away.
-  //
-  // Zero, and the empty registry beside it is the end state rather
-  // than a deleted file: the four audited sites were designed away by
-  // changing what their functions TAKE — the opening list item and the
-  // literal run's first line became their own parameters
-  // (build/list.ts, build/paragraph.ts), the trailing-line scan made
-  // the line itself its loop condition (lines/list-reader.ts), and
-  // isBoundary reads the character once and treats its absence as the
-  // out-of-range answer (inline/rules.ts). A new site is an addition
-  // to argue for, not a return to a budget.
-  const SHIPPED_ENTRIES = 0;
-
-  test("the shipped registry reads, holds its audited count, and is current", () => {
-    const { entries, faults } = readRegistry(REPO_ROOT);
-    expect(faults).toEqual([]);
-    expect(entries).toBeDefined();
-    expect(entries).toHaveLength(SHIPPED_ENTRIES);
-    const design = readDesign(REPO_ROOT);
-    expect(design.interiorValidation).toBe(SHIPPED_ENTRIES);
-    expect(design.staleEntries).toEqual([]);
-    expect(design.registryFaults).toEqual([]);
-  });
-
-  // Tamper case: the freshness net has to FIRE, not merely be green on
-  // a healthy tree. An entry naming a function nothing declares is the
-  // rot the gate exists for.
-  test("tampering with an entry's function name fires the staleness gate", () => {
-    const tampered = staleEntries(REPO_ROOT, [
-      {
-        file: "src/parse/inline/rules.ts",
-        function: "isBoundaryyy",
-        reason,
-      },
-    ]);
-    expect(tampered).toEqual(["src/parse/inline/rules.ts: isBoundaryyy"]);
-    const head = makeSnapshot({ staleEntries: tampered });
-    expect(gateFailures(head)[0]).toContain("stale interior-validation");
-  });
-
-  // H1: a registry that is not there is not "nothing to measure", it
-  // is a family that has been switched off. A hard gate that goes
-  // quiet when its input is missing is not a gate.
-  test("a missing registry is a fault, not a silent n/a", () => {
-    const { entries, faults } = readFixtureRegistry();
-    expect(entries).toBeUndefined();
-    expect(faults).toEqual([
-      "scripts/metrics/defense-registry.json: not found",
-    ]);
-    const head = makeSnapshot({ registryFaults: [...faults] });
-    expect(gateFailures(head)[0]).toContain("could not be read");
-  });
-
-  // M4: `parseJson` (for tool stdout) would swallow every one of
-  // these. A reviewed file in the repository gets strict parsing.
-  test.each([
-    ["empty bytes", "", "not valid JSON"],
-    ["a syntax error", '[{"file": "a"', "not valid JSON"],
-    ["leading noise before the array", "banner\n[]", "not valid JSON"],
-    ["an object instead of an array", "{}", "not a JSON array"],
-    ["a non-object element", '["a"]', "[0]: not an object"],
-    [
-      "a typo'd key",
-      '[{"file": "a", "functon": "b", "reason": "c"}]',
-      "unknown key(s) functon",
-    ],
-    [
-      "a non-string field",
-      '[{"file": "a", "function": 1, "reason": "c"}]',
-      "missing or non-string function",
-    ],
-    [
-      "an empty reason, which makes the entry a list row and not an audit",
-      '[{"file": "a", "function": "b", "reason": ""}]',
-      "missing or non-string reason",
-    ],
-    [
-      "a missing field",
-      '[{"file": "a", "function": "b"}]',
-      "missing or non-string reason",
-    ],
-  ])("rejects %s", (_name, contents, detail) => {
-    const { entries, faults } = readFixtureRegistry(contents);
-    expect(entries).toBeUndefined();
-    expect(faults).toHaveLength(1);
-    expect(faults[0]).toContain(detail);
-  });
-
-  test("accepts a well-formed registry", () => {
-    const { entries, faults } = readFixtureRegistry(
-      '[{"file": "a.ts", "function": "b", "reason": "c"}]',
-    );
-    expect(faults).toEqual([]);
-    expect(entries).toEqual([{ file: "a.ts", function: "b", reason: "c" }]);
-  });
-
-  // An empty array is a registry that says "no interior validation
-  // left" — a legitimate end state, and distinct from a missing file.
-  test("accepts an empty registry, which is not the same as no registry", () => {
-    const { entries, faults } = readFixtureRegistry("[]");
-    expect(faults).toEqual([]);
-    expect(entries).toEqual([]);
-  });
-
-  test("an entry naming a function that exists is not stale", () => {
-    expect(
-      staleEntries(REPO_ROOT, [
-        { file: "src/parse/build/list.ts", function: "buildList", reason },
-      ]),
-    ).toEqual([]);
-  });
-
-  test.each([
-    [
-      "the function is gone",
-      { file: "src/parse/build/list.ts", function: "goneForever", reason },
-      "src/parse/build/list.ts: goneForever",
-    ],
-    [
-      "the file is gone",
-      { file: "src/no-such-module.ts", function: "buildList", reason },
-      "src/no-such-module.ts: buildList",
-    ],
-  ])("fails when %s, so the registry cannot rot", (_name, entry, expected) => {
-    expect(staleEntries(REPO_ROOT, [entry])).toEqual([expected]);
-  });
-
-  test("finds a private method, which is where most guards live", () => {
-    expect(
-      staleEntries(REPO_ROOT, [
-        { file: "src/parse/lines/list-reader.ts", function: "finish", reason },
-      ]),
-    ).toEqual([]);
-  });
-});
-
-describe("agreement harnesses", () => {
-  // The audited value today: the historical hazard-vs-reader
-  // instrument was scratchpad-only and never became a resident test.
-  test("none are declared", () => {
-    expect(readDesign(REPO_ROOT).harnesses).toEqual([]);
   });
 });
 
@@ -467,8 +275,7 @@ describe("the design gates and ratchets", () => {
 
   // Base-absent cannot have widened, so it is skipped. HEAD-absent is
   // the seam list rotting — a renamed or deleted seam leaving the
-  // budget, which a rise-only ratchet reads as nothing at all. Same
-  // treatment as a stale registry entry.
+  // budget, which a rise-only ratchet reads as nothing at all.
   test("a seam absent at HEAD fails, with or without a base", () => {
     const head = makeSnapshot({ seams: [seam("Host")] });
     const [failure = ""] = gateFailures(head);
@@ -503,34 +310,12 @@ describe("the design gates and ratchets", () => {
     expect(gateFailures(head, base)).toEqual([]);
   });
 
-  test("a longer interior-validation registry fails", () => {
-    const base = makeSnapshot({ interiorValidation: 5 });
-    const head = makeSnapshot({ interiorValidation: 6 });
-    expect(gateFailures(head, base)).toEqual([
-      "interior validation sites: 5 -> 6",
-    ]);
-  });
-
-  test("a base with no registry cannot be regressed against", () => {
-    const base = makeSnapshot({});
-    const head = makeSnapshot({ interiorValidation: 5 });
-    expect(gateFailures(head, base)).toEqual([]);
-  });
-
-  test("a stale registry entry fails with or without a base", () => {
-    const head = makeSnapshot({ staleEntries: ["src/a.ts: gone"] });
-    expect(gateFailures(head)).toHaveLength(1);
-    expect(gateFailures(head)[0]).toContain("stale interior-validation");
-    expect(gateFailures(head)[0]).toContain("src/a.ts: gone");
-    expect(gateFailures(head, makeSnapshot({}))).toHaveLength(1);
-  });
-
   // The one gate that can see an UNDERCOUNT. Everything else in this
   // family fires on rise, so a marker that stops being counted reads
   // as progress.
   test("a wrapped marker fails with or without a base", () => {
     const head = makeSnapshot({
-      nearMisses: ["src/ast.ts:460: Valid only when"],
+      nearMisses: ["src/ast.ts:460: Total fallback:"],
     });
     expect(gateFailures(head)).toHaveLength(1);
     expect(gateFailures(head)[0]).toContain("split across two comment lines");
@@ -538,45 +323,23 @@ describe("the design gates and ratchets", () => {
     expect(gateFailures(head, makeSnapshot({}))).toHaveLength(1);
   });
 
-  test("a registry that could not be read fails with or without a base", () => {
-    const head = makeSnapshot({
-      registryFaults: ["scripts/metrics/defense-registry.json: not found"],
-    });
-    expect(gateFailures(head)).toHaveLength(1);
-    expect(gateFailures(head)[0]).toContain("could not be read");
-    expect(gateFailures(head, makeSnapshot({}))).toHaveLength(1);
-  });
-
-  // The three undercount gates read registries that describe THIS
-  // repository, so `--root <dir>` and an archived `--base` are measured
-  // by them and not judged. Without this, `--root` would fail on every
-  // foreign checkout — including the throwaway ones that test this
-  // CLI's own exit codes.
+  // The undercount gates read registries and conventions that describe
+  // THIS repository, so `--root <dir>` and an archived `--base` are
+  // measured by them and not judged. Without this, `--root` would fail
+  // on every foreign checkout, including the throwaway ones that test
+  // this CLI's own exit codes.
   test("a foreign checkout is measured, not judged, by the registries", () => {
     const foreign = makeSnapshot({
       repository: false,
-      registryFaults: ["scripts/metrics/defense-registry.json: not found"],
-      nearMisses: ["src/a.ts:1: Valid only when"],
+      nearMisses: ["src/a.ts:1: Total fallback:"],
       seams: [seam("Host")],
     });
     expect(gateFailures(foreign)).toEqual([]);
-    // …but the same facts about OUR tree are three failures.
+    // But the same facts about OUR tree are two failures.
     const ours = makeSnapshot({
-      registryFaults: ["scripts/metrics/defense-registry.json: not found"],
-      nearMisses: ["src/a.ts:1: Valid only when"],
+      nearMisses: ["src/a.ts:1: Total fallback:"],
       seams: [seam("Host")],
     });
-    expect(gateFailures(ours)).toHaveLength(3);
-  });
-
-  // Absolute, not a ratchet: the budget is zero because the second
-  // component is the problem, so "no more than last time" is not a
-  // thing to want.
-  test("a declared agreement harness fails with or without a base", () => {
-    const head = makeSnapshot({ harnesses: ["tests/parser/agree.test.ts"] });
-    expect(gateFailures(head)).toHaveLength(1);
-    expect(gateFailures(head)[0]).toContain("agreement harness");
-    expect(gateFailures(head)[0]).toContain("tests/parser/agree.test.ts");
-    expect(gateFailures(head, makeSnapshot({}))).toHaveLength(1);
+    expect(gateFailures(ours)).toHaveLength(2);
   });
 });

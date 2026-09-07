@@ -11,10 +11,9 @@
  * forces the question *is this one we meant to have?* at the moment
  * somebody adds it, in the diff, where it can be argued.
  *
- * The gate is ABSOLUTE and runs at HEAD in both directions, the same
- * shape as the interior-validation registry: a crossing the registry
- * does not name fails, and a registry row whose crossing is gone is
- * stale and fails. One direction alone would be worthless — a
+ * The gate is ABSOLUTE and runs at HEAD in BOTH directions: a crossing
+ * the registry does not name fails, and a registry row whose crossing
+ * is gone is stale and fails. One direction alone would be worthless: a
  * membership list that can rot reads as an audit of code that no
  * longer exists.
  *
@@ -423,10 +422,11 @@ export function readCrossingsRegistry(root: string): CrossingsRead {
 }
 
 /**
- * `JSON.parse` with the syntax error reported rather than swallowed —
- * the same treatment `design.ts` gives the interior-validation
- * registry, and deliberately not `json.ts`'s tool-stdout parser, which
- * degrades a syntax error to "no measurement".
+ * `JSON.parse` with the syntax error reported rather than swallowed,
+ * and deliberately not `json.ts`'s tool-stdout parser, which degrades
+ * a syntax error to "no measurement". A reviewed file in the
+ * repository that reads short is the failure this registry exists to
+ * prevent.
  * @param text - the file's bytes
  * @returns the parsed value, or the syntax error to report
  */

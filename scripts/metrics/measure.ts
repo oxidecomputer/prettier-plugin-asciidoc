@@ -18,7 +18,7 @@ import { measureComplexity } from "./complexity.js";
 import { readConformance } from "./conformance.js";
 import { readCrossings } from "./crossings.js";
 import { readDeadCode } from "./dead-code.js";
-import { readDesign } from "./design.js";
+import { readSeams } from "./design.js";
 import { readMinimumsFacts } from "./score-minimums.js";
 import { cruiseImports } from "./graph.js";
 import { readInternalSurface } from "./internal-surface.js";
@@ -131,8 +131,7 @@ export interface Measurement {
   configPath: string;
   /**
    * Whether this checkout is THIS repository, and so the one the
-   * hand-maintained design registries describe. See
-   * `Snapshot.repository`.
+   * hand-maintained registries describe. See `Snapshot.repository`.
    */
   repository: boolean;
 }
@@ -150,7 +149,6 @@ export async function measure(measurement: Measurement): Promise<Snapshot> {
   const { directory, label, configPath, repository } = measurement;
   const files = walkTypeScript(path.join(directory, "src")).toSorted();
   const scans = files.map((file) => scanFile(directory, file));
-  const design = readDesign(directory);
   const boundaries = readCrossings(directory);
   const graph = await cruiseImports(directory);
   const { cyclomatic, cognitive, cyclomaticOver } = measureComplexity(
@@ -179,15 +177,10 @@ export async function measure(measurement: Measurement): Promise<Snapshot> {
       nonNull: total(scans, (scan) => scan.nonNull),
       anyType: total(scans, (scan) => scan.anyType),
     },
-    seams: [...design.seams],
+    seams: readSeams(directory),
     defense: {
       unreachableCalls: unreachableSites(scans),
-      callerContract: total(scans, (scan) => scan.markers.callerContract),
-      totalFallback: total(scans, (scan) => scan.markers.totalFallback),
-      validOnlyWhen: total(scans, (scan) => scan.markers.validOnlyWhen),
-      interiorValidation: design.interiorValidation,
-      staleEntries: [...design.staleEntries],
-      registryFaults: [...design.registryFaults],
+      totalFallback: total(scans, (scan) => scan.totalFallback),
       markerNearMisses: nearMisses(scans),
     },
     crossings: {
@@ -196,7 +189,6 @@ export async function measure(measurement: Measurement): Promise<Snapshot> {
       stale: [...boundaries.stale],
       faults: [...boundaries.faults],
     },
-    harnesses: [...design.harnesses],
     internal: readInternalSurface(directory),
     conformance: readConformance(directory),
     minimums: readMinimumsFacts(

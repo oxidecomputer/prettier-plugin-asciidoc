@@ -16,12 +16,11 @@
  */
 import ts from "typescript";
 import {
-  DEFENSE_MARKERS,
   NOT_FOUND,
   ONE,
+  TOTAL_FALLBACK_MARKER,
   UNREACHABLE_CALLEE,
   ZERO,
-  type MarkerKey,
 } from "./model.js";
 
 /** Counts for one source file. */
@@ -48,8 +47,8 @@ export interface SourceCounts {
   starExports: number;
   /** `unreachable(…)` calls, as AST call expressions. */
   unreachableCalls: number;
-  /** Defense-marker OCCURRENCES in comment trivia, one per mention. */
-  markers: Record<MarkerKey, number>;
+  /** `Total fallback:` OCCURRENCES in comment trivia, one per mention. */
+  totalFallback: number;
   /**
    * Markers that read as a marker only once the comment's line breaks
    * are collapsed — i.e. wrapped, and therefore uncounted. One
@@ -231,8 +230,8 @@ function countDisables(sourceFile: ts.SourceFile): number {
  * How many times one string occurs in another, non-overlapping.
  *
  * OCCURRENCES, not comments-that-mention (which is what
- * {@link countDisables} counts): two `Valid only when` fields
- * documented in one JSDoc block are two defended fields, and a
+ * {@link countDisables} counts): two `Total fallback:` guards
+ * documented in one JSDoc block are two defended sites, and a
  * scorecard that reported one would understate the burden by exactly
  * the amount that grouping the comments saved.
  * @param text - the text to search
@@ -252,31 +251,20 @@ function occurrencesIn(text: string, marker: string): number {
 }
 
 /**
- * Count each defense marker across a file's comments.
- *
- * Written out one field at a time rather than looped over
- * `Object.keys`: keys come back as `string`, and narrowing them to
- * `MarkerKey` would need the `as` assertion this scorecard counts.
+ * Count the defense marker across a file's comments.
  * @param sourceFile - a parsed source file
- * @returns occurrences per marker
+ * @returns `Total fallback:` occurrences in this file's comment trivia
  */
-function countMarkers(sourceFile: ts.SourceFile): Record<MarkerKey, number> {
+function countMarkers(sourceFile: ts.SourceFile): number {
   const text = sourceFile.getFullText();
-  const comments = commentRanges(sourceFile).map((range) =>
-    text.slice(range.pos, range.end),
-  );
-  const occurrences = (marker: string): number => {
-    let count = ZERO;
-    for (const comment of comments) {
-      count += occurrencesIn(comment, marker);
-    }
-    return count;
-  };
-  return {
-    callerContract: occurrences(DEFENSE_MARKERS.callerContract),
-    totalFallback: occurrences(DEFENSE_MARKERS.totalFallback),
-    validOnlyWhen: occurrences(DEFENSE_MARKERS.validOnlyWhen),
-  };
+  let count = ZERO;
+  for (const range of commentRanges(sourceFile)) {
+    count += occurrencesIn(
+      text.slice(range.pos, range.end),
+      TOTAL_FALLBACK_MARKER,
+    );
+  }
+  return count;
 }
 
 // A comment's line break plus whatever the continuation line opens
@@ -298,7 +286,7 @@ const LAST_RANGE = -1;
  * The counting hazard this closes is one-directional and therefore
  * silent: the ratchet fires on RISE, so a marker that STOPS being
  * counted reads as progress. Prettier does not reflow comments, but a
- * human rewrapping one at 80 columns can split `Valid only when` across
+ * human rewrapping one at 80 columns can split `Total fallback:` across
  * two lines, and the defense then vanishes from the inventory with a
  * green build.
  *
@@ -306,8 +294,8 @@ const LAST_RANGE = -1;
  * the comment as written, then again with every line break collapsed to
  * a single space. A marker that only appears in the collapsed text is
  * wrapped. On this repository's `src` the two counts agree everywhere,
- * so the check has no false positives to tolerate — and it needs no
- * upkeep when a marker is added to {@link DEFENSE_MARKERS}.
+ * so the check has no false positives to tolerate, and it is a
+ * comparison rather than a second pattern, so nothing keeps it in step.
  * @param comment - one logical comment's text, delimiters included
  * @param marker - the marker to look for
  * @returns whether the comment holds a wrapped, uncounted marker
@@ -324,8 +312,8 @@ function hasWrappedMarker(comment: string, marker: string): boolean {
  * compiler, and a wrap turns `// Total fallback: why` into `// Total`
  * plus `// fallback: why` — two ranges, neither holding the marker.
  * Grouping them is not a refinement: without it the detector cannot see
- * a wrap in a `//` comment at all, which is where 8 of this
- * repository's 11 `Total fallback:` markers live.
+ * a wrap in a `//` comment at all, which is the spelling this
+ * repository's `Total fallback:` marker is written in.
  */
 interface LogicalComment {
   /** One-based line the group starts on. */
@@ -385,10 +373,8 @@ function logicalComments(
 function nearMissesIn(sourceFile: ts.SourceFile, starts: number[]): string[] {
   const found: string[] = [];
   for (const { line, text } of logicalComments(sourceFile, starts)) {
-    for (const marker of Object.values(DEFENSE_MARKERS)) {
-      if (hasWrappedMarker(text, marker)) {
-        found.push(`${String(line)}: ${marker}`);
-      }
+    if (hasWrappedMarker(text, TOTAL_FALLBACK_MARKER)) {
+      found.push(`${String(line)}: ${TOTAL_FALLBACK_MARKER}`);
     }
   }
   return found;
@@ -551,7 +537,7 @@ export function scanSource(fileName: string, text: string): SourceCounts {
     exports,
     starExports,
     unreachableCalls,
-    markers: countMarkers(sourceFile),
+    totalFallback: countMarkers(sourceFile),
     markerNearMisses: nearMissesIn(sourceFile, lineStarts(text)),
   };
 }

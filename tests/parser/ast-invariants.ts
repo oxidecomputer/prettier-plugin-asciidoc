@@ -686,9 +686,9 @@ export function expectAnnotatedByPairing(root: unknown): void {
 /**
  * (ix) — body exclusivity: an admonition body lives in exactly one
  * place — `text` for the paragraph form, `children` for a delimited
- * one. The always-meaningful empty array replaced three
- * `Valid only when` markers; this row checks structurally what those
- * asserted in prose.
+ * one. The always-meaningful empty array replaced three prose
+ * warnings that one field was readable only for one form; this row
+ * checks structurally what those asserted in words.
  * @param nodes - every node, in document order
  */
 function expectAdmonitionBodyExclusive(nodes: AnyNode[]): void {
