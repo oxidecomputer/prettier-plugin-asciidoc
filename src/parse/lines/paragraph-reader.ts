@@ -34,7 +34,6 @@ import {
   type ReaderContext,
 } from "../line-shapes.js";
 import {
-  classifyLine,
   classifyTrace,
   holdsDescriptionListSeparator,
   isContinuationLine,
@@ -43,6 +42,12 @@ import {
   type LineKind,
 } from "./classify.js";
 import type { SourceLine } from "./split.js";
+import {
+  FIRST_CONTINUATION,
+  keepsTheLine,
+  LATER_CONTINUATION,
+  lineVerdict,
+} from "../../line-verdict.js";
 
 /**
  * What a {@link Paragraph} is reading: a registry context, or the one
@@ -264,13 +269,15 @@ class Paragraph {
   private runStart: number | undefined = undefined;
   // Document offset just past the run's last character.
   private runEnd: number;
-  // Whether the line about to be read is the one directly after the
-  // block's start line, which the constructor already consumed:
-  // `firstLineAfterStart` is a rule of its own in the registry (a
-  // block anchor, for one, only counts there). A FLAG rather than a
-  // line COUNT, because the count answered nothing else - both of its
-  // readers asked it for this one bit.
-  private firstLineAfterStart = true;
+  // How far into the block the line about to be read stands, in the
+  // reader's own saturated spelling: the
+  // constructor already consumed the block's opening line, so the
+  // first line this loop reads is the one directly under it, and that
+  // position is a rule of its own in the registry (a block anchor,
+  // for one, only counts there). SATURATED rather than counted,
+  // because nothing in the per-line reading counts further - see
+  // src/line-verdict.ts.
+  private ordinal: 1 | 2 = FIRST_CONTINUATION;
   // The literal-plus rule's state: the candidate ` +` line (the first
   // line after an item's marker line, when it is indentation and a `+`
   // and nothing else) and the smallest indent of any content line
@@ -371,33 +378,43 @@ class Paragraph {
       if (next === undefined) {
         return;
       }
-      const kind = classifyLine(next.text, {
-        openParagraph: this.context,
-        openList: this.scan.openList,
-        firstLineAfterStart: this.firstLineAfterStart,
-        // A paragraph is OPEN here, and the one two-line construct
-        // Asciidoctor reads is asked about a section's block start
-        // alone (`is_next_line_section?`, parser.rb l.374).
-        nextLine: undefined,
-        // A paragraph is OPEN here too, so a line this scan hands on
-        // to the block-start ladder got there by INTERRUPTING one -
-        // and a line that interrupts starts a block on Asciidoctor's
-        // reading as well, whatever a directive substituted above it
-        // (see ReaderContext.substitutedContentAbove).
-        substitutedContentAbove: false,
-        // The block-start ladder is not reached from here at all: an
-        // interrupting line ends this scan and the READER classifies
-        // it, with its own answer (see ReaderContext.markerLineWins).
-        markerLineWins: false,
-        // Every line this scan walks came out of the enclosing item's
-        // own `read_lines_for_list_item`, so the third cut cannot
-        // fall on one of them (see ReaderContext.attributeRun). No
-        // row this context reaches reads it in any case: the reading
-        // belongs to `verbatimStyled`'s enclosing-list arm alone.
-        attributeRun: "runIsInTheItem",
+      const kind = lineVerdict(next.text, undefined, {
+        ordinal: this.ordinal,
+        reader: {
+          openParagraph: this.context,
+          openList: this.scan.openList,
+          // Supplied by the position, not by this literal: see
+          // {@link lineVerdict}.
+          firstLineAfterStart: false,
+          // A paragraph is OPEN here, and the one two-line construct
+          // Asciidoctor reads is asked about a section's block start
+          // alone (`is_next_line_section?`, parser.rb l.374), which
+          // is why the verdict takes no neighbour at a continuation
+          // position.
+          nextLine: undefined,
+          // A paragraph is OPEN here too, so a line this scan hands
+          // on to the block-start ladder got there by INTERRUPTING
+          // one - and a line that interrupts starts a block on
+          // Asciidoctor's reading as well, whatever a directive
+          // substituted above it (see
+          // ReaderContext.substitutedContentAbove).
+          substitutedContentAbove: false,
+          // The block-start ladder is not reached from here at all:
+          // an interrupting line ends this scan and the READER
+          // classifies it, with its own answer (see
+          // ReaderContext.markerLineWins).
+          markerLineWins: false,
+          // Every line this scan walks came out of the enclosing
+          // item's own `read_lines_for_list_item`, so the third cut
+          // cannot fall on one of them (see
+          // ReaderContext.attributeRun). No row this context reaches
+          // reads it in any case: the reading belongs to
+          // `verbatimStyled`'s enclosing-list arm alone.
+          attributeRun: "runIsInTheItem",
+        },
       });
       classifyTrace.observer?.(next.offset, kind);
-      if (kind.kind !== "text" && kind.kind !== "raw") {
+      if (!keepsTheLine(kind)) {
         if (!this.foldsThrough(next)) {
           return;
         }
@@ -407,7 +424,7 @@ class Paragraph {
         // `line === LIST_CONTINUATION`); only a PLAIN `+` interrupts.
         this.closeRun();
         this.pieces.push({ kind: "raw", line: next });
-        this.firstLineAfterStart = false;
+        this.ordinal = LATER_CONTINUATION;
         this.index += 1;
         continue;
       }
@@ -548,7 +565,7 @@ class Paragraph {
       this.closeRun();
       this.pieces.push({ kind: "raw", line });
     }
-    this.firstLineAfterStart = false;
+    this.ordinal = LATER_CONTINUATION;
     this.index += 1;
   }
 
@@ -639,7 +656,7 @@ class Paragraph {
         indentOf(line.text),
       );
     } else if (
-      this.firstLineAfterStart &&
+      this.ordinal === FIRST_CONTINUATION &&
       ITEM_TEXT_CONTEXTS.has(this.context) &&
       isIndentedContinuationLine(line.text)
     ) {
@@ -893,9 +910,18 @@ export function verbatimStyledExtent(
  * `//` line is CONTENT here; Ruby passes no `skip_line_comments` on
  * these paths) — leaving the ending line unread.
  *
- * One ReaderContext for the whole loop: `firstLineAfterStart` is false
- * at every position a verbatim run classifies, because the run's own
- * opening line is taken without being classified at all.
+ * ONE POSITION FOR THE WHOLE LOOP, the later-line one, and it is a
+ * reading rather than a shortcut: no row a verbatim run reaches tells
+ * the two positions apart. `literalParagraph` and `verbatimStyled`
+ * are NO_PATTERNS in both position tables (FIRST_LINE_INTERRUPTERS
+ * and LATER_LINE_INTERRUPTERS,
+ * src/parse/line-shapes-interruption.ts) and neither is in
+ * RAW_BLOCK_ANCHOR_CONTEXTS or asked for RAW_DESCRIPTION_METADATA
+ * (src/parse/line-shapes.ts), which are the only rules that read the
+ * position at all. Asking at the first-line position instead would
+ * put 46 states into the reader's reachable space
+ * (tests/conformance/reader-context-space.ts) that no verdict of this
+ * loop distinguishes.
  * @param scan - the lines and the stream-wide facts
  * @param at - index of the run's first line
  * @param context - which interrupting set applies
@@ -909,9 +935,11 @@ function verbatimRunExtent(
   const reader: ReaderContext = {
     openParagraph: context,
     openList: scan.openList,
+    // Supplied by the position, not by this literal.
     firstLineAfterStart: false,
-    // Same reason as the paragraph scan's: a block is open, and the
-    // setext arm belongs to a section's block start alone.
+    // A block is open, and the setext arm belongs to a section's
+    // block start alone, which is why the verdict takes no neighbour
+    // at a continuation position.
     nextLine: undefined,
     // Same reason as the paragraph scan's, one field down.
     substitutedContentAbove: false,
@@ -944,12 +972,13 @@ function verbatimRunExtent(
     // binds where they part, so this one keeps the BYTES - with
     // nothing under the `+` reflowed the document formats to itself,
     // and both renders survive.
-    const kind = classifyLine(
+    const kind = lineVerdict(
       next.continuationTag === "erased" ? next.raw : next.text,
-      reader,
+      undefined,
+      { ordinal: LATER_CONTINUATION, reader },
     );
     classifyTrace.observer?.(next.offset, kind);
-    if (kind.kind !== "text" && kind.kind !== "raw") {
+    if (!keepsTheLine(kind)) {
       break;
     }
     lines.push(next);

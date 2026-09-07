@@ -126,6 +126,34 @@
     "reason": "the head-drain record's own type. Declared in a leaf module for the reason src/whitespace-record.ts is one: src/ast.ts names it on the body both item kinds share and the module that constructs it names the AST's node types back, which would be the cross-file cycle the graph gate refuses even for type-only imports"
   },
   {
+    "file": "src/line-verdict.ts",
+    "symbol": "FIRST_CONTINUATION",
+    "importer": "src/parse/lines/paragraph-reader.ts",
+    "kind": "vocabulary",
+    "reason": "the position spelling the verdict function takes, so the scan names the line directly under the block start the same way the verdict's tables key on it"
+  },
+  {
+    "file": "src/line-verdict.ts",
+    "symbol": "LATER_CONTINUATION",
+    "importer": "src/parse/lines/paragraph-reader.ts",
+    "kind": "vocabulary",
+    "reason": "the same position spelling for every line below that one; the two constants are one alphabet and the scan may not spell a third value"
+  },
+  {
+    "file": "src/line-verdict.ts",
+    "symbol": "keepsTheLine",
+    "importer": "src/parse/lines/paragraph-reader.ts",
+    "kind": "vocabulary",
+    "reason": "the one predicate for 'the reader's scan keeps this line in the block it has open', so both prose scans and the printer's packer read one verdict rather than each testing the discriminants it happens to remember"
+  },
+  {
+    "file": "src/line-verdict.ts",
+    "symbol": "lineVerdict",
+    "importer": "src/parse/lines/paragraph-reader.ts",
+    "kind": "vocabulary",
+    "reason": "THE verdict on one line at one position; the scans call it for their own reading so the printer's packer and the reader cannot come to disagree about what a line means"
+  },
+  {
     "file": "src/mark-record.ts",
     "symbol": "MarkFact",
     "importer": "src/parse/inline/mark-facts.ts",
@@ -1101,6 +1129,13 @@
   {
     "file": "src/parse/line-shapes.ts",
     "symbol": "ReaderContext",
+    "importer": "src/line-verdict.ts",
+    "kind": "vocabulary",
+    "reason": "the reader's own context type, which the verdict function's position carries; declared once beside the tables that read it"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "ReaderContext",
     "importer": "src/parse/lines/classify.ts",
     "kind": "vocabulary",
     "reason": "the ONE declaration of the reader's state every line rule reads, declared beside the interrupting-set registry because both consumers - those rules and the classifier - sit at or below it; a second declaration up in the classifier is what `InterruptionOptions` was"
@@ -1384,6 +1419,20 @@
     "importer": "src/parse/lines/description-list.ts",
     "kind": "vocabulary",
     "reason": "the one answer to 'may this word begin a line inside a description item', asked at the one documented parse address so the reflow conditions and the registry cannot disagree about which shapes an item's confined read drains"
+  },
+  {
+    "file": "src/parse/lines/classify.ts",
+    "symbol": "LineKind",
+    "importer": "src/line-verdict.ts",
+    "kind": "vocabulary",
+    "reason": "what a line IS, as the classifier answers it; the verdict function returns the classifier's own answer rather than a second vocabulary for it"
+  },
+  {
+    "file": "src/parse/lines/classify.ts",
+    "symbol": "classifyLine",
+    "importer": "src/line-verdict.ts",
+    "kind": "vocabulary",
+    "reason": "the classifier itself; the shared verdict is one call to it with the position's fields filled in, so there is no second ladder to keep in step"
   },
   {
     "file": "src/parse/lines/reader.ts",

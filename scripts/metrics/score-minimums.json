@@ -25,6 +25,10 @@
       "coverage": 100.0,
       "mutation": 100.0
     },
+    "src/line-verdict.ts": {
+      "coverage": 100.0,
+      "mutation": 0.0
+    },
     "src/mark-record.ts": {
       "coverage": 100.0,
       "mutation": 0.0
@@ -503,15 +507,15 @@
     },
     {
       "file": "src/parse/lines/paragraph-reader.ts",
-      "what": "`this.firstLineAfterStart = false` -> the flag left true in the fold's tagged-`+` arm (#56's new code; the field was a line COUNT and the `+= 1` this row was first written against until the dead-branch sweep made it the boolean its two readers asked for)",
+      "what": "`this.ordinal = LATER_CONTINUATION` -> the position left at the first-continuation one in the fold's tagged-`+` arm (#56's new code; the field was a line COUNT, then a boolean, and is now the saturated position the verdict function takes)",
       "cites": [
         {
           "symbol": "read",
-          "quotes": "this.firstLineAfterStart = false"
+          "quotes": "this.ordinal = LATER_CONTINUATION"
         }
       ],
       "class": "never",
-      "reason": "EQUIVALENT: nothing reads the flag in fold mode, so the arm writes a fact no one asks for. Its two readers are `firstLineAfterStart`, which for the fold's context (always `listContinuation`, set in the constructor) picks between two EMPTY pattern lists in FIRST_LINE_INTERRUPTERS and LATER_LINE_INTERRUPTERS and a RAW_BLOCK_ANCHOR_CONTEXTS set that context is not a member of; and trackLiteralPlus's literal-plus candidate, gated on ITEM_TEXT_CONTEXTS (`listItem` and `dlistItem`), which the fold is not in either. Confirmed by differential: identical bytes and identical ASTs over the 111,110 depth-5 sweep documents and over 335,922 depth-7 documents spelled from `* a`, `** b`, `+`, blank, `para` and `  lit`. The three OTHER mutants of this arm are killed by the fold rows in tests/format/plus-run.test.ts"
+      "reason": "EQUIVALENT: nothing reads the position in fold mode, so the arm writes a fact no one asks for. Its two readers are the verdict's own `firstLineAfterStart`, which for the fold's context (always `listContinuation`, set in the constructor) picks between two EMPTY pattern lists in FIRST_LINE_INTERRUPTERS and LATER_LINE_INTERRUPTERS and a RAW_BLOCK_ANCHOR_CONTEXTS set that context is not a member of; and trackLiteralPlus's literal-plus candidate, gated on ITEM_TEXT_CONTEXTS (`listItem` and `dlistItem`), which the fold is not in either. Confirmed by differential: identical bytes and identical ASTs over the 111,110 depth-5 sweep documents and over 335,922 depth-7 documents spelled from `* a`, `** b`, `+`, blank, `para` and `  lit`. The three OTHER mutants of this arm are killed by the fold rows in tests/format/plus-run.test.ts"
     },
     {
       "file": "src/parse/lines/paragraph-reader.ts",
