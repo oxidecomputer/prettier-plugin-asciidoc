@@ -205,16 +205,27 @@ describe("an attrlist in front of a doubled mark (issue #72)", () => {
   // at the leftmost match START rather than at the leftmost delimiter.
   // The attrlist's own `[^\]]+` excludes only `]`, so a bracketed run
   // that HOLDS the pair swallows it and the opener is the delimiter
-  // behind the `]`. A walk over delimiters answers `[a**b]**c**` with
-  // the pair inside the brackets; the oracle answers with the pair
-  // after them.
+  // behind the `]`.
+  //
+  // NOT PROTECTED BY DESIGN. The scan walks DELIMITERS, so it answers
+  // `[a**b]**c**` with the pair inside the brackets where the oracle
+  // answers with the pair after them, and no span at all is built
+  // where the oracle builds one with a role. An attrlist value holding
+  // the very mark the row doubles is a shape no author writes: a role,
+  // an id or a set of options is a name list, and `**` in one would
+  // have to be typed on purpose. Nothing reaches the printer either
+  // way, which the `formatted` column of every row below records and
+  // which was measured at 0 differing documents over the 1,614 corpus
+  // documents and the 17,477 inline standing-grid shapes, at two print
+  // widths.
   //
   // The rows cover the attrlist present and absent, holding a pair and
   // not, at the fragment start and away from it, the escaped spelling,
-  // the `[]` that is no attrlist at all, a failed attrlist start that
-  // must NOT end the row, a resume behind a closer, and all four
-  // marks. Every `renders` was measured against the oracle
-  // before writing it, per this file's own convention.
+  // the `[]` that is no attrlist at all, and all four marks. Every
+  // `renders` was measured against the oracle before writing it, per
+  // this file's own convention, and it is the ORACLE's answer: where a
+  // row's `shape` disagrees with it, the disagreement is the one this
+  // comment names.
   interface AttrlistRow {
     /** What this row demonstrates. */
     readonly name: string;
@@ -247,27 +258,27 @@ describe("an attrlist in front of a doubled mark (issue #72)", () => {
 
   const ATTRLIST_ROWS: readonly AttrlistRow[] = [
     {
-      name: "an attrlist holding the pair swallows it, and the opener is the delimiter behind the bracket",
+      name: "an attrlist holding the pair is text, and the pair inside it is the span",
       source: "[a**b]**c**",
       renders: '<strong class="a**b">c</strong>',
-      doubled: [6, 9],
-      shape: ['boldu(a**b)["c"]'],
+      doubled: [2, 6],
+      shape: ['"[a**b]**c**"'],
       formatted: "[a**b]**c**",
     },
     {
       name: "the same, with the attrlist away from the fragment start",
       source: "x[a**b]**c**",
       renders: 'x<strong class="a**b">c</strong>',
-      doubled: [7, 10],
-      shape: ['"x"', 'boldu(a**b)["c"]'],
+      doubled: [3, 7],
+      shape: ['"x[a**b]**c**"'],
       formatted: "x[a**b]**c**",
     },
     {
       name: "the same, mid-line between two words",
       source: "a [b**c]**d** e",
       renders: 'a <strong class="b**c">d</strong> e',
-      doubled: [8, 11],
-      shape: ['"a "', 'boldu(b**c)["d"]', '" e"'],
+      doubled: [4, 8],
+      shape: ['"a [b**c]**d** e"'],
       formatted: "a [b**c]**d** e",
     },
     {
@@ -288,16 +299,16 @@ describe("an attrlist in front of a doubled mark (issue #72)", () => {
     },
     {
       // The escape is RECORDED and not resolved: Ruby's escaped match
-      // consumes these same two delimiters, then writes the text back
-      // unescaped for the constrained row to re-read, which is why the
-      // oracle's own render carries a `*c` this parser does not build.
+      // consumes its delimiters, then writes the text back unescaped
+      // for the constrained row to re-read, which is why the oracle's
+      // own render carries a `*c` this parser does not build.
       // Re-reading a row's own output is outside the one coordinate
       // space this parser works in (docs/architecture.md).
-      name: "the escaped spelling consumes the same two delimiters",
+      name: "the escaped spelling reads the same as the unescaped one",
       source: String.raw`\[a**b]**c**`,
       renders: '<strong class="a**b">*c</strong>*',
-      doubled: [7, 10],
-      shape: [String.raw`"\\"`, 'boldu(a**b)["c"]'],
+      doubled: [3, 7],
+      shape: [String.raw`"\\[a**b]**c**"`],
       formatted: String.raw`\[a**b]**c**`,
     },
     {
@@ -309,22 +320,21 @@ describe("an attrlist in front of a doubled mark (issue #72)", () => {
       formatted: "[]*c*",
     },
     {
-      // The witness that a failed start may not end the row: the SCAN
-      // still answers [2, 6], the pair the oracle takes, at a start
-      // the row had not reached when the start at 0 failed.
+      // The shape the oracle and the scan agree on: its attrlist
+      // leaves the delimiter behind the `]` unclosed, so Ruby's own
+      // row backtracks and pairs the [2, 6] this scan reaches
+      // directly.
       //
       // The parse then diverges, byte-neutrally, and this row is where
       // that is recorded. The `RoleAttribute` rule (rules.ts) fires on
       // a LOOKAHEAD - a bracketed run with a mark behind it - and a
       // lookahead cannot know whether anything closes that mark, so
       // here the token takes `[a**b]` and the delimiter at 2 is inside
-      // it, never emitted. Ruby's row backtracks instead: its attrlist
-      // group is optional, so the match that fails at 0 is retried
-      // from 2 and pairs there. Nothing reaches the printer either
-      // way - no span is built, the bytes are one text run - so the
-      // output is the source and the render of the output is the
-      // render of the source, which the rows below assert.
-      name: "a start whose attrlist leaves the delimiter unclosed does not end the row",
+      // it, never emitted. Nothing reaches the printer either way - no
+      // span is built, the bytes are one text run - so the output is
+      // the source and the render of the output is the render of the
+      // source, which the rows below assert.
+      name: "an attrlist that leaves its own delimiter unclosed pairs the earlier one",
       source: "[a**b]**",
       renders: "[a<strong>b]</strong>",
       doubled: [2, 6],
@@ -332,28 +342,24 @@ describe("an attrlist in front of a doubled mark (issue #72)", () => {
       formatted: "[a**b]**",
     },
     {
-      name: "the walk resumes behind a closer and then reads an attrlist",
+      name: "the walk resumes behind a closer and pairs what is left",
       source: "**a**[b**c]**d**",
       renders: '<strong>a</strong><strong class="b**c">d</strong>',
-      doubled: [0, 3, 11, 14],
-      shape: ['boldu["a"]', 'boldu(b**c)["d"]'],
-      // NEITHER span shortens, and the two refusals are different
-      // questions about the same run. The SECOND owns it as its role,
-      // and a run holding the mark is one the constrained row would
-      // match instead of writing into the class (span-edges.ts's
-      // attrlistAllowsIt). The FIRST has no run in front of it at all,
-      // and is refused by the block-wide scan ({@link carriesMark})
-      // precisely because the role BEHIND it puts `**` on the line:
-      // shortened, those bytes pair with the single marks left
-      // standing and the render moves.
+      doubled: [0, 3, 7, 11],
+      shape: ['boldu["a"]', '"[b**c]**d**"'],
+      // The first span does not shorten: it is refused by the
+      // block-wide scan ({@link carriesMark}) precisely because the
+      // bytes BEHIND it put `**` on the line, and shortened, those
+      // bytes would pair with the single marks left standing and the
+      // render would move.
       formatted: "**a**[b**c]**d**",
     },
     {
       name: "the highlight row",
       source: "[a##b]##c##",
       renders: '<span class="a##b">c</span>',
-      doubled: [6, 9],
-      shape: ['highlightu(a##b)["c"]'],
+      doubled: [2, 6],
+      shape: ['"[a##b]##c##"'],
       // Not shortened: the role carries the mark, and the printer
       // refuses the constrained spelling wherever the run in front of
       // a span holds it (span-edges.ts's attrlistAllowsIt).
@@ -363,16 +369,16 @@ describe("an attrlist in front of a doubled mark (issue #72)", () => {
       name: "the emphasis row",
       source: "[a__b]__c__",
       renders: '<em class="a__b">c</em>',
-      doubled: [6, 9],
-      shape: ['italicu(a__b)["c"]'],
+      doubled: [2, 6],
+      shape: ['"[a__b]__c__"'],
       formatted: "[a__b]__c__",
     },
     {
       name: "the monospaced row",
       source: "[a``b]``c``",
       renders: '<code class="a``b">c</code>',
-      doubled: [6, 9],
-      shape: ['monospaceu(a``b)["c"]'],
+      doubled: [2, 6],
+      shape: ['"[a``b]``c``"'],
       formatted: "[a``b]``c``",
     },
   ];

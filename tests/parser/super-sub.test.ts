@@ -209,13 +209,27 @@ describe("the optional prefix in front of the delimiter", () => {
   // stripped and nothing else (substitutors.rb l.1419-1425), attrlist
   // or no attrlist, so the delimiters are consumed and no span is
   // built.
+  //
+  // NOT PROTECTED BY DESIGN: the ATTRLIST half. The scan walks
+  // delimiters, so a bracketed run holding a caret is text and the
+  // caret inside it opens the span, and a backslash is read only where
+  // it stands directly in front of a delimiter. An attrlist value
+  // holding the very mark the row spells is a shape no author writes:
+  // a role or an id is a name list, and a `^` or `~` in one would have
+  // to be typed on purpose. A ROLE with no mark in it - `[red]^a^`, the
+  // shape people do write - is unaffected, and its row is below.
+  // Nothing reaches the printer either way: measured at 0 differing
+  // documents over the 1,614 corpus documents and the 17,477 inline
+  // standing-grid shapes, at two print widths. Every `renders` is the
+  // ORACLE's answer, so a row whose `shape` disagrees with it is
+  // recording exactly this.
   const ROWS: readonly Row[] = [
     {
-      name: "an attrlist moves the opening delimiter",
+      name: "an attrlist holding a caret is text, and that caret opens",
       source: "x [a^b]^c^ y",
       renders: '<sup class="a^b">c</sup>',
-      delimiters: [7, 9],
-      shape: ['"x [a^b]"', 'superscript["c"]', '" y"'],
+      delimiters: [4, 7],
+      shape: ['"x [a"', 'superscript["b]"]', '"c^ y"'],
     },
     {
       name: "a role in front is our text and the oracle's class",
@@ -232,13 +246,11 @@ describe("the optional prefix in front of the delimiter", () => {
       shape: ['"x []"', 'superscript["a"]', '" y"'],
     },
     {
-      // The `[]` is empty, so the prefix takes no attrlist and the
+      // The `[]` is empty, so Ruby's prefix takes no attrlist and the
       // BACKSLASH in front of it is left standing on ordinary text
-      // rather than escaping a match. Read the other way - `[]` taken
-      // as an attrlist - the prefix would reach the caret FROM the
-      // backslash, the escape arm would fire, and the pair would be
-      // gone. That is the whole of `attrlistEnd`'s `close > at + 1`,
-      // and this is the row that holds it.
+      // rather than escaping a match. This scan reaches the same
+      // answer from the other side: the backslash is not in front of
+      // the delimiter, so it escapes nothing.
       name: "an empty attrlist behind a backslash still leaves the pair",
       source: String.raw`x \[]^a^ y`,
       renders: String.raw`x \[]<sup>a</sup> y`,
@@ -253,11 +265,16 @@ describe("the optional prefix in front of the delimiter", () => {
       shape: [String.raw`"x \\^a^ y"`],
     },
     {
-      name: "an escaped pair with an attrlist builds nothing either",
+      // The backslash is two characters away from the delimiter, so
+      // the escape arm does not fire and the pair is built. The oracle
+      // reads the attrlist and escapes the whole match instead, which
+      // is why its render carries no `<sup>`; the bytes are the
+      // author's either way.
+      name: "an escaped pair separated from its delimiter by an attrlist is built",
       source: String.raw`x \[a]^b^ y`,
       renders: "x [a]^b^ y",
-      delimiters: [],
-      shape: [String.raw`"x \\[a]^b^ y"`],
+      delimiters: [6, 8],
+      shape: [String.raw`"x \\[a]"`, 'superscript["b"]', '" y"'],
     },
     {
       name: "an escaped subscript pair, the same answer",

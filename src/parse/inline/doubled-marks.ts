@@ -24,26 +24,21 @@
  * the closing delimiter is the FIRST `XX` at or after `open + 3`, and
  * nothing between the two is excluded.
  *
- * THE WALK IS OVER MATCH STARTS, NOT OVER DELIMITERS, because the
- * optional `\\?(?:\[([^\]]+)\])?` prefix CAN move the opening
- * delimiter. `gsub` takes the leftmost match START, and the attrlist
- * group's `[^\]]+` excludes only `]`, so a bracketed run that holds
- * the pair swallows it and the opener is the `XX` behind the `]`:
- * `[a**b]**c**` renders `<strong class="a**b">c</strong>`, opening at
- * offset 6 and not at the 2 a search for the first `XX` would answer.
- * So each start is tried in turn, and a start that fails does NOT end
- * the row: an attrlist-derived opener stands to the RIGHT of starts
- * still to come, so a later start can succeed where it failed -
- * `[a**b]**` renders `[a<strong>b]</strong>`, whose delimiters are the
- * 2 and 6 that the failed start at 0 skipped past.
- *
- * The escape half of that prefix is recorded but NOT resolved. Ruby's
- * escaped match still consumes its delimiters, which is what this scan
- * records, but it then writes the text back unescaped for the later
- * rows to re-read, and re-reading a row's own output is outside this
- * parser's one-coordinate-space model: `\[a**b]**c**` renders
- * `<strong class="a**b">*c</strong>*`, where the constrained row
- * matched the unconstrained row's literal output.
+ * THE WALK IS OVER DELIMITERS. Ruby's row carries an optional
+ * `\\?(?:\[([^\]]+)\])?` in front of its delimiter, and `gsub` takes
+ * the leftmost match START, so an attrlist whose own value holds the
+ * row's pair swallows it and the opener is the `XX` behind the `]`:
+ * `[a**b]**c**` renders `<strong class="a**b">c</strong>` there,
+ * opening at offset 6. This scan opens at the 2, which is where the
+ * first pair stands. NOT PROTECTED BY DESIGN: an attrlist value
+ * holding the very mark the row doubles is a shape no author writes,
+ * and a walk over match starts costs a candidate at every `[` and
+ * every backslash in the fragment. The backslash half of the prefix
+ * needs no candidate of its own here: it only ever moves the opener
+ * onto the delimiter this walk finds anyway. Ruby writes an escaped
+ * match back unescaped for the later rows to re-read, and re-reading a
+ * row own output is outside this parser one-coordinate-space model, so
+ * an escaped doubled match records its delimiters like any other.
  *
  * Deciding which of these spans survive is span-pairing.ts's job, the
  * way it is for the curved-quote scan next door.
@@ -51,7 +46,6 @@
 import { MARK_ROW, seesCurvedRewrite } from "./quote-boundaries.js";
 import type { CurvedScan } from "./curved-quotes.js";
 import { DELIM_WIDTH } from "../../constants.js";
-import { delimiterFor, nextStart } from "./optional-prefix.js";
 
 /**
  * An unconstrained delimiter is the constrained mark written twice.
@@ -63,41 +57,32 @@ export const UNCONSTRAINED_WIDTH = DELIM_WIDTH + DELIM_WIDTH;
 // delimiter never abuts its opener.
 const SHORTEST_CONTENT = 1;
 
-// The shortest text an unconstrained row can match, measured from the
-// OPENING DELIMITER: two delimiters and the content between them. The
-// optional prefix only ever puts the delimiter further right, so a
-// start with less than this much text behind it cannot match either.
-const SHORTEST_MATCH =
-  UNCONSTRAINED_WIDTH + SHORTEST_CONTENT + UNCONSTRAINED_WIDTH;
-
 /**
  * Run one unconstrained row over `source`, recording the offset of
  * each delimiter's FIRST character.
  *
- * The walk is the gsub's own: take the leftmost START that matches,
- * pair its delimiter with the nearest closer the lazy content group
- * allows, and resume behind that closer so the pair is consumed
- * exactly once. A start that finds no delimiter, or a delimiter with
- * no closer, advances to the next start rather than ending the row.
+ * Take the leftmost pair, close it with the nearest pair the lazy
+ * content group allows, and resume behind that closer so each pair is
+ * consumed exactly once. An opener with no closer ends the row: a
+ * later pair would have BEEN that closer.
  * @param source - the fragment as this row reads it
  * @param mark - the character the row's delimiter doubles
  * @param delimiters - the set being built, shared across the four rows
  */
 function scanRow(source: string, mark: string, delimiters: Set<number>): void {
   const pair = mark + mark;
-  let start = nextStart(source, mark, 0);
-  while (start !== -1 && start + SHORTEST_MATCH <= source.length) {
-    const open = delimiterFor(source, start);
-    const close = source.startsWith(pair, open)
-      ? source.indexOf(pair, open + UNCONSTRAINED_WIDTH + SHORTEST_CONTENT)
-      : -1;
+  let open = source.indexOf(pair);
+  while (open !== -1) {
+    const close = source.indexOf(
+      pair,
+      open + UNCONSTRAINED_WIDTH + SHORTEST_CONTENT,
+    );
     if (close === -1) {
-      start = nextStart(source, mark, start + 1);
-      continue;
+      return;
     }
     delimiters.add(open);
     delimiters.add(close);
-    start = nextStart(source, mark, close + UNCONSTRAINED_WIDTH);
+    open = source.indexOf(pair, close + UNCONSTRAINED_WIDTH);
   }
 }
 

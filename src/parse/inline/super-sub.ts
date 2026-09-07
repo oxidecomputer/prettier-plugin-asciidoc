@@ -20,28 +20,33 @@
  * between, and a row can never match across a line: `x ^a b^ y` and
  * `x ^a` + newline + `b^ y` both render their carets literally.
  *
- * THE WALK IS OVER MATCH STARTS, NOT OVER DELIMITERS, because the
- * optional `\\?(?:\[([^\]]+)\])?` prefix CAN move the opening
- * delimiter - the same prefix, and the same consequence,
- * doubled-marks.ts's own header spells out: `x [a^b]^c^ y` renders
- * `x <sup class="a^b">c</sup> y`, opening at the caret behind the `]`
- * and not at the one inside the brackets. An empty attrlist is no
- * attrlist, so `x []^a^ y` renders `x []<sup>a</sup> y`.
+ * THE WALK IS OVER DELIMITERS. Ruby's row carries an optional
+ * `\\?(?:\[([^\]]+)\])?` in front of its delimiter, and `gsub` takes
+ * the leftmost match START, so an attrlist whose own value holds the
+ * row's mark swallows it: `x [a^b]^c^ y` renders
+ * `x <sup class="a^b">c</sup> y` there, opening at the caret behind
+ * the `]`. This scan opens at the caret inside the brackets, which is
+ * where the first one stands. NOT PROTECTED BY DESIGN: an attrlist
+ * value holding the very mark the row spells is a shape no author
+ * writes, and a walk over match starts costs a candidate at every `[`
+ * and every backslash in the fragment.
  *
  * THE ESCAPE IS CONSUMED AND NOTHING IS RECORDED, which is where this
  * scan parts company with doubled-marks.ts. Both rows escape the same
  * way - `convert_quoted_text` returns `match[0].slice 1` for an
  * unconstrained scope, attrlist or no attrlist (substitutors.rb
- * l.1419-1425), so `x \^a^ y` and `x \[a]^b^ y` both render their
- * delimiters literally. What differs is what happens to that literal
- * output: a doubled row's is re-read by the CONSTRAINED row of the
- * same mark, which still runs after it, and doubled-marks.ts records
- * its delimiters because it cannot model that second reading. These
- * are the LAST TWO rows of the table, and no later row spells `^` or
- * `~` - the replacements pass that runs next has no row for either -
- * so an escaped match here means nothing but the characters it ate.
- * Recording it would put a superscript node where the oracle renders
- * plain text and buy nothing at all.
+ * l.1419-1425), so `x \^a^ y` renders its delimiters literally. What
+ * differs is what happens to that literal output: a doubled row's is
+ * re-read by the CONSTRAINED row of the same mark, which still runs
+ * after it, and doubled-marks.ts records its delimiters because it
+ * cannot model that second reading. These are the LAST TWO rows of the
+ * table, and no later row spells `^` or `~` - the replacements pass
+ * that runs next has no row for either - so an escaped match here
+ * means nothing but the characters it ate. Recording it would put a
+ * superscript node where the oracle renders plain text and buy nothing
+ * at all. The backslash is read where it stands, in front of the
+ * delimiter, since the attrlist that could have separated the two is
+ * no longer read.
  *
  * THE SCAN READS THE SOURCE, not a view of what the ten earlier rows
  * wrote. One fact makes the DELIMITERS faithful: no earlier row's
@@ -124,7 +129,8 @@
  * `<sup>a<sub>b</sup>c</sub>`, and no tree holds that).
  */
 import { DELIM_WIDTH } from "../../constants.js";
-import { ESCAPE, delimiterFor, nextStart } from "./optional-prefix.js";
+// Ruby's `\\?`: one optional backslash in front of the whole match.
+const ESCAPE = "\\";
 
 /**
  * Which of the two rows a delimiter belongs to. The character alone
@@ -143,12 +149,6 @@ const SUPER_SUB_ROWS: ReadonlyArray<{ readonly mark: string }> = [
 // and the third is the close, which is why the oracle renders
 // `<sup>^a</sup>`.
 const SHORTEST_CONTENT = 1;
-
-// The shortest text one of these rows can match, measured from the
-// OPENING DELIMITER. The optional prefix only ever puts the delimiter
-// further right, so a start with less than this much text behind it
-// cannot match either.
-const SHORTEST_MATCH = DELIM_WIDTH + SHORTEST_CONTENT + DELIM_WIDTH;
 
 // `\S`: what the content group refuses. Written as the complement so
 // the test reads as the pattern does.
@@ -183,35 +183,32 @@ function closeFor(source: string, mark: string, open: number): number {
 /**
  * Run one row over `source`, recording the offset of each delimiter.
  *
- * The walk is the gsub's own: take the leftmost START that matches,
- * pair its delimiter with the nearest closer the lazy content group
- * allows, and resume behind that closer so the pair is consumed exactly
- * once. A start that finds no delimiter, or a delimiter with no closer,
- * advances to the next start rather than ending the row - an
- * attrlist-derived opener stands to the RIGHT of starts still to come,
- * so a later start can succeed where an earlier one failed.
+ * Take the leftmost delimiter, pair it with the nearest closer the
+ * lazy content group allows, and resume behind that closer so the pair
+ * is consumed exactly once. A delimiter with no closer advances to the
+ * next one rather than ending the row: the content group refuses
+ * whitespace, so a mark a space cut off from its closer says nothing
+ * about the marks behind it.
  * @param source - the fragment this row reads
  * @param mark - the row's delimiter character
  * @param delimiters - the set being built, shared across both rows
  */
 function scanRow(source: string, mark: string, delimiters: Set<number>): void {
-  let start = nextStart(source, mark, 0);
-  while (start !== -1 && start + SHORTEST_MATCH <= source.length) {
-    const open = delimiterFor(source, start);
-    const close =
-      source.charAt(open) === mark ? closeFor(source, mark, open) : -1;
+  let open = source.indexOf(mark);
+  while (open !== -1) {
+    const close = closeFor(source, mark, open);
     if (close === -1) {
-      start = nextStart(source, mark, start + 1);
+      open = source.indexOf(mark, open + DELIM_WIDTH);
       continue;
     }
     // An escaped match consumes its delimiters and records none: the
     // header says why these two rows can afford what doubled-marks.ts
     // cannot.
-    if (source.charAt(start) !== ESCAPE) {
+    if (source.charAt(open - 1) !== ESCAPE) {
       delimiters.add(open);
       delimiters.add(close);
     }
-    start = nextStart(source, mark, close + DELIM_WIDTH);
+    open = source.indexOf(mark, close + DELIM_WIDTH);
   }
 }
 

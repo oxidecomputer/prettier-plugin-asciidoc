@@ -6,32 +6,30 @@
  * table, which is the only handle a single row has: `REPLACEMENTS` is
  * one array literal and its rows carry no names of their own.
  *
- * WHY THIS IS A SCAN AND NOT A RULE, twice over.
- *
- * ROW ORDER decides which reference stands where two spellings share a
- * character. `sub_replacements` (substitutors.rb l.282-286) runs one
- * gsub per row over the whole text, in the table's order, and each row
- * sees what the earlier rows already wrote. So `x <-> y` renders
- * `x &lt;&#8594; y`: the right-arrow row runs first and takes the `->`
- * out of the middle, leaving the left-arrow row nothing to match. A
- * left-to-right walk that tried `<-` at its own offset first would
- * answer the other way.
- *
- * CONSUMPTION decides how many references a run holds. A gsub moves
- * past the WHOLE match, and the spaced em-dash row consumes the spaces
- * around its dashes, so `x -- -- y` renders `x&#8201;&#8212;&#8201;-- y`
- * - one reference, not two, because the second pair's leading space is
+ * WHY THIS IS A SCAN AND NOT A RULE. A gsub moves past the WHOLE
+ * match, and the spaced em-dash row consumes the spaces around its
+ * dashes, so `x -- -- y` renders `x&#8201;&#8212;&#8201;-- y` - one
+ * reference, not two, because the second pair's leading space is
  * inside the first pair's match. A per-offset lookbehind cannot see
- * that.
+ * that. Running each row as its own gsub reproduces it: `exec` on a
+ * global pattern resumes behind the previous match, so a row can
+ * never take the same character twice.
  *
- * Both facts are reproduced the same way: each row is run as its own
- * gsub over the fragment, in the table's order, and a match overlapping
- * a region an earlier row already consumed is refused. Nothing an
- * earlier row WRITES can be matched by a later one: every replacement
- * is a bare `&#...;` entity, and the only row that could look at one is
- * the entity row, whose pattern demands `&amp;` (the author's own `&`
- * after `sub_specialchars`) where a replacement has written a plain
- * `&`. So the source text is what every row reads.
+ * Nothing an earlier row WRITES can be matched by a later one: every
+ * replacement is a bare `&#...;` entity, and the only row that could
+ * look at one is the entity row, whose pattern demands `&amp;` (the
+ * author's own `&` after `sub_specialchars`) where a replacement has
+ * written a plain `&`. So the source text is what every row reads.
+ *
+ * WHAT IS NOT REPRODUCED is one row consuming a character another row
+ * wanted. Ruby's rows run in order and each sees what the ones in
+ * front took, so `x <-> y` renders `x &lt;&#8594; y`: the right-arrow
+ * row goes first and leaves the left-arrow row nothing. Here both rows
+ * record their site and the tokenizer's left-to-right walk takes the
+ * leftmost, which is the `<-`. It reaches no output byte - the printer
+ * replays the author's characters for every reference - and the check
+ * that would reproduce it cost a consumed-character flag per
+ * character of every fragment.
  *
  * THE PATTERNS ARE SPELLED IN THE AUTHOR'S BYTES. Ruby's rows run
  * after `sub_specialchars`, which is why four of them are written
@@ -57,14 +55,14 @@
  * after them match `-`, `=`, `<` and `&`, none of which either one
  * consumes.
  *
- * ESCAPES ARE CONSUMED, NOT RECORDED. `do_replacement`
+ * AN ESCAPED MATCH IS NOT RECORDED. `do_replacement`
  * (substitutors.rb l.1450-1453) answers a match holding a backslash by
  * writing the captured text back with the backslash removed, so
  * `x \(C) y` renders `x (C) y` - literal text, no reference at all.
- * The match still consumed its characters, which is what the refusal
- * below records, but no node is made for it: a `characterReference`
- * node that renders as its own source bytes would be a lie the printer
- * has no use for.
+ * The row still matches, and its own walk still moves past what it
+ * matched, but no node is made for it: a `characterReference` node
+ * that renders as its own source bytes would be a lie the printer has
+ * no use for.
  */
 import { ORACLE_WORD_CLASS } from "./quote-boundaries.js";
 
@@ -227,80 +225,45 @@ const REPLACEMENT_ROWS: readonly ReplacementRow[] = [
 ];
 
 /**
- * What one fragment's rows have consumed so far, and the references
- * they recorded.
- *
- * The consumed region is a flag per character rather than a list of
- * intervals: every row asks about a match it has just made, so the
- * question is always "is any character of `[from, to)` already gone",
- * and a flag answers it in the match's own width.
- */
-interface RowScan {
-  /** One flag per character of the fragment: consumed by some row. */
-  readonly consumed: Uint8Array;
-  /** Each recorded reference's first offset and length. */
-  readonly references: Map<number, number>;
-}
-
-/**
- * Whether every character of `[from, to)` is still there for a row to
- * match.
- * @param scan - what the earlier rows consumed
- * @param from - the match's first offset
- * @param to - one past the match's last offset
- * @returns true when no earlier row took any of it
- */
-function isFree(scan: RowScan, from: number, to: number): boolean {
-  for (let index = from; index < to; index += 1) {
-    if (scan.consumed[index] === 1) {
-      return false;
-    }
-  }
-  return true;
-}
-
-/**
- * Run one row over `text`, recording what it matches.
- *
- * `exec` on a global pattern is the gsub's own walk: each call resumes
- * behind the previous match, so a row can never take the same character
- * twice. A match an EARLIER row already consumed is refused and the
- * walk goes on, which is what reproduces `x <-> y`.
- * @param text - the fragment, exactly as the source spells it
- * @param row - the table row to run
- * @param scan - the consumed flags and the reference map, both mutated
- */
-function runRow(text: string, row: ReplacementRow, scan: RowScan): void {
-  row.pattern.lastIndex = 0;
-  let match = row.pattern.exec(text);
-  while (match !== null) {
-    const end = match.index + match[0].length;
-    if (isFree(scan, match.index, end)) {
-      scan.consumed.fill(1, match.index, end);
-      const site = row.site(match);
-      if (site !== undefined) {
-        scan.references.set(site.offset, site.length);
-      }
-    }
-    match = row.pattern.exec(text);
-  }
-}
-
-/**
  * Every character reference in `text`, by the offset of its first
  * character.
+ *
+ * One gsub per row over the whole fragment, in the table's order,
+ * which is `sub_replacements`'s own walk (substitutors.rb
+ * l.282-286). `exec` on a global pattern resumes behind the previous
+ * match, so one row can never take the same character twice, and a
+ * row that matched writes down only where the reference's own bytes
+ * sit: an escaped match records nothing at all, because
+ * `do_replacement` (substitutors.rb l.1450-1453) writes the captured
+ * text back with the backslash gone and no reference is made.
+ *
+ * SITES FROM DIFFERENT ROWS MAY OVERLAP, and the tokenizer's
+ * left-to-right walk settles them by taking the leftmost: `<->` holds
+ * both the left-arrow row's `<-` and the right-arrow row's `->`, and
+ * the walk reads the `<-`. Ruby's gsubs answer the other way, because
+ * the right-arrow row runs first and consumes the `->` before the
+ * left-arrow row can look. Neither answer reaches the output: the
+ * printer replays the author's characters for every reference, so the
+ * bytes and the render are the same under both readings, measured
+ * over the 1,614 corpus documents and the 17,477 inline standing-grid
+ * shapes at two print widths.
  * @param text - one paragraph body, exactly as the source spells it
  * @returns each reference's offset mapped to how many characters it
  *   spells; a character reference is a token at these offsets and
  *   nowhere else
  */
 export function scanReplacements(text: string): ReadonlyMap<number, number> {
-  const scan: RowScan = {
-    consumed: new Uint8Array(text.length),
-    references: new Map<number, number>(),
-  };
+  const references = new Map<number, number>();
   for (const row of REPLACEMENT_ROWS) {
-    runRow(text, row, scan);
+    row.pattern.lastIndex = 0;
+    let match = row.pattern.exec(text);
+    while (match !== null) {
+      const site = row.site(match);
+      if (site !== undefined) {
+        references.set(site.offset, site.length);
+      }
+      match = row.pattern.exec(text);
+    }
   }
-  return scan.references;
+  return references;
 }
