@@ -3,23 +3,6 @@ import { parse } from "../../src/parser.js";
 import { narrow } from "../helpers.js";
 
 describe("discrete heading parsing", () => {
-  // A `[discrete]` attribute list followed by a heading line
-  // produces a DiscreteHeadingNode instead of an ordinary heading.
-  // Discrete headings are standalone — they don't create sections.
-  // Note: levels are zero-indexed, so `==` is level 1 (not 0 or 2),
-  // matching the HeadingNode.level convention.
-  test("[discrete] + == Heading produces a discrete heading", () => {
-    const { children } = parse("[discrete]\n== Heading\n");
-    // The attribute list is kept as a separate block (for stacking),
-    // and the heading becomes a discreteHeading node.
-    expect(children).toHaveLength(2);
-    expect(children[0].type).toBe("blockAttributeList");
-    const [, child1] = children;
-    narrow(child1, "discreteHeading");
-    expect(child1.level).toBe(1);
-    expect(child1.title).toBe("Heading");
-  });
-
   // Discrete headings do NOT nest subsequent blocks. A paragraph
   // after a discrete heading should be a sibling, not a child.
   test("discrete heading does not nest subsequent blocks", () => {
@@ -61,20 +44,6 @@ describe("discrete heading parsing", () => {
     narrow(child1, "discreteHeading");
     expect(child1.level).toBe(5);
     expect(child1.title).toBe("Level 5");
-  });
-
-  // Level 0 (`=`) is VALID for a discrete heading: the marker that
-  // would be a document title on an ordinary heading is only a depth
-  // here, because a discrete heading is style, not structure. One
-  // derivation classifies and builds the marker, so the whole
-  // `=`-through-`======` range reaches the node.
-  test("discrete heading at level 0 (=)", () => {
-    const { children } = parse("[discrete]\n= T\n");
-    expect(children).toHaveLength(2);
-    const [, child1] = children;
-    narrow(child1, "discreteHeading");
-    expect(child1.level).toBe(0);
-    expect(child1.title).toBe("T");
   });
 
   // [discrete] under a heading: attrs + discrete heading + body are

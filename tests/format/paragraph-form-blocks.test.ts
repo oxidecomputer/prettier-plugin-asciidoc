@@ -6,25 +6,48 @@
  * preserves them without adding delimiters.
  */
 import { describe, test, expect } from "vitest";
-import { expectFormatted, formatAdoc } from "../helpers.js";
+import { parse } from "../../src/parser.js";
+import { delimitedBlockAt, expectFormatted, formatAdoc } from "../helpers.js";
 
 describe("paragraph-form source block formatting", () => {
   // Canonical form: [source] + content preserved as-is.
   test("[source] + content preserved", async () => {
     const input = "[source]\nputs 'hello'\n";
     await expectFormatted(input, input);
+    // [source] + paragraph → attr list + listing block.
+    const { children } = parse(input);
+    expect(children).toHaveLength(2);
+    expect(children[0].type).toBe("blockAttributeList");
+    const block = delimitedBlockAt(children, 1);
+    expect(block.variant).toBe("listing");
+    expect(block.form).toBe("paragraph");
+    expect(block.content).toBe("puts 'hello'");
   });
 
   // [source,ruby] with language — attribute list + content.
   test("[source,ruby] + content preserved", async () => {
     const input = "[source,ruby]\nputs 'hello'\n";
     await expectFormatted(input, input);
+    // [source,ruby] with language parameter.
+    const { children } = parse(input);
+    expect(children).toHaveLength(2);
+    expect(children[0].type).toBe("blockAttributeList");
+    const block = delimitedBlockAt(children, 1);
+    expect(block.variant).toBe("listing");
+    expect(block.form).toBe("paragraph");
+    expect(block.content).toBe("puts 'hello'");
   });
 
   // Multi-line source content preserved verbatim.
   test("multi-line source content preserved", async () => {
     const input = "[source]\nline 1\nline 2\nline 3\n";
     await expectFormatted(input, input);
+    // Multi-line content in a source block.
+    const { children } = parse(input);
+    expect(children).toHaveLength(2);
+    expect(children[0].type).toBe("blockAttributeList");
+    const block = delimitedBlockAt(children, 1);
+    expect(block.content).toBe("line 1\nline 2\nline 3");
   });
 
   // [listing] paragraph form.
@@ -39,6 +62,14 @@ describe("paragraph-form literal block formatting", () => {
   test("[literal] + content preserved", async () => {
     const input = "[literal]\nsome literal text\n";
     await expectFormatted(input, input);
+    // [literal] + paragraph → literal block, paragraph form.
+    const { children } = parse(input);
+    expect(children).toHaveLength(2);
+    expect(children[0].type).toBe("blockAttributeList");
+    const block = delimitedBlockAt(children, 1);
+    expect(block.variant).toBe("literal");
+    expect(block.form).toBe("paragraph");
+    expect(block.content).toBe("some literal text");
   });
 });
 
@@ -47,6 +78,14 @@ describe("paragraph-form pass block formatting", () => {
   test("[pass] + content preserved", async () => {
     const input = "[pass]\n<div>raw html</div>\n";
     await expectFormatted(input, input);
+    // [pass] + paragraph → pass block, paragraph form.
+    const { children } = parse(input);
+    expect(children).toHaveLength(2);
+    expect(children[0].type).toBe("blockAttributeList");
+    const block = delimitedBlockAt(children, 1);
+    expect(block.variant).toBe("pass");
+    expect(block.form).toBe("paragraph");
+    expect(block.content).toBe("<div>raw html</div>");
   });
 });
 
@@ -55,6 +94,15 @@ describe("paragraph-form verse block formatting", () => {
   test("[verse] + content with line breaks preserved", async () => {
     const input = "[verse]\nRoses are red,\nViolets are blue.\n";
     await expectFormatted(input, input);
+    // [verse] + paragraph → verse block, paragraph form.
+    // Verse preserves line breaks.
+    const { children } = parse(input);
+    expect(children).toHaveLength(2);
+    expect(children[0].type).toBe("blockAttributeList");
+    const block = delimitedBlockAt(children, 1);
+    expect(block.variant).toBe("verse");
+    expect(block.form).toBe("paragraph");
+    expect(block.content).toBe("Roses are red,\nViolets are blue.");
   });
 
   // [verse] with attribution. The blanks AROUND each attribute are
@@ -67,6 +115,24 @@ describe("paragraph-form verse block formatting", () => {
       input,
       "[verse,Robert Frost,Fire and Ice]\nSome say the world will end in fire,\nSome say in ice.\n",
     );
+    // [verse] with attribution positional attributes — the extra
+    // parameters are carried in the attribute list node; the block
+    // variant and content are unaffected.
+    const { children } = parse(input);
+    expect(children).toHaveLength(2);
+    // The blockAttributeList at children[0] should preserve
+    // the full attribute string including positional params.
+    expect(children[0].type).toBe("blockAttributeList");
+    if (children[0].type !== "blockAttributeList") {
+      return;
+    }
+    expect(children[0].value).toBe("verse, Robert Frost, Fire and Ice");
+    const block = delimitedBlockAt(children, 1);
+    expect(block.variant).toBe("verse");
+    expect(block.form).toBe("paragraph");
+    expect(block.content).toBe(
+      "Some say the world will end in fire,\nSome say in ice.",
+    );
   });
 });
 
@@ -75,6 +141,14 @@ describe("paragraph-form quote block formatting", () => {
   test("[quote] + content preserved", async () => {
     const input = "[quote]\nTo be or not to be.\n";
     await expectFormatted(input, input);
+    // [quote] + paragraph → quote block, paragraph form.
+    const { children } = parse(input);
+    expect(children).toHaveLength(2);
+    expect(children[0].type).toBe("blockAttributeList");
+    const block = delimitedBlockAt(children, 1);
+    expect(block.variant).toBe("quote");
+    expect(block.form).toBe("paragraph");
+    expect(block.content).toBe("To be or not to be.");
   });
 
   // [quote] with attribution — same rule as the verse row above.
@@ -84,6 +158,22 @@ describe("paragraph-form quote block formatting", () => {
       input,
       "[quote,Shakespeare,Hamlet]\nTo be or not to be.\n",
     );
+    // [quote] with attribution positional attributes — the extra
+    // parameters are carried in the attribute list node; the block
+    // variant and content are unaffected.
+    const { children } = parse(input);
+    expect(children).toHaveLength(2);
+    // The blockAttributeList at children[0] should preserve
+    // the full attribute string including positional params.
+    expect(children[0].type).toBe("blockAttributeList");
+    if (children[0].type !== "blockAttributeList") {
+      return;
+    }
+    expect(children[0].value).toBe("quote, Shakespeare, Hamlet");
+    const block = delimitedBlockAt(children, 1);
+    expect(block.variant).toBe("quote");
+    expect(block.form).toBe("paragraph");
+    expect(block.content).toBe("To be or not to be.");
   });
 });
 
@@ -92,6 +182,14 @@ describe("paragraph-form example block formatting", () => {
   test("[example] + content preserved", async () => {
     const input = "[example]\nThis is an example.\n";
     await expectFormatted(input, input);
+    // [example] + paragraph → example block, paragraph form.
+    const { children } = parse(input);
+    expect(children).toHaveLength(2);
+    expect(children[0].type).toBe("blockAttributeList");
+    const block = delimitedBlockAt(children, 1);
+    expect(block.variant).toBe("example");
+    expect(block.form).toBe("paragraph");
+    expect(block.content).toBe("This is an example.");
   });
 });
 
@@ -100,6 +198,14 @@ describe("paragraph-form sidebar block formatting", () => {
   test("[sidebar] + content preserved", async () => {
     const input = "[sidebar]\nThis is sidebar content.\n";
     await expectFormatted(input, input);
+    // [sidebar] + paragraph → sidebar block, paragraph form.
+    const { children } = parse(input);
+    expect(children).toHaveLength(2);
+    expect(children[0].type).toBe("blockAttributeList");
+    const block = delimitedBlockAt(children, 1);
+    expect(block.variant).toBe("sidebar");
+    expect(block.form).toBe("paragraph");
+    expect(block.content).toBe("This is sidebar content.");
   });
 });
 
@@ -115,6 +221,14 @@ describe("paragraph-form block context formatting", () => {
   test("block title stacks with paragraph-form block", async () => {
     const input = ".My Code\n[source]\nsome code\n";
     await expectFormatted(input, input);
+    // Paragraph-form block with block metadata before it.
+    const { children } = parse(input);
+    expect(children).toHaveLength(3);
+    expect(children[0].type).toBe("blockTitle");
+    expect(children[1].type).toBe("blockAttributeList");
+    const block = delimitedBlockAt(children, 2);
+    expect(block.variant).toBe("listing");
+    expect(block.form).toBe("paragraph");
   });
 
   // A block anchor stacks with following metadata ([source]
@@ -136,6 +250,14 @@ describe("paragraph-form block context formatting", () => {
   test("[#myid] before paragraph remains separate", async () => {
     const input = "[#myid]\nSome text.\n";
     expect(await formatAdoc(input)).toBe("[[myid]]\n\nSome text.\n");
+    // Regular attribute lists that are NOT paragraph-form styles
+    // should still be standalone nodes followed by a paragraph.
+    const { children } = parse(input);
+    expect(children).toHaveLength(2);
+    // Standalone either way; the id-only spelling builds the anchor
+    // node it names (buildAttributeLine, src/parse/build/metadata.ts).
+    expect(children[0].type).toBe("blockAnchor");
+    expect(children[1].type).toBe("paragraph");
   });
 });
 

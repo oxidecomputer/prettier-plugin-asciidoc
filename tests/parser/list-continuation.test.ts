@@ -141,60 +141,6 @@ describe("list continuation parsing", () => {
     expect(without.trailingContinuation).toBe(false);
     expect({ ...item, trailingContinuation: false }).toEqual(without);
   });
-
-  // A `+` line with trailing whitespace is still a marker —
-  // Asciidoctor right-trims lines before matching, so one
-  // invisible trailing space must not resurrect the folding
-  // corruption.
-  test("+ line with trailing whitespace is a marker", () => {
-    const { children } = parse("* item text.\n+ \nAttached paragraph.\n");
-    const {
-      children: [item],
-    } = firstList(children);
-    expect(item.blocks).toHaveLength(1);
-    expect(item.text[0]).toMatchObject({
-      type: "text",
-      value: "item text.",
-    });
-  });
-
-  // A `+` line DIRECTLY after a marker is content of the
-  // attached paragraph, not a second marker — treating it as a
-  // marker would silently delete the `+` from the rendered
-  // document (Asciidoctor renders `+ Attached` here). The frozen
-  // `+` heads ONE folded paragraph — non-content-adjacent, so the
-  // text after it folds in (parser.js l.1065) — with the `+` on a
-  // verbatim raw line of its own, so the byte is printed back
-  // exactly where it was written.
-  test("+ line directly after a marker is content", async () => {
-    const input = "* item\n+\n+\nAttached\n";
-    expect(await renderedHtml(input)).toContain("<p>+ Attached</p>");
-    const { children } = parse(input);
-    const {
-      children: [item],
-    } = firstList(children);
-    expect(item.blocks).toHaveLength(1);
-    const [first, second] = asParagraph(item.blocks[0].block).children;
-    expect(first).toMatchObject({ type: "rawLine", value: "+" });
-    expect(second).toMatchObject({ type: "text", value: "Attached" });
-  });
-
-  // Indented content after `+` is a literal block in
-  // Asciidoctor — whitespace is significant and must not be
-  // reflowed into a paragraph.
-  test("indented content after + becomes a literal block", () => {
-    const { children } = parse("* item\n+\n  literal line\n");
-    const {
-      children: [item],
-    } = firstList(children);
-    expect(item.blocks).toHaveLength(1);
-    expect(item.blocks[0].block).toMatchObject({
-      type: "delimitedBlock",
-      variant: "literal",
-      form: "indented",
-      content: "  literal line",
-    });
-  });
 });
 
 // Issue #6: a `+` directly before a delimited block attaches the
@@ -216,113 +162,6 @@ describe("continuations around delimited blocks (issue #6)", () => {
       variant: "literal",
       form: "delimited",
       content: "literal",
-    });
-  });
-
-  test("issue #6 repro: block plus trailing paragraph both attach", () => {
-    const { children } = parse(
-      "* item one with some text:\n" +
-        "+\n" +
-        "....\n" +
-        "literal block content\n" +
-        "....\n" +
-        "+\n" +
-        "continuation paragraph after the block.\n" +
-        "\n" +
-        "* item two.\n",
-    );
-    // The literal block and trailing paragraph are absorbed into
-    // item one; item two is the second item of the SAME list (a
-    // blank line between items does not split a list).
-    expect(children).toHaveLength(1);
-    const { children: items } = firstList(children);
-    expect(items).toHaveLength(2);
-    const [item] = items;
-    expect(item.blocks).toHaveLength(2);
-    expect(item.blocks[0].block).toMatchObject({
-      type: "delimitedBlock",
-      variant: "literal",
-      content: "literal block content",
-    });
-    const attached = asParagraph(item.blocks[1].block);
-    expect(attached.children[0]).toMatchObject({
-      type: "text",
-      value: "continuation paragraph after the block.",
-    });
-  });
-
-  test("+ attaches a parent block to the item", () => {
-    const { children } = parse("* item:\n+\n====\nexample text\n====\n");
-    expect(children).toHaveLength(1);
-    const {
-      children: [item],
-    } = firstList(children);
-    expect(item.blocks).toHaveLength(1);
-    expect(item.blocks[0].block).toMatchObject({
-      type: "parentBlock",
-      variant: "example",
-    });
-  });
-
-  test("marker lines split the trailing paragraph into blocks", () => {
-    const { children } = parse(
-      "* item:\n+\n----\ncode\n----\n+\npara one\n+\npara two\n",
-    );
-    expect(children).toHaveLength(1);
-    const {
-      children: [item],
-    } = firstList(children);
-    expect(item.blocks).toHaveLength(3);
-    expect(asParagraph(item.blocks[1].block).children[0]).toMatchObject({
-      type: "text",
-      value: "para one",
-    });
-    expect(asParagraph(item.blocks[2].block).children[0]).toMatchObject({
-      type: "text",
-      value: "para two",
-    });
-  });
-
-  test("trailing + after an attached block re-arms attachment", () => {
-    const { children } = parse(
-      "* item:\n+\n----\none\n----\n+\npara\n+\n----\ntwo\n----\n",
-    );
-    expect(children).toHaveLength(1);
-    const {
-      children: [item],
-    } = firstList(children);
-    expect(item.blocks).toHaveLength(3);
-    expect(item.blocks[0].block).toMatchObject({
-      type: "delimitedBlock",
-      content: "one",
-    });
-    expect(item.blocks[2].block).toMatchObject({
-      type: "delimitedBlock",
-      content: "two",
-    });
-  });
-
-  // ONE blank line between the `+` and the next block still attaches
-  // it: `read_lines_for_list_item` buffers the first blank after a
-  // `+` as content, so the block that follows reaches the
-  // `continuation == :active` branch. ORACLE: the literal block is
-  // inside the item. (Two blanks would end the list instead.)
-  test("one blank line after + still attaches the block", async () => {
-    const input = "* item\n+\n\n....\nliteral\n....\n";
-    expect(await renderedHtml(input)).toMatch(
-      /<li>.*<pre>literal<\/pre>.*<\/li>/v,
-    );
-    const { children } = parse(input);
-    expect(children).toHaveLength(1);
-    const {
-      children: [item],
-    } = firstList(children);
-    expect(item.blocks).toHaveLength(1);
-    // The one buffered blank rides in the gap, verbatim.
-    expect(item.blocks[0].gap).toEqual(["+", ""]);
-    expect(item.blocks[0].block).toMatchObject({
-      type: "delimitedBlock",
-      variant: "literal",
     });
   });
 
@@ -433,27 +272,6 @@ describe("continuations around delimited blocks (issue #6)", () => {
     } = firstList(children);
     expect(item.blocks).toHaveLength(1);
     expect(item.blocks[0].block).toMatchObject({ type: "blockMacro" });
-  });
-
-  // A heading line after a `+` is attached PARAGRAPH TEXT: the
-  // `continuation == :active` branch of `read_lines_for_list_item`
-  // buffers it, and the confined list-item reader never calls
-  // `next_section`. ORACLE: `<p>== Heading</p>` inside the item, no
-  // `<h2>`.
-  test("+ before a section heading attaches it as paragraph text", async () => {
-    const input = "* i:\n+\n== Heading\n";
-    const html = await renderedHtml(input);
-    expect(html).toContain("<p>== Heading</p>");
-    expect(html).not.toContain("<h2");
-    const { children } = parse(input);
-    const {
-      children: [item],
-    } = firstList(children);
-    expect(item.blocks).toHaveLength(1);
-    expect(asParagraph(item.blocks[0].block).children[0]).toMatchObject({
-      type: "text",
-      value: "== Heading",
-    });
   });
 
   // Block metadata after a `+` "plays out until we find the block"

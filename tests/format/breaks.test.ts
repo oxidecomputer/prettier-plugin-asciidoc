@@ -14,12 +14,26 @@ describe("thematic break formatting", () => {
   test("basic thematic break preserved", async () => {
     const input = "'''\n";
     await expectFormatted(input, input);
+    // Basic thematic break: exactly three single quotes.
+    const { children } = parse(input);
+    expect(children).toHaveLength(1);
+    expect(children[0].type).toBe("thematicBreak");
+    // Position tracking.
+    const [node] = children;
+    expect(node.position.start.line).toBe(1);
+    expect(node.position.start.column).toBe(1);
+    expect(node.position.start.offset).toBe(0);
   });
 
   // Extended thematic break normalized to three quotes.
   test("extended thematic break normalized", async () => {
     expect(await formatAdoc("''''\n")).toBe("'''\n");
     expect(await formatAdoc("'''''\n")).toBe("'''\n");
+    // Extended thematic break: more than three single quotes
+    // is still a thematic break.
+    const { children } = parse("''''\n");
+    expect(children).toHaveLength(1);
+    expect(children[0].type).toBe("thematicBreak");
   });
 
   // Thematic break with surrounding paragraphs has blank
@@ -27,6 +41,12 @@ describe("thematic break formatting", () => {
   test("thematic break between paragraphs", async () => {
     const input = "Before.\n\n'''\n\nAfter.\n";
     await expectFormatted(input, input);
+    // Between two paragraphs.
+    const { children } = parse(input);
+    expect(children).toHaveLength(3);
+    expect(children[0].type).toBe("paragraph");
+    expect(children[1].type).toBe("thematicBreak");
+    expect(children[2].type).toBe("paragraph");
   });
 });
 
@@ -187,12 +207,25 @@ describe("page break formatting", () => {
   test("basic page break preserved", async () => {
     const input = "<<<\n";
     await expectFormatted(input, input);
+    // Basic page break: exactly three less-than signs.
+    const { children } = parse(input);
+    expect(children).toHaveLength(1);
+    expect(children[0].type).toBe("pageBreak");
+    // Position tracking.
+    const [node] = children;
+    expect(node.position.start.line).toBe(1);
+    expect(node.position.start.column).toBe(1);
+    expect(node.position.start.offset).toBe(0);
   });
 
   // Extended page break normalized to three less-than signs.
   test("extended page break normalized", async () => {
     expect(await formatAdoc("<<<<\n")).toBe("<<<\n");
     expect(await formatAdoc("<<<<<\n")).toBe("<<<\n");
+    // Extended page break: more than three less-than signs.
+    const { children } = parse("<<<<\n");
+    expect(children).toHaveLength(1);
+    expect(children[0].type).toBe("pageBreak");
   });
 
   // Page break with surrounding paragraphs has blank
@@ -200,6 +233,12 @@ describe("page break formatting", () => {
   test("page break between paragraphs", async () => {
     const input = "Before.\n\n<<<\n\nAfter.\n";
     await expectFormatted(input, input);
+    // Between two paragraphs.
+    const { children } = parse(input);
+    expect(children).toHaveLength(3);
+    expect(children[0].type).toBe("paragraph");
+    expect(children[1].type).toBe("pageBreak");
+    expect(children[2].type).toBe("paragraph");
   });
 });
 

@@ -20,10 +20,12 @@ import {
   load,
 } from "@asciidoctor/core";
 import type {
+  AdmonitionNode,
   BlockNode,
   DelimitedBlockNode,
   ListNode,
   ParagraphNode,
+  ParentBlockNode,
 } from "../src/ast.js";
 import type { parse } from "../src/parser.js";
 import plugin from "../src/index.js";
@@ -129,18 +131,61 @@ export function asParagraph(node: BlockNode): ParagraphNode {
 }
 
 /**
+ * Narrows the child at `index` to DelimitedBlockNode. Using an
+ * explicit throw rather than a cast means test setup errors surface
+ * immediately with a readable message instead of a silent type lie.
+ * @param children - the children array from a `parse()` result
+ * @param index - position of the expected delimited block
+ * @returns the child narrowed to DelimitedBlockNode
+ */
+export function delimitedBlockAt(
+  children: ReturnType<typeof parse>["children"],
+  index: number,
+): DelimitedBlockNode {
+  const { [index]: block } = children;
+  narrow(block, "delimitedBlock");
+  return block;
+}
+
+/**
  * Narrows the first child of a document's children array to
- * DelimitedBlockNode. Using an explicit throw rather than a
- * cast means test setup errors surface immediately with a
- * readable message instead of a silent type lie.
+ * DelimitedBlockNode.
  * @param children - the children array from a `parse()` result
  * @returns the first child narrowed to DelimitedBlockNode
  */
 export function firstDelimitedBlock(
   children: ReturnType<typeof parse>["children"],
 ): DelimitedBlockNode {
-  const [block] = children;
-  narrow(block, "delimitedBlock");
+  return delimitedBlockAt(children, 0);
+}
+
+/**
+ * Narrows the child at `index` to ParentBlockNode.
+ * @param children - the children array from a `parse()` result
+ * @param index - position of the expected parent block
+ * @returns the child narrowed to ParentBlockNode
+ */
+export function parentBlockAt(
+  children: ReturnType<typeof parse>["children"],
+  index: number,
+): ParentBlockNode {
+  const { [index]: block } = children;
+  narrow(block, "parentBlock");
+  return block;
+}
+
+/**
+ * Narrows the child at `index` to AdmonitionNode.
+ * @param children - the children array from a `parse()` result
+ * @param index - position of the expected admonition
+ * @returns the child narrowed to AdmonitionNode
+ */
+export function admonitionAt(
+  children: ReturnType<typeof parse>["children"],
+  index: number,
+): AdmonitionNode {
+  const { [index]: block } = children;
+  narrow(block, "admonition");
   return block;
 }
 

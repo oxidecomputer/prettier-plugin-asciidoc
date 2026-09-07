@@ -3,37 +3,6 @@ import { parse } from "../../src/parser.js";
 import { firstList, narrow, renderedHtml } from "../helpers.js";
 
 describe("callout list parsing", () => {
-  // The simplest case: a single `<1> item` line is a one-item
-  // callout list.
-  test("single callout item", () => {
-    const { children } = parse("<1> First item\n");
-    expect(children).toHaveLength(1);
-    const list = firstList(children);
-    expect(list.variant).toBe("callout");
-    expect(list.children).toHaveLength(1);
-    expect(list.children[0].calloutNumber).toBe(1);
-  });
-
-  // Multiple callout items in succession form a single list.
-  test("multi-item callout list", () => {
-    const { children } = parse("<1> First\n<2> Second\n<3> Third\n");
-    expect(children).toHaveLength(1);
-    const list = firstList(children);
-    expect(list.variant).toBe("callout");
-    expect(list.children).toHaveLength(3);
-    expect(list.children[0].calloutNumber).toBe(1);
-    expect(list.children[1].calloutNumber).toBe(2);
-    expect(list.children[2].calloutNumber).toBe(3);
-  });
-
-  // `<.>` is the auto-numbering marker. We store it as
-  // calloutNumber 0 to distinguish it from explicit numbers.
-  test("auto-numbered callout", () => {
-    const { children } = parse("<.> Auto item\n");
-    const list = firstList(children);
-    expect(list.children[0].calloutNumber).toBe(0);
-  });
-
   // Item text does not include the `<N> ` marker or the
   // space after it.
   test("callout item text excludes marker", () => {
@@ -87,13 +56,6 @@ describe("callout list parsing", () => {
     narrow(textNode, "text");
     expect(textNode.value).toContain("First line");
     expect(textNode.value).toContain("second line");
-  });
-
-  // Callout numbers can be multi-digit.
-  test("multi-digit callout number", () => {
-    const { children } = parse("<12> Twelfth item\n");
-    const list = firstList(children);
-    expect(list.children[0].calloutNumber).toBe(12);
   });
 
   // Non-callout list items have `calloutNumber: undefined`.

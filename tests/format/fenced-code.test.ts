@@ -1,5 +1,11 @@
 import { describe, test, expect } from "vitest";
-import { expectFormatted, expectStableRender, formatAdoc } from "../helpers.js";
+import { parse } from "../../src/parser.js";
+import {
+  expectFormatted,
+  expectStableRender,
+  firstDelimitedBlock,
+  formatAdoc,
+} from "../helpers.js";
 
 describe("fenced code block formatting", () => {
   // Fenced block with language normalizes to [source,lang] + ----
@@ -7,6 +13,14 @@ describe("fenced code block formatting", () => {
     const input = "```rust\nfn main() {}\n```\n";
     const expected = "[source,rust]\n----\nfn main() {}\n----\n";
     expect(await formatAdoc(input)).toBe(expected);
+    // Backtick-fenced code block with language hint produces a
+    // listing block with the language captured.
+    const { children } = parse(input);
+    expect(children).toHaveLength(1);
+    const block = firstDelimitedBlock(children);
+    expect(block.variant).toBe("listing");
+    expect(block.language).toBe("rust");
+    expect(block.content).toBe("fn main() {}");
   });
 
   // A fence carries implicit `source` style even without a language
@@ -23,6 +37,13 @@ describe("fenced code block formatting", () => {
     const expected =
       '[source,rust]\n----\nfn main() {\n    println!("Hello");\n}\n----\n';
     expect(await formatAdoc(input)).toBe(expected);
+    // Multi-line content is preserved verbatim, including internal
+    // indentation — no whitespace stripping is applied to body lines.
+    const { children } = parse(input);
+    const block = firstDelimitedBlock(children);
+    expect(block.variant).toBe("listing");
+    expect(block.language).toBe("rust");
+    expect(block.content).toBe('fn main() {\n    println!("Hello");\n}');
   });
 
   // Empty fenced code block still carries implicit source style,
@@ -31,6 +52,14 @@ describe("fenced code block formatting", () => {
     const input = "```\n```\n";
     const expected = "[source]\n----\n----\n";
     expect(await formatAdoc(input)).toBe(expected);
+    // A fenced block with no body lines (open fence immediately
+    // followed by close fence) produces content `""`, not
+    // `undefined`. Empty is a valid, distinct state.
+    const { children } = parse(input);
+    const block = firstDelimitedBlock(children);
+    expect(block.variant).toBe("listing");
+    expect(block.content).toBe("");
+    expect(block.language).toBeUndefined();
   });
 
   // Fenced block between paragraphs.
@@ -46,6 +75,14 @@ describe("fenced code block formatting", () => {
     const input = "```\n----\ncode\n----\n```\n";
     const expected = "[source]\n-----\n----\ncode\n----\n-----\n";
     expect(await formatAdoc(input)).toBe(expected);
+    // AsciiDoc-style delimiters (e.g. `----`) inside a fenced block are
+    // treated as plain content, not block openers. A verbatim block's
+    // extent is read by {@link delimitedExtent}, which looks only for
+    // its OWN terminator, so nothing between the fences is classified at
+    // all.
+    const { children } = parse(input);
+    const block = firstDelimitedBlock(children);
+    expect(block.content).toBe("----\ncode\n----");
   });
 
   // Normalized output reformats to itself.

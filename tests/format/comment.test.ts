@@ -6,7 +6,13 @@
  * with how the formatter treats other block elements.
  */
 import { describe, test, expect } from "vitest";
-import { expectFormatted, formatAdoc } from "../helpers.js";
+import { parse } from "../../src/parser.js";
+import {
+  expectFormatted,
+  formatAdoc,
+  narrow,
+  renderedHtml,
+} from "../helpers.js";
 
 describe("line comment formatting", () => {
   // A canonical line comment must pass through unchanged.
@@ -15,6 +21,16 @@ describe("line comment formatting", () => {
   test("line comment preserved as-is", async () => {
     const input = "// this is a comment\n";
     await expectFormatted(input, input);
+    // Verifies the fundamental contract: `// text` becomes a comment node,
+    // not a paragraph. Without this, comments would be treated as prose.
+    const document = parse(input);
+    expect(document.children).toHaveLength(1);
+    const {
+      children: [child0],
+    } = document;
+    narrow(child0, "comment");
+    expect(child0.commentType).toBe("line");
+    expect(child0.value).toBe("this is a comment");
   });
 
   // Empty comments (`//`) are valid and common as section dividers.
@@ -23,6 +39,17 @@ describe("line comment formatting", () => {
   test("empty line comment preserved", async () => {
     const input = "//\n";
     await expectFormatted(input, input);
+    // `//` alone is a valid empty comment in AsciiDoc. The classifier's
+    // line-comment shape must accept end-of-line after the slashes, not
+    // just space-then-text.
+    const document = parse(input);
+    expect(document.children).toHaveLength(1);
+    const {
+      children: [child0],
+    } = document;
+    narrow(child0, "comment");
+    expect(child0.commentType).toBe("line");
+    expect(child0.value).toBe("");
   });
 
   // Comments between paragraphs get the same blank-line treatment as
@@ -48,6 +75,18 @@ describe("line comment formatting", () => {
   test("consecutive line comments", async () => {
     const input = "// first\n// second\n";
     await expectFormatted(input, input);
+    // Authors often stack line comments. Each must be its own AST node so
+    // the printer can emit them individually — merging would lose the
+    // per-line `//` markers and change the document's meaning.
+    const document = parse(input);
+    expect(document.children).toHaveLength(2);
+    const {
+      children: [child0, child1],
+    } = document;
+    narrow(child0, "comment");
+    narrow(child1, "comment");
+    expect(child0.value).toBe("first");
+    expect(child1.value).toBe("second");
   });
 
   // Comments inside sections must be separated from the heading and
@@ -55,6 +94,14 @@ describe("line comment formatting", () => {
   test("comment inside a section", async () => {
     const input = "== Title\n\n// remark\n\nText.\n";
     await expectFormatted(input, input);
+    // Flat model, sections not modeled: the comment and the paragraph are the
+    // heading's SIBLINGS; source order is all there is to keep.
+    const { children } = parse(input);
+    expect(children.map((child) => child.type)).toEqual([
+      "heading",
+      "comment",
+      "paragraph",
+    ]);
   });
 });
 
@@ -65,6 +112,18 @@ describe("block comment formatting", () => {
   test("block comment preserved as-is", async () => {
     const input = "////\nblock content\n////\n";
     await expectFormatted(input, input);
+    // The core block comment contract: `////` delimiters wrap verbatim
+    // content that must not be parsed as AsciiDoc. If the `push_mode`
+    // on BlockCommentDelimiter fails, the content falls through to
+    // default-mode tokenization (headings, inline text, etc.).
+    const document = parse(input);
+    expect(document.children).toHaveLength(1);
+    const {
+      children: [child0],
+    } = document;
+    narrow(child0, "comment");
+    expect(child0.commentType).toBe("block");
+    expect(child0.value).toBe("block content");
   });
 
   // Empty block comments are valid (authors use them as placeholders).
@@ -72,6 +131,17 @@ describe("block comment formatting", () => {
   test("empty block comment preserved", async () => {
     const input = "////\n////\n";
     await expectFormatted(input, input);
+    // Empty block comments (`////\n////`) are valid: the extent scan
+    // starts at the opening line and finds its terminator on the very
+    // next one, with no content lines in between.
+    const document = parse(input);
+    expect(document.children).toHaveLength(1);
+    const {
+      children: [child0],
+    } = document;
+    narrow(child0, "comment");
+    expect(child0.commentType).toBe("block");
+    expect(child0.value).toBe("");
   });
 
   // Internal newlines within block comment content must be preserved
@@ -87,6 +157,14 @@ describe("block comment formatting", () => {
   test("block comment between paragraphs", async () => {
     const input = "Before.\n\n////\nhidden\n////\n\nAfter.\n";
     await expectFormatted(input, input);
+    // Same structural test as for line comments: block comments between
+    // paragraphs must appear as their own block-level nodes, not get
+    // absorbed into the adjacent paragraphs.
+    const document = parse(input);
+    expect(document.children).toHaveLength(3);
+    expect(document.children[0].type).toBe("paragraph");
+    expect(document.children[1].type).toBe("comment");
+    expect(document.children[2].type).toBe("paragraph");
   });
 
   // AsciiDoc allows extended delimiters (`//////`), but the formatter
@@ -96,6 +174,18 @@ describe("block comment formatting", () => {
     const input = "//////\ncontent\n//////\n";
     const expected = "////\ncontent\n////\n";
     expect(await formatAdoc(input)).toBe(expected);
+    // AsciiDoc allows delimiters longer than 4 slashes (`//////`).
+    // The classifier's comment-delimiter shape (`/{4,}`) must accept
+    // these without creating a mismatch between open and close
+    // delimiter lengths.
+    const document = parse(input);
+    expect(document.children).toHaveLength(1);
+    const {
+      children: [child0],
+    } = document;
+    narrow(child0, "comment");
+    expect(child0.commentType).toBe("block");
+    expect(child0.value).toBe("content");
   });
 
   // Block comments with internal blank lines must survive formatting
@@ -104,6 +194,18 @@ describe("block comment formatting", () => {
   test("block comment with internal blank lines preserved", async () => {
     const input = "////\nline one\n\nline three\n////\n";
     await expectFormatted(input, input);
+    // Block comments can contain blank lines (e.g. separating paragraphs
+    // of commented-out prose). The verbatim content extraction must
+    // preserve internal blank lines exactly — losing them would silently
+    // alter the commented-out content when formatting.
+    const document = parse(input);
+    expect(document.children).toHaveLength(1);
+    const {
+      children: [child0],
+    } = document;
+    narrow(child0, "comment");
+    expect(child0.commentType).toBe("block");
+    expect(child0.value).toBe("line one\n\nline three");
   });
 
   // Same collapsing behavior as line comments: extra blank lines
@@ -161,6 +263,20 @@ describe("block comment formatting", () => {
 test("an unterminated comment block closes directly after its content", async () => {
   const input = "////\ncontent\n//////\n";
   await expectFormatted(input, "////\ncontent\n//////\n////\n");
+  // Mismatched delimiter lengths do NOT close a block: `read_lines_until
+  // terminator:` compares whole lines against the opening delimiter, so
+  // a 6-slash line inside a 4-slash comment block is content and the
+  // block runs on to end of input (Asciidoctor warns "unterminated
+  // comment block"). ORACLE: nothing of it renders either way.
+  expect(await renderedHtml(input)).not.toContain("content");
+  const document = parse(input);
+  expect(document.children).toHaveLength(1);
+  const {
+    children: [child0],
+  } = document;
+  narrow(child0, "comment");
+  expect(child0.commentType).toBe("block");
+  expect(child0.value).toBe("content\n//////");
 });
 
 // A reader-eaten line directly after a block keeps its place: the

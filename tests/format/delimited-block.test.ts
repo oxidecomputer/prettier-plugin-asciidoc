@@ -1,6 +1,8 @@
 import { describe, test, expect } from "vitest";
+import { parse } from "../../src/parser.js";
 import {
   expectFormatted,
+  firstDelimitedBlock,
   formatAdoc,
   oracleHtml,
   renderedHtml,
@@ -11,18 +13,37 @@ describe("listing block formatting", () => {
   test("basic listing block preserved", async () => {
     const input = "----\nsome code\n----\n";
     await expectFormatted(input, input);
+    // The simplest listing block: `----` delimiters around content.
+    const { children } = parse(input);
+    expect(children).toHaveLength(1);
+    const block = firstDelimitedBlock(children);
+    expect(block.variant).toBe("listing");
+    expect(block.form).toBe("delimited");
+    expect(block.content).toBe("some code");
   });
 
   // Multi-line content preserved verbatim (no reflowing).
   test("multi-line content preserved", async () => {
     const input = "----\nline 1\nline 2\nline 3\n----\n";
     await expectFormatted(input, input);
+    // Multi-line content is preserved verbatim.
+    const { children } = parse(input);
+    const block = firstDelimitedBlock(children);
+    expect(block.variant).toBe("listing");
+    expect(block.form).toBe("delimited");
+    expect(block.content).toBe("line 1\nline 2\nline 3");
   });
 
   // Empty listing block preserved.
   test("empty listing block preserved", async () => {
     const input = "----\n----\n";
     await expectFormatted(input, input);
+    // Empty listing block (no content between delimiters).
+    const { children } = parse(input);
+    const block = firstDelimitedBlock(children);
+    expect(block.variant).toBe("listing");
+    expect(block.form).toBe("delimited");
+    expect(block.content).toBe("");
   });
 
   // Extended delimiters are normalized to exactly 4 characters.
@@ -30,12 +51,24 @@ describe("listing block formatting", () => {
     const input = "------\ncode\n------\n";
     const expected = "----\ncode\n----\n";
     expect(await formatAdoc(input)).toBe(expected);
+    // Listing block with extended delimiters (more than 4 dashes).
+    const { children } = parse(input);
+    const block = firstDelimitedBlock(children);
+    expect(block.variant).toBe("listing");
+    expect(block.form).toBe("delimited");
+    expect(block.content).toBe("code");
   });
 
   // Formatting characters inside listing blocks are NOT reflowed.
   test("formatting chars preserved verbatim", async () => {
     const input = "----\n*bold* _italic_ `mono`\n----\n";
     await expectFormatted(input, input);
+    // Inline formatting characters are NOT special inside listing
+    // blocks — they are preserved verbatim.
+    const { children } = parse(input);
+    const block = firstDelimitedBlock(children);
+    expect(block.form).toBe("delimited");
+    expect(block.content).toBe("*bold* _italic_ `mono`");
   });
 
   // Blank line separation between paragraph and listing block.
@@ -56,6 +89,13 @@ describe("listing block formatting", () => {
     const input = "------\n----\nstill inside\n------\n";
     const expected = "-----\n----\nstill inside\n-----\n";
     expect(await formatAdoc(input)).toBe(expected);
+    // A shorter delimiter inside an extended block must NOT close
+    // it — AsciiDoc requires open/close lengths to match exactly.
+    const { children } = parse(input);
+    const block = firstDelimitedBlock(children);
+    expect(block.variant).toBe("listing");
+    expect(block.form).toBe("delimited");
+    expect(block.content).toBe("----\nstill inside");
   });
 
   // An interior line LONGER than the minimum fence constrains
@@ -190,12 +230,24 @@ describe("literal block formatting", () => {
   test("basic literal block preserved", async () => {
     const input = "....\nsome text\n....\n";
     await expectFormatted(input, input);
+    // Basic literal block with `....` delimiters.
+    const { children } = parse(input);
+    const block = firstDelimitedBlock(children);
+    expect(block.variant).toBe("literal");
+    expect(block.form).toBe("delimited");
+    expect(block.content).toBe("some text");
   });
 
   // Empty literal block preserved.
   test("empty literal block preserved", async () => {
     const input = "....\n....\n";
     await expectFormatted(input, input);
+    // Empty literal block.
+    const { children } = parse(input);
+    const block = firstDelimitedBlock(children);
+    expect(block.variant).toBe("literal");
+    expect(block.form).toBe("delimited");
+    expect(block.content).toBe("");
   });
 
   // Extended literal delimiters normalized to 4.
@@ -210,6 +262,13 @@ describe("literal block formatting", () => {
     const input = "......\n....\nstill inside\n......\n";
     const expected = ".....\n....\nstill inside\n.....\n";
     expect(await formatAdoc(input)).toBe(expected);
+    // A shorter literal delimiter inside an extended block is
+    // content, not a close delimiter.
+    const { children } = parse(input);
+    const block = firstDelimitedBlock(children);
+    expect(block.variant).toBe("literal");
+    expect(block.form).toBe("delimited");
+    expect(block.content).toBe("....\nstill inside");
   });
 
   // Regression: content inside a literal block that is entirely
@@ -247,12 +306,24 @@ describe("passthrough block formatting", () => {
   test("basic passthrough block preserved", async () => {
     const input = "++++\n<div>raw</div>\n++++\n";
     await expectFormatted(input, input);
+    // Basic passthrough block with `++++` delimiters.
+    const { children } = parse(input);
+    const block = firstDelimitedBlock(children);
+    expect(block.variant).toBe("pass");
+    expect(block.form).toBe("delimited");
+    expect(block.content).toBe("<div>raw</div>");
   });
 
   // Empty passthrough block preserved.
   test("empty passthrough block preserved", async () => {
     const input = "++++\n++++\n";
     await expectFormatted(input, input);
+    // Empty passthrough block.
+    const { children } = parse(input);
+    const block = firstDelimitedBlock(children);
+    expect(block.variant).toBe("pass");
+    expect(block.form).toBe("delimited");
+    expect(block.content).toBe("");
   });
 
   // Extended passthrough delimiters normalized to 4.
@@ -267,5 +338,12 @@ describe("passthrough block formatting", () => {
     const input = "++++++\n++++\nstill inside\n++++++\n";
     const expected = "+++++\n++++\nstill inside\n+++++\n";
     expect(await formatAdoc(input)).toBe(expected);
+    // A shorter passthrough delimiter inside an extended block is
+    // content, not a close delimiter.
+    const { children } = parse(input);
+    const block = firstDelimitedBlock(children);
+    expect(block.variant).toBe("pass");
+    expect(block.form).toBe("delimited");
+    expect(block.content).toBe("++++\nstill inside");
   });
 });

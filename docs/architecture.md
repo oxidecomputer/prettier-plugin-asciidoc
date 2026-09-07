@@ -801,7 +801,8 @@ Two halves, split by what a test may reach:
   the test, tagged and saying so. A unit test failing names the module that
   broke.
 - **Integration tests** organize by behavior and go through public entry points
-  only (`tests/format/` asserts on formatted bytes against fixtures;
+  only (`tests/format/` asserts on formatted bytes against fixtures, and on the
+  tree `parse()` builds for a document whose structure is pinned too;
   `tests/conformance/` does the same with an external authority). They never
   import an `@internal` export — if one is tempting, the behavior under test has
   no entry point, and that is the finding.

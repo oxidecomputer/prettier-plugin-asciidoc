@@ -1,8 +1,11 @@
 import { describe, test, expect } from "vitest";
+import { parse } from "../../src/parser.js";
 import {
   expectFormatted,
   expectStableRender,
+  firstList,
   formatAdoc,
+  narrow,
   renderedHtml,
 } from "../helpers.js";
 
@@ -11,18 +14,50 @@ describe("unordered list formatting", () => {
   test("single item preserved", async () => {
     const input = "* Item one\n";
     await expectFormatted(input, input);
+    // The simplest case: a single `* item` line is a one-item list.
+    const { children } = parse(input);
+    expect(children).toHaveLength(1);
+    const list = firstList(children);
+    expect(list.variant).toBe("unordered");
+    expect(list.children).toHaveLength(1);
+    expect(list.children[0].type).toBe("listItem");
+    expect(list.marker).toBe("*");
   });
 
   // Multi-item list preserved.
   test("multi-item list preserved", async () => {
     const input = "* First\n* Second\n* Third\n";
     await expectFormatted(input, input);
+    // Multiple `*` lines in succession form a single list, not
+    // separate one-item lists.
+    const { children } = parse(input);
+    expect(children).toHaveLength(1);
+    const list = firstList(children);
+    expect(list.variant).toBe("unordered");
+    expect(list.children).toHaveLength(3);
   });
 
   // Nested list preserved with correct markers.
   test("nested list preserved", async () => {
     const input = "* Parent\n** Child\n";
     await expectFormatted(input, input);
+    // `**` items nested under `*` items produce a child ListNode inside
+    // the parent ListItemNode.
+    const { children } = parse(input);
+    expect(children).toHaveLength(1);
+    const list = firstList(children);
+    expect(list.children).toHaveLength(1);
+    const {
+      children: [parent],
+    } = list;
+    // Parent item has text + nested list
+    const nestedList = parent.blocks.find(
+      ({ block }) => block.type === "list",
+    )?.block;
+    narrow(nestedList, "list");
+    expect(nestedList.variant).toBe("unordered");
+    expect(nestedList.children).toHaveLength(1);
+    expect(nestedList.marker).toBe("**");
   });
 
   // One blank line before a list when preceded by a paragraph.
@@ -48,18 +83,70 @@ describe("unordered list formatting", () => {
   test("three-level nesting preserved", async () => {
     const input = "* Level 1\n** Level 2\n*** Level 3\n";
     await expectFormatted(input, input);
+    // Three levels exercises the recursive nesting path: each
+    // deeper marker (`**`, `***`) must attach to the correct
+    // parent, proving the parser handles arbitrary depth.
+    const { children } = parse(input);
+    const list = firstList(children);
+    expect(list.children).toHaveLength(1);
+    const {
+      children: [l1Item],
+    } = list;
+    const l2List = l1Item.blocks.find(
+      ({ block }) => block.type === "list",
+    )?.block;
+    narrow(l2List, "list");
+    expect(l2List.children).toHaveLength(1);
+    const {
+      children: [l2Item],
+    } = l2List;
+    const l3List = l2Item.blocks.find(
+      ({ block }) => block.type === "list",
+    )?.block;
+    narrow(l3List, "list");
+    expect(l3List.children).toHaveLength(1);
+    // The spelling travels verbatim: the third level's list carries
+    // the `***` its items were written with.
+    expect(l3List.marker).toBe("***");
   });
 
   // All 5 nesting levels preserved through formatting.
   test("five-level nesting preserved", async () => {
     const input = "* L1\n** L2\n*** L3\n**** L4\n***** L5\n";
     await expectFormatted(input, input);
+    // AsciiDoc supports 5 nesting levels. Verify all depths parse
+    // correctly and produce the right tree structure.
+    const { children } = parse(input);
+    const list = firstList(children);
+    let current = list;
+    for (let depth = 1; depth <= 5; depth += 1) {
+      expect(current.children).toHaveLength(1);
+      expect(current.marker).toBe("*".repeat(depth));
+      if (depth < 5) {
+        const nested = current.children[0].blocks.find(
+          ({ block }) => block.type === "list",
+        )?.block;
+        narrow(nested, "list");
+        current = nested;
+      }
+    }
   });
 
   // Multiple siblings at nested level.
   test("sibling items at nested level", async () => {
     const input = "* Parent\n** Child A\n** Child B\n";
     await expectFormatted(input, input);
+    // Multiple items at the same nesting level are siblings.
+    const { children } = parse(input);
+    const list = firstList(children);
+    const {
+      children: [parentItem],
+    } = list;
+    const nestedList = parentItem.blocks.find(
+      ({ block }) => block.type === "list",
+    )?.block;
+    narrow(nestedList, "list");
+    expect(nestedList.children).toHaveLength(2);
   });
 
   // Back to parent level after nesting.
@@ -72,6 +159,27 @@ describe("unordered list formatting", () => {
   test("return to root after deep nesting", async () => {
     const input = "* First\n** Nested\n*** Deep\n* Second\n";
     await expectFormatted(input, input);
+    // Multi-level collapse: going from depth 3 back to depth 1
+    // must land both "Nested" and "Deep" inside "First" while "First"
+    // and "Second" stay siblings — the extent scan, not a stack,
+    // decides where each item lands.
+    const { children } = parse(input);
+    const list = firstList(children);
+    // First and Second are siblings at depth 1.
+    expect(list.children).toHaveLength(2);
+    expect(list.marker).toBe("*");
+    // Nested and Deep are inside First.
+    const nested = list.children[0].blocks.find(
+      ({ block }) => block.type === "list",
+    )?.block;
+    narrow(nested, "list");
+    expect(nested.children).toHaveLength(1);
+    const deep = nested.children[0].blocks.find(
+      ({ block }) => block.type === "list",
+    )?.block;
+    narrow(deep, "list");
+    expect(deep.children).toHaveLength(1);
+    expect(deep.marker).toBe("***");
   });
 
   // List item text is reflowed within printWidth.
@@ -94,6 +202,17 @@ describe("unordered list formatting", () => {
   test("hyphen marker replays verbatim", async () => {
     const input = "- Item\n";
     await expectFormatted(input, input);
+    // AsciiDoc allows `-` as an alternative outermost unordered list
+    // marker. It opens an unordered list whose spelling stays `-`.
+    const { children } = parse(input);
+    expect(children).toHaveLength(1);
+    const list = firstList(children);
+    expect(list.variant).toBe("unordered");
+    expect(list.children).toHaveLength(1);
+    expect(list.marker).toBe("-");
+    const textNode = list.children[0].text.find((c) => c.type === "text");
+    narrow(textNode, "text");
+    expect(textNode.value).toBe("Item");
   });
 
   // Every item of one `-` list shares the list's marker.

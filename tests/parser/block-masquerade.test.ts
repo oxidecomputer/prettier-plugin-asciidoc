@@ -18,161 +18,20 @@
  */
 import { describe, test, expect } from "vitest";
 import { parse } from "../../src/parser.js";
-import type { DelimitedBlockNode, ParentBlockNode } from "../../src/ast.js";
-import { expectFormatted, narrow } from "../helpers.js";
+import {
+  delimitedBlockAt,
+  expectFormatted,
+  narrow,
+  parentBlockAt,
+} from "../helpers.js";
 import { astShape, serializedKeys } from "./reader-helpers.js";
 
-/**
- * Extracts the child at the given index as a
- * DelimitedBlockNode. Throws if the node type does not
- * match, catching test setup errors early.
- * @param children - parsed document children array
- * @param index - position of the expected delimited block
- * @returns the child narrowed to DelimitedBlockNode
- */
-function delimitedBlockAt(
-  children: ReturnType<typeof parse>["children"],
-  index: number,
-): DelimitedBlockNode {
-  const { [index]: block } = children;
-  narrow(block, "delimitedBlock");
-  return block;
-}
-
-/**
- * Extracts the child at the given index as a
- * ParentBlockNode. Throws if the node type does not
- * match, catching test setup errors early.
- * @param children - parsed document children array
- * @param index - position of the expected parent block
- * @returns the child narrowed to ParentBlockNode
- */
-function parentBlockAt(
-  children: ReturnType<typeof parse>["children"],
-  index: number,
-): ParentBlockNode {
-  const { [index]: block } = children;
-  narrow(block, "parentBlock");
-  return block;
-}
-
 describe("[verse] on quote block (____)", () => {
-  test("produces a delimited block with variant verse", () => {
-    const { children } = parse(
-      "[verse]\n____\nRoses are red,\nViolets are blue.\n____\n",
-    );
-    expect(children).toHaveLength(2);
-    expect(children[0].type).toBe("blockAttributeList");
-    const block = delimitedBlockAt(children, 1);
-    expect(block.variant).toBe("verse");
-    expect(block.form).toBe("delimited");
-    expect(block.sourceDelimiter).toBe("quote");
-    expect(block.content).toBe("Roses are red,\nViolets are blue.");
-  });
-
   test("preserves exact line breaks in verse content", () => {
     const input = "[verse]\n____\nLine one.\n\nLine three.\n____\n";
     const { children } = parse(input);
     const block = delimitedBlockAt(children, 1);
     expect(block.content).toBe("Line one.\n\nLine three.");
-  });
-
-  test("empty verse block", () => {
-    const { children } = parse("[verse]\n____\n____\n");
-    const block = delimitedBlockAt(children, 1);
-    expect(block.variant).toBe("verse");
-    expect(block.content).toBe("");
-  });
-
-  test("verse with attribution in attribute list", () => {
-    const { children } = parse(
-      "[verse, Carl Sandburg, Fog]\n____\nThe fog comes\non little cat feet.\n____\n",
-    );
-    expect(children).toHaveLength(2);
-    // The full attribute string including positional params
-    // (author, source) is preserved in the blockAttributeList
-    // value, not in a dedicated field on the verse block.
-    // Attribution is reconstructed from the attribute list at
-    // render time, not stored as structured data.
-    expect(children[0].type).toBe("blockAttributeList");
-    const block = delimitedBlockAt(children, 1);
-    expect(block.variant).toBe("verse");
-    expect(block.content).toBe("The fog comes\non little cat feet.");
-  });
-});
-
-describe("[source]/[listing]/[literal] on open block (--)", () => {
-  test("[source] on open block produces verbatim listing", () => {
-    const { children } = parse("[source]\n--\nputs 'hello'\n--\n");
-    expect(children).toHaveLength(2);
-    expect(children[0].type).toBe("blockAttributeList");
-    const block = delimitedBlockAt(children, 1);
-    expect(block.variant).toBe("listing");
-    expect(block.form).toBe("delimited");
-    expect(block.sourceDelimiter).toBe("open");
-    expect(block.content).toBe("puts 'hello'");
-  });
-
-  test("[source,ruby] extra positional attribute still triggers masquerade", () => {
-    // The `ruby` language hint is a second positional attribute.
-    // `parseAttrlist` takes only the first token before the comma,
-    // so `[source,ruby]` resolves to style "source" and triggers
-    // the same masquerade as plain `[source]`. The `language`
-    // field is NOT populated here — that field is only set by
-    // fenced-code syntax (```lang), not by attribute lists.
-    const { children } = parse("[source,ruby]\n--\nputs 'hello'\n--\n");
-    expect(children).toHaveLength(2);
-    const block = delimitedBlockAt(children, 1);
-    expect(block.variant).toBe("listing");
-    expect(block.content).toBe("puts 'hello'");
-  });
-
-  test("[listing] on open block produces verbatim listing", () => {
-    const { children } = parse("[listing]\n--\ndef foo\n  bar\nend\n--\n");
-    expect(children).toHaveLength(2);
-    const block = delimitedBlockAt(children, 1);
-    expect(block.variant).toBe("listing");
-    expect(block.content).toBe("def foo\n  bar\nend");
-  });
-
-  test("[literal] on open block produces verbatim literal", () => {
-    const { children } = parse("[literal]\n--\nfixed-width text\n--\n");
-    expect(children).toHaveLength(2);
-    const block = delimitedBlockAt(children, 1);
-    expect(block.variant).toBe("literal");
-    expect(block.content).toBe("fixed-width text");
-  });
-});
-
-describe("[comment]/[pass]/[verse] on open block (--)", () => {
-  test("[pass] on open block produces verbatim pass block", () => {
-    const { children } = parse("[pass]\n--\n<div>raw</div>\n--\n");
-    expect(children).toHaveLength(2);
-    const block = delimitedBlockAt(children, 1);
-    expect(block.variant).toBe("pass");
-    expect(block.content).toBe("<div>raw</div>");
-  });
-
-  test("[comment] on open block produces verbatim pass block", () => {
-    // `[comment]` maps to the `pass` variant rather than a
-    // dedicated `comment` variant. Both represent content the
-    // renderer suppresses entirely. Re-using `pass` avoids
-    // adding a variant that behaves identically in the printer.
-    const { children } = parse("[comment]\n--\nThis is hidden.\n--\n");
-    expect(children).toHaveLength(2);
-    const block = delimitedBlockAt(children, 1);
-    expect(block.variant).toBe("pass");
-    expect(block.content).toBe("This is hidden.");
-  });
-
-  test("[verse] on open block produces verbatim verse block", () => {
-    const { children } = parse(
-      "[verse]\n--\nRoses are red,\nViolets are blue.\n--\n",
-    );
-    expect(children).toHaveLength(2);
-    const block = delimitedBlockAt(children, 1);
-    expect(block.variant).toBe("verse");
-    expect(block.content).toBe("Roses are red,\nViolets are blue.");
   });
 });
 
@@ -181,15 +40,6 @@ describe("[comment]/[pass]/[verse] on open block (--)", () => {
 // printer emits the content verbatim without inline substitutions —
 // correct for math notation where `^`, `_`, and `\` are literal.
 describe("[stem]/[latexmath]/[asciimath] on quote block (____)", () => {
-  test("[stem] on quote block produces verbatim block", () => {
-    const { children } = parse("[stem]\n____\nx = y^2\n____\n");
-    expect(children).toHaveLength(2);
-    const block = delimitedBlockAt(children, 1);
-    expect(block.variant).toBe("pass");
-    expect(block.form).toBe("delimited");
-    expect(block.content).toBe("x = y^2");
-  });
-
   test("[latexmath] on quote block produces verbatim block", () => {
     const frac = String.raw`\frac{a}{b}`;
     const { children } = parse(`[latexmath]\n____\n${frac}\n____\n`);
@@ -198,39 +48,9 @@ describe("[stem]/[latexmath]/[asciimath] on quote block (____)", () => {
     expect(block.variant).toBe("pass");
     expect(block.content).toBe(frac);
   });
-
-  test("[asciimath] on quote block produces verbatim block", () => {
-    const { children } = parse("[asciimath]\n____\nsum_(i=1)^n i\n____\n");
-    expect(children).toHaveLength(2);
-    const block = delimitedBlockAt(children, 1);
-    expect(block.variant).toBe("pass");
-    expect(block.content).toBe("sum_(i=1)^n i");
-  });
 });
 
 describe("default behavior preserved (no masquerade)", () => {
-  test("quote block without style stays as parent block", () => {
-    const { children } = parse("____\nContent.\n____\n");
-    expect(children).toHaveLength(1);
-    const block = parentBlockAt(children, 0);
-    expect(block.variant).toBe("quote");
-  });
-
-  test("open block without style stays as parent block", () => {
-    const { children } = parse("--\nContent.\n--\n");
-    expect(children).toHaveLength(1);
-    const block = parentBlockAt(children, 0);
-    expect(block.variant).toBe("open");
-  });
-
-  test("[#myid] on quote block does NOT masquerade", () => {
-    const { children } = parse("[#myid]\n____\nContent.\n____\n");
-    expect(children).toHaveLength(2);
-    expect(children[0].type).toBe("blockAnchor");
-    const block = parentBlockAt(children, 1);
-    expect(block.variant).toBe("quote");
-  });
-
   test("[.role] on open block does NOT masquerade", () => {
     const { children } = parse("[.role]\n--\nContent.\n--\n");
     expect(children).toHaveLength(2);

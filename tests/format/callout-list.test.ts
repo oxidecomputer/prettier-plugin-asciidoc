@@ -1,23 +1,46 @@
 import { describe, test, expect } from "vitest";
-import { expectFormatted, formatAdoc } from "../helpers.js";
+import { parse } from "../../src/parser.js";
+import { expectFormatted, firstList, formatAdoc } from "../helpers.js";
 
 describe("callout list formatting", () => {
   // Canonical single-item callout list passes through unchanged.
   test("single callout item preserved", async () => {
     const input = "<1> First item\n";
     await expectFormatted(input, input);
+    // The simplest case: a single `<1> item` line is a one-item
+    // callout list.
+    const { children } = parse(input);
+    expect(children).toHaveLength(1);
+    const list = firstList(children);
+    expect(list.variant).toBe("callout");
+    expect(list.children).toHaveLength(1);
+    expect(list.children[0].calloutNumber).toBe(1);
   });
 
   // Multi-item callout list preserved.
   test("multi-item callout list preserved", async () => {
     const input = "<1> First\n<2> Second\n<3> Third\n";
     await expectFormatted(input, input);
+    // Multiple callout items in succession form a single list.
+    const { children } = parse(input);
+    expect(children).toHaveLength(1);
+    const list = firstList(children);
+    expect(list.variant).toBe("callout");
+    expect(list.children).toHaveLength(3);
+    expect(list.children[0].calloutNumber).toBe(1);
+    expect(list.children[1].calloutNumber).toBe(2);
+    expect(list.children[2].calloutNumber).toBe(3);
   });
 
   // Auto-numbered `<.>` marker preserved.
   test("auto-numbered callout preserved", async () => {
     const input = "<.> Auto item\n";
     await expectFormatted(input, input);
+    // `<.>` is the auto-numbering marker. We store it as
+    // calloutNumber 0 to distinguish it from explicit numbers.
+    const { children } = parse(input);
+    const list = firstList(children);
+    expect(list.children[0].calloutNumber).toBe(0);
   });
 
   // The formatter preserves callout numbers exactly — it does
@@ -53,6 +76,10 @@ describe("callout list formatting", () => {
   test("multi-digit callout number preserved", async () => {
     const input = "<12> Twelfth item\n";
     await expectFormatted(input, input);
+    // Callout numbers can be multi-digit.
+    const { children } = parse(input);
+    const list = firstList(children);
+    expect(list.children[0].calloutNumber).toBe(12);
   });
 
   // A callout list can mix explicit numbers and auto-numbered

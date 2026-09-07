@@ -1,17 +1,35 @@
 import { describe, test, expect } from "vitest";
-import { expectFormatted, expectStableRender, formatAdoc } from "../helpers.js";
+import { parse } from "../../src/parser.js";
+import {
+  expectFormatted,
+  expectStableRender,
+  firstList,
+  formatAdoc,
+  narrow,
+} from "../helpers.js";
 
 describe("checklist formatting", () => {
   // Canonical checked marker passes through unchanged.
   test("checked item preserved", async () => {
     const input = "* [x] Done\n";
     await expectFormatted(input, input);
+    // `[x]` is the canonical checked marker.
+    const { children } = parse(input);
+    const list = firstList(children);
+    expect(list.children[0].checkbox).toBe("checked");
+    const textNode = list.children[0].text.find((c) => c.type === "text");
+    narrow(textNode, "text");
+    expect(textNode.value).toBe("Done");
   });
 
   // Unchecked marker passes through unchanged.
   test("unchecked item preserved", async () => {
     const input = "* [ ] Not done\n";
     await expectFormatted(input, input);
+    // `[ ]` (space inside brackets) means unchecked.
+    const { children } = parse(input);
+    const list = firstList(children);
+    expect(list.children[0].checkbox).toBe("unchecked");
   });
 
   // `[*]` is normalized to `[x]` (both mean checked, `[x]` is
@@ -26,12 +44,27 @@ describe("checklist formatting", () => {
   test("mixed checklist items preserved", async () => {
     const input = "* [x] Done\n* Normal\n* [ ] Todo\n";
     await expectFormatted(input, input);
+    // A list can mix checklist and non-checklist items.
+    const { children } = parse(input);
+    const list = firstList(children);
+    expect(list.children[0].checkbox).toBe("checked");
+    expect(list.children[1].checkbox).toBeUndefined();
+    expect(list.children[2].checkbox).toBe("unchecked");
   });
 
   // Nested checklists preserved with correct markers.
   test("nested checklist preserved", async () => {
     const input = "* [x] Parent\n** [ ] Child\n";
     await expectFormatted(input, input);
+    // Checklist markers work at any nesting depth.
+    const { children } = parse(input);
+    const list = firstList(children);
+    expect(list.children[0].checkbox).toBe("checked");
+    const nested = list.children[0].blocks.find(
+      ({ block }) => block.type === "list",
+    )?.block;
+    narrow(nested, "list");
+    expect(nested.children[0].checkbox).toBe("unchecked");
   });
 
   // A checklist after a paragraph has one blank line separator.
@@ -55,6 +88,11 @@ describe("checklist formatting", () => {
   test("ordered list [x] is not treated as checkbox", async () => {
     const input = ". [x] Not a checkbox\n";
     await expectFormatted(input, input);
+    // AsciiDoc checklists only apply to unordered list items.
+    // Ordered list items with `[x]` in the text are not checklists.
+    const { children } = parse(input);
+    const list = firstList(children);
+    expect(list.children[0].checkbox).toBeUndefined();
   });
 
   // ONE printed space after the checkbox, whatever the item's text

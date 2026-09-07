@@ -23,89 +23,10 @@
  */
 import { describe, test, expect } from "vitest";
 import { parse } from "../../src/parser.js";
-import type { AdmonitionNode } from "../../src/ast.js";
-import { narrow } from "../helpers.js";
+import { admonitionAt, narrow } from "../helpers.js";
 import { declaredKeyOrder, serializedKeys } from "./reader-helpers.js";
 
-/**
- * Extracts the child at the given index as an
- * AdmonitionNode. Throws if the node at that position is
- * not an admonition, surfacing test setup errors early.
- * @param children - parsed document children array
- * @param index - position of the expected admonition
- * @returns the child narrowed to AdmonitionNode
- */
-function admonitionAt(
-  children: ReturnType<typeof parse>["children"],
-  index: number,
-): AdmonitionNode {
-  const { [index]: block } = children;
-  narrow(block, "admonition");
-  return block;
-}
-
 describe("paragraph-form admonitions", () => {
-  test("NOTE: produces admonition with variant note", () => {
-    const { children } = parse("NOTE: This is a note.\n");
-    expect(children).toHaveLength(1);
-    const node = admonitionAt(children, 0);
-    expect(node.variant).toBe("note");
-    expect(node.form).toBe("paragraph");
-    expect(node.text).toMatchObject([
-      { type: "text", value: "This is a note." },
-    ]);
-    expect(node.children).toHaveLength(0);
-  });
-
-  test("TIP: produces admonition with variant tip", () => {
-    const { children } = parse("TIP: Here is a tip.\n");
-    const node = admonitionAt(children, 0);
-    expect(node.variant).toBe("tip");
-    expect(node.form).toBe("paragraph");
-    expect(node.text).toMatchObject([
-      { type: "text", value: "Here is a tip." },
-    ]);
-  });
-
-  test("IMPORTANT: produces admonition with variant important", () => {
-    const { children } = parse("IMPORTANT: Do not forget.\n");
-    const node = admonitionAt(children, 0);
-    expect(node.variant).toBe("important");
-    expect(node.form).toBe("paragraph");
-    expect(node.text).toMatchObject([
-      { type: "text", value: "Do not forget." },
-    ]);
-  });
-
-  test("CAUTION: produces admonition with variant caution", () => {
-    const { children } = parse("CAUTION: Watch out.\n");
-    const node = admonitionAt(children, 0);
-    expect(node.variant).toBe("caution");
-    expect(node.form).toBe("paragraph");
-    expect(node.text).toMatchObject([{ type: "text", value: "Watch out." }]);
-  });
-
-  test("WARNING: produces admonition with variant warning", () => {
-    const { children } = parse("WARNING: Be careful.\n");
-    const node = admonitionAt(children, 0);
-    expect(node.variant).toBe("warning");
-    expect(node.form).toBe("paragraph");
-    expect(node.text).toMatchObject([{ type: "text", value: "Be careful." }]);
-  });
-
-  // Continuation lines (no blank line between them) are one text
-  // child whose value keeps the \n separators — the same inline
-  // children a regular paragraph gets.
-  test("multi-line paragraph-form admonition", () => {
-    const { children } = parse("NOTE: First line\nsecond line\nthird line\n");
-    expect(children).toHaveLength(1);
-    const node = admonitionAt(children, 0);
-    expect(node.variant).toBe("note");
-    expect(node.text).toMatchObject([
-      { type: "text", value: "First line\nsecond line\nthird line" },
-    ]);
-  });
-
   test("position tracking for paragraph-form admonition", () => {
     const { children } = parse("NOTE: Hello.\n");
     const node = admonitionAt(children, 0);
@@ -117,77 +38,9 @@ describe("paragraph-form admonitions", () => {
     expect(node.position.end.column).toBe(13);
     expect(node.position.end.offset).toBe(12);
   });
-
-  test("paragraph-form admonition between paragraphs", () => {
-    const { children } = parse("Before.\n\nNOTE: A note.\n\nAfter.\n");
-    expect(children).toHaveLength(3);
-    expect(children[0].type).toBe("paragraph");
-    expect(children[1].type).toBe("admonition");
-    expect(children[2].type).toBe("paragraph");
-  });
-});
-
-describe("block-form admonitions (example block)", () => {
-  test("[NOTE] + example block produces delimited admonition", () => {
-    const { children } = parse("[NOTE]\n====\nContent.\n====\n");
-    expect(children).toHaveLength(2);
-    expect(children[0].type).toBe("blockAttributeList");
-    const node = admonitionAt(children, 1);
-    expect(node.variant).toBe("note");
-    expect(node.form).toBe("example");
-    expect(node.text).toEqual([]);
-    expect(node.children.length).toBeGreaterThan(0);
-  });
-
-  test("[TIP] + example block", () => {
-    const { children } = parse("[TIP]\n====\nA tip.\n====\n");
-    expect(children).toHaveLength(2);
-    const node = admonitionAt(children, 1);
-    expect(node.variant).toBe("tip");
-    expect(node.form).toBe("example");
-  });
-
-  test("[IMPORTANT] + example block", () => {
-    const { children } = parse("[IMPORTANT]\n====\nDo not forget.\n====\n");
-    const node = admonitionAt(children, 1);
-    expect(node.variant).toBe("important");
-  });
-
-  test("[CAUTION] + example block", () => {
-    const { children } = parse("[CAUTION]\n====\nWatch out.\n====\n");
-    const node = admonitionAt(children, 1);
-    expect(node.variant).toBe("caution");
-  });
-
-  test("[WARNING] + example block", () => {
-    const { children } = parse("[WARNING]\n====\nBe careful.\n====\n");
-    const node = admonitionAt(children, 1);
-    expect(node.variant).toBe("warning");
-  });
-
-  test("block-form admonition with multiple paragraphs", () => {
-    const { children } = parse(
-      "[NOTE]\n====\nFirst paragraph.\n\nSecond paragraph.\n====\n",
-    );
-    expect(children).toHaveLength(2);
-    const node = admonitionAt(children, 1);
-    expect(node.variant).toBe("note");
-    expect(node.children).toHaveLength(2);
-    expect(node.children[0].type).toBe("paragraph");
-    expect(node.children[1].type).toBe("paragraph");
-  });
 });
 
 describe("block-form admonitions (open block)", () => {
-  test("[CAUTION] + open block", () => {
-    const { children } = parse("[CAUTION]\n--\nContent.\n--\n");
-    expect(children).toHaveLength(2);
-    expect(children[0].type).toBe("blockAttributeList");
-    const node = admonitionAt(children, 1);
-    expect(node.variant).toBe("caution");
-    expect(node.form).toBe("open");
-  });
-
   test("[NOTE] + open block with multiple paragraphs", () => {
     const { children } = parse("[NOTE]\n--\nFirst.\n\nSecond.\n--\n");
     expect(children).toHaveLength(2);
@@ -280,14 +133,6 @@ describe("one prose representation", () => {
     expect(node.form).toBe("example");
     expect(node.text).toEqual([]);
     expect(node.children).toHaveLength(1);
-  });
-
-  test("a raw line in the body is a rawLine inline child", () => {
-    const [node] = parse("NOTE: alpha\nifdef::x[]\nbeta\n").children;
-    if (node.type !== "admonition") {
-      throw new Error(`got ${node.type}`);
-    }
-    expect(node.text.some((child) => child.type === "rawLine")).toBe(true);
   });
 
   // KEY ORDER is part of the shape contract: the parity fold

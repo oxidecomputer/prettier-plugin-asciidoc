@@ -7,13 +7,28 @@
  * stacked with the heading (no blank line between them).
  */
 import { describe, test, expect } from "vitest";
-import { expectFormatted, formatAdoc } from "../helpers.js";
+import { parse } from "../../src/parser.js";
+import { expectFormatted, formatAdoc, narrow } from "../helpers.js";
 
 describe("discrete heading formatting", () => {
   // Canonical discrete heading passes through unchanged.
   test("discrete heading preserved as-is", async () => {
     const input = "[discrete]\n== Heading\n";
     await expectFormatted(input, input);
+    // A `[discrete]` attribute list followed by a heading line
+    // produces a DiscreteHeadingNode instead of an ordinary heading.
+    // Discrete headings are standalone — they don't create sections.
+    // Note: levels are zero-indexed, so `==` is level 1 (not 0 or 2),
+    // matching the HeadingNode.level convention.
+    const { children } = parse(input);
+    // The attribute list is kept as a separate block (for stacking),
+    // and the heading becomes a discreteHeading node.
+    expect(children).toHaveLength(2);
+    expect(children[0].type).toBe("blockAttributeList");
+    const [, child1] = children;
+    narrow(child1, "discreteHeading");
+    expect(child1.level).toBe(1);
+    expect(child1.title).toBe("Heading");
   });
 
   // The heading marker spacing is normalized, just like sections.
@@ -47,6 +62,17 @@ describe("discrete heading formatting", () => {
   test("discrete heading at level 0", async () => {
     const input = "[discrete]\n= T\n";
     await expectFormatted(input, input);
+    // Level 0 (`=`) is VALID for a discrete heading: the marker that
+    // would be a document title on an ordinary heading is only a depth
+    // here, because a discrete heading is style, not structure. One
+    // derivation classifies and builds the marker, so the whole
+    // `=`-through-`======` range reaches the node.
+    const { children } = parse(input);
+    expect(children).toHaveLength(2);
+    const [, child1] = children;
+    narrow(child1, "discreteHeading");
+    expect(child1.level).toBe(0);
+    expect(child1.title).toBe("T");
   });
 
   // Discrete heading inside a section.

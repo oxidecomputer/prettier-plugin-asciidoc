@@ -7,7 +7,9 @@
  * Block-form admonitions preserve their delimiter structure.
  */
 import { describe, test, expect } from "vitest";
+import { parse } from "../../src/parser.js";
 import {
+  admonitionAt,
   expectFormatted,
   expectStableRender,
   formatAdoc,
@@ -28,26 +30,59 @@ describe("paragraph-form admonition formatting", () => {
   test("NOTE: text round-trips", async () => {
     const input = "NOTE: This is a note.\n";
     await expectFormatted(input, input);
+    const { children } = parse(input);
+    expect(children).toHaveLength(1);
+    const node = admonitionAt(children, 0);
+    expect(node.variant).toBe("note");
+    expect(node.form).toBe("paragraph");
+    expect(node.text).toMatchObject([
+      { type: "text", value: "This is a note." },
+    ]);
+    expect(node.children).toHaveLength(0);
   });
 
   test("TIP: text round-trips", async () => {
     const input = "TIP: Here is a tip.\n";
     await expectFormatted(input, input);
+    const { children } = parse(input);
+    const node = admonitionAt(children, 0);
+    expect(node.variant).toBe("tip");
+    expect(node.form).toBe("paragraph");
+    expect(node.text).toMatchObject([
+      { type: "text", value: "Here is a tip." },
+    ]);
   });
 
   test("IMPORTANT: text round-trips", async () => {
     const input = "IMPORTANT: Do not forget.\n";
     await expectFormatted(input, input);
+    const { children } = parse(input);
+    const node = admonitionAt(children, 0);
+    expect(node.variant).toBe("important");
+    expect(node.form).toBe("paragraph");
+    expect(node.text).toMatchObject([
+      { type: "text", value: "Do not forget." },
+    ]);
   });
 
   test("CAUTION: text round-trips", async () => {
     const input = "CAUTION: Watch out.\n";
     await expectFormatted(input, input);
+    const { children } = parse(input);
+    const node = admonitionAt(children, 0);
+    expect(node.variant).toBe("caution");
+    expect(node.form).toBe("paragraph");
+    expect(node.text).toMatchObject([{ type: "text", value: "Watch out." }]);
   });
 
   test("WARNING: text round-trips", async () => {
     const input = "WARNING: Be careful.\n";
     await expectFormatted(input, input);
+    const { children } = parse(input);
+    const node = admonitionAt(children, 0);
+    expect(node.variant).toBe("warning");
+    expect(node.form).toBe("paragraph");
+    expect(node.text).toMatchObject([{ type: "text", value: "Be careful." }]);
   });
 
   test("long text reflows to printWidth", async () => {
@@ -75,6 +110,16 @@ describe("paragraph-form admonition formatting", () => {
     const input = "NOTE: First line\nsecond line\nthird line\n";
     const expected = "NOTE: First line second line third line\n";
     expect(await formatAdoc(input)).toBe(expected);
+    // Continuation lines (no blank line between them) are one text
+    // child whose value keeps the \n separators — the same inline
+    // children a regular paragraph gets.
+    const { children } = parse(input);
+    expect(children).toHaveLength(1);
+    const node = admonitionAt(children, 0);
+    expect(node.variant).toBe("note");
+    expect(node.text).toMatchObject([
+      { type: "text", value: "First line\nsecond line\nthird line" },
+    ]);
   });
 
   // An admonition's content is read by read_paragraph_lines like any
@@ -93,31 +138,60 @@ describe("block-form admonition formatting (example block)", () => {
   test("[NOTE] + example block round-trips", async () => {
     const input = "[NOTE]\n====\nContent.\n====\n";
     await expectFormatted(input, input);
+    const { children } = parse(input);
+    expect(children).toHaveLength(2);
+    expect(children[0].type).toBe("blockAttributeList");
+    const node = admonitionAt(children, 1);
+    expect(node.variant).toBe("note");
+    expect(node.form).toBe("example");
+    expect(node.text).toEqual([]);
+    expect(node.children.length).toBeGreaterThan(0);
   });
 
   test("[TIP] + example block round-trips", async () => {
     const input = "[TIP]\n====\nA tip.\n====\n";
     await expectFormatted(input, input);
+    const { children } = parse(input);
+    expect(children).toHaveLength(2);
+    const node = admonitionAt(children, 1);
+    expect(node.variant).toBe("tip");
+    expect(node.form).toBe("example");
   });
 
   test("[IMPORTANT] + example block round-trips", async () => {
     const input = "[IMPORTANT]\n====\nDo not forget.\n====\n";
     await expectFormatted(input, input);
+    const { children } = parse(input);
+    const node = admonitionAt(children, 1);
+    expect(node.variant).toBe("important");
   });
 
   test("[CAUTION] + example block round-trips", async () => {
     const input = "[CAUTION]\n====\nWatch out.\n====\n";
     await expectFormatted(input, input);
+    const { children } = parse(input);
+    const node = admonitionAt(children, 1);
+    expect(node.variant).toBe("caution");
   });
 
   test("[WARNING] + example block round-trips", async () => {
     const input = "[WARNING]\n====\nBe careful.\n====\n";
     await expectFormatted(input, input);
+    const { children } = parse(input);
+    const node = admonitionAt(children, 1);
+    expect(node.variant).toBe("warning");
   });
 
   test("block-form with multiple paragraphs round-trips", async () => {
     const input = "[NOTE]\n====\nFirst paragraph.\n\nSecond paragraph.\n====\n";
     await expectFormatted(input, input);
+    const { children } = parse(input);
+    expect(children).toHaveLength(2);
+    const node = admonitionAt(children, 1);
+    expect(node.variant).toBe("note");
+    expect(node.children).toHaveLength(2);
+    expect(node.children[0].type).toBe("paragraph");
+    expect(node.children[1].type).toBe("paragraph");
   });
 });
 
@@ -125,6 +199,12 @@ describe("block-form admonition formatting (open block)", () => {
   test("[CAUTION] + open block round-trips", async () => {
     const input = "[CAUTION]\n--\nContent.\n--\n";
     await expectFormatted(input, input);
+    const { children } = parse(input);
+    expect(children).toHaveLength(2);
+    expect(children[0].type).toBe("blockAttributeList");
+    const node = admonitionAt(children, 1);
+    expect(node.variant).toBe("caution");
+    expect(node.form).toBe("open");
   });
 
   test("[NOTE] + open block round-trips", async () => {
@@ -142,6 +222,11 @@ describe("admonition formatting in context", () => {
   test("paragraph-form admonition between paragraphs", async () => {
     const input = "Before.\n\nNOTE: A note.\n\nAfter.\n";
     await expectFormatted(input, input);
+    const { children } = parse(input);
+    expect(children).toHaveLength(3);
+    expect(children[0].type).toBe("paragraph");
+    expect(children[1].type).toBe("admonition");
+    expect(children[2].type).toBe("paragraph");
   });
 
   test("block-form admonition between paragraphs", async () => {
@@ -274,6 +359,11 @@ describe("the admonition body rides the paragraph engine", () => {
   test("raw lines keep their own output lines through the shared engine", async () => {
     const input = "NOTE: alpha\nifdef::x[]\nbeta\n";
     await expectFormatted(input, input);
+    const [node] = parse(input).children;
+    if (node.type !== "admonition") {
+      throw new Error(`got ${node.type}`);
+    }
+    expect(node.text.some((child) => child.type === "rawLine")).toBe(true);
   });
 });
 

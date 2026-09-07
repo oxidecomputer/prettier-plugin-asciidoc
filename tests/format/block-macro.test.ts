@@ -1,29 +1,62 @@
 import { describe, test, expect } from "vitest";
-import { expectFormatted, formatAdoc } from "../helpers.js";
+import { parse } from "../../src/parser.js";
+import { expectFormatted, formatAdoc, narrow } from "../helpers.js";
 
 describe("block macro formatting", () => {
   // image block macro preserved as-is.
   test("image block macro preserved", async () => {
     const input = "image::sunset.jpg[Sunset]\n";
     await expectFormatted(input, input);
+    // image:: is the most common block macro.
+    const { children } = parse(input);
+    expect(children).toHaveLength(1);
+    const [node] = children;
+    narrow(node, "blockMacro");
+    expect(node.name).toBe("image");
+    expect(node.target).toBe("sunset.jpg");
+    expect(node.attrlist).toBe("Sunset");
   });
 
   // video block macro preserved.
   test("video block macro preserved", async () => {
     const input = "video::video.mp4[]\n";
     await expectFormatted(input, input);
+    // video:: block macro with a target and attributes.
+    const { children } = parse(input);
+    expect(children).toHaveLength(1);
+    const [node] = children;
+    narrow(node, "blockMacro");
+    expect(node.name).toBe("video");
+    expect(node.target).toBe("video.mp4");
+    expect(node.attrlist).toBe("");
   });
 
   // audio block macro preserved.
   test("audio block macro preserved", async () => {
     const input = "audio::podcast.wav[]\n";
     await expectFormatted(input, input);
+    // audio:: block macro.
+    const { children } = parse(input);
+    expect(children).toHaveLength(1);
+    const [node] = children;
+    narrow(node, "blockMacro");
+    expect(node.name).toBe("audio");
+    expect(node.target).toBe("podcast.wav");
+    expect(node.attrlist).toBe("");
   });
 
   // toc block macro preserved.
   test("toc block macro preserved", async () => {
     const input = "toc::[]\n";
     await expectFormatted(input, input);
+    // toc:: has no target — the target portion is empty.
+    const { children } = parse(input);
+    expect(children).toHaveLength(1);
+    const [node] = children;
+    narrow(node, "blockMacro");
+    expect(node.name).toBe("toc");
+    expect(node.target).toBe("");
+    expect(node.attrlist).toBe("");
   });
 
   // Block macro between paragraphs has blank line
@@ -31,12 +64,26 @@ describe("block macro formatting", () => {
   test("block macro between paragraphs", async () => {
     const input = "Before.\n\nimage::photo.png[Photo]\n\nAfter.\n";
     await expectFormatted(input, input);
+    // Block macro between paragraphs.
+    const { children } = parse(input);
+    expect(children).toHaveLength(3);
+    expect(children[0].type).toBe("paragraph");
+    expect(children[1].type).toBe("blockMacro");
+    expect(children[2].type).toBe("paragraph");
   });
 
   // Block macro with complex attributes preserved.
   test("block macro with complex attributes", async () => {
     const input = 'image::diagram.svg[Architecture,width=600,opts="inline"]\n';
     await expectFormatted(input, input);
+    // Block macro with complex attributes.
+    const { children } = parse(input);
+    expect(children).toHaveLength(1);
+    const [node] = children;
+    narrow(node, "blockMacro");
+    expect(node.name).toBe("image");
+    expect(node.target).toBe("diagram.svg");
+    expect(node.attrlist).toBe('Architecture,width=600,opts="inline"');
   });
 });
 

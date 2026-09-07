@@ -3,17 +3,6 @@ import { parse } from "../../src/parser.js";
 import { firstDelimitedBlock } from "../helpers.js";
 
 describe("fenced code block parsing", () => {
-  // Backtick-fenced code block with language hint produces a
-  // listing block with the language captured.
-  test("fenced block with language", () => {
-    const { children } = parse("```rust\nfn main() {}\n```\n");
-    expect(children).toHaveLength(1);
-    const block = firstDelimitedBlock(children);
-    expect(block.variant).toBe("listing");
-    expect(block.language).toBe("rust");
-    expect(block.content).toBe("fn main() {}");
-  });
-
   // Backtick-fenced code block without a language hint produces
   // `language: undefined`, not an empty string. This distinguishes
   // "no hint given" from "hint given but empty".
@@ -24,28 +13,6 @@ describe("fenced code block parsing", () => {
     expect(block.variant).toBe("listing");
     expect(block.language).toBeUndefined();
     expect(block.content).toBe("hello world");
-  });
-
-  // Multi-line content is preserved verbatim, including internal
-  // indentation — no whitespace stripping is applied to body lines.
-  test("multi-line content preserved", () => {
-    const input = '```rust\nfn main() {\n    println!("Hello");\n}\n```\n';
-    const { children } = parse(input);
-    const block = firstDelimitedBlock(children);
-    expect(block.variant).toBe("listing");
-    expect(block.language).toBe("rust");
-    expect(block.content).toBe('fn main() {\n    println!("Hello");\n}');
-  });
-
-  // A fenced block with no body lines (open fence immediately
-  // followed by close fence) produces content `""`, not
-  // `undefined`. Empty is a valid, distinct state.
-  test("empty fenced code block", () => {
-    const { children } = parse("```\n```\n");
-    const block = firstDelimitedBlock(children);
-    expect(block.variant).toBe("listing");
-    expect(block.content).toBe("");
-    expect(block.language).toBeUndefined();
   });
 
   // A fenced block surrounded by blank-line-separated paragraphs
@@ -74,17 +41,6 @@ describe("fenced code block parsing", () => {
     const { children } = parse("```\nuse `backtick` here\n```\n");
     const block = firstDelimitedBlock(children);
     expect(block.content).toBe("use `backtick` here");
-  });
-
-  // AsciiDoc-style delimiters (e.g. `----`) inside a fenced block are
-  // treated as plain content, not block openers. A verbatim block's
-  // extent is read by {@link delimitedExtent}, which looks only for
-  // its OWN terminator, so nothing between the fences is classified at
-  // all.
-  test("asciidoc delimiters inside fenced block are content", () => {
-    const { children } = parse("```\n----\ncode\n----\n```\n");
-    const block = firstDelimitedBlock(children);
-    expect(block.content).toBe("----\ncode\n----");
   });
 
   // Leading whitespace before the language hint (e.g. "```  rust")
