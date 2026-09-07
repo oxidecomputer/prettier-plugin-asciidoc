@@ -4,7 +4,9 @@
 /**
  * The DEEP sweeps, as their own entry: every `*.deep.test.ts` file.
  * Today that is four products. The exhaustive depth-5 list-shape
- * product - 111,121 documents - is gated TWICE over: the
+ * product, whose size is whatever `sweepDocuments(DEEP_DEPTH)`
+ * (tests/format/list-shape-sweep.ts) spells from its alphabet, is
+ * gated TWICE over: the
  * render/idempotence entry formats each document twice and renders
  * both sides, pinned to the allowlist by strict set equality, and the
  * reflow re-classification entry (issue #58) re-reads each document's
@@ -58,7 +60,7 @@ const USAGE = `usage: bun run test:deeply-nested-lists
   --help   this text
 
 Runs every *.deep.test.ts under vitest.sweep.config.ts: the exhaustive
-depth-5 list-shape sweep (111,121 documents), the reflow
+depth-5 list-shape sweep, the reflow
 re-classification ledger over the same product, the registry sweep's
 deep tier (both shape-registry grids under every byte operator), the
 inline sweep's deep tier (the inline standing grid under every byte

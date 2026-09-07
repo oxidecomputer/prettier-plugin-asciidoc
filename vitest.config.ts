@@ -13,7 +13,9 @@ export default defineConfig({
     // 8,577, with the copies failing on relative paths. eslint already
     // ignores it (`eslint.config.js`); vitest did not.
     // `**/*.deep.test.ts` is the OTHER entry: the exhaustive depth-5
-    // list-shape sweep, 111,121 documents and 25.6 s of what used to
+    // list-shape sweep, whose size is whatever
+    // `sweepDocuments(DEEP_DEPTH)` (tests/format/list-shape-sweep.ts)
+    // spells, and 25.6 s of what used to
     // be a 26.1 s suite. It is not weakened by living outside the
     // default run — it is a blocking CI step (`bun run test:deeply-nested-lists`)
     // and the prelude to every mutation run — but a suite whose wall
