@@ -31,8 +31,8 @@
  * - "a slurp that stays inside the item needs no blank" is the OTHER
  *   rule, and the one that keeps the two from being one describe: it
  *   is about the gap between an item's own BLOCKS, where a slurp
- *   swallows only the item's own lines and no blank may be invented
- *   ({@link printedGap}). The describe above it is about the boundary
+ *   swallows only the item's own lines and no blank may be invented.
+ *   The describe above it is about the boundary
  *   BETWEEN items, where a slurp reaches somebody else's marker line
  *   and a blank must be (`tailSwallowsMarker`).
  * - "the boundary survives a non-LF line terminator" is the boundary

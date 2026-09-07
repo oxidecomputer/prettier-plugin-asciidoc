@@ -258,11 +258,9 @@ export function printDescriptionListItem(
  * in front of it - the recorded gap, replayed through the spelling a
  * marker item's blocks already print behind ({@link gapParts}).
  *
- * The RECORDED gap, not `printedGap`'s adjusted one: that adjustment
- * exists for a nested list that shares its parent ITEM's marker, and
- * a description item has no marker for one to share. A nested list
- * whose delimiter this list's sibling pattern matches is not a
- * nested list at all - it is the next item.
+ * The RECORDED gap, which a marker item's blocks print behind too:
+ * the separator lines an item's source wrote are replayed and nothing
+ * adjusts them.
  * @param node - the item
  * @param path - Prettier's AST path, for recursing into the blocks
  * @param print - Prettier's recursive print callback

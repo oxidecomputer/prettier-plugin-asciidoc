@@ -54,7 +54,7 @@ import { inCheckout } from "../lib/checkout.js";
 const DECLARED_FAMILIES = Object.keys(REPARSE_FAMILIES);
 
 /** The real checkout's fact count, as of this commit. */
-const PINNED_FACT_COUNT = 92;
+const PINNED_FACT_COUNT = 91;
 
 /**
  * The checked-in ledger's own bytes, for planting beside a planted

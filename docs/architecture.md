@@ -600,15 +600,14 @@ ITEMS of one list has a home rather than being destroyed for want of one (issue
 
 Above that default the printer holds separator decisions of its own, each a
 named arm whose function comment carries the reasoning and the Ruby citation:
-`printedGap`, `hazard`, `tailSwallowsMarker` and `separatorBefore` in
-`src/print/list.ts` and `src/print/list-hazard.ts`, and `printsDrainShield` in
-`src/print/join.ts`. They are named rather than counted because the set grows
-with the shapes that need one, and every member is there for the same reason:
-verbatim replay would not re-parse to the same tree. `hazard` answers a reflow
-that would move the item's first rest line up (the line Ruby reads three ways:
-the metadata drain, the blank count, and the indent strip); `printedGap` answers
-a nested list sharing its parent's marker spelling; `tailSwallowsMarker` answers
-a previous item's tail whose literal slurp would swallow the next marker line;
+`hazard`, `tailSwallowsMarker` and `separatorBefore` in `src/print/list.ts` and
+`src/print/list-hazard.ts`, and `printsDrainShield` in `src/print/join.ts`. They
+are named rather than counted because the set grows with the shapes that need
+one, and every member is there for the same reason: verbatim replay would not
+re-parse to the same tree. `hazard` answers a reflow that would move the item's
+first rest line up (the line Ruby reads three ways: the metadata drain, the
+blank count, and the indent strip); `tailSwallowsMarker` answers a previous
+item's tail whose literal slurp would swallow the next marker line;
 `printsDrainShield` answers a list-like item whose whole body is a run the head
 drain would take again (`skip_line_comments`, reader.rb l.329-346), which
 deletes that body - a description and its `<dd>`, or the paragraph a marker

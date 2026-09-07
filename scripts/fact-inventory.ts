@@ -58,9 +58,6 @@
  * from the field's own doc comment), and several first impressions
  * did not survive that check:
  *
- * - `ListNode.marker` looked like a pure parse-time grouping key; it
- *   is read directly in `src/print/list.ts`'s `printedGap` to decide
- *   whether a nested list's trailing `+` folds into the gap above it.
  * - `TableNode.cutting`, `.columns`, `.header`, `.attrlistUnread`,
  *   `TableCellNode.repeat`/`.columnIndex`, and most of
  *   `TableCellOpening`'s and `TableTextRun`'s own fields looked like

@@ -361,8 +361,7 @@ function closingDelimiter(lines: readonly string[], open: number): number {
  * is reconstructed from a depth or from the list's style, so a
  * spelling the author wrote can no longer be normalized into a
  * DIFFERENT list's spelling. Two lists genuinely written with the
- * SAME marker can still nest (the reader follows the oracle there),
- * and {@link printedGap} is what keeps that pair printing nested.
+ * SAME marker can still nest (the reader follows the oracle there).
  *
  * PER ITEM rather than per list because an explicit ordered list's
  * items do not share a spelling: `5.` and `6.` are one list (both
@@ -729,8 +728,7 @@ export function printListItem(
   // `path.map` walked `blocks`, so the printed docs are that array's
   // parallel — the index is the item block's own.
   for (const [index, printedBlock] of printedBlocks.entries()) {
-    const adjusted = printedGap(node, parentList, index);
-    parts.push(...gapParts(adjusted), printedBlock);
+    parts.push(...gapParts(node.blocks[index].gap), printedBlock);
   }
   parts.push(...tailParts(node));
   return parts;
@@ -810,64 +808,6 @@ export function tailParts(node: ListItemNode | DescriptionListItemNode): Doc[] {
     parts.push(hardline, hardline, "+");
   }
   return parts;
-}
-
-/**
- * The gap one block prints behind — the recorded one, adjusted in the
- * ONE case where verbatim replay would not read back as the same
- * structure: a nested list may SHARE its parent item's marker, and
- * then it must print ADJACENT.
- *
- * Behavior is Ruby's (`read_lines_for_list_item`, parser.rb
- * l.1404-1592): the item's read runs THROUGH an indented literal and
- * the metadata behind it, so the marker line after them lands INSIDE
- * the item however it is spelled — the oracle reads the second `* a`
- * of `* a\n\n  lit\n[[anc]]\n* a\n` as a nested list, and reads the
- * same document with one blank line more as two siblings. So any
- * blank-only gap in front of such a list reads back as a SIBLING
- * boundary — worse, the sibling probe eats the blank, so a second
- * pass prints different bytes. A gap carrying a `+` is left alone: the
- * `+` is live and must survive. Pinned by the same-marker rows in
- * tests/format/marker-spelling.test.ts and by the list-shape sweep.
- *
- * NO blank is invented in front of a nested list the item's own
- * literal slurp would swallow, and the asymmetry with
- * {@link tailSwallowsMarker} is the whole point: a slurp that runs
- * INSIDE the item takes the item's own lines into the item's own
- * buffer, which is re-parsed from those same lines and gives the same
- * blocks back. It is only where a slurp runs PAST the item's last
- * line that it reaches a line belonging to somebody else, and the
- * blank that stops it belongs there, at the boundary, not several
- * lines above it — an invented blank here ends the item early instead
- * and detaches everything behind it.
- *
- * The comparison is between the two RECORDED STYLES, not a
- * reconstruction and not the printed bytes: `ListNode.marker` is the
- * style the classifier resolved, and the re-read's own test
- * (`is_sibling_list_item?`, parser.rb l.2280) compares resolved
- * markers too, so the comparison asks exactly the question the
- * re-read will ask. Spellings would be the WRONG comparison here: a
- * nested `5.` under a `1.` parent is a sibling on re-read however
- * differently the two are spelled.
- * @param node - the item being printed
- * @param parentList - its list, for the marker STYLE (the printed
- *   spelling is the item's own, {@link buildMarker})
- * @param index - which of the item's blocks is being placed
- * @returns the gap to print
- * Exported for its unit test (tests/print/list.test.ts); no src
- * consumer.
- * @internal
- */
-export function printedGap(
-  node: ListItemNode,
-  parentList: ListNode | undefined,
-  index: number,
-): readonly GapLine[] {
-  const { gap, block } = node.blocks[index];
-  if (block.type === "list" && block.marker === parentList?.marker) {
-    return gap.includes("+") ? gap : [];
-  }
-  return gap;
 }
 
 /**

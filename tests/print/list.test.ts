@@ -1,16 +1,15 @@
 /**
  * `print/list.ts` — the decisions a list item's printer makes: the
  * marker it replays, the checkbox prefix whose width is the item's
- * extra indent, the gap each of its blocks prints behind, and whether
- * the LINES the item comes out as would swallow the next marker line.
+ * extra indent, and whether the LINES the item comes out as would
+ * swallow the next marker line.
  *
  * No fixture is hand-built. The node rows are PARSED, so a row can
  * never pin a state the printer will not be handed; the line rows are
  * FORMATTED, so they are the printer's real output rather than a
  * guess at it (each of those documents is one item, so the whole
  * output is that item's lines). The rules are Ruby's
- * (`read_lines_for_list_item`, parser.rb) — a nested marker sharing
- * its parent's spelling must print adjacent, and a marker an indented
+ * (`read_lines_for_list_item`, parser.rb): a marker an indented
  * literal's slurp would swallow needs a blank line in front of it.
  */
 import { describe, expect, test } from "vitest";
@@ -18,7 +17,6 @@ import { formatAdoc, narrow } from "../helpers.js";
 import {
   buildMarker,
   formatCheckbox,
-  printedGap,
   tailSwallowsMarker,
 } from "../../src/print/list.js";
 import { parse } from "../../src/parser.js";
@@ -51,18 +49,9 @@ function itemOf(source: string, index = 0): ListItemNode {
 // metadata behind it, so the `* a` line after them lands INSIDE the
 // item — a nested list sharing its parent's marker spelling.
 const SAME_MARKER = "* a\n\n  lit\n[[anc]]\n* a\n";
-// The same read with a nested marker of its own spelling: the `** b`
-// line the literal's slurp would swallow on re-read.
-const SWALLOWED_MARKER = "* a\n\n  lit\n[role]\n** b\n";
-// The same shape with a `+` in front of the marker: a gap that
-// already stops the slurp, so nothing needs inventing.
-const STOPPED_SLURP = "* a\n\n  lit\n+\n** b\n";
-// A nested marker behind metadata with no literal anywhere: verbatim
-// replay is already a fixed point.
-const NO_LITERAL = "* a\n[role]\n** b\n";
-// Prettier's path typing cannot promise a parent node, so both the
-// marker and the gap take `ListNode | undefined`. This is that absent
-// parent, named so the rows read as the fallback they are about.
+// Prettier's path typing cannot promise a parent node, so the marker
+// takes `ListNode | undefined`. This is that absent parent, named so
+// the rows read as the fallback they are about.
 const NO_PARENT_LIST: ListNode | undefined = undefined;
 
 /**
@@ -234,43 +223,26 @@ describe("whether an item's tail swallows the next marker line", () => {
   });
 });
 
-describe("the gap a block prints behind", () => {
-  test("a block that is not a list replays its gap verbatim", () => {
-    const list = listOf(SWALLOWED_MARKER);
-    expect(printedGap(list.children[0], list, 0)).toEqual([""]);
-  });
-
-  test("a nested list sharing its parent's marker spelling prints ADJACENT", () => {
+describe("the gap a same-marker nested list is recorded behind", () => {
+  // NOT PROTECTED BY DESIGN. The printer once dropped a blank-only
+  // gap in front of a nested list that shares its parent's marker,
+  // because a blank there reads back as a SIBLING boundary. No input
+  // reaches that drop: 1,614 corpus documents and the 177,166
+  // documents of the depth-5 list-shape product produce no such gap,
+  // and the reason is structural, which is what this row records. An
+  // item's read runs THROUGH an indented literal and the metadata
+  // behind it, so the marker line lands inside the item ONLY while
+  // nothing separates them; put a blank or a `+` there and the reader
+  // has two siblings instead, with no nested block to carry a gap.
+  // The gap in front of such a list is therefore always empty, and
+  // the printer replays it like every other one.
+  test("it is empty, so there is nothing to drop", () => {
     const list = listOf(SAME_MARKER);
     const [item] = list.children;
-    // The recorded gap is already empty here; the arm is what keeps
-    // it empty however the blank-run rules move around it.
-    expect(item.blocks[2].block.type).toBe("list");
-    expect(printedGap(item, list, 2)).toEqual([]);
-  });
-
-  // The slurp that would swallow this marker runs INSIDE the item,
-  // over the item's own lines, and re-parsing them gives the same
-  // blocks back — so the gap is replayed and the blank that stops a
-  // slurp reaching PAST the item is left to the boundary
-  // ({@link tailSwallowsMarker}).
-  test("an empty gap in front of a marker the literal's slurp would swallow is replayed", () => {
-    const list = listOf(SWALLOWED_MARKER);
-    expect(printedGap(list.children[0], list, 2)).toEqual([]);
-  });
-
-  test("a `+` gap in front of a nested marker is replayed verbatim", () => {
-    const list = listOf(STOPPED_SLURP);
-    expect(printedGap(list.children[0], list, 1)).toEqual(["+"]);
-  });
-
-  test("an empty gap in front of a nested marker is replayed", () => {
-    const list = listOf(NO_LITERAL);
-    expect(printedGap(list.children[0], list, 1)).toEqual([]);
-  });
-
-  test("with no parent list to ask, no marker matches and the gap is replayed", () => {
-    const list = listOf(NO_LITERAL);
-    expect(printedGap(list.children[0], NO_PARENT_LIST, 1)).toEqual([]);
+    const [{ gap, block }] = item.blocks.slice(2);
+    expect(block.type).toBe("list");
+    narrow(block, "list");
+    expect(block.marker).toBe(list.marker);
+    expect(gap).toEqual([]);
   });
 });

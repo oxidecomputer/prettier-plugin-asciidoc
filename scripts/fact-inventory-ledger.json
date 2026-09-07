@@ -392,18 +392,6 @@
       "reparseFamilies": [],
       "note": "no reparse family fits: the measured families are all about a JOIN or a dropped byte changing a reading, and this fact answers a WRAP inserting a line into the position a follower's reading depends on. The lemma test is dedicated - reverting the printer's use of the fact reds all seven rows of its first block"
     },
-    "ListNode.marker": {
-      "reason": "printedGap's gap-fold key",
-      "lemmaTest": "tests/print/list.test.ts",
-      "landedLemma": false,
-      "reparseFamilies": [
-        {
-          "basis": "argued-not-counted",
-          "family": "indent-dropped",
-          "note": "printedGap's marker comparison is about gap-folding between adjacent lists, not directly about whether a line's own indentation survives; too far from #121's own mechanism description to count"
-        }
-      ]
-    },
     "ListNode.variant": {
       "reason": "callout marker path choice",
       "lemmaTest": "tests/format/callout-list.test.ts",

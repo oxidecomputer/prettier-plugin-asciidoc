@@ -136,6 +136,7 @@ export const EXEMPT: ReadonlyMap<string, string> = new Map([
   ["AttributeEntryNode.name", CONTENT],
   ["AttributeEntryNode.value", CONTENT],
   ["ListNode.type", TYPE_DISCRIMINANT],
+  ["ListNode.marker", UNREAD],
   ["ListNode.children", STRUCTURAL],
   ["LeafDelimitedBlockNode.type", TYPE_DISCRIMINANT],
   ["LeafDelimitedBlockNode.content", CONTENT],

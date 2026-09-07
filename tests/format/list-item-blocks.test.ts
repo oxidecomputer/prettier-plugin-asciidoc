@@ -414,10 +414,9 @@ describe("byte pins for rules only the corpus and the sweep reached", () => {
       "* a\n\n** b\n[role]\n  lit\n* a\n",
       "* a\n\n** b\n[role]\n  lit\n* a\n",
     ],
-    // A gap of ["+"] is the author's `+` and must be replayed:
-    // printedGap touches a nested list's gap only to DROP a blank in
-    // front of a same-marker twin, never to add one. Mutants that
-    // print a blank here instead give
+    // A gap of ["+"] is the author's `+` and must be replayed: the
+    // printer writes the separator lines the source wrote and invents
+    // none. Mutants that print a blank here instead give
     // "* a\n  .T\n[role]\n\n** b\n", which re-reads the nested
     // list as a detached block of no item. Counterfactual: the old
     // bytes were "* a .T\n+\n[role]\n+\n** b\n", whose first `+`

@@ -281,12 +281,8 @@ function firstOwnLine(item: ListItemNode): "comment" | "hardBreak" | undefined {
  * and l.1576), so a `//` line packed in front of one is the shape
  * decision 2 turns on.
  *
- * The RECORDED gap, not the printed one. {@link printedGap} differs
- * from it in exactly two ways, and neither can reach the item's first
- * block in the wrong direction: the blank it invents is guarded by
- * `index > 0`, and the blank it drops in front of a same-marker nested
- * list can only turn a held break into a byte this rule did not need -
- * a kept break, never a lost reading.
+ * The RECORDED gap, which is also the printed one: the printer
+ * replays an item's separator lines as the source wrote them.
  * @param item - the item node
  * @returns true when a separator line stands under the item's text
  */

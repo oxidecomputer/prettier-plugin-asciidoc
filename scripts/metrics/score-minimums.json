@@ -606,18 +606,6 @@
       "reason": "EQUIVALENT. `run` has exactly two readers, `run.length === 0` and `run.some(blockTitle)`, and a line comment is no block title - so the two spellings can differ only for a leading adjacent run made of comments ALONE. That run cannot exist: a `//` line becomes a BLOCK of the item only once something else has already ended the item's text (until then `skip_line_comments` reads it through and the line after it continues the text), and that something is a block standing in front of the comment. Measured: 0 comments-only leading runs over 259,729 list items in the same 319,216 documents"
     },
     {
-      "file": "src/print/list.ts",
-      "what": "`gap.includes(\"+\")` -> `gap.includes(\"\")` in printedGap",
-      "cites": [
-        {
-          "symbol": "printedGap",
-          "quotes": "gap.includes(\"+\")"
-        }
-      ],
-      "class": "when",
-      "reason": "The blank-run sweep class. The arm fires only when a nested list SHARES its parent's marker, and probing the reader for that shape shows it always arrives with an empty gap - a blank or a `+` in front of a same-marker line reads back as a SIBLING boundary (`* a\\n\\n  lit\\n[[anc]]\\n+\\n* a\\n` gives two items). With `gap === []` both spellings return `[]`. TRIGGER - the render-divergent sweep members are the distinguishing shapes; a byte+idempotence pin already guards the drop branch"
-    },
-    {
       "file": "src/print/printer.ts",
       "what": "the default arm of the node dispatch (the printer's `print`, its second `inlineAtoms(`) - 4 NoCoverage mutants",
       "cites": [
