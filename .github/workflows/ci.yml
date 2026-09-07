@@ -94,6 +94,14 @@ jobs:
       # its own exit-code contract for the same reason that one is.
       - run: bun run internal-citations
         if: ${{ !cancelled() }}
+      # How far the printer reaches into the parser, held to the two
+      # files that already declare it: the layer rule that allows an
+      # address and the crossings registry that records its use. Reads
+      # two files, takes no measurable time, needs no base. The import
+      # itself is the metrics graph gate's job; this one catches the
+      # two declarations drifting apart.
+      - run: bun run parse-print-addresses
+        if: ${{ !cancelled() }}
 
   differential:
     name: Differential (vs base)
@@ -176,3 +184,10 @@ jobs:
       - name: metrics — the ratchets
         if: ${{ !cancelled() && steps.base.outputs.sha != '' }}
         run: bun run metrics -- --base "${{ steps.base.outputs.sha }}"
+      # What this change deleted from src, and whether it said why.
+      # Here rather than in the gates job because it is the only other
+      # question that needs the base revision, and this is the job
+      # that has one: a checkout at default depth cannot archive it.
+      - name: deletion-gate, every deleted name is declared
+        if: ${{ !cancelled() && steps.base.outputs.sha != '' }}
+        run: bun run deletion-gate -- --base "${{ steps.base.outputs.sha }}"

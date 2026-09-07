@@ -1842,17 +1842,28 @@ the dedicated regression test its issue calls for.
 **`gates`** — blocking, needs no other revision: `check`, `lint`, `fmt:check`,
 `build`, `coverage` (the suite runs under it), `metrics`,
 `test:deeply-nested-lists`, `block-structure`, `citation-check`,
-`internal-citations`. Every step carries `if: ${{ !cancelled() }}`, so one
-failing gate never hides the others. The reflow re-classification invariant
-needs no step of its own: its three gates ride the suite and the deep sweep that
-are already there, and `reading-ledger` is a generator, not a gate.
+`internal-citations`, `parse-print-addresses`. Every step carries
+`if: ${{ !cancelled() }}`, so one failing gate never hides the others. The
+reflow re-classification invariant needs no step of its own: its three gates
+ride the suite and the deep sweep that are already there, and `reading-ledger`
+is a generator, not a gate.
+
+`parse-print-addresses` rides the `gates` job (it reads two files and needs no
+base), and `deletion-gate` rides `differential` (it needs the base revision,
+which only that job checks out deeply enough to archive).
+
+Two harnesses run at neither job: `whitespace-battery` and `reference-diff` need
+Asciidoctor's Ruby gem, which is a developer prerequisite rather than a CI
+dependency, so they are batched at integration points the way mutation testing
+is. Both exit 2 on a machine without the gem, so a batched run that skipped them
+is never mistaken for one that passed.
 
 **`differential`** — needs a base, and is `continue-on-error` for its first
 iteration; flipping it to blocking is a one-line change once it has proved
 stable. It runs `parity --expected-diffs-trailers HEAD`, the three `shape-diff`
-grids, `probe-domains --base`, and `metrics --base`, serially in one job,
-because each step materializes the base into `$TMPDIR` and parallel steps would
-pay that concurrently.
+grids, `probe-domains --base`, `metrics --base`, and `deletion-gate --base`,
+serially in one job, because each step materializes the base into `$TMPDIR` and
+parallel steps would pay that concurrently.
 
 The base is a SHA the workflow computes: `git merge-base` against the PR's base
 ref, or `HEAD^` on a push to `main`. Never a branch name — the repo is routinely

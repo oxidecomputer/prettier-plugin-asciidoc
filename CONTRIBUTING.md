@@ -31,18 +31,18 @@ bun run gates
 ```
 
 runs, in order: `fmt`, `check`, `lint`, `test`, `build`, `metrics`, `coverage`,
-`block-structure`, `citation-check`, `internal-citations`. All ten must pass.
-They are fast but not instant: the slowest are the suite and `coverage`, which
-re-runs it instrumented, at ten to seventeen seconds each depending on how
-loaded the machine is - two generated sweeps run inside the suite and both
-inflate under contention - and the rest are a few seconds or less. Together they
-are exactly what CI's blocking `gates` job runs, minus the deep sweeps
-(`bun run test:deeply-nested-lists`, about three minutes); run those too when
-your change touches parsing or printing of lists, or the shape or inline
-registries.
+`block-structure`, `citation-check`, `internal-citations`,
+`parse-print-addresses`. All eleven must pass. They are fast but not instant:
+the slowest are the suite and `coverage`, which re-runs it instrumented, at ten
+to seventeen seconds each depending on how loaded the machine is - two generated
+sweeps run inside the suite and both inflate under contention - and the rest are
+a few seconds or less. Together they are exactly what CI's blocking `gates` job
+runs, minus the deep sweeps (`bun run test:deeply-nested-lists`, about three
+minutes); run those too when your change touches parsing or printing of lists,
+or the shape or inline registries.
 
-Run `bun run gates` rather than the ten commands by hand: two lanes in one night
-each ran a partial local battery that skipped `citation-check` and shipped
+Run `bun run gates` rather than the eleven commands by hand: two lanes in one
+night each ran a partial local battery that skipped `citation-check` and shipped
 citations it rejects, because the step was in CI but not in anyone's local list
 (issue #138). A single command that always runs the full set is what keeps
 "gates green" locally from meaning something narrower than "gates green" in CI.
