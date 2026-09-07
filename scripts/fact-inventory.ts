@@ -9,10 +9,17 @@
  * `tests/format/description-list.test.ts`; see the ledger's two
  * `landedLemma: true` rows for the exact citations) or EXEMPT, with a
  * reason. The shape is `scripts/metrics/shape-census.ts`'s: enumerate every
- * property mechanically, classify every one of them by hand in a map
- * (`scripts/fact-inventory-classification.ts`), and fail when the two
- * disagree in EITHER direction — a new field with no row, or a row
- * that names a field `src/ast.ts` no longer declares.
+ * property mechanically, classify every one of them by hand, and fail
+ * when the two disagree in EITHER direction: a new field with no
+ * row, or a row that names a field `src/ast.ts` no longer declares.
+ *
+ * WHERE THE TWO HALVES ARE WRITTEN. A FACT is one row in
+ * `scripts/fact-inventory-ledger.json`, whose key set IS the fact set
+ * and whose `reason` is the classification; an EXEMPT field is one
+ * row in `scripts/fact-inventory-classification.ts`. A fact used to
+ * be written in both files, with nothing comparing the two key sets,
+ * so a landing fact could be classified in one and forgotten in the
+ * other; the ledger is now the only place a fact is named.
  *
  * ENUMERATION. `astFields` walks `src/ast.ts` with the TypeScript
  * compiler (the same instrument `scripts/citations.ts` and
@@ -23,7 +30,7 @@
  * (`TableClose`, `TableCellOpening`, `TableCellRepeat`) is named
  * `Alias#index` by position — mechanical, not semantic, so two
  * differently-ordered members never collide and a reordering is a
- * visible rename in the classification map, not a silent no-op.
+ * visible rename in the classification, not a silent no-op.
  *
  * NO MERGING ACROSS SIBLING UNION MEMBERS. `DelimitedBlockNode` is
  * five interfaces sharing field names (`annotatedBy` on all five,
@@ -32,7 +39,7 @@
  * "the same field name" into one row. That inflates the count past a
  * concept-level tally, but it is the mechanical, driftproof answer: a
  * merge is a THIRD hand-maintained list (the merge table itself) that
- * could disagree with both the classification map and the source,
+ * could disagree with both the classification and the source,
  * which is exactly the failure mode this file exists to close off.
  *
  * THE FACT CRITERION, applied field by field rather than declared
@@ -42,9 +49,9 @@
  * dispatch every node's own `type` gets, and not a leaf string
  * (`value`, `content`, `title`, `name`, `target`, `attrlist`, a role)
  * that the printer copies out unconditionally with no branch on its
- * own identity. Every row in `scripts/fact-inventory-classification.ts`
- * was checked against an actual `grep -rn` of `src/print/*.ts` for
- * that property name before it was written down (not merely inferred
+ * own identity. Every row of both halves was checked against an
+ * actual `grep -rn` of `src/print/*.ts` for that property name
+ * before it was written down (not merely inferred
  * from the field's own doc comment), and several first impressions
  * did not survive that check:
  *
@@ -88,10 +95,10 @@
  * the grep the same way `scripts/metrics/unread-fields.ts` says a
  * hand-rolled reference scan is.
  */
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import ts from "typescript";
-import { EXEMPT, FACTS } from "./fact-inventory-classification.js";
+import { EXEMPT } from "./fact-inventory-classification.js";
 import { isArray, isObject, parseJson } from "./metrics/json.js";
 
 /** Where the AST types live; the enumeration's one source of truth. */
@@ -177,9 +184,9 @@ export function astFields(root: string): AstField[] {
 }
 
 /**
- * One field's classification key, `Owner.property` — what the FACTS
- * and EXEMPT maps are keyed by, and what the ledger
- * (`scripts/fact-inventory-ledger.json`) names each fact by too.
+ * One field's classification key, `Owner.property`: what the EXEMPT
+ * map is keyed by, and what the ledger
+ * (`scripts/fact-inventory-ledger.json`) names each fact by.
  * @param field - the field
  * @returns its key
  */
@@ -188,36 +195,88 @@ export function factKey(field: AstField): string {
 }
 
 /**
- * Every disagreement between `src/ast.ts` and the classification map:
- * a field neither map names (new and unclassified — the gate a
- * growing `ast.ts` cannot silently pass), a field both maps name, or
- * a map row naming a field the file no longer declares (stale).
+ * The FACTS half of the classification, read from the ledger's own
+ * key set: fact key to the reason it is a fact.
+ *
+ * ONE FILE PER FACT is the whole point. The reasons used to live in a
+ * map beside {@link EXEMPT} whose 74 keys were the ledger's 74 keys,
+ * so a landing fact was written in two files and the two could
+ * disagree - one of them silently, because nothing compared them.
+ * Reading the ledger makes the key set the same set by construction.
+ *
+ * A row that does not read as an object still contributes its key,
+ * so an unreadable row is a classified field with a complaint rather
+ * than an unclassified one with two.
+ * @param root - the repository root
+ * @returns fact key to reason, over whatever the ledger holds
+ */
+export function factReasons(root: string): ReadonlyMap<string, string> {
+  const facts = readJsonObject(root, LEDGER_FILE)?.facts;
+  const rows = isObject(facts) ? facts : {};
+  return new Map(
+    Object.entries(rows).map(([key, row]) => [
+      key,
+      stringAt(row, "reason") ?? "",
+    ]),
+  );
+}
+
+/**
+ * How one declared field is classified, or is not.
+ *
+ * Split out of {@link factInventoryFailures} to stay under the
+ * complexity ceiling; the three arms are independent, so a field can
+ * earn more than one and the caller keeps them all.
+ * @param field - the declared field
+ * @param facts - the ledger's fact key to reason map
+ * @returns one message per way this field's classification is wrong
+ */
+function classificationFailures(
+  field: AstField,
+  facts: ReadonlyMap<string, string>,
+): string[] {
+  const key = factKey(field);
+  const inFacts = facts.has(key);
+  const inExempt = EXEMPT.has(key);
+  const failures: string[] = [];
+  if (!inFacts && !inExempt) {
+    failures.push(
+      `fact inventory: ${key} (${AST_FILE}:${String(field.line)}) is classified as neither a recorded fact nor exempt - add a row to ${LEDGER_FILE} if it is a fact, or to EXEMPT in scripts/fact-inventory-classification.ts if it is not`,
+    );
+  }
+  if (inFacts && inExempt) {
+    failures.push(
+      `fact inventory: ${key} has a row in ${LEDGER_FILE} and one in EXEMPT in scripts/fact-inventory-classification.ts`,
+    );
+  }
+  if (inFacts && facts.get(key) === "") {
+    failures.push(
+      `fact inventory: ${key}'s row in ${LEDGER_FILE} states no \`reason\`, which is the classification itself`,
+    );
+  }
+  return failures;
+}
+
+/**
+ * Every disagreement between `src/ast.ts` and the classification: a
+ * field neither half names (new and unclassified, which is the gate a
+ * growing `ast.ts` cannot silently pass), a field both halves name, a row
+ * naming a field the file no longer declares (stale), and a ledger
+ * row that states no reason.
  * @param root - the repository root
  * @returns one message per disagreement; empty means the census is green
  */
 export function factInventoryFailures(root: string): string[] {
   const fields = astFields(root);
+  const facts = factReasons(root);
   const present = new Set(fields.map(factKey));
-  const failures: string[] = [];
-  for (const field of fields) {
-    const key = factKey(field);
-    const inFacts = FACTS.has(key);
-    const inExempt = EXEMPT.has(key);
-    if (!inFacts && !inExempt) {
-      failures.push(
-        `fact inventory: ${key} (${AST_FILE}:${String(field.line)}) is classified as neither a recorded fact nor exempt — add a row to scripts/fact-inventory-classification.ts and, if it is a fact, a row to scripts/fact-inventory-ledger.json`,
-      );
-    }
-    if (inFacts && inExempt) {
-      failures.push(
-        `fact inventory: ${key} is listed in both FACTS and EXEMPT in scripts/fact-inventory-classification.ts`,
-      );
-    }
-  }
-  for (const key of FACTS.keys()) {
+  const failures: string[] = fields.flatMap((field) =>
+    classificationFailures(field, facts),
+  );
+  for (const key of facts.keys()) {
     if (!present.has(key)) {
       failures.push(
-        `fact inventory: FACTS names ${key}, which ${AST_FILE} no longer declares (stale row in scripts/fact-inventory-classification.ts)`,
+        `fact inventory: ${LEDGER_FILE} names ${key}, which ${AST_FILE} no longer declares (stale row)`,
       );
     }
   }
@@ -234,12 +293,14 @@ export function factInventoryFailures(root: string): string[] {
 /**
  * The recorded facts themselves — the census's headline count.
  * @param root - the repository root
- * @returns the fact keys that are both classified as facts AND
- *   currently declared in `src/ast.ts`, sorted
+ * @returns the fact keys that the ledger names AND `src/ast.ts`
+ *   currently declares, sorted
  */
 export function recordedFacts(root: string): string[] {
   const present = new Set(astFields(root).map(factKey));
-  return [...FACTS.keys()].filter((key) => present.has(key)).toSorted();
+  return [...factReasons(root).keys()]
+    .filter((key) => present.has(key))
+    .toSorted();
 }
 
 /** Where the per-fact ledger lives; the checks below read it. */
@@ -297,7 +358,14 @@ function readJsonObject(
   root: string,
   file: string,
 ): Record<string, unknown> | undefined {
-  const parsed = parseJson(readFileSync(path.join(root, file), "utf8"));
+  const absolute = path.join(root, file);
+  // A checkout without the file is a checkout the caller reports on,
+  // not a throw: {@link factReasons} runs against planted trees that
+  // hold only the files their row is about.
+  if (!existsSync(absolute)) {
+    return undefined;
+  }
+  const parsed = parseJson(readFileSync(absolute, "utf8"));
   return isObject(parsed) && !isArray(parsed) ? parsed : undefined;
 }
 

@@ -1,5 +1,5 @@
 {
-  "note": "Maps each recorded fact scripts/fact-inventory.ts finds (74 today) to (a) an existing test file with round-trip coverage of it, and whether that coverage is a DEDICATED lemma test (the printer writes bytes from which the reader re-derives the fact, and reverting the recording reds that test) rather than an ordinary round-trip that happens to exercise it (landedLemma), and (b) the tests/conformance/reparse-ledger.json families it explains, with a basis. 'measured' is the strongest and the rarest: the fact's own lemma is red-detectable AND re-running the reparse measurement over the whole population moves that family's rows and no others. 'argued' means the family's written mechanism and the fact's written purpose name the same thing, with nobody having traced a row; it counts toward the scoreboard. 'argued-not-counted' is a connection considered and rejected as too thematic to count, recorded rather than dropped silently. The legal values are the closed list in scripts/fact-inventory.ts (FACT_BASES), and ledgerFailures there rejects any other. reparseFamilySizes MIRRORS the live reparse ledger, family by family, and ledgerFailures holds it there in both directions - so a family a fix has EMPTIED reads 0 rather than losing its key. Read the scoreboard with that in mind: the attribution percentage the 50% retirement gate was pre-registered against was taken over the population as it stood when the census landed (276 rows, of which blank-dropped held 70), and a fact whose family now reads 0 is a fact that did its job rather than one that explains nothing.",
+  "note": "Maps each recorded fact scripts/fact-inventory.ts finds (74 today) to (a) the reason it is a fact rather than exempt, which is the CLASSIFICATION itself and not a gloss on one: the key set of this object IS the FACTS map scripts/fact-inventory.ts gates with, so a fact is recorded in one file and not two, and (b) an existing test file with round-trip coverage of it, and whether that coverage is a DEDICATED lemma test (the printer writes bytes from which the reader re-derives the fact, and reverting the recording reds that test) rather than an ordinary round-trip that happens to exercise it (landedLemma), and (c) the tests/conformance/reparse-ledger.json families it explains, with a basis. 'measured' is the strongest and the rarest: the fact's own lemma is red-detectable AND re-running the reparse measurement over the whole population moves that family's rows and no others. 'argued' means the family's written mechanism and the fact's written purpose name the same thing, with nobody having traced a row; it counts toward the scoreboard. 'argued-not-counted' is a connection considered and rejected as too thematic to count, recorded rather than dropped silently. The legal values are the closed list in scripts/fact-inventory.ts (FACT_BASES), and ledgerFailures there rejects any other. reparseFamilySizes MIRRORS the live reparse ledger, family by family, and ledgerFailures holds it there in both directions - so a family a fix has EMPTIED reads 0 rather than losing its key. Read the scoreboard with that in mind: the attribution percentage the 50% retirement gate was pre-registered against was taken over the population as it stood when the census landed (276 rows, of which blank-dropped held 70), and a fact whose family now reads 0 is a fact that did its job rather than one that explains nothing.",
   "reparseFamilySizes": {
     "indent-dropped": 14,
     "join-changes-reading": 62,
@@ -13,36 +13,43 @@
   "deepManifestClusters": "no cluster manifest distinct from tests/conformance/reparse-ledger.json exists for family E today (searched tests/conformance/reparse*.ts for 'manifest'/'cluster': no hits, unlike registry-sweep-clusters.ts and inline-sweep-clusters.ts, which do). The ledger's own per-row `family` tag is the only clustering structure family E has, so the row-level percentage below is also the cluster-level percentage.",
   "facts": {
     "AdmonitionNode.form": {
+      "reason": "label vs delimited-wrapper",
       "lemmaTest": "tests/format/admonition.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "AttributeEntryNode.unset": {
+      "reason": "collapses two spellings",
       "lemmaTest": "tests/format/attribute-entry.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "BoldNode.constrained": {
+      "reason": "mark width choice",
       "lemmaTest": "tests/format/inline-formatting.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "CommentNode.commentType": {
+      "reason": "// vs //// choice",
       "lemmaTest": "tests/format/comment.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "CompoundParentBlockNode.variant": {
+      "reason": "only record of the delimiter",
       "lemmaTest": "tests/format/parent-block.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "CurvedQuoteNode.quote": {
+      "reason": "entity-pair choice",
       "lemmaTest": "tests/format/curved-quotes.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "DescriptionListItemNode.printing": {
+      "reason": "own doc: never re-derived",
       "lemmaTest": "tests/format/description-list.test.ts",
       "landedLemma": false,
       "reparseFamilies": [
@@ -59,6 +66,7 @@
       ]
     },
     "DescriptionTermNode.line": {
+      "reason": "keeps three spellings apart",
       "lemmaTest": "tests/format/description-list.test.ts",
       "landedLemma": false,
       "reparseFamilies": [
@@ -70,21 +78,25 @@
       ]
     },
     "DiscreteHeadingNode.level": {
+      "reason": "marker-count fact",
       "lemmaTest": "tests/format/discrete-heading.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "DocumentHeaderNode.underline": {
+      "reason": "compat-mode spelling",
       "lemmaTest": "tests/format/document-header.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "DocumentNode.byteOrderMark": {
+      "reason": "printer.ts replays it",
       "lemmaTest": "tests/format/identity.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "FencedCodeBlockNode.annotatedBy": {
+      "reason": "invariant (xi)",
       "lemmaTest": "tests/parser/ast-invariants.ts (invariant xi)",
       "landedLemma": false,
       "reparseFamilies": [
@@ -96,77 +108,91 @@
       ]
     },
     "FencedCodeBlockNode.form": {
+      "reason": "framing-strategy choice",
       "lemmaTest": "tests/format/fenced-code.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "FencedCodeBlockNode.language": {
+      "reason": "[source,lang] emission",
       "lemmaTest": "tests/format/fenced-code.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "FencedCodeBlockNode.variant": {
+      "reason": "delimiter char lookup",
       "lemmaTest": "tests/format/fenced-code.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "HeadingNode.level": {
+      "reason": "only record of marker count",
       "lemmaTest": "tests/format/section.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "HighlightNode.constrained": {
+      "reason": "mark width choice",
       "lemmaTest": "tests/format/inline-formatting.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "IndentedLiteralBlockNode.annotatedBy": {
+      "reason": "invariant (xi)",
       "lemmaTest": "tests/parser/ast-invariants.ts (invariant xi)",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "IndentedLiteralBlockNode.form": {
+      "reason": "framing-strategy choice",
       "lemmaTest": "tests/format/literal-paragraph.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "IndentedLiteralBlockNode.variant": {
+      "reason": "delimiter char lookup",
       "lemmaTest": "tests/format/literal-paragraph.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "InlineAnchorNode.form": {
+      "reason": "bracket-width choice",
       "lemmaTest": "tests/format/anchor-spelling.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "InlineAnchorNode.reftext": {
+      "reason": "verbatim-replay framing",
       "lemmaTest": "tests/format/anchor-spelling.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "ItalicNode.constrained": {
+      "reason": "mark width choice",
       "lemmaTest": "tests/format/inline-formatting.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "ItemBlock.gap": {
+      "reason": "the blank and + lines between an item's pieces, replayed as written",
       "lemmaTest": "tests/parser/ast-invariants.ts (invariant vii)",
       "landedLemma": false,
       "reparseFamilies": [
         {
           "basis": "argued-not-counted",
           "family": "blank-dropped",
-          "note": "the gap alphabet answers \"is there a blank/continuation line between this item's own two pieces\"; #73's mechanism is a blank line between a METADATA line and an arbitrary following block, which is not scoped to list items and has no dedicated AST field today \u2014 too far from ItemBlock.gap's own domain to count"
+          "note": "the gap alphabet answers \"is there a blank/continuation line between this item's own two pieces\"; #73's mechanism is a blank line between a METADATA line and an arbitrary following block, which is not scoped to list items and has no dedicated AST field today, too far from ItemBlock.gap's own domain to count"
         }
       ]
     },
     "ItemBody.activeTail": {
+      "reason": "blank-line count after list",
       "lemmaTest": "tests/format/list-continuation.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "ItemBody.detachedTail": {
+      "reason": "detachedTail print arm",
       "lemmaTest": "tests/format/lone-plus-line.test.ts",
       "landedLemma": true,
       "reparseFamilies": [
@@ -178,6 +204,7 @@
       ]
     },
     "ItemBody.everyTextLineIndented": {
+      "reason": "reflow-guard input",
       "lemmaTest": "tests/format/list-hazard.test.ts",
       "landedLemma": false,
       "reparseFamilies": [
@@ -189,6 +216,7 @@
       ]
     },
     "ItemBody.trailingContinuation": {
+      "reason": "issue #181's landed lemma",
       "lemmaTest": "tests/format/trailing-continuation.test.ts",
       "landedLemma": true,
       "reparseFamilies": [
@@ -200,36 +228,43 @@
       ]
     },
     "LeafDelimitedBlockNode.annotatedBy": {
+      "reason": "invariant (xi)",
       "lemmaTest": "tests/parser/ast-invariants.ts (invariant xi)",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "LeafDelimitedBlockNode.form": {
+      "reason": "framing-strategy choice",
       "lemmaTest": "tests/format/delimited-block.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "LeafDelimitedBlockNode.variant": {
+      "reason": "delimiter char lookup",
       "lemmaTest": "tests/format/delimited-block.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "LinkNode.text": {
+      "reason": "3-state bracket spelling",
       "lemmaTest": "tests/format/inline-links.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "ListItemNode.calloutNumber": {
+      "reason": "callout marker bytes",
       "lemmaTest": "tests/format/callout-list.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "ListItemNode.checkbox": {
+      "reason": "checklist marker bytes",
       "lemmaTest": "tests/format/checklist.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "ListItemNode.markerIndent": {
+      "reason": "structure, not decoration",
       "lemmaTest": "tests/format/marker-indent.test.ts",
       "landedLemma": false,
       "reparseFamilies": [
@@ -241,16 +276,19 @@
       ]
     },
     "ListItemNode.markerGap": {
+      "reason": "half the line a thematic break is spelled on",
       "lemmaTest": "tests/format/marker-gap.test.ts",
       "landedLemma": true,
       "reparseFamilies": []
     },
     "ListItemNode.markerSpelling": {
+      "reason": "printed marker bytes",
       "lemmaTest": "tests/format/marker-spelling.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "ListNode.marker": {
+      "reason": "printedGap's gap-fold key",
       "lemmaTest": "tests/print/list.test.ts",
       "landedLemma": false,
       "reparseFamilies": [
@@ -262,56 +300,67 @@
       ]
     },
     "ListNode.variant": {
+      "reason": "callout marker path choice",
       "lemmaTest": "tests/format/callout-list.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "MasqueradedBlockNode.annotatedBy": {
+      "reason": "invariant (xi)",
       "lemmaTest": "tests/parser/ast-invariants.ts (invariant xi)",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "MasqueradedBlockNode.form": {
+      "reason": "framing-strategy choice",
       "lemmaTest": "tests/format/block-masquerade.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "MasqueradedBlockNode.sourceDelimiter": {
+      "reason": "invariant (xiii)",
       "lemmaTest": "tests/parser/ast-invariants.ts (invariant xiii)",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "MasqueradedBlockNode.variant": {
+      "reason": "style-attribute label",
       "lemmaTest": "tests/format/block-masquerade.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "MonospaceNode.constrained": {
+      "reason": "mark width choice",
       "lemmaTest": "tests/format/inline-formatting.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "OpenParentBlockNode.openDelimiter": {
+      "reason": "tilde spelling, issue #64",
       "lemmaTest": "tests/parser/ast-invariants-blocks.ts (invariant xvi)",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "ParagraphFormBlockNode.annotatedBy": {
+      "reason": "invariant (xi)",
       "lemmaTest": "tests/parser/ast-invariants.ts (invariant xi)",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "ParagraphFormBlockNode.form": {
+      "reason": "framing-strategy choice",
       "lemmaTest": "tests/format/paragraph-form-blocks.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "ParagraphFormBlockNode.variant": {
+      "reason": "style-attribute label",
       "lemmaTest": "tests/format/paragraph-form-blocks.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "ParagraphNode.blankBelowAnchorLine": {
+      "reason": "block-metadata.ts's stacking rule reads it: the separation the author wrote under a lone `[[...]]` line",
       "lemmaTest": "tests/format/anchor-line-separation.test.ts",
       "landedLemma": true,
       "reparseFamilies": [
@@ -323,11 +372,13 @@
       ]
     },
     "ParagraphNode.firstWordEndsItsLine": {
+      "reason": "block-start-hazard.ts's question",
       "lemmaTest": "tests/format/breaks.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "ParagraphNode.secondLineIndent": {
+      "reason": "the line block-start-hazard.ts's kept break opens, written back",
       "lemmaTest": "tests/format/second-line-indent.test.ts",
       "landedLemma": true,
       "reparseFamilies": [
@@ -339,116 +390,139 @@
       ]
     },
     "TableCellNode.columnIndex": {
+      "reason": "own doc: recorded, not derived",
       "lemmaTest": "tests/format/table.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "TableCellOpening#0.kind": {
+      "reason": "separator vs lineStart choice",
       "lemmaTest": "tests/format/table.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "TableCellOpening#1.kind": {
+      "reason": "same fact, other arms",
       "lemmaTest": "tests/format/table.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "TableCellRepeat#0.kind": {
+      "reason": "none/span/duplicate choice",
       "lemmaTest": "tests/format/table.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "TableCellRepeat#1.colspan": {
+      "reason": "span calculation input",
       "lemmaTest": "tests/format/table.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "TableCellRepeat#1.kind": {
+      "reason": "same fact, other arms",
       "lemmaTest": "tests/format/table.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "TableCellRepeat#1.rowspan": {
+      "reason": "rowVisits reservation",
       "lemmaTest": "tests/format/table.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "TableCellRepeat#2.count": {
+      "reason": "span calculation input",
       "lemmaTest": "tests/format/table.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "TableCellRepeat#2.kind": {
+      "reason": "same fact, other arms",
       "lemmaTest": "tests/format/table.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "TableCellSpec.style": {
+      "reason": "opening.parsed.style read",
       "lemmaTest": "tests/format/table.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "TableClose#0.kind": {
+      "reason": "gates the closing line",
       "lemmaTest": "tests/format/table.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "TableClose#1.kind": {
+      "reason": "same fact, other arm",
       "lemmaTest": "tests/format/table.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "TableColumnSpec.style": {
+      "reason": "suppresses ws normalization",
       "lemmaTest": "tests/format/table.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "TableCutting.format": {
+      "reason": "table-layout.ts's isNotPsv",
       "lemmaTest": "tests/format/table.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "TableCutting.separator": {
+      "reason": "table-layout.ts's isNotPsv",
       "lemmaTest": "tests/format/table.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "TableNode.annotatedBy": {
+      "reason": "not covered by invariant (xi)",
       "lemmaTest": "tests/format/table.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "TableNode.attrlistUnread": {
+      "reason": "declines layout normalization",
       "lemmaTest": "tests/format/table.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "TableNode.columns": {
+      "reason": "gates ragged-row decline",
       "lemmaTest": "tests/format/table.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "TableNode.leadingRuns": {
+      "reason": "gates interior-content check",
       "lemmaTest": "tests/format/table.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "TableNode.open": {
+      "reason": "psv/csv/dsv family choice",
       "lemmaTest": "tests/format/table.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "TableTextRun.image": {
+      "reason": "table-partition bytes, (xv)",
       "lemmaTest": "tests/format/table.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "TableTextRun.kind": {
+      "reason": "content/comment/blank choice",
       "lemmaTest": "tests/format/table.test.ts",
       "landedLemma": false,
       "reparseFamilies": []
     },
     "TermEntry.gap": {
+      "reason": "gap alphabet, for a term",
       "lemmaTest": "tests/format/description-list.test.ts",
       "landedLemma": false,
       "reparseFamilies": [

@@ -4,6 +4,12 @@
  * (`scripts/fact-inventory-ledger.json`) carrying a row for every
  * fact this checkout finds.
  *
+ * A planted tree here carries the REAL ledger beside its planted
+ * `src/ast.ts`, because the ledger is where a fact's classification
+ * is written: a checkout without one has no FACTS half at all, and
+ * the stale-row row below would then be measuring the missing file
+ * rather than the check it is about.
+ *
  * The completeness gate is checked against a PLANTED tree, not only
  * against the real one, for the reason
  * `tests/scripts/metrics-unread-fields.test.ts` gives: a gate whose
@@ -11,7 +17,8 @@
  * broken and nobody would see it fail. The planted row below is red
  * BEFORE the fix the same way a bug-fix test is red before its fix —
  * asserted here, not assumed — and green only once the classification
- * catches up (`FACTS.set` or `EXEMPT.set`, whichever the field is).
+ * catches up (a ledger row, or an `EXEMPT` row, whichever the field
+ * is).
  */
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -22,6 +29,7 @@ import {
   astFields,
   factInventoryFailures,
   factKey,
+  factReasons,
   ledgerFailures,
   recordedFacts,
 } from "../../scripts/fact-inventory.js";
@@ -40,6 +48,14 @@ const DECLARED_FAMILIES = Object.keys(REPARSE_FAMILIES);
 /** The real checkout's fact count, as of this commit. */
 const PINNED_FACT_COUNT = 74;
 
+/**
+ * The checked-in ledger's own bytes, for planting beside a planted
+ * `src/ast.ts`. Read rather than written out here: a fixture ledger
+ * would be a second copy of the fact classification, which is the
+ * duplication the ledger exists to hold alone.
+ */
+const REAL_LEDGER = readFileSync(path.join(REPO_ROOT, LEDGER_FILE), "utf8");
+
 describe("the real checkout", () => {
   test("has no unclassified or stale field", () => {
     expect(factInventoryFailures(REPO_ROOT)).toEqual([]);
@@ -49,28 +65,52 @@ describe("the real checkout", () => {
     expect(recordedFacts(REPO_ROOT)).toHaveLength(PINNED_FACT_COUNT);
   });
 
-  test("every recorded fact has a ledger row", () => {
-    const ledgerPath = path.join(
-      REPO_ROOT,
-      "scripts/fact-inventory-ledger.json",
-    );
-    const parsed: unknown = JSON.parse(readFileSync(ledgerPath, "utf8"));
+  test("every recorded fact states why it is one", () => {
+    // The ledger's key set IS the fact set now, so "has a row" is
+    // true by construction and no longer worth asserting. What a row
+    // can still omit is the classification itself, and a fact with no
+    // stated reason is a field nobody classified.
+    const parsed: unknown = JSON.parse(REAL_LEDGER);
     if (!isObject(parsed) || !isObject(parsed.facts)) {
-      throw new TypeError(`${ledgerPath}: expected {facts: {...}}`);
+      throw new TypeError(`${LEDGER_FILE}: expected {facts: {...}}`);
     }
     const { facts: ledgerFacts } = parsed;
-    const facts = recordedFacts(REPO_ROOT);
-    const missing = facts.filter((fact) => !Object.hasOwn(ledgerFacts, fact));
-    expect(missing, "facts with no row in fact-inventory-ledger.json").toEqual(
-      [],
+    const unreasoned = Object.entries(ledgerFacts)
+      .filter(
+        ([, row]) => (isObject(row) ? row.reason : undefined) === undefined,
+      )
+      .map(([key]) => key);
+    expect(unreasoned, "ledger rows with no `reason`").toEqual([]);
+    expect(new Set(factReasons(REPO_ROOT).keys())).toEqual(
+      new Set(Object.keys(ledgerFacts)),
     );
-    const stale = Object.keys(ledgerFacts).filter(
-      (key) => !facts.includes(key),
+  });
+
+  test("a ledger row with no reason is reported (red before the reason field)", () => {
+    // Red before `reason` moved into the ledger: nothing read the
+    // rows for a classification at all, so a row that stated none was
+    // as green as one that did.
+    const stripped: unknown = JSON.parse(REAL_LEDGER);
+    if (!isObject(stripped) || !isObject(stripped.facts)) {
+      throw new TypeError(`${LEDGER_FILE}: expected {facts: {...}}`);
+    }
+    const row = stripped.facts["ItemBody.trailingContinuation"];
+    if (!isObject(row)) {
+      throw new TypeError(`${LEDGER_FILE}: expected a row for that fact`);
+    }
+    delete row.reason;
+    const failures = inCheckout(
+      {
+        "src/ast.ts": readFileSync(path.join(REPO_ROOT, "src/ast.ts"), "utf8"),
+        [LEDGER_FILE]: JSON.stringify(stripped),
+      },
+      (root) => factInventoryFailures(root),
     );
     expect(
-      stale,
-      "fact-inventory-ledger.json rows naming a fact the census no longer finds",
-    ).toEqual([]);
+      failures.filter((message) =>
+        message.includes("ItemBody.trailingContinuation"),
+      ),
+    ).toHaveLength(1);
   });
 
   test("the ledger agrees with what it counts", () => {
@@ -99,10 +139,11 @@ function plantedAst(extraField?: string): string {
 
 describe("factInventoryFailures on a planted tree", () => {
   test("is clean when every field is classified", () => {
-    const failures = inCheckout({ "src/ast.ts": plantedAst() }, (root) =>
-      factInventoryFailures(root),
+    const failures = inCheckout(
+      { "src/ast.ts": plantedAst(), [LEDGER_FILE]: REAL_LEDGER },
+      (root) => factInventoryFailures(root),
     );
-    // PlantedNode.type and .value are not in FACTS or EXEMPT, so the
+    // PlantedNode.type and .value are in neither half, so the
     // baseline itself is expected to be red — this is the mutation
     // being applied FIRST, per the perturbation-proof discipline: the
     // next test shows the SAME shape passes once classified.
@@ -120,25 +161,29 @@ describe("factInventoryFailures on a planted tree", () => {
     ).toBe(false);
 
     const afterFailures = inCheckout(
-      { "src/ast.ts": plantedAst("  newSpelling: boolean;") },
+      {
+        "src/ast.ts": plantedAst("  newSpelling: boolean;"),
+        [LEDGER_FILE]: REAL_LEDGER,
+      },
       (root) => factInventoryFailures(root),
     );
     expect(
       afterFailures.some((message) =>
         message.includes("PlantedNode.newSpelling"),
       ),
-      "a field with no FACTS/EXEMPT row must be reported",
+      "a field with no ledger row and no EXEMPT row must be reported",
     ).toBe(true);
   });
 
   test("catches a ledger row naming a field that is gone (stale, the reverse direction)", () => {
-    // scripts/fact-inventory.ts classifies ItemBody.trailingContinuation
-    // as a fact; a planted tree that never declares ItemBody at all
-    // must report every FACTS/EXEMPT row as stale, this one included,
+    // The ledger classifies ItemBody.trailingContinuation as a fact;
+    // a planted tree that never declares ItemBody at all
+    // must report every ledger and EXEMPT row as stale, this one included,
     // proving the reverse-direction check bites and not only the
     // forward one the test above already covers.
-    const failures = inCheckout({ "src/ast.ts": plantedAst() }, (root) =>
-      factInventoryFailures(root),
+    const failures = inCheckout(
+      { "src/ast.ts": plantedAst(), [LEDGER_FILE]: REAL_LEDGER },
+      (root) => factInventoryFailures(root),
     );
     expect(
       failures.some((message) =>

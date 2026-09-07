@@ -20,6 +20,8 @@ import {
   parseArguments,
 } from "../../scripts/parity.js";
 import { foldMarkerAndReftextShapes } from "../../scripts/parity-ledger.js";
+import { astFields } from "../../scripts/fact-inventory.js";
+import { REPO_ROOT } from "../../scripts/metrics/model.js";
 
 /**
  * Build one ledger entry for a test row.
@@ -39,6 +41,27 @@ const SYNTHETIC = {
   // key it owns is what the blanket rows below strip from both sides.
   blanketKeys: new Map([["fam-keyed", new Set(["recorded"])]]),
 };
+
+describe("the blanket families name fields src/ast.ts declares", () => {
+  // The blanket map is the parity gate's copy of part of the tree's
+  // shape: a family here says "these serialized keys, and nothing
+  // else, may differ", and the keys are field names typed out by
+  // hand. Renaming the field in src/ast.ts left the copy behind, and
+  // a blanket family whose key names nothing strips nothing from
+  // either side - it excuses the diff it was written to bound.
+  //
+  // Red before this row: `firstWordEndsItLine` (one letter short)
+  // passed every gate in the repo.
+  const declared = new Set(astFields(REPO_ROOT).map((field) => field.property));
+
+  test.each(
+    [...LEDGER_FAMILIES.blanketKeys].flatMap(([family, keys]) =>
+      [...keys].map((key) => [family, key] as const),
+    ),
+  )("%s owns %s", (_family, key) => {
+    expect(declared.has(key)).toBe(true);
+  });
+});
 
 describe("expected-diff ledger", () => {
   const corpus = new Set(["a", "b", "c", "fixture:x"]);

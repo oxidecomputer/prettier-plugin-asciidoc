@@ -1,20 +1,22 @@
 /**
- * The classification data `scripts/fact-inventory.ts` gates against:
- * every `src/ast.ts` property, sorted into FACTS (a printer under
- * `src/print/` reads it to choose an output SHAPE) or EXEMPT (a
- * discriminant, position bookkeeping, structural containment,
- * verbatim content, an unread record, a type-level sentinel, or a
- * container whose own arm's fields are classified separately). The
- * criterion, the verification method, and the surprises it turned up
- * are stated in `scripts/fact-inventory.ts`'s own module doc — this
- * file is the two maps alone, split out so that file stays under the
- * `max-lines` ceiling.
+ * The EXEMPT half of the classification `scripts/fact-inventory.ts`
+ * gates against: every `src/ast.ts` property that is NOT a recorded
+ * fact - a discriminant, position bookkeeping, structural
+ * containment, verbatim content, an unread record, a type-level
+ * sentinel, or a container whose own arm's fields are classified
+ * separately - each with a reason. The criterion, the verification
+ * method, and the surprises it turned up are stated in
+ * `scripts/fact-inventory.ts`'s own module doc.
+ *
+ * THE OTHER HALF IS THE LEDGER. A field that IS a recorded fact is
+ * recorded once, as a row in `scripts/fact-inventory-ledger.json`,
+ * whose key set is the FACTS map the census gates with and whose
+ * `reason` is that map's value. The two lists were separate files
+ * with the same 74 keys, so a landing fact was written twice and the
+ * copies could disagree; there is now one place to write it.
  *
  * Reasons are kept SHORT here on purpose (most owe their length to a
- * long key, not a long reason): the narrative for each recorded fact
- * — where the reparse-ledger fits, which test already exercises it —
- * lives in `scripts/fact-inventory-ledger.json`, which is what a
- * reader chasing "why is this a fact" should open next.
+ * long key, not a long reason).
  */
 
 /** Selects which printer function runs; carries no spelling of its own. */
@@ -32,95 +34,6 @@ const UNREAD = "recorded but unread under src/print (verified by grep)";
 const SENTINEL = "type-level sentinel, never holds a value";
 /** A record/union pointer whose own arms are classified separately. */
 const CONTAINER = "container; its arm's fields are classified separately";
-
-/**
- * Fields read under `src/print/` to choose between output shapes —
- * the recorded facts themselves. See `scripts/fact-inventory.ts` for
- * the criterion and `scripts/fact-inventory-ledger.json` for the
- * per-fact narrative.
- */
-export const FACTS: ReadonlyMap<string, string> = new Map([
-  ["DocumentNode.byteOrderMark", "printer.ts replays it"],
-  ["ParagraphNode.firstWordEndsItsLine", "block-start-hazard.ts's question"],
-  [
-    "ParagraphNode.secondLineIndent",
-    "the line block-start-hazard.ts's kept break opens, written back",
-  ],
-  [
-    "ParagraphNode.blankBelowAnchorLine",
-    "block-metadata.ts's stacking rule reads it: the separation the author wrote under a lone `[[...]]` line",
-  ],
-  ["BoldNode.constrained", "mark width choice"],
-  ["ItalicNode.constrained", "mark width choice"],
-  ["MonospaceNode.constrained", "mark width choice"],
-  ["HighlightNode.constrained", "mark width choice"],
-  ["CurvedQuoteNode.quote", "entity-pair choice"],
-  ["LinkNode.text", "3-state bracket spelling"],
-  ["InlineAnchorNode.form", "bracket-width choice"],
-  ["InlineAnchorNode.reftext", "verbatim-replay framing"],
-  ["HeadingNode.level", "only record of marker count"],
-  ["DocumentHeaderNode.underline", "compat-mode spelling"],
-  ["DiscreteHeadingNode.level", "marker-count fact"],
-  ["CommentNode.commentType", "// vs //// choice"],
-  ["AttributeEntryNode.unset", "collapses two spellings"],
-  ["ListNode.variant", "callout marker path choice"],
-  ["ListNode.marker", "printedGap's gap-fold key"],
-  ["LeafDelimitedBlockNode.variant", "delimiter char lookup"],
-  ["LeafDelimitedBlockNode.form", "framing-strategy choice"],
-  ["FencedCodeBlockNode.variant", "delimiter char lookup"],
-  ["FencedCodeBlockNode.form", "framing-strategy choice"],
-  ["MasqueradedBlockNode.variant", "style-attribute label"],
-  ["MasqueradedBlockNode.form", "framing-strategy choice"],
-  ["IndentedLiteralBlockNode.variant", "delimiter char lookup"],
-  ["IndentedLiteralBlockNode.form", "framing-strategy choice"],
-  ["ParagraphFormBlockNode.variant", "style-attribute label"],
-  ["ParagraphFormBlockNode.form", "framing-strategy choice"],
-  ["LeafDelimitedBlockNode.annotatedBy", "invariant (xi)"],
-  ["FencedCodeBlockNode.annotatedBy", "invariant (xi)"],
-  ["FencedCodeBlockNode.language", "[source,lang] emission"],
-  ["MasqueradedBlockNode.annotatedBy", "invariant (xi)"],
-  ["MasqueradedBlockNode.sourceDelimiter", "invariant (xiii)"],
-  ["IndentedLiteralBlockNode.annotatedBy", "invariant (xi)"],
-  ["ParagraphFormBlockNode.annotatedBy", "invariant (xi)"],
-  ["OpenParentBlockNode.openDelimiter", "tilde spelling, issue #64"],
-  ["CompoundParentBlockNode.variant", "only record of the delimiter"],
-  ["AdmonitionNode.form", "label vs delimited-wrapper"],
-  ["ItemBody.trailingContinuation", "issue #181's landed lemma"],
-  ["ItemBody.detachedTail", "detachedTail print arm"],
-  ["ItemBody.activeTail", "blank-line count after list"],
-  ["ItemBody.everyTextLineIndented", "reflow-guard input"],
-  ["ListItemNode.markerSpelling", "printed marker bytes"],
-  ["ListItemNode.markerIndent", "structure, not decoration"],
-  ["ListItemNode.markerGap", "half the line a thematic break is spelled on"],
-  ["ListItemNode.checkbox", "checklist marker bytes"],
-  ["ListItemNode.calloutNumber", "callout marker bytes"],
-  ["ItemBlock.gap", "the brief's own gap example"],
-  ["DescriptionTermNode.line", "keeps three spellings apart"],
-  ["DescriptionListItemNode.printing", "own doc: never re-derived"],
-  ["TermEntry.gap", "gap alphabet, for a term"],
-  ["TableNode.open", "psv/csv/dsv family choice"],
-  ["TableNode.columns", "gates ragged-row decline"],
-  ["TableNode.leadingRuns", "gates interior-content check"],
-  ["TableNode.annotatedBy", "not covered by invariant (xi)"],
-  ["TableNode.attrlistUnread", "declines layout normalization"],
-  ["TableClose#0.kind", "gates the closing line"],
-  ["TableClose#1.kind", "same fact, other arm"],
-  ["TableCutting.format", "table-layout.ts's isNotPsv"],
-  ["TableCutting.separator", "table-layout.ts's isNotPsv"],
-  ["TableColumnSpec.style", "suppresses ws normalization"],
-  ["TableCellNode.columnIndex", "own doc: recorded, not derived"],
-  ["TableCellOpening#0.kind", "separator vs lineStart choice"],
-  ["TableCellOpening#1.kind", "same fact, other arms"],
-  ["TableTextRun.kind", "content/comment/blank choice"],
-  ["TableTextRun.image", "table-partition bytes, (xv)"],
-  ["TableCellSpec.style", "opening.parsed.style read"],
-  ["TableCellRepeat#0.kind", "none/span/duplicate choice"],
-  ["TableCellRepeat#1.kind", "same fact, other arms"],
-  ["TableCellRepeat#1.colspan", "span calculation input"],
-  ["TableCellRepeat#1.rowspan", "rowVisits reservation"],
-  ["TableCellRepeat#2.kind", "same fact, other arms"],
-  ["TableCellRepeat#2.count", "span calculation input"],
-]);
 
 /**
  * Fields that are NOT recorded facts, each with a reason (shared
