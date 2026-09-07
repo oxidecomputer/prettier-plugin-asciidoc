@@ -1,0 +1,287 @@
+[
+  {
+    "id": "i109/quoted0",
+    "issue": 109,
+    "src": "[x] wwww x14 yy] zzzz zzzz\n"
+  },
+  {
+    "id": "i109/quoted1",
+    "issue": 109,
+    "src": "aaa\n[x]\nbbb\n"
+  },
+  {
+    "id": "i121/fence0",
+    "issue": 121,
+    "src": "input:\n.\n [x]\n\nour output:\n.\n[x]\n\nsecond pass:\n.\n\n[x]\n\nrender(input):  <div class=\"paragraph\"> <p>. [x]</p> </div>\nrender(output): <div class=\"paragraph\"> <p>.</p> </div>\n"
+  },
+  {
+    "id": "i121/fence1",
+    "issue": 121,
+    "src": "input:\nterm::\n:a: v\n ----\n\nour output:\nterm::\n:a: v\n----\n\nsecond pass:\nterm::\n:a: v\n\n----\n----\n\nrender(input):  <dt>term</dt> <dd> <p>:a: v ----</p> </dd>\nrender(output): <dt>term</dt> <dd> <p>:a: v</p> </dd>\n                <div class=\"listingblock\"> <div class=\"content\"> <pre></pre> </div> </div>\n"
+  },
+  {
+    "id": "i124/fence0",
+    "issue": 124,
+    "src": "input:\nimage::a.png[\n[+1]\n\nour output:\nimage::a.png[ [+1]\n\nsecond pass:\nimage::a.png[[+1]\n\nrender(input):\n<div class=\"paragraph\"> <p>image::a.png[ [+1]</p> </div>\n\nrender(output):\n<div class=\"imageblock\"> <div class=\"content\">\n  <img src=\"a.png\" alt=\"[+1\"> </div> </div>\n"
+  },
+  {
+    "id": "i124/fence1",
+    "issue": 124,
+    "src": "input:\nterm::\n.\n[+1]\n\nour output:\nterm::\n. [+1]\n\nrender(input):\n<dt class=\"hdlist1\">term</dt> <dd> <p>. [+1]</p> </dd>\n\nrender(output):\n<dt class=\"hdlist1\">term</dt> <dd> <div class=\"olist arabic\">\n  <ol class=\"arabic\"> <li> <p>[+1]</p> </li> </ol> </div> </dd>\n"
+  },
+  {
+    "id": "i170/fence0",
+    "issue": 170,
+    "src": "input:\n* item\n+\n// c\n"
+  },
+  {
+    "id": "i170/fence1",
+    "issue": 170,
+    "src": "\nour output:\n* item\n+\n// c\n[source]\n----\nfoo\n----\n\nrender(input):  <div class=\"listingblock\"><div class=\"content\"><pre class=\"highlight\"><code>foo</code></pre></div></div>\nrender(output): <div class=\"listingblock\"><div class=\"content\"><pre>foo</pre></div></div>\n"
+  },
+  {
+    "id": "i170/fence2",
+    "issue": 170,
+    "src": "input:  \"* item\\n+\\n// c\\n```x\\n```\\n\"\noutput: \"* item\\n+\\n// c\\n[source,x]\\n----\\n----\\n\"\nrender(input):  <pre class=\"highlight\"><code class=\"language-x\" data-lang=\"x\"></code></pre>\nrender(output): <pre></pre>\n"
+  },
+  {
+    "id": "i170/quoted3",
+    "issue": 170,
+    "src": "* item\n+\n// c\n```x\n```\n"
+  },
+  {
+    "id": "i170/quoted4",
+    "issue": 170,
+    "src": "* item\n+\n// c\n[source,x]\n----\n----\n"
+  },
+  {
+    "id": "i171/fence0",
+    "issue": 171,
+    "src": "input:  \"term::\\n///\\n\\n+\\n\"\noutput: \"term::\\n///\\n\"\n\nrender(input):  <dl><dt class=\"hdlist1\">term</dt><dd><div class=\"paragraph\"><p>///</p></div></dd></dl>\nrender(output): <dl><dt class=\"hdlist1\">term</dt></dl>\n"
+  },
+  {
+    "id": "i171/quoted1",
+    "issue": 171,
+    "src": "term::\n///\n\n+\n"
+  },
+  {
+    "id": "i171/quoted2",
+    "issue": 171,
+    "src": "term::\n///\n"
+  },
+  {
+    "id": "i171/quoted3",
+    "issue": 171,
+    "src": "term::\n// c\n\n+\n"
+  },
+  {
+    "id": "i171/quoted4",
+    "issue": 171,
+    "src": "term::\n// c\n"
+  },
+  {
+    "id": "i180/indent0",
+    "issue": 180,
+    "src": "w --\\n-- y            folds to   w -- -- y      (two em dashes become one plus a literal pair)\nw {d}\\n{d} y          folds to   w {d} {d} y    (same loss)\nw --\\n{d} y           folds to   w -- {d} y\nw {d}\\n-- y           folds to   w {d} -- y\nw \\--\\n-- y          folds to   w \\-- -- y\n"
+  },
+  {
+    "id": "i184/fence0",
+    "issue": 184,
+    "src": "source: \"* a\\n** b\\n\\n+\\n  ** z\\n* a\\n\"\noutput: \"* a\\n** b\\n  ** z\\n* a\\n\"\n"
+  },
+  {
+    "id": "i184/quoted1",
+    "issue": 184,
+    "src": "+\n  ** z\n"
+  },
+  {
+    "id": "i184/quoted2",
+    "issue": 184,
+    "src": "* a\n** b\n\n+\n  ** z\n* a\n"
+  },
+  {
+    "id": "i184/quoted3",
+    "issue": 184,
+    "src": "* a\n** b\n  ** z\n* a\n"
+  },
+  {
+    "id": "i184/quoted4",
+    "issue": 184,
+    "src": "* a\n  ** z\n\n+\n  ** z\n* a\n"
+  },
+  {
+    "id": "i201/fence0",
+    "issue": 201,
+    "src": "* item\n+\n[source]\na\n+\nplain text\nb\n"
+  },
+  {
+    "id": "i201/fence1",
+    "issue": 201,
+    "src": "* item\n+\n[source]\na\n+\nplain text b\n"
+  },
+  {
+    "id": "i201/fence2",
+    "issue": 201,
+    "src": "<pre class=\"highlight\"><code>a\n\nplain text\nb</code></pre>\n"
+  },
+  {
+    "id": "i201/fence3",
+    "issue": 201,
+    "src": "<pre class=\"highlight\"><code>a\n\nplain text b</code></pre>\n"
+  },
+  {
+    "id": "i203/indent0",
+    "issue": 203,
+    "src": "[[café]]\npara\n"
+  },
+  {
+    "id": "i206/fence0",
+    "issue": 206,
+    "src": "input:\n[[3-blind-mice]]\n\n ====\n\nour output:\n[[3-blind-mice]]\n ====\n\nsecond pass:\n[[3-blind-mice]] ====\n\nrender(input):  <div class=\"paragraph\"> <p>[[3-blind-mice]]</p> </div>\n                <div class=\"literalblock\"> <div class=\"content\">\n                  <pre>====</pre> </div> </div>\nrender(output): <div class=\"paragraph\"> <p>[[3-blind-mice]] ====</p> </div>\n"
+  },
+  {
+    "id": "i207/fence0",
+    "issue": 207,
+    "src": "input:\n  lit\n----\nfoo\n----\n\nour output:\n== lit\n\n== foo\n\nrender(input):  <h2 id=\"_lit\"> lit</h2>\nrender(output): <h2 id=\"_lit\">lit</h2>\n"
+  },
+  {
+    "id": "i208/fence0",
+    "issue": 208,
+    "src": "input:\nterm::\n"
+  },
+  {
+    "id": "i208/fence1",
+    "issue": 208,
+    "src": "\nThe genuine document-title heading is gone from the render, and the dlist\nterm is left with a description it never had, containing a level marker\nthat leaked from the delimiter near miss.\n\n## Measured extent\n\n4 keys: `pair/delimiter-fencedCode/delimiter-example/adjacent`,\n`pair/delimiter-fencedCode/delimiter-listing/adjacent`,\n`pair/delimiter-fencedCode/delimiter-openBlockTilde/adjacent`,\n`pair/delimiter-fencedCode/delimiter-pass/adjacent`, all in the\n`dlist-desc-line` container. All verdict: fidelity.\n\n## Commit measured on\n\nOriginal measurement: main `2a139d6f`. Re-verified before filing on main\n`8a3abeb2f2ff` (2026-09-05), realization\n`pair/delimiter-fencedCode-near-1/delimiter-example-near-0/adjacent/dlist-desc-line`\n(input `` term::\\n```x\\n===\\n `` ) - still fails fidelity identically to the\nrepro above.\n\n## Provenance\n\nMeasured in `dependent-keys-triage.md` (the\n\"FENCEDCODE-DLIST-HEADING-CORRUPTION\" group of a realization-dependent\npair-grid key triage).\n"
+  },
+  {
+    "id": "i209/fence0",
+    "issue": 209,
+    "src": "input:\n* item\n+\ninclude::p[]\n"
+  },
+  {
+    "id": "i209/fence3",
+    "issue": 209,
+    "src": "\nThe source-block respelling loses the language label (and, on a fence that\ncarries body text rather than this triage's empty witness, would lose that\ntext too), and the output is not a fixed point.\n\n## Measured extent\n\n2 keys: `pair/include/delimiter-fencedCode/adjacent` and\n`pair/line-comment/delimiter-fencedCode/adjacent`, both in the `item`\ncontainer. Verdict: idempotency+fidelity.\n\n## Commit measured on\n\nOriginal measurement: main `2a139d6f`. Re-verified before filing on main\n`8a3abeb2f2ff` (2026-09-05), realization\n`pair/include/delimiter-fencedCode-near-1/adjacent/item`\n(input `` * item\\n+\\ninclude::p[]\\n```x\\n `` ) - still fails\nidempotency+fidelity identically to the repro above.\n\n## Provenance\n\nMeasured in `dependent-keys-triage.md` (the\n\"FENCEDCODE-NORMALIZED-IN-ITEM\" group of a realization-dependent pair-grid\nkey triage).\n"
+  },
+  {
+    "id": "i212/fence0",
+    "issue": 212,
+    "src": "input:\nterm::\n///c\n\n+\n\nour output:\nterm::\n///c\n\nrender(input):  <dt>term</dt> <dd> <p>///c</p> </dd>\nrender(output): <dt>term</dt>\n"
+  },
+  {
+    "id": "i214/fence0",
+    "issue": 214,
+    "src": "input:\n* \\[[a,R]]\n\nour output:\n* \\[[a, R]]\n\nrender(input):  <li> <p>[[a,R]]</p> </li>\nrender(output): <li> <p>[[a, R]]</p> </li>\n"
+  },
+  {
+    "id": "i236/fence0",
+    "issue": 236,
+    "src": "\"aaaa\\n{set:x!} bbbb\\n\"  ->  \"aaaa {set:x!} bbbb\\n\"\n"
+  },
+  {
+    "id": "i236/fence1",
+    "issue": 236,
+    "src": "ruby -I /opt/homebrew/opt/asciidoctor/libexec/gems/asciidoctor-2.0.26/lib -e '\nrequire \"asciidoctor\"\n[\"one {set:x!} two\", \"one\\n{set:x!} two\", \"one {set:x!}\\ntwo\"].each { |s| puts Asciidoctor.convert(s, safe: :safe, standalone: false) }'\n"
+  },
+  {
+    "id": "i236/quoted2",
+    "issue": 236,
+    "src": "aaaa\n{set:x!} bbbb\n"
+  },
+  {
+    "id": "i236/quoted3",
+    "issue": 236,
+    "src": "aaaa {set:x!} bbbb\n"
+  },
+  {
+    "id": "i236/quoted4",
+    "issue": 236,
+    "src": "one\n{set:x!} two\n"
+  },
+  {
+    "id": "i236/quoted5",
+    "issue": 236,
+    "src": "one {set:x!}\ntwo\n"
+  },
+  {
+    "id": "i242/fence0",
+    "issue": 242,
+    "src": "* item\nimage::a.png[]\npara line\n- - -\nlast line\n"
+  },
+  {
+    "id": "i57/fence0",
+    "issue": 57,
+    "src": "input:  \"* a\\nX\\n// c\\n+\\npara\\n** b\\n\"\noutput: \"* a X\\n// c\\n+\\npara\\n** b\\n\"\n\nrender(input):  <li><p>a X</p><div class=\"paragraph\"><p>para ** b</p></div></li>\nrender(output): <li><p>a X</p><div class=\"paragraph\"><p>para</p></div>\n                <div class=\"ulist\"><ul><li><p>b</p></li></ul></div></li>\n"
+  },
+  {
+    "id": "i57/fence1",
+    "issue": 57,
+    "src": "input:  \"* a\\n[role]\\npara\\n[[anc]]\\n.T\\npara\\n\"\noutput: \"* a\\n[role]\\npara\\n[[anc]]\\n.T para\\n\"\n\nrender(input):  …<div id=\"anc\" class=\"paragraph\"><div class=\"title\">T</div><p>para</p></div>\nrender(output): the item has no attached block at all\n"
+  },
+  {
+    "id": "i57/quoted2",
+    "issue": 57,
+    "src": "* a\nX\n// c\n+\npara\n** b\n"
+  },
+  {
+    "id": "i57/quoted3",
+    "issue": 57,
+    "src": "* a X\n// c\n+\npara\n** b\n"
+  },
+  {
+    "id": "i57/quoted4",
+    "issue": 57,
+    "src": "* a\nX\n+\npara\n** b\n"
+  },
+  {
+    "id": "i57/quoted5",
+    "issue": 57,
+    "src": "* a\n// c\n+\npara\n** b\n"
+  },
+  {
+    "id": "i57/quoted6",
+    "issue": 57,
+    "src": "* a\n[role]\npara\n[[anc]]\n.T\npara\n"
+  },
+  {
+    "id": "i57/quoted7",
+    "issue": 57,
+    "src": "* a\n[role]\npara\n[[anc]]\n.T para\n"
+  },
+  {
+    "id": "i73/fence0",
+    "issue": 73,
+    "src": "in : \"[[3-bad]]\\n\\n* a\\n\"\np1 : \"[[3-bad]]\\n* a\\n\"      <- blank dropped (stacked as metadata)\np2 : \"[[3-bad]] * a\\n\"       <- the list is destroyed\n"
+  },
+  {
+    "id": "i73/quoted1",
+    "issue": 73,
+    "src": "[[3-bad]]\n\n* a\n"
+  },
+  {
+    "id": "i73/quoted2",
+    "issue": 73,
+    "src": "[[3-bad]]\n* a\n"
+  },
+  {
+    "id": "i73/quoted3",
+    "issue": 73,
+    "src": "[[3-bad]] * a\n"
+  },
+  {
+    "id": "i80/fence0",
+    "issue": 80,
+    "src": "formatAdoc(\"[%hardbreaks]\\nLine one\\nLine two\\n\")\n-> \"[%hardbreaks]\\nLine one Line two\\n\"\n"
+  },
+  {
+    "id": "i80/quoted1",
+    "issue": 80,
+    "src": "[%hardbreaks]\nLine one\nLine two\n"
+  },
+  {
+    "id": "i80/quoted2",
+    "issue": 80,
+    "src": "[%hardbreaks]\nLine one Line two\n"
+  }
+]

@@ -1177,6 +1177,91 @@ The committed half of the harness is `tests/integration/fixtures/`: a handful of
 tiny synthetic documents that pin the walk and the shape of a result, and which
 are expected to pass every check.
 
+### `bun run whitespace-battery` - what a run of whitespace may be respelled as
+
+Batched, like mutation testing: it needs Asciidoctor's Ruby gem, which is a
+developer prerequisite and not a CI dependency.
+
+The question is the printer's. A formatter reflows prose, so it respells
+whitespace runs: it makes a run longer or shorter, it writes a tab as spaces,
+and it breaks a line where the author did not. Which of those a given position
+tolerates is not a thing to reason about from the reference's regular
+expressions, because the answer is often the opposite of what the pattern
+suggests. So it is measured: every whitespace position of three populations is
+rendered under four spellings (one space, two spaces, a tab, a newline), through
+BOTH programs, under the exact fold `tests/helpers.ts` uses, and the four
+renders are partitioned into equivalence classes.
+
+- `FREE`, one class, means the printer may spell that run however it likes.
+- Any other partition is a fact the printer has to carry, and the class names
+  which perturbations it is bound to.
+
+The partition, not a flag, is what a row records, because the dimensions are
+independent in both directions. `aa _ -- bb` reads a newline as one space and
+reads two spaces differently: a packer may BREAK there and may not RE-SPACE
+there. `aa + _ bb` is the other way around. No single verdict carries both, so
+the ledger carries the partition.
+
+**The three populations, and what each is evidence about.** `templates` is the
+roster in `scripts/lib/whitespace-roster.ts`: synthetic documents holding one
+construct each, with a slot before it, inside it where whitespace is legal, and
+after it. It is the only population a person wrote, so it can only find what
+somebody thought to write down, and the roster is spelled out in full so a
+reader can say what is missing. `witnesses` is the repro text of the open
+`tier-1` issues, committed at `scripts/whitespace-witnesses.json`; it is
+adversarial by construction and some of its documents are probe scripts rather
+than AsciiDoc, which is why every row names its document. It is a SNAPSHOT, not
+a live read - a gate that asked the tracker would measure a different population
+every day - and the cut is in the tree:
+`bun run whitespace-battery --harvest-witnesses <file>` re-cuts it from a
+`gh issue list --state open --label tier-1 --json number,body` dump, which is
+how to take the snapshot again when those issues move. `grid` is the registry's
+own deep grid deduplicated by document text - the population nobody wrote by
+hand, whose whitespace was never placed to make a point about whitespace.
+
+**Two programs, and what a disagreement means.** The reference is Asciidoctor's
+Ruby gem, the program the registries cite, driven through
+`scripts/lib/asciidoctor-reference.rb`. The oracle is `@asciidoctor/core`, the
+program every other harness renders through. Where they agree the result binds.
+Where they disagree the row says so (`programs: differ`), and it is a fact about
+the instrument rather than about AsciiDoc. The ledger's header pins both
+versions and a run against either program at another version exits 2, because a
+comparison across programs that are not the pinned ones proves nothing.
+
+**The fold is ported, and the port is proved.** The Ruby side applies a port of
+`conformanceFold` (`tests/helpers.ts`), so both programs are read through one
+lens. A port nobody checks is a second lens, so
+`tests/scripts/whitespace-battery.test.ts` applies both folds to the committed
+HTML samples in `scripts/whitespace-fold-samples.json` and compares the bytes.
+The divergent set is EMPTY, and that is the pin: any new disagreement fails
+there. Two shapes could once make the folds differ and both are now decided the
+same way in both of them - a NUL sentinel naming no stashed region is left as it
+stands rather than becoming the string `undefined` on one side and the empty
+string on the other, and a numeric reference naming a surrogate is left as it
+stands rather than becoming a lone surrogate on one side and, on the other, an
+invalid string that RAISES and takes the whole population's render with it.
+
+**FREE is the reference's verdict.** The class column is read off the Ruby's
+partition, so a free position is one the reference renders alike four ways. The
+instrument may still be bound there, and the ledger counts those positions
+separately (`freeButInstrumentBound`, and every one of them is also a
+`programs: differ` row) rather than folding them into `free`: the suite renders
+through the instrument, so it can redden on a position the battery calls free.
+
+**The ledger has two shapes**, for the same reason the registry sweep's
+manifests do. The template population is pinned one row per position, free rows
+included, because the negative results are half the table: every replacement row
+but the em dash is free, every mark but monospace is free, every passthrough is
+free through this lens. The document populations are five figures wide and are
+pinned as clusters - count, five example ids, and the sha256 of the cluster's
+full sorted id list - which stays exact: a position that appears, vanishes or
+changes class changes a hash.
+
+Exit codes: 0 the run agreed with the ledger, 1 it did not, 2 it could not run
+(a bad argument, no gem, a program at an unpinned version, or a population that
+measured nothing). `--write` regenerates the ledger; `--population <name>`
+narrows the run to one of `templates`, `witnesses`, `grid`.
+
 ### `bun run vendor` and `bun run build`
 
 `vendor` re-fetches both halves of `vendor/`: the Asciidoctor corpus at a pinned

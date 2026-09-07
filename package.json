@@ -56,7 +56,8 @@
     "internal-citations": "bun scripts/internal-citations.ts",
     "block-structure": "bun scripts/block-structure.ts",
     "local-docs": "bun scripts/local-documents.ts",
-    "collect-local-docs": "bun scripts/collect-local-documents.ts"
+    "collect-local-docs": "bun scripts/collect-local-documents.ts",
+    "whitespace-battery": "bun scripts/whitespace-battery.ts"
   },
   "peerDependencies": {
     "prettier": "^3.0.0"

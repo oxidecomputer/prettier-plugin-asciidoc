@@ -1,0 +1,2109 @@
+{
+  "reference": "2.0.26",
+  "oracle": "@asciidoctor/core 4.0.11",
+  "populations": {
+    "templates": {
+      "shape": "positions",
+      "counts": {
+        "positions": 198,
+        "cases": 792,
+        "free": 162,
+        "freeButInstrumentBound": 0,
+        "lengthBound": 24,
+        "tabBound": 25,
+        "newlineBound": 23,
+        "programsDiffer": 1,
+        "referenceOnly": 2
+      },
+      "positions": [
+        {
+          "id": "plain-words/s0",
+          "group": "plain",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "plain-sentence/s0",
+          "group": "plain",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "emdash/s0",
+          "group": "emdash",
+          "class": "LENGTH+TAB",
+          "partition": "0120",
+          "oracle": "0120",
+          "programs": "agree"
+        },
+        {
+          "id": "emdash/s1",
+          "group": "emdash",
+          "class": "LENGTH+TAB",
+          "partition": "0120",
+          "oracle": "0120",
+          "programs": "agree"
+        },
+        {
+          "id": "emdash-escaped/s0",
+          "group": "emdash",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "emdash-escaped/s1",
+          "group": "emdash",
+          "class": "TAB",
+          "partition": "0010",
+          "oracle": "0010",
+          "programs": "agree"
+        },
+        {
+          "id": "emdash-linestart/s0",
+          "group": "emdash",
+          "class": "LENGTH+TAB+NEWLINE",
+          "partition": "0123",
+          "oracle": "0123",
+          "programs": "agree"
+        },
+        {
+          "id": "emdash-lineend/s0",
+          "group": "emdash",
+          "class": "LENGTH+TAB+NEWLINE",
+          "partition": "0123",
+          "oracle": "0123",
+          "programs": "agree"
+        },
+        {
+          "id": "emdash-pair/s0",
+          "group": "emdash",
+          "class": "LENGTH+TAB",
+          "partition": "0120",
+          "oracle": "0120",
+          "programs": "agree"
+        },
+        {
+          "id": "emdash-pair/s1",
+          "group": "emdash",
+          "class": "LENGTH+TAB+NEWLINE",
+          "partition": "0121",
+          "oracle": "0121",
+          "programs": "agree"
+        },
+        {
+          "id": "emdash-pair/s2",
+          "group": "emdash",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "emdash-word-glued/s0",
+          "group": "emdash",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "emdash-word-glued/s1",
+          "group": "emdash",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "attr-dashdash/s0",
+          "group": "attrref",
+          "class": "LENGTH+TAB",
+          "partition": "0120",
+          "oracle": "0120",
+          "programs": "agree"
+        },
+        {
+          "id": "attr-dashdash/s1",
+          "group": "attrref",
+          "class": "LENGTH+TAB",
+          "partition": "0120",
+          "oracle": "0120",
+          "programs": "agree"
+        },
+        {
+          "id": "attr-xx/s0",
+          "group": "attrref",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "attr-xx/s1",
+          "group": "attrref",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "attr-xplus/s0",
+          "group": "attrref",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "attr-xplus/s1",
+          "group": "attrref",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "attr-plus/s0",
+          "group": "attrref",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "attr-plus/s1",
+          "group": "attrref",
+          "class": "NEWLINE",
+          "partition": "0001",
+          "oracle": "0001",
+          "programs": "agree"
+        },
+        {
+          "id": "attr-dash/s0",
+          "group": "attrref",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "attr-dash/s1",
+          "group": "attrref",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "attr-space/s0",
+          "group": "attrref",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "attr-space/s1",
+          "group": "attrref",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "attr-unset/s0",
+          "group": "attrref",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "attr-unset/s1",
+          "group": "attrref",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "attr-external/s0",
+          "group": "attrref",
+          "class": "LENGTH+TAB",
+          "partition": "0120",
+          "oracle": "n/a",
+          "programs": "reference-only"
+        },
+        {
+          "id": "attr-external/s1",
+          "group": "attrref",
+          "class": "LENGTH+TAB",
+          "partition": "0120",
+          "oracle": "n/a",
+          "programs": "reference-only"
+        },
+        {
+          "id": "attr-pair/s0",
+          "group": "attrref",
+          "class": "LENGTH+TAB",
+          "partition": "0120",
+          "oracle": "0120",
+          "programs": "agree"
+        },
+        {
+          "id": "attr-pair/s1",
+          "group": "attrref",
+          "class": "LENGTH+TAB+NEWLINE",
+          "partition": "0121",
+          "oracle": "0121",
+          "programs": "agree"
+        },
+        {
+          "id": "attr-pair/s2",
+          "group": "attrref",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "attr-space-plus/s0",
+          "group": "attrref",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "attr-plus-alone/s0",
+          "group": "attrref",
+          "class": "LENGTH+TAB+NEWLINE",
+          "partition": "0122",
+          "oracle": "0122",
+          "programs": "agree"
+        },
+        {
+          "id": "attr-missing-dropline/s0",
+          "group": "attrref",
+          "class": "NEWLINE",
+          "partition": "0001",
+          "oracle": "0001",
+          "programs": "agree"
+        },
+        {
+          "id": "attr-missing-dropline/s1",
+          "group": "attrref",
+          "class": "NEWLINE",
+          "partition": "0001",
+          "oracle": "0001",
+          "programs": "agree"
+        },
+        {
+          "id": "attr-missing-warn/s0",
+          "group": "attrref",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "attr-missing-warn/s1",
+          "group": "attrref",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "set-unset/s0",
+          "group": "setref",
+          "class": "NEWLINE",
+          "partition": "0001",
+          "oracle": "0001",
+          "programs": "agree"
+        },
+        {
+          "id": "set-unset/s1",
+          "group": "setref",
+          "class": "NEWLINE",
+          "partition": "0001",
+          "oracle": "0001",
+          "programs": "agree"
+        },
+        {
+          "id": "set-value/s0",
+          "group": "setref",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "set-value/s1",
+          "group": "setref",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "counter/s0",
+          "group": "setref",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "counter/s1",
+          "group": "setref",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "counter2/s0",
+          "group": "setref",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "counter2/s1",
+          "group": "setref",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "sp-ref/s0",
+          "group": "intrinsic",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "sp-ref/s1",
+          "group": "intrinsic",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "nbsp-ref/s0",
+          "group": "intrinsic",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "nbsp-ref/s1",
+          "group": "intrinsic",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "plus-ref/s0",
+          "group": "intrinsic",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "plus-ref/s1",
+          "group": "intrinsic",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "hardbreak/s0",
+          "group": "hardbreak",
+          "class": "LENGTH+TAB+NEWLINE",
+          "partition": "0123",
+          "oracle": "0123",
+          "programs": "agree"
+        },
+        {
+          "id": "plus-midline/s0",
+          "group": "hardbreak",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "plus-midline/s1",
+          "group": "hardbreak",
+          "class": "NEWLINE",
+          "partition": "0001",
+          "oracle": "0001",
+          "programs": "agree"
+        },
+        {
+          "id": "hardbreak-sp-ref/s0",
+          "group": "hardbreak",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "hardbreak-attr-plus/s0",
+          "group": "hardbreak",
+          "class": "LENGTH+TAB+NEWLINE",
+          "partition": "0122",
+          "oracle": "0122",
+          "programs": "agree"
+        },
+        {
+          "id": "hardbreak-attr-xplus/s0",
+          "group": "hardbreak",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "bold/s0",
+          "group": "mark",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "bold/s1",
+          "group": "mark",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "bold/s2",
+          "group": "mark",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "bold-unc/s0",
+          "group": "mark",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "bold-unc/s1",
+          "group": "mark",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "bold-unc/s2",
+          "group": "mark",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "italic/s0",
+          "group": "mark",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "italic/s1",
+          "group": "mark",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "italic/s2",
+          "group": "mark",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "italic-unc/s0",
+          "group": "mark",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "italic-unc/s1",
+          "group": "mark",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "italic-unc/s2",
+          "group": "mark",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "mono/s0",
+          "group": "mark",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "mono/s1",
+          "group": "mark",
+          "class": "LENGTH+TAB",
+          "partition": "0120",
+          "oracle": "0120",
+          "programs": "agree"
+        },
+        {
+          "id": "mono/s2",
+          "group": "mark",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "mono-unc/s0",
+          "group": "mark",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "mono-unc/s1",
+          "group": "mark",
+          "class": "LENGTH+TAB",
+          "partition": "0120",
+          "oracle": "0120",
+          "programs": "agree"
+        },
+        {
+          "id": "mono-unc/s2",
+          "group": "mark",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "highlight/s0",
+          "group": "mark",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "highlight/s1",
+          "group": "mark",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "highlight/s2",
+          "group": "mark",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "superscript/s0",
+          "group": "mark",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "superscript/s1",
+          "group": "mark",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "superscript/s2",
+          "group": "mark",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "subscript/s0",
+          "group": "mark",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "subscript/s1",
+          "group": "mark",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "subscript/s2",
+          "group": "mark",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "compat-plus/s0",
+          "group": "passthrough",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "compat-plus/s1",
+          "group": "passthrough",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "compat-plus/s2",
+          "group": "passthrough",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "triple-plus/s0",
+          "group": "passthrough",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "triple-plus/s1",
+          "group": "passthrough",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "triple-plus/s2",
+          "group": "passthrough",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "pass-macro/s0",
+          "group": "passthrough",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "pass-macro/s1",
+          "group": "passthrough",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "pass-macro/s2",
+          "group": "passthrough",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "dollar-pass/s0",
+          "group": "passthrough",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "dollar-pass/s1",
+          "group": "passthrough",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "dollar-pass/s2",
+          "group": "passthrough",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "stem/s0",
+          "group": "passthrough",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "stem/s1",
+          "group": "passthrough",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "stem/s2",
+          "group": "passthrough",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "link-macro/s0",
+          "group": "link",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "link-macro/s1",
+          "group": "link",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "link-text/s0",
+          "group": "link",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "link-text/s1",
+          "group": "link",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "link-text/s2",
+          "group": "link",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "link-empty/s0",
+          "group": "link",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "link-empty/s1",
+          "group": "link",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "bare-url/s0",
+          "group": "link",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "bare-url/s1",
+          "group": "link",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "mailto/s0",
+          "group": "link",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "mailto/s1",
+          "group": "link",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "bare-email/s0",
+          "group": "link",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "bare-email/s1",
+          "group": "link",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "image-alt/s0",
+          "group": "macro",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "image-alt/s1",
+          "group": "macro",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "image-alt/s2",
+          "group": "macro",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "image-target/s0",
+          "group": "macro",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "image-target/s1",
+          "group": "macro",
+          "class": "LENGTH+TAB+NEWLINE",
+          "partition": "0123",
+          "oracle": "0123",
+          "programs": "agree"
+        },
+        {
+          "id": "image-target/s2",
+          "group": "macro",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "icon/s0",
+          "group": "macro",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "icon/s1",
+          "group": "macro",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "menu-text/s0",
+          "group": "macro",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "menu-text/s1",
+          "group": "macro",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "menu-text/s2",
+          "group": "macro",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "menu-target/s0",
+          "group": "macro",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "menu-target/s1",
+          "group": "macro",
+          "class": "NEWLINE",
+          "partition": "0001",
+          "oracle": "0001",
+          "programs": "agree"
+        },
+        {
+          "id": "menu-target/s2",
+          "group": "macro",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "kbd/s0",
+          "group": "macro",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "kbd/s1",
+          "group": "macro",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "btn/s0",
+          "group": "macro",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "btn/s1",
+          "group": "macro",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "footnote/s0",
+          "group": "macro",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "footnote/s1",
+          "group": "macro",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "footnote/s2",
+          "group": "macro",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "indexterm/s0",
+          "group": "macro",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "indexterm/s1",
+          "group": "macro",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "indexterm/s2",
+          "group": "macro",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "indexterm2/s0",
+          "group": "macro",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "indexterm2/s1",
+          "group": "macro",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "indexterm2/s2",
+          "group": "macro",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "indexterm3/s0",
+          "group": "macro",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "indexterm3/s1",
+          "group": "macro",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "indexterm3/s2",
+          "group": "macro",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "xref-short/s0",
+          "group": "xref",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "xref-short/s1",
+          "group": "xref",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "xref-short/s2",
+          "group": "xref",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "xref-short-text/s0",
+          "group": "xref",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "xref-short-text/s1",
+          "group": "xref",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "xref-short-text/s2",
+          "group": "xref",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "xref-macro/s0",
+          "group": "xref",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "xref-macro/s1",
+          "group": "xref",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "xref-macro/s2",
+          "group": "xref",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "anchor-inline/s0",
+          "group": "xref",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "anchor-inline/s1",
+          "group": "xref",
+          "class": "NEWLINE",
+          "partition": "0001",
+          "oracle": "0001",
+          "programs": "agree"
+        },
+        {
+          "id": "anchor-inline/s2",
+          "group": "xref",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "anchor-macro/s0",
+          "group": "xref",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "anchor-macro/s1",
+          "group": "xref",
+          "class": "NEWLINE",
+          "partition": "0001",
+          "oracle": "0000",
+          "programs": "differ"
+        },
+        {
+          "id": "anchor-macro/s2",
+          "group": "xref",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "role-span/s0",
+          "group": "xref",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "role-span/s1",
+          "group": "xref",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "role-span/s2",
+          "group": "xref",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "repl-copyright/s0",
+          "group": "replacement",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "repl-copyright/s1",
+          "group": "replacement",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "repl-registered/s0",
+          "group": "replacement",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "repl-registered/s1",
+          "group": "replacement",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "repl-trademark/s0",
+          "group": "replacement",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "repl-trademark/s1",
+          "group": "replacement",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "repl-ellipsis/s0",
+          "group": "replacement",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "repl-ellipsis/s1",
+          "group": "replacement",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "repl-rarr/s0",
+          "group": "replacement",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "repl-rarr/s1",
+          "group": "replacement",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "repl-rArr/s0",
+          "group": "replacement",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "repl-rArr/s1",
+          "group": "replacement",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "repl-larr/s0",
+          "group": "replacement",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "repl-larr/s1",
+          "group": "replacement",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "repl-lArr/s0",
+          "group": "replacement",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "repl-lArr/s1",
+          "group": "replacement",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "repl-apostrophe/s0",
+          "group": "replacement",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "repl-apostrophe/s1",
+          "group": "replacement",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "compat-mono-pass/s0",
+          "group": "shelter",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "compat-mono-pass/s1",
+          "group": "shelter",
+          "class": "LENGTH+TAB",
+          "partition": "0120",
+          "oracle": "0120",
+          "programs": "agree"
+        },
+        {
+          "id": "compat-mono-pass/s2",
+          "group": "shelter",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "mono-in-double/s0",
+          "group": "shelter",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "mono-in-double/s1",
+          "group": "shelter",
+          "class": "LENGTH+TAB",
+          "partition": "0120",
+          "oracle": "0120",
+          "programs": "agree"
+        },
+        {
+          "id": "mono-in-double/s2",
+          "group": "shelter",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "kbd-run/s0",
+          "group": "shelter",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "kbd-run/s1",
+          "group": "shelter",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "kbd-run/s2",
+          "group": "shelter",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "literal-indent/s0",
+          "group": "block",
+          "class": "LENGTH+TAB+NEWLINE",
+          "partition": "0123",
+          "oracle": "0123",
+          "programs": "agree"
+        },
+        {
+          "id": "listing-block/s0",
+          "group": "block",
+          "class": "LENGTH+TAB+NEWLINE",
+          "partition": "0123",
+          "oracle": "0123",
+          "programs": "agree"
+        },
+        {
+          "id": "verse-block/s0",
+          "group": "block",
+          "class": "LENGTH+TAB+NEWLINE",
+          "partition": "0123",
+          "oracle": "0123",
+          "programs": "agree"
+        },
+        {
+          "id": "literal-style/s0",
+          "group": "block",
+          "class": "LENGTH+TAB+NEWLINE",
+          "partition": "0123",
+          "oracle": "0123",
+          "programs": "agree"
+        },
+        {
+          "id": "subs-none/s0",
+          "group": "block",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "hardbreaks-blk/s0",
+          "group": "block",
+          "class": "NEWLINE",
+          "partition": "0001",
+          "oracle": "0001",
+          "programs": "agree"
+        },
+        {
+          "id": "hardbreaks-doc/s0",
+          "group": "block",
+          "class": "NEWLINE",
+          "partition": "0001",
+          "oracle": "0001",
+          "programs": "agree"
+        },
+        {
+          "id": "quote-block/s0",
+          "group": "block",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "open-block/s0",
+          "group": "block",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        },
+        {
+          "id": "passthrough-blk/s0",
+          "group": "block",
+          "class": "FREE",
+          "partition": "0000",
+          "oracle": "0000",
+          "programs": "agree"
+        }
+      ]
+    },
+    "witnesses": {
+      "shape": "clusters",
+      "counts": {
+        "positions": 449,
+        "cases": 1796,
+        "free": 389,
+        "freeButInstrumentBound": 3,
+        "lengthBound": 12,
+        "tabBound": 18,
+        "newlineBound": 50,
+        "programsDiffer": 3,
+        "referenceOnly": 0
+      },
+      "scan": {
+        "documents": 57,
+        "skippedLines": {
+          "attribute-entry": 2,
+          "block-attribute": 20,
+          "delimiter": 5,
+          "eligible": 0,
+          "inside-delimited": 16,
+          "marker": 37
+        },
+        "edgeRuns": 10
+      },
+      "clusters": [
+        {
+          "key": "attribute reference|FREE|agree",
+          "count": 14,
+          "examples": [
+            "i180/indent0/l1c1",
+            "i180/indent0/l1c10",
+            "i180/indent0/l1c34",
+            "i180/indent0/l1c38",
+            "i180/indent0/l1c42"
+          ],
+          "sha256": "ed99a3621ef39569617ca4fb678ae9e0d221c3593846dc1dc4413fc66e6b3bf7"
+        },
+        {
+          "key": "attribute reference|NEWLINE|agree",
+          "count": 8,
+          "examples": [
+            "i236/fence0/l0c43",
+            "i236/fence1/l2c5",
+            "i236/fence1/l2c67",
+            "i236/quoted2/l1c8",
+            "i236/quoted3/l0c13"
+          ],
+          "sha256": "07e1f9bb706a95a6f3a10ead284896c611d6f56b3d338e7152366f8c2ebfb324"
+        },
+        {
+          "key": "code span shelter|FREE|agree",
+          "count": 43,
+          "examples": [
+            "i170/fence2/l0c22",
+            "i208/fence1/l10c52",
+            "i208/fence1/l10c56",
+            "i208/fence1/l10c59",
+            "i208/fence1/l11c17"
+          ],
+          "sha256": "3bb5d4884b108cd16556083b2f7b33415285a120259072e92b2027f796915822"
+        },
+        {
+          "key": "code span shelter|LENGTH+TAB|agree",
+          "count": 5,
+          "examples": [
+            "i208/fence1/l18c29",
+            "i208/fence1/l18c9",
+            "i209/fence3/l16c11",
+            "i209/fence3/l16c41",
+            "i209/fence3/l16c9"
+          ],
+          "sha256": "ed8e804d57df5ef7d15b86d91d3f6542e2274a41f9b64ebee13fa64d5c86fb85"
+        },
+        {
+          "key": "description-list separator|FREE|agree",
+          "count": 2,
+          "examples": ["i171/fence0/l0c6", "i171/fence0/l1c7"],
+          "sha256": "c21a21c33fcdbe1cffc9119752c517a4b4b6ea9fdc247dee4cb8845dfb8a9ced"
+        },
+        {
+          "key": "em-dash replacement row|FREE|agree",
+          "count": 7,
+          "examples": [
+            "i180/indent0/l0c1",
+            "i180/indent0/l0c40",
+            "i180/indent0/l0c8",
+            "i180/indent0/l2c1",
+            "i180/indent0/l3c9"
+          ],
+          "sha256": "68c72c93c7354699b3f97557856c65b4607651b0a73f88fcddd9fb0e51528c3d"
+        },
+        {
+          "key": "em-dash replacement row|LENGTH+TAB+NEWLINE|agree",
+          "count": 2,
+          "examples": ["i180/indent0/l0c37", "i180/indent0/l4c37"],
+          "sha256": "8cbc9298447186503b196d3af95976632ced16da72a67c7e7135d2348ab7b1f9"
+        },
+        {
+          "key": "em-dash replacement row|LENGTH+TAB|agree",
+          "count": 5,
+          "examples": [
+            "i180/indent0/l0c34",
+            "i180/indent0/l2c34",
+            "i180/indent0/l2c37",
+            "i180/indent0/l3c38",
+            "i180/indent0/l3c41"
+          ],
+          "sha256": "b79e9b57b418e288077891f30476d65c267a670d6905e439cb9474309f8ee9d3"
+        },
+        {
+          "key": "macro target or attrlist|FREE|agree",
+          "count": 6,
+          "examples": [
+            "i121/fence0/l8c6",
+            "i124/fence0/l11c23",
+            "i124/fence0/l11c40",
+            "i124/fence0/l5c13",
+            "i124/fence0/l7c6"
+          ],
+          "sha256": "39af2b2f6af9fc3001569b0ce53f12b05ee21f28f1b6dae181bc25ba54bc166e"
+        },
+        {
+          "key": "reference or anchor|FREE|agree",
+          "count": 21,
+          "examples": [
+            "i206/fence0/l12c39",
+            "i206/fence0/l15c39",
+            "i214/fence0/l6c14",
+            "i214/fence0/l6c20",
+            "i214/fence0/l6c35"
+          ],
+          "sha256": "a4fee87407ad9511705ae938e26cd2f93d07e73d6fb42a0353c94db55cd70589"
+        },
+        {
+          "key": "reference or anchor|NEWLINE|agree",
+          "count": 1,
+          "examples": ["i214/fence0/l7c28"],
+          "sha256": "43b76007c33bcedb7085e466c7f7ede78166aed758dbf934290818d34955863c"
+        },
+        {
+          "key": "section title marker|FREE|agree",
+          "count": 1,
+          "examples": ["i207/fence0/l7c2"],
+          "sha256": "97e955ac3b6b94cf7e4705a399fb5b2add19834c700fbf1317a09b3218b75eaa"
+        },
+        {
+          "key": "section title marker|NEWLINE|agree",
+          "count": 7,
+          "examples": [
+            "i207/fence0/l9c2",
+            "i208/fence1/l13c2",
+            "i208/fence1/l21c2",
+            "i208/fence1/l5c2",
+            "i209/fence3/l11c2"
+          ],
+          "sha256": "fbc9d3ab05a676348231a02ea2fd5d6cf99d4393fa873c75f172bfe356375feb"
+        },
+        {
+          "key": "section title text|TAB+NEWLINE|agree",
+          "count": 6,
+          "examples": [
+            "i208/fence1/l13c18",
+            "i208/fence1/l13c9",
+            "i208/fence1/l5c11",
+            "i209/fence3/l11c18",
+            "i209/fence3/l11c9"
+          ],
+          "sha256": "2d17f4e81d05815aef4f2b5ee71d371c95bef8a428a2f87547af7d04e4e1ba86"
+        },
+        {
+          "key": "unclassified|FREE|agree",
+          "count": 292,
+          "examples": [
+            "i109/quoted0/l0c12",
+            "i109/quoted0/l0c21",
+            "i109/quoted0/l0c8",
+            "i121/fence0/l13c14",
+            "i121/fence0/l13c20"
+          ],
+          "sha256": "6652d3cda3fc9b9f72a3410bc72c38aa4b1d4148f85f7bacf315f33c0d807008"
+        },
+        {
+          "key": "unclassified|FREE|differ",
+          "count": 3,
+          "examples": [
+            "i201/fence0/l5c5",
+            "i201/fence1/l5c10",
+            "i201/fence1/l5c5"
+          ],
+          "sha256": "39c80fb01874c9e9956917ee44a870d757be6049bc980303d72d4160deaeb519"
+        },
+        {
+          "key": "unclassified|NEWLINE|agree",
+          "count": 26,
+          "examples": [
+            "i109/quoted0/l0c16",
+            "i109/quoted0/l0c3",
+            "i170/fence0/l3c2",
+            "i170/fence1/l4c2",
+            "i170/quoted3/l2c2"
+          ],
+          "sha256": "05503eb51948436e9a143def14ed08dad210195cb9c5ccdda8eaa54174f4cf7f"
+        }
+      ]
+    },
+    "grid": {
+      "shape": "clusters",
+      "counts": {
+        "positions": 18654,
+        "cases": 74616,
+        "free": 10751,
+        "freeButInstrumentBound": 27,
+        "lengthBound": 1464,
+        "tabBound": 1456,
+        "newlineBound": 7903,
+        "programsDiffer": 35,
+        "referenceOnly": 0
+      },
+      "scan": {
+        "documents": 77653,
+        "skippedLines": {
+          "attribute-entry": 1320,
+          "block-attribute": 10910,
+          "delimiter": 21864,
+          "eligible": 0,
+          "inside-delimited": 53291,
+          "marker": 33327
+        },
+        "edgeRuns": 23792
+      },
+      "clusters": [
+        {
+          "key": "code span shelter|FREE|agree",
+          "count": 1,
+          "examples": ["fencedCode/dlist-desc/minimum-delimiter-inside/l0c6"],
+          "sha256": "bb149304178ce6347e88b8683f55fd41b931331283fe08b44b0b25213cebbe79"
+        },
+        {
+          "key": "code span shelter|NEWLINE|agree",
+          "count": 12,
+          "examples": [
+            "fencedCode/dlist-desc/closed-no-final-newline/l0c6",
+            "fencedCode/dlist-desc/closed-then-text-adjacent/l0c6",
+            "fencedCode/dlist-desc/closed/l0c6",
+            "fencedCode/dlist-desc/foreign-marker-inside/l0c6",
+            "fencedCode/dlist-desc/heading-inside/l0c6"
+          ],
+          "sha256": "4a98d6e3e900f5829c87cdae0265d82eee2da89e579099b7bc86d33b236e3d8f"
+        },
+        {
+          "key": "description-list separator|FREE|agree",
+          "count": 1228,
+          "examples": [
+            "pair/admonition-label-near-0/dlist-term/adjacent/dlist-desc-line/l2c6",
+            "pair/admonition-label-near-0/dlist-term/adjacent/doc/l1c6",
+            "pair/admonition-label-near-0/dlist-term/adjacent/item/l3c6",
+            "pair/admonition-label-near-0/dlist-term/blank/dlist-desc-line/l3c6",
+            "pair/admonition-label-near-0/dlist-term/blank/doc/l2c6"
+          ],
+          "sha256": "ab93013a1d3d01237add790cd0adc3fc034544287842051fd4d1ebda28deec31"
+        },
+        {
+          "key": "description-list separator|FREE|differ",
+          "count": 12,
+          "examples": [
+            "openBlockTilde/dlist-desc/closed-no-final-newline/l0c6",
+            "openBlockTilde/dlist-desc/closed-then-text-adjacent/l0c6",
+            "openBlockTilde/dlist-desc/closed/l0c6",
+            "openBlockTilde/dlist-desc/foreign-marker-inside/l0c6",
+            "openBlockTilde/dlist-desc/heading-inside/l0c6"
+          ],
+          "sha256": "4b8b3881e717cb20f4aaa19d311a2733f076faa35d753294483a8d30db97a3e8"
+        },
+        {
+          "key": "description-list separator|LENGTH+TAB+NEWLINE|agree",
+          "count": 47,
+          "examples": [
+            "pair/callout-near-1/dlist-term/adjacent/doc/l1c6",
+            "pair/callout-near-1/dlist-term/adjacent/item/l3c6",
+            "pair/delimiter-commentBlock-near-2/dlist-term/adjacent/doc/l1c6",
+            "pair/delimiter-commentBlock-near-2/dlist-term/adjacent/item/l3c6",
+            "pair/delimiter-example-near-2/dlist-term/adjacent/doc/l1c6"
+          ],
+          "sha256": "30d41603518a5b95514c825457a3fdb5546ce793d524d2b8af4abb59e0000669"
+        },
+        {
+          "key": "description-list separator|NEWLINE|agree",
+          "count": 163,
+          "examples": [
+            "commentBlock/dlist-desc/closed-no-final-newline/l0c6",
+            "commentBlock/dlist-desc/closed-then-text-adjacent/l0c6",
+            "commentBlock/dlist-desc/closed/l0c6",
+            "commentBlock/dlist-desc/foreign-marker-inside/l0c6",
+            "commentBlock/dlist-desc/heading-inside/l0c6"
+          ],
+          "sha256": "c1ed0df23935111b614f56e1af9eadf876f098a4fd150f54ebbfbd2cafaadff8"
+        },
+        {
+          "key": "em-dash replacement row|FREE|agree",
+          "count": 1,
+          "examples": ["openBlock/dlist-desc/minimum-delimiter-inside/l0c6"],
+          "sha256": "33cb56c05a53a635a1fb4e91d95c0afb953214936ded8c698a97ddae2711ae9f"
+        },
+        {
+          "key": "em-dash replacement row|NEWLINE|agree",
+          "count": 25,
+          "examples": [
+            "listing/dlist-desc/closed-no-final-newline/l0c6",
+            "listing/dlist-desc/closed-then-text-adjacent/l0c6",
+            "listing/dlist-desc/closed/l0c6",
+            "listing/dlist-desc/foreign-marker-inside/l0c6",
+            "listing/dlist-desc/heading-inside/l0c6"
+          ],
+          "sha256": "eaf5216b8b264e6c883927a72ae6e848b1cc8115385a35606c30562310dfb076"
+        },
+        {
+          "key": "hard break|FREE|agree",
+          "count": 607,
+          "examples": [
+            "pair/admonition-label-near-0/continuation-near-0/blank/doc/l2c1",
+            "pair/admonition-label-near-1/continuation-near-0/blank/doc/l2c1",
+            "pair/admonition-label/continuation-near-0/blank/doc/l2c1",
+            "pair/attribute-entry-near-0/continuation-near-0/blank/doc/l2c1",
+            "pair/attribute-entry-near-1/continuation-near-0/blank/doc/l2c1"
+          ],
+          "sha256": "9c9f6c581480fc146a0f50eba910b481ef0861c5995fffddd764bc2639219481"
+        },
+        {
+          "key": "hard break|LENGTH+NEWLINE|agree",
+          "count": 6,
+          "examples": [
+            "pair/continuation-near-0/continuation-near-1/adjacent/doc/l0c1",
+            "pair/continuation-near-0/delimiter-openBlock/adjacent/doc/l0c1",
+            "pair/indented-continuation-near-0/delimiter-example/adjacent/doc/l0c3",
+            "pair/indented-continuation-near-0/delimiter-listing/adjacent/doc/l0c3",
+            "pair/indented-continuation-near-0/delimiter-openBlockTilde/adjacent/doc/l0c3"
+          ],
+          "sha256": "32fed4eccc22a760e4b92bb1fbc294eefa74d343b3df1aee3d58d20252f9cfa5"
+        },
+        {
+          "key": "hard break|LENGTH+TAB+NEWLINE|agree",
+          "count": 919,
+          "examples": [
+            "pair/admonition-label-near-0/indented-continuation-near-0/blank/dlist-desc-line/l3c3",
+            "pair/admonition-label-near-0/indented-continuation-near-0/blank/doc/l2c3",
+            "pair/admonition-label-near-0/indented-continuation-near-0/blank/item/l4c3",
+            "pair/admonition-label-near-1/indented-continuation-near-0/blank/dlist-desc-line/l3c3",
+            "pair/admonition-label-near-1/indented-continuation-near-0/blank/doc/l2c3"
+          ],
+          "sha256": "a2c4b3b45a603f7628e8ad62b328dcce5c03e5a3f5911292eeccdeef131eeaba"
+        },
+        {
+          "key": "hard break|NEWLINE|agree",
+          "count": 1102,
+          "examples": [
+            "pair/admonition-label-near-0/continuation-near-0/adjacent/dlist-desc-line/l2c1",
+            "pair/admonition-label-near-0/continuation-near-0/adjacent/doc/l1c1",
+            "pair/admonition-label-near-0/continuation-near-0/adjacent/item/l3c1",
+            "pair/admonition-label-near-0/continuation-near-0/blank/dlist-desc-line/l3c1",
+            "pair/admonition-label-near-0/continuation-near-0/blank/item/l4c1"
+          ],
+          "sha256": "c4846fbb4bb4ea60d0b0ba3f7538b777257171e97e6ef161cf0e6a0d9247e938"
+        },
+        {
+          "key": "hard break|NEWLINE|differ",
+          "count": 6,
+          "examples": [
+            "pair/delimiter-openBlockTilde/continuation-near-0/adjacent/dlist-desc-line/l4c1",
+            "pair/delimiter-openBlockTilde/continuation-near-0/adjacent/doc/l3c1",
+            "pair/delimiter-openBlockTilde/continuation-near-0/blank/dlist-desc-line/l5c1",
+            "pair/delimiter-openBlockTilde/indented-continuation-near-0/adjacent/dlist-desc-line/l4c3",
+            "pair/delimiter-openBlockTilde/indented-continuation-near-0/adjacent/doc/l3c3"
+          ],
+          "sha256": "eb72b3122271bfa6d3655f472805745fe913752d211de62fd4c635d164a2e3ab"
+        },
+        {
+          "key": "section title marker|FREE|agree",
+          "count": 744,
+          "examples": [
+            "commentBlock/before-h1-adjacent/closed-then-text-adjacent/l4c2",
+            "commentBlock/before-h1-adjacent/trailing-plus-after-close/l4c2",
+            "commentBlock/dlist-desc/heading-inside/l1c2",
+            "example/before-h1-adjacent/closed-then-text-adjacent/l4c2",
+            "example/before-h1-adjacent/trailing-plus-after-close/l4c2"
+          ],
+          "sha256": "5d13acc05a4637f34e430e2c05eefe5e1184325283f3376ad32257d6e806d04e"
+        },
+        {
+          "key": "section title marker|FREE|differ",
+          "count": 11,
+          "examples": [
+            "openBlockTilde/before-h1-adjacent/closed-no-final-newline/l3c2",
+            "openBlockTilde/before-h1-adjacent/closed/l3c2",
+            "openBlockTilde/before-h1-adjacent/foreign-marker-inside/l4c2",
+            "openBlockTilde/before-h1-adjacent/heading-inside/l4c2",
+            "openBlockTilde/before-h1-adjacent/longer-delimiter-inside/l4c2"
+          ],
+          "sha256": "38e070879e065b8674f2abe2ecb631dfbcfae3cb358202b8c11e7a6643213939"
+        },
+        {
+          "key": "section title marker|LENGTH+TAB+NEWLINE|agree",
+          "count": 67,
+          "examples": [
+            "fencedCode/after-fence/heading-inside/l4c2",
+            "fencedCode/after-h0-blank/heading-inside/l3c2",
+            "fencedCode/after-h1-adjacent/heading-inside/l2c2",
+            "fencedCode/after-h1-blank/heading-inside/l3c2",
+            "fencedCode/after-h2-adjacent/heading-inside/l2c2"
+          ],
+          "sha256": "9c636bbb8d97a59d7a9af5c5f9f3c16a212ab1a6284dbc3d828e30a54390e078"
+        },
+        {
+          "key": "section title marker|NEWLINE|agree",
+          "count": 1739,
+          "examples": [
+            "commentBlock/after-h0-adjacent/closed-no-final-newline/l0c1",
+            "commentBlock/after-h0-adjacent/closed-then-text-adjacent/l0c1",
+            "commentBlock/after-h0-adjacent/closed/l0c1",
+            "commentBlock/after-h0-adjacent/foreign-marker-inside/l0c1",
+            "commentBlock/after-h0-adjacent/heading-inside/l0c1"
+          ],
+          "sha256": "332d56a06fabaed81874cec3681ac07525aa6accce627ce2fa07974d017ad925"
+        },
+        {
+          "key": "section title marker|NEWLINE|differ",
+          "count": 2,
+          "examples": [
+            "openBlockTilde/before-h1-blank/unterminated-then-blank-text/l5c2",
+            "openBlockTilde/before-h1-blank/unterminated/l3c2"
+          ],
+          "sha256": "77712d097914120ed3b1ea74da921e6291607d27b25bac27c6cd3bc08840837b"
+        },
+        {
+          "key": "unclassified|FREE|agree",
+          "count": 8143,
+          "examples": [
+            "pair/admonition-label-near-0/admonition-label-near-1/adjacent/dlist-desc-line/l2c5",
+            "pair/admonition-label-near-0/admonition-label-near-1/adjacent/doc/l1c5",
+            "pair/admonition-label-near-0/admonition-label-near-1/adjacent/item/l3c5",
+            "pair/admonition-label-near-0/admonition-label-near-1/blank/dlist-desc-line/l3c5",
+            "pair/admonition-label-near-0/admonition-label-near-1/blank/doc/l2c5"
+          ],
+          "sha256": "8621f4cba5a7398f6c30f958558f91a3b57e5ea3d89d25cd43d6b941ad3382c6"
+        },
+        {
+          "key": "unclassified|FREE|differ",
+          "count": 4,
+          "examples": [
+            "pair/block-macro/admonition-label/adjacent/dlist-desc-line/l2c5",
+            "pair/delimiter-openBlockTilde/admonition-label/adjacent/dlist-desc-line/l4c5",
+            "pair/delimiter-openBlockTilde/admonition-label/adjacent/doc/l3c5",
+            "pair/delimiter-openBlockTilde/admonition-label/adjacent/item/l5c5"
+          ],
+          "sha256": "5c0458a4e83b5924ccdd8c2cacdd558ae5bd8289db992ec22c4e72e15941fed4"
+        },
+        {
+          "key": "unclassified|LENGTH+NEWLINE|agree",
+          "count": 2,
+          "examples": [
+            "pair/line-comment-near-1/continuation-near-1/adjacent/doc/l0c1",
+            "pair/line-comment-near-1/delimiter-openBlock/adjacent/doc/l0c1"
+          ],
+          "sha256": "cdd62bb01b36a7756b324f4a7f9bc3e05ad3a9a3ba77020dda0dcea987580d46"
+        },
+        {
+          "key": "unclassified|LENGTH+TAB+NEWLINE|agree",
+          "count": 423,
+          "examples": [
+            "pair/callout-near-1/admonition-label-near-1/adjacent/doc/l1c5",
+            "pair/callout-near-1/admonition-label-near-1/adjacent/item/l3c5",
+            "pair/callout-near-1/admonition-label/adjacent/doc/l1c5",
+            "pair/callout-near-1/admonition-label/adjacent/item/l3c5",
+            "pair/callout-near-1/attribute-entry-near-0/adjacent/doc/l1c1"
+          ],
+          "sha256": "ef3ff08807669d59c13e10904bc1cdf1fedd8265f409f01a6deff84dfbe31286"
+        },
+        {
+          "key": "unclassified|NEWLINE|agree",
+          "count": 3377,
+          "examples": [
+            "pair/admonition-label-near-0/admonition-label/blank/dlist-desc-line/l3c5",
+            "pair/admonition-label-near-0/admonition-label/blank/doc/l2c5",
+            "pair/admonition-label-near-0/admonition-label/blank/item/l4c5",
+            "pair/admonition-label-near-0/line-comment/adjacent/dlist-desc-line/l2c2",
+            "pair/admonition-label-near-0/line-comment/adjacent/doc/l1c2"
+          ],
+          "sha256": "13e94ea31f5921a711940573e962f36895c45b017ae67dce9b49291492c0e174"
+        },
+        {
+          "key": "verbatim block shelter|NEWLINE|agree",
+          "count": 13,
+          "examples": [
+            "literal/dlist-desc/closed-no-final-newline/l0c6",
+            "literal/dlist-desc/closed-then-text-adjacent/l0c6",
+            "literal/dlist-desc/closed/l0c6",
+            "literal/dlist-desc/foreign-marker-inside/l0c6",
+            "literal/dlist-desc/heading-inside/l0c6"
+          ],
+          "sha256": "f0bf8ee98243217927d8bfd7765ccdf2e18f82a22c92b314e02e0ed74219dcc2"
+        }
+      ]
+    }
+  }
+}

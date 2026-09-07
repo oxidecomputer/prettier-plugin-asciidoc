@@ -327,8 +327,15 @@ function decodeNumericReferences(html: string): string {
       // never NaN; what remains ungoverned is the VALUE. A code
       // point past the Unicode range names nothing, and NUL is the
       // byte the region sentinel is built from, so decoding one
-      // would forge a placeholder.
-      if (!(codePoint > 0 && codePoint <= 0x10_ff_ff)) {
+      // would forge a placeholder. A SURROGATE names no character
+      // either: half a pair is not text, `String.fromCodePoint`
+      // hands back a lone surrogate here while the same decode in
+      // Ruby builds an invalid string that raises on the next
+      // match, and two lenses that must agree cannot differ on it.
+      if (
+        !(codePoint > 0 && codePoint <= 0x10_ff_ff) ||
+        (codePoint >= 0xd8_00 && codePoint <= 0xdf_ff)
+      ) {
         return match;
       }
       const character = String.fromCodePoint(codePoint);
@@ -409,7 +416,26 @@ function decodeNumericReferences(html: string): string {
  *   safe mode with logging suppressed.
  */
 export async function renderedHtml(input: string): Promise<string> {
-  const result = await oracleHtml(input);
+  return conformanceFold(await oracleHtml(input));
+}
+
+/**
+ * The fold {@link renderedHtml} applies to the oracle's HTML, on its
+ * own, so HTML from another program can be read through the same
+ * lens.
+ *
+ * It is separate because the reference (Asciidoctor's Ruby gem) is
+ * rendered by `scripts/lib/asciidoctor-reference.rb`, which carries a
+ * port of this fold, and a port is worth having only if it can be
+ * proved equal to what it ports: the fold-fidelity rows in
+ * `tests/scripts/whitespace-battery.test.ts` apply both to the same
+ * committed HTML samples and compare the bytes. Copying the fold into
+ * the harness that needs it would make that a proof about a copy.
+ * @param result - HTML as a converter emitted it, nothing normalized
+ * @returns the same HTML with line breaks, whitespace runs and
+ *   numeric character references folded outside the verbatim shelters
+ */
+export function conformanceFold(result: string): string {
   // Stash every whitespace-significant region, normalize what is
   // left, then put the regions back. <pre> is stashed FIRST, so a
   // stashed <code> can never contain a placeholder: a source block
@@ -443,15 +469,20 @@ export async function renderedHtml(input: string): Promise<string> {
   return (
     decodeNumericReferences(withPlaceholders)
       .replaceAll(/[ \t]{2,}|\t/gv, " ")
-      // The second callback argument is the first capture — being
+      // The second callback argument is the first capture - being
       // named does not change its position. (The `groups` object
       // is the LAST argument, after offset and source; reading it
       // positionally is how a previous version of this helper
       // silently replaced every <pre> block with "undefined".)
-      .replaceAll(
-        /\0R(?<index>\d+)\0/gv,
-        (_match: string, index: string) => kept[Number(index)],
-      )
+      //
+      // A sentinel naming no stashed region is left as it stands.
+      // No render emits NUL, so the case arrives only from text
+      // that forged one, and writing the string `undefined` into a
+      // compared render is the one answer that is certainly wrong.
+      .replaceAll(/\0R(?<index>\d+)\0/gv, (match: string, index: string) => {
+        const at = Number(index);
+        return at < kept.length ? kept[at] : match;
+      })
   );
 }
 

@@ -1,0 +1,126 @@
+[
+  {
+    "id": "one-space",
+    "html": "<p>a b</p>"
+  },
+  {
+    "id": "two-spaces",
+    "html": "<p>a  b</p>"
+  },
+  {
+    "id": "tab-in-text",
+    "html": "<p>a\tb</p>"
+  },
+  {
+    "id": "line-break",
+    "html": "<p>a\nb</p>"
+  },
+  {
+    "id": "break-with-indent",
+    "html": "<p>a  \n  b</p>"
+  },
+  {
+    "id": "named-em-dash-reference",
+    "html": "<p>a&#8212;b</p>"
+  },
+  {
+    "id": "hex-em-dash-reference",
+    "html": "<p>a&#x2014;b</p>"
+  },
+  {
+    "id": "markup-character-references",
+    "html": "<p>&#38;&#60;&#62;</p>"
+  },
+  {
+    "id": "out-of-range-and-mixed-radix",
+    "html": "<p>&#0;&#1114112;&#4a;</p>"
+  },
+  {
+    "id": "pre-run-and-break",
+    "html": "<pre>a  b\n  c</pre>"
+  },
+  {
+    "id": "pre-with-attribute-and-tabs",
+    "html": "<pre class=\"x\">a\t\tb</pre>"
+  },
+  {
+    "id": "pre-code-nested",
+    "html": "<pre><code>a  b\n c</code></pre>"
+  },
+  {
+    "id": "code-run-beside-prose-run",
+    "html": "<p><code>a  b</code> x  y</p>"
+  },
+  {
+    "id": "code-break-beside-prose-break",
+    "html": "<p><code>a\nb</code> x\ny</p>"
+  },
+  {
+    "id": "code-numeric-reference",
+    "html": "<p><code>a&#43;b</code></p>"
+  },
+  {
+    "id": "runs-either-side-of-code",
+    "html": "<p>a  <code>b  c</code>  d</p>"
+  },
+  {
+    "id": "forged-sentinel-alone",
+    "html": "<p>x \u0000R0\u0000 y</p>"
+  },
+  {
+    "id": "forged-sentinel-glued",
+    "html": "<p>a\u0000R0\u0000b  c</p>"
+  },
+  {
+    "id": "leading-and-trailing-runs",
+    "html": "<p>  leading and trailing  </p>"
+  },
+  {
+    "id": "break-after-br",
+    "html": "<p>a<br>\nb</p>"
+  },
+  {
+    "id": "tabs-and-runs-in-prose",
+    "html": "<p>tab\tin\tprose  and  runs</p>"
+  },
+  {
+    "id": "many-shelters-one-line",
+    "html": "<div><pre>p  1</pre>  <pre>p  2</pre>  <code>c  1</code>  <code>c  2</code>  tail  tail</div>"
+  },
+  {
+    "id": "reference-naming-a-newline",
+    "html": "<p>&#10;</p>"
+  },
+  {
+    "id": "reference-naming-a-newline-inline",
+    "html": "<p>a&#10;b</p>"
+  },
+  {
+    "id": "hex-newline-then-run",
+    "html": "<p>&#x0A;  z</p>"
+  },
+  {
+    "id": "code-with-nested-element",
+    "html": "<p>nested <code class=\"k\">a  <b>b  c</b></code>  after</p>"
+  },
+  {
+    "id": "numeric-references-spelling-a-sentinel",
+    "html": "<p>&#0;R0&#0; forged</p>"
+  },
+  {
+    "id": "unclosed-pre",
+    "html": "<pre>unclosed pre with  runs"
+  },
+  {
+    "id": "adjacent-references",
+    "html": "<p>&#x41;&#x42;  &#66;</p>"
+  },
+  {
+    "id": "surrogate-reference",
+    "html": "<p>&#xD800;  a</p>"
+  },
+  {
+    "id": "surrogate-low-and-astral",
+    "html": "<p>&#xDFFF; &#x1F600;  b</p>"
+  }
+]
