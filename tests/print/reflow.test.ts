@@ -11,8 +11,9 @@
  * decision, the column budget's arithmetic (indent included on the
  * first line, columns not characters), the two spellings of a
  * mandatory break, the walk that keeps a break the reader will still
- * see, and the line-start refusal, where the registry's answer and
- * this module's differ on exactly one word.
+ * see, the line-start refusal, where the registry's answer and this
+ * module's differ on exactly one word, and the one replay input no
+ * document reaches: a block holding no node at all.
  */
 import { describe, expect, test } from "vitest";
 import { cutValue } from "../../src/whitespace-runs.js";
@@ -20,14 +21,17 @@ import { startsBlockAtLineStart } from "../../src/parse/line-shapes.js";
 import {
   atomOf,
   blockBody,
+  blockLayout,
   isBlockSyntaxAtLineStart,
   isFused,
   keepTextOnFirstRestLine,
+  replayLines,
   wordsToAtoms,
   wrap,
   type Atom,
   type BlockLayout,
 } from "../../src/print/reflow.js";
+import type { BlockReading } from "../../src/reader-context.js";
 
 /**
  * One atom carrying the join facts a row cares about, the rest
@@ -249,6 +253,29 @@ describe("the atoms a word list becomes", () => {
       "alpha glueLeft=false noBreakBefore=false noBreakAfter=false break=none",
       "term:: glueLeft=false noBreakBefore=false noBreakAfter=false break=none",
     ]);
+  });
+});
+
+/** A document-level reading, for a row that is not about the reading. */
+const ANY_READING: BlockReading = { context: "paragraph", openList: undefined };
+
+// The block with no node at all, which is the only replay input the
+// format suites never hand this module: all three call sites (a
+// paragraph's `children` in printer.ts, an admonition's `text` in
+// blocks.ts, a list item's `text` in list.ts) hold a node by the time
+// they print, and description-list.ts builds its lines as an array
+// literal that is never empty. The empty answer stays answered rather
+// than asserted away because the parameter type admits an empty list
+// and it is the input blockLayout's `"none"` arm is fed by, so the
+// pair below is what says the two halves still meet. Every non-empty
+// replay is asserted from the format suites, where a whole document
+// says what the written-back lines have to be.
+describe("a block with no node to replay", () => {
+  test("has no lines, so the packer's own layout stands", () => {
+    expect(replayLines([], "alpha\n")).toEqual([]);
+    expect(blockLayout(replayLines([], "alpha\n"), ANY_READING, true)).toEqual({
+      replay: "none",
+    });
   });
 });
 
