@@ -1177,6 +1177,87 @@ The committed half of the harness is `tests/integration/fixtures/`: a handful of
 tiny synthetic documents that pin the walk and the shape of a result, and which
 are expected to pass every check.
 
+### `bun run reference-diff` - the instrument against the reference
+
+Batched, like the battery and for the same reason: it needs the Ruby gem.
+
+Two programs claim to be Asciidoctor here. The registries in `src/parse` cite
+Asciidoctor's Ruby; every conformance assertion renders through
+`@asciidoctor/core`. Those are one claim only if the two programs read documents
+alike, and the JavaScript is a REWRITE of the Ruby, not a transpile of it: its
+own README says the code was generated from the Ruby source by an LLM and
+reviewed by a person. Four divergences were already written down in prose before
+this harness existed. Nothing had ever measured the rest.
+
+So: every vendored corpus document is rendered through both programs, both
+renders are normalized, and every difference is pinned by case id and family in
+`scripts/reference-diff-ledger.json`.
+
+**The normalization is its own function**, `normalizeForComparison`. The
+conformance helper was written to compare the oracle with ITSELF, and widening
+it to absorb a second converter's spelling would weaken every render assertion
+in the suite. This one neutralizes what the two runtimes supply differently -
+each program's own version string, and the clock values `{docdate}`, `{doctime}`
+and `{localtime}`, which two processes read at two instants - and then applies
+the same fold everything else in this repository is read through.
+
+**Three programs, three versions.** The corpus is extracted from asciidoctor at
+a commit on main (`ae5891df`, see `vendor/README.md`), the reference is the
+released gem 2.0.26, and the instrument was generated from a Ruby newer than
+2.0.26: it resolves `link=self`, honours an `imagesdir` set on a macro, writes
+an implicit `start` and a `type` on ordered lists, carries a role onto a
+thematic break, and declares a `~~~~` delimiter, none of which is in 2.0.26 or
+its changelog. So a corpus case can expect behaviour the reference does not
+have, and the instrument can be right about a newer Ruby while disagreeing with
+the one we vendor and cite. The ledger's header says so, because half the
+reading rows are that skew and a reader who does not know it reads them as
+defects.
+
+**Every row carries a family, and every family carries its classification**,
+written beside it in `scripts/lib/reference-diff.ts`:
+
+- `converter` is one family: two spellings of the same table and column widths,
+  proved equal number by number before the difference is called a spelling. A
+  column the two programs SIZED differently is a reading difference.
+- `environment` is the highlighter dressing: which syntax highlighter each
+  runtime has installed, seen as the classes and `data-lang` written onto
+  `<pre>` and `<code>`.
+- `reading` is everything else, and the rules are deliberately narrow about what
+  escapes it. An element name, an element count, an `href`, a `src`, an `id`, a
+  list's `start` or `type`, a section level: all of those are what the document
+  MEANS, so a rule that let them pass as spellings would be filing reading
+  differences as dressing. Two earlier families did exactly that and are gone.
+
+The classification is per FAMILY and not per row, so admitting a row to a family
+is a decision somebody wrote down and a reviewer can dispute, rather than a
+judgement made silently while triaging.
+
+**Every reading row carries a VERDICT**, and the gate refuses one that does not.
+The vocabulary is `instrument` (the rewrite disagrees with the reference it was
+generated from), `reference-version` (the rewrite follows a newer Ruby and the
+corpus expects the newer behaviour), `environment` (what the runtimes have
+installed), and `unjudged`. Today: 14 instrument, 19 reference-version, 2
+environment. Judging a row means reading the Ruby at BOTH versions - the
+vendored 2.0.26 and the corpus commit - because a difference that looks like a
+defect against the gem is often the newer Ruby's own behaviour. A verdict is a
+reading of two sources rather than a measurement, so `--write` carries it
+forward by id for as long as the row stays in its family. Nothing is reported to
+any other repository: where the two programs disagree this project is free to do
+the simplest thing, and the ledger is the record of the place.
+
+**`instrumentFidelity`** is the other half of the ledger, and it is not measured
+by the run: each entry carries the witness, both renders, both deciding sources,
+which program the difference belongs to, WHAT WE DO on that construct, and which
+measured disagreements the row accounts for - including the whitespace battery's
+own cross-program disagreements, which is where the battery's exceptions are
+written down. `tests/scripts/reference-diff.test.ts` re-renders every witness,
+so a row that stopped reproducing turns red instead of aging quietly.
+
+Exit codes: 0 the run agreed with the ledger, 1 it did not, 2 it could not run
+(a bad argument, no gem, a program at an unpinned version, or a corpus that
+loaded fewer documents than the harness needs to have run at all). `--write`
+regenerates the ledger.
+
 ### `bun run whitespace-battery` - what a run of whitespace may be respelled as
 
 Batched, like mutation testing: it needs Asciidoctor's Ruby gem, which is a
@@ -1261,6 +1342,94 @@ Exit codes: 0 the run agreed with the ledger, 1 it did not, 2 it could not run
 (a bad argument, no gem, a program at an unpinned version, or a population that
 measured nothing). `--write` regenerates the ledger; `--population <name>`
 narrows the run to one of `templates`, `witnesses`, `grid`.
+
+### The seam-decidability table, and the census that measured it
+
+A measurement kept after its instrument. The seam-window census asked, for every
+cell of the classification grid (188 reachable open-paragraph reader states by
+55 registry constructs, 10,340 cells), what the shortest line-start prefix and
+line-end suffix are that fix `classifyLine`'s continue-or-interrupt verdict
+whatever bytes stand between them. That prices a line packer's seam check: a
+windowed construct costs O(1) per seam and can be compiled to a lookup, a
+whole-line construct costs one classification per flushed line.
+
+The answer decided a design question - it is why a windowed table is not what
+this formatter builds - and the design decision outlived the tool, so the tool
+went and the numbers stay here. The census and its pinned test were retired by
+the change that landed the whitespace battery and the reference diff.
+
+**The totals.** 52 of the 55 construct kinds need the whole line in at least one
+reachable state; exactly one (`list continuation`, the bare `+`) needs it in
+every state. 4,876 cells are windowed and 5,464 are not; the longest deciding
+window is 15 bytes. A generator emitting those windows would emit 3,808 entries
+with 0 conflicts under the registry alphabet (586 fillers). Under the
+ordinary-text alphabet (9 fillers, which assumes the bytes between the two ends
+carry no AsciiDoc punctuation) the whole-line construct kinds fall to 20 and the
+whole-line cells to 2,764 - but that alphabet's 5,632 entries carry 1,197
+conflicts, so the cheaper reading is not a table anybody could compile.
+
+**What it does not claim.** A filler alphabet is finite and a line is not, so
+"windowed at k bytes" says no probed filler moved that window, not that none
+exists. "Whole-line" is exact in its direction: a filler that moved every window
+is a witness.
+
+| construct                                   | verdict                         |
+| ------------------------------------------- | ------------------------------- |
+| unordered list marker                       | whole-line in 16 of 188 states  |
+| ordered list marker                         | whole-line in 16 of 188 states  |
+| explicit arabic marker                      | whole-line in 16 of 188 states  |
+| explicit arabic marker (a year)             | whole-line in 16 of 188 states  |
+| explicit loweralpha marker                  | whole-line in 16 of 188 states  |
+| explicit upperalpha marker                  | whole-line in 16 of 188 states  |
+| explicit lowerroman marker                  | whole-line in 16 of 188 states  |
+| explicit upperroman marker                  | whole-line in 16 of 188 states  |
+| mixed-case roman marker (lower tail)        | whole-line in 16 of 188 states  |
+| mixed-case roman marker (upper tail)        | whole-line in 16 of 188 states  |
+| arabic with a paren, not a marker           | whole-line in 112 of 188 states |
+| loweralpha with a paren, not a marker       | whole-line in 112 of 188 states |
+| upperalpha with a paren, not a marker       | whole-line in 112 of 188 states |
+| multi-letter alpha, not a marker            | whole-line in 112 of 188 states |
+| non-roman letter with a paren, not a marker | whole-line in 112 of 188 states |
+| callout list marker                         | whole-line in 16 of 188 states  |
+| list continuation                           | whole-line in 188 of 188 states |
+| block title                                 | whole-line in 112 of 188 states |
+| line comment                                | windowed at 3 bytes             |
+| attribute entry                             | whole-line in 112 of 188 states |
+| block attribute list                        | whole-line in 4 of 188 states   |
+| bracketed text (leading +)                  | whole-line in 112 of 188 states |
+| bracketed text (leading \*)                 | whole-line in 112 of 188 states |
+| block anchor                                | whole-line in 169 of 188 states |
+| listing delimiter                           | whole-line in 187 of 188 states |
+| literal delimiter                           | whole-line in 187 of 188 states |
+| pass delimiter                              | whole-line in 187 of 188 states |
+| example delimiter                           | whole-line in 187 of 188 states |
+| sidebar delimiter                           | whole-line in 187 of 188 states |
+| quote delimiter                             | whole-line in 187 of 188 states |
+| comment block delimiter                     | whole-line in 187 of 188 states |
+| open block delimiter                        | whole-line in 187 of 188 states |
+| open block delimiter (tilde)                | whole-line in 187 of 188 states |
+| fenced code                                 | whole-line in 187 of 188 states |
+| table delimiter (psv)                       | whole-line in 187 of 188 states |
+| table delimiter (csv)                       | whole-line in 187 of 188 states |
+| table delimiter (dsv)                       | whole-line in 187 of 188 states |
+| table delimiter (nested)                    | whole-line in 187 of 188 states |
+| indented line                               | whole-line in 112 of 188 states |
+| admonition marker                           | whole-line in 108 of 188 states |
+| conditional directive                       | windowed at 10 bytes            |
+| include directive                           | windowed at 12 bytes            |
+| block macro                                 | whole-line in 112 of 188 states |
+| dlist term                                  | whole-line in 12 of 188 states  |
+| dlist term (:::)                            | whole-line in 12 of 188 states  |
+| dlist term (::::)                           | whole-line in 12 of 188 states  |
+| dlist term (;;)                             | whole-line in 12 of 188 states  |
+| dlist term (bare ::)                        | whole-line in 12 of 188 states  |
+| dlist term (multi-word)                     | whole-line in 12 of 188 states  |
+| thematic break                              | whole-line in 112 of 188 states |
+| markdown thematic break (hyphens)           | whole-line in 187 of 188 states |
+| markdown thematic break (asterisks)         | whole-line in 187 of 188 states |
+| markdown thematic break (underscores)       | whole-line in 187 of 188 states |
+| page break                                  | whole-line in 112 of 188 states |
+| section marker                              | whole-line in 112 of 188 states |
 
 ### `bun run vendor` and `bun run build`
 
