@@ -229,27 +229,69 @@ describe("spaced markdown thematic break formatting", () => {
   // OPENS with two more copies of its own marker. While the first
   // word after them shares their line the line is an item line, and a
   // break in front of that word leaves `- - -` alone on the marker
-  // line, which both programs read as an `<hr>`. Red before the
-  // guard: `- - - alpha` at width 10 printed `- - -` over `  alpha`
-  // and the SECOND pass wrote `'''`, so the bytes kept moving. The
-  // marker line over budget is the honest output, and it is what the
-  // guard writes (markerLineGuard, src/print/list-hazard.ts).
+  // line, which both programs read as an `<hr>`.
+  //
+  // NOT PROTECTED BY DESIGN. A guard used to keep that first word on
+  // the marker line, over budget, so the item survived. Such an item
+  // has to open with two more copies of its own marker AND run past
+  // the print width before the guard can fire, and no author writes
+  // one: the spaced rule itself is documented (CommonMark spells it),
+  // but a rule with an item's worth of text behind it is a shape
+  // somebody would have to build on purpose. These rows record what
+  // the tree prints instead, and it is not a small loss: the item is
+  // destroyed, the render moves, and the FIRST output is not a fixed
+  // point. `- - - alpha` at width 10 prints `- - -` over an indented
+  // `alpha`, which both programs read as an `<hr>` and a literal
+  // block where the input was one list item.
+  //
+  // No generated population reaches the shape, so there is no
+  // allowlist row to carry it: neither sweep alphabet spells `- - -`
+  // and both sweep at the default width, where the guard could not
+  // fire anyway. These rows and the convergence row under them are
+  // the whole record.
   test.each([
-    ["a dash rule and a short word", "- - - alpha\n", 10],
-    ["a star rule and a short word", "* * * alpha\n", 10],
-    ["more words behind it", "- - - alpha beta gamma\n", 10],
+    ["a dash rule and a short word", "- - - alpha\n", 10, "- - -\n  alpha\n"],
+    ["a star rule and a short word", "* * * alpha\n", 10, "* * *\n  alpha\n"],
+    [
+      "more words behind it",
+      "- - - alpha beta gamma\n",
+      10,
+      "- - -\n  alpha\n  beta\n  gamma\n",
+    ],
     [
       "a long word at the ordinary width",
       `- - - https://example.com/${"a".repeat(80)}\n`,
       80,
+      `- - -\n  https://example.com/${"a".repeat(80)}\n`,
     ],
-    ["the same inside a list", "* a\n- - - alpha\n", 10],
   ])(
-    "%s keeps the word on the marker line",
-    async (_name, input, printWidth) => {
-      await expectStableRender(input, { printWidth });
+    "%s loses the item to the rule",
+    async (_name, input, printWidth, expected) => {
+      expect(await formatAdoc(input, { printWidth })).toBe(expected);
     },
   );
+
+  // WHERE IT SETTLES, pinned with the exact intermediate rather than
+  // described. Formatting the output above again respells the rule
+  // line `'''` and puts a BLANK LINE under it - the standing block
+  // separation, which the marker line did not need and the rule line
+  // does - and a third pass is a fixed point there. `expectFormatted`
+  // is what says so: it asserts the bytes, that this pass changes no
+  // render (both spellings are an `<hr>` over the same literal block),
+  // and that formatting its own output again moves nothing.
+  test("the rule line settles on its own spelling and a blank", async () => {
+    await expectFormatted("- - -\n  alpha\n", "'''\n\n  alpha\n", {
+      printWidth: 10,
+    });
+  });
+
+  // The same item INSIDE a list keeps everything: the marker line
+  // carries the parent item's own nesting, so the line the break
+  // leaves behind is not a rule and the reader still reads a nested
+  // item.
+  test("the same inside a list keeps its render", async () => {
+    await expectStableRender("* a\n- - - alpha\n", { printWidth: 10 });
+  });
 
   // WHAT THE REMAINING DIVERGENCE COSTS, pinned so it is a choice
   // with a witness. Asciidoctor reads the same line as an `<hr>`
