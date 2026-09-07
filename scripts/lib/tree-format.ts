@@ -1,16 +1,16 @@
 /**
  * Format a document list inside ANOTHER checkout.
  *
- * The differential compares three trees, and only one of them is the
- * one running. The other two format through this: a small script
- * written into the target checkout and run there, so each tree's
- * output is produced by its own parser, printer and Prettier.
+ * A differential compares two trees, and only one of them is the one
+ * running. The other formats through this: a small script written
+ * into the target checkout and run there, so each tree's output is
+ * produced by its own parser, printer and Prettier.
  *
  * The child FORMATS ONLY. It never renders and never compares,
  * because the oracle's HTML is normalized before comparison and the
- * normalizer is part of the measurement - three trees normalizing
- * three ways would report differences that are the harnesses'
- * rather than the formatters'. So bytes cross the process boundary
+ * normalizer is part of the measurement - two trees normalizing two
+ * ways would report differences that are the harnesses' rather than
+ * the formatters'. So bytes cross the process boundary
  * and every render happens on this side, under one normalizer.
  *
  * The child may use only what the target checkout already has, which
@@ -27,7 +27,7 @@ import { CHILD_MAX_BUFFER } from "./checkout.js";
  * them. A formatter that throws has no output to compare, and saying
  * so is different from saying it produced the source unchanged.
  */
-export type FormattedPair =
+type FormattedPair =
   | {
       /** Both passes ran. */
       readonly kind: "formatted";
@@ -46,12 +46,11 @@ export type FormattedPair =
 // Run against the target checkout, from a directory of its OWN.
 //
 // It is deliberately not written into the checkout it measures. The
-// reference is a digest-verified export the migration otherwise treats
-// as immutable, and a harness that drops two files into its root -
-// even briefly, even under a `finally` - is a harness that can leave
-// them there, and two concurrent runs would race on the names. So the
-// script and its input file live in a fresh temp directory and the
-// checkout is named by ARGUMENT.
+// measured tree is treated as immutable, and a harness that drops two
+// files into its root - even briefly, even under a `finally` - is a
+// harness that can leave them there, and two concurrent runs would
+// race on the names. So the script and its input file live in a fresh
+// temp directory and the checkout is named by ARGUMENT.
 //
 // The import is therefore dynamic and absolute: a static
 // `./tests/helpers.js` would resolve beside the script rather than
@@ -141,7 +140,7 @@ export function formatInCheckout(
   root: string,
   documents: readonly string[],
 ): FormattedPair[] {
-  const scratch = mkdtempSync(path.join(tmpdir(), "migration-diff-dump-"));
+  const scratch = mkdtempSync(path.join(tmpdir(), "tree-format-dump-"));
   const script = path.join(scratch, "dump.mjs");
   const inputs = path.join(scratch, "inputs.json");
   writeFileSync(script, DUMPER);

@@ -29,11 +29,10 @@ checked and it is broken" from "I checked nothing" goes quiet exactly when its
 inputs disappear, and a quiet failure in CI is a green tick. Every harness
 therefore has a measured-nothing floor that exits 2: `parity` has
 `MINIMUM_CASES`, `shape-diff` reports the ids its base dump was missing,
-`migration-diff` refuses a comparison tree that measured nothing, `triage`
-refuses a corpus with no groups, `block-structure` refuses a short corpus, a
-short sweep product, an oracle refusal other than the one document it pins by
-id, and ledgers whose header names an oracle other than the installed one,
-`local-docs` refuses a directory with no documents in it, `citation-check`
+`triage` refuses a corpus with no groups, `block-structure` refuses a short
+corpus, a short sweep product, an oracle refusal other than the one document it
+pins by id, and ledgers whose header names an oracle other than the installed
+one, `local-docs` refuses a directory with no documents in it, `citation-check`
 refuses a tree with fewer than a hundred citations in it, `printer-reads`
 refuses a scan that resolved too few reads to have opened the printer at all and
 a classification that asserts nothing for it to check, `probe-domains` refuses a
@@ -379,74 +378,6 @@ can still change what Asciidoctor renders - measured, on the quarantined
 four-backtick document. Render safety is the fidelity property in
 `tests/conformance/properties.ts`, which is a different gate.
 
-### `bun run migration-diff -- --domain <name>` - three trees, bytes and renders
-
-Formats one document domain under up to three checkouts and compares them on
-bytes and on oracle renders. The CANDIDATE is this checkout; `--reference <dir>`
-names a materialized checkout holding another implementation of the same
-formatter; `--baseline <ref>` names a revision of this repository, or a checkout
-of one. Candidate-against-baseline says what the current work changed;
-candidate-against-reference says how far this tree sits from the other
-implementation. Those are different questions, so the tool reports both rather
-than folding them into one number.
-
-The domains are `directive` (6,384 documents wrapping a body in an
-`ifdef::`/`endif::` pair, `scripts/lib/directive-product.ts`), `dlist` (54,000
-documents putting a description-list term under four wrappers,
-`scripts/lib/dlist-product.ts`) and `population` (the corpus, the depth-5 sweep
-product and the divergence witnesses, `scripts/lib/population.ts`). The first
-two are pinned at exact sizes and the run refuses to start when the generator
-spells a different number - the bars are stated in those sets, so a product that
-quietly shrank would move the bar instead of failing it. `population` prints the
-count it walked, which is the one number every tool that says "the population"
-means.
-
-`--word-loss` adds the word-loss column: a document loses words when the
-multiset of the source's words minus the multiset of `format(format(source))`'s
-words is non-empty, split on the six ASCII whitespace characters
-`ASCII_WHITESPACE` names, counted over every document of the domain with no
-instability precondition. `--gate` turns a non-empty "another tree renders this
-and we do not" bucket into exit 1; without it the run reports and exits 0. A
-comparison tree that measured nothing exits 2 with or without `--gate`: a gate
-verdict taken from data that proved nothing is not a verdict.
-
-Each tree pair produces THREE buckets. Two are directional and about renders -
-"the other tree renders this as its source and the candidate does not", and the
-same question the other way round. The third is about BYTES: the documents the
-two trees print differently, whatever either renders. It is symmetric, it
-ignores the second pass (two trees that print the same pass-1 bytes and then
-diverge differ in stability, which each tree reports for itself in the
-`unstable` column), and it skips any document a tree threw on, since there is no
-output to compare.
-
-The byte bucket is reported, never gated: two trees printing a document
-differently is what a migration does. It is also the only bucket that can see
-its class at all. A document both trees render as their source and spell two
-different ways produces no render row in either direction - on the `directive`
-domain, 865 documents differ in bytes between the candidate and the reference
-and only 32 of them appear in a render bucket. The summary table carries the
-count as the `bytes-differ` column, dashed for the candidate, whose own column
-would be zero by construction.
-
-Every render happens in THIS process under one normalizer, from bytes the other
-trees hand back (`scripts/lib/tree-format.ts`) - three checkouts normalizing
-three ways would report differences belonging to the harnesses rather than to
-the formatters. Divergences in every bucket are grouped into families by the
-reading diff between the two outputs, up to five witnesses kept per family; an
-empty signature means the two outputs READ alike and whatever separates them
-sits below what the projection can see.
-
-Running it with `--baseline` and no local edits is the tool's own self-check:
-the same tree reached two different ways - in process here, through a child
-process there - must report no divergence at all, in renders OR in bytes. The
-byte half is the stronger one: renders can agree while bytes differ, so a
-render-only self-check would pass even if the child process were re-encoding
-output on its way back.
-
-Exit 2 when the domain is unknown, the reference is not there, a tree answers
-about a different number of documents than it was asked about, or a pinned
-domain spells the wrong count.
-
 ### `bun run probe-domains` - four domains the sweep cannot spell
 
 Sweeps four exhaustively generated document domains under this checkout and,
@@ -455,12 +386,11 @@ domain: fixed, regressed, unchanged. Without `--base` it prints head counts and
 gates nothing.
 
 The domains exist because the list-shape sweep's alphabet has no hard-break line
-and no symbol that spans two source lines, so no depth of its product - and no
-part of the population, which contains that product - holds a document where a
-` +` decides whether a break survives, or where an inline construct opens on one
-line and closes on the next. Those are the lines the printer's reflow hold rules
-are decided by. A change to them can move thousands of documents while the
-sweep, the reading ledger and the population all report zero.
+and no symbol that spans two source lines, so no depth of its product holds a
+document where a ` +` decides whether a break survives, or where an inline
+construct opens on one line and closes on the next. Those are the lines the
+printer's reflow hold rules are decided by. A change to them can move thousands
+of documents while the sweep and the reading ledger both report zero.
 
 The four, generated in `scripts/lib/probe-domains.ts`, each a depth-1-to-3
 product over its own alphabet under two prefixes (an item, and the same item
@@ -471,8 +401,7 @@ constructs broken across two source lines) and `indented-two-line` (2,122 - the
 same with both lines indented). Three of them also carry named witnesses: 16
 documents whose lines are not all alphabet symbols, each pinning a shape its
 domain's alphabet cannot spell. `--domain <name>` runs one; the default is all
-four. `--base` takes a revision or a directory holding a checkout of one, the
-way `migration-diff --baseline` does.
+four. `--base` takes a revision or a directory holding a checkout of one.
 
 Counts are not the report, which is why the differential is a set difference: a
 domain that fails the same number of documents on both trees can have fixed

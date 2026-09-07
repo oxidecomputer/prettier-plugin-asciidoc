@@ -48,7 +48,6 @@
     "probe-domains": "bun scripts/probe-domains.ts",
     "mutate": "bun run test:deeply-nested-lists && bun run build && stryker run && bun scripts/score-minimums.ts --mutation",
     "mutate:full": "bun run test:deeply-nested-lists && bun run build && stryker run --force && bun scripts/score-minimums.ts --mutation",
-    "migration-diff": "bun scripts/migration-diff.ts",
     "triage": "bun scripts/conformance-triage.ts",
     "registry-sweep-triage": "bun scripts/registry-sweep-triage.ts",
     "inline-sweep-triage": "bun scripts/inline-sweep-triage.ts",

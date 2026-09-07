@@ -1,7 +1,7 @@
 /**
  * Shared plumbing for the exit-code-contract suites that drive a real
- * `scripts/` CLI over `spawnSync`: `migration-diff.test.ts`,
- * `probe-domains.test.ts`, `shape-diff.test.ts`.
+ * `scripts/` CLI over `spawnSync`: `probe-domains.test.ts`,
+ * `shape-diff.test.ts`.
  *
  * `scripts/lib/cli.ts` deliberately does not export the harness's own
  * `CANNOT_RUN` (only `cannotRun()`, which sets it), so these are
