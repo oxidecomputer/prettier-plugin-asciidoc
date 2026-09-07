@@ -273,6 +273,26 @@ function readSurface(root: string): Surface {
 }
 
 /**
+ * Every name `src` publishes, as `file:name`.
+ *
+ * Exported for the deletion gate, which asks what a change REMOVED
+ * from this list and so has to read the list of two checkouts. It
+ * reads it here rather than walking `src` itself, because two answers
+ * to "what does src export" that could disagree is exactly the shape
+ * the surface gate exists to prevent.
+ * @param root - the measured checkout root
+ * @returns one entry per exported name, sorted
+ */
+export function publishedSymbols(root: string): string[] {
+  const { exports } = readSurface(root);
+  return [...exports]
+    .flatMap(([file, published]) =>
+      published.map(({ name }) => `${file}:${name}`),
+    )
+    .toSorted();
+}
+
+/**
  * Whether an `@internal` block names a consuming unit that exists.
  * @param root - the measured checkout root
  * @param jsdoc - the JSDoc block's text

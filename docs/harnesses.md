@@ -1431,6 +1431,48 @@ is a witness.
 | page break                                  | whole-line in 112 of 188 states |
 | section marker                              | whole-line in 112 of 188 states |
 
+### `bun run deletion-gate -- --base <rev>` - what a change deleted, and why
+
+The list is derived from the DIFF: the names `src` published at the base
+revision, minus the names it publishes now. There is no list of intended
+deletions anywhere; the change itself is the question, and
+`scripts/deletions.json` has to answer it for every name that went. A rename or
+a move reads as a deletion too, which is deliberate: moving a name is a chance
+to say why it exists.
+
+Nearly everything under `src/parse` and `src/print` exists because a document
+rendered wrong once. The code says what it does; the issue it closed says why,
+and the tree does not carry that. So a deletion looks exactly like a
+simplification right up until the document comes back, and "is anything still
+relying on this?" is the review question a reader cannot answer by reading.
+
+An entry carries six fields and none is optional:
+
+- the **closed issue** whose fix the symbol was,
+- that issue's **witness**, verbatim, because a remembered witness is a
+  different document from the one that failed,
+- the **binding row** of a measured table that keeps the witness a fixed point
+  without the deleted symbol - this is what says the behaviour is still
+  required, and where it is required from now,
+- the **test that reddens** under a mutant of that row, with the mutant named:
+  the fact's arm flipped, scoped to ONE file, which is what proves the test
+  reaches the row rather than the feature,
+- the **direction**, `wider` or `narrower` than today; both are legitimate, not
+  knowing which is not, and a third word is a failed gate,
+- and any **hold**: another change this one may not land without, or the word
+  `none`.
+
+A stale declaration fails as loudly as a missing one, on the parity ledger's
+reasoning: a declaration nothing checks outlives the change it described, and
+the next reader takes it for a live one.
+
+Exit codes: 0 every deletion is declared, 1 one is not (or a declaration is
+stale or unusable), 2 it could not run - a bad argument, no `--base`, a `--base`
+with no revision after it, an unknown revision, or a base checkout whose `src`
+published nothing. A jj workspace with no colocated `.git` cannot archive a base
+revision and gets exit 2 there, which is the point of the split: "nothing was
+deleted" and "I could not look" are different answers.
+
 ### `bun run parse-print-addresses` - how far the printer reaches into the parser
 
 `src/print` may not read `src/parse`'s interior, but it has to agree with it

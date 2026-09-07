@@ -59,7 +59,8 @@
     "collect-local-docs": "bun scripts/collect-local-documents.ts",
     "whitespace-battery": "bun scripts/whitespace-battery.ts",
     "reference-diff": "bun scripts/reference-diff.ts",
-    "parse-print-addresses": "bun scripts/parse-print-addresses.ts"
+    "parse-print-addresses": "bun scripts/parse-print-addresses.ts",
+    "deletion-gate": "bun scripts/deletion-gate.ts"
   },
   "peerDependencies": {
     "prettier": "^3.0.0"
