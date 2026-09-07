@@ -1,54 +1,26 @@
 {
   "pair/clean/fidelity": {
-    "count": 199,
+    "count": 13,
     "examples": [
-      "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/doc",
-      "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/item",
-      "pair/admonition-label-near-1/delimiter-openBlock-near-2/adjacent/doc",
-      "pair/admonition-label-near-1/delimiter-openBlock-near-2/adjacent/item",
-      "pair/admonition-label/delimiter-openBlock-near-2/adjacent/doc"
+      "pair/continuation/admonition-label/two-blank/dlist-desc-line",
+      "pair/continuation/attribute-entry/two-blank/dlist-desc-line",
+      "pair/continuation/block-macro/two-blank/dlist-desc-line",
+      "pair/continuation/block-title/two-blank/dlist-desc-line",
+      "pair/continuation/callout/two-blank/dlist-desc-line"
     ],
-    "sha256": "40b39a3f4f783371e32197965badd29d47a1b352a8353532e4a9c5c15c8a2551",
-    "issue": "UNTRIAGED"
-  },
-  "pair/clean/idempotency": {
-    "count": 1,
-    "examples": [
-      "pair/continuation/delimiter-commentBlock-near-2/adjacent/doc"
-    ],
-    "sha256": "0836c8e48874563ed43b33c817315b4aabcb99068bff27e1a29d1c87d3729827",
-    "issue": "UNTRIAGED"
-  },
-  "pair/clean/idempotency+fidelity": {
-    "count": 14,
-    "examples": [
-      "pair/continuation/delimiter-example-near-2/adjacent/doc",
-      "pair/continuation/delimiter-fencedCode-near-2/adjacent/doc",
-      "pair/continuation/delimiter-listing-near-2/adjacent/doc",
-      "pair/continuation/delimiter-literal-near-2/adjacent/doc",
-      "pair/continuation/delimiter-openBlock-near-2/adjacent/doc"
-    ],
-    "sha256": "302eb344c3afb76f238bcdf1e29dc1d3589bfce010920336910c9707fea600c7",
+    "sha256": "944336159b1ad405dd35dbf6bec56fd8897ed53e9c1cb2ddd47f36f4af7942e4",
     "issue": "UNTRIAGED"
   },
   "pair/trailing-space/fidelity": {
-    "count": 201,
+    "count": 14,
     "examples": [
-      "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/doc@trailing-space",
-      "pair/admonition-label-near-0/delimiter-openBlock-near-2/adjacent/item@trailing-space",
-      "pair/admonition-label-near-1/delimiter-openBlock-near-2/adjacent/doc@trailing-space",
-      "pair/admonition-label-near-1/delimiter-openBlock-near-2/adjacent/item@trailing-space",
-      "pair/admonition-label/delimiter-openBlock-near-2/adjacent/doc@trailing-space"
+      "pair/continuation/admonition-label/two-blank/dlist-desc-line@trailing-space",
+      "pair/continuation/attribute-entry/two-blank/dlist-desc-line@trailing-space",
+      "pair/continuation/block-macro/two-blank/dlist-desc-line@trailing-space",
+      "pair/continuation/block-title/two-blank/dlist-desc-line@trailing-space",
+      "pair/continuation/callout/two-blank/dlist-desc-line@trailing-space"
     ],
-    "sha256": "6e62c8b397a066dbc3289fdafd5cb134202348a650b7462be93da856f59a6341",
-    "issue": "UNTRIAGED"
-  },
-  "pair/trailing-space/idempotency+fidelity": {
-    "count": 1,
-    "examples": [
-      "pair/continuation/setext-title-near-1/two-blank/dlist-desc-line@trailing-space"
-    ],
-    "sha256": "dc3f6d8ebc77987e9f5e248ee02e3625cd897a10bf93919e1b8a27e5c0342439",
+    "sha256": "3486d856e85165689e9832f898eb99e8e08a1e355d120c4b25d5f4c6eca34cac",
     "issue": "UNTRIAGED"
   }
 }

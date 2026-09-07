@@ -51,7 +51,7 @@ import {
  * number is a win, and the number moves in the same commit as the
  * change that earns it.
  */
-const DEEP_TIER_ROWS = 255_909;
+const DEEP_TIER_ROWS = 56_181;
 
 describe("registry sweep (default tier)", () => {
   test("the failing set is exactly the quarantine manifest", async () => {

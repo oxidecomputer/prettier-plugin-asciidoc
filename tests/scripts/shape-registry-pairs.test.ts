@@ -36,13 +36,23 @@ const DRAINED_BODY = "// c";
 /**
  * The blocks that attach to an item across ONE blank line, which is
  * what makes the two-blank spelling a different document rather than a
- * longer one. The four kinds issue #264 names.
+ * longer one.
+ *
+ * Issue #264 names FOUR kinds and three are here. The fourth, a bare
+ * paragraph line, is not a member of the pair alphabet: every member
+ * is a `CONSTRUCTS` body, and the registry has no construct whose
+ * body is ordinary prose - the paragraph spelling the grid used to
+ * reach was `indented-line`'s near miss, and near misses left the
+ * pair alphabet with issue #285. The mechanism is the separator
+ * COUNT, which is a property of the item head and the drain rather
+ * than of the tail's kind, so the three that remain still spell it;
+ * what is no longer spelled is the tail an author is likeliest to
+ * type.
  */
 const ATTACHABLE: ReadonlyArray<{
   readonly what: string;
   readonly block: string;
 }> = [
-  { what: "a paragraph", block: "lit" },
   { what: "a listing", block: "----\nfoo\n----" },
   { what: "block metadata", block: ".T" },
   { what: "a section title", block: "== T" },

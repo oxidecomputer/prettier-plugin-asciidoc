@@ -113,10 +113,14 @@ export function isDefaultTier(row: ReparseLedgerRow): boolean {
  * The measured-nothing floor over {@link deepTierCases}, which is the
  * population the generator sweeps. A population this short is a
  * population that did not load, and with `--write` it would rewrite
- * the ledger to empty - every pin deleted by a green run. Measured:
- * 133,685 cases.
+ * the ledger to empty - every pin deleted by a green run.
+ *
+ * It sits at about six tenths of what the populations spell, which is
+ * the fraction it was first set at; the number moves only in the
+ * commit that deliberately resizes a population, never to quiet a red
+ * run.
  */
-export const MINIMUM_POPULATION = 80_000;
+export const MINIMUM_POPULATION = 20_000;
 
 /**
  * The same floor over {@link defaultTierCases}. Measured: 1,614

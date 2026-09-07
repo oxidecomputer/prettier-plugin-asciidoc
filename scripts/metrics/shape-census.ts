@@ -341,16 +341,13 @@ const GRID_EXEMPT = new Map<string, string>([
 // positions plus 9 named explicit rows (the original 4 + the 5 R2
 // rows); the
 // list-run grid is a standing selection (its arithmetic is
-// spelled at listRunGrid()); the pair grid is a 111-member alphabet
-// (every CONSTRUCTS body plus every near miss - a delimiter kind
-// contributes 4: its body and its three generic near misses) squared,
+// spelled at listRunGrid()); the pair grid is a 35-member alphabet
+// (one per CONSTRUCTS entry, and no near miss - pairAlphabet() says
+// why) squared,
 // x 3 joins (adjacent, blank, two-blank - the separator COUNT is what
 // attaches the second member to an item or detaches it, issue #264)
-// x 3 containers (doc, item, dlist-desc-line) = 110,889, with no
-// realized duplicates to dedupe
-// away at that size (openBlockTilde's own 4 alphabet members, added
-// by issue #64, raised the 107-member alphabet this pin last measured
-// to 111). New
+// x 3 containers (doc, item, dlist-desc-line) = 11,025, with no
+// realized duplicates to dedupe away. New
 // rows are realizable against any
 // base — shape-diff hands head-generated inputs to the base dumper —
 // so a grid extension moves its pin DELIBERATELY, in the same commit,
@@ -359,7 +356,7 @@ const GRID_EXEMPT = new Map<string, string>([
 const STANDING_GRID_SIZE = 3825;
 const HEADING_ADJACENCY_GRID_SIZE = 79;
 const LIST_RUN_GRID_SIZE = 104;
-const PAIR_GRID_SIZE = 110_889;
+const PAIR_GRID_SIZE = 11_025;
 
 /**
  * Rule (i): every delimiter kind has a registry dimension.

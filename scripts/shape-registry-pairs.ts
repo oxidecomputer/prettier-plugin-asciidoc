@@ -14,9 +14,17 @@
  * may import both sides
  * `pairGrid` and `pairAlphabet` from here.
  *
- * The alphabet is every `ConstructEntry.body` plus every `nearMiss`:
- * the almost-valid space is where classification flips live, so a
- * near miss belongs beside its valid twin, not only beside itself.
+ * The alphabet is every `ConstructEntry.body` and NO near miss. A
+ * near miss is a construct spelled one byte wrong, and it earns its
+ * place on the STANDING grid, where it stands alone in a container
+ * and the question is whether the reader classifies it correctly.
+ * Here the question would be what happens when two of them touch,
+ * and two syntax accidents typed adjacently is not a shape a
+ * documentation author, a README or a wiki page produces. Measured
+ * before the members were dropped: every failing coordinate carrying
+ * one was already quarantined, and every coordinate that pairs two
+ * valid constructs survives the cut.
+ *
  * The pair is exhaustive over that alphabet times three joins
  * (adjacent, one blank, two blanks) times a small container subset,
  * since a full product across every
@@ -30,17 +38,18 @@
  */
 import { CONSTRUCTS, CONTAINERS, type Shape } from "./shape-registry.js";
 
-/** One pair-alphabet member: a construct's canonical body, or one near miss. */
+/** One pair-alphabet member: a construct's canonical body. */
 export interface PairAlphabetMember {
-  /** Stable name: the construct id, or `<constructId>-near-<index>`. */
+  /** Stable name: the construct id. */
   readonly id: string;
   /** The text this member contributes to a pair. */
   readonly body: string;
 }
 
 /**
- * The pair alphabet: every construct body and every near miss. A
- * delimited construct's `body` is already its CLOSED form
+ * The pair alphabet: every construct body, and nothing else (the
+ * module comment says why no near miss is here). A delimited
+ * construct's `body` is already its CLOSED form
  * (`DELIMITER_PARTS`-derived `open\ncontent\nclose`, not a bare
  * opener) because that is what `ConstructEntry.body` stores for those
  * dimensions; pairing it directly, with no separate realization step,
@@ -49,13 +58,7 @@ export interface PairAlphabetMember {
  * @returns the alphabet, in `CONSTRUCTS` order
  */
 export function pairAlphabet(): readonly PairAlphabetMember[] {
-  return CONSTRUCTS.flatMap((entry) => [
-    { id: entry.id, body: entry.body },
-    ...entry.nearMisses.map((miss, index) => ({
-      id: `${entry.id}-near-${String(index)}`,
-      body: miss,
-    })),
-  ]);
+  return CONSTRUCTS.map((entry) => ({ id: entry.id, body: entry.body }));
 }
 
 /**
@@ -92,8 +95,7 @@ const PAIR_JOINS: ReadonlyArray<{
 const PAIR_CONTAINER_IDS = new Set(["doc", "item", "dlist-desc-line"]);
 
 /**
- * Every alphabet id that spells `commentBlock` material (the
- * construct's own body and each of its near misses), so a pair
+ * Every alphabet id that spells `commentBlock` material, so a pair
  * carrying one can be marked `renderBlind`, matching the standing
  * grid's comment-block exemption (a comment block renders nothing, so
  * render equality across such a pair is vacuous). A function, not a
@@ -106,13 +108,8 @@ const PAIR_CONTAINER_IDS = new Set(["doc", "item", "dlist-desc-line"]);
  */
 function commentBlockAlphabetIds(): ReadonlySet<string> {
   return new Set(
-    CONSTRUCTS.filter((entry) => entry.delimiter === "commentBlock").flatMap(
-      (entry) => [
-        entry.id,
-        ...entry.nearMisses.map(
-          (_, index) => `${entry.id}-near-${String(index)}`,
-        ),
-      ],
+    CONSTRUCTS.filter((entry) => entry.delimiter === "commentBlock").map(
+      (entry) => entry.id,
     ),
   );
 }
