@@ -40,7 +40,6 @@ import {
   VERBATIM_BY_VALUE,
   VERBATIM_CONTEXTS,
   projectionOf,
-  reparseBreachesOf,
   reparseOutcomeOf,
   verbatimByValueKey,
 } from "./reparse.js";
@@ -324,11 +323,24 @@ describe("the lens licenses what the printer normalizes", () => {
   });
 });
 
-describe("the lens still sees the corruptions the printer can make", () => {
+describe("the lens sees each corruption, and one arm names it", () => {
   // Red-then-green in the other direction: these are documents whose
   // formatted output re-reads as something else, and every one of
   // them is a ledgered mechanism. If a future widening of the lens
   // silenced one, this file says so before the ledger does.
+  //
+  // Each row also names the FAMILY, and names it as the only one, so
+  // the arm that recognizes the mechanism is exercised on a document
+  // spelled here rather than only on whatever coordinate a generated
+  // grid happens to reach. The `. T` row, the `term::` row above a
+  // folded `+` and the four-backtick row are documents `gap-line-lost`
+  // must REFUSE, and every one of them was red before it was narrowed
+  // to the structure its family text names (issue #202) - it claimed
+  // the four-backtick document outright and the folded `+` alongside
+  // `plus-respelled`. The shapes that family OWNS are no longer
+  // spelled here: issues #171 and #212 fixed every one of them, and
+  // what keeps it live is a corpus reflow join with no description in
+  // it.
   //
   // #73 had a row here ("[[3-blind-mice]]\n\n ----\n") and no longer
   // does: a paragraph whose whole line is a `[[...]]` anchor now records
@@ -352,49 +364,87 @@ describe("the lens still sees the corruptions the printer can make", () => {
     // round-trips. The family's other arm is still live - the net
     // bails on a first atom that may not end a line, and a lone `+`
     // is exactly that, so the indent under it is still dropped.
-    ["a de-indented line becomes a block (#121)", "+\n ----\n"],
+    [
+      "a de-indented line becomes a block (#121)",
+      "+\n ----\n",
+      "indent-dropped",
+    ],
     [
       "a join closes a bracket and mints a macro (#124)",
       "image::a.png[\n[+1]\n",
+      "join-changes-reading",
     ],
-    ["a folded lone + comes back as {plus} (#116)", ". T\n  +\n"],
-    // #171 had a row here ("term::\n///\n\n+\n") and no longer does: a
-    // description the head drain would take now keeps the detached `+`
-    // that stops it (`drainTakesWholeBody`, src/print/join.ts), and so
-    // does the `// c` body whose deleted line rendered nothing. All
-    // four of the issue's coordinates round-trip, so the family holds
-    // no description document at all now and there is none to put in
-    // this row's place. What keeps `gap-line-lost` live is a corpus
-    // reflow join with no description in it.
-  ])("%s", async (_what, document) => {
-    const breaches = await reparseBreachesOf(document);
-    expect(breaches.length).toBeGreaterThan(0);
+    [
+      "a folded lone + comes back as {plus} (#116)",
+      ". T\n  +\n",
+      "plus-respelled",
+    ],
+    [
+      // The same folded `+` with a description term in front of it,
+      // which is a term, a line, a gap and a dropped `+` in that
+      // order and no part of `gap-line-lost`'s item: the `+` belongs
+      // to the ordered list four lines down. Red until the arm asked
+      // for the four lines ADJACENT, which claimed this alongside
+      // `plus-respelled`.
+      "an unrelated term above a folded + (#116)",
+      "term::\nbody\n\n. T\n  +\n",
+      "plus-respelled",
+    ],
+    // #170 and every #171 coordinate had a row here and no longer do.
+    // A fence's `[source]` line is now the block's FIRST printed line,
+    // so it no longer detaches (`printsSourceAttributeLine`,
+    // src/block-metadata.ts), and a description the head drain would
+    // take now keeps the detached `+` that stops it
+    // (`drainTakesWholeBody`, src/print/join.ts), as does the `// c`
+    // body whose deleted line rendered nothing. Both families
+    // round-trip every document that used to be spelled here, so
+    // neither has a row to put in its place.
+    [
+      "a heading read under a bare term (#186)",
+      "term::\n```x\n----\nfoo\n----\n",
+      "heading-under-a-term",
+    ],
+    [
+      "a shorthand xref whose text spans a break (#169)",
+      "Want to learn <<tigers,\nabout tigers>>?\n\n[[tigers]]t\n",
+      "xref-across-a-break",
+    ],
+    [
+      // Four backticks are not a fence, so these are three lines of
+      // prose that reflow folds into one, and the fold is visible
+      // through the narrowed lens. The document is one line SHORTER
+      // and says one word MORE (the unterminated `~~~~` prints as a
+      // closed pair), which is what used to send it to `gap-line-lost`
+      // and what the folded-break reading of the diff now keeps here.
+      "a four-backtick fence is prose a fold rewrites (#124)",
+      '````ruby\nputs "Hello, World!"\n````\n\n~~~~ javascript\nalert("Hello, World!")\n~~~~\n',
+      "join-changes-reading",
+    ],
+  ])("%s", async (_what, document, family) => {
+    const outcome = await reparseOutcomeOf(document);
+    expect(outcome.breaches.length).toBeGreaterThan(0);
+    for (const breach of outcome.breaches) {
+      expect(
+        matchingFamilies({
+          source: document,
+          once: outcome.once,
+          signature: breach.signature,
+        }),
+        breach.signature,
+      ).toEqual([family]);
+    }
   });
 });
 
 describe("the family arms are told apart by what they say", () => {
   // A table whose rows are distinguished by the ORDER of its lines is
   // a table a reader cannot check one line at a time. Every ledgered
-  // row must therefore be claimed by exactly one arm, with the
-  // exceptions the arm table documents and this asserts by name.
-  // Both come from `gap-line-lost`'s deliberately loose test ("fewer
-  // lines, and the text no longer says the same words"):
-  //
-  // - a respelt `+` is also a document that lost a line, so
-  //   `plus-respelled` and `gap-line-lost` both claim those rows;
-  // - a reflow join in a document that ALSO respells a bracket line
-  //   is fewer lines and different words for the same reason, so
-  //   `xref-across-a-break` and `gap-line-lost` both claim the row
-  //   whose `[#tigers]` prints as `[[tigers]]`.
-  //
-  // Each pair must be exercised, below, so an exception cannot
-  // outlive the overlap it excuses.
-  const OVERLAPS = [
-    ["plus-respelled", "gap-line-lost"],
-    ["xref-across-a-break", "gap-line-lost"],
-  ];
-
-  test("every ledgered row is claimed by one arm, or the documented pair", async () => {
+  // row is therefore claimed by EXACTLY one arm: none left without a
+  // mechanism, and none claimed by two, with no exception list to
+  // hold the difference. Red before the arm narrowing of issue #202:
+  // ten rows were claimed twice, nine by `plus-respelled` alongside
+  // `gap-line-lost` and one by `xref-across-a-break` alongside it.
+  test("every ledgered row is claimed by exactly one arm", async () => {
     const sources = new Map(deepTierCases().map((one) => [one.id, one.source]));
     const ledger = loadReparseLedger();
     const claims: Array<{ id: string; family: string; claimed: string[] }> = [];
@@ -415,27 +465,18 @@ describe("the family arms are told apart by what they say", () => {
     // Every row is in the populations: a `""` source would claim
     // nothing and make the two assertions below vacuous.
     expect(claims.filter((one) => !sources.has(one.id))).toEqual([]);
-    // The first arm to claim a row is the family it is pinned under.
-    expect(
-      claims
-        .filter((one) => one.claimed[0] !== one.family)
-        .map((one) => one.id),
-    ).toEqual([]);
-    // No row is claimed twice, except by a documented pair.
-    const documented = new Set(OVERLAPS.map((pair) => pair.join("+")));
+    // Exactly one arm, and it is the family the row is pinned under.
+    // One assertion over both halves, reported as the pair, because
+    // "claimed by nobody" and "claimed by two" are the same hole seen
+    // from either side and a reader wants to see which rows and by
+    // what.
     expect(
       claims
         .filter(
-          (one) =>
-            one.claimed.length > 1 && !documented.has(one.claimed.join("+")),
+          (one) => one.claimed.length !== 1 || one.claimed[0] !== one.family,
         )
-        .map((one) => one.id),
+        .map((one) => `${one.id} :: ${one.claimed.join("+")}`),
     ).toEqual([]);
-    // Each exception is USED, not merely allowed: an assertion that
-    // tolerates an overlap nothing exercises would pass a table that
-    // had quietly become disjoint and left the exception behind.
-    const seen = new Set(claims.map((one) => one.claimed.join("+")));
-    expect([...documented].filter((pair) => !seen.has(pair))).toEqual([]);
   });
 
   // Documents no population spells, whose own TEXT holds the arrow

@@ -11,7 +11,7 @@
       "id": "corpus/blocks_test/blocks_test.rb#should not recognize fenced code blocks with more than three delimiters#0",
       "pass": "p1",
       "signature": "[text(value=\"``ruby\\nputs \\\"Hello, World!\\\"\")] -> [text(value=\"``ruby puts \\\"Hello, World!\\\"\")]",
-      "family": "gap-line-lost"
+      "family": "join-changes-reading"
     },
     {
       "id": "corpus/links_test/links_test.rb#xref using angled bracket syntax with multi-line label inline with text#0",

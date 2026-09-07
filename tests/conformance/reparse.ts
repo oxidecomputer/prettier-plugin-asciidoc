@@ -797,8 +797,12 @@ export function projectionOf(document: string): Projection {
   return { tokens };
 }
 
-/** One incompatibility: which pass produced it, and what changed. */
-export interface ReparseBreach {
+/**
+ * One incompatibility: which pass produced it, and what changed.
+ * Reached through {@link ReparseOutcome} rather than named by any
+ * caller, so it is not exported.
+ */
+interface ReparseBreach {
   /** `p1` is source versus once-formatted; `p2` is once versus twice. */
   readonly pass: "p1" | "p2";
   /** The `[before] -> [after]` difference between the two projections. */
@@ -835,25 +839,6 @@ function reparseBreaches(
     breaches.push({ pass: "p2", signature: second });
   }
   return breaches;
-}
-
-/**
- * Format a document twice and assess the pair.
- *
- * A formatter throw yields NO breach, for the reason
- * tests/lib/reading.ts gives: without an output there is no document
- * to re-read, and "the formatter crashed" is already the verdict of
- * the crash property. The catch covers the two formatter calls and
- * nothing else - a throw out of the projection is this harness
- * failing, and it must be loud.
- * @param source - the document to assess
- * @returns one entry per failing pass; empty means compatible
- */
-export async function reparseBreachesOf(
-  source: string,
-): Promise<readonly ReparseBreach[]> {
-  const outcome = await reparseOutcomeOf(source);
-  return outcome.breaches;
 }
 
 /** One document's formatted pair and the breaches between them. */

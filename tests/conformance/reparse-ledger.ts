@@ -362,23 +362,139 @@ function joinedLines(source: string, once: string): boolean {
 }
 
 /**
- * Did a line go without its words arriving anywhere?
+ * Does the DIFF say a line break inside a value the lens compares
+ * byte for byte was folded away?
  *
- * DELIBERATELY LOOSE, and the loop above says how the looseness is
- * paid for: "fewer lines, and the text no longer says the same
- * words" also answers true for a document that merely respells a
- * word while joining two lines, so this arm can claim a row another
- * arm owns and the order of the arms is what settles it. Every such
- * overlap is named in reparse.test.ts.
+ * The same mechanism {@link joinedLines} names, read off the
+ * projection instead of off the bytes, and the arm needs both for the
+ * reason {@link swallowedByTheParagraphAbove} gives. The byte test
+ * says "fewer lines, and every word still there", which stops being
+ * true of the mechanism as soon as the same pass also MINTS a word -
+ * an unterminated `~~~~` fence printed as a closed pair adds a line
+ * the source never spelled - and the row falls out of the arm with
+ * its mechanism unchanged.
+ *
+ * What the diff says is exactly the mechanism: the two sides hold the
+ * same tokens, and the only difference between them is that a break
+ * inside a quoted value (with whatever indent followed it) is now a
+ * single blank. Narrow by construction - the sides must be equal
+ * after that one substitution, so a diff that also moved a node, or
+ * changed a second value, is not this.
+ * @param signature - the projection diff, `before -> after`
+ * @returns whether the diff is one folded break inside a value
+ */
+function foldedABreakInsideAValue(signature: string): boolean {
+  const sides = signatureSides(signature);
+  return (
+    sides !== undefined &&
+    sides.before.includes(String.raw`\n`) &&
+    // The break is spelled in the signature the way a value spells
+    // it, `\n` as two characters, because the projection quotes its
+    // values; the run of blanks after it is the indent the joined
+    // line carried.
+    sides.before.replaceAll(/\\n[ \t]*/gv, " ") === sides.after
+  );
+}
+
+/**
+ * A line whose whole content is a lone `+`: the continuation.
+ * @param line - a source line
+ * @returns whether the line is a lone continuation
+ */
+function isContinuationLine(line: string): boolean {
+  return line.trim() === "+";
+}
+
+/**
+ * A description term line, with whatever description it carries
+ * beside it (`DescriptionListRx`, rx.rb:336). The term is LAZY, so
+ * the marker this finds is the earliest one on the line, which is the
+ * one the oracle splits at; `:{2,4}` is that rule's `:::{0,2}` said
+ * as a count, and both are greedy, so `a:::: b` splits at all four.
+ */
+const DESCRIPTION_TERM_LINE =
+  /^(?!\/\/[^\/])[ \t]*[^ \t].*?(?::{2,4}|;;)(?:$|[ \t]+(?<description>.*)$)/v;
+
+/**
+ * Is this line a term with no description of its own beside it?
+ *
+ * A term that carries its own text needs nothing under it to be the
+ * description; a BARE one takes the lines under it, and that is the
+ * half of the mechanism the `+` supplies.
+ * @param line - a source line
+ * @returns whether the line is a term and holds no description
+ */
+function isBareTermLine(line: string): boolean {
+  const match = DESCRIPTION_TERM_LINE.exec(line);
+  return match !== null && match.groups?.description === undefined;
+}
+
+/**
+ * Does the source hold the structure this mechanism is made of - a
+ * bare description term, a line under it, a gap, and a lone `+` in
+ * that gap - and did the output drop that `+`?
+ *
+ * STRUCTURAL, and it has to be. The arm used to ask "fewer lines and
+ * different words", which names no part of the mechanism and so
+ * claimed every row whose document happened to get shorter while a
+ * word moved; a narrowing spelled in that same textual vocabulary
+ * unclaimed a legitimate row instead of the wrong ones (issue #202).
+ * The three things the family text names - a term, a gap, a `+` - are
+ * the three things asked for here.
+ *
+ * ADJACENT, not merely present in that order. The four positions are
+ * one item: the term, the line it takes as its description, the gap
+ * under that line, and the `+` the gap ends at. Asked as "a term
+ * somewhere, then eventually a blank, then eventually a `+`", it
+ * claims any document at all that carries a term and drops a `+`
+ * somewhere below it - `term::\nbody\n\n. T\n  +\n` is
+ * `plus-respelled`'s own witness with an unrelated term in front of
+ * it, and the loose reading claims that alongside.
  * @param source - the document as written
  * @param once - the formatted output
- * @returns whether the output holds fewer lines AND different words
+ * @returns whether a term gap's continuation went unwritten
  */
-function lostALine(source: string, once: string): boolean {
+function termGapContinuationDropped(source: string, once: string): boolean {
+  const lines = source.split("\n");
   return (
-    contentLines(once).length < contentLines(source).length &&
-    words(source) !== words(once)
+    lines.some(
+      (line, term) =>
+        isBareTermLine(line) && gapEndsAtAContinuation(lines, term),
+    ) &&
+    // The `+` went unwritten: the output spells fewer of them than
+    // the source did. A `+` the printer merely MOVED is a different
+    // mechanism and keeps the count.
+    lines.filter((line) => isContinuationLine(line)).length >
+      once.split("\n").filter((line) => isContinuationLine(line)).length
   );
+}
+
+/**
+ * Under this term line: a description line, then a gap that ends at a
+ * lone `+`.
+ *
+ * The gap is a RUN of blanks and not one blank, because the mechanism
+ * does not count them: `.gap` in src/ast.ts holds whatever stood
+ * between the description and the `+`, and a two-blank gap loses the
+ * same `+` the one-blank gap does. What adjacency forbids is a line
+ * with CONTENT between the two - the first thing after the gap has to
+ * be the `+` itself, or the `+` belongs to whatever that line opened.
+ * @param lines - the source lines
+ * @param term - the index of the bare term line
+ * @returns whether the gap under the term ends at a lone continuation
+ */
+function gapEndsAtAContinuation(
+  lines: readonly string[],
+  term: number,
+): boolean {
+  const described = term + 1;
+  if (described >= lines.length || lines[described].trim() === "") {
+    return false;
+  }
+  const afterTheGap = lines.findIndex(
+    (line, index) => index > described && line.trim() !== "",
+  );
+  return afterTheGap > described + 1 && isContinuationLine(lines[afterTheGap]);
 }
 
 /**
@@ -470,15 +586,10 @@ interface FamilyArm {
  * Each arm tests its OWN mechanism rather than relying on an earlier
  * arm to have taken the row: a reader can check any line of this
  * table against the family text beside it without holding the six
- * lines above it in mind, and
- * tests/conformance/reparse.test.ts asserts that at most one arm
- * claims any ledgered row - with the exceptions IT names, both of
- * which come from `gap-line-lost`'s deliberately loose test. A
- * respelt `+` is also a shorter document, and so is a reflow join in
- * a document that also respells a bracket line, so `gap-line-lost`
- * claims those rows alongside the arm that owns them; order settles
- * it, and the test asserts each pair specifically rather than waving
- * an overlap through. The over-breadth itself is issue #202.
+ * lines above it in mind, and tests/conformance/reparse.test.ts
+ * asserts that EXACTLY one arm claims every ledgered row. The order
+ * therefore settles nothing about which family a row lands in; it is
+ * only the order the report reads the table in.
  */
 const FAMILY_ARMS: readonly FamilyArm[] = [
   {
@@ -511,7 +622,9 @@ const FAMILY_ARMS: readonly FamilyArm[] = [
     // rows are told apart by which line comes first is a table whose
     // distinctions a reader cannot check.
     matches: (evidence) =>
-      joinedLines(evidence.source, evidence.once) && !readerGapJoin(evidence),
+      (joinedLines(evidence.source, evidence.once) ||
+        foldedABreakInsideAValue(evidence.signature)) &&
+      !readerGapJoin(evidence),
   },
   {
     family: "fence-style-detached",
@@ -519,16 +632,7 @@ const FAMILY_ARMS: readonly FamilyArm[] = [
   },
   {
     family: "gap-line-lost",
-    // The exclusion is STATED rather than left to arm order, for the
-    // reason `join-changes-reading` states its own: a heading the
-    // term swallowed is also a document one line shorter, and a table
-    // whose rows are told apart by which line comes first is a table
-    // a reader cannot check. The two mechanisms are not the same - a
-    // `+` inside a term's gap goes unwritten there, a heading below
-    // the list has nowhere to be written here - so the row belongs to
-    // one of them and this says which.
-    matches: ({ source, once, signature }) =>
-      lostALine(source, once) && !headingSwallowedByATerm(signature),
+    matches: ({ source, once }) => termGapContinuationDropped(source, once),
   },
 ];
 
