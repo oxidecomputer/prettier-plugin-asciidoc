@@ -5,9 +5,8 @@ import base from "./vitest.config.js";
 /**
  * The vitest entry for the PER-PUSH deep sweeps: the
  * `*.deep.test.ts` files other than the batched ones, run by
- * `bun run test:deeply-nested-lists`. The exhaustive list-shape
- * product and its reflow re-classification ledger, the shape
- * registry's deep tier, and the reparse ledger. That script's own
+ * `bun run test:deeply-nested-lists`. The shape registry's deep tier
+ * and the reparse ledger. That script's own
  * header says what each proves; the floor it holds the collected test
  * count to is what makes a file dropped from the glob below an exit 2
  * rather than a green tick.

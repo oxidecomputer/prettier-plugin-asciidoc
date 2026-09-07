@@ -8,19 +8,11 @@
  *   bun run test:deeply-nested-lists   the per-push entry
  *   bun run test:batched-sweeps        the batched entry
  *
- * PER PUSH, three products under `vitest.sweep.config.ts`. The
- * exhaustive list-shape product, whose size is whatever
- * `sweepDocuments(DEEP_DEPTH)` (tests/format/list-shape-sweep.ts)
- * spells from its alphabet, is gated TWICE over: the
- * render/idempotence entry formats each document twice and renders
- * both sides, pinned to the allowlist by strict set equality, and the
- * reflow re-classification entry (issue #58) re-reads each document's
- * output and pins the violating set to
- * `tests/format/reading-ledger.json` the same way. The registry
- * sweep's deep tier is the third gate: both shape-registry grids, each
+ * PER PUSH, two products under `vitest.sweep.config.ts`. The registry
+ * sweep's deep tier is the first gate: both shape-registry grids, each
  * under the byte operators it declares, pinned to the cluster manifest
  * in `tests/conformance/registry-sweep-deep-manifest.json`. The
- * reparse ledger is the fourth: the corpus, both registries' standing
+ * reparse ledger is the second: the corpus, both registries' standing
  * grids and the line registry's pair grid, each document formatted and
  * handed back to the reader, pinned to
  * `tests/conformance/reparse-ledger.json`.
@@ -29,27 +21,21 @@
  * inline sweep's deep tier, the inline registry's standing grid under
  * every byte operator plus its whole pair product, pinned to
  * `tests/conformance/inline-sweep-deep-manifest.json`. It costs more
- * wall time than the three per-push products put together, so it runs
- * at integration points the way the whitespace battery, the reference
+ * wall time than the per-push products put together, so it runs at
+ * integration points the way the whitespace battery, the reference
  * diff and mutation testing do, and not on every push.
  *
- * WHY NEITHER IS IN `bun run test`. The list-shape sweep was, and one
- * test owned nearly the whole suite's wall time, which vitest prints
- * on the run it now has to itself; a suite nobody can run on every
- * save is a suite that stops being run. Moving it out would weaken it
- * if nothing else changed, so two things did: the per-push entry is a
- * step in CI's BLOCKING `gates` job, and it is the prelude to
+ * WHY NEITHER IS IN `bun run test`. These products cost wall time a
+ * run on every save should not pay, and a suite nobody runs on every
+ * save is a suite that stops being run. Moving one out would weaken it
+ * if nothing else changed, so two things do not: the per-push entry is
+ * a step in CI's BLOCKING `gates` job, and it is the prelude to
  * `bun run mutate` and `bun run mutate:full`, so no mutation baseline
- * is ever taken over a tree it has not passed. The default suite keeps
- * the same sweep at DEPTH 4 against a derived subset of the same
- * allowlist, four rather than three because the mutation harness runs
- * the default suite and not this script, and a mutant the sweep used
- * to kill has to die at the shallow depth or not at all. Neither
- * samples.
+ * is ever taken over a tree it has not passed. Neither samples.
  *
  * Exit codes (`scripts/lib/cli.ts`): 0 the sweeps ran and their
- * failing sets matched the allowlist, the ledgers and the cluster
- * manifests, 1 a GATE failed - a shape regressed, or a pinned shape
+ * failing sets matched the ledger and the cluster manifests, 1 a GATE
+ * failed - a shape regressed, or a pinned shape
  * started passing and its entry is stale, 2 the harness could not
  * run: a bad argument, vitest missing, or a run that collected FEWER
  * tests than the entry this script exists to run. That last one is
@@ -72,11 +58,10 @@ const USAGE = `usage: bun run test:deeply-nested-lists
   --help      this text
 
 Without --batched, runs the per-push deep entry under
-vitest.sweep.config.ts: the exhaustive list-shape sweep, the reflow
-re-classification ledger over the same product, the registry sweep's
-deep tier (both shape-registry grids, each under the byte operators it
-declares), and the reparse ledger over the corpus, both standing grids
-and the line pair grid.
+vitest.sweep.config.ts: the registry sweep's deep tier (both
+shape-registry grids, each under the byte operators it declares) and
+the reparse ledger over the corpus, both standing grids and the line
+pair grid.
 
 With --batched, runs the batched deep entry under
 vitest.batched-sweep.config.ts: the inline sweep's deep tier, the
@@ -84,8 +69,8 @@ inline standing grid under every byte operator plus its pair product.
 It is minutes rather than seconds, so it runs at integration points
 and not on every push.
 
-exit: 0 the failing sets matched the allowlist, the ledgers and the
-cluster manifests, 1 a gate failed, 2 could not run`;
+exit: 0 the failing sets matched the ledger and the cluster manifests,
+1 a gate failed, 2 could not run`;
 
 /** Vitest's own exit code for "a test failed". */
 const VITEST_TESTS_FAILED = 1;
@@ -110,13 +95,15 @@ interface DeepEntry {
 /**
  * The per-push entry's floor.
  *
- * FOUR, one per gate it runs: the list-shape render/idempotence sweep,
- * the reflow re-classification ledger over that same product, the
- * registry sweep's deep tier, and the reparse ledger over its own deep
- * population. It was five while the inline sweep's deep tier ran here
- * too; that tier is the batched entry below now.
+ * TWO, one per gate it runs: the registry sweep's deep tier and the
+ * reparse ledger over its own deep population. It was five while the
+ * inline sweep's deep tier ran here, and four while the list-shape
+ * sweep and the reflow re-classification ledger over that same
+ * product did. The inline tier is the batched entry below now, and
+ * the list-shape pair spelled the product `bun run test` already
+ * sweeps, so its two gates are in the default suite.
  */
-const PER_PUSH_GATES = 4;
+const PER_PUSH_GATES = 2;
 
 /**
  * The batched entry's floor.

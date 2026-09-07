@@ -129,8 +129,9 @@ export function printList(
  *
  * THE DOMAIN THE ERASURE WAS MEASURED OVER, because it is an erasure
  * and not a replay. First the list-shape product
- * (tests/format/list-shape-sweep.deep.test.ts, render-equality and
- * idempotence, which ran at depth 5 when this was measured): its
+ * (tests/format/list-shape-sweep.test.ts, render-equality and
+ * idempotence, which ran at depth 5 in an entry of its own when this
+ * was measured): its
  * failing set is unchanged, and six of its documents leave the
  * reading ledger. Then 540 hand-built documents
  * whose LEADING gap carries blanks behind a `+` - the population this

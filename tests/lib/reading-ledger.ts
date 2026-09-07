@@ -10,9 +10,9 @@
  * what a person maintains by hand and well inside what a person
  * REVIEWS as a diff. The ledger keeps that file's two virtues:
  *
- * - LEAVING IS DELIBERATE. Both sweep entries assert set equality
- *   against it, so the commit that fixes a mechanism shrinks the
- *   ledger and has to say so.
+ * - LEAVING IS DELIBERATE. The sweep asserts set equality against it,
+ *   so the commit that fixes a mechanism shrinks the ledger and has
+ *   to say so.
  * - MEMBERSHIP IS A CLAIM. Every row carries a family, and a family
  *   is a mechanism with an issue behind it - not "this one is known
  *   to fail".
@@ -21,10 +21,12 @@
  * because counts cannot tell "one fixed, one regressed" from "no
  * change".
  *
- * ONE ledger serves BOTH entries: the default entry gates against its
- * rows restricted to the product it spells, the same derivation
- * `allowlistFor` makes over the render/idempotence allowlist, so a
- * document can never be ledgered for one entry and not the other.
+ * TWO gates read it, the way the render/idempotence allowlist has
+ * two: the sweep pins its violating set to the rows the product
+ * spells (the `readingLedgerFor` derivation, `allowlistFor`'s twin),
+ * and a cheap gate beside it pins that restriction to the whole file,
+ * so a row for a document the product does not spell reddens rather
+ * than sitting here unreported.
  *
  * Refresh it with `bun run reading-ledger --write`
  * (scripts/reading-ledger.ts).

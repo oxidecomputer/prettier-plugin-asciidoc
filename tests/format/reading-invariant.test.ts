@@ -176,8 +176,13 @@ describe("the known-issue table (issue #58, section 4.4)", () => {
 
   // #57's two faces are provably OUTSIDE the net: the divergence lives
   // in Asciidoctor's own reading, and our classifier reads both sides
-  // the same. They stay pinned by the deep sweep's render-equality
-  // allowlist. Asserted here so the boundary is a fact in the suite
+  // the same. Neither is pinned by the render-equality allowlist,
+  // whose product spells neither: face 1 needs a line the alphabet has
+  // no symbol for, and face 2 a body of five, one deeper than
+  // DEEP_DEPTH. Face 1 is pinned by bytes and by render equality in
+  // tests/format/list-hazard.test.ts, and face 2 is carried as a
+  // document in tests/format/divergence-witnesses.json and pinned
+  // nowhere. Asserted here so the boundary is a fact in the suite
   // rather than a claim in a document.
   test.each([
     ["face 1, within_nested_list fold", "* a\nX\n// c\n+\npara\n** b\n"],

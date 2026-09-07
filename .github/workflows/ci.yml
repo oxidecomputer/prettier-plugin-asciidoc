@@ -38,12 +38,13 @@ jobs:
       # minutes and stays manual.
       #
       # This step and `bun run test:deeply-nested-lists` below both
-      # check two sweep entries whose rows are a strict subset of that
-      # step's (docs/harnesses.md): duplicated on purpose, because
-      # StrykerJS never sees a deep tier, so the default tier here is
-      # the only sweep coverage a mutation run gets. That is also why
-      # the inline sweep's default tier stays here now that its deep
-      # tier is batched: this job is the only place it runs at all.
+      # check the registry sweep, whose default-tier rows are a strict
+      # subset of its deep tier's (docs/harnesses.md): duplicated on
+      # purpose, because StrykerJS never sees a deep tier, so the
+      # default tier here is the only sweep coverage a mutation run
+      # gets. That is also why the inline sweep's default tier stays
+      # here now that its deep tier is batched: this job is the only
+      # place it runs at all.
       - run: bun run coverage
         if: ${{ !cancelled() }}
       # The scorecard, head-only: thirteen absolute gates plus the shape
@@ -53,15 +54,13 @@ jobs:
       # workstream that added it.
       - run: bun run metrics
         if: ${{ !cancelled() }}
-      # The exhaustive list-shape sweep (DEEP_DEPTH), each document
-      # formatted twice and rendered on both sides against the whole
-      # of the known-failing shapes in list-shape-allowlist.ts
-      # (FAILING_TODAY); what it costs is the duration vitest prints
-      # for the step. It used to ride inside `bun run test`;
-      # it left the default suite ON CONDITION that it became a
-      # blocking step here and the prelude to every mutation run, so
-      # nothing about what is enforced changed. Head-only and needs no
-      # base, so it belongs in this job.
+      # The per-push deep sweeps: the registry sweep's deep tier
+      # against its cluster manifest, and the reparse ledger over its
+      # whole population. What they cost is the duration vitest prints
+      # for the step. They ride here rather than inside `bun run test`
+      # ON CONDITION that this is a blocking step and the prelude to
+      # every mutation run, so nothing about what is enforced changed.
+      # Head-only and needs no base, so it belongs in this job.
       #
       # The inline sweep's deep tier is NOT in this step. It cost more
       # than every other deep gate put together and was this job's

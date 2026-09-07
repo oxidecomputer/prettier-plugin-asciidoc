@@ -39,9 +39,12 @@ machine is - two generated sweeps run inside the suite and both inflate under
 contention - and the rest are a few seconds or less. Together they are exactly
 what CI's blocking `gates` job runs, minus the deep sweeps
 (`bun run test:deeply-nested-lists`, about fifteen seconds); run those too when
-your change touches parsing or printing of lists, or the shape registry. The
-inline registry's deep tier is not in that command: it is
-`bun run test:batched-sweeps`, listed with the heavier checks below.
+your change touches the shape registry, or anything the reparse ledger hands
+formatted output back to. A change to the parsing or printing of LISTS needs
+nothing extra: the list-shape sweep runs inside `bun run test`, which the
+command above already runs. The inline registry's deep tier is not in that
+command: it is `bun run test:batched-sweeps`, listed with the heavier checks
+below.
 
 Run `bun run gates` rather than the eleven commands by hand: two lanes in one
 night each ran a partial local battery that skipped `citation-check` and shipped

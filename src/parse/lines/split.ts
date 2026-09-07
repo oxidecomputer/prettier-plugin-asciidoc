@@ -80,8 +80,8 @@ export interface SourceLine {
    * spells, where the JS oracle pushes the boxed object with
    * `hasText` true (parser.js l.2225-41). Reachable, if at all, only
    * with an erased cell directly under non-blank content inside a
-   * nested extent — no sweep document constructs one; the deep sweep
-   * arbitrates.
+   * nested extent: no sweep document constructs one, and the
+   * list-shape sweep arbitrates.
    */
   readonly continuationTag?: "marker" | "erased";
   /**

@@ -29,9 +29,9 @@
  * or split inside prose does not.
  *
  * WHAT IT CANNOT SEE, measured rather than assumed: divergence
- * visible only to Asciidoctor's own reading (issue #57's five
- * allowlisted instances), intra-line whitespace (issue #32), and
- * blank-line placement (issue #54) - see docs/harnesses.md.
+ * visible only to Asciidoctor's own reading (issue #57's two faces),
+ * intra-line whitespace (issue #32), and blank-line placement (issue
+ * #54) - see docs/harnesses.md for what pins each instead.
  */
 import { formatAdoc } from "../helpers.js";
 import { LINE_COMMENT_HEAD, rstrip } from "../../src/parse/line-shapes.js";

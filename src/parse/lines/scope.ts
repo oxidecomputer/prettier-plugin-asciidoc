@@ -401,8 +401,9 @@ function replayedLineStandsAbove(above: SourceLine): boolean {
  * reaches this can only be standing at index 1 or later, and there is
  * no `at === 0` arm to write. Measured as well as argued: an instrumented
  * build that throws on an item-confined index 0 raises nothing over
- * the whole suite (202 files, 14,756 tests, the list-shape sweeps
- * among them) or over the five deep sweeps.
+ * the whole suite (202 files, 14,756 tests, the list-shape sweep
+ * among them) or over the deep sweeps, which were five gates in one
+ * entry when this was measured.
  * @param confinement - how the reader is confined, absent for the
  *   document reader
  * @param lines - the lines this reader walks

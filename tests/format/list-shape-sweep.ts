@@ -1,28 +1,24 @@
 /**
- * The list-shape sweep's machinery — the alphabet, the named shapes,
- * the document product and the per-document verdict — shared by the
- * two entries that consume it:
+ * The list-shape sweep's machinery: the alphabet, the named shapes,
+ * the document product and the per-document verdict, consumed by
+ * `list-shape-sweep.test.ts` in the DEFAULT suite (`bun run test`)
+ * and by `bun run reading-ledger`, which regenerates the ledger that
+ * entry gates against.
  *
- * - `list-shape-sweep.test.ts`, in the DEFAULT suite
- *   (`bun run test`), which gates the allowlist and the reading
- *   ledger RESTRICTED to the product it spells;
- * - `list-shape-sweep.deep.test.ts`, run by
- *   `bun run test:deeply-nested-lists`, by CI's blocking job, and as the prelude to
- *   every mutation run, which gates both files WHOLE, so a row for a
- *   document no product spells has nowhere to hide.
+ * ONE product at ONE depth ({@link DEEP_DEPTH}). The sweep used to run
+ * as two entries at two depths, the shallower one filtered to the
+ * documents it spelled; they converged on the same depth, so the
+ * filtered comparison and the whole-file comparison are now two gates
+ * of one entry, and a shape cannot be pinned by one and spelled
+ * differently by the other. So nothing here takes a depth: every
+ * verdict is about THE product. {@link sweepDocuments} keeps its
+ * parameter because `bun run block-structure` spells the same product
+ * at whatever `--depth` it is given, which is a survey and not a gate.
  *
- * ONE module because the two must not disagree about what a sweep
- * document IS. A shape the deep entry pins and the default entry
- * spells differently is a shape neither pins. The two run the same
- * depth today ({@link SHALLOW_DEPTH}, {@link DEEP_DEPTH}); what
- * separates them is what each holds the tree to, not how far each
- * product reaches.
- *
- * NOTHING HERE SAMPLES, at either depth. The sweep used to grow
- * exhaustively and then DRAW 5,000 of the 100,000 length-5 documents,
- * and a review found four render-corrupting shapes inside this very
- * alphabet that the seeded draw simply missed. A 5% sample is not a
- * pin.
+ * NOTHING HERE SAMPLES. The sweep used to grow exhaustively and then
+ * DRAW 5,000 of the 100,000 length-5 documents, and a review found
+ * four render-corrupting shapes inside this very alphabet that the
+ * seeded draw simply missed. A 5% sample is not a pin.
  */
 import { formatAdoc, renderedHtml } from "../helpers.js";
 import { readingBreachesOf } from "../lib/reading.js";
@@ -51,40 +47,34 @@ const ALPHABET = [
 ] as const;
 
 /**
- * How deep the DEFAULT suite's product runs.
+ * How deep the product runs.
  *
- * FOUR, not three, and the difference was measured rather than
- * guessed. Depth 3 costs 305ms and allowlists nothing (every shape on
- * the sweep's list has a body of length 4), but it also kills fewer
- * MUTANTS, and the mutation harness runs the default suite, not
- * `test:deeply-nested-lists`. A seeded `list-hazard.ts` mutant
- * (`startsWith` to `endsWith` on the comment head) survives depth 3
- * and DIES at depth 4. What the product costs is deliberately not
- * restated here, because every figure of it moves when the alphabet
- * does: `bun run block-structure` spells the same product and prints
- * its size on its sweep line, the entries it carries are
- * `allowlistFor(SHALLOW_DEPTH)`, and vitest prints the wall time.
- * Depth 4 is the shallowest depth that kills the seeded mutant.
- */
-export const SHALLOW_DEPTH = 4;
-
-/**
- * How deep the `test:deeply-nested-lists` product runs.
+ * FOUR, and both directions were measured rather than guessed.
  *
- * The same depth as {@link SHALLOW_DEPTH}. A deeper tier is not free:
- * depth 5 spells eleven times the documents, and the only thing it
- * reached that depth 4 does not was one reading signature of the
- * continuation-dropped family, on a single five-line document
+ * Not three: depth 3 costs 305ms and allowlists nothing (every shape
+ * on the sweep's list has a body of length 4), but it also kills fewer
+ * MUTANTS. A seeded `list-hazard.ts` mutant (`startsWith` to
+ * `endsWith` on the comment head) survives depth 3 and DIES at depth
+ * 4, so 4 is the shallowest depth that kills it.
+ *
+ * Not five: depth 5 spells eleven times the documents, and the only
+ * thing it reached that depth 4 does not was one reading signature of
+ * the continuation-dropped family, on a single five-line document
  * (`* a` / blank / `+` / `* a` / blank / `+`). That shape is outside
  * sweep coverage now, and #17, the issue it came from, is closed:
  * tests/conformance/properties.test.ts is what pins its reading.
+ *
+ * What the product COSTS is deliberately not restated here, because
+ * every figure of it moves when the alphabet does: `bun run
+ * block-structure` spells the same product and prints its size on its
+ * sweep line, and vitest prints the wall time.
  */
 export const DEEP_DEPTH = 4;
 
-// Named shapes, unioned in explicitly at BOTH depths. They earn their
-// place two ways: the ones with bodies longer than the depth in force
-// are outside the product altogether, and the rest carry a name —
-// first the traced shapes (nine attachment shapes + four trailing-`+`
+// Named shapes, unioned in explicitly. They earn their place two
+// ways: the ones with bodies longer than the depth in force are
+// outside the product altogether, and the rest carry a name. First
+// the traced shapes (nine attachment shapes + four trailing-`+`
 // shapes; F1 is the tier-1 bug the extent-first reader fixed), then
 // one named row per review blocker and per cut-over fix rule, each a
 // shape that regressed or would regress under a one-line mutation of
@@ -156,15 +146,19 @@ export function sweepDocuments(depth: number): string[] {
 }
 
 /**
- * The allowlist RESTRICTED to one depth's product — a derivation, not
- * a second hand-kept list. The default suite pins a subset of the same
- * `FAILING_TODAY` entries, and deriving it here means a shape can never
- * be allowlisted at one depth and not the other.
- * @param depth - the depth whose product the caller sweeps
- * @returns the allowlisted documents that product actually spells
+ * The allowlist RESTRICTED to one depth's product: a derivation, not
+ * a second hand-kept list.
+ *
+ * The sweep gate compares its failing set against this, and a SECOND
+ * gate compares this against the whole of `FAILING_TODAY`, so the two
+ * failure modes stay apart. A shape that regressed or got quietly
+ * fixed reddens the sweep; a row for a document the product does not
+ * spell reddens the cheap gate instead, in milliseconds, and cannot
+ * sit in the file unreported.
+ * @returns the allowlisted documents the product actually spells
  */
-export function allowlistFor(depth: number): string[] {
-  const spelled = new Set(sweepDocuments(depth));
+export function allowlistFor(): string[] {
+  const spelled = new Set(sweepDocuments(DEEP_DEPTH));
   return FAILING_TODAY.filter((document_) => spelled.has(document_));
 }
 
@@ -240,13 +234,12 @@ async function sweepFails(source: string): Promise<boolean> {
 }
 
 /**
- * Sweep one depth's whole product and report what failed.
- * @param depth - the depth to spell the product at
+ * Sweep the whole product and report what failed.
  * @returns the failing documents, sorted
  */
-export async function sweepFailures(depth: number): Promise<string[]> {
+export async function sweepFailures(): Promise<string[]> {
   const failing: string[] = [];
-  for (const source of sweepDocuments(depth)) {
+  for (const source of sweepDocuments(DEEP_DEPTH)) {
     // Sequential on purpose: thousands of concurrent Prettier runs
     // would exhaust memory, and the oracle is the wall time here.
     // eslint-disable-next-line no-await-in-loop -- sequential on purpose
@@ -258,28 +251,24 @@ export async function sweepFailures(depth: number): Promise<string[]> {
 }
 
 /**
- * The reading ledger RESTRICTED to one depth's product - the same
- * derivation {@link allowlistFor} makes over the render/idempotence
- * allowlist, and for the same reason: one ledger serves both depths,
- * so a document can never be ledgered at one and not the other.
- *
- * For the SHALLOW entry only. The deep entry compares against the
- * whole file, because it sweeps the product the ledger was generated
- * from: filtering there would let a row whose document the product no
- * longer spells sit in the file forever, unreported at either depth.
- * @param depth - the depth whose product the caller sweeps
- * @returns the ledgered rows that product actually spells, in
+ * The reading ledger RESTRICTED to the product, the same derivation
+ * {@link allowlistFor} makes over the render/idempotence allowlist
+ * and paired the same way: the reading gate compares its violating
+ * set against this, and a cheap gate beside it compares this against
+ * the whole ledger file, so a row whose document the product does not
+ * spell has nowhere to hide.
+ * @returns the ledgered rows the product actually spells, in
  *   canonical order
  */
-export function readingLedgerFor(depth: number): ReadingLedgerRow[] {
-  const spelled = new Set(sweepDocuments(depth));
+export function readingLedgerFor(): ReadingLedgerRow[] {
+  const spelled = new Set(sweepDocuments(DEEP_DEPTH));
   return loadReadingLedger()
     .filter((row) => spelled.has(row.document))
     .toSorted(compareLedgerRows);
 }
 
 /**
- * Sweep one depth's product for REFLOW RE-CLASSIFICATION violations
+ * Sweep the product for REFLOW RE-CLASSIFICATION violations
  * (issue #58) and report what it found.
  *
  * A PARALLEL gate to {@link sweepFailures}, deliberately not folded
@@ -291,14 +280,11 @@ export function readingLedgerFor(depth: number): ReadingLedgerRow[] {
  * It consults no oracle, which is what makes it affordable over the
  * whole product at all: the render sweep beside it is oracle-bound,
  * this one is two parses and a format per document.
- * @param depth - the depth to spell the product at
  * @returns one row per violating (document, pass), in canonical order
  */
-export async function readingFailures(
-  depth: number,
-): Promise<ReadingLedgerRow[]> {
+export async function readingFailures(): Promise<ReadingLedgerRow[]> {
   const rows: ReadingLedgerRow[] = [];
-  for (const document_ of sweepDocuments(depth)) {
+  for (const document_ of sweepDocuments(DEEP_DEPTH)) {
     // Sequential on purpose, for {@link sweepFailures}'s reason.
     // eslint-disable-next-line no-await-in-loop -- sequential on purpose
     const breaches = await readingBreachesOf(document_);

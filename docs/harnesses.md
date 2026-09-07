@@ -257,33 +257,23 @@ the only harness that proves fidelity per difference.
 ### `bun run test:deeply-nested-lists` - the deep sweeps
 
 Runs the per-push half of the `*.deep.test.ts` files under its own vitest
-config, `vitest.sweep.config.ts`. Four tests today, and the runner's floor is
-exactly four, so one being renamed out of the glob or skipped is exit 2 rather
+config, `vitest.sweep.config.ts`. Two tests today, and the runner's floor is
+exactly two, so one being renamed out of the glob or skipped is exit 2 rather
 than a green tick.
 
 The other half is `bun run test:batched-sweeps`, below: same runner script, same
 floor discipline, a different cadence.
 
-`tests/format/list-shape-sweep.deep.test.ts`: every nested-list shape to
-`DEEP_DEPTH`, each formatted twice and rendered on both sides, against the
-known-failing shapes named in `tests/format/list-shape-allowlist.ts`
-(`FAILING_TODAY`), each entry tagged with its tracker issue. Exit 1 when the
-failing set does not match the allowlist in either direction; exit 2 when vitest
-collected nothing.
+`tests/conformance/registry-sweep.deep.test.ts` is the first: the registry
+sweep's deep tier. See
+[the registry sweep](#bun-run-registry-sweep-triage---the-generated-conformance-sweep)
+for what it sweeps and why its manifest is written as clusters. It is here
+rather than in `bun run test` for its wall time, which is the duration vitest
+prints for it.
 
-`DEEP_DEPTH` is 4, the same depth the default suite sweeps, and the depth is
-load-bearing there: Stryker runs the default suite, so a shallower default would
-let sweep-killed mutants survive. What the deep list-shape entry alone holds is
-the UNFILTERED comparison - the whole allowlist and the whole reading ledger,
-rather than each filtered to the documents one product spells - so an entry for
-a document no product spells fails there instead of sitting in its file forever.
-A deeper tier was measured and dropped: depth 5 spells eleven times the
-documents and reached exactly one further reading signature, on a single
-five-line document (`* a` / blank / `+` / `* a` / blank / `+`). That shape
-leaves SWEEP coverage only: it stays pinned, with its signature, by
-`tests/conformance/properties.test.ts`, which is now the tree's only hold on
-that reading. #17 is where the shape came from and is closed; no open issue owns
-the mechanism today, so the pin stands until the mechanism itself is fixed.
+`tests/conformance/reparse.deep.test.ts` is the second: the reparse ledger over
+its whole population (`deepTierCases()`, floored at `MINIMUM_POPULATION`). See
+[the reparse ledger](#bun-run-reparse-ledger---the-reparse-breach-inventory).
 
 The default-tier entries, the registry sweep's and the inline sweep's, are in
 `bun run test` regardless of what their deep tiers do: StrykerJS's own vitest
@@ -295,24 +285,24 @@ accepted price of that coverage. For the inline sweep the default tier is now
 the only tier the job runs at all, its deep tier having moved to the batched
 entry.
 
-Both entries carry a SECOND, parallel gate over the same product: the reflow
-re-classification invariant, against `tests/format/reading-ledger.json`. See
-[the reflow re-classification invariant](#the-reflow-re-classification-invariant).
+The list-shape sweep is NOT here. It runs in `bun run test`
+(`tests/format/list-shape-sweep.test.ts`): every nested-list shape the alphabet
+spells to `DEEP_DEPTH`, plus the named shapes whose bodies are longer, each
+formatted twice and rendered on both sides, its failing set pinned by set
+equality in both directions to the known-failing shapes in
+`tests/format/list-shape-allowlist.ts` (`FAILING_TODAY`), each entry tagged with
+its tracker issue. So a new failure is a regression and a pinned shape that
+starts passing is a stale entry. It had a deep entry of its own until the two
+depths converged on `DEEP_DEPTH`, at which point that entry re-swept the product
+the default suite already sweeps for one comparison the default suite can make
+in milliseconds: the whole of the allowlist and the whole of
+`tests/format/reading-ledger.json` against the documents the product spells.
+Those two comparisons are gates of the same file now, beside the two sweeps they
+guard.
 
-`tests/conformance/registry-sweep.deep.test.ts` is the third: the registry
-sweep's deep tier. See
-[the registry sweep](#bun-run-registry-sweep-triage---the-generated-conformance-sweep)
-for what it sweeps and why its manifest is written as clusters. It is the most
-expensive of the three, which is the reason it is here and not in
-`bun run test`.
-
-`tests/conformance/reparse.deep.test.ts` is the fourth: the reparse ledger over
-its whole population (`deepTierCases()`, floored at `MINIMUM_POPULATION`). See
-[the reparse ledger](#bun-run-reparse-ledger---the-reparse-breach-inventory).
-
-Proves: no list shape regressed, no known-broken shape got quietly fixed without
-its allowlist entry (and issue) being retired, and no generated coordinate
-outside the default tier changed its verdict.
+Proves: no generated coordinate outside the default tier changed its verdict,
+and no document outside the default reparse population changed how it reads
+back.
 
 ### `bun run test:batched-sweeps` - the deep sweeps that run batched
 
@@ -349,14 +339,27 @@ cadence a push does not pay for.
 
 Sweeps the list-shape product at `DEEP_DEPTH` for reflow re-classification
 violations and reports them grouped by mechanism family; `--write` regenerates
-`tests/format/reading-ledger.json`, which both sweep entries gate against. Exit
-2 when the product spelled nothing, when a swept line left no verdict (the
-trace-fidelity self-check), or when a violation's signature matches no declared
-mechanism. There is no exit 1: the violating set is the report, and the ledger
-is the gate over it.
+`tests/format/reading-ledger.json`, which
+`tests/format/list-shape-sweep.test.ts` gates against, twice over: the violating
+set against the rows this product spells, and that restriction against the whole
+file. Exit 2 when the product spelled nothing, when a swept line left no verdict
+(the trace-fidelity self-check), or when a violation's signature matches no
+declared mechanism. There is no exit 1: the violating set is the report, and the
+ledger is the gate over it.
+
+`DEEP_DEPTH` is 4, and both directions were measured. Not three: the mutation
+harness runs the default suite, where this product lives, and a seeded
+`list-hazard.ts` mutant (`startsWith` to `endsWith` on the comment head)
+survives depth 3 and dies at depth 4. Not five: depth 5 spells eleven times the
+documents and reached exactly one further reading signature, on a single
+five-line document (`* a` / blank / `+` / `* a` / blank / `+`). That shape
+leaves SWEEP coverage only: it stays pinned, with its signature, by
+`tests/conformance/properties.test.ts`, which is now the tree's only hold on
+that reading. #17 is where the shape came from and is closed; no open issue owns
+the mechanism today, so the pin stands until the mechanism itself is fixed.
 
 Proves nothing by itself, exactly as `triage` does not; it writes the file the
-two sweep entries hold the tree to.
+sweep entry holds the tree to.
 
 ### `bun run reparse-ledger` - the reparse breach inventory
 
@@ -1762,13 +1765,15 @@ Three consumers, three pinning mechanisms:
   read a six-line sweep document and not enough to find the spot in a corpus
   document of several hundred lines. The line stays out of the ledger's
   `signature`, so ledger rows stay stable;
-- **both list-shape sweeps** - a parallel gate against
-  `tests/format/reading-ledger.json`: the deep entry against the WHOLE file, the
-  default entry against the rows its own product spells (the `allowlistFor`
-  derivation, so one ledger serves both). The deep entry does not filter, for
-  the reason the deep allowlist gate does not: it sweeps the product the ledger
-  was generated from, so a row whose document the product no longer spells fails
-  there rather than sitting in the file unreported by either;
+- **the list-shape sweep** - a parallel gate against
+  `tests/format/reading-ledger.json`, in two halves. The sweep pins its
+  violating set to the rows its own product spells (the `readingLedgerFor`
+  derivation, `allowlistFor`'s twin over the render-equality allowlist); a cheap
+  gate beside it pins that restriction to the WHOLE file. The second half is not
+  redundant: the ledger is generated from this very product, so a row whose
+  document the product no longer spells is a stale row the filtered comparison
+  can no longer see, and without the second half it would sit in the file
+  forever;
 - **the named rows** - `tests/format/reading-invariant.test.ts` holds the shapes
   no corpus case and no sweep alphabet spells, including the ones that do NOT
   reproduce today (issues #27 and #46 shape 1), asserted clean with their issue
@@ -1944,8 +1949,18 @@ Measured, not assumed.
 
 - **Divergence visible only to Asciidoctor's reading (#57).** The net is closed
   under our own parse, so a join that is legitimate reflow to us and a fold
-  change to the oracle is invisible here. #57's five instances stay pinned by
-  the deep sweep's render-equality allowlist. The consolation is concrete: at
+  change to the oracle is invisible here. Nothing on the render-equality side
+  pins #57's shapes any more: the allowlist
+  (`tests/format/list-shape-allowlist.ts`) carries no #57 row, and the product
+  at `DEEP_DEPTH` spells neither of the two faces the issue names, for two
+  different reasons: face 1 needs a line the alphabet has no symbol for, and
+  face 2 needs a body of five, which only depth 5 reaches. What holds them today
+  is `tests/format/list-hazard.test.ts`, which pins face 1 (`* a` / `X` / `// c`
+  / `+` / `para` / `** b`) by bytes and by render equality, and
+  `tests/format/divergence-witnesses.json`, which carries face 2 as a document
+  and asserts nothing about how the tree reads it. That both faces are OUTSIDE
+  this net is asserted rather than claimed, in
+  `tests/format/reading-invariant.test.ts`. The consolation is concrete: at
   depth 5 the net catches six sibling instances of the same thesis that
   render-equality misses (family tail-reading-flip, issue #65) - measured when
   the product ran a depth deeper than it does now, and that family is empty
@@ -1980,8 +1995,8 @@ the dedicated regression test its issue calls for.
 `internal-citations`, `parse-print-addresses`, `printer-reads`. Every step
 carries `if: ${{ !cancelled() }}`, so one failing gate never hides the others.
 The reflow re-classification invariant needs no step of its own: its three gates
-ride the suite and the deep sweep that are already there, and `reading-ledger`
-is a generator, not a gate.
+ride the suite that is already there, and `reading-ledger` is a generator, not a
+gate.
 
 `parse-print-addresses` rides the `gates` job (it reads two files and needs no
 base), and `deletion-gate` rides `differential` (it needs the base revision,
