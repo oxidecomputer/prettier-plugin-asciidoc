@@ -518,27 +518,26 @@ describe("a run carrying a line break keeps the break", () => {
     expect(await formatAdoc(":h: -\n\na\n\t-{h}\n")).toBe(":h: -\n\na -{h}\n");
   });
 
-  // The one word nothing fuses across, on the side `fuseOpeningDash`
-  // reads. Its mirror is pinned by "a description-list separator in
-  // front of the run" above; this is the other direction, where the
-  // separator stands BEHIND the run and the fused word would hide it
-  // from the anchored `DLIST_SEPARATOR_WORD` just the same.
-  //
-  // The separator has to arrive from a LATER source line for the fold
-  // to be asked about it at all, which is what this row spells. Fusing
-  // it would put `x::` on the first output line, and the paragraph
-  // would come back a DESCRIPTION LIST: measured, the fused spelling
-  // renders `<dt>a - x</dt><dd>y</dd>` where the input renders one
-  // paragraph.
+  // A separator standing BEHIND the run, where the fused word holds it
+  // and the anchored `DLIST_SEPARATOR_WORD` alone would not see it.
+  // The run rides, so the word is `{e}-<TAB>x::`, and the guard that
+  // keeps such a word off the block's first output line asks about the
+  // word's own words rather than the whole
+  // (`holdsDescriptionSeparatorWord`, src/parse/line-shapes.ts). Here
+  // the reference clause holds the break in front of `{e}-` anyway, so
+  // the run's bytes come back where the author wrote them.
   test("a description-list separator behind the run", async () => {
     const input = ":e:\n\na\n{e}-\tx:: y\n";
-    const output = await formatAdoc(input);
-    // The break in front of `{e}-` is now HELD (the reference clause),
-    // so the separator's own line is the second one rather than the
-    // first. Red before it, the first line read `a {e}-`.
-    expect(output).toBe(":e:\n\na\n{e}-\nx:: y\n");
-    expect(await renderedHtml(output)).toBe(await renderedHtml(input));
-    expect(await formatAdoc(output)).toBe(output);
+    await expectFormatted(input, input);
+  });
+
+  // The same separator behind a run where NOTHING else holds the line:
+  // the guard is the only thing keeping the fused word off the label's
+  // line. Red before it asked about the fused word's words, when the
+  // output was `NOTE: a b<TAB>x:: y` and the oracle read a description
+  // list where the input renders one admonition (issue #294).
+  test("a fused separator may not reach the first output line", async () => {
+    await expectFormatted("NOTE: a\nb\tx:: y\n", "NOTE: a\nb\tx:: y\n");
   });
 
   // The separator standing on a line the READER already records as a

@@ -25,7 +25,6 @@ import {
   type HeldJoin,
 } from "./reflow.js";
 import { cutValue, factsOf, type NodeFacts } from "../whitespace-runs.js";
-import { DLIST_SEPARATOR_WORD } from "../parse/line-shapes.js";
 import type { WhitespaceFact } from "../whitespace-record.js";
 import {
   strongerBoundary,
@@ -233,6 +232,16 @@ export interface TextWords {
  * spell. The record is read and never re-derived - the words this
  * returns carry a run's bytes only where a row of the record, or one
  * of those two line rules, put them there.
+ *
+ * A WORD THIS RETURNS MAY THEREFORE HOLD WHITESPACE, and every
+ * question asked of one downstream has to be asked of its words
+ * rather than of the whole (`holdsDescriptionSeparatorWord`,
+ * src/parse/line-shapes.ts, is the registry's own spelling of the one
+ * question that cares). Refusing the ride instead, to keep a
+ * downstream anchored pattern true, destroys the run's bytes: a tab
+ * behind a checklist bracket folds to the space that MAKES the item a
+ * checkbox, so `* [x]<TAB>a:: b` rendered a checked box the source
+ * never spelled (issue #294).
  * @param value - the node's raw source text.
  * @param facts - the record's facts for this node's runs.
  * @param share - what of the output line the value holds.
@@ -258,17 +267,7 @@ export function wordsOfText(
     // A run the LINE reads rides for the same reason a `verbatim` run
     // does, and under the same refusal: no atom may hold a newline.
     const rides =
-      (join.rides || (lineRuns.has(index - 1) && !run.includes("\n"))) &&
-      // NOTHING FUSES ACROSS A DESCRIPTION-LIST SEPARATOR WORD. The
-      // packer's own dlist guard reads a WHOLE word
-      // (`DLIST_SEPARATOR_WORD` is anchored `^\S*(?:::|;;)$`), so a
-      // separator fused inside a longer word escapes it, and reflow
-      // could then put `x::<TAB>--` on the block's first output line,
-      // where it re-reads as a term. The run's bytes are lost there,
-      // which is a loss the record cannot express: it says what the
-      // run MEANS, and this says where the printer can put it.
-      !DLIST_SEPARATOR_WORD.test(words[index - 1]) &&
-      !DLIST_SEPARATOR_WORD.test(word);
+      join.rides || (lineRuns.has(index - 1) && !run.includes("\n"));
     if (rides) {
       packed[packed.length - 1] += run + word;
       continue;

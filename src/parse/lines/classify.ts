@@ -35,7 +35,6 @@ import {
   CONTINUATION_LINE,
   DELIMITED_BLOCK_PATTERNS,
   DELIMITER_KINDS,
-  DLIST_SEPARATOR_WORD,
   INDENTED_PLUS,
   LINE_COMMENT,
   LIST_MARKER_LINE,
@@ -676,35 +675,6 @@ export function isLiteralLine(line: string): boolean {
  */
 export function isIndentedContinuationLine(line: string): boolean {
   return INDENTED_PLUS.test(line);
-}
-
-/**
- * Whether a line carries a word that would open a description-list
- * term wherever it stood - `DLIST_SEPARATOR_WORD` asked of every word
- * (see line-shapes.ts for why the WORD is the unit and the line is
- * not). Asked here for the same reason the two predicates above are:
- * the paragraph scan that needs it consumes classifier verdicts,
- * never patterns.
- *
- * A PREDICATE and not a {@link LineKind} arm, the second route
- * docs/coding-standards.md's line-shape recipe describes. The
- * classifier's verdict for such a line is unchanged either way,
- * because neither caller asks what the line IS.
- *
- * TWO callers, asking two different questions of the same test. The
- * paragraph scan asks it about a line already classified as a
- * COMMENT, and its question is what the line's words would become if
- * the `//` that heads them stopped heading them (paragraph-reader.ts,
- * `reflows`). The description-list reflow conditions ask it about
- * ordinary description text, and their question is what a word of
- * that text would become if a wrap put it at the head of a line
- * (description-list.ts, condition S). The answer serves both because
- * the word is the unit in each.
- * @param line - one rstripped source line
- * @returns true when a word of it ends in a dlist term separator
- */
-export function holdsDescriptionListSeparator(line: string): boolean {
-  return line.split(/[ \t]+/v).some((word) => DLIST_SEPARATOR_WORD.test(word));
 }
 
 /**

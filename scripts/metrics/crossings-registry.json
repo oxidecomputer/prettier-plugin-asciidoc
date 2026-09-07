@@ -981,34 +981,6 @@
   },
   {
     "file": "src/parse/line-shapes.ts",
-    "symbol": "DLIST_SEPARATOR_WORD",
-    "importer": "src/parse/lines/classify.ts",
-    "kind": "vocabulary",
-    "reason": "registry pattern: the word shape that opens a dlist term, read by the classification pass so the paragraph scan can ask a predicate instead of a pattern"
-  },
-  {
-    "file": "src/parse/line-shapes.ts",
-    "symbol": "DLIST_SEPARATOR_WORD",
-    "importer": "src/print/list-hazard.ts",
-    "kind": "vocabulary",
-    "reason": "registry vocabulary: the word shape that opens a dlist term, so the marker-line guard refuses to hold a break in front of one and cannot invent the nested description list reflow's own guard exists to prevent"
-  },
-  {
-    "file": "src/parse/line-shapes.ts",
-    "symbol": "DLIST_SEPARATOR_WORD",
-    "importer": "src/print/reflow.ts",
-    "kind": "vocabulary",
-    "reason": "registry vocabulary: the word reflow may not break across a dlist separator. Read at the one documented parse address the printer is allowed"
-  },
-  {
-    "file": "src/parse/line-shapes.ts",
-    "symbol": "DLIST_SEPARATOR_WORD",
-    "importer": "src/print/text-edges.ts",
-    "kind": "vocabulary",
-    "reason": "the one spelling of a description-list separator word, asked where the printer decides whether a run's bytes may ride inside a word: a separator fused inside a longer word escapes the packer's anchored guard, so nothing fuses across one"
-  },
-  {
-    "file": "src/parse/line-shapes.ts",
     "symbol": "DelimiterKind",
     "importer": "src/parse/lines/classify.ts",
     "kind": "vocabulary",
@@ -1300,6 +1272,27 @@
     "importer": "src/parse/lines/description-list.ts",
     "kind": "vocabulary",
     "reason": "the line-END half of the same answer, which needs the registry's whole-line patterns and the item's term head together and can therefore be spelled nowhere but beside them"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "holdsDescriptionSeparatorWord",
+    "importer": "src/parse/lines/description-list.ts",
+    "kind": "vocabulary",
+    "reason": "registry predicate: whether a line of a description carries a word that opens a term, which is the shape whose whole run the printing decision replays rather than reflows"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "holdsDescriptionSeparatorWord",
+    "importer": "src/parse/lines/paragraph-reader.ts",
+    "kind": "vocabulary",
+    "reason": "registry predicate: whether a commented-out line carries a word that opens a term, asked of the words the scan would fold back into the paragraph"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "holdsDescriptionSeparatorWord",
+    "importer": "src/print/reflow.ts",
+    "kind": "vocabulary",
+    "reason": "registry predicate: whether an atom carries a word that opens a dlist term, asked of an atom whose text may hold a run the whitespace record made ride inside it. Read at the one documented parse address the printer is allowed"
   },
   {
     "file": "src/parse/line-shapes.ts",

@@ -15,6 +15,7 @@
 import {
   endsDescriptionLine,
   isDescriptionListLine,
+  holdsDescriptionSeparatorWord,
   startsItemBlockLine,
 } from "../line-shapes.js";
 import { interruptsParagraph } from "../line-shapes-interruption.js";
@@ -25,7 +26,6 @@ import {
 import type { DescriptionDelimiter, DescriptionPrinting } from "../../ast.js";
 import {
   delimiterKind,
-  holdsDescriptionListSeparator,
   isLiteralLine,
   metadataLineKind,
   parseListMarker,
@@ -496,7 +496,7 @@ export function descriptionPrinting(run: DescriptionRun): DescriptionPrinting {
   // (parser.rb:1430, :2281), so there is no line the word is safe on
   // and the whole run replays. Neither guard may be widened into the
   // other's job.
-  if (text.some(holdsDescriptionListSeparator)) {
+  if (text.some(holdsDescriptionSeparatorWord)) {
     return "replay";
   }
   const words = text.flatMap(wordsOf);
@@ -514,8 +514,8 @@ export function descriptionPrinting(run: DescriptionRun): DescriptionPrinting {
 }
 
 /**
- * The description's words, in the unit `holdsDescriptionListSeparator`
- * already reads a line in: runs of anything but a space or a tab.
+ * The description's words, in the unit
+ * `holdsDescriptionSeparatorWord` already reads a line in: runs of anything but a space or a tab.
  * Matched rather than split, so an empty inline description yields no
  * words instead of one empty one. A filter after a split would say
  * the same thing and be inert, since every clause answers false on

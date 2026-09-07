@@ -291,22 +291,13 @@ describe("checklist formatting", () => {
     await expectFormatted(input, input);
   });
 
-  // A REFUSAL, recorded rather than hidden, in the two shapes that
-  // reach it.
-  //
-  // BLOCK SYNTAX under the bracket: reflow has already fused the word
-  // backwards because it would open a block at the start of a line (a
-  // section title, an admonition label, a bracketed attribute line),
-  // and a break demanded in front of a fused atom is lifted to the
-  // front of its whole run - in front of the bracket, which spells the
-  // same marker line again.
-  //
-  // A DESCRIPTION-LIST separator on the item's OWN first line: nothing
-  // fused it, because reflow's own guard marks such a word only when
-  // it came from a later source line, but a break held in front of it
-  // gives `a:: b` a line of its own, where it re-reads as a nested
-  // description list. Holding there would trade a manufactured
-  // checkbox for a manufactured list, so the line keeps its packing.
+  // A REFUSAL, recorded rather than hidden, in the one shape that
+  // reaches it: BLOCK SYNTAX under the bracket. Reflow has already
+  // fused the word backwards because it would open a block at the
+  // start of a line (a section title, an admonition label, a bracketed
+  // attribute line), and a break demanded in front of a fused atom is
+  // lifted to the front of its whole run - in front of the bracket,
+  // which spells the same marker line again.
   //
   // Every row is the bytes the base tree wrote, so nothing here is a
   // regression, and every row is a fixed point: where the packed line
@@ -330,15 +321,6 @@ describe("checklist formatting", () => {
     ["a label under `[*]`", "* [*] \nNOTE: a\n", "* [x] NOTE: a\n"],
     ["a bracketed line under `[*]`", "* [*] \n[x] b\n", "* [x] [x] b\n"],
     ["`[*]` with no trailing space", "* [*]\n== h\n", "* [x] == h\n"],
-    ["a separator on the marker line", "* [x]\ta:: b\n", "* [x] a:: b\n"],
-    ["an unchecked bracket before one", "* [ ]\ta:: b\n", "* [ ] a:: b\n"],
-    ["`[*]` before one", "* [*]\ta:: b\n", "* [x] a:: b\n"],
-    ["the `;;` separator", "* [x]\ta;; b\n", "* [x] a;; b\n"],
-    ["the `:::` separator", "* [x]\ta::: b\n", "* [x] a::: b\n"],
-    ["a form feed before one", "* [x]\fa:: b\n", "* [x] a:: b\n"],
-    ["a vertical tab before one", "* [x]\va:: b\n", "* [x] a:: b\n"],
-    ["a nested item", "** [ ]\t\ta:: b\n", "** [ ] a:: b\n"],
-    ["the other unordered marker", "- [x]\t a:: b\n", "- [x] a:: b\n"],
   ])("the marker line keeps its packing for %s", async (_name, input, want) => {
     // Bytes and the fixed point, no render-equality: packing the word
     // onto the marker line is what MAKES the item a checkbox, so the
@@ -349,6 +331,48 @@ describe("checklist formatting", () => {
     expect(out).toBe(want);
     // eslint-disable-next-line test-assertions/no-hand-spelled-format-trailer -- the row's subject is a render the formatter deliberately changes
     expect(await formatAdoc(out)).toBe(out);
+  });
+
+  // A DESCRIPTION-LIST separator on the item's own first line. Ruby's
+  // checkbox prefix is `item_text.start_with?('[ ] ', '[x] ', '[*] ')`
+  // (parser.rb l.1330), a literal SPACE, so no run here spells one and
+  // no output may write one. Two things keep the bytes: a run the
+  // whitespace record calls syntax rides inside the word, and where it
+  // does not (a form feed, a vertical tab) the words arrive apart and
+  // the break is HELD in front of the separator - which puts the block
+  // on its own source lines rather than on a line of its own, because
+  // the item is one line and the hold has nothing to pack.
+  //
+  // Red before both: every row folded its run to the prefix space and
+  // rendered a checked box the input does not.
+  //
+  // Byte-faithful and render-equal, unlike the refusal group above,
+  // so these rows take the three-way helper.
+  test.each([
+    ["a separator on the marker line", "* [x]\ta:: b\n"],
+    ["an unchecked bracket before one", "* [ ]\ta:: b\n"],
+    ["`[*]` before one", "* [*]\ta:: b\n"],
+    ["the `;;` separator", "* [x]\ta;; b\n"],
+    ["the `:::` separator", "* [x]\ta::: b\n"],
+    ["the `::::` separator", "* [x]\ta:::: b\n"],
+    ["a bare separator word", "* [x]\t:: b\n"],
+    ["a separator ending the line", "* [x]\ta::\n"],
+    ["a term-shaped word", "* [x]\tterm:: def\n"],
+    ["a nested item", "** [ ]\t\ta:: b\n"],
+    ["the other unordered marker", "- [x]\t a:: b\n"],
+    ["a form feed before one", "* [x]\fa:: b\n"],
+    ["a vertical tab before one", "* [x]\va:: b\n"],
+  ])("the run in front of %s keeps its bytes", async (_name, input) => {
+    await expectFormatted(input, input);
+  });
+
+  // The run rides where the source wrote it and the words behind it
+  // still reflow: only the run's own bytes are held, not the line.
+  test("a definition past the print width still wraps behind the run", async () => {
+    await expectFormatted(
+      "* [x]\tterm:: a very long definition that will certainly go past the eighty column print width\n",
+      "* [x]\tterm:: a very long definition that will certainly go past the eighty column\n  print width\n",
+    );
   });
 
   // The separator refusal above is about a word on the item's own

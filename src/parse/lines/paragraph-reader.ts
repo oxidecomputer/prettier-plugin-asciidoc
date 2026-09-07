@@ -27,6 +27,7 @@ import {
 } from "../inline/quote-pass.js";
 import type { InlineToken } from "../inline/tokens.js";
 import {
+  holdsDescriptionSeparatorWord,
   LINE_COMMENT_HEAD,
   type OpenList,
   type ParagraphContext,
@@ -34,7 +35,6 @@ import {
 } from "../line-shapes.js";
 import {
   classifyTrace,
-  holdsDescriptionListSeparator,
   isContinuationLine,
   isIndentedContinuationLine,
   isLiteralLine,
@@ -597,7 +597,7 @@ class Paragraph {
    */
   private reflows(line: SourceLine, kind: LineKind): boolean {
     if (this.foldsCommentLine(kind)) {
-      return !holdsDescriptionListSeparator(line.text);
+      return !holdsDescriptionSeparatorWord(line.text);
     }
     if (kind.kind !== "text" || kind.verbatim === true) {
       return false;

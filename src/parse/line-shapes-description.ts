@@ -30,9 +30,10 @@
  *   scripts/metrics/graph.ts, held by tests/parser/architecture.test.ts).
  *   So the OPENING pattern is imported from there and the parse that
  *   rides its groups out is here.
- * - DLIST_SEPARATOR_WORD, because src/print/reflow.ts reads it, and
- *   print reaches into parse at exactly three addresses, line-shapes.ts
- *   among them and this module not.
+ * - DLIST_SEPARATOR_WORD and the predicate over it,
+ *   `holdsDescriptionSeparatorWord`, because src/print/reflow.ts reads
+ *   that predicate, and print reaches into parse at a fixed set of
+ *   addresses, line-shapes.ts among them and this module not.
  *
  * What that leaves is still one question per export, and the two
  * halves of the one Ruby grammar - `DescriptionListRx` (rx.rb:336)

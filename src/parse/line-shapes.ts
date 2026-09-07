@@ -1748,7 +1748,42 @@ const RAW_BLOCK_ANCHOR_CONTEXTS = new Set<ParagraphContext>([
  * Ruby's `[^ \t]` rejects; guarding a word there costs a join that
  * was safe and changes no rendering.
  */
-export const DLIST_SEPARATOR_WORD = /^\S*(?:::|:::|::::|;;)$/v;
+const DLIST_SEPARATOR_WORD = /^\S*(?:::|:::|::::|;;)$/v;
+
+/**
+ * Whether a stretch of text carries a word {@link DLIST_SEPARATOR_WORD}
+ * claims - the same question asked of text that may hold whitespace of
+ * its own rather than of one word.
+ *
+ * ONE HOME for it, because two layers ask it and a second spelling
+ * would let them disagree.
+ *
+ * The reader asks it of a whole LINE, in two places and about two
+ * different lines. The paragraph scan asks it of a line already
+ * classified as a COMMENT, and its question is what the line's words
+ * would become if the `//` heading them stopped heading them
+ * (lines/paragraph-reader.ts, `reflows`). The description-list reflow
+ * conditions ask it of ordinary description text, and their question
+ * is what a word of that text would become if a wrap put it at the
+ * head of a line (lines/description-list.ts, condition S).
+ *
+ * The printer asks it of an ATOM, whose text is one word most of the
+ * time and a run of words wherever the whitespace record made a run
+ * ride inside it (src/print/text-edges.ts): `b<TAB>x::` is one atom
+ * and two words, and the anchored pattern alone answers no for it
+ * while the line it would be written onto reads a term.
+ *
+ * The split is Ruby's own word boundary, `[ \t]+`, which is what
+ * `DescriptionListRx` measures its term against. The pattern itself
+ * is module-local: this is the only question anything asks of it, and
+ * the census dimension it belongs to (`dlist-term`,
+ * scripts/shape-registry.ts) covers it through this name.
+ * @param text - one line, or one atom's text
+ * @returns true when a word of it ends in a term separator
+ */
+export function holdsDescriptionSeparatorWord(text: string): boolean {
+  return text.split(/[ \t]+/v).some((word) => DLIST_SEPARATOR_WORD.test(word));
+}
 
 // A whole line Asciidoctor reads as a description-list item. Mirrors
 // `DescriptionListRx` directly rather than asking

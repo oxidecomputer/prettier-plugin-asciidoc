@@ -306,7 +306,7 @@ const OTHER_CONSTRUCTS: readonly ConstructEntry[] = [
     id: "dlist-term",
     covers: [
       "DESCRIPTION_LIST_LINE",
-      "DLIST_SEPARATOR_WORD",
+      "holdsDescriptionSeparatorWord",
       "parseDescriptionListLine",
       "parseDescriptionSiblingLine",
     ],

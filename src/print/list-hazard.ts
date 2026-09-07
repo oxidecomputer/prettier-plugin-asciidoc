@@ -113,7 +113,6 @@ import {
   isLineComment,
 } from "../block-metadata.js";
 import {
-  DLIST_SEPARATOR_WORD,
   LINE_COMMENT_HEAD,
   THEMATIC_BREAK,
   rstrip,
@@ -530,43 +529,6 @@ type MarkerLineGuard =
 const AS_PACKED: MarkerLineGuard = { kind: "asPacked" };
 
 /**
- * Whether a break demanded in front of the atom at `index` would land
- * on a line the reader takes for something other than the item's text.
- *
- * TWO questions, and they are asked separately because only one of
- * them is already recorded on the atom:
- *
- * - BLOCK SYNTAX at a line start is recorded. `wordsToAtoms` fuses
- *   such a word onto its predecessor, and the text case does the same
- *   across a node boundary ({@link leadingBoundary}), so `isFused` IS
- *   that answer and re-deriving it here would make a second source of
- *   truth for it. A demand recorded on a fused atom would also be
- *   lifted to the front of its whole run ({@link runBreak}), landing
- *   in front of the bracket rather than behind it, which spells the
- *   same marker line again.
- * - A DESCRIPTION-LIST separator word is not. `wordsToAtoms` marks one
- *   only where it came from a later source line
- *   (`index >= firstLineWordCount`), because that is the only way the
- *   FOLD can move one onto the block's first line - and there the mark
- *   is a demanded break this function then reads as `breakBefore`. A
- *   separator word from the item's own first line carries no mark at
- *   all, and a break held in front of it is this function inventing
- *   the very move the mark exists to prevent: `* [x]<TAB>a:: b` would
- *   print `a:: b` on a line of its own, where it re-reads as a nested
- *   description list.
- *
- * The rule the second case violates is `wrap`'s own
- * (src/print/reflow.ts): a demanded break that is not the author's own
- * line boundary is not exempt from the hazard.
- * @param atoms - the item's atoms.
- * @param index - the atom a break would be demanded in front of.
- * @returns true when that break may not be demanded.
- */
-function refusesTheBreak(atoms: readonly Atom[], index: number): boolean {
-  return isFused(atoms, index) || DLIST_SEPARATOR_WORD.test(atoms[index].text);
-}
-
-/**
  * How the item's MARKER LINE must be written, so it does not read back
  * as a checklist item the source did not write.
  *
@@ -588,13 +550,14 @@ function refusesTheBreak(atoms: readonly Atom[], index: number): boolean {
  * lines again, and the re-reader sees `[x]` alone on the marker line
  * exactly as the author wrote it.
  *
- * Where the break may not be held ({@link refusesTheBreak}) the line
- * keeps its packing and DOES read as a checklist item - a failure the
- * base tree has too, and one this cannot trade away without inventing
- * a worse one. What it can do is make that reading a fixed point: the
- * re-read spells a checked box `[x]`, so a head spelled `[*]` has to
- * be written the same way, or the next format moves bytes this one
- * wrote. Hence the third answer.
+ * Where the break may not be held - a FUSED atom, whose demand is
+ * lifted to the front of its run and spells the same marker line
+ * again - the line keeps its packing and DOES read as a checklist
+ * item, a failure the base tree has too and one this cannot trade
+ * away without inventing a worse one. What it can do is make that
+ * reading a fixed point: the re-read spells a checked box `[x]`, so a
+ * head spelled `[*]` has to be written the same way, or the next
+ * format moves bytes this one wrote. Hence the third answer.
  *
  * ASKED OF EVERY UNORDERED LIST, including a `[bibliography]` one,
  * where Ruby takes the bibliography arm BEFORE the checkbox test
@@ -631,7 +594,15 @@ export function markerLineGuard(
     // bracket and the prefix is not live.
     return AS_PACKED;
   }
-  return refusesTheBreak(atoms, at)
+  // A FUSED atom is the one shape the hold cannot reach. `wordsToAtoms`
+  // fuses a word that would open a block at a line start onto its
+  // predecessor, and the text case does the same across a node
+  // boundary (`leadingBoundary`), so a break demanded on one is
+  // lifted to the front of its whole run ({@link runBreak}): in front
+  // of the bracket rather than behind it, which spells the same marker
+  // line again. `isFused` IS that answer, recorded on the atom, and
+  // re-deriving it here would make a second source of truth for it.
+  return isFused(atoms, at)
     ? { kind: "canonicalHead" }
     : { kind: "holdBreak", at };
 }

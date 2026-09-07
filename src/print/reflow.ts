@@ -45,7 +45,7 @@ import {
 } from "../line-verdict.js";
 import type { BlockReading } from "../reader-context.js";
 import {
-  DLIST_SEPARATOR_WORD,
+  holdsDescriptionSeparatorWord,
   LINE_COMMENT_HEAD,
   startsBlockAtLineStart,
 } from "../parse/line-shapes.js";
@@ -902,6 +902,14 @@ function withEdgeRuns(atoms: Atom[], runs: KeptEdgeRuns): Atom[] {
  * output line would silently turn the paragraph into a description
  * list.
  *
+ * ASKED OF THE ATOM'S WORDS, not of the atom, because an atom is one
+ * word only until the whitespace record makes a run ride inside it
+ * (src/print/text-edges.ts): `b<TAB>x::` is one atom, and the line it
+ * would be written onto reads a term off its second word exactly as
+ * the reader does. The anchored pattern alone answered no for it, and
+ * `NOTE: a` over `b<TAB>x:: y` came back with both on the label's
+ * line, where the oracle reads a description list (issue #294).
+ *
  * THIS GUARD ANSWERS FOR A PLAIN PARAGRAPH, and for no other
  * construct. On a paragraph's later line the word really is text
  * (oracle-pinned at src/parse/lines/paragraph-reader.ts), so what is
@@ -927,7 +935,7 @@ function dlistHazard(
   index: number,
   firstLineWordCount: number,
 ): boolean {
-  return index >= firstLineWordCount && DLIST_SEPARATOR_WORD.test(word);
+  return index >= firstLineWordCount && holdsDescriptionSeparatorWord(word);
 }
 
 /**
