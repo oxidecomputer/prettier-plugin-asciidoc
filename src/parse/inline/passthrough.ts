@@ -80,14 +80,13 @@
  *    refused and stays TEXT - a different reading of the same line,
  *    reaching the same bytes. What makes that equivalence hold even
  *    where the interior carries a mark is the glued-`+` rule in
- *    `trailingPlusPolicy` (src/print/text-edges.ts): the trailing
- *    delimiter of `\+*b*+` lands hard against the span it follows, so
- *    it is not escaped, and the line comes back out as the author
- *    wrote it. Measured render-equal to the oracle's
- *    `+<strong>b</strong>+` for `\+*b*+`, `` \+`c`+ ``, `\+{attr}+`
- *    and `\[x-]+*b*+`. The reading is Ruby's outcome, not Ruby's
- *    route, which is why the branches are named here rather than
- *    implemented.
+ *    {@link trailingPlusPolicy}: the trailing delimiter of `\+*b*+`
+ *    lands hard against the span it follows, so it is not escaped, and
+ *    the line comes back out as the author wrote it. Measured
+ *    render-equal to the oracle's `+<strong>b</strong>+` for `\+*b*+`,
+ *    `` \+`c`+ ``, `\+{attr}+` and `\[x-]+*b*+`. The reading is Ruby's
+ *    outcome, not Ruby's route, which is why the branches are named
+ *    here rather than implemented.
  * 2. The `x-` back-reference alternative `\2(x-|[^\[\]]+ x-)\]`, the
  *    legacy monospaced spelling. Its two shapes, `[x-]+text+` and
  *    `[foo x-]+text+`, are both matched by the ordinary attrlist
@@ -106,20 +105,19 @@ import { NEWLINE_LENGTH } from "../../constants.js";
 
 // `CC_WORD` as the pinned oracle spells it (`index.cjs` l.54-68: the
 // class on the first line, applied with the `u` flag by the build's
-// regexp helper on the last, so the properties are real).
-// Transcribed EXACTLY, with no widening. quote-boundaries.ts adds
-// `\p{M}` and `\p{Join_Control}` to its own copy, on the argument
-// that a wider class can only refuse a span and refusing a span
-// leaves the text alone. That argument does NOT hold here: refusing a
-// passthrough does not leave its bytes alone, it drops the construct
-// back on the text path, where the closing `+` becomes a lone word
-// and `escapeDanglingPlus` (src/print/reflow.ts) rewrites it to
-// `{plus}`. Measured on the DECOMPOSED spelling macOS produces - a
-// combining acute is `\p{M}`, not `\p{Alphabetic}`, `\p{N}` or
-// `\p{Pc}`, so the oracle reads `café+*chaud*+` as a
-// passthrough while a widened class refuses it and prints
-// `café+*chaud*{plus}`: the exact issue-#25 corruption, put
-// back by the widening. Same for a zero-width non-joiner or joiner
+// regexp helper on the last, so the properties are real). Transcribed
+// EXACTLY, with no widening. quote-boundaries.ts adds `\p{M}` and
+// `\p{Join_Control}` to its own copy, on the argument that a wider
+// class can only refuse a span and refusing a span leaves the text
+// alone. That argument does NOT hold here: refusing a passthrough does
+// not leave its bytes alone, it drops the construct back on the text
+// path, where the closing `+` becomes a lone word and
+// {@link escapeDanglingPlus} rewrites it to `{plus}`. Measured on the
+// DECOMPOSED spelling macOS produces - a combining acute is `\p{M}`,
+// not `\p{Alphabetic}`, `\p{N}` or `\p{Pc}`, so the oracle reads
+// `café+*chaud*+` as a passthrough while a widened class refuses it
+// and prints `café+*chaud*{plus}`: the exact issue-#25 corruption,
+// put back by the widening. Same for a zero-width non-joiner or joiner
 // (`\p{Join_Control}`) in front of the delimiter.
 const WORD = String.raw`\p{Alphabetic}\p{N}\p{Pc}`;
 
@@ -399,18 +397,17 @@ export function maskPassthroughs(
  * `pass:[]` to the `InlineMacro` row.
  *
  * A PASSTHROUGH TOKEN NEVER ENDS WITH A NEWLINE, and the trailing one
- * is left for the tokenizer's own `InlineNewline` row. Only a half
- * cut off at a fragment's end can end that way - every closing
- * delimiter is `+`, `$` or `]` - and an atom that ends with a line
- * break is a break the output carries twice: once as the atom's own
- * byte and once as the separator the raw line behind it needs. A
- * `+++` passthrough is where that shows, because Ruby gives that
- * boundary `subs: []` and its bytes can be real markup, so the
- * printer copies its newlines out verbatim (`passthroughText`,
- * src/print/serialize-inline.ts) and `+++a` / `// c` / `b+++` printed
- * a blank line in front of the comment. Nothing is lost by leaving
- * the newline outside: the raw line that follows needs a break there
- * anyway, and it now gets exactly one.
+ * is left for the tokenizer's own `InlineNewline` row. Only a half cut
+ * off at a fragment's end can end that way - every closing delimiter
+ * is `+`, `$` or `]` - and an atom that ends with a line break is a
+ * break the output carries twice: once as the atom's own byte and once
+ * as the separator the raw line behind it needs. A `+++` passthrough
+ * is where that shows, because Ruby gives that boundary `subs: []` and
+ * its bytes can be real markup, so the printer copies its newlines out
+ * verbatim ({@link passthroughText}) and `+++a` / `// c` / `b+++`
+ * printed a blank line in front of the comment. Nothing is lost by
+ * leaving the newline outside: the raw line that follows needs a break
+ * there anyway, and it now gets exactly one.
  * @param text - the fragment being tokenized
  * @param index - where the tokenizer stands
  * @param spans - this fragment's passthroughs, in its coordinates

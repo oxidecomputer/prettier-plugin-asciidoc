@@ -49,9 +49,8 @@ interface SpanDelimiters {
  * One span about to be spelled: the node, where it sits, and the two
  * facts about its own printed content that the respelling reads.
  *
- * Assembled once by the caller that has all four
- * (`appendSpan`, src/print/inline.ts) rather than threaded to the rule
- * a parameter at a time.
+ * Assembled once by the caller that has all four ({@link appendSpan})
+ * rather than threaded to the rule a parameter at a time.
  */
 export interface SpanSite {
   /** The span whose delimiters are being spelled. */
@@ -416,31 +415,29 @@ function behindNeighbour(cursor: Cursor, order: number): string | undefined {
  * the bytes {@link verbatimText} will actually write. A formatting
  * span answers for its content AND its ROLE, and the two halves are
  * there for opposite reasons. Its own MARKS are a balanced pair that
- * Ruby's scan consumes as one, so they cannot pair with a
- * neighbour's and are left out. Its role is the other way round: the
- * printer writes those bytes onto the line verbatim
- * (`spanMarks`, src/print/span-edges.ts), the row that resolves the
- * span writes them into an HTML attribute rather than consuming them
- * as delimiters, and a LATER row then reads the marks left standing
- * in there. So a role holding this mark character can pair with a
- * single mark the shortening would leave behind:
- * `[b**c]**d** **a**` shortened to `[b**c]**d** *a*` renders
- * `<strong class="b*<strong>c">d</strong> *a</strong>`, the second
- * span destroyed and the first one's class rewritten. A curved-quote
- * span answers the same way and
- * for the same underlying reason applied one row earlier: its own
- * BACKTICKS are consumed by `QUOTE_SUBS` row 2 (or 3), before rows 4
- * and later could ever see them, so they must not count against a
- * monospace downgrade elsewhere on the line. A raw line or a hard
- * break answers YES without being asked: a verbatim line is arbitrary
- * bytes, and neither is worth a case here - UNLESS it is the asking
- * span's own, which {@link constrainedIsLegal}'s earlier, more precise
- * clauses already answer (a raw-line child refuses outright; a
- * trailing hard break refuses by its atom text): the scan starts from
- * the block ROOT, so the asking span is reachable through an ancestor
- * as well as through its own siblings, and re-answering YES for its
- * own break there would refuse every span that holds one, which is
- * not what those earlier clauses decided.
+ * Ruby's scan consumes as one, so they cannot pair with a neighbour's
+ * and are left out. Its role is the other way round: the printer
+ * writes those bytes onto the line verbatim ({@link spanMarks}), the
+ * row that resolves the span writes them into an HTML attribute rather
+ * than consuming them as delimiters, and a LATER row then reads the
+ * marks left standing in there. So a role holding this mark character
+ * can pair with a single mark the shortening would leave behind:
+ * `[b**c]**d** **a**` shortened to `[b**c]**d** *a*` renders `<strong
+ * class="b*<strong>c">d</strong> *a</strong>`, the second span
+ * destroyed and the first one's class rewritten. A curved-quote span
+ * answers the same way and for the same underlying reason applied one
+ * row earlier: its own BACKTICKS are consumed by `QUOTE_SUBS` row 2
+ * (or 3), before rows 4 and later could ever see them, so they must
+ * not count against a monospace downgrade elsewhere on the line. A raw
+ * line or a hard break answers YES without being asked: a verbatim
+ * line is arbitrary bytes, and neither is worth a case here - UNLESS
+ * it is the asking span's own, which {@link constrainedIsLegal}'s
+ * earlier, more precise clauses already answer (a raw-line child
+ * refuses outright; a trailing hard break refuses by its atom text):
+ * the scan starts from the block ROOT, so the asking span is reachable
+ * through an ancestor as well as through its own siblings, and
+ * re-answering YES for its own break there would refuse every span
+ * that holds one, which is not what those earlier clauses decided.
  * @param node - an inline node beside the span
  * @param mark - the span's mark character
  * @param asking - the span being decided, skipped where reached (its

@@ -312,11 +312,10 @@ describe("an armed + tail under a description", () => {
   // `:active` (parser.rb:1499-1501) and never meets the block it was
   // waiting for, so the item's printed tail still shows it. One blank
   // line under such a tail ATTACHES the next block to the item on
-  // re-read (the `:active` arm, :1483); only a second detaches it
-  // (the after-blank break, :1549). The separator is therefore two
-  // blank lines, and the rule is the one a marker item already had -
-  // reached for a description item through `lastItemOf`
-  // (src/print/join.ts).
+  // re-read (the `:active` arm, :1483); only a second detaches it (the
+  // after-blank break, :1549). The separator is therefore two blank
+  // lines, and the rule is the one a marker item already had - reached
+  // for a description item through {@link lastItemOf}.
   //
   // Red before that: `joinBlocks` read the armed tail off a `list`
   // and off nothing else, so a description list fell through to the

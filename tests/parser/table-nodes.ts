@@ -75,11 +75,10 @@ function openingImage(node: TableCellNode): string {
  *
  * A ROW contributes exactly its cells and no bytes of its own, so the
  * grouping cannot move a byte however it groups. That holds because
- * `groupRows` (src/parse/lines/table-reader.ts) never pushes a row
- * before pushing a cell into it, which `TableRowNode.children` is too
- * wide to say: an empty row would be representable and would replay
- * as nothing, and the count of rows would stop matching the count of
- * cut cells.
+ * {@link groupRows} never pushes a row before pushing a cell into it,
+ * which `TableRowNode.children` is too wide to say: an empty row would
+ * be representable and would replay as nothing, and the count of rows
+ * would stop matching the count of cut cells.
  *
  * This is the same partition src/print/table.ts writes back, spelled
  * independently: the suites compare it against the source, so the two
@@ -113,7 +112,7 @@ export function replayTable(table: TableNode): string {
  * writes. Only a FORCED close can leave one byte, and always the same
  * one: the extent is stamped with the reader's boundary offset, one
  * past the last interior line's terminator, and that terminator
- * belongs to no cell (`regionEnd`, src/parse/lines/table-reader.ts).
+ * belongs to no cell ({@link regionEnd}).
  * @param table - the table node
  * @param over - the source its position names past the replayed bytes
  * @returns whether that overhang is the one its close kind allows

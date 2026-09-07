@@ -286,13 +286,13 @@ describe("buildList", () => {
 });
 
 describe("serialized key order", () => {
-  // The wire order is a contract: parity's flatten fold emits the
-  // same canonical order, so a drift here is a parity break waiting
-  // to happen. Read from the declarations rather than written out
-  // (`declaredKeyOrder`, tests/parser/reader-helpers.ts) - three rows
-  // spelling an item's full key list meant one new field on
-  // ListItemNode failed all three whatever slot it took, which is the
-  // hand copy of the shape this pin exists without.
+  // The wire order is a contract: parity's flatten fold emits the same
+  // canonical order, so a drift here is a parity break waiting to
+  // happen. Read from the declarations rather than written out
+  // ({@link declaredKeyOrder}) - three rows spelling an item's full
+  // key list meant one new field on ListItemNode failed all three
+  // whatever slot it took, which is the hand copy of the shape this
+  // pin exists without.
   test("a list serializes its declared fields, type first, position last", () => {
     const [list] = parse("* a\n").children;
     const keys = serializedKeys(list);

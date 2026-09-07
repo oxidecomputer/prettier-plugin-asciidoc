@@ -4,14 +4,14 @@
  * `DelimitedBlockNode` from an extent and an already-decided role.
  *
  * No decision lives here. Where cells are cut and how they group into
- * rows was decided by `cutCells` and `groupRows`
- * (src/parse/lines/table-reader.ts) before this module ever runs -
- * the two total functions that module's own docstring names as "the
- * table SCAN". What a spec's letters mean was decided by
- * src/parse/lines/table-cell-spec.ts. This module only measures
- * positions from offsets already recorded and places already-decided
- * facts into node literals: the same division build/delimited.ts
- * draws between the reader layer and the builder layer.
+ * rows was decided by `cutCells` and {@link groupRows} before this
+ * module ever runs - the two total functions that module's own
+ * docstring names as "the table SCAN". What a spec's letters mean was
+ * decided by src/parse/lines/table-cell-spec.ts. This module only
+ * measures positions from offsets already recorded and places
+ * already-decided facts into node literals: the same division
+ * build/delimited.ts draws between the reader layer and the builder
+ * layer.
  *
  * Builders sit BELOW the reader in the parse stack (`build-imports-lines`,
  * scripts/metrics/graph.ts), so this file may not import
@@ -52,10 +52,9 @@ import type { LocationIndex } from "../positions.js";
  * node; it belongs where the printer can derive it.
  *
  * `closedAtLineEnd` is absent for a different reason - it is not a
- * cell fact at all, but cut-time bookkeeping `groupRows`
- * (src/parse/lines/table-reader.ts) already spent deciding which cells
- * share a row, and no question this module or a printer asks needs it
- * afterwards.
+ * cell fact at all, but cut-time bookkeeping {@link groupRows} already
+ * spent deciding which cells share a row, and no question this module
+ * or a printer asks needs it afterwards.
  */
 export type TableCellFacts = Readonly<Omit<TableCellNode, "type" | "position">>;
 
@@ -139,8 +138,8 @@ function buildCell(cell: TableCellFacts, at: LocationIndex): TableCellNode {
  * @param at - the document's location index
  * @returns the row node
  * @throws {Error} if `cells` is empty: a can't-happen guard, since
- *   `groupRows` (src/parse/lines/table-reader.ts) never pushes a row
- *   before pushing at least one cell into it
+ *   {@link groupRows} never pushes a row before pushing at least one
+ *   cell into it
  */
 function buildRow(
   cells: readonly TableCellFacts[],
@@ -183,7 +182,7 @@ interface HeldAboveTable {
   readonly annotatedBy: string | undefined;
   /**
    * Whether an attribute line stood above the table whose values the
-   * open did NOT read (`TableNode.attrlistUnread`, src/ast.ts).
+   * open did NOT read ({@link TableNode.attrlistUnread}).
    */
   readonly attrlistUnread: boolean;
 }

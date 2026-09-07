@@ -54,6 +54,18 @@ AI agents) can tell the difference.
 **Line width:** Keep comments within 80 columns. Prettier doesn't reflow
 comments, so wrap them manually.
 
+**Naming a symbol in prose.** Write `{@link cutMatch}`, not `` `cutMatch` ``: a
+name in backticks is indistinguishable from a quoted value or a Ruby method, and
+the tag is the marker that says which it is. The tag carries no path, so it is
+for a name a reader can find: one the citing file itself declares, or one that
+exactly one file in the tree declares. Where several files declare the name,
+write the name with its path beside it instead -
+``(`printedText`, src/print/blocks.ts)``, adjacent, with no word between the
+two - because that reader has to be told which file.
+`bun run internal-citations` holds both spellings, and fails a tag that names
+nothing or names two places; the grammar each is read by is in
+[harnesses.md](harnesses.md).
+
 ## Type Discipline
 
 Make invalid states unrepresentable, and make every function total.

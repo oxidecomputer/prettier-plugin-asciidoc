@@ -5,13 +5,12 @@
  * files, not only in `tables_test.jsonl`, and a suite that read three
  * of them would be measuring a third of the evidence.
  *
- * What is compared is the LINES. `tableCellDocument`
- * (src/parse/lines/table-cell-document.ts) recovers, from a cell's
- * recorded runs, the lines Asciidoctor hands the nested `Document` it
- * builds for that cell; `oracleCellDocuments` (tests/helpers.ts) reads
- * those same lines off `getInnerDocument().getSourceLines()`. Equal
- * line arrays mean a reader run over ours would be reading exactly
- * what the oracle's nested parse read.
+ * What is compared is the LINES. {@link tableCellDocument} recovers,
+ * from a cell's recorded runs, the lines Asciidoctor hands the nested
+ * `Document` it builds for that cell; {@link oracleCellDocuments}
+ * reads those same lines off `getInnerDocument().getSourceLines()`.
+ * Equal line arrays mean a reader run over ours would be reading
+ * exactly what the oracle's nested parse read.
  *
  * Two independent facts ride along, and neither needs the oracle: each
  * line's `raw` is the span of the case's own source at the offset the
@@ -22,8 +21,7 @@
  * WHICH cells are compared is the oracle's call, not this suite's:
  * `getInnerDocument()` answers non-null exactly for the cells it read
  * as documents, so the count comparison below is itself a test of the
- * style resolution `nestedDocumentCells` (tests/parser/table-structure-scan.ts)
- * performs.
+ * style resolution {@link nestedDocumentCells} performs.
  */
 import { describe, expect, test } from "vitest";
 import { parse } from "../../src/parser.js";

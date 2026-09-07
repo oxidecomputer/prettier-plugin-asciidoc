@@ -14,11 +14,11 @@
  *
  * It was written because one such claim was FALSE. `Node.position`
  * carried "not read by the printer" while eight files under
- * `src/print/` read it, `startsOnTheNextLine` (src/print/join.ts)
- * among them, so a decision the printer makes about block separation
- * sat behind a row saying nothing makes decisions from it (issue
- * #204). The reason was written by hand and verified by hand, which
- * is the failure mode a gate exists to remove.
+ * `src/print/` read it, {@link startsOnTheNextLine} among them, so a
+ * decision the printer makes about block separation sat behind a row
+ * saying nothing makes decisions from it (issue #204). The reason was
+ * written by hand and verified by hand, which is the failure mode a
+ * gate exists to remove.
  *
  * THE INSTRUMENT is the TypeScript compiler, not a text search. A
  * name-matching search cannot tell `Location.line` (read as

@@ -5,14 +5,13 @@
  * tests/parser/ast-walk.ts split out of ast-invariants.ts for the
  * identical reason.
  *
- * The tables themselves come from the parse that `tableNodes`
- * (tests/parser/table-nodes.ts) is handed:
- * the reader resolves a table's open and drives the scan, so nothing
- * here re-decides a cutting scheme or re-cuts a cell. What this file
- * owns is the READING of a built cell that the comparison needs and
- * the node deliberately does not store - the buffer text Asciidoctor
- * would hold, and the spec a cell inherits from its column - plus the
- * exclusions the comparison is not entitled to make.
+ * The tables themselves come from the parse that {@link tableNodes} is
+ * handed: the reader resolves a table's open and drives the scan, so
+ * nothing here re-decides a cutting scheme or re-cuts a cell. What
+ * this file owns is the READING of a built cell that the comparison
+ * needs and the node deliberately does not store - the buffer text
+ * Asciidoctor would hold, and the spec a cell inherits from its column
+ * - plus the exclusions the comparison is not entitled to make.
  */
 import { parse } from "../../src/parser.js";
 import type {

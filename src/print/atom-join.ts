@@ -93,7 +93,7 @@ export interface Cursor extends BlockStartCursor {
    * The block's top-level inline children. A constrained spelling
    * exposes its marks to a pass that scans the whole LINE, so the
    * stray-mark question is about the block and not about the span's
-   * siblings - see `constrainedIsLegal` (src/print/declared-rules.ts).
+   * siblings - see {@link constrainedIsLegal}.
    */
   readonly blockNodes: readonly InlineNode[];
   /**

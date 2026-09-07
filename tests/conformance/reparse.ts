@@ -299,15 +299,15 @@ function verbatimOf(value: string): string {
  * "what the printer normalizes" that could drift from it.
  *
  * COST OF FOLLOWING THE PRINTER: a recorded `"a"` and a recorded `a`
- * now project identically here, so this lens is structurally
- * incapable of witnessing a bug where unquoting a value CHANGES what
- * it renders as (a single-quoted value's Ruby substitutions, an
- * attribute reference that only becomes unsafe once Ruby expands it -
- * `needsQuoting`, src/parse/attrlist.ts, is what actually stands guard
- * against those). A green reparse ledger says the printer's
- * canonicalization is CONSISTENT across a parse/format/reparse round
- * trip; it says nothing about whether that canonicalization was safe
- * to make in the first place.
+ * now project identically here, so this lens is structurally incapable
+ * of witnessing a bug where unquoting a value CHANGES what it renders
+ * as (a single-quoted value's Ruby substitutions, an attribute
+ * reference that only becomes unsafe once Ruby expands it -
+ * {@link needsQuoting}, is what actually stands guard against those).
+ * A green reparse ledger says the printer's canonicalization is
+ * CONSISTENT across a parse/format/reparse round trip; it says nothing
+ * about whether that canonicalization was safe to make in the first
+ * place.
  * @param value - the recorded attrlist interior
  * @returns the interior in the printer's own canonical spelling
  */

@@ -36,9 +36,8 @@ export const CHECKBOX_PREFIX_LEN = 4;
  * The body half of a list-like item's input: everything
  * {@link ItemBody} needs, and nothing about what introduced the item.
  * The two item kinds share it by EXTENSION here for the same reason
- * their nodes share `ItemBody` in src/ast.ts - one home, rather than
- * a set of members copied between two builders that could come to
- * disagree.
+ * their nodes share {@link ItemBody} - one home, rather than a set of
+ * members copied between two builders that could come to disagree.
  *
  * Exported for src/parse/build/description-list.ts, whose item is
  * introduced by terms instead of by a marker and reuses this half
@@ -189,9 +188,9 @@ function stripCheckboxPrefix(children: InlineNode[], prefix: string): boolean {
  * `more` written under it carries NO checkbox, because the trailing
  * space came off before the prefix was tested. What that costs is a
  * tree whose printed spelling has to be held apart from the marker
- * line - `markerLineGuard` (src/print/list-hazard.ts) is the other
- * half of it, and without that half this strip would only trade the
- * render failure for an idempotency one.
+ * line - {@link markerLineGuard} is the other half of it, and without
+ * that half this strip would only trade the render failure for an
+ * idempotency one.
  *
  * Read off the token images rather than the built nodes, because the
  * prefix's line can end inside a construct - `* [x] *b*` puts `[x] `

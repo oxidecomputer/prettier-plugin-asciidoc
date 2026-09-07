@@ -525,8 +525,8 @@ export interface Shape {
    * allowed to differ base-vs-head at all — the closed enum lives in
    * scripts/parity-ledger.ts (LEDGER_FAMILIES). A `listRunGrid()`
    * coordinate carries its own; a `standingGrid()` one is answered by
-   * `gridRowFamily` (scripts/shape-registry-families.ts). Undefined
-   * everywhere else, and a differing row with no family fails the run.
+   * {@link gridRowFamily}. Undefined everywhere else, and a differing
+   * row with no family fails the run.
    */
   readonly family?: string;
   /**

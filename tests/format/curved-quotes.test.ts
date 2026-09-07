@@ -212,8 +212,7 @@ describe("curvedQuote's serialized key order", () => {
   // The declaration order in ast.ts is a first-class contract:
   // parity's flatten fold emits the same canonical order, so a drift
   // here is a parity break waiting to happen. Read from the
-  // declarations rather than written out (`declaredKeyOrder`,
-  // tests/parser/reader-helpers.ts).
+  // declarations rather than written out ({@link declaredKeyOrder}).
   test("a curved-quote node's serialized key order is the canonical one", () => {
     const document = parse('x "`a`" y\n');
     const [block] = document.children;

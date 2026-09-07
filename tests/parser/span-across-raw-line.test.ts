@@ -8,14 +8,14 @@
  * `<strong>a\nb</strong> d`: the two doubled marks pair ACROSS the
  * comment, which is not in the text the row reads.
  *
- * Before `scanQuotePass` (src/parse/inline/quote-pass.ts) the four
- * whole-text scans were taken over one reflowable RUN each, so no
- * pair could reach past a raw line. Every row's shape assertion below
- * failed then: row 1 read `boldc["*a",rawLine,"b"]` followed by
- * `"* d"` - a CONSTRAINED single-mark span whose content carried the
- * leftover mark, and a leftover mark in the text behind it. Bytes
- * round-tripped and the render matched even so, which is why no gate
- * caught it; what was wrong was the tree.
+ * Before {@link scanQuotePass} the four whole-text scans were taken
+ * over one reflowable RUN each, so no pair could reach past a raw
+ * line. Every row's shape assertion below failed then: row 1 read
+ * `boldc["*a",rawLine,"b"]` followed by `"* d"` - a CONSTRAINED
+ * single-mark span whose content carried the leftover mark, and a
+ * leftover mark in the text behind it. Bytes round-tripped and the
+ * render matched even so, which is why no gate caught it; what was
+ * wrong was the tree.
  *
  * Each row asserts four things: the oracle's own HTML (pinned here
  * rather than quoted in a comment, so the expectation cannot drift
@@ -143,9 +143,8 @@ const ROWS: readonly Row[] = [
     // NESTED: the raw line sits inside the INNER span, so the outer
     // span's direct children hold none. Both keep the wide spelling,
     // because the refusal is about the span's EXTENT in the source and
-    // not about its child list (`holdsARawLine`,
-    // src/print/declared-rules.ts).
-    // A direct-children test shortened the outer span here and not in
+    // not about its child list ({@link holdsARawLine}). A
+    // direct-children test shortened the outer span here and not in
     // row 1, which is the same document one level down.
     name: "a raw line inside a nested span keeps both wide spellings",
     input: "**a __b\n// c\nc__ d** e\n",

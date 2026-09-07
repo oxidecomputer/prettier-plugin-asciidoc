@@ -8,14 +8,14 @@
  * those combinations no site can build. This module derives the ones
  * that can be, from the FIVE places that construct a ReaderContext:
  *
- * 1. `BLOCK_START_CONTEXT` (src/parse/line-shapes.ts) - the default
+ * 1. {@link BLOCK_START_CONTEXT} - the default
  *    argument of `interruptsParagraph` and `isRawParagraphLine`; all
  *    three fields fixed.
- * 2. `blockStartContextIn` (src/parse/lines/scope.ts) - what
+ * 2. {@link blockStartContextIn} - what
  *    `BlockReader#run` classifies a block's opening line with:
  *    `openParagraph` undefined, `firstLineAfterStart` false, and the
  *    style from `openListIn`.
- * 3. `HEADER_CONTEXT` (src/parse/lines/header-reader.ts) - the same
+ * 3. {@link HEADER_CONTEXT} - the same
  *    three values as (1); a header line is a block start with no list
  *    around it.
  * 4. The `Paragraph` scan's per-line literal
@@ -80,7 +80,7 @@ export const LIST_MARKER_STYLES: readonly string[] = [
  * description item's confinement carries one of these INSTEAD of a
  * marker style: no marker line can spell it, so every marker line
  * inside the item's buffer is foreign to the list that is open
- * (`interiorOfDescription`, src/parse/lines/list-read.ts).
+ * ({@link interiorOfDescription}).
  */
 export const DESCRIPTION_DELIMITERS: readonly DescriptionDelimiter[] = [
   "::",
@@ -171,9 +171,8 @@ const DELIMITER_OPENER: Readonly<Record<DescriptionDelimiter, string>> = {
 
 // The bare term line that opens a TEXTLESS description item of each
 // delimiter - no inline description, matching how `dlistItemTextOnly`
-// itself is opened (`interiorOfDescription`,
-// src/parse/lines/list-read.ts, when the term line carries no text of
-// its own).
+// itself is opened ({@link interiorOfDescription}, when the term line
+// carries no text of its own).
 const DELIMITER_OPENER_TEXT_ONLY: Readonly<
   Record<DescriptionDelimiter, string>
 > = {

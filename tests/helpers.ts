@@ -58,9 +58,9 @@ export interface FormatOverrides {
   printWidth?: number;
   /**
    * The line terminator Prettier writes; the printer reads its own
-   * output back to place a list item boundary (`printedLines`,
-   * src/print/list.ts), so this is the one option besides the width
-   * that changes what that rule sees.
+   * output back to place a list item boundary ({@link printedLines}),
+   * so this is the one option besides the width that changes what that
+   * rule sees.
    */
   endOfLine?: Options["endOfLine"];
   /** How an accepted table's rows are laid out; see src/options.ts. */
@@ -79,8 +79,8 @@ export interface FormatOverrides {
  * @param options.printWidth - line width limit for the formatter
  * @param options.endOfLine - the line terminator Prettier writes; the
  *   printer reads its own output back to place a list item boundary
- *   (`printedLines`, src/print/list.ts), so this is the one option
- *   besides the width that changes what that rule sees
+ *   ({@link printedLines}), so this is the one option besides the
+ *   width that changes what that rule sees
  * @param options.asciidocTableLayout - how an accepted table's rows
  *   are laid out
  * @param options.asciidocTableAlignColumns - whether an accepted

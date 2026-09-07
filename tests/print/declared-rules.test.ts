@@ -113,7 +113,7 @@ function inlineNodesOf(source: string): readonly InlineNode[] {
 
 /**
  * The delimiters the printer would write for the one span in a
- * document, asked exactly as `appendSpan` (src/print/inline.ts) asks.
+ * document, asked exactly as {@link appendSpan} asks.
  * @param source - a document holding one span among plain text
  * @param texts - the atom texts the span's content produces
  * @returns the emission the chokepoint answers with

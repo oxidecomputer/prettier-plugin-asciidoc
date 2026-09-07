@@ -32,9 +32,9 @@
  *   rule, and the one that keeps the two from being one describe: it
  *   is about the gap between an item's own BLOCKS, where a slurp
  *   swallows only the item's own lines and no blank may be invented
- *   (`printedGap`, src/print/list.ts). The describe above it is about
- *   the boundary BETWEEN items, where a slurp reaches somebody else's
- *   marker line and a blank must be (`tailSwallowsMarker`).
+ *   ({@link printedGap}). The describe above it is about the boundary
+ *   BETWEEN items, where a slurp reaches somebody else's marker line
+ *   and a blank must be (`tailSwallowsMarker`).
  * - "the boundary survives a non-LF line terminator" is the boundary
  *   rule under the two non-LF spellings a document can ask for; the
  *   probe renders its lines at LF, so the spelling must not change
@@ -53,9 +53,10 @@ describe("nesting-fidelity: the oracle reads the output nested where it read the
       "- parent\n* child\n** grandchild\n",
       "- parent\n* child\n** grandchild\n",
     ],
-    // The GAP is the author's now too (`ListItemNode.markerGap`,
-    // src/ast.ts): the depth these rows are about is the marker's,
-    // and the tab behind it is replayed rather than respelled.
+    // The GAP is the author's now too
+    // ({@link ListItemNode.markerGap}): the depth these rows are about
+    // is the marker's, and the tab behind it is replayed rather than
+    // respelled.
     ["gP10 tab-gapped nesting (#42)", "* a\n**\tb\n", "* a\n**\tb\n"],
     [
       "gP38 tab-gapped chain (#42)",
@@ -299,12 +300,12 @@ describe("a slurp that stays inside the item needs no blank", () => {
 // document's own terminator the rule fails OPEN in two different
 // spellings: under `crlf` every line carries a trailing `\r`, and
 // under `cr` the output holds no `\n` at all, so the whole item
-// arrives as ONE line. Either way no blank, no `+` and no delimiter
-// is ever seen, no slurp is seen to start or stop, and every boundary
+// arrives as ONE line. Either way no blank, no `+` and no delimiter is
+// ever seen, no slurp is seen to start or stop, and every boundary
 // blank is dropped - which the oracle, whose reader rewrites both
 // spellings to `\n` before it splits, reads as the marker swallowed.
-// The probe renders at `lf` instead (`printedLines`,
-// src/print/list.ts), so all three terminators get the same answer.
+// The probe renders at `lf` instead ({@link printedLines}), so all
+// three terminators get the same answer.
 //
 // The row below normalizes the printer's raw output BY HAND before
 // comparing it against the LF input and rendering it: `out` still

@@ -67,10 +67,10 @@ export interface TrailerScan {
    * A family may be declared both ways in one range, and the two DO
    * interact: a per-id line for an id the bare trailer covers declares
    * nothing and is reported as a failure naming both
-   * (`blanketCoverage`, scripts/parity-keys.ts, carries the argument).
-   * Per-id lines for ids the blanket cannot prove are untouched, which
-   * is the combination an author actually wants - one bare line for
-   * the schema key, one per-id line for each case that moved for some
+   * ({@link blanketCoverage}, carries the argument). Per-id lines for
+   * ids the blanket cannot prove are untouched, which is the
+   * combination an author actually wants - one bare line for the
+   * schema key, one per-id line for each case that moved for some
    * other reason.
    */
   readonly blanket: string[];

@@ -165,17 +165,16 @@ describe("interior whitespace is content, not a trim boundary (issue #77)", () =
 });
 
 describe("a held style with a trailing NBSP is not a recognized paragraph-form style (issue #77)", () => {
-  // The second place a trimmed style matters: `paragraphFormVariant`
-  // (src/parse/lines/open-style.ts) reads the SAME style
-  // `parseAttrlist` computes, and Ruby's oracle does not treat
-  // `[source\u00A0]` as `[source]` above a paragraph - it stays an
-  // ordinary, reflow-eligible paragraph (measured: `[source ]` and
-  // `[source\t]`, where Ruby's blank IS ASCII, both convert to a
-  // listing block; `[source\u00A0]` converts to a plain paragraph).
-  // A held style that keeps its NBSP must leave the body reflow-
-  // eligible too, or the corruption is structural (verbatim content
-  // that should have wrapped at the print width) rather than a
-  // trimmed byte.
+  // The second place a trimmed style matters:
+  // {@link paragraphFormVariant} reads the SAME style `parseAttrlist`
+  // computes, and Ruby's oracle does not treat `[source\u00A0]` as
+  // `[source]` above a paragraph - it stays an ordinary,
+  // reflow-eligible paragraph (measured: `[source ]` and `[source\t]`,
+  // where Ruby's blank IS ASCII, both convert to a listing block;
+  // `[source\u00A0]` converts to a plain paragraph). A held style that
+  // keeps its NBSP must leave the body reflow- eligible too, or the
+  // corruption is structural (verbatim content that should have
+  // wrapped at the print width) rather than a trimmed byte.
   test("the body stays an ordinary paragraph and reflows at the print width", async () => {
     const input =
       "[source\u00A0]\nword1 word2 word3 word4 word5 word6 word7 word8\n";

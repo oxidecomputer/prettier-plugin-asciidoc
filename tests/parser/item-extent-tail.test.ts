@@ -1,10 +1,10 @@
 /**
  * The tail FACTS the post-loop reports beside the buffer
- * (`finishItem`, src/parse/lines/item-tail.ts), and the after-blank
- * arm's hard stop on an erased line: the #56 rows, split from
+ * ({@link finishItem}), and the after-blank arm's hard stop on an
+ * erased line: the #56 rows, split from
  * tests/parser/item-extent.test.ts so each file stays under the
- * `max-lines` ceiling. The branch table itself lives there; these
- * rows pin only what `finishItem` says about an item's TAIL and what the
+ * `max-lines` ceiling. The branch table itself lives there; these rows
+ * pin only what `finishItem` says about an item's TAIL and what the
  * Placeholder tag does to an inner scan.
  */
 import { describe, expect, test } from "vitest";

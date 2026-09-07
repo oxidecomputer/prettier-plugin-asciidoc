@@ -94,9 +94,8 @@ const ROWS: readonly Row[] = [
   {
     // `+++` gives its content `subs: []`, so its newlines are bytes
     // the backend copies out. The half that ends at the dropped line
-    // stops short of the fragment's own newline, or the output
-    // carries that break twice (`passthroughTokenWidth`,
-    // src/parse/inline/passthrough.ts).
+    // stops short of the fragment's own newline, or the output carries
+    // that break twice ({@link passthroughTokenWidth}).
     name: "the triple-plus boundary",
     input: "+++**a\n// c\nb**+++ d\n",
     output: "+++**a\n// c\nb**+++ d\n",

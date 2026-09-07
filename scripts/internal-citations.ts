@@ -77,20 +77,23 @@ export const NAMED_ROOTS = ["src", "tests", "scripts"];
 
 /**
  * The floor below which the scan proved nothing, over the line
- * citations and the symbol citations together. The two scanned files
- * carry over fifty line citations between them and the three trees
- * carry over two hundred symbol citations; a run that finds a handful
- * has lost its roots rather than its citations, and that is a 2.
+ * citations, the symbol citations and the link tags together. A run
+ * that finds a handful has lost its roots rather than its citations,
+ * and that is a 2.
  *
- * Raised from 30 when the symbol scan landed: the old floor was set
- * against the line citations alone, and a symbol scan that resolved
- * nothing at all would have cleared it without a word.
+ * Set from what the tree carries: 1,428, of which 33 are line
+ * citations, 3 are exempt, 88 are symbols beside a path and 1,304 are
+ * link tags. The number to clear is what LOSING A TREE costs, and the
+ * smallest of the three carries 184 of them, so a run that stopped
+ * walking any one of the three lands at 1,244 or below; this floor
+ * sits in that gap. Raised from 200, which was set when the tags
+ * carried no check and most of this surface did not exist.
  *
  * Exported so the floor has a test at its boundary
  * (tests/scripts/internal-citations.test.ts); no other consumer.
  * @internal
  */
-export const MINIMUM_CITATIONS = 200;
+export const MINIMUM_CITATIONS = 1250;
 
 /** How both files spell "and the mutant put this in its place". */
 const REPLACED_BY = "->";

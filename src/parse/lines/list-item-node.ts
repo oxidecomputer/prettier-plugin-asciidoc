@@ -182,11 +182,10 @@ export function listItemNode(
 
 /**
  * Whether the item's last block is a paragraph holding a frozen `+` as
- * its final raw line: the block that only stays alive on re-read
- * while a detached `+` shields it (see `ListItemNode.detachedTail` in
- * src/ast.ts). The shape is exactly what the confined reader makes of
- * a surviving frozen `+`: it heads a paragraph whose raw line spells
- * the byte.
+ * its final raw line: the block that only stays alive on re-read while
+ * a detached `+` shields it (see {@link ListItemNode.detachedTail}).
+ * The shape is exactly what the confined reader makes of a surviving
+ * frozen `+`: it heads a paragraph whose raw line spells the byte.
  *
  * This conjunct STAYS here, and it is the one tail question the scan
  * cannot take over. The other two moved because the scan already
@@ -231,21 +230,19 @@ export function endsInPlusParagraph(blocks: readonly BlockNode[]): boolean {
  * every item to serve one guard.
  *
  * The SHAPE half is the registry's own question
- * (`positionDecidesTheReading`,
- * src/parse/line-shapes-interruption.ts), the same tables the
- * description join's condition F reads, so a shape added to either
- * position table is answered for here without being written down
- * again. WHICH shapes those are is that predicate's business, not
- * this one's, and for `listItemText` they are two: a block anchor,
- * which the two programs read alike, and a block macro, which they do
- * not. The Ruby gem 2.0.26 reads a macro under an item's text as
- * prose at BOTH positions (`parse_list_item` hands the first block to
- * `next_block` with `text_only`, parser.rb l.1368-1374); the pinned
- * instrument opens a block at the first position and reads prose
- * below it. The oracle wins on results, and the divergence is
- * recorded at `LIST_ITEM_FIRST_LINE_INTERRUPTERS`
- * (src/parse/line-shapes.ts), so a change to that row changes this
- * fact with it.
+ * ({@link positionDecidesTheReading}), the same tables the description
+ * join's condition F reads, so a shape added to either position table
+ * is answered for here without being written down again. WHICH shapes
+ * those are is that predicate's business, not this one's, and for
+ * `listItemText` they are two: a block anchor, which the two programs
+ * read alike, and a block macro, which they do not. The Ruby gem
+ * 2.0.26 reads a macro under an item's text as prose at BOTH positions
+ * (`parse_list_item` hands the first block to `next_block` with
+ * `text_only`, parser.rb l.1368-1374); the pinned instrument opens a
+ * block at the first position and reads prose below it. The oracle
+ * wins on results, and the divergence is recorded at
+ * {@link LIST_ITEM_FIRST_LINE_INTERRUPTERS}, so a change to that row
+ * changes this fact with it.
  *
  * The question is asked of the first line under the item's opening
  * line that a COMMENT does not stand on: `next_block`'s metadata loop
@@ -275,7 +272,7 @@ export function endsInPlusParagraph(blocks: readonly BlockNode[]): boolean {
  *
  * A DESCRIPTION sibling needs no drain half: its drained bytes are
  * replayed as the term's GAP, and a non-empty gap already forbids the
- * join (`siblingPrinting`, src/parse/lines/description-list-node.ts).
+ * join ({@link siblingPrinting}).
  * @param buffer - the item's lines, in document order
  * @param openingLine - the 1-based marker line, excluded
  * @param drained - the lines the head drain took, in source order

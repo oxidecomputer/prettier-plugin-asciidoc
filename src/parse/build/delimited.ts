@@ -407,12 +407,12 @@ export function buildDelimitedAdmonition(
  * Records the CHARACTER, not the run: the length is not a fact this
  * builder owes the printer at all, since a tilde run's length is
  * render-irrelevant to the oracle (confluence gate,
- * `delimiterLength/openBlockTilde`) and the printer picks its own
- * safe length the way it already does for every other compound
- * delimiter (`shortestSafeDelimiter`, src/print/blocks.ts). Recording
- * the exact run here and then choosing a different length to print
- * would be a fact read in and thrown away; not recording the length
- * at all is the corresponding subtraction.
+ * `delimiterLength/openBlockTilde`) and the printer picks its own safe
+ * length the way it already does for every other compound delimiter
+ * ({@link shortestSafeDelimiter}). Recording the exact run here and
+ * then choosing a different length to print would be a fact read in
+ * and thrown away; not recording the length at all is the
+ * corresponding subtraction.
  *
  * RSTRIPS the image before comparing and before recording: `open` is
  * a {@link Fragment}, whose default span is the line's RAW spelling
@@ -455,9 +455,9 @@ function openDelimiterFact(openImage: string): { openDelimiter?: "~" } {
  * of boundaries this builder would have to decode.
  *
  * The `variant === "open"` branch is what makes the return type total
- * without a cast: `ParentBlockNode` is a union of `OpenParentBlockNode`
- * (the only member `openDelimiter` may appear on) and
- * `CompoundParentBlockNode` (src/ast.ts), and narrowing `variant`
+ * without a cast: `ParentBlockNode` is a union of
+ * `OpenParentBlockNode` (the only member `openDelimiter` may appear
+ * on) and {@link CompoundParentBlockNode}, and narrowing `variant`
  * here is what tells the compiler which literal shape this call is
  * building, the same way `resolveDelimitedOpen`'s masquerade branch
  * narrows a style to know which `VerbatimRole` it is returning.

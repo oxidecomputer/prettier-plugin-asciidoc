@@ -272,10 +272,10 @@ function printedBlocks(
     // run is erased into the shield the pop takes instead.
     //
     // What stands UNDER the byte is not written here. The item ends on
-    // a live `+`, so it is an ARMED TAIL, and the block-join rules read
-    // it as one (`listTailContinuationActive`, src/print/join.ts):
-    // they own the blank count that decides whether the next block
-    // attaches, and they ask the same predicate this arm did.
+    // a live `+`, so it is an ARMED TAIL, and the block-join rules
+    // read it as one ({@link listTailContinuationActive}): they own
+    // the blank count that decides whether the next block attaches,
+    // and they ask the same predicate this arm did.
     parts.push(hardline, hardline, "+");
   }
   return parts;

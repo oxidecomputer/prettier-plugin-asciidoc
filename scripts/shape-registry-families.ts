@@ -1,7 +1,6 @@
 /**
  * Which expected-diff family explains a base-vs-head difference at a
- * STANDING GRID coordinate (`standingGrid`,
- * scripts/shape-registry-grids.ts).
+ * STANDING GRID coordinate ({@link standingGrid}).
  *
  * One module rather than a field on the perturbation table, because
  * the answer is not a property of the perturbation alone: the same

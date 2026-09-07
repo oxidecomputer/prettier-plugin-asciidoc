@@ -732,13 +732,13 @@ const PAIRING_KINDS: ReadonlySet<InlineTokenType> = new Set(
  *
  * Kind and not WIDTH, deliberately. The printer respells an
  * unconstrained span with the constrained mark wherever the two render
- * alike (`constrainedIsLegal`, src/print/declared-rules.ts), so the same
- * document read a second time offers the same pairing in a narrower
- * spelling. A guard that asked for the width would fire on the first
- * reading and not on the second, and the two readings would disagree
- * about which spans exist. Which ROW pairs the two is not the question
- * here anyway: the question is whether anything in front of this
- * opener could want the delimiter this span would enclose.
+ * alike ({@link constrainedIsLegal}), so the same document read a
+ * second time offers the same pairing in a narrower spelling. A guard
+ * that asked for the width would fire on the first reading and not on
+ * the second, and the two readings would disagree about which spans
+ * exist. Which ROW pairs the two is not the question here anyway: the
+ * question is whether anything in front of this opener could want the
+ * delimiter this span would enclose.
  * @param tokens - the stream being resolved
  * @param openIndex - position of the opening mark
  * @param mark - the delimiter standing in the content

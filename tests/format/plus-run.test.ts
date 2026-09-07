@@ -131,9 +131,9 @@ describe("a live metadata tail keeps its two-blank detachment", () => {
 // at 4 characters of difference on the first row.
 //
 // What these rows do NOT pin is the block-shape conjunct
-// (`endsInPlusParagraph`, src/parse/lines/list-item-node.ts): with
-// the scan's half already false, the conjunct changes nothing here.
-// The row that holds it is "behind an attached paragraph" below.
+// ({@link endsInPlusParagraph}): with the scan's half already false,
+// the conjunct changes nothing here. The row that holds it is "behind
+// an attached paragraph" below.
 describe("a detached + a block closed is not a detached TAIL", () => {
   test.each([
     ["a comment closes the run", "* a\n\n+\n// c\n", "* a\n\n+\n// c\n"],

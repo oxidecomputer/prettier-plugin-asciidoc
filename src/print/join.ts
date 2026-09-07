@@ -78,16 +78,16 @@ function isDocumentTitle(block: BlockNode): boolean {
 //   and the incumbent forced blank is preserved because the
 //   covenant here is byte identity.
 // - A pseudo-anchor line above a level >= 1 heading needs no rule
-//   here. The pair only ever reaches the printer as two siblings
-//   when the author wrote a blank between them - a section title
-//   does not interrupt a paragraph, so the adjacent spelling is one
-//   paragraph and no pair exists - and the blank the author wrote is
-//   a recorded fact the metadata arm replays
-//   (`ParagraphNode.blankBelowAnchorLine`, src/ast.ts). A second,
-//   level-keyed suppression stood here until the fact was recorded;
-//   it was deleted once measured inert (byte-identical output over
-//   every anchor-above-heading shape its own comment named, and over
-//   the whole deep battery).
+//   here. The pair only ever reaches the printer as two siblings when
+//   the author wrote a blank between them - a section title does not
+//   interrupt a paragraph, so the adjacent spelling is one paragraph
+//   and no pair exists - and the blank the author wrote is a recorded
+//   fact the metadata arm replays
+//   ({@link ParagraphNode.blankBelowAnchorLine}). A second,
+//   level-keyed suppression stood here until the fact was recorded; it
+//   was deleted once measured inert (byte-identical output over every
+//   anchor-above-heading shape its own comment named, and over the
+//   whole deep battery).
 // - Aligning level >= 1 to the header's author-adjacency rule is a
 //   deliberate byte-change candidate for later work, not drift.
 //
@@ -438,12 +438,11 @@ function startsOnTheNextLine(previous: BlockNode, current: BlockNode): boolean {
  * broke the walk on a marker directly under it
  * (`ListContinuationMarker === buffer[-1]`, l.1580-82).
  *
- * The two other tail bytes `tailParts` (src/print/list.ts) writes are
- * excluded here rather than merely unlikely. `detachedTail` needs a
- * last block, so the empty-blocks test rules it out; a live
- * `trailingContinuation` prints its own `+` DIRECTLY under the run,
- * which stops the drain on its own and makes a second byte
- * unnecessary.
+ * The two other tail bytes {@link tailParts} writes are excluded here
+ * rather than merely unlikely. `detachedTail` needs a last block, so
+ * the empty-blocks test rules it out; a live `trailingContinuation`
+ * prints its own `+` DIRECTLY under the run, which stops the drain on
+ * its own and makes a second byte unnecessary.
  *
  * The reflow arm writes no body lines at all - the description is
  * joined onto the term line, and the item's buffer re-reads empty - so

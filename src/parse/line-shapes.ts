@@ -546,11 +546,10 @@ export function optionalGroup(group: string): string | undefined {
  *   same assertions from the other side.
  * - {@link BLOCK_ANCHOR_BOTH_PROGRAMS} is the INTERSECTION of the two,
  *   and it is what licenses a RESPELLING. Rewriting `[#id]` into
- *   `[[id]]` (`attrlistAnchorId`, src/parse/attrlist.ts) or padding an
- *   anchor's comma (`anchorToSource`, src/print/serialize-inline.ts)
- *   moves the id into a spelling this formatter chose, so both
- *   programs have to carry the id THERE; where only one does, the
- *   author's bytes stay as written.
+ *   `[[id]]` ({@link attrlistAnchorId}) or padding an anchor's comma
+ *   ({@link anchorToSource}) moves the id into a spelling this
+ *   formatter chose, so both programs have to carry the id THERE;
+ *   where only one does, the author's bytes stay as written.
  */
 const BLOCK_ANCHOR_ID_TAIL_ORACLE = String.raw`\p{Alphabetic}\p{N}\p{Pc}\-:.`;
 const BLOCK_ANCHOR_ID_TAIL_BOTH = String.raw`\p{Alphabetic}\p{Nd}\p{Pc}\-:.`;
@@ -772,10 +771,9 @@ export const BLOCK_ANCHOR = wholeLine(BLOCK_ANCHOR_SOURCE);
 /**
  * The same line shape over the id characters BOTH authorities read
  * (`BLOCK_ANCHOR_ID_TAIL_BOTH`), for the two sites that RESPELL an
- * anchor rather than read one: `attrlistAnchorId`
- * (src/parse/attrlist.ts), which rewrites `[#id]` as `[[id]]`, and
- * `anchorToSource` (src/print/serialize-inline.ts), which pads an
- * anchor's comma. Both move an id into a spelling this formatter
+ * anchor rather than read one: {@link attrlistAnchorId}, which
+ * rewrites `[#id]` as `[[id]]`, and {@link anchorToSource}, which pads
+ * an anchor's comma. Both move an id into a spelling this formatter
  * chose, and a spelling only one program reads as an anchor loses the
  * id under the other: `[#a①]` carries `id="a①"` to Ruby and to the
  * oracle alike, while the `[[a①]]` this would otherwise print is an
@@ -897,10 +895,10 @@ const DELIMITED_BLOCK_LINES: readonly RegExp[] = DELIMITER_KINDS.map(
 /**
  * Whether a line is a delimited-block delimiter.
  *
- * Read by the printer's item-boundary rule (`tailSwallowsMarker`,
- * src/print/list.ts), which has to call the same lines opaque that
- * the reader's item loop hands to `read_lines_until terminator:`, and
- * by the interruption oracle suite
+ * Read by the printer's item-boundary rule
+ * ({@link tailSwallowsMarker}), which has to call the same lines
+ * opaque that the reader's item loop hands to `read_lines_until
+ * terminator:`, and by the interruption oracle suite
  * (tests/conformance/interruption.test.ts).
  * @param line - one source line, without its trailing newline
  * @returns true for `----`, `--`, ` ``` `, and the rest of
@@ -969,9 +967,9 @@ const SINGLE_WORD_LINE = new RegExp(
  * scripts/metrics/graph.ts).
  *
  * What reads the answer is the printer's block-start hazard net,
- * through `ParagraphNode.firstWordEndsItsLine` (src/ast.ts); why ONE
- * word is the condition it trades on is stated at the net itself
- * (`keepBlockStartBreak`, src/print/block-start-hazard.ts).
+ * through {@link ParagraphNode.firstWordEndsItsLine}; why ONE word is
+ * the condition it trades on is stated at the net itself
+ * ({@link keepBlockStartBreak}).
  * @param line - one rstripped source line
  * @returns true when the line is one word between its edges
  */
@@ -1331,13 +1329,12 @@ export const BLOCK_MACRO =
  * itself distinguishes them.
  *
  * THIS ROW'S MATCH DEPENDS ON INTERIOR SPACING, and the printer's
- * whitespace fold normalizes interior spacing. A line the oracle
- * reads as TEXT (`_ _  _`, an unequal gap) would fold to one this row
- * reads as a break, moving the render on the first pass and then
- * normalizing to `'''` on the second. The refusal that stops it is
- * the fold's, not this registry's: `fuseRunsSpellingABreak`
- * (src/print/whitespace-fold.ts) keeps such a run's bytes, and asks
- * the same question over the same three marks.
+ * whitespace fold normalizes interior spacing. A line the oracle reads
+ * as TEXT (`_ _ _`, an unequal gap) would fold to one this row reads
+ * as a break, moving the render on the first pass and then normalizing
+ * to `'''` on the second. The refusal that stops it is the fold's, not
+ * this registry's: {@link fuseRunsSpellingABreak} keeps such a run's
+ * bytes, and asks the same question over the same three marks.
  */
 export const THEMATIC_BREAK =
   /^(?:'{3,}| {0,3}(?<mark>[\-*_])(?<gap> *)\k<mark>\k<gap>\k<mark>)$/v;

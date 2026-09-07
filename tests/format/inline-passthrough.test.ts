@@ -131,10 +131,10 @@ const PASSTHROUGHS: Array<[string, string[], string]> = [
   // required - an atom carrying a newline would print as two lines.
   ["+a +\nb+", ["+a +\nb+"], "+a + b+\n"],
   // The `+++` form is the exception, and the reason
-  // `passthroughText` (src/print/serialize-inline.ts) exists: it
-  // carries `subs: []` (substitutors.rb l.1049), so its bytes reach
-  // the backend output verbatim and an interior newline can be the
-  // content of a `<pre>` the page really emits. The break is kept.
+  // {@link passthroughText} exists: it carries `subs: []`
+  // (substitutors.rb l.1049), so its bytes reach the backend output
+  // verbatim and an interior newline can be the content of a `<pre>`
+  // the page really emits. The break is kept.
   [
     "+++<pre>a\nb</pre>+++",
     ["+++<pre>a\nb</pre>+++"],
@@ -371,7 +371,7 @@ test("the oracle receives the interior byte for byte", async () => {
 /**
  * A verbatim construct that would be BLOCK syntax at column 0 travels
  * in its predecessor's run rather than opening an output line
- * (`verbatimBoundary`, src/print/inline.ts).
+ * ({@link verbatimBoundary}).
  *
  * `++++` is what made the net necessary: Asciidoctor reads it as a
  * passthrough with empty content, and reads it at the head of a line
@@ -398,7 +398,7 @@ describe("block syntax never opens an output line", () => {
 /**
  * The block's own SECOND line keeps the break the author wrote, even
  * when the word-level net has already fused its first word backwards
- * (`keepBlockStartBreak`, src/print/block-start-hazard.ts).
+ * ({@link keepBlockStartBreak}).
  *
  * A paragraph whose first line is a bare `*` and whose second opens
  * with another one packs to `* *...` at column 0, which the reader

@@ -10,13 +10,13 @@
  * being asked to canonicalize.
  *
  * Every axis is derived from the reader's own vocabulary rather than
- * sampled. The delimiter rows come from `DELIMITER_SOURCES`
- * (src/parse/line-shapes.ts) one per key whose pattern admits a run
- * longer than the tip; the marker rows from the style keys
- * `listMarkerStyle` resolves onto (LIST_MARKER_STYLES,
- * reader-context-space.ts), grouped into the classes Asciidoctor
- * renders alike; the section rows from `SETEXT_LEVEL_MARKS`. Where an
- * axis covers less than its whole vocabulary the row says why.
+ * sampled. The delimiter rows come from {@link DELIMITER_SOURCES} one
+ * per key whose pattern admits a run longer than the tip; the marker
+ * rows from the style keys `listMarkerStyle` resolves onto
+ * (LIST_MARKER_STYLES, reader-context-space.ts), grouped into the
+ * classes Asciidoctor renders alike; the section rows from
+ * `SETEXT_LEVEL_MARKS`. Where an axis covers less than its whole
+ * vocabulary the row says why.
  *
  * {@link RENDER_RELEVANT} is the other half of the same question. A
  * candidate variation that turns out to CHANGE the render is not a
@@ -90,7 +90,7 @@ const TABLE_HINTS: Readonly<Partial<Record<DelimiterKind, string>>> = {
 
 /**
  * The delimiter kinds whose spelling has no length to vary, with the
- * reason from `DELIMITER_SOURCES` (src/parse/line-shapes.ts).
+ * reason from {@link DELIMITER_SOURCES}.
  *
  * The gate holds {@link DELIMITED} and this set to a partition of
  * `DELIMITER_KINDS`, so a new delimited block joins the axis or
@@ -191,8 +191,8 @@ const MARKER_VARIANTS: readonly Variant[] = [
  * plus the closed one-line form and the underline's own length.
  *
  * Level 0 is ABSENT on purpose: an underlined doctitle sets
- * `compat-mode` document-wide (`DocumentHeaderNode.underline`,
- * src/ast.ts), so the two spellings render differently. It is a
+ * `compat-mode` document-wide ({@link DocumentHeaderNode.underline}),
+ * so the two spellings render differently. It is a
  * {@link RENDER_RELEVANT} row instead. A level-0 underlined heading
  * that is NOT the header sets nothing, so it belongs here.
  */
@@ -478,8 +478,7 @@ export const RENDER_RELEVANT: ReadonlyArray<{
     id: "doctitle-underline",
     // `parse_document_header` sets `compat-mode` unless the doctitle
     // is ATX (parser.rb l.160-61), and under compat mode `'x'` is
-    // emphasis document-wide (`DocumentHeaderNode.underline`,
-    // src/ast.ts).
+    // emphasis document-wide ({@link DocumentHeaderNode.underline}).
     reason: "an underlined doctitle sets compat-mode on the whole document",
     left: "= Title\n\n'emphasis' and +content+\n",
     right: "Title\n=====\n\n'emphasis' and +content+\n",

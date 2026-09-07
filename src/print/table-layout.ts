@@ -3,10 +3,9 @@
  *
  * ONE total function from a table to a plan. The `"replay"` arm is the
  * printer's own body unchanged, which is the same shape
- * `canonicalAttrlist` (src/parse/attrlist.ts) takes when
- * `attrlistFields` declines an interior: the byte-replaying printer
- * does not become dead code and does not become a special case, it
- * becomes the arm the gate selects.
+ * {@link canonicalAttrlist} takes when `attrlistFields` declines an
+ * interior: the byte-replaying printer does not become dead code and
+ * does not become a special case, it becomes the arm the gate selects.
  *
  * Every decline reason names a fact the model ALREADY RECORDS, so the
  * gate is a fold over the node with no re-derivation and no second
@@ -973,9 +972,9 @@ function stripSpecPad(spec: string): string {
  * named the same way at src/print/blocks.ts:107 and :317).
  *
  * The set is declared here rather than imported. The parse side has
- * its own copy (`rubyStrip`, src/parse/lines/table-reader.ts) and
- * `print/` reads `parse/` at exactly three addresses
- * (scripts/metrics/graph.ts), of which that file is not one.
+ * its own copy ({@link rubyStrip}) and `print/` reads `parse/` at
+ * exactly three addresses (scripts/metrics/graph.ts), of which that
+ * file is not one.
  *
  * Where a cell's effective style is literal its leading whitespace is
  * content and the printer neither adds nor removes any (`l|` rstrips

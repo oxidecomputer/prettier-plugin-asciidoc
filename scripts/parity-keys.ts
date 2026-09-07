@@ -2,12 +2,12 @@
  * The KEY-IGNORING half of parity's AST comparison, and the blanket
  * `Parity-Diff:` trailer that stands on it.
  *
- * `differingCases` (scripts/parity.ts) decides a case by
- * `baseRow.ast !== headRow.ast`. Everything here is that same
- * comparison with a declared set of keys removed from both sides — the
- * question a SCHEMA change asks, where a node kind starts recording a
- * fact and every case carrying that node kind moves in the serialized
- * tree while no case's bytes move at all.
+ * {@link differingCases} decides a case by `baseRow.ast !==
+ * headRow.ast`. Everything here is that same comparison with a
+ * declared set of keys removed from both sides — the question a SCHEMA
+ * change asks, where a node kind starts recording a fact and every
+ * case carrying that node kind moves in the serialized tree while no
+ * case's bytes move at all.
  *
  * It reads the dumper's OWN serialization rather than adding a second
  * one: the strings come back from a verbatim `dump` of the same
@@ -35,8 +35,8 @@ interface DumpedTexts {
 /**
  * What {@link blanketCoverage} needs of the family enumeration: which
  * families exist, and which of them declare AST keys. Structural, so
- * `FamilySets` (scripts/parity-ledger.ts) satisfies it without this
- * module importing that one.
+ * {@link FamilySets} satisfies it without this module importing that
+ * one.
  */
 interface KeyedFamilies {
   /** Every family a trailer may cite. */
@@ -47,8 +47,8 @@ interface KeyedFamilies {
 
 /**
  * One per-id ledger entry, as this module reads it. Structural, so
- * `ExpectedDiff` (scripts/parity-ledger.ts) satisfies it without this
- * module importing that one.
+ * {@link ExpectedDiff} satisfies it without this module importing that
+ * one.
  */
 interface PerIdEntry {
   /** Corpus case id, or `fixture:<name>`. */
@@ -181,10 +181,10 @@ export function keyCoverage(
 /**
  * What a BARE trailer covers, and what it refuses.
  *
- * Runs BEFORE `expectedDiffFailures` (scripts/parity-ledger.ts) and
- * hands it the streams with the covered ids removed, so the per-id
- * form is untouched: an id a blanket family cannot prove still arrives
- * at the per-id gate and still needs its own trailer.
+ * Runs BEFORE {@link expectedDiffFailures} and hands it the streams
+ * with the covered ids removed, so the per-id form is untouched: an id
+ * a blanket family cannot prove still arrives at the per-id gate and
+ * still needs its own trailer.
  *
  * The proof is `covers` ({@link keyCoverage} in production): a case is
  * covered when its formatted BYTES are identical and its two ASTs

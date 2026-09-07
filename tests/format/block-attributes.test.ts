@@ -285,9 +285,9 @@ describe("block anchor spelling and idempotence: byte-identical across the node 
 // reftext alternative does not, Asciidoctor reads the line as an
 // ordinary PARAGRAPH — and so does the reader. It still prints as
 // `[[…]]` alone on a line, so the printer keeps it stacked with the
-// block below (`anchorLineShape`, src/block-metadata.ts — the shared
-// record both printer-side rules consult): the author's
-// bytes survive and re-parsing our output gains no blank line.
+// block below ({@link anchorLineShape} — the shared record both
+// printer-side rules consult): the author's bytes survive and
+// re-parsing our output gains no blank line.
 //
 // The class the suites missed before `blockAnchor` became its own node
 // kind: every anchor alphabet in
@@ -357,8 +357,8 @@ describe("pseudo-anchor lines: a `[[…]]` line that is not a block anchor", () 
   // counted CHILDREN, found two, and the printer wrote a blank line
   // that pass 2 took straight back out - a pure idempotency wobble,
   // since the blank changes nothing about how the pair renders. The
-  // record now asks what the printer will EMIT (`anchorLineShape`,
-  // src/block-metadata.ts), so pass 1 is the fixed point.
+  // record now asks what the printer will EMIT
+  // ({@link anchorLineShape}), so pass 1 is the fixed point.
   //
   // One row per block the anchor can sit above, because the wobble
   // needs a following block that does NOT merge with an anchor: a
@@ -496,18 +496,17 @@ describe("pseudo-anchor lines: a `[[…]]` line that is not a block anchor", () 
 // Issue #79: `[[anc]] ` (a valid id, trailing ASCII whitespace, alone
 // on a line) used to format to `[[anc]]]` - an invented `]` byte, one
 // per trailing whitespace character, and a render change (the extra
-// bracket fails BLOCK_ANCHOR, so the corrupted line reads back as
-// text on re-parse). Root cause: the builder sliced the RAW line's
-// image, which still carried the trailing whitespace the classifier
-// had already rstripped away to recognise the line as an anchor in
-// the first place - `slice(2, -2)` then cut the closing `]]` short by
+// bracket fails BLOCK_ANCHOR, so the corrupted line reads back as text
+// on re-parse). Root cause: the builder sliced the RAW line's image,
+// which still carried the trailing whitespace the classifier had
+// already rstripped away to recognise the line as an anchor in the
+// first place - `slice(2, -2)` then cut the closing `]]` short by
 // however many bytes of whitespace sat past it. Every held metadata
-// builder now gets the rstripped span instead (`heldMetadataNode`,
-// src/parse/lines/held-metadata.ts). The oracle rstrips every line
-// before any rule runs (Asciidoctor's reader), so the trailing
-// whitespace is not part of what it read either: every row below is
-// the SAME anchor as its bare-`[[anc]]` twin, and renders identically
-// to it.
+// builder now gets the rstripped span instead
+// ({@link heldMetadataNode}). The oracle rstrips every line before any
+// rule runs (Asciidoctor's reader), so the trailing whitespace is not
+// part of what it read either: every row below is the SAME anchor as
+// its bare-`[[anc]]` twin, and renders identically to it.
 describe("issue #79: trailing ASCII whitespace after a valid anchor id", () => {
   test.each([
     ["one space", "[[anc]] \n\npara\n", "[[anc]]\n\npara\n"],

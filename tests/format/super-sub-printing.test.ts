@@ -17,11 +17,10 @@
  *
  * THE BLOCK-START NET. `...` is a level-3 ordered-list marker at
  * column 0, and before this vocabulary it was the first WORD of the
- * block's first text node, where `keepBlockStartBreak`
- * (src/print/block-start-hazard.ts) read it. Carving those three bytes
- * into a node of their own had to leave the net's reach exactly where
- * it was, or `...` then `b c` packs to `... b c` - an ordered list the
- * source never had.
+ * block's first text node, where {@link keepBlockStartBreak} read it.
+ * Carving those three bytes into a node of their own had to leave the
+ * net's reach exactly where it was, or `...` then `b c` packs to `...
+ * b c` - an ordered list the source never had.
  *
  * THE DERIVED EDGE. An unconstrained span decides its spelling from
  * what stands beside it AS ITS OWN `QUOTE_SUBS` ROW SEES IT
@@ -150,14 +149,14 @@ describe("the block-start hazard net still reaches a reference", () => {
 });
 
 describe("an unconstrained span beside or inside a pair still shortens", () => {
-  // The two rows run LAST, so whichever mark span asks, its own row has
-  // already run when a super/sub delimiter is read - and what stands
-  // beside it is the caret or tilde itself, which no boundary class
-  // excludes. Both directions and both nestings are asked, because
-  // `edgeTail`, `edgeHead` (src/print/span-edges.ts) and `headContext`
-  // (src/print/declared-rules.ts) are three call sites of the same row
-  // lookup and a pair that went opaque to one of them would keep the
-  // wide spelling on that side alone.
+  // The two rows run LAST, so whichever mark span asks, its own row
+  // has already run when a super/sub delimiter is read - and what
+  // stands beside it is the caret or tilde itself, which no boundary
+  // class excludes. Both directions and both nestings are asked,
+  // because `edgeTail`, {@link edgeHead} and {@link headContext} are
+  // three call sites of the same row lookup and a pair that went
+  // opaque to one of them would keep the wide spelling on that side
+  // alone.
   test.each([
     ["a pair in front", "x ^a^**b** y", "x ^a^*b* y"],
     ["a pair behind", "x **b**^a^ y", "x *b*^a^ y"],

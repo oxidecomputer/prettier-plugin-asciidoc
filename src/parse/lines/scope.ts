@@ -294,13 +294,12 @@ export function bodyContextIn(
  *
  * - An ERASED `+`, the `+` the item's own scan read as this item's
  *   continuation and replaced with `ListContinuationPlaceholder`
- *   (parser.rb l.1439). The gap in front of the block below it
- *   records that `+` and the printer writes it back on its own line
- *   (`gapParts`, src/print/list.ts), so the bytes the answer depends
- *   on are the bytes the output carries. A `marker`-tagged `+` is NOT
- *   this: `within_nested_list` (parser.rb l.1415) held it for a
- *   nested list's own scan, so this item neither owns it nor prints
- *   it here.
+ *   (parser.rb l.1439). The gap in front of the block below it records
+ *   that `+` and the printer writes it back on its own line
+ *   ({@link gapParts}), so the bytes the answer depends on are the
+ *   bytes the output carries. A `marker`-tagged `+` is NOT this:
+ *   `within_nested_list` (parser.rb l.1415) held it for a nested
+ *   list's own scan, so this item neither owns it nor prints it here.
  * - A DELIMITER LINE, which at a block start can only be the
  *   TERMINATOR of the delimited block that ended on it: a delimiter
  *   that OPENED a block would have taken this position into that

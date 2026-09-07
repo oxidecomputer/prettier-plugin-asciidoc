@@ -735,9 +735,9 @@ const BARE_ADDRESS_BODY = new RegExp(`^${BARE_ADDRESS_BODY_SOURCE}`, "v");
  * The printer needs this and cannot have the pattern: a span it is
  * about to respell with the shorter mark loses that mark to the
  * address in front of it wherever the match reaches it, and the two
- * spellings are then not interchangeable (`constrainedIsLegal`,
- * src/print/declared-rules.ts). Asking HERE keeps the class in the one
- * place that spells it, which is what the rule table is for.
+ * spellings are then not interchangeable ({@link constrainedIsLegal}).
+ * Asking HERE keeps the class in the one place that spells it, which
+ * is what the rule table is for.
  *
  * The answer is an offset, not a boolean, because the caller's own
  * question is about a position: does the match cover the mark that

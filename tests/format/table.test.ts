@@ -172,9 +172,9 @@ describe("the shapes issue #10 was filed for", () => {
  * which is one of the structure suite's named exclusions.
  *
  * Each input's structure was read from the oracle's parsed model
- * (`oracleTables`, tests/helpers.ts) before its expectation was
- * written, and the rows whose oracle answer is counter-intuitive say
- * what that answer was.
+ * ({@link oracleTables}) before its expectation was written, and the
+ * rows whose oracle answer is counter-intuitive say what that answer
+ * was.
  */
 describe("the cell surfaces format to themselves", () => {
   test.each([
@@ -297,12 +297,11 @@ describe("the delimiter is respelled to its shortest safe length", () => {
     );
   });
 
-  // MINIMAL LENGTH, not grow-past-the-longest: a rule that padded
-  // past the longest conflicting line would answer this interior with
+  // MINIMAL LENGTH, not grow-past-the-longest: a rule that padded past
+  // the longest conflicting line would answer this interior with
   // something LONGER than `|=======`. Both re-read as the same table;
   // only the shortest is canonical, and it is the same rule every
-  // other delimiter takes (`shortestSafeDelimiter`,
-  // src/print/blocks.ts).
+  // other delimiter takes ({@link shortestSafeDelimiter}).
   test("an interior line longer than the delimiter does not lengthen it", async () => {
     await expectTableFormat(
       "|=====\n|a\n|=======\n|b\n|=====\n",
@@ -361,8 +360,7 @@ describe("the delimiter is respelled to its shortest safe length", () => {
  * rows is a layout choice measured render-equal.
  *
  * Each row's structure was read from the oracle's own parsed model
- * (`oracleTables`, tests/helpers.ts) before its expectation was
- * written.
+ * ({@link oracleTables}) before its expectation was written.
  */
 describe("an accepted table takes the normal form", () => {
   // One recorded row per source line. The first row stays where it
@@ -586,11 +584,11 @@ describe("the cell layout, and the width that chooses it", () => {
 
   // ONE EMISSION, reached two ways. A width-flipped table under the
   // default value and the same table under `"cell"` are the same
-  // bytes, because `chooseLayout` (src/print/table-layout.ts) answers
-  // `"cell"` in both cases and the emission reads only that answer.
-  // The parity families lean on this: an id whose tables were flipped
-  // by the width takes `table-width-layout`, and it may do so only
-  // because the flip writes what the option value writes.
+  // bytes, because {@link chooseLayout} answers `"cell"` in both cases
+  // and the emission reads only that answer. The parity families lean
+  // on this: an id whose tables were flipped by the width takes
+  // `table-width-layout`, and it may do so only because the flip
+  // writes what the option value writes.
   test("the width flip and the cell value are the same emission", async () => {
     const input = `|===\n|a |b\n\n|${WIDE} |${TALL}\n|c |d\n|===\n`;
     const flipped = await formatAdoc(input, { printWidth: 40 });
@@ -689,12 +687,12 @@ describe("cell text padded so the separators line up", () => {
   // where that is written down as bytes. Every row of this table
   // measures 44 columns unaligned and fits the width of 50; padding
   // column 0 out to 41 takes the second row to 83. Accepted rather
-  // than guarded, because a guard is the oscillation `chooseLayout`
-  // (src/print/table-layout.ts) refuses: padding that fed back into
-  // the layout choice would widen a row, flip the layout, and turn
-  // itself off again. Byte-exact, render-equal and a fixed point all
-  // the same, which is what makes exceeding the width a cost rather
-  // than a defect.
+  // than guarded, because a guard is the oscillation
+  // {@link chooseLayout} refuses: padding that fed back into the
+  // layout choice would widen a row, flip the layout, and turn itself
+  // off again. Byte-exact, render-equal and a fixed point all the
+  // same, which is what makes exceeding the width a cost rather than a
+  // defect.
   test("padding may push an accepted table past the print width", async () => {
     const long = "a".repeat(40);
     const tall = "d".repeat(40);
@@ -759,16 +757,16 @@ describe("each decline reason keeps the author's interior", () => {
   });
 
   // An ATTRIBUTE ENTRY and a COMMENT BLOCK are the two metadata lines
-  // this reader pushes as blocks of their own rather than holding
-  // them (`HELD_BUILDERS`, src/parse/lines/held-metadata.ts), so each
-  // empties the held run without ending it. Ruby's own loop reads
-  // through both and keeps collecting: a comment block is consumed by
-  // `read_lines_until` (parser.rb:2074-2078) and an attribute entry
-  // by `process_attribute_entry` (parser.rb:2083-2085), and both
-  // answer `true` so the loop goes round again. That is why the RUN
-  // has to be counted and not the run's remains: counting the remains
-  // accepted every row here and deleted the leading spaces of the
-  // literal cells.
+  // this reader pushes as blocks of their own rather than holding them
+  // ({@link HELD_BUILDERS}), so each empties the held run without
+  // ending it. Ruby's own loop reads through both and keeps
+  // collecting: a comment block is consumed by `read_lines_until`
+  // (parser.rb:2074-2078) and an attribute entry by
+  // `process_attribute_entry` (parser.rb:2083-2085), and both answer
+  // `true` so the loop goes round again. That is why the RUN has to be
+  // counted and not the run's remains: counting the remains accepted
+  // every row here and deleted the leading spaces of the literal
+  // cells.
   //
   // The blank line each expectation gains sits between the entry (or
   // the comment block) and the delimiter, and it is the printer's

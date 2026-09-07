@@ -88,8 +88,8 @@ export function recordedTextLines(
 
 /**
  * Whether every source line the item's text wrote under its opening
- * line stands at an indent: `ItemBody.everyTextLineIndented`
- * (src/ast.ts carries the Ruby argument and the two exempt kinds).
+ * line stands at an indent: {@link ItemBody.everyTextLineIndented}
+ * carries the Ruby argument and the two exempt kinds.
  *
  * THREE disjuncts, and only the last is the indent test. The other
  * two are `adjust_indentation!`'s own exemptions, transcribed: a

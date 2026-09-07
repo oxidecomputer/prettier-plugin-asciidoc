@@ -8,9 +8,9 @@
  * a rule instead) - the pad in front of a mid-line separator is
  * absent for exactly this reason.
  *
- * A table's canonical delimiter length is 3 and is NOT governed by
- * any block-delimiter-length option a later change adds
- * (`MIN_TABLE_DELIMITER_LENGTH`, src/constants.ts).
+ * A table's canonical delimiter length is 3 and is NOT governed by any
+ * block-delimiter-length option a later change adds
+ * ({@link MIN_TABLE_DELIMITER_LENGTH}).
  */
 import type { SupportOptions } from "prettier";
 

@@ -371,10 +371,10 @@ function canonicalChecklistHead(atoms: readonly Atom[]): readonly Atom[] {
  * - `keepFirstSourceLineWhole` refuses the joins up to the first
  *   demanded break, so the item's first source line stays whole. It
  *   fires on the recorded fact alone
- *   (`ListItemNode.nextLineNeedsItsPosition`, src/ast.ts, which
- *   carries the two Ruby arguments) - there is nothing left for the
- *   printer to decide, and the line the fact is about is one the
- *   printer never sees.
+ *   ({@link ListItemNode.nextLineNeedsItsPosition}, which carries the
+ *   two Ruby arguments) - there is nothing left for the printer to
+ *   decide, and the line the fact is about is one the printer never
+ *   sees.
  * - {@link refuseTheWidthBreaks} refuses them over the WHOLE text,
  *   for the item whose first block start is a marker line spelling a
  *   rule ({@link TextGuard}'s `noWidthBreaks` arm), where any line the
@@ -458,16 +458,16 @@ function markedAtoms(
  * is held; what this adds is that the packer writes no FURTHER line,
  * which is the half the rule's position turns on.
  *
- * The WHOLE text, where `keepFirstSourceLineWhole` (src/print/reflow.ts)
- * stops at the first demanded break: that one keeps the item's first
- * source line, this one refuses a packer line anywhere, because a rule
- * standing under the item's LAST text line is moved by a break written
- * anywhere above it.
+ * The WHOLE text, where {@link keepFirstSourceLineWhole} stops at the
+ * first demanded break: that one keeps the item's first source line,
+ * this one refuses a packer line anywhere, because a rule standing
+ * under the item's LAST text line is moved by a break written anywhere
+ * above it.
  *
  * `noBreakBefore` rather than `glueLeft` because the words still want
- * their spaces. `runAt` (src/print/reflow.ts) fuses on either, and a
- * fused run longer than the budget overruns its line rather than
- * being split, which is exactly the refusal this is.
+ * their spaces. {@link runAt} fuses on either, and a fused run longer
+ * than the budget overruns its line rather than being split, which is
+ * exactly the refusal this is.
  *
  * AN ATOM THAT DEMANDS A BREAK IS LEFT ALONE, and that is what keeps
  * the held line boundary rather than erasing it: gluing such an atom
@@ -506,9 +506,9 @@ function refuseTheWidthBreaks(atoms: readonly Atom[]): readonly Atom[] {
  *
  * The source's own GAP used to travel with the mark, as a width read
  * off these same columns, because the printer normalized it away and
- * nothing else in the tree remembered it. `ListItemNode.markerGap`
- * (src/ast.ts) remembers it and the printer writes it back, so the
- * mark alone is what the fold rule still needs (#191).
+ * nothing else in the tree remembered it.
+ * {@link ListItemNode.markerGap} remembers it and the printer writes
+ * it back, so the mark alone is what the fold rule still needs (#191).
  * @param node - the item node.
  * @returns the mark, or undefined where the marker line spells none.
  */
@@ -622,10 +622,10 @@ export function printListItem(
     // (l.1576), which is what keeps the run's own block alive.
     //
     // What stands UNDER the byte is not written here. The item ends on
-    // a live `+`, so it is an ARMED TAIL, and the block-join rules read
-    // it as one (`listTailContinuationActive`, src/print/join.ts):
-    // they own the blank count that decides whether the next block
-    // attaches, and they ask the same predicate this arm did.
+    // a live `+`, so it is an ARMED TAIL, and the block-join rules
+    // read it as one ({@link listTailContinuationActive}): they own
+    // the blank count that decides whether the next block attaches,
+    // and they ask the same predicate this arm did.
     parts.push(hardline, hardline, "+");
   }
   return parts;
@@ -652,7 +652,7 @@ export function printListItem(
  * freezes whichever comes SECOND). Printing them in source order, both
  * bare, reproduces the exact bytes an adjacent pair with nothing to
  * attach was always going to collapse back to
- * (`ListItemNode.trailingContinuation`, src/ast.ts).
+ * ({@link ListItemNode.trailingContinuation}).
  *
  * `detachedTail`: one blank line, then the `+` (the DETACHED
  * spelling, and the only correct one): an ADJACENT `+` under the item's

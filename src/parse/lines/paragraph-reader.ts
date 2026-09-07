@@ -578,18 +578,18 @@ class Paragraph {
    * source already wrote, which binds first because Ruby's term group
    * is non-greedy. Folding keeps the second and spends the first: the
    * words become ordinary words of the paragraph, and reflow may put
-   * one at the HEAD of an output line. `term::` is the one block
-   * shape the packer's line-start rule deliberately does not refuse
-   * (`isBlockSyntaxAtLineStart`, src/print/reflow.ts), because on a
-   * plain paragraph's later line such a word is text (ORACLE: `para
-   * one` / `x:: y` renders one `<p>`); on a DESCRIPTION's rest line
-   * it is a sibling term that ends the item (ORACLE: `t:: item` /
-   * `x // x:: y` renders a second `<dt>`). So such a line keeps the
-   * output line of its own that keeps its words out of the text. The
-   * comment is then outside the description again and the render
-   * loses it, which is issue #105's loss left standing for this one
-   * shape: a lost comment is a smaller wrong than a fabricated list
-   * item, and it is what the formatter already did here.
+   * one at the HEAD of an output line. `term::` is the one block shape
+   * the packer's line-start rule deliberately does not refuse
+   * ({@link isBlockSyntaxAtLineStart}), because on a plain paragraph's
+   * later line such a word is text (ORACLE: `para one` / `x:: y`
+   * renders one `<p>`); on a DESCRIPTION's rest line it is a sibling
+   * term that ends the item (ORACLE: `t:: item` / `x // x:: y` renders
+   * a second `<dt>`). So such a line keeps the output line of its own
+   * that keeps its words out of the text. The comment is then outside
+   * the description again and the render loses it, which is issue
+   * #105's loss left standing for this one shape: a lost comment is a
+   * smaller wrong than a fabricated list item, and it is what the
+   * formatter already did here.
    * @param line - the line being added
    * @param kind - what the classifier made of it
    * @returns true when the line joins the run in progress
@@ -922,14 +922,13 @@ function verbatimRunExtent(
     // An erased cell is the item scan's continuation placeholder
     // (SourceLine.continuationTag), which spells a blank and is not
     // one, so the registry is asked about the `+` the author wrote
-    // rather than about the blank written over it. The row it
-    // answers from is where the two Asciidoctors are recorded as
-    // parting over that `+`
-    // (`enclosingListEnds`, src/parse/line-shapes-interruption.ts):
-    // Ruby ends a styled run at the placeholder and the rewrite
-    // keeps it open. Neither reading binds where they part, so this
-    // one keeps the BYTES - with nothing under the `+` reflowed the
-    // document formats to itself, and both renders survive.
+    // rather than about the blank written over it. The row it answers
+    // from is where the two Asciidoctors are recorded as parting over
+    // that `+` ({@link enclosingListEnds}): Ruby ends a styled run at
+    // the placeholder and the rewrite keeps it open. Neither reading
+    // binds where they part, so this one keeps the BYTES - with
+    // nothing under the `+` reflowed the document formats to itself,
+    // and both renders survive.
     const kind = classifyLine(
       next.continuationTag === "erased" ? next.raw : next.text,
       reader,

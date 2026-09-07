@@ -336,10 +336,9 @@ function computeMasqueradeDelimiter(
  * @param node - The delimited block AST node.
  * @param emitSourcePrefix - Whether to write the
  *   `[source]`/`[source,lang]` line a fence implies above the
- *   delimiter. The decision is `printsSourceAttributeLine`
- *   (src/block-metadata.ts), which the block SEPARATOR reads too:
- *   that line, not the delimiter, is what lands against whatever
- *   stands above.
+ *   delimiter. The decision is {@link printsSourceAttributeLine},
+ *   which the block SEPARATOR reads too: that line, not the delimiter,
+ *   is what lands against whatever stands above.
  * @returns Doc IR for the formatted block.
  */
 export function printDelimitedBlock(
@@ -362,14 +361,14 @@ export function printDelimitedBlock(
   const delimiter = computeMasqueradeDelimiter(node);
 
   // A fenced code block implies the `source` style even without a
-  // language hint — Asciidoctor renders it as `<pre class="highlight">`,
-  // not a plain listing. Emit [source] (or [source,lang] when a
-  // language hint is present) before the delimiter to preserve that
-  // semantics when normalizing to AsciiDoc-native `----` syntax.
-  // Whether this block is one, and whether an annotation the reader
-  // already recorded covers it, are the caller's flag: one home
-  // (`printsSourceAttributeLine`, src/block-metadata.ts) for a
-  // question the separator asks as well.
+  // language hint — Asciidoctor renders it as `<pre
+  // class="highlight">`, not a plain listing. Emit [source] (or
+  // [source,lang] when a language hint is present) before the
+  // delimiter to preserve that semantics when normalizing to
+  // AsciiDoc-native `----` syntax. Whether this block is one, and
+  // whether an annotation the reader already recorded covers it, are
+  // the caller's flag: one home ({@link printsSourceAttributeLine})
+  // for a question the separator asks as well.
   let prefix: Doc[] = [];
   if (emitSourcePrefix) {
     // The synthesized list goes through the SAME spacing rule an
@@ -418,13 +417,13 @@ interface WrappedBlocks {
   readonly variant: ParentBlockNode["variant"];
   /**
    * The delimiter character to spell the frame in, when the source
-   * recorded one: `ParentBlockNode.openDelimiter` (src/ast.ts).
-   * Undefined for every admonition call (its `form` carries no such
-   * record) and for a conventionally-spelled parent block;
-   * `variant === "open"` whenever this is defined, since that is the
-   * only spelling the reader ever records (issue #64). The RUN LENGTH
-   * is never carried here - {@link printDelimitedParent} derives it
-   * the same way it derives every other compound delimiter's.
+   * recorded one: {@link ParentBlockNode.openDelimiter}. Undefined for
+   * every admonition call (its `form` carries no such record) and for
+   * a conventionally-spelled parent block; `variant === "open"`
+   * whenever this is defined, since that is the only spelling the
+   * reader ever records (issue #64). The RUN LENGTH is never carried
+   * here - {@link printDelimitedParent} derives it the same way it
+   * derives every other compound delimiter's.
    */
   readonly openDelimiter?: "~";
   /** The blocks between the two delimiter lines, in document order. */

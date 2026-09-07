@@ -598,12 +598,12 @@ describe("the cut resumes where the gsub does", () => {
  * The mark a bare address would SWALLOW (issues #150, #152).
  *
  * A bare URL's match runs on through every character its class admits
- * (`bareAddressRunsPast`, src/parse/inline/rules.ts), so a mark that
- * stands inside it when the document is read again is one the reader
- * has to cut the match at - and an unconstrained row is cut wherever
- * the delimiter stands, a constrained one only at the match's end. So
- * behind an address the two spellings are not interchangeable, and the
- * span keeps the doubled one.
+ * ({@link bareAddressRunsPast}), so a mark that stands inside it when
+ * the document is read again is one the reader has to cut the match at
+ * - and an unconstrained row is cut wherever the delimiter stands, a
+ * constrained one only at the match's end. So behind an address the
+ * two spellings are not interchangeable, and the span keeps the
+ * doubled one.
  *
  * Both marks are asked about. The CLOSING one stands in the match
  * where the span's own content ends with an address; the OPENING one

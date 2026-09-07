@@ -136,15 +136,14 @@ describe("table delimiters open table nodes", () => {
     );
   });
 
-  // Invariant (xv)'s partition, pinned per close kind and per
-  // interior shape: a table's records account for every byte of its
-  // extent, and what its position may name past them is exactly what
-  // its close kind allows (`allowsOverhang`) - nothing at all on a
-  // terminator close, at most the final newline on a forced one. The
-  // two blank-interior rows are the pair the record of a zero-byte
-  // line exists for (`appendWholeLine`,
-  // src/parse/lines/table-reader.ts): without it the empty table and
-  // the blank-line table replay alike, and one of the two loses a
+  // Invariant (xv)'s partition, pinned per close kind and per interior
+  // shape: a table's records account for every byte of its extent, and
+  // what its position may name past them is exactly what its close
+  // kind allows (`allowsOverhang`) - nothing at all on a terminator
+  // close, at most the final newline on a forced one. The two
+  // blank-interior rows are the pair the record of a zero-byte line
+  // exists for ({@link appendWholeLine}): without it the empty table
+  // and the blank-line table replay alike, and one of the two loses a
   // line.
   test.each([
     ["a closed table", "|===\n|a\n|=== \n"],

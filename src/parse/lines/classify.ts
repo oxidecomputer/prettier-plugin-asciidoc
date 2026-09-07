@@ -142,7 +142,7 @@ type ParsedMarker =
        * verbatim - the `[ \t]+` of `UnorderedListRx` (rx.rb l.284) and
        * `OrderedListRx` (rx.rb l.300). The BYTES, because what the
        * marks around them spell can be read: see
-       * `ListItemNode.markerGap` (src/ast.ts).
+       * {@link ListItemNode.markerGap}.
        */
       readonly gap: string;
     }
@@ -627,11 +627,11 @@ export function isContinuationLine(line: string): boolean {
  * rx.rb:227, so the reader line is the one to check against.
  *
  * NARROWER than the two characters `Reader#skip_line_comments` tests
- * for (`LINE_COMMENT_HEAD`, src/parse/line-shapes.ts), and the
- * difference is the whole reason this is a question: a `///` line is
- * taken by the head drain and kept by the paragraph reader, so where
- * it stands decides whether it renders at all. Everything the two
- * agree on renders the same at either position.
+ * for ({@link LINE_COMMENT_HEAD}), and the difference is the whole
+ * reason this is a question: a `///` line is taken by the head drain
+ * and kept by the paragraph reader, so where it stands decides whether
+ * it renders at all. Everything the two agree on renders the same at
+ * either position.
  * @param line - one rstripped source line
  * @returns true when the paragraph reader drops the line
  */

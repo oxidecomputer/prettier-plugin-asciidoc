@@ -1,9 +1,9 @@
 /**
  * The line directly UNDER a marker item's opening line, and the two
  * readings that turn on its standing there
- * (`ListItemNode.nextLineNeedsItsPosition`, src/ast.ts, carries the
- * Ruby argument for each; the printer's move is
- * `keepFirstSourceLineWhole`, src/print/reflow.ts).
+ * ({@link ListItemNode.nextLineNeedsItsPosition}, carries the Ruby
+ * argument for each; the printer's move is
+ * {@link keepFirstSourceLineWhole}).
  *
  * BEFORE the recorded fact every row in the first block was a render
  * loss at a narrow width: the item's text wrapped, a text line landed
@@ -19,13 +19,12 @@
  * pinned against the one the suite renders through. The anchor and
  * `///` rows behave identically in the Ruby gem 2.0.26 and in the
  * pinned instrument. The block-macro rows do NOT: the gem reads a
- * macro under an item's text as prose at both positions
- * (`text_only`, parser.rb l.1368-1374) and loses nothing to the
- * wrap, while the instrument opens a block at the first position and
- * does. The oracle wins on results, the divergence is recorded at
- * `LIST_ITEM_FIRST_LINE_INTERRUPTERS` (src/parse/line-shapes.ts),
- * and the guard inherits that row rather than carrying a case for
- * the macro.
+ * macro under an item's text as prose at both positions (`text_only`,
+ * parser.rb l.1368-1374) and loses nothing to the wrap, while the
+ * instrument opens a block at the first position and does. The oracle
+ * wins on results, the divergence is recorded at
+ * {@link LIST_ITEM_FIRST_LINE_INTERRUPTERS}, and the guard inherits
+ * that row rather than carrying a case for the macro.
  *
  * The second block is the over-refusal net, one row per shape family
  * the guard must leave alone: a delimiter and a nested marker end the

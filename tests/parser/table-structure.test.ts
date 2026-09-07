@@ -11,7 +11,7 @@
  * partition each built table's own records must satisfy regardless of
  * the oracle, and the exclusion accounting itself.
  *
- * The oracle side is `oracleTables` (tests/helpers.ts), which reads
+ * The oracle side is {@link oracleTables}, which reads
  * `@asciidoctor/core`'s parsed model directly rather than rendered
  * HTML: `table.rows`, and each cell's `source()` (its text BEFORE
  * substitutions, the same question this suite's own text asks),
@@ -363,9 +363,9 @@ describe("table structure vs the oracle", () => {
   // every case (excluded ones included, since this is a fact about
   // this reader's own records, not about agreement with the oracle),
   // replays the bytes of the extent its position names, with only the
-  // overhang its close kind allows (`allowsOverhang`,
-  // tests/parser/table-nodes.ts). Every corpus table closes on its
-  // terminator, so every row here is really asserting EQUALITY.
+  // overhang its close kind allows ({@link allowsOverhang}). Every
+  // corpus table closes on its terminator, so every row here is really
+  // asserting EQUALITY.
   test.each(ALL_SCANNED)("$group: $id replays its own bytes", (scanned) => {
     const replayed = replayTable(scanned.table);
     expect(scanned.content.startsWith(replayed)).toBe(true);

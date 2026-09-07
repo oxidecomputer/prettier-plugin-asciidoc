@@ -1,7 +1,7 @@
 /**
  * Where a `// prettier-ignore` line reaches: the mark that tells the
  * printer to write a block's own source bytes back instead of
- * formatting it (`BlockNodeBase.ignoredByPragma`, src/ast.ts).
+ * formatting it ({@link BlockNodeBase.ignoredByPragma}).
  *
  * Split from reader.ts by responsibility, the way held-metadata.ts is:
  * the reader owns the read position and the block sequence, and this

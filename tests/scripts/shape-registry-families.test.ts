@@ -1,6 +1,6 @@
 /**
  * The standing grid's expected-diff family assignment
- * (`gridRowFamily`, scripts/shape-registry-families.ts).
+ * ({@link gridRowFamily}).
  *
  * `shape-diff` is a differential run between two revisions: it needs
  * two checkouts and it is not part of `bun run test`, so nothing in the

@@ -6,7 +6,7 @@ import { CURVED_SHAPES } from "./curved-quote-sweep.js";
  * The rendered HTML with runs of whitespace collapsed, so a reflow line
  * break is not read as a render difference.
  *
- * `renderedHtml` (tests/helpers.ts) is async - Asciidoctor.js 4.x has no
+ * {@link renderedHtml} is async - Asciidoctor.js 4.x has no
  * synchronous entry point - so every cell awaits both renders.
  * @param source - one AsciiDoc document
  * @returns its rendered HTML, whitespace-normalized

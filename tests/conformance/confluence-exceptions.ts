@@ -54,12 +54,11 @@ export const MECHANISM_REASONS: Readonly<Record<Mechanism, string>> = {
   listMarkerSpelling:
     "a list marker's spelling is structure-bearing and no uniform respelling is proven yet (issue #42)",
   // docs/architecture.md, formatting policy case 1: the bytes inside
-  // an inline passthrough are content. `renderedHtml` (tests/helpers.ts)
-  // folds a line break outside <pre>, and its own KNOWN COST note
-  // says a passthrough renders as bare text with no element to
-  // shelter it - so the two spellings are equal to this lens while
-  // the oracle's own bytes differ. Collapsing the break would edit
-  // the document.
+  // an inline passthrough are content. {@link renderedHtml} folds a
+  // line break outside <pre>, and its own KNOWN COST note says a
+  // passthrough renders as bare text with no element to shelter it -
+  // so the two spellings are equal to this lens while the oracle's own
+  // bytes differ. Collapsing the break would edit the document.
   passthroughContent:
     "a line break inside an inline passthrough is content; renderedHtml folds it but the oracle's bytes keep it",
   // Same shape one level down: a bare URL and `link:` around the same
@@ -344,11 +343,10 @@ export interface OutsideDomain {
  * bracket line and a label line are not two spellings of one
  * admonition at all, because only the bracket line opens a block
  * there. The row is why the reader refuses to respell one into the
- * other in that position (`admonitionLabelOpensABlock`,
- * src/parse/lines/open-style.ts), and the axis carries its own
- * render-preservation check beside it, because a pair outside this
- * property is exactly where a formatter can move a block and the
- * property say nothing.
+ * other in that position ({@link admonitionLabelOpensABlock}), and the
+ * axis carries its own render-preservation check beside it, because a
+ * pair outside this property is exactly where a formatter can move a
+ * block and the property say nothing.
  *
  * The counts are pinned for the same reason the divergence counts
  * are: a generator change that quietly moved pairs out of the claim

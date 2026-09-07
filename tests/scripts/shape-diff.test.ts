@@ -13,9 +13,8 @@ import {
 
 /**
  * Run `body` with `process.stderr.write` captured, `process.exitCode`
- * restored afterwards. `cannotRun` (scripts/lib/cli.ts) writes its
- * explanation there and leaving a 2 behind would fail the whole
- * vitest process.
+ * restored afterwards. {@link cannotRun} writes its explanation there
+ * and leaving a 2 behind would fail the whole vitest process.
  * @param body - what to run
  * @returns everything the run wrote to stderr, and the exit code it
  *   left

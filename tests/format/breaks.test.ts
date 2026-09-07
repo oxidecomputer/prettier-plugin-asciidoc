@@ -96,7 +96,7 @@ describe("markdown thematic break formatting", () => {
   // gaps AGREE is the author's own rule; at COLUMN 0 the fold still
   // normalizes it to the single-spaced spelling, and BEHIND A MARKER
   // it now comes back byte for byte, because the marker's own gap is
-  // written back too (`ListItemNode.markerGap`, src/ast.ts).
+  // written back too ({@link ListItemNode.markerGap}).
   //
   // These rows were green before the gap was recorded and are green
   // after, for different reasons, and the change is what they now pin.
@@ -240,12 +240,12 @@ describe("hard line break formatting", () => {
     expect(await formatAdoc(input)).toBe(input);
   });
 
-  // A hard break as the block's FIRST inline node: there is nothing
-  // in front of it to break away from, so it does not demand a
-  // leading break (`hardBreakOwnsItsLine`'s `index <= 0` arm,
+  // A hard break as the block's FIRST inline node: there is nothing in
+  // front of it to break away from, so it does not demand a leading
+  // break (`hardBreakOwnsItsLine`'s `index <= 0` arm,
   // src/print/inline.ts) and the paragraph round-trips
-  // byte-identically. Spelled in full because `Atom.ownsItsLine`
-  // (src/print/reflow.ts) is a different fact about raw lines.
+  // byte-identically. Spelled in full because {@link Atom.ownsItsLine}
+  // is a different fact about raw lines.
   test("a hard break opening the paragraph is preserved", async () => {
     const input = " +\nx\n";
     const out = await formatAdoc(input);

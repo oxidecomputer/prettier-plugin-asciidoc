@@ -98,9 +98,9 @@ console.log(
   `${String(population.length)} documents, ${String(rows.length)} reparse breach(es).\n`,
 );
 // Code units, not `localeCompare`: every ordered output in this
-// repository sorts that way (see `compareIds`,
-// tests/conformance/loader.ts), because a locale-dependent order
-// makes one contributor's report a noisy diff of another's.
+// repository sorts that way (see {@link compareIds}), because a
+// locale-dependent order makes one contributor's report a noisy diff
+// of another's.
 for (const [family, found] of [...byFamily].toSorted(([left], [right]) =>
   left < right ? -1 : Number(left > right),
 )) {

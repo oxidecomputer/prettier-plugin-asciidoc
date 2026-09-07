@@ -271,7 +271,7 @@ const TRAILING_BANG_UNSET = /^:[^\s:!][^:]*!:[ \t]*$/v;
 // interior is replayed byte for byte; a compound one's is read as
 // syntax; a table's is rows; and a Markdown fence closes on three
 // backticks whatever hint its opening line carried. The runs and their
-// minimums are `DELIMITER_SOURCES` (src/parse/line-shapes.ts).
+// minimums are {@link DELIMITER_SOURCES}.
 const VERBATIM_DELIMITER = /^(?<mark>[\-.+\/])\k<mark>{3,}$/v;
 const COMPOUND_DELIMITER = /^(?<mark>[=*_~])\k<mark>{3,}$/v;
 const TABLE_DELIMITER = /^[\|,:!]={3,}$/v;
@@ -336,10 +336,9 @@ interface ScannedLine {
  * The block a delimiter line opens, or undefined when the line opens
  * none.
  *
- * The runs and their minimums are `DELIMITER_SOURCES`
- * (src/parse/line-shapes.ts): four of a leaf character, three `=`
- * behind a table hint, `--` exactly, and a three-backtick fence whose
- * fourth backtick is refused.
+ * The runs and their minimums are {@link DELIMITER_SOURCES}: four of a
+ * leaf character, three `=` behind a table hint, `--` exactly, and a
+ * three-backtick fence whose fourth backtick is refused.
  * @param text - one rstripped line
  * @returns what it opens, or undefined
  */

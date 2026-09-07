@@ -21,11 +21,11 @@ describe("heading parsing", () => {
     expect(child0.title).toBe("Title");
   });
 
-  // Serialized key order is a first-class contract:
-  // The declared order for BOTH heading kinds - parity's flatten fold
-  // emits the same canonical order, so a drift here is a parity break
-  // waiting to happen. Read from the declarations rather than written
-  // out (`declaredKeyOrder`, tests/parser/reader-helpers.ts).
+  // Serialized key order is a first-class contract: The declared order
+  // for BOTH heading kinds - parity's flatten fold emits the same
+  // canonical order, so a drift here is a parity break waiting to
+  // happen. Read from the declarations rather than written out
+  // ({@link declaredKeyOrder}).
   test("a heading's serialized key order is the canonical one", () => {
     const [heading] = parse("== Title\n").children;
     const keys = serializedKeys(heading);

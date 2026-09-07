@@ -373,9 +373,9 @@ describe("a bare admonition style over a paragraph is the label form", () => {
 // all. A `[NAME]` bracket line opens a block from any position; a
 // `NAME: ` label does not, so in item-TEXT position the label is more
 // of the item's text and the admonition is destroyed. RED before
-// `admonitionLabelOpensABlock` (src/parse/lines/open-style.ts): each of
-// these formatted to a label line, the render moved on the first pass,
-// and all but the last were not even idempotent afterwards.
+// {@link admonitionLabelOpensABlock}: each of these formatted to a
+// label line, the render moved on the first pass, and all but the last
+// were not even idempotent afterwards.
 describe("a style line only becomes a label where a label opens a block", () => {
   test.each([
     ["ulist item text", "* item\n[NOTE]\nbody text\n"],

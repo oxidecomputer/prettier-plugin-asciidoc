@@ -234,13 +234,12 @@ export interface ItemExtent {
   /**
    * The item's source ended on a `+` the pop took - Ruby's
    * `ListContinuationMarker === (last_line = buffer[-1])` and the
-   * `buffer.pop` under it (parser.rb l.1580-82) - AND the
-   * tail it would be printed into re-reads inert
-   * ({@link tailPrintsInert}) - so the byte the author wrote comes
-   * back. `ListItemNode.trailingContinuation` (src/ast.ts) is this
-   * fact and nothing else - `"double"` when the pop took only half of
-   * an adjacent pair ({@link pairedContinuationLine}), `"single"`
-   * otherwise.
+   * `buffer.pop` under it (parser.rb l.1580-82) - AND the tail it
+   * would be printed into re-reads inert ({@link tailPrintsInert}) -
+   * so the byte the author wrote comes back.
+   * {@link ListItemNode.trailingContinuation} is this fact and nothing
+   * else - `"double"` when the pop took only half of an adjacent pair
+   * ({@link pairedContinuationLine}), `"single"` otherwise.
    */
   readonly trailingContinuation: TrailingContinuation;
   /**
@@ -394,11 +393,11 @@ function gapSpelling(role: GapRole): readonly GapLine[] {
  * printed neighbour, and four kinds of neighbour answer yes - each
  * for a reason of its own, each naming what says so.
  *
- * A SIBLING prints on the very next output line - `printList`
- * (src/print/list.ts) puts ONE hardline between items and a blank
- * only where `tailSwallowsMarker` says the previous item's last block
- * would swallow the marker - so the `+` above it pops again. A marker
- * that opens a NEW list is not this arm and falls to the last one: the
+ * A SIBLING prints on the very next output line - {@link printList}
+ * puts ONE hardline between items and a blank only where
+ * `tailSwallowsMarker` says the previous item's last block would
+ * swallow the marker - so the `+` above it pops again. A marker that
+ * opens a NEW list is not this arm and falls to the last one: the
  * printer puts a blank line between the two blocks, and a lone `+`
  * above a blank line and a block ARMS and attaches it, so `* a` / `+`
  * / `+` / blank / `<1> n` renders its colist OUTSIDE the item. A
@@ -443,9 +442,9 @@ function gapSpelling(role: GapRole): readonly GapLine[] {
  * (parser.rb l.1453-56).
  *
  * Any OTHER stopper reaches the output behind a blank line
- * (`joinBlocks`, src/print/join.ts), above which a lone `+`
- * erases and ARMS, which changes what attaches to the item - so the
- * byte may not be printed there.
+ * ({@link joinBlocks}), above which a lone `+` erases and ARMS, which
+ * changes what attaches to the item - so the byte may not be printed
+ * there.
  * @param stop - why the loop stopped
  * @returns true when the tail is a safe print boundary
  */
@@ -550,9 +549,9 @@ function walkBufferTail(
  *
  * Either way the lost byte spells the same character the popped one
  * does, so the printer need not know which side it stood on to print
- * it back (`ListItemNode.trailingContinuation`, src/ast.ts) - only the
- * LINE matters here, so the record can be corrected before it is
- * spelled into a gap a second time.
+ * it back ({@link ListItemNode.trailingContinuation}) - only the LINE
+ * matters here, so the record can be corrected before it is spelled
+ * into a gap a second time.
  *
  * `erased` and `detached` pops have other explanations (an enclosing
  * scan's own erasure standing in a nested item's buffer, a

@@ -281,11 +281,10 @@ describe("spaced markdown thematic break formatting", () => {
   // blank. Those are two different reasons, and neither covers a line
   // comment above the rule, which is replayed like the two positions
   // above and is an unopened candidate rather than a member of this
-  // group (`markerLineWinsAt`, src/parse/lines/scope.ts). Closing
-  // these takes a break spelling that survives the join and the wrap,
-  // which is a printer question and not the reader's. The outputs are
-  // pinned as BYTES, and each is its own fixed point, so nothing
-  // walks further away.
+  // group ({@link markerLineWinsAt}). Closing these takes a break
+  // spelling that survives the join and the wrap, which is a printer
+  // question and not the reader's. The outputs are pinned as BYTES,
+  // and each is its own fixed point, so nothing walks further away.
   test.each([
     [
       "a marker item across a blank",

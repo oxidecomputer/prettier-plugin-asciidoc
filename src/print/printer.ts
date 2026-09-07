@@ -57,13 +57,12 @@ const {
  *
  * The ONE licensed byte-preserving path through this printer, and it
  * is a spelling choice rather than an analysis: the reader already
- * recorded which block the pragma names (`ignoredByPragma`,
- * src/ast.ts) and every node already carries the extent of everything
- * it contains, so the whole implementation is a slice of the text
- * Prettier parsed. Nesting needs no special case for the same reason -
- * a delimited block's extent runs from its opening delimiter to its
- * closing one, so its children come along inside the slice and are
- * never visited.
+ * recorded which block the pragma names ({@link ignoredByPragma}) and
+ * every node already carries the extent of everything it contains, so
+ * the whole implementation is a slice of the text Prettier parsed.
+ * Nesting needs no special case for the same reason - a delimited
+ * block's extent runs from its opening delimiter to its closing one,
+ * so its children come along inside the slice and are never visited.
  *
  * The slice is split into lines rather than emitted as one string
  * because a Doc string holding a newline breaks Prettier's own width

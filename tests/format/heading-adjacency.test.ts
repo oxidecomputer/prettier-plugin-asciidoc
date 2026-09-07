@@ -39,16 +39,15 @@ describe("keep-blank rows: the post-heading blank is FROZEN SPELLING at level >=
 
   test("the A1 row: a pseudo-anchor paragraph blank-separated before a heading KEEPS its blank", async () => {
     // Section A's LAST CHILD is a pseudo-anchor paragraph
-    // ([[3-blind-mice]] fails the id grammar); the flatten CREATES
-    // the sibling pair, and stacksAsMetadata would stack it if
-    // nothing said otherwise - the stacked spelling re-parses as ONE
-    // line and section B is DESTROYED (render-inequal AND
-    // idempotence-broken). What says otherwise is the blank the
-    // AUTHOR wrote, recorded on the paragraph
-    // (`ParagraphNode.blankBelowAnchorLine`, src/ast.ts) and printed
-    // back. A level-keyed suppression in src/print/join.ts used to
-    // keep these bytes and no longer exists: it was measured inert
-    // once the fact was recorded, because the only spelling that
+    // ([[3-blind-mice]] fails the id grammar); the flatten CREATES the
+    // sibling pair, and stacksAsMetadata would stack it if nothing
+    // said otherwise - the stacked spelling re-parses as ONE line and
+    // section B is DESTROYED (render-inequal AND idempotence-broken).
+    // What says otherwise is the blank the AUTHOR wrote, recorded on
+    // the paragraph ({@link ParagraphNode.blankBelowAnchorLine}) and
+    // printed back. A level-keyed suppression in src/print/join.ts
+    // used to keep these bytes and no longer exists: it was measured
+    // inert once the fact was recorded, because the only spelling that
     // reaches this pair as two siblings is the one with the blank.
     const input = "== A\n\n[[3-blind-mice]]\n\n== B\n";
     await expectBytes(input, input);

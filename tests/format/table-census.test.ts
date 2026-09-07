@@ -33,9 +33,8 @@
  * and one document, and a document counts as accepted only when EVERY
  * table in it is accepted.
  *
- * The corpus filter is `scanTables` (tests/parser/table-structure-scan.ts),
- * the same one the structure suite uses, so "a table" means the same
- * thing here as it does there.
+ * The corpus filter is {@link scanTables}, the same one the structure
+ * suite uses, so "a table" means the same thing here as it does there.
  */
 import { describe, expect, test } from "vitest";
 import { loadCorpus } from "../conformance/loader.js";
@@ -308,14 +307,14 @@ const gateReadsTheTableAlone: (table: TableNode) => TablePlan = planTable;
 
 describe("what the gate accepts", () => {
   // ONE census, not one per option value. The style reaches the
-  // EMISSION alone (`chooseLayout`, src/print/table-layout.ts), where
-  // it chooses between two spellings of a table already accepted, so
-  // the accepted set is the same under both values of
-  // `asciidocTableLayout` and every number in this file is a property
-  // of the corpus rather than of one option value. A gate that read
-  // the style would need this census taken twice, and it would mean a
-  // document's tables stop being laid out when its author changes a
-  // style preference. What runs the emission under both values is
+  // EMISSION alone ({@link chooseLayout}), where it chooses between
+  // two spellings of a table already accepted, so the accepted set is
+  // the same under both values of `asciidocTableLayout` and every
+  // number in this file is a property of the corpus rather than of one
+  // option value. A gate that read the style would need this census
+  // taken twice, and it would mean a document's tables stop being laid
+  // out when its author changes a style preference. What runs the
+  // emission under both values is
   // tests/format/table-gate-stability.test.ts, which sweeps the whole
   // corpus twice.
   test("the gate accepts 82 tables reading nothing but the table", () => {

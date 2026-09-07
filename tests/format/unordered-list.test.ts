@@ -243,12 +243,11 @@ describe("list item continuation lines parse like first-line content", () => {
   });
 });
 
-// A trailing ` +` hard break must parse the same whether it sits
-// on the marker line or on an indented continuation line.
-// `tokenizeRun` (src/parse/lines/paragraph-reader.ts)
-// appends the document's own newline to the run it tokenizes, so a
-// HardLineBreak (` +` followed by `\n`) matches at the end of a run
-// exactly as it does mid-line.
+// A trailing ` +` hard break must parse the same whether it sits on
+// the marker line or on an indented continuation line.
+// {@link tokenizeRun} appends the document's own newline to the run it
+// tokenizes, so a HardLineBreak (` +` followed by `\n`) matches at the
+// end of a run exactly as it does mid-line.
 describe("trailing hard break is layout independent", () => {
   test("hard break on marker line is preserved", async () => {
     const input = "* b +\nmore\n\npara\n";

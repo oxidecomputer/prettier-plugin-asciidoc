@@ -1093,18 +1093,22 @@ nowhere and one that resolves twice, and a gate reading its own fixtures would
 fail on them.
 
 Exit codes: 0 every citation held, 1 a citation FAILED, 2 could not run - a bad
-argument, a missing scanned file, or fewer citations than the floor, which means
+argument, a missing scanned file, or fewer than `MINIMUM_CITATIONS`, which means
 the scan lost its roots. The floor counts line citations, symbol citations and
 link tags together, because the tags are most of the surface: a floor set
 against the line citations alone would clear on a name scan that resolved
-nothing at all. Exactly what it counts: every line citation checked, every one
-exempted as naming a former tree, every symbol and every tag resolved, and every
-FAILURE of any of the five scans, the third one's dead paths included. A path
-that holds is the one thing not counted - there are hundreds of them and they
-would carry the floor on their own. `--list` prints every citation with the file
-it resolved to and the runs it will look for. `scripts/internal-citations.ts`
-and `scripts/internal-symbols.ts`, unit tested in
-`tests/scripts/internal-citations.test.ts` and
+nothing at all. It is set from what losing a TREE costs rather than from a round
+number under the total: the tree carries 1,428 today (33 line citations, 3
+exempt, 88 symbols, 1,304 tags), and the smallest of the three trees carries 184
+of them, so a run that stopped walking any one of the three lands at 1,244 or
+below, and the floor of 1,250 sits in that gap. Exactly what it counts: every
+line citation checked, every one exempted as naming a former tree, every symbol
+and every tag resolved, and every FAILURE of any of the five scans, the third
+one's dead paths included. A path that holds is the one thing not counted -
+there are hundreds of them and they would carry the floor on their own. `--list`
+prints every citation with the file it resolved to and the runs it will look
+for. `scripts/internal-citations.ts` and `scripts/internal-symbols.ts`, unit
+tested in `tests/scripts/internal-citations.test.ts` and
 `tests/scripts/internal-symbols.test.ts`.
 
 A citation that quotes nothing is checkable for its line and no further, and a

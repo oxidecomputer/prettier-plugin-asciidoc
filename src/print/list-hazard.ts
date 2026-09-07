@@ -281,12 +281,12 @@ function firstOwnLine(item: ListItemNode): "comment" | "hardBreak" | undefined {
  * and l.1576), so a `//` line packed in front of one is the shape
  * decision 2 turns on.
  *
- * The RECORDED gap, not the printed one. `printedGap`
- * (src/print/list.ts) differs from it in exactly two ways, and neither
- * can reach the item's first block in the wrong direction: the blank it
- * invents is guarded by `index > 0`, and the blank it drops in front of
- * a same-marker nested list can only turn a held break into a byte
- * this rule did not need - a kept break, never a lost reading.
+ * The RECORDED gap, not the printed one. {@link printedGap} differs
+ * from it in exactly two ways, and neither can reach the item's first
+ * block in the wrong direction: the blank it invents is guarded by
+ * `index > 0`, and the blank it drops in front of a same-marker nested
+ * list can only turn a held break into a byte this rule did not need -
+ * a kept break, never a lost reading.
  * @param item - the item node
  * @returns true when a separator line stands under the item's text
  */
@@ -310,13 +310,12 @@ const ONE_TEXT_NODE = 1;
  * write: the marker line is the item's indent, marker and gap, all
  * replayed ({@link ListItemNode.markerSpelling} and `markerGap`,
  * src/ast.ts), and then its text. The text has to be ONE text node,
- * because a rule line carries two marks and nothing else - any
- * further node is a second word and the line is an ordinary item. The
- * value goes in as it stands rather than word-split, and that is the
- * bytes the printer writes too: a run inside a line that spells a
- * break keeps its own spacing (`fuseRunsSpellingABreak`,
- * src/print/whitespace-fold.ts), so the fold cannot turn `-  -` into
- * `- -` under this answer.
+ * because a rule line carries two marks and nothing else - any further
+ * node is a second word and the line is an ordinary item. The value
+ * goes in as it stands rather than word-split, and that is the bytes
+ * the printer writes too: a run inside a line that spells a break
+ * keeps its own spacing ({@link fuseRunsSpellingABreak}), so the fold
+ * cannot turn `- -` into `- -` under this answer.
  *
  * RSTRIPPED, because that is the one way the source spelling and the
  * printed one differ here: the reader's text node keeps the trailing
@@ -547,12 +546,12 @@ const MARKER_LINE_RULE_WORD = 2;
  *
  * - BLOCK SYNTAX at a line start is recorded. `wordsToAtoms` fuses
  *   such a word onto its predecessor, and the text case does the same
- *   across a node boundary (`leadingBoundary`, src/print/text-edges.ts),
- *   so `isFused` IS that answer and re-deriving it here would make a
- *   second source of truth for it. A demand recorded on a fused atom
- *   would also be lifted to the front of its whole run (`runBreak`,
- *   src/print/reflow.ts), landing in front of the bracket rather than
- *   behind it, which spells the same marker line again.
+ *   across a node boundary ({@link leadingBoundary}), so `isFused` IS
+ *   that answer and re-deriving it here would make a second source of
+ *   truth for it. A demand recorded on a fused atom would also be
+ *   lifted to the front of its whole run ({@link runBreak}), landing
+ *   in front of the bracket rather than behind it, which spells the
+ *   same marker line again.
  * - A DESCRIPTION-LIST separator word is not. `wordsToAtoms` marks one
  *   only where it came from a later source line
  *   (`index >= firstLineWordCount`), because that is the only way the
@@ -645,13 +644,12 @@ function ruleSpelledByTheMarkerLine(
  *
  * Only a packed line break can put it there. Every other run that
  * would spell the prefix keeps its bytes at the split
- * (`manufacturedChecklistRun`, src/print/whitespace-fold.ts), and a run
- * that IS a single space already spelled the prefix in the source,
- * where the reader would have read the checkbox. What is left is the
- * source's own line break, folded to a space by the packer, and the
- * remedy is to hold it: `* [x]` over `more` prints as two lines again,
- * and the re-reader sees `[x]` alone on the marker line exactly as the
- * author wrote it.
+ * ({@link manufacturedChecklistRun}), and a run that IS a single space
+ * already spelled the prefix in the source, where the reader would
+ * have read the checkbox. What is left is the source's own line break,
+ * folded to a space by the packer, and the remedy is to hold it: `*
+ * [x]` over `more` prints as two lines again, and the re-reader sees
+ * `[x]` alone on the marker line exactly as the author wrote it.
  *
  * Where the break may not be held ({@link refusesTheBreak}) the line
  * keeps its packing and DOES read as a checklist item - a failure the

@@ -310,8 +310,8 @@ describe("one prose representation", () => {
 // The style line is not a node of its own once its paragraph makes it
 // an admonition: its bytes are the admonition's opening span, and a
 // sibling attribute list would print the style a second time. RED
-// before `HeldMetadata.paragraphOpening` (src/parse/lines/held-metadata.ts),
-// where `[NOTE]\ntext` read as a blockAttributeList over a paragraph.
+// before {@link HeldMetadata.paragraphOpening}, where `[NOTE]\ntext`
+// read as a blockAttributeList over a paragraph.
 describe("a bare admonition style over a paragraph reads as one node", () => {
   test.each([
     ["NOTE", "note"],

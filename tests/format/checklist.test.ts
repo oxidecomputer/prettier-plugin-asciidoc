@@ -157,10 +157,10 @@ describe("checklist formatting", () => {
   // The one run the fold refusal cannot keep is a LINE BREAK: an atom
   // is newline-free by construction, so there is nothing to keep the
   // break inside. The printer holds it instead
-  // (`markerLineGuard`, src/print/list-hazard.ts), and the marker line
-  // comes back carrying the bracket alone, exactly as the source wrote
-  // it. The continuation line takes the item's own indent, which the
-  // reader folds back into the item's text.
+  // ({@link markerLineGuard}), and the marker line comes back carrying
+  // the bracket alone, exactly as the source wrote it. The
+  // continuation line takes the item's own indent, which the reader
+  // folds back into the item's text.
   //
   // Red before that break (issue #139): every row here packed its
   // second line onto the marker line and formatted to `* [x] more`, a

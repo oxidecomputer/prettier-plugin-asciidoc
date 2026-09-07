@@ -1,8 +1,8 @@
 /**
- * The idempotence lemma for `ParagraphNode.blankBelowAnchorLine`
- * (src/ast.ts): the printer writes bytes from which the reader
- * re-derives the fact, so `read(print(A))` agrees with `A` restricted
- * to that field.
+ * The idempotence lemma for
+ * {@link ParagraphNode.blankBelowAnchorLine}: the printer writes bytes
+ * from which the reader re-derives the fact, so `read(print(A))`
+ * agrees with `A` restricted to that field.
  *
  * The fact answers one question - did the author write a blank line
  * between a paragraph whose whole line is a `[[...]]` anchor and the
@@ -212,8 +212,8 @@ const OPENERS = [
   // it: the closing delimiter keeps the render under the oracle and
   // moves it under the Ruby, which reads two text lines where it read
   // one. The oracle wins, as it does at the registry row that carries
-  // the same divergence (`DELIMITER_KINDS`, src/parse/line-shapes.ts,
-  // issue #64), and the render comparison below is the oracle's.
+  // the same divergence ({@link DELIMITER_KINDS}, issue #64), and the
+  // render comparison below is the oracle's.
   ["openBlockTilde", "~~~~", "~~~~\n~~~~"],
   ["pass", "++++", "++++\n++++"],
   ["quote", "____", "____\n____"],

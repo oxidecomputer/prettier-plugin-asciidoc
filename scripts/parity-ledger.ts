@@ -165,17 +165,16 @@ const XREF_TEXT_TRIM_FAMILY = "xref-text-trim";
 const GAP_COLLAPSE_FAMILY = "gap-collapse";
 /**
  * A list marker keeps the indent the author wrote it at
- * (`ListItemNode.markerIndent`, src/ast.ts), and an item whose marker
- * line a literal paragraph's slurp took while `within_nested_list`
- * was down no longer writes its popped `+` back - with the indent
- * standing, that `+` re-reads erased (parser.rb l.1439) rather than
- * popped. Formatted-only, and both halves of the byte-level claim
- * rest on the same fact: neither `markerIndent` nor
- * `trailingContinuation` is one of the seven fields
- * `normalizeOneItem` keeps, so both are dropped from BOTH sides of
- * the comparison and every id moves bytes with a normalized tree that
- * is identical hash for hash. NOT exported: no grid row cites it, and
- * knip holds dead exports at 0.
+ * ({@link ListItemNode.markerIndent}), and an item whose marker line a
+ * literal paragraph's slurp took while `within_nested_list` was down
+ * no longer writes its popped `+` back - with the indent standing,
+ * that `+` re-reads erased (parser.rb l.1439) rather than popped.
+ * Formatted-only, and both halves of the byte-level claim rest on the
+ * same fact: neither `markerIndent` nor `trailingContinuation` is one
+ * of the seven fields `normalizeOneItem` keeps, so both are dropped
+ * from BOTH sides of the comparison and every id moves bytes with a
+ * normalized tree that is identical hash for hash. NOT exported: no
+ * grid row cites it, and knip holds dead exports at 0.
  */
 const MARKER_INDENT_KEPT_FAMILY = "marker-indent-kept";
 /**
@@ -266,14 +265,13 @@ const INLINE_BOUNDARY_SET_FAMILY = "inline-boundary-set";
 const INLINE_SPAN_KEEPS_BREAK_FAMILY = "inline-span-keeps-break";
 /**
  * A `+` that was its own source line keeps its own output line:
- * reflow's line-END exemption (`keepContinuationLine`,
- * src/print/reflow.ts) refuses the join that used to pull the
- * following text up onto the `+`, because Asciidoctor's reader would
- * re-read the joined line as prose instead of a continuation
- * (issue #43). Formatted-only: the `+` line's placement never
- * entered the AST - the tree recorded the continuation either way,
- * and only the printed line layout moves. Not exported: no grid row
- * cites it.
+ * reflow's line-END exemption ({@link keepContinuationLine}) refuses
+ * the join that used to pull the following text up onto the `+`,
+ * because Asciidoctor's reader would re-read the joined line as prose
+ * instead of a continuation (issue #43). Formatted-only: the `+`
+ * line's placement never entered the AST - the tree recorded the
+ * continuation either way, and only the printed line layout moves. Not
+ * exported: no grid row cites it.
  */
 const CONTINUATION_KEEPS_LINE_FAMILY = "continuation-keeps-line";
 /**
@@ -433,16 +431,16 @@ const TEXTLESS_DESCRIPTION_TEXT_FAMILY = "textless-description-text";
 const CURVED_QUOTE_NODE_FAMILY = "curved-quote-node";
 
 /**
- * Every paragraph records whether its first source line ends after
- * its first word (`ParagraphNode.firstWordEndsItsLine`, src/ast.ts),
- * the fact the printer's block-start hazard net reads in place of
- * re-deriving it from inline fragment values. The formatted bytes do
- * not move over this corpus - the net's answer changes only for a
- * paragraph whose first source line holds one marker-shaped word,
- * which no corpus case spells - so every declared case differs in the
- * AST alone, by that one key and nothing else. NOT formatted-only:
- * the key IS the difference, and a formatted-only family would fail
- * the cross-check for every case.
+ * Every paragraph records whether its first source line ends after its
+ * first word ({@link ParagraphNode.firstWordEndsItsLine}), the fact
+ * the printer's block-start hazard net reads in place of re-deriving
+ * it from inline fragment values. The formatted bytes do not move over
+ * this corpus - the net's answer changes only for a paragraph whose
+ * first source line holds one marker-shaped word, which no corpus case
+ * spells - so every declared case differs in the AST alone, by that
+ * one key and nothing else. NOT formatted-only: the key IS the
+ * difference, and a formatted-only family would fail the cross-check
+ * for every case.
  *
  * Not exported: no grid row cites it.
  */
@@ -451,8 +449,8 @@ const BLOCK_START_LINE_FACT_FAMILY = "block-start-line-fact";
 /**
  * Every paragraph records whether the source wrote a blank line under
  * it when its whole printed line is a grammar-rejected `[[...]]`
- * anchor (`ParagraphNode.blankBelowAnchorLine`, src/ast.ts), the fact
- * the block-metadata stacking rule reads in place of guessing the
+ * anchor ({@link ParagraphNode.blankBelowAnchorLine}), the fact the
+ * block-metadata stacking rule reads in place of guessing the
  * separation (issue #196). The formatted bytes do not move for a case
  * where the field lands `false` - the overwhelming majority of the
  * corpus, since the field answers a question only a rejected anchor
@@ -462,8 +460,7 @@ const BLOCK_START_LINE_FACT_FAMILY = "block-start-line-fact";
  * A case where the fix's own mechanism actually restores a dropped
  * blank line differs in the FORMATTED bytes too and does not fold
  * under this blanket strip; it takes its own per-id trailer instead
- * (`differingCases`, scripts/parity.ts, puts an id in exactly one
- * stream).
+ * ({@link differingCases}, puts an id in exactly one stream).
  *
  * Not exported: no grid row cites it.
  */
@@ -518,21 +515,19 @@ const FRONT_MATTER_FAMILY = "front-matter";
  * openings and runs all arrive - so the per-id trailers carry the
  * declaration.
  *
- * The BYTE side is empty and measured, not assumed, RELATIVE TO A
- * BASE THAT ALREADY REPLAYS THE INTERIOR: across such a range the
- * printer writes the same partition the passthrough wrote, so a case
- * declared here differs in the AST alone. An id whose bytes also move
- * leaves this family's domain rather than joining it, because one id
- * takes exactly ONE trailer (`recordTrailer`,
- * scripts/parity-trailers.ts, fails an id declared under two
- * families, and `differingCases`, scripts/parity.ts, puts an id in
- * the AST stream or the formatted stream and never in both). Which
- * one it takes follows from that split: where the AST is unchanged
- * and only the delimiter moved it is
- * {@link TABLE_DELIMITER_LENGTH_FAMILY}, and where the table fold
- * itself is in the range the id differs in the AST, so `table-node`
- * is the single legal declaration and the byte side of the family is
- * NOT empty over that range.
+ * The BYTE side is empty and measured, not assumed, RELATIVE TO A BASE
+ * THAT ALREADY REPLAYS THE INTERIOR: across such a range the printer
+ * writes the same partition the passthrough wrote, so a case declared
+ * here differs in the AST alone. An id whose bytes also move leaves
+ * this family's domain rather than joining it, because one id takes
+ * exactly ONE trailer ({@link recordTrailer}, fails an id declared
+ * under two families, and {@link differingCases}, puts an id in the
+ * AST stream or the formatted stream and never in both). Which one it
+ * takes follows from that split: where the AST is unchanged and only
+ * the delimiter moved it is {@link TABLE_DELIMITER_LENGTH_FAMILY}, and
+ * where the table fold itself is in the range the id differs in the
+ * AST, so `table-node` is the single legal declaration and the byte
+ * side of the family is NOT empty over that range.
  *
  * Not exported: no grid row cites it.
  */
@@ -550,7 +545,7 @@ const TABLE_NODE_FAMILY = "table-node";
  * Exported: the standing grid's `tablePipe` rows cite it wherever a
  * container swallows the opening delimiter, so the interior `|====`
  * opens a table of its own and only its delimiter lines move
- * (`TABLE_PIPE_FAMILIES`, scripts/shape-registry-families.ts).
+ * ({@link TABLE_PIPE_FAMILIES}).
  */
 export const TABLE_DELIMITER_LENGTH_FAMILY = "table-delimiter-length";
 
@@ -565,20 +560,20 @@ export const TABLE_DELIMITER_LENGTH_FAMILY = "table-delimiter-length";
  * tree records it, both holding the author's own delimiter images, so
  * an AST diff at one of these ids is a real failure.
  *
- * GRID-ONLY, and that is the honest statement of its population
- * rather than a gap in it: parity reports all 1,620 corpus and
- * fixture cases identical, so no id cites this family and none is
- * expected to. The corpus simply does not spell a longer delimiter
- * inside a shorter block; the standing grid does, at one named
- * coordinate per kind, which is the reason the grids exist. Exported
- * for those rows (`gridRowFamily`, scripts/shape-registry-families.ts).
+ * GRID-ONLY, and that is the honest statement of its population rather
+ * than a gap in it: parity reports all 1,620 corpus and fixture cases
+ * identical, so no id cites this family and none is expected to. The
+ * corpus simply does not spell a longer delimiter inside a shorter
+ * block; the standing grid does, at one named coordinate per kind,
+ * which is the reason the grids exist. Exported for those rows
+ * ({@link gridRowFamily}).
  */
 export const BLOCK_DELIMITER_LENGTH_FAMILY = "block-delimiter-length";
 
 /**
  * Every table cell records the column it inherits its style from
- * (`TableCellNode.columnIndex`, src/ast.ts): its physical position in
- * its row after duplicate expansion, which a consumer would otherwise
+ * ({@link TableCellNode.columnIndex}): its physical position in its
+ * row after duplicate expansion, which a consumer would otherwise
  * re-derive by counting the same cells a second time. The formatted
  * bytes do not move at all, over this corpus or any other, because
  * nothing in src/print reads the field yet - so every declared case
@@ -604,13 +599,13 @@ const TABLE_CELL_COLUMN_INDEX_FAMILY = "table-cell-column-index";
  * made, so an AST diff at one of these ids is a real failure. Ids
  * whose delimiter ALSO moved take this family and not
  * {@link TABLE_DELIMITER_LENGTH_FAMILY}, because one id takes exactly
- * ONE trailer (`recordTrailer`, scripts/parity-trailers.ts) and this
- * is the wider of the two: the delimiter is respelled from the
- * interior this family produced.
+ * ONE trailer ({@link recordTrailer}) and this is the wider of the
+ * two: the delimiter is respelled from the interior this family
+ * produced.
  *
  * Exported: the standing grid's `tablePipe` rows cite it wherever the
  * grid's own table is accepted and its second row goes back on one
- * line (`TABLE_PIPE_FAMILIES`, scripts/shape-registry-families.ts).
+ * line ({@link TABLE_PIPE_FAMILIES}).
  */
 export const TABLE_LAYOUT_FAMILY = "table-layout";
 
@@ -619,9 +614,8 @@ export const TABLE_LAYOUT_FAMILY = "table-layout";
  * prints one cell per line after the first row, which is the DEFAULT
  * option value's own behaviour rather than a value anybody set: the
  * width chooses inside `"row"`, all-or-nothing per table
- * (`chooseLayout`, src/print/table-layout.ts). The `"cell"` value
- * itself moves nothing in a parity run, since a run formats with the
- * defaults.
+ * ({@link chooseLayout}). The `"cell"` value itself moves nothing in a
+ * parity run, since a run formats with the defaults.
  *
  * MEASURED, because the two layouts each have a measured population
  * and the flip between them had none: 6 of the 82 accepted corpus
@@ -646,13 +640,12 @@ const TABLE_WIDTH_LAYOUT_FAMILY = "table-width-layout";
 /**
  * A table records that a block attribute line stood above it whose
  * values its open could NOT read: a second attribute line, or one
- * standing behind a title or an anchor, which the reader's
- * last-node rule refuses (`TableNode.attrlistUnread`, src/ast.ts).
- * Asciidoctor reads every metadata line above a block into one
- * attribute hash whatever the order (`parse_block_metadata_lines`,
- * parser.rb:2014-2021), so the fact is what stops a consumer acting
- * on a `cutting`, a `columns` or a `header` resolved from less than
- * the author wrote.
+ * standing behind a title or an anchor, which the reader's last-node
+ * rule refuses ({@link TableNode.attrlistUnread}). Asciidoctor reads
+ * every metadata line above a block into one attribute hash whatever
+ * the order (`parse_block_metadata_lines`, parser.rb:2014-2021), so
+ * the fact is what stops a consumer acting on a `cutting`, a `columns`
+ * or a `header` resolved from less than the author wrote.
  *
  * NOT formatted-only: the key IS the difference at these ids. Their
  * bytes move too - the delimiter rule reaches every table - but an id
@@ -738,7 +731,7 @@ const DESCRIPTION_LIST_ITEM_FAMILY = "description-list-item";
  * EXPORTED: the standing grid cites it - every row whose kind is
  * `openBlockTilde` takes this family, because the base's registry has
  * no such kind at all, so no perturbation of it can be byte-identical
- * (`gridRowFamily`, scripts/shape-registry-families.ts).
+ * ({@link gridRowFamily}).
  */
 export const OPEN_BLOCK_TILDE_FAMILY = "open-block-tilde";
 
@@ -765,49 +758,48 @@ const BLOCK_MACRO_NAME_FAMILY = "block-macro-name";
  * paragraph and the bare `STYLE: ` label in front of it are the same
  * admonition to Asciidoctor (`ADMONITION_STYLES`, parser.rb:730), so
  * which one the author typed is a spelling; the fold that respells the
- * bracket form to the label form is `admonitionLabelOpensABlock`
- * (src/parse/lines/open-style.ts). Every declared case loses the
+ * bracket form to the label form is
+ * {@link admonitionLabelOpensABlock}. Every declared case loses the
  * `blockAttributeList` sibling the bracket style used to open and
  * gains one admonition node whose opening bytes ARE the style line, so
  * the bracket line's own bytes move to the label spelling and every
- * byte after it is unchanged. NOT formatted-only: the node kind
- * itself changes, the same way `BLOCK_MACRO_NAME_FAMILY` above does.
- * Not a blanket family either: it does not name a field every node
- * gained, it names a whole sibling node the fold removes.
+ * byte after it is unchanged. NOT formatted-only: the node kind itself
+ * changes, the same way `BLOCK_MACRO_NAME_FAMILY` above does. Not a
+ * blanket family either: it does not name a field every node gained,
+ * it names a whole sibling node the fold removes.
  *
  * EXPORTED: the standing grid's `under-note-attrlist` container (its
  * own comment, scripts/shape-registry.ts) puts this style line over
- * every compound delimiter kind, and
- * scripts/metrics/shape-census.ts's `admonition-label` GRID_EXEMPT
- * entry names the same cell in advance as the one place the
- * delimited-admonition path (`buildDelimitedAdmonition`,
- * src/parse/build/delimited.ts) is grid-covered - both anticipated
- * this family's first realized row before this fold existed to
- * realize it. The witness row
+ * every compound delimiter kind, and scripts/metrics/shape-census.ts's
+ * `admonition-label` GRID_EXEMPT entry names the same cell in advance
+ * as the one place the delimited-admonition path
+ * ({@link buildDelimitedAdmonition}) is grid-covered - both
+ * anticipated this family's first realized row before this fold
+ * existed to realize it. The witness row
  * (`fencedCode/under-note-attrlist/minimum-delimiter-inside`) carries
  * the measured proof rather than an assumption: the harness's own
  * per-row instrumentation holds `headIdempotent`,
  * `headRenderEqualsInput`, and `renderNeutral` all true there.
  *
  * Matched on the OUTPUTS, not claimed by coordinate
- * (`admonitionLabelFoldFamily`, scripts/shape-registry-families.ts):
- * a coordinate names where a shape is generated FROM, not what a
- * diff there actually is, and a coordinate-only rule would excuse any
- * future diff at that address rather than only this one mechanism -
- * the over-broad shape is issue #202's lesson.
+ * ({@link admonitionLabelFoldFamily}): a coordinate names where a
+ * shape is generated FROM, not what a diff there actually is, and a
+ * coordinate-only rule would excuse any future diff at that address
+ * rather than only this one mechanism - the over-broad shape is issue
+ * #202's lesson.
  */
 export const ADMONITION_LABEL_FOLD_FAMILY = "admonition-label-fold";
 
 /**
  * Every paragraph records the indent its SECOND source line opened
- * with (`ParagraphNode.secondLineIndent`, src/ast.ts), the run the
+ * with ({@link ParagraphNode.secondLineIndent}), the run the
  * block-start hazard net writes back instead of rebuilding that
  * stranded line at column 0 (issue #191, landed 7f548d81). The field
- * is the fact Ruby reads there (`indented = this_line.start_with?
- * ' ', TAB`, parser.rb l.572), so every paragraph that reached a
- * second line carries it and the serialized tree moves at every such
- * case while the bytes hold: measured against 5229e0f7, the landing's
- * own base, 907 of the 908 differing cases over the 1,620-case corpus
+ * is the fact Ruby reads there (`indented = this_line.start_with? ' ',
+ * TAB`, parser.rb l.572), so every paragraph that reached a second
+ * line carries it and the serialized tree moves at every such case
+ * while the bytes hold: measured against 5229e0f7, the landing's own
+ * base, 907 of the 908 differing cases over the 1,620-case corpus
  * differ in this key and nothing else, which is what a bare trailer
  * declares. NOT formatted-only: the key IS the difference, and a
  * formatted-only family would fail the cross-check for every case.
@@ -824,16 +816,15 @@ const SECOND_LINE_INDENT_FACT_FAMILY = "second-line-indent-fact";
 
 /**
  * A list marker keeps the `[ \t]+` run the author wrote behind it
- * (`ListItemNode.markerGap`, src/ast.ts), where the printer used to
- * normalize every gap to one space - which is how `-  - -` became the
- * `- - -` that reads as a thematic break (UnorderedListRx rx.rb
- * l.284, OrderedListRx l.300, CalloutListRx l.358; issue #121, landed
- * 7f548d81). Measured against 5229e0f7, the landing's own base, ONE
- * id over the 1,620-case corpus moves: `test/fixtures/lists.adoc`,
- * whose source line `-     normal list item` was printed back as
- * `- normal list item` and now prints as itself. That one line is the
- * whole of the byte-level claim, and it moves the output TOWARD the
- * source.
+ * ({@link ListItemNode.markerGap}), where the printer used to
+ * normalize every gap to one space - which is how `- - -` became the
+ * `- - -` that reads as a thematic break (UnorderedListRx rx.rb l.284,
+ * OrderedListRx l.300, CalloutListRx l.358; issue #121, landed
+ * 7f548d81). Measured against 5229e0f7, the landing's own base, ONE id
+ * over the 1,620-case corpus moves: `test/fixtures/lists.adoc`, whose
+ * source line `- normal list item` was printed back as `- normal list
+ * item` and now prints as itself. That one line is the whole of the
+ * byte-level claim, and it moves the output TOWARD the source.
  *
  * NOT formatted-only, though `markerGap` is itself invisible here: it
  * is not one of the seven fields `normalizeOneItem` keeps, so it is

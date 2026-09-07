@@ -307,11 +307,10 @@ describe("held styles on delimiters the style does not re-model", () => {
   // `position` (src/parse/build/delimited.ts), where the reader's
   // older post-construction stamp had left them, so the wire order
   // here is a fact about the builder rather than about `src/ast.ts`;
-  // `declaredKeyOrder` (tests/parser/reader-helpers.ts) would put
-  // `position` last and disagree. Five interfaces also share this
-  // discriminant, so there is no one declared order to read. Written
-  // out, and the three spellings below are the three the builder
-  // produces.
+  // {@link declaredKeyOrder} would put `position` last and disagree.
+  // Five interfaces also share this discriminant, so there is no one
+  // declared order to read. Written out, and the three spellings below
+  // are the three the builder produces.
   //
   // `annotatedBy` cannot be an AST difference - the parity normalizer
   // drops the key before digesting (scripts/parity.ts, `annotatedBy`

@@ -2,14 +2,13 @@
  * WHERE THE PASSTHROUGH WALK AND ASCIIDOCTOR'S TWO PASSES DISAGREE.
  *
  * CHARACTERIZATION, NOT A FIX. Every row here records what
- * `scanPassthroughs` (src/parse/inline/passthrough.ts) does today
- * beside what Asciidoctor's `extract_passthroughs` does, on text where
- * the two differ. None of the rows is a bug being pinned closed: the
- * bytes are identical either way, the formatted output is the input,
- * and both programs render it the same. What the suite exists for is
- * that the difference is REAL and easy to assume away, and a consumer
- * that computes an exclusion from these spans rather than a mask
- * inherits it.
+ * {@link scanPassthroughs} does today beside what Asciidoctor's
+ * `extract_passthroughs` does, on text where the two differ. None of
+ * the rows is a bug being pinned closed: the bytes are identical
+ * either way, the formatted output is the input, and both programs
+ * render it the same. What the suite exists for is that the difference
+ * is REAL and easy to assume away, and a consumer that computes an
+ * exclusion from these spans rather than a mask inherits it.
  *
  * The walk goes over the text ONCE, trying the unconstrained
  * delimiters, then the `pass:` macro, then the constrained `+` at each

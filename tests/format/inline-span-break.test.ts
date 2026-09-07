@@ -188,10 +188,10 @@ describe("the kept break is the SOURCE LINE's, not a fragment's", () => {
   // holds the break in the middle of its own bytes and the break
   // behind the block's first WORD is in no node's value at all. The
   // question is therefore asked of the SOURCE LINE, through the
-  // reader's recorded answer (`ParagraphNode.firstWordEndsItsLine`,
-  // src/ast.ts). Each row's two lines joined is block syntax the
-  // author did not write - `** *b* c` is a depth-2 list item - so the
-  // author's own line stands.
+  // reader's recorded answer
+  // ({@link ParagraphNode.firstWordEndsItsLine}). Each row's two lines
+  // joined is block syntax the author did not write - `** *b* c` is a
+  // depth-2 list item - so the author's own line stands.
   test.each(["**\n*b* c\n", "**\nb* c\n", "**\nb c*\n"])(
     "%j keeps the author's line instead of writing a ulist",
     async (input) => {
@@ -244,12 +244,12 @@ describe("the kept break is the SOURCE LINE's, not a fragment's", () => {
 
   // A HIGHLIGHT span's role prefix is the shape that made the net's
   // question the whole line's rather than the pair's (issue #96):
-  // `spanMarks` (src/print/span-edges.ts) writes the role as `[...]` in
-  // front of the mark, so the opening atom carries a `[` at its head,
-  // and `BLOCK_ATTRIBUTE_LINE` is decided by its head AND its `]` tail.
+  // {@link spanMarks} writes the role as `[...]` in front of the mark,
+  // so the opening atom carries a `[` at its head, and
+  // `BLOCK_ATTRIBUTE_LINE` is decided by its head AND its `]` tail.
   // The `]` lives two atoms further along, so the pair `[.role]## b##`
-  // is no block shape while the packed line `[.role]## b## c]` is one -
-  // and the paragraph packed into it re-read as block METADATA and
+  // is no block shape while the packed line `[.role]## b## c]` is one
+  // - and the paragraph packed into it re-read as block METADATA and
   // rendered EMPTY. The net keeps the author's line instead.
   test("[.role]## / b## c] keeps the author's line", async () => {
     await expectRow("[.role]##\nb## c]\n", "[.role]##\nb## c]\n");

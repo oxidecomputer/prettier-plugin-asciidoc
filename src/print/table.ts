@@ -15,9 +15,8 @@
  * closing line. Concatenating them in that order IS the source, with
  * exactly two bytes left to this file: the line terminator after the
  * opening delimiter and the one before the closing delimiter. Neither
- * belongs to any cell (the scan's `regionEnd`,
- * src/parse/lines/table-reader.ts), and both are written here as
- * hardlines.
+ * belongs to any cell (the scan's {@link regionEnd}), and both are
+ * written here as hardlines.
  *
  * The interior is emitted only when the extent HAD interior lines,
  * which is exactly when it holds a run or a cell: a blank line is a
@@ -112,12 +111,11 @@ function replayedInterior(node: TableNode): string {
  * One row's recorded bytes: its cells, adjacent.
  *
  * A row with NO cells would write nothing and be invisible here. None
- * exists: `groupRows` (src/parse/lines/table-reader.ts) never pushes a
- * row before pushing a cell into it. That is a fact about the producer
- * rather than a guarantee of the type - `TableRowNode.children` is a
- * plain array and admits an empty one - which is why it is written
- * down at the consumer that would be the one to lose bytes if it
- * stopped holding.
+ * exists: {@link groupRows} never pushes a row before pushing a cell
+ * into it. That is a fact about the producer rather than a guarantee
+ * of the type - `TableRowNode.children` is a plain array and admits an
+ * empty one - which is why it is written down at the consumer that
+ * would be the one to lose bytes if it stopped holding.
  * @param row - the row node
  * @returns the row's recorded bytes
  */

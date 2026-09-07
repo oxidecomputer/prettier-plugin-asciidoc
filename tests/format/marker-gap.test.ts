@@ -17,12 +17,12 @@
  * space and there is nothing left to fold).
  *
  * The same fact closes sub-mechanism B. The guard that refuses the
- * fold (`fuseRunsSpellingABreak`, src/print/whitespace-fold.ts) has to
- * know whether the SOURCE's line already spelled the rule, and the gap
- * in front of the value is half of that line. It used to be handed a
- * WIDTH, so ` \t` measured equal to a two-space run and the guard
- * concluded the author had already written the rule; handed the BYTES
- * it sees a tab, which neither pattern accepts, and holds the run.
+ * fold ({@link fuseRunsSpellingABreak}) has to know whether the
+ * SOURCE's line already spelled the rule, and the gap in front of the
+ * value is half of that line. It used to be handed a WIDTH, so ` \t`
+ * measured equal to a two-space run and the guard concluded the author
+ * had already written the rule; handed the BYTES it sees a tab, which
+ * neither pattern accepts, and holds the run.
  */
 import { describe, test } from "vitest";
 import { expectFormatted } from "../helpers.js";

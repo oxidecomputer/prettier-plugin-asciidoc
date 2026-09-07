@@ -86,8 +86,8 @@ export function bodyExtent(
 
 /**
  * Whether the source line a block OPENS ON ends after its first word -
- * `ParagraphNode.firstWordEndsItsLine` (src/ast.ts carries the whole
- * argument and the printer that reads it).
+ * {@link ParagraphNode.firstWordEndsItsLine} carries the whole argument
+ * and the printer that reads it.
  *
  * Measured off the SOURCE from the block's own start offset, so the
  * indentation and any prefix in front of the block (a description
@@ -121,8 +121,8 @@ const LEADING_INDENT = /^[ \t]*/v;
 
 /**
  * The leading whitespace of the source line directly UNDER the one a
- * paragraph opens on - `ParagraphNode.secondLineIndent` (src/ast.ts
- * carries the whole argument and the printer that reads it).
+ * paragraph opens on - {@link ParagraphNode.secondLineIndent} carries
+ * the whole argument and the printer that reads it.
  *
  * Measured off the SOURCE, like {@link firstWordEndsItsLine}, and
  * conjoined with the two conditions that make the run the printer's to
@@ -175,7 +175,7 @@ function secondLineIndent(
  * @param blankBelow - whether a blank line stands between this
  *   paragraph's extent and the next block the reader will produce; it
  *   reaches the tree only when the body is a lone anchor line, which
- *   is the whole of `ParagraphNode.blankBelowAnchorLine` (src/ast.ts)
+ *   is the whole of {@link ParagraphNode.blankBelowAnchorLine}
  * @returns the paragraph node
  */
 export function buildParagraph(

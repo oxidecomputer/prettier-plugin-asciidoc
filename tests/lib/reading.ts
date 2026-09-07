@@ -11,14 +11,13 @@
  *     readingOf(format^2(d))  == readingOf(format(d))   when bytes moved
  *
  * The oracle here is OUR OWN reader, traced through
- * `classifyTrace.observer` (src/parse/lines/classify.ts) rather than
- * re-derived: a test-owned context tracker would be a second reader
- * dialect that drifts, and the whole point is to assert against the
- * reader's own reading. Everything below is either a recorded verdict
- * or a documented projection rule, and every projection rule names
- * the format test that declares its transform deliberate - a rule
- * without such a license would be a hazard the net has been told to
- * ignore.
+ * {@link classifyTrace.observer} rather than re-derived: a test-owned
+ * context tracker would be a second reader dialect that drifts, and
+ * the whole point is to assert against the reader's own reading.
+ * Everything below is either a recorded verdict or a documented
+ * projection rule, and every projection rule names the format test
+ * that declares its transform deliberate - a rule without such a
+ * license would be a hazard the net has been told to ignore.
  *
  * WHAT THIS IS NOT. It is not an AST comparison (that converges on
  * render-equality without the oracle's authority, and points at a
@@ -101,10 +100,10 @@ const ADMONITION_LABEL_TOKEN = "admonlabel:";
  *   `[[intro]]` give the block below them the same id, so both build
  *   one blockAnchor node and the printer writes the anchor line for
  *   both, pinned by tests/format/anchor-spelling.test.ts. The fold
- *   asks the BUILDER's own question (`attributeLineInterior`,
- *   src/parse/build/metadata.ts) rather than a pattern of its own, so
- *   an attribute line the builder leaves alone keeps its `attrline`
- *   token and a respelling nobody licensed still moves the sequence;
+ *   asks the BUILDER's own question ({@link attributeLineInterior})
+ *   rather than a pattern of its own, so an attribute line the builder
+ *   leaves alone keeps its `attrline` token and a respelling nobody
+ *   licensed still moves the sequence;
  * - an attribute line naming one of Ruby's five ADMONITION STYLES and
  *   nothing else folds onto the admonition token: `[NOTE]` over a
  *   paragraph and `NOTE: ` in front of it are one admonition, so the
@@ -424,14 +423,14 @@ function emit(reading: ReadingBuilder, token: string): void {
  *   the printer emits one whatever precedes the fence, so a `[role]`
  *   line before it is a second attrline on both sides rather than the
  *   fence's.
- * - a style line standing under ANOTHER attribute line projects as
- *   the plain `attrline` it is, never as the admonition: the reader
+ * - a style line standing under ANOTHER attribute line projects as the
+ *   plain `attrline` it is, never as the admonition: the reader
  *   refuses to fold there, because only the last attribute line of a
  *   run is recorded while every one of them still prints
- *   (`unreadAttrlist`, src/parse/lines/held-metadata.ts). Without this
- *   the licence was wider than the routing, and `[source]` over a
- *   `NOTE: ` label read the same as `[source]` over a `[NOTE]` style
- *   line - a respelling that changes the render, waved through;
+ *   ({@link unreadAttrlist}). Without this the licence was wider than
+ *   the routing, and `[source]` over a `NOTE: ` label read the same as
+ *   `[source]` over a `[NOTE]` style line - a respelling that changes
+ *   the render, waved through;
  * - an admonition LABEL canonicalizes to the pair `admon:NAME text`,
  *   because the label line carries the admonition and the head of its
  *   body while the `[NOTE]` style line carries only the admonition,

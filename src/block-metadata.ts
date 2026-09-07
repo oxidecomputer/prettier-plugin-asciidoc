@@ -271,8 +271,8 @@ function anchorOfLine(
  * answer it for itself. The printer asks it through
  * {@link anchorLineShape} to decide what the line it is about to emit
  * re-reads as; the READER asks it to record
- * `ParagraphNode.blankBelowAnchorLine` (src/ast.ts), the separation
- * the author wrote under such a line. Two answers here would let the
+ * {@link ParagraphNode.blankBelowAnchorLine}, the separation the
+ * author wrote under such a line. Two answers here would let the
  * reader record a fact about a line the printer does not agree is one.
  *
  * A BIBLIOGRAPHY-form anchor is excluded on purpose: its printed line
@@ -456,9 +456,9 @@ export function stacksAsMetadata(
 
 /**
  * The separation the AUTHOR wrote under a paragraph whose whole line
- * is a `[[...]]` anchor: `ParagraphNode.blankBelowAnchorLine`
- * (src/ast.ts), or undefined for every block the reader recorded no
- * such separation for.
+ * is a `[[...]]` anchor: {@link ParagraphNode.blankBelowAnchorLine},
+ * or undefined for every block the reader recorded no such separation
+ * for.
  *
  * Where it answers, it answers the WHOLE of {@link stacksAsMetadata},
  * and the two exceptions below it are not consulted. That is not a

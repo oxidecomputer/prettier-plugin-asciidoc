@@ -1,8 +1,7 @@
 /**
- * The reading core's pure units: `fragmentOfLine` (src/parse/lines/
- * split.ts, beside the SourceLine it measures), `heldMetadataNode`
- * (src/parse/lines/held-metadata.ts, beside its one caller) and
- * `isLeafKind` (src/parse/lines/frames.ts, the leaf-builder table).
+ * The reading core's pure units: {@link fragmentOfLine}, beside the
+ * {@link SourceLine} it measures, {@link heldMetadataNode}, beside its
+ * one caller, and {@link isLeafKind}, the leaf-builder table.
  *
  * Table-driven because each is `(input) → value` with no context: the
  * rows are the specification. The reader's characterization suites

@@ -351,9 +351,9 @@ describe("the lens sees each corruption, and one arm names it", () => {
   // they mean (issues #269, #270).
   //
   // #73 had a row here ("[[3-blind-mice]]\n\n ----\n") and no longer
-  // does: a paragraph whose whole line is a `[[...]]` anchor now records
-  // the separation the author wrote under it
-  // (`ParagraphNode.blankBelowAnchorLine`, src/ast.ts) and the printer
+  // does: a paragraph whose whole line is a `[[...]]` anchor now
+  // records the separation the author wrote under it
+  // ({@link ParagraphNode.blankBelowAnchorLine}) and the printer
   // writes that separation back, so the document round-trips and the
   // family is empty in the ledger. A row asserting a breach that no
   // longer happens would be red, and there is no second document with
@@ -368,10 +368,10 @@ describe("the lens sees each corruption, and one arm names it", () => {
   test.each([
     // `===\n ----\n` used to stand here and no longer does: the
     // block-start hazard net writes the second line's own indent back
-    // (`ParagraphNode.secondLineIndent`, src/ast.ts), so that document
+    // ({@link ParagraphNode.secondLineIndent}), so that document
     // round-trips. The family's other arm is still live - the net
-    // bails on a first atom that may not end a line, and a lone `+`
-    // is exactly that, so the indent under it is still dropped.
+    // bails on a first atom that may not end a line, and a lone `+` is
+    // exactly that, so the indent under it is still dropped.
     [
       "a de-indented line becomes a block (#121)",
       "+\n ----\n",
@@ -423,13 +423,12 @@ describe("the lens sees each corruption, and one arm names it", () => {
     ],
     // #170 and every #171 coordinate had a row here and no longer do.
     // A fence's `[source]` line is now the block's FIRST printed line,
-    // so it no longer detaches (`printsSourceAttributeLine`,
-    // src/block-metadata.ts), and a description the head drain would
-    // take now keeps the detached `+` that stops it
-    // (`drainTakesWholeBody`, src/print/join.ts), as does the `// c`
-    // body whose deleted line rendered nothing. Both families
-    // round-trip every document that used to be spelled here, so
-    // neither has a row to put in its place.
+    // so it no longer detaches ({@link printsSourceAttributeLine}),
+    // and a description the head drain would take now keeps the
+    // detached `+` that stops it ({@link drainTakesWholeBody}), as
+    // does the `// c` body whose deleted line rendered nothing. Both
+    // families round-trip every document that used to be spelled here,
+    // so neither has a row to put in its place.
     [
       "a heading read under a bare term (#186)",
       "term::\n```x\n----\nfoo\n----\n",

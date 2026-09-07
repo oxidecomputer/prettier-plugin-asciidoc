@@ -35,9 +35,8 @@ import { bareAddressRunsPast } from "../parse/inline/rules.js";
 
 /**
  * A formatting span with a CONSTRAINED spelling to choose: its marks
- * ride on the atoms they touch, and `constrainedIsLegal`
- * (src/print/declared-rules.ts) decides whether the shorter
- * spelling carries the same meaning.
+ * ride on the atoms they touch, and {@link constrainedIsLegal} decides
+ * whether the shorter spelling carries the same meaning.
  */
 export type MarkSpanNode =
   | BoldNode
@@ -281,13 +280,12 @@ function reachOfRun(nodes: readonly InlineNode[]): Reach {
  * A bare URL's match runs on through every character its class admits,
  * the marks included, so a delimiter that stands inside that match
  * when the document is read again is a delimiter the reader has to
- * recover by CUTTING the match at it (`cutMatch`,
- * src/parse/inline/span-pairing.ts) - and an UNCONSTRAINED row is cut
- * wherever the delimiter stands, while a constrained one is cut only
- * at the match's END, because that is the only offset the match
- * answered the row's `(?!\w)` lookahead for. So behind an address the
- * two spellings are not interchangeable: the doubled one reads back
- * and the shorter one does not.
+ * recover by CUTTING the match at it ({@link cutMatch}) - and an
+ * UNCONSTRAINED row is cut wherever the delimiter stands, while a
+ * constrained one is cut only at the match's END, because that is the
+ * only offset the match answered the row's `(?!\w)` lookahead for. So
+ * behind an address the two spellings are not interchangeable: the
+ * doubled one reads back and the shorter one does not.
  *
  * BOTH marks are asked about, because both can stand in a match. The
  * closing one does where the span's own content ends with an address;
@@ -471,10 +469,10 @@ export type HeadContext =
       /** An enclosing span's edge stands in front, and more beyond it. */
       readonly kind: "spanEdge";
       /**
-       * The enclosing span's own edge as the asking row reads it:
-       * the element boundary its rewrite wrote where that row has
-       * already run, and its literal opening delimiter where it has
-       * not (`headContext`, src/print/declared-rules.ts).
+       * The enclosing span's own edge as the asking row reads it: the
+       * element boundary its rewrite wrote where that row has already
+       * run, and its literal opening delimiter where it has not
+       * ({@link headContext}).
        */
       readonly edge: string;
     };
@@ -493,15 +491,14 @@ export function headBytes(head: HeadContext): string {
  * The attrlist standing flush in front of a span: the run inside its
  * brackets, and the bytes in front of its `[`.
  *
- * Every `QUOTE_SUBS` row carries an optional `(?:\[([^\]]+)\])?`
- * group in front of its opening delimiter (asciidoctor.rb l.446-464),
- * so a `[...]` run flush against a span belongs to whichever ROW
- * resolves that span. Both fields are what a respelling decision needs
- * from it, and they answer two different questions
- * ({@link attrlistAllowsIt}). Not exported: the value travels from
- * {@link attrlistInFront} to that predicate, and its one caller
- * (`neighboursAllowIt`, src/print/declared-rules.ts) never names the
- * type.
+ * Every `QUOTE_SUBS` row carries an optional `(?:\[([^\]]+)\])?` group
+ * in front of its opening delimiter (asciidoctor.rb l.446-464), so a
+ * `[...]` run flush against a span belongs to whichever ROW resolves
+ * that span. Both fields are what a respelling decision needs from it,
+ * and they answer two different questions ({@link attrlistAllowsIt}).
+ * Not exported: the value travels from {@link attrlistInFront} to that
+ * predicate, and its one caller ({@link neighboursAllowIt}) never
+ * names the type.
  */
 interface AttrlistInFront {
   /** The run between the `[` and the `]`, never empty. */
@@ -928,7 +925,7 @@ function runMayBeOpen(head: HeadContext, front: string): boolean {
  * modelled and neither can arrive. A `#` would open the shorthand ID
  * syntax, and it is also the highlight mark, so a role holding one
  * refuses the shortening a whole clause earlier, in the block-wide
- * scan (`carriesMark`, src/print/declared-rules.ts) - the only caller
+ * scan ({@link carriesMark}) - the only caller
  * ({@link writesBareTextBehind}) is reached for a highlight and for
  * nothing else. A reference is substituted before it is parsed, and
  * that caller refuses on one without asking here.

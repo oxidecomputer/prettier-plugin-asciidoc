@@ -11,12 +11,11 @@
  * `\r` to `\n` before ever splitting. This codebase's tests run
  * against the JS oracle, and it wins, so all three of ITS
  * normalizations happen here: the byte-order-mark strip, line-ending
- * normalization (`nextLineBreak`, src/parse/positions.ts), and the
- * per-line rstrip. A bare CR is a LINE BREAK under the JS oracle, and
- * an old-Mac document that is several lines to it is several lines
- * here too (issue #68). CRLF is unaffected by the bare-CR rule,
- * because its `\r` is not lone; it still lands at a line end where
- * the rstrip set covers it.
+ * normalization ({@link nextLineBreak}), and the per-line rstrip. A
+ * bare CR is a LINE BREAK under the JS oracle, and an old-Mac document
+ * that is several lines to it is several lines here too (issue #68).
+ * CRLF is unaffected by the bare-CR rule, because its `\r` is not
+ * lone; it still lands at a line end where the rstrip set covers it.
  *
  * A leading BYTE-ORDER MARK is not part of the first line. The oracle
  * drops one U+FEFF from the head of the whole document, and failing
@@ -258,7 +257,7 @@ export function splitLines(source: string): SourceLine[] {
  * A blank run with NOTHING after it answers false: a document's
  * trailing blanks do not survive printing, so a `true` there would be
  * a fact the output could not carry. The one consumer is
- * `ParagraphNode.blankBelowAnchorLine` (src/ast.ts).
+ * {@link ParagraphNode.blankBelowAnchorLine}.
  * @param lines - the lines the reader walks
  * @param index - the read position, past the block just measured
  * @returns whether at least one blank line, and then content, follow

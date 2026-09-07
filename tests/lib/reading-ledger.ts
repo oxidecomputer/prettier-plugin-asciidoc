@@ -186,11 +186,10 @@ function isLonePlusJoin(
  * Is this token a line the reader took for a LIST MARKER?
  *
  * Two spellings, one reading, which is why the predicate below asks
- * for either. `marker:` is a marker line met at a block start.
- * `textv` is the same shape met inside an open paragraph, where the
- * reader keeps it as text it may not reflow because the column it
- * stands in decides what a later `+` means
- * (`classifyInParagraph`, src/parse/lines/classify.ts, and the
+ * for either. `marker:` is a marker line met at a block start. `textv`
+ * is the same shape met inside an open paragraph, where the reader
+ * keeps it as text it may not reflow because the column it stands in
+ * decides what a later `+` means ({@link classifyInParagraph}, and the
  * `textv` note in tests/lib/reading.ts).
  * @param token - one projected token
  * @returns whether it reads as a list marker
