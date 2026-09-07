@@ -29,7 +29,13 @@
  */
 import { describe, expect, test } from "vitest";
 import { parse } from "../../src/parser.js";
-import { asParagraph, formatAdoc, renderedHtml } from "../helpers.js";
+import { DELIMITER_KINDS } from "../../src/parse/line-shapes.js";
+import {
+  asParagraph,
+  expectFormatted,
+  formatAdoc,
+  renderedHtml,
+} from "../helpers.js";
 
 /**
  * The fact as the reader records it for a document's FIRST block.
@@ -177,5 +183,102 @@ describe("outside the domain the fact is false, and stays false", () => {
     const trailing = "[[3-blind-mice]]\n\n";
     expect(factOf(trailing)).toBe(false);
     expect(factOf(await formatAdoc(trailing))).toBe(false);
+  });
+});
+
+/**
+ * One delimited opener, and the block the printer writes when that
+ * opener stands under a rejected anchor line with nothing to close
+ * it.
+ *
+ * Checked in as data rather than derived, because what the printer
+ * does with an unterminated opener is not one rule: ten kinds gain a
+ * closing delimiter, the Markdown fence is respelled as a source
+ * listing, and the four table openers are left exactly as the author
+ * wrote them. A derivation would have to restate the printer to say
+ * which is which.
+ */
+const OPENERS = [
+  ["commentBlock", "////", "////\n////"],
+  ["example", "====", "====\n===="],
+  ["fencedCode", "```", "[source]\n----\n----"],
+  ["listing", "----", "----\n----"],
+  ["literal", "....", "....\n...."],
+  ["openBlock", "--", "--\n--"],
+  // `~~~~` opens a block to @asciidoctor/core
+  // (`DELIMITED_BLOCKS['~~~~']`) and to nothing in Ruby 2.0.26, which
+  // reads the line as ordinary paragraph text. The two programs
+  // disagree about the INPUT here, not about what this row does with
+  // it: the closing delimiter keeps the render under the oracle and
+  // moves it under the Ruby, which reads two text lines where it read
+  // one. The oracle wins, as it does at the registry row that carries
+  // the same divergence (`DELIMITER_KINDS`, src/parse/line-shapes.ts,
+  // issue #64), and the render comparison below is the oracle's.
+  ["openBlockTilde", "~~~~", "~~~~\n~~~~"],
+  ["pass", "++++", "++++\n++++"],
+  ["quote", "____", "____\n____"],
+  ["sidebar", "****", "****\n****"],
+  ["tableBang", "!===", "!==="],
+  ["tableColon", ":===", ":==="],
+  ["tableComma", ",===", ",==="],
+  ["tablePipe", "|===", "|==="],
+] as const;
+
+describe("the blank above a delimited opener survives (#206)", () => {
+  // #206 measured the whole grid failing: the first pass dropped the
+  // blank, stacking the rejected anchor onto the opener as if it were
+  // metadata, and the second pass joined the two lines
+  // (`[[3-blind-mice]]\n\n ====\n` printed `[[3-blind-mice]] ====\n`
+  // on the second pass, and the block was gone from the render). The
+  // recorded separation `ParagraphNode.blankBelowAnchorLine` is what
+  // keeps the blank now; these rows are the grid the issue named, one
+  // per `DELIMITER_KINDS` member, in both of the separations that
+  // reach it.
+
+  test("the grid names every delimited kind", () => {
+    // A delimited block added to the registry cannot arrive here
+    // unpinned: the whole point of the issue's grid is that the
+    // mechanism did not care which opener stood under the anchor.
+    expect(new Set(OPENERS.map(([kind]) => kind))).toEqual(
+      new Set(DELIMITER_KINDS),
+    );
+  });
+
+  test.each(OPENERS)(
+    "%s: an opener at column 0 keeps the blank above it",
+    async (_kind, opener, printed) => {
+      // The opener really does open a block, so the anchor line and
+      // the block are two constructs the blank must keep apart.
+      await expectFormatted(
+        `[[3-blind-mice]]\n\n${opener}\n`,
+        `[[3-blind-mice]]\n\n${printed}\n`,
+      );
+    },
+  );
+
+  test.each(OPENERS)(
+    "%s: an indented opener keeps the blank above it",
+    async (_kind, opener) => {
+      // The issue's own spelling. An indented opener is not a
+      // delimiter at all - it is a literal block - which is what made
+      // this half of the grid a fidelity failure as well as an
+      // idempotence one: the joined line rendered as prose.
+      const input = `[[3-blind-mice]]\n\n ${opener}\n`;
+      await expectFormatted(input, input);
+    },
+  );
+
+  // The second rejected spelling the issue names, on the opener it
+  // names it with. The grid above walks the digit-leading id; this
+  // pins that an id the grammar refuses for its CHARACTERS reaches
+  // the same recorded separation.
+  test.each([
+    ["at column 0", "----\n", "----\n----\n"],
+    ["indented", " ----\n", " ----\n"],
+  ])("an illegal id above a listing opener %s", async (_where, tail, out) => {
+    await expectFormatted(
+      `[[illegal$id]]\n\n${tail}`,
+      `[[illegal$id]]\n\n${out}`,
+    );
   });
 });
