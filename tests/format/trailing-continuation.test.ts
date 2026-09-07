@@ -306,10 +306,12 @@ describe("a run of two adjacent + behind a blank keeps both bytes", () => {
 });
 
 // The same pair with a THIRD `+` standing behind it, under a MARKER
-// item. Every row here is a row of the reading ledger's
-// `lone-plus-join` family (tests/format/reading-ledger.json): the
-// pair comes back whole and the run's third and later `+` lines do
-// not, because Ruby's frozen gate reads and drops them without ever
+// item. Two of these rows, the two whose bodies are four lines, are
+// rows of the reading ledger's `lone-plus-join` family
+// (tests/format/reading-ledger.json); the rest spell the same
+// mechanism at a length the sweep's product does not reach. The pair
+// comes back whole and the run's third and later `+` lines do not,
+// because Ruby's frozen gate reads and drops them without ever
 // buffering a cell (parser.rb l.1443-44) and nothing recovers a byte
 // that never reached a cell to lose. The residual reading loss is
 // therefore exactly one `cont` per surplus `+`, and these rows pin

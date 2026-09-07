@@ -267,18 +267,29 @@ known-failing shapes named in `tests/format/list-shape-allowlist.ts`
 failing set does not match the allowlist in either direction; exit 2 when vitest
 collected nothing.
 
-The default suite runs the same product at depth 4, and that depth is
-load-bearing: Stryker runs the default suite, so a shallower default would let
-sweep-killed mutants survive. This default-tier entry, the registry sweep's and
-the inline sweep's, are each a strict subset of their deep-tier counterpart
-above, and all three run again in the same blocking CI job as the deep tier
-regardless: StrykerJS's own vitest config extends this repository's base
-`exclude` list and adds nothing back to it, so a mutation run never sees a deep
-tier, and the default tier is the only sweep coverage it has. The duplication in
-CI - both tiers checking the same rows, in the same job, on every push - is the
-accepted price of keeping that coverage: what the second run costs is printed by
-vitest in the same job, beside the `test:deeply-nested-lists` step it repeats
-work from, and it is not worth a second vitest config to save.
+`DEEP_DEPTH` is 4, the same depth the default suite sweeps, and the depth is
+load-bearing there: Stryker runs the default suite, so a shallower default would
+let sweep-killed mutants survive. What the deep list-shape entry alone holds is
+the UNFILTERED comparison - the whole allowlist and the whole reading ledger,
+rather than each filtered to the documents one product spells - so an entry for
+a document no product spells fails there instead of sitting in its file forever.
+A deeper tier was measured and dropped: depth 5 spells eleven times the
+documents and reached exactly one further reading signature, on a single
+five-line document (`* a` / blank / `+` / `* a` / blank / `+`). That shape
+leaves SWEEP coverage only: it stays pinned, with its signature, by
+`tests/conformance/properties.test.ts`, which is now the tree's only hold on
+that reading. #17 is where the shape came from and is closed; no open issue owns
+the mechanism today, so the pin stands until the mechanism itself is fixed.
+
+The default-tier entries, the registry sweep's and the inline sweep's, run again
+in the same blocking CI job as the deep tier regardless: StrykerJS's own vitest
+config extends this repository's base `exclude` list and adds nothing back to
+it, so a mutation run never sees a deep tier, and the default tier is the only
+sweep coverage it has. The duplication in CI - both tiers checking the same
+rows, in the same job, on every push - is the accepted price of keeping that
+coverage: what the second run costs is printed by vitest in the same job, beside
+the `test:deeply-nested-lists` step it repeats work from, and it is not worth a
+second vitest config to save.
 
 Both entries carry a SECOND, parallel gate over the same product: the reflow
 re-classification invariant, against `tests/format/reading-ledger.json`. See
@@ -304,8 +315,8 @@ outside the default tier changed its verdict.
 
 ### `bun run reading-ledger` - the reading-violation inventory
 
-Sweeps the depth-5 list-shape product for reflow re-classification violations
-and reports them grouped by mechanism family; `--write` regenerates
+Sweeps the list-shape product at `DEEP_DEPTH` for reflow re-classification
+violations and reports them grouped by mechanism family; `--write` regenerates
 `tests/format/reading-ledger.json`, which both sweep entries gate against. Exit
 2 when the product spelled nothing, when a swept line left no verdict (the
 trace-fidelity self-check), or when a violation's signature matches no declared
@@ -1601,7 +1612,7 @@ repository is jj-managed with concurrent sessions and a worktree mutates `.git`.
 
 Issue #58. Formatting may move where a line breaks; it may never move what a
 line IS. The net that says so needs no oracle at all, which is what makes it
-affordable over the whole depth-5 list-shape product (`DEEP_DEPTH`).
+affordable over the whole list-shape product (`DEEP_DEPTH`).
 
 ### The invariant
 
@@ -1720,12 +1731,11 @@ Three consumers, three pinning mechanisms:
   `signature`, so ledger rows stay stable;
 - **both list-shape sweeps** - a parallel gate against
   `tests/format/reading-ledger.json`: the deep entry against the WHOLE file, the
-  depth-4 entry against the rows its shallower product spells (the
-  `allowlistFor` derivation, so one ledger serves both depths). The deep entry
-  does not filter, for the reason the deep allowlist gate does not: it sweeps
-  the product the ledger was generated from, so a row whose document the product
-  no longer spells fails there rather than sitting in the file unreported at
-  both depths;
+  default entry against the rows its own product spells (the `allowlistFor`
+  derivation, so one ledger serves both). The deep entry does not filter, for
+  the reason the deep allowlist gate does not: it sweeps the product the ledger
+  was generated from, so a row whose document the product no longer spells fails
+  there rather than sitting in the file unreported by either;
 - **the named rows** - `tests/format/reading-invariant.test.ts` holds the shapes
   no corpus case and no sweep alphabet spells, including the ones that do NOT
   reproduce today (issues #27 and #46 shape 1), asserted clean with their issue
@@ -1756,10 +1766,10 @@ corrupting variant - a JOIN landing on a dlist-shaped line and manufacturing a
 description list - and that is fixed and closed. What the family holds now is
 not joins at all: measured over a systematic sample of the rows, no output holds
 a `+` joined into a text line. Every remaining row DELETES the byte, by one of
-three routes. Classified by shape, each of the 2,893 rows counted once in the
-first class it matches (that count is the narrower alphabet's, from before #161
-widened it; the shape breakdown has not been re-measured at the current row
-count):
+three routes. Classified by shape, each row counted once in the first class it
+matches. The class sizes below are a past measurement, over a narrower alphabet
+and a deeper product than the sweep spells today; they are kept for the shape of
+the split, not the numbers. Count the rows in the ledger:
 
 - **253** carry a run of three or more `+`, whose third and later lines
   `read_lines_for_list_item` reads and drops without buffering (parser.rb
@@ -1793,9 +1803,7 @@ The breakdown by family and by pass lives in the ledger itself,
 `tests/format/reading-ledger.json` (each row's `family` and `pass` fields);
 count it there rather than here, so the count goes stale in at most one place.
 The family NAMES are enumerated in `tests/lib/reading-ledger.ts`.
-`lone-plus-join` is the large majority of the ledger's rows;
-`continuation-dropped` is the rarest of the three families that currently hold
-any.
+`lone-plus-join` is the only family the ledger currently holds rows for.
 
 It was 2,374 rows one change earlier, and 62 went in one move: the packer began
 asking the reader whether the line it is about to write is still the block's own
@@ -1845,7 +1853,17 @@ A family with no rows STAYS in the enumeration. It is what the classifier
 reaches for when the mechanism comes back, so deleting it would turn a
 regression into an unnamed signature the generator refuses to write rather than
 a row that names the issue. admonition-colon-run, tail-reading-flip and
-prose-reads-as-marker are empty today.
+prose-reads-as-marker are empty today, and so is continuation-dropped.
+
+continuation-dropped is empty by BLINDNESS rather than by a fix, and the
+distinction is the whole reason to say so. Its mechanism is the trailing-marker
+collapse #17 was filed for, and the one document in the sweep's alphabet that
+reached it (`* a` / blank / `+` / `* a` / blank / `+`) has a five-line body,
+which the product no longer spells. #17 is closed and no open issue owns the
+mechanism, so nothing but that document's pin in
+`tests/conformance/properties.test.ts` tracks it. The family stays in the
+enumeration for the reason above: it is what the classifier reaches for if such
+a document ever enters the product again.
 
 prose-reads-as-marker is the one of the three whose emptiness has been read two
 ways, so both are worth stating. It held zero rows until #161 widened the
@@ -1860,15 +1878,16 @@ the third signature a block-start flip would produce
 (`[text] -> [marker:unordered:*]`) in the measured product. It is empty again
 now, and this time the mechanism is gone rather than unspellable: the packer
 refuses a layout the reader would read differently and writes those blocks back
-as the author wrote them, so the 62 documents the alphabet spells are fixed
+as the author wrote them, so the documents the alphabet spelled are fixed
 points.
 
 To refresh after a fix: `bun run reading-ledger --write`, then say in the commit
 which family shrank and why. Expect large generated diffs tied to one-line
 mechanism claims: fixing lone-plus-join once emptied that family in one move,
-taking the depth-5 ledger from 716 rows to 6 and the depth-4 derivation from 25
-to 0. A change that empties either continuation family now will produce a diff
-of tens of thousands of lines for the same reason. That is the progress metric.
+taking the depth-5 ledger from 716 rows to 6 and the default entry's derivation
+from 25 to 0. A change that empties either continuation family now will produce
+a diff of tens of thousands of lines for the same reason. That is the progress
+metric.
 
 A TRACE-FIDELITY self-check rides along, in the generator, in the fixture loop
 and over the whole conformance corpus
@@ -1895,8 +1914,9 @@ Measured, not assumed.
   change to the oracle is invisible here. #57's five instances stay pinned by
   the deep sweep's render-equality allowlist. The consolation is concrete: at
   depth 5 the net catches six sibling instances of the same thesis that
-  render-equality misses (family tail-reading-flip, issue #65) - though that
-  family is empty today, its six rows having gone with the anchor fix.
+  render-equality misses (family tail-reading-flip, issue #65) - measured when
+  the product ran a depth deeper than it does now, and that family is empty
+  today in any case, its six rows having gone with the anchor fix.
 - **Intra-line changes (#32).** Whitespace collapsed inside a code span never
   changes any line's classification. Out of scope by construction; #32 keeps its
   render-equality coverage.

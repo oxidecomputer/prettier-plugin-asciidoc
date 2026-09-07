@@ -5,10 +5,10 @@
  * the fix.
  *
  * WHY A GENERATED FILE rather than a hand-kept string list like
- * `tests/format/list-shape-allowlist.ts`. How many there are at depth 5
- * is whatever `tests/format/reading-ledger.json` holds, which is past
- * what a person maintains by hand and well inside what a person REVIEWS
- * as a diff. The ledger keeps that file's two virtues:
+ * `tests/format/list-shape-allowlist.ts`. How many there are is
+ * whatever `tests/format/reading-ledger.json` holds, which is past
+ * what a person maintains by hand and well inside what a person
+ * REVIEWS as a diff. The ledger keeps that file's two virtues:
  *
  * - LEAVING IS DELIBERATE. Both sweep entries assert set equality
  *   against it, so the commit that fixes a mechanism shrinks the
@@ -21,10 +21,10 @@
  * because counts cannot tell "one fixed, one regressed" from "no
  * change".
  *
- * ONE ledger serves BOTH depths: the depth-4 entry gates against its
- * rows restricted to the depth-4 product, the same derivation
+ * ONE ledger serves BOTH entries: the default entry gates against its
+ * rows restricted to the product it spells, the same derivation
  * `allowlistFor` makes over the render/idempotence allowlist, so a
- * document can never be ledgered at one depth and not the other.
+ * document can never be ledgered for one entry and not the other.
  *
  * Refresh it with `bun run reading-ledger --write`
  * (scripts/reading-ledger.ts).
@@ -54,11 +54,11 @@ export interface ReadingFamily {
 export const READING_FAMILIES: Readonly<Record<string, ReadingFamily>> = {
   "lone-plus-join": {
     issue: "#43",
-    what: "a lone `+` line leaves the reading, so the continuation dissolves. #43 is CLOSED and the issue field is provenance, not an open bug: what #43 tracked was the CORRUPTING variant, where a JOIN landed on a dlist-shaped line and manufactured a description list, and that was fixed. What is left is not joins at all - no output holds a `+` joined into a text line. Every remaining row DELETES at least one byte, by one of three routes; classified by shape, each row counted once in the first class it matches, at 2,503 rows (2,336 losing one continuation, 160 losing two, 7 losing three). A RUN OF THREE OR MORE: its third and later `+` lines are read and dropped without buffering (parser.rb l.1443-44), and nothing recovers a byte that never reached a cell to lose - the one route #181 could not close. An ERASED `+` behind a POPPED tail of the SAME item: #181 gave that pop's own trailing fact the erased byte to print back beside it (`ListItemNode.trailingContinuation`'s `\"double\"`), so this route is closed wherever the pop and the erasure share an item, the DETACHED `+` the post-loop blanks a second time (parser.rb l.1576) included - that half is erased by the activation at l.1439 like any other, and reporting it as one is what #263 restored. What remains under this heading is an erased `+` whose pop belongs to a DIFFERENT item (an enclosing scan's own tail, or a nested list's) or one that attached nothing and has no pop to ride at all, which has no route back. A TAIL THAT IS NOT INERT: the pop takes the byte, but it would be printed above a blank line, where a re-read ERASES and arms it instead of popping it - untouched by #181, since nothing pairs it with another byte to restore. All three are render-equal - the oracle renders the output as the source",
+    what: "a lone `+` line leaves the reading, so the continuation dissolves. #43 is CLOSED and the issue field is provenance, not an open bug: what #43 tracked was the CORRUPTING variant, where a JOIN landed on a dlist-shaped line and manufactured a description list, and that was fixed. What is left is not joins at all - no output holds a `+` joined into a text line. Every remaining row DELETES at least one byte, by one of three routes; classified by shape, each row counted once in the first class it matches; how many rows each class holds is the ledger, not a figure here. A RUN OF THREE OR MORE: its third and later `+` lines are read and dropped without buffering (parser.rb l.1443-44), and nothing recovers a byte that never reached a cell to lose - the one route #181 could not close. An ERASED `+` behind a POPPED tail of the SAME item: #181 gave that pop's own trailing fact the erased byte to print back beside it (`ListItemNode.trailingContinuation`'s `\"double\"`), so this route is closed wherever the pop and the erasure share an item, the DETACHED `+` the post-loop blanks a second time (parser.rb l.1576) included - that half is erased by the activation at l.1439 like any other, and reporting it as one is what #263 restored. What remains under this heading is an erased `+` whose pop belongs to a DIFFERENT item (an enclosing scan's own tail, or a nested list's) or one that attached nothing and has no pop to ride at all, which has no route back. A TAIL THAT IS NOT INERT: the pop takes the byte, but it would be printed above a blank line, where a re-read ERASES and arms it instead of popping it - untouched by #181, since nothing pairs it with another byte to restore. All three are render-equal - the oracle renders the output as the source",
   },
   "continuation-dropped": {
     issue: "#17",
-    what: "continuation lines go away and the list structure beside them does not: the `+` lines vanish from the reading while the markers, comments, anchors and attribute lines around them survive unchanged - the trailing-marker collapse #17 tracks, seen from the reading side",
+    what: "continuation lines go away and the list structure beside them does not: the `+` lines vanish from the reading while the markers, comments, anchors and attribute lines around them survive unchanged - the trailing-marker collapse #17 tracks, seen from the reading side. EMPTY BY BLINDNESS, not by a fix: the sweep's product spells no document this mechanism reaches, so the family is what the classifier reaches for if one ever enters the product again. #17 is closed and no open issue owns the mechanism; the one document that reached it is pinned by tests/conformance/properties.test.ts until the mechanism itself is fixed",
   },
   "tail-reading-flip": {
     issue: "#65",

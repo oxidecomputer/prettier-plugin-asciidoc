@@ -15,9 +15,9 @@ The governing policy (stated in full in
 [docs/architecture.md](docs/architecture.md)): **normalize in a way that always
 preserves meaning.** Every transformation must leave the rendered document
 identical — the plugin verifies its own work against Asciidoctor's rendering
-across a 1,614-case conformance corpus, exhaustive shape grids, and a depth-5
-product of every nested-list shape. Anything the parser cannot fully model
-passes through byte-for-byte rather than being guessed at.
+across a 1,614-case conformance corpus, exhaustive shape grids, and an
+exhaustive product of every nested-list shape. Anything the parser cannot fully
+model passes through byte-for-byte rather than being guessed at.
 
 ## Status
 

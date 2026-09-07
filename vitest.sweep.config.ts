@@ -3,7 +3,7 @@ import base from "./vitest.config.js";
 
 /**
  * The vitest entry for the DEEP sweeps — the `*.deep.test.ts` files,
- * run by `bun run test:deeply-nested-lists`: the exhaustive depth-5
+ * run by `bun run test:deeply-nested-lists`: the exhaustive
  * list-shape product and its reflow re-classification ledger, the
  * shape registry's deep tier, and the inline registry's deep tier.
  * That script's own header says what each proves; the floor it holds

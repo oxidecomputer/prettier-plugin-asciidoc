@@ -123,10 +123,11 @@ export function printList(
  * and that prints ADJACENT.
  *
  * THE DOMAIN THE ERASURE WAS MEASURED OVER, because it is an erasure
- * and not a replay. First the depth-5 list-shape product
+ * and not a replay. First the list-shape product
  * (tests/format/list-shape-sweep.deep.test.ts, render-equality and
- * idempotence): its failing set is unchanged, and six of its
- * documents leave the reading ledger. Then 540 hand-built documents
+ * idempotence, which ran at depth 5 when this was measured): its
+ * failing set is unchanged, and six of its documents leave the
+ * reading ledger. Then 540 hand-built documents
  * whose LEADING gap carries blanks behind a `+` - the population this
  * arm shortens - rendered in Ruby 2.0.26 and in the JS rewrite the
  * harness runs, alike: over the 359 of those the two programs read

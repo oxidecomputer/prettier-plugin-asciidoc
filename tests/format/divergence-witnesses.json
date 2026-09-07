@@ -1,5 +1,5 @@
 {
-  "note": "The DIVERGENCE WITNESSES: the witness set of the sealed line-reading revision 24240b2e, carried into this tree so the documents that once told two readers apart survive the reference export they came from. Extracted from that revision's tests/format/cutover-allowlist.json (its families' witnesses and its named documents) and its tests/format/list-shape-allowlist.ts. A witness names the FAMILY it witnesses and the SCOPE the two readers differed in - bytes, readings, or both. A corpus witness carries no source: its id resolves through vendor/asciidoctor-corpus, and re-committing those bytes would be a second copy that can disagree with the first. See tests/lib/divergence-witnesses.ts for the loader and docs/harnesses.md for the workflow.",
+  "note": "The DIVERGENCE WITNESSES: the witness set of the sealed line-reading revision 24240b2e, carried into this tree so the documents that once told two readers apart survive the reference export they came from. Extracted from that revision's tests/format/cutover-allowlist.json (its families' witnesses and its named documents). A witness names the FAMILY it witnesses and the SCOPE the two readers differed in - bytes, readings, or both. A corpus witness carries no source: its id resolves through vendor/asciidoctor-corpus, and re-committing those bytes would be a second copy that can disagree with the first. See tests/lib/divergence-witnesses.ts for the loader and docs/harnesses.md for the workflow.",
   "witnesses": [
     {
       "id": "corpus/api_test/api_test.rb#next_adjacent_block should return next item in dlist if called on last block of list item#0",
@@ -576,112 +576,6 @@
       "scope": "both",
       "family": "issues #57 and #65: the new core keeps a rendering the old core lost",
       "source": "* a\n[role]\npara\n[[anc]]\n.T\npara\n"
-    }
-  ],
-  "depthFiveKnownFailures": [
-    {
-      "document": "* a\n\n  lit\n[[anc]]\n** b\n* a\n",
-      "family": "#54 the literal slurp's re-shape"
-    },
-    {
-      "document": "* a\n\n  lit\n[role]\n** b\n* a\n",
-      "family": "#54 the literal slurp's re-shape"
-    },
-    {
-      "document": "* a\n  lit\n// c\n\n  lit\n* a\n",
-      "family": "#54 the literal slurp's re-shape"
-    },
-    {
-      "document": "* a\n  lit\n// c\n\n  lit\n** b\n",
-      "family": "#54 the literal slurp's re-shape"
-    },
-    {
-      "document": "* a\n  lit\n// c\n+\n  lit\n* a\n",
-      "family": "#54 the literal slurp's re-shape"
-    },
-    {
-      "document": "* a\n  lit\n// c\n+\n  lit\n** b\n",
-      "family": "#54 the literal slurp's re-shape"
-    },
-    {
-      "document": "* a\n  lit\n// c\n+\n+\n** b\n",
-      "family": "#54 the literal slurp's re-shape"
-    },
-    {
-      "document": "* a\n  lit\n// c\n+\npara\n** b\n",
-      "family": "#54 the literal slurp's re-shape"
-    },
-    {
-      "document": "* a\n** b\n\n  lit\n[[anc]]\n* a\n",
-      "family": "#54 the literal slurp's re-shape"
-    },
-    {
-      "document": "* a\n** b\n\n  lit\n[role]\n* a\n",
-      "family": "#54 the literal slurp's re-shape"
-    },
-    {
-      "document": "* a\n** b\n+\n  lit\n[[anc]]\n* a\n",
-      "family": "#54 the literal slurp's re-shape"
-    },
-    {
-      "document": "* a\n** b\n+\n  lit\n[role]\n* a\n",
-      "family": "#54 the literal slurp's re-shape"
-    },
-    {
-      "document": "* a\n+\n  lit\n[[anc]]\n** b\n* a\n",
-      "family": "#54 the literal slurp's re-shape"
-    },
-    {
-      "document": "* a\n+\n  lit\n[role]\n** b\n* a\n",
-      "family": "#54 the literal slurp's re-shape"
-    },
-    {
-      "document": "* a\n.T\n// c\n\n  lit\n* a\n",
-      "family": "#54 the literal slurp's re-shape"
-    },
-    {
-      "document": "* a\n.T\n// c\n\n  lit\n** b\n",
-      "family": "#54 the literal slurp's re-shape"
-    },
-    {
-      "document": "* a\n.T\n// c\n+\n  lit\n* a\n",
-      "family": "#54 the literal slurp's re-shape"
-    },
-    {
-      "document": "* a\n.T\n// c\n+\n  lit\n** b\n",
-      "family": "#54 the literal slurp's re-shape"
-    },
-    {
-      "document": "* a\n.T\n// c\n+\n+\n** b\n",
-      "family": "#57 a reflow join changes how the lines after it are read"
-    },
-    {
-      "document": "* a\n.T\n// c\n+\npara\n** b\n",
-      "family": "#57 a reflow join changes how the lines after it are read"
-    },
-    {
-      "document": "* a\npara\n// c\n\n  lit\n* a\n",
-      "family": "#54 the literal slurp's re-shape"
-    },
-    {
-      "document": "* a\npara\n// c\n\n  lit\n** b\n",
-      "family": "#54 the literal slurp's re-shape"
-    },
-    {
-      "document": "* a\npara\n// c\n+\n  lit\n* a\n",
-      "family": "#54 the literal slurp's re-shape"
-    },
-    {
-      "document": "* a\npara\n// c\n+\n  lit\n** b\n",
-      "family": "#54 the literal slurp's re-shape"
-    },
-    {
-      "document": "* a\npara\n// c\n+\n+\n** b\n",
-      "family": "#57 a reflow join changes how the lines after it are read"
-    },
-    {
-      "document": "* a\npara\n// c\n+\npara\n** b\n",
-      "family": "#57 a reflow join changes how the lines after it are read"
     }
   ]
 }

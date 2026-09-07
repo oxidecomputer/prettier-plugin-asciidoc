@@ -243,7 +243,7 @@ describe("an indented line folded behind a + keeps its indent", () => {
       "* a\n[role]\n+\n+\n** b\n+\n  lit\n",
       "* a\n[role]\n+\n+\n** b\n+\n  lit\n",
     ],
-    // The depth-5 edge of the same mechanism, render-equal either way
+    // The five-line edge of the same mechanism, render-equal either way
     // — the bytes now hold there too.
     [
       "a fold that ends at a marker line",

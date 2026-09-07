@@ -18,7 +18,16 @@
  *
  * A shape LEAVING this file is progress and must be deliberate: the
  * commit that fixes one of the families takes its block out and says
- * so. The families that have left, newest first: **#184, the
+ * so.
+ *
+ * ONE departure was not a fix, and is recorded here so the list below
+ * stays a list of fixes. Issue #290 took the deep tier from depth 5
+ * to depth 4, and 100 of the 104 shapes then listed left with it:
+ * their bodies are five lines, which neither product spells any more,
+ * so they departed by BLINDNESS. Their mechanisms are the two named
+ * below, both still live at the four shapes that remain.
+ *
+ * The families that have left by a fix, newest first: **#184, the
  * continuation between two ITEMS of one list** (2 shapes: the `+` is
  * recorded in front of the item it leads and printed back, so the
  * marker under it opens the list the source opened - the field is
@@ -47,143 +56,43 @@
  */
 
 /**
- * Every document the sweep's alphabet spells, at both depths, that
- * fails render-equality or idempotence today, grouped by mechanism.
+ * Every document the sweep's alphabet spells that fails
+ * render-equality or idempotence today, grouped by mechanism. How
+ * many there are of each is the block below, not a figure here.
  *
  * The last family to leave was **#184, the continuation between two
  * ITEMS of one list** (2 shapes, see the file comment above). One
  * mechanism remains, found by the same alphabet member (issue #161's
  * "  ** z"):
  *
- * - **#157, PARAGRAPH_REFLOW_SWALLOWS_TRAILING_MARKER** (90 shapes): a
- *   paragraph reflow-joins its own trailing lines onto one output
- *   line, and when an indented nested marker follows the paragraph at
- *   zero gap, the join swallows the marker line into the paragraph's
+ * - **#157, PARAGRAPH_REFLOW_SWALLOWS_TRAILING_MARKER**: a paragraph
+ *   reflow-joins its own trailing lines onto one output line, and
+ *   when an indented nested marker follows the paragraph at zero gap,
+ *   the join swallows the marker line into the paragraph's
  *   prose too (`"para\n  ** z\n"` prints as `"para ** z\n"`). #157
  *   already covers this class for the delimiter-line case; these rows
  *   are its list-marker witnesses. EXPIRES when #157's paragraph-join
  *   guard also refuses a following list-marker line.
- * - **FROZEN_PLUS_PARAGRAPH_LOSES_ITS_SHIELD** (14 shapes): an item
- *   whose last block is a paragraph holding a frozen `+` needs a
- *   detached `+` under it to absorb the re-read's single tagged pop.
- *   The printer no longer writes that shield back, so the `+`
- *   paragraph does not survive. NOT PROTECTED BY DESIGN and so NOT
- *   AN ISSUE:
- *   reaching the shape means writing three lone `+` lines with
- *   nothing between them and a blank in the middle, which is what an
- *   author leaves behind by editing a continuation down to nothing
- *   and not deleting the punctuation. These rows do not EXPIRE; they
- *   record a shape the formatter has stopped protecting.
+ * - **FROZEN_PLUS_PARAGRAPH_LOSES_ITS_SHIELD**: an item whose last
+ *   block is a paragraph holding a frozen `+` needs a detached `+`
+ *   under it to absorb the re-read's single tagged pop. The printer
+ *   no longer writes that shield back, so the `+` paragraph does not
+ *   survive. NOT PROTECTED BY DESIGN and so NOT AN ISSUE: reaching
+ *   the shape means writing three lone `+` lines with nothing between
+ *   them and a blank in the middle, which is what an author leaves
+ *   behind by editing a continuation down to nothing and not deleting
+ *   the punctuation. This row does not EXPIRE; it records a shape the
+ *   formatter has stopped protecting.
  */
 export const FAILING_TODAY: readonly string[] = [
   // The frozen `+` paragraph that loses its shield. See the file
   // comment above: not an issue, a shape the formatter no longer
   // protects.
-  "* a\n\n+\n+\n\n+\n",
-  "* a\n  lit\n+\n+\n\n+\n",
-  "* a\n* a\n+\n+\n\n+\n",
-  "* a\n+\n+\n\n\n+\n",
   "* a\n+\n+\n\n+\n",
-  "* a\n+\n+\n\n+\n\n",
-  "* a\n+\n+\n\n+\n* a\n",
-  "* a\n+\n+\n\n+\n+\n",
-  "* a\n+\n+\n+\n\n+\n",
-  "* a\n.T\n+\n+\n\n+\n",
-  "* a\n// c\n+\n+\n\n+\n",
-  "* a\n[[anc]]\n+\n+\n\n+\n",
-  "* a\n[role]\n+\n+\n\n+\n",
-  "* a\npara\n+\n+\n\n+\n",
   // #157: a paragraph reflow-joins its trailing lines onto one output
   // line and swallows a following indented nested marker into the
   // same paragraph's prose. See the file comment above.
-  "* a\n  lit\n[[anc]]\n+\npara\n  ** z\n",
-  "* a\n  lit\n[role]\n+\npara\n  ** z\n",
-  "* a\n* a\n// c\n+\npara\n  ** z\n",
-  "* a\n* a\n[[anc]]\n+\npara\n  ** z\n",
-  "* a\n* a\n[role]\n+\npara\n  ** z\n",
-  "* a\n+\npara\n  ** z\n+\n  ** z\n",
-  "* a\n+\npara\n  ** z\n+\n  lit\n",
-  "* a\n+\npara\n  ** z\n+\n** b\n",
-  "* a\n+\npara\n  ** z\n+\n+\n",
-  "* a\n+\npara\n  ** z\n+\n.T\n",
-  "* a\n+\npara\n  ** z\n+\n// c\n",
-  "* a\n+\npara\n  ** z\n+\n[[anc]]\n",
-  "* a\n+\npara\n  ** z\n+\n[role]\n",
-  "* a\n+\npara\n  ** z\n+\npara\n",
-  "* a\n.T\n[[anc]]\n+\npara\n  ** z\n",
-  "* a\n.T\n[role]\n+\npara\n  ** z\n",
-  "* a\n// c\n\n+\npara\n  ** z\n",
-  "* a\n// c\n+\n\npara\n  ** z\n",
-  "* a\n// c\n+\n.T\npara\n  ** z\n",
-  "* a\n// c\n+\n// c\npara\n  ** z\n",
-  "* a\n// c\n+\n[[anc]]\npara\n  ** z\n",
-  "* a\n// c\n+\n[role]\npara\n  ** z\n",
   "* a\n// c\n+\npara\n  ** z\n",
-  "* a\n// c\n+\npara\n  ** z\n\n",
-  "* a\n// c\n+\npara\n  ** z\n  ** z\n",
-  "* a\n// c\n+\npara\n  ** z\n  lit\n",
-  "* a\n// c\n+\npara\n  ** z\n* a\n",
-  "* a\n// c\n+\npara\n  ** z\n** b\n",
-  "* a\n// c\n+\npara\n  ** z\n+\n",
-  "* a\n// c\n+\npara\n  ** z\n.T\n",
-  "* a\n// c\n+\npara\n  ** z\n// c\n",
-  "* a\n// c\n+\npara\n  ** z\n[[anc]]\n",
-  "* a\n// c\n+\npara\n  ** z\n[role]\n",
-  "* a\n// c\n+\npara\n  ** z\npara\n",
-  "* a\n// c\n+\npara\n  lit\n  ** z\n",
-  "* a\n// c\n+\npara\n.T\n  ** z\n",
-  "* a\n// c\n+\npara\npara\n  ** z\n",
-  "* a\n// c\n// c\n+\npara\n  ** z\n",
-  "* a\n// c\n[[anc]]\n+\npara\n  ** z\n",
-  "* a\n// c\n[role]\n+\npara\n  ** z\n",
-  "* a\n[[anc]]\n\n+\npara\n  ** z\n",
-  "* a\n[[anc]]\n+\n\npara\n  ** z\n",
-  "* a\n[[anc]]\n+\n.T\npara\n  ** z\n",
-  "* a\n[[anc]]\n+\n// c\npara\n  ** z\n",
-  "* a\n[[anc]]\n+\n[[anc]]\npara\n  ** z\n",
-  "* a\n[[anc]]\n+\n[role]\npara\n  ** z\n",
   "* a\n[[anc]]\n+\npara\n  ** z\n",
-  "* a\n[[anc]]\n+\npara\n  ** z\n\n",
-  "* a\n[[anc]]\n+\npara\n  ** z\n  ** z\n",
-  "* a\n[[anc]]\n+\npara\n  ** z\n  lit\n",
-  "* a\n[[anc]]\n+\npara\n  ** z\n* a\n",
-  "* a\n[[anc]]\n+\npara\n  ** z\n** b\n",
-  "* a\n[[anc]]\n+\npara\n  ** z\n+\n",
-  "* a\n[[anc]]\n+\npara\n  ** z\n.T\n",
-  "* a\n[[anc]]\n+\npara\n  ** z\n// c\n",
-  "* a\n[[anc]]\n+\npara\n  ** z\n[[anc]]\n",
-  "* a\n[[anc]]\n+\npara\n  ** z\n[role]\n",
-  "* a\n[[anc]]\n+\npara\n  ** z\npara\n",
-  "* a\n[[anc]]\n+\npara\n  lit\n  ** z\n",
-  "* a\n[[anc]]\n+\npara\n.T\n  ** z\n",
-  "* a\n[[anc]]\n+\npara\npara\n  ** z\n",
-  "* a\n[[anc]]\n// c\n+\npara\n  ** z\n",
-  "* a\n[[anc]]\n[[anc]]\n+\npara\n  ** z\n",
-  "* a\n[[anc]]\n[role]\n+\npara\n  ** z\n",
-  "* a\n[role]\n\n+\npara\n  ** z\n",
-  "* a\n[role]\n+\n\npara\n  ** z\n",
-  "* a\n[role]\n+\n.T\npara\n  ** z\n",
-  "* a\n[role]\n+\n// c\npara\n  ** z\n",
-  "* a\n[role]\n+\n[[anc]]\npara\n  ** z\n",
-  "* a\n[role]\n+\n[role]\npara\n  ** z\n",
   "* a\n[role]\n+\npara\n  ** z\n",
-  "* a\n[role]\n+\npara\n  ** z\n\n",
-  "* a\n[role]\n+\npara\n  ** z\n  ** z\n",
-  "* a\n[role]\n+\npara\n  ** z\n  lit\n",
-  "* a\n[role]\n+\npara\n  ** z\n* a\n",
-  "* a\n[role]\n+\npara\n  ** z\n** b\n",
-  "* a\n[role]\n+\npara\n  ** z\n+\n",
-  "* a\n[role]\n+\npara\n  ** z\n.T\n",
-  "* a\n[role]\n+\npara\n  ** z\n// c\n",
-  "* a\n[role]\n+\npara\n  ** z\n[[anc]]\n",
-  "* a\n[role]\n+\npara\n  ** z\n[role]\n",
-  "* a\n[role]\n+\npara\n  ** z\npara\n",
-  "* a\n[role]\n+\npara\n  lit\n  ** z\n",
-  "* a\n[role]\n+\npara\n.T\n  ** z\n",
-  "* a\n[role]\n+\npara\npara\n  ** z\n",
-  "* a\n[role]\n// c\n+\npara\n  ** z\n",
-  "* a\n[role]\n[[anc]]\n+\npara\n  ** z\n",
-  "* a\n[role]\n[role]\n+\npara\n  ** z\n",
-  "* a\npara\n[[anc]]\n+\npara\n  ** z\n",
-  "* a\npara\n[role]\n+\npara\n  ** z\n",
 ];

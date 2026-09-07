@@ -12,16 +12,16 @@ export default defineConfig({
     // measured at 453 files and 19,017 tests against the real 105 and
     // 8,577, with the copies failing on relative paths. eslint already
     // ignores it (`eslint.config.js`); vitest did not.
-    // `**/*.deep.test.ts` is the OTHER entry: the exhaustive depth-5
-    // list-shape sweep, whose size is whatever
-    // `sweepDocuments(DEEP_DEPTH)` (tests/format/list-shape-sweep.ts)
-    // spells, and 25.6 s of what used to
-    // be a 26.1 s suite. It is not weakened by living outside the
-    // default run — it is a blocking CI step (`bun run test:deeply-nested-lists`)
-    // and the prelude to every mutation run — but a suite whose wall
-    // time is one test is a suite nobody runs on every save. What
-    // stays here is the same sweep at depth 4, which is what the
-    // mutation harness gets to kill mutants with.
+    // `**/*.deep.test.ts` is the OTHER entry: the deep tier, whose
+    // list-shape half sweeps `sweepDocuments(DEEP_DEPTH)`
+    // (tests/format/list-shape-sweep.ts) against the allowlist and the
+    // reading ledger WHOLE rather than filtered to what one product
+    // spells. It is not weakened by living outside the default run: it
+    // is a blocking CI step (`bun run test:deeply-nested-lists`) and
+    // the prelude to every mutation run. What stays here is the same
+    // sweep filtered to `SHALLOW_DEPTH`, which is what the mutation
+    // harness gets to kill mutants with, since a mutation run never
+    // sees a deep tier.
     exclude: ["node_modules/**", ".stryker-tmp/**", "**/*.deep.test.ts"],
     passWithNoTests: true,
     testTimeout: TEST_TIMEOUT,

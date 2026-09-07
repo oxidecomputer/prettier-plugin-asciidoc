@@ -3,30 +3,26 @@
  *
  * Exhaustive over every body of length 1 to `SHALLOW_DEPTH` the alphabet
  * spells, plus the named shapes whose bodies are longer, no sampling
- * and no PRNG. Its deeper half lives in `list-shape-sweep.deep.test.ts`
- * and runs under `bun run test:deeply-nested-lists`; the split is wall
- * time and nothing else, and the machinery both entries sweep is one
- * module so they cannot disagree about what a document is.
+ * and no PRNG. `list-shape-sweep.deep.test.ts` sweeps the same
+ * machinery outside the default suite and compares against the two
+ * pinned files WHOLE rather than filtered; the machinery is one
+ * module so the entries cannot disagree about what a document is.
  *
  * WHY FOUR and not the three the split was specified at: the mutation
  * harness runs THIS suite, not `test:deeply-nested-lists`, so every mutant the sweep
- * used to kill has to be killed at the shallow depth or not at all.
- * Measured on a seeded `list-hazard.ts` mutant (`startsWith` →
+ * used to kill has to be killed at this depth or not at all.
+ * Measured on a seeded `list-hazard.ts` mutant (`startsWith` to
  * `endsWith` on the comment head): survives depth 3, dies at depth 4.
  * See {@link SHALLOW_DEPTH}.
  *
- * This file's own rows are a strict subset of the depth-5 file's and
- * run again there in CI's blocking job; kept here anyway, which is
- * what keeps the mutation-kill claim above true.
- *
  * The allowlist is DERIVED, not copied: `allowlistFor(SHALLOW_DEPTH)`
- * is the deep sweep's `FAILING_TODAY` filtered to the documents this
- * shallower product spells, and this entry asserts set equality against
- * exactly that. WHICH entries survive the filter is read off
- * `list-shape-allowlist.ts` rather than restated here, so the two
- * cannot drift apart. A shape can never be allowlisted here without
- * being allowlisted in the deep sweep first, and a new failure at any
- * depth up to SHALLOW_DEPTH fails `bun run test`.
+ * is `FAILING_TODAY` filtered to the documents this product spells,
+ * and this entry asserts set equality against exactly that. WHICH
+ * entries survive the filter is read off `list-shape-allowlist.ts`
+ * rather than restated here, so the two cannot drift apart. A shape
+ * can never be allowlisted here without being allowlisted for the
+ * deep entry first, and a new failure at any depth up to
+ * SHALLOW_DEPTH fails `bun run test`.
  */
 import { describe, expect, test } from "vitest";
 import {
@@ -51,9 +47,9 @@ describe("list-shape sweep (depth 4)", () => {
 // both are there for two different reasons. It consults no oracle, so
 // it costs a fraction of the sweep beside it.
 //
-// The ledger is DERIVED to this depth from the depth-5 file, the same
+// The ledger is DERIVED to this depth from the whole file, the same
 // way `allowlistFor` derives: a document cannot be ledgered here
-// without being ledgered in the deep sweep first.
+// without being ledgered for the deep entry first.
 describe("reading invariant sweep (depth 4)", () => {
   test("the reading-violation set is exactly the ledger", async () => {
     const failing = await readingFailures(SHALLOW_DEPTH);

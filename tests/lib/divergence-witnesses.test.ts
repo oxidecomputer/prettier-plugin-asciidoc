@@ -3,9 +3,9 @@
  *
  * The documents in it are inputs a later task will need in order to
  * fail; the risk this file guards is that one of them quietly stops
- * being reachable - a corpus id that no longer resolves, a row that
- * loses its source, a depth-5 shape the sweep no longer spells. Every
- * one of those is a silent weakening, so each is a row here.
+ * being reachable - a corpus id that no longer resolves, or a row
+ * that loses its source. Either is a silent weakening, so each is a
+ * row here.
  */
 import { describe, expect, it } from "vitest";
 import {
@@ -13,17 +13,14 @@ import {
   witnessDocuments,
   WITNESS_PATH,
 } from "./divergence-witnesses.js";
-import { DEEP_DEPTH, sweepDocuments } from "../format/list-shape-sweep.js";
 
 describe("the divergence witnesses", () => {
   it("loads and validates", () => {
-    const file = loadWitnesses();
-    expect(file.witnesses.length).toBeGreaterThan(0);
-    expect(file.depthFiveKnownFailures.length).toBeGreaterThan(0);
+    expect(loadWitnesses().length).toBeGreaterThan(0);
   });
 
   it("carries a source for every witness that is not a corpus case", () => {
-    for (const witness of loadWitnesses().witnesses) {
+    for (const witness of loadWitnesses()) {
       if (witness.origin === "corpus") {
         continue;
       }
@@ -35,32 +32,15 @@ describe("the divergence witnesses", () => {
     // `witnessDocuments` throws on an id that resolves to nothing, so
     // this row is the resolution check as well as a shape check.
     const documents = witnessDocuments();
-    expect(documents).toHaveLength(loadWitnesses().witnesses.length);
+    expect(documents).toHaveLength(loadWitnesses().length);
     for (const [index, text] of documents.entries()) {
       expect(text, String(index)).not.toBe("");
     }
   });
 
   it("names every witness once", () => {
-    const ids = loadWitnesses().witnesses.map((witness) => witness.id);
+    const ids = loadWitnesses().map((witness) => witness.id);
     expect(new Set(ids).size).toBe(ids.length);
-  });
-
-  it("keeps the sealed revision's depth-5 shapes inside the sweep product", () => {
-    // The gate asks for a failing set that is a SUBSET of this one, so
-    // a shape the product no longer spells could never be compared and
-    // would sit here forever looking like a live claim.
-    const spelled = new Set(sweepDocuments(DEEP_DEPTH));
-    for (const failure of loadWitnesses().depthFiveKnownFailures) {
-      expect(spelled.has(failure.document), failure.document).toBe(true);
-    }
-  });
-
-  it("gives every depth-5 shape a mechanism family", () => {
-    for (const failure of loadWitnesses().depthFiveKnownFailures) {
-      expect(failure.family, failure.document).not.toBe("");
-      expect(failure.family, failure.document).not.toBe("UNGROUPED");
-    }
   });
 
   it("rejects a corpus row that carries a source", () => {

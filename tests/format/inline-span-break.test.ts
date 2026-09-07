@@ -145,10 +145,10 @@ describe("a raw line at a span edge keeps its line and the marks stay off it", (
   // oracle deletes it before the quote pass, so the span is real and
   // the mark beside the comment sits on its own line. Fusing the
   // close onto the comment (`// c**`) hands the mark to the comment
-  // and the re-reader loses everything behind it - the depth-5 sweep
-  // shape this suite names, the last member of the deleted #55
+  // and the re-reader loses everything behind it - a shape the sweep's
+  // product spelled at depth 5, the last member of the deleted #55
   // family.
-  test("the depth-5 sweep shape: close mark after the comment", async () => {
+  test("close mark after the comment", async () => {
     const input = "* a\n\npara\n** b\n// c\n** b\n";
     await expectFormatted(input, "* a\n\npara ** b\n// c\n** b\n");
   });

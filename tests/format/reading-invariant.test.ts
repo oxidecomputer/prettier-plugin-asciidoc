@@ -117,7 +117,7 @@ describe("the known-issue table (issue #58, section 4.4)", () => {
   // `+` was joined with the term line after it, and the join
   // MANUFACTURED a description-list term (`+ term2:: def2`). The `+`
   // now keeps the output line the source gave it, which is what
-  // emptied the depth-5 ledger's 710-row lone-plus-join family. The
+  // emptied 710 lone-plus-join rows from the reading ledger. The
   // projection-side row - what the corrupted spelling reads as - lives
   // in tests/lib/reading.test.ts, so it keeps its meaning here.
   test("#43: a lone + before a term line keeps its own line", async () => {
@@ -192,10 +192,10 @@ describe("the known-issue table (issue #58, section 4.4)", () => {
     },
   );
 
-  // #65's tail-reading-flip mechanism, in the two shapes the depth-5
-  // sweep spells. Both used to breach: an anchor standing in the
-  // item's SECOND block was read as that block's own metadata, so the
-  // line behind it reflowed into prose and its reading flipped. The
+  // #65's tail-reading-flip mechanism, in the two shapes that carried
+  // it. Both used to breach: an anchor standing in the item's SECOND
+  // block was read as that block's own metadata, so the line behind
+  // it reflowed into prose and its reading flipped. The
   // anchor now ends any block after the item's first
   // (INTERRUPTERS_BY_CONTEXT's `listItem` row,
   // src/parse/line-shapes.ts), the line behind it keeps its own line,

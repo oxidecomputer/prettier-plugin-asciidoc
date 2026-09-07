@@ -27,11 +27,16 @@ describe("assessCase", () => {
   // The reading detail names WHERE as well as what: a signature alone
   // is enough for a six-line case and not enough for a corpus
   // document of several hundred lines. This one document is a live
-  // gap (#17's continuation-dropped; the previous witnesses closed
-  // with #43 and then #65) rather than a shape, deliberately - it is
-  // a ledger row in tests/format/reading-ledger.json, so the day the
-  // gap closes this row moves with the ledger. Its violation is on
-  // line 3 of 6, so the reported line is the line and not the end.
+  // gap (the continuation-dropped mechanism #17 was filed for; the
+  // previous witnesses closed with #43 and then #65) rather than a
+  // shape, deliberately. Its body is five lines, which the list-shape
+  // sweep's product does not spell, so it is no longer a row of
+  // tests/format/reading-ledger.json and this test is the only pin
+  // the tree has on the mechanism's reading face. #17 is closed and
+  // no open issue owns the mechanism, so this row stands until the
+  // mechanism itself is fixed, and it is then the one that has to
+  // move. Its violation is on line 3 of 6, so the reported line is
+  // the line and not the end.
   test("a reading failure is reported with its line", async () => {
     const result = await assessCase("* a\n\n+\n* a\n\n+\n");
     expect(result.failures).toContain("reading");

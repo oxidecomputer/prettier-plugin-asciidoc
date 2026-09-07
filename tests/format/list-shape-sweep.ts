@@ -3,18 +3,20 @@
  * the document product and the per-document verdict — shared by the
  * two entries that consume it:
  *
- * - `list-shape-sweep.test.ts`, exhaustive to depth 4, in the DEFAULT
- *   suite (`bun run test`);
- * - `list-shape-sweep.deep.test.ts`, exhaustive to depth 5, run by
+ * - `list-shape-sweep.test.ts`, in the DEFAULT suite
+ *   (`bun run test`), which gates the allowlist and the reading
+ *   ledger RESTRICTED to the product it spells;
+ * - `list-shape-sweep.deep.test.ts`, run by
  *   `bun run test:deeply-nested-lists`, by CI's blocking job, and as the prelude to
- *   every mutation run.
+ *   every mutation run, which gates both files WHOLE, so a row for a
+ *   document no product spells has nowhere to hide.
  *
  * ONE module because the two must not disagree about what a sweep
  * document IS. A shape the deep entry pins and the default entry
- * spells differently is a shape neither pins, and the split exists
- * only to move wall time (vitest prints each entry's, and the depth-5
- * product's dwarfed the rest of the default suite), not to weaken what
- * is checked.
+ * spells differently is a shape neither pins. The two run the same
+ * depth today ({@link SHALLOW_DEPTH}, {@link DEEP_DEPTH}); what
+ * separates them is what each holds the tree to, not how far each
+ * product reaches.
  *
  * NOTHING HERE SAMPLES, at either depth. The sweep used to grow
  * exhaustively and then DRAW 5,000 of the 100,000 length-5 documents,
@@ -52,24 +54,32 @@ const ALPHABET = [
  * How deep the DEFAULT suite's product runs.
  *
  * FOUR, not three, and the difference was measured rather than
- * guessed. Depth 3 costs 305ms and allowlists nothing — every shape on
- * the deep sweep's list has a body of length 4 or 5 — but it also
- * kills fewer MUTANTS than the sweep did before the split, and the
- * mutation harness runs the default suite, not `test:deeply-nested-lists`. A seeded
- * `list-hazard.ts` mutant (`startsWith` → `endsWith` on the comment
- * head) survives depth 3 and DIES at depth 4. What the depth-4 product
- * costs is deliberately not restated here, because every figure of it
- * moves when the alphabet does: `bun run block-structure` spells the
- * same product and prints its size on its sweep line, the entries it
- * carries are `allowlistFor(SHALLOW_DEPTH)`, and vitest prints the wall
- * time. Depth 4 is the shallowest depth that kills the seeded mutant,
- * and it was kept because that wall time stayed near what the sweep
- * cost before the depth-5 raise.
+ * guessed. Depth 3 costs 305ms and allowlists nothing (every shape on
+ * the sweep's list has a body of length 4), but it also kills fewer
+ * MUTANTS, and the mutation harness runs the default suite, not
+ * `test:deeply-nested-lists`. A seeded `list-hazard.ts` mutant
+ * (`startsWith` to `endsWith` on the comment head) survives depth 3
+ * and DIES at depth 4. What the product costs is deliberately not
+ * restated here, because every figure of it moves when the alphabet
+ * does: `bun run block-structure` spells the same product and prints
+ * its size on its sweep line, the entries it carries are
+ * `allowlistFor(SHALLOW_DEPTH)`, and vitest prints the wall time.
+ * Depth 4 is the shallowest depth that kills the seeded mutant.
  */
 export const SHALLOW_DEPTH = 4;
 
-/** How deep the `test:deeply-nested-lists` product runs. */
-export const DEEP_DEPTH = 5;
+/**
+ * How deep the `test:deeply-nested-lists` product runs.
+ *
+ * The same depth as {@link SHALLOW_DEPTH}. A deeper tier is not free:
+ * depth 5 spells eleven times the documents, and the only thing it
+ * reached that depth 4 does not was one reading signature of the
+ * continuation-dropped family, on a single five-line document
+ * (`* a` / blank / `+` / `* a` / blank / `+`). That shape is outside
+ * sweep coverage now, and #17, the issue it came from, is closed:
+ * tests/conformance/properties.test.ts is what pins its reading.
+ */
+export const DEEP_DEPTH = 4;
 
 // Named shapes, unioned in explicitly at BOTH depths. They earn their
 // place two ways: the ones with bodies longer than the depth in force
@@ -279,7 +289,7 @@ export function readingLedgerFor(depth: number): ReadingLedgerRow[] {
  * reasons. Mixing the verdicts would blur what each entry asserts.
  *
  * It consults no oracle, which is what makes it affordable over the
- * depth-5 product at all: the render sweep beside it is oracle-bound,
+ * whole product at all: the render sweep beside it is oracle-bound,
  * this one is two parses and a format per document.
  * @param depth - the depth to spell the product at
  * @returns one row per violating (document, pass), in canonical order

@@ -13,16 +13,19 @@ import { readingFamily } from "./reading-ledger.js";
 
 describe("readingFamily", () => {
   test.each([
-    // The measured inventory: the depth-5 sweep spells the first, and
+    // The measured inventory: the sweep spells the first, and
     // tests/format/reading-invariant.test.ts pins the second as #43's
-    // render-corrupting face - the lone `+` joined into the prose
+    // render-corrupting face, the lone `+` joined into the prose
     // beside it, which then re-reads as a description-list term.
     ["[cont] -> []", "lone-plus-join"],
     ["[cont text] -> [dlist:::]", "lone-plus-join"],
     // The continuations go and the list structure beside them stays:
-    // #17's trailing-marker collapse, seen from the reading side. The
-    // sweep spells hundreds of these and spelled none of them until
-    // every lone `+` got a token of its own.
+    // the trailing-marker collapse #17 was filed for, seen from the
+    // reading side. The sweep's product spells no document that
+    // reaches this mechanism, so the family holds no ledger rows; the
+    // first signature below is pinned on a real document by
+    // tests/conformance/properties.test.ts, which is the only pin the
+    // mechanism has now that #17 is closed.
     [
       "[cont marker:unordered:* cont] -> [marker:unordered:*]",
       "continuation-dropped",
@@ -35,7 +38,7 @@ describe("readingFamily", () => {
     ["[indented] -> [text]", "tail-reading-flip"],
     ["[title] -> [text]", "tail-reading-flip"],
     // A de-indented line coming back as a marker, in the three
-    // spellings measured over the depth-5 product once the sweep's
+    // spellings measured over the sweep product once the sweep's
     // alphabet carries an indented nested marker. The first two are
     // the de-indented line itself landing inside a paragraph a `+`
     // attached, where the reader keeps a foreign marker as

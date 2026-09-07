@@ -20,8 +20,7 @@ import { readingBreachesOf } from "../lib/reading.js";
 // `+ term2:: def2`). The join deletes the reading the reader gave the
 // line, and where the next line is a term line it MANUFACTURES a
 // description list the source never had. Emptying this mechanism is
-// what took the depth-5 reading ledger's lone-plus-join family from
-// 710 rows to none.
+// what took 710 lone-plus-join rows out of the reading ledger.
 describe("a lone + keeps the line the source gave it", () => {
   test.each([
     [

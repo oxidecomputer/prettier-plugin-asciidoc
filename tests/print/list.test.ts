@@ -227,13 +227,13 @@ describe("the gap a same-marker nested list is recorded behind", () => {
   // NOT PROTECTED BY DESIGN. The printer once dropped a blank-only
   // gap in front of a nested list that shares its parent's marker,
   // because a blank there reads back as a SIBLING boundary. No input
-  // reaches that drop: 1,614 corpus documents and the 177,166
-  // documents of the depth-5 list-shape product produce no such gap,
-  // and the reason is structural, which is what this row records. An
-  // item's read runs THROUGH an indented literal and the metadata
-  // behind it, so the marker line lands inside the item ONLY while
-  // nothing separates them; put a blank or a `+` there and the reader
-  // has two siblings instead, with no nested block to carry a gap.
+  // reaches that drop: 1,614 corpus documents and the whole
+  // list-shape sweep product produce no such gap, and the reason is
+  // structural, which is what this row records. An item's read runs
+  // THROUGH an indented literal and the metadata behind it, so the
+  // marker line lands inside the item ONLY while nothing separates
+  // them; put a blank or a `+` there and the reader has two siblings
+  // instead, with no nested block to carry a gap.
   // The gap in front of such a list is therefore always empty, and
   // the printer replays it like every other one.
   test("it is empty, so there is nothing to drop", () => {

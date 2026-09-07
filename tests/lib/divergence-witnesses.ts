@@ -4,10 +4,10 @@
  *
  * They come from the sealed line-reading revision 24240b2e - its
  * `cutover-allowlist.json` (the families' witnesses and the named
- * documents) and its depth-5 known-failure list. That revision is a
- * digest-verified export outside this repository and will not be
- * there forever; the documents are the part worth keeping, so they
- * are checked in here where the suite can reach them.
+ * documents). That revision is a digest-verified export outside this
+ * repository and will not be there forever; the documents are the
+ * part worth keeping, so they are checked in here where the suite can
+ * reach them.
  *
  * WHAT A WITNESS ASSERTS TODAY: nothing about how this tree reads it.
  * Every claim of that kind belongs to the task that makes it, as a
@@ -75,31 +75,6 @@ interface WitnessCorpusCase {
 type Witness = WitnessDocument | WitnessCorpusCase;
 
 /**
- * One shape the sealed revision still failed at depth 5, with the
- * mechanism family it failed under.
- *
- * The SET is the claim, not any single row. A shape recorded here
- * that a later tree also fails is a shape that was already failing
- * before the work started; a shape OUTSIDE it that fails is a new
- * mechanism somebody has to name. Keeping the set is what makes that
- * distinction available at all - without it, both look alike.
- */
-interface DepthFiveFailure {
-  /** The sweep document, verbatim. */
-  readonly document: string;
-  /** The mechanism, as the sealed revision's allowlist grouped it. */
-  readonly family: string;
-}
-
-/** The whole file: the witnesses and the depth-5 failing set. */
-export interface WitnessFile {
-  /** Every witness, ordered by id. */
-  readonly witnesses: readonly Witness[];
-  /** The sealed revision's depth-5 failing set, ordered by document. */
-  readonly depthFiveKnownFailures: readonly DepthFiveFailure[];
-}
-
-/**
  * Validate one witness row.
  *
  * Strict, for the reason `tests/lib/reading-ledger.ts` gives about
@@ -165,43 +140,21 @@ function scopeOf(scope: unknown, at: string): WitnessScope {
 }
 
 /**
- * Validate one depth-5 row.
- * @param raw - one parsed array element
- * @param at - where it sits, for the message
- * @returns the failing shape
- * @throws {Error} when the row is not one
- */
-function failureOf(raw: unknown, at: string): DepthFiveFailure {
-  const { document, family } = fields(raw, at);
-  if (typeof document !== "string" || typeof family !== "string") {
-    throw new TypeError(`${at}: malformed row`);
-  }
-  return { document, family };
-}
-
-/**
  * Read and validate the witness file.
  * @param file - the path; defaults to the checked-in one, overridable
  *   only so tests can exercise the validation paths
- * @returns the witnesses and the depth-5 failing set
+ * @returns the witnesses, in file order
  * @throws {TypeError} when the file is not a witness file
  */
-export function loadWitnesses(file: string = WITNESS_PATH): WitnessFile {
+export function loadWitnesses(file: string = WITNESS_PATH): Witness[] {
   const parsed: unknown = JSON.parse(readFileSync(file, "utf8"));
-  const { witnesses, depthFiveKnownFailures } = fields(parsed, file);
-  if (!Array.isArray(witnesses) || !Array.isArray(depthFiveKnownFailures)) {
-    throw new TypeError(
-      `${file}: expected "witnesses" and "depthFiveKnownFailures" arrays`,
-    );
+  const { witnesses } = fields(parsed, file);
+  if (!Array.isArray(witnesses)) {
+    throw new TypeError(`${file}: expected a "witnesses" array`);
   }
-  return {
-    witnesses: witnesses.map((raw, index) =>
-      witnessOf(raw, `${file}[${String(index)}]`),
-    ),
-    depthFiveKnownFailures: depthFiveKnownFailures.map((raw, index) =>
-      failureOf(raw, `${file} depthFive[${String(index)}]`),
-    ),
-  };
+  return witnesses.map((raw, index) =>
+    witnessOf(raw, `${file}[${String(index)}]`),
+  );
 }
 
 /**
@@ -221,7 +174,7 @@ export function witnessDocuments(): string[] {
       cases.set(`corpus/${group.name}/${one.id}`, one.input);
     }
   }
-  return loadWitnesses().witnesses.map((witness) => {
+  return loadWitnesses().map((witness) => {
     if (witness.origin !== "corpus") {
       return witness.source;
     }

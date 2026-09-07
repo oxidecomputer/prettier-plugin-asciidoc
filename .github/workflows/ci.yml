@@ -52,10 +52,11 @@ jobs:
       # workstream that added it.
       - run: bun run metrics
         if: ${{ !cancelled() }}
-      # The exhaustive depth-5 list-shape sweep (DEEP_DEPTH), each
-      # document formatted twice and rendered on both sides against
-      # the known-failing shapes in list-shape-allowlist.ts
-      # (FAILING_TODAY), ~30s. It used to ride inside `bun run test`;
+      # The exhaustive list-shape sweep (DEEP_DEPTH), each document
+      # formatted twice and rendered on both sides against the whole
+      # of the known-failing shapes in list-shape-allowlist.ts
+      # (FAILING_TODAY); what it costs is the duration vitest prints
+      # for the step. It used to ride inside `bun run test`;
       # it left the default suite ON CONDITION that it became a
       # blocking step here and the prelude to every mutation run, so
       # nothing about what is enforced changed. Head-only and needs no

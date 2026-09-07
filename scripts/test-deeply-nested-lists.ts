@@ -3,14 +3,13 @@
 
 /**
  * The DEEP sweeps, as their own entry: every `*.deep.test.ts` file.
- * Today that is four products. The exhaustive depth-5 list-shape
- * product, whose size is whatever `sweepDocuments(DEEP_DEPTH)`
+ * Today that is four products. The exhaustive list-shape product,
+ * whose size is whatever `sweepDocuments(DEEP_DEPTH)`
  * (tests/format/list-shape-sweep.ts) spells from its alphabet, is
- * gated TWICE over: the
- * render/idempotence entry formats each document twice and renders
- * both sides, pinned to the allowlist by strict set equality, and the
- * reflow re-classification entry (issue #58) re-reads each document's
- * output and pins the violating set to
+ * gated TWICE over: the render/idempotence entry formats each
+ * document twice and renders both sides, pinned to the allowlist by
+ * strict set equality, and the reflow re-classification entry (issue
+ * #58) re-reads each document's output and pins the violating set to
  * `tests/format/reading-ledger.json` the same way. The registry
  * sweep's deep tier is the third: both shape-registry grids, each
  * under the byte operators it declares, pinned to the cluster
@@ -62,13 +61,12 @@ const USAGE = `usage: bun run test:deeply-nested-lists
   --help   this text
 
 Runs every *.deep.test.ts under vitest.sweep.config.ts: the exhaustive
-depth-5 list-shape sweep, the reflow
-re-classification ledger over the same product, the registry sweep's
-deep tier (both shape-registry grids, each under the byte operators
-it declares), the
-inline sweep's deep tier (the inline standing grid under every byte
-operator, plus its pair product), and the reparse ledger over the
-corpus, both standing grids and the line pair grid.
+list-shape sweep, the reflow re-classification ledger over the same
+product, the registry sweep's deep tier (both shape-registry grids,
+each under the byte operators it declares), the inline sweep's deep
+tier (the inline standing grid under every byte operator, plus its
+pair product), and the reparse ledger over the corpus, both standing
+grids and the line pair grid.
 
 exit: 0 the failing sets matched the allowlist, the two ledgers and
 the two cluster manifests, 1 a gate failed, 2 could not run`;
