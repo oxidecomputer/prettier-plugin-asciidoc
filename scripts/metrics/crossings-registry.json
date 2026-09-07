@@ -921,7 +921,7 @@
     "symbol": "LINE_COMMENT_HEAD",
     "importer": "src/print/join.ts",
     "kind": "vocabulary",
-    "reason": "the two characters `skip_line_comments` tests for - the printer asks whether the head drain would take the whole of the body it is about to write, in the drain's own spelling rather than the classifier's"
+    "reason": "the two characters `skip_line_comments` tests for - the printer asks whether the head drain would take the whole of the body a marker item or a description writes, in the drain's own spelling rather than the classifier's narrower one"
   },
   {
     "file": "src/parse/line-shapes.ts",

@@ -123,3 +123,91 @@ describe("a //-headed run above a blank is a marker item's own block", () => {
     await expectFormatted(input, expected);
   });
 });
+
+// The run is the item's first block and the printed item ends on it,
+// so a re-read of those bytes alone finds the run reaching the
+// buffer's end - the DROP arm, where the `<p>` the run rendered is
+// gone (issues #262, #259). The `+` the author wrote under the blank
+// is what stopped that drop, and the printer writes it back in the
+// detached spelling: a blank line, then the byte.
+//
+// Every row here came back WITHOUT the `+` before that arm existed,
+// so every one of them rendered an item with no paragraph in it where
+// both programs render one.
+describe("a marker item's drainable body keeps the + that shields it", () => {
+  test.each([
+    ["a bare ///", "* a\n///\n\n+\n"],
+    ["a near miss with text", "* a\n///c\n\n+\n"],
+    ["four slashes", "* a\n////x\n\n+\n"],
+    ["an olist item", ". a\n///c\n\n+\n"],
+    ["a real comment above the near miss", "* a\n// c\n///d\n\n+\n"],
+    ["a real comment below the near miss", "* a\n///d\n// c\n\n+\n"],
+    ["a sibling item under the shield", "* a\n///c\n\n+\n* b\n"],
+    ["a nested list under the shield", "* a\n///c\n\n+\n** b\n"],
+    ["a paragraph inside the item", "* a\n///c\n\n+\n\npara\n"],
+    [
+      "a block attribute line inside the item",
+      "* a\n///c\n\n+\n[role]\npara\n",
+    ],
+  ])("%s stays byte for byte", async (_name, input) => {
+    await expectFormatted(input, input);
+  });
+  // The blank count under the shield is the separator rule's, not the
+  // writer's: the printed `+` is a live continuation, so ONE blank
+  // line under it attaches the next block to the item on re-read
+  // (parser.rb l.1483) and two detach it. Each row here keeps its
+  // block OUTSIDE the item, which is what the source spelled; with
+  // the shield written and the separator left at one blank, the
+  // listing row read its `----` into the item's own buffer.
+  test.each([
+    ["a paragraph", "* a\n///c\n\n+\n\n\npara\n"],
+    ["a listing block", "* a\n///c\n\n+\n\n\n----\nl\n----\n"],
+    ["a section title", "* a\n///c\n\n+\n\n\n== S\n"],
+    ["block metadata", "* a\n///c\n\n+\n\n\n[role]\npara\n"],
+  ])("%s under the shield keeps its two blank lines", async (_name, input) => {
+    await expectFormatted(input, input);
+  });
+  // The `+` the source wrote in an ADJACENT pair comes back as the
+  // one detached byte instead: the pop takes the second of the pair
+  // and renders neither (parser.rb l.1580-82), and what the item
+  // needs is a shield the pop can absorb.
+  test("an adjacent pair under the run comes back detached", async () => {
+    await expectFormatted(
+      "* a\n///c\n+\n+\n\npara\n",
+      "* a\n///c\n\n+\n\n\npara\n",
+    );
+  });
+  // The shield is written for a body the render would MISS. A run of
+  // true `//` lines renders nothing under either reading, so the byte
+  // would buy no render while costing the next block its detachment;
+  // a run with a line under it was never drained at all.
+  test.each([
+    [
+      "a comment run renders nothing either way",
+      "* a\n// c\n\n+\n",
+      "* a\n// c\n",
+    ],
+    [
+      "a run of comments renders nothing either way",
+      "* a\n// c\n// d\n\n+\n",
+      "* a\n// c\n// d\n",
+    ],
+    ["a line follows the run, so it folds", "* a\n///c\nb\n", "* a ///c b\n"],
+  ])("%s (control)", async (_name, input, expected) => {
+    await expectFormatted(input, expected);
+  });
+  // The item's own opening line keeps the words the source put on it,
+  // for the reason the drop arm's rows keep theirs
+  // (`nextLineNeedsItsPosition`, src/parse/lines/list-item-node.ts): a
+  // width break that pushed a word down would stand between the
+  // marker line and the run, the drain would stop on THAT line, and
+  // the run would fold into the item's text instead of standing as
+  // its first block. The line below is 90 columns, past the 80 the
+  // default width allows, and without the guard the item came back
+  // wrapped, shielded, and no longer a fixed point.
+  test("a wide item text is not wrapped over the run", async () => {
+    const wide =
+      "* aaaaaaaaaa bbbbbbbbbb cccccccccc dddddddddd eeeeeeeeee ffffffffff gggggggggg hhhhhhhhhh\n///c\n\n+\n";
+    await expectFormatted(wide, wide);
+  });
+});

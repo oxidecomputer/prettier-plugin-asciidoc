@@ -12,6 +12,7 @@ import { doc, type Doc } from "prettier";
 import type {
   BlockNode,
   DescriptionListItemNode,
+  InlineNode,
   ListItemNode,
 } from "../ast.js";
 import {
@@ -21,6 +22,7 @@ import {
   stacksAsMetadata,
 } from "../block-metadata.js";
 import { LINE_COMMENT_HEAD } from "../parse/line-shapes.js";
+import { splitWords } from "./reflow.js";
 
 const {
   builders: { hardline },
@@ -466,24 +468,166 @@ export function drainTakesWholeBody(node: DescriptionListItemNode): boolean {
 }
 
 /**
+ * Whether the head drain would take EVERY line this block writes, so
+ * the block survives a re-read only while something stops the drain
+ * under it.
+ *
+ * `Reader#skip_line_comments` takes a line by its bare `//` head and
+ * stops at the first line that has none (reader.rb l.329-346), and
+ * `parse_list_item` runs it over an item's whole buffer before the
+ * first block is read (parser.rb l.1362-71). A block every line of
+ * which the drain takes therefore contributes nothing that could stop
+ * it.
+ *
+ * TWO KINDS ANSWER YES, and the reader's own split between them is
+ * what {@link drainTakesItemBody} then reads as "does this render":
+ * a line COMMENT is a `//` line to `CommentLineRx` as well, so it
+ * renders nothing under either reading; a PARAGRAPH here is the near
+ * miss (`///`, `///c`, `////x`) that `CommentLineRx` exempts and the
+ * drain does not, so it renders a `<p>`. Nothing else can be one
+ * line of a drained run - a delimiter, a macro or a nested list line
+ * has no `//` head - so every other block kind ends the run.
+ *
+ * ASKED OF WORDS, not of the source lines the block covers, because
+ * the answer has to hold of the lines the printer will WRITE: a
+ * paragraph is repacked, and the drain reads whatever lands at each
+ * line's head. Every word carrying the head is what makes the answer
+ * survive any packing.
+ *
+ * WHAT THAT LEAVES OPEN is a family, not a case: a run whose
+ * paragraph carries anything beyond `//`-headed words. A drained line
+ * with a second word on it (`///c x`) is one member, and so is any
+ * inline child that is not text or a raw line - a hard break
+ * (`/// +`), a formatting span (`///*b*`), a macro
+ * (`///https://x[y]`). Every one of them is a body the drain really
+ * would take whole, so every one of them still loses its paragraph
+ * from the render; none is answered WRONG here, and none is answered.
+ * Closing the family needs a question this predicate cannot ask -
+ * what the packer will put at the head of each line it writes - so it
+ * is left open rather than approximated.
+ * @param block - one block an item writes
+ * @returns true when every line it writes has a `//` head
+ */
+function drainTakesBlock(block: BlockNode): boolean {
+  if (block.type === "comment") {
+    return block.commentType === "line";
+  }
+  return block.type === "paragraph" && block.children.every(drainTakesInline);
+}
+
+/**
+ * The word-level half of {@link drainTakesBlock}: whether this piece
+ * of a paragraph can only ever put a `//` head at the start of an
+ * output line.
+ *
+ * A `rawLine` owns its output line whole, so its own text is what the
+ * drain reads. A `text` node is packed, so every word in it is a
+ * candidate first word and each one must carry the head. Any other
+ * inline kind prints marks of its own that no `//` head could cover.
+ * @param node - one inline child of a paragraph
+ * @returns true when no line this piece writes can lack a `//` head
+ */
+function drainTakesInline(node: InlineNode): boolean {
+  if (node.type === "rawLine") {
+    return node.value.startsWith(LINE_COMMENT_HEAD);
+  }
+  return (
+    node.type === "text" &&
+    splitWords(node.value).every((word) => word.startsWith(LINE_COMMENT_HEAD))
+  );
+}
+
+/**
+ * Whether a MARKER item writes a body the head drain would take
+ * whole AND that body is one the render would miss - so the `+` that
+ * stopped the drain in the source has to come back.
+ *
+ * `parse_list_item` peeks past a run of `//`-headed lines before it
+ * reads an item's first block and unshifts the run only when a line
+ * FOLLOWS it (parser.rb l.1362-71). A run reaching the buffer's end
+ * is dropped outright and the `<p>` it made goes with it, so an item
+ * whose whole printed body is such a run loses that paragraph on the
+ * next read unless a separator line stands under it (issues #262,
+ * #259).
+ *
+ * THE BODY IS THE RUN exactly when every block prints behind an EMPTY
+ * gap. The reader splits a detached run at the blank line that stopped
+ * the drain (src/parse/lines/list-read.ts), and every line of that
+ * blank run is recorded, so the first block standing behind the blank
+ * has a `""` in its gap and any later one has more. An empty gap
+ * everywhere therefore says the printed body reaches from the item's
+ * opening line to its last line with no separator anywhere in it.
+ *
+ * The other reading the drain can give needs no byte and gets none. A
+ * DROPPED run leaves no block at all (the item's text carries the
+ * replayed lines), which `blocks.length` refuses; a KEPT one folds
+ * into the item's text, and the blocks it leaves are lines with no
+ * `//` head, which {@link drainTakesBlock} refuses.
+ *
+ * AT LEAST ONE BLOCK MUST RENDER, and the reader has already
+ * answered which: a run of true `// c` lines is a run of `comment`
+ * blocks, renders nothing under either reading, and writing the `+`
+ * back would buy no render while costing the next block its
+ * detachment. Only a near miss (`///`, `///c`, `////x`) reaches the
+ * paragraph arm, and only such a body has a `<p>` to lose.
+ *
+ * NOT AN INVENTED BYTE, though the printer decides where it goes.
+ * This shape can only be read from a source that already carried the
+ * `+`: for the drain to have left a BLOCK here, a blank had to follow
+ * the run inside the item's own buffer, and a trailing blank survives
+ * the `last_line.empty?` arm's own `buffer.pop` (parser.rb l.1584-85)
+ * only where `ListContinuationMarker === (last_line = buffer[-1])`
+ * broke the walk one line under it (l.1580-82).
+ *
+ * The two tail bytes {@link ListItemNode} can already print are
+ * excluded because either one puts a `+` on the item's last line
+ * itself and a second would be a byte nobody wrote. `detachedTail`
+ * writes exactly the shape this arm would, so nothing is lost there.
+ * A live `trailingContinuation` writes its `+` DIRECTLY under the
+ * run, which is NOT a shield - the pop takes an adjacent marker off
+ * the buffer's end (parser.rb l.1580-82) and leaves the run reaching
+ * that end again - so `* a` / `///c` / blank / `+` / `+` still loses
+ * its paragraph. Respelling that byte as the detached shield is what
+ * would close it, and it is left standing rather than answered here:
+ * the byte is the item's tail to write, not this arm's.
+ * @param node - the marker item being printed
+ * @returns true when the item writes a detached `+` under its body
+ */
+export function drainTakesItemBody(node: ListItemNode): boolean {
+  return (
+    node.trailingContinuation === false &&
+    !node.detachedTail &&
+    node.blocks.length > 0 &&
+    node.blocks.every(
+      ({ gap, block }) => gap.length === 0 && drainTakesBlock(block),
+    ) &&
+    node.blocks.some(({ block }) => block.type === "paragraph")
+  );
+}
+
+/**
  * Whether an item ends on a `+` the PRINTER writes rather than one the
- * reader recorded as armed: a description whose whole body the head
- * drain would take is closed with a detached `+`
- * ({@link drainTakesWholeBody}, written by
- * src/print/description-list.ts).
+ * reader recorded as armed: an item whose whole body the head drain
+ * would take is closed with a detached `+`.
  * The printed lines end on a live `+` either way, so the separator
  * question is the same one, and asking the writer's own predicate is
  * what keeps the two from disagreeing about one item.
  *
- * A MARKER item never writes that byte - the arm is the description
- * printer's - which is what the type test says.
+ * ONE PREDICATE, TWO ARMS, because the two item kinds lose a body the
+ * same way and write the byte from different printers: a MARKER item
+ * through {@link drainTakesItemBody} (written by src/print/list.ts),
+ * a DESCRIPTION item through {@link drainTakesWholeBody} (written by
+ * src/print/description-list.ts). The arms are mutually exclusive by
+ * the type test, which is total over the union.
  * @param item - the last item of a list-like block
  * @returns whether the item's own printed tail is a live `+`
  */
 function printsDrainShield(
   item: ListItemNode | DescriptionListItemNode,
 ): boolean {
-  return item.type === "descriptionListItem" && drainTakesWholeBody(item);
+  return item.type === "listItem"
+    ? drainTakesItemBody(item)
+    : drainTakesWholeBody(item);
 }
 
 /**
@@ -501,10 +645,14 @@ function printsDrainShield(
  * TWO SOURCES for one question, because a live `+` at an item's end
  * has two origins: one the reader recorded and one the printer writes
  * ({@link printsDrainShield}). The `||` is no widening - both arms
- * name the same printed shape, a `+` on the item's last line - and
- * leaving the second out is what let a `term::` / `///` / blank / `+`
- * item take one blank line where it needs two, pulling the block under
- * it into the `<dd>`.
+ * name the same printed shape, a `+` on the item's last line, and a
+ * DETACHED `+` arms exactly like a plain one, because the blank the
+ * printer writes above it is what the loop reads first: the marker
+ * goes `:active` and l.1439 erases it, and only then is the block
+ * under the second blank decided. Leaving the second arm out is what
+ * let a `term::` / `///` / blank / `+` item take one blank line where
+ * it needs two, pulling the block under it into the `<dd>`, and what
+ * pulled a `----` under a shielded item into that item's own buffer.
  * @param block - The preceding block node.
  * @returns Whether its tail continuation is still armed.
  */

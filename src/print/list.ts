@@ -19,6 +19,7 @@ import {
   rstrip,
 } from "../parse/line-shapes.js";
 import { inlineAtoms } from "./inline.js";
+import { drainTakesItemBody } from "./join.js";
 import { hazard, markerLineGuard, type TextGuard } from "./list-hazard.js";
 import {
   type Atom,
@@ -613,6 +614,20 @@ export function printListItem(
     parts.push(...gapParts(adjusted), printedBlock);
   }
   parts.push(...tailParts(node));
+  if (drainTakesItemBody(node)) {
+    // The DETACHED spelling, and the only one that works: an adjacent
+    // `+` would be popped off the buffer's end (parser.rb l.1580-82)
+    // and leave the run reaching that end again, while a blank under
+    // the run is erased into the shield the pop takes instead
+    // (l.1576), which is what keeps the run's own block alive.
+    //
+    // What stands UNDER the byte is not written here. The item ends on
+    // a live `+`, so it is an ARMED TAIL, and the block-join rules read
+    // it as one (`listTailContinuationActive`, src/print/join.ts):
+    // they own the blank count that decides whether the next block
+    // attaches, and they ask the same predicate this arm did.
+    parts.push(hardline, hardline, "+");
+  }
   return parts;
 }
 
