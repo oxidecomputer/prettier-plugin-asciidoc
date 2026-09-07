@@ -249,3 +249,121 @@ describe("a run of two adjacent + keeps both bytes", () => {
     await expectFormatted(input, expected);
   });
 });
+
+// Issue #263: the same pair with a BLANK LINE in front of it. Its
+// first half is then the DETACHED `+` (`detached_continuation`,
+// parser.rb l.1523) and the second activates it, freezing itself and
+// writing `ListContinuationPlaceholder` over the first (l.1439) -
+// the identical pair, reached by a different arm. The post-loop's own
+// write over that same cell (l.1576) used to overwrite what l.1439
+// had recorded there, so the pair went unreported and one `+` was
+// printed where the source held two.
+//
+// Over a DRAINABLE description that cost a rendering, not just a
+// byte. `term::` / `///` has no description at all: the item's own
+// reader takes every line starting with `//` for a comment
+// (`skip_line_comments`, reader.rb l.332-45, which does not make the
+// `///` exception `skip_comment_lines` makes at l.311-13), drains it,
+// and puts it back only when a line still stands behind it
+// (parser.rb l.1362-66). The pair leaves the erased half standing
+// there; a single `+` leaves nothing and the `<dd>` disappears. Both
+// Asciidoctor 2.0.26 and the oracle read it that way, so the render
+// equality `expectFormatted` asserts is the whole claim.
+describe("a run of two adjacent + behind a blank keeps both bytes", () => {
+  test.each([
+    [
+      "over a description whose body drains away without them",
+      "term::\n///\n\n+\n+\n",
+      "term::\n///\n+\n+\n",
+    ],
+    [
+      "over a description body that is a plain comment line",
+      "term::\n// c\n\n+\n+\n",
+      "term::\n// c\n+\n+\n",
+    ],
+    [
+      "three of them, of which the buffer only ever held two",
+      "term::\n///\n\n+\n+\n+\n",
+      "term::\n///\n+\n+\n",
+    ],
+    ["at a marker item's end", "* a\nb\n\n+\n+\n", "* a b\n+\n+\n"],
+    [
+      "at a marker item's end, before a sibling",
+      "* a\nb\n\n+\n+\n* c\n",
+      "* a b\n+\n+\n* c\n",
+    ],
+    ["at an ordered item's end", ". a\nb\n\n+\n+\n", ". a b\n+\n+\n"],
+  ])("%s", async (_name, input, expected) => {
+    await expectFormatted(input, expected);
+  });
+
+  // The control: inside a nested list the activation blanks nothing
+  // (`unless within_nested_list`, parser.rb l.1439), so there is no
+  // erased half to pair with and the mark stays the nested scan's.
+  test("a pair inside a nested list still prints one +", async () => {
+    await expectFormatted("* a\n** b\n\n+\n+\n", "* a\n** b\n+\n");
+  });
+});
+
+// The same pair with a THIRD `+` standing behind it, under a MARKER
+// item. Every row here is a row of the reading ledger's
+// `lone-plus-join` family (tests/format/reading-ledger.json): the
+// pair comes back whole and the run's third and later `+` lines do
+// not, because Ruby's frozen gate reads and drops them without ever
+// buffering a cell (parser.rb l.1443-44) and nothing recovers a byte
+// that never reached a cell to lose. The residual reading loss is
+// therefore exactly one `cont` per surplus `+`, and these rows pin
+// which bytes DO survive: two, adjacent, at the item's end. Reporting
+// only the buffered half printed a single `+` here and lost the
+// erased one on top of the surplus.
+describe("a run of three or more behind a blank keeps the pair", () => {
+  test.each([
+    ["behind one blank", "* a\n\n+\n+\n+\n", "* a\n+\n+\n"],
+    ["behind two blanks", "* a\n\n\n+\n+\n+\n", "* a\n+\n+\n"],
+    ["above a trailing blank line", "* a\n\n+\n+\n+\n\n", "* a\n+\n+\n"],
+    [
+      "above a blank line and a sibling",
+      "* a\n\n+\n+\n+\n\n* a\n",
+      "* a\n+\n+\n* a\n",
+    ],
+    ["straight into a sibling", "* a\n\n+\n+\n+\n* a\n", "* a\n+\n+\n* a\n"],
+    ["a run of four", "* a\n\n+\n+\n+\n+\n", "* a\n+\n+\n"],
+    [
+      "under an item whose body is an indented line",
+      "* a\n  lit\n\n+\n+\n+\n",
+      "* a lit\n+\n+\n",
+    ],
+    [
+      "under the second of two sibling items",
+      "* a\n* a\n\n+\n+\n+\n",
+      "* a\n* a\n+\n+\n",
+    ],
+    [
+      "under an item whose body is a title-shaped line",
+      "* a\n.T\n\n+\n+\n+\n",
+      "* a .T\n+\n+\n",
+    ],
+    [
+      "under an item whose body is a comment line",
+      "* a\n// c\n\n+\n+\n+\n",
+      "* a\n// c\n+\n+\n",
+    ],
+    [
+      "under an item whose body is an anchor line",
+      "* a\n[[anc]]\n\n+\n+\n+\n",
+      "* a\n[[anc]]\n+\n+\n",
+    ],
+    [
+      "under an item whose body is an attribute line",
+      "* a\n[role]\n\n+\n+\n+\n",
+      "* a\n[role]\n+\n+\n",
+    ],
+    [
+      "under an item whose text wrapped onto a second line",
+      "* a\npara\n\n+\n+\n+\n",
+      "* a para\n+\n+\n",
+    ],
+  ])("%s", async (_name, input, expected) => {
+    await expectFormatted(input, expected);
+  });
+});

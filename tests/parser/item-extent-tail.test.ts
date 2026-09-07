@@ -154,6 +154,47 @@ describe("the tail facts finishItem reports", () => {
       false,
       false,
     ],
+    // #263 red-then-green: the pair's first half here is the DETACHED
+    // `+` (parser.rb l.1523), which the very next `+` activates and
+    // erases at l.1439 exactly as it would a `pending` one - so the
+    // pop takes the frozen half and the erased half is the pair's.
+    // Before this fix the post-loop wrote `detached` over that cell's
+    // recorded role on the way past (l.1576 writes the same
+    // Placeholder l.1439 already wrote), the pairing read found no
+    // `erased` cell behind the pop, and these three reported
+    // "single" - one byte short.
+    [
+      "a pair over a blank reports the erased DETACHED half too",
+      "* a\nb\n\n+\n+\n",
+      "double",
+      false,
+      false,
+    ],
+    [
+      "the same pair before a sibling reports it too",
+      "* a\nb\n\n+\n+\n* c\n",
+      "double",
+      false,
+      false,
+    ],
+    [
+      "three over a blank still report only the pair the buffer held",
+      "* a\nb\n\n+\n+\n+\n",
+      "double",
+      false,
+      false,
+    ],
+    // The control the fix must NOT move: inside a nested list the
+    // activation blanks nothing (`unless within_nested_list`,
+    // l.1439), so the detached half keeps its own role, no pair is
+    // reported, and the mark stays the nested scan's to spell.
+    [
+      "a pair over a blank inside a nested list reports no pair",
+      "* a\n** b\n\n+\n+\n",
+      "single",
+      false,
+      false,
+    ],
   ])("%s", (...row) => {
     const [, source, trailing, erasedTail, activeTail] = row;
     expect(tailFacts(source)).toEqual({ trailing, erasedTail, activeTail });

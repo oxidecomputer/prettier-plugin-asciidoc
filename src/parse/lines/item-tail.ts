@@ -89,6 +89,15 @@ export type Continuation = "inactive" | "active" | "frozen";
  * - `detached` - a `+` that follows a blank line while no
  *   continuation is active, registered on the outermost block
  *   (l.1417-19, l.1522-24) and blanked after the loop (l.1576).
+ *
+ * A role says what the loop's arms MADE of the line, and the arms run
+ * in source order, so the last arm to speak about a line is the one
+ * that decided it: a `detached` `+` the very next line activates is
+ * `erased` (l.1439), because that activation is what blanked it and
+ * what makes it the first half of an adjacent pair. WHICH line the
+ * post-loop then blanks at l.1576 is not a role at all - it is
+ * {@link ScanTail.detached}, held as the cell, and asking the role
+ * for it instead would spend the pair's own evidence.
  */
 export type GapRole =
   | "blank"
@@ -184,6 +193,12 @@ export interface ScanTail {
    * The cell holding the LAST detached `+` the loop read, which is
    * the one parser.rb l.1576 blanks - a later detached `+` replaces an earlier
    * one, exactly as Ruby's scalar `detached_continuation` does.
+   *
+   * It is also the ONLY thing that says a popped line was that
+   * shield. The line's own role cannot: an activation may have
+   * blanked the same cell on the way past (l.1439) and recorded
+   * `erased` for it, which is the fact the pairing read needs, and
+   * one line cannot carry both answers.
    */
   readonly detached: Cell | undefined;
   /** Index into the scan's lines after the item's last consumed line. */
@@ -260,8 +275,9 @@ export interface ItemExtent {
    * Structurally mutually exclusive with `trailingContinuation`'s
    * first half, by construction rather than by argument: both facts
    * are reported by the SAME arm, which pops exactly one cell and
-   * breaks, and the if/else inside it asks which role came off. One
-   * pop, one flag, never both.
+   * breaks, and the if/else inside it asks whether the LINE it took
+   * is the one l.1576 blanked ({@link ScanTail.detached}). One pop,
+   * one flag, never both.
    */
   readonly erasedTailContinuation: boolean;
   /**
@@ -539,7 +555,15 @@ function walkBufferTail(
  *   erased in the buffer's new last cell, immediately behind it -
  *   `afterContinuation` buffers the two in one turn, so nothing can
  *   ever come to stand between them, and an `erased` role is written
- *   on exactly one cell per activation.
+ *   on exactly one cell per activation. That first half is often the
+ *   DETACHED `+` (`detached_continuation = buffer.size`, parser.rb
+ *   l.1523) rather than a `pending` one, and the activation has
+ *   written `ListContinuationPlaceholder` over it just the same
+ *   (l.1439): `term::` / `///` / blank / `+` / `+` is that shape, and
+ *   the pair is what keeps the description alive (issue #263). The
+ *   post-loop's own write at l.1576 puts that same placeholder over
+ *   that same cell and settles nothing further, which is why it
+ *   leaves the role alone.
  * - The popped line is `pending`: its pairing SECOND half was read
  *   the very next source line and dropped without ever reaching a
  *   cell - `afterContinuation`'s frozen branch runs only when the line
@@ -553,9 +577,18 @@ function walkBufferTail(
  * matters here, so the record can be corrected before it is spelled
  * into a gap a second time.
  *
+ * The fact this consumes SURVIVES into the output: both bytes are
+ * printed, adjacent, at the item's end, and a re-read of those two
+ * lines runs the same two arms again - the first is buffered as a
+ * marker, the second activates and freezes it - so the second pass
+ * reaches this function with the same answer. Nothing here is read
+ * from bytes the printer then drops.
+ *
  * `erased` and `detached` pops have other explanations (an enclosing
  * scan's own erasure standing in a nested item's buffer, a
- * blank-shielded detached `+`) and pair with neither shape.
+ * blank-shielded detached `+`) and pair with neither shape. A pop
+ * that took the shield itself never arrives here at all: the caller
+ * reports that as `erasedTailContinuation` and asks nothing further.
  *
  * Called only where the caller has already proven a pop happened -
  * `popped` is required rather than optional so that proof is a TYPE
@@ -625,13 +658,16 @@ export function finishItem(tail: ScanTail): ItemExtent {
       ? { current: { ...cell.current, text: "", continuationTag: "erased" } }
       : cell,
   );
-  if (detached !== undefined) {
-    // Ruby's own write is over the SLOT, and so is the role: a loop
-    // arm that blanked this cell on the way past (an activation,
-    // parser.rb l.1439) recorded `erased` for it, and l.1576 is the
-    // later write.
-    roles.set(detached.current.line, "detached");
-  }
+  // No ROLE is written for that cell here, and the omission is the
+  // point. l.1576 puts the same Placeholder over the same slot an
+  // activation's l.1439 may already have put there, so it settles
+  // nothing a role could carry - while the `erased` that activation
+  // DID record is the only evidence that this `+` was the first half
+  // of an adjacent pair (pairedContinuationLine below). Spending it
+  // here cost the second `+` of `term::` / `///` / blank / `+` / `+`,
+  // whose pair is what keeps the description from draining away
+  // (issue #263). Which line l.1576 blanked is `tail.detached`'s to
+  // say, and the tail report below asks it rather than the record.
   const popped = walkBufferTail(cells, roles);
   if (popped !== undefined) {
     // The popped line leaves the separator record with the buffer: the
@@ -652,12 +688,16 @@ export function finishItem(tail: ScanTail): ItemExtent {
     // trailing `+`, and a popped `+` renders not one character.
     roles.delete(popped.line);
   }
-  // WHICH role came off is the whole difference between the two
-  // reports: an erased shield prints back as a blank and a `+`
-  // (`ListItemNode.detachedTail`), any other marker as the `+` alone
-  // (`trailingContinuation`). Both are read off the one role the walk
-  // returned, so the exclusion the two facts claim cannot come apart.
-  const erasedTail = popped?.role === "detached";
+  // WHICH LINE came off is the whole difference between the two
+  // reports: the shield l.1576 blanks prints back as a blank and a
+  // `+` (`ListItemNode.detachedTail`), any other marker as the `+`
+  // alone (`trailingContinuation`). Both are read off the one pop,
+  // which takes exactly one cell and breaks, so the exclusion the two
+  // facts claim cannot come apart. The comparison is by LINE because
+  // that is what the walk reports and what the record is keyed by;
+  // the scan reads each of its lines once, so a line names one cell.
+  const erasedTail =
+    popped !== undefined && popped.line === detached?.current.line;
   const liveTail = popped !== undefined && !erasedTail;
   const inert = tailPrintsInert(tail.stop);
   const printsTail = liveTail && inert;
