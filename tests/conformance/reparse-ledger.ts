@@ -2,7 +2,7 @@
  * The REPARSE LEDGER: every document in the standing populations
  * whose formatted output re-reads as a different document
  * (tests/conformance/reparse.ts), grouped by the mechanism that
- * produces it and the issue that owns the fix.
+ * produces it and the issue where that mechanism is recorded.
  *
  * WHY A PIN. The measurement is only useful if it can be DIFFED. A
  * predicate deleted from `src/print` is safe exactly when this set
@@ -136,46 +136,54 @@ export const MINIMUM_POPULATION = 20_000;
 export const MINIMUM_DEFAULT_POPULATION = 1500;
 
 /**
- * What a family's rows are WAITING FOR, which is not the same question
- * for every family. Most are a gap somebody will close, and the issue
- * that owns the fix is the answer. One is a loss the project decided
- * to take, and there is no fix coming: its rows are the record of a
- * decision, and reading them as a backlog would put a permanent number
- * in a queue that is supposed to empty. A discriminated union rather
- * than a string, so the two cannot be told apart only by knowing which
- * issue numbers are rulings.
+ * What kind of record a family's rows belong to, which is not the same
+ * question for every family. Most are a gap somebody will close. One
+ * is a loss the project decided to take, and there is no fix coming:
+ * its rows are the record of a decision, and reading them as a backlog
+ * would put a permanent number in a queue that is supposed to empty. A
+ * discriminated union rather than a string, so the two cannot be told
+ * apart only by knowing which issue numbers are rulings.
+ *
+ * BOTH ARMS ARE PROVENANCE. Each names the record where the mechanism
+ * is WRITTEN DOWN, and neither asks the tracker whether that record is
+ * open: a gap's issue can be closed by a fix that took only part of
+ * the mechanism, or by a landing that renamed it, and the rows stay
+ * either way. Where a family's rows stand today is what its `what`
+ * says, and only `what` can say it. The field that promised "these
+ * rows go when the issue below is fixed" was false for most of the
+ * ledger's rows once (#310); the promise is what went, not the arm.
  */
 type FamilyStanding =
   | {
-      /** A gap: these rows go when the issue below is fixed. */
-      readonly kind: "open";
-      /** The issue whose fix removes this family's rows. */
+      /** A gap: the issue where the mechanism is written down. */
+      readonly kind: "gap";
+      /** That issue. `#0` when no issue records the mechanism yet. */
       readonly issue: string;
     }
   | {
       /** A ruled loss: these rows do not expire. */
-      readonly kind: "abandoned";
+      readonly kind: "ruled";
       /** The issue that recorded the decision. */
       readonly ruling: string;
     };
 
-/** One mechanism: what it does, and what its rows are waiting for. */
+/** One mechanism: what it does, and what kind of record owns its rows. */
 export interface ReparseFamily {
-  /** Whether a fix is coming, and which issue owns it. */
+  /** Which kind of record owns the rows, and which record. */
   readonly standing: FamilyStanding;
-  /** What the mechanism is, in one sentence. */
+  /** What the mechanism is, and where its rows stand. */
   readonly what: string;
 }
 
 /**
  * How a family's standing prints in the report and in a failure
- * message: the issue number for an open gap, the ruling marked as one
- * for a family nothing will empty.
+ * message: the issue number for a gap, the ruling marked as one for a
+ * family nothing will empty.
  * @param family - the family to name
  * @returns the tag to print beside the family's name
  */
 export function familyTag(family: ReparseFamily): string {
-  return family.standing.kind === "open"
+  return family.standing.kind === "gap"
     ? family.standing.issue
     : `${family.standing.ruling} ruled`;
 }
@@ -183,67 +191,76 @@ export function familyTag(family: ReparseFamily): string {
 /**
  * The closed family enumeration.
  *
- * Four of the mechanisms are open issues in the
- * "Formatting is render-safe" milestone, reproduced from the OUTSIDE
- * by a check that knows nothing about them: no predicate in
- * `src/print` is consulted, no hazard is modelled, and the rows
- * arrive from populations that were built for other purposes. The
- * other five are gaps this measurement found (#169, #170, #171, #269,
- * #270), three of them tier-1 render losses that every other gate is
- * green on. Two of those five arrived when the pair grid learned to
- * spell two blank lines between its members (#264): the separator
- * WIDTH after a description could not be asked before, so nothing
- * generated the documents whose answer is wrong. One member is not a
- * gap at all: `plus-shield-dropped` records a shape the formatter
- * deliberately stopped protecting, so its rows expire with nothing.
+ * Reproduced from the OUTSIDE by a check that knows nothing about the
+ * printer: no predicate in `src/print` is consulted, no hazard is
+ * modelled, and the rows arrive from populations that were built for
+ * other purposes. Five of the mechanisms are gaps this measurement
+ * found itself (#169, #170, #171, #269, #270), three of them tier-1
+ * render losses that every other gate is green on. Two of those five
+ * arrived when the pair grid learned to spell two blank lines between
+ * its members (#264): the separator WIDTH after a description could
+ * not be asked before, so nothing generated the documents whose
+ * answer is wrong. One member is not a gap at all:
+ * `plus-shield-dropped` records a shape the formatter deliberately
+ * stopped protecting, so its rows expire with nothing.
+ *
+ * A family with no rows is KEPT. Its arm is what names the shape if
+ * the shape comes back, and its empty count is a measurement other
+ * records cite: rows of `scripts/fact-inventory-ledger.json` name a
+ * family of this enumeration as the reason a field is recorded at
+ * all, some of them reading "the family is empty with this fact
+ * recorded" as the proof, and `tests/scripts/fact-inventory.test.ts`
+ * holds every one of those names against the keys below. An empty
+ * family is the zero such a row is measured against, so deleting one
+ * deletes the evidence with it.
  */
 export const REPARSE_FAMILIES: Readonly<Record<string, ReparseFamily>> = {
   "indent-dropped": {
-    standing: { kind: "open", issue: "#121" },
-    what: "a line's leading indentation is dropped, and the de-indented line reads as a block where the indented one was prose",
+    standing: { kind: "gap", issue: "#121" },
+    what: "a line's leading indentation is dropped, and the de-indented line reads as a block where the indented one was prose. NO ROWS today, and #121's fix is not what emptied it: that fix (7f548d816, the second line's indent and the marker's gap recorded) took the family from 101 rows to 14, the arm was widened after it (5424e80af), and the last 14 left at 3927654be when the pair grid stopped spelling near misses, which is the POPULATION narrowing rather than the mechanism going. So a grid that spells the shape again is what brings the rows back",
   },
   "blank-dropped": {
-    standing: { kind: "open", issue: "#73" },
-    what: "the blank line between a metadata-shaped line and the block under it is dropped, so the line stacks as that block's metadata and annotates something it cannot annotate",
+    standing: { kind: "gap", issue: "#318" },
+    what: "a run of two or more blank lines is written back one line narrower, and after a description list item the width was a READING: two blanks detach the block below the run while one attaches it (parser.rb l.1549), so every row here has a block anchor or an attribute list that stood outside the item inside it on the re-read. #73, the pseudo-anchor line stacked as metadata that this family was opened for, is fixed and holds none of these rows. The separator width under a description is #269's subject where a `+` stands under the term and #274's where a comment run drained; neither covers the plain case these rows are, a term or a description with a blank run and nothing else under it, which is #318",
   },
   "join-changes-reading": {
-    standing: { kind: "open", issue: "#124" },
-    what: "two source lines are joined and the joined text no longer reads as what it read as: line one ends with an opening bracket or a marker that line two completes, or the break the join removed was INSIDE content - a monospace span, a passthrough, a `pass` macro - where the narrowed lens (issue #32) can see the fold. The second face is render-equal on every row of it measured here and is the divergence closed issue #78 accepted, but it is not a family of its own: the two are one mechanism, the rows are told apart only by whether the oracle also read the join as safe, and that is a question this check has no oracle to ask. Filing the benign ones under an accepted normalization would have absolved the render-changing ones with them",
+    standing: { kind: "gap", issue: "#319" },
+    what: "a reflow join removes a source line break, and the bytes the break carried do not survive into the output. TWO mechanisms under one key, which is what #319 records and the split it asks for separates. The break INSIDE a value the lens compares byte for byte (a monospace span, a passthrough, a `pass` macro, issue #32), where the fold is render-equal and is the divergence closed issue #78 accepted. And a list item whose text carries a hard break at the END of a line, written with its continuation lines at column 0, where what the re-read loses is the indent of the line under the break; the OWN-LINE break is the same column-0 loss and sits under `indent-dropped-for-a-break` (#312), whose arm reads the bare break image and so leaves these rows here. #124, the joined line becoming a construct neither source line was, is fixed and holds none of these rows",
   },
   "plus-respelled": {
-    standing: { kind: "open", issue: "#116" },
-    what: "a lone `+` line is folded onto the line above it and comes back spelled `{plus}`, so the hard break the author wrote is an attribute reference on the re-read",
+    standing: { kind: "gap", issue: "#323" },
+    what: "a lone `+` line inside a list item is folded onto the line above it and comes back spelled `{plus}`, so a plus the item's common indent left literal is an attribute reference on the re-read. THE OUTPUT IS DECIDED: a bare `+` at the end of an output line re-reads as a hard break, and `{plus}` is the built-in reference that renders as `+` where a backslash does not escape one at all (`escapeDanglingPlus`, src/print/reflow.ts, from #25; the item's whole text came under it with #304). What is missing is the DECLARATION that `+` and `{plus}` are one render-equal spelling, which is #323, an axis of its own under #217, and no row of the lens can carry it: the difference is a text node against an attributeReference node rather than a field. The rows go when #323 is decided and the projection carries the pair",
   },
   "gap-line-lost": {
-    standing: { kind: "open", issue: "#171" },
-    what: "the `+` line inside a description item's term gap is not written back, and where that `+` was what made the line above it the description, the description leaves the render with it",
+    standing: { kind: "gap", issue: "#171" },
+    what: "the `+` line inside a description item's term gap is not written back, and where that `+` was what made the line above it the description, the description leaves the render with it. NO ROWS today, and #171's fix is not all of what emptied it: that fix (c13d1e34f) took the family from 5 rows to 3, eee401a09 then narrowed the arm to the four positions the mechanism is made of, and the last 3 left at d1e98ce85 with the marker-item landings",
   },
   "fence-style-detached": {
-    standing: { kind: "open", issue: "#170" },
-    what: "the `[source]` line the fenced-block normalization emits lands where the item's region takes it rather than beside the listing block it annotates, so the re-read block carries no style",
+    standing: { kind: "gap", issue: "#170" },
+    what: "the `[source]` line the fenced-block normalization emits lands where the item's region takes it rather than beside the listing block it annotates, so the re-read block carries no style. NO ROWS today, and here the named fix is what emptied it: 0d4c8df13, the commit that closed #170, took the family from 4 rows to 0",
   },
   "heading-under-a-term": {
-    standing: { kind: "open", issue: "#186" },
-    what: "a heading read directly under a description-list term whose term line carried no text of its own is printed where the oracle attaches it to that term as the item's description, so the heading is gone on the re-read; the position has no spelling that reads back as a heading, which is measurable with no reading vocabulary at all - `term::` over `= x` is the description's text to the oracle and to this reader alike",
+    standing: { kind: "gap", issue: "#186" },
+    what: "a heading read directly under a description-list term whose term line carried no text of its own is printed where the oracle attaches it to that term as the item's description, so the heading is gone on the re-read; the position has no spelling that reads back as a heading, which is measurable with no reading vocabulary at all - `term::` over `= x` is the description's text to the oracle and to this reader alike. NO ROWS today: nothing in the populations spells the position yet",
   },
   "xref-across-a-break": {
-    standing: { kind: "open", issue: "#169" },
+    standing: { kind: "gap", issue: "#169" },
     what: "a shorthand xref whose bracket text spans a source line break is invisible to our inline reader and visible to the oracle, so the reflow join that closes the break does not change the render but does change what we read; the breach is in the SOURCE reading, not in the output",
   },
   "separator-collapsed": {
-    standing: { kind: "open", issue: "#269" },
+    standing: { kind: "gap", issue: "#269" },
     what: "a bare description term carrying a lone `+` under it and two or more blank lines below that is written back with ONE blank line in their place, and one blank line is the attaching spelling, so the block the author detached from the description is inside it on the re-read",
   },
   "blank-content-emptied": {
-    standing: { kind: "open", issue: "#270" },
-    what: "a delimited block whose content is nothing but blank lines is written back with no content at all, so a verbatim interior the lens compares byte for byte (issue #32) loses the lines it held; render-equal today, because the oracle strips a listing's trailing blanks itself",
+    standing: { kind: "gap", issue: "#270" },
+    what: "a delimited block whose content is nothing but blank lines is written back with no content at all, so a verbatim interior the lens compares byte for byte (issue #32) loses the lines it held; render-equal today, because the oracle strips a listing's trailing blanks itself. NO ROWS today: nothing in the populations spells a delimited block whose whole interior is blank",
   },
   "plus-shield-dropped": {
-    standing: { kind: "abandoned", ruling: "#296" },
+    standing: { kind: "ruled", ruling: "#296" },
     what: "an item ending in a paragraph that holds a frozen `+` is written back without the detached `+` that shielded it, so the re-read's single tagged pop takes the paragraph and the `+` it rendered is gone. NOT A GAP: the shield needs three lone `+` lines with nothing between them and a blank in the middle, which no author writes on purpose, and the ruling that abandoned the fact is what these rows record. They do not expire",
   },
   "indent-dropped-for-a-break": {
-    standing: { kind: "open", issue: "#312" },
+    standing: { kind: "gap", issue: "#312" },
     what: "a list item whose text carries a ` +` on a line of its own is written with that text at column 0, so a line the source indented comes back a few bytes shorter. The printer writes the break's line as the bare image, at column 1, and an item whose other lines stood under the marker text would then make that line the least indented of the buffer, where `adjust_indentation!` (parser.rb l.2721-2733) eats the space that spells the break; a line at indent 0 cancels the strip for the whole buffer (l.2727-2729) and is what keeps it. Keeping the indent instead is possible for an item's OWN lines, by writing the break's line one column past them, and was measured: it costs the indent of a byte-preserved span's interior, which the continuation indent is copied into and which then grows on every pass (63 rows of `standing/HardLineBreak/in-mono/idempotency`), and it takes the reparse population from 121 breaches to 182. So the loss is the printer's choice of column and not Asciidoctor's, and the issue owns the choice",
   },
 };

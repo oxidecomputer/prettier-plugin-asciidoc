@@ -388,6 +388,18 @@ with an issue behind it, and a row nobody can name a mechanism for is an
 allowlist entry wearing a registry's clothes. There is no exit 1: the breaching
 set is the report, and the ledger is the gate over it.
 
+A family's `standing` says which KIND of record owns its rows and names that
+record: a `gap` names the issue where the mechanism is written down, and a
+`ruled` one names the ruling that decided to take the loss, whose rows do not
+expire and which the report tags ` ruled` so the two are never read alike. Both
+arms are PROVENANCE. Neither asks the tracker whether its record is open, and
+neither promises the rows expire when it closes; where a family's rows stand
+today is what its `what` sentence says. So a landing that closes an issue
+regenerates this ledger and reports what its family did: emptied, shrank, or
+stood. A `gap` family left holding rows under an issue closed by a FIX is a
+finding, because the `what` beside it has gone stale (issue #310); a `gap`
+family whose mechanism no issue records carries `#0` until one is filed.
+
 The ledger is gated at two tiers, the way the reading ledger is gated at two
 depths. `tests/conformance/reparse.test.ts` (in `bun run test`) measures the
 vendored corpus and holds it to the ledger's corpus rows;

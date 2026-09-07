@@ -36,11 +36,17 @@ import { readFileSync } from "node:fs";
 /** Repo-relative ledger path; `scripts/reading-ledger.ts` writes it. */
 export const READING_LEDGER_PATH = "tests/format/reading-ledger.json";
 
-/** One mechanism: what it does, and the issue that owns the fix. */
+/** One mechanism: what it does, and the record that owns its rows. */
 export interface ReadingFamily {
-  /** The gap issue whose fix removes this family's rows. */
+  /**
+   * The issue where this family's mechanism is written down.
+   * PROVENANCE, not a promise: it may be closed by a fix that took
+   * only part of the mechanism, which is true of #43 and of #17
+   * below, and nothing here asks the tracker. Where the rows stand
+   * today is what {@link ReadingFamily.what} says.
+   */
   readonly issue: string;
-  /** What the mechanism is, in one sentence. */
+  /** What the mechanism is, and where its rows stand. */
   readonly what: string;
 }
 
