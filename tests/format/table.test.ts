@@ -71,12 +71,23 @@ describe("the shapes issue #10 was filed for", () => {
     await expectTableFormat(input, input);
   });
 
-  // DECLINED, `unterminated`. The only corpus table that fires this
-  // reason holds a multi-line cell too, so this row is where the
-  // reason is exercised on its own.
+  // NOT PROTECTED BY DESIGN. A table with no closing delimiter line
+  // used to be declined for that alone. It is laid out now: an
+  // unterminated table is a mid-edit state nobody commits, the layout
+  // reads nothing off the closing line, and both programs render the
+  // laid-out bytes the way they render the author's (measured on the
+  // row below, which is where the layout actually moves bytes). This
+  // row's own table is already in the normal form, so it is a fixed
+  // point either way.
   test("an unterminated table runs to EOF", async () => {
     const input = "|===\n|a |b\n";
     await expectTableFormat(input, input);
+  });
+
+  // The same shape where the layout has something to do: the cells
+  // gain the separator pad the normal form spells.
+  test("an unterminated table is laid out", async () => {
+    await expectTableFormat("|===\n|a|b\n|c|d\n", "|===\n|a |b\n|c |d\n");
   });
 
   // ACCEPTED, already in the normal form: one cell, one row, and a
@@ -731,29 +742,34 @@ describe("each decline reason keeps the author's interior", () => {
     ["a leading blank is declined", "|===\n\n|a |b\n|===\n"],
     ["a dropped comment is declined", "|===\n|a\n// c\n|b\n|===\n"],
     ["a missing leading separator is declined", "|===\na |b\n|===\n"],
-    ["an unterminated table is declined", "|===\n|a |b\n"],
   ])("%s", async (_name, input) => {
     await expectTableFormat(input, input);
   });
 
-  // A referenced `cols` or `options` value is declined over the
-  // attribute line's INTERIOR, never over "`columns` came back
-  // undefined": `[cols="1,{n}"]` parses one readable record where the
-  // oracle resolves two, and nothing in the node says so. The blank
-  // line each expectation gains is the printer's standing block
-  // separation after an attribute entry, not a table decision.
+  // NOT PROTECTED BY DESIGN. A `cols` or `options` value holding an
+  // attribute reference used to decline the whole table, because
+  // `[cols="1,{n}"]` parses one readable record where the oracle
+  // substitutes the reference first and resolves two, and nothing in
+  // the node says so. The layout runs now. What it can get wrong is a
+  // column COUNT it never writes down: the emission pads cells and
+  // spells separators, and it reads the recorded cells rather than the
+  // resolved column list, so a count that disagrees with the oracle's
+  // moves no byte. Both programs render these outputs the way they
+  // render their inputs (measured). The blank line each expectation
+  // gains is the printer's standing block separation after an
+  // attribute entry, not a table decision.
   test.each([
     [
       "a referenced cols value",
-      ':n: 2\n[cols="{n}*"]\n|===\n|a |b\n|===\n',
-      ':n: 2\n\n[cols="{n}*"]\n|===\n|a |b\n|===\n',
+      ':n: 2\n[cols="{n}*"]\n|===\n|a|b\n| c |d\n|===\n',
+      ':n: 2\n\n[cols="{n}*"]\n|===\n|a |b\n|c |d\n|===\n',
     ],
     [
       "a referenced options value",
-      ':o: header\n[options="{o}"]\n|===\n|a |b\n|===\n',
+      ':o: header\n[options="{o}"]\n|===\n|a|b\n|===\n',
       ':o: header\n\n[options="{o}"]\n|===\n|a |b\n|===\n',
     ],
-  ])("%s is declined", async (_name, input, expected) => {
+  ])("%s is laid out", async (_name, input, expected) => {
     await expectTableFormat(input, expected);
   });
 

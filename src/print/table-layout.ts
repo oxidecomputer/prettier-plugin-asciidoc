@@ -79,11 +79,7 @@ export type TableDecline =
   | "recovered-opening"
   // some row's effective column visits differ from the table's column
   // count: the oracle drops such a row and we keep its bytes.
-  | "ragged-rows"
-  // no closing delimiter line.
-  | "unterminated"
-  // the block's attribute-list INTERIOR holds an attribute reference.
-  | "attribute-reference";
+  | "ragged-rows";
 
 /** One cell, with everything the emission needs and nothing else. */
 interface PlannedCell {
@@ -164,18 +160,8 @@ const SPAN_REPEAT = "span";
 /** The header verdict that emits no blank line after the first row. */
 const NO_HEADER = "none";
 
-/** The close that never wrote a closing delimiter line. */
-const END_OF_STREAM = "endOfStream";
-
 /** The one character the multi-line predicate reads. */
 const LINE_FEED = "\n";
-
-// `{name}` - `AttributeReferenceRx` (rx.rb:153). Narrower than Ruby's,
-// which also takes `set:` and `counter2:` forms and an escaping
-// backslash on either brace; a predicate that only ever DECLINES may
-// be narrow in the escape's direction and is safe being broad in the
-// other, so the simple spelling is the one to keep.
-const ATTRIBUTE_REFERENCE = /\{[\w:.\-][\w:.\-]*\}/v;
 
 /** The two pads a spec image may carry, and the only two. */
 const SPEC_PAD_FRONT = /^[ \t]+/v;
@@ -194,12 +180,10 @@ const RUBY_WHITESPACE = new Set([" ", "\t", "\n", "\v", "\f", "\r", "\u0000"]);
  *
  * Written as a sequence rather than as a table of predicates so that
  * the source order a reader sees IS the order the census counts in.
- * It is split in three at exactly one seam, the `recovered-opening`
- * test, and that reason is why: it is the one reason that also
- * PRODUCES the plan, because a cell whose opening wrote no bytes of
- * its own has no spec and no separator to plan, and reading that
- * absence once is what leaves the emission with no arm for it. The two
- * halves keep the union's order between them.
+ * The `recovered-opening` test stands apart from the six in front of
+ * it because it also PRODUCES the plan: a cell whose opening wrote no
+ * bytes of its own has no spec and no separator to plan, and reading
+ * that absence once is what leaves the emission with no arm for it.
  * @param node - the table to plan
  * @returns the plan, which is total over every table the reader builds
  */
@@ -212,9 +196,8 @@ export function planTable(node: TableNode): TablePlan {
   if (rows === undefined) {
     return { kind: "replay", decline: "recovered-opening" };
   }
-  const grouping = declinesAfterPlanning(node);
-  if (grouping !== undefined) {
-    return { kind: "replay", decline: grouping };
+  if (hasRaggedRows(node)) {
+    return { kind: "replay", decline: "ragged-rows" };
   }
   return { kind: "laidOut", rows, alignable: !hasSpan(node) };
 }
@@ -277,32 +260,10 @@ function declinesBeforePlanning(node: TableNode): TableDecline | undefined {
 }
 
 /**
- * The reasons that stand BEHIND `recovered-opening` in the union. The
- * plan is already built when these run and none of them can unbuild
- * it; they sit here rather than in front only because that is where
- * the union declares them, and the union's order is what the census
- * counts in.
- * @param node - the table to read
- * @returns the reason, or undefined when none of these three fires
- */
-function declinesAfterPlanning(node: TableNode): TableDecline | undefined {
-  if (hasRaggedRows(node)) {
-    return "ragged-rows";
-  }
-  if (node.close.kind === END_OF_STREAM) {
-    return "unterminated";
-  }
-  if (hasAttributeReference(node)) {
-    return "attribute-reference";
-  }
-  return undefined;
-}
-
-/**
  * Whether an attribute line above the table went unread, so that every
  * value one governs is unknown.
  *
- * FIRST of the ten, and the only one that is not a fact about the
+ * FIRST of the eight, and the only one that is not a fact about the
  * table's own text. `cutting`, `columns` and `header` are all resolved
  * from the block's attribute list, and the reader records that list
  * only when it is the last line of the metadata run above the table
@@ -551,32 +512,6 @@ function rowVisits(row: TableRowNode, reserved: number[]): number {
     }
   }
   return visits;
-}
-
-/**
- * Whether the block's attribute-list interior holds an attribute
- * reference anywhere in it.
- *
- * Defined over the INTERIOR, deliberately. The tempting spelling is
- * "`columns` came back undefined", and it is wrong: `[cols="1,{n}"]`
- * parses one readable record, so our count is one where the oracle
- * (which substitutes the reference before parsing the list) resolves
- * two, and nothing in the node says so.
- *
- * A referenced OPTIONS value is covered by the same predicate and is
- * declined too, even though it is harmless under these emission rules:
- * `[options="{o}"]` with `:o: header` gives the oracle a header row
- * and gives our reader `"none"`, and the blank line the verdict
- * decides does not matter because the header option is tested ahead of
- * it (`has_header_option`, parser.rb:2303-2310). That is directional
- * luck rather than design, and a later rule reading the verdict for
- * anything else would inherit a wrong answer with no warning.
- * @param node - the table to read
- * @returns whether the attribute line holds a reference
- */
-function hasAttributeReference(node: TableNode): boolean {
-  const { annotatedBy } = node;
-  return annotatedBy !== undefined && ATTRIBUTE_REFERENCE.test(annotatedBy);
 }
 
 /**

@@ -8,17 +8,6 @@
  * way somebody has to say why in the diff. The reasons are a debt with
  * a measured size, and a debt nobody measures is a debt nobody pays.
  *
- * A ZERO in the ordered census is not by itself a "delete this reason"
- * signal, and two of them are zero. `unterminated` has exactly one
- * corpus table and that table also holds a multi-line cell, which is
- * an earlier reason, so the ordered count is an ORDERING fact and the
- * unordered count below is the reason's real population.
- * `attribute-reference` has no corpus population at all and is
- * expected not to: it is the only formulation the gate can evaluate
- * for a `cols` or `options` value the oracle substitutes before
- * parsing, and the rows in tests/format/table.test.ts are what fire
- * it.
- *
  * TWO CENSUSES, because they answer different questions. The ORDERED
  * one counts each declined table under the FIRST reason that fires, in
  * the union's declaration order, which is what a `TableDecline` value
@@ -64,8 +53,6 @@ function emptyCensus(): Record<TableDecline, number> {
     "dropped-comment": 0,
     "recovered-opening": 0,
     "ragged-rows": 0,
-    unterminated: 0,
-    "attribute-reference": 0,
   };
 }
 
@@ -250,8 +237,6 @@ describe("the ordered decline census", () => {
       "dropped-comment": 2,
       "recovered-opening": 1,
       "ragged-rows": 5,
-      unterminated: 0,
-      "attribute-reference": 0,
     });
   });
 
@@ -265,8 +250,6 @@ describe("the ordered decline census", () => {
       "dropped-comment": 1,
       "recovered-opening": 1,
       "ragged-rows": 5,
-      unterminated: 0,
-      "attribute-reference": 0,
     });
   });
 });
@@ -346,10 +329,11 @@ describe("what the gate accepts", () => {
 });
 
 describe("the unordered populations", () => {
-  // The `unterminated` reason's real population. Its ORDERED count is
-  // zero because the one table it names also holds a multi-line cell,
-  // which is tested first; that is an ordering fact and not an empty
-  // reason, and this is the pin that says so.
+  // Not a decline reason: a table with no closing delimiter line is
+  // laid out like any other. The population is pinned all the same,
+  // because it sizes what the layout now reaches - and because the one
+  // corpus table it names holds a multi-line cell too, so the layout
+  // still declines it for that.
   test("tables with no closing delimiter line", () => {
     expect(
       TABLES.filter((scanned) => scanned.table.close.kind === "endOfStream")
