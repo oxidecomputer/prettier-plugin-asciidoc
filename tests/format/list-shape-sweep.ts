@@ -56,9 +56,14 @@ export const ALPHABET = [
  * kills fewer MUTANTS than the sweep did before the split, and the
  * mutation harness runs the default suite, not `test:deeply-nested-lists`. A seeded
  * `list-hazard.ts` mutant (`startsWith` → `endsWith` on the comment
- * head) survives depth 3 and DIES at depth 4. Depth 4 is 11,128
- * documents in 1.6s, it carries 4 live allowlist entries, and it keeps
- * the suite inside the 3.5s the sweep cost before the depth-5 raise.
+ * head) survives depth 3 and DIES at depth 4. What the depth-4 product
+ * costs is deliberately not restated here, because every figure of it
+ * moves when the alphabet does: `bun run block-structure` spells the
+ * same product and prints its size on its sweep line, the entries it
+ * carries are `allowlistFor(SHALLOW_DEPTH)`, and vitest prints the wall
+ * time. Depth 4 is the shallowest depth that kills the seeded mutant,
+ * and it was kept because that wall time stayed near what the sweep
+ * cost before the depth-5 raise.
  */
 export const SHALLOW_DEPTH = 4;
 

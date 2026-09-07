@@ -104,13 +104,13 @@ export function printList(
  * difference is worth stating: the reader rstrips every source line
  * as it splits, and Prettier trims spaces and tabs off a line as it
  * breaks, so between them nothing with trailing whitespace reaches
- * this probe today - measured over the depth-4 sweep's 11,128
- * documents and the 1,614-document conformance corpus, where no
- * probe line differs from its rstripped self. What the two do NOT
- * share is the vertical tab and the form feed, which the reader
- * calls blank and Prettier's trim leaves standing; keeping the map
- * means this rule does not depend on the reader continuing to strip
- * them upstream.
+ * this probe today - measured over the whole depth-4 list-shape
+ * sweep product (`bun run block-structure` prints its size) and the
+ * 1,614-document conformance corpus, where no probe line differs
+ * from its rstripped self. What the two do NOT share is the vertical
+ * tab and the form feed, which the reader calls blank and Prettier's
+ * trim leaves standing; keeping the map means this rule does not
+ * depend on the reader continuing to strip them upstream.
  * @param item - one item's finished Doc
  * @param options - the print options in force; only the width is read
  *   as given, the terminator being fixed by the renderer

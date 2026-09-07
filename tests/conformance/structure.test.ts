@@ -20,7 +20,8 @@ import { divergences, ourTree, signature, tryOracleTree } from "./structure.js";
 // regression fails `bun run test` rather than waiting for somebody to
 // run the harness. The SWEEP half - where 931 of the 932 divergences
 // no other net knows about live - runs in `bun run block-structure`,
-// which CI blocks on; it is 11,128 more documents and belongs in a
+// which CI blocks on; it is an order of magnitude more documents,
+// whose count that harness prints on its sweep line, and belongs in a
 // harness.
 //
 // What this does NOT prove is stated in tests/conformance/structure.ts:
