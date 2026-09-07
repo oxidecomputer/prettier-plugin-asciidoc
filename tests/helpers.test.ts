@@ -4,8 +4,32 @@
    format row's output against its own input. The helpers that hold the
    format trailer format a document and read what comes back, so none
    of them can stand in for a row here. */
-import { describe, expect, test } from "vitest";
-import { oracleHtml, renderedHtml } from "./helpers.js";
+import { describe, expect, test, vi } from "vitest";
+import type * as AsciidoctorModule from "@asciidoctor/core";
+import { expectFormatted, oracleHtml, renderedHtml } from "./helpers.js";
+
+// How many conversions the oracle was asked for. Held through
+// vi.hoisted because the mock factory below is hoisted above every
+// import in this file.
+const renders = vi.hoisted(() => ({ count: 0 }));
+
+// expectFormatted's render comparison and its second format pass are
+// implied when the expectation is the input, and it skips them there.
+// A skip is only observable as work that did not happen, so the
+// converter every render goes through is wrapped to count the calls.
+// The wrapper delegates, so every other row in this file reads the
+// oracle's real answer.
+vi.mock("@asciidoctor/core", async () => {
+  const actual =
+    await vi.importActual<typeof AsciidoctorModule>("@asciidoctor/core");
+  return {
+    ...actual,
+    convert: async (...parameters: Parameters<typeof actual.convert>) => {
+      renders.count += 1;
+      return await actual.convert(...parameters);
+    },
+  };
+});
 
 /**
  * A source block whose attributes are substituted, so the oracle
@@ -196,5 +220,26 @@ describe("oracleHtml", () => {
     ]);
     expect(console.warn).toBe(before);
     /* eslint-enable no-console */
+  });
+});
+
+// The rows expectFormatted spends its time on: whether it asks the
+// oracle at all. Both directions are pinned, because the cheap
+// answer and the correct one differ only in the condition - a helper
+// that always skipped, or one whose condition ran the other way,
+// would still make one of these two rows green.
+describe("expectFormatted", () => {
+  // Red before the skip: this row counted the two renders of
+  // `render(x) === render(x)`.
+  test("asks the oracle for nothing when the expectation is the input", async () => {
+    renders.count = 0;
+    await expectFormatted("a\n", "a\n");
+    expect(renders.count).toBe(0);
+  });
+
+  test("renders both sides when the expectation differs from the input", async () => {
+    renders.count = 0;
+    await expectFormatted("a\n\n\nb\n", "a\n\nb\n");
+    expect(renders.count).toBe(2);
   });
 });

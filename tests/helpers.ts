@@ -496,7 +496,9 @@ export function conformanceFold(result: string): string {
  * parser's expectX helpers.
  * @param input - AsciiDoc source text to format.
  * @param expected - the exact output the formatter must produce for
- *   `input`; pass `input` itself to assert the row is already stable.
+ *   `input`; pass `input` itself to assert the row is already stable,
+ *   which is the case where the first assertion carries the other
+ *   two and they are not run.
  * @param options - the same overrides {@link formatAdoc} takes,
  *   applied to all three formats so the fixed point is measured at
  *   the width the pin was written for. Omit for the defaults.
@@ -508,6 +510,16 @@ export async function expectFormatted(
 ): Promise<void> {
   const out = await formatAdoc(input, options);
   expect(out).toBe(expected);
+  // A row whose expectation IS its input has proved the other two
+  // with the line above. `out` and `input` are then the same string,
+  // so the render comparison is `render(x)` against `render(x)`, and
+  // the second format is the call that produced `out`, run again on
+  // the same bytes and the same options: both answer yes for every
+  // formatter, correct or not, so running them costs an oracle
+  // render and a format pass to re-answer the line above.
+  if (expected === input) {
+    return;
+  }
   expect(await renderedHtml(out)).toBe(await renderedHtml(input));
   expect(await formatAdoc(out, options)).toBe(out);
 }
