@@ -110,6 +110,90 @@
       "family": "join-changes-reading"
     },
     {
+      "id": "line/pair/admonition-label-near-0/attrlist/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"NOTE:x\") >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"NOTE:x\") >descriptionListItem >descriptionList]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "line/pair/admonition-label-near-0/block-anchor/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"NOTE:x\") >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"NOTE:x\") >descriptionListItem >descriptionList]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "line/pair/admonition-label-near-1/attrlist/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"note: x\") >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"note: x\") >descriptionListItem >descriptionList]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "line/pair/admonition-label-near-1/block-anchor/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"note: x\") >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"note: x\") >descriptionListItem >descriptionList]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "line/pair/admonition-label/attrlist/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"NOTE: x\") >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"NOTE: x\") >descriptionListItem >descriptionList]",
+      "family": "blank-dropped"
+    },
+    {
+      "id": "line/pair/admonition-label/block-anchor/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"NOTE: x\") >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"NOTE: x\") >descriptionListItem >descriptionList]",
+      "family": "blank-dropped"
+    },
+    {
+      "id": "line/pair/attribute-entry-near-0/attrlist/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\": a: v\") >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\": a: v\") >descriptionListItem >descriptionList]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "line/pair/attribute-entry-near-0/block-anchor/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\": a: v\") >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\": a: v\") >descriptionListItem >descriptionList]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "line/pair/attribute-entry-near-1/attrlist/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\":a:v\") >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\":a:v\") >descriptionListItem >descriptionList]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "line/pair/attribute-entry-near-1/block-anchor/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\":a:v\") >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\":a:v\") >descriptionListItem >descriptionList]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "line/pair/attribute-entry/attrlist/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\":a: v\") >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\":a: v\") >descriptionListItem >descriptionList]",
+      "family": "blank-dropped"
+    },
+    {
+      "id": "line/pair/attribute-entry/block-anchor/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\":a: v\") >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\":a: v\") >descriptionListItem >descriptionList]",
+      "family": "blank-dropped"
+    },
+    {
+      "id": "line/pair/attrlist-near-0/attrlist/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"[+1]\") >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"[+1]\") >descriptionListItem >descriptionList]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "line/pair/attrlist-near-0/block-anchor/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"[+1]\") >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"[+1]\") >descriptionListItem >descriptionList]",
+      "family": "join-changes-reading"
+    },
+    {
       "id": "line/pair/attrlist-near-0/continuation-near-1/adjacent/doc",
       "pass": "p1",
       "signature": "[passthrough(value=\"+1]\\n++\")] -> [passthrough(value=\"+1] ++\")]",
@@ -170,6 +254,24 @@
       "family": "join-changes-reading"
     },
     {
+      "id": "line/pair/attrlist-near-1/attrlist/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"[\") <bold() .children text(value=\"bold\") >bold text(value=\"]\") >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"[\") <bold() .children text(value=\"bold\") >bold text(value=\"]\") >descriptionListItem >descriptionList]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "line/pair/attrlist-near-1/block-anchor/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"[\") <bold() .children text(value=\"bold\") >bold text(value=\"]\") >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"[\") <bold() .children text(value=\"bold\") >bold text(value=\"]\") >descriptionListItem >descriptionList]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "line/pair/block-anchor-near-0/attrlist/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"[[id\") >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"[[id\") >descriptionListItem >descriptionList]",
+      "family": "join-changes-reading"
+    },
+    {
       "id": "line/pair/block-anchor-near-0/block-anchor-near-1/adjacent/doc",
       "pass": "p1",
       "signature": "[text(value=\"[[id \") inlineAnchor(form=\"inline\",id=\"3-blind-mice\")] -> [inlineAnchor(form=\"inline\",id=\"id [[3-blind-mice\")]",
@@ -194,6 +296,36 @@
       "family": "join-changes-reading"
     },
     {
+      "id": "line/pair/block-anchor-near-0/block-anchor/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"[[id\") >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"[[id\") >descriptionListItem >descriptionList]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "line/pair/block-anchor-near-1/attrlist/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text inlineAnchor(form=\"inline\",id=\"3-blind-mice\") >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text inlineAnchor(form=\"inline\",id=\"3-blind-mice\") >descriptionListItem >descriptionList]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "line/pair/block-anchor-near-1/block-anchor/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text inlineAnchor(form=\"inline\",id=\"3-blind-mice\") >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text inlineAnchor(form=\"inline\",id=\"3-blind-mice\") >descriptionListItem >descriptionList]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "line/pair/block-anchor-near-2/attrlist/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text inlineAnchor(form=\"inline\",id=\"illegal$id\") >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text inlineAnchor(form=\"inline\",id=\"illegal$id\") >descriptionListItem >descriptionList]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "line/pair/block-anchor-near-2/block-anchor/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text inlineAnchor(form=\"inline\",id=\"illegal$id\") >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text inlineAnchor(form=\"inline\",id=\"illegal$id\") >descriptionListItem >descriptionList]",
+      "family": "join-changes-reading"
+    },
+    {
       "id": "line/pair/block-macro-near-0/attrlist-near-0/adjacent/doc",
       "pass": "p1",
       "signature": "[<paragraph(blankBelowAnchorLine=false) .children inlineMacro(attrlist=\"[+1\",name=\"image\",target=\":a.png\") >paragraph] -> [blockMacro(attrlist=\"[+1\",name=\"image\",target=\"a.png\")]",
@@ -215,6 +347,18 @@
       "id": "line/pair/block-macro-near-0/attrlist-near-1/adjacent/item",
       "pass": "p1",
       "signature": "[<paragraph(blankBelowAnchorLine=false) .children inlineMacro(attrlist=\"[*bold*\",name=\"image\",target=\":a.png\") >paragraph] -> [blockMacro(attrlist=\"[*bold*\",name=\"image\",target=\"a.png\")]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "line/pair/block-macro-near-0/attrlist/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"image::a.png[\") >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"image::a.png[\") >descriptionListItem >descriptionList]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "line/pair/block-macro-near-0/block-anchor/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"image::a.png[\") >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"image::a.png[\") >descriptionListItem >descriptionList]",
       "family": "join-changes-reading"
     },
     {
@@ -266,6 +410,42 @@
       "family": "join-changes-reading"
     },
     {
+      "id": "line/pair/block-macro-near-1/attrlist/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text inlineMacro(attrlist=\"\",name=\"image\",target=\"a.png\") >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text inlineMacro(attrlist=\"\",name=\"image\",target=\"a.png\") >descriptionListItem >descriptionList]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "line/pair/block-macro-near-1/block-anchor/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text inlineMacro(attrlist=\"\",name=\"image\",target=\"a.png\") >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text inlineMacro(attrlist=\"\",name=\"image\",target=\"a.png\") >descriptionListItem >descriptionList]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "line/pair/block-macro/attrlist/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList]",
+      "family": "blank-dropped"
+    },
+    {
+      "id": "line/pair/block-macro/block-anchor/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList]",
+      "family": "blank-dropped"
+    },
+    {
+      "id": "line/pair/block-title-near-0/attrlist/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList]",
+      "family": "blank-dropped"
+    },
+    {
+      "id": "line/pair/block-title-near-0/block-anchor/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList]",
+      "family": "blank-dropped"
+    },
+    {
       "id": "line/pair/block-title-near-0/indented-continuation/adjacent/dlist-desc-line",
       "pass": "p1",
       "signature": "[text(value=\"T +\")] -> [text(value=\"T \") attributeReference(name=\"plus\")]",
@@ -282,6 +462,18 @@
       "pass": "p1",
       "signature": "[text(value=\"T +\")] -> [text(value=\"T \") attributeReference(name=\"plus\")]",
       "family": "plus-respelled"
+    },
+    {
+      "id": "line/pair/block-title-near-1/attrlist/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\".\") >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\".\") >descriptionListItem >descriptionList]",
+      "family": "blank-dropped"
+    },
+    {
+      "id": "line/pair/block-title-near-1/block-anchor/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\".\") >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\".\") >descriptionListItem >descriptionList]",
+      "family": "blank-dropped"
     },
     {
       "id": "line/pair/block-title-near-1/continuation-near-0/adjacent/doc",
@@ -308,6 +500,54 @@
       "family": "join-changes-reading"
     },
     {
+      "id": "line/pair/block-title/attrlist/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\".T\") >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\".T\") >descriptionListItem >descriptionList]",
+      "family": "blank-dropped"
+    },
+    {
+      "id": "line/pair/block-title/block-anchor/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\".T\") >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\".T\") >descriptionListItem >descriptionList]",
+      "family": "blank-dropped"
+    },
+    {
+      "id": "line/pair/callout-near-0/attrlist/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"<1>a\") >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"<1>a\") >descriptionListItem >descriptionList]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "line/pair/callout-near-0/block-anchor/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"<1>a\") >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"<1>a\") >descriptionListItem >descriptionList]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "line/pair/callout-near-1/attrlist/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" <1> a\") >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" <1> a\") >descriptionListItem >descriptionList]",
+      "family": "blank-dropped"
+    },
+    {
+      "id": "line/pair/callout-near-1/block-anchor/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" <1> a\") >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" <1> a\") >descriptionListItem >descriptionList]",
+      "family": "blank-dropped"
+    },
+    {
+      "id": "line/pair/callout/attrlist/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList]",
+      "family": "blank-dropped"
+    },
+    {
+      "id": "line/pair/callout/block-anchor/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList]",
+      "family": "blank-dropped"
+    },
+    {
       "id": "line/pair/callout/indented-continuation/adjacent/dlist-desc-line",
       "pass": "p1",
       "signature": "[text(value=\"a +\")] -> [text(value=\"a \") attributeReference(name=\"plus\")]",
@@ -324,6 +564,66 @@
       "pass": "p1",
       "signature": "[text(value=\"a +\")] -> [text(value=\"a \") attributeReference(name=\"plus\")]",
       "family": "plus-respelled"
+    },
+    {
+      "id": "line/pair/conditional-near-0/attrlist/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"ifdef:x[]\") >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"ifdef:x[]\") >descriptionListItem >descriptionList]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "line/pair/conditional-near-0/block-anchor/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"ifdef:x[]\") >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"ifdef:x[]\") >descriptionListItem >descriptionList]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "line/pair/conditional-near-1/attrlist/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"ifdef::x[\") >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"ifdef::x[\") >descriptionListItem >descriptionList]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "line/pair/conditional-near-1/block-anchor/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"ifdef::x[\") >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"ifdef::x[\") >descriptionListItem >descriptionList]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "line/pair/conditional/attrlist/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text rawLine(value=\"ifdef::x[]\") >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text rawLine(value=\"ifdef::x[]\") >descriptionListItem >descriptionList]",
+      "family": "blank-dropped"
+    },
+    {
+      "id": "line/pair/conditional/block-anchor/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text rawLine(value=\"ifdef::x[]\") >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text rawLine(value=\"ifdef::x[]\") >descriptionListItem >descriptionList]",
+      "family": "blank-dropped"
+    },
+    {
+      "id": "line/pair/continuation-near-0/attrlist/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"+ x\") >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"+ x\") >descriptionListItem >descriptionList]",
+      "family": "blank-dropped"
+    },
+    {
+      "id": "line/pair/continuation-near-0/block-anchor/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"+ x\") >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"+ x\") >descriptionListItem >descriptionList]",
+      "family": "blank-dropped"
+    },
+    {
+      "id": "line/pair/continuation-near-1/attrlist/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"++\") >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"++\") >descriptionListItem >descriptionList]",
+      "family": "blank-dropped"
+    },
+    {
+      "id": "line/pair/continuation-near-1/block-anchor/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"++\") >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"++\") >descriptionListItem >descriptionList]",
+      "family": "blank-dropped"
     },
     {
       "id": "line/pair/continuation-near-1/continuation-near-1/adjacent/doc",
@@ -386,10 +686,184 @@
       "family": "join-changes-reading"
     },
     {
+      "id": "line/pair/continuation/admonition-label-near-0/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList <paragraph(blankBelowAnchorLine=false) .children text(value=\"NOTE:x\") >paragraph] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" NOTE:x\") >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
+    },
+    {
+      "id": "line/pair/continuation/admonition-label-near-1/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList <paragraph(blankBelowAnchorLine=false) .children text(value=\"note: x\") >paragraph] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" note: x\") >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
+    },
+    {
+      "id": "line/pair/continuation/admonition-label/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList <admonition(form=\"paragraph\",variant=\"note\") .children .text text(value=\"x\") >admonition] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" NOTE: x\") >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
+    },
+    {
+      "id": "line/pair/continuation/attribute-entry-near-0/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList <paragraph(blankBelowAnchorLine=false) .children text(value=\": a: v\") >paragraph] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" : a: v\") >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
+    },
+    {
+      "id": "line/pair/continuation/attribute-entry-near-1/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList <paragraph(blankBelowAnchorLine=false) .children text(value=\":a:v\") >paragraph] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" :a:v\") >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
+    },
+    {
+      "id": "line/pair/continuation/attribute-entry/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList attributeEntry(name=\"a\",unset=false,value=\"v\")] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" :a: v\") >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
+    },
+    {
+      "id": "line/pair/continuation/attrlist-near-0/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList <paragraph(blankBelowAnchorLine=false) .children text(value=\"[+1]\") >paragraph] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" [+1]\") >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
+    },
+    {
+      "id": "line/pair/continuation/attrlist-near-1/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList <paragraph(blankBelowAnchorLine=false) .children text(value=\"[\") <bold() .children text(value=\"bold\") >bold text(value=\"]\") >paragraph] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" [\") <bold() .children text(value=\"bold\") >bold text(value=\"]\") >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
+    },
+    {
+      "id": "line/pair/continuation/attrlist/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
+    },
+    {
+      "id": "line/pair/continuation/block-anchor-near-0/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList <paragraph(blankBelowAnchorLine=false) .children text(value=\"[[id\") >paragraph] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" [[id\") >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
+    },
+    {
+      "id": "line/pair/continuation/block-anchor-near-1/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList <paragraph(blankBelowAnchorLine=false) .children inlineAnchor(form=\"inline\",id=\"3-blind-mice\") >paragraph] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" \") inlineAnchor(form=\"inline\",id=\"3-blind-mice\") >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
+    },
+    {
+      "id": "line/pair/continuation/block-anchor-near-2/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList <paragraph(blankBelowAnchorLine=false) .children inlineAnchor(form=\"inline\",id=\"illegal$id\") >paragraph] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" \") inlineAnchor(form=\"inline\",id=\"illegal$id\") >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
+    },
+    {
+      "id": "line/pair/continuation/block-anchor/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
+    },
+    {
+      "id": "line/pair/continuation/block-macro-near-0/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList <paragraph(blankBelowAnchorLine=false) .children text(value=\"image::a.png[\") >paragraph] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" image::a.png[\") >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
+    },
+    {
+      "id": "line/pair/continuation/block-macro-near-1/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList <paragraph(blankBelowAnchorLine=false) .children inlineMacro(attrlist=\"\",name=\"image\",target=\"a.png\") >paragraph] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" \") inlineMacro(attrlist=\"\",name=\"image\",target=\"a.png\") >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
+    },
+    {
+      "id": "line/pair/continuation/block-macro/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList blockMacro(attrlist=\"\",name=\"image\",target=\"a.png\")] -> [blockMacro(attrlist=\"\",name=\"image\",target=\"a.png\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
+    },
+    {
+      "id": "line/pair/continuation/block-title-near-1/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList <paragraph(blankBelowAnchorLine=false) .children text(value=\".\") >paragraph] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" .\") >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
+    },
+    {
+      "id": "line/pair/continuation/block-title/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList blockTitle(title=\"T\")] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" .T\") >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
+    },
+    {
+      "id": "line/pair/continuation/callout-near-0/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList <paragraph(blankBelowAnchorLine=false) .children text(value=\"<1>a\") >paragraph] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" <1>a\") >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
+    },
+    {
+      "id": "line/pair/continuation/callout/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList <list(marker=\"<>\",variant=\"callout\") .children <listItem(activeTail=false,calloutNumber=1,detachedTail=false,markerGap=\" \",markerIndent=\"\",markerSpelling=\"<1>\",nextLineNeedsItsPosition=false,trailingContinuation=false) .blocks .text text(value=\"a\") >listItem >list] -> [<list(marker=\"<>\",variant=\"callout\") .children <listItem(activeTail=false,calloutNumber=1,detachedTail=false,markerGap=\" \",markerIndent=\"\",markerSpelling=\"<1>\",nextLineNeedsItsPosition=false,trailingContinuation=false) .blocks .text text(value=\"a\") >listItem >list .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
+    },
+    {
+      "id": "line/pair/continuation/conditional-near-0/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList <paragraph(blankBelowAnchorLine=false) .children text(value=\"ifdef:x[]\") >paragraph] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" ifdef:x[]\") >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
+    },
+    {
+      "id": "line/pair/continuation/conditional-near-1/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList <paragraph(blankBelowAnchorLine=false) .children text(value=\"ifdef::x[\") >paragraph] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" ifdef::x[\") >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
+    },
+    {
+      "id": "line/pair/continuation/conditional/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList preprocessorDirective(value=\"ifdef::x[]\")] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text rawLine(value=\"ifdef::x[]\") >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
+    },
+    {
+      "id": "line/pair/continuation/continuation-near-0/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList <paragraph(blankBelowAnchorLine=false) .children text(value=\"+ x\") >paragraph] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" + x\") >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
+    },
+    {
+      "id": "line/pair/continuation/continuation-near-1/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList <paragraph(blankBelowAnchorLine=false) .children text(value=\"++\") >paragraph] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" ++\") >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
+    },
+    {
+      "id": "line/pair/continuation/delimiter-commentBlock-near-0/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList <paragraph(blankBelowAnchorLine=false) .children text(value=\"///\") >paragraph] -> [\"\" -(comment=\"///\") .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
+    },
+    {
+      "id": "line/pair/continuation/delimiter-commentBlock-near-1/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList <paragraph(blankBelowAnchorLine=false) .children text(value=\"////x\") >paragraph] -> [\"\" -(comment=\"////x\") .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
+    },
+    {
       "id": "line/pair/continuation/delimiter-commentBlock-near-2/adjacent/doc",
       "pass": "p1",
       "signature": "[text(value=\"+ ////\") >paragraph] -> [text(value=\"+\") >paragraph comment(commentType=\"block\",value=\"\")]",
       "family": "indent-dropped"
+    },
+    {
+      "id": "line/pair/continuation/delimiter-example-near-0/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList <paragraph(blankBelowAnchorLine=false) .children text(value=\"===\") >paragraph] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" ===\") >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
+    },
+    {
+      "id": "line/pair/continuation/delimiter-example-near-1/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList <paragraph(blankBelowAnchorLine=false) .children text(value=\"====x\") >paragraph] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" ====x\") >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
     },
     {
       "id": "line/pair/continuation/delimiter-example-near-2/adjacent/doc",
@@ -398,10 +872,28 @@
       "family": "indent-dropped"
     },
     {
+      "id": "line/pair/continuation/delimiter-fencedCode-near-0/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList <paragraph(blankBelowAnchorLine=false) .children text(value=\"``x\") >paragraph] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" ``x\") >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
+    },
+    {
       "id": "line/pair/continuation/delimiter-fencedCode-near-2/adjacent/doc",
       "pass": "p1",
       "signature": "[text(value=\"+ \") <monospace() .children text(value=\"`\") >monospace >paragraph] -> [text(value=\"+\") >paragraph delimitedBlock(annotatedBy=\"source\",content=\"\",form=\"delimited\",variant=\"listing\")]",
       "family": "indent-dropped"
+    },
+    {
+      "id": "line/pair/continuation/delimiter-listing-near-0/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList thematicBreak()] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" '''\") >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
+    },
+    {
+      "id": "line/pair/continuation/delimiter-listing-near-1/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList <paragraph(blankBelowAnchorLine=false) .children text(value=\"----x\") >paragraph] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" ----x\") >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
     },
     {
       "id": "line/pair/continuation/delimiter-listing-near-2/adjacent/doc",
@@ -410,10 +902,34 @@
       "family": "indent-dropped"
     },
     {
+      "id": "line/pair/continuation/delimiter-literal-near-0/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList <paragraph(blankBelowAnchorLine=false) .children characterReference(value=\"...\") >paragraph] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" \") characterReference(value=\"...\") >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
+    },
+    {
+      "id": "line/pair/continuation/delimiter-literal-near-1/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList <paragraph(blankBelowAnchorLine=false) .children characterReference(value=\"...\") text(value=\".x\") >paragraph] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" \") characterReference(value=\"...\") text(value=\".x\") >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
+    },
+    {
       "id": "line/pair/continuation/delimiter-literal-near-2/adjacent/doc",
       "pass": "p1",
       "signature": "[text(value=\"+ \") characterReference(value=\"...\") text(value=\".\") >paragraph] -> [text(value=\"+\") >paragraph delimitedBlock(content=\"\",form=\"delimited\",variant=\"literal\")]",
       "family": "indent-dropped"
+    },
+    {
+      "id": "line/pair/continuation/delimiter-openBlock-near-0/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList <paragraph(blankBelowAnchorLine=false) .children characterReference(value=\"--\") text(value=\" x\") >paragraph] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" \") characterReference(value=\"--\") text(value=\" x\") >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
+    },
+    {
+      "id": "line/pair/continuation/delimiter-openBlock-near-1/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList <paragraph(blankBelowAnchorLine=false) .children text(value=\"--x\") >paragraph] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" --x\") >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
     },
     {
       "id": "line/pair/continuation/delimiter-openBlock-near-2/adjacent/doc",
@@ -422,10 +938,34 @@
       "family": "indent-dropped"
     },
     {
+      "id": "line/pair/continuation/delimiter-openBlockTilde-near-0/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList <paragraph(blankBelowAnchorLine=false) .children <subscript() .children text(value=\"~\") >subscript >paragraph] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" \") <subscript() .children text(value=\"~\") >subscript >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
+    },
+    {
+      "id": "line/pair/continuation/delimiter-openBlockTilde-near-1/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList <paragraph(blankBelowAnchorLine=false) .children <subscript() .children text(value=\"~\") >subscript text(value=\"~x\") >paragraph] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" \") <subscript() .children text(value=\"~\") >subscript text(value=\"~x\") >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
+    },
+    {
       "id": "line/pair/continuation/delimiter-openBlockTilde-near-2/adjacent/doc",
       "pass": "p1",
       "signature": "[text(value=\"+ \") <subscript() .children text(value=\"~\") >subscript text(value=\"~\") >paragraph] -> [text(value=\"+\") >paragraph <parentBlock(openDelimiter=\"~\",variant=\"open\") .children >parentBlock]",
       "family": "indent-dropped"
+    },
+    {
+      "id": "line/pair/continuation/delimiter-pass-near-0/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList <paragraph(blankBelowAnchorLine=false) .children passthrough(value=\"+++\") >paragraph] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" \") passthrough(value=\"+++\") >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
+    },
+    {
+      "id": "line/pair/continuation/delimiter-pass-near-1/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList <paragraph(blankBelowAnchorLine=false) .children passthrough(value=\"++++\") text(value=\"x\") >paragraph] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" \") passthrough(value=\"++++\") text(value=\"x\") >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
     },
     {
       "id": "line/pair/continuation/delimiter-pass-near-2/adjacent/doc",
@@ -434,10 +974,34 @@
       "family": "indent-dropped"
     },
     {
+      "id": "line/pair/continuation/delimiter-quote-near-0/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList thematicBreak()] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" '''\") >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
+    },
+    {
+      "id": "line/pair/continuation/delimiter-quote-near-1/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList <paragraph(blankBelowAnchorLine=false) .children text(value=\"____x\") >paragraph] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" ____x\") >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
+    },
+    {
       "id": "line/pair/continuation/delimiter-quote-near-2/adjacent/doc",
       "pass": "p1",
       "signature": "[text(value=\"+ \") <italic() .children text(value=\"__\") >italic >paragraph] -> [text(value=\"+\") >paragraph <parentBlock(variant=\"quote\") .children >parentBlock]",
       "family": "indent-dropped"
+    },
+    {
+      "id": "line/pair/continuation/delimiter-sidebar-near-0/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList thematicBreak()] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" '''\") >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
+    },
+    {
+      "id": "line/pair/continuation/delimiter-sidebar-near-1/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList <paragraph(blankBelowAnchorLine=false) .children <bold() .children text(value=\"*\") >bold text(value=\"*x\") >paragraph] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" \") <bold() .children text(value=\"*\") >bold text(value=\"*x\") >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
     },
     {
       "id": "line/pair/continuation/delimiter-sidebar-near-2/adjacent/doc",
@@ -446,10 +1010,34 @@
       "family": "indent-dropped"
     },
     {
+      "id": "line/pair/continuation/delimiter-tableBang-near-0/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList <paragraph(blankBelowAnchorLine=false) .children text(value=\"!==\") >paragraph] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" !==\") >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
+    },
+    {
+      "id": "line/pair/continuation/delimiter-tableBang-near-1/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList <paragraph(blankBelowAnchorLine=false) .children text(value=\"!===x\") >paragraph] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" !===x\") >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
+    },
+    {
       "id": "line/pair/continuation/delimiter-tableBang-near-2/adjacent/doc",
       "pass": "p1",
       "signature": "[text(value=\"+ !===\") >paragraph] -> [text(value=\"+\") >paragraph <table(closedAt=\"endOfStream\",footer=false,header=\"none\") .children .cutting -(format=\"psv\",separator=\"|\") >table]",
       "family": "indent-dropped"
+    },
+    {
+      "id": "line/pair/continuation/delimiter-tableColon-near-0/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList <paragraph(blankBelowAnchorLine=false) .children text(value=\":==\") >paragraph] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" :==\") >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
+    },
+    {
+      "id": "line/pair/continuation/delimiter-tableColon-near-1/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList <paragraph(blankBelowAnchorLine=false) .children text(value=\":===x\") >paragraph] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" :===x\") >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
     },
     {
       "id": "line/pair/continuation/delimiter-tableColon-near-2/adjacent/doc",
@@ -458,10 +1046,34 @@
       "family": "indent-dropped"
     },
     {
+      "id": "line/pair/continuation/delimiter-tableComma-near-0/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList <paragraph(blankBelowAnchorLine=false) .children text(value=\",==\") >paragraph] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" ,==\") >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
+    },
+    {
+      "id": "line/pair/continuation/delimiter-tableComma-near-1/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList <paragraph(blankBelowAnchorLine=false) .children text(value=\",===x\") >paragraph] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" ,===x\") >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
+    },
+    {
       "id": "line/pair/continuation/delimiter-tableComma-near-2/adjacent/doc",
       "pass": "p1",
       "signature": "[text(value=\"+ ,===\") >paragraph] -> [text(value=\"+\") >paragraph <table(closedAt=\"endOfStream\",footer=false,header=\"none\") .children .cutting -(format=\"csv\",separator=\",\") >table]",
       "family": "indent-dropped"
+    },
+    {
+      "id": "line/pair/continuation/delimiter-tablePipe-near-0/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList <paragraph(blankBelowAnchorLine=false) .children text(value=\"|==\") >paragraph] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" |==\") >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
+    },
+    {
+      "id": "line/pair/continuation/delimiter-tablePipe-near-1/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList <paragraph(blankBelowAnchorLine=false) .children text(value=\"|===x\") >paragraph] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" |===x\") >descriptionListItem >descriptionList]",
+      "family": "separator-collapsed"
     },
     {
       "id": "line/pair/continuation/delimiter-tablePipe-near-2/adjacent/doc",
@@ -482,6 +1094,42 @@
       "family": "join-changes-reading"
     },
     {
+      "id": "line/pair/delimiter-example-near-1/attrlist/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"====x\") >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"====x\") >descriptionListItem >descriptionList]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "line/pair/delimiter-example-near-1/block-anchor/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"====x\") >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"====x\") >descriptionListItem >descriptionList]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "line/pair/delimiter-example-near-2/attrlist/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" ====\") >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" ====\") >descriptionListItem >descriptionList]",
+      "family": "blank-dropped"
+    },
+    {
+      "id": "line/pair/delimiter-example-near-2/block-anchor/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" ====\") >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" ====\") >descriptionListItem >descriptionList]",
+      "family": "blank-dropped"
+    },
+    {
+      "id": "line/pair/delimiter-fencedCode-near-0/attrlist/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"``x\") >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"``x\") >descriptionListItem >descriptionList]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "line/pair/delimiter-fencedCode-near-0/block-anchor/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"``x\") >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"``x\") >descriptionListItem >descriptionList]",
+      "family": "join-changes-reading"
+    },
+    {
       "id": "line/pair/delimiter-fencedCode-near-1/delimiter-example-near-0/adjacent/dlist-desc-line",
       "pass": "p1",
       "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList heading(level=0,title=\"```x\")] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" = ```x\") >descriptionListItem >descriptionList]",
@@ -492,6 +1140,24 @@
       "pass": "p1",
       "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList heading(level=0,title=\"```x\")] -> [\"\" .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" = ```x\") >descriptionListItem >descriptionList]",
       "family": "heading-under-a-term"
+    },
+    {
+      "id": "line/pair/delimiter-fencedCode-near-1/delimiter-fencedCode/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[delimitedBlock(annotatedBy=\"source,x\",content=\"\\n\",form=\"delimited\",variant=\"listing\")] -> [delimitedBlock(annotatedBy=\"source,x\",content=\"\",form=\"delimited\",variant=\"listing\")]",
+      "family": "blank-content-emptied"
+    },
+    {
+      "id": "line/pair/delimiter-fencedCode-near-1/delimiter-fencedCode/two-blank/doc",
+      "pass": "p1",
+      "signature": "[delimitedBlock(annotatedBy=\"source,x\",content=\"\\n\",form=\"delimited\",variant=\"listing\")] -> [delimitedBlock(annotatedBy=\"source,x\",content=\"\",form=\"delimited\",variant=\"listing\")]",
+      "family": "blank-content-emptied"
+    },
+    {
+      "id": "line/pair/delimiter-fencedCode-near-1/delimiter-fencedCode/two-blank/item",
+      "pass": "p1",
+      "signature": "[delimitedBlock(annotatedBy=\"source,x\",content=\"\\n\",form=\"delimited\",variant=\"listing\")] -> [delimitedBlock(annotatedBy=\"source,x\",content=\"\",form=\"delimited\",variant=\"listing\")]",
+      "family": "blank-content-emptied"
     },
     {
       "id": "line/pair/delimiter-fencedCode-near-1/delimiter-listing-near-0/adjacent/dlist-desc-line",
@@ -530,6 +1196,66 @@
       "family": "heading-under-a-term"
     },
     {
+      "id": "line/pair/delimiter-fencedCode-near-2/attrlist/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" \") <monospace() .children text(value=\"`\") >monospace >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" \") <monospace() .children text(value=\"`\") >monospace >descriptionListItem >descriptionList]",
+      "family": "blank-dropped"
+    },
+    {
+      "id": "line/pair/delimiter-fencedCode-near-2/block-anchor/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" \") <monospace() .children text(value=\"`\") >monospace >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" \") <monospace() .children text(value=\"`\") >monospace >descriptionListItem >descriptionList]",
+      "family": "blank-dropped"
+    },
+    {
+      "id": "line/pair/delimiter-listing-near-0/attrlist/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"---\") >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"---\") >descriptionListItem >descriptionList]",
+      "family": "blank-dropped"
+    },
+    {
+      "id": "line/pair/delimiter-listing-near-0/block-anchor/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"---\") >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"---\") >descriptionListItem >descriptionList]",
+      "family": "blank-dropped"
+    },
+    {
+      "id": "line/pair/delimiter-listing-near-1/attrlist/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"----x\") >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"----x\") >descriptionListItem >descriptionList]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "line/pair/delimiter-listing-near-1/block-anchor/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"----x\") >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"----x\") >descriptionListItem >descriptionList]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "line/pair/delimiter-listing-near-2/attrlist/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" ----\") >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" ----\") >descriptionListItem >descriptionList]",
+      "family": "blank-dropped"
+    },
+    {
+      "id": "line/pair/delimiter-listing-near-2/block-anchor/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" ----\") >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\" ----\") >descriptionListItem >descriptionList]",
+      "family": "blank-dropped"
+    },
+    {
+      "id": "line/pair/delimiter-literal-near-0/attrlist/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text characterReference(value=\"...\") >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text characterReference(value=\"...\") >descriptionListItem >descriptionList]",
+      "family": "blank-dropped"
+    },
+    {
+      "id": "line/pair/delimiter-literal-near-0/block-anchor/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text characterReference(value=\"...\") >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text characterReference(value=\"...\") >descriptionListItem >descriptionList]",
+      "family": "blank-dropped"
+    },
+    {
       "id": "line/pair/delimiter-literal-near-0/continuation-near-0/adjacent/doc",
       "pass": "p1",
       "signature": "[<paragraph(blankBelowAnchorLine=false) .children characterReference(value=\"...\") text(value=\" + x\") >paragraph] -> [<list(marker=\"...\",variant=\"ordered\") .children <listItem(activeTail=false,detachedTail=false,markerGap=\" \",markerIndent=\"\",markerSpelling=\"...\",nextLineNeedsItsPosition=false,trailingContinuation=false) .blocks .text text(value=\"+ x\") >listItem >list]",
@@ -560,6 +1286,36 @@
       "family": "gap-line-lost"
     },
     {
+      "id": "line/pair/line-comment-near-0/continuation/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"///c\")] -> [-(comment=\"///c\") .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text]",
+      "family": "gap-line-lost"
+    },
+    {
+      "id": "line/pair/line-comment-near-1/attrlist/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"/ c\") >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"/ c\") >descriptionListItem >descriptionList]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "line/pair/line-comment-near-1/block-anchor/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"/ c\") >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"/ c\") >descriptionListItem >descriptionList]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "line/pair/line-comment/attrlist/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap -(comment=\"// c\") .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text rawLine(value=\"// c\") >descriptionListItem >descriptionList]",
+      "family": "blank-dropped"
+    },
+    {
+      "id": "line/pair/line-comment/block-anchor/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap -(comment=\"// c\") .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text rawLine(value=\"// c\") >descriptionListItem >descriptionList]",
+      "family": "blank-dropped"
+    },
+    {
       "id": "line/pair/line-comment/continuation/blank/dlist-desc-line",
       "pass": "p1",
       "signature": "[.term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text rawLine(value=\"// c\")] -> [-(comment=\"// c\") .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text]",
@@ -582,6 +1338,102 @@
       "pass": "p1",
       "signature": "[text(value=\"a +\")] -> [text(value=\"a \") attributeReference(name=\"plus\")]",
       "family": "plus-respelled"
+    },
+    {
+      "id": "line/pair/page-break-near-0/attrlist/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"<<\") >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"<<\") >descriptionListItem >descriptionList]",
+      "family": "blank-dropped"
+    },
+    {
+      "id": "line/pair/page-break-near-0/block-anchor/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"<<\") >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"<<\") >descriptionListItem >descriptionList]",
+      "family": "blank-dropped"
+    },
+    {
+      "id": "line/pair/page-break/attrlist/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"<<<\") >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"<<<\") >descriptionListItem >descriptionList]",
+      "family": "blank-dropped"
+    },
+    {
+      "id": "line/pair/page-break/block-anchor/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"<<<\") >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"<<<\") >descriptionListItem >descriptionList]",
+      "family": "blank-dropped"
+    },
+    {
+      "id": "line/pair/section-title-near-0/attrlist/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"==T\") >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"==T\") >descriptionListItem >descriptionList]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "line/pair/section-title-near-0/block-anchor/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"==T\") >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"==T\") >descriptionListItem >descriptionList]",
+      "family": "join-changes-reading"
+    },
+    {
+      "id": "line/pair/section-title-near-1/attrlist/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"======= T\") >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"======= T\") >descriptionListItem >descriptionList]",
+      "family": "blank-dropped"
+    },
+    {
+      "id": "line/pair/section-title-near-1/block-anchor/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"======= T\") >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"======= T\") >descriptionListItem >descriptionList]",
+      "family": "blank-dropped"
+    },
+    {
+      "id": "line/pair/section-title/attrlist/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"== T\") >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"== T\") >descriptionListItem >descriptionList]",
+      "family": "blank-dropped"
+    },
+    {
+      "id": "line/pair/section-title/block-anchor/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"== T\") >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"== T\") >descriptionListItem >descriptionList]",
+      "family": "blank-dropped"
+    },
+    {
+      "id": "line/pair/setext-title-near-0/attrlist/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"Title ---\") >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"Title ---\") >descriptionListItem >descriptionList]",
+      "family": "blank-dropped"
+    },
+    {
+      "id": "line/pair/setext-title-near-0/block-anchor/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"Title ---\") >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"Title ---\") >descriptionListItem >descriptionList]",
+      "family": "blank-dropped"
+    },
+    {
+      "id": "line/pair/thematic-break-near-0/attrlist/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"''\") >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"''\") >descriptionListItem >descriptionList]",
+      "family": "blank-dropped"
+    },
+    {
+      "id": "line/pair/thematic-break-near-0/block-anchor/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"''\") >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"''\") >descriptionListItem >descriptionList]",
+      "family": "blank-dropped"
+    },
+    {
+      "id": "line/pair/thematic-break/attrlist/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"'''\") >descriptionListItem >descriptionList blockAttributeList(value=\".role\")] -> [blockAttributeList(value=\".role\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"'''\") >descriptionListItem >descriptionList]",
+      "family": "blank-dropped"
+    },
+    {
+      "id": "line/pair/thematic-break/block-anchor/two-blank/dlist-desc-line",
+      "pass": "p1",
+      "signature": "[.terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"'''\") >descriptionListItem >descriptionList blockAnchor(id=\"id\")] -> [blockAnchor(id=\"id\") .terms <-() .gap .term <descriptionTerm() .children text(value=\"term\") >descriptionTerm >- .text text(value=\"'''\") >descriptionListItem >descriptionList]",
+      "family": "blank-dropped"
     }
   ]
 }

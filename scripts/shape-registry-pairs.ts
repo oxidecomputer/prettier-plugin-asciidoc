@@ -17,8 +17,9 @@
  * The alphabet is every `ConstructEntry.body` plus every `nearMiss`:
  * the almost-valid space is where classification flips live, so a
  * near miss belongs beside its valid twin, not only beside itself.
- * The pair is exhaustive over that alphabet times two joins (adjacent,
- * blank) times a small container subset, since a full product across every
+ * The pair is exhaustive over that alphabet times three joins
+ * (adjacent, one blank, two blanks) times a small container subset,
+ * since a full product across every
  * `CONTAINERS` entry is quadratic in the alphabet size and unneeded:
  * the three kept containers cover the distinct reading regimes
  * (unconfined, item-confined, dlist description) that a pair's
@@ -57,13 +58,29 @@ export function pairAlphabet(): readonly PairAlphabetMember[] {
   ]);
 }
 
-/** How two alphabet members meet: touching, or separated by one blank line. */
+/**
+ * How two alphabet members meet: touching, separated by one blank
+ * line, or separated by two.
+ *
+ * TWO BLANKS IS A SEPARATE QUESTION, not a longer spelling of one.
+ * Inside a list item or a description, the blank COUNT is what decides
+ * whether the second member attaches to the item or detaches from it,
+ * and the count survives a head drain that swallows the first member:
+ * a `//`-headed first member is taken into the item's head, and the
+ * printer then has to re-emit a separator wide enough to keep the
+ * second member outside the item. One blank cannot ask that - it is
+ * the attaching spelling either way - so with only the first two joins
+ * every pair over the item and description containers left the
+ * detaching case unspelled, and a formatter that closed the gap with
+ * one blank passed the whole grid (issue #264).
+ */
 const PAIR_JOINS: ReadonlyArray<{
   readonly id: string;
   readonly glue: string;
 }> = [
   { id: "adjacent", glue: "\n" },
   { id: "blank", glue: "\n\n" },
+  { id: "two-blank", glue: "\n\n\n" },
 ];
 
 /**

@@ -342,6 +342,14 @@ describe("the lens sees each corruption, and one arm names it", () => {
   // what keeps it live is a corpus reflow join with no description in
   // it.
   //
+  // Three `term::`-over-`+` rows do the same work for the separator
+  // width: two the collapse owns, one where the `+` is indented and
+  // survives, which is a dropped blank and nothing more. The two
+  // blank-only interiors do it for the emptied content, one behind a
+  // respelling and one not. Three of those five were claimed twice
+  // until the arms beside them said which blanks and which headings
+  // they mean (issues #269, #270).
+  //
   // #73 had a row here ("[[3-blind-mice]]\n\n ----\n") and no longer
   // does: a paragraph whose whole line is a `[[...]]` anchor now records
   // the separation the author wrote under it
@@ -442,6 +450,54 @@ describe("the lens sees each corruption, and one arm names it", () => {
       "a four-backtick fence is prose a fold rewrites (#124)",
       '````ruby\nputs "Hello, World!"\n````\n\n~~~~ javascript\nalert("Hello, World!")\n~~~~\n',
       "join-changes-reading",
+    ],
+    [
+      // The heading here stands OUTSIDE the description, held there
+      // by a run two blank lines wide. The output spells that run one
+      // line narrower, and one blank line is the attaching spelling,
+      // so the section is the description's text on the re-read. Not
+      // `heading-under-a-term`: nothing read this heading under a
+      // term, the separator put it there.
+      "a detached section is pulled under a term (#269)",
+      "term::\n+\n\n\n== T\n",
+      "separator-collapsed",
+    ],
+    [
+      // The same collapse where the block below is not a heading at
+      // all, so the row exercises the arm rather than the exclusion
+      // beside it.
+      "a detached block title is pulled under a term (#269)",
+      "term::\n+\n\n\n.T\n",
+      "separator-collapsed",
+    ],
+    [
+      // The `+` here is INDENTED, so the printer writes it back where
+      // it stands and only the blank goes: `blank-dropped`'s
+      // mechanism, and the row `separator-collapsed` must refuse.
+      "an indented + keeps its line and loses a blank (#73)",
+      "term::\n  +\n\n\n[[id]]\n",
+      "blank-dropped",
+    ],
+    [
+      // The fence's interior is one blank line and comes back empty.
+      // Its delimiters are respelled in the same pass, which is why
+      // the arm reads the projection rather than the bytes.
+      "a fence holding only blanks comes back empty (#270)",
+      "```x\n\n\n```\nfoo\n```\n",
+      "blank-content-emptied",
+    ],
+    [
+      // The same loss where the delimiters are NOT respelled, which
+      // is the shape the two byte-level tests cannot tell apart: the
+      // two `----` lines stand byte for byte and the interior goes,
+      // so "a blank went and no content line moved" is true of it and
+      // `blank-dropped` claimed it alongside this family until that
+      // arm said which blanks it means. No population spells a
+      // blank-only interior without a respelling today, so nothing
+      // else would have caught the overlap.
+      "a listing holding only blanks comes back empty (#270)",
+      "----\n\n\n----\n",
+      "blank-content-emptied",
     ],
   ])("%s", async (_what, document, family) => {
     const outcome = await reparseOutcomeOf(document);

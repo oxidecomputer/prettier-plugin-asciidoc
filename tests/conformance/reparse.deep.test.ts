@@ -6,7 +6,7 @@
  * else enumerates adjacencies.
  *
  * A `.deep.test.ts` entry for the reason the registry sweep has one:
- * 87,145 documents formatted twice is more than a suite run on every
+ * 133,685 documents formatted twice is more than a suite run on every
  * save can carry and well inside what the blocking deep step
  * (`bun run test:deeply-nested-lists`) can. The default entry gates
  * the same ledger restricted to its corpus rows, so a document cannot

@@ -71,7 +71,7 @@ export function defaultTierCases(): ReparseCase[] {
  * boundaries, attrlists in front of spans and reflow edges the line
  * registry never varies.
  *
- * Deep because it is 87,145 documents formatted twice, which is more
+ * Deep because it is 133,685 documents formatted twice, which is more
  * than a suite run on every save can carry and well inside what the
  * blocking deep step can. Every deep case is one the default tier
  * would measure if it were free.
@@ -114,7 +114,7 @@ export function isDefaultTier(row: ReparseLedgerRow): boolean {
  * population the generator sweeps. A population this short is a
  * population that did not load, and with `--write` it would rewrite
  * the ledger to empty - every pin deleted by a green run. Measured:
- * 87,145 cases.
+ * 133,685 cases.
  */
 export const MINIMUM_POPULATION = 80_000;
 
@@ -147,9 +147,12 @@ export interface ReparseFamily {
  * by a check that knows nothing about them: no predicate in
  * `src/print` is consulted, no hazard is modelled, and the rows
  * arrive from populations that were built for other purposes. The
- * other three are gaps this measurement found (#169, #170, #171),
- * two of them tier-1 render losses that every other gate is green
- * on.
+ * other five are gaps this measurement found (#169, #170, #171, #269,
+ * #270), three of them tier-1 render losses that every other gate is
+ * green on. The last two arrived when the pair grid learned to spell
+ * two blank lines between its members (#264): the separator WIDTH
+ * after a description could not be asked before, so nothing generated
+ * the documents whose answer is wrong.
  */
 export const REPARSE_FAMILIES: Readonly<Record<string, ReparseFamily>> = {
   "indent-dropped": {
@@ -183,6 +186,14 @@ export const REPARSE_FAMILIES: Readonly<Record<string, ReparseFamily>> = {
   "xref-across-a-break": {
     issue: "#169",
     what: "a shorthand xref whose bracket text spans a source line break is invisible to our inline reader and visible to the oracle, so the reflow join that closes the break does not change the render but does change what we read; the breach is in the SOURCE reading, not in the output",
+  },
+  "separator-collapsed": {
+    issue: "#269",
+    what: "a bare description term carrying a lone `+` under it and two or more blank lines below that is written back with ONE blank line in their place, and one blank line is the attaching spelling, so the block the author detached from the description is inside it on the re-read",
+  },
+  "blank-content-emptied": {
+    issue: "#270",
+    what: "a delimited block whose content is nothing but blank lines is written back with no content at all, so a verbatim interior the lens compares byte for byte (issue #32) loses the lines it held; render-equal today, because the oracle strips a listing's trailing blanks itself",
   },
 };
 
@@ -552,6 +563,104 @@ function gapEndsAtAContinuation(
 }
 
 /**
+ * How many blank lines stand in the widest blank run of a document.
+ * @param text - the document
+ * @returns the width of its widest blank run
+ */
+function widestBlankRun(text: string): number {
+  let widest = 0;
+  let run = 0;
+  for (const line of text.split("\n")) {
+    run = line.trim() === "" ? run + 1 : 0;
+    widest = Math.max(widest, run);
+  }
+  return widest;
+}
+
+/**
+ * Does the source hold a bare description term, a lone `+` under it
+ * and a DETACHING blank run below that, and did the output come back
+ * spelling a narrower run than the source's widest?
+ *
+ * STRUCTURAL, on the terms {@link termGapContinuationDropped} is: the
+ * three things the family text names - a bare term, the `+` it
+ * carries, and two or more blank lines under the `+` - are the three
+ * things asked for, and the fourth clause is what the printer DID
+ * with them.
+ *
+ * WHY THE COUNT AND NOT THE BLOCK. What goes wrong is a separator
+ * WIDTH: one blank line under a description attaches the block below
+ * to it and two detach it, so re-emitting two as one moves the block
+ * inside the description without touching a byte of the block itself.
+ * Asking what the block became would need this arm to know every
+ * construct that can stand there, where the width is one number on
+ * each side. A `+` the printer keeps and a run it re-emits at its own
+ * width both leave the widest run alone, so neither is claimed here.
+ *
+ * The sibling mechanism {@link termGapContinuationDropped} wants the
+ * `+` BELOW the gap, where this wants it directly under the term and
+ * the gap below both, so no document answers to the two of them.
+ *
+ * The `+` is the UNINDENTED spelling, byte for byte. An indented `  +`
+ * is a different line to the reader (`INDENTED_PLUS`, not
+ * `CONTINUATION_LINE`) and to the printer, which writes it back where
+ * it stands: `term::\n  +\n\n\n[[id]]\n` keeps its `+`, loses one
+ * blank and stacks the anchor as metadata, which is `blank-dropped`'s
+ * mechanism and is already named.
+ * @param source - the document as written
+ * @param once - the formatted output
+ * @returns whether a detaching separator came back narrower
+ */
+function separatorCollapsedUnderATerm(source: string, once: string): boolean {
+  const lines = source.split("\n");
+  const term = lines.findIndex((line) => isBareTermLine(line));
+  if (term === -1) {
+    return false;
+  }
+  const plus = lines.findIndex(
+    (line, index) => index > term && line.trim() !== "",
+  );
+  if (plus !== term + 1 || lines[plus] !== "+") {
+    return false;
+  }
+  const detached = lines.findIndex(
+    (line, index) => index > plus && line.trim() !== "",
+  );
+  // `detached > plus + 2` is "two or more blank lines between them",
+  // and a source with nothing below the run says -1 here.
+  return detached > plus + 2 && widestBlankRun(once) < widestBlankRun(source);
+}
+
+/** A content value spelled as nothing but line breaks. */
+const BLANK_BLOCK_CONTENT = /content="(?:\\n)+"/gv;
+
+/**
+ * Does the diff say a delimited block whose content was nothing but
+ * blank lines came back holding none?
+ *
+ * Read off the projection, the way
+ * {@link foldedABreakInsideAValue} is: the block's own delimiters are
+ * respelled on the way out (a fence becomes a `----` pair), so the
+ * bytes move for a second reason while the diff says the one thing
+ * that happened. Narrow by construction - the sides must be equal
+ * once every all-blank content value is emptied, so a diff that also
+ * moved a node, or emptied a content value holding words, is not
+ * this.
+ * @param signature - the projection diff, `before -> after`
+ * @returns whether the diff is all-blank content emptied
+ */
+function blankContentEmptied(signature: string): boolean {
+  const sides = signatureSides(signature);
+  if (sides === undefined) {
+    return false;
+  }
+  // The break is spelled `\n` as two characters, because the
+  // projection quotes its values.
+  const emptied = sides.before.replaceAll(BLANK_BLOCK_CONTENT, 'content=""');
+  return emptied !== sides.before && emptied === sides.after;
+}
+
+/**
  * Was the construct the after side mints already spelled in the
  * SOURCE, across a line break?
  *
@@ -662,12 +771,33 @@ const FAMILY_ARMS: readonly FamilyArm[] = [
   },
   {
     family: "blank-dropped",
+    // The blanks this family loses stand BETWEEN blocks, where the
+    // line under them stacks as metadata on the block below. Blanks
+    // that were a block's own verbatim content are the newer and more
+    // specific mechanism, and the byte test cannot tell them apart:
+    // a listing whose whole interior is blank keeps its two delimiter
+    // lines byte for byte while the interior goes, which is "a blank
+    // went and no content line moved" exactly. Stated here rather
+    // than left to arm order, on the terms `heading-under-a-term`
+    // states its own.
     matches: ({ source, once, signature }) =>
-      droppedABlank(source, once) || swallowedByTheParagraphAbove(signature),
+      (droppedABlank(source, once) ||
+        swallowedByTheParagraphAbove(signature)) &&
+      !blankContentEmptied(signature),
   },
   {
     family: "heading-under-a-term",
-    matches: ({ signature }) => headingSwallowedByATerm(signature),
+    // "READ under a term", stated rather than left to arm order: a
+    // heading the source detached from the list with a blank RUN was
+    // not read under anything, and what put it there is the
+    // separator the printer re-emitted a line narrower. The two
+    // mechanisms answer different questions - this one asks where a
+    // heading can be PRINTED, the other what a separator was
+    // re-emitted as - so the row belongs to one of them and this
+    // says which.
+    matches: ({ source, once, signature }) =>
+      headingSwallowedByATerm(signature) &&
+      !separatorCollapsedUnderATerm(source, once),
   },
   {
     family: "join-changes-reading",
@@ -688,6 +818,14 @@ const FAMILY_ARMS: readonly FamilyArm[] = [
   {
     family: "gap-line-lost",
     matches: ({ source, once }) => termGapContinuationDropped(source, once),
+  },
+  {
+    family: "separator-collapsed",
+    matches: ({ source, once }) => separatorCollapsedUnderATerm(source, once),
+  },
+  {
+    family: "blank-content-emptied",
+    matches: ({ signature }) => blankContentEmptied(signature),
   },
 ];
 
