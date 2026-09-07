@@ -466,6 +466,32 @@ describe("reader: stacked detached continuations", () => {
   });
 });
 
+describe("reader: a //-headed run above a blank is the item's first block", () => {
+  // `parse_list_item` peeks past the run (parser.rb l.1362-71) and
+  // finds the erased `+` behind it, which is a blank
+  // (`ListContinuationPlaceholder`, l.1439). `unshift_lines` puts the
+  // run back and `content_adjacent` stays false, because setting it
+  // is guarded by `unless subsequent_line.empty?` (l.1366-67), so
+  // nothing folds into the item's text (l.1384) and the run stands
+  // as the item's first block. The reader read the run as item TEXT instead,
+  // which showed as `list(item(t / t +p(t)))`, one text node
+  // spanning both lines, and the printer was then free to pack the
+  // run onto the marker line (issue #234).
+  test.each([
+    ["one near miss", "* a\n///c\n+\nb\n", "list(item(t raw +p(t)))"],
+    ["a run of two", "* a\n///c\n///d\n+\nb\n", "list(item(t raw raw +p(t)))"],
+    [
+      "nested, the outer item unaffected",
+      "* a\n** b\n///c\n+\nd\n",
+      "list(item(t list(item(t raw +p(t)))))",
+    ],
+  ])("%s", async (_name, input, shape) => {
+    expect(astShape(input)).toBe(shape);
+    expect(itemCount(input)).toBe(await oracleItems(input));
+    expect(await formatAdoc(input)).toBe(input);
+  });
+});
+
 describe("reader: a //-headed dlist term keeps its own line", () => {
   // ORACLE QUIRK. `Reader#skip_line_comments` takes ANY `//`-headed line
   // (`///b::` included — the classifier, mirroring LineCommentRx, does

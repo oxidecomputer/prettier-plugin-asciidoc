@@ -145,7 +145,15 @@ export function readMarkerList(
     return listItemNode(shape, interiorOfItem(host, shape, drain), {
       gaps: host.scope.gaps,
       at: host.scope.at,
-      drained: drain.drained,
+      // ONLY the dropped arm's lines are that guard's. Its premise is
+      // that the run renders as NOTHING where it stands and as the
+      // text's own last words one line lower
+      // (`nextLineNeedsItsPosition`, list-item-node.ts), which is
+      // what makes reflow's move visible there. A DETACHED run
+      // renders as the item's first block WHERE IT STANDS, so the
+      // premise is false for it and the guard has no question to
+      // answer about it.
+      drained: drain.kind === "dropped" ? drain.run : [],
     });
   };
   const [opening, ...rest] = shape.items;
@@ -177,11 +185,18 @@ export function readMarkerList(
  * alone, and the un-drained reader joined `///c` onto it, which
  * `wrap` was then free to pack onto `a`'s own printed line).
  *
+ * BOTH arms that keep the run out of the item's text are taken here,
+ * `dropped` and `detached` alike, and ONE replay serves them. What
+ * separates the two is only what the run RENDERS as - nothing, or the
+ * item's first block - and a marker item's output cannot spell that
+ * difference: the bytes go back on the lines they were written on
+ * either way, where they read again as whatever they read as before.
+ *
  * The drained lines are not dropped from the OUTPUT. A description
- * sibling replays them as a GAP, because its printer already reasons
- * about the source between the term and the description
- * (description-list-node.ts). A marker item has no such gap, so
- * {@link drainedRawTokens} replays each drained line as its own {@link
+ * sibling replays a `dropped` run as a GAP, because its printer
+ * already reasons about the source between the term and the
+ * description (description-list-node.ts). A marker item has no such
+ * gap, so {@link drainedRawTokens} replays each line as its own {@link
  * InlineToken} of type `RawLine` appended to the text {@link
  * ListHost.interiorOf} read - the same shape a genuine `//` comment
  * already keeps for itself inside an item's text (paragraph-reader.ts's
@@ -198,23 +213,28 @@ function interiorOfItem(
   drain: HeadDrain,
 ): ItemInterior {
   const { marker } = shape;
-  const interior = host.interiorOf(
-    shape.markerLine,
-    drain.interior,
-    { list: { kind: "marker", style: marker.style }, tailSafe: shape.tailSafe },
-    {
-      context: "listItemText",
-      text: { from: marker.markerEnd, comments: "skipped" },
-    },
-  );
-  if (drain.drained.length === 0) {
-    // Nothing drained: either the buffer was empty already, or a
-    // non-comment (or blank) line stands behind the run, which is
-    // Ruby's own signal to leave every byte exactly where it read it.
-    return interior;
+  const readInterior = (buffer: readonly SourceLine[]): ItemInterior =>
+    host.interiorOf(
+      shape.markerLine,
+      buffer,
+      {
+        list: { kind: "marker", style: marker.style },
+        tailSafe: shape.tailSafe,
+      },
+      {
+        context: "listItemText",
+        text: { from: marker.markerEnd, comments: "skipped" },
+      },
+    );
+  if (drain.kind === "kept") {
+    // Ruby put the run back and the item is content-adjacent (or
+    // there was no run at all), which is its own signal to leave
+    // every byte exactly where it read it.
+    return readInterior(shape.buffer);
   }
+  const interior = readInterior(drain.kind === "dropped" ? [] : drain.rest);
   return {
-    text: [...interior.text, ...drainedRawTokens(drain.drained)],
+    text: [...interior.text, ...drainedRawTokens(drain.run)],
     blocks: interior.blocks,
   };
 }
@@ -236,19 +256,55 @@ function drainedRawTokens(lines: readonly SourceLine[]): InlineToken[] {
   }));
 }
 
-/** What the head drain took out of one item's buffer. */
-interface HeadDrain {
-  /** The lines left for the item's interior to be read from. */
-  readonly interior: readonly SourceLine[];
-  /** The lines the drain took, in source order; empty when it took none. */
-  readonly drained: readonly SourceLine[];
+/**
+ * What the head drain took out of one item's buffer: the three
+ * answers `parse_list_item`'s peek can give, which is everything the
+ * run's fate turns on.
+ *
+ * A UNION rather than a run plus a flag, because the three arms owe
+ * different things: only `dropped` has a line range Ruby lost and a
+ * run the position guard may read, and only `detached` has lines
+ * standing behind the run.
+ */
+type HeadDrain =
   /**
-   * The first line number past what the drain took - the item's own
-   * opening line where it took nothing, which is a range holding no
-   * lines at all.
+   * Ruby put the run back and the item IS content-adjacent, or there
+   * was no run to take: every line stays where the item's own scan
+   * left it, and the caller reads the buffer whole.
    */
-  readonly drainedEnd: number;
-}
+  | {
+      /** Drain discriminant: nothing left the buffer. */
+      readonly kind: "kept";
+    }
+  /**
+   * Nothing followed the run, so `unshift_lines` never ran and Ruby
+   * lost every line it took. The run is the whole buffer.
+   */
+  | {
+      /** Drain discriminant: the run renders nowhere. */
+      readonly kind: "dropped";
+      /** The lines the peek took, in source order. */
+      readonly run: readonly SourceLine[];
+      /**
+       * The first line number past what the drain took - where a
+       * description sibling's term gap stops.
+       */
+      readonly drainedEnd: number;
+    }
+  /**
+   * A BLANK followed the run, so Ruby put the run back and the item
+   * is NOT content-adjacent: `has_text` survives, nothing is folded,
+   * and the run reads as the item's first BLOCK rather than as the
+   * tail of its own text.
+   */
+  | {
+      /** Drain discriminant: the run is the item's first block. */
+      readonly kind: "detached";
+      /** The lines the peek took, in source order. */
+      readonly run: readonly SourceLine[];
+      /** The buffer behind the run, blank line included. */
+      readonly rest: readonly SourceLine[];
+    };
 
 /**
  * The head drain: `parse_list_item` peeks past a run of `//` lines
@@ -262,6 +318,23 @@ interface HeadDrain {
  * `list_type`: the peek stands above the branch that reads a marker
  * item's text differently from a dlist sibling's (l.1298), so both of
  * {@link ListItemShape}'s opening kinds take it.
+ *
+ * PUTTING THE RUN BACK IS NOT THE SAME AS FOLDING IT IN, which is the
+ * third arm. `unless subsequent_line.empty?` guards `content_adjacent
+ * = true` (l.1366-67), so a run the peek looked past to reach a
+ * BLANK - and an activated `+` is a blank, the erased
+ * `ListContinuationPlaceholder` of l.1439 - goes back into the reader
+ * without making the item content-adjacent. Nothing is folded into
+ * the item's text there (`fold_first`, l.1384), and the run reads as
+ * the item's first block: `* a` / `///c` / `+` / `b` is text `a` and
+ * two paragraphs, `///c` and `b`. A `///` line is what makes the arm
+ * reachable at all, because `read_lines_until` skips a comment line
+ * by the NARROWER rule - `(line.start_with? '//') && !(line.start_with?
+ * '///')`, reader.rb:424 - so a true `//` line is gone from the block
+ * either way and only a near miss survives to be joined (issue #234).
+ * The two rules have no shared spelling to keep them in step:
+ * `CommentLineRx` is commented out in rx.rb (l.227) and each site
+ * writes its own prefix test by hand.
  *
  * The spelling is `Reader#skip_line_comments`'s own: a bare `//`
  * PREFIX, stopping at a blank line (reader.rb:332-345). NOT the
@@ -288,10 +361,10 @@ interface HeadDrain {
  * above the term line stops being a comment and takes the whole list
  * with it.
  * @param shape - what the extent scan decided about the item
- * @returns what the drain took and what it left ({@link HeadDrain});
- *   `drained` is empty when it took nothing, a fact a caller may test
- *   directly rather than by comparing `interior`'s length back
- *   against the shape's own buffer
+ * @returns which of the peek's three answers this item's buffer gives
+ *   ({@link HeadDrain}) and, for the two that took a run, the lines
+ *   it took - a fact a caller reads off the arm rather than by
+ *   comparing a leftover buffer's length back against the shape's own
  */
 function drainHeadComments(shape: ListItemShape): HeadDrain {
   const { buffer } = shape;
@@ -309,16 +382,21 @@ function drainHeadComments(shape: ListItemShape): HeadDrain {
   ) {
     end += 1;
   }
-  const last = buffer.at(end - 1);
-  if (end < buffer.length || last === undefined) {
-    return { interior: buffer, drained: [], drainedEnd: shape.markerLine.line };
+  if (end === 0) {
+    // `skip_line_comments` took nothing, so `unshift_lines` is
+    // skipped and the peek is the plain one every item gets.
+    return { kind: "kept" };
   }
-  // The loop only reaches here having walked every line in `buffer`
-  // (the while condition's `end < buffer.length` is the other half of
-  // the disjunct above), so the run it took IS the whole buffer - not
-  // an invariant a caller must trust, but what `end === buffer.length`
-  // already says.
-  return { interior: [], drained: buffer, drainedEnd: last.line + 1 };
+  const run = buffer.slice(0, end);
+  if (end === buffer.length) {
+    // `peek_line` is nil, so nothing is unshifted and Ruby loses the
+    // run. `end === buffer.length` is what the while condition's own
+    // disjunct already says; the run IS the whole buffer here.
+    return { kind: "dropped", run, drainedEnd: buffer[end - 1].line + 1 };
+  }
+  return buffer[end].text === ""
+    ? { kind: "detached", run, rest: buffer.slice(end) }
+    : { kind: "kept" };
 }
 
 /**
@@ -424,15 +502,28 @@ export function readDescriptionList(
     position: number,
   ): DescriptionPair => {
     const drain = drainHeadComments(item);
+    // ONLY the dropped arm is a sibling's to replay. A term gap holds
+    // lines the read deleted (description-list-node.ts), and the
+    // DETACHED arm deletes nothing: Ruby unshifts that run back and
+    // renders it as the sibling's first block, so its bytes belong to
+    // the description the confined reader is about to read. Handing
+    // them to the gap instead would spell a rendered block as source
+    // the read lost.
+    const dropped = drain.kind === "dropped";
     return descriptionItemNode(
       item,
-      interiorOfDescription(host, item, drain.interior, kind.delimiter),
+      interiorOfDescription(
+        host,
+        item,
+        dropped ? [] : item.buffer,
+        kind.delimiter,
+      ),
       {
         lines: host.lines,
         gaps: host.scope.gaps,
         at: host.scope.at,
         nextTermLine: shape.items.at(position + 1)?.markerLine.line,
-        drainedEnd: drain.drainedEnd,
+        drainedEnd: dropped ? drain.drainedEnd : item.markerLine.line,
       },
     );
   };

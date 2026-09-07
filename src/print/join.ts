@@ -358,8 +358,18 @@ function endsWithReaderEatenLine(block: BlockNode): boolean {
     // A trailing nested list recurses through the same test.
     return endsWithReaderEatenLine(last);
   }
-  // An inline rawLine is a comment or a preprocessor directive by
-  // construction (`isRawParagraphLine` admits nothing else).
+  // THE TOKEN TYPE IS NOT THE PROOF. An inline `rawLine` is a comment
+  // or a preprocessor directive where the paragraph scan made one
+  // (`isRawParagraphLine` admits nothing else), and a `///` NEAR MISS
+  // where an item's head drain replayed one instead (list-read.ts's
+  // `detached` arm) - a line no reader eats. What holds over both is
+  // the pair's OTHER condition rather than this one: the detached arm
+  // fires only on a `+` or a blank standing behind the run, and this
+  // test is reached only where the item has no attached block, so the
+  // item's last printed line is the run and at least that separator
+  // line stands under it. Nothing can then begin on the next line,
+  // and `stacksWithReaderEatenLine` asks for that adjacency too, so a
+  // near miss cannot reach the answer this returns.
   return item.text.at(-1)?.type === "rawLine";
 }
 
