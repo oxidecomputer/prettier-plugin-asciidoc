@@ -35,23 +35,62 @@ const SOURCE_ROOT = "src";
 const MODULE_FILE = /\.[cm]?ts$/v;
 
 /**
- * An import or export statement whose specifier is the emission
- * module - the one door both constructors are behind, which is why one
- * pattern covers the licensed arm and the replay arm together.
+ * The quoted specifier of the emission module, as a source file may
+ * spell it.
+ *
+ * The extension is optional because the resolver treats it as
+ * optional: under `moduleResolution: "bundler"` a bare
+ * `"./emission"` reaches the module exactly as `"./emission.js"` does,
+ * and nothing in the tree makes the suffix mandatory. Requiring it
+ * here would leave the shorter spelling past both scans. The letters
+ * before it are unconstrained but the ones after are not, so a module
+ * whose name merely begins the same way (`"./emissions.js"`) is not
+ * this one.
  */
-const EMISSION_STATEMENT = /(?:import|export)[^;]*?"[^"]*emission\.js"/gv;
+const EMISSION_SPECIFIER = String.raw`"[^"]*emission(?:\.[cm]?js)?"`;
 
 /**
- * A statement that moves no value. `import type { Emission }`
- * constructs nothing, and a converted site that wants to hold an
- * emission in a typed local has to write one, so flagging it would make
- * this check fail the migration it exists to protect.
+ * An import, export or `require` whose specifier is the emission
+ * module - the one door both constructors are behind, which is why one
+ * pattern covers the licensed arm and the replay arm together.
+ * `require` is a keyword here because the tree being ESM is a fact
+ * about the tree today rather than a property this check may lean on.
  */
-const TYPE_ONLY = /^import\s+type\b/v;
+const EMISSION_STATEMENT = new RegExp(
+  String.raw`(?:import|export|require)[^;]*?${EMISSION_SPECIFIER}`,
+  "gv",
+);
 
-/** Handing a constructor on under the rules module's own name. */
-const RE_EXPORTED =
-  /export\s*\{[^\}]*\b(?:replay|declareRule)\b|export\s+(?:const|function)\s+(?:replay|declareRule)\b/v;
+/**
+ * The `type` keyword on the whole clause: `import type { Emission }`
+ * and `export type { Emission } from` both construct nothing.
+ */
+const TYPE_CLAUSE = /^(?:import|export)\s+type\b/v;
+
+/**
+ * The specifier list of a named import or export, where that list is
+ * the statement's whole clause. A default binding or a namespace
+ * binding in front of it moves a value whatever the list says, so the
+ * anchor is what keeps those out.
+ */
+const NAMED_CLAUSE = /^(?:import|export)\s*\{[^\}]*\}/v;
+
+/** One specifier carrying the inline `type` keyword. */
+const TYPE_SPECIFIER = /^type\s/v;
+
+/**
+ * The forms that hand a constructor on under the rules module's own
+ * name. Three arms because they see different things: a specifier
+ * list, a redeclaration, and the star form, which has no specifier
+ * list at all and republishes both constructors in one line.
+ */
+const RE_EXPORT_PATTERNS: readonly RegExp[] = [
+  /export\s*\{[^\}]*\b(?:replay|declareRule)\b/v,
+  /export\s+(?:const|function)\s+(?:replay|declareRule)\b/v,
+  // Built rather than written out so the specifier it accepts is the
+  // same one the import scan accepts, extension and all.
+  new RegExp(String.raw`export\s*\*[^;]*?${EMISSION_SPECIFIER}`, "v"),
+];
 
 /**
  * A rule's declaration, named off the exported emission type rather
@@ -167,6 +206,61 @@ describe("the emission a span's delimiters arrive in", () => {
 });
 
 /**
+ * Whether one statement naming the emission module moves a value out
+ * of it.
+ *
+ * A converted site that holds an emission in a typed local has to name
+ * the type, so the type-only forms have to come back clean or this
+ * check fails the migration it exists to protect. They are the `type`
+ * keyword on the clause and the same keyword on every specifier; a
+ * clause that mixes the two still moves the specifier that lacks it.
+ * Anything else, `require` included, counts as a hold: where the scan
+ * cannot read a clause it answers "holds" rather than guess.
+ * @param statement - one import, export or require statement
+ * @returns true where the statement hands over a constructor
+ */
+function movesValue(statement: string): boolean {
+  if (TYPE_CLAUSE.test(statement)) {
+    return false;
+  }
+  const clause = NAMED_CLAUSE.exec(statement);
+  if (clause === null) {
+    return true;
+  }
+  // The match runs from the keyword to the closing brace, so the
+  // specifier list is exactly what stands between the two braces.
+  const [matched] = clause;
+  return matched
+    .slice(matched.indexOf("{") + 1, -1)
+    .split(",")
+    .map((specifier) => specifier.trim())
+    .some(
+      (specifier) => specifier.length > 0 && !TYPE_SPECIFIER.test(specifier),
+    );
+}
+
+/**
+ * Whether a file's text holds the capability: it names the emission
+ * module somewhere that moves a value out of it.
+ * @param text - the file's source
+ * @returns true where the file has a constructor in hand
+ */
+function holdsCapability(text: string): boolean {
+  const statements = text.match(EMISSION_STATEMENT);
+  return (statements ?? []).some((statement) => movesValue(statement));
+}
+
+/**
+ * Whether a source text hands a constructor on under a name of its
+ * own, by any of the forms that would republish one.
+ * @param text - the file's source
+ * @returns true where a consumer could reach a constructor through it
+ */
+function handsOn(text: string): boolean {
+  return RE_EXPORT_PATTERNS.some((pattern) => pattern.test(text));
+}
+
+/**
  * Every `src` file that imports a VALUE from the emission module -
  * every holder of the capability, as far as a specifier can see it.
  * @param directory - where to look
@@ -181,13 +275,92 @@ function capabilityHolders(directory: string): string[] {
     if (!MODULE_FILE.test(entry.name) || full === EMISSION_FILE) {
       return [];
     }
-    const statements = readFileSync(full, "utf8").match(EMISSION_STATEMENT);
-    const holds = (statements ?? []).some(
-      (statement) => !TYPE_ONLY.test(statement),
-    );
-    return holds ? [full] : [];
+    return holdsCapability(readFileSync(full, "utf8")) ? [full] : [];
   });
 }
+
+/**
+ * One statement form and what the scan must make of it.
+ *
+ * Both columns are load-bearing, in opposite directions. A form
+ * wrongly cleared is a constructor loose in the tree; a form wrongly
+ * flagged fails the migration this check exists to protect, because a
+ * converted site that holds an emission in a typed local has to name
+ * the type.
+ */
+interface ScannedStatement {
+  /** The statement, spelled the way a source file would spell it. */
+  readonly source: string;
+  /** True where the form hands the file a constructor. */
+  readonly holds: boolean;
+}
+
+const SCANNED_STATEMENTS: readonly ScannedStatement[] = [
+  { source: `import { replay } from "./emission.js";`, holds: true },
+  {
+    source: `import { declareRule } from "../print/emission.js";`,
+    holds: true,
+  },
+  { source: `export { replay } from "./emission.js";`, holds: true },
+  { source: `import * as emission from "./emission.js";`, holds: true },
+  // The extension is optional to the resolver, so it cannot be
+  // required by the scan: `moduleResolution: "bundler"` reaches the
+  // module by the shorter spelling just as well.
+  { source: `import { replay } from "./emission";`, holds: true },
+  // The near miss the optional extension opens up. A module whose name
+  // merely starts with the same eight letters is a different module.
+  { source: `import { emit } from "./emissions.js";`, holds: false },
+  // The tree being ESM is a fact about the tree today, not a property
+  // this check may lean on: a `.cts` file reaching the constructors
+  // through `require` would hold the capability exactly as much.
+  { source: `const { replay } = require("./emission.js");`, holds: true },
+  // The three forms that move no binding at all. The `type` keyword
+  // sits either on the clause or on every specifier; both spellings
+  // construct nothing, and both are what a converted site writes.
+  { source: `import type { Emission } from "./emission.js";`, holds: false },
+  { source: `import { type Emission } from "./emission.js";`, holds: false },
+  { source: `export type { Emission } from "./emission.js";`, holds: false },
+  // A clause that MIXES the two still moves the specifier without the
+  // keyword, so the mixed form is a hold.
+  {
+    source: `import { type Emission, replay } from "./emission.js";`,
+    holds: true,
+  },
+  { source: `import { parse } from "./parser.js";`, holds: false },
+  // Flagged on purpose. A side-effect import of a module whose whole
+  // surface is two constructors has no honest reading, and where the
+  // scan cannot read a clause it answers "holds" rather than guess.
+  { source: `import "./emission.js";`, holds: true },
+];
+
+/** One re-export form and whether it republishes a constructor. */
+interface ReExportForm {
+  /** The statement, spelled the way the rules module would spell it. */
+  readonly source: string;
+  /** True where a consumer could reach a constructor through it. */
+  readonly handedOn: boolean;
+}
+
+const RE_EXPORT_FORMS: readonly ReExportForm[] = [
+  { source: `export { replay } from "./emission.js";`, handedOn: true },
+  { source: `export { spanDelimiters, declareRule };`, handedOn: true },
+  { source: `export const replay = (bytes: string) => bytes;`, handedOn: true },
+  { source: `export function declareRule(): void {}`, handedOn: true },
+  // No specifier list to read, and one line republishes both
+  // constructors, so the named arms above cannot be what stops it.
+  { source: `export * from "./emission.js";`, handedOn: true },
+  { source: `export * as emission from "./emission.js";`, handedOn: true },
+  { source: `export * from "./emission";`, handedOn: true },
+  // What hands nothing on: another module's star, another module's
+  // names, and this module's TYPE, which constructs nothing wherever
+  // it is republished.
+  { source: `export * from "./span-edges.js";`, handedOn: false },
+  {
+    source: `export { spanDelimiters } from "./span-edges.js";`,
+    handedOn: false,
+  },
+  { source: `export type { Emission } from "./emission.js";`, handedOn: false },
+];
 
 // What this proves, and what it does not, because the difference
 // decides which findings it can be credited with. It proves the
@@ -205,11 +378,31 @@ describe("the capability stays in the rules module", () => {
     expect(capabilityHolders(SOURCE_ROOT)).toEqual([RULES_FILE]);
   });
 
+  // The scan reads statements, so what it makes of each statement
+  // form is the whole of what it proves. Read as a table rather than
+  // as a walk of today's tree, because the tree has one holder and so
+  // exercises one row of this.
+  test("reading every form a file could name it by", () => {
+    const read = SCANNED_STATEMENTS.map(({ source }) => ({
+      source,
+      holds: holdsCapability(`${source}\n`),
+    }));
+    expect(read).toEqual([...SCANNED_STATEMENTS]);
+  });
+
   // Holding it and handing it on are different things: one
   // `export { replay } from "./emission.js"` in the rules module would
   // leave the check above green while every consumer in the tree got a
   // constructor under a name the scan does not look for.
   test("and does not hand either constructor on", () => {
-    expect(readFileSync(RULES_FILE, "utf8")).not.toMatch(RE_EXPORTED);
+    expect(handsOn(readFileSync(RULES_FILE, "utf8"))).toBe(false);
+  });
+
+  test("by any of the forms that would republish one", () => {
+    const read = RE_EXPORT_FORMS.map(({ source }) => ({
+      source,
+      handedOn: handsOn(source),
+    }));
+    expect(read).toEqual([...RE_EXPORT_FORMS]);
   });
 });

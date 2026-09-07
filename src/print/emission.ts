@@ -27,11 +27,20 @@
  * `tests/print/emission-forgery.test.ts`. What remains is what no type
  * system refuses: a written-out type ASSERTION (`as Emission<T>`, or
  * the `Object.assign` intersection that is an assertion in all but
- * spelling) forges one anyway. That is not a hole this design can close;
- * it is the reason the check that keeps the capability to ONE module
- * (`tests/print/declared-rules.test.ts`) is part of the design and not
- * a belt on top of it, because a cast is greppable only where there is
- * one small place to grep.
+ * spelling) forges one anyway. That is not a hole this design can
+ * close, and the mitigation is narrower than it sounds. An assertion
+ * that NAMES this module's type is greppable, and the check that keeps
+ * the value capability to ONE module
+ * (`tests/print/declared-rules.test.ts`) bounds where a holder may
+ * sit; that is why the check is part of the design and not a belt on
+ * top of it. One form escapes both: `Object.assign` can take its
+ * result type off a value that already holds an emission
+ * (`ReturnType<typeof held>`), so it spells neither the module nor the
+ * type, no grep has a token to look for and no location check has a
+ * specifier to match. Reading the diff is what is left against that
+ * one. The forgery test records which attempts the compiler refuses
+ * and which of the survivors name this module at all, so the domain is
+ * measured rather than claimed.
  *
  * A SECOND thing the types cannot decide, said plainly: no type knows
  * which bytes the source actually spelled, so {@link replay} takes the
