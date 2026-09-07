@@ -15,6 +15,8 @@ import type {
   ListItemNode,
   ListNode,
 } from "../../src/ast.js";
+import { nodeFieldsByType } from "../../scripts/ast-node-fields.js";
+import { REPO_ROOT } from "../../scripts/metrics/model.js";
 import { parse } from "../../src/parser.js";
 import { renderedHtml } from "../helpers.js";
 import { preorder } from "./ast-walk.js";
@@ -270,4 +272,61 @@ export function serializedKeys(value: unknown): string[] {
   const digested = JSON.stringify(value);
   const round: unknown = JSON.parse(digested);
   return typeof round === "object" && round !== null ? Object.keys(round) : [];
+}
+
+/**
+ * Every field each node kind declares, read once: the walk parses
+ * `src/ast.ts`, and the key-order rows ask it per row.
+ */
+const DECLARED_FIELDS = nodeFieldsByType(REPO_ROOT);
+
+/**
+ * The serialized key order a node of one kind must have: `type`
+ * first, `position` last, and everything between in the order
+ * `src/ast.ts` declares it (a shape's own properties, then each
+ * base's), restricted to the keys the node actually carries.
+ *
+ * DERIVED, so a field landing on a node does not have to be typed
+ * into every row that pins that node's wire order. Those rows were a
+ * hand copy of the shape: three of them spell a list item's full key
+ * list, so one new field failed all three whatever slot it took.
+ *
+ * `type` first and `position` last is the convention every builder
+ * follows, and it is the one thing here the declarations do not say:
+ * `Node` declares the pair together, and the builders split them
+ * around the node's own fields.
+ *
+ * WHAT A ROW USING THIS HOLDS, exactly: the ORDER of the keys the
+ * node carries, and that it carries no key `src/ast.ts` does not
+ * declare (an undeclared key survives in the node's own list and is
+ * dropped from this expectation, so the two differ). What it does NOT
+ * hold is that a declared key is PRESENT: `JSON.stringify` drops an
+ * undefined-valued field, which is how the optional pair
+ * (`checkbox`, `calloutNumber`) is legitimately absent.
+ *
+ * NOT EVERY PINNED KIND CAN USE IT. A `delimitedBlock`'s builder
+ * stamps `annotatedBy`, `fenced` and `language` AFTER `position`
+ * (src/parse/build/delimited.ts), which is a fact about the builder
+ * and not about the declarations; those rows stay written out, and
+ * say so where they stand.
+ * @param type - the node's `type` discriminant
+ * @param carried - the keys the node actually serializes, in any order
+ * @returns the expected key order over exactly those keys
+ */
+export function declaredKeyOrder(
+  type: string,
+  carried: readonly string[],
+): string[] {
+  const present = new Set(carried);
+  const declared = [...(DECLARED_FIELDS.get(type) ?? [])].filter((field) =>
+    present.has(field),
+  );
+  const between = declared.filter(
+    (field) => field !== "type" && field !== "position",
+  );
+  return [
+    ...declared.filter((field) => field === "type"),
+    ...between,
+    ...declared.filter((field) => field === "position"),
+  ];
 }

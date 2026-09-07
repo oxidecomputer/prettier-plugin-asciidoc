@@ -301,15 +301,22 @@ describe("held styles on delimiters the style does not re-model", () => {
     );
   });
 
-  // A declared key-order exception: `annotatedBy` trails `position`
-  // here. The builder writes it LAST in the node literal
-  // (src/parse/build/delimited.ts), which is where the reader's older
-  // post-construction stamp had left it, so this row holds the wire
-  // order across that move. It cannot be an AST difference - the
-  // parity normalizer drops the key before digesting
-  // (scripts/parity.ts, `annotatedBy` → undefined), which is why (xi)
-  // and not parity is its pin. Every other key keeps its baseline
-  // position.
+  // The three rows below are the pinned key orders that are NOT read
+  // from the declarations, and this is why. A delimited block's
+  // builder stamps `annotatedBy`, `fenced` and `language` after
+  // `position` (src/parse/build/delimited.ts), where the reader's
+  // older post-construction stamp had left them, so the wire order
+  // here is a fact about the builder rather than about `src/ast.ts`;
+  // `declaredKeyOrder` (tests/parser/reader-helpers.ts) would put
+  // `position` last and disagree. Five interfaces also share this
+  // discriminant, so there is no one declared order to read. Written
+  // out, and the three spellings below are the three the builder
+  // produces.
+  //
+  // `annotatedBy` cannot be an AST difference - the parity normalizer
+  // drops the key before digesting (scripts/parity.ts, `annotatedBy`
+  // to undefined), which is why (xi) and not parity is its pin. Every
+  // other key keeps its baseline position.
   test("a masqueraded node's key order is the baseline's", () => {
     const [, node] = parse("[verse]\n____\nx\n____\n").children;
     expect(serializedKeys(node)).toEqual([

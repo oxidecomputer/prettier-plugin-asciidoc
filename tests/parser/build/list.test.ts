@@ -18,7 +18,7 @@ import {
 } from "../../../src/parse/build/list.js";
 import { parse } from "../../../src/parser.js";
 import { narrow } from "../../helpers.js";
-import { serializedKeys } from "../reader-helpers.js";
+import { declaredKeyOrder, serializedKeys } from "../reader-helpers.js";
 import { listNode, paragraphNode } from "../../lib/nodes.js";
 import type { InlineToken } from "../../../src/parse/inline/tokens.js";
 import { makeLocationIndex } from "../../../src/parse/positions.js";
@@ -285,72 +285,42 @@ describe("buildList", () => {
 });
 
 describe("serialized key order", () => {
-  test("a list serializes type, variant, marker, children, position", () => {
+  // The wire order is a contract: parity's flatten fold emits the
+  // same canonical order, so a drift here is a parity break waiting
+  // to happen. Read from the declarations rather than written out
+  // (`declaredKeyOrder`, tests/parser/reader-helpers.ts) - three rows
+  // spelling an item's full key list meant one new field on
+  // ListItemNode failed all three whatever slot it took, which is the
+  // hand copy of the shape this pin exists without.
+  test("a list serializes its declared fields, type first, position last", () => {
     const [list] = parse("* a\n").children;
-    expect(serializedKeys(list)).toEqual([
-      "type",
-      "variant",
-      "marker",
-      "children",
-      "position",
-    ]);
+    const keys = serializedKeys(list);
+    expect(keys).toEqual(declaredKeyOrder("list", keys));
   });
 
-  // JSON.stringify drops undefined-valued keys, so the three item
-  // shapes pin the relative order around the optional pair.
-  test("an item leads with its marker spelling and indent, then the optional pair", () => {
-    const [list] = parse("* a\n").children;
+  // `JSON.stringify` drops undefined-valued keys, so the three item
+  // spellings pin the order around the optional pair: neither, the
+  // checklist box, the callout number.
+  test.each([
+    ["no optional field", "* a\n"],
+    ["a checklist box", "* [x] a\n"],
+    ["a callout number", "<1> a\n"],
+  ])("an item with %s serializes in declaration order", (_what, source) => {
+    const [list] = parse(source).children;
     narrow(list, "list");
-    expect(serializedKeys(list.children[0])).toEqual([
-      "type",
-      "markerSpelling",
-      "markerIndent",
-      "markerGap",
-      "text",
-      "blocks",
-      "trailingContinuation",
-      "detachedTail",
-      "activeTail",
-      "everyTextLineIndented",
-      "position",
-    ]);
+    const keys = serializedKeys(list.children[0]);
+    expect(keys).toEqual(declaredKeyOrder("listItem", keys));
   });
 
-  test("a checklist item keeps checkbox in slot four", () => {
-    const [list] = parse("* [x] a\n").children;
-    narrow(list, "list");
-    expect(serializedKeys(list.children[0])).toEqual([
-      "type",
-      "markerSpelling",
-      "markerIndent",
-      "markerGap",
-      "checkbox",
-      "text",
-      "blocks",
-      "trailingContinuation",
-      "detachedTail",
-      "activeTail",
-      "everyTextLineIndented",
-      "position",
-    ]);
-  });
-
-  test("a callout item keeps calloutNumber in slot five", () => {
-    const [list] = parse("<1> a\n").children;
-    narrow(list, "list");
-    expect(serializedKeys(list.children[0])).toEqual([
-      "type",
-      "markerSpelling",
-      "markerIndent",
-      "markerGap",
-      "calloutNumber",
-      "text",
-      "blocks",
-      "trailingContinuation",
-      "detachedTail",
-      "activeTail",
-      "everyTextLineIndented",
-      "position",
-    ]);
+  // The optional pair really is optional and really does sit where
+  // the declarations put it: without this the rows above would pass
+  // on an item that serialized no optional at all.
+  test("the checklist box and the callout number reach the wire", () => {
+    const [checklist] = parse("* [x] a\n").children;
+    narrow(checklist, "list");
+    expect(serializedKeys(checklist.children[0])).toContain("checkbox");
+    const [callout] = parse("<1> a\n").children;
+    narrow(callout, "list");
+    expect(serializedKeys(callout.children[0])).toContain("calloutNumber");
   });
 });

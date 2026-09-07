@@ -25,7 +25,7 @@
 import { describe, expect, test } from "vitest";
 import { asParagraph, formatAdoc, renderedHtml } from "../helpers.js";
 import { parse } from "../../src/parser.js";
-import { serializedKeys } from "../parser/reader-helpers.js";
+import { declaredKeyOrder, serializedKeys } from "../parser/reader-helpers.js";
 
 /**
  * One row's full verdict for a FIXED POINT: formatted bytes equal the
@@ -209,20 +209,17 @@ describe("near-miss and nesting rows", () => {
 });
 
 describe("curvedQuote's serialized key order", () => {
-  // The declaration order in ast.ts (`type, quote, children, position`)
-  // is a first-class contract: parity's flatten fold emits the same
-  // canonical order, so a drift here is a parity break waiting to
-  // happen.
+  // The declaration order in ast.ts is a first-class contract:
+  // parity's flatten fold emits the same canonical order, so a drift
+  // here is a parity break waiting to happen. Read from the
+  // declarations rather than written out (`declaredKeyOrder`,
+  // tests/parser/reader-helpers.ts).
   test("a curved-quote node's serialized key order is the canonical one", () => {
     const document = parse('x "`a`" y\n');
     const [block] = document.children;
     const [, curved] = asParagraph(block).children;
     expect(curved.type).toBe("curvedQuote");
-    expect(serializedKeys(curved)).toEqual([
-      "type",
-      "quote",
-      "children",
-      "position",
-    ]);
+    const keys = serializedKeys(curved);
+    expect(keys).toEqual(declaredKeyOrder("curvedQuote", keys));
   });
 });

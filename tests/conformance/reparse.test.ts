@@ -21,6 +21,9 @@
  * is a measurement of where it stops.
  */
 import { describe, expect, test } from "vitest";
+import { nodeFieldsByType } from "../../scripts/ast-node-fields.js";
+import { astFields } from "../../scripts/fact-inventory.js";
+import { REPO_ROOT } from "../../scripts/metrics/model.js";
 import {
   MINIMUM_DEFAULT_POPULATION,
   defaultTierCases,
@@ -50,6 +53,49 @@ import {
 function projected(document: string): string {
   return projectionOf(document).tokens.join("\n");
 }
+
+describe("every lens row names something src/ast.ts declares", () => {
+  // The lens is keyed on `<node type>.<field>` strings typed out by
+  // hand, and a row that matches nothing is not inert: the field
+  // falls through to the DEFAULT lens, which is the widest licence
+  // there is.
+  //
+  // WHAT THIS ADDS over the pair rows below, which is not "a red
+  // where there was none": a misspelt row for a field some pair row
+  // exercises is already caught by that pair, so
+  // `paragraph.secondLineIndnt` reds three existing tests. What those
+  // cannot catch is a row for a field no pair happens to reach, and
+  // they say nothing at all about `VERBATIM_CONTEXTS` and
+  // `VERBATIM_BY_VALUE`, which name node kinds and fields with no
+  // lens row to owe a pair. This block is the check that does not
+  // depend on some other row happening to cover the field.
+  const byType = nodeFieldsByType(REPO_ROOT);
+  const declared = new Set(astFields(REPO_ROOT).map((one) => one.property));
+
+  test.each(Object.keys(REPARSE_LENS))("%s", (key) => {
+    const [type, field] = key.split(".");
+    // `*` is the row that applies to every node kind, so its field
+    // has to be declared SOMEWHERE rather than on one interface; one
+    // assertion over both, because a conditional one would be a
+    // second claim nothing counted.
+    const named =
+      type === "*" ? declared.has(field) : byType.get(type)?.has(field);
+    expect(named).toBe(true);
+  });
+
+  test.each([...VERBATIM_CONTEXTS])("%s is a node type", (type) => {
+    expect(byType.has(type)).toBe(true);
+  });
+
+  test.each(VERBATIM_BY_VALUE.map((row) => [row.type, row] as const))(
+    "%s's by-value row names its own fields",
+    (_type, row) => {
+      const fields = byType.get(row.type);
+      expect(fields?.has(row.field)).toBe(true);
+      expect(fields?.has(row.discriminant)).toBe(true);
+    },
+  );
+});
 
 describe("the lens licenses what the printer normalizes", () => {
   // Each row: [what the license is, two spellings that must project

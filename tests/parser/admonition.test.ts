@@ -25,7 +25,7 @@ import { describe, test, expect } from "vitest";
 import { parse } from "../../src/parser.js";
 import type { AdmonitionNode } from "../../src/ast.js";
 import { narrow } from "../helpers.js";
-import { serializedKeys } from "./reader-helpers.js";
+import { declaredKeyOrder, serializedKeys } from "./reader-helpers.js";
 
 /**
  * Extracts the child at the given index as an
@@ -300,9 +300,10 @@ describe("one prose representation", () => {
   test("both forms serialize their keys in the contract order", () => {
     const [paragraphForm] = parse("NOTE: alpha\n").children;
     const [, delimitedForm] = parse("[NOTE]\n====\nbody\n====\n").children;
-    const order = ["type", "variant", "form", "text", "children", "position"];
-    expect(serializedKeys(paragraphForm)).toEqual(order);
-    expect(serializedKeys(delimitedForm)).toEqual(order);
+    for (const node of [paragraphForm, delimitedForm]) {
+      const keys = serializedKeys(node);
+      expect(keys).toEqual(declaredKeyOrder("admonition", keys));
+    }
   });
 });
 

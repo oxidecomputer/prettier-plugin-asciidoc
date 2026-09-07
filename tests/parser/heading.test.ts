@@ -9,7 +9,7 @@
 import { describe, test, expect } from "vitest";
 import { parse } from "../../src/parser.js";
 import { narrow } from "../helpers.js";
-import { serializedKeys } from "./reader-helpers.js";
+import { declaredKeyOrder, serializedKeys } from "./reader-helpers.js";
 
 describe("heading parsing", () => {
   test("== Title parses as a level-1 heading leaf", () => {
@@ -22,28 +22,21 @@ describe("heading parsing", () => {
   });
 
   // Serialized key order is a first-class contract:
-  // `type, level, title, position` for BOTH heading kinds —
-  // parity's flatten fold emits the same canonical order, so a drift
-  // here is a parity break waiting to happen.
+  // The declared order for BOTH heading kinds - parity's flatten fold
+  // emits the same canonical order, so a drift here is a parity break
+  // waiting to happen. Read from the declarations rather than written
+  // out (`declaredKeyOrder`, tests/parser/reader-helpers.ts).
   test("a heading's serialized key order is the canonical one", () => {
     const [heading] = parse("== Title\n").children;
-    expect(serializedKeys(heading)).toEqual([
-      "type",
-      "level",
-      "title",
-      "position",
-    ]);
+    const keys = serializedKeys(heading);
+    expect(keys).toEqual(declaredKeyOrder("heading", keys));
   });
 
-  test("a discreteHeading's serialized key order carries the `heading`→`title` rename in place", () => {
+  test("a discreteHeading's serialized key order carries the `heading` to `title` rename in place", () => {
     const [, discrete] = parse("[discrete]\n== D\n").children;
     expect(discrete.type).toBe("discreteHeading");
-    expect(serializedKeys(discrete)).toEqual([
-      "type",
-      "level",
-      "title",
-      "position",
-    ]);
+    const keys = serializedKeys(discrete);
+    expect(keys).toEqual(declaredKeyOrder("discreteHeading", keys));
   });
 
   test("=== Title parses as level 2", () => {
