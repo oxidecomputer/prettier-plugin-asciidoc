@@ -1108,6 +1108,13 @@
   {
     "file": "src/parse/line-shapes.ts",
     "symbol": "isDelimiterLine",
+    "importer": "src/parse/lines/scope.ts",
+    "kind": "vocabulary",
+    "reason": "registry pattern: the block-start context asks whether a delimited block's terminator stands above the line being classified, and a second spelling of what a delimiter looks like could call a line a terminator the reader's own item loop never closed on"
+  },
+  {
+    "file": "src/parse/line-shapes.ts",
+    "symbol": "isDelimiterLine",
     "importer": "src/print/list.ts",
     "kind": "vocabulary",
     "reason": "the one spelling of a delimited block's opening line; the item-boundary rule must call the same lines opaque that the reader's item loop hands to `read_lines_until terminator:`, or it reads an example block's interior as the item's own"

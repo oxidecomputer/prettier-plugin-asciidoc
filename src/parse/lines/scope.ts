@@ -13,6 +13,7 @@
 import type { GapLine } from "../../ast.js";
 import {
   conditionalDirective,
+  isDelimiterLine,
   type OpenList,
   type ParagraphContext,
   preprocessorLineEffect,
@@ -284,32 +285,106 @@ export function bodyContextIn(
 }
 
 /**
+ * Whether the line printed directly above one in-item block start is
+ * one the printer replays BYTE FOR BYTE and that leaves no paragraph
+ * open under it - the two conditions a canonical `'''` needs to read
+ * back as the break it was read as.
+ *
+ * TWO SHAPES ANSWER YES, and they are the whole list:
+ *
+ * - An ERASED `+`, the `+` the item's own scan read as this item's
+ *   continuation and replaced with `ListContinuationPlaceholder`
+ *   (parser.rb l.1439). The gap in front of the block below it
+ *   records that `+` and the printer writes it back on its own line
+ *   (`gapParts`, src/print/list.ts), so the bytes the answer depends
+ *   on are the bytes the output carries. A `marker`-tagged `+` is NOT
+ *   this: `within_nested_list` (parser.rb l.1415) held it for a
+ *   nested list's own scan, so this item neither owns it nor prints
+ *   it here.
+ * - A DELIMITER LINE, which at a block start can only be the
+ *   TERMINATOR of the delimited block that ended on it: a delimiter
+ *   that OPENED a block would have taken this position into that
+ *   block's extent. A delimited block prints its own delimiters back
+ *   as the author spelled them, and the gap between it and the block
+ *   below is empty here, so again the deciding bytes survive.
+ *
+ * ITEM TEXT is left out for the reason that governs the whole family:
+ * a `'''` directly under an open paragraph is absorbed into it
+ * (`StartOfBlockOrListProc`, parser.rb l.40, matches no break), and
+ * the printer both joins and wraps text, so which text stands above
+ * is not the reader's to know.
+ *
+ * A true BLANK line is left out for a different reason, and it is why
+ * the test is not simply "not text": Asciidoctor reads a break across
+ * a blank run inside an item too, but the blank the printer writes
+ * there does not keep the break INSIDE the item on re-read - a blank
+ * with no `+` ends the item's buffer, so the `'''` below it comes
+ * back as the document's own break rather than the item's.
+ *
+ * A LINE COMMENT above the rule is neither, and it is an UNOPENED
+ * candidate rather than a shape ruled out: `//` is replayed byte for
+ * byte and leaves no paragraph open, and `* a` / `+` / `// c` / `'''`
+ * / `last` measures the same render as the author's own rule in both
+ * programs. Taking it is a widening of this list, with its own
+ * witnesses, not a consequence of the two clauses above.
+ * @param above - the line physically above the block start, REQUIRED
+ *   because an in-item block start always has one
+ *   ({@link markerLineWinsAt} states the invariant that makes it so)
+ * @returns true where a printed `'''` reads back as a break
+ */
+function replayedLineStandsAbove(above: SourceLine): boolean {
+  return above.continuationTag === "erased" || isDelimiterLine(above.text);
+}
+
+/**
  * Whether a marker line keeps its marker reading at this block start
  * rather than being read as a layout break -
  * {@link ReaderContext.markerLineWins}, which states what that costs
  * and which of the two readings Asciidoctor gives.
  *
- * INSIDE AN ITEM, ALWAYS. Not because Asciidoctor reads it that way
- * everywhere - past the item's first `next_block` call it reads the
- * break - but because no break this printer can write reads back as
- * one at any in-item position it could reach: the canonical `'''` is
- * absorbed by whatever text stands above it, and which text that is
- * the reader cannot know, since the printer both JOINS a description
- * onto its term line and WRAPS the result at a width that belongs to
- * the printer. Opening the positions where the printed line above is
- * one the printer replays byte for byte is #242's, and it is a
- * printer change.
+ * INSIDE AN ITEM, EXCEPT AT THE TWO POSITIONS A BREAK CAN BE SPELLED
+ * AT. Asciidoctor reads the break at every in-item position past the
+ * item's first `next_block` call; this reader takes only the ones
+ * where the line the printer writes directly above the break is one
+ * it replays byte for byte ({@link replayedLineStandsAbove}), because
+ * everywhere else the canonical `'''` is absorbed by whatever text
+ * stands above it, and which text that is the reader cannot know -
+ * the printer both JOINS a description onto its term line and WRAPS
+ * the result at a width that belongs to the printer.
  *
- * Read off the confinement rather than folded forward, for
- * {@link blockStartContextIn}'s reason: the answer is about the
- * position, so it is the same at a block start the reader walked to
- * and at one it resumed to past a whole extent.
+ * Read off the confinement and the line above rather than folded
+ * forward, for {@link blockStartContextIn}'s reason: both are facts
+ * about the POSITION, so they are the same at a block start the
+ * reader walked to and at one it resumed to past a whole extent.
+ *
+ * THE LINE ABOVE ALWAYS EXISTS HERE, and that is a fact about how an
+ * item-confined reader is BUILT, not a case this has to defend
+ * against. `itemInterior` (reader.ts) is the one producer of an
+ * `"item"` confinement, and it hands the reader
+ * `[markerLine, ...buffer]` and then calls `readText` before `run()`.
+ * The text read consumes the marker line at index 0 - a paragraph
+ * extent always takes the line it opens on - so the block loop that
+ * reaches this can only be standing at index 1 or later, and there is
+ * no `at === 0` arm to write. Measured as well as argued: an instrumented
+ * build that throws on an item-confined index 0 raises nothing over
+ * the whole suite (202 files, 14,756 tests, the list-shape sweeps
+ * among them) or over the five deep sweeps.
  * @param confinement - how the reader is confined, absent for the
  *   document reader
+ * @param lines - the lines this reader walks
+ * @param at - the index of the line being classified; inside an item
+ *   it is never 0, per the invariant above
  * @returns true where a marker line is not offered to the break rows
  */
-function markerLineWinsAt(confinement: Confinement | undefined): boolean {
-  return confinement?.kind === "item";
+function markerLineWinsAt(
+  confinement: Confinement | undefined,
+  lines: readonly SourceLine[],
+  at: number,
+): boolean {
+  if (confinement?.kind !== "item") {
+    return false;
+  }
+  return !replayedLineStandsAbove(lines[at - 1]);
 }
 
 /**
@@ -355,7 +430,7 @@ export function blockStartContextIn(
     openList: openListIn(confinement),
     firstLineAfterStart: false,
     nextLine: confinement === undefined ? lines.at(at + 1)?.text : undefined,
-    markerLineWins: markerLineWinsAt(confinement),
+    markerLineWins: markerLineWinsAt(confinement, lines, at),
     get substitutedContentAbove(): boolean {
       return substitutedContentStandsAbove(lines, at);
     },

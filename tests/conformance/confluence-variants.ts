@@ -300,10 +300,10 @@ const ATTRIBUTE_VARIANTS: readonly Variant[] = [
  * marks) all render one `<hr>`. The SPACED Markdown forms (`- - -`)
  * are absent for a different reason since #182: they are read now,
  * but only where `next_block` reaches its layout-break arm, and
- * inside a list item they are marker lines instead (THEMATIC_BREAK
- * and ReaderContext.markerLineWins, src/parse/line-shapes.ts). No
- * variant of them holds at EVERY block start, which is what these
- * rows claim.
+ * inside a list item they are marker lines at every position but the
+ * two a break can be spelled at (THEMATIC_BREAK and
+ * ReaderContext.markerLineWins, src/parse/line-shapes.ts). No variant
+ * of them holds at EVERY block start, which is what these rows claim.
  */
 const COLLAPSE_VARIANTS: readonly Variant[] = [
   {

@@ -517,6 +517,15 @@ class BlockReader {
    * scan consumes it and the text's continuation lines come from the
    * buffer; the rest of the buffer is then read by the ordinary block
    * loop, whose blocks ARE the item's blocks.
+   *
+   * THE ORDER OF THE TWO CALLS IS AN INVARIANT SOMETHING ELSE READS.
+   * `readText` runs before `run()` and consumes at least the line at
+   * index 0, so every block start the loop reaches inside an item
+   * stands at index 1 or later and has a line above it.
+   * `markerLineWinsAt` (lines/scope.ts) reads that line with no
+   * absent case, and this is the ONE place an `"item"` confinement is
+   * built, so a change that reordered these two would have to answer
+   * for it there.
    * @param markerLine - the item's marker or term line
    * @param buffer - the item's lines, as its own read left them
    * @param item - the item's ancestry list and its tail safety

@@ -119,8 +119,8 @@ describe("markdown thematic break parsing", () => {
 // breaks: `parse_list`'s own loop (parser.rb l.1119) never reaches
 // `next_block`, and an item's first block is read with `text_only`
 // set (`parse_list_item`, parser.rb l.1367-74), which holds the
-// layout-break arm off. One in-item position reads the break anyway,
-// and it is the one a printed `'''` re-reads at
+// layout-break arm off. Two in-item positions read the break anyway,
+// and they are the two a printed `'''` re-reads at
 // ({@link ReaderContext.markerLineWins}, src/parse/line-shapes.ts).
 // These pin the SHAPE the oracle renders; the bytes are pinned in
 // tests/format/spaced-thematic-break.test.ts.
@@ -174,14 +174,48 @@ describe("a spaced marker line inside an open list", () => {
     expect(only.blocks[0].block.type).toBe("thematicBreak");
   });
 
+  // THE TWO POSITIONS THE BREAK IS READ AT (#242). Red before the
+  // change: each of these gave a nested `list` holding the item `- -`
+  // where both programs render an `<hr>` inside the item. What lets
+  // the reader take them is what the PRINTER writes above the break:
+  // an erased `+`, replayed as the gap in front of the block, and a
+  // delimited block's terminator, replayed by the block itself.
+  test("an erased continuation above it reads the break", () => {
+    const list = firstList(parse("* a\n+\n- - -\n").children);
+    const [only] = list.children;
+    expect(only.blocks).toHaveLength(1);
+    expect(only.blocks[0].block.type).toBe("thematicBreak");
+  });
+
+  test("a delimited block's terminator above it reads the break", () => {
+    const list = firstList(parse("* a\n+\n----\nx\n----\n- - -\n").children);
+    const [only] = list.children;
+    expect(only.blocks.map((each) => each.block.type)).toEqual([
+      "delimitedBlock",
+      "thematicBreak",
+    ]);
+  });
+
+  // The line UNDER the rule is its own paragraph once the break is
+  // read, which is what the marker reading was spending: it took that
+  // line as the nested item's text and the reflow joined the two.
+  test("the line under the rule is its own block", () => {
+    const list = firstList(parse("* a\n+\n- - -\nlast\n").children);
+    const [only] = list.children;
+    expect(only.blocks.map((each) => each.block.type)).toEqual([
+      "thematicBreak",
+      "paragraph",
+    ]);
+  });
+
   // A DESCRIPTION item is no different: `text_only` is dead there
   // past the term line (`has_text = true if (item_text = match[3])`,
   // parser.rb l.1304, and no adjacency clause, l.1369), so
   // Asciidoctor reads the break, and this reader still keeps the
   // marker reading. The line the printed `'''` would land under is
   // not a fact the reader has - the printer joins the description
-  // onto the term line and then wraps it - so the rule holds at every
-  // in-item position and #242 owns the widening.
+  // onto the term line and then wraps it - so the rule holds wherever
+  // the line above the break is text.
   test("a term with its own text keeps the marker reading", () => {
     const [node] = parse("t:: d\n- - -\n").children;
     narrow(node, "descriptionList");

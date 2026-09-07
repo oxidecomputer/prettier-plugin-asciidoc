@@ -413,17 +413,25 @@ describe("raw (non-text, non-interrupting) paragraph lines", () => {
 // issue is fixed the entry must be deleted, and the test below fails
 // loudly if a listed row starts passing.
 //
-// THREE ROWS, one position: inside a list item a spaced `- - -` or
-// `* * *` keeps its marker reading past the item's first `next_block`
-// call, where Asciidoctor reads a break. What stops the reader taking
-// that position is that
-// the break it would have to PRINT does not read back as one: the
-// canonical `'''` is absorbed by whatever text stands above it
+// THREE ROWS, one position: a spaced `- - -` or `* * *` standing
+// directly under an item's own TEXT, where Asciidoctor reads a break
+// past the item's first `next_block` call and this reader keeps the
+// marker reading. What stops the reader taking it is that the break
+// it would have to PRINT does not read back as one there: the
+// canonical `'''` is absorbed by the text above it
 // (`StartOfBlockOrListProc`, parser.rb l.40, matches no break), and
 // which text that is the reader cannot know, because the printer
 // joins a description onto its term line and then wraps the result at
-// its own print width. The AUTHOR's own spelling does read back, so
-// what closes these rows is the printer replaying it (#242).
+// its own print width. Closing them takes a break spelling that
+// survives both the join and the wrap, which is a printer question.
+//
+// Two of #242's in-item positions are closed and are no rows here: an
+// erased `+` and a delimited block's terminator, the lines the
+// printer replays and leaves no paragraph open under. What the issue
+// still carries is this one, the bare blank (a line that ENDS the
+// item's buffer rather than one the printer rewrites), and the line
+// comment above a rule, which is replayed too and is an unopened
+// candidate rather than a shape anything rules out.
 //
 // What each row measures is the `<hr>`, and the paragraph with it:
 // these probes put a line under the rule, so the marker reading takes
@@ -436,15 +444,15 @@ describe("raw (non-text, non-interrupting) paragraph lines", () => {
 const KNOWN_GAPS = new Map<string, string>([
   [
     "listItem/spaced markdown thematic break (hyphens)",
-    "#242 (the canonical break is absorbed here; the printer must replay the author's)",
+    "#242 (the canonical break is absorbed by the item text above it, and the printer has no spelling that survives the join and the wrap)",
   ],
   [
     "dlistItem/spaced markdown thematic break (hyphens)",
-    "#242 (the canonical break is absorbed here; the printer must replay the author's)",
+    "#242 (the canonical break is absorbed by the item text above it, and the printer has no spelling that survives the join and the wrap)",
   ],
   [
     "dlistItem/spaced markdown thematic break (asterisks)",
-    "#242 (the canonical break is absorbed here; the printer must replay the author's)",
+    "#242 (the canonical break is absorbed by the item text above it, and the printer has no spelling that survives the join and the wrap)",
   ],
 ]);
 

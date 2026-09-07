@@ -133,12 +133,13 @@ export const BLOCK_STRUCTURE_FAMILIES: ReadonlySet<string> = new Set([
   // rather than as UNTRIAGED. What is left for it is one position the
   // pattern cannot reach: an INDENTED rule as a list item's rest line
   // is joined into the item text where the oracle puts an `<hr>`
-  // inside the item, and a spaced marker line INSIDE a list item
-  // keeps its marker reading at every position, because the
-  // canonical `'''` the printer writes for a break is absorbed by
-  // whatever text stands above it there. That costs the `<hr>` and,
-  // where a text line follows the rule, the paragraph with it (#242,
-  // a printer change). The fold no longer manufactures a
+  // inside the item, and a spaced marker line standing under an
+  // item's own TEXT keeps its marker reading, because the canonical
+  // `'''` the printer writes for a break is absorbed by that text.
+  // That costs the `<hr>` and, where a text line follows the rule,
+  // the paragraph with it. The two in-item positions whose printed
+  // line above is NOT text - an erased `+` and a delimited block's
+  // terminator - read the break since #242. The fold no longer manufactures a
   // rule out of a spaced marker run that was text (#179); what
   // survives of that is the gap a MARKER's own run holds (`-  - -`),
   // which the printer narrows to one space and no refusal of a fold

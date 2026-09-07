@@ -834,12 +834,12 @@ function classifyBlockStart(line: string, reader: ReaderContext): LineKind {
  * the line's spelling may not fire
  * ({@link ReaderContext.substitutedContentAbove}, issues #210 and
  * #213). A MARKER LINE inside a list item keeps the reading the
- * item's own scan gave it, which is the reading Asciidoctor gives it
- * too at the position `text_only` covers and this reader's knowing
- * divergence at the others ({@link ReaderContext.markerLineWins},
- * #182 and #242). The second reason is the only one that reads the
- * line, because it is the only one about a collision between two
- * rows.
+ * item's own scan gave it, except at the two positions a break can be
+ * spelled at; that is Asciidoctor's own reading where `text_only`
+ * covers it and this reader's knowing divergence at the rest
+ * ({@link ReaderContext.markerLineWins}, #182 and #242). The second
+ * reason is the only one that reads the line, because it is the only
+ * one about a collision between two rows.
  *
  * ORDER IS COST. `substitutedContentAbove` is PASSED rather than read
  * off the context because it is a getter over a backwards walk and

@@ -6,11 +6,14 @@
  * `UnorderedListRx`, so what decides it is where it stands: at a
  * block start `next_block` reaches its layout-break arm and the line
  * is an `<hr>`; inside a list item the arm is held off and the line
- * is a marker. The tight spellings have no such collision and are
- * pinned with the rest of the breaks in breaks.test.ts.
+ * is a marker, except at the two positions where the line the printer
+ * writes directly above the break is one it replays and no paragraph
+ * is left open under it (issue #242). The tight spellings have no
+ * such collision and are pinned with the rest of the breaks in
+ * breaks.test.ts.
  */
 import { describe, test, expect } from "vitest";
-import { formatAdoc, renderedHtml } from "../helpers.js";
+import { expectFormatted, formatAdoc, renderedHtml } from "../helpers.js";
 
 describe("spaced markdown thematic break formatting", () => {
   // Issue #182's own witnesses, in both spellings the line-shape
@@ -37,14 +40,15 @@ describe("spaced markdown thematic break formatting", () => {
   });
 
   // The other half of #182: inside an OPEN list the same two
-  // spellings are marker lines, at every position. `parse_list`'s own
-  // loop never reaches `next_block` at all (parser.rb l.1119), and
-  // the item's first block is read with `text_only` set (l.1367-74),
-  // which is the option `next_block` skips its whole layout-break arm
-  // under. A FOREIGN marker opens a nested list holding the item
-  // `- -`; a marker of the list's own style is a sibling item. Both
-  // come back as the author wrote them. Red the other way: reading
-  // them as breaks here splits the list with a rule.
+  // spellings are marker lines, at every position the group below
+  // does not name. `parse_list`'s own loop never reaches `next_block`
+  // at all (parser.rb l.1119), and the item's first block is read
+  // with `text_only` set (l.1367-74), which is the option
+  // `next_block` skips its whole layout-break arm under. A FOREIGN
+  // marker opens a nested list holding the item `- -`; a marker of
+  // the list's own style is a sibling item. Both come back as the
+  // author wrote them. Red the other way: reading them as breaks here
+  // splits the list with a rule.
   test.each([
     ["a foreign marker nests", "* a\n- - -\n* b\n"],
     ["a sibling marker is an item", "* a\n* * *\n* b\n"],
@@ -60,14 +64,106 @@ describe("spaced markdown thematic break formatting", () => {
     ["an indented description", "t::\n  d\n- - -\n"],
     ["a blank line above it", "* a\n\n- - -\n"],
     ["a blank line and a sibling below", "* a\n\n- - -\n* b\n"],
-    ["a continuation above it", "* a\n+\n- - -\n"],
-    ["a delimited block above it", "* a\n+\n----\nx\n----\n- - -\n"],
     ["a later block of a marker item", "* a\nimage::t.png[]\n- - -\n"],
   ])("%s inside an open list", async (_name, input) => {
     const out = await formatAdoc(input);
     expect(out).toBe(input);
     expect(await renderedHtml(out)).toBe(await renderedHtml(input));
     expect(await formatAdoc(out)).toBe(out);
+  });
+
+  // THE TWO IN-ITEM POSITIONS THE BREAK IS READ AT (#242): the two
+  // whose printed line above is one the printer replays and under
+  // which no paragraph stands open. An ERASED `+`, which the gap in
+  // front of the break writes back on its own line, and a delimited
+  // block's TERMINATOR, which the block prints itself. Everywhere
+  // else the canonical break is absorbed by the text above it
+  // (`StartOfBlockOrListProc`, parser.rb l.40, matches no break), and
+  // the rows further down pin what that costs.
+  //
+  // Red before the reader change: every row came back as the author
+  // wrote it, spending an `<hr>` both programs render on a nested
+  // `ulist` holding the item `- -`. `expectFormatted` asks all three
+  // questions - the bytes, render-equality against the input, and the
+  // output being its own fixed point.
+  test.each([
+    ["a continuation above it", "* a\n+\n- - -\n", "* a\n+\n'''\n"],
+    ["a line under the rule", "* a\n+\n- - -\nlast\n", "* a\n+\n'''\nlast\n"],
+    [
+      "a star rule in a dash list",
+      "- a\n+\n* * *\nlast\n",
+      "- a\n+\n'''\nlast\n",
+    ],
+    ["an ordered item", ". a\n+\n- - -\nlast\n", ". a\n+\n'''\nlast\n"],
+    ["a description item", "t:: d\n+\n- - -\nlast\n", "t:: d\n+\n'''\nlast\n"],
+    [
+      "a listing block terminator above it",
+      "* a\n+\n----\nx\n----\n- - -\n",
+      "* a\n+\n----\nx\n----\n'''\n",
+    ],
+    [
+      "a listing terminator and a line under the rule",
+      "* a\n+\n----\nx\n----\n- - -\nlast\n",
+      "* a\n+\n----\nx\n----\n'''\nlast\n",
+    ],
+    [
+      "an open block terminator above it",
+      "* a\n+\n--\ny\n--\n- - -\n",
+      "* a\n+\n--\ny\n--\n'''\n",
+    ],
+    [
+      "a comment block terminator above it",
+      "* a\n+\n////\nc\n////\n- - -\n",
+      "* a\n+\n////\nc\n////\n'''\n",
+    ],
+    [
+      "a sibling item under the rule",
+      "* a\n+\n----\nx\n----\n- - -\n* b\n",
+      "* a\n+\n----\nx\n----\n'''\n* b\n",
+    ],
+  ])("%s reads the break", async (_name, input, expected) => {
+    await expectFormatted(input, expected);
+  });
+
+  // The break's own line carries no words, so no print width reaches
+  // it. What a width CAN move is the item text above the `+`, and
+  // these pin that moving it moves neither the rule's reading nor its
+  // render.
+  test.each(
+    [80, 40, 20].flatMap((printWidth) =>
+      (
+        [
+          ["a continuation above it", "* a\n+\n- - -\nlast\n"],
+          ["a terminator above it", "* a\n+\n----\nx\n----\n- - -\nlast\n"],
+          [
+            "a long item text above it",
+            "* alpha beta gamma delta epsilon zeta\n+\n- - -\nlast\n",
+          ],
+        ] as const
+      ).map(
+        ([name, input]) =>
+          [
+            `${name} at width ${String(printWidth)}`,
+            input,
+            printWidth,
+          ] as const,
+      ),
+    ),
+  )("%s keeps its render", async (_name, input, printWidth) => {
+    const out = await formatAdoc(input, { printWidth });
+    expect(await renderedHtml(out)).toBe(await renderedHtml(input));
+    expect(await formatAdoc(out, { printWidth })).toBe(out);
+  });
+
+  // A SIBLING marker behind a `+` is NOT one of the two positions,
+  // and the row stands so the pair is not read as "any `+`": the
+  // item's own scan never buffers the line, because a marker of the
+  // list's own style ends the item as the list's next item, so there
+  // is no in-item block start for the break rows to be offered at
+  // all. The join that follows is render-equal in both programs, the
+  // sibling item's text being `* * last` either way.
+  test("a sibling marker behind a continuation is the next item", async () => {
+    await expectFormatted("* a\n+\n* * *\nlast\n", "* a\n+\n* * * last\n");
   });
 
   // The same reading where the printer JOINS the description onto its
@@ -165,37 +261,36 @@ describe("spaced markdown thematic break formatting", () => {
     },
   );
 
-  // WHAT THE DIVERGENCE COSTS, pinned so it is a choice with a
-  // witness. Asciidoctor reads the same line as an `<hr>` INSIDE the
-  // item at every position past the item's first `next_block` call:
-  // its own item scan buffers the line on `AnyListRx` (parser.rb
-  // l.1530) and the arm is live again there. Where nothing follows
-  // the rule the author's bytes come back and only the node kind is
-  // lost - the rows above. Where a TEXT LINE follows, the marker
-  // reading takes it as its item text and the reflow joins the two,
-  // and the render moves: both programs render the input as an `<hr>`
-  // and a paragraph inside the item, the output as a fabricated
-  // nested item holding both.
+  // WHAT THE REMAINING DIVERGENCE COSTS, pinned so it is a choice
+  // with a witness. Asciidoctor reads the same line as an `<hr>`
+  // INSIDE the item at every position past the item's first
+  // `next_block` call: its own item scan buffers the line on
+  // `AnyListRx` (parser.rb l.1530) and the arm is live again there.
+  // Where nothing follows the rule the author's bytes come back and
+  // only the node kind is lost - the rows above. Where a TEXT LINE
+  // follows, the marker reading takes it as its item text and the
+  // reflow joins the two, and the render moves: both programs render
+  // the input as an `<hr>` and a paragraph inside the item, the
+  // output as a fabricated nested item holding both.
   //
-  // All of these are the same on main, so this is the standing cost
-  // of the gate rather than something the spaced spellings
-  // introduced. #242 closes them, and it is a printer change: the two
-  // positions whose printed line above is one the printer replays
-  // byte for byte - a `+` read as the item's continuation, and a
-  // delimited-block terminator - already re-read the canonical break
-  // in both programs, so the reader may take them once the printer
-  // can write them. The outputs are pinned as BYTES, and each is its
-  // own fixed point, so nothing walks further away.
+  // WHAT IS LEFT AFTER THE TWO POSITIONS ABOVE, named exactly. Each
+  // row here stands under a line the printer may REWRITE - item text,
+  // which it joins onto the marker or term line and then wraps at a
+  // width of its own, and which absorbs a canonical break into itself
+  // - or under a line that ENDS the item's buffer, which is the bare
+  // blank. Those are two different reasons, and neither covers a line
+  // comment above the rule, which is replayed like the two positions
+  // above and is an unopened candidate rather than a member of this
+  // group (`markerLineWinsAt`, src/parse/lines/scope.ts). Closing
+  // these takes a break spelling that survives the join and the wrap,
+  // which is a printer question and not the reader's. The outputs are
+  // pinned as BYTES, and each is its own fixed point, so nothing
+  // walks further away.
   test.each([
     [
       "a marker item across a blank",
       "* a\n\n- - -\nlast\n",
       "* a\n\n- - - last\n",
-    ],
-    [
-      "a marker item across a `+`",
-      "* a\n+\n- - -\nlast\n",
-      "* a\n+\n- - - last\n",
     ],
     [
       "a dash list and a star rule",
@@ -213,10 +308,16 @@ describe("spaced markdown thematic break formatting", () => {
       "t:: d\n- - -\nlast\n",
       "t:: d\n- - - last\n",
     ],
+    // THE UNOPENED CANDIDATE, pinned so the remainder is not read as
+    // "text or a blank". A `//` line is replayed byte for byte and
+    // leaves no paragraph open, and `* a` / `+` / `// c` / `'''` /
+    // `last` measures the same render as this input in both programs,
+    // so nothing about the position rules it out - it is simply not
+    // one of the two the reader takes.
     [
-      "a delimited block above it",
-      "* a\n+\n----\nx\n----\n- - -\nlast\n",
-      "* a\n+\n----\nx\n----\n- - - last\n",
+      "a line comment above the rule",
+      "* a\n+\n// c\n- - -\nlast\n",
+      "* a\n+\n// c\n- - - last\n",
     ],
     // The line ABOVE the rule does it too, and by a second mechanism
     // (#243): the item's own text lines are joined onto the marker
@@ -230,8 +331,8 @@ describe("spaced markdown thematic break formatting", () => {
       expect(out).toBe(expected);
       expect(await formatAdoc(out)).toBe(out);
       // The loss itself, asserted rather than described: the two
-      // renders differ, and the row goes red the day #242 makes them
-      // agree.
+      // renders differ, and the row goes red the day a printer change
+      // makes them agree.
       expect(await renderedHtml(out)).not.toBe(await renderedHtml(input));
     },
   );

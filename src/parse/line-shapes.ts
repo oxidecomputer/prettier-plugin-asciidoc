@@ -290,9 +290,10 @@ export interface ReaderContext {
    * `'''` and `<<<` match no marker pattern, so this field never
    * touches them.
    *
-   * TRUE AT EVERY BLOCK START INSIDE A LIST ITEM'S CONFINED READ, and
-   * false everywhere else, which is what `markerLineWinsAt`
-   * (lines/scope.ts) says in one test.
+   * TRUE AT A BLOCK START INSIDE A LIST ITEM'S CONFINED READ, EXCEPT
+   * DIRECTLY UNDER THE TWO LINES THE PRINTER REPLAYS, and false
+   * everywhere else; `markerLineWinsAt` (lines/scope.ts) is the whole
+   * of it and names the two.
    *
    * ASCIIDOCTOR AGREES OVER THE ITEM'S FIRST `next_block` CALL, which
    * it makes with `text_only` set (`parse_list_item`, parser.rb
@@ -301,45 +302,48 @@ export interface ReaderContext {
    * holding the item `- -` and `* a` / `* * *` / `* b` three sibling
    * items.
    *
-   * PAST THAT CALL THE READING IS A KNOWING DIVERGENCE. Asciidoctor
-   * reads a break at every other in-item position - across a blank
-   * run (its item scan buffers the line on `AnyListRx`, parser.rb
-   * l.1530, and `next_block` then nulls `text_only` on the skipped
-   * blank, l.511), under a multi-line item text, and past the item's
-   * first block. This reader keeps the marker reading at all of them,
-   * because the break it would have to PRINT does not read back as
-   * one: the printer spells every break `'''`, and `'''` is absorbed
-   * by any text standing above it inside an item
-   * (`StartOfBlockOrListProc`, parser.rb l.40, matches no break).
+   * PAST THAT CALL ASCIIDOCTOR READS A BREAK EVERYWHERE, and this
+   * reader takes only the positions it can SPELL one at. The printer
+   * writes every break `'''`, and `'''` is absorbed by any text
+   * standing above it inside an item (`StartOfBlockOrListProc`,
+   * parser.rb l.40, matches no break), so a break may be read only
+   * where the line the printer writes DIRECTLY ABOVE it is not text:
+   * an erased `+` the item's own scan read as its continuation and
+   * the gap writes back, or a delimited block's terminator, which the
+   * block prints itself (`* a` / `+` / `'''` and `* a` / `+` / `----`
+   * / `x` / `----` / `'''` both re-read as the break in the two
+   * programs).
    *
-   * AND WHICH TEXT STANDS ABOVE IT IS NOT A FACT THE READER HAS. The
-   * printer JOINS a description onto its term line and then WRAPS the
-   * result at a print width that is the printer's option, so a line
-   * the source put above the break may not be there in the output and
-   * lines the source never wrote may be. That is why this field is
-   * one test on the confinement and not a predicate over the lines: a
-   * predicate would be reading bytes that do not survive printing.
+   * WHICH TEXT STANDS ABOVE IS STILL NOT A FACT THE READER HAS, and
+   * that is why the two positions are named by the line above rather
+   * than by a count of blocks. The printer JOINS a description onto
+   * its term line and then WRAPS the result at a print width that is
+   * the printer's option, so a line the source put above the break
+   * may not be there in the output and lines the source never wrote
+   * may be. The two lines this field admits are exempt because
+   * neither is text: neither is joined into and neither is wrapped.
    *
-   * THE CONSTRAINT ANY WIDENING MUST MEET, for #242 and #195: a break
-   * may be read inside an item only where the line the printer writes
-   * DIRECTLY ABOVE it is one the printer replays byte for byte and
-   * after which Ruby's `text_only` is dead - a `+` the reader read as
-   * the item's continuation, or a delimited-block terminator - never
-   * where that line is item text. Both of those positions are real
-   * (`* a` / `+` / `'''` and `* a` / `+` / `----` / `x` / `----` /
-   * `'''` re-read as the break in both programs), and taking them is
-   * a printer change, so #242 owns them.
+   * A TRUE BLANK IS NOT ONE OF THEM though Asciidoctor reads a break
+   * across a blank run inside an item too (its item scan buffers the
+   * line on `AnyListRx`, parser.rb l.1530, and `next_block` then
+   * nulls `text_only` on the skipped blank, l.511). A blank with no
+   * `+` ENDS the item's buffer on re-read, so a `'''` printed under
+   * one comes back as the document's break rather than the item's. A
+   * LINE COMMENT above the rule is neither text nor a blank, and it
+   * is an UNOPENED candidate rather than a shape ruled out - `//` is
+   * replayed and leaves no paragraph open ({@link markerLineWinsAt},
+   * lines/scope.ts, records the measurement).
    *
-   * WHAT THE DIVERGENCE COSTS, stated without softening it: at a
-   * position where nothing follows the rule the author's bytes come
-   * back and only the node kind is lost, but where a TEXT LINE
+   * WHAT THE REMAINING DIVERGENCE COSTS, stated without softening it:
+   * at a position where nothing follows the rule the author's bytes
+   * come back and only the node kind is lost, but where a TEXT LINE
    * follows, the marker reading takes that line as its item text and
    * the reflow joins the two. Both programs render `* a` / blank /
    * `- - -` / `last` as an `<hr>` and a paragraph inside the item;
    * this formatter writes `* a` / blank / `- - - last`, which renders
-   * a fabricated nested item and loses both. The same holds after a
-   * `+`, after a `+`-attached delimited block, under `t:: d` and
-   * under `. a`. Pinned in tests/format/spaced-thematic-break.test.ts.
+   * a fabricated nested item and loses both. The same holds under
+   * `t:: d` and under `. a`. Pinned in
+   * tests/format/spaced-thematic-break.test.ts.
    *
    * REUSE (#195): this is NOT Ruby's `text_only`, and a second
    * consumer must not read it as one. `text_only` switches off a
@@ -358,9 +362,8 @@ export interface ReaderContext {
    * `text_only` though `x` is adjacent. Recording it needs the
    * reader's own block count and blank run, so it is not derivable
    * from the lines alone; that is what #195 needs, and splitting it
-   * out of this field is safe only once the printer can spell a break
-   * at the positions the divergence above covers, so #242 comes
-   * first.
+   * out of this field is safe only at the positions where a break can
+   * be spelled, which is the pair above and no more.
    */
   readonly markerLineWins: boolean;
 }

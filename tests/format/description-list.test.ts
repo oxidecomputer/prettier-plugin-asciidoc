@@ -782,10 +782,11 @@ describe("the boundaries of the reflow verdict", () => {
   // refused, and because the line is a break rather than an
   // unmodelled head it comes back in the canonical `'''` spelling
   // instead of its own bytes. The two SPACED marker spellings are NOT
-  // here: they are `UnorderedListRx` marker lines as well, and inside
-  // a list item that is the reading (#182), so they replay with the
-  // row above (tests/format/spaced-thematic-break.test.ts states
-  // why).
+  // here: they are `UnorderedListRx` marker lines as well, and under
+  // a description's own text that is the reading (#182), so they
+  // replay with the row above (tests/format/spaced-thematic-break.test.ts
+  // states why, and names the two in-item positions that do read the
+  // break).
   test.each([
     ["a bare markdown rule", "t:: def\n---\n"],
     ["the underscore rule", "t:: def\n___\n"],
