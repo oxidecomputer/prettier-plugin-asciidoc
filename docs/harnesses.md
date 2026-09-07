@@ -1431,6 +1431,36 @@ is a witness.
 | page break                                  | whole-line in 112 of 188 states |
 | section marker                              | whole-line in 112 of 188 states |
 
+### `bun run parse-print-addresses` - how far the printer reaches into the parser
+
+`src/print` may not read `src/parse`'s interior, but it has to agree with it
+about spellings it must reproduce, so a short list of deliberate ADDRESSES is
+allowed. Four stand today: `line-shapes.ts` for what a re-parsed line means,
+`attrlist.ts` for where one attribute inside a bracket line ends,
+`inline/quote-boundaries.ts` for what may stand beside a constrained mark, and
+`inline/rules.ts` for how far a bare address's match carries. Each is a place
+two halves of the code are kept in agreement by hand, so the number is the cost
+of the arrangement and it is pinned rather than reported.
+
+**It counts DECLARATIONS, not imports**, and that is the division of labour: the
+layer rule in `scripts/metrics/graph.ts` says which addresses are ALLOWED, and
+`scripts/metrics/crossings-registry.json` says which are USED, with the symbol
+and the reason. This holds those two files to each other, which is a question
+neither can ask about itself - an address stays allowed after its last import
+goes, a crossing is registered at a path the rule would refuse. What it does NOT
+see is a printer file that imports a fifth parse module while touching neither
+file; that import is the graph gate's job, and `bun run metrics` fails on it.
+Run both.
+
+The direction of travel is down. A reader that recorded at parse time what the
+printer now re-derives would take the two inline addresses off the list and
+leave one shared module both halves read: three plus a shared home rather than
+four reaches into the parser. Moving the pin is the moment to say which of those
+two happened.
+
+Exit codes: 0 the addresses are what they are pinned at and the two sources
+agree, 1 they do not, 2 it could not read the addresses at all.
+
 ### `bun run vendor` and `bun run build`
 
 `vendor` re-fetches both halves of `vendor/`: the Asciidoctor corpus at a pinned
