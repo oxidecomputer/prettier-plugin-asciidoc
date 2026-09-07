@@ -71,5 +71,17 @@ describe("registry sweep (deep tier)", () => {
       dump(failures);
     }
     expect(actual).toEqual(expected);
-  }, 1_500_000);
+    // The ceiling is wall time, so it comes from measurement rather
+    // than from taste. This sweep costs 389 s on a developer machine
+    // and 1459 s, 24.3 minutes, on a GitHub-hosted runner, which is
+    // nearly four times slower (run 34125449215, the last green run
+    // under the previous 25-minute ceiling). Runs 34125891335 and
+    // 34127018105 then died with "Test timed out in 1500000ms" while
+    // the other four deep gates passed: the runner had crossed 25
+    // minutes with nothing about the swept rows changed. 60 minutes is
+    // about 2.4x the measured runner time, far enough clear that
+    // runner-to-runner variance cannot decide the gate. Bringing it
+    // back down means sharding or speeding up the sweep, not trimming
+    // this number, which would only re-arm the same failure.
+  }, 3_600_000);
 });

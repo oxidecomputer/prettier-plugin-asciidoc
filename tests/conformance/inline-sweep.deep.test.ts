@@ -77,5 +77,15 @@ describe("inline sweep (deep tier)", () => {
       dump(failures);
     }
     expect(actual).toEqual(expected);
-  }, 900_000);
+    // The ceiling is wall time, so it comes from measurement rather
+    // than from taste. This sweep costs 157 s on a developer machine
+    // and 627,436 ms and 607,068 ms on GitHub-hosted runners (runs
+    // 34125891335 and 34125449215), which is about four times slower.
+    // The previous 900,000 left only 1.4x over the slower of those two,
+    // and the registry sweep beside it failed on exactly that margin
+    // once its population grew. 30 minutes is about 2.9x the measured
+    // runner time, far enough clear that runner-to-runner variance
+    // cannot decide the gate. Bringing it back down means sharding or
+    // speeding up the sweep, not trimming this number.
+  }, 1_800_000);
 });
